@@ -1,0 +1,11 @@
+{
+  "name": "GW Cloudflare-first Skeleton",
+  "short_name": "GW",
+  "description": "OpenNext on Cloudflare 기반 그룹웨어 PWA 스켈레톤",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "lang": "ko",
+  "icons": []
+}

@@ -39,6 +39,7 @@ def main():
     ss=steps(a.type,a.hold)
     for i in range(1,len(ss)): ss[i].parents=[ss[i-1].key]
     if a.preview:
+        print('주의: 실제 카드 생성은 싱드가 대장에게 오케스트레이션 실행 승인을 받은 뒤에만 진행한다.')
         print(f'보드: {BOARD} / 작업 폴더: {WORKDIR}')
         for s in ss: print(f'- {s.key}: {s.label} → {s.assignee} / parents={s.parents or []} / skills={s.skills}')
         return

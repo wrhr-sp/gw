@@ -1,4 +1,4 @@
-# Next.js + Cloudflare 기반 그룹웨어 플랫폼 계획
+# OpenNext + Cloudflare 기반 그룹웨어 플랫폼 계획
 
 ## 1. 문서 목적
 
@@ -15,20 +15,27 @@
 
 사용자 승인 기준:
 
-- 프론트엔드: Next.js
-- 나머지 Cloudflare 구성: 싱드 추천안 기준으로 진행
+- Web / Frontend: OpenNext on Cloudflare 기반 Next.js Web/PWA
+- Backend / API: Cloudflare Workers + Hono 기반 REST API
+- DB: Cloudflare D1 우선
+- File Storage: Cloudflare R2
+- Cache / Session 보조: Workers KV
+- 동시성 / 잠금: Durable Objects
+- 비동기 작업: Cloudflare Queues
+- 예약 작업: Cloudflare Cron Triggers
+- Mobile: 1차 Next.js PWA, 2차 Expo / React Native, 같은 Workers API 사용
 
 기본 구조:
 
 ```text
-Next.js Web App
-→ Cloudflare Pages
+Next.js Web App / PWA
+→ OpenNext on Cloudflare
 
 Backend / Web API
 → Cloudflare Workers
 
 Database
-→ Cloudflare D1 우선 검토
+→ Cloudflare D1
 
 File Storage
 → Cloudflare R2
@@ -46,65 +53,65 @@ Cache / Session 보조 / 설정
 → Cron Triggers
 
 Mobile App
-→ 초기 PWA
-→ 이후 React Native 또는 Flutter
+→ 1차 Next.js PWA
+→ 2차 Expo / React Native
 ```
 
 ## 3. 범위와 제외 범위
 
-### 현재 진행 가능한 범위
+### 현재 저장소에서 완료된 범위
 
 - 아키텍처 문서 작성
-- 로컬 프로젝트 구조 설계
-- Next.js 프론트엔드 skeleton 설계
-- Workers API skeleton 설계
-- D1 migration skeleton 설계
-- 로컬 개발 명령 정리
-- GitHub 브랜치, 커밋, PR 처리
+- 로컬 monorepo 구조 반영
+- OpenNext 기반 Next.js Web/PWA skeleton 반영
+- Workers + Hono API skeleton 반영
+- shared route/schema 계약 반영
+- D1 SQL migration skeleton 반영
+- 로컬 개발/검증 명령 정리
+- 사용자/운영/개발 가이드 추가
 
 ### 별도 승인 필요 범위
 
 다음 작업은 실제 외부 리소스 또는 민감정보가 개입되므로 별도 승인을 받아야 한다.
 
 - Cloudflare 계정 연결
-- Cloudflare Pages 프로젝트 생성
-- Workers 실제 배포
+- OpenNext/Workers 실제 배포
+- D1 연결 생성
 - D1 데이터베이스 생성
 - R2 버킷 생성
 - KV namespace 생성
 - Queues 생성
+- Durable Objects / Cron 실제 리소스 연결
 - 도메인 연결
 - 외부 공개 URL 오픈
-- 유료 플랜 또는 유료 리소스 사용
 - API 토큰, 세션, `.env`, 비밀값 입력
 - 실사용자 데이터 또는 실급여/실근태 데이터 입력
+- 승인된 오케스트레이션 범위 밖의 GitHub merge 또는 branch delete
 
-## 4. 저장소 구조 제안
+## 4. 현재 저장소 구조
 
-초기 monorepo 구조:
+현재 저장소에는 아래 구조가 실제로 들어 있다.
 
 ```text
 apps/
-  web/                  # Next.js 프론트엔드/PWA
-  api/                  # Cloudflare Workers API
+  web/                  # Next.js 프론트엔드/PWA 시작점
+  api/                  # Cloudflare Workers API 시작점
 packages/
   shared/               # 공통 타입, Zod schema, API 계약
-  ui/                   # 공통 UI 컴포넌트 후보
-  config/               # ESLint, TypeScript, Tailwind 공통 설정 후보
 db/
   migrations/           # D1 SQL migration
-  seed/                 # 개발용 seed 데이터
- docs/
+docs/
   architecture/
-  research/
+  guides/
 ```
 
-권장 원칙:
+현재 구조 기준 원칙:
 
 - 웹과 API를 분리하되, 타입과 API 계약은 `packages/shared`에서 공유한다.
-- D1 migration은 코드와 함께 버전 관리한다.
+- D1 SQL migration은 코드와 함께 버전 관리한다.
 - 실사용자 데이터나 비밀값은 저장소에 두지 않는다.
 - Cloudflare 배포 설정은 예시 파일과 실제 파일을 분리한다.
+- 다음 구현자는 현재 골격을 확장하되, 로컬 검증 명령을 깨뜨리지 않아야 한다.
 
 ## 5. 프론트엔드: Next.js
 
@@ -135,7 +142,7 @@ Server Components는 제한적으로 사용
 주요 데이터 변경은 Workers API 호출
 ```
 
-Cloudflare Pages 배포를 고려해 Next.js 런타임 제약을 초기에 확인한다.
+OpenNext on Cloudflare 배포를 고려해 Next.js 런타임 제약을 초기에 확인한다.
 
 ### 초기 라우트
 
@@ -316,6 +323,12 @@ created_by
 updated_by
 ```
 
+### D1 연결 원칙
+
+- Workers는 D1 바인딩을 통해 Cloudflare D1 데이터베이스에 접근한다.
+- 로컬 skeleton 단계에서는 실제 접속정보 없이 `D1_DATABASE_ID`, `D1_DATABASE_NAME` 같은 환경변수 이름만 정의한다.
+- 운영 DB 생성, 접속정보 입력, 실제 migration 실행은 별도 승인 범위다.
+
 ## 8. 파일 저장: Cloudflare R2
 
 ### 사용처
@@ -448,24 +461,23 @@ admin.manage
 
 장점:
 
-- Cloudflare Pages와 궁합이 좋다.
+- OpenNext on Cloudflare와 궁합이 좋다.
 - 초기 개발 속도가 빠르다.
 - 앱스토어 심사 없이 검증할 수 있다.
 - 웹과 모바일 UX를 같은 코드 기반으로 관리할 수 있다.
 
 ### 2단계: 모바일앱
 
-서비스 안정화 후 다음 중 선택한다.
+서비스 안정화 후 다음 방향으로 확장한다.
 
 ```text
-React Native
-Flutter
+Expo / React Native
 ```
 
 선택 기준:
 
-- React/Next.js 개발 자산을 활용하려면 React Native가 유리하다.
-- 네이티브 UI 일관성과 앱 성능 중심이면 Flutter도 가능하다.
+- React/Next.js 개발 자산을 활용하고 같은 Workers API 계약을 재사용하는 방향을 우선한다.
+- 1차 목표는 별도 네이티브 기능 확장보다 운영 기능의 모바일 사용성 확보다.
 
 모바일앱은 같은 Workers API를 사용한다.
 
@@ -474,10 +486,10 @@ Flutter
 ### Phase 1. 기반
 
 - monorepo 구조
-- Next.js 앱 skeleton
-- Workers API skeleton
+- OpenNext 기반 Next.js 앱 skeleton
+- Workers + Hono API skeleton
 - shared type/schema
-- D1 migration skeleton
+- D1 SQL migration skeleton
 - 로컬 개발 명령
 - health check API
 
@@ -539,42 +551,46 @@ Flutter
 - 급여, 세금, 4대보험, 퇴직금, 연차 자동 계산은 전문가 검수 전까지 확정 기능으로 다루지 않는다.
 - 실제 계산 결과를 법정 신고나 지급에 사용하려면 노무/세무 검수가 필요하다.
 
-## 13. 파이프라인 카드
+## 13. 파이프라인 상태
 
-이 아키텍처 작업은 다음 카드로 운용한다.
+문서와 로컬 skeleton 기준으로 현재 상태를 정리하면 아래와 같다.
 
 ```text
-completed
-- gwplanner: Next.js + Cloudflare 기반 전체 아키텍처와 범위 확정
+완료
+- 아키텍처 방향 확정
+- Phase 범위 문서 작성
+- Web/API/shared/db skeleton 반영
+- 로컬 검증 명령 정리
+- 사용자/운영/개발 가이드 정리
 
-in_progress
-- gwdocs: 아키텍처 참고문서 작성
-
-pending
-- gwreviewer/gwtester: 보안·배포범위·마크다운 검증
-- gwops: 브랜치/커밋/PR 생성 및 상태 확인
-- singde: 최종 보고
+다음 단계
+- 인증/세션 계약 추가
+- 조직/직원 도메인 확장
+- 근태/휴가/전자결재 API 확장
+- Cloudflare 실리소스 연결 검토(승인 후)
 ```
 
 ## 14. 다음 산출물
 
-문서 다음 단계는 로컬 skeleton 생성이다.
+문서 단계 다음에는 실제 기능 확장이 이어진다.
 
-예정 구조:
+우선순위는 아래 순서를 권장한다.
 
 ```text
-apps/web
-apps/api
-packages/shared
-db/migrations
+1. packages/shared 에 인증/조직 계약 추가
+2. apps/api 에 인증/조직/직원 API 추가
+3. apps/web 각 섹션을 mock 화면에서 실제 API 호출 구조로 전환
+4. db/migrations 에 후속 도메인 테이블 추가
+5. 승인 후 Cloudflare 실리소스와 배포 절차 연결
 ```
 
-예정 검증:
+현재 즉시 검증 가능한 기준은 아래와 같다.
 
 ```text
-Next.js build
-Workers local health check
-D1 migration dry-run 또는 로컬 적용
+pnpm check
+pnpm --filter @gw/web build:cf
+pnpm --filter @gw/api dev
+curl http://127.0.0.1:8787/api/health
 ```
 
 단, Cloudflare 실제 리소스 생성과 배포는 별도 승인 후 진행한다.
