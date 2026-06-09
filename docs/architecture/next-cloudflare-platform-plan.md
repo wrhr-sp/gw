@@ -495,6 +495,8 @@ Expo / React Native
 
 ### Phase 2. 인증/조직
 
+상세 범위는 `docs/architecture/phase-2-auth-org-scope.md` 를 기준으로 한다.
+
 - 로그인/로그아웃
 - 내 정보
 - 회사/부서/직원
