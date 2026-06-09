@@ -41,12 +41,12 @@ def build(hold):
       Step('review','gwreviewer','Phase 리뷰','부모 구현 결과를 검토한다. 요구사항, 보안, 권한, 과도한 변경, 비밀값 노출을 확인한다.',['github-code-review','requesting-code-review'],parents=['build']),
       Step('test','gwtester','Phase 검증','부모 구현/리뷰 결과를 바탕으로 가능한 테스트와 실행 검증을 수행한다.',['test-driven-development','systematic-debugging'],parents=['review']),
       Step('docs','gwdocs','Phase 문서화','부모 결과를 바탕으로 사용자/운영/개발 문서를 갱신한다. 쉬운 한국어로 정리한다.',['code-wiki','humanizer'],parents=['test']),
-      Step('github','gwops','GitHub PR/CI 점검','부모 문서화 결과를 바탕으로 GitHub PR/CI 상태를 점검한다. 실제 merge/delete는 사용자 승인 없이는 하지 않는다.',['github-pr-workflow','systemd-service-operations'],parents=['docs']),
+      Step('github','gwops','GitHub PR/CI/merge/branch 정리','부모 문서화 결과를 바탕으로 GitHub branch/commit/PR 생성, CI 확인, PR merge, 원격/로컬 branch 삭제까지 release gate를 처리한다. 배포/유료/외부 공개/비밀값 입력은 별도 승인 없이는 하지 않는다.',['github-pr-workflow'],parents=['docs']),
       Step('final','singde','최종 통합 보고','모든 부모 결과를 확인하고 완료/미완료/승인 필요/미확인 사항을 쉬운 한국어로 최종 보고한다.',['one-three-one-rule'],parents=['github']),
     ]
 
 def create(s,title,body,key):
-    full=s.body.format(title=title, body=body)+'\n\n공통 규칙: 비밀값 출력 금지. GitHub merge/delete는 명시 승인 없이는 하지 않는다.'
+    full=s.body.format(title=title, body=body)+'\n\n공통 규칙: 비밀값 출력 금지. 승인된 오케스트레이션 범위 안에서는 GitHub PR 생성/CI 확인/merge/branch 삭제까지 포함한다. 배포/유료/외부 공개/비밀값 입력은 별도 승인 없이는 하지 않는다.'
     cmd=[HERMES_BIN,'kanban','--board',BOARD,'create',f'{s.prefix}: {title}','--assignee',s.assignee,'--workspace',WORKSPACE,'--body',full,'--json']
     for p in s.parents: cmd += ['--parent',p]
     for sk in s.skills: cmd += ['--skill',sk]
@@ -67,6 +67,7 @@ def main():
     ap.add_argument('body')
     a=ap.parse_args(); ss=build(a.hold)
     if a.preview:
+        print('주의: 실제 Phase 카드 생성은 싱드가 대장에게 오케스트레이션 실행 승인을 받은 뒤에만 진행한다.')
         print(f'보드: {BOARD} / 작업 폴더: {WORKDIR}')
         for s in ss:
             print(f'- {s.key}: {s.prefix} → {s.assignee} / parents={s.parents} / skills={s.skills}')

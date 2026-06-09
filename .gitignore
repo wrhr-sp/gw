@@ -1,0 +1,31 @@
+# Local secrets — never commit
+.secrets/
+.env
+.env.*
+!.env.example
+.hermes/
+
+# Node / package managers
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+.turbo/
+.vercel/
+.wrangler/
+.open-next/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

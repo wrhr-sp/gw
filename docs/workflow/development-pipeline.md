@@ -2,6 +2,8 @@
 
 ## 기본 파이프라인
 
+이 파이프라인은 아리아가 싱드에게 전달한 뒤에도 바로 시작하지 않는다. 대장이 싱드에게 직접 요청한 경우에도 바로 시작하지 않는다. 싱드가 대장에게 오케스트레이션 실행 승인을 다시 요청하고, 대장이 승인한 뒤에만 Kanban 작업 그래프를 생성한다.
+
 ```text
 기획 → 구현 → 리뷰 → 테스트 → 문서화 → 최종 보고
 gwplanner → gwbuilder → gwreviewer → gwtester → gwdocs → singde
@@ -17,6 +19,6 @@ gwplanner → gwbuilder → gwreviewer → gwtester → gwdocs → singde
 
 ## GitHub 자동화 범위
 
-허용 후보: branch 생성, commit, PR 생성, PR 상태/리뷰 확인, GitHub Actions 상태 확인.
+허용 후보: branch 생성, commit, PR 생성, PR 상태/리뷰 확인, GitHub Actions 상태 확인, PR merge, 원격/로컬 branch 삭제.
 
 제외: 외부 공개 URL 설정, 유료 리소스 생성, 비밀값 입력/교체.

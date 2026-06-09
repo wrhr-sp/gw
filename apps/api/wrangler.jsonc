@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gw-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "APP_ENV": "local",
+    "API_VERSION": "0.1.0"
+  }
+  // Planned Cloudflare bindings intentionally stay out of the active local config.
+  // Add D1 / KV / R2 / Queues / Durable Objects / Cron only after separate approval
+  // and after local connection details are available.
+}
