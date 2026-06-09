@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 개발 기준을 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 2 인증/조직 1차 기준을 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -9,47 +9,31 @@ apps/
   web/        # Next.js App Router + OpenNext on Cloudflare + PWA 시작점
   api/        # Cloudflare Workers + Hono API 시작점
 packages/
-  shared/     # 공통 경로, 화면 섹션, health 계약
+  shared/     # 공통 경로, 화면 섹션, auth/org 계약
 db/
   migrations/ # D1 SQL migration skeleton
-docs/
-  architecture/
+  docs/
   guides/
 ```
 
 현재 기준으로 실제 코드가 들어 있는 핵심 경로는 `apps/web`, `apps/api`, `packages/shared`, `db/migrations` 입니다.
 
-## 패키지와 역할
+## Phase 2에서 추가된 핵심 골격
 
-### `apps/web`
+### `packages/shared`
 
-Web 앱입니다.
+공통 계약 패키지입니다.
 
-현재 들어 있는 것:
+추가된 내용:
 
-- Next.js App Router 구조
-- 홈 화면과 섹션별 경로 페이지
-- OpenNext on Cloudflare 빌드 설정
-- Wrangler 프리뷰 설정
-- PWA manifest
-
-주요 파일:
-
-- `apps/web/package.json`
-- `apps/web/app/page.tsx`
-- `apps/web/app/section-page.tsx`
-- `apps/web/open-next.config.ts`
-- `apps/web/wrangler.jsonc`
-- `apps/web/.env.example`
-
-주요 스크립트:
-
-```bash
-pnpm --filter @gw/web dev
-pnpm --filter @gw/web build
-pnpm --filter @gw/web build:cf
-pnpm --filter @gw/web preview:cf
-```
+- `appRoutes.auth.login`, `appRoutes.auth.logout`, `appRoutes.me`
+- `appRoutes.org.companies`, `employees`, `departments`, `roles`, `permissions`
+- `appRoutes.admin.invites`
+- 로그인 요청/응답 schema
+- 세션 사용자 schema
+- 회사/직원/부서/역할/권한 조회 schema
+- 관리자 초대 요청/응답 schema
+- 공통 에러 응답 wrapper
 
 ### `apps/api`
 
@@ -57,78 +41,43 @@ Workers API입니다.
 
 현재 들어 있는 것:
 
-- Hono 앱 시작점
-- `/api/health` 라우트
-- Wrangler 로컬 개발 설정
-- Vitest health 계약 테스트
-- placeholder 환경변수 예시
+- `/api/health`
+- placeholder 로그인/로그아웃
+- placeholder `/api/me`
+- 회사/직원/부서/역할/권한 조회 skeleton
+- 권한별 401/403 응답을 주는 기본 RBAC gate
+- 관리자 초대 skeleton
+- 로그인/권한/초대에 대한 Vitest 계약 테스트
 
-주요 파일:
+주의:
 
-- `apps/api/package.json`
-- `apps/api/src/app.ts`
-- `apps/api/src/index.ts`
-- `apps/api/test/health.spec.ts`
-- `apps/api/wrangler.jsonc`
-- `apps/api/.dev.vars.example`
-- `apps/api/wrangler.bindings.example.jsonc`
-
-주요 스크립트:
-
-```bash
-pnpm --filter @gw/api dev
-pnpm --filter @gw/api test
-pnpm --filter @gw/api typecheck
-```
-
-### `packages/shared`
-
-Web과 API가 같이 보는 공통 계약 패키지입니다.
-
-현재 들어 있는 것:
-
-- `appRoutes.health` 경로 상수
-- Web 홈에서 쓰는 `appSections`
-- API health 응답 Zod schema
-- 계약 테스트
-
-주요 파일:
-
-- `packages/shared/src/contracts.ts`
-- `packages/shared/src/index.ts`
-- `packages/shared/test/contracts.spec.ts`
-
-핵심 계약은 아래입니다.
-
-```ts
-appRoutes.health === "/api/health"
-```
-
-health 응답은 아래 모양으로 고정되어 있습니다.
-
-```json
-{
-  "ok": true,
-  "data": {
-    "service": "gw-api",
-    "status": "ok",
-    "version": "0.1.0"
-  },
-  "error": null
-}
-```
+- 실제 OAuth/SSO, 메일 발송, 운영 secret 연결은 하지 않습니다.
+- 인증은 placeholder HttpOnly Cookie 세션 계약만 맞춥니다.
+- 권한 부족과 인증 부족은 공통 에러 응답으로 반환합니다.
+- 현재 read endpoint 권한 기준은 `COMPANY_ADMIN` 전부 허용, `HR_ADMIN` 은 권한/직원/부서/역할 조회 허용, `MANAGER` 는 직원/부서/역할 조회 허용, `EMPLOYEE` 는 회사 조회만 허용입니다.
 
 ### `db/migrations`
 
-D1 SQL migration skeleton 입니다.
+현재 migration 구성:
 
-현재 `0001_initial_schema.sql` 에는 아래 골격이 들어 있습니다.
+- `0001_initial_schema.sql` — companies / users / employees
+- `0002_auth_org_phase2.sql` — departments / roles / user_roles / invites / auth_sessions / audit_logs
 
-- `companies`
-- `users`
-- `employees`
+1차 설계 선택:
 
-근태, 휴가, 결재, 파일, 감사로그 테이블은 후속 phase에서 확장합니다.
+- 역할 매핑은 `memberships` 대신 `user_roles` 모델을 사용합니다.
+- 세션 테이블은 `sessions` 대신 `auth_sessions` 이름을 사용합니다.
+- 권한 카탈로그는 이번 Phase에서는 정적 contract/API skeleton 으로 두고, 별도 DB 테이블까지는 확장하지 않습니다.
+
+### `apps/web`
+
+현재 Phase 2 placeholder 화면:
+
+- `app/login/page.tsx` — 로그인 skeleton
+- `app/dashboard/page.tsx` — 내 정보/세션 상태 placeholder
+- `app/employees/page.tsx` — 직원 조회 placeholder
+- `app/org/page.tsx` — 부서/역할/권한 placeholder
+- `app/admin/page.tsx` — 관리자 초대/권한 placeholder
 
 ## 개발자가 바로 쓰는 명령
 
@@ -137,6 +86,9 @@ D1 SQL migration skeleton 입니다.
 ```bash
 pnpm install
 pnpm check
+pnpm build
+pnpm typecheck
+pnpm test
 ```
 
 개별 확인:
@@ -144,57 +96,70 @@ pnpm check
 ```bash
 pnpm --filter @gw/shared test
 pnpm --filter @gw/api test
-pnpm typecheck
 pnpm --filter @gw/web build:cf
 pnpm --filter @gw/api dev
-curl http://127.0.0.1:8787/api/health
 ```
 
-## 현재 연결 관계
+## placeholder 인증 흐름 확인 예시
 
-간단히 보면 아래 흐름입니다.
+한 터미널에서:
 
-```text
-apps/web
-  └─ packages/shared 의 경로/섹션 계약 사용
-
-apps/api
-  └─ packages/shared 의 health schema와 route 상수 사용
-
-apps/api
-  └─ 향후 Cloudflare D1로 db/migrations 기반 스키마와 연결 예정
+```bash
+pnpm --filter @gw/api dev
 ```
+
+다른 터미널에서:
+
+```bash
+curl -i http://127.0.0.1:8787/api/auth/login \
+  -H 'content-type: application/json' \
+  -H 'x-dev-role: COMPANY_ADMIN' \
+  --data '{"email":"admin@example.com","password":"placeholder-password"}'
+```
+
+이후 cookie 를 붙여서:
+
+```bash
+curl http://127.0.0.1:8787/api/me \
+  -H 'cookie: gw_session=dev-placeholder-session_COMPANY_ADMIN'
+```
+
+또는 조직 조회:
+
+```bash
+curl http://127.0.0.1:8787/api/departments \
+  -H 'cookie: gw_session=dev-placeholder-session_COMPANY_ADMIN'
+curl http://127.0.0.1:8787/api/permissions \
+  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN'
+curl -i http://127.0.0.1:8787/api/employees \
+  -H 'cookie: gw_session=dev-placeholder-session_EMPLOYEE'
+```
+
+마지막 요청은 권한 부족 확인용 예시이며 403 이 나와야 정상입니다.
 
 ## 구현할 때 지켜야 할 기준
 
 - Web과 API가 같이 보는 계약은 먼저 `packages/shared` 에서 정리합니다.
-- 새로운 API를 만들면 route 상수와 응답 schema를 같이 관리합니다.
-- 실제 비밀값은 코드, 문서, 로그에 넣지 않습니다.
-- Cloudflare 실리소스 연결은 승인 전까지 예시 파일에만 남깁니다.
-- 현재 단계에서는 로컬 검증이 깨지지 않는 것이 더 중요합니다.
-
-## 다음 구현 순서 추천
-
-1. 인증/세션 계약 추가
-2. 회사/직원/조직 API와 shared schema 확장
-3. Web 각 섹션을 mock 데이터에서 실제 API 호출 구조로 전환
-4. 근태/휴가/전자결재 도메인 계약 추가
-5. R2/KV/Queues/Durable Objects 같은 바인딩을 승인 후 연결
+- 회사 범위를 넘는 cross-company 조회는 placeholder 단계에서도 열지 않습니다.
+- 실제 비밀값, 실제 세션 토큰, 실제 초대 코드는 코드/문서/로그에 남기지 않습니다.
+- 민감 endpoint 는 감사 로그 후보(action, actor, target)를 남길 수 있는 구조를 유지합니다.
+- Web 메뉴를 숨겨도 서버 측 권한 검증이 다시 들어간다는 전제를 유지합니다.
+- `scripts/README.md` 에 적힌 그룹웨어 보고/감시 자동화 스크립트를 건드리면 기능 코드와 함께 release gate 검토 대상으로 묶습니다.
 
 ## 자주 보는 파일 묶음
 
-새 기능을 추가할 때는 보통 아래 파일을 같이 봅니다.
-
-### 새 API를 추가할 때
+### 새 auth/org API를 추가할 때
 
 - `packages/shared/src/contracts.ts`
+- `packages/shared/test/contracts.spec.ts`
 - `apps/api/src/app.ts`
-- `apps/api/test/*.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
 - `apps/web/app/**/page.tsx`
 
 ### DB 스키마를 확장할 때
 
 - `db/migrations/0001_initial_schema.sql`
+- `db/migrations/0002_auth_org_phase2.sql`
 - `apps/api/.dev.vars.example`
 - `apps/api/wrangler.bindings.example.jsonc`
 
@@ -207,6 +172,7 @@ apps/api
 ## 같이 보면 좋은 문서
 
 - `README.md`
-- `docs/guides/cloudflare-first-user-guide.md`
-- `docs/guides/cloudflare-first-operator-guide.md`
+- `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`
+- `docs/guides/cloudflare-first-operator-guide.md`
+- `docs/guides/cloudflare-first-user-guide.md`

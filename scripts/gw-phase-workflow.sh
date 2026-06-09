@@ -42,8 +42,16 @@ def build(hold):
       Step('test','gwtester','Phase 검증','부모 구현/리뷰 결과를 바탕으로 가능한 테스트와 실행 검증을 수행한다.',['test-driven-development','systematic-debugging'],parents=['review']),
       Step('docs','gwdocs','Phase 문서화','부모 결과를 바탕으로 사용자/운영/개발 문서를 갱신한다. 쉬운 한국어로 정리한다.',['code-wiki','humanizer'],parents=['test']),
       Step('github','gwops','GitHub PR/CI/merge/branch 정리','부모 문서화 결과를 바탕으로 GitHub branch/commit/PR 생성, CI 확인, PR merge, 원격/로컬 branch 삭제까지 release gate를 처리한다. 배포/유료/외부 공개/비밀값 입력은 별도 승인 없이는 하지 않는다.',['github-pr-workflow'],parents=['docs']),
-      Step('final','singde','최종 통합 보고','모든 부모 결과를 확인하고 완료/미완료/승인 필요/미확인 사항을 쉬운 한국어로 최종 보고한다.',['one-three-one-rule'],parents=['github']),
+      Step('final','singde','최종 통합 보고','모든 부모 카드 결과와 show/runs/log, 관련 PR/CI/작업트리 상태를 확인하고 완료/미완료/승인 필요/미확인 사항을 쉬운 한국어로 최종 보고한다. 승인된 범위 안에서 누락된 안전 조치가 있으면 조치 후 보고하고, production DB/secret/DNS/유료/외부 공개/production migration/파괴적 정리는 승인 요청으로 보고한다.',['one-three-one-rule'],parents=['github']),
     ]
+
+def subscribe_report(tid):
+    platform=os.environ.get('GW_REPORT_PLATFORM','telegram')
+    chat_id=os.environ.get('GW_REPORT_CHAT_ID','8648561062')
+    notifier=os.environ.get('GW_REPORT_NOTIFIER_PROFILE','singde')
+    if not tid or not platform or not chat_id:
+        return
+    run([HERMES_BIN,'kanban','--board',BOARD,'notify-subscribe',tid,'--platform',platform,'--chat-id',chat_id,'--notifier-profile',notifier])
 
 def create(s,title,body,key):
     full=s.body.format(title=title, body=body)+'\n\n공통 규칙: 비밀값 출력 금지. 승인된 오케스트레이션 범위 안에서는 GitHub PR 생성/CI 확인/merge/branch 삭제까지 포함한다. 배포/유료/외부 공개/비밀값 입력은 별도 승인 없이는 하지 않는다.'
@@ -54,6 +62,8 @@ def create(s,title,body,key):
     if key: cmd += ['--idempotency-key',f'{key}:{s.key}']
     data=json.loads(run(cmd).stdout)
     tid=data.get('id') or data.get('task_id')
+    if s.key=='final':
+        subscribe_report(tid)
     if s.initial_status=='scheduled':
         run([HERMES_BIN,'kanban','--board',BOARD,'schedule',tid,'Phase 안전 대기: 사용자 승인 또는 수동 promote/unblock 필요'])
     return tid
