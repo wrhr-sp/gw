@@ -12,6 +12,8 @@
 - `packages/shared`: 공통 타입 / route / schema 계약
 - `db/migrations`: Cloudflare D1 migration skeleton
 - Phase 4 전자결재 1차 skeleton (`/approvals`, approval API, `0004_approvals_phase4.sql`)
+- Phase 5 게시판/문서 1차 API/shared skeleton (`/api/notices`, `/api/boards`, `/api/documents/*`, `/api/read-receipts`)
+- Phase 5 범위/운영 문서 (`docs/architecture/phase-5-boards-documents-scope.md`)
 
 ## Workspace 구조
 
@@ -78,17 +80,48 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - 회사 scope, 문서 접근 경계, 자기 문서 자기 승인 금지, release gate/보고 자동화 기준 문서화
 - `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 변경을 GitHub release gate 검토 범위에 포함
 
-다만 아직 "검증 완료" 상태는 아닙니다.
+현재 저장소 기준으로 기본 테스트와 타입체크는 통과합니다.
 
-- `pnpm check` 는 현재 `apps/api/src/app.ts:703` 에서 `TS2367` 로 실패합니다.
-- `POST /api/approvals/documents` 응답이 새 문서 id 대신 `approval_document_demo` 를 고정으로 내려 주어서, 바로 이어서 상세 조회를 하면 방금 기안한 문서가 아니라 seed demo 문서가 반환됩니다.
-- `apps/api/test/auth-org.spec.ts` 의 기존 approval create/detail 테스트는 seed demo 와 같은 제목/요약을 사용해 이 round-trip 불일치를 놓치고 있습니다.
+- `pnpm check` 통과
+- 전자결재는 여전히 placeholder 단계이며, 실제 법적 효력/외부 전자서명/실운영 데이터 저장은 이번 범위가 아닙니다.
+- 이번 문서화 카드에서는 Phase 5 게시판/문서 guardrail 검증 결과를 우선 반영합니다.
 
 이번 Phase 에서 하지 않는 일 예시는 아래와 같습니다.
 
 - 법적 효력이 필요한 전자서명/본인인증 연동
 - production 결재 데이터 입력 및 production DB migration 실행
 - 외부 문서보관 SaaS, 공개 배포, 유료 리소스, 실제 비밀값 입력
+
+## Phase 5 게시판/문서 1차 현재 상태
+
+기준 문서는 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 현재 작업물은 "일부 구현 + 미검증 guardrail 정리" 상태입니다.
+
+현재 저장소에 실제로 들어 있는 항목은 아래와 같습니다.
+
+- `packages/shared/src/contracts.ts` 에 board/document route, schema, 타입, 권한 코드 추가
+- `apps/api/src/app.ts` 에 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 placeholder endpoint 추가
+- `apps/api/test/auth-org.spec.ts` 와 `packages/shared/test/contracts.spec.ts` 에 기본 계약 테스트 추가
+- Phase 5 범위/운영 문서 초안 추가
+
+아직 빠진 항목도 분명합니다.
+
+- `db/migrations` 에는 아직 Phase 5 전용 migration (`0005_*`) 이 없습니다.
+- `apps/web/app/boards`, `apps/web/app/posts`, `apps/web/app/documents` 화면은 아직 없습니다.
+- `docs/workflow/` 아래에는 Phase 5 전용 workflow 변경이 아직 없습니다.
+
+추가로, 기존 테스트 스위트는 통과하지만 임시 repro 검증에서는 아래 guardrail 누락이 다시 확인됐습니다.
+
+- 공지형 게시판 `board_notice` 에도 `EMPLOYEE` 가 게시글을 작성할 수 있어서 `POST /api/boards/board_notice/posts` 가 403 대신 201 을 반환함
+- 존재하지 않는 문서함 `document_space_missing` 으로도 `POST /api/documents/files/metadata` 가 403 대신 201 을 반환함
+- 접근 불가/존재하지 않는 게시글 id(`foreign_post_123`)로도 `POST /api/read-receipts` 가 403 대신 201 을 반환함
+
+즉, 현재 Phase 5 는 "API/shared 계약은 생겼지만, DB/Web skeleton 과 접근 경계 보강은 아직 남아 있는 상태"로 보는 것이 맞습니다.
+
+이번 Phase 문서에서 특히 고정한 제외/승인 필요 범위는 아래와 같습니다.
+
+- 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력은 하지 않음
+- production DB migration, 외부 공개 배포, DNS/R2/도메인 작업, 실제 비밀값 입력은 별도 승인 필요
+- `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 수정은 계속 GitHub release gate 검토 범위에 포함
 
 ## 빠른 로컬 시작
 
@@ -104,8 +137,8 @@ pnpm --filter @gw/api dev
 
 주의:
 
-- 현재 기준으로는 `pnpm check` 가 통과하지 않습니다. 위 명령은 "지금 상태를 그대로 확인"하는 용도입니다.
-- 전자결재 기안 API는 placeholder 구조와 권한 경계를 보는 단계이며, 새 기안 문서의 create → detail round-trip 이 아직 신뢰 가능한 상태는 아닙니다.
+- 현재 기준으로 `pnpm check` 는 통과합니다. 다만 이것만으로 Phase 5 접근 경계까지 모두 보장되지는 않습니다.
+- 게시판/문서 1차는 기존 테스트 외에 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성이 막히는지도 별도로 확인해야 합니다.
 
 API 개발 서버를 띄운 뒤에는 다른 터미널에서 health/auth/me endpoint와 권한별 조직 조회를 확인할 수 있습니다.
 
@@ -190,4 +223,5 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
 - Phase 4 범위: `docs/architecture/phase-4-approvals-scope.md`
+- Phase 5 범위: `docs/architecture/phase-5-boards-documents-scope.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`
