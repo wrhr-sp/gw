@@ -517,12 +517,16 @@ Expo / React Native
 
 ### Phase 4. 전자결재
 
+상세 범위는 `docs/architecture/phase-4-approvals-scope.md` 를 기준으로 한다.
+
 - 결재 양식
 - 결재선
 - 기안
 - 승인/반려
 - 문서함
 - 참조/합의 후보
+- 문서 접근 경계
+- approval 보고/감시 스크립트 release gate 검토
 
 ### Phase 5. 게시판/문서
 

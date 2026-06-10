@@ -11,6 +11,7 @@
 - `apps/api`: Cloudflare Workers + Hono auth/org skeleton API
 - `packages/shared`: 공통 타입 / route / schema 계약
 - `db/migrations`: Cloudflare D1 migration skeleton
+- Phase 4 전자결재 1차 skeleton (`/approvals`, approval API, `0004_approvals_phase4.sql`)
 
 ## Workspace 구조
 
@@ -64,6 +65,31 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - `POST /api/leave/requests/:id/approve|reject` 는 승인 권한만으로 충분하지 않습니다. 자기 own 요청 승인과 임의 request id 승인은 모두 403 으로 막혀야 정상입니다.
 - 근태/휴가 endpoint 는 "실제 저장 완료"가 아니라 placeholder 응답과 audit candidate 구조를 검증하는 단계입니다.
 
+## Phase 4 전자결재 1차 현재 상태
+
+저장소에는 `docs/architecture/phase-4-approvals-scope.md` 를 기준으로 전자결재 1차 skeleton 이 이미 들어 있습니다.
+
+현재 들어 있는 범위는 아래와 같습니다.
+
+- `approval_forms`, `approval_lines`, `approval_documents`, `approval_steps`, `approval_references` D1 migration skeleton
+- 결재 양식, 결재선, 기안, 문서함, 승인/반려, 참조/합의 후보 API skeleton
+- `packages/shared` 의 approval route, schema, 타입, 공통 응답/권한 코드 확장
+- `apps/web/app/approvals` 목록/기안/상세/승인함 placeholder 화면 skeleton
+- 회사 scope, 문서 접근 경계, 자기 문서 자기 승인 금지, release gate/보고 자동화 기준 문서화
+- `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 변경을 GitHub release gate 검토 범위에 포함
+
+다만 아직 "검증 완료" 상태는 아닙니다.
+
+- `pnpm check` 는 현재 `apps/api/src/app.ts:703` 에서 `TS2367` 로 실패합니다.
+- `POST /api/approvals/documents` 응답이 새 문서 id 대신 `approval_document_demo` 를 고정으로 내려 주어서, 바로 이어서 상세 조회를 하면 방금 기안한 문서가 아니라 seed demo 문서가 반환됩니다.
+- `apps/api/test/auth-org.spec.ts` 의 기존 approval create/detail 테스트는 seed demo 와 같은 제목/요약을 사용해 이 round-trip 불일치를 놓치고 있습니다.
+
+이번 Phase 에서 하지 않는 일 예시는 아래와 같습니다.
+
+- 법적 효력이 필요한 전자서명/본인인증 연동
+- production 결재 데이터 입력 및 production DB migration 실행
+- 외부 문서보관 SaaS, 공개 배포, 유료 리소스, 실제 비밀값 입력
+
 ## 빠른 로컬 시작
 
 ```bash
@@ -75,6 +101,11 @@ pnpm test
 pnpm --filter @gw/web build:cf
 pnpm --filter @gw/api dev
 ```
+
+주의:
+
+- 현재 기준으로는 `pnpm check` 가 통과하지 않습니다. 위 명령은 "지금 상태를 그대로 확인"하는 용도입니다.
+- 전자결재 기안 API는 placeholder 구조와 권한 경계를 보는 단계이며, 새 기안 문서의 create → detail round-trip 이 아직 신뢰 가능한 상태는 아닙니다.
 
 API 개발 서버를 띄운 뒤에는 다른 터미널에서 health/auth/me endpoint와 권한별 조직 조회를 확인할 수 있습니다.
 
@@ -158,4 +189,5 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
+- Phase 4 범위: `docs/architecture/phase-4-approvals-scope.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`

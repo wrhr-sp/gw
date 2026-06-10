@@ -32,6 +32,17 @@ export const appRoutes = {
     approve: (requestId: string) => `/api/leave/requests/${requestId}/approve`,
     reject: (requestId: string) => `/api/leave/requests/${requestId}/reject`,
   },
+  approvals: {
+    forms: "/api/approvals/forms",
+    lines: "/api/approvals/lines",
+    documents: "/api/approvals/documents",
+    detail: (documentId: string) => `/api/approvals/documents/${documentId}`,
+    inbox: "/api/approvals/inbox",
+    approve: (documentId: string) => `/api/approvals/documents/${documentId}/approve`,
+    reject: (documentId: string) => `/api/approvals/documents/${documentId}/reject`,
+    referenceCandidates: "/api/approvals/references/candidates",
+    agreementCandidates: "/api/approvals/agreements/candidates",
+  },
 } as const;
 
 export const appSections = [
@@ -92,6 +103,11 @@ export const permissionCodeSchema = z.enum([
   "attendance.manage",
   "leave.request",
   "leave.approve",
+  "approval.form.manage",
+  "approval.line.manage",
+  "approval.document.read",
+  "approval.document.write",
+  "approval.document.approve",
 ]);
 
 export const healthPayloadSchema = z.object({
@@ -406,6 +422,192 @@ export const leaveActionRequestSchema = z.object({
 
 export const leaveActionResponseSchema = successResponseSchema(leaveMutationResponseDataSchema);
 
+export const approvalFormStatusSchema = z.enum(["active", "inactive"]);
+export const approvalDocumentStatusSchema = z.enum(["draft", "pending_approval", "approved", "rejected", "cancelled"]);
+export const approvalStepTypeSchema = z.enum(["approve", "agreement"]);
+export const approvalDecisionStatusSchema = z.enum(["pending", "approved", "rejected", "skipped"]);
+export const approvalReferenceTypeSchema = z.enum(["reference", "agreement"]);
+
+export const approvalFormSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  code: z.string(),
+  title: z.string(),
+  category: z.string(),
+  fieldSummary: z.string(),
+  status: approvalFormStatusSchema,
+  placeholder: z.literal(true),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const approvalStepSchema = z.object({
+  id: z.string(),
+  documentId: z.string().nullable(),
+  lineId: z.string().nullable(),
+  stepOrder: z.number().int().positive(),
+  approverEmployeeId: z.string(),
+  stepType: approvalStepTypeSchema,
+  decisionStatus: approvalDecisionStatusSchema,
+  decidedAt: z.string().datetime().nullable(),
+  decisionComment: z.string().nullable(),
+});
+
+export const approvalLineSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  status: approvalFormStatusSchema,
+  placeholder: z.literal(true),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  steps: z.array(approvalStepSchema),
+});
+
+export const approvalDocumentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  formId: z.string(),
+  lineId: z.string(),
+  drafterEmployeeId: z.string(),
+  title: z.string(),
+  summary: z.string(),
+  documentNumber: z.string(),
+  status: approvalDocumentStatusSchema,
+  submittedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const approvalReferenceSchema = z.object({
+  id: z.string(),
+  documentId: z.string(),
+  employeeId: z.string(),
+  referenceType: approvalReferenceTypeSchema,
+  readAt: z.string().datetime().nullable(),
+});
+
+export const approvalCandidateSchema = z.object({
+  employeeId: z.string(),
+  companyId: z.string(),
+  fullName: z.string(),
+  departmentId: z.string(),
+  type: approvalReferenceTypeSchema,
+});
+
+export const approvalFormListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(approvalFormSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalFormCreateRequestSchema = z.object({
+  title: z.string().min(1),
+  category: z.string().min(1),
+  fieldSummary: z.string().min(1),
+});
+
+export const approvalFormCreateResponseSchema = successResponseSchema(
+  z.object({
+    form: approvalFormSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalLineStepCreateSchema = z.object({
+  stepOrder: z.number().int().positive(),
+  approverEmployeeId: z.string().min(1),
+  stepType: approvalStepTypeSchema,
+});
+
+export const approvalLineCreateRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  steps: z.array(approvalLineStepCreateSchema).min(1),
+});
+
+export const approvalLineListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(approvalLineSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalLineCreateResponseSchema = successResponseSchema(
+  z.object({
+    line: approvalLineSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalDocumentCreateRequestSchema = z.object({
+  formId: z.string().min(1),
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  lineId: z.string().min(1),
+  referenceEmployeeIds: z.array(z.string()).default([]),
+  agreementEmployeeIds: z.array(z.string()).default([]),
+});
+
+export const approvalDocumentListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(approvalDocumentSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalDocumentCreateResponseSchema = successResponseSchema(
+  z.object({
+    document: approvalDocumentSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalDocumentDetailResponseSchema = successResponseSchema(
+  z.object({
+    document: approvalDocumentSchema,
+    steps: z.array(approvalStepSchema),
+    references: z.array(approvalReferenceSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalInboxResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(approvalDocumentSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalCandidateListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(approvalCandidateSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalActionRequestSchema = z.object({
+  reason: z.string().min(1),
+});
+
+export const approvalActionResponseSchema = successResponseSchema(
+  z.object({
+    document: approvalDocumentSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export type HealthPayload = z.infer<typeof healthPayloadSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
@@ -437,4 +639,24 @@ export type LeaveRequestCreateRequest = z.infer<typeof leaveRequestCreateRequest
 export type LeaveRequestCreateResponse = z.infer<typeof leaveRequestCreateResponseSchema>;
 export type LeaveActionRequest = z.infer<typeof leaveActionRequestSchema>;
 export type LeaveActionResponse = z.infer<typeof leaveActionResponseSchema>;
+export type ApprovalForm = z.infer<typeof approvalFormSchema>;
+export type ApprovalStep = z.infer<typeof approvalStepSchema>;
+export type ApprovalLine = z.infer<typeof approvalLineSchema>;
+export type ApprovalDocument = z.infer<typeof approvalDocumentSchema>;
+export type ApprovalReference = z.infer<typeof approvalReferenceSchema>;
+export type ApprovalCandidate = z.infer<typeof approvalCandidateSchema>;
+export type ApprovalFormListResponse = z.infer<typeof approvalFormListResponseSchema>;
+export type ApprovalFormCreateRequest = z.infer<typeof approvalFormCreateRequestSchema>;
+export type ApprovalFormCreateResponse = z.infer<typeof approvalFormCreateResponseSchema>;
+export type ApprovalLineCreateRequest = z.infer<typeof approvalLineCreateRequestSchema>;
+export type ApprovalLineListResponse = z.infer<typeof approvalLineListResponseSchema>;
+export type ApprovalLineCreateResponse = z.infer<typeof approvalLineCreateResponseSchema>;
+export type ApprovalDocumentCreateRequest = z.infer<typeof approvalDocumentCreateRequestSchema>;
+export type ApprovalDocumentListResponse = z.infer<typeof approvalDocumentListResponseSchema>;
+export type ApprovalDocumentCreateResponse = z.infer<typeof approvalDocumentCreateResponseSchema>;
+export type ApprovalDocumentDetailResponse = z.infer<typeof approvalDocumentDetailResponseSchema>;
+export type ApprovalInboxResponse = z.infer<typeof approvalInboxResponseSchema>;
+export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateListResponseSchema>;
+export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
+export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;

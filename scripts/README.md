@@ -20,6 +20,7 @@
 - `gw-review-required-gate-watch.sh`: review-required gate 반복 감시
 - `gw-worker-recovery-watch.sh`: stale running/timeout/crash 징후를 감지해 원본 카드에 comment
 - `gw-blocked-report-watch.sh`: blocked/review-required/승인 필요 등 예외 카드만 싱드 자동보고 카드로 정리
+- `gw-report-delivery-watch.sh`: 싱드 최종보고/후속보고 전달 누락, 중복 보고, 원본 체인 정리 누락 같은 release gate 후처리 이상 징후 감시
 - `gw-hermes-env.sh`: 그룹웨어 Hermes 환경 변수 로드
 
 ## 제외 범위
@@ -38,6 +39,7 @@
 - `review-required` handoff가 표준 검증/승인 대기 때문에 멈춘 경우
 - worker timeout, stale running, crash, protocol violation 등 복구 판단이 필요한 경우
 - 비밀값, 권한, 결제/비용, 외부 배포·연결, DB/운영 데이터 변경처럼 대장 승인이 필요한 경우
+- `gw-report-delivery-watch.sh` 가 잡아내는 최종보고 누락/중복 보고/원본 체인 정리 실패 같은 후처리 이상 징후
 
 제외 대상:
 

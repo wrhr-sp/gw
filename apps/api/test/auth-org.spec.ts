@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   appRoutes,
+  approvalActionResponseSchema,
+  approvalCandidateListResponseSchema,
+  approvalDocumentCreateResponseSchema,
+  approvalDocumentDetailResponseSchema,
+  approvalDocumentListResponseSchema,
+  approvalFormListResponseSchema,
+  approvalInboxResponseSchema,
+  approvalLineListResponseSchema,
   attendanceActionResponseSchema,
   attendanceCorrectionResponseSchema,
   attendanceListRecordsResponseSchema,
@@ -422,5 +430,236 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(rejectPayload.data.audit.action).toBe("leave.request.reject");
     expect(rejectPayload.data.request.requestedBy).toBe("user_employee");
     expect(rejectPayload.data.request.reviewedBy).toBe("user_hr_admin");
+  });
+});
+
+describe("Phase 4 approvals skeleton", () => {
+  it("lists approval forms and lines for document writers", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const [formsResponse, linesResponse] = await Promise.all([
+      app.request(appRoutes.approvals.forms, { headers: { cookie } }),
+      app.request(appRoutes.approvals.lines, { headers: { cookie } }),
+    ]);
+
+    expect(formsResponse.status).toBe(200);
+    expect(linesResponse.status).toBe(200);
+
+    const formsPayload = approvalFormListResponseSchema.parse(await formsResponse.json());
+    const linesPayload = approvalLineListResponseSchema.parse(await linesResponse.json());
+
+    expect(formsPayload.data.items[0]?.companyId).toBe("company_demo");
+    expect(linesPayload.data.items[0]?.steps[0]?.approverEmployeeId).toBe("employee_manager");
+  });
+
+  it("blocks non-managers from creating approval forms and lines", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const formResponse = await app.request(appRoutes.approvals.forms, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        title: "지출 결의서",
+        category: "expense",
+        fieldSummary: "금액/사유 입력 placeholder",
+      }),
+    });
+
+    expect(formResponse.status).toBe(403);
+    const formPayload = errorResponseSchema.parse(await formResponse.json());
+    expect(formPayload.error.details?.requiredPermission).toBe("approval.form.manage");
+
+    const lineResponse = await app.request(appRoutes.approvals.lines, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        title: "기본 결재선",
+        description: "팀장 승인 1단계 placeholder",
+        steps: [
+          {
+            stepOrder: 1,
+            approverEmployeeId: "employee_manager",
+            stepType: "approve",
+          },
+        ],
+      }),
+    });
+
+    expect(lineResponse.status).toBe(403);
+    const linePayload = errorResponseSchema.parse(await lineResponse.json());
+    expect(linePayload.error.details?.requiredPermission).toBe("approval.line.manage");
+  });
+
+  it("creates approval documents and returns scoped detail for participants", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const createResponse = await app.request(appRoutes.approvals.documents, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        formId: "approval_form_leave",
+        title: "6월 연차 신청",
+        summary: "6월 20일 연차 사용 placeholder",
+        lineId: "approval_line_team_manager",
+        referenceEmployeeIds: ["employee_staff"],
+        agreementEmployeeIds: ["employee_admin"],
+      }),
+    });
+
+    expect(createResponse.status).toBe(201);
+    const createPayload = approvalDocumentCreateResponseSchema.parse(await createResponse.json());
+    expect(createPayload.data.document.status).toBe("pending_approval");
+    expect(createPayload.data.audit.action).toBe("approval.document.create");
+
+    const detailResponse = await app.request(appRoutes.approvals.detail(createPayload.data.document.id), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.document.id).toBe(createPayload.data.document.id);
+    expect(detailPayload.data.references.map((item) => item.referenceType)).toContain("reference");
+  });
+
+  it("separates my drafts and approval inbox scopes", async () => {
+    const employee = await loginAndGetCookie("EMPLOYEE");
+    const approver = await loginAndGetCookie("HR_ADMIN");
+
+    const employeeDocumentsResponse = await app.request(appRoutes.approvals.documents, {
+      headers: {
+        cookie: employee.cookie,
+      },
+    });
+    expect(employeeDocumentsResponse.status).toBe(200);
+    const employeeDocumentsPayload = approvalDocumentListResponseSchema.parse(await employeeDocumentsResponse.json());
+    expect(employeeDocumentsPayload.data.items.map((item) => item.id)).toContain("approval_document_demo");
+    expect(employeeDocumentsPayload.data.items.map((item) => item.id)).not.toContain("approval_document_team_pending");
+
+    const approverInboxResponse = await app.request(appRoutes.approvals.inbox, {
+      headers: {
+        cookie: approver.cookie,
+      },
+    });
+    expect(approverInboxResponse.status).toBe(200);
+    const approverInboxPayload = approvalInboxResponseSchema.parse(await approverInboxResponse.json());
+    expect(approverInboxPayload.data.items.map((item) => item.id)).toContain("approval_document_team_pending");
+
+    const employeeInboxResponse = await app.request(appRoutes.approvals.inbox, {
+      headers: {
+        cookie: employee.cookie,
+      },
+    });
+    expect(employeeInboxResponse.status).toBe(403);
+    const employeeInboxPayload = errorResponseSchema.parse(await employeeInboxResponse.json());
+    expect(employeeInboxPayload.error.details?.requiredPermission).toBe("approval.document.approve");
+  });
+
+  it("lists reference and agreement candidates inside the same company", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const [referenceResponse, agreementResponse] = await Promise.all([
+      app.request(appRoutes.approvals.referenceCandidates, { headers: { cookie } }),
+      app.request(appRoutes.approvals.agreementCandidates, { headers: { cookie } }),
+    ]);
+
+    expect(referenceResponse.status).toBe(200);
+    expect(agreementResponse.status).toBe(200);
+
+    const referencePayload = approvalCandidateListResponseSchema.parse(await referenceResponse.json());
+    const agreementPayload = approvalCandidateListResponseSchema.parse(await agreementResponse.json());
+
+    expect(referencePayload.data.items.every((item) => item.companyId === "company_demo")).toBe(true);
+    expect(referencePayload.data.items.every((item) => item.type === "reference")).toBe(true);
+    expect(agreementPayload.data.items.every((item) => item.type === "agreement")).toBe(true);
+  });
+
+  it("blocks self-approval and allows approvers to approve or reject reviewable documents", async () => {
+    const approver = await loginAndGetCookie("HR_ADMIN");
+    const selfApprover = await loginAndGetCookie("MANAGER");
+
+    const selfApproveResponse = await app.request(appRoutes.approvals.approve("approval_document_manager_self"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: selfApprover.cookie,
+      },
+      body: JSON.stringify({
+        reason: "셀프 승인 차단 검증",
+      }),
+    });
+
+    expect(selfApproveResponse.status).toBe(403);
+    const selfApprovePayload = errorResponseSchema.parse(await selfApproveResponse.json());
+    expect(selfApprovePayload.error.details?.documentId).toBe("approval_document_manager_self");
+
+    const approveResponse = await app.request(appRoutes.approvals.approve("approval_document_team_pending"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: approver.cookie,
+      },
+      body: JSON.stringify({
+        reason: "예산 범위와 대체 장비 확인 완료",
+      }),
+    });
+
+    expect(approveResponse.status).toBe(200);
+    const approvePayload = approvalActionResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.data.document.status).toBe("approved");
+    expect(approvePayload.data.audit.action).toBe("approval.document.approve");
+
+    const rejectResponse = await app.request(appRoutes.approvals.reject("approval_document_team_pending"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: approver.cookie,
+      },
+      body: JSON.stringify({
+        reason: "증빙 보강 후 재기안 필요",
+      }),
+    });
+
+    expect(rejectResponse.status).toBe(200);
+    const rejectPayload = approvalActionResponseSchema.parse(await rejectResponse.json());
+    expect(rejectPayload.data.document.status).toBe("rejected");
+    expect(rejectPayload.data.audit.action).toBe("approval.document.reject");
+  });
+
+  it("forbids unknown approval document ids", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const detailResponse = await app.request(appRoutes.approvals.detail("foreign_approval_document"), {
+      headers: {
+        cookie,
+      },
+    });
+    expect(detailResponse.status).toBe(403);
+    const detailPayload = errorResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.error.details?.documentId).toBe("foreign_approval_document");
+
+    const approveResponse = await app.request(appRoutes.approvals.approve("foreign_approval_document"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "존재하지 않는 문서",
+      }),
+    });
+    expect(approveResponse.status).toBe(403);
+    const approvePayload = errorResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.error.details?.documentId).toBe("foreign_approval_document");
   });
 });

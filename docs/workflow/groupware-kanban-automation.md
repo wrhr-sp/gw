@@ -59,5 +59,7 @@ OTA의 갱신된 자동보고 범위를 그룹웨어에 맞게 적용한다.
 
 - `gw-blocked-report-watch.sh`: `blocked`/`review-required` 등 실제 멈춤 카드만 싱드 보고 카드로 생성한다.
 - `gw-worker-recovery-watch.sh`: stale running, timeout/crash/protocol violation 징후를 원본 카드 comment로 남긴다.
+- `gw-report-delivery-watch.sh`: 싱드 최종보고/후속보고 전달 누락, 중복 보고, 원본 체인 정리 누락 같은 release gate 이후 후처리 이상 징후를 감시한다.
 - 정상 진행, 단순 완료, 역할봇 중간 로그는 자동보고하지 않는다.
 - 비밀값·권한·비용·외부 배포/연결·DB/운영 데이터 변경은 승인 전 자동 실행하지 않는다.
+- 위 감시/보고 스크립트를 수정했다면 기능 코드와 별도 취급하지 않고 GitHub release gate 검토 범위에 포함한다.
