@@ -277,9 +277,30 @@ li {
   color: var(--text);
 }
 
+.touch-button:disabled,
+.touch-button--secondary:disabled,
 .touch-button[aria-disabled="true"],
 .touch-button--secondary[aria-disabled="true"] {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.placeholder-action {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 220px;
+}
+
+.placeholder-action__button {
+  width: 100%;
+  font: inherit;
+}
+
+.placeholder-action__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .horizontal-scroll {

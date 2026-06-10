@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import { offlineGuidance } from "../mobile-pwa-config";
 
@@ -27,12 +28,8 @@ export default function AttendancePage() {
       description="출근/퇴근 CTA, 오늘 상태, 마지막 기록, 정정 요청 진입점을 작은 화면 우선으로 다시 정리한 placeholder 입니다."
       actions={
         <div className="action-row">
-          <span className="touch-button" aria-disabled="true">
-            출근 등록 placeholder
-          </span>
-          <span className="touch-button--secondary" aria-disabled="true">
-            퇴근 등록 placeholder
-          </span>
+          <PlaceholderAction label="출근 등록 placeholder" hint="오프라인/placeholder 단계에서는 실제 출근 기록을 남기지 않습니다." />
+          <PlaceholderAction label="퇴근 등록 placeholder" hint="온라인 연결과 서버 검증이 가능할 때만 실제 퇴근 등록을 허용합니다." tone="secondary" />
         </div>
       }
     >
