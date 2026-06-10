@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"이지만, Phase 2 기준으로 인증/조직 1차 skeleton 이 추가되었습니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"이지만, Phase 3 기준으로 인증/조직 + 근태/휴가 1차 skeleton 이 추가되었습니다.
 
 들어 있는 것:
 
@@ -12,7 +12,8 @@
 - Workers + Hono API 시작점
 - placeholder 로그인/로그아웃/내 정보/조직 조회/관리자 초대 API
 - 권한별 조직 조회 차단을 포함한 기본 RBAC read gate
-- D1 migration 골격 (`0001`, `0002`)
+- 근태 조회 범위 제한, 휴가 신청/승인 placeholder, self-approval 차단 guardrail
+- D1 migration 골격 (`0001`, `0002`, `0003`)
 - 로컬 검증 명령과 테스트
 
 아직 하지 않은 것:
@@ -37,6 +38,7 @@
 - `apps/api/wrangler.bindings.example.jsonc`
 - `db/migrations/0001_initial_schema.sql`
 - `db/migrations/0002_auth_org_phase2.sql`
+- `db/migrations/0003_attendance_leave_phase3.sql`
 
 핵심 원칙은 간단합니다.
 실제 비밀값과 실제 리소스 ID는 아직 저장소에 들어가면 안 됩니다.
@@ -83,13 +85,28 @@ curl http://127.0.0.1:8787/api/permissions \
   -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN'
 curl -i http://127.0.0.1:8787/api/employees \
   -H 'cookie: gw_session=dev-placeholder-session_EMPLOYEE'
+curl -i 'http://127.0.0.1:8787/api/attendance/records?employeeId=employee_other_company' \
+  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN'
+curl -i -X POST http://127.0.0.1:8787/api/leave/requests/foreign_request_id/approve \
+  -H 'content-type: application/json' \
+  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  --data '{"reason":"foreign request repro"}'
+curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_demo/approve \
+  -H 'content-type: application/json' \
+  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  --data '{"reason":"self approval repro"}'
+curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pending/approve \
+  -H 'content-type: application/json' \
+  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  --data '{"reason":"team pending approval repro"}'
 ```
 
 운영 주의:
 
 - 위 cookie 값은 로컬 placeholder 계약 예시일 뿐이며 실운영 secret 이 아닙니다.
-- 마지막 요청은 권한 부족 확인용 예시이며 403 이 나와야 정상입니다.
-- 응답/로그에 실제 비밀번호, 실제 세션 토큰, 실제 초대 코드를 남기면 안 됩니다.
+- `EMPLOYEE` 조직 조회, 다른 회사 `employeeId` 조회, 자기 own 휴가 승인, 임의 request id 승인은 모두 403 이어야 정상입니다.
+- `leave_request_team_pending` 승인만 200 이어야 하며, 이 응답도 placeholder audit candidate 검증용입니다.
+- 응답/로그에 실제 비밀번호, 실제 세션 토큰, 실제 초대 코드, 실제 사유 전문을 남기면 안 됩니다.
 
 ## placeholder 파일 사용 원칙
 
@@ -157,8 +174,21 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `/api/health`, `/api/auth/login`, `/api/me` 기본 확인
 - `COMPANY_ADMIN` 또는 `HR_ADMIN` 으로 조직 조회가 되는지 확인
 - `EMPLOYEE` 로 직원/부서/역할/권한 조회 시 403 이 나오는지 확인
+- `HR_ADMIN` 으로 다른 회사 `employeeId` 조회 시 403 이 나오는지 확인
+- `HR_ADMIN`/`MANAGER` own 요청(`leave_request_demo`) self-approval 이 403 인지 확인
+- `HR_ADMIN` 이 팀 대기 요청(`leave_request_team_pending`) 승인 시 200 인지 확인
+- `foreign_request_id` 같은 임의 휴가 요청 id 승인 시 403 이 나오는지 확인
 - placeholder 파일에 실제 비밀값이 없는지 확인
 - 문서에 승인 필요 범위가 남아 있는지 확인
+
+## 다음 Phase 운영 관점 메모
+
+Phase 3 근태/휴가 1차로 넘어가면 운영자는 아래를 특히 본다.
+
+- attendance/leave endpoint 가 실제 운영 데이터 없이도 placeholder 검증 가능한지
+- 출퇴근/정정/휴가 승인 요청이 감사 로그 후보를 남길 구조인지
+- 실데이터 반입, production migration, 외부 장비 연동이 승인 필요 항목으로 분리되어 있는지
+- 승인자 권한(`attendance.manage`, `leave.approve`)과 본인 요청 권한(`attendance.read`, `leave.request`)이 섞이지 않았는지
 
 ## 같이 보면 좋은 문서
 
@@ -166,3 +196,4 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `docs/guides/cloudflare-first-developer-guide.md`
 - `docs/guides/cloudflare-first-user-guide.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
+- `docs/architecture/phase-3-attendance-leave-scope.md`

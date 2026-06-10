@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   appRoutes,
+  attendanceActionResponseSchema,
+  attendanceCorrectionResponseSchema,
+  attendanceListRecordsResponseSchema,
   authLoginResponseSchema,
   createInviteResponseSchema,
   errorResponseSchema,
+  leaveActionResponseSchema,
+  leaveBalanceListResponseSchema,
+  leaveRequestCreateResponseSchema,
+  leaveRequestListResponseSchema,
+  leaveTypeListResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listPermissionsResponseSchema,
@@ -177,5 +185,242 @@ describe("Phase 2 auth/org skeleton", () => {
     const payload = errorResponseSchema.parse(await response.json());
     expect(payload.error.code).toBe("FORBIDDEN");
     expect(payload.error.details?.requiredPermission).toBe(requiredPermission);
+  });
+});
+
+describe("Phase 3 attendance/leave skeleton", () => {
+  it("allows employee to check in and check out with placeholder attendance contract", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const checkInResponse = await app.request(appRoutes.attendance.checkIn, {
+      method: "POST",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(checkInResponse.status).toBe(201);
+    const checkInPayload = attendanceActionResponseSchema.parse(await checkInResponse.json());
+    expect(checkInPayload.data.record.status).toBe("checked_in");
+    expect(checkInPayload.data.audit.action).toBe("attendance.check_in");
+
+    const checkOutResponse = await app.request(appRoutes.attendance.checkOut, {
+      method: "POST",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(checkOutResponse.status).toBe(200);
+    const checkOutPayload = attendanceActionResponseSchema.parse(await checkOutResponse.json());
+    expect(checkOutPayload.data.record.status).toBe("checked_out");
+    expect(checkOutPayload.data.record.checkOutAt).not.toBeNull();
+    expect(checkOutPayload.data.audit.action).toBe("attendance.check_out");
+  });
+
+  it("lists employee attendance records and accepts correction requests", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const recordsResponse = await app.request(`${appRoutes.attendance.records}?workDateFrom=2026-06-01&workDateTo=2026-06-30`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(recordsResponse.status).toBe(200);
+    const recordsPayload = attendanceListRecordsResponseSchema.parse(await recordsResponse.json());
+    expect(recordsPayload.data.items.length).toBeGreaterThan(0);
+    expect(recordsPayload.data.filters.workDateFrom).toBe("2026-06-01");
+
+    const correctionResponse = await app.request(appRoutes.attendance.corrections, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        attendanceRecordId: recordsPayload.data.items[0]?.id ?? "attendance_record_today",
+        reason: "퇴근 시간이 누락되었습니다.",
+        requestedCheckOutAt: "2026-06-10T18:10:00.000Z",
+        note: "QR 체크아웃 누락",
+      }),
+    });
+
+    expect(correctionResponse.status).toBe(201);
+    const correctionPayload = attendanceCorrectionResponseSchema.parse(await correctionResponse.json());
+    expect(correctionPayload.data.request.status).toBe("requested");
+    expect(correctionPayload.data.audit.action).toBe("attendance.correction.request");
+  });
+
+  it("returns leave types, balances, and requests for request-capable roles", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const [typesResponse, balancesResponse, requestsResponse] = await Promise.all([
+      app.request(appRoutes.leave.types, { headers: { cookie } }),
+      app.request(appRoutes.leave.balances, { headers: { cookie } }),
+      app.request(appRoutes.leave.requests, { headers: { cookie } }),
+    ]);
+
+    expect(typesResponse.status).toBe(200);
+    expect(balancesResponse.status).toBe(200);
+    expect(requestsResponse.status).toBe(200);
+
+    const typesPayload = leaveTypeListResponseSchema.parse(await typesResponse.json());
+    const balancesPayload = leaveBalanceListResponseSchema.parse(await balancesResponse.json());
+    const requestsPayload = leaveRequestListResponseSchema.parse(await requestsResponse.json());
+
+    expect(typesPayload.data.items.some((item) => item.code === "annual")).toBe(true);
+    expect(balancesPayload.data.items[0]?.remainingDays).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(requestsPayload.data.items)).toBe(true);
+    expect(requestsPayload.data.items).toHaveLength(1);
+    expect(requestsPayload.data.items[0]?.id).toBe("leave_request_demo");
+  });
+
+  it("creates placeholder leave requests and blocks approval for non-approvers", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const createResponse = await app.request(appRoutes.leave.requests, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        leaveTypeId: "leave_type_annual",
+        startDate: "2026-06-20",
+        endDate: "2026-06-20",
+        unit: "day",
+        days: 1,
+        reason: "가족 행사",
+      }),
+    });
+
+    expect(createResponse.status).toBe(201);
+    const createPayload = leaveRequestCreateResponseSchema.parse(await createResponse.json());
+    expect(createPayload.data.request.approvalStatus).toBe("pending");
+    expect(createPayload.data.audit.action).toBe("leave.request.create");
+
+    const approveResponse = await app.request(appRoutes.leave.approve(createPayload.data.request.id), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "셀프 승인 불가",
+      }),
+    });
+
+    expect(approveResponse.status).toBe(403);
+    const approvePayload = errorResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.error.details?.requiredPermission).toBe("leave.approve");
+  });
+
+  it("forbids attendance managers from querying unknown employee ids", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const response = await app.request(`${appRoutes.attendance.records}?employeeId=employee_other_company`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.employeeId).toBe("employee_other_company");
+  });
+
+  it("blocks leave approval for unknown placeholder request ids", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const response = await app.request(appRoutes.leave.approve("foreign_request_id"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "test approval",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.requestId).toBe("foreign_request_id");
+  });
+
+  it.each(["HR_ADMIN", "MANAGER"])("blocks %s self-approval on owned placeholder leave requests", async (role) => {
+    const { cookie } = await loginAndGetCookie(role);
+
+    const response = await app.request(appRoutes.leave.approve("leave_request_demo"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "self approval should be blocked",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.requestId).toBe("leave_request_demo");
+  });
+
+  it("allows approvers to approve and reject subordinate placeholder leave requests", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const requestsResponse = await app.request(appRoutes.leave.requests, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(requestsResponse.status).toBe(200);
+    const requestsPayload = leaveRequestListResponseSchema.parse(await requestsResponse.json());
+    expect(requestsPayload.data.items.map((item) => item.id)).toEqual([
+      "leave_request_demo",
+      "leave_request_team_pending",
+    ]);
+
+    const approveResponse = await app.request(appRoutes.leave.approve("leave_request_team_pending"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "인수인계 계획 확인 완료",
+      }),
+    });
+
+    expect(approveResponse.status).toBe(200);
+    const approvePayload = leaveActionResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.data.request.approvalStatus).toBe("approved");
+    expect(approvePayload.data.audit.action).toBe("leave.request.approve");
+    expect(approvePayload.data.request.requestedBy).toBe("user_employee");
+    expect(approvePayload.data.request.reviewedBy).toBe("user_hr_admin");
+
+    const rejectResponse = await app.request(appRoutes.leave.reject("leave_request_team_pending"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        reason: "대체 근무자 확인 전 재조정 필요",
+      }),
+    });
+
+    expect(rejectResponse.status).toBe(200);
+    const rejectPayload = leaveActionResponseSchema.parse(await rejectResponse.json());
+    expect(rejectPayload.data.request.approvalStatus).toBe("rejected");
+    expect(rejectPayload.data.audit.action).toBe("leave.request.reject");
+    expect(rejectPayload.data.request.requestedBy).toBe("user_employee");
+    expect(rejectPayload.data.request.reviewedBy).toBe("user_hr_admin");
   });
 });

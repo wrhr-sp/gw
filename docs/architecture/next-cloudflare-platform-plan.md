@@ -505,6 +505,8 @@ Expo / React Native
 
 ### Phase 3. 근태/휴가
 
+상세 범위는 `docs/architecture/phase-3-attendance-leave-scope.md` 를 기준으로 한다.
+
 - 출근/퇴근
 - 근태 기록
 - 근태 수정 요청
