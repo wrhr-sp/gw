@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { appRoutes } from "@gw/shared";
+
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const spaceCards = [
   {
@@ -25,41 +26,40 @@ const metadataChecklist = [
 
 export default function DocumentsPage() {
   return (
-    <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/dashboard">← 대시보드로</Link>
-      <h1>문서함 1차 skeleton</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        이 화면은 실제 파일 저장소가 아니라, 문서함 목록/접근 경계/첨부 metadata 흐름을 먼저 정리하기 위한 placeholder 입니다.
-      </p>
+    <PageShell
+      eyebrow="모바일 문서함 접근성 점검"
+      title="문서함 1차 skeleton"
+      description="문서함 목록/접근 경계/첨부 metadata 흐름을 모바일에서도 읽기 쉽게 카드형으로 정리한 placeholder 입니다."
+      actions={<Pill tone="accent">no storage key leakage</Pill>}
+    >
+      <SurfaceSection title="문서 공간 카드" description="작은 화면에서도 문서 공간 제목과 가드레일을 먼저 보여 줍니다.">
+        <div className="grid-auto">
+          {spaceCards.map((space) => (
+            <article key={space.id} className="route-card">
+              <Pill>{space.guardrail}</Pill>
+              <h3>{space.title}</h3>
+              <p>{space.description}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-        {spaceCards.map((space) => (
-          <article key={space.id} style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-            <h2 style={{ marginTop: 0 }}>{space.title}</h2>
-            <p style={{ lineHeight: 1.7 }}>{space.description}</p>
-            <p style={{ marginBottom: 0, color: "#4b5563" }}>가드레일: {space.guardrail}</p>
-          </article>
-        ))}
-      </section>
-
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>첨부 metadata placeholder</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="첨부 metadata placeholder" description="다운로드/preview 완성형 없이도 무엇을 노출하지 말아야 하는지 먼저 고정합니다.">
+        <ul className="summary-list">
           {metadataChecklist.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, background: "#f9fafb" }}>
-        <h2 style={{ marginTop: 0 }}>연결할 API</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="연결할 API" description="same-origin /api 경로와 읽음 확인 흐름을 유지합니다." muted>
+        <ul className="summary-list">
           <li><a href={appRoutes.documents.spaces}>{appRoutes.documents.spaces}</a> — 문서함 목록/생성</li>
           <li><a href={appRoutes.documents.files}>{appRoutes.documents.files}</a> — 접근 가능한 파일 목록</li>
           <li><a href={appRoutes.documents.fileMetadata}>{appRoutes.documents.fileMetadata}</a> — metadata 생성</li>
           <li><a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a> — 문서 읽음 확인</li>
         </ul>
-      </section>
-    </main>
+      </SurfaceSection>
+    </PageShell>
   );
 }

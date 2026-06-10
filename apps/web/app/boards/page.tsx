@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { appRoutes } from "@gw/shared";
+
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const boardCards = [
   {
@@ -25,43 +26,41 @@ const composerChecklist = [
 
 export default function BoardsPage() {
   return (
-    <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/dashboard">← 대시보드로</Link>
-      <h1>게시판 1차 skeleton</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        Phase 5 게시판 화면은 공지, 일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 먼저 고정하기 위한 placeholder 입니다.
-        실제 저장/검색/알림은 후속 단계에서 붙입니다.
-      </p>
+    <PageShell
+      eyebrow="모바일 게시판 접근성 점검"
+      title="게시판 1차 skeleton"
+      description="공지/일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 모바일에서도 읽기 쉽도록 정리한 placeholder 입니다."
+      actions={<Pill tone="accent">touch-first reading flow</Pill>}
+    >
+      <SurfaceSection title="게시판 목록 카드" description="작은 화면에서도 제목·권한·CTA 우선순위가 보이도록 카드형 목록을 유지합니다.">
+        <div className="grid-auto">
+          {boardCards.map((board) => (
+            <article key={board.id} className="route-card">
+              <Pill>{board.guardrail}</Pill>
+              <h3>{board.name}</h3>
+              <p>{board.description}</p>
+              <a href={`/boards/${board.id}`}>상세 placeholder 보기 →</a>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-        {boardCards.map((board) => (
-          <article key={board.id} style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-            <h2 style={{ marginTop: 0 }}>{board.name}</h2>
-            <p style={{ lineHeight: 1.7 }}>{board.description}</p>
-            <p style={{ color: "#4b5563", marginBottom: 12 }}>권한 경계: {board.guardrail}</p>
-            <a href={`/boards/${board.id}`}>상세 placeholder 보기 →</a>
-          </article>
-        ))}
-      </section>
-
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>게시글 작성 placeholder</h2>
-        <ol style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="게시글 작성 placeholder" description="hover 전용 표현 대신 touch 환경에서도 이해되는 문구와 순서를 유지합니다.">
+        <ol className="number-list">
           {composerChecklist.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ol>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, background: "#f9fafb" }}>
-        <h2 style={{ marginTop: 0 }}>연결할 API</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="연결할 API" description="모바일 route 와 same-origin /api 경로를 그대로 이어 줍니다." muted>
+        <ul className="summary-list">
           <li><a href={appRoutes.boards.notices}>{appRoutes.boards.notices}</a> — 공지형 게시판 목록</li>
           <li><a href={appRoutes.boards.boards}>{appRoutes.boards.boards}</a> — 일반 게시판 목록/생성</li>
           <li><a href={appRoutes.boards.posts("board_general")}>{appRoutes.boards.posts("board_general")}</a> — 게시글 목록/작성</li>
           <li><a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a> — 게시글/문서 읽음 확인 공통 endpoint</li>
         </ul>
-      </section>
-    </main>
+      </SurfaceSection>
+    </PageShell>
   );
 }

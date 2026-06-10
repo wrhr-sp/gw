@@ -544,11 +544,14 @@ Expo / React Native
 
 ### Phase 6. 모바일/PWA
 
+- 상세 범위는 `docs/architecture/phase-6-mobile-pwa-scope.md` 를 기준으로 한다.
 - 모바일 최적화
 - PWA manifest
 - 오프라인 안내
 - 모바일 출퇴근 UX
 - 모바일 결재 UX
+- preview URL 준비 기준은 `docs/architecture/cloudflare-preview-url-preparation.md` 를 따른다.
+- preview 단계 기본 URL 후보는 `workers.dev` 로 두고, manifest/API 경로는 상대 경로와 same-origin `/api` 기준을 유지한다.
 
 ### Phase 7. 급여/노무 확장
 

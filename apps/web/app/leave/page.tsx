@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { appRoutes } from "@gw/shared";
+
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const leaveTypes = [
   { code: "annual", name: "연차", unit: "day", note: "기본 연차 placeholder" },
@@ -19,96 +20,105 @@ const approvals = [
 
 export default function LeavePage() {
   return (
-    <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px", display: "grid", gap: 24 }}>
-      <div>
-        <Link href="/">← 홈으로</Link>
-        <h1 style={{ marginBottom: 12 }}>휴가 skeleton</h1>
-        <p style={{ lineHeight: 1.7, marginBottom: 0 }}>
-          휴가 유형, 잔여 snapshot, 신청, 승인/반려 대기 목록의 정보구조를 고정하는 placeholder 입니다.
-          자동 차감·이월·소멸 계산, 실제 알림 발송, payroll 연동은 이번 범위에 포함되지 않습니다.
-        </p>
-      </div>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>휴가 유형 / 잔여 placeholder</h2>
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+    <PageShell
+      eyebrow="모바일 휴가 신청/잔여 skeleton"
+      title="휴가 skeleton"
+      description="잔여 snapshot, 신청, 승인 대기 카드를 작은 화면 우선으로 정리하고 긴 표는 보조 표현으로 남긴 placeholder 입니다."
+      actions={
+        <div className="action-row">
+          <span className="touch-button" aria-disabled="true">
+            휴가 신청 placeholder
+          </span>
+          <span className="touch-button--secondary" aria-disabled="true">
+            승인 대기 보기
+          </span>
+        </div>
+      }
+    >
+      <SurfaceSection title="휴가 유형과 잔여 요약" description="모바일에서는 잔여 snapshot 을 카드형으로 먼저 읽습니다.">
+        <div className="grid-auto">
           {leaveTypes.map((item) => (
-            <article key={item.code} style={{ border: "1px solid #f3f4f6", borderRadius: 16, padding: 16 }}>
-              <p style={{ margin: 0, color: "#4b5563", fontSize: 14 }}>{item.code}</p>
-              <h3 style={{ margin: "8px 0" }}>{item.name}</h3>
-              <p style={{ margin: 0, lineHeight: 1.6 }}>단위: {item.unit}</p>
-              <p style={{ marginBottom: 0, lineHeight: 1.6, color: "#6b7280" }}>{item.note}</p>
+            <article key={item.code} className="info-card">
+              <Pill>{item.code}</Pill>
+              <h3>{item.name}</h3>
+              <p>단위: {item.unit}</p>
+              <p>{item.note}</p>
             </article>
           ))}
         </div>
-        <div style={{ overflowX: "auto", marginTop: 16 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+
+        <div className="mobile-record-list" style={{ display: "grid", marginTop: 16 }}>
+          {balances.map((row) => (
+            <article key={row.type} className="record-card">
+              <strong>{row.type}</strong>
+              <span>기초 {row.opening} · 사용 {row.used}</span>
+              <span>예약 {row.reserved} · 잔여 {row.remaining}</span>
+            </article>
+          ))}
+        </div>
+
+        <div className="horizontal-scroll" style={{ marginTop: 16 }}>
+          <table className="responsive-table">
             <thead>
-              <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "10px 8px" }}>유형</th>
-                <th style={{ padding: "10px 8px" }}>기초</th>
-                <th style={{ padding: "10px 8px" }}>사용</th>
-                <th style={{ padding: "10px 8px" }}>예약</th>
-                <th style={{ padding: "10px 8px" }}>잔여</th>
+              <tr>
+                <th>유형</th>
+                <th>기초</th>
+                <th>사용</th>
+                <th>예약</th>
+                <th>잔여</th>
               </tr>
             </thead>
             <tbody>
               {balances.map((row) => (
-                <tr key={row.type} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "12px 8px" }}>{row.type}</td>
-                  <td style={{ padding: "12px 8px" }}>{row.opening}</td>
-                  <td style={{ padding: "12px 8px" }}>{row.used}</td>
-                  <td style={{ padding: "12px 8px" }}>{row.reserved}</td>
-                  <td style={{ padding: "12px 8px" }}>{row.remaining}</td>
+                <tr key={row.type}>
+                  <td>{row.type}</td>
+                  <td>{row.opening}</td>
+                  <td>{row.used}</td>
+                  <td>{row.reserved}</td>
+                  <td>{row.remaining}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0, marginTop: 16 }}>
-          <li><a href={appRoutes.leave.types}>{appRoutes.leave.types}</a></li>
-          <li><a href={appRoutes.leave.balances}>{appRoutes.leave.balances}</a></li>
-        </ul>
-      </section>
 
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>휴가 신청 placeholder</h2>
-        <p style={{ lineHeight: 1.7 }}>
-          employee 는 leave.request 권한으로 신청하고, 승인자는 leave.approve 권한으로 별도 승인/반려 endpoint 를 사용합니다.
-        </p>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          <input disabled value="leave_type_annual" readOnly style={{ border: "1px solid #d1d5db", borderRadius: 12, padding: "12px 14px", color: "#6b7280" }} />
-          <input disabled value="2026-06-20" readOnly style={{ border: "1px solid #d1d5db", borderRadius: 12, padding: "12px 14px", color: "#6b7280" }} />
-          <input disabled value="2026-06-20" readOnly style={{ border: "1px solid #d1d5db", borderRadius: 12, padding: "12px 14px", color: "#6b7280" }} />
-          <input disabled value="1 day" readOnly style={{ border: "1px solid #d1d5db", borderRadius: 12, padding: "12px 14px", color: "#6b7280" }} />
+        <div className="link-row" style={{ marginTop: 16 }}>
+          <a href={appRoutes.leave.types}>{appRoutes.leave.types}</a>
+          <a href={appRoutes.leave.balances}>{appRoutes.leave.balances}</a>
         </div>
-        <textarea disabled rows={4} style={{ marginTop: 12, border: "1px solid #d1d5db", borderRadius: 12, padding: "12px 14px", color: "#6b7280", width: "100%" }} defaultValue="가족 행사" />
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0, marginTop: 16 }}>
+      </SurfaceSection>
+
+      <SurfaceSection title="휴가 신청 placeholder" description="필드 순서를 줄이고 입력 부담을 최소화한 모바일 1차 구조입니다.">
+        <div className="field-grid">
+          <input disabled value="leave_type_annual" readOnly className="field" />
+          <input disabled value="2026-06-20" readOnly className="field" />
+          <input disabled value="2026-06-20" readOnly className="field" />
+          <input disabled value="1 day" readOnly className="field" />
+        </div>
+        <textarea disabled rows={4} className="textarea-field" defaultValue="가족 행사" style={{ marginTop: 12 }} />
+        <ul className="summary-list" style={{ marginTop: 16 }}>
           <li><a href={appRoutes.leave.requests}>{appRoutes.leave.requests}</a> — 조회/신청 skeleton</li>
           <li>잔여 값은 자동 계산 확정본이 아니라 snapshot placeholder 입니다.</li>
         </ul>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, background: "#f9fafb" }}>
-        <h2 style={{ marginTop: 0 }}>승인 / 반려 대기 placeholder</h2>
-        <p style={{ lineHeight: 1.7 }}>
-          승인자는 대기 목록을 보고 approve / reject endpoint 로 상태를 바꾸지만, 이 Phase 에서는 실제 알림 발송이나 결재 문서 연동을 하지 않습니다.
-        </p>
-        <div style={{ display: "grid", gap: 12 }}>
+      <SurfaceSection title="승인 / 반려 대기 placeholder" description="긴 목록 대신 카드형 대기 상태를 먼저 보여 줍니다." muted>
+        <div className="mobile-summary-grid">
           {approvals.map((row) => (
-            <article key={`${row.employee}-${row.period}`} style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, background: "white" }}>
+            <article key={`${row.employee}-${row.period}`} className="info-card">
+              <Pill tone="warning">{row.status}</Pill>
               <strong>{row.employee}</strong>
-              <p style={{ margin: "8px 0", lineHeight: 1.6 }}>{row.type} / {row.period} / {row.status}</p>
-              <p style={{ margin: "8px 0 0", lineHeight: 1.6, color: "#6b7280" }}>{row.note}</p>
+              <p>{row.type} / {row.period}</p>
+              <p>{row.note}</p>
             </article>
           ))}
         </div>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0, marginTop: 16 }}>
+        <ul className="summary-list" style={{ marginTop: 16 }}>
           <li><a href={appRoutes.leave.approve("leave_request_demo")}>{appRoutes.leave.approve("leave_request_demo")}</a></li>
           <li><a href={appRoutes.leave.reject("leave_request_demo")}>{appRoutes.leave.reject("leave_request_demo")}</a></li>
           <li>민감한 실제 사유 전문과 증빙 파일은 placeholder 범위에서 마스킹/미연결 상태를 유지합니다.</li>
         </ul>
-      </section>
-    </main>
+      </SurfaceSection>
+    </PageShell>
   );
 }
