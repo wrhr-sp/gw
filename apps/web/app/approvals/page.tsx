@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const mailboxCards = [
@@ -42,12 +43,8 @@ export default function ApprovalsPage() {
       description="모바일에서 내 승인함을 먼저 열고, 기안 작성과 상세 상태를 작은 화면에서도 우선순위가 드러나게 정리한 placeholder 입니다."
       actions={
         <div className="action-row">
-          <span className="touch-button" aria-disabled="true">
-            승인 placeholder
-          </span>
-          <span className="touch-button--secondary" aria-disabled="true">
-            반려 placeholder
-          </span>
+          <PlaceholderAction label="승인 placeholder" hint="실제 승인 처리는 self-approval guardrail 과 회사 범위 검증이 연결된 뒤에만 활성화됩니다." />
+          <PlaceholderAction label="반려 placeholder" hint="반려 처리 역시 서버 검증과 감사 로그 연결 전까지는 실행되지 않습니다." tone="secondary" />
         </div>
       }
     >

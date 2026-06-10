@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const leaveTypes = [
@@ -26,12 +27,8 @@ export default function LeavePage() {
       description="잔여 snapshot, 신청, 승인 대기 카드를 작은 화면 우선으로 정리하고 긴 표는 보조 표현으로 남긴 placeholder 입니다."
       actions={
         <div className="action-row">
-          <span className="touch-button" aria-disabled="true">
-            휴가 신청 placeholder
-          </span>
-          <span className="touch-button--secondary" aria-disabled="true">
-            승인 대기 보기
-          </span>
+          <PlaceholderAction label="휴가 신청 placeholder" hint="실제 신청 제출은 placeholder 범위 밖이며 온라인에서만 열립니다." />
+          <PlaceholderAction label="승인 대기 보기" hint="승인 대기함은 연결된 승인 데이터가 준비될 때까지 읽기 전용 안내만 제공합니다." tone="secondary" />
         </div>
       }
     >
