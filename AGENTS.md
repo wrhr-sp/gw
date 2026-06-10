@@ -40,7 +40,13 @@
 - **low**: 기존 승인 범위 안의 작은 문서 정리. 싱드 승인으로 처리 가능.
 - **medium**: 제품/정책/설계 문서 변경. 사용자 확인을 권장한다.
 - **high**: 코드 변경, PR, 대규모 구조 변경, 운영 영향 작업. 사용자 승인 필수.
-- **restricted**: secret, `.env`, DB migration, systemd/gateway, 배포, 외부 전송, 결제/정산/개인정보, 대량 삭제. 사용자 명시 승인 전에는 진행하지 않는다.
+- **restricted**: secret, `.env`, DB migration, systemd/gateway, 외부 전송, 결제/정산/개인정보, 대량 삭제. 단, merge/release/deploy/배포가 카드 작업범위에 명시되어 있으면 그 범위 안에서는 승인된 것으로 보고 진행하되 검증 근거를 남긴다.
+
+## 카드 작업범위 승인 규칙
+- Kanban 카드의 제목/본문/체크리스트에 `merge`, `release`, `릴리즈`, `deploy`, `디플로이`, `배포`, `PR merge`, `branch cleanup`, `release gate`가 작업범위로 명시되어 있으면, 그 항목은 대장이 카드 작업범위로 명시 승인한 것으로 간주하고 진행한다.
+- 단, 작업자는 여전히 최신 head 기준 CI/check, 빌드/테스트, 배포 전 guard, smoke check, 롤백/복구 가능성, 변경 범위를 검증하고 근거를 남겨야 한다.
+- 카드에 명시되지 않은 secret 입력/교체, production DB 실데이터 변경, DNS/custom domain, 유료 리소스 생성·증액, 결제/환불/개인정보 처리, destructive 삭제는 별도 승인 없이는 진행하지 않는다.
+- 카드 범위가 애매하거나 "배포 준비"처럼 실행 여부가 불명확하면 실행하지 말고 싱드가 범위를 확인한다.
 
 ## Kanban DB·자동화 스크립트 안전 규칙
 자동화, watcher, Kanban, systemd, dispatcher, 보고 스크립트를 생성하거나 수정할 때는 아래를 먼저 확인한다.
@@ -61,7 +67,7 @@
 - 금지 파일 또는 범위 밖 파일 수정이 필요한 경우
 - secret, `.env`, credential, 개인정보, 기업 제휴 코드, 결제/정산 정보 노출 가능성이 있는 경우
 - 검증 실패, 충돌, 보안 위험, 운영 위험이 발견된 경우
-- DB migration, 배포, systemd/gateway, 외부 API 실제 연동이 필요한 경우
+- DB migration, systemd/gateway, 외부 API 실제 연동이 필요하거나, 배포/merge/release가 카드 작업범위에 명시되지 않았는데 필요한 경우
 
 ## 보고 형식
 가능하면 아래 순서로 짧게 보고한다.

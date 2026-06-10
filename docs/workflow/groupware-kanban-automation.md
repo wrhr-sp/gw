@@ -82,18 +82,18 @@ cd /home/wrhrgw/gw
 
 ## deploy 파이프라인
 
-배포/웹앱 호스팅은 위험도가 있으므로 중간 승인 단계를 둔다.
+배포/웹앱 호스팅은 위험도가 있으므로 범위 확인 단계를 둔다. 단, 카드 작업범위에 deploy/배포/release/릴리즈가 명시되어 있으면 해당 실행은 대장 명시승인으로 간주한다.
 
 ```text
-배포 기획 → 배포 준비 → 배포 위험 리뷰 → 사용자 배포 승인 대기 → 배포 실행/운영 점검 → 배포 검증 → 배포 문서화 → 최종 보고
+배포 기획 → 배포 준비 → 배포 위험 리뷰 → 배포 범위 확인/승인 게이트 → 배포 실행/운영 점검 → 배포 검증 → 배포 문서화 → 최종 보고
 기획봇 → 구현봇 → 리뷰봇 → 싱드(scheduled 대기) → 운영봇 → 테스트봇 → 문서봇 → 싱드
 ```
 
 중요:
 
-- `사용자 배포 승인 대기` 카드는 `scheduled` 대기 상태로 만든다.
-- 실제 외부 배포, 도메인 연결, 유료 리소스 사용, 비밀값 입력은 사용자 승인 전에는 진행하지 않는다.
-- 승인 후 해당 카드를 `unblock` 또는 `promote`하면 후속 배포 단계가 이어진다.
+- `배포 범위 확인/승인 게이트` 카드는 별도 대기 카드가 아니라, 카드 작업범위에 실제 배포/릴리즈가 포함됐는지 확인하는 게이트다.
+- 실제 외부 배포/릴리즈가 카드 작업범위에 명시되어 있으면 승인된 것으로 진행한다. 단, 카드에 명시되지 않은 도메인/DNS, 유료 리소스, 비밀값 입력/교체, production DB 실데이터 변경은 별도 승인 전에는 진행하지 않는다.
+- 범위 확인 후 해당 카드가 완료되면 후속 배포 단계가 이어진다. 범위가 불명확하면 block하고 대장에게 확인한다.
 
 ## 자동 작업 생성 스크립트
 
@@ -239,7 +239,7 @@ dispatcher dry-run:
 핵심:
 - `--show-status`, `--wait-ci` 는 읽기 중심이다.
 - `--create` 는 `--approved` 가 없으면 실제 생성 대신 "생성 예정"만 보여준다.
-- `--merge`, `--delete-branch` 는 `--approved` 없이는 실행되지 않는다.
+- `--merge`, `--delete-branch` 는 안전 플래그 `--approved`가 필요하다. 카드 작업범위에 merge/release gate/branch cleanup이 명시되어 있으면 해당 플래그 사용은 승인된 것으로 본다.
 - merge는 PR 상태와 CI green 조건을 다시 확인한 뒤에만 진행된다.
 
 예시:
@@ -422,7 +422,7 @@ hermes kanban --board groupware dispatch --max 1
 
 ## 위험 작업 승인 규칙
 
-- `groupware-pr-flow.sh`의 merge/delete는 `--approved` 없이는 실행하지 않는다.
+- `groupware-pr-flow.sh`의 merge/delete는 안전 플래그 `--approved`가 필요하다. 카드 작업범위에 merge/release gate/branch cleanup이 있으면 플래그 사용은 승인된 것으로 본다.
 - `groupware-db-safe.sh`의 migrate-apply/seed-apply도 승인 플래그 없이는 실행하지 않는다.
 - `groupware-deploy-smoke-check.sh`는 읽기 요청만 하며 자동 재배포/롤백을 하지 않는다.
 - worker recovery는 timeout/crash를 감지하고 코멘트를 남기되, 검증 없이 임의 완료 처리하지 않는다.

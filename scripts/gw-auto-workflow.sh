@@ -260,7 +260,7 @@ def build_steps(kind: str, hold: bool) -> list[Step]:
 - 기존 구조와 빌드/시작 명령을 확인한다.
 - 환경변수는 이름만 확인하고 값은 출력하지 않는다.
 - 포트, 런타임, 빌드 출력 경로, provider 설정 파일을 확인한다.
-- 실제 외부 배포는 사용자 승인 전에는 하지 않는다.""",
+- 실제 외부 배포가 이 Kanban 카드 작업범위에 명시되어 있으면 승인된 것으로 보고, 배포 전 guard/검증/롤백 가능성을 확인한 뒤 진행한다. 카드 범위가 준비/검토뿐이면 실행하지 않는다.""",
             ),
             Step(
                 key="risk-review",
@@ -277,20 +277,20 @@ def build_steps(kind: str, hold: bool) -> list[Step]:
             ),
             Step(
                 key="approval",
-                label="사용자 배포 승인 대기",
+                label="배포 범위 확인/승인 게이트",
                 assignee="singde",
-                title_prefix="배포 승인 대기",
+                title_prefix="배포 범위 확인/승인 게이트",
                 skills=["web-app-hosting", "one-three-one-rule"],
-                body="""부모 배포 위험 리뷰 결과를 바탕으로 사용자 승인을 받아야 한다.
+                body="""부모 배포 위험 리뷰 결과를 바탕으로 카드 작업범위에 실제 배포/릴리즈가 명시되어 있는지 확인한다.
 
 해야 할 일:
 - 실제 외부 배포/도메인 연결/유료 리소스/비밀값 입력이 필요한지 확인한다.
-- 사용자에게 승인 요청용 요약을 남긴다.
-- 승인 전에는 이 카드를 unblock하지 않는다.
+- 카드 작업범위에 실제 배포/릴리즈가 명시되어 있으면 명시승인으로 보고 다음 실행 카드로 넘긴다.
+- 카드 범위가 준비/검토뿐이거나 DNS/유료/비밀값/production DB 변경이 새로 필요하면 대장에게 별도 승인 요청용 요약을 남기고 block한다.
 
 원 작업 설명:
 {body}""",
-                initial_status="scheduled",
+                initial_status=None,
             ),
             Step(
                 key="deploy",
@@ -298,7 +298,7 @@ def build_steps(kind: str, hold: bool) -> list[Step]:
                 assignee="gwops",
                 title_prefix="배포 실행/운영 점검",
                 skills=["web-app-hosting", "systemd-service-operations", "github-pr-workflow"],
-                body="""부모 승인 카드가 unblock된 뒤에만 진행한다.
+                body="""부모 범위 확인 카드가 배포/릴리즈가 카드 작업범위에 포함됨을 확인한 뒤 진행한다.
 
 해야 할 일:
 - 선택된 호스팅 방식에 맞춰 배포 또는 배포 절차를 수행한다.

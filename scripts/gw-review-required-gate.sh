@@ -158,12 +158,13 @@ PY
 }
 
 run_standard_verification() {
-  echo "표준 검증 실행: api test → api e2e → web test → web build → api build"
+  echo "표준 검증 실행: api test/typecheck → web test/typecheck/build → workspace check"
   pnpm --filter api test
-  pnpm --filter api test:e2e
+  pnpm --filter api typecheck
   pnpm --filter web test
+  pnpm --filter web typecheck
   pnpm --filter web build
-  pnpm --filter api build
+  pnpm check
 }
 
 handle_task() {
