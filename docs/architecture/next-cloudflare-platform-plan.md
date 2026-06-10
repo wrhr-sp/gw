@@ -69,6 +69,7 @@ Mobile App
 - D1 SQL migration skeleton 반영
 - 로컬 개발/검증 명령 정리
 - 사용자/운영/개발 가이드 추가
+- Phase 5 게시판/문서 1차 범위 문서 추가
 
 ### 별도 승인 필요 범위
 
@@ -530,11 +531,16 @@ Expo / React Native
 
 ### Phase 5. 게시판/문서
 
+상세 범위는 `docs/architecture/phase-5-boards-documents-scope.md` 를 기준으로 한다.
+
 - 공지
 - 게시판
+- 게시글 작성/목록/상세
 - 댓글
-- 첨부파일
+- 문서함/첨부 metadata
 - 읽음 확인
+- 회사 scope / 접근 경계 / metadata 보안
+- 보고/감시 스크립트 release gate 검토
 
 ### Phase 6. 모바일/PWA
 
@@ -567,14 +573,21 @@ Expo / React Native
 완료
 - 아키텍처 방향 확정
 - Phase 범위 문서 작성
-- Web/API/shared/db skeleton 반영
+- Phase 2~4 Web/API/shared/db skeleton 반영
+- Phase 5 shared/API 계약 시작점 반영
 - 로컬 검증 명령 정리
 - 사용자/운영/개발 가이드 정리
 
+보완 필요
+- notice-only 게시판 쓰기 차단
+- 존재하지 않는 문서함 metadata 생성 차단
+- 임의/접근 불가 게시글 read receipt 생성 차단
+- Phase 5 DB migration 과 Web placeholder 화면 추가
+
 다음 단계
-- 인증/세션 계약 추가
-- 조직/직원 도메인 확장
-- 근태/휴가/전자결재 API 확장
+- Phase 5 guardrail 테스트와 API 보강
+- `db/migrations/0005_*` 추가
+- `apps/web/app/boards`, `app/posts`, `app/documents` 추가
 - Cloudflare 실리소스 연결 검토(승인 후)
 ```
 

@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 3 근태/휴가 1차 remediation 이후 기준, 그리고 Phase 4 전자결재 1차 범위를 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, 그리고 Phase 5 게시판/문서 1차 범위를 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -12,14 +12,15 @@ packages/
   shared/     # 공통 경로, 화면 섹션, auth/org 계약
 db/
   migrations/ # D1 SQL migration skeleton
-  docs/
+docs/
+  architecture/
   guides/
 ```
 
 현재 기준으로 실제 코드가 들어 있는 핵심 경로는 `apps/web`, `apps/api`, `packages/shared`, `db/migrations` 입니다.
-특히 전자결재 1차 작업에서는 `docs/architecture/phase-4-approvals-scope.md`, `apps/web/app/approvals/page.tsx`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts`, `db/migrations/0004_approvals_phase4.sql`, `apps/api/test/auth-org.spec.ts` 를 같이 봐야 문서와 코드가 맞습니다.
+특히 전자결재 1차 remediation 과 다음 게시판/문서 1차 작업에서는 `docs/architecture/phase-4-approvals-scope.md`, `docs/architecture/phase-5-boards-documents-scope.md`, `apps/web/app/approvals/page.tsx`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts`, `db/migrations/0004_approvals_phase4.sql`, `apps/api/test/auth-org.spec.ts` 를 같이 봐야 문서와 코드가 맞습니다.
 
-## Phase 2~4에서 확인된 핵심 골격
+## Phase 2~5에서 확인된 핵심 골격
 
 ### `packages/shared`
 
@@ -33,11 +34,14 @@ db/
 - `appRoutes.attendance.checkIn`, `checkOut`, `records`, `corrections`
 - `appRoutes.leave.types`, `balances`, `requests`, `approve(id)`, `reject(id)`
 - `appRoutes.approvals.forms`, `lines`, `documents`, `detail(id)`, `inbox`, `approve(id)`, `reject(id)`, `referenceCandidates`, `agreementCandidates`
+- `appRoutes.boards.notices`, `boards`, `posts(boardId)`, `postDetail(postId)`, `comments(postId)`
+- `appRoutes.documents.spaces`, `files`, `fileMetadata`, `appRoutes.readReceipts`
 - 로그인/세션/회사/직원/조직 schema
 - 근태 기록/정정 요청 schema
 - 휴가 유형/잔여/신청/승인 schema
 - 전자결재 양식/결재선/문서/단계/참조 후보 schema
-- 공통 에러 응답 wrapper와 `attendance.read`, `attendance.manage`, `leave.request`, `leave.approve`, `approval.form.manage`, `approval.line.manage`, `approval.document.read`, `approval.document.write`, `approval.document.approve` 권한 코드
+- 게시판/문서함/첨부 metadata/읽음 확인 schema
+- 공통 에러 응답 wrapper와 `attendance.read`, `attendance.manage`, `leave.request`, `leave.approve`, `approval.form.manage`, `approval.line.manage`, `approval.document.read`, `approval.document.write`, `approval.document.approve`, `board.notice.read`, `board.manage`, `board.post.write`, `board.comment.write`, `document.space.read`, `document.space.manage`, `document.file.read`, `document.file.write` 권한 코드
 
 ### `apps/api`
 
@@ -52,10 +56,11 @@ Workers API입니다.
 - 출근/퇴근, 근태 기록 조회, 정정 요청 skeleton
 - 휴가 유형/잔여/신청 조회, 승인/반려 skeleton
 - 결재 양식/결재선/기안/문서함/상세/승인·반려/참조·합의 후보 skeleton
+- 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 skeleton
 - 권한별 401/403 응답을 주는 기본 RBAC gate
 - self-owned 휴가 승인 차단, 임의 request id 차단, 타 회사 `employeeId` 조회 차단
 - 전자결재에서 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지, 승인함/참조함 접근 경계 guardrail
-- 로그인/권한/근태/휴가/전자결재에 대한 Vitest 계약 테스트
+- 로그인/권한/근태/휴가/전자결재/게시판/문서에 대한 Vitest 계약 테스트
 
 주의:
 
@@ -73,6 +78,7 @@ Workers API입니다.
 - `0002_auth_org_phase2.sql` — departments / roles / user_roles / invites / auth_sessions / audit_logs
 - `0003_attendance_leave_phase3.sql` — attendance_records / attendance_correction_requests / leave_types / leave_requests / leave_balances
 - `0004_approvals_phase4.sql` — approval_forms / approval_lines / approval_documents / approval_steps / approval_references
+- 아직 `0005_*` 형태의 Phase 5 migration 은 없음
 
 1차 설계 선택:
 
@@ -93,6 +99,7 @@ Workers API입니다.
 - `app/leave/page.tsx` — 휴가 유형/잔여/신청/승인 대기 placeholder
 - `app/approvals/page.tsx` — 전자결재 진입점 placeholder
 - `app/admin/page.tsx` — 관리자 초대/권한 placeholder
+- 아직 `app/boards`, `app/posts`, `app/documents` 는 없음
 
 ## 개발자가 바로 쓰는 명령
 
@@ -108,9 +115,11 @@ pnpm test
 
 현재 known gap:
 
-- `pnpm check` 는 지금 `apps/api/src/app.ts:703` 의 `employee.employmentStatus !== "offboarded"` 비교 때문에 `TS2367` 로 실패합니다.
-- `POST /api/approvals/documents` 는 새 기안 payload 를 반영해도 응답 id 를 `approval_document_demo` 로 고정해서, 바로 이어지는 detail 조회가 seed demo 문서를 돌려줍니다.
-- `apps/api/test/auth-org.spec.ts` 의 approval create/detail 테스트는 seed demo 와 같은 제목/요약을 사용하고 id/referenceType 위주로만 확인해서 위 불일치를 놓칩니다.
+- `pnpm check` 는 통과하지만, 기존 테스트만으로 Phase 5 접근 경계를 다 잡지는 못합니다.
+- `POST /api/boards/board_notice/posts` 는 공지형 게시판인데도 `EMPLOYEE` 요청이 403 대신 201 으로 통과합니다.
+- `POST /api/documents/files/metadata` 는 존재하지 않는 `spaceId=document_space_missing` 도 403 대신 201 으로 통과합니다.
+- `POST /api/read-receipts` 는 존재하지 않는/접근 불가 `targetId=foreign_post_123` 도 403 대신 201 으로 통과합니다.
+- `git diff --name-only -- db apps/web docs/workflow` 가 비어 있으므로, Phase 5 작업은 아직 DB/Web/workflow 까지 닿지 않았습니다.
 
 개별 확인:
 
@@ -218,20 +227,21 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 
 ## 다음 Phase에서 바로 이어질 범위
 
-Phase 4 전자결재 1차는 이제 skeleton 자체보다 remediation 과 검증 보강이 우선입니다.
+다음 구현 기준은 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 지금은 "API/shared 선행 반영 뒤에 guardrail·DB·Web 이 남은 상태"로 보는 편이 정확합니다.
 
-- `apps/api/src/app.ts` 의 approval create → detail round-trip 불일치를 먼저 수정
-- `buildApprovalCandidates` 의 타입 비교 오류를 정리해 `pnpm check` 를 다시 통과시키기
-- approval 계약 테스트에서 seed demo 와 겹치지 않는 입력으로 create/detail 불일치 재발을 막기
-- `packages/shared` 와 `apps/web/app/approvals` 는 현재 계약을 유지하되, 실제 fetch/에러 처리 확장 전까지 placeholder 한계를 문서와 화면에 분명히 남기기
-- `db/migrations/0004_approvals_phase4.sql` 를 기준으로 후속 실제 저장 로직이 필요한 컬럼/인덱스만 추가 검토
+우선순위는 아래 순서를 권장합니다.
+
+- 먼저 `apps/api/src/app.ts` 와 `apps/api/test/auth-org.spec.ts` 에서 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성을 막는 재현 테스트를 추가하고 통과시킴
+- 이후 `db/migrations/0005_*` 계열로 `notice_boards`, `board_posts`, `board_comments`, `document_spaces`, `document_files`, `read_receipts` skeleton 추가
+- `apps/web/app/boards`, `apps/web/app/posts`, `apps/web/app/documents` placeholder 화면을 build/typecheck 가능한 수준으로 연결
+- 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 보강
 - `gw-report-delivery-watch.sh` 를 포함한 보고/감시 스크립트 변경이 있다면 release gate 문서와 함께 검토
 
 주의:
 
-- 실제 전자결재 문서 데이터 입력, 전자서명 연동, production DB migration 실행은 별도 승인 전까지 하지 않는다.
-- 기안자/승인자/참조자 권한을 분리하고, 상태 변경 endpoint 는 감사 로그 후보를 남길 수 있어야 한다.
-- 자기 문서 자기 승인 차단과 타 회사 문서 접근 차단은 후속 실제 구현에서도 유지해야 한다.
+- 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력, production DB migration 실행은 별도 승인 전까지 하지 않는다.
+- 게시글/댓글/문서함 권한을 분리하고, metadata 응답에 storage key 같은 내부 값이 과도하게 노출되지 않게 한다.
+- 타 회사 게시글/문서 접근 차단과 placeholder 표시 유지 기준은 후속 실제 구현에서도 유지해야 한다.
 
 ## 같이 보면 좋은 문서
 
@@ -239,6 +249,7 @@ Phase 4 전자결재 1차는 이제 skeleton 자체보다 remediation 과 검증
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
+- `docs/architecture/phase-5-boards-documents-scope.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`
 - `docs/guides/cloudflare-first-operator-guide.md`
 - `docs/guides/cloudflare-first-user-guide.md`

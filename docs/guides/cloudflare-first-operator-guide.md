@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 다만 이제는 Phase 4 전자결재 1차 skeleton 까지 들어와 있어서 인증/조직 + 근태/휴가 + 전자결재 placeholder 흐름을 함께 점검할 수 있습니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 4 전자결재 placeholder 위에 Phase 5 게시판/문서 API/shared skeleton 이 일부 추가된 상태를 점검하는 단계입니다.
 
 들어 있는 것:
 
@@ -15,6 +15,8 @@
 - 근태 조회 범위 제한, 휴가 신청/승인 placeholder, self-approval 차단 guardrail
 - 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 진입점
 - D1 migration 골격 (`0001`, `0002`, `0003`, `0004`)
+- Phase 5 게시판/문서 1차 범위 문서
+- 게시판/문서 API/shared skeleton 과 guardrail 재현 항목
 - 로컬 검증 명령과 테스트
 
 아직 하지 않은 것:
@@ -40,6 +42,9 @@
 - `db/migrations/0001_initial_schema.sql`
 - `db/migrations/0002_auth_org_phase2.sql`
 - `db/migrations/0003_attendance_leave_phase3.sql`
+- `packages/shared/src/contracts.ts`
+- `apps/api/test/auth-org.spec.ts`
+- `docs/architecture/phase-5-boards-documents-scope.md`
 
 핵심 원칙은 간단합니다.
 실제 비밀값과 실제 리소스 ID는 아직 저장소에 들어가면 안 됩니다.
@@ -50,9 +55,11 @@
 
 현재 known gap:
 
-- `pnpm check` 는 현재 `apps/api/src/app.ts:703` 에서 `TS2367` 로 실패합니다.
-- `POST /api/approvals/documents` 뒤에 같은 id 로 상세 조회를 하면 새 기안 문서 대신 seed demo 문서가 나오는 round-trip 불일치가 있습니다.
-- 기존 `apps/api/test/auth-org.spec.ts` approval create/detail 테스트는 seed demo 와 같은 값으로 검사해서 이 결함을 아직 잡지 못합니다.
+- `pnpm check` 자체는 통과합니다.
+- 하지만 임시 repro 검증에서는 `POST /api/boards/board_notice/posts` 가 403 대신 201 을 반환했습니다.
+- 존재하지 않는 `spaceId=document_space_missing` 으로도 `POST /api/documents/files/metadata` 가 403 대신 201 을 반환했습니다.
+- 존재하지 않는/접근 불가 게시글 id(`foreign_post_123`)로도 `POST /api/read-receipts` 가 403 대신 201 을 반환했습니다.
+- `git diff --name-only -- db apps/web docs/workflow` 결과가 비어 있어서, Phase 5 작업은 아직 API/shared 중심의 부분 구현 상태입니다.
 
 ### 1) 기본 검사
 
@@ -174,7 +181,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 
 다음 카드나 다음 담당자에게 넘기기 전에 아래를 확인합니다.
 
-- `pnpm check` 현재 known fail 이 해소되었는지 확인
+- `pnpm check` 통과
 - `pnpm build` 통과
 - `pnpm typecheck` 통과
 - `pnpm test` 통과
@@ -185,20 +192,25 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `HR_ADMIN` 으로 다른 회사 `employeeId` 조회 시 403 이 나오는지 확인
 - `HR_ADMIN`/`MANAGER` own 요청(`leave_request_demo`) self-approval 이 403 인지 확인
 - `HR_ADMIN` 이 팀 대기 요청(`leave_request_team_pending`) 승인 시 200 인지 확인
-- approval create → detail round-trip 이 seed demo 문서와 섞이지 않는지 확인
+- `POST /api/boards/board_notice/posts` 가 403 인지 확인
+- `POST /api/documents/files/metadata` 에 `spaceId=document_space_missing` 를 넣었을 때 403 인지 확인
+- `POST /api/read-receipts` 에 `targetType=post,targetId=foreign_post_123` 를 넣었을 때 403 인지 확인
+- `git diff --name-only -- db apps/web docs/workflow` 로 Phase 5 DB/Web/workflow 변경 유무 확인
 - `foreign_request_id` 같은 임의 휴가 요청 id 승인 시 403 이 나오는지 확인
 - placeholder 파일에 실제 비밀값이 없는지 확인
 - 문서에 승인 필요 범위가 남아 있는지 확인
 
 ## 다음 Phase 운영 관점 메모
 
-전자결재 1차를 계속 다룰 때 운영자는 아래를 특히 봅니다.
+게시판/문서 1차를 이어서 볼 때 운영자는 아래를 특히 봅니다.
 
-- approval endpoint 가 실제 운영 문서 없이도 placeholder 검증 가능한지
-- 결재 양식/결재선/문서함/승인함이 회사 scope 와 문서 접근 경계를 유지하는지
-- 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지 같은 guardrail 이 테스트와 문서에 남아 있는지
-- approval create → detail round-trip 과 `pnpm check` 같은 known fail 이 정리되었는지
-- 실데이터 반입, production migration, 외부 전자서명/SaaS 연동이 승인 필요 항목으로 분리되어 있는지
+- 기존 테스트가 통과해도 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성이 실제로는 막히는지
+- `packages/shared` 와 `apps/api` 변경만 있는 상태인지, 아니면 `db/` 와 `apps/web/` 도 같이 갱신됐는지
+- 게시판/문서 endpoint 가 실제 운영 게시글/파일 없이도 placeholder 검증 가능한지
+- 게시판/댓글/문서함이 회사 scope 와 접근 경계를 유지하는지
+- 첨부 metadata 응답에 storage key 같은 내부 값이 과도하게 노출되지 않는지
+- 타 회사 게시글/문서 접근 금지 같은 guardrail 이 테스트와 문서에 남아 있는지
+- 실데이터 반입, production migration, 실제 R2 업로드, 외부 문서보관/SaaS 연동이 승인 필요 항목으로 분리되어 있는지
 - `gw-report-delivery-watch.sh` 등 감시/보고 스크립트 변경이 release gate 검토와 같이 묶여 있는지
 
 ## 같이 보면 좋은 문서
@@ -209,3 +221,4 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
+- `docs/architecture/phase-5-boards-documents-scope.md`
