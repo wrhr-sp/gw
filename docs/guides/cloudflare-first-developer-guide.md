@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, 그리고 Phase 6 모바일/PWA 1차 현재 상태와 남은 한계를 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, 그리고 Phase 7 same-origin API 연결 1차 결과와 남은 한계를 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -121,8 +121,8 @@ pnpm test
 
 - `pnpm check` 통과
 - `pnpm build` 통과
-- `pnpm --filter @gw/web build:cf` 통과
-- `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts` 에서 2개 파일, 40개 테스트 통과
+- `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 통과
+- `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 오류로 실패
 - `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
 - `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 skeleton 이 추가됨
 - 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
@@ -239,7 +239,21 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 
 다음 구현자는 preview 관련 결정을 아래 기준으로 이어받습니다.
 
-### 1) 배포 전 승인 범위
+### 1) 현재 공개 preview 와 admin remediation 결과
+
+- 현재 공개 Web preview URL: `https://gw-web.werehere31.workers.dev`
+- 공개 smoke 확인 결과: `/`, `/login`, `/boards`, `/documents` 는 200
+- 공개 admin 경계 확인 결과: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 모두 `/login` 으로 307 redirect
+- 현재 저장소 코드 기준으로 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가됐고 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 에서 `/api/health` 200 JSON, `/api/me` 401 JSON, forged placeholder cookie 차단을 확인했습니다.
+- admin 차단 근거 코드는 `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/web/admin-preview-guard.test.ts` 입니다.
+
+### 2) 남아 있는 한계
+
+- 현재 공개 preview 는 새 same-origin 브리지 코드를 다시 배포해 확인한 상태가 아닙니다.
+- 로컬 `pnpm check` 와 `pnpm --filter @gw/web build` 는 통과했지만, `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 중 `.next/server/app/admin/users/page.js` 를 찾지 못해 실패합니다.
+- 따라서 `Phase 6` 문서에서 same-origin `/api/*` 원칙은 유지하되, "현재 public preview 에서 새 API smoke 가 통과했다"고 쓰면 안 됩니다.
+
+### 3) 배포 전 승인 범위
 
 승인 전에는 아래를 실행하지 않습니다.
 
@@ -250,7 +264,14 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - 실제 D1/R2/KV/Queue/Durable Object/Cron 생성
 - production DB migration / production R2 업로드 / 실데이터 반입
 
-### 2) preview 배포 후 우선 확인 경로
+### 4) 재배포/롤백 기본 명령
+
+- 재배포 전 인증 확인: `set -a; . .secrets/cloudflare.env; set +a; bash scripts/gw-cloudflare-check.sh`
+- 재배포: `pnpm --filter @gw/web build:cf && pnpm check && pnpm --filter @gw/web deploy:cf`
+- 버전 확인: `pnpm exec wrangler deployments list --json --name gw-web`
+- 롤백: `pnpm exec wrangler rollback <version-id> --name gw-web -y`
+
+### 5) preview 배포 후 우선 확인 경로
 
 Web:
 
@@ -281,7 +302,7 @@ PWA:
 
 - `/manifest.webmanifest`
 
-### 3) Phase 6 모바일/PWA가 지켜야 할 코드 기준
+### 6) Phase 6 모바일/PWA가 지켜야 할 코드 기준
 
 - `apps/web/public/manifest.webmanifest` 의 `start_url: "/"` 를 유지합니다.
 - `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 를 유지합니다.
@@ -289,14 +310,17 @@ PWA:
 - 앱 내부 링크와 API 기본 경로는 same-origin 상대 경로(`/api/*`)를 우선 유지합니다.
 - 별도 origin API가 필요하면 기본값이 아니라 환경변수 override 로 분리합니다.
 
-### 4) Phase 6 구현 문서 기준
+### 7) Phase 6 구현 문서 기준
 
 - 상세 범위는 `docs/architecture/phase-6-mobile-pwa-scope.md` 를 기준으로 봅니다.
+- 국내 그룹웨어 공개 패턴을 추상화한 UX 원칙은 `docs/ux/groupware-benchmark-principles.md` 를 함께 봅니다.
+- same-origin API 연결 1차 결정은 `docs/architecture/phase-7-api-same-origin-scope.md` 를 함께 봅니다.
 - 현재 코드는 `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/*`, `apps/web/app/documents/page.tsx` 를 중심으로 작은 화면 UX 를 정리한 상태입니다.
 - `apps/web/app/mobile-pwa-config.ts` 에 manifest 값, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트를 모아 두었습니다.
 - icon placeholder, 설치 안내, offline 안내 skeleton 은 넣되 push/background sync/service worker 고도화는 별도 승인 전까지 하지 않습니다.
 - 다만 `attendance`/`leave`/`approvals` 의 큰 CTA 는 아직 실제 버튼/링크 semantics 로 바뀌지 않았으므로 후속 작업자가 접근성 remediation 을 먼저 보는 편이 맞습니다.
 - App Store/Play Store, Expo/React Native, 실제 외부 공개 URL, production DB migration, secret/DNS/유료 리소스는 이번 범위가 아닙니다.
+- 넓은 화면은 왼쪽 사이드바, 좁은 화면은 하단 탭이라는 탐색 기본안을 깨지 않는 선에서 route/UI 를 확장합니다.
 
 ## 다음 구현자가 바로 이어받을 범위
 
@@ -309,6 +333,7 @@ PWA:
 - 현재 403 guardrail 케이스를 유지한 채 실제 게시글/댓글/문서함 저장 로직과 모바일 fetch/error/loading 흐름을 단계적으로 확장함
 - R2 업로드, 다운로드, 미리보기, 검색, 알림처럼 아직 비어 있는 실제 기능은 승인 범위 안에서만 추가함
 - Phase 6 모바일/PWA 는 `docs/architecture/cloudflare-preview-url-preparation.md` 기준으로 상대 경로 manifest 와 same-origin `/api` 가정을 유지함
+- Phase 7 API same-origin 1차는 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 별도 공개 API 도메인 추가보다 Web origin 내부 브리지를 먼저 검토함
 - 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 더 보강함
 - `gw-report-delivery-watch.sh` 를 포함한 보고/감시 스크립트 변경이 있다면 release gate 문서와 함께 검토
 
@@ -326,6 +351,7 @@ PWA:
 - `docs/architecture/phase-4-approvals-scope.md`
 - `docs/architecture/phase-5-boards-documents-scope.md`
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
+- `docs/ux/groupware-benchmark-principles.md`
 - `docs/architecture/cloudflare-preview-url-preparation.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`
 - `docs/guides/cloudflare-first-operator-guide.md`

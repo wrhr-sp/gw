@@ -545,6 +545,7 @@ Expo / React Native
 ### Phase 6. 모바일/PWA
 
 - 상세 범위는 `docs/architecture/phase-6-mobile-pwa-scope.md` 를 기준으로 한다.
+- UX 정보구조/탐색 기준은 `docs/ux/groupware-benchmark-principles.md` 를 함께 본다.
 - 모바일 최적화
 - PWA manifest
 - 오프라인 안내
@@ -553,9 +554,20 @@ Expo / React Native
 - preview URL 준비 기준은 `docs/architecture/cloudflare-preview-url-preparation.md` 를 따른다.
 - preview 단계 기본 URL 후보는 `workers.dev` 로 두고, manifest/API 경로는 상대 경로와 same-origin `/api` 기준을 유지한다.
 
-### Phase 7. 급여/노무 확장
+### Phase 7. API same-origin 연결 1차
+
+- 상세 범위는 `docs/architecture/phase-7-api-same-origin-scope.md` 를 기준으로 한다.
+- 공개 기본 주소는 Web origin 하나를 유지하고, API 기본 경로는 same-origin `/api/*` 를 유지한다.
+- 저장소 코드 기준 same-origin `/api/health`, `/api/me` 브리지는 이미 들어왔고, 다음 게이트는 이를 Cloudflare build/redeploy 까지 다시 잇는 것이다.
+- 별도 공개 API hostname 추가보다 Web origin 내부 브리지 방식을 우선 검토한다.
+- D1/R2/KV/실데이터/production migration 은 범위 밖으로 둔다.
+
+### Phase 7+. 급여/노무 확장
 
 초기에는 자동 계산보다 데이터 준비에 집중한다.
+
+- 정보구조는 `docs/ux/groupware-benchmark-principles.md` 의 업무 묶음/권한 경계/넓은 화면 왼쪽 사이드바/모바일 하단 탭 원칙을 따른다.
+- same-origin API 연결 1차가 끝난 뒤에 확장한다.
 
 - 근태 집계 export
 - 급여 기초항목
