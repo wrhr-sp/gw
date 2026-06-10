@@ -13,7 +13,18 @@ import {
   attendanceCorrectionResponseSchema,
   attendanceListRecordsResponseSchema,
   authLoginResponseSchema,
+  boardCommentCreateResponseSchema,
+  boardCommentListResponseSchema,
+  boardPostCreateResponseSchema,
+  boardPostDetailResponseSchema,
+  boardPostListResponseSchema,
+  boardResponseSchema,
+  boardsListResponseSchema,
   createInviteResponseSchema,
+  documentFileListResponseSchema,
+  documentFileMetadataCreateResponseSchema,
+  documentSpaceListResponseSchema,
+  documentSpaceResponseSchema,
   errorResponseSchema,
   leaveActionResponseSchema,
   leaveBalanceListResponseSchema,
@@ -25,6 +36,8 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  noticeListResponseSchema,
+  readReceiptCreateResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 
@@ -661,5 +674,341 @@ describe("Phase 4 approvals skeleton", () => {
     expect(approveResponse.status).toBe(403);
     const approvePayload = errorResponseSchema.parse(await approveResponse.json());
     expect(approvePayload.error.details?.documentId).toBe("foreign_approval_document");
+  });
+});
+
+describe("Phase 5 boards/documents skeleton", () => {
+  it("lists notices and boards and lets employees create posts, comments, and read receipts in accessible boards", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const noticesResponse = await app.request(appRoutes.boards.notices, {
+      headers: { cookie },
+    });
+    expect(noticesResponse.status).toBe(200);
+    const noticesPayload = noticeListResponseSchema.parse(await noticesResponse.json());
+    expect(noticesPayload.data.items.every((item) => item.boardType === "notice")).toBe(true);
+
+    const boardsResponse = await app.request(appRoutes.boards.boards, {
+      headers: { cookie },
+    });
+    expect(boardsResponse.status).toBe(200);
+    const boardsPayload = boardsListResponseSchema.parse(await boardsResponse.json());
+    expect(boardsPayload.data.items.map((item) => item.id)).toContain("board_general");
+
+    const postsResponse = await app.request(appRoutes.boards.posts("board_general"), {
+      headers: { cookie },
+    });
+    expect(postsResponse.status).toBe(200);
+    const postsPayload = boardPostListResponseSchema.parse(await postsResponse.json());
+    expect(postsPayload.data.board.id).toBe("board_general");
+
+    const createPostResponse = await app.request(appRoutes.boards.posts("board_general"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        title: "점심 메뉴 추천",
+        bodyPreview: "오늘 뭐 드실래요?",
+        isNotice: false,
+      }),
+    });
+    expect(createPostResponse.status).toBe(201);
+    const createPostPayload = boardPostCreateResponseSchema.parse(await createPostResponse.json());
+    expect(createPostPayload.data.post.boardId).toBe("board_general");
+    expect(createPostPayload.data.audit.action).toBe("board.post.create");
+
+    const detailResponse = await app.request(appRoutes.boards.postDetail(createPostPayload.data.post.id), {
+      headers: { cookie },
+    });
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = boardPostDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.post.id).toBe(createPostPayload.data.post.id);
+
+    const createCommentResponse = await app.request(appRoutes.boards.comments(createPostPayload.data.post.id), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        body: "오늘은 비빔밥이요.",
+      }),
+    });
+    expect(createCommentResponse.status).toBe(201);
+    const createCommentPayload = boardCommentCreateResponseSchema.parse(await createCommentResponse.json());
+    expect(createCommentPayload.data.comment.postId).toBe(createPostPayload.data.post.id);
+
+    const commentsResponse = await app.request(appRoutes.boards.comments(createPostPayload.data.post.id), {
+      headers: { cookie },
+    });
+    expect(commentsResponse.status).toBe(200);
+    const commentsPayload = boardCommentListResponseSchema.parse(await commentsResponse.json());
+    expect(commentsPayload.data.items.map((item) => item.id)).toContain(createCommentPayload.data.comment.id);
+
+    const receiptResponse = await app.request(appRoutes.readReceipts, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        targetType: "post",
+        targetId: createPostPayload.data.post.id,
+      }),
+    });
+    expect(receiptResponse.status).toBe(201);
+    const receiptPayload = readReceiptCreateResponseSchema.parse(await receiptResponse.json());
+    expect(receiptPayload.data.receipt.targetId).toBe(createPostPayload.data.post.id);
+  });
+
+  it("blocks board and document-space management for employees and forbids private document space access", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const createBoardResponse = await app.request(appRoutes.boards.boards, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        boardType: "general",
+        name: "자유 게시판",
+        slug: "general-2",
+        visibility: "company",
+        isNoticeOnly: false,
+      }),
+    });
+    expect(createBoardResponse.status).toBe(403);
+    const createBoardPayload = errorResponseSchema.parse(await createBoardResponse.json());
+    expect(createBoardPayload.error.details?.requiredPermission).toBe("board.manage");
+
+    const createSpaceResponse = await app.request(appRoutes.documents.spaces, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        name: "인사 전용 문서함",
+        slug: "hr-private",
+        visibility: "private",
+        isPublicWithinCompany: false,
+      }),
+    });
+    expect(createSpaceResponse.status).toBe(403);
+    const createSpacePayload = errorResponseSchema.parse(await createSpaceResponse.json());
+    expect(createSpacePayload.error.details?.requiredPermission).toBe("document.space.manage");
+
+    const listSpacesResponse = await app.request(appRoutes.documents.spaces, {
+      headers: { cookie },
+    });
+    expect(listSpacesResponse.status).toBe(200);
+    const listSpacesPayload = documentSpaceListResponseSchema.parse(await listSpacesResponse.json());
+    expect(listSpacesPayload.data.items.map((item) => item.id)).toContain("document_space_public");
+    expect(listSpacesPayload.data.items.map((item) => item.id)).not.toContain("document_space_hr_private");
+
+    const privateFilesResponse = await app.request(`${appRoutes.documents.files}?spaceId=document_space_hr_private`, {
+      headers: { cookie },
+    });
+    expect(privateFilesResponse.status).toBe(403);
+    const privateFilesPayload = errorResponseSchema.parse(await privateFilesResponse.json());
+    expect(privateFilesPayload.error.details?.spaceId).toBe("document_space_hr_private");
+  });
+
+  it("blocks employees from writing posts into notice-only boards", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const response = await app.request(appRoutes.boards.posts("board_notice"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        title: "공지에 일반 글 작성 시도",
+        bodyPreview: "notice-only board should reject employee-authored posts",
+        isNotice: false,
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.boardId).toBe("board_notice");
+  });
+
+  it("forbids forged board_post detail lookups even when the board prefix is accessible", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const response = await app.request(appRoutes.boards.postDetail("board_post_board_general_forged"), {
+      headers: { cookie },
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.postId).toBe("board_post_board_general_forged");
+  });
+
+  it("forbids read receipts for forged board_post ids even when the board prefix is accessible", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const response = await app.request(appRoutes.readReceipts, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        targetType: "post",
+        targetId: "board_post_board_general_forged",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.targetId).toBe("board_post_board_general_forged");
+  });
+
+  it("keeps employees from creating metadata in inaccessible private document spaces", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const response = await app.request(appRoutes.documents.fileMetadata, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: "document_space_hr_private",
+        fileName: "restricted.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileSize: 64000,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+  });
+
+  it("forbids metadata creation when document space does not exist", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.documents.fileMetadata, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: "document_space_missing",
+        fileName: "restricted.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileSize: 64000,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.spaceId).toBe("document_space_missing");
+  });
+
+  it.each([
+    ["post", "post_missing"],
+    ["document_file", "document_file_hr_private"],
+  ] as const)("forbids read receipts for inaccessible %s targets", async (targetType, targetId) => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const response = await app.request(appRoutes.readReceipts, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        targetType,
+        targetId,
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(payload.error.details?.targetId).toBe(targetId);
+  });
+
+  it("lets admins manage boards and document metadata without exposing storage keys", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const createBoardResponse = await app.request(appRoutes.boards.boards, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        boardType: "general",
+        name: "운영 공지 게시판",
+        slug: "ops-updates",
+        visibility: "company",
+        isNoticeOnly: false,
+      }),
+    });
+    expect(createBoardResponse.status).toBe(201);
+    const createBoardPayload = boardResponseSchema.parse(await createBoardResponse.json());
+    expect(createBoardPayload.data.board.slug).toBe("ops-updates");
+
+    const createSpaceResponse = await app.request(appRoutes.documents.spaces, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        name: "운영 문서함",
+        slug: "ops-docs",
+        visibility: "company",
+        isPublicWithinCompany: true,
+      }),
+    });
+    expect(createSpaceResponse.status).toBe(201);
+    const createSpacePayload = documentSpaceResponseSchema.parse(await createSpaceResponse.json());
+    expect(createSpacePayload.data.space.slug).toBe("ops-docs");
+
+    const filesResponse = await app.request(appRoutes.documents.files, {
+      headers: { cookie },
+    });
+    expect(filesResponse.status).toBe(200);
+    const filesPayload = documentFileListResponseSchema.parse(await filesResponse.json());
+    expect(filesPayload.data.items.length).toBeGreaterThan(0);
+
+    const metadataResponse = await app.request(appRoutes.documents.fileMetadata, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: createSpacePayload.data.space.id,
+        fileName: "board-outline.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileSize: 64000,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+    expect(metadataResponse.status).toBe(201);
+    const metadataPayload = documentFileMetadataCreateResponseSchema.parse(await metadataResponse.json());
+    expect(metadataPayload.data.file.spaceId).toBe(createSpacePayload.data.space.id);
+    expect(Object.prototype.hasOwnProperty.call(metadataPayload.data.file, "storageKey")).toBe(false);
   });
 });

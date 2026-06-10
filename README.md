@@ -94,28 +94,32 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 
 ## Phase 5 게시판/문서 1차 현재 상태
 
-기준 문서는 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 현재 작업물은 "일부 구현 + 미검증 guardrail 정리" 상태입니다.
+기준 문서는 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 현재 작업물은 "로컬 검증 통과 + guardrail 정리 반영" 상태입니다.
 
 현재 저장소에 실제로 들어 있는 항목은 아래와 같습니다.
 
 - `packages/shared/src/contracts.ts` 에 board/document route, schema, 타입, 권한 코드 추가
-- `apps/api/src/app.ts` 에 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 placeholder endpoint 추가
-- `apps/api/test/auth-org.spec.ts` 와 `packages/shared/test/contracts.spec.ts` 에 기본 계약 테스트 추가
-- Phase 5 범위/운영 문서 초안 추가
+- `apps/api/src/app.ts` 에 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 endpoint 와 접근 경계 보강 반영
+- `apps/api/test/auth-org.spec.ts` 와 `packages/shared/test/contracts.spec.ts` 에 계약/권한 테스트 추가
+- `db/migrations/0005_boards_documents_phase5.sql` 에 게시판/문서 D1 skeleton 추가
+- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` 에 placeholder 화면 추가
+- `docs/workflow/groupware-kanban-automation.md` 에 Phase 5 release gate 메모 추가
 
-아직 빠진 항목도 분명합니다.
+이번에 다시 확인한 Phase 5 guardrail 결과는 아래와 같습니다.
 
-- `db/migrations` 에는 아직 Phase 5 전용 migration (`0005_*`) 이 없습니다.
-- `apps/web/app/boards`, `apps/web/app/posts`, `apps/web/app/documents` 화면은 아직 없습니다.
-- `docs/workflow/` 아래에는 Phase 5 전용 workflow 변경이 아직 없습니다.
+- `POST /api/boards/board_notice/posts` 는 일반 구성원 요청에서 403 으로 막힙니다.
+- `POST /api/documents/files/metadata` 는 존재하지 않는 `spaceId=document_space_missing` 에서 403 으로 막힙니다.
+- `GET /api/posts/board_post_board_general_forged` 는 403 으로 막힙니다.
+- `POST /api/read-receipts` 는 forged `targetId=board_post_board_general_forged` 에서 403 으로 막힙니다.
 
-추가로, 기존 테스트 스위트는 통과하지만 임시 repro 검증에서는 아래 guardrail 누락이 다시 확인됐습니다.
+검증 명령과 실제 결과는 아래와 같습니다.
 
-- 공지형 게시판 `board_notice` 에도 `EMPLOYEE` 가 게시글을 작성할 수 있어서 `POST /api/boards/board_notice/posts` 가 403 대신 201 을 반환함
-- 존재하지 않는 문서함 `document_space_missing` 으로도 `POST /api/documents/files/metadata` 가 403 대신 201 을 반환함
-- 접근 불가/존재하지 않는 게시글 id(`foreign_post_123`)로도 `POST /api/read-receipts` 가 403 대신 201 을 반환함
+- `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts` → 2개 파일, 40개 테스트 통과
+- `pnpm check` → workspace test + typecheck 통과
+- `pnpm build` → web production build 통과 (`/boards`, `/boards/[boardId]`, `/documents`, `/posts/[postId]` 포함)
 
-즉, 현재 Phase 5 는 "API/shared 계약은 생겼지만, DB/Web skeleton 과 접근 경계 보강은 아직 남아 있는 상태"로 보는 것이 맞습니다.
+즉, 현재 Phase 5 는 "API/shared + DB skeleton + Web placeholder + guardrail 테스트가 로컬에서 맞춰진 상태"로 보는 것이 맞습니다.
+다만 실제 운영 저장/업로드/검색/알림까지 끝난 상태는 아닙니다.
 
 이번 Phase 문서에서 특히 고정한 제외/승인 필요 범위는 아래와 같습니다.
 
@@ -138,7 +142,7 @@ pnpm --filter @gw/api dev
 주의:
 
 - 현재 기준으로 `pnpm check` 는 통과합니다. 다만 이것만으로 Phase 5 접근 경계까지 모두 보장되지는 않습니다.
-- 게시판/문서 1차는 기존 테스트 외에 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성이 막히는지도 별도로 확인해야 합니다.
+- 게시판/문서 1차는 기존 테스트 외에 forged 게시글 상세 조회와 forged read receipt 생성까지 403 으로 막히는지 같이 확인해야 합니다.
 
 API 개발 서버를 띄운 뒤에는 다른 터미널에서 health/auth/me endpoint와 권한별 조직 조회를 확인할 수 있습니다.
 

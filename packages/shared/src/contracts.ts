@@ -43,6 +43,19 @@ export const appRoutes = {
     referenceCandidates: "/api/approvals/references/candidates",
     agreementCandidates: "/api/approvals/agreements/candidates",
   },
+  boards: {
+    notices: "/api/notices",
+    boards: "/api/boards",
+    posts: (boardId: string) => `/api/boards/${boardId}/posts`,
+    postDetail: (postId: string) => `/api/posts/${postId}`,
+    comments: (postId: string) => `/api/posts/${postId}/comments`,
+  },
+  documents: {
+    spaces: "/api/documents/spaces",
+    files: "/api/documents/files",
+    fileMetadata: "/api/documents/files/metadata",
+  },
+  readReceipts: "/api/read-receipts",
 } as const;
 
 export const appSections = [
@@ -108,6 +121,14 @@ export const permissionCodeSchema = z.enum([
   "approval.document.read",
   "approval.document.write",
   "approval.document.approve",
+  "board.notice.read",
+  "board.manage",
+  "board.post.write",
+  "board.comment.write",
+  "document.space.read",
+  "document.space.manage",
+  "document.file.read",
+  "document.file.write",
 ]);
 
 export const healthPayloadSchema = z.object({
@@ -608,6 +629,247 @@ export const approvalActionResponseSchema = successResponseSchema(
   }),
 );
 
+export const boardTypeSchema = z.enum(["notice", "general", "department", "document"]);
+export const boardVisibilitySchema = z.enum(["company", "department", "private"]);
+export const boardStatusSchema = z.enum(["active", "archived"]);
+export const boardPostStatusSchema = z.enum(["draft", "published", "archived"]);
+export const boardCommentStatusSchema = z.enum(["active", "hidden", "deleted"]);
+
+export const boardSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  boardType: boardTypeSchema,
+  name: z.string(),
+  slug: z.string(),
+  visibility: boardVisibilitySchema,
+  isNoticeOnly: z.boolean(),
+  status: boardStatusSchema,
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const boardPostSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  boardId: z.string(),
+  authorEmployeeId: z.string(),
+  title: z.string(),
+  bodyPreview: z.string(),
+  isNotice: z.boolean(),
+  publishedAt: z.string().datetime().nullable(),
+  pinnedUntil: z.string().datetime().nullable(),
+  status: boardPostStatusSchema,
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const boardCommentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  postId: z.string(),
+  authorEmployeeId: z.string(),
+  parentCommentId: z.string().nullable(),
+  body: z.string(),
+  deletedAt: z.string().datetime().nullable(),
+  status: boardCommentStatusSchema,
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const noticeListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(boardSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardsListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(boardSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardCreateRequestSchema = z.object({
+  boardType: z.enum(["general", "department", "document"]),
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  visibility: boardVisibilitySchema,
+  isNoticeOnly: z.boolean().default(false),
+});
+
+export const boardResponseSchema = successResponseSchema(
+  z.object({
+    board: boardSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardPostCreateRequestSchema = z.object({
+  title: z.string().min(1),
+  bodyPreview: z.string().min(1),
+  isNotice: z.boolean().default(false),
+});
+
+export const boardPostListResponseSchema = successResponseSchema(
+  z.object({
+    board: boardSchema,
+    items: z.array(boardPostSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardPostCreateResponseSchema = successResponseSchema(
+  z.object({
+    board: boardSchema,
+    post: boardPostSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardPostDetailResponseSchema = successResponseSchema(
+  z.object({
+    board: boardSchema,
+    post: boardPostSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardCommentCreateRequestSchema = z.object({
+  body: z.string().min(1),
+  parentCommentId: z.string().nullable().optional(),
+});
+
+export const boardCommentListResponseSchema = successResponseSchema(
+  z.object({
+    post: boardPostSchema,
+    items: z.array(boardCommentSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const boardCommentCreateResponseSchema = successResponseSchema(
+  z.object({
+    comment: boardCommentSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentSpaceVisibilitySchema = z.enum(["company", "department", "private"]);
+export const documentStatusSchema = z.enum(["active", "archived"]);
+
+export const documentSpaceSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  visibility: documentSpaceVisibilitySchema,
+  ownerEmployeeId: z.string(),
+  isPublicWithinCompany: z.boolean(),
+  status: documentStatusSchema,
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const documentFileSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  spaceId: z.string(),
+  ownerEmployeeId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  fileSize: z.number().int().nonnegative(),
+  versionLabel: z.string(),
+  isPublicWithinCompany: z.boolean(),
+  status: documentStatusSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const documentSpaceListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(documentSpaceSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentSpaceCreateRequestSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  visibility: documentSpaceVisibilitySchema,
+  isPublicWithinCompany: z.boolean().default(false),
+});
+
+export const documentSpaceResponseSchema = successResponseSchema(
+  z.object({
+    space: documentSpaceSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentFileListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(documentFileSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentFileMetadataCreateRequestSchema = z.object({
+  spaceId: z.string().min(1),
+  fileName: z.string().min(1),
+  contentType: z.string().min(1),
+  fileSize: z.number().int().nonnegative(),
+  versionLabel: z.string().min(1),
+  isPublicWithinCompany: z.boolean().default(false),
+});
+
+export const documentFileMetadataCreateResponseSchema = successResponseSchema(
+  z.object({
+    file: documentFileSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const readReceiptTargetTypeSchema = z.enum(["post", "document_file"]);
+
+export const readReceiptSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  targetType: readReceiptTargetTypeSchema,
+  targetId: z.string(),
+  employeeId: z.string(),
+  readAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const readReceiptCreateRequestSchema = z.object({
+  targetType: readReceiptTargetTypeSchema,
+  targetId: z.string().min(1),
+});
+
+export const readReceiptCreateResponseSchema = successResponseSchema(
+  z.object({
+    receipt: readReceiptSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export type HealthPayload = z.infer<typeof healthPayloadSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
@@ -659,4 +921,29 @@ export type ApprovalInboxResponse = z.infer<typeof approvalInboxResponseSchema>;
 export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateListResponseSchema>;
 export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
+export type Board = z.infer<typeof boardSchema>;
+export type BoardPost = z.infer<typeof boardPostSchema>;
+export type BoardComment = z.infer<typeof boardCommentSchema>;
+export type NoticeListResponse = z.infer<typeof noticeListResponseSchema>;
+export type BoardsListResponse = z.infer<typeof boardsListResponseSchema>;
+export type BoardCreateRequest = z.infer<typeof boardCreateRequestSchema>;
+export type BoardResponse = z.infer<typeof boardResponseSchema>;
+export type BoardPostCreateRequest = z.infer<typeof boardPostCreateRequestSchema>;
+export type BoardPostListResponse = z.infer<typeof boardPostListResponseSchema>;
+export type BoardPostCreateResponse = z.infer<typeof boardPostCreateResponseSchema>;
+export type BoardPostDetailResponse = z.infer<typeof boardPostDetailResponseSchema>;
+export type BoardCommentCreateRequest = z.infer<typeof boardCommentCreateRequestSchema>;
+export type BoardCommentListResponse = z.infer<typeof boardCommentListResponseSchema>;
+export type BoardCommentCreateResponse = z.infer<typeof boardCommentCreateResponseSchema>;
+export type DocumentSpace = z.infer<typeof documentSpaceSchema>;
+export type DocumentFile = z.infer<typeof documentFileSchema>;
+export type DocumentSpaceListResponse = z.infer<typeof documentSpaceListResponseSchema>;
+export type DocumentSpaceCreateRequest = z.infer<typeof documentSpaceCreateRequestSchema>;
+export type DocumentSpaceResponse = z.infer<typeof documentSpaceResponseSchema>;
+export type DocumentFileListResponse = z.infer<typeof documentFileListResponseSchema>;
+export type DocumentFileMetadataCreateRequest = z.infer<typeof documentFileMetadataCreateRequestSchema>;
+export type DocumentFileMetadataCreateResponse = z.infer<typeof documentFileMetadataCreateResponseSchema>;
+export type ReadReceipt = z.infer<typeof readReceiptSchema>;
+export type ReadReceiptCreateRequest = z.infer<typeof readReceiptCreateRequestSchema>;
+export type ReadReceiptCreateResponse = z.infer<typeof readReceiptCreateResponseSchema>;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;

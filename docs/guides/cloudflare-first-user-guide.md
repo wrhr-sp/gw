@@ -137,11 +137,11 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 게시판/문서 1차의 현재 상태는 아래처럼 이해하면 됩니다.
 
-- 사용자가 바로 열어볼 `/boards`, `/posts/[postId]`, `/documents` 화면은 아직 없습니다.
-- 대신 API 쪽에는 `/api/notices`, `/api/boards`, `/api/boards/:id/posts`, `/api/documents/spaces`, `/api/documents/files`, `/api/read-receipts` 같은 placeholder endpoint 가 먼저 들어와 있습니다.
-- 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약과 권한 경계를 맞추는 중" 입니다.
-- 다만 최근 검증에서 공지형 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 게시글 read receipt 생성이 아직 막히지 않는 문제가 확인됐습니다.
-- 실제 R2 업로드, production 문서 데이터 반입, 외부 공유 링크, OCR/전자서명 연동은 별도 승인 전까지 하지 않습니다.
+- 이제 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` placeholder 화면을 바로 열어볼 수 있습니다.
+- API 쪽에는 `/api/notices`, `/api/boards`, `/api/boards/:id/posts`, `/api/documents/spaces`, `/api/documents/files`, `/api/read-receipts` endpoint 가 연결 기준점으로 들어와 있습니다.
+- 최근 검증에서는 공지형 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, forged 게시글 상세 조회, forged 게시글 read receipt 생성이 모두 403 으로 막히는 것까지 확인했습니다.
+- 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약, placeholder 화면, 권한 경계를 먼저 맞춘 상태" 입니다.
+- 다만 실제 R2 업로드, production 문서 데이터 반입, 외부 공유 링크, OCR/전자서명 연동은 별도 승인 전까지 하지 않습니다.
 
 전자결재 1차에서 사용자가 보게 될 기본 흐름은 다음과 같습니다.
 
