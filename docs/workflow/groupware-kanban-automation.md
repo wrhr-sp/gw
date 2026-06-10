@@ -63,3 +63,13 @@ OTA의 갱신된 자동보고 범위를 그룹웨어에 맞게 적용한다.
 - 정상 진행, 단순 완료, 역할봇 중간 로그는 자동보고하지 않는다.
 - 비밀값·권한·비용·외부 배포/연결·DB/운영 데이터 변경은 승인 전 자동 실행하지 않는다.
 - 위 감시/보고 스크립트를 수정했다면 기능 코드와 별도 취급하지 않고 GitHub release gate 검토 범위에 포함한다.
+
+## Phase 5 게시판/문서 release gate 메모
+
+게시판/문서 1차 범위를 검토할 때는 아래를 함께 본다.
+
+- `db/migrations/0005_boards_documents_phase5.sql` 이 실제 운영 실행본이 아니라 D1 skeleton 인지 확인한다.
+- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` 가 placeholder 문구를 유지하는지 확인한다.
+- notice-only 게시판 일반 글 작성, 존재하지 않는 document space metadata 생성, forged 게시글 상세 조회, forged read receipt 생성이 모두 403 으로 막히는지 본다.
+- 첨부 metadata 응답/로그에 storage key 같은 내부 식별자가 노출되지 않는지 확인한다.
+- 검증 순서는 가능하면 `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts`, `pnpm check`, `pnpm build` 순서로 남기고, 이번 확인에서는 각각 40개 테스트 통과 / workspace check 통과 / web production build 통과가 나왔다.

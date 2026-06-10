@@ -78,7 +78,7 @@ Workers API입니다.
 - `0002_auth_org_phase2.sql` — departments / roles / user_roles / invites / auth_sessions / audit_logs
 - `0003_attendance_leave_phase3.sql` — attendance_records / attendance_correction_requests / leave_types / leave_requests / leave_balances
 - `0004_approvals_phase4.sql` — approval_forms / approval_lines / approval_documents / approval_steps / approval_references
-- 아직 `0005_*` 형태의 Phase 5 migration 은 없음
+- `0005_boards_documents_phase5.sql` 로 게시판/문서 D1 skeleton 이 추가됨
 
 1차 설계 선택:
 
@@ -99,7 +99,7 @@ Workers API입니다.
 - `app/leave/page.tsx` — 휴가 유형/잔여/신청/승인 대기 placeholder
 - `app/approvals/page.tsx` — 전자결재 진입점 placeholder
 - `app/admin/page.tsx` — 관리자 초대/권한 placeholder
-- 아직 `app/boards`, `app/posts`, `app/documents` 는 없음
+- `app/boards`, `app/boards/[boardId]`, `app/posts/[postId]`, `app/documents` placeholder 가 추가됨
 
 ## 개발자가 바로 쓰는 명령
 
@@ -113,13 +113,13 @@ pnpm typecheck
 pnpm test
 ```
 
-현재 known gap:
+현재 확인된 상태와 남은 한계:
 
-- `pnpm check` 는 통과하지만, 기존 테스트만으로 Phase 5 접근 경계를 다 잡지는 못합니다.
-- `POST /api/boards/board_notice/posts` 는 공지형 게시판인데도 `EMPLOYEE` 요청이 403 대신 201 으로 통과합니다.
-- `POST /api/documents/files/metadata` 는 존재하지 않는 `spaceId=document_space_missing` 도 403 대신 201 으로 통과합니다.
-- `POST /api/read-receipts` 는 존재하지 않는/접근 불가 `targetId=foreign_post_123` 도 403 대신 201 으로 통과합니다.
-- `git diff --name-only -- db apps/web docs/workflow` 가 비어 있으므로, Phase 5 작업은 아직 DB/Web/workflow 까지 닿지 않았습니다.
+- `pnpm check` 통과
+- `pnpm build` 통과
+- `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts` 에서 2개 파일, 40개 테스트 통과
+- `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
+- 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
 
 개별 확인:
 
@@ -227,14 +227,14 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 
 ## 다음 Phase에서 바로 이어질 범위
 
-다음 구현 기준은 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 지금은 "API/shared 선행 반영 뒤에 guardrail·DB·Web 이 남은 상태"로 보는 편이 정확합니다.
+다음 구현 기준은 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 지금은 "guardrail·DB skeleton·Web placeholder 까지 맞춘 뒤 실제 저장/업로드/검색을 남겨 둔 상태"로 보는 편이 정확합니다.
 
 우선순위는 아래 순서를 권장합니다.
 
-- 먼저 `apps/api/src/app.ts` 와 `apps/api/test/auth-org.spec.ts` 에서 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성을 막는 재현 테스트를 추가하고 통과시킴
-- 이후 `db/migrations/0005_*` 계열로 `notice_boards`, `board_posts`, `board_comments`, `document_spaces`, `document_files`, `read_receipts` skeleton 추가
-- `apps/web/app/boards`, `apps/web/app/posts`, `apps/web/app/documents` placeholder 화면을 build/typecheck 가능한 수준으로 연결
-- 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 보강
+- 현재 403 guardrail 케이스를 유지한 채 실제 게시글/댓글/문서함 저장 로직을 붙임
+- R2 업로드, 다운로드, 미리보기, 검색, 알림처럼 아직 비어 있는 실제 기능을 승인 범위 안에서 단계적으로 추가함
+- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` placeholder 를 실제 fetch/error/loading 흐름으로 확장함
+- 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 더 보강함
 - `gw-report-delivery-watch.sh` 를 포함한 보고/감시 스크립트 변경이 있다면 release gate 문서와 함께 검토
 
 주의:

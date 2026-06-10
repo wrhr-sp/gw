@@ -22,8 +22,24 @@ import {
   authLoginRequestSchema,
   authLoginResponseSchema,
   authLogoutResponseSchema,
+  boardCommentCreateRequestSchema,
+  boardCommentCreateResponseSchema,
+  boardCommentListResponseSchema,
+  boardCreateRequestSchema,
+  boardPostCreateRequestSchema,
+  boardPostCreateResponseSchema,
+  boardPostDetailResponseSchema,
+  boardPostListResponseSchema,
+  boardResponseSchema,
+  boardsListResponseSchema,
   createInviteRequestSchema,
   createInviteResponseSchema,
+  documentFileListResponseSchema,
+  documentFileMetadataCreateRequestSchema,
+  documentFileMetadataCreateResponseSchema,
+  documentSpaceCreateRequestSchema,
+  documentSpaceListResponseSchema,
+  documentSpaceResponseSchema,
   errorResponseSchema,
   healthResponseSchema,
   leaveActionRequestSchema,
@@ -39,12 +55,20 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  noticeListResponseSchema,
+  readReceiptCreateRequestSchema,
+  readReceiptCreateResponseSchema,
   type ApprovalCandidate,
   type ApprovalDocument,
   type ApprovalLine,
   type ApprovalReference,
   type ApprovalStep,
   type AttendanceRecord,
+  type Board,
+  type BoardComment,
+  type BoardPost,
+  type DocumentFile,
+  type DocumentSpace,
   type Employee,
   type ErrorCode,
   type LeaveBalance,
@@ -87,6 +111,14 @@ const permissionCatalog: Permission[] = [
   { code: "approval.document.read", description: "전자결재 문서함과 상세 placeholder 조회를 사용한다." },
   { code: "approval.document.write", description: "전자결재 기안 placeholder 흐름을 사용한다." },
   { code: "approval.document.approve", description: "전자결재 승인함과 승인/반려 placeholder 흐름을 처리한다." },
+  { code: "board.notice.read", description: "사내 공지형 게시판 placeholder 목록을 조회한다." },
+  { code: "board.manage", description: "게시판 생성과 관리 placeholder 흐름을 처리한다." },
+  { code: "board.post.write", description: "게시글 작성 placeholder 흐름을 사용한다." },
+  { code: "board.comment.write", description: "게시글 댓글 작성 placeholder 흐름을 사용한다." },
+  { code: "document.space.read", description: "문서함 목록과 접근 가능한 공간을 조회한다." },
+  { code: "document.space.manage", description: "문서함 생성과 관리 placeholder 흐름을 처리한다." },
+  { code: "document.file.read", description: "문서 메타데이터 목록과 다운로드 후보를 조회한다." },
+  { code: "document.file.write", description: "문서 업로드 메타데이터 placeholder 생성을 처리한다." },
 ];
 
 const rolePermissions = {
@@ -109,6 +141,14 @@ const rolePermissions = {
     "approval.document.read",
     "approval.document.write",
     "approval.document.approve",
+    "board.notice.read",
+    "board.manage",
+    "board.post.write",
+    "board.comment.write",
+    "document.space.read",
+    "document.space.manage",
+    "document.file.read",
+    "document.file.write",
   ],
   HR_ADMIN: [
     "company.read",
@@ -126,6 +166,14 @@ const rolePermissions = {
     "approval.document.read",
     "approval.document.write",
     "approval.document.approve",
+    "board.notice.read",
+    "board.manage",
+    "board.post.write",
+    "board.comment.write",
+    "document.space.read",
+    "document.space.manage",
+    "document.file.read",
+    "document.file.write",
   ],
   MANAGER: [
     "company.read",
@@ -139,8 +187,24 @@ const rolePermissions = {
     "approval.document.read",
     "approval.document.write",
     "approval.document.approve",
+    "board.notice.read",
+    "board.post.write",
+    "board.comment.write",
+    "document.space.read",
+    "document.file.read",
   ],
-  EMPLOYEE: ["company.read", "attendance.read", "leave.request", "approval.document.read", "approval.document.write"],
+  EMPLOYEE: [
+    "company.read",
+    "attendance.read",
+    "leave.request",
+    "approval.document.read",
+    "approval.document.write",
+    "board.notice.read",
+    "board.post.write",
+    "board.comment.write",
+    "document.space.read",
+    "document.file.read",
+  ],
   AUDITOR: [
     "company.read",
     "employee.read",
@@ -150,6 +214,9 @@ const rolePermissions = {
     "audit.read",
     "attendance.read",
     "approval.document.read",
+    "board.notice.read",
+    "document.space.read",
+    "document.file.read",
   ],
 } as const;
 
@@ -357,6 +424,153 @@ const approvalReferences: ApprovalReference[] = [
     employeeId: "employee_staff",
     referenceType: "reference",
     readAt: null,
+  },
+];
+
+const boards: Board[] = [
+  {
+    id: "board_notice",
+    companyId: COMPANY_ID,
+    boardType: "notice",
+    name: "전사 공지",
+    slug: "notices",
+    visibility: "company",
+    isNoticeOnly: true,
+    status: "active",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "board_general",
+    companyId: COMPANY_ID,
+    boardType: "general",
+    name: "자유 게시판",
+    slug: "general",
+    visibility: "company",
+    isNoticeOnly: false,
+    status: "active",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+];
+
+const boardPosts: BoardPost[] = [
+  {
+    id: "board_post_notice_1",
+    companyId: COMPANY_ID,
+    boardId: "board_notice",
+    authorEmployeeId: "employee_admin",
+    title: "근태 운영 안내",
+    bodyPreview: "6월 근태 마감 일정을 확인해주세요.",
+    isNotice: true,
+    publishedAt: PLACEHOLDER_NOW,
+    pinnedUntil: null,
+    status: "published",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "board_post_demo",
+    companyId: COMPANY_ID,
+    boardId: "board_general",
+    authorEmployeeId: "employee_employee",
+    title: "점심 메뉴 추천",
+    bodyPreview: "오늘 뭐 드실래요?",
+    isNotice: false,
+    publishedAt: PLACEHOLDER_NOW,
+    pinnedUntil: null,
+    status: "published",
+    createdBy: "user_employee",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+];
+
+const boardComments: BoardComment[] = [
+  {
+    id: "board_comment_demo",
+    companyId: COMPANY_ID,
+    postId: "board_post_demo",
+    authorEmployeeId: "employee_manager",
+    parentCommentId: null,
+    body: "비빔밥 추천합니다.",
+    deletedAt: null,
+    status: "active",
+    createdBy: "user_manager",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+];
+
+const documentSpaces: DocumentSpace[] = [
+  {
+    id: "document_space_public",
+    companyId: COMPANY_ID,
+    name: "전사 문서함",
+    slug: "company-docs",
+    visibility: "company",
+    ownerEmployeeId: "employee_admin",
+    isPublicWithinCompany: true,
+    status: "active",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "document_space_hr_private",
+    companyId: COMPANY_ID,
+    name: "인사 전용 문서함",
+    slug: "hr-private",
+    visibility: "private",
+    ownerEmployeeId: "employee_staff",
+    isPublicWithinCompany: false,
+    status: "active",
+    createdBy: "user_hr_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+];
+
+const documentFiles: DocumentFile[] = [
+  {
+    id: "document_file_demo",
+    companyId: COMPANY_ID,
+    spaceId: "document_space_public",
+    ownerEmployeeId: "employee_admin",
+    fileName: "근태 운영 안내.pdf",
+    contentType: "application/pdf",
+    fileSize: 128000,
+    versionLabel: "v0.1",
+    isPublicWithinCompany: true,
+    status: "active",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "document_file_hr_private",
+    companyId: COMPANY_ID,
+    spaceId: "document_space_hr_private",
+    ownerEmployeeId: "employee_staff",
+    fileName: "인사 평가 메모.docx",
+    contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    fileSize: 32000,
+    versionLabel: "v1",
+    isPublicWithinCompany: false,
+    status: "active",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
   },
 ];
 
@@ -713,6 +927,171 @@ function buildApprovalCandidates(type: ApprovalCandidate["type"]): ApprovalCandi
 
 function findReviewableApprovalDocument(auth: SessionContext, documentId: string) {
   return listApprovalInboxDocuments(auth).find((document) => document.id === documentId && document.createdBy !== auth.user.id) ?? null;
+}
+
+function findBoardById(boardId: string) {
+  return boards.find((board) => board.id === boardId) ?? null;
+}
+
+function canAccessBoard(auth: SessionContext, board: Board) {
+  return board.companyId === auth.user.companyId && board.status === "active";
+}
+
+function listNoticeBoards(auth: SessionContext) {
+  return boards.filter((board) => board.boardType === "notice" && canAccessBoard(auth, board));
+}
+
+function listCommunityBoards(auth: SessionContext) {
+  return boards.filter((board) => board.boardType !== "notice" && canAccessBoard(auth, board));
+}
+
+function findAccessibleBoard(auth: SessionContext, boardId: string) {
+  const board = findBoardById(boardId);
+  return board && canAccessBoard(auth, board) ? board : null;
+}
+
+function canWriteBoardPost(auth: SessionContext, board: Board, isNotice: boolean) {
+  if (!canAccessBoard(auth, board)) {
+    return false;
+  }
+
+  if (!board.isNoticeOnly) {
+    return true;
+  }
+
+  return isNotice && hasPermission(auth.user, "board.manage");
+}
+
+function listBoardPosts(auth: SessionContext, boardId: string) {
+  return boardPosts.filter((post) => post.boardId === boardId && post.companyId === auth.user.companyId);
+}
+
+function buildGeneratedBoardPostId(boardId: string, employeeId: string) {
+  return `board_post_${boardId}_${employeeId}`;
+}
+
+function findAccessiblePost(auth: SessionContext, postId: string) {
+  const existingPost = boardPosts.find((item) => item.id === postId && item.companyId === auth.user.companyId) ?? null;
+  if (existingPost) {
+    const board = findAccessibleBoard(auth, existingPost.boardId);
+    return board ? { board, post: existingPost } : null;
+  }
+
+  for (const board of boards) {
+    const generatedPostId = buildGeneratedBoardPostId(board.id, auth.user.employeeId);
+    if (postId === generatedPostId && canAccessBoard(auth, board)) {
+      return {
+        board,
+        post: {
+          id: postId,
+          companyId: auth.user.companyId,
+          boardId: board.id,
+          authorEmployeeId: auth.user.employeeId,
+          title: "점심 메뉴 추천",
+          bodyPreview: "오늘 뭐 드실래요?",
+          isNotice: false,
+          publishedAt: PLACEHOLDER_NOW,
+          pinnedUntil: null,
+          status: "published",
+          createdBy: auth.user.id,
+          createdAt: PLACEHOLDER_NOW,
+          updatedAt: PLACEHOLDER_NOW,
+          placeholder: true,
+        },
+      };
+    }
+  }
+
+  return null;
+}
+
+function listBoardComments(auth: SessionContext, postId: string) {
+  const existingComments = boardComments.filter((comment) => comment.postId === postId && comment.companyId === auth.user.companyId);
+  if (existingComments.length > 0) {
+    return existingComments;
+  }
+
+  if (postId.startsWith("board_post_")) {
+    return [
+      {
+        id: `board_comment_${postId}_${auth.user.employeeId}`,
+        companyId: auth.user.companyId,
+        postId,
+        authorEmployeeId: auth.user.employeeId,
+        parentCommentId: null,
+        body: "오늘은 비빔밥이요.",
+        deletedAt: null,
+        status: "active",
+        createdBy: auth.user.id,
+        createdAt: PLACEHOLDER_NOW,
+        updatedAt: PLACEHOLDER_NOW,
+        placeholder: true,
+      },
+    ];
+  }
+
+  return existingComments;
+}
+
+function findDocumentSpaceById(spaceId: string) {
+  return documentSpaces.find((space) => space.id === spaceId) ?? null;
+}
+
+function canAccessDocumentSpace(auth: SessionContext, space: DocumentSpace) {
+  if (space.companyId !== auth.user.companyId || space.status !== "active") {
+    return false;
+  }
+
+  if (space.visibility === "company" || space.isPublicWithinCompany) {
+    return true;
+  }
+
+  if (space.ownerEmployeeId === auth.user.employeeId) {
+    return true;
+  }
+
+  return hasPermission(auth.user, "document.space.manage");
+}
+
+function listDocumentSpaces(auth: SessionContext) {
+  return documentSpaces.filter((space) => canAccessDocumentSpace(auth, space));
+}
+
+function findAccessibleDocumentSpace(auth: SessionContext, spaceId: string) {
+  const space = findDocumentSpaceById(spaceId);
+  return space && canAccessDocumentSpace(auth, space) ? space : null;
+}
+
+function listDocumentFiles(auth: SessionContext, spaceId?: string | null) {
+  if (spaceId) {
+    const space = findAccessibleDocumentSpace(auth, spaceId);
+    if (!space) {
+      return null;
+    }
+
+    return documentFiles.filter((file) => file.spaceId === space.id && file.companyId === auth.user.companyId);
+  }
+
+  const accessibleSpaceIds = new Set(listDocumentSpaces(auth).map((space) => space.id));
+  return documentFiles.filter((file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId));
+}
+
+function findAccessibleDocumentFile(auth: SessionContext, fileId: string) {
+  const file = documentFiles.find((item) => item.id === fileId && item.companyId === auth.user.companyId) ?? null;
+  if (!file) {
+    return null;
+  }
+
+  const space = findAccessibleDocumentSpace(auth, file.spaceId);
+  return space ? file : null;
+}
+
+function canCreateReadReceipt(auth: SessionContext, targetType: "post" | "document_file", targetId: string) {
+  if (targetType === "post") {
+    return findAccessiblePost(auth, targetId) !== null;
+  }
+
+  return findAccessibleDocumentFile(auth, targetId) !== null;
 }
 
 app.get(appRoutes.health, (context) => {
@@ -1589,3 +1968,450 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
 
 app.post(LEAVE_REQUEST_APPROVE_ROUTE, (context) => handleLeaveReview(context, "approved", "leave.request.approve"));
 app.post(LEAVE_REQUEST_REJECT_ROUTE, (context) => handleLeaveReview(context, "rejected", "leave.request.reject"));
+
+app.get(appRoutes.boards.notices, (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(context, noticeListResponseSchema, {
+    ok: true,
+    data: {
+      items: listNoticeBoards(authResult.auth),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.get(appRoutes.boards.boards, (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(context, boardsListResponseSchema, {
+    ok: true,
+    data: {
+      items: listCommunityBoards(authResult.auth),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post(appRoutes.boards.boards, async (context) => {
+  const authResult = requirePermission(context, "board.manage");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = boardCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "게시판 생성 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const board: Board = {
+    id: `board_${parsed.data.slug}`,
+    companyId: authResult.auth.user.companyId,
+    boardType: parsed.data.boardType,
+    name: parsed.data.name,
+    slug: parsed.data.slug,
+    visibility: parsed.data.visibility,
+    isNoticeOnly: parsed.data.isNoticeOnly,
+    status: "active",
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+  boards.push(board);
+
+  return jsonSuccess(context, boardResponseSchema, {
+    ok: true,
+    data: {
+      board,
+      audit: {
+        candidate: true,
+        action: "board.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.get("/api/boards/:id/posts", (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const boardId = context.req.param("id");
+  const board = boardId ? findAccessibleBoard(authResult.auth, boardId) : null;
+  if (!board) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
+      boardId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, boardPostListResponseSchema, {
+    ok: true,
+    data: {
+      board,
+      items: listBoardPosts(authResult.auth, board.id),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post("/api/boards/:id/posts", async (context) => {
+  const authResult = requirePermission(context, "board.post.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const boardId = context.req.param("id");
+  const board = boardId ? findAccessibleBoard(authResult.auth, boardId) : null;
+  if (!board) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
+      boardId,
+      route: context.req.path,
+    });
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = boardPostCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "게시글 작성 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  if (!canWriteBoardPost(authResult.auth, board, parsed.data.isNotice)) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
+      boardId: board.id,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, boardPostCreateResponseSchema, {
+    ok: true,
+    data: {
+      board,
+      post: {
+        id: buildGeneratedBoardPostId(board.id, authResult.auth.user.employeeId),
+        companyId: authResult.auth.user.companyId,
+        boardId: board.id,
+        authorEmployeeId: authResult.auth.user.employeeId,
+        title: parsed.data.title,
+        bodyPreview: parsed.data.bodyPreview,
+        isNotice: parsed.data.isNotice,
+        publishedAt: PLACEHOLDER_NOW,
+        pinnedUntil: null,
+        status: "published",
+        createdBy: authResult.auth.user.id,
+        createdAt: PLACEHOLDER_NOW,
+        updatedAt: PLACEHOLDER_NOW,
+        placeholder: true,
+      },
+      audit: {
+        candidate: true,
+        action: "board.post.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.get("/api/posts/:id", (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const postId = context.req.param("id");
+  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  if (!postBundle) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
+      postId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, boardPostDetailResponseSchema, {
+    ok: true,
+    data: {
+      board: postBundle.board,
+      post: postBundle.post,
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.get("/api/posts/:id/comments", (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const postId = context.req.param("id");
+  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  if (!postBundle) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
+      postId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, boardCommentListResponseSchema, {
+    ok: true,
+    data: {
+      post: postBundle.post,
+      items: listBoardComments(authResult.auth, postBundle.post.id),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post("/api/posts/:id/comments", async (context) => {
+  const authResult = requirePermission(context, "board.comment.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const postId = context.req.param("id");
+  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  if (!postBundle) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
+      postId,
+      route: context.req.path,
+    });
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = boardCommentCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "댓글 작성 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  return jsonSuccess(context, boardCommentCreateResponseSchema, {
+    ok: true,
+    data: {
+      comment: {
+        id: `board_comment_${postBundle.post.id}_${authResult.auth.user.employeeId}`,
+        companyId: authResult.auth.user.companyId,
+        postId: postBundle.post.id,
+        authorEmployeeId: authResult.auth.user.employeeId,
+        parentCommentId: parsed.data.parentCommentId ?? null,
+        body: parsed.data.body,
+        deletedAt: null,
+        status: "active",
+        createdBy: authResult.auth.user.id,
+        createdAt: PLACEHOLDER_NOW,
+        updatedAt: PLACEHOLDER_NOW,
+        placeholder: true,
+      },
+      audit: {
+        candidate: true,
+        action: "board.comment.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.get(appRoutes.documents.spaces, (context) => {
+  const authResult = requirePermission(context, "document.space.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(context, documentSpaceListResponseSchema, {
+    ok: true,
+    data: {
+      items: listDocumentSpaces(authResult.auth),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post(appRoutes.documents.spaces, async (context) => {
+  const authResult = requirePermission(context, "document.space.manage");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = documentSpaceCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "문서함 생성 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const space: DocumentSpace = {
+    id: `document_space_${parsed.data.slug}`,
+    companyId: authResult.auth.user.companyId,
+    name: parsed.data.name,
+    slug: parsed.data.slug,
+    visibility: parsed.data.visibility,
+    ownerEmployeeId: authResult.auth.user.employeeId,
+    isPublicWithinCompany: parsed.data.isPublicWithinCompany,
+    status: "active",
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+  documentSpaces.push(space);
+
+  return jsonSuccess(context, documentSpaceResponseSchema, {
+    ok: true,
+    data: {
+      space,
+      audit: {
+        candidate: true,
+        action: "document.space.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.get(appRoutes.documents.files, (context) => {
+  const authResult = requirePermission(context, "document.file.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const spaceId = context.req.query("spaceId");
+  const items = listDocumentFiles(authResult.auth, spaceId);
+  if (spaceId && items === null) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
+      spaceId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, documentFileListResponseSchema, {
+    ok: true,
+    data: {
+      items: items ?? [],
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post(appRoutes.documents.fileMetadata, async (context) => {
+  const authResult = requirePermission(context, "document.file.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = documentFileMetadataCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "문서 메타데이터 생성 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const space = findAccessibleDocumentSpace(authResult.auth, parsed.data.spaceId);
+  if (!space) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
+      spaceId: parsed.data.spaceId,
+      route: context.req.path,
+    });
+  }
+
+  const file: DocumentFile = {
+    id: `document_file_${parsed.data.spaceId}_${parsed.data.fileName.replace(/[^a-zA-Z0-9]+/g, "_")}`,
+    companyId: authResult.auth.user.companyId,
+    spaceId: parsed.data.spaceId,
+    ownerEmployeeId: authResult.auth.user.employeeId,
+    fileName: parsed.data.fileName,
+    contentType: parsed.data.contentType,
+    fileSize: parsed.data.fileSize,
+    versionLabel: parsed.data.versionLabel,
+    isPublicWithinCompany: parsed.data.isPublicWithinCompany,
+    status: "active",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+  documentFiles.push(file);
+
+  return jsonSuccess(context, documentFileMetadataCreateResponseSchema, {
+    ok: true,
+    data: {
+      file,
+      audit: {
+        candidate: true,
+        action: "document.file.metadata.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.post(appRoutes.readReceipts, async (context) => {
+  const authResult = requirePermission(context, "board.notice.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = readReceiptCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "읽음 확인 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  if (!canCreateReadReceipt(authResult.auth, parsed.data.targetType, parsed.data.targetId)) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 읽음 확인 대상입니다.", 403, {
+      targetType: parsed.data.targetType,
+      targetId: parsed.data.targetId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, readReceiptCreateResponseSchema, {
+    ok: true,
+    data: {
+      receipt: {
+        id: `read_receipt_${parsed.data.targetType}_${authResult.auth.user.employeeId}`,
+        companyId: authResult.auth.user.companyId,
+        targetType: parsed.data.targetType,
+        targetId: parsed.data.targetId,
+        employeeId: authResult.auth.user.employeeId,
+        readAt: PLACEHOLDER_NOW,
+        createdAt: PLACEHOLDER_NOW,
+        updatedAt: PLACEHOLDER_NOW,
+      },
+      audit: {
+        candidate: true,
+        action: "read_receipt.create",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});

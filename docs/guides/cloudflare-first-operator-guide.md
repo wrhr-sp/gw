@@ -53,13 +53,16 @@
 
 루트 디렉터리에서 아래 순서로 확인하면 됩니다.
 
-현재 known gap:
+현재 확인된 상태:
 
-- `pnpm check` 자체는 통과합니다.
-- 하지만 임시 repro 검증에서는 `POST /api/boards/board_notice/posts` 가 403 대신 201 을 반환했습니다.
-- 존재하지 않는 `spaceId=document_space_missing` 으로도 `POST /api/documents/files/metadata` 가 403 대신 201 을 반환했습니다.
-- 존재하지 않는/접근 불가 게시글 id(`foreign_post_123`)로도 `POST /api/read-receipts` 가 403 대신 201 을 반환했습니다.
-- `git diff --name-only -- db apps/web docs/workflow` 결과가 비어 있어서, Phase 5 작업은 아직 API/shared 중심의 부분 구현 상태입니다.
+- `pnpm check` 통과
+- `pnpm build` 통과
+- `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts` 에서 2개 파일, 40개 테스트 통과
+- `POST /api/boards/board_notice/posts` 는 일반 구성원 요청에서 403
+- `POST /api/documents/files/metadata` 는 `spaceId=document_space_missing` 에서 403
+- `GET /api/posts/board_post_board_general_forged` 는 403
+- `POST /api/read-receipts` 는 forged `targetId=board_post_board_general_forged` 에서 403
+- `db/migrations/0005_boards_documents_phase5.sql`, `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents`, `docs/workflow/groupware-kanban-automation.md` 까지 저장소에 반영됨
 
 ### 1) 기본 검사
 
@@ -194,7 +197,8 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `HR_ADMIN` 이 팀 대기 요청(`leave_request_team_pending`) 승인 시 200 인지 확인
 - `POST /api/boards/board_notice/posts` 가 403 인지 확인
 - `POST /api/documents/files/metadata` 에 `spaceId=document_space_missing` 를 넣었을 때 403 인지 확인
-- `POST /api/read-receipts` 에 `targetType=post,targetId=foreign_post_123` 를 넣었을 때 403 인지 확인
+- `GET /api/posts/board_post_board_general_forged` 가 403 인지 확인
+- `POST /api/read-receipts` 에 `targetType=post,targetId=board_post_board_general_forged` 를 넣었을 때 403 인지 확인
 - `git diff --name-only -- db apps/web docs/workflow` 로 Phase 5 DB/Web/workflow 변경 유무 확인
 - `foreign_request_id` 같은 임의 휴가 요청 id 승인 시 403 이 나오는지 확인
 - placeholder 파일에 실제 비밀값이 없는지 확인
@@ -204,7 +208,7 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 
 게시판/문서 1차를 이어서 볼 때 운영자는 아래를 특히 봅니다.
 
-- 기존 테스트가 통과해도 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, 임의 read receipt 생성이 실제로는 막히는지
+- 기존 테스트가 통과해도 notice-only 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, forged 게시글 상세 조회, forged read receipt 생성이 실제로 막히는지
 - `packages/shared` 와 `apps/api` 변경만 있는 상태인지, 아니면 `db/` 와 `apps/web/` 도 같이 갱신됐는지
 - 게시판/문서 endpoint 가 실제 운영 게시글/파일 없이도 placeholder 검증 가능한지
 - 게시판/댓글/문서함이 회사 scope 와 접근 경계를 유지하는지

@@ -575,19 +575,21 @@ Expo / React Native
 - Phase 범위 문서 작성
 - Phase 2~4 Web/API/shared/db skeleton 반영
 - Phase 5 shared/API 계약 시작점 반영
+- Phase 5 guardrail 테스트와 API 보강 반영
+- `db/migrations/0005_boards_documents_phase5.sql` 추가
+- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` placeholder 추가
 - 로컬 검증 명령 정리
 - 사용자/운영/개발 가이드 정리
 
 보완 필요
-- notice-only 게시판 쓰기 차단
-- 존재하지 않는 문서함 metadata 생성 차단
-- 임의/접근 불가 게시글 read receipt 생성 차단
-- Phase 5 DB migration 과 Web placeholder 화면 추가
+- 실제 게시글/댓글/문서 저장 로직
+- 실제 파일 업로드/다운로드/R2 연결
+- 검색/알림/공유 링크 같은 운영 기능
+- production 리소스 연결과 배포 검토(승인 후)
 
 다음 단계
-- Phase 5 guardrail 테스트와 API 보강
-- `db/migrations/0005_*` 추가
-- `apps/web/app/boards`, `app/posts`, `app/documents` 추가
+- placeholder 화면을 실제 fetch/error/loading 흐름으로 확장
+- 저장/첨부/검색/알림 기능을 승인 범위 안에서 순차 구현
 - Cloudflare 실리소스 연결 검토(승인 후)
 ```
 

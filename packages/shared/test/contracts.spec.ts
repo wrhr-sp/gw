@@ -17,7 +17,20 @@ import {
   attendanceListRecordsResponseSchema,
   authLoginRequestSchema,
   authLoginResponseSchema,
+  boardCommentCreateRequestSchema,
+  boardCommentCreateResponseSchema,
+  boardCreateRequestSchema,
+  boardPostCreateRequestSchema,
+  boardPostDetailResponseSchema,
+  boardPostListResponseSchema,
+  boardResponseSchema,
+  boardsListResponseSchema,
   createInviteRequestSchema,
+  documentFileListResponseSchema,
+  documentFileMetadataCreateRequestSchema,
+  documentFileMetadataCreateResponseSchema,
+  documentSpaceCreateRequestSchema,
+  documentSpaceListResponseSchema,
   errorResponseSchema,
   leaveActionRequestSchema,
   leaveActionResponseSchema,
@@ -27,7 +40,10 @@ import {
   leaveTypeListResponseSchema,
   listCompaniesResponseSchema,
   listPermissionsResponseSchema,
+  noticeListResponseSchema,
   permissionCodeSchema,
+  readReceiptCreateRequestSchema,
+  readReceiptCreateResponseSchema,
   sessionUserSchema,
 } from "../src/contracts";
 
@@ -61,6 +77,15 @@ describe("shared contracts", () => {
     expect(appRoutes.approvals.reject("approval_document_demo")).toBe("/api/approvals/documents/approval_document_demo/reject");
     expect(appRoutes.approvals.referenceCandidates).toBe("/api/approvals/references/candidates");
     expect(appRoutes.approvals.agreementCandidates).toBe("/api/approvals/agreements/candidates");
+    expect(appRoutes.boards.notices).toBe("/api/notices");
+    expect(appRoutes.boards.boards).toBe("/api/boards");
+    expect(appRoutes.boards.posts("board_general")).toBe("/api/boards/board_general/posts");
+    expect(appRoutes.boards.postDetail("post_demo")).toBe("/api/posts/post_demo");
+    expect(appRoutes.boards.comments("post_demo")).toBe("/api/posts/post_demo/comments");
+    expect(appRoutes.documents.spaces).toBe("/api/documents/spaces");
+    expect(appRoutes.documents.files).toBe("/api/documents/files");
+    expect(appRoutes.documents.fileMetadata).toBe("/api/documents/files/metadata");
+    expect(appRoutes.readReceipts).toBe("/api/read-receipts");
   });
 
   it("parses login/session and org list payloads", () => {
@@ -592,6 +617,365 @@ describe("shared contracts", () => {
         error: null,
       }).data.audit.action,
     ).toBe("approval.document.approve");
+  });
+
+  it("parses Phase 5 boards/documents placeholder contracts", () => {
+    expect(permissionCodeSchema.parse("board.notice.read")).toBe("board.notice.read");
+    expect(permissionCodeSchema.parse("board.manage")).toBe("board.manage");
+    expect(permissionCodeSchema.parse("board.post.write")).toBe("board.post.write");
+    expect(permissionCodeSchema.parse("board.comment.write")).toBe("board.comment.write");
+    expect(permissionCodeSchema.parse("document.space.read")).toBe("document.space.read");
+    expect(permissionCodeSchema.parse("document.space.manage")).toBe("document.space.manage");
+    expect(permissionCodeSchema.parse("document.file.read")).toBe("document.file.read");
+    expect(permissionCodeSchema.parse("document.file.write")).toBe("document.file.write");
+
+    expect(
+      boardCreateRequestSchema.parse({
+        boardType: "general",
+        name: "자유 게시판",
+        slug: "general",
+        visibility: "company",
+        isNoticeOnly: false,
+      }).slug,
+    ).toBe("general");
+
+    expect(
+      noticeListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "board_notice",
+              companyId: "company_demo",
+              boardType: "notice",
+              name: "전사 공지",
+              slug: "notices",
+              visibility: "company",
+              isNoticeOnly: true,
+              status: "active",
+              createdBy: "user_company_admin",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].boardType,
+    ).toBe("notice");
+
+    expect(
+      boardsListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "board_general",
+              companyId: "company_demo",
+              boardType: "general",
+              name: "자유 게시판",
+              slug: "general",
+              visibility: "company",
+              isNoticeOnly: false,
+              status: "active",
+              createdBy: "user_company_admin",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].name,
+    ).toBe("자유 게시판");
+
+    expect(
+      boardResponseSchema.parse({
+        ok: true,
+        data: {
+          board: {
+            id: "board_general",
+            companyId: "company_demo",
+            boardType: "general",
+            name: "자유 게시판",
+            slug: "general",
+            visibility: "company",
+            isNoticeOnly: false,
+            status: "active",
+            createdBy: "user_company_admin",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          audit: {
+            candidate: true,
+            action: "board.create",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.audit.action,
+    ).toBe("board.create");
+
+    expect(
+      boardPostCreateRequestSchema.parse({
+        title: "점심 메뉴 추천",
+        bodyPreview: "오늘 뭐 드실래요?",
+        isNotice: false,
+      }).title,
+    ).toBe("점심 메뉴 추천");
+
+    expect(
+      boardPostListResponseSchema.parse({
+        ok: true,
+        data: {
+          board: {
+            id: "board_general",
+            companyId: "company_demo",
+            boardType: "general",
+            name: "자유 게시판",
+            slug: "general",
+            visibility: "company",
+            isNoticeOnly: false,
+            status: "active",
+            createdBy: "user_company_admin",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          items: [
+            {
+              id: "board_post_demo",
+              companyId: "company_demo",
+              boardId: "board_general",
+              authorEmployeeId: "employee_employee",
+              title: "점심 메뉴 추천",
+              bodyPreview: "오늘 뭐 드실래요?",
+              isNotice: false,
+              publishedAt: "2026-06-10T09:00:00.000Z",
+              pinnedUntil: null,
+              status: "published",
+              createdBy: "user_employee",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].boardId,
+    ).toBe("board_general");
+
+    expect(
+      boardPostDetailResponseSchema.parse({
+        ok: true,
+        data: {
+          board: {
+            id: "board_general",
+            companyId: "company_demo",
+            boardType: "general",
+            name: "자유 게시판",
+            slug: "general",
+            visibility: "company",
+            isNoticeOnly: false,
+            status: "active",
+            createdBy: "user_company_admin",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          post: {
+            id: "board_post_demo",
+            companyId: "company_demo",
+            boardId: "board_general",
+            authorEmployeeId: "employee_employee",
+            title: "점심 메뉴 추천",
+            bodyPreview: "오늘 뭐 드실래요?",
+            isNotice: false,
+            publishedAt: "2026-06-10T09:00:00.000Z",
+            pinnedUntil: null,
+            status: "published",
+            createdBy: "user_employee",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.post.title,
+    ).toBe("점심 메뉴 추천");
+
+    expect(
+      boardCommentCreateRequestSchema.parse({
+        body: "오늘은 비빔밥이요.",
+        parentCommentId: null,
+      }).body,
+    ).toBe("오늘은 비빔밥이요.");
+
+    expect(
+      boardCommentCreateResponseSchema.parse({
+        ok: true,
+        data: {
+          comment: {
+            id: "board_comment_demo",
+            companyId: "company_demo",
+            postId: "board_post_demo",
+            authorEmployeeId: "employee_employee",
+            parentCommentId: null,
+            body: "오늘은 비빔밥이요.",
+            deletedAt: null,
+            status: "active",
+            createdBy: "user_employee",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          audit: {
+            candidate: true,
+            action: "board.comment.create",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.comment.postId,
+    ).toBe("board_post_demo");
+
+    expect(
+      documentSpaceCreateRequestSchema.parse({
+        name: "팀 문서함",
+        slug: "team-docs",
+        visibility: "department",
+        isPublicWithinCompany: false,
+      }).slug,
+    ).toBe("team-docs");
+
+    expect(
+      documentSpaceListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "document_space_public",
+              companyId: "company_demo",
+              name: "전사 문서함",
+              slug: "company-docs",
+              visibility: "company",
+              ownerEmployeeId: "employee_admin",
+              isPublicWithinCompany: true,
+              status: "active",
+              createdBy: "user_company_admin",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].visibility,
+    ).toBe("company");
+
+    expect(
+      documentFileListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "document_file_demo",
+              companyId: "company_demo",
+              spaceId: "document_space_public",
+              ownerEmployeeId: "employee_admin",
+              fileName: "근태 운영 안내.pdf",
+              contentType: "application/pdf",
+              fileSize: 128000,
+              versionLabel: "v0.1",
+              isPublicWithinCompany: true,
+              status: "active",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].fileName,
+    ).toBe("근태 운영 안내.pdf");
+
+    expect(
+      documentFileMetadataCreateRequestSchema.parse({
+        spaceId: "document_space_public",
+        fileName: "board-outline.docx",
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileSize: 64000,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }).versionLabel,
+    ).toBe("draft-1");
+
+    const metadataResponse = documentFileMetadataCreateResponseSchema.parse({
+      ok: true,
+      data: {
+        file: {
+          id: "document_file_new",
+          companyId: "company_demo",
+          spaceId: "document_space_public",
+          ownerEmployeeId: "employee_admin",
+          fileName: "board-outline.docx",
+          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          fileSize: 64000,
+          versionLabel: "draft-1",
+          isPublicWithinCompany: false,
+          status: "active",
+          createdAt: "2026-06-10T09:00:00.000Z",
+          updatedAt: "2026-06-10T09:00:00.000Z",
+          placeholder: true,
+        },
+        audit: {
+          candidate: true,
+          action: "document.file.metadata.create",
+        },
+        placeholder: true,
+      },
+      error: null,
+    });
+    expect(metadataResponse.data.file.versionLabel).toBe("draft-1");
+    expect("storageKey" in metadataResponse.data.file).toBe(false);
+
+    expect(
+      readReceiptCreateRequestSchema.parse({
+        targetType: "post",
+        targetId: "board_post_demo",
+      }).targetId,
+    ).toBe("board_post_demo");
+
+    expect(
+      readReceiptCreateResponseSchema.parse({
+        ok: true,
+        data: {
+          receipt: {
+            id: "read_receipt_demo",
+            companyId: "company_demo",
+            targetType: "post",
+            targetId: "board_post_demo",
+            employeeId: "employee_employee",
+            readAt: "2026-06-10T09:00:00.000Z",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+          },
+          audit: {
+            candidate: true,
+            action: "read_receipt.create",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.receipt.targetType,
+    ).toBe("post");
   });
 
   it("parses invite requests and common auth errors", () => {
