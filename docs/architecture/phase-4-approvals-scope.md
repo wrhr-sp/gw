@@ -138,7 +138,7 @@ API 기준:
 - 로컬 검증 명령
 - placeholder 전자결재 흐름의 한계
 - 회사 scope, 문서 접근 권한, 승인/반려 감사 로그 주의
-- `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 수정이 GitHub release gate 검토 범위 안에 있다는 점
+- `gw-telegram-kanban-report-watch.py` 를 포함한 감시/보고 스크립트 수정이 GitHub release gate 검토 범위 안에 있다는 점
 - 실제 운영 데이터, 실제 배포, production DB migration, 실제 비밀값 입력은 별도 승인 없이는 하지 않는다는 점
 
 ## 3. 이번 Phase에서 하지 않는 일
@@ -240,7 +240,7 @@ scripts/
 4. `apps/api` 에 결재 양식/결재선/기안/상세/문서함/승인·반려 기본 endpoint skeleton 이 있다.
 5. `apps/web` 에 전자결재 목록/기안/상세/승인함 기본 화면 skeleton 이 있다.
 6. 회사 scope, 문서 접근 경계, 자기 문서 자기 승인 금지 같은 guardrail 이 문서와 리뷰 기준에 반영되어 있다.
-7. `gw-report-delivery-watch.sh` 를 포함한 승인된 감시/보고 스크립트 변경이 release gate 검토 범위에 포함된다는 점이 문서화되어 있다.
+7. `gw-telegram-kanban-report-watch.py` 를 포함한 승인된 감시/보고 스크립트 변경이 release gate 검토 범위에 포함된다는 점이 문서화되어 있다.
 8. 승인된 release gate 범위 안에서 PR 생성, CI 확인, merge, branch cleanup 처리 조건이 분명하다.
 9. 다음 Phase의 게시판/문서/급여 승인 확장을 막지 않는 수준으로 handoff 정보가 정리되어 있다.
 
