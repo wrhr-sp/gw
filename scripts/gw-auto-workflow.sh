@@ -40,6 +40,13 @@ Kanban DB/자동화 안전 규칙:
 - 보고는 기본적으로 `gw-telegram-kanban-report-watch.py`의 직접 Telegram 경로를 사용한다. 별도 사용자 결과보고/막힘 보고 카드 생성이나 `notify-subscribe`는 대장 명시 승인 없이는 켜지 않는다.
 - watcher는 단일 인스턴스·state/idempotency·circuit-breaker·safe stop 조건을 갖춘다."""
 
+CARD_SCOPE_APPROVAL_GUIDANCE = """
+
+카드 작업범위 승인 규칙:
+- Kanban 카드 제목/본문/체크리스트에 merge, release/릴리즈, deploy/디플로이/배포, PR merge, branch cleanup, release gate가 작업범위로 명시되어 있으면 그 항목은 대장이 카드 작업범위로 명시 승인한 것으로 보고 진행한다.
+- 단, 최신 head 기준 CI/check, 빌드/테스트, 배포 전 guard, smoke check, 롤백/복구 가능성, 변경 범위 검증 근거를 남긴다.
+- 카드에 명시되지 않은 secret 입력/교체, production DB 실데이터 변경, DNS/custom domain, 유료 리소스 생성·증액, 결제/환불/개인정보 처리, destructive 삭제는 별도 승인 없이는 진행하지 않는다."""
+
 VALID_TYPES = ("feature", "bugfix", "docs", "deploy", "review")
 
 
@@ -66,6 +73,7 @@ def create_task(step: Step, title: str, body: str, idempotency_key: str | None, 
     full_title = f"{step.title_prefix}: {title}"
     full_body = step.body.format(title=title, body=body)
     full_body += BENCHMARK_GUIDANCE
+    full_body += CARD_SCOPE_APPROVAL_GUIDANCE
     full_body += """
 
 공통 완료 규칙:
@@ -493,9 +501,9 @@ def main() -> int:
             approval = next((s for s in steps if s.key == "approval"), None)
             if approval and approval.id:
                 print()
-                print("배포 승인 대기 카드:")
+                print("배포 범위 확인/승인 게이트 카드:")
                 print(f"  {approval.id}")
-                print("  실제 외부 배포는 이 카드를 사용자가 승인/unblock하기 전에는 진행되지 않습니다.")
+                print("  카드 작업범위에 배포/릴리즈가 명시되어 있으면 승인된 것으로 진행하고, DNS/유료/비밀값/production DB 등 범위 밖 위험 작업은 별도 승인으로 분리합니다.")
     return 0
 
 
