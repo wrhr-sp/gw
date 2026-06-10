@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd /home/wrhrgw/gw
 
-PROFILE_HOME="${EORA_HOME:-/home/wrhrgw/gw-dev-bot/.hermes/profiles/singde/home}"
+PROFILE_HOME="${SINGDE_HOME:-/home/wrhrgw/gw-dev-bot/.hermes/profiles/singde/home}"
 export HOME="$PROFILE_HOME"
 export XDG_CONFIG_HOME="$PROFILE_HOME/.config"
 export XDG_STATE_HOME="$PROFILE_HOME/.local/state"

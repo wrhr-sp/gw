@@ -96,6 +96,13 @@
 - 리뷰 역할: 다른 봇의 주장만 믿지 말고 근거를 확인한다.
 - 운영/배포 역할: 승인 없는 위험 작업을 하지 않는다.
 
+## OTA/GW 경계 분리 규칙
+- 그룹웨어 팀과 `groupware` board는 그룹웨어 repo(`/home/wrhrgw/gw`)와 그룹웨어 bot home(`/home/wrhrgw/gw-dev-bot/.hermes`)만 본다.
+- 그룹웨어 개발 메인봇은 싱드(`singde`) 하나다. 아리아(`gw-dev-bot`)는 접수·보고·보조 역할이며 개발 메인봇이나 dispatcher 소유자가 아니다.
+- 싱드/그룹웨어 역할봇은 OTA board(`ota`), OTA repo(`/home/wrhrota/ota`), OTA bot home(`/home/wrhrota/ota-dev-bot/.hermes`)에 직접 카드 생성·수정·dispatch·보고 지시를 하지 않는다.
+- OTA 관련 판단이 필요해 보이면 그룹웨어 결과 안에 OTA 조치 판단을 섞지 말고, "그룹웨어 범위 밖"이라고 표시한 뒤 동글/대장에게 별도 확인을 요청한다.
+- 예외는 대장이 명시적으로 "OTA와 GW 양쪽 동기화" 또는 "양쪽 모두 적용"을 승인한 경우뿐이며, 그때도 각 board에는 자기 팀 메인봇이 자기 범위 작업만 만든다.
+
 ## 10. 그룹웨어 gateway / dispatcher 운영 규칙
 - 그룹웨어 역할봇 gateway는 active 상태를 유지한다.
 - 대상 역할봇은 `gwplanner`, `gwbuilder`, `gwreviewer`, `gwtester`, `gwdocs`, `gwops` 이다.

@@ -52,9 +52,9 @@ def build_message():
     lines += ['', '<b>복구 원칙</b>', '- 복구후보도 로그·검증 근거 확인 후 처리합니다.', '- 승인필요 항목(secret/운영DB/DNS/비용/배포 등)은 대장 승인 전 조치하지 않습니다.', '- 완료/막힘/복구/조치 결과는 칸반 보고카드가 아니라 Telegram 직접 보고로 전달합니다.']
     return '\n'.join(lines)
 def send(msg):
-    token=os.environ.get('TELEGRAM_BOT_TOKEN') or os.environ.get('TELEGRAM_TOKEN')
+    token=os.environ.get('SINGDE_TELEGRAM_BOT_TOKEN') or os.environ.get('TELEGRAM_BOT_TOKEN') or os.environ.get('TELEGRAM_TOKEN')
     chat=resolve_chat_id(os.environ.get('TELEGRAM_CHAT_ID') or os.environ.get('HERMES_TELEGRAM_HOME') or DEFAULT_CHAT_ID)
-    if not token: raise SystemExit('TELEGRAM_BOT_TOKEN 없음')
+    if not token: raise SystemExit('SINGDE_TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_TOKEN 없음')
     data=urllib.parse.urlencode({'chat_id':chat,'text':msg,'parse_mode':'HTML','disable_web_page_preview':'true'}).encode()
     req=urllib.request.Request(f'https://api.telegram.org/bot{token}/sendMessage', data=data)
     with urllib.request.urlopen(req, timeout=15) as r: print(r.read().decode()[:300])

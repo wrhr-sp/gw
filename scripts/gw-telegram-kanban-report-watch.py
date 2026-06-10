@@ -74,6 +74,20 @@ def compact(text: str | None, limit: int = 700) -> str:
     return s[:limit] + ("…" if len(s) > limit else "")
 
 
+def gw_scope_summary(text: str | None, limit: int = 1400) -> str:
+    """Keep user-facing groupware reports inside groupware scope."""
+    raw = text or ""
+    markers = ("OTA", "ota repo", "/home/wrhrota", "eora", "어라")
+    parts = [p.strip() for p in raw.replace("。", ".").split(".") if p.strip()]
+    kept = [p for p in parts if not any(m.lower() in p.lower() for m in markers)]
+    if kept and len(kept) != len(parts):
+        kept.append("그룹웨어 범위 밖 내용은 동글/대장 확인 대상으로 분리했습니다")
+        return compact(". ".join(kept), limit)
+    if not kept and raw and any(m.lower() in raw.lower() for m in markers):
+        return "그룹웨어 범위 밖 판단이 포함되어 있어 사용자 보고에서 제외했습니다. 그룹웨어 관련 결과만 별도 확인이 필요합니다."
+    return compact(raw, limit)
+
+
 def fmt_time(ts: int | None) -> str:
     if not ts:
         return "-"
@@ -241,7 +255,7 @@ def build_blocked_message(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
 
 def build_completion_message(conn: sqlite3.Connection, row: sqlite3.Row, label: str, state: dict[str, Any]) -> str:
     payload = parse_payload(row["payload"])
-    summary = compact(str(payload.get("summary") or row["result"] or latest_comment(conn, row["task_id"]) or "완료 요약이 비어 있음"), 1400)
+    summary = gw_scope_summary(str(payload.get("summary") or row["result"] or latest_comment(conn, row["task_id"]) or "완료 요약이 비어 있음"), 1400)
     title = str(row["title"] or "(제목 없음)")
     assignee = str(row["assignee"] or "미지정")
     task_id = str(row["task_id"])
