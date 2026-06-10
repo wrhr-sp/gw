@@ -11,8 +11,9 @@
 - `/api/health`, `/api/auth/login`, `/api/auth/logout`, `/api/me` 기본 API
 - 회사/직원/부서/역할/권한 조회 API 골격
 - Web/API가 같이 보는 공통 계약(`packages/shared`)
-- D1 SQL migration 골격(`db/migrations/0001_initial_schema.sql`, `0002_auth_org_phase2.sql`, `0003_attendance_leave_phase3.sql`)
+- D1 SQL migration 골격(`db/migrations/0001_initial_schema.sql`, `0002_auth_org_phase2.sql`, `0003_attendance_leave_phase3.sql`, `0004_approvals_phase4.sql`)
 - 근태/휴가 placeholder API와 승인 경계 검증 흐름
+- 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 화면
 
 지금 단계의 화면은 실제 업무 데이터를 보여주는 완성본이 아닙니다.
 먼저 정보구조와 경로를 고정해 두기 위한 골격입니다.
@@ -24,6 +25,7 @@
 - 실제 로그인 연동
 - 실제 회사/직원 데이터 연결
 - 근태, 휴가, 결재의 실데이터 저장/정책 계산/실승인 처리
+- 전자결재 기안 결과를 실제 저장처럼 신뢰할 수 있는 round-trip
 - 파일 업로드
 - Cloudflare 실배포
 - 운영용 D1, R2, KV, Queues 같은 실리소스 연결
@@ -117,9 +119,10 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 1. 실제 인증 공급자 연결 검토
 2. 회사/직원/조직 데이터 실제 저장소 연결
-3. 근태/휴가 API 추가
-4. 파일 저장과 알림 처리 연결
-5. Cloudflare 실리소스 연결과 배포 검토
+3. 근태/휴가 API 안정화
+4. 전자결재 1차 결함 수정과 검증 보강
+5. 파일 저장과 알림 처리 연결
+6. Cloudflare 실리소스 연결과 배포 검토
 
 근태/휴가 1차에서 사용자가 보게 될 기본 흐름은 아래입니다.
 
@@ -130,6 +133,16 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `HR_ADMIN`/`MANAGER` 같은 승인자는 팀 대기 요청(`leave_request_team_pending`)만 승인할 수 있고, 자기 own 요청(`leave_request_demo`)은 승인할 수 없습니다.
 - 현재 단계에서는 실제 연차 차감/급여 반영이 아니라 placeholder 상태만 확인함
 
+전자결재 1차에서 사용자가 보게 될 기본 흐름은 다음과 같습니다.
+
+- `/approvals`: 내 기안함/승인함/참조 문서함 구조를 미리 보는 placeholder 화면
+- 결재 양식/결재선/참조자 후보를 불러오는 API 골격은 이미 있지만, 실제 운영 문서를 저장하는 완성 흐름은 아직 아님
+- 기안자는 문서 제목, 양식, 결재선, 요약 내용을 입력하는 skeleton 폼을 보게 됨
+- 승인자는 승인/반려 버튼과 결재선 상태를 보되, 실제 법적 효력이나 외부 서명 연동은 아직 없음
+- 권한이 없는 사용자는 문서 접근 자체가 제한되거나 안내 상태만 보게 됨
+- 현재 로컬 기준으로는 새 기안 문서의 create → detail 결과가 seed demo 문서와 섞일 수 있으므로, 실제 저장처럼 믿지 말고 구조 확인용으로만 본다
+- 즉, 지금 단계에서는 실문서 저장·전자서명·외부 알림이 아니라 정보구조와 권한 경계만 먼저 확인함
+
 ## 같이 보면 좋은 문서
 
 - `README.md`
@@ -137,5 +150,6 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `docs/guides/cloudflare-first-operator-guide.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
+- `docs/architecture/phase-4-approvals-scope.md`
 - `docs/architecture/cloudflare-first-phase-scope.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`

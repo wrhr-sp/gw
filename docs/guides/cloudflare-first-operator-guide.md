@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"이지만, Phase 3 기준으로 인증/조직 + 근태/휴가 1차 skeleton 이 추가되었습니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 다만 이제는 Phase 4 전자결재 1차 skeleton 까지 들어와 있어서 인증/조직 + 근태/휴가 + 전자결재 placeholder 흐름을 함께 점검할 수 있습니다.
 
 들어 있는 것:
 
@@ -13,7 +13,8 @@
 - placeholder 로그인/로그아웃/내 정보/조직 조회/관리자 초대 API
 - 권한별 조직 조회 차단을 포함한 기본 RBAC read gate
 - 근태 조회 범위 제한, 휴가 신청/승인 placeholder, self-approval 차단 guardrail
-- D1 migration 골격 (`0001`, `0002`, `0003`)
+- 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 진입점
+- D1 migration 골격 (`0001`, `0002`, `0003`, `0004`)
 - 로컬 검증 명령과 테스트
 
 아직 하지 않은 것:
@@ -46,6 +47,12 @@
 ## 로컬 점검 순서
 
 루트 디렉터리에서 아래 순서로 확인하면 됩니다.
+
+현재 known gap:
+
+- `pnpm check` 는 현재 `apps/api/src/app.ts:703` 에서 `TS2367` 로 실패합니다.
+- `POST /api/approvals/documents` 뒤에 같은 id 로 상세 조회를 하면 새 기안 문서 대신 seed demo 문서가 나오는 round-trip 불일치가 있습니다.
+- 기존 `apps/api/test/auth-org.spec.ts` approval create/detail 테스트는 seed demo 와 같은 값으로 검사해서 이 결함을 아직 잡지 못합니다.
 
 ### 1) 기본 검사
 
@@ -160,13 +167,14 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 
 - 승인된 오케스트레이션 안에서는 GitHub PR 생성, CI 확인, merge, branch cleanup 까지 release gate 범위에 포함됩니다.
 - `scripts/README.md` 에 있는 그룹웨어 보고/감시 자동화 스크립트를 수정했다면 기능 변경과 함께 검토해야 합니다.
+- `gw-report-delivery-watch.sh` 를 포함한 보고/감시 스크립트 수정은 GitHub release gate 에 포함하고, blocked/review-required/승인 필요 카드 누락이나 중복 보고가 없는지 함께 확인합니다.
 - blocked/review-required/승인 필요 상태는 `gw-blocked-report-watch` 같은 자동보고 흐름을 막지 않도록 handoff 정보를 남겨야 합니다.
 
 ## 운영 handoff 체크리스트
 
 다음 카드나 다음 담당자에게 넘기기 전에 아래를 확인합니다.
 
-- `pnpm check` 통과
+- `pnpm check` 현재 known fail 이 해소되었는지 확인
 - `pnpm build` 통과
 - `pnpm typecheck` 통과
 - `pnpm test` 통과
@@ -177,18 +185,21 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `HR_ADMIN` 으로 다른 회사 `employeeId` 조회 시 403 이 나오는지 확인
 - `HR_ADMIN`/`MANAGER` own 요청(`leave_request_demo`) self-approval 이 403 인지 확인
 - `HR_ADMIN` 이 팀 대기 요청(`leave_request_team_pending`) 승인 시 200 인지 확인
+- approval create → detail round-trip 이 seed demo 문서와 섞이지 않는지 확인
 - `foreign_request_id` 같은 임의 휴가 요청 id 승인 시 403 이 나오는지 확인
 - placeholder 파일에 실제 비밀값이 없는지 확인
 - 문서에 승인 필요 범위가 남아 있는지 확인
 
 ## 다음 Phase 운영 관점 메모
 
-Phase 3 근태/휴가 1차로 넘어가면 운영자는 아래를 특히 본다.
+전자결재 1차를 계속 다룰 때 운영자는 아래를 특히 봅니다.
 
-- attendance/leave endpoint 가 실제 운영 데이터 없이도 placeholder 검증 가능한지
-- 출퇴근/정정/휴가 승인 요청이 감사 로그 후보를 남길 구조인지
-- 실데이터 반입, production migration, 외부 장비 연동이 승인 필요 항목으로 분리되어 있는지
-- 승인자 권한(`attendance.manage`, `leave.approve`)과 본인 요청 권한(`attendance.read`, `leave.request`)이 섞이지 않았는지
+- approval endpoint 가 실제 운영 문서 없이도 placeholder 검증 가능한지
+- 결재 양식/결재선/문서함/승인함이 회사 scope 와 문서 접근 경계를 유지하는지
+- 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지 같은 guardrail 이 테스트와 문서에 남아 있는지
+- approval create → detail round-trip 과 `pnpm check` 같은 known fail 이 정리되었는지
+- 실데이터 반입, production migration, 외부 전자서명/SaaS 연동이 승인 필요 항목으로 분리되어 있는지
+- `gw-report-delivery-watch.sh` 등 감시/보고 스크립트 변경이 release gate 검토와 같이 묶여 있는지
 
 ## 같이 보면 좋은 문서
 
@@ -197,3 +208,4 @@ Phase 3 근태/휴가 1차로 넘어가면 운영자는 아래를 특히 본다.
 - `docs/guides/cloudflare-first-user-guide.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
+- `docs/architecture/phase-4-approvals-scope.md`

@@ -77,7 +77,9 @@ for task in tasks:
           '위험하거나 범위 밖이면 보류 사유를 보고한다. '
           '분류 기준: 완료/자동 복구 가능/사용자 승인 필요/위험 보류. '
           '비밀값은 출력하지 않는다. production DB, secret, DNS, 유료, 외부 공개, production migration, 파괴적 정리는 승인 전 실행하지 않는다. '
-          '일반 진행/완료 카드는 보고하지 않고, blocked/review-required/권한·배포·비밀값·외부연결 실패 같은 예외만 보고한다.')
+          '일반 진행/완료 카드는 보고하지 않고, blocked/review-required/권한·배포·비밀값·외부연결 실패 같은 예외만 보고한다. '
+          '막힘 조사 중 감시 스크립트/보고 훅/게이트 자동화의 보완점이 발견되면 승인된 개발 자동화 범위 안에서 스스로 보완·검증·문서화한다. '
+          'remediation 체인이 완료되어 원본 blocked 체인이 중복으로 남으면 대체 완료 근거를 남기고 안전하게 정리한다.')
     create=run([hermes,'-p',profile,'kanban','--board',board,'create',report_title,'--assignee','singde','--workspace',f'dir:{root}','--created-by','gw-blocked-report-watch','--idempotency-key',f'blocked-report:{sig}','--priority','95','--body',body,'--json'])
     data=json.loads(create.stdout); created_id=data.get('id') or data.get('task_id'); created.append(created_id)
     if created_id and report_chat_id and report_platform:

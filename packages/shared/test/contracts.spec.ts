@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   appRoutes,
+  approvalActionRequestSchema,
+  approvalActionResponseSchema,
+  approvalCandidateListResponseSchema,
+  approvalDocumentCreateRequestSchema,
+  approvalDocumentDetailResponseSchema,
+  approvalDocumentListResponseSchema,
+  approvalFormCreateRequestSchema,
+  approvalFormListResponseSchema,
+  approvalInboxResponseSchema,
+  approvalLineCreateRequestSchema,
+  approvalLineListResponseSchema,
   attendanceActionResponseSchema,
   attendanceCorrectionRequestSchema,
   attendanceListRecordsResponseSchema,
@@ -41,6 +52,15 @@ describe("shared contracts", () => {
     expect(appRoutes.leave.requests).toBe("/api/leave/requests");
     expect(appRoutes.leave.approve("leave_request_demo")).toBe("/api/leave/requests/leave_request_demo/approve");
     expect(appRoutes.leave.reject("leave_request_demo")).toBe("/api/leave/requests/leave_request_demo/reject");
+    expect(appRoutes.approvals.forms).toBe("/api/approvals/forms");
+    expect(appRoutes.approvals.lines).toBe("/api/approvals/lines");
+    expect(appRoutes.approvals.documents).toBe("/api/approvals/documents");
+    expect(appRoutes.approvals.detail("approval_document_demo")).toBe("/api/approvals/documents/approval_document_demo");
+    expect(appRoutes.approvals.inbox).toBe("/api/approvals/inbox");
+    expect(appRoutes.approvals.approve("approval_document_demo")).toBe("/api/approvals/documents/approval_document_demo/approve");
+    expect(appRoutes.approvals.reject("approval_document_demo")).toBe("/api/approvals/documents/approval_document_demo/reject");
+    expect(appRoutes.approvals.referenceCandidates).toBe("/api/approvals/references/candidates");
+    expect(appRoutes.approvals.agreementCandidates).toBe("/api/approvals/agreements/candidates");
   });
 
   it("parses login/session and org list payloads", () => {
@@ -307,6 +327,271 @@ describe("shared contracts", () => {
         error: null,
       }).data.audit.action,
     ).toBe("leave.request.approve");
+  });
+
+  it("parses Phase 4 approvals placeholder contracts", () => {
+    expect(permissionCodeSchema.parse("approval.form.manage")).toBe("approval.form.manage");
+    expect(permissionCodeSchema.parse("approval.line.manage")).toBe("approval.line.manage");
+    expect(permissionCodeSchema.parse("approval.document.read")).toBe("approval.document.read");
+    expect(permissionCodeSchema.parse("approval.document.write")).toBe("approval.document.write");
+    expect(permissionCodeSchema.parse("approval.document.approve")).toBe("approval.document.approve");
+
+    expect(
+      approvalFormCreateRequestSchema.parse({
+        title: "연차 신청서",
+        category: "leave",
+        fieldSummary: "연차 사유와 기간 입력 placeholder",
+      }).title,
+    ).toBe("연차 신청서");
+
+    expect(
+      approvalFormListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "approval_form_leave",
+              companyId: "company_demo",
+              code: "leave_request",
+              title: "연차 신청서",
+              category: "leave",
+              fieldSummary: "연차 사유와 기간 입력 placeholder",
+              status: "active",
+              placeholder: true,
+              createdBy: "user_company_admin",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].code,
+    ).toBe("leave_request");
+
+    expect(
+      approvalLineCreateRequestSchema.parse({
+        title: "기본 팀장 결재선",
+        description: "팀장 승인 1단계 placeholder",
+        steps: [
+          {
+            stepOrder: 1,
+            approverEmployeeId: "employee_manager",
+            stepType: "approve",
+          },
+        ],
+      }).steps[0]?.stepType,
+    ).toBe("approve");
+
+    expect(
+      approvalLineListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "approval_line_team_manager",
+              companyId: "company_demo",
+              title: "기본 팀장 결재선",
+              description: "팀장 승인 1단계 placeholder",
+              status: "active",
+              placeholder: true,
+              createdBy: "user_hr_admin",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              steps: [
+                {
+                  id: "approval_step_team_manager",
+                  documentId: null,
+                  lineId: "approval_line_team_manager",
+                  stepOrder: 1,
+                  approverEmployeeId: "employee_manager",
+                  stepType: "approve",
+                  decisionStatus: "pending",
+                  decidedAt: null,
+                  decisionComment: null,
+                },
+              ],
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].steps[0]?.approverEmployeeId,
+    ).toBe("employee_manager");
+
+    expect(
+      approvalDocumentCreateRequestSchema.parse({
+        formId: "approval_form_leave",
+        title: "6월 연차 신청",
+        summary: "6월 20일 연차 사용 placeholder",
+        lineId: "approval_line_team_manager",
+        referenceEmployeeIds: ["employee_staff"],
+        agreementEmployeeIds: ["employee_admin"],
+      }).lineId,
+    ).toBe("approval_line_team_manager");
+
+    expect(
+      approvalDocumentListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "approval_document_demo",
+              companyId: "company_demo",
+              formId: "approval_form_leave",
+              lineId: "approval_line_team_manager",
+              drafterEmployeeId: "employee_employee",
+              title: "6월 연차 신청",
+              summary: "6월 20일 연차 사용 placeholder",
+              documentNumber: "APR-2026-0001",
+              status: "pending_approval",
+              submittedAt: "2026-06-10T09:00:00.000Z",
+              completedAt: null,
+              createdBy: "user_employee",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].documentNumber,
+    ).toBe("APR-2026-0001");
+
+    expect(
+      approvalDocumentDetailResponseSchema.parse({
+        ok: true,
+        data: {
+          document: {
+            id: "approval_document_demo",
+            companyId: "company_demo",
+            formId: "approval_form_leave",
+            lineId: "approval_line_team_manager",
+            drafterEmployeeId: "employee_employee",
+            title: "6월 연차 신청",
+            summary: "6월 20일 연차 사용 placeholder",
+            documentNumber: "APR-2026-0001",
+            status: "pending_approval",
+            submittedAt: "2026-06-10T09:00:00.000Z",
+            completedAt: null,
+            createdBy: "user_employee",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T09:00:00.000Z",
+            placeholder: true,
+          },
+          steps: [
+            {
+              id: "approval_step_document_manager",
+              documentId: "approval_document_demo",
+              lineId: "approval_line_team_manager",
+              stepOrder: 1,
+              approverEmployeeId: "employee_manager",
+              stepType: "approve",
+              decisionStatus: "pending",
+              decidedAt: null,
+              decisionComment: null,
+            },
+          ],
+          references: [
+            {
+              id: "approval_reference_staff",
+              documentId: "approval_document_demo",
+              employeeId: "employee_staff",
+              referenceType: "reference",
+              readAt: null,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.steps[0]?.stepOrder,
+    ).toBe(1);
+
+    expect(
+      approvalInboxResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "approval_document_team_pending",
+              companyId: "company_demo",
+              formId: "approval_form_expense",
+              lineId: "approval_line_team_manager",
+              drafterEmployeeId: "employee_employee",
+              title: "운영 장비 구매 승인",
+              summary: "키보드 교체 placeholder",
+              documentNumber: "APR-2026-0002",
+              status: "pending_approval",
+              submittedAt: "2026-06-10T09:00:00.000Z",
+              completedAt: null,
+              createdBy: "user_employee",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
+              placeholder: true,
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].title,
+    ).toBe("운영 장비 구매 승인");
+
+    expect(
+      approvalCandidateListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              employeeId: "employee_staff",
+              companyId: "company_demo",
+              fullName: "인사 담당자",
+              departmentId: "department_hr",
+              type: "agreement",
+            },
+          ],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0].type,
+    ).toBe("agreement");
+
+    expect(
+      approvalActionRequestSchema.parse({
+        reason: "담당자 검토 완료",
+      }).reason,
+    ).toBe("담당자 검토 완료");
+
+    expect(
+      approvalActionResponseSchema.parse({
+        ok: true,
+        data: {
+          document: {
+            id: "approval_document_team_pending",
+            companyId: "company_demo",
+            formId: "approval_form_expense",
+            lineId: "approval_line_team_manager",
+            drafterEmployeeId: "employee_employee",
+            title: "운영 장비 구매 승인",
+            summary: "키보드 교체 placeholder",
+            documentNumber: "APR-2026-0002",
+            status: "approved",
+            submittedAt: "2026-06-10T09:00:00.000Z",
+            completedAt: "2026-06-10T10:00:00.000Z",
+            createdBy: "user_employee",
+            createdAt: "2026-06-10T09:00:00.000Z",
+            updatedAt: "2026-06-10T10:00:00.000Z",
+            placeholder: true,
+          },
+          audit: {
+            candidate: true,
+            action: "approval.document.approve",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.audit.action,
+    ).toBe("approval.document.approve");
   });
 
   it("parses invite requests and common auth errors", () => {
