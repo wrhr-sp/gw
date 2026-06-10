@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 4 전자결재 placeholder 위에 Phase 5 게시판/문서 API/shared skeleton 이 일부 추가된 상태를 점검하는 단계입니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 5 게시판/문서 guardrail 위에 Phase 6 모바일/PWA skeleton 이 추가된 상태를 점검하는 단계입니다.
 
 들어 있는 것:
 
@@ -16,6 +16,8 @@
 - 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 진입점
 - D1 migration 골격 (`0001`, `0002`, `0003`, `0004`)
 - Phase 5 게시판/문서 1차 범위 문서
+- Phase 6 모바일/PWA 1차 홈(`/`), 오프라인 안내(`/offline`), 설치 안내, 모바일 quick action
+- Phase 6 모바일/PWA 1차 기준 문서
 - 게시판/문서 API/shared skeleton 과 guardrail 재현 항목
 - 로컬 검증 명령과 테스트
 
@@ -45,6 +47,9 @@
 - `packages/shared/src/contracts.ts`
 - `apps/api/test/auth-org.spec.ts`
 - `docs/architecture/phase-5-boards-documents-scope.md`
+- `apps/web/app/mobile-pwa-config.ts`
+- `apps/web/app/layout.tsx`
+- `docs/architecture/phase-6-mobile-pwa-scope.md`
 
 핵심 원칙은 간단합니다.
 실제 비밀값과 실제 리소스 ID는 아직 저장소에 들어가면 안 됩니다.
@@ -63,6 +68,9 @@
 - `GET /api/posts/board_post_board_general_forged` 는 403
 - `POST /api/read-receipts` 는 forged `targetId=board_post_board_general_forged` 에서 403
 - `db/migrations/0005_boards_documents_phase5.sql`, `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents`, `docs/workflow/groupware-kanban-automation.md` 까지 저장소에 반영됨
+- `pnpm --filter @gw/web build:cf` 통과
+- `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/mobile-pwa-config.ts` 에 Phase 6 모바일/PWA skeleton 반영
+- 다만 `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 는 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 미통과 상태
 
 ### 1) 기본 검사
 
@@ -160,6 +168,79 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 값이 `replace-after-approval` 인 상태가 정상입니다.
 실제 값으로 바꾸는 시점은 별도 승인 뒤입니다.
 
+## Cloudflare preview URL 준비 기준
+
+현재 저장소 기준 preview URL 기본 후보는 `workers.dev` 입니다.
+
+- `apps/web/wrangler.jsonc` 가 `.open-next/worker.js` 를 메인으로 쓰는 Workers 배포 형태
+- `apps/web/package.json` 도 `opennextjs-cloudflare deploy` 흐름 기준
+- `apps/web/open-next.config.ts` 는 incremental cache 를 별도로 켜지 않아 preview 준비 단계에서 R2 선행 생성이 필수는 아님
+
+반대로 `pages.dev` 는 이번 저장소의 기본 경로가 아닙니다.
+Pages 중심 preview 로 바꾸려면 별도 아키텍처 재검토가 먼저 필요합니다.
+
+운영 원칙:
+
+- preview 준비 문서화와 로컬 build 검증까지만 현재 승인 범위
+- 실제 URL 생성, Cloudflare token 사용, public exposure, DNS/도메인 연결은 별도 승인 전까지 금지
+- 실제 D1/R2/KV/Queue/Durable Object/Cron 생성도 별도 승인 전까지 금지
+
+상세 기준은 `docs/architecture/cloudflare-preview-url-preparation.md` 를 봅니다.
+
+### 배포 전 승인 체크리스트
+
+preview 배포 버튼을 누르기 전에 운영자가 대장 승인 여부를 다시 확인해야 할 항목은 아래입니다.
+
+- Cloudflare token/계정 사용 승인
+- 실제 preview URL 생성 승인
+- 외부 공개(public exposure) 허용 승인
+- DNS/도메인 연결 필요 시 그 작업 승인
+- 실제 D1/R2/KV/Queue/Durable Object/Cron 생성 필요 시 그 작업 승인
+- 비용 발생 가능성이 있으면 비용 승인
+- production DB migration / production R2 업로드 / 실데이터 반입이 이번 승인 범위가 아니라는 점 확인
+
+### preview 배포 후 1차 smoke 체크리스트
+
+preview URL 이 실제로 발급되면 아래 순서로 확인합니다.
+
+화면 경로:
+
+- `/`
+- `/login`
+- `/dashboard`
+- `/offline`
+- `/boards`
+- `/boards/board_general`
+- `/documents`
+- `/admin`
+- `/admin/users`
+- `/admin/policies`
+- `/admin/audit-logs`
+
+API 경로:
+
+- `/api/health` → 200 기대
+- `/api/me` → 무인증 상태 401 기대
+- `/api/companies`
+- `/api/roles`
+- `/api/attendance/records`
+- `/api/leave/requests`
+- `/api/notices`
+- `/api/boards`
+- `/api/documents/spaces`
+
+PWA/manifest:
+
+- `/manifest.webmanifest`
+
+운영 메모:
+
+- `/admin` 계열은 외부 preview 에서도 접근 경계가 유지되는지 우선 확인합니다.
+- placeholder 로그인 우회용 `x-dev-role` 흐름이 외부 공개 preview 기본 경로에 남아 있지 않은지 확인합니다.
+- manifest 와 API 가 preview 전용 절대 도메인이 아니라 same-origin 상대 경로 기준으로 동작하는지 확인합니다.
+- `/offline` 이 "오프라인에서도 저장됨" 같은 가짜 성공 메시지를 만들지 않는지 확인합니다.
+- `attendance`/`leave`/`approvals` 의 큰 CTA 가 실제 버튼인지, 아니면 아직 placeholder 인지 같이 기록합니다. 현재 코드는 placeholder 입니다.
+
 ## 승인 없이 하면 안 되는 일
 
 아래 작업은 이 단계에서 하면 안 됩니다.
@@ -217,6 +298,16 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - 실데이터 반입, production migration, 실제 R2 업로드, 외부 문서보관/SaaS 연동이 승인 필요 항목으로 분리되어 있는지
 - `gw-report-delivery-watch.sh` 등 감시/보고 스크립트 변경이 release gate 검토와 같이 묶여 있는지
 
+Phase 6 모바일/PWA 를 이어서 볼 때는 아래도 같이 봅니다.
+
+- `docs/architecture/phase-6-mobile-pwa-scope.md` 의 포함/제외/승인 필요 범위가 현재 승인 상태와 맞는지
+- `apps/web/public/manifest.webmanifest` 와 `apps/web/app/layout.tsx` 가 여전히 상대 경로 manifest 기준을 유지하는지
+- `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/mobile-pwa-config.ts` 의 설치/오프라인 문구가 같은 기준을 쓰는지
+- 모바일 화면 정리 작업이 실제 외부 배포, App Store/Play Store, Expo/React Native, production secret/DNS/유료 리소스 작업으로 번지지 않았는지
+- offline 안내가 성공처럼 보이는 가짜 상태를 만들지 않는지
+- mobile UX 변경 뒤에도 게시판/문서/전자결재 접근 경계와 기존 guardrail 이 그대로 유지되는지
+- 현재 접근성 blocker 인 `<span aria-disabled>` CTA 가 release gate 에 남아 있는지, 해소 전에는 통과로 오해하지 않도록 기록했는지
+
 ## 같이 보면 좋은 문서
 
 - `README.md`
@@ -226,3 +317,5 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
 - `docs/architecture/phase-5-boards-documents-scope.md`
+- `docs/architecture/phase-6-mobile-pwa-scope.md`
+- `docs/architecture/cloudflare-preview-url-preparation.md`

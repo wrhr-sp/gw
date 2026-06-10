@@ -14,6 +14,8 @@
 - Phase 4 전자결재 1차 skeleton (`/approvals`, approval API, `0004_approvals_phase4.sql`)
 - Phase 5 게시판/문서 1차 API/shared skeleton (`/api/notices`, `/api/boards`, `/api/documents/*`, `/api/read-receipts`)
 - Phase 5 범위/운영 문서 (`docs/architecture/phase-5-boards-documents-scope.md`)
+- Phase 6 모바일/PWA 1차 skeleton (`/`, `/offline`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `apps/web/app/mobile-pwa-config.ts`)
+- Phase 6 모바일/PWA 범위 문서 (`docs/architecture/phase-6-mobile-pwa-scope.md`)
 
 ## Workspace 구조
 
@@ -127,6 +129,59 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - production DB migration, 외부 공개 배포, DNS/R2/도메인 작업, 실제 비밀값 입력은 별도 승인 필요
 - `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 수정은 계속 GitHub release gate 검토 범위에 포함
 
+Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
+
+- `docs/architecture/cloudflare-preview-url-preparation.md`
+- 현재 저장소 기준 기본 preview 후보는 `workers.dev` 이며, 실제 URL 생성/Cloudflare token 사용/public exposure 는 별도 승인 전까지 하지 않습니다.
+
+## Cloudflare preview URL handoff 빠른 요약
+
+문서만 먼저 보고 싶은 경우 아래 4가지만 기억하면 됩니다.
+
+1. 배포 전 별도 승인 대상
+   - 실제 Cloudflare token 사용
+   - 실제 preview URL 생성
+   - `wrangler deploy` 또는 동급 외부 공개 배포
+   - DNS/도메인 연결
+   - 실제 D1/R2/KV/Queue/Durable Object/Cron 생성
+   - production DB migration / production R2 업로드 / 실데이터 반입
+2. preview 배포 후 1차 확인 경로
+   - 화면: `/`, `/login`, `/dashboard`, `/boards`, `/boards/board_general`, `/documents`, `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`
+   - API: `/api/health`, `/api/me`, `/api/companies`, `/api/roles`, `/api/attendance/records`, `/api/leave/requests`, `/api/notices`, `/api/boards`, `/api/documents/spaces`
+   - PWA: `/manifest.webmanifest`
+3. Phase 6 모바일/PWA가 이어받을 기준
+   - `apps/web/public/manifest.webmanifest` 의 `start_url: "/"` 유지
+   - `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 유지
+   - 앱 내부 링크와 API 기본 경로는 same-origin 상대 경로(`/api/*`) 우선 유지
+4. preview 가 떠도 production 승인과는 별개
+   - 실제 secret 반영, 운영 리소스 연결, 외부 공개 확대는 다시 승인받아야 함
+
+## Phase 6 모바일/PWA 1차 현재 상태
+
+기준 문서는 `docs/architecture/phase-6-mobile-pwa-scope.md` 입니다.
+
+현재 저장소에 실제로 들어 있는 항목은 아래와 같습니다.
+
+- `apps/web/app/page.tsx` 에서 모바일 홈, 설치 안내, quick action, 리뷰 체크리스트를 먼저 보여 줍니다.
+- `apps/web/app/offline/page.tsx` 에서 오프라인/불안정 네트워크 안내 skeleton 을 분리해 둡니다.
+- `apps/web/app/dashboard/page.tsx`, `attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 에서 작은 화면 우선 카드 구조를 맞춥니다.
+- `apps/web/app/mobile-pwa-config.ts` 에 manifest 값, 주요 route, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트를 한곳에서 관리합니다.
+- `apps/web/app/layout.tsx` 와 `apps/web/public/manifest.webmanifest` 는 같은 origin 상대 경로 manifest 기준을 유지합니다.
+
+이번에 문서에서 특히 고정한 사용 기준은 아래와 같습니다.
+
+- 사용자는 `/`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/offline` 까지의 작은 화면 흐름을 먼저 확인하면 됩니다.
+- 설치 안내가 보여도 실제 앱스토어 배포, push, background sync, 생체인증, 실데이터 운영 연결이 열린 것은 아닙니다.
+- 오프라인 화면은 "지금 가능한 일/막아야 하는 일/다시 시도 절차"를 설명하는 안내용 skeleton 이며, 상태 변경 성공을 약속하지 않습니다.
+- preview URL 이 생겨도 manifest 와 API 경로는 same-origin 상대 경로를 기본으로 유지합니다.
+
+완료 기준 요약:
+
+- 확인된 결과: `pnpm check`, `pnpm build`, `pnpm --filter @gw/web build:cf` 는 통과했습니다.
+- `/manifest.webmanifest` 와 same-origin `/api/*` 정책이 문서와 코드에서 모순되지 않아야 합니다.
+- 모바일/PWA UX 보안·접근성 리뷰 메모와 release gate 기준이 문서에 남아 있어야 합니다.
+- 현재 known gap: `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 모바일 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 통과한 상태가 아닙니다.
+
 ## 빠른 로컬 시작
 
 ```bash
@@ -228,4 +283,5 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
 - Phase 4 범위: `docs/architecture/phase-4-approvals-scope.md`
 - Phase 5 범위: `docs/architecture/phase-5-boards-documents-scope.md`
+- Cloudflare preview 준비: `docs/architecture/cloudflare-preview-url-preparation.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`

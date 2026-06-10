@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title>GW Mobile maskable placeholder icon 512</title>
+  <desc>Maskable placeholder icon for the groupware mobile PWA skeleton.</desc>
+  <rect width="512" height="512" fill="#0f172a"/>
+  <circle cx="256" cy="256" r="176" fill="#1d4ed8"/>
+  <path d="M146 284h70l28 36 58-116 34 74h42" fill="none" stroke="#f8fafc" stroke-linecap="round" stroke-linejoin="round" stroke-width="28"/>
+  <circle cx="188" cy="206" r="28" fill="#f8fafc"/>
+</svg>

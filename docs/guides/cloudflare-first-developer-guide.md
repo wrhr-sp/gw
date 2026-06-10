@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, 그리고 Phase 5 게시판/문서 1차 범위를 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, 그리고 Phase 6 모바일/PWA 1차 현재 상태와 남은 한계를 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -19,6 +19,7 @@ docs/
 
 현재 기준으로 실제 코드가 들어 있는 핵심 경로는 `apps/web`, `apps/api`, `packages/shared`, `db/migrations` 입니다.
 특히 전자결재 1차 remediation 과 다음 게시판/문서 1차 작업에서는 `docs/architecture/phase-4-approvals-scope.md`, `docs/architecture/phase-5-boards-documents-scope.md`, `apps/web/app/approvals/page.tsx`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts`, `db/migrations/0004_approvals_phase4.sql`, `apps/api/test/auth-org.spec.ts` 를 같이 봐야 문서와 코드가 맞습니다.
+Phase 6 모바일/PWA 를 볼 때는 `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/layout.tsx`, `apps/web/public/manifest.webmanifest`, `docs/architecture/phase-6-mobile-pwa-scope.md` 도 같이 봐야 합니다.
 
 ## Phase 2~5에서 확인된 핵심 골격
 
@@ -91,6 +92,8 @@ Workers API입니다.
 
 현재 placeholder 화면:
 
+- `app/page.tsx` — 모바일 홈, 설치 안내, quick action, 리뷰 체크리스트
+- `app/offline/page.tsx` — 오프라인/불안정 네트워크 안내 skeleton
 - `app/login/page.tsx` — 로그인 skeleton
 - `app/dashboard/page.tsx` — 세션 상태 + 근태/휴가/전자결재 진입점 placeholder
 - `app/employees/page.tsx` — 직원 조회 placeholder
@@ -100,6 +103,7 @@ Workers API입니다.
 - `app/approvals/page.tsx` — 전자결재 진입점 placeholder
 - `app/admin/page.tsx` — 관리자 초대/권한 placeholder
 - `app/boards`, `app/boards/[boardId]`, `app/posts/[postId]`, `app/documents` placeholder 가 추가됨
+- `app/mobile-pwa-config.ts` — manifest, 주요 route, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트 공통 설정
 
 ## 개발자가 바로 쓰는 명령
 
@@ -117,9 +121,12 @@ pnpm test
 
 - `pnpm check` 통과
 - `pnpm build` 통과
+- `pnpm --filter @gw/web build:cf` 통과
 - `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts` 에서 2개 파일, 40개 테스트 통과
 - `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
+- `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 skeleton 이 추가됨
 - 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
+- 별도 known gap: `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 미통과 상태
 
 개별 확인:
 
@@ -224,16 +231,84 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - `apps/web/open-next.config.ts`
 - `apps/web/wrangler.jsonc`
 - `apps/api/wrangler.jsonc`
+- `apps/web/public/manifest.webmanifest`
+- `apps/web/app/layout.tsx`
+- `docs/architecture/cloudflare-preview-url-preparation.md`
 
-## 다음 Phase에서 바로 이어질 범위
+## Cloudflare preview URL handoff 기준
 
-다음 구현 기준은 `docs/architecture/phase-5-boards-documents-scope.md` 이며, 지금은 "guardrail·DB skeleton·Web placeholder 까지 맞춘 뒤 실제 저장/업로드/검색을 남겨 둔 상태"로 보는 편이 정확합니다.
+다음 구현자는 preview 관련 결정을 아래 기준으로 이어받습니다.
+
+### 1) 배포 전 승인 범위
+
+승인 전에는 아래를 실행하지 않습니다.
+
+- 실제 Cloudflare token 입력/로그인
+- `pnpm --filter @gw/web deploy:cf`
+- 실제 preview URL 생성
+- DNS/도메인 연결
+- 실제 D1/R2/KV/Queue/Durable Object/Cron 생성
+- production DB migration / production R2 업로드 / 실데이터 반입
+
+### 2) preview 배포 후 우선 확인 경로
+
+Web:
+
+- `/`
+- `/login`
+- `/dashboard`
+- `/boards`
+- `/boards/board_general`
+- `/documents`
+- `/admin`
+- `/admin/users`
+- `/admin/policies`
+- `/admin/audit-logs`
+
+API:
+
+- `/api/health`
+- `/api/me`
+- `/api/companies`
+- `/api/roles`
+- `/api/attendance/records`
+- `/api/leave/requests`
+- `/api/notices`
+- `/api/boards`
+- `/api/documents/spaces`
+
+PWA:
+
+- `/manifest.webmanifest`
+
+### 3) Phase 6 모바일/PWA가 지켜야 할 코드 기준
+
+- `apps/web/public/manifest.webmanifest` 의 `start_url: "/"` 를 유지합니다.
+- `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 를 유지합니다.
+- preview URL 이 생겨도 manifest 안에 절대 preview 도메인을 커밋하지 않습니다.
+- 앱 내부 링크와 API 기본 경로는 same-origin 상대 경로(`/api/*`)를 우선 유지합니다.
+- 별도 origin API가 필요하면 기본값이 아니라 환경변수 override 로 분리합니다.
+
+### 4) Phase 6 구현 문서 기준
+
+- 상세 범위는 `docs/architecture/phase-6-mobile-pwa-scope.md` 를 기준으로 봅니다.
+- 현재 코드는 `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/*`, `apps/web/app/documents/page.tsx` 를 중심으로 작은 화면 UX 를 정리한 상태입니다.
+- `apps/web/app/mobile-pwa-config.ts` 에 manifest 값, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트를 모아 두었습니다.
+- icon placeholder, 설치 안내, offline 안내 skeleton 은 넣되 push/background sync/service worker 고도화는 별도 승인 전까지 하지 않습니다.
+- 다만 `attendance`/`leave`/`approvals` 의 큰 CTA 는 아직 실제 버튼/링크 semantics 로 바뀌지 않았으므로 후속 작업자가 접근성 remediation 을 먼저 보는 편이 맞습니다.
+- App Store/Play Store, Expo/React Native, 실제 외부 공개 URL, production DB migration, secret/DNS/유료 리소스는 이번 범위가 아닙니다.
+
+## 다음 구현자가 바로 이어받을 범위
+
+다음 구현자는 `docs/architecture/phase-6-mobile-pwa-scope.md` 와 현재 Web 코드를 기준으로, "모바일/PWA skeleton 은 들어갔지만 CTA semantics 와 실제 연결은 아직 남아 있는 상태"로 이해하는 편이 정확합니다.
 
 우선순위는 아래 순서를 권장합니다.
 
-- 현재 403 guardrail 케이스를 유지한 채 실제 게시글/댓글/문서함 저장 로직을 붙임
-- R2 업로드, 다운로드, 미리보기, 검색, 알림처럼 아직 비어 있는 실제 기능을 승인 범위 안에서 단계적으로 추가함
-- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` placeholder 를 실제 fetch/error/loading 흐름으로 확장함
+- `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 `<span aria-disabled>` CTA 를 실제 disabled button 또는 의미 있는 링크/안내 구조로 바꿔 접근성 blocker 를 먼저 줄임
+- `apps/web/app/page.tsx`, `offline/page.tsx`, `mobile-pwa-config.ts` 의 설치/오프라인 문구와 실제 route 동작이 계속 같은 기준을 쓰는지 유지함
+- 현재 403 guardrail 케이스를 유지한 채 실제 게시글/댓글/문서함 저장 로직과 모바일 fetch/error/loading 흐름을 단계적으로 확장함
+- R2 업로드, 다운로드, 미리보기, 검색, 알림처럼 아직 비어 있는 실제 기능은 승인 범위 안에서만 추가함
+- Phase 6 모바일/PWA 는 `docs/architecture/cloudflare-preview-url-preparation.md` 기준으로 상대 경로 manifest 와 same-origin `/api` 가정을 유지함
 - 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 더 보강함
 - `gw-report-delivery-watch.sh` 를 포함한 보고/감시 스크립트 변경이 있다면 release gate 문서와 함께 검토
 
@@ -250,6 +325,8 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
 - `docs/architecture/phase-5-boards-documents-scope.md`
+- `docs/architecture/phase-6-mobile-pwa-scope.md`
+- `docs/architecture/cloudflare-preview-url-preparation.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`
 - `docs/guides/cloudflare-first-operator-guide.md`
 - `docs/guides/cloudflare-first-user-guide.md`

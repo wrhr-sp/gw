@@ -1,16 +1,17 @@
-import Link from "next/link";
 import { appRoutes } from "@gw/shared";
+
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const mailboxCards = [
   {
-    title: "내 기안함",
-    body: "기안자 기준으로 내 문서 목록과 상태를 먼저 구분합니다. 실제 법적 효력이 있는 전자결재가 아니라 placeholder 상태입니다.",
-    status: "draft / pending_approval / approved / rejected",
+    title: "내 승인함",
+    body: "모바일에서는 승인 대기 문서를 먼저 보고, 큰 승인/반려 CTA 와 경고 문구를 같은 화면에 둡니다.",
+    status: "pending review",
   },
   {
-    title: "내 승인함",
-    body: "승인 권한이 있는 사용자만 보는 승인 대기 문서함입니다. 자기 문서 자기 승인은 API guardrail 로 차단합니다.",
-    status: "pending review",
+    title: "내 기안함",
+    body: "기안자 기준 상태 요약과 문서함 진입점을 별도 카드로 분리합니다.",
+    status: "draft / pending_approval / approved / rejected",
   },
   {
     title: "참조/합의 문서함",
@@ -35,59 +36,54 @@ const detailSections = [
 
 export default function ApprovalsPage() {
   return (
-    <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/dashboard">← 대시보드로</Link>
-      <h1>전자결재 1차 skeleton</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        이 화면은 법적 효력이 있는 전자결재 완성본이 아니라, Phase 4 승인 범위 안에서 문서함/기안/상세/승인함 구조를 먼저 고정하기 위한
-        placeholder 입니다.
-      </p>
+    <PageShell
+      eyebrow="모바일 전자결재 skeleton"
+      title="전자결재 1차 skeleton"
+      description="모바일에서 내 승인함을 먼저 열고, 기안 작성과 상세 상태를 작은 화면에서도 우선순위가 드러나게 정리한 placeholder 입니다."
+      actions={
+        <div className="action-row">
+          <span className="touch-button" aria-disabled="true">
+            승인 placeholder
+          </span>
+          <span className="touch-button--secondary" aria-disabled="true">
+            반려 placeholder
+          </span>
+        </div>
+      }
+    >
+      <SurfaceSection title="모바일 우선 문서함" description="내 승인함 → 내 기안함 → 참조/합의 순서로 카드 우선순위를 재정렬했습니다.">
+        <div className="grid-auto">
+          {mailboxCards.map((card, index) => (
+            <article key={card.title} className="route-card">
+              <Pill tone={index === 0 ? "accent" : "default"}>{card.status}</Pill>
+              <h3>{card.title}</h3>
+              <p>{card.body}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        {mailboxCards.map((card) => (
-          <article key={card.title} style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-            <h2 style={{ marginTop: 0, fontSize: 20 }}>{card.title}</h2>
-            <p style={{ lineHeight: 1.7 }}>{card.body}</p>
-            <p style={{ marginBottom: 0, color: "#4b5563" }}>상태 예시: {card.status}</p>
-          </article>
-        ))}
-      </section>
-
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>기안 작성 skeleton</h2>
-        <p style={{ lineHeight: 1.7 }}>
-          실제 rich editor/첨부/PDF 변환 대신 제목·요약·결재선·참조자 조합을 먼저 고정합니다.
-        </p>
-        <ol style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="기안 작성 skeleton" description="제목·요약·결재선·참조자 조합을 먼저 고정합니다.">
+        <ol className="number-list">
           {draftChecklist.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ol>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, background: "#f9fafb" }}>
-        <h2 style={{ marginTop: 0 }}>문서 상세 / 승인 처리 placeholder</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 16 }}>
+      <SurfaceSection title="문서 상세 / 승인 처리 placeholder" description="작은 화면에서도 핵심 상태와 CTA 를 먼저 보여 줍니다." muted>
+        <ul className="summary-list">
           {detailSections.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="button" disabled style={{ padding: "10px 16px", borderRadius: 999, border: "1px solid #d1d5db" }}>
-            승인 placeholder
-          </button>
-          <button type="button" disabled style={{ padding: "10px 16px", borderRadius: 999, border: "1px solid #d1d5db" }}>
-            반려 placeholder
-          </button>
-        </div>
-        <p style={{ marginTop: 12, marginBottom: 0, color: "#6b7280" }}>
-          버튼을 숨기는 것만으로는 충분하지 않으며, 서버에서 company scope 와 self-approval guardrail 을 함께 확인합니다.
+        <p className="muted-copy" style={{ marginTop: 16 }}>
+          버튼을 크게 만드는 것만으로는 충분하지 않으며, 서버에서 company scope 와 self-approval guardrail 을 함께 확인합니다.
         </p>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>연결할 API</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+      <SurfaceSection title="연결할 API" description="same-origin /api 계약을 모바일에서도 유지합니다.">
+        <ul className="summary-list">
           <li><a href={appRoutes.approvals.forms}>{appRoutes.approvals.forms}</a> — 결재 양식 목록/생성 skeleton</li>
           <li><a href={appRoutes.approvals.lines}>{appRoutes.approvals.lines}</a> — 결재선 목록/생성 skeleton</li>
           <li><a href={appRoutes.approvals.documents}>{appRoutes.approvals.documents}</a> — 내 문서함/기안 skeleton</li>
@@ -95,7 +91,7 @@ export default function ApprovalsPage() {
           <li><a href={appRoutes.approvals.referenceCandidates}>{appRoutes.approvals.referenceCandidates}</a> — 참조 후보</li>
           <li><a href={appRoutes.approvals.agreementCandidates}>{appRoutes.approvals.agreementCandidates}</a> — 합의 후보</li>
         </ul>
-      </section>
-    </main>
+      </SurfaceSection>
+    </PageShell>
   );
 }

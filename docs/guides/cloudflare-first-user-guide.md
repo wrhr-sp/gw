@@ -16,6 +16,8 @@
 - 근태/휴가 placeholder API와 승인 경계 검증 흐름
 - 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 화면
 - 게시판/문서 1차 범위를 정리한 `docs/architecture/phase-5-boards-documents-scope.md`
+- 모바일 홈(`/`), 오프라인 안내(`/offline`), 설치 안내와 quick action 을 포함한 Phase 6 모바일/PWA 1차 skeleton
+- Phase 6 모바일/PWA 1차 기준 문서 `docs/architecture/phase-6-mobile-pwa-scope.md`
 
 지금 단계의 화면은 실제 업무 데이터를 보여주는 완성본이 아닙니다.
 먼저 정보구조와 경로를 고정해 두기 위한 골격입니다.
@@ -27,9 +29,9 @@
 - 실제 로그인 연동
 - 실제 회사/직원 데이터 연결
 - 근태, 휴가, 결재의 실데이터 저장/정책 계산/실승인 처리
-- 파일 업로드
-- `/boards`, `/posts/[postId]`, `/documents` 실제 Web 화면
-- 게시판/문서용 DB migration (`0005_*`)
+- 파일 업로드와 실제 문서/첨부 저장
+- 근태/휴가/전자결재의 실제 상태 변경 완료 흐름
+- 모바일 CTA 접근성 마무리
 - Cloudflare 실배포
 - 운영용 D1, R2, KV, Queues 같은 실리소스 연결
 - 실제 메일 초대 발송
@@ -86,6 +88,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 현재 Web 앱에는 아래 경로가 준비되어 있습니다.
 
 - `/`
+- `/offline`
 - `/login`
 - `/dashboard`
 - `/employees`
@@ -97,6 +100,26 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `/admin/users`
 - `/admin/policies`
 - `/admin/audit-logs`
+
+## preview URL 이 나오면 먼저 확인할 것
+
+실제 Cloudflare preview URL 이 승인되어 발급되면, 사용자는 아래 순서로 화면이 열리는지만 먼저 확인하면 됩니다.
+
+1. `/` — 첫 진입 화면이 뜨는지
+2. `/login` — 로그인 안내와 placeholder 설명이 보이는지
+3. `/dashboard` — 기본 대시보드 shell 이 보이는지
+4. `/boards` 와 `/boards/board_general` — 게시판 placeholder 화면이 열리는지
+5. `/documents` — 문서함 placeholder 화면이 열리는지
+6. `/offline` — 오프라인/불안정 네트워크 안내가 "성공처럼 보이는 가짜 상태" 없이 설명되는지
+7. `/manifest.webmanifest` — PWA manifest 가 같은 origin 에서 열리는지
+
+운영/개발 담당자가 같이 확인할 항목도 미리 알아두면 좋습니다.
+
+- 관리자 화면(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)은 외부 preview 에서 무방비로 열리면 안 됩니다.
+- `/api/health` 는 200 이어야 하고, `/api/me` 는 로그인하지 않은 상태에서 401 이 나오는 편이 정상입니다.
+- preview URL 이 생겨도 아직 production 전환이 끝난 것은 아닙니다.
+
+즉, 사용자는 "화면이 뜨는지, 오프라인 제한 안내가 과장되지 않는지, 같은 origin 의 manifest 가 보이는지" 정도까지만 먼저 확인하면 됩니다.
 
 ## 인증/조직 화면에서 보게 되는 것
 
@@ -118,13 +141,11 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 다음 구현 단계에서는 보통 아래 순서로 확장합니다.
 
-1. 실제 인증 공급자 연결 검토
-2. 회사/직원/조직 데이터 실제 저장소 연결
-3. 근태/휴가 API 안정화
-4. 전자결재와 게시판/문서 접근 경계 검증 보강
-5. 게시판/문서 DB/Web skeleton 추가
-6. 파일 저장과 알림 처리 연결
-7. Cloudflare 실리소스 연결과 배포 검토
+1. 모바일 CTA 를 실제 버튼/링크 semantics 로 바꿔 접근성 이슈를 먼저 줄임
+2. 실제 인증 공급자와 회사/직원/조직 저장소 연결 검토
+3. 근태/휴가/전자결재 API 안정화와 실제 상태 변경 흐름 연결
+4. 게시판/문서 저장·업로드·검색·알림 같은 실제 기능 확장
+5. Cloudflare 실리소스 연결과 외부 preview/배포 검토
 
 근태/휴가 1차에서 사용자가 보게 될 기본 흐름은 아래입니다.
 
@@ -142,6 +163,28 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 최근 검증에서는 공지형 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, forged 게시글 상세 조회, forged 게시글 read receipt 생성이 모두 403 으로 막히는 것까지 확인했습니다.
 - 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약, placeholder 화면, 권한 경계를 먼저 맞춘 상태" 입니다.
 - 다만 실제 R2 업로드, production 문서 데이터 반입, 외부 공유 링크, OCR/전자서명 연동은 별도 승인 전까지 하지 않습니다.
+
+## Phase 6 모바일/PWA가 이어받는 기준
+
+모바일/PWA 단계는 preview URL 이 생겨도 아래 기준을 그대로 이어받습니다.
+
+- 앱 시작 경로는 `apps/web/public/manifest.webmanifest` 의 `start_url: "/"` 기준을 유지합니다.
+- manifest 경로는 `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 처럼 같은 origin 상대 경로를 유지합니다.
+- API도 우선 `/api/*` 같은 same-origin 기준으로 붙는다고 이해하면 됩니다.
+- 즉, preview 전용 절대 도메인을 앱 안에 하드코딩하지 않는 것이 기본 원칙입니다.
+
+사용자 관점에서 이번 Phase 6 에서 기대하는 변화는 아래 정도입니다.
+
+- `/`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents` 가 작은 화면에서도 읽기 쉬운 카드 구조로 정리됩니다.
+- 앱 설치에 필요한 manifest/icon placeholder 와 기본 안내 문구가 정리됩니다.
+- `/offline` 에서 오프라인 상태에서 가능한 일과 막아야 하는 일을 따로 보게 됩니다.
+- 다만 실제 앱스토어 배포, push 알림, background sync, 생체인증, 실데이터 운영 연결은 아직 아닙니다.
+
+현재 바로 알아둘 제한도 있습니다.
+
+- `attendance`, `leave`, `approvals` 화면의 큰 행동 버튼은 아직 실제 동작 버튼이 아니라 placeholder 입니다.
+- 특히 이 CTA 들은 현재 `<span aria-disabled>` 형태로 남아 있어, "누를 수 있어 보이지만 실제 버튼은 아님"이라는 접근성 한계가 있습니다.
+- 그래서 지금 단계에서는 화면 구조와 안내 문구를 먼저 확인하고, 실제 처리 완료까지 기대하면 안 됩니다.
 
 전자결재 1차에서 사용자가 보게 될 기본 흐름은 다음과 같습니다.
 
@@ -161,5 +204,6 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
 - `docs/architecture/phase-5-boards-documents-scope.md`
+- `docs/architecture/phase-6-mobile-pwa-scope.md`
 - `docs/architecture/cloudflare-first-phase-scope.md`
 - `docs/architecture/next-cloudflare-platform-plan.md`

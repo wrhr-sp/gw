@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { appRoutes } from "@gw/shared";
+
+import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 
 type PageProps = {
   params: Promise<{ postId: string }>;
@@ -16,35 +17,30 @@ export default async function PostDetailPage({ params }: PageProps) {
   const { postId } = await params;
 
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/boards">← 게시판 목록으로</Link>
-      <h1>게시글 상세 placeholder</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        postId <code>{postId}</code> 를 기준으로 상세/댓글/읽음 확인 흐름이 이어지는 자리를 고정합니다.
-        실제 본문 저장과 첨부 미리보기는 아직 연결하지 않습니다.
-      </p>
-
-      <section style={{ marginTop: 24, border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-        <h2 style={{ marginTop: 0 }}>상세 정보 placeholder</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+    <PageShell
+      backHref="/boards"
+      backLabel="게시판 목록으로"
+      eyebrow="모바일 게시글 상세"
+      title="게시글 상세 placeholder"
+      description="postId 기준 상세/댓글/읽음 확인 흐름을 작은 화면에서도 제목과 CTA 가 먼저 보이도록 정리했습니다."
+      actions={<Pill>{postId}</Pill>}
+    >
+      <SurfaceSection title="상세 정보 placeholder" description="모바일에서 제목/메타/CTA 우선순위를 먼저 보게 합니다.">
+        <ul className="summary-list">
           {detailSections.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-        <article style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>댓글 영역</h2>
-          <p style={{ lineHeight: 1.7, marginBottom: 12 }}>댓글 목록 조회와 작성 폼은 postId 경로를 공유하되 권한은 별도로 확인합니다.</p>
+      <div className="mobile-summary-grid">
+        <SurfaceSection title="댓글 영역" description="댓글 목록 조회와 작성 폼은 postId 경로를 공유하되 권한은 별도로 확인합니다.">
           <a href={appRoutes.boards.comments(postId)}>{appRoutes.boards.comments(postId)}</a>
-        </article>
-        <article style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>읽음 확인 영역</h2>
-          <p style={{ lineHeight: 1.7, marginBottom: 12 }}>임의 targetId 생성은 서버에서 403 으로 막고 접근 가능한 게시글만 receipt 를 남깁니다.</p>
+        </SurfaceSection>
+        <SurfaceSection title="읽음 확인 영역" description="임의 targetId 생성은 서버에서 403 으로 막고 접근 가능한 게시글만 receipt 를 남깁니다." muted>
           <a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a>
-        </article>
-      </section>
-    </main>
+        </SurfaceSection>
+      </div>
+    </PageShell>
   );
 }
