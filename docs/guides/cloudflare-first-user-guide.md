@@ -18,6 +18,7 @@
 - 게시판/문서 1차 범위를 정리한 `docs/architecture/phase-5-boards-documents-scope.md`
 - 모바일 홈(`/`), 오프라인 안내(`/offline`), 설치 안내와 quick action 을 포함한 Phase 6 모바일/PWA 1차 skeleton
 - Phase 6 모바일/PWA 1차 기준 문서 `docs/architecture/phase-6-mobile-pwa-scope.md`
+- 같은 origin 안에서 `/api/health`, `/api/me` 를 다시 붙이기 위한 Phase 7 same-origin 브리지 코드와 기준 문서
 
 지금 단계의 화면은 실제 업무 데이터를 보여주는 완성본이 아닙니다.
 먼저 정보구조와 경로를 고정해 두기 위한 골격입니다.
@@ -103,23 +104,26 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 ## preview URL 이 나오면 먼저 확인할 것
 
-실제 Cloudflare preview URL 이 승인되어 발급되면, 사용자는 아래 순서로 화면이 열리는지만 먼저 확인하면 됩니다.
+현재 공개 Web preview URL 은 `https://gw-web.werehere31.workers.dev` 입니다.
 
-1. `/` — 첫 진입 화면이 뜨는지
-2. `/login` — 로그인 안내와 placeholder 설명이 보이는지
-3. `/dashboard` — 기본 대시보드 shell 이 보이는지
-4. `/boards` 와 `/boards/board_general` — 게시판 placeholder 화면이 열리는지
-5. `/documents` — 문서함 placeholder 화면이 열리는지
-6. `/offline` — 오프라인/불안정 네트워크 안내가 "성공처럼 보이는 가짜 상태" 없이 설명되는지
-7. `/manifest.webmanifest` — PWA manifest 가 같은 origin 에서 열리는지
+이번에 사용자 관점에서 바로 확인된 결과는 아래와 같습니다.
+
+1. `/` — 200, 첫 진입 화면이 열림
+2. `/login` — 200, 로그인 안내와 placeholder 설명이 열림
+3. `/boards` 와 `/boards/board_general` — 게시판 placeholder 화면 확인용 경로
+4. `/documents` — 200, 문서함 placeholder 화면이 열림
+5. `/offline` — 오프라인/불안정 네트워크 안내를 확인할 수 있음
+6. `/manifest.webmanifest` — 200, PWA manifest 가 같은 origin 에서 열림
+7. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` — 화면이 직접 열리지 않고 `/login` 으로 307 redirect
 
 운영/개발 담당자가 같이 확인할 항목도 미리 알아두면 좋습니다.
 
-- 관리자 화면(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)은 외부 preview 에서 무방비로 열리면 안 됩니다.
-- `/api/health` 는 200 이어야 하고, `/api/me` 는 로그인하지 않은 상태에서 401 이 나오는 편이 정상입니다.
+- 관리자 화면은 외부 preview 에서 무방비로 열리면 안 되며, 이번 확인에서는 `/login` redirect 로 막혔습니다.
+- 현재 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 들어와 있지만, 공개 preview URL 은 이 변경을 다시 배포해 확인한 상태가 아닙니다.
+- 그래서 사용자는 "문서상 원칙은 same-origin `/api/*` 유지"라고 이해하되, 현재 공개 preview 에서 새 API 결과가 바로 보인다고 기대하면 안 됩니다.
 - preview URL 이 생겨도 아직 production 전환이 끝난 것은 아닙니다.
 
-즉, 사용자는 "화면이 뜨는지, 오프라인 제한 안내가 과장되지 않는지, 같은 origin 의 manifest 가 보이는지" 정도까지만 먼저 확인하면 됩니다.
+즉, 사용자는 "메인 화면과 문서/게시판 화면이 열리는지, admin 화면이 바로 열리지 않는지, 오프라인 제한 안내가 과장되지 않는지, 같은 origin 의 manifest 가 보이는지" 정도까지만 먼저 확인하면 됩니다.
 
 ## 인증/조직 화면에서 보게 되는 것
 
@@ -171,6 +175,8 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 앱 시작 경로는 `apps/web/public/manifest.webmanifest` 의 `start_url: "/"` 기준을 유지합니다.
 - manifest 경로는 `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 처럼 같은 origin 상대 경로를 유지합니다.
 - API도 우선 `/api/*` 같은 same-origin 기준으로 붙는다고 이해하면 됩니다.
+- 다만 연결 방식 자체는 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 별도 공개 API 도메인을 기본값으로 두지 않고 현재 Web origin 안에서 먼저 맞추는 쪽을 우선합니다.
+- 현재 저장소 코드 기준으로는 `/api/health`, `/api/me` 가 이 same-origin 원칙으로 다시 연결돼 있습니다. 다만 build:cf blocker 때문에 공개 preview 에서 재확인은 아직 못 했습니다.
 - 즉, preview 전용 절대 도메인을 앱 안에 하드코딩하지 않는 것이 기본 원칙입니다.
 
 사용자 관점에서 이번 Phase 6 에서 기대하는 변화는 아래 정도입니다.

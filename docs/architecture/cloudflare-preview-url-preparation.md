@@ -19,7 +19,7 @@
 
 현재 확인 결과:
 
-- Web은 `@opennextjs/cloudflare` 기반이며 `pnpm --filter @gw/web build:cf` 로 OpenNext Cloudflare 빌드가 실제 통과한다.
+- Web은 `@opennextjs/cloudflare` 기반이다.
 - Web wrangler 설정은 `.open-next/worker.js` 를 메인으로 쓰는 Workers 배포 형태다.
 - Web 설정에는 `ASSETS`, `WORKER_SELF_REFERENCE`, `IMAGES` 바인딩만 있고, preview 준비 단계에서 필수 D1/R2/KV 바인딩은 없다.
 - `apps/web/open-next.config.ts` 는 incremental cache 를 별도로 켜지 않으므로, 현재 preview 준비 범위에서 R2 선행 생성 전제가 없다.
@@ -31,21 +31,51 @@
 
 실행한 명령:
 
+- `pnpm --filter @gw/web test api-same-origin-bridge.test.ts`
 - `pnpm --filter @gw/web build:cf`
+- `pnpm --filter @gw/web build`
 - `pnpm check`
 
 실제 확인 결과 요약:
 
-- `pnpm --filter @gw/web build:cf` 통과
-  - OpenNext Cloudflare build 성공
-  - `.open-next/worker.js` 생성
-  - `/boards`, `/boards/[boardId]`, `/documents`, `/posts/[postId]` 포함 Next.js build 성공
+- `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 통과
+  - same-origin `/api/health` 가 200 JSON 계약을 반환함
+  - same-origin `/api/me` 가 무인증/forged placeholder cookie 모두 401 JSON 으로 막힘
 - `pnpm check` 통과
   - workspace test + typecheck 성공
-  - `apps/api/test/auth-org.spec.ts` 포함 총 40개 API 테스트 통과
+  - `packages/shared` 6개, `apps/api` 40개, `apps/web` 9개 테스트 통과
+- `pnpm --filter @gw/web build` 통과
+  - Next.js app build 성공
+- `pnpm --filter @gw/web build:cf` 실패
+  - OpenNext build 중 `/admin/users` prerender 에서 `.next/server/app/admin/users/page.js` 를 찾지 못해 중단됨
 
-즉, 현재 저장소는 "Cloudflare용 로컬 빌드 확인까지 끝난 preview 준비 상태"로 볼 수 있습니다.
+즉, 현재 저장소는 "same-origin `/api/health`, `/api/me` 브리지 코드는 들어왔고 로컬 테스트/일반 build 는 통과하지만, Cloudflare용 build:cf 는 아직 막힌 상태"로 보는 편이 정확합니다.
 다만 이것은 public exposure 승인이나 실제 Cloudflare 계정 작업이 끝났다는 뜻이 아닙니다.
+
+## 3-1. 이번 승인으로 실제 preview 재배포 후 확인한 결과
+
+상위 카드에서 승인 범위 안에서 실제 Web preview 를 재배포했고, 현재 공개 URL 은 아래입니다.
+
+- `https://gw-web.werehere31.workers.dev`
+
+이번에 handoff 에 남겨야 하는 핵심 결과:
+
+- 공개 smoke 확인: `/`, `/login`, `/boards`, `/documents` → 200
+- 공개 admin 경계 확인: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` → 모두 `/login` 으로 307 redirect
+- 현재 저장소 코드 기준 same-origin `/api/health`, `/api/me` route 와 단위 테스트는 추가됐지만, `pnpm --filter @gw/web build:cf` 실패 때문에 로컬 `preview:cf` smoke 는 이번 차수에 다시 돌리지 못함
+
+admin 노출 remediation 근거:
+
+- `apps/web/middleware.ts`
+- `apps/web/admin-preview-guard.ts`
+- `apps/web/admin-preview-guard.test.ts`
+
+남겨야 하는 한계:
+
+- 현재 공개 preview URL 은 새 same-origin 브리지 코드를 다시 배포해 확인한 상태가 아닙니다.
+- 저장소 코드에는 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가되어 Web 안에서 기존 `apps/api/src/app.ts` 계약을 바로 재사용합니다.
+- 즉, Phase 6 이 same-origin `/api/*` 원칙을 이어받는 것과 "현재 공개 preview 에서 API smoke 가 이미 다시 통과했다"는 말은 아직 다릅니다.
+- 후속 1차 연결 문서는 `docs/architecture/phase-7-api-same-origin-scope.md` 를 따르며, 현재 남은 blocker 는 공개 API hostname 추가가 아니라 `pnpm --filter @gw/web build:cf` 복구입니다.
 
 ## 4. preview URL 후보 정리
 
@@ -109,7 +139,7 @@
 아래가 모두 만족되면 "배포 준비 문서화 완료"로 본다.
 
 - `pnpm check` 통과
-- `pnpm --filter @gw/web build:cf` 통과
+- `pnpm --filter @gw/web build:cf` blocker 원인 확인 또는 해소
 - 현재 활성 wrangler 설정에 실운영 secret/리소스 ID 가 없음
 - preview URL 기본 후보가 `workers.dev` 로 문서화됨
 - `pages.dev` 는 대체 후보이지만 기본 경로가 아니라는 점이 문서화됨
@@ -196,6 +226,22 @@ CLOUDFLARE_ACCOUNT_ID=<fill-after-approval>
 
 - 승인 전에는 위 명령을 실행하지 않는다.
 - 승인 후에는 먼저 `bash scripts/gw-cloudflare-check.sh` 를 통과시킨 뒤, 로컬 build 재확인 후 배포 명령으로 넘어간다.
+
+### 8-3-1. 재배포/롤백 메모
+
+재배포 기본 순서:
+
+1. `set -a; . .secrets/cloudflare.env; set +a; bash scripts/gw-cloudflare-check.sh`
+2. `pnpm --filter @gw/web build:cf`
+3. `pnpm check`
+4. `pnpm --filter @gw/web deploy:cf`
+5. `pnpm exec wrangler deployments list --json --name gw-web`
+
+롤백 기본 순서:
+
+1. `pnpm exec wrangler deployments list --json --name gw-web` 로 되돌릴 version id 확인
+2. `pnpm exec wrangler rollback <version-id> --name gw-web -y`
+3. 다시 `/`, `/login`, `/boards`, `/documents`, `/admin*`, `/manifest.webmanifest` smoke 결과를 handoff 에 기록
 
 ### 8-4. preview smoke path 후보
 
@@ -297,6 +343,7 @@ Phase 6 에서 이어갈 기준:
 - 모바일/PWA 구현은 가능하면 same-origin `/api/*` 기준을 우선 가정한다.
 - `NEXT_PUBLIC_API_BASE_URL` 같은 값이 필요하더라도 preview 도메인 고정 문자열보다 "상대 경로 우선, 필요 시 환경변수로 override" 정책을 유지한다.
 - 별도 API Worker 를 외부 도메인으로 분리 공개하는 선택은 추가 승인 없이는 기본값으로 잡지 않는다.
+- Phase 7 1차 권고안은 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 공개 URL 은 Web origin 하나를 유지하고 Web Worker 안에서 `gw-api` 를 내부 브리지하는 방식이다.
 
 ### release gate 기준
 
@@ -312,6 +359,7 @@ Phase 6 에서 이어갈 기준:
 3. `pages.dev` 는 기본 경로가 아니라 별도 승인/설정 변경 후보로 이해한다.
 4. 실제 Cloudflare 로그인/배포/URL 생성은 아직 하면 안 된다는 점을 유지한다.
 5. Phase 6 모바일/PWA 는 상대 경로 manifest 와 same-origin `/api` 가정을 유지한 채 이어간다.
+6. Phase 7 API same-origin 1차는 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 별도 공개 API hostname 추가보다 Web origin 내부 브리지를 우선 검토한다.
 
 ## 12. 같이 봐야 할 문서
 

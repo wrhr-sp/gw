@@ -255,7 +255,7 @@ docs/
 - `pnpm build` 통과
 - `pnpm typecheck` 통과
 - `pnpm test` 통과
-- `pnpm --filter @gw/web build:cf` 통과
+- same-origin `/api/health`, `/api/me` 로컬 테스트가 통과하거나, build:cf blocker 때문에 preview 재검증이 막힌 이유가 문서에 남아 있음
 - `/manifest.webmanifest` 가 같은 origin 기준으로 열림
 - 모바일 우선으로 손보는 화면이 build/typecheck 를 깨지 않음
 - 모바일/PWA UX 보안·접근성 리뷰 메모가 남아 있음
