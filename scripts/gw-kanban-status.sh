@@ -5,7 +5,7 @@ source ./scripts/gw-hermes-env.sh
 
 echo "현재 그룹웨어 자동화 보드 상태"
 echo
-"$HERMES_BIN" kanban --board groupware stats || true
+"$HERMES_BIN" kanban --board groupware stats
 echo
 echo "작업 목록"
-"$HERMES_BIN" kanban --board groupware list || true
+"$HERMES_BIN" kanban --board groupware list

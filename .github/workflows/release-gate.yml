@@ -1,0 +1,63 @@
+name: release-gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/.next/**'
+      - '**/.open-next/**'
+      - '**/.wrangler/**'
+      - '.hermes/**'
+      - '**/*.tsbuildinfo'
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/.next/**'
+      - '**/.open-next/**'
+      - '**/.wrangler/**'
+      - '.hermes/**'
+      - '**/*.tsbuildinfo'
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Workspace checks
+        run: pnpm check
+      - name: Web production build
+        run: pnpm --filter @gw/web build
+
+  cloudflare-build:
+    name: cloudflare-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: OpenNext Cloudflare build
+        run: pnpm --filter @gw/web build:cf

@@ -29,3 +29,7 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+__pycache__/
+
+# Local agent scratch/worktree artifacts
+.tmp/

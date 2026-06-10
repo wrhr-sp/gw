@@ -85,7 +85,7 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - `packages/shared` 의 approval route, schema, 타입, 공통 응답/권한 코드 확장
 - `apps/web/app/approvals` 목록/기안/상세/승인함 placeholder 화면 skeleton
 - 회사 scope, 문서 접근 경계, 자기 문서 자기 승인 금지, release gate/보고 자동화 기준 문서화
-- `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 변경을 GitHub release gate 검토 범위에 포함
+- `gw-telegram-kanban-report-watch.py` 를 포함한 감시/보고 스크립트 변경을 GitHub release gate 검토 범위에 포함
 
 현재 저장소 기준으로 기본 테스트와 타입체크는 통과합니다.
 
@@ -132,7 +132,7 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 
 - 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력은 하지 않음
 - production DB migration, 외부 공개 배포, DNS/R2/도메인 작업, 실제 비밀값 입력은 별도 승인 필요
-- `gw-report-delivery-watch.sh` 를 포함한 감시/보고 스크립트 수정은 계속 GitHub release gate 검토 범위에 포함
+- `gw-telegram-kanban-report-watch.py` 를 포함한 감시/보고 스크립트 수정은 계속 GitHub release gate 검토 범위에 포함
 
 Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
