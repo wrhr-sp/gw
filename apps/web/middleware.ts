@@ -3,7 +3,10 @@ import type { NextRequest } from "next/server";
 import { getAdminPreviewRedirectPath } from "./admin-preview-guard";
 
 export function middleware(request: NextRequest) {
-  const redirectPath = getAdminPreviewRedirectPath(request.nextUrl.pathname);
+  const redirectPath = getAdminPreviewRedirectPath({
+    pathname: request.nextUrl.pathname,
+    sessionToken: request.cookies.get("gw_session")?.value ?? null,
+  });
 
   if (!redirectPath) {
     return NextResponse.next();

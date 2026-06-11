@@ -2,30 +2,32 @@
 
 ## 만들 제품
 
-Cloudflare-first 기반 한국형 그룹웨어 Web/PWA와 Workers API skeleton을 만든다. MVP는 실제 운영 데이터를 처리하는 완제품이 아니라, 업무 흐름과 권한 경계가 검증 가능한 제품 골격이다.
+Cloudflare-first 기반으로 **우리 회사가 실제로 사용할 한국형 그룹웨어 완제품**을 만든다. 현재 MVP/Phase 작업은 완제품으로 가기 위한 단계별 구현이며, 초기에 skeleton이나 placeholder가 들어가더라도 최종 목표는 실사용 가능한 그룹웨어다.
 
 ## 포함 범위
 
-- 로그인/내 정보 skeleton
-- 회사/조직/직원/부서/역할/권한 조회 skeleton
-- 근태/휴가 skeleton
-- 전자결재 skeleton
-- 게시판/공지 skeleton
-- 문서/첨부 metadata/R2 연결 skeleton
-- 모바일/PWA shell
-- 관리자 사용자/정책/감사 로그 skeleton
+- 로그인/내 정보 기능
+- 회사/조직/직원/부서/역할/권한 조회와 관리 흐름
+- 근태/휴가 기능
+- 전자결재 기능
+- 게시판/공지 기능
+- 문서/첨부 metadata/R2 연결 기능
+- 모바일/PWA 사용 흐름
+- 관리자 사용자/정책/감사 로그 기능
 - 조직/직원 일반 화면과 관리자 화면 분리
 - GitHub PR/CI/merge/Cloudflare 자동 배포 확인 파이프라인
 
 ## 제외 범위
 
-- 실제 개인정보 원문 저장/처리
-- production DB 실데이터 migration/seed
-- 실제 급여/노무/정산 처리
-- 외부 HR/전자서명/본인인증 연동
-- DNS/custom domain 연결
-- 유료 리소스 생성·증액
-- secret 입력/교체
+- 현재 승인되지 않은 실제 개인정보 원문 저장/처리
+- 승인 없는 production DB 실데이터 migration/seed
+- 승인 없는 실제 급여/노무/정산 처리
+- 승인 없는 외부 HR/전자서명/본인인증 연동
+- 승인 없는 DNS/custom domain 연결
+- 승인 없는 유료 리소스 생성·증액
+- 승인 없는 secret 입력/교체
+
+위 항목들은 제품에서 영원히 제외한다는 뜻이 아니다. 완제품에 필요하면 별도 설계·보안·운영 승인 후 단계적으로 붙인다.
 
 ## 사용자 역할
 
