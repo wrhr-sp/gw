@@ -388,6 +388,41 @@ export const attendanceRegistrationPolicySchema = z.object({
   tagDeviceStatus: attendanceRegistrationTagDeviceStatusSchema,
 });
 
+export const attendancePolicyLevelSchema = z.enum(["company_default", "workplace", "department", "job_type"]);
+
+export const attendancePolicyRuleSchema = attendanceRegistrationPolicySchema.extend({
+  policyLevel: attendancePolicyLevelSchema,
+  policyTargetId: z.string(),
+  policyTargetLabel: z.string(),
+  priorityRank: z.number().int().min(0),
+});
+
+export const attendancePolicyAssignmentSchema = attendancePolicyRuleSchema.extend({
+  id: z.string(),
+  companyId: z.string(),
+  active: z.boolean(),
+});
+
+export const effectiveAttendancePolicySchema = z.object({
+  employeeId: z.string(),
+  effectiveAttendanceRegistrationMethods: allowedAttendanceRegistrationMethodsSchema,
+  effectiveAttendancePolicy: attendancePolicyRuleSchema,
+  effectivePolicySource: attendancePolicyAssignmentSchema,
+  matchedAttendancePolicies: z.array(attendancePolicyAssignmentSchema),
+  summary: z.string(),
+});
+
+export const attendancePolicyScopeSummarySchema = attendancePolicyAssignmentSchema.extend({
+  appliedEmployeeCount: z.number().int().min(0),
+});
+
+export const attendancePolicyPreviewSchema = z.object({
+  priorityOrder: z.array(attendancePolicyLevelSchema).length(4),
+  scopeSummaries: z.array(attendancePolicyScopeSummarySchema),
+  sampleEmployees: z.array(effectiveAttendancePolicySchema),
+  duplicateWarnings: z.array(z.string()),
+});
+
 export const adminPolicySummarySchema = z.object({
   category: adminPolicyCategorySchema,
   companyId: z.string(),
@@ -401,6 +436,7 @@ export const adminPolicySummarySchema = z.object({
     after: z.string(),
   }),
   attendanceRegistrationPolicy: attendanceRegistrationPolicySchema.optional(),
+  attendancePolicyPreview: attendancePolicyPreviewSchema.optional(),
 });
 
 export const adminPoliciesListResponseSchema = successResponseSchema(
@@ -1207,6 +1243,12 @@ export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;
 export type AdminPolicyVisibility = z.infer<typeof adminPolicyVisibilitySchema>;
 export type AttendanceRegistrationMethod = z.infer<typeof attendanceRegistrationMethodSchema>;
 export type AttendanceRegistrationPolicy = z.infer<typeof attendanceRegistrationPolicySchema>;
+export type AttendancePolicyLevel = z.infer<typeof attendancePolicyLevelSchema>;
+export type AttendancePolicyRule = z.infer<typeof attendancePolicyRuleSchema>;
+export type AttendancePolicyAssignment = z.infer<typeof attendancePolicyAssignmentSchema>;
+export type EffectiveAttendancePolicy = z.infer<typeof effectiveAttendancePolicySchema>;
+export type AttendancePolicyScopeSummary = z.infer<typeof attendancePolicyScopeSummarySchema>;
+export type AttendancePolicyPreview = z.infer<typeof attendancePolicyPreviewSchema>;
 export type AdminPolicySummary = z.infer<typeof adminPolicySummarySchema>;
 export type AdminPoliciesListResponse = z.infer<typeof adminPoliciesListResponseSchema>;
 export type AdminPolicyDocumentUpdateRequest = z.infer<typeof adminPolicyDocumentUpdateRequestSchema>;

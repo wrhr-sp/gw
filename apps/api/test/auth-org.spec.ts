@@ -16,6 +16,7 @@ import {
   attendanceActionResponseSchema,
   attendanceCorrectionResponseSchema,
   attendanceListRecordsResponseSchema,
+  attendancePolicyLevelSchema,
   authLoginResponseSchema,
   boardCommentCreateResponseSchema,
   boardCommentListResponseSchema,
@@ -25,6 +26,7 @@ import {
   boardResponseSchema,
   boardsListResponseSchema,
   createInviteResponseSchema,
+  demoAttendancePolicySubjects,
   documentFileListResponseSchema,
   documentFileMetadataCreateResponseSchema,
   documentFileUploadCompleteResponseSchema,
@@ -500,61 +502,77 @@ describe("Phase 2 auth/org skeleton", () => {
 });
 
 describe("Phase 3 attendance/leave skeleton", () => {
-  it("allows only policy-approved attendance registration methods for check-in and check-out", async () => {
-    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+  it("returns attendance policy scope metadata and preview on the admin policies endpoint", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
-    const policiesResponse = await app.request(appRoutes.admin.policies, {
+    const response = await app.request(appRoutes.admin.policies, {
       headers: {
         cookie,
       },
     });
-    expect(policiesResponse.status).toBe(403);
 
-    const adminSession = await loginAndGetCookie("COMPANY_ADMIN");
-    const adminPoliciesResponse = await app.request(appRoutes.admin.policies, {
-      headers: {
-        cookie: adminSession.cookie,
-      },
-    });
-    expect(adminPoliciesResponse.status).toBe(200);
-    const policiesPayload = adminPoliciesListResponseSchema.parse(await adminPoliciesResponse.json());
-    const attendancePolicy = policiesPayload.data.items.find((item) => item.category === "attendance")?.attendanceRegistrationPolicy;
-    expect(attendancePolicy?.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
-    expect(attendancePolicy?.candidateAllowedAttendanceRegistrationMethods).toEqual(["mobile", "tag"]);
-    expect(attendancePolicy?.tagDeviceStatus).toBe("skeleton_only");
+    expect(response.status).toBe(200);
+    const payload = adminPoliciesListResponseSchema.parse(await response.json());
+    const attendancePolicy = payload.data.items.find((item) => item.category === "attendance");
 
-    const checkInResponse = await app.request(appRoutes.attendance.checkIn, {
+    expect(attendancePolicy?.attendancePolicyPreview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
+    expect(attendancePolicy?.attendancePolicyPreview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
+    expect(attendancePolicy?.attendancePolicyPreview?.sampleEmployees.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
+    expect(attendancePolicy?.attendancePolicyPreview?.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
+  });
+
+  it("applies effective policy by employee scope before validating attendance methods", async () => {
+    const employeeSession = await loginAndGetCookie("EMPLOYEE");
+    const managerSession = await loginAndGetCookie("MANAGER");
+
+    const employeeForbidden = await app.request(appRoutes.attendance.checkIn, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie,
+        cookie: employeeSession.cookie,
       },
       body: JSON.stringify({
         attendanceRegistrationMethod: "mobile",
       }),
     });
 
-    expect(checkInResponse.status).toBe(201);
-    const checkInPayload = attendanceActionResponseSchema.parse(await checkInResponse.json());
-    expect(checkInPayload.data.record.status).toBe("checked_in");
-    expect(checkInPayload.data.audit.action).toBe("attendance.check_in");
+    expect(employeeForbidden.status).toBe(403);
+    const employeeForbiddenPayload = errorResponseSchema.parse(await employeeForbidden.json());
+    const effectivePolicySource = employeeForbiddenPayload.error.details?.effectivePolicySource as
+      | { policyLevel?: string }
+      | undefined;
+    expect(employeeForbiddenPayload.error.details?.allowedAttendanceRegistrationMethods).toEqual(["tag"]);
+    expect(effectivePolicySource?.policyLevel).toBe("job_type");
 
-    const checkOutResponse = await app.request(appRoutes.attendance.checkOut, {
+    const employeeAllowed = await app.request(appRoutes.attendance.checkIn, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie,
+        cookie: employeeSession.cookie,
+      },
+      body: JSON.stringify({
+        attendanceRegistrationMethod: "tag",
+      }),
+    });
+
+    expect(employeeAllowed.status).toBe(201);
+    const employeeAllowedPayload = attendanceActionResponseSchema.parse(await employeeAllowed.json());
+    expect(employeeAllowedPayload.data.record.status).toBe("checked_in");
+
+    const managerAllowed = await app.request(appRoutes.attendance.checkOut, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: managerSession.cookie,
       },
       body: JSON.stringify({
         attendanceRegistrationMethod: "pc",
       }),
     });
 
-    expect(checkOutResponse.status).toBe(200);
-    const checkOutPayload = attendanceActionResponseSchema.parse(await checkOutResponse.json());
-    expect(checkOutPayload.data.record.status).toBe("checked_out");
-    expect(checkOutPayload.data.record.checkOutAt).not.toBeNull();
-    expect(checkOutPayload.data.audit.action).toBe("attendance.check_out");
+    expect(managerAllowed.status).toBe(200);
+    const managerAllowedPayload = attendanceActionResponseSchema.parse(await managerAllowed.json());
+    expect(managerAllowedPayload.data.record.status).toBe("checked_out");
   });
 
   it("covers mobile-only, pc-only, tag-only, mobile+pc, and all-allowed policy combinations", async () => {
@@ -636,13 +654,14 @@ describe("Phase 3 attendance/leave skeleton", () => {
         cookie,
       },
       body: JSON.stringify({
-        attendanceRegistrationMethod: "tag",
+        attendanceRegistrationMethod: "mobile",
       }),
     });
 
     expect(forbiddenResponse.status).toBe(403);
     const forbiddenPayload = errorResponseSchema.parse(await forbiddenResponse.json());
     expect(forbiddenPayload.error.code).toBe("FORBIDDEN");
+    expect(forbiddenPayload.error.details?.allowedAttendanceRegistrationMethods).toEqual(["tag"]);
 
     const invalidResponse = await app.request(appRoutes.attendance.checkOut, {
       method: "POST",

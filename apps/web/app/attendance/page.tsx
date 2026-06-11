@@ -3,7 +3,7 @@ import { appRoutes } from "@gw/shared";
 
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { companyAttendanceRegistrationPolicy, attendanceRegistrationMethodLabels, getAttendancePagePolicyView } from "../../admin-skeleton-config";
+import { employeeAttendanceEffectivePolicy, attendanceRegistrationMethodLabels, getAttendancePagePolicyView } from "../../admin-skeleton-config";
 import { offlineGuidance } from "../mobile-pwa-config";
 
 const todaySummary = [
@@ -22,7 +22,7 @@ const filters = [
   { label: "직원", placeholder: "관리 권한이 있으면 employee_id 기준 조회 확장" },
 ] as const;
 
-const attendancePolicyView = getAttendancePagePolicyView(companyAttendanceRegistrationPolicy);
+const attendancePolicyView = getAttendancePagePolicyView(employeeAttendanceEffectivePolicy);
 const allowedAttendanceMethods = attendancePolicyView.allowedMethods;
 const supportsTagSkeleton = attendancePolicyView.showTagSkeleton;
 
@@ -47,6 +47,23 @@ export default function AttendancePage() {
         </div>
       }
     >
+      <SurfaceSection title="현재 나에게 적용된 출퇴근 정책" description="회사 기본이 아니라 내 근무지/부서/직무까지 계산한 effective policy 기준으로 안내합니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">effective policy</Pill>
+            <strong>{attendancePolicyView.policySummary}</strong>
+            <p>허용 방식: {attendancePolicyView.allowedMethodLabels.join(", ")}</p>
+          </article>
+          {!allowedAttendanceMethods.includes("mobile") || !allowedAttendanceMethods.includes("pc") ? (
+            <article className="info-card">
+              <Pill tone="warning">method restricted</Pill>
+              <p>모바일/PC 등록은 현재 소속 정책에서 허용되지 않습니다.</p>
+              <p>허용된 방식만 CTA 와 API 검증 대상으로 유지합니다.</p>
+            </article>
+          ) : null}
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection title="오늘 바로 써야 하는 카드" description="상태와 마지막 기록을 표보다 먼저 보여 줍니다.">
         <div className="grid-auto">
           {todaySummary.map((card) => (
@@ -59,14 +76,18 @@ export default function AttendancePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="회사 허용 출퇴근 방식" description="회사 정책에서 허용한 방식만 CTA 와 안내로 보여 줍니다.">
+      <SurfaceSection title="현재 허용 출퇴근 방식" description="effective policy 에서 허용한 방식만 CTA 와 안내로 보여 줍니다.">
         <div className="grid-auto-compact">
           {allowedAttendanceMethods.map((method) => (
             <article key={method} className="info-card">
               <Pill tone="accent">현재 허용 방식</Pill>
               <strong>{attendanceRegistrationMethodLabels[method]}</strong>
               <p>
-                {method === "mobile" ? "모바일/PWA에서 바로 등록합니다." : "PC/웹에서 출퇴근을 등록합니다."}
+                {method === "mobile"
+                  ? "모바일/PWA에서 바로 등록합니다."
+                  : method === "pc"
+                    ? "PC/웹에서 출퇴근을 등록합니다."
+                    : "태그 단말 안내 기준으로만 노출하며 실장비 연동 완료처럼 보이지 않게 유지합니다."}
               </p>
             </article>
           ))}

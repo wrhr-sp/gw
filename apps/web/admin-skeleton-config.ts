@@ -1,4 +1,12 @@
-import type { AttendanceRegistrationMethod, AttendanceRegistrationPolicy } from "@gw/shared";
+import {
+  buildAttendancePolicyPreview,
+  demoAttendancePolicyAssignments,
+  demoAttendancePolicySubjects,
+  resolveEffectiveAttendancePolicy,
+  type AttendanceRegistrationMethod,
+  type AttendanceRegistrationPolicy,
+  type EffectiveAttendancePolicy,
+} from "@gw/shared";
 
 export type AdminHubCard = {
   href: "/admin/users" | "/admin/policies" | "/admin/audit-logs";
@@ -9,27 +17,38 @@ export type AdminHubCard = {
   guardrail: string;
 };
 
-export type AdminPolicySection = {
+export interface AdminPolicySampleEmployee {
+  employeeId: string;
+  name: string;
+  summary: string;
+  allowedMethodsLabel: string;
+}
+
+export interface AdminPolicySection {
   title: string;
   currentState: string;
   candidateState: string;
   capability: string;
   auditPreview: string;
   maskingNote: string;
-};
+  priorityDescription?: string;
+  appliedEmployeeCount?: number;
+  duplicateWarnings?: ReadonlyArray<string>;
+  sampleEmployees?: ReadonlyArray<AdminPolicySampleEmployee>;
+}
 
-export type AdminUserQueueItem = {
+export interface AdminUserQueueItem {
   title: string;
   summary: string;
   owner: string;
   nextAction: string;
-};
+}
 
-export type AdminAuditTimelineItem = {
+export interface AdminAuditTimelineItem {
   title: string;
   summary: string;
   source: string;
-};
+}
 
 export const adminHubCards: readonly AdminHubCard[] = [
   {
@@ -120,23 +139,51 @@ export const attendanceRegistrationMethodLabels: Record<AttendanceRegistrationMe
   tag: "태그",
 };
 
-export function getAttendancePagePolicyView(policy: AttendanceRegistrationPolicy) {
-  const allowedMethods = policy.allowedAttendanceRegistrationMethods;
+export const adminPolicyPreview = buildAttendancePolicyPreview({
+  assignments: demoAttendancePolicyAssignments,
+  subjects: Object.values(demoAttendancePolicySubjects),
+});
+
+const companyDefaultAssignment = demoAttendancePolicyAssignments.find((item) => item.policyLevel === "company_default");
+
+if (!companyDefaultAssignment) {
+  throw new Error("company default attendance policy is required");
+}
+
+export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy = {
+  allowedAttendanceRegistrationMethods: companyDefaultAssignment.allowedAttendanceRegistrationMethods,
+  candidateAllowedAttendanceRegistrationMethods: companyDefaultAssignment.candidateAllowedAttendanceRegistrationMethods,
+  tagDeviceStatus: companyDefaultAssignment.tagDeviceStatus,
+};
+
+export const employeeAttendanceEffectivePolicy = resolveEffectiveAttendancePolicy({
+  assignments: demoAttendancePolicyAssignments,
+  subject: demoAttendancePolicySubjects.employee,
+});
+
+type AttendancePagePolicyInput = AttendanceRegistrationPolicy | EffectiveAttendancePolicy;
+
+function isEffectiveAttendancePolicy(policy: AttendancePagePolicyInput): policy is EffectiveAttendancePolicy {
+  return "effectiveAttendanceRegistrationMethods" in policy;
+}
+
+export function getAttendancePagePolicyView(policy: AttendancePagePolicyInput) {
+  const allowedMethods = isEffectiveAttendancePolicy(policy)
+    ? policy.effectiveAttendanceRegistrationMethods
+    : policy.allowedAttendanceRegistrationMethods;
+  const candidateMethods = isEffectiveAttendancePolicy(policy)
+    ? policy.effectiveAttendancePolicy.candidateAllowedAttendanceRegistrationMethods
+    : policy.candidateAllowedAttendanceRegistrationMethods;
 
   return {
     allowedMethods,
     allowedMethodLabels: allowedMethods.map((method) => attendanceRegistrationMethodLabels[method]),
     showMobileAction: allowedMethods.includes("mobile"),
     showPcAction: allowedMethods.includes("pc"),
-    showTagSkeleton: policy.candidateAllowedAttendanceRegistrationMethods.includes("tag") || allowedMethods.includes("tag"),
+    showTagSkeleton: candidateMethods.includes("tag") || allowedMethods.includes("tag"),
+    policySummary: isEffectiveAttendancePolicy(policy) ? policy.summary : "현재 적용 정책: 회사 기본 기준",
   };
 }
-
-export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy = {
-  allowedAttendanceRegistrationMethods: ["mobile", "pc"],
-  candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-  tagDeviceStatus: "skeleton_only",
-};
 
 export const adminPolicySections: readonly AdminPolicySection[] = [
   {
@@ -150,6 +197,16 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     capability: "attendance.manage",
     auditPreview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 preview",
     maskingNote: "실장비 식별값, GPS, 외부 단말 연동 정보는 이번 화면에 노출하지 않습니다.",
+    priorityDescription: "우선순위: 회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할",
+    appliedEmployeeCount: adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount ?? 0,
+    sampleEmployees: adminPolicyPreview.sampleEmployees.slice(0, 3).map((item) => ({
+      employeeId: item.employeeId,
+      name:
+        Object.values(demoAttendancePolicySubjects).find((subject) => subject.employeeId === item.employeeId)?.fullName ?? item.employeeId,
+      summary: item.summary.replace("현재 적용 정책: ", ""),
+      allowedMethodsLabel: item.effectiveAttendanceRegistrationMethods.map((method) => attendanceRegistrationMethodLabels[method]).join(", "),
+    })),
+    duplicateWarnings: adminPolicyPreview.duplicateWarnings,
   },
   {
     title: "문서 / 첨부 정책",

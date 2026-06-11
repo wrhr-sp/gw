@@ -76,6 +76,7 @@ import {
   type ApprovalLine,
   type ApprovalReference,
   type ApprovalStep,
+  type AttendancePolicyPreview,
   type AttendanceRecord,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
@@ -92,6 +93,10 @@ import {
   type Permission,
   type Session,
   type SessionUser,
+  demoAttendancePolicyAssignments,
+  demoAttendancePolicySubjects,
+  buildAttendancePolicyPreview,
+  resolveEffectiveAttendancePolicy,
 } from "@gw/shared";
 import {
   DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -452,11 +457,33 @@ const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
   };
 });
 
+const companyDefaultAttendancePolicyAssignment = demoAttendancePolicyAssignments.find((item) => item.policyLevel === "company_default");
+
+if (!companyDefaultAttendancePolicyAssignment) {
+  throw new Error("company default attendance policy is required");
+}
+
 export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy = {
-  allowedAttendanceRegistrationMethods: ["mobile", "pc"],
-  candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-  tagDeviceStatus: "skeleton_only",
+  allowedAttendanceRegistrationMethods: companyDefaultAttendancePolicyAssignment.allowedAttendanceRegistrationMethods,
+  candidateAllowedAttendanceRegistrationMethods: companyDefaultAttendancePolicyAssignment.candidateAllowedAttendanceRegistrationMethods,
+  tagDeviceStatus: companyDefaultAttendancePolicyAssignment.tagDeviceStatus,
 };
+
+const attendancePolicyPreview: AttendancePolicyPreview = buildAttendancePolicyPreview({
+  assignments: demoAttendancePolicyAssignments,
+  subjects: Object.values(demoAttendancePolicySubjects),
+});
+
+function getAttendancePolicySubject(employeeId: string) {
+  return Object.values(demoAttendancePolicySubjects).find((subject) => subject.employeeId === employeeId) ?? demoAttendancePolicySubjects.employee;
+}
+
+function getEffectiveAttendancePolicy(employeeId: string) {
+  return resolveEffectiveAttendancePolicy({
+    assignments: demoAttendancePolicyAssignments,
+    subject: getAttendancePolicySubject(employeeId),
+  });
+}
 
 const attendanceMethodToSource: Record<AttendanceRegistrationMethod, AttendanceRecord["source"]> = {
   mobile: "mobile",
@@ -478,6 +505,7 @@ const adminPolicies = [
       after: "mobile, tag",
     },
     attendanceRegistrationPolicy: companyAttendanceRegistrationPolicy,
+    attendancePolicyPreview: attendancePolicyPreview,
   },
   {
     category: "document",
@@ -1198,15 +1226,27 @@ export function isAttendanceRegistrationMethodAllowed(
   return policy.allowedAttendanceRegistrationMethods.includes(attendanceRegistrationMethod);
 }
 
-function ensureAllowedAttendanceRegistrationMethod(context: AppContext, attendanceRegistrationMethod: AttendanceRegistrationMethod) {
-  if (isAttendanceRegistrationMethodAllowed(companyAttendanceRegistrationPolicy, attendanceRegistrationMethod)) {
+function ensureAllowedAttendanceRegistrationMethod(
+  context: AppContext,
+  employeeId: string,
+  attendanceRegistrationMethod: AttendanceRegistrationMethod,
+) {
+  const effectivePolicy = getEffectiveAttendancePolicy(employeeId);
+
+  if (isAttendanceRegistrationMethodAllowed(effectivePolicy.effectiveAttendancePolicy, attendanceRegistrationMethod)) {
     return null;
   }
 
   return jsonError(context, "FORBIDDEN", "회사 정책에서 허용하지 않은 출퇴근 등록 방식입니다.", 403, {
     attendanceRegistrationMethod,
-    allowedAttendanceRegistrationMethods: companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods,
-    tagDeviceStatus: companyAttendanceRegistrationPolicy.tagDeviceStatus,
+    allowedAttendanceRegistrationMethods: effectivePolicy.effectiveAttendanceRegistrationMethods,
+    tagDeviceStatus: effectivePolicy.effectiveAttendancePolicy.tagDeviceStatus,
+    effectivePolicySource: {
+      policyLevel: effectivePolicy.effectivePolicySource.policyLevel,
+      policyTargetId: effectivePolicy.effectivePolicySource.policyTargetId,
+      policyTargetLabel: effectivePolicy.effectivePolicySource.policyTargetLabel,
+      priorityRank: effectivePolicy.effectivePolicySource.priorityRank,
+    },
   });
 }
 
@@ -2046,7 +2086,11 @@ app.post(appRoutes.attendance.checkIn, async (context) => {
     return requestResult.response;
   }
 
-  const policyError = ensureAllowedAttendanceRegistrationMethod(context, requestResult.value.attendanceRegistrationMethod);
+  const policyError = ensureAllowedAttendanceRegistrationMethod(
+    context,
+    authResult.auth.user.employeeId,
+    requestResult.value.attendanceRegistrationMethod,
+  );
   if (policyError) {
     return policyError;
   }
@@ -2081,7 +2125,11 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
     return requestResult.response;
   }
 
-  const policyError = ensureAllowedAttendanceRegistrationMethod(context, requestResult.value.attendanceRegistrationMethod);
+  const policyError = ensureAllowedAttendanceRegistrationMethod(
+    context,
+    authResult.auth.user.employeeId,
+    requestResult.value.attendanceRegistrationMethod,
+  );
   if (policyError) {
     return policyError;
   }

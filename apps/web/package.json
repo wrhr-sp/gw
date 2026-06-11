@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "build:cf": "opennextjs-cloudflare build",
-    "preview:cf": "opennextjs-cloudflare build && wrangler dev",
-    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "typecheck": "tsc --noEmit",
+    "build": "../../scripts/gw-web-build-locked.sh next build",
+    "build:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build",
+    "preview:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && wrangler dev",
+    "deploy:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "typecheck": "../../scripts/gw-web-build-locked.sh tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

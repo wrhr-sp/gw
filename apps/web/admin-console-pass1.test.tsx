@@ -41,14 +41,20 @@ describe("Phase 13 admin console pass 1", () => {
     expect(html).toContain("현재 허용 방식");
     expect(html).toContain("candidate 허용 방식");
     expect(html).toContain("태그 단말 연동 예정 skeleton");
+    expect(html).toContain("우선순위: 회사 기본 &lt; 근무지/지점 &lt; 부서/팀 &lt; 직무/역할");
+    expect(html).toContain("예상 적용 인원 2명");
+    expect(html).toContain("샘플 직원 미리보기");
+    expect(html).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
-  it("shows only the policy-approved attendance methods on the employee attendance page", () => {
+  it("shows only the effective-policy-approved attendance methods on the employee attendance page", () => {
     const html = renderToStaticMarkup(<AttendancePage />);
 
-    expect(html).toContain("모바일 출근 등록");
-    expect(html).toContain("PC 출근 등록");
-    expect(html).not.toContain("태그 단말 출근 등록");
+    expect(html).toContain("현재 적용 정책: 부산 물류센터 &gt; 현장직 기준");
+    expect(html).toContain("허용 방식: 태그");
+    expect(html).toContain("모바일/PC 등록은 현재 소속 정책에서 허용되지 않습니다");
+    expect(html).not.toContain("모바일 출근 등록");
+    expect(html).not.toContain("PC 출근 등록");
     expect(html).toContain("태그 단말 연동은 별도 승인 후 연결합니다");
   });
 

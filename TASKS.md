@@ -6,22 +6,24 @@
 
 ## 현재 활성 작업
 
-작업명: 출퇴근 등록 방식 정책 선택 1차
+작업명: 출퇴근 정책 적용대상/우선순위 2차
 
 현재 체인:
 
-1. 기획: `t_a198ff98` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_a00c79c7` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_0ce5e5b5` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: 후속 tester 카드 예정
+1. 기획: `t_8fc803c6` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_7f611516` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_9db99154` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: `t_cdfb2bf5` — 해봄(`gwtester`) — parent gate 대기
 5. 문서화/GitHub/최종 통합 보고: 후속 parent gate 기준 진행
 
 현재 문서 기준 핵심 범위:
 
-- 출퇴근 등록 방식 정책 enum 은 `mobile`, `pc`, `tag` 3가지로 고정한다.
-- 회사 기본 정책에서 허용한 방식만 admin 정책 화면, 직원 근태 화면, 출근/퇴근 API 에서 같은 기준으로 사용한다.
-- 태그 등록은 실제 장비 연동이 아니라 skeleton/안내/검증 지점만 먼저 잡는다.
-- GPS/위치정보 강제 수집, 실제 NFC/RFID/QR 장비 연동, production DB 실데이터 변경, 외부 HR 연동은 이번 범위에 넣지 않는다.
+- 출퇴근 등록 방식 enum 은 계속 `mobile`, `pc`, `tag` 3가지로 고정한다.
+- 정책 적용대상 level 은 `company_default`, `workplace`, `department`, `job_type` 4단계만 공식 지원한다.
+- 우선순위는 `회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할` 로 고정한다.
+- 각 단계는 allowed methods 를 부분 병합하지 않고 전체 override 로 덮는다.
+- 직원 화면과 출근/퇴근 API 는 같은 `effective policy` 계산 기준을 사용한다.
+- 개인 override, GPS/위치정보 강제 수집, 실제 NFC/RFID/QR 장비 연동, production DB 실데이터 변경, 외부 HR 연동은 이번 범위에 넣지 않는다.
 
 ## 작업 카드 생성 기준
 

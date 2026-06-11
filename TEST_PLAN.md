@@ -181,7 +181,11 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 다시 볼 포인트:
 - check-in / check-out placeholder 응답
 - 회사 정책에서 허용한 출퇴근 등록 방식(`mobile`, `pc`, `tag`)만 check-in / check-out 에서 통과하는지
+- `company_default -> workplace -> department -> job_type` 우선순위 계산이 같은 순서로 동작하는지
+- 각 단계가 union 병합이 아니라 전체 override 로 덮이는지
 - 미허용 방식은 403, 잘못된 방식 값은 400 validation 으로 구분되는지
+- `/admin/policies` preview 의 적용 인원/샘플 직원 정보가 설명용 preview 로만 보이고 실제 조직 데이터 저장/반영 UI 처럼 읽히지 않는지
+- 실제 GPS/위치정보, 단말 연동, 외부 HR 연동 없이도 현재 테스트 범위가 유지되는지
 - 근태 기록 조회와 정정 요청
 - 휴가 유형/잔여/요청 조회
 - 비승인자의 approve/reject 차단
@@ -219,9 +223,11 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 ### 관리자 정책/감사
 
 다시 볼 포인트:
-- admin 권한 없는 접근 차단
-- `/dashboard` 관리자 CTA 는 권한 있는 role 에게만 보이고, 일반 사용자 기본 화면에는 섞이지 않음
-- 감사 전용 사용자(`AUDITOR`)는 `/admin/audit-logs` 만 허용되고 다른 `/admin/*` 는 차단됨
+- `/admin/policies` 에 적용대상 level, 우선순위 안내, before/after diff, 적용 인원 preview 가 함께 보이는지
+- 같은 target 중복 정책이 있으면 경고가 읽히는지
+- candidate preview 의 masked/summary 정보가 과도 노출 없이 읽히는가
+- 감사 로그 timeline/filter 가 validation 과 함께 유지되는가
+- 운영 정책과 일반 업무 화면 책임이 섞이지 않는가
 - document/board policy candidate 의 masked preview 유지
 - cross-company policy candidate 차단
 - audit log filter 와 masked metadata 유지

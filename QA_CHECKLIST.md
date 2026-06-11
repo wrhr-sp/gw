@@ -25,12 +25,15 @@
 
 ### 코드/contract/테스트 일관성
 
-- [ ] `/admin/policies` 의 출퇴근 등록 방식 카드가 현재 허용 방식, candidate 변경안, capability, 감사 preview 를 같은 뜻으로 보여 준다.
+- [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] `packages/shared/src/contracts.ts` 의 route/schema 와 설명이 맞다.
 - [ ] API contract, 구현, 테스트가 함께 맞춰져 있다.
 - [ ] 권한 없음/잘못된 입력/회사 scope 예외가 테스트 또는 수동 검증 근거로 확인됐다.
 - [ ] `/admin/*` 관리자 기능과 일반 업무 화면(`/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/org`, `/employees`) 책임이 섞이지 않는다.
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
+- [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
+- [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
+- [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 
 ### 문서 일관성
