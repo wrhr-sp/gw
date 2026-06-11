@@ -18,12 +18,14 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 작업은 자동화 보강분 정리 체인이다.
+현재 활성 흐름은 Phase 13 관리자 콘솔 실사용 1차로 넘어가기 직전/초기 단계다. Phase 12 대시보드 운영 요약 1차 최종보고가 완료되면 Phase 13 카드가 순차 시작된다.
 
-- review-required gate 표준 검증 정리
-- systemd watcher PATH 보강
-- safe triage 실패 재시도/backoff
-- 검증 실패 시 recovery loop 생성
+제한적 재귀적 자기개선 루프가 적용된다.
+
+- 현재 카드 범위 안에서만 반복 실수 방지, 테스트 실패 원인 기록, 체크리스트 보강, handoff 품질 개선을 한다.
+- 자기개선 문서 갱신은 `AGENTS.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md`로 제한한다.
+- 다른 보드/repo/domain/mainbot, 운영 DB, 실데이터, secret, DNS, 유료 리소스, 배포/릴리즈/PR merge, 서비스 재시작, 카드 범위 밖 리팩토링은 자기개선 명목으로 자동 수행하지 않는다.
+- 필요하면 “사용자 승인 필요”로 분리해 보고한다.
 
 ## 인수인계 원칙
 

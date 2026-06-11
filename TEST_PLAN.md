@@ -299,7 +299,18 @@ live fetch 가 환경상 막힐 때 대체 근거:
 - 문서 링크 수동 확인: 루트 문서가 실제 phase 문서를 가리킴
 - 미실행: live fetch 직접 확인은 이번 실행 환경에서 생략, release-gate metadata 로 대체
 
-## 11. 같이 봐야 하는 문서
+## 11. 재귀적 자기개선 검증 기록
+
+작업 중 반복 가능한 개선점이 발견되면 테스트 결과와 함께 아래를 남긴다.
+
+- 실패/실수 원인: 어떤 테스트, 문서 누락, handoff 누락 때문에 문제가 생겼는가
+- 반영 문서: `AGENTS.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` 중 어디에 반영했는가
+- 다음 카드에서 방지되는 문제: 같은 실수나 검증 누락을 어떻게 줄이는가
+- 미반영 사유: 카드 범위 밖이거나 승인 필요 항목이면 왜 반영하지 않았는가
+
+금지: 이 기록을 이유로 배포, PR merge, 운영 DB, secret, DNS, 유료 리소스, 다른 보드 작업을 자동 수행하지 않는다.
+
+## 12. 같이 봐야 하는 문서
 
 - `DATA_MODEL.md`
 - `API.md`
