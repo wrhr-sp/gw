@@ -159,14 +159,21 @@ PY
 
 run_standard_verification() {
   echo "표준 검증 실행: shared test/typecheck → api test/typecheck → web test/typecheck/build → workspace check"
-  pnpm --filter @gw/shared test
-  pnpm --filter @gw/shared typecheck
-  pnpm --filter @gw/api test
-  pnpm --filter @gw/api typecheck
-  pnpm --filter @gw/web test
-  pnpm --filter @gw/web typecheck
-  pnpm --filter @gw/web build
-  pnpm check
+  # 이 함수는 if 조건 파이프라인 안에서 실행되므로 bash errexit만 믿으면 안 된다.
+  # 각 명령 실패를 즉시 return해야 gate가 실패를 성공으로 오판하지 않는다.
+  run_step() {
+    echo "$ $*"
+    "$@" || return 1
+  }
+  run_step pnpm --filter @gw/shared test || return 1
+  run_step pnpm --filter @gw/shared typecheck || return 1
+  run_step pnpm --filter @gw/api test || return 1
+  run_step pnpm --filter @gw/api typecheck || return 1
+  run_step pnpm --filter @gw/web test || return 1
+  run_step pnpm --filter @gw/web typecheck || return 1
+  rm -rf apps/web/.next apps/web/.open-next
+  run_step pnpm --filter @gw/web build || return 1
+  run_step pnpm check || return 1
 }
 
 handle_task() {

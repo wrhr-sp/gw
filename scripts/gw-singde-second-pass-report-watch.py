@@ -87,14 +87,15 @@ def fmt_time(ts: int | None) -> str:
 
 def read_state(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {"initialized": False, "last_event_id": 0, "sent": {}, "blocked_seen": {}}
+        return {"initialized": False, "last_event_id": 0, "sent": {}, "blocked_seen": {}, "auto_gate_pending": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         data.setdefault("sent", {})
         data.setdefault("blocked_seen", {})
+        data.setdefault("auto_gate_pending", {})
         return data
     except Exception:
-        return {"initialized": False, "last_event_id": 0, "sent": {}, "blocked_seen": {}}
+        return {"initialized": False, "last_event_id": 0, "sent": {}, "blocked_seen": {}, "auto_gate_pending": {}}
 
 
 def write_state(path: Path, state: dict[str, Any]) -> None:
@@ -200,6 +201,19 @@ def evidence(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
     return "확인 가능한 요약이 비어 있습니다."
 
 
+def is_auto_gate_review_required(row: sqlite3.Row) -> bool:
+    title = str(row["title"] or "")
+    payload = parse_payload(row["payload"])
+    text = "\n".join([
+        title,
+        str(payload.get("reason") or ""),
+        str(payload.get("summary") or ""),
+        str(row["result"] or ""),
+        str(row["last_failure_error"] or ""),
+    ]).lower()
+    return "review-required" in text and not any(marker in text for marker in RESTRICTED_MARKERS)
+
+
 def report_kind(row: sqlite3.Row, state: dict[str, Any]) -> str | None:
     kind = str(row["kind"])
     title = str(row["title"] or "")
@@ -208,8 +222,12 @@ def report_kind(row: sqlite3.Row, state: dict[str, Any]) -> str | None:
     if kind == "blocked":
         if "막힘 자동보고" in title:
             return None
+        if is_auto_gate_review_required(row):
+            return None
         return "막힘 2차 확인"
     if kind == "completed":
+        if tid in state.get("auto_gate_pending", {}):
+            return None
         if tid in state.get("blocked_seen", {}):
             return "조치완료 2차 확인"
         if assignee == "singde" and any(marker in title for marker in REPORT_TITLE_MARKERS):
@@ -345,10 +363,13 @@ def run_once(args: argparse.Namespace) -> int:
                 telegram_send(token, chat_id, msg, args.dry_run)
                 state.setdefault("sent", {})[key_prefix] = {"at": int(time.time()), "kind": kind}
                 sent += 1
+            if str(row["kind"]) == "blocked" and is_auto_gate_review_required(row):
+                state.setdefault("auto_gate_pending", {})[str(row["task_id"])] = {"event_id": event_id, "at": int(row["created_at"])}
             if str(row["kind"]) == "blocked" and kind:
                 state.setdefault("blocked_seen", {})[str(row["task_id"])] = {"event_id": event_id, "at": int(row["created_at"])}
             if str(row["kind"]) == "completed":
                 state.setdefault("blocked_seen", {}).pop(str(row["task_id"]), None)
+                state.setdefault("auto_gate_pending", {}).pop(str(row["task_id"]), None)
             state["last_event_id"] = event_id
         state.update({"initialized": True, "last_checked_at": int(time.time()), "db_health": "ok"})
         write_state(state_path, state)
