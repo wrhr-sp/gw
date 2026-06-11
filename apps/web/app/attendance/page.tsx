@@ -1,7 +1,9 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { companyAttendanceRegistrationPolicy, attendanceRegistrationMethodLabels, getAttendancePagePolicyView } from "../../admin-skeleton-config";
 import { offlineGuidance } from "../mobile-pwa-config";
 
 const todaySummary = [
@@ -20,6 +22,10 @@ const filters = [
   { label: "직원", placeholder: "관리 권한이 있으면 employee_id 기준 조회 확장" },
 ] as const;
 
+const attendancePolicyView = getAttendancePagePolicyView(companyAttendanceRegistrationPolicy);
+const allowedAttendanceMethods = attendancePolicyView.allowedMethods;
+const supportsTagSkeleton = attendancePolicyView.showTagSkeleton;
+
 export default function AttendancePage() {
   return (
     <PageShell
@@ -28,8 +34,16 @@ export default function AttendancePage() {
       description="출근/퇴근 CTA, 오늘 상태, 마지막 기록, 정정 요청 진입점을 작은 화면 우선으로 다시 정리한 placeholder 입니다."
       actions={
         <div className="action-row">
-          <PlaceholderAction label="출근 등록 placeholder" hint="오프라인/placeholder 단계에서는 실제 출근 기록을 남기지 않습니다." />
-          <PlaceholderAction label="퇴근 등록 placeholder" hint="온라인 연결과 서버 검증이 가능할 때만 실제 퇴근 등록을 허용합니다." tone="secondary" />
+          {allowedAttendanceMethods.includes("mobile") ? (
+            <PlaceholderAction label="모바일 출근 등록" hint="모바일/PWA 버튼으로 허용된 등록 방식입니다. placeholder 단계에서는 실제 출근 기록을 남기지 않습니다." />
+          ) : null}
+          {allowedAttendanceMethods.includes("pc") ? (
+            <PlaceholderAction
+              label="PC 출근 등록"
+              hint="데스크톱/웹에서 허용된 등록 방식입니다. 온라인 연결과 서버 검증이 가능할 때만 실제 퇴근 등록을 허용합니다."
+              tone="secondary"
+            />
+          ) : null}
         </div>
       }
     >
@@ -42,6 +56,27 @@ export default function AttendancePage() {
               <p>{card.note}</p>
             </article>
           ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="회사 허용 출퇴근 방식" description="회사 정책에서 허용한 방식만 CTA 와 안내로 보여 줍니다.">
+        <div className="grid-auto-compact">
+          {allowedAttendanceMethods.map((method) => (
+            <article key={method} className="info-card">
+              <Pill tone="accent">현재 허용 방식</Pill>
+              <strong>{attendanceRegistrationMethodLabels[method]}</strong>
+              <p>
+                {method === "mobile" ? "모바일/PWA에서 바로 등록합니다." : "PC/웹에서 출퇴근을 등록합니다."}
+              </p>
+            </article>
+          ))}
+          {supportsTagSkeleton ? (
+            <article className="info-card">
+              <Pill tone="warning">tag skeleton</Pill>
+              <strong>태그 단말 연동 예정</strong>
+              <p>태그 단말 연동은 별도 승인 후 연결합니다. 이번 단계에서는 안내와 검증 지점만 고정합니다.</p>
+            </article>
+          ) : null}
         </div>
       </SurfaceSection>
 

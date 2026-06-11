@@ -6,6 +6,7 @@ import AdminPage from "./app/admin/page";
 import AdminUsersPage from "./app/admin/users/page";
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
+import AttendancePage from "./app/attendance/page";
 
 describe("Phase 13 admin console pass 1", () => {
   it("turns the admin hub into an operations-first console", () => {
@@ -36,6 +37,19 @@ describe("Phase 13 admin console pass 1", () => {
     expect(html).toContain("필요 capability");
     expect(html).toContain("감사 preview");
     expect(html).toContain("문서 / 첨부 정책");
+    expect(html).toContain("근태 / 출퇴근 등록 방식 정책");
+    expect(html).toContain("현재 허용 방식");
+    expect(html).toContain("candidate 허용 방식");
+    expect(html).toContain("태그 단말 연동 예정 skeleton");
+  });
+
+  it("shows only the policy-approved attendance methods on the employee attendance page", () => {
+    const html = renderToStaticMarkup(<AttendancePage />);
+
+    expect(html).toContain("모바일 출근 등록");
+    expect(html).toContain("PC 출근 등록");
+    expect(html).not.toContain("태그 단말 출근 등록");
+    expect(html).toContain("태그 단말 연동은 별도 승인 후 연결합니다");
   });
 
   it("keeps audit logs focused on filters, timeline, detail context, and masking boundaries", () => {

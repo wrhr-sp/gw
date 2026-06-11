@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AttendanceRegistrationPolicy } from "@gw/shared";
 import {
   adminApprovalGateNotes,
   adminAuditBoundaryNotes,
@@ -10,6 +11,8 @@ import {
   adminPolicySections,
   adminRoleEntryRules,
   adminUserQueues,
+  companyAttendanceRegistrationPolicy,
+  getAttendancePagePolicyView,
 } from "./admin-skeleton-config";
 
 describe("Phase 13 admin skeleton config", () => {
@@ -19,10 +22,14 @@ describe("Phase 13 admin skeleton config", () => {
   });
 
   it("describes policy cards in current-candidate-capability format without raw storage internals", () => {
-    expect(adminPolicySections[0]).toMatchObject({
+    expect(adminPolicySections.find((section) => section.title === "문서 / 첨부 정책")).toMatchObject({
       title: "문서 / 첨부 정책",
       capability: "document.space.manage",
     });
+    expect(adminPolicySections.some((section) => section.title === "근태 / 출퇴근 등록 방식 정책")).toBe(true);
+    expect(companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
+    expect(companyAttendanceRegistrationPolicy.candidateAllowedAttendanceRegistrationMethods).toEqual(["mobile", "tag"]);
+    expect(companyAttendanceRegistrationPolicy.tagDeviceStatus).toBe("skeleton_only");
     expect(adminPolicySections.every((section) => section.maskingNote.includes("노출하지 않습니다") || section.maskingNote.includes("붙이지 않습니다") || section.maskingNote.includes("제외"))).toBe(true);
   });
 
@@ -30,6 +37,74 @@ describe("Phase 13 admin skeleton config", () => {
     expect(adminUserQueues.map((item) => item.title)).toContain("연결 검토 우선순위");
     expect(adminRoleEntryRules).toContain("일반 로그인 사용자: 관리자 CTA 미노출 + `/forbidden` 차단 유지");
     expect(adminApprovalGateNotes).toContain("실제 운영 사용자/권한 변경은 이번 범위에서 실행하지 않습니다.");
+  });
+
+  it("maps attendance policy combinations to the employee CTA and tag skeleton view", () => {
+    const cases: Array<{
+      name: string;
+      policy: AttendanceRegistrationPolicy;
+      expectedAllowedLabels: string[];
+      expectTagSkeleton: boolean;
+    }> = [
+      {
+        name: "mobile only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        expectedAllowedLabels: ["모바일"],
+        expectTagSkeleton: false,
+      },
+      {
+        name: "pc only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["pc"],
+          candidateAllowedAttendanceRegistrationMethods: ["pc"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        expectedAllowedLabels: ["PC"],
+        expectTagSkeleton: false,
+      },
+      {
+        name: "tag only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["tag"],
+          candidateAllowedAttendanceRegistrationMethods: ["tag"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        expectedAllowedLabels: ["태그"],
+        expectTagSkeleton: true,
+      },
+      {
+        name: "mobile + pc",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        expectedAllowedLabels: ["모바일", "PC"],
+        expectTagSkeleton: false,
+      },
+      {
+        name: "all allowed",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        expectedAllowedLabels: ["모바일", "PC", "태그"],
+        expectTagSkeleton: true,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const view = getAttendancePagePolicyView(testCase.policy);
+      expect(view.allowedMethodLabels, testCase.name).toEqual(testCase.expectedAllowedLabels);
+      expect(view.showMobileAction, testCase.name).toBe(testCase.policy.allowedAttendanceRegistrationMethods.includes("mobile"));
+      expect(view.showPcAction, testCase.name).toBe(testCase.policy.allowedAttendanceRegistrationMethods.includes("pc"));
+      expect(view.showTagSkeleton, testCase.name).toBe(testCase.expectTagSkeleton);
+    }
   });
 
   it("keeps audit filters and boundaries in masked read-only scope", () => {

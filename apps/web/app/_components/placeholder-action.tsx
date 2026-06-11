@@ -1,3 +1,5 @@
+import React from "react";
+
 type PlaceholderActionProps = {
   label: string;
   hint: string;

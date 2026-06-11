@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adminAuditLogListResponseSchema,
+  adminPoliciesListResponseSchema,
   adminPolicyUpdateResponseSchema,
   adminUsersListResponseSchema,
   appRoutes,
@@ -45,8 +46,10 @@ import {
   meResponseSchema,
   noticeListResponseSchema,
   readReceiptCreateResponseSchema,
+  type AttendanceRegistrationMethod,
+  type AttendanceRegistrationPolicy,
 } from "@gw/shared";
-import { app } from "../src/app";
+import { app, isAttendanceRegistrationMethodAllowed } from "../src/app";
 
 async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   const response = await app.request(appRoutes.auth.login, {
@@ -327,6 +330,35 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(payload.data.requiresReview).toBe(true);
   });
 
+  it("rejects attendance registration policy payload on board policy endpoint", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.admin.policyBoards, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        companyId: "company_demo",
+        visibility: "company",
+        allowAnonymousComments: false,
+        requireReadReceipt: true,
+        retentionDays: 90,
+        reason: "게시판 정책 경계 검증",
+        attendanceRegistrationPolicy: {
+          allowedAttendanceRegistrationMethods: ["mobile"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
+          tagDeviceStatus: "skeleton_only",
+        },
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("blocks cross-company document policy candidates", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
@@ -468,14 +500,38 @@ describe("Phase 2 auth/org skeleton", () => {
 });
 
 describe("Phase 3 attendance/leave skeleton", () => {
-  it("allows employee to check in and check out with placeholder attendance contract", async () => {
+  it("allows only policy-approved attendance registration methods for check-in and check-out", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const policiesResponse = await app.request(appRoutes.admin.policies, {
+      headers: {
+        cookie,
+      },
+    });
+    expect(policiesResponse.status).toBe(403);
+
+    const adminSession = await loginAndGetCookie("COMPANY_ADMIN");
+    const adminPoliciesResponse = await app.request(appRoutes.admin.policies, {
+      headers: {
+        cookie: adminSession.cookie,
+      },
+    });
+    expect(adminPoliciesResponse.status).toBe(200);
+    const policiesPayload = adminPoliciesListResponseSchema.parse(await adminPoliciesResponse.json());
+    const attendancePolicy = policiesPayload.data.items.find((item) => item.category === "attendance")?.attendanceRegistrationPolicy;
+    expect(attendancePolicy?.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
+    expect(attendancePolicy?.candidateAllowedAttendanceRegistrationMethods).toEqual(["mobile", "tag"]);
+    expect(attendancePolicy?.tagDeviceStatus).toBe("skeleton_only");
 
     const checkInResponse = await app.request(appRoutes.attendance.checkIn, {
       method: "POST",
       headers: {
+        "content-type": "application/json",
         cookie,
       },
+      body: JSON.stringify({
+        attendanceRegistrationMethod: "mobile",
+      }),
     });
 
     expect(checkInResponse.status).toBe(201);
@@ -486,8 +542,12 @@ describe("Phase 3 attendance/leave skeleton", () => {
     const checkOutResponse = await app.request(appRoutes.attendance.checkOut, {
       method: "POST",
       headers: {
+        "content-type": "application/json",
         cookie,
       },
+      body: JSON.stringify({
+        attendanceRegistrationMethod: "pc",
+      }),
     });
 
     expect(checkOutResponse.status).toBe(200);
@@ -495,6 +555,109 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(checkOutPayload.data.record.status).toBe("checked_out");
     expect(checkOutPayload.data.record.checkOutAt).not.toBeNull();
     expect(checkOutPayload.data.audit.action).toBe("attendance.check_out");
+  });
+
+  it("covers mobile-only, pc-only, tag-only, mobile+pc, and all-allowed policy combinations", async () => {
+    const cases: Array<{
+      name: string;
+      policy: AttendanceRegistrationPolicy;
+      allowed: AttendanceRegistrationMethod[];
+      blocked: AttendanceRegistrationMethod[];
+    }> = [
+      {
+        name: "mobile only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        allowed: ["mobile"],
+        blocked: ["pc", "tag"],
+      },
+      {
+        name: "pc only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["pc"],
+          candidateAllowedAttendanceRegistrationMethods: ["pc"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        allowed: ["pc"],
+        blocked: ["mobile", "tag"],
+      },
+      {
+        name: "tag only",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["tag"],
+          candidateAllowedAttendanceRegistrationMethods: ["tag"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        allowed: ["tag"],
+        blocked: ["mobile", "pc"],
+      },
+      {
+        name: "mobile + pc",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        allowed: ["mobile", "pc"],
+        blocked: ["tag"],
+      },
+      {
+        name: "all allowed",
+        policy: {
+          allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+          candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+          tagDeviceStatus: "skeleton_only",
+        },
+        allowed: ["mobile", "pc", "tag"],
+        blocked: [],
+      },
+    ];
+
+    for (const testCase of cases) {
+      for (const method of testCase.allowed) {
+        expect(isAttendanceRegistrationMethodAllowed(testCase.policy, method), `${testCase.name} allows ${method}`).toBe(true);
+      }
+      for (const method of testCase.blocked) {
+        expect(isAttendanceRegistrationMethodAllowed(testCase.policy, method), `${testCase.name} blocks ${method}`).toBe(false);
+      }
+    }
+  });
+
+  it("returns 403 for disallowed attendance registration methods and 400 for invalid enum values", async () => {
+    const { cookie } = await loginAndGetCookie("EMPLOYEE");
+
+    const forbiddenResponse = await app.request(appRoutes.attendance.checkIn, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        attendanceRegistrationMethod: "tag",
+      }),
+    });
+
+    expect(forbiddenResponse.status).toBe(403);
+    const forbiddenPayload = errorResponseSchema.parse(await forbiddenResponse.json());
+    expect(forbiddenPayload.error.code).toBe("FORBIDDEN");
+
+    const invalidResponse = await app.request(appRoutes.attendance.checkOut, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        attendanceRegistrationMethod: "rfid",
+      }),
+    });
+
+    expect(invalidResponse.status).toBe(400);
+    const invalidPayload = errorResponseSchema.parse(await invalidResponse.json());
+    expect(invalidPayload.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("lists employee attendance records and accepts correction requests", async () => {

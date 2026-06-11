@@ -372,6 +372,22 @@ export const adminUsersListResponseSchema = successResponseSchema(
 
 export const adminPolicyCategorySchema = z.enum(["attendance", "leave", "approval", "document", "board"]);
 export const adminPolicyVisibilitySchema = z.enum(["private", "team", "company"]);
+export const attendanceRegistrationMethodSchema = z.enum(["mobile", "pc", "tag"]);
+export const attendanceRegistrationTagDeviceStatusSchema = z.enum(["not_configured", "skeleton_only", "ready_for_device"]);
+
+export const allowedAttendanceRegistrationMethodsSchema = z
+  .array(attendanceRegistrationMethodSchema)
+  .min(1)
+  .refine((methods) => new Set(methods).size === methods.length, {
+    message: "attendance registration methods must be unique",
+  });
+
+export const attendanceRegistrationPolicySchema = z.object({
+  allowedAttendanceRegistrationMethods: allowedAttendanceRegistrationMethodsSchema,
+  candidateAllowedAttendanceRegistrationMethods: allowedAttendanceRegistrationMethodsSchema,
+  tagDeviceStatus: attendanceRegistrationTagDeviceStatusSchema,
+});
+
 export const adminPolicySummarySchema = z.object({
   category: adminPolicyCategorySchema,
   companyId: z.string(),
@@ -384,6 +400,7 @@ export const adminPolicySummarySchema = z.object({
     before: z.string(),
     after: z.string(),
   }),
+  attendanceRegistrationPolicy: attendanceRegistrationPolicySchema.optional(),
 });
 
 export const adminPoliciesListResponseSchema = successResponseSchema(
@@ -403,14 +420,16 @@ export const adminPolicyDocumentUpdateRequestSchema = z.object({
   reason: z.string().min(1),
 });
 
-export const adminPolicyBoardUpdateRequestSchema = z.object({
-  companyId: z.string(),
-  visibility: adminPolicyVisibilitySchema,
-  allowAnonymousComments: z.boolean(),
-  requireReadReceipt: z.boolean(),
-  retentionDays: z.number().int().positive(),
-  reason: z.string().min(1),
-});
+export const adminPolicyBoardUpdateRequestSchema = z
+  .object({
+    companyId: z.string(),
+    visibility: adminPolicyVisibilitySchema,
+    allowAnonymousComments: z.boolean(),
+    requireReadReceipt: z.boolean(),
+    retentionDays: z.number().int().positive(),
+    reason: z.string().min(1),
+  })
+  .strict();
 
 export const adminPolicyUpdateResponseSchema = successResponseSchema(
   z.object({
@@ -504,6 +523,9 @@ export const adminAuditLogListResponseSchema = successResponseSchema(
 
 export const attendanceRecordStatusSchema = z.enum(["checked_in", "checked_out", "needs_correction"]);
 export const attendanceSourceSchema = z.enum(["web", "mobile", "admin", "import"]);
+export const attendanceActionRequestSchema = z.object({
+  attendanceRegistrationMethod: attendanceRegistrationMethodSchema,
+});
 
 export const attendanceRecordSchema = z.object({
   id: z.string(),
@@ -1183,6 +1205,8 @@ export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;
 export type AdminPolicyVisibility = z.infer<typeof adminPolicyVisibilitySchema>;
+export type AttendanceRegistrationMethod = z.infer<typeof attendanceRegistrationMethodSchema>;
+export type AttendanceRegistrationPolicy = z.infer<typeof attendanceRegistrationPolicySchema>;
 export type AdminPolicySummary = z.infer<typeof adminPolicySummarySchema>;
 export type AdminPoliciesListResponse = z.infer<typeof adminPoliciesListResponseSchema>;
 export type AdminPolicyDocumentUpdateRequest = z.infer<typeof adminPolicyDocumentUpdateRequestSchema>;
@@ -1197,6 +1221,7 @@ export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
 export type AdminAuditLogFilters = z.infer<typeof adminAuditLogFiltersSchema>;
 export type AdminAuditLogListResponse = z.infer<typeof adminAuditLogListResponseSchema>;
 export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;
+export type AttendanceActionRequest = z.infer<typeof attendanceActionRequestSchema>;
 export type AttendanceActionResponse = z.infer<typeof attendanceActionResponseSchema>;
 export type AttendanceListRecordsResponse = z.infer<typeof attendanceListRecordsResponseSchema>;
 export type AttendanceCorrectionRequest = z.infer<typeof attendanceCorrectionRequestSchema>;

@@ -21,6 +21,7 @@ import {
   approvalLineCreateRequestSchema,
   approvalLineCreateResponseSchema,
   approvalLineListResponseSchema,
+  attendanceActionRequestSchema,
   attendanceActionResponseSchema,
   attendanceCorrectionRequestSchema,
   attendanceCorrectionResponseSchema,
@@ -76,6 +77,8 @@ import {
   type ApprovalReference,
   type ApprovalStep,
   type AttendanceRecord,
+  type AttendanceRegistrationMethod,
+  type AttendanceRegistrationPolicy,
   type Board,
   type BoardComment,
   type BoardPost,
@@ -449,19 +452,32 @@ const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
   };
 });
 
+export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy = {
+  allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+  candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
+  tagDeviceStatus: "skeleton_only",
+};
+
+const attendanceMethodToSource: Record<AttendanceRegistrationMethod, AttendanceRecord["source"]> = {
+  mobile: "mobile",
+  pc: "web",
+  tag: "web",
+};
+
 const adminPolicies = [
   {
     category: "attendance",
     companyId: COMPANY_ID,
-    summary: "근태 정정 승인 조건과 관리자 검토 흐름 placeholder",
+    summary: "근태 정정 승인 조건과 출퇴근 허용 방식 placeholder",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["승인 사유 입력", "운영 정책 저장 전 diff 확인"],
+    placeholders: ["현재 허용 방식: mobile, pc", "태그 단말은 skeleton 안내만 제공"],
     capability: "attendance.manage",
     reasonRequired: true as const,
     diffPreview: {
-      before: "approval_window=24h",
-      after: "approval_window=72h",
+      before: "mobile, pc",
+      after: "mobile, tag",
     },
+    attendanceRegistrationPolicy: companyAttendanceRegistrationPolicy,
   },
   {
     category: "document",
@@ -1095,7 +1111,11 @@ function buildAdminAuditDetailPreview() {
   };
 }
 
-function buildAttendanceRecord(employeeId: string, status: AttendanceRecord["status"]): AttendanceRecord {
+function buildAttendanceRecord(
+  employeeId: string,
+  status: AttendanceRecord["status"],
+  attendanceRegistrationMethod: AttendanceRegistrationMethod = "pc",
+): AttendanceRecord {
   return {
     id: "attendance_record_today",
     companyId: COMPANY_ID,
@@ -1104,8 +1124,13 @@ function buildAttendanceRecord(employeeId: string, status: AttendanceRecord["sta
     workDate: PLACEHOLDER_WORK_DATE,
     checkInAt: PLACEHOLDER_NOW,
     checkOutAt: status === "checked_out" ? PLACEHOLDER_CHECK_OUT : null,
-    source: "web",
-    note: status === "checked_in" ? "placeholder check-in" : "placeholder day",
+    source: attendanceMethodToSource[attendanceRegistrationMethod],
+    note:
+      attendanceRegistrationMethod === "tag"
+        ? "태그 단말 skeleton placeholder"
+        : status === "checked_in"
+          ? `placeholder check-in (${attendanceRegistrationMethod})`
+          : `placeholder day (${attendanceRegistrationMethod})`,
     createdAt: PLACEHOLDER_NOW,
     updatedAt: status === "checked_out" ? PLACEHOLDER_CHECK_OUT : PLACEHOLDER_NOW,
   };
@@ -1145,6 +1170,44 @@ function resolveAttendanceEmployeeId(auth: SessionContext, requestedEmployeeId: 
   }
 
   return requestedEmployee.id;
+}
+
+async function parseAttendanceActionRequest(context: AppContext) {
+  const body = await context.req.json().catch(() => null);
+  const parsed = attendanceActionRequestSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      response: jsonError(context, "VALIDATION_ERROR", "출퇴근 등록 방식 형식이 올바르지 않습니다.", 400, {
+        issues: parsed.error.issues,
+      }),
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: parsed.data,
+  };
+}
+
+export function isAttendanceRegistrationMethodAllowed(
+  policy: AttendanceRegistrationPolicy,
+  attendanceRegistrationMethod: AttendanceRegistrationMethod,
+) {
+  return policy.allowedAttendanceRegistrationMethods.includes(attendanceRegistrationMethod);
+}
+
+function ensureAllowedAttendanceRegistrationMethod(context: AppContext, attendanceRegistrationMethod: AttendanceRegistrationMethod) {
+  if (isAttendanceRegistrationMethodAllowed(companyAttendanceRegistrationPolicy, attendanceRegistrationMethod)) {
+    return null;
+  }
+
+  return jsonError(context, "FORBIDDEN", "회사 정책에서 허용하지 않은 출퇴근 등록 방식입니다.", 403, {
+    attendanceRegistrationMethod,
+    allowedAttendanceRegistrationMethods: companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods,
+    tagDeviceStatus: companyAttendanceRegistrationPolicy.tagDeviceStatus,
+  });
 }
 
 function buildLeaveBalances(employeeId: string): LeaveBalance[] {
@@ -1972,10 +2035,20 @@ app.get(appRoutes.admin.auditLogs, (context) => {
   );
 });
 
-app.post(appRoutes.attendance.checkIn, (context) => {
+app.post(appRoutes.attendance.checkIn, async (context) => {
   const authResult = requirePermission(context, "attendance.read");
   if (authResult.response) {
     return authResult.response;
+  }
+
+  const requestResult = await parseAttendanceActionRequest(context);
+  if (!requestResult.ok) {
+    return requestResult.response;
+  }
+
+  const policyError = ensureAllowedAttendanceRegistrationMethod(context, requestResult.value.attendanceRegistrationMethod);
+  if (policyError) {
+    return policyError;
   }
 
   return jsonSuccess(
@@ -1984,7 +2057,7 @@ app.post(appRoutes.attendance.checkIn, (context) => {
     {
       ok: true,
       data: {
-        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_in"),
+        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_in", requestResult.value.attendanceRegistrationMethod),
         audit: {
           candidate: true,
           action: "attendance.check_in",
@@ -1997,10 +2070,20 @@ app.post(appRoutes.attendance.checkIn, (context) => {
   );
 });
 
-app.post(appRoutes.attendance.checkOut, (context) => {
+app.post(appRoutes.attendance.checkOut, async (context) => {
   const authResult = requirePermission(context, "attendance.read");
   if (authResult.response) {
     return authResult.response;
+  }
+
+  const requestResult = await parseAttendanceActionRequest(context);
+  if (!requestResult.ok) {
+    return requestResult.response;
+  }
+
+  const policyError = ensureAllowedAttendanceRegistrationMethod(context, requestResult.value.attendanceRegistrationMethod);
+  if (policyError) {
+    return policyError;
   }
 
   return jsonSuccess(
@@ -2009,7 +2092,7 @@ app.post(appRoutes.attendance.checkOut, (context) => {
     {
       ok: true,
       data: {
-        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_out"),
+        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_out", requestResult.value.attendanceRegistrationMethod),
         audit: {
           candidate: true,
           action: "attendance.check_out",
