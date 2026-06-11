@@ -34,9 +34,15 @@ import {
   boardsListResponseSchema,
   createInviteRequestSchema,
   createInviteResponseSchema,
+  documentFileDeleteResponseSchema,
+  documentFileDownloadInitResponseSchema,
   documentFileListResponseSchema,
   documentFileMetadataCreateRequestSchema,
   documentFileMetadataCreateResponseSchema,
+  documentFileUploadCompleteRequestSchema,
+  documentFileUploadCompleteResponseSchema,
+  documentFileUploadInitRequestSchema,
+  documentFileUploadInitResponseSchema,
   documentSpaceCreateRequestSchema,
   documentSpaceListResponseSchema,
   documentSpaceResponseSchema,
@@ -78,6 +84,15 @@ import {
   type Session,
   type SessionUser,
 } from "@gw/shared";
+import {
+  DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
+  createDocumentStorageAdapter,
+  ensureDocumentUploadPolicy,
+  type DocumentStorageEnv,
+} from "./lib/document-storage";
+
+type AppBindings = DocumentStorageEnv;
+type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const DEV_SESSION_MAX_AGE_SECONDS = 60 * 60;
@@ -92,6 +107,9 @@ const LEAVE_REQUEST_REJECT_ROUTE = "/api/leave/requests/:id/reject";
 const APPROVAL_DOCUMENT_DETAIL_ROUTE = "/api/approvals/documents/:id";
 const APPROVAL_DOCUMENT_APPROVE_ROUTE = "/api/approvals/documents/:id/approve";
 const APPROVAL_DOCUMENT_REJECT_ROUTE = "/api/approvals/documents/:id/reject";
+const DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE = "/api/documents/files/:fileId/upload-complete";
+const DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE = "/api/documents/files/:fileId/download-init";
+const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
 
 const permissionCatalog: Permission[] = [
   { code: "company.read", description: "회사 기본 정보를 조회한다." },
@@ -547,11 +565,15 @@ const documentFiles: DocumentFile[] = [
     companyId: COMPANY_ID,
     spaceId: "document_space_public",
     ownerEmployeeId: "employee_admin",
+    versionId: "document_version_demo",
     fileName: "근태 운영 안내.pdf",
     contentType: "application/pdf",
     fileSize: 128000,
     versionLabel: "v0.1",
     isPublicWithinCompany: true,
+    storageProvider: "mock",
+    storageStatus: "ready",
+    checksumSha256: null,
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
@@ -562,11 +584,15 @@ const documentFiles: DocumentFile[] = [
     companyId: COMPANY_ID,
     spaceId: "document_space_hr_private",
     ownerEmployeeId: "employee_staff",
+    versionId: "document_version_hr_private",
     fileName: "인사 평가 메모.docx",
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     fileSize: 32000,
     versionLabel: "v1",
     isPublicWithinCompany: false,
+    storageProvider: "mock",
+    storageStatus: "ready",
+    checksumSha256: null,
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
@@ -574,14 +600,22 @@ const documentFiles: DocumentFile[] = [
   },
 ];
 
-export const app = new Hono();
+function getDocumentStorageAdapter(context: AppContext) {
+  return createDocumentStorageAdapter(context.env ?? {});
+}
 
-function jsonSuccess<T>(context: Context, schema: { parse: (value: unknown) => T }, payload: unknown, status: 200 | 201 = 200) {
+let documentFileSequence = 1;
+let documentVersionSequence = 1;
+const documentUploadTokens = new Map<string, { fileId: string; versionId: string }>();
+
+export const app = new Hono<{ Bindings: AppBindings }>();
+
+function jsonSuccess<T>(context: AppContext, schema: { parse: (value: unknown) => T }, payload: unknown, status: 200 | 201 = 200) {
   return context.json(schema.parse(payload), status);
 }
 
 function jsonError(
-  context: Context,
+  context: AppContext,
   code: ErrorCode,
   message: string,
   status: 400 | 401 | 403 | 501,
@@ -1084,6 +1118,26 @@ function findAccessibleDocumentFile(auth: SessionContext, fileId: string) {
 
   const space = findAccessibleDocumentSpace(auth, file.spaceId);
   return space ? file : null;
+}
+
+function nextDocumentFileId() {
+  const value = documentFileSequence;
+  documentFileSequence += 1;
+  return `document_file_${value}`;
+}
+
+function nextDocumentVersionId() {
+  const value = documentVersionSequence;
+  documentVersionSequence += 1;
+  return `document_version_${value}`;
+}
+
+function removeDocumentUploadTokensForFile(fileId: string) {
+  for (const [token, pendingUpload] of documentUploadTokens.entries()) {
+    if (pendingUpload.fileId === fileId) {
+      documentUploadTokens.delete(token);
+    }
+  }
 }
 
 function canCreateReadReceipt(auth: SessionContext, targetType: "post" | "document_file", targetId: string) {
@@ -2319,6 +2373,7 @@ app.get(appRoutes.documents.files, (context) => {
 });
 
 app.post(appRoutes.documents.fileMetadata, async (context) => {
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
   const authResult = requirePermission(context, "document.file.write");
   if (authResult.response) {
     return authResult.response;
@@ -2341,15 +2396,19 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
   }
 
   const file: DocumentFile = {
-    id: `document_file_${parsed.data.spaceId}_${parsed.data.fileName.replace(/[^a-zA-Z0-9]+/g, "_")}`,
+    id: nextDocumentFileId(),
     companyId: authResult.auth.user.companyId,
     spaceId: parsed.data.spaceId,
     ownerEmployeeId: authResult.auth.user.employeeId,
+    versionId: nextDocumentVersionId(),
     fileName: parsed.data.fileName,
     contentType: parsed.data.contentType,
     fileSize: parsed.data.fileSize,
     versionLabel: parsed.data.versionLabel,
     isPublicWithinCompany: parsed.data.isPublicWithinCompany,
+    storageProvider: documentStorageAdapter.provider,
+    storageStatus: "pending",
+    checksumSha256: null,
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
@@ -2369,6 +2428,226 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     },
     error: null,
   }, 201);
+});
+
+app.post(appRoutes.documents.uploadInit, async (context) => {
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
+  const authResult = requirePermission(context, "document.file.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = documentFileUploadInitRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "문서 업로드 초기화 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const space = findAccessibleDocumentSpace(authResult.auth, parsed.data.spaceId);
+  if (!space) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
+      spaceId: parsed.data.spaceId,
+      route: context.req.path,
+    });
+  }
+
+  const policy = ensureDocumentUploadPolicy({
+    contentType: parsed.data.contentType,
+    fileSize: parsed.data.fileSize,
+  });
+  if (!policy.contentTypeAllowed) {
+    return jsonError(context, "VALIDATION_ERROR", "허용되지 않은 문서 MIME 타입입니다.", 400, {
+      contentType: parsed.data.contentType,
+      allowedContentTypes: [...new Set([parsed.data.contentType, policy.normalizedContentType].filter(Boolean))],
+    });
+  }
+  if (!policy.fileSizeAllowed) {
+    return jsonError(context, "VALIDATION_ERROR", "허용된 문서 크기를 초과했습니다.", 400, {
+      fileSize: parsed.data.fileSize,
+      maxFileSizeBytes: DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
+    });
+  }
+
+  const file: DocumentFile = {
+    id: nextDocumentFileId(),
+    companyId: authResult.auth.user.companyId,
+    spaceId: parsed.data.spaceId,
+    ownerEmployeeId: authResult.auth.user.employeeId,
+    versionId: nextDocumentVersionId(),
+    fileName: parsed.data.fileName,
+    contentType: policy.normalizedContentType,
+    fileSize: parsed.data.fileSize,
+    versionLabel: parsed.data.versionLabel,
+    isPublicWithinCompany: parsed.data.isPublicWithinCompany,
+    storageProvider: documentStorageAdapter.provider,
+    storageStatus: "pending",
+    checksumSha256: null,
+    status: "active",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+
+  const action = await documentStorageAdapter.prepareUpload({
+    companyId: file.companyId,
+    spaceId: file.spaceId,
+    fileId: file.id,
+    versionId: file.versionId,
+    fileName: file.fileName,
+    contentType: file.contentType,
+    fileSize: file.fileSize,
+  });
+
+  documentFiles.push(file);
+  documentUploadTokens.set(action.uploadToken, { fileId: file.id, versionId: file.versionId });
+
+  return jsonSuccess(context, documentFileUploadInitResponseSchema, {
+    ok: true,
+    data: {
+      file,
+      action,
+      audit: {
+        candidate: true,
+        action: "document.file.upload_init",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
+});
+
+app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "document.file.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = documentFileUploadCompleteRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "문서 업로드 완료 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const fileId = context.req.param("fileId");
+  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  if (!file) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  const pendingUpload = documentUploadTokens.get(parsed.data.uploadToken);
+  if (!pendingUpload || pendingUpload.fileId !== file.id || pendingUpload.versionId !== file.versionId) {
+    return jsonError(context, "FORBIDDEN", "유효하지 않은 업로드 토큰입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  file.storageStatus = "ready";
+  file.checksumSha256 = parsed.data.checksumSha256 ?? null;
+  file.updatedAt = PLACEHOLDER_NOW;
+  documentUploadTokens.delete(parsed.data.uploadToken);
+
+  return jsonSuccess(context, documentFileUploadCompleteResponseSchema, {
+    ok: true,
+    data: {
+      file,
+      audit: {
+        candidate: true,
+        action: "document.file.upload_complete",
+      },
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
+  const authResult = requirePermission(context, "document.file.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const fileId = context.req.param("fileId");
+  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  if (!file) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  const action = await documentStorageAdapter.prepareDownload({
+    companyId: file.companyId,
+    spaceId: file.spaceId,
+    fileId: file.id,
+    versionId: file.versionId,
+    fileName: file.fileName,
+  });
+
+  return jsonSuccess(context, documentFileDownloadInitResponseSchema, {
+    ok: true,
+    data: {
+      file,
+      action,
+      audit: {
+        candidate: true,
+        action: "document.file.download_init",
+      },
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
+  const authResult = requirePermission(context, "document.file.write");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const fileId = context.req.param("fileId");
+  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  if (!file) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  await documentStorageAdapter.deleteObject({
+    companyId: file.companyId,
+    spaceId: file.spaceId,
+    fileId: file.id,
+    versionId: file.versionId,
+    fileName: file.fileName,
+  });
+
+  file.storageStatus = "deleted";
+  file.status = "archived";
+  file.updatedAt = PLACEHOLDER_NOW;
+  removeDocumentUploadTokensForFile(file.id);
+
+  return jsonSuccess(context, documentFileDeleteResponseSchema, {
+    ok: true,
+    data: {
+      file,
+      audit: {
+        candidate: true,
+        action: "document.file.delete",
+      },
+      placeholder: true,
+    },
+    error: null,
+  });
 });
 
 app.post(appRoutes.readReceipts, async (context) => {

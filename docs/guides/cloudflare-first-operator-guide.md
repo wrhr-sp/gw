@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 5 게시판/문서 guardrail 과 Phase 6 모바일/PWA skeleton 위에 Phase 7 same-origin API 브리지 1차가 들어온 상태를 점검하는 단계입니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 5 게시판/문서 guardrail, Phase 6 모바일/PWA skeleton, Phase 7 same-origin API 브리지 1차 위에 Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준까지 맞춘 상태를 점검하는 단계입니다.
 
 들어 있는 것:
 
@@ -20,6 +20,7 @@
 - Phase 6 모바일/PWA 1차 기준 문서
 - same-origin `/api/health`, `/api/me` 브리지 코드와 검증 테스트
 - 게시판/문서 API/shared skeleton 과 guardrail 재현 항목
+- Phase 8 R2 storage 범위 문서와 private-by-default 기준
 - 로컬 검증 명령과 테스트
 
 아직 하지 않은 것:
@@ -48,6 +49,8 @@
 - `packages/shared/src/contracts.ts`
 - `apps/api/test/auth-org.spec.ts`
 - `docs/architecture/phase-5-boards-documents-scope.md`
+- `docs/architecture/phase-8-r2-storage-scope.md`
+- `docs/guides/phase-8-r2-storage-handoff.md`
 - `apps/web/app/mobile-pwa-config.ts`
 - `apps/web/app/layout.tsx`
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
@@ -325,6 +328,8 @@ API 경로:
 - 첨부 metadata 응답에 storage key 같은 내부 값이 과도하게 노출되지 않는지
 - 타 회사 게시글/문서 접근 금지 같은 guardrail 이 테스트와 문서에 남아 있는지
 - 실데이터 반입, production migration, 실제 R2 업로드, 외부 문서보관/SaaS 연동이 승인 필요 항목으로 분리되어 있는지
+- object key prefix 가 회사 경계를 먼저 두는지, raw storage key/bucket/public URL 이 응답에 노출되지 않는지
+- mock/local-safe 검증과 binding-aware dry-run 검증이 분리되어 있는지
 - `gw-telegram-kanban-report-watch.py` 등 감시/보고 스크립트 변경이 release gate 검토와 같이 묶여 있는지
 
 Phase 6 모바일/PWA 를 이어서 볼 때는 아래도 같이 봅니다.

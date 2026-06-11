@@ -23,6 +23,10 @@ import {
   createInviteResponseSchema,
   documentFileListResponseSchema,
   documentFileMetadataCreateResponseSchema,
+  documentFileUploadCompleteResponseSchema,
+  documentFileUploadInitResponseSchema,
+  documentFileDownloadInitResponseSchema,
+  documentFileDeleteResponseSchema,
   documentSpaceListResponseSchema,
   documentSpaceResponseSchema,
   errorResponseSchema,
@@ -1010,5 +1014,162 @@ describe("Phase 5 boards/documents skeleton", () => {
     const metadataPayload = documentFileMetadataCreateResponseSchema.parse(await metadataResponse.json());
     expect(metadataPayload.data.file.spaceId).toBe(createSpacePayload.data.space.id);
     expect(Object.prototype.hasOwnProperty.call(metadataPayload.data.file, "storageKey")).toBe(false);
+  });
+
+  it("creates upload/download/delete placeholder actions without exposing raw storage internals", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const uploadInitResponse = await app.request(appRoutes.documents.uploadInit, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: "document_space_public",
+        fileName: "phase8-plan v1.pdf",
+        contentType: "application/pdf",
+        fileSize: 1024,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+    expect(uploadInitResponse.status).toBe(201);
+    const uploadInitPayload = documentFileUploadInitResponseSchema.parse(await uploadInitResponse.json());
+    expect(uploadInitPayload.data.file.spaceId).toBe("document_space_public");
+    expect(uploadInitPayload.data.file.storageStatus).toBe("pending");
+    expect(uploadInitPayload.data.file.versionId).toMatch(/^document_version_/);
+    expect(uploadInitPayload.data.action.kind).toMatch(/upload/);
+    expect(uploadInitPayload.data.action.objectKeyPreview).toContain("companies/company_demo/spaces/document_space_public/files/");
+    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain("phase8-plan v1.pdf");
+    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain(" ");
+    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "storageKey")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "bucketName")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "publicUrl")).toBe(false);
+
+    const uploadCompleteResponse = await app.request(
+      appRoutes.documents.uploadComplete(uploadInitPayload.data.file.id),
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify({
+          uploadToken: uploadInitPayload.data.action.uploadToken,
+          checksumSha256: "a".repeat(64),
+        }),
+      },
+    );
+    expect(uploadCompleteResponse.status).toBe(200);
+    const uploadCompletePayload = documentFileUploadCompleteResponseSchema.parse(await uploadCompleteResponse.json());
+    expect(uploadCompletePayload.data.file.storageStatus).toBe("ready");
+    expect(uploadCompletePayload.data.file.checksumSha256).toBe("a".repeat(64));
+
+    const downloadInitResponse = await app.request(
+      appRoutes.documents.downloadInit(uploadInitPayload.data.file.id),
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+        },
+      },
+    );
+    expect(downloadInitResponse.status).toBe(200);
+    const downloadInitPayload = documentFileDownloadInitResponseSchema.parse(await downloadInitResponse.json());
+    expect(downloadInitPayload.data.file.id).toBe(uploadInitPayload.data.file.id);
+    expect(downloadInitPayload.data.action.kind).toMatch(/download/);
+    expect(downloadInitPayload.data.action.downloadToken).toBeTruthy();
+
+    const deleteResponse = await app.request(appRoutes.documents.deleteFile(uploadInitPayload.data.file.id), {
+      method: "DELETE",
+      headers: { cookie },
+    });
+    expect(deleteResponse.status).toBe(200);
+    const deletePayload = documentFileDeleteResponseSchema.parse(await deleteResponse.json());
+    expect(deletePayload.data.file.status).toBe("archived");
+    expect(deletePayload.data.file.storageStatus).toBe("deleted");
+  });
+
+  it("uses the request FILES_BUCKET binding to switch document actions to the r2 placeholder provider", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const uploadInitResponse = await app.request(
+      appRoutes.documents.uploadInit,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie,
+        },
+        body: JSON.stringify({
+          spaceId: "document_space_public",
+          fileName: "phase8-r2.pdf",
+          contentType: "application/pdf",
+          fileSize: 2048,
+          versionLabel: "draft-r2",
+          isPublicWithinCompany: false,
+        }),
+      },
+      {
+        FILES_BUCKET: {
+          head: async () => null,
+          get: async () => null,
+          put: async () => null,
+          delete: async () => undefined,
+        },
+      },
+    );
+
+    expect(uploadInitResponse.status).toBe(201);
+    const uploadInitPayload = documentFileUploadInitResponseSchema.parse(await uploadInitResponse.json());
+    expect(uploadInitPayload.data.file.storageProvider).toBe("r2");
+    expect(uploadInitPayload.data.action.provider).toBe("r2");
+    expect(uploadInitPayload.data.action.kind).toBe("r2-upload-placeholder");
+  });
+
+  it("rejects upload-init requests for disallowed mime types and oversized files", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const invalidMimeResponse = await app.request(appRoutes.documents.uploadInit, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: "document_space_public",
+        fileName: "dangerous.exe",
+        contentType: "application/x-msdownload",
+        fileSize: 1024,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+    expect(invalidMimeResponse.status).toBe(400);
+    const invalidMimePayload = errorResponseSchema.parse(await invalidMimeResponse.json());
+    expect(invalidMimePayload.error.code).toBe("VALIDATION_ERROR");
+    expect(invalidMimePayload.error.details?.contentType).toBe("application/x-msdownload");
+
+    const oversizedResponse = await app.request(appRoutes.documents.uploadInit, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        spaceId: "document_space_public",
+        fileName: "too-large.pdf",
+        contentType: "application/pdf",
+        fileSize: 26 * 1024 * 1024,
+        versionLabel: "draft-1",
+        isPublicWithinCompany: false,
+      }),
+    });
+    expect(oversizedResponse.status).toBe(400);
+    const oversizedPayload = errorResponseSchema.parse(await oversizedResponse.json());
+    expect(oversizedPayload.error.code).toBe("VALIDATION_ERROR");
+    expect(oversizedPayload.error.details?.maxFileSizeBytes).toBe(25 * 1024 * 1024);
   });
 });

@@ -85,6 +85,14 @@ describe("shared contracts", () => {
     expect(appRoutes.documents.spaces).toBe("/api/documents/spaces");
     expect(appRoutes.documents.files).toBe("/api/documents/files");
     expect(appRoutes.documents.fileMetadata).toBe("/api/documents/files/metadata");
+    expect(appRoutes.documents.uploadInit).toBe("/api/documents/files/upload-init");
+    expect(appRoutes.documents.uploadComplete("document_file_demo")).toBe(
+      "/api/documents/files/document_file_demo/upload-complete",
+    );
+    expect(appRoutes.documents.downloadInit("document_file_demo")).toBe(
+      "/api/documents/files/document_file_demo/download-init",
+    );
+    expect(appRoutes.documents.deleteFile("document_file_demo")).toBe("/api/documents/files/document_file_demo");
     expect(appRoutes.readReceipts).toBe("/api/read-receipts");
   });
 
@@ -889,11 +897,15 @@ describe("shared contracts", () => {
               companyId: "company_demo",
               spaceId: "document_space_public",
               ownerEmployeeId: "employee_admin",
+              versionId: "document_version_demo",
               fileName: "근태 운영 안내.pdf",
               contentType: "application/pdf",
               fileSize: 128000,
               versionLabel: "v0.1",
               isPublicWithinCompany: true,
+              storageProvider: "mock",
+              storageStatus: "ready",
+              checksumSha256: null,
               status: "active",
               createdAt: "2026-06-10T09:00:00.000Z",
               updatedAt: "2026-06-10T09:00:00.000Z",
@@ -925,11 +937,15 @@ describe("shared contracts", () => {
           companyId: "company_demo",
           spaceId: "document_space_public",
           ownerEmployeeId: "employee_admin",
+          versionId: "document_version_new",
           fileName: "board-outline.docx",
           contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           fileSize: 64000,
           versionLabel: "draft-1",
           isPublicWithinCompany: false,
+          storageProvider: "mock",
+          storageStatus: "pending",
+          checksumSha256: null,
           status: "active",
           createdAt: "2026-06-10T09:00:00.000Z",
           updatedAt: "2026-06-10T09:00:00.000Z",

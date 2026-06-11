@@ -19,6 +19,7 @@
 - 모바일 홈(`/`), 오프라인 안내(`/offline`), 설치 안내와 quick action 을 포함한 Phase 6 모바일/PWA 1차 skeleton
 - Phase 6 모바일/PWA 1차 기준 문서 `docs/architecture/phase-6-mobile-pwa-scope.md`
 - 같은 origin 안에서 `/api/health`, `/api/me` 를 다시 붙이기 위한 Phase 7 same-origin 브리지 코드와 기준 문서
+- 문서/첨부파일 저장소 연결 1차 보안 기준을 정리한 `docs/architecture/phase-8-r2-storage-scope.md`
 
 지금 단계의 화면은 실제 업무 데이터를 보여주는 완성본이 아닙니다.
 먼저 정보구조와 경로를 고정해 두기 위한 골격입니다.
@@ -31,6 +32,7 @@
 - 실제 회사/직원 데이터 연결
 - 근태, 휴가, 결재의 실데이터 저장/정책 계산/실승인 처리
 - 파일 업로드와 실제 문서/첨부 저장
+- 문서 다운로드 공개 링크와 외부 공유
 - 근태/휴가/전자결재의 실제 상태 변경 완료 흐름
 - 모바일 CTA 접근성 마무리
 - Cloudflare 실배포
@@ -168,6 +170,15 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약, placeholder 화면, 권한 경계를 먼저 맞춘 상태" 입니다.
 - 다만 실제 R2 업로드, production 문서 데이터 반입, 외부 공유 링크, OCR/전자서명 연동은 별도 승인 전까지 하지 않습니다.
 
+## Phase 8 문서/첨부 저장소가 이어받는 기준
+
+- 쉬운 요약 handoff 는 `docs/guides/phase-8-r2-storage-handoff.md` 에 따로 정리돼 있습니다.
+- 문서 파일 저장은 private-by-default 기준으로 시작하고, 사용자는 raw storage key 나 bucket 주소를 직접 보지 않습니다.
+- 파일 종류는 제한된 allowlist 로 시작하며, 1차 기본 크기 제한은 파일 1개 25MB 입니다.
+- 다운로드/업로드는 먼저 문서 공간 권한과 회사 경계를 통과해야 하며, 공개 URL 을 기본값으로 바로 열지 않습니다.
+- 초기 검증은 실제 운영 업로드보다 mock/local-safe 흐름을 먼저 맞추는 방식입니다.
+- 즉, Phase 8 은 "파일 기능 오픈"보다 "안전한 보관 규칙을 먼저 고정"하는 단계라고 이해하면 됩니다.
+
 ## Phase 6 모바일/PWA가 이어받는 기준
 
 모바일/PWA 단계는 preview URL 이 생겨도 아래 기준을 그대로 이어받습니다.
@@ -206,6 +217,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `README.md`
 - `docs/guides/cloudflare-first-developer-guide.md`
 - `docs/guides/cloudflare-first-operator-guide.md`
+- `docs/guides/phase-8-r2-storage-handoff.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`

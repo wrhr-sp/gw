@@ -17,6 +17,7 @@
 - Phase 6 모바일/PWA 1차 skeleton (`/`, `/offline`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `apps/web/app/mobile-pwa-config.ts`)
 - Phase 6 모바일/PWA 범위 문서 (`docs/architecture/phase-6-mobile-pwa-scope.md`)
 - Phase 7 API same-origin 연결 1차 범위 문서 (`docs/architecture/phase-7-api-same-origin-scope.md`)
+- Phase 8 R2 문서/첨부파일 저장소 연결 1차 범위 문서 (`docs/architecture/phase-8-r2-storage-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
 
@@ -208,6 +209,23 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 - 다만 Cloudflare용 최종 게이트인 `pnpm --filter @gw/web build:cf` 는 아직 `/admin/users` prerender 오류 때문에 다시 통과하지 못했습니다.
 
 즉, Phase 7 의 첫 게이트는 급여/노무 UI 확장이 아니라 "Phase 6 PWA/mobile 이 믿는 same-origin API 배관을 preview 에서 먼저 맞추는 것"입니다.
+
+## Phase 8 R2 문서/첨부파일 저장소 연결 1차 범위
+
+기준 문서는 `docs/architecture/phase-8-r2-storage-scope.md` 입니다.
+쉬운 handoff 문서는 `docs/guides/phase-8-r2-storage-handoff.md` 입니다.
+
+이번에 고정한 결정은 아래와 같습니다.
+
+- 파일 본문 저장소는 R2 전제로 설계하되, 1차 기본 검증은 mock/local-safe adapter 로 먼저 통과시킵니다.
+- 메타데이터 기준 저장소는 계속 D1 `document_files` 계열로 두고, raw `storageKey`, bucket 이름, public URL 은 API 응답에 노출하지 않습니다.
+- object key 는 `companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safeFileName}` 규칙을 기본안으로 삼아 회사 경계를 가장 바깥 prefix 에 둡니다.
+- 허용 MIME 은 PDF, PNG/JPEG/WEBP, TXT/CSV, DOCX/XLSX/PPTX, HWP/HWPX 의 제한된 allowlist 로 시작하고 파일 1개 최대 크기는 25MB 로 둡니다.
+- 접근은 private-by-default 로 유지하고, upload/download 는 문서 공간 권한과 회사 경계를 API 가 먼저 확인한 뒤 짧은 TTL signed action 또는 mock token 형태로만 엽니다.
+- 실제 운영 파일 업로드, public URL 확정, production bucket 추가 생성, production DB migration, 외부 공유 링크, OCR/전자서명 연동은 이번 범위에 넣지 않습니다.
+- 다음 구현자는 `packages/shared/src/contracts.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `db/migrations/0005_boards_documents_phase5.sql` 를 먼저 보고, `apps/api/src/lib/document-storage*.ts` 와 `db/migrations/0006_document_storage_phase8.sql` 같은 최소 skeleton 확장부터 시작하면 됩니다.
+
+즉, Phase 8 의 첫 게이트는 "운영 파일 저장 오픈"이 아니라 "보안 경계와 승인 게이트를 먼저 잠그고 dev/preview-safe storage skeleton 을 붙이는 것"입니다.
 
 ## 빠른 로컬 시작
 
