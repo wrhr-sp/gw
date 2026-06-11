@@ -218,11 +218,17 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 
 다시 볼 포인트:
 - admin 권한 없는 접근 차단
+- `/dashboard` 관리자 CTA 는 권한 있는 role 에게만 보이고, 일반 사용자 기본 화면에는 섞이지 않음
+- 감사 전용 사용자(`AUDITOR`)는 `/admin/audit-logs` 만 허용되고 다른 `/admin/*` 는 차단됨
 - document/board policy candidate 의 masked preview 유지
 - cross-company policy candidate 차단
 - audit log filter 와 masked metadata 유지
 
 주요 테스트:
+- `apps/web/admin-preview-guard.test.ts`
+- `apps/web/admin-console-pass1.test.tsx`
+- `apps/web/dashboard-boundary.test.tsx`
+- `apps/web/org-employees-boundary.test.tsx`
 - `apps/api/test/auth-org.spec.ts`
 
 ## 6. PR 전 확인

@@ -22,6 +22,7 @@
 - Phase 10 관리자/감사 로그 2차 고도화 범위 문서 (`docs/architecture/phase-10-admin-audit-pass-2-scope.md`)
 - Phase 11 조직/직원 일반 화면 1차 범위 문서 (`docs/architecture/phase-11-org-employees-scope.md`)
 - Phase 12 대시보드 운영 요약 1차 범위 문서 (`docs/architecture/phase-12-dashboard-summary-scope.md`)
+- Phase 13 관리자 콘솔 실사용 1차 범위 문서 (`docs/architecture/phase-13-admin-console-pass-1-scope.md`)
 - 자동화 보강 범위 문서: review-required gate / safe triage / recovery loop (`docs/architecture/automation-hardening-review-gate-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
@@ -295,6 +296,22 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 즉, Phase 12 의 핵심은 "기존 skeleton 을 대시보드에서 오늘 필요한 순서로 다시 묶되, 일반 사용자 흐름과 관리자 운영 경계를 흐리지 않는 것"입니다.
 
+## Phase 13 관리자 콘솔 실사용 1차 범위
+
+기준 문서는 `docs/architecture/phase-13-admin-console-pass-1-scope.md` 입니다.
+쉬운 handoff 문서는 `docs/guides/phase-13-admin-console-pass-1-handoff.md` 입니다.
+
+이번에 고정한 결정은 아래와 같습니다.
+
+- 관리자 진입점은 일반 메뉴가 아니라 권한 있는 운영자에게만 보이는 CTA 로 유지합니다.
+- 일반 사용자는 관리자 CTA 를 기본 노출하지 않고, 익명/권한 없음 접근은 계속 `/login` 또는 `/forbidden` 으로 차단합니다.
+- 감사 전용 사용자는 `/admin/audit-logs` 읽기 흐름만 허용하고, 다른 관리자 화면은 계속 차단합니다.
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 저장 실행보다 운영 검토 순서와 영향 이해를 먼저 돕는 dev-safe 콘솔로 유지합니다.
+- 실제 검증 근거로는 web 테스트 27건, shared 테스트 9건, api 테스트 57건, web typecheck, web build 통과 결과를 사용합니다.
+- 실제 운영 사용자/권한 저장, production DB 변경, secret 입력/교체, 외부 감사 연동은 이번 범위에 넣지 않습니다.
+
+즉, Phase 13 의 핵심은 "관리자 기능 오픈"이 아니라 "권한 있는 운영자가 어디서 들어와 무엇을 먼저 검토하는지 실사용 흐름을 분명히 만드는 것"입니다.
+
 ## 빠른 로컬 시작
 
 ```bash
@@ -396,6 +413,7 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 10 쉬운 handoff: `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
 - Phase 11 쉬운 handoff: `docs/guides/phase-11-org-employees-handoff.md`
 - Phase 12 쉬운 handoff: `docs/guides/phase-12-dashboard-summary-handoff.md`
+- Phase 13 쉬운 handoff: `docs/guides/phase-13-admin-console-pass-1-handoff.md`
 - 자동화 보강 쉬운 handoff: `docs/guides/automation-hardening-review-gate-handoff.md`
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
@@ -406,5 +424,6 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 10 범위: `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 - Phase 11 범위: `docs/architecture/phase-11-org-employees-scope.md`
 - Phase 12 범위: `docs/architecture/phase-12-dashboard-summary-scope.md`
+- Phase 13 범위: `docs/architecture/phase-13-admin-console-pass-1-scope.md`
 - Cloudflare preview 준비: `docs/architecture/cloudflare-preview-url-preparation.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`
