@@ -21,6 +21,7 @@
 - Phase 9 관리자/운영 설정·감사 로그 1차 범위 문서 (`docs/architecture/phase-9-admin-audit-scope.md`)
 - Phase 10 관리자/감사 로그 2차 고도화 범위 문서 (`docs/architecture/phase-10-admin-audit-pass-2-scope.md`)
 - Phase 11 조직/직원 일반 화면 1차 범위 문서 (`docs/architecture/phase-11-org-employees-scope.md`)
+- 자동화 보강 범위 문서: review-required gate / safe triage / recovery loop (`docs/architecture/automation-hardening-review-gate-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
 
@@ -377,6 +378,7 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 9 쉬운 handoff: `docs/guides/phase-9-admin-audit-handoff.md`
 - Phase 10 쉬운 handoff: `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
 - Phase 11 쉬운 handoff: `docs/guides/phase-11-org-employees-handoff.md`
+- 자동화 보강 쉬운 handoff: `docs/guides/automation-hardening-review-gate-handoff.md`
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`

@@ -333,11 +333,40 @@ dispatcher dry-run:
 - 반복 감시 모드에서는 첫 번째 숫자를 간격 초, 두 번째 숫자를 stale 기준 초로 받는다.
 - 예: `./scripts/gw-worker-recovery-watch.sh 120 3600`
 
+### 6) `gw-review-required-gate.sh` / `gw-review-required-recovery-loop.sh` / `gw-safe-triage-watch.py`
+
+언제 쓰나:
+- blocked 카드가 `review-required` handoff인지, 실제 승인 필요 막힘인지, 복구 가능한 실패인지 분류해야 할 때
+- review-required 검증 실패를 blocked로 방치하지 않고 자동 재수정→재리뷰→재검증→복구 정리 체인으로 보내고 싶을 때
+- systemd watcher가 blocked 카드를 Telegram으로 짧게 보고하면서 승인된 안전 자동 조치만 붙이게 하고 싶을 때
+
+핵심:
+- `gw-review-required-gate.sh` 는 blocked 카드 전체가 아니라 Latest summary/Runs의 현재 신호를 보고 `review-required`를 감지한다.
+- 표준 검증(`shared/api/web test/typecheck`, `web build`, `pnpm check`)이 통과하면 complete + dispatch로 넘긴다.
+- 표준 검증이 실패하면 원본 blocked 카드를 억지로 unblock하지 않고 `gw-review-required-recovery-loop.sh` 로 복구 mini-chain을 만든다.
+- `gw-safe-triage-watch.py` 는 Kanban DB를 SQLite read-only로만 열고, `review-required`/worker-recovery/restricted/수동분류를 나눠 Telegram 보고 + 승인된 안전 스크립트 호출만 한다.
+- `scripts/gw-hermes-env.sh` 는 이 흐름이 systemd user PATH에서도 `pnpm`/`node`/`hermes`를 찾을 수 있게 보강한다.
+
+빠른 확인 예시:
+
+```bash
+bash -lc 'source ./scripts/gw-hermes-env.sh && command -v pnpm && command -v "$HERMES_BIN"'
+bash ./scripts/gw-review-required-gate.sh --dry-run
+bash ./scripts/gw-review-required-recovery-loop.sh --help
+python3 ./scripts/gw-safe-triage-watch.py --once --dry-run
+```
+
+주의:
+- secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 끝까지 자동 처리하지 않는다.
+- triage watcher는 보고 카드나 `notify-subscribe`를 새로 만들지 않는다.
+- recovery loop가 만들어져도 원본 blocked 카드는 복구 근거가 나오기 전까지 그대로 둔다.
+
 ## 검증으로 확인된 현재 제한
 
 - `gw-pr-flow.sh`의 실제 PR 생성/merge 검증은 `gh` CLI가 있는 환경에서 다시 확인하는 것이 좋다.
 - `gw-phase-workflow.sh`는 새 Phase 생성 전에 backpressure를 강하게 거는 쪽으로 설계되어 있어, 미완료 release/smoke/final 카드가 있으면 exit code 2로 멈출 수 있다.
 - `gw-worker-recovery-watch.sh`는 현재 `--help` 중심 안내보다 `--once`와 위치 인자 사용이 핵심이므로, 운영 시 예시 명령을 그대로 복사해서 쓰는 편이 안전하다.
+- 부모 테스트에서는 `gw-review-required-recovery-loop.sh`의 실제 카드 생성 경로와 `gw-hermes-env.sh`의 `command -v pnpm`/`command -v "$HERMES_BIN"` 출력 자체는 CLI 승인 차단 때문에 별도 캡처하지 못했다. 현재 문서는 active watcher 로그와 gate/script 실행 성공을 간접 근거로 삼고 있으며, 운영자가 테스트용 blocked 카드 1건과 systemd user 셸에서 마지막 확인을 해 두는 편이 안전하다.
 
 ## 자동화 스크립트 안전 규칙
 
@@ -397,6 +426,9 @@ hermes kanban --board groupware dispatch --max 1
 - 준비됨: preview/hold/idempotency 안전 옵션
 - 준비됨: Gateway 내 dispatcher 설정
 - 준비됨: review-required 자동 게이트 watcher(systemd user service)
+- 준비됨: review-required gate 실패 시 자동 재수정→재리뷰→재검증→복구 정리 미니 체인 생성
+- 준비됨: blocked 카드 safe triage watcher가 read-only DB 조회 + Telegram 직접 보고 + 승인된 안전 자동 조치를 수행
+- 준비됨: systemd user PATH에서도 `pnpm`/`node`/`hermes`를 찾도록 `gw-hermes-env.sh` 공통 환경 보강
 - 준비됨: ready 카드 장기 대기 watcher(systemd user service)
 - 준비됨: 최종 보고 카드의 사용자 보고 완료/필요 표기 강화
 - 준비됨: `gw-telegram-kanban-report-watch.py` systemd watcher가 Kanban DB를 read-only로 감시해 막힘/조치완료/최종보고 결과를 Telegram 채팅으로 직접 전송
