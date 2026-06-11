@@ -112,7 +112,7 @@ ls -l /var/run/docker.sock 2>/dev/null || true
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-status.sh
+./scripts/gw-kanban-status.sh
 hermes kanban --board groupware list
 ```
 

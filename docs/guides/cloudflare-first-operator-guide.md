@@ -267,7 +267,7 @@ API 경로:
 - 승인된 오케스트레이션 안에서는 GitHub PR 생성, CI 확인, merge, branch cleanup 까지 release gate 범위에 포함됩니다.
 - `scripts/README.md` 에 있는 그룹웨어 보고/감시 자동화 스크립트를 수정했다면 기능 변경과 함께 검토해야 합니다.
 - `gw-telegram-kanban-report-watch.py` 를 포함한 보고/감시 스크립트 수정은 GitHub release gate 에 포함하고, blocked/review-required/승인 필요 카드 누락이나 중복 보고가 없는지 함께 확인합니다.
-- blocked/review-required/승인 필요 상태는 `gw-blocked-report-watch` 같은 자동보고 흐름을 막지 않도록 handoff 정보를 남겨야 합니다.
+- blocked/review-required/승인 필요 상태는 direct Telegram watcher와 후속 검토 흐름이 놓치지 않도록 handoff 정보를 남겨야 합니다.
 
 ## 재배포/롤백 메모
 

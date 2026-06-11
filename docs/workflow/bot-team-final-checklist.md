@@ -52,10 +52,10 @@
 - [x] `groupware` 보드의 기본 작업 폴더를 `/home/wrhrgw/gw`로 설정했다.
 - [x] Gateway 내 dispatcher 설정이 켜져 있다. (`kanban.dispatch_in_gateway: true`)
 - [x] 자동화 운영 가이드를 작성했다. (`docs/workflow/groupware-kanban-automation.md`)
-- [x] 자동 작업 파이프라인 생성 스크립트를 만들었다. (`scripts/groupware-auto-workflow.sh`)
-- [x] 자동화 상태 확인 스크립트를 만들었다. (`scripts/groupware-kanban-status.sh`)
-- [x] dispatcher dry-run 스크립트를 만들었다. (`scripts/groupware-kanban-dispatch-dry-run.sh`)
-- [x] dispatcher 1회 실행 스크립트를 만들었다. (`scripts/groupware-kanban-dispatch-once.sh`)
+- [x] 자동 작업 파이프라인 생성 스크립트를 만들었다. (`scripts/gw-auto-workflow.sh`)
+- [x] 자동화 상태 확인 스크립트를 만들었다. (`scripts/gw-kanban-status.sh`)
+- [x] dispatcher dry-run 스크립트를 만들었다. (`scripts/gw-kanban-dispatch-dry-run.sh`)
+- [x] dispatcher 1회 실행 스크립트를 만들었다. (`scripts/gw-kanban-dispatch-once.sh`)
 - [x] 임시 blocked 카드 생성/보관으로 Kanban JSON 생성과 카드 archive 동작을 확인했다.
 
 ## 아직 본격 범위가 아닌 것

@@ -22,3 +22,5 @@ gwplanner → gwbuilder → gwreviewer → gwtester → gwdocs → singde
 허용 후보: branch 생성, commit, PR 생성, PR 상태/리뷰 확인, GitHub Actions 상태 확인, PR merge, 원격/로컬 branch 삭제.
 
 제외: 외부 공개 URL 설정, 유료 리소스 생성, 비밀값 입력/교체.
+
+release gate를 실제로 운영할 때는 `docs/plans/release-gate.md`를 기준으로 PR 분리, baseline CI, local substitute checks, `build:cf` blocker 처리, branch cleanup 순서를 맞춘다.

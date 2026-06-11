@@ -16,7 +16,7 @@
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-status.sh
+./scripts/gw-kanban-status.sh
 ```
 
 작업 목록 보기:
@@ -53,7 +53,7 @@ hermes kanban --board groupware list
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh --type <유형> "작업 제목" "작업 설명"
+./scripts/gw-auto-workflow.sh --type <유형> "작업 제목" "작업 설명"
 ```
 
 지원 유형:
@@ -61,7 +61,7 @@ cd /home/wrhrgw/gw
 - `feature`: 일반 기능 개발. 기본값.
 - `bugfix`: 버그 수정. 재현/원인/최소 수정 중심.
 - `docs`: 문서 작업. 문서봇 중심으로 짧은 파이프라인 생성.
-- `deploy`: 배포/웹앱 호스팅. 운영봇와 `web-app-hosting` 포함, 사용자 승인 대기 카드 생성.
+- `deploy`: 배포/웹앱 호스팅. 운영봇와 `web-app-hosting` 포함. 카드 작업범위에 배포/릴리즈가 명시됐는지 확인한 뒤 진행한다.
 - `review`: 검토/검증 중심. 리뷰봇과 테스트봇 중심.
 
 ## 기본 feature/bugfix 파이프라인
@@ -101,7 +101,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type feature \
   "작업 요청 접수 기능 v1" \
   "사용자가 싱드에게 개발 요청을 말하면 목표, 필요한 것, 미정 사항, 다음 액션으로 정리하는 기능을 설계하고 구현한다."
@@ -110,7 +110,7 @@ cd /home/wrhrgw/gw
 버그 수정:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type bugfix \
   "로그인 실패 원인 수정" \
   "정상 계정인데 로그인 실패가 나는 문제를 재현하고 최소 범위로 수정한다."
@@ -119,7 +119,7 @@ cd /home/wrhrgw/gw
 문서 작업:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type docs \
   "그룹웨어 봇 사용법 문서" \
   "비개발자도 이해할 수 있게 싱드 중심 작업 요청 방법을 정리한다."
@@ -128,7 +128,7 @@ cd /home/wrhrgw/gw
 배포 작업:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type deploy \
   "그룹웨어 데모 웹앱 배포" \
   "현재 웹앱을 외부 URL로 확인 가능하게 준비한다. 카드 작업범위에 실제 배포가 명시되면 승인된 것으로 진행하고, DNS/유료/비밀값/production DB 작업은 별도 승인으로 분리한다."
@@ -137,7 +137,7 @@ cd /home/wrhrgw/gw
 검토 작업:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type review \
   "최근 변경 검토" \
   "변경 범위가 요구사항을 만족하는지 리뷰하고 검증한다."
@@ -148,7 +148,7 @@ cd /home/wrhrgw/gw
 실제 카드를 만들지 않고 파이프라인만 미리 보기:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --preview \
   --type deploy \
   "샘플 배포" \
@@ -158,7 +158,7 @@ cd /home/wrhrgw/gw
 첫 카드를 `scheduled` 대기 상태로 만들어 자동 실행을 멈춘 채 카드 생성만 확인:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --hold \
   --type feature \
   "샘플 기능" \
@@ -168,7 +168,7 @@ cd /home/wrhrgw/gw
 중복 생성을 막고 싶을 때:
 
 ```bash
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --idempotency-key "groupware-request-v1" \
   --type feature \
   "작업 요청 접수 기능 v1" \
@@ -180,13 +180,13 @@ cd /home/wrhrgw/gw
 전체 상태:
 
 ```bash
-./scripts/groupware-kanban-status.sh
+./scripts/gw-kanban-status.sh
 ```
 
 GitHub Actions 최근 상태와 최신 실행 상세:
 
 ```bash
-./scripts/groupware-ci-status.sh
+./scripts/gw-ci-status.sh
 ```
 
 실패한 최신 실행이면 실패 로그도 함께 출력한다.
@@ -194,19 +194,19 @@ GitHub Actions 최근 상태와 최신 실행 상세:
 dispatcher dry-run:
 
 ```bash
-./scripts/groupware-kanban-dispatch-dry-run.sh
+./scripts/gw-kanban-dispatch-dry-run.sh
 ```
 
 실제로 한 번 즉시 dispatch:
 
 ```bash
-./scripts/groupware-kanban-dispatch-once.sh
+./scripts/gw-kanban-dispatch-once.sh
 ```
 
 특정 카드 로그 보기:
 
 ```bash
-./scripts/groupware-kanban-tail.sh <task_id>
+./scripts/gw-kanban-tail.sh <task_id>
 ```
 
 ## 운영할 때 자주 쓰는 순서
@@ -214,24 +214,24 @@ dispatcher dry-run:
 처음부터 모든 자동화를 한 번에 돌리기보다, 아래 순서로 작게 확인하는 편이 안전하다.
 
 1. 보드 상태 확인
-   - `./scripts/groupware-kanban-status.sh`
+   - `./scripts/gw-kanban-status.sh`
    - 막힌 카드, 오래된 running 카드, review-required 카드부터 본다.
 2. 새 작업 생성 전 backpressure 확인
-   - `./scripts/groupware-phase-workflow.sh --phase <phase-key> --preview --json`
+   - `./scripts/gw-phase-workflow.sh --phase <phase-key> --preview --json`
    - 열린 PR, 지저분한 git 작업트리, 미완료 smoke/final 카드가 있으면 먼저 정리한다.
 3. 카드 생성은 preview → hold → 실제 생성 순서로 진행
    - preview로 어떤 카드가 생길지 먼저 본다.
    - 확신이 없으면 `--hold`로 자동 실행 없이 카드만 만든다.
 4. 구현/리뷰/테스트가 끝나면 PR 상태 확인
-   - `./scripts/groupware-pr-flow.sh --head <branch> --show-status --wait-ci`
+   - `./scripts/gw-pr-flow.sh --head <branch> --show-status --wait-ci`
 5. 배포 직전에는 DB/배포 확인을 분리해서 본다.
-   - DB 예정 명령 확인: `./scripts/groupware-db-safe.sh --env <env> --mode migrate-preview`
-   - 배포 후 생존 확인: `./scripts/groupware-deploy-smoke-check.sh --json`
+   - DB 예정 명령 확인: `./scripts/gw-db-safe.sh --env <env> --mode migrate-preview`
+   - 배포 후 생존 확인: `./scripts/gw-deploy-smoke-check.sh --json`
 6. 마지막에는 문서화/최종 보고 카드까지 끝났는지 다시 확인한다.
 
 ## 스크립트별 운영 메모
 
-### 1) `groupware-pr-flow.sh`
+### 1) `gw-pr-flow.sh`
 
 언제 쓰나:
 - 구현, 리뷰, 테스트가 끝난 뒤 PR 상태/CI/merge 가능 여부를 확인할 때
@@ -245,14 +245,14 @@ dispatcher dry-run:
 예시:
 
 ```bash
-./scripts/groupware-pr-flow.sh --head feat/example --show-status --wait-ci --json
+./scripts/gw-pr-flow.sh --head feat/example --show-status --wait-ci --json
 ```
 
 주의:
 - 이 스크립트는 `gh` CLI가 있어야 한다.
 - 현재 환경에 `gh`가 없으면 실제 PR 생성/merge 검증은 제한된다.
 
-### 2) `groupware-deploy-smoke-check.sh`
+### 2) `gw-deploy-smoke-check.sh`
 
 언제 쓰나:
 - 배포 직후 웹/API가 최소한 살아 있는지 확인할 때
@@ -267,7 +267,7 @@ dispatcher dry-run:
 예시:
 
 ```bash
-./scripts/groupware-deploy-smoke-check.sh \
+./scripts/gw-deploy-smoke-check.sh \
   --property-id property-seoul \
   --check-availability \
   --json
@@ -278,7 +278,7 @@ dispatcher dry-run:
 - `FAIL`: HTTP 오류/timeout/예외
 - `SKIP`: 샘플 조직/업무 ID 같은 추가 정보가 없어 일부 확인을 건너뜀
 
-### 3) `groupware-db-safe.sh`
+### 3) `gw-db-safe.sh`
 
 언제 쓰나:
 - migration/seed 명령을 무심코 실행하지 않도록, 먼저 예정 명령과 차단 여부를 확인할 때
@@ -293,16 +293,16 @@ dispatcher dry-run:
 예시:
 
 ```bash
-./scripts/groupware-db-safe.sh --env prod --mode migrate-preview --json
+./scripts/gw-db-safe.sh --env prod --mode migrate-preview --json
 ```
 
-### 4) `groupware-phase-workflow.sh`
+### 4) `gw-phase-workflow.sh`
 
 언제 쓰나:
 - 새 Phase 작업 묶음을 만들기 전에 release gate/backpressure를 먼저 확인하고 싶을 때
 
 핵심:
-- 내부적으로 `groupware-auto-workflow.sh`를 감싸는 얇은 래퍼다.
+- 내부적으로 `gw-auto-workflow.sh`를 감싸는 얇은 래퍼다.
 - 기본적으로 preview/hold 쪽이 더 안전한 흐름이다.
 - 열린 PR, git dirty 상태, 미완료 release/smoke/final 카드가 있으면 기본 차단될 수 있다.
 - 차단 상태에서 억지로 만들려면 `--force`를 써야 하지만, 이때도 먼저 이유를 확인하는 편이 좋다.
@@ -310,10 +310,10 @@ dispatcher dry-run:
 예시:
 
 ```bash
-./scripts/groupware-phase-workflow.sh --phase automation-hardening --preview --json
+./scripts/gw-phase-workflow.sh --phase automation-hardening --preview --json
 ```
 
-### 5) `groupware-worker-recovery-watch.sh`
+### 5) `gw-worker-recovery-watch.sh`
 
 언제 쓰나:
 - 오래 멈춘 running 카드나 timeout/crash처럼 보이는 blocked 카드를 찾아 코멘트를 남기고 싶을 때
@@ -326,18 +326,18 @@ dispatcher dry-run:
 예시:
 
 ```bash
-./scripts/groupware-worker-recovery-watch.sh --once
+./scripts/gw-worker-recovery-watch.sh --once
 ```
 
 추가 메모:
 - 반복 감시 모드에서는 첫 번째 숫자를 간격 초, 두 번째 숫자를 stale 기준 초로 받는다.
-- 예: `./scripts/groupware-worker-recovery-watch.sh 120 3600`
+- 예: `./scripts/gw-worker-recovery-watch.sh 120 3600`
 
 ## 검증으로 확인된 현재 제한
 
-- `groupware-pr-flow.sh`의 실제 PR 생성/merge 검증은 `gh` CLI가 있는 환경에서 다시 확인하는 것이 좋다.
-- `groupware-phase-workflow.sh`는 새 Phase 생성 전에 backpressure를 강하게 거는 쪽으로 설계되어 있어, 미완료 release/smoke/final 카드가 있으면 exit code 2로 멈출 수 있다.
-- `groupware-worker-recovery-watch.sh`는 현재 `--help` 중심 안내보다 `--once`와 위치 인자 사용이 핵심이므로, 운영 시 예시 명령을 그대로 복사해서 쓰는 편이 안전하다.
+- `gw-pr-flow.sh`의 실제 PR 생성/merge 검증은 `gh` CLI가 있는 환경에서 다시 확인하는 것이 좋다.
+- `gw-phase-workflow.sh`는 새 Phase 생성 전에 backpressure를 강하게 거는 쪽으로 설계되어 있어, 미완료 release/smoke/final 카드가 있으면 exit code 2로 멈출 수 있다.
+- `gw-worker-recovery-watch.sh`는 현재 `--help` 중심 안내보다 `--once`와 위치 인자 사용이 핵심이므로, 운영 시 예시 명령을 그대로 복사해서 쓰는 편이 안전하다.
 
 ## 자동화 스크립트 안전 규칙
 
@@ -393,19 +393,19 @@ hermes kanban --board groupware dispatch --max 1
 - 준비됨: Kanban 보드, 역할별 프로필, 작업 생성 스크립트, 상태 확인 스크립트
 - 준비됨: 작업 유형별 파이프라인 생성
 - 준비됨: 카드별 강제 스킬 지정
-- 준비됨: 배포 작업의 사용자 승인 대기 단계
+- 준비됨: 배포 작업의 카드 작업범위 확인 게이트
 - 준비됨: preview/hold/idempotency 안전 옵션
 - 준비됨: Gateway 내 dispatcher 설정
 - 준비됨: review-required 자동 게이트 watcher(systemd user service)
 - 준비됨: ready 카드 장기 대기 watcher(systemd user service)
 - 준비됨: 최종 보고 카드의 사용자 보고 완료/필요 표기 강화
 - 준비됨: `gw-telegram-kanban-report-watch.py` systemd watcher가 Kanban DB를 read-only로 감시해 막힘/조치완료/최종보고 결과를 Telegram 채팅으로 직접 전송
-- 기본 비활성: 보고 카드 생성형 `gw-blocked-report-watch.sh`, 보고카드 후속처리형 `gw-report-action-watch.sh`, 최종 카드 `notify-subscribe` 방식은 중복·아리아 경유 보고 방지를 위해 대장 명시 승인 없이는 켜지 않는다.
-- 준비됨: PR/CI/merge/branch cleanup 보조 스크립트 `scripts/groupware-pr-flow.sh`
-- 준비됨: 배포 smoke check 스크립트 `scripts/groupware-deploy-smoke-check.sh`
-- 준비됨: DB migration·seed 안전 래퍼 `scripts/groupware-db-safe.sh`
-- 준비됨: Phase 생성 전 release backpressure를 확인하는 `scripts/groupware-phase-workflow.sh`
-- 준비됨: timeout/crash/stale worker 감지 보조 `scripts/groupware-worker-recovery-watch.sh`
+- 참고: 예전 보고 카드 생성형 shell watcher와 `notify-subscribe` 방식은 현재 기본 운영 경로가 아니며, direct Telegram watcher를 기본값으로 사용한다.
+- 준비됨: PR/CI/merge/branch cleanup 보조 스크립트 `scripts/gw-pr-flow.sh`
+- 준비됨: 배포 smoke check 스크립트 `scripts/gw-deploy-smoke-check.sh`
+- 준비됨: DB migration·seed 안전 래퍼 `scripts/gw-db-safe.sh`
+- 준비됨: Phase 생성 전 release backpressure를 확인하는 `scripts/gw-phase-workflow.sh`
+- 준비됨: timeout/crash/stale worker 감지 보조 `scripts/gw-worker-recovery-watch.sh`
 - 주의: Git/GitHub 저장소 연결, 외부 배포, 도메인/유료 리소스는 사용자 승인 후 진행
 - 다음 확인 필요: 실제 작은 그룹웨어 작업을 넣어서 end-to-end 완료 보고까지 한 번 돌려보기
 
@@ -418,11 +418,11 @@ hermes kanban --board groupware dispatch --max 1
 - 이전 Phase의 PR/CI/merge/branch cleanup이 끝났는지
 - 배포 smoke check와 싱드 최종 보고가 끝났는지
 
-`groupware-phase-workflow.sh`는 이 조건을 확인하고, 위험하면 기본적으로 새 Phase 생성을 막거나 `--hold` 상태로만 만들도록 안내한다.
+`gw-phase-workflow.sh`는 이 조건을 확인하고, 위험하면 기본적으로 새 Phase 생성을 막거나 `--hold` 상태로만 만들도록 안내한다.
 
 ## 위험 작업 승인 규칙
 
-- `groupware-pr-flow.sh`의 merge/delete는 안전 플래그 `--approved`가 필요하다. 카드 작업범위에 merge/release gate/branch cleanup이 있으면 플래그 사용은 승인된 것으로 본다.
-- `groupware-db-safe.sh`의 migrate-apply/seed-apply도 승인 플래그 없이는 실행하지 않는다.
-- `groupware-deploy-smoke-check.sh`는 읽기 요청만 하며 자동 재배포/롤백을 하지 않는다.
+- `gw-pr-flow.sh`의 merge/delete는 안전 플래그 `--approved`가 필요하다. 카드 작업범위에 merge/release gate/branch cleanup이 있으면 플래그 사용은 승인된 것으로 본다.
+- `gw-db-safe.sh`의 migrate-apply/seed-apply도 승인 플래그 없이는 실행하지 않는다.
+- `gw-deploy-smoke-check.sh`는 읽기 요청만 하며 자동 재배포/롤백을 하지 않는다.
 - worker recovery는 timeout/crash를 감지하고 코멘트를 남기되, 검증 없이 임의 완료 처리하지 않는다.
