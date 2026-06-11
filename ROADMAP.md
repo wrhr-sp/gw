@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 12 대시보드 운영 요약 1차가 최신 범위이며, shared/api/web 테스트·typecheck와 web build가 모두 통과한 dev-safe skeleton 상태를 기준으로 다음 구현을 이어간다.
+현재 문서화 기준으로는 Phase 13 관리자 콘솔 실사용 1차가 최신 범위이며, Phase 12 대시보드 운영 요약 1차 위에 관리자 진입점과 `/admin/*` 실사용 흐름을 더 구체화하는 방향으로 다음 구현을 이어간다.
 
 ## Phase 흐름
 
@@ -20,7 +20,8 @@
 - Phase 10: 관리자/감사 로그 2차 고도화
 - Phase 11: 조직/직원 일반 화면 1차
 - Phase 12: 대시보드 운영 요약 1차
-- 현재 후속: Phase 12 대시보드 운영 요약 1차
+- Phase 13: 관리자 콘솔 실사용 1차
+- 현재 후속: Phase 13 관리자 콘솔 실사용 1차
 
 ## MVP 성공 기준
 
@@ -33,6 +34,6 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-12-dashboard-summary-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-12-dashboard-summary-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-13-admin-console-pass-1-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-13-admin-console-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

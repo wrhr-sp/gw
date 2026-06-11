@@ -6,20 +6,21 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 12 대시보드 운영 요약 1차
+작업명: Phase 13 관리자 콘솔 실사용 1차
 
 현재 체인:
 
-1. 테스트/재검증: `t_5d8e77f7` — 해봄(`gwtester`) — 완료
-2. 문서화: `t_2be82b19` — 다온(`gwdocs`) — 진행 중
-3. GitHub PR/CI/merge/branch cleanup: `t_34d61956` — 지킴(`gwops`) — 대기
-4. 최종 통합 보고: `t_0ffbfeff` — 싱드(`singde`) — 대기
+1. 테스트/재검증: `t_52705294` — 해봄(`gwtester`) — 완료
+2. 문서화: `t_0132d8f4` — 다온(`gwdocs`) — 진행 중
+3. GitHub PR/CI/merge/branch cleanup: `t_3ea4d00e` — 지킴(`gwops`) — 대기
+4. 최종 통합 보고: `t_0ffbfeff` — 싱드(`singde`) — parent gate 이후 진행
 
 현재 문서 기준 핵심 범위:
 
-- `/dashboard` 를 오늘 할 일, 승인 대기, 근태/휴가 상태, 공지/문서 진입점, 운영 요약 5개 카드 묶음 중심으로 다시 정리한다.
-- 일반 사용자에게 관리자 진입 CTA 를 기본 노출하지 않고, `/admin/*` 및 `/api/admin/*` 권한 guard 를 유지한다.
-- 실제 개인정보 원문, production DB 실데이터, 실제 알림 발송, 외부 HR 연동은 이번 범위에 넣지 않는다.
+- 관리자 진입 CTA 는 권한 있는 role 에게만 보이고, 일반 사용자 기본 흐름에는 섞지 않는다.
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 를 운영자 실사용 순서로 더 읽히게 정리한다.
+- 감사 전용 사용자는 `/admin/audit-logs` 읽기 흐름만 유지하고, UI 숨김과 별개로 `/admin/*` 및 `/api/admin/*` guard 를 계속 유지한다.
+- 실제 개인정보 원문, production DB 실데이터, 실제 운영 권한 저장/변경, 외부 HR 연동은 이번 범위에 넣지 않는다.
 
 ## 작업 카드 생성 기준
 

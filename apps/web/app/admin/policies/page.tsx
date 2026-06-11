@@ -1,34 +1,58 @@
-import Link from "next/link";
+import React from "react";
+
+import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminPolicyReviewChecklist, adminPolicySections } from "../../../admin-skeleton-config";
 
 export default function AdminPoliciesPage() {
   return (
-    <main style={{ maxWidth: 860, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/admin">← 관리자 허브</Link>
-      <h1>관리자 / 정책</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        근태·휴가·결재·문서·게시판 운영 정책의 저장 전 candidate 화면입니다. 실제 반영 대신 before/after diff, 변경 사유, 마스킹 규칙을 먼저 고정합니다.
-      </p>
-      <div style={{ display: "grid", gap: 16, marginTop: 24 }}>
+    <PageShell
+      backHref="/admin"
+      backLabel="관리자 허브로"
+      eyebrow="Phase 13 관리자 콘솔 1차"
+      title="관리자 / 정책"
+      description="근태·휴가·결재·문서·게시판 정책을 실제 저장 전에 current/candidate/capability 형식으로 비교하는 화면입니다."
+      actions={<Pill tone="warning">candidate only</Pill>}
+    >
+      <SurfaceSection
+        title="정책 카드 공통 형식"
+        description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 preview 를 같은 순서로 보여 줍니다."
+      >
+        <ul className="summary-list">
+          {adminPolicyReviewChecklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <div className="page-shell__content">
         {adminPolicySections.map((section) => (
-          <section key={section.title} style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-            <h2 style={{ marginTop: 0 }}>{section.title}</h2>
-            <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-              {section.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
+          <SurfaceSection
+            key={section.title}
+            title={section.title}
+            description="실제 반영 대신 운영자가 같은 기준으로 비교·검토할 수 있게 정리한 카드입니다."
+          >
+            <div className="grid-auto-compact">
+              <article className="info-card">
+                <Pill tone="accent">현재 운영 기준</Pill>
+                <p>{section.currentState}</p>
+              </article>
+              <article className="info-card">
+                <Pill tone="accent">candidate 변경안</Pill>
+                <p>{section.candidateState}</p>
+              </article>
+              <article className="info-card">
+                <Pill>필요 capability</Pill>
+                <p>{section.capability}</p>
+              </article>
+              <article className="info-card">
+                <Pill>감사 preview</Pill>
+                <p>{section.auditPreview}</p>
+              </article>
+            </div>
+            <p className="card-note">비노출 기준: {section.maskingNote}</p>
+          </SurfaceSection>
         ))}
-        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>리뷰 체크리스트</h2>
-          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-            {adminPolicyReviewChecklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -18,7 +18,15 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 13 관리자 콘솔 실사용 1차로 넘어가기 직전/초기 단계다. Phase 12 대시보드 운영 요약 1차 최종보고가 완료되면 Phase 13 카드가 순차 시작된다.
+현재 활성 흐름은 Phase 13 관리자 콘솔 실사용 1차다. 이번 단계에서는 관리자 진입 CTA, `/admin/*` 화면 우선순위, 감사 전용 진입 경계, route/API guard 유지 기준을 먼저 고정한다.
+
+현재 구현 상태 요약:
+
+- `/admin` 은 오늘 먼저 볼 운영 체크포인트, 권한별 진입 경계, 저장 전 승인 게이트, 하위 운영 콘솔 묶음을 먼저 보여 준다.
+- `/admin/users` 는 사용자 큐, 역할 후보/권한 diff, 상태 변경 diff, 감사 후보 흐름을 저장 전 검토 화면으로 정리했다.
+- `/admin/policies` 는 각 정책 카드를 현재 운영 기준 → candidate 변경안 → 필요 capability → 감사 preview 순서로 통일했다.
+- `/admin/audit-logs` 는 조회 필터, 최근 이벤트 타임라인, 상세 패널, 비노출/회사 경계를 분리해 읽히도록 정리했다.
+- 검증 근거: `apps/web/admin-console-pass1.test.tsx`, `apps/web/admin-skeleton-config.test.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/org-employees-boundary.test.tsx`, `apps/web/dashboard-boundary.test.tsx`, `apps/web/api-same-origin-bridge.test.ts`, `apps/web/mobile-pwa.test.ts`, `apps/web` typecheck, `next build`.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

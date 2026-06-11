@@ -1,47 +1,96 @@
 import React from "react";
 import Link from "next/link";
-import { adminUserHighlights, adminUserReviewFields } from "../../../admin-skeleton-config";
 
-const userChecks = [
-  "사용자 초대/비활성화 placeholder",
-  "직원-계정 연결 상태 확인",
-  "고위험 권한 diff 요약과 감사 후보 생성",
+import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { adminUserHighlights, adminUserQueues, adminUserReviewFields } from "../../../admin-skeleton-config";
+
+const roleDiffPreview = [
+  "현재 역할: EMPLOYEE → 후보 역할: HR_ADMIN + AUDITOR",
+  "역할 후보 검토는 실제 부여 전에 owner 와 승인 사유를 함께 확인합니다.",
+  "고위험 권한: invite.manage / audit.read 노출 위치 재확인",
+  "변경 사유 없으면 저장 대신 review 보류 유지",
+] as const;
+
+const statusChangePreview = [
+  "상태 변경 diff 는 현재 상태와 다음 상태를 한 번에 비교해 보여 줍니다.",
+  "active → on_leave 후보는 결재/휴가/조직 조회 영향만 preview 로 표시",
+  "inactive 전환 후보는 소유 문서/게시글/승인 위임 영향 범위를 먼저 요약",
+  "실제 저장 없이 다음 상태와 reasonRequired 표시만 유지",
 ] as const;
 
 export default function AdminUsersPage() {
   return (
-    <main style={{ maxWidth: 860, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/admin">← 관리자 허브</Link>
-      <h1>관리자 / 사용자</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        운영 사용자와 직원 연결, 역할 후보, 상태 변경 diff 를 먼저 정리하는 skeleton 입니다. 실제 권한 저장 대신 변경 전/후 요약과 감사 후보만 보여주는 범위를 유지합니다.
-      </p>
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginTop: 24 }}>
-        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>핵심 점검</h2>
-          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-            {userChecks.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>검토 필드 skeleton</h2>
-          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-            {adminUserReviewFields.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>가드레일</h2>
-          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-            {adminUserHighlights.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
-    </main>
+    <PageShell
+      backHref="/admin"
+      backLabel="관리자 허브로"
+      eyebrow="Phase 13 관리자 콘솔 1차"
+      title="관리자 / 사용자"
+      description="사용자 저장보다 먼저 연결 상태, 권한 diff, 상태 변경 preview 를 검토하는 화면입니다. 저장 단계로 넘기기 전에 audit-ready 정보를 먼저 정리합니다."
+      actions={<Pill tone="warning">review before save</Pill>}
+    >
+      <SurfaceSection
+        title="오늘 확인할 사용자 큐"
+        description="운영자가 가장 먼저 열어야 할 사용자 검토 항목을 역할별 owner 와 함께 정리합니다."
+      >
+        <div className="grid-auto-compact">
+          {adminUserQueues.map((item) => (
+            <article key={item.title} className="info-card">
+              <Pill>{item.owner}</Pill>
+              <h3>{item.title}</h3>
+              <p>{item.summary}</p>
+              <p className="card-note">다음 액션: {item.nextAction}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="권한 diff 미리보기"
+        description="현재 역할과 후보 역할의 before/after 차이를 먼저 보여 주고 고위험 권한은 별도 메모로 고정합니다."
+      >
+        <ul className="summary-list">
+          {roleDiffPreview.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="상태 변경 preview"
+        description="활성/휴직/비활성 전환 후보를 실제 저장 없이 영향 범위와 사유 기준으로 먼저 설명합니다."
+      >
+        <ul className="summary-list">
+          {statusChangePreview.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="감사 이벤트 preview"
+        description="누가 어떤 변경 후보를 열어봤는지와 변경 사유가 있는지를 함께 기록하는 기준입니다."
+      >
+        <p className="card-note">감사 후보는 사용자 검토, 역할 후보, 상태 변경 diff 를 열람한 시점부터 같은 회사 경계 안에서 남깁니다.</p>
+        <div className="grid-auto-compact">
+          {adminUserReviewFields.map((item) => (
+            <article key={item} className="route-card">
+              <h3>{item}</h3>
+              <p>{item === "감사 이벤트 preview" ? "audit candidate 생성 여부와 company boundary 를 함께 확인합니다." : "저장 없이 review 단계에서 먼저 검토하는 항목입니다."}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="가드레일" description="운영 변경처럼 보이더라도 이번 단계는 검토 흐름 고정까지만 허용합니다." muted>
+        <ul className="bullet-list">
+          {adminUserHighlights.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+          <li>
+            일반 업무 화면으로 돌아가려면 <Link href="/dashboard">대시보드</Link> 에서 다시 시작합니다.
+          </li>
+        </ul>
+      </SurfaceSection>
+    </PageShell>
   );
 }

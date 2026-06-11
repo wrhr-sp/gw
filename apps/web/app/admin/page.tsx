@@ -1,66 +1,125 @@
+import React from "react";
 import Link from "next/link";
 import { appRoutes } from "@gw/shared";
-import { adminHubCards, adminPolicySections, adminUserHighlights } from "../../admin-skeleton-config";
 
-const adminNotes = [
-  "초대 생성은 메일 발송 없이 token/status skeleton 까지만 반환합니다.",
-  "관리자 변경 API 는 `/admin/*` 와 `/api/admin/*` 아래에서만 확장합니다.",
-  "민감 endpoint 는 감사 후보(action, actor, target)와 마스킹 규칙을 유지합니다.",
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import {
+  adminApprovalGateNotes,
+  adminHubBadges,
+  adminHubCards,
+  adminHubPriorityChecks,
+  adminPolicySections,
+  adminRoleEntryRules,
+  adminUserHighlights,
+} from "../../admin-skeleton-config";
+
+const adminApiLinks = [
+  { href: appRoutes.admin.users, label: "사용자 / 권한 API" },
+  { href: appRoutes.admin.policies, label: "운영 정책 API" },
+  { href: appRoutes.admin.auditLogs, label: "감사 로그 API" },
+  { href: appRoutes.admin.invites, label: "초대 preview API" },
 ] as const;
 
 export default function AdminPage() {
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/">← 홈으로</Link>
-      <h1>관리자 운영 허브 skeleton</h1>
-      <p style={{ lineHeight: 1.7 }}>
-        일반 업무 화면과 분리된 운영 변경 후보 영역입니다. 실제 운영 사용자/권한/정책 반영 없이도 관리자 정보구조, 감사 후보, API 경계를 먼저 고정합니다.
-      </p>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, marginTop: 24 }}>
-        <h2 style={{ marginTop: 0 }}>관리자 체크포인트</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-          {[...adminNotes, ...adminUserHighlights].map((item) => (
+    <PageShell
+      backHref="/dashboard"
+      backLabel="대시보드로"
+      eyebrow="Phase 13 관리자 콘솔 1차"
+      title="관리자 허브"
+      description="권한 있는 운영자가 어디서 들어와 무엇을 먼저 검토해야 하는지 고정한 operations-first 콘솔입니다. 실제 저장 대신 검토 순서, 감사 preview, 승인 게이트를 먼저 보여 줍니다."
+      actions={
+        <div className="pill-row">
+          {adminHubBadges.map((badge) => (
+            <Pill key={badge} tone={badge === "approval-gated" ? "warning" : "accent"}>
+              {badge}
+            </Pill>
+          ))}
+        </div>
+      }
+    >
+      <SurfaceSection
+        title="오늘 먼저 볼 운영 체크포인트"
+        description="관리자 허브에 들어오면 저장 버튼보다 먼저 검토할 운영 포인트를 위에서부터 읽습니다."
+      >
+        <ul className="summary-list">
+          {[...adminHubPriorityChecks, ...adminUserHighlights].map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-      </section>
+      </SurfaceSection>
 
-      <section style={{ marginTop: 24, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        {adminHubCards.map((card) => (
-          <article key={card.href} style={{ border: "1px dashed #9ca3af", borderRadius: 20, padding: 20 }}>
-            <h2 style={{ marginTop: 0 }}>{card.title}</h2>
-            <p style={{ lineHeight: 1.6 }}>{card.description}</p>
-            <Link href={card.href}>화면 보기 →</Link>
-          </article>
-        ))}
-      </section>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, marginTop: 24 }}>
-        <h2 style={{ marginTop: 0 }}>함께 보는 API 시작점</h2>
-        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
-          <li><a href={appRoutes.admin.users}>{appRoutes.admin.users}</a></li>
-          <li><a href={appRoutes.admin.policies}>{appRoutes.admin.policies}</a></li>
-          <li><a href={appRoutes.admin.auditLogs}>{appRoutes.admin.auditLogs}</a></li>
-          <li><a href={appRoutes.admin.invites}>{appRoutes.admin.invites}</a></li>
-        </ul>
-      </section>
-
-      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, marginTop: 24 }}>
-        <h2 style={{ marginTop: 0 }}>운영 정책 placeholder 범위</h2>
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {adminPolicySections.map((section) => (
-            <article key={section.title} style={{ border: "1px dashed #d1d5db", borderRadius: 16, padding: 16 }}>
-              <h3 style={{ marginTop: 0 }}>{section.title}</h3>
-              <ul style={{ paddingLeft: 20, lineHeight: 1.7, marginBottom: 0 }}>
-                {section.items.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+      <SurfaceSection
+        title="권한별 진입 경계"
+        description="UI 노출 조건과 route/API guard 는 같은 의미를 공유하되 서로 다른 책임으로 유지합니다."
+      >
+        <div className="grid-auto-compact">
+          {adminRoleEntryRules.map((rule) => (
+            <article key={rule} className="info-card">
+              <Pill tone="warning">entry rule</Pill>
+              <p>{rule}</p>
             </article>
           ))}
         </div>
-      </section>
-    </main>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="운영 콘솔 묶음"
+        description="사용자, 정책, 감사 로그를 각각 다른 책임으로 분리하고 각 화면의 첫 검토 포인트를 함께 보여 줍니다."
+      >
+        <div className="mobile-summary-grid">
+          {adminHubCards.map((card) => (
+            <article key={card.href} className="route-card">
+              <Pill>{card.primaryAudience}</Pill>
+              <h3>{card.title}</h3>
+              <p>{card.description}</p>
+              <p className="card-note">먼저 볼 것: {card.firstReviewPoint}</p>
+              <p className="card-note">가드레일: {card.guardrail}</p>
+              <Link href={card.href}>화면 보기 →</Link>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="저장 전 승인 게이트"
+        description="이번 단계는 실제 저장이 아니라 승인 전 검토 흐름을 고정하는 단계입니다."
+        muted
+      >
+        <ul className="bullet-list">
+          {adminApprovalGateNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="함께 보는 API 시작점"
+        description="큰 새 백엔드를 만들기보다 기존 admin read-only candidate API 를 화면과 같은 순서로 연결합니다."
+      >
+        <ul className="summary-list">
+          {adminApiLinks.map((item) => (
+            <li key={item.href}>
+              <a href={item.href}>{item.label}</a>
+            </li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="정책 카드 공통 형식"
+        description="하위 정책 화면은 모두 current/candidate/capability/audit preview 형식을 공유합니다."
+      >
+        <div className="grid-auto-compact">
+          {adminPolicySections.map((section) => (
+            <article key={section.title} className="info-card">
+              <h3>{section.title}</h3>
+              <p>{section.currentState}</p>
+              <p className="card-note">필요 capability: {section.capability}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+    </PageShell>
   );
 }
