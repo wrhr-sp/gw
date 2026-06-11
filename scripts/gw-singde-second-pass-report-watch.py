@@ -83,14 +83,44 @@ def compact(text: str | None, limit: int = 1000) -> str:
 def extract_json_object(text: str | None) -> dict[str, Any] | None:
     raw = text or ""
     match = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.S | re.I)
-    candidate = match.group(1) if match else raw.strip()
-    if not candidate.startswith("{"):
-        return None
-    try:
-        data = json.loads(candidate)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+    if match:
+        candidates = [match.group(1)]
+    else:
+        candidates = []
+        start = raw.find("{")
+        while start != -1:
+            depth = 0
+            in_string = False
+            escape = False
+            for idx in range(start, len(raw)):
+                ch = raw[idx]
+                if escape:
+                    escape = False
+                    continue
+                if ch == "\\" and in_string:
+                    escape = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidates.append(raw[start : idx + 1])
+                        break
+            start = raw.find("{", start + 1)
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate.strip())
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            continue
+    return None
 
 
 def summarize_release_handoff(data: dict[str, Any]) -> str:
@@ -133,12 +163,37 @@ def summarize_release_handoff(data: dict[str, Any]) -> str:
     ])
 
 
+def summarize_structured_handoff(data: dict[str, Any]) -> str:
+    changed = data.get("changed_files") or []
+    tests = data.get("tests_run") or []
+    passed = data.get("tests_passed") or {}
+    decisions = [str(x) for x in data.get("decisions") or []]
+    blockers = [str(x) for x in (data.get("blockers") or data.get("remaining_blockers") or data.get("issues") or [])]
+    notes = [str(x) for x in (data.get("notes") or data.get("verification_notes") or [])]
+
+    changed_summary = f"변경 파일 {len(changed)}개" if isinstance(changed, list) else "변경 파일 목록 있음"
+    tests_summary = f"검증 명령 {len(tests)}개 실행" if isinstance(tests, list) else "검증 명령 기록 있음"
+    if isinstance(passed, dict) and passed:
+        passed_summary = "통과 수: " + ", ".join(f"{k} {v}" for k, v in list(passed.items())[:4])
+    else:
+        passed_summary = "통과 수 기록 없음"
+    decision_summary = "; ".join(decisions[:3]) if decisions else "주요 결정 기록 없음"
+    problem_summary = "; ".join(blockers[:3] or notes[:3]) if (blockers or notes) else "추가 막힘 없음"
+    return " / ".join([
+        f"조치 결과: {changed_summary}, {tests_summary}, {passed_summary}",
+        f"근거: {decision_summary}",
+        f"막힌 이유/남은 이슈: {problem_summary}",
+    ])
+
+
 def humanize_report_text(text: str | None, limit: int = 1200) -> str:
     raw = text or ""
     data = extract_json_object(raw)
     if data:
         if "pr_number" in data or "pr_state" in data or "remaining_cleanup" in data:
             return compact(summarize_release_handoff(data), limit)
+        if "changed_files" in data or "tests_run" in data or "tests_passed" in data or "decisions" in data:
+            return compact(summarize_structured_handoff(data), limit)
         keys = ", ".join(str(k) for k in list(data.keys())[:8])
         return compact(f"구조화된 작업 결과입니다. 핵심 필드: {keys}. 원문 JSON은 내부 근거로 보관하고 사용자 보고에는 요약만 표시합니다.", limit)
     return compact(raw, limit)
