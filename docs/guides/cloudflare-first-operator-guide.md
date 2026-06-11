@@ -4,7 +4,7 @@
 
 ## 운영 관점에서 지금 상태
 
-현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 5 게시판/문서 guardrail, Phase 6 모바일/PWA skeleton, Phase 7 same-origin API 브리지 1차, Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준, Phase 9 관리자/운영 설정·감사 로그 1차 범위, 그리고 Phase 10 관리자/감사 로그 2차 기준까지 맞춘 상태를 점검하는 단계입니다.
+현재 저장소는 여전히 "실리소스 연결 전 단계"입니다. 지금은 Phase 5 게시판/문서 guardrail, Phase 6 모바일/PWA skeleton, Phase 7 same-origin API 브리지 1차, Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준, Phase 9 관리자/운영 설정·감사 로그 1차 범위, Phase 10 관리자/감사 로그 2차 기준, 그리고 Phase 11 조직/직원 일반 화면 1차 경계까지 맞춘 상태를 점검하는 단계입니다.
 
 들어 있는 것:
 
@@ -23,6 +23,7 @@
 - Phase 8 R2 storage 범위 문서와 private-by-default 기준
 - Phase 9 관리자/운영 설정·감사 로그 범위 문서와 `/admin*` 운영 경계 기준
 - Phase 10 관리자/감사 로그 2차 문서와 candidate 운영 경계 기준
+- Phase 11 조직/직원 일반 화면 문서와 `/employees`·`/org`·`/admin/users` 경계 설명
 - 로컬 검증 명령과 테스트
 
 아직 하지 않은 것:
@@ -313,6 +314,8 @@ API 경로:
 - `HR_ADMIN` 으로 다른 회사 `employeeId` 조회 시 403 이 나오는지 확인
 - `HR_ADMIN`/`MANAGER` own 요청(`leave_request_demo`) self-approval 이 403 인지 확인
 - `HR_ADMIN` 이 팀 대기 요청(`leave_request_team_pending`) 승인 시 200 인지 확인
+- `GET /api/employees?roleCode=COMPANY_ADMIN` 를 `MANAGER` 로 확인했을 때 200 이더라도 관리자 role filter 는 무시되고, 응답 목록/summary/filterOptions 에 `COMPANY_ADMIN`·`HR_ADMIN` 이 섞이지 않는지 확인
+- `GET /api/employees?employmentStatus=inactive`, `GET /api/employees?roleCode=NOT_A_ROLE` 가 각각 400 `VALIDATION_ERROR` 와 올바른 `error.details.field` 로 내려오는지 확인
 - `POST /api/boards/board_notice/posts` 가 403 인지 확인
 - `POST /api/documents/files/metadata` 에 `spaceId=document_space_missing` 를 넣었을 때 403 인지 확인
 - `GET /api/posts/board_post_board_general_forged` 가 403 인지 확인

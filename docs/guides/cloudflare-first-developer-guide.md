@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, Phase 7 same-origin API 연결 1차 결과, Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준, Phase 9 관리자/운영 설정·감사 로그 1차 범위, 그리고 Phase 10 관리자/감사 로그 2차 기준까지 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, Phase 7 same-origin API 연결 1차 결과, Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준, Phase 9 관리자/운영 설정·감사 로그 1차 범위, Phase 10 관리자/감사 로그 2차 기준, 그리고 Phase 11 조직/직원 일반 화면 1차 기준까지 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -131,7 +131,10 @@ pnpm test
 - Phase 8 쉬운 handoff 는 `docs/guides/phase-8-r2-storage-handoff.md` 에 정리돼 있음
 - Phase 9 쉬운 handoff 는 `docs/guides/phase-9-admin-audit-handoff.md` 에 정리돼 있음
 - Phase 10 쉬운 handoff 는 `docs/guides/phase-10-admin-audit-pass-2-handoff.md` 에 정리돼 있음
+- Phase 11 쉬운 handoff 는 `docs/guides/phase-11-org-employees-handoff.md` 에 정리돼 있음
 - 현재 저장소 기준으로 `/api/admin/audit-logs` 는 `createdFrom`, `createdTo` 시간 필터를 실제로 적용하고, 관련 schema 와 회귀 테스트도 `packages/shared/src/contracts.ts`, `apps/api/test/auth-org.spec.ts` 에 반영돼 있음
+- `/employees` 와 `/org` 화면은 일반 조회용 skeleton 이고, `/admin/users` 는 운영 변경 후보 검토 화면으로 분리돼 있음
+- 현재 `/api/employees` 는 비관리자 요청에서 관리자 role filter 를 무시하고, 잘못된 `employmentStatus`/`roleCode` query 는 400 `VALIDATION_ERROR` 로 돌려줌
 
 개별 확인:
 

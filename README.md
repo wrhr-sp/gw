@@ -20,6 +20,7 @@
 - Phase 8 R2 문서/첨부파일 저장소 연결 1차 범위 문서 (`docs/architecture/phase-8-r2-storage-scope.md`)
 - Phase 9 관리자/운영 설정·감사 로그 1차 범위 문서 (`docs/architecture/phase-9-admin-audit-scope.md`)
 - Phase 10 관리자/감사 로그 2차 고도화 범위 문서 (`docs/architecture/phase-10-admin-audit-pass-2-scope.md`)
+- Phase 11 조직/직원 일반 화면 1차 범위 문서 (`docs/architecture/phase-11-org-employees-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
 
@@ -260,6 +261,22 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 즉, Phase 10 의 핵심은 "운영 기능 오픈"이 아니라 "운영 직전 수준의 candidate 화면/API/테스트 계약을 더 촘촘하게 잠그는 것"입니다.
 
+## Phase 11 조직/직원 일반 화면 1차 범위
+
+기준 문서는 `docs/architecture/phase-11-org-employees-scope.md` 입니다.
+쉬운 handoff 문서는 `docs/guides/phase-11-org-employees-handoff.md` 입니다.
+
+이번에 고정한 결정은 아래와 같습니다.
+
+- `/employees` 는 직원 이름, 소속, 역할/직책 요약, 재직 상태를 보여주는 일반 조회 화면으로 강화합니다.
+- `/org` 는 부서 구조, 역할/직책 구조, 권한 체계 안내를 보여주는 조직 탐색 화면으로 강화합니다.
+- `/admin/users` 는 계속 사용자-직원 연결, 역할 diff, 상태 변경 preview 를 검토하는 관리자 candidate 화면으로 남깁니다.
+- 모바일에서는 하단 탭 확장보다 홈/대시보드 진입점과 읽기 쉬운 카드/목록 구조를 먼저 맞춥니다.
+- 이번 단계도 실제 직원 개인정보 반입, 운영 사용자 권한 저장, production DB 실행, 외부 HR 연동은 하지 않습니다.
+- 현재 로컬 검증 기준으로 web/shared/api 테스트와 web build 는 통과했고, `/api/employees` 는 비관리자에게 관리자 role filter 를 무시하며 잘못된 role/status query 는 400 `VALIDATION_ERROR` 로 응답합니다.
+
+즉, Phase 11 의 핵심은 "조직/직원 일반 화면을 관리자 운영 화면과 섞지 않고 독립 업무 모듈로 또렷하게 만드는 것"입니다.
+
 ## 빠른 로컬 시작
 
 ```bash
@@ -359,11 +376,14 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - Phase 8 쉬운 handoff: `docs/guides/phase-8-r2-storage-handoff.md`
 - Phase 9 쉬운 handoff: `docs/guides/phase-9-admin-audit-handoff.md`
 - Phase 10 쉬운 handoff: `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
+- Phase 11 쉬운 handoff: `docs/guides/phase-11-org-employees-handoff.md`
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
 - Phase 4 범위: `docs/architecture/phase-4-approvals-scope.md`
 - Phase 5 범위: `docs/architecture/phase-5-boards-documents-scope.md`
 - Phase 9 범위: `docs/architecture/phase-9-admin-audit-scope.md`
+- Phase 10 범위: `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
+- Phase 11 범위: `docs/architecture/phase-11-org-employees-scope.md`
 - Cloudflare preview 준비: `docs/architecture/cloudflare-preview-url-preparation.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`

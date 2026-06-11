@@ -197,6 +197,17 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `/admin/audit-logs` 는 감사 로그를 더 많이 여는 단계가 아니라, 시간 범위(`createdFrom`, `createdTo`)와 마스킹 기준을 더 분명히 잠그는 단계입니다.
 - 즉, Phase 10 도 여전히 "운영 실행 오픈"이 아니라 "운영 직전 검토 기준을 더 촘촘하게 고정"하는 단계입니다.
 
+## Phase 11 조직/직원 일반 화면 1차가 이어받는 기준
+
+- 쉬운 요약 handoff 는 `docs/guides/phase-11-org-employees-handoff.md` 에 따로 정리돼 있습니다.
+- `/employees` 는 사람을 찾고 상태를 읽는 일반 화면입니다. 이름, 소속, 역할/직책 요약, 재직 상태를 먼저 보는 단계라고 이해하면 됩니다.
+- `/org` 는 조직 구조를 이해하는 일반 화면입니다. 부서 구조, 역할/직책, 권한 체계 안내를 읽기 전용으로 보는 단계입니다.
+- `/admin/users` 는 여전히 운영 사용자 연결, 역할 diff, 상태 변경 preview 를 보는 관리자 후보 화면입니다.
+- 중요한 점은, 이번 단계도 실제 직원 개인정보 원문 연결이나 운영 권한 저장이 열린 것이 아니라는 점입니다.
+- 그리고 현재 로컬 재검증 기준으로 `/api/employees` 도 기본 경계를 같이 맞췄습니다. 비관리자는 관리자 role filter 를 써도 그 필터가 무시되고, 잘못된 `employmentStatus`/`roleCode` 값은 400 `VALIDATION_ERROR` 로 바로 돌려줍니다.
+
+쉽게 말하면 Phase 11 은 "조직/직원 일반 화면의 자리와 말투를 먼저 정리한 단계"입니다. 실제 운영 변경 기능을 연 단계는 아닙니다.
+
 ## Phase 6 모바일/PWA가 이어받는 기준
 
 모바일/PWA 단계는 preview URL 이 생겨도 아래 기준을 그대로 이어받습니다.
@@ -238,6 +249,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `docs/guides/phase-8-r2-storage-handoff.md`
 - `docs/guides/phase-9-admin-audit-handoff.md`
 - `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
+- `docs/guides/phase-11-org-employees-handoff.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`

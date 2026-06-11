@@ -210,6 +210,34 @@ export const employeeSchema = z.object({
   employmentStatus: z.enum(["active", "on_leave", "offboarded"]),
 });
 
+export const employeeDirectorySummarySchema = z.object({
+  employeeId: z.string(),
+  departmentName: z.string(),
+  roleSummary: z.string(),
+  statusLabel: z.string(),
+  statusTone: z.enum(["positive", "caution", "muted"]),
+  primaryNote: z.string(),
+});
+
+export const employeeDirectoryFiltersSchema = z.object({
+  departmentId: z.string().optional(),
+  employmentStatus: employeeSchema.shape.employmentStatus.optional(),
+  roleCode: roleCodeSchema.optional(),
+});
+
+export const employeeDirectoryFilterOptionsSchema = z.object({
+  departments: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+      }),
+    )
+    .min(1),
+  employmentStatuses: z.array(employeeSchema.shape.employmentStatus).min(1),
+  roleCodes: z.array(roleCodeSchema).min(1),
+});
+
 export const departmentSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -231,6 +259,12 @@ export const roleSchema = z.object({
   permissions: z.array(permissionCodeSchema),
 });
 
+export const orgDirectorySectionSummarySchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  count: z.number().int().nonnegative(),
+});
+
 export const listCompaniesResponseSchema = successResponseSchema(
   z.object({
     items: z.array(companySchema),
@@ -240,18 +274,29 @@ export const listCompaniesResponseSchema = successResponseSchema(
 export const listEmployeesResponseSchema = successResponseSchema(
   z.object({
     items: z.array(employeeSchema),
+    summaries: z.array(employeeDirectorySummarySchema),
+    filters: employeeDirectoryFiltersSchema,
+    filterOptions: employeeDirectoryFilterOptionsSchema,
+    notices: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
   }),
 );
 
 export const listDepartmentsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(departmentSchema),
+    summary: orgDirectorySectionSummarySchema,
+    notices: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
   }),
 );
 
 export const listRolesResponseSchema = successResponseSchema(
   z.object({
     items: z.array(roleSchema),
+    summary: orgDirectorySectionSummarySchema,
+    notices: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
   }),
 );
 
@@ -1124,9 +1169,13 @@ export type AuthLogoutResponse = z.infer<typeof authLogoutResponseSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
 export type Company = z.infer<typeof companySchema>;
 export type Employee = z.infer<typeof employeeSchema>;
+export type EmployeeDirectorySummary = z.infer<typeof employeeDirectorySummarySchema>;
+export type EmployeeDirectoryFilters = z.infer<typeof employeeDirectoryFiltersSchema>;
+export type EmployeeDirectoryFilterOptions = z.infer<typeof employeeDirectoryFilterOptionsSchema>;
 export type Department = z.infer<typeof departmentSchema>;
 export type Permission = z.infer<typeof permissionSchema>;
 export type Role = z.infer<typeof roleSchema>;
+export type OrgDirectorySectionSummary = z.infer<typeof orgDirectorySectionSummarySchema>;
 export type CreateInviteRequest = z.infer<typeof createInviteRequestSchema>;
 export type CreateInviteResponse = z.infer<typeof createInviteResponseSchema>;
 export type AdminScope = z.infer<typeof adminScopeSchema>;

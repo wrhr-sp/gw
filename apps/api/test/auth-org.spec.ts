@@ -176,6 +176,71 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(payload.data.audit.action).toBe("admin.invite.create");
   });
 
+  it("returns employee directory summaries, filters, and admin-boundary notices", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const response = await app.request(`${appRoutes.org.employees}?departmentId=department_ops&employmentStatus=active&roleCode=MANAGER`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const payload = listEmployeesResponseSchema.parse(await response.json());
+    expect(payload.data.items).toHaveLength(1);
+    expect(payload.data.items[0]?.id).toBe("employee_manager");
+    expect(payload.data.summaries[0]?.departmentName).toBe("운영팀");
+    expect(payload.data.summaries[0]?.roleSummary).toContain("MANAGER");
+    expect(payload.data.filters.departmentId).toBe("department_ops");
+    expect(payload.data.filters.employmentStatus).toBe("active");
+    expect(payload.data.filters.roleCode).toBe("MANAGER");
+    expect(payload.data.filterOptions.departments.some((item) => item.name === "운영팀")).toBe(true);
+    expect(payload.data.notices.some((item) => item.includes("/admin/users"))).toBe(true);
+    expect(JSON.stringify(payload)).not.toContain("invite.manage");
+  });
+
+  it("keeps admin-only roles out of the general employee directory for non-admin viewers", async () => {
+    const { cookie } = await loginAndGetCookie("MANAGER");
+
+    const response = await app.request(`${appRoutes.org.employees}?roleCode=COMPANY_ADMIN`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const payload = listEmployeesResponseSchema.parse(await response.json());
+    expect(payload.data.items.some((item) => item.id === "employee_admin")).toBe(false);
+    expect(payload.data.summaries.some((item) => item.roleSummary.includes("COMPANY_ADMIN"))).toBe(false);
+    expect(payload.data.summaries.some((item) => item.roleSummary.includes("HR_ADMIN"))).toBe(false);
+    expect(payload.data.filterOptions.roleCodes).toEqual(["MANAGER", "EMPLOYEE"]);
+    expect(payload.data.filters.roleCode).toBeUndefined();
+  });
+
+  it("returns validation errors instead of 500 for invalid employee directory filters", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const invalidStatusResponse = await app.request(`${appRoutes.org.employees}?employmentStatus=inactive`, {
+      headers: {
+        cookie,
+      },
+    });
+    expect(invalidStatusResponse.status).toBe(400);
+    const invalidStatusPayload = errorResponseSchema.parse(await invalidStatusResponse.json());
+    expect(invalidStatusPayload.error.code).toBe("VALIDATION_ERROR");
+    expect(invalidStatusPayload.error.details?.field).toBe("employmentStatus");
+
+    const invalidRoleResponse = await app.request(`${appRoutes.org.employees}?roleCode=NOT_A_ROLE`, {
+      headers: {
+        cookie,
+      },
+    });
+    expect(invalidRoleResponse.status).toBe(400);
+    const invalidRolePayload = errorResponseSchema.parse(await invalidRoleResponse.json());
+    expect(invalidRolePayload.error.code).toBe("VALIDATION_ERROR");
+    expect(invalidRolePayload.error.details?.field).toBe("roleCode");
+  });
+
   it("lists admin users only for admin roles with permission catalog access", async () => {
     const { cookie } = await loginAndGetCookie("HR_ADMIN");
 
