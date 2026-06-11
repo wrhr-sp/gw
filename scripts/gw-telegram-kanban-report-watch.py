@@ -35,7 +35,7 @@ CORRUPTION_MARKERS = (
     "disk i/o error",
     "refusing to open corrupt kanban db",
 )
-REPORT_TITLE_MARKERS = ("최종 보고", "막힘 자동보고", "결과 보고", "사용자 보고", "자동 조치", "GitHub 작업 판단", "오케스트레이션 동기화 결과")
+REPORT_TITLE_MARKERS = ("최종 보고", "최종 통합 보고", "막힘 자동보고", "결과 보고", "사용자 보고", "자동 조치", "GitHub 작업 판단", "오케스트레이션 동기화 결과")
 DIRECT_REPORT_MARKERS = ("Telegram 결과보고", "텔레그램 결과보고")
 
 
