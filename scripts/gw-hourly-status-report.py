@@ -34,9 +34,9 @@ def build_message():
     con=sqlite3.connect(uri, uri=True, timeout=5); con.row_factory=sqlite3.Row
     with con:
         integrity=con.execute('pragma integrity_check').fetchone()[0]
+        count_rows=con.execute("select status, count(*) as n from tasks where status not in ('archived') group by status").fetchall()
         rows=con.execute("select id,title,status,assignee,created_at,started_at,last_heartbeat_at,result from tasks where status not in ('archived') order by case status when 'running' then 1 when 'blocked' then 2 when 'ready' then 3 when 'todo' then 4 when 'scheduled' then 5 when 'done' then 6 else 9 end, created_at desc limit 120").fetchall()
-    counts={}
-    for r in rows: counts[r['status']]=counts.get(r['status'],0)+1
+    counts={str(r['status']): int(r['n']) for r in count_rows}
     active=[r for r in rows if r['status'] in ('running','blocked','ready')][:8]
     blocked=[r for r in rows if r['status']=='blocked']; class_counts={'승인필요':0,'복구후보':0,'수동분류':0}
     for r in blocked:
@@ -49,6 +49,8 @@ def build_message():
             extra=f' · {classify(r)}' if r['status']=='blocked' else ''
             lines.append(f'- {html.escape(r["status"] or "-")}{html.escape(extra)} · {html.escape(r["assignee"] or "미지정")} · {html.escape(compact(r["title"]))}')
     else: lines += ['', '- 현재 running/blocked/ready 핵심 카드 없음']
+    lines += ['', '<b>확인한 근거</b>', f'- Kanban DB를 읽어서 상태와 카드 수를 확인했습니다. DB integrity={html.escape(str(integrity))}입니다.', '- running/blocked/ready 카드를 우선 확인했고, 막힘은 승인필요/복구후보/수동분류로 나눴습니다.']
+    lines += ['', '<b>다음 액션</b>', '- 대장이 해줘야 할 것: 자동 조치 범위면 없습니다. 승인필요 항목이 있으면 어떤 범위까지 허용할지만 답해주시면 됩니다.', '- 싱드 처리: 복구후보는 로그·검증 근거 확인 후 자동 수정→리뷰→검증 루프로 넘깁니다.', '- 최종완료 상태면 싱드가 다음 작업 후보를 정리해 이어서 진행합니다.']
     lines += ['', '<b>복구 원칙</b>', '- 복구후보도 로그·검증 근거 확인 후 처리합니다.', '- 승인필요 항목(secret/운영DB/DNS/비용/배포 등)은 대장 승인 전 조치하지 않습니다.', '- 완료/막힘/복구/조치 결과는 칸반 보고카드가 아니라 Telegram 직접 보고로 전달합니다.']
     return '\n'.join(lines)
 def send(msg):
