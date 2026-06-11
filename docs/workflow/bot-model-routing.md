@@ -16,37 +16,37 @@
 - 폴백: `openai-codex / gpt-5.4`
 - 이유: 총괄·판단·통합 보고 비중이 커서 더 강한 추론 우선
 
-## 기획봇 (`gwplanner`)
+## 도담(`gwplanner`) / 기획봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.5`
 - 폴백: `openai-codex / gpt-5.4`
 - 이유: 기획·비교·우선순위 정리에 추론 성능 우선
 
-## 구현봇 (`gwbuilder`)
+## 이룸(`gwbuilder`) / 구현봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.4`
 - 폴백: `openai-codex / gpt-5.5`
 - 이유: 구현 작업은 안정적인 기본 코딩 모델을 우선하고 필요 시 상위 모델로 폴백
 
-## 리뷰봇 (`gwreviewer`)
+## 바름(`gwreviewer`) / 리뷰봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.5`
 - 폴백: `openai-codex / gpt-5.4`
 - 이유: 검토·위험 탐지는 더 강한 판별력 우선
 
-## 테스트봇 (`gwtester`)
+## 해봄(`gwtester`) / 테스트봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.4`
 - 폴백: `openai-codex / gpt-5.5`
 - 이유: 테스트 실행과 확인은 기본 모델 우선, 복잡한 분석 시 상위 모델 폴백
 
-## 운영봇 (`gwops`)
+## 지킴(`gwops`) / 운영봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.5`
 - 폴백: `openai-codex / gpt-5.4`
 - 이유: 배포·운영 판단은 보수적 추론이 중요해 상위 모델 우선
 
-## 문서봇 (`gwdocs`)
+## 다온(`gwdocs`) / 문서봇
 - 메인 provider: `openai-codex`
 - 메인 model: `gpt-5.4`
 - 폴백: `openai-codex / gpt-5.5`

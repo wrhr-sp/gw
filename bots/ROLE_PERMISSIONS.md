@@ -7,32 +7,32 @@
 - 허용 toolsets: delegation, file, terminal, web, session_search, skills, todo, memory, code_execution, vision
 - 금지 중심 toolsets: messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive
 
-## 현책
+## 도담
 - 역할 초점: 기획, 선택지 비교, 우선순위 정리
 - 허용 toolsets: file, web, session_search, todo
 - 금지 중심 toolsets: terminal, code_execution, delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills
 
-## 공수
+## 이룸
 - 역할 초점: 실제 구현, 파일 수정, 실행 가능한 결과물 생성
 - 허용 toolsets: file, terminal, code_execution, session_search, todo
 - 금지 중심 toolsets: delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills, web
 
-## 감결
+## 바름
 - 역할 초점: 검토, 누락 점검, 규칙 위반 탐지
 - 허용 toolsets: file, terminal, session_search, web
 - 금지 중심 toolsets: code_execution, delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills, todo
 
-## 시헌
+## 해봄
 - 역할 초점: 동작 검증, 테스트 관점 점검, 실패 재현
 - 허용 toolsets: file, terminal, code_execution, session_search
 - 금지 중심 toolsets: delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills, todo, web
 
-## 진수
+## 지킴
 - 역할 초점: 배포, 운영, 안정성, 복구 관점 점검
 - 허용 toolsets: file, terminal, session_search
 - 금지 중심 toolsets: code_execution, delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills, todo, web
 
-## 해문
+## 다온
 - 역할 초점: 문서화, 쉬운 설명, 비개발자용 정리
 - 허용 toolsets: file, session_search, web
 - 금지 중심 toolsets: terminal, code_execution, delegation, messaging, cronjob, browser, computer_use, image_gen, tts, video, video_gen, spotify, homeassistant, discord, discord_admin, kanban, yuanbao, x_search, feishu_doc, feishu_drive, memory, vision, skills, todo
