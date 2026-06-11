@@ -6,21 +6,22 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 13 관리자 콘솔 실사용 1차
+작업명: 출퇴근 등록 방식 정책 선택 1차
 
 현재 체인:
 
-1. 테스트/재검증: `t_52705294` — 해봄(`gwtester`) — 완료
-2. 문서화: `t_0132d8f4` — 다온(`gwdocs`) — 진행 중
-3. GitHub PR/CI/merge/branch cleanup: `t_3ea4d00e` — 지킴(`gwops`) — 대기
-4. 최종 통합 보고: `t_0ffbfeff` — 싱드(`singde`) — parent gate 이후 진행
+1. 기획: `t_a198ff98` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_a00c79c7` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_0ce5e5b5` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: 후속 tester 카드 예정
+5. 문서화/GitHub/최종 통합 보고: 후속 parent gate 기준 진행
 
 현재 문서 기준 핵심 범위:
 
-- 관리자 진입 CTA 는 권한 있는 role 에게만 보이고, 일반 사용자 기본 흐름에는 섞지 않는다.
-- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 를 운영자 실사용 순서로 더 읽히게 정리한다.
-- 감사 전용 사용자는 `/admin/audit-logs` 읽기 흐름만 유지하고, UI 숨김과 별개로 `/admin/*` 및 `/api/admin/*` guard 를 계속 유지한다.
-- 실제 개인정보 원문, production DB 실데이터, 실제 운영 권한 저장/변경, 외부 HR 연동은 이번 범위에 넣지 않는다.
+- 출퇴근 등록 방식 정책 enum 은 `mobile`, `pc`, `tag` 3가지로 고정한다.
+- 회사 기본 정책에서 허용한 방식만 admin 정책 화면, 직원 근태 화면, 출근/퇴근 API 에서 같은 기준으로 사용한다.
+- 태그 등록은 실제 장비 연동이 아니라 skeleton/안내/검증 지점만 먼저 잡는다.
+- GPS/위치정보 강제 수집, 실제 NFC/RFID/QR 장비 연동, production DB 실데이터 변경, 외부 HR 연동은 이번 범위에 넣지 않는다.
 
 ## 작업 카드 생성 기준
 

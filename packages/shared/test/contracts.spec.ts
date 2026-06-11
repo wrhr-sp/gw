@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   adminAuditLogListResponseSchema,
+  adminPoliciesListResponseSchema,
+  adminPolicyBoardUpdateRequestSchema,
+  attendanceRegistrationPolicySchema,
   adminPolicyDocumentUpdateRequestSchema,
   adminPolicyUpdateResponseSchema,
   adminUsersListResponseSchema,
@@ -16,9 +19,11 @@ import {
   approvalInboxResponseSchema,
   approvalLineCreateRequestSchema,
   approvalLineListResponseSchema,
+  attendanceActionRequestSchema,
   attendanceActionResponseSchema,
   attendanceCorrectionRequestSchema,
   attendanceListRecordsResponseSchema,
+  attendanceRegistrationMethodSchema,
   authLoginRequestSchema,
   authLoginResponseSchema,
   boardCommentCreateRequestSchema,
@@ -1302,5 +1307,133 @@ describe("shared contracts", () => {
         error: null,
       }).data.items[0]?.metadata.sensitiveMasked,
     ).toBe(true);
+  });
+
+  it("separates attendance registration policy from attendance record source", () => {
+    expect(attendanceRegistrationMethodSchema.parse("mobile")).toBe("mobile");
+    expect(attendanceRegistrationMethodSchema.parse("pc")).toBe("pc");
+    expect(attendanceRegistrationMethodSchema.parse("tag")).toBe("tag");
+    expect(() => attendanceRegistrationMethodSchema.parse("web")).toThrow();
+
+    const attendanceActionRequest = attendanceActionRequestSchema.parse({
+      attendanceRegistrationMethod: "mobile",
+    });
+    expect(attendanceActionRequest.attendanceRegistrationMethod).toBe("mobile");
+
+    expect(() =>
+      attendanceActionRequestSchema.parse({
+        attendanceRegistrationMethod: "rfid",
+      }),
+    ).toThrow();
+
+    const policiesPayload = adminPoliciesListResponseSchema.parse({
+      ok: true,
+      data: {
+        items: [
+          {
+            category: "attendance",
+            companyId: "company_demo",
+            summary: "출퇴근 허용 방식 정책 placeholder",
+            lastReviewedAt: "2026-06-10T09:00:00.000Z",
+            placeholders: ["태그 단말은 skeleton 안내만 제공"],
+            capability: "attendance.manage",
+            reasonRequired: true,
+            diffPreview: {
+              before: "mobile, pc",
+              after: "mobile, tag",
+            },
+            attendanceRegistrationPolicy: {
+              allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+              candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
+              tagDeviceStatus: "skeleton_only",
+            },
+          },
+        ],
+        audit: {
+          candidate: true,
+          action: "admin.policy.list.viewed",
+        },
+        placeholder: true,
+      },
+      error: null,
+    });
+
+    expect(policiesPayload.data.items[0]?.attendanceRegistrationPolicy?.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
+  });
+
+  it("accepts all supported tag device status values in attendance policy payload", () => {
+    const statuses = ["not_configured", "skeleton_only", "ready_for_device"] as const;
+
+    for (const status of statuses) {
+      const request = attendanceRegistrationPolicySchema.safeParse({
+        allowedAttendanceRegistrationMethods: ["mobile"],
+        candidateAllowedAttendanceRegistrationMethods: ["mobile"],
+        tagDeviceStatus: status,
+      });
+
+      expect(request.success, status).toBe(true);
+    }
+  });
+
+  it("accepts the five approved attendance registration policy combinations in the contract", () => {
+    const cases = [
+      {
+        allowedAttendanceRegistrationMethods: ["mobile"],
+        candidateAllowedAttendanceRegistrationMethods: ["mobile"],
+        tagDeviceStatus: "skeleton_only",
+      },
+      {
+        allowedAttendanceRegistrationMethods: ["pc"],
+        candidateAllowedAttendanceRegistrationMethods: ["pc"],
+        tagDeviceStatus: "skeleton_only",
+      },
+      {
+        allowedAttendanceRegistrationMethods: ["tag"],
+        candidateAllowedAttendanceRegistrationMethods: ["tag"],
+        tagDeviceStatus: "skeleton_only",
+      },
+      {
+        allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+        candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
+        tagDeviceStatus: "skeleton_only",
+      },
+      {
+        allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+        candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
+        tagDeviceStatus: "skeleton_only",
+      },
+    ] as const;
+
+    for (const policy of cases) {
+      expect(attendanceRegistrationPolicySchema.parse(policy)).toEqual(policy);
+    }
+  });
+
+  it("requires at least one allowed attendance registration method in attendance policy payload", () => {
+    const request = attendanceRegistrationPolicySchema.safeParse({
+      allowedAttendanceRegistrationMethods: [],
+      candidateAllowedAttendanceRegistrationMethods: ["mobile"],
+      tagDeviceStatus: "skeleton_only",
+    });
+
+    expect(request.success).toBe(false);
+  });
+
+  it("rejects attendance registration policy fields from board policy update payload", () => {
+    const request = adminPolicyBoardUpdateRequestSchema.safeParse({
+      companyId: "company_demo",
+      visibility: "company",
+      allowAnonymousComments: false,
+      requireReadReceipt: true,
+      retentionDays: 90,
+      reason: "공지 운영 정책 점검",
+      attendanceRegistrationPolicy: {
+        allowedAttendanceRegistrationMethods: ["mobile"],
+        candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
+        tagDeviceStatus: "skeleton_only",
+      },
+    });
+
+    expect(request.success).toBe(false);
   });
 });

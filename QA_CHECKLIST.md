@@ -25,10 +25,12 @@
 
 ### 코드/contract/테스트 일관성
 
+- [ ] `/admin/policies` 의 출퇴근 등록 방식 카드가 현재 허용 방식, candidate 변경안, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] `packages/shared/src/contracts.ts` 의 route/schema 와 설명이 맞다.
 - [ ] API contract, 구현, 테스트가 함께 맞춰져 있다.
 - [ ] 권한 없음/잘못된 입력/회사 scope 예외가 테스트 또는 수동 검증 근거로 확인됐다.
 - [ ] `/admin/*` 관리자 기능과 일반 업무 화면(`/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/org`, `/employees`) 책임이 섞이지 않는다.
+- [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 
 ### 문서 일관성

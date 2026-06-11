@@ -179,6 +179,8 @@
 반드시 지킬 것:
 - 출퇴근/정정/휴가 신청은 placeholder 단계라도 상태와 제한을 분명히 표시
 - 본인 범위와 관리자 범위를 구분
+- 회사 정책에서 허용한 출퇴근 등록 방식만 직원 화면 CTA 와 API 성공 경로에 올린다.
+- `tag` 는 실장비 연결이 아니라 안내형 skeleton 으로 먼저 다룬다.
 - 승인 권한 없는 사용자의 approve/reject 차단
 - unknown employee/request id 를 성공처럼 처리하지 않기
 

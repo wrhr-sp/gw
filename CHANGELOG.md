@@ -10,6 +10,8 @@
 - Phase 13 관리자 콘솔 실사용 1차 범위 문서 `docs/architecture/phase-13-admin-console-pass-1-scope.md` 추가.
 - Phase 13 관리자 콘솔 실사용 1차 handoff 문서 `docs/guides/phase-13-admin-console-pass-1-handoff.md` 추가.
 - Phase 13 관리자 콘솔 1차 렌더 회귀 테스트 `apps/web/admin-console-pass1.test.tsx` 추가.
+- 출퇴근 등록 방식 정책 선택 1차 범위 문서 `docs/architecture/attendance-registration-policy-pass-1-scope.md` 추가.
+- 출퇴근 등록 방식 정책 선택 1차 handoff 문서 `docs/guides/attendance-registration-policy-pass-1-handoff.md` 추가.
 
 ### Changed
 
@@ -20,6 +22,9 @@
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 화면을 운영 체크포인트·권한 경계·current/candidate/capability·감사 타임라인 중심 구조로 재정리했다.
 - `apps/web/admin-skeleton-config.ts` 를 operations-first 데이터 구조로 확장해 허브/사용자/정책/감사 로그 화면이 같은 guardrail 문구와 회사 경계 기준을 공유하도록 맞췄다.
 - Phase 13 문서 세트(README/TASKS/TEST_PLAN/KNOWN_ISSUES/phase 13 scope+handoff)에 부모 테스트 근거를 반영해 관리자 CTA 경계, 감사 전용 진입 경로, 최신 테스트·typecheck·build 통과 상태를 다시 맞췄다.
+- ROADMAP/README/TASKS/HANDOFF/KNOWN_ISSUES 기준 최신 활성 작업을 출퇴근 등록 방식 정책 선택 1차로 갱신했다.
+- 출퇴근 등록 방식 정책 1차에서 회사 기본 allowed methods(`mobile`, `pc`, `tag`)를 admin 정책 화면·직원 근태 화면·출근/퇴근 API 검증에 같은 기준으로 연결하는 handoff 를 문서화했다.
+- scope/handoff/SPEC/QA/HANDOFF/KNOWN_ISSUES 문구를 현재 구현 예시(`mobile`,`pc` 허용 + `mobile`,`tag` candidate + `tag` skeleton 안내)와 부모 테스트 근거에 맞춰 다시 정리했다.
 
 ### Guardrails
 

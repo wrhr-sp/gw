@@ -18,15 +18,18 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 13 관리자 콘솔 실사용 1차다. 이번 단계에서는 관리자 진입 CTA, `/admin/*` 화면 우선순위, 감사 전용 진입 경계, route/API guard 유지 기준을 먼저 고정한다.
+현재 활성 흐름은 출퇴근 등록 방식 정책 선택 1차다. 이번 단계에서는 회사 기본 근태 정책에서 허용할 출퇴근 등록 방식(`mobile`, `pc`, `tag`)을 먼저 고정하고, admin 정책 화면·직원 근태 화면·출근/퇴근 API 검증이 같은 기준을 보게 한다.
 
 현재 구현 상태 요약:
 
-- `/admin` 은 오늘 먼저 볼 운영 체크포인트, 권한별 진입 경계, 저장 전 승인 게이트, 하위 운영 콘솔 묶음을 먼저 보여 준다.
-- `/admin/users` 는 사용자 큐, 역할 후보/권한 diff, 상태 변경 diff, 감사 후보 흐름을 저장 전 검토 화면으로 정리했다.
-- `/admin/policies` 는 각 정책 카드를 현재 운영 기준 → candidate 변경안 → 필요 capability → 감사 preview 순서로 통일했다.
-- `/admin/audit-logs` 는 조회 필터, 최근 이벤트 타임라인, 상세 패널, 비노출/회사 경계를 분리해 읽히도록 정리했다.
-- 검증 근거: `apps/web/admin-console-pass1.test.tsx`, `apps/web/admin-skeleton-config.test.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/org-employees-boundary.test.tsx`, `apps/web/dashboard-boundary.test.tsx`, `apps/web/api-same-origin-bridge.test.ts`, `apps/web/mobile-pwa.test.ts`, `apps/web` typecheck, `next build`.
+- 출퇴근 등록 방식 정책 enum 은 `mobile`, `pc`, `tag` 3가지로 제한한다.
+- 1차 적용 범위는 회사 기본 정책만 다루고, 지점/부서/근무유형별 override 는 후속 확장 후보로 남긴다.
+- 관리자 정책 화면에서는 current/candidate/diff/capability/audit preview 순서로 판단한다.
+- 현재 구현 예시는 `mobile`, `pc` 허용 + `mobile`, `tag` candidate + `tag` skeleton 안내 기준이다.
+- 직원 근태 화면은 회사 정책에서 허용한 방식만 CTA 또는 안내로 보여 준다.
+- 출근/퇴근 API 는 요청 방식이 회사 정책에 포함되는지 검증해야 한다.
+- 태그 방식은 실제 장비 연동이 아니라 skeleton/안내/검증 지점까지만 이번 범위에 포함한다.
+- 우선 참고 문서: `docs/architecture/attendance-registration-policy-pass-1-scope.md`, `docs/guides/attendance-registration-policy-pass-1-handoff.md`.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

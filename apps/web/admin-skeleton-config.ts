@@ -1,3 +1,5 @@
+import type { AttendanceRegistrationMethod, AttendanceRegistrationPolicy } from "@gw/shared";
+
 export type AdminHubCard = {
   href: "/admin/users" | "/admin/policies" | "/admin/audit-logs";
   title: string;
@@ -112,7 +114,43 @@ export const adminUserQueues: readonly AdminUserQueueItem[] = [
   },
 ] as const;
 
+export const attendanceRegistrationMethodLabels: Record<AttendanceRegistrationMethod, string> = {
+  mobile: "모바일",
+  pc: "PC",
+  tag: "태그",
+};
+
+export function getAttendancePagePolicyView(policy: AttendanceRegistrationPolicy) {
+  const allowedMethods = policy.allowedAttendanceRegistrationMethods;
+
+  return {
+    allowedMethods,
+    allowedMethodLabels: allowedMethods.map((method) => attendanceRegistrationMethodLabels[method]),
+    showMobileAction: allowedMethods.includes("mobile"),
+    showPcAction: allowedMethods.includes("pc"),
+    showTagSkeleton: policy.candidateAllowedAttendanceRegistrationMethods.includes("tag") || allowedMethods.includes("tag"),
+  };
+}
+
+export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy = {
+  allowedAttendanceRegistrationMethods: ["mobile", "pc"],
+  candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
+  tagDeviceStatus: "skeleton_only",
+};
+
 export const adminPolicySections: readonly AdminPolicySection[] = [
+  {
+    title: "근태 / 출퇴근 등록 방식 정책",
+    currentState: `현재 허용 방식: ${companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods
+      .map((method) => attendanceRegistrationMethodLabels[method])
+      .join(", ")}`,
+    candidateState: `candidate 허용 방식: ${companyAttendanceRegistrationPolicy.candidateAllowedAttendanceRegistrationMethods
+      .map((method) => attendanceRegistrationMethodLabels[method])
+      .join(", ")} · 태그 단말 연동 예정 skeleton`,
+    capability: "attendance.manage",
+    auditPreview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 preview",
+    maskingNote: "실장비 식별값, GPS, 외부 단말 연동 정보는 이번 화면에 노출하지 않습니다.",
+  },
   {
     title: "문서 / 첨부 정책",
     currentState: "문서 공간 visibility 와 보관 기준을 팀별로 다르게 운영 중인 상태를 요약합니다.",

@@ -180,6 +180,8 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 
 다시 볼 포인트:
 - check-in / check-out placeholder 응답
+- 회사 정책에서 허용한 출퇴근 등록 방식(`mobile`, `pc`, `tag`)만 check-in / check-out 에서 통과하는지
+- 미허용 방식은 403, 잘못된 방식 값은 400 validation 으로 구분되는지
 - 근태 기록 조회와 정정 요청
 - 휴가 유형/잔여/요청 조회
 - 비승인자의 approve/reject 차단
