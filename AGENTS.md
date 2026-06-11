@@ -89,7 +89,7 @@
 
 ## 그룹웨어 gateway / dispatcher 운영 규칙
 - 그룹웨어 역할봇 gateway는 active 상태를 유지한다.
-- 대상 역할봇은 `gwplanner`, `gwbuilder`, `gwreviewer`, `gwtester`, `gwdocs`, `gwops` 이다.
+- 대상 역할봇은 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`) 이다.
 - 역할봇 gateway와 `gw-dev-bot`/아리아는 `groupware` board dispatcher를 직접 실행하지 않는다.
 - 역할봇과 `gw-dev-bot`의 `dispatch_in_gateway`는 `false`로 유지한다.
 - `groupware` board의 Kanban dispatch는 메인 오케스트레이터 `singde` 단일 소유로 운영한다.

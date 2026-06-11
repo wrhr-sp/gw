@@ -5,17 +5,17 @@
 이 파이프라인은 아리아가 싱드에게 전달한 뒤에도 바로 시작하지 않는다. 대장이 싱드에게 직접 요청한 경우에도 바로 시작하지 않는다. 싱드가 대장에게 오케스트레이션 실행 승인을 다시 요청하고, 대장이 승인한 뒤에만 Kanban 작업 그래프를 생성한다.
 
 ```text
-기획 → 구현 → 리뷰 → 테스트 → 문서화 → 최종 보고
-gwplanner → gwbuilder → gwreviewer → gwtester → gwdocs → singde
+도담(기획) → 이룸(구현) → 바름(리뷰) → 해봄(테스트) → 다온(문서화) → 최종 보고
+도담(gwplanner) → 이룸(gwbuilder) → 바름(gwreviewer) → 해봄(gwtester) → 다온(gwdocs) → singde
 ```
 
 ## 작업 유형별 흐름
 
-- `feature`: `gwplanner → gwbuilder → gwreviewer → gwtester → gwdocs → singde`
-- `bugfix`: `gwtester(재현) → gwbuilder(수정) → gwreviewer → gwtester(회귀) → gwdocs → singde`
-- `docs`: `gwdocs → gwreviewer → singde`
-- `review`: `gwreviewer → gwtester → singde`
-- `ops`: `gwops → gwreviewer → singde`
+- `feature`: `도담(gwplanner) → 이룸(gwbuilder) → 바름(gwreviewer) → 해봄(gwtester) → 다온(gwdocs) → singde`
+- `bugfix`: `해봄(gwtester, 재현) → 이룸(gwbuilder, 수정) → 바름(gwreviewer) → 해봄(gwtester, 회귀) → 다온(gwdocs) → singde`
+- `docs`: `다온(gwdocs) → 바름(gwreviewer) → singde`
+- `review`: `바름(gwreviewer) → 해봄(gwtester) → singde`
+- `ops`: `지킴(gwops) → 바름(gwreviewer) → singde`
 
 ## GitHub 자동화 범위
 
