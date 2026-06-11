@@ -96,14 +96,15 @@ def fmt_time(ts: int | None) -> str:
 
 def read_state(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {"initialized": False, "last_event_id": 0, "reported_blocked": {}, "sent": []}
+        return {"initialized": False, "last_event_id": 0, "reported_blocked": {}, "auto_gate_pending": {}, "sent": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         data.setdefault("reported_blocked", {})
+        data.setdefault("auto_gate_pending", {})
         data.setdefault("sent", [])
         return data
     except Exception:
-        return {"initialized": False, "last_event_id": 0, "reported_blocked": {}, "sent": []}
+        return {"initialized": False, "last_event_id": 0, "reported_blocked": {}, "auto_gate_pending": {}, "sent": []}
 
 
 def write_state(path: Path, state: dict[str, Any]) -> None:
@@ -198,6 +199,22 @@ def classify_action(reason: str, title: str) -> tuple[str, str]:
     return "싱드 분류 대기", "자동 조치 가능 여부를 먼저 확인하고, 위험하거나 권한이 필요하면 승인 요청으로 보고합니다."
 
 
+def is_restricted_text(reason: str, title: str) -> bool:
+    text = f"{title}\n{reason}".lower()
+    restricted_markers = (
+        "secret", ".env", "credential", "token", "password", "production", "prod db",
+        "dns", "domain", "유료", "비용", "결제", "운영 db", "운영db", "운영 데이터",
+        "migration", "마이그레이션", "배포", "외부 공개", "public exposure", "r2 운영",
+    )
+    return any(marker in text for marker in restricted_markers)
+
+
+def is_auto_gate_review_required(reason: str, title: str) -> bool:
+    """review-required는 내부 자동 검토 게이트이면 사용자-facing 막힘으로 보내지 않는다."""
+    text = f"{title}\n{reason}".lower()
+    return "review-required" in text and not is_restricted_text(reason, title)
+
+
 def parse_payload(raw: str | None) -> dict[str, Any]:
     if not raw:
         return {}
@@ -213,6 +230,9 @@ def should_completion_report(row: sqlite3.Row, state: dict[str, Any]) -> tuple[b
     title = str(row["title"] or "")
     assignee = str(row["assignee"] or "")
     blocked_seen = state.get("reported_blocked", {})
+    auto_gate_pending = state.get("auto_gate_pending", {})
+    if tid in auto_gate_pending:
+        return True, "자동 검토 완료"
     if tid in blocked_seen:
         return True, "조치 완료"
     if any(marker in title for marker in DIRECT_REPORT_MARKERS):
@@ -272,6 +292,10 @@ def build_completion_message(conn: sqlite3.Connection, row: sqlite3.Row, label: 
         prefix = "✅"
         conclusion = "최종 보고 카드가 완료됐습니다."
         user_action = "대장이 지금 해줄 일은 없습니다. 싱드가 다음 작업 후보를 확인해 이어갈 준비를 합니다."
+    elif label == "자동 검토 완료":
+        prefix = "🧪"
+        conclusion = "내부 검토 게이트가 자동으로 통과되어 다음 카드로 넘어갔습니다."
+        user_action = "대장이 지금 해줄 일은 없습니다. 이 알림은 실제 막힘이 아니라 자동 검토 완료 기록입니다."
     else:
         prefix = "🛠️"
         conclusion = "이전에 막혔던 카드가 조치 완료됐습니다."
@@ -378,6 +402,19 @@ def run_once(args: argparse.Namespace) -> int:
                 if "막힘 자동보고" in title:
                     state["last_event_id"] = event_id
                     continue
+                payload = parse_payload(row["payload"])
+                reason = compact(str(payload.get("reason") or row["result"] or latest_comment(conn, tid) or ""), 1200)
+                if is_auto_gate_review_required(reason, title):
+                    # review-required는 worker가 안전 검토를 요청하는 내부 게이트다.
+                    # 실제 사용자 승인/운영 위험이 아니면 막힘 보고를 보내지 않고,
+                    # gate watcher 완료 시 “자동 검토 완료”로만 1회 보고한다.
+                    state.setdefault("auto_gate_pending", {})[tid] = {
+                        "event_id": event_id,
+                        "title": title,
+                        "at": int(row["created_at"]),
+                    }
+                    state["last_event_id"] = event_id
+                    continue
                 msg = build_blocked_message(conn, row)
                 telegram_send(token, chat_id, msg, args.dry_run)
                 state.setdefault("reported_blocked", {})[tid] = {
@@ -394,6 +431,8 @@ def run_once(args: argparse.Namespace) -> int:
                     telegram_send(token, chat_id, msg, args.dry_run)
                     if label == "조치 완료":
                         state.setdefault("reported_blocked", {}).pop(tid, None)
+                    if label == "자동 검토 완료":
+                        state.setdefault("auto_gate_pending", {}).pop(tid, None)
                     sent_this_cycle += 1
 
             state["last_event_id"] = event_id
