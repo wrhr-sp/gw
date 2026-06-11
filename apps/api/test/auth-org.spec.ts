@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminAuditLogListResponseSchema,
+  adminPolicyUpdateResponseSchema,
+  adminUsersListResponseSchema,
   appRoutes,
   approvalActionResponseSchema,
   approvalCandidateListResponseSchema,
@@ -171,6 +174,113 @@ describe("Phase 2 auth/org skeleton", () => {
     const payload = createInviteResponseSchema.parse(await response.json());
     expect(payload.data.status).toBe("pending_delivery");
     expect(payload.data.audit.action).toBe("admin.invite.create");
+  });
+
+  it("lists admin users only for admin roles with permission catalog access", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const response = await app.request(appRoutes.admin.users, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const payload = adminUsersListResponseSchema.parse(await response.json());
+    expect(payload.data.items.some((item) => item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
+    expect(payload.data.audit.action).toBe("admin.user.list.viewed");
+  });
+
+  it("blocks admin users list for non-admin roles even if they can read employees", async () => {
+    const { cookie } = await loginAndGetCookie("MANAGER");
+
+    const response = await app.request(appRoutes.admin.users, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+  });
+
+  it("returns masked document policy update candidates without raw storage details", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.admin.policyDocuments, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        companyId: "company_demo",
+        visibility: "company",
+        maxFileSizeBytes: 10485760,
+        allowedFileExtensions: ["pdf", "docx"],
+        retentionDays: 365,
+        reason: "보안 정책 점검",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
+    expect(payload.data.audit.action).toBe("admin.policy.document.updated");
+    expect(payload.data.maskedFields).toContain("storageKey");
+    expect(JSON.stringify(payload)).not.toContain("companies/company_demo/");
+    expect(JSON.stringify(payload)).not.toContain("signedUrl");
+  });
+
+  it("blocks cross-company document policy candidates", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.admin.policyDocuments, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        companyId: "company_other",
+        visibility: "company",
+        maxFileSizeBytes: 10485760,
+        allowedFileExtensions: ["pdf"],
+        retentionDays: 365,
+        reason: "범위 확인",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
+  });
+
+  it("allows audit-capable roles to read masked admin audit logs and blocks missing permission", async () => {
+    const { cookie: auditorCookie } = await loginAndGetCookie("AUDITOR");
+    const readResponse = await app.request(appRoutes.admin.auditLogs, {
+      headers: {
+        cookie: auditorCookie,
+      },
+    });
+
+    expect(readResponse.status).toBe(200);
+    const readPayload = adminAuditLogListResponseSchema.parse(await readResponse.json());
+    expect(readPayload.data.items.length).toBeGreaterThan(0);
+    expect(JSON.stringify(readPayload)).not.toContain("storageKey");
+    expect(JSON.stringify(readPayload)).not.toContain("bucket");
+
+    const { cookie: hrCookie } = await loginAndGetCookie("HR_ADMIN");
+    const blockedResponse = await app.request(appRoutes.admin.auditLogs, {
+      headers: {
+        cookie: hrCookie,
+      },
+    });
+
+    expect(blockedResponse.status).toBe(403);
+    const blockedPayload = errorResponseSchema.parse(await blockedResponse.json());
+    expect(blockedPayload.error.code).toBe("FORBIDDEN");
+    expect(blockedPayload.error.details?.requiredPermission).toBe("audit.read");
   });
 
   it.each([

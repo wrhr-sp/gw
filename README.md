@@ -18,6 +18,7 @@
 - Phase 6 모바일/PWA 범위 문서 (`docs/architecture/phase-6-mobile-pwa-scope.md`)
 - Phase 7 API same-origin 연결 1차 범위 문서 (`docs/architecture/phase-7-api-same-origin-scope.md`)
 - Phase 8 R2 문서/첨부파일 저장소 연결 1차 범위 문서 (`docs/architecture/phase-8-r2-storage-scope.md`)
+- Phase 9 관리자/운영 설정·감사 로그 1차 범위 문서 (`docs/architecture/phase-9-admin-audit-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
 
@@ -152,8 +153,8 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
    - 공개 admin 경계 확인 결과: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 모두 `/login` 으로 307 redirect
    - 로컬 `pnpm --filter @gw/web preview:cf` smoke 도 같은 패턴을 재현했고 `/manifest.webmanifest` 는 200 이었습니다.
 2. 남아 있는 한계
-   - 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 이미 들어갔지만, 현재 공개 preview 는 이 변경을 다시 배포해 확인한 상태가 아닙니다.
-   - 현재 로컬 검증에서는 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts`, `pnpm check`, `pnpm --filter @gw/web build` 가 통과했지만 `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 단계에서 실패합니다.
+   - 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 이미 들어가 있고 로컬 최종 게이트(`pnpm --filter @gw/web build:cf`)도 다시 통과했습니다.
+   - 다만 현재 공개 preview URL 에서 이 최신 코드를 다시 배포해 `/api/*` 와 `/admin*` 를 재스모크한 결과는 별도 운영 실행 결과로 남겨야 합니다.
 3. 재배포/롤백 기본 방법
    - 재배포 전: `set -a; . .secrets/cloudflare.env; set +a; bash scripts/gw-cloudflare-check.sh`
    - 재배포: `pnpm --filter @gw/web build:cf && pnpm check && pnpm --filter @gw/web deploy:cf`
@@ -188,11 +189,10 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 완료 기준 요약:
 
-- 확인된 결과: `pnpm check`, `pnpm build` 는 통과했고, same-origin `/api/health`·`/api/me` 로컬 테스트도 통과했습니다.
-- 현재 남은 blocker: `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 오류 때문에 아직 통과하지 못했습니다.
+- 확인된 결과: `pnpm check`, `pnpm build`, same-origin `/api/health`·`/api/me` 로컬 테스트, `pnpm --filter @gw/web build:cf` 가 모두 통과했습니다.
+- 현재 남은 known gap: `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 모바일 CTA 는 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 통과한 상태가 아닙니다.
 - `/manifest.webmanifest` 와 same-origin `/api/*` 정책이 문서와 코드에서 모순되지 않아야 합니다.
 - 모바일/PWA UX 보안·접근성 리뷰 메모와 release gate 기준이 문서에 남아 있어야 합니다.
-- 현재 known gap: `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 모바일 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 통과한 상태가 아닙니다.
 
 ## Phase 7 API same-origin 연결 1차 현재 상태
 
@@ -203,10 +203,10 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 - 공개 기본 주소는 계속 Web origin 하나를 씁니다. 현재 preview 는 `https://gw-web.werehere31.workers.dev` 입니다.
 - Web/PWA 의 API 기본 경로는 계속 same-origin `/api/*` 입니다.
 - 현재 저장소에는 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가되어 same-origin `/api/health`, `/api/me` 요청을 기존 `apps/api/src/app.ts` 계약으로 넘깁니다.
-- 이 브리지는 공개 API 도메인을 새로 두지 않고 Web 안에서 같은 origin 경로를 유지합니다. 다만 아직 `pnpm --filter @gw/web build:cf` 가 `/admin/users` prerender 오류로 막혀 있어, 현재 공개 preview URL 에서 새 `/api/*` 결과를 다시 검증한 상태는 아닙니다.
+- 이 브리지는 공개 API 도메인을 새로 두지 않고 Web 안에서 같은 origin 경로를 유지합니다.
 - 로컬 개발용 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787` override 는 유지할 수 있지만, preview 전용 절대 API hostname 을 기본값으로 커밋하지 않습니다.
 - 현재 로컬 테스트 기준으로 `/api/health` 200 JSON, `/api/me` 401 JSON, forged placeholder cookie 차단은 확인됐습니다.
-- 다만 Cloudflare용 최종 게이트인 `pnpm --filter @gw/web build:cf` 는 아직 `/admin/users` prerender 오류 때문에 다시 통과하지 못했습니다.
+- Cloudflare용 최종 게이트인 `pnpm --filter @gw/web build:cf` 도 현재 저장소 기준으로 다시 통과했습니다. 공개 preview 재확인은 별도 운영 실행으로 남겨야 합니다.
 
 즉, Phase 7 의 첫 게이트는 급여/노무 UI 확장이 아니라 "Phase 6 PWA/mobile 이 믿는 same-origin API 배관을 preview 에서 먼저 맞추는 것"입니다.
 
@@ -226,6 +226,23 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 - 다음 구현자는 `packages/shared/src/contracts.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `db/migrations/0005_boards_documents_phase5.sql` 를 먼저 보고, `apps/api/src/lib/document-storage*.ts` 와 `db/migrations/0006_document_storage_phase8.sql` 같은 최소 skeleton 확장부터 시작하면 됩니다.
 
 즉, Phase 8 의 첫 게이트는 "운영 파일 저장 오픈"이 아니라 "보안 경계와 승인 게이트를 먼저 잠그고 dev/preview-safe storage skeleton 을 붙이는 것"입니다.
+
+## Phase 9 관리자/운영 설정·감사 로그 1차 범위
+
+기준 문서는 `docs/architecture/phase-9-admin-audit-scope.md` 입니다.
+쉬운 handoff 문서는 `docs/guides/phase-9-admin-audit-handoff.md` 입니다.
+
+이번에 고정한 결정은 아래와 같습니다.
+
+- `/org`, `/employees`, `/boards`, `/documents`, `/approvals`, `/attendance`, `/leave` 는 일반 업무/조회 흐름으로 유지하고, 운영 변경은 `/admin/*` 로만 분리합니다.
+- `/admin/users` 는 사용자 초대/역할/상태 변경 후보, `/admin/policies` 는 운영 정책 후보, `/admin/audit-logs` 는 운영 변경 이력 조회 후보를 맡습니다.
+- 익명 공개 preview 에서는 계속 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 를 `/login` 으로 돌려 admin skeleton 공개 노출을 막습니다.
+- 감사 로그는 사용자/권한/정책/문서공간/게시판/첨부 metadata 변경 후보를 포함하되, raw `storageKey`, bucket 이름, public URL, secret 은 남기지 않습니다.
+- Phase 8 object key/metadata 와 연결되는 운영 변경은 파일 본문이 아니라 D1 metadata 와 `fileId`/`spaceId`/`versionId`/`storageStatus` 중심으로 추적합니다.
+- 로컬 최신 검증 기준으로 admin preview guard 회귀, admin/shared 계약, API 권한 경계, `pnpm check`, `pnpm --filter @gw/web build:cf` 가 모두 다시 통과했습니다.
+- 실제 운영 사용자/권한 변경, production DB migration, 운영 파일 업로드, 외부 감사 시스템 연동은 이번 범위에 넣지 않습니다.
+
+즉, Phase 9 의 첫 게이트는 "관리자 화면 공개"가 아니라 "운영 통제와 일반 사용자 업무 흐름을 분리하고 감사 후보 구조를 먼저 고정하는 것"입니다.
 
 ## 빠른 로컬 시작
 
@@ -323,10 +340,13 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - 사용자 안내: `docs/guides/cloudflare-first-user-guide.md`
 - 운영 안내: `docs/guides/cloudflare-first-operator-guide.md`
 - 개발 안내: `docs/guides/cloudflare-first-developer-guide.md`
+- Phase 8 쉬운 handoff: `docs/guides/phase-8-r2-storage-handoff.md`
+- Phase 9 쉬운 handoff: `docs/guides/phase-9-admin-audit-handoff.md`
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
 - Phase 4 범위: `docs/architecture/phase-4-approvals-scope.md`
 - Phase 5 범위: `docs/architecture/phase-5-boards-documents-scope.md`
+- Phase 9 범위: `docs/architecture/phase-9-admin-audit-scope.md`
 - Cloudflare preview 준비: `docs/architecture/cloudflare-preview-url-preparation.md`
 - 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`

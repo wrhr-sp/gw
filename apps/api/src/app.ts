@@ -1,5 +1,10 @@
 import { Hono, type Context } from "hono";
 import {
+  adminAuditLogListResponseSchema,
+  adminPoliciesListResponseSchema,
+  adminPolicyDocumentUpdateRequestSchema,
+  adminPolicyUpdateResponseSchema,
+  adminUsersListResponseSchema,
   appRoutes,
   approvalActionRequestSchema,
   approvalActionResponseSchema,
@@ -268,6 +273,97 @@ const roles = (Object.keys(rolePermissions) as RoleCode[]).map((code) => ({
   scope: code === "SUPER_ADMIN" ? ("global" as const) : ("company" as const),
   permissions: [...rolePermissions[code]],
 }));
+
+const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
+  const employeeId = roleEmployeeIds[code] ?? "employee_admin";
+  const employee = employees.find((item) => item.id === employeeId) ?? employees[0];
+  const department = departments.find((item) => item.id === employee.departmentId);
+
+  return {
+    userId: `user_${code.toLowerCase()}`,
+    employeeId: employee.id,
+    companyId: employee.companyId,
+    fullName: employee.fullName,
+    email: employee.email,
+    departmentName: department?.name ?? "미지정",
+    roleCodes: [code],
+    permissions: [...rolePermissions[code]],
+    employmentStatus: employee.employmentStatus,
+    adminScope: code === "SUPER_ADMIN" ? "global" : code === "AUDITOR" ? "audit" : "company",
+    placeholder: true as const,
+  };
+});
+
+const adminPolicies = [
+  {
+    category: "attendance",
+    companyId: COMPANY_ID,
+    summary: "근태 정정 승인 조건과 관리자 검토 흐름 placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["승인 사유 입력", "운영 정책 저장 전 diff 확인"],
+  },
+  {
+    category: "document",
+    companyId: COMPANY_ID,
+    summary: "문서 visibility / allowlist / retention placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["R2 metadata 중심 추적", "storageKey 원문 비노출"],
+  },
+  {
+    category: "board",
+    companyId: COMPANY_ID,
+    summary: "게시판 visibility / notice / moderation placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["board.manage 필요", "일반 사용자 작성 흐름과 분리"],
+  },
+] as const;
+
+const adminAuditLogs = [
+  {
+    id: "audit_admin_user_list_viewed_1",
+    companyId: COMPANY_ID,
+    actorUserId: "user_hr_admin",
+    actorEmployeeId: "employee_staff",
+    action: "admin.user.list.viewed",
+    targetType: "user",
+    targetId: "company_admin_directory",
+    createdAt: PLACEHOLDER_NOW,
+    metadata: {
+      category: "user",
+      reason: "운영 사용자 매핑 점검",
+      before: "역할/직원 연결 상태 확인 전",
+      after: "역할/직원 연결 상태 확인 완료",
+      companyBoundary: { enforced: true as const },
+      source: "web-admin",
+      sensitiveMasked: true as const,
+    },
+  },
+  {
+    id: "audit_admin_policy_document_1",
+    companyId: COMPANY_ID,
+    actorUserId: "user_company_admin",
+    actorEmployeeId: "employee_admin",
+    action: "admin.policy.document.updated",
+    targetType: "document_policy",
+    targetId: "policy_documents_default",
+    createdAt: PLACEHOLDER_NOW,
+    metadata: {
+      category: "policy",
+      reason: "보안 정책 점검",
+      before: "visibility=team, retention=180",
+      after: "visibility=company, retention=365",
+      companyBoundary: { enforced: true as const },
+      source: "api-admin",
+      storageRef: {
+        fileId: "file_demo",
+        spaceId: "space_public",
+        versionId: "version_1",
+        storageStatus: "linked" as const,
+      },
+      sensitiveMasked: true as const,
+    },
+  },
+] as const;
 
 const leaveTypes: LeaveType[] = [
   { id: "leave_type_annual", companyId: COMPANY_ID, code: "annual", name: "연차", unit: "day", status: "active", placeholder: true },
@@ -756,6 +852,55 @@ function requireAnyPermission(context: Context, permissions: Permission["code"][
   }
 
   return authResult;
+}
+
+function isAdminRole(roleCode: RoleCode) {
+  return roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN";
+}
+
+function requireAdminRole(context: Context): AuthorizationResult {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult;
+  }
+
+  if (!isAdminRole(authResult.auth.roleCode)) {
+    return {
+      response: jsonError(context, "FORBIDDEN", "관리자 영역 접근 권한이 없습니다.", 403, {
+        requiredAdminRole: true,
+        roleCodes: authResult.auth.user.roleCodes,
+        route: context.req.path,
+      }),
+    };
+  }
+
+  return authResult;
+}
+
+function ensureCompanyBoundary(context: Context, companyId: string, auth: SessionContext) {
+  if (companyId === auth.user.companyId) {
+    return null;
+  }
+
+  return jsonError(context, "FORBIDDEN", "다른 회사 범위의 운영 변경은 허용되지 않습니다.", 403, {
+    companyBoundaryEnforced: true,
+    requestedCompanyId: companyId,
+    actorCompanyId: auth.user.companyId,
+    route: context.req.path,
+  });
+}
+
+function buildAdminAuditFilters(context: Context) {
+  const query = context.req.query();
+
+  return {
+    actorUserId: query.actorUserId,
+    actionPrefix: query.actionPrefix,
+    targetType: query.targetType as typeof adminAuditLogs[number]["targetType"] | undefined,
+    category: query.category as typeof adminAuditLogs[number]["metadata"]["category"] | undefined,
+    createdFrom: query.createdFrom,
+    createdTo: query.createdTo,
+  };
 }
 
 function buildAttendanceRecord(employeeId: string, status: AttendanceRecord["status"]): AttendanceRecord {
@@ -1340,6 +1485,160 @@ app.post(appRoutes.admin.invites, async (context) => {
       error: null,
     },
     201,
+  );
+});
+
+app.get(appRoutes.admin.users, (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "permission.read")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "permission.read",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(
+    context,
+    adminUsersListResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: adminUsers.filter((item) => item.companyId === authResult.auth.user.companyId),
+        audit: {
+          candidate: true,
+          action: "admin.user.list.viewed",
+        },
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.admin.policies, (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(
+    context,
+    adminPoliciesListResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: [...adminPolicies],
+        audit: {
+          candidate: true,
+          action: "admin.policy.list.viewed",
+        },
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.admin.policyDocuments, async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "document.space.manage") || !hasPermission(authResult.auth.user, "document.file.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredAllPermissions: ["document.space.manage", "document.file.write"],
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminPolicyDocumentUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "문서 정책 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const boundaryError = ensureCompanyBoundary(context, parsed.data.companyId, authResult.auth);
+  if (boundaryError) {
+    return boundaryError;
+  }
+
+  return jsonSuccess(
+    context,
+    adminPolicyUpdateResponseSchema,
+    {
+      ok: true,
+      data: {
+        policy: {
+          category: "document",
+          companyId: parsed.data.companyId,
+          summary: `문서 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 placeholder`,
+          lastReviewedAt: PLACEHOLDER_NOW,
+          placeholders: [
+            `허용 확장자: ${parsed.data.allowedFileExtensions.join(", ")}`,
+            `최대 파일 크기: ${parsed.data.maxFileSizeBytes} bytes`,
+            "R2 metadata 중심 추적",
+          ],
+        },
+        audit: {
+          candidate: true,
+          action: "admin.policy.document.updated",
+        },
+        maskedFields: ["storageKey", "bucket 이름", "signed URL 전문", "public URL", "secret"],
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.admin.auditLogs, (context) => {
+  const authResult = requirePermission(context, "audit.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const filters = buildAdminAuditFilters(context);
+  const items = adminAuditLogs.filter((item) => {
+    if (filters.actorUserId && item.actorUserId !== filters.actorUserId) {
+      return false;
+    }
+    if (filters.actionPrefix && !item.action.startsWith(filters.actionPrefix)) {
+      return false;
+    }
+    if (filters.targetType && item.targetType !== filters.targetType) {
+      return false;
+    }
+    if (filters.category && item.metadata.category !== filters.category) {
+      return false;
+    }
+    return true;
+  });
+
+  return jsonSuccess(
+    context,
+    adminAuditLogListResponseSchema,
+    {
+      ok: true,
+      data: {
+        items,
+        filters,
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
   );
 });
 

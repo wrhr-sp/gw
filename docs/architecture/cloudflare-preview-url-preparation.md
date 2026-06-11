@@ -46,10 +46,9 @@
   - `packages/shared` 6개, `apps/api` 40개, `apps/web` 9개 테스트 통과
 - `pnpm --filter @gw/web build` 통과
   - Next.js app build 성공
-- `pnpm --filter @gw/web build:cf` 실패
-  - OpenNext build 중 `/admin/users` prerender 에서 `.next/server/app/admin/users/page.js` 를 찾지 못해 중단됨
+- `pnpm --filter @gw/web build:cf` 통과
 
-즉, 현재 저장소는 "same-origin `/api/health`, `/api/me` 브리지 코드는 들어왔고 로컬 테스트/일반 build 는 통과하지만, Cloudflare용 build:cf 는 아직 막힌 상태"로 보는 편이 정확합니다.
+즉, 현재 저장소는 "same-origin `/api/health`, `/api/me` 브리지 코드가 들어와 있고 로컬 테스트, 일반 build, Cloudflare용 build:cf 최종 게이트까지 통과한 상태"로 보는 편이 정확합니다.
 다만 이것은 public exposure 승인이나 실제 Cloudflare 계정 작업이 끝났다는 뜻이 아닙니다.
 
 ## 3-1. 이번 승인으로 실제 preview 재배포 후 확인한 결과
@@ -62,7 +61,7 @@
 
 - 공개 smoke 확인: `/`, `/login`, `/boards`, `/documents` → 200
 - 공개 admin 경계 확인: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` → 모두 `/login` 으로 307 redirect
-- 현재 저장소 코드 기준 same-origin `/api/health`, `/api/me` route 와 단위 테스트는 추가됐지만, `pnpm --filter @gw/web build:cf` 실패 때문에 로컬 `preview:cf` smoke 는 이번 차수에 다시 돌리지 못함
+- 현재 저장소 코드 기준 same-origin `/api/health`, `/api/me` route 와 단위 테스트, `pnpm --filter @gw/web build:cf` 로컬 최종 게이트는 모두 다시 통과함
 
 admin 노출 remediation 근거:
 
@@ -72,10 +71,10 @@ admin 노출 remediation 근거:
 
 남겨야 하는 한계:
 
-- 현재 공개 preview URL 은 새 same-origin 브리지 코드를 다시 배포해 확인한 상태가 아닙니다.
+- 현재 공개 preview URL 에 새 same-origin 브리지와 최신 admin/audit 코드를 다시 배포해 확인했는지는 별도 운영 실행 결과로 남겨야 합니다.
 - 저장소 코드에는 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가되어 Web 안에서 기존 `apps/api/src/app.ts` 계약을 바로 재사용합니다.
-- 즉, Phase 6 이 same-origin `/api/*` 원칙을 이어받는 것과 "현재 공개 preview 에서 API smoke 가 이미 다시 통과했다"는 말은 아직 다릅니다.
-- 후속 1차 연결 문서는 `docs/architecture/phase-7-api-same-origin-scope.md` 를 따르며, 현재 남은 blocker 는 공개 API hostname 추가가 아니라 `pnpm --filter @gw/web build:cf` 복구입니다.
+- 즉, Phase 6 이 same-origin `/api/*` 원칙을 이어받는 것과 "현재 공개 preview 에서 최신 API smoke 가 다시 통과했다"는 말은 여전히 구분해야 합니다.
+- 후속 1차 연결 문서는 `docs/architecture/phase-7-api-same-origin-scope.md` 를 따르며, 현재 남은 핵심은 로컬 build 복구가 아니라 공개 preview 재배포/재검증 여부를 handoff 에 정확히 남기는 것입니다.
 
 ## 4. preview URL 후보 정리
 
