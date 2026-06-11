@@ -271,18 +271,32 @@ def run_once(args: argparse.Namespace) -> int:
             reason = reason_for(conn, task)
             sig = task_signature(task, reason)
             key = f"{task['id']}:{sig}"
-            if state.get("seen", {}).get(key):
-                continue
+            existing = state.get("seen", {}).get(key)
+            if existing:
+                retry_after = int(existing.get("retry_after") or 0) if isinstance(existing, dict) else 0
+                if not retry_after or int(time.time()) < retry_after:
+                    continue
             classification, action, policy = classify(str(task["title"] or ""), reason)
             action_status, action_output = run_action(action, str(task["id"]), args.dry_run)
             msg = build_message(conn, task, classification, action, policy, action_status, action_output, reason)
             telegram_send(token, chat_id, msg, args.dry_run)
-            state.setdefault("seen", {})[key] = {
+            now = int(time.time())
+            record = {
                 "task_id": str(task["id"]),
                 "classification": classification,
                 "action": action,
-                "at": int(time.time()),
+                "action_status": action_status,
+                "at": now,
             }
+            if action_status.startswith("자동 조치 실패"):
+                # 실패한 자동 조치는 같은 blocked 서명이라도 일정 시간 뒤 재시도한다.
+                # 단, 매 주기 Telegram 폭주를 막기 위해 기본 10분 backoff를 둔다.
+                previous_attempts = 0
+                if isinstance(existing, dict):
+                    previous_attempts = int(existing.get("attempts") or 0)
+                record["attempts"] = previous_attempts + 1
+                record["retry_after"] = now + 600
+            state.setdefault("seen", {})[key] = record
             sent += 1
         state["last_checked_at"] = int(time.time())
         state["db_health"] = "ok"

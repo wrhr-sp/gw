@@ -158,12 +158,14 @@ PY
 }
 
 run_standard_verification() {
-  echo "표준 검증 실행: api test/typecheck → web test/typecheck/build → workspace check"
-  pnpm --filter api test
-  pnpm --filter api typecheck
-  pnpm --filter web test
-  pnpm --filter web typecheck
-  pnpm --filter web build
+  echo "표준 검증 실행: shared test/typecheck → api test/typecheck → web test/typecheck/build → workspace check"
+  pnpm --filter @gw/shared test
+  pnpm --filter @gw/shared typecheck
+  pnpm --filter @gw/api test
+  pnpm --filter @gw/api typecheck
+  pnpm --filter @gw/web test
+  pnpm --filter @gw/web typecheck
+  pnpm --filter @gw/web build
   pnpm check
 }
 
@@ -201,9 +203,11 @@ handle_task() {
     return 0
   fi
 
-  if run_standard_verification; then
+  local verify_log
+  verify_log="$(mktemp "$WORKDIR/.hermes/review-required-gate.XXXXXX.log")"
+  if run_standard_verification 2>&1 | tee "$verify_log"; then
     result="자동 게이트 처리: review-required handoff 확인 후 표준 검증 통과. 다음 단계로 넘김."
-    summary="review-required 자동 처리 완료. 검증 통과: pnpm --filter api test, pnpm --filter api test:e2e, pnpm --filter web test, pnpm --filter web build, pnpm --filter api build."
+    summary="review-required 자동 처리 완료. 검증 통과: pnpm --filter @gw/shared test/typecheck, pnpm --filter @gw/api test/typecheck, pnpm --filter @gw/web test/typecheck/build, pnpm check."
     kanban_call complete "$task_id" \
       --result "$result" \
       --summary "$summary"
@@ -219,14 +223,27 @@ handle_task() {
     }
     echo "$dispatch_output"
   else
-    echo "검증 실패: $task_id 는 blocked 상태 유지"
-    local fail_state_dir fail_state_file
+    echo "검증 실패: $task_id 는 blocked 상태 유지, 자동 재루프 생성 시도"
+    local fail_state_dir fail_state_file fail_log
     fail_state_dir="$WORKDIR/.hermes/review-required-gate-failures"
     mkdir -p "$fail_state_dir"
     fail_state_file="$fail_state_dir/$task_id.state"
+    fail_log="$fail_state_dir/$task_id.latest.log"
+    cp "$verify_log" "$fail_log"
+    if ./scripts/gw-review-required-recovery-loop.sh --task "$task_id" --board "$BOARD" --failure-log "$fail_log" --max-dispatch "$MAX_DISPATCH"; then
+      if [[ ! -f "$fail_state_file" ]]; then
+        kanban_call comment "$task_id" \
+          "review-required 자동 게이트 검증 실패: 표준 검증 명령 중 하나가 실패해 원본 카드는 blocked로 유지하고, 자동 재수정→재리뷰→재검증→싱드 복구 정리 루프를 생성/dispatch했다."
+        date '+%F %T' > "$fail_state_file"
+      else
+        echo "검증 실패 댓글은 이미 남김: $task_id"
+      fi
+      echo "자동 재루프 생성/dispatch 완료: $task_id"
+      return 0
+    fi
     if [[ ! -f "$fail_state_file" ]]; then
       kanban_call comment "$task_id" \
-        "review-required 자동 게이트 검증 실패: 표준 검증 명령 중 하나가 실패했다. 카드 상태는 blocked로 유지한다. 같은 막힘은 중복 댓글로 반복하지 않는다."
+        "review-required 자동 게이트 검증 실패: 표준 검증 명령 중 하나가 실패했고 자동 재루프 생성도 실패했다. 카드 상태는 blocked로 유지한다. 같은 막힘은 중복 댓글로 반복하지 않는다."
       date '+%F %T' > "$fail_state_file"
     else
       echo "검증 실패 댓글은 이미 남김: $task_id"

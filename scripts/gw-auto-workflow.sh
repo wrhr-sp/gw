@@ -396,7 +396,9 @@ def build_steps(kind: str, hold: bool) -> list[Step]:
 해야 할 일:
 - 요구 누락 여부를 확인한다.
 - 위험, 근거 부족, 구조 문제, 보안/비밀값 문제를 분리해서 적는다.
-- 수정 필요 사항이 있으면 명확히 남긴다.""",
+- 수정 필요 사항이 있으면 명확히 남긴다.
+- 승인 불가/blocking 문제가 있으면 카드를 complete하지 말고 `review-required` 또는 `fix-required` 사유로 blocked 처리해 구현→리뷰→검증 재루프가 걸리게 한다.
+- 단순 의견/비차단 개선이면 complete 처리하고 다음 테스트 단계로 넘긴다.""",
             ),
             Step(
                 key="test",
