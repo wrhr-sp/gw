@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminPolicySections } from "../../../admin-skeleton-config";
+import { adminPolicyReviewChecklist, adminPolicySections } from "../../../admin-skeleton-config";
 
 export default function AdminPoliciesPage() {
   return (
@@ -20,6 +20,14 @@ export default function AdminPoliciesPage() {
             </ul>
           </section>
         ))}
+        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
+          <h2 style={{ marginTop: 0 }}>리뷰 체크리스트</h2>
+          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+            {adminPolicyReviewChecklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
       </div>
     </main>
   );

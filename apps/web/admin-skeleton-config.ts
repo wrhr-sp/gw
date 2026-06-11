@@ -22,6 +22,14 @@ export const adminUserHighlights = [
   "일반 사용자 업무 화면과 관리자 변경 화면을 분리 유지",
 ] as const;
 
+export const adminUserReviewFields = [
+  "사용자-직원 연결 상태",
+  "현재 역할 / 후보 역할 before-after",
+  "고위험 권한 노출 위치",
+  "변경 사유 placeholder",
+  "감사 이벤트 preview",
+] as const;
+
 export const adminPolicySections = [
   {
     title: "문서 / 첨부 정책",
@@ -51,8 +59,23 @@ export const adminPolicySections = [
 
 export const adminAuditLogPreviewFilters = ["actor", "action", "target", "time", "category"] as const;
 
+export const adminPolicyReviewChecklist = [
+  "before/after diff 요약 유지",
+  "변경 사유 placeholder 유지",
+  "capability 확인 후 candidate 응답만 반환",
+  "maskedFields 와 audit.candidate 유지",
+] as const;
+
 export const adminAuditNotes = [
   "raw storageKey, bucket, public URL, secret 은 감사 응답에 넣지 않습니다.",
   "문서/첨부 관련 감사는 fileId / spaceId / versionId / storageStatus 정도만 남깁니다.",
   "외부 전송/장기 보관/실운영 변경은 이번 1차 범위에서 제외합니다.",
+] as const;
+
+export const adminAuditDetailFields = [
+  "actor 표시 이름",
+  "target 표시 이름",
+  "변경 사유",
+  "before / after 요약",
+  "maskedFields",
 ] as const;

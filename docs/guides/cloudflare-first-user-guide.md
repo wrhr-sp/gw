@@ -189,6 +189,14 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 감사 로그는 운영 변경 이력을 남기기 위한 후보 구조이고, raw `storageKey`, bucket 주소, public URL, secret 같은 값은 기본 응답/문서에 직접 보이지 않아야 합니다.
 - 즉, Phase 9 는 "관리자 메뉴 추가"보다 "업무 화면과 운영 통제를 분리하고 기록 기준을 먼저 고정"하는 단계라고 이해하면 됩니다.
 
+## Phase 10 관리자/감사 로그 2차가 이어받는 기준
+
+- 쉬운 요약 handoff 는 `docs/guides/phase-10-admin-audit-pass-2-handoff.md` 에 따로 정리돼 있습니다.
+- `/admin/users` 는 실제 권한 저장 화면이 아니라, 사용자-직원 연결 상태와 역할 diff 를 먼저 검토하는 candidate 화면으로 이해하면 됩니다.
+- `/admin/policies` 는 근태/휴가/결재, 문서/첨부, 게시판/공지 정책을 나눠서 보기 쉽게 정리하는 단계입니다.
+- `/admin/audit-logs` 는 감사 로그를 더 많이 여는 단계가 아니라, 시간 범위(`createdFrom`, `createdTo`)와 마스킹 기준을 더 분명히 잠그는 단계입니다.
+- 즉, Phase 10 도 여전히 "운영 실행 오픈"이 아니라 "운영 직전 검토 기준을 더 촘촘하게 고정"하는 단계입니다.
+
 ## Phase 6 모바일/PWA가 이어받는 기준
 
 모바일/PWA 단계는 preview URL 이 생겨도 아래 기준을 그대로 이어받습니다.
@@ -229,6 +237,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `docs/guides/cloudflare-first-operator-guide.md`
 - `docs/guides/phase-8-r2-storage-handoff.md`
 - `docs/guides/phase-9-admin-audit-handoff.md`
+- `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`

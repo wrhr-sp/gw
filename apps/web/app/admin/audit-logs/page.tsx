@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminAuditLogPreviewFilters, adminAuditNotes } from "../../../admin-skeleton-config";
+import { adminAuditDetailFields, adminAuditLogPreviewFilters, adminAuditNotes } from "../../../admin-skeleton-config";
 
 export default function AdminAuditLogsPage() {
   return (
@@ -13,6 +13,14 @@ export default function AdminAuditLogsPage() {
         <h2 style={{ marginTop: 0 }}>미리 보는 필터</h2>
         <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
           {adminAuditLogPreviewFilters.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+      <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20, marginTop: 24 }}>
+        <h2 style={{ marginTop: 0 }}>상세 패널 skeleton</h2>
+        <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+          {adminAuditDetailFields.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
