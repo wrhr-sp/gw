@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { adminUserHighlights } from "../../../admin-skeleton-config";
+import { adminUserHighlights, adminUserReviewFields } from "../../../admin-skeleton-config";
 
 const userChecks = [
   "사용자 초대/비활성화 placeholder",
@@ -20,6 +20,14 @@ export default function AdminUsersPage() {
           <h2 style={{ marginTop: 0 }}>핵심 점검</h2>
           <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
             {userChecks.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+        <section style={{ border: "1px solid #e5e7eb", borderRadius: 20, padding: 20 }}>
+          <h2 style={{ marginTop: 0 }}>검토 필드 skeleton</h2>
+          <ul style={{ paddingLeft: 20, lineHeight: 1.8, marginBottom: 0 }}>
+            {adminUserReviewFields.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>

@@ -188,6 +188,8 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(response.status).toBe(200);
     const payload = adminUsersListResponseSchema.parse(await response.json());
     expect(payload.data.items.some((item) => item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
+    expect(payload.data.items[0]?.highRiskPermissions.length).toBeGreaterThan(0);
+    expect(payload.data.items[0]?.roleChangePreview.auditCandidate).toBe(true);
     expect(payload.data.audit.action).toBe("admin.user.list.viewed");
   });
 
@@ -227,9 +229,37 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(response.status).toBe(200);
     const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
     expect(payload.data.audit.action).toBe("admin.policy.document.updated");
+    expect(payload.data.policy.reasonRequired).toBe(true);
+    expect(payload.data.policy.diffPreview.after).toContain("visibility=company");
     expect(payload.data.maskedFields).toContain("storageKey");
     expect(JSON.stringify(payload)).not.toContain("companies/company_demo/");
     expect(JSON.stringify(payload)).not.toContain("signedUrl");
+  });
+
+  it("returns board policy candidate summary with review requirement", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.admin.policyBoards, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie,
+      },
+      body: JSON.stringify({
+        companyId: "company_demo",
+        visibility: "company",
+        allowAnonymousComments: false,
+        requireReadReceipt: true,
+        retentionDays: 90,
+        reason: "공지 운영 정책 점검",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
+    expect(payload.data.audit.action).toBe("admin.policy.board.updated");
+    expect(payload.data.policy.capability).toBe("board.manage");
+    expect(payload.data.requiresReview).toBe(true);
   });
 
   it("blocks cross-company document policy candidates", async () => {
@@ -267,6 +297,9 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(readResponse.status).toBe(200);
     const readPayload = adminAuditLogListResponseSchema.parse(await readResponse.json());
     expect(readPayload.data.items.length).toBeGreaterThan(0);
+    expect(readPayload.data.filterOptions.categories).toContain("policy");
+    expect(readPayload.data.detailPreview.reasonRequired).toBe(true);
+    expect(readPayload.data.items[0]?.metadata.maskedFields.length).toBeGreaterThan(0);
     expect(JSON.stringify(readPayload)).not.toContain("storageKey");
     expect(JSON.stringify(readPayload)).not.toContain("bucket");
 
@@ -281,6 +314,52 @@ describe("Phase 2 auth/org skeleton", () => {
     const blockedPayload = errorResponseSchema.parse(await blockedResponse.json());
     expect(blockedPayload.error.code).toBe("FORBIDDEN");
     expect(blockedPayload.error.details?.requiredPermission).toBe("audit.read");
+  });
+
+  it("filters admin audit logs by createdFrom and createdTo query params", async () => {
+    const { cookie } = await loginAndGetCookie("AUDITOR");
+
+    const createdFromResponse = await app.request(
+      `${appRoutes.admin.auditLogs}?createdFrom=2026-06-10T09:00:00.000Z`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    expect(createdFromResponse.status).toBe(200);
+    const createdFromPayload = adminAuditLogListResponseSchema.parse(await createdFromResponse.json());
+    expect(createdFromPayload.data.items).toHaveLength(2);
+
+    const createdToResponse = await app.request(
+      `${appRoutes.admin.auditLogs}?createdTo=2026-06-10T08:59:59.999Z`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    expect(createdToResponse.status).toBe(200);
+    const createdToPayload = adminAuditLogListResponseSchema.parse(await createdToResponse.json());
+    expect(createdToPayload.data.items).toHaveLength(0);
+
+    const boundedResponse = await app.request(
+      `${appRoutes.admin.auditLogs}?category=policy&createdFrom=2026-06-10T09:00:00.000Z&createdTo=2026-06-10T09:00:00.000Z`,
+      {
+        headers: {
+          cookie,
+        },
+      },
+    );
+
+    expect(boundedResponse.status).toBe(200);
+    const boundedPayload = adminAuditLogListResponseSchema.parse(await boundedResponse.json());
+    expect(boundedPayload.data.items).toHaveLength(1);
+    expect(boundedPayload.data.items[0]?.id).toBe("audit_admin_policy_document_1");
+    expect(boundedPayload.data.filters.createdFrom).toBe("2026-06-10T09:00:00.000Z");
+    expect(boundedPayload.data.filters.createdTo).toBe("2026-06-10T09:00:00.000Z");
   });
 
   it.each([

@@ -288,6 +288,17 @@ export const createInviteResponseSchema = successResponseSchema(
 );
 
 export const adminScopeSchema = z.enum(["global", "company", "audit"]);
+export const adminEmployeeLinkStatusSchema = z.enum(["linked", "unlinked", "review_required"]);
+export const adminUserStatusChangePreviewSchema = z.object({
+  currentStatus: employeeSchema.shape.employmentStatus,
+  nextStatus: employeeSchema.shape.employmentStatus,
+  reasonRequired: z.literal(true),
+});
+export const adminUserRoleChangePreviewSchema = z.object({
+  currentRoleCodes: z.array(roleCodeSchema).min(1),
+  nextRoleCodes: z.array(roleCodeSchema).min(1),
+  auditCandidate: z.literal(true),
+});
 export const adminUserSummarySchema = z.object({
   userId: z.string(),
   employeeId: z.string(),
@@ -299,6 +310,10 @@ export const adminUserSummarySchema = z.object({
   permissions: z.array(permissionCodeSchema),
   employmentStatus: employeeSchema.shape.employmentStatus,
   adminScope: adminScopeSchema,
+  employeeLinkStatus: adminEmployeeLinkStatusSchema,
+  highRiskPermissions: z.array(permissionCodeSchema),
+  statusChangePreview: adminUserStatusChangePreviewSchema,
+  roleChangePreview: adminUserRoleChangePreviewSchema,
   placeholder: z.literal(true),
 });
 
@@ -318,6 +333,12 @@ export const adminPolicySummarySchema = z.object({
   summary: z.string(),
   lastReviewedAt: z.string().datetime(),
   placeholders: z.array(z.string()).min(1),
+  capability: permissionCodeSchema,
+  reasonRequired: z.literal(true),
+  diffPreview: z.object({
+    before: z.string(),
+    after: z.string(),
+  }),
 });
 
 export const adminPoliciesListResponseSchema = successResponseSchema(
@@ -351,6 +372,7 @@ export const adminPolicyUpdateResponseSchema = successResponseSchema(
     policy: adminPolicySummarySchema,
     audit: auditCandidateSchema,
     maskedFields: z.array(z.string()).min(1),
+    requiresReview: z.literal(true),
     placeholder: z.literal(true),
   }),
 );
@@ -363,6 +385,7 @@ export const adminAuditMetadataSchema = z.object({
   reason: z.string(),
   before: z.string(),
   after: z.string(),
+  maskedFields: z.array(z.string()).min(1),
   companyBoundary: z.object({
     enforced: z.literal(true),
   }),
@@ -411,10 +434,25 @@ export const adminAuditLogFiltersSchema = z.object({
   createdTo: z.string().datetime().optional(),
 });
 
+export const adminAuditLogFilterOptionsSchema = z.object({
+  actorUserIds: z.array(z.string()).min(1),
+  actions: z.array(z.string()).min(1),
+  targetTypes: z.array(adminAuditTargetTypeSchema).min(1),
+  categories: z.array(adminAuditCategorySchema).min(1),
+});
+
+export const adminAuditLogDetailPreviewSchema = z.object({
+  actorLabel: z.string(),
+  targetLabel: z.string(),
+  reasonRequired: z.literal(true),
+});
+
 export const adminAuditLogListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminAuditLogSchema),
     filters: adminAuditLogFiltersSchema,
+    filterOptions: adminAuditLogFilterOptionsSchema,
+    detailPreview: adminAuditLogDetailPreviewSchema,
     placeholder: z.literal(true),
   }),
 );

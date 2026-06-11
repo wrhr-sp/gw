@@ -19,6 +19,7 @@
 - Phase 7 API same-origin 연결 1차 범위 문서 (`docs/architecture/phase-7-api-same-origin-scope.md`)
 - Phase 8 R2 문서/첨부파일 저장소 연결 1차 범위 문서 (`docs/architecture/phase-8-r2-storage-scope.md`)
 - Phase 9 관리자/운영 설정·감사 로그 1차 범위 문서 (`docs/architecture/phase-9-admin-audit-scope.md`)
+- Phase 10 관리자/감사 로그 2차 고도화 범위 문서 (`docs/architecture/phase-10-admin-audit-pass-2-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
 
@@ -244,6 +245,21 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 즉, Phase 9 의 첫 게이트는 "관리자 화면 공개"가 아니라 "운영 통제와 일반 사용자 업무 흐름을 분리하고 감사 후보 구조를 먼저 고정하는 것"입니다.
 
+## Phase 10 관리자/감사 로그 2차 고도화 범위
+
+기준 문서는 `docs/architecture/phase-10-admin-audit-pass-2-scope.md` 입니다.
+쉬운 handoff 문서는 `docs/guides/phase-10-admin-audit-pass-2-handoff.md` 입니다.
+
+이번에 고정한 결정은 아래와 같습니다.
+
+- `/admin/users` 는 실제 저장보다 사용자-직원 연결 상태, 역할/고위험 권한, before/after diff, 감사 preview 를 먼저 강화합니다.
+- `/admin/policies` 는 근태/휴가/결재, 문서/첨부, 게시판/공지 정책 후보를 나눠 card/diff/reason/audit preview 중심으로 고도화합니다.
+- `/admin/audit-logs` 는 actor/action/target/category/time 필터와 민감값 마스킹 회귀를 먼저 고정합니다.
+- `/api/admin/*` 의 변경 후보 응답은 가능하면 `audit`, `maskedFields`, `companyBoundary` 근거를 함께 유지합니다.
+- 이번 단계도 실제 운영 사용자/권한 변경, production 정책 저장, production DB 실행, 외부 로그 전송은 하지 않습니다.
+
+즉, Phase 10 의 핵심은 "운영 기능 오픈"이 아니라 "운영 직전 수준의 candidate 화면/API/테스트 계약을 더 촘촘하게 잠그는 것"입니다.
+
 ## 빠른 로컬 시작
 
 ```bash
@@ -342,6 +358,7 @@ Web 앱은 `apps/web/open-next.config.ts` + `apps/web/wrangler.jsonc`를 통해 
 - 개발 안내: `docs/guides/cloudflare-first-developer-guide.md`
 - Phase 8 쉬운 handoff: `docs/guides/phase-8-r2-storage-handoff.md`
 - Phase 9 쉬운 handoff: `docs/guides/phase-9-admin-audit-handoff.md`
+- Phase 10 쉬운 handoff: `docs/guides/phase-10-admin-audit-pass-2-handoff.md`
 - Phase 1 범위: `docs/architecture/cloudflare-first-phase-scope.md`
 - Phase 2 범위: `docs/architecture/phase-2-auth-org-scope.md`
 - Phase 3 범위: `docs/architecture/phase-3-attendance-leave-scope.md`
