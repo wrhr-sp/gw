@@ -4,7 +4,8 @@ set -euo pipefail
 # Serializes commands that read/write apps/web/.next or .open-next.
 # This prevents same-worktree Kanban workers from deleting/regenerating Next.js
 # build artifacts while another worker is typechecking/building.
-ROOT_DIR="${GW_ROOT_DIR:-/home/wrhrgw/gw}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${GW_ROOT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 LOCK_FILE="${GW_WEB_BUILD_LOCK:-$ROOT_DIR/.hermes/locks/gw-web-build.lock}"
 mkdir -p "$(dirname "$LOCK_FILE")"
 cd "$ROOT_DIR/apps/web"
