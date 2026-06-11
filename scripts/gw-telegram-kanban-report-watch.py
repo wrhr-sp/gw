@@ -14,6 +14,7 @@ import fcntl
 import html
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -74,6 +75,71 @@ def compact(text: str | None, limit: int = 700) -> str:
     return s[:limit] + ("…" if len(s) > limit else "")
 
 
+def extract_json_object(text: str | None) -> dict[str, Any] | None:
+    raw = text or ""
+    match = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.S | re.I)
+    candidate = match.group(1) if match else raw.strip()
+    if not candidate.startswith("{"):
+        return None
+    try:
+        data = json.loads(candidate)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def summarize_release_handoff(data: dict[str, Any]) -> str:
+    pr = data.get("pr_number")
+    pr_state = str(data.get("pr_state") or "-")
+    pr_url = str(data.get("pr_url") or "")
+    raw_checks = data.get("checks")
+    if isinstance(raw_checks, dict):
+        raw_main_gate = raw_checks.get("main_release_gate")
+        raw_pr_gate = raw_checks.get("pr_release_gate")
+    else:
+        raw_main_gate = None
+        raw_pr_gate = None
+    main_gate = raw_main_gate if isinstance(raw_main_gate, dict) else {}
+    pr_gate = raw_pr_gate if isinstance(raw_pr_gate, dict) else {}
+    notes = [str(x) for x in data.get("verification_notes") or []]
+    remaining = [str(x) for x in data.get("remaining_cleanup") or []]
+    changed = data.get("changed_files") or []
+
+    status_bits = []
+    if pr:
+        status_bits.append(f"PR #{pr}는 {pr_state} 상태입니다" + (f"({pr_url})" if pr_url else ""))
+    if main_gate:
+        status_bits.append(f"main release-gate {main_gate.get('run_id') or '-'}의 배포 확인은 {main_gate.get('cloudflare_deploy') or '-'}입니다")
+    elif pr_gate:
+        status_bits.append(f"PR release-gate {pr_gate.get('run_id') or '-'}는 baseline/cloudflare-build 확인 기록이 있습니다")
+
+    problem = []
+    for note in notes:
+        low = note.lower()
+        if "blocked" in low or "failed" in low or "gate" in low or "wrangler" in low:
+            problem.append(note)
+    if remaining:
+        problem.append("남은 정리: " + ", ".join(remaining[:3]))
+
+    changed_summary = f"변경 파일 {len(changed)}개" if isinstance(changed, list) else "변경 파일 목록 있음"
+    return " / ".join([
+        "요약: " + ("; ".join(status_bits) if status_bits else "GitHub/release-gate handoff입니다"),
+        changed_summary,
+        "문제: " + ("; ".join(problem) if problem else "실패 원인은 없고 후속 정리/확인 기록입니다"),
+    ])
+
+
+def humanize_report_text(text: str | None, limit: int = 1200) -> str:
+    raw = text or ""
+    data = extract_json_object(raw)
+    if data:
+        if "pr_number" in data or "pr_state" in data or "remaining_cleanup" in data:
+            return compact(summarize_release_handoff(data), limit)
+        keys = ", ".join(str(k) for k in list(data.keys())[:8])
+        return compact(f"구조화된 작업 결과입니다. 핵심 필드: {keys}. 원문 JSON은 내부 근거로 보관하고 사용자 보고에는 요약만 표시합니다.", limit)
+    return compact(raw, limit)
+
+
 def gw_scope_summary(text: str | None, limit: int = 1400) -> str:
     """Keep user-facing groupware reports inside groupware scope."""
     raw = text or ""
@@ -85,7 +151,7 @@ def gw_scope_summary(text: str | None, limit: int = 1400) -> str:
         return compact(". ".join(kept), limit)
     if not kept and raw and any(m.lower() in raw.lower() for m in markers):
         return "그룹웨어 범위 밖 판단이 포함되어 있어 사용자 보고에서 제외했습니다. 그룹웨어 관련 결과만 별도 확인이 필요합니다."
-    return compact(raw, limit)
+    return humanize_report_text(raw, limit)
 
 
 def fmt_time(ts: int | None) -> str:
@@ -244,7 +310,7 @@ def should_completion_report(row: sqlite3.Row, state: dict[str, Any]) -> tuple[b
 
 def build_blocked_message(conn: sqlite3.Connection, row: sqlite3.Row) -> str:
     payload = parse_payload(row["payload"])
-    reason = compact(str(payload.get("reason") or row["result"] or latest_comment(conn, row["task_id"]) or "막힘 이유가 비어 있음"), 1200)
+    reason = humanize_report_text(str(payload.get("reason") or row["result"] or latest_comment(conn, row["task_id"]) or "막힘 이유가 비어 있음"), 1200)
     title = str(row["title"] or "(제목 없음)")
     assignee = str(row["assignee"] or "미지정")
     task_id = str(row["task_id"])
