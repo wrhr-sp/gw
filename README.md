@@ -37,6 +37,8 @@ docs/
   ux/
 ```
 
+운영/병합 전 release gate 기준은 `docs/plans/release-gate.md`를 먼저 봅니다.
+
 ## Phase 2 인증/조직 1차 범위 요약
 
 이번 단계에서 맞춘 골격은 아래입니다.

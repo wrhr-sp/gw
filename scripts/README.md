@@ -4,6 +4,7 @@
 
 ## 자주 쓰는 그룹웨어 스크립트
 
+- release gate 운영 기준은 `docs/plans/release-gate.md`를 먼저 본다.
 - `gw-kanban-status.sh`: 그룹웨어 Kanban 보드 상태 확인
 - `gw-kanban-dispatch-dry-run.sh`: 자동 실행 후보 미리 보기
 - `gw-auto-workflow.sh`: 작업 유형별 자동 파이프라인 생성
@@ -16,7 +17,7 @@
 
 - `gw-phase-workflow.sh`: Phase 기준 Kanban 묶음 생성 전 release backpressure 확인 (`--board`가 backpressure 조회와 파이프라인 생성에 함께 반영됨)
 - `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원)
-- `gw-blocked-report-watch.sh`: **기본 비활성**. 과거 방식처럼 blocked/review-required 때 싱드 보고 카드를 자동 생성한다. 현재 기본 보고 경로는 `gw-telegram-kanban-report-watch.py`이므로, 이 스크립트는 대장 명시 승인과 `GW_ENABLE_REPORT_CARD_WATCH=1` 없이는 실행하지 않는다.
+- 과거 blocked/report 카드 생성형 shell watcher는 현재 저장소에 없다. 기본 보고 경로는 `gw-telegram-kanban-report-watch.py` direct Telegram watcher다.
 - `gw-telegram-kanban-report-watch.py`: Kanban DB를 read-only로 감시해 막힘/조치완료/최종보고 결과를 사용자 Telegram 채팅으로 직접 전송
 - `gw-singde-second-pass-report-watch.py`: 1차 Telegram 카드보고 이후 같은 Kanban 이벤트를 read-only로 다시 확인해 싱드 2차 해석 보고를 전송
 
@@ -128,14 +129,11 @@ worker timeout/crash 감지 1회 실행:
 ./scripts/gw-worker-recovery-watch.sh --once --interval 60 --max-age 1800
 ```
 
-막힘/승인대기 자동 보고 감시:
+막힘/조치완료/최종보고 direct Telegram 감시:
 
 ```bash
-# 첫 실행은 기존에 이미 막힌 카드는 중복 보고하지 않고 기준선만 잡는다.
-./scripts/gw-blocked-report-watch.sh --once
-
-# 이후 반복 실행하면 새 blocked/review-required 카드가 생길 때 싱드 보고 카드를 만든다.
-./scripts/gw-blocked-report-watch.sh --interval 60
+# 현재 기본 경로는 read-only direct Telegram watcher다.
+python3 ./scripts/gw-telegram-kanban-report-watch.py --help
 ```
 
 ## 운영 팁

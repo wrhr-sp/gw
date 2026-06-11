@@ -173,7 +173,7 @@ Kanban 카드 생성
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type feature \
   "작업 요청 접수 기능 v1" \
   "사용자가 싱드에게 개발 요청을 말하면 목표, 필요한 것, 미정 사항, 다음 액션으로 정리하는 기능을 설계하고 구현한다."
@@ -199,7 +199,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type bugfix \
   "로그인 실패 원인 수정" \
   "정상 계정인데 로그인 실패가 나는 문제를 재현하고 최소 범위로 수정한다."
@@ -223,7 +223,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type docs \
   "그룹웨어 봇 사용법 문서" \
   "비개발자도 이해할 수 있게 싱드 중심 작업 요청 방법을 정리한다."
@@ -246,7 +246,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type review \
   "최근 변경 검토" \
   "변경 범위가 요구사항을 만족하는지 리뷰하고 검증한다."
@@ -458,7 +458,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-status.sh
+./scripts/gw-kanban-status.sh
 ```
 
 작업 목록 보기:
@@ -472,21 +472,21 @@ hermes kanban --board groupware list
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-dispatch-dry-run.sh
+./scripts/gw-kanban-dispatch-dry-run.sh
 ```
 
 한 번만 즉시 dispatch:
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-dispatch-once.sh
+./scripts/gw-kanban-dispatch-once.sh
 ```
 
 특정 카드 로그 보기:
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-kanban-tail.sh <task_id>
+./scripts/gw-kanban-tail.sh <task_id>
 ```
 
 ---
@@ -507,7 +507,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --preview \
   --type feature \
   "샘플 기능" \
@@ -518,7 +518,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --hold \
   --type feature \
   "샘플 기능" \
@@ -561,11 +561,11 @@ cd /home/wrhrgw/gw
 
 - 그룹웨어 전용 작업 폴더: `/home/wrhrgw/gw`
 - 그룹웨어 Kanban 보드 기준: `groupware`
-- 자동 작업 생성 스크립트: `/home/wrhrgw/gw/scripts/groupware-auto-workflow.sh`
-- 상태 확인 스크립트: `/home/wrhrgw/gw/scripts/groupware-kanban-status.sh`
-- dispatcher 확인 스크립트: `/home/wrhrgw/gw/scripts/groupware-kanban-dispatch-dry-run.sh`
-- 즉시 dispatch 스크립트: `/home/wrhrgw/gw/scripts/groupware-kanban-dispatch-once.sh`
-- 카드 로그 확인 스크립트: `/home/wrhrgw/gw/scripts/groupware-kanban-tail.sh`
+- 자동 작업 생성 스크립트: `/home/wrhrgw/gw/scripts/gw-auto-workflow.sh`
+- 상태 확인 스크립트: `/home/wrhrgw/gw/scripts/gw-kanban-status.sh`
+- dispatcher 확인 스크립트: `/home/wrhrgw/gw/scripts/gw-kanban-dispatch-dry-run.sh`
+- 즉시 dispatch 스크립트: `/home/wrhrgw/gw/scripts/gw-kanban-dispatch-once.sh`
+- 카드 로그 확인 스크립트: `/home/wrhrgw/gw/scripts/gw-kanban-tail.sh`
 - 역할별 봇 프로필: `singde`, `gwplanner`, `gwbuilder`, `gwreviewer`, `gwtester`, `gwdocs`, `gwops`
 
 다음 확인이 필요한 것:
@@ -580,7 +580,7 @@ cd /home/wrhrgw/gw
 
 ```bash
 cd /home/wrhrgw/gw
-./scripts/groupware-auto-workflow.sh \
+./scripts/gw-auto-workflow.sh \
   --type docs \
   --idempotency-key "groupware-loop-first-doc-test" \
   "그룹웨어 봇 루프 첫 실전 테스트" \
