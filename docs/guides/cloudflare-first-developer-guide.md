@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, Phase 7 same-origin API 연결 1차 결과, 그리고 Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준과 남은 한계를 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, Phase 7 same-origin API 연결 1차 결과, Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준, 그리고 Phase 9 관리자/운영 설정·감사 로그 1차 범위까지 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -102,6 +102,7 @@ Workers API입니다.
 - `app/leave/page.tsx` — 휴가 유형/잔여/신청/승인 대기 placeholder
 - `app/approvals/page.tsx` — 전자결재 진입점 placeholder
 - `app/admin/page.tsx` — 관리자 초대/권한 placeholder
+- `app/admin/*` — Phase 9 관리자 사용자/정책/감사 로그 skeleton 확장 대상
 - `app/boards`, `app/boards/[boardId]`, `app/posts/[postId]`, `app/documents` placeholder 가 추가됨
 - `app/mobile-pwa-config.ts` — manifest, 주요 route, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트 공통 설정
 
@@ -122,12 +123,13 @@ pnpm test
 - `pnpm check` 통과
 - `pnpm build` 통과
 - `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 통과
-- `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 오류로 실패
+- `pnpm --filter @gw/web build:cf` 통과
 - `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
 - `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 skeleton 이 추가됨
 - 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
 - `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 미통과 상태
 - Phase 8 쉬운 handoff 는 `docs/guides/phase-8-r2-storage-handoff.md` 에 정리돼 있음
+- Phase 9 쉬운 handoff 는 `docs/guides/phase-9-admin-audit-handoff.md` 에 정리돼 있음
 
 개별 확인:
 
@@ -253,9 +255,9 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 
 ### 2) 남아 있는 한계
 
-- 현재 공개 preview 는 새 same-origin 브리지 코드를 다시 배포해 확인한 상태가 아닙니다.
-- 로컬 `pnpm check` 와 `pnpm --filter @gw/web build` 는 통과했지만, `pnpm --filter @gw/web build:cf` 는 `/admin/users` prerender 중 `.next/server/app/admin/users/page.js` 를 찾지 못해 실패합니다.
-- 따라서 `Phase 6` 문서에서 same-origin `/api/*` 원칙은 유지하되, "현재 public preview 에서 새 API smoke 가 통과했다"고 쓰면 안 됩니다.
+- 현재 공개 preview 에서 same-origin `/api/*` 까지 새 코드 기준으로 다시 배포·재스모크한 결과는 별도 운영 실행 결과로 남겨야 합니다.
+- 다만 로컬 `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` blocker 는 현재 저장소 기준으로 해소됐습니다.
+- 따라서 지금 남은 일은 로컬 빌드 복구가 아니라, 실제 preview 재배포 여부와 공개 smoke 결과를 운영 handoff 에 정확히 남기는 것입니다.
 
 ### 3) 배포 전 승인 범위
 

@@ -18,6 +18,11 @@ export const appRoutes = {
   },
   admin: {
     invites: "/api/admin/invites",
+    users: "/api/admin/users",
+    policies: "/api/admin/policies",
+    policyDocuments: "/api/admin/policies/documents",
+    policyBoards: "/api/admin/policies/boards",
+    auditLogs: "/api/admin/audit-logs",
   },
   attendance: {
     checkIn: "/api/attendance/check-in",
@@ -279,6 +284,138 @@ export const createInviteResponseSchema = successResponseSchema(
     expiresAt: z.string().datetime(),
     placeholder: z.literal(true),
     audit: auditCandidateSchema,
+  }),
+);
+
+export const adminScopeSchema = z.enum(["global", "company", "audit"]);
+export const adminUserSummarySchema = z.object({
+  userId: z.string(),
+  employeeId: z.string(),
+  companyId: z.string(),
+  fullName: z.string(),
+  email: z.email(),
+  departmentName: z.string(),
+  roleCodes: z.array(roleCodeSchema).min(1),
+  permissions: z.array(permissionCodeSchema),
+  employmentStatus: employeeSchema.shape.employmentStatus,
+  adminScope: adminScopeSchema,
+  placeholder: z.literal(true),
+});
+
+export const adminUsersListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(adminUserSummarySchema),
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const adminPolicyCategorySchema = z.enum(["attendance", "leave", "approval", "document", "board"]);
+export const adminPolicyVisibilitySchema = z.enum(["private", "team", "company"]);
+export const adminPolicySummarySchema = z.object({
+  category: adminPolicyCategorySchema,
+  companyId: z.string(),
+  summary: z.string(),
+  lastReviewedAt: z.string().datetime(),
+  placeholders: z.array(z.string()).min(1),
+});
+
+export const adminPoliciesListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(adminPolicySummarySchema),
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const adminPolicyDocumentUpdateRequestSchema = z.object({
+  companyId: z.string(),
+  visibility: adminPolicyVisibilitySchema,
+  maxFileSizeBytes: z.number().int().positive(),
+  allowedFileExtensions: z.array(z.string().min(1)).min(1),
+  retentionDays: z.number().int().positive(),
+  reason: z.string().min(1),
+});
+
+export const adminPolicyBoardUpdateRequestSchema = z.object({
+  companyId: z.string(),
+  visibility: adminPolicyVisibilitySchema,
+  allowAnonymousComments: z.boolean(),
+  requireReadReceipt: z.boolean(),
+  retentionDays: z.number().int().positive(),
+  reason: z.string().min(1),
+});
+
+export const adminPolicyUpdateResponseSchema = successResponseSchema(
+  z.object({
+    policy: adminPolicySummarySchema,
+    audit: auditCandidateSchema,
+    maskedFields: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "board", "audit"]);
+export const adminAuditSourceSchema = z.enum(["web-admin", "api-admin", "system-placeholder"]);
+export const adminAuditStorageStatusSchema = z.enum(["pending", "linked", "failed", "deleted"]);
+export const adminAuditMetadataSchema = z.object({
+  category: adminAuditCategorySchema,
+  reason: z.string(),
+  before: z.string(),
+  after: z.string(),
+  companyBoundary: z.object({
+    enforced: z.literal(true),
+  }),
+  source: adminAuditSourceSchema,
+  storageRef: z
+    .object({
+      fileId: z.string(),
+      spaceId: z.string(),
+      versionId: z.string(),
+      storageStatus: adminAuditStorageStatusSchema,
+    })
+    .optional(),
+  sensitiveMasked: z.literal(true),
+});
+
+export const adminAuditTargetTypeSchema = z.enum([
+  "user",
+  "role_assignment",
+  "policy_documents",
+  "policy_boards",
+  "document_space",
+  "document_file",
+  "document_policy",
+  "board_policy",
+  "audit_log",
+]);
+
+export const adminAuditLogSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  actorUserId: z.string(),
+  actorEmployeeId: z.string(),
+  action: z.string(),
+  targetType: adminAuditTargetTypeSchema,
+  targetId: z.string(),
+  createdAt: z.string().datetime(),
+  metadata: adminAuditMetadataSchema,
+});
+
+export const adminAuditLogFiltersSchema = z.object({
+  actorUserId: z.string().optional(),
+  actionPrefix: z.string().optional(),
+  targetType: adminAuditTargetTypeSchema.optional(),
+  category: adminAuditCategorySchema.optional(),
+  createdFrom: z.string().datetime().optional(),
+  createdTo: z.string().datetime().optional(),
+});
+
+export const adminAuditLogListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(adminAuditLogSchema),
+    filters: adminAuditLogFiltersSchema,
+    placeholder: z.literal(true),
   }),
 );
 
@@ -954,6 +1091,24 @@ export type Permission = z.infer<typeof permissionSchema>;
 export type Role = z.infer<typeof roleSchema>;
 export type CreateInviteRequest = z.infer<typeof createInviteRequestSchema>;
 export type CreateInviteResponse = z.infer<typeof createInviteResponseSchema>;
+export type AdminScope = z.infer<typeof adminScopeSchema>;
+export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
+export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;
+export type AdminPolicyVisibility = z.infer<typeof adminPolicyVisibilitySchema>;
+export type AdminPolicySummary = z.infer<typeof adminPolicySummarySchema>;
+export type AdminPoliciesListResponse = z.infer<typeof adminPoliciesListResponseSchema>;
+export type AdminPolicyDocumentUpdateRequest = z.infer<typeof adminPolicyDocumentUpdateRequestSchema>;
+export type AdminPolicyBoardUpdateRequest = z.infer<typeof adminPolicyBoardUpdateRequestSchema>;
+export type AdminPolicyUpdateResponse = z.infer<typeof adminPolicyUpdateResponseSchema>;
+export type AdminAuditCategory = z.infer<typeof adminAuditCategorySchema>;
+export type AdminAuditSource = z.infer<typeof adminAuditSourceSchema>;
+export type AdminAuditStorageStatus = z.infer<typeof adminAuditStorageStatusSchema>;
+export type AdminAuditMetadata = z.infer<typeof adminAuditMetadataSchema>;
+export type AdminAuditTargetType = z.infer<typeof adminAuditTargetTypeSchema>;
+export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
+export type AdminAuditLogFilters = z.infer<typeof adminAuditLogFiltersSchema>;
+export type AdminAuditLogListResponse = z.infer<typeof adminAuditLogListResponseSchema>;
 export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;
 export type AttendanceActionResponse = z.infer<typeof attendanceActionResponseSchema>;
 export type AttendanceListRecordsResponse = z.infer<typeof attendanceListRecordsResponseSchema>;

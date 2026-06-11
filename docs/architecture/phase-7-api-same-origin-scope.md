@@ -27,9 +27,8 @@
 - 공통 계약은 이미 `packages/shared/src/contracts.ts` 에 same-origin `/api/*` 경로로 정의돼 있습니다.
 - Phase 6 모바일/PWA 문서는 `manifest: "/manifest.webmanifest"`, `start_url: "/"`, API 기본 경로 `/api/*` 를 상대 경로 기준으로 유지하라고 못 박고 있습니다.
 - `apps/web/.env.example` 는 로컬 개발용 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787` 예시를 두고 있으나, 이것은 로컬 개발 편의를 위한 override 일 뿐 preview/prod 기본값은 아닙니다.
-- 로컬 검증에서는 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts`, `pnpm check`, `pnpm --filter @gw/web build` 가 통과했습니다.
-- 반면 `pnpm --filter @gw/web build:cf` 는 OpenNext prerender 중 `/admin/users` 의 `.next/server/app/admin/users/page.js` 를 찾지 못해 실패합니다.
-- 즉, 저장소 코드에서 same-origin 원칙은 구현됐지만 공개 preview 에서 새 `/api/*` 결과를 다시 검증하려면 build:cf blocker 해소가 먼저 필요합니다.
+- 로컬 검증에서는 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 가 통과했습니다.
+- 즉, 저장소 코드에서 same-origin 원칙과 Cloudflare용 최종 게이트는 현재 로컬 기준으로 맞춰졌습니다. 공개 preview 에서 새 `/api/*` 결과를 다시 확인했는지는 별도 운영 실행 결과로 남겨야 합니다.
 
 ## 3. 선택지 비교
 
@@ -151,7 +150,7 @@
 - 저장소 로컬 테스트 기준 `/api/health` → 200 JSON
 - 저장소 로컬 테스트 기준 `/api/me` → 401 JSON, forged placeholder cookie 도 401 JSON
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` → `/login` 으로 307 redirect 유지
-- 공개 preview URL 은 build:cf blocker 해소 뒤 다시 smoke 해야 합니다.
+- 공개 preview URL 에서 최신 same-origin/admin 코드를 다시 smoke 했는지는 별도 운영 실행 결과로 남겨야 합니다.
 
 ## 6. 이번 Phase에서 하지 않는 일
 
@@ -185,8 +184,8 @@
 3. `manifest` 와 앱 내부 링크는 여전히 상대 경로 정책을 유지한다.
 4. preview 전용 절대 API hostname 을 기본값으로 커밋하지 않는다.
 5. 최소 회귀 테스트가 추가되어 브리지/가드가 깨졌을 때 바로 잡을 수 있다.
-6. `pnpm check` 는 통과하고, `pnpm --filter @gw/web build:cf` blocker 는 원인과 함께 별도 기록되거나 해소된다.
-7. 공개 preview smoke 결과와 남은 한계, 또는 build:cf blocker 때문에 preview 재검증을 못 했다는 사실이 handoff 에 분리 기록된다.
+6. `pnpm check` 와 `pnpm --filter @gw/web build:cf` 가 모두 통과하고, 이 결과가 handoff 에 남는다.
+7. 공개 preview smoke 결과와 남은 한계, 또는 공개 preview 재배포/재검증 여부가 handoff 에 분리 기록된다.
 
 ## 9. 구현자가 바로 따라갈 체크리스트
 

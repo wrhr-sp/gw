@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminAuditLogListResponseSchema,
+  adminPolicyDocumentUpdateRequestSchema,
+  adminPolicyUpdateResponseSchema,
+  adminUsersListResponseSchema,
   appRoutes,
   approvalActionRequestSchema,
   approvalActionResponseSchema,
@@ -59,6 +63,11 @@ describe("shared contracts", () => {
     expect(appRoutes.org.roles).toBe("/api/roles");
     expect(appRoutes.org.permissions).toBe("/api/permissions");
     expect(appRoutes.admin.invites).toBe("/api/admin/invites");
+    expect(appRoutes.admin.users).toBe("/api/admin/users");
+    expect(appRoutes.admin.policies).toBe("/api/admin/policies");
+    expect(appRoutes.admin.policyDocuments).toBe("/api/admin/policies/documents");
+    expect(appRoutes.admin.policyBoards).toBe("/api/admin/policies/boards");
+    expect(appRoutes.admin.auditLogs).toBe("/api/admin/audit-logs");
     expect(appRoutes.attendance.checkIn).toBe("/api/attendance/check-in");
     expect(appRoutes.attendance.checkOut).toBe("/api/attendance/check-out");
     expect(appRoutes.attendance.records).toBe("/api/attendance/records");
@@ -1017,5 +1026,109 @@ describe("shared contracts", () => {
         },
       }).error.code,
     ).toBe("AUTH_REQUIRED");
+  });
+
+  it("parses Phase 9 admin users, policy update, and audit log contracts", () => {
+    expect(
+      adminUsersListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              userId: "user_company_admin",
+              employeeId: "employee_admin",
+              companyId: "company_demo",
+              fullName: "관리자 테스트",
+              email: "admin@example.com",
+              departmentName: "경영지원",
+              roleCodes: ["COMPANY_ADMIN"],
+              permissions: ["permission.read", "invite.manage"],
+              employmentStatus: "active",
+              adminScope: "company",
+              placeholder: true,
+            },
+          ],
+          audit: {
+            candidate: true,
+            action: "admin.user.list.viewed",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0]?.adminScope,
+    ).toBe("company");
+
+    expect(
+      adminPolicyDocumentUpdateRequestSchema.parse({
+        companyId: "company_demo",
+        visibility: "company",
+        maxFileSizeBytes: 10485760,
+        allowedFileExtensions: ["pdf", "docx"],
+        retentionDays: 365,
+        reason: "보안 정책 점검",
+      }).visibility,
+    ).toBe("company");
+
+    expect(
+      adminPolicyUpdateResponseSchema.parse({
+        ok: true,
+        data: {
+          policy: {
+            category: "document",
+            companyId: "company_demo",
+            summary: "문서 보관 정책 placeholder",
+            lastReviewedAt: "2026-06-10T09:00:00.000Z",
+            placeholders: ["R2 metadata only"],
+          },
+          audit: {
+            candidate: true,
+            action: "admin.policy.document.updated",
+          },
+          maskedFields: ["storageKey", "bucket 이름", "signed URL 전문"],
+          placeholder: true,
+        },
+        error: null,
+      }).data.maskedFields,
+    ).toContain("storageKey");
+
+    expect(
+      adminAuditLogListResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "audit_admin_policy_document_1",
+              companyId: "company_demo",
+              actorUserId: "user_company_admin",
+              actorEmployeeId: "employee_admin",
+              action: "admin.policy.document.updated",
+              targetType: "document_policy",
+              targetId: "policy_documents_default",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              metadata: {
+                category: "policy",
+                reason: "보안 정책 점검",
+                before: "visibility=team",
+                after: "visibility=company",
+                companyBoundary: { enforced: true },
+                source: "api-admin",
+                storageRef: {
+                  fileId: "file_demo",
+                  spaceId: "space_public",
+                  versionId: "version_1",
+                  storageStatus: "linked",
+                },
+                sensitiveMasked: true,
+              },
+            },
+          ],
+          filters: {
+            actionPrefix: "admin.policy",
+          },
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0]?.metadata.sensitiveMasked,
+    ).toBe(true);
   });
 });

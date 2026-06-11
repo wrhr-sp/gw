@@ -20,6 +20,7 @@
 - Phase 6 모바일/PWA 1차 기준 문서 `docs/architecture/phase-6-mobile-pwa-scope.md`
 - 같은 origin 안에서 `/api/health`, `/api/me` 를 다시 붙이기 위한 Phase 7 same-origin 브리지 코드와 기준 문서
 - 문서/첨부파일 저장소 연결 1차 보안 기준을 정리한 `docs/architecture/phase-8-r2-storage-scope.md`
+- 관리자/운영 설정과 감사 로그 1차 기준을 정리한 `docs/architecture/phase-9-admin-audit-scope.md`
 
 지금 단계의 화면은 실제 업무 데이터를 보여주는 완성본이 아닙니다.
 먼저 정보구조와 경로를 고정해 두기 위한 골격입니다.
@@ -121,8 +122,8 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 운영/개발 담당자가 같이 확인할 항목도 미리 알아두면 좋습니다.
 
 - 관리자 화면은 외부 preview 에서 무방비로 열리면 안 되며, 이번 확인에서는 `/login` redirect 로 막혔습니다.
-- 현재 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 들어와 있지만, 공개 preview URL 은 이 변경을 다시 배포해 확인한 상태가 아닙니다.
-- 그래서 사용자는 "문서상 원칙은 same-origin `/api/*` 유지"라고 이해하되, 현재 공개 preview 에서 새 API 결과가 바로 보인다고 기대하면 안 됩니다.
+- 현재 저장소 로컬 기준으로는 same-origin `/api/health`, `/api/me` 브리지와 `build:cf` 검증까지 다시 통과했습니다.
+- 다만 공개 preview URL 에 이 최신 코드를 다시 올려 `/api/*` 와 `/admin*` 를 재확인한 결과는 운영 실행 결과로 따로 남겨야 합니다.
 - preview URL 이 생겨도 아직 production 전환이 끝난 것은 아닙니다.
 
 즉, 사용자는 "메인 화면과 문서/게시판 화면이 열리는지, admin 화면이 바로 열리지 않는지, 오프라인 제한 안내가 과장되지 않는지, 같은 origin 의 manifest 가 보이는지" 정도까지만 먼저 확인하면 됩니다.
@@ -179,6 +180,15 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 초기 검증은 실제 운영 업로드보다 mock/local-safe 흐름을 먼저 맞추는 방식입니다.
 - 즉, Phase 8 은 "파일 기능 오픈"보다 "안전한 보관 규칙을 먼저 고정"하는 단계라고 이해하면 됩니다.
 
+## Phase 9 관리자/운영 화면이 이어받는 기준
+
+- 쉬운 요약 handoff 는 `docs/guides/phase-9-admin-audit-handoff.md` 에 따로 정리돼 있습니다.
+- `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 일반 업무 화면이 아니라 운영 통제 화면입니다.
+- 일반 사용자는 `/org`, `/employees`, `/boards`, `/documents`, `/approvals`, `/attendance`, `/leave` 같은 업무 화면을 먼저 보게 됩니다.
+- 관리자 화면이 있다고 해서 바로 운영 변경이 열린 것은 아니며, 로그인 뒤에도 권한이 없으면 접근이 막혀야 정상입니다.
+- 감사 로그는 운영 변경 이력을 남기기 위한 후보 구조이고, raw `storageKey`, bucket 주소, public URL, secret 같은 값은 기본 응답/문서에 직접 보이지 않아야 합니다.
+- 즉, Phase 9 는 "관리자 메뉴 추가"보다 "업무 화면과 운영 통제를 분리하고 기록 기준을 먼저 고정"하는 단계라고 이해하면 됩니다.
+
 ## Phase 6 모바일/PWA가 이어받는 기준
 
 모바일/PWA 단계는 preview URL 이 생겨도 아래 기준을 그대로 이어받습니다.
@@ -187,7 +197,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - manifest 경로는 `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 처럼 같은 origin 상대 경로를 유지합니다.
 - API도 우선 `/api/*` 같은 same-origin 기준으로 붙는다고 이해하면 됩니다.
 - 다만 연결 방식 자체는 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 별도 공개 API 도메인을 기본값으로 두지 않고 현재 Web origin 안에서 먼저 맞추는 쪽을 우선합니다.
-- 현재 저장소 코드 기준으로는 `/api/health`, `/api/me` 가 이 same-origin 원칙으로 다시 연결돼 있습니다. 다만 build:cf blocker 때문에 공개 preview 에서 재확인은 아직 못 했습니다.
+- 현재 저장소 코드 기준으로는 `/api/health`, `/api/me` 가 이 same-origin 원칙으로 다시 연결돼 있고 로컬 `build:cf` 도 다시 통과했습니다. 공개 preview 재확인 여부는 별도 운영 실행 결과로 봐야 합니다.
 - 즉, preview 전용 절대 도메인을 앱 안에 하드코딩하지 않는 것이 기본 원칙입니다.
 
 사용자 관점에서 이번 Phase 6 에서 기대하는 변화는 아래 정도입니다.
@@ -218,6 +228,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - `docs/guides/cloudflare-first-developer-guide.md`
 - `docs/guides/cloudflare-first-operator-guide.md`
 - `docs/guides/phase-8-r2-storage-handoff.md`
+- `docs/guides/phase-9-admin-audit-handoff.md`
 - `docs/architecture/phase-2-auth-org-scope.md`
 - `docs/architecture/phase-3-attendance-leave-scope.md`
 - `docs/architecture/phase-4-approvals-scope.md`
