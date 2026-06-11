@@ -54,6 +54,10 @@ export const appRoutes = {
     spaces: "/api/documents/spaces",
     files: "/api/documents/files",
     fileMetadata: "/api/documents/files/metadata",
+    uploadInit: "/api/documents/files/upload-init",
+    uploadComplete: (fileId: string) => `/api/documents/files/${fileId}/upload-complete`,
+    downloadInit: (fileId: string) => `/api/documents/files/${fileId}/download-init`,
+    deleteFile: (fileId: string) => `/api/documents/files/${fileId}`,
   },
   readReceipts: "/api/read-receipts",
 } as const;
@@ -766,6 +770,8 @@ export const boardCommentCreateResponseSchema = successResponseSchema(
 
 export const documentSpaceVisibilitySchema = z.enum(["company", "department", "private"]);
 export const documentStatusSchema = z.enum(["active", "archived"]);
+export const documentStorageProviderSchema = z.enum(["mock", "r2"]);
+export const documentStorageStatusSchema = z.enum(["pending", "ready", "deleted", "failed"]);
 
 export const documentSpaceSchema = z.object({
   id: z.string(),
@@ -787,16 +793,78 @@ export const documentFileSchema = z.object({
   companyId: z.string(),
   spaceId: z.string(),
   ownerEmployeeId: z.string(),
+  versionId: z.string(),
   fileName: z.string(),
   contentType: z.string(),
   fileSize: z.number().int().nonnegative(),
   versionLabel: z.string(),
   isPublicWithinCompany: z.boolean(),
+  storageProvider: documentStorageProviderSchema,
+  storageStatus: documentStorageStatusSchema,
+  checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).nullable(),
   status: documentStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   placeholder: z.literal(true),
 });
+
+export const documentFileUploadInitRequestSchema = z.object({
+  spaceId: z.string().min(1),
+  fileName: z.string().min(1),
+  contentType: z.string().min(1),
+  fileSize: z.number().int().positive(),
+  versionLabel: z.string().min(1),
+  isPublicWithinCompany: z.boolean().default(false),
+});
+
+export const documentFileActionSchema = z.object({
+  kind: z.enum(["mock-upload", "r2-upload-placeholder", "mock-download", "r2-download-placeholder"]),
+  provider: documentStorageProviderSchema,
+  expiresAt: z.string().datetime(),
+  uploadToken: z.string().min(1).optional(),
+  downloadToken: z.string().min(1).optional(),
+  objectKeyPreview: z.string().min(1),
+  message: z.string().min(1),
+});
+
+export const documentFileUploadInitResponseSchema = successResponseSchema(
+  z.object({
+    file: documentFileSchema,
+    action: documentFileActionSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentFileUploadCompleteRequestSchema = z.object({
+  uploadToken: z.string().min(1),
+  checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+});
+
+export const documentFileUploadCompleteResponseSchema = successResponseSchema(
+  z.object({
+    file: documentFileSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentFileDownloadInitResponseSchema = successResponseSchema(
+  z.object({
+    file: documentFileSchema,
+    action: documentFileActionSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const documentFileDeleteResponseSchema = successResponseSchema(
+  z.object({
+    file: documentFileSchema,
+    audit: auditCandidateSchema,
+    placeholder: z.literal(true),
+  }),
+);
 
 export const documentSpaceListResponseSchema = successResponseSchema(
   z.object({
@@ -937,12 +1005,21 @@ export type BoardCommentListResponse = z.infer<typeof boardCommentListResponseSc
 export type BoardCommentCreateResponse = z.infer<typeof boardCommentCreateResponseSchema>;
 export type DocumentSpace = z.infer<typeof documentSpaceSchema>;
 export type DocumentFile = z.infer<typeof documentFileSchema>;
+export type DocumentStorageProvider = z.infer<typeof documentStorageProviderSchema>;
+export type DocumentStorageStatus = z.infer<typeof documentStorageStatusSchema>;
 export type DocumentSpaceListResponse = z.infer<typeof documentSpaceListResponseSchema>;
 export type DocumentSpaceCreateRequest = z.infer<typeof documentSpaceCreateRequestSchema>;
 export type DocumentSpaceResponse = z.infer<typeof documentSpaceResponseSchema>;
 export type DocumentFileListResponse = z.infer<typeof documentFileListResponseSchema>;
 export type DocumentFileMetadataCreateRequest = z.infer<typeof documentFileMetadataCreateRequestSchema>;
 export type DocumentFileMetadataCreateResponse = z.infer<typeof documentFileMetadataCreateResponseSchema>;
+export type DocumentFileUploadInitRequest = z.infer<typeof documentFileUploadInitRequestSchema>;
+export type DocumentFileAction = z.infer<typeof documentFileActionSchema>;
+export type DocumentFileUploadInitResponse = z.infer<typeof documentFileUploadInitResponseSchema>;
+export type DocumentFileUploadCompleteRequest = z.infer<typeof documentFileUploadCompleteRequestSchema>;
+export type DocumentFileUploadCompleteResponse = z.infer<typeof documentFileUploadCompleteResponseSchema>;
+export type DocumentFileDownloadInitResponse = z.infer<typeof documentFileDownloadInitResponseSchema>;
+export type DocumentFileDeleteResponse = z.infer<typeof documentFileDeleteResponseSchema>;
 export type ReadReceipt = z.infer<typeof readReceiptSchema>;
 export type ReadReceiptCreateRequest = z.infer<typeof readReceiptCreateRequestSchema>;
 export type ReadReceiptCreateResponse = z.infer<typeof readReceiptCreateResponseSchema>;

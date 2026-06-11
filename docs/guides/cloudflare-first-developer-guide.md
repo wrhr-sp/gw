@@ -1,6 +1,6 @@
 # Cloudflare-first 스켈레톤 개발 안내
 
-이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, 그리고 Phase 7 same-origin API 연결 1차 결과와 남은 한계를 정리한 문서입니다.
+이 문서는 다음 구현자가 바로 이어서 작업할 수 있게 현재 코드 구조와 Phase 4 전자결재 1차 현재 상태, Phase 5 게시판/문서 1차 범위, Phase 6 모바일/PWA 1차 상태, Phase 7 same-origin API 연결 1차 결과, 그리고 Phase 8 R2 문서/첨부파일 저장소 연결 1차 기준과 남은 한계를 정리한 문서입니다.
 
 ## 현재 저장소 구조
 
@@ -126,7 +126,8 @@ pnpm test
 - `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
 - `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 skeleton 이 추가됨
 - 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
-- 별도 known gap: `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 미통과 상태
+- `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 미통과 상태
+- Phase 8 쉬운 handoff 는 `docs/guides/phase-8-r2-storage-handoff.md` 에 정리돼 있음
 
 개별 확인:
 
@@ -205,6 +206,9 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - 전자결재 route 는 `approval.document.read/write/approve` 경계를 분리하고, 자기 문서 자기 승인과 타 회사 문서 접근을 막는 방향으로 설계합니다.
 - approval create 응답 id 와 approval detail 조회 대상이 같은 문서를 가리키는지, create → detail round-trip 을 먼저 검증합니다.
 - `apps/api/test/auth-org.spec.ts` 의 approval 테스트는 seed demo 와 겹치지 않는 제목/요약/양식을 써서 false positive 를 막습니다.
+- Phase 8 storage skeleton 은 `docs/architecture/phase-8-r2-storage-scope.md` 기준으로 private-by-default, D1 metadata 우선, mock/local-safe 검증 기본값을 유지합니다.
+- object key 는 `companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safeFileName}` 기본 규칙을 따르고 raw `storageKey` 는 응답/로그에 과도하게 노출하지 않습니다.
+- 허용 MIME 은 제한된 allowlist 로 시작하고, 파일 1개 최대 크기 25MB 기본값을 먼저 테스트로 고정합니다.
 - `scripts/README.md` 에 적힌 그룹웨어 보고/감시 자동화 스크립트를 건드리면 기능 코드와 함께 release gate 검토 대상으로 묶습니다.
 - 특히 `gw-telegram-kanban-report-watch.py` 를 포함한 보고/감시 스크립트 수정은 중복 보고와 승인 필요 카드 누락 여부까지 같이 확인합니다.
 
@@ -340,6 +344,7 @@ PWA:
 주의:
 
 - 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력, production DB migration 실행은 별도 승인 전까지 하지 않는다.
+- public file URL 확정, 외부 공유 링크, OCR/전자서명/외부 문서보관 연동도 별도 승인 전까지 하지 않는다.
 - 게시글/댓글/문서함 권한을 분리하고, metadata 응답에 storage key 같은 내부 값이 과도하게 노출되지 않게 한다.
 - 타 회사 게시글/문서 접근 차단과 placeholder 표시 유지 기준은 후속 실제 구현에서도 유지해야 한다.
 
