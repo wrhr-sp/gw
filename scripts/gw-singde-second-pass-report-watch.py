@@ -220,12 +220,38 @@ def report_kind(row: sqlite3.Row, state: dict[str, Any]) -> str | None:
 def classify(title: str, text: str, kind: str) -> tuple[str, str]:
     all_text = f"{title}\n{text}".lower()
     if any(marker in all_text for marker in RESTRICTED_MARKERS):
-        return "대장 승인 필요", "비밀값/운영/비용/배포/DNS/production 가능성이 있어 자동 처리하지 않고 승인 요청으로 둡니다."
-    if kind.startswith("조치완료") or kind.startswith("최종보고"):
-        return "완료 확인", "완료 결과와 남은 미확인 사항만 확인하면 됩니다."
+        return "대장 승인 필요", "비밀값/운영 데이터/DNS/비용/배포처럼 영향이 큰 작업일 수 있어 자동으로 넘기지 않습니다. 대장이 승인하거나 방향을 정해줘야 합니다."
+    if kind.startswith("조치완료"):
+        return "조치 완료", "대장이 바로 할 일은 없습니다. 싱드가 남은 카드가 있는지 확인하고 다음 단계로 넘깁니다."
+    if kind.startswith("최종보고"):
+        return "최종 완료", "대장이 바로 할 일은 없습니다. 싱드가 다음 작업 후보를 정리해 이어서 진행할 준비를 합니다."
     if any(marker in all_text for marker in AUTO_MARKERS):
-        return "자동 조치/복구 후보", "자동화 범위 안의 검증·재시도·정리인지 확인하고, 안전하면 기존 복구 watcher 또는 싱드가 처리합니다."
-    return "싱드 확인 필요", "자동 조치 조건이 명확하지 않아 원본 카드/로그를 싱드가 추가 확인해야 합니다."
+        return "자동 조치/복구 후보", "대장이 할 일은 없습니다. 승인된 범위 안이면 싱드가 재시도, 수정, 리뷰, 검증 루프로 자동 처리합니다."
+    return "싱드 확인 필요", "대장이 바로 할 일은 없습니다. 싱드가 원본 카드와 로그를 더 확인한 뒤 자동 처리 가능 여부를 나눕니다."
+
+
+def plain_explanation(kind: str, classification: str, evidence_text: str) -> str:
+    if classification == "최종 완료":
+        return "작업이 끝났다는 보고입니다. 아래 근거는 PR, CI, 검증 결과처럼 실제로 확인한 기록입니다."
+    if classification == "조치 완료":
+        return "이전에 막혔거나 확인이 필요했던 일이 처리됐다는 보고입니다. 재발 여부만 싱드가 이어서 봅니다."
+    if classification == "대장 승인 필요":
+        return "자동으로 진행하면 운영 영향이 생길 수 있는 항목입니다. 무엇을 허용할지 대장 결정이 필요합니다."
+    if classification == "자동 조치/복구 후보":
+        return "테스트 실패나 일시 오류처럼 자동화가 다시 고칠 수 있는 항목입니다. 대장에게 묻지 않고 승인된 범위에서 재루프합니다."
+    return "아직 자동 처리인지 승인 필요인지 애매한 항목입니다. 싱드가 로그를 더 보고 나눕니다."
+
+
+def user_next_action(kind: str, classification: str, children: str) -> str:
+    if classification == "최종 완료":
+        return "대장이 지금 해줄 일은 없습니다. 다음 작업은 남은 Phase/운영 리스크/다음 기능 후보를 싱드가 확인해 새 카드로 이어갑니다."
+    if classification == "조치 완료":
+        return "대장이 지금 해줄 일은 없습니다. 후속 카드가 있으면 싱드가 자동으로 진행 상태를 확인합니다."
+    if classification == "대장 승인 필요":
+        return "대장이 승인할 범위만 답해주면 됩니다. secret, 운영 DB, DNS, 유료 리소스, 운영 배포처럼 큰 영향 항목은 승인 전 진행하지 않습니다."
+    if classification == "자동 조치/복구 후보":
+        return "대장이 지금 해줄 일은 없습니다. 싱드가 수정→리뷰→검증 재루프를 만들고 결과만 보고합니다."
+    return "대장이 지금 해줄 일은 없습니다. 싱드가 확인 후 자동 처리 가능하면 처리하고, 승인 필요하면 따로 묻습니다."
 
 
 def build_message(conn: sqlite3.Connection, row: sqlite3.Row, kind: str, state: dict[str, Any]) -> str:
@@ -236,13 +262,15 @@ def build_message(conn: sqlite3.Connection, row: sqlite3.Row, kind: str, state: 
     classification, next_action = classify(title, ev, kind)
     parents = format_ids(linked_ids(conn, tid, "parents"))
     children = format_ids(linked_ids(conn, tid, "children"))
+    easy = plain_explanation(kind, classification, ev)
+    user_action = user_next_action(kind, classification, children)
     icon = "🧭"
     return (
         f"{icon} <b>싱드 2차 확인 보고</b>\n\n"
         f"<b>결론</b>\n"
         f"- 보고 유형: {html.escape(kind)}\n"
         f"- 싱드 판단: {html.escape(classification)}\n"
-        f"- 다음 액션: {html.escape(next_action)}\n\n"
+        f"- 쉬운 설명: {html.escape(easy)}\n\n"
         f"<b>원본 카드</b>\n"
         f"- 카드: <code>{html.escape(tid)}</code>\n"
         f"- 제목: {html.escape(compact(title, 180))}\n"
@@ -252,7 +280,10 @@ def build_message(conn: sqlite3.Connection, row: sqlite3.Row, kind: str, state: 
         f"- 부모: {html.escape(parents)}\n"
         f"- 후속: {html.escape(children)}\n\n"
         f"<b>확인한 근거</b>\n"
-        f"- {html.escape(ev)}\n\n"
+        f"- 실제로 확인한 내용: {html.escape(ev)}\n\n"
+        f"<b>다음 액션</b>\n"
+        f"- 싱드 처리: {html.escape(next_action)}\n"
+        f"- 대장이 해줘야 할 것: {html.escape(user_action)}\n\n"
         f"<b>처리 기준</b>\n"
         "- 보고 카드/notify-subscribe는 만들지 않습니다.\n"
         "- secret, production DB, DNS, 유료, 외부 공개, 배포, migration은 대장 승인 전 실행하지 않습니다."
