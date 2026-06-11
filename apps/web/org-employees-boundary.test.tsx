@@ -1,0 +1,38 @@
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import AdminUsersPage from "./app/admin/users/page";
+import EmployeesPage from "./app/employees/page";
+import OrgPage from "./app/org/page";
+
+describe("Phase 11 org/employees skeleton boundaries", () => {
+  it("keeps employees page focused on general lookup instead of admin actions", () => {
+    const html = renderToStaticMarkup(<EmployeesPage />);
+
+    expect(html).toContain("직원 목록");
+    expect(html).toContain("/admin/users");
+    expect(html).toContain("작은 화면");
+    expect(html).not.toContain("초대 실행");
+    expect(html).not.toContain("권한 저장");
+    expect(html).not.toContain("COMPANY_ADMIN");
+    expect(html).not.toContain("HR_ADMIN");
+  });
+
+  it("keeps org page read-only and points policy changes back to admin routes", () => {
+    const html = renderToStaticMarkup(<OrgPage />);
+
+    expect(html).toContain("조직 구조");
+    expect(html).toContain("권한 체계 안내");
+    expect(html).toContain("/admin/policies");
+    expect(html).not.toContain("역할 생성");
+  });
+
+  it("keeps admin users page positioned as a higher-risk review surface", () => {
+    const html = renderToStaticMarkup(<AdminUsersPage />);
+
+    expect(html).toContain("역할 후보");
+    expect(html).toContain("상태 변경 diff");
+    expect(html).toContain("감사 후보");
+  });
+});

@@ -43,7 +43,10 @@ import {
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
   listCompaniesResponseSchema,
+  listDepartmentsResponseSchema,
+  listEmployeesResponseSchema,
   listPermissionsResponseSchema,
+  listRolesResponseSchema,
   noticeListResponseSchema,
   permissionCodeSchema,
   readReceiptCreateRequestSchema,
@@ -171,6 +174,144 @@ describe("shared contracts", () => {
         error: null,
       }).data.items[0].code,
     ).toBe("invite.manage");
+  });
+
+  it("parses org directory placeholder payloads with summaries, filters, and notices", () => {
+    expect(
+      listEmployeesResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "employee_manager",
+              companyId: "company_demo",
+              departmentId: "department_ops",
+              email: "manager@example.com",
+              fullName: "운영 매니저",
+              employmentStatus: "active",
+            },
+          ],
+          summaries: [
+            {
+              employeeId: "employee_manager",
+              departmentName: "운영팀",
+              roleSummary: "MANAGER · 팀 운영",
+              statusLabel: "재직",
+              statusTone: "positive",
+              primaryNote: "운영팀 소속 · 일반 조회용 요약",
+            },
+          ],
+          filters: {
+            departmentId: "department_ops",
+            employmentStatus: "active",
+            roleCode: "MANAGER",
+          },
+          filterOptions: {
+            departments: [
+              { id: "department_ops", name: "운영팀" },
+              { id: "department_hr", name: "인사팀" },
+            ],
+            employmentStatuses: ["active", "on_leave", "offboarded"],
+            roleCodes: ["MANAGER", "EMPLOYEE"],
+          },
+          notices: ["개인정보 상세 편집과 권한 저장은 이번 범위가 아닙니다."],
+          placeholder: true,
+        },
+        error: null,
+      }).data.summaries[0]?.roleSummary,
+    ).toContain("MANAGER");
+
+    expect(
+      listDepartmentsResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "department_ops",
+              companyId: "company_demo",
+              parentDepartmentId: "department_exec",
+              code: "OPS",
+              name: "운영팀",
+              status: "active",
+            },
+          ],
+          summary: {
+            title: "부서 구조 overview",
+            description: "상위/하위 부서 구조를 읽기 전용으로 요약합니다.",
+            count: 1,
+          },
+          notices: ["조직 개편 저장은 관리자 승인 범위입니다."],
+          placeholder: true,
+        },
+        error: null,
+      }).data.summary.count,
+    ).toBe(1);
+
+    expect(
+      listRolesResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              code: "MANAGER",
+              name: "MANAGER",
+              scope: "company",
+              permissions: ["company.read", "employee.read", "department.read", "role.read"],
+            },
+          ],
+          summary: {
+            title: "역할/직책 overview",
+            description: "운영 변경 없이 역할 설명만 먼저 보여 줍니다.",
+            count: 1,
+          },
+          notices: ["권한 직접 수정은 /admin/users 또는 /admin/policies 범위입니다."],
+          placeholder: true,
+        },
+        error: null,
+      }).data.summary.title,
+    ).toContain("역할");
+  });
+
+  it("allows general directory payloads to omit blocked role filters while keeping valid filter options", () => {
+    const payload = listEmployeesResponseSchema.parse({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "employee_employee",
+            companyId: "company_demo",
+            departmentId: "department_ops",
+            email: "employee@example.com",
+            fullName: "일반 구성원",
+            employmentStatus: "active",
+          },
+        ],
+        summaries: [
+          {
+            employeeId: "employee_employee",
+            departmentName: "운영팀",
+            roleSummary: "EMPLOYEE · 일반 구성원",
+            statusLabel: "재직",
+            statusTone: "positive",
+            primaryNote: "운영팀 소속 · 일반 조회용 요약",
+          },
+        ],
+        filters: {
+          departmentId: "department_ops",
+        },
+        filterOptions: {
+          departments: [{ id: "department_ops", name: "운영팀" }],
+          employmentStatuses: ["active", "on_leave", "offboarded"],
+          roleCodes: ["MANAGER", "EMPLOYEE"],
+        },
+        notices: ["운영 사용자/권한 검토는 /admin/users 에서 분리해 다룹니다."],
+        placeholder: true,
+      },
+      error: null,
+    });
+
+    expect(payload.data.filters.roleCode).toBeUndefined();
+    expect(payload.data.filterOptions.roleCodes).not.toContain("COMPANY_ADMIN");
   });
 
   it("parses attendance and leave placeholder payloads", () => {

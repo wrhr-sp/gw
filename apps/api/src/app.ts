@@ -275,6 +275,145 @@ const roles = (Object.keys(rolePermissions) as RoleCode[]).map((code) => ({
   permissions: [...rolePermissions[code]],
 }));
 
+const employeeRoleCodeByEmployeeId = new Map<string, RoleCode>(
+  Object.entries(roleEmployeeIds)
+    .filter((entry): entry is [RoleCode, string] => typeof entry[1] === "string")
+    .map(([roleCode, employeeId]) => [employeeId, roleCode]),
+);
+
+const employeeRoleSummaryLabels: Record<RoleCode, string> = {
+  SUPER_ADMIN: "SUPER_ADMIN · 전사 관리자 검토",
+  COMPANY_ADMIN: "COMPANY_ADMIN · 회사 운영 총괄",
+  HR_ADMIN: "HR_ADMIN · 인사 운영",
+  MANAGER: "MANAGER · 팀 운영",
+  EMPLOYEE: "EMPLOYEE · 일반 구성원",
+  AUDITOR: "AUDITOR · 감사 조회",
+};
+
+const employeeStatusLabels: Record<Employee["employmentStatus"], string> = {
+  active: "재직",
+  on_leave: "휴직/부재",
+  offboarded: "오프보딩",
+};
+
+const employeeStatusTones: Record<Employee["employmentStatus"], "positive" | "caution" | "muted"> = {
+  active: "positive",
+  on_leave: "caution",
+  offboarded: "muted",
+};
+
+function getEmployeeRoleCode(employeeId: string): RoleCode {
+  return employeeRoleCodeByEmployeeId.get(employeeId) ?? "EMPLOYEE";
+}
+
+type EmployeeDirectoryFilters = {
+  departmentId?: string;
+  employmentStatus?: Employee["employmentStatus"];
+  roleCode?: RoleCode;
+};
+
+type EmployeeDirectoryFilterResult =
+  | { ok: true; filters: EmployeeDirectoryFilters }
+  | { ok: false; response: ReturnType<typeof jsonError> };
+
+const employeeDirectoryEmploymentStatuses = ["active", "on_leave", "offboarded"] as const;
+const employeeDirectoryGeneralRoleCodes: RoleCode[] = ["MANAGER", "EMPLOYEE"];
+
+function isGeneralDirectoryRoleVisible(roleCode: RoleCode, viewerRoleCode: RoleCode) {
+  return isAdminRole(viewerRoleCode) || employeeDirectoryGeneralRoleCodes.includes(roleCode);
+}
+
+function buildEmployeeDirectoryFilters(context: AppContext, viewerRoleCode: RoleCode): EmployeeDirectoryFilterResult {
+  const query = context.req.query();
+  const { departmentId } = query;
+
+  let employmentStatus: Employee["employmentStatus"] | undefined;
+  if (query.employmentStatus) {
+    if (!employeeDirectoryEmploymentStatuses.includes(query.employmentStatus as Employee["employmentStatus"])) {
+      return {
+        ok: false as const,
+        response: jsonError(context, "VALIDATION_ERROR", "employmentStatus 필터 형식이 올바르지 않습니다.", 400, {
+          field: "employmentStatus",
+          allowedValues: employeeDirectoryEmploymentStatuses,
+          received: query.employmentStatus,
+        }),
+      };
+    }
+    employmentStatus = query.employmentStatus as Employee["employmentStatus"];
+  }
+
+  let roleCode: RoleCode | undefined;
+  if (query.roleCode) {
+    if (!(query.roleCode in rolePermissions)) {
+      return {
+        ok: false as const,
+        response: jsonError(context, "VALIDATION_ERROR", "roleCode 필터 형식이 올바르지 않습니다.", 400, {
+          field: "roleCode",
+          allowedValues: Object.keys(rolePermissions),
+          received: query.roleCode,
+        }),
+      };
+    }
+
+    const parsedRoleCode = query.roleCode as RoleCode;
+    if (isGeneralDirectoryRoleVisible(parsedRoleCode, viewerRoleCode)) {
+      roleCode = parsedRoleCode;
+    }
+  }
+
+  return {
+    ok: true as const,
+    filters: {
+      departmentId,
+      employmentStatus,
+      roleCode,
+    },
+  };
+}
+
+function buildEmployeeDirectoryFilterOptions(companyId: string, viewerRoleCode: RoleCode) {
+  return {
+    departments: departments
+      .filter((department) => department.companyId === companyId)
+      .map((department) => ({ id: department.id, name: department.name })),
+    employmentStatuses: employeeDirectoryEmploymentStatuses,
+    roleCodes: [
+      ...new Set(
+        employees
+          .filter((employee) => employee.companyId === companyId)
+          .map((employee) => getEmployeeRoleCode(employee.id))
+          .filter((roleCode) => isGeneralDirectoryRoleVisible(roleCode, viewerRoleCode)),
+      ),
+    ],
+  };
+}
+
+function buildEmployeeDirectorySummary(employee: Employee) {
+  const departmentName = departments.find((department) => department.id === employee.departmentId)?.name ?? "미지정";
+  const roleCode = getEmployeeRoleCode(employee.id);
+
+  return {
+    employeeId: employee.id,
+    departmentName,
+    roleSummary: employeeRoleSummaryLabels[roleCode],
+    statusLabel: employeeStatusLabels[employee.employmentStatus],
+    statusTone: employeeStatusTones[employee.employmentStatus],
+    primaryNote: `${departmentName} 소속 · 일반 조회용 상태 요약`,
+  };
+}
+
+function buildEmployeeDirectoryNotices() {
+  return [
+    "개인정보 상세 편집과 권한 저장은 이번 범위가 아닙니다.",
+    "운영 사용자/권한 검토는 /admin/users 에서 분리해 다룹니다.",
+    "실제 초대/비활성화/권한 변경 실행 없이 dev-safe 읽기 응답만 제공합니다.",
+  ];
+}
+
+function buildOrgDirectorySummary(title: string, description: string, count: number) {
+  return { title, description, count };
+}
+
 const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
   const employeeId = roleEmployeeIds[code] ?? "employee_admin";
   const employee = employees.find((item) => item.id === employeeId) ?? employees[0];
@@ -1449,13 +1588,45 @@ app.get(appRoutes.org.employees, (context) => {
     return authResult.response;
   }
 
+  const parsedFilters = buildEmployeeDirectoryFilters(context, authResult.auth.roleCode);
+  if (parsedFilters.ok === false) {
+    return parsedFilters.response;
+  }
+
+  const filters = parsedFilters.filters;
+  const visibleEmployees = employees.filter(
+    (employee) =>
+      employee.companyId === authResult.auth.user.companyId &&
+      isGeneralDirectoryRoleVisible(getEmployeeRoleCode(employee.id), authResult.auth.roleCode),
+  );
+  const filteredEmployees = visibleEmployees.filter((employee) => {
+    if (filters.departmentId && employee.departmentId !== filters.departmentId) {
+      return false;
+    }
+
+    if (filters.employmentStatus && employee.employmentStatus !== filters.employmentStatus) {
+      return false;
+    }
+
+    if (filters.roleCode && getEmployeeRoleCode(employee.id) !== filters.roleCode) {
+      return false;
+    }
+
+    return true;
+  });
+
   return jsonSuccess(
     context,
     listEmployeesResponseSchema,
     {
       ok: true,
       data: {
-        items: employees.filter((employee) => employee.companyId === authResult.auth.user.companyId),
+        items: filteredEmployees,
+        summaries: filteredEmployees.map((employee) => buildEmployeeDirectorySummary(employee)),
+        filters,
+        filterOptions: buildEmployeeDirectoryFilterOptions(authResult.auth.user.companyId, authResult.auth.roleCode),
+        notices: buildEmployeeDirectoryNotices(),
+        placeholder: true,
       },
       error: null,
     },
@@ -1469,13 +1640,21 @@ app.get(appRoutes.org.departments, (context) => {
     return authResult.response;
   }
 
+  const companyDepartments = departments.filter((department) => department.companyId === authResult.auth.user.companyId);
+
   return jsonSuccess(
     context,
     listDepartmentsResponseSchema,
     {
       ok: true,
       data: {
-        items: departments.filter((department) => department.companyId === authResult.auth.user.companyId),
+        items: companyDepartments,
+        summary: buildOrgDirectorySummary("부서 구조 overview", "상위/하위 부서 구조를 읽기 전용으로 요약합니다.", companyDepartments.length),
+        notices: [
+          "조직 개편 저장은 이번 단계 범위가 아닙니다.",
+          "작은 화면에서도 읽기 쉬운 카드/섹션 흐름을 우선합니다.",
+        ],
+        placeholder: true,
       },
       error: null,
     },
@@ -1489,7 +1668,26 @@ app.get(appRoutes.org.roles, (context) => {
     return authResult.response;
   }
 
-  return jsonSuccess(context, listRolesResponseSchema, { ok: true, data: { items: roles }, error: null }, 200);
+  const visibleRoles = roles.filter((role) => role.scope === "global" || authResult.auth.user.companyId === COMPANY_ID);
+
+  return jsonSuccess(
+    context,
+    listRolesResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: visibleRoles,
+        summary: buildOrgDirectorySummary("역할/직책 overview", "운영 변경 없이 역할 설명과 대표 권한 묶음만 먼저 보여 줍니다.", visibleRoles.length),
+        notices: [
+          "권한 직접 수정은 /admin/users 또는 /admin/policies 범위입니다.",
+          "역할 생성/삭제 저장 없이 읽기 전용 안내만 제공합니다.",
+        ],
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
 });
 
 app.get(appRoutes.org.permissions, (context) => {

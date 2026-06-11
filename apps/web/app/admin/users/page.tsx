@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { adminUserHighlights, adminUserReviewFields } from "../../../admin-skeleton-config";
 
