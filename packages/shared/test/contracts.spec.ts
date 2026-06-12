@@ -65,6 +65,17 @@ import {
   readReceiptCreateResponseSchema,
   sessionUserSchema,
 } from "../src/contracts";
+import {
+  isNativeMobilePrimaryWebRoute,
+  nativeMobileApprovalGates,
+  nativeMobileBaseUrlPolicy,
+  nativeMobileCriticalApiRoutes,
+  nativeMobileMonorepoPlan,
+  nativeMobilePermissionHints,
+  nativeMobilePrimaryRouteMappings,
+  nativeMobileRouteMappingIndex,
+  nativeMobileSessionBridgePolicy,
+} from "../src/mobile-contracts";
 
 const sampleOperationalBridge = {
   currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
@@ -133,6 +144,33 @@ describe("shared contracts", () => {
     );
     expect(appRoutes.documents.deleteFile("document_file_demo")).toBe("/api/documents/files/document_file_demo");
     expect(appRoutes.readReceipts).toBe("/api/read-receipts");
+  });
+
+  it("defines Phase 17 native mobile transition contracts and gates", () => {
+    expect(nativeMobileMonorepoPlan.appWorkspace).toBe("apps/mobile");
+    expect(nativeMobileMonorepoPlan.sharedWorkspace).toBe("packages/shared");
+    expect(nativeMobilePrimaryRouteMappings.map((item) => item.id)).toEqual([
+      "login",
+      "dashboard",
+      "attendance",
+      "leave",
+      "approvals",
+      "collaboration",
+      "me",
+    ]);
+    expect(nativeMobileRouteMappingIndex["/dashboard"].nativeSegment).toBe("(tabs)/dashboard");
+    expect(nativeMobileRouteMappingIndex["/boards"].label).toBe("공지/문서");
+    expect(nativeMobileRouteMappingIndex["/documents"].nativeSegment).toBe("(tabs)/collaboration");
+    expect(nativeMobileRouteMappingIndex["/documents"].webRoute).toBe("/boards");
+    expect(isNativeMobilePrimaryWebRoute("/leave")).toBe(true);
+    expect(isNativeMobilePrimaryWebRoute("/documents")).toBe(true);
+    expect(isNativeMobilePrimaryWebRoute("/admin")).toBe(false);
+    expect(nativeMobileBaseUrlPolicy.production.source).toBe("approved-origin-only");
+    expect(nativeMobileSessionBridgePolicy.storage).toBe("secure-storage-bridge");
+    expect(nativeMobileSessionBridgePolicy.disallowedStorage).toContain("web-cookie-copy");
+    expect(nativeMobilePermissionHints.approvals).toContain("approval.document.approve");
+    expect(nativeMobileCriticalApiRoutes).toContain(appRoutes.approvals.inbox);
+    expect(nativeMobileApprovalGates).toContain("유료 빌드와 외부 테스터 배포");
   });
 
   it("parses login/session and org list payloads", () => {

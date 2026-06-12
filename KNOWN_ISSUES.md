@@ -17,28 +17,28 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
+- 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안
+### 3. 현재 문서화/검증 기준은 Phase 17 네이티브 모바일앱 전환 준비
 
-현재 루트 문서와 handoff 는 게시판/공지/문서함/R2 skeleton 과 전체 smoke 기준을 다시 묶어, 대장이 preview/live URL에서 핵심 업무·협업 route·관리자 route를 함께 검토할 수 있는 Phase 16 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 Phase 16 PWA 파일럿 초안 이후, Expo/React Native 네이티브 앱 전환을 안전하게 시작할 수 있도록 monorepo 배치, shared contract, auth/session 경계, route mapping, 승인 게이트를 정리한 Phase 17 체인을 기준으로 맞춘다.
 
-- 핵심 업무 route 묶음은 `/`, `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 이다.
-- 협업 보강 route는 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 이다.
-- 관리자 route는 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 와 검증용 `/api/health`, `/admin/manifest.webmanifest` 이다.
-- 일반 업무 흐름, 협업 흐름, 관리자 검토 흐름은 같은 제품 안에 있어도 노출 목적과 권한 경계를 분리해서 설명해야 한다.
-- `/boards` 와 `/documents` 는 같은 협업 묶음이지만 notice-only/게시판 책임과 문서공간/첨부 보관 경계는 분리해 설명해야 한다.
-- R2 관련 범위는 private-by-default, D1 metadata 우선, raw storage 정보 비노출 기준까지만 다루며 실제 운영 업로드/public URL 오픈은 여전히 별도 승인이다.
-- blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder/dev-safe 제한 중 무엇인지 구분해 설명해야 한다.
-- live `.workers.dev` fetch 가 환경 gate 에 막히면 local `preview:cf` smoke, build:cf, deployment metadata 같은 대체 근거를 같이 남겨야 한다.
+- 기본 monorepo 추가안은 `apps/mobile` + `packages/shared` 재사용 구조다.
+- 모바일 1차 핵심 화면 묶음은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보다.
+- `/admin/*` 운영 화면은 모바일 기본 탭 범위에 자동 포함하지 않고 후속 범위 또는 Web fallback 후보로 본다.
+- same-origin `/api/*` 원칙은 유지하되 네이티브 앱에서는 base URL resolver 와 mock/dev-safe bridge 층으로 번역해야 한다.
+- Web cookie 동작을 모바일 세션 기본값처럼 가정하지 않고 secure storage bridge 기준을 먼저 둔다.
+- App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production origin 확정은 별도 승인 게이트다.
+- 현재 `apps/mobile` 은 Expo SDK 실설치/스토어 빌드 단계가 아니라 contract/typecheck 중심 skeleton 단계다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 파일럿 초안 단계에서 남아 있는 제품형 리스크
+### 4. 현재 모바일 전환 준비 단계에서 남아 있는 제품형 리스크
 
-- 게시판/문서 흐름이 보여도 실제 운영 협업툴 완성 상태처럼 오해될 수 있어 placeholder honesty를 계속 관리해야 한다.
-- `/documents` 와 첨부 metadata 흐름은 존재하지만, 실제 파일 업로드/다운로드 완성형 기대를 만들지 않도록 문구와 smoke 기준을 더 엄격히 유지해야 한다.
-- notice-only/private space/forged 접근 차단이 화면 문구와 테스트에서 같은 뜻으로 읽히지 않으면 운영자가 제한 사유를 오해할 수 있다.
-- 일반 업무 화면과 관리자 정책/권한/감사 preview 연결이 약하면 "어디까지 사내 검토 가능 상태인지" 설명이 흐려질 수 있다.
-- live URL 직접 fetch가 안 되는 환경에서는 대체 검증 근거를 남기지 않으면 파일럿 검토 신뢰도가 떨어진다.
+- Web/PWA에서 쓰던 same-origin 개념을 네이티브 앱에 그대로 복사하면 base URL 관리가 흩어질 수 있다.
+- 모바일 편의 때문에 role/scope/auth/session 경계를 느슨하게 만들면 Web/API 보안 모델과 충돌할 수 있다.
+- `apps/mobile` 과 Web UI 공용화를 과하게 밀면 오히려 monorepo 의존성이 복잡해질 수 있다.
+- 관리자 화면까지 모바일 1차 범위에 무리하게 넣으면 일반 사용자 핵심 흐름 우선 원칙이 약해질 수 있다.
+- 스토어/실기기/푸시/권한/유료 빌드가 문서에서 충분히 분리되지 않으면 "이미 배포 가능한 상태"처럼 오해될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

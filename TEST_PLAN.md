@@ -65,6 +65,17 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
 - 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
 
+### 1-5. Mobile skeleton 검증
+
+```bash
+pnpm --filter @gw/mobile typecheck
+```
+
+왜 돌리나:
+- `apps/mobile` shell 이 Web/PWA와 공유하는 route/auth/session 계약을 깨지 않았는지 가장 빠르게 확인한다.
+- `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `packages/shared/src/mobile-contracts.ts` 설명이 실제 타입과 어긋나지 않는지 본다.
+- store build 없이도 Phase 17 성공 기준인 skeleton/contract 경계를 재검증할 수 있다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -123,6 +134,8 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `appRoutes` 가 문서의 endpoint 목록과 맞는가
 - shared schema 이름과 설명이 실제 payload 와 맞는가
 - placeholder 필드 존재 여부를 문서가 숨기지 않았는가
+- `packages/shared/src/mobile-contracts.ts` 의 7개 모바일 1차 화면 mapping 이 `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`·`/documents`, `/me` 설명과 같은가
+- `/boards` 와 `/documents` alias 가 같은 협업 묶음 진입으로 설명되되 게시판 책임과 문서 보관 책임을 섞지 않는가
 
 주요 근거:
 - `packages/shared/src/contracts.ts`
@@ -182,10 +195,13 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - 일반 사용자 host 와 관리자 host 의 manifest/start_url/scope 분리가 문서 기준과 맞는가
 - 일반 사용자 host 에서 `/admin*` 가 그대로 렌더링되지 않는가
 - `build:cf` 가 통과하는가
+- `apps/mobile/src/base-url.ts` 가 production 에서는 approved origin 없이는 실패하고, preview/development 는 명시적 origin 또는 mock adapter 로만 풀리는가
+- preview 절대 URL 이 모바일 기본값처럼 하드코딩되지 않았는가
 
 대표 근거:
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
 - `docs/architecture/phase-7-api-same-origin-scope.md`
+- `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`
 - web build/test 결과
 
 ### 4-7. 문서 일관성 축
@@ -196,6 +212,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
 - Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
+- Phase 17 문서라면 `apps/mobile`, base URL resolver, secure storage bridge, 7개 핵심 화면, App Store/Play Console/TestFlight/EAS 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
@@ -281,6 +298,19 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 주요 테스트:
 - `apps/api/test/auth-org.spec.ts`
 - `apps/api/test/document-storage.spec.ts`
+
+### 네이티브 모바일 skeleton
+
+다시 볼 포인트:
+- `apps/mobile` 이 monorepo 안에서 `packages/shared` 계약만 재사용하고 Web 전용 렌더/PWA 책임을 억지로 끌어오지 않는지
+- `apps/mobile/src/base-url.ts` 가 approved origin only / devOrigin / mock adapter 정책과 같은 뜻으로 동작하는지
+- `apps/mobile/src/session-bridge.ts` 가 plain async storage, web-cookie-copy, query-string-token 금지 기준을 유지하는지
+- 로그인/대시보드/출퇴근/휴가/결재함/공지·문서/내 정보 7개 화면이 placeholder 범위를 넘어서 완성 배포처럼 보이지 않는지
+- `/admin/*` 운영 화면이 모바일 기본 탭으로 승격되지 않고 Web fallback 또는 후속 범위로 남는지
+
+주요 테스트:
+- `pnpm --filter @gw/mobile typecheck`
+- `packages/shared/test/contracts.spec.ts`
 
 ### 관리자 정책/감사
 

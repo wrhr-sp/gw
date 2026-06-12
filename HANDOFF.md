@@ -18,39 +18,43 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안이다. 게시판/공지/문서함/R2 skeleton과 전체 smoke 기준을 다시 묶어, 대장이 preview/live URL에서 핵심 화면·협업 흐름·제한·승인 게이트를 한 번에 검토할 수 있게 만드는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 17 네이티브 모바일앱 전환 준비다. Phase 16 PWA 파일럿 초안 이후 Expo/React Native 앱 shell, shared contract 재사용, 모바일 auth/session 경계, route mapping, dev-safe 검증 기준, 스토어 승인 게이트를 먼저 고정해 다음 구현자가 `apps/mobile` 작업을 안전하게 시작할 수 있게 만드는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 게시판/공지/문서함/첨부 metadata 흐름을 전체 제품 검토 기준 안에서 다시 정리해 "사내 검토용 초안"으로 설명 가능한 상태를 만드는 것이다.
-- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 협업/문서 보강 route로 보고, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 와 자연스럽게 이어지게 본다.
-- `/admin/policies`, `/admin/users`, `/admin/audit-logs` 는 문서/게시판 운영 정책·권한·감사 추적을 설명하되 일반 업무/협업 화면과 경계를 흐리지 않아야 한다.
-- R2 관련 범위는 private-by-default, D1 metadata 우선, binding-aware/dev-safe skeleton 기준까지만 다루고 실제 운영 업로드/public URL 오픈은 하지 않는다.
-- 핵심 smoke 기준은 핵심 업무 route + 협업 route + 관리자 route를 함께 보는 것이다.
-- live fetch가 환경 gate에 막힐 수 있으므로 `build:cf`, local `preview:cf` smoke, deployment metadata 같은 대체 근거를 같이 남긴다.
-- restricted 항목(secret, production data, DNS/custom domain, 유료 리소스, 외부 연동, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
-- 우선 참고 문서: `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`, `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`, `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`, `docs/architecture/phase-5-boards-documents-scope.md`, `docs/architecture/phase-8-r2-storage-scope.md`.
+- 이번 Phase의 목적은 앱스토어 배포를 시작하는 것이 아니라 네이티브 앱 전환 경계를 먼저 문서와 skeleton 기준으로 잠그는 것이다.
+- 기본 monorepo 추가안은 `apps/mobile` + `packages/shared` 재사용 구조다.
+- 모바일 1차 핵심 화면은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 묶음으로 본다.
+- same-origin `/api/*` 철학은 유지하되, 네이티브 앱에서는 base URL resolver 와 mock/dev-safe bridge 층으로 번역한다.
+- Web cookie 동작을 모바일 세션 기본값처럼 가정하지 않고 secure storage bridge 기준을 먼저 둔다.
+- `/admin/*` 운영 화면, 실기기 권한, 푸시, App Store/Play Console/TestFlight/EAS, secret, custom domain, production origin 확정은 별도 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`, `docs/guides/phase-17-native-mobile-transition-prep-handoff.md`, `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`, `docs/architecture/phase-6-mobile-pwa-scope.md`, `docs/architecture/phase-7-api-same-origin-scope.md`.
 
-2026-06-12 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안 메모:
+2026-06-13 Phase 17 네이티브 모바일앱 전환 준비 메모:
 
-- 기준 흐름은 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/employees`/`/org` 에서 협업 route(`/boards`, `/documents`)와 관리자 route(`/admin/*`)가 이어지는 구조로 본다.
-- `/dashboard` 상단 액션은 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 읽히고, `/boards` 와 `/documents` 는 아래 읽기 섹션에서도 placeholder honesty 를 보강하는 구조로 유지한다.
-- `/boards`, `/boards/[boardId]`, `/posts/[postId]` 는 notice-only와 일반 게시판 책임 분리, 읽기/작성/댓글 흐름, placeholder honesty를 같이 봐야 한다.
-- `/documents` 는 문서 공간/첨부 metadata 중심으로 보고, 실제 운영 파일 업로드/다운로드 완료처럼 보이지 않게 해야 한다.
-- R2/첨부 흐름은 raw storage key, bucket 이름, public URL 비노출을 계속 유지한다.
-- private 문서공간, forged 접근, notice-only 글쓰기 제한 같은 guardrail을 계속 핵심 검증 대상으로 본다.
-- `/admin/policies` 는 게시판/문서 운영 정책과 일반 협업 흐름이 같은 방향을 가리켜야 한다.
-- `/admin/audit-logs` 는 raw 민감정보 없이 read-only 운영 추적 톤을 유지해야 한다.
-- 대장이 확인할 때는 "무엇이 되나" 뿐 아니라 "왜 아직 여기서 멈추는가"와 "어떤 승인 게이트가 남았는가"까지 함께 보여 줘야 한다.
+- 기준 흐름은 웹 route 의미를 최대한 유지한 채 모바일 탐색 shell만 바꾸는 방식으로 본다.
+- `/login` → 모바일 로그인, `/dashboard` → 모바일 홈, `/attendance` → 출퇴근, `/leave` → 휴가, `/approvals` → 결재함, `/boards`·`/documents` → 공지/문서 묶음으로 읽는다.
+- `/admin/*` 는 모바일 1차 기본 탭에 넣지 않는다. 필요하면 후속 범위 또는 Web fallback 로 분리한다.
+- 모바일 1차 성공 기준은 store upload 가 아니라 `apps/mobile` 구조, shared contract 재사용, auth/session 경계, dev-safe 연결 기준이 정리되는 것이다.
+- preview/dev-safe는 운영 기본값이 아니라 검증용 대체 경로다. 운영 origin 하드코딩이나 secret 주입을 정당화하지 않는다.
+- 토큰/세션 저장은 secure storage bridge 계층을 전제로 하고, 평문 저장이나 Web cookie 복제를 기본값처럼 쓰지 않는다.
+- 대장이 확인할 때는 "어떤 화면을 먼저 앱으로 옮길지"와 함께 "왜 아직 앱스토어/실기기/푸시는 여기서 안 하는가"를 같이 보여 줘야 한다.
+- 현재 구현 초안은 `apps/mobile/app.config.ts`, `apps/mobile/src/*`, `packages/shared/src/mobile-contracts.ts` 에 들어 있으며, `pnpm check` 가 `@gw/mobile` typecheck 까지 포함하도록 맞춰져 있다.
+- 다음 구현자는 `apps/mobile/src/base-url.ts` 와 `apps/mobile/src/session-bridge.ts` 를 먼저 보고 운영 origin 하드코딩/Web cookie 복제 금지 기준이 실제 코드에서 유지되는지 확인하면 된다.
 
-대장이 preview/live URL 에서 바로 눌러 볼 쉬운 확인 순서:
-1. `/` 와 `/login` 에서 일반 업무와 협업/운영 검토 입구 설명이 유지되는지 본다.
-2. `/dashboard` 에서 근태/휴가/결재와 함께 공지·문서 진입점이 자연스럽게 이어지는지 본다.
-3. `/boards` 와 `/boards/board_notice`, `/boards/board_general` 에서 notice-only 공지와 일반 게시판 책임 차이가 먼저 읽히는지 본다.
-4. `/posts/board_post_board_general_employee_employee` 같은 예시 상세에서 bodyPreview 중심 본문, 댓글, 읽음 확인 흐름이 과장 없이 이어지는지 본다.
-5. `/documents` 에서 전사 문서함/인사 전용 문서함 경계와 첨부 metadata 흐름이 보이되 실운영 업로드 완료처럼 보이지 않는지 본다.
-6. `/admin/policies`, `/admin/users`, `/admin/audit-logs` 를 비교해 문서/게시판 운영 설명, 권한 경계, 감사 추적이 일반 업무 화면과 충돌하지 않는지 본다.
-7. live fetch가 막히면 어떤 route를 직접 확인하지 못했고 어떤 대체 근거(build:cf, preview smoke, deployment metadata, same-origin `/api/boards*`·`/api/documents*` 확인)를 썼는지 같이 본다.
+대장이 Phase 17 문서를 볼 때 바로 확인할 쉬운 순서:
+1. `docs/architecture/phase-17-native-mobile-transition-prep-scope.md` 에서 monorepo 기본안(`apps/mobile`)과 제외 범위를 먼저 본다.
+2. `docs/guides/phase-17-native-mobile-transition-prep-handoff.md` 에서 모바일 1차 화면 7개와 route mapping 을 본다.
+3. same-origin 원칙이 모바일에서 어떻게 base URL resolver / dev-safe bridge 로 번역되는지 확인한다.
+4. auth/session 문서에서 Web cookie 복제가 아니라 secure storage bridge 기준을 두는지 본다.
+5. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 모두 승인 게이트로 남았는지 확인한다.
+6. 코드 기준으로는 `apps/mobile/README.md`, `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `packages/shared/src/mobile-contracts.ts` 를 순서대로 보면 문서 설명과 실제 skeleton 경계를 바로 대조할 수 있다.
+
+대장이 지금 저장소에서 바로 눌러 볼 쉬운 확인 포인트:
+1. `apps/mobile/README.md` 에서 "지금 하는 것 / 아직 안 하는 것" 구분이 숨겨지지 않았는지 본다.
+2. `packages/shared/src/mobile-contracts.ts` 에서 7개 화면 mapping 과 `/boards`·`/documents` 협업 묶음 기준을 본다.
+3. `apps/mobile/src/base-url.ts` 에서 production approved origin only, preview/dev-safe 명시적 origin 또는 mock adapter 기준을 본다.
+4. `apps/mobile/src/session-bridge.ts` 에서 plain async storage 와 Web cookie copy 금지 기준을 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 
@@ -81,7 +85,7 @@
 - `gwreviewer`: 경계/보안/문서 일치 여부 검토, review-required 판단
 - `gwtester`: fixture, dry-run, service/journal, board stats, blocked list, dispatch dry-run 확인
 - `gwdocs`: 쉬운 한국어 문서, blocked 분류 문구, 보고 템플릿, handoff 정리
-- `gwops`: PR/CI/merge/release gate/branch cleanup 안전성 검토
+- `gwops`: PR/CI/merge/release cleanup 안전성 검토
 
 ### blocked 분류와 다음 액션
 - 방치: 허용 상태가 아니다. 다음 처리 주체가 비어 있으면 싱드가 재분류한다.
