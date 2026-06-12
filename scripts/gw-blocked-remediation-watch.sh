@@ -226,6 +226,114 @@ def is_stale_resolved_blocker(task: dict) -> tuple[bool, str]:
         return True, '[싱드 자동 정리] 후속 체인에서 blocker 해소와 검증 근거가 확인되어 stale/resolved blocker로 완료 처리합니다. secret/DNS/유료/production DB/destructive 작업 없음.'
     return False, ''
 
+def extract_release_branch(text: str) -> str | None:
+    patterns = (
+        r'git branch -d\s+`?([A-Za-z0-9._/-]+)`?',
+        r'git branch -D\s+`?([A-Za-z0-9._/-]+)`?',
+        r'branch:\s*`([^`]+)`',
+        r'branch\s+`([^`]+)`',
+        r'로컬 브랜치\s+`([^`]+)`',
+        r'local branch\s+`([^`]+)`',
+    )
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            branch = m.group(1).strip()
+            if branch and branch not in {'main', 'master'}:
+                return branch
+    return None
+
+def extract_pr_number(text: str) -> str | None:
+    m = re.search(r'(?:PR|#)\s*#?(\d+)', text, re.IGNORECASE)
+    return m.group(1) if m else None
+
+def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return run(['git', *args], check=check)
+
+def patch_id_for_commit(commit: str) -> str | None:
+    show = git('show', '--format=', '--no-ext-diff', commit, check=False)
+    if show.returncode != 0:
+        return None
+    proc = subprocess.run(['git', 'patch-id', '--stable'], cwd=root, env=env, text=True, input=show.stdout, capture_output=True)
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    return proc.stdout.split()[0]
+
+def branch_exists(branch: str) -> bool:
+    return git('show-ref', '--verify', '--quiet', f'refs/heads/{branch}', check=False).returncode == 0
+
+def remote_branch_absent(branch: str) -> bool:
+    return git('ls-remote', '--heads', 'origin', branch, check=False).stdout.strip() == ''
+
+def pr_merge_commit(pr_number: str | None) -> tuple[bool, str | None, str]:
+    if not pr_number:
+        return False, None, 'PR 번호를 찾지 못함'
+    proc = run(['gh', 'pr', 'view', pr_number, '--json', 'state,mergeCommit,url', '--jq', '[.state, (.mergeCommit.oid // ""), .url] | @tsv'], check=False)
+    if proc.returncode != 0:
+        return False, None, 'gh pr view 실패: ' + (proc.stderr or proc.stdout).strip()[:200]
+    parts = proc.stdout.strip().split('\t')
+    state = parts[0] if parts else ''
+    merge = parts[1] if len(parts) > 1 else ''
+    if state != 'MERGED' or not merge:
+        return False, None, f'PR #{pr_number} merged 상태가 아님: {state or "unknown"}'
+    return True, merge, f'PR #{pr_number} merged, merge={merge}'
+
+def is_release_cleanup_blocker(task: dict) -> tuple[bool, str, str | None, str | None]:
+    text = '\n'.join(str(task.get(k) or '') for k in ('title', 'body')) + '\n' + signal_text(task)
+    lower = text.lower()
+    scoped = any(x in lower for x in ('branch cleanup', 'pr merge', 'release gate', 'release-gate', 'merge/branch cleanup', '원격·로컬 branch cleanup'))
+    cleanup_signal = any(x in lower for x in ('local branch cleanup', '로컬 branch', '로컬 브랜치', 'git branch -d', 'git branch -d', 'branch deletion', '브랜치 삭제'))
+    merged_signal = any(x in lower for x in ('pr #', 'merged', 'merge commit', 'main release-gate', 'deploy success', 'remote branch'))
+    branch = extract_release_branch(text)
+    pr_number = extract_pr_number(text)
+    return scoped and cleanup_signal and merged_signal and bool(branch), text, branch, pr_number
+
+def maybe_complete_release_cleanup(task: dict, st: dict) -> tuple[bool, str]:
+    ok, text, branch, pr_number = is_release_cleanup_blocker(task)
+    tid = task.get('id') or '-'
+    if not ok or not branch:
+        return False, ''
+    pr_ok, merge_commit, pr_msg = pr_merge_commit(pr_number)
+    if not pr_ok:
+        return True, f'{tid}:release-cleanup-wait:{pr_msg}'
+    if not remote_branch_absent(branch):
+        return True, f'{tid}:release-cleanup-wait:remote-branch-still-exists:{branch}'
+    exists = branch_exists(branch)
+    details = [pr_msg, f'remote branch absent: {branch}']
+    if exists:
+        branch_sha = git('rev-parse', branch, check=False).stdout.strip()
+        branch_pid = patch_id_for_commit(branch_sha) if branch_sha else None
+        merge_pid = patch_id_for_commit(merge_commit) if merge_commit else None
+        if not branch_pid or not merge_pid or branch_pid != merge_pid:
+            return True, f'{tid}:release-cleanup-wait:patch-id-mismatch-or-missing'
+        current = git('branch', '--show-current', check=False).stdout.strip()
+        if current == branch:
+            if dry_run:
+                details.append(f'would detach from current branch {branch}')
+            else:
+                # Detach at the same commit first. This does not change the working tree and avoids
+                # checkout conflicts with unrelated dirty files in the shared worktree.
+                det = git('switch', '--detach', 'HEAD', check=False)
+                if det.returncode != 0:
+                    return True, f'{tid}:release-cleanup-failed:detach:{(det.stderr or det.stdout).strip()[:200]}'
+        if dry_run:
+            details.append(f'would delete local branch {branch} after patch-id match {branch_pid}')
+        else:
+            delete = git('branch', '-D', branch, check=False)
+            if delete.returncode != 0:
+                return True, f'{tid}:release-cleanup-failed:delete:{(delete.stderr or delete.stdout).strip()[:200]}'
+            details.append(f'local branch deleted: {branch}')
+    else:
+        details.append(f'local branch already absent: {branch}')
+    summary = '[싱드 자동 정리] PR merge/main release-gate/remote branch cleanup 근거와 patch-id 동등성 또는 branch 부재를 확인해 local branch cleanup blocker를 완료 처리합니다. ' + ' / '.join(details) + '. secret/DNS/유료/production DB/destructive 운영 데이터 작업 없음.'
+    if dry_run:
+        return True, f'{tid}:would-complete-release-cleanup:{branch}'
+    cp = kanban('complete', tid, '--result', summary, '--summary', summary, check=False)
+    if cp.returncode == 0:
+        st['handled'][tid] = {'at': int(time.time()), 'cleanup': 'release-branch', 'branch': branch, 'pr': pr_number, 'title': (task.get('title') or tid)[:160]}
+        return True, f'{tid}:completed-release-cleanup:{branch}'
+    return True, f'{tid}:release-cleanup-complete-failed:{(cp.stderr or cp.stdout).strip()[:200]}'
+
 def classify(task: dict) -> tuple[str, str]:
     raw_signal = signal_text(task)
     signal = raw_signal.lower()
@@ -311,6 +419,10 @@ actions = []
 for task in blocked:
     tid = task.get('id')
     if not tid:
+        continue
+    release_handled, release_action = maybe_complete_release_cleanup(task, st)
+    if release_handled:
+        actions.append(release_action)
         continue
     stale_resolved, stale_summary = is_stale_resolved_blocker(task)
     if stale_resolved:
