@@ -43,9 +43,21 @@ export const dashboardActionCards: DashboardActionCard[] = [
     detail: "승인함 우선, 보완/반려 확인, 실제 처리 저장은 제외",
   },
   {
+    href: "/boards",
+    title: "공지/게시판 읽기",
+    body: "읽어야 할 공지와 게시판 진입점을 상단 흐름에서 바로 확인하고 상세는 게시판에서 이어집니다.",
+    detail: "notice-only 톤 유지, 상세 읽기/작성 흐름은 /boards 에서 분리",
+  },
+  {
+    href: "/documents",
+    title: "문서 공간 확인",
+    body: "최근 문서 공간과 문서함 진입점을 상단 흐름에 포함해 문서 확인 동선을 끊지 않습니다.",
+    detail: "문서 공간/첨부 metadata 읽기 중심, 운영 업로드 완료처럼 과장 금지",
+  },
+  {
     href: "/employees",
     title: "조직/직원 확인",
-    body: "대시보드 설명과 같은 언어로 조직 구조와 직원 상태 조회 흐름을 이어서 확인합니다.",
+    body: "공지/문서 확인 다음에 조직 구조와 직원 상태 조회 흐름을 같은 언어로 이어서 확인합니다.",
     detail: "일반 조회 전용, 운영 변경은 /admin/users 에서 별도 검토",
   },
 ];

@@ -54,11 +54,15 @@ pnpm --filter @gw/web build
 - PWA/route/UI skeleton 과 same-origin web 쪽이 최소한 현재 빌드 가능한지 확인한다.
 - 문서에서 `/dashboard`, `/employees`, `/org`, `/admin/*` 같은 route 설명을 바꿨다면 실제 web 구조와 충돌하지 않는지 함께 본다.
 
-Phase 14 문서/흐름 카드에서 특히 다시 볼 것:
+Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특히 다시 볼 것:
 - 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 둘 다 소개하는지
 - 로그인(`/login`)이 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 과장 없이 설명하는지
-- 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/employees` 우선순위를 유지하는지
-- 일반 업무 route(`/attendance`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
+- 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하는지
+- 일반 업무 route(`/attendance`, `/leave`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
+- 협업 route(`/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`)가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴처럼 과장되지 않는지
+- `/boards` 가 전사 공지(`board_notice`)와 자유 게시판(`board_general`)을 같은 화면에서 보여 주더라도 notice-only와 일반 작성 책임 차이를 먼저 설명하는지
+- `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 를 분리해 보여 주고 forged/접근 불가 postId 403 경계 설명과 충돌하지 않는지
+- `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
 - 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
 
 ## 2. Cloudflare/Web 배포 후보 검증
@@ -149,6 +153,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 
 확인할 것:
 - 출퇴근/휴가/결재/업로드가 실제 운영 완료처럼 보이지 않는가
+- 게시판/문서/첨부 metadata 흐름이 실제 운영 협업 저장 완료처럼 보이지 않는가
 - notices/placeholder 필드가 문서와 코드에서 일관되게 남아 있는가
 - "아직 안 되는 것" 을 문서가 숨기지 않는가
 
@@ -189,8 +194,8 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `DATA_MODEL.md`, `API.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 가 서로 다른 말을 하지 않는가
 - phase 문서 링크가 실제 범위를 잘 가리키는가
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
-- Phase 14 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/approvals`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
-- `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance` 정책 안내와 `/admin/policies` 운영 정책 설명의 역할 경계가 문서마다 같은 뜻인가
+- Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
+- `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 

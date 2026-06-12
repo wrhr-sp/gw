@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 
+import { Phase16PilotPanel } from "../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import {
   dashboardActionCards,
@@ -23,9 +24,9 @@ export default function DashboardPage() {
     <PageShell
       backHref="/"
       backLabel="홈으로"
-      eyebrow="Phase 14 실사용 MVP 통합 1차"
+      eyebrow="Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안"
       title="대시보드 시작 화면 skeleton"
-      description="오늘 할 일, 승인 대기, 일반 조회, 관리자 경계를 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
+      description="오늘 할 일, 승인 대기, 공지·문서 진입, 일반 조회, 관리자 경계를 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -38,7 +39,7 @@ export default function DashboardPage() {
     >
       <SurfaceSection
         title="오늘 할 일"
-        description="가장 먼저 눌러야 할 업무 3가지를 상단에 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."
+        description="가장 먼저 눌러야 할 상단 액션 5가지를 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."
       >
         <div className="mobile-summary-grid">
           {dashboardActionCards.map((card) => (
@@ -103,6 +104,33 @@ export default function DashboardPage() {
           ))}
         </div>
       </SurfaceSection>
+
+      <Phase16PilotPanel
+        description="대시보드는 핵심 업무 route, 협업 route, 관리자 route 를 한 화면에서 묶어 사내 검토용 초안의 시작점으로 사용합니다."
+        confirmItems={[
+          "일반 직원은 /attendance, /leave, /approvals, /boards, /documents 로 자연스럽게 이동한다.",
+          "팀장/승인자는 approvals 중심 흐름을 먼저 보고 필요 시 직원/문서 확인으로 이어진다.",
+          "운영 관리자와 감사 사용자는 일반 조회와 /admin 계열 preview 가 분리돼 보인다.",
+        ]}
+        blockedItems={[
+          "실제 production KPI, 외부 알림 발송, 개인정보 원문 노출은 이번 단계에서 열지 않는다.",
+          "게시판/문서 진입점은 읽기 중심 placeholder 이며 운영 저장 완료 화면처럼 보이지 않게 유지한다.",
+        ]}
+        nextRoutes={[
+          { href: "/attendance", label: "/attendance", description: "오늘 근태 상태와 정정 필요 여부 확인" },
+          { href: "/approvals", label: "/approvals", description: "승인 대기와 팀 병목 후보 확인" },
+          { href: "/boards", label: "/boards", description: "공지/게시판 가드레일 확인" },
+          { href: "/documents", label: "/documents", description: "문서 공간/첨부 metadata 경계 확인" },
+        ]}
+        approvalGates={[
+          "production data 반영",
+          "secret 입력/교체",
+          "DNS/custom domain",
+          "유료 리소스 생성·증액",
+          "외부 연동",
+        ]}
+        evidenceNote="live fetch 가 막히면 pnpm check, pnpm --filter @gw/web build:cf, local preview/deployment metadata 를 대체 근거로 남깁니다."
+      />
 
       <SurfaceSection title="운영 요약" description="일반 조회 흐름과 관리자 운영 경계를 분리한 상태로 조직/직원 진입점과 권한 기반 admin CTA 규칙만 안내합니다." muted>
         <div className="grid-auto-compact">

@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { Phase16PilotPanel } from "../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const boardCards = [
@@ -61,6 +62,31 @@ export default function BoardsPage() {
           <li><a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a> — 게시글/문서 읽음 확인 공통 endpoint</li>
         </ul>
       </SurfaceSection>
+
+      <Phase16PilotPanel
+        description="게시판 화면은 공지 전달과 일반 게시판 흐름을 같은 협업 묶음 안에서 보여 주되, notice-only 책임과 운영 권한 경계를 분리해서 설명합니다."
+        confirmItems={[
+          "전사 공지는 읽기 중심이며 일반 구성원 글쓰기는 열지 않는다.",
+          "자유 게시판은 게시글/댓글/읽음 확인 흐름을 placeholder 로만 검토한다.",
+          "공지/게시판 상세와 문서함 route 가 같은 origin 안에서 이어진다.",
+        ]}
+        blockedItems={[
+          "실제 rich editor, 외부 알림 발송, 운영 공지 게시 자동화는 이번 단계 범위가 아니다.",
+          "게시판을 완성형 협업툴처럼 과장하지 않고 title/bodyPreview 중심으로 유지한다.",
+        ]}
+        nextRoutes={[
+          { href: "/boards/board_notice", label: "/boards/board_notice", description: "notice-only 공지 상세 placeholder 확인" },
+          { href: "/boards/board_general", label: "/boards/board_general", description: "일반 게시판 상세 placeholder 확인" },
+          { href: "/posts/board_post_board_general_employee_employee", label: "/posts/[postId]", description: "게시글 상세·댓글·읽음 확인 흐름 확인" },
+          { href: "/documents", label: "/documents", description: "협업 자료 문맥에서 문서 공간 흐름 비교" },
+        ]}
+        approvalGates={[
+          "실제 운영 공지 발송",
+          "production 게시글/댓글 데이터 반영",
+          "외부 메일/메신저 연동",
+        ]}
+        evidenceNote="same-origin API 스모크는 /api/notices, /api/boards, /api/boards/:boardId/posts, /api/read-receipts 로 이어서 확인합니다."
+      />
     </PageShell>
   );
 }

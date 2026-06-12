@@ -4,6 +4,11 @@
 
 ### Changed
 
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 Phase 16 대시보드 현재 UI 기준으로 다시 맞춰 `/dashboard` 상단 액션 순서(`/attendance` → `/approvals` → `/boards` → `/documents` → `/employees`)와 Phase 16 eyebrow 문구를 같은 뜻으로 정리했다.
+- 같은 Phase 16 루트 문서에 `/boards/board_notice`, `/boards/board_general`, 예시 게시글 상세, 전사 문서함 대 인사 전용 문서함 같은 실제 placeholder route 예시를 추가해 live URL 파일럿 확인 순서와 notice-only/R2 metadata 경계를 더 쉽게 따라가게 정리했다.
+- `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md` 와 `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md` 를 추가해 게시판/공지/문서함/R2 skeleton, 전체 smoke 기준, live URL 파일럿 확인 포인트, 남은 승인 게이트를 한 번에 설명하는 Phase 16 범위와 handoff 를 문서화했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안 기준으로 갱신해 현재 활성 체인, 핵심 업무 route + 협업 route + 관리자 route 묶음, 파일럿 검토 순서, restricted 승인 게이트를 다시 맞췄다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 보강해 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 협업 흐름, R2 binding-aware/dev-safe 경계, notice-only/private space/raw storage 비노출 guardrail, live smoke 대체 근거 기준을 루트 문서에 반영했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 현재 Phase 15 화면/API 근거에 다시 맞춰 `/leave` 4축 운영 메모, `/admin/users` 와 일반 조회/결재 책임 분리, `/admin/audit-logs` read-only 경계, 대장이 preview/live URL 에서 바로 볼 쉬운 확인 순서를 더 분명히 적었다.
 - `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md` 와 `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md` 를 추가해 관리자 정책/권한/감사 skeleton 이 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees` 및 관련 API 허용 기준에 왜 그렇게 반영되는지 설명하는 Phase 15 운영 연결 1차 범위와 handoff 를 문서화했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 15 운영 데이터·정책·감사 로그 연결 1차 기준으로 갱신해 현재 활성 체인, 핵심 운영 연결 포인트, `/leave` 정책 보강 대상, blocked/empty/error 4축(권한/회사 scope/정책 미허용/placeholder 제한) 설명 기준을 다시 맞췄다.

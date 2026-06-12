@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 
 type PageProps = {
@@ -60,6 +61,27 @@ export default async function BoardDetailPage({ params }: PageProps) {
           <a href="/documents">문서함 placeholder 보기</a>
         </div>
       </SurfaceSection>
+
+      <Phase16PilotPanel
+        description="게시판 상세 화면은 boardId 별 정보구조를 고정하고, 권한 차단/placeholder 제한/다음 route 연결을 live URL 에서 바로 설명할 수 있게 남깁니다."
+        confirmItems={[
+          `${boardId} 경로가 boardId 기반 정보와 권한 문구를 먼저 보여 준다.`,
+          "공지형과 일반 게시판이 서로 다른 책임을 갖는다는 점이 카드 구성에서 드러난다.",
+          "게시글 상세와 읽음 확인, 문서함 비교 route 로 바로 이어진다.",
+        ]}
+        blockedItems={[
+          "생성되지 않은 boardId 도 동일 정보구조 placeholder 로만 설명하며 실제 운영 게시판 생성으로 간주하지 않는다.",
+        ]}
+        nextRoutes={[
+          { href: `/posts/board_post_${boardId}_employee_employee`, label: "/posts/[postId]", description: "댓글/읽음 확인이 postId 기준으로 이어지는지 확인" },
+          { href: appRoutes.readReceipts, label: appRoutes.readReceipts, description: "게시글/문서 공통 읽음 확인 endpoint 확인" },
+          { href: "/documents", label: "/documents", description: "문서 공간 경계와 협업 묶음 비교" },
+        ]}
+        approvalGates={[
+          "production 게시판 생성/수정 반영",
+          "실제 공지 발행과 운영 정책 저장",
+        ]}
+      />
     </PageShell>
   );
 }
