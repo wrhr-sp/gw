@@ -2,8 +2,10 @@
 """Event-driven groupware Kanban blocked-remediation watcher.
 
 Uses Linux inotify via ctypes so it does not need the inotify-tools package.
-It wakes on SQLite DB close-write/create/move events, debounces the burst, then
-runs the bounded remediation handler once.
+It wakes on SQLite DB close-write/create/move events, debounces the burst,
+runs the bounded remediation handler when a blocked event appears, and also
+performs a low-frequency sweep so resolved stale blockers are not left until
+a human asks for status.
 """
 from __future__ import annotations
 
@@ -142,6 +144,7 @@ def main() -> int:
     parser.add_argument("--handler", default="/home/wrhrgw/gw/scripts/gw-blocked-remediation-watch.sh")
     parser.add_argument("--state", default="/home/wrhrgw/gw/.hermes/gw-blocked-remediation-inotify.state.json")
     parser.add_argument("--debounce", type=float, default=2.0)
+    parser.add_argument("--sweep-interval", type=float, default=120.0, help="Run the handler periodically to clean stale/resolved blockers even when only comments/completions changed.")
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -173,11 +176,13 @@ def main() -> int:
     poller.register(fd, select.POLLIN)
     pending = False
     due_at = 0.0
+    next_sweep_at = time.monotonic() + max(args.sweep_interval, 10.0)
 
     while True:
-        timeout_ms = -1
+        now = time.monotonic()
+        timeout_ms = max(0, int((next_sweep_at - now) * 1000))
         if pending:
-            timeout_ms = max(0, int((due_at - time.monotonic()) * 1000))
+            timeout_ms = min(timeout_ms, max(0, int((due_at - now) * 1000)))
         events = poller.poll(timeout_ms)
         now = time.monotonic()
         if events:
@@ -205,6 +210,14 @@ def main() -> int:
                 should_run = False
             if should_run:
                 run_handler(args.handler, args.board, root)
+                next_sweep_at = time.monotonic() + max(args.sweep_interval, 10.0)
+        if time.monotonic() >= next_sweep_at:
+            # Periodic safety net: catches stale/superseded blocked cards that become
+            # resolvable after review/verify completion comments, even when no new
+            # blocked event is emitted. The handler itself is idempotent and reads
+            # Kanban state before writing.
+            run_handler(args.handler, args.board, root)
+            next_sweep_at = time.monotonic() + max(args.sweep_interval, 10.0)
 
 
 if __name__ == "__main__":

@@ -190,21 +190,32 @@ def is_stale_resolved_blocker(task: dict) -> tuple[bool, str]:
     resolved_markers = (
         '후속 자동 재수정 체인에서 blocker가 해소',
         '후속 체인에서 blocker가 해소',
+        '후속 체인에서 같은 blocker가 해결',
+        '후속 기준 복구 체인',
+        'blocker 해소',
+        'blocker가 해소',
+        '해결됨을 확인',
         'changes-requested 원인',
         'resolved/stale blocker',
         'stale blocker로 정리',
+        'stale/superseded blocker',
+        'superseded/stale',
         '원본/stale 카드 상태 변경',
         '복구 정리 시도',
     )
     evidence_markers = (
         '재검증 통과',
         '검증 완료',
+        '검증 통과',
         'blocking 없음',
         '승인 가능',
         'pnpm check',
         'build:cf',
         'preview smoke 통과',
         'smoke 통과',
+        '테스트 통과',
+        '통과 근거',
+        '통과했으므로',
     )
     # Approval-gated stale cards must stay blocked if the actual remaining reason is restricted.
     explicit_approval = any(h in lower for h in ('사용자 승인 필요', '대장 승인 필요', 'approval-required', 'requires approval'))
