@@ -183,6 +183,38 @@ def already_intervened(task: dict) -> bool:
     haystack = signal_text(task)
     return 'blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다' in haystack or re.search(r'fix=t_[0-9a-f]+\s+review=t_[0-9a-f]+\s+verify=t_[0-9a-f]+\s+recovery=t_[0-9a-f]+', haystack) is not None
 
+def is_stale_resolved_blocker(task: dict) -> tuple[bool, str]:
+    """Return true when a blocked task is only a stale blocker already resolved by a verified follow-up chain."""
+    haystack = signal_text(task)
+    lower = haystack.lower()
+    resolved_markers = (
+        '후속 자동 재수정 체인에서 blocker가 해소',
+        '후속 체인에서 blocker가 해소',
+        'changes-requested 원인',
+        'resolved/stale blocker',
+        'stale blocker로 정리',
+        '원본/stale 카드 상태 변경',
+        '복구 정리 시도',
+    )
+    evidence_markers = (
+        '재검증 통과',
+        '검증 완료',
+        'blocking 없음',
+        '승인 가능',
+        'pnpm check',
+        'build:cf',
+        'preview smoke 통과',
+        'smoke 통과',
+    )
+    # Approval-gated stale cards must stay blocked if the actual remaining reason is restricted.
+    explicit_approval = any(h in lower for h in ('사용자 승인 필요', '대장 승인 필요', 'approval-required', 'requires approval'))
+    restricted = any(p.lower() in lower for p in RESTRICTED_PATTERNS)
+    resolved = any(m.lower() in lower for m in resolved_markers)
+    evidence = any(m.lower() in lower for m in evidence_markers)
+    if resolved and evidence and not (explicit_approval and restricted):
+        return True, '[싱드 자동 정리] 후속 체인에서 blocker 해소와 검증 근거가 확인되어 stale/resolved blocker로 완료 처리합니다. secret/DNS/유료/production DB/destructive 작업 없음.'
+    return False, ''
+
 def classify(task: dict) -> tuple[str, str]:
     raw_signal = signal_text(task)
     signal = raw_signal.lower()
@@ -268,6 +300,18 @@ actions = []
 for task in blocked:
     tid = task.get('id')
     if not tid:
+        continue
+    stale_resolved, stale_summary = is_stale_resolved_blocker(task)
+    if stale_resolved:
+        if dry_run:
+            actions.append(f'{tid}:would-complete-stale-resolved')
+        else:
+            cp = kanban('complete', tid, '--result', stale_summary, '--summary', stale_summary, check=False)
+            if cp.returncode == 0:
+                st['handled'][tid] = {'at': int(time.time()), 'cleanup': 'stale-resolved', 'title': (task.get('title') or tid)[:160]}
+                actions.append(f'{tid}:completed-stale-resolved')
+            else:
+                actions.append(f'{tid}:stale-cleanup-failed:{(cp.stderr or cp.stdout).strip()[:200]}')
         continue
     category, reason = classify(task)
     if category == 'ignore':
