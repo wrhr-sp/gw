@@ -20,8 +20,10 @@
 - `gw-review-required-gate.sh`: blocked `review-required` 카드를 표준 검증 후 complete/dispatch 하거나 자동 복구 루프로 넘기는 게이트
 - `gw-review-required-recovery-loop.sh`: review-required gate 검증 실패 시 `gwbuilder → gwreviewer → gwtester → singde` 복구 미니 체인을 생성
 - `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원)
-- `gw-hourly-status-report.py`: 현재 유일하게 유지하는 Telegram 정각 현황 보고. `gw-hourly-status-report.timer`로 09~20시 정각에만 실행한다.
-- 과거 blocked/report 카드 생성형 shell watcher, safe-triage Telegram watcher, direct event watcher, second-pass watcher는 제거했다. `notify-subscribe` 방식도 기본 금지다.
+- Telegram 사용자 보고는 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트/카드/runs/log를 확인해 직접 판단한 뒤 보내는 방식이다.
+- 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지다.
+- `정각 보고`는 기존 `gw-hourly-status-report.timer` 경로를 유지하고, 나머지 3가지는 싱드 판단 보고양식을 따른다.
+- 보고 watcher나 보조 스크립트를 수정할 때도 카드 생성/상태변경/댓글 이벤트 자체를 Telegram으로 그대로 보내지 않는다.
 
 ## 자동화 보강 스크립트 예시
 
@@ -131,7 +133,7 @@ worker timeout/crash 감지 1회 실행:
 ./scripts/gw-worker-recovery-watch.sh --once --interval 60 --max-age 1800
 ```
 
-review-required gate / recovery 빠른 확인:
+review-required gate / 반복 실패 복구 빠른 확인:
 
 ```bash
 bash -lc 'source ./scripts/gw-hermes-env.sh && command -v pnpm && command -v "$HERMES_BIN"'
@@ -143,8 +145,10 @@ bash ./scripts/gw-review-required-recovery-loop.sh --help
 
 - `review-required`는 무조건 사람 승인 대기가 아니라, 표준 검증으로 닫히면 complete + dispatch로 넘긴다.
 - test/typecheck/build/check 실패처럼 복구 가능한 항목은 원본 blocked 카드 방치 대신 자동 재수정→재리뷰→재검증→복구 정리 체인으로 보낸다.
+- 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`이 3회 이상 반복되면 새 재수정 카드를 계속 늘리지 않고 싱드가 직접 원본 카드, runs/log, 실패 명령, 변경 파일, 중복 worker 여부를 확인한다.
+- 자동 조치 가능하면 기준 복구 카드 1개만 남기고 다시 수정→리뷰→검증 체인으로 넘긴다.
 - secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 끝까지 자동 처리하지 않는다.
-- triage 전용 Telegram watcher는 제거됐다. blocked 분류 근거는 Kanban 상태와 worker-recovery/review-required gate 로그에서 확인하고, Telegram 자동 보고는 정각 현황만 사용한다.
+- Telegram 보고는 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한하고, 별도 보고 카드나 `notify-subscribe`를 만들지 않는다.
 - 이번 테스트 기준으로 `gw-review-required-recovery-loop.sh` 실제 카드 생성 경로와 `gw-hermes-env.sh`의 직접 PATH 출력은 아직 별도 캡처가 없다. 운영 전에는 테스트용 blocked 카드 1건과 systemd user 셸에서 마지막 확인을 한 번 더 두는 편이 안전하다.
 
 텔레그램 정각보고 확인:
@@ -154,7 +158,7 @@ bash ./scripts/gw-review-required-recovery-loop.sh --help
 python3 ./scripts/gw-hourly-status-report.py --dry-run --force
 ```
 
-카드 이벤트 자동 보고 watcher와 safe-triage 즉시 보고는 제거됐다. 정각보고 외 텔레그램 보고가 필요하면 대장 명시 승인 후 제한 테스트 채널 또는 `--dry-run`으로 먼저 확인한다.
+카드 이벤트 자동 보고 watcher와 safe-triage 즉시 보고는 제거됐다. `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`가 필요하면 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트를 읽고 판단해 보고양식으로 직접 보고한다.
 
 ## 운영 팁
 
