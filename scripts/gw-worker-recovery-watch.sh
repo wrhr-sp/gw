@@ -70,6 +70,43 @@ if p.returncode!=0:
     print('worker recovery: kanban list 실패:', p.stderr.strip() or p.stdout.strip(), file=sys.stderr); sys.exit(1)
 items=json.loads(p.stdout or '[]'); now=int(time.time()); st=load_state(); st['generation']=int(st.get('generation') or 0)+1; gen=st['generation']; handled=st.setdefault('handled',{})
 actions=[]
+# Guard against same-worktree tester/build overlap.  Multiple gwtester cards can become
+# ready from different parents, but running them together can race on .next/open-next
+# artifacts even though individual package scripts use a build lock.
+running_testers=[]
+for t in items:
+    if t.get('status') != 'running' or t.get('assignee') != 'gwtester':
+        continue
+    title=str(t.get('title') or '')
+    if '테스트' not in title and '검증' not in title:
+        continue
+    workspace=t.get('workspace_path') or t.get('workspace') or root
+    try:
+        started=int(t.get('started_at') or 0)
+    except Exception:
+        started=0
+    running_testers.append((workspace, started, t))
+by_workspace={}
+for workspace, started, task in running_testers:
+    by_workspace.setdefault(workspace, []).append((started, task))
+for workspace, group in by_workspace.items():
+    if len(group) <= 1:
+        continue
+    group.sort(key=lambda item: (item[0] or now, item[1].get('id') or ''))
+    keep=group[0][1]
+    for _, dup in group[1:]:
+        tid=dup.get('id')
+        if not tid:
+            continue
+        key=f'{tid}:duplicate-running-tester:{keep.get("id")}'
+        if key in handled:
+            continue
+        reason=f'싱드 자동 조치: 같은 worktree({workspace})에서 gwtester 검증 카드가 중복 running 되어 {keep.get("id")} 기준 경로만 남기고 경합 방지를 위해 대기 처리'
+        kanban('comment', tid, f'[worker-recovery:duplicate-running-tester] {reason}', check=False)
+        kanban('reclaim', tid, '--reason', reason, check=False)
+        kanban('schedule', tid, reason, check=False)
+        handled[key]={'at':now,'generation':gen,'category':'duplicate-running-tester','title':str(dup.get('title') or '')[:180]}
+        actions.append((tid,'duplicate-running-tester','scheduled'))
 for t in items:
     tid=t.get('id'); status=t.get('status'); title=t.get('title',''); reason=str(t.get('result') or title or '')
     if not tid: continue
