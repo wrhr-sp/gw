@@ -78,7 +78,7 @@
 - 스크립트 수정 후에는 `bash -n`, `python3 -m py_compile`, 관련 테스트, `systemctl --user status`, journal, `systemctl --user --failed`, `dispatch --dry-run`을 가능한 범위에서 검증한다.
 - Telegram 사용자 보고 경로는 Kanban 이벤트 watcher의 자동 중계가 아니라 싱드가 이벤트/카드/runs/log를 읽고 판단해 직접 보내는 방식이다. 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한한다.
 - `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`는 카드 생성/상태변경 이벤트를 그대로 쏘지 않는다. 이벤트가 발생하면 싱드가 근거를 확인하고 보고양식에 맞춰 직접 보고한다.
-- `정각 보고`는 기존 `gw-hourly-status-report.timer` 기반 09~20시 정각 현황 보고만 유지한다.
+- `정각 보고`는 기존 `gw-hourly-status-report.timer` 기반 09~22시 정각 현황 보고만 유지한다.
 - 별도 사용자 결과보고/막힘 보고 카드를 생성하거나 `notify-subscribe`를 붙이는 방식은 중복·아리아 경유 보고를 만들 수 있으므로 대장 명시 승인 없이는 켜지 않는다.
 - 자동화 스크립트가 카드 생성/완료/보류/dispatch를 수행한다면 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 반드시 둔다.
 

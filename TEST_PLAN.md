@@ -83,6 +83,25 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - release/review-required/recovery watcher 관련 운영 안전장치가 문서와 다르게 망가지지 않았는지 본다.
 - 문서에서 운영 흐름을 설명할 때, 실제 스크립트가 최소한 문법상/테스트상 살아 있는지 확인한다.
 
+역할봇 판단루프 고도화 작업에서 추가로 볼 것:
+- blocked 재판단 순서가 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요 순으로 유지되는지 확인한다.
+- `already-handled` 로그가 나왔을 때 원본 카드와 생성 체인의 최신 상태를 다시 보는 기준이 있는지 확인한다.
+- fixture/dry-run뿐 아니라 service active/status, journal sweep, board stats, blocked list, dispatch dry-run까지 운영 근거가 남는지 확인한다.
+- 역할별 책임 경계가 결과에 같이 드러나는지 확인한다. 예: `gwdocs`는 보고양식/blocked 설명, `gwtester`는 실행 명령/보드 근거, `gwops`는 merge/release cleanup 근거를 남긴다.
+- Telegram 보고정책 문서가 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리하는지 확인한다.
+- blocked 분류가 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요로 설명돼 있는지 확인한다.
+- 카드 댓글 완료와 사용자 직접 보고 완료를 다른 상태로 구분하는지 확인한다.
+- 같은 카드·같은 이유·같은 근거에서 중복/스팸 보고를 막는 기준이 있는지 확인한다.
+- scheduled 복구 카드 정리라면 예전 오류 재현 로그만 보지 말고, 최신 저장소에서 `pnpm check`, 관련 test/typecheck/build, 가능하면 `pnpm --filter @gw/web build:cf`, local `preview:cf` smoke 까지 다시 대조해 "지금도 살아 있는 일인지"를 확인한다.
+
+검증자동화 표준 체크 묶음:
+1. fixture 또는 카드 샘플로 release cleanup / stale / review-required / already-handled 분기를 재현한다.
+2. dry-run 으로 실제 상태 변경 없이 어떤 분류가 나오는지 확인한다.
+3. service active/status 또는 대체 가능한 process/journal 근거를 남긴다.
+4. board stats, blocked list, dispatch dry-run 으로 현재 보드 상태를 함께 남긴다.
+5. GitHub/merge/release cleanup 범위가 섞이면 PR head, merge 상태, main release-gate, remote branch 부재, diff/patch-id 동등성을 분리 확인한다.
+6. 최종 결과에는 `자동화가 한 일 / 싱드가 직접 개입한 일 / 자동화가 못 끝낸 이유 / 보완한 자동화` 4축이 실제로 채워졌는지 본다.
+
 ## 4. 시나리오 기반 검증 축
 
 아래 시나리오는 기능 변경 카드뿐 아니라 루트 문서 보강 카드에서도 "현재 설명이 코드와 맞는지" 확인할 때 같이 참고한다.
@@ -163,6 +182,32 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `DATA_MODEL.md`, `API.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 가 서로 다른 말을 하지 않는가
 - phase 문서 링크가 실제 범위를 잘 가리키는가
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
+
+### 4-8. 역할봇 판단루프 / 운영 자동화 축
+
+확인할 것:
+- blocked 카드가 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요 순으로 재분류되는가
+- `already-handled` 로그가 나와도 원본 카드와 생성 체인의 최신 상태를 다시 확인하는가
+- fixture/dry-run 결과만이 아니라 service active/status, journal sweep, board stats, blocked list, dispatch dry-run 근거가 함께 남는가
+- Telegram 보고 문서/결과가 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리하는가
+- blocked 분류 문서/결과가 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요를 같은 뜻으로 쓰는가
+- 카드 댓글 작성 완료와 사용자 직접 보고 완료를 분리 기록하는가
+- 같은 카드·같은 이유·같은 근거의 반복 알림을 막는 기준이 있는가
+- card-scoped `PR merge`/`release gate`/`branch cleanup` 정리가 검증 근거 없이 자동 실행되지 않는가
+- restricted 항목이 운영 자동화 범위에 섞여 들어오지 않는가
+
+대표 근거:
+- `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md`
+- `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md`
+- `docs/guides/automation-hardening-review-gate-handoff.md`
+- `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md`
+- `RUNBOOK.md`
+- 관련 Kanban 카드 comment/summary/metadata
+
+scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
+- 부모 카드 재검증 기준으로 `pnpm check`, `pnpm --filter @gw/web build:cf`, local `preview:cf` smoke 가 모두 통과했는지 본다.
+- local `preview:cf` smoke 는 `/`, `/login`, `/boards`, `/documents`, `/manifest.webmanifest` 200 과 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 의 로그인 유도(307), `/api/health` 200 JSON, `/api/me` 401 JSON 같은 경계가 유지되는지 함께 기록한다.
+- 위 최신 근거가 있으면 예전 scheduled reviewer/tester/singde 후속 카드는 단독 유지 이유가 약한지 다시 판단한다.
 
 ## 5. 모듈별 대표 회귀 포인트
 

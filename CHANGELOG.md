@@ -4,6 +4,15 @@
 
 ### Changed
 
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `docs/workflow/groupware-kanban-automation.md`, `scripts/README.md` 를 다시 보강해 역할별 기본 책임 매트릭스, card-scoped 예외 권한 원칙, blocked 분류별 다음 액션, fixture/dry-run/service journal/board state/PR gate를 묶어 보는 검증자동화 체크 기준을 더 분명히 적었다.
+- `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md` 와 `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md` 를 추가해 역할봇 권한 확대 대신 싱드/Watcher 판단루프 보강을 우선하는 운영 설계, blocked 재판단 순서, Telegram 보고 분리 기준, 검증자동화 handoff 를 문서화했다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 현재 역할봇 권한·판단루프·보고정책·검증자동화 고도화 체인 기준으로 갱신했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 blocked 재판단 순서, `already-handled` 재확인 기준, Telegram 보고 4분류, fixture/dry-run/service sweep/board state/PR-CI-main gate 검증 축을 반영했다.
+- 역할봇 판단형 Telegram 보고정책 문서를 더 보강해 blocked 5분류 설명, 쉬운 한국어 최종 보고 예시, 카드 댓글 완료와 사용자 직접 보고 완료 분리, 같은 카드·같은 이유·같은 근거 중복 보고 방지 기준을 `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md`, `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `scripts/README.md`, `KNOWN_ISSUES.md` 에 반영했다.
+- `docs/architecture/scheduled-recovery-card-cleanup-scope.md` 와 `docs/guides/scheduled-recovery-card-cleanup-handoff.md` 를 추가해 예전 web build flaky / recovery loop 관련 scheduled 카드들을 최신 `main` 기준으로 재분류하는 범위, 제외 범위, 안전한 정리 순서를 문서화했다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 현재 활성 체인이 "이전 scheduled 복구 카드 정리" 단계임이 드러나도록 갱신했다.
+- `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 scheduled/stale/superseded 카드 정리 시 확인해야 할 근거와 restricted 분리 체크를 추가했다.
+- `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md` 를 추가해 예전 web build/attendance recovery loop 관련 scheduled 카드 14장을 최신 완료 카드와 현재 검증 결과 기준으로 다시 분류했고, 유지 대상 scheduled 카드는 없다는 판단 근거를 표로 정리했다.
 - `docs/architecture/admin-pwa-install-offline-quality-scope.md` 와 `docs/guides/admin-pwa-install-offline-quality-handoff.md` 를 추가해 관리자 PWA 설치 UX, 오프라인 안내, manifest 세부값, icons/maskable, manual/Lighthouse smoke 기준을 한 세트로 문서화했다.
 - `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `ROADMAP.md` 를 현재 관리자 PWA 품질 개선 체인 기준으로 갱신했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 관리자 설치 copy, 오프라인 honesty, manifest 필수값, icons/maskable, local preview/manual install/Lighthouse 체크 기준을 반영했다.
@@ -24,6 +33,7 @@
 - live `.workers.dev` fetch 가 막힐 때 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 substitute evidence 로 남기는 검증 기준을 문서에 추가했다.
 - `SPEC.md`, `TEST_PLAN.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 최신 구현 기준으로 다시 맞춰 `packages/shared/src/admin-access.ts` 단일 접근 행렬, `/admin/audit-logs` 의 `audit.read` 기준, 부모 카드 검증 근거(PR #39 merge commit `c14bb65`, `release-gate` run `27398275720`)를 한 번에 따라가게 정리했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 다시 맞춰 관리자 PWA 문서 기준에 `id`/`display_override`/`shortcuts`, 온라인/오프라인 banner 동작, 관리자 offline 페이지 nav 노출, `touchTargetStyle`(48px/18px) 회귀 보호 기준을 반영했다.
+- scheduled 복구 카드 정리 문서를 한 번 더 다듬어, stale/superseded 판단이 예전 실패 로그만이 아니라 최신 `pnpm check`·`build:cf`·local `preview:cf` smoke 같은 현재 검증 근거와 함께 이뤄져야 한다는 기준을 `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 에 반영했다.
 
 ## 2026-06-11
 

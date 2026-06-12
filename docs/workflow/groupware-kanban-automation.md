@@ -177,6 +177,19 @@ cd /home/wrhrgw/gw
 
 ## 상태 확인/추적
 
+자동 정리 watcher 기준 메모:
+- blocked remediation watcher는 blocked 카드를 release cleanup → stale/superseded → review-required defer → 자동 재수정 후보 → 승인 필요 순으로 다시 본다.
+- `already-handled` 로그는 끝난 뜻이 아니라 기존 체인 상태(run/show/comment)를 다시 확인하라는 신호다.
+- branch cleanup/release gate 자동 정리는 PR merged, PR head checks, main release-gate success, remote branch absence, patch-id/diff 동등성, dirty worktree 안전성까지 확인한 경우에만 허용한다.
+- 역할별 기본 책임은 유지한다. planner=범위, builder=구현, reviewer=리뷰, tester=검증, docs=문서/보고 양식, ops=PR·CI·release cleanup 이고, 예외 권한은 카드 범위에 적힌 경우만 쓴다.
+
+검증자동화 빠른 기준:
+- fixture 또는 실제 카드 샘플로 판단 분기를 재현한다.
+- dry-run 결과만이 아니라 service/process/journal 근거를 같이 남긴다.
+- board stats, blocked list, dispatch dry-run 을 함께 본다.
+- merge/release cleanup 범위는 PR head/merge/main gate/remote branch/diff 동등성 근거를 분리해 남긴다.
+- 사용자-facing 결과는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화` 4축으로 정리한다.
+
 전체 상태:
 
 ```bash

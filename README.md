@@ -164,6 +164,8 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력은 하지 않음
 - production DB migration, 외부 공개 배포, DNS/R2/도메인 작업, 실제 비밀값 입력은 별도 승인 필요
 - 정각 현황 보고 외 Telegram 이벤트 watcher는 제거했고, GitHub release gate 검토 범위에는 남은 운영 스크립트 변경만 포함
+- 사용자-facing Telegram 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 나눠 적고, 카드 댓글만으로 보고 완료라고 보지 않습니다.
+- 같은 카드·같은 이유·같은 근거의 즉시 보고는 반복하지 않고, 상태가 바뀌었을 때만 다시 알립니다.
 
 Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
