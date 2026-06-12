@@ -20,6 +20,13 @@ export type DashboardRouteCard = {
   body: string;
 };
 
+export type DashboardRoleJourneyCard = {
+  role: string;
+  firstRoute: string;
+  summary: string;
+  detail: string;
+};
+
 export const dashboardTopBadges = ["today-first", "dev-safe summary", "small-screen readable"] as const;
 
 export const dashboardActionCards: DashboardActionCard[] = [
@@ -30,16 +37,16 @@ export const dashboardActionCards: DashboardActionCard[] = [
     detail: "마지막 기록, 정정 필요 여부, 온라인에서만 상태 변경",
   },
   {
-    href: "/leave",
-    title: "휴가 확인",
-    body: "잔여 snapshot 과 신청/승인 대기를 먼저 확인한 뒤 휴가 화면으로 이어집니다.",
-    detail: "잔여 안내, 신청 CTA, 처리 대기 확인",
+    href: "/approvals",
+    title: "승인 대기 확인",
+    body: "내 승인 대기와 팀/결재 병목 후보를 먼저 읽고 approvals 상세 화면으로 이동합니다.",
+    detail: "승인함 우선, 보완/반려 확인, 실제 처리 저장은 제외",
   },
   {
-    href: "/approvals",
-    title: "승인함 확인",
-    body: "내 승인 대기와 보완/반려 확인이 필요한 문서를 먼저 보여 줍니다.",
-    detail: "결재 병목, 예외 확인, 상세는 approvals 에서 처리",
+    href: "/employees",
+    title: "조직/직원 확인",
+    body: "대시보드 설명과 같은 언어로 조직 구조와 직원 상태 조회 흐름을 이어서 확인합니다.",
+    detail: "일반 조회 전용, 운영 변경은 /admin/users 에서 별도 검토",
   },
 ];
 
@@ -78,10 +85,37 @@ export const dashboardStatusCards: DashboardStatusCard[] = [
     href: "/attendance",
   },
   {
-    title: "휴가 잔여 snapshot",
-    summary: "잔여/대기/최근 처리 상태를 카드 한 줄로 요약합니다.",
-    detail: "/api/leave/balances + /api/leave/requests 재사용 후보",
-    href: "/leave",
+    title: "조직/직원 조회 경로",
+    summary: "일반 조회 화면에서 부서 구조와 직원 상태를 어디서 확인하는지 한 줄로 정리합니다.",
+    detail: "/org 와 /employees 는 읽기 전용이고 운영 변경은 관리자 흐름으로 분리",
+    href: "/employees",
+  },
+];
+
+export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
+  {
+    role: "일반 직원",
+    firstRoute: "/attendance",
+    summary: "오늘 상태를 먼저 보고 근태와 전자결재를 이어서 처리합니다.",
+    detail: "관리자 CTA 는 숨기고 일반 조회만 /org, /employees 로 연결",
+  },
+  {
+    role: "팀장 / 결재자",
+    firstRoute: "/approvals",
+    summary: "내 승인 대기와 팀 병목 요약을 먼저 확인합니다.",
+    detail: "필요 시 /employees 에서 인원 상태만 참고",
+  },
+  {
+    role: "인사 / 운영 관리자",
+    firstRoute: "/admin",
+    summary: "권한 기반 운영 CTA 로 관리자 허브에 진입합니다.",
+    detail: "일반 조회와 운영 변경 검토를 분리 유지",
+  },
+  {
+    role: "감사 전용 사용자",
+    firstRoute: "/admin/audit-logs",
+    summary: "감사 로그 조회와 마스킹/회사 경계 확인을 먼저 수행합니다.",
+    detail: "전체 관리자 허브 대신 조회 전용 경로 우선",
   },
 ];
 

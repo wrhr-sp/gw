@@ -38,9 +38,9 @@ const detailSections = [
 export default function ApprovalsPage() {
   return (
     <PageShell
-      eyebrow="모바일 전자결재 skeleton"
+      eyebrow="Phase 14 승인 흐름 연결"
       title="전자결재 1차 skeleton"
-      description="모바일에서 내 승인함을 먼저 열고, 기안 작성과 상세 상태를 작은 화면에서도 우선순위가 드러나게 정리한 placeholder 입니다."
+      description="대시보드의 승인 대기 요약과 같은 우선순위로 내 승인함, 팀 병목, 기안 작성 진입점을 작은 화면에서도 먼저 읽히게 정리한 placeholder 입니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="승인 placeholder" hint="실제 승인 처리는 self-approval guardrail 과 회사 범위 검증이 연결된 뒤에만 활성화됩니다." />

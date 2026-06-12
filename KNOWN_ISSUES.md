@@ -17,43 +17,26 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 역할봇 권한·판단루프·보고정책·검증자동화 고도화
+### 3. 현재 문서화/검증 기준은 Phase 14 실사용 MVP 통합 1차
 
-현재 루트 문서와 handoff 는 역할봇 권한 확대보다 싱드/Watcher 판단루프 보강을 우선하는 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 따로 있는 skeleton 을 한 흐름으로 묶는 Phase 14 체인을 기준으로 맞춘다.
 
-- blocked 재판단 순서는 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요 순으로 고정하는 방향이다.
-- `already-handled` 로그는 해결 완료 확정이 아니라 원본 카드와 생성 체인 상태 재확인 신호로 다뤄야 한다.
-- Telegram 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리해야 한다.
-- 정각 보고 외 raw 이벤트 중계는 계속 금지하며, 카드 댓글만으로 사용자 보고 완료라고 보지 않는다.
-- 같은 카드·같은 이유·같은 근거의 중복 보고를 막는 기준과, 카드 댓글 작성 완료/사용자 직접 보고 완료를 분리 기록하는 기준이 필요하다.
-- fixture/dry-run/service journal/board state/PR-CI-main gate를 같이 보는 검증 세트가 필요하다.
-- 역할별 기본 책임(`gwplanner/gwbuilder/gwreviewer/gwtester/gwdocs/gwops`)과 card-scoped 예외 권한을 문서/결과에서 같은 뜻으로 유지해야 한다.
+- 핵심 route 묶음은 `/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*` 이다.
+- 일반 업무 흐름과 관리자 검토 흐름은 같은 제품 안에 있어도 화면 노출과 목적을 분리해서 설명해야 한다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토는 같은 데이터 축을 보더라도 같은 화면 역할로 설명하면 안 된다.
+- `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명은 같은 방향을 가리켜야 한다.
+- `/approvals` 는 승인 처리 app 처럼 보여도 실제 저장/완료를 속이면 안 된다.
+- `/admin*` 는 일반 사용자에게 노출되지 않아야 하고, UI 숨김뿐 아니라 route/API guard 기준도 계속 유지해야 한다.
+- boards/documents/leave/offline 은 연결 문맥은 유지하지만 이번 Phase의 주된 smoke 성공 판정은 핵심 8개 route 묶음에 둔다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 자동화 보강분 이력
+### 4. 현재 MVP 통합 단계에서 남아 있는 제품형 리스크
 
-이전 자동화 보강 작업은 완료 이력으로 남겨 둔다.
-
-대상:
-
-- review-required gate 표준 검증
-- safe triage 실패 재시도/backoff
-- recovery loop 생성
-- systemd watcher PATH 보강
-- release cleanup/stale blocker 자동 정리 운영 경험
-
-관련 Kanban 체인:
-
-- `t_3cc774a3` → `t_f54c6e19` → `t_27995f12` → `t_cda0641f` → `t_3539349e` → `t_d7f30c03` → `t_3cc826c6`
-
-남은 운영 메모:
-
-- 위 체인은 완료 이력이다. 현재 활성 작업과 섞어 읽지 않는다.
-- board 에 남아 있는 예전 scheduled 복구 카드는 문서 기준 재분류가 끝났고, 최신 `main` 기준으로는 stale/superseded 여부 판단 근거가 정리돼 있다.
-- 같은 실패군에서 기준 카드 1장만 남기고 중복 카드를 정리하는 원칙은 유지하되, 2026-06-12 정리표 기준으로 새 기준 카드로 남길 scheduled 카드는 없다.
-- 2026-06-12 구현 보고서 `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md` 와 부모 재검증 근거 기준으로 web build/attendance recovery loop 관련 scheduled 카드 14장은 모두 stale/superseded 후보다.
-- 아직 남은 일은 문서 판단을 board 상태 정리에 안전하게 반영하는 운영 마무리뿐이다.
-- 마지막 운영 마무리에서는 card-scoped 예외 권한을 상시 권한처럼 오해하지 않도록 결과 문구를 한 번 더 확인해야 한다.
+- 홈/로그인/대시보드/하위 업무 화면이 각각은 존재하지만, 실제 사용자 흐름으로 눌러 볼 때 설명 문구와 CTA 우선순위가 완전히 정렬된 상태는 아니다.
+- 대시보드가 일반 직원/팀장/인사/관리자 각각의 첫 행동을 모두 충분히 선명하게 보여 주는지는 추가 구현/검증이 필요하다.
+- `/leave`, `/boards`, `/documents`, `/offline` 는 링크/문맥은 존재하지만 이번 Phase의 핵심 route 묶음에 비해 통합 우선순위가 낮다.
+- 실제 인증/실데이터/실저장 없이 흐름을 보여 주는 단계라서, 화면이 "완료된 제품"처럼 보이지 않게 문구를 계속 관리해야 한다.
+- `.workers.dev` live fetch 가 환경 gate 에 막히면 local `preview:cf` smoke, build:cf, deployment metadata 같은 대체 근거를 같이 남겨야 한다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

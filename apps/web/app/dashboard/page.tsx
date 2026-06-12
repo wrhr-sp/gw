@@ -7,6 +7,7 @@ import {
   dashboardApiLinks,
   dashboardOperationsCards,
   dashboardReadingCards,
+  dashboardRoleJourneyCards,
   dashboardStatusCards,
   dashboardTopBadges,
   dashboardWaitingCards,
@@ -22,9 +23,9 @@ export default function DashboardPage() {
     <PageShell
       backHref="/"
       backLabel="홈으로"
-      eyebrow="Phase 12 대시보드 1차"
+      eyebrow="Phase 14 실사용 MVP 통합 1차"
       title="대시보드 시작 화면 skeleton"
-      description="오늘 할 일, 승인 대기, 근태/휴가, 공지/문서, 운영 진입점을 작은 화면에서도 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
+      description="오늘 할 일, 승인 대기, 일반 조회, 관리자 경계를 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -65,7 +66,20 @@ export default function DashboardPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="근태/휴가 상태" description="오늘 상태, 마지막 기록, 휴가 snapshot 을 짧게 보여 주고 민감한 실운영 데이터는 붙이지 않습니다.">
+      <SurfaceSection title="역할별 첫 이동" description="직원, 팀장, 인사/운영, 감사 사용자가 어디로 먼저 이어지는지 같은 화면에서 설명합니다.">
+        <div className="grid-auto-compact">
+          {dashboardRoleJourneyCards.map((card) => (
+            <article key={card.role} className="info-card">
+              <Pill tone="accent">{card.role}</Pill>
+              <h3>{card.firstRoute}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="오늘 상태와 일반 조회" description="근태 상태와 조직/직원 읽기 흐름을 함께 보여 주고 운영 변경은 분리합니다.">
         <div className="grid-auto-compact">
           {dashboardStatusCards.map((card) => (
             <article key={card.title} className="stat-card">
@@ -90,7 +104,7 @@ export default function DashboardPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="운영 요약" description="일반 조회 흐름과 관리자 운영 경계를 분리한 상태로 조직/직원 진입점만 기본 노출합니다." muted>
+      <SurfaceSection title="운영 요약" description="일반 조회 흐름과 관리자 운영 경계를 분리한 상태로 조직/직원 진입점과 권한 기반 admin CTA 규칙만 안내합니다." muted>
         <div className="grid-auto-compact">
           {dashboardOperationsCards.map((card) => (
             <article key={card.href} className="info-card">

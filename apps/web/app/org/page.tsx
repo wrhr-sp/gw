@@ -35,9 +35,9 @@ export default function OrgPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 11 조직 일반 화면 1차"
+      eyebrow="Phase 14 일반 조회 연결"
       title="조직 구조 / 역할 안내 skeleton"
-      description="부서 구조, 역할/직책, 권한 체계 안내를 하나의 일반 조회 흐름으로 묶은 dev-safe placeholder 입니다."
+      description="대시보드의 조직 구조 보기 흐름과 같은 언어로 부서 구조, 역할/직책, 권한 체계 안내를 읽기 전용으로 묶은 dev-safe placeholder 입니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">read-only structure</Pill>

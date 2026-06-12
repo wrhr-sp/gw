@@ -4,7 +4,10 @@
 
 ### Changed
 
+- `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md` 와 `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md` 를 추가해 홈/로그인/대시보드/일반 업무/관리자 skeleton 을 한 번에 눌러 볼 수 있는 실사용 MVP 통합 1차 범위, 역할별 진입 흐름, smoke 기준, guardrail 을 문서화했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 14 실사용 MVP 통합 1차 기준으로 갱신해 현재 활성 체인, 핵심 route 묶음(`/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*`), 일반 업무/관리자 경계, 후속 handoff 참조 문서를 다시 맞췄다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `docs/workflow/groupware-kanban-automation.md`, `scripts/README.md` 를 다시 보강해 역할별 기본 책임 매트릭스, card-scoped 예외 권한 원칙, blocked 분류별 다음 액션, fixture/dry-run/service journal/board state/PR gate를 묶어 보는 검증자동화 체크 기준을 더 분명히 적었다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 Phase 14 현재 UI 기준으로 다시 맞춰 홈/로그인/대시보드의 역할별 흐름, 핵심 smoke route(`/`, `/login`, `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees`, `/admin/*`), `/employees` 대 `/admin/users`, `/attendance` 대 `/admin/policies` 경계, 대장이 preview/live URL 에서 따라 볼 쉬운 확인 순서를 한 번에 정리했다.
 - `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md` 와 `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md` 를 추가해 역할봇 권한 확대 대신 싱드/Watcher 판단루프 보강을 우선하는 운영 설계, blocked 재판단 순서, Telegram 보고 분리 기준, 검증자동화 handoff 를 문서화했다.
 - `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 현재 역할봇 권한·판단루프·보고정책·검증자동화 고도화 체인 기준으로 갱신했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 blocked 재판단 순서, `already-handled` 재확인 기준, Telegram 보고 4분류, fixture/dry-run/service sweep/board state/PR-CI-main gate 검증 축을 반영했다.

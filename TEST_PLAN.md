@@ -54,6 +54,13 @@ pnpm --filter @gw/web build
 - PWA/route/UI skeleton 과 same-origin web 쪽이 최소한 현재 빌드 가능한지 확인한다.
 - 문서에서 `/dashboard`, `/employees`, `/org`, `/admin/*` 같은 route 설명을 바꿨다면 실제 web 구조와 충돌하지 않는지 함께 본다.
 
+Phase 14 문서/흐름 카드에서 특히 다시 볼 것:
+- 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 둘 다 소개하는지
+- 로그인(`/login`)이 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 과장 없이 설명하는지
+- 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/employees` 우선순위를 유지하는지
+- 일반 업무 route(`/attendance`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
+- 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -182,6 +189,8 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `DATA_MODEL.md`, `API.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 가 서로 다른 말을 하지 않는가
 - phase 문서 링크가 실제 범위를 잘 가리키는가
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
+- Phase 14 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/approvals`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
+- `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance` 정책 안내와 `/admin/policies` 운영 정책 설명의 역할 경계가 문서마다 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
@@ -365,8 +374,11 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 - `/`
 - `/login`
 - `/dashboard`
+- `/attendance`
+- `/approvals`
 - `/employees`
 - `/org`
+- `/admin` 또는 `/admin/audit-logs` 권한 경계 확인
 - `/manifest.webmanifest`
 
 live 확인이 가능할 때:
@@ -388,8 +400,9 @@ live fetch 가 환경상 막힐 때 대체 근거:
 문서 변경이어도 아래를 같이 본다.
 - 링크가 실제 파일을 가리키는가
 - 루트 문서 5종이 서로 모순되지 않는가
-- placeholder / skeleton / 승인 필요 항목이 빠지지 않았는가
+- placeholder / skeleton / 승인 필요 항목이 빠지지 않는가
 - `RUNBOOK.md`, `DEPLOYMENT.md`, `KNOWN_ISSUES.md`, `ARCHITECTURE.md` 와 충돌이 생기지 않는가
+- 대장이 preview/live URL 에서 어떤 순서로 눌러 봐야 하는지 쉬운 한국어 체크포인트가 남아 있는가
 
 ## 10. 검증 결과를 남기는 형식
 

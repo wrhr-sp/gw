@@ -18,32 +18,35 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 이전 scheduled 복구 카드 정리 단계다. 과거 web build flaky / review-required recovery loop / 자동 재수정 과정에서 남은 scheduled 카드들을 최신 `main` 기준으로 다시 분류해, 이미 끝난 카드와 아직 남겨야 할 카드를 안전하게 구분하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 14 실사용 MVP 통합 1차다. 지금까지 따로 쌓아 둔 홈/로그인/대시보드/일반 업무/관리자 skeleton 을 하나의 사내 검토용 흐름으로 묶고, 일반 업무와 관리자 검토 경계를 같은 제품 안에서 자연스럽게 보이게 만드는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 카드 정리의 목적은 많이 닫는 것이 아니라, 최신 `main` 기준으로 무엇이 아직 진짜 일인지 다시 보이게 만드는 것이다.
-- 이미 merge/main 반영/검증 완료로 목적이 흡수된 카드는 stale 또는 superseded 후보로 본다.
-- 아직 미완료 목적이 남아 있으면 기준 카드 1장만 남기고 중복 카드는 정리한다.
-- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, destructive cleanup)은 자동 정리하지 않는다.
-- Kanban DB 직접 수정이나 근거 없는 대량 archive/삭제는 하지 않는다.
-- 자동화 보강 완료 이력과 현재 활성 체인을 섞지 않도록, 완료 이력은 `KNOWN_ISSUES.md` 에 남기고 현재 정리 대상만 이번 체인에 둔다.
-- 우선 참고 문서: `docs/architecture/scheduled-recovery-card-cleanup-scope.md`, `docs/guides/scheduled-recovery-card-cleanup-handoff.md`, `docs/guides/automation-hardening-review-gate-handoff.md`, `docs/workflow/groupware-kanban-automation.md`, `scripts/README.md`.
+- 이번 Phase의 목적은 화면 수를 늘리는 것이 아니라, 이미 있는 화면을 한 번에 눌러 볼 수 있는 실사용 MVP 흐름으로 묶는 것이다.
+- 일반 직원/팀장/인사/관리자 역할별 첫 진입 경로와 화면 노출 경계를 같은 언어로 맞추는 것이 중요하다.
+- `/admin*` 는 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 를 계속 같이 본다.
+- `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 서로 다른 말을 하면 안 된다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토는 같은 사람 정보를 보더라도 역할과 목적이 다르다는 점을 유지해야 한다.
+- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
+- 우선 참고 문서: `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`, `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md`, `docs/architecture/phase-12-dashboard-summary-scope.md`, `docs/architecture/phase-13-admin-console-pass-1-scope.md`, `docs/guides/phase-13-admin-console-pass-1-handoff.md`, `docs/guides/attendance-registration-policy-pass-2-handoff.md`.
 
-2026-06-12 scheduled 복구 카드 정리 메모:
+2026-06-12 Phase 14 실사용 MVP 통합 1차 메모:
 
-- review-required gate, safe triage 실패 재시도/backoff, recovery loop 생성, systemd watcher PATH 보강은 이미 완료 이력으로 남아 있다.
-- 최근 관리자 PWA 품질 개선 체인은 PR/CI/merge/release-gate 근거가 있어 과거 복구 카드 일부를 흡수했을 가능성이 높다.
-- 따라서 구현 단계에서는 먼저 예전 scheduled 카드 목록을 만들고, 각 카드를 더 최신 완료 카드·부모/자식 체인·PR/CI 근거와 대조해야 한다.
-- 카드 분류는 최소한 `해결됨`, `유지`, `승인 필요`, `판단 유보` 4가지로 나누는 것이 안전하다.
-- 같은 실패군에서 카드가 여러 장 남아 있으면 기준 카드 1장만 남기고 나머지는 stale/superseded 근거를 남기는 방향을 우선한다.
-- 다음 구현자는 카드별 근거 표를 먼저 만들고, 그 뒤 실제 상태 정리와 문서 반영 순서로 움직이는 편이 안전하다.
-- 2026-06-12 구현 결과 보고서는 `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md` 에 정리했다.
-- 이번 정리표 기준으로는 유지해야 할 scheduled 카드는 없고, 예전 web build/attendance recovery loop 관련 scheduled 카드 14장은 모두 stale 또는 superseded 후보다.
-- 핵심 근거 완료 카드는 `t_7f611516`, `t_d8354e91`, `t_f4ef8061`, `t_dc4f7a4c` 이다.
-- 최신 부모 검증 기준으로 `/home/wrhrgw/gw` 에서 `pnpm check`, `pnpm --filter @gw/web build:cf`, local `pnpm --filter @gw/web preview:cf` smoke 까지 통과했다.
-- preview smoke 핵심 결과는 `/`, `/login`, `/boards`, `/documents`, `/manifest.webmanifest` 200, `/admin*` 로그인 유도 307, `/api/health` 200 JSON, `/api/me` 401 JSON 이다.
-- 즉, 문서 기준 재분류는 끝났고 board 상태 정리는 singde 가 카드별 근거 코멘트를 남기며 마무리하면 된다.
+- 기준 흐름은 `/` → `/login` → `/dashboard` → `/org`/`/employees`/`/attendance`/`/approvals` 와 권한 기반 `/admin/*` 진입이다.
+- 홈은 PWA 시작점과 핵심 진입점 안내 역할, 로그인은 placeholder 세션 계약 안내 역할, 대시보드는 오늘 할 일과 역할별 다음 행동 안내 역할을 맡는다.
+- `/org`, `/employees` 는 일반 조회 흐름으로 유지하고, 운영 변경 검토는 `/admin/users` 와 `/admin/policies` 로 분리한다.
+- `/attendance` 는 effective policy 와 허용 방식 안내, `/approvals` 는 승인/반려 placeholder 와 결재선/문서함 구조 설명이 핵심이다.
+- `/admin/*` 는 일반 업무 흐름에 섞이지 않는 운영 검토 영역으로 유지하고, 익명 preview 노출 금지와 role 기반 CTA 분기를 계속 지킨다.
+- 이번 Phase의 필수 smoke 기준 route 는 `/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*` 이다.
+- boards/documents/leave/offline 은 연결 문맥은 유지하되 이번 Phase의 주된 성공 판정은 핵심 8개 route 묶음에 둔다.
+
+대장이 preview/live URL 에서 바로 눌러 볼 쉬운 확인 순서:
+1. `/` 에서 일반 업무 흐름과 관리자 검토 흐름이 따로 소개되는지 본다.
+2. `/login` 에서 실제 인증 완료처럼 보이지 않으면서 역할별 첫 이동 경로가 보이는지 본다.
+3. `/dashboard` 에서 "출퇴근 먼저 → 승인 대기 확인 → 조직/직원 확인" 순서가 먼저 읽히는지 본다.
+4. `/attendance` 와 `/admin/policies` 를 비교해 정책 설명 방향이 같은지 본다.
+5. `/employees` 와 `/admin/users` 를 비교해 일반 조회와 운영 검토가 다른 역할로 읽히는지 본다.
+6. 일반 사용자 기준 `/admin*` 가 기본 화면에 섞여 보이지 않고, 권한 없는 직접 진입도 차단되는지 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 
