@@ -62,13 +62,13 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(adminRouteMetadata.applicationName).toBe(adminPwaManifest.short_name);
   });
 
-  it("exposes mobile-first navigation for the approved general-user Phase 6 routes", () => {
+  it("exposes mobile-first navigation for the approved Phase 14 MVP routes", () => {
     expect(mobilePrimaryNav.map((item) => item.href)).toEqual([
       "/dashboard",
       "/attendance",
-      "/leave",
       "/approvals",
-      "/boards",
+      "/org",
+      "/employees",
       "/documents",
     ]);
   });

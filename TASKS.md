@@ -6,33 +6,35 @@
 
 ## 현재 활성 작업
 
-작업명: 이전 scheduled 복구 카드 정리
+작업명: Phase 14 실사용 MVP 통합 1차
 
 현재 체인:
 
-1. 기획: `t_35d9ec2c` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_b8ae373f` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_a0a1c2d2` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: 후속 parent gate 기준 진행
-5. 문서화/최종 통합 보고: 후속 parent gate 기준 진행
+1. 기획: `t_f1c42378` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_e7f6d26d` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_af51a335` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: `t_2b31b169` — 해봄(`gwtester`) — parent gate 대기
+5. 문서화: `t_34d40862` — 다온(`gwdocs`) — parent gate 대기
+6. GitHub/배포 확인: `t_07109ae5` — 지킴(`gwops`) — parent gate 대기
 
 현재 문서 기준 핵심 범위:
 
-- 과거 web build flaky / review-required recovery loop 와 연결된 scheduled 카드를 최신 `main` 기준으로 다시 분류한다.
-- 이미 merge/main 반영/검증 완료로 목적이 흡수된 카드는 stale 또는 superseded 후보로 정리한다.
-- 아직 실제 미완료 목적이 남은 카드는 기준 카드 1장만 남기고 중복 카드는 정리한다.
-- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, destructive cleanup)은 자동 정리하지 않는다.
-- 카드 정리는 Kanban DB 직접 수정이 아니라 카드 근거 정리와 안전한 상태 재분류 중심으로 수행한다.
-- 같은 실패군에서 복구 카드가 계속 늘어나지 않게, 남길 카드와 닫을 카드를 근거 중심으로 나눈다.
-- 2026-06-12 구현 보고서 `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md` 기준으로는 유지 대상 scheduled 카드는 없고, 예전 recovery loop 관련 scheduled 카드 14장이 stale/superseded 정리 후보다.
+- 홈(`/`) → 로그인(`/login`) → 대시보드(`/dashboard`) → 일반 업무(`/org`, `/employees`, `/attendance`, `/approvals`) → 관리자(`/admin/*`) 흐름을 한 번에 눌러 볼 수 있는 MVP 초안을 만든다.
+- 일반 직원/팀장/인사/관리자 역할별 첫 진입 경로와 화면 노출 경계를 문서와 화면에서 같은 뜻으로 정리한다.
+- `/admin*` 는 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 기준을 유지한다.
+- `/attendance` 정책 안내와 `/admin/policies` 운영 정책 설명이 같은 방향을 가리키도록 맞춘다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토가 서로 다른 역할임을 분명히 유지한다.
+- mock/dev-safe skeleton 범위에서 smoke 기준(`/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*`)과 handoff 를 정리한다.
+- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
 
 우선 참고 문서:
 
-- `docs/architecture/scheduled-recovery-card-cleanup-scope.md`
-- `docs/guides/scheduled-recovery-card-cleanup-handoff.md`
-- `docs/guides/automation-hardening-review-gate-handoff.md`
-- `docs/workflow/groupware-kanban-automation.md`
-- `scripts/README.md`
+- `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`
+- `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md`
+- `docs/architecture/phase-12-dashboard-summary-scope.md`
+- `docs/architecture/phase-13-admin-console-pass-1-scope.md`
+- `docs/guides/phase-13-admin-console-pass-1-handoff.md`
+- `docs/guides/attendance-registration-policy-pass-2-handoff.md`
 
 ## 작업 카드 생성 기준
 

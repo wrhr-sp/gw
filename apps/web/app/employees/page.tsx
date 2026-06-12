@@ -39,9 +39,9 @@ export default function EmployeesPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 11 조직/직원 일반 화면 1차"
+      eyebrow="Phase 14 일반 조회 연결"
       title="직원 목록 / 상태 조회 skeleton"
-      description="일반 업무 화면에서 직원 이름, 소속, 역할/직책 요약, 재직 상태를 읽기 쉽게 보여 주는 dev-safe placeholder 입니다."
+      description="대시보드와 같은 언어로 직원 이름, 소속, 역할/직책 요약, 재직 상태를 읽기 쉽게 보여 주고 운영 변경 검토는 /admin/users 로 분리한 dev-safe placeholder 입니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">general lookup</Pill>

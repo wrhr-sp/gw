@@ -29,9 +29,9 @@ const supportsTagSkeleton = attendancePolicyView.showTagSkeleton;
 export default function AttendancePage() {
   return (
     <PageShell
-      eyebrow="모바일 출퇴근/정정 skeleton"
+      eyebrow="Phase 14 근태/정책 연결"
       title="근태 skeleton"
-      description="출근/퇴근 CTA, 오늘 상태, 마지막 기록, 정정 요청 진입점을 작은 화면 우선으로 다시 정리한 placeholder 입니다."
+      description="대시보드의 오늘 상태 흐름과 관리자 정책 화면의 기준을 같은 방향으로 설명하도록 다시 정리한 placeholder 입니다."
       actions={
         <div className="action-row">
           {allowedAttendanceMethods.includes("mobile") ? (

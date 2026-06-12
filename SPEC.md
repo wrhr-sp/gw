@@ -297,11 +297,25 @@
 4. 자주 가는 업무 진입점
 5. 정책/안내/참고 링크
 
+Phase 14 실사용 MVP 통합 1차에서 특히 유지할 흐름:
+- 홈(`/`)은 일반 업무 흐름과 관리자 검토 흐름을 "두 갈래"로 먼저 설명한다.
+- 로그인(`/login`)은 실제 인증 성공을 약속하지 말고, 역할별 첫 이동 경로(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)를 안내판처럼 보여 준다.
+- 대시보드(`/dashboard`)는 `출퇴근 먼저 → 승인 대기 확인 → 조직/직원 확인` 순서의 상단 액션을 유지한다.
+- 일반 업무 핵심 route 묶음은 `/dashboard` 다음에 `/attendance`, `/approvals`, `/org`, `/employees` 로 읽히게 유지한다.
+- `/boards`, `/documents`, `/offline` 은 연결 문맥은 남기되 이번 Phase의 핵심 smoke 흐름보다 앞에 나오지 않게 둔다.
+
+근거:
+- `apps/web/app/page.tsx`
+- `apps/web/app/login/page.tsx`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/dashboard/dashboard-config.ts`
+
 ### 5-2. CTA 는 결정 직전에 둔다.
 
 - 출퇴근 버튼은 마지막 기록 근처에 둔다.
 - 승인/반려 버튼은 상태/영향 정보 뒤에 둔다.
 - 글쓰기/업로드 버튼은 권한 있을 때만 분명하게 보인다.
+- 관리자 CTA 는 일반 사용자 기본 흐름에 섞지 않고, 권한 있는 경우에만 `/admin` 또는 `/admin/audit-logs` 바로가기로 노출한다.
 
 ### 5-3. 모바일은 축소판이 아니라 우선순위 재정렬 버전이다.
 
