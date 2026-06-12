@@ -4,10 +4,15 @@
 
 ### Changed
 
-- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 현재 Admin host + PWA 1차 구현 기준으로 다시 맞췄다.
-- 문서에 production admin host 가 `GW_ADMIN_HOSTS` allowlist 없이는 자동 허용되지 않는다는 점과 `x-forwarded-host` 를 신뢰하지 않는 host 경계를 추가했다.
-- `/manifest.webmanifest` 단일 route 가 host 에 따라 일반 사용자용/관리자용 manifest 를 동적으로 반환한다는 현재 동작을 반영했다.
-- 부모 검증 결과를 바탕으로 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 실패 원인이 stale 테스트 기대값 6건임을 handoff/test 문서에 남겼다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 현재 Admin host 운영 설계 + preview 검증 확장 체인 기준으로 다시 맞췄다.
+- `apps/web/public/manifest.webmanifest` 를 일반 manifest 기준 파일로 두고, shadow 되던 `apps/web/app/manifest.webmanifest/route.ts` 는 제거했다.
+- `scripts/gw-admin-host-preview-smoke.sh` 를 추가해 `preview:cf` 상태에서 Host 헤더 기준 `/manifest.webmanifest`, `/admin/manifest.webmanifest`, general/admin host HTML manifest href, `/admin`, `/` manual/follow redirect smoke 를 재현할 수 있게 했다.
+- 새 범위 문서 `docs/architecture/admin-host-preview-verification-extension-scope.md` 와 handoff 문서 `docs/guides/admin-host-preview-verification-extension-handoff.md` 를 추가했다.
+- `apps/web/admin-preview-guard.ts` 에서 일반 host admin fallback 을 강화해, paired admin host 를 계산할 수 없으면 allow 대신 `/forbidden` 으로 차단하도록 바꿨다.
+- `apps/web/admin-preview-guard.test.ts` 에 paired admin host 미계산 케이스와 spoofed admin-looking host(`admin.attacker.example`) 차단 회귀 테스트를 추가했다.
+- 관리자 host 페이지가 `/admin/manifest.webmanifest` 를 광고하도록 `apps/web/app/layout.tsx`, `apps/web/app/mobile-pwa-config.ts` 를 보강했고 local preview smoke 에서 일반/관리자 manifest 경로를 분리 확인했다.
+- `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` 재검증에서 8개 파일, 43개 테스트가 통과했다.
+- live `.workers.dev` fetch 가 막힐 때 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 substitute evidence 로 남기는 검증 기준을 문서에 추가했다.
 
 ## 2026-06-11
 

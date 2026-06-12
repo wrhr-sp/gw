@@ -75,6 +75,8 @@ export const adminPwaManifest = {
   ],
 } as const;
 
+export const generalManifestHref = "/manifest.webmanifest";
+export const adminManifestHref = "/admin/manifest.webmanifest";
 export const pwaManifest = generalPwaManifest;
 
 export const mobilePrimaryNav: NavItem[] = [
@@ -214,6 +216,10 @@ export const mobileReviewChecklist = [
 
 export function getPwaManifestForHost(host?: string | null) {
   return getAdminHostInfo(host).isAdminHost ? adminPwaManifest : generalPwaManifest;
+}
+
+export function getManifestHrefForHost(host?: string | null) {
+  return getAdminHostInfo(host).isAdminHost ? adminManifestHref : generalManifestHref;
 }
 
 export function getAppShellConfigForHost(host?: string | null) {

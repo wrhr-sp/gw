@@ -67,6 +67,8 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     if (targetHost) {
       return { action: "redirect", location: pathname, targetHost };
     }
+
+    return { action: "redirect", location: "/forbidden" };
   }
 
   if (adminRoleCodeSet.has(roleCode)) {

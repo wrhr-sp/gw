@@ -27,14 +27,17 @@
 
 - [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] 일반 사용자 host 와 관리자 host 의 역할이 섞이지 않고, 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않는다.
+- [ ] 일반 사용자 host 에서 admin role 이 `/admin*` 로 들어왔는데 paired admin host 를 계산하지 못하는 경우에도 allow 로 남지 않고 차단/forbidden 또는 명시적 유도로 정리돼 있다.
 - [ ] production admin host 설명이 `admin.<domain>` 모양만으로 열리는 것처럼 쓰이지 않고, `GW_ADMIN_HOSTS` allowlist 가 있어야 인정된다고 적혀 있다.
 - [ ] host 신뢰 경계 설명이 `Host` 헤더 기준과 `x-forwarded-host` 비신뢰 원칙을 코드/문서와 같은 뜻으로 풀고 있다.
 - [ ] 관리자 host 분리를 하더라도 `packages/shared/src/contracts.ts` 의 route/schema 와 설명이 맞다.
 - [ ] API contract, 구현, 테스트가 함께 맞춰져 있다.
 - [ ] 권한 없음/잘못된 입력/회사 scope 예외가 테스트 또는 수동 검증 근거로 확인됐다.
 - [ ] `/admin/*` 관리자 기능과 일반 업무 화면(`/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/org`, `/employees`) 책임이 섞이지 않는다.
-- [ ] 관리자 host 에서는 `/admin` 중심 landing 과 관리자 전용 manifest(`start_url: /admin`, `scope: /admin`)가 일관되게 맞는다.
-- [ ] `/manifest.webmanifest` 가 host 에 따라 일반 사용자용 또는 관리자용 manifest 를 돌려준다는 현재 구현 방식을 문서가 숨기지 않는다.
+- [ ] 관리자 host 에서는 `/admin` 중심 landing 과 관리자 전용 manifest(`start_url: /admin`, `scope: /admin`)가 일관되게 맞고, 페이지가 `/admin/manifest.webmanifest` 를 광고한다.
+- [ ] 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 쓰는 현재 구현 방식을 문서가 숨기지 않는다.
+- [ ] 관리자 host 에서 `/manifest.webmanifest` 를 직접 열면 일반 manifest 가 유지되고, 실제 설치 기준은 `/admin/manifest.webmanifest` 라는 점을 검증/기록했다.
+- [ ] live fetch 가 막히더라도 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 중 무엇을 대체 근거로 썼는지 남겼다.
 - [ ] 관리자 host 에서 허용 route(`/admin*`, `/login`, `/forbidden`, `/manifest.webmanifest`, `/offline`) 밖의 일반 업무 route 가 `/admin` 으로 되돌아간다는 점을 빠뜨리지 않았다.
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
