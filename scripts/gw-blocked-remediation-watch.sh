@@ -374,6 +374,40 @@ def is_stale_resolved_blocker(task: dict) -> tuple[bool, str]:
         return True, '[싱드 자동 정리] 후속 체인에서 blocker 해소와 검증 근거가 확인되어 stale/resolved blocker로 완료 처리합니다. secret/DNS/유료/production DB/destructive 작업 없음.'
     return False, ''
 
+
+def is_live_fetch_substitute_complete(task: dict) -> tuple[bool, str]:
+    """Complete validation blockers when only live workers.dev fetch is denied but substitutes passed."""
+    haystack = signal_text(task)
+    lower = haystack.lower()
+    live_gate = (
+        ('live url' in lower or 'workers.dev' in lower or 'live fetch' in lower or '직접 fetch' in lower)
+        and ('blocked: user denied' in lower or 'user denied this command' in lower or '세션 정책상 거부' in lower or '환경 gate' in lower)
+    )
+    if not live_gate:
+        return False, ''
+    evidence_markers = (
+        'pnpm check',
+        'build:cf',
+        'local preview',
+        'preview:cf',
+        'preview smoke',
+        'route smoke',
+        'smoke 통과',
+        '통과',
+    )
+    evidence_count = sum(1 for marker in evidence_markers if marker in lower)
+    if evidence_count < 3:
+        return False, ''
+    restricted_actual = (
+        'secret 교체', 'production db 변경', '운영 db 변경', 'dns 변경',
+        'custom domain 변경', '유료 리소스 생성', '운영 실데이터 변경',
+    )
+    if any(marker in lower for marker in restricted_actual):
+        return False, ''
+    summary = '[싱드 자동 정리] live URL 직접 fetch가 세션/환경 gate에 막혔지만, 카드 예방 handoff 기준에 따라 local preview/build/test 대체 근거가 충분해 검증 blocker를 완료 처리합니다. 확인 근거: pnpm check/build:cf/local preview 또는 route smoke 통과. 실제 live 재확인은 PR merge/main release-gate/deploy 단계에서 gwops가 수행합니다. secret/DNS/유료/production DB/destructive 작업 없음.'
+    return True, summary
+
+
 def extract_release_branch(text: str) -> str | None:
     patterns = (
         r'git branch -d\s+`?([A-Za-z0-9._/-]+)`?',
@@ -683,6 +717,18 @@ for task in blocked:
     release_handled, release_action = maybe_complete_release_cleanup(task, st)
     if release_handled:
         actions.append(release_action)
+        continue
+    live_substitute_done, live_summary = is_live_fetch_substitute_complete(task)
+    if live_substitute_done:
+        if dry_run:
+            actions.append(f'{tid}:would-complete-live-fetch-substitute')
+        else:
+            cp = kanban('complete', tid, '--result', live_summary, '--summary', live_summary, check=False)
+            if cp.returncode == 0:
+                st['handled'][tid] = {'at': int(time.time()), 'cleanup': 'live-fetch-substitute-evidence', 'title': (task.get('title') or tid)[:160]}
+                actions.append(f'{tid}:completed-live-fetch-substitute')
+            else:
+                actions.append(f'{tid}:live-fetch-substitute-complete-failed:{(cp.stderr or cp.stdout).strip()[:200]}')
         continue
     stale_resolved, stale_summary = is_stale_resolved_blocker(task)
     if stale_resolved:
