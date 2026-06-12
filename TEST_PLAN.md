@@ -341,6 +341,76 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 - Lighthouse 는 필수 자동화 게이트가 아니라 수동 보조 근거로 우선 사용하고, 확인했다면 어떤 PWA 관련 항목을 봤는지 메모를 남긴다.
 - live `.workers.dev` fetch 가 막히면 local `preview:cf` smoke, deployment metadata, 상위 live smoke 메모를 substitute evidence 로 남긴다.
 
+## 2026-06-12 Phase 15 운영 데이터·정책·감사 로그 연결 1차 검증 계획
+
+목표:
+- 관리자 정책/권한/감사 preview 가 일반 업무 화면과 API 허용 결과에 왜 그렇게 이어지는지 같은 뜻으로 검증한다.
+- blocked/empty/error 상태를 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축으로 구분해 확인한다.
+- `/attendance` 뿐 아니라 `/leave` 도 운영 정책 연결 보강 대상으로 포함한다.
+
+우선 검증 route:
+- `/`
+- `/login`
+- `/dashboard`
+- `/attendance`
+- `/leave`
+- `/approvals`
+- `/employees`
+- `/admin/users`
+- `/admin/policies`
+- `/admin/audit-logs`
+
+우선 검증 API:
+- `GET /api/admin/policies/attendance`
+- `GET /api/admin/policies/leave`
+- `GET /api/admin/users`
+- `GET /api/admin/audit-logs`
+- `POST /api/attendance/check-in`
+- `POST /api/attendance/check-out`
+- `GET /api/leave/types`
+- `GET /api/leave/requests`
+- `POST /api/leave/requests`
+- `GET/POST /api/approvals/documents`
+
+역할별 핵심 체크:
+- 일반 직원: `/attendance` 와 관련 API가 같은 허용/차단 이유를 설명하는지, `/leave` 가 정책 연결 없는 독립 placeholder 처럼 보이지 않는지 확인
+- 팀장/결재자: `/approvals` 에서 승인 권한 부족과 정책상 미허용이 다른 이유로 읽히는지 확인
+- 인사/운영 관리자: `/admin/users` preview 와 `/dashboard`/`/employees`/`/approvals` 노출이 같은 뜻인지, `/admin/policies` 와 `/attendance`/`/leave` 정책 안내가 같은 방향인지 확인
+- 감사 전용 사용자: `/admin/audit-logs` 가 `audit.read` 기준과 masked/company boundary 원칙을 유지하는지 확인
+
+문서 근거 파일:
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/attendance/page.tsx`
+- `apps/web/app/leave/page.tsx`
+- `apps/web/app/approvals/page.tsx`
+- `apps/web/app/employees/page.tsx`
+- `apps/web/app/admin/users/page.tsx`
+- `apps/web/app/admin/policies/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/web/admin-skeleton-config.ts`
+- `packages/shared/src/admin-access.ts`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+명령 기준:
+- `pnpm check`
+- 필요 범위별 `pnpm --filter @gw/shared test typecheck`
+- 필요 범위별 `pnpm --filter @gw/api test typecheck`
+- 필요 범위별 `pnpm --filter @gw/web test typecheck build`
+- Cloudflare 관련 변경이 있으면 `pnpm --filter @gw/web build:cf`
+
+수동 확인 포인트:
+- 일반 사용자에게 관리자 CTA, raw 감사 정보, 운영 내부 candidate 가 새지 않는지
+- 화면 안내 문구와 API 에러/forbidden 이유가 서로 다른 말을 하지 않는지
+- skeleton/dev-safe/placeholder 문구가 빠지지 않는지
+
+대장이 preview/live URL 에서 빠르게 볼 순서:
+1. `/dashboard` 에서 일반 업무 요약과 관리자 경계 안내가 같이 읽히는지 본다.
+2. `/attendance` 에서 허용 방식, `effective policy`, offline 재시도 안내가 같이 보이는지 본다.
+3. `/leave` 에서 권한 부족/회사 scope/정책상 미허용/placeholder 제한 4축 메모가 살아 있는지 본다.
+4. `/employees` 와 `/admin/users` 를 비교해 일반 조회와 운영 검토가 서로 다른 책임으로 읽히는지 본다.
+5. `/admin/policies` 와 `/admin/audit-logs` 에서 candidate/reason/audit preview 가 read-only 운영 검토 톤으로 유지되는지 본다.
+
 ## 6. PR 전 확인
 
 최소 기준:

@@ -34,6 +34,13 @@ const boundaryNotes = [
   "개인정보 상세 편집, 초대 기능, 권한 변경 저장은 이번 범위가 아닙니다.",
 ] as const;
 
+const operationalBridgeNotes = [
+  "권한 부족: 일반 조회 화면에서는 고위험 관리자 역할을 직접 노출하지 않습니다.",
+  "회사 scope: 직원 목록과 상태 요약은 같은 회사 범위로만 유지합니다.",
+  "정책 연결: 근태/휴가/결재에서 막힌 이유는 /admin/policies 설명과 같은 말로 이어집니다.",
+  "placeholder 제한: 실제 초대, 상태 변경 저장, 권한 부여는 /admin/users review 전까지 열지 않습니다.",
+] as const;
+
 export default function EmployeesPage() {
   return (
     <PageShell
@@ -79,6 +86,14 @@ export default function EmployeesPage() {
             </article>
           ))}
         </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="운영 경계 메모" description="일반 조회 화면이 운영 변경 화면처럼 보이지 않도록 차단 이유를 미리 적어 둡니다." muted>
+        <ul className="summary-list">
+          {operationalBridgeNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="연결 API / 안내" description="실데이터 변경 없이 읽기 응답과 안내 문구만 맞춥니다.">

@@ -318,6 +318,23 @@ export const auditCandidateSchema = z.object({
   action: z.string(),
 });
 
+export const operationalBlockReasonCategorySchema = z.enum(["permission", "company_scope", "policy", "placeholder"]);
+
+export const operationalBridgeItemSchema = z.object({
+  category: operationalBlockReasonCategorySchema,
+  source: z.string(),
+  title: z.string(),
+  description: z.string(),
+});
+
+export const operationalBridgeSummarySchema = z.object({
+  currentState: z.string(),
+  sourceLabel: z.string(),
+  auditTrailHint: z.string(),
+  placeholderNote: z.string(),
+  blockedReasons: z.array(operationalBridgeItemSchema).min(1),
+});
+
 export const createInviteResponseSchema = successResponseSchema(
   z.object({
     id: z.string(),
@@ -365,6 +382,7 @@ export const adminUserSummarySchema = z.object({
 export const adminUsersListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminUserSummarySchema),
+    linkedScreens: z.array(operationalBridgeItemSchema).min(1),
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
@@ -442,6 +460,7 @@ export const adminPolicySummarySchema = z.object({
 export const adminPoliciesListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminPolicySummarySchema),
+    bridgeSummary: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
@@ -553,6 +572,7 @@ export const adminAuditLogListResponseSchema = successResponseSchema(
     filters: adminAuditLogFiltersSchema,
     filterOptions: adminAuditLogFilterOptionsSchema,
     detailPreview: adminAuditLogDetailPreviewSchema,
+    operationalTrail: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -580,6 +600,7 @@ export const attendanceRecordSchema = z.object({
 export const attendanceActionResponseSchema = successResponseSchema(
   z.object({
     record: attendanceRecordSchema,
+    policyContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
@@ -595,6 +616,7 @@ export const attendanceListRecordsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(attendanceRecordSchema),
     filters: attendanceListFiltersSchema,
+    policyContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -684,6 +706,7 @@ export const leaveRequestSchema = z.object({
 export const leaveTypeListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveTypeSchema),
+    policyContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -691,6 +714,7 @@ export const leaveTypeListResponseSchema = successResponseSchema(
 export const leaveBalanceListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveBalanceSchema),
+    policyContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -698,6 +722,7 @@ export const leaveBalanceListResponseSchema = successResponseSchema(
 export const leaveRequestListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveRequestSchema),
+    policyContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -713,6 +738,7 @@ export const leaveRequestCreateRequestSchema = z.object({
 
 const leaveMutationResponseDataSchema = z.object({
   request: leaveRequestSchema,
+  policyContext: operationalBridgeSummarySchema,
   audit: auditCandidateSchema,
   placeholder: z.literal(true),
 });
@@ -864,6 +890,7 @@ export const approvalDocumentCreateRequestSchema = z.object({
 export const approvalDocumentListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalDocumentSchema),
+    operationalContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -871,6 +898,7 @@ export const approvalDocumentListResponseSchema = successResponseSchema(
 export const approvalDocumentCreateResponseSchema = successResponseSchema(
   z.object({
     document: approvalDocumentSchema,
+    operationalContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
@@ -881,6 +909,7 @@ export const approvalDocumentDetailResponseSchema = successResponseSchema(
     document: approvalDocumentSchema,
     steps: z.array(approvalStepSchema),
     references: z.array(approvalReferenceSchema),
+    operationalContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -888,6 +917,7 @@ export const approvalDocumentDetailResponseSchema = successResponseSchema(
 export const approvalInboxResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalDocumentSchema),
+    operationalContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
 );
@@ -906,6 +936,7 @@ export const approvalActionRequestSchema = z.object({
 export const approvalActionResponseSchema = successResponseSchema(
   z.object({
     document: approvalDocumentSchema,
+    operationalContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),

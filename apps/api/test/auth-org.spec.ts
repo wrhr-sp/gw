@@ -260,6 +260,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(payload.data.items.some((item) => item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
     expect(payload.data.items[0]?.highRiskPermissions.length).toBeGreaterThan(0);
     expect(payload.data.items[0]?.roleChangePreview.auditCandidate).toBe(true);
+    expect(payload.data.linkedScreens.some((item) => item.source === "/dashboard")).toBe(true);
     expect(payload.data.audit.action).toBe("admin.user.list.viewed");
   });
 
@@ -399,6 +400,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(readPayload.data.filterOptions.categories).toContain("policy");
     expect(readPayload.data.detailPreview.reasonRequired).toBe(true);
     expect(readPayload.data.items[0]?.metadata.maskedFields.length).toBeGreaterThan(0);
+    expect(readPayload.data.operationalTrail.blockedReasons.some((item) => item.category === "placeholder")).toBe(true);
     expect(JSON.stringify(readPayload)).not.toContain("storageKey");
     expect(JSON.stringify(readPayload)).not.toContain("bucket");
 
@@ -515,6 +517,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     const payload = adminPoliciesListResponseSchema.parse(await response.json());
     const attendancePolicy = payload.data.items.find((item) => item.category === "attendance");
 
+    expect(payload.data.bridgeSummary.currentState).toContain("1차 bridge");
     expect(attendancePolicy?.attendancePolicyPreview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
     expect(attendancePolicy?.attendancePolicyPreview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
     expect(attendancePolicy?.attendancePolicyPreview?.sampleEmployees.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
@@ -692,6 +695,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     const recordsPayload = attendanceListRecordsResponseSchema.parse(await recordsResponse.json());
     expect(recordsPayload.data.items.length).toBeGreaterThan(0);
     expect(recordsPayload.data.filters.workDateFrom).toBe("2026-06-01");
+    expect(recordsPayload.data.policyContext.currentState).toContain("현재 적용 정책");
 
     const correctionResponse = await app.request(appRoutes.attendance.corrections, {
       method: "POST",
@@ -735,6 +739,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(Array.isArray(requestsPayload.data.items)).toBe(true);
     expect(requestsPayload.data.items).toHaveLength(1);
     expect(requestsPayload.data.items[0]?.id).toBe("leave_request_demo");
+    expect(typesPayload.data.policyContext.blockedReasons.some((item) => item.category === "policy")).toBe(true);
+    expect(balancesPayload.data.policyContext.currentState).toContain("휴가 정책");
+    expect(requestsPayload.data.policyContext.sourceLabel).toContain("/leave");
   });
 
   it("creates placeholder leave requests and blocks approval for non-approvers", async () => {
@@ -759,6 +766,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(createResponse.status).toBe(201);
     const createPayload = leaveRequestCreateResponseSchema.parse(await createResponse.json());
     expect(createPayload.data.request.approvalStatus).toBe("pending");
+    expect(createPayload.data.policyContext.placeholderNote).toContain("실제 급여 반영");
     expect(createPayload.data.audit.action).toBe("leave.request.create");
 
     const approveResponse = await app.request(appRoutes.leave.approve(createPayload.data.request.id), {
@@ -971,6 +979,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(createResponse.status).toBe(201);
     const createPayload = approvalDocumentCreateResponseSchema.parse(await createResponse.json());
     expect(createPayload.data.document.status).toBe("pending_approval");
+    expect(createPayload.data.operationalContext.currentState).toContain("전자결재");
     expect(createPayload.data.audit.action).toBe("approval.document.create");
 
     const detailResponse = await app.request(appRoutes.approvals.detail(createPayload.data.document.id), {
@@ -983,6 +992,7 @@ describe("Phase 4 approvals skeleton", () => {
     const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
     expect(detailPayload.data.document.id).toBe(createPayload.data.document.id);
     expect(detailPayload.data.references.map((item) => item.referenceType)).toContain("reference");
+    expect(detailPayload.data.operationalContext.blockedReasons.some((item) => item.category === "company_scope")).toBe(true);
   });
 
   it("separates my drafts and approval inbox scopes", async () => {
@@ -998,6 +1008,7 @@ describe("Phase 4 approvals skeleton", () => {
     const employeeDocumentsPayload = approvalDocumentListResponseSchema.parse(await employeeDocumentsResponse.json());
     expect(employeeDocumentsPayload.data.items.map((item) => item.id)).toContain("approval_document_demo");
     expect(employeeDocumentsPayload.data.items.map((item) => item.id)).not.toContain("approval_document_team_pending");
+    expect(employeeDocumentsPayload.data.operationalContext.sourceLabel).toContain("/approvals");
 
     const approverInboxResponse = await app.request(appRoutes.approvals.inbox, {
       headers: {
@@ -1007,6 +1018,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(approverInboxResponse.status).toBe(200);
     const approverInboxPayload = approvalInboxResponseSchema.parse(await approverInboxResponse.json());
     expect(approverInboxPayload.data.items.map((item) => item.id)).toContain("approval_document_team_pending");
+    expect(approverInboxPayload.data.operationalContext.blockedReasons.some((item) => item.category === "permission")).toBe(true);
 
     const employeeInboxResponse = await app.request(appRoutes.approvals.inbox, {
       headers: {
@@ -1070,6 +1082,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(approveResponse.status).toBe(200);
     const approvePayload = approvalActionResponseSchema.parse(await approveResponse.json());
     expect(approvePayload.data.document.status).toBe("approved");
+    expect(approvePayload.data.operationalContext.placeholderNote).toContain("실제 저장/발송 없이");
     expect(approvePayload.data.audit.action).toBe("approval.document.approve");
 
     const rejectResponse = await app.request(appRoutes.approvals.reject("approval_document_team_pending"), {

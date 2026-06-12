@@ -18,35 +18,37 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 14 실사용 MVP 통합 1차다. 지금까지 따로 쌓아 둔 홈/로그인/대시보드/일반 업무/관리자 skeleton 을 하나의 사내 검토용 흐름으로 묶고, 일반 업무와 관리자 검토 경계를 같은 제품 안에서 자연스럽게 보이게 만드는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 15 운영 데이터·정책·감사 로그 연결 1차다. 관리자 정책/권한/감사 skeleton 이 직원·팀장·인사 화면과 API 허용 기준에 왜 그렇게 반영되는지 설명 가능한 연결을 고정하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 화면 수를 늘리는 것이 아니라, 이미 있는 화면을 한 번에 눌러 볼 수 있는 실사용 MVP 흐름으로 묶는 것이다.
-- 일반 직원/팀장/인사/관리자 역할별 첫 진입 경로와 화면 노출 경계를 같은 언어로 맞추는 것이 중요하다.
-- `/admin*` 는 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 를 계속 같이 본다.
-- `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 서로 다른 말을 하면 안 된다.
-- `/employees` 일반 조회와 `/admin/users` 운영 검토는 같은 사람 정보를 보더라도 역할과 목적이 다르다는 점을 유지해야 한다.
+- 이번 Phase의 목적은 관리자 화면 안의 정책/권한/감사 기준이 일반 업무 화면과 API 허용 결과에 왜 그렇게 보이는지 연결하는 것이다.
+- 일반 직원/팀장/인사/감사 역할별로 권한 부족, 회사 scope, 정책 미허용, placeholder 제한을 다른 이유로 설명할 수 있어야 한다.
+- `/admin*` 는 계속 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 를 계속 같이 본다.
+- `/attendance` 뿐 아니라 `/leave` 도 `/admin/policies` 와 같은 정책 방향을 가리켜야 한다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/approvals` 결재 권한과 관리자 운영 권한은 서로 다른 역할이라는 점을 유지해야 한다.
 - restricted 항목(secret, production, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
-- 우선 참고 문서: `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`, `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md`, `docs/architecture/phase-12-dashboard-summary-scope.md`, `docs/architecture/phase-13-admin-console-pass-1-scope.md`, `docs/guides/phase-13-admin-console-pass-1-handoff.md`, `docs/guides/attendance-registration-policy-pass-2-handoff.md`.
+- 우선 참고 문서: `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`, `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md`, `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`, `docs/architecture/phase-13-admin-console-pass-1-scope.md`, `docs/architecture/admin-role-permission-model-pass-1-scope.md`, `docs/architecture/attendance-registration-policy-pass-2-scope.md`.
 
-2026-06-12 Phase 14 실사용 MVP 통합 1차 메모:
+2026-06-12 Phase 15 운영 데이터·정책·감사 로그 연결 1차 메모:
 
-- 기준 흐름은 `/` → `/login` → `/dashboard` → `/org`/`/employees`/`/attendance`/`/approvals` 와 권한 기반 `/admin/*` 진입이다.
-- 홈은 PWA 시작점과 핵심 진입점 안내 역할, 로그인은 placeholder 세션 계약 안내 역할, 대시보드는 오늘 할 일과 역할별 다음 행동 안내 역할을 맡는다.
-- `/org`, `/employees` 는 일반 조회 흐름으로 유지하고, 운영 변경 검토는 `/admin/users` 와 `/admin/policies` 로 분리한다.
-- `/attendance` 는 effective policy 와 허용 방식 안내, `/approvals` 는 승인/반려 placeholder 와 결재선/문서함 구조 설명이 핵심이다.
-- `/admin/*` 는 일반 업무 흐름에 섞이지 않는 운영 검토 영역으로 유지하고, 익명 preview 노출 금지와 role 기반 CTA 분기를 계속 지킨다.
-- 이번 Phase의 필수 smoke 기준 route 는 `/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*` 이다.
-- boards/documents/leave/offline 은 연결 문맥은 유지하되 이번 Phase의 주된 성공 판정은 핵심 8개 route 묶음에 둔다.
+- 기준 흐름은 `/` → `/login` → `/dashboard` → `/attendance`/`/approvals`/`/org`/`/employees` 와 권한 기반 `/admin/*` 진입을 유지하되, 이번에는 `/leave` 를 정책 연결 보강 route로 함께 본다.
+- 홈과 로그인은 제품 입구 설명을 유지하고, 실제 연결 강화 포인트는 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/admin/*` 사이의 운영 설명 정렬에 둔다.
+- `/attendance` 와 `/leave` 는 현재 허용 결과뿐 아니라 정책 source, 미허용 이유, placeholder 제한을 같은 축으로 설명해야 한다.
+- `/employees` 와 `/approvals` 는 `/admin/users` 의 역할/권한/상태 preview와 충돌하지 않게 읽혀야 한다.
+- `/admin/audit-logs` 는 raw 로그 노출 확대가 아니라 candidate/reason/source 추적의 기준 화면으로 유지한다.
+- 현재 화면 근거는 `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/employees/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/admin-skeleton-config.ts` 에 둔다.
+- 접근/권한 기준 근거는 `packages/shared/src/admin-access.ts`, API 허용/차단 근거는 `apps/api/src/app.ts`, 회귀 확인 기준은 `apps/api/test/auth-org.spec.ts` 로 따라간다.
+- 이번 Phase의 필수 smoke 기준은 기존 핵심 route(`/`, `/login`, `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees`, `/admin/*`)를 유지하면서 `/leave` 정책 연결 설명을 추가 보강하는 것이다.
+- blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축으로 분리해 설명한다.
 
 대장이 preview/live URL 에서 바로 눌러 볼 쉬운 확인 순서:
-1. `/` 에서 일반 업무 흐름과 관리자 검토 흐름이 따로 소개되는지 본다.
-2. `/login` 에서 실제 인증 완료처럼 보이지 않으면서 역할별 첫 이동 경로가 보이는지 본다.
-3. `/dashboard` 에서 "출퇴근 먼저 → 승인 대기 확인 → 조직/직원 확인" 순서가 먼저 읽히는지 본다.
-4. `/attendance` 와 `/admin/policies` 를 비교해 정책 설명 방향이 같은지 본다.
-5. `/employees` 와 `/admin/users` 를 비교해 일반 조회와 운영 검토가 다른 역할로 읽히는지 본다.
-6. 일반 사용자 기준 `/admin*` 가 기본 화면에 섞여 보이지 않고, 권한 없는 직접 진입도 차단되는지 본다.
+1. `/` 와 `/login` 에서 일반 업무 흐름과 관리자 검토 흐름의 입구 설명이 유지되는지 본다.
+2. `/dashboard` 에서 오늘 할 일과 운영 연결 안내가 충돌하지 않는지 본다.
+3. `/attendance` 에서 허용 방식, `effective policy`, offline 재시도 안내가 함께 보이고 `/admin/policies` 와 설명 방향이 같은지 본다.
+4. `/leave` 가 정책 연결 없는 독립 placeholder처럼 남지 않고, 권한 부족/회사 scope/정책 미허용/placeholder 제한 4축 메모를 유지하는지 본다.
+5. `/employees` 와 `/admin/users`, `/approvals` 와 관리자 권한 설명을 비교해 일반 조회/결재/운영 검토 책임이 섞이지 않는지 본다.
+6. `/admin/audit-logs` 가 read-only 감사 조회 톤을 유지하고, 일반 사용자 기준 `/admin*`·raw 감사 정보·운영 내부 candidate 가 기본 화면에 새지 않는지 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 
