@@ -106,9 +106,70 @@ if FAILURE_LOG and Path(FAILURE_LOG).exists():
 else:
     failure_text = '실패 로그 파일이 없어서 원본 카드 로그와 게이트 출력을 재확인해야 합니다.'
 
+
+def failure_class(text: str) -> str:
+    low = text.lower()
+    if any(token in low for token in ['pages-manifest.json', 'build-manifest.json', '.nft.json', '.next/types', 'enotempty', '.next/export']):
+        return 'web-build-artifact-race'
+    if 'admin-skeleton-config' in low or 'adminpolicypreview' in low or 'effectiveattendanceregistrationmethods' in low or 'policysummary' in low:
+        return 'admin-skeleton-config-shape'
+    if 'createattendancepolicyassignment' in low or 'demoattendancepolicysubjects' in low or 'demoattendancepolicyassignments' in low or 'resolveeffectiveattendancepolicy' in low:
+        return 'attendance-policy-helper-fixture'
+    if 'build-cache-targets' in low:
+        return 'web-build-cache-targets'
+    compacted = re.sub(r'[^a-z0-9가-힣]+', '-', low).strip('-')[:80]
+    return compacted or 'unknown-failure'
+
+
+FAILURE_CLASS = failure_class(failure_text)
+
+
+def has_active_duplicate_failure_chain(fail_class: str) -> tuple[str, str] | None:
+    markers = {
+        'web-build-artifact-race': ['web build', 'production build', 'enoent', '.next', 'nft trace', '플래키'],
+        'admin-skeleton-config-shape': ['admin-skeleton-config', 'adminpolicypreview', 'preview/type shape'],
+        'attendance-policy-helper-fixture': ['attendance policy pass2 shared helper', 'helper/fixture', 'createattendancepolicyassignment'],
+        'web-build-cache-targets': ['build-cache-targets', 'ts2307'],
+    }.get(fail_class, [fail_class])
+    active_statuses = {'todo', 'ready', 'running', 'blocked', 'scheduled'}
+    try:
+        data = json.loads(run([HERMES_BIN, 'kanban', '--board', BOARD, 'list', '--json']).stdout or '[]')
+    except Exception:
+        return None
+    for task in data:
+        tid = str(task.get('id') or '')
+        if tid == TASK_ID:
+            continue
+        status = str(task.get('status') or '')
+        if status not in active_statuses:
+            continue
+        title = str(task.get('title') or '')
+        body = str(task.get('body') or '')
+        haystack = (title + '\n' + body).lower()
+        if title.startswith(('자동 재수정', '자동 수정', '자동 재리뷰', '자동 재검증', '복구 정리', '수정:')) and any(m.lower() in haystack for m in markers):
+            return tid, title
+    return None
+
+
+duplicate = has_active_duplicate_failure_chain(FAILURE_CLASS)
+if duplicate:
+    existing_id, existing_title = duplicate
+    msg = (
+        f"[singde-overgrowth-guard] 같은 실패 분류({FAILURE_CLASS})의 자동 복구 체인 "
+        f"{existing_id}({existing_title})이 이미 활성/보류 상태라 새 체인을 만들지 않습니다. "
+        "원본 카드는 blocked로 두고 기존 체인/주 작업 검증 결과를 기준으로 정리합니다."
+    )
+    if DRY:
+        print('DRY duplicate guard:', msg)
+    else:
+        run([HERMES_BIN, 'kanban', '--board', BOARD, 'comment', TASK_ID, msg], check=False)
+    print(msg)
+    raise SystemExit(0)
+
 common = f"""
 원본 blocked 카드: {TASK_ID}
 원본 제목: {orig_title}
+실패 분류: {FAILURE_CLASS}
 
 자동 재루프 원칙:
 - 이 루프는 승인된 Phase/개발 범위 안의 테스트·타입체크·빌드 실패만 다룬다.
@@ -140,7 +201,7 @@ for key, label, assignee, skills, detail in steps:
     body = detail + '\n\n' + common
     cmd = [HERMES_BIN, 'kanban', '--board', BOARD, 'create', title,
            '--assignee', assignee, '--workspace', WORKSPACE, '--body', body,
-           '--json', '--idempotency-key', f'review-gate-recovery:{TASK_ID}:v2:{key}']
+           '--json', '--idempotency-key', f'review-gate-recovery:{FAILURE_CLASS}:v3:{key}']
     if parent:
         cmd += ['--parent', parent]
     for skill in skills:

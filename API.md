@@ -276,12 +276,16 @@ guardrail:
 
 목적:
 - 근태/휴가/결재/문서/게시판 정책 candidate 조회
+- 출퇴근 정책 2차에서는 회사 기본, 근무지/지점, 부서/팀, 직무/역할 기준 preview 를 같은 카드에서 비교
 
 대표 성공 응답:
 - `items[]`: `category`, `summary`, `lastReviewedAt`, `reasonRequired`, `diffPreview`
+- 출퇴근 정책 카드에는 `priorityOrder`, `scopeSummaries`, `sampleEmployees`, `duplicateWarnings` 같은 preview 정보가 함께 포함될 수 있음
 
 guardrail:
 - 운영 정책 preview 는 마스킹/후보 수준으로만 노출한다.
+- 적용 인원/샘플 직원 정보는 설명용 preview 이며 실제 조직 데이터 일괄 반영이나 개인별 override 저장처럼 동작하면 안 된다.
+- GPS/위치정보, 실제 태그 단말, 외부 HR 연동 상태를 이미 연결된 것처럼 응답하지 않는다.
 
 ### `GET /api/admin/policies/documents`
 
@@ -351,8 +355,18 @@ guardrail:
 - `notice`
 - `placeholder: true`
 
+대표 오류:
+- 400 `VALIDATION_ERROR`: 등록 방식 값이 `mobile | pc | tag` 가 아님
+- 403 `FORBIDDEN`: 요청 방식이 본인 `effective policy` 에 포함되지 않음
+
+정책 기준:
+- employee 기준 `effective policy` 를 계산한 뒤 허용된 방식만 성공 처리
+- winner source 는 `company_default < workplace < department < job_type` 우선순위 중 마지막 매칭값
+- details/summary 는 왜 차단됐는지 설명할 수 있어야 하지만, 실장비 인증 완료나 GPS 검증 완료처럼 과장하지 않는다.
+
 guardrail:
 - 상태 변경이라도 placeholder 임을 숨기지 않는다.
+- `tag` 허용은 skeleton 안내 범위이며, 실제 NFC/RFID/QR 장비 연동 성공을 의미하지 않는다.
 
 ### `GET /api/attendance/records`
 

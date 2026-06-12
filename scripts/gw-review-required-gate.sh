@@ -24,6 +24,7 @@ MAX_DISPATCH="1"
 DRY_RUN="0"
 ONLY_TASK=""
 KANBAN_LOCK="${KANBAN_LOCK:-/home/wrhrgw/gw/.hermes/locks/gw-kanban.lock}"
+WEB_BUILD_LOCK="${WEB_BUILD_LOCK:-/home/wrhrgw/gw/.hermes/locks/gw-web-build.lock}"
 
 export HERMES_HOME="${HERMES_HOME:-/home/wrhrgw/gw-dev-bot/.hermes}"
 
@@ -170,10 +171,19 @@ run_standard_verification() {
   run_step pnpm --filter @gw/api test || return 1
   run_step pnpm --filter @gw/api typecheck || return 1
   run_step pnpm --filter @gw/web test || return 1
-  run_step pnpm --filter @gw/web typecheck || return 1
-  rm -rf apps/web/.next apps/web/.open-next
-  run_step pnpm --filter @gw/web build || return 1
-  run_step pnpm check || return 1
+  echo "web 검증 lock 대기: $WEB_BUILD_LOCK"
+  flock "$WEB_BUILD_LOCK" bash -lc '
+    set -euo pipefail
+    export GW_WEB_BUILD_LOCK_HELD=1
+    echo "$ pnpm --filter @gw/web typecheck"
+    pnpm --filter @gw/web typecheck
+    echo "$ rm -rf apps/web/.next apps/web/.open-next"
+    rm -rf apps/web/.next apps/web/.open-next
+    echo "$ pnpm --filter @gw/web build"
+    pnpm --filter @gw/web build
+    echo "$ pnpm check"
+    pnpm check
+  ' || return 1
 }
 
 handle_task() {

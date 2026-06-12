@@ -24,6 +24,7 @@
 - Phase 12 대시보드 운영 요약 1차 범위 문서 (`docs/architecture/phase-12-dashboard-summary-scope.md`)
 - Phase 13 관리자 콘솔 실사용 1차 범위 문서 (`docs/architecture/phase-13-admin-console-pass-1-scope.md`)
 - 출퇴근 등록 방식 정책 선택 1차 범위 문서 (`docs/architecture/attendance-registration-policy-pass-1-scope.md`)
+- 출퇴근 정책 적용대상/우선순위 2차 범위 문서 (`docs/architecture/attendance-registration-policy-pass-2-scope.md`)
 - 자동화 보강 범위 문서: review-required gate / safe triage / recovery loop (`docs/architecture/automation-hardening-review-gate-scope.md`)
 - 국내 그룹웨어 공개 패턴을 추상화한 UX 벤치마크 원칙 (`docs/ux/groupware-benchmark-principles.md`)
 - 한국형 그룹웨어 제품 비전/우선순위/3단계 로드맵 문서 (`docs/product/groupware-vision-roadmap.md`)
@@ -84,22 +85,24 @@ Phase 3 1차 remediation 이후 확인된 guardrail 은 아래와 같습니다.
 - `POST /api/leave/requests/:id/approve|reject` 는 승인 권한만으로 충분하지 않습니다. 자기 own 요청 승인과 임의 request id 승인은 모두 403 으로 막혀야 정상입니다.
 - 근태/휴가 endpoint 는 "실제 저장 완료"가 아니라 placeholder 응답과 audit candidate 구조를 검증하는 단계입니다.
 
-## 출퇴근 등록 방식 정책 선택 1차 현재 기준
+## 출퇴근 정책 적용대상/우선순위 2차 현재 기준
 
-현재 최신 기획 기준은 `docs/architecture/attendance-registration-policy-pass-1-scope.md` 와 `docs/guides/attendance-registration-policy-pass-1-handoff.md` 입니다.
+현재 최신 기획 기준은 `docs/architecture/attendance-registration-policy-pass-2-scope.md` 와 `docs/guides/attendance-registration-policy-pass-2-handoff.md` 입니다.
 
-이번 1차에서 고정한 핵심은 아래와 같습니다.
+이번 2차에서 고정한 핵심은 아래와 같습니다.
 
-- 회사가 선택할 출퇴근 등록 방식 enum 은 `mobile`, `pc`, `tag` 3가지로 제한합니다.
-- 이번 1차 적용 범위는 회사 기본 정책만 다루고, 지점/부서/근무유형별 override 는 후속 확장 후보로 남깁니다.
-- 직원 근태 화면은 회사 정책에서 허용한 방식만 CTA 또는 안내로 보여 줍니다.
-- 출근/퇴근 API 는 요청 방식이 회사 정책에서 허용됐는지 검증해야 합니다.
-- `tag` 는 실제 NFC/RFID/QR 장비 연동이 아니라 정책/화면/API skeleton 과 검증 지점만 먼저 잡습니다.
+- 출퇴근 등록 방식 enum 은 계속 `mobile`, `pc`, `tag` 3가지로 유지합니다.
+- 정책 적용대상 level 은 `company_default`, `workplace`, `department`, `job_type` 4단계만 공식 지원합니다.
+- 우선순위는 `회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할` 로 고정합니다.
+- 각 단계는 allowed methods 를 부분 병합하지 않고 전체 override 로 덮습니다.
+- 직원 화면과 API 는 같은 `effective policy` 계산 기준을 사용해야 합니다.
+- 관리자 화면은 적용대상, 우선순위, before/after diff, 예상 적용 인원 preview 를 읽을 수 있어야 합니다.
+- 개인(employee) override 는 이번 단계에 넣지 않습니다.
 
 구현자가 먼저 주의할 점:
 
-- 현재 `packages/shared/src/contracts.ts` 의 `attendanceSourceSchema` 는 기록 source 성격이므로, 회사 정책용 enum 과 그대로 섞지 않는 쪽이 안전합니다.
-- 권장 방향은 정책 전용 `attendanceRegistrationMethodSchema` 를 별도로 두고, 기록 `source` 와 정책 `method` 책임을 나누는 것입니다.
+- `job_type` 과 RBAC role/permission 을 억지로 같은 필드로 합치지 않는 편이 안전합니다.
+- 같은 target 에 활성 정책이 2개 이상 보이면 정상 상태가 아니라 경고 대상입니다.
 - GPS/위치정보 강제 수집, 실장비 인증, production DB 실데이터 변경, 외부 HR/출입 시스템 연동은 계속 별도 승인 대상입니다.
 
 ## Phase 4 전자결재 1차 현재 상태

@@ -7,6 +7,7 @@ import {
   adminAuditNotes,
   adminHubCards,
   adminHubPriorityChecks,
+  adminPolicyPreview,
   adminPolicyReviewChecklist,
   adminPolicySections,
   adminRoleEntryRules,
@@ -39,7 +40,7 @@ describe("Phase 13 admin skeleton config", () => {
     expect(adminApprovalGateNotes).toContain("실제 운영 사용자/권한 변경은 이번 범위에서 실행하지 않습니다.");
   });
 
-  it("maps attendance policy combinations to the employee CTA and tag skeleton view", () => {
+  it("maps effective attendance policy to employee CTA, policy summary, and tag skeleton view", () => {
     const cases: Array<{
       name: string;
       policy: AttendanceRegistrationPolicy;
@@ -99,12 +100,42 @@ describe("Phase 13 admin skeleton config", () => {
     ];
 
     for (const testCase of cases) {
-      const view = getAttendancePagePolicyView(testCase.policy);
+      const view = getAttendancePagePolicyView({
+        effectiveAttendanceRegistrationMethods: testCase.policy.allowedAttendanceRegistrationMethods,
+        effectiveAttendancePolicy: {
+          ...testCase.policy,
+          policyLevel: "job_type",
+          policyTargetId: "job_type_demo",
+          policyTargetLabel: "현장직",
+          priorityRank: 3,
+        },
+        effectivePolicySource: {
+          id: `policy_${testCase.name}`,
+          companyId: "company_demo",
+          active: true,
+          ...testCase.policy,
+          policyLevel: "job_type",
+          policyTargetId: "job_type_demo",
+          policyTargetLabel: "현장직",
+          priorityRank: 3,
+        },
+        matchedAttendancePolicies: [],
+        employeeId: "employee_demo",
+        summary: "현재 적용 정책: 부산 물류센터 > 현장직 기준",
+      });
       expect(view.allowedMethodLabels, testCase.name).toEqual(testCase.expectedAllowedLabels);
       expect(view.showMobileAction, testCase.name).toBe(testCase.policy.allowedAttendanceRegistrationMethods.includes("mobile"));
       expect(view.showPcAction, testCase.name).toBe(testCase.policy.allowedAttendanceRegistrationMethods.includes("pc"));
       expect(view.showTagSkeleton, testCase.name).toBe(testCase.expectTagSkeleton);
+      expect(view.policySummary).toBe("현재 적용 정책: 부산 물류센터 > 현장직 기준");
     }
+  });
+
+  it("builds admin preview with priority order, sample employees, and duplicate warnings", () => {
+    expect(adminPolicyPreview.priorityOrder).toEqual(["company_default", "workplace", "department", "job_type"]);
+    expect(adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
+    expect(adminPolicyPreview.sampleEmployees.some((item) => item.summary.includes("부산 물류센터 > 현장직"))).toBe(true);
+    expect(adminPolicyPreview.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
   it("keeps audit filters and boundaries in masked read-only scope", () => {

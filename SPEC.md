@@ -180,7 +180,12 @@
 - 출퇴근/정정/휴가 신청은 placeholder 단계라도 상태와 제한을 분명히 표시
 - 본인 범위와 관리자 범위를 구분
 - 회사 정책에서 허용한 출퇴근 등록 방식만 직원 화면 CTA 와 API 성공 경로에 올린다.
+- 정책 적용대상 우선순위는 `company_default < workplace < department < job_type` 로 고정한다.
+- 각 단계는 allowed methods 를 부분 병합하지 않고 `effective policy` 전체 override 로 계산한다.
+- 관리자 화면의 적용 인원/샘플 직원 preview 는 설명용 기준이며, 실제 조직 master 데이터 대량 반영이나 개인별 예외 저장 UI 처럼 보이면 안 된다.
+- 개인(employee)별 override 는 이번 정책 범위에 넣지 않는다.
 - `tag` 는 실장비 연결이 아니라 안내형 skeleton 으로 먼저 다룬다.
+- 실제 조직 데이터 적용, GPS/위치정보 수집·저장, NFC/RFID/QR 장비 연동, 외부 HR/출입 API 연동은 계속 별도 승인 항목으로 남긴다.
 - 승인 권한 없는 사용자의 approve/reject 차단
 - unknown employee/request id 를 성공처럼 처리하지 않기
 
