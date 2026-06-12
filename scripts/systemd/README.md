@@ -12,7 +12,8 @@ Replace minute-by-minute polling with an event-driven inotify watcher:
 4. It runs `scripts/gw-blocked-remediation-watch.sh --once --board groupware` when a new `task_events.kind = 'blocked'` event appears.
 5. It also runs a low-frequency safety sweep (`--sweep-interval 120`) so resolved stale blockers are cleaned after review/verify completion comments even when no new blocked event is emitted.
 6. The handler first reads Kanban state through a SQLite read-only URI, so normal no-op checks do not write to `kanban.db` or create a self-trigger loop.
-7. If a new safe `blocked` card is found, it uses `hermes kanban` to create a bounded fix → review → verify → recovery chain and dispatch the first card.
+7. Release cleanup blockers are handled before generic remediation: when `branch cleanup`/`release gate` is card-scoped, the handler verifies PR merge, remote branch absence, patch-id equivalence, and current checkout state before completing safe local branch cleanup.
+8. If a new safe code/test `blocked` card is found, it uses `hermes kanban` to create a bounded fix → review → verify → recovery chain and dispatch the first card.
 
 ## Installed user unit
 
@@ -35,6 +36,7 @@ The service is intentionally event-driven, not a 60-second polling loop.
 - The detector reads `kanban.db` with SQLite `mode=ro` and never writes it directly.
 - The inotify daemon baselines historical `task_events` on first start and ignores non-`blocked` events such as heartbeats/comments for immediate remediation.
 - The periodic safety sweep keeps stale/superseded cleanup from depending on a user asking for status.
+- Local branch cleanup is allowed only for card-scoped release work after PR/remote/patch-id safety checks; secrets, DNS, paid resources, production DB/data, and destructive operating-data work remain approval-gated.
 - `hermes kanban` writes are used only when a new remediation chain is actually needed.
 - `review-required` remains owned by the review-required gate watcher.
 - Secret, production DB/data, DNS/custom domain, paid resources, migrations, and destructive/force operations remain approval-gated.
