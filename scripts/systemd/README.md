@@ -9,9 +9,10 @@ Replace minute-by-minute polling with an event-driven inotify watcher:
 1. `gw-blocked-remediation-inotify-watch.py` waits on Linux inotify events for the groupware Kanban SQLite files.
 2. It filters for `kanban.db`, `kanban.db-wal`, and `kanban.db-shm` close-write/create/move/delete/attrib events.
 3. It debounces event bursts, then reads `task_events` through a SQLite read-only URI.
-4. It only runs `scripts/gw-blocked-remediation-watch.sh --once --board groupware` when a new `task_events.kind = 'blocked'` event appears.
-5. The handler first reads Kanban state through a SQLite read-only URI, so normal no-op checks do not write to `kanban.db` or create a self-trigger loop.
-6. If a new safe `blocked` card is found, it uses `hermes kanban` to create a bounded fix → review → verify → recovery chain and dispatch the first card.
+4. It runs `scripts/gw-blocked-remediation-watch.sh --once --board groupware` when a new `task_events.kind = 'blocked'` event appears.
+5. It also runs a low-frequency safety sweep (`--sweep-interval 120`) so resolved stale blockers are cleaned after review/verify completion comments even when no new blocked event is emitted.
+6. The handler first reads Kanban state through a SQLite read-only URI, so normal no-op checks do not write to `kanban.db` or create a self-trigger loop.
+7. If a new safe `blocked` card is found, it uses `hermes kanban` to create a bounded fix → review → verify → recovery chain and dispatch the first card.
 
 ## Installed user unit
 
@@ -32,7 +33,8 @@ The service is intentionally event-driven, not a 60-second polling loop.
 ## Safety rules
 
 - The detector reads `kanban.db` with SQLite `mode=ro` and never writes it directly.
-- The inotify daemon baselines historical `task_events` on first start and ignores non-`blocked` events such as heartbeats/comments.
+- The inotify daemon baselines historical `task_events` on first start and ignores non-`blocked` events such as heartbeats/comments for immediate remediation.
+- The periodic safety sweep keeps stale/superseded cleanup from depending on a user asking for status.
 - `hermes kanban` writes are used only when a new remediation chain is actually needed.
 - `review-required` remains owned by the review-required gate watcher.
 - Secret, production DB/data, DNS/custom domain, paid resources, migrations, and destructive/force operations remain approval-gated.
