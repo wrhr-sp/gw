@@ -14,7 +14,7 @@
 
 - worker가 실제로는 handoff를 마쳤는데 `review-required`로 blocked 처리해 다음 단계가 서지 못하는 경우
 - review-required gate가 한 번 검증 실패하면 그대로 막힌 카드로 남아, 수정→재리뷰→재검증의 자동 복구 루프가 이어지지 않는 경우
-- blocked 카드를 안전하게 분류해 Telegram으로 보고하고, 승인된 범위 안의 자동 조치를 붙이는 기준이 흩어져 있는 경우
+- blocked 카드를 안전하게 분류하고, Telegram은 Kanban 이벤트 raw 중계가 아니라 싱드 판단 보고로만 보내는 기준이 흩어져 있는 경우
 - systemd user 서비스 환경에서 `pnpm`/`node` PATH가 부족해 gate 스크립트가 "코드 실패"가 아니라 "실행 환경 부족" 때문에 오작동하는 경우
 - watcher가 카드 Body 전체를 읽다가 "review-required로 막지 말라" 같은 문서 문구까지 오탐하는 경우
 
@@ -39,7 +39,7 @@
 이번 보강에서 기대하는 점:
 - 카드 본문에 "성공했고 검증이 끝났으면 blocked/review-required로 남기지 말고 complete 하라"는 기본 규칙을 명시한다.
 - `merge`, `release gate`, `branch cleanup`, `deploy` 같은 카드 범위 승인 규칙을 공통으로 주입한다.
-- 정각 현황 보고를 기본 보고 경로로 보고, `notify-subscribe`는 명시적 env 승인 없을 때 기본 비활성으로 둔다.
+- Telegram 사용자 보고는 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한하고, Kanban 이벤트 raw 중계나 `notify-subscribe`는 명시 승인 없을 때 기본 비활성으로 둔다.
 
 쉽게 말하면, 자동화가 뒤에서 복구하기 전에 카드 생성 단계부터 "어떤 막힘이 진짜 막힘인지"를 worker들에게 먼저 알려 주는 역할입니다.
 
@@ -69,17 +69,17 @@
 
 ### D. `scripts/gw-hourly-status-report.py`
 
-이 watcher는 blocked 카드를 read-only DB 조회로 읽고, 위험도에 따라 Telegram 보고 + 안전 자동 조치를 붙입니다.
+이 흐름은 blocked 카드를 read-only DB 조회로 읽고, 위험도에 따라 안전 자동 조치 또는 싱드 직접 보고로 분류합니다. Telegram은 watcher가 이벤트를 그대로 중계하지 않고, 싱드가 카드/runs/log를 확인한 뒤 허용 보고 유형으로만 보냅니다.
 
 이번 보강에서 기대하는 점:
 - Kanban DB는 SQLite read-only URI로만 열고, task/comment/event/notify 테이블에 쓰지 않는다.
 - `review-required`는 자동 조치 후보로 분류해 gate 스크립트를 호출한다.
 - timeout/crash/stale 같은 worker recovery 계열은 안전 복구 후보로 분류한다.
-- secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 승인 필요로만 보고한다.
-- 같은 blocked 이유로 Telegram이 매 주기 폭주하지 않게 state+signature+retry backoff를 둔다.
+- secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 `사용자 승인 필요`로만 보고한다.
+- 같은 blocked 이유로 자동 조치/승인 필요 보고가 매 주기 폭주하지 않게 state+signature+retry backoff를 둔다.
 - circuit-breaker 성격의 DB 오류는 긴 backoff로 빠진다.
 
-이 watcher의 역할은 "막힘을 카드 생성으로 또 늘리는 것"이 아니라, blocked 이유를 짧게 분류하고 안전 범위만 제한적으로 자동 조치하는 것입니다.
+이 흐름의 역할은 "막힘을 카드 생성으로 또 늘리는 것"이 아니라, blocked 이유를 짧게 분류하고 안전 범위만 제한적으로 자동 조치하는 것입니다.
 
 ### E. `scripts/gw-review-required-recovery-loop.sh`
 
@@ -91,6 +91,7 @@
 - 실패 로그 tail을 새 카드 본문에 넣어 다음 worker가 바로 원인을 알 수 있게 한다.
 - secret/production DB/DNS/유료/외부 공개/migration/파괴적 삭제는 여전히 범위 밖으로 명시한다.
 - idempotency key로 같은 blocked 카드에 대해 복구 카드가 무한 증식하지 않게 한다.
+- 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`이 3회 이상 반복되면 더 이상 단순 복구 체인을 늘리지 않고 싱드가 직접 원본 카드/runs/log/실패 명령/변경 파일/중복 worker 여부를 확인한다.
 
 쉽게 말하면, "자동으로 고칠 수 있는 실패"는 다시 작업 루프로 보내고, "사람이 결정해야 하는 실패"만 blocked로 남기는 장치입니다.
 
@@ -125,9 +126,10 @@
 
 이 원칙이 필요한 이유는, failed path와 recovered path가 섞이면 후속 카드가 잘못된 근거로 시작될 수 있기 때문입니다.
 
-### 원칙 3. Telegram 보고는 해석 요약만 보낸다
+### 원칙 3. Telegram 보고는 싱드 판단 요약만 보낸다
 
-safe triage watcher는 사용자가 바로 판단할 수 있는 짧은 보고를 보내야 합니다.
+Telegram 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한합니다.
+`자동 조치`, `사용자 승인 필요`, `작업 최종 결과`는 Kanban 이벤트 watcher가 raw 이벤트를 보내는 방식이 아니라, 싱드가 이벤트/카드/runs/log를 읽고 판단한 뒤 사용자에게 직접 보내는 보고입니다.
 원본 worker body 전체를 중계하거나, 또 다른 보고 카드를 만들지 않습니다.
 
 ### 원칙 4. DB와 watcher는 보수적으로 다룬다
@@ -143,7 +145,7 @@ safe triage watcher는 사용자가 바로 판단할 수 있는 짧은 보고를
 - review-required 신호 오탐 감소
 - 표준 검증 통과 시 자동 complete/dispatch
 - 표준 검증 실패 시 recovery mini-chain 생성
-- blocked 카드의 안전 triage + Telegram 보고
+- blocked 카드의 안전 triage + 싱드 판단 Telegram 보고
 - systemd PATH 보강
 - idempotency/state/backoff/circuit-breaker 같은 운영 guardrail 보강
 
@@ -170,7 +172,7 @@ safe triage watcher는 사용자가 바로 판단할 수 있는 짧은 보고를
 ### 리뷰어가 확인할 질문
 - 자동 완료 조건과 승인 필요 조건이 섞이지 않았는가?
 - 원본 blocked 카드와 복구 체인의 관계가 문서와 코드에서 일치하는가?
-- Telegram watcher가 DB 쓰기나 추가 카드 생성으로 흐르지 않는가?
+- Telegram 보고가 Kanban 이벤트 raw 중계, DB 쓰기, 추가 카드 생성으로 흐르지 않는가?
 - 실패/backoff/state 처리 때문에 보고 누락이나 폭주가 생기지 않는가?
 
 ### 테스터가 확인할 질문
@@ -186,7 +188,7 @@ safe triage watcher는 사용자가 바로 판단할 수 있는 짧은 보고를
 1. worker가 성공한 handoff를 남겼을 때 `review-required` 문구만으로 장기 blocked가 되지 않는다.
 2. gate 표준 검증이 통과하면 card complete + 다음 dispatch가 된다.
 3. gate 표준 검증이 실패하면 blocked 방치 대신 복구 mini-chain이 만들어진다.
-4. triage watcher가 blocked 이유를 승인 필요/자동 조치 후보/자동 복구 후보/수동 확인 필요로 나눠 Telegram에 짧게 보고한다.
+4. blocked 이유를 승인 필요/자동 조치 후보/자동 복구 후보/수동 확인 필요로 나누고, Telegram에는 싱드 판단 보고양식으로만 짧게 보고한다.
 5. systemd PATH 환경에서도 `pnpm`/`node`/`hermes`를 찾을 수 있다.
 6. DB read-only, 단일 인스턴스, backoff, idempotency 같은 안전장치가 유지된다.
 7. restricted 범위는 자동화 대상에서 빠져 있다.

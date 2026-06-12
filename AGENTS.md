@@ -87,8 +87,18 @@
 - `dispatch_in_gateway`는 `singde` 단일 소유 원칙을 유지한다. 역할봇과 `gw-dev-bot`/아리아에서 dispatcher를 켜지 않는다.
 - DB malformed/disk I/O 오류는 반복 재시도하지 말고 circuit-breaker/long-backoff로 멈춘 뒤 보고한다.
 - 수정 후 `bash -n`, `python3 -m py_compile`, 관련 테스트, systemd status/journal/failed, `dispatch --dry-run`을 가능한 범위에서 검증한다.
-- Telegram 자동 보고는 정각 현황 보고만 유지한다. `gw-hourly-status-report.timer`를 기본 보고 경로로 두고, 칸반 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료 이벤트 자동 보고, second-pass 2차 보고, safe-triage 즉시 보고, 사용자 결과보고/막힘 보고 카드 생성, `notify-subscribe` 방식은 대장 명시 승인 없이는 켜지 않는다.
+- Telegram 사용자 보고 경로는 Kanban 이벤트 watcher의 자동 중계가 아니라 싱드가 이벤트/카드/runs/log를 읽고 판단해 직접 보내는 방식이다. 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한한다.
+- `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`는 카드 생성/상태변경 이벤트를 그대로 쏘지 않는다. 이벤트가 발생하면 싱드가 근거를 확인하고 보고양식에 맞춰 직접 보고한다.
+- `정각 보고`는 기존 `gw-hourly-status-report.timer` 기반 09~20시 정각 현황 보고만 유지한다.
+- 사용자 결과보고/막힘 보고 카드를 새로 만들거나 `notify-subscribe`를 붙이는 방식은 중복·아리아 경유 보고를 만들 수 있으므로 대장 명시 승인 없이는 켜지 않는다.
 - 카드 생성/완료/보류/dispatch 자동화에는 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 둔다.
+
+## 검증 실패 3회 이상 반복 시 싱드 개입 규칙
+- 자동화 스크립트나 역할봇 체인이 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`을 3회 이상 반복하면 새 재수정 카드를 계속 늘리지 않는다.
+- 싱드가 직접 원본 카드, runs/log, 실패 명령, 변경 파일, 중복 worker 여부를 확인해 원인을 분류한다.
+- 자동 조치 가능하면 기준 복구 카드 1개만 남기고 수정→리뷰→검증 체인으로 다시 넘긴다.
+- secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업이 필요하면 `사용자 승인 필요` 보고로 전환하고 실행하지 않는다.
+- 이 개입은 Telegram `[자동 조치]` 유형으로 짧게 보고하되, Kanban 이벤트 raw dump를 보내지 않는다.
 
 ## 공통 중단 조건
 다음 상황에서는 작업을 멈추고 싱드에게 보고한다.
@@ -101,14 +111,18 @@
 
 ## 보고 형식
 가능하면 아래 순서로 짧게 보고한다.
-- 한 일
+- 결론
+- 카드 정보
+- 한 일 또는 막힌 이유
 - 확인된 근거
-- 남은 리스크 또는 미확인 사항
-- 다음 액션
+- 다음 액션: `대장이 해줘야 할 것`과 `싱드 처리`를 분리
+- 승인 게이트
 
-텔레그램 자동 보고는 정각 현황 보고만 보낸다. 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료, 단순 진행, safe-triage 즉시 보고, 2차 보고는 보내지 않는다. 정각 보고 외 별도 텔레그램 보고가 필요하면 대장 명시 승인 후 1회성으로 짧게 보낸다.
+텔레그램 자동 보고는 잘리지 않게 1회 보고를 짧게 유지한다. 길어질 경우 `1/2`, `2/2`처럼 나눠 보내고, 핵심 결론을 첫 메시지에 먼저 쓴다.
 
 작업 보고가 올라오면 싱드가 먼저 읽고 분류한다. 완료 보고는 검증 근거와 함께 사용자에게 짧게 보고한다. 막힘 보고는 자동화 범위에서 해결 가능하면 싱드가 해결 또는 재라우팅하고, 사용자 개입·승인·비용·외부 권한·비밀값이 필요한 경우에만 왜 막혔는지와 필요한 선택을 사용자에게 보고한다.
+
+작업 최종 결과 보고에는 배포가 포함된 경우 사용자가 URL에서 직접 보면 되는 화면/경로/확인 포인트를 반드시 포함한다. 예: live URL, `/`, `/login`, `/dashboard`, 관련 기능 route, manifest/API/smoke 확인 지점.
 
 ## OTA/GW 경계 분리 규칙
 - 그룹웨어 팀과 `groupware` board는 그룹웨어 repo(`/home/wrhrgw/gw`)와 그룹웨어 bot home(`/home/wrhrgw/gw-dev-bot/.hermes`)만 본다.
@@ -136,7 +150,7 @@
 - Cline Kanban: runtime health probe, recovery probe, restart/shutdown generation guard 패턴을 참고해 watcher가 중복 실행되거나 이전 tick 결과가 늦게 상태를 바꾸지 않게 한다.
 - Routa: run summary, evidence, recovery hint, workspace integrity 개념을 참고해 완료/막힘/복구 보고에는 근거, 다음 액션, 복구 힌트를 짧게 남긴다.
 - 공통 적용: idempotency key, state 파일, lock/flock, read-only DB 조회, circuit-breaker/long-backoff, dry-run, 검증 후 완료 보고를 기본으로 한다.
-- 금지: 완료/막힘/복구/조치 결과를 사용자 보고용 Kanban 카드로 대체하지 않는다. 최종완료 결과보고, 막힘 보고, 조치결과보고, 복구결과보고, 09~20시 정각 현황보고는 Telegram 직접 보고를 기본값으로 한다.
+- 금지: 완료/막힘/복구/조치 결과를 사용자 보고용 Kanban 카드로 대체하지 않는다. `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`는 싱드가 직접 판단해 Telegram에 보고하고, `정각 보고`는 기존 정각 현황 보고만 유지한다.
 
 ## 문서 관계
 - 인격과 말투 원본: `~/.hermes/SOUL.md`
