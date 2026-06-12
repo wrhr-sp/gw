@@ -1,3 +1,5 @@
+import { getAdminHostInfo } from "../admin-host";
+
 export type NavItem = {
   href: string;
   label: string;
@@ -5,7 +7,7 @@ export type NavItem = {
   summary: string;
 };
 
-export const pwaManifest = {
+export const generalPwaManifest = {
   name: "GW Cloudflare-first Skeleton",
   short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
@@ -38,6 +40,42 @@ export const pwaManifest = {
     },
   ],
 } as const;
+
+export const adminPwaManifest = {
+  name: "GW Admin",
+  short_name: "GW Admin",
+  description: "권한, 정책, 감사 로그를 운영하는 관리자용 그룹웨어 Admin PWA 스켈레톤",
+  start_url: "/admin",
+  scope: "/admin",
+  display: "standalone",
+  orientation: "portrait-primary",
+  background_color: "#111827",
+  theme_color: "#111827",
+  lang: "ko",
+  categories: ["business", "productivity", "admin"],
+  icons: [
+    {
+      src: "/icons/admin-icon-192.svg",
+      sizes: "192x192",
+      type: "image/svg+xml",
+      purpose: "any",
+    },
+    {
+      src: "/icons/admin-icon-512.svg",
+      sizes: "512x512",
+      type: "image/svg+xml",
+      purpose: "any",
+    },
+    {
+      src: "/icons/admin-icon-maskable-512.svg",
+      sizes: "512x512",
+      type: "image/svg+xml",
+      purpose: "maskable",
+    },
+  ],
+} as const;
+
+export const pwaManifest = generalPwaManifest;
 
 export const mobilePrimaryNav: NavItem[] = [
   {
@@ -78,6 +116,33 @@ export const mobilePrimaryNav: NavItem[] = [
   },
 ];
 
+export const adminPrimaryNav: NavItem[] = [
+  {
+    href: "/admin",
+    label: "관리자 허브",
+    shortLabel: "허브",
+    summary: "운영 허브와 우선 검토 항목",
+  },
+  {
+    href: "/admin/users",
+    label: "사용자/권한",
+    shortLabel: "사용자",
+    summary: "권한, 초대, 상태 점검",
+  },
+  {
+    href: "/admin/policies",
+    label: "운영 정책",
+    shortLabel: "정책",
+    summary: "정책 current/candidate 비교",
+  },
+  {
+    href: "/admin/audit-logs",
+    label: "감사 로그",
+    shortLabel: "감사",
+    summary: "감사 추적과 읽기 전용 검토",
+  },
+];
+
 export const mobileQuickActions = [
   {
     href: "/attendance",
@@ -103,6 +168,12 @@ export const installGuideSteps = [
   "브라우저 메뉴에서 ‘홈 화면에 추가’ 또는 ‘설치’가 보이면 preview/production 공통 상대 경로 manifest 를 기준으로 동작합니다.",
   "설치 후에도 same-origin /api 경로 정책은 그대로 유지됩니다.",
   "이번 Phase 에서는 push, background sync, 실제 디바이스 배포 없이 설치 안내 문구와 경로만 고정합니다.",
+] as const;
+
+export const adminInstallGuideSteps = [
+  "관리자 host 에서는 일반 사용자용 홈이 아니라 `/admin` 을 시작점으로 설치되도록 상대 경로 manifest 를 유지합니다.",
+  "관리자용 설치 후에도 권한 검증과 same-origin /api 정책은 그대로 유지됩니다.",
+  "이번 Phase 에서는 관리자 전용 host/PWA skeleton 만 고정하고 실제 DNS/custom domain 연결은 하지 않습니다.",
 ] as const;
 
 export const offlineGuidance = {
@@ -140,3 +211,27 @@ export const mobileReviewChecklist = [
   "게시판·문서·전자결재 접근 경계가 모바일에서도 흐려지지 않는지 확인",
   "manifest 와 내부 링크가 preview 전용 절대 경로를 하드코딩하지 않았는지 확인",
 ] as const;
+
+export function getPwaManifestForHost(host?: string | null) {
+  return getAdminHostInfo(host).isAdminHost ? adminPwaManifest : generalPwaManifest;
+}
+
+export function getAppShellConfigForHost(host?: string | null) {
+  if (getAdminHostInfo(host).isAdminHost) {
+    return {
+      appName: adminPwaManifest.short_name,
+      appEyebrow: "Admin host PWA skeleton",
+      homeHref: "/admin",
+      navItems: adminPrimaryNav,
+      installGuideSteps: adminInstallGuideSteps,
+    };
+  }
+
+  return {
+    appName: "그룹웨어 Web/PWA",
+    appEyebrow: "Cloudflare-first skeleton",
+    homeHref: "/",
+    navItems: mobilePrimaryNav,
+    installGuideSteps,
+  };
+}

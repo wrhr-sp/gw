@@ -17,17 +17,17 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 출퇴근 정책 적용대상/우선순위 2차
+### 3. 현재 문서화/검증 기준은 Admin host 분리 + PWA 웹앱 1차
 
-현재 루트 문서와 handoff 는 출퇴근 정책 적용대상/우선순위 2차를 기준으로 맞추고 있다.
+현재 루트 문서와 handoff 는 Admin host 분리 + PWA 웹앱 1차를 기준으로 맞추고 있다.
 
-- 회사 정책에서 선택할 출퇴근 등록 방식 enum 은 계속 `mobile`, `pc`, `tag` 3가지로 제한한다.
-- 정책 적용대상 level 은 `company_default`, `workplace`, `department`, `job_type` 4단계로 고정한다.
-- 우선순위는 `회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할` 기준이다.
-- 이번 2차는 allowed methods 를 부분 병합하지 않고 level 전체 override 로 계산한다.
-- 직원 화면과 API 는 같은 `effective policy` 기준으로 허용/차단을 설명해야 한다.
-- 개인 override, 복수 근무지/복수 부서의 정교한 우선순위, 실제 개인정보 원문, GPS/위치정보 강제 수집, production DB 실데이터, 실제 외부 HR/출입 시스템 연동은 아직 범위 밖이다.
-- 최신 재검증 기준으로 `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, `pnpm check` 는 모두 통과했다. 따라서 이전에 적어 둔 web 빌드 ENOENT blocker 메모는 더 이상 현재 이슈가 아니다.
+- 일반 사용자 웹과 관리자 웹은 `route` 뿐 아니라 `host + route` 기준으로 분리하는 방향으로 문서 기준을 맞춘다.
+- production admin host 후보는 `admin.<승인된-domain>` 이지만 실제 DNS/custom domain 연결은 아직 범위 밖이다.
+- preview admin host 후보는 별도 `.workers.dev` admin host 이고, localhost/dev 에서는 `admin.localhost` 또는 host header override 를 우선 검토한다.
+- 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않아야 하고, 관리자 host 에서만 `/admin` 계열과 관리자용 manifest 가 정상 노출돼야 한다.
+- host 분리는 노출/설치 경험 경계이고, 실제 권한/회사 scope/API 검증은 기존 guardrail 을 계속 유지해야 한다.
+- DNS/custom domain, secret, production DB 실데이터, 실제 운영 사용자/권한 변경, 실제 외부 HR 연동은 아직 범위 밖이다.
+- 현재는 기획/문서 기준만 정리된 상태이며, host-aware middleware/manifest 분기 구현과 local/preview smoke 근거는 후속 구현·리뷰·테스트 카드에서 채워야 한다.
 
 ### 4. 자동화 보강분 이력
 

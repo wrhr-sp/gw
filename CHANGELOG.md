@@ -1,9 +1,20 @@
 # CHANGELOG
 
+## 2026-06-12
+
+### Changed
+
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 현재 Admin host + PWA 1차 구현 기준으로 다시 맞췄다.
+- 문서에 production admin host 가 `GW_ADMIN_HOSTS` allowlist 없이는 자동 허용되지 않는다는 점과 `x-forwarded-host` 를 신뢰하지 않는 host 경계를 추가했다.
+- `/manifest.webmanifest` 단일 route 가 host 에 따라 일반 사용자용/관리자용 manifest 를 동적으로 반환한다는 현재 동작을 반영했다.
+- 부모 검증 결과를 바탕으로 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 실패 원인이 stale 테스트 기대값 6건임을 handoff/test 문서에 남겼다.
+
 ## 2026-06-11
 
 ### Added
 
+- Admin host 분리 + PWA 웹앱 1차 범위 문서 `docs/architecture/admin-host-pwa-pass-1-scope.md` 추가.
+- Admin host 분리 + PWA 웹앱 1차 handoff 문서 `docs/guides/admin-host-pwa-pass-1-handoff.md` 추가.
 - Phase 11 조직/직원 일반 화면 1차 완료 및 PR #21 main merge/Cloudflare deploy 확인.
 - review-required gate, safe triage, recovery loop 자동화 보강 작업 체인 시작.
 - 루트 표준 문서 세트 추가: VISION, ROADMAP, PRD, SPEC, ARCHITECTURE, DATA_MODEL, API, TASKS, TEST_PLAN, QA_CHECKLIST, HANDOFF, DECISIONS, RUNBOOK, DEPLOYMENT, KNOWN_ISSUES.
@@ -17,6 +28,9 @@
 
 ### Changed
 
+- ROADMAP/README/TASKS/HANDOFF/KNOWN_ISSUES/SPEC/TEST_PLAN/QA_CHECKLIST 기준 최신 활성 작업을 Admin host 분리 + PWA 웹앱 1차로 갱신했다.
+- 일반 사용자 host 와 관리자 host 를 `host + route` 기준으로 분리하고, 관리자용 manifest(`start_url: /admin`, `scope: /admin`)를 별도 정체성으로 다룬다는 기획 기준을 문서에 추가했다.
+- production admin host 후보(`admin.<승인된-domain>`), preview `.workers.dev` admin host 후보, localhost/dev host 시뮬레이션 후보를 문서에 고정했다.
 - 현재 진행 작업은 배포까지 자동 승인으로 처리하고, 완료 후 후속 수정/추가 변경은 배포 전 재승인 기준으로 분리.
 - role worker 스킬 누락으로 인한 crash는 제품 실패가 아니라 카드/프로필 설정 문제로 분류하고 복구.
 - 개발 카드에 제한적 재귀적 자기개선 루프를 적용하기로 했다. 범위는 현재 카드 관련 문서·테스트·QA·핸드오프 개선으로 제한하고, 운영 DB/secret/DNS/유료/배포/PR merge/다른 보드 작업은 자동 수행하지 않는다.

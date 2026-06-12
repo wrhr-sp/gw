@@ -147,6 +147,8 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 확인할 것:
 - API 기본 경로가 same-origin `/api/*` 설명과 맞는가
 - manifest 경로와 `start_url` 설명이 맞는가
+- 일반 사용자 host 와 관리자 host 의 manifest/start_url/scope 분리가 문서 기준과 맞는가
+- 일반 사용자 host 에서 `/admin*` 가 그대로 렌더링되지 않는가
 - `build:cf` 가 통과하는가
 
 대표 근거:
@@ -238,6 +240,30 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `apps/web/dashboard-boundary.test.tsx`
 - `apps/web/org-employees-boundary.test.tsx`
 - `apps/api/test/auth-org.spec.ts`
+
+### 관리자 host / PWA
+
+다시 볼 포인트:
+- host helper 가 preview/local/admin host 후보를 같은 기준으로 판별하는지
+- production 모양의 host 라도 `GW_ADMIN_HOSTS` allowlist 에 없으면 admin host 로 오인하지 않는지
+- host 판별이 `Host` 헤더만 신뢰하고 `x-forwarded-host` 로 spoof 되지 않는지
+- 일반 사용자 host + `/admin*` 요청이 login/forbidden/admin-host redirect 중 문서 기준대로 처리되는지
+- 관리자 host + `/` 요청이 `/admin` 으로 이어지는지
+- 관리자 host + 일반 업무 route(`/dashboard`, `/employees` 등) 요청이 `/admin` 으로 되돌아가는지
+- 관리자 host 에서 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 권한 경계가 유지되는지
+- `/manifest.webmanifest` 1개 route 가 host 에 따라 일반 사용자/관리자 manifest 를 다르게 반환하는지
+- 일반 사용자 manifest 와 관리자 manifest 의 `name`, `start_url`, `scope`, `theme`, icon prefix 차이가 유지되는지
+- host 분리가 있어도 API 권한/회사 scope 검증이 약해지지 않는지
+
+주요 테스트:
+- `apps/web/admin-preview-guard.test.ts`
+- `apps/web/admin-host.test.ts`
+- `apps/web/mobile-pwa.test.ts`
+
+현재 재검증 메모(부모 카드 기준):
+- `bash scripts/gw-cloudflare-check.sh`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 는 통과 근거가 있다.
+- `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 는 stale 기대값 6건 때문에 실패 근거가 있다.
+- 특히 기존 테스트가 `admin.example.com` 을 기본 허용 host 로 가정한 부분이 현재 `GW_ADMIN_HOSTS` allowlist 구현과 어긋난다.
 
 ## 6. PR 전 확인
 

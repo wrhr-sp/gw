@@ -1,39 +1,61 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
+import { getTrustedHostFromHeaders } from "../admin-host";
+
+import { getPwaManifestForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
+
 import { MobileAppShell } from "./_components/mobile-app-shell";
-import { pwaManifest } from "./mobile-pwa-config";
 
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "GW Cloudflare-first Skeleton",
-  description: pwaManifest.description,
-  manifest: "/manifest.webmanifest",
-  applicationName: pwaManifest.short_name,
-  appleWebApp: {
-    capable: true,
-    title: pwaManifest.short_name,
-    statusBarStyle: "default",
-  },
-  icons: {
-    icon: pwaManifest.icons.map((icon) => ({ url: icon.src })),
-    apple: [{ url: "/icons/icon-192.svg" }],
-  },
-};
+async function getRequestHost() {
+  const requestHeaders = await headers();
+  return getTrustedHostFromHeaders(requestHeaders);
+}
 
-export const viewport: Viewport = {
-  themeColor: pwaManifest.theme_color,
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const host = await getRequestHost();
+  const manifest = getPwaManifestForHost(host);
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+  return {
+    title: manifest.name,
+    description: manifest.description,
+    manifest: "/manifest.webmanifest",
+    applicationName: manifest.short_name,
+    appleWebApp: {
+      capable: true,
+      title: manifest.short_name,
+      statusBarStyle: "default",
+    },
+    icons: {
+      icon: manifest.icons.map((icon) => ({ url: icon.src })),
+      apple: [{ url: manifest.icons[0].src }],
+    },
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const host = await getRequestHost();
+  const manifest = getPwaManifestForHost(host);
+
+  return {
+    themeColor: manifest.theme_color,
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+  };
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const host = await getRequestHost();
+  const shellConfig = getAppShellConfigForHost(host);
+
   return (
     <html lang="ko">
       <body>
-        <MobileAppShell>{children}</MobileAppShell>
+        <MobileAppShell {...shellConfig}>{children}</MobileAppShell>
       </body>
     </html>
   );
