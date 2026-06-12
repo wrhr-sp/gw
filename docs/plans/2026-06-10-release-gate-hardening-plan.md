@@ -42,7 +42,7 @@ Tech Stack: pnpm workspace, Next.js App Router, OpenNext Cloudflare, GitHub Acti
 - `scripts/gw-blocked-report-watch.sh`
 - `scripts/gw-review-required-gate-watch.sh`
 - `scripts/gw-report-action-watch.sh`
-- `scripts/gw-telegram-kanban-report-watch.py`
+- `scripts/gw-hourly-status-report.py`
 - `scripts/gw-preventive-handoff-watch.sh`
 - `scripts/gw-superseded-chain-cleanup-watch.sh`
 - 대응 설명 문서 (`scripts/README.md`, 운영 가이드)
@@ -103,7 +103,7 @@ Tech Stack: pnpm workspace, Next.js App Router, OpenNext Cloudflare, GitHub Acti
 목적: report/watch 계열을 건드렸을 때만 별도 검토한다.
 
 포함:
-- `gw-telegram-kanban-report-watch.py`, `gw-blocked-report-watch.sh` 등 감시/보고 스크립트
+- `gw-hourly-status-report.py` 등 남은 감시/보고 스크립트
 - 중복 보고/누락 방지 기준
 - blocked/review-required/승인 필요 카드 handoff 규칙
 

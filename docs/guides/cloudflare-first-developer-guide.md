@@ -217,7 +217,7 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - object key 는 `companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safeFileName}` 기본 규칙을 따르고 raw `storageKey` 는 응답/로그에 과도하게 노출하지 않습니다.
 - 허용 MIME 은 제한된 allowlist 로 시작하고, 파일 1개 최대 크기 25MB 기본값을 먼저 테스트로 고정합니다.
 - `scripts/README.md` 에 적힌 그룹웨어 보고/감시 자동화 스크립트를 건드리면 기능 코드와 함께 release gate 검토 대상으로 묶습니다.
-- 특히 `gw-telegram-kanban-report-watch.py` 를 포함한 보고/감시 스크립트 수정은 중복 보고와 승인 필요 카드 누락 여부까지 같이 확인합니다.
+- 특히 `gw-hourly-status-report.py` 중심의 정각 보고 스크립트 수정은 중복 보고와 승인 필요 카드 누락 여부까지 같이 확인합니다.
 
 ## 자주 보는 파일 묶음
 
@@ -346,7 +346,7 @@ PWA:
 - Phase 6 모바일/PWA 는 `docs/architecture/cloudflare-preview-url-preparation.md` 기준으로 상대 경로 manifest 와 same-origin `/api` 가정을 유지함
 - Phase 7 API same-origin 1차는 `docs/architecture/phase-7-api-same-origin-scope.md` 기준으로, 별도 공개 API 도메인 추가보다 Web origin 내부 브리지를 먼저 검토함
 - 필요하면 `docs/workflow/` 와 release gate 문서에도 Phase 5 handoff 흐름을 더 보강함
-- `gw-telegram-kanban-report-watch.py` 를 포함한 보고/감시 스크립트 변경이 있다면 release gate 문서와 함께 검토
+- `gw-hourly-status-report.py` 중심의 정각 보고 스크립트 변경이 있다면 release gate 문서와 함께 검토
 
 주의:
 

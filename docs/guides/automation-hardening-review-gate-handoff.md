@@ -1,17 +1,16 @@
-# 자동화 보강 handoff: review-required gate / safe triage / recovery loop
+# 자동화 보강 handoff: review-required gate / recovery loop
 
 한 줄 요약:
-이번 묶음은 review-required handoff를 자동으로 닫을 수 있는 경우 바로 다음 단계로 넘기고, 실제 코드/검증 실패는 자동 재수정→재리뷰→재검증→복구 정리 루프로 보내도록 만드는 운영 보강입니다.
+현재 운영 기준에서는 safe-triage Telegram watcher와 카드 이벤트 보고 watcher를 제거했고, Telegram 자동 보고는 정각 현황만 유지합니다. 이 문서는 review-required handoff를 자동으로 닫을 수 있는 경우 바로 다음 단계로 넘기고, 실제 코드/검증 실패는 자동 재수정→재리뷰→재검증→복구 정리 루프로 보내는 기준만 다룹니다.
 
 ## 1. 다음 작업자가 먼저 이해해야 할 상태
 
-현재 로컬 변경 범위는 아래 5개입니다.
+현재 로컬 변경 범위는 아래 4개입니다.
 
 - `scripts/gw-auto-workflow.sh`
 - `scripts/gw-hermes-env.sh`
 - `scripts/gw-review-required-gate.sh`
-- `scripts/gw-safe-triage-watch.py`
-- `scripts/gw-review-required-recovery-loop.sh` (신규)
+- `scripts/gw-review-required-recovery-loop.sh`
 
 이 묶음은 제품 화면 기능 변경이 아니라, Kanban 자동화가 막혔을 때 안전하게 이어가거나 멈추는 기준을 보강하는 작업입니다.
 
@@ -29,7 +28,7 @@
 확인 포인트:
 - 새 카드 body에 자동화 안전 규칙과 카드 범위 승인 규칙이 주입되는지
 - 성공한 worker가 `review-required`로 막지 말라는 공통 완료 규칙이 들어가는지
-- direct Telegram watcher를 기본 보고 경로로 두고 `notify-subscribe`는 명시 env 없으면 기본 비활성인지
+- 정각 현황 보고만 기본 Telegram 보고로 두고 `notify-subscribe`는 명시 env 없으면 기본 비활성인지
 
 리뷰 질문:
 - 카드 생성 단계에서 downstream worker가 막힘 기준을 오해하지 않게 충분히 설명하는가?
@@ -58,18 +57,6 @@
 - `pnpm check`, `shared/api/web test/typecheck`, `web build`가 현재 저장소의 실제 표준 검증으로 맞는가?
 - 실패 로그와 state 파일 처리 때문에 같은 카드에 복구 카드가 계속 늘어나지 않는가?
 
-### `scripts/gw-safe-triage-watch.py`
-
-확인 포인트:
-- SQLite `mode=ro`로만 DB를 여는지
-- 분류가 `approval-needed`, `review-gate`, `worker-recovery`, `manual-triage`로 나뉘는지
-- Telegram 전송 전/후 dedupe state와 retry backoff가 동작하는지
-- 자동 조치는 gate 스크립트나 recovery watcher처럼 승인된 안전 스크립트만 호출하는지
-
-리뷰 질문:
-- blocked 이유가 분류 기준에 과하게 넓게 걸려 오탐/과잉 자동조치가 나지 않는가?
-- 보고 메시지가 비개발자도 이해할 수 있는 수준으로 충분히 짧고 분명한가?
-
 ### `scripts/gw-review-required-recovery-loop.sh`
 
 확인 포인트:
@@ -94,7 +81,7 @@ bash -n scripts/gw-auto-workflow.sh
 bash -n scripts/gw-hermes-env.sh
 bash -n scripts/gw-review-required-gate.sh
 bash -n scripts/gw-review-required-recovery-loop.sh
-python3 -m py_compile scripts/gw-safe-triage-watch.py
+python3 -m py_compile scripts/gw-hourly-status-report.py
 ```
 
 ### help/dry-run 확인
@@ -102,8 +89,7 @@ python3 -m py_compile scripts/gw-safe-triage-watch.py
 ```bash
 bash scripts/gw-review-required-gate.sh --dry-run
 bash scripts/gw-review-required-recovery-loop.sh --help
-python3 scripts/gw-safe-triage-watch.py --help
-python3 scripts/gw-safe-triage-watch.py --once --dry-run
+python3 scripts/gw-hourly-status-report.py --dry-run --force
 ```
 
 ### 환경 확인
@@ -150,7 +136,7 @@ bash -lc 'source ./scripts/gw-hermes-env.sh && command -v pnpm && command -v pyt
 
 예시 정리 방식:
 - 문법 확인: `bash -n ...`, `python3 -m py_compile ...`
-- 동작 확인: `gw-review-required-gate.sh --dry-run`, `gw-safe-triage-watch.py --once --dry-run`
+- 동작 확인: `gw-review-required-gate.sh --dry-run`, `gw-hourly-status-report.py --dry-run --force`
 - 실카드 검증: 테스트용 blocked/review-required 카드 1개를 대상으로 complete 또는 recovery chain 생성 확인
 
 ## 5-1. 이번 검증에서 실제로 확인된 것과 아직 미확인인 것
@@ -160,8 +146,8 @@ bash -lc 'source ./scripts/gw-hermes-env.sh && command -v pnpm && command -v pyt
 - shell 문법 체크(`bash -n`)와 `python3 -m py_compile`은 모두 통과했습니다.
 - `python3 -m unittest scripts.tests.test_gw_pr_flow -v` 7건이 통과했습니다.
 - `gw-review-required-gate.sh --dry-run`은 정상 종료했고, 처리 대상 blocked review-required 카드가 없다는 메시지까지 확인했습니다.
-- `gw-safe-triage-watch.py --help`, `--once --dry-run`은 실행됐고, 실제 서비스가 이미 떠 있을 때는 단일 인스턴스 lock 때문에 추가 실행을 막는 것도 확인했습니다.
-- `gw-review-required-gate-watch.service`, `gw-safe-triage-watch.service`, `gw-worker-recovery-watch.service`는 active 상태와 최근 정상 로그를 확인했습니다.
+- `gw-hourly-status-report.py --help`, `--once --dry-run`은 실행됐고, 실제 서비스가 이미 떠 있을 때는 단일 인스턴스 lock 때문에 추가 실행을 막는 것도 확인했습니다.
+- `gw-review-required-gate-watch.service`, `gw-worker-recovery-watch.service`, `gw-hourly-status-report.timer`는 active 상태와 최근 정상 로그를 확인했습니다.
 
 아직 이번 턴에서 직접 끝까지 확인하지 못한 것은 아래입니다.
 

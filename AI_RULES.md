@@ -76,7 +76,7 @@
 - `dispatch_in_gateway`는 `singde` 단일 소유 원칙을 유지한다. 역할봇과 `gw-dev-bot`/아리아에서 dispatcher를 켜지 않는다.
 - watcher가 `database disk image is malformed`, `file is not a database`, `disk I/O error`를 만나면 반복 재시도하지 말고 circuit-breaker/long-backoff로 멈춘 뒤 보고한다.
 - 스크립트 수정 후에는 `bash -n`, `python3 -m py_compile`, 관련 테스트, `systemctl --user status`, journal, `systemctl --user --failed`, `dispatch --dry-run`을 가능한 범위에서 검증한다.
-- 보고 경로 기본값은 `gw-telegram-kanban-report-watch.py`의 read-only 직접 Telegram 전송이다. 별도 사용자 결과보고/막힘 보고 카드를 생성하거나 `notify-subscribe`를 붙이는 방식은 중복·아리아 경유 보고를 만들 수 있으므로 대장 명시 승인 없이는 켜지 않는다.
+- Telegram 자동 보고는 정각 현황 보고만 유지한다. `gw-hourly-status-report.timer`를 기본 보고 경로로 두고, 칸반 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료 이벤트 자동 보고, second-pass 2차 보고, safe-triage 즉시 보고, 별도 사용자 결과보고/막힘 보고 카드 생성, `notify-subscribe` 방식은 대장 명시 승인 없이는 켜지 않는다.
 - 자동화 스크립트가 카드 생성/완료/보류/dispatch를 수행한다면 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 반드시 둔다.
 
 ## 7. 공통 중단 조건

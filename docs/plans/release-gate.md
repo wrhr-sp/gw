@@ -23,7 +23,7 @@ release gate는 "이 변경을 지금 PR로 올려도 되는지, merge해도 되
 2. 앱/빌드 blocker 수정
    - 예: `apps/web/**`, `packages/**`, `build:cf` 관련 수정
 3. watcher/보고 자동화 변경
-   - 예: `scripts/gw-*watch*.sh`, `gw-telegram-kanban-report-watch.py`, 운영 문서
+   - 예: `scripts/gw-*watch*.sh`, `gw-hourly-status-report.py`, 운영 문서
 4. 문서-only 변경
    - 예: `README.md`, `docs/**`
 

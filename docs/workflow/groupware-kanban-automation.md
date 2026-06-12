@@ -333,18 +333,18 @@ dispatcher dry-run:
 - 반복 감시 모드에서는 첫 번째 숫자를 간격 초, 두 번째 숫자를 stale 기준 초로 받는다.
 - 예: `./scripts/gw-worker-recovery-watch.sh 120 3600`
 
-### 6) `gw-review-required-gate.sh` / `gw-review-required-recovery-loop.sh` / `gw-safe-triage-watch.py`
+### 6) `gw-review-required-gate.sh` / `gw-review-required-recovery-loop.sh`
 
 언제 쓰나:
 - blocked 카드가 `review-required` handoff인지, 실제 승인 필요 막힘인지, 복구 가능한 실패인지 분류해야 할 때
 - review-required 검증 실패를 blocked로 방치하지 않고 자동 재수정→재리뷰→재검증→복구 정리 체인으로 보내고 싶을 때
-- systemd watcher가 blocked 카드를 Telegram으로 짧게 보고하면서 승인된 안전 자동 조치만 붙이게 하고 싶을 때
+- systemd watcher가 blocked 카드를 즉시 Telegram으로 보내는 흐름은 제거하고, 정각 현황 보고에서만 상태 요약을 보게 하고 싶을 때
 
 핵심:
 - `gw-review-required-gate.sh` 는 blocked 카드 전체가 아니라 Latest summary/Runs의 현재 신호를 보고 `review-required`를 감지한다.
 - 표준 검증(`shared/api/web test/typecheck`, `web build`, `pnpm check`)이 통과하면 complete + dispatch로 넘긴다.
 - 표준 검증이 실패하면 원본 blocked 카드를 억지로 unblock하지 않고 `gw-review-required-recovery-loop.sh` 로 복구 mini-chain을 만든다.
-- `gw-safe-triage-watch.py` 는 Kanban DB를 SQLite read-only로만 열고, `review-required`/worker-recovery/restricted/수동분류를 나눠 Telegram 보고 + 승인된 안전 스크립트 호출만 한다.
+- safe-triage 전용 Telegram watcher는 제거됐다. blocked 분류/복구는 review-required gate, worker-recovery, Kanban 로그로 확인하고, Telegram 자동 보고는 정각 현황만 사용한다.
 - `scripts/gw-hermes-env.sh` 는 이 흐름이 systemd user PATH에서도 `pnpm`/`node`/`hermes`를 찾을 수 있게 보강한다.
 
 빠른 확인 예시:
@@ -353,12 +353,12 @@ dispatcher dry-run:
 bash -lc 'source ./scripts/gw-hermes-env.sh && command -v pnpm && command -v "$HERMES_BIN"'
 bash ./scripts/gw-review-required-gate.sh --dry-run
 bash ./scripts/gw-review-required-recovery-loop.sh --help
-python3 ./scripts/gw-safe-triage-watch.py --once --dry-run
+python3 ./scripts/gw-hourly-status-report.py --dry-run --force
 ```
 
 주의:
 - secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 끝까지 자동 처리하지 않는다.
-- triage watcher는 보고 카드나 `notify-subscribe`를 새로 만들지 않는다.
+- 정각보고 외 Telegram watcher는 새 보고 카드나 `notify-subscribe`를 만들지 않는다.
 - recovery loop가 만들어져도 원본 blocked 카드는 복구 근거가 나오기 전까지 그대로 둔다.
 
 ## 검증으로 확인된 현재 제한
@@ -378,7 +378,7 @@ python3 ./scripts/gw-safe-triage-watch.py --once --dry-run
 4. watcher는 단일 인스턴스만 허용하고, 여러 watcher가 동시에 `dispatch`하지 않게 한다.
 5. DB malformed/disk I/O 오류는 반복 재시도하지 말고 circuit-breaker/long-backoff로 멈춘 뒤 보고한다.
 6. 수정 후 `bash -n`, `python3 -m py_compile`, 관련 테스트, systemd status/journal/failed, `dispatch --dry-run`을 가능한 범위에서 검증한다.
-7. 보고 경로 기본값은 `gw-telegram-kanban-report-watch.py`의 read-only 직접 Telegram 전송이다. 별도 사용자 결과보고/막힘 보고 카드를 생성하거나 `notify-subscribe`를 붙이는 방식은 대장 명시 승인 없이는 켜지 않는다.
+7. Telegram 자동 보고는 정각 현황 보고만 유지한다. `gw-hourly-status-report.timer`를 기본 보고 경로로 두고, 칸반 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료 이벤트 자동 보고, second-pass 2차 보고, safe-triage 즉시 보고, 별도 사용자 결과보고/막힘 보고 카드 생성, `notify-subscribe` 방식은 대장 명시 승인 없이는 켜지 않는다.
 8. 카드 생성/완료/보류/dispatch 자동화에는 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 둔다.
 
 ## 자동 실행 조건
@@ -431,8 +431,8 @@ hermes kanban --board groupware dispatch --max 1
 - 준비됨: systemd user PATH에서도 `pnpm`/`node`/`hermes`를 찾도록 `gw-hermes-env.sh` 공통 환경 보강
 - 준비됨: ready 카드 장기 대기 watcher(systemd user service)
 - 준비됨: 최종 보고 카드의 사용자 보고 완료/필요 표기 강화
-- 준비됨: `gw-telegram-kanban-report-watch.py` systemd watcher가 Kanban DB를 read-only로 감시해 막힘/조치완료/최종보고 결과를 Telegram 채팅으로 직접 전송
-- 참고: 예전 보고 카드 생성형 shell watcher와 `notify-subscribe` 방식은 현재 기본 운영 경로가 아니며, direct Telegram watcher를 기본값으로 사용한다.
+- 준비됨: `gw-hourly-status-report.py`와 `gw-hourly-status-report.timer`가 09~20시 정각 현황만 Telegram으로 보낸다. 카드 이벤트 direct watcher와 second-pass watcher는 제거됐다.
+- 참고: 예전 보고 카드 생성형 shell watcher, `notify-subscribe`, 카드 이벤트 direct/second-pass/safe-triage 즉시 보고는 현재 기본 운영 경로가 아니다.
 - 준비됨: PR/CI/merge/branch cleanup 보조 스크립트 `scripts/gw-pr-flow.sh`
 - 준비됨: 배포 smoke check 스크립트 `scripts/gw-deploy-smoke-check.sh`
 - 준비됨: DB migration·seed 안전 래퍼 `scripts/gw-db-safe.sh`

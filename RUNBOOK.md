@@ -21,7 +21,12 @@ PY
 ```bash
 UID_W=$(id -u werehere)
 export XDG_RUNTIME_DIR=/run/user/$UID_W
-sudo -u werehere XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR systemctl --user is-active   gw-telegram-kanban-report-watch.service   gw-singde-second-pass-report-watch.service   gw-safe-triage-watch.service   gw-review-required-gate-watch.service   gw-ready-task-watch.service   gw-worker-recovery-watch.service
+sudo -u werehere XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR systemctl --user is-active   gw-ready-task-watch.service   gw-review-required-gate-watch.service   gw-worker-recovery-watch.service
+sudo -u werehere XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR systemctl --user is-enabled gw-hourly-status-report.timer
+# Telegram 즉시/이벤트 보고 unit은 삭제된 상태가 정상이다.
+for unit in gw-safe-triage-watch.service gw-telegram-kanban-report-watch.service gw-singde-second-pass-report-watch.service; do
+  test ! -e /home/werehere/.config/systemd/user/$unit
+done
 ```
 
 ## review-required 게이트 수동 확인
