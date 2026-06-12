@@ -30,6 +30,8 @@
 - [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하고, 상세 처리는 각 화면으로 넘긴다.
 - [ ] `/attendance`, `/leave`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
 - [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
+- [ ] Phase 17 모바일 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선한다는 설명이 문서와 code path 에서 같은 뜻이다.
+- [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
 - [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 forged 또는 접근 불가 postId 는 403 경계 설명과 같은 뜻으로 안내한다.
 - [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
@@ -40,6 +42,8 @@
 - [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] `/admin/users` 의 역할 diff/상태 변경/audit candidate 설명이 `/dashboard`·`/employees`·`/approvals` 의 역할 경계와 충돌하지 않는다.
 - [ ] 일반 사용자 host 와 관리자 host 의 역할이 섞이지 않고, 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않는다.
+- [ ] `apps/mobile/src/base-url.ts` 설명이 production approved origin only, preview/development 명시적 origin 또는 mock adapter, preview URL 기본값 금지 기준과 같은 뜻이다.
+- [ ] `apps/mobile/src/session-bridge.ts` 설명이 plain async storage, web cookie copy, query-string token 금지와 secure storage bridge 전제를 숨기지 않는다.
 - [ ] 관리자 접근 기준이 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 설명과 같은 뜻으로 정리돼 있다.
 - [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
 - [ ] `HR_ADMIN` 은 관리자 운영 화면 허용, 감사 로그는 별도 `audit.read` 기준이라는 점이 Web/API/nav 에서 같은 뜻으로 유지된다.
@@ -79,6 +83,7 @@
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.
+- [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 아직 별도 승인 게이트라는 점을 문서/summary 가 흐리지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 
 ### 문서 일관성
@@ -91,6 +96,7 @@
 ### 명령/검증 실행
 
 - [ ] `pnpm check` 또는 해당 범위의 test/typecheck/build 를 실행했다.
+- [ ] `apps/mobile` 또는 모바일 문서 기준을 건드렸다면 `pnpm --filter @gw/mobile typecheck` 또는 같은 수준의 대체 근거를 남겼다.
 - [ ] Cloudflare/Web 관련 변경이 있으면 `pnpm --filter @gw/web build:cf` 를 확인했다.
 - [ ] 자동화/운영 스크립트를 손댔다면 관련 shell/python 검증과 테스트를 확인했다.
 - [ ] 문서 카드라도 최소한 근거 파일 재확인과 필요한 명령 실행 결과를 남겼다.

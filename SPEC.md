@@ -62,6 +62,9 @@
 - preview 전용 절대 API 도메인을 제품 기본값으로 문서/코드에 박아 넣지 않는다.
 - host 기준 관리자 앱을 분리하더라도 일반 사용자용 same-origin 기본값은 유지한다.
 - 관리자용 manifest 를 따로 두더라도 `start_url: /admin`, `scope: /admin` 같은 상대 경로 원칙을 유지한다.
+- 네이티브 모바일앱은 브라우저 same-origin 을 흉내 내는 대신 `apps/mobile/src/base-url.ts` 같은 runtime base URL resolver 층에서만 승인된 origin 을 주입한다.
+- 모바일 preview/dev-safe 연결은 명시적 `devOrigin` 또는 mock adapter 로만 열고, preview 절대 URL 을 코드 기본값으로 퍼뜨리지 않는다.
+- 운영 모바일앱 기본값은 approved origin only 이며, localhost/dev-safe fallback 을 production 기본값처럼 설명하지 않는다.
 
 이 규칙을 깨면 안 되는 이유:
 - 세션/cookie/CORS 문맥이 복잡해진다.
@@ -341,6 +344,10 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 관리자 기능은 모바일 하단 탭 기본 메뉴에 섞지 않는다.
+- Phase 17 네이티브 앱 1차 화면은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개만 우선한다.
+- `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
+- `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
+- 모바일 세션 저장은 Web cookie 복제가 아니라 secure storage bridge 전제를 유지한다.
 
 근거:
 - `docs/ux/groupware-benchmark-principles.md`
@@ -357,6 +364,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `TEST_PLAN.md`
 - `QA_CHECKLIST.md`
 - 관련 `docs/architecture/phase-*.md`
+- Phase 17 문서라면 `docs/architecture/phase-17-native-mobile-transition-prep-scope.md` 와 `docs/guides/phase-17-native-mobile-transition-prep-handoff.md` 의 `apps/mobile` 구조, base URL resolver, secure storage bridge, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -406,10 +414,11 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 
 1. 관련 phase 범위 문서 읽기
 2. `packages/shared/src/contracts.ts` 의 schema 와 route 확인
-3. `apps/api/src/app.ts` 또는 web page 구현 확인
-4. `apps/api/test/*.spec.ts` 등 회귀 테스트 확인
-5. 이 문서에서 guardrail 재확인
-6. `TEST_PLAN.md` 와 `QA_CHECKLIST.md` 로 검증 기준 맞추기
+3. 모바일 범위라면 `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts` 로 route/auth/session 경계 확인
+4. `apps/api/src/app.ts` 또는 web page 구현 확인
+5. `apps/api/test/*.spec.ts` 등 회귀 테스트 확인
+6. 이 문서에서 guardrail 재확인
+7. `TEST_PLAN.md` 와 `QA_CHECKLIST.md` 로 검증 기준 맞추기
 
 ## 10. 같이 봐야 하는 문서
 
@@ -427,6 +436,8 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `docs/architecture/phase-5-boards-documents-scope.md`
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
 - `docs/architecture/phase-7-api-same-origin-scope.md`
+- `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`
+- `docs/guides/phase-17-native-mobile-transition-prep-handoff.md`
 - `docs/architecture/phase-8-r2-storage-scope.md`
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`

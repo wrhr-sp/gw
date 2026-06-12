@@ -30,6 +30,16 @@ importers:
         specifier: ^4.20.3
         version: 4.98.0(@cloudflare/workers-types@4.20260608.1)
 
+  apps/mobile:
+    dependencies:
+      '@gw/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@gw/shared':

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-06-13
+
+### Changed
+
+- `apps/mobile` skeleton(`app.config.ts`, `src/shell.ts`, `src/base-url.ts`, `src/session-bridge.ts`, `src/screens.ts`, `README.md`)을 추가하고, `packages/shared/src/mobile-contracts.ts` 를 신설해 Web/PWA와 네이티브 앱이 공유할 route mapping, auth/session guardrail, same-origin 번역용 base URL policy, 승인 게이트 기준을 코드로 고정했다.
+- `packages/shared/test/contracts.spec.ts` 에 Phase 17 모바일 전환 계약 회귀 테스트를 추가했고, 루트 `pnpm check` 가 `@gw/mobile` typecheck 를 함께 수행하도록 `apps/mobile/package.json` 을 보강했다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 에 현재 `apps/mobile` skeleton 위치와 검증 포인트를 추가해 다음 구현자가 base URL resolver / secure storage bridge / 승인 게이트를 바로 확인할 수 있게 정리했다.
+- `docs/architecture/phase-17-native-mobile-transition-prep-scope.md` 와 `docs/guides/phase-17-native-mobile-transition-prep-handoff.md` 를 추가해 Phase 16 PWA 파일럿 이후 Expo/React Native 네이티브 앱 전환을 어떻게 안전하게 시작할지 문서화했다. 핵심은 `apps/mobile` 기본 배치, `packages/shared` 재사용 경계, 모바일 1차 화면 7개, same-origin 철학의 mobile base URL resolver 번역, secure storage 전제 auth/session 기준, 앱스토어/실기기/유료 빌드 승인 게이트 분리다.
+- `TASKS.md`, `ROADMAP.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 17 네이티브 모바일앱 전환 준비 기준으로 갱신해 현재 활성 체인, 모바일 범위/제외 범위, route mapping, dev-safe 검증 기준, 별도 승인 필요 항목을 다시 맞췄다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 추가로 보강해 Phase 17 문서화 카드에서도 `apps/mobile` 7개 핵심 화면, `/boards`·`/documents` 협업 묶음, base URL resolver, secure storage bridge, App Store/Play Console/TestFlight/EAS 승인 게이트, `@gw/mobile` typecheck 근거를 루트 문서와 쉬운 확인 포인트 기준으로 다시 맞췄다.
+
 ## 2026-06-12
 
 ### Changed
