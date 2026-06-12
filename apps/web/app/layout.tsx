@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { getTrustedHostFromHeaders } from "../admin-host";
 
-import { getPwaManifestForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
+import { getPwaManifestForHost, getManifestHrefForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
 
 import { MobileAppShell } from "./_components/mobile-app-shell";
 
@@ -22,7 +22,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: manifest.name,
     description: manifest.description,
-    manifest: "/manifest.webmanifest",
     applicationName: manifest.short_name,
     appleWebApp: {
       capable: true,
@@ -50,10 +49,14 @@ export async function generateViewport(): Promise<Viewport> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const host = await getRequestHost();
+  const manifestHref = getManifestHrefForHost(host);
   const shellConfig = getAppShellConfigForHost(host);
 
   return (
     <html lang="ko">
+      <head>
+        <link rel="manifest" href={manifestHref} />
+      </head>
       <body>
         <MobileAppShell {...shellConfig}>{children}</MobileAppShell>
       </body>

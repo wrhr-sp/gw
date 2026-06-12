@@ -248,11 +248,12 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - production 모양의 host 라도 `GW_ADMIN_HOSTS` allowlist 에 없으면 admin host 로 오인하지 않는지
 - host 판별이 `Host` 헤더만 신뢰하고 `x-forwarded-host` 로 spoof 되지 않는지
 - 일반 사용자 host + `/admin*` 요청이 login/forbidden/admin-host redirect 중 문서 기준대로 처리되는지
+- 관리자 role 이 일반 host 의 `/admin*` 로 들어왔는데 paired admin host 를 계산할 수 없을 때 allow 되지 않고 차단/forbidden 으로 남는지
 - 관리자 host + `/` 요청이 `/admin` 으로 이어지는지
 - 관리자 host + 일반 업무 route(`/dashboard`, `/employees` 등) 요청이 `/admin` 으로 되돌아가는지
 - 관리자 host 에서 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 권한 경계가 유지되는지
-- `/manifest.webmanifest` 1개 route 가 host 에 따라 일반 사용자/관리자 manifest 를 다르게 반환하는지
-- 일반 사용자 manifest 와 관리자 manifest 의 `name`, `start_url`, `scope`, `theme`, icon prefix 차이가 유지되는지
+- 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 광고하고 각 route 가 올바른 manifest identity 를 주는지
+- 관리자 host 로 `/manifest.webmanifest` 를 직접 열어도 일반 manifest 가 유지되고, 실제 설치 href 는 `/admin/manifest.webmanifest` 인지
 - host 분리가 있어도 API 권한/회사 scope 검증이 약해지지 않는지
 
 주요 테스트:
@@ -262,8 +263,11 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 
 현재 재검증 메모(부모 카드 기준):
 - `bash scripts/gw-cloudflare-check.sh`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 는 통과 근거가 있다.
-- `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 는 stale 기대값 6건 때문에 실패 근거가 있다.
-- 특히 기존 테스트가 `admin.example.com` 을 기본 허용 host 로 가정한 부분이 현재 `GW_ADMIN_HOSTS` allowlist 구현과 어긋난다.
+- 이번 후속 체인에서는 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 까지 다시 통과시키는 것을 우선 목표로 둔다.
+- 일반 host fallback 은 우선 `apps/web/admin-preview-guard.test.ts` 로 잠갔다. paired admin host 를 계산하지 못한 admin role 요청과 spoofed admin-looking host 요청이 모두 `/forbidden` 으로 차단되는지 계속 회귀 확인한다.
+- 2026-06-12 재검증 1차: `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` 실행 결과 8개 파일, 43개 테스트 통과.
+- local `preview:cf` smoke 는 `set -a; . .secrets/cloudflare.env; set +a; pnpm --filter @gw/web preview:cf` 실행 후 별도 터미널에서 `bash scripts/gw-admin-host-preview-smoke.sh` 로 `/manifest.webmanifest`, `/admin/manifest.webmanifest`, general/admin host HTML manifest href, `/admin`, `/`(manual/follow redirect) 를 확인하는 절차로 고정한다.
+- live `.workers.dev` fetch 가 막히면 local `preview:cf` smoke, deployment metadata, 상위 live smoke 메모를 substitute evidence 로 남긴다.
 
 ## 6. PR 전 확인
 

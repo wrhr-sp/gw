@@ -6,24 +6,33 @@
 
 ## 현재 활성 작업
 
-작업명: Admin host 분리 + PWA 웹앱 1차
+작업명: Admin host 운영 설계 + preview 검증 확장
 
 현재 체인:
 
-1. 기획: `t_d3dc8da1` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_7f54f610` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_cc1ee8db` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: `t_9cf618ec` — 해봄(`gwtester`) — parent gate 대기
-5. 문서화/GitHub/최종 통합 보고: 후속 parent gate 기준 진행
+1. 기획: `t_5672d86f` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_b810e841` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_bd48dc40` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: `t_3d345ebd` — 해봄(`gwtester`) — parent gate 대기
+5. 문서화: `t_bd0319a1` — 다온(`gwdocs`) — parent gate 대기
+6. GitHub/배포 확인/최종 통합 보고: 후속 parent gate 기준 진행
 
 현재 문서 기준 핵심 범위:
 
-- 일반 사용자 웹과 관리자 웹은 `route` 뿐 아니라 `host + route` 기준으로 분리한다.
-- production admin host 후보는 `admin.<승인된-domain>` 이지만 실제 DNS/custom domain 연결은 별도 승인 범위다.
-- preview admin host 후보는 별도 `.workers.dev` admin host 이고, localhost/dev 에서는 `admin.localhost` 또는 host header override 를 허용한다.
-- 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리한다.
-- 관리자 host 에서는 `/admin` 을 landing 으로 쓰고 관리자 전용 PWA manifest(`start_url: /admin`, `scope: /admin`)를 제공한다.
+- admin host 판별은 `Host` 헤더, `GW_ADMIN_HOSTS` allowlist, `gw-admin.*.workers.dev`, `admin.localhost`, `admin.127.0.0.1.nip.io` 기준으로만 본다.
+- `x-forwarded-host` 는 spoof 가능하므로 admin host 판별 근거로 쓰지 않는다.
+- 일반 사용자 manifest 진입 경로는 `/manifest.webmanifest`, 관리자 host 가 실제로 광고하는 manifest 진입 경로는 `/admin/manifest.webmanifest` 로 유지하며 둘 다 same-origin 상대 경로를 쓴다.
+- 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되면 안 되며, paired admin host 를 계산할 수 없을 때도 allow 보다 차단/유도가 우선이다.
+- 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 일반 업무 route 는 `/admin` 으로 되돌리는 경계를 유지한다.
+- preview 검증은 live fetch 하나에만 의존하지 않고 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 함께 근거로 본다.
 - secret, production DB 실데이터, DNS/custom domain, 유료 리소스, 실제 운영 사용자/권한 변경은 이번 범위에 넣지 않는다.
+
+우선 참고 문서:
+
+- `docs/architecture/admin-host-preview-verification-extension-scope.md`
+- `docs/guides/admin-host-preview-verification-extension-handoff.md`
+- `docs/architecture/admin-host-pwa-pass-1-scope.md`
+- `docs/guides/admin-host-pwa-pass-1-handoff.md`
 
 ## 작업 카드 생성 기준
 

@@ -18,29 +18,31 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Admin host 분리 + PWA 웹앱 1차다. 이번 단계에서는 기존 `/admin/*` 권한 경계와 Phase 6 PWA 골격 위에 host 기준 관리자 웹 분리, 관리자 전용 manifest(`start_url: /admin`, `scope: /admin`), localhost/preview admin host 후보를 얹고, 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않는 방향으로 다음 구현을 이어간다.
+현재 활성 흐름은 Admin host 운영 설계 + preview 검증 확장이다. 이번 단계에서는 이미 들어간 host 기준 관리자 웹 분리 코드를 운영 규칙, preview/dev 검증 기준, QA 기준까지 같은 말로 맞추고, 일반 사용자 host fallback 차단까지 코드/테스트로 먼저 잠근 뒤 preview 검증 근거를 보강한다.
 
 현재 기획 상태 요약:
 
 - 일반 사용자 웹과 관리자 웹은 `route` 만이 아니라 `host + route` 기준으로 분리한다.
-- production admin host 후보는 `admin.<승인된-domain>` 이지만 실제 DNS/custom domain 연결은 이번 범위에 넣지 않는다.
-- preview admin host 후보는 별도 `.workers.dev` admin host 를 우선으로 두고, localhost/dev 에서는 `admin.localhost` 또는 host header override 를 허용한다.
-- 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리한다.
-- 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 관리자 전용 manifest(`name: GW Admin`, `start_url: /admin`, `scope: /admin`)를 분리한다.
+- production admin host 는 `GW_ADMIN_HOSTS` allowlist 에 들어간 host 만 인정하고, `admin.<domain>` 모양만으로 자동 허용하지 않는다.
+- preview admin host 후보는 `gw-admin.*.workers.dev`, localhost/dev 후보는 `admin.localhost`, `admin.127.0.0.1.nip.io` 를 우선으로 둔다.
+- 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 login/forbidden/admin-host redirect 중 하나로 처리한다.
+- paired admin host 를 계산할 수 없을 때도 일반 host 에서 admin shell 을 그대로 열지 않는 쪽을 목표 동작으로 둔다.
+- 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 일반 업무 route 는 `/admin` 으로 되돌린다.
+- 관리자 전용 manifest identity 는 `name: GW Admin`, `start_url: /admin`, `scope: /admin` 이며, 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 same-origin 상대 경로로 광고한다.
 - host 분리는 노출/설치 경험 경계이고, 실제 보안 경계는 기존 session/role/capability/API 검증을 그대로 유지한다.
 - 실제 DNS/custom domain, secret, production DB 실데이터, 실제 운영 사용자/권한 변경은 이번 단계에 포함되지 않으며 계속 별도 승인 대상이다.
-- 우선 참고 문서: `docs/architecture/admin-host-pwa-pass-1-scope.md`, `docs/guides/admin-host-pwa-pass-1-handoff.md`.
+- 우선 참고 문서: `docs/architecture/admin-host-preview-verification-extension-scope.md`, `docs/guides/admin-host-preview-verification-extension-handoff.md`, `docs/architecture/admin-host-pwa-pass-1-scope.md`, `docs/guides/admin-host-pwa-pass-1-handoff.md`.
 
-2026-06-12 문서/검증 기준 메모:
+2026-06-12 admin host 확장 메모:
 
 - 현재 host helper 는 `apps/web/admin-host.ts` 에 있고, 신뢰 경계는 `Host` 헤더만 사용한다. `x-forwarded-host` 는 spoof 가능하므로 admin host 판별 근거로 쓰지 않는다.
 - preview admin host 는 `gw-admin.*.workers.dev`, 로컬 후보는 `admin.localhost`, `admin.127.0.0.1.nip.io` 로 잡혀 있다.
 - production admin host 는 `GW_ADMIN_HOSTS` allowlist 에 들어간 host 만 인정한다. 따라서 `admin.example.com` 같은 모양만으로는 자동 허용되지 않는다.
-- 현재 manifest 는 `/manifest.webmanifest` 단일 route 에서 host 를 읽어 일반 사용자용 또는 관리자용 manifest 를 동적으로 돌려준다. 관리자용 값은 `name: GW Admin`, `start_url: /admin`, `scope: /admin`, 관리자 전용 icon prefix 다.
+- 현재 preview smoke 기준으로 일반 사용자 manifest 는 `/manifest.webmanifest`, 관리자 manifest 는 `/admin/manifest.webmanifest` 에서 확인한다. `/manifest.webmanifest` 는 host 와 무관하게 일반 manifest 를 반환하고, 관리자용 값은 `name: GW Admin`, `start_url: /admin`, `scope: /admin`, 관리자 전용 icon prefix 다.
 - 관리자 host 에서는 `/` 가 `/admin` 으로 redirect 되고, `/dashboard` 같은 일반 업무 route 도 `/admin` 으로 되돌아간다. 허용 route 는 사실상 `/admin*`, `/login`, `/forbidden`, `/manifest.webmanifest`, `/offline` 중심이다.
-- 부모 검증 기준으로 `bash scripts/gw-cloudflare-check.sh`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 는 통과했다.
-- 반면 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` 와 `pnpm check` 는 stale 기대값 6건 때문에 실패했다. 핵심 원인은 기존 테스트 일부가 `admin.example.com` 을 기본 허용 host 로 가정해 현재 allowlist 구현과 어긋나는 점이다.
-- 다음 작업자는 문서 문구보다 테스트 기대값을 먼저 고쳐야 한다. 특히 `admin-host.test.ts`, `admin-preview-guard.test.ts`, `mobile-pwa.test.ts` 의 host/manifest 기대값을 현재 구현(`GW_ADMIN_HOSTS`, 단일 manifest route, admin host route boundary)에 맞춰 다시 확인한다.
+- `apps/web/admin-preview-guard.ts` 는 이제 관리자 role 이 일반 host 의 `/admin*` 로 들어왔을 때 paired admin host 를 계산할 수 있으면 admin host 로 redirect 하고, 계산할 수 없으면 `/forbidden` 으로 차단한다. spoofed admin-looking host(`admin.attacker.example`)도 admin shell 을 열지 못하게 테스트로 잠갔다.
+- 이번 구현 재검증 1차 근거: `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` → 8개 파일, 43개 테스트 통과.
+- preview 검증은 live fetch 하나에만 기대지 않는다. `bash scripts/gw-cloudflare-check.sh`, `pnpm --filter @gw/web build:cf`, `pnpm check`, 필요 web 테스트, local `preview:cf` smoke, deployment metadata 를 함께 근거로 남긴다. local smoke 에는 general/admin host HTML manifest href 자동 검증도 포함한다.
 
 2026-06-11 pass 2 구현 메모:
 

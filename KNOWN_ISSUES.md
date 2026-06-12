@@ -17,17 +17,17 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 Admin host 분리 + PWA 웹앱 1차
+### 3. 현재 문서화/검증 기준은 Admin host 운영 설계 + preview 검증 확장
 
-현재 루트 문서와 handoff 는 Admin host 분리 + PWA 웹앱 1차를 기준으로 맞추고 있다.
+현재 루트 문서와 handoff 는 Admin host 운영 설계 + preview 검증 확장 체인을 기준으로 맞추고 있다.
 
-- 일반 사용자 웹과 관리자 웹은 `route` 뿐 아니라 `host + route` 기준으로 분리하는 방향으로 문서 기준을 맞춘다.
-- production admin host 후보는 `admin.<승인된-domain>` 이지만 실제 DNS/custom domain 연결은 아직 범위 밖이다.
-- preview admin host 후보는 별도 `.workers.dev` admin host 이고, localhost/dev 에서는 `admin.localhost` 또는 host header override 를 우선 검토한다.
-- 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않아야 하고, 관리자 host 에서만 `/admin` 계열과 관리자용 manifest 가 정상 노출돼야 한다.
-- host 분리는 노출/설치 경험 경계이고, 실제 권한/회사 scope/API 검증은 기존 guardrail 을 계속 유지해야 한다.
-- DNS/custom domain, secret, production DB 실데이터, 실제 운영 사용자/권한 변경, 실제 외부 HR 연동은 아직 범위 밖이다.
-- 현재는 기획/문서 기준만 정리된 상태이며, host-aware middleware/manifest 분기 구현과 local/preview smoke 근거는 후속 구현·리뷰·테스트 카드에서 채워야 한다.
+- 현재 코드에는 host helper, broad middleware matcher, 일반 사용자 `/manifest.webmanifest`, 관리자 `/admin/manifest.webmanifest`, 관리자용 app shell/manifest identity 가 이미 들어와 있다.
+- admin host 판별은 `Host` 헤더, `GW_ADMIN_HOSTS` allowlist, `gw-admin.*.workers.dev`, `admin.localhost`, `admin.127.0.0.1.nip.io` 기준으로만 본다.
+- `x-forwarded-host` 는 spoof 가능하므로 admin host 판별 근거로 쓰지 않는다.
+- 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않아야 하고, 관리자 host 에서만 `/admin` 계열과 관리자용 manifest identity 가 정상 노출돼야 한다.
+- 일반 host admin fallback 은 코드/테스트로 `/forbidden` 기본 차단까지 맞췄다. 남은 검증 이슈는 live fetch gate 가 있을 때 local `preview:cf` smoke 와 deployment metadata 를 실제로 얼마나 꾸준히 남기느냐 쪽이다.
+- preview 검증은 live fetch 하나에만 기대지 않고, `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 함께 근거로 남겨야 한다.
+- DNS/custom domain, secret, production DB 실데이터, 실제 운영 사용자/권한 변경, 실제 외부 HR 연동은 계속 범위 밖이다.
 
 ### 4. 자동화 보강분 이력
 

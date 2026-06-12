@@ -38,6 +38,19 @@ describe("admin preview guard", () => {
     });
   });
 
+  it("blocks admin users on general hosts when no paired admin host can be derived", () => {
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/admin",
+        host: "example.com",
+        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+  });
+
   it("allows admin routes for admin roles on the admin host", () => {
     expect(
       getAdminRouteGuardResult({
@@ -120,6 +133,9 @@ describe("admin preview guard", () => {
         host: "admin.attacker.example",
         sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
       }),
-    ).toEqual({ action: "allow" });
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
   });
 });

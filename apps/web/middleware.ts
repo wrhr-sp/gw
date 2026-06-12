@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { getTrustedHostFromHeaders } from "./admin-host";
 import { getAdminRouteGuardResult } from "./admin-preview-guard";
 
 export function middleware(request: NextRequest) {
   const result = getAdminRouteGuardResult({
     pathname: request.nextUrl.pathname,
-    host: request.nextUrl.host,
+    host: getTrustedHostFromHeaders(request.headers),
     sessionToken: request.cookies.get("gw_session")?.value ?? null,
   });
 

@@ -223,12 +223,13 @@
 반드시 지킬 것:
 - `/admin/*` 는 관리자 역할/권한 없으면 차단
 - 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리
+- 관리자 role 이 일반 사용자 host 에서 `/admin*` 로 들어왔을 때 paired admin host 를 계산할 수 있으면 같은 경로의 admin host 로 redirect 하고, 계산할 수 없으면 allow 대신 `/forbidden` 또는 동급 차단으로 처리하기
 - 관리자 host 분리를 하더라도 권한 체크를 host 판별로 대체하지 않기
 - host 판별은 신뢰 가능한 `Host` 헤더와 승인된 admin host 후보만 기준으로 삼고, spoof 가능한 `x-forwarded-host` 값은 권한/host 경계 근거로 쓰지 않기
 - production admin host 는 `GW_ADMIN_HOSTS` allowlist 에 들어간 host 만 인정하고, `admin.<domain>` 모양만으로 자동 승인하지 않기
 - 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 일반 업무 route 는 그대로 렌더링하지 않고 `/admin` 으로 되돌리는 경계를 유지하기
 - 관리자용 PWA manifest/start_url/scope 는 일반 사용자 앱과 정체성이 분리돼야 함
-- 현재 기본 manifest route 는 `/manifest.webmanifest` 1개이며, 요청 host 가 관리자 host 로 판별되면 여기서 관리자용 manifest(`name: GW Admin`, `start_url: /admin`, `scope: /admin`)를 동적으로 반환해야 함
+- 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 same-origin 상대 경로 manifest 로 광고해야 하며 관리자 route 는 `name: GW Admin`, `start_url: /admin`, `scope: /admin` 을 유지해야 함
 - 관리자 host 에서는 `/manifest.webmanifest`, `/offline`, `/login`, `/forbidden`, `/admin*` 만 우선 허용하고 그 밖의 일반 업무 route 는 관리자 앱 범위 밖으로 돌려보내기
 - 다른 회사 범위 운영 변경 candidate 차단
 - 감사 로그는 masked preview 유지

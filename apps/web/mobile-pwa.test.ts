@@ -1,8 +1,15 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
+import { metadata as adminRouteMetadata } from "./app/admin/layout";
 import {
+  adminManifestHref,
   adminPrimaryNav,
+  generalManifestHref,
   generalPwaManifest,
   getAppShellConfigForHost,
+  getManifestHrefForHost,
   getPwaManifestForHost,
   installGuideSteps,
   mobilePrimaryNav,
@@ -10,12 +17,19 @@ import {
   touchTargetStyle,
 } from "./app/mobile-pwa-config";
 
+const publicManifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/manifest.webmanifest"), "utf-8")) as typeof generalPwaManifest;
+
 describe("Phase 6 mobile/PWA skeleton config", () => {
   it("keeps the general-user manifest relative and provides placeholder icons", () => {
     expect(generalPwaManifest.start_url).toBe("/");
     expect(generalPwaManifest.scope).toBe("/");
     expect(generalPwaManifest.icons.length).toBeGreaterThanOrEqual(2);
     expect(generalPwaManifest.icons.every((icon) => icon.src.startsWith("/icons/"))).toBe(true);
+  });
+
+  it("keeps the public manifest aligned with the general-user manifest identity", () => {
+    expect(publicManifest).toEqual(generalPwaManifest);
+    expect(generalManifestHref).toBe("/manifest.webmanifest");
   });
 
   it("returns a separate admin manifest identity for admin hosts", () => {
@@ -26,6 +40,10 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(adminManifest.start_url).toBe("/admin");
     expect(adminManifest.scope).toBe("/admin");
     expect(adminManifest.icons.every((icon) => icon.src.startsWith("/icons/admin-"))).toBe(true);
+    expect(adminManifestHref).toBe("/admin/manifest.webmanifest");
+    expect(getManifestHrefForHost("gw-admin.preview-account.workers.dev")).toBe(adminManifestHref);
+    expect(getManifestHrefForHost("gw-web.preview-account.workers.dev")).toBe(generalManifestHref);
+    expect(adminRouteMetadata.manifest).toBe(adminManifestHref);
   });
 
   it("exposes mobile-first navigation for the approved general-user Phase 6 routes", () => {

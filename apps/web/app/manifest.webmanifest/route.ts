@@ -1,17 +1,13 @@
-import { headers } from "next/headers";
+import { generalPwaManifest } from "../mobile-pwa-config";
 
-import { getTrustedHostFromHeaders } from "../../admin-host";
-
-import { getPwaManifestForHost } from "../mobile-pwa-config";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
-  const requestHeaders = await headers();
-  const host = getTrustedHostFromHeaders(requestHeaders);
-  const manifest = getPwaManifestForHost(host);
-
-  return Response.json(manifest, {
+  return Response.json(generalPwaManifest, {
     headers: {
       "content-type": "application/manifest+json; charset=utf-8",
+      "cache-control": "no-store, max-age=0",
     },
   });
 }
