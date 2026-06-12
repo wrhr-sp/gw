@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 현재 Phase 15 화면/API 근거에 다시 맞춰 `/leave` 4축 운영 메모, `/admin/users` 와 일반 조회/결재 책임 분리, `/admin/audit-logs` read-only 경계, 대장이 preview/live URL 에서 바로 볼 쉬운 확인 순서를 더 분명히 적었다.
+- `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md` 와 `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md` 를 추가해 관리자 정책/권한/감사 skeleton 이 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees` 및 관련 API 허용 기준에 왜 그렇게 반영되는지 설명하는 Phase 15 운영 연결 1차 범위와 handoff 를 문서화했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 15 운영 데이터·정책·감사 로그 연결 1차 기준으로 갱신해 현재 활성 체인, 핵심 운영 연결 포인트, `/leave` 정책 보강 대상, blocked/empty/error 4축(권한/회사 scope/정책 미허용/placeholder 제한) 설명 기준을 다시 맞췄다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 보강해 `/attendance` 와 `/leave` 의 정책 source/미허용 이유 설명, 운영 연결형 검증 route/API, blocked/empty/error 분류 체크를 문서 기준으로 추가했다.
 - `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md` 와 `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md` 를 추가해 홈/로그인/대시보드/일반 업무/관리자 skeleton 을 한 번에 눌러 볼 수 있는 실사용 MVP 통합 1차 범위, 역할별 진입 흐름, smoke 기준, guardrail 을 문서화했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 14 실사용 MVP 통합 1차 기준으로 갱신해 현재 활성 체인, 핵심 route 묶음(`/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*`), 일반 업무/관리자 경계, 후속 handoff 참조 문서를 다시 맞췄다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `docs/workflow/groupware-kanban-automation.md`, `scripts/README.md` 를 다시 보강해 역할별 기본 책임 매트릭스, card-scoped 예외 권한 원칙, blocked 분류별 다음 액션, fixture/dry-run/service journal/board state/PR gate를 묶어 보는 검증자동화 체크 기준을 더 분명히 적었다.

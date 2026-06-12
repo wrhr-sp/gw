@@ -31,7 +31,10 @@
 - [ ] `/attendance`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
+- [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.
+- [ ] `/leave` 의 운영 메모가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축을 실제 화면 문구로 분리해 보여 준다.
 - [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
+- [ ] `/admin/users` 의 역할 diff/상태 변경/audit candidate 설명이 `/dashboard`·`/employees`·`/approvals` 의 역할 경계와 충돌하지 않는다.
 - [ ] 일반 사용자 host 와 관리자 host 의 역할이 섞이지 않고, 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않는다.
 - [ ] 관리자 접근 기준이 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 설명과 같은 뜻으로 정리돼 있다.
 - [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
@@ -64,6 +67,8 @@
 - [ ] 완료 이력용 카드와 현재 활성 카드가 summary/comment/HANDOFF 에서 섞이지 않게 적었다.
 - [ ] restricted 항목이 섞인 카드를 자동 정리 대상으로 잘못 닫지 않았다.
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
+- [ ] blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 설명된다.
+- [ ] `/admin/audit-logs` 는 read-only 감사 조회로만 읽히고 raw 감사 원문이나 운영 내부 candidate 를 일반 업무 화면에 새지 않는다.
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.

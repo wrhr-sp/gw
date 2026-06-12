@@ -19,6 +19,13 @@ const approvals = [
   { employee: "운영 매니저", period: "2026-06-21 오전", type: "반차", status: "pending", note: "대체 근무자 확인 필요" },
 ] as const;
 
+const policyBridgeNotes = [
+  "권한 부족: leave.approve 권한이 없으면 승인 대기함 대신 내 신청과 잔여 snapshot 중심으로 제한합니다.",
+  "회사 scope: 팀장 승인도 같은 회사 요청만 검토하고 다른 회사 요청으로 확장하지 않습니다.",
+  "정책상 미허용/예외 검토: 휴가 유형, 승인 필요 여부, 대체 근무자 기준을 /admin/policies 와 같은 말로 설명합니다.",
+  "placeholder 제한: 실제 차감, 급여 반영, 증빙 저장은 열지 않고 review candidate 만 유지합니다.",
+] as const;
+
 export default function LeavePage() {
   return (
     <PageShell
@@ -96,6 +103,14 @@ export default function LeavePage() {
         <ul className="summary-list" style={{ marginTop: 16 }}>
           <li><a href={appRoutes.leave.requests}>{appRoutes.leave.requests}</a> — 조회/신청 skeleton</li>
           <li>잔여 값은 자동 계산 확정본이 아니라 snapshot placeholder 입니다.</li>
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="운영 정책 연결 메모" description="일반 구성원, 팀장 승인자, HR 운영자가 같은 이유를 같은 표현으로 읽도록 맞춥니다." muted>
+        <ul className="summary-list">
+          {policyBridgeNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
         </ul>
       </SurfaceSection>
 

@@ -66,6 +66,21 @@ import {
   sessionUserSchema,
 } from "../src/contracts";
 
+const sampleOperationalBridge = {
+  currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
+  sourceLabel: "/admin/policies · /admin/users · /admin/audit-logs",
+  auditTrailHint: "운영 예외와 차단 이유는 감사 preview 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
+  placeholderNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
+  blockedReasons: [
+    {
+      category: "permission",
+      source: "/dashboard",
+      title: "권한 부족",
+      description: "관리자·감사 권한이 없는 사용자는 일반 업무 흐름만 보게 하고 관리자 CTA 를 숨깁니다.",
+    },
+  ],
+} as const;
+
 describe("shared contracts", () => {
   it("defines Phase 3 attendance/leave route metadata", () => {
     expect(appRoutes.health).toBe("/api/health");
@@ -371,6 +386,7 @@ describe("shared contracts", () => {
             createdAt: "2026-06-10T09:00:00.000Z",
             updatedAt: "2026-06-10T09:00:00.000Z",
           },
+          policyContext: sampleOperationalBridge,
           audit: {
             candidate: true,
             action: "attendance.check_in",
@@ -405,6 +421,7 @@ describe("shared contracts", () => {
             workDateFrom: "2026-06-01",
             workDateTo: "2026-06-30",
           },
+          policyContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -436,6 +453,7 @@ describe("shared contracts", () => {
               placeholder: true,
             },
           ],
+          policyContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -450,9 +468,9 @@ describe("shared contracts", () => {
             {
               id: "leave_balance_annual",
               companyId: "company_demo",
-              employeeId: "employee_admin",
+              employeeId: "employee_employee",
               leaveTypeId: "leave_type_annual",
-              asOfDate: "2026-06-01",
+              asOfDate: "2026-06-10",
               openingDays: 15,
               usedDays: 3,
               reservedDays: 1,
@@ -460,6 +478,7 @@ describe("shared contracts", () => {
               placeholder: true,
             },
           ],
+          policyContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -485,7 +504,7 @@ describe("shared contracts", () => {
             {
               id: "leave_request_demo",
               companyId: "company_demo",
-              employeeId: "employee_admin",
+              employeeId: "employee_employee",
               leaveTypeId: "leave_type_annual",
               status: "pending_approval",
               approvalStatus: "pending",
@@ -493,14 +512,15 @@ describe("shared contracts", () => {
               endDate: "2026-06-20",
               unit: "day",
               days: 1,
-              reason: "가족 행사",
+              reason: "대체 인력 배치 확인 완료",
               requestedBy: "user_employee",
               reviewedBy: null,
               reviewedAt: null,
-              createdAt: "2026-06-10T09:00:00.000Z",
-              updatedAt: "2026-06-10T09:00:00.000Z",
+              createdAt: "2026-06-10T09:30:00.000Z",
+              updatedAt: "2026-06-10T09:30:00.000Z",
             },
           ],
+          policyContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -520,7 +540,7 @@ describe("shared contracts", () => {
           request: {
             id: "leave_request_demo",
             companyId: "company_demo",
-            employeeId: "employee_admin",
+            employeeId: "employee_employee",
             leaveTypeId: "leave_type_annual",
             status: "approved",
             approvalStatus: "approved",
@@ -528,13 +548,14 @@ describe("shared contracts", () => {
             endDate: "2026-06-20",
             unit: "day",
             days: 1,
-            reason: "가족 행사",
+            reason: "담당자 검토 완료",
             requestedBy: "user_employee",
             reviewedBy: "user_manager",
             reviewedAt: "2026-06-10T10:00:00.000Z",
-            createdAt: "2026-06-10T09:00:00.000Z",
+            createdAt: "2026-06-10T09:30:00.000Z",
             updatedAt: "2026-06-10T10:00:00.000Z",
           },
+          policyContext: sampleOperationalBridge,
           audit: {
             candidate: true,
             action: "leave.request.approve",
@@ -670,6 +691,7 @@ describe("shared contracts", () => {
               placeholder: true,
             },
           ],
+          operationalContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -719,6 +741,7 @@ describe("shared contracts", () => {
               readAt: null,
             },
           ],
+          operationalContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -748,6 +771,7 @@ describe("shared contracts", () => {
               placeholder: true,
             },
           ],
+          operationalContext: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -800,6 +824,7 @@ describe("shared contracts", () => {
             updatedAt: "2026-06-10T10:00:00.000Z",
             placeholder: true,
           },
+          operationalContext: sampleOperationalBridge,
           audit: {
             candidate: true,
             action: "approval.document.approve",
@@ -1235,6 +1260,14 @@ describe("shared contracts", () => {
               placeholder: true,
             },
           ],
+          linkedScreens: [
+            {
+              category: "permission",
+              source: "/dashboard",
+              title: "대시보드 관리자 CTA",
+              description: "권한 있는 사용자에게만 /admin 또는 /admin/audit-logs 바로가기를 노출합니다.",
+            },
+          ],
           audit: {
             candidate: true,
             action: "admin.user.list.viewed",
@@ -1331,6 +1364,7 @@ describe("shared contracts", () => {
             targetLabel: "문서 정책 기본값",
             reasonRequired: true,
           },
+          operationalTrail: sampleOperationalBridge,
           placeholder: true,
         },
         error: null,
@@ -1378,6 +1412,7 @@ describe("shared contracts", () => {
             },
           },
         ],
+        bridgeSummary: sampleOperationalBridge,
         audit: {
           candidate: true,
           action: "admin.policy.list.viewed",

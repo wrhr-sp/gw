@@ -220,6 +220,8 @@
 - 출퇴근/정정/휴가 신청은 placeholder 단계라도 상태와 제한을 분명히 표시
 - 본인 범위와 관리자 범위를 구분
 - 회사 정책에서 허용한 출퇴근 등록 방식만 직원 화면 CTA 와 API 성공 경로에 올린다.
+- `/attendance` 와 `/leave` 는 둘 다 현재 허용 결과만이 아니라 마지막으로 적용된 정책 source 또는 미허용 이유를 최소 한 줄 이상 설명 가능해야 한다.
+- 휴가 화면은 승인 권한 부족, 회사 scope, 정책상 미허용, placeholder 제한을 출퇴근 화면과 같은 4축으로 설명하고 `/admin/policies` 와 다른 말을 하지 않는다.
 - 정책 적용대상 우선순위는 `company_default < workplace < department < job_type` 로 고정한다.
 - 각 단계는 allowed methods 를 부분 병합하지 않고 `effective policy` 전체 override 로 계산한다.
 - 관리자 화면의 적용 인원/샘플 직원 preview 는 설명용 기준이며, 실제 조직 master 데이터 대량 반영이나 개인별 예외 저장 UI 처럼 보이면 안 된다.
@@ -260,6 +262,9 @@
 
 반드시 지킬 것:
 - `/admin/*` 는 관리자 역할/권한 없으면 차단
+- `/admin/users` 는 저장 화면이 아니라 역할 diff, 상태 변경 preview, 감사 candidate 를 먼저 검토하는 운영 화면으로 두고 `/employees` 일반 조회와 책임을 섞지 않는다.
+- `/admin/policies` 의 current/candidate/capability/audit preview 는 `/attendance`, `/leave`, `/approvals`, `/employees` 에서 보이는 허용/차단/예외 설명과 같은 뜻을 가리켜야 한다.
+- `/admin/audit-logs` 는 `audit.read` 기준 read-only 화면으로 유지하고 raw 감사 원문이나 운영 내부 candidate 를 일반 업무 화면에 퍼뜨리지 않는다.
 - 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리
 - 관리자 role 이 일반 사용자 host 에서 `/admin*` 로 들어왔을 때 paired admin host 를 계산할 수 있으면 같은 경로의 admin host 로 redirect 하고, 계산할 수 없으면 allow 대신 `/forbidden` 또는 동급 차단으로 처리하기
 - 관리자 host 분리를 하더라도 권한 체크를 host 판별로 대체하지 않기
@@ -297,11 +302,13 @@
 4. 자주 가는 업무 진입점
 5. 정책/안내/참고 링크
 
-Phase 14 실사용 MVP 통합 1차에서 특히 유지할 흐름:
+Phase 15 운영 데이터·정책·감사 로그 연결 1차에서 특히 유지/보강할 흐름:
 - 홈(`/`)은 일반 업무 흐름과 관리자 검토 흐름을 "두 갈래"로 먼저 설명한다.
 - 로그인(`/login`)은 실제 인증 성공을 약속하지 말고, 역할별 첫 이동 경로(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)를 안내판처럼 보여 준다.
 - 대시보드(`/dashboard`)는 `출퇴근 먼저 → 승인 대기 확인 → 조직/직원 확인` 순서의 상단 액션을 유지한다.
 - 일반 업무 핵심 route 묶음은 `/dashboard` 다음에 `/attendance`, `/approvals`, `/org`, `/employees` 로 읽히게 유지한다.
+- `/attendance` 와 `/leave` 는 현재 허용 결과만이 아니라 policy source 또는 미허용 이유를 최소 한 줄 이상 설명 가능해야 한다.
+- 운영 연결형 blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 적는다.
 - `/boards`, `/documents`, `/offline` 은 연결 문맥은 남기되 이번 Phase의 핵심 smoke 흐름보다 앞에 나오지 않게 둔다.
 
 근거:

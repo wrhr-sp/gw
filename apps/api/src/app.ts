@@ -1156,6 +1156,163 @@ function ensureAllowedAttendanceRegistrationMethod(
   });
 }
 
+function buildAttendancePolicyContext(employeeId: string) {
+  const effectivePolicy = getEffectiveAttendancePolicy(employeeId);
+
+  return {
+    currentState: `현재 적용 정책: ${effectivePolicy.effectivePolicySource.policyTargetLabel}`,
+    sourceLabel: `${effectivePolicy.effectivePolicySource.policyLevel} · 우선순위 ${effectivePolicy.effectivePolicySource.priorityRank}`,
+    auditTrailHint: "관리자 정책 변경 후보와 감사 preview 는 /admin/policies, /admin/audit-logs 에서 같은 회사 경계로 이어집니다.",
+    placeholderNote: "실제 근태 저장/단말 연동은 아직 열지 않았고 dev-safe placeholder 기준만 고정했습니다.",
+    blockedReasons: [
+      {
+        category: "policy" as const,
+        source: "/admin/policies",
+        title: "정책상 미허용",
+        description: `허용 방식: ${effectivePolicy.effectiveAttendanceRegistrationMethods.join(", ")} · 허용되지 않은 방식은 API와 화면에서 함께 차단합니다.`,
+      },
+      {
+        category: "company_scope" as const,
+        source: "/api/attendance/records",
+        title: "회사 범위 확인",
+        description: "attendance.manage 가 있어도 같은 회사 employeeId 만 조회 대상으로 허용합니다.",
+      },
+      {
+        category: "placeholder" as const,
+        source: "dev-safe",
+        title: "placeholder 제한",
+        description: "성공처럼 보이는 버튼만 두지 않고, 실제 저장/외부 단말 반영은 아직 실행하지 않습니다.",
+      },
+    ],
+  };
+}
+
+function buildLeavePolicyContext(auth: SessionContext) {
+  return {
+    currentState: "현재 휴가 정책은 근태 정책과 같은 운영 언어로 읽히는 placeholder snapshot 입니다.",
+    sourceLabel: "/admin/policies ↔ /leave ↔ /api/leave/*",
+    auditTrailHint: "휴가 신청/승인 candidate 와 운영 예외 사유는 감사 preview 와 같은 방향으로 남깁니다.",
+    placeholderNote: "잔여/신청/승인은 실제 급여 반영이나 실데이터 저장 없이 읽기/검토 skeleton 만 제공합니다.",
+    blockedReasons: [
+      {
+        category: "permission" as const,
+        source: "/api/leave/requests/:id/approve",
+        title: "권한 부족",
+        description: hasPermission(auth.user, "leave.approve")
+          ? "현재 세션은 승인 대기 요청까지 볼 수 있습니다."
+          : "leave.approve 권한이 없으면 본인 신청 조회까지만 허용합니다.",
+      },
+      {
+        category: "policy" as const,
+        source: "/admin/policies",
+        title: "정책상 미허용/예외 검토",
+        description: "휴가 유형, 승인 필요 여부, 대체 근무자 검토 같은 운영 기준을 일반 사용자 화면에도 같은 말로 연결합니다.",
+      },
+      {
+        category: "placeholder" as const,
+        source: "dev-safe",
+        title: "placeholder 제한",
+        description: "실제 차감/급여 연동/증빙 저장은 열지 않고 snapshot 과 audit candidate 만 반환합니다.",
+      },
+    ],
+  };
+}
+
+function buildApprovalOperationalContext(auth: SessionContext) {
+  return {
+    currentState: "전자결재는 팀장 승인 권한과 운영 관리자 권한을 분리한 read-first placeholder 입니다.",
+    sourceLabel: "/approvals ↔ /admin/users ↔ /admin/audit-logs",
+    auditTrailHint: "승인/반려/자기결재 방지와 회사 경계 설명은 감사 preview 와 같은 방향으로 이어집니다.",
+    placeholderNote: "실제 저장/발송 없이 권한, 회사 scope, self-approval guardrail 만 먼저 검증합니다.",
+    blockedReasons: [
+      {
+        category: "permission" as const,
+        source: "/api/approvals/inbox",
+        title: "권한 부족",
+        description: hasPermission(auth.user, "approval.document.approve")
+          ? "현재 세션은 승인함 조회와 처리 placeholder 를 열 수 있습니다."
+          : "approval.document.approve 권한이 없으면 승인함 대신 내 문서함 중심으로 제한됩니다.",
+      },
+      {
+        category: "company_scope" as const,
+        source: "/api/approvals/documents/:id",
+        title: "회사/문서 범위",
+        description: "같은 회사 문서이면서 기안자/승인자/참조자에게만 상세를 허용합니다.",
+      },
+      {
+        category: "placeholder" as const,
+        source: "dev-safe",
+        title: "placeholder 제한",
+        description: "실제 결재선 저장, 외부 알림, 최종 발송은 아직 열지 않고 review candidate 만 유지합니다.",
+      },
+    ],
+  };
+}
+
+function buildAdminUsersLinkedScreens() {
+  return [
+    {
+      category: "permission" as const,
+      source: "/dashboard",
+      title: "대시보드 관리자 CTA",
+      description: "권한 있는 사용자에게만 /admin 또는 /admin/audit-logs 바로가기를 노출하고 일반 사용자 기본 흐름에서는 숨깁니다.",
+    },
+    {
+      category: "company_scope" as const,
+      source: "/employees",
+      title: "일반 조회와 운영 변경 분리",
+      description: "직원 목록은 일반 조회만 제공하고 실제 역할/상태 변경 검토는 /admin/users 에서만 설명합니다.",
+    },
+    {
+      category: "policy" as const,
+      source: "/approvals",
+      title: "팀장 권한과 운영 권한 분리",
+      description: "결재 승인 권한과 운영 관리자 권한을 같은 것으로 취급하지 않도록 approvals 설명과 맞춥니다.",
+    },
+    {
+      category: "placeholder" as const,
+      source: "dev-safe",
+      title: "저장 전 preview",
+      description: "실제 역할 부여/회수 없이 diff, 사유, audit candidate 만 보여 줍니다.",
+    },
+  ];
+}
+
+function buildOperationalBridgeSummary() {
+  return {
+    currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
+    sourceLabel: "/admin/policies · /admin/users · /admin/audit-logs",
+    auditTrailHint: "운영 예외와 차단 이유는 감사 preview 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
+    placeholderNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
+    blockedReasons: [
+      {
+        category: "permission" as const,
+        source: "/dashboard",
+        title: "권한 부족",
+        description: "관리자·감사 권한이 없는 사용자는 일반 업무 흐름만 보게 하고 관리자 CTA 를 숨깁니다.",
+      },
+      {
+        category: "company_scope" as const,
+        source: "/api/*",
+        title: "회사 scope 유지",
+        description: "관리자 조회와 일반 업무 API 모두 같은 회사 경계를 넘어가지 않도록 유지합니다.",
+      },
+      {
+        category: "policy" as const,
+        source: "/attendance · /leave",
+        title: "정책상 미허용",
+        description: "근태/휴가 허용 결과와 운영 정책 화면의 설명 문구를 같은 방향으로 맞춥니다.",
+      },
+      {
+        category: "placeholder" as const,
+        source: "dev-safe",
+        title: "placeholder 제한",
+        description: "실제 저장·외부 연동은 열지 않고 why/where 설명만 먼저 고정합니다.",
+      },
+    ],
+  };
+}
+
 function buildLeaveBalances(employeeId: string): LeaveBalance[] {
   return [
     {
@@ -1769,6 +1926,7 @@ app.get(appRoutes.admin.users, (context) => {
       ok: true,
       data: {
         items: adminUsers.filter((item) => item.companyId === authResult.auth.user.companyId),
+        linkedScreens: buildAdminUsersLinkedScreens(),
         audit: {
           candidate: true,
           action: "admin.user.list.viewed",
@@ -1794,6 +1952,7 @@ app.get(appRoutes.admin.policies, (context) => {
       ok: true,
       data: {
         items: [...adminPolicies],
+        bridgeSummary: buildOperationalBridgeSummary(),
         audit: {
           candidate: true,
           action: "admin.policy.list.viewed",
@@ -1973,6 +2132,7 @@ app.get(appRoutes.admin.auditLogs, (context) => {
         filters,
         filterOptions: buildAdminAuditFilterOptions(),
         detailPreview: buildAdminAuditDetailPreview(),
+        operationalTrail: buildOperationalBridgeSummary(),
         placeholder: true,
       },
       error: null,
@@ -2008,6 +2168,7 @@ app.post(appRoutes.attendance.checkIn, async (context) => {
       ok: true,
       data: {
         record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_in", requestResult.value.attendanceRegistrationMethod),
+        policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
           action: "attendance.check_in",
@@ -2047,6 +2208,7 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
       ok: true,
       data: {
         record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_out", requestResult.value.attendanceRegistrationMethod),
+        policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
           action: "attendance.check_out",
@@ -2084,10 +2246,11 @@ app.get(appRoutes.attendance.records, (context) => {
       data: {
         items: buildAttendanceRecordsForEmployee(employeeId),
         filters: {
-          employeeId,
+          employeeId: requestedEmployeeId,
           workDateFrom: context.req.query("workDateFrom") ?? undefined,
           workDateTo: context.req.query("workDateTo") ?? undefined,
         },
+        policyContext: buildAttendancePolicyContext(employeeId),
         placeholder: true,
       },
       error: null,
@@ -2158,6 +2321,7 @@ app.get(appRoutes.leave.types, (context) => {
       ok: true,
       data: {
         items: leaveTypes,
+        policyContext: buildLeavePolicyContext(authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -2179,6 +2343,7 @@ app.get(appRoutes.leave.balances, (context) => {
       ok: true,
       data: {
         items: buildLeaveBalances(authResult.auth.user.employeeId),
+        policyContext: buildLeavePolicyContext(authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -2200,6 +2365,7 @@ app.get(appRoutes.leave.requests, (context) => {
       ok: true,
       data: {
         items: buildLeaveRequests(authResult.auth),
+        policyContext: buildLeavePolicyContext(authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -2247,6 +2413,7 @@ app.post(appRoutes.leave.requests, async (context) => {
           createdAt: PLACEHOLDER_NOW,
           updatedAt: PLACEHOLDER_NOW,
         },
+        policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,
           action: "leave.request.create",
@@ -2415,6 +2582,7 @@ app.get(appRoutes.approvals.documents, (context) => {
       ok: true,
       data: {
         items: listApprovalDocumentsForUser(authResult.auth),
+        operationalContext: buildApprovalOperationalContext(authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -2461,6 +2629,7 @@ app.post(appRoutes.approvals.documents, async (context) => {
           updatedAt: PLACEHOLDER_NOW,
           placeholder: true,
         },
+        operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
           action: "approval.document.create",
@@ -2495,7 +2664,10 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, (context) => {
     approvalDocumentDetailResponseSchema,
     {
       ok: true,
-      data: buildApprovalDocumentDetail(document),
+      data: {
+        ...buildApprovalDocumentDetail(document),
+        operationalContext: buildApprovalOperationalContext(authResult.auth),
+      },
       error: null,
     },
     200,
@@ -2515,6 +2687,7 @@ app.get(appRoutes.approvals.inbox, (context) => {
       ok: true,
       data: {
         items: listApprovalInboxDocuments(authResult.auth),
+        operationalContext: buildApprovalOperationalContext(authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -2612,6 +2785,7 @@ async function handleApprovalReview(
           completedAt: PLACEHOLDER_REVIEWED_AT,
           updatedAt: PLACEHOLDER_REVIEWED_AT,
         },
+        operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
           action,
@@ -2674,6 +2848,7 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
           reviewedAt: PLACEHOLDER_REVIEWED_AT,
           updatedAt: PLACEHOLDER_REVIEWED_AT,
         },
+        policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,
           action,
