@@ -52,6 +52,11 @@
 - [ ] 모바일/관리자 CTA 최소 48px 높이와 18px 가로 패딩 기준이 문서, config, 테스트에서 서로 다르게 풀리지 않는다.
 - [ ] live fetch 가 막히더라도 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 중 무엇을 대체 근거로 썼는지 남겼다.
 - [ ] 관리자 host 에서 허용 route(`/admin*`, `/login`, `/forbidden`, `/manifest.webmanifest`, `/offline`) 밖의 일반 업무 route 가 `/admin` 으로 되돌아간다는 점을 빠뜨리지 않았다.
+- [ ] 예전 scheduled 복구 카드를 정리하는 작업이라면, 각 카드를 `해결됨 / 유지 / 승인 필요 / 판단 유보` 중 어디로 분류했는지 근거를 남겼다.
+- [ ] stale/superseded 로 닫는 카드가 더 최신 완료 카드, PR/CI, 부모/자식 체인 중 최소 한 가지 이상 근거를 가진다.
+- [ ] stale/superseded 판단에 예전 실패 로그만이 아니라 최신 저장소 재검증(`pnpm check`, 관련 test/typecheck/build, 가능하면 `build:cf`/local `preview:cf` smoke) 근거를 같이 붙였다.
+- [ ] 완료 이력용 카드와 현재 활성 카드가 summary/comment/HANDOFF 에서 섞이지 않게 적었다.
+- [ ] restricted 항목이 섞인 카드를 자동 정리 대상으로 잘못 닫지 않았다.
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
@@ -146,6 +151,10 @@
 
 - [ ] 코드/테스트/문서 수정으로 해결 가능한 문제를 그냥 blocked 로 방치하지 않았다.
 - [ ] 정말 사람 승인이나 secret/production 운영 판단이 필요할 때만 blocked 로 남겼다.
+- [ ] blocked 재판단 순서를 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요로 설명할 수 있다.
+- [ ] `already-handled` 로그를 해결 완료로 단정하지 않고 원본 카드와 후속 체인 상태를 다시 확인했다.
+- [ ] blocked 상태를 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요 중 무엇인지 분명히 적었다.
+- [ ] blocked를 정리한 주체가 누구인지 분명히 적었다. 예: watcher 자동 판단, 역할봇 문서화, 싱드 직접 재분류.
 - [ ] review-required 면 changed files, tests, diff 근거를 남겼다.
 - [ ] 미확인 사항은 "완료" 문장 속에 숨기지 않고 따로 적었다.
 
@@ -153,9 +162,21 @@
 
 - [ ] 결론을 먼저 썼다.
 - [ ] 확인한 근거를 명령/카드/PR/CI/run id/테스트 파일 기준으로 남겼다.
+- [ ] 사용자-facing 보고라면 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 구분했다.
+- [ ] raw 이벤트 dump나 카드 댓글만으로 사용자 보고를 대체하지 않았다.
+- [ ] 카드 댓글 작성 완료와 사용자 직접 보고 완료를 구분해 적었다.
+- [ ] 같은 카드·같은 이유·같은 근거의 중복/스팸 보고를 보내지 않았다.
+- [ ] 역할별 책임 경계가 결과에 드러난다. 예: 테스트 근거는 tester/command 기준, 운영 판단은 singde/gwops 기준, 문서 정리는 gwdocs 기준으로 섞이지 않는다.
 - [ ] 대장이 해야 할 것과 내부 후속 처리를 분리했다.
 - [ ] 다음 작업 후보가 있으면 짧게 제안했다.
 - [ ] 실제로 하지 않은 검증은 했다고 쓰지 않았다.
+
+### 검증자동화 빠른 체크
+
+- [ ] fixture 또는 샘플 카드 기준으로 release cleanup / stale / review-required / already-handled 중 어떤 분기를 본 것인지 적었다.
+- [ ] dry-run 결과와 실제 board/service 상태 근거를 같이 남겼다.
+- [ ] board stats, blocked list, dispatch dry-run 같은 보드 근거가 빠지지 않았다.
+- [ ] merge/release cleanup 범위가 있으면 PR/CI/release-gate/remote branch/diff 동등성 근거를 따로 적었다.
 
 ## 8. 문서 작업에서 자주 빠지는 항목 빠른 재점검
 

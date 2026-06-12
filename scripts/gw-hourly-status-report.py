@@ -64,7 +64,7 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--dry-run',action='store_true'); ap.add_argument('--force',action='store_true'); args=ap.parse_args(); load_dotenv(ENV)
     if not args.force:
         h=int(time.strftime('%H'))
-        if h<9 or h>20: print('outside report window'); return
+        if h<9 or h>22: print('outside report window'); return
     msg=build_message()
     if args.dry_run: print(msg); return
     send(msg)

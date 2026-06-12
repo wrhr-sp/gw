@@ -19,11 +19,18 @@
 - `gw-hermes-env.sh`: systemd user 서비스/다른 셸에서도 그룹웨어 bot home, singde 기본 profile, PATH를 고정하는 공통 실행 환경
 - `gw-review-required-gate.sh`: blocked `review-required` 카드를 표준 검증 후 complete/dispatch 하거나 자동 복구 루프로 넘기는 게이트
 - `gw-review-required-recovery-loop.sh`: review-required gate 검증 실패 시 `gwbuilder → gwreviewer → gwtester → singde` 복구 미니 체인을 생성
+- `gw-blocked-remediation-watch.sh`: blocked 카드를 release cleanup → stale/superseded → review-required defer → 자동 재수정 후보 → 승인 필요 순으로 재판단하고, `already-handled`도 기존 체인 상태를 다시 확인한다
 - `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원)
 - Telegram 사용자 보고는 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트/카드/runs/log를 확인해 직접 판단한 뒤 보내는 방식이다.
 - 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지다.
 - `정각 보고`는 기존 `gw-hourly-status-report.timer` 경로를 유지하고, 나머지 3가지는 싱드 판단 보고양식을 따른다.
 - 보고 watcher나 보조 스크립트를 수정할 때도 카드 생성/상태변경/댓글 이벤트 자체를 Telegram으로 그대로 보내지 않는다.
+- 사용자-facing 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리한다.
+- blocked 설명은 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요 중 하나로 남긴다.
+- 카드 댓글만 달렸다고 사용자 보고 완료로 보지 않고, 실제 직접 보고 여부를 따로 확인한다.
+- 같은 카드·같은 이유·같은 근거라면 즉시 보고를 반복하지 않고, 상태 변화가 생겼을 때만 다시 보낸다.
+- 역할별 기본 책임은 planner=범위, builder=구현, reviewer=리뷰, tester=검증, docs=문서/보고 양식, ops=PR·CI·release cleanup 으로 유지한다.
+- `PR merge`, `release gate`, `branch cleanup`, `review-required 정리`, `stale blocker 정리`, `검증 재실행`은 카드 범위에 적힌 경우만 예외 권한으로 쓴다.
 
 ## 자동화 보강 스크립트 예시
 
@@ -145,6 +152,8 @@ bash ./scripts/gw-review-required-recovery-loop.sh --help
 
 - `review-required`는 무조건 사람 승인 대기가 아니라, 표준 검증으로 닫히면 complete + dispatch로 넘긴다.
 - test/typecheck/build/check 실패처럼 복구 가능한 항목은 원본 blocked 카드 방치 대신 자동 재수정→재리뷰→재검증→복구 정리 체인으로 보낸다.
+- blocked remediation watcher는 release cleanup → stale/superseded → review-required defer → 자동 재수정 후보 → 승인 필요 순서를 먼저 보고, `already-handled` 로그가 떠도 기존 체인(run/show/댓글) 상태를 재확인한 뒤에만 넘긴다.
+- branch cleanup/release gate 자동 정리는 PR merged, PR head checks, main release-gate success, remote branch absence, patch-id 동등성 또는 branch 부재, dirty worktree 안전성을 같이 확인했을 때만 닫는다.
 - 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`이 3회 이상 반복되면 새 재수정 카드를 계속 늘리지 않고 싱드가 직접 원본 카드, runs/log, 실패 명령, 변경 파일, 중복 worker 여부를 확인한다.
 - 자동 조치 가능하면 기준 복구 카드 1개만 남기고 다시 수정→리뷰→검증 체인으로 넘긴다.
 - secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 끝까지 자동 처리하지 않는다.
@@ -159,6 +168,19 @@ python3 ./scripts/gw-hourly-status-report.py --dry-run --force
 ```
 
 카드 이벤트 자동 보고 watcher와 safe-triage 즉시 보고는 제거됐다. `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`가 필요하면 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트를 읽고 판단해 보고양식으로 직접 보고한다.
+
+간단 보고 템플릿 예시:
+
+```text
+[작업 최종 결과]
+한 줄 결론: 관리자 PWA 관련 문서 기준을 정리했습니다.
+자동화가 한 일: 문서 수정, 체크리스트 반영, 기준 정리
+싱드가 직접 개입한 일: 최종 사용자 보고 누락 여부 재확인
+자동화가 못 끝낸 이유: 없음
+보완한 자동화: 다음부터는 사용자 직접 보고 완료 여부를 따로 기록
+사용자가 보면 되는 곳: /, /offline, /manifest.webmanifest
+대장이 해줄 일: 없음
+```
 
 ## 운영 팁
 

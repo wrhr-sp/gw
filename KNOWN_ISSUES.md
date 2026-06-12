@@ -17,16 +17,18 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 관리자 PWA 설치 UX / 오프라인 / manifest 품질 개선
+### 3. 현재 문서화/검증 기준은 역할봇 권한·판단루프·보고정책·검증자동화 고도화
 
-현재 루트 문서와 handoff 는 관리자 PWA 설치 품질 개선 체인을 기준으로 맞추고 있다.
+현재 루트 문서와 handoff 는 역할봇 권한 확대보다 싱드/Watcher 판단루프 보강을 우선하는 체인을 기준으로 맞춘다.
 
-- 현재 코드에는 관리자 host 분리, `/admin/manifest.webmanifest`, 관리자용 metadata/app shell/nav/install step 골격, 공통 offline 안내, 관리자/일반 아이콘 파일 분리가 이미 들어와 있다.
-- 현재 manifest 분리는 되어 있지만, 관리자 설치 안내와 오프라인 안내는 아직 공통 설명 중심이라 관리자 운영 맥락을 더 또렷하게 보여 주는 후속이 필요하다.
-- 현재 관리자 아이콘 파일은 placeholder SVG 자산이다. 이번 체인에서는 일반/관리자 파일 분리, 192/512, any/maskable, 테스트 회귀 보호를 우선하고 최종 브랜드 자산 제작은 별도 범위로 남긴다.
-- install prompt 커스텀 제어, push, background sync, offline write queue, native 전환은 아직 범위 밖이다.
-- local preview/manual smoke/Lighthouse 확인 기준은 이번 체인에서 더 분명히 문서화하지만, 브라우저/환경 차이 때문에 완전 자동화까지는 아직 고정하지 않는다.
-- 실제 운영 사용자/권한 저장, production DB migration, secret, DNS/custom domain, 유료 리소스, 외부 IAM/SSO/감사 시스템 연동은 계속 범위 밖이다.
+- blocked 재판단 순서는 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요 순으로 고정하는 방향이다.
+- `already-handled` 로그는 해결 완료 확정이 아니라 원본 카드와 생성 체인 상태 재확인 신호로 다뤄야 한다.
+- Telegram 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리해야 한다.
+- 정각 보고 외 raw 이벤트 중계는 계속 금지하며, 카드 댓글만으로 사용자 보고 완료라고 보지 않는다.
+- 같은 카드·같은 이유·같은 근거의 중복 보고를 막는 기준과, 카드 댓글 작성 완료/사용자 직접 보고 완료를 분리 기록하는 기준이 필요하다.
+- fixture/dry-run/service journal/board state/PR-CI-main gate를 같이 보는 검증 세트가 필요하다.
+- 역할별 기본 책임(`gwplanner/gwbuilder/gwreviewer/gwtester/gwdocs/gwops`)과 card-scoped 예외 권한을 문서/결과에서 같은 뜻으로 유지해야 한다.
+- restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
 ### 4. 자동화 보강분 이력
 
@@ -38,10 +40,20 @@
 - safe triage 실패 재시도/backoff
 - recovery loop 생성
 - systemd watcher PATH 보강
+- release cleanup/stale blocker 자동 정리 운영 경험
 
 관련 Kanban 체인:
 
 - `t_3cc774a3` → `t_f54c6e19` → `t_27995f12` → `t_cda0641f` → `t_3539349e` → `t_d7f30c03` → `t_3cc826c6`
+
+남은 운영 메모:
+
+- 위 체인은 완료 이력이다. 현재 활성 작업과 섞어 읽지 않는다.
+- board 에 남아 있는 예전 scheduled 복구 카드는 문서 기준 재분류가 끝났고, 최신 `main` 기준으로는 stale/superseded 여부 판단 근거가 정리돼 있다.
+- 같은 실패군에서 기준 카드 1장만 남기고 중복 카드를 정리하는 원칙은 유지하되, 2026-06-12 정리표 기준으로 새 기준 카드로 남길 scheduled 카드는 없다.
+- 2026-06-12 구현 보고서 `docs/guides/scheduled-recovery-card-cleanup-report-2026-06-12.md` 와 부모 재검증 근거 기준으로 web build/attendance recovery loop 관련 scheduled 카드 14장은 모두 stale/superseded 후보다.
+- 아직 남은 일은 문서 판단을 board 상태 정리에 안전하게 반영하는 운영 마무리뿐이다.
+- 마지막 운영 마무리에서는 card-scoped 예외 권한을 상시 권한처럼 오해하지 않도록 결과 문구를 한 번 더 확인해야 한다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

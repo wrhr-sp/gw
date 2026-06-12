@@ -127,6 +127,40 @@
 - `apps/api/test/document-storage.spec.ts`
 - `docs/architecture/phase-8-r2-storage-scope.md`
 
+### 2-6. 운영 자동화는 역할봇 권한 확대보다 판단루프 보강을 우선한다.
+
+- 역할봇 전체 권한을 무작정 넓히지 않는다.
+- 카드 범위에 명시된 `PR merge`, `release gate`, `branch cleanup`, `review-required 정리`, `stale blocker 정리`, `검증 재실행` 같은 예외만 card-scoped 승인 범위로 다룬다.
+- blocked 재판단은 release cleanup → stale/superseded → review-required 재검증 → recovery loop → 승인 필요 순으로 본다.
+- `already-handled` 로그는 해결 완료 확정이 아니라 원본 카드와 후속 체인 상태 재확인 신호로 본다.
+- scheduled/stale/superseded 카드 정리는 "예전 카드가 있었다"는 사실보다 "최신 main 기준에서 지금도 재현되는가"를 우선 본다.
+- 더 최신 완료 카드와 현재 저장소 검증(`pnpm check`, 관련 test/typecheck/build, 가능하면 `build:cf` 와 local `preview:cf` smoke)이 이미 같은 목적을 흡수하면, 예전 scheduled 후속 카드는 기준 카드 1장만 남기고 정리 후보로 본다.
+- Telegram 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리한다.
+- blocked 설명은 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요로 구분한다.
+- 카드 댓글만으로 사용자 보고 완료라고 보지 않고, raw 이벤트 dump를 그대로 보내지 않는다.
+- 카드 댓글 작성 완료와 사용자 직접 보고 완료는 분리 기록한다.
+- 같은 카드·같은 이유·같은 근거의 즉시 보고는 반복하지 않고, 상태가 바뀌었을 때만 다시 보낸다.
+- secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업은 자동화가 끝까지 실행하지 않는다.
+
+역할별 기본 책임 매트릭스:
+- `gwplanner`: 범위 정의, 승인 게이트 정리, 후속 카드 분리
+- `gwbuilder`: 코드/스크립트 수정과 최소 검증 근거 정리
+- `gwreviewer`: 경계/보안/문서 일치 여부 리뷰
+- `gwtester`: fixture, dry-run, service/journal, board state, dispatch dry-run 검증
+- `gwdocs`: 쉬운 한국어 문서, blocked 분류 설명, 보고 양식, handoff 정리
+- `gwops`: PR/CI/merge/branch cleanup/release gate 같은 운영 후속 검증
+
+예외 권한 해석 원칙:
+- `PR merge`, `release gate`, `branch cleanup`, `review-required 정리`, `stale blocker 정리`, `검증 재실행`은 상시 권한이 아니라 card-scoped 예외다.
+- card-scoped 예외가 있어도 restricted 항목(secret, `.env`, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 자동화 범위에 넣지 않는다.
+- 역할봇이 직접 처리할 수 없는 판단은 싱드가 원본 카드, run, comment, 검증 근거를 다시 보고 분류한다.
+
+근거:
+- `AGENTS.md`
+- `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md`
+- `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md`
+- `docs/guides/automation-hardening-review-gate-handoff.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
