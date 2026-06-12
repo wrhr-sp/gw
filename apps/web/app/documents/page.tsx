@@ -1,5 +1,6 @@
 import { appRoutes } from "@gw/shared";
 
+import { Phase16PilotPanel } from "../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const spaceCards = [
@@ -60,6 +61,32 @@ export default function DocumentsPage() {
           <li><a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a> — 문서 읽음 확인</li>
         </ul>
       </SurfaceSection>
+
+      <Phase16PilotPanel
+        description="문서함은 문서 공간/첨부 metadata 흐름과 R2 binding-aware 경계를 보여 주는 화면이며, 실제 운영 업로드/다운로드 완료처럼 보이지 않게 설명을 고정합니다."
+        confirmItems={[
+          "전사 문서함과 인사 전용 문서함이 다른 권한 경계로 보인다.",
+          "storage key/bucket/public URL 비노출 원칙이 UI 문구에 반영돼 있다.",
+          "문서 공간, 파일 목록, metadata 생성, 읽음 확인 API 로 same-origin 스모크를 이어 갈 수 있다.",
+        ]}
+        blockedItems={[
+          "실제 운영 파일 업로드 확대와 공개 다운로드 링크 오픈은 이번 단계 성공 기준이 아니다.",
+          "OCR/전자서명/외부 문서보관 연동은 후속 승인 범위로 남긴다.",
+        ]}
+        nextRoutes={[
+          { href: appRoutes.documents.spaces, label: appRoutes.documents.spaces, description: "접근 가능한 문서 공간 목록 확인" },
+          { href: appRoutes.documents.files, label: appRoutes.documents.files, description: "파일 metadata 목록 확인" },
+          { href: appRoutes.documents.fileMetadata, label: appRoutes.documents.fileMetadata, description: "metadata 생성/권한 차단 확인" },
+          { href: "/admin/policies", label: "/admin/policies", description: "문서 정책 candidate 와 일반 화면 설명 비교" },
+        ]}
+        approvalGates={[
+          "production data/실저장 반영",
+          "public URL 또는 외부 공유 링크 정책 확정",
+          "bucket 운영 전환과 유료 리소스 승인",
+          "secret 입력/교체",
+        ]}
+        evidenceNote="live fetch 가 제한되면 문서 route 는 pnpm check/build:cf 와 /api/documents/* 응답 스키마 검증을 대체 근거로 남깁니다."
+      />
     </PageShell>
   );
 }

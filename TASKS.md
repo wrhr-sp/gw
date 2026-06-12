@@ -6,39 +6,37 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 15 운영 데이터·정책·감사 로그 연결 1차
+작업명: Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안
 
 현재 체인:
 
-1. 기획: `t_4f7ea1d3` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_0e312fc3` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_47fc60a7` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: `t_89e222da` — 해봄(`gwtester`) — parent gate 대기
-5. 문서화: `t_a7b0b31f` — 다온(`gwdocs`) — parent gate 대기
-6. GitHub/배포 확인: `t_accc581a` — 지킴(`gwops`) — parent gate 대기
+1. 기획: `t_ad8287ab` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_20a7feb8` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_65e57559` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: 후속 카드 예정
+5. 문서화: 후속 카드 예정
+6. GitHub/배포 확인: 후속 카드 예정
 
 현재 문서 기준 핵심 범위:
 
-- 관리자 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 의 운영 기준이 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees` 와 관련 API 허용 기준에 왜 그렇게 반영되는지 설명 가능한 연결을 만든다.
-- 일반 직원/팀장/인사/감사 역할별로 권한 부족, 회사 scope, 정책 미허용, placeholder 제한을 서로 다른 이유로 설명할 수 있게 정리한다.
-- `/admin*` 는 계속 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 기준을 유지한다.
-- `/attendance` 뿐 아니라 `/leave` 도 운영 정책 연결 보강 대상으로 올려 `/admin/policies` 와 같은 방향을 가리키도록 맞춘다.
-- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/approvals` 결재 권한과 관리자 운영 권한이 서로 다른 역할임을 분명히 유지한다.
-- mock/dev-safe skeleton 범위에서 핵심 흐름(`/`, `/login`, `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees`, `/admin/*`)과 정책 연결 보강 route(`/leave`) 기준을 함께 handoff 한다.
-- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 를 전체 제품 흐름 안에서 다시 정리해 공지/게시판/문서 공간/첨부 metadata skeleton 연결을 파일럿 검토용 기준으로 고정한다.
+- `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 핵심 업무 흐름과 협업 route(`/boards`, `/documents`)가 같은 제품 안에서 자연스럽게 이어지게 정리한다.
+- `/admin/policies`, `/admin/users`, `/admin/audit-logs` 가 게시판/문서 운영 정책, 권한, 감사 추적을 설명하되 일반 업무/협업 화면과 경계를 흐리지 않게 유지한다.
+- R2 관련 범위는 private-by-default, D1 metadata 우선, binding-aware/dev-safe skeleton 기준까지만 다루고 실제 운영 업로드/public URL 오픈은 하지 않는다.
+- 주요 smoke 기준은 핵심 업무 route(`/`, `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org`) + 협업 보강 route(`/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`) + 관리자 route(`/admin/*`, `/api/health`, `/admin/manifest.webmanifest`)를 함께 본다.
+- live URL 검증은 가능하면 직접 확인하되, 환경 gate가 있으면 `build:cf`, local `preview:cf` smoke, deployment metadata 같은 대체 근거를 같이 남긴다.
+- restricted 항목(secret, production data, DNS/custom domain, 유료 리소스, 외부 연동, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`
+- `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`
 - `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`
 - `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md`
-- `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`
-- `docs/guides/phase-14-real-usable-mvp-pass-1-handoff.md`
-- `docs/architecture/phase-12-dashboard-summary-scope.md`
-- `docs/architecture/phase-13-admin-console-pass-1-scope.md`
-- `docs/architecture/admin-role-permission-model-pass-1-scope.md`
-- `docs/architecture/attendance-registration-policy-pass-2-scope.md`
-- `docs/guides/phase-13-admin-console-pass-1-handoff.md`
-- `docs/guides/attendance-registration-policy-pass-2-handoff.md`
+- `docs/architecture/phase-5-boards-documents-scope.md`
+- `docs/architecture/phase-8-r2-storage-scope.md`
+- `docs/ux/groupware-benchmark-principles.md`
+- `docs/product/groupware-vision-roadmap.md`
 
 ## 작업 카드 생성 기준
 

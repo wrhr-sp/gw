@@ -27,8 +27,12 @@
 
 - [ ] 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 두 갈래로 설명하고, `/login` 과 `/dashboard` 로 자연스럽게 이어진다.
 - [ ] 로그인(`/login`)이 placeholder 세션 계약과 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 실제 인증 완료처럼 과장하지 않는다.
-- [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/employees` 우선순위를 유지하고, 상세 처리는 각 화면으로 넘긴다.
-- [ ] `/attendance`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
+- [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하고, 상세 처리는 각 화면으로 넘긴다.
+- [ ] `/attendance`, `/leave`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
+- [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
+- [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
+- [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 forged 또는 접근 불가 postId 는 403 경계 설명과 같은 뜻으로 안내한다.
+- [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.
@@ -49,6 +53,9 @@
 - [ ] API contract, 구현, 테스트가 함께 맞춰져 있다.
 - [ ] 권한 없음/잘못된 입력/회사 scope 예외가 테스트 또는 수동 검증 근거로 확인됐다.
 - [ ] `/admin/*` 관리자 기능과 일반 업무 화면(`/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/org`, `/employees`) 책임이 섞이지 않는다.
+- [ ] notice-only 게시판 책임과 일반 게시판 책임이 문서/화면/API 설명에서 같은 뜻으로 유지된다.
+- [ ] private 문서공간, forged 접근, raw storage 정보 비노출 guardrail이 문서/계약/API/UI에서 서로 다른 말로 풀리지 않는다.
+- [ ] `/documents` 와 첨부 metadata 흐름이 실제 운영 업로드/다운로드 완료처럼 보이지 않고, R2 binding-aware/dev-safe 경계를 숨기지 않는다.
 - [ ] 관리자 host 에서는 `/admin` 중심 landing 과 관리자 전용 manifest(`start_url: /admin`, `scope: /admin`)가 일관되게 맞고, 페이지가 `/admin/manifest.webmanifest` 를 광고한다.
 - [ ] 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 쓰는 현재 구현 방식을 문서가 숨기지 않는다.
 - [ ] 관리자 host 에서 `/manifest.webmanifest` 를 직접 열면 일반 manifest 가 유지되고, 실제 설치 기준은 `/admin/manifest.webmanifest` 라는 점을 검증/기록했다.
@@ -137,6 +144,8 @@
 - `/`
 - `/login`
 - `/dashboard`
+- `/boards`
+- `/documents`
 - `/employees`
 - `/org`
 - `/manifest.webmanifest`

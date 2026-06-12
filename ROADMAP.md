@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 15 운영 데이터·정책·감사 로그 연결 1차가 최신 범위이며, 관리자 정책/권한/감사 skeleton 이 직원·팀장·인사 화면과 API 허용 기준에 왜 그렇게 반영되는지 설명 가능한 연결선을 고정하는 방향으로 다음 구현을 이어간다.
+현재 문서화 기준으로는 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안이 최신 범위이며, 게시판/공지/문서함/R2 skeleton과 전체 smoke 기준을 다시 묶어 대장이 preview/live URL에서 핵심 업무·협업 route·관리자 route를 함께 검토할 수 있는 상태를 만드는 방향으로 다음 구현을 이어간다.
 
 ## Phase 흐름
 
@@ -23,6 +23,7 @@
 - Phase 13: 관리자 콘솔 실사용 1차
 - Phase 14: 실사용 MVP 통합 1차
 - Phase 15: 운영 데이터·정책·감사 로그 연결 1차
+- Phase 16: 파일·문서·공지·검증 안정화 및 파일럿 초안
 
 ## MVP 성공 기준
 
@@ -30,11 +31,12 @@
 - 권한 경계와 회사 scope가 테스트로 확인된다.
 - 관리자 기능과 일반 업무 기능이 UI/API 모두에서 분리된다.
 - PR/CI/merge/Cloudflare 자동 배포 확인까지 Kanban 파이프라인으로 기록된다.
+- 게시판/문서/첨부 metadata 흐름과 파일럿 검토용 smoke 기준이 쉬운 한국어 문서로 정리된다.
 
 ## 상세 로드맵
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

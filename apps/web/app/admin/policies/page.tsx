@@ -1,5 +1,6 @@
 import React from "react";
 
+import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminPolicyPreview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels } from "../../../admin-skeleton-config";
 
@@ -130,6 +131,29 @@ export default function AdminPoliciesPage() {
           </ul>
         ) : null}
       </SurfaceSection>
+
+      <Phase16PilotPanel
+        title="Phase 16 운영자 검토 체크"
+        description="관리자 정책 화면은 게시판/문서 정책 candidate 와 일반 협업 화면의 설명이 같은 방향을 가리키는지 확인하는 운영자용 체크포인트입니다."
+        confirmItems={[
+          "current/candidate/capability/audit preview 형식이 문서·게시판 정책에도 같은 방식으로 보인다.",
+          "일반 협업 route 의 제한 설명과 관리자 정책 candidate 가 서로 모순되지 않는다.",
+          "운영자는 이 화면을 보고도 아직 저장 전 preview 임을 이해할 수 있다.",
+        ]}
+        blockedItems={[
+          "정책 실제 저장, production 적용, 운영 권한 재배포는 이번 단계에서 실행하지 않는다.",
+        ]}
+        nextRoutes={[
+          { href: "/boards", label: "/boards", description: "공지/게시판 운영 후보와 일반 화면 문구 비교" },
+          { href: "/documents", label: "/documents", description: "문서 공간·첨부 metadata 경계와 정책 설명 비교" },
+          { href: "/admin/audit-logs", label: "/admin/audit-logs", description: "감사 preview 가 read-only 추적 톤을 유지하는지 확인" },
+        ]}
+        approvalGates={[
+          "production 정책 저장",
+          "권한/조직 실데이터 반영",
+          "외부 연동/secret 변경",
+        ]}
+      />
     </PageShell>
   );
 }

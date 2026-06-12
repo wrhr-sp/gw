@@ -253,10 +253,19 @@
 - private 문서공간 접근 차단
 - raw storage internals 비노출
 - allowlist 와 max-size 제한 유지
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 같은 협업 묶음으로 보이더라도 게시판 전달 책임과 문서 보관 경계를 섞지 않기
+- `/boards` 는 notice-only 공지와 일반 게시판을 같은 카드 목록 안에서 보여 주더라도, 일반 구성원 글쓰기 가능 여부와 운영 공지 작성 권한이 다르다는 점을 먼저 읽히게 유지하기
+- `/boards/[boardId]` 는 `board_notice`, `board_general` 같은 대표 경로를 예시로 삼아 boardId 기반 정보구조와 권한 문구를 먼저 고정하고, 없는 boardId 도 실제 운영 게시판 생성처럼 보이게 설명하지 않기
+- `/posts/[postId]` 는 bodyPreview 중심 상세, 댓글 영역, 읽음 확인 영역을 분리해 보여 주고 접근 불가 postId 는 UI/API 모두 403 경계 설명과 같은 뜻을 유지하기
+- `/documents` 와 첨부 metadata 는 실제 운영 업로드/다운로드 완료처럼 보이지 않게 placeholder/dev-safe 제한을 분명히 남기기
+- R2 연계는 private-by-default, D1 metadata 우선, binding-aware skeleton 기준까지만 다루고 raw `storageKey`, bucket 이름, public URL 을 응답/문서/UI 기본값으로 노출하지 않기
+- `/documents` 는 전사 문서함과 인사 전용 문서함의 권한 차이를 먼저 보여 주고, fileName/contentType/fileSize/versionLabel 같은 metadata 설명이 raw storage 내부정보 노출 없이 이어지게 유지하기
+- live URL 파일럿 검토 기준에서는 협업 route 를 핵심 업무 흐름과 자연스럽게 이어 보이게 하되, production data/secret/DNS/유료 리소스/외부 연동이 아직 별도 승인 범위라는 점을 숨기지 않기
 
 관련 문서:
 - `docs/architecture/phase-5-boards-documents-scope.md`
 - `docs/architecture/phase-8-r2-storage-scope.md`
+- `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`
 
 ### 4-5. 관리자 정책/감사
 
@@ -302,14 +311,16 @@
 4. 자주 가는 업무 진입점
 5. 정책/안내/참고 링크
 
-Phase 15 운영 데이터·정책·감사 로그 연결 1차에서 특히 유지/보강할 흐름:
+Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특히 유지/보강할 흐름:
 - 홈(`/`)은 일반 업무 흐름과 관리자 검토 흐름을 "두 갈래"로 먼저 설명한다.
 - 로그인(`/login`)은 실제 인증 성공을 약속하지 말고, 역할별 첫 이동 경로(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)를 안내판처럼 보여 준다.
-- 대시보드(`/dashboard`)는 `출퇴근 먼저 → 승인 대기 확인 → 조직/직원 확인` 순서의 상단 액션을 유지한다.
-- 일반 업무 핵심 route 묶음은 `/dashboard` 다음에 `/attendance`, `/approvals`, `/org`, `/employees` 로 읽히게 유지한다.
+- 대시보드(`/dashboard`)는 `출퇴근 먼저 → 승인 대기 확인 → 공지/게시판 읽기 → 문서 공간 확인 → 조직/직원 확인` 순서의 상단 액션을 유지한다.
+- 일반 업무 핵심 route 묶음은 `/dashboard` 다음에 `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 로 읽히게 유지한다.
 - `/attendance` 와 `/leave` 는 현재 허용 결과만이 아니라 policy source 또는 미허용 이유를 최소 한 줄 이상 설명 가능해야 한다.
 - 운영 연결형 blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 적는다.
-- `/boards`, `/documents`, `/offline` 은 연결 문맥은 남기되 이번 Phase의 핵심 smoke 흐름보다 앞에 나오지 않게 둔다.
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 협업 보강 route 로 유지하되 실제 완성형 협업툴처럼 과장하지 않는다.
+- `/documents` 와 첨부 metadata 흐름은 R2/파일 저장이 이미 완전 개방된 것처럼 보이면 안 되며, 업로드/다운로드 제한과 비노출 원칙을 같은 뜻으로 설명해야 한다.
+- `/offline` 은 연결 문맥은 남기되 이번 Phase의 핵심 smoke 흐름보다 앞에 나오지 않게 둔다.
 
 근거:
 - `apps/web/app/page.tsx`

@@ -18,37 +18,39 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 15 운영 데이터·정책·감사 로그 연결 1차다. 관리자 정책/권한/감사 skeleton 이 직원·팀장·인사 화면과 API 허용 기준에 왜 그렇게 반영되는지 설명 가능한 연결을 고정하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안이다. 게시판/공지/문서함/R2 skeleton과 전체 smoke 기준을 다시 묶어, 대장이 preview/live URL에서 핵심 화면·협업 흐름·제한·승인 게이트를 한 번에 검토할 수 있게 만드는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 관리자 화면 안의 정책/권한/감사 기준이 일반 업무 화면과 API 허용 결과에 왜 그렇게 보이는지 연결하는 것이다.
-- 일반 직원/팀장/인사/감사 역할별로 권한 부족, 회사 scope, 정책 미허용, placeholder 제한을 다른 이유로 설명할 수 있어야 한다.
-- `/admin*` 는 계속 일반 업무 화면에 섞지 않고, 권한 기반 CTA 와 route/API guard 를 계속 같이 본다.
-- `/attendance` 뿐 아니라 `/leave` 도 `/admin/policies` 와 같은 정책 방향을 가리켜야 한다.
-- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/approvals` 결재 권한과 관리자 운영 권한은 서로 다른 역할이라는 점을 유지해야 한다.
-- restricted 항목(secret, production, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
-- 우선 참고 문서: `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`, `docs/guides/phase-15-operational-policy-audit-bridge-pass-1-handoff.md`, `docs/architecture/phase-14-real-usable-mvp-pass-1-scope.md`, `docs/architecture/phase-13-admin-console-pass-1-scope.md`, `docs/architecture/admin-role-permission-model-pass-1-scope.md`, `docs/architecture/attendance-registration-policy-pass-2-scope.md`.
+- 이번 Phase의 목적은 게시판/공지/문서함/첨부 metadata 흐름을 전체 제품 검토 기준 안에서 다시 정리해 "사내 검토용 초안"으로 설명 가능한 상태를 만드는 것이다.
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 협업/문서 보강 route로 보고, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 와 자연스럽게 이어지게 본다.
+- `/admin/policies`, `/admin/users`, `/admin/audit-logs` 는 문서/게시판 운영 정책·권한·감사 추적을 설명하되 일반 업무/협업 화면과 경계를 흐리지 않아야 한다.
+- R2 관련 범위는 private-by-default, D1 metadata 우선, binding-aware/dev-safe skeleton 기준까지만 다루고 실제 운영 업로드/public URL 오픈은 하지 않는다.
+- 핵심 smoke 기준은 핵심 업무 route + 협업 route + 관리자 route를 함께 보는 것이다.
+- live fetch가 환경 gate에 막힐 수 있으므로 `build:cf`, local `preview:cf` smoke, deployment metadata 같은 대체 근거를 같이 남긴다.
+- restricted 항목(secret, production data, DNS/custom domain, 유료 리소스, 외부 연동, migration, destructive 작업)은 이번 체인에서도 자동 진행하지 않는다.
+- 우선 참고 문서: `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`, `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`, `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`, `docs/architecture/phase-5-boards-documents-scope.md`, `docs/architecture/phase-8-r2-storage-scope.md`.
 
-2026-06-12 Phase 15 운영 데이터·정책·감사 로그 연결 1차 메모:
+2026-06-12 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안 메모:
 
-- 기준 흐름은 `/` → `/login` → `/dashboard` → `/attendance`/`/approvals`/`/org`/`/employees` 와 권한 기반 `/admin/*` 진입을 유지하되, 이번에는 `/leave` 를 정책 연결 보강 route로 함께 본다.
-- 홈과 로그인은 제품 입구 설명을 유지하고, 실제 연결 강화 포인트는 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/admin/*` 사이의 운영 설명 정렬에 둔다.
-- `/attendance` 와 `/leave` 는 현재 허용 결과뿐 아니라 정책 source, 미허용 이유, placeholder 제한을 같은 축으로 설명해야 한다.
-- `/employees` 와 `/approvals` 는 `/admin/users` 의 역할/권한/상태 preview와 충돌하지 않게 읽혀야 한다.
-- `/admin/audit-logs` 는 raw 로그 노출 확대가 아니라 candidate/reason/source 추적의 기준 화면으로 유지한다.
-- 현재 화면 근거는 `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/employees/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/admin-skeleton-config.ts` 에 둔다.
-- 접근/권한 기준 근거는 `packages/shared/src/admin-access.ts`, API 허용/차단 근거는 `apps/api/src/app.ts`, 회귀 확인 기준은 `apps/api/test/auth-org.spec.ts` 로 따라간다.
-- 이번 Phase의 필수 smoke 기준은 기존 핵심 route(`/`, `/login`, `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees`, `/admin/*`)를 유지하면서 `/leave` 정책 연결 설명을 추가 보강하는 것이다.
-- blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축으로 분리해 설명한다.
+- 기준 흐름은 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/employees`/`/org` 에서 협업 route(`/boards`, `/documents`)와 관리자 route(`/admin/*`)가 이어지는 구조로 본다.
+- `/dashboard` 상단 액션은 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 읽히고, `/boards` 와 `/documents` 는 아래 읽기 섹션에서도 placeholder honesty 를 보강하는 구조로 유지한다.
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]` 는 notice-only와 일반 게시판 책임 분리, 읽기/작성/댓글 흐름, placeholder honesty를 같이 봐야 한다.
+- `/documents` 는 문서 공간/첨부 metadata 중심으로 보고, 실제 운영 파일 업로드/다운로드 완료처럼 보이지 않게 해야 한다.
+- R2/첨부 흐름은 raw storage key, bucket 이름, public URL 비노출을 계속 유지한다.
+- private 문서공간, forged 접근, notice-only 글쓰기 제한 같은 guardrail을 계속 핵심 검증 대상으로 본다.
+- `/admin/policies` 는 게시판/문서 운영 정책과 일반 협업 흐름이 같은 방향을 가리켜야 한다.
+- `/admin/audit-logs` 는 raw 민감정보 없이 read-only 운영 추적 톤을 유지해야 한다.
+- 대장이 확인할 때는 "무엇이 되나" 뿐 아니라 "왜 아직 여기서 멈추는가"와 "어떤 승인 게이트가 남았는가"까지 함께 보여 줘야 한다.
 
 대장이 preview/live URL 에서 바로 눌러 볼 쉬운 확인 순서:
-1. `/` 와 `/login` 에서 일반 업무 흐름과 관리자 검토 흐름의 입구 설명이 유지되는지 본다.
-2. `/dashboard` 에서 오늘 할 일과 운영 연결 안내가 충돌하지 않는지 본다.
-3. `/attendance` 에서 허용 방식, `effective policy`, offline 재시도 안내가 함께 보이고 `/admin/policies` 와 설명 방향이 같은지 본다.
-4. `/leave` 가 정책 연결 없는 독립 placeholder처럼 남지 않고, 권한 부족/회사 scope/정책 미허용/placeholder 제한 4축 메모를 유지하는지 본다.
-5. `/employees` 와 `/admin/users`, `/approvals` 와 관리자 권한 설명을 비교해 일반 조회/결재/운영 검토 책임이 섞이지 않는지 본다.
-6. `/admin/audit-logs` 가 read-only 감사 조회 톤을 유지하고, 일반 사용자 기준 `/admin*`·raw 감사 정보·운영 내부 candidate 가 기본 화면에 새지 않는지 본다.
+1. `/` 와 `/login` 에서 일반 업무와 협업/운영 검토 입구 설명이 유지되는지 본다.
+2. `/dashboard` 에서 근태/휴가/결재와 함께 공지·문서 진입점이 자연스럽게 이어지는지 본다.
+3. `/boards` 와 `/boards/board_notice`, `/boards/board_general` 에서 notice-only 공지와 일반 게시판 책임 차이가 먼저 읽히는지 본다.
+4. `/posts/board_post_board_general_employee_employee` 같은 예시 상세에서 bodyPreview 중심 본문, 댓글, 읽음 확인 흐름이 과장 없이 이어지는지 본다.
+5. `/documents` 에서 전사 문서함/인사 전용 문서함 경계와 첨부 metadata 흐름이 보이되 실운영 업로드 완료처럼 보이지 않는지 본다.
+6. `/admin/policies`, `/admin/users`, `/admin/audit-logs` 를 비교해 문서/게시판 운영 설명, 권한 경계, 감사 추적이 일반 업무 화면과 충돌하지 않는지 본다.
+7. live fetch가 막히면 어떤 route를 직접 확인하지 못했고 어떤 대체 근거(build:cf, preview smoke, deployment metadata, same-origin `/api/boards*`·`/api/documents*` 확인)를 썼는지 같이 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

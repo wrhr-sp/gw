@@ -16,29 +16,29 @@
 - 유료 리소스 생성·증액 없음
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
+- 실제 운영 파일 업로드 확대/공개 다운로드 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 15 운영 데이터·정책·감사 로그 연결 1차
+### 3. 현재 문서화/검증 기준은 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안
 
-현재 루트 문서와 handoff 는 관리자 정책/권한/감사 skeleton 이 일반 업무 화면과 API 허용 기준에 왜 그렇게 이어지는지 설명하는 Phase 15 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 게시판/공지/문서함/R2 skeleton 과 전체 smoke 기준을 다시 묶어, 대장이 preview/live URL에서 핵심 업무·협업 route·관리자 route를 함께 검토할 수 있는 Phase 16 체인을 기준으로 맞춘다.
 
-- 핵심 route 묶음은 `/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*` 이다.
-- `/leave` 는 이번 Phase에서 운영 정책 연결 보강 대상으로 추가로 본다.
-- 일반 업무 흐름과 관리자 검토 흐름은 같은 제품 안에 있어도 화면 노출과 목적을 분리해서 설명해야 한다.
-- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/approvals` 결재 권한과 관리자 운영 권한은 같은 역할로 설명하면 안 된다.
-- `/attendance` 와 `/leave` 의 정책 안내, `/admin/policies` 의 운영 정책 설명은 같은 방향을 가리켜야 한다.
-- `/approvals` 는 승인 처리 app 처럼 보여도 실제 저장/완료를 속이면 안 된다.
-- `/admin*` 는 일반 사용자에게 노출되지 않아야 하고, UI 숨김뿐 아니라 route/API guard 기준도 계속 유지해야 한다.
-- blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 설명해야 한다.
-- boards/documents/leave/offline 은 연결 문맥은 유지하지만 이번 Phase의 주된 smoke 성공 판정은 핵심 8개 route 묶음에 둔다.
+- 핵심 업무 route 묶음은 `/`, `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org` 이다.
+- 협업 보강 route는 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 이다.
+- 관리자 route는 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 와 검증용 `/api/health`, `/admin/manifest.webmanifest` 이다.
+- 일반 업무 흐름, 협업 흐름, 관리자 검토 흐름은 같은 제품 안에 있어도 노출 목적과 권한 경계를 분리해서 설명해야 한다.
+- `/boards` 와 `/documents` 는 같은 협업 묶음이지만 notice-only/게시판 책임과 문서공간/첨부 보관 경계는 분리해 설명해야 한다.
+- R2 관련 범위는 private-by-default, D1 metadata 우선, raw storage 정보 비노출 기준까지만 다루며 실제 운영 업로드/public URL 오픈은 여전히 별도 승인이다.
+- blocked/empty/error 상태는 권한 부족, 회사 scope, 정책 미허용, placeholder/dev-safe 제한 중 무엇인지 구분해 설명해야 한다.
+- live `.workers.dev` fetch 가 환경 gate 에 막히면 local `preview:cf` smoke, build:cf, deployment metadata 같은 대체 근거를 같이 남겨야 한다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 운영 연결 단계에서 남아 있는 제품형 리스크
+### 4. 현재 파일럿 초안 단계에서 남아 있는 제품형 리스크
 
-- 관리자 정책/권한/감사 preview가 일반 업무 화면과 API 허용 결과에 왜 그렇게 이어지는지 아직 코드/문구/오류 상태 전반에서 완전히 정렬된 상태는 아니다.
-- `/leave` 는 화면과 API skeleton 이 있지만 `/attendance` 만큼 정책 연결 설명이 강하지 않아 추가 구현/검증이 필요하다.
-- blocked/empty/error 상태가 권한/정책/scope/placeholder 축으로 완전히 정리되지 않으면 운영자가 막힘 이유를 오해할 수 있다.
-- 실제 인증/실데이터/실저장 없이 흐름을 보여 주는 단계라서, 화면이 "완료된 제품"처럼 보이지 않게 문구를 계속 관리해야 한다.
-- `.workers.dev` live fetch 가 환경 gate 에 막히면 local `preview:cf` smoke, build:cf, deployment metadata 같은 대체 근거를 같이 남겨야 한다.
+- 게시판/문서 흐름이 보여도 실제 운영 협업툴 완성 상태처럼 오해될 수 있어 placeholder honesty를 계속 관리해야 한다.
+- `/documents` 와 첨부 metadata 흐름은 존재하지만, 실제 파일 업로드/다운로드 완성형 기대를 만들지 않도록 문구와 smoke 기준을 더 엄격히 유지해야 한다.
+- notice-only/private space/forged 접근 차단이 화면 문구와 테스트에서 같은 뜻으로 읽히지 않으면 운영자가 제한 사유를 오해할 수 있다.
+- 일반 업무 화면과 관리자 정책/권한/감사 preview 연결이 약하면 "어디까지 사내 검토 가능 상태인지" 설명이 흐려질 수 있다.
+- live URL 직접 fetch가 안 되는 환경에서는 대체 검증 근거를 남기지 않으면 파일럿 검토 신뢰도가 떨어진다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 
