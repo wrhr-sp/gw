@@ -104,6 +104,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - 무인증 접근은 401 `AUTH_REQUIRED`
 - 권한 없는 접근은 403 `FORBIDDEN`
 - `/admin/*` 는 일반 업무와 분리돼 있는가
+- 관리자 접근 판단이 `roleCode` 이름만이 아니라 실제 permission/capability 기준과 같은 뜻으로 맞는가
 - 일반 조회에서 관리자 전용 역할/기능이 과노출되지 않는가
 
 대표 테스트:
@@ -225,6 +226,11 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 ### 관리자 정책/감사
 
 다시 볼 포인트:
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서와 같은지
+- `HR_ADMIN` 이 `/admin/audit-logs` 를 자동 허용받지 않고 `audit.read` 기준과 같은 뜻으로 정리됐는지
+- `AUDITOR` 가 감사 로그 전용 흐름만 가지는지
+- dashboard/admin hub 노출 조건과 직접 route 접근 기준이 같은지
+- `adminScope`, `highRiskPermissions`, `capability` 설명이 contract/UI/API 에서 같은지
 - `/admin/policies` 에 적용대상 level, 우선순위 안내, before/after diff, 적용 인원 preview 가 함께 보이는지
 - 같은 target 중복 정책이 있으면 경고가 읽히는지
 - candidate preview 의 masked/summary 정보가 과도 노출 없이 읽히는가
@@ -262,6 +268,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `apps/web/mobile-pwa.test.ts`
 
 현재 재검증 메모(부모 카드 기준):
+- 부모 카드 검증 기준으로 `pnpm --filter @gw/shared test -- contracts.spec.ts`, `pnpm --filter @gw/api test -- auth-org.spec.ts`, `pnpm --filter @gw/web test -- admin-console-pass1 admin-preview-guard dashboard-boundary middleware`, `pnpm check`, `pnpm --filter @gw/web build:cf`, `bash scripts/gw-cloudflare-check.sh`, local `preview:cf` smoke 까지 통과했고, PR #39 merge commit `c14bb65` 와 main push `release-gate` run `27398275720` 의 `cloudflare-build`/`cloudflare-deploy` 성공까지 확인됐다.
 - `bash scripts/gw-cloudflare-check.sh`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 는 통과 근거가 있다.
 - 이번 후속 체인에서는 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 까지 다시 통과시키는 것을 우선 목표로 둔다.
 - 일반 host fallback 은 우선 `apps/web/admin-preview-guard.test.ts` 로 잠갔다. paired admin host 를 계산하지 못한 admin role 요청과 spoofed admin-looking host 요청이 모두 `/forbidden` 으로 차단되는지 계속 회귀 확인한다.

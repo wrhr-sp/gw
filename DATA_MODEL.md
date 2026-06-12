@@ -222,7 +222,40 @@
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 
-### 2-2. 관리자 정책 candidate payload
+### 2-2. 관리자 접근 skeleton payload
+
+무엇을 나타내나:
+- 관리자 UI 와 API 가 같은 뜻으로 접근 여부를 설명하기 위한 1차 관리자 접근 모델이다.
+- 실제 운영 role assignment 저장 테이블 확정이 아니라, 현재 skeleton/placeholder 단계에서 쓰는 계약 기준이다.
+
+핵심 필드:
+- role code: `SUPER_ADMIN`, `COMPANY_ADMIN`, `HR_ADMIN`, `MANAGER`, `EMPLOYEE`, `AUDITOR`
+- permission code 예시: `invite.manage`, `audit.read`, `board.manage`, `document.space.manage`
+- shared contract: `adminScope`, `employeeLinkStatus`, `highRiskPermissions`, `statusChangePreview`, `roleChangePreview`
+
+관계:
+- `sessionUser.roleCodes`, `sessionUser.permissions`, `/api/admin/*` guard, `/admin/*` route guard, dashboard/admin shortcut 과 같이 읽힌다.
+- 감사 로그 접근은 단순 admin role 이름이 아니라 `audit.read` capability 와 연결된다.
+
+민감도/주의:
+- 이번 단계는 production 권한 저장 구조 확정이 아니다.
+- 실제 권한 부여/회수 실행, production DB migration, 실데이터 role assignment 변경은 범위 밖이다.
+- Web/API/nav 가 서로 다른 접근 행렬을 만들지 않게 같은 기준으로 해석해야 한다.
+
+현재 상태:
+- dedicated D1 테이블 추가 없이 shared contract + placeholder 응답 + guardrail test 기준으로 유지
+- `adminUserSummarySchema`, `adminScopeSchema`, `adminUsersListResponseSchema` 존재
+- API 는 `/api/admin/users`, `/api/admin/policies` 에 admin role 기준, `/api/admin/audit-logs` 에 `audit.read` 기준을 사용 중
+- 다음 단계 구현 포인트는 이 차이를 문서화하고 Web/nav/test 와 같은 뜻으로 맞추는 것
+
+근거:
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+- `apps/web/admin-preview-guard.test.ts`
+- `apps/web/app/dashboard/dashboard-config.ts`
+- `docs/architecture/admin-role-permission-model-pass-1-scope.md`
+
+### 2-3. 관리자 정책 candidate payload
 
 무엇을 나타내나:
 - 문서/게시판/근태/휴가/결재 정책을 운영 전에 검토하는 placeholder payload 다.

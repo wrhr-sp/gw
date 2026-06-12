@@ -78,12 +78,14 @@
 - 화면에서 버튼을 숨겨도 서버 검증은 반드시 유지한다.
 - 권한 없는 접근은 403 계열로 분리한다.
 - 관리자 영역은 `roleCode`/permission 기준을 함께 확인한다.
+- 특히 `/admin/audit-logs` 같은 감사 조회는 "관리자처럼 보이는 role" 이 아니라 `audit.read` capability 를 실제 기준으로 맞춘다.
 
 실무 기준:
 - UI 는 혼란을 줄이기 위한 1차 필터다.
 - 실제 보안 경계는 API 에 있어야 한다.
 
 근거:
+- `packages/shared/src/admin-access.ts`
 - `packages/shared/src/contracts.ts`
 - `apps/api/src/app.ts`
 - `apps/api/test/auth-org.spec.ts`
@@ -154,7 +156,9 @@
 ### 3-3. 인사/총무/관리자
 
 할 수 있는 일:
-- `/admin/*` 에서 사용자 후보, 정책 candidate, 감사 로그 조회
+- `SUPER_ADMIN`, `COMPANY_ADMIN`: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근
+- `HR_ADMIN`: `/admin`, `/admin/users`, `/admin/policies` 접근
+- `AUDITOR`: `/admin/audit-logs` 조회 전용 접근
 - 운영 기준 preview 와 review requirement 확인
 
 주의할 일:
@@ -231,6 +235,8 @@
 - 관리자용 PWA manifest/start_url/scope 는 일반 사용자 앱과 정체성이 분리돼야 함
 - 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 same-origin 상대 경로 manifest 로 광고해야 하며 관리자 route 는 `name: GW Admin`, `start_url: /admin`, `scope: /admin` 을 유지해야 함
 - 관리자 host 에서는 `/manifest.webmanifest`, `/offline`, `/login`, `/forbidden`, `/admin*` 만 우선 허용하고 그 밖의 일반 업무 route 는 관리자 앱 범위 밖으로 돌려보내기
+- dashboard shortcut, admin hub 카드 노출, 직접 route 접근, API guard 가 서로 다른 접근 행렬을 갖지 않게 맞추기
+- 접근 행렬의 단일 기준은 `packages/shared/src/admin-access.ts` shared helper 로 두고, Web/API/dashboard/admin hub 가 이 기준을 재사용하기
 - 다른 회사 범위 운영 변경 candidate 차단
 - 감사 로그는 masked preview 유지
 - createdFrom/createdTo 같은 filter 는 validation/test 와 함께 유지

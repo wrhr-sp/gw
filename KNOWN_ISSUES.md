@@ -17,17 +17,18 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 Admin host 운영 설계 + preview 검증 확장
+### 3. 현재 문서화/검증 기준은 관리자 권한/역할 데이터 모델 1차
 
-현재 루트 문서와 handoff 는 Admin host 운영 설계 + preview 검증 확장 체인을 기준으로 맞추고 있다.
+현재 루트 문서와 handoff 는 관리자 권한/역할 데이터 모델 1차 체인을 기준으로 맞추고 있다.
 
-- 현재 코드에는 host helper, broad middleware matcher, 일반 사용자 `/manifest.webmanifest`, 관리자 `/admin/manifest.webmanifest`, 관리자용 app shell/manifest identity 가 이미 들어와 있다.
-- admin host 판별은 `Host` 헤더, `GW_ADMIN_HOSTS` allowlist, `gw-admin.*.workers.dev`, `admin.localhost`, `admin.127.0.0.1.nip.io` 기준으로만 본다.
+- 현재 코드에는 admin host helper, preview guard, dashboard 관리자 shortcut, admin skeleton config, shared 관리자 contract skeleton 이 이미 들어와 있다.
+- admin host 판별은 계속 `Host` 헤더, `GW_ADMIN_HOSTS` allowlist, `gw-admin.*.workers.dev`, `admin.localhost`, `admin.127.0.0.1.nip.io` 기준으로만 본다.
 - `x-forwarded-host` 는 spoof 가능하므로 admin host 판별 근거로 쓰지 않는다.
-- 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않아야 하고, 관리자 host 에서만 `/admin` 계열과 관리자용 manifest identity 가 정상 노출돼야 한다.
-- 일반 host admin fallback 은 코드/테스트로 `/forbidden` 기본 차단까지 맞췄다. 남은 검증 이슈는 live fetch gate 가 있을 때 local `preview:cf` smoke 와 deployment metadata 를 실제로 얼마나 꾸준히 남기느냐 쪽이다.
-- preview 검증은 live fetch 하나에만 기대지 않고, `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 함께 근거로 남겨야 한다.
-- DNS/custom domain, secret, production DB 실데이터, 실제 운영 사용자/권한 변경, 실제 외부 HR 연동은 계속 범위 밖이다.
+- 현재 shared contract 의 `adminScope`, `adminUserSummary`, `highRiskPermissions`, `adminPolicySummary.capability`, `adminAuditLog` metadata 는 `packages/shared/src/admin-access.ts` 기준 helper 와 함께 Web/API/nav/test 에 같은 접근 행렬로 연결돼 있다.
+- 현재 API 는 `/api/admin/users`, `/api/admin/policies` 를 admin console 기준으로, `/api/admin/audit-logs` 를 `audit.read` 기준으로 막고 있고 Web preview guard / dashboard shortcut / admin hub 카드도 같은 뜻으로 맞춰져 있다.
+- 1차 목표 행렬은 `SUPER_ADMIN`/`COMPANY_ADMIN` 전부 허용, `HR_ADMIN` 은 감사 로그 제외, `AUDITOR` 는 감사 로그만 허용, `MANAGER`/`EMPLOYEE` 는 차단이다.
+- 남은 제한은 접근 행렬 정합성 자체보다 실제 운영 권한 저장, production DB migration, 외부 IAM/SSO/감사 시스템 연동, 실데이터 연결이 아직 범위 밖이라는 점이다.
+- preview 검증과 별개로 실제 운영 권한 저장, production DB migration, secret, DNS/custom domain, 외부 IAM/SSO/감사 시스템 연동, 유료 리소스는 계속 범위 밖이다.
 
 ### 4. 자동화 보강분 이력
 

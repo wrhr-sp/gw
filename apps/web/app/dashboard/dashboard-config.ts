@@ -1,4 +1,4 @@
-import { type SessionUser } from "@gw/shared";
+import { getAdminNavigationAccess, type SessionUser } from "@gw/shared";
 
 export type DashboardActionCard = {
   href: string;
@@ -19,9 +19,6 @@ export type DashboardRouteCard = {
   title: string;
   body: string;
 };
-
-const adminCapableRoles: SessionUser["roleCodes"] = ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"];
-const auditCapableRoles: SessionUser["roleCodes"] = ["AUDITOR"];
 
 export const dashboardTopBadges = ["today-first", "dev-safe summary", "small-screen readable"] as const;
 
@@ -124,8 +121,10 @@ export const dashboardApiLinks = [
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },
 ] as const;
 
-export function getDashboardAdminShortcut(roleCodes: SessionUser["roleCodes"]) {
-  if (roleCodes.some((roleCode) => adminCapableRoles.includes(roleCode))) {
+export function getDashboardAdminShortcut(roleCodes: SessionUser["roleCodes"], permissions: SessionUser["permissions"] = []) {
+  const access = getAdminNavigationAccess({ roleCodes, permissions });
+
+  if (access.canAccessAdminConsole) {
     return {
       href: "/admin",
       title: "관리자 허브 바로가기",
@@ -133,7 +132,7 @@ export function getDashboardAdminShortcut(roleCodes: SessionUser["roleCodes"]) {
     } as const;
   }
 
-  if (roleCodes.some((roleCode) => auditCapableRoles.includes(roleCode))) {
+  if (access.canAccessAdminAudit) {
     return {
       href: "/admin/audit-logs",
       title: "감사 로그 바로가기",

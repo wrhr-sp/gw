@@ -35,13 +35,19 @@ describe("Phase 12 dashboard summary skeleton", () => {
     expect(getDashboardAdminShortcut(["EMPLOYEE"])) .toBeNull();
     expect(getDashboardAdminShortcut(["MANAGER"])) .toBeNull();
 
-    expect(getDashboardAdminShortcut(["COMPANY_ADMIN"])) .toEqual({
+    expect(getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])) .toEqual({
       href: "/admin",
       title: "관리자 허브 바로가기",
       body: "권한 있는 운영 사용자만 정책/권한/감사 preview를 이어서 확인합니다.",
     });
 
-    expect(getDashboardAdminShortcut(["AUDITOR"])) .toEqual({
+    expect(getDashboardAdminShortcut(["HR_ADMIN"])) .toEqual({
+      href: "/admin",
+      title: "관리자 허브 바로가기",
+      body: "권한 있는 운영 사용자만 정책/권한/감사 preview를 이어서 확인합니다.",
+    });
+
+    expect(getDashboardAdminShortcut(["AUDITOR"], ["audit.read"])) .toEqual({
       href: "/admin/audit-logs",
       title: "감사 로그 바로가기",
       body: "감사 권한 사용자는 조회 가능한 감사 로그 preview 로 바로 이동합니다.",

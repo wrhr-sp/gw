@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  getAdminNavigationAccess,
+  getAdminRouteKind,
+  getAdminScopeForRoleCode,
+  getViewerAccessForRoleCode,
+  hasAdminRouteAccess,
+} from "../src/admin-access";
+import {
   adminAuditLogListResponseSchema,
   adminPoliciesListResponseSchema,
   adminPolicyBoardUpdateRequestSchema,
@@ -179,6 +186,28 @@ describe("shared contracts", () => {
         error: null,
       }).data.items[0].code,
     ).toBe("invite.manage");
+  });
+
+  it("maps admin scopes, route kinds, and access decisions from the same shared access matrix", () => {
+    expect(getAdminScopeForRoleCode("SUPER_ADMIN")).toBe("global");
+    expect(getAdminScopeForRoleCode("HR_ADMIN")).toBe("company");
+    expect(getAdminScopeForRoleCode("AUDITOR")).toBe("audit");
+
+    expect(getAdminRouteKind("/admin")).toBe("admin_console");
+    expect(getAdminRouteKind("/admin/users")).toBe("admin_console");
+    expect(getAdminRouteKind("/admin/audit-logs")).toBe("admin_audit");
+    expect(getAdminRouteKind("/dashboard")).toBeNull();
+
+    const hrViewer = getViewerAccessForRoleCode("HR_ADMIN");
+    const auditorViewer = getViewerAccessForRoleCode("AUDITOR");
+
+    expect(hasAdminRouteAccess("/admin", hrViewer)).toBe(true);
+    expect(hasAdminRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
+    expect(hasAdminRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
+    expect(getAdminNavigationAccess(hrViewer)).toEqual({
+      canAccessAdminConsole: true,
+      canAccessAdminAudit: false,
+    });
   });
 
   it("parses org directory placeholder payloads with summaries, filters, and notices", () => {

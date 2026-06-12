@@ -2,10 +2,12 @@ import {
   buildAttendancePolicyPreview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
+  getAdminNavigationAccess,
   resolveEffectiveAttendancePolicy,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
   type EffectiveAttendancePolicy,
+  type SessionUser,
 } from "@gw/shared";
 
 export type AdminHubCard = {
@@ -76,6 +78,21 @@ export const adminHubCards: readonly AdminHubCard[] = [
     guardrail: "외부 반출 없이 조회/마스킹/회사 경계 규칙만 유지",
   },
 ] as const;
+
+export function getVisibleAdminHubCards(
+  roleCodes: SessionUser["roleCodes"],
+  permissions: SessionUser["permissions"] = [],
+): readonly AdminHubCard[] {
+  const access = getAdminNavigationAccess({ roleCodes, permissions });
+
+  return adminHubCards.filter((card) => {
+    if (card.href === "/admin/audit-logs") {
+      return access.canAccessAdminAudit;
+    }
+
+    return access.canAccessAdminConsole;
+  });
+}
 
 export const adminHubBadges = ["operations-first", "dev-safe", "approval-gated"] as const;
 

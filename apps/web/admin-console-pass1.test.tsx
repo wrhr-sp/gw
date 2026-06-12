@@ -2,7 +2,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import AdminPage from "./app/admin/page";
+import { AdminPageContent } from "./admin-page-content";
+import { getAdminPageCardsForRole } from "./admin-page-access";
 import AdminUsersPage from "./app/admin/users/page";
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
@@ -10,13 +11,25 @@ import AttendancePage from "./app/attendance/page";
 
 describe("Phase 13 admin console pass 1", () => {
   it("turns the admin hub into an operations-first console", () => {
-    const html = renderToStaticMarkup(<AdminPage />);
+    const html = renderToStaticMarkup(
+      <AdminPageContent visibleAdminHubCards={getAdminPageCardsForRole("COMPANY_ADMIN")} />,
+    );
 
     expect(html).toContain("오늘 먼저 볼 운영 체크포인트");
     expect(html).toContain("권한별 진입 경계");
     expect(html).toContain("저장 전 승인 게이트");
     expect(html).toContain("관리자 허브");
     expect(html.indexOf("오늘 먼저 볼 운영 체크포인트")).toBeLessThan(html.indexOf("권한별 진입 경계"));
+  });
+
+  it("shows only the routes each admin viewer is allowed to open from the hub cards", () => {
+    expect(getAdminPageCardsForRole("HR_ADMIN").map((card) => card.href)).toEqual(["/admin/users", "/admin/policies"]);
+    expect(getAdminPageCardsForRole("AUDITOR").map((card) => card.href)).toEqual(["/admin/audit-logs"]);
+    expect(getAdminPageCardsForRole("COMPANY_ADMIN").map((card) => card.href)).toEqual([
+      "/admin/users",
+      "/admin/policies",
+      "/admin/audit-logs",
+    ]);
   });
 
   it("shows user review queues and audit-ready diffs before any save action", () => {
