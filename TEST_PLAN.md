@@ -75,7 +75,7 @@ pnpm --filter @gw/web build:cf
 bash -n scripts/gw-hermes-env.sh
 bash -n scripts/gw-review-required-gate.sh
 bash -n scripts/gw-review-required-recovery-loop.sh
-python3 -m py_compile scripts/gw-safe-triage-watch.py
+python3 -m py_compile scripts/gw-hourly-status-report.py
 python3 -m unittest discover -s scripts/tests -p "test_*.py"
 ```
 

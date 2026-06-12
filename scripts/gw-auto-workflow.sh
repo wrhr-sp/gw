@@ -37,7 +37,7 @@ BENCHMARK_GUIDANCE = """
 Kanban DB/자동화 안전 규칙:
 - `kanban.db`, `kanban.db-wal`, `kanban.db-shm`을 직접 쓰거나 편집하지 않는다. 상태 변경은 `hermes kanban ...` CLI를 사용하고 감시는 read-only로 한다.
 - 자동화/watcher/systemd/dispatcher/보고 스크립트 변경 전후로 board list, DB integrity, watcher 중복 프로세스, systemd 상태, `dispatch --dry-run`을 확인한다.
-- 보고는 기본적으로 `gw-telegram-kanban-report-watch.py`의 직접 Telegram 경로를 사용한다. 별도 사용자 결과보고/막힘 보고 카드 생성이나 `notify-subscribe`는 대장 명시 승인 없이는 켜지 않는다.
+- 보고는 정각 현황 Telegram 보고만 자동으로 사용한다. 카드 이벤트 자동 보고, safe-triage 즉시 보고, 별도 사용자 결과보고/막힘 보고 카드 생성, `notify-subscribe`는 대장 명시 승인 없이는 켜지 않는다.
 - watcher는 단일 인스턴스·state/idempotency·circuit-breaker·safe stop 조건을 갖춘다."""
 
 CARD_SCOPE_APPROVAL_GUIDANCE = """
@@ -107,8 +107,8 @@ def create_task(step: Step, title: str, body: str, idempotency_key: str | None, 
             "자동화 안전 대기: 사용자 승인 또는 수동 promote/unblock 필요",
         ])
     if step.assignee == "singde" and REPORT_CHAT_ID and os.environ.get("GW_ENABLE_FINAL_CARD_NOTIFY_SUBSCRIBE") == "1":
-        # 기본 보고 경로는 read-only Telegram watcher다. 카드 notify-subscribe는
-        # 중복/아리아 경유 보고를 만들 수 있으므로 명시 승인 env가 있을 때만 붙인다.
+        # 기본 자동 보고는 정각 현황 보고뿐이다. 카드 notify-subscribe는
+        # 카드 이벤트 자동 보고/중복/아리아 경유 보고를 만들 수 있으므로 명시 승인 env가 있을 때만 붙인다.
         run([
             HERMES_BIN, "kanban", "--board", board, "notify-subscribe", task_id,
             "--platform", REPORT_PLATFORM,

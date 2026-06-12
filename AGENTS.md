@@ -87,7 +87,7 @@
 - `dispatch_in_gateway`는 `singde` 단일 소유 원칙을 유지한다. 역할봇과 `gw-dev-bot`/아리아에서 dispatcher를 켜지 않는다.
 - DB malformed/disk I/O 오류는 반복 재시도하지 말고 circuit-breaker/long-backoff로 멈춘 뒤 보고한다.
 - 수정 후 `bash -n`, `python3 -m py_compile`, 관련 테스트, systemd status/journal/failed, `dispatch --dry-run`을 가능한 범위에서 검증한다.
-- 보고 경로 기본값은 `gw-telegram-kanban-report-watch.py`의 read-only 직접 Telegram 전송이다. 사용자 결과보고/막힘 보고 카드를 새로 만들거나 `notify-subscribe`를 붙이는 방식은 중복·아리아 경유 보고를 만들 수 있으므로 대장 명시 승인 없이는 켜지 않는다.
+- Telegram 자동 보고는 정각 현황 보고만 유지한다. `gw-hourly-status-report.timer`를 기본 보고 경로로 두고, 칸반 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료 이벤트 자동 보고, second-pass 2차 보고, safe-triage 즉시 보고, 사용자 결과보고/막힘 보고 카드 생성, `notify-subscribe` 방식은 대장 명시 승인 없이는 켜지 않는다.
 - 카드 생성/완료/보류/dispatch 자동화에는 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 둔다.
 
 ## 공통 중단 조건
@@ -106,7 +106,7 @@
 - 남은 리스크 또는 미확인 사항
 - 다음 액션
 
-텔레그램 자동 보고는 잘리지 않게 1회 보고를 짧게 유지한다. 길어질 경우 `1/2`, `2/2`처럼 나눠 보내고, 핵심 결론을 첫 메시지에 먼저 쓴다.
+텔레그램 자동 보고는 정각 현황 보고만 보낸다. 카드 생성/수정/할당/상태변경/댓글/체크리스트/완료, 단순 진행, safe-triage 즉시 보고, 2차 보고는 보내지 않는다. 정각 보고 외 별도 텔레그램 보고가 필요하면 대장 명시 승인 후 1회성으로 짧게 보낸다.
 
 작업 보고가 올라오면 싱드가 먼저 읽고 분류한다. 완료 보고는 검증 근거와 함께 사용자에게 짧게 보고한다. 막힘 보고는 자동화 범위에서 해결 가능하면 싱드가 해결 또는 재라우팅하고, 사용자 개입·승인·비용·외부 권한·비밀값이 필요한 경우에만 왜 막혔는지와 필요한 선택을 사용자에게 보고한다.
 

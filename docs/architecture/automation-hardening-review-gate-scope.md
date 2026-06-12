@@ -27,7 +27,7 @@
 - `scripts/gw-auto-workflow.sh`
 - `scripts/gw-hermes-env.sh`
 - `scripts/gw-review-required-gate.sh`
-- `scripts/gw-safe-triage-watch.py`
+- `scripts/gw-hourly-status-report.py`
 - `scripts/gw-review-required-recovery-loop.sh` (신규)
 
 각 파일의 기대 역할은 아래와 같습니다.
@@ -39,7 +39,7 @@
 이번 보강에서 기대하는 점:
 - 카드 본문에 "성공했고 검증이 끝났으면 blocked/review-required로 남기지 말고 complete 하라"는 기본 규칙을 명시한다.
 - `merge`, `release gate`, `branch cleanup`, `deploy` 같은 카드 범위 승인 규칙을 공통으로 주입한다.
-- direct Telegram watcher를 기본 보고 경로로 보고, `notify-subscribe`는 명시적 env 승인 없을 때 기본 비활성으로 둔다.
+- 정각 현황 보고를 기본 보고 경로로 보고, `notify-subscribe`는 명시적 env 승인 없을 때 기본 비활성으로 둔다.
 
 쉽게 말하면, 자동화가 뒤에서 복구하기 전에 카드 생성 단계부터 "어떤 막힘이 진짜 막힘인지"를 worker들에게 먼저 알려 주는 역할입니다.
 
@@ -67,7 +67,7 @@
 
 즉, `review-required`를 "항상 사람 검토 필요"로 보지 않고, "표준 검증으로 닫을 수 있는 내부 handoff인지" 먼저 확인하는 게 핵심입니다.
 
-### D. `scripts/gw-safe-triage-watch.py`
+### D. `scripts/gw-hourly-status-report.py`
 
 이 watcher는 blocked 카드를 read-only DB 조회로 읽고, 위험도에 따라 Telegram 보고 + 안전 자동 조치를 붙입니다.
 

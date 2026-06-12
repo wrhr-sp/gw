@@ -38,7 +38,7 @@ gwops 기준 패키징 결과
 
 리뷰와 테스트에서 아래는 공통으로 확인됐다.
 
-- 기본 보고 경로는 `gw-telegram-kanban-report-watch.py`의 read-only 직접 Telegram 전송 원칙이다.
+- 기본 Telegram 자동 보고 경로는 `gw-hourly-status-report.py`의 정각 현황 보고다.
 - `groupware` board dispatcher는 `singde` 단일 소유 원칙으로 정리돼 있다.
 - 역할봇(`gwplanner`, `gwbuilder`, `gwreviewer`, `gwtester`, `gwdocs`, `gwops`)과 `gw-dev-bot`/아리아는 dispatcher를 직접 돌리지 않는 방향이 코드와 문서에 들어가 있다.
 - watcher 쪽 핵심 Python 스크립트는 SQLite `mode=ro`를 사용한다.
@@ -66,7 +66,7 @@ gwops 기준 패키징 결과
 아래 원칙은 이번 결과 정리에서 계속 유지돼야 한다.
 
 - 사용자 최종 보고는 싱드가 통합한다.
-- 기본 보고 경로는 direct Telegram watcher다.
+- 기본 Telegram 자동 보고 경로는 정각 현황 보고다.
 - `singde`만 `groupware` board dispatcher를 단일 소유한다.
 - 역할봇과 `gw-dev-bot`/아리아의 `dispatch_in_gateway`는 기본적으로 꺼둔다.
 - 결과보고 카드/막힘보고 카드/`notify-subscribe` 방식은 기본 금지다.
