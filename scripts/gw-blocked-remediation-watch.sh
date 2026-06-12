@@ -530,13 +530,25 @@ def maybe_complete_release_cleanup(task: dict, st: dict) -> tuple[bool, str]:
     gate_ok, gate_msg = release_gate_ok(merge_commit)
     if not gate_ok:
         return True, f'{tid}:release-cleanup-wait:{gate_msg}'
-    if not remote_branch_absent(branch):
-        return True, f'{tid}:release-cleanup-wait:remote-branch-still-exists:{branch}'
+    remote_was_present = not remote_branch_absent(branch)
+    details = [pr_msg, head_msg, gate_msg]
+    if remote_was_present:
+        if dry_run:
+            details.append(f'would delete remote branch: {branch}')
+        else:
+            delete_remote = git('push', 'origin', '--delete', branch, check=False)
+            if delete_remote.returncode != 0:
+                return True, f'{tid}:release-cleanup-failed:remote-delete:{(delete_remote.stderr or delete_remote.stdout).strip()[:200]}'
+            if not remote_branch_absent(branch):
+                return True, f'{tid}:release-cleanup-failed:remote-still-exists:{branch}'
+            details.append(f'remote branch deleted: {branch}')
+    else:
+        details.append(f'remote branch already absent: {branch}')
     dirty_paths = relevant_dirty_paths()
     if dirty_paths:
         return True, f'{tid}:release-cleanup-wait:dirty-worktree:{"|".join(dirty_paths[:5])}'
     exists = branch_exists(branch)
-    details = [pr_msg, head_msg, gate_msg, f'remote branch absent: {branch}', 'dirty worktree check: clean-or-generated-only']
+    details.append('dirty worktree check: clean-or-generated-only')
     if checks_missing:
         details.append('local substitute evidence: ' + ', '.join(evidence_hits[:5]))
     if exists:
