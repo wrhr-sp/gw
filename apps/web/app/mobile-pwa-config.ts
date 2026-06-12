@@ -7,18 +7,48 @@ export type NavItem = {
   summary: string;
 };
 
+export type OfflineGuidance = {
+  bannerTitle: string;
+  bannerBody: string;
+  availableNow: readonly string[];
+  blockedNow: readonly string[];
+  retrySteps: readonly string[];
+};
+
 export const generalPwaManifest = {
   name: "GW Cloudflare-first Skeleton",
   short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
+  id: "/",
   start_url: "/",
   scope: "/",
   display: "standalone",
+  display_override: ["standalone", "minimal-ui", "browser"],
   orientation: "portrait-primary",
   background_color: "#0f172a",
   theme_color: "#0f172a",
   lang: "ko",
   categories: ["business", "productivity"],
+  shortcuts: [
+    {
+      name: "모바일 대시보드",
+      short_name: "대시보드",
+      description: "작은 화면 기준 오늘 상태와 핵심 진입점을 먼저 엽니다.",
+      url: "/dashboard",
+    },
+    {
+      name: "근태",
+      short_name: "근태",
+      description: "출퇴근 CTA 와 최근 기록 placeholder 를 엽니다.",
+      url: "/attendance",
+    },
+    {
+      name: "전자결재",
+      short_name: "결재",
+      description: "내 승인함과 승인 대기 흐름을 빠르게 엽니다.",
+      url: "/approvals",
+    },
+  ],
   icons: [
     {
       src: "/icons/icon-192.svg",
@@ -45,14 +75,42 @@ export const adminPwaManifest = {
   name: "GW Admin",
   short_name: "GW Admin",
   description: "권한, 정책, 감사 로그를 운영하는 관리자용 그룹웨어 Admin PWA 스켈레톤",
+  id: "/admin",
   start_url: "/admin",
   scope: "/admin",
   display: "standalone",
+  display_override: ["standalone", "minimal-ui", "browser"],
   orientation: "portrait-primary",
   background_color: "#111827",
   theme_color: "#111827",
   lang: "ko",
   categories: ["business", "productivity", "admin"],
+  shortcuts: [
+    {
+      name: "관리자 허브",
+      short_name: "허브",
+      description: "운영 허브와 우선 점검 항목을 바로 엽니다.",
+      url: "/admin",
+    },
+    {
+      name: "사용자/권한",
+      short_name: "사용자",
+      description: "사용자 상태, 초대, 권한 점검 화면을 바로 엽니다.",
+      url: "/admin/users",
+    },
+    {
+      name: "운영 정책",
+      short_name: "정책",
+      description: "정책 current/candidate 비교 화면을 바로 엽니다.",
+      url: "/admin/policies",
+    },
+    {
+      name: "감사 로그",
+      short_name: "감사",
+      description: "감사 추적과 읽기 전용 검토 화면을 바로 엽니다.",
+      url: "/admin/audit-logs",
+    },
+  ],
   icons: [
     {
       src: "/icons/admin-icon-192.svg",
@@ -173,12 +231,12 @@ export const installGuideSteps = [
 ] as const;
 
 export const adminInstallGuideSteps = [
-  "관리자 host 에서는 일반 사용자용 홈이 아니라 `/admin` 을 시작점으로 설치되도록 상대 경로 manifest 를 유지합니다.",
-  "관리자용 설치 후에도 권한 검증과 same-origin /api 정책은 그대로 유지됩니다.",
-  "이번 Phase 에서는 관리자 전용 host/PWA skeleton 만 고정하고 실제 DNS/custom domain 연결은 하지 않습니다.",
+  "관리자 host 에서는 일반 사용자 홈이 아니라 `/admin` 을 시작점으로 설치되고, 주요 점검 화면은 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 입니다.",
+  "관리자용 설치 후에도 권한 검증과 same-origin /api 정책은 그대로 유지되며, 일반 사용자용 근태/휴가 앱과 목적이 다릅니다.",
+  "현재 아이콘은 관리자 전용 placeholder 자산이지만 any/maskable 경로를 분리해 두었고, 이번 Phase 에서는 push/background sync/native 패키징은 포함하지 않습니다.",
 ] as const;
 
-export const offlineGuidance = {
+export const offlineGuidance: OfflineGuidance = {
   bannerTitle: "오프라인/불안정 네트워크 안내 skeleton",
   bannerBody:
     "현재 단계에서는 읽기 중심 진입만 일부 안내하고, 상태 변경이 필요한 작업은 성공처럼 보이게 만들지 않습니다.",
@@ -197,6 +255,27 @@ export const offlineGuidance = {
     "네트워크 연결 확인",
     "잠시 후 다시 시도",
     "필요 시 데스크톱 또는 안정적인 네트워크에서 재시도",
+  ],
+} as const;
+
+export const adminOfflineGuidance: OfflineGuidance = {
+  bannerTitle: "관리자 작업은 온라인 상태 확인이 우선입니다",
+  bannerBody:
+    "관리자 PWA 는 읽기 중심 확인만 일부 도와주며, 사용자/권한/정책/감사 로그 변경은 오프라인에서 성공처럼 보이게 만들지 않습니다.",
+  availableNow: [
+    "관리자 허브와 최근 열어 둔 운영 요약 다시 읽기",
+    "사용자/권한, 정책, 감사 로그 화면의 현재 안내 문구 확인",
+    "오프라인 제약과 재시도 절차 확인",
+  ],
+  blockedNow: [
+    "사용자 초대, 권한 변경, 비활성화 같은 상태 변경 저장",
+    "정책 candidate 저장/적용 및 운영 규칙 배포",
+    "감사 로그 최신성 확인이나 근거 공유를 전제로 한 판단",
+  ],
+  retrySteps: [
+    "네트워크 연결을 다시 확인하고 `/admin` 에서 새로고침",
+    "정책/권한 변경 전에는 최신 감사 로그와 사용자 상태를 다시 불러오기",
+    "중요 변경은 안정적인 데스크톱 네트워크에서 다시 시도",
   ],
 } as const;
 
@@ -230,6 +309,7 @@ export function getAppShellConfigForHost(host?: string | null) {
       homeHref: "/admin",
       navItems: adminPrimaryNav,
       installGuideSteps: adminInstallGuideSteps,
+      offlineGuidance: adminOfflineGuidance,
     };
   }
 
@@ -239,5 +319,10 @@ export function getAppShellConfigForHost(host?: string | null) {
     homeHref: "/",
     navItems: mobilePrimaryNav,
     installGuideSteps,
+    offlineGuidance,
   };
+}
+
+export function getOfflineGuidanceForHost(host?: string | null) {
+  return getAdminHostInfo(host).isAdminHost ? adminOfflineGuidance : offlineGuidance;
 }

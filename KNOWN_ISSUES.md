@@ -17,18 +17,16 @@
 - 실제 개인정보 처리 없음
 - 외부 HR 연동 없음
 
-### 3. 현재 문서화/검증 기준은 관리자 권한/역할 데이터 모델 1차
+### 3. 현재 문서화/검증 기준은 관리자 PWA 설치 UX / 오프라인 / manifest 품질 개선
 
-현재 루트 문서와 handoff 는 관리자 권한/역할 데이터 모델 1차 체인을 기준으로 맞추고 있다.
+현재 루트 문서와 handoff 는 관리자 PWA 설치 품질 개선 체인을 기준으로 맞추고 있다.
 
-- 현재 코드에는 admin host helper, preview guard, dashboard 관리자 shortcut, admin skeleton config, shared 관리자 contract skeleton 이 이미 들어와 있다.
-- admin host 판별은 계속 `Host` 헤더, `GW_ADMIN_HOSTS` allowlist, `gw-admin.*.workers.dev`, `admin.localhost`, `admin.127.0.0.1.nip.io` 기준으로만 본다.
-- `x-forwarded-host` 는 spoof 가능하므로 admin host 판별 근거로 쓰지 않는다.
-- 현재 shared contract 의 `adminScope`, `adminUserSummary`, `highRiskPermissions`, `adminPolicySummary.capability`, `adminAuditLog` metadata 는 `packages/shared/src/admin-access.ts` 기준 helper 와 함께 Web/API/nav/test 에 같은 접근 행렬로 연결돼 있다.
-- 현재 API 는 `/api/admin/users`, `/api/admin/policies` 를 admin console 기준으로, `/api/admin/audit-logs` 를 `audit.read` 기준으로 막고 있고 Web preview guard / dashboard shortcut / admin hub 카드도 같은 뜻으로 맞춰져 있다.
-- 1차 목표 행렬은 `SUPER_ADMIN`/`COMPANY_ADMIN` 전부 허용, `HR_ADMIN` 은 감사 로그 제외, `AUDITOR` 는 감사 로그만 허용, `MANAGER`/`EMPLOYEE` 는 차단이다.
-- 남은 제한은 접근 행렬 정합성 자체보다 실제 운영 권한 저장, production DB migration, 외부 IAM/SSO/감사 시스템 연동, 실데이터 연결이 아직 범위 밖이라는 점이다.
-- preview 검증과 별개로 실제 운영 권한 저장, production DB migration, secret, DNS/custom domain, 외부 IAM/SSO/감사 시스템 연동, 유료 리소스는 계속 범위 밖이다.
+- 현재 코드에는 관리자 host 분리, `/admin/manifest.webmanifest`, 관리자용 metadata/app shell/nav/install step 골격, 공통 offline 안내, 관리자/일반 아이콘 파일 분리가 이미 들어와 있다.
+- 현재 manifest 분리는 되어 있지만, 관리자 설치 안내와 오프라인 안내는 아직 공통 설명 중심이라 관리자 운영 맥락을 더 또렷하게 보여 주는 후속이 필요하다.
+- 현재 관리자 아이콘 파일은 placeholder SVG 자산이다. 이번 체인에서는 일반/관리자 파일 분리, 192/512, any/maskable, 테스트 회귀 보호를 우선하고 최종 브랜드 자산 제작은 별도 범위로 남긴다.
+- install prompt 커스텀 제어, push, background sync, offline write queue, native 전환은 아직 범위 밖이다.
+- local preview/manual smoke/Lighthouse 확인 기준은 이번 체인에서 더 분명히 문서화하지만, 브라우저/환경 차이 때문에 완전 자동화까지는 아직 고정하지 않는다.
+- 실제 운영 사용자/권한 저장, production DB migration, secret, DNS/custom domain, 유료 리소스, 외부 IAM/SSO/감사 시스템 연동은 계속 범위 밖이다.
 
 ### 4. 자동화 보강분 이력
 

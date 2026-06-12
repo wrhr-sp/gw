@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { offlineGuidance, type NavItem } from "../mobile-pwa-config";
+import { type NavItem, type OfflineGuidance } from "../mobile-pwa-config";
 
 function matchesPath(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`);
@@ -16,9 +16,10 @@ type MobileAppShellProps = {
   homeHref: string;
   navItems: readonly NavItem[];
   installGuideSteps: readonly string[];
+  offlineGuidance: OfflineGuidance;
 };
 
-export function MobileAppShell({ children, appName, appEyebrow, homeHref, navItems, installGuideSteps }: MobileAppShellProps) {
+export function MobileAppShell({ children, appName, appEyebrow, homeHref, navItems, installGuideSteps, offlineGuidance }: MobileAppShellProps) {
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
 
@@ -63,6 +64,7 @@ export function MobileAppShell({ children, appName, appEyebrow, homeHref, navIte
         <div className="status-banner" role="note">
           <strong>설치/preview 안내</strong>
           <span>{installGuideSteps[0]}</span>
+          {installGuideSteps[1] ? <small>{installGuideSteps[1]}</small> : null}
         </div>
       )}
 
