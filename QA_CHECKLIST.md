@@ -27,6 +27,12 @@
 
 - [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] 일반 사용자 host 와 관리자 host 의 역할이 섞이지 않고, 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않는다.
+- [ ] 관리자 접근 기준이 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 설명과 같은 뜻으로 정리돼 있다.
+- [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
+- [ ] `HR_ADMIN` 은 관리자 운영 화면 허용, 감사 로그는 별도 `audit.read` 기준이라는 점이 Web/API/nav 에서 같은 뜻으로 유지된다.
+- [ ] `AUDITOR` 는 감사 로그 전용 흐름만 허용되고 관리자 허브 전체 허용처럼 보이지 않는다.
+- [ ] role → permission → adminScope → route kind 접근 행렬이 shared helper와 API/Web/dashboard/admin hub 에서 서로 다른 상수로 따로 갈라지지 않았다.
+- [ ] dashboard shortcut, admin hub 카드 노출, 직접 route 접근, API guard 가 같은 기준을 따른다.
 - [ ] 일반 사용자 host 에서 admin role 이 `/admin*` 로 들어왔는데 paired admin host 를 계산하지 못하는 경우에도 allow 로 남지 않고 차단/forbidden 또는 명시적 유도로 정리돼 있다.
 - [ ] production admin host 설명이 `admin.<domain>` 모양만으로 열리는 것처럼 쓰이지 않고, `GW_ADMIN_HOSTS` allowlist 가 있어야 인정된다고 적혀 있다.
 - [ ] host 신뢰 경계 설명이 `Host` 헤더 기준과 `x-forwarded-host` 비신뢰 원칙을 코드/문서와 같은 뜻으로 풀고 있다.

@@ -1,19 +1,13 @@
+import { getViewerAccessForRoleCode, hasAdminRouteAccess, knownRoleCodes, type RoleCode } from "@gw/shared";
+
 import { getAdminHostInfo, getAdminHostRedirectHost } from "./admin-host";
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
 const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest", "/offline"];
-const adminOnlyRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"];
-const auditReadableRoutePrefixes = ["/admin/audit-logs"];
-const adminRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"] as const;
-const generalRoleCodes = ["MANAGER", "EMPLOYEE"] as const;
-const auditRoleCodes = ["AUDITOR"] as const;
-const knownRoleCodes = [...adminRoleCodes, ...generalRoleCodes, ...auditRoleCodes] as const;
-const adminRoleCodeSet = new Set<string>(adminRoleCodes);
-const auditRoleCodeSet = new Set<string>(auditRoleCodes);
 const knownRoleCodeSet = new Set<string>(knownRoleCodes);
 
-type RouteGuardRole = (typeof knownRoleCodes)[number];
+type RouteGuardRole = RoleCode;
 
 type AdminRouteGuardInput = {
   pathname: string;
@@ -62,7 +56,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/login" };
   }
 
-  if (!hostInfo.isAdminHost && adminRoleCodeSet.has(roleCode)) {
+  if (!hostInfo.isAdminHost && hasAdminRouteAccess(pathname, getViewerAccessForRoleCode(roleCode))) {
     const targetHost = getAdminHostRedirectHost(host);
     if (targetHost) {
       return { action: "redirect", location: pathname, targetHost };
@@ -71,11 +65,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/forbidden" };
   }
 
-  if (adminRoleCodeSet.has(roleCode)) {
-    return { action: "allow" };
-  }
-
-  if (auditRoleCodeSet.has(roleCode) && hostInfo.isAdminHost && isMatchingRoute(pathname, auditReadableRoutePrefixes)) {
+  if (hostInfo.isAdminHost && hasAdminRouteAccess(pathname, getViewerAccessForRoleCode(roleCode))) {
     return { action: "allow" };
   }
 

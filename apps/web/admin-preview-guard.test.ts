@@ -51,7 +51,7 @@ describe("admin preview guard", () => {
     });
   });
 
-  it("allows admin routes for admin roles on the admin host", () => {
+  it("allows admin routes for admin roles on the admin host but keeps audit logs permission-gated", () => {
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin",
@@ -64,6 +64,23 @@ describe("admin preview guard", () => {
         pathname: "/admin/users",
         host: "admin.localhost:3000",
         sessionToken: "dev-placeholder-session_HR_ADMIN",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/admin/audit-logs",
+        host: "admin.localhost:3000",
+        sessionToken: "dev-placeholder-session_HR_ADMIN",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/admin/audit-logs",
+        host: "gw-admin.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
   });

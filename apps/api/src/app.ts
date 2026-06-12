@@ -91,12 +91,17 @@ import {
   type LeaveRequest,
   type LeaveType,
   type Permission,
+  type RoleCode,
   type Session,
   type SessionUser,
+  buildAttendancePolicyPreview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
-  buildAttendancePolicyPreview,
+  getAdminScopeForRoleCode,
+  hasAdminConsoleAccess,
+  highRiskPermissionCodes,
   resolveEffectiveAttendancePolicy,
+  rolePermissionMatrix,
 } from "@gw/shared";
 import {
   DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -153,106 +158,7 @@ const permissionCatalog: Permission[] = [
   { code: "document.file.write", description: "문서 업로드 메타데이터 placeholder 생성을 처리한다." },
 ];
 
-const rolePermissions = {
-  SUPER_ADMIN: permissionCatalog.map((permission) => permission.code),
-  COMPANY_ADMIN: [
-    "company.read",
-    "employee.read",
-    "employee.write",
-    "department.read",
-    "role.read",
-    "permission.read",
-    "invite.manage",
-    "audit.read",
-    "attendance.read",
-    "attendance.manage",
-    "leave.request",
-    "leave.approve",
-    "approval.form.manage",
-    "approval.line.manage",
-    "approval.document.read",
-    "approval.document.write",
-    "approval.document.approve",
-    "board.notice.read",
-    "board.manage",
-    "board.post.write",
-    "board.comment.write",
-    "document.space.read",
-    "document.space.manage",
-    "document.file.read",
-    "document.file.write",
-  ],
-  HR_ADMIN: [
-    "company.read",
-    "employee.read",
-    "employee.write",
-    "department.read",
-    "role.read",
-    "permission.read",
-    "attendance.read",
-    "attendance.manage",
-    "leave.request",
-    "leave.approve",
-    "approval.form.manage",
-    "approval.line.manage",
-    "approval.document.read",
-    "approval.document.write",
-    "approval.document.approve",
-    "board.notice.read",
-    "board.manage",
-    "board.post.write",
-    "board.comment.write",
-    "document.space.read",
-    "document.space.manage",
-    "document.file.read",
-    "document.file.write",
-  ],
-  MANAGER: [
-    "company.read",
-    "employee.read",
-    "department.read",
-    "role.read",
-    "attendance.read",
-    "attendance.manage",
-    "leave.request",
-    "leave.approve",
-    "approval.document.read",
-    "approval.document.write",
-    "approval.document.approve",
-    "board.notice.read",
-    "board.post.write",
-    "board.comment.write",
-    "document.space.read",
-    "document.file.read",
-  ],
-  EMPLOYEE: [
-    "company.read",
-    "attendance.read",
-    "leave.request",
-    "approval.document.read",
-    "approval.document.write",
-    "board.notice.read",
-    "board.post.write",
-    "board.comment.write",
-    "document.space.read",
-    "document.file.read",
-  ],
-  AUDITOR: [
-    "company.read",
-    "employee.read",
-    "department.read",
-    "role.read",
-    "permission.read",
-    "audit.read",
-    "attendance.read",
-    "approval.document.read",
-    "board.notice.read",
-    "document.space.read",
-    "document.file.read",
-  ],
-} as const;
-
-type RoleCode = keyof typeof rolePermissions;
+const rolePermissions = rolePermissionMatrix;
 
 const companies = [{ id: COMPANY_ID, code: "demo", name: "데모 주식회사", status: "active" as const }];
 
@@ -279,7 +185,7 @@ const roleEmployeeIds: Partial<Record<RoleCode, string>> = {
 const roles = (Object.keys(rolePermissions) as RoleCode[]).map((code) => ({
   code,
   name: code.replaceAll("_", " "),
-  scope: code === "SUPER_ADMIN" ? ("global" as const) : ("company" as const),
+  scope: getAdminScopeForRoleCode(code) ?? "company",
   permissions: [...rolePermissions[code]],
 }));
 
@@ -422,13 +328,13 @@ function buildOrgDirectorySummary(title: string, description: string, count: num
   return { title, description, count };
 }
 
+const highRiskPermissionCodeSet = new Set<Permission["code"]>(highRiskPermissionCodes);
+
 const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
   const employeeId = roleEmployeeIds[code] ?? "employee_admin";
   const employee = employees.find((item) => item.id === employeeId) ?? employees[0];
   const department = departments.find((item) => item.id === employee.departmentId);
-  const highRiskPermissions = rolePermissions[code].filter((permission) =>
-    ["invite.manage", "audit.read", "board.manage", "document.space.manage"].includes(permission),
-  );
+  const highRiskPermissions = rolePermissions[code].filter((permission) => highRiskPermissionCodeSet.has(permission));
 
   return {
     userId: `user_${code.toLowerCase()}`,
@@ -1083,7 +989,7 @@ function requireAdminRole(context: Context): AuthorizationResult {
     return authResult;
   }
 
-  if (!isAdminRole(authResult.auth.roleCode)) {
+  if (!hasAdminConsoleAccess(authResult.auth.user)) {
     return {
       response: jsonError(context, "FORBIDDEN", "관리자 영역 접근 권한이 없습니다.", 403, {
         requiredAdminRole: true,

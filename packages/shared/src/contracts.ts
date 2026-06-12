@@ -255,7 +255,7 @@ export const permissionSchema = z.object({
 export const roleSchema = z.object({
   code: roleCodeSchema,
   name: z.string(),
-  scope: z.enum(["global", "company"]),
+  scope: z.enum(["global", "company", "audit"]),
   permissions: z.array(permissionCodeSchema),
 });
 
@@ -1217,6 +1217,8 @@ export const readReceiptCreateResponseSchema = successResponseSchema(
 );
 
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
+export type RoleCode = z.infer<typeof roleCodeSchema>;
+export type PermissionCode = z.infer<typeof permissionCodeSchema>;
 export type HealthPayload = z.infer<typeof healthPayloadSchema>;
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export type Session = z.infer<typeof sessionSchema>;
