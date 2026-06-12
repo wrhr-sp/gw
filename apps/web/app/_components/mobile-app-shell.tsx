@@ -3,13 +3,22 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { installGuideSteps, mobilePrimaryNav, offlineGuidance } from "../mobile-pwa-config";
+import { offlineGuidance, type NavItem } from "../mobile-pwa-config";
 
 function matchesPath(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
-export function MobileAppShell({ children }: { children: ReactNode }) {
+type MobileAppShellProps = {
+  children: ReactNode;
+  appName: string;
+  appEyebrow: string;
+  homeHref: string;
+  navItems: readonly NavItem[];
+  installGuideSteps: readonly string[];
+};
+
+export function MobileAppShell({ children, appName, appEyebrow, homeHref, navItems, installGuideSteps }: MobileAppShellProps) {
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
 
@@ -34,9 +43,9 @@ export function MobileAppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="app-topbar">
         <div className="app-topbar__inner">
-          <a href="/" className="brand-link">
-            <span className="brand-link__eyebrow">Cloudflare-first skeleton</span>
-            <strong>그룹웨어 Web/PWA</strong>
+          <a href={homeHref} className="brand-link">
+            <span className="brand-link__eyebrow">{appEyebrow}</span>
+            <strong>{appName}</strong>
           </a>
           <a href="/offline" className="ghost-link">
             오프라인 안내
@@ -61,7 +70,7 @@ export function MobileAppShell({ children }: { children: ReactNode }) {
 
       <nav className="bottom-nav" aria-label="모바일 주요 탐색">
         <div className="bottom-nav__inner">
-          {mobilePrimaryNav.map((item) => {
+          {navItems.map((item) => {
             const active = matchesPath(pathname, item.href);
             return (
               <a

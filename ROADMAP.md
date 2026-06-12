@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 출퇴근 정책 적용대상/우선순위 2차가 최신 범위이며, Phase 13 관리자 콘솔 실사용 1차와 출퇴근 등록 방식 정책 1차 위에 회사 기본 정책을 `근무지/지점`, `부서/팀`, `직무/역할`까지 확장해 같은 `effective policy` 계산 기준으로 연결하는 방향으로 다음 구현을 이어간다.
+현재 문서화 기준으로는 Admin host 분리 + PWA 웹앱 1차가 최신 범위이며, 기존 `/admin/*` 권한 경계와 Phase 6 PWA 골격 위에 host 기준 관리자 웹 분리와 관리자 전용 manifest/start_url/scope 기준을 얹는 방향으로 다음 구현을 이어간다.
 
 ## Phase 흐름
 
@@ -21,7 +21,7 @@
 - Phase 11: 조직/직원 일반 화면 1차
 - Phase 12: 대시보드 운영 요약 1차
 - Phase 13: 관리자 콘솔 실사용 1차
-- 현재 후속: 출퇴근 정책 적용대상/우선순위 2차
+- 현재 후속: Admin host 분리 + PWA 웹앱 1차
 
 ## MVP 성공 기준
 
@@ -34,6 +34,6 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/attendance-registration-policy-pass-2-scope.md`
-- 현재 쉬운 handoff: `docs/guides/attendance-registration-policy-pass-2-handoff.md`
+- 현재 기준 범위: `docs/architecture/admin-host-pwa-pass-1-scope.md`
+- 현재 쉬운 handoff: `docs/guides/admin-host-pwa-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

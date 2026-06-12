@@ -1,5 +1,8 @@
+import { getAdminHostInfo, getAdminHostRedirectHost } from "./admin-host";
+
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
+const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest", "/offline"];
 const adminOnlyRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"];
 const auditReadableRoutePrefixes = ["/admin/audit-logs"];
 const adminRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"] as const;
@@ -14,8 +17,13 @@ type RouteGuardRole = (typeof knownRoleCodes)[number];
 
 type AdminRouteGuardInput = {
   pathname: string;
+  host?: string | null;
   sessionToken?: string | null;
 };
+
+type GuardResult =
+  | { action: "allow" }
+  | { action: "redirect"; location: string; targetHost?: string };
 
 function isAdminRoute(pathname: string) {
   return adminRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -34,27 +42,45 @@ function extractRoleCodeFromSessionToken(sessionToken?: string | null): RouteGua
   return knownRoleCodeSet.has(candidate) ? (candidate as RouteGuardRole) : null;
 }
 
-export function getAdminPreviewRedirectPath({ pathname, sessionToken }: AdminRouteGuardInput) {
+export function getAdminRouteGuardResult({ pathname, host, sessionToken }: AdminRouteGuardInput): GuardResult {
+  const hostInfo = getAdminHostInfo(host);
+
+  if (hostInfo.isAdminHost && pathname === "/") {
+    return { action: "redirect", location: "/admin" };
+  }
+
+  if (hostInfo.isAdminHost && !isMatchingRoute(pathname, adminHostAllowedRoutePrefixes)) {
+    return { action: "redirect", location: "/admin" };
+  }
+
   if (!isAdminRoute(pathname)) {
-    return null;
+    return { action: "allow" };
   }
 
   const roleCode = extractRoleCodeFromSessionToken(sessionToken);
   if (!roleCode) {
-    return "/login";
+    return { action: "redirect", location: "/login" };
+  }
+
+  if (!hostInfo.isAdminHost && adminRoleCodeSet.has(roleCode)) {
+    const targetHost = getAdminHostRedirectHost(host);
+    if (targetHost) {
+      return { action: "redirect", location: pathname, targetHost };
+    }
   }
 
   if (adminRoleCodeSet.has(roleCode)) {
-    return null;
+    return { action: "allow" };
   }
 
-  if (auditRoleCodeSet.has(roleCode) && isMatchingRoute(pathname, auditReadableRoutePrefixes)) {
-    return null;
+  if (auditRoleCodeSet.has(roleCode) && hostInfo.isAdminHost && isMatchingRoute(pathname, auditReadableRoutePrefixes)) {
+    return { action: "allow" };
   }
 
-  if (isMatchingRoute(pathname, adminOnlyRoutePrefixes)) {
-    return "/forbidden";
-  }
+  return { action: "redirect", location: "/forbidden" };
+}
 
-  return "/forbidden";
+export function getAdminPreviewRedirectPath(input: AdminRouteGuardInput) {
+  const result = getAdminRouteGuardResult(input);
+  return result.action === "redirect" ? result.location : null;
 }

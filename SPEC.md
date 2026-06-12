@@ -60,6 +60,8 @@
 - Web/PWA 기본 API 경로는 `/api/*` same-origin 상대 경로다.
 - manifest 는 `/manifest.webmanifest`, `start_url` 은 `/` 기본값을 유지한다.
 - preview 전용 절대 API 도메인을 제품 기본값으로 문서/코드에 박아 넣지 않는다.
+- host 기준 관리자 앱을 분리하더라도 일반 사용자용 same-origin 기본값은 유지한다.
+- 관리자용 manifest 를 따로 두더라도 `start_url: /admin`, `scope: /admin` 같은 상대 경로 원칙을 유지한다.
 
 이 규칙을 깨면 안 되는 이유:
 - 세션/cookie/CORS 문맥이 복잡해진다.
@@ -220,6 +222,14 @@
 
 반드시 지킬 것:
 - `/admin/*` 는 관리자 역할/권한 없으면 차단
+- 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리
+- 관리자 host 분리를 하더라도 권한 체크를 host 판별로 대체하지 않기
+- host 판별은 신뢰 가능한 `Host` 헤더와 승인된 admin host 후보만 기준으로 삼고, spoof 가능한 `x-forwarded-host` 값은 권한/host 경계 근거로 쓰지 않기
+- production admin host 는 `GW_ADMIN_HOSTS` allowlist 에 들어간 host 만 인정하고, `admin.<domain>` 모양만으로 자동 승인하지 않기
+- 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 일반 업무 route 는 그대로 렌더링하지 않고 `/admin` 으로 되돌리는 경계를 유지하기
+- 관리자용 PWA manifest/start_url/scope 는 일반 사용자 앱과 정체성이 분리돼야 함
+- 현재 기본 manifest route 는 `/manifest.webmanifest` 1개이며, 요청 host 가 관리자 host 로 판별되면 여기서 관리자용 manifest(`name: GW Admin`, `start_url: /admin`, `scope: /admin`)를 동적으로 반환해야 함
+- 관리자 host 에서는 `/manifest.webmanifest`, `/offline`, `/login`, `/forbidden`, `/admin*` 만 우선 허용하고 그 밖의 일반 업무 route 는 관리자 앱 범위 밖으로 돌려보내기
 - 다른 회사 범위 운영 변경 candidate 차단
 - 감사 로그는 masked preview 유지
 - createdFrom/createdTo 같은 filter 는 validation/test 와 함께 유지
@@ -227,6 +237,7 @@
 관련 문서:
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
+- `docs/architecture/admin-host-pwa-pass-1-scope.md`
 
 ## 5. UI/UX 행동 규칙
 
