@@ -260,6 +260,13 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - 관리자 host 에서 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 권한 경계가 유지되는지
 - 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 광고하고 각 route 가 올바른 manifest identity 를 주는지
 - 관리자 host 로 `/manifest.webmanifest` 를 직접 열어도 일반 manifest 가 유지되고, 실제 설치 href 는 `/admin/manifest.webmanifest` 인지
+- 관리자 install 안내 copy 가 `/admin` 시작점, 운영용 앱 맥락, same-origin 유지, native/push/background sync 미포함 상태를 숨기지 않는지
+- 관리자 offline 안내가 사용자/권한 변경, 정책 적용, 감사 로그 최신성 제약을 성공처럼 포장하지 않는지
+- 관리자 manifest 가 `name`, `short_name`, `description`, `id`, `start_url`, `scope`, `display`, `display_override`, `orientation`, `theme_color/background_color`, `lang`, `categories`, `shortcuts`, `icons(any/maskable)` 최소값을 유지하는지
+- 관리자 아이콘이 일반 사용자용과 파일명으로 분리되고, placeholder 자산 상태를 문서/문구가 과장하지 않는지
+- 온라인 상태 banner 가 install 안내 1~2단계를 보여 주고, 오프라인 전환 시 관리자용 banner title/body 와 `/offline` 링크로 바뀌는지
+- 관리자 오프라인 페이지가 `availableNow`/`blockedNow`/`retrySteps` 와 설치 후 바로 확인할 관리자 화면(nav items)을 같은 기준으로 노출하는지
+- 터치 CTA 최소 높이 48px, 가로 패딩 18px 기준이 config/test/document 에서 같은 뜻인지
 - host 분리가 있어도 API 권한/회사 scope 검증이 약해지지 않는지
 
 주요 테스트:
@@ -273,7 +280,11 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - 이번 후속 체인에서는 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm check` 까지 다시 통과시키는 것을 우선 목표로 둔다.
 - 일반 host fallback 은 우선 `apps/web/admin-preview-guard.test.ts` 로 잠갔다. paired admin host 를 계산하지 못한 admin role 요청과 spoofed admin-looking host 요청이 모두 `/forbidden` 으로 차단되는지 계속 회귀 확인한다.
 - 2026-06-12 재검증 1차: `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` 실행 결과 8개 파일, 43개 테스트 통과.
+- `apps/web/mobile-pwa.test.ts` 는 일반 manifest 검증 시 실제 브라우저가 받는 구현 경로인 `apps/web/app/manifest.ts` 를 기준으로 본다. 단순히 별도 `route.ts` 의 `GET()` 만 import 해서 같다고 보는 테스트는 false positive 를 만들 수 있으므로 금지한다.
+- `apps/web/mobile-pwa.test.ts` 는 관리자 manifest 의 `id`, `display_override`, `shortcuts`, admin icon 경로, install/offline guide, `touchTargetStyle`(48px/18px)까지 같이 회귀 보호한다.
 - local `preview:cf` smoke 는 `set -a; . .secrets/cloudflare.env; set +a; pnpm --filter @gw/web preview:cf` 실행 후 별도 터미널에서 `bash scripts/gw-admin-host-preview-smoke.sh` 로 `/manifest.webmanifest`, `/admin/manifest.webmanifest`, general/admin host HTML manifest href, `/admin`, `/`(manual/follow redirect) 를 확인하는 절차로 고정한다.
+- 설치 품질 후속에서는 위 preview smoke 에 더해 브라우저 수동 확인으로 설치 메뉴 노출 여부, manifest 패널 핵심값, 관리자 install/offline copy 를 함께 기록하는 것을 권장한다.
+- Lighthouse 는 필수 자동화 게이트가 아니라 수동 보조 근거로 우선 사용하고, 확인했다면 어떤 PWA 관련 항목을 봤는지 메모를 남긴다.
 - live `.workers.dev` fetch 가 막히면 local `preview:cf` smoke, deployment metadata, 상위 live smoke 메모를 substitute evidence 로 남긴다.
 
 ## 6. PR 전 확인

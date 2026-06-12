@@ -4,6 +4,9 @@
 
 ### Changed
 
+- `docs/architecture/admin-pwa-install-offline-quality-scope.md` 와 `docs/guides/admin-pwa-install-offline-quality-handoff.md` 를 추가해 관리자 PWA 설치 UX, 오프라인 안내, manifest 세부값, icons/maskable, manual/Lighthouse smoke 기준을 한 세트로 문서화했다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `ROADMAP.md` 를 현재 관리자 PWA 품질 개선 체인 기준으로 갱신했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 관리자 설치 copy, 오프라인 honesty, manifest 필수값, icons/maskable, local preview/manual install/Lighthouse 체크 기준을 반영했다.
 - `docs/architecture/admin-role-permission-model-pass-1-scope.md` 와 `docs/guides/admin-role-permission-model-pass-1-handoff.md` 를 추가해 관리자 권한/역할 데이터 모델 1차 범위, 접근 행렬, 구현 기준, 다음 단계 handoff 를 문서화했다.
 - `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 현재 관리자 권한/역할 데이터 모델 1차 체인 기준으로 갱신했다.
 - `SPEC.md`, `DATA_MODEL.md` 에 관리자 접근 skeleton 과 `audit.read` 중심 감사 로그 접근 기준을 반영했다.
@@ -20,6 +23,7 @@
 - `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa` 재검증에서 8개 파일, 43개 테스트가 통과했다.
 - live `.workers.dev` fetch 가 막힐 때 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 를 substitute evidence 로 남기는 검증 기준을 문서에 추가했다.
 - `SPEC.md`, `TEST_PLAN.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 최신 구현 기준으로 다시 맞춰 `packages/shared/src/admin-access.ts` 단일 접근 행렬, `/admin/audit-logs` 의 `audit.read` 기준, 부모 카드 검증 근거(PR #39 merge commit `c14bb65`, `release-gate` run `27398275720`)를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 다시 맞춰 관리자 PWA 문서 기준에 `id`/`display_override`/`shortcuts`, 온라인/오프라인 banner 동작, 관리자 offline 페이지 nav 노출, `touchTargetStyle`(48px/18px) 회귀 보호 기준을 반영했다.
 
 ## 2026-06-11
 

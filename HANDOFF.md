@@ -18,40 +18,34 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 관리자 권한/역할 데이터 모델 1차의 구현 반영 완료 상태를 문서와 검증 기준에 고정하는 단계다. 이미 들어간 admin host 분리와 admin skeleton 위에, 관리자 접근 기준을 `roleCode + permissionCode + adminScope` 기준으로 같은 뜻이 되게 정리했고 Web route guard / dashboard-admin navigation / API guard / 테스트 기대값이 같은 접근 행렬을 따르도록 맞췄다.
+현재 활성 흐름은 관리자 PWA 설치 UX / 오프라인 / manifest 품질 개선 단계다. 이미 들어간 admin host 분리와 admin manifest 골격 위에, 관리자 앱이 실제 설치 가능한 웹앱처럼 보이도록 설치 안내, 오프라인 안내, 아이콘 기준, manual/Lighthouse smoke 기준을 같은 뜻으로 정리하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
 - 일반 사용자 웹과 관리자 웹은 계속 `host + route` 기준으로 분리한다.
-- 이번 단계의 추가 핵심은 접근 판단을 `roleCode + permissionCode + adminScope` 기준으로 정리하는 것이다.
-- `/admin`, `/admin/users`, `/admin/policies` 와 `/admin/audit-logs` 는 같은 관리자 영역처럼 보여도 접근 기준을 분리한다.
-- 1차 접근 행렬은 `SUPER_ADMIN`/`COMPANY_ADMIN` 전부 허용, `HR_ADMIN` 은 감사 로그 제외, `AUDITOR` 는 감사 로그만 허용, `MANAGER`/`EMPLOYEE` 는 차단으로 맞춘다.
-- dashboard shortcut, admin hub 카드 노출, Web route guard, API guard, 테스트 기대값이 같은 행렬을 따라야 한다.
-- 감사 로그 접근은 role 이름보다 `audit.read` capability 를 실제 기준으로 본다.
-- host 분리는 노출/설치 경험 경계이고, 실제 보안 경계는 계속 session/role/capability/API 검증에 있다.
-- 실제 운영 권한 저장, production DB migration/실데이터, secret, DNS/custom domain, 외부 IAM/SSO/감사 시스템 연동, 유료 리소스는 계속 별도 승인 대상이다.
-- 우선 참고 문서: `docs/architecture/admin-role-permission-model-pass-1-scope.md`, `docs/guides/admin-role-permission-model-pass-1-handoff.md`, `docs/architecture/phase-13-admin-console-pass-1-scope.md`, `docs/guides/phase-13-admin-console-pass-1-handoff.md`.
+- 관리자 앱 설치 기준은 `/admin/manifest.webmanifest`, `id: /admin`, `start_url: /admin`, `scope: /admin`, `GW Admin` 정체성을 유지한다.
+- 관리자 host 에서는 설치 안내 첫 문장이 `/admin` 시작점과 운영용 앱 맥락을 설명해야 한다.
+- 오프라인 안내는 관리자 상태 변경이 성공처럼 보이지 않도록, 가능한 일/막히는 일/재시도 절차를 분리해 설명해야 한다.
+- manifest 세부값은 `name`, `short_name`, `description`, `id`, `start_url`, `scope`, `display`, `display_override`, `orientation`, `theme/background color`, `lang`, `categories`, `shortcuts`, `icons(any/maskable)` 까지를 최소 필수 기준으로 본다.
+- 아이콘은 일반/관리자 파일 분리와 192/512, any/maskable 구성을 유지하되, 현재는 placeholder 자산이라는 사실을 숨기지 않는다.
+- install prompt 자체를 커스텀 제어하는 것보다 install readiness, host-aware copy, manual/local preview smoke 기준을 우선한다.
+- 모바일/관리자 주요 CTA 는 최소 48px 터치 높이와 18px 가로 패딩 기준을 유지한다.
+- App Store/Play Store/Expo/native 전환, push/background sync, production DB/secret/DNS/유료 리소스는 계속 범위 밖이다.
+- 우선 참고 문서: `docs/architecture/admin-pwa-install-offline-quality-scope.md`, `docs/guides/admin-pwa-install-offline-quality-handoff.md`, `docs/architecture/admin-host-preview-verification-extension-scope.md`, `docs/guides/admin-host-preview-verification-extension-handoff.md`.
 
-2026-06-12 관리자 권한/역할 1차 메모:
+2026-06-12 관리자 PWA 품질 개선 메모:
 
-- 현재 shared contract 에는 `adminScope`, `adminUserSummary`, `highRiskPermissions`, `adminPolicySummary.capability`, `adminAuditLog.metadata.companyBoundary` 같은 관리자 데이터 skeleton 이 이미 있다.
-- 현재 API 는 `/api/admin/users`, `/api/admin/policies` 에 `requireAdminRole`, `/api/admin/audit-logs` 에 `requirePermission("audit.read")` 를 사용한다.
-- 이번 구현부터는 `packages/shared/src/admin-access.ts` 가 role → permission → adminScope → route kind 기준을 shared helper 로 제공하고, API/Web/dashboard/admin hub 가 이 행렬을 같이 재사용한다.
-- 현재 dashboard 는 admin shortcut 과 audit shortcut 을 따로 두고 있다.
-- 현재 Web preview guard 는 익명/일반/관리자/감사 전용 경계를 나누고, `/admin/audit-logs` 도 `audit.read` capability 기준으로 API 와 같은 방향으로 맞춰져 있다.
-- 이번 1차 기준에서 `HR_ADMIN` 은 `/admin`, `/admin/users`, `/admin/policies` 허용, `/admin/audit-logs` 차단으로 본다. `AUDITOR` 는 감사 로그 전용이다.
-- high-risk 권한 1차 고정 목록은 `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 다.
-- `packages/shared/src/admin-access.ts` 가 role → permission → adminScope → route kind 기준의 단일 helper 이고, dashboard shortcut / admin hub 카드 / Web route guard / API guard / 테스트 기대값이 이 행렬을 재사용한다.
-- 부모 카드 검증 기준으로 shared 19 / api 61 / web 47 테스트, `pnpm check`, `pnpm --filter @gw/web build:cf`, local `preview:cf` smoke, PR #39 merge commit `c14bb65`, main push `release-gate` run `27398275720` 성공까지 확인됐다.
-
-2026-06-11 pass 2 구현 메모:
-
-- shared 계약에 정책 assignment/rule/preview/effective-policy 구조와 계산 helper 를 추가했다.
-- admin 정책 화면은 우선순위 설명, 예상 적용 인원, 샘플 직원 preview, 동일 target 중복 경고를 렌더링한다.
-- 직원 `/attendance` 화면은 회사 기본이 아니라 본인 effective policy 요약과 허용 방식만 보여 준다.
-- API check-in/check-out 은 employee 기준 effective policy 를 계산해 허용 방식만 201, 나머지는 403 으로 차단한다.
-- 최신 재검증에서 `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 가 모두 통과했다. 이전 web 빌드 ENOENT 실패 메모는 stale 상태이므로 현재 blocker 로 보지 않는다.
-- 부모 검증 기준으로는 shared 18, web 30, api 61 테스트와 package typecheck, web build, Cloudflare build, auth check 가 모두 통과했다. 다음 작업자는 문구를 바꿀 때 이 근거와 모순되지 않는지 먼저 확인한다.
+- 현재 `apps/web/app/mobile-pwa-config.ts` 에는 일반 사용자용/관리자용 manifest, nav, install steps, offline guidance 골격이 이미 있다.
+- 일반 사용자용 실제 `/manifest.webmanifest` 응답 구현은 `apps/web/app/manifest.ts` 이고, 관리자용 실제 `/admin/manifest.webmanifest` 응답 구현은 `apps/web/app/admin/manifest.webmanifest/route.ts` 이다.
+- 현재 `apps/web/app/layout.tsx` 는 host 에 따라 metadata, viewport, manifest href, shell config 를 분기할 수 있다.
+- 현재 `apps/web/app/admin/layout.tsx` 는 관리자용 metadata/manifest identity 를 별도로 가진다.
+- 현재 `apps/web/app/_components/mobile-app-shell.tsx` 는 온라인 status banner 에 설치 안내 첫 2단계를, 오프라인 전환 시 warning banner 와 `/offline` 링크를 보여 준다.
+- 현재 `apps/web/app/offline/page.tsx` 는 host 기준으로 일반/관리자 오프라인 안내를 나누고, 관리자 host 에서는 가능한 일/막히는 일/재시도 절차와 함께 설치 후 우선 확인할 관리자 화면(nav items)도 노출한다.
+- 현재 `apps/web/mobile-pwa.test.ts` 는 일반/관리자 manifest identity 분리, `id`/`display_override`/`shortcuts`, 아이콘 경로, host 별 shell/nav/install step, admin offline guide, `touchTargetStyle`(48px/18px)까지 회귀 보호한다. 특히 일반 manifest 는 `app/manifest.ts` 를 기준으로 확인해야 하며, 별도 route `GET()` import 비교만으로 실제 서빙 경로를 대신하면 안 된다.
+- 현재 구현 기준으로 관리자 설치 copy 와 오프라인 안내의 운영 맥락/상태 변경 제약은 이미 config 와 오프라인 페이지에 반영돼 있다. 후속은 이를 깨지 않게 preview/manual/Lighthouse 근거를 계속 남기는 쪽에 집중하면 된다.
+- placeholder SVG 아이콘은 이미 분리돼 있지만, 최종 브랜드 자산 완성을 의미하지는 않는다. 이번 체인에서는 파일 분리, any/maskable, 회귀 보호를 먼저 고정한다.
+- 다음 구현자는 `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/_components/mobile-app-shell.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/mobile-pwa.test.ts` 를 우선 확인하면 된다.
+- 검증 기준은 `pnpm --filter @gw/web test -- admin-host admin-preview-guard mobile-pwa`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, `pnpm check` 가 최소고, 가능하면 local `preview:cf` + `bash scripts/gw-admin-host-preview-smoke.sh` 와 브라우저 수동 설치/Lighthouse 확인 메모까지 남긴다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

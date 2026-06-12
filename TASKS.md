@@ -6,35 +6,36 @@
 
 ## 현재 활성 작업
 
-작업명: 관리자 권한/역할 데이터 모델 1차
+작업명: 관리자 PWA 설치 UX / 오프라인 / manifest 품질 개선
 
 현재 체인:
 
-1. 기획: `t_df0b3063` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_6095ba1f` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_7c421689` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: 후속 parent gate 기준 진행
+1. 기획: `t_2597f1b6` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_64745472` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_089618bb` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: `t_f809ac5a` — 해봄(`gwtester`) — parent gate 대기
 5. 문서화: 후속 parent gate 기준 진행
 6. GitHub/배포 확인/최종 통합 보고: 후속 parent gate 기준 진행
 
 현재 문서 기준 핵심 범위:
 
-- 관리자 접근 기준은 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 기준으로 정리한다.
-- `/admin`, `/admin/users`, `/admin/policies` 와 `/admin/audit-logs` 는 같은 관리자 영역처럼 보여도 접근 기준을 분리해 본다.
-- 1차 접근 행렬은 `SUPER_ADMIN`/`COMPANY_ADMIN` 전부 허용, `HR_ADMIN` 은 감사 로그 제외, `AUDITOR` 는 감사 로그만 허용, `MANAGER`/`EMPLOYEE` 는 차단으로 맞춘다.
-- Web route guard, dashboard/admin navigation 노출, API guard, 테스트 기대값이 같은 행렬을 따라야 한다.
-- 감사 로그 접근은 role 이름보다 `audit.read` capability 를 실제 기준으로 본다.
-- 일반 사용자 host 에서 `/admin*` 가 그대로 렌더링되면 안 되며, 일반 사용자와 관리자 흐름은 계속 분리한다.
-- 실제 운영 사용자 권한 저장, production DB migration/real data, secret/DNS/유료 리소스, 외부 IAM/SSO/감사 시스템 연동은 이번 범위에 넣지 않는다.
+- 관리자 PWA는 일반 사용자 앱과 다른 설치 정체성을 유지한다.
+- 관리자 manifest 기준은 `/admin/manifest.webmanifest`, `start_url: /admin`, `scope: /admin`, `name: GW Admin` 계열을 유지한다.
+- 설치 안내는 관리자 host 에서 `/admin` 시작점과 운영용 앱 맥락을 먼저 설명해야 한다.
+- 오프라인 안내는 관리자 상태 변경이 성공처럼 보이지 않도록, 가능한 일/막히는 일/재시도 절차를 분리해 설명한다.
+- 아이콘 기준은 일반/관리자 파일 분리, 192/512, any/maskable purpose, 테스트 회귀 보호까지를 최소 필수로 본다.
+- placeholder SVG 자산 상태를 숨기지 않으며, 최종 브랜딩/앱스토어 자산은 별도 범위로 남긴다.
+- local preview/manual smoke/Lighthouse 점검 기준을 문서와 handoff 에 같이 남긴다.
+- 앱스토어/Expo/native 전환, push/background sync, production DB/secret/DNS/유료 리소스 작업은 이번 범위에 넣지 않는다.
 
 우선 참고 문서:
 
-- `docs/architecture/admin-role-permission-model-pass-1-scope.md`
-- `docs/guides/admin-role-permission-model-pass-1-handoff.md`
-- `docs/architecture/phase-13-admin-console-pass-1-scope.md`
-- `docs/guides/phase-13-admin-console-pass-1-handoff.md`
+- `docs/architecture/admin-pwa-install-offline-quality-scope.md`
+- `docs/guides/admin-pwa-install-offline-quality-handoff.md`
 - `docs/architecture/admin-host-preview-verification-extension-scope.md`
 - `docs/guides/admin-host-preview-verification-extension-handoff.md`
+- `docs/architecture/admin-host-pwa-pass-1-scope.md`
+- `docs/guides/admin-host-pwa-pass-1-handoff.md`
 
 ## 작업 카드 생성 기준
 

@@ -43,6 +43,13 @@
 - [ ] 관리자 host 에서는 `/admin` 중심 landing 과 관리자 전용 manifest(`start_url: /admin`, `scope: /admin`)가 일관되게 맞고, 페이지가 `/admin/manifest.webmanifest` 를 광고한다.
 - [ ] 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 쓰는 현재 구현 방식을 문서가 숨기지 않는다.
 - [ ] 관리자 host 에서 `/manifest.webmanifest` 를 직접 열면 일반 manifest 가 유지되고, 실제 설치 기준은 `/admin/manifest.webmanifest` 라는 점을 검증/기록했다.
+- [ ] 관리자 install 안내 copy 가 `/admin` 시작점, 운영용 앱 맥락, same-origin 유지, native/push/background sync 미포함 상태를 숨기지 않는다.
+- [ ] 관리자 offline 안내가 사용자/권한 변경, 정책 적용, 감사 로그 최신성 제약을 성공처럼 보이게 포장하지 않는다.
+- [ ] 관리자 manifest 의 필수값(`name`, `short_name`, `description`, `id`, `start_url`, `scope`, `display`, `display_override`, `orientation`, `theme/background color`, `lang`, `categories`, `shortcuts`, `icons(any/maskable)`)이 문서/코드/테스트에서 같은 뜻이다.
+- [ ] 관리자 아이콘은 일반 사용자용과 파일명으로 분리돼 있고, 현재 placeholder 자산 상태를 문서나 UI 문구가 과장하지 않는다.
+- [ ] 온라인 status banner 와 오프라인 warning banner 가 같은 install/offline 원칙을 공유하고, 관리자 host 에서는 오프라인 시 `/offline` 안내로 자연스럽게 이어진다.
+- [ ] 관리자 offline 페이지가 가능한 일/막히는 일/재시도 절차뿐 아니라 설치 후 우선 확인할 관리자 화면(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)도 현재 nav 기준과 같이 보여 준다.
+- [ ] 모바일/관리자 CTA 최소 48px 높이와 18px 가로 패딩 기준이 문서, config, 테스트에서 서로 다르게 풀리지 않는다.
 - [ ] live fetch 가 막히더라도 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 중 무엇을 대체 근거로 썼는지 남겼다.
 - [ ] 관리자 host 에서 허용 route(`/admin*`, `/login`, `/forbidden`, `/manifest.webmanifest`, `/offline`) 밖의 일반 업무 route 가 `/admin` 으로 되돌아간다는 점을 빠뜨리지 않았다.
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.

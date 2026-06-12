@@ -234,6 +234,12 @@
 - 관리자 host 에서는 `/` 를 `/admin` 으로 보내고, 일반 업무 route 는 그대로 렌더링하지 않고 `/admin` 으로 되돌리는 경계를 유지하기
 - 관리자용 PWA manifest/start_url/scope 는 일반 사용자 앱과 정체성이 분리돼야 함
 - 일반 사용자 host 는 `/manifest.webmanifest`, 관리자 host 는 `/admin/manifest.webmanifest` 를 same-origin 상대 경로 manifest 로 광고해야 하며 관리자 route 는 `name: GW Admin`, `start_url: /admin`, `scope: /admin` 을 유지해야 함
+- 관리자 manifest 최소 필수값은 `name`, `short_name`, `description`, `id`, `start_url`, `scope`, `display`, `display_override`, `orientation`, `background_color`, `theme_color`, `lang`, `categories`, `shortcuts`, `icons(any/maskable)` 로 본다.
+- 관리자 host 설치 안내는 `/admin` 시작점과 운영용 앱 맥락을 먼저 설명해야 하며, 일반 사용자용 근태/휴가 앱과 다른 앱이라는 점을 숨기지 않는다.
+- 오프라인 안내는 관리자 상태 변경이 성공처럼 보이지 않게 하고, 가능한 일/막히는 일/재시도 절차를 분리해 설명해야 한다.
+- 관리자 아이콘은 일반 사용자용과 파일명이 분리돼야 하며, 현재 placeholder 자산 상태를 문서와 UI 문구가 과장하지 않아야 한다.
+- 관리자 install/status banner 는 설치 가능 여부를 과장하지 말고, 온라인일 때는 `/admin` 시작점과 same-origin 유지 원칙을 먼저 보여 주며 오프라인일 때는 `/offline` 안내로 바로 이어져야 한다.
+- 모바일/관리자 PWA CTA 는 최소 48px 터치 높이 기준을 유지하고, 좁은 화면에서도 하단 탐색과 설치/오프라인 안내가 서로 의미를 흐리지 않게 둔다.
 - 관리자 host 에서는 `/manifest.webmanifest`, `/offline`, `/login`, `/forbidden`, `/admin*` 만 우선 허용하고 그 밖의 일반 업무 route 는 관리자 앱 범위 밖으로 돌려보내기
 - dashboard shortcut, admin hub 카드 노출, 직접 route 접근, API guard 가 서로 다른 접근 행렬을 갖지 않게 맞추기
 - 접근 행렬의 단일 기준은 `packages/shared/src/admin-access.ts` shared helper 로 두고, Web/API/dashboard/admin hub 가 이 기준을 재사용하기

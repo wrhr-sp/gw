@@ -1,17 +1,37 @@
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { installGuideSteps, offlineGuidance } from "../mobile-pwa-config";
+import { headers } from "next/headers";
 
-export default function OfflinePage() {
+import { getTrustedHostFromHeaders } from "../../admin-host";
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { getAppShellConfigForHost, getOfflineGuidanceForHost } from "../mobile-pwa-config";
+
+async function getRequestHost() {
+  const requestHeaders = await headers();
+  return getTrustedHostFromHeaders(requestHeaders);
+}
+
+export default async function OfflinePage() {
+  const host = await getRequestHost();
+  const shellConfig = getAppShellConfigForHost(host);
+  const offlineGuidance = getOfflineGuidanceForHost(host);
+  const isAdminContext = shellConfig.homeHref === "/admin";
+
   return (
     <PageShell
-      backHref="/"
-      backLabel="홈으로"
-      eyebrow="offline 안내 skeleton"
-      title="오프라인 / 네트워크 불안정 안내"
-      description="완전한 offline sync 대신, 지금 가능한 일과 불가능한 일을 명확히 설명하는 PWA skeleton 안내입니다."
-      actions={<Pill tone="warning">no fake success UX</Pill>}
+      backHref={shellConfig.homeHref}
+      backLabel={isAdminContext ? "관리자 홈으로" : "홈으로"}
+      eyebrow={isAdminContext ? "admin offline 안내" : "offline 안내 skeleton"}
+      title={isAdminContext ? "관리자 오프라인 / 네트워크 불안정 안내" : "오프라인 / 네트워크 불안정 안내"}
+      description={
+        isAdminContext
+          ? "관리자 PWA 는 설치 가능하더라도 사용자/권한/정책/감사 로그 변경을 오프라인 성공처럼 포장하지 않습니다."
+          : "완전한 offline sync 대신, 지금 가능한 일과 불가능한 일을 명확히 설명하는 PWA skeleton 안내입니다."
+      }
+      actions={<Pill tone="warning">{isAdminContext ? "admin changes stay online-only" : "no fake success UX"}</Pill>}
     >
-      <SurfaceSection title="지금 가능한 기능" description="읽기 중심 흐름만 제한적으로 안내합니다.">
+      <SurfaceSection
+        title="지금 가능한 기능"
+        description={isAdminContext ? "관리자 host 에서는 읽기 중심 확인과 제약 안내만 남깁니다." : "읽기 중심 흐름만 제한적으로 안내합니다."}
+      >
         <ul className="summary-list">
           {offlineGuidance.availableNow.map((item) => (
             <li key={item}>{item}</li>
@@ -19,7 +39,15 @@ export default function OfflinePage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="지금 막아야 하는 기능" description="상태 변경이 필요한 작업은 offline 에서 성공처럼 보이게 만들지 않습니다." muted>
+      <SurfaceSection
+        title="지금 막아야 하는 기능"
+        description={
+          isAdminContext
+            ? "관리자 상태 변경은 오프라인에서 성공처럼 보이게 만들지 않고, 최신성 검증이 필요한 판단도 막습니다."
+            : "상태 변경이 필요한 작업은 offline 에서 성공처럼 보이게 만들지 않습니다."
+        }
+        muted
+      >
         <ul className="summary-list">
           {offlineGuidance.blockedNow.map((item) => (
             <li key={item}>{item}</li>
@@ -35,9 +63,26 @@ export default function OfflinePage() {
         </ol>
       </SurfaceSection>
 
+      {isAdminContext ? (
+        <SurfaceSection
+          title="설치 후 바로 확인할 관리자 화면"
+          description="관리자 설치는 일반 사용자 앱 대체가 아니라 운영 허브 접근성을 높이기 위한 것입니다."
+        >
+          <ul className="summary-list">
+            {shellConfig.navItems.map((item) => (
+              <li key={item.href}>
+                <strong>{item.label}</strong>
+                <div>{item.href}</div>
+                <div>{item.summary}</div>
+              </li>
+            ))}
+          </ul>
+        </SurfaceSection>
+      ) : null}
+
       <SurfaceSection title="설치 안내와 연결되는 원칙" description="설치가 가능하더라도 같은 origin 과 현재 제약을 그대로 유지합니다.">
         <ul className="summary-list">
-          {installGuideSteps.map((step) => (
+          {shellConfig.installGuideSteps.map((step) => (
             <li key={step}>{step}</li>
           ))}
         </ul>
