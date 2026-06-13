@@ -263,7 +263,9 @@
 - `/documents` 와 첨부 metadata 는 실제 운영 업로드/다운로드 완료처럼 보이지 않게 placeholder/dev-safe 제한을 분명히 남기기
 - R2 연계는 private-by-default, D1 metadata 우선, binding-aware skeleton 기준까지만 다루고 raw `storageKey`, bucket 이름, public URL 을 응답/문서/UI 기본값으로 노출하지 않기
 - `/documents` 는 전사 문서함과 인사 전용 문서함의 권한 차이를 먼저 보여 주고, fileName/contentType/fileSize/versionLabel 같은 metadata 설명이 raw storage 내부정보 노출 없이 이어지게 유지하기
+- Phase 16 파일럿 확인 예시는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents` 처럼 현재 저장소에 있는 대표 placeholder 경로 기준으로 적고, 없는 게시판/게시글이 실제 운영 생성된 것처럼 설명하지 않기
 - live URL 파일럿 검토 기준에서는 협업 route 를 핵심 업무 흐름과 자연스럽게 이어 보이게 하되, production data/secret/DNS/유료 리소스/외부 연동이 아직 별도 승인 범위라는 점을 숨기지 않기
+- live `.workers.dev` 직접 fetch 가 막히면 이를 확인 완료처럼 쓰지 말고, `pnpm check`, `pnpm --filter @gw/web build:cf`, targeted API/web test, local preview smoke 를 대체 근거로 분리해 적기
 
 관련 문서:
 - `docs/architecture/phase-5-boards-documents-scope.md`
@@ -344,8 +346,8 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 관리자 기능은 모바일 하단 탭 기본 메뉴에 섞지 않는다.
-- Phase 19 내부 시범 운영 초안에서도 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선하고, 설치 안내와 session clear 확인을 추가 검증 관점으로 본다.
-- 내부 시범 운영 readiness 설명은 "설치 후보를 안내할 수 있는가 / 로그인과 session clear 경계를 설명할 수 있는가 / 7개 핵심 화면 smoke 순서를 따라갈 수 있는가 / App Store·Play Console·TestFlight·EAS·push·실기기 권한이 아직 승인 게이트라고 바로 말할 수 있는가" 4가지 질문으로 먼저 정리한다.
+- Phase 20 운영 전 정리 1차에서도 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면과 관련 Web/API 흐름을 우선하되, 각 항목이 지금 확인 가능한 것인지 아직 skeleton 인 것인지 별도 승인 필요한 것인지 같이 적는다.
+- 운영 전 readiness 설명은 "지금 저장소에서 바로 확인 가능한 핵심 흐름은 무엇인가 / 아직 skeleton·preview 라서 운영 완료처럼 보면 안 되는 것은 무엇인가 / 별도 승인·계정·비용·권한이 필요한 것은 무엇인가 / live·PWA·API·mobile 확인 포인트가 같은 결론을 가리키는가 / 관리자와 일반 사용자 경계가 같은 뜻인가" 5가지 질문으로 먼저 정리한다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -366,7 +368,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `TEST_PLAN.md`
 - `QA_CHECKLIST.md`
 - 관련 `docs/architecture/phase-*.md`
-- Phase 19 문서라면 `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md` 와 `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md` 의 설치→로그인→핵심 업무→세션 정리 흐름, 상태 분류 4축, Android/iOS 준비 checklist, base URL resolver, secure storage bridge, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 20 문서라면 `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md` 와 `docs/guides/phase-20-pre-operations-alignment-pass-1-handoff.md` 의 되는 것/아직 skeleton/승인 필요 3분류, live·PWA·API·mobile 결론 정렬, 관리자/일반 사용자 경계, mobile guardrail, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -382,6 +384,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 아직 없는 endpoint 를 확정 문장으로 쓰기
 - 운영 미연결 기능을 production-ready 처럼 쓰기
 - 실제 개인정보 처리/외부 연동을 이미 된 것처럼 쓰기
+
+### 6-4. Phase 20 문구는 "확인 가능 / 아직 skeleton / 승인 필요" 셋 중 하나로 읽혀야 한다.
+
+특히 운영 전 정리 문서에서는 아래를 함께 맞춘다.
+- `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 는 지금 저장소에서 무엇을 바로 확인할 수 있는지 먼저 적는다.
+- 실제 저장 완료, 승인 완료, 외부 배포, 실데이터 반영처럼 아직 안 된 일은 "아직 skeleton/preview" 로 분리한다.
+- production DB, secret, DNS/custom domain, 유료 리소스, 외부 초대/실연동, App Store/Play Console/TestFlight/EAS, push, 실기기 권한은 기능 TODO 가 아니라 "승인 필요" 목록으로 따로 남긴다.
+- `/admin/*` 운영 화면은 일반 사용자 핵심 업무 흐름 설명 안에 섞지 않고, 관리자 확인 포인트로 따로 적는다.
+- live/PWA/API/mobile 확인 포인트를 따로 설명하더라도 최종 결론은 같은 readiness 언어로 모은다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Phase 19 native mobile internal pilot draft skeleton",
+  "description": "Phase 20 pre-operations mobile readiness skeleton",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

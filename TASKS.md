@@ -6,31 +6,34 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 19 네이티브 모바일앱 내부 시범 운영 초안
+작업명: Phase 20 운영 전 정리 1차
 
 현재 체인:
 
-1. 기획: `t_79dceb4d` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_8a867fdc` — 이룸(`gwbuilder`) — parent gate 대기
-3. 후속 리뷰/테스트/문서화/운영 카드는 구현 handoff 확정 뒤 같은 기준으로 이어간다.
+1. 기획: `t_21c0a0ef` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_e974df14` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_08b80078` — 바름(`gwreviewer`) — builder 완료 대기
+4. 후속 테스트/문서화/운영 카드는 review handoff 확정 뒤 같은 기준으로 이어간다.
 
 현재 문서 기준 핵심 범위:
 
-- Phase 17~18에서 정리한 `apps/mobile` skeleton과 `packages/shared/src/mobile-contracts.ts` 계약을 바탕으로 내부 시범 운영 준비 기준을 정리한다.
-- live/PWA/API 선행 검증 기준과 mobile 전용 설치·로그인·핵심 업무 smoke 기준을 분리해 본다.
-- Android internal test 또는 Expo preview/dev build 후보 절차, iOS TestFlight/Apple Developer 준비물, 비용/계정/권한 승인 checklist를 문서화한다.
-- 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지·문서 → 내 정보 7개 핵심 화면 흐름은 유지하되, 설치/세션 정리/내부 배포 준비 관점을 추가한다.
-- `/admin/*` 운영 화면, App Store/Play Console/TestFlight/EAS 실제 사용, push, 실기기 권한, secret, custom domain, production data 는 계속 별도 승인 게이트로 분리한다.
-- 성공 기준은 실제 배포가 아니라 대장이 내부 시범 운영 전에 필요한 승인/비용/준비물과 dev-safe 검증 가능 범위를 한눈에 볼 수 있게 만드는 것이다.
+- 지금까지 쌓인 preview/skeleton 결과물을 실제 운영 전 점검표 관점으로 다시 정리한다.
+- 되는 것 / 아직 skeleton 인 것 / 별도 승인 필요 항목을 문서·화면·검증 기준에서 같은 언어로 맞춘다.
+- live/PWA/API/mobile 확인 포인트를 각 축으로 보되 최종 결론은 하나의 readiness 표처럼 읽히게 만든다.
+- 로그인 이후 핵심 업무 흐름과 `/admin/*` 운영 경계는 유지하되, 운영 완료처럼 읽히는 표현을 줄인다.
+- App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production data, 외부 초대/실연동은 계속 별도 승인 게이트로 분리한다.
+- 성공 기준은 실제 운영 개시가 아니라 대장이 현재 저장소 기준의 운영 준비 상태를 오해 없이 판정할 수 있게 만드는 것이다.
 
 현재 구현/기획 메모:
 
-- `apps/mobile/src/screens.ts`, `src/shell.ts`, `src/session-bridge.ts`, `src/base-url.ts`, `src/workflow.ts` 와 `packages/shared/src/mobile-contracts.ts` 가 이미 7개 핵심 화면, session guardrail, base URL policy, 상태 분류, route mapping 기준을 담고 있다.
-- 이번 Phase 19에서는 여기에 내부 시범 운영 checklist, Android/iOS 준비물 차이, 설치/로그인/핵심 업무 smoke 순서, 비용/계정/권한 승인 게이트를 더 분명히 맞춘다.
-- 리뷰/테스트/문서화는 `pnpm --filter @gw/mobile typecheck`, `pnpm check`, 필요 시 `pnpm --filter @gw/web build:cf` 근거와 함께 mobile 전용 기준과 live/PWA/API 선행 기준을 분리해 기록하는 방향으로 이어간다.
+- `apps/mobile/src/workflow.ts`, `src/session-bridge.ts`, `src/base-url.ts`, `packages/shared/src/mobile-contracts.ts` 는 여전히 mobile guardrail 의 핵심 근거다.
+- 이번 Phase 20에서는 mobile readiness 설명을 유지하되, 전체 서비스 운영 전 정리(Web/PWA/API/admin 포함) 안에 다시 배치한다.
+- 리뷰/테스트/문서화는 `pnpm check`, `pnpm --filter @gw/mobile typecheck`, 필요 시 `pnpm --filter @gw/web build:cf` 근거와 함께 "되는 것 / 아직 안 되는 것 / 승인 필요" 분류가 문서마다 같은지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md`
+- `docs/guides/phase-20-pre-operations-alignment-pass-1-handoff.md`
 - `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md`
 - `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md`
 - `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md`
