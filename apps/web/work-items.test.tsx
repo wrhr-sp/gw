@@ -22,14 +22,15 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain('href="/work-items/branch"');
   });
 
-  it("renders the HR module page with sensitive-document guardrails and linked API routes", () => {
+  it("renders the HR module page with meeting/lifecycle guardrails and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsHrPage />);
 
     expect(html).toContain("Phase 25 모듈별 공통 업무 자리");
     expect(html).toContain("인사 업무");
-    expect(html).toContain("민감 원문 첨부는 숨기고 제목·상태·검토 메모만 먼저 노출합니다.");
-    expect(html).toContain("온보딩 서류 회수");
-    expect(html).toContain("민감 첨부 읽기 제한");
+    expect(html).toContain("실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 metadata 만 먼저 노출합니다.");
+    expect(html).toContain("직원 lifecycle 단계");
+    expect(html).toContain("본사 HR / 지점 관리자 / 일반 직원 visibility 분리");
+    expect(html).toContain("이번 단계 meeting 유형");
     expect(html).toContain('href="/api/work-items?module=hr"');
     expect(html).toContain('href="/api/work-items/:id/attachments"');
     expect(html).toContain('href="/work-items"');

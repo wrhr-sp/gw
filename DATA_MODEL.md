@@ -208,6 +208,40 @@
 - `apps/web/work-items.test.tsx`
 - `apps/web/work-items-boundary.test.tsx`
 
+### 1-3-d. Phase 26 HR·미팅 관리: 직원 lifecycle + meeting metadata 확장
+
+무엇을 나타내나:
+- Phase 25 공통 `work item` 엔진 위에 직원 lifecycle 과 HR meeting/면담/교육/온보딩 흐름을 얹는 1차 확장 모델이다.
+- 별도 회의 솔루션이 아니라, `hr` 모듈 안에서 category/visibility/metadata 를 늘리는 방향을 먼저 잡는다.
+
+초안 필드:
+- HR work item 확장: `employee_id?`, `category(onboarding/one_on_one/hr_interview/performance_review/grievance/training_coaching/branch_ops_meeting/offboarding)`, `schedule_status?`, `scheduled_at?`, `meeting_mode?`, `confidentiality_level?`, `follow_up_required`, `private_note_exists`
+- 참석자: `work_item_id`, `participant_type`, `employee_id?`, `role_code?`, `attendance_status`
+- 안건: `work_item_id`, `agenda_type`, `summary`, `requires_follow_up`
+- 후속조치: `work_item_id`, `linked_follow_up_work_item_id?`, `owner_scope`, `due_at?`, `status`
+
+관계:
+- `employees`/`users` 는 meeting 대상자, 참석자, 후속조치 owner 로 다시 연결된다.
+- HR meeting follow-up 은 다시 기존 `work_items` 로 이어질 수 있다.
+- 민감 메모 원문은 별도 저장 구조를 확정하지 않고, metadata(`private_note_exists`, `confidentiality_level`)만 먼저 둔다.
+
+민감도/주의:
+- 실제 평가 원문, 고충/징계/건강정보 같은 민감 기록 저장 구조 확정이 아니다.
+- 지점 관리자 visibility 와 본사 HR visibility 를 같은 수준으로 설명하면 안 된다.
+- 외부 캘린더/메일/메신저 연동과 production data 입력은 이번 모델에 포함하지 않는다.
+
+현재 상태:
+- `packages/shared/src/contracts.ts` 에 lifecycle stage, `scheduleStatus`, `meetingMode`, `confidentialityLevel`, `participants`, `agendaItems`, `followUp`, `visibility` 를 담는 `workItemHrContextSchema` 가 이미 있다.
+- `apps/api/src/app.ts` 에 `module=hr` placeholder item 4종(온보딩, 1:1, 교육/코칭, grievance restricted)과 역할/지점/민감도 설명이 실제 응답으로 연결돼 있다.
+- `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 가 visibility, restricted 경계, 허브/HR route copy 를 회귀 테스트로 붙들고 있다.
+
+근거:
+- `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`
+- `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`
+- `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+
 ### 1-4. 부서/역할/권한 `departments`, `roles`, `user_roles`, permission catalog
 
 무엇을 나타내나:

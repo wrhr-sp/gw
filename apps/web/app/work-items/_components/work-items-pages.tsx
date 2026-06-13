@@ -119,6 +119,16 @@ export function WorkItemModulePage({ module }: { module: Exclude<WorkItemModuleK
         </ul>
       </SurfaceSection>
 
+      {card.detailSections?.map((section) => (
+        <SurfaceSection key={section.title} title={section.title} description="Phase 26 skeleton 설명을 같은 화면 언어로 고정합니다.">
+          <ul className="summary-list">
+            {section.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </SurfaceSection>
+      ))}
+
       <SurfaceSection title="같이 보는 다른 모듈" description="하단 탭을 늘리지 않고 허브 안에서 이동합니다." muted>
         <div className="grid-auto-compact">
           {workItemModuleCards

@@ -220,6 +220,25 @@ pnpm --filter @gw/mobile typecheck
 - 위 테스트가 지키는 경계와 문서 문장이 다르면 문서를 고친다.
 - 반대로 문서가 더 넓게 약속하면 구현 완료처럼 쓰지 말고 skeleton/placeholder 로 낮춰 적는다.
 
+### 1-10-b. Phase 26 쉬운 HR·미팅 관리 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. HR 미팅/면담/교육/온보딩이 기존 공통 `work item` 엔진 위에서 어떻게 읽히는지 바로 설명할 수 있는가
+2. 공통 상태와 meeting 보조 상태(`schedule_status`)가 섞이지 않고 정리돼 있는가
+3. 본사 HR / 지점 관리자 / 일반 직원 visibility 차이가 같은 권한 언어로 정리돼 있는가
+4. 참석자/안건/메모/후속조치 구조가 metadata 중심으로 먼저 정리돼 있는가
+5. 외부 캘린더/메일/메신저 연동과 실민감 원문 저장이 여전히 승인 게이트로 남아 있는가
+
+이 5개 질문 중 하나라도 흐리면 Phase 26 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+1. `/work-items` 에서 공통 업무 허브와 API 골격(`/api/work-items`, `/api/work-item-deadlines`)이 같은 말로 적혀 있는지 본다.
+2. `/work-items/hr` 에서 직원 lifecycle, meeting 유형, visibility 분리, 승인 게이트 문구가 바로 보이는지 본다.
+3. `GET /api/work-items?module=hr` placeholder 응답에서 `category`, `scheduleStatus`, `confidentialityLevel`, `viewerScope` 설명이 읽히는지 본다.
+4. `apps/api/test/work-items.spec.ts` 에서 grievance restricted 상세가 MANAGER 403 / HR_ADMIN 200 경계로 붙들려 있는지 본다.
+5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 허브/HR route copy 가 회귀 테스트로 고정돼 있는지 본다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -377,6 +396,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - Phase 23 문서라면 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서, 일반 조회 대 운영 검토 경계, high-risk permission(`invite.manage`, `audit.read`, `board.manage`, `document.space.manage`), 파일/문서 권한 비노출 원칙, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 24 문서라면 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/API/PWA/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 25 문서라면 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 26 문서라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 

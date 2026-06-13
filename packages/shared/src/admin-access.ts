@@ -47,6 +47,7 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "work_item.review",
     "work_item.deadline.read",
     "work_item.audit.read",
+    "work_item.grievance.read_restricted",
   ],
   COMPANY_ADMIN: [
     "company.read",
@@ -108,6 +109,7 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "work_item.manage",
     "work_item.review",
     "work_item.deadline.read",
+    "work_item.grievance.read_restricted",
   ],
   MANAGER: [
     "company.read",
@@ -159,6 +161,7 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "work_item.read",
     "work_item.deadline.read",
     "work_item.audit.read",
+    "work_item.grievance.read_restricted",
   ],
 };
 

@@ -18,18 +18,36 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 25 공통 업무·문서·마감·권한 엔진 1차다. Phase 24에서 정리한 파일럿 준비 흐름 위에, HR·세무·노무·법무·지점 운영 업무가 함께 올라갈 공통 work item, 문서/첨부, 검토, 마감, 권한, 감사 로그 뼈대를 먼저 고정하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 26 HR·미팅 관리 1차다. Phase 25에서 정리한 공통 work item 엔진 위에, 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 skeleton을 호텔 지점 권한 기준으로 얹는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 HR·세무·노무·법무·지점 운영 업무를 각각 따로 붙이기 전에 공통 업무 엔진을 먼저 정리하는 것이다.
-- 기준 엔티티는 개별 모듈 화면보다 `공통 work item` 이며, `module(hr/tax/labor/legal/branch)` + `status` + `assignee` + `due_at` + `company/branch scope` 를 기본 골격으로 본다.
-- 공통 문서/첨부/검토/마감/감사 로그를 work item 에 붙는 skeleton 으로 먼저 정리한다.
-- 회사 + 지점/호텔 + 역할 + capability 접근 기준을 새 업무 엔진에도 같은 언어로 적용한다.
-- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, 새 업무 모듈 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
-- 민감 문서/세무자료/노무자료/법무자료는 metadata 단계와 원문 단계의 경계를 분명히 두고, 실제 원문 저장/실처리/외부 연동은 승인 게이트로 남긴다.
+- 이번 Phase의 목적은 Phase 25 공통 업무 엔진 위에 직원 lifecycle 과 HR meeting skeleton 을 올리는 것이다.
+- 기준 엔티티는 여전히 `공통 work item` 이며, `module = hr` 를 유지한 채 `category`, `schedule_status`, `confidentiality_level`, `follow_up_required` 같은 보조 metadata 로 meeting 차이를 푼다.
+- 참석자/안건/메모/후속조치 구조를 metadata 중심 skeleton 으로 먼저 정리한다.
+- 본사 HR / 지점 관리자 / 일반 직원 visibility 와 비공개 범위를 회사 + 지점/호텔 + 역할 + capability 언어로 같이 맞춘다.
+- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, HR 진입 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
+- 실제 민감 인사기록 원문, 외부 캘린더/메일/메신저 연동, production data 는 계속 승인 게이트로 남긴다.
 - production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`, `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`.
+- 우선 참고 문서: `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`, `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`, `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`, `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`.
+
+2026-06-13 Phase 26 기획 메모:
+
+- 이번 단계는 별도 회의 솔루션을 만드는 것이 아니라, 기존 공통 `work item` 엔진 위에 직원 lifecycle 과 HR meeting 구조를 올리는 문서 단계다.
+- meeting 종류는 `onboarding`, `one_on_one`, `hr_interview`, `performance_review`, `grievance`, `training_coaching`, `branch_ops_meeting`, `offboarding` 같은 category 확장으로 먼저 본다.
+- 주 상태는 계속 공통 상태(`draft` → `todo` → `in_progress` → `waiting_review` → `blocked` → `done` → `archived`)를 쓰고, meeting 일정 의미는 `schedule_status` 같은 보조 필드로 푼다.
+- 본사 HR 은 여러 지점 HR meeting/lifecycle 을 더 넓게 보고, 지점 관리자는 자기 지점 직원 관련 일정/후속조치 요약만 보며, 일반 직원은 자기 일정과 자기 follow-up 만 본다.
+- 메모와 회의록은 1차에서 원문 저장이 아니라 metadata 중심(`notes_preview`, `private_note_exists`, `confidentiality_level`)으로 시작한다.
+- 외부 캘린더/메일/메신저 연동, 실제 민감 인사기록 원문 저장, production DB 실데이터 입력은 이번 단계에서도 승인 게이트다.
+
+2026-06-13 Phase 26 빠른 확인 순서:
+
+- `/work-items` — 공통 업무 허브에서 공통 work item/API 골격, 모바일/PC 진입 구조를 먼저 본다.
+- `/work-items/hr` — 직원 lifecycle, meeting 유형, 본사 HR/지점 관리자/일반 직원 visibility 문구를 본다.
+- `/api/work-items?module=hr` — onboarding / one_on_one / training_coaching / grievance placeholder 와 `viewerScope`, `confidentialityLevel` 설명을 본다.
+- `apps/api/test/work-items.spec.ts` — grievance restricted 상세가 MANAGER 403, HR_ADMIN 200 으로 붙들려 있는지 본다.
+- `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` — 허브/HR route copy 와 승인 게이트 문구가 회귀 테스트로 남아 있는지 본다.
+- 마지막으로 외부 캘린더/실민감 원문 저장/production data 가 여전히 승인 게이트로 남았는지 다시 본다.
 
 2026-06-13 Phase 25 기획 메모:
 

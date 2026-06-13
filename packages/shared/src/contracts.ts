@@ -153,6 +153,7 @@ export const permissionCodeSchema = z.enum([
   "work_item.review",
   "work_item.deadline.read",
   "work_item.audit.read",
+  "work_item.grievance.read_restricted",
 ]);
 
 export const workItemModuleSchema = z.enum(["hr", "tax", "labor", "legal", "branch"]);
@@ -166,7 +167,21 @@ export const workItemCapabilitySchema = z.enum([
   "work_item.deadline.read",
   "work_item.audit.read",
   "work_item.attachment.read_sensitive",
+  "work_item.grievance.read_restricted",
 ]);
+export const workItemHrLifecycleStageSchema = z.enum([
+  "preboarding",
+  "onboarding",
+  "probation",
+  "active_service",
+  "performance_feedback",
+  "capability_building",
+  "grievance_support",
+  "transition_offboarding",
+]);
+export const workItemScheduleStatusSchema = z.enum(["planned", "confirmed", "completed", "cancelled"]);
+export const workItemConfidentialityLevelSchema = z.enum(["standard", "hr_private", "grievance_restricted"]);
+export const workItemMeetingModeSchema = z.enum(["in_person", "remote", "hybrid", "tbd"]);
 
 export const workItemAssigneeSchema = z.object({
   userId: z.string().nullable(),
@@ -186,6 +201,43 @@ export const workItemAccessSchema = z.object({
   placeholder: z.literal(true),
 });
 
+export const workItemHrParticipantSchema = z.object({
+  employeeId: z.string().nullable(),
+  roleCode: roleCodeSchema.nullable(),
+  label: z.string(),
+  participationType: z.enum(["subject", "facilitator", "manager", "observer"]),
+  canReadPrivateNotes: z.boolean(),
+});
+
+export const workItemHrFollowUpSchema = z.object({
+  required: z.boolean(),
+  summary: z.string(),
+  ownerRoleCodes: z.array(roleCodeSchema),
+  nextActionPreview: z.string(),
+});
+
+export const workItemHrVisibilitySchema = z.object({
+  headquartersHr: z.string(),
+  branchManager: z.string(),
+  employeeSelf: z.string(),
+  participantAccessNote: z.string(),
+});
+
+export const workItemHrContextSchema = z.object({
+  lifecycleStage: workItemHrLifecycleStageSchema,
+  scheduleStatus: workItemScheduleStatusSchema,
+  meetingMode: workItemMeetingModeSchema,
+  confidentialityLevel: workItemConfidentialityLevelSchema,
+  notesPreview: z.string(),
+  privateNoteExists: z.boolean(),
+  externalSyncStatus: z.literal("approval_required"),
+  sensitiveRecordStatus: z.literal("metadata_only"),
+  participants: z.array(workItemHrParticipantSchema).min(1),
+  agendaItems: z.array(z.string()).min(1),
+  followUp: workItemHrFollowUpSchema,
+  visibility: workItemHrVisibilitySchema,
+});
+
 export const workItemSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -203,6 +255,7 @@ export const workItemSchema = z.object({
   reviewRequired: z.boolean(),
   containsSensitiveData: z.boolean(),
   access: workItemAccessSchema,
+  hrContext: workItemHrContextSchema.nullable(),
   tags: z.array(z.string()),
   auditSummary: z.string(),
   placeholder: z.literal(true),
@@ -210,7 +263,6 @@ export const workItemSchema = z.object({
   updatedAt: z.string().datetime(),
   closedAt: z.string().datetime().nullable(),
 });
-
 export const workItemDocumentSchema = z.object({
   id: z.string(),
   workItemId: z.string(),
