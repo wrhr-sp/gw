@@ -65,7 +65,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(adminRouteMetadata.applicationName).toBe(adminPwaManifest.short_name);
   });
 
-  it("exposes mobile-first navigation for the approved Phase 24 pilot routes", () => {
+  it("exposes mobile-first navigation for the approved Phase 25 pilot routes", () => {
     expect(mobilePrimaryNav.map((item) => item.href)).toEqual([
       "/dashboard",
       "/attendance",
@@ -73,6 +73,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "/approvals",
       "/boards",
       "/documents",
+      "/work-items",
       "/me",
       "/org",
       "/employees",
@@ -88,6 +89,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
 
     expect(mobileMenuSections.map((section) => section.title)).toEqual([
       "기본 업무",
+      "공통 업무 엔진",
       "내 정보 / 조회",
       "협업 placeholder",
     ]);

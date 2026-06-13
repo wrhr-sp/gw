@@ -35,6 +35,7 @@
 | 게시판/문서 | `notice_boards`, `board_posts`, `board_comments`, `document_spaces`, `document_files`, `read_receipts` | 중간~높음 | skeleton migration + shared contract + placeholder 응답 + private/public 경계 test | `db/migrations/0005_boards_documents_phase5.sql`, `packages/shared/src/contracts.ts`, `docs/architecture/phase-5-boards-documents-scope.md`, `docs/architecture/phase-8-r2-storage-scope.md` |
 | 플랫폼/공통 계약 | same-origin route, PWA/manifest, 문서 업로드 contract | 중간 | shared contract + web/api bridge + build/test 기준 있음 | `packages/shared/src/contracts.ts`, `docs/architecture/phase-6-mobile-pwa-scope.md`, `docs/architecture/phase-7-api-same-origin-scope.md` |
 | Phase 24 제안 모델 | 모바일 `홈` 커스터마이징, `지점/호텔 코드`, 직원-지점 배정, 지점 업무/보고 템플릿 | 중간~높음 | 문서 초안만 있음, migration/shared contract/API 미구현 | `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `SPEC.md` |
+| Phase 25 공통 업무 엔진 | 공통 `work_items`, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 기반 접근 제어 | 높음 | migration 없음, shared contract + placeholder API + 권한 경계 test 있음 | `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`, `packages/shared/src/contracts.ts`, `apps/api/src/app.ts`, `apps/api/test/work-items.spec.ts`, `API.md` |
 
 ## 1. 인증/조직 엔티티
 
@@ -161,6 +162,51 @@
 - `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`
 - `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`
 - `SPEC.md`
+
+### 1-3-c. Phase 25 공통 업무 엔진: `work item` + 문서/첨부/검토/마감
+
+무엇을 나타내나:
+- HR·세무·노무·법무·지점 운영 업무를 각각 따로 만들기 전에 공통으로 담을 업무 카드 엔진 1차 skeleton 이다.
+- 모듈이 달라도 상태, 담당자, 마감, 검토, 문서 연결 방식을 최대한 같은 구조로 맞추기 위한 현재 구현 기준 모델이다.
+
+초안 필드:
+- 공통 업무: `id`, `company_id`, `branch_id?`, `module`, `category`, `title`, `status`, `priority`, `assignee_user_id?`, `assignee_role_code?`, `requester_user_id?`, `due_at?`, `review_required`, `contains_sensitive_data`, `created_at`, `updated_at`, `closed_at?`
+- 공통 문서: `work_item_id`, `document_type`, `visibility_scope`, `retention_hint`, `contains_sensitive_data`
+- 공통 첨부: `document_id?`, `file_name`, `mime_type`, `size_bytes`, `classification`, `uploaded_by`
+- 공통 검토: `reviewer_user_id`, `decision`, `comment_preview`, `reviewed_at`
+- 공통 마감/정책: `deadline_type`, `default_due_offset`, `requires_manager_review`, `notes`
+
+관계:
+- `companies` 1:N `work_items`
+- `branches` 1:N `work_items` 가능성을 열어 둔다.
+- `employees`/`users` 는 requester, assignee, reviewer 로 연결된다.
+- `work_items` 1:N `work_item_documents`, `work_item_reviews`
+- `work_item_documents` 1:N `work_item_attachments`
+- 상태/담당자/마감 변경은 기존 `audit_logs` 와 같은 감사 흐름으로 이어질 수 있다.
+
+민감도/주의:
+- 실제 급여명세, 세무자료, 노무자료, 법무문서 원문 저장 구조 확정이 아니다.
+- raw storage key, signed/public URL 전문, 실제 민감 문서 원문 예시는 이 문단에 넣지 않는다.
+- 회사 + 지점/호텔 + 역할 + capability 4축 접근 제어를 함께 봐야 하며, UI 노출과 API 변경 권한을 같은 뜻으로 맞춰야 한다.
+
+현재 상태:
+- migration 없음
+- shared contract 있음 (`workItem*Schema`, `workItem*ResponseSchema`, `appRoutes.workItems`)
+- placeholder API 있음 (`/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines`)
+- placeholder Web entrypoint 있음 (`/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch`)
+- guardrail test 있음: 역할별 목록/상세/문서/첨부/감사 visibility 경계, deadline 가시 범위, HR 민감 첨부 제한
+
+근거:
+- `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`
+- `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`
+- `SPEC.md`
+- `API.md`
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+- `apps/web/work-items.test.tsx`
+- `apps/web/work-items-boundary.test.tsx`
 
 ### 1-4. 부서/역할/권한 `departments`, `roles`, `user_roles`, permission catalog
 

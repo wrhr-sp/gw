@@ -64,6 +64,7 @@
 | 전자결재 | `/api/approvals/*` | approval schema 들 | self-approval 금지, 같은 회사 후보만 허용 |
 | 게시판/문서 | `/api/notices`, `/api/boards/*`, `/api/documents/*`, `/api/read-receipts` | board/document schema 들 | notice-only 쓰기 차단, private 문서공간 차단, raw storage 정보 비노출 |
 | Phase 24 제안 | `/api/me/home-layout`, `/api/branches`, `/api/branch-assignments`, `/api/branch-tasks`, `/api/branch-reports` | 문서 초안만 있음, shared contract/API 미구현 | 문서에만 먼저 고정, 실저장/실데이터/PMS 연동 과장 금지 |
+| Phase 25 공통 업무 엔진 | `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | placeholder read-only 유지, 역할/지점 scope 차단, 민감 첨부 metadata-only, `work_item.audit.read` 없는 audit 비노출 |
 
 ## 1. Health/Auth
 
@@ -288,6 +289,110 @@ guardrail 초안:
 - 지점 미배정 사용자는 데이터 대신 `지점 배정 필요` 안내를 먼저 본다.
 - 다른 지점 데이터는 UI 뿐 아니라 API 에서도 차단한다.
 - 외부 PMS/호텔 운영 시스템 연동 상태를 이미 연결된 것처럼 응답하지 않는다.
+
+### Phase 25 API: 공통 `work item` + 문서/검토/마감 엔진
+
+중요:
+- 아래 항목은 문서 제안에만 머문 것이 아니라, 현재 저장소의 shared contract + placeholder read-only route + 권한 경계 테스트까지 같이 들어와 있는 Phase 25 1차 기준이다.
+- 다만 이 API는 아직 실민감 원문 저장, 외부 전문가 연동, 실제 신고/제출 자동화가 아니라 dev-safe placeholder 응답 단계다.
+- 따라서 "실운영 처리까지 끝난 업무 API" 처럼 쓰면 안 되고, 현재는 공통 엔진 구조와 guardrail 을 검증하는 skeleton 으로 읽어야 한다.
+
+#### 1) `GET /api/work-items`
+
+목적:
+- HR·세무·노무·법무·지점 운영 업무를 같은 리스트 구조로 보여 주는 공통 endpoint
+
+대표 응답 방향:
+- `items[]`: `id`, `module`, `category`, `title`, `status`, `priority`, `dueAt`, `reviewRequired`, `containsSensitiveData`, `access`, `auditSummary`, `placeholder`
+- `availableModules[]`
+- `scopeSummary`
+- `placeholder: true`
+
+guardrail:
+- 회사가 다르면 조회 차단
+- 같은 회사 안에서도 역할/지점 scope 에 맞는 업무만 내려간다.
+- `module` query filter 는 허용된 enum 안에서만 동작한다.
+
+근거:
+- `packages/shared/src/contracts.ts` 의 `appRoutes.workItems.list`, `workItemListResponseSchema`
+- `apps/api/src/app.ts`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+#### 2) `GET /api/work-items/:workItemId`
+
+목적:
+- 공통 업무 상세와 상태/담당/마감/검토/감사 요약을 보여 주는 endpoint
+
+대표 응답 방향:
+- `item`: 기본 업무 필드
+- `documentsSummary[]`
+- `reviewsSummary[]`
+- `deadlines[]`
+- `auditLogs[]`
+
+guardrail:
+- UI 에서 버튼이 보여도 실제 변경 가능 여부는 capability 기준으로 다시 판단한다.
+- `work_item.audit.read` 가 없으면 상세는 보여도 `auditLogs[]` 는 비운다.
+- visibility boundary 밖 업무 요청은 403 으로 차단한다.
+
+근거:
+- `packages/shared/src/contracts.ts` 의 `workItemDetailResponseSchema`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+#### 3) `GET /api/work-items/:workItemId/documents`, `GET /api/work-items/:workItemId/attachments`
+
+목적:
+- 업무에 연결된 문서/첨부 메타데이터를 공통 구조로 보여 주는 endpoint
+
+대표 응답 방향:
+- 문서: `documentType`, `title`, `status`, `visibility`, `containsSensitiveData`, `accessNote`, `updatedAt`
+- 첨부: `fileName`, `category`, `uploadedBy`, `uploadedAt`, `sensitivityLabel`, `storageExposure`, `previewAvailable`
+
+guardrail:
+- raw storage key, signed/public URL 전문, 민감 원문 경로는 기본 응답에서 비노출한다.
+- 민감 첨부는 허용 role 이 아니면 403 또는 빈 목록으로 차단한다.
+- 첨부 응답은 `metadata_only` 와 `previewAvailable: false` 경계를 유지한다.
+
+근거:
+- `packages/shared/src/contracts.ts` 의 `workItemDocumentsResponseSchema`, `workItemAttachmentsResponseSchema`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+#### 4) `GET /api/work-items/:workItemId/reviews`
+
+목적:
+- 공통 검토 흐름을 업무 모듈과 분리해 같은 구조로 보여 주는 endpoint
+
+대표 응답 방향:
+- `items[]`: `reviewerRoleCode`, `decision`, `summary`, `reviewedAt`
+- `reviewRequired`
+
+guardrail:
+- review history 는 read-only 감사 성격을 먼저 유지한다.
+- 결재/법무/노무처럼 민감도가 높은 검토도 같은 endpoint 골격을 쓰되, 상세 노출 범위는 capability 로 다시 제한한다.
+
+근거:
+- `packages/shared/src/contracts.ts` 의 `workItemReviewsResponseSchema`
+- `apps/api/test/auth-org.spec.ts`
+
+#### 5) `GET /api/work-item-deadlines`
+
+목적:
+- 모듈별 마감 규칙과 임박 상태를 공통 형식으로 보여 주는 endpoint
+
+대표 응답 방향:
+- `items[]`: `id`, `workItemId`, `title`, `dueAt`, `status`, `ownerScope`, `escalationNote`
+
+guardrail:
+- 실제 세무/노무 법정 기한 계산 완료처럼 보이면 안 된다.
+- viewer 가 볼 수 있는 work item 에 연결된 deadline 만 내려간다.
+
+근거:
+- `packages/shared/src/contracts.ts` 의 `workItemDeadlinesResponseSchema`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
 
 ## 3. 관리자 API
 

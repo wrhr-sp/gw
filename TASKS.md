@@ -6,33 +6,34 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 24 회사 파일럿 운영 1차
+작업명: Phase 25 공통 업무·문서·마감·권한 엔진 1차
 
 현재 체인:
 
-1. 기획: `t_ea69e768` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_3d628e46` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_3ecca52c` — 바름(`gwreviewer`) — builder 완료 대기
+1. 기획: `t_f6756d26` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_1d7f8bb0` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_e3cfacdf` — 바름(`gwreviewer`) — builder 완료 대기
 4. 테스트: 후속 reviewer 완료 뒤 같은 체인으로 이어진다.
 5. 후속 문서화/운영/최종 보고 카드는 같은 기준으로 이어진다.
 
 현재 문서 기준 핵심 범위:
 
-- 전사 오픈이 아니라 제한된 부서/사용자 기준 파일럿 대상 묶음과 제외 범위를 먼저 고정한다.
-- 직원 체험 흐름(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees`)과 운영자 동행 흐름(`/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`)을 같은 파일럿 시나리오로 다시 묶는다.
-- live URL, same-origin API health, PWA/mobile smoke 를 파일럿 선행 체크리스트 언어로 정리한다.
-- 사용자 안내, 운영자 매뉴얼, 장애 대응, 피드백 수집 기준을 1차 문서 구조로 고정한다.
-- parent Phase 23의 release-gate/cloudflare-deploy success 는 baseline 근거로만 쓰고, 이번 Phase에서는 재검증 완료처럼 과장하지 않는다.
-- production data, secret, 실제 계정 발급/권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트로 분리한다.
+- HR·세무·노무·법무·지점 운영 업무가 함께 타는 공통 work item 엔진을 먼저 고정한다.
+- 공통 문서/첨부/검토/마감/감사 로그 skeleton 을 같은 언어로 정리한다.
+- 회사 + 지점/호텔 + 역할 + capability 기준 접근제어를 공통 업무 엔진 관점으로 다시 맞춘다.
+- 모바일 하단 탭을 늘리지 않고 `홈`/`메뉴`와 PC sidebar 에 새 업무 그룹 자리를 확보하는 기준을 고정한다.
+- 실제 개인정보 원문, 민감 문서, production DB 실데이터, 외부 세무/노무/법무 연동은 계속 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 가 각각 직원 체험 레인과 운영자 레인의 직전 기준 문서다.
-- parent Phase 23 최종 보고 metadata 가 현재 live URL(`https://gw-web.werehere31.workers.dev`), 대표 route, release-gate/cloudflare-deploy success baseline 근거다.
-- 리뷰/테스트/문서화는 파일럿 대상 범위, 선행 체크리스트, 사용자 안내/운영자 매뉴얼, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
+- `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md` 가 직전 파일럿 준비 기준 문서다.
+- 이번 Phase는 그 위에 HR·세무·노무·법무·지점 운영 업무를 담는 공통 엔진을 먼저 문서/contract/API/UI skeleton 기준으로 올리는 단계다.
+- 리뷰/테스트/문서화는 공통 상태값, 문서/첨부/검토/마감 구조, 지점 scope + 역할 scope, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`
+- `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`
 - `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`
 - `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`
 - `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`

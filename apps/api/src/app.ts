@@ -71,6 +71,12 @@ import {
   noticeListResponseSchema,
   readReceiptCreateRequestSchema,
   readReceiptCreateResponseSchema,
+  workItemAttachmentsResponseSchema,
+  workItemDeadlinesResponseSchema,
+  workItemDetailResponseSchema,
+  workItemDocumentsResponseSchema,
+  workItemListResponseSchema,
+  workItemReviewsResponseSchema,
   type ApprovalCandidate,
   type ApprovalDocument,
   type ApprovalLine,
@@ -94,6 +100,12 @@ import {
   type RoleCode,
   type Session,
   type SessionUser,
+  type WorkItem,
+  type WorkItemAttachment,
+  type WorkItemAuditLog,
+  type WorkItemDeadline,
+  type WorkItemDocument,
+  type WorkItemReview,
   buildAttendancePolicyPreview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
@@ -129,6 +141,10 @@ const APPROVAL_DOCUMENT_REJECT_ROUTE = "/api/approvals/documents/:id/reject";
 const DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE = "/api/documents/files/:fileId/upload-complete";
 const DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE = "/api/documents/files/:fileId/download-init";
 const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
+const WORK_ITEM_DETAIL_ROUTE = "/api/work-items/:id";
+const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
+const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
+const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 
 const permissionCatalog: Permission[] = [
   { code: "company.read", description: "회사 기본 정보를 조회한다." },
@@ -156,6 +172,11 @@ const permissionCatalog: Permission[] = [
   { code: "document.space.manage", description: "문서함 생성과 관리 placeholder 흐름을 처리한다." },
   { code: "document.file.read", description: "문서 메타데이터 목록과 다운로드 후보를 조회한다." },
   { code: "document.file.write", description: "문서 업로드 메타데이터 placeholder 생성을 처리한다." },
+  { code: "work_item.read", description: "공통 업무 카드와 회사/지점 scope placeholder 목록을 조회한다." },
+  { code: "work_item.manage", description: "공통 업무 카드의 담당자/상태/권한 skeleton 관리 흐름을 다룬다." },
+  { code: "work_item.review", description: "공통 업무 검토 의견과 승인 대기 placeholder 흐름을 확인한다." },
+  { code: "work_item.deadline.read", description: "공통 업무 마감 캘린더와 임박 상태 placeholder 를 조회한다." },
+  { code: "work_item.audit.read", description: "공통 업무 감사 로그 placeholder 를 읽기 전용으로 조회한다." },
 ];
 
 const rolePermissions = rolePermissionMatrix;
@@ -215,6 +236,342 @@ const employeeStatusTones: Record<Employee["employmentStatus"], "positive" | "ca
   on_leave: "caution",
   offboarded: "muted",
 };
+
+const branches = [
+  { id: "branch_hq", code: "HQ", name: "본사 운영센터" },
+  { id: "branch_hotel_seoul", code: "SEL", name: "서울 시티 호텔" },
+  { id: "branch_hotel_busan", code: "BSN", name: "부산 오션 호텔" },
+] as const;
+
+const employeeBranchAssignments: Record<string, string | null> = {
+  employee_admin: "branch_hq",
+  employee_manager: "branch_hotel_seoul",
+  employee_staff: "branch_hq",
+  employee_employee: "branch_hotel_seoul",
+};
+
+const workItems: WorkItem[] = [
+  {
+    id: "work_item_hr_onboarding_packet",
+    companyId: COMPANY_ID,
+    branchId: "branch_hotel_seoul",
+    branchLabel: "서울 시티 호텔",
+    module: "hr",
+    category: "onboarding",
+    title: "신규 입사자 온보딩 서류 회수",
+    descriptionPreview: "입사 체크리스트와 필수 제출 문서 수신 상태를 공통 work item 으로 묶는 placeholder 입니다.",
+    status: "waiting_review",
+    priority: "high",
+    assignee: { userId: "employee_staff", roleCode: "HR_ADMIN", label: "인사 운영 담당" },
+    requesterUserId: "employee_manager",
+    dueAt: "2026-06-12T18:00:00.000Z",
+    reviewRequired: true,
+    containsSensitiveData: true,
+    access: {
+      companyId: COMPANY_ID,
+      branchId: "branch_hotel_seoul",
+      branchLabel: "서울 시티 호텔",
+      viewerScope: "company",
+      allowedRoleCodes: ["HR_ADMIN", "COMPANY_ADMIN", "AUDITOR"],
+      capabilities: ["work_item.read", "work_item.manage", "work_item.review", "work_item.deadline.read", "work_item.audit.read", "work_item.attachment.read_sensitive"],
+      branchAccessNote: "같은 회사 안에서도 서울 지점 온보딩 업무로 분리해 보고, 첨부는 인사 역할과 감사 사용자만 읽습니다.",
+      roleAccessNote: "일반 근무자/팀장은 제목과 상태 안내만 간접 노출되고 상세 문서 원문은 열리지 않습니다.",
+      placeholder: true,
+    },
+    tags: ["hr", "onboarding", "sensitive"],
+    auditSummary: "인사 운영 검토가 완료되기 전까지 민감 첨부는 metadata 만 유지합니다.",
+    placeholder: true,
+    createdAt: "2026-06-10T08:30:00.000Z",
+    updatedAt: "2026-06-10T10:20:00.000Z",
+    closedAt: null,
+  },
+  {
+    id: "work_item_tax_month_end_evidence",
+    companyId: COMPANY_ID,
+    branchId: null,
+    branchLabel: null,
+    module: "tax",
+    category: "evidence_collection",
+    title: "월말 세무 증빙 수집 현황 점검",
+    descriptionPreview: "지점별 증빙 요청 상태와 검토 대기 여부를 회사 단위 공통 업무 카드로 묶습니다.",
+    status: "in_progress",
+    priority: "critical",
+    assignee: { userId: "employee_admin", roleCode: "COMPANY_ADMIN", label: "본사 운영 총괄" },
+    requesterUserId: "employee_staff",
+    dueAt: "2026-06-13T17:00:00.000Z",
+    reviewRequired: true,
+    containsSensitiveData: false,
+    access: {
+      companyId: COMPANY_ID,
+      branchId: null,
+      branchLabel: null,
+      viewerScope: "company",
+      allowedRoleCodes: ["COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "AUDITOR"],
+      capabilities: ["work_item.read", "work_item.manage", "work_item.review", "work_item.deadline.read", "work_item.audit.read"],
+      branchAccessNote: "회사 단위 마감 카드지만 지점별 증빙 회수 상태를 분리 설명합니다.",
+      roleAccessNote: "지점 관리자는 자기 지점 진행 메모만, 본사/감사 사용자는 회사 전체 진행률을 봅니다.",
+      placeholder: true,
+    },
+    tags: ["tax", "deadline", "company_scope"],
+    auditSummary: "마감 상태 변경과 지점별 회수율 메모를 감사 로그 후보로 남깁니다.",
+    placeholder: true,
+    createdAt: "2026-06-09T09:00:00.000Z",
+    updatedAt: "2026-06-10T09:40:00.000Z",
+    closedAt: null,
+  },
+  {
+    id: "work_item_labor_attendance_followup",
+    companyId: COMPANY_ID,
+    branchId: "branch_hotel_seoul",
+    branchLabel: "서울 시티 호텔",
+    module: "labor",
+    category: "attendance_exception_followup",
+    title: "근태 예외 후속조치 확인",
+    descriptionPreview: "근태 정정 이후 노무 후속조치가 필요한 건을 지점 관리자와 본사 노무 검토 흐름으로 이어 붙입니다.",
+    status: "todo",
+    priority: "normal",
+    assignee: { userId: "employee_manager", roleCode: "MANAGER", label: "지점 운영 매니저" },
+    requesterUserId: "employee_admin",
+    dueAt: "2026-06-14T12:00:00.000Z",
+    reviewRequired: false,
+    containsSensitiveData: false,
+    access: {
+      companyId: COMPANY_ID,
+      branchId: "branch_hotel_seoul",
+      branchLabel: "서울 시티 호텔",
+      viewerScope: "branch",
+      allowedRoleCodes: ["MANAGER", "COMPANY_ADMIN", "HR_ADMIN", "AUDITOR"],
+      capabilities: ["work_item.read", "work_item.review", "work_item.deadline.read"],
+      branchAccessNote: "서울 지점 관리자와 본사 운영만 같은 건을 같은 표현으로 봅니다.",
+      roleAccessNote: "지점 관리자는 조치 체크리스트를, 본사/감사는 진행 경계와 변경 이력을 중심으로 봅니다.",
+      placeholder: true,
+    },
+    tags: ["labor", "branch_scope"],
+    auditSummary: "자료 부족이나 승인 대기 사유를 blocked 대신 별도 메모로 남길 준비 단계입니다.",
+    placeholder: true,
+    createdAt: "2026-06-10T07:50:00.000Z",
+    updatedAt: "2026-06-10T08:45:00.000Z",
+    closedAt: null,
+  },
+  {
+    id: "work_item_legal_contract_review",
+    companyId: COMPANY_ID,
+    branchId: null,
+    branchLabel: null,
+    module: "legal",
+    category: "contract_review",
+    title: "지점 위탁 계약 검토 요청",
+    descriptionPreview: "계약 검토 요청, 검토 의견, 승인 게이트를 법무 전용 카드가 아니라 공통 검토 skeleton 으로 정리합니다.",
+    status: "blocked",
+    priority: "high",
+    assignee: { userId: null, roleCode: "COMPANY_ADMIN", label: "본사 관리자 승인 필요" },
+    requesterUserId: "employee_manager",
+    dueAt: "2026-06-15T15:00:00.000Z",
+    reviewRequired: true,
+    containsSensitiveData: true,
+    access: {
+      companyId: COMPANY_ID,
+      branchId: null,
+      branchLabel: null,
+      viewerScope: "company_audit",
+      allowedRoleCodes: ["COMPANY_ADMIN", "AUDITOR"],
+      capabilities: ["work_item.read", "work_item.review", "work_item.deadline.read", "work_item.audit.read", "work_item.attachment.read_sensitive"],
+      branchAccessNote: "계약 자체는 회사 범위지만 지점별 부속 메모는 따로 분리 설명합니다.",
+      roleAccessNote: "법무 실처리나 외부 변호사 연동은 없고, 승인 게이트/검토 대기 상태만 보여 줍니다.",
+      placeholder: true,
+    },
+    tags: ["legal", "approval_gate", "sensitive"],
+    auditSummary: "외부 법률 자문 계정 연동 없이 내부 승인 대기 상태만 남깁니다.",
+    placeholder: true,
+    createdAt: "2026-06-10T08:10:00.000Z",
+    updatedAt: "2026-06-10T09:10:00.000Z",
+    closedAt: null,
+  },
+  {
+    id: "work_item_branch_daily_report",
+    companyId: COMPANY_ID,
+    branchId: "branch_hotel_busan",
+    branchLabel: "부산 오션 호텔",
+    module: "branch",
+    category: "daily_branch_report",
+    title: "지점 일일 마감 보고",
+    descriptionPreview: "지점 운영 보고, 후속 조치, 본사 확인 상태를 공통 마감 엔진 기준으로 보여 줍니다.",
+    status: "done",
+    priority: "normal",
+    assignee: { userId: "employee_manager", roleCode: "MANAGER", label: "지점 관리자 확인" },
+    requesterUserId: "employee_admin",
+    dueAt: "2026-06-10T22:00:00.000Z",
+    reviewRequired: false,
+    containsSensitiveData: false,
+    access: {
+      companyId: COMPANY_ID,
+      branchId: "branch_hotel_busan",
+      branchLabel: "부산 오션 호텔",
+      viewerScope: "branch",
+      allowedRoleCodes: ["MANAGER", "COMPANY_ADMIN", "AUDITOR", "EMPLOYEE"],
+      capabilities: ["work_item.read", "work_item.deadline.read"],
+      branchAccessNote: "부산 지점 구성원은 제목/상태를 보고, 본사 운영은 지점 간 비교로 확장합니다.",
+      roleAccessNote: "일반 근무자는 읽기 전용, 지점 관리자는 지점 보고 후속 메모를 더 볼 수 있습니다.",
+      placeholder: true,
+    },
+    tags: ["branch", "daily_close"],
+    auditSummary: "상태 완료 후에도 감사/본사 조회용 보존 상태를 유지합니다.",
+    placeholder: true,
+    createdAt: "2026-06-10T06:30:00.000Z",
+    updatedAt: "2026-06-10T18:15:00.000Z",
+    closedAt: "2026-06-10T18:15:00.000Z",
+  },
+];
+
+const workItemDocuments: WorkItemDocument[] = [
+  {
+    id: "widoc_hr_onboarding_checklist",
+    workItemId: "work_item_hr_onboarding_packet",
+    documentType: "onboarding_checklist",
+    title: "온보딩 체크리스트 metadata",
+    status: "review_ready",
+    visibility: "restricted",
+    containsSensitiveData: true,
+    accessNote: "실제 주민번호/계좌 원문 대신 제출 상태와 분류만 보여 줍니다.",
+    placeholder: true,
+    updatedAt: "2026-06-10T10:20:00.000Z",
+  },
+  {
+    id: "widoc_tax_evidence_tracker",
+    workItemId: "work_item_tax_month_end_evidence",
+    documentType: "evidence_tracker",
+    title: "세무 증빙 수집 현황표",
+    status: "received",
+    visibility: "company",
+    containsSensitiveData: false,
+    accessNote: "지점별 요청 상태와 회수 여부만 placeholder 로 유지합니다.",
+    placeholder: true,
+    updatedAt: "2026-06-10T09:35:00.000Z",
+  },
+  {
+    id: "widoc_branch_daily_report",
+    workItemId: "work_item_branch_daily_report",
+    documentType: "daily_report",
+    title: "지점 일일 보고 요약",
+    status: "received",
+    visibility: "branch",
+    containsSensitiveData: false,
+    accessNote: "일반 구성원에게는 요약만 보이고 상세 첨부는 후속 단계입니다.",
+    placeholder: true,
+    updatedAt: "2026-06-10T18:10:00.000Z",
+  },
+];
+
+const workItemAttachments: WorkItemAttachment[] = [
+  {
+    id: "wiatt_hr_packet_zip",
+    workItemId: "work_item_hr_onboarding_packet",
+    fileName: "입사서류-패킷.zip",
+    category: "packet_bundle",
+    uploadedBy: "employee_staff",
+    uploadedAt: "2026-06-10T10:00:00.000Z",
+    sensitivityLabel: "restricted",
+    storageExposure: "metadata_only",
+    previewAvailable: false,
+    placeholder: true,
+  },
+  {
+    id: "wiatt_tax_evidence_sheet",
+    workItemId: "work_item_tax_month_end_evidence",
+    fileName: "지점별-증빙-회수현황.xlsx",
+    category: "evidence_sheet",
+    uploadedBy: "employee_admin",
+    uploadedAt: "2026-06-10T09:25:00.000Z",
+    sensitivityLabel: "internal",
+    storageExposure: "metadata_only",
+    previewAvailable: false,
+    placeholder: true,
+  },
+];
+
+const workItemReviews: WorkItemReview[] = [
+  {
+    id: "wireview_hr_packet",
+    workItemId: "work_item_hr_onboarding_packet",
+    reviewerRoleCode: "HR_ADMIN",
+    decision: "changes_requested",
+    summary: "민감 서류 원문 대신 제출 상태와 누락 여부만 먼저 정리합니다.",
+    reviewedAt: "2026-06-10T10:15:00.000Z",
+    placeholder: true,
+  },
+  {
+    id: "wireview_tax_close",
+    workItemId: "work_item_tax_month_end_evidence",
+    reviewerRoleCode: "COMPANY_ADMIN",
+    decision: "noted",
+    summary: "지점별 회수율은 유지하되 실제 신고/제출 자동화는 열지 않습니다.",
+    reviewedAt: "2026-06-10T09:40:00.000Z",
+    placeholder: true,
+  },
+];
+
+const workItemDeadlines: WorkItemDeadline[] = [
+  {
+    id: "wideadline_hr_onboarding",
+    workItemId: "work_item_hr_onboarding_packet",
+    title: "입사 첫날 제출 체크",
+    dueAt: "2026-06-12T18:00:00.000Z",
+    status: "due_today",
+    ownerScope: "hr + branch",
+    escalationNote: "제출 누락 시 지점 관리자 안내 후 인사 검토 대기로 전환합니다.",
+    placeholder: true,
+  },
+  {
+    id: "wideadline_tax_month_end",
+    workItemId: "work_item_tax_month_end_evidence",
+    title: "월말 세무 증빙 회수 마감",
+    dueAt: "2026-06-13T17:00:00.000Z",
+    status: "upcoming",
+    ownerScope: "company + branch managers",
+    escalationNote: "외부 세무사 전달 전 내부 회수율만 점검합니다.",
+    placeholder: true,
+  },
+  {
+    id: "wideadline_branch_daily_close",
+    workItemId: "work_item_branch_daily_report",
+    title: "지점 일일 보고 마감",
+    dueAt: "2026-06-10T22:00:00.000Z",
+    status: "done",
+    ownerScope: "branch manager",
+    escalationNote: "완료 후에도 본사 운영과 감사 사용자가 보존 상태로 조회합니다.",
+    placeholder: true,
+  },
+];
+
+const workItemAuditLogs: WorkItemAuditLog[] = [
+  {
+    id: "wiaudit_hr_status_change",
+    workItemId: "work_item_hr_onboarding_packet",
+    action: "work_item.status.changed",
+    actorRoleCode: "HR_ADMIN",
+    summary: "draft 에서 waiting_review 로 전환하고 민감 첨부는 metadata_only 로 고정했습니다.",
+    happenedAt: "2026-06-10T10:18:00.000Z",
+    placeholder: true,
+  },
+  {
+    id: "wiaudit_tax_deadline_sync",
+    workItemId: "work_item_tax_month_end_evidence",
+    action: "work_item.deadline.confirmed",
+    actorRoleCode: "COMPANY_ADMIN",
+    summary: "회사 단위 마감 기준을 지점 회수 현황과 연결했습니다.",
+    happenedAt: "2026-06-10T09:38:00.000Z",
+    placeholder: true,
+  },
+  {
+    id: "wiaudit_legal_blocked",
+    workItemId: "work_item_legal_contract_review",
+    action: "work_item.blocked.recorded",
+    actorRoleCode: "COMPANY_ADMIN",
+    summary: "외부 법무 연동 없이 내부 승인 게이트 대기 상태를 남겼습니다.",
+    happenedAt: "2026-06-10T09:05:00.000Z",
+    placeholder: true,
+  },
+];
 
 function getEmployeeRoleCode(employeeId: string): RoleCode {
   return employeeRoleCodeByEmployeeId.get(employeeId) ?? "EMPLOYEE";
@@ -1053,6 +1410,111 @@ function ensureCompanyBoundary(context: Context, companyId: string, auth: Sessio
     actorCompanyId: auth.user.companyId,
     route: context.req.path,
   });
+}
+
+function getViewerBranchId(auth: SessionContext) {
+  return employeeBranchAssignments[auth.user.employeeId] ?? null;
+}
+
+function canAccessWorkItem(auth: SessionContext, item: WorkItem) {
+  if (item.companyId !== auth.user.companyId) {
+    return false;
+  }
+
+  if (!item.access.allowedRoleCodes.includes(auth.roleCode)) {
+    return false;
+  }
+
+  if (item.access.viewerScope === "company" || item.access.viewerScope === "company_audit") {
+    return true;
+  }
+
+  if (item.access.viewerScope === "self") {
+    return item.assignee.userId === auth.user.employeeId || item.requesterUserId === auth.user.employeeId;
+  }
+
+  const viewerBranchId = getViewerBranchId(auth);
+  if (viewerBranchId && item.branchId === viewerBranchId) {
+    return true;
+  }
+
+  return isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR";
+}
+
+function listVisibleWorkItems(auth: SessionContext, module?: WorkItem["module"]) {
+  return workItems.filter((item) => canAccessWorkItem(auth, item) && (!module || item.module === module));
+}
+
+function findVisibleWorkItem(auth: SessionContext, workItemId: string) {
+  return listVisibleWorkItems(auth).find((item) => item.id === workItemId) ?? null;
+}
+
+function canReadSensitiveWorkItemAttachment(auth: SessionContext, item: WorkItem) {
+  return item.access.capabilities.includes("work_item.attachment.read_sensitive") && (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR");
+}
+
+function listVisibleWorkItemDocuments(auth: SessionContext, workItemId: string) {
+  const item = findVisibleWorkItem(auth, workItemId);
+  if (!item) {
+    return null;
+  }
+
+  return workItemDocuments.filter((document) => {
+    if (document.workItemId !== workItemId) {
+      return false;
+    }
+
+    if (!document.containsSensitiveData) {
+      return true;
+    }
+
+    return canReadSensitiveWorkItemAttachment(auth, item);
+  });
+}
+
+function listVisibleWorkItemAttachments(auth: SessionContext, workItemId: string) {
+  const item = findVisibleWorkItem(auth, workItemId);
+  if (!item) {
+    return null;
+  }
+
+  return workItemAttachments.filter((attachment) => {
+    if (attachment.workItemId !== workItemId) {
+      return false;
+    }
+
+    if (attachment.sensitivityLabel !== "restricted") {
+      return true;
+    }
+
+    return canReadSensitiveWorkItemAttachment(auth, item);
+  });
+}
+
+function listVisibleWorkItemReviews(auth: SessionContext, workItemId: string) {
+  if (!findVisibleWorkItem(auth, workItemId)) {
+    return null;
+  }
+
+  return workItemReviews.filter((review) => review.workItemId === workItemId);
+}
+
+function listVisibleWorkItemAuditLogs(auth: SessionContext, workItemId: string) {
+  const item = findVisibleWorkItem(auth, workItemId);
+  if (!item) {
+    return null;
+  }
+
+  if (!hasPermission(auth.user, "work_item.audit.read") || !item.access.capabilities.includes("work_item.audit.read")) {
+    return [];
+  }
+
+  return workItemAuditLogs.filter((auditLog) => auditLog.workItemId === workItemId);
+}
+
+function listVisibleWorkItemDeadlines(auth: SessionContext) {
+  const visibleIds = new Set(listVisibleWorkItems(auth).map((item) => item.id));
+  return workItemDeadlines.filter((deadline) => visibleIds.has(deadline.workItemId));
 }
 
 function buildAdminAuditFilters(context: Context) {
@@ -3638,6 +4100,136 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
         action: "document.file.delete",
       },
       placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.get(appRoutes.workItems.list, (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const module = context.req.query("module") as WorkItem["module"] | undefined;
+  const items = listVisibleWorkItems(authResult.auth, module);
+
+  return jsonSuccess(context, workItemListResponseSchema, {
+    ok: true,
+    data: {
+      items,
+    },
+    error: null,
+  });
+});
+
+app.get(WORK_ITEM_DETAIL_ROUTE, (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const workItemId = context.req.param("id");
+  const item = findVisibleWorkItem(authResult.auth, workItemId);
+  if (!item) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 카드입니다.", 403, {
+      workItemId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, workItemDetailResponseSchema, {
+    ok: true,
+    data: {
+      item,
+      auditLogs: listVisibleWorkItemAuditLogs(authResult.auth, workItemId) ?? [],
+    },
+    error: null,
+  });
+});
+
+app.get(WORK_ITEM_DOCUMENTS_ROUTE, (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const workItemId = context.req.param("id");
+  const items = listVisibleWorkItemDocuments(authResult.auth, workItemId);
+  if (!items) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 문서입니다.", 403, {
+      workItemId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, workItemDocumentsResponseSchema, {
+    ok: true,
+    data: {
+      items,
+    },
+    error: null,
+  });
+});
+
+app.get(WORK_ITEM_ATTACHMENTS_ROUTE, (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const workItemId = context.req.param("id");
+  const items = listVisibleWorkItemAttachments(authResult.auth, workItemId);
+  if (!items) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 첨부입니다.", 403, {
+      workItemId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, workItemAttachmentsResponseSchema, {
+    ok: true,
+    data: {
+      items,
+    },
+    error: null,
+  });
+});
+
+app.get(WORK_ITEM_REVIEWS_ROUTE, (context) => {
+  const authResult = requireAnyPermission(context, ["work_item.read", "work_item.review"]);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const workItemId = context.req.param("id");
+  const items = listVisibleWorkItemReviews(authResult.auth, workItemId);
+  if (!items) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 검토 기록입니다.", 403, {
+      workItemId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, workItemReviewsResponseSchema, {
+    ok: true,
+    data: {
+      items,
+    },
+    error: null,
+  });
+});
+
+app.get(appRoutes.workItems.deadlines, (context) => {
+  const authResult = requirePermission(context, "work_item.deadline.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(context, workItemDeadlinesResponseSchema, {
+    ok: true,
+    data: {
+      items: listVisibleWorkItemDeadlines(authResult.auth),
     },
     error: null,
   });

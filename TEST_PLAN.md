@@ -182,6 +182,44 @@ pnpm --filter @gw/mobile typecheck
 9. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 와 PC sidebar — 운영자 동행 레인과 read-only/권한 경계가 유지되는지 본다.
 10. 마지막으로 live/API/PWA/mobile 체크리스트와 승인 필요 목록을 다시 모은다.
 
+### 1-10. Phase 25 쉬운 공통 업무 엔진 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. HR·세무·노무·법무·지점 운영 업무를 어떤 공통 work item 구조로 담는지 바로 설명할 수 있는가
+2. `module`, `status`, `assignee`, `dueAt`, `company/branch scope`, `reviewRequired`, `containsSensitiveData` 같은 공통 필드가 같은 언어로 정리돼 있는가
+3. 상태값이 모듈마다 따로 늘어나지 않고 공통 흐름(`draft`/`todo`/`in_progress`/`waiting_review`/`blocked`/`done`/`archived`)으로 먼저 정리돼 있는가
+4. 공통 문서, 첨부, 검토, 마감, 감사 로그 구조가 work item 과 어떤 관계인지 분명한가
+5. 일반 근무자 / 지점 관리자 / 본사 관리자 / 감사 사용자의 가시 범위가 회사 + 지점 + 역할 + capability 기준으로 분리되는가
+6. 모바일 하단 탭을 늘리지 않고 `홈`/`메뉴`와 PC sidebar 에 새 업무 그룹 자리를 확보하는 기준이 있는가
+7. 민감 문서 원문, production DB 실데이터, 실제 세무/노무/법무 실처리, 외부 전문가 연동이 여전히 승인 게이트로 남아 있는가
+
+이 7개 질문 중 하나라도 흐리면 Phase 25 문서 작업은 완료로 보지 않는다.
+
+### 1-10-a. Phase 25 현재 구현 근거로 바로 대조할 테스트 파일
+
+문서가 실제 구현보다 앞서 쓰이지 않았는지 빠르게 다시 볼 때는 아래 테스트를 먼저 본다.
+
+- `apps/api/test/work-items.spec.ts`
+  - 역할별 work item 목록 가시 범위
+  - HR 민감 문서/첨부 접근 제한
+  - `work_item.audit.read` 없는 상세 응답에서 audit log 비노출
+  - visibility boundary 밖 상세 요청 403
+  - deadline 목록의 역할별 가시 범위
+- `apps/api/test/auth-org.spec.ts`
+  - 로그인 세션 기준 `GET /api/work-items` 및 `?module=` 필터 동작
+  - 지점 관리자 상세/첨부/마감 경계
+  - review/documents/deadlines 응답 schema 연결
+- `apps/web/work-items.test.tsx`
+  - `/work-items` 허브, `/work-items/hr` 모듈 페이지, `/menu` 진입점이 같은 공통 엔진을 가리키는지 확인
+- `apps/web/work-items-boundary.test.tsx`
+  - 허브 copy 가 "공통 skeleton + guardrail" 경계를 유지하는지 확인
+  - metadata-only, 외부 전송 비과장, 모듈 카드/API route 노출 기준 확인
+
+빠른 판정 기준:
+- 위 테스트가 지키는 경계와 문서 문장이 다르면 문서를 고친다.
+- 반대로 문서가 더 넓게 약속하면 구현 완료처럼 쓰지 말고 skeleton/placeholder 로 낮춰 적는다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -338,6 +376,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - Phase 22 문서라면 로그인 → 대시보드 → 출퇴근 → 휴가 → 결재 → 공지/문서 → 내 정보 → 조직/직원 확인 순서, offline/error/empty/forbidden 상태 분류, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 23 문서라면 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서, 일반 조회 대 운영 검토 경계, high-risk permission(`invite.manage`, `audit.read`, `board.manage`, `document.space.manage`), 파일/문서 권한 비노출 원칙, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 24 문서라면 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/API/PWA/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 25 문서라면 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 

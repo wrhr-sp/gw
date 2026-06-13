@@ -8,9 +8,9 @@ export default function MenuPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="홈으로"
-      eyebrow="Phase 24 파일럿 전체 메뉴"
+      eyebrow="Phase 25 파일럿 전체 메뉴"
       title="전체 메뉴 / 기능 선택 화면"
-      description="모바일 하단 탭의 `메뉴` 버튼에서 여는 전체 기능 선택 화면입니다. 기본 업무, 조회, 협업 placeholder 를 같은 정보구조로 보여 주고 실제 외부 연동은 승인 게이트로 남깁니다."
+      description="모바일 하단 탭의 `메뉴` 버튼에서 여는 전체 기능 선택 화면입니다. 기본 업무, 공통 업무 엔진, 조회, 협업 placeholder 를 같은 정보구조로 보여 주고 실제 외부 연동은 승인 게이트로 남깁니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">모바일 5탭 기준</Pill>
