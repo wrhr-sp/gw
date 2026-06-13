@@ -154,6 +154,7 @@ export const permissionCodeSchema = z.enum([
   "work_item.deadline.read",
   "work_item.audit.read",
   "work_item.grievance.read_restricted",
+  "work_item.labor.read_restricted",
 ]);
 
 export const workItemModuleSchema = z.enum(["hr", "tax", "labor", "legal", "branch"]);
@@ -168,6 +169,7 @@ export const workItemCapabilitySchema = z.enum([
   "work_item.audit.read",
   "work_item.attachment.read_sensitive",
   "work_item.grievance.read_restricted",
+  "work_item.labor.read_restricted",
 ]);
 export const workItemHrLifecycleStageSchema = z.enum([
   "preboarding",
@@ -182,6 +184,25 @@ export const workItemHrLifecycleStageSchema = z.enum([
 export const workItemScheduleStatusSchema = z.enum(["planned", "confirmed", "completed", "cancelled"]);
 export const workItemConfidentialityLevelSchema = z.enum(["standard", "hr_private", "grievance_restricted"]);
 export const workItemMeetingModeSchema = z.enum(["in_person", "remote", "hybrid", "tbd"]);
+export const workItemLaborIntakeStatusSchema = z.enum(["received", "screening", "evidence_requested", "under_review", "action_planned", "closed"]);
+export const workItemLaborConfidentialityLevelSchema = z.enum(["standard", "labor_private", "grievance_restricted", "disciplinary_restricted"]);
+export const workItemLaborEvidenceTypeSchema = z.enum([
+  "attendance_record",
+  "leave_balance",
+  "contract_snapshot",
+  "allowance_basis",
+  "grievance_statement",
+  "incident_attachment",
+]);
+export const workItemLaborReviewScopeSchema = z.enum(["labor_hq", "hr_hq", "branch_manager", "employee", "auditor"]);
+export const workItemLaborReviewResponsibilitySchema = z.enum(["screening", "evidence_check", "policy_review", "acknowledgement", "audit_only"]);
+export const workItemLaborFollowUpTypeSchema = z.enum([
+  "document_request",
+  "meeting_request",
+  "policy_review",
+  "schedule_adjustment",
+  "closure_check",
+]);
 
 export const workItemAssigneeSchema = z.object({
   userId: z.string().nullable(),
@@ -238,6 +259,53 @@ export const workItemHrContextSchema = z.object({
   visibility: workItemHrVisibilitySchema,
 });
 
+export const workItemLaborEvidenceSummarySchema = z.object({
+  type: workItemLaborEvidenceTypeSchema,
+  summary: z.string(),
+  submittedByScope: workItemLaborReviewScopeSchema,
+  submittedAt: z.string().datetime(),
+  containsSensitiveData: z.boolean(),
+});
+
+export const workItemLaborReviewActorSchema = z.object({
+  scope: workItemLaborReviewScopeSchema,
+  roleCode: roleCodeSchema.nullable(),
+  responsibility: workItemLaborReviewResponsibilitySchema,
+  status: z.string(),
+});
+
+export const workItemLaborFollowUpSchema = z.object({
+  required: z.boolean(),
+  type: workItemLaborFollowUpTypeSchema,
+  ownerScope: workItemLaborReviewScopeSchema,
+  dueAt: z.string().datetime().nullable(),
+  linkedWorkItemId: z.string().nullable(),
+  summary: z.string(),
+});
+
+export const workItemLaborVisibilitySchema = z.object({
+  laborHeadquarters: z.string(),
+  headquartersHr: z.string(),
+  branchManager: z.string(),
+  employeeSelf: z.string(),
+  auditor: z.string(),
+  restrictedNote: z.string(),
+});
+
+export const workItemLaborContextSchema = z.object({
+  intakeStatus: workItemLaborIntakeStatusSchema,
+  confidentialityLevel: workItemLaborConfidentialityLevelSchema,
+  requiresAcknowledgement: z.boolean(),
+  legalHoldRequired: z.boolean(),
+  externalAdvisoryStatus: z.literal("approval_required"),
+  sensitiveRecordStatus: z.literal("metadata_only"),
+  evidenceSummary: z.array(workItemLaborEvidenceSummarySchema).min(1),
+  reviewActors: z.array(workItemLaborReviewActorSchema).min(1),
+  followUp: workItemLaborFollowUpSchema,
+  visibility: workItemLaborVisibilitySchema,
+  auditHints: z.array(z.string()).min(1),
+});
+
 export const workItemSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -256,6 +324,7 @@ export const workItemSchema = z.object({
   containsSensitiveData: z.boolean(),
   access: workItemAccessSchema,
   hrContext: workItemHrContextSchema.nullable(),
+  laborContext: workItemLaborContextSchema.nullable(),
   tags: z.array(z.string()),
   auditSummary: z.string(),
   placeholder: z.literal(true),

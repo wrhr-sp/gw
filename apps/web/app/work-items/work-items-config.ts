@@ -60,11 +60,30 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "labor",
     href: "/work-items/labor",
     title: "노무 업무",
-    summary: "근태 예외 후속조치와 점검 메모를 지점 관리자와 본사 운영이 같은 구조로 확인합니다.",
-    roleScope: "지점 관리자 / 본사 관리자 / 인사 / 감사",
-    accessNote: "실제 시정 조치 저장 없이 업무 카드와 검토 흐름 자리만 잡습니다.",
-    apiRoutes: ["/api/work-items?module=labor", "/api/work-item-deadlines"],
-    milestones: ["근태 예외", "후속조치 체크", "지점/본사 경계"],
+    summary: "근로계약·연차/수당·고충·징계·사고·퇴사 이슈를 공통 work item 위의 labor skeleton 으로 묶고 restricted 경계를 더 좁게 나눕니다.",
+    roleScope: "본사 HR/노무 · 지점 관리자 · 일반 직원(자기 건 일부) · 감사",
+    accessNote: "실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고, category·intake·evidence·follow-up metadata 만 먼저 노출합니다.",
+    apiRoutes: ["/api/work-items?module=labor", "/api/work-items/:id", "/api/work-item-deadlines"],
+    milestones: ["노무 category 확장", "intake/confidentiality metadata", "restricted labor capability 분리"],
+    detailSections: [
+      {
+        title: "이번 단계 labor 유형",
+        items: ["근로계약", "근무조건 변경", "연차/잔여 정정", "수당 검토", "초과근무 검토", "고충", "징계 검토", "사고 접수", "퇴사/종료"],
+      },
+      {
+        title: "누가 어디까지 보는가",
+        items: [
+          "본사 HR/노무는 회사 단위 labor metadata 를 보고 restricted 건은 별도 capability 가 있어야 본다.",
+          "지점 관리자는 자기 지점 일정/자료 요청/후속조치 요약만 보고 제한 메모 원문은 보지 않는다.",
+          "일반 직원은 자기 제출 요청과 자기 이슈 상태 일부만 보는 전제다.",
+          "감사는 민감 원문 대신 열람 흔적과 상태 변경 중심으로 본다.",
+        ],
+      },
+      {
+        title: "계속 닫아 두는 것",
+        items: ["실제 계약서/변경합의서 원문 저장", "실제 징계 확정/통지", "실제 사고 신고 제출", "외부 노무사·법무·급여 연동"],
+      },
+    ],
   },
   {
     slug: "legal",

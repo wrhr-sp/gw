@@ -239,6 +239,25 @@ pnpm --filter @gw/mobile typecheck
 4. `apps/api/test/work-items.spec.ts` 에서 grievance restricted 상세가 MANAGER 403 / HR_ADMIN 200 경계로 붙들려 있는지 본다.
 5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 허브/HR route copy 가 회귀 테스트로 고정돼 있는지 본다.
 
+### 1-10-c. Phase 27 쉬운 노무 관리 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 노무 이슈가 기존 공통 `work item` 엔진 위에서 어떻게 읽히는지 바로 설명할 수 있는가
+2. 공통 상태와 labor intake/review 보조 상태(`intake_status`)가 섞이지 않고 정리돼 있는가
+3. 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이가 같은 권한 언어로 정리돼 있는가
+4. 계약/연차/수당/고충/징계/사고/퇴사 범주와 evidence/review/follow-up 구조가 metadata 중심으로 먼저 정리돼 있는가
+5. 실제 계약서/징계/사고 원문 저장과 외부 노무/급여 연동이 여전히 승인 게이트로 남아 있는가
+
+이 5개 질문 중 하나라도 흐리면 Phase 27 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+1. `/work-items` 에서 공통 업무 허브와 API 골격(`/api/work-items`, `/api/work-item-deadlines`)이 같은 말로 적혀 있는지 본다.
+2. `/work-items/labor` 에서 labor category, visibility 분리, 승인 게이트 문구가 바로 보이는지 본다.
+3. `GET /api/work-items?module=labor` placeholder 응답에서 `category`, `intakeStatus`, `confidentialityLevel`, `viewerScope` 설명이 읽히는지 본다.
+4. `apps/api/test/work-items.spec.ts` 에서 restricted labor 상세/목록 경계가 역할별로 붙들려 있는지 본다.
+5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 허브/labor route copy 가 회귀 테스트로 고정돼 있는지 본다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -397,6 +416,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - Phase 24 문서라면 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/API/PWA/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 25 문서라면 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 26 문서라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 27 문서라면 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 

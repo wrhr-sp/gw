@@ -18,18 +18,43 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 26 HR·미팅 관리 1차다. Phase 25에서 정리한 공통 work item 엔진 위에, 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 skeleton을 호텔 지점 권한 기준으로 얹는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 27 노무 관리 1차다. Phase 25에서 정리한 공통 work item 엔진과 Phase 26 HR lifecycle 기준 위에, 근로계약·연차/수당·고충/징계/사고·퇴사 관련 노무 이슈 skeleton을 호텔 지점 권한 기준으로 얹는 것이 이번 체인의 핵심이다.
+
+현재 카드 진행 상태 요약:
+
+- 기획 `t_c840c0af`, 구현 1차 `t_ef60f4db`, 리뷰 1차 `t_be4f3ec4`, 테스트 `t_677258d9` 는 끝났다.
+- 리뷰에서 잡혔던 EMPLOYEE self-scope labor 경계는 후속 수정 카드 `t_7e3fdeb2` 에서 `work_item_labor_leave_balance_adjustment` placeholder 를 실제 fixture/test 에 연결하는 방식으로 보완됐고, 현재 review-required 승인/unblock 만 남아 있다.
+- 이 문서화 카드 `t_6f206961` 는 루트 운영 문서를 실제 저장소 상태와 다시 맞추는 단계다.
+- 다음 운영 카드 `t_a7119a71` 는 이 문서화가 끝나면 GitHub PR/CI/merge/branch cleanup 흐름으로 이어진다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 Phase 25 공통 업무 엔진 위에 직원 lifecycle 과 HR meeting skeleton 을 올리는 것이다.
-- 기준 엔티티는 여전히 `공통 work item` 이며, `module = hr` 를 유지한 채 `category`, `schedule_status`, `confidentiality_level`, `follow_up_required` 같은 보조 metadata 로 meeting 차이를 푼다.
-- 참석자/안건/메모/후속조치 구조를 metadata 중심 skeleton 으로 먼저 정리한다.
-- 본사 HR / 지점 관리자 / 일반 직원 visibility 와 비공개 범위를 회사 + 지점/호텔 + 역할 + capability 언어로 같이 맞춘다.
-- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, HR 진입 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
-- 실제 민감 인사기록 원문, 외부 캘린더/메일/메신저 연동, production data 는 계속 승인 게이트로 남긴다.
+- 이번 Phase의 목적은 Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에 노무 이슈 skeleton 을 올리는 것이다.
+- 기준 엔티티는 여전히 `공통 work item` 이며, `module = labor` 를 유지한 채 `category`, `intake_status`, `confidentiality_level`, `requires_acknowledgement`, `legal_hold_required` 같은 보조 metadata 로 노무 이슈 차이를 푼다.
+- evidence/review/follow-up/audit 구조를 metadata 중심 skeleton 으로 먼저 정리한다.
+- 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 와 restricted 범위를 회사 + 지점/호텔 + 역할 + capability 언어로 같이 맞춘다.
+- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, 노무 진입 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
+- 실제 계약서/징계/사고 원문, 외부 노무/법무/급여 연동, production data 는 계속 승인 게이트로 남긴다.
 - production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`, `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`, `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`, `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`.
+- 우선 참고 문서: `docs/architecture/phase-27-labor-management-pass-1-scope.md`, `docs/guides/phase-27-labor-management-pass-1-handoff.md`, `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`, `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`, `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`.
+
+2026-06-13 Phase 27 기획 메모:
+
+- 이번 단계는 실제 노무 사건 처리 시스템을 여는 것이 아니라, 기존 공통 `work item` 엔진 위에 계약/연차/수당/고충/징계/사고/퇴사 skeleton 을 올리는 문서 단계다.
+- labor 종류는 `employment_contract`, `work_condition_change`, `leave_balance_adjustment`, `allowance_review`, `overtime_review`, `grievance`, `discipline_review`, `incident_report`, `offboarding_clearance` 같은 category 확장으로 먼저 본다.
+- 주 상태는 계속 공통 상태(`draft` → `todo` → `in_progress` → `waiting_review` → `blocked` → `done` → `archived`)를 쓰고, labor intake 의미는 `intake_status` 같은 보조 필드로 푼다.
+- 본사 노무 담당은 여러 지점 labor 이슈를 더 넓게 보고, HR은 계약/조건/퇴사 follow-up 같이 맞닿은 범위를 보며, 지점 관리자는 자기 지점 직원 관련 요약/자료요청/후속조치만 보고, 일반 직원은 자기 요청/안내/제출 범위만 본다. 이번 후속 수정으로 EMPLOYEE self-scope labor placeholder(`work_item_labor_leave_balance_adjustment`) 1건을 실제 API fixture/test 에도 열어 문서와 구현을 다시 맞췄다.
+- evidence 와 사건 메모는 1차에서 원문 저장이 아니라 metadata 중심(`evidenceSummary`, `confidentialityLevel`, `requiresAcknowledgement`)으로 시작한다.
+- 외부 노무/법무/급여 연동, 실제 계약서/징계/사고 원문 저장, production DB 실데이터 입력은 이번 단계에서도 승인 게이트다.
+
+2026-06-13 Phase 27 빠른 확인 순서:
+
+- `/work-items` — 공통 업무 허브에서 공통 work item/API 골격, 모바일/PC 진입 구조를 먼저 본다.
+- `/work-items/labor` — labor category, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, 승인 게이트 문구를 본다.
+- `/api/work-items?module=labor` — 계약/정정/수당/고충/징계/사고 placeholder 와 `viewerScope`, `confidentialityLevel` 설명을 본다. EMPLOYEE 에게는 self-scope `work_item_labor_leave_balance_adjustment` 가 실제로 내려오는지 함께 확인한다.
+- `apps/api/test/work-items.spec.ts` — restricted labor 상세/목록 경계가 역할별로 붙들려 있는지 본다.
+- `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` — 허브/labor route copy 와 승인 게이트 문구가 회귀 테스트로 남아 있는지 본다.
+- 마지막으로 실제 계약서/징계/사고/급여/production data 가 여전히 승인 게이트로 남았는지 다시 본다.
 
 2026-06-13 Phase 26 기획 메모:
 

@@ -4,6 +4,12 @@
 
 ### Changed
 
+- `TASKS.md`, `HANDOFF.md`, `DATA_MODEL.md`, `API.md` 를 다시 맞춰 Phase 27 체인이 아직 초안 단계처럼 읽히는 오래된 문장을 걷어내고, 실제 카드 진행 상태와 labor placeholder 구현 상태가 바로 보이게 정리했다.
+- 특히 EMPLOYEE self-scope labor placeholder `work_item_labor_leave_balance_adjustment` 가 이제 fixture/API/test 에 연결돼 있다는 점, `laborContext` 가 shared contract/API 에 실제로 올라와 있다는 점, 다음 운영 카드가 `t_a7119a71` 로 이어진다는 점을 루트 문서에서 바로 확인할 수 있게 했다.
+- `apps/api/src/app.ts`, `apps/api/test/work-items.spec.ts` 를 갱신해 labor 모듈에 일반 직원 self-scope placeholder `work_item_labor_leave_balance_adjustment` 를 추가했다. 이제 EMPLOYEE 도 `/api/work-items?module=labor` 와 상세 API에서 자기 연차 정정 요청/자료 제출 상태를 1건 이상 볼 수 있고, MANAGER 는 같은 카드를 계속 403 으로 받도록 목록·상세 권한 테스트를 함께 보강했다.
+- `CHANGELOG.md`, `HANDOFF.md` 를 같이 갱신해 이번 선택이 문서 약속(일반 직원 self-scope labor)과 실제 fixture/API/test 를 다시 맞추기 위한 수정임을 남겼다.
+- `docs/architecture/phase-27-labor-management-pass-1-scope.md` 와 `docs/guides/phase-27-labor-management-pass-1-handoff.md` 를 추가해 Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에 근로계약·연차/수당·고충/징계/사고·퇴사 관련 노무 이슈 skeleton 을 어떻게 얹을지, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence 원칙, 외부 노무/법무/급여 연동 및 실민감 기록 승인 게이트를 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 27 활성 체인 기준으로 갱신해 현재 카드 ids, 노무 관리 목표, 직전 Phase 26 HR 체인과의 연결점, 남은 승인 게이트를 한 번에 따라가게 정리했다.
 - `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 다시 맞춰 Phase 26 문서가 이제 "초안만 있음"이 아니라 실제 placeholder contract/API/Web/test 근거 위에서 읽히도록 정리했다. `/work-items` → `/work-items/hr` → `/api/work-items?module=hr` 빠른 확인 순서와 grievance restricted 경계 테스트 근거를 함께 적어, 대장이 문서와 코드 확인 포인트를 바로 이어 볼 수 있게 했다.
 - `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md` 와 `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md` 를 추가해 Phase 25 공통 업무 엔진 위에 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 skeleton을 어떻게 얹을지, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모 원칙, 외부 캘린더/실민감 기록 승인 게이트를 쉬운 한국어로 고정했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 26 활성 체인 기준으로 갱신해 현재 카드 ids, HR·미팅 관리 목표, 직전 Phase 25 공통 엔진과의 연결점, 남은 승인 게이트를 한 번에 따라가게 정리했다.

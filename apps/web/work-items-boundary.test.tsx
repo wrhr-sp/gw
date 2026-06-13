@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import WorkItemsHrPage from "./app/work-items/hr/page";
+import WorkItemsLaborPage from "./app/work-items/labor/page";
 import WorkItemsPage from "./app/work-items/page";
 import { workItemGuardrails, workItemHubHighlights, workItemModuleCards } from "./app/work-items/work-items-config";
 
@@ -40,6 +41,18 @@ describe("Phase 25 work-items skeleton boundaries", () => {
     expect(html).toContain("공통 업무 허브로");
     expect(html).not.toContain("저장 완료");
     expect(html).not.toContain("외부 전송");
+  });
+
+  it("renders the labor module page with restricted visibility copy and no fake legal/payroll completion claims", () => {
+    const html = renderToStaticMarkup(<WorkItemsLaborPage />);
+
+    expect(html).toContain("노무 업무");
+    expect(html).toContain("이번 단계 labor 유형");
+    expect(html).toContain("누가 어디까지 보는가");
+    expect(html).toContain("restricted 건은 별도 capability 가 있어야 본다.");
+    expect(html).toContain("실제 사고 신고 제출");
+    expect(html).not.toContain("급여 반영 완료");
+    expect(html).not.toContain("징계 확정 완료");
   });
 
   it("keeps guardrails explicit in config for every module card", () => {

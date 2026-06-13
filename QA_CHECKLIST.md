@@ -35,6 +35,7 @@
 - [ ] Phase 24 회사 파일럿 운영 1차 범위라면 제한된 파일럿 대상 범위, 사용자 안내 → 직원 체험 레인 → 운영자 동행 레인 → 피드백 수집 순서, live/API/PWA/mobile 선행 체크리스트, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 25 공통 업무·문서·마감·권한 엔진 1차 범위라면 공통 `work item` 모델, 문서/첨부/검토/마감 skeleton, 회사 + 지점/호텔 + 역할 + capability 접근 기준, 모바일/PC 새 업무 그룹 자리, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 26 HR·미팅 관리 1차 범위라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR / 지점 관리자 / 일반 직원 visibility, metadata-only 메모, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 27 노무 관리 1차 범위라면 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility, metadata-only evidence, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
@@ -68,9 +69,13 @@
 - [ ] Phase 24 파일럿 문서에서는 위 일반 업무/관리자 흐름이 사용자 안내 → 실제 체험 → 운영자 동행 → 피드백 수집 순서로 다시 묶여 있고, 전사 오픈/실데이터 투입처럼 과장되지 않는다.
 - [ ] Phase 25 문서에서는 위 파일럿 준비 흐름 위에 공통 work item 엔진이 올라가며, 개별 모듈 완성/실민감 처리/외부 전문가 연동처럼 과장되지 않는다.
 - [ ] Phase 26 문서에서는 위 공통 work item 엔진 위에 직원 lifecycle 과 HR meeting skeleton 이 올라가며, 별도 회의 솔루션/실민감 HR 처리/외부 캘린더 연동처럼 과장되지 않는다.
+- [ ] Phase 27 문서에서는 위 공통 work item 엔진과 HR lifecycle 기준 위에 labor skeleton 이 올라가며, 별도 사건 처리 솔루션/실민감 계약·징계·사고 처리/외부 노무·급여 연동처럼 과장되지 않는다.
 - [ ] 공통 상태와 meeting 일정 상태가 같은 필드/같은 말처럼 섞여 쓰이지 않는다.
+- [ ] 공통 상태와 labor intake/review 상태가 같은 필드/같은 말처럼 섞여 쓰이지 않는다.
 - [ ] 참석자였다 는 사실과 모든 비공개 메모를 본다 는 권한이 같은 뜻으로 설명되지 않는다.
+- [ ] 관련자였다 는 사실과 모든 restricted 노무 메모를 본다 는 권한이 같은 뜻으로 설명되지 않는다.
 - [ ] `/work-items` → `/work-items/hr` → `/api/work-items?module=hr` 순서의 쉬운 확인 포인트와, grievance restricted 경계 테스트(`apps/api/test/work-items.spec.ts`)가 문서 설명과 같은 뜻이다.
+- [ ] `/work-items` → `/work-items/labor` → `/api/work-items?module=labor` 순서의 쉬운 확인 포인트와, restricted labor 경계 테스트(`apps/api/test/work-items.spec.ts`)가 문서 설명과 같은 뜻이다.
 - [ ] parent Phase 23 baseline 근거(live URL, release-gate success)와 이번 Phase 24 재검증 예정 항목이 구분돼 적혀 있다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
 - [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽히며, mobile 이 전체 readiness 의 일부라는 설명도 유지된다.

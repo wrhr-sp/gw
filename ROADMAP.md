@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 26 HR·미팅 관리 1차가 최신 범위이며, Phase 25 공통 업무 엔진 위에 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 skeleton을 호텔 지점 권한 기준으로 안전하게 얹는 작업을 이어간다.
+현재 문서화 기준으로는 Phase 27 노무 관리 1차가 최신 범위이며, Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에 근로계약·연차/수당·고충/징계/사고·퇴사 관련 노무 이슈 skeleton을 호텔 지점 권한 기준으로 안전하게 얹는 작업을 이어간다.
 
 ## Phase 흐름
 
@@ -34,6 +34,7 @@
 - Phase 24: 회사 파일럿 운영 1차
 - Phase 25: 공통 업무·문서·마감·권한 엔진 1차
 - Phase 26: HR·미팅 관리 1차
+- Phase 27: 노무 관리 1차
 
 ## MVP 성공 기준
 
@@ -49,6 +50,6 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-27-labor-management-pass-1-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-27-labor-management-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`
