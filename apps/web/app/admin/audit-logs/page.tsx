@@ -14,11 +14,22 @@ export default function AdminAuditLogsPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 13 관리자 콘솔 1차"
+      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 / 감사 로그"
       description="운영 변경 이력을 조회 필터, 최근 이벤트 타임라인, 상세 패널, 비노출/회사 경계 기준으로 나눠 보는 화면입니다."
       actions={<Pill tone="warning">read only</Pill>}
     >
+      <SurfaceSection
+        title="감사 전용 진입 의미"
+        description="감사 전용 사용자는 이 화면을 기본 진입점으로 보지만, 이것이 `/admin` 전체 허용을 뜻하지는 않습니다."
+      >
+        <ul className="summary-list">
+          <li>감사 전용 사용자는 read-only 추적과 company boundary 확인에 집중합니다.</li>
+          <li>사용자/정책 수정 화면 접근은 route/API guard 로 계속 분리합니다.</li>
+          <li>masked fields 와 source 는 설명용 메타데이터이지 민감 원문이나 외부 전송 완료 의미가 아닙니다.</li>
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection title="조회 필터" description="누가, 무엇을, 어디에 대해, 언제 확인했는지 같은 질문을 빠르게 좁히는 기본 필터입니다.">
         <div className="grid-auto-compact">
           {adminAuditLogPreviewFilters.map((item) => (

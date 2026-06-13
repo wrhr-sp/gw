@@ -25,7 +25,7 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 13 관리자 콘솔 1차"
+      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 허브"
       description="권한 있는 운영자가 어디서 들어와 무엇을 먼저 검토해야 하는지 고정한 operations-first 콘솔입니다. 실제 저장 대신 검토 순서, 감사 preview, 승인 게이트를 먼저 보여 줍니다."
       actions={
@@ -38,6 +38,17 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
         </div>
       }
     >
+      <SurfaceSection
+        title="운영 검토 순서"
+        description="이번 단계의 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 입니다."
+      >
+        <ul className="summary-list">
+          <li>대시보드에서 권한 기반 운영 CTA 또는 감사 CTA 를 확인합니다.</li>
+          <li>관리자 허브에서 오늘 검토할 사용자·정책·감사 포인트를 먼저 읽습니다.</li>
+          <li>`/employees`, `/boards`, `/documents` 는 일반 조회/협업 화면으로 남기고 저장 전 운영 검토는 `/admin/*` 에서 분리합니다.</li>
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection
         title="오늘 먼저 볼 운영 체크포인트"
         description="관리자 허브에 들어오면 저장 버튼보다 먼저 검토할 운영 포인트를 위에서부터 읽습니다."

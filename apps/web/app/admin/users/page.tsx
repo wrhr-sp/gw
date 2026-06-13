@@ -23,11 +23,29 @@ export default function AdminUsersPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 13 관리자 콘솔 1차"
+      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 / 사용자"
       description="사용자 저장보다 먼저 연결 상태, 권한 diff, 상태 변경 preview 를 검토하는 화면입니다. 저장 단계로 넘기기 전에 audit-ready 정보를 먼저 정리합니다."
       actions={<Pill tone="warning">review before save</Pill>}
     >
+      <SurfaceSection
+        title="일반 직원 조회와 운영 검토의 경계"
+        description="`/employees` 는 읽기 중심 일반 조회이고, 이 화면은 저장 전 운영 변경 후보 검토용입니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">/employees</Pill>
+            <h3>일반 조회</h3>
+            <p>직원 이름, 소속, 상태를 읽고 조직 확인 흐름으로 이어집니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">/admin/users</Pill>
+            <h3>운영 변경 후보 검토</h3>
+            <p>초대, 비활성화, 역할 diff, 고위험 권한을 저장 전 preview 로만 검토합니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection
         title="오늘 확인할 사용자 큐"
         description="운영자가 가장 먼저 열어야 할 사용자 검토 항목을 역할별 owner 와 함께 정리합니다."

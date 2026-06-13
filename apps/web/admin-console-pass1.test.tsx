@@ -15,10 +15,12 @@ describe("Phase 13 admin console pass 1", () => {
       <AdminPageContent visibleAdminHubCards={getAdminPageCardsForRole("COMPANY_ADMIN")} />,
     );
 
+    expect(html).toContain("운영 검토 순서");
     expect(html).toContain("오늘 먼저 볼 운영 체크포인트");
     expect(html).toContain("권한별 진입 경계");
     expect(html).toContain("저장 전 승인 게이트");
     expect(html).toContain("관리자 허브");
+    expect(html.indexOf("운영 검토 순서")).toBeLessThan(html.indexOf("오늘 먼저 볼 운영 체크포인트"));
     expect(html.indexOf("오늘 먼저 볼 운영 체크포인트")).toBeLessThan(html.indexOf("권한별 진입 경계"));
   });
 
@@ -35,6 +37,8 @@ describe("Phase 13 admin console pass 1", () => {
   it("shows user review queues and audit-ready diffs before any save action", () => {
     const html = renderToStaticMarkup(<AdminUsersPage />);
 
+    expect(html).toContain("일반 직원 조회와 운영 검토의 경계");
+    expect(html).toContain("/employees");
     expect(html).toContain("오늘 확인할 사용자 큐");
     expect(html).toContain("권한 diff 미리보기");
     expect(html).toContain("상태 변경 preview");
@@ -45,6 +49,8 @@ describe("Phase 13 admin console pass 1", () => {
   it("keeps policy review cards in a consistent current-candidate-capability format", () => {
     const html = renderToStaticMarkup(<AdminPoliciesPage />);
 
+    expect(html).toContain("협업 화면과 운영 정책 화면의 경계");
+    expect(html).toContain("/boards · /documents");
     expect(html).toContain("현재 운영 기준");
     expect(html).toContain("candidate 변경안");
     expect(html).toContain("필요 capability");
@@ -74,6 +80,7 @@ describe("Phase 13 admin console pass 1", () => {
   it("keeps audit logs focused on filters, timeline, detail context, and masking boundaries", () => {
     const html = renderToStaticMarkup(<AdminAuditLogsPage />);
 
+    expect(html).toContain("감사 전용 진입 의미");
     expect(html).toContain("조회 필터");
     expect(html).toContain("최근 이벤트 타임라인");
     expect(html).toContain("상세 패널");

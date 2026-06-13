@@ -123,6 +123,36 @@ pnpm --filter @gw/mobile typecheck
 10. 마지막으로 live/PWA/API/mobile 근거를 다시 모은다.
    - 각 축 설명이 달라도 최종 결론은 "지금 확인 가능 / 아직 skeleton / 승인 필요" 셋으로 모여야 한다.
 
+### 1-8. Phase 23 쉬운 관리자 운영 콘솔 판정 질문
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 관리자가 `/dashboard` 에서 운영 콘솔로 어디서 들어가는지 바로 보이는가
+2. `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서가 실제 운영 검토 흐름처럼 읽히는가
+3. `/employees` 일반 조회와 `/admin/users` 운영 검토가 서로 다른 책임으로 보이는가
+4. `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토가 섞이지 않는가
+5. `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계가 문서와 코드에서 같은 뜻인가
+6. production data·secret·실권한 저장·외부 연동·유료 리소스가 여전히 승인 게이트로 남아 있는가
+
+이 6개 질문 중 하나라도 흐리면 Phase 23 문서 작업은 완료로 보지 않는다.
+
+빠르게 눌러 볼 때는 아래처럼 본다.
+
+1. `/dashboard` — 관리자 CTA 또는 감사 CTA 가 어디에 보이는지 확인한다.
+2. `/admin` — 오늘 먼저 볼 운영 체크포인트와 승인 게이트가 먼저 읽히는지 본다.
+3. `/admin/users` — `/employees` 와 다른 운영 변경 후보 검토 화면으로 읽히는지 본다.
+4. `/admin/policies` — current/candidate/capability/audit preview 구조가 유지되는지 본다.
+5. `/admin/audit-logs` — read-only 감사 추적, masked/company boundary/source 의미가 흔들리지 않는지 본다.
+
+최근 Phase 23 재검증 기준 명령:
+
+- `pnpm --filter @gw/web test -- --runInBand apps/web/dashboard-boundary.test.tsx apps/web/admin-console-pass1.test.tsx apps/web/admin-preview-guard.test.ts apps/web/org-employees-boundary.test.tsx`
+- `pnpm --filter @gw/shared test -- contracts.spec.ts`
+- `pnpm --filter @gw/api test -- --runInBand apps/api/test/auth-org.spec.ts`
+- `pnpm --filter @gw/web typecheck`
+- `pnpm check`
+- `pnpm --filter @gw/web build:cf`
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -277,6 +307,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
 - Phase 22 문서라면 로그인 → 대시보드 → 출퇴근 → 휴가 → 결재 → 공지/문서 → 내 정보 → 조직/직원 확인 순서, offline/error/empty/forbidden 상태 분류, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 23 문서라면 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서, 일반 조회 대 운영 검토 경계, high-risk permission(`invite.manage`, `audit.read`, `board.manage`, `document.space.manage`), 파일/문서 권한 비노출 원칙, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
