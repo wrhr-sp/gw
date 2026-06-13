@@ -18,17 +18,25 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 22 실제 업무 흐름 통합 1차다. Phase 21에서 정리한 실제 회사 설정 모델 기준 위에, 로그인 이후 대시보드·출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름을 실제 하루 업무 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 23 관리자 운영 콘솔 실사용 1차다. Phase 22에서 정리한 실제 하루 업무 흐름 기준 위에, `/dashboard` 이후 관리자 운영 CTA, `/admin` 허브, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 검토 흐름, 파일·문서·공지 권한 경계를 실제 회사 운영 준비 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 실운영 연결보다 실제 하루 업무 흐름처럼 읽히는 연결 구조 정리다.
-- 기준 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 다.
-- `/dashboard` 는 오늘 할 일 허브이고 `/admin/*` 는 별도 운영 확인 포인트로 남긴다.
-- mobile/PWA/Web 은 같은 route/auth/session contract 와 guardrail 을 가리키는지 비교해서 본다.
-- empty/error/forbidden/offline 상태는 실제 사용자 언어로 정리하되 의미를 섞지 않는다.
-- GPS/실태그 단말/production DB/secret/DNS/custom domain/유료 리소스/외부 초대·실연동/App Store·Play Console·TestFlight·EAS/push/실기기 권한은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`, `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`, `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/base-url.ts`.
+- 이번 Phase의 목적은 실제 운영 저장보다 관리자 운영 검토 흐름처럼 읽히는 연결 구조 정리다.
+- 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 다.
+- `/employees` 일반 조회, `/boards`·`/documents` 협업/보관 흐름과 `/admin/*` 운영 변경 검토 흐름을 분리해 본다.
+- `packages/shared/src/admin-access.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 를 같이 보며 role/permission/adminScope/route guard 를 같은 뜻으로 확인한다.
+- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 는 실제 guard 와 테스트 근거가 있는 high-risk permission 으로 본다.
+- production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/admin/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `packages/shared/src/admin-access.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`.
+
+2026-06-13 Phase 23 구현 메모:
+
+- `apps/web/app/dashboard/page.tsx` 는 이제 고정 EMPLOYEE preview 가 아니라 실제 `gw_session` 쿠키를 읽어 admin/audit CTA 를 계산한다.
+- 대시보드 본문은 `apps/web/dashboard-page-content.tsx` 로 분리했고, 여기서 관리자 운영 검토 레인을 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 직접 보여 준다.
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 모두 Phase 23 eyebrow 로 올렸고, 일반 조회 대 운영 검토 경계(`/employees` vs `/admin/users`, `/boards`·`/documents` vs `/admin/policies`)와 감사 전용 진입 의미를 각 화면에서 따로 읽히게 했다.
+- 대장이 실제로 눌러 볼 때는 `/dashboard` 의 관리자 CTA 확인 → `/admin` 운영 허브 → `/admin/users` 운영 변경 후보 → `/admin/policies` current/candidate 비교 → `/admin/audit-logs` read-only 감사 추적으로 읽으면 현재 화면 순서를 가장 빠르게 이해할 수 있다.
+- 회귀 테스트는 `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-console-pass1.test.tsx`, `apps/web/admin-preview-guard.test.ts`, `apps/api/test/auth-org.spec.ts` 로 다시 확인했고 `pnpm --filter @gw/shared test -- contracts.spec.ts`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build:cf`, `pnpm check` 까지 통과했다.
 
 2026-06-13 Phase 22 실제 업무 흐름 통합 1차 메모:
 

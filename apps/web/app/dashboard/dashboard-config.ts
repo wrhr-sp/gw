@@ -20,6 +20,12 @@ export type DashboardRouteCard = {
   body: string;
 };
 
+export type DashboardAdminShortcut = {
+  href: "/admin" | "/admin/audit-logs";
+  title: string;
+  body: string;
+};
+
 export type DashboardRoleJourneyCard = {
   role: string;
   firstRoute: string;
@@ -178,7 +184,10 @@ export const dashboardApiLinks = [
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },
 ] as const;
 
-export function getDashboardAdminShortcut(roleCodes: SessionUser["roleCodes"], permissions: SessionUser["permissions"] = []) {
+export function getDashboardAdminShortcut(
+  roleCodes: SessionUser["roleCodes"],
+  permissions: SessionUser["permissions"] = [],
+): DashboardAdminShortcut | null {
   const access = getAdminNavigationAccess({ roleCodes, permissions });
 
   if (access.canAccessAdminConsole) {

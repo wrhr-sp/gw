@@ -4,6 +4,12 @@
 
 ### Changed
 
+- `apps/web/dashboard-page-content.tsx` 를 새로 만들고 `apps/web/app/dashboard/page.tsx` 를 쿠키 기반 wrapper 로 바꿔, 실제 세션 roleCode 에 따라 `/admin` 또는 `/admin/audit-logs` 운영 CTA 가 보이도록 정리했다. 동시에 대시보드에 "관리자 운영 검토 레인" 섹션을 추가해 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서를 화면에서 바로 읽히게 했다.
+- `apps/web/admin-page-content.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 의 eyebrow/copy 를 Phase 23 기준으로 올리고, `/employees` 대 `/admin/users`, `/boards`·`/documents` 대 `/admin/policies`, 감사 전용 진입 의미를 분리 설명하는 운영 경계 섹션을 각각 추가했다.
+- `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-console-pass1.test.tsx` 를 함께 갱신해 실제 admin CTA 노출, 운영 검토 레인, 일반 조회 대 운영 검토 경계, 감사 전용 진입 의미가 회귀 테스트로 고정되게 했다.
+- `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 와 `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md` 를 추가해 `/dashboard` 이후 관리자 운영 CTA, `/admin` 허브, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 검토 흐름, 파일·문서·공지 권한 경계, high-risk permission, 승인 게이트를 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 23 활성 체인 기준으로 갱신해 현재 카드 ids, 운영 콘솔 기준 순서, 일반 조회 화면 대 운영 검토 화면 경계, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 한 번 더 다듬어 Phase 23 문서에서 대장이 바로 볼 빠른 route 확인 순서(`/dashboard` 관리자 CTA → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`)와 최근 재검증 명령 묶음이 같은 뜻으로 읽히게 맞췄다.
 - Phase 22 문서를 현재 `/dashboard` 구현 기준으로 다시 맞춰 상단 액션 순서를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 로, 이후 `/org`·`/employees` 를 마무리 조회 흐름으로 읽는 설명을 `SPEC.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 에 반영했다.
 - `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 를 추가해 로그인 이후 대시보드·출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름을 실제 하루 업무 순서처럼 다시 읽는 기준, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트를 쉬운 한국어로 고정했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 22 활성 체인 기준으로 갱신해 현재 카드 ids, 실제 업무 흐름 목표, 기준 route 순서, mobile 비교 포인트, 남은 승인 게이트를 한 번에 따라가게 정리했다.

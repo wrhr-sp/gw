@@ -349,6 +349,9 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 22 실제 업무 흐름 통합 1차에서는 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 각 항목이 실제 하루 업무 순서 안에서 어떻게 이어지는지와 아직 skeleton/승인 필요 범위를 같이 적는다.
 - `/dashboard` 상단 액션은 현재 구현 기준으로 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서를 먼저 설명하고, 그 뒤 `/org`·`/employees` 를 읽기 중심 마무리 조회 흐름으로 이어서 적는다.
 - 실제 업무 흐름 설명은 "직원이 로그인 후 무엇을 먼저 하는가 / 대시보드 상단 액션과 실제 업무 화면 설명이 같은 순서인가 / 출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름이 끊기지 않는가 / mobile/PWA/Web 이 같은 contract 와 guardrail 을 가리키는가 / `/admin/*` 운영 화면이 일반 직원 흐름에 섞이지 않는가 / production data·secret·실연동이 승인 게이트로 남아 있는가" 6가지 질문으로 먼저 정리한다.
+- 현재 활성 Phase 23에서는 위 직원 하루 흐름 기준 위에 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 운영 콘솔 흐름도 같은 수준으로 읽혀야 한다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 권한·정책 검토, `/admin/audit-logs` read-only 감사 흐름을 서로 다른 책임으로 적는다.
+- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계는 단순 문구가 아니라 route/API/test 와 같은 뜻으로 맞춘다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -370,6 +373,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `QA_CHECKLIST.md`
 - 관련 `docs/architecture/phase-*.md`
 - Phase 22 문서라면 `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 의 기준 업무 순서, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 23 문서라면 `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 와 `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md` 의 운영 콘솔 기준 순서, 일반 조회 대 운영 검토 경계, high-risk permission, 파일/문서/공지 권한 경계, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -395,6 +399,16 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/admin/*` 운영 화면은 일반 사용자 핵심 업무 흐름 설명 안에 섞지 않고, 관리자 확인 포인트로 따로 적는다.
 - 대장이 실제 업무 흐름을 빠르게 볼 때는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 순서를 기본 확인 포인트로 삼고, `/admin/*` 는 마지막에 별도 운영 확인 포인트로 본다.
 - live/PWA/API/mobile 확인 포인트를 따로 설명하더라도 최종 결론은 같은 회사 설정/readiness 언어로 모은다.
+
+### 6-5. Phase 23 문구는 "일반 조회 / 운영 검토 / 승인 필요" 경계를 먼저 보여 줘야 한다.
+
+- `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서가 실제 운영 준비 흐름처럼 읽혀야 한다.
+- 빠른 확인 포인트도 같은 순서를 따라야 한다. 예: `/dashboard` 에서는 관리자 CTA 위치, `/admin` 에서는 오늘 먼저 볼 검토판, `/admin/users` 에서는 직원 조회 대 운영 변경 후보 경계, `/admin/policies` 에서는 current/candidate 비교, `/admin/audit-logs` 에서는 read-only 감사 의미를 먼저 확인한다.
+- `/employees` 와 `/admin/users`, `/boards`·`/documents` 와 `/admin/policies` 의 책임을 섞지 않는다.
+- `/employees`, `/boards`, `/documents` 는 계속 일반 조회/협업/보관 화면으로 설명하고, 실제 저장 전 운영 판단은 `/admin/*` 에서 따로 검토한다고 적는다.
+- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 는 실제 guard/test 가 있는 high-risk permission 이라는 점을 문서에서도 숨기지 않는다.
+- `HR_ADMIN` 과 `AUDITOR` 가 같은 관리자처럼 뭉뚱그려 읽히지 않게, 감사 전용 사용자는 `/admin/audit-logs` 중심 흐름이라는 점을 함께 적는다.
+- raw storage key, bucket 이름, public/signed URL 전문은 정책/감사 설명에서도 비노출 원칙을 유지한다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

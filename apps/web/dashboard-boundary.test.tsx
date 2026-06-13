@@ -2,30 +2,31 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import DashboardPage from "./app/dashboard/page";
 import { getDashboardAdminShortcut } from "./app/dashboard/dashboard-config";
+import { DashboardPageContent } from "./dashboard-page-content";
 
 describe("Phase 14 dashboard summary skeleton", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
-    const html = renderToStaticMarkup(<DashboardPage />);
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} />);
 
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
+    expect(html).toContain("관리자 운영 검토 레인");
     expect(html).toContain("오늘 상태와 마무리 조회");
     expect(html).toContain("공지/문서 진입점");
     expect(html).toContain("운영 요약");
     expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
-    expect(html.indexOf("역할별 첫 이동")).toBeLessThan(html.indexOf("오늘 상태와 마무리 조회"));
+    expect(html).toContain("`/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`");
     expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("placeholder/dev-safe 요약이며 실제 저장이나 발송을 실행하지 않습니다.");
   });
 
   it("does not expose admin entry CTA in the default general-user dashboard view", () => {
-    const html = renderToStaticMarkup(<DashboardPage />);
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} />);
 
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
     expect(html).not.toContain("관리자 허브 바로가기");
@@ -53,5 +54,14 @@ describe("Phase 14 dashboard summary skeleton", () => {
       title: "감사 로그 바로가기",
       body: "감사 권한 사용자는 조회 가능한 감사 로그 preview 로 바로 이동합니다.",
     });
+  });
+
+  it("renders the actual admin CTA when a privileged viewer is supplied", () => {
+    const html = renderToStaticMarkup(
+      <DashboardPageContent adminShortcut={getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])} />,
+    );
+
+    expect(html).toContain("관리자 허브 바로가기");
+    expect(html).toContain('href="/admin"');
   });
 });

@@ -9,11 +9,29 @@ export default function AdminPoliciesPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 13 관리자 콘솔 1차"
+      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 / 정책"
       description="근태·휴가·결재·문서·게시판 정책을 실제 저장 전에 current/candidate/capability 형식으로 비교하는 화면입니다."
       actions={<Pill tone="warning">candidate only</Pill>}
     >
+      <SurfaceSection
+        title="협업 화면과 운영 정책 화면의 경계"
+        description="`/boards`, `/documents` 는 일반 협업/보관 흐름이고, 이 화면은 저장 전 운영 정책 candidate 검토용입니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">일반 협업</Pill>
+            <h3>/boards · /documents</h3>
+            <p>읽기, 작성, 보관, metadata 확인 같은 일상 협업 흐름을 보여 줍니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">운영 정책</Pill>
+            <h3>/admin/policies</h3>
+            <p>visibility, retention, capability, 감사 preview 를 같은 형식으로 비교합니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection
         title="정책 카드 공통 형식"
         description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 preview 를 같은 순서로 보여 줍니다."

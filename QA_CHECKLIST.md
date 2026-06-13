@@ -31,6 +31,8 @@
 - [ ] `/attendance`, `/leave`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
 - [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
 - [ ] Phase 22 실제 업무 흐름 통합 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 무엇을 어떤 순서로 따라갈 수 있는지/아직 skeleton 인지/승인 필요한 것인지가 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 23 관리자 운영 콘솔 실사용 1차 범위라면 `/dashboard` 관리자 CTA → `/admin` 허브 → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 흐름, 일반 조회 대 운영 검토 경계, high-risk permission, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] `/admin` 은 설명용 소개 화면이 아니라 오늘 먼저 볼 운영 체크포인트와 승인 게이트를 먼저 읽는 허브로 유지된다.
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
@@ -38,17 +40,19 @@
 - [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 forged 또는 접근 불가 postId 는 403 경계 설명과 같은 뜻으로 안내한다.
 - [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
+- [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.
 - [ ] `/leave` 의 운영 메모가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축을 실제 화면 문구로 분리해 보여 준다.
 - [ ] `/admin/policies` 의 출퇴근 정책 카드가 적용대상 level, 우선순위, 현재 허용 방식, candidate 변경안, 적용 인원 preview, capability, 감사 preview 를 같은 뜻으로 보여 준다.
 - [ ] `/admin/users` 의 역할 diff/상태 변경/audit candidate 설명이 `/dashboard`·`/employees`·`/approvals` 의 역할 경계와 충돌하지 않는다.
+- [ ] `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계가 UI 문구만이 아니라 route/API/test 설명과 같은 뜻으로 유지된다.
 - [ ] 일반 사용자 host 와 관리자 host 의 역할이 섞이지 않고, 일반 사용자 host 에서는 `/admin*` 가 그대로 렌더링되지 않는다.
 - [ ] `apps/mobile/src/base-url.ts` 설명이 production approved origin only, preview/development 명시적 origin 또는 mock adapter, preview URL 기본값 금지 기준과 같은 뜻이다.
 - [ ] `apps/mobile/src/session-bridge.ts` 설명이 plain async storage, web cookie copy, query-string token 금지와 secure storage bridge 전제를 숨기지 않는다.
 - [ ] `apps/mobile/src/workflow.ts` 설명이 일반 사용자 첫 액션 `attendance`, 승인 lane 권한 사용자 첫 액션 `approvals` 분기를 현재 helper 와 같은 뜻으로 유지한다.
 - [ ] live/PWA/API/mobile 확인 포인트가 섞이지 않고 설명되며, 최종 결론은 같은 readiness 언어로 모인다.
-- [ ] 대장이 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` → `/admin/users`·`/admin/policies`·`/admin/audit-logs` → `/admin` 순서로 볼 때, 각 단계가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 바로 읽힌다.
+- [ ] 대장이 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 순서로 일반 업무 흐름을 본 뒤, 관리자 검토는 `/dashboard` 관리자 CTA → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 다시 이어 볼 때 각 단계가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 바로 읽힌다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
 - [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽히며, mobile 이 전체 readiness 의 일부라는 설명도 유지된다.
 - [ ] 로그인 후 무엇을 먼저 하는지, 대시보드와 실제 업무 화면 순서가 같은지, 핵심 업무 흐름이 끊기지 않는지, mobile/Web 계약이 같은지, 상태 안내 4축이 같은지, `/admin/*` 와 승인 게이트가 분리되는지가 대장이 바로 확인할 질문으로 요약돼 있다.

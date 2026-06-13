@@ -6,34 +6,35 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 22 실제 업무 흐름 통합 1차
+작업명: Phase 23 관리자 운영 콘솔 실사용 1차
 
 현재 체인:
 
-1. 기획: `t_343f2b2f` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_48cb8d28` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_e66f56b7` — 바름(`gwreviewer`) — builder 완료 대기
-4. 테스트: `t_8582cd5f` — 해봄(`gwtester`) — review 완료 대기
+1. 기획: `t_201dd1bf` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_7ca962f5` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_4c8c7d97` — 바름(`gwreviewer`) — builder 완료 대기
+4. 테스트: 후속 reviewer 완료 뒤 같은 체인으로 이어진다.
 5. 후속 문서화/운영/최종 보고 카드는 같은 기준으로 이어진다.
 
 현재 문서 기준 핵심 범위:
 
-- 로그인/session placeholder 와 핵심 업무 route 를 한 흐름으로 다시 묶는다.
-- 기준 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 다.
-- `/dashboard` 상단 액션과 실제 업무 화면 설명이 같은 순서와 같은 언어를 가리키게 맞춘다.
-- empty/error/forbidden/offline 상태 안내를 실제 사용자 언어로 정리하되 의미를 섞지 않는다.
-- mobile/PWA/Web 이 같은 route/auth/session contract 를 가리키는지 비교 검증한다.
-- `/admin/*` 운영 화면은 일반 직원 하루 흐름에 섞지 않고 별도 운영 확인 포인트로 유지한다.
-- production data, secret, external HR, GPS/실태그, 실권한 변경, 외부 배포는 계속 별도 승인 게이트로 분리한다.
+- 관리자 운영 CTA 와 `/admin` 허브를 실제 회사 운영 준비 관점으로 다시 묶는다.
+- 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/boards`·`/documents` 협업 흐름과 `/admin/policies` 권한·정책 검토를 분리해 정리한다.
+- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계와 route/API guard 를 다시 확인한다.
+- 파일·문서·공지 권한 경계와 관리자 운영 변경 경계가 raw storage 정보 비노출 원칙과 충돌하지 않게 정리한다.
+- production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/employees/page.tsx` 가 현재 Web 흐름의 핵심 근거다.
-- `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/base-url.ts` 가 mobile/PWA 비교의 핵심 근거다.
-- 리뷰/테스트/문서화는 직원 하루 흐름이 끊기지 않는지, 상태 안내 4축이 같은 뜻인지, `/admin/*` 운영 경계와 승인 게이트가 문서마다 같은지 확인하는 방향으로 이어간다.
+- `apps/web/app/dashboard/page.tsx`, `apps/web/app/admin/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 가 현재 Web 운영 흐름의 핵심 근거다.
+- `packages/shared/src/admin-access.ts`, `packages/shared/src/contracts.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 가 권한/guard/API 경계의 핵심 근거다.
+- 리뷰/테스트/문서화는 운영 콘솔 순서가 끊기지 않는지, 일반 조회 화면과 운영 검토 화면 경계가 같은 뜻인지, high-risk permission 과 승인 게이트가 문서마다 같은지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`
+- `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`
 - `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`
 - `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`
 - `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`
