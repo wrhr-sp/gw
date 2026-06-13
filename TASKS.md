@@ -6,33 +6,35 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 23 관리자 운영 콘솔 실사용 1차
+작업명: Phase 24 회사 파일럿 운영 1차
 
 현재 체인:
 
-1. 기획: `t_201dd1bf` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_7ca962f5` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_4c8c7d97` — 바름(`gwreviewer`) — builder 완료 대기
+1. 기획: `t_ea69e768` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_3d628e46` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_3ecca52c` — 바름(`gwreviewer`) — builder 완료 대기
 4. 테스트: 후속 reviewer 완료 뒤 같은 체인으로 이어진다.
 5. 후속 문서화/운영/최종 보고 카드는 같은 기준으로 이어진다.
 
 현재 문서 기준 핵심 범위:
 
-- 관리자 운영 CTA 와 `/admin` 허브를 실제 회사 운영 준비 관점으로 다시 묶는다.
-- 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 다.
-- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/boards`·`/documents` 협업 흐름과 `/admin/policies` 권한·정책 검토를 분리해 정리한다.
-- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계와 route/API guard 를 다시 확인한다.
-- 파일·문서·공지 권한 경계와 관리자 운영 변경 경계가 raw storage 정보 비노출 원칙과 충돌하지 않게 정리한다.
-- production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트로 분리한다.
+- 전사 오픈이 아니라 제한된 부서/사용자 기준 파일럿 대상 묶음과 제외 범위를 먼저 고정한다.
+- 직원 체험 흐름(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees`)과 운영자 동행 흐름(`/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`)을 같은 파일럿 시나리오로 다시 묶는다.
+- live URL, same-origin API health, PWA/mobile smoke 를 파일럿 선행 체크리스트 언어로 정리한다.
+- 사용자 안내, 운영자 매뉴얼, 장애 대응, 피드백 수집 기준을 1차 문서 구조로 고정한다.
+- parent Phase 23의 release-gate/cloudflare-deploy success 는 baseline 근거로만 쓰고, 이번 Phase에서는 재검증 완료처럼 과장하지 않는다.
+- production data, secret, 실제 계정 발급/권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `apps/web/app/dashboard/page.tsx`, `apps/web/app/admin/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 가 현재 Web 운영 흐름의 핵심 근거다.
-- `packages/shared/src/admin-access.ts`, `packages/shared/src/contracts.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 가 권한/guard/API 경계의 핵심 근거다.
-- 리뷰/테스트/문서화는 운영 콘솔 순서가 끊기지 않는지, 일반 조회 화면과 운영 검토 화면 경계가 같은 뜻인지, high-risk permission 과 승인 게이트가 문서마다 같은지 확인하는 방향으로 이어간다.
+- `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 가 각각 직원 체험 레인과 운영자 레인의 직전 기준 문서다.
+- parent Phase 23 최종 보고 metadata 가 현재 live URL(`https://gw-web.werehere31.workers.dev`), 대표 route, release-gate/cloudflare-deploy success baseline 근거다.
+- 리뷰/테스트/문서화는 파일럿 대상 범위, 선행 체크리스트, 사용자 안내/운영자 매뉴얼, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`
+- `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`
 - `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`
 - `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`
 - `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`

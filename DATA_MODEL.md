@@ -34,6 +34,7 @@
 | 전자결재 | `approval_forms`, `approval_lines`, `approval_documents`, `approval_steps`, `approval_references` | 높음 | skeleton migration + shared contract + placeholder 응답 + self-approval/cross-scope guardrail test | `db/migrations/0004_approvals_phase4.sql`, `packages/shared/src/contracts.ts`, `docs/architecture/phase-4-approvals-scope.md` |
 | 게시판/문서 | `notice_boards`, `board_posts`, `board_comments`, `document_spaces`, `document_files`, `read_receipts` | 중간~높음 | skeleton migration + shared contract + placeholder 응답 + private/public 경계 test | `db/migrations/0005_boards_documents_phase5.sql`, `packages/shared/src/contracts.ts`, `docs/architecture/phase-5-boards-documents-scope.md`, `docs/architecture/phase-8-r2-storage-scope.md` |
 | 플랫폼/공통 계약 | same-origin route, PWA/manifest, 문서 업로드 contract | 중간 | shared contract + web/api bridge + build/test 기준 있음 | `packages/shared/src/contracts.ts`, `docs/architecture/phase-6-mobile-pwa-scope.md`, `docs/architecture/phase-7-api-same-origin-scope.md` |
+| Phase 24 제안 모델 | 모바일 `홈` 커스터마이징, `지점/호텔 코드`, 직원-지점 배정, 지점 업무/보고 템플릿 | 중간~높음 | 문서 초안만 있음, migration/shared contract/API 미구현 | `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `SPEC.md` |
 
 ## 1. 인증/조직 엔티티
 
@@ -127,6 +128,39 @@
 - `apps/api/src/app.ts`
 - `apps/api/test/auth-org.spec.ts`
 - `docs/architecture/phase-11-org-employees-scope.md`
+
+### 1-3-b. Phase 24 제안 모델: `지점/호텔` + 직원 지점 배정
+
+무엇을 나타내나:
+- 호텔 위탁경영사 도메인 기준으로 회사 하위 운영 단위를 `지점/호텔` 로 다루기 위한 문서 초안이다.
+- 일반 근무자에게는 자기 지점 업무만 보이고, 본사/지점 관리자에게는 역할에 맞는 지점 범위를 보여 주기 위한 제안 모델이다.
+
+초안 필드:
+- 지점/호텔 master: `branch_id`, `branch_code`, `branch_name` 또는 `hotel_name`, `company_id`, `status`
+- 직원-지점 배정: `employee_id`, `branch_id`, `role_in_branch`, `primary`, `starts_at`, `ends_at`
+- 지점 업무/보고 템플릿: `task_type`, `report_type`, `branch_visibility`, `requires_manager_review`
+
+관계:
+- `companies` 1:N `branches`
+- `employees` N:M `branches` 가능성을 열되, 파일럿 1차 문서에서는 `primary` 지점 1개가 먼저 읽히게 둔다.
+- 향후 지점 업무/보고 템플릿은 근태/결재/게시판/문서와 연결될 수 있지만, 현재는 문서 초안 단계다.
+
+민감도/주의:
+- 현재 migration/shared contract/API 는 아직 없다.
+- 이 문단은 실운영 branch master, 실제 직원 배정, PMS 연동이 이미 붙었다는 뜻이 아니다.
+- 지점 미배정 사용자는 `지점 배정 필요` 안내를 먼저 보고, 다른 지점 데이터는 UI/API 모두 차단해야 한다는 제품 방향만 고정한다.
+
+현재 상태:
+- 문서 초안만 있음
+- migration 없음
+- shared contract 없음
+- placeholder API 없음
+- guardrail test 없음
+
+근거:
+- `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`
+- `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`
+- `SPEC.md`
 
 ### 1-4. 부서/역할/권한 `departments`, `roles`, `user_roles`, permission catalog
 

@@ -345,13 +345,25 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 넓은 화면은 왼쪽 사이드바
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
+- 모바일 하단 탭 기본은 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, `메뉴`에서 기본 업무/내 정보·조회/협업 placeholder 전체 메뉴 화면을 연다.
+- 모바일 `홈` 은 회사가 고정하는 필수 핵심 메뉴와 사용자가 선택/정렬하는 개인 바로가기를 함께 다루는 구조로 적는다.
+- `홈` 바로가기와 `메뉴` 전체 기능 선택 화면은 같은 기능 id/라벨/권한 registry 를 공유해야 한다.
+- 필수 고정 메뉴는 사용자가 임의로 숨기지 못하거나, 최소한 회사 정책/관리자 설정으로 고정 여부를 통제할 수 있어야 한다.
+- 사용자별 `홈` 커스터마이징 저장은 이번 Phase 24에서는 production DB 영구 저장이 아니라 dev-safe/local/profile skeleton 전제로 적는다.
+- 넓은 화면 사이드바는 접기/펼치기가 가능해야 하며 모바일 전체 메뉴와 같은 메뉴군을 가리킨다.
 - 관리자 기능은 모바일 하단 탭 기본 메뉴에 섞지 않는다.
+- 호텔 위탁경영사 도메인 기준으로 `지점/호텔 코드` 단위를 독립 업무 범위로 보고, 일반 근무자 `지점 업무` 와 관리자 `지점 관리` 를 같은 메뉴군 안에서도 권한 기준으로 분리해 적는다.
+- 지점 미배정 사용자는 `지점 배정 필요` 안내를 먼저 보고, 다른 지점 데이터는 UI/API 모두 차단한다고 적는다.
 - Phase 22 실제 업무 흐름 통합 1차에서는 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 각 항목이 실제 하루 업무 순서 안에서 어떻게 이어지는지와 아직 skeleton/승인 필요 범위를 같이 적는다.
 - `/dashboard` 상단 액션은 현재 구현 기준으로 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서를 먼저 설명하고, 그 뒤 `/org`·`/employees` 를 읽기 중심 마무리 조회 흐름으로 이어서 적는다.
 - 실제 업무 흐름 설명은 "직원이 로그인 후 무엇을 먼저 하는가 / 대시보드 상단 액션과 실제 업무 화면 설명이 같은 순서인가 / 출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름이 끊기지 않는가 / mobile/PWA/Web 이 같은 contract 와 guardrail 을 가리키는가 / `/admin/*` 운영 화면이 일반 직원 흐름에 섞이지 않는가 / production data·secret·실연동이 승인 게이트로 남아 있는가" 6가지 질문으로 먼저 정리한다.
-- 현재 활성 Phase 23에서는 위 직원 하루 흐름 기준 위에 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 운영 콘솔 흐름도 같은 수준으로 읽혀야 한다.
+- 현재 활성 Phase 24에서는 위 직원 하루 흐름과 Phase 23 관리자 흐름을 실제 회사 파일럿 준비 시나리오로 다시 묶어 읽혀야 한다.
+- 기준은 사용자 안내 → `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → 필요 시 `/org`·`/employees` → 운영자 동행 `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → 피드백 수집 순서다.
 - `/employees` 일반 조회와 `/admin/users` 운영 검토, `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 권한·정책 검토, `/admin/audit-logs` read-only 감사 흐름을 서로 다른 책임으로 적는다.
-- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 권한 경계는 단순 문구가 아니라 route/API/test 와 같은 뜻으로 맞춘다.
+- parent Phase 23의 live URL/release-gate success 는 baseline 근거로만 적고, 이번 Phase 24에서는 실제 재검증 완료처럼 과장하지 않는다.
+- live route, same-origin `/api/health`·`/api/me`, PWA/mobile 확인은 파일럿 선행 체크리스트로 따로 적는다.
+- Phase 24 파일럿 UX에서는 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개와 PC collapsible sidebar 가 같은 메뉴군을 가리키고, 관리자 메뉴는 일반 사용자 기본 탐색에 섞지 않는다.
+- Phase 24 파일럿 UX에서는 모바일 `홈` 커스터마이징과 `지점/호텔 코드` 권한 구조를 문서 초안으로 먼저 고정하되, 실데이터/PMS 연동/영구 저장은 승인 게이트로 남긴다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -374,6 +386,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 관련 `docs/architecture/phase-*.md`
 - Phase 22 문서라면 `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 의 기준 업무 순서, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 23 문서라면 `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 와 `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md` 의 운영 콘솔 기준 순서, 일반 조회 대 운영 검토 경계, high-risk permission, 파일/문서/공지 권한 경계, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 24 문서라면 `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md` 와 `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md` 의 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/PWA/API/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -409,6 +422,18 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 는 실제 guard/test 가 있는 high-risk permission 이라는 점을 문서에서도 숨기지 않는다.
 - `HR_ADMIN` 과 `AUDITOR` 가 같은 관리자처럼 뭉뚱그려 읽히지 않게, 감사 전용 사용자는 `/admin/audit-logs` 중심 흐름이라는 점을 함께 적는다.
 - raw storage key, bucket 이름, public/signed URL 전문은 정책/감사 설명에서도 비노출 원칙을 유지한다.
+
+### 6-6. Phase 24 문구는 "작게 시작할 파일럿 / 아직 안 되는 것 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 전사 오픈, 실데이터 투입, 실제 계정 대량 발급처럼 읽히는 문구를 피하고, 제한된 부서/사용자 대표 묶음부터 시작한다고 적는다.
+- 직원 체험 레인과 운영자 동행 레인을 같은 시나리오로 보여 주되, 서로의 책임을 섞지 않는다.
+- live URL, `/api/health`, `/api/me`, PWA/mobile 확인은 이번 Phase에서 다시 볼 항목으로 적고, parent Phase 23 baseline 근거를 이번 재검증 완료처럼 쓰지 않는다.
+- 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집은 긴 설명보다 "오늘 해 볼 일 / 아직 안 되는 것 / 승인 필요 / 보고 방법"이 먼저 보이게 적는다.
+- 모바일 `홈` 은 고정 필수 메뉴와 사용자 커스터마이징 가능한 메뉴를 함께 다루되, 실제 영구 저장은 dev-safe/local/profile skeleton 전제임을 분명히 적는다.
+- `홈` 바로가기와 `메뉴` 전체 기능 선택 화면은 같은 기능 registry 를 공유하고, 필수 메뉴가 임의로 사라지지 않는 기준을 함께 적는다.
+- `지점/호텔 코드` 구조는 호텔 위탁경영사 도메인 초안으로 적고, 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 가시 범위를 분리한다.
+- `지점 배정 필요` 안내, 다른 지점 데이터 UI/API 차단, 지점 업무 대 지점 관리 분리를 파일럿 문서에서 같은 용어로 반복한다.
+- production DB, secret, 실제 권한 저장, custom domain, 유료 리소스, 외부 연동은 파일럿 준비 문서 안에서도 계속 별도 승인 목록으로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 
