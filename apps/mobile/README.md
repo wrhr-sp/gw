@@ -17,6 +17,8 @@
   - Web cookie 복제가 아니라 secure storage bridge 전제를 유지하는 session guardrail
 - `src/screens.ts`
   - 로그인/대시보드/출퇴근/휴가/결재함/공지·문서/내 정보 wireframe 메모
+- `src/workflow.ts`
+  - 화면별 offline/error/empty/forbidden 상태 설명과 역할별 첫 액션 흐름 preview helper
 
 ## 이번 단계에서 하지 않는 것
 
@@ -33,6 +35,7 @@
 2. `src/base-url.ts` 에서 production 은 approved origin 만, dev/preview 는 명시적 origin 또는 mock adapter 만 허용하는지 확인한다.
 3. `src/session-bridge.ts` 에서 plain async storage 나 Web cookie copy 가 금지되는지 확인한다.
 4. `src/screens.ts` 에서 `/admin/*` 가 모바일 기본 탭에 포함되지 않는지 확인한다.
+5. `src/workflow.ts` 에서 화면 상태 4축과 일반 사용자/승인자 첫 액션 분기가 같은 contract 뜻으로 계산되는지 확인한다.
 
 ## 현재 검증 메모
 

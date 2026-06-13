@@ -1,5 +1,6 @@
 import {
   appRoutes,
+  hasNativeMobileApprovalLaneAccess,
   nativeMobilePermissionHints,
   nativeMobileSessionBridgePolicy,
   type PermissionCode,
@@ -57,7 +58,7 @@ export function createPlaceholderNativeSessionSnapshot(roleCodes: readonly RoleC
 }
 
 export function describeSessionScopedFeatures(roleCodes: readonly RoleCode[]) {
-  const canApprove = roleCodes.some((roleCode) => ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER"].includes(roleCode));
+  const canApprove = hasNativeMobileApprovalLaneAccess(roleCodes);
 
   return {
     attendance: nativeMobilePermissionHints.attendance ?? [],

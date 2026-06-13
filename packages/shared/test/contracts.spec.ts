@@ -66,7 +66,13 @@ import {
   sessionUserSchema,
 } from "../src/contracts";
 import {
+  describeNativeMobileRouteAccess,
+  getNativeMobilePrimaryRoute,
+  getNativeMobileUiStateGuidance,
+  hasNativeMobileApprovalLaneAccess,
   isNativeMobilePrimaryWebRoute,
+  nativeMobileCoreWorkflow,
+  nativeMobilePwaNativeDifferences,
   nativeMobileApprovalGates,
   nativeMobileBaseUrlPolicy,
   nativeMobileCriticalApiRoutes,
@@ -171,6 +177,36 @@ describe("shared contracts", () => {
     expect(nativeMobilePermissionHints.approvals).toContain("approval.document.approve");
     expect(nativeMobileCriticalApiRoutes).toContain(appRoutes.approvals.inbox);
     expect(nativeMobileApprovalGates).toContain("유료 빌드와 외부 테스터 배포");
+  });
+
+  it("defines Phase 18 workflow/state guidance with explicit non-admin guardrails", () => {
+    expect(nativeMobileCoreWorkflow.map((step) => step.screenId)).toEqual([
+      "login",
+      "dashboard",
+      "attendance",
+      "leave",
+      "approvals",
+      "collaboration",
+      "me",
+    ]);
+    expect(getNativeMobilePrimaryRoute("approvals")?.apiRoutes).toContain(appRoutes.approvals.documents);
+    expect(getNativeMobilePrimaryRoute("approvals")?.access.policy).toBe("authenticated");
+    expect(describeNativeMobileRouteAccess("approvals", ["MANAGER"]).hasActionAccess).toBe(true);
+    expect(getNativeMobileUiStateGuidance("offline").blockedActions).toContain("출퇴근 등록");
+    expect(getNativeMobileUiStateGuidance("forbidden").blockedActions).toContain("관리자 정책 변경 화면 직접 노출");
+    expect(nativeMobilePwaNativeDifferences.native[1]).toContain("runtime base URL resolver");
+  });
+
+  it("splits approvals inbox read access from approval CTA access for employee and manager roles", () => {
+    const employeeAccess = describeNativeMobileRouteAccess("approvals", ["EMPLOYEE"]);
+    const managerAccess = describeNativeMobileRouteAccess("approvals", ["MANAGER"]);
+
+    expect(employeeAccess.hasRouteAccess).toBe(true);
+    expect(employeeAccess.hasActionAccess).toBe(false);
+    expect(managerAccess.hasRouteAccess).toBe(true);
+    expect(managerAccess.hasActionAccess).toBe(true);
+    expect(hasNativeMobileApprovalLaneAccess(["EMPLOYEE"])).toBe(false);
+    expect(hasNativeMobileApprovalLaneAccess(["MANAGER"])).toBe(true);
   });
 
   it("parses login/session and org list payloads", () => {

@@ -15,6 +15,21 @@ export type MobileAccessRule = {
   policy: "public" | "authenticated" | "manager-approval-lane" | "self-service";
   roleCodes: readonly RoleCode[];
   notes: string;
+  actionGate?: {
+    policy: "manager-approval-lane";
+    roleCodes: readonly RoleCode[];
+    notes: string;
+  };
+};
+
+export type NativeMobileUiState = "ready" | "offline" | "error" | "empty" | "forbidden";
+
+export type NativeMobileUiStateGuidance = {
+  title: string;
+  tone: "neutral" | "warning" | "danger" | "informative";
+  summary: string;
+  allowedActions: readonly string[];
+  blockedActions: readonly string[];
 };
 
 type NativeMobilePrimaryRouteRecord = {
@@ -121,9 +136,14 @@ export const nativeMobilePrimaryRouteMappings = [
     tabGroup: "work",
     apiRoutes: [appRoutes.approvals.inbox, appRoutes.approvals.documents] as const,
     access: {
-      policy: "manager-approval-lane",
-      roleCodes: managerApprovalRoleCodes,
-      notes: "모든 로그인 사용자가 문서함은 볼 수 있지만 승인 CTA 는 승인 권한 역할 설명과 함께 노출한다.",
+      policy: "authenticated",
+      roleCodes: authenticatedRoleCodes,
+      notes: "모든 로그인 사용자가 내 문서/읽기 범위는 보되 승인 CTA 는 승인 권한 역할 설명과 함께 분리한다.",
+      actionGate: {
+        policy: "manager-approval-lane",
+        roleCodes: managerApprovalRoleCodes,
+        notes: "승인/반려 CTA 와 approval lane 강조는 팀장/인사/회사 운영 권한에만 노출한다.",
+      },
     } satisfies MobileAccessRule,
   },
   {
@@ -161,6 +181,107 @@ export type NativeMobilePrimaryRouteMapping = (typeof nativeMobilePrimaryRouteMa
 export type NativeMobilePrimaryScreenId = NativeMobilePrimaryRouteMapping["id"];
 
 export const nativeMobilePrimaryScreenIds = nativeMobilePrimaryRouteMappings.map((item) => item.id);
+
+export const nativeMobileUiStateGuidance: Record<NativeMobileUiState, NativeMobileUiStateGuidance> = {
+  ready: {
+    title: "정상 연결",
+    tone: "neutral",
+    summary: "화면과 API 계약이 연결되어 오늘 처리할 일을 바로 이어갈 수 있는 상태입니다.",
+    allowedActions: ["읽기", "승인된 상태 변경 CTA", "다음 업무 화면 이동"],
+    blockedActions: [],
+  },
+  offline: {
+    title: "오프라인 또는 dev-safe 전용",
+    tone: "warning",
+    summary: "네트워크가 없거나 mock/dev-safe 경로만 허용되어 서버 반영형 작업은 성공처럼 보이면 안 됩니다.",
+    allowedActions: ["읽기 중심 placeholder 탐색", "상태 안내 확인", "재시도 준비"],
+    blockedActions: ["출퇴근 등록", "휴가 신청 저장", "승인/반려", "실파일 업로드"],
+  },
+  error: {
+    title: "연결 오류",
+    tone: "danger",
+    summary: "API target 결정 실패, 세션 만료, 예기치 않은 응답처럼 사용자가 다시 확인해야 하는 실패 상태입니다.",
+    allowedActions: ["재시도", "세션 확인", "안내 문구 확인"],
+    blockedActions: ["실패 상태를 성공처럼 이어가는 자동 진행"],
+  },
+  empty: {
+    title: "비어 있음",
+    tone: "informative",
+    summary: "처리할 항목이 없는 정상 상태이며 오류처럼 보이게 설명하면 안 됩니다.",
+    allowedActions: ["빈 상태 안내 확인", "다른 업무 화면 이동", "새 신청/새 기안 진입"],
+    blockedActions: ["오류로 오해하게 만드는 경고 표현"],
+  },
+  forbidden: {
+    title: "권한 또는 범위 제한",
+    tone: "warning",
+    summary: "로그인은 되었지만 role/scope/capability 기준상 현재 업무를 열 수 없는 상태입니다.",
+    allowedActions: ["허용된 화면으로 이동", "권한 설명 확인", "Web fallback 또는 관리자 문의"],
+    blockedActions: ["숨겨진 우회 CTA", "관리자 정책 변경 화면 직접 노출"],
+  },
+} as const;
+
+export const nativeMobileCoreWorkflow = [
+  {
+    order: 1,
+    screenId: "login",
+    label: "로그인",
+    goal: "세션 bridge 전제와 placeholder 인증 범위를 설명한 뒤 signed-in 흐름으로 진입한다.",
+  },
+  {
+    order: 2,
+    screenId: "dashboard",
+    label: "대시보드",
+    goal: "오늘 할 일, 승인 대기, 공지 진입을 먼저 보여 주는 허브로 동작한다.",
+  },
+  {
+    order: 3,
+    screenId: "attendance",
+    label: "출퇴근",
+    goal: "상태 변경 CTA 와 최근 기록을 짧게 확인하는 self-service 흐름을 제공한다.",
+  },
+  {
+    order: 4,
+    screenId: "leave",
+    label: "휴가",
+    goal: "잔여, 신청, 승인 대기 요약을 한 화면 흐름으로 설명한다.",
+  },
+  {
+    order: 5,
+    screenId: "approvals",
+    label: "결재함",
+    goal: "일반 사용자 문서함과 승인자 approval lane 을 같은 contract 위에서 분리해 보여 준다.",
+  },
+  {
+    order: 6,
+    screenId: "collaboration",
+    label: "공지/문서",
+    goal: "공지 읽기와 문서 공간 진입을 읽기 중심 협업 묶음으로 시작한다.",
+  },
+  {
+    order: 7,
+    screenId: "me",
+    label: "내 정보",
+    goal: "세션, 역할, 권한, 로그아웃 안내를 마지막 확인 지점으로 제공한다.",
+  },
+] as const satisfies readonly { order: number; screenId: NativeMobilePrimaryScreenId; label: string; goal: string }[];
+
+export const nativeMobilePwaNativeDifferences = {
+  sharedMeaning: [
+    "같은 route/api/role contract 를 최대한 재사용한다.",
+    "오늘 처리할 일 중심 정보 구조를 유지한다.",
+    "관리자 운영 범위를 기본 사용자 흐름에 섞지 않는다.",
+  ],
+  pwa: [
+    "브라우저 install/manifest/offline 안내 중심",
+    "same-origin 상대 경로를 그대로 사용",
+    "브라우저 cookie/session 문맥 안에서 동작",
+  ],
+  native: [
+    "navigation shell 과 secure storage bridge 중심",
+    "runtime base URL resolver 로 승인된 origin 또는 dev-safe mock 만 선택",
+    "실기기 권한, push, store build 는 별도 승인 게이트로 유지",
+  ],
+} as const;
 
 export const nativeMobileRouteMappingIndex = Object.fromEntries(
   nativeMobilePrimaryRouteMappings.flatMap((item) => {
@@ -250,4 +371,39 @@ export const nativeMobilePermissionHints: Partial<Record<NativeMobilePrimaryScre
 
 export function isNativeMobilePrimaryWebRoute(route: string) {
   return route in nativeMobileRouteMappingIndex;
+}
+
+export function getNativeMobilePrimaryRoute(screenId: NativeMobilePrimaryScreenId) {
+  return nativeMobilePrimaryRouteMappings.find((item) => item.id === screenId);
+}
+
+function hasAnyRoleCode(requiredRoleCodes: readonly RoleCode[], roleCodes: readonly RoleCode[]) {
+  return requiredRoleCodes.length === 0 || requiredRoleCodes.some((requiredRoleCode) => roleCodes.includes(requiredRoleCode));
+}
+
+export function hasNativeMobileApprovalLaneAccess(roleCodes: readonly RoleCode[]) {
+  return hasAnyRoleCode(managerApprovalRoleCodes, roleCodes);
+}
+
+export function describeNativeMobileRouteAccess(screenId: NativeMobilePrimaryScreenId, roleCodes: readonly RoleCode[]) {
+  const route = getNativeMobilePrimaryRoute(screenId);
+
+  if (!route) {
+    throw new Error(`알 수 없는 모바일 화면입니다: ${screenId}`);
+  }
+
+  const access = route.access as MobileAccessRule;
+  const hasRouteAccess = hasAnyRoleCode(access.roleCodes, roleCodes);
+  const actionGate = access.actionGate;
+
+  return {
+    screenId,
+    hasRouteAccess,
+    hasActionAccess: actionGate ? hasAnyRoleCode(actionGate.roleCodes, roleCodes) : hasRouteAccess,
+    access,
+  };
+}
+
+export function getNativeMobileUiStateGuidance(state: NativeMobileUiState) {
+  return nativeMobileUiStateGuidance[state];
 }

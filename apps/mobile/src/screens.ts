@@ -29,21 +29,26 @@ const commonGuardrails = [
   "기본 탭에 /admin/* 와 스토어 제출 CTA 를 섞지 않기",
 ] as const;
 
-export const mobileScreenWireframes: readonly MobileScreenWireframe[] = nativeMobilePrimaryRouteMappings.map((item) => ({
-  id: item.id,
-  title: item.label,
-  headline: item.summary,
-  sections: screenSpecificSections[item.id],
-  guardrails: [
-    ...commonGuardrails,
-    item.access.notes,
-    item.id === "collaboration"
-      ? "파일 업로드·다운로드와 실저장소 연결은 후속 승인 게이트 후 확장"
-      : item.id === "login"
-        ? "로그인 성공 후 세션 저장은 secure storage bridge 를 통과해야 함"
-        : "상태 변경은 온라인/API 연결이 확인된 경우에만 성공처럼 보이게 함",
-  ],
-}));
+export const mobileScreenWireframes: readonly MobileScreenWireframe[] = nativeMobilePrimaryRouteMappings.map((item) => {
+  const access = item.access as { notes: string; actionGate?: { notes: string } };
+
+  return {
+    id: item.id,
+    title: item.label,
+    headline: item.summary,
+    sections: screenSpecificSections[item.id],
+    guardrails: [
+      ...commonGuardrails,
+      access.notes,
+      ...(access.actionGate ? [access.actionGate.notes] : []),
+      item.id === "collaboration"
+        ? "파일 업로드·다운로드와 실저장소 연결은 후속 승인 게이트 후 확장"
+        : item.id === "login"
+          ? "로그인 성공 후 세션 저장은 secure storage bridge 를 통과해야 함"
+          : "상태 변경은 온라인/API 연결이 확인된 경우에만 성공처럼 보이게 함",
+    ],
+  };
+});
 
 export const mobileApprovalGateChecklist = {
   beforeStoreBuild: [...nativeMobileApprovalGates],
