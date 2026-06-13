@@ -41,13 +41,15 @@ async function requestAs(role: RoleCode, route: string) {
   });
 }
 
-describe("Phase 25 work-item API permission boundaries", () => {
+describe("Phase 26 HR meeting work-item API permission boundaries", () => {
   it("returns only the work items each role is allowed to see", async () => {
     const expectations: Array<{ role: RoleCode; itemIds: string[] }> = [
       {
         role: "COMPANY_ADMIN",
         itemIds: [
           "work_item_hr_onboarding_packet",
+          "work_item_hr_one_on_one_checkin",
+          "work_item_hr_branch_training_followup",
           "work_item_tax_month_end_evidence",
           "work_item_labor_attendance_followup",
           "work_item_legal_contract_review",
@@ -58,22 +60,32 @@ describe("Phase 25 work-item API permission boundaries", () => {
         role: "HR_ADMIN",
         itemIds: [
           "work_item_hr_onboarding_packet",
+          "work_item_hr_one_on_one_checkin",
+          "work_item_hr_branch_training_followup",
+          "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
           "work_item_labor_attendance_followup",
         ],
       },
       {
         role: "MANAGER",
-        itemIds: ["work_item_tax_month_end_evidence", "work_item_labor_attendance_followup"],
+        itemIds: [
+          "work_item_hr_branch_training_followup",
+          "work_item_tax_month_end_evidence",
+          "work_item_labor_attendance_followup",
+        ],
       },
       {
         role: "EMPLOYEE",
-        itemIds: [],
+        itemIds: ["work_item_hr_one_on_one_checkin"],
       },
       {
         role: "AUDITOR",
         itemIds: [
           "work_item_hr_onboarding_packet",
+          "work_item_hr_one_on_one_checkin",
+          "work_item_hr_branch_training_followup",
+          "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
           "work_item_labor_attendance_followup",
           "work_item_legal_contract_review",
@@ -91,9 +103,46 @@ describe("Phase 25 work-item API permission boundaries", () => {
     }
   });
 
+  it("exposes hr lifecycle/meeting metadata while keeping self, branch, and grievance boundaries separated", async () => {
+    const employeeResponse = await requestAs("EMPLOYEE", appRoutes.workItems.detail("work_item_hr_one_on_one_checkin"));
+    expect(employeeResponse.status).toBe(200);
+    const employeePayload = workItemDetailResponseSchema.parse(await employeeResponse.json());
+    expect(employeePayload.data.item.hrContext?.lifecycleStage).toBe("probation");
+    expect(employeePayload.data.item.hrContext?.visibility.employeeSelf).toContain("본인 일정");
+    expect(employeePayload.data.item.hrContext?.followUp.ownerRoleCodes).toEqual(["EMPLOYEE", "HR_ADMIN"]);
+    expect(employeePayload.data.auditLogs).toEqual([]);
+
+    const managerResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_hr_branch_training_followup"));
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = workItemDetailResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.item.hrContext?.lifecycleStage).toBe("capability_building");
+    expect(managerPayload.data.item.hrContext?.visibility.branchManager).toContain("자기 지점");
+    expect(managerPayload.data.item.hrContext?.confidentialityLevel).toBe("standard");
+
+    const grievanceBlockedResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_hr_grievance_triage"));
+    expect(grievanceBlockedResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await grievanceBlockedResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const companyAdminGrievanceResponse = await requestAs("COMPANY_ADMIN", appRoutes.workItems.detail("work_item_hr_grievance_triage"));
+    expect(companyAdminGrievanceResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await companyAdminGrievanceResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const employeeGrievanceResponse = await requestAs("EMPLOYEE", appRoutes.workItems.detail("work_item_hr_grievance_triage"));
+    expect(employeeGrievanceResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await employeeGrievanceResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const hrAdminGrievanceResponse = await requestAs("HR_ADMIN", appRoutes.workItems.detail("work_item_hr_grievance_triage"));
+    expect(hrAdminGrievanceResponse.status).toBe(200);
+    const hrAdminGrievancePayload = workItemDetailResponseSchema.parse(await hrAdminGrievanceResponse.json());
+    expect(hrAdminGrievancePayload.data.item.hrContext?.confidentialityLevel).toBe("grievance_restricted");
+    expect(hrAdminGrievancePayload.data.item.hrContext?.privateNoteExists).toBe(true);
+  });
+
   it("keeps sensitive work-item documents and attachments available only to explicitly allowed roles", async () => {
     const hrDocumentRoute = appRoutes.workItems.documents("work_item_hr_onboarding_packet");
     const hrAttachmentRoute = appRoutes.workItems.attachments("work_item_hr_onboarding_packet");
+    const grievanceDocumentRoute = appRoutes.workItems.documents("work_item_hr_grievance_triage");
+    const grievanceAttachmentRoute = appRoutes.workItems.attachments("work_item_hr_grievance_triage");
 
     const companyAdminDocuments = workItemDocumentsResponseSchema.parse(await (await requestAs("COMPANY_ADMIN", hrDocumentRoute)).json());
     expect(companyAdminDocuments.data.items.map((item) => item.id)).toEqual(["widoc_hr_onboarding_checklist"]);
@@ -102,6 +151,22 @@ describe("Phase 25 work-item API permission boundaries", () => {
     const hrAdminAttachments = workItemAttachmentsResponseSchema.parse(await (await requestAs("HR_ADMIN", hrAttachmentRoute)).json());
     expect(hrAdminAttachments.data.items.map((item) => item.id)).toEqual(["wiatt_hr_packet_zip"]);
     expect(hrAdminAttachments.data.items[0]?.sensitivityLabel).toBe("restricted");
+
+    const hrAdminGrievanceDocuments = workItemDocumentsResponseSchema.parse(await (await requestAs("HR_ADMIN", grievanceDocumentRoute)).json());
+    expect(hrAdminGrievanceDocuments.data.items.map((item) => item.id)).toEqual(["widoc_hr_grievance_triage_summary"]);
+    expect(hrAdminGrievanceDocuments.data.items[0]?.containsSensitiveData).toBe(true);
+
+    const hrAdminGrievanceAttachments = workItemAttachmentsResponseSchema.parse(await (await requestAs("HR_ADMIN", grievanceAttachmentRoute)).json());
+    expect(hrAdminGrievanceAttachments.data.items.map((item) => item.id)).toEqual(["wiatt_hr_grievance_packet"]);
+    expect(hrAdminGrievanceAttachments.data.items[0]?.sensitivityLabel).toBe("restricted");
+
+    const grievanceCompanyAdminDocumentsResponse = await requestAs("COMPANY_ADMIN", grievanceDocumentRoute);
+    expect(grievanceCompanyAdminDocumentsResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await grievanceCompanyAdminDocumentsResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const grievanceCompanyAdminAttachmentsResponse = await requestAs("COMPANY_ADMIN", grievanceAttachmentRoute);
+    expect(grievanceCompanyAdminAttachmentsResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await grievanceCompanyAdminAttachmentsResponse.json()).error.code).toBe("FORBIDDEN");
 
     const managerDocumentsResponse = await requestAs("MANAGER", hrDocumentRoute);
     expect(managerDocumentsResponse.status).toBe(403);
@@ -138,23 +203,40 @@ describe("Phase 25 work-item API permission boundaries", () => {
     const expectations: Array<{ role: RoleCode; deadlineIds: string[] }> = [
       {
         role: "COMPANY_ADMIN",
-        deadlineIds: ["wideadline_hr_onboarding", "wideadline_tax_month_end", "wideadline_branch_daily_close"],
+        deadlineIds: [
+          "wideadline_hr_onboarding",
+          "wideadline_hr_one_on_one_checkin",
+          "wideadline_hr_branch_training",
+          "wideadline_tax_month_end",
+          "wideadline_branch_daily_close",
+        ],
       },
       {
         role: "HR_ADMIN",
-        deadlineIds: ["wideadline_hr_onboarding", "wideadline_tax_month_end"],
+        deadlineIds: [
+          "wideadline_hr_onboarding",
+          "wideadline_hr_one_on_one_checkin",
+          "wideadline_hr_branch_training",
+          "wideadline_tax_month_end",
+        ],
       },
       {
         role: "MANAGER",
-        deadlineIds: ["wideadline_tax_month_end"],
+        deadlineIds: ["wideadline_hr_branch_training", "wideadline_tax_month_end"],
       },
       {
         role: "EMPLOYEE",
-        deadlineIds: [],
+        deadlineIds: ["wideadline_hr_one_on_one_checkin"],
       },
       {
         role: "AUDITOR",
-        deadlineIds: ["wideadline_hr_onboarding", "wideadline_tax_month_end", "wideadline_branch_daily_close"],
+        deadlineIds: [
+          "wideadline_hr_onboarding",
+          "wideadline_hr_one_on_one_checkin",
+          "wideadline_hr_branch_training",
+          "wideadline_tax_month_end",
+          "wideadline_branch_daily_close",
+        ],
       },
     ];
 

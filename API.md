@@ -394,6 +394,54 @@ guardrail:
 - `apps/api/test/work-items.spec.ts`
 - `apps/api/test/auth-org.spec.ts`
 
+### Phase 26 API 계획: HR meeting/lifecycle skeleton
+
+중요:
+- 아래 항목은 "실제 있는 read-only placeholder API + 아직 닫아 둔 운영 기능"을 함께 설명하는 문단이다.
+- 즉 `apps/api/src/app.ts` 에서 `GET /api/work-items?module=hr`, `GET /api/work-items/:workItemId` 수준의 skeleton 응답은 이미 확인할 수 있지만, 실제 캘린더/메일/민감 원문 처리까지 열린 운영 API 는 아니다.
+
+권장 방향:
+
+#### 1) `GET /api/work-items?module=hr`
+
+목적:
+- 기존 HR work item 목록을 온보딩/1:1/인사면담/평가/고충/교육/지점 운영 meeting 문맥까지 읽히게 확장하는 endpoint 방향
+
+대표 응답 방향:
+- 기존 공통 item 필드 유지
+- 현재 placeholder 에서 바로 보이는 축: `category`, `access.viewerScope`, `access.allowedRoleCodes`, `hrContext.lifecycleStage`, `hrContext.scheduleStatus`, `hrContext.confidentialityLevel`, `hrContext.followUp.required`
+
+guardrail:
+- 주 상태는 계속 공통 상태를 유지한다.
+- 지점 관리자에게는 자기 지점/필요 범위만 내려가고, 본사 HR 보다 좁은 HR visibility 를 유지한다.
+- 일반 직원은 자기 관련 item 만 본다.
+
+#### 2) `GET /api/work-items/:workItemId`
+
+목적:
+- 기존 공통 상세에 meeting summary, 참석자 요약, 후속조치 요약을 얹는 endpoint 방향
+
+대표 응답 방향:
+- 현재 placeholder 상세는 `hrContext` 아래 `scheduleStatus`, `meetingMode`, `confidentialityLevel`, `notesPreview`, `privateNoteExists`, `participants[]`, `agendaItems[]`, `followUp`, `visibility` 를 직접 내려준다.
+- 문서상 `meetingSummary` / `followUpsSummary[]` 같은 분리형 응답은 이후 shape 후보로 볼 수 있지만, 지금 저장소 기준 확인 포인트는 단일 상세의 `hrContext` 다.
+
+guardrail:
+- 참석자와 모든 메모 열람권한을 같은 뜻으로 취급하지 않는다.
+- `grievance_restricted` 같은 민감 범위는 `work_item.grievance.read_restricted` 같은 더 좁은 capability 로 다시 제한하고, COMPANY_ADMIN 일반 가시범위와 분리한다.
+
+#### 3) `GET /api/work-items/:workItemId/attendees`, `GET /api/work-items/:workItemId/agendas`, `GET /api/work-items/:workItemId/follow-ups`
+
+목적:
+- 참석자/안건/후속조치를 metadata 중심으로 보여 주는 candidate endpoint 방향
+
+guardrail:
+- 실제 회의록 원문, 외부 초대 링크, 메일/메신저 발송 결과를 기본 응답에 싣지 않는다.
+- private note 원문 대신 존재 여부와 visibility 설명만 먼저 다룬다.
+- 외부 캘린더 연동은 이번 단계에서 문서상 승인 게이트로 남긴다.
+
+현재 확인 포인트:
+- 상세 placeholder 하나만으로도 `participants[]`, `agendaItems[]`, `followUp`, `visibility` 가 이미 내려오므로, 별도 하위 endpoint 는 "추가 분리 가능 후보"로 읽는다.
+
 ## 3. 관리자 API
 
 ### `POST /api/admin/invites`

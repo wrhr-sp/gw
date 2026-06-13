@@ -31,10 +31,12 @@ describe("Phase 25 work-items skeleton boundaries", () => {
     const html = renderToStaticMarkup(<WorkItemsHrPage />);
 
     expect(html).toContain("인사 업무");
-    expect(html).toContain("민감 원문 첨부");
+    expect(html).toContain("실민감 인사 원문과 외부 캘린더 연동은 닫고");
     expect(html).toContain("/api/work-items?module=hr");
     expect(html).toContain("/api/work-items/:id/documents");
     expect(html).toContain("/api/work-items/:id/attachments");
+    expect(html).toContain("이번 단계 meeting 유형");
+    expect(html).toContain("누가 어디까지 보는가");
     expect(html).toContain("공통 업무 허브로");
     expect(html).not.toContain("저장 완료");
     expect(html).not.toContain("외부 전송");

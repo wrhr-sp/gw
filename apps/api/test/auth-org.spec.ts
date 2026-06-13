@@ -482,6 +482,9 @@ describe("Phase 2 auth/org skeleton", () => {
     const listPayload = workItemListResponseSchema.parse(await listResponse.json());
     expect(listPayload.data.items.map((item) => item.id)).toEqual([
       "work_item_hr_onboarding_packet",
+      "work_item_hr_one_on_one_checkin",
+      "work_item_hr_branch_training_followup",
+      "work_item_hr_grievance_triage",
       "work_item_tax_month_end_evidence",
       "work_item_labor_attendance_followup",
     ]);
@@ -496,9 +499,13 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(filteredResponse.status).toBe(200);
     const filteredPayload = workItemListResponseSchema.parse(await filteredResponse.json());
-    expect(filteredPayload.data.items).toHaveLength(1);
-    expect(filteredPayload.data.items[0]?.id).toBe("work_item_hr_onboarding_packet");
-    expect(filteredPayload.data.items[0]?.module).toBe("hr");
+    expect(filteredPayload.data.items.map((item) => item.id)).toEqual([
+      "work_item_hr_onboarding_packet",
+      "work_item_hr_one_on_one_checkin",
+      "work_item_hr_branch_training_followup",
+      "work_item_hr_grievance_triage",
+    ]);
+    expect(filteredPayload.data.items.every((item) => item.module === "hr")).toBe(true);
   });
 
   it("enforces work-item detail/document/deadline boundaries for branch managers", async () => {
@@ -547,7 +554,17 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(deadlinesResponse.status).toBe(200);
     const deadlinesPayload = workItemDeadlinesResponseSchema.parse(await deadlinesResponse.json());
-    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual(["wideadline_tax_month_end"]);
+    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual(["wideadline_hr_branch_training", "wideadline_tax_month_end"]);
+
+    const branchHrDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_branch_training_followup"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(branchHrDetailResponse.status).toBe(200);
+    const branchHrDetailPayload = workItemDetailResponseSchema.parse(await branchHrDetailResponse.json());
+    expect(branchHrDetailPayload.data.item.hrContext?.visibility.branchManager).toContain("자기 지점");
 
     const blockedDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
       headers: {

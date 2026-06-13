@@ -1,5 +1,10 @@
 export type WorkItemModuleKey = "hub" | "hr" | "tax" | "labor" | "legal" | "branch";
 
+export type WorkItemModuleDetailSection = {
+  title: string;
+  items: string[];
+};
+
 export type WorkItemModuleCard = {
   slug: Exclude<WorkItemModuleKey, "hub">;
   href: string;
@@ -9,6 +14,7 @@ export type WorkItemModuleCard = {
   accessNote: string;
   apiRoutes: string[];
   milestones: string[];
+  detailSections?: WorkItemModuleDetailSection[];
 };
 
 export const workItemModuleCards: WorkItemModuleCard[] = [
@@ -16,11 +22,29 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "hr",
     href: "/work-items/hr",
     title: "인사 업무",
-    summary: "입사/서류 회수/인사 점검을 공통 work item 과 민감 문서 metadata 경계로 설명합니다.",
-    roleScope: "HR 관리자 / 본사 관리자 / 감사",
-    accessNote: "민감 원문 첨부는 숨기고 제목·상태·검토 메모만 먼저 노출합니다.",
-    apiRoutes: ["/api/work-items?module=hr", "/api/work-items/:id/documents", "/api/work-items/:id/attachments"],
-    milestones: ["온보딩 서류 회수", "입퇴사 체크리스트", "민감 첨부 읽기 제한"],
+    summary: "직원 lifecycle, 1:1/인사면담/평가/고충/교육 흐름을 공통 work item skeleton 위에 얹어 설명합니다.",
+    roleScope: "본사 HR / 지점 관리자 / 일반 직원(자기 건) / 감사",
+    accessNote: "실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 metadata 만 먼저 노출합니다.",
+    apiRoutes: ["/api/work-items?module=hr", "/api/work-items/:id", "/api/work-items/:id/documents", "/api/work-items/:id/attachments"],
+    milestones: ["직원 lifecycle 단계", "1:1·인사면담·평가·고충·교육 카테고리", "본사 HR / 지점 관리자 / 일반 직원 visibility 분리"],
+    detailSections: [
+      {
+        title: "이번 단계 meeting 유형",
+        items: ["온보딩", "정기 1:1", "인사 면담", "평가 피드백", "고충 대응", "교육/코칭", "오프보딩"],
+      },
+      {
+        title: "누가 어디까지 보는가",
+        items: [
+          "본사 HR은 여러 지점 HR 흐름과 제한 메모 존재 여부를 본다.",
+          "지점 관리자는 자기 지점 일정/후속조치 요약만 보고 HR 비공개 원문은 보지 않는다.",
+          "일반 직원은 자기 일정과 자기 follow-up 만 본다.",
+        ],
+      },
+      {
+        title: "계속 닫아 두는 것",
+        items: ["실제 평가 원문 저장", "실제 고충/징계 원문 저장", "외부 캘린더·메일·메신저 자동 연동"],
+      },
+    ],
   },
   {
     slug: "tax",
