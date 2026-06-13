@@ -7,6 +7,12 @@ export type NavItem = {
   summary: string;
 };
 
+export type NavSection = {
+  title: string;
+  description: string;
+  items: readonly NavItem[];
+};
+
 export type OfflineGuidance = {
   bannerTitle: string;
   bannerBody: string;
@@ -163,10 +169,16 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "내 승인함과 팀/결재 대기",
   },
   {
+    href: "/boards",
+    label: "게시판",
+    shortLabel: "게시판",
+    summary: "공지 읽기와 팀 게시글 확인",
+  },
+  {
     href: "/documents",
-    label: "공지/문서",
+    label: "문서",
     shortLabel: "문서",
-    summary: "공지 읽기와 문서 공간 확인",
+    summary: "문서 공간과 보관 흐름 확인",
   },
   {
     href: "/me",
@@ -179,6 +191,63 @@ export const mobilePrimaryNav: NavItem[] = [
     label: "조직",
     shortLabel: "조직",
     summary: "부서·역할·권한 체계 읽기",
+  },
+  {
+    href: "/employees",
+    label: "직원",
+    shortLabel: "직원",
+    summary: "조직 확인 뒤 직원 상태와 소속 조회",
+  },
+];
+
+export const mobileBottomTabs: NavItem[] = [
+  {
+    href: "/menu",
+    label: "메뉴",
+    shortLabel: "메뉴",
+    summary: "근태, 휴가, 결재, 문서, 내 정보, 조직 전체 메뉴 열기",
+  },
+  {
+    href: "/dashboard",
+    label: "홈",
+    shortLabel: "홈",
+    summary: "오늘 해야 할 일과 파일럿 시작 화면 열기",
+  },
+  {
+    href: "/messenger",
+    label: "메신저",
+    shortLabel: "메신저",
+    summary: "실시간 메신저 연동 전 placeholder 상태와 운영 경계 안내",
+  },
+  {
+    href: "/mail",
+    label: "메일",
+    shortLabel: "메일",
+    summary: "사내 메일 연동 전 placeholder 상태와 승인 게이트 안내",
+  },
+  {
+    href: "/notifications",
+    label: "알림",
+    shortLabel: "알림",
+    summary: "푸시/외부 알림 연동 전 확인 가능한 안내와 재확인 포인트",
+  },
+];
+
+export const mobileMenuSections: NavSection[] = [
+  {
+    title: "기본 업무",
+    description: "파일럿 참여자가 실제로 먼저 눌러 볼 핵심 업무 흐름입니다.",
+    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
+  },
+  {
+    title: "내 정보 / 조회",
+    description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
+    items: [mobilePrimaryNav[6], mobilePrimaryNav[7], mobilePrimaryNav[8]],
+  },
+  {
+    title: "협업 placeholder",
+    description: "메신저, 메일, 알림은 탭/placeholder honesty 만 유지하고 실제 외부 연동은 승인 게이트로 남깁니다.",
+    items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
   },
 ];
 
@@ -206,6 +275,14 @@ export const adminPrimaryNav: NavItem[] = [
     label: "감사 로그",
     shortLabel: "감사",
     summary: "감사 추적과 읽기 전용 검토",
+  },
+];
+
+export const adminMenuSections: NavSection[] = [
+  {
+    title: "관리자 운영",
+    description: "일반 사용자 메뉴와 섞지 않고 권한 있는 사용자만 보는 운영 전용 메뉴입니다.",
+    items: adminPrimaryNav,
   },
 ];
 
@@ -297,6 +374,8 @@ export const mobileReviewChecklist = [
   "오프라인/placeholder 문구가 실제 완료처럼 보이지 않는지 확인",
   "게시판·문서·전자결재 접근 경계가 모바일에서도 흐려지지 않는지 확인",
   "manifest 와 내부 링크가 preview 전용 절대 경로를 하드코딩하지 않았는지 확인",
+  "모바일 하단 탭 5개(메뉴/홈/메신저/메일/알림)가 같은 파일럿 정보구조를 가리키는지 확인",
+  "PC 사이드바 접기/펼치기와 모바일 전체 메뉴가 같은 메뉴군을 설명하는지 확인",
 ] as const;
 
 export function getPwaManifestForHost(host?: string | null) {
@@ -314,6 +393,8 @@ export function getAppShellConfigForHost(host?: string | null) {
       appEyebrow: "Admin host PWA skeleton",
       homeHref: "/admin",
       navItems: adminPrimaryNav,
+      bottomTabs: adminPrimaryNav,
+      menuSections: adminMenuSections,
       installGuideSteps: adminInstallGuideSteps,
       offlineGuidance: adminOfflineGuidance,
     };
@@ -324,6 +405,8 @@ export function getAppShellConfigForHost(host?: string | null) {
     appEyebrow: "Cloudflare-first skeleton",
     homeHref: "/",
     navItems: mobilePrimaryNav,
+    bottomTabs: mobileBottomTabs,
+    menuSections: mobileMenuSections,
     installGuideSteps,
     offlineGuidance,
   };

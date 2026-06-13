@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 
 import { PageShell, Pill, SurfaceSection } from "./_components/page-shell";
-import { installGuideSteps, mobilePrimaryNav, mobileReviewChecklist } from "./mobile-pwa-config";
+import { installGuideSteps, mobileBottomTabs, mobilePrimaryNav, mobileReviewChecklist } from "./mobile-pwa-config";
 
 const primaryFlows = [
   {
@@ -104,6 +104,19 @@ export default function HomePage() {
               <h3>{item.firstRoute}</h3>
               <p>{item.summary}</p>
               <p className="card-note">{item.note}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="모바일 하단 탭 5개" description="파일럿 모바일 기본 탐색은 `메뉴`, `홈`, `메신저`, `메일`, `알림` 5개로 고정하고, 실제 업무 기능은 `메뉴`에서 같은 정보구조로 다시 고릅니다.">
+        <div className="grid-auto-compact">
+          {mobileBottomTabs.map((item) => (
+            <article key={item.href} className="info-card">
+              <Pill tone={item.href === "/dashboard" ? "accent" : "default"}>{item.shortLabel}</Pill>
+              <h3>{item.label}</h3>
+              <p>{item.summary}</p>
+              <a href={item.href}>{item.href}</a>
             </article>
           ))}
         </div>

@@ -4,6 +4,13 @@
 
 ### Changed
 
+- `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md`, `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md` 를 다시 보강해 Phase 24 파일럿 문서에 모바일 `홈` 고정 메뉴 + 개인 커스터마이징 원칙, `메뉴`/PC sidebar 동일 registry 방향, 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 본사/지점 관리자/일반 근무자 경계를 쉬운 한국어로 추가했다.
+- 이번 보강은 아직 구현 완료 보고가 아니라 문서 초안 고정 단계로 남기며, 사용자별 `홈` 영구 저장·실제 지점/호텔 master 데이터·외부 PMS/알림 연동은 계속 승인 게이트/후속 구현 범위로 분리했다.
+- `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md` 와 `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md` 를 추가해 제한된 부서/사용자 파일럿 대상, 직원 체험 레인 + 운영자 동행 레인, live/API/PWA/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집, 승인 게이트를 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 24 활성 체인 기준으로 갱신해 현재 카드 ids, 파일럿 준비 목표, baseline 근거 대 재검증 예정 항목 구분, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 24 기준으로 보강해 작은 실제 회사 파일럿을 어떻게 시작할지, 어떤 route 순서와 선행 체크리스트를 따라갈지, 무엇이 아직 승인 필요인지 루트 검증 문서에서 바로 읽히게 맞췄다.
+- `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/_components/mobile-app-shell.tsx`, `apps/web/app/page.tsx` 를 갱신해 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개, 모바일 전체 메뉴 화면, PC collapsible sidebar, 관리자 메뉴 분리를 같은 정보구조로 맞췄다.
+- `apps/web/app/menu/page.tsx`, `apps/web/app/messenger/page.tsx`, `apps/web/app/mail/page.tsx`, `apps/web/app/notifications/page.tsx` 를 추가해 메신저/메일/알림 placeholder honesty 와 파일럿 메뉴 구조를 실제 route 로 확인할 수 있게 했다.
 - `apps/web/dashboard-page-content.tsx` 를 새로 만들고 `apps/web/app/dashboard/page.tsx` 를 쿠키 기반 wrapper 로 바꿔, 실제 세션 roleCode 에 따라 `/admin` 또는 `/admin/audit-logs` 운영 CTA 가 보이도록 정리했다. 동시에 대시보드에 "관리자 운영 검토 레인" 섹션을 추가해 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서를 화면에서 바로 읽히게 했다.
 - `apps/web/admin-page-content.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 의 eyebrow/copy 를 Phase 23 기준으로 올리고, `/employees` 대 `/admin/users`, `/boards`·`/documents` 대 `/admin/policies`, 감사 전용 진입 의미를 분리 설명하는 운영 경계 섹션을 각각 추가했다.
 - `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-console-pass1.test.tsx` 를 함께 갱신해 실제 admin CTA 노출, 운영 검토 레인, 일반 조회 대 운영 검토 경계, 감사 전용 진입 의미가 회귀 테스트로 고정되게 했다.

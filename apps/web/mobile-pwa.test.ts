@@ -6,6 +6,7 @@ import { metadata as adminRouteMetadata } from "./app/admin/layout";
 import {
   adminOfflineGuidance,
   adminManifestHref,
+  adminMenuSections,
   adminPwaManifest,
   adminPrimaryNav,
   generalManifestHref,
@@ -15,6 +16,8 @@ import {
   getOfflineGuidanceForHost,
   getPwaManifestForHost,
   installGuideSteps,
+  mobileBottomTabs,
+  mobileMenuSections,
   mobilePrimaryNav,
   offlineGuidance,
   touchTargetStyle,
@@ -62,15 +65,31 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(adminRouteMetadata.applicationName).toBe(adminPwaManifest.short_name);
   });
 
-  it("exposes mobile-first navigation for the approved Phase 14 MVP routes", () => {
+  it("exposes mobile-first navigation for the approved Phase 24 pilot routes", () => {
     expect(mobilePrimaryNav.map((item) => item.href)).toEqual([
       "/dashboard",
       "/attendance",
       "/leave",
       "/approvals",
+      "/boards",
       "/documents",
       "/me",
       "/org",
+      "/employees",
+    ]);
+
+    expect(mobileBottomTabs.map((item) => item.href)).toEqual([
+      "/menu",
+      "/dashboard",
+      "/messenger",
+      "/mail",
+      "/notifications",
+    ]);
+
+    expect(mobileMenuSections.map((section) => section.title)).toEqual([
+      "기본 업무",
+      "내 정보 / 조회",
+      "협업 placeholder",
     ]);
   });
 
@@ -81,16 +100,21 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "/admin/policies",
       "/admin/audit-logs",
     ]);
+    expect(adminMenuSections.map((section) => section.title)).toEqual(["관리자 운영"]);
 
     expect(getAppShellConfigForHost("admin.localhost:3000")).toMatchObject({
       appName: "GW Admin",
       homeHref: "/admin",
       navItems: adminPrimaryNav,
+      bottomTabs: adminPrimaryNav,
+      menuSections: adminMenuSections,
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
       appName: "그룹웨어 Web/PWA",
       homeHref: "/",
       navItems: mobilePrimaryNav,
+      bottomTabs: mobileBottomTabs,
+      menuSections: mobileMenuSections,
     });
   });
 

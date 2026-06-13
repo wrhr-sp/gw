@@ -18,17 +18,37 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 23 관리자 운영 콘솔 실사용 1차다. Phase 22에서 정리한 실제 하루 업무 흐름 기준 위에, `/dashboard` 이후 관리자 운영 CTA, `/admin` 허브, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 검토 흐름, 파일·문서·공지 권한 경계를 실제 회사 운영 준비 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 24 회사 파일럿 운영 1차다. Phase 22에서 정리한 직원 기본 업무 흐름과 Phase 23에서 정리한 관리자 운영 흐름 위에, 제한된 부서/사용자 파일럿 대상, 운영자 동행 순서, live/PWA/API/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응 뼈대를 실제 회사 파일럿 준비 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 실제 운영 저장보다 관리자 운영 검토 흐름처럼 읽히는 연결 구조 정리다.
-- 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 다.
-- `/employees` 일반 조회, `/boards`·`/documents` 협업/보관 흐름과 `/admin/*` 운영 변경 검토 흐름을 분리해 본다.
-- `packages/shared/src/admin-access.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 를 같이 보며 role/permission/adminScope/route guard 를 같은 뜻으로 확인한다.
-- `invite.manage`, `audit.read`, `board.manage`, `document.space.manage` 는 실제 guard 와 테스트 근거가 있는 high-risk permission 으로 본다.
+- 이번 Phase의 목적은 전사 오픈이 아니라 제한된 실제 회사 파일럿을 어떤 순서와 규칙으로 시작할지 정리하는 것이다.
+- 기준 흐름은 직원 체험 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees`)과 운영자 동행 레인(`/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`)을 함께 본다.
+- parent Phase 23의 live URL(`https://gw-web.werehere31.workers.dev`)과 release-gate/cloudflare-deploy success 는 baseline 근거이고, 이번 Phase에서는 실제 재검증 완료처럼 과장하지 않는다.
+- live route, same-origin `/api/health`·`/api/me`, PWA/mobile 확인은 파일럿 선행 체크리스트로 다시 정리한다.
+- 모바일 기본 탐색은 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, `메뉴`에서 여는 전체 기능 선택 화면과 PC collapsible sidebar 가 같은 정보구조를 가리키게 유지한다.
+- 모바일 `홈` 은 회사가 고정하는 필수 핵심 메뉴와 사용자가 선택/정렬하는 개인 바로가기를 함께 다루는 구조로 보고, 실제 사용자별 영구 저장은 아직 dev-safe/local/profile skeleton 전제임을 유지한다.
+- 호텔 위탁경영사 도메인 기준으로 `지점/호텔 코드` 구조를 Phase 24 파일럿 초안에 넣고, 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 가시 범위를 분리한다.
+- 사용자 안내, 운영자 매뉴얼, 장애 대응, 피드백 수집은 짧아도 "지금 해 볼 일 / 아직 안 되는 것 / 승인 필요 / 보고 방법"이 먼저 읽히게 정리한다.
 - production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/admin/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `packages/shared/src/admin-access.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/src/app.ts`.
+- 우선 참고 문서: `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`.
+
+2026-06-13 Phase 24 기획 메모:
+
+- 이번 단계는 실데이터 투입이나 전사 오픈이 아니라, 작은 대표 사용자 묶음으로 파일럿을 어떻게 시작할지 기준을 고정하는 문서 단계다.
+- 추천 파일럿 순서는 사용자 안내 → `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → 필요 시 `/org`·`/employees` → 운영자 동행 `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → 피드백 수집이다.
+- 대장이 가장 먼저 확인할 것은 "누구로 시작할지 / 어떤 순서로 볼지 / live·API·PWA·mobile 무엇을 다시 볼지 / 무엇이 승인 필요인지" 4가지다.
+- 모바일 `홈` 은 고정 필수 메뉴와 사용자 커스터마이징 층을 같이 설명하고, `메뉴`·PC sidebar 와 같은 기능 registry 를 공유한다는 원칙을 유지한다.
+- 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 지점 업무 대 지점 관리 권한 분리를 문서 용어로 먼저 고정한다.
+- 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집 문서는 긴 설명보다 파일럿 당일 바로 따라갈 체크리스트 형태가 우선이다.
+- 실제 재검증 결과 채우기는 다음 구현/리뷰/테스트/운영 카드 범위이고, 이번 기획 카드는 baseline 근거와 확인 순서를 고정하는 데 집중한다.
+
+2026-06-13 Phase 24 구현 메모:
+
+- `apps/web/app/_components/mobile-app-shell.tsx` 는 좁은 화면에서 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개를 고정하고, 넓은 화면에서는 접기/펼치기 가능한 왼쪽 사이드바로 같은 메뉴군을 보여 준다.
+- `apps/web/app/menu/page.tsx` 는 모바일 `메뉴` 탭에서 여는 전체 기능 선택 화면이며, 기본 업무/내 정보·조회/협업 placeholder 를 같은 IA 로 묶는다.
+- `apps/web/app/messenger/page.tsx`, `apps/web/app/mail/page.tsx`, `apps/web/app/notifications/page.tsx` 는 실제 외부 연동 전 단계의 placeholder honesty 를 명확히 보여 준다.
+- 관리자 메뉴는 일반 사용자 모바일 하단 탭에 섞지 않고 admin host/sidebar 전용 정보구조로 분리한다.
 
 2026-06-13 Phase 23 구현 메모:
 

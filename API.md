@@ -63,6 +63,7 @@
 | 근태/휴가 | `/api/attendance/*`, `/api/leave/*` | attendance/leave schema 들 | 본인·하위 직원 범위, 비승인자 차단, unknown id 차단 |
 | 전자결재 | `/api/approvals/*` | approval schema 들 | self-approval 금지, 같은 회사 후보만 허용 |
 | 게시판/문서 | `/api/notices`, `/api/boards/*`, `/api/documents/*`, `/api/read-receipts` | board/document schema 들 | notice-only 쓰기 차단, private 문서공간 차단, raw storage 정보 비노출 |
+| Phase 24 제안 | `/api/me/home-layout`, `/api/branches`, `/api/branch-assignments`, `/api/branch-tasks`, `/api/branch-reports` | 문서 초안만 있음, shared contract/API 미구현 | 문서에만 먼저 고정, 실저장/실데이터/PMS 연동 과장 금지 |
 
 ## 1. Health/Auth
 
@@ -222,6 +223,71 @@ guardrail:
 
 실무 메모:
 - `permissionCodeSchema` 에 정의된 코드 집합이 shared 단일 계약이다.
+
+### Phase 24 제안 API: 모바일 `홈` + `지점/호텔 코드`
+
+중요:
+- 아래 항목은 이번 문서 보강에서 먼저 고정한 제안 API 초안이다.
+- 현재 저장소에 shared contract, placeholder 응답, 구현 route, guardrail test 가 아직 없다.
+- 따라서 "이미 동작하는 API" 처럼 쓰면 안 된다.
+
+#### 제안 1) `GET /api/me/home-layout`
+
+목적:
+- 모바일 `홈` 에서 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴를 함께 내려 주는 초안 endpoint
+
+의도하는 응답 방향:
+- `fixedItems[]`: 회사가 기본 제공하는 고정 메뉴
+- `customItems[]`: 사용자가 선택/정렬한 메뉴
+- `availableItems[]`: `메뉴` 전체 기능 선택 화면과 같은 registry 기반 항목
+- `storageMode`: `dev_safe_local | profile_skeleton | future_persistent`
+
+guardrail 초안:
+- 필수 고정 메뉴는 응답에서 빠지지 않는다.
+- 사용자가 볼 수 없는 권한 메뉴는 `availableItems[]` 에서도 제거한다.
+- 이번 Phase 24 문서에서는 production DB 영구 저장이 아니라 dev-safe/local/profile skeleton 전제를 유지한다.
+
+#### 제안 2) `GET /api/branches`
+
+목적:
+- 회사 하위 `지점/호텔 코드` 목록을 역할 범위에 맞게 보여 주는 초안 endpoint
+
+의도하는 응답 방향:
+- `items[]`: `branchId`, `branchCode`, `branchName` 또는 `hotelName`, `status`
+- `scope`: `hq_admin | branch_manager | employee`
+- `placeholder: true` 또는 문서 초안 단계 표시
+
+guardrail 초안:
+- 본사 관리자는 전체 지점을 볼 수 있다.
+- 지점 관리자는 자기 지점 범위만 본다.
+- 일반 근무자는 자기 배정 지점만 본다.
+
+#### 제안 3) `GET /api/branch-assignments`
+
+목적:
+- 직원-지점 배정 요약을 운영 검토용으로 보는 초안 endpoint
+
+의도하는 응답 방향:
+- `items[]`: `employeeId`, `branchId`, `roleInBranch`, `primary`, `startsAt`, `endsAt`
+- 미배정 사용자는 별도 `assignmentStatus: needs_branch_assignment`
+
+guardrail 초안:
+- 일반 직원에게 전체 배정 목록을 그대로 열지 않는다.
+- 관리자용 검토와 일반 사용자 자기 상태 확인 응답을 같은 endpoint 라도 다른 scope 로 나눠야 한다.
+
+#### 제안 4) `GET /api/branch-tasks`, `GET /api/branch-reports`
+
+목적:
+- 지점 업무/보고 템플릿을 지점 범위에 맞게 보여 주는 초안 endpoint
+
+의도하는 응답 방향:
+- 업무 예시: 체크리스트, 일일 운영, 시설/고장, 고객 컴플레인, 비품/재고, 인수인계
+- 응답에는 `branchVisibility`, `requiresManagerReview`, `placeholder` 같은 설명 필드를 함께 둔다.
+
+guardrail 초안:
+- 지점 미배정 사용자는 데이터 대신 `지점 배정 필요` 안내를 먼저 본다.
+- 다른 지점 데이터는 UI 뿐 아니라 API 에서도 차단한다.
+- 외부 PMS/호텔 운영 시스템 연동 상태를 이미 연결된 것처럼 응답하지 않는다.
 
 ## 3. 관리자 API
 

@@ -32,6 +32,12 @@
 - [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
 - [ ] Phase 22 실제 업무 흐름 통합 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 무엇을 어떤 순서로 따라갈 수 있는지/아직 skeleton 인지/승인 필요한 것인지가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 23 관리자 운영 콘솔 실사용 1차 범위라면 `/dashboard` 관리자 CTA → `/admin` 허브 → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 흐름, 일반 조회 대 운영 검토 경계, high-risk permission, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 24 회사 파일럿 운영 1차 범위라면 제한된 파일럿 대상 범위, 사용자 안내 → 직원 체험 레인 → 운영자 동행 레인 → 피드백 수집 순서, live/API/PWA/mobile 선행 체크리스트, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
+- [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
+- [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
+- [ ] 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 일반 근무자 `지점 업무` 대 관리자 `지점 관리` 분리가 문서/화면/API 설명에서 같은 뜻이다.
+- [ ] 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 지점 가시 범위와 다른 지점 데이터 UI/API 차단 기준이 문서마다 다르게 풀리지 않는다.
 - [ ] `/admin` 은 설명용 소개 화면이 아니라 오늘 먼저 볼 운영 체크포인트와 승인 게이트를 먼저 읽는 허브로 유지된다.
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
@@ -53,6 +59,8 @@
 - [ ] `apps/mobile/src/workflow.ts` 설명이 일반 사용자 첫 액션 `attendance`, 승인 lane 권한 사용자 첫 액션 `approvals` 분기를 현재 helper 와 같은 뜻으로 유지한다.
 - [ ] live/PWA/API/mobile 확인 포인트가 섞이지 않고 설명되며, 최종 결론은 같은 readiness 언어로 모인다.
 - [ ] 대장이 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 순서로 일반 업무 흐름을 본 뒤, 관리자 검토는 `/dashboard` 관리자 CTA → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 다시 이어 볼 때 각 단계가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 바로 읽힌다.
+- [ ] Phase 24 파일럿 문서에서는 위 일반 업무/관리자 흐름이 사용자 안내 → 실제 체험 → 운영자 동행 → 피드백 수집 순서로 다시 묶여 있고, 전사 오픈/실데이터 투입처럼 과장되지 않는다.
+- [ ] parent Phase 23 baseline 근거(live URL, release-gate success)와 이번 Phase 24 재검증 예정 항목이 구분돼 적혀 있다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
 - [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽히며, mobile 이 전체 readiness 의 일부라는 설명도 유지된다.
 - [ ] 로그인 후 무엇을 먼저 하는지, 대시보드와 실제 업무 화면 순서가 같은지, 핵심 업무 흐름이 끊기지 않는지, mobile/Web 계약이 같은지, 상태 안내 4축이 같은지, `/admin/*` 와 승인 게이트가 분리되는지가 대장이 바로 확인할 질문으로 요약돼 있다.
@@ -61,6 +69,7 @@
 - [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
 - [ ] `HR_ADMIN` 은 관리자 운영 화면 허용, 감사 로그는 별도 `audit.read` 기준이라는 점이 Web/API/nav 에서 같은 뜻으로 유지된다.
 - [ ] `AUDITOR` 는 감사 로그 전용 흐름만 허용되고 관리자 허브 전체 허용처럼 보이지 않는다.
+- [ ] 메신저/메일/알림 placeholder 는 실제 외부 연동이나 발송 성공처럼 보이지 않고, 파일럿 운영 중에도 "아직 안 되는 것"으로 honest 하게 남아 있다.
 - [ ] role → permission → adminScope → route kind 접근 행렬이 shared helper와 API/Web/dashboard/admin hub 에서 서로 다른 상수로 따로 갈라지지 않았다.
 - [ ] dashboard shortcut, admin hub 카드 노출, 직접 route 접근, API guard 가 같은 기준을 따른다.
 - [ ] 일반 사용자 host 에서 admin role 이 `/admin*` 로 들어왔는데 paired admin host 를 계산하지 못하는 경우에도 allow 로 남지 않고 차단/forbidden 또는 명시적 유도로 정리돼 있다.

@@ -153,6 +153,35 @@ pnpm --filter @gw/mobile typecheck
 - `pnpm check`
 - `pnpm --filter @gw/web build:cf`
 
+### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 이번 파일럿은 전사 오픈이 아니라 어떤 작은 대표 부서/역할 묶음으로 시작하는가
+2. 사용자 안내 → `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → 필요 시 `/org`·`/employees` → 운영자 동행 `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서가 실제 파일럿 준비 흐름처럼 읽히는가
+3. live URL, `/api/health`, `/api/me`, PWA/mobile 확인 중 무엇이 baseline 근거이고 무엇이 이번 Phase 재검증 항목인지 구분되는가
+4. 사용자 안내, 운영자 매뉴얼, 장애 대응, 피드백 수집 기준이 같은 언어로 묶여 있는가
+5. 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개와 PC collapsible sidebar 가 같은 정보구조를 가리키고, 관리자 메뉴가 일반 사용자 메뉴와 섞이지 않는가
+6. 모바일 `홈` 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적히고, `메뉴`와 같은 기능 registry 를 공유한다는 점이 분명한가
+7. `지점/호텔 코드` 구조에서 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 가시 범위와 `지점 배정 필요` 안내 기준이 분리되는가
+8. 막힘이 권한 문제/placeholder 제한/운영 승인 대기/실제 버그 중 무엇인지 나눠 기록할 수 있는가
+9. production data·secret·실권한 저장·실계정 대량 발급·외부 연동·유료 리소스가 여전히 승인 게이트로 남아 있는가
+
+이 9개 질문 중 하나라도 흐리면 Phase 24 문서 작업은 완료로 보지 않는다.
+
+빠르게 눌러 볼 때는 아래처럼 본다.
+
+1. 사용자 안내 문서 — 오늘 해 볼 일, 아직 안 되는 것, 보고 방법이 먼저 보이는지 확인한다.
+2. `/menu` 와 모바일 하단 탭 — `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 같은 파일럿 정보구조를 가리키고, `메뉴`에서 전체 기능 선택 화면이 열리는지 본다.
+3. 모바일 `홈` — 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 보이고, `메뉴`와 같은 기능 registry 를 가리키는지 본다.
+4. `/login` 과 `/dashboard` — 역할별 첫 행동과 다음 업무가 자연스럽게 이어지는지 본다.
+5. `/attendance`, `/leave`, `/approvals` — 업무 처리와 정책/placeholder 제한 설명이 구분되는지 본다.
+6. `/boards`, `/documents`, `/me`, 필요 시 `/org`, `/employees` — 협업/조회 흐름이 실제 운영 완료처럼 과장되지 않는지 본다.
+7. `/messenger`, `/mail`, `/notifications` — placeholder honesty 와 외부 연동 승인 게이트가 분리돼 보이는지 본다.
+8. `지점` 관련 안내 또는 문서 초안 — `지점 배정 필요`, 지점 업무 대 지점 관리, 본사/지점 관리자/일반 근무자 경계가 같은 언어로 적혀 있는지 본다.
+9. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 와 PC sidebar — 운영자 동행 레인과 read-only/권한 경계가 유지되는지 본다.
+10. 마지막으로 live/API/PWA/mobile 체크리스트와 승인 필요 목록을 다시 모은다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -308,6 +337,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
 - Phase 22 문서라면 로그인 → 대시보드 → 출퇴근 → 휴가 → 결재 → 공지/문서 → 내 정보 → 조직/직원 확인 순서, offline/error/empty/forbidden 상태 분류, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 - Phase 23 문서라면 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서, 일반 조회 대 운영 검토 경계, high-risk permission(`invite.manage`, `audit.read`, `board.manage`, `document.space.manage`), 파일/문서 권한 비노출 원칙, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 24 문서라면 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/API/PWA/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응/피드백 수집, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
