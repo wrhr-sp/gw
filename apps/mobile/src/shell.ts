@@ -70,7 +70,7 @@ export const mobileScreenPlaceholders = nativeMobilePrimaryRouteMappings.map((it
       : item.id === "leave"
         ? "휴가 신청 또는 잔여 확인"
         : item.id === "approvals"
-          ? "승인 대기 확인"
+          ? "내 문서 또는 승인 대기 확인"
           : item.id === "collaboration"
             ? "공지/문서 읽기"
             : item.id === "me"

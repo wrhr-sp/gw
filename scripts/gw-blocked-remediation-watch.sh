@@ -412,16 +412,22 @@ def extract_release_branch(text: str) -> str | None:
     patterns = (
         r'git branch -d\s+`?([A-Za-z0-9._/-]+)`?',
         r'git branch -D\s+`?([A-Za-z0-9._/-]+)`?',
+        r'git ls-remote --heads origin\s+`?([A-Za-z0-9._/-]+)`?',
+        r'refs/heads/([A-Za-z0-9._/-]+)',
         r'branch:\s*`([^`]+)`',
         r'branch\s+`([^`]+)`',
+        r'브랜치\s+`([^`]+)`',
         r'로컬 브랜치\s+`([^`]+)`',
         r'local branch\s+`([^`]+)`',
+        r'remote/local branch deletion[^\n`]*`?([A-Za-z0-9._/-]+)`?',
+        r'remote branch[^\n`]*`([A-Za-z0-9._/-]+)`',
     )
+    invalid = {'main', 'master', 'cleanup', 'deletion', 'delete', 'blocked', 'branch'}
     for pat in patterns:
         m = re.search(pat, text, re.IGNORECASE)
         if m:
-            branch = m.group(1).strip()
-            if branch and branch not in {'main', 'master'}:
+            branch = m.group(1).strip().strip('.,;:')
+            if branch and branch.lower() not in invalid and '/' in branch:
                 return branch
     return None
 
@@ -541,8 +547,15 @@ def is_release_cleanup_blocker(task: dict) -> tuple[bool, str, str | None, str |
     text = '\n'.join(str(task.get(k) or '') for k in ('title', 'body')) + '\n' + signal_text(task)
     lower = text.lower()
     scoped = any(x in lower for x in ('branch cleanup', 'pr merge', 'release gate', 'release-gate', 'merge/branch cleanup', '원격·로컬 branch cleanup'))
-    cleanup_signal = any(x in lower for x in ('local branch cleanup', '로컬 branch', '로컬 브랜치', 'git branch -d', 'git branch -d', 'branch deletion', '브랜치 삭제'))
-    merged_signal = any(x in lower for x in ('pr #', 'merged', 'merge commit', 'main release-gate', 'deploy success', 'remote branch'))
+    cleanup_signal = any(x in lower for x in (
+        'local branch cleanup', '로컬 branch', '로컬 브랜치', 'git branch -d',
+        'branch deletion', '브랜치 삭제', 'remote/local branch deletion',
+        'cleanup blocker', 'branch cleanup blocked', 'terminal consent gate',
+    ))
+    merged_signal = any(x in lower for x in (
+        'pr #', 'merged', 'merge commit', 'main release-gate', 'deploy success',
+        'remote branch', 'release-gate/deploy succeeded', 'cloudflare-deploy',
+    ))
     branch = extract_release_branch(text)
     pr_number = extract_pr_number(text)
     return scoped and cleanup_signal and merged_signal and bool(branch), text, branch, pr_number

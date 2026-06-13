@@ -344,7 +344,8 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 관리자 기능은 모바일 하단 탭 기본 메뉴에 섞지 않는다.
-- Phase 17 네이티브 앱 1차 화면은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개만 우선한다.
+- Phase 18 모바일 핵심 업무 연결 1차에서도 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선한다.
+- 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
 - 모바일 세션 저장은 Web cookie 복제가 아니라 secure storage bridge 전제를 유지한다.
@@ -364,7 +365,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `TEST_PLAN.md`
 - `QA_CHECKLIST.md`
 - 관련 `docs/architecture/phase-*.md`
-- Phase 17 문서라면 `docs/architecture/phase-17-native-mobile-transition-prep-scope.md` 와 `docs/guides/phase-17-native-mobile-transition-prep-handoff.md` 의 `apps/mobile` 구조, base URL resolver, secure storage bridge, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 18 문서라면 `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md` 와 `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md` 의 핵심 업무 흐름, 상태 분류 4축, base URL resolver, secure storage bridge, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 

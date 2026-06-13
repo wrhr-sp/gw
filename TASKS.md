@@ -6,38 +6,38 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 17 네이티브 모바일앱 전환 준비
+작업명: Phase 18 네이티브 모바일앱 핵심 업무 연결 1차
 
 현재 체인:
 
-1. 기획: `t_2ab164ce` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_724b339d` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_9782f917` — 바름(`gwreviewer`) — parent gate 대기
-4. 테스트/재검증: `t_e70b9919` — 해봄(`gwtester`) — parent gate 대기
-5. 문서화: `t_057b7d67` — 다온(`gwdocs`) — parent gate 대기
-6. GitHub/배포 확인: `t_372b75b2` — 지킴(`gwops`) — parent gate 대기
+1. 기획: `t_12e8c740` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_ab72e505` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_6bf3ed03` — 바름(`gwreviewer`) — parent gate 대기
+4. 테스트/재검증: `t_d3c80f21` — 해봄(`gwtester`) — parent gate 대기
+5. 문서화: `t_a857f10b` — 다온(`gwdocs`) — parent gate 대기
+6. GitHub/배포 확인: `t_545761da` — 지킴(`gwops`) — parent gate 대기
 
 현재 문서 기준 핵심 범위:
 
-- `apps/mobile` 후보 위치를 monorepo 안에서 어떻게 둘지와 `apps/web`/`apps/api`/`packages/shared` 와의 경계를 고정한다.
-- Web/PWA와 네이티브 앱이 공통으로 재사용할 API contract, role/scope, route mapping, auth/session 원칙을 정리한다.
-- 모바일 1차 핵심 화면을 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 묶음으로 우선 고정한다.
-- same-origin `/api/*` 철학은 유지하되, 네이티브 앱에서는 base URL resolver / mock / dev-safe bridge 계층으로 번역한다.
-- App Store/Play Console/TestFlight/EAS 유료 빌드, 외부 테스터 배포, push/실기기 권한, secret, custom domain, production data 는 별도 승인 게이트로 분리한다.
-- 성공 기준은 스토어 배포가 아니라 다음 구현자가 모바일 skeleton 작업을 안전하게 시작할 수 있는 구조·문서·검증 기준을 남기는 것이다.
+- Phase 17에서 만든 `apps/mobile` skeleton과 `packages/shared/src/mobile-contracts.ts` 계약을 바탕으로 모바일 핵심 업무 흐름을 1차로 연결한다.
+- 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지·문서 → 내 정보 순서가 한 흐름으로 읽히게 한다.
+- 각 핵심 화면의 API contract 연결과 offline/error/empty/forbidden 상태 안내 기준을 정리한다.
+- PWA와 네이티브 앱의 차이는 실행 환경과 연결 방식 차이로 문서화하되, role/scope/auth 경계는 공통 계약으로 유지한다.
+- `/admin/*` 운영 화면, App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production data 는 계속 별도 승인 게이트로 분리한다.
+- 성공 기준은 store 배포가 아니라 다음 구현자가 모바일 초안에서 핵심 업무 route 를 한 번 따라가고 검증 근거를 남길 수 있게 만드는 것이다.
 
-현재 구현 초안 메모:
+현재 구현/기획 메모:
 
-- `apps/mobile` 에 `app.config.ts`, `src/shell.ts`, `src/base-url.ts`, `src/session-bridge.ts`, `src/screens.ts`, `README.md` 를 추가해 Expo/React Native 앱 shell 후보 구조와 7개 핵심 화면 placeholder 기준을 코드로 남겼다.
-- `packages/shared/src/mobile-contracts.ts` 에 shared route/auth/session/승인 게이트 계약을 모아 Web/PWA와 모바일이 같은 제품 경계를 재사용하도록 맞췄다.
-- 루트 `pnpm check` 에서 `apps/mobile` TypeScript 점검이 함께 돌도록 `@gw/mobile` typecheck 스크립트를 추가했다.
+- `apps/mobile/src/screens.ts`, `src/shell.ts`, `src/session-bridge.ts`, `src/base-url.ts` 와 `packages/shared/src/mobile-contracts.ts` 가 이미 7개 핵심 화면, session guardrail, base URL policy, route mapping 기준을 담고 있다.
+- 이번 Phase 18에서는 여기에 화면별 상태 분류(offline/error/empty/forbidden), API contract 연결, 일반 사용자/승인자 첫 액션 차이, PWA 대 네이티브 차이를 더 분명히 맞춘다.
+- 리뷰/테스트/문서화는 `pnpm --filter @gw/mobile typecheck`, `pnpm check`, shared contract 검증, 필요 시 `pnpm --filter @gw/web build:cf` 근거까지 같이 남기는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md`
+- `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md`
 - `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`
 - `docs/guides/phase-17-native-mobile-transition-prep-handoff.md`
-- `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`
-- `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
 - `docs/architecture/phase-7-api-same-origin-scope.md`
 - `docs/ux/groupware-benchmark-principles.md`

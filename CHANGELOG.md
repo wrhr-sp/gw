@@ -4,6 +4,12 @@
 
 ### Changed
 
+- `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md` 와 `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md` 를 추가해 Phase 17 모바일 skeleton 이후 로그인→대시보드→출퇴근/휴가/결재함→공지·문서→내 정보 흐름, offline/error/empty/forbidden 상태 4축, PWA 대 네이티브 차이, 승인 게이트를 쉬운 한국어로 다시 고정했다.
+- `packages/shared/src/mobile-contracts.ts` 에 Phase 18용 workflow/state guidance, PWA 대 네이티브 차이 메모, 화면 lookup helper 를 추가했고 `apps/mobile/src/workflow.ts` 를 새로 만들어 화면별 상태 설명과 일반 사용자/승인자 첫 액션 분기를 실제 코드 helper 로 연결했다.
+- `TASKS.md`, `ROADMAP.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 18 활성 체인 기준으로 갱신해 현재 카드 ids, 포함/제외 범위, 구현자 확인 순서, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 Phase 18 모바일 핵심 업무 연결 기준을 반영해 7개 우선 화면, 상태 분류 4축, mobile typecheck/contract 검증 포인트, 문서 일관성 점검 기준을 최신 handoff 와 같은 뜻으로 맞췄다.
+- Phase 18 문서를 한 번 더 다듬어 `apps/mobile/src/workflow.ts` 의 일반 사용자/승인자 첫 액션 분기와 내 정보 화면의 `me` 중심 + `auth.logout`/session clear 경계를 쉬운 확인 포인트로 다시 고정했다.
+
 - `apps/mobile` skeleton(`app.config.ts`, `src/shell.ts`, `src/base-url.ts`, `src/session-bridge.ts`, `src/screens.ts`, `README.md`)을 추가하고, `packages/shared/src/mobile-contracts.ts` 를 신설해 Web/PWA와 네이티브 앱이 공유할 route mapping, auth/session guardrail, same-origin 번역용 base URL policy, 승인 게이트 기준을 코드로 고정했다.
 - `packages/shared/test/contracts.spec.ts` 에 Phase 17 모바일 전환 계약 회귀 테스트를 추가했고, 루트 `pnpm check` 가 `@gw/mobile` typecheck 를 함께 수행하도록 `apps/mobile/package.json` 을 보강했다.
 - `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 에 현재 `apps/mobile` skeleton 위치와 검증 포인트를 추가해 다음 구현자가 base URL resolver / secure storage bridge / 승인 게이트를 바로 확인할 수 있게 정리했다.

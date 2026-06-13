@@ -19,22 +19,23 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 17 네이티브 모바일앱 전환 준비
+### 3. 현재 문서화/검증 기준은 Phase 18 네이티브 모바일앱 핵심 업무 연결 1차
 
-현재 루트 문서와 handoff 는 Phase 16 PWA 파일럿 초안 이후, Expo/React Native 네이티브 앱 전환을 안전하게 시작할 수 있도록 monorepo 배치, shared contract, auth/session 경계, route mapping, 승인 게이트를 정리한 Phase 17 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 Phase 17에서 준비한 `apps/mobile` 구조와 shared contract 위에, 로그인 이후 핵심 업무 흐름과 상태 안내를 한 번에 따라갈 수 있게 정리한 Phase 18 체인을 기준으로 맞춘다.
 
-- 기본 monorepo 추가안은 `apps/mobile` + `packages/shared` 재사용 구조다.
-- 모바일 1차 핵심 화면 묶음은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보다.
+- 기본 7개 핵심 화면 묶음은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보다.
+- 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보 흐름을 우선 기준으로 본다.
 - `/admin/*` 운영 화면은 모바일 기본 탭 범위에 자동 포함하지 않고 후속 범위 또는 Web fallback 후보로 본다.
 - same-origin `/api/*` 원칙은 유지하되 네이티브 앱에서는 base URL resolver 와 mock/dev-safe bridge 층으로 번역해야 한다.
 - Web cookie 동작을 모바일 세션 기본값처럼 가정하지 않고 secure storage bridge 기준을 먼저 둔다.
+- 상태 안내는 offline, error, empty, forbidden 4축으로 먼저 나눠 설명한다.
 - App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production origin 확정은 별도 승인 게이트다.
-- 현재 `apps/mobile` 은 Expo SDK 실설치/스토어 빌드 단계가 아니라 contract/typecheck 중심 skeleton 단계다.
+- 현재 `apps/mobile` 은 store build 단계가 아니라 contract/typecheck/skeleton 연결 단계다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 모바일 전환 준비 단계에서 남아 있는 제품형 리스크
+### 4. 현재 모바일 핵심 업무 연결 단계에서 남아 있는 제품형 리스크
 
-- Web/PWA에서 쓰던 same-origin 개념을 네이티브 앱에 그대로 복사하면 base URL 관리가 흩어질 수 있다.
+- offline/error/empty/forbidden 상태 설명이 흔들리면 사용자에게 정상 빈 상태와 실패 상태가 섞여 보일 수 있다.
 - 모바일 편의 때문에 role/scope/auth/session 경계를 느슨하게 만들면 Web/API 보안 모델과 충돌할 수 있다.
 - `apps/mobile` 과 Web UI 공용화를 과하게 밀면 오히려 monorepo 의존성이 복잡해질 수 있다.
 - 관리자 화면까지 모바일 1차 범위에 무리하게 넣으면 일반 사용자 핵심 흐름 우선 원칙이 약해질 수 있다.

@@ -5,7 +5,13 @@ from pathlib import Path
 ROOT=Path('/home/wrhrgw/gw'); DB=Path('/home/wrhrgw/gw-dev-bot')/'.hermes/kanban/boards/groupware/kanban.db'; ENV=Path('/home/wrhrgw/gw-dev-bot')/'.hermes/.env'
 DEFAULT_CHAT_ID='8648561062'; APP_LABEL='그룹웨어'; MAIN_NAME='싱드(singde)'
 RESTRICTED=('secret','.env','credential','token','password','production','prod db','운영 db','운영db','dns','domain','유료','비용','결제','migration','마이그레이션','배포','delete','force','삭제','강제')
+HARD_RESTRICTED=('secret','.env','credential','token','password','production','prod db','운영 db','운영db','dns','domain','유료','비용','결제','migration','마이그레이션')
 RECOVER=('timeout','timed out','crash','crashed','stale','protocol violation','protocol-violation','iteration budget','iteration-budget','worker recovery')
+AUTO_ACTION=(
+    'branch cleanup blocked', 'terminal consent gate', 'remote/local branch deletion',
+    'local branch cleanup', 'release-cleanup', 'release-gate/deploy succeeded',
+    'stale blocker', 'already-handled', 'live fetch', 'workers.dev',
+)
 def load_dotenv(path):
     if not path.exists(): return
     for line in path.read_text(errors='ignore').splitlines():
@@ -23,6 +29,10 @@ def compact(s,n=90):
     s=' '.join(str(s or '').split()); return s[:n]+('…' if len(s)>n else '')
 def classify(row):
     blob='\n'.join(str(row[k] or '') for k in row.keys() if k in ('title','result','status')).lower()
+    # 카드 범위에 포함된 release/branch cleanup 류는 secret/DNS/유료/prod DB가 아닌 한
+    # 정각보고에서 '수동분류'로 끝내지 않고 싱드 자동조치 후보로 드러낸다.
+    if any(x in blob for x in HARD_RESTRICTED): return '승인필요'
+    if any(x in blob for x in AUTO_ACTION): return '자동조치후보'
     if any(x in blob for x in RESTRICTED): return '승인필요'
     if any(x in blob for x in RECOVER): return '복구후보'
     if str(row['status'])=='blocked': return '수동분류'
@@ -38,19 +48,19 @@ def build_message():
         rows=con.execute("select id,title,status,assignee,created_at,started_at,last_heartbeat_at,result from tasks where status not in ('archived') order by case status when 'running' then 1 when 'blocked' then 2 when 'ready' then 3 when 'todo' then 4 when 'scheduled' then 5 when 'done' then 6 else 9 end, created_at desc limit 120").fetchall()
     counts={str(r['status']): int(r['n']) for r in count_rows}
     active=[r for r in rows if r['status'] in ('running','blocked','ready')][:8]
-    blocked=[r for r in rows if r['status']=='blocked']; class_counts={'승인필요':0,'복구후보':0,'수동분류':0}
+    blocked=[r for r in rows if r['status']=='blocked']; class_counts={'승인필요':0,'자동조치후보':0,'복구후보':0,'수동분류':0}
     for r in blocked:
         c=classify(r); class_counts[c]=class_counts.get(c,0)+1
     lines=[f'🕘 <b>{html.escape(APP_LABEL)} 정각 작업현황</b>', f'- 보고 주체: {html.escape(MAIN_NAME)}', f'- 시각: {now}', f'- DB 상태: {html.escape(str(integrity))}', f'- 현황: running {counts.get("running",0)} / blocked {counts.get("blocked",0)} / ready {counts.get("ready",0)} / todo {counts.get("todo",0)} / scheduled {counts.get("scheduled",0)} / done {counts.get("done",0)}']
-    if blocked: lines.append(f'- 막힘 분류: 승인필요 {class_counts.get("승인필요",0)} / 복구후보 {class_counts.get("복구후보",0)} / 수동분류 {class_counts.get("수동분류",0)}')
+    if blocked: lines.append(f'- 막힘 분류: 승인필요 {class_counts.get("승인필요",0)} / 자동조치후보 {class_counts.get("자동조치후보",0)} / 복구후보 {class_counts.get("복구후보",0)} / 수동분류 {class_counts.get("수동분류",0)}')
     if active:
         lines += ['', '<b>진행/막힘/대기 핵심</b>']
         for r in active:
             extra=f' · {classify(r)}' if r['status']=='blocked' else ''
             lines.append(f'- {html.escape(r["status"] or "-")}{html.escape(extra)} · {html.escape(r["assignee"] or "미지정")} · {html.escape(compact(r["title"]))}')
     else: lines += ['', '- 현재 running/blocked/ready 핵심 카드 없음']
-    lines += ['', '<b>확인한 근거</b>', f'- Kanban DB를 읽어서 상태와 카드 수를 확인했습니다. DB integrity={html.escape(str(integrity))}입니다.', '- running/blocked/ready 카드를 우선 확인했고, 막힘은 승인필요/복구후보/수동분류로 나눴습니다.']
-    lines += ['', '<b>다음 액션</b>', '- 대장이 해줘야 할 것: 자동 조치 범위면 없습니다. 승인필요 항목이 있으면 어떤 범위까지 허용할지만 답해주시면 됩니다.', '- 싱드 처리: 복구후보는 로그·검증 근거 확인 후 자동 수정→리뷰→검증 루프로 넘깁니다.', '- 최종완료 상태면 싱드가 다음 작업 후보를 정리해 이어서 진행합니다.']
+    lines += ['', '<b>확인한 근거</b>', f'- Kanban DB를 읽어서 상태와 카드 수를 확인했습니다. DB integrity={html.escape(str(integrity))}입니다.', '- running/blocked/ready 카드를 우선 확인했고, 막힘은 승인필요/자동조치후보/복구후보/수동분류로 나눴습니다.']
+    lines += ['', '<b>다음 액션</b>', '- 대장이 해줘야 할 것: 승인필요 항목이 있을 때만 어떤 범위까지 허용할지 답해주시면 됩니다.', '- 싱드 처리: 자동조치후보와 복구후보는 로그·검증 근거 확인 후 승인 범위 안에서 자동 정리하거나 수정→리뷰→검증 루프로 넘깁니다.', '- 최종완료 상태면 싱드가 다음 작업 후보를 정리해 이어서 진행합니다.']
     lines += ['', '<b>복구 원칙</b>', '- 복구후보도 로그·검증 근거 확인 후 처리합니다.', '- 승인필요 항목(secret/운영DB/DNS/비용/배포 등)은 대장 승인 전 조치하지 않습니다.', '- 완료/막힘/복구/조치 결과는 칸반 보고카드가 아니라 Telegram 직접 보고로 전달합니다.']
     return '\n'.join(lines)
 def send(msg):
