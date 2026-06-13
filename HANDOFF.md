@@ -18,47 +18,46 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 21 실제 회사 설정 모델 1차다. Phase 20에서 정리한 운영 전 readiness 기준 위에, 회사 기본 설정/조직/직원/권한/근태·휴가 정책을 실제 회사 설정 묶음처럼 다시 연결하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 22 실제 업무 흐름 통합 1차다. Phase 21에서 정리한 실제 회사 설정 모델 기준 위에, 로그인 이후 대시보드·출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름을 실제 하루 업무 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 실운영 연결보다 실제 회사 설정 모델처럼 읽히는 구조 정리다.
-- 회사 설정 모델은 회사 기본 설정 / 조직·직원·권한 / 근태·휴가·근무 정책 / 운영 관리자 설정 4묶음으로 먼저 본다.
-- `/org`·`/employees` 는 현재 회사 설정 결과를 읽는 일반 조회 화면이고, `/admin/users`·`/admin/policies` 는 candidate/diff 를 검토하는 관리자 화면으로 유지한다.
-- 출퇴근 정책의 `company_default < workplace < department < job_type` 우선순위 방향을 휴가/근무 정책 설명에도 같은 방향으로 확장한다.
-- 직원 화면은 허용된 정책만 보여 주고, 정책 미허용/권한 부족/회사 scope/placeholder 제한은 계속 분리해서 설명한다.
+- 이번 Phase의 목적은 실운영 연결보다 실제 하루 업무 흐름처럼 읽히는 연결 구조 정리다.
+- 기준 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 다.
+- `/dashboard` 는 오늘 할 일 허브이고 `/admin/*` 는 별도 운영 확인 포인트로 남긴다.
+- mobile/PWA/Web 은 같은 route/auth/session contract 와 guardrail 을 가리키는지 비교해서 본다.
+- empty/error/forbidden/offline 상태는 실제 사용자 언어로 정리하되 의미를 섞지 않는다.
 - GPS/실태그 단말/production DB/secret/DNS/custom domain/유료 리소스/외부 초대·실연동/App Store·Play Console·TestFlight·EAS/push/실기기 권한은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`, `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`, `DATA_MODEL.md`, `API.md`, `packages/shared/src/attendance-policy.ts`, `packages/shared/src/contracts.ts`, `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md`, `docs/guides/phase-20-pre-operations-alignment-pass-1-handoff.md`, `docs/architecture/phase-15-operational-policy-audit-bridge-pass-1-scope.md`, `docs/architecture/phase-11-org-employees-scope.md`.
+- 우선 참고 문서: `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`, `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`, `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/base-url.ts`.
 
-2026-06-13 Phase 21 실제 회사 설정 모델 1차 메모:
+2026-06-13 Phase 22 실제 업무 흐름 통합 1차 메모:
 
-- 지금 저장소를 "실제 회사 설정 모델을 설명할 수 있는 상태"로 보고, "실운영 회사 설정이 이미 저장/반영된다"처럼 과장하지 않는다.
-- 회사 기본 설정, 조직/직원/권한, 근태·휴가 정책, 운영 관리자 설정이 어떤 묶음으로 이어지는지 먼저 적는다.
-- `/org`·`/employees` 는 일반 조회, `/admin/users`·`/admin/policies` 는 candidate 검토라는 경계를 계속 유지한다.
-- `packages/shared/src/attendance-policy.ts` 의 `company_default < workplace < department < job_type` 우선순위는 이번 Phase 21 설명의 핵심 근거다.
-- 휴가/근무 정책 설명도 같은 방향으로 맞추되 개인 override, GPS, 실태그 단말은 이번 단계에 열지 않는다.
-- 직원 화면에는 허용된 정책만 보이게 하고, 정책 미허용/권한 부족/회사 scope/placeholder 제한 4축 설명을 계속 유지한다.
+- 지금 저장소를 "실제 하루 업무 흐름을 설명할 수 있는 상태"로 보고, "실운영 업무 저장/반영이 이미 끝났다"처럼 과장하지 않는다.
+- 기준 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 다.
+- `/dashboard` 상단 액션 순서와 각 업무 화면 설명이 같은 뜻인지 먼저 본다.
+- `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts` 의 mobile 흐름 helper 가 Web 설명과 충돌하지 않는지 본다.
+- 직원 화면 상태 안내는 empty/error/forbidden/offline 4축을 유지하되 실제 사용자 언어로 풀어도 뜻이 변하지 않게 적는다.
 - `/admin/*` 운영 화면은 일반 직원 핵심 흐름으로 섞지 않고 Web/admin 책임으로 남긴다.
 - production DB, secret, custom domain, 외부 초대, 외부 HR, 실태그 장비, 스토어 사용, push, 실기기 권한은 구현 TODO가 아니라 승인 checklist 로 계속 분리한다.
-- 다음 구현자는 `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`, `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`, `DATA_MODEL.md`, `API.md`, `packages/shared/src/attendance-policy.ts`, `packages/shared/src/contracts.ts`, `apps/web/admin-skeleton-config.ts`, `apps/api/src/app.ts` 를 순서대로 보면 기준을 가장 빨리 확인할 수 있다.
+- 다음 구현자는 `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/employees/page.tsx`, `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts` 를 순서대로 보면 기준을 가장 빨리 확인할 수 있다.
 
-대장이 Phase 21 문서를 볼 때 바로 확인할 쉬운 순서:
-1. `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md` 에서 포함 범위/제외 범위/결정사항/승인 목록을 먼저 본다.
-2. `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md` 에서 회사 설정 4묶음, 직원용 화면 대 관리자용 화면 경계, 승인 필요를 쉬운 말로 본다.
+대장이 Phase 22 문서를 볼 때 바로 확인할 쉬운 순서:
+1. `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 에서 포함 범위/제외 범위/결정사항/승인 목록을 먼저 본다.
+2. `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 에서 기준 업무 순서, 상태 안내, mobile 비교, 승인 필요를 쉬운 말로 본다.
 3. `ROADMAP.md`, `TASKS.md`, `KNOWN_ISSUES.md` 에서 현재 활성 체인과 남은 리스크를 본다.
-4. `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에서 route/권한/검증 기준이 같은 뜻인지 본다.
-5. `DATA_MODEL.md`, `API.md`, `packages/shared/src/attendance-policy.ts`, `packages/shared/src/contracts.ts` 에서 회사 설정 모델과 정책 우선순위 근거를 본다.
-6. `apps/web/admin-skeleton-config.ts` 와 `apps/api/src/app.ts` 에서 `/admin/users`·`/admin/policies` 가 같은 회사 scope 를 어떻게 설명하는지 본다.
+4. `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에서 route/상태/검증 기준이 같은 뜻인지 본다.
+5. `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/employees/page.tsx` 에서 실제 흐름 톤을 본다.
+6. `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/base-url.ts` 에서 mobile 계약과 guardrail 을 본다.
 7. production DB, secret, DNS/custom domain, 유료 리소스, 외부 초대, 외부 HR, GPS/실태그 단말, App Store/Play Console/TestFlight/EAS, push, 실기기 권한이 모두 승인 게이트로 남았는지 확인한다.
 
-대장이 Phase 21 route 를 실제로 따라 볼 때 추천하는 쉬운 순서:
+대장이 Phase 22 route 를 실제로 따라 볼 때 추천하는 쉬운 순서:
 1. `/login` — placeholder 로그인/세션 설명과 역할별 첫 이동이 과장 없이 적혀 있는지 본다.
-2. `/dashboard` — 상단 액션 우선순위와 일반 사용자 대 관리자 경계가 같은 뜻인지 본다.
-3. `/org` 와 `/employees` — 현재 회사 구조/직원 상태를 읽는 일반 조회 흐름인지, 운영 변경 화면처럼 과장하지 않는지 본다.
-4. `/attendance` 와 `/leave` — 정책 안내, 미허용 이유, placeholder 제한이 숨겨지지 않는지 본다.
-5. `/approvals` — 승인 lane 이 기본 전원 공용 흐름처럼 읽히지 않는지 본다.
-6. `/boards` 와 `/documents` — 협업 묶음 설명은 하되 게시판 책임과 문서 보관 책임을 섞지 않는지 본다.
-7. `/me` — `me` 조회와 `auth.logout`/session clear 설명이 과장 없이 이어지는지 본다.
+2. `/dashboard` — 상단 액션이 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 읽히고, 그 뒤 `/org`·`/employees` 조회 마무리 흐름과 일반 사용자 대 관리자 경계가 같은 뜻인지 본다.
+3. `/attendance` 와 `/leave` — 정책 안내, 미허용 이유, placeholder 제한이 숨겨지지 않는지 본다.
+4. `/approvals` — 승인 lane 이 기본 전원 공용 흐름처럼 읽히지 않는지 본다.
+5. `/boards` 와 `/documents` — 협업 묶음 설명은 하되 게시판 책임과 문서 보관 책임을 섞지 않는지 본다.
+6. `/me` — `me` 조회와 `auth.logout`/session clear 설명이 과장 없이 이어지는지 본다.
+7. `/org` 와 `/employees` — 현재 회사 구조/직원 상태를 읽는 일반 조회 흐름인지, 운영 변경 화면처럼 과장하지 않는지 본다.
 8. `/admin/users`, `/admin/policies`, `/admin/audit-logs` — 직원 연결/역할 diff, 정책 source/candidate, 감사 read-only 경계가 분리돼 있는지 본다.
 9. `/admin` — 관리자 허브 설명이 일반 사용자 흐름과 분리되고 `audit.read` 경계가 유지되는지 본다.
 10. 마지막으로 live/PWA/API/mobile 근거를 다시 모아, 각 route 가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 한 번에 읽히는지 본다.
@@ -77,14 +76,15 @@
 4. `apps/mobile/src/session-bridge.ts` 에서 plain async storage 와 Web cookie copy 금지 기준, session clear 가 어떤 guardrail 로 묶이는지 본다.
 5. `apps/mobile/src/workflow.ts` 에서 일반 사용자 첫 액션이 `attendance`, 승인자 첫 액션이 `approvals` 로 나뉘는지 본다.
 
-대장이 Phase 21을 빠르게 판정할 5가지 질문:
-1. 회사 기본 설정/조직/직원/권한/정책이 어떤 묶음으로 연결되는지 바로 보이는가?
-2. 일반 직원 화면과 관리자 설정 화면의 책임이 분리돼 보이는가?
-3. 직원 화면이 현재 허용된 정책만 보여 준다는 설명이 분명한가?
-4. 출퇴근 정책 우선순위와 휴가/근무 정책 설명 방향이 충돌하지 않는가?
-5. GPS/실태그/production data/external HR 같은 실제 운영 연결이 별도 승인 게이트로 남아 있는가?
+대장이 Phase 22를 빠르게 판정할 6가지 질문:
+1. 직원이 로그인한 뒤 무엇을 먼저 하고 어디로 이어지는지 바로 보이는가?
+2. `/dashboard` 상단 액션과 실제 업무 화면 설명이 같은 순서를 가리키는가?
+3. 출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름이 끊기지 않는가?
+4. mobile/PWA/Web 설명이 같은 contract 와 guardrail 을 가리키는가?
+5. empty/error/forbidden/offline 상태가 쉬운 말로 바뀌어도 의미가 섞이지 않는가?
+6. `/admin/*` 와 production data/secret/실연동이 별도 승인 게이트로 남아 있는가?
 
-위 5개 질문 중 하나라도 애매하면 아직 실제 회사 설정 모델 1차 문서가 덜 정리된 상태로 본다.
+위 6개 질문 중 하나라도 애매하면 아직 실제 업무 흐름 통합 1차 문서가 덜 정리된 상태로 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

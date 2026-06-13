@@ -26,7 +26,7 @@ export default function DashboardPage() {
       backLabel="홈으로"
       eyebrow="Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안"
       title="대시보드 시작 화면 skeleton"
-      description="오늘 할 일, 승인 대기, 공지·문서 진입, 일반 조회, 관리자 경계를 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
+      description="오늘 할 일, 휴가/승인 대기, 공지·문서 진입, 내 정보와 일반 조회, 관리자 경계를 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -39,7 +39,7 @@ export default function DashboardPage() {
     >
       <SurfaceSection
         title="오늘 할 일"
-        description="가장 먼저 눌러야 할 상단 액션 5가지를 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."
+        description="가장 먼저 눌러야 할 상단 액션 6가지를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."
       >
         <div className="mobile-summary-grid">
           {dashboardActionCards.map((card) => (
@@ -80,7 +80,7 @@ export default function DashboardPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="오늘 상태와 일반 조회" description="근태 상태와 조직/직원 읽기 흐름을 함께 보여 주고 운영 변경은 분리합니다.">
+      <SurfaceSection title="오늘 상태와 마무리 조회" description="근태·휴가 상태와 내 정보·조직 읽기 흐름을 함께 보여 주고 운영 변경은 분리합니다.">
         <div className="grid-auto-compact">
           {dashboardStatusCards.map((card) => (
             <article key={card.title} className="stat-card">
@@ -106,10 +106,10 @@ export default function DashboardPage() {
       </SurfaceSection>
 
       <Phase16PilotPanel
-        description="대시보드는 핵심 업무 route, 협업 route, 관리자 route 를 한 화면에서 묶어 사내 검토용 초안의 시작점으로 사용합니다."
+        description="대시보드는 핵심 업무 route, 협업 route, 내 정보 확인, 관리자 route 를 한 화면에서 묶어 사내 검토용 초안의 시작점으로 사용합니다."
         confirmItems={[
-          "일반 직원은 /attendance, /leave, /approvals, /boards, /documents 로 자연스럽게 이동한다.",
-          "팀장/승인자는 approvals 중심 흐름을 먼저 보고 필요 시 직원/문서 확인으로 이어진다.",
+          "일반 직원은 /attendance, /leave, /approvals, /boards, /documents, /me 로 자연스럽게 이동한다.",
+          "팀장/승인자는 같은 허브에서 시작하되 approvals 우선순위를 더 먼저 확인한다.",
           "운영 관리자와 감사 사용자는 일반 조회와 /admin 계열 preview 가 분리돼 보인다.",
         ]}
         blockedItems={[
@@ -118,9 +118,11 @@ export default function DashboardPage() {
         ]}
         nextRoutes={[
           { href: "/attendance", label: "/attendance", description: "오늘 근태 상태와 정정 필요 여부 확인" },
+          { href: "/leave", label: "/leave", description: "잔여와 신청/승인 대기 흐름 확인" },
           { href: "/approvals", label: "/approvals", description: "승인 대기와 팀 병목 후보 확인" },
           { href: "/boards", label: "/boards", description: "공지/게시판 가드레일 확인" },
           { href: "/documents", label: "/documents", description: "문서 공간/첨부 metadata 경계 확인" },
+          { href: "/me", label: "/me", description: "세션, 역할, 보안 안내 뒤 조직 조회로 이어지는지 확인" },
         ]}
         approvalGates={[
           "production data 반영",

@@ -10,15 +10,16 @@ describe("Phase 14 dashboard summary skeleton", () => {
     const html = renderToStaticMarkup(<DashboardPage />);
 
     expect(html).toContain("오늘 할 일");
+    expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
-    expect(html).toContain("오늘 상태와 일반 조회");
+    expect(html).toContain("오늘 상태와 마무리 조회");
     expect(html).toContain("공지/문서 진입점");
     expect(html).toContain("운영 요약");
     expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
-    expect(html.indexOf("역할별 첫 이동")).toBeLessThan(html.indexOf("오늘 상태와 일반 조회"));
-    expect(html).toContain("/employees");
+    expect(html.indexOf("역할별 첫 이동")).toBeLessThan(html.indexOf("오늘 상태와 마무리 조회"));
+    expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("placeholder/dev-safe 요약이며 실제 저장이나 발송을 실행하지 않습니다.");
   });
