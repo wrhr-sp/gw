@@ -4,6 +4,10 @@
 
 ### Changed
 
+- Phase 22 문서를 현재 `/dashboard` 구현 기준으로 다시 맞춰 상단 액션 순서를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 로, 이후 `/org`·`/employees` 를 마무리 조회 흐름으로 읽는 설명을 `SPEC.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 에 반영했다.
+- `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 를 추가해 로그인 이후 대시보드·출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름을 실제 하루 업무 순서처럼 다시 읽는 기준, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트를 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 22 활성 체인 기준으로 갱신해 현재 카드 ids, 실제 업무 흐름 목표, 기준 route 순서, mobile 비교 포인트, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 22 기준으로 보강해 로그인 후 실제 하루 업무 흐름 판정 질문, 상태 안내 4축의 쉬운 사용자 언어, dashboard 와 실제 업무 화면 순서 정렬, `/admin/*` 분리 기준을 루트 검증 문서에 반영했다.
 - `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md` 와 `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md` 를 추가해 회사 기본 설정/조직/직원/권한/근태·휴가 정책을 실제 회사 설정 묶음처럼 다시 읽는 기준, 직원용 화면 대 관리자용 화면 경계, 출퇴근 정책 우선순위 방향, 승인 게이트를 쉬운 한국어로 고정했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 21 활성 체인 기준으로 갱신해 현재 카드 ids, 실제 회사 설정 모델 목표, 회사 설정 4묶음, 직원 화면 대 관리자 화면 경계, 남은 승인 게이트를 한 번에 따라가게 정리했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 21 기준으로 보강해 회사 기본 설정/조직/직원/권한/정책 연결 질문, 직원 UI/API 가 현재 허용된 정책만 보이는지 확인하는 기준, GPS·실태그·production data·external HR 승인 게이트 분리를 루트 검증 문서에 반영했다.

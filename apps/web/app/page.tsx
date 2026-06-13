@@ -7,8 +7,8 @@ import { installGuideSteps, mobilePrimaryNav, mobileReviewChecklist } from "./mo
 const primaryFlows = [
   {
     badge: "일반 업무 흐름",
-    title: "/ → /login → /dashboard → /attendance · /approvals · /org · /employees",
-    body: "일반 직원과 팀장은 오늘 할 일 확인 뒤 근태, 전자결재, 조직/직원 조회로 이어지는 흐름을 먼저 봅니다.",
+    title: "/ → /login → /dashboard → /attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees",
+    body: "일반 직원과 팀장은 오늘 할 일 확인 뒤 출퇴근, 휴가, 전자결재, 공지/문서, 내 정보, 조직/직원 조회 순서로 하루 흐름을 먼저 봅니다.",
   },
   {
     badge: "관리자 검토 흐름",
@@ -21,14 +21,14 @@ const roleEntryCards = [
   {
     role: "일반 직원",
     firstRoute: "/dashboard",
-    summary: "오늘 상태를 먼저 보고 근태와 전자결재로 이동합니다.",
+    summary: "오늘 상태를 먼저 보고 출퇴근, 휴가, 전자결재로 이동합니다.",
     note: "관리자 기능은 기본 흐름에 노출하지 않습니다.",
   },
   {
     role: "팀장 / 결재자",
-    firstRoute: "/approvals",
-    summary: "내 승인 대기와 팀 병목 확인을 먼저 처리합니다.",
-    note: "필요 시 /employees 에서 기본 인원 상태만 조회합니다.",
+    firstRoute: "/dashboard",
+    summary: "같은 대시보드에서 시작하되 승인 대기와 팀 병목 확인을 더 먼저 처리합니다.",
+    note: "필요 시 /leave, /employees 에서 일정과 인원 상태를 확인합니다.",
   },
   {
     role: "인사 / 운영 관리자",
@@ -45,8 +45,8 @@ const roleEntryCards = [
 ] as const;
 
 const secondaryLinks = [
-  { href: "/boards", label: "게시판", summary: "공지/게시판 읽기 흐름은 이번 단계에서 후순위 참고 경로로 유지합니다." },
-  { href: "/documents", label: "문서함", summary: "문서 공간 진입은 유지하되 핵심 smoke 는 일반 업무/관리자 흐름에 집중합니다." },
+  { href: "/boards", label: "게시판", summary: "공지/게시판 읽기 흐름은 /documents 와 함께 협업 묶음으로 이어서 확인합니다." },
+  { href: "/employees", label: "직원", summary: "조직 확인 뒤 직원 상태와 소속을 읽는 마지막 조회 흐름으로 확인합니다." },
   { href: "/offline", label: "오프라인 안내", summary: "상태 변경이 실제 성공처럼 보이지 않도록 제약과 재시도 절차를 분리합니다." },
 ] as const;
 
@@ -57,7 +57,7 @@ export default function HomePage() {
       backLabel="대시보드로"
       eyebrow="Phase 14 실사용 MVP 통합 1차"
       title="그룹웨어 실사용 MVP 시작점"
-      description="홈, 로그인, 대시보드, 일반 업무 화면, 관리자 검토 화면을 한 흐름으로 눌러 볼 수 있게 정리한 dev-safe 시작 화면입니다."
+      description="홈, 로그인, 대시보드, 일반 업무 화면, 관리자 검토 화면을 한 흐름으로 눌러 보면서 직원의 하루 업무 순서를 그대로 따라갈 수 있게 정리한 dev-safe 시작 화면입니다."
       actions={
         <div className="action-row">
           <Link href="/login" className="touch-button">
@@ -109,7 +109,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="핵심 route 바로가기" description="이번 1차 smoke 의 중심이 되는 일반 업무 route 를 먼저 노출합니다.">
+      <SurfaceSection title="핵심 route 바로가기" description="이번 1차 smoke 의 중심이 되는 직원 하루 업무 route 를 같은 순서로 먼저 노출합니다.">
         <div className="grid-auto">
           {mobilePrimaryNav.map((item) => (
             <article key={item.href} className="route-card">
@@ -124,7 +124,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="후순위 참고 경로" description="핵심 흐름 이해를 방해하지 않도록 별도 섹션으로 분리합니다." muted>
+      <SurfaceSection title="마무리 조회 / 예외 확인 경로" description="핵심 흐름 뒤에 보는 조직·직원 조회와 오프라인 예외 안내를 별도 섹션으로 분리합니다." muted>
         <div className="grid-auto-compact">
           {secondaryLinks.map((item) => (
             <article key={item.href} className="info-card">

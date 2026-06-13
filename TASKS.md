@@ -6,32 +6,36 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 21 실제 회사 설정 모델 1차
+작업명: Phase 22 실제 업무 흐름 통합 1차
 
 현재 체인:
 
-1. 기획: `t_f97c8d87` — 도담(`gwplanner`) — 진행 중
-2. 구현: `t_6066a6fe` — 이룸(`gwbuilder`) — parent gate 대기
-3. 리뷰: `t_39ce6d0c` — 바름(`gwreviewer`) — builder 완료 대기
-4. 후속 테스트/문서화/운영 카드는 review handoff 확정 뒤 같은 기준으로 이어간다.
+1. 기획: `t_343f2b2f` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_48cb8d28` — 이룸(`gwbuilder`) — parent gate 대기
+3. 리뷰: `t_e66f56b7` — 바름(`gwreviewer`) — builder 완료 대기
+4. 테스트: `t_8582cd5f` — 해봄(`gwtester`) — review 완료 대기
+5. 후속 문서화/운영/최종 보고 카드는 같은 기준으로 이어진다.
 
 현재 문서 기준 핵심 범위:
 
-- 회사 기본 설정, 조직/직원/권한, 근태·휴가·근무 정책, 운영 관리자 설정을 실제 회사 설정 묶음처럼 다시 연결한다.
-- `/org`·`/employees` 일반 조회와 `/admin/users` 운영 검토, `/admin/policies` 정책 candidate 가 한 회사 설정 모델 안에서 어떻게 이어지는지 같은 언어로 맞춘다.
-- 출퇴근 정책의 `company_default < workplace < department < job_type` 우선순위 방향을 휴가/근무 정책 설명에도 같은 방향으로 확장한다.
-- 직원 UI/API 는 현재 허용된 정책만 보이는 흐름으로 설명하고, 관리자 화면은 candidate/diff 검토 책임으로 유지한다.
-- GPS/실태그 단말/production data/external HR/실권한 변경은 계속 별도 승인 게이트로 분리한다.
-- 성공 기준은 실제 회사처럼 보이는 설정 구조와 승인 게이트를 대장이 파일럿 준비 관점에서 오해 없이 판정할 수 있게 만드는 것이다.
+- 로그인/session placeholder 와 핵심 업무 route 를 한 흐름으로 다시 묶는다.
+- 기준 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 다.
+- `/dashboard` 상단 액션과 실제 업무 화면 설명이 같은 순서와 같은 언어를 가리키게 맞춘다.
+- empty/error/forbidden/offline 상태 안내를 실제 사용자 언어로 정리하되 의미를 섞지 않는다.
+- mobile/PWA/Web 이 같은 route/auth/session contract 를 가리키는지 비교 검증한다.
+- `/admin/*` 운영 화면은 일반 직원 하루 흐름에 섞지 않고 별도 운영 확인 포인트로 유지한다.
+- production data, secret, external HR, GPS/실태그, 실권한 변경, 외부 배포는 계속 별도 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `DATA_MODEL.md`, `API.md`, `packages/shared/src/attendance-policy.ts`, `packages/shared/src/contracts.ts` 는 현재 회사 설정 모델의 핵심 근거다.
-- 이번 Phase 21에서는 mobile/readiness 문장을 유지하되, 회사 기본 설정/조직/직원/권한/정책 연결 구조를 더 앞에 둔다.
-- 리뷰/테스트/문서화는 직원 화면이 허용된 정책만 보여 주는지, 관리자 화면이 candidate/diff 책임을 유지하는지, 승인 게이트가 문서마다 같은지 확인하는 방향으로 이어간다.
+- `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/employees/page.tsx` 가 현재 Web 흐름의 핵심 근거다.
+- `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/base-url.ts` 가 mobile/PWA 비교의 핵심 근거다.
+- 리뷰/테스트/문서화는 직원 하루 흐름이 끊기지 않는지, 상태 안내 4축이 같은 뜻인지, `/admin/*` 운영 경계와 승인 게이트가 문서마다 같은지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`
+- `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`
 - `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`
 - `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`
 - `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md`

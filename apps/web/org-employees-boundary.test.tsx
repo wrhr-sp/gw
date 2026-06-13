@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import AdminUsersPage from "./app/admin/users/page";
 import EmployeesPage from "./app/employees/page";
+import MePage from "./app/me/page";
 import OrgPage from "./app/org/page";
 
 describe("Phase 11 org/employees skeleton boundaries", () => {
@@ -26,6 +27,17 @@ describe("Phase 11 org/employees skeleton boundaries", () => {
     expect(html).toContain("권한 체계 안내");
     expect(html).toContain("/admin/policies");
     expect(html).not.toContain("역할 생성");
+  });
+
+  it("keeps me page focused on session summary and read-only personal context", () => {
+    const html = renderToStaticMarkup(<MePage />);
+
+    expect(html).toContain("내 정보에서 먼저 보는 카드");
+    expect(html).toContain("same-origin /api/me");
+    expect(html).toContain("할 일이 없는 정상 상태");
+    expect(html).toContain("/employees");
+    expect(html).not.toContain("권한 저장");
+    expect(html).not.toContain("초대 실행");
   });
 
   it("keeps admin users page positioned as a higher-risk review surface", () => {

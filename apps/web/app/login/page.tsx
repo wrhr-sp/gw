@@ -18,9 +18,9 @@ const personaCards = [
   },
   {
     role: "팀장 / 결재자",
-    nextRoute: "/approvals",
-    summary: "대시보드 요약을 본 뒤 승인 대기와 팀 병목 확인을 먼저 처리합니다.",
-    note: "일반 조회는 /employees 에서만 참고하고 관리자 운영 흐름과 섞지 않습니다.",
+    nextRoute: "/dashboard",
+    summary: "대시보드 요약을 본 뒤 /attendance, /leave 를 지나 승인 대기와 팀 병목 확인을 우선 처리합니다.",
+    note: "승인 우선순위는 높지만 일반 직원 하루 흐름과 같은 허브에서 시작하고 관리자 운영 흐름과는 섞지 않습니다.",
   },
   {
     role: "인사 / 운영 관리자",
@@ -90,15 +90,17 @@ export default function LoginPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="다음 화면 연결" description="로그인 뒤에는 대시보드에서 일반 업무 흐름을, 권한 있는 사용자만 관리자 검토 흐름을 이어서 봅니다." muted>
+      <SurfaceSection title="다음 화면 연결" description="로그인 뒤에는 대시보드에서 직원 하루 업무 흐름을, 권한 있는 사용자만 관리자 검토 흐름을 이어서 봅니다." muted>
         <div className="grid-auto-compact">
           <article className="info-card">
             <h3>일반 업무 흐름</h3>
-            <p>/dashboard → /attendance → /approvals → /org → /employees</p>
+            <p>/dashboard → /attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees</p>
             <div className="pill-row">
               <Link href="/dashboard">대시보드</Link>
               <Link href="/attendance">근태</Link>
+              <Link href="/leave">휴가</Link>
               <Link href="/approvals">전자결재</Link>
+              <a href="/me">내 정보</a>
             </div>
           </article>
           <article className="info-card">

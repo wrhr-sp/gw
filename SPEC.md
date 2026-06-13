@@ -346,8 +346,9 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 관리자 기능은 모바일 하단 탭 기본 메뉴에 섞지 않는다.
-- Phase 21 실제 회사 설정 모델 1차에서는 로그인, 대시보드, 조직도, 직원 목록, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 관리자 설정 화면과 관련 Web/API 흐름을 우선하되, 각 항목이 어떤 회사 설정 결과를 보여 주는지와 아직 skeleton/승인 필요 범위를 같이 적는다.
-- 실제 회사 설정 모델 설명은 "회사 기본 설정/조직/직원/권한/정책이 어떻게 연결되는가 / 일반 직원 화면과 관리자 설정 화면 책임이 어떻게 갈리는가 / 직원 화면이 현재 허용된 정책만 보여 주는가 / 출퇴근 정책 우선순위와 휴가·근무 정책 설명이 같은 방향인가 / GPS·실태그·production data·external HR 가 승인 게이트로 남아 있는가" 5가지 질문으로 먼저 정리한다.
+- Phase 22 실제 업무 흐름 통합 1차에서는 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 각 항목이 실제 하루 업무 순서 안에서 어떻게 이어지는지와 아직 skeleton/승인 필요 범위를 같이 적는다.
+- `/dashboard` 상단 액션은 현재 구현 기준으로 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서를 먼저 설명하고, 그 뒤 `/org`·`/employees` 를 읽기 중심 마무리 조회 흐름으로 이어서 적는다.
+- 실제 업무 흐름 설명은 "직원이 로그인 후 무엇을 먼저 하는가 / 대시보드 상단 액션과 실제 업무 화면 설명이 같은 순서인가 / 출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름이 끊기지 않는가 / mobile/PWA/Web 이 같은 contract 와 guardrail 을 가리키는가 / `/admin/*` 운영 화면이 일반 직원 흐름에 섞이지 않는가 / production data·secret·실연동이 승인 게이트로 남아 있는가" 6가지 질문으로 먼저 정리한다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -368,7 +369,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `TEST_PLAN.md`
 - `QA_CHECKLIST.md`
 - 관련 `docs/architecture/phase-*.md`
-- Phase 21 문서라면 `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md` 와 `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md` 의 회사 설정 4묶음, 직원용 화면 대 관리자용 화면 경계, 정책 우선순위 방향, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 22 문서라면 `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 의 기준 업무 순서, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -385,14 +386,14 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 운영 미연결 기능을 production-ready 처럼 쓰기
 - 실제 개인정보 처리/외부 연동을 이미 된 것처럼 쓰기
 
-### 6-4. Phase 21 문구는 "회사 설정 결과 / 아직 skeleton / 승인 필요" 셋 중 하나로 읽혀야 한다.
+### 6-4. Phase 22 문구는 "지금 따라가 볼 수 있는 업무 흐름 / 아직 skeleton / 승인 필요" 셋 중 하나로 읽혀야 한다.
 
 특히 운영 전 정리 문서에서는 아래를 함께 맞춘다.
-- `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/admin/users`, `/admin/policies` 는 지금 어떤 회사 설정 결과를 바로 확인할 수 있는지 먼저 적는다.
+- `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/org`, `/employees`, `/admin/users`, `/admin/policies` 는 지금 어떤 업무 흐름을 바로 따라가 볼 수 있는지 먼저 적는다.
 - 실제 저장 완료, 승인 완료, 외부 배포, 실데이터 반영처럼 아직 안 된 일은 "아직 skeleton/preview" 로 분리한다.
 - production DB, secret, DNS/custom domain, 유료 리소스, 외부 초대/실연동, GPS/실태그 단말, App Store/Play Console/TestFlight/EAS, push, 실기기 권한은 기능 TODO 가 아니라 "승인 필요" 목록으로 따로 남긴다.
 - `/admin/*` 운영 화면은 일반 사용자 핵심 업무 흐름 설명 안에 섞지 않고, 관리자 확인 포인트로 따로 적는다.
-- 대장이 실제 회사 설정 모델을 빠르게 볼 때는 `/org` 와 `/employees` 에서 현재 회사 구조를 먼저 보고, `/admin/users` 와 `/admin/policies` 에서 변경 candidate 와 정책 source 를 나중에 보는 순서를 기본 확인 포인트로 삼는다.
+- 대장이 실제 업무 흐름을 빠르게 볼 때는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 순서를 기본 확인 포인트로 삼고, `/admin/*` 는 마지막에 별도 운영 확인 포인트로 본다.
 - live/PWA/API/mobile 확인 포인트를 따로 설명하더라도 최종 결론은 같은 회사 설정/readiness 언어로 모은다.
 
 ## 7. 승인 없이 하면 안 되는 것

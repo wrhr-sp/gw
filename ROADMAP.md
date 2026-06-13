@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 21 실제 회사 설정 모델 1차가 최신 범위이며, Phase 20에서 정리한 운영 전 readiness 기준 위에 회사 기본 설정/조직/직원/권한/근태·휴가 정책을 실제 회사 설정 모델처럼 읽히게 다시 연결하는 작업을 이어간다.
+현재 문서화 기준으로는 Phase 22 실제 업무 흐름 통합 1차가 최신 범위이며, Phase 21에서 정리한 실제 회사 설정 모델 기준 위에 로그인 이후 대시보드·출퇴근·휴가·결재·공지/문서·내 정보·조직 확인 흐름을 실제 하루 업무 순서처럼 다시 연결하는 작업을 이어간다.
 
 ## Phase 흐름
 
@@ -29,6 +29,7 @@
 - Phase 19: 네이티브 모바일앱 내부 시범 운영 초안
 - Phase 20: 운영 전 정리 1차
 - Phase 21: 실제 회사 설정 모델 1차
+- Phase 22: 실제 업무 흐름 통합 1차
 
 ## MVP 성공 기준
 
@@ -44,6 +45,6 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

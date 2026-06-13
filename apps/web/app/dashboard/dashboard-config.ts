@@ -37,6 +37,12 @@ export const dashboardActionCards: DashboardActionCard[] = [
     detail: "마지막 기록, 정정 필요 여부, 온라인에서만 상태 변경",
   },
   {
+    href: "/leave",
+    title: "휴가 잔여와 신청 확인",
+    body: "출퇴근 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
+    detail: "잔여 snapshot, 신청 placeholder, 승인 저장은 별도 검증 후",
+  },
+  {
     href: "/approvals",
     title: "승인 대기 확인",
     body: "내 승인 대기와 팀/결재 병목 후보를 먼저 읽고 approvals 상세 화면으로 이동합니다.",
@@ -55,10 +61,10 @@ export const dashboardActionCards: DashboardActionCard[] = [
     detail: "문서 공간/첨부 metadata 읽기 중심, 운영 업로드 완료처럼 과장 금지",
   },
   {
-    href: "/employees",
-    title: "조직/직원 확인",
-    body: "공지/문서 확인 다음에 조직 구조와 직원 상태 조회 흐름을 같은 언어로 이어서 확인합니다.",
-    detail: "일반 조회 전용, 운영 변경은 /admin/users 에서 별도 검토",
+    href: "/me",
+    title: "내 정보 다시 확인",
+    body: "협업 화면 뒤에 내 세션, 역할, 회사 정보와 보안 안내를 확인하는 마무리 흐름입니다.",
+    detail: "개인 세션 요약 뒤 /org, /employees 조회로 이어짐",
   },
 ];
 
@@ -91,16 +97,16 @@ export const dashboardStatusCards: DashboardStatusCard[] = [
     href: "/attendance",
   },
   {
-    title: "마지막 기록",
-    summary: "가장 최근 출퇴근 기록과 정정 필요 여부를 함께 봅니다.",
-    detail: "GPS·기기식별·급여 반영값은 제외",
-    href: "/attendance",
+    title: "휴가 잔여 / 신청 상태",
+    summary: "오늘 바로 신청할 수 있는 휴가와 승인 대기 여부를 오류와 섞지 않고 보여 줍니다.",
+    detail: "empty 는 할 일이 없는 정상 상태, error 는 다시 확인이 필요한 실패 상태로 분리",
+    href: "/leave",
   },
   {
-    title: "조직/직원 조회 경로",
-    summary: "일반 조회 화면에서 부서 구조와 직원 상태를 어디서 확인하는지 한 줄로 정리합니다.",
-    detail: "/org 와 /employees 는 읽기 전용이고 운영 변경은 관리자 흐름으로 분리",
-    href: "/employees",
+    title: "내 정보 / 조직 확인 경로",
+    summary: "내 세션과 역할 요약 뒤에 조직 구조와 직원 상태를 어디서 확인하는지 한 줄로 정리합니다.",
+    detail: "/me → /org → /employees 는 읽기 전용이고 운영 변경은 관리자 흐름으로 분리",
+    href: "/me",
   },
 ];
 
@@ -108,14 +114,14 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
   {
     role: "일반 직원",
     firstRoute: "/attendance",
-    summary: "오늘 상태를 먼저 보고 근태와 전자결재를 이어서 처리합니다.",
-    detail: "관리자 CTA 는 숨기고 일반 조회만 /org, /employees 로 연결",
+    summary: "오늘 상태를 먼저 보고 근태와 휴가, 전자결재를 순서대로 이어서 처리합니다.",
+    detail: "관리자 CTA 는 숨기고 공지/문서 뒤에 /me, /org, /employees 조회로 연결",
   },
   {
     role: "팀장 / 결재자",
-    firstRoute: "/approvals",
-    summary: "내 승인 대기와 팀 병목 요약을 먼저 확인합니다.",
-    detail: "필요 시 /employees 에서 인원 상태만 참고",
+    firstRoute: "/dashboard",
+    summary: "같은 허브에서 시작하되 승인 대기와 팀 병목 요약을 더 먼저 확인합니다.",
+    detail: "필요 시 /leave, /employees 에서 일정과 인원 상태를 참고",
   },
   {
     role: "인사 / 운영 관리자",
@@ -141,6 +147,11 @@ export const dashboardReadingCards: DashboardRouteCard[] = [
     href: "/documents",
     title: "문서 공간 진입",
     body: "최근 문서 공간과 문서함 흐름을 읽기 중심으로 안내합니다.",
+  },
+  {
+    href: "/me",
+    title: "내 정보 마무리 확인",
+    body: "협업 흐름 뒤에 세션, 역할, 보안 안내를 정리하고 조직 조회로 이어집니다.",
   },
 ];
 

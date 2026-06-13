@@ -66,10 +66,11 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(mobilePrimaryNav.map((item) => item.href)).toEqual([
       "/dashboard",
       "/attendance",
+      "/leave",
       "/approvals",
-      "/org",
-      "/employees",
       "/documents",
+      "/me",
+      "/org",
     ]);
   });
 

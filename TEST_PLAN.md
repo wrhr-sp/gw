@@ -57,7 +57,7 @@ pnpm --filter @gw/web build
 Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특히 다시 볼 것:
 - 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 둘 다 소개하는지
 - 로그인(`/login`)이 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 과장 없이 설명하는지
-- 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하는지
+- 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 우선순위를 유지하고, 이후 `/org`·`/employees` 조회 마무리 흐름으로 자연스럽게 이어지는지
 - 협업 검토는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents` 같은 현재 placeholder 예시 경로로 다시 눌러 보며 문서 설명과 실제 route 톤이 같은지 확인하는지
 - 일반 업무 route(`/attendance`, `/leave`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
 - 협업 route(`/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`)가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴처럼 과장되지 않는지
@@ -76,20 +76,20 @@ pnpm --filter @gw/mobile typecheck
 왜 돌리나:
 - `apps/mobile` shell 이 Web/PWA와 공유하는 route/auth/session 계약을 깨지 않았는지 가장 빠르게 확인한다.
 - `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `packages/shared/src/mobile-contracts.ts` 설명이 실제 타입과 어긋나지 않는지 본다.
-- store build 없이도 Phase 21 성공 기준인 회사 설정 모델 연결, 핵심 업무 흐름/상태 안내/contract 경계와 승인 게이트 분리 기준을 재검증할 수 있다.
+- store build 없이도 Phase 22 성공 기준인 실제 하루 업무 흐름 연결, 상태 안내 4축, route/auth/session contract 경계와 승인 게이트 분리 기준을 재검증할 수 있다.
 
-### 1-6. Phase 21 쉬운 실제 회사 설정 모델 판정 질문
+### 1-6. Phase 22 쉬운 실제 업무 흐름 판정 질문
 
 문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
 
-1. 회사 기본 설정/조직/직원/권한/정책이 어떤 묶음으로 연결되는지 문서에 바로 보이는가
-   - 특히 `/org`, `/employees`, `/admin/users`, `/admin/policies` 를 따라가면 같은 회사 scope 설명으로 읽히는가
-2. 일반 직원 화면과 관리자 설정 화면의 책임이 분리돼 보이는가
-3. 직원 화면이 현재 허용된 정책만 보여 준다는 설명이 분명한가
-4. 출퇴근 정책 우선순위와 휴가/근무 정책 설명 방향이 충돌하지 않는가
-5. GPS/실태그/production data/external HR 같은 실제 운영 연결이 승인 게이트로 따로 보이는가
+1. 직원이 로그인한 뒤 무엇을 먼저 하고 어디로 이어지는지 문서와 화면에서 바로 보이는가
+2. `/dashboard` 상단 액션과 실제 각 업무 화면 설명이 같은 순서를 가리키는가
+3. 출퇴근, 휴가, 결재, 공지/문서, 내 정보, 조직 확인 흐름이 서로 끊기지 않는가
+4. mobile/PWA/Web 설명이 같은 route/auth/session contract 와 guardrail 을 가리키는가
+5. empty/error/forbidden/offline 상태가 쉬운 사용자 언어로 정리돼도 의미가 섞이지 않는가
+6. `/admin/*` 운영 화면과 production data·secret·실연동이 일반 직원 흐름 밖의 승인 게이트로 남아 있는가
 
-이 5개 질문 중 하나라도 흐리면 Phase 21 문서 작업은 완료로 보지 않는다.
+이 6개 질문 중 하나라도 흐리면 Phase 22 문서 작업은 완료로 보지 않는다.
 
 ### 1-7. 대장이 실제로 눌러 볼 쉬운 확인 순서
 
@@ -99,22 +99,22 @@ pnpm --filter @gw/mobile typecheck
    - placeholder 세션 기준 역할별 첫 이동 설명이 있는지 본다.
    - 실제 운영 로그인 완료처럼 과장하지 않았는지 같이 본다.
 2. `/dashboard`
-   - 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하는지 본다.
-   - 일반 사용자 흐름과 관리자 운영 흐름이 섞이지 않는지 본다.
-3. `/org` 와 `/employees`
-   - 회사 구조, 부서/직원 상태, 일반 조회 역할이 먼저 보이는지 본다.
-   - 운영 변경 화면처럼 과장하지 않는지 본다.
-4. `/attendance` 와 `/leave`
+   - 상단 액션 순서가 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 우선순위를 유지하는지 본다.
+   - 그 뒤 `/org`·`/employees` 조회 마무리 흐름이 끊기지 않는지, 일반 사용자 흐름과 관리자 운영 흐름이 섞이지 않는지 본다.
+3. `/attendance` 와 `/leave`
    - 정책 안내, placeholder 제한, 권한/회사 scope/미허용 이유 설명이 있는지 본다.
    - 실제 운영 저장 성공처럼 읽히는 문구가 없는지 본다.
-5. `/approvals`
+4. `/approvals`
    - 승인 lane 이 모든 사용자 기본 흐름처럼 쓰이지 않는지 본다.
    - self-approval 금지, 권한 경계 설명과 충돌하지 않는지 본다.
-6. `/boards` 와 `/documents`
+5. `/boards` 와 `/documents`
    - 협업 묶음으로는 설명하되 게시판 책임과 문서 보관 책임을 섞지 않는지 본다.
    - metadata/placeholder 단계가 실제 파일 운영 완료처럼 보이지 않는지 본다.
-7. `/me`
+6. `/me`
    - `me` 조회 중심 설명과 `auth.logout`/session clear 안내가 과장 없이 적혀 있는지 본다.
+7. `/org` 와 `/employees`
+   - 회사 구조, 부서/직원 상태, 일반 조회 역할이 흐름의 마지막 확인 포인트로 읽히는지 본다.
+   - 운영 변경 화면처럼 과장하지 않는지 본다.
 8. `/admin/users`, `/admin/policies`, `/admin/audit-logs`
    - 직원 연결/역할 diff, 정책 source/candidate, 감사 read-only 경계가 분리돼 있는지 본다.
 9. `/admin`
@@ -276,7 +276,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
 - Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
-- Phase 21 문서라면 회사 설정 4묶음, 직원용 화면 대 관리자용 화면 경계, 출퇴근 정책 우선순위 방향, offline/error/empty/forbidden 상태 분류, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 22 문서라면 로그인 → 대시보드 → 출퇴근 → 휴가 → 결재 → 공지/문서 → 내 정보 → 조직/직원 확인 순서, offline/error/empty/forbidden 상태 분류, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 

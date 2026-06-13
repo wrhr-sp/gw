@@ -151,28 +151,34 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "오늘 상태, 허용 방식, 최근 기록",
   },
   {
+    href: "/leave",
+    label: "휴가",
+    shortLabel: "휴가",
+    summary: "잔여, 신청, 승인 대기 요약",
+  },
+  {
     href: "/approvals",
     label: "전자결재",
     shortLabel: "결재",
     summary: "내 승인함과 팀/결재 대기",
   },
   {
+    href: "/documents",
+    label: "공지/문서",
+    shortLabel: "문서",
+    summary: "공지 읽기와 문서 공간 확인",
+  },
+  {
+    href: "/me",
+    label: "내 정보",
+    shortLabel: "내 정보",
+    summary: "세션, 역할, 회사 정보 확인",
+  },
+  {
     href: "/org",
     label: "조직",
     shortLabel: "조직",
     summary: "부서·역할·권한 체계 읽기",
-  },
-  {
-    href: "/employees",
-    label: "직원",
-    shortLabel: "직원",
-    summary: "직원 상태와 소속 일반 조회",
-  },
-  {
-    href: "/documents",
-    label: "문서함",
-    shortLabel: "문서",
-    summary: "후순위 읽기 흐름과 문서 공간 안내",
   },
 ];
 
