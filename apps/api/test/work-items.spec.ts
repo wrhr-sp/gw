@@ -51,7 +51,8 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_one_on_one_checkin",
           "work_item_hr_branch_training_followup",
           "work_item_tax_month_end_evidence",
-          "work_item_labor_attendance_followup",
+          "work_item_labor_overtime_review",
+          "work_item_labor_leave_balance_adjustment",
           "work_item_legal_contract_review",
           "work_item_branch_daily_report",
         ],
@@ -64,7 +65,10 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_branch_training_followup",
           "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
-          "work_item_labor_attendance_followup",
+          "work_item_labor_overtime_review",
+          "work_item_labor_leave_balance_adjustment",
+          "work_item_labor_grievance_intake",
+          "work_item_labor_discipline_review",
         ],
       },
       {
@@ -72,12 +76,12 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
         itemIds: [
           "work_item_hr_branch_training_followup",
           "work_item_tax_month_end_evidence",
-          "work_item_labor_attendance_followup",
+          "work_item_labor_overtime_review",
         ],
       },
       {
         role: "EMPLOYEE",
-        itemIds: ["work_item_hr_one_on_one_checkin"],
+        itemIds: ["work_item_hr_one_on_one_checkin", "work_item_labor_leave_balance_adjustment"],
       },
       {
         role: "AUDITOR",
@@ -87,7 +91,10 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_branch_training_followup",
           "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
-          "work_item_labor_attendance_followup",
+          "work_item_labor_overtime_review",
+          "work_item_labor_leave_balance_adjustment",
+          "work_item_labor_grievance_intake",
+          "work_item_labor_discipline_review",
           "work_item_legal_contract_review",
           "work_item_branch_daily_report",
         ],
@@ -136,6 +143,42 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
     const hrAdminGrievancePayload = workItemDetailResponseSchema.parse(await hrAdminGrievanceResponse.json());
     expect(hrAdminGrievancePayload.data.item.hrContext?.confidentialityLevel).toBe("grievance_restricted");
     expect(hrAdminGrievancePayload.data.item.hrContext?.privateNoteExists).toBe(true);
+  });
+
+  it("exposes labor metadata while keeping self-scope, branch-visible, and restricted labor boundaries separated", async () => {
+    const employeeResponse = await requestAs("EMPLOYEE", appRoutes.workItems.detail("work_item_labor_leave_balance_adjustment"));
+    expect(employeeResponse.status).toBe(200);
+    const employeePayload = workItemDetailResponseSchema.parse(await employeeResponse.json());
+    expect(employeePayload.data.item.access.viewerScope).toBe("self");
+    expect(employeePayload.data.item.laborContext?.intakeStatus).toBe("evidence_requested");
+    expect(employeePayload.data.item.laborContext?.followUp.ownerScope).toBe("employee");
+    expect(employeePayload.data.item.laborContext?.visibility.employeeSelf).toContain("자기 제출 요청");
+
+    const managerSelfScopeResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_labor_leave_balance_adjustment"));
+    expect(managerSelfScopeResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await managerSelfScopeResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const managerResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_labor_overtime_review"));
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = workItemDetailResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.item.laborContext?.intakeStatus).toBe("evidence_requested");
+    expect(managerPayload.data.item.laborContext?.followUp.ownerScope).toBe("branch_manager");
+    expect(managerPayload.data.item.laborContext?.confidentialityLevel).toBe("standard");
+
+    const companyAdminRestrictedResponse = await requestAs("COMPANY_ADMIN", appRoutes.workItems.detail("work_item_labor_discipline_review"));
+    expect(companyAdminRestrictedResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await companyAdminRestrictedResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const managerRestrictedResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_labor_grievance_intake"));
+    expect(managerRestrictedResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await managerRestrictedResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const hrAdminRestrictedResponse = await requestAs("HR_ADMIN", appRoutes.workItems.detail("work_item_labor_discipline_review"));
+    expect(hrAdminRestrictedResponse.status).toBe(200);
+    const hrAdminRestrictedPayload = workItemDetailResponseSchema.parse(await hrAdminRestrictedResponse.json());
+    expect(hrAdminRestrictedPayload.data.item.laborContext?.confidentialityLevel).toBe("disciplinary_restricted");
+    expect(hrAdminRestrictedPayload.data.item.laborContext?.legalHoldRequired).toBe(true);
+    expect(hrAdminRestrictedPayload.data.item.laborContext?.reviewActors.some((actor) => actor.scope === "auditor")).toBe(true);
   });
 
   it("keeps sensitive work-item documents and attachments available only to explicitly allowed roles", async () => {

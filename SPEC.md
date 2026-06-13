@@ -370,11 +370,11 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 공통 문서/첨부/검토/마감은 work item 에 붙는 skeleton 으로 정리하고, raw storage key 나 민감 원문 경로를 기본 설명에 노출하지 않는다.
 - 모바일 하단 탭은 계속 5개를 유지하고, 새 업무 모듈 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 확보한다.
 - 일반 근무자 / 지점 관리자 / 본사 관리자 / 감사 사용자의 가시 범위가 회사 + 지점/호텔 + 역할 + capability 4축으로 같은 뜻을 가리켜야 한다.
-- 현재 활성 Phase 26에서는 위 공통 `work item` 엔진 위에 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 skeleton 을 올린다.
-- meeting 종류 차이는 새 주 상태군보다 `category(onboarding/one_on_one/hr_interview/performance_review/grievance/training_coaching/branch_ops_meeting/offboarding)` 와 보조 metadata(`schedule_status`, `confidentiality_level`, `follow_up_required`)로 먼저 푼다.
-- 본사 HR / 지점 관리자 / 일반 직원 visibility 차이와 비공개 메모 경계를 같은 회사 + 지점/호텔 + 역할 + capability 언어로 적어야 한다.
-- meeting 메모/회의록은 1차에서 원문 저장보다 metadata-only preview 와 private-note-exists 수준으로 설명하고, 외부 캘린더/메일/메신저 연동은 승인 게이트로 남긴다.
-- 현재 저장소 기준 빠른 확인 지점은 `/work-items` 공통 허브, `/work-items/hr` HR 설명 화면, `/api/work-items?module=hr` placeholder 목록, `apps/api/test/work-items.spec.ts` 와 `apps/web/work-items*.test.tsx` 회귀 테스트다.
+- 현재 활성 Phase 27에서는 위 공통 `work item` 엔진과 Phase 26 HR lifecycle 기준 위에 계약/연차/수당/고충/징계/사고/퇴사 관련 labor skeleton 을 올린다.
+- labor 종류 차이는 새 주 상태군보다 `category(employment_contract/work_condition_change/leave_balance_adjustment/allowance_review/overtime_review/grievance/discipline_review/incident_report/offboarding_clearance)` 와 보조 metadata(`intake_status`, `confidentiality_level`, `requires_acknowledgement`, `legal_hold_required`)로 먼저 푼다.
+- 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이와 restricted 노무 메모 경계를 같은 회사 + 지점/호텔 + 역할 + capability 언어로 적어야 한다.
+- labor evidence/사건 메모는 1차에서 원문 저장보다 metadata-only summary 와 acknowledgement/restricted 여부 수준으로 설명하고, 외부 노무/법무/급여 연동은 승인 게이트로 남긴다.
+- 현재 저장소 기준 빠른 확인 지점은 `/work-items` 공통 허브, `/work-items/labor` 노무 설명 화면, `/api/work-items?module=labor` placeholder 목록, `apps/api/test/work-items.spec.ts` 와 `apps/web/work-items*.test.tsx` 회귀 테스트다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -400,6 +400,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 24 문서라면 `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md` 와 `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md` 의 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/PWA/API/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 25 문서라면 `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md` 와 `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md` 의 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 26 문서라면 `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md` 와 `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md` 의 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 27 문서라면 `docs/architecture/phase-27-labor-management-pass-1-scope.md` 와 `docs/guides/phase-27-labor-management-pass-1-handoff.md` 의 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -465,6 +466,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 메모/회의록은 metadata-only preview 와 private-note 존재 여부 중심으로 설명하고, 실민감 원문 저장은 승인 게이트로 남긴다.
 - 외부 캘린더/메일/메신저 자동 연동, production DB 실데이터, 실제 평가/고충 처리 확정은 계속 별도 승인 목록으로 남긴다.
 - 대장이 실제로 다시 볼 때는 `/work-items` → `/work-items/hr` → `/api/work-items?module=hr` → grievance restricted 경계(`apps/api/test/work-items.spec.ts`) 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
+
+### 6-9. Phase 27 문구는 "노무 이슈 skeleton / restricted 권한 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 계약/연차/수당/고충/징계/사고/퇴사를 별도 완성 사건 처리 솔루션처럼 쓰지 말고, 기존 공통 `work item` 엔진 위에 올라가는 labor 확장으로 적는다.
+- 주 상태는 계속 공통 상태를 쓰고, intake/review 의미는 `intake_status` 같은 보조 필드로 푼다고 적는다.
+- 관련자와 모든 메모 열람권한을 같은 뜻으로 쓰지 않고, 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이를 분리해 적는다.
+- 근거 자료와 사건 메모는 metadata-only summary 와 restricted 여부 중심으로 설명하고, 실민감 계약/징계/사고 원문 저장은 승인 게이트로 남긴다.
+- 외부 노무/법무/급여/홈택스 연동, production DB 실데이터, 실제 급여 반영/법적 확정은 계속 별도 승인 목록으로 남긴다.
+- 대장이 실제로 다시 볼 때는 `/work-items` → `/work-items/labor` → `/api/work-items?module=labor` → restricted labor 경계(`apps/api/test/work-items.spec.ts`) 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

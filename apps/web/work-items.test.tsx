@@ -6,6 +6,7 @@ import { dashboardWorkItemCards } from "./app/dashboard/dashboard-config";
 import MenuPage from "./app/menu/page";
 import { mobileMenuSections, mobilePrimaryNav } from "./app/mobile-pwa-config";
 import WorkItemsHrPage from "./app/work-items/hr/page";
+import WorkItemsLaborPage from "./app/work-items/labor/page";
 import WorkItemsPage from "./app/work-items/page";
 
 describe("Phase 25 work-items web entrypoints", () => {
@@ -33,6 +34,20 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("이번 단계 meeting 유형");
     expect(html).toContain('href="/api/work-items?module=hr"');
     expect(html).toContain('href="/api/work-items/:id/attachments"');
+    expect(html).toContain('href="/work-items"');
+  });
+
+  it("renders the labor module page with category/restricted guardrails and linked API routes", () => {
+    const html = renderToStaticMarkup(<WorkItemsLaborPage />);
+
+    expect(html).toContain("노무 업무");
+    expect(html).toContain("실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고");
+    expect(html).toContain("노무 category 확장");
+    expect(html).toContain("이번 단계 labor 유형");
+    expect(html).toContain("징계 검토");
+    expect(html).toContain("restricted labor capability 분리");
+    expect(html).toContain('href="/api/work-items?module=labor"');
+    expect(html).toContain('href="/api/work-items/:id"');
     expect(html).toContain('href="/work-items"');
   });
 

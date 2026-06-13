@@ -242,6 +242,42 @@
 - `packages/shared/src/contracts.ts`
 - `apps/api/src/app.ts`
 
+### 1-3-e. Phase 27 노무 관리: labor issue + evidence/review metadata 확장
+
+무엇을 나타내나:
+- Phase 25 공통 `work item` 엔진과 Phase 26 HR lifecycle 기준 위에 계약/연차/수당/고충/징계/사고/퇴사 흐름을 얹는 1차 확장 모델이다.
+- 별도 사건 처리 솔루션이 아니라, `labor` 모듈 안에서 category/visibility/evidence/review metadata 를 늘리는 방향을 먼저 잡는다.
+
+초안 필드:
+- labor work item 확장: `employee_id?`, `category(employment_contract/work_condition_change/leave_balance_adjustment/allowance_review/overtime_review/grievance/discipline_review/incident_report/offboarding_clearance)`, `intake_status?`, `confidentiality_level?`, `requires_acknowledgement`, `legal_hold_required`
+- 근거 자료 요약: `work_item_id`, `evidence_type`, `summary`, `submitted_by_scope`, `submitted_at?`, `contains_sensitive_data`
+- 검토 주체: `work_item_id`, `review_scope`, `role_code?`, `responsibility`, `status`
+- 후속조치: `work_item_id`, `follow_up_type`, `owner_scope`, `due_at?`, `linked_follow_up_work_item_id?`, `status`
+
+관계:
+- `employees`/`users` 는 labor 이슈 대상자, 제출자, 검토자, 후속조치 owner 로 다시 연결된다.
+- labor follow-up 은 다시 기존 `work_items` 로 이어질 수 있다.
+- 민감 계약/징계/사고 원문은 별도 저장 구조를 확정하지 않고, metadata(`confidentiality_level`, `requires_acknowledgement`, `contains_sensitive_data`)만 먼저 둔다.
+
+민감도/주의:
+- 실제 근로계약서 원문, 징계/고충/사고 원문, 급여 반영 구조 확정이 아니다.
+- 지점 관리자 visibility 와 본사 노무 담당 visibility 를 같은 수준으로 설명하면 안 된다.
+- 외부 노무/법무/급여/홈택스 연동과 production data 입력은 이번 모델에 포함하지 않는다.
+
+현재 상태:
+- migration 없음
+- shared contract 는 이제 `work item` 공통 구조 위에 `laborContext`, `intakeStatus`, `confidentialityLevel`, `requiresAcknowledgement`, `legalHoldRequired`, `evidenceSummary[]`, `reviewActors[]`, `followUp`, `visibility`, `auditHints` 를 실제 placeholder schema 로 포함한다.
+- placeholder API/UI 도 같은 축을 따라 `labor` 모듈 자리를 이미 쓰고 있으며, `work_item_labor_overtime_review`, `work_item_labor_leave_balance_adjustment`, `work_item_labor_grievance_intake`, `work_item_labor_discipline_review` 기준으로 labor context 를 내려준다.
+- 후속 수정으로 EMPLOYEE self-scope labor 카드 `work_item_labor_leave_balance_adjustment` 가 fixture/test 에도 연결돼, 문서가 말하던 "일반 직원은 자기 건 일부만 본다" 경계가 이제 API 쪽에서도 같은 뜻으로 읽힌다.
+
+근거:
+- `docs/architecture/phase-27-labor-management-pass-1-scope.md`
+- `docs/guides/phase-27-labor-management-pass-1-handoff.md`
+- `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`
+- `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+
 ### 1-4. 부서/역할/권한 `departments`, `roles`, `user_roles`, permission catalog
 
 무엇을 나타내나:

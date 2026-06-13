@@ -486,7 +486,10 @@ describe("Phase 2 auth/org skeleton", () => {
       "work_item_hr_branch_training_followup",
       "work_item_hr_grievance_triage",
       "work_item_tax_month_end_evidence",
-      "work_item_labor_attendance_followup",
+      "work_item_labor_overtime_review",
+      "work_item_labor_leave_balance_adjustment",
+      "work_item_labor_grievance_intake",
+      "work_item_labor_discipline_review",
     ]);
     expect(listPayload.data.items.some((item) => item.module === "branch")).toBe(false);
     expect(listPayload.data.items.some((item) => item.module === "legal")).toBe(false);
@@ -506,6 +509,23 @@ describe("Phase 2 auth/org skeleton", () => {
       "work_item_hr_grievance_triage",
     ]);
     expect(filteredPayload.data.items.every((item) => item.module === "hr")).toBe(true);
+
+    const laborFilteredResponse = await app.request(`${appRoutes.workItems.list}?module=labor`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(laborFilteredResponse.status).toBe(200);
+    const laborFilteredPayload = workItemListResponseSchema.parse(await laborFilteredResponse.json());
+    expect(laborFilteredPayload.data.items.map((item) => item.id)).toEqual([
+      "work_item_labor_overtime_review",
+      "work_item_labor_leave_balance_adjustment",
+      "work_item_labor_grievance_intake",
+      "work_item_labor_discipline_review",
+    ]);
+    expect(laborFilteredPayload.data.items.every((item) => item.module === "labor")).toBe(true);
+    expect(laborFilteredPayload.data.items[0]?.laborContext?.evidenceSummary.length).toBeGreaterThan(0);
   });
 
   it("enforces work-item detail/document/deadline boundaries for branch managers", async () => {

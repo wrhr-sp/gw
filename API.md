@@ -442,6 +442,54 @@ guardrail:
 현재 확인 포인트:
 - 상세 placeholder 하나만으로도 `participants[]`, `agendaItems[]`, `followUp`, `visibility` 가 이미 내려오므로, 별도 하위 endpoint 는 "추가 분리 가능 후보"로 읽는다.
 
+### Phase 27 API 계획: labor issue/evidence skeleton
+
+중요:
+- 아래 항목은 "기존 공통 work-item placeholder 위에 labor 맥락을 추가할 후보"를 설명하는 문단이다.
+- 즉 `apps/api/src/app.ts` 에서 `GET /api/work-items?module=labor` 같은 공통 work-item 틀은 이미 확인할 수 있지만, 실제 계약서/징계/사고 원문 처리나 급여/외부 전문가 연동까지 열린 운영 API 는 아니다.
+
+권장 방향:
+
+#### 1) `GET /api/work-items?module=labor`
+
+목적:
+- 기존 labor work item 목록을 계약/조건변경/연차정정/수당검토/고충/징계/사고/퇴사 문맥까지 읽히게 확장하는 endpoint 방향
+
+대표 응답 방향:
+- 기존 공통 item 필드 유지
+- Phase 27에서 추가로 읽히게 할 축: `category`, `access.viewerScope`, `access.allowedRoleCodes`, `laborContext.intakeStatus`, `laborContext.confidentialityLevel`, `laborContext.requiresAcknowledgement`, `laborContext.legalHoldRequired`, `laborContext.evidenceSummary[]`
+
+guardrail:
+- 주 상태는 계속 공통 상태를 유지한다.
+- 지점 관리자에게는 자기 지점/필요 범위만 내려가고, 본사 노무 담당보다 좁은 labor visibility 를 유지한다.
+- 일반 직원은 자기 관련 item 만 본다.
+
+#### 2) `GET /api/work-items/:workItemId`
+
+목적:
+- 기존 공통 상세에 labor summary, 근거 자료 요약, 검토 주체, 후속조치 요약을 얹는 endpoint 방향
+
+대표 응답 방향:
+- 현재 placeholder API 는 `laborContext` 아래 `intakeStatus`, `confidentialityLevel`, `requiresAcknowledgement`, `legalHoldRequired`, `evidenceSummary[]`, `reviewActors[]`, `followUp`, `visibility`, `auditHints` 를 실제로 내려주는 형태다.
+
+guardrail:
+- 관련자와 모든 메모 열람권한을 같은 뜻으로 취급하지 않는다.
+- `grievance_restricted`, `disciplinary_restricted` 같은 민감 범위는 일반 COMPANY_ADMIN 가시범위와 분리된 더 좁은 capability 로 다시 제한한다.
+
+#### 3) `GET /api/work-items/:workItemId/evidence`, `GET /api/work-items/:workItemId/review-actors`, `GET /api/work-items/:workItemId/follow-ups`
+
+목적:
+- 근거 자료/검토 주체/후속조치를 metadata 중심으로 보여 주는 candidate endpoint 방향
+
+guardrail:
+- 실제 계약서 원문, 징계 문서 원문, 사고 신고 원문, 외부 제출 결과를 기본 응답에 싣지 않는다.
+- private/restricted note 원문 대신 존재 여부와 visibility 설명만 먼저 다룬다.
+- 외부 노무/법무/급여 연동은 이번 단계에서 문서상 승인 게이트로 남긴다.
+
+현재 확인 포인트:
+- 현재는 `/api/work-items?module=labor` 와 공통 상세 구조 위에 laborContext 를 얹는 방향으로 맞춰져 있고, 별도 하위 endpoint 는 나중에 분리할 수 있는 후보로만 남겨 둔다.
+- EMPLOYEE self-scope 도 이제 문서 문구만이 아니라 `work_item_labor_leave_balance_adjustment` placeholder 로 실제 목록/상세 응답에 연결돼 있다.
+
 ## 3. 관리자 API
 
 ### `POST /api/admin/invites`
