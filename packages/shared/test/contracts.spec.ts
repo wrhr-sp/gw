@@ -76,11 +76,14 @@ import {
   nativeMobileApprovalGates,
   nativeMobileBaseUrlPolicy,
   nativeMobileCriticalApiRoutes,
+  nativeMobileInternalPilotLanes,
+  nativeMobileInternalPilotSmokeChecklist,
   nativeMobileMonorepoPlan,
   nativeMobilePermissionHints,
   nativeMobilePrimaryRouteMappings,
   nativeMobileRouteMappingIndex,
   nativeMobileSessionBridgePolicy,
+  nativeMobileStoreSubmissionChecklist,
 } from "../src/mobile-contracts";
 
 const sampleOperationalBridge = {
@@ -195,6 +198,31 @@ describe("shared contracts", () => {
     expect(getNativeMobileUiStateGuidance("offline").blockedActions).toContain("출퇴근 등록");
     expect(getNativeMobileUiStateGuidance("forbidden").blockedActions).toContain("관리자 정책 변경 화면 직접 노출");
     expect(nativeMobilePwaNativeDifferences.native[1]).toContain("runtime base URL resolver");
+  });
+
+  it("defines Phase 19 internal pilot lanes and smoke/store checklists", () => {
+    expect(nativeMobileInternalPilotLanes.map((lane) => lane.id)).toEqual([
+      "document-and-local-verification",
+      "android-internal-pilot-prep",
+      "ios-internal-pilot-prep",
+    ]);
+    expect(nativeMobileInternalPilotLanes[0].approvalRequired).toBe(false);
+    expect(nativeMobileInternalPilotLanes[1].approvalRequired).toBe(true);
+    expect(nativeMobileInternalPilotSmokeChecklist.map((item) => item.id)).toEqual([
+      "install-guide",
+      "login",
+      "dashboard",
+      "attendance",
+      "leave",
+      "approvals",
+      "collaboration",
+      "me",
+    ]);
+    expect(nativeMobileInternalPilotSmokeChecklist.find((item) => item.id === "me")?.verify).toContain(
+      "session clear 안내가 보여야 함",
+    );
+    expect(nativeMobileStoreSubmissionChecklist.android).toContain("Google Play Console 권한과 담당자 확인");
+    expect(nativeMobileStoreSubmissionChecklist.ios).toContain("Apple Developer 팀 권한과 담당자 확인");
   });
 
   it("splits approvals inbox read access from approval CTA access for employee and manager roles", () => {

@@ -4,6 +4,7 @@ import {
   getNativeMobileUiStateGuidance,
   hasNativeMobileApprovalLaneAccess,
   nativeMobileCoreWorkflow,
+  nativeMobileInternalPilotSmokeChecklist,
   type NativeMobilePrimaryScreenId,
   type NativeMobileUiState,
 } from "@gw/shared";
@@ -45,6 +46,7 @@ export type NativeMobileWorkflowPreview = {
     webRoute: string;
     apiRoutes: readonly string[];
     access: ReturnType<typeof describeNativeMobileRouteAccess>;
+    smokeChecklist: readonly string[];
   }[];
 };
 
@@ -106,6 +108,7 @@ export function buildNativeMobileWorkflowPreview(options: {
         webRoute: route.webRoute,
         apiRoutes: route.apiRoutes,
         access: describeNativeMobileRouteAccess(step.screenId, session.roleCodes),
+        smokeChecklist: nativeMobileInternalPilotSmokeChecklist.find((item) => item.id === step.screenId)?.verify ?? [],
       };
     }),
   };

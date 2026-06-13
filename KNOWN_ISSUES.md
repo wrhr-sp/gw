@@ -19,27 +19,30 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 18 네이티브 모바일앱 핵심 업무 연결 1차
+### 3. 현재 문서화/검증 기준은 Phase 19 네이티브 모바일앱 내부 시범 운영 초안
 
-현재 루트 문서와 handoff 는 Phase 17에서 준비한 `apps/mobile` 구조와 shared contract 위에, 로그인 이후 핵심 업무 흐름과 상태 안내를 한 번에 따라갈 수 있게 정리한 Phase 18 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 Phase 17~18에서 준비한 `apps/mobile` 구조와 shared contract 위에, 내부 시범 운영 전에 필요한 준비물과 승인 게이트를 한 번에 따라갈 수 있게 정리한 Phase 19 체인을 기준으로 맞춘다.
 
 - 기본 7개 핵심 화면 묶음은 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보다.
-- 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보 흐름을 우선 기준으로 본다.
+- 설치 안내 확인 → 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보/session clear 흐름을 우선 기준으로 본다.
 - `/admin/*` 운영 화면은 모바일 기본 탭 범위에 자동 포함하지 않고 후속 범위 또는 Web fallback 후보로 본다.
 - same-origin `/api/*` 원칙은 유지하되 네이티브 앱에서는 base URL resolver 와 mock/dev-safe bridge 층으로 번역해야 한다.
 - Web cookie 동작을 모바일 세션 기본값처럼 가정하지 않고 secure storage bridge 기준을 먼저 둔다.
 - 상태 안내는 offline, error, empty, forbidden 4축으로 먼저 나눠 설명한다.
-- App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production origin 확정은 별도 승인 게이트다.
+- live/PWA/API 선행 검증 기준과 mobile 전용 smoke 기준은 따로 적는다.
+- Android internal test 또는 Expo preview/dev build 후보, Apple Developer/TestFlight 준비 checklist, App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production origin 확정은 별도 승인 게이트다.
 - 현재 `apps/mobile` 은 store build 단계가 아니라 contract/typecheck/skeleton 연결 단계다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 모바일 핵심 업무 연결 단계에서 남아 있는 제품형 리스크
+### 4. 현재 모바일 내부 시범 운영 초안 단계에서 남아 있는 제품형 리스크
 
 - offline/error/empty/forbidden 상태 설명이 흔들리면 사용자에게 정상 빈 상태와 실패 상태가 섞여 보일 수 있다.
 - 모바일 편의 때문에 role/scope/auth/session 경계를 느슨하게 만들면 Web/API 보안 모델과 충돌할 수 있다.
 - `apps/mobile` 과 Web UI 공용화를 과하게 밀면 오히려 monorepo 의존성이 복잡해질 수 있다.
 - 관리자 화면까지 모바일 1차 범위에 무리하게 넣으면 일반 사용자 핵심 흐름 우선 원칙이 약해질 수 있다.
 - 스토어/실기기/푸시/권한/유료 빌드가 문서에서 충분히 분리되지 않으면 "이미 배포 가능한 상태"처럼 오해될 수 있다.
+- live/PWA/API 선행 검증과 mobile 전용 설치/배포 준비 기준이 섞이면 내부 시범 운영 readiness 판단이 흐려질 수 있다.
+- Apple Developer, TestFlight, Play Console, EAS 같은 계정/비용 항목이 구현 TODO에 묻히면 실제 승인 게이트가 누락될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

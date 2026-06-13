@@ -30,7 +30,7 @@
 - [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하고, 상세 처리는 각 화면으로 넘긴다.
 - [ ] `/attendance`, `/leave`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
 - [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
-- [ ] Phase 18 모바일 핵심 업무 연결 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선한다는 설명이 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 19 모바일 내부 시범 운영 초안 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선하고 설치 안내와 session clear 확인을 추가 검증 관점으로 본다는 설명이 문서와 code path 에서 같은 뜻이다.
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
@@ -46,7 +46,10 @@
 - [ ] `apps/mobile/src/base-url.ts` 설명이 production approved origin only, preview/development 명시적 origin 또는 mock adapter, preview URL 기본값 금지 기준과 같은 뜻이다.
 - [ ] `apps/mobile/src/session-bridge.ts` 설명이 plain async storage, web cookie copy, query-string token 금지와 secure storage bridge 전제를 숨기지 않는다.
 - [ ] `apps/mobile/src/workflow.ts` 설명이 일반 사용자 첫 액션 `attendance`, 승인 lane 권한 사용자 첫 액션 `approvals` 분기를 현재 helper 와 같은 뜻으로 유지한다.
+- [ ] live/PWA/API 선행 검증 기준과 mobile 전용 내부 시범 운영 smoke 기준이 섞이지 않고 분리돼 설명된다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
+- [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽힌다.
+- [ ] 설치 후보 안내 가능 여부, 로그인/session clear 경계, 7개 핵심 화면 smoke 순서, 남은 승인 게이트 4가지가 대장이 바로 확인할 질문으로 요약돼 있다.
 - [ ] 관리자 접근 기준이 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 설명과 같은 뜻으로 정리돼 있다.
 - [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
 - [ ] `HR_ADMIN` 은 관리자 운영 화면 허용, 감사 로그는 별도 `audit.read` 기준이라는 점이 Web/API/nav 에서 같은 뜻으로 유지된다.
@@ -86,7 +89,7 @@
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.
-- [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 아직 별도 승인 게이트라는 점을 문서/summary 가 흐리지 않는다.
+- [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 아직 별도 승인 게이트이며 구현 TODO가 아니라 승인 checklist라는 점을 문서/summary 가 흐리지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 
 ### 문서 일관성

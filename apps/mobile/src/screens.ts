@@ -1,5 +1,6 @@
 import {
   nativeMobileApprovalGates,
+  nativeMobileInternalPilotSmokeChecklist,
   nativeMobilePrimaryRouteMappings,
   nativeMobileRoleScopeNotes,
   type NativeMobilePrimaryScreenId,
@@ -11,6 +12,7 @@ export type MobileScreenWireframe = {
   headline: string;
   sections: readonly string[];
   guardrails: readonly string[];
+  smokeFocus: readonly string[];
 };
 
 const screenSpecificSections: Record<NativeMobilePrimaryScreenId, readonly string[]> = {
@@ -31,12 +33,14 @@ const commonGuardrails = [
 
 export const mobileScreenWireframes: readonly MobileScreenWireframe[] = nativeMobilePrimaryRouteMappings.map((item) => {
   const access = item.access as { notes: string; actionGate?: { notes: string } };
+  const smokeChecklistItem = nativeMobileInternalPilotSmokeChecklist.find((check) => check.id === item.id);
 
   return {
     id: item.id,
     title: item.label,
     headline: item.summary,
     sections: screenSpecificSections[item.id],
+    smokeFocus: smokeChecklistItem?.verify ?? [],
     guardrails: [
       ...commonGuardrails,
       access.notes,

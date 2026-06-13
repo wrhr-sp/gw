@@ -2,9 +2,12 @@ import {
   appRoutes,
   nativeMobileApprovalGates,
   nativeMobileBaseUrlPolicy,
+  nativeMobileInternalPilotLanes,
+  nativeMobileInternalPilotSmokeChecklist,
   nativeMobilePrimaryRouteMappings,
   nativeMobileRouteMappingIndex,
   nativeMobileSessionBridgePolicy,
+  nativeMobileStoreSubmissionChecklist,
   type NativeMobilePrimaryRouteMapping,
 } from "@gw/shared";
 
@@ -85,17 +88,20 @@ export const mobileScreenPlaceholders = nativeMobilePrimaryRouteMappings.map((it
 
 export const mobileShellDescriptor = {
   name: "GW Mobile Skeleton",
-  eyebrow: "Phase 17 Native Mobile Transition Prep",
+  eyebrow: "Phase 19 Native Mobile Internal Pilot Draft",
   appRoutePrefix: "apps/mobile",
   navigationStyle: "same product flow, different native shell",
   apiPolicyLabel: nativeMobileBaseUrlPolicy.principle,
   sessionPolicyLabel: nativeMobileSessionBridgePolicy.storage,
+  internalPilotLanes: nativeMobileInternalPilotLanes,
+  internalPilotSmokeChecklist: nativeMobileInternalPilotSmokeChecklist,
   firstLaunchChecks: [
     "런타임 base URL resolver 가 승인된 origin 또는 dev-safe mock 경로만 선택하는지 확인",
     "secure storage bridge 없이는 세션 snapshot 을 저장하지 않도록 막기",
     "기본 탭에 /admin/* 또는 스토어 제출 CTA 를 넣지 않기",
   ],
   reviewBeforeStore: [...nativeMobileApprovalGates],
+  storeSubmissionChecklist: nativeMobileStoreSubmissionChecklist,
 } as const;
 
 export const mobileRuntimeContractSummary = {

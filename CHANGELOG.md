@@ -4,6 +4,9 @@
 
 ### Changed
 
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 한 번 더 다듬어 Phase 19 내부 시범 운영 readiness 를 대장이 바로 판정할 4가지 질문(선행 검증 분리, 설치→session clear 흐름, Android/iOS 준비물 분리, 남은 승인 게이트 명시)으로 고정했다.
+- `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md` 와 `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md` 를 추가해 내부 시범 운영 전에 필요한 Android/iOS 준비물, live/PWA/API 선행 검증과 mobile 전용 smoke 기준 분리, 비용/계정/권한 승인 checklist, 남은 배포 게이트를 쉬운 한국어로 고정했다.
+- `TASKS.md`, `ROADMAP.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 19 활성 체인 기준으로 갱신해 현재 카드 ids, 내부 시범 운영 핵심 범위, 설치→로그인→핵심 업무→세션 정리 순서, App Store/Play Console/TestFlight/EAS 승인 게이트를 한 번에 따라가게 정리했다.
 - `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md` 와 `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md` 를 추가해 Phase 17 모바일 skeleton 이후 로그인→대시보드→출퇴근/휴가/결재함→공지·문서→내 정보 흐름, offline/error/empty/forbidden 상태 4축, PWA 대 네이티브 차이, 승인 게이트를 쉬운 한국어로 다시 고정했다.
 - `packages/shared/src/mobile-contracts.ts` 에 Phase 18용 workflow/state guidance, PWA 대 네이티브 차이 메모, 화면 lookup helper 를 추가했고 `apps/mobile/src/workflow.ts` 를 새로 만들어 화면별 상태 설명과 일반 사용자/승인자 첫 액션 분기를 실제 코드 helper 로 연결했다.
 - `TASKS.md`, `ROADMAP.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 18 활성 체인 기준으로 갱신해 현재 카드 ids, 포함/제외 범위, 구현자 확인 순서, 남은 승인 게이트를 한 번에 따라가게 정리했다.

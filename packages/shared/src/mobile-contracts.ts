@@ -336,6 +336,131 @@ export const nativeMobileApprovalGates = [
   "배포용 secret 발급과 운영 origin/custom domain 확정",
 ] as const;
 
+export const nativeMobileInternalPilotLanes = [
+  {
+    id: "document-and-local-verification",
+    label: "문서·로컬 검증 레인",
+    goal: "현재 저장소에서 바로 가능한 typecheck/build/check 와 문서 정합성 확인을 먼저 끝낸다.",
+    includes: [
+      "pnpm --filter @gw/mobile typecheck",
+      "pnpm check",
+      "필요 시 pnpm --filter @gw/web build:cf",
+      "모바일 route/auth/session/base-url 문서 정합성 점검",
+    ],
+    approvalRequired: false,
+  },
+  {
+    id: "android-internal-pilot-prep",
+    label: "Android 내부 배포 준비 레인",
+    goal: "Android internal test 또는 Expo preview/dev build 후보 절차와 설치 안내 초안을 분리해 정리한다.",
+    includes: [
+      "Android internal test 와 Expo preview/dev build 중 후보 절차 선택 메모",
+      "사내 설치 안내 초안",
+      "signing/패키징/배포 담당자 메모",
+      "approved origin 또는 dev-safe base URL 입력 방식 메모",
+    ],
+    approvalRequired: true,
+  },
+  {
+    id: "ios-internal-pilot-prep",
+    label: "iOS 내부 배포 준비 레인",
+    goal: "Apple Developer/TestFlight 준비물과 승인 체크리스트를 실제 계정 사용 없이 문서화한다.",
+    includes: [
+      "Apple Developer 계정/팀 권한 필요 여부",
+      "App ID / Bundle ID / signing 준비",
+      "TestFlight 내부 테스터 절차",
+      "빌드 업로드 전 승인 항목 정리",
+    ],
+    approvalRequired: true,
+  },
+] as const;
+
+export const nativeMobileInternalPilotSmokeChecklist = [
+  {
+    step: 1,
+    id: "install-guide",
+    label: "설치 또는 설치 후보 안내",
+    verify: [
+      "어느 배포 경로를 가정하는지 이해할 수 있어야 함",
+      "실제 스토어 배포가 아니라 preview/dev-safe 후보 절차라는 점이 보여야 함",
+    ],
+    blockedBy: ["Play Console/TestFlight/EAS 승인", "실기기 배포 계정/권한"],
+  },
+  {
+    step: 2,
+    id: "login",
+    label: "로그인",
+    verify: [
+      "로그인 후 세션 저장이 secure storage bridge 전제라는 점이 보여야 함",
+      "운영 SSO/IdP 는 별도 승인 게이트라는 점이 보여야 함",
+    ],
+    blockedBy: ["운영 SSO 승인", "실배포용 세션 정책 확정"],
+  },
+  {
+    step: 3,
+    id: "dashboard",
+    label: "대시보드",
+    verify: ["오늘 할 일/승인 대기/공지 진입이 홈 허브로 읽혀야 함", "역할별 첫 액션이 갈라져야 함"],
+    blockedBy: [],
+  },
+  {
+    step: 4,
+    id: "attendance",
+    label: "출퇴근",
+    verify: ["출근/퇴근 CTA 와 최근 기록 흐름이 보여야 함", "offline 에서는 성공처럼 보이면 안 됨"],
+    blockedBy: ["실기기 권한 정책", "운영 API 연결 승인"],
+  },
+  {
+    step: 5,
+    id: "leave",
+    label: "휴가",
+    verify: ["잔여/신청/승인 대기 요약을 한 흐름으로 읽을 수 있어야 함", "승인자 CTA 는 role gate 를 따라야 함"],
+    blockedBy: ["운영 API 연결 승인"],
+  },
+  {
+    step: 6,
+    id: "approvals",
+    label: "결재함",
+    verify: ["일반 사용자 문서함과 승인 lane CTA 가 분리되어야 함", "모바일 상세 drill-down 이 작은 화면 기준으로 설명되어야 함"],
+    blockedBy: ["승인 권한 role/scope 확정"],
+  },
+  {
+    step: 7,
+    id: "collaboration",
+    label: "공지/문서",
+    verify: ["공지 읽기와 문서 공간 진입이 같은 협업 묶음으로 보여야 함", "파일 업로드는 승인 게이트라는 점이 보여야 함"],
+    blockedBy: ["실저장소/파일 권한 정책", "파일 업로드 승인"],
+  },
+  {
+    step: 8,
+    id: "me",
+    label: "내 정보 / 로그아웃 / session clear",
+    verify: ["세션 요약과 로그아웃 진입이 마지막 확인 지점이어야 함", "session clear 안내가 보여야 함"],
+    blockedBy: ["실배포용 세션 만료/복구 정책"],
+  },
+] as const;
+
+export const nativeMobileStoreSubmissionChecklist = {
+  common: [
+    "배포용 secret 발급/주입 승인",
+    "운영 API origin/custom domain/app link 승인",
+    "push/실기기 권한 정책 확정",
+    "내부 테스터 모집/계정 수집 책임자 지정",
+  ],
+  android: [
+    "Google Play Console 권한과 담당자 확인",
+    "internal test 또는 Expo preview/dev build 후보 선택",
+    "package name / signing key / 배포 경로 메모",
+    "사내 설치 안내 초안 준비",
+  ],
+  ios: [
+    "Apple Developer 팀 권한과 담당자 확인",
+    "App ID / Bundle ID / signing 준비",
+    "TestFlight 내부 테스터 절차 메모",
+    "빌드 업로드 전 승인 항목 재확인",
+  ],
+} as const;
+
 export const nativeMobileRoleScopeNotes: Record<string, { roleCodes: readonly RoleCode[]; notes: string }> = {
   generalUser: {
     roleCodes: authenticatedRoleCodes,
