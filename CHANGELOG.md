@@ -4,7 +4,12 @@
 
 ### Changed
 
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 20 문서가 `/login` → `/dashboard` → `/attendance`·`/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/admin/*` 순서의 쉬운 확인 포인트와 "지금 확인 가능 / 아직 skeleton / 승인 필요" 3분류를 같은 언어로 보여 주도록 맞췄다.
+- `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md` 와 `docs/guides/phase-20-pre-operations-alignment-pass-1-handoff.md` 를 추가해 preview/skeleton 결과물을 실제 운영 전 점검표 관점으로 다시 읽는 기준, 되는 것/아직 skeleton/승인 필요 3분류, live/PWA/API/mobile 정렬, 관리자/일반 사용자 경계, 승인 목록을 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 20 활성 체인 기준으로 갱신해 현재 카드 ids, 운영 전 정리 목표, 핵심 질문 5가지, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 20 기준으로 보강해 mobile 중심 내부 시범 운영 문장을 전체 운영 readiness 문장으로 확장하고, 되는 것/아직 안 되는 것/승인 필요 분류와 live/PWA/API/mobile 결론 정렬 기준을 루트 검증 문서에 반영했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 한 번 더 다듬어 Phase 19 내부 시범 운영 readiness 를 대장이 바로 판정할 4가지 질문(선행 검증 분리, 설치→session clear 흐름, Android/iOS 준비물 분리, 남은 승인 게이트 명시)으로 고정했다.
+- Phase 16 회고용 문서도 실제 구현/리뷰/테스트 결과 기준으로 다시 정리해, `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md`, `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 에 "되는 것 / 아직 안 되는 것 / 승인 필요 / live fetch gate 대체 근거" 를 같은 언어로 반영했다.
 - `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md` 와 `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md` 를 추가해 내부 시범 운영 전에 필요한 Android/iOS 준비물, live/PWA/API 선행 검증과 mobile 전용 smoke 기준 분리, 비용/계정/권한 승인 checklist, 남은 배포 게이트를 쉬운 한국어로 고정했다.
 - `TASKS.md`, `ROADMAP.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 19 활성 체인 기준으로 갱신해 현재 카드 ids, 내부 시범 운영 핵심 범위, 설치→로그인→핵심 업무→세션 정리 순서, App Store/Play Console/TestFlight/EAS 승인 게이트를 한 번에 따라가게 정리했다.
 - `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md` 와 `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md` 를 추가해 Phase 17 모바일 skeleton 이후 로그인→대시보드→출퇴근/휴가/결재함→공지·문서→내 정보 흐름, offline/error/empty/forbidden 상태 4축, PWA 대 네이티브 차이, 승인 게이트를 쉬운 한국어로 다시 고정했다.

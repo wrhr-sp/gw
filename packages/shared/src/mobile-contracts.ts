@@ -340,7 +340,7 @@ export const nativeMobileInternalPilotLanes = [
   {
     id: "document-and-local-verification",
     label: "문서·로컬 검증 레인",
-    goal: "현재 저장소에서 바로 가능한 typecheck/build/check 와 문서 정합성 확인을 먼저 끝낸다.",
+    goal: "현재 저장소에서 바로 가능한 typecheck/build/check 와 문서 정합성 확인을 먼저 끝내고, mobile 축 근거를 전체 readiness 와 분리해 남긴다.",
     includes: [
       "pnpm --filter @gw/mobile typecheck",
       "pnpm check",
@@ -352,7 +352,7 @@ export const nativeMobileInternalPilotLanes = [
   {
     id: "android-internal-pilot-prep",
     label: "Android 내부 배포 준비 레인",
-    goal: "Android internal test 또는 Expo preview/dev build 후보 절차와 설치 안내 초안을 분리해 정리한다.",
+    goal: "Android internal test 또는 Expo preview/dev build 후보 절차와 설치 안내 초안을 실제 배포 실행 없이 분리해 정리한다.",
     includes: [
       "Android internal test 와 Expo preview/dev build 중 후보 절차 선택 메모",
       "사내 설치 안내 초안",
@@ -364,7 +364,7 @@ export const nativeMobileInternalPilotLanes = [
   {
     id: "ios-internal-pilot-prep",
     label: "iOS 내부 배포 준비 레인",
-    goal: "Apple Developer/TestFlight 준비물과 승인 체크리스트를 실제 계정 사용 없이 문서화한다.",
+    goal: "Apple Developer/TestFlight 준비물과 승인 체크리스트를 실제 계정 사용 없이 문서화하고, mobile 만으로 운영 준비 완료처럼 읽히지 않게 한다.",
     includes: [
       "Apple Developer 계정/팀 권한 필요 여부",
       "App ID / Bundle ID / signing 준비",

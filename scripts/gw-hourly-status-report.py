@@ -39,7 +39,7 @@ def classify(row):
     return '-'
 def build_message():
     now=time.strftime('%Y-%m-%d %H:%M')
-    if not DB.exists(): return f'🕘 <b>{html.escape(APP_LABEL)} 정각 작업현황</b>\n- 시각: {now}\n- 상태: Kanban DB 없음\n- 조치: {html.escape(MAIN_NAME)} 확인 필요'
+    if not DB.exists(): return f'🕘 <b>{html.escape(APP_LABEL)} 정기 작업현황 보고</b>\n- 시각: {now}\n- 상태: Kanban DB 없음\n- 조치: {html.escape(MAIN_NAME)} 확인 필요'
     uri='file:'+urllib.parse.quote(str(DB), safe='/')+'?mode=ro'
     con=sqlite3.connect(uri, uri=True, timeout=5); con.row_factory=sqlite3.Row
     with con:
@@ -51,7 +51,7 @@ def build_message():
     blocked=[r for r in rows if r['status']=='blocked']; class_counts={'승인필요':0,'자동조치후보':0,'복구후보':0,'수동분류':0}
     for r in blocked:
         c=classify(r); class_counts[c]=class_counts.get(c,0)+1
-    lines=[f'🕘 <b>{html.escape(APP_LABEL)} 정각 작업현황</b>', f'- 보고 주체: {html.escape(MAIN_NAME)}', f'- 시각: {now}', f'- DB 상태: {html.escape(str(integrity))}', f'- 현황: running {counts.get("running",0)} / blocked {counts.get("blocked",0)} / ready {counts.get("ready",0)} / todo {counts.get("todo",0)} / scheduled {counts.get("scheduled",0)} / done {counts.get("done",0)}']
+    lines=[f'🕘 <b>{html.escape(APP_LABEL)} 정기 작업현황 보고</b>', f'- 보고 주체: {html.escape(MAIN_NAME)}', f'- 시각: {now}', f'- DB 상태: {html.escape(str(integrity))}', f'- 현황: running {counts.get("running",0)} / blocked {counts.get("blocked",0)} / ready {counts.get("ready",0)} / todo {counts.get("todo",0)} / scheduled {counts.get("scheduled",0)} / done {counts.get("done",0)}']
     if blocked: lines.append(f'- 막힘 분류: 승인필요 {class_counts.get("승인필요",0)} / 자동조치후보 {class_counts.get("자동조치후보",0)} / 복구후보 {class_counts.get("복구후보",0)} / 수동분류 {class_counts.get("수동분류",0)}')
     if active:
         lines += ['', '<b>진행/막힘/대기 핵심</b>']

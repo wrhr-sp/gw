@@ -30,10 +30,11 @@
 - [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하고, 상세 처리는 각 화면으로 넘긴다.
 - [ ] `/attendance`, `/leave`, `/approvals`, `/org`, `/employees` 설명 문구가 대시보드와 같은 제품 언어를 쓰고 역할 경계를 흐리지 않는다.
 - [ ] `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴/파일 저장 서비스처럼 과장되지 않는다.
-- [ ] Phase 19 모바일 내부 시범 운영 초안 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면만 우선하고 설치 안내와 session clear 확인을 추가 검증 관점으로 본다는 설명이 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 20 운영 전 정리 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보 7개 화면과 관련 Web/API 흐름을 우선하되, 무엇이 지금 확인 가능한 것인지/아직 skeleton 인 것인지/승인 필요한 것인지가 문서와 code path 에서 같은 뜻이다.
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
+- [ ] Phase 16 파일럿 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents`)가 실제 저장소 route 와 맞고, 없는 게시글/게시판을 운영 데이터처럼 설명하지 않는다.
 - [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 forged 또는 접근 불가 postId 는 403 경계 설명과 같은 뜻으로 안내한다.
 - [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
@@ -46,10 +47,11 @@
 - [ ] `apps/mobile/src/base-url.ts` 설명이 production approved origin only, preview/development 명시적 origin 또는 mock adapter, preview URL 기본값 금지 기준과 같은 뜻이다.
 - [ ] `apps/mobile/src/session-bridge.ts` 설명이 plain async storage, web cookie copy, query-string token 금지와 secure storage bridge 전제를 숨기지 않는다.
 - [ ] `apps/mobile/src/workflow.ts` 설명이 일반 사용자 첫 액션 `attendance`, 승인 lane 권한 사용자 첫 액션 `approvals` 분기를 현재 helper 와 같은 뜻으로 유지한다.
-- [ ] live/PWA/API 선행 검증 기준과 mobile 전용 내부 시범 운영 smoke 기준이 섞이지 않고 분리돼 설명된다.
+- [ ] live/PWA/API/mobile 확인 포인트가 섞이지 않고 설명되며, 최종 결론은 같은 readiness 언어로 모인다.
+- [ ] 대장이 `/login` → `/dashboard` → `/attendance`·`/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/admin/*` 순서로 볼 때, 각 단계가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 바로 읽힌다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
-- [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽힌다.
-- [ ] 설치 후보 안내 가능 여부, 로그인/session clear 경계, 7개 핵심 화면 smoke 순서, 남은 승인 게이트 4가지가 대장이 바로 확인할 질문으로 요약돼 있다.
+- [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽히며, mobile 이 전체 readiness 의 일부라는 설명도 유지된다.
+- [ ] 지금 확인 가능한 것, 아직 skeleton 인 것, 승인 필요한 것, live/PWA/API/mobile 결론 정렬, 관리자/일반 사용자 경계 5가지가 대장이 바로 확인할 질문으로 요약돼 있다.
 - [ ] 관리자 접근 기준이 host 분리만이 아니라 `roleCode + permissionCode + adminScope` 설명과 같은 뜻으로 정리돼 있다.
 - [ ] `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 접근 행렬이 문서/코드/테스트에서 서로 다르게 풀리지 않는다.
 - [ ] `HR_ADMIN` 은 관리자 운영 화면 허용, 감사 로그는 별도 `audit.read` 기준이라는 점이 Web/API/nav 에서 같은 뜻으로 유지된다.
@@ -77,6 +79,7 @@
 - [ ] 관리자 offline 페이지가 가능한 일/막히는 일/재시도 절차뿐 아니라 설치 후 우선 확인할 관리자 화면(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)도 현재 nav 기준과 같이 보여 준다.
 - [ ] 모바일/관리자 CTA 최소 48px 높이와 18px 가로 패딩 기준이 문서, config, 테스트에서 서로 다르게 풀리지 않는다.
 - [ ] live fetch 가 막히더라도 `build:cf`, `pnpm check`, local `preview:cf` smoke, deployment metadata 중 무엇을 대체 근거로 썼는지 남겼다.
+- [ ] `preview:cf` 기본 경로가 불안정한 세션이라면 같은 build 산출물 기준 `wrangler dev --port 8790 --ip 127.0.0.1` 대체 smoke 를 사용했는지, 그리고 이것을 live 직접 확인과 혼동하지 않게 적었는지 확인했다.
 - [ ] 관리자 host 에서 허용 route(`/admin*`, `/login`, `/forbidden`, `/manifest.webmanifest`, `/offline`) 밖의 일반 업무 route 가 `/admin` 으로 되돌아간다는 점을 빠뜨리지 않았다.
 - [ ] 예전 scheduled 복구 카드를 정리하는 작업이라면, 각 카드를 `해결됨 / 유지 / 승인 필요 / 판단 유보` 중 어디로 분류했는지 근거를 남겼다.
 - [ ] stale/superseded 로 닫는 카드가 더 최신 완료 카드, PR/CI, 부모/자식 체인 중 최소 한 가지 이상 근거를 가진다.
@@ -89,7 +92,7 @@
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.
-- [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 아직 별도 승인 게이트이며 구현 TODO가 아니라 승인 checklist라는 점을 문서/summary 가 흐리지 않는다.
+- [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production data, 외부 초대/실연동이 아직 별도 승인 게이트이며 구현 TODO가 아니라 승인 checklist라는 점을 문서/summary 가 흐리지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 
 ### 문서 일관성

@@ -58,11 +58,13 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 둘 다 소개하는지
 - 로그인(`/login`)이 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 과장 없이 설명하는지
 - 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하는지
+- 협업 검토는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents` 같은 현재 placeholder 예시 경로로 다시 눌러 보며 문서 설명과 실제 route 톤이 같은지 확인하는지
 - 일반 업무 route(`/attendance`, `/leave`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
 - 협업 route(`/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`)가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴처럼 과장되지 않는지
 - `/boards` 가 전사 공지(`board_notice`)와 자유 게시판(`board_general`)을 같은 화면에서 보여 주더라도 notice-only와 일반 작성 책임 차이를 먼저 설명하는지
 - `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 를 분리해 보여 주고 forged/접근 불가 postId 403 경계 설명과 충돌하지 않는지
 - `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
+- live `.workers.dev` 직접 fetch 가 막히면 이를 미확인으로 남기고 `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview smoke 같은 대체 근거를 별도로 기록하는지
 - 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
 
 ### 1-5. Mobile skeleton 검증
@@ -74,18 +76,46 @@ pnpm --filter @gw/mobile typecheck
 왜 돌리나:
 - `apps/mobile` shell 이 Web/PWA와 공유하는 route/auth/session 계약을 깨지 않았는지 가장 빠르게 확인한다.
 - `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `packages/shared/src/mobile-contracts.ts` 설명이 실제 타입과 어긋나지 않는지 본다.
-- store build 없이도 Phase 19 성공 기준인 핵심 업무 흐름/상태 안내/contract 경계와 내부 시범 운영 준비 기준을 재검증할 수 있다.
+- store build 없이도 Phase 20 성공 기준인 핵심 업무 흐름/상태 안내/contract 경계와 운영 전 readiness 분류 기준을 재검증할 수 있다.
 
-### 1-6. Phase 19 쉬운 내부 시범 운영 판정 질문
+### 1-6. Phase 20 쉬운 운영 전 판정 질문
 
 문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
 
-1. live/PWA/API 선행 검증과 모바일 전용 검증이 서로 다른 체크로 분리돼 적혀 있는가
-2. 설치 또는 설치 후보 안내 → 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보/session clear 순서가 문서와 code path 에서 같은가
-3. Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비물이 한 묶음으로 섞이지 않고 따로 보이는가
-4. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 구현 TODO 가 아니라 승인 게이트로 남아 있는가
+1. 지금 저장소에서 바로 확인 가능한 핵심 흐름이 무엇인지 문서에 바로 보이는가
+2. 아직 skeleton/preview 라서 운영 완료처럼 보면 안 되는 항목이 분리돼 있는가
+3. 별도 승인·계정·비용·권한이 필요한 항목이 따로 보이는가
+4. live/PWA/API/mobile 확인 포인트가 서로 다른 말을 하지 않는가
+5. 관리자와 일반 사용자 경계가 route/문서/검증 기준에서 같은 뜻인가
 
-이 4개 질문 중 하나라도 흐리면 Phase 19 문서 작업은 완료로 보지 않는다.
+이 5개 질문 중 하나라도 흐리면 Phase 20 문서 작업은 완료로 보지 않는다.
+
+### 1-7. 대장이 실제로 눌러 볼 쉬운 확인 순서
+
+문서 정합성을 볼 때는 아래 순서로 보면 가장 빠르다.
+
+1. `/login`
+   - placeholder 세션 기준 역할별 첫 이동 설명이 있는지 본다.
+   - 실제 운영 로그인 완료처럼 과장하지 않았는지 같이 본다.
+2. `/dashboard`
+   - 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 우선순위를 유지하는지 본다.
+   - 일반 사용자 흐름과 관리자 운영 흐름이 섞이지 않는지 본다.
+3. `/attendance` 와 `/leave`
+   - 정책 안내, placeholder 제한, 권한/회사 scope/미허용 이유 설명이 있는지 본다.
+   - 실제 운영 저장 성공처럼 읽히는 문구가 없는지 본다.
+4. `/approvals`
+   - 승인 lane 이 모든 사용자 기본 흐름처럼 쓰이지 않는지 본다.
+   - self-approval 금지, 권한 경계 설명과 충돌하지 않는지 본다.
+5. `/boards` 와 `/documents`
+   - 협업 묶음으로는 설명하되 게시판 책임과 문서 보관 책임을 섞지 않는지 본다.
+   - metadata/placeholder 단계가 실제 파일 운영 완료처럼 보이지 않는지 본다.
+6. `/me`
+   - `me` 조회 중심 설명과 `auth.logout`/session clear 안내가 과장 없이 적혀 있는지 본다.
+7. `/admin`, `/admin/policies`, `/admin/audit-logs`
+   - 관리자 확인 포인트가 일반 사용자 핵심 흐름과 분리돼 있는지 본다.
+   - `audit.read` 같은 별도 capability 경계가 살아 있는지 본다.
+8. 마지막으로 live/PWA/API/mobile 근거를 다시 모은다.
+   - 각 축 설명이 달라도 최종 결론은 "지금 확인 가능 / 아직 skeleton / 승인 필요" 셋으로 모여야 한다.
 
 ## 2. Cloudflare/Web 배포 후보 검증
 
@@ -101,6 +131,21 @@ pnpm --filter @gw/web build:cf
 - `docs/architecture/phase-6-mobile-pwa-scope.md`
 - `docs/architecture/phase-7-api-same-origin-scope.md`
 - `DEPLOYMENT.md`
+
+### 2-1. Phase 16 local preview 대체 근거 메모
+
+`pnpm --filter @gw/web preview:cf` 기본 경로가 세션 환경에서 불안정하면,
+같은 build 산출물을 기준으로 아래처럼 대체 smoke 근거를 남길 수 있다.
+
+```bash
+cd apps/web
+pnpm exec wrangler dev --port 8790 --ip 127.0.0.1
+BASE_URL=http://127.0.0.1:8790 bash ../../scripts/gw-admin-host-preview-smoke.sh
+```
+
+왜 남기나:
+- live `.workers.dev` 직접 fetch 가 막힌 세션에서도 build 결과와 route 경계를 완전히 공백으로 두지 않기 위해서다.
+- 단, 이 결과는 live 확인 대체 근거일 뿐이고 live 직접 확인 완료로 쓰면 안 된다.
 
 ## 3. 자동화/운영 스크립트 검증
 
@@ -225,7 +270,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
 - Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
-- Phase 19 문서라면 `apps/mobile`, base URL resolver, secure storage bridge, 7개 핵심 화면, 설치→로그인→핵심 업무→세션 정리 순서, Android/iOS 준비 checklist, offline/error/empty/forbidden 상태 분류, App Store/Play Console/TestFlight/EAS 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 20 문서라면 되는 것/아직 skeleton/승인 필요 3분류, live/PWA/API/mobile 결론 정렬, 관리자/일반 사용자 경계, `apps/mobile` guardrail, offline/error/empty/forbidden 상태 분류, 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
