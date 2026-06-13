@@ -5,6 +5,38 @@
 이미 있는 게시판·문서함·첨부 metadata skeleton과 전체 smoke 기준을 안정화해
 대장이 사내 검토용 초안을 preview/live URL에서 직접 확인할 수 있게 만드는 단계입니다.
 
+## 0. 2026-06-13 기준 빠른 판정표
+
+### 지금 되는 것
+
+- `/dashboard` 상단 액션이 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 맞춰져 있고, 대시보드 eyebrow 도 Phase 16 문구로 정리돼 있습니다.
+- `/boards`, `/boards/board_notice`, `/boards/board_general`, 예시 게시글 상세(`/posts/board_post_board_notice_employee_employee`), `/documents` 를 따라가며 게시판/문서 placeholder 흐름을 읽을 수 있습니다.
+- 관리자 경계는 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/admin/manifest.webmanifest` 와 일반 host 분리 기준으로 다시 검증됐습니다.
+- API/guardrail 기준으로 notice-only 글쓰기 차단, private 문서공간 차단, forged post/read receipt 차단, raw storage/internal bucket 정보 비노출이 다시 확인됐습니다.
+
+### 아직 안 되는 것
+
+- production 실데이터 반영
+- 실제 운영 파일 업로드 확대
+- public URL 다운로드 오픈
+- 외부 문서보관/OCR/전자서명/HR 연동
+- live `.workers.dev` 직접 fetch smoke 최종 확인
+
+### 승인 없이는 하면 안 되는 것
+
+- production data 반영
+- secret 입력/교체
+- DNS/custom domain 변경
+- 유료 리소스 생성·증액
+- public URL/외부 공유 링크 정책 확정
+- 실제 운영 파일 업로드 범위 확대
+
+### 이번 문서에서 꼭 분리해 적는 검증 메모
+
+- 확인됨: `pnpm check`, `pnpm --filter @gw/web build:cf`, targeted web/api test, local preview smoke
+- 미확인: live `.workers.dev` 직접 fetch smoke
+- 대체 근거: `pnpm --filter @gw/web preview:cf` 기본 경로가 불안정할 때 `apps/web` 에서 `wrangler dev --port 8790 --ip 127.0.0.1` 로 같은 산출물을 띄워 smoke 한 결과
+
 ## 1. 지금 상태를 쉬운 말로 정리하면
 
 이미 있는 것:
@@ -163,6 +195,21 @@
 - private 문서공간 차단은 권한/회사 scope 축
 - 첨부 업로드 미연결은 placeholder/dev-safe 축
 - live fetch 불가 시 대체 근거 사용은 검증 환경 메모로 분리
+
+## 3-1. 대장이 preview/live URL에서 바로 볼 쉬운 순서
+
+1. `/dashboard`
+   - 상단 액션 순서가 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 로 읽히는지 봅니다.
+2. `/boards`
+   - 전사 공지(`board_notice`)와 자유 게시판(`board_general`)이 같이 보이더라도 notice-only 책임 차이가 먼저 읽히는지 봅니다.
+3. `/boards/board_notice` → `/posts/board_post_board_notice_employee_employee`
+   - 공지 상세, 댓글/읽음 확인 CTA, 읽기 중심 흐름이 과장 없이 이어지는지 봅니다.
+4. `/documents`
+   - 전사 문서함 대 인사 전용 문서함, 첨부 metadata, 업로드/다운로드 제한, raw storage 비노출 설명이 같이 보이는지 봅니다.
+5. `/admin/policies` 와 `/admin/audit-logs`
+   - 일반 협업 흐름과 운영 설명이 섞이지 않고, read-only 운영 추적 톤을 유지하는지 봅니다.
+
+이 순서를 보면 "되는 것 / 아직 안 되는 것 / 승인 필요" 를 한 번에 나눠서 읽을 수 있습니다.
 
 ## 4. 실제로 먼저 볼 파일
 
