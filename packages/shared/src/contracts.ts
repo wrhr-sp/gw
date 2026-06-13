@@ -64,6 +64,14 @@ export const appRoutes = {
     downloadInit: (fileId: string) => `/api/documents/files/${fileId}/download-init`,
     deleteFile: (fileId: string) => `/api/documents/files/${fileId}`,
   },
+  workItems: {
+    list: "/api/work-items",
+    detail: (workItemId: string) => `/api/work-items/${workItemId}`,
+    documents: (workItemId: string) => `/api/work-items/${workItemId}/documents`,
+    attachments: (workItemId: string) => `/api/work-items/${workItemId}/attachments`,
+    reviews: (workItemId: string) => `/api/work-items/${workItemId}/reviews`,
+    deadlines: "/api/work-item-deadlines",
+  },
   readReceipts: "/api/read-receipts",
 } as const;
 
@@ -74,6 +82,7 @@ export const appSections = [
   { href: "/approvals", label: "전자결재", description: "결재 문서 제출/승인 UI 골격" },
   { href: "/boards", label: "게시판", description: "사내 공지와 게시글 기능 후보" },
   { href: "/documents", label: "문서", description: "R2 기반 첨부/문서 관리 후보 영역" },
+  { href: "/work-items", label: "공통 업무", description: "HR·세무·노무·법무·지점 업무가 함께 타는 공통 work item skeleton" },
   { href: "/me", label: "내 정보", description: "세션, 역할, 회사 정보와 보안 안내를 확인하는 개인 영역" },
   { href: "/org", label: "조직도", description: "부서/직책 구조를 탐색하는 조직 보기" },
   { href: "/employees", label: "직원", description: "직원 기본정보와 인사 상태를 조회하는 공간" },
@@ -139,7 +148,125 @@ export const permissionCodeSchema = z.enum([
   "document.space.manage",
   "document.file.read",
   "document.file.write",
+  "work_item.read",
+  "work_item.manage",
+  "work_item.review",
+  "work_item.deadline.read",
+  "work_item.audit.read",
 ]);
+
+export const workItemModuleSchema = z.enum(["hr", "tax", "labor", "legal", "branch"]);
+export const workItemStatusSchema = z.enum(["draft", "todo", "in_progress", "waiting_review", "blocked", "done", "archived"]);
+export const workItemPrioritySchema = z.enum(["low", "normal", "high", "critical"]);
+export const workItemViewerScopeSchema = z.enum(["self", "branch", "company", "company_audit"]);
+export const workItemCapabilitySchema = z.enum([
+  "work_item.read",
+  "work_item.manage",
+  "work_item.review",
+  "work_item.deadline.read",
+  "work_item.audit.read",
+  "work_item.attachment.read_sensitive",
+]);
+
+export const workItemAssigneeSchema = z.object({
+  userId: z.string().nullable(),
+  roleCode: roleCodeSchema.nullable(),
+  label: z.string(),
+});
+
+export const workItemAccessSchema = z.object({
+  companyId: z.string(),
+  branchId: z.string().nullable(),
+  branchLabel: z.string().nullable(),
+  viewerScope: workItemViewerScopeSchema,
+  allowedRoleCodes: z.array(roleCodeSchema).min(1),
+  capabilities: z.array(workItemCapabilitySchema).min(1),
+  branchAccessNote: z.string(),
+  roleAccessNote: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const workItemSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  branchId: z.string().nullable(),
+  branchLabel: z.string().nullable(),
+  module: workItemModuleSchema,
+  category: z.string(),
+  title: z.string(),
+  descriptionPreview: z.string(),
+  status: workItemStatusSchema,
+  priority: workItemPrioritySchema,
+  assignee: workItemAssigneeSchema,
+  requesterUserId: z.string().nullable(),
+  dueAt: z.string().datetime().nullable(),
+  reviewRequired: z.boolean(),
+  containsSensitiveData: z.boolean(),
+  access: workItemAccessSchema,
+  tags: z.array(z.string()),
+  auditSummary: z.string(),
+  placeholder: z.literal(true),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  closedAt: z.string().datetime().nullable(),
+});
+
+export const workItemDocumentSchema = z.object({
+  id: z.string(),
+  workItemId: z.string(),
+  documentType: z.string(),
+  title: z.string(),
+  status: z.enum(["draft", "requested", "received", "review_ready"]),
+  visibility: z.enum(["branch", "company", "restricted"]),
+  containsSensitiveData: z.boolean(),
+  accessNote: z.string(),
+  placeholder: z.literal(true),
+  updatedAt: z.string().datetime(),
+});
+
+export const workItemAttachmentSchema = z.object({
+  id: z.string(),
+  workItemId: z.string(),
+  fileName: z.string(),
+  category: z.string(),
+  uploadedBy: z.string(),
+  uploadedAt: z.string().datetime(),
+  sensitivityLabel: z.enum(["general", "internal", "restricted"]),
+  storageExposure: z.literal("metadata_only"),
+  previewAvailable: z.literal(false),
+  placeholder: z.literal(true),
+});
+
+export const workItemReviewSchema = z.object({
+  id: z.string(),
+  workItemId: z.string(),
+  reviewerRoleCode: roleCodeSchema,
+  decision: z.enum(["approved", "changes_requested", "rejected", "noted"]),
+  summary: z.string(),
+  reviewedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const workItemDeadlineSchema = z.object({
+  id: z.string(),
+  workItemId: z.string(),
+  title: z.string(),
+  dueAt: z.string().datetime(),
+  status: z.enum(["scheduled", "upcoming", "due_today", "overdue", "done"]),
+  ownerScope: z.string(),
+  escalationNote: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const workItemAuditLogSchema = z.object({
+  id: z.string(),
+  workItemId: z.string(),
+  action: z.string(),
+  actorRoleCode: roleCodeSchema,
+  summary: z.string(),
+  happenedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
 
 export const healthPayloadSchema = z.object({
   service: z.literal("gw-api"),
@@ -1284,6 +1411,43 @@ export const documentFileMetadataCreateResponseSchema = successResponseSchema(
   }),
 );
 
+export const workItemListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(workItemSchema),
+  }),
+);
+
+export const workItemDetailResponseSchema = successResponseSchema(
+  z.object({
+    item: workItemSchema,
+    auditLogs: z.array(workItemAuditLogSchema),
+  }),
+);
+
+export const workItemDocumentsResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(workItemDocumentSchema),
+  }),
+);
+
+export const workItemAttachmentsResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(workItemAttachmentSchema),
+  }),
+);
+
+export const workItemReviewsResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(workItemReviewSchema),
+  }),
+);
+
+export const workItemDeadlinesResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(workItemDeadlineSchema),
+  }),
+);
+
 export const readReceiptTargetTypeSchema = z.enum(["post", "document_file"]);
 
 export const readReceiptSchema = z.object({
@@ -1425,6 +1589,25 @@ export type DocumentFileUploadCompleteRequest = z.infer<typeof documentFileUploa
 export type DocumentFileUploadCompleteResponse = z.infer<typeof documentFileUploadCompleteResponseSchema>;
 export type DocumentFileDownloadInitResponse = z.infer<typeof documentFileDownloadInitResponseSchema>;
 export type DocumentFileDeleteResponse = z.infer<typeof documentFileDeleteResponseSchema>;
+export type WorkItemModule = z.infer<typeof workItemModuleSchema>;
+export type WorkItemStatus = z.infer<typeof workItemStatusSchema>;
+export type WorkItemPriority = z.infer<typeof workItemPrioritySchema>;
+export type WorkItemViewerScope = z.infer<typeof workItemViewerScopeSchema>;
+export type WorkItemCapability = z.infer<typeof workItemCapabilitySchema>;
+export type WorkItemAssignee = z.infer<typeof workItemAssigneeSchema>;
+export type WorkItemAccess = z.infer<typeof workItemAccessSchema>;
+export type WorkItem = z.infer<typeof workItemSchema>;
+export type WorkItemDocument = z.infer<typeof workItemDocumentSchema>;
+export type WorkItemAttachment = z.infer<typeof workItemAttachmentSchema>;
+export type WorkItemReview = z.infer<typeof workItemReviewSchema>;
+export type WorkItemDeadline = z.infer<typeof workItemDeadlineSchema>;
+export type WorkItemAuditLog = z.infer<typeof workItemAuditLogSchema>;
+export type WorkItemListResponse = z.infer<typeof workItemListResponseSchema>;
+export type WorkItemDetailResponse = z.infer<typeof workItemDetailResponseSchema>;
+export type WorkItemDocumentsResponse = z.infer<typeof workItemDocumentsResponseSchema>;
+export type WorkItemAttachmentsResponse = z.infer<typeof workItemAttachmentsResponseSchema>;
+export type WorkItemReviewsResponse = z.infer<typeof workItemReviewsResponseSchema>;
+export type WorkItemDeadlinesResponse = z.infer<typeof workItemDeadlinesResponseSchema>;
 export type ReadReceipt = z.infer<typeof readReceiptSchema>;
 export type ReadReceiptCreateRequest = z.infer<typeof readReceiptCreateRequestSchema>;
 export type ReadReceiptCreateResponse = z.infer<typeof readReceiptCreateResponseSchema>;

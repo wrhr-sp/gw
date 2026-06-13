@@ -1,0 +1,50 @@
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import WorkItemsHrPage from "./app/work-items/hr/page";
+import WorkItemsPage from "./app/work-items/page";
+import { workItemGuardrails, workItemHubHighlights, workItemModuleCards } from "./app/work-items/work-items-config";
+
+describe("Phase 25 work-items skeleton boundaries", () => {
+  it("keeps the hub focused on shared work/document/access structure instead of pretending full operations", () => {
+    const html = renderToStaticMarkup(<WorkItemsPage />);
+
+    expect(html).toContain("공통 업무 허브");
+    expect(html).toContain("모듈별 진입점");
+    expect(html).toContain("/api/work-items, /api/work-items/:id");
+    expect(html).toContain("/api/work-item-deadlines");
+    expect(html).toContain("metadata-only");
+    expect(html).toContain("실제 신고 제출 자동화는 열지 않고 회수율·마감 상태만 보여 줍니다.");
+
+    for (const item of workItemHubHighlights) {
+      expect(html).toContain(item);
+    }
+
+    for (const card of workItemModuleCards) {
+      expect(html).toContain(card.title);
+      expect(html).toContain(card.href);
+    }
+  });
+
+  it("renders module pages with role/access notes, linked API names, and no fake state-changing claims", () => {
+    const html = renderToStaticMarkup(<WorkItemsHrPage />);
+
+    expect(html).toContain("인사 업무");
+    expect(html).toContain("민감 원문 첨부");
+    expect(html).toContain("/api/work-items?module=hr");
+    expect(html).toContain("/api/work-items/:id/documents");
+    expect(html).toContain("/api/work-items/:id/attachments");
+    expect(html).toContain("공통 업무 허브로");
+    expect(html).not.toContain("저장 완료");
+    expect(html).not.toContain("외부 전송");
+  });
+
+  it("keeps guardrails explicit in config for every module card", () => {
+    expect(workItemModuleCards.map((card) => card.slug)).toEqual(["hr", "tax", "labor", "legal", "branch"]);
+    expect(workItemGuardrails).toContain("민감 원문 첨부는 metadata-only 로 남기고 실제 파일 내용 노출은 하지 않습니다.");
+    expect(workItemGuardrails).toContain("세무 신고, 외부 법무, 외부 저장소 발송 같은 운영 자동화는 이번 단계 범위가 아닙니다.");
+    expect(workItemModuleCards.every((card) => card.apiRoutes.length >= 2)).toBe(true);
+    expect(workItemModuleCards.every((card) => card.milestones.length >= 3)).toBe(true);
+  });
+});

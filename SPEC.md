@@ -364,6 +364,12 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - live route, same-origin `/api/health`·`/api/me`, PWA/mobile 확인은 파일럿 선행 체크리스트로 따로 적는다.
 - Phase 24 파일럿 UX에서는 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개와 PC collapsible sidebar 가 같은 메뉴군을 가리키고, 관리자 메뉴는 일반 사용자 기본 탐색에 섞지 않는다.
 - Phase 24 파일럿 UX에서는 모바일 `홈` 커스터마이징과 `지점/호텔 코드` 권한 구조를 문서 초안으로 먼저 고정하되, 실데이터/PMS 연동/영구 저장은 승인 게이트로 남긴다.
+- 현재 활성 Phase 25에서는 위 파일럿 준비 흐름 위에 HR·세무·노무·법무·지점 운영 업무를 같이 담는 공통 `work item` 엔진을 먼저 고정해야 한다.
+- 공통 기본 필드는 `module(hr/tax/labor/legal/branch)`, `status`, `priority`, `assignee`, `dueAt`, `company/branch scope`, `reviewRequired`, `containsSensitiveData` 방향으로 먼저 맞춘다.
+- 공통 상태는 `draft`·`todo`·`in_progress`·`waiting_review`·`blocked`·`done`·`archived` 처럼 단순한 흐름으로 시작하고, 모듈별 차이는 상태 남발보다 `category` 와 capability 로 푼다.
+- 공통 문서/첨부/검토/마감은 work item 에 붙는 skeleton 으로 정리하고, raw storage key 나 민감 원문 경로를 기본 설명에 노출하지 않는다.
+- 모바일 하단 탭은 계속 5개를 유지하고, 새 업무 모듈 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 확보한다.
+- 일반 근무자 / 지점 관리자 / 본사 관리자 / 감사 사용자의 가시 범위가 회사 + 지점/호텔 + 역할 + capability 4축으로 같은 뜻을 가리켜야 한다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -387,6 +393,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 22 문서라면 `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md` 와 `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md` 의 기준 업무 순서, 상태 안내 4축, mobile/Web 계약 비교, `/admin/*` 분리, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 23 문서라면 `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md` 와 `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md` 의 운영 콘솔 기준 순서, 일반 조회 대 운영 검토 경계, high-risk permission, 파일/문서/공지 권한 경계, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 24 문서라면 `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md` 와 `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md` 의 파일럿 대상 범위, 직원 체험 레인 + 운영자 동행 레인, live/PWA/API/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 25 문서라면 `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md` 와 `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md` 의 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -434,6 +441,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `지점/호텔 코드` 구조는 호텔 위탁경영사 도메인 초안으로 적고, 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 가시 범위를 분리한다.
 - `지점 배정 필요` 안내, 다른 지점 데이터 UI/API 차단, 지점 업무 대 지점 관리 분리를 파일럿 문서에서 같은 용어로 반복한다.
 - production DB, secret, 실제 권한 저장, custom domain, 유료 리소스, 외부 연동은 파일럿 준비 문서 안에서도 계속 별도 승인 목록으로 남긴다.
+
+### 6-7. Phase 25 문구는 "공통 엔진 / 모듈별 확장 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- HR·세무·노무·법무·지점 업무를 바로 완성 기능처럼 쓰지 말고, 공통 work item 엔진 위에 올라갈 다음 확장으로 적는다.
+- 상태값을 모듈마다 제각각 늘리기보다 공통 상태 흐름을 먼저 적는다.
+- 문서/첨부/검토/마감은 업무 모듈별 별도 시스템이 아니라 공통 skeleton 으로 설명한다.
+- 회사 + 지점/호텔 + 역할 + capability 접근 기준이 메뉴/UI/API 설명에서 같은 뜻을 가리켜야 한다.
+- 모바일 하단 탭은 늘리지 않고 `홈`/`메뉴`/PC sidebar 자리 확보 원칙을 먼저 적는다.
+- 민감 문서 원문, production DB 실데이터, 실제 세무/노무/법무 실처리, 외부 전문가 연동은 계속 별도 승인 목록으로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

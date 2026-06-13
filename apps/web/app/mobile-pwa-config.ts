@@ -181,6 +181,12 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "문서 공간과 보관 흐름 확인",
   },
   {
+    href: "/work-items",
+    label: "공통 업무",
+    shortLabel: "업무",
+    summary: "HR·세무·노무·법무·지점 업무 공통 엔진 확인",
+  },
+  {
     href: "/me",
     label: "내 정보",
     shortLabel: "내 정보",
@@ -240,9 +246,21 @@ export const mobileMenuSections: NavSection[] = [
     items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
   },
   {
+    title: "공통 업무 엔진",
+    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·법무·지점 업무 자리를 먼저 확보합니다.",
+    items: [
+      mobilePrimaryNav[6],
+      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
+      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 수집/월말 마감 placeholder" },
+      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "근태 예외 후속조치/계약 점검 placeholder" },
+      { href: "/work-items/legal", label: "법무 업무", shortLabel: "법무", summary: "계약 검토/승인 게이트 placeholder" },
+      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 placeholder" },
+    ],
+  },
+  {
     title: "내 정보 / 조회",
     description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
-    items: [mobilePrimaryNav[6], mobilePrimaryNav[7], mobilePrimaryNav[8]],
+    items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
   },
   {
     title: "협업 placeholder",

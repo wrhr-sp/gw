@@ -20,6 +20,13 @@ export type DashboardRouteCard = {
   body: string;
 };
 
+export type DashboardWorkItemCard = {
+  href: string;
+  title: string;
+  summary: string;
+  roleScope: string;
+};
+
 export type DashboardAdminShortcut = {
   href: "/admin" | "/admin/audit-logs";
   title: string;
@@ -161,6 +168,27 @@ export const dashboardReadingCards: DashboardRouteCard[] = [
   },
 ];
 
+export const dashboardWorkItemCards: DashboardWorkItemCard[] = [
+  {
+    href: "/work-items",
+    title: "공통 업무 허브",
+    summary: "내 업무·검토 대기·마감 임박 카드를 HR/세무/노무/법무/지점 공통 구조로 먼저 읽습니다.",
+    roleScope: "회사 + 지점 + 역할 + capability",
+  },
+  {
+    href: "/work-items/hr",
+    title: "인사 업무",
+    summary: "온보딩/서류 회수/인사 점검을 민감 문서 원문 없이 metadata 중심으로 보여 줍니다.",
+    roleScope: "HR 관리자 / 본사 관리자 / 감사",
+  },
+  {
+    href: "/work-items/tax",
+    title: "세무·지점 마감",
+    summary: "증빙 회수와 월말 마감을 지점별 placeholder 상태로 묶고 실제 신고 자동화는 열지 않습니다.",
+    roleScope: "본사 관리자 / 지점 관리자 / 감사",
+  },
+];
+
 export const dashboardOperationsCards: DashboardRouteCard[] = [
   {
     href: "/org",
@@ -182,6 +210,8 @@ export const dashboardApiLinks = [
   { href: "/api/approvals/inbox", label: "승인함", description: "내 승인 대기와 병목 후보" },
   { href: "/api/notices", label: "공지", description: "읽기 중심 공지 진입점" },
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },
+  { href: "/api/work-items", label: "공통 업무 목록", description: "공통 work item skeleton 목록" },
+  { href: "/api/work-item-deadlines", label: "공통 업무 마감", description: "마감 임박/완료 placeholder" },
 ] as const;
 
 export function getDashboardAdminShortcut(

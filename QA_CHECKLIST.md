@@ -33,11 +33,16 @@
 - [ ] Phase 22 실제 업무 흐름 통합 1차 범위라면 로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지/문서, 내 정보, 조직도, 직원 목록과 관련 Web/API 흐름을 우선하되, 무엇을 어떤 순서로 따라갈 수 있는지/아직 skeleton 인지/승인 필요한 것인지가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 23 관리자 운영 콘솔 실사용 1차 범위라면 `/dashboard` 관리자 CTA → `/admin` 허브 → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 흐름, 일반 조회 대 운영 검토 경계, high-risk permission, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 24 회사 파일럿 운영 1차 범위라면 제한된 파일럿 대상 범위, 사용자 안내 → 직원 체험 레인 → 운영자 동행 레인 → 피드백 수집 순서, live/API/PWA/mobile 선행 체크리스트, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 25 공통 업무·문서·마감·권한 엔진 1차 범위라면 공통 `work item` 모델, 문서/첨부/검토/마감 skeleton, 회사 + 지점/호텔 + 역할 + capability 접근 기준, 모바일/PC 새 업무 그룹 자리, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
 - [ ] 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 일반 근무자 `지점 업무` 대 관리자 `지점 관리` 분리가 문서/화면/API 설명에서 같은 뜻이다.
 - [ ] 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 지점 가시 범위와 다른 지점 데이터 UI/API 차단 기준이 문서마다 다르게 풀리지 않는다.
+- [ ] HR·세무·노무·법무·지점 운영 업무가 모듈별 완성 기능처럼 과장되지 않고, 공통 work item 엔진 위에 올라갈 확장으로 같은 언어로 적혀 있다.
+- [ ] 공통 상태값(`draft`/`todo`/`in_progress`/`waiting_review`/`blocked`/`done`/`archived`)이 문서/계약/UI/API 설명에서 서로 다른 말로 풀리지 않는다.
+- [ ] 공통 문서/첨부/검토/마감 구조가 work item 과 어떤 관계인지 문서마다 다르게 설명되지 않는다.
+- [ ] 민감 문서/세무자료/노무자료/법무자료가 metadata 단계와 원문 단계로 구분돼 있고, raw storage 정보 비노출 원칙이 유지된다.
 - [ ] `/admin` 은 설명용 소개 화면이 아니라 오늘 먼저 볼 운영 체크포인트와 승인 게이트를 먼저 읽는 허브로 유지된다.
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
@@ -60,6 +65,7 @@
 - [ ] live/PWA/API/mobile 확인 포인트가 섞이지 않고 설명되며, 최종 결론은 같은 readiness 언어로 모인다.
 - [ ] 대장이 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees` 순서로 일반 업무 흐름을 본 뒤, 관리자 검토는 `/dashboard` 관리자 CTA → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 다시 이어 볼 때 각 단계가 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 바로 읽힌다.
 - [ ] Phase 24 파일럿 문서에서는 위 일반 업무/관리자 흐름이 사용자 안내 → 실제 체험 → 운영자 동행 → 피드백 수집 순서로 다시 묶여 있고, 전사 오픈/실데이터 투입처럼 과장되지 않는다.
+- [ ] Phase 25 문서에서는 위 파일럿 준비 흐름 위에 공통 work item 엔진이 올라가며, 개별 모듈 완성/실민감 처리/외부 전문가 연동처럼 과장되지 않는다.
 - [ ] parent Phase 23 baseline 근거(live URL, release-gate success)와 이번 Phase 24 재검증 예정 항목이 구분돼 적혀 있다.
 - [ ] 내 정보 화면 설명이 `me` 조회 중심 흐름과 온라인 `auth.logout`/secure storage bridge 기반 session clear 안내를 섞어 과장하지 않는다.
 - [ ] Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비 checklist 가 한 문단에 섞이지 않고 따로 읽히며, mobile 이 전체 readiness 의 일부라는 설명도 유지된다.

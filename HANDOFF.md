@@ -18,20 +18,34 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 24 회사 파일럿 운영 1차다. Phase 22에서 정리한 직원 기본 업무 흐름과 Phase 23에서 정리한 관리자 운영 흐름 위에, 제한된 부서/사용자 파일럿 대상, 운영자 동행 순서, live/PWA/API/mobile 선행 체크리스트, 사용자 안내/운영자 매뉴얼/장애 대응 뼈대를 실제 회사 파일럿 준비 순서처럼 다시 연결하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 25 공통 업무·문서·마감·권한 엔진 1차다. Phase 24에서 정리한 파일럿 준비 흐름 위에, HR·세무·노무·법무·지점 운영 업무가 함께 올라갈 공통 work item, 문서/첨부, 검토, 마감, 권한, 감사 로그 뼈대를 먼저 고정하는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 전사 오픈이 아니라 제한된 실제 회사 파일럿을 어떤 순서와 규칙으로 시작할지 정리하는 것이다.
-- 기준 흐름은 직원 체험 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/org`·`/employees`)과 운영자 동행 레인(`/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`)을 함께 본다.
-- parent Phase 23의 live URL(`https://gw-web.werehere31.workers.dev`)과 release-gate/cloudflare-deploy success 는 baseline 근거이고, 이번 Phase에서는 실제 재검증 완료처럼 과장하지 않는다.
-- live route, same-origin `/api/health`·`/api/me`, PWA/mobile 확인은 파일럿 선행 체크리스트로 다시 정리한다.
-- 모바일 기본 탐색은 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, `메뉴`에서 여는 전체 기능 선택 화면과 PC collapsible sidebar 가 같은 정보구조를 가리키게 유지한다.
-- 모바일 `홈` 은 회사가 고정하는 필수 핵심 메뉴와 사용자가 선택/정렬하는 개인 바로가기를 함께 다루는 구조로 보고, 실제 사용자별 영구 저장은 아직 dev-safe/local/profile skeleton 전제임을 유지한다.
-- 호텔 위탁경영사 도메인 기준으로 `지점/호텔 코드` 구조를 Phase 24 파일럿 초안에 넣고, 본사 관리자 / 지점 관리자 / 일반 근무자 / 미배정 사용자의 가시 범위를 분리한다.
-- 사용자 안내, 운영자 매뉴얼, 장애 대응, 피드백 수집은 짧아도 "지금 해 볼 일 / 아직 안 되는 것 / 승인 필요 / 보고 방법"이 먼저 읽히게 정리한다.
+- 이번 Phase의 목적은 HR·세무·노무·법무·지점 운영 업무를 각각 따로 붙이기 전에 공통 업무 엔진을 먼저 정리하는 것이다.
+- 기준 엔티티는 개별 모듈 화면보다 `공통 work item` 이며, `module(hr/tax/labor/legal/branch)` + `status` + `assignee` + `due_at` + `company/branch scope` 를 기본 골격으로 본다.
+- 공통 문서/첨부/검토/마감/감사 로그를 work item 에 붙는 skeleton 으로 먼저 정리한다.
+- 회사 + 지점/호텔 + 역할 + capability 접근 기준을 새 업무 엔진에도 같은 언어로 적용한다.
+- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, 새 업무 모듈 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
+- 민감 문서/세무자료/노무자료/법무자료는 metadata 단계와 원문 단계의 경계를 분명히 두고, 실제 원문 저장/실처리/외부 연동은 승인 게이트로 남긴다.
 - production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`, `docs/architecture/phase-22-real-workflow-integration-pass-1-scope.md`, `docs/guides/phase-22-real-workflow-integration-pass-1-handoff.md`.
+- 우선 참고 문서: `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`, `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`, `docs/guides/phase-24-company-pilot-operations-pass-1-handoff.md`, `docs/architecture/phase-23-admin-operations-console-real-usage-pass-1-scope.md`, `docs/guides/phase-23-admin-operations-console-real-usage-pass-1-handoff.md`.
+
+2026-06-13 Phase 25 기획 메모:
+
+- 이번 단계는 개별 세무/노무/법무 기능 완성보다, 여러 운영 업무를 공통 card/document/review/deadline 구조로 담을 그릇을 먼저 고정하는 문서 단계다.
+- 공통 상태 초안은 `draft` → `todo` → `in_progress` → `waiting_review` → `blocked` → `done` → `archived` 로 단순하게 시작하고, 모듈 차이는 `module`, `category`, `review_required`, `contains_sensitive_data` 같은 필드로 푼다.
+- 공통 접근 제어는 회사 + 지점/호텔 + 역할 + capability 4축으로 보고, 일반 근무자 / 지점 관리자 / 본사 관리자 / 감사 사용자 가시 범위를 분리한다.
+- 모바일 하단 탭은 늘리지 않고 `홈`/`메뉴`, PC sidebar 에 `인사`·`세무`·`노무`·`법무`·`지점 업무` 또는 공통 `업무` 그룹으로 자리를 잡는 방향을 먼저 본다.
+- 실민감 문서 원문, production DB 실데이터, 실제 신고/제출 자동화, 외부 세무/노무/법무 계정 연동은 이번 단계에서도 승인 게이트다.
+
+2026-06-13 Phase 25 구현 메모:
+
+- `packages/shared/src/contracts.ts` 는 이제 `appRoutes.workItems` 와 work item/document/attachment/review/deadline/audit schema·response type 을 export 한다.
+- `packages/shared/src/admin-access.ts` 는 공통 업무 읽기/관리/검토/마감/감사 권한을 역할 매트릭스에 연결한다.
+- `apps/api/src/app.ts` 는 회사/지점/역할 scope 를 설명하는 placeholder work item 데이터와 `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` read-only skeleton route 를 제공한다.
+- `apps/web/app/work-items/*` 와 `apps/web/dashboard-page-content.tsx`, `apps/web/app/dashboard/dashboard-config.ts`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/menu/page.tsx` 는 공통 업무 허브와 HR/세무/노무/법무/지점 업무 자리를 모바일/웹에서 실제 route 로 확인하게 만든다.
+- 현재 재검증 근거는 `pnpm typecheck`, `pnpm test`, `pnpm build` 통과이며, 특히 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 가 공통 업무 엔진의 역할별 가시 범위·민감 첨부 제한·audit 비노출·메뉴/허브 연결을 붙들고 있다. 새 화면 route 는 `/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch` 다.
 
 2026-06-13 Phase 24 기획 메모:
 

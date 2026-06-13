@@ -42,6 +42,11 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "document.space.manage",
     "document.file.read",
     "document.file.write",
+    "work_item.read",
+    "work_item.manage",
+    "work_item.review",
+    "work_item.deadline.read",
+    "work_item.audit.read",
   ],
   COMPANY_ADMIN: [
     "company.read",
@@ -69,6 +74,11 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "document.space.manage",
     "document.file.read",
     "document.file.write",
+    "work_item.read",
+    "work_item.manage",
+    "work_item.review",
+    "work_item.deadline.read",
+    "work_item.audit.read",
   ],
   HR_ADMIN: [
     "company.read",
@@ -94,6 +104,10 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "document.space.manage",
     "document.file.read",
     "document.file.write",
+    "work_item.read",
+    "work_item.manage",
+    "work_item.review",
+    "work_item.deadline.read",
   ],
   MANAGER: [
     "company.read",
@@ -112,6 +126,9 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "board.comment.write",
     "document.space.read",
     "document.file.read",
+    "work_item.read",
+    "work_item.review",
+    "work_item.deadline.read",
   ],
   EMPLOYEE: [
     "company.read",
@@ -124,6 +141,8 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "board.comment.write",
     "document.space.read",
     "document.file.read",
+    "work_item.read",
+    "work_item.deadline.read",
   ],
   AUDITOR: [
     "company.read",
@@ -137,6 +156,9 @@ export const rolePermissionMatrix: Record<RoleCode, readonly PermissionCode[]> =
     "board.notice.read",
     "document.space.read",
     "document.file.read",
+    "work_item.read",
+    "work_item.deadline.read",
+    "work_item.audit.read",
   ],
 };
 

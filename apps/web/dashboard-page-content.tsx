@@ -12,6 +12,7 @@ import {
   dashboardStatusCards,
   dashboardTopBadges,
   dashboardWaitingCards,
+  dashboardWorkItemCards,
   type DashboardAdminShortcut,
 } from "./app/dashboard/dashboard-config";
 
@@ -108,6 +109,22 @@ export function DashboardPageContent({ adminShortcut }: { adminShortcut: Dashboa
             <article key={card.href} className="route-card">
               <h3>{card.title}</h3>
               <p>{card.body}</p>
+              <a href={card.href}>{card.href}</a>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="공통 업무 엔진 진입"
+        description="HR·세무·노무·법무·지점 업무를 개별 앱처럼 흩뿌리지 않고 공통 work item, 문서, 마감, 권한 설명 구조로 먼저 묶습니다."
+      >
+        <div className="grid-auto-compact">
+          {dashboardWorkItemCards.map((card) => (
+            <article key={card.href} className="info-card">
+              <Pill tone="accent">{card.roleScope}</Pill>
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
               <a href={card.href}>{card.href}</a>
             </article>
           ))}

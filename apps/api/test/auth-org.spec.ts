@@ -48,6 +48,12 @@ import {
   meResponseSchema,
   noticeListResponseSchema,
   readReceiptCreateResponseSchema,
+  workItemAttachmentsResponseSchema,
+  workItemDeadlinesResponseSchema,
+  workItemDetailResponseSchema,
+  workItemDocumentsResponseSchema,
+  workItemListResponseSchema,
+  workItemReviewsResponseSchema,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
 } from "@gw/shared";
@@ -461,6 +467,156 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(boundedPayload.data.items[0]?.id).toBe("audit_admin_policy_document_1");
     expect(boundedPayload.data.filters.createdFrom).toBe("2026-06-10T09:00:00.000Z");
     expect(boundedPayload.data.filters.createdTo).toBe("2026-06-10T09:00:00.000Z");
+  });
+
+  it("filters common work items by role/module and keeps branch-only items out of HR admin scope", async () => {
+    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+
+    const listResponse = await app.request(appRoutes.workItems.list, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(listResponse.status).toBe(200);
+    const listPayload = workItemListResponseSchema.parse(await listResponse.json());
+    expect(listPayload.data.items.map((item) => item.id)).toEqual([
+      "work_item_hr_onboarding_packet",
+      "work_item_tax_month_end_evidence",
+      "work_item_labor_attendance_followup",
+    ]);
+    expect(listPayload.data.items.some((item) => item.module === "branch")).toBe(false);
+    expect(listPayload.data.items.some((item) => item.module === "legal")).toBe(false);
+
+    const filteredResponse = await app.request(`${appRoutes.workItems.list}?module=hr`, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(filteredResponse.status).toBe(200);
+    const filteredPayload = workItemListResponseSchema.parse(await filteredResponse.json());
+    expect(filteredPayload.data.items).toHaveLength(1);
+    expect(filteredPayload.data.items[0]?.id).toBe("work_item_hr_onboarding_packet");
+    expect(filteredPayload.data.items[0]?.module).toBe("hr");
+  });
+
+  it("enforces work-item detail/document/deadline boundaries for branch managers", async () => {
+    const { cookie } = await loginAndGetCookie("MANAGER");
+
+    const detailResponse = await app.request(appRoutes.workItems.detail("work_item_tax_month_end_evidence"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = workItemDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.item.id).toBe("work_item_tax_month_end_evidence");
+    expect(detailPayload.data.item.access.viewerScope).toBe("company");
+    expect(detailPayload.data.auditLogs).toEqual([]);
+
+    const attachmentResponse = await app.request(appRoutes.workItems.attachments("work_item_tax_month_end_evidence"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(attachmentResponse.status).toBe(200);
+    const attachmentPayload = workItemAttachmentsResponseSchema.parse(await attachmentResponse.json());
+    expect(attachmentPayload.data.items).toHaveLength(1);
+    expect(attachmentPayload.data.items[0]?.id).toBe("wiatt_tax_evidence_sheet");
+    expect(attachmentPayload.data.items[0]?.sensitivityLabel).toBe("internal");
+
+    const reviewsResponse = await app.request(appRoutes.workItems.reviews("work_item_tax_month_end_evidence"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(reviewsResponse.status).toBe(200);
+    const reviewsPayload = workItemReviewsResponseSchema.parse(await reviewsResponse.json());
+    expect(reviewsPayload.data.items).toHaveLength(1);
+    expect(reviewsPayload.data.items[0]?.reviewerRoleCode).toBe("COMPANY_ADMIN");
+
+    const deadlinesResponse = await app.request(appRoutes.workItems.deadlines, {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(deadlinesResponse.status).toBe(200);
+    const deadlinesPayload = workItemDeadlinesResponseSchema.parse(await deadlinesResponse.json());
+    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual(["wideadline_tax_month_end"]);
+
+    const blockedDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(blockedDetailResponse.status).toBe(403);
+    const blockedDetailPayload = errorResponseSchema.parse(await blockedDetailResponse.json());
+    expect(blockedDetailPayload.error.code).toBe("FORBIDDEN");
+
+    const blockedDocumentResponse = await app.request(appRoutes.workItems.documents("work_item_hr_onboarding_packet"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(blockedDocumentResponse.status).toBe(403);
+    const blockedDocumentPayload = errorResponseSchema.parse(await blockedDocumentResponse.json());
+    expect(blockedDocumentPayload.error.code).toBe("FORBIDDEN");
+  });
+
+  it("lets auditors read sensitive work-item metadata, audit logs, and legal review placeholders", async () => {
+    const { cookie } = await loginAndGetCookie("AUDITOR");
+
+    const hrDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(hrDetailResponse.status).toBe(200);
+    const hrDetailPayload = workItemDetailResponseSchema.parse(await hrDetailResponse.json());
+    expect(hrDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_hr_status_change"]);
+
+    const documentsResponse = await app.request(appRoutes.workItems.documents("work_item_hr_onboarding_packet"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(documentsResponse.status).toBe(200);
+    const documentsPayload = workItemDocumentsResponseSchema.parse(await documentsResponse.json());
+    expect(documentsPayload.data.items).toHaveLength(1);
+    expect(documentsPayload.data.items[0]?.containsSensitiveData).toBe(true);
+    expect(documentsPayload.data.items[0]?.visibility).toBe("restricted");
+
+    const attachmentsResponse = await app.request(appRoutes.workItems.attachments("work_item_hr_onboarding_packet"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(attachmentsResponse.status).toBe(200);
+    const attachmentsPayload = workItemAttachmentsResponseSchema.parse(await attachmentsResponse.json());
+    expect(attachmentsPayload.data.items).toHaveLength(1);
+    expect(attachmentsPayload.data.items[0]?.id).toBe("wiatt_hr_packet_zip");
+    expect(attachmentsPayload.data.items[0]?.storageExposure).toBe("metadata_only");
+
+    const legalDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_contract_review"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(legalDetailResponse.status).toBe(200);
+    const legalDetailPayload = workItemDetailResponseSchema.parse(await legalDetailResponse.json());
+    expect(legalDetailPayload.data.item.status).toBe("blocked");
+    expect(legalDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_blocked"]);
   });
 
   it.each([
