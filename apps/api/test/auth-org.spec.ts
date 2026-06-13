@@ -516,8 +516,13 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(response.status).toBe(200);
     const payload = adminPoliciesListResponseSchema.parse(await response.json());
     const attendancePolicy = payload.data.items.find((item) => item.category === "attendance");
+    const companyPolicy = payload.data.items.find((item) => item.category === "company");
+    const leavePolicy = payload.data.items.find((item) => item.category === "leave");
 
     expect(payload.data.bridgeSummary.currentState).toContain("1차 bridge");
+    expect(payload.data.companySettingsModel.groups).toHaveLength(4);
+    expect(companyPolicy?.capability).toBe("company.read");
+    expect(leavePolicy?.leavePolicySummary?.allowedLeaveTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
     expect(attendancePolicy?.attendancePolicyPreview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
     expect(attendancePolicy?.attendancePolicyPreview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
     expect(attendancePolicy?.attendancePolicyPreview?.sampleEmployees.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
@@ -735,10 +740,14 @@ describe("Phase 3 attendance/leave skeleton", () => {
     const requestsPayload = leaveRequestListResponseSchema.parse(await requestsResponse.json());
 
     expect(typesPayload.data.items.some((item) => item.code === "annual")).toBe(true);
+    expect(typesPayload.data.leavePolicySummary.allowedLeaveTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
+    expect(typesPayload.data.companySettingsModel.policyAxes).toHaveLength(3);
     expect(balancesPayload.data.items[0]?.remainingDays).toBeGreaterThanOrEqual(0);
+    expect(balancesPayload.data.leavePolicySummary.approvalQueueVisibleToCurrentUser).toBe(false);
     expect(Array.isArray(requestsPayload.data.items)).toBe(true);
     expect(requestsPayload.data.items).toHaveLength(1);
     expect(requestsPayload.data.items[0]?.id).toBe("leave_request_demo");
+    expect(requestsPayload.data.companySettingsModel.approvalGates.some((gate) => gate.id === "leave_payroll_sync")).toBe(true);
     expect(typesPayload.data.policyContext.blockedReasons.some((item) => item.category === "policy")).toBe(true);
     expect(balancesPayload.data.policyContext.currentState).toContain("휴가 정책");
     expect(requestsPayload.data.policyContext.sourceLabel).toContain("/leave");

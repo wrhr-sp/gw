@@ -13,7 +13,12 @@ import {
   adminRoleEntryRules,
   adminUserQueues,
   companyAttendanceRegistrationPolicy,
+  companySettingsApprovalGates,
+  companySettingsGroups,
+  companySettingsPolicyAxes,
   getAttendancePagePolicyView,
+  leavePolicySummaryPreview,
+  leaveTypeCodeLabels,
 } from "./admin-skeleton-config";
 
 describe("Phase 13 admin skeleton config", () => {
@@ -27,10 +32,17 @@ describe("Phase 13 admin skeleton config", () => {
       title: "문서 / 첨부 정책",
       capability: "document.space.manage",
     });
+    expect(adminPolicySections.some((section) => section.title === "회사 기본 설정 / 회사 scope")).toBe(true);
     expect(adminPolicySections.some((section) => section.title === "근태 / 출퇴근 등록 방식 정책")).toBe(true);
     expect(companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
     expect(companyAttendanceRegistrationPolicy.candidateAllowedAttendanceRegistrationMethods).toEqual(["mobile", "tag"]);
     expect(companyAttendanceRegistrationPolicy.tagDeviceStatus).toBe("skeleton_only");
+    expect(companySettingsGroups).toHaveLength(4);
+    expect(companySettingsPolicyAxes.map((axis) => axis.id)).toEqual([
+      "attendance_registration",
+      "leave_work_policy",
+      "employee_policy_visibility",
+    ]);
     expect(adminPolicySections.every((section) => section.maskingNote.includes("노출하지 않습니다") || section.maskingNote.includes("붙이지 않습니다") || section.maskingNote.includes("제외"))).toBe(true);
   });
 
@@ -143,5 +155,17 @@ describe("Phase 13 admin skeleton config", () => {
     expect(adminPolicyReviewChecklist).toContain("감사 preview 와 company boundary 유지");
     expect(adminAuditNotes[0]).toContain("비밀값");
     expect(adminAuditBoundaryNotes).toContain("export/download 없이 화면 조회와 review 메모 기준만 고정합니다.");
+  });
+
+  it("exposes company settings and leave policy summaries for phase 21 previews", () => {
+    expect(companySettingsApprovalGates.some((gate) => gate.status === "preview_ready")).toBe(true);
+    expect(companySettingsApprovalGates.some((gate) => gate.id === "leave_payroll_sync")).toBe(true);
+    expect(leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels])).toEqual([
+      "연차",
+      "반차(오전)",
+      "병가",
+    ]);
+    expect(leavePolicySummaryPreview.approvalRequiredTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
+    expect(leavePolicySummaryPreview.approvalQueueVisibleToApprover).toBe(true);
   });
 });

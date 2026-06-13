@@ -4,7 +4,10 @@
 
 ### Changed
 
-- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 20 문서가 `/login` → `/dashboard` → `/attendance`·`/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/admin/*` 순서의 쉬운 확인 포인트와 "지금 확인 가능 / 아직 skeleton / 승인 필요" 3분류를 같은 언어로 보여 주도록 맞췄다.
+- `docs/architecture/phase-21-real-company-settings-model-pass-1-scope.md` 와 `docs/guides/phase-21-real-company-settings-model-pass-1-handoff.md` 를 추가해 회사 기본 설정/조직/직원/권한/근태·휴가 정책을 실제 회사 설정 묶음처럼 다시 읽는 기준, 직원용 화면 대 관리자용 화면 경계, 출퇴근 정책 우선순위 방향, 승인 게이트를 쉬운 한국어로 고정했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 21 활성 체인 기준으로 갱신해 현재 카드 ids, 실제 회사 설정 모델 목표, 회사 설정 4묶음, 직원 화면 대 관리자 화면 경계, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 21 기준으로 보강해 회사 기본 설정/조직/직원/권한/정책 연결 질문, 직원 UI/API 가 현재 허용된 정책만 보이는지 확인하는 기준, GPS·실태그·production data·external HR 승인 게이트 분리를 루트 검증 문서에 반영했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 21 문서가 `/login` → `/dashboard` → `/org`·`/employees` → `/attendance`·`/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/admin/users`·`/admin/policies`·`/admin/audit-logs` → `/admin` 순서의 쉬운 확인 포인트와 "지금 확인 가능 / 아직 skeleton / 승인 필요" 3분류를 같은 언어로 보여 주도록 맞췄다.
 - `docs/architecture/phase-20-pre-operations-alignment-pass-1-scope.md` 와 `docs/guides/phase-20-pre-operations-alignment-pass-1-handoff.md` 를 추가해 preview/skeleton 결과물을 실제 운영 전 점검표 관점으로 다시 읽는 기준, 되는 것/아직 skeleton/승인 필요 3분류, live/PWA/API/mobile 정렬, 관리자/일반 사용자 경계, 승인 목록을 쉬운 한국어로 고정했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 20 활성 체인 기준으로 갱신해 현재 카드 ids, 운영 전 정리 목표, 핵심 질문 5가지, 남은 승인 게이트를 한 번에 따라가게 정리했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 Phase 20 기준으로 보강해 mobile 중심 내부 시범 운영 문장을 전체 운영 readiness 문장으로 확장하고, 되는 것/아직 안 되는 것/승인 필요 분류와 live/PWA/API/mobile 결론 정렬 기준을 루트 검증 문서에 반영했다.

@@ -160,7 +160,7 @@ const permissionCatalog: Permission[] = [
 
 const rolePermissions = rolePermissionMatrix;
 
-const companies = [{ id: COMPANY_ID, code: "demo", name: "데모 주식회사", status: "active" as const }];
+const companies = [{ id: COMPANY_ID, code: "demo", name: "데모 주식회사", status: "active" as const, settingsModel: buildCompanySettingsModel() }];
 
 const departments = [
   { id: "department_exec", companyId: COMPANY_ID, parentDepartmentId: null, code: "EXEC", name: "경영지원", status: "active" as const },
@@ -399,6 +399,19 @@ const attendanceMethodToSource: Record<AttendanceRegistrationMethod, AttendanceR
 
 const adminPolicies = [
   {
+    category: "company",
+    companyId: COMPANY_ID,
+    summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델 placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["회사 기본 설정을 정책 시작점으로 고정", "저장 없이 preview/dev-safe 범위만 연결"],
+    capability: "company.read",
+    reasonRequired: true as const,
+    diffPreview: {
+      before: "회사 기본 정보와 정책 기준점이 화면별로 분산",
+      after: "company settings model pass 1 으로 회사 scope 를 같은 말로 정리",
+    },
+  },
+  {
     category: "attendance",
     companyId: COMPANY_ID,
     summary: "근태 정정 승인 조건과 출퇴근 허용 방식 placeholder",
@@ -412,6 +425,33 @@ const adminPolicies = [
     },
     attendanceRegistrationPolicy: companyAttendanceRegistrationPolicy,
     attendancePolicyPreview: attendancePolicyPreview,
+  },
+  {
+    category: "leave",
+    companyId: COMPANY_ID,
+    summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙 placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["직원 화면에는 회사가 허용한 유형만 노출", "승인 대기열은 승인 권한 보유자에게만 노출"],
+    capability: "leave.approve",
+    reasonRequired: true as const,
+    diffPreview: {
+      before: "휴가 유형, 승인 조건, 직원 노출 규칙이 화면별 설명에 분산",
+      after: "leave policy summary 로 허용 유형과 승인 조건을 한 번에 확인",
+    },
+    leavePolicySummary: buildLeavePolicySummary(true),
+  },
+  {
+    category: "approval",
+    companyId: COMPANY_ID,
+    summary: "전자결재 승인 gate / 기본 결재선 / 자기결재 방지 placeholder",
+    lastReviewedAt: PLACEHOLDER_NOW,
+    placeholders: ["팀장 결재선 skeleton", "self-approval guard 유지"],
+    capability: "approval.line.manage",
+    reasonRequired: true as const,
+    diffPreview: {
+      before: "휴가/지출 결재선 기준이 결재 화면 설명에만 존재",
+      after: "회사 설정 approval gate 와 결재선 skeleton 을 같은 기준으로 연결",
+    },
   },
   {
     category: "document",
@@ -1313,6 +1353,110 @@ function buildOperationalBridgeSummary() {
   };
 }
 
+function buildCompanySettingsModel() {
+  return {
+    companyId: COMPANY_ID,
+    companyName: "데모 주식회사",
+    policyStartPoint: "회사 기본 설정을 시작점으로 근태·휴가·전자결재·운영 정책을 같은 회사 scope 설명으로 묶는 1차 모델입니다.",
+    groups: [
+      {
+        id: "company_profile" as const,
+        title: "회사 기본 설정",
+        summary: "회사명, 기본 조직 scope, 운영 owner 를 먼저 고정합니다.",
+        owner: "company admin",
+        linkedRoutes: ["/org", "/admin"],
+      },
+      {
+        id: "organization_people_access" as const,
+        title: "조직 / 사용자 / 권한",
+        summary: "부서 구조, 관리자 사용자, 직원 디렉터리를 같은 회사 경계로 연결합니다.",
+        owner: "hr admin",
+        linkedRoutes: ["/employees", "/admin/users"],
+      },
+      {
+        id: "attendance_leave_work_policies" as const,
+        title: "근태 / 휴가 / 근무 정책",
+        summary: "출퇴근 허용 방식, 휴가 허용 유형, 직원 노출 규칙을 묶어 설명합니다.",
+        owner: "ops admin",
+        linkedRoutes: ["/attendance", "/leave", "/admin/policies"],
+      },
+      {
+        id: "admin_operations" as const,
+        title: "운영 / 감사 / 예외 처리",
+        summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+        owner: "audit admin",
+        linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
+      },
+    ],
+    policyAxes: [
+      {
+        id: "attendance_registration" as const,
+        title: "출퇴근 허용 방식",
+        summary: "mobile / pc / tag 허용 조합과 scope 우선순위를 회사 기본 설정에서 해석합니다.",
+        priority: "company default → workplace → department → job type",
+      },
+      {
+        id: "leave_work_policy" as const,
+        title: "휴가 / 근무 정책",
+        summary: "허용 휴가 유형, 승인 필요 여부, 대체 근무자 검토 메시지를 함께 보여줍니다.",
+        priority: "employee request → manager review → admin policy review",
+      },
+      {
+        id: "employee_policy_visibility" as const,
+        title: "직원 노출 규칙",
+        summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+        priority: "employee-safe snapshot first",
+      },
+    ],
+    employeeVisibilityRules: [
+      "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
+      "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+      "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
+    ],
+    approvalGates: [
+      {
+        id: "attendance_tag_device",
+        title: "태그 단말 연동",
+        status: "approval_required" as const,
+        summary: "태그 단말은 skeleton 안내만 제공하고 실제 장비 연동은 보류합니다.",
+      },
+      {
+        id: "leave_payroll_sync",
+        title: "휴가-급여 반영",
+        status: "approval_required" as const,
+        summary: "실제 차감과 급여 반영은 열지 않고 snapshot 설명만 유지합니다.",
+      },
+      {
+        id: "approval_delivery",
+        title: "결재 알림/발송",
+        status: "approval_required" as const,
+        summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
+      },
+      {
+        id: "company_scope_preview",
+        title: "회사 scope preview",
+        status: "preview_ready" as const,
+        summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+      },
+    ],
+    placeholder: true as const,
+  };
+}
+
+function buildLeavePolicySummary(approvalQueueVisibleToCurrentUser: boolean) {
+  return {
+    effectiveScopeLabel: "회사 기본 설정에서 허용한 휴가 유형과 승인 규칙만 직원 화면에 노출합니다.",
+    allowedLeaveTypeCodes: ["annual", "half_day_am", "sick"],
+    approvalRequiredTypeCodes: ["annual", "half_day_am", "sick"],
+    approvalQueueVisibleToCurrentUser,
+    employeeMessage: "직원은 허용된 휴가 유형만 보고 신청하며, 승인 상세 정책은 관리자 설명으로 분리됩니다.",
+    managerMessage: approvalQueueVisibleToCurrentUser
+      ? "현재 세션은 승인 대기열과 운영 예외 설명을 함께 볼 수 있습니다."
+      : "승인 권한이 없으면 본인 신청 기록과 허용 유형만 확인합니다.",
+    placeholder: true as const,
+  };
+}
+
 function buildLeaveBalances(employeeId: string): LeaveBalance[] {
   return [
     {
@@ -1927,6 +2071,7 @@ app.get(appRoutes.admin.users, (context) => {
       data: {
         items: adminUsers.filter((item) => item.companyId === authResult.auth.user.companyId),
         linkedScreens: buildAdminUsersLinkedScreens(),
+        companySettingsModel: buildCompanySettingsModel(),
         audit: {
           candidate: true,
           action: "admin.user.list.viewed",
@@ -1953,6 +2098,7 @@ app.get(appRoutes.admin.policies, (context) => {
       data: {
         items: [...adminPolicies],
         bridgeSummary: buildOperationalBridgeSummary(),
+        companySettingsModel: buildCompanySettingsModel(),
         audit: {
           candidate: true,
           action: "admin.policy.list.viewed",
@@ -2322,6 +2468,8 @@ app.get(appRoutes.leave.types, (context) => {
       data: {
         items: leaveTypes,
         policyContext: buildLeavePolicyContext(authResult.auth),
+        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
+        companySettingsModel: buildCompanySettingsModel(),
         placeholder: true,
       },
       error: null,
@@ -2344,6 +2492,8 @@ app.get(appRoutes.leave.balances, (context) => {
       data: {
         items: buildLeaveBalances(authResult.auth.user.employeeId),
         policyContext: buildLeavePolicyContext(authResult.auth),
+        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
+        companySettingsModel: buildCompanySettingsModel(),
         placeholder: true,
       },
       error: null,
@@ -2366,6 +2516,8 @@ app.get(appRoutes.leave.requests, (context) => {
       data: {
         items: buildLeaveRequests(authResult.auth),
         policyContext: buildLeavePolicyContext(authResult.auth),
+        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
+        companySettingsModel: buildCompanySettingsModel(),
         placeholder: true,
       },
       error: null,

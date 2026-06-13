@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
-import { adminUserHighlights, adminUserQueues, adminUserReviewFields } from "../../../admin-skeleton-config";
+import { adminUserHighlights, adminUserQueues, adminUserReviewFields, companySettingsGroups } from "../../../admin-skeleton-config";
 
 const roleDiffPreview = [
   "현재 역할: EMPLOYEE → 후보 역할: HR_ADMIN + AUDITOR",
@@ -41,6 +41,24 @@ export default function AdminUsersPage() {
               <p className="card-note">다음 액션: {item.nextAction}</p>
             </article>
           ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="회사 기본 설정과 사용자 연결"
+        description="관리자 사용자 검토도 회사 기본 설정 모델의 어떤 묶음에 속하는지 먼저 보여 줍니다."
+      >
+        <div className="grid-auto-compact">
+          {companySettingsGroups
+            .filter((group) => group.id === "organization_people_access" || group.id === "admin_operations")
+            .map((group) => (
+              <article key={group.id} className="info-card">
+                <Pill>{group.owner}</Pill>
+                <h3>{group.title}</h3>
+                <p>{group.summary}</p>
+                <p className="card-note">연결 화면: {group.linkedRoutes.join(" · ")}</p>
+              </article>
+            ))}
         </div>
       </SurfaceSection>
 

@@ -194,11 +194,54 @@ export const meResponseSchema = successResponseSchema(
   }),
 );
 
+export const companySettingsGroupIdSchema = z.enum([
+  "company_profile",
+  "organization_people_access",
+  "attendance_leave_work_policies",
+  "admin_operations",
+]);
+
+export const companySettingsGroupSchema = z.object({
+  id: companySettingsGroupIdSchema,
+  title: z.string(),
+  summary: z.string(),
+  owner: z.string(),
+  linkedRoutes: z.array(z.string()).min(1),
+});
+
+export const companyPolicyAxisSchema = z.object({
+  id: z.enum(["attendance_registration", "leave_work_policy", "employee_policy_visibility"]),
+  title: z.string(),
+  summary: z.string(),
+  priority: z.string(),
+});
+
+export const companyApprovalGateStatusSchema = z.enum(["preview_ready", "approval_required"]);
+
+export const companyApprovalGateSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: companyApprovalGateStatusSchema,
+  summary: z.string(),
+});
+
+export const companySettingsModelSchema = z.object({
+  companyId: z.string(),
+  companyName: z.string(),
+  policyStartPoint: z.string(),
+  groups: z.array(companySettingsGroupSchema).length(4),
+  policyAxes: z.array(companyPolicyAxisSchema).min(3),
+  employeeVisibilityRules: z.array(z.string()).min(3),
+  approvalGates: z.array(companyApprovalGateSchema).min(4),
+  placeholder: z.literal(true),
+});
+
 export const companySchema = z.object({
   id: z.string(),
   code: z.string(),
   name: z.string(),
   status: z.enum(["active", "inactive"]),
+  settingsModel: companySettingsModelSchema,
 });
 
 export const employeeSchema = z.object({
@@ -335,6 +378,16 @@ export const operationalBridgeSummarySchema = z.object({
   blockedReasons: z.array(operationalBridgeItemSchema).min(1),
 });
 
+export const leavePolicySummarySchema = z.object({
+  effectiveScopeLabel: z.string(),
+  allowedLeaveTypeCodes: z.array(z.string()).min(1),
+  approvalRequiredTypeCodes: z.array(z.string()).min(1),
+  approvalQueueVisibleToCurrentUser: z.boolean(),
+  employeeMessage: z.string(),
+  managerMessage: z.string(),
+  placeholder: z.literal(true),
+});
+
 export const createInviteResponseSchema = successResponseSchema(
   z.object({
     id: z.string(),
@@ -383,12 +436,13 @@ export const adminUsersListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminUserSummarySchema),
     linkedScreens: z.array(operationalBridgeItemSchema).min(1),
+    companySettingsModel: companySettingsModelSchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
 );
 
-export const adminPolicyCategorySchema = z.enum(["attendance", "leave", "approval", "document", "board"]);
+export const adminPolicyCategorySchema = z.enum(["company", "attendance", "leave", "approval", "document", "board"]);
 export const adminPolicyVisibilitySchema = z.enum(["private", "team", "company"]);
 export const attendanceRegistrationMethodSchema = z.enum(["mobile", "pc", "tag"]);
 export const attendanceRegistrationTagDeviceStatusSchema = z.enum(["not_configured", "skeleton_only", "ready_for_device"]);
@@ -455,12 +509,14 @@ export const adminPolicySummarySchema = z.object({
   }),
   attendanceRegistrationPolicy: attendanceRegistrationPolicySchema.optional(),
   attendancePolicyPreview: attendancePolicyPreviewSchema.optional(),
+  leavePolicySummary: leavePolicySummarySchema.optional(),
 });
 
 export const adminPoliciesListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminPolicySummarySchema),
     bridgeSummary: operationalBridgeSummarySchema,
+    companySettingsModel: companySettingsModelSchema,
     audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
@@ -707,6 +763,8 @@ export const leaveTypeListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveTypeSchema),
     policyContext: operationalBridgeSummarySchema,
+    leavePolicySummary: leavePolicySummarySchema,
+    companySettingsModel: companySettingsModelSchema,
     placeholder: z.literal(true),
   }),
 );
@@ -715,6 +773,8 @@ export const leaveBalanceListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveBalanceSchema),
     policyContext: operationalBridgeSummarySchema,
+    leavePolicySummary: leavePolicySummarySchema,
+    companySettingsModel: companySettingsModelSchema,
     placeholder: z.literal(true),
   }),
 );
@@ -723,6 +783,8 @@ export const leaveRequestListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveRequestSchema),
     policyContext: operationalBridgeSummarySchema,
+    leavePolicySummary: leavePolicySummarySchema,
+    companySettingsModel: companySettingsModelSchema,
     placeholder: z.literal(true),
   }),
 );

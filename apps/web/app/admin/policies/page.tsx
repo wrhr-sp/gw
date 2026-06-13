@@ -2,7 +2,7 @@ import React from "react";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
-import { adminPolicyPreview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels } from "../../../admin-skeleton-config";
+import { adminPolicyPreview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../../admin-skeleton-config";
 
 export default function AdminPoliciesPage() {
   return (
@@ -23,6 +23,32 @@ export default function AdminPoliciesPage() {
             <li key={item}>{item}</li>
           ))}
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="회사 기본 설정 모델 pass 1"
+        description="회사 기본 설정을 정책 시작점으로 보고 조직/사용자/근태·휴가/운영 화면을 같은 회사 scope 로 연결합니다."
+      >
+        <div className="grid-auto-compact">
+          {companySettingsGroups.map((group) => (
+            <article key={group.id} className="info-card">
+              <Pill>{group.owner}</Pill>
+              <h3>{group.title}</h3>
+              <p>{group.summary}</p>
+              <p className="card-note">연결 화면: {group.linkedRoutes.join(" · ")}</p>
+            </article>
+          ))}
+        </div>
+        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+          {companySettingsPolicyAxes.map((axis) => (
+            <article key={axis.id} className="info-card">
+              <Pill tone="accent">정책 축</Pill>
+              <h3>{axis.title}</h3>
+              <p>{axis.summary}</p>
+              <p className="card-note">우선순위/흐름: {axis.priority}</p>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <div className="page-shell__content">
@@ -130,6 +156,41 @@ export default function AdminPoliciesPage() {
             ))}
           </ul>
         ) : null}
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="휴가/직원 노출 규칙 연결"
+        description="휴가 허용 유형과 승인 노출 규칙도 회사 기본 설정 모델 아래에서 같은 문장으로 읽히게 맞춥니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">허용 휴가 유형</Pill>
+            <p>{leavePolicySummaryPreview.effectiveScopeLabel}</p>
+            <p>{leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
+          </article>
+          <article className="info-card">
+            <Pill>승인 필요 유형</Pill>
+            <p>{leavePolicySummaryPreview.approvalRequiredTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
+            <p className="card-note">승인 대기열 노출: {leavePolicySummaryPreview.approvalQueueVisibleToApprover ? "승인자에게만 노출" : "비노출"}</p>
+          </article>
+        </div>
+        <ul className="summary-list" style={{ marginTop: 16 }}>
+          {companySettingsEmployeeVisibilityRules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="승인 게이트" description="실제 연동/저장으로 넘어가기 전에 아직 승인이나 후속 Phase 가 필요한 항목입니다." muted>
+        <div className="grid-auto-compact">
+          {companySettingsApprovalGates.map((gate) => (
+            <article key={gate.id} className="info-card">
+              <Pill tone={gate.status === "preview_ready" ? "accent" : "warning"}>{gate.status}</Pill>
+              <h3>{gate.title}</h3>
+              <p>{gate.summary}</p>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <Phase16PilotPanel
