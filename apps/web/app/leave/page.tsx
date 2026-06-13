@@ -1,13 +1,15 @@
 import { appRoutes } from "@gw/shared";
 
+import { leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../admin-skeleton-config";
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
-const leaveTypes = [
-  { code: "annual", name: "연차", unit: "day", note: "기본 연차 placeholder" },
-  { code: "half_day_am", name: "반차(오전)", unit: "half_day", note: "반일 사용 예시" },
-  { code: "sick", name: "병가", unit: "day", note: "증빙/정책 엔진은 후속 Phase" },
-] as const;
+const leaveTypes = leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => ({
+  code,
+  name: leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels],
+  unit: code === "half_day_am" ? "half_day" : "day",
+  note: code === "annual" ? "기본 연차 placeholder" : code === "half_day_am" ? "반일 사용 예시" : "증빙/정책 엔진은 후속 Phase",
+}));
 
 const balances = [
   { type: "연차", opening: 15, used: 3, reserved: 1, remaining: 11 },
@@ -22,6 +24,7 @@ const approvals = [
 const policyBridgeNotes = [
   "권한 부족: leave.approve 권한이 없으면 승인 대기함 대신 내 신청과 잔여 snapshot 중심으로 제한합니다.",
   "회사 scope: 팀장 승인도 같은 회사 요청만 검토하고 다른 회사 요청으로 확장하지 않습니다.",
+  `허용 유형: ${leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}만 직원 화면에 노출합니다.`,
   "정책상 미허용/예외 검토: 휴가 유형, 승인 필요 여부, 대체 근무자 기준을 /admin/policies 와 같은 말로 설명합니다.",
   "placeholder 제한: 실제 차감, 급여 반영, 증빙 저장은 열지 않고 review candidate 만 유지합니다.",
 ] as const;
@@ -40,7 +43,20 @@ export default function LeavePage() {
       }
     >
       <SurfaceSection title="휴가 유형과 잔여 요약" description="모바일에서는 잔여 snapshot 을 카드형으로 먼저 읽습니다.">
-        <div className="grid-auto">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">회사 기본 설정 기준</Pill>
+            <p>{leavePolicySummaryPreview.effectiveScopeLabel}</p>
+            <p className="card-note">{leavePolicySummaryPreview.employeeMessage}</p>
+          </article>
+          <article className="info-card">
+            <Pill>승인 노출 규칙</Pill>
+            <p>{leavePolicySummaryPreview.managerMessage}</p>
+            <p className="card-note">승인 대기열: {leavePolicySummaryPreview.approvalQueueVisibleToApprover ? "승인 권한자에게만 노출" : "비노출"}</p>
+          </article>
+        </div>
+
+        <div className="grid-auto" style={{ marginTop: 16 }}>
           {leaveTypes.map((item) => (
             <article key={item.code} className="info-card">
               <Pill>{item.code}</Pill>

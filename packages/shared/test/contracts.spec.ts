@@ -101,6 +101,104 @@ const sampleOperationalBridge = {
   ],
 } as const;
 
+const sampleCompanySettingsModel = {
+  companyId: "company_demo",
+  companyName: "데모 주식회사",
+  policyStartPoint: "회사 기본 설정을 시작점으로 근태·휴가·전자결재·운영 정책을 같은 회사 scope 설명으로 묶는 1차 모델입니다.",
+  groups: [
+    {
+      id: "company_profile",
+      title: "회사 기본 설정",
+      summary: "회사명, 기본 조직 scope, 운영 owner 를 먼저 고정합니다.",
+      owner: "company admin",
+      linkedRoutes: ["/org", "/admin"],
+    },
+    {
+      id: "organization_people_access",
+      title: "조직 / 사용자 / 권한",
+      summary: "부서 구조, 관리자 사용자, 직원 디렉터리를 같은 회사 경계로 연결합니다.",
+      owner: "hr admin",
+      linkedRoutes: ["/employees", "/admin/users"],
+    },
+    {
+      id: "attendance_leave_work_policies",
+      title: "근태 / 휴가 / 근무 정책",
+      summary: "출퇴근 허용 방식, 휴가 허용 유형, 직원 노출 규칙을 묶어 설명합니다.",
+      owner: "ops admin",
+      linkedRoutes: ["/attendance", "/leave", "/admin/policies"],
+    },
+    {
+      id: "admin_operations",
+      title: "운영 / 감사 / 예외 처리",
+      summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+      owner: "audit admin",
+      linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
+    },
+  ],
+  policyAxes: [
+    {
+      id: "attendance_registration",
+      title: "출퇴근 허용 방식",
+      summary: "mobile / pc / tag 허용 조합과 scope 우선순위를 회사 기본 설정에서 해석합니다.",
+      priority: "company default → workplace → department → job type",
+    },
+    {
+      id: "leave_work_policy",
+      title: "휴가 / 근무 정책",
+      summary: "허용 휴가 유형, 승인 필요 여부, 대체 근무자 검토 메시지를 함께 보여줍니다.",
+      priority: "employee request → manager review → admin policy review",
+    },
+    {
+      id: "employee_policy_visibility",
+      title: "직원 노출 규칙",
+      summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+      priority: "employee-safe snapshot first",
+    },
+  ],
+  employeeVisibilityRules: [
+    "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
+    "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+    "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
+  ],
+  approvalGates: [
+    {
+      id: "attendance_tag_device",
+      title: "태그 단말 연동",
+      status: "approval_required",
+      summary: "태그 단말은 skeleton 안내만 제공하고 실제 장비 연동은 보류합니다.",
+    },
+    {
+      id: "leave_payroll_sync",
+      title: "휴가-급여 반영",
+      status: "approval_required",
+      summary: "실제 차감과 급여 반영은 열지 않고 snapshot 설명만 유지합니다.",
+    },
+    {
+      id: "approval_delivery",
+      title: "결재 알림/발송",
+      status: "approval_required",
+      summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
+    },
+    {
+      id: "company_scope_preview",
+      title: "회사 scope preview",
+      status: "preview_ready",
+      summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+    },
+  ],
+  placeholder: true,
+} as const;
+
+const sampleLeavePolicySummary = {
+  effectiveScopeLabel: "회사 기본 설정에서 허용한 휴가 유형과 승인 규칙만 직원 화면에 노출합니다.",
+  allowedLeaveTypeCodes: ["annual", "half_day_am", "sick"],
+  approvalRequiredTypeCodes: ["annual", "half_day_am", "sick"],
+  approvalQueueVisibleToCurrentUser: true,
+  employeeMessage: "직원은 허용된 휴가 유형만 보고 신청하며, 승인 상세 정책은 관리자 설명으로 분리됩니다.",
+  managerMessage: "현재 세션은 승인 대기열과 운영 예외 설명을 함께 볼 수 있습니다.",
+  placeholder: true,
+} as const;
+
 describe("shared contracts", () => {
   it("defines Phase 3 attendance/leave route metadata", () => {
     expect(appRoutes.health).toBe("/api/health");
@@ -282,6 +380,7 @@ describe("shared contracts", () => {
               code: "demo",
               name: "데모 주식회사",
               status: "active",
+              settingsModel: sampleCompanySettingsModel,
             },
           ],
         },
@@ -556,6 +655,8 @@ describe("shared contracts", () => {
             },
           ],
           policyContext: sampleOperationalBridge,
+          leavePolicySummary: sampleLeavePolicySummary,
+          companySettingsModel: sampleCompanySettingsModel,
           placeholder: true,
         },
         error: null,
@@ -570,9 +671,9 @@ describe("shared contracts", () => {
             {
               id: "leave_balance_annual",
               companyId: "company_demo",
-              employeeId: "employee_employee",
+              employeeId: "employee_admin",
               leaveTypeId: "leave_type_annual",
-              asOfDate: "2026-06-10",
+              asOfDate: "2026-06-01",
               openingDays: 15,
               usedDays: 3,
               reservedDays: 1,
@@ -581,6 +682,8 @@ describe("shared contracts", () => {
             },
           ],
           policyContext: sampleOperationalBridge,
+          leavePolicySummary: sampleLeavePolicySummary,
+          companySettingsModel: sampleCompanySettingsModel,
           placeholder: true,
         },
         error: null,
@@ -606,7 +709,7 @@ describe("shared contracts", () => {
             {
               id: "leave_request_demo",
               companyId: "company_demo",
-              employeeId: "employee_employee",
+              employeeId: "employee_admin",
               leaveTypeId: "leave_type_annual",
               status: "pending_approval",
               approvalStatus: "pending",
@@ -614,15 +717,17 @@ describe("shared contracts", () => {
               endDate: "2026-06-20",
               unit: "day",
               days: 1,
-              reason: "대체 인력 배치 확인 완료",
-              requestedBy: "user_employee",
+              reason: "가족 행사",
+              requestedBy: "user_admin",
               reviewedBy: null,
               reviewedAt: null,
-              createdAt: "2026-06-10T09:30:00.000Z",
-              updatedAt: "2026-06-10T09:30:00.000Z",
+              createdAt: "2026-06-10T09:00:00.000Z",
+              updatedAt: "2026-06-10T09:00:00.000Z",
             },
           ],
           policyContext: sampleOperationalBridge,
+          leavePolicySummary: sampleLeavePolicySummary,
+          companySettingsModel: sampleCompanySettingsModel,
           placeholder: true,
         },
         error: null,
@@ -1370,6 +1475,7 @@ describe("shared contracts", () => {
               description: "권한 있는 사용자에게만 /admin 또는 /admin/audit-logs 바로가기를 노출합니다.",
             },
           ],
+          companySettingsModel: sampleCompanySettingsModel,
           audit: {
             candidate: true,
             action: "admin.user.list.viewed",
@@ -1496,6 +1602,19 @@ describe("shared contracts", () => {
       data: {
         items: [
           {
+            category: "company",
+            companyId: "company_demo",
+            summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델 placeholder",
+            lastReviewedAt: "2026-06-10T09:00:00.000Z",
+            placeholders: ["회사 기본 설정을 정책 시작점으로 고정"],
+            capability: "company.read",
+            reasonRequired: true,
+            diffPreview: {
+              before: "회사 기본 정보와 정책 기준점이 화면별로 분산",
+              after: "company settings model pass 1 으로 회사 scope 를 같은 말로 정리",
+            },
+          },
+          {
             category: "attendance",
             companyId: "company_demo",
             summary: "출퇴근 허용 방식 정책 placeholder",
@@ -1513,8 +1632,23 @@ describe("shared contracts", () => {
               tagDeviceStatus: "skeleton_only",
             },
           },
+          {
+            category: "leave",
+            companyId: "company_demo",
+            summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙 placeholder",
+            lastReviewedAt: "2026-06-10T09:00:00.000Z",
+            placeholders: ["직원 화면에는 회사가 허용한 유형만 노출"],
+            capability: "leave.approve",
+            reasonRequired: true,
+            diffPreview: {
+              before: "휴가 유형, 승인 조건, 직원 노출 규칙이 화면별 설명에 분산",
+              after: "leave policy summary 로 허용 유형과 승인 조건을 한 번에 확인",
+            },
+            leavePolicySummary: sampleLeavePolicySummary,
+          },
         ],
         bridgeSummary: sampleOperationalBridge,
+        companySettingsModel: sampleCompanySettingsModel,
         audit: {
           candidate: true,
           action: "admin.policy.list.viewed",
@@ -1524,7 +1658,9 @@ describe("shared contracts", () => {
       error: null,
     });
 
-    expect(policiesPayload.data.items[0]?.attendanceRegistrationPolicy?.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
+    expect(
+      policiesPayload.data.items.find((item) => item.category === "attendance")?.attendanceRegistrationPolicy?.allowedAttendanceRegistrationMethods,
+    ).toEqual(["mobile", "pc"]);
   });
 
   it("accepts all supported tag device status values in attendance policy payload", () => {

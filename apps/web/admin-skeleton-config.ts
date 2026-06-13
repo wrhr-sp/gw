@@ -52,6 +52,37 @@ export interface AdminAuditTimelineItem {
   source: string;
 }
 
+export interface CompanySettingsGroupPreview {
+  id: "company_profile" | "organization_people_access" | "attendance_leave_work_policies" | "admin_operations";
+  title: string;
+  summary: string;
+  owner: string;
+  linkedRoutes: readonly string[];
+}
+
+export interface CompanySettingsPolicyAxisPreview {
+  id: "attendance_registration" | "leave_work_policy" | "employee_policy_visibility";
+  title: string;
+  summary: string;
+  priority: string;
+}
+
+export interface CompanySettingsApprovalGatePreview {
+  id: string;
+  title: string;
+  status: "preview_ready" | "approval_required";
+  summary: string;
+}
+
+export interface LeavePolicySummaryPreview {
+  effectiveScopeLabel: string;
+  allowedLeaveTypeCodes: readonly string[];
+  approvalRequiredTypeCodes: readonly string[];
+  approvalQueueVisibleToApprover: boolean;
+  employeeMessage: string;
+  managerMessage: string;
+}
+
 export const adminHubCards: readonly AdminHubCard[] = [
   {
     href: "/admin/users",
@@ -156,6 +187,106 @@ export const attendanceRegistrationMethodLabels: Record<AttendanceRegistrationMe
   tag: "태그",
 };
 
+export const leaveTypeCodeLabels = {
+  annual: "연차",
+  half_day_am: "반차(오전)",
+  sick: "병가",
+} as const;
+
+export const companySettingsGroups: readonly CompanySettingsGroupPreview[] = [
+  {
+    id: "company_profile",
+    title: "회사 기본 설정",
+    summary: "회사명, 기본 조직 scope, 운영 owner 를 먼저 고정합니다.",
+    owner: "company admin",
+    linkedRoutes: ["/org", "/admin"],
+  },
+  {
+    id: "organization_people_access",
+    title: "조직 / 사용자 / 권한",
+    summary: "부서 구조, 관리자 사용자, 직원 디렉터리를 같은 회사 경계로 연결합니다.",
+    owner: "hr admin",
+    linkedRoutes: ["/employees", "/admin/users"],
+  },
+  {
+    id: "attendance_leave_work_policies",
+    title: "근태 / 휴가 / 근무 정책",
+    summary: "출퇴근 허용 방식, 휴가 허용 유형, 직원 노출 규칙을 묶어 설명합니다.",
+    owner: "ops admin",
+    linkedRoutes: ["/attendance", "/leave", "/admin/policies"],
+  },
+  {
+    id: "admin_operations",
+    title: "운영 / 감사 / 예외 처리",
+    summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+    owner: "audit admin",
+    linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
+  },
+] as const;
+
+export const companySettingsPolicyAxes: readonly CompanySettingsPolicyAxisPreview[] = [
+  {
+    id: "attendance_registration",
+    title: "출퇴근 허용 방식",
+    summary: "mobile / pc / tag 허용 조합과 scope 우선순위를 회사 기본 설정에서 해석합니다.",
+    priority: "company default → workplace → department → job type",
+  },
+  {
+    id: "leave_work_policy",
+    title: "휴가 / 근무 정책",
+    summary: "허용 휴가 유형, 승인 필요 여부, 대체 근무자 검토 메시지를 함께 보여줍니다.",
+    priority: "employee request → manager review → admin policy review",
+  },
+  {
+    id: "employee_policy_visibility",
+    title: "직원 노출 규칙",
+    summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+    priority: "employee-safe snapshot first",
+  },
+] as const;
+
+export const companySettingsApprovalGates: readonly CompanySettingsApprovalGatePreview[] = [
+  {
+    id: "attendance_tag_device",
+    title: "태그 단말 연동",
+    status: "approval_required",
+    summary: "태그 단말은 skeleton 안내만 제공하고 실제 장비 연동은 보류합니다.",
+  },
+  {
+    id: "leave_payroll_sync",
+    title: "휴가-급여 반영",
+    status: "approval_required",
+    summary: "실제 차감과 급여 반영은 열지 않고 snapshot 설명만 유지합니다.",
+  },
+  {
+    id: "approval_delivery",
+    title: "결재 알림/발송",
+    status: "approval_required",
+    summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
+  },
+  {
+    id: "company_scope_preview",
+    title: "회사 scope preview",
+    status: "preview_ready",
+    summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+  },
+] as const;
+
+export const companySettingsEmployeeVisibilityRules = [
+  "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
+  "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+  "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
+] as const;
+
+export const leavePolicySummaryPreview: LeavePolicySummaryPreview = {
+  effectiveScopeLabel: "회사 기본 설정에서 허용한 휴가 유형과 승인 규칙만 직원 화면에 노출합니다.",
+  allowedLeaveTypeCodes: ["annual", "half_day_am", "sick"],
+  approvalRequiredTypeCodes: ["annual", "half_day_am", "sick"],
+  approvalQueueVisibleToApprover: true,
+  employeeMessage: "직원은 허용된 휴가 유형만 보고 신청하며, 승인 상세 정책은 관리자 설명으로 분리됩니다.",
+  managerMessage: "승인자는 승인 대기열과 운영 예외 설명을 함께 보되 실제 차감/급여 연동은 열지 않습니다.",
+};
+
 export const adminPolicyPreview = buildAttendancePolicyPreview({
   assignments: demoAttendancePolicyAssignments,
   subjects: Object.values(demoAttendancePolicySubjects),
@@ -203,6 +334,14 @@ export function getAttendancePagePolicyView(policy: AttendancePagePolicyInput) {
 }
 
 export const adminPolicySections: readonly AdminPolicySection[] = [
+  {
+    title: "회사 기본 설정 / 회사 scope",
+    currentState: "회사 기본 정보, 조직 경계, 운영 owner 설명이 화면별로 흩어져 있는 상태를 먼저 요약합니다.",
+    candidateState: "company settings model pass 1 로 조직/정책/운영 화면이 같은 회사 scope 설명을 공유하도록 정리합니다.",
+    capability: "company.read",
+    auditPreview: "회사 scope 설명 변경 후보, owner, linked route 확인용 preview",
+    maskingNote: "실제 저장 설정값, 외부 연동 키, 고객사 민감 정보는 화면에 노출하지 않습니다.",
+  },
   {
     title: "근태 / 출퇴근 등록 방식 정책",
     currentState: `현재 허용 방식: ${companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods
