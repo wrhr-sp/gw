@@ -18,39 +18,39 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 18 네이티브 모바일앱 핵심 업무 연결 1차다. Phase 17에서 만든 `apps/mobile` skeleton과 shared contract를 바탕으로 로그인·대시보드·출퇴근·휴가·결재함·공지/문서·내 정보까지 한 흐름으로 따라가고, offline/error/empty/forbidden 상태와 dev-safe 검증 기준을 함께 잠그는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 19 네이티브 모바일앱 내부 시범 운영 초안이다. Phase 17~18에서 만든 `apps/mobile` skeleton과 shared contract를 바탕으로, 모바일 핵심 업무 흐름은 유지한 채 내부 시범 운영 전에 필요한 계정/비용/권한/secret 승인 항목, Android/iOS 준비물, live/PWA/API 선행 검증과 mobile 전용 smoke 기준을 분리해 읽게 만드는 것이 이번 체인의 핵심이다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 앱스토어 배포를 시작하는 것이 아니라 모바일 핵심 업무 흐름을 1차로 연결하는 것이다.
-- 기본 7개 핵심 화면 범위는 유지하되, 화면별 API contract 연결과 상태 안내 기준을 더 분명히 맞춘다.
-- 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보 순서가 한 번에 읽히게 한다.
-- same-origin `/api/*` 철학은 유지하되, 네이티브 앱에서는 base URL resolver 와 mock/dev-safe bridge 층으로 번역한다.
-- Web cookie 동작을 모바일 세션 기본값처럼 가정하지 않고 secure storage bridge 기준을 계속 유지한다.
-- `/admin/*` 운영 화면, 실기기 권한, 푸시, App Store/Play Console/TestFlight/EAS, secret, custom domain, production origin 확정은 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md`, `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md`, `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`, `docs/architecture/phase-6-mobile-pwa-scope.md`, `docs/architecture/phase-7-api-same-origin-scope.md`.
+- 이번 Phase의 목적은 실제 배포를 시작하는 것이 아니라 내부 시범 운영 전에 필요한 준비물과 승인 게이트를 정리하는 것이다.
+- 기본 7개 핵심 화면 범위는 유지하되, 설치 → 로그인 → 핵심 업무 → 내 정보/session clear 흐름으로 smoke checklist를 다시 본다.
+- live/PWA/API 선행 검증 기준과 mobile 전용 검증 기준을 분리해 적는다.
+- Android internal test 또는 Expo preview/dev build 후보 절차, iOS TestFlight/Apple Developer 준비 checklist를 문서화한다.
+- same-origin `/api/*` 철학은 유지하되, 네이티브 앱에서는 base URL resolver 와 secure storage bridge 기준을 계속 유지한다.
+- `/admin/*` 운영 화면, 실기기 권한, 푸시, App Store/Play Console/TestFlight/EAS 실제 사용, secret, custom domain, production origin 확정은 별도 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md`, `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md`, `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md`, `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md`, `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`, `docs/architecture/phase-6-mobile-pwa-scope.md`, `docs/architecture/phase-7-api-same-origin-scope.md`.
 
-2026-06-13 Phase 18 네이티브 모바일앱 핵심 업무 연결 1차 메모:
+2026-06-13 Phase 19 네이티브 모바일앱 내부 시범 운영 초안 메모:
 
-- 기준 흐름은 로그인 → 대시보드 → 오늘 필요한 업무(출퇴근/휴가/결재함) → 공지/문서 → 내 정보 순서다.
+- 기준 흐름은 설치 안내 확인 → 로그인 → 대시보드 → 오늘 필요한 업무(출퇴근/휴가/결재함) → 공지/문서 → 내 정보/session clear 순서다.
 - 화면 설명은 route 이름만 적지 말고 offline/error/empty/forbidden 4축 상태를 같이 적는다.
-- `/boards`·`/documents` 는 협업 묶음 진입으로 설명할 수 있지만 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
-- 승인자용 CTA 와 일반 사용자용 CTA 차이는 보여 주되, 관리자 정책 변경 화면은 모바일 기본 탭에 넣지 않는다.
+- live/PWA/API 선행 검증과 mobile 전용 smoke checklist는 분리해 적는다.
+- Android는 internal test 또는 Expo preview/dev build 후보 절차, iOS는 TestFlight/Apple Developer 준비 checklist를 따로 본다.
 - preview/dev-safe는 운영 기본값이 아니라 검증용 대체 경로다. 운영 origin 하드코딩이나 secret 주입을 정당화하지 않는다.
 - 토큰/세션 저장은 secure storage bridge 계층을 전제로 하고, 평문 저장이나 Web cookie 복제를 기본값처럼 쓰지 않는다.
 - 일반 사용자의 첫 액션은 `attendance`, 승인 lane 권한이 있는 사용자의 첫 액션은 `approvals` 로 갈라진다는 점을 `apps/mobile/src/workflow.ts` 기준으로 함께 본다.
 - 내 정보 화면은 `me` 조회가 기본이고, 로그아웃은 온라인 `auth.logout` 가능 여부와 별개로 secure storage bridge 기반 session clear 안내를 같이 본다.
-- 대장이 확인할 때는 "어떤 업무 흐름을 한 번 따라갈 수 있는가"와 함께 "어떤 상태가 아직 placeholder/승인 게이트인가"를 같이 보여 줘야 한다.
-- 다음 구현자는 `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/screens.ts`, `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/workflow.ts` 를 순서대로 보면 화면 흐름과 guardrail 을 가장 빨리 확인할 수 있다.
-- `apps/mobile/src/workflow.ts` 는 화면별 offline/error/empty/forbidden 상태 문구와 일반 사용자/승인자의 첫 액션 분기를 shared contract 기준으로 계산하는 preview helper 다.
+- App Store/Play Console/TestFlight/EAS, push, 실기기 권한, 배포용 secret, custom domain 은 구현 TODO가 아니라 승인 checklist라는 점을 분명히 남긴다.
+- 다음 구현자는 `packages/shared/src/mobile-contracts.ts`, `apps/mobile/src/screens.ts`, `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `apps/mobile/src/workflow.ts`, `apps/mobile/app.config.ts`, `apps/mobile/README.md` 를 순서대로 보면 화면 흐름과 내부 시범 운영 guardrail 을 가장 빨리 확인할 수 있다.
 
-대장이 Phase 18 문서를 볼 때 바로 확인할 쉬운 순서:
-1. `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md` 에서 포함 범위/제외 범위/상태 분류 4축을 먼저 본다.
-2. `docs/guides/phase-18-native-mobile-core-workflows-pass-1-handoff.md` 에서 로그인부터 내 정보까지 기본 흐름을 본다.
+대장이 Phase 19 문서를 볼 때 바로 확인할 쉬운 순서:
+1. `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md` 에서 포함 범위/제외 범위/Android/iOS 준비물/승인 checklist를 먼저 본다.
+2. `docs/guides/phase-19-native-mobile-internal-pilot-draft-handoff.md` 에서 설치부터 내 정보까지 기본 흐름을 본다.
 3. `packages/shared/src/mobile-contracts.ts` 에서 화면별 route/api/access 기준을 본다.
-4. `apps/mobile/src/screens.ts` 에서 7개 화면의 section/guardrail 구성을 본다.
+4. `apps/mobile/src/screens.ts` 와 `apps/mobile/src/workflow.ts` 에서 7개 화면과 상태 분류/첫 액션 분기를 본다.
 5. `apps/mobile/src/base-url.ts` 와 `apps/mobile/src/session-bridge.ts` 에서 운영 origin 하드코딩 금지, secure storage bridge 기준을 본다.
-6. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 모두 승인 게이트로 남았는지 확인한다.
+6. `apps/mobile/app.config.ts` 와 `apps/mobile/README.md` 에서 release gate 메모와 현재 범위 설명을 본다.
+7. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 모두 승인 게이트로 남았는지 확인한다.
 
 대장이 지금 저장소에서 바로 눌러 볼 쉬운 확인 포인트:
 1. `apps/mobile/src/screens.ts` 에서 각 화면이 어떤 guardrail 을 갖는지 본다.
@@ -58,6 +58,14 @@
 3. `apps/mobile/src/base-url.ts` 에서 production 은 approved origin only, preview/development 는 명시적 origin 또는 mock adapter 만 허용하는지 본다.
 4. `apps/mobile/src/session-bridge.ts` 에서 plain async storage 와 Web cookie copy 금지 기준, session clear 가 어떤 guardrail 로 묶이는지 본다.
 5. `apps/mobile/src/workflow.ts` 에서 일반 사용자 첫 액션이 `attendance`, 승인자 첫 액션이 `approvals` 로 나뉘는지 본다.
+
+대장이 Phase 19를 빠르게 판정할 4가지 질문:
+1. live/PWA/API 선행 검증과 모바일 전용 smoke 기준이 따로 적혀 있는가?
+2. 설치 안내 확인 → 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보/session clear 순서가 한 번에 읽히는가?
+3. Android 후보 절차와 iOS 준비 checklist 가 따로 보이는가?
+4. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 아직 승인 게이트라고 바로 보이는가?
+
+위 4개 질문 중 하나라도 애매하면 아직 내부 시범 운영 readiness 문서가 덜 정리된 상태로 본다.
 
 제한적 재귀적 자기개선 루프가 적용된다.
 

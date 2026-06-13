@@ -74,7 +74,18 @@ pnpm --filter @gw/mobile typecheck
 왜 돌리나:
 - `apps/mobile` shell 이 Web/PWA와 공유하는 route/auth/session 계약을 깨지 않았는지 가장 빠르게 확인한다.
 - `apps/mobile/src/base-url.ts`, `apps/mobile/src/session-bridge.ts`, `packages/shared/src/mobile-contracts.ts` 설명이 실제 타입과 어긋나지 않는지 본다.
-- store build 없이도 Phase 18 성공 기준인 핵심 업무 흐름/상태 안내/contract 경계를 재검증할 수 있다.
+- store build 없이도 Phase 19 성공 기준인 핵심 업무 흐름/상태 안내/contract 경계와 내부 시범 운영 준비 기준을 재검증할 수 있다.
+
+### 1-6. Phase 19 쉬운 내부 시범 운영 판정 질문
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. live/PWA/API 선행 검증과 모바일 전용 검증이 서로 다른 체크로 분리돼 적혀 있는가
+2. 설치 또는 설치 후보 안내 → 로그인 → 대시보드 → 출퇴근/휴가/결재함 → 공지/문서 → 내 정보/session clear 순서가 문서와 code path 에서 같은가
+3. Android internal test 또는 Expo preview/dev build 후보와 iOS TestFlight/Apple Developer 준비물이 한 묶음으로 섞이지 않고 따로 보이는가
+4. App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain 이 구현 TODO 가 아니라 승인 게이트로 남아 있는가
+
+이 4개 질문 중 하나라도 흐리면 Phase 19 문서 작업은 완료로 보지 않는다.
 
 ## 2. Cloudflare/Web 배포 후보 검증
 
@@ -203,6 +214,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - `docs/architecture/phase-7-api-same-origin-scope.md`
 - `docs/architecture/phase-17-native-mobile-transition-prep-scope.md`
 - `docs/architecture/phase-18-native-mobile-core-workflows-pass-1-scope.md`
+- `docs/architecture/phase-19-native-mobile-internal-pilot-draft-scope.md`
 - web build/test 결과
 
 ### 4-7. 문서 일관성 축
@@ -213,7 +225,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - skeleton/placeholder 제한이 루트 문서에서 빠지지 않았는가
 - Phase 16 문서라면 `/` → `/login` → `/dashboard` → `/attendance`/`/leave`/`/approvals`/`/boards`/`/documents`/`/org`/`/employees` 와 권한 기반 `/admin/*` 흐름이 루트 문서와 handoff 문서에서 같은 순서로 읽히는가
 - `/employees` 대 일반 조회와 `/admin/users` 운영 검토, `/attendance`/`/leave` 정책 안내와 `/admin/policies` 운영 정책 설명, `/boards`/`/documents` 협업 흐름과 운영 문서 보관 경계가 문서마다 같은 뜻인가
-- Phase 18 문서라면 `apps/mobile`, base URL resolver, secure storage bridge, 7개 핵심 화면, offline/error/empty/forbidden 상태 분류, App Store/Play Console/TestFlight/EAS 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
+- Phase 19 문서라면 `apps/mobile`, base URL resolver, secure storage bridge, 7개 핵심 화면, 설치→로그인→핵심 업무→세션 정리 순서, Android/iOS 준비 checklist, offline/error/empty/forbidden 상태 분류, App Store/Play Console/TestFlight/EAS 승인 게이트 설명이 루트 문서와 handoff 문서에서 같은 뜻인가
 
 ### 4-8. 역할봇 판단루프 / 운영 자동화 축
 
