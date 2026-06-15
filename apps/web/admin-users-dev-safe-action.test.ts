@@ -34,6 +34,8 @@ describe("admin users dev-safe action route", () => {
     const redirectUrl = new URL(location ?? "", "http://localhost");
     expect(redirectUrl.pathname).toBe("/admin/users");
     expect(redirectUrl.searchParams.get("result")).toContain("사용자 생성 preview 완료");
+    expect(redirectUrl.searchParams.get("actionType")).toBe("create");
+    expect(redirectUrl.searchParams.get("focus")).toContain("게시판/문서/근태 같은 일반 업무 접근 결과");
   });
 
   it("redacts password preview values from the redirect URL", async () => {

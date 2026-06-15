@@ -41,8 +41,10 @@ import {
   leaveRequestCreateResponseSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
+  listCompaniesResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
+  listHomeShortcutsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
@@ -161,6 +163,54 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(permissionsResponse.status).toBe(200);
     const permissionsPayload = listPermissionsResponseSchema.parse(await permissionsResponse.json());
     expect(permissionsPayload.data.items.some((item) => item.code === "invite.manage")).toBe(true);
+  });
+
+  it("returns home shortcuts and company settings payloads with placeholder auth cookie", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const shortcutsResponse = await app.request(appRoutes.home.shortcuts, {
+      headers: {
+        cookie,
+      },
+    });
+    expect(shortcutsResponse.status).toBe(200);
+    const shortcutsPayload = listHomeShortcutsResponseSchema.parse(await shortcutsResponse.json());
+    expect(shortcutsPayload.data.items.some((item) => item.code === "attendance" && item.scope === "company")).toBe(true);
+    expect(shortcutsPayload.data.items.some((item) => item.code === "admin_users" && item.scope === "user")).toBe(true);
+
+    const companiesResponse = await app.request(appRoutes.org.companies, {
+      headers: {
+        cookie,
+      },
+    });
+    expect(companiesResponse.status).toBe(200);
+    const companiesPayload = listCompaniesResponseSchema.parse(await companiesResponse.json());
+    expect(companiesPayload.data.items[0]?.id).toBe("company_demo");
+    expect(companiesPayload.data.items[0]?.settingsModel.policyStartPoint).toContain("scope");
+  });
+
+  it("filters privileged home shortcuts out of the fallback payload for non-privileged viewers", async () => {
+    const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
+    const employeeResponse = await app.request(appRoutes.home.shortcuts, {
+      headers: {
+        cookie: employeeCookie,
+      },
+    });
+    expect(employeeResponse.status).toBe(200);
+    const employeePayload = listHomeShortcutsResponseSchema.parse(await employeeResponse.json());
+    expect(employeePayload.data.items.some((item) => item.href === "/attendance")).toBe(true);
+    expect(employeePayload.data.items.some((item) => item.href.startsWith("/admin"))).toBe(false);
+    expect(employeePayload.data.items.some((item) => item.href === "/management")).toBe(false);
+
+    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
+    const managerResponse = await app.request(appRoutes.home.shortcuts, {
+      headers: {
+        cookie: managerCookie,
+      },
+    });
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = listHomeShortcutsResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.items.some((item) => item.href.startsWith("/admin"))).toBe(false);
   });
 
   it("blocks invite creation when current role lacks admin permission", async () => {

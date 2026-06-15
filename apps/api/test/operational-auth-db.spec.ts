@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { adminUsersListResponseSchema, authLoginResponseSchema, listDepartmentsResponseSchema, listEmployeesResponseSchema, listRolesResponseSchema } from "@gw/shared";
+import {
+  adminUsersListResponseSchema,
+  authLoginResponseSchema,
+  listCompaniesResponseSchema,
+  listDepartmentsResponseSchema,
+  listEmployeesResponseSchema,
+  listHomeShortcutsResponseSchema,
+  listPermissionsResponseSchema,
+  listRolesResponseSchema,
+} from "@gw/shared";
 import { app } from "../src/app";
 
 const databaseUrl = process.env.DATABASE_URL_PREVIEW;
@@ -60,7 +69,7 @@ describe("operational DB-backed auth", () => {
     expect(payload.data.items.some((item) => item.userId === "user_hr_admin" && item.roleCodes.includes("HR_ADMIN"))).toBe(true);
   });
 
-  runWhenDbConfigured("lists org employees, departments, and roles from the preview PostgreSQL seed", async () => {
+  runWhenDbConfigured("lists org employees, departments, roles, permissions, companies, and home shortcuts from the preview PostgreSQL seed", async () => {
     const cookie = await login();
 
     const employeesResponse = await app.request("/api/employees", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
@@ -80,5 +89,26 @@ describe("operational DB-backed auth", () => {
     expect(rolesResponse.status).toBe(200);
     const rolesPayload = listRolesResponseSchema.parse(await rolesResponse.json());
     expect(rolesPayload.data.items.map((item) => item.code)).toEqual(expect.arrayContaining(["COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"]));
+    expect(rolesPayload.data.items.find((item) => item.code === "COMPANY_ADMIN")?.permissions).toEqual(
+      expect.arrayContaining(["company.read", "permission.read", "invite.manage", "audit.read"]),
+    );
+
+    const permissionsResponse = await app.request("/api/permissions", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(permissionsResponse.status).toBe(200);
+    const permissionsPayload = listPermissionsResponseSchema.parse(await permissionsResponse.json());
+    expect(permissionsPayload.data.items.map((item) => item.code)).toEqual(expect.arrayContaining(["company.read", "invite.manage", "audit.read"]));
+
+    const companiesResponse = await app.request("/api/companies", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(companiesResponse.status).toBe(200);
+    const companiesPayload = listCompaniesResponseSchema.parse(await companiesResponse.json());
+    expect(companiesPayload.data.items[0]?.name).toBe("데모 주식회사");
+    expect(companiesPayload.data.items[0]?.settingsModel.policyStartPoint).toContain("본사 운영센터");
+
+    const shortcutsResponse = await app.request("/api/home/shortcuts", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(shortcutsResponse.status).toBe(200);
+    const shortcutsPayload = listHomeShortcutsResponseSchema.parse(await shortcutsResponse.json());
+    expect(shortcutsPayload.data.items.map((item) => item.code)).toEqual(
+      expect.arrayContaining(["attendance", "leave", "approvals", "boards", "documents", "me", "admin_users", "audit_logs"]),
+    );
   });
 });
