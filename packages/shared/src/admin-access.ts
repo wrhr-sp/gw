@@ -3,10 +3,12 @@ import type { AdminScope, PermissionCode, RoleCode, SessionUser } from "./contra
 export const adminRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"] as const;
 export const auditRoleCodes = ["AUDITOR"] as const;
 export const generalRoleCodes = ["MANAGER", "EMPLOYEE"] as const;
+export const legalManagementRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER", "AUDITOR"] as const;
 export const knownRoleCodes = [...adminRoleCodes, ...generalRoleCodes, ...auditRoleCodes] as const;
 
 export type ViewerAccess = Pick<SessionUser, "roleCodes" | "permissions">;
 export type AdminRouteKind = "admin_console" | "admin_audit";
+export type SensitiveWorkbenchRouteKind = "management_workspace";
 
 export const highRiskPermissionCodes = [
   "invite.manage",
@@ -197,6 +199,7 @@ const adminScopeByRoleCode: Record<RoleCode, AdminScope | null> = {
 
 const adminConsoleRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"] as const;
 const adminAuditRoutePrefixes = ["/admin/audit-logs"] as const;
+const managementWorkspaceRoutePrefixes = ["/management", "/work-items/legal"] as const;
 
 function isMatchingRoute(pathname: string, prefixes: readonly string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -209,6 +212,10 @@ export function getAdminScopeForRoleCode(roleCode: RoleCode): AdminScope | null 
 export function isAdminCapableRoleCode(roleCode: RoleCode) {
   const scope = getAdminScopeForRoleCode(roleCode);
   return scope === "global" || scope === "company";
+}
+
+export function isLegalManagementRoleCode(roleCode: RoleCode) {
+  return legalManagementRoleCodes.includes(roleCode as (typeof legalManagementRoleCodes)[number]);
 }
 
 export function getViewerAccessForRoleCode(roleCode: RoleCode): ViewerAccess {
@@ -230,12 +237,24 @@ export function getAdminRouteKind(pathname: string): AdminRouteKind | null {
   return null;
 }
 
+export function getSensitiveWorkbenchRouteKind(pathname: string): SensitiveWorkbenchRouteKind | null {
+  if (isMatchingRoute(pathname, managementWorkspaceRoutePrefixes)) {
+    return "management_workspace";
+  }
+
+  return null;
+}
+
 export function hasAdminConsoleAccess(viewer: ViewerAccess) {
   return viewer.roleCodes.some((roleCode) => isAdminCapableRoleCode(roleCode));
 }
 
 export function hasAdminAuditAccess(viewer: ViewerAccess) {
   return viewer.permissions.includes("audit.read");
+}
+
+export function hasLegalManagementAccess(viewer: ViewerAccess) {
+  return viewer.roleCodes.some((roleCode) => isLegalManagementRoleCode(roleCode));
 }
 
 export function hasAdminRouteAccess(pathname: string, viewer: ViewerAccess) {
@@ -247,6 +266,16 @@ export function hasAdminRouteAccess(pathname: string, viewer: ViewerAccess) {
 
   if (routeKind === "admin_audit") {
     return hasAdminAuditAccess(viewer);
+  }
+
+  return false;
+}
+
+export function hasSensitiveWorkbenchRouteAccess(pathname: string, viewer: ViewerAccess) {
+  const routeKind = getSensitiveWorkbenchRouteKind(pathname);
+
+  if (routeKind === "management_workspace") {
+    return hasLegalManagementAccess(viewer);
   }
 
   return false;

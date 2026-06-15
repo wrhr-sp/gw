@@ -107,11 +107,39 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "legal",
     href: "/work-items/legal",
     title: "법무 업무",
-    summary: "계약 검토 요청, 검토 의견, 승인 대기 상태를 공통 review skeleton 으로 모읍니다.",
-    roleScope: "본사 관리자 / 감사",
-    accessNote: "외부 법무 연동 없이 내부 승인 게이트와 blocked 사유만 남깁니다.",
-    apiRoutes: ["/api/work-items?module=legal", "/api/work-items/:id/reviews"],
-    milestones: ["계약 검토 요청", "승인 게이트", "blocked 기록"],
+    summary: "계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 공통 work item skeleton 안에서 metadata 중심으로 묶습니다.",
+    roleScope: "본사 법무/운영 담당 / 지점 관리자 / 감사",
+    accessNote: "실계약서 원문, 분쟁 자료 원문, 외부 변호사/보험사 연동은 닫고 계약 분류·갱신일·답변 준비·승인 게이트 metadata 만 먼저 노출합니다.",
+    apiRoutes: ["/api/work-items?module=legal", "/api/work-items/:id", "/api/work-items/:id/reviews", "/api/work-item-deadlines"],
+    milestones: ["계약 검토 요청", "계약 분류와 갱신 예정", "분쟁/클레임/보험 후속", "본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 분리"],
+    detailSections: [
+      {
+        title: "이번 단계 legal 유형",
+        items: [
+          "계약 검토 요청",
+          "계약 갱신 예정",
+          "위탁운영 계약",
+          "임대차 계약",
+          "용역 계약",
+          "협력사 계약",
+          "개인정보처리위탁 계약",
+          "분쟁/클레임 접수",
+          "보험/사고 후속",
+        ],
+      },
+      {
+        title: "누가 어디까지 보는가",
+        items: [
+          "본사 법무/운영 담당은 여러 지점 계약 요청, 갱신 예정, 분쟁 후속 상태를 company scope 로 본다.",
+          "지점 관리자는 자기 지점 계약 요청, 보완 요청, 만료 임박 안내만 본다.",
+          "감사는 원문 대신 상태 변경, 접근 흔적, 승인 게이트 대기 사유를 read-only 로 본다.",
+        ],
+      },
+      {
+        title: "계속 닫아 두는 것",
+        items: ["실계약서 원문 저장/비교/버전관리 확대", "외부 변호사·보험사·기관 계정 직접 연동", "실분쟁 자료 업로드 확대와 실제 제출 자동화"],
+      },
+    ],
   },
   {
     slug: "branch",
@@ -124,6 +152,9 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     milestones: ["일일 마감", "후속 메모", "지점 읽기 경로"],
   },
 ];
+
+export const workItemHubModuleCards = workItemModuleCards.filter((card) => card.slug !== "legal");
+export const managementWorkItemCards = workItemModuleCards.filter((card) => card.slug === "legal");
 
 export const workItemHubHighlights = [
   "공통 work item 목록, 상세, 문서, 첨부, 검토, 마감 API 골격을 먼저 맞춥니다.",

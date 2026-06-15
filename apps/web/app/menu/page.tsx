@@ -1,9 +1,15 @@
 import React from "react";
+import { cookies } from "next/headers";
 
+import { extractViewerRoleCodeFromSessionToken } from "../../admin-page-access";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { mobileBottomTabs, mobileMenuSections } from "../mobile-pwa-config";
+import { getVisibleMobileMenuSections, mobileBottomTabs } from "../mobile-pwa-config";
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const cookieStore = await cookies();
+  const roleCode = extractViewerRoleCodeFromSessionToken(cookieStore.get("gw_session")?.value ?? null);
+  const visibleMenuSections = getVisibleMobileMenuSections(roleCode);
+
   return (
     <PageShell
       backHref="/dashboard"
@@ -31,7 +37,7 @@ export default function MenuPage() {
         </div>
       </SurfaceSection>
 
-      {mobileMenuSections.map((section) => (
+      {visibleMenuSections.map((section) => (
         <SurfaceSection key={section.title} title={section.title} description={section.description}>
           <div className="grid-auto-compact">
             {section.items.map((item) => (

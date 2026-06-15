@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { ReactNode } from "react";
 
+import { extractViewerRoleCodeFromSessionToken } from "../admin-page-access";
 import { getTrustedHostFromHeaders } from "../admin-host";
 
 import { getPwaManifestForHost, getManifestHrefForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
@@ -49,8 +50,10 @@ export async function generateViewport(): Promise<Viewport> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const host = await getRequestHost();
+  const cookieStore = await cookies();
+  const roleCode = extractViewerRoleCodeFromSessionToken(cookieStore.get("gw_session")?.value ?? null);
   const manifestHref = getManifestHrefForHost(host);
-  const shellConfig = getAppShellConfigForHost(host);
+  const shellConfig = getAppShellConfigForHost(host, roleCode);
 
   return (
     <html lang="ko">

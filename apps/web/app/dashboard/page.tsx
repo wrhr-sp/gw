@@ -3,7 +3,7 @@ import { getViewerAccessForRoleCode } from "@gw/shared";
 
 import { extractViewerRoleCodeFromSessionToken } from "../../admin-page-access";
 import { DashboardPageContent } from "../../dashboard-page-content";
-import { getDashboardAdminShortcut } from "./dashboard-config";
+import { getDashboardAdminShortcut, getVisibleDashboardManagementCards } from "./dashboard-config";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -12,6 +12,7 @@ export default async function DashboardPage() {
   const adminShortcut = viewerAccess
     ? getDashboardAdminShortcut(viewerAccess.roleCodes, viewerAccess.permissions)
     : null;
+  const managementCards = viewerAccess ? getVisibleDashboardManagementCards(viewerAccess.roleCodes) : [];
 
-  return <DashboardPageContent adminShortcut={adminShortcut} />;
+  return <DashboardPageContent adminShortcut={adminShortcut} managementCards={managementCards} />;
 }

@@ -1,4 +1,4 @@
-import { getAdminNavigationAccess, type SessionUser } from "@gw/shared";
+import { getAdminNavigationAccess, isLegalManagementRoleCode, type RoleCode, type SessionUser } from "@gw/shared";
 
 export type DashboardActionCard = {
   href: string;
@@ -31,6 +31,13 @@ export type DashboardAdminShortcut = {
   href: "/admin" | "/admin/audit-logs";
   title: string;
   body: string;
+};
+
+export type DashboardManagementCard = {
+  href: "/management" | "/work-items/legal";
+  title: string;
+  body: string;
+  roleScope: string;
 };
 
 export type DashboardRoleJourneyCard = {
@@ -178,7 +185,7 @@ export const dashboardWorkItemCards: DashboardWorkItemCard[] = [
   {
     href: "/work-items",
     title: "공통 업무 허브",
-    summary: "내 업무·검토 대기·마감 임박 카드를 HR/세무/노무/법무/지점 공통 구조로 먼저 읽습니다.",
+    summary: "내 업무·검토 대기·마감 임박 카드를 HR/세무/노무/지점 공통 구조로 먼저 읽습니다.",
     roleScope: "회사 + 지점 + 역할 + capability",
   },
   {
@@ -192,6 +199,21 @@ export const dashboardWorkItemCards: DashboardWorkItemCard[] = [
     title: "세무·지점 마감",
     summary: "지점별 증빙 제출, 세목별 마감, 세무사 전달 패키지 준비를 metadata 중심으로 묶고 실제 신고 자동화는 열지 않습니다.",
     roleScope: "본사 세무 담당 / 지점 관리자 / 감사",
+  },
+];
+
+export const dashboardManagementCards: DashboardManagementCard[] = [
+  {
+    href: "/management",
+    title: "경영업무 허브",
+    body: "법무 같은 민감 운영 모듈은 일반 직원용 공통 업무 허브와 분리해 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    roleScope: "본사 관리자 / 지점 관리자 / 감사",
+  },
+  {
+    href: "/work-items/legal",
+    title: "법무 업무",
+    body: "계약 검토 요청, 갱신 예정, 분쟁/클레임 후속은 경영업무 허브 아래에서만 metadata 중심으로 이어집니다.",
+    roleScope: "본사 법무/운영 담당 / 지점 관리자 / 감사",
   },
 ];
 
@@ -221,6 +243,14 @@ export const dashboardApiLinks = [
   { href: "/api/work-items", label: "공통 업무 목록", description: "공통 work item skeleton 목록" },
   { href: "/api/work-item-deadlines", label: "공통 업무 마감", description: "마감 임박/완료 placeholder" },
 ] as const;
+
+export function hasDashboardManagementAccess(roleCodes: readonly RoleCode[]) {
+  return roleCodes.some((roleCode) => isLegalManagementRoleCode(roleCode));
+}
+
+export function getVisibleDashboardManagementCards(roleCodes: readonly RoleCode[]) {
+  return hasDashboardManagementAccess(roleCodes) ? dashboardManagementCards : [];
+}
 
 export function getDashboardAdminShortcut(
   roleCodes: SessionUser["roleCodes"],

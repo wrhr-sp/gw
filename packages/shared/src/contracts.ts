@@ -231,6 +231,14 @@ export const workItemTaxEvidenceItemTypeSchema = z.enum([
 ]);
 export const workItemTaxReviewScopeSchema = z.enum(["tax_hq", "branch_manager", "auditor"]);
 export const workItemTaxReviewResponsibilitySchema = z.enum(["submission", "collection_review", "missing_follow_up", "package_preparation", "audit_only"]);
+export const workItemLegalIntakeStatusSchema = z.enum(["received", "assigned", "reviewing", "revision_requested", "approved", "completed"]);
+export const workItemLegalContractTypeSchema = z.enum(["hotel_management", "lease", "service", "partner", "personal_data_processing"]);
+export const workItemLegalRenewalStatusSchema = z.enum(["not_applicable", "upcoming", "under_review", "renewal_decided", "expired_attention"]);
+export const workItemLegalDisputeStatusSchema = z.enum(["none", "intake", "fact_check", "response_preparing", "counsel_gate"]);
+export const workItemLegalExternalCounselStatusSchema = z.enum(["approval_required", "not_connected"]);
+export const workItemLegalSensitiveDocumentStatusSchema = z.enum(["metadata_only", "upload_gated"]);
+export const workItemLegalReviewScopeSchema = z.enum(["legal_hq", "operations_hq", "branch_manager", "auditor"]);
+export const workItemLegalReviewResponsibilitySchema = z.enum(["intake", "assignment", "review", "revision_follow_up", "approval_gate", "audit_only"]);
 
 export const payrollPayTypeSchema = z.enum(["monthly", "hourly", "daily", "annual", "inclusive"]);
 export const payrollPeriodStatusSchema = z.enum(["draft", "collecting", "reviewing", "confirmed", "closed"]);
@@ -531,6 +539,59 @@ export const workItemTaxContextSchema = z.object({
   auditHints: z.array(z.string()).min(1),
 });
 
+export const workItemLegalRelatedBranchRequestSchema = z.object({
+  branchId: z.string(),
+  branchLabel: z.string(),
+  requestStatus: workItemLegalIntakeStatusSchema,
+  requestedAt: z.string().datetime(),
+  note: z.string(),
+});
+
+export const workItemLegalDocumentSummarySchema = z.object({
+  type: z.enum(["contract_summary", "renewal_note", "dispute_note", "claim_note", "insurance_note", "incident_note"]),
+  title: z.string(),
+  summary: z.string(),
+  containsSensitiveData: z.boolean(),
+});
+
+export const workItemLegalReviewActorSchema = z.object({
+  scope: workItemLegalReviewScopeSchema,
+  roleCode: roleCodeSchema.nullable(),
+  responsibility: workItemLegalReviewResponsibilitySchema,
+  status: z.string(),
+});
+
+export const workItemLegalApprovalGateSchema = z.object({
+  required: z.boolean(),
+  stage: z.enum(["internal_review", "executive_approval", "external_counsel"]),
+  summary: z.string(),
+  externalActionBlocked: z.boolean(),
+});
+
+export const workItemLegalVisibilitySchema = z.object({
+  headquartersLegalOperations: z.string(),
+  branchManager: z.string(),
+  auditor: z.string(),
+  generalEmployee: z.string(),
+  restrictedNote: z.string(),
+});
+
+export const workItemLegalContextSchema = z.object({
+  intakeStatus: workItemLegalIntakeStatusSchema,
+  contractType: workItemLegalContractTypeSchema,
+  renewalStatus: workItemLegalRenewalStatusSchema,
+  renewalDueAt: z.string().datetime().nullable(),
+  disputeStatus: workItemLegalDisputeStatusSchema,
+  externalCounselStatus: workItemLegalExternalCounselStatusSchema,
+  sensitiveDocumentStatus: workItemLegalSensitiveDocumentStatusSchema,
+  relatedBranchRequests: z.array(workItemLegalRelatedBranchRequestSchema),
+  documentSummary: z.array(workItemLegalDocumentSummarySchema).min(1),
+  reviewActors: z.array(workItemLegalReviewActorSchema).min(1),
+  approvalGate: workItemLegalApprovalGateSchema,
+  visibility: workItemLegalVisibilitySchema,
+  auditHints: z.array(z.string()).min(1),
+});
+
 export const workItemSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -551,6 +612,7 @@ export const workItemSchema = z.object({
   hrContext: workItemHrContextSchema.nullable(),
   laborContext: workItemLaborContextSchema.nullable(),
   taxContext: workItemTaxContextSchema.nullable().optional(),
+  legalContext: workItemLegalContextSchema.nullable().optional(),
   tags: z.array(z.string()),
   auditSummary: z.string(),
   placeholder: z.literal(true),

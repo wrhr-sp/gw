@@ -589,7 +589,11 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(deadlinesResponse.status).toBe(200);
     const deadlinesPayload = workItemDeadlinesResponseSchema.parse(await deadlinesResponse.json());
-    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual(["wideadline_hr_branch_training", "wideadline_tax_month_end"]);
+    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual([
+      "wideadline_hr_branch_training",
+      "wideadline_tax_month_end",
+      "wideadline_legal_contract_renewal",
+    ]);
 
     const branchHrDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_branch_training_followup"), {
       headers: {
@@ -600,6 +604,27 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(branchHrDetailResponse.status).toBe(200);
     const branchHrDetailPayload = workItemDetailResponseSchema.parse(await branchHrDetailResponse.json());
     expect(branchHrDetailPayload.data.item.hrContext?.visibility.branchManager).toContain("자기 지점");
+
+    const branchLegalDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_contract_renewal"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(branchLegalDetailResponse.status).toBe(200);
+    const branchLegalDetailPayload = workItemDetailResponseSchema.parse(await branchLegalDetailResponse.json());
+    expect(branchLegalDetailPayload.data.item.legalContext?.renewalStatus).toBe("upcoming");
+    expect(branchLegalDetailPayload.data.item.legalContext?.visibility.branchManager).toContain("자기 지점");
+
+    const branchLegalDocumentResponse = await app.request(appRoutes.workItems.documents("work_item_legal_contract_renewal"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(branchLegalDocumentResponse.status).toBe(200);
+    const branchLegalDocumentPayload = workItemDocumentsResponseSchema.parse(await branchLegalDocumentResponse.json());
+    expect(branchLegalDocumentPayload.data.items.map((item) => item.id)).toEqual(["widoc_legal_renewal_tracker"]);
 
     const blockedDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
       headers: {
@@ -668,7 +693,19 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(legalDetailResponse.status).toBe(200);
     const legalDetailPayload = workItemDetailResponseSchema.parse(await legalDetailResponse.json());
     expect(legalDetailPayload.data.item.status).toBe("blocked");
+    expect(legalDetailPayload.data.item.legalContext?.approvalGate.stage).toBe("executive_approval");
     expect(legalDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_blocked"]);
+
+    const legalDisputeDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_dispute_intake"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(legalDisputeDetailResponse.status).toBe(200);
+    const legalDisputeDetailPayload = workItemDetailResponseSchema.parse(await legalDisputeDetailResponse.json());
+    expect(legalDisputeDetailPayload.data.item.legalContext?.disputeStatus).toBe("response_preparing");
+    expect(legalDisputeDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_dispute_gate"]);
   });
 
   it.each([
