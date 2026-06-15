@@ -37,6 +37,11 @@ export const appRoutes = {
     approve: (requestId: string) => `/api/leave/requests/${requestId}/approve`,
     reject: (requestId: string) => `/api/leave/requests/${requestId}/reject`,
   },
+  payroll: {
+    overview: "/api/payroll",
+    periodDetail: (periodId: string) => `/api/payroll/periods/${periodId}`,
+    myPayslip: "/api/payroll/me/payslip",
+  },
   approvals: {
     forms: "/api/approvals/forms",
     lines: "/api/approvals/lines",
@@ -79,6 +84,7 @@ export const appSections = [
   { href: "/dashboard", label: "대시보드", description: "오늘 처리할 업무와 알림을 모으는 시작 화면" },
   { href: "/attendance", label: "근태", description: "출퇴근 기록과 정정 요청 흐름의 시작점" },
   { href: "/leave", label: "휴가", description: "휴가 잔여와 신청 현황을 다루는 영역" },
+  { href: "/payroll", label: "급여", description: "급여 기초자료, 계산 보조, 명세서 초안을 분리해서 보는 영역" },
   { href: "/approvals", label: "전자결재", description: "결재 문서 제출/승인 UI 골격" },
   { href: "/boards", label: "게시판", description: "사내 공지와 게시글 기능 후보" },
   { href: "/documents", label: "문서", description: "R2 기반 첨부/문서 관리 후보 영역" },
@@ -135,6 +141,10 @@ export const permissionCodeSchema = z.enum([
   "attendance.manage",
   "leave.request",
   "leave.approve",
+  "payroll.read",
+  "payroll.manage",
+  "payroll.review",
+  "payroll.payslip.read_self",
   "approval.form.manage",
   "approval.line.manage",
   "approval.document.read",
@@ -203,6 +213,146 @@ export const workItemLaborFollowUpTypeSchema = z.enum([
   "schedule_adjustment",
   "closure_check",
 ]);
+
+export const payrollPayTypeSchema = z.enum(["monthly", "hourly", "daily", "annual", "inclusive"]);
+export const payrollPeriodStatusSchema = z.enum(["draft", "collecting", "reviewing", "confirmed", "closed"]);
+export const payrollLineItemClassificationSchema = z.enum(["earning", "deduction", "tax_placeholder", "insurance_placeholder"]);
+export const payrollLineItemSourceSchema = z.enum(["manual", "attendance", "policy", "tax_placeholder", "insurance_placeholder"]);
+export const payrollReviewScopeSchema = z.enum(["headquarters_payroll", "branch_manager", "employee", "auditor"]);
+export const payrollReviewStatusSchema = z.enum(["pending", "submitted", "reviewing", "changes_requested", "confirmed"]);
+
+export const payrollProfileSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  branchId: z.string().nullable(),
+  branchLabel: z.string().nullable(),
+  payType: payrollPayTypeSchema,
+  basePay: z.number().nonnegative().nullable(),
+  hourlyRate: z.number().nonnegative().nullable(),
+  dailyRate: z.number().nonnegative().nullable(),
+  annualSalary: z.number().nonnegative().nullable(),
+  inclusiveAllowance: z.number().nonnegative().nullable(),
+  standardWorkHours: z.number().nonnegative(),
+  payDay: z.number().int().min(1).max(31),
+  effectiveFrom: isoDateSchema,
+  effectiveTo: isoDateSchema.nullable(),
+  scopeNote: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollPeriodSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  title: z.string(),
+  branchScopeLabel: z.string(),
+  startsOn: isoDateSchema,
+  endsOn: isoDateSchema,
+  payDate: isoDateSchema,
+  status: payrollPeriodStatusSchema,
+  sourceSummary: z.string(),
+  lockedFieldsNote: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollInputSnapshotSchema = z.object({
+  id: z.string(),
+  periodId: z.string(),
+  employeeId: z.string(),
+  attendanceHours: z.number().nonnegative(),
+  overtimeHours: z.number().nonnegative(),
+  nightHours: z.number().nonnegative(),
+  holidayHours: z.number().nonnegative(),
+  paidLeaveDays: z.number().nonnegative(),
+  unpaidLeaveDays: z.number().nonnegative(),
+  absenceDays: z.number().nonnegative(),
+  latenessCount: z.number().int().nonnegative(),
+  earlyLeaveCount: z.number().int().nonnegative(),
+  sourceNote: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollLineItemSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  label: z.string(),
+  classification: payrollLineItemClassificationSchema,
+  source: payrollLineItemSourceSchema,
+  quantity: z.number().nonnegative().nullable(),
+  unitAmount: z.number().nonnegative().nullable(),
+  premiumRate: z.number().nonnegative().nullable(),
+  amount: z.number(),
+  note: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollReviewStepSchema = z.object({
+  id: z.string(),
+  periodId: z.string(),
+  scope: payrollReviewScopeSchema,
+  status: payrollReviewStatusSchema,
+  note: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollDraftSchema = z.object({
+  id: z.string(),
+  periodId: z.string(),
+  profileId: z.string(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  branchLabel: z.string().nullable(),
+  payType: payrollPayTypeSchema,
+  status: payrollPeriodStatusSchema,
+  grossPay: z.number().nonnegative(),
+  estimatedDeductions: z.number().nonnegative(),
+  netPayPreview: z.number().nonnegative(),
+  reviewNote: z.string(),
+  approvalGate: z.string(),
+  placeholder: z.literal(true),
+});
+
+export const payrollRoleGuidanceSchema = z.object({
+  headquartersPayroll: z.string(),
+  branchManager: z.string(),
+  employeeSelf: z.string(),
+  auditor: z.string(),
+  restrictedActions: z.array(z.string()).min(1),
+});
+
+export const payrollOverviewResponseSchema = successResponseSchema(
+  z.object({
+    profiles: z.array(payrollProfileSchema),
+    periods: z.array(payrollPeriodSchema),
+    collectionSteps: z.array(payrollReviewStepSchema),
+    roleGuidance: payrollRoleGuidanceSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const payrollPeriodDetailResponseSchema = successResponseSchema(
+  z.object({
+    period: payrollPeriodSchema,
+    draft: payrollDraftSchema,
+    inputSnapshot: payrollInputSnapshotSchema,
+    lineItems: z.array(payrollLineItemSchema),
+    reviewSteps: z.array(payrollReviewStepSchema),
+    roleGuidance: payrollRoleGuidanceSchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const payrollMyPayslipResponseSchema = successResponseSchema(
+  z.object({
+    period: payrollPeriodSchema,
+    payslip: payrollDraftSchema,
+    lineItems: z.array(payrollLineItemSchema),
+    employeeMessage: z.string(),
+    correctionRequestGuide: z.string(),
+    placeholder: z.literal(true),
+  }),
+);
 
 export const workItemAssigneeSchema = z.object({
   userId: z.string().nullable(),
@@ -1569,6 +1719,13 @@ export const workItemDeadlinesResponseSchema = successResponseSchema(
   }),
 );
 
+export const payrollProfileListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(payrollProfileSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
 export const readReceiptTargetTypeSchema = z.enum(["post", "document_file"]);
 
 export const readReceiptSchema = z.object({
@@ -1729,6 +1886,23 @@ export type WorkItemDocumentsResponse = z.infer<typeof workItemDocumentsResponse
 export type WorkItemAttachmentsResponse = z.infer<typeof workItemAttachmentsResponseSchema>;
 export type WorkItemReviewsResponse = z.infer<typeof workItemReviewsResponseSchema>;
 export type WorkItemDeadlinesResponse = z.infer<typeof workItemDeadlinesResponseSchema>;
+export type PayrollPayType = z.infer<typeof payrollPayTypeSchema>;
+export type PayrollPeriodStatus = z.infer<typeof payrollPeriodStatusSchema>;
+export type PayrollLineItemClassification = z.infer<typeof payrollLineItemClassificationSchema>;
+export type PayrollLineItemSource = z.infer<typeof payrollLineItemSourceSchema>;
+export type PayrollReviewScope = z.infer<typeof payrollReviewScopeSchema>;
+export type PayrollReviewStatus = z.infer<typeof payrollReviewStatusSchema>;
+export type PayrollProfile = z.infer<typeof payrollProfileSchema>;
+export type PayrollPeriod = z.infer<typeof payrollPeriodSchema>;
+export type PayrollInputSnapshot = z.infer<typeof payrollInputSnapshotSchema>;
+export type PayrollLineItem = z.infer<typeof payrollLineItemSchema>;
+export type PayrollReviewStep = z.infer<typeof payrollReviewStepSchema>;
+export type PayrollDraft = z.infer<typeof payrollDraftSchema>;
+export type PayrollRoleGuidance = z.infer<typeof payrollRoleGuidanceSchema>;
+export type PayrollProfileListResponse = z.infer<typeof payrollProfileListResponseSchema>;
+export type PayrollOverviewResponse = z.infer<typeof payrollOverviewResponseSchema>;
+export type PayrollPeriodDetailResponse = z.infer<typeof payrollPeriodDetailResponseSchema>;
+export type PayrollMyPayslipResponse = z.infer<typeof payrollMyPayslipResponseSchema>;
 export type ReadReceipt = z.infer<typeof readReceiptSchema>;
 export type ReadReceiptCreateRequest = z.infer<typeof readReceiptCreateRequestSchema>;
 export type ReadReceiptCreateResponse = z.infer<typeof readReceiptCreateResponseSchema>;

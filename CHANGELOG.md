@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-06-15
+
+### Changed
+
+- `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 Phase 28A 급여 기준으로 다시 맞춰, 급여가 labor 하위가 아니라 독립 `payroll` 모듈로 읽히게 정리했다.
+- 이번 정리에는 지원 급여 유형(`monthly`/`hourly`/`daily`/`annual`/`inclusive`), 급여 기간 상태(`draft`/`collecting`/`reviewing`/`confirmed`/`closed`), line item 산정 근거(`source`/`quantity`/`unitAmount`/`premiumRate`/`amount`/`note`), 지점 관리자 대 직원 self-only 경계, 포괄임금제 검토 경고, 주민등록번호/계좌번호/실지급/외부 신고 승인 게이트를 문서 전체에 같은 말로 반영한 내용이 포함된다.
+- `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md` 를 보강해 Phase 28A 에서 여는 것/아직 안 여는 것, 지점 제출 → 본사 검토 → 직원 공개 흐름, self-only payslip 경계, 후속 구현자가 먼저 볼 파일과 검증 순서를 더 분명히 남겼다.
+
 ## 2026-06-13
 
 ### Changed

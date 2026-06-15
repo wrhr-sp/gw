@@ -70,6 +70,13 @@
 - [ ] Phase 25 문서에서는 위 파일럿 준비 흐름 위에 공통 work item 엔진이 올라가며, 개별 모듈 완성/실민감 처리/외부 전문가 연동처럼 과장되지 않는다.
 - [ ] Phase 26 문서에서는 위 공통 work item 엔진 위에 직원 lifecycle 과 HR meeting skeleton 이 올라가며, 별도 회의 솔루션/실민감 HR 처리/외부 캘린더 연동처럼 과장되지 않는다.
 - [ ] Phase 27 문서에서는 위 공통 work item 엔진과 HR lifecycle 기준 위에 labor skeleton 이 올라가며, 별도 사건 처리 솔루션/실민감 계약·징계·사고 처리/외부 노무·급여 연동처럼 과장되지 않는다.
+- [ ] Phase 28A 문서에서는 급여가 labor 안에 묻지 않고 독립 `/payroll` 모듈로 읽히며, 본사 급여 담당/지점 관리자/일반 직원 visibility 가 분리된다.
+- [ ] `/payroll` → `/payroll/me` → `/api/payroll` → `/api/payroll/me/payslip` 순서의 쉬운 확인 포인트와 `apps/api/test/auth-org.spec.ts`, `apps/web/payroll.test.tsx` 근거가 같은 뜻이다.
+- [ ] 급여 preview 금액과 실지급 확정값, 원천세/4대보험 placeholder 와 확정 계산값이 같은 말처럼 섞여 쓰이지 않는다.
+- [ ] Phase 28A 문서와 contract 는 월급제/시급제/일급제/연봉제/포괄임금제 지원 방향을 같은 말로 설명하고, 현재 placeholder 예시가 실제로 무엇을 보여 주는지도 숨기지 않는다.
+- [ ] 급여 line item 설명이 단순 총액이 아니라 `source`·`quantity`·`unitAmount`·`premiumRate`·`amount`·`note` 근거 구조와 같은 뜻이다.
+- [ ] 지점 관리자가 자기 지점 기초자료 제출 상태를 보는 것과 period detail/직원 명세서 상세를 직접 보는 것을 같은 권한처럼 섞지 않는다.
+- [ ] 포괄임금제 설명에서 초과분 검토 필요 경고, 부족분 자동 차감 비활성, 노무 검토 필요 approval gate 가 빠지지 않는다.
 - [ ] 공통 상태와 meeting 일정 상태가 같은 필드/같은 말처럼 섞여 쓰이지 않는다.
 - [ ] 공통 상태와 labor intake/review 상태가 같은 필드/같은 말처럼 섞여 쓰이지 않는다.
 - [ ] 참석자였다 는 사실과 모든 비공개 메모를 본다 는 권한이 같은 뜻으로 설명되지 않는다.

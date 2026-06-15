@@ -163,6 +163,12 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "잔여, 신청, 승인 대기 요약",
   },
   {
+    href: "/payroll",
+    label: "급여",
+    shortLabel: "급여",
+    summary: "자료 수집 상태, 지급 예정 기간, 명세서 초안 확인",
+  },
+  {
     href: "/approvals",
     label: "전자결재",
     shortLabel: "결재",
@@ -211,7 +217,7 @@ export const mobileBottomTabs: NavItem[] = [
     href: "/menu",
     label: "메뉴",
     shortLabel: "메뉴",
-    summary: "근태, 휴가, 결재, 문서, 내 정보, 조직 전체 메뉴 열기",
+    summary: "근태, 휴가, 급여, 결재, 문서, 내 정보, 조직 전체 메뉴 열기",
   },
   {
     href: "/dashboard",
@@ -243,13 +249,13 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "기본 업무",
     description: "파일럿 참여자가 실제로 먼저 눌러 볼 핵심 업무 흐름입니다.",
-    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
+    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5], mobilePrimaryNav[6]],
   },
   {
     title: "공통 업무 엔진",
     description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·법무·지점 업무 자리를 먼저 확보합니다.",
     items: [
-      mobilePrimaryNav[6],
+      mobilePrimaryNav[7],
       { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
       { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 수집/월말 마감 placeholder" },
       { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
@@ -260,7 +266,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "내 정보 / 조회",
     description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
-    items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
+    items: [mobilePrimaryNav[8], mobilePrimaryNav[9], mobilePrimaryNav[10]],
   },
   {
     title: "협업 placeholder",

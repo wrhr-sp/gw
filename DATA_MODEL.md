@@ -694,6 +694,39 @@
 - 외부 HR/급여/노무 연동 구조
 - 유료 리소스 생성·증액, DNS/custom domain, production bucket 운영 규칙
 
+## 7-A. Phase 28A 급여 foundation 데이터 모델 메모
+
+이번 단계에서 새로 고정한 최소 급여 엔티티는 아래와 같다.
+
+- `payrollProfile`: 직원별 지급 형태(`monthly`/`hourly`/`daily`/`annual`/`inclusive`), 기준급/시급/일급/연봉/포괄수당, 기준 근로시간, 지급일, 적용 기간, 회사/지점 scope
+- `payrollPeriod`: 월별 급여 기간, 지급 예정일, `draft`/`collecting`/`reviewing`/`confirmed`/`closed` 상태, 잠금 메모
+- `payrollInputSnapshot`: 근태/휴가/수기 수당 입력을 payroll 계산 전 단계에서 묶는 snapshot
+- `payrollLineItem`: earning/deduction/tax placeholder/insurance placeholder 항목과 산정 근거
+- `payrollDraft`: 직원별 급여명세서 초안, gross/net preview, review note, approval gate
+- `payrollReviewStep`: 본사 급여 담당 / 지점 관리자 / 일반 직원 / 감사 사용자 공개 단계 구분
+
+필드 해석 메모:
+- `payrollProfile` 은 `basePay`, `hourlyRate`, `dailyRate`, `annualSalary`, `inclusiveAllowance` 를 모두 열어 두되, 실제 사용 필드는 `payType` 에 따라 달라진다.
+- `payrollInputSnapshot` 은 근무시간·연장·야간·휴일·유급/무급 휴가·결근·지각·조퇴를 같은 묶음으로 들고 와 급여 계산 입력 근거를 남긴다.
+- `payrollLineItem` 은 단순 금액이 아니라 `source`, `quantity`, `unitAmount`, `premiumRate`, `amount`, `note` 를 함께 가져, 근태 기반/수기 입력/정책 계산/세금 placeholder 출처를 분리한다.
+- `payrollReviewStep` 의 `scope` 는 본사 급여 담당 검토, 지점 자료 제출, 직원 self-only 공개, 감사용 승인 흔적 확인을 분리하기 위한 것이다.
+
+호텔 위탁경영사 기준 메모:
+- 회사 전체 기준과 지점/호텔 기준을 함께 보되, 지점 관리자는 자기 지점 입력 수집/제출 범위만 가진다.
+- period detail 과 employee self payslip 은 같은 공개 범위가 아니다. 지점 관리자가 곧 직원 명세서 상세를 보는 역할은 아니다.
+- 감사 사용자는 승인 흔적과 역할 분리 설명을 읽는 audit 성격이며, 민감 원문/실정산 저장 구조까지 보는 단계가 아니다.
+
+포괄임금제 메모:
+- `inclusiveAllowance` 필드가 있다고 해서 자동 공제/자동 확정을 뜻하지 않는다.
+- 포괄 포함 시간 대비 초과/위험 여부는 line item note 와 review step 경고로 먼저 남긴다.
+- 부족분 자동 차감 규칙은 이 모델에서 기본값으로 확정하지 않는다.
+
+guardrail:
+- 실제 급여 원문 저장 구조, 세액 확정값, 보험 확정값, 외부 신고 payload 는 아직 확정하지 않는다.
+- employee self-only 명세서와 회사 전체 급여 상세는 같은 모델/가시성으로 취급하지 않는다.
+- 급여는 근태·휴가 입력 snapshot 과 연결되지만 grievance/징계 restricted 노무 기록과 직접 합치지 않는다.
+- 주민등록번호, 계좌번호, 실지급 이체 파일, 홈택스/4대보험 신고용 실 payload 는 포함하지 않는다.
+
 ## 7. 같이 봐야 하는 문서
 
 - `API.md`

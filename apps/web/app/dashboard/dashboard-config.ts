@@ -56,6 +56,12 @@ export const dashboardActionCards: DashboardActionCard[] = [
     detail: "잔여 snapshot, 신청 placeholder, 승인 저장은 별도 검증 후",
   },
   {
+    href: "/payroll",
+    title: "급여 수집/명세 초안 확인",
+    body: "근태·휴가 다음 단계에서 급여 자료 수집 상태, 지급 예정 기간, 내 명세서 초안을 분리해서 확인합니다.",
+    detail: "실정산/세액 확정 없이 preview 중심, 역할별 공개 범위 분리",
+  },
+  {
     href: "/approvals",
     title: "승인 대기 확인",
     body: "내 승인 대기와 팀/결재 병목 후보를 먼저 읽고 approvals 상세 화면으로 이동합니다.",
@@ -207,6 +213,8 @@ export const dashboardApiLinks = [
   { href: "/api/attendance/records", label: "근태 기록", description: "오늘 상태와 마지막 기록 후보" },
   { href: "/api/leave/balances", label: "휴가 잔여", description: "잔여 snapshot" },
   { href: "/api/leave/requests", label: "휴가 신청", description: "승인 대기/처리 결과 후보" },
+  { href: "/api/payroll", label: "급여 개요", description: "급여 프로필/기간/역할별 공개 범위 skeleton" },
+  { href: "/api/payroll/me/payslip", label: "내 급여명세서 초안", description: "구성원 본인용 명세서 preview" },
   { href: "/api/approvals/inbox", label: "승인함", description: "내 승인 대기와 병목 후보" },
   { href: "/api/notices", label: "공지", description: "읽기 중심 공지 진입점" },
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },

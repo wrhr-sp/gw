@@ -17,6 +17,12 @@ const profileCards = [
     href: "/org",
   },
   {
+    title: "내 급여명세서 초안",
+    summary: "근태·휴가 확인 다음에 내 급여 preview 와 정정 안내를 보는 개인 화면입니다.",
+    detail: "실지급 확정이나 동료 급여 조회가 아니라 self-only 급여명세서 skeleton 입니다.",
+    href: "/payroll/me",
+  },
+  {
     title: "회사 / 직원 맥락",
     summary: "내 정보 확인 뒤 조직 구조와 직원 상태 조회로 이어지는 마무리 확인 단계입니다.",
     detail: "운영 변경은 /admin/users 로 넘기고 여기서는 읽기 전용 조회만 유지합니다.",
