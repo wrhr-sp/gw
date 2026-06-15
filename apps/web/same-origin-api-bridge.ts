@@ -32,13 +32,13 @@ function stripDevPlaceholderSessionCookie(cookieHeader: string | null) {
   return filteredCookies.length > 0 ? filteredCookies.join("; ") : null;
 }
 
-function buildApiRequest(request: Request, pathname: string) {
+function buildApiRequest(request: Request, pathname: string, options?: { trustDevSessionCookie?: boolean }) {
   const incomingUrl = new URL(request.url);
   const targetUrl = new URL(pathname, "http://gw-api.internal");
   targetUrl.search = incomingUrl.search;
   const headers = new Headers(request.headers);
 
-  if (pathname === appRoutes.me) {
+  if (pathname === appRoutes.me && !options?.trustDevSessionCookie) {
     const sanitizedCookie = stripDevPlaceholderSessionCookie(headers.get("cookie"));
     if (sanitizedCookie) {
       headers.set("cookie", sanitizedCookie);
@@ -47,16 +47,26 @@ function buildApiRequest(request: Request, pathname: string) {
     }
   }
 
-  return new Request(targetUrl.toString(), {
+  const requestInit: Record<string, unknown> = {
     method: request.method,
     headers,
     body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
     redirect: "manual",
-  });
+  };
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    requestInit.duplex = "half";
+  }
+
+  return new Request(targetUrl.toString(), requestInit);
 }
 
 export function forwardSameOriginApiRequest(request: Request, pathname: string) {
   return apiApp.fetch(buildApiRequest(request, pathname));
+}
+
+export function forwardTrustedSameOriginApiRequest(request: Request, pathname: string) {
+  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }));
 }
 
 export function forwardHealthRequest(request: Request) {
@@ -65,4 +75,16 @@ export function forwardHealthRequest(request: Request) {
 
 export function forwardMeRequest(request: Request) {
   return forwardSameOriginApiRequest(request, appRoutes.me);
+}
+
+export function forwardAuthLoginRequest(request: Request) {
+  return forwardSameOriginApiRequest(request, appRoutes.auth.login);
+}
+
+export function forwardAuthLogoutRequest(request: Request) {
+  return forwardSameOriginApiRequest(request, appRoutes.auth.logout);
+}
+
+export function forwardAdminUsersRequest(request: Request) {
+  return forwardSameOriginApiRequest(request, appRoutes.admin.users);
 }

@@ -3,6 +3,7 @@ import { appRoutes } from "@gw/shared";
 
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { AttendanceLiveSection } from "../_components/real-usage-panels";
 import { employeeAttendanceEffectivePolicy, attendanceRegistrationMethodLabels, getAttendancePagePolicyView } from "../../admin-skeleton-config";
 import { offlineGuidance } from "../mobile-pwa-config";
 
@@ -29,9 +30,9 @@ const supportsTagSkeleton = attendancePolicyView.showTagSkeleton;
 export default function AttendancePage() {
   return (
     <PageShell
-      eyebrow="Phase 14 근태/정책 연결"
-      title="근태 skeleton"
-      description="대시보드의 오늘 상태 흐름과 관리자 정책 화면의 기준을 같은 방향으로 설명하도록 다시 정리한 placeholder 입니다."
+      eyebrow="Phase 31 근태/정책 연결"
+      title="근태"
+      description="대시보드의 오늘 상태 흐름과 관리자 정책 화면의 기준을 같은 방향으로 설명하면서, 실제 preview API를 호출해 상태 변경과 정정 요청까지 확인할 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           {allowedAttendanceMethods.includes("mobile") ? (
@@ -47,6 +48,10 @@ export default function AttendancePage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 확인 패널" description="근태 기록 조회, 출근/퇴근, 정정 요청 preview 를 같은 화면에서 바로 확인합니다.">
+        <AttendanceLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="현재 나에게 적용된 출퇴근 정책" description="회사 기본이 아니라 내 근무지/부서/직무까지 계산한 effective policy 기준으로 안내합니다.">
         <div className="grid-auto-compact">
           <article className="info-card">

@@ -136,6 +136,9 @@ type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const DEV_SESSION_MAX_AGE_SECONDS = 60 * 60;
+const DEV_SAFE_LOGIN_ID = "admin";
+const DEV_SAFE_LOGIN_EMAIL = "admin@example.com";
+const DEV_SAFE_LOGIN_PASSWORD = "1234";
 const COMPANY_ID = "company_demo";
 const SESSION_EXPIRY = "2099-01-01T00:00:00.000Z";
 const PLACEHOLDER_NOW = "2026-06-10T09:00:00.000Z";
@@ -2658,7 +2661,7 @@ function buildSession(roleCode: RoleCode): Session {
   };
 }
 
-function buildUser(roleCode: RoleCode, email = "admin@example.com"): SessionUser {
+function buildUser(roleCode: RoleCode, email = DEV_SAFE_LOGIN_EMAIL): SessionUser {
   const employeeId = roleEmployeeIds[roleCode] ?? "employee_admin";
   const employee = employees.find((item) => item.id === employeeId) ?? employees[0];
 
@@ -2671,6 +2674,33 @@ function buildUser(roleCode: RoleCode, email = "admin@example.com"): SessionUser
     roleCodes: [roleCode],
     permissions: [...rolePermissions[roleCode]],
   };
+}
+
+function normalizeCredentialValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function isDevSafeLoginCredential(loginId: string | undefined, email: string | undefined, password: string) {
+  if (password !== DEV_SAFE_LOGIN_PASSWORD) {
+    return false;
+  }
+
+  const normalizedLoginId = normalizeCredentialValue(loginId);
+  const normalizedEmail = normalizeCredentialValue(email);
+  return normalizedLoginId === DEV_SAFE_LOGIN_ID || normalizedEmail === DEV_SAFE_LOGIN_EMAIL;
+}
+
+function resolveSessionEmail(loginId?: string, email?: string) {
+  const normalizedEmail = normalizeCredentialValue(email);
+  if (normalizedEmail) {
+    return email?.trim() ?? DEV_SAFE_LOGIN_EMAIL;
+  }
+
+  if (normalizeCredentialValue(loginId) === DEV_SAFE_LOGIN_ID) {
+    return DEV_SAFE_LOGIN_EMAIL;
+  }
+
+  return DEV_SAFE_LOGIN_EMAIL;
 }
 
 function extractRoleCode(cookieHeader: string | null): RoleCode | null {
@@ -3777,14 +3807,21 @@ app.post(appRoutes.auth.login, async (context) => {
     });
   }
 
+  if (!isDevSafeLoginCredential(parsed.data.loginId, parsed.data.email, parsed.data.password)) {
+    return jsonError(context, "FORBIDDEN", "dev/test/UAT 전용 테스트 계정(admin / 1234)만 허용합니다.", 403, {
+      allowedLoginId: DEV_SAFE_LOGIN_ID,
+      productionBlocked: true,
+    });
+  }
+
   const roleCode = resolveRoleCode(context.req.header("x-dev-role") ?? undefined);
   const session = buildSession(roleCode);
   const payload = {
     ok: true,
     data: {
       session,
-      user: buildUser(roleCode, parsed.data.email),
-      nextStep: "Connect real auth provider after approval.",
+      user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
+      nextStep: "Production 에서는 admin / 1234 를 금지하고 실제 인증 provider 또는 seed 교체 절차를 연결합니다.",
     },
     error: null,
   };

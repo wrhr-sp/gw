@@ -2,8 +2,8 @@
 
 ## 현재 단계
 
-현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 29 법무 관리 1차가 최신 범위이며, Phase 25 공통 업무 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 얹는 작업을 이어간다. 바로 앞 선행 Phase 28에서는 세무를 `tax` 모듈로 확장했고, 이번 Phase 29는 그 다음 단계로 공통 `work item` 기반 법무 흐름을 확장하는 단계다.
+현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
+현재 문서화 기준으로는 실사용 전환 1차 fit-gap과 그 다음 우선순위인 Phase 31 홈·로그인·경영업무·계정관리 실사용화가 최신 범위다. 직전 Phase 29에서는 Phase 25 공통 업무 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 얹었고, 이제는 그 업무 모듈들을 실제 UAT 입구인 로그인/홈/경영업무/계정관리로 연결하는 단계가 먼저다.
 
 ## Phase 흐름
 
@@ -38,6 +38,8 @@
 - Phase 28A: 급여 foundation / payslip 1차
 - Phase 28: 세무 관리 1차
 - Phase 29: 법무 관리 1차
+- Phase 30: 통합 대시보드·알림·감사 로그 강화
+- Phase 31: 홈·로그인·경영업무·계정관리 실사용화
 
 ## MVP 성공 기준
 
@@ -53,6 +55,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-29-legal-management-pass-1-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-29-legal-management-pass-1-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`
+- 직전 범위: `docs/architecture/phase-29-legal-management-pass-1-scope.md`
+- 직전 handoff: `docs/guides/phase-29-legal-management-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

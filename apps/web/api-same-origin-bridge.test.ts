@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { appRoutes, errorResponseSchema, healthResponseSchema } from "@gw/shared";
+import { adminUsersListResponseSchema, appRoutes, authLoginResponseSchema, errorResponseSchema, healthResponseSchema } from "@gw/shared";
+import { GET as getAdminUsers } from "./app/api/admin/users/route";
+import { POST as postLogin } from "./app/api/auth/login/route";
+import { POST as postLogout } from "./app/api/auth/logout/route";
 import { GET as getHealth } from "./app/api/health/route";
 import { GET as getMe } from "./app/api/me/route";
 
@@ -59,5 +62,67 @@ describe("Phase 7 same-origin API bridge", () => {
     expect(errorResponseSchema.parse(await encodedResponse.json()).error.code).toBe("AUTH_REQUIRED");
     expect(malformedResponse.status).toBe(401);
     expect(errorResponseSchema.parse(await malformedResponse.json()).error.code).toBe("AUTH_REQUIRED");
+  });
+
+  it("forwards dev-safe login and logout through same-origin auth routes", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+        }),
+      }),
+    );
+
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.headers.get("set-cookie")).toContain("gw_session=");
+    const loginPayload = authLoginResponseSchema.parse(await loginResponse.json());
+    expect(loginPayload.data.user.roleCodes).toContain("COMPANY_ADMIN");
+
+    const logoutResponse = await postLogout(
+      new Request("http://localhost/api/auth/logout", {
+        method: "POST",
+        headers: {
+          cookie: loginResponse.headers.get("set-cookie") ?? "",
+        },
+      }),
+    );
+
+    expect(logoutResponse.status).toBe(200);
+    expect(logoutResponse.headers.get("set-cookie")).toContain("Max-Age=0");
+  });
+
+  it("forwards admin users preview through same-origin route when an admin session cookie is present", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+        }),
+      }),
+    );
+
+    const adminUsersResponse = await getAdminUsers(
+      new Request("http://localhost/api/admin/users", {
+        headers: {
+          cookie: loginResponse.headers.get("set-cookie") ?? "",
+        },
+      }),
+    );
+
+    expect(adminUsersResponse.status).toBe(200);
+    const payload = adminUsersListResponseSchema.parse(await adminUsersResponse.json());
+    expect(payload.data.items.length).toBeGreaterThan(0);
+    expect(payload.data.audit.action).toBe("admin.user.list.viewed");
   });
 });

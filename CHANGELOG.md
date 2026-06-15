@@ -4,6 +4,9 @@
 
 ### Changed
 
+- `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md` 를 보강해 실사용 전환 1차 문서를 "지금 바로 눌러볼 수 있는 입구 / 아직 skeleton 잔여 / 별도 승인" 기준으로 다시 정리했다. 특히 `admin / 1234` dev-safe UAT 계정 원칙, `/login`·`/dashboard`·`/management`·`/admin/users` 중심 UAT 순서, fit-gap 표, 일반 직원 대 관리자 forbidden 경계를 같은 말로 고정했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 함께 갱신해 Phase 31 기준 루트 문서가 parent 테스트 근거와 어긋나지 않게 맞췄다. 익명 `/api/me` 401, 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 같은 현재 검증 결과와 `경영업무` 허브/계정관리/dev-safe 승인 게이트 설명을 같은 뜻으로 반영했다.
+
 - `docs/architecture/phase-29-legal-management-pass-1-scope.md`, `docs/guides/phase-29-legal-management-pass-1-handoff.md` 를 추가해 Phase 25 공통 업무 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 어떻게 얹을지, legal category/intake metadata/visibility/승인 게이트를 쉬운 한국어로 고정했다.
 - `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` 를 다시 맞춰 Phase 29 문서가 현재 구현 상태와 어긋나지 않게 정리했다. 특히 `work_item_legal_contract_review`·`work_item_legal_contract_renewal`·`work_item_legal_dispute_intake` placeholder 3건, 실제 `legalContext` 필드, `/management`·`/work-items/legal`·`/api/work-items?module=legal`·`/api/work-items/:id/reviews` 진입점, 본사 법무/운영 담당 대 지점 관리자 visibility, 계약 원문/외부 자문 승인 게이트를 같은 말로 반영했다.
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 29 법무 관리 1차 활성 체인 기준으로 갱신해 현재 카드 ids, 직전 Phase 28 세무와의 경계, 법무 계약/갱신/분쟁 후속 목표, 남은 승인 게이트를 한 번에 따라가게 정리했다.

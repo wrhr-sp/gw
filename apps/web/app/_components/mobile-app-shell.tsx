@@ -1,8 +1,10 @@
 "use client";
 
+import type { RoleCode } from "@gw/shared";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { SessionControls } from "./session-controls";
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
 
 function matchesPath(currentPath: string, href: string) {
@@ -19,6 +21,7 @@ type MobileAppShellProps = {
   menuSections: readonly NavSection[];
   installGuideSteps: readonly string[];
   offlineGuidance: OfflineGuidance;
+  currentRoleCode: RoleCode | null;
 };
 
 export function MobileAppShell({
@@ -31,6 +34,7 @@ export function MobileAppShell({
   menuSections,
   installGuideSteps,
   offlineGuidance,
+  currentRoleCode,
 }: MobileAppShellProps) {
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
@@ -118,6 +122,7 @@ export function MobileAppShell({
               <strong>{appName}</strong>
             </a>
             <div className="app-topbar__actions">
+              <SessionControls roleCode={currentRoleCode} />
               <a href="/menu" className="ghost-link app-topbar__mobile-only">
                 전체 메뉴
               </a>

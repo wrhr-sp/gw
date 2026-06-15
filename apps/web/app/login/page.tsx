@@ -2,43 +2,32 @@ import React from "react";
 import Link from "next/link";
 import { appRoutes } from "@gw/shared";
 
+import { devSafeLoginEmail, devSafeLoginId, devSafeLoginPassword, devSafeRoleOptions } from "../../dev-safe-auth";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { LoginForm } from "./login-form";
 
 const loginFields = [
-  { label: "회사 이메일", value: "admin@example.com" },
-  { label: "비밀번호", value: "placeholder-password" },
+  { label: "테스트 아이디", value: devSafeLoginId },
+  { label: "테스트 비밀번호", value: devSafeLoginPassword },
+  { label: "내부 매핑 이메일", value: devSafeLoginEmail },
 ] as const;
 
-const personaCards = [
-  {
-    role: "일반 직원",
-    nextRoute: "/dashboard",
-    summary: "로그인 후 오늘 할 일과 내 상태를 먼저 확인합니다.",
-    note: "근태, 전자결재, 조직/직원 조회로 이어지고 관리자 CTA 는 보이지 않습니다.",
-  },
-  {
-    role: "팀장 / 결재자",
-    nextRoute: "/dashboard",
-    summary: "대시보드 요약을 본 뒤 /attendance, /leave 를 지나 승인 대기와 팀 병목 확인을 우선 처리합니다.",
-    note: "승인 우선순위는 높지만 일반 직원 하루 흐름과 같은 허브에서 시작하고 관리자 운영 흐름과는 섞지 않습니다.",
-  },
-  {
-    role: "인사 / 운영 관리자",
-    nextRoute: "/admin",
-    summary: "권한 기반 CTA 와 admin host guard 를 통과한 뒤 사용자/정책/감사 검토로 이동합니다.",
-    note: "일반 host 에서 /admin* 을 직접 열면 redirect/forbidden guard 가 먼저 동작합니다.",
-  },
-  {
-    role: "감사 전용 사용자",
-    nextRoute: "/admin/audit-logs",
-    summary: "감사 로그 조회 전용 경로가 우선이며 전체 관리자 허브와 권한이 분리됩니다.",
-    note: "조회/마스킹/회사 경계 규칙만 확인하고 실제 반출은 열지 않습니다.",
-  },
-] as const;
+const personaCards = devSafeRoleOptions.map((option) => ({
+  role: option.label,
+  nextRoute: option.landingRoute,
+  summary: option.description,
+  note:
+    option.value === "COMPANY_ADMIN"
+      ? "로그인 뒤 홈(/dashboard)에서 시작하고 관리자 CTA 와 경영업무 허브를 함께 확인합니다."
+      : option.value === "AUDITOR"
+        ? "감사 로그와 경영업무 허브는 읽기 전용으로만 확인합니다."
+        : "같은 테스트 계정으로 역할별 landing 차이만 dev-safe 로 확인합니다.",
+}));
 
 const guardrails = [
-  "실제 비밀번호 저장/해시 운영값은 아직 연결하지 않습니다.",
-  "로그인 성공 시 placeholder 세션 계약과 역할 경계만 확인합니다.",
+  "admin / 1234 는 dev/test/UAT 전용 테스트 계정이며 production 에서는 금지합니다.",
+  "로그인 성공 시 실제 사용자 저장 대신 placeholder 세션과 역할 경계만 확인합니다.",
+  "로그아웃은 gw_session 쿠키만 비우고 외부 인증 provider 와는 연결하지 않습니다.",
   "OAuth/SSO/메일 초대 발송은 승인 전까지 연결하지 않습니다.",
   "일반 사용자 기본 흐름에서는 관리자 CTA 를 숨기고 route/API guard 를 유지합니다.",
 ] as const;
@@ -48,17 +37,21 @@ export default function LoginPage() {
     <PageShell
       backHref="/"
       backLabel="홈으로"
-      eyebrow="Phase 14 로그인/권한 시작점"
-      title="로그인 skeleton"
-      description="실제 인증 provider 연결 없이도 로그인 뒤 어떤 역할이 어떤 화면으로 이어지는지 확인할 수 있게 정리한 placeholder 화면입니다."
+      eyebrow="Phase 31 로그인/세션 UAT 입구"
+      title="로그인 / dev-safe UAT 계정"
+      description="대장이 실제로 admin / 1234 로 로그인하고, 역할별 landing 과 로그아웃 흐름을 같은 화면에서 바로 확인할 수 있게 바꾼 dev-safe 로그인 화면입니다."
       actions={
         <div className="pill-row">
-          <Pill tone="accent">placeholder session contract</Pill>
-          <Pill tone="warning">no real auth provider</Pill>
+          <Pill tone="accent">admin / 1234</Pill>
+          <Pill tone="warning">production 금지</Pill>
         </div>
       }
     >
-      <SurfaceSection title="예상 입력값" description="실인증 대신 API shape 와 안내 문구를 맞추기 위한 예시 값입니다.">
+      <SurfaceSection title="바로 로그인" description="기본값은 경영관리자 UAT 입니다. 필요하면 같은 테스트 계정으로 역할만 바꿔 landing 차이를 확인합니다.">
+        <LoginForm />
+      </SurfaceSection>
+
+      <SurfaceSection title="테스트 계정 기준" description="문서/코드/운영 안내에서 같은 기준을 쓰기 위한 고정 값입니다.">
         <div className="grid-auto-compact">
           {loginFields.map((field) => (
             <article key={field.label} className="info-card">
@@ -69,7 +62,7 @@ export default function LoginPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="로그인 뒤 역할별 첫 이동" description="같은 로그인 화면에서도 역할에 따라 이어지는 첫 경로가 다르다는 점을 먼저 보여 줍니다.">
+      <SurfaceSection title="로그인 뒤 역할별 첫 이동" description="같은 테스트 계정이어도 어떤 landing 을 먼저 보여 줄지 역할별로 분리합니다.">
         <div className="mobile-summary-grid">
           {personaCards.map((item) => (
             <article key={item.role} className="route-card">
@@ -82,7 +75,7 @@ export default function LoginPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="현재 단계 안내" description="실사용 MVP 검토 단계에서 거짓 완료처럼 보이지 않도록 고정하는 문구입니다.">
+      <SurfaceSection title="현재 단계 안내" description="실사용화 단계에서도 과장하지 않기 위해 고정하는 경계입니다.">
         <ul className="bullet-list">
           {guardrails.map((item) => (
             <li key={item}>{item}</li>
@@ -90,25 +83,34 @@ export default function LoginPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="다음 화면 연결" description="로그인 뒤에는 대시보드에서 직원 하루 업무 흐름을, 권한 있는 사용자만 관리자 검토 흐름을 이어서 봅니다." muted>
+      <SurfaceSection title="로그인 뒤 바로 눌러볼 경로" description="admin / 1234 기준 추천 확인 순서입니다." muted>
         <div className="grid-auto-compact">
           <article className="info-card">
-            <h3>일반 업무 흐름</h3>
-            <p>/dashboard → /attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees</p>
+            <h3>홈 / 일반 업무</h3>
+            <p>/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
             <div className="pill-row">
               <Link href="/dashboard">대시보드</Link>
               <Link href="/attendance">근태</Link>
               <Link href="/leave">휴가</Link>
               <Link href="/approvals">전자결재</Link>
-              <a href="/me">내 정보</a>
+            </div>
+          </article>
+          <article className="info-card">
+            <h3>경영업무 / 계정관리</h3>
+            <p>/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs</p>
+            <div className="pill-row">
+              <Link href="/management">경영업무</Link>
+              <Link href="/admin/users">계정관리</Link>
+              <Link href="/admin/audit-logs">감사 로그</Link>
             </div>
           </article>
           <article className="info-card">
             <h3>세션 / 계약 확인</h3>
-            <p>역할과 권한 요약은 same-origin API 로만 확인합니다.</p>
+            <p>로그인/로그아웃 contract 와 계정관리 목록 API 를 same-origin 경로로 바로 확인할 수 있습니다.</p>
             <div className="pill-row">
-              <a href={appRoutes.me}>GET /api/me</a>
               <a href={appRoutes.auth.login}>{appRoutes.auth.login}</a>
+              <a href={appRoutes.auth.logout}>{appRoutes.auth.logout}</a>
+              <a href={appRoutes.admin.users}>{appRoutes.admin.users}</a>
             </div>
           </article>
         </div>

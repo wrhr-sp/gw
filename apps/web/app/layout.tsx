@@ -61,7 +61,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link rel="manifest" href={manifestHref} />
       </head>
       <body>
-        <MobileAppShell {...shellConfig}>{children}</MobileAppShell>
+        <MobileAppShell {...shellConfig} currentRoleCode={roleCode}>
+          {children}
+        </MobileAppShell>
       </body>
     </html>
   );

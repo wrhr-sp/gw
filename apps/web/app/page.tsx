@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 
 import { PageShell, Pill, SurfaceSection } from "./_components/page-shell";
+import { SessionSummaryPanel } from "./_components/real-usage-panels";
 import { installGuideSteps, mobileBottomTabs, mobilePrimaryNav, mobileReviewChecklist } from "./mobile-pwa-config";
 
 const primaryFlows = [
@@ -12,8 +13,8 @@ const primaryFlows = [
   },
   {
     badge: "관리자 검토 흐름",
-    title: "/dashboard 권한 기반 CTA → /admin → /admin/users · /admin/policies · /admin/audit-logs",
-    body: "인사/운영 관리자와 감사 사용자는 같은 앱 안에서 별도 검토 흐름으로 들어가며, 일반 사용자 기본 화면에는 관리자 CTA 를 섞어 보이지 않습니다.",
+    title: "/dashboard 관리자 CTA → /management → /admin/users · /admin/policies · /admin/audit-logs",
+    body: "인사/운영 관리자와 감사 사용자는 홈과 분리된 경영업무 허브를 거쳐 계정관리·정책·감사 흐름으로 이동합니다.",
   },
 ] as const;
 
@@ -32,8 +33,8 @@ const roleEntryCards = [
   },
   {
     role: "인사 / 운영 관리자",
-    firstRoute: "/admin",
-    summary: "사용자, 정책, 감사 preview 를 검토하는 운영 흐름으로 분리합니다.",
+    firstRoute: "/management",
+    summary: "홈에서 계정관리·정책·감사로 이어지는 경영업무 허브로 먼저 이동합니다.",
     note: "일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
   },
   {
@@ -55,9 +56,9 @@ export default function HomePage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 14 실사용 MVP 통합 1차"
+      eyebrow="Phase 31 실사용 MVP 통합"
       title="그룹웨어 실사용 MVP 시작점"
-      description="홈, 로그인, 대시보드, 일반 업무 화면, 관리자 검토 화면을 한 흐름으로 눌러 보면서 직원의 하루 업무 순서를 그대로 따라갈 수 있게 정리한 dev-safe 시작 화면입니다."
+      description="홈, 로그인, 대시보드, 일반 업무 화면, 관리자 검토 화면을 한 흐름으로 눌러 보면서 직원의 하루 업무 순서를 실제 API 응답과 함께 확인할 수 있게 정리한 시작 화면입니다."
       actions={
         <div className="action-row">
           <Link href="/login" className="touch-button">
@@ -81,6 +82,10 @@ export default function HomePage() {
           <Pill tone="warning">실제 저장/권한 변경 제외</Pill>
         </div>
       </section>
+
+      <SurfaceSection title="현재 로그인 상태" description="이미 로그인했다면 이 화면에서 바로 세션과 권한을 다시 확인하고 다음 route 로 이동할 수 있습니다.">
+        <SessionSummaryPanel />
+      </SurfaceSection>
 
       <SurfaceSection title="이번 MVP에서 먼저 보는 2개 흐름" description="한 앱 안에서 일반 업무와 관리자 검토 흐름을 분리해 보여 줍니다.">
         <div className="grid-auto">

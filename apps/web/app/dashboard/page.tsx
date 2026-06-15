@@ -14,5 +14,5 @@ export default async function DashboardPage() {
     : null;
   const managementCards = viewerAccess ? getVisibleDashboardManagementCards(viewerAccess.roleCodes) : [];
 
-  return <DashboardPageContent adminShortcut={adminShortcut} managementCards={managementCards} />;
+  return <DashboardPageContent adminShortcut={adminShortcut} managementCards={managementCards} viewerRoleCode={roleCode} />;
 }

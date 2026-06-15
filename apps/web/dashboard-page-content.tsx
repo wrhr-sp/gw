@@ -20,9 +20,11 @@ import {
 export function DashboardPageContent({
   adminShortcut,
   managementCards,
+  viewerRoleCode,
 }: {
   adminShortcut: DashboardAdminShortcut | null;
   managementCards: readonly DashboardManagementCard[];
+  viewerRoleCode: string | null;
 }) {
   return (
     <PageShell
@@ -41,6 +43,27 @@ export function DashboardPageContent({
         </div>
       }
     >
+      <SurfaceSection title="현재 세션 / 홈-경영업무 분리" description="로그인 뒤 홈은 /dashboard 로 고정하고, 민감 업무는 /management 와 /admin 계열로 분리해 확인합니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">현재 세션</Pill>
+            <h3>{viewerRoleCode ?? "로그인 전"}</h3>
+            <p>로그인 성공 시 topbar 로그아웃과 함께 gw_session 세션을 유지하고, 홈은 /dashboard 에서 계속 확인합니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>일반 홈</Pill>
+            <h3>/dashboard</h3>
+            <p>근태, 휴가, 전자결재, 게시판, 문서, 내 정보 같은 일반 업무 시작점입니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">경영업무 허브</Pill>
+            <h3>/management</h3>
+            <p>계정관리, 감사, 세무/노무/법무 같은 민감 모듈은 홈과 분리된 별도 허브에서만 검토합니다.</p>
+            <a href="/management">/management</a>
+          </article>
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection
         title="오늘 할 일"
         description="가장 먼저 눌러야 할 상단 액션 6가지를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."

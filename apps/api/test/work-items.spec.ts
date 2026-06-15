@@ -19,8 +19,8 @@ async function loginAndGetCookie(role: RoleCode) {
       "x-dev-role": role,
     },
     body: JSON.stringify({
-      email: "admin@example.com",
-      password: "placeholder-password",
+      loginId: "admin",
+      password: "1234",
     }),
   });
 

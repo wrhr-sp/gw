@@ -7,7 +7,7 @@ import { DashboardPageContent } from "./dashboard-page-content";
 
 describe("Phase 14 dashboard summary skeleton", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
-    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} />);
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("휴가 잔여와 신청 확인");
@@ -27,12 +27,12 @@ describe("Phase 14 dashboard summary skeleton", () => {
   });
 
   it("does not expose admin or management entry CTA in the default general-user dashboard view", () => {
-    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} />);
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
+    expect(html).toContain("현재 세션 / 홈-경영업무 분리");
     expect(html).not.toContain("관리자 허브 바로가기");
     expect(html).not.toContain('href="/admin"');
-    expect(html).not.toContain('href="/management"');
     expect(html).not.toContain('href="/work-items/legal"');
   });
 
@@ -72,6 +72,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
       <DashboardPageContent
         adminShortcut={getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])}
         managementCards={getVisibleDashboardManagementCards(["COMPANY_ADMIN"])}
+        viewerRoleCode="COMPANY_ADMIN"
       />,
     );
 

@@ -320,6 +320,26 @@ pnpm --filter @gw/mobile typecheck
 5. `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 에서 company scope `work_item_legal_contract_review`, branch scope `work_item_legal_contract_renewal`, company scope `work_item_legal_dispute_intake`, legal audit/attachment 경계가 역할별로 붙들려 있는지 본다.
 6. 가능하면 `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx`, `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 에서 legal 분리 copy, 경영업무 진입, route guard 가 회귀 테스트로 고정돼 있는지 본다.
 
+### 1-10-g. 실사용 전환 1차 / Phase 31 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `admin / 1234` 로 로그인해 `/dashboard` 와 `/management` 를 바로 따라가 볼 수 있는가
+2. 익명 / 관리자 / 일반 직원 기준의 landing 과 forbidden 경계가 문서와 같은 뜻인가
+3. `/admin/users` 와 `/api/admin/users` 를 기준으로 dev-safe 계정관리 흐름을 설명할 수 있는가
+4. `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 중 무엇이 지금 happy path 후보이고 무엇이 아직 skeleton 인지 분리돼 있는가
+5. `경영업무` 허브와 민감 모듈 route 가 일반 직원 홈과 섞이지 않는가
+6. production 기본 계정, 외부 인증, 실데이터 운영, 실지급/실신고 같은 금지 범위가 다시 분명히 남아 있는가
+
+빠른 확인 순서:
+1. `/login` — dev-safe UAT 계정 설명, production 금지 문구, 익명 진입 기준을 본다.
+2. `/dashboard` — 일반 업무 홈과 관리자 CTA 분리를 본다.
+3. `/management` — 경영업무 허브가 민감 모듈 진입점으로 읽히는지 본다.
+4. `/admin/users` 와 `GET /api/admin/users` — 계정관리 진입과 권한 경계를 본다.
+5. `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` — route 진입 가능 여부와 happy path 후보/placeholder 비중 설명을 본다.
+6. `/work-items/legal` 또는 다른 민감 모듈 route — 일반 직원 차단과 관리자 허용이 같은 권한 언어인지 본다.
+7. `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 와 parent smoke 근거 — 익명 `/api/me` 401, 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 이 실제로 붙들려 있는지 대조한다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash

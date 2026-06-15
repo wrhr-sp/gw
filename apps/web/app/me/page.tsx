@@ -2,6 +2,7 @@ import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { MeLiveSection } from "../_components/real-usage-panels";
 
 const profileCards = [
   {
@@ -64,9 +65,9 @@ export default function MePage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 22 내 정보 / 세션 마무리 확인"
-      title="내 정보 skeleton"
-      description="공지·문서 확인 뒤 내 세션, 역할, 회사 정보, 보안 안내를 다시 확인하고 조직/직원 조회로 이어지게 정리한 dev-safe placeholder 입니다."
+      eyebrow="Phase 31 내 정보 / 세션 마무리 확인"
+      title="내 정보"
+      description="공지·문서 확인 뒤 내 세션, 역할, 회사 정보, 보안 안내를 다시 확인하고 조직/직원 조회로 이어지게 정리했으며, 실제 same-origin 세션 확인과 로그아웃까지 바로 검증할 수 있습니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">session summary</Pill>
@@ -74,6 +75,10 @@ export default function MePage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 세션 패널" description="현재 로그인 계정, 권한 수, 로그아웃 동작을 같은 화면에서 바로 확인합니다.">
+        <MeLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="내 정보에서 먼저 보는 카드" description="업무 처리 뒤 마지막에 확인하는 개인 맥락을 짧게 정리합니다.">
         <div className="grid-auto-compact">
           {profileCards.map((card) => (

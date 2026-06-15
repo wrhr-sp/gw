@@ -499,6 +499,17 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 노무/세무/급여 문맥과 법무 검토 문맥을 같은 모듈/같은 API 책임처럼 섞지 않는다.
 - 대장이 실제로 다시 볼 때는 `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` → `apps/api/test/work-items.spec.ts` 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
 
+### 6-12. 실사용 전환 1차/Phase 31 문구는 "지금 바로 눌러볼 수 있는 입구 / 아직 남은 skeleton / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `admin / 1234` 는 dev/test/UAT 전용 계정으로만 적고, production 기본 계정처럼 쓰지 않는다.
+- `/login`, `/dashboard`, `/management`, `/admin/users` 는 지금 바로 눌러볼 수 있는 UAT 입구인지 먼저 적고, 실제 영구 운영 계정체계나 외부 인증 연동 완료처럼 과장하지 않는다.
+- 익명 기준 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 같은 현재 검증 근거를 문서와 최종 보고에 같은 뜻으로 남긴다.
+- 관리자 로그인 기준 `/dashboard` 200, `/management` 200, `/work-items/legal` 200, `/api/admin/users` 200 과 일반 직원 로그인 기준 `/management` 307 `/forbidden`, `/work-items/legal` 307 `/forbidden`, `/api/admin/users` 403 경계를 같은 권한 언어로 적는다.
+- `경영업무` 허브는 일반 직원 홈과 분리된 민감 모듈 진입점으로 적고, 단순 메뉴 숨김이 아니라 route/API guard, company+branch scope, audit 언어를 같이 맞춘다.
+- `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 는 route 진입 가능 여부와 최소 happy path 후보를 적되, 아직 placeholder 비중이 큰 부분은 fit-gap 표로 분리한다.
+- 계정관리는 `/admin/users` 와 `/api/admin/users` 기준의 dev-safe 생성/권한 변경/활성 비활성/비밀번호 초기화 흐름으로 적고, 실메일 초대·SSO·외부 IdP·대량 import 는 계속 승인 게이트로 남긴다.
+- production DB, 실급여 지급, 은행 이체, 주민번호/계좌번호 입력 확대, 외부 세무/노무/법무 기관 연동, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 별도 승인으로 적는다.
+
 ## 7. 승인 없이 하면 안 되는 것
 
 아래는 여전히 별도 승인 대상이다.

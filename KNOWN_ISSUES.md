@@ -19,28 +19,26 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 29 법무 관리 1차
+### 3. 현재 문서화/검증 기준은 실사용 전환 1차 fit-gap + Phase 31 준비
 
-현재 루트 문서와 handoff 는 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 정리하는 Phase 29 체인을 기준으로 맞춘다.
+현재 루트 문서와 handoff 는 로그인/홈/경영업무/계정관리 실사용화 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `legal` 모듈 법무 skeleton 을 올리는 것이다.
-- 계약 검토/갱신 skeleton 을 실제 계약 체결 완료나 외부 법률 자문 완료처럼 쓰기 시작하면 사용자 기대치와 법무 처리 범위가 바로 어긋날 수 있다.
-- 지점 관리자 요청 범위와 HQ 법무 검토 범위를 같은 권한처럼 설명하면 호텔 지점 운영 범위를 넘는 과노출 위험이 생길 수 있다.
-- 외부 자문 gate 후보와 실제 외부 변호사 전달 완료를 같은 단계처럼 쓰면 승인 게이트가 무너질 수 있다.
-- 노무/세무/급여 문맥과 법무 문맥을 같은 endpoint/같은 화면 책임처럼 쓰면 모듈 경계가 흔들릴 수 있다.
-- 실계약서 원문, 분쟁 자료 원문, 개인정보처리위탁 계약 전문, 외부 자문 계정 정보 같은 민감 정보를 너무 이른 단계에 문서화하면 approval gate 와 skeleton 범위가 흐려질 수 있다.
-- raw storage key, bucket 이름, signed/public URL 전문 같은 파일/문서 민감 참조는 운영 정책/감사 로그 설명에도 노출하지 않는다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 "대장이 실제로 어디까지 바로 눌러볼 수 있는가"를 다시 분리하는 것이다.
+- `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
+- 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 경계를 문서/테스트/최종 보고에서 같은 뜻으로 유지해야 한다.
+- `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals` 는 route 진입과 일부 상태 확인은 가능하지만, 아직 happy path 체감이 고르게 닫히지 않았다는 점을 숨기면 안 된다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 법무 관리 정리 단계에서 남아 있는 제품형 리스크
+### 4. 현재 실사용 전환 1차/Phase 31 단계에서 남아 있는 제품형 리스크
 
-- 계약/분쟁 category 범위와 현재 fixture 예시 범위를 구분하지 않으면 문서가 없는 외부 법무 처리까지 이미 구현된 것처럼 읽힐 수 있다.
-- 현재 company scope `work_item_legal_contract_review`, branch scope `work_item_legal_contract_renewal`, company scope `work_item_legal_dispute_intake` 3건을 모두 placeholder skeleton 으로 읽어야 하며, 이를 전체 계약/갱신/분쟁 구현 완료로 과장하면 범위 오해가 생길 수 있다.
-- 검토/보완 요청 상태를 총괄 한 줄로만 축약하면 계약 유형별 이유와 승인 게이트가 다시 불투명해질 수 있다.
-- 계약 검토 → 보완 요청 → 승인 게이트 → 갱신/분쟁 후속 흐름이 문서마다 다르게 적히면 legal status 의미가 화면/API/테스트마다 갈릴 수 있다.
-- 계약 갱신 skeleton 을 실제 자동 통지/외부 법률 검토 스케줄처럼 써 버리면 외부 자문 연동이 이미 끝난 것처럼 오해될 수 있다.
-- `/management` 와 `/work-items/legal` 진입 구조를 모바일 `홈`/`메뉴`/PC sidebar 에서 다르게 풀면 경영업무 분리 의도와 공통 `legal` 모듈 자리가 함께 흔들릴 수 있다.
+- `admin / 1234` 를 UAT용이 아니라 운영 기본 계정처럼 문서화하면 보안/운영 기대치가 바로 어긋난다.
+- `/dashboard` 와 `경영업무`(`/management`) 분리를 흐리게 쓰면 일반 직원 홈과 민감 모듈 허브가 다시 섞일 수 있다.
+- `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 중 일부 route 를 실제 저장/승인/외부 연동 완료처럼 과장하면 fit-gap 우선순위가 무너진다.
+- `/admin/users` 와 `/api/admin/users` 의 dev-safe 계정관리 흐름을 실제 메일 초대/SSO/외부 IdP 완료처럼 쓰면 승인 게이트가 사라진다.
+- `/management` 와 `/work-items/legal`·`/work-items/hr`·`/work-items/tax` 같은 민감 모듈 진입 구조를 모바일 `홈`/`메뉴`/PC sidebar 에서 다르게 풀면 경영업무 분리 의도와 UAT 안내가 함께 흔들릴 수 있다.
+- 익명/관리자/일반 직원의 landing·forbidden 경계를 문서마다 다르게 적으면 권한 테스트 근거와 사용자 체험 설명이 어긋날 수 있다.
+- 외부 인증, 실급여 지급, 실신고, production DB, 실제 개인정보 입력 확대를 이번 단계의 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

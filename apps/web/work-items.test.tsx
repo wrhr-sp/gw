@@ -96,8 +96,8 @@ describe("Phase 25 work-items web entrypoints", () => {
     const html = renderToStaticMarkup(<ManagementPage />);
 
     expect(html).toContain("경영업무");
-    expect(html).toContain("민감 모듈 진입");
+    expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain('href="/work-items/legal"');
-    expect(html).toContain("허용 역할만 `/management`, `/work-items/legal` 경로로 진입할 수 있습니다.");
+    expect(html).toContain("일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.");
   });
 });

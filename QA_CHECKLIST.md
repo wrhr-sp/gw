@@ -73,6 +73,11 @@
 - [ ] Phase 28 문서에서는 위 공통 work item 엔진 위에 tax skeleton 이 올라가며, 별도 신고 자동화/실세무 처리/외부 홈택스·세무사 연동처럼 과장되지 않는다.
 - [ ] Phase 28A 문서에서는 급여가 labor 안에 묻지 않고 독립 `/payroll` 모듈로 읽히며, 본사 급여 담당/지점 관리자/일반 직원 visibility 가 분리된다.
 - [ ] Phase 29 문서에서는 위 공통 work item 엔진 위에 legal skeleton 이 올라가며, 별도 외부 자문 포털/실계약 원문 저장 확대/기관 제출 자동화처럼 과장되지 않는다.
+- [ ] Phase 31/실사용 전환 1차 문서에서는 `admin / 1234` 를 dev/test/UAT 전용 계정으로만 적고 production 기본 계정처럼 쓰지 않는다.
+- [ ] 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 경계가 문서/테스트/최종 보고에서 같은 뜻이다.
+- [ ] `/dashboard` 와 `경영업무`(`/management`) 분리가 일반 직원 홈 대 민감 모듈 허브 분리 의도와 같은 뜻으로 읽힌다.
+- [ ] `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 는 "지금 진입 가능", "최소 happy path 후보", "아직 placeholder 비중이 큰 부분"이 분리돼 적혀 있다.
+- [ ] `/admin/users` 와 `/api/admin/users` 기준의 dev-safe 계정관리 흐름과, 실메일 초대·SSO·외부 IdP·대량 import 승인 게이트가 섞이지 않는다.
 - [ ] `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 근거가 같은 뜻이다.
 - [ ] `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 근거가 같은 뜻이다.
 - [ ] branch scope `work_item_tax_month_end_evidence` 와 company scope `work_item_tax_vat_package_preparation` 가 같은 tax 모듈 안에서도 다른 열람 범위/책임을 가진다는 설명이 문서와 테스트에서 같게 유지된다.
