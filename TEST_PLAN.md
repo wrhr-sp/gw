@@ -58,12 +58,12 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 둘 다 소개하는지
 - 로그인(`/login`)이 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 과장 없이 설명하는지
 - 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 우선순위를 유지하고, 이후 `/org`·`/employees` 조회 마무리 흐름으로 자연스럽게 이어지는지
-- 협업 검토는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents` 같은 현재 placeholder 예시 경로로 다시 눌러 보며 문서 설명과 실제 route 톤이 같은지 확인하는지
+- 협업 검토는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents` 같은 현재 예시 경로로 다시 눌러 보며 문서 설명과 실제 route 톤이 같은지 확인하는지
 - 일반 업무 route(`/attendance`, `/leave`, `/approvals`, `/org`, `/employees`) 설명이 dashboard 와 같은 언어를 쓰는지
 - 협업 route(`/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`)가 핵심 업무 흐름과 끊기지 않으면서도 실제 완성형 협업툴처럼 과장되지 않는지
 - `/boards` 가 전사 공지(`board_notice`)와 자유 게시판(`board_general`)을 같은 화면에서 보여 주더라도 notice-only와 일반 작성 책임 차이를 먼저 설명하는지
-- `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 를 분리해 보여 주고 forged/접근 불가 postId 403 경계 설명과 충돌하지 않는지
-- `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
+- `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 를 분리해 보여 주고 댓글 preview 생성·읽음 확인 등록·forged 차단 확인이 같은 뜻으로 이어지는지
+- `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
 - live `.workers.dev` 직접 fetch 가 막히면 이를 미확인으로 남기고 `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview smoke 같은 대체 근거를 별도로 기록하는지
 - 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
 
@@ -392,6 +392,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - Telegram 보고정책 문서가 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리하는지 확인한다.
 - blocked 분류가 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요로 설명돼 있는지 확인한다.
 - 카드 댓글 완료와 사용자 직접 보고 완료를 다른 상태로 구분하는지 확인한다.
+- singde 최종보고 카드라면 direct delivery 전 `사용자 보고 필요`, direct delivery 후 `사용자 보고 완료`와 `[singde-direct-delivery]` 코멘트가 남지 않으면 watcher가 재확인 코멘트를 남기는지 확인한다.
 - 같은 카드·같은 이유·같은 근거에서 중복/스팸 보고를 막는 기준이 있는지 확인한다.
 - scheduled 복구 카드 정리라면 예전 오류 재현 로그만 보지 말고, 최신 저장소에서 `pnpm check`, 관련 test/typecheck/build, 가능하면 `pnpm --filter @gw/web build:cf`, local `preview:cf` smoke 까지 다시 대조해 "지금도 살아 있는 일인지"를 확인한다.
 

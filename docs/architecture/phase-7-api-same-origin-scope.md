@@ -2,7 +2,7 @@
 
 ## 1. 문제 정의
 
-현재 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 이미 들어와 있고 로컬 테스트도 통과합니다. 다만 공개 Web preview URL(`https://gw-web.werehere31.workers.dev`)은 이 변경을 다시 배포해 확인한 상태가 아닙니다.
+현재 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 이미 들어와 있고 로컬 테스트도 통과합니다. 현재 공개 Web preview URL 은 `https://gw-web.wereheresp.workers.dev` 이며, 이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview 주소로 현재 HTTP 404 입니다.
 
 이번 Phase의 목표는 "모바일/PWA와 Web이 계속 같은 origin `/api/*` 를 기본값으로 믿을 수 있게" 최소 연결 방식을 정하고, 다음 구현 카드가 안전하게 따라갈 수 있는 범위를 고정하는 것입니다.
 
@@ -111,7 +111,7 @@
 이번 1차에서 고정하는 기술 방향은 아래와 같습니다.
 
 1. 외부 기본 URL은 Web origin 하나로 유지합니다.
-   - preview: 현재 `https://gw-web.werehere31.workers.dev`
+   - preview: 현재 `https://gw-web.wereheresp.workers.dev`
    - production: 나중에 custom domain 이 붙더라도 원칙은 동일
 
 2. API 기본 경로는 계속 same-origin 상대 경로 `/api/*` 입니다.

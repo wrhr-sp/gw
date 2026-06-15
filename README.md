@@ -177,10 +177,10 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 문서만 먼저 보고 싶은 경우 아래 5가지만 기억하면 됩니다.
 
 1. 현재 공개 preview URL 과 최근 확인 결과
-   - 현재 공개 Web preview URL: `https://gw-web.werehere31.workers.dev`
-   - 공개 smoke 확인 결과: `/`, `/login`, `/boards`, `/documents` 는 200
-   - 공개 admin 경계 확인 결과: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 모두 `/login` 으로 307 redirect
+   - 현재 공개 Web preview URL: `https://gw-web.wereheresp.workers.dev`
+   - 공개 smoke 확인 결과: `/`, `/login`, `/dashboard`, `/menu`, `/admin/users` 는 200
    - 로컬 `pnpm --filter @gw/web preview:cf` smoke 도 같은 패턴을 재현했고 `/manifest.webmanifest` 는 200 이었습니다.
+   - 이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview 기록이며, 현재는 HTTP 404 를 반환했습니다.
 2. 남아 있는 한계
    - 저장소 코드에는 same-origin `/api/health`, `/api/me` 브리지가 이미 들어가 있고 로컬 최종 게이트(`pnpm --filter @gw/web build:cf`)도 다시 통과했습니다.
    - 다만 현재 공개 preview URL 에서 이 최신 코드를 다시 배포해 `/api/*` 와 `/admin*` 를 재스모크한 결과는 별도 운영 실행 결과로 남겨야 합니다.
@@ -229,7 +229,7 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 이번에 고정한 결정은 아래와 같습니다.
 
-- 공개 기본 주소는 계속 Web origin 하나를 씁니다. 현재 preview 는 `https://gw-web.werehere31.workers.dev` 입니다.
+- 공개 기본 주소는 계속 Web origin 하나를 씁니다. 현재 preview 는 `https://gw-web.wereheresp.workers.dev` 입니다.
 - Web/PWA 의 API 기본 경로는 계속 same-origin `/api/*` 입니다.
 - 현재 저장소에는 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가되어 same-origin `/api/health`, `/api/me` 요청을 기존 `apps/api/src/app.ts` 계약으로 넘깁니다.
 - 이 브리지는 공개 API 도메인을 새로 두지 않고 Web 안에서 같은 origin 경로를 유지합니다.

@@ -19,32 +19,29 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 실사용 전환 1차 fit-gap + Phase 31 준비
+### 3. 현재 문서화/검증 기준은 Phase 32 게시판·공지·댓글·문서함 실사용화 준비
 
-현재 루트 문서와 handoff 는 로그인/홈/경영업무/계정관리 실사용화 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 게시판·공지·댓글·문서함 협업 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 "대장이 실제로 어디까지 바로 눌러볼 수 있는가"를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/boards` 와 `/documents` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 경계를 문서/테스트/최종 보고에서 같은 뜻으로 유지해야 한다.
-- `/dashboard` 는 분리 구조가 작동해도 제목/설명에 아직 `skeleton`, `placeholder/dev-safe` 언어가 남아 있어 실제 홈 체감과 문구 사이 간격이 있다.
-- `/dashboard` 홈 바로가기 영역은 구조 자체는 맞지만, `로그인 전 미조회` / `커스텀 없음` / `API load error` 를 문서와 화면에서 같은 뜻으로 계속 유지해야 한다.
-- `/admin/users` 는 `GET /api/admin/users` preview 와 dev-safe action 폼이 있지만, 실제 저장이 아니라 303 redirect 결과 문구 중심이라는 점을 숨기면 안 된다.
-- `/admin/users` preview 뒤 다시 눌러볼 route(`/management`, `/admin/audit-logs`, 일반 업무 happy path`)를 짧게 고정하지 않으면 계정 preview 가 실제 저장처럼 오해될 수 있다.
-- `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals` 는 route 진입과 일부 상태 확인은 가능하지만, 아직 happy path 체감이 고르게 닫히지 않았다는 점을 숨기면 안 된다.
+- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 route 진입과 live panel 확인뿐 아니라 preview 생성/읽음 확인/guard probe 일부까지 가능하지만, 아직 게시판 상세/게시글 상세/문서 상세 UAT 체감이 완전히 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- EMPLOYEE 기준 general 게시글 작성·댓글·read receipt 가능, notice-only 글쓰기 차단, private space 차단, forged post/read receipt 차단을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
+- COMPANY_ADMIN 기준 게시판 생성, 문서공간 생성, 문서 metadata 생성은 가능하지만 raw `storageKey` 비노출 원칙을 계속 지켜야 한다.
+- richer editor, 상세 스레드/버전 UX, 외부 공유, 실운영 업로드 확대가 닫히지 않으면 화면 실사용화와 실제 운영 협업 체감 사이 간격이 계속 남는다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 실사용 전환 1차/Phase 31 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 32 단계에서 남아 있는 제품형 리스크
 
-- `admin / 1234` 를 UAT용이 아니라 운영 기본 계정처럼 문서화하면 보안/운영 기대치가 바로 어긋난다.
-- `/dashboard` 와 `경영업무`(`/management`) 분리를 흐리게 쓰면 일반 직원 홈과 민감 모듈 허브가 다시 섞일 수 있다.
-- 홈 바로가기의 고정/커스텀 분리와 빈 상태 설명을 느슨하게 쓰면 PC/모바일 홈 안내가 다시 어긋날 수 있다.
-- `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 중 일부 route 를 실제 저장/승인/외부 연동 완료처럼 과장하면 fit-gap 우선순위가 무너진다.
-- `/admin/users` 와 `/api/admin/users` 의 dev-safe 계정관리 흐름을 실제 메일 초대/SSO/외부 IdP 완료처럼 쓰면 승인 게이트가 사라진다.
-- 비밀번호 preview 에 보이는 `1234` 를 production 기본 비밀번호처럼 오해되게 문서화하면 보안 기대치가 바로 깨진다.
-- `/management` 와 `/work-items/legal`·`/work-items/hr`·`/work-items/tax` 같은 민감 모듈 진입 구조를 모바일 `홈`/`메뉴`/PC sidebar 에서 다르게 풀면 경영업무 분리 의도와 UAT 안내가 함께 흔들릴 수 있다.
-- 익명/관리자/일반 직원의 landing·forbidden 경계를 문서마다 다르게 적으면 권한 테스트 근거와 사용자 체험 설명이 어긋날 수 있다.
-- 외부 인증, 실급여 지급, 실신고, production DB, 실제 개인정보 입력 확대를 이번 단계의 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
+- notice-only 게시판과 general 게시판 책임을 흐리게 쓰면 공지 전달과 일반 소통 규칙이 다시 섞일 수 있다.
+- `/boards/[boardId]` 와 `/posts/[postId]` 를 실제 협업 완성품처럼 과장하면 placeholder honesty 가 무너진다.
+- EMPLOYEE 의 general 게시글 작성 허용과 notice/private/forged 차단을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
+- `/documents` 의 metadata 중심 범위를 문서 상세/원본 저장/외부 공유 완료처럼 쓰면 storage 승인 게이트가 사라질 수 있다.
+- raw `storageKey`, bucket 내부명, public URL 같은 storage 내부정보가 화면/문서/API 예시에 드러나면 Phase 32의 보안 경계가 바로 무너진다.
+- PostgreSQL/R2 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
+- `/boards` 와 `/documents` 를 모바일 `홈`/`메뉴`/PC sidebar 에서 다른 우선순위로 풀어 쓰면 UX 안내가 다시 흔들릴 수 있다.
+- 외부 공유, production 문서 실데이터, secret, paid resource, migration 을 이번 단계의 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

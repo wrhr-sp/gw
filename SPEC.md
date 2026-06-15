@@ -260,10 +260,10 @@
 - `/boards` 는 notice-only 공지와 일반 게시판을 같은 카드 목록 안에서 보여 주더라도, 일반 구성원 글쓰기 가능 여부와 운영 공지 작성 권한이 다르다는 점을 먼저 읽히게 유지하기
 - `/boards/[boardId]` 는 `board_notice`, `board_general` 같은 대표 경로를 예시로 삼아 boardId 기반 정보구조와 권한 문구를 먼저 고정하고, 없는 boardId 도 실제 운영 게시판 생성처럼 보이게 설명하지 않기
 - `/posts/[postId]` 는 bodyPreview 중심 상세, 댓글 영역, 읽음 확인 영역을 분리해 보여 주고 접근 불가 postId 는 UI/API 모두 403 경계 설명과 같은 뜻을 유지하기
-- `/documents` 와 첨부 metadata 는 실제 운영 업로드/다운로드 완료처럼 보이지 않게 placeholder/dev-safe 제한을 분명히 남기기
+- `/documents` 와 첨부 metadata 는 실제 운영 업로드/다운로드 완료처럼 보이지 않게 placeholder/dev-safe 제한을 분명히 남기고, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인처럼 지금 눌러볼 수 있는 액션은 따로 적기
 - R2 연계는 private-by-default, D1 metadata 우선, binding-aware skeleton 기준까지만 다루고 raw `storageKey`, bucket 이름, public URL 을 응답/문서/UI 기본값으로 노출하지 않기
 - `/documents` 는 전사 문서함과 인사 전용 문서함의 권한 차이를 먼저 보여 주고, fileName/contentType/fileSize/versionLabel 같은 metadata 설명이 raw storage 내부정보 노출 없이 이어지게 유지하기
-- Phase 16 파일럿 확인 예시는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents` 처럼 현재 저장소에 있는 대표 placeholder 경로 기준으로 적고, 없는 게시판/게시글이 실제 운영 생성된 것처럼 설명하지 않기
+- 현재 협업 route 확인 예시는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents` 기준으로 적고, 게시판/게시글 preview 생성·댓글 preview 생성이 가능해도 production 운영 데이터처럼 설명하지 않기
 - live URL 파일럿 검토 기준에서는 협업 route 를 핵심 업무 흐름과 자연스럽게 이어 보이게 하되, production data/secret/DNS/유료 리소스/외부 연동이 아직 별도 승인 범위라는 점을 숨기지 않기
 - live `.workers.dev` 직접 fetch 가 막히면 이를 확인 완료처럼 쓰지 말고, `pnpm check`, `pnpm --filter @gw/web build:cf`, targeted API/web test, local preview smoke 를 대체 근거로 분리해 적기
 

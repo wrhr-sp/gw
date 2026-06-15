@@ -67,6 +67,7 @@ st=load_state(); commented=set(st.get('commented') or [])
 added=[]
 for t in items:
     tid=t.get('id'); status=t.get('status'); title=str(t.get('title') or ''); body=str(t.get('body') or '')
+    assignee=str(t.get('assignee') or '')
     if not tid or status not in {'ready','todo','running'}: continue
     text=(title+'\n'+body).lower()
     messages=[]
@@ -90,6 +91,13 @@ for t in items:
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`가 익명 공개 preview에서 일반 admin skeleton으로 렌더링되지 않게 middleware/route guard/redirect/403/404 중 하나로 막습니다.
 - `apps/web/admin-preview-guard.test.ts` 같은 회귀 테스트로 `/admin* -> /login` 또는 차단 상태를 확인합니다.
 - 로컬 `preview:cf` smoke에서 `/admin*` 차단과 `/login` 정상 동작을 함께 기록한 뒤 재배포합니다.''')
+    if assignee == 'singde' and any(k in title for k in ['최종 통합 보고', '최종보고', '작업 최종 결과']):
+        messages.append('''[preventive-handoff:final-report-direct-delivery]
+이 카드는 내부 Kanban 기록만으로 끝나면 안 됩니다.
+- 카드 summary/result/comment는 내부 근거이고, 실제 최종보고는 싱드가 같은 대화/Telegram에 직접 전송해야 완료입니다.
+- 보고 전에는 summary/result 어디엔가 `사용자 보고 필요`를 적고, 직접 전송을 끝낸 뒤에는 `사용자 보고 완료`와 함께 같은 카드 코멘트에 `[singde-direct-delivery]` 표식을 남겨 재확인 가능하게 합니다.
+- live URL, 직접 눌러볼 route, 직접 해볼 액션, 테스트 권한 기준, 남은 승인 게이트를 빠뜨리지 않습니다.
+- watcher/notify가 대신 보냈을 것이라고 추정하지 말고, 누락 발견 시 즉시 retroactive 보고 후 재발방지 기준을 남깁니다.''')
     for msg in messages:
         key=tid+':'+re.search(r'\[preventive-handoff:[^\]]+\]',msg).group(0)
         if key in commented: continue

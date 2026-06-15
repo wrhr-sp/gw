@@ -726,64 +726,509 @@ export function ApprovalsLiveSection() {
 }
 
 export function BoardsLiveSection() {
+  const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards);
   const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
+  const firstPostId = posts.data?.items[0]?.id ?? "board_post_board_general_employee_employee";
 
   return (
-    <div className="grid-auto-compact">
-      <article className="info-card">
-        <Pill tone="accent">실제 게시판 목록</Pill>
-        <QueryState loading={boards.loading || posts.loading} error={boards.error ?? posts.error} />
-        {boards.data ? (
-          <>
-            <h3>{boards.data.items.map((item) => item.name).join(" · ")}</h3>
-            <p className="card-note">same-origin /api/boards 응답을 직접 읽습니다.</p>
-          </>
-        ) : null}
-      </article>
-      <article className="info-card">
-        <Pill>자유 게시판 최신 글</Pill>
-        {posts.data ? (
-          <>
-            <h3>{posts.data.items[0]?.title ?? "게시글 없음"}</h3>
-            <p>{posts.data.items[0]?.bodyPreview ?? "-"}</p>
-          </>
-        ) : (
-          <QueryState loading={posts.loading} error={posts.error} />
-        )}
-      </article>
-    </div>
+    <>
+      <div className="grid-auto-compact">
+        <article className="info-card">
+          <Pill tone="accent">실제 게시판 목록</Pill>
+          <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} />
+          {boards.data ? (
+            <>
+              <h3>공지 {notices.data?.items.length ?? 0}개 · 일반 {boards.data.items.length}개</h3>
+              <p className="card-note">same-origin /api/notices, /api/boards, /api/boards/board_general/posts 응답을 직접 읽습니다.</p>
+            </>
+          ) : null}
+        </article>
+        <article className="info-card">
+          <Pill>지금 바로 눌러볼 순서</Pill>
+          <ol className="number-list" style={{ marginTop: 12 }}>
+            <li><a href="/boards/board_notice">공지 게시판에서 notice-only 책임 확인</a></li>
+            <li><a href="/boards/board_general">일반 게시판에서 글쓰기/상세 흐름 시작</a></li>
+            <li><a href={`/posts/${firstPostId}`}>최신 글 상세에서 댓글/읽음 확인</a></li>
+          </ol>
+        </article>
+      </div>
+      {boards.data ? (
+        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+          {[...(notices.data?.items ?? []), ...boards.data.items].map((item) => (
+            <article key={item.id} className="route-card">
+              <Pill tone={item.isNoticeOnly ? "warning" : "accent"}>{item.boardType}</Pill>
+              <h3>{item.name}</h3>
+              <p>{item.visibility} · {item.isNoticeOnly ? "읽기 중심/운영 공지" : "글쓰기/댓글 허용"}</p>
+              <a href={`/boards/${item.id}`}>이 게시판 흐름 보기 →</a>
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {posts.data ? (
+        <article className="info-card" style={{ marginTop: 16 }}>
+          <Pill>자유 게시판 최신 글</Pill>
+          <h3>{posts.data.items[0]?.title ?? "게시글 없음"}</h3>
+          <p>{posts.data.items[0]?.bodyPreview ?? "아직 생성된 일반 게시글이 없습니다."}</p>
+          <p className="card-note">다음 단계: 상세로 들어가 댓글 작성 → 읽음 확인 → forged 차단 안내를 확인합니다.</p>
+          <a href={`/posts/${firstPostId}`}>최신 글 상세로 이동 →</a>
+        </article>
+      ) : null}
+    </>
+  );
+}
+
+export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
+  const [refreshSeed, setRefreshSeed] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [title, setTitle] = useState(boardId === "board_notice" ? "전사 공지 preview" : "점심 메뉴 추천");
+  const [bodyPreview, setBodyPreview] = useState(
+    boardId === "board_notice" ? "오늘 공지 핵심만 짧게 전달합니다." : "오늘 뭐 드실래요? 댓글로 의견을 남겨 보세요.",
+  );
+  const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
+  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(boardId), refreshSeed);
+  const samplePostId = posts.data?.items[0]?.id ?? `board_post_${boardId}_employee_employee`;
+
+  async function handleCreatePost() {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(boardId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title,
+          bodyPreview,
+          isNotice: boardId === "board_notice",
+        }),
+      });
+      setResult({
+        tone: "accent",
+        title: boardId === "board_notice" ? "공지 preview 생성" : "게시글 preview 생성",
+        body: `${payload.data.post.id} · ${payload.data.audit.action}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: boardId === "board_notice" ? "공지 preview 생성 실패" : "게시글 preview 생성 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleGuardProbe() {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(boardId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "권한 점검용 작성 시도",
+          bodyPreview: "현재 세션이 이 게시판에 쓸 수 있는지 확인합니다.",
+          isNotice: false,
+        }),
+      });
+      setResult({
+        tone: "accent",
+        title: "현재 세션 기준 작성 가능",
+        body: `${payload.data.post.id} 생성 성공 — 일반 구성원 차단 확인이 필요하면 employee 역할로 다시 시도하세요.`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "현재 세션 기준 작성 차단 확인",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="grid-auto-compact">
+        <article className="info-card">
+          <Pill tone="accent">현재 게시판 실응답</Pill>
+          <QueryState loading={posts.loading} error={posts.error} emptyMessage={!posts.data ? "게시판 데이터를 불러오지 못했습니다." : undefined} />
+          {posts.data ? (
+            <>
+              <h3>{posts.data.board.name}</h3>
+              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "notice-only" : "general"}</p>
+              <p className="card-note">게시글 {posts.data.items.length}건 · 첫 상세 route <a href={`/posts/${samplePostId}`}>/posts/{samplePostId}</a></p>
+            </>
+          ) : null}
+        </article>
+        <article className="info-card">
+          <Pill>{boardId === "board_notice" ? "운영 공지 작성" : "일반 게시글 작성"}</Pill>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>제목</strong>
+            <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
+          </label>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>본문 미리보기</strong>
+            <input className="field" onChange={(event) => setBodyPreview(event.target.value)} value={bodyPreview} />
+          </label>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button className="touch-button" disabled={pending} onClick={handleCreatePost} type="button">
+              {pending ? "작성 처리 중" : boardId === "board_notice" ? "공지 preview 생성" : "게시글 preview 생성"}
+            </button>
+            <button className="touch-button--secondary" disabled={pending} onClick={handleGuardProbe} type="button">
+              현재 세션 guard 확인
+            </button>
+          </div>
+          <p className="card-note">공지형 게시판은 운영 공지 작성과 일반 구성원 차단을 분리해 봅니다.</p>
+        </article>
+      </div>
+      {posts.data ? (
+        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+          {posts.data.items.length ? (
+            posts.data.items.slice(0, 4).map((item) => (
+              <article key={item.id} className="info-card">
+                <Pill tone={item.isNotice ? "warning" : "accent"}>{item.isNotice ? "notice" : item.status}</Pill>
+                <h3>{item.title}</h3>
+                <p>{item.bodyPreview}</p>
+                <p className="card-note">게시글 상세 → 댓글 → 읽음 확인</p>
+                <a href={`/posts/${item.id}`}>이 글 상세로 이동 →</a>
+              </article>
+            ))
+          ) : (
+            <article className="info-card">
+              <Pill>빈 상태</Pill>
+              <h3>아직 이 게시판에 생성된 글이 없습니다.</h3>
+              <p>위 작성 폼으로 preview 글을 만든 뒤 상세 route 를 눌러 흐름을 이어가세요.</p>
+            </article>
+          )}
+        </div>
+      ) : null}
+      <MutationResult result={result} />
+    </>
+  );
+}
+
+export function PostDetailLiveSection({ postId }: { postId: string }) {
+  const [refreshSeed, setRefreshSeed] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [commentBody, setCommentBody] = useState("오늘은 비빔밥이요.");
+  const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
+  const detail = useApiQuery<{ board: Record<string, any>; post: Record<string, any> }>(appRoutes.boards.postDetail(postId), refreshSeed);
+  const comments = useApiQuery<{ post: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.comments(postId), refreshSeed);
+
+  async function handleAddComment() {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.comments(postId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: commentBody }),
+      });
+      setResult({
+        tone: "accent",
+        title: "댓글 preview 생성",
+        body: `${payload.data.comment.id} · ${payload.data.audit.action}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "댓글 preview 생성 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleReadReceipt() {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.readReceipts, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetType: "post", targetId: postId }),
+      });
+      setResult({
+        tone: "accent",
+        title: "읽음 확인 등록",
+        body: `${payload.data.receipt.id} · ${payload.data.audit.action}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "읽음 확인 등록 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleForgedProbe() {
+    setPending(true);
+    setResult(null);
+    try {
+      await fetchJson<Record<string, any>>(appRoutes.boards.postDetail("board_post_board_general_forged"));
+      setResult({
+        tone: "warning",
+        title: "forged 접근이 허용됨",
+        body: "예상과 다릅니다. forged post 차단 규칙을 다시 확인해야 합니다.",
+      });
+    } catch (mutationError) {
+      setResult({
+        tone: "accent",
+        title: "forged post 차단 확인",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="grid-auto-compact">
+        <article className="info-card">
+          <Pill tone="accent">게시글 상세 실응답</Pill>
+          <QueryState loading={detail.loading || comments.loading} error={detail.error ?? comments.error} emptyMessage={!detail.data ? "게시글 상세를 불러오지 못했습니다." : undefined} />
+          {detail.data ? (
+            <>
+              <h3>{detail.data.post.title}</h3>
+              <p>{detail.data.post.bodyPreview}</p>
+              <p className="card-note">{detail.data.board.name} · {detail.data.post.status} · 공지 여부 {detail.data.post.isNotice ? "예" : "아니오"}</p>
+            </>
+          ) : null}
+        </article>
+        <article className="info-card">
+          <Pill>댓글 / 읽음 확인 액션</Pill>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>댓글 본문</strong>
+            <input className="field" onChange={(event) => setCommentBody(event.target.value)} value={commentBody} />
+          </label>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button className="touch-button" disabled={pending} onClick={handleAddComment} type="button">
+              댓글 preview 생성
+            </button>
+            <button className="touch-button--secondary" disabled={pending} onClick={handleReadReceipt} type="button">
+              읽음 확인 등록
+            </button>
+          </div>
+          <button className="touch-button--secondary" disabled={pending} onClick={handleForgedProbe} style={{ marginTop: 12 }} type="button">
+            forged post 차단 확인
+          </button>
+        </article>
+      </div>
+      {comments.data ? (
+        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+          {comments.data.items.length ? (
+            comments.data.items.slice(0, 4).map((item) => (
+              <article key={item.id} className="info-card">
+                <Pill>{item.status}</Pill>
+                <h3>{item.authorEmployeeId}</h3>
+                <p>{item.body}</p>
+                <p className="card-note">댓글 route: {appRoutes.boards.comments(postId)}</p>
+              </article>
+            ))
+          ) : (
+            <article className="info-card">
+              <Pill>빈 상태</Pill>
+              <h3>아직 댓글이 없습니다.</h3>
+              <p>위 액션으로 첫 댓글을 만든 뒤 다시 목록을 확인하세요.</p>
+            </article>
+          )}
+        </div>
+      ) : null}
+      <MutationResult result={result} />
+    </>
   );
 }
 
 export function DocumentsLiveSection() {
-  const spaces = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.spaces);
-  const files = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.files);
+  const [refreshSeed, setRefreshSeed] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
+  const spaces = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.spaces, refreshSeed);
+  const files = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.files, refreshSeed);
+  const publicSpaceId = spaces.data?.items[0]?.id ?? "document_space_public";
+  const firstFileId = files.data?.items[0]?.id;
+
+  async function handleMetadataCreate() {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.documents.fileMetadata, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          spaceId: publicSpaceId,
+          fileName: "phase-32-preview.pdf",
+          contentType: "application/pdf",
+          fileSize: 64000,
+          versionLabel: "draft-1",
+          isPublicWithinCompany: true,
+        }),
+      });
+      setResult({
+        tone: "accent",
+        title: "문서 metadata 생성",
+        body: `${payload.data.file.id} · ${payload.data.file.storageProvider} · ${payload.data.audit.action}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "문서 metadata 생성 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handlePrivateProbe() {
+    setPending(true);
+    setResult(null);
+    try {
+      await fetchJson<Record<string, any>>(`${appRoutes.documents.files}?spaceId=document_space_hr_private`);
+      setResult({
+        tone: "warning",
+        title: "민감 문서함 접근 허용됨",
+        body: "현재 세션이 민감 문서함 목록에 접근했습니다. employee 역할 차단도 다시 확인하세요.",
+      });
+    } catch (mutationError) {
+      setResult({
+        tone: "accent",
+        title: "민감 문서함 차단 확인",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleMissingSpaceProbe() {
+    setPending(true);
+    setResult(null);
+    try {
+      await fetchJson<Record<string, any>>(appRoutes.documents.fileMetadata, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          spaceId: "document_space_missing",
+          fileName: "missing-space.pdf",
+          contentType: "application/pdf",
+          fileSize: 32000,
+          versionLabel: "draft-guard",
+          isPublicWithinCompany: false,
+        }),
+      });
+      setResult({
+        tone: "warning",
+        title: "없는 문서함 metadata 생성 허용됨",
+        body: "예상과 다릅니다. spaceId 검증을 다시 확인해야 합니다.",
+      });
+    } catch (mutationError) {
+      setResult({
+        tone: "accent",
+        title: "없는 문서함 차단 확인",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleFileReadReceipt() {
+    if (!firstFileId) {
+      setResult({ tone: "warning", title: "읽음 확인 대상 없음", body: "먼저 접근 가능한 파일 metadata 를 하나 이상 확인하세요." });
+      return;
+    }
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.readReceipts, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetType: "document_file", targetId: firstFileId }),
+      });
+      setResult({
+        tone: "accent",
+        title: "문서 읽음 확인 등록",
+        body: `${payload.data.receipt.id} · ${payload.data.audit.action}`,
+      });
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "문서 읽음 확인 등록 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <div className="grid-auto-compact">
-      <article className="info-card">
-        <Pill tone="accent">문서 공간</Pill>
-        <QueryState loading={spaces.loading || files.loading} error={spaces.error ?? files.error} />
-        {spaces.data ? (
-          <>
-            <h3>{spaces.data.items.length}개 공간</h3>
-            <p>{spaces.data.items.map((item) => item.name).join(" · ")}</p>
-          </>
-        ) : null}
-      </article>
-      <article className="info-card">
-        <Pill>파일 metadata</Pill>
-        {files.data ? (
-          <>
-            <h3>{files.data.items[0]?.fileName ?? "파일 없음"}</h3>
-            <p>{formatFileSize(files.data.items[0]?.fileSize)} · {files.data.items[0]?.versionLabel}</p>
-          </>
-        ) : (
-          <QueryState loading={files.loading} error={files.error} />
-        )}
-      </article>
-    </div>
+    <>
+      <div className="grid-auto-compact">
+        <article className="info-card">
+          <Pill tone="accent">문서 공간</Pill>
+          <QueryState loading={spaces.loading || files.loading} error={spaces.error ?? files.error} />
+          {spaces.data ? (
+            <>
+              <h3>{spaces.data.items.length}개 공간</h3>
+              <p>{spaces.data.items.map((item) => item.name).join(" · ")}</p>
+              <p className="card-note">민감 공간은 현재 세션 권한에 따라 목록에서 숨겨지거나 403 으로 차단됩니다.</p>
+            </>
+          ) : null}
+        </article>
+        <article className="info-card">
+          <Pill>파일 metadata / 가드 확인</Pill>
+          <div className="action-row" style={{ marginTop: 8 }}>
+            <button className="touch-button" disabled={pending} onClick={handleMetadataCreate} type="button">
+              metadata preview 생성
+            </button>
+            <button className="touch-button--secondary" disabled={pending} onClick={handleFileReadReceipt} type="button">
+              문서 읽음 확인
+            </button>
+          </div>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button className="touch-button--secondary" disabled={pending} onClick={handlePrivateProbe} type="button">
+              private space 차단 확인
+            </button>
+            <button className="touch-button--secondary" disabled={pending} onClick={handleMissingSpaceProbe} type="button">
+              missing space 차단 확인
+            </button>
+          </div>
+        </article>
+      </div>
+      {files.data ? (
+        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+          {files.data.items.length ? (
+            files.data.items.slice(0, 4).map((item) => (
+              <article key={item.id} className="info-card">
+                <Pill tone={item.isPublicWithinCompany ? "accent" : "warning"}>{item.storageStatus}</Pill>
+                <h3>{item.fileName}</h3>
+                <p>{formatFileSize(item.fileSize)} · {item.versionLabel}</p>
+                <p className="card-note">storageProvider {item.storageProvider} · storageKey/public URL 직접 비노출</p>
+              </article>
+            ))
+          ) : (
+            <article className="info-card">
+              <Pill>빈 상태</Pill>
+              <h3>접근 가능한 파일 metadata 가 없습니다.</h3>
+              <p>metadata preview 생성 버튼으로 문서함 상세 흐름을 바로 열 수 있습니다.</p>
+            </article>
+          )}
+        </div>
+      ) : null}
+      <MutationResult result={result} />
+    </>
   );
 }
 

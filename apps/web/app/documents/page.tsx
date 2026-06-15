@@ -29,7 +29,7 @@ const metadataChecklist = [
 export default function DocumentsPage() {
   return (
     <PageShell
-      eyebrow="Phase 31 문서함 접근성 점검"
+      eyebrow="Phase 32 문서함 실사용 점검"
       title="문서함"
       description="문서함 목록/접근 경계/첨부 metadata 흐름을 모바일에서도 읽기 쉽게 카드형으로 정리하고, 실제 공간/파일 metadata 응답을 same-origin API로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">no storage key leakage</Pill>}

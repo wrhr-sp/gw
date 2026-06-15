@@ -45,11 +45,26 @@ env=os.environ.copy(); env['HERMES_HOME']=os.environ.get('HERMES_HOME', bot+'/.h
 CORRUPT=('database disk image is malformed','file is not a database','disk i/o error','refusing to open corrupt kanban db')
 RESTRICTED=('secret','.env','credential','token','password','production','prod db','운영 db','운영db','dns','domain','유료','비용','결제','migration','마이그레이션','배포','delete','force','삭제','강제')
 RECOVER=('timeout','timed out','crash','crashed','stale','protocol violation','protocol-violation','iteration budget','iteration-budget','worker recovery')
+FINAL_REPORT_WINDOW=int(os.environ.get('FINAL_REPORT_GUARD_WINDOW_SECONDS','172800'))
 def run(args, check=True):
     p=subprocess.run(args,cwd=root,env=env,text=True,capture_output=True)
     if check and p.returncode!=0: raise RuntimeError((p.stderr or p.stdout).strip())
     return p
 def kanban(*args, check=True): return run(['flock',lock,hermes,'-p',profile,'kanban','--board',board,*args], check=check)
+def looks_like_final_report(task):
+    title=str(task.get('title') or '')
+    body=str(task.get('body') or '')
+    return any(key in title for key in ('최종 통합 보고','작업 최종 결과','최종보고')) or ('직접 최종 보고한다' in body)
+def direct_delivery_marked(task, detail):
+    fields=[
+        str(task.get('summary') or ''),
+        str(task.get('result') or ''),
+        str(task.get('body') or ''),
+    ]
+    for c in detail.get('comments') or []:
+        fields.append(str(c.get('body') or ''))
+    text='\n'.join(fields)
+    return ('사용자 보고 완료' in text) or ('[singde-direct-delivery]' in text)
 def load_state():
     if not state_path.exists(): return {'generation':0,'handled':{},'last_checked_at':0}
     try:
@@ -130,6 +145,40 @@ for t in items:
     kanban('comment',tid,msg,check=False)
     handled[key]={'at':now,'generation':gen,'category':category,'title':title[:180]}
     actions.append((tid,detected,category))
+for t in items:
+    tid=t.get('id')
+    if not tid or t.get('status')!='done' or str(t.get('assignee') or '')!='singde':
+        continue
+    if not looks_like_final_report(t):
+        continue
+    try:
+        completed_at=int(t.get('completed_at') or 0)
+    except Exception:
+        completed_at=0
+    if completed_at and now-completed_at > FINAL_REPORT_WINDOW:
+        continue
+    key=f'{tid}:final-report-direct-delivery:{completed_at or 0}'
+    if key in handled:
+        continue
+    detail_p=kanban('show', tid, '--json', check=False)
+    if detail_p.returncode!=0:
+        continue
+    try:
+        detail=json.loads(detail_p.stdout or '{}')
+    except Exception:
+        continue
+    if direct_delivery_marked(t, detail):
+        continue
+    msg='\n'.join([
+        '[worker-recovery:final-report-direct-delivery]',
+        '감지: done final-report card without explicit direct user delivery marker',
+        f'근거: status=done, assignee=singde, title={str(t.get("title") or "")}',
+        '조치 힌트: 카드 댓글/summary만으로는 최종보고 완료로 보지 않습니다. 같은 대화/Telegram 직접 전송 후 `사용자 보고 완료`와 `[singde-direct-delivery]` 코멘트를 남겨 주세요.',
+        '원칙: watcher가 raw 이벤트를 대신 전송하지 않고, 싱드 직접 보고 누락만 감지해 재확인을 요구합니다.',
+    ])
+    kanban('comment', tid, msg, check=False)
+    handled[key]={'at':now,'generation':gen,'category':'final-report-direct-delivery','title':str(t.get('title') or '')[:180]}
+    actions.append((tid,'done-without-direct-delivery-marker','final-report-direct-delivery'))
 if len(handled)>500: st['handled']=dict(sorted(handled.items(), key=lambda kv: kv[1].get('at',0))[-500:])
 st['last_checked_at']=now; save_state(st)
 print('worker recovery 감지/힌트: '+', '.join(f'{a[0]}({a[1]}/{a[2]})' for a in actions) if actions else 'worker recovery: 감지된 신규 stale/timeout 카드 없음')

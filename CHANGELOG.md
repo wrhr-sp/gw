@@ -1,8 +1,19 @@
 # CHANGELOG
 
+## 2026-06-16
+
+### Changed
+
+- `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`, `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md` 를 현재 구현 기준으로 다시 맞췄다. `/boards/board_general` 게시글 preview 생성·guard 확인, `/posts/board_post_board_general_employee_employee` 댓글 preview 생성·읽음 확인 등록·forged 차단 확인, `/documents` metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인처럼 대장이 지금 직접 눌러볼 수 있는 액션을 문서에 반영했다.
+- `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 최신 Kanban 체인 기준으로 갱신해 stale blocker 정리 카드(`t_c10fc6ce`, `t_ff305819`) 이후 현재 문서 카드 `t_d43e9ca5` → GitHub/CI/merge 카드 `t_854aaa6c` → 최종 통합 보고 `t_4faa7030` 순서와 남은 richer UX/승인 게이트를 같은 언어로 정리했다.
+- `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 함께 갱신해 현재 협업 확인 예시 route 를 `/posts/board_post_board_general_employee_employee` 로 통일하고, preview 생성 결과를 production 운영 데이터처럼 과장하지 말아야 한다는 점과 문서함 차단 probe/읽음 확인 액션을 현재 검증 기준에 맞게 반영했다.
+
 ## 2026-06-15
 
 ### Changed
+
+- `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`, `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md` 를 추가해 게시판·공지·댓글·문서함의 현재 실제 구현 상태와 Phase 32 fit-gap 을 새 기준 문서로 고정했다. `/boards`·`/boards/[boardId]`·`/posts/[postId]`·`/documents` 현재 route, `apps/api/test/auth-org.spec.ts` 기준 general 게시글 작성/댓글/read receipt 허용, notice-only/private space/forged 접근 차단, raw storage 비노출 원칙, PostgreSQL/R2 metadata 전환 선행 과제를 같은 언어로 정리했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 32 활성 체인 기준으로 갱신해 현재 카드 ids(`t_bf659803`, `t_eb7c7397`, `t_1a0cb6ed`, `t_60824a6c`), 추천 UAT 순서(`/login` → `/dashboard` → `/boards` → `/boards/board_notice` → `/boards/board_general` → `/posts/board_post_board_general_employee_employee` → `/documents` → `/admin/policies`), 협업 묶음의 현재 가능 범위와 남은 제품형 리스크를 한 번에 따라가게 정리했다.
 
 - `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`, `HANDOFF.md`, `TASKS.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 31 UAT 문서를 더 바로 눌러볼 수 있는 순서로 정리했다. 홈 바로가기의 고정/커스텀 분리와 빈 상태 의미, `/login` → `/dashboard` → `/management` → `/admin/users` → 일반 업무 → `/admin/audit-logs` 추천 클릭 순서, 다음 패스 고도화 항목을 같은 언어로 맞췄다.
 - `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 31 문서를 실제 코드 스냅샷 기준으로 맞췄다. `/login`·`/dashboard`·`/management`·`/admin/users` 현재 화면, `/admin/users` preview/action 구조, `/dashboard` skeleton/dev-safe 문구 잔여, 계정관리 실저장 부재를 같은 언어로 정리했다.
@@ -98,6 +109,7 @@
 - `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 14 실사용 MVP 통합 1차 기준으로 갱신해 현재 활성 체인, 핵심 route 묶음(`/`, `/login`, `/dashboard`, `/org`, `/employees`, `/attendance`, `/approvals`, `/admin/*`), 일반 업무/관리자 경계, 후속 handoff 참조 문서를 다시 맞췄다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `docs/workflow/groupware-kanban-automation.md`, `scripts/README.md` 를 다시 보강해 역할별 기본 책임 매트릭스, card-scoped 예외 권한 원칙, blocked 분류별 다음 액션, fixture/dry-run/service journal/board state/PR gate를 묶어 보는 검증자동화 체크 기준을 더 분명히 적었다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 Phase 14 현재 UI 기준으로 다시 맞춰 홈/로그인/대시보드의 역할별 흐름, 핵심 smoke route(`/`, `/login`, `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees`, `/admin/*`), `/employees` 대 `/admin/users`, `/attendance` 대 `/admin/policies` 경계, 대장이 preview/live URL 에서 따라 볼 쉬운 확인 순서를 한 번에 정리했다.
+- `scripts/gw-preventive-handoff-watch.sh`, `scripts/gw-worker-recovery-watch.sh`, `scripts/README.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 를 보강해 singde 최종보고 카드에 direct delivery 전 `사용자 보고 필요`, direct delivery 후 `사용자 보고 완료` + `[singde-direct-delivery]` 표식을 남기도록 가이드했고, 최근 완료된 최종보고 카드에 이 표식이 없으면 watcher가 재확인 코멘트를 남기도록 했다.
 - `docs/architecture/rolebot-authority-decision-loop-hardening-scope.md` 와 `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md` 를 추가해 역할봇 권한 확대 대신 싱드/Watcher 판단루프 보강을 우선하는 운영 설계, blocked 재판단 순서, Telegram 보고 분리 기준, 검증자동화 handoff 를 문서화했다.
 - `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 현재 역할봇 권한·판단루프·보고정책·검증자동화 고도화 체인 기준으로 갱신했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md` 에 blocked 재판단 순서, `already-handled` 재확인 기준, Telegram 보고 4분류, fixture/dry-run/service sweep/board state/PR-CI-main gate 검증 축을 반영했다.
