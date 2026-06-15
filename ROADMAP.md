@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준 최신 범위는 Phase 32 게시판·공지·댓글·문서함 실사용화다. 직전 Phase 31에서 로그인/홈/경영업무/계정관리 입구를 먼저 정리했고, 이제는 그 입구에서 실제 협업 묶음인 `/boards` 와 `/documents` 로 들어가 게시글/댓글/읽음 확인/문서 metadata/권한 차단까지 직접 체험 가능한 단계로 끌어올리는 것이 다음 우선순위다.
+현재 문서화 기준 최신 범위는 Phase 33 근태·휴가·전자결재 실사용화다. 직전 Phase 32에서 `/boards` 와 `/documents` 협업 묶음을 먼저 정리했고, 이제는 다시 핵심 일반 업무인 `/attendance`, `/leave`, `/approvals` 를 실제 UAT 언어로 묶어 출퇴근/휴가/기안·승인 흐름, 권한 차단, self-approval 금지, 승인 게이트를 한 번에 설명 가능한 단계로 끌어올리는 것이 다음 우선순위다.
 
 ## Phase 흐름
 
@@ -41,6 +41,7 @@
 - Phase 30: 통합 대시보드·알림·감사 로그 강화
 - Phase 31: 홈·로그인·경영업무·계정관리 실사용화
 - Phase 32: 게시판·공지·댓글·문서함 실사용화
+- Phase 33: 근태·휴가·전자결재 실사용화
 
 ## MVP 성공 기준
 
@@ -56,8 +57,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md`
-- 직전 범위: `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`
-- 직전 handoff: `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-33-attendance-leave-approvals-real-usage-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-33-attendance-leave-approvals-real-usage-handoff.md`
+- 직전 범위: `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`
+- 직전 handoff: `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

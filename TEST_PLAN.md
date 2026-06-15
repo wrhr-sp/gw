@@ -340,6 +340,26 @@ pnpm --filter @gw/mobile typecheck
 6. `/work-items/legal` 또는 다른 민감 모듈 route — 일반 직원 차단과 관리자 허용이 같은 권한 언어인지 본다.
 7. `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 와 parent smoke 근거 — 익명 `/api/me` 401, 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 이 실제로 붙들려 있는지 대조한다.
 
+### 1-10-h. Phase 33 근태·휴가·전자결재 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/attendance`, `/leave`, `/approvals` 가 모두 "지금 눌러볼 수 있는 일반 업무" 로 먼저 읽히는가
+2. 정책 미허용, 권한 부족, 회사 scope 차단, placeholder 제한이 같은 말로 뭉개지지 않는가
+3. self-approval 금지와 unknown/forged id 차단이 휴가/전자결재 문맥에서 같은 guardrail 로 읽히는가
+4. 출퇴근/GPS/실단말, 실급여/실정산, 실전자서명/법적 효력/원문 장기보관이 아직 승인 게이트라는 점이 분명한가
+5. PostgreSQL 전환 전 상태와 이후 구현 목표를 한 문장으로 섞지 않았는가
+6. `/admin/policies` 설명과 일반 업무 화면 설명이 같은 정책 언어를 가리키는가
+
+빠른 확인 순서:
+1. `/login` — dev/test/UAT 계정 설명과 production 금지 문구를 본다.
+2. `/dashboard` — `/attendance` → `/leave` → `/approvals` 진입 순서가 앞쪽에 있는지 본다.
+3. `/attendance` — 출퇴근 기록/허용 방식/정정 요청/정책 source 문맥을 본다.
+4. `/leave` — 휴가 유형/잔여/신청 상태와 승인자 차단 문맥을 본다.
+5. `/approvals` — 기안함/결재함, 승인/반려/보완 요청, self-approval 금지 문맥을 본다.
+6. `/admin/policies` — 정책 source 와 일반 화면 설명이 같은 뜻인지 본다.
+7. `apps/api/test/auth-org.spec.ts` — 권한, 회사 scope, self-approval, unknown/forged id 차단 근거가 실제로 붙들려 있는지 대조한다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
@@ -393,6 +413,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 - blocked 분류가 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요로 설명돼 있는지 확인한다.
 - 카드 댓글 완료와 사용자 직접 보고 완료를 다른 상태로 구분하는지 확인한다.
 - singde 최종보고 카드라면 direct delivery 전 `사용자 보고 필요`, direct delivery 후 `사용자 보고 완료`와 `[singde-direct-delivery]` 코멘트가 남지 않으면 watcher가 재확인 코멘트를 남기는지 확인한다.
+- singde 최종보고 parent 가 done 이고 다음 Phase 기획/DB 전환 child 가 scheduled 인 fixture 를 넣었을 때, worker recovery dry-run 이 `final-report-next-phase-auto-resume` 감지를 출력하고 수동 hold 표식이 있는 fixture 는 건너뛰는지 확인한다.
 - 같은 카드·같은 이유·같은 근거에서 중복/스팸 보고를 막는 기준이 있는지 확인한다.
 - scheduled 복구 카드 정리라면 예전 오류 재현 로그만 보지 말고, 최신 저장소에서 `pnpm check`, 관련 test/typecheck/build, 가능하면 `pnpm --filter @gw/web build:cf`, local `preview:cf` smoke 까지 다시 대조해 "지금도 살아 있는 일인지"를 확인한다.
 

@@ -1,3 +1,4 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { PlaceholderAction } from "../_components/placeholder-action";
@@ -23,10 +24,25 @@ const mailboxCards = [
 ] as const;
 
 const draftChecklist = [
-  "결재 양식 선택 (/api/approvals/forms)",
-  "결재선 선택 (/api/approvals/lines)",
-  "참조자/합의 후보 선택 (/api/approvals/references|agreements/candidates)",
-  "제목/요약 placeholder 입력",
+  "1. 결재 양식 선택 (/api/approvals/forms)",
+  "2. 결재선 선택 (/api/approvals/lines)",
+  "3. 참조자/합의 후보 선택 (/api/approvals/references|agreements/candidates)",
+  "4. 제목/요약 입력 후 기안 preview 생성",
+] as const;
+
+const approvalFlowSteps = [
+  {
+    title: "기안자 lane",
+    body: "내 문서함에서 상태를 확인하고, 문서가 pending_approval 로 넘어가면 승인자 응답을 기다립니다.",
+  },
+  {
+    title: "승인자 lane",
+    body: "승인 권한자는 내 승인함에서 문서를 검토하고 approve / reject / 보완 요청 판단을 수행합니다.",
+  },
+  {
+    title: "운영 경계",
+    body: "양식/결재선 관리와 감사 추적은 일반 직원 문서 확인 흐름과 섞지 않고 별도 운영 권한으로 분리합니다.",
+  },
 ] as const;
 
 const detailSections = [
@@ -43,12 +59,35 @@ const bridgeNotes = [
   "placeholder 제한: 실제 발송/저장 없이 self-approval guardrail 과 audit candidate 만 먼저 확인합니다.",
 ] as const;
 
+const guardrailCards = [
+  {
+    tone: "accent" as const,
+    title: "권한 부족",
+    body: "approval.document.approve 권한이 없으면 승인함 접근 자체를 막고 내 문서 확인만 남깁니다.",
+  },
+  {
+    tone: "warning" as const,
+    title: "self-approval 금지",
+    body: "자기 문서 자기승인은 근태/휴가와 같은 공통 guardrail 로 유지합니다.",
+  },
+  {
+    tone: "default" as const,
+    title: "회사 scope / unknown id 차단",
+    body: "forged·unknown document id, 회사 scope 밖 문서는 상세/승인 성공처럼 처리하지 않습니다.",
+  },
+  {
+    tone: "warning" as const,
+    title: "placeholder 제한",
+    body: "실서명, 외부 메일/메신저 알림, 법적 효력, 원문 장기보관은 별도 승인 게이트입니다.",
+  },
+] as const;
+
 export default function ApprovalsPage() {
   return (
     <PageShell
-      eyebrow="Phase 31 승인 흐름 연결"
+      eyebrow="Phase 33 전자결재 실사용 UAT"
       title="전자결재"
-      description="대시보드의 승인 대기 요약과 같은 우선순위로 내 승인함, 팀 병목, 기안 작성 진입점을 정리하고, 실제 preview API로 검토/확인 흐름까지 바로 확인할 수 있게 연결했습니다."
+      description="기안자와 승인자 레인을 분리해 보여 주고, same-origin API 기준으로 기안·승인·반려 preview 와 guardrail 을 직접 확인할 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="승인 placeholder" hint="실제 승인 처리는 self-approval guardrail 과 회사 범위 검증이 연결된 뒤에만 활성화됩니다." />
@@ -58,6 +97,17 @@ export default function ApprovalsPage() {
     >
       <SurfaceSection title="실사용 확인 패널" description="내 문서함·승인함을 실제 API에서 읽고, 기안/승인/반려 preview 를 바로 테스트합니다.">
         <ApprovalsLiveSection />
+      </SurfaceSection>
+
+      <SurfaceSection title="기안 → 승인/반려 → 보완 요청 흐름" description="전자결재의 happy path 를 기안자/승인자 책임 단위로 먼저 읽히게 정리합니다.">
+        <div className="grid-auto">
+          {approvalFlowSteps.map((step) => (
+            <article key={step.title} className="route-card">
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection title="모바일 우선 문서함" description="내 승인함 → 내 기안함 → 참조/합의 순서로 카드 우선순위를 재정렬했습니다.">
@@ -72,7 +122,7 @@ export default function ApprovalsPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="기안 작성 skeleton" description="제목·요약·결재선·참조자 조합을 먼저 고정합니다.">
+      <SurfaceSection title="기안 작성 stepper" description="양식·결재선·참조자 조합을 먼저 고정하고, 작성 흐름을 바로 따라갈 수 있게 만듭니다.">
         <ol className="number-list">
           {draftChecklist.map((item) => (
             <li key={item}>{item}</li>
@@ -89,6 +139,17 @@ export default function ApprovalsPage() {
         <p className="muted-copy" style={{ marginTop: 16 }}>
           버튼을 크게 만드는 것만으로는 충분하지 않으며, 서버에서 company scope 와 self-approval guardrail 을 함께 확인합니다.
         </p>
+      </SurfaceSection>
+
+      <SurfaceSection title="차단 이유 4축" description="권한 부족, self-approval, 회사 scope/unknown id, placeholder 제한을 분리해 고정합니다.">
+        <div className="grid-auto-compact">
+          {guardrailCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <Pill tone={card.tone}>{card.title}</Pill>
+              <p>{card.body}</p>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection title="운영 경계 / 차단 이유" description="팀장, 일반 구성원, 운영 관리자가 같은 차단 이유를 같은 말로 읽도록 맞춥니다.">

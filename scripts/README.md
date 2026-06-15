@@ -20,7 +20,7 @@
 - `gw-review-required-gate.sh`: blocked `review-required` 카드를 표준 검증 후 complete/dispatch 하거나 자동 복구 루프로 넘기는 게이트
 - `gw-review-required-recovery-loop.sh`: review-required gate 검증 실패 시 `gwbuilder → gwreviewer → gwtester → singde` 복구 미니 체인을 생성
 - `gw-blocked-remediation-watch.sh`: blocked 카드를 release cleanup → stale/superseded → review-required defer → 자동 재수정 후보 → 승인 필요 순으로 재판단하고, `already-handled`도 기존 체인 상태를 다시 확인한다
-- `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원). 추가로 최근 완료된 singde 최종보고 카드에 `사용자 보고 완료` 또는 `[singde-direct-delivery]` 표식이 없으면 직접 보고 누락 재확인 코멘트를 남긴다.
+- `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age`, `--dry-run`, `--fixture-json` 지원). 추가로 최근 완료된 singde 최종보고 카드에 `사용자 보고 완료` 또는 `[singde-direct-delivery]` 표식이 없으면 직접 보고 누락 재확인 코멘트를 남기고, 모든 부모가 done 인 다음 Phase 기획/DB 전환 child 카드가 scheduled 로 남아 있으면 별도 수동 hold 표식이 없는 경우 자동 unblock+dispatch 한다.
 - Telegram 사용자 보고는 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트/카드/runs/log를 확인해 직접 판단한 뒤 보내는 방식이다.
 - 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지다.
 - `정각 보고`는 기존 `gw-hourly-status-report.timer` 경로를 유지하고, 나머지 3가지는 싱드 판단 보고양식을 따른다.
@@ -139,6 +139,8 @@ worker timeout/crash 감지 1회 실행:
 ```bash
 ./scripts/gw-worker-recovery-watch.sh --help
 ./scripts/gw-worker-recovery-watch.sh --once --interval 60 --max-age 1800
+./scripts/gw-worker-recovery-watch.sh --once --dry-run --fixture-json ./scripts/fixtures/gw-worker-recovery-final-report-next-phase.json
+GW_WORKER_RECOVERY_STATE_FILE=/tmp/gw-worker-recovery-fixture.state.json ./scripts/gw-worker-recovery-watch.sh --once --dry-run --fixture-json ./scripts/fixtures/gw-worker-recovery-final-report-next-phase.json
 ```
 
 review-required gate / 반복 실패 복구 빠른 확인:
@@ -158,6 +160,7 @@ bash ./scripts/gw-review-required-recovery-loop.sh --help
 - 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`이 3회 이상 반복되면 새 재수정 카드를 계속 늘리지 않고 싱드가 직접 원본 카드, runs/log, 실패 명령, 변경 파일, 중복 worker 여부를 확인한다.
 - 자동 조치 가능하면 기준 복구 카드 1개만 남기고 다시 수정→리뷰→검증 체인으로 넘긴다.
 - secret, production DB, DNS, 유료, 외부 공개, migration, destructive 삭제는 끝까지 자동 처리하지 않는다.
+- Phase 최종 통합 보고가 done 인데 다음 Phase 기획/DB 전환 child 카드가 scheduled 로 남아 있으면, watcher 는 fixture/dry-run 또는 read-only 링크 확인 후 수동 hold 표식이 없는 카드만 자동 재개한다.
 - Telegram 보고는 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한하고, 별도 보고 카드나 `notify-subscribe`를 만들지 않는다.
 - 이번 테스트 기준으로 `gw-review-required-recovery-loop.sh` 실제 카드 생성 경로와 `gw-hermes-env.sh`의 직접 PATH 출력은 아직 별도 캡처가 없다. 운영 전에는 테스트용 blocked 카드 1건과 systemd user 셸에서 마지막 확인을 한 번 더 두는 편이 안전하다.
 
@@ -200,3 +203,4 @@ python3 ./scripts/gw-hourly-status-report.py --dry-run --force
 - `gw-deploy-smoke-check.sh`는 읽기 요청만 한다.
 - `gw-phase-workflow.sh`는 backpressure가 있으면 기본적으로 차단/보류 쪽으로 동작한다.
 - `gw-worker-recovery-watch.sh` 반복 모드는 `--interval`/`--max-age`를 권장하며, 기존 위치 인자(`<간격초> <stale기준초>`)도 계속 지원한다.
+- fixture/dry-run 재현 테스트에서 이전 실행 흔적을 섞고 싶지 않다면 `GW_WORKER_RECOVERY_STATE_FILE` 로 임시 state 파일 경로를 넘긴다.
