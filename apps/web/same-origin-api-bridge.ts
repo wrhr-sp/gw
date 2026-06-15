@@ -61,12 +61,21 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   return new Request(targetUrl.toString(), requestInit);
 }
 
+function buildApiBindings() {
+  return {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL_PRODUCTION: process.env.DATABASE_URL_PRODUCTION,
+    DATABASE_URL_PREVIEW: process.env.DATABASE_URL_PREVIEW,
+    APP_ENV: process.env.APP_ENV,
+  };
+}
+
 export function forwardSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname));
+  return apiApp.fetch(buildApiRequest(request, pathname), buildApiBindings());
 }
 
 export function forwardTrustedSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }));
+  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }), buildApiBindings());
 }
 
 export function forwardHealthRequest(request: Request) {

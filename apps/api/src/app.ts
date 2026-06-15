@@ -130,8 +130,9 @@ import {
   ensureDocumentUploadPolicy,
   type DocumentStorageEnv,
 } from "./lib/document-storage";
+import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 
-type AppBindings = DocumentStorageEnv;
+type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
@@ -3800,6 +3801,25 @@ app.get(appRoutes.health, (context) => {
       error: null,
     },
     200,
+  );
+});
+
+app.get("/api/db/health", async (context) => {
+  const status = await checkOperationalDb(context.env);
+
+  return context.json(
+    {
+      ok: status.ok,
+      data: {
+        service: "gw-api",
+        database: status.database,
+        user: status.user,
+        schema: status.schema,
+        configured: status.configured,
+      },
+      error: status.error ? { code: status.configured ? "DB_UNAVAILABLE" : "DB_NOT_CONFIGURED", message: status.error } : null,
+    },
+    status.ok ? 200 : 503,
   );
 });
 
