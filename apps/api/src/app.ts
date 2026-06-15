@@ -133,6 +133,7 @@ import {
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminUsers } from "./lib/operational-admin";
+import { listOperationalDepartments, listOperationalEmployeeDirectory, listOperationalRoles, type OperationalEmployeeDirectory } from "./lib/operational-org";
 
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
@@ -2040,26 +2041,28 @@ function buildEmployeeDirectoryFilters(context: AppContext, viewerRoleCode: Role
   };
 }
 
-function buildEmployeeDirectoryFilterOptions(companyId: string, viewerRoleCode: RoleCode) {
+function buildEmployeeDirectoryFilterOptions(companyId: string, viewerRoleCode: RoleCode, directory?: OperationalEmployeeDirectory) {
+  const sourceDepartments = directory?.departments ?? departments.filter((department) => department.companyId === companyId);
+  const sourceEmployees = directory?.employees ?? employees.filter((employee) => employee.companyId === companyId);
+  const roleCodeForEmployee = (employee: Employee) => directory?.roleCodeByEmployeeId.get(employee.id) ?? getEmployeeRoleCode(employee.id);
+
   return {
-    departments: departments
-      .filter((department) => department.companyId === companyId)
-      .map((department) => ({ id: department.id, name: department.name })),
+    departments: sourceDepartments.map((department) => ({ id: department.id, name: department.name })),
     employmentStatuses: employeeDirectoryEmploymentStatuses,
     roleCodes: [
       ...new Set(
-        employees
-          .filter((employee) => employee.companyId === companyId)
-          .map((employee) => getEmployeeRoleCode(employee.id))
+        sourceEmployees
+          .map((employee) => roleCodeForEmployee(employee))
           .filter((roleCode) => isGeneralDirectoryRoleVisible(roleCode, viewerRoleCode)),
       ),
     ],
   };
 }
 
-function buildEmployeeDirectorySummary(employee: Employee) {
-  const departmentName = departments.find((department) => department.id === employee.departmentId)?.name ?? "미지정";
-  const roleCode = getEmployeeRoleCode(employee.id);
+function buildEmployeeDirectorySummary(employee: Employee, directory?: OperationalEmployeeDirectory) {
+  const sourceDepartments = directory?.departments ?? departments;
+  const departmentName = sourceDepartments.find((department) => department.id === employee.departmentId)?.name ?? "미지정";
+  const roleCode = directory?.roleCodeByEmployeeId.get(employee.id) ?? getEmployeeRoleCode(employee.id);
 
   return {
     employeeId: employee.id,
@@ -3936,7 +3939,7 @@ app.get(appRoutes.org.companies, (context) => {
   return jsonSuccess(context, listCompaniesResponseSchema, { ok: true, data: { items: companies }, error: null }, 200);
 });
 
-app.get(appRoutes.org.employees, (context) => {
+app.get(appRoutes.org.employees, async (context) => {
   const authResult = requirePermission(context, "employee.read");
   if (authResult.response) {
     return authResult.response;
@@ -3947,11 +3950,15 @@ app.get(appRoutes.org.employees, (context) => {
     return parsedFilters.response;
   }
 
+  const operationalDirectory = await listOperationalEmployeeDirectory(context.env, authResult.auth.user.companyId);
+  const sourceEmployees = operationalDirectory?.employees ?? employees;
+  const roleCodeForEmployee = (employee: Employee) => operationalDirectory?.roleCodeByEmployeeId.get(employee.id) ?? getEmployeeRoleCode(employee.id);
+
   const filters = parsedFilters.filters;
-  const visibleEmployees = employees.filter(
+  const visibleEmployees = sourceEmployees.filter(
     (employee) =>
       employee.companyId === authResult.auth.user.companyId &&
-      isGeneralDirectoryRoleVisible(getEmployeeRoleCode(employee.id), authResult.auth.roleCode),
+      isGeneralDirectoryRoleVisible(roleCodeForEmployee(employee), authResult.auth.roleCode),
   );
   const filteredEmployees = visibleEmployees.filter((employee) => {
     if (filters.departmentId && employee.departmentId !== filters.departmentId) {
@@ -3962,7 +3969,7 @@ app.get(appRoutes.org.employees, (context) => {
       return false;
     }
 
-    if (filters.roleCode && getEmployeeRoleCode(employee.id) !== filters.roleCode) {
+    if (filters.roleCode && roleCodeForEmployee(employee) !== filters.roleCode) {
       return false;
     }
 
@@ -3976,10 +3983,15 @@ app.get(appRoutes.org.employees, (context) => {
       ok: true,
       data: {
         items: filteredEmployees,
-        summaries: filteredEmployees.map((employee) => buildEmployeeDirectorySummary(employee)),
+        summaries: filteredEmployees.map((employee) => buildEmployeeDirectorySummary(employee, operationalDirectory ?? undefined)),
         filters,
-        filterOptions: buildEmployeeDirectoryFilterOptions(authResult.auth.user.companyId, authResult.auth.roleCode),
-        notices: buildEmployeeDirectoryNotices(),
+        filterOptions: buildEmployeeDirectoryFilterOptions(authResult.auth.user.companyId, authResult.auth.roleCode, operationalDirectory ?? undefined),
+        notices: operationalDirectory
+          ? [
+              "운영 DB 기준 직원 목록을 조회했습니다.",
+              "개인정보 상세 편집과 권한 저장은 /admin/users에서 감사 로그와 함께 처리합니다.",
+            ]
+          : buildEmployeeDirectoryNotices(),
         placeholder: true,
       },
       error: null,
@@ -3988,13 +4000,15 @@ app.get(appRoutes.org.employees, (context) => {
   );
 });
 
-app.get(appRoutes.org.departments, (context) => {
+app.get(appRoutes.org.departments, async (context) => {
   const authResult = requirePermission(context, "department.read");
   if (authResult.response) {
     return authResult.response;
   }
 
-  const companyDepartments = departments.filter((department) => department.companyId === authResult.auth.user.companyId);
+  const companyDepartments =
+    (await listOperationalDepartments(context.env, authResult.auth.user.companyId)) ??
+    departments.filter((department) => department.companyId === authResult.auth.user.companyId);
 
   return jsonSuccess(
     context,
@@ -4003,7 +4017,11 @@ app.get(appRoutes.org.departments, (context) => {
       ok: true,
       data: {
         items: companyDepartments,
-        summary: buildOrgDirectorySummary("부서 구조 overview", "상위/하위 부서 구조를 읽기 전용으로 요약합니다.", companyDepartments.length),
+        summary: buildOrgDirectorySummary(
+          "부서 구조 overview",
+          companyDepartments.length > 0 ? "운영 DB 기준 부서 구조를 읽기 전용으로 요약합니다." : "상위/하위 부서 구조를 읽기 전용으로 요약합니다.",
+          companyDepartments.length,
+        ),
         notices: [
           "조직 개편 저장은 이번 단계 범위가 아닙니다.",
           "작은 화면에서도 읽기 쉬운 카드/섹션 흐름을 우선합니다.",
@@ -4016,13 +4034,15 @@ app.get(appRoutes.org.departments, (context) => {
   );
 });
 
-app.get(appRoutes.org.roles, (context) => {
+app.get(appRoutes.org.roles, async (context) => {
   const authResult = requirePermission(context, "role.read");
   if (authResult.response) {
     return authResult.response;
   }
 
-  const visibleRoles = roles.filter((role) => role.scope === "global" || authResult.auth.user.companyId === COMPANY_ID);
+  const visibleRoles =
+    (await listOperationalRoles(context.env, authResult.auth.user.companyId, (roleCode) => [...rolePermissions[roleCode]])) ??
+    roles.filter((role) => role.scope === "global" || authResult.auth.user.companyId === COMPANY_ID);
 
   return jsonSuccess(
     context,
@@ -4031,7 +4051,11 @@ app.get(appRoutes.org.roles, (context) => {
       ok: true,
       data: {
         items: visibleRoles,
-        summary: buildOrgDirectorySummary("역할/직책 overview", "운영 변경 없이 역할 설명과 대표 권한 묶음만 먼저 보여 줍니다.", visibleRoles.length),
+        summary: buildOrgDirectorySummary(
+          "역할/직책 overview",
+          visibleRoles.length > 0 ? "운영 DB 기준 역할 설명과 대표 권한 묶음을 보여 줍니다." : "운영 변경 없이 역할 설명과 대표 권한 묶음만 먼저 보여 줍니다.",
+          visibleRoles.length,
+        ),
         notices: [
           "권한 직접 수정은 /admin/users 또는 /admin/policies 범위입니다.",
           "역할 생성/삭제 저장 없이 읽기 전용 안내만 제공합니다.",
