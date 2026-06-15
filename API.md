@@ -65,6 +65,7 @@
 | 게시판/문서 | `/api/notices`, `/api/boards/*`, `/api/documents/*`, `/api/read-receipts` | board/document schema 들 | notice-only 쓰기 차단, private 문서공간 차단, raw storage 정보 비노출 |
 | Phase 24 제안 | `/api/me/home-layout`, `/api/branches`, `/api/branch-assignments`, `/api/branch-tasks`, `/api/branch-reports` | 문서 초안만 있음, shared contract/API 미구현 | 문서에만 먼저 고정, 실저장/실데이터/PMS 연동 과장 금지 |
 | Phase 25 공통 업무 엔진 | `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | placeholder read-only 유지, 역할/지점 scope 차단, 민감 첨부 metadata-only, `work_item.audit.read` 없는 audit 비노출 |
+| Phase 28 세무 관리 | `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | tax도 공통 work item 기반 유지, 지점 제출 vs HQ 검토 분리, metadata-only 세무 자료, 실제 홈택스/외부 전송 미포함 |
 | Phase 28A 급여 foundation | `/api/payroll`, `/api/payroll/periods/:id`, `/api/payroll/me/payslip` | `payroll*Schema`, `apps/api/test/auth-org.spec.ts` | preview 금액과 확정값 분리, employee self-only payslip, manager/hq visibility 분리, 외부 급여/세무 연동 미포함 |
 
 ## 1. Health/Auth
@@ -1038,7 +1039,88 @@ guardrail:
 - `apps/api/src/app.ts`
 - `apps/api/test/auth-org.spec.ts`
 
-## 8. shared contract 와 테스트를 같이 보는 순서
+## 8. Phase 28 세무 관리 API 메모
+
+이 단계의 세무 API 는 실제 신고 제출/외부 전송 API 가 아니라, 지점별 세무 증빙 수집·마감 점검·검토·반려·전달 패키지 준비를 공통 `work item` 기반 same-origin placeholder 로 보여 주는 묶음이다.
+
+### `GET /api/work-items?module=tax`
+
+목적:
+- 세무 work item 목록, category, 지점 제출 상태, 마감 임박 여부, 역할별 안내를 한 번에 보여 준다.
+
+대표 응답:
+- `items`
+- `module: "tax"`
+- `category`
+- `status`
+- `dueAt`
+- `access`
+- `taxContext`
+- `placeholder: true`
+
+현재 확인 포인트:
+- 세무 종류 차이는 `evidence_collection`, `vat_closing`, `withholding_tax_filing`, `local_tax_report`, `corporate_tax_preparation`, `missing_receipt_follow_up`, `tax_adjustment_review`, `advisor_package_preparation` 같은 category 확장으로 읽힌다.
+- `work_item_tax_month_end_evidence` 는 branch scope 예시로 `taxContext.branchRequests`, `evidenceSummary`, `visibility.branchManager` 가 실제로 채워진다.
+- `work_item_tax_vat_package_preparation` 는 company scope 예시로 `taxContext.packagePreparation.status = ready_for_review`, `visibility.headquartersTax` 가 실제로 채워진다.
+- 본사 세무 담당은 여러 지점 세무 목록과 회수율을 넓게 본다.
+- 지점 관리자는 자기 지점 제출/보완 요청 문맥만 본다.
+- 감사 사용자는 상태 변경/접근 흔적 중심 read-only 안내를 본다.
+
+guardrail:
+- 세무 목록 상태를 실제 신고 완료나 외부 제출 완료로 설명하지 않는다.
+- 지점 관리자가 company-wide 세무 패키지 전체를 보는 API처럼 문서화하지 않는다.
+
+### `GET /api/work-item-deadlines`
+
+목적:
+- 세무 마감 일정을 공통 deadline 구조 안에서 보여 준다.
+
+대표 응답:
+- `deadlines`
+- `module`
+- `dueAt`
+- `priority`
+- `reviewRequired`
+- 세무 카드의 `taxContext.deadlineKind` 와 함께 읽는 deadline 요약
+- `placeholder: true`
+
+현재 확인 포인트:
+- 세무 일정은 `monthly`, `quarterly`, `semiannual`, `annual` 같은 주기를 설명할 수 있어야 한다.
+- 부가세/원천세/지방세/법인세 마감과 지점별 자료 회수 필요 상태가 같은 목록에서 읽혀야 한다.
+- 일정은 skeleton 마감 안내이지, 법정 자동 계산 엔진이나 실제 신고 제출 스케줄 확정값이 아니다.
+
+guardrail:
+- 마감일을 실제 홈택스 제출 완료 시각처럼 쓰지 않는다.
+- legal calculator 또는 외부 연동 완료처럼 읽히는 문구를 넣지 않는다.
+
+### `GET /api/work-items/:id/reviews`
+
+목적:
+- HQ 세무 담당 검토, 지점 보완 요청, 감사용 상태 변경 흔적을 공통 review skeleton 으로 보여 준다.
+
+대표 응답:
+- `reviews`
+- `status`
+- `requestedChanges`
+- `roleGuidance`
+- `placeholder: true`
+
+현재 확인 포인트:
+- 누락/반려/보완 요청이 실제 외부 반송이나 신고 실패가 아니라 내부 검토 단계임을 숨기지 않는다.
+- review actor 는 본사 세무 담당 / 지점 관리자 / 감사 역할 차이를 읽히게 해야 한다.
+- 세무 자료 원문보다 metadata 중심 변경 이력과 상태 설명을 우선한다.
+- branch scope 제출 카드 review 와 HQ package 카드 review 가 같은 route 구조를 쓰더라도, 실제 열람 범위는 role/branch/company 경계로 계속 갈린다.
+
+승인 게이트:
+- 실제 홈택스 제출, 세무사 메일 발송, 회계프로그램/외부 세무 계정 연동, 실세무 원문 업로드 확대는 이 API 범위가 아니다.
+
+근거:
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+## 9. shared contract 와 테스트를 같이 보는 순서
 
 문서를 보고 바로 구현/검증할 때는 아래 순서가 가장 안전하다.
 
@@ -1054,7 +1136,7 @@ guardrail:
 5. phase 범위 문서로 guardrail 재확인
    - `docs/architecture/phase-*.md`
 
-## 9. 같이 봐야 하는 문서
+## 10. 같이 봐야 하는 문서
 
 - `DATA_MODEL.md`
 - `SPEC.md`

@@ -16,7 +16,7 @@ describe("Phase 25 work-items skeleton boundaries", () => {
     expect(html).toContain("/api/work-items, /api/work-items/:id");
     expect(html).toContain("/api/work-item-deadlines");
     expect(html).toContain("metadata-only");
-    expect(html).toContain("실제 신고 제출 자동화는 열지 않고 회수율·마감 상태만 보여 줍니다.");
+    expect(html).toContain("실제 홈택스 신고·회계프로그램 연동·실세무 원문 업로드는 닫고, 제출 상태·반려 사유·전달 패키지 준비 metadata 만 먼저 보여 줍니다.");
 
     for (const item of workItemHubHighlights) {
       expect(html).toContain(item);

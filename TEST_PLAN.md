@@ -279,6 +279,27 @@ pnpm --filter @gw/mobile typecheck
 6. `apps/api/test/auth-org.spec.ts` 에서 HQ overview 200, manager detail 403, employee self payslip 200 경계가 붙들려 있는지 본다.
 7. `apps/web/payroll.test.tsx` 에서 독립 payroll 모듈, self-only 명세서, 승인 게이트 문구가 회귀 테스트로 붙들려 있는지 본다.
 
+### 1-10-e. Phase 28 세무 관리 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 세무가 독립 신고 앱이 아니라 기존 공통 `work item` 기반 `tax` 모듈로 읽히는가
+2. 공통 상태와 tax filing/evidence 보조 상태가 섞이지 않고 설명되는가
+3. 본사 세무 담당 / 지점 관리자 / 감사 visibility 차이가 같은 권한 언어로 설명되는가
+4. 부가세/원천세/지방세/법인세/증빙 수집/전달 패키지 범주가 하나의 제품 언어로 정리돼 있는가
+5. 세무 자료 metadata 와 실원문/외부 제출이 구분돼 approval gate 원칙이 유지되는가
+6. 급여 `payroll` 의 세액 placeholder 와 세무 `tax` 마감 준비가 같은 책임처럼 섞이지 않는가
+7. `/work-items/tax` 와 공통 work item API 경로가 같은 확인 포인트를 가리키는가
+
+빠른 확인 순서:
+1. `/work-items` 에서 공통 업무 허브와 tax entry 가 같은 말로 적혀 있는지 본다.
+2. `/work-items/tax` 에서 세무 category, role split, 승인 게이트 문구가 바로 보이는지 본다.
+3. `GET /api/work-items?module=tax` placeholder 응답에서 `category`, `status`, `viewerScope`, `taxContext.branchRequests`, `taxContext.packagePreparation` 설명이 읽히는지 본다.
+4. `GET /api/work-item-deadlines` 에서 세무 일정이 `monthly`/`quarterly`/`annual` 같은 주기로 읽히는지 본다.
+5. `GET /api/work-items/:id/reviews` 에서 HQ 검토/반려/보완 요청이 내부 review 단계로 설명되는지 본다.
+6. `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 에서 branch scope `work_item_tax_month_end_evidence`, company scope `work_item_tax_vat_package_preparation`, 감사 audit log 경계가 역할별로 붙들려 있는지 본다.
+7. 가능하면 `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 tax copy 와 공통 work item 허브가 회귀 테스트로 고정돼 있는지 본다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash

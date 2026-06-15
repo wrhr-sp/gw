@@ -51,6 +51,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_one_on_one_checkin",
           "work_item_hr_branch_training_followup",
           "work_item_tax_month_end_evidence",
+          "work_item_tax_vat_package_preparation",
           "work_item_labor_overtime_review",
           "work_item_labor_leave_balance_adjustment",
           "work_item_legal_contract_review",
@@ -65,6 +66,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_branch_training_followup",
           "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
+          "work_item_tax_vat_package_preparation",
           "work_item_labor_overtime_review",
           "work_item_labor_leave_balance_adjustment",
           "work_item_labor_grievance_intake",
@@ -91,6 +93,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_branch_training_followup",
           "work_item_hr_grievance_triage",
           "work_item_tax_month_end_evidence",
+          "work_item_tax_vat_package_preparation",
           "work_item_labor_overtime_review",
           "work_item_labor_leave_balance_adjustment",
           "work_item_labor_grievance_intake",
@@ -181,6 +184,33 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
     expect(hrAdminRestrictedPayload.data.item.laborContext?.reviewActors.some((actor) => actor.scope === "auditor")).toBe(true);
   });
 
+  it("exposes tax metadata while keeping branch submission scope and HQ package scope separated", async () => {
+    const managerResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_tax_month_end_evidence"));
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = workItemDetailResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.item.access.viewerScope).toBe("branch");
+    expect(managerPayload.data.item.taxContext?.filingStage).toBe("collecting");
+    expect(managerPayload.data.item.taxContext?.branchRequests[0]?.missingEvidenceCount).toBe(2);
+    expect(managerPayload.data.item.taxContext?.visibility.branchManager).toContain("자기 지점");
+    expect(managerPayload.data.auditLogs).toEqual([]);
+
+    const managerBlockedResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_tax_vat_package_preparation"));
+    expect(managerBlockedResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await managerBlockedResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const hqResponse = await requestAs("HR_ADMIN", appRoutes.workItems.detail("work_item_tax_vat_package_preparation"));
+    expect(hqResponse.status).toBe(200);
+    const hqPayload = workItemDetailResponseSchema.parse(await hqResponse.json());
+    expect(hqPayload.data.item.taxContext?.packagePreparation.status).toBe("ready_for_review");
+    expect(hqPayload.data.item.taxContext?.visibility.headquartersTax).toContain("company scope");
+    expect(hqPayload.data.auditLogs).toEqual([]);
+
+    const auditorResponse = await requestAs("AUDITOR", appRoutes.workItems.detail("work_item_tax_vat_package_preparation"));
+    expect(auditorResponse.status).toBe(200);
+    const auditorPayload = workItemDetailResponseSchema.parse(await auditorResponse.json());
+    expect(auditorPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_tax_package_ready"]);
+  });
+
   it("keeps sensitive work-item documents and attachments available only to explicitly allowed roles", async () => {
     const hrDocumentRoute = appRoutes.workItems.documents("work_item_hr_onboarding_packet");
     const hrAttachmentRoute = appRoutes.workItems.attachments("work_item_hr_onboarding_packet");
@@ -251,6 +281,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "wideadline_hr_one_on_one_checkin",
           "wideadline_hr_branch_training",
           "wideadline_tax_month_end",
+          "wideadline_tax_vat_package",
           "wideadline_branch_daily_close",
         ],
       },
@@ -261,6 +292,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "wideadline_hr_one_on_one_checkin",
           "wideadline_hr_branch_training",
           "wideadline_tax_month_end",
+          "wideadline_tax_vat_package",
         ],
       },
       {
@@ -278,6 +310,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "wideadline_hr_one_on_one_checkin",
           "wideadline_hr_branch_training",
           "wideadline_tax_month_end",
+          "wideadline_tax_vat_package",
           "wideadline_branch_daily_close",
         ],
       },
