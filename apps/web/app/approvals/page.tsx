@@ -2,6 +2,7 @@ import { appRoutes } from "@gw/shared";
 
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { ApprovalsLiveSection } from "../_components/real-usage-panels";
 
 const mailboxCards = [
   {
@@ -45,9 +46,9 @@ const bridgeNotes = [
 export default function ApprovalsPage() {
   return (
     <PageShell
-      eyebrow="Phase 14 승인 흐름 연결"
-      title="전자결재 1차 skeleton"
-      description="대시보드의 승인 대기 요약과 같은 우선순위로 내 승인함, 팀 병목, 기안 작성 진입점을 작은 화면에서도 먼저 읽히게 정리한 placeholder 입니다."
+      eyebrow="Phase 31 승인 흐름 연결"
+      title="전자결재"
+      description="대시보드의 승인 대기 요약과 같은 우선순위로 내 승인함, 팀 병목, 기안 작성 진입점을 정리하고, 실제 preview API로 검토/확인 흐름까지 바로 확인할 수 있게 연결했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="승인 placeholder" hint="실제 승인 처리는 self-approval guardrail 과 회사 범위 검증이 연결된 뒤에만 활성화됩니다." />
@@ -55,6 +56,10 @@ export default function ApprovalsPage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 확인 패널" description="내 문서함·승인함을 실제 API에서 읽고, 기안/승인/반려 preview 를 바로 테스트합니다.">
+        <ApprovalsLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="모바일 우선 문서함" description="내 승인함 → 내 기안함 → 참조/합의 순서로 카드 우선순위를 재정렬했습니다.">
         <div className="grid-auto">
           {mailboxCards.map((card, index) => (

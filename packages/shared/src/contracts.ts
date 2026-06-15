@@ -702,10 +702,16 @@ export const sessionUserSchema = z.object({
   permissions: z.array(permissionCodeSchema),
 });
 
-export const authLoginRequestSchema = z.object({
-  email: z.email(),
-  password: z.string().min(8),
-});
+export const authLoginRequestSchema = z
+  .object({
+    loginId: z.string().trim().min(1).optional(),
+    email: z.email().optional(),
+    password: z.string().min(4),
+  })
+  .refine((value) => Boolean(value.loginId || value.email), {
+    message: "loginId or email is required",
+    path: ["loginId"],
+  });
 
 export const authLoginResponseSchema = successResponseSchema(
   z.object({

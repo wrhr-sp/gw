@@ -1,10 +1,12 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { adminUsersListResponseSchema, appRoutes } from "@gw/shared";
 
 import { AdminPageContent } from "./admin-page-content";
 import { getAdminPageCardsForRole } from "./admin-page-access";
-import AdminUsersPage from "./app/admin/users/page";
+import { app } from "../api/src/app";
+import { AdminUsersPageContent } from "./app/admin/users/admin-users-page-content";
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
@@ -34,16 +36,38 @@ describe("Phase 13 admin console pass 1", () => {
     ]);
   });
 
-  it("shows user review queues and audit-ready diffs before any save action", () => {
-    const html = renderToStaticMarkup(<AdminUsersPage />);
+  it("shows user review queues and audit-ready diffs before any save action", async () => {
+    const loginResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-dev-role": "COMPANY_ADMIN",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "1234",
+      }),
+    });
+    const cookie = loginResponse.headers.get("set-cookie");
+    if (!cookie) {
+      throw new Error("expected login response to include set-cookie header");
+    }
 
-    expect(html).toContain("일반 직원 조회와 운영 검토의 경계");
-    expect(html).toContain("/employees");
-    expect(html).toContain("오늘 확인할 사용자 큐");
-    expect(html).toContain("권한 diff 미리보기");
-    expect(html).toContain("상태 변경 preview");
-    expect(html).toContain("감사 이벤트 preview");
-    expect(html).not.toContain("실제 저장 실행");
+    const previewResponse = await app.request(appRoutes.admin.users, {
+      headers: {
+        cookie,
+      },
+    });
+    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    const html = renderToStaticMarkup(<AdminUsersPageContent preview={preview} />);
+
+    expect(html).toContain("현재 검토 중인 사용자");
+    expect(html).toContain("사용자 생성 dev-safe 흐름");
+    expect(html).toContain("역할 / 업무권한 지정");
+    expect(html).toContain("활성 / 비활성 전환");
+    expect(html).toContain("비밀번호 초기화 / 변경");
+    expect(html).toContain("forbidden / empty / error / dev-safe 경계");
+    expect(html).toContain("실저장 없음");
   });
 
   it("keeps policy review cards in a consistent current-candidate-capability format", () => {

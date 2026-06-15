@@ -2,6 +2,7 @@ import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { DocumentsLiveSection } from "../_components/real-usage-panels";
 
 const spaceCards = [
   {
@@ -28,11 +29,15 @@ const metadataChecklist = [
 export default function DocumentsPage() {
   return (
     <PageShell
-      eyebrow="모바일 문서함 접근성 점검"
-      title="문서함 1차 skeleton"
-      description="문서함 목록/접근 경계/첨부 metadata 흐름을 모바일에서도 읽기 쉽게 카드형으로 정리한 placeholder 입니다."
+      eyebrow="Phase 31 문서함 접근성 점검"
+      title="문서함"
+      description="문서함 목록/접근 경계/첨부 metadata 흐름을 모바일에서도 읽기 쉽게 카드형으로 정리하고, 실제 공간/파일 metadata 응답을 same-origin API로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">no storage key leakage</Pill>}
     >
+      <SurfaceSection title="실사용 확인 패널" description="문서 공간과 파일 metadata 를 실제 API 응답으로 먼저 확인합니다.">
+        <DocumentsLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="문서 공간 카드" description="작은 화면에서도 문서 공간 제목과 가드레일을 먼저 보여 줍니다.">
         <div className="grid-auto">
           {spaceCards.map((space) => (

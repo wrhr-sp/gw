@@ -3,6 +3,7 @@ import { appRoutes } from "@gw/shared";
 import { leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../admin-skeleton-config";
 import { PlaceholderAction } from "../_components/placeholder-action";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { LeaveLiveSection } from "../_components/real-usage-panels";
 
 const leaveTypes = leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => ({
   code,
@@ -32,9 +33,9 @@ const policyBridgeNotes = [
 export default function LeavePage() {
   return (
     <PageShell
-      eyebrow="모바일 휴가 신청/잔여 skeleton"
-      title="휴가 skeleton"
-      description="잔여 snapshot, 신청, 승인 대기 카드를 작은 화면 우선으로 정리하고 긴 표는 보조 표현으로 남긴 placeholder 입니다."
+      eyebrow="Phase 31 휴가 신청/승인"
+      title="휴가"
+      description="잔여 snapshot, 신청, 승인 대기 카드를 작은 화면 우선으로 정리하고, 실제 preview API로 신청·승인·반려 흐름까지 확인할 수 있게 연결했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="휴가 신청 placeholder" hint="실제 신청 제출은 placeholder 범위 밖이며 온라인에서만 열립니다." />
@@ -42,6 +43,10 @@ export default function LeavePage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 확인 패널" description="잔여/요청 목록을 실제 API에서 읽고, 신청·승인·반려 preview 를 바로 테스트합니다.">
+        <LeaveLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="휴가 유형과 잔여 요약" description="모바일에서는 잔여 snapshot 을 카드형으로 먼저 읽습니다.">
         <div className="grid-auto-compact">
           <article className="info-card">

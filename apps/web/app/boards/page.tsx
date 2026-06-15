@@ -2,6 +2,7 @@ import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { BoardsLiveSection } from "../_components/real-usage-panels";
 
 const boardCards = [
   {
@@ -28,11 +29,15 @@ const composerChecklist = [
 export default function BoardsPage() {
   return (
     <PageShell
-      eyebrow="모바일 게시판 접근성 점검"
-      title="게시판 1차 skeleton"
-      description="공지/일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 모바일에서도 읽기 쉽도록 정리한 placeholder 입니다."
+      eyebrow="Phase 31 게시판 접근성 점검"
+      title="게시판"
+      description="공지/일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 모바일에서도 읽기 쉽게 정리하고, 실제 게시판/게시글 목록을 same-origin API로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">touch-first reading flow</Pill>}
     >
+      <SurfaceSection title="실사용 확인 패널" description="게시판 목록과 자유 게시판 최신 글을 실제 API 응답으로 먼저 확인합니다.">
+        <BoardsLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="게시판 목록 카드" description="작은 화면에서도 제목·권한·CTA 우선순위가 보이도록 카드형 목록을 유지합니다.">
         <div className="grid-auto">
           {boardCards.map((board) => (

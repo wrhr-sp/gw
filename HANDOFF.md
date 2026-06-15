@@ -18,16 +18,25 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 29 법무 관리 1차다. Phase 25 공통 `work item` 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 올리는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 실사용 전환 1차 fit-gap 정리와 그 다음 우선순위인 Phase 31 홈·로그인·경영업무·계정관리 실사용화 준비다. 직전 Phase 29 법무 관리 1차에서 쌓은 공통 `work item` 기반 모듈들을 실제 UAT 입구인 로그인/홈/경영업무/계정관리와 연결하는 것이 이제 다음 체인의 핵심이다.
 
 현재 상태 요약:
 
-- planner/builder 초기 초안 단계는 지나갔고, 현재는 실제 shared contract/API/Web/test 근거까지 반영된 Phase 28 문서 정리 기준으로 본다.
-- 문서에서 바로 따라가야 할 대표 fixture 는 `work_item_tax_month_end_evidence`(지점 제출 branch scope) 와 `work_item_tax_vat_package_preparation`(HQ 전달 패키지 company scope) 2개다.
-- 직전 재검증 기준으로 `/work-items`, `/work-items/tax`, `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 와 focused test/Cloudflare build/local preview smoke 까지 모두 통과한 상태를 기준으로 문서를 읽는다.
-- 이번 planner 카드는 그 위에서 Phase 29 법무 범위/가드레일/구현 handoff 를 먼저 고정하는 카드다.
-- 현재 저장소 legal fixture 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이며, 구현 전 기준은 `/management`, `/work-items/legal`, `/api/work-items?module=legal`, `/api/work-items/:id/reviews`, 관련 role boundary 테스트다.
-- 이번 문서의 목적은 현재 placeholder 를 전체 구현 완료처럼 과장하지 않고, builder/reviewer/tester가 같은 계약 검토/갱신/분쟁 언어를 쓰게 만드는 것이다.
+- `/work-items*` 와 `/management` 는 route/API/test 근거가 있어 "업무 모듈 구조를 설명 가능한 영역"으로 본다.
+- `/login` 과 landing 경계는 이미 parent 테스트 카드에서 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 로 다시 확인됐다.
+- 관리자 로그인 기준 `/dashboard` 200, `/management` 200, `/work-items/legal` 200, `/api/admin/users` 200 이 확인됐고, 일반 직원 로그인 기준 `/management` 307 `/forbidden`, `/work-items/legal` 307 `/forbidden`, `/api/admin/users` 403 이 확인됐다.
+- 반대로 `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals` 는 placeholder 또는 happy path 부족으로 인해 실사용 전환 1차 fit-gap 우선 검토 대상이다.
+- 새 기준 문서는 `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md` 다.
+- 다음 구현 우선순위는 Phase 30 전체 고도화보다, `admin / 1234` 기반 dev-safe UAT 계정·로그인·landing·계정관리·경영업무 허브를 먼저 닫는 Phase 31이다.
+- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 영역"과 "입구부터 먼저 닫아야 하는 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 실사용 전환 언어를 쓰게 만드는 것이다.
+
+2026-06-15 실사용 전환 1차 fit-gap 메모:
+
+- 바로 사용 가능에 가까운 영역: `/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch`, `/management`, 관련 API role boundary 테스트.
+- skeleton 잔여가 큰 영역: `/login`, `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals`, 계정 생성/권한 부여/활성 비활성/비밀번호 초기화 흐름.
+- 다음 우선순위는 로그인·세션·역할 landing → 홈/경영업무 쉘 → 계정관리 dev-safe 흐름 → 게시판/문서/근태/휴가/결재 최소 happy path UAT 연결 순서다.
+- 테스트 기준 계정은 dev/test/UAT 전용 `admin / 1234` 로 문서화하되 production 금지와 초기 비밀번호 변경/seed 교체 필요를 함께 적는다.
+- 일반 직원 화면과 `경영업무` 허브는 분리 유지하고, 민감 리스크 상세는 지정 관리자/담당자만 보게 한다.
 
 현재 기획/구현 상태 요약:
 

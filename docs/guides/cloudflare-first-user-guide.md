@@ -70,7 +70,7 @@ curl http://127.0.0.1:8787/api/health
 curl -i http://127.0.0.1:8787/api/auth/login \
   -H 'content-type: application/json' \
   -H 'x-dev-role: COMPANY_ADMIN' \
-  --data '{"email":"admin@example.com","password":"placeholder-password"}'
+  --data '{"loginId":"admin","password":"1234"}'
 ```
 
 정상 응답 예시는 아래와 같습니다.

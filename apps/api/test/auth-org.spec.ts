@@ -70,8 +70,8 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
       "x-dev-role": role,
     },
     body: JSON.stringify({
-      email: "admin@example.com",
-      password: "placeholder-password",
+      loginId: "admin",
+      password: "1234",
     }),
   });
 
@@ -110,6 +110,23 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(payload.data.session.placeholder).toBe(true);
     expect(payload.data.user.roleCodes).toContain("COMPANY_ADMIN");
+  });
+
+  it("rejects invalid dev-safe login credentials", async () => {
+    const response = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "wrong-password",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
   });
 
   it("rejects me when no auth cookie is present", async () => {
