@@ -7,6 +7,9 @@
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "check": "pnpm test && pnpm typecheck"
+    "check": "pnpm test && pnpm typecheck",
+    "db:pg:check": "node scripts/validate-operational-postgres-schema.mjs",
+    "db:pg:seed:preview": "node scripts/seed-operational-db.mjs preview",
+    "db:pg:seed:production": "node scripts/seed-operational-db.mjs production"
   }
 }
