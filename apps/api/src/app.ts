@@ -131,6 +131,7 @@ import {
   type DocumentStorageEnv,
 } from "./lib/document-storage";
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
+import { authenticateOperationalUser } from "./lib/operational-auth";
 
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
@@ -3833,8 +3834,32 @@ app.post(appRoutes.auth.login, async (context) => {
     });
   }
 
+  const operationalLogin = await authenticateOperationalUser(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
+
+  if (operationalLogin) {
+    const session = buildSession(operationalLogin.primaryRoleCode);
+    const payload = {
+      ok: true,
+      data: {
+        session,
+        user: operationalLogin.user,
+        nextStep: operationalLogin.user.roleCodes.includes("COMPANY_ADMIN")
+          ? "운영 DB 인증으로 로그인했습니다. 초기 관리자 계정은 비밀번호 변경/초기화 흐름을 이어서 연결해야 합니다."
+          : "운영 DB 인증으로 로그인했습니다.",
+      },
+      error: null,
+    };
+
+    context.header(
+      "Set-Cookie",
+      `gw_session=${encodeURIComponent(session.id)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${DEV_SESSION_MAX_AGE_SECONDS}`,
+    );
+
+    return jsonSuccess(context, authLoginResponseSchema, payload, 200);
+  }
+
   if (!isDevSafeLoginCredential(parsed.data.loginId, parsed.data.email, parsed.data.password)) {
-    return jsonError(context, "FORBIDDEN", "dev/test/UAT 전용 테스트 계정(admin / 1234)만 허용합니다.", 403, {
+    return jsonError(context, "FORBIDDEN", "운영 DB 인증 또는 dev/test/UAT 전용 테스트 계정(admin / 1234)만 허용합니다.", 403, {
       allowedLoginId: DEV_SAFE_LOGIN_ID,
       productionBlocked: true,
     });
@@ -3847,7 +3872,7 @@ app.post(appRoutes.auth.login, async (context) => {
     data: {
       session,
       user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
-      nextStep: "Production 에서는 admin / 1234 를 금지하고 실제 인증 provider 또는 seed 교체 절차를 연결합니다.",
+      nextStep: "운영 DB 연결값이 없거나 DB 인증이 실패하면 dev/test/UAT 전용 fallback 으로만 동작합니다.",
     },
     error: null,
   };
