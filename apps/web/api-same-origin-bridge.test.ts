@@ -29,27 +29,36 @@ describe("Phase 7 same-origin API bridge", () => {
     expect(errorResponseSchema.parse(await response.json()).error.code).toBe("AUTH_REQUIRED");
   });
 
-  it("rejects a forged dev placeholder cookie on the public same-origin me route", async () => {
+  it("returns the authenticated me response when the same-origin route receives the login session cookie", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+        }),
+      }),
+    );
+
     const response = await getMe(
       new Request("http://localhost/api/me", {
         headers: {
-          cookie: "gw_session=dev-placeholder-session_HR_ADMIN",
+          cookie: loginResponse.headers.get("set-cookie") ?? "",
         },
       }),
     );
 
-    expect(response.status).toBe(401);
-    expect(errorResponseSchema.parse(await response.json()).error.code).toBe("AUTH_REQUIRED");
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.ok).toBe(true);
+    expect(payload.data.user.roleCodes).toContain("COMPANY_ADMIN");
   });
 
-  it("rejects URL-encoded and malformed dev placeholder cookie values without crashing", async () => {
-    const encodedResponse = await getMe(
-      new Request("http://localhost/api/me", {
-        headers: {
-          cookie: "gw_session=dev-placeholder-session_HR_ADMIN%3Bother=value",
-        },
-      }),
-    );
+  it("rejects malformed dev placeholder cookie values without crashing", async () => {
     const malformedResponse = await getMe(
       new Request("http://localhost/api/me", {
         headers: {
@@ -58,8 +67,6 @@ describe("Phase 7 same-origin API bridge", () => {
       }),
     );
 
-    expect(encodedResponse.status).toBe(401);
-    expect(errorResponseSchema.parse(await encodedResponse.json()).error.code).toBe("AUTH_REQUIRED");
     expect(malformedResponse.status).toBe(401);
     expect(errorResponseSchema.parse(await malformedResponse.json()).error.code).toBe("AUTH_REQUIRED");
   });

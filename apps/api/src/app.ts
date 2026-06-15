@@ -2713,8 +2713,14 @@ function extractRoleCode(cookieHeader: string | null): RoleCode | null {
     return null;
   }
 
-  const sessionToken = decodeURIComponent(match[1]);
-  if (!sessionToken.startsWith(DEV_SESSION_PREFIX)) {
+  const sessionToken = (() => {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
+  })();
+  if (!sessionToken?.startsWith(DEV_SESSION_PREFIX)) {
     return null;
   }
 

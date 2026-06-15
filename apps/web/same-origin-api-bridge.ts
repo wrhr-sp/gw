@@ -74,7 +74,7 @@ export function forwardHealthRequest(request: Request) {
 }
 
 export function forwardMeRequest(request: Request) {
-  return forwardSameOriginApiRequest(request, appRoutes.me);
+  return forwardTrustedSameOriginApiRequest(request, appRoutes.me);
 }
 
 export function forwardAuthLoginRequest(request: Request) {
