@@ -9,6 +9,8 @@ type AdminUsersPageContentProps = {
   preview: AdminUsersPreview;
   actionMessage?: string | null;
   loadError?: string | null;
+  actionType?: string | null;
+  focusMessage?: string | null;
 };
 
 const capabilityExamples = [
@@ -25,7 +27,38 @@ const happyPathCards = [
   { href: "/approvals", title: "전자결재", description: "기안 → 승인/반려/보완 → 결재함 상태를 확인합니다." },
 ] as const;
 
-export function AdminUsersPageContent({ preview, actionMessage, loadError }: AdminUsersPageContentProps) {
+const actionJourneyMap = {
+  create: [
+    "1) 사용자 생성 preview 결과 확인",
+    "2) 새 역할 기준 일반 업무 route 후보 확인",
+    "3) /boards, /documents, /attendance 중 하나를 눌러 홈 업무 진입 확인",
+  ],
+  role: [
+    "1) 역할/업무권한 diff 확인",
+    "2) /management, /admin/users, /admin/audit-logs 노출/차단 기준 재확인",
+    "3) 고위험 권한은 감사 후보 문구와 함께 검토",
+  ],
+  status: [
+    "1) 활성/비활성 상태 변경 diff 확인",
+    "2) 비활성 사용자의 차단 안내와 업무 중단 범위 확인",
+    "3) 실제 저장 없이 영향 범위 문구만 검토",
+  ],
+  password: [
+    "1) 비밀번호 reset preview 결과 확인",
+    "2) 실제 임시 비밀번호 값이 URL/배너에 남지 않았는지 확인",
+    "3) 로그아웃/재로그인 시나리오만 점검하고 production 정책은 열지 않음",
+  ],
+} as const;
+
+export function AdminUsersPageContent({
+  preview,
+  actionMessage,
+  loadError,
+  actionType,
+  focusMessage,
+}: AdminUsersPageContentProps) {
+  const activeJourney = actionJourneyMap[actionType as keyof typeof actionJourneyMap] ?? null;
+
   return (
     <PageShell
       backHref="/management"
@@ -45,6 +78,19 @@ export function AdminUsersPageContent({ preview, actionMessage, loadError }: Adm
           <strong>최근 dev-safe 실행 결과</strong>
           <span>{actionMessage}</span>
         </section>
+      ) : null}
+
+      {focusMessage || activeJourney ? (
+        <SurfaceSection title="방금 실행한 preview 다음 확인" description="계정관리 preview 를 누른 뒤 어디를 바로 확인할지 actionType 기준으로 고정합니다.">
+          {focusMessage ? <p className="meta-copy">{focusMessage}</p> : null}
+          {activeJourney ? (
+            <ol className="number-list">
+              {activeJourney.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+          ) : null}
+        </SurfaceSection>
       ) : null}
 
       {loadError ? (

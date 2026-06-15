@@ -229,6 +229,15 @@ handle_task() {
       --result "$result" \
       --summary "$summary"
     echo "완료 처리됨: $task_id"
+    if rewire_output="$(./scripts/gw-late-blocking-fix-rewire.sh --task "$task_id" 2>&1)"; then
+      echo "$rewire_output"
+    else
+      rewire_rc=$?
+      echo "$rewire_output"
+      if [[ "$rewire_rc" -ne 0 ]]; then
+        echo "late blocking fix 재배선 보강은 실패했지만 review-required complete 는 유지하고 dispatch 를 계속 시도합니다." >&2
+      fi
+    fi
     echo "다음 카드 dispatch 실행(max=$MAX_DISPATCH)"
     dispatch_output="$(kanban_call dispatch --max "$MAX_DISPATCH" 2>&1)" || {
       echo "$dispatch_output"

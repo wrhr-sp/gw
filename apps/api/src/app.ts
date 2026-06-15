@@ -63,6 +63,7 @@ import {
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
   listCompaniesResponseSchema,
+  listHomeShortcutsResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listPermissionsResponseSchema,
@@ -96,6 +97,7 @@ import {
   type DocumentSpace,
   type Employee,
   type ErrorCode,
+  type HomeShortcut,
   type LeaveBalance,
   type LeaveRequest,
   type LeaveType,
@@ -106,6 +108,7 @@ import {
   type PayrollProfile,
   type PayrollReviewStep,
   type Permission,
+  type Company,
   type RoleCode,
   type Session,
   type SessionUser,
@@ -118,6 +121,7 @@ import {
   buildAttendancePolicyPreview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
+  filterHomeShortcutsForViewer,
   getAdminScopeForRoleCode,
   hasAdminConsoleAccess,
   highRiskPermissionCodes,
@@ -133,7 +137,15 @@ import {
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminUsers } from "./lib/operational-admin";
-import { listOperationalDepartments, listOperationalEmployeeDirectory, listOperationalRoles, type OperationalEmployeeDirectory } from "./lib/operational-org";
+import {
+  listOperationalCompanies,
+  listOperationalDepartments,
+  listOperationalEmployeeDirectory,
+  listOperationalHomeShortcuts,
+  listOperationalPermissions,
+  listOperationalRoles,
+  type OperationalEmployeeDirectory,
+} from "./lib/operational-org";
 
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
@@ -203,6 +215,19 @@ const permissionCatalog: Permission[] = [
 ];
 
 const rolePermissions = rolePermissionMatrix;
+
+const companyCodeById: Record<string, string> = {
+  [COMPANY_ID]: "demo",
+};
+
+const fixedHomeShortcutFallback: HomeShortcut[] = [
+  { id: "shortcut_attendance", code: "attendance", label: "출퇴근 먼저", href: "/attendance", icon: "clock", isFixed: true, sortOrder: 10, scope: "company" },
+  { id: "shortcut_leave", code: "leave", label: "휴가 확인", href: "/leave", icon: "calendar", isFixed: true, sortOrder: 20, scope: "company" },
+  { id: "shortcut_approvals", code: "approvals", label: "결재 대기", href: "/approvals", icon: "stamp", isFixed: true, sortOrder: 30, scope: "company" },
+  { id: "shortcut_boards", code: "boards", label: "공지/게시판", href: "/boards", icon: "megaphone", isFixed: true, sortOrder: 40, scope: "company" },
+  { id: "shortcut_documents", code: "documents", label: "문서함", href: "/documents", icon: "folder", isFixed: true, sortOrder: 50, scope: "company" },
+  { id: "shortcut_me", code: "me", label: "내 정보", href: "/me", icon: "user", isFixed: true, sortOrder: 60, scope: "company" },
+];
 
 const companies = [{ id: COMPANY_ID, code: "demo", name: "데모 주식회사", status: "active" as const, settingsModel: buildCompanySettingsModel() }];
 
@@ -3350,11 +3375,13 @@ function buildOperationalBridgeSummary() {
   };
 }
 
-function buildCompanySettingsModel() {
+function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모 주식회사", branchNames: string[] = []) {
+  const branchSummary = branchNames.length > 0 ? `${branchNames.join(", ")} 지점 기준 조직/정책 연결을 함께 확인합니다.` : "지점 기준 연결은 운영 DB branch seed가 있으면 함께 반영합니다.";
+
   return {
-    companyId: COMPANY_ID,
-    companyName: "데모 주식회사",
-    policyStartPoint: "회사 기본 설정을 시작점으로 근태·휴가·전자결재·운영 정책을 같은 회사 scope 설명으로 묶는 1차 모델입니다.",
+    companyId,
+    companyName,
+    policyStartPoint: `${companyName} 기본 설정을 시작점으로 근태·휴가·전자결재·운영 정책을 같은 회사 scope 설명으로 묶는 1차 모델입니다. ${branchSummary}`,
     groups: [
       {
         id: "company_profile" as const,
@@ -3437,6 +3464,50 @@ function buildCompanySettingsModel() {
       },
     ],
     placeholder: true as const,
+  };
+}
+
+function buildFallbackHomeShortcuts(auth: NonNullable<AuthorizationResult["auth"]>): HomeShortcut[] {
+  const shortcuts = [...fixedHomeShortcutFallback];
+
+  if (auth.user.permissions.includes("invite.manage")) {
+    shortcuts.push({
+      id: `shortcut_admin_${auth.user.id}`,
+      code: "admin_users",
+      label: "관리자 사용자",
+      href: "/admin/users",
+      icon: "shield",
+      isFixed: false,
+      sortOrder: 110,
+      scope: "user",
+    });
+  }
+
+  if (auth.user.permissions.includes("audit.read")) {
+    shortcuts.push({
+      id: `shortcut_audit_${auth.user.id}`,
+      code: "audit_logs",
+      label: "감사 로그",
+      href: "/admin/audit-logs",
+      icon: "history",
+      isFixed: false,
+      sortOrder: 120,
+      scope: "user",
+    });
+  }
+
+  return filterHomeShortcutsForViewer(shortcuts, auth.user).sort(
+    (left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, "ko"),
+  );
+}
+
+function buildCompanyFromOperationalRecord(record: { id: string; name: string; status: "active" | "inactive"; branchNames: string[] }): Company {
+  return {
+    id: record.id,
+    code: companyCodeById[record.id] ?? record.id.replace(/^company_/, ""),
+    name: record.name,
+    status: record.status,
+    settingsModel: buildCompanySettingsModel(record.id, record.name, record.branchNames),
   };
 }
 
@@ -3930,13 +4001,54 @@ app.get(appRoutes.me, (context) => {
   );
 });
 
-app.get(appRoutes.org.companies, (context) => {
+app.get(appRoutes.home.shortcuts, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const dbShortcuts = await listOperationalHomeShortcuts(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+  const hasDbShortcuts = Array.isArray(dbShortcuts) && dbShortcuts.length > 0;
+  const items = hasDbShortcuts
+    ? filterHomeShortcutsForViewer(dbShortcuts, authResult.auth.user).sort(
+        (left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, "ko"),
+      )
+    : buildFallbackHomeShortcuts(authResult.auth);
+
+  return jsonSuccess(
+    context,
+    listHomeShortcutsResponseSchema,
+    {
+      ok: true,
+      data: {
+        items,
+        notices: hasDbShortcuts
+          ? [
+              "운영 DB 기준 홈 바로가기를 조회했습니다.",
+              "회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다.",
+            ]
+          : [
+              "운영 DB 연결값이 없으면 dev-safe 기본 바로가기 세트를 사용합니다.",
+              "권한별 추가 바로가기는 현재 세션 권한을 기준으로만 계산합니다.",
+            ],
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.org.companies, async (context) => {
   const authResult = requirePermission(context, "company.read");
   if (authResult.response) {
     return authResult.response;
   }
 
-  return jsonSuccess(context, listCompaniesResponseSchema, { ok: true, data: { items: companies }, error: null }, 200);
+  const dbCompanies = await listOperationalCompanies(context.env, authResult.auth.user.companyId);
+  const items = dbCompanies?.map(buildCompanyFromOperationalRecord) ?? companies;
+
+  return jsonSuccess(context, listCompaniesResponseSchema, { ok: true, data: { items }, error: null }, 200);
 });
 
 app.get(appRoutes.org.employees, async (context) => {
@@ -4068,13 +4180,15 @@ app.get(appRoutes.org.roles, async (context) => {
   );
 });
 
-app.get(appRoutes.org.permissions, (context) => {
+app.get(appRoutes.org.permissions, async (context) => {
   const authResult = requirePermission(context, "permission.read");
   if (authResult.response) {
     return authResult.response;
   }
 
-  return jsonSuccess(context, listPermissionsResponseSchema, { ok: true, data: { items: permissionCatalog }, error: null }, 200);
+  const items = (await listOperationalPermissions(context.env, permissionCatalog)) ?? permissionCatalog;
+
+  return jsonSuccess(context, listPermissionsResponseSchema, { ok: true, data: { items }, error: null }, 200);
 });
 
 app.post(appRoutes.admin.invites, async (context) => {

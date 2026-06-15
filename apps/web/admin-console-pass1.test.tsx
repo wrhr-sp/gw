@@ -59,13 +59,22 @@ describe("Phase 13 admin console pass 1", () => {
       },
     });
     const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
-    const html = renderToStaticMarkup(<AdminUsersPageContent preview={preview} />);
+    const html = renderToStaticMarkup(
+      <AdminUsersPageContent
+        preview={preview}
+        actionMessage="권한 diff preview 완료: 관리자 테스트 → HR_ADMIN (실저장 없음)"
+        actionType="role"
+        focusMessage="권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다."
+      />,
+    );
 
     expect(html).toContain("현재 검토 중인 사용자");
     expect(html).toContain("사용자 생성 dev-safe 흐름");
     expect(html).toContain("역할 / 업무권한 지정");
     expect(html).toContain("활성 / 비활성 전환");
     expect(html).toContain("비밀번호 초기화 / 변경");
+    expect(html).toContain("방금 실행한 preview 다음 확인");
+    expect(html).toContain("/management, /admin/users, /admin/audit-logs 노출/차단 기준 재확인");
     expect(html).toContain("forbidden / empty / error / dev-safe 경계");
     expect(html).toContain("실저장 없음");
   });

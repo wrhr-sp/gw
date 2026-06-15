@@ -25,6 +25,10 @@
 - `/work-items*` 와 `/management` 는 route/API/test 근거가 있어 "업무 모듈 구조를 설명 가능한 영역"으로 본다.
 - `/login` 과 landing 경계는 이미 parent 테스트 카드에서 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 로 다시 확인됐다.
 - 관리자 로그인 기준 `/dashboard` 200, `/management` 200, `/work-items/legal` 200, `/api/admin/users` 200 이 확인됐고, 일반 직원 로그인 기준 `/management` 307 `/forbidden`, `/work-items/legal` 307 `/forbidden`, `/api/admin/users` 403 이 확인됐다.
+- 현재 코드 스냅샷 기준 `/login`, `/dashboard`, `/management`, `/admin/users` 는 모두 실제 화면이 있고, `/admin/users` 는 `GET /api/admin/users` preview 와 create/role/status/password dev-safe 폼까지 연결돼 있다.
+- `/dashboard` 홈 바로가기는 회사 공통 고정 바로가기와 사용자 전용 커스텀 바로가기를 분리하고, `로그인 전 미조회`·`권한상 커스텀 없음`·`API load error` 를 서로 다른 상태로 남긴다.
+- 다만 `/dashboard` 는 아직 `skeleton`, `placeholder/dev-safe` 문구를 유지하고 있고, `/admin/users` action 은 `apps/web/app/admin/users/dev-safe-action/route.ts` 기준 실제 저장 없는 303 redirect preview 단계다.
+- `/admin/users` 는 preview 실행 뒤 게시판/문서/근태 같은 일반 업무 route 와 `/management`·`/admin/audit-logs` 접근 결과를 다시 눌러보는 UAT 흐름으로 설명하는 것이 현재 문서 기준이다.
 - 반대로 `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals` 는 placeholder 또는 happy path 부족으로 인해 실사용 전환 1차 fit-gap 우선 검토 대상이다.
 - 새 기준 문서는 `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md` 다.
 - 다음 구현 우선순위는 Phase 30 전체 고도화보다, `admin / 1234` 기반 dev-safe UAT 계정·로그인·landing·계정관리·경영업무 허브를 먼저 닫는 Phase 31이다.
@@ -35,6 +39,7 @@
 - 바로 사용 가능에 가까운 영역: `/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch`, `/management`, 관련 API role boundary 테스트.
 - skeleton 잔여가 큰 영역: `/login`, `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals`, 계정 생성/권한 부여/활성 비활성/비밀번호 초기화 흐름.
 - 다음 우선순위는 로그인·세션·역할 landing → 홈/경영업무 쉘 → 계정관리 dev-safe 흐름 → 게시판/문서/근태/휴가/결재 최소 happy path UAT 연결 순서다.
+- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/management` → `/admin/users` → `/attendance`·`/leave`·`/approvals` → `/boards`·`/documents`·`/me` → `/admin/audit-logs` 다.
 - 테스트 기준 계정은 dev/test/UAT 전용 `admin / 1234` 로 문서화하되 production 금지와 초기 비밀번호 변경/seed 교체 필요를 함께 적는다.
 - 일반 직원 화면과 `경영업무` 허브는 분리 유지하고, 민감 리스크 상세는 지정 관리자/담당자만 보게 한다.
 

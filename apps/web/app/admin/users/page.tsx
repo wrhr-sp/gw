@@ -58,6 +58,8 @@ async function AdminUsersPageResolved({
   const sessionToken = cookieStore.get("gw_session")?.value ?? null;
   const params = (await searchParams) ?? {};
   const actionMessage = typeof params.result === "string" ? params.result : null;
+  const actionType = typeof params.actionType === "string" ? params.actionType : null;
+  const focusMessage = typeof params.focus === "string" ? params.focus : null;
   const { preview, loadError } = await loadAdminUsersPreview(sessionToken);
 
   return (
@@ -65,6 +67,8 @@ async function AdminUsersPageResolved({
       preview={preview ?? getFallbackPreview()}
       actionMessage={actionMessage}
       loadError={loadError}
+      actionType={actionType}
+      focusMessage={focusMessage}
     />
   );
 }

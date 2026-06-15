@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterHomeShortcutsForViewer,
   getAdminNavigationAccess,
   getAdminRouteKind,
   getAdminScopeForRoleCode,
   getViewerAccessForRoleCode,
   hasAdminRouteAccess,
+  hasHomeShortcutRouteAccess,
+  hasSensitiveWorkbenchRouteAccess,
 } from "../src/admin-access";
 import {
   adminAuditLogListResponseSchema,
@@ -55,6 +58,7 @@ import {
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
   listCompaniesResponseSchema,
+  listHomeShortcutsResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listPermissionsResponseSchema,
@@ -205,6 +209,7 @@ describe("shared contracts", () => {
     expect(appRoutes.auth.login).toBe("/api/auth/login");
     expect(appRoutes.auth.logout).toBe("/api/auth/logout");
     expect(appRoutes.me).toBe("/api/me");
+    expect(appRoutes.home.shortcuts).toBe("/api/home/shortcuts");
     expect(appRoutes.org.companies).toBe("/api/companies");
     expect(appRoutes.org.employees).toBe("/api/employees");
     expect(appRoutes.org.departments).toBe("/api/departments");
@@ -416,14 +421,75 @@ describe("shared contracts", () => {
 
     const hrViewer = getViewerAccessForRoleCode("HR_ADMIN");
     const auditorViewer = getViewerAccessForRoleCode("AUDITOR");
+    const employeeViewer = getViewerAccessForRoleCode("EMPLOYEE");
+    const managerViewer = getViewerAccessForRoleCode("MANAGER");
 
     expect(hasAdminRouteAccess("/admin", hrViewer)).toBe(true);
     expect(hasAdminRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
     expect(hasAdminRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/management", managerViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/management", employeeViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/attendance", employeeViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/admin/users", employeeViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/admin/users", hrViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/management", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/management", employeeViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/work-items/legal", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/work-items/legal", employeeViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/totally-unknown-shortcut", hrViewer)).toBe(false);
+    expect(
+      filterHomeShortcutsForViewer(
+        [
+          { href: "/attendance", id: "shortcut_attendance" },
+          { href: "/admin/users", id: "shortcut_admin" },
+          { href: "/admin/audit-logs", id: "shortcut_audit" },
+          { href: "/management", id: "shortcut_management" },
+          { href: "/work-items/legal", id: "shortcut_legal" },
+        ],
+        employeeViewer,
+      ).map((item) => item.id),
+    ).toEqual(["shortcut_attendance"]);
+    expect(
+      filterHomeShortcutsForViewer(
+        [
+          { href: "/attendance", id: "shortcut_attendance" },
+          { href: "/management", id: "shortcut_management" },
+          { href: "/work-items/legal", id: "shortcut_legal" },
+        ],
+        managerViewer,
+      ).map((item) => item.id),
+    ).toEqual(["shortcut_attendance", "shortcut_management", "shortcut_legal"]);
     expect(getAdminNavigationAccess(hrViewer)).toEqual({
       canAccessAdminConsole: true,
       canAccessAdminAudit: false,
     });
+  });
+
+  it("parses home shortcut placeholder payloads", () => {
+    expect(
+      listHomeShortcutsResponseSchema.parse({
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "shortcut_attendance",
+              code: "attendance",
+              label: "출퇴근 먼저",
+              href: "/attendance",
+              icon: "clock",
+              isFixed: true,
+              sortOrder: 10,
+              scope: "company",
+            },
+          ],
+          notices: ["운영 DB 기준 홈 바로가기를 조회했습니다."],
+          placeholder: true,
+        },
+        error: null,
+      }).data.items[0]?.href,
+    ).toBe("/attendance");
   });
 
   it("parses org directory placeholder payloads with summaries, filters, and notices", () => {

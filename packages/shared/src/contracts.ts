@@ -9,6 +9,9 @@ export const appRoutes = {
     logout: "/api/auth/logout",
   },
   me: "/api/me",
+  home: {
+    shortcuts: "/api/home/shortcuts",
+  },
   org: {
     companies: "/api/companies",
     employees: "/api/employees",
@@ -838,6 +841,17 @@ export const permissionSchema = z.object({
   description: z.string(),
 });
 
+export const homeShortcutSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  label: z.string(),
+  href: z.string(),
+  icon: z.string().nullable(),
+  isFixed: z.boolean(),
+  sortOrder: z.number().int(),
+  scope: z.enum(["company", "user"]),
+});
+
 export const roleSchema = z.object({
   code: roleCodeSchema,
   name: z.string(),
@@ -889,6 +903,14 @@ export const listRolesResponseSchema = successResponseSchema(
 export const listPermissionsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(permissionSchema),
+  }),
+);
+
+export const listHomeShortcutsResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(homeShortcutSchema),
+    notices: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
   }),
 );
 
@@ -1914,6 +1936,7 @@ export type EmployeeDirectoryFilters = z.infer<typeof employeeDirectoryFiltersSc
 export type EmployeeDirectoryFilterOptions = z.infer<typeof employeeDirectoryFilterOptionsSchema>;
 export type Department = z.infer<typeof departmentSchema>;
 export type Permission = z.infer<typeof permissionSchema>;
+export type HomeShortcut = z.infer<typeof homeShortcutSchema>;
 export type Role = z.infer<typeof roleSchema>;
 export type OrgDirectorySectionSummary = z.infer<typeof orgDirectorySectionSummarySchema>;
 export type CreateInviteRequest = z.infer<typeof createInviteRequestSchema>;

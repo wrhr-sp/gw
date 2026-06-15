@@ -26,6 +26,10 @@
 - 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 "대장이 실제로 어디까지 바로 눌러볼 수 있는가"를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
 - 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 경계를 문서/테스트/최종 보고에서 같은 뜻으로 유지해야 한다.
+- `/dashboard` 는 분리 구조가 작동해도 제목/설명에 아직 `skeleton`, `placeholder/dev-safe` 언어가 남아 있어 실제 홈 체감과 문구 사이 간격이 있다.
+- `/dashboard` 홈 바로가기 영역은 구조 자체는 맞지만, `로그인 전 미조회` / `커스텀 없음` / `API load error` 를 문서와 화면에서 같은 뜻으로 계속 유지해야 한다.
+- `/admin/users` 는 `GET /api/admin/users` preview 와 dev-safe action 폼이 있지만, 실제 저장이 아니라 303 redirect 결과 문구 중심이라는 점을 숨기면 안 된다.
+- `/admin/users` preview 뒤 다시 눌러볼 route(`/management`, `/admin/audit-logs`, 일반 업무 happy path`)를 짧게 고정하지 않으면 계정 preview 가 실제 저장처럼 오해될 수 있다.
 - `/boards`, `/documents`, `/me`, `/admin`, `/attendance`, `/leave`, `/approvals` 는 route 진입과 일부 상태 확인은 가능하지만, 아직 happy path 체감이 고르게 닫히지 않았다는 점을 숨기면 안 된다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
@@ -34,8 +38,10 @@
 
 - `admin / 1234` 를 UAT용이 아니라 운영 기본 계정처럼 문서화하면 보안/운영 기대치가 바로 어긋난다.
 - `/dashboard` 와 `경영업무`(`/management`) 분리를 흐리게 쓰면 일반 직원 홈과 민감 모듈 허브가 다시 섞일 수 있다.
+- 홈 바로가기의 고정/커스텀 분리와 빈 상태 설명을 느슨하게 쓰면 PC/모바일 홈 안내가 다시 어긋날 수 있다.
 - `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 중 일부 route 를 실제 저장/승인/외부 연동 완료처럼 과장하면 fit-gap 우선순위가 무너진다.
 - `/admin/users` 와 `/api/admin/users` 의 dev-safe 계정관리 흐름을 실제 메일 초대/SSO/외부 IdP 완료처럼 쓰면 승인 게이트가 사라진다.
+- 비밀번호 preview 에 보이는 `1234` 를 production 기본 비밀번호처럼 오해되게 문서화하면 보안 기대치가 바로 깨진다.
 - `/management` 와 `/work-items/legal`·`/work-items/hr`·`/work-items/tax` 같은 민감 모듈 진입 구조를 모바일 `홈`/`메뉴`/PC sidebar 에서 다르게 풀면 경영업무 분리 의도와 UAT 안내가 함께 흔들릴 수 있다.
 - 익명/관리자/일반 직원의 landing·forbidden 경계를 문서마다 다르게 적으면 권한 테스트 근거와 사용자 체험 설명이 어긋날 수 있다.
 - 외부 인증, 실급여 지급, 실신고, production DB, 실제 개인정보 입력 확대를 이번 단계의 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.

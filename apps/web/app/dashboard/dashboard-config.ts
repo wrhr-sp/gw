@@ -232,6 +232,7 @@ export const dashboardOperationsCards: DashboardRouteCard[] = [
 
 export const dashboardApiLinks = [
   { href: "/api/me", label: "현재 사용자/세션", description: "세션 상태와 roleCodes/permissions" },
+  { href: "/api/home/shortcuts", label: "홈 바로가기", description: "회사 공통 고정 + 사용자별 커스텀 shortcut" },
   { href: "/api/attendance/records", label: "근태 기록", description: "오늘 상태와 마지막 기록 후보" },
   { href: "/api/leave/balances", label: "휴가 잔여", description: "잔여 snapshot" },
   { href: "/api/leave/requests", label: "휴가 신청", description: "승인 대기/처리 결과 후보" },

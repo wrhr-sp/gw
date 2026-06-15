@@ -4,6 +4,8 @@
 
 ### Changed
 
+- `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`, `HANDOFF.md`, `TASKS.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 31 UAT 문서를 더 바로 눌러볼 수 있는 순서로 정리했다. 홈 바로가기의 고정/커스텀 분리와 빈 상태 의미, `/login` → `/dashboard` → `/management` → `/admin/users` → 일반 업무 → `/admin/audit-logs` 추천 클릭 순서, 다음 패스 고도화 항목을 같은 언어로 맞췄다.
+- `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 31 문서를 실제 코드 스냅샷 기준으로 맞췄다. `/login`·`/dashboard`·`/management`·`/admin/users` 현재 화면, `/admin/users` preview/action 구조, `/dashboard` skeleton/dev-safe 문구 잔여, 계정관리 실저장 부재를 같은 언어로 정리했다.
 - `docs/architecture/phase-31-home-auth-management-real-usage-scope.md`, `docs/guides/phase-31-home-auth-management-real-usage-handoff.md` 를 보강해 실사용 전환 1차 문서를 "지금 바로 눌러볼 수 있는 입구 / 아직 skeleton 잔여 / 별도 승인" 기준으로 다시 정리했다. 특히 `admin / 1234` dev-safe UAT 계정 원칙, `/login`·`/dashboard`·`/management`·`/admin/users` 중심 UAT 순서, fit-gap 표, 일반 직원 대 관리자 forbidden 경계를 같은 말로 고정했다.
 - `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 함께 갱신해 Phase 31 기준 루트 문서가 parent 테스트 근거와 어긋나지 않게 맞췄다. 익명 `/api/me` 401, 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 같은 현재 검증 결과와 `경영업무` 허브/계정관리/dev-safe 승인 게이트 설명을 같은 뜻으로 반영했다.
 

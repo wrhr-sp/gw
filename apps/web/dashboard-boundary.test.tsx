@@ -1,15 +1,55 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { HomeShortcut } from "@gw/shared";
 
 import { getDashboardAdminShortcut, getVisibleDashboardManagementCards } from "./app/dashboard/dashboard-config";
 import { DashboardPageContent } from "./dashboard-page-content";
+
+const companyShortcuts: HomeShortcut[] = [
+  {
+    id: "shortcut_attendance",
+    code: "attendance",
+    label: "근태",
+    href: "/attendance",
+    icon: "clock",
+    isFixed: true,
+    sortOrder: 10,
+    scope: "company",
+  },
+  {
+    id: "shortcut_leave",
+    code: "leave",
+    label: "휴가",
+    href: "/leave",
+    icon: "calendar",
+    isFixed: true,
+    sortOrder: 20,
+    scope: "company",
+  },
+];
+
+const userShortcuts: HomeShortcut[] = [
+  {
+    id: "shortcut_admin_user_admin",
+    code: "admin_users",
+    label: "관리자 사용자",
+    href: "/admin/users",
+    icon: "shield",
+    isFixed: false,
+    sortOrder: 110,
+    scope: "user",
+  },
+];
 
 describe("Phase 14 dashboard summary skeleton", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
     expect(html).toContain("오늘 할 일");
+    expect(html).toContain("홈 바로가기");
+    expect(html).toContain("회사 공통 고정");
+    expect(html).toContain("내 커스텀 바로가기");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
@@ -17,12 +57,13 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("오늘 상태와 마무리 조회");
     expect(html).toContain("공지/문서 진입점");
     expect(html).toContain("운영 요약");
-    expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("승인/대기 요약"));
+    expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("홈 바로가기"));
+    expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
     expect(html).toContain("`/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`");
     expect(html).toContain("/me");
     expect(html).toContain("/org");
-    expect(html).toContain("placeholder/dev-safe 요약이며 실제 저장이나 발송을 실행하지 않습니다.");
+    expect(html).toContain("dev-safe 요약이며 실제 저장·발송·외부 연동은 이번 단계에서 실행하지 않습니다.");
     expect(html).not.toContain("경영업무 분리 진입");
   });
 
@@ -67,12 +108,17 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(getVisibleDashboardManagementCards(["AUDITOR"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
   });
 
-  it("renders the actual admin CTA and management lane when a privileged viewer is supplied", () => {
+  it("renders the actual admin CTA, shortcut split, and management lane when a privileged viewer is supplied", () => {
     const html = renderToStaticMarkup(
       <DashboardPageContent
         adminShortcut={getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])}
         managementCards={getVisibleDashboardManagementCards(["COMPANY_ADMIN"])}
         viewerRoleCode="COMPANY_ADMIN"
+        homeShortcuts={[...companyShortcuts, ...userShortcuts]}
+        homeShortcutNotices={[
+          "운영 DB 기준 홈 바로가기를 조회했습니다.",
+          "회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다.",
+        ]}
       />,
     );
 
@@ -81,5 +127,8 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("경영업무 분리 진입");
     expect(html).toContain('href="/management"');
     expect(html).toContain('href="/work-items/legal"');
+    expect(html).toContain("근태");
+    expect(html).toContain("관리자 사용자");
+    expect(html).toContain("운영 DB 기준 홈 바로가기를 조회했습니다.");
   });
 });

@@ -1,7 +1,9 @@
 import React from "react";
 import Link from "next/link";
+import type { HomeShortcut } from "@gw/shared";
 
 import { Phase16PilotPanel } from "./app/_components/phase-16-pilot";
+import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
 import {
   dashboardActionCards,
@@ -21,18 +23,24 @@ export function DashboardPageContent({
   adminShortcut,
   managementCards,
   viewerRoleCode,
+  homeShortcuts = [],
+  homeShortcutNotices = [],
+  homeShortcutLoadError = null,
 }: {
   adminShortcut: DashboardAdminShortcut | null;
   managementCards: readonly DashboardManagementCard[];
   viewerRoleCode: string | null;
+  homeShortcuts?: readonly HomeShortcut[];
+  homeShortcutNotices?: readonly string[];
+  homeShortcutLoadError?: string | null;
 }) {
   return (
     <PageShell
       backHref="/"
       backLabel="홈으로"
-      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
-      title="대시보드 시작 화면 skeleton"
-      description="오늘 할 일, 휴가/승인 대기, 공지·문서 진입, 내 정보와 일반 조회, 관리자 운영 검토 레인을 한 화면에서 먼저 읽히게 다시 묶은 dev-safe placeholder 입니다."
+      eyebrow="Phase 31 홈 실사용 UAT"
+      title="홈 / 대시보드"
+      description="오늘 할 일, 휴가/승인 대기, 공지·문서 진입, 내 정보와 일반 조회, 관리자 운영 검토 레인을 한 화면에서 바로 눌러볼 수 있게 다시 정리한 홈 화면입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -78,6 +86,17 @@ export function DashboardPageContent({
             </article>
           ))}
         </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="홈 바로가기"
+        description="PC/모바일 홈에서 같이 쓰는 회사 공통 고정 바로가기와 현재 사용자 전용 커스텀 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
+      >
+        <HomeShortcutsPanel
+          homeShortcuts={homeShortcuts}
+          homeShortcutNotices={homeShortcutNotices}
+          homeShortcutLoadError={homeShortcutLoadError}
+        />
       </SurfaceSection>
 
       <SurfaceSection title="승인/대기 요약" description="병목 후보와 다시 확인할 건을 먼저 읽고 approvals/attendance 상세 화면으로 이동합니다.">
@@ -237,9 +256,9 @@ export function DashboardPageContent({
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="placeholder 안내" description="운영처럼 보이되 운영 완료를 속이지 않기 위한 고정 문구입니다.">
+      <SurfaceSection title="dev-safe / 승인 게이트" description="운영처럼 보이더라도 아직 열지 않은 범위를 숨기지 않기 위한 고정 문구입니다.">
         <ul className="bullet-list">
-          <li>placeholder/dev-safe 요약이며 실제 저장이나 발송을 실행하지 않습니다.</li>
+          <li>dev-safe 요약이며 실제 저장·발송·외부 연동은 이번 단계에서 실행하지 않습니다.</li>
           <li>실제 개인정보 원문, production KPI, 외부 알림, 권한 저장은 이번 단계 범위에서 제외합니다.</li>
           <li>모바일/PWA 좁은 화면에서도 카드 제목, 한 줄 상태, CTA 순서가 먼저 읽히도록 유지합니다.</li>
         </ul>

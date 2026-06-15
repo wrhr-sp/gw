@@ -5,6 +5,13 @@ function safeValue(formData: FormData, key: string) {
   return typeof rawValue === "string" ? rawValue.trim() : "";
 }
 
+const actionFocusMap = {
+  create: "생성 preview 후 게시판/문서/근태 같은 일반 업무 접근 결과를 바로 확인합니다.",
+  role: "권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.",
+  status: "상태 변경 preview 뒤 비활성 사용자 차단과 감사 후보 문구를 함께 확인합니다.",
+  password: "비밀번호 reset preview 뒤 실제 비밀번호 값은 남기지 않고 로그아웃/재로그인 시나리오만 점검합니다.",
+} as const;
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const actionType = safeValue(formData, "actionType");
@@ -21,5 +28,7 @@ export async function POST(request: Request) {
 
   const redirectUrl = new URL("/admin/users", request.url);
   redirectUrl.searchParams.set("result", message);
+  redirectUrl.searchParams.set("actionType", actionType || "password");
+  redirectUrl.searchParams.set("focus", actionFocusMap[actionType as keyof typeof actionFocusMap] ?? actionFocusMap.password);
   return NextResponse.redirect(redirectUrl, { status: 303 });
 }

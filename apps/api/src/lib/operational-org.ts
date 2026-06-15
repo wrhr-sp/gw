@@ -1,8 +1,15 @@
-import type { Department, Employee, Permission, Role, RoleCode } from "@gw/shared";
+import type { Department, Employee, HomeShortcut, Permission, Role, RoleCode } from "@gw/shared";
 import { createOperationalSql, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
 const roleScopes = new Set<Role["scope"]>(["global", "company", "audit"]);
+
+type OperationalCompany = {
+  id: string;
+  name: string;
+  status: "active" | "inactive";
+  branchNames: string[];
+};
 
 function parseRoleCode(value: unknown): RoleCode | null {
   return typeof value === "string" && roleCodes.has(value as RoleCode) ? (value as RoleCode) : null;
@@ -15,6 +22,14 @@ function parseRoleCodes(value: unknown): RoleCode[] {
 
   const parsed = value.map(parseRoleCode).filter((item): item is RoleCode => item !== null);
   return parsed.length > 0 ? parsed : ["EMPLOYEE"];
+}
+
+function parsePermissionCodes(value: unknown): Permission["code"][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is Permission["code"] => typeof item === "string");
 }
 
 function normalizeRoleScope(value: unknown): Role["scope"] {
@@ -31,6 +46,45 @@ export type OperationalEmployeeDirectory = {
   roleCodeByEmployeeId: Map<string, RoleCode>;
   roleCodes: RoleCode[];
 };
+
+export async function listOperationalCompanies(env: PostgresEnv | undefined, companyId?: string) {
+  const sql = createOperationalSql(env);
+  if (!sql) {
+    return null;
+  }
+
+  const rows = await sql`
+    select
+      c.id,
+      c.name,
+      c.status,
+      coalesce(json_agg(distinct b.name) filter (where b.name is not null), '[]'::json) as branch_names
+    from companies c
+    left join branches b on b.company_id = c.id and b.deleted_at is null
+    where (${companyId ?? null}::text is null or c.id = ${companyId ?? null})
+      and c.deleted_at is null
+    group by c.id, c.name, c.status
+    order by c.name, c.id
+  `;
+
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      name: string;
+      status: OperationalCompany["status"];
+      branch_names: unknown;
+    };
+
+    return {
+      id: typed.id,
+      name: typed.name,
+      status: typed.status,
+      branchNames: Array.isArray(typed.branch_names)
+        ? typed.branch_names.filter((item): item is string => typeof item === "string")
+        : [],
+    } satisfies OperationalCompany;
+  });
+}
 
 export async function listOperationalEmployeeDirectory(env: PostgresEnv | undefined, companyId: string) {
   const sql = createOperationalSql(env);
@@ -167,28 +221,115 @@ export async function listOperationalRoles(
   }
 
   const rows = await sql`
-    select code, name, role_scope
-    from roles
-    where (company_id = ${companyId} or company_id is null)
-      and status = 'active'
-      and deleted_at is null
-    order by code
+    select
+      r.code,
+      r.name,
+      r.role_scope,
+      coalesce(json_agg(distinct p.code) filter (where p.code is not null), '[]'::json) as permission_codes
+    from roles r
+    left join role_permissions rp on rp.role_id = r.id
+    left join permissions p on p.id = rp.permission_id
+    where (r.company_id = ${companyId} or r.company_id is null)
+      and r.status = 'active'
+      and r.deleted_at is null
+    group by r.id, r.code, r.name, r.role_scope
+    order by r.code
   `;
 
   return rows
     .map((row) => {
-      const typed = row as { code: string; name: string; role_scope: string };
+      const typed = row as { code: string; name: string; role_scope: string; permission_codes: unknown };
       const roleCode = parseRoleCode(typed.code);
       if (!roleCode) {
         return null;
       }
 
+      const permissionCodes = parsePermissionCodes(typed.permission_codes);
+
       return {
         code: roleCode,
         name: typed.name,
         scope: normalizeRoleScope(typed.role_scope),
-        permissions: permissionsForRole(roleCode),
+        permissions: permissionCodes.length > 0 ? permissionCodes : permissionsForRole(roleCode),
       } satisfies Role;
     })
     .filter((item): item is Role => item !== null);
+}
+
+export async function listOperationalPermissions(
+  env: PostgresEnv | undefined,
+  fallbackCatalog: readonly Permission[],
+) {
+  const sql = createOperationalSql(env);
+  if (!sql) {
+    return null;
+  }
+
+  const fallbackDescriptionByCode = new Map(fallbackCatalog.map((permission) => [permission.code, permission.description]));
+  const rows = await sql`
+    select code, name
+    from permissions
+    order by permission_group, code
+  `;
+
+  const items = rows
+    .map((row) => {
+      const typed = row as { code: string; name: string };
+      const description = fallbackDescriptionByCode.get(typed.code as Permission["code"]);
+      if (!description) {
+        return null;
+      }
+
+      return {
+        code: typed.code as Permission["code"],
+        description,
+      } satisfies Permission;
+    })
+    .filter((item): item is Permission => item !== null);
+
+  return items.length > 0 ? items : [...fallbackCatalog];
+}
+
+export async function listOperationalHomeShortcuts(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  userId: string,
+) {
+  const sql = createOperationalSql(env);
+  if (!sql) {
+    return null;
+  }
+
+  const rows = await sql`
+    select id, code, label, href, icon, is_fixed, sort_order, user_id
+    from home_shortcuts
+    where company_id = ${companyId}
+      and status = 'active'
+      and (user_id is null or user_id = ${userId})
+    order by is_fixed desc, sort_order asc, label asc
+  `;
+
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      code: string;
+      label: string;
+      href: string;
+      icon: string | null;
+      is_fixed: boolean;
+      sort_order: number;
+      user_id: string | null;
+    };
+
+    return {
+      id: typed.id,
+      code: typed.code,
+      label: typed.label,
+      href: typed.href,
+      icon: typed.icon,
+      isFixed: typed.is_fixed,
+      sortOrder: typed.sort_order,
+      scope: typed.user_id ? "user" : "company",
+    } satisfies HomeShortcut;
+  });
 }

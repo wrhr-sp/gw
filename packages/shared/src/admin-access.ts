@@ -10,6 +10,24 @@ export type ViewerAccess = Pick<SessionUser, "roleCodes" | "permissions">;
 export type AdminRouteKind = "admin_console" | "admin_audit";
 export type SensitiveWorkbenchRouteKind = "management_workspace";
 
+const generalHomeShortcutRoutePrefixes = [
+  "/dashboard",
+  "/attendance",
+  "/leave",
+  "/approvals",
+  "/boards",
+  "/documents",
+  "/me",
+  "/org",
+  "/employees",
+  "/payroll",
+  "/work-items",
+  "/work-items/hr",
+  "/work-items/tax",
+  "/work-items/labor",
+  "/work-items/branch",
+] as const;
+
 export const highRiskPermissionCodes = [
   "invite.manage",
   "audit.read",
@@ -279,6 +297,26 @@ export function hasSensitiveWorkbenchRouteAccess(pathname: string, viewer: Viewe
   }
 
   return false;
+}
+
+export function hasHomeShortcutRouteAccess(pathname: string, viewer: ViewerAccess) {
+  if (getAdminRouteKind(pathname)) {
+    return hasAdminRouteAccess(pathname, viewer);
+  }
+
+  if (getSensitiveWorkbenchRouteKind(pathname)) {
+    return hasSensitiveWorkbenchRouteAccess(pathname, viewer);
+  }
+
+  if (isMatchingRoute(pathname, generalHomeShortcutRoutePrefixes)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function filterHomeShortcutsForViewer<T extends { href: string }>(items: readonly T[], viewer: ViewerAccess) {
+  return items.filter((item) => hasHomeShortcutRouteAccess(item.href, viewer));
 }
 
 export function getAdminNavigationAccess(viewer: ViewerAccess) {
