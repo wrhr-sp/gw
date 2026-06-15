@@ -138,6 +138,23 @@ import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminUsers } from "./lib/operational-admin";
 import {
+  archiveOperationalDocumentFile,
+  createOperationalBoard,
+  createOperationalBoardComment,
+  createOperationalBoardPost,
+  createOperationalDocumentFile,
+  createOperationalDocumentSpace,
+  findOperationalBoardPost,
+  findOperationalDocumentFile,
+  listOperationalBoardComments,
+  listOperationalBoardPosts,
+  listOperationalBoards,
+  listOperationalDocumentFiles,
+  listOperationalDocumentSpaces,
+  markOperationalDocumentFileUploaded,
+  upsertOperationalReadReceipt,
+} from "./lib/operational-collab";
+import {
   listOperationalCompanies,
   listOperationalDepartments,
   listOperationalEmployeeDirectory,
@@ -3715,8 +3732,24 @@ function listBoardPosts(auth: SessionContext, boardId: string) {
   return boardPosts.filter((post) => post.boardId === boardId && post.companyId === auth.user.companyId);
 }
 
-function buildGeneratedBoardPostId(boardId: string, employeeId: string) {
+function buildPlaceholderBoardPostId(boardId: string, employeeId: string) {
   return `board_post_${boardId}_${employeeId}`;
+}
+
+function buildGeneratedBoardPostId(boardId: string, employeeId: string) {
+  return `${buildPlaceholderBoardPostId(boardId, employeeId)}_${crypto.randomUUID()}`;
+}
+
+function buildGeneratedBoardCommentId(postId: string, employeeId: string) {
+  return `board_comment_${postId}_${employeeId}_${crypto.randomUUID()}`;
+}
+
+function buildGeneratedBoardId(companyId: string, slug: string) {
+  return `board_${companyId}_${slug}`;
+}
+
+function buildGeneratedDocumentSpaceId(companyId: string, slug: string) {
+  return `document_space_${companyId}_${slug}`;
 }
 
 function findAccessiblePost(auth: SessionContext, postId: string) {
@@ -3727,7 +3760,7 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
   }
 
   for (const board of boards) {
-    const generatedPostId = buildGeneratedBoardPostId(board.id, auth.user.employeeId);
+    const generatedPostId = buildPlaceholderBoardPostId(board.id, auth.user.employeeId);
     if (postId === generatedPostId && canAccessBoard(auth, board)) {
       return {
         board,
@@ -3861,6 +3894,100 @@ function canCreateReadReceipt(auth: SessionContext, targetType: "post" | "docume
   }
 
   return findAccessibleDocumentFile(auth, targetId) !== null;
+}
+
+function mergeById<T extends { id: string }>(fallbackItems: T[], dbItems: T[] | null | undefined) {
+  const merged = new Map<string, T>();
+
+  for (const item of fallbackItems) {
+    merged.set(item.id, item);
+  }
+
+  for (const item of dbItems ?? []) {
+    merged.set(item.id, item);
+  }
+
+  return [...merged.values()];
+}
+
+async function listBoardsForAuth(context: AppContext, auth: SessionContext) {
+  const dbBoards = await listOperationalBoards(context.env, auth.user.companyId);
+  return mergeById(boards.filter((board) => canAccessBoard(auth, board)), dbBoards?.filter((board) => canAccessBoard(auth, board)));
+}
+
+async function findAccessibleBoardForAuth(context: AppContext, auth: SessionContext, boardId: string) {
+  const availableBoards = await listBoardsForAuth(context, auth);
+  return availableBoards.find((board) => board.id === boardId) ?? null;
+}
+
+async function listBoardPostsForAuth(context: AppContext, auth: SessionContext, boardId: string) {
+  const dbPosts = await listOperationalBoardPosts(context.env, auth.user.companyId, boardId);
+  return mergeById(listBoardPosts(auth, boardId), dbPosts);
+}
+
+async function findAccessiblePostForAuth(context: AppContext, auth: SessionContext, postId: string) {
+  const dbPost = await findOperationalBoardPost(context.env, auth.user.companyId, postId);
+  if (dbPost) {
+    const board = await findAccessibleBoardForAuth(context, auth, dbPost.boardId);
+    if (!board) {
+      return null;
+    }
+
+    return { board, post: dbPost };
+  }
+
+  return findAccessiblePost(auth, postId);
+}
+
+async function listBoardCommentsForAuth(context: AppContext, auth: SessionContext, postId: string) {
+  const dbComments = await listOperationalBoardComments(context.env, auth.user.companyId, postId);
+  const fallbackComments = listBoardComments(auth, postId) as unknown as BoardComment[];
+  return mergeById<BoardComment>(fallbackComments, dbComments);
+}
+
+async function listDocumentSpacesForAuth(context: AppContext, auth: SessionContext) {
+  const dbSpaces = await listOperationalDocumentSpaces(context.env, auth.user.companyId);
+  return mergeById(
+    documentSpaces.filter((space) => canAccessDocumentSpace(auth, space)),
+    dbSpaces?.filter((space) => canAccessDocumentSpace(auth, space)),
+  );
+}
+
+async function findAccessibleDocumentSpaceForAuth(context: AppContext, auth: SessionContext, spaceId: string) {
+  const spaces = await listDocumentSpacesForAuth(context, auth);
+  return spaces.find((space) => space.id === spaceId) ?? null;
+}
+
+async function listDocumentFilesForAuth(context: AppContext, auth: SessionContext, spaceId?: string | null) {
+  const fallbackItems = listDocumentFiles(auth, spaceId);
+  if (spaceId && fallbackItems === null) {
+    return null;
+  }
+
+  const dbItems = await listOperationalDocumentFiles(context.env, auth.user.companyId, spaceId ?? undefined);
+  const accessibleSpaceIds = new Set((await listDocumentSpacesForAuth(context, auth)).map((space) => space.id));
+  const merged = mergeById(fallbackItems ?? [], dbItems).filter(
+    (file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId),
+  );
+  return merged;
+}
+
+async function findAccessibleDocumentFileForAuth(context: AppContext, auth: SessionContext, fileId: string) {
+  const dbFile = await findOperationalDocumentFile(context.env, auth.user.companyId, fileId);
+  if (dbFile) {
+    const space = await findAccessibleDocumentSpaceForAuth(context, auth, dbFile.spaceId);
+    return space ? dbFile : null;
+  }
+
+  return findAccessibleDocumentFile(auth, fileId);
+}
+
+async function canCreateReadReceiptForAuth(context: AppContext, auth: SessionContext, targetType: "post" | "document_file", targetId: string) {
+  if (targetType === "post") {
+    return (await findAccessiblePostForAuth(context, auth, targetId)) !== null;
+  }
+
+  return (await findAccessibleDocumentFileForAuth(context, auth, targetId)) !== null;
 }
 
 app.get(appRoutes.health, (context) => {
@@ -5205,7 +5332,7 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
 app.post(LEAVE_REQUEST_APPROVE_ROUTE, (context) => handleLeaveReview(context, "approved", "leave.request.approve"));
 app.post(LEAVE_REQUEST_REJECT_ROUTE, (context) => handleLeaveReview(context, "rejected", "leave.request.reject"));
 
-app.get(appRoutes.boards.notices, (context) => {
+app.get(appRoutes.boards.notices, async (context) => {
   const authResult = requirePermission(context, "board.notice.read");
   if (authResult.response) {
     return authResult.response;
@@ -5214,14 +5341,14 @@ app.get(appRoutes.boards.notices, (context) => {
   return jsonSuccess(context, noticeListResponseSchema, {
     ok: true,
     data: {
-      items: listNoticeBoards(authResult.auth),
+      items: (await listBoardsForAuth(context, authResult.auth)).filter((board) => board.boardType === "notice"),
       placeholder: true,
     },
     error: null,
   });
 });
 
-app.get(appRoutes.boards.boards, (context) => {
+app.get(appRoutes.boards.boards, async (context) => {
   const authResult = requirePermission(context, "board.notice.read");
   if (authResult.response) {
     return authResult.response;
@@ -5230,7 +5357,7 @@ app.get(appRoutes.boards.boards, (context) => {
   return jsonSuccess(context, boardsListResponseSchema, {
     ok: true,
     data: {
-      items: listCommunityBoards(authResult.auth),
+      items: (await listBoardsForAuth(context, authResult.auth)).filter((board) => board.boardType !== "notice"),
       placeholder: true,
     },
     error: null,
@@ -5251,8 +5378,8 @@ app.post(appRoutes.boards.boards, async (context) => {
     });
   }
 
-  const board: Board = {
-    id: `board_${parsed.data.slug}`,
+  const boardInput: Board = {
+    id: buildGeneratedBoardId(authResult.auth.user.companyId, parsed.data.slug),
     companyId: authResult.auth.user.companyId,
     boardType: parsed.data.boardType,
     name: parsed.data.name,
@@ -5265,7 +5392,12 @@ app.post(appRoutes.boards.boards, async (context) => {
     updatedAt: PLACEHOLDER_NOW,
     placeholder: true,
   };
-  boards.push(board);
+  const board =
+    (await createOperationalBoard(context.env, boardInput)) ??
+    (() => {
+      boards.push(boardInput);
+      return boardInput;
+    })();
 
   return jsonSuccess(context, boardResponseSchema, {
     ok: true,
@@ -5281,14 +5413,14 @@ app.post(appRoutes.boards.boards, async (context) => {
   }, 201);
 });
 
-app.get("/api/boards/:id/posts", (context) => {
+app.get("/api/boards/:id/posts", async (context) => {
   const authResult = requirePermission(context, "board.notice.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const boardId = context.req.param("id");
-  const board = boardId ? findAccessibleBoard(authResult.auth, boardId) : null;
+  const board = boardId ? await findAccessibleBoardForAuth(context, authResult.auth, boardId) : null;
   if (!board) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
       boardId,
@@ -5300,7 +5432,7 @@ app.get("/api/boards/:id/posts", (context) => {
     ok: true,
     data: {
       board,
-      items: listBoardPosts(authResult.auth, board.id),
+      items: await listBoardPostsForAuth(context, authResult.auth, board.id),
       placeholder: true,
     },
     error: null,
@@ -5314,7 +5446,7 @@ app.post("/api/boards/:id/posts", async (context) => {
   }
 
   const boardId = context.req.param("id");
-  const board = boardId ? findAccessibleBoard(authResult.auth, boardId) : null;
+  const board = boardId ? await findAccessibleBoardForAuth(context, authResult.auth, boardId) : null;
   if (!board) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
       boardId,
@@ -5337,26 +5469,35 @@ app.post("/api/boards/:id/posts", async (context) => {
     });
   }
 
+  const postInput: BoardPost = {
+    id: buildGeneratedBoardPostId(board.id, authResult.auth.user.employeeId),
+    companyId: authResult.auth.user.companyId,
+    boardId: board.id,
+    authorEmployeeId: authResult.auth.user.employeeId,
+    title: parsed.data.title,
+    bodyPreview: parsed.data.bodyPreview,
+    isNotice: parsed.data.isNotice,
+    publishedAt: PLACEHOLDER_NOW,
+    pinnedUntil: null,
+    status: "published",
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+
+  const post =
+    (await createOperationalBoardPost(context.env, postInput)) ??
+    (() => {
+      boardPosts.push(postInput);
+      return postInput;
+    })();
+
   return jsonSuccess(context, boardPostCreateResponseSchema, {
     ok: true,
     data: {
       board,
-      post: {
-        id: buildGeneratedBoardPostId(board.id, authResult.auth.user.employeeId),
-        companyId: authResult.auth.user.companyId,
-        boardId: board.id,
-        authorEmployeeId: authResult.auth.user.employeeId,
-        title: parsed.data.title,
-        bodyPreview: parsed.data.bodyPreview,
-        isNotice: parsed.data.isNotice,
-        publishedAt: PLACEHOLDER_NOW,
-        pinnedUntil: null,
-        status: "published",
-        createdBy: authResult.auth.user.id,
-        createdAt: PLACEHOLDER_NOW,
-        updatedAt: PLACEHOLDER_NOW,
-        placeholder: true,
-      },
+      post,
       audit: {
         candidate: true,
         action: "board.post.create",
@@ -5367,14 +5508,14 @@ app.post("/api/boards/:id/posts", async (context) => {
   }, 201);
 });
 
-app.get("/api/posts/:id", (context) => {
+app.get("/api/posts/:id", async (context) => {
   const authResult = requirePermission(context, "board.notice.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const postId = context.req.param("id");
-  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  const postBundle = postId ? await findAccessiblePostForAuth(context, authResult.auth, postId) : null;
   if (!postBundle) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
       postId,
@@ -5393,14 +5534,14 @@ app.get("/api/posts/:id", (context) => {
   });
 });
 
-app.get("/api/posts/:id/comments", (context) => {
+app.get("/api/posts/:id/comments", async (context) => {
   const authResult = requirePermission(context, "board.notice.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const postId = context.req.param("id");
-  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  const postBundle = postId ? await findAccessiblePostForAuth(context, authResult.auth, postId) : null;
   if (!postBundle) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
       postId,
@@ -5412,7 +5553,7 @@ app.get("/api/posts/:id/comments", (context) => {
     ok: true,
     data: {
       post: postBundle.post,
-      items: listBoardComments(authResult.auth, postBundle.post.id),
+      items: await listBoardCommentsForAuth(context, authResult.auth, postBundle.post.id),
       placeholder: true,
     },
     error: null,
@@ -5426,7 +5567,7 @@ app.post("/api/posts/:id/comments", async (context) => {
   }
 
   const postId = context.req.param("id");
-  const postBundle = postId ? findAccessiblePost(authResult.auth, postId) : null;
+  const postBundle = postId ? await findAccessiblePostForAuth(context, authResult.auth, postId) : null;
   if (!postBundle) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시글입니다.", 403, {
       postId,
@@ -5442,23 +5583,32 @@ app.post("/api/posts/:id/comments", async (context) => {
     });
   }
 
+  const commentInput: BoardComment = {
+    id: buildGeneratedBoardCommentId(postBundle.post.id, authResult.auth.user.employeeId),
+    companyId: authResult.auth.user.companyId,
+    postId: postBundle.post.id,
+    authorEmployeeId: authResult.auth.user.employeeId,
+    parentCommentId: parsed.data.parentCommentId ?? null,
+    body: parsed.data.body,
+    deletedAt: null,
+    status: "active",
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+
+  const comment =
+    (await createOperationalBoardComment(context.env, commentInput)) ??
+    (() => {
+      boardComments.push(commentInput);
+      return commentInput;
+    })();
+
   return jsonSuccess(context, boardCommentCreateResponseSchema, {
     ok: true,
     data: {
-      comment: {
-        id: `board_comment_${postBundle.post.id}_${authResult.auth.user.employeeId}`,
-        companyId: authResult.auth.user.companyId,
-        postId: postBundle.post.id,
-        authorEmployeeId: authResult.auth.user.employeeId,
-        parentCommentId: parsed.data.parentCommentId ?? null,
-        body: parsed.data.body,
-        deletedAt: null,
-        status: "active",
-        createdBy: authResult.auth.user.id,
-        createdAt: PLACEHOLDER_NOW,
-        updatedAt: PLACEHOLDER_NOW,
-        placeholder: true,
-      },
+      comment,
       audit: {
         candidate: true,
         action: "board.comment.create",
@@ -5469,7 +5619,7 @@ app.post("/api/posts/:id/comments", async (context) => {
   }, 201);
 });
 
-app.get(appRoutes.documents.spaces, (context) => {
+app.get(appRoutes.documents.spaces, async (context) => {
   const authResult = requirePermission(context, "document.space.read");
   if (authResult.response) {
     return authResult.response;
@@ -5478,7 +5628,7 @@ app.get(appRoutes.documents.spaces, (context) => {
   return jsonSuccess(context, documentSpaceListResponseSchema, {
     ok: true,
     data: {
-      items: listDocumentSpaces(authResult.auth),
+      items: await listDocumentSpacesForAuth(context, authResult.auth),
       placeholder: true,
     },
     error: null,
@@ -5499,8 +5649,8 @@ app.post(appRoutes.documents.spaces, async (context) => {
     });
   }
 
-  const space: DocumentSpace = {
-    id: `document_space_${parsed.data.slug}`,
+  const spaceInput: DocumentSpace = {
+    id: buildGeneratedDocumentSpaceId(authResult.auth.user.companyId, parsed.data.slug),
     companyId: authResult.auth.user.companyId,
     name: parsed.data.name,
     slug: parsed.data.slug,
@@ -5513,7 +5663,12 @@ app.post(appRoutes.documents.spaces, async (context) => {
     updatedAt: PLACEHOLDER_NOW,
     placeholder: true,
   };
-  documentSpaces.push(space);
+  const space =
+    (await createOperationalDocumentSpace(context.env, spaceInput)) ??
+    (() => {
+      documentSpaces.push(spaceInput);
+      return spaceInput;
+    })();
 
   return jsonSuccess(context, documentSpaceResponseSchema, {
     ok: true,
@@ -5529,14 +5684,14 @@ app.post(appRoutes.documents.spaces, async (context) => {
   }, 201);
 });
 
-app.get(appRoutes.documents.files, (context) => {
+app.get(appRoutes.documents.files, async (context) => {
   const authResult = requirePermission(context, "document.file.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const spaceId = context.req.query("spaceId");
-  const items = listDocumentFiles(authResult.auth, spaceId);
+  const items = await listDocumentFilesForAuth(context, authResult.auth, spaceId);
   if (spaceId && items === null) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
       spaceId,
@@ -5569,7 +5724,7 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     });
   }
 
-  const space = findAccessibleDocumentSpace(authResult.auth, parsed.data.spaceId);
+  const space = await findAccessibleDocumentSpaceForAuth(context, authResult.auth, parsed.data.spaceId);
   if (!space) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
       spaceId: parsed.data.spaceId,
@@ -5577,7 +5732,7 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     });
   }
 
-  const file: DocumentFile = {
+  const fileInput: DocumentFile = {
     id: nextDocumentFileId(),
     companyId: authResult.auth.user.companyId,
     spaceId: parsed.data.spaceId,
@@ -5596,7 +5751,15 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     updatedAt: PLACEHOLDER_NOW,
     placeholder: true,
   };
-  documentFiles.push(file);
+  const file =
+    (await createOperationalDocumentFile(context.env, {
+      ...fileInput,
+      createdBy: authResult.auth.user.id,
+    })) ??
+    (() => {
+      documentFiles.push(fileInput);
+      return fileInput;
+    })();
 
   return jsonSuccess(context, documentFileMetadataCreateResponseSchema, {
     ok: true,
@@ -5627,7 +5790,7 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     });
   }
 
-  const space = findAccessibleDocumentSpace(authResult.auth, parsed.data.spaceId);
+  const space = await findAccessibleDocumentSpaceForAuth(context, authResult.auth, parsed.data.spaceId);
   if (!space) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
       spaceId: parsed.data.spaceId,
@@ -5652,7 +5815,7 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     });
   }
 
-  const file: DocumentFile = {
+  const fileInput: DocumentFile = {
     id: nextDocumentFileId(),
     companyId: authResult.auth.user.companyId,
     spaceId: parsed.data.spaceId,
@@ -5673,16 +5836,24 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
   };
 
   const action = await documentStorageAdapter.prepareUpload({
-    companyId: file.companyId,
-    spaceId: file.spaceId,
-    fileId: file.id,
-    versionId: file.versionId,
-    fileName: file.fileName,
-    contentType: file.contentType,
-    fileSize: file.fileSize,
+    companyId: fileInput.companyId,
+    spaceId: fileInput.spaceId,
+    fileId: fileInput.id,
+    versionId: fileInput.versionId,
+    fileName: fileInput.fileName,
+    contentType: fileInput.contentType,
+    fileSize: fileInput.fileSize,
   });
 
-  documentFiles.push(file);
+  const file =
+    (await createOperationalDocumentFile(context.env, {
+      ...fileInput,
+      createdBy: authResult.auth.user.id,
+    })) ??
+    (() => {
+      documentFiles.push(fileInput);
+      return fileInput;
+    })();
   documentUploadTokens.set(action.uploadToken, { fileId: file.id, versionId: file.versionId });
 
   return jsonSuccess(context, documentFileUploadInitResponseSchema, {
@@ -5715,7 +5886,7 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
   }
 
   const fileId = context.req.param("fileId");
-  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  const file = await findAccessibleDocumentFileForAuth(context, authResult.auth, fileId);
   if (!file) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
       fileId,
@@ -5731,15 +5902,26 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
     });
   }
 
-  file.storageStatus = "ready";
-  file.checksumSha256 = parsed.data.checksumSha256 ?? null;
-  file.updatedAt = PLACEHOLDER_NOW;
+  const completedFile =
+    (await markOperationalDocumentFileUploaded(context.env, {
+      companyId: file.companyId,
+      fileId: file.id,
+      versionId: file.versionId,
+      checksumSha256: parsed.data.checksumSha256 ?? null,
+      updatedAt: PLACEHOLDER_NOW,
+    })) ??
+    (() => {
+      file.storageStatus = "ready";
+      file.checksumSha256 = parsed.data.checksumSha256 ?? null;
+      file.updatedAt = PLACEHOLDER_NOW;
+      return file;
+    })();
   documentUploadTokens.delete(parsed.data.uploadToken);
 
   return jsonSuccess(context, documentFileUploadCompleteResponseSchema, {
     ok: true,
     data: {
-      file,
+      file: completedFile,
       audit: {
         candidate: true,
         action: "document.file.upload_complete",
@@ -5758,7 +5940,7 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
   }
 
   const fileId = context.req.param("fileId");
-  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  const file = await findAccessibleDocumentFileForAuth(context, authResult.auth, fileId);
   if (!file) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
       fileId,
@@ -5797,7 +5979,7 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
   }
 
   const fileId = context.req.param("fileId");
-  const file = findAccessibleDocumentFile(authResult.auth, fileId);
+  const file = await findAccessibleDocumentFileForAuth(context, authResult.auth, fileId);
   if (!file) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
       fileId,
@@ -5813,15 +5995,25 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
     fileName: file.fileName,
   });
 
-  file.storageStatus = "deleted";
-  file.status = "archived";
-  file.updatedAt = PLACEHOLDER_NOW;
+  const archivedFile =
+    (await archiveOperationalDocumentFile(context.env, {
+      companyId: file.companyId,
+      fileId: file.id,
+      versionId: file.versionId,
+      updatedAt: PLACEHOLDER_NOW,
+    })) ??
+    (() => {
+      file.storageStatus = "deleted";
+      file.status = "archived";
+      file.updatedAt = PLACEHOLDER_NOW;
+      return file;
+    })();
   removeDocumentUploadTokensForFile(file.id);
 
   return jsonSuccess(context, documentFileDeleteResponseSchema, {
     ok: true,
     data: {
-      file,
+      file: archivedFile,
       audit: {
         candidate: true,
         action: "document.file.delete",
@@ -6058,7 +6250,7 @@ app.post(appRoutes.readReceipts, async (context) => {
     });
   }
 
-  if (!canCreateReadReceipt(authResult.auth, parsed.data.targetType, parsed.data.targetId)) {
+  if (!(await canCreateReadReceiptForAuth(context, authResult.auth, parsed.data.targetType, parsed.data.targetId))) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 읽음 확인 대상입니다.", 403, {
       targetType: parsed.data.targetType,
       targetId: parsed.data.targetId,
@@ -6066,19 +6258,32 @@ app.post(appRoutes.readReceipts, async (context) => {
     });
   }
 
+  const receipt =
+    (await upsertOperationalReadReceipt(context.env, {
+      id: `read_receipt_${parsed.data.targetType}_${parsed.data.targetId}_${authResult.auth.user.employeeId}`,
+      companyId: authResult.auth.user.companyId,
+      targetType: parsed.data.targetType,
+      targetId: parsed.data.targetId,
+      employeeId: authResult.auth.user.employeeId,
+      userId: authResult.auth.user.id,
+      readAt: PLACEHOLDER_NOW,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+    })) ?? {
+      id: `read_receipt_${parsed.data.targetType}_${parsed.data.targetId}_${authResult.auth.user.employeeId}`,
+      companyId: authResult.auth.user.companyId,
+      targetType: parsed.data.targetType,
+      targetId: parsed.data.targetId,
+      employeeId: authResult.auth.user.employeeId,
+      readAt: PLACEHOLDER_NOW,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+    };
+
   return jsonSuccess(context, readReceiptCreateResponseSchema, {
     ok: true,
     data: {
-      receipt: {
-        id: `read_receipt_${parsed.data.targetType}_${authResult.auth.user.employeeId}`,
-        companyId: authResult.auth.user.companyId,
-        targetType: parsed.data.targetType,
-        targetId: parsed.data.targetId,
-        employeeId: authResult.auth.user.employeeId,
-        readAt: PLACEHOLDER_NOW,
-        createdAt: PLACEHOLDER_NOW,
-        updatedAt: PLACEHOLDER_NOW,
-      },
+      receipt,
       audit: {
         candidate: true,
         action: "read_receipt.create",

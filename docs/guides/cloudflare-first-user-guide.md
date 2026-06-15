@@ -107,7 +107,9 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 ## preview URL 이 나오면 먼저 확인할 것
 
-현재 공개 Web preview URL 은 `https://gw-web.werehere31.workers.dev` 입니다.
+현재 공개 Web preview URL 은 `https://gw-web.wereheresp.workers.dev` 입니다.
+
+이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview 주소이며 현재는 HTTP 404 입니다.
 
 이번에 사용자 관점에서 바로 확인된 결과는 아래와 같습니다.
 

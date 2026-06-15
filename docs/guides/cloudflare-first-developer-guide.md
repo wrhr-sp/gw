@@ -252,9 +252,9 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 
 ### 1) 현재 공개 preview 와 admin remediation 결과
 
-- 현재 공개 Web preview URL: `https://gw-web.werehere31.workers.dev`
-- 공개 smoke 확인 결과: `/`, `/login`, `/boards`, `/documents` 는 200
-- 공개 admin 경계 확인 결과: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 모두 `/login` 으로 307 redirect
+- 현재 공개 Web preview URL: `https://gw-web.wereheresp.workers.dev`
+- 공개 smoke 확인 결과: `/`, `/login`, `/dashboard`, `/menu`, `/admin/users` 는 200
+- 이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview URL 이며 현재는 HTTP 404 입니다.
 - 현재 저장소 코드 기준으로 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가됐고 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 에서 `/api/health` 200 JSON, `/api/me` 401 JSON, forged placeholder cookie 차단을 확인했습니다.
 - admin 차단 근거 코드는 `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/web/admin-preview-guard.test.ts` 입니다.
 

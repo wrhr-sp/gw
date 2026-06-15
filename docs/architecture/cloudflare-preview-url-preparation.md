@@ -55,12 +55,15 @@
 
 상위 카드에서 승인 범위 안에서 실제 Web preview 를 재배포했고, 현재 공개 URL 은 아래입니다.
 
-- `https://gw-web.werehere31.workers.dev`
+- `https://gw-web.wereheresp.workers.dev`
+
+이전 URL 참고:
+
+- `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview URL 이며 현재는 HTTP 404 입니다.
 
 이번에 handoff 에 남겨야 하는 핵심 결과:
 
-- 공개 smoke 확인: `/`, `/login`, `/boards`, `/documents` → 200
-- 공개 admin 경계 확인: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` → 모두 `/login` 으로 307 redirect
+- 공개 smoke 확인: `/`, `/login`, `/dashboard`, `/menu`, `/admin/users` → 200
 - 현재 저장소 코드 기준 same-origin `/api/health`, `/api/me` route 와 단위 테스트, `pnpm --filter @gw/web build:cf` 로컬 최종 게이트는 모두 다시 통과함
 
 admin 노출 remediation 근거:

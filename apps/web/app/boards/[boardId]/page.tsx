@@ -2,6 +2,7 @@ import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { BoardDetailLiveSection } from "../../_components/real-usage-panels";
 
 type PageProps = {
   params: Promise<{ boardId: string }>;
@@ -37,6 +38,10 @@ export default async function BoardDetailPage({ params }: PageProps) {
       description={preset.summary}
       actions={<Pill>{boardId}</Pill>}
     >
+      <SurfaceSection title="실제 게시판 흐름 확인" description="게시판 실응답, 글쓰기, 현재 세션 기준 guard 결과를 한 화면에서 바로 검증합니다.">
+        <BoardDetailLiveSection boardId={boardId} />
+      </SurfaceSection>
+
       <SurfaceSection title="route / 권한 문구" description="동적 라우트와 접근 경계를 모바일 화면에서도 바로 읽을 수 있게 둡니다.">
         <p>
           현재 경로의 boardId 는 <code>{boardId}</code> 입니다. 서버/API 연결 전에도 boardId 기반 정보와 권한 문구를 먼저 고정합니다.

@@ -29,7 +29,7 @@ const composerChecklist = [
 export default function BoardsPage() {
   return (
     <PageShell
-      eyebrow="Phase 31 게시판 접근성 점검"
+      eyebrow="Phase 32 게시판 실사용 점검"
       title="게시판"
       description="공지/일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 모바일에서도 읽기 쉽게 정리하고, 실제 게시판/게시글 목록을 same-origin API로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">touch-first reading flow</Pill>}

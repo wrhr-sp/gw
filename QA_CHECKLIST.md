@@ -49,9 +49,9 @@
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
-- [ ] Phase 16 파일럿 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_notice_employee_employee`, `/documents`)가 실제 저장소 route 와 맞고, 없는 게시글/게시판을 운영 데이터처럼 설명하지 않는다.
-- [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 forged 또는 접근 불가 postId 는 403 경계 설명과 같은 뜻으로 안내한다.
-- [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
+- [ ] 현재 협업 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents`)가 실제 저장소 route 와 맞고, preview 생성 결과를 운영 데이터처럼 설명하지 않는다.
+- [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 댓글 preview 생성·읽음 확인 등록·forged 차단 확인을 같은 뜻으로 안내한다.
+- [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
@@ -256,6 +256,7 @@
 - [ ] 사용자-facing 보고라면 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 구분했다.
 - [ ] raw 이벤트 dump나 카드 댓글만으로 사용자 보고를 대체하지 않았다.
 - [ ] 카드 댓글 작성 완료와 사용자 직접 보고 완료를 구분해 적었다.
+- [ ] singde 최종보고 카드라면 direct delivery 전 `사용자 보고 필요`, direct delivery 후 `사용자 보고 완료`와 `[singde-direct-delivery]` 코멘트가 남았는지 확인했다.
 - [ ] 같은 카드·같은 이유·같은 근거의 중복/스팸 보고를 보내지 않았다.
 - [ ] 역할별 책임 경계가 결과에 드러난다. 예: 테스트 근거는 tester/command 기준, 운영 판단은 singde/gwops 기준, 문서 정리는 gwdocs 기준으로 섞이지 않는다.
 - [ ] 대장이 해야 할 것과 내부 후속 처리를 분리했다.

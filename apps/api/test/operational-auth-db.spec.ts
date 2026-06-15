@@ -1,7 +1,11 @@
+import { neon } from "@neondatabase/serverless";
 import { describe, expect, it } from "vitest";
 import {
   adminUsersListResponseSchema,
+  appRoutes,
   authLoginResponseSchema,
+  boardResponseSchema,
+  documentSpaceResponseSchema,
   listCompaniesResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
@@ -13,14 +17,19 @@ import { app } from "../src/app";
 
 const databaseUrl = process.env.DATABASE_URL_PREVIEW;
 const runWhenDbConfigured = databaseUrl ? it : it.skip;
+const sql = databaseUrl
+  ? neon(databaseUrl, {
+      fullResults: false,
+    })
+  : null;
 
-async function login() {
+async function login(loginId = "admin") {
   const loginResponse = await app.request(
     "/api/auth/login",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ loginId: "admin", password: "1234" }),
+      body: JSON.stringify({ loginId, password: "1234" }),
     },
     { DATABASE_URL: databaseUrl },
   );
@@ -28,6 +37,21 @@ async function login() {
   const cookie = loginResponse.headers.get("set-cookie");
   expect(cookie).toContain("gw_session=");
   return cookie ?? "";
+}
+
+async function cleanupCrossCompanySlugRows(boardSlug: string, spaceSlug: string) {
+  if (!sql) {
+    return;
+  }
+
+  await sql`delete from document_spaces where company_id in ('company_demo', 'company_other') and code = ${spaceSlug}`;
+  await sql`delete from boards where company_id in ('company_demo', 'company_other') and code = ${boardSlug}`;
+  await sql`
+    delete from companies
+    where id = 'company_other'
+      and not exists (select 1 from boards where company_id = 'company_other')
+      and not exists (select 1 from document_spaces where company_id = 'company_other')
+  `;
 }
 
 describe("operational DB-backed auth", () => {
@@ -110,5 +134,151 @@ describe("operational DB-backed auth", () => {
     expect(shortcutsPayload.data.items.map((item) => item.code)).toEqual(
       expect.arrayContaining(["attendance", "leave", "approvals", "boards", "documents", "me", "admin_users", "audit_logs"]),
     );
+  });
+
+  runWhenDbConfigured("keeps cross-company same-slug boards and document spaces isolated during API upserts", async () => {
+    if (!sql) {
+      throw new Error("DATABASE_URL_PREVIEW is required");
+    }
+
+    const boardSlug = "ops-updates";
+    const spaceSlug = "ops-docs";
+    const now = new Date().toISOString();
+
+    await cleanupCrossCompanySlugRows(boardSlug, spaceSlug);
+
+    try {
+      await sql`
+        insert into companies (id, name, status, created_at, updated_at)
+        values ('company_other', '다른 회사', 'active', ${now}::timestamptz, ${now}::timestamptz)
+        on conflict (id) do update set name = excluded.name, status = excluded.status, updated_at = excluded.updated_at
+      `;
+      await sql`
+        insert into boards (id, company_id, code, name, board_type, visibility, status, created_at, updated_at)
+        values (
+          'board_company_other_ops-updates',
+          'company_other',
+          ${boardSlug},
+          '다른 회사 운영 공지 게시판',
+          'general',
+          'company',
+          'active',
+          ${now}::timestamptz,
+          ${now}::timestamptz
+        )
+      `;
+      await sql`
+        insert into document_spaces (id, company_id, code, name, visibility, status, created_at, updated_at)
+        values (
+          'document_space_company_other_ops-docs',
+          'company_other',
+          ${spaceSlug},
+          '다른 회사 운영 문서함',
+          'company',
+          'active',
+          ${now}::timestamptz,
+          ${now}::timestamptz
+        )
+      `;
+
+      const cookie = await login();
+
+      const createBoardResponse = await app.request(
+        appRoutes.boards.boards,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            cookie,
+          },
+          body: JSON.stringify({
+            boardType: 'general',
+            name: '운영 공지 게시판',
+            slug: boardSlug,
+            visibility: 'company',
+            isNoticeOnly: false,
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(createBoardResponse.status).toBe(201);
+      const createBoardPayload = boardResponseSchema.parse(await createBoardResponse.json());
+      expect(createBoardPayload.data.board.id).toBe('board_company_demo_ops-updates');
+      expect(createBoardPayload.data.board.companyId).toBe('company_demo');
+
+      const createSpaceResponse = await app.request(
+        appRoutes.documents.spaces,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            cookie,
+          },
+          body: JSON.stringify({
+            name: '운영 문서함',
+            slug: spaceSlug,
+            visibility: 'company',
+            isPublicWithinCompany: true,
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(createSpaceResponse.status).toBe(201);
+      const createSpacePayload = documentSpaceResponseSchema.parse(await createSpaceResponse.json());
+      expect(createSpacePayload.data.space.id).toBe('document_space_company_demo_ops-docs');
+      expect(createSpacePayload.data.space.companyId).toBe('company_demo');
+
+      const boardRows = await sql`
+        select id, company_id, code, name
+        from boards
+        where company_id in ('company_demo', 'company_other')
+          and code = ${boardSlug}
+        order by company_id
+      `;
+      expect(boardRows).toHaveLength(2);
+      expect(boardRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'board_company_demo_ops-updates',
+            company_id: 'company_demo',
+            code: boardSlug,
+            name: '운영 공지 게시판',
+          }),
+          expect.objectContaining({
+            id: 'board_company_other_ops-updates',
+            company_id: 'company_other',
+            code: boardSlug,
+            name: '다른 회사 운영 공지 게시판',
+          }),
+        ]),
+      );
+
+      const spaceRows = await sql`
+        select id, company_id, code, name
+        from document_spaces
+        where company_id in ('company_demo', 'company_other')
+          and code = ${spaceSlug}
+        order by company_id
+      `;
+      expect(spaceRows).toHaveLength(2);
+      expect(spaceRows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'document_space_company_demo_ops-docs',
+            company_id: 'company_demo',
+            code: spaceSlug,
+            name: '운영 문서함',
+          }),
+          expect.objectContaining({
+            id: 'document_space_company_other_ops-docs',
+            company_id: 'company_other',
+            code: spaceSlug,
+            name: '다른 회사 운영 문서함',
+          }),
+        ]),
+      );
+    } finally {
+      await cleanupCrossCompanySlugRows(boardSlug, spaceSlug);
+    }
   });
 });

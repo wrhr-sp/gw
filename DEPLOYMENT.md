@@ -22,7 +22,7 @@ pnpm --filter @gw/web deploy:cf
 ## 현재 live URL
 
 ```text
-https://gw-web.werehere31.workers.dev
+https://gw-web.wereheresp.workers.dev
 ```
 
 기본 smoke route:
@@ -30,9 +30,12 @@ https://gw-web.werehere31.workers.dev
 - `/`
 - `/login`
 - `/dashboard`
-- `/employees`
-- `/org`
-- `/manifest.webmanifest`
+- `/menu`
+- `/admin/users`
+
+이전 URL 메모:
+
+- 이전 preview URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 주소이며 현재는 HTTP 404 입니다.
 
 ## 배포 승인 기준
 
@@ -51,7 +54,7 @@ https://gw-web.werehere31.workers.dev
 
 ```bash
 gh run list --workflow release-gate --branch main --limit 5
-curl -I https://gw-web.werehere31.workers.dev/
+curl -I https://gw-web.wereheresp.workers.dev/
 ```
 
 필요 시 route별 상태 코드를 확인한다.

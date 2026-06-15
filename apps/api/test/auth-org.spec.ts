@@ -1740,6 +1740,7 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(createBoardResponse.status).toBe(201);
     const createBoardPayload = boardResponseSchema.parse(await createBoardResponse.json());
     expect(createBoardPayload.data.board.slug).toBe("ops-updates");
+    expect(createBoardPayload.data.board.id).toBe("board_company_demo_ops-updates");
 
     const createSpaceResponse = await app.request(appRoutes.documents.spaces, {
       method: "POST",
@@ -1757,6 +1758,7 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(createSpaceResponse.status).toBe(201);
     const createSpacePayload = documentSpaceResponseSchema.parse(await createSpaceResponse.json());
     expect(createSpacePayload.data.space.slug).toBe("ops-docs");
+    expect(createSpacePayload.data.space.id).toBe("document_space_company_demo_ops-docs");
 
     const filesResponse = await app.request(appRoutes.documents.files, {
       headers: { cookie },

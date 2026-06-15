@@ -2,6 +2,7 @@ import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { PostDetailLiveSection } from "../../_components/real-usage-panels";
 
 type PageProps = {
   params: Promise<{ postId: string }>;
@@ -26,6 +27,10 @@ export default async function PostDetailPage({ params }: PageProps) {
       description="postId 기준 상세/댓글/읽음 확인 흐름을 작은 화면에서도 제목과 CTA 가 먼저 보이도록 정리했습니다."
       actions={<Pill>{postId}</Pill>}
     >
+      <SurfaceSection title="실제 게시글 흐름 확인" description="상세 응답, 댓글 작성, 읽음 확인, forged 접근 차단을 한 자리에서 바로 검증합니다.">
+        <PostDetailLiveSection postId={postId} />
+      </SurfaceSection>
+
       <SurfaceSection title="상세 정보 placeholder" description="모바일에서 제목/메타/CTA 우선순위를 먼저 보게 합니다.">
         <ul className="summary-list">
           {detailSections.map((item) => (

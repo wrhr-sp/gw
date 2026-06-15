@@ -20,7 +20,7 @@
 - `gw-review-required-gate.sh`: blocked `review-required` 카드를 표준 검증 후 complete/dispatch 하거나 자동 복구 루프로 넘기는 게이트
 - `gw-review-required-recovery-loop.sh`: review-required gate 검증 실패 시 `gwbuilder → gwreviewer → gwtester → singde` 복구 미니 체인을 생성
 - `gw-blocked-remediation-watch.sh`: blocked 카드를 release cleanup → stale/superseded → review-required defer → 자동 재수정 후보 → 승인 필요 순으로 재판단하고, `already-handled`도 기존 체인 상태를 다시 확인한다
-- `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원)
+- `gw-worker-recovery-watch.sh`: timeout/crash/stale worker 감지와 복구 코멘트 보조 (`--help`, `--interval`, `--max-age` 지원). 추가로 최근 완료된 singde 최종보고 카드에 `사용자 보고 완료` 또는 `[singde-direct-delivery]` 표식이 없으면 직접 보고 누락 재확인 코멘트를 남긴다.
 - Telegram 사용자 보고는 Kanban 이벤트 raw 중계가 아니라 싱드가 이벤트/카드/runs/log를 확인해 직접 판단한 뒤 보내는 방식이다.
 - 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지다.
 - `정각 보고`는 기존 `gw-hourly-status-report.timer` 경로를 유지하고, 나머지 3가지는 싱드 판단 보고양식을 따른다.
@@ -28,6 +28,7 @@
 - 사용자-facing 보고는 `자동화가 한 일`, `싱드가 직접 개입한 일`, `자동화가 못 끝낸 이유`, `보완한 자동화`를 분리한다.
 - blocked 설명은 방치/자동복구중/승인필요/싱드 직접정리/자동화 보완필요 중 하나로 남긴다.
 - 카드 댓글만 달렸다고 사용자 보고 완료로 보지 않고, 실제 직접 보고 여부를 따로 확인한다.
+- singde 최종보고 카드는 direct delivery 전 `사용자 보고 필요`, direct delivery 후 `사용자 보고 완료`와 `[singde-direct-delivery]` 코멘트를 남겨 watcher가 재확인 가능하게 한다.
 - 같은 카드·같은 이유·같은 근거라면 즉시 보고를 반복하지 않고, 상태 변화가 생겼을 때만 다시 보낸다.
 - 역할별 기본 책임은 planner=범위, builder=구현, reviewer=리뷰, tester=검증, docs=문서/보고 양식, ops=PR·CI·release cleanup 으로 유지한다.
 - `PR merge`, `release gate`, `branch cleanup`, `review-required 정리`, `stale blocker 정리`, `검증 재실행`은 카드 범위에 적힌 경우만 예외 권한으로 쓴다.
