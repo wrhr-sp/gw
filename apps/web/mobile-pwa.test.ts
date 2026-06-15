@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 import { metadata as adminRouteMetadata } from "./app/admin/layout";
+import { GET as getGeneralManifestResponse } from "./app/manifest.webmanifest/route";
 import {
   adminOfflineGuidance,
   adminManifestHref,
@@ -42,6 +43,14 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(generalManifestHref).toBe("/manifest.webmanifest");
   });
 
+  it("serves the general manifest through the app route for Cloudflare preview parity", async () => {
+    const response = await getGeneralManifestResponse();
+
+    expect(response.headers.get("content-type")).toContain("application/manifest+json");
+    expect(response.headers.get("cache-control")).toBe("no-store, max-age=0");
+    await expect(response.json()).resolves.toMatchObject(generalPwaManifest);
+  });
+
   it("returns a separate admin manifest identity for admin hosts", () => {
     const adminManifest = getPwaManifestForHost("gw-admin.preview-account.workers.dev");
 
@@ -70,6 +79,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "/dashboard",
       "/attendance",
       "/leave",
+      "/payroll",
       "/approvals",
       "/boards",
       "/documents",

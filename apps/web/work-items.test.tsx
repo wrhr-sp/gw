@@ -57,7 +57,11 @@ describe("Phase 25 work-items web entrypoints", () => {
       href: "/work-items",
       title: "공통 업무 허브",
     });
+    expect(mobilePrimaryNav.some((item) => item.href === "/payroll")).toBe(true);
     expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(true);
+
+    const basicMenuSection = mobileMenuSections.find((section) => section.title === "기본 업무");
+    expect(basicMenuSection?.items.map((item) => item.href)).toContain("/payroll");
 
     const workItemMenuSection = mobileMenuSections.find((section) => section.title === "공통 업무 엔진");
     expect(workItemMenuSection?.items.map((item) => item.href)).toEqual([
@@ -71,6 +75,7 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     const html = renderToStaticMarkup(<MenuPage />);
     expect(html).toContain("공통 업무 엔진");
+    expect(html).toContain('href="/payroll"');
     expect(html).toContain('href="/work-items/hr"');
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("관리자 메뉴는 일반 사용자 전체 메뉴에 섞지 않고 권한/host 기준으로 분리합니다.");

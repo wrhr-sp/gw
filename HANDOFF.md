@@ -18,25 +18,34 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 27 노무 관리 1차다. Phase 25에서 정리한 공통 work item 엔진과 Phase 26 HR lifecycle 기준 위에, 근로계약·연차/수당·고충/징계/사고·퇴사 관련 노무 이슈 skeleton을 호텔 지점 권한 기준으로 얹는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 28A 급여 foundation / payslip pass 1 이다. 근태·휴가 다음 단계에 놓이는 독립 `payroll` 모듈을 추가해, 급여 프로필·지급 기간·수당/공제 항목·직원용 명세서 초안을 같은 계약 언어로 먼저 고정하는 것이 이번 체인의 핵심이다.
 
 현재 카드 진행 상태 요약:
 
-- 기획 `t_c840c0af`, 구현 1차 `t_ef60f4db`, 리뷰 1차 `t_be4f3ec4`, 테스트 `t_677258d9` 는 끝났다.
-- 리뷰에서 잡혔던 EMPLOYEE self-scope labor 경계는 후속 수정 카드 `t_7e3fdeb2` 에서 `work_item_labor_leave_balance_adjustment` placeholder 를 실제 fixture/test 에 연결하는 방식으로 보완됐고, 현재 review-required 승인/unblock 만 남아 있다.
-- 이 문서화 카드 `t_6f206961` 는 루트 운영 문서를 실제 저장소 상태와 다시 맞추는 단계다.
-- 다음 운영 카드 `t_a7119a71` 는 이 문서화가 끝나면 GitHub PR/CI/merge/branch cleanup 흐름으로 이어진다.
+- 상위 검증 카드 `t_ae2fa514` 는 shared/api/web 대상 typecheck·테스트·Cloudflare build·workspace check 와 local `/payroll`, `/payroll/me` smoke 를 통과했다.
+- 이 문서화 카드 `t_67267353` 는 Phase 28A 급여 기초자료·명세서 1차 기준을 루트 문서와 phase 문서에 다시 맞추는 단계다.
+- 다음 child 카드 `t_1fc47cdc` 는 이 문서화 결과를 이어받아 후속 체인으로 진행한다.
 
 현재 기획 상태 요약:
 
-- 이번 Phase의 목적은 Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에 노무 이슈 skeleton 을 올리는 것이다.
-- 기준 엔티티는 여전히 `공통 work item` 이며, `module = labor` 를 유지한 채 `category`, `intake_status`, `confidentiality_level`, `requires_acknowledgement`, `legal_hold_required` 같은 보조 metadata 로 노무 이슈 차이를 푼다.
-- evidence/review/follow-up/audit 구조를 metadata 중심 skeleton 으로 먼저 정리한다.
-- 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 와 restricted 범위를 회사 + 지점/호텔 + 역할 + capability 언어로 같이 맞춘다.
-- 모바일 기본 탐색은 계속 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, 노무 진입 자리는 `홈`/`메뉴`와 PC sidebar 그룹으로 푼다.
-- 실제 계약서/징계/사고 원문, 외부 노무/법무/급여 연동, production data 는 계속 승인 게이트로 남긴다.
-- production DB/secret/DNS/custom domain/유료 리소스/실권한 변경/외부 연동은 계속 별도 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-27-labor-management-pass-1-scope.md`, `docs/guides/phase-27-labor-management-pass-1-handoff.md`, `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`, `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md`, `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md`, `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md`.
+- 이번 Phase의 목적은 노무 하위가 아니라 독립 `payroll` 모듈로 급여 자리를 먼저 고정하는 것이다.
+- shared contract 기준 급여 유형은 `monthly`, `hourly`, `daily`, `annual`, `inclusive` 다.
+- 급여 프로필은 `payType`, `basePay`, `hourlyRate`, `dailyRate`, `annualSalary`, `inclusiveAllowance`, `standardWorkHours`, `payDay`, `effectiveFrom/to`, 회사/지점 scope 를 함께 가진다.
+- 급여 기간 상태는 `draft` → `collecting` → `reviewing` → `confirmed` → `closed` 로 보며, 직원 공개와 실지급 확정을 같은 뜻으로 쓰지 않는다.
+- 지점 관리자는 자기 지점 기초자료 제출 상태만 보고, period detail 전체나 타인 명세서 self 영역까지 보는 역할이 아니다.
+- 직원은 `/payroll/me` 에서 자기 명세서 초안과 정정 안내만 본다.
+- 포괄임금제는 초과 비교/위험 경고를 먼저 문서화하고, 부족분 자동 차감은 기본 비활성으로 둔다.
+- 실제 급여 지급, 은행 이체, 주민등록번호/계좌번호 입력, 홈택스/4대보험 신고, 외부 회계/세무 연동, production 급여 원문 저장은 계속 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`, `docs/architecture/phase-27-labor-management-pass-1-scope.md`, `docs/guides/phase-27-labor-management-pass-1-handoff.md`.
+
+2026-06-15 Phase 28A 빠른 확인 순서:
+
+- `/payroll` — 독립 급여 허브, role split, 승인 게이트 문구를 먼저 본다.
+- `/payroll/me` — self-only 명세서 초안, 정정 안내, 실지급 미확정 문구를 본다.
+- `/api/payroll` — pay type 지원 방향, 프로필/기간/collection step/role guidance 를 본다.
+- `/api/payroll/periods/payroll_period_2026_05` — draft, input snapshot, line item, review step 이 같이 오는지 본다.
+- `apps/api/test/auth-org.spec.ts` — HQ 200, manager detail 403, employee self payslip 200 경계를 본다.
+- `apps/web/payroll.test.tsx` — 독립 payroll 모듈과 self-only copy 가 회귀 테스트로 남아 있는지 본다.
 
 2026-06-13 Phase 27 기획 메모:
 

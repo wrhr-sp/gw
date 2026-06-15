@@ -65,6 +65,7 @@
 | 게시판/문서 | `/api/notices`, `/api/boards/*`, `/api/documents/*`, `/api/read-receipts` | board/document schema 들 | notice-only 쓰기 차단, private 문서공간 차단, raw storage 정보 비노출 |
 | Phase 24 제안 | `/api/me/home-layout`, `/api/branches`, `/api/branch-assignments`, `/api/branch-tasks`, `/api/branch-reports` | 문서 초안만 있음, shared contract/API 미구현 | 문서에만 먼저 고정, 실저장/실데이터/PMS 연동 과장 금지 |
 | Phase 25 공통 업무 엔진 | `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | placeholder read-only 유지, 역할/지점 scope 차단, 민감 첨부 metadata-only, `work_item.audit.read` 없는 audit 비노출 |
+| Phase 28A 급여 foundation | `/api/payroll`, `/api/payroll/periods/:id`, `/api/payroll/me/payslip` | `payroll*Schema`, `apps/api/test/auth-org.spec.ts` | preview 금액과 확정값 분리, employee self-only payslip, manager/hq visibility 분리, 외부 급여/세무 연동 미포함 |
 
 ## 1. Health/Auth
 
@@ -954,7 +955,90 @@ guardrail:
 - `docs/architecture/phase-5-boards-documents-scope.md`
 - `docs/architecture/phase-8-r2-storage-scope.md`
 
-## 7. shared contract 와 테스트를 같이 보는 순서
+## 7. Phase 28A 급여 foundation API 메모
+
+이 단계의 급여 API 는 실제 지급/신고 API 가 아니라, 급여 기초자료 수집과 명세서 초안을 dev-safe skeleton 으로 보여 주는 same-origin placeholder 묶음이다.
+
+### `GET /api/payroll`
+
+목적:
+- 급여 프로필 목록, 지급 기간 목록, collection/review step, 역할별 안내를 한 번에 보여 준다.
+
+대표 응답:
+- `profiles`
+- `periods`
+- `collectionSteps`
+- `roleGuidance`
+- `placeholder: true`
+
+문서상 지원 급여 유형:
+- `monthly`
+- `hourly`
+- `daily`
+- `annual`
+- `inclusive`
+
+현재 확인 포인트:
+- 직원별 프로필은 `basePay`, `hourlyRate`, `dailyRate`, `annualSalary`, `inclusiveAllowance`, `standardWorkHours`, `payDay`, `effectiveFrom/to` 를 같은 contract 언어로 가진다.
+- 본사 급여 담당은 여러 프로필과 기간 상태를 넓게 본다.
+- 지점 관리자는 자기 지점 수집 단계 안내 위주로 본다.
+- 일반 직원은 자기 프로필과 employee scope collection step 만 본다.
+
+guardrail:
+- overview 에서 보이는 금액/상태를 실지급 확정이나 외부 신고 완료로 설명하지 않는다.
+- 지점 관리자가 company-wide 급여 상세를 보는 API처럼 문서화하지 않는다.
+
+### `GET /api/payroll/periods/:id`
+
+목적:
+- 특정 급여 기간의 초안 상세를 보여 준다.
+
+대표 응답:
+- `period`
+- `draft`
+- `inputSnapshot`
+- `lineItems`
+- `reviewSteps`
+- `roleGuidance`
+- `placeholder: true`
+
+현재 확인 포인트:
+- `inputSnapshot` 은 근무시간, 연장/야간/휴일, 유급/무급 휴가, 결근/지각/조퇴 같은 payroll 입력 근거를 담는다.
+- `lineItems` 는 `classification`, `source`, `quantity`, `unitAmount`, `premiumRate`, `amount`, `note` 를 함께 내려 준다.
+- 현재 placeholder 예시에는 기본 근무시간, 연장근로, 야간근로, 식대, 원천세 placeholder, 4대보험 placeholder 가 포함된다.
+- HQ viewer 는 detail preview 를 보지만, 테스트 기준으로 MANAGER 는 이 상세 endpoint 에서 `FORBIDDEN` 이다.
+
+guardrail:
+- tax/insurance line item 은 확정 세액/확정 보험료가 아니라 placeholder 다.
+- 포괄임금제 비교/초과 판단이 필요해도 자동 차감 규칙이 이미 확정된 것처럼 쓰지 않는다.
+
+### `GET /api/payroll/me/payslip`
+
+목적:
+- 구성원이 자기 급여명세서 초안만 self-only 로 확인하게 한다.
+
+대표 응답:
+- `period`
+- `payslip`
+- `lineItems`
+- `employeeMessage`
+- `correctionRequestGuide`
+- `placeholder: true`
+
+권한 메모:
+- `payroll.payslip.read_self` 권한이 있는 employee 만 접근한다.
+- 테스트 기준으로 MANAGER 는 403 이고, EMPLOYEE 는 자기 payslip preview 만 본다.
+- 직원이 보지 못하는 기간 상세나 다른 직원 명세서를 같은 흐름으로 섞지 않는다.
+
+승인 게이트:
+- 실제 급여 지급, 은행 이체, 주민등록번호/계좌번호 입력, 홈택스/4대보험 신고, 외부 회계/세무 프로그램 연동은 이 API 범위가 아니다.
+
+근거:
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+## 8. shared contract 와 테스트를 같이 보는 순서
 
 문서를 보고 바로 구현/검증할 때는 아래 순서가 가장 안전하다.
 
@@ -970,7 +1054,7 @@ guardrail:
 5. phase 범위 문서로 guardrail 재확인
    - `docs/architecture/phase-*.md`
 
-## 8. 같이 봐야 하는 문서
+## 9. 같이 봐야 하는 문서
 
 - `DATA_MODEL.md`
 - `SPEC.md`

@@ -47,6 +47,9 @@ import {
   listRolesResponseSchema,
   meResponseSchema,
   noticeListResponseSchema,
+  payrollMyPayslipResponseSchema,
+  payrollOverviewResponseSchema,
+  payrollPeriodDetailResponseSchema,
   readReceiptCreateResponseSchema,
   workItemAttachmentsResponseSchema,
   workItemDeadlinesResponseSchema,
@@ -1822,5 +1825,72 @@ describe("Phase 5 boards/documents skeleton", () => {
     const oversizedPayload = errorResponseSchema.parse(await oversizedResponse.json());
     expect(oversizedPayload.error.code).toBe("VALIDATION_ERROR");
     expect(oversizedPayload.error.details?.maxFileSizeBytes).toBe(25 * 1024 * 1024);
+  });
+
+  it("returns payroll overview with role-split visibility for company admin and employee viewers", async () => {
+    const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const adminResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: adminCookie } });
+    expect(adminResponse.status).toBe(200);
+    const adminPayload = payrollOverviewResponseSchema.parse(await adminResponse.json());
+    expect(adminPayload.data.profiles.length).toBeGreaterThanOrEqual(3);
+    expect(adminPayload.data.periods[0]?.status).toBe("reviewing");
+    expect(adminPayload.data.roleGuidance.headquartersPayroll).toContain("본사 급여 담당");
+
+    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
+    const managerResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: managerCookie } });
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = payrollOverviewResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.collectionSteps.every((step) => step.scope !== "employee")).toBe(true);
+    expect(managerPayload.data.roleGuidance.branchManager).toContain("지점");
+
+    const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
+    const employeeResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: employeeCookie } });
+    expect(employeeResponse.status).toBe(200);
+    const employeePayload = payrollOverviewResponseSchema.parse(await employeeResponse.json());
+    expect(employeePayload.data.profiles).toHaveLength(1);
+    expect(employeePayload.data.profiles[0]?.employeeId).toBe("employee_employee");
+    expect(employeePayload.data.collectionSteps.every((step) => step.scope === "employee")).toBe(true);
+  });
+
+  it("returns payroll period detail and self payslip while keeping self-only access boundaries", async () => {
+    const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const detailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_05"), {
+      headers: { cookie: adminCookie },
+    });
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = payrollPeriodDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.draft.employeeId).toBe("employee_employee");
+    expect(detailPayload.data.lineItems.some((item) => item.code === "WITHHOLDING_TAX")).toBe(true);
+    expect(detailPayload.data.reviewSteps.some((step) => step.scope === "branch_manager")).toBe(true);
+
+    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
+    const managerDetailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_05"), {
+      headers: { cookie: managerCookie },
+    });
+    expect(managerDetailResponse.status).toBe(403);
+    const managerDetailPayload = errorResponseSchema.parse(await managerDetailResponse.json());
+    expect(managerDetailPayload.error.code).toBe("FORBIDDEN");
+
+    const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
+    const payslipResponse = await app.request(appRoutes.payroll.myPayslip, { headers: { cookie: employeeCookie } });
+    expect(payslipResponse.status).toBe(200);
+    const payslipPayload = payrollMyPayslipResponseSchema.parse(await payslipResponse.json());
+    expect(payslipPayload.data.payslip.employeeId).toBe("employee_employee");
+    expect(payslipPayload.data.employeeMessage).toContain("preview 상태");
+
+    const blockedDetailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_06"), {
+      headers: { cookie: employeeCookie },
+    });
+    expect(blockedDetailResponse.status).toBe(403);
+    const blockedDetailPayload = errorResponseSchema.parse(await blockedDetailResponse.json());
+    expect(blockedDetailPayload.error.code).toBe("FORBIDDEN");
+  });
+
+  it("blocks payroll payslip access for roles without self payslip permission", async () => {
+    const { cookie } = await loginAndGetCookie("MANAGER");
+    const response = await app.request(appRoutes.payroll.myPayslip, { headers: { cookie } });
+    expect(response.status).toBe(403);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("FORBIDDEN");
   });
 });

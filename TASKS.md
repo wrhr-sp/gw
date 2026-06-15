@@ -6,36 +6,34 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 27 노무 관리 1차
+작업명: Phase 28A 급여 foundation / payslip 1차
 
 현재 체인:
 
-1. 기획: `t_c840c0af` — 도담(`gwplanner`) — 완료
-2. 구현 1차: `t_ef60f4db` — 이룸(`gwbuilder`) — 완료
-3. 리뷰 1차: `t_be4f3ec4` — 바름(`gwreviewer`) — 완료, EMPLOYEE self-scope labor 경계 불일치 1건 확인
-4. 후속 수정: `t_7e3fdeb2` — 이룸(`gwbuilder`) — review-required 상태로 보류, self-scope labor placeholder 추가 반영 후 승인/unblock 대기
-5. 테스트: `t_677258d9` — 해봄(`gwtester`) — 완료
-6. 문서화: `t_6f206961` — 다온(`gwdocs`) — 진행 중
-7. GitHub/배포 확인: `t_a7119a71` — 지킴(`gwops`) — 문서화 완료 대기
+1. 상위 검증: `t_ae2fa514` — 해봄(`gwtester`) — 완료
+2. 문서화: `t_67267353` — 다온(`gwdocs`) — 진행 중
+3. 후속 체인: `t_1fc47cdc` — 하위 의존 카드, 문서화 완료 대기
 
 현재 문서 기준 핵심 범위:
 
-- Phase 25 공통 `work item` 엔진과 Phase 26 HR lifecycle 기준 위에 근로계약·근무조건·연차/수당·고충/징계/사고·퇴사 skeleton 을 얹는다.
-- 계약/조건 변경, 연차 정정, 수당/초과근무 검토, 고충, 징계, 사고, 퇴사 follow-up 을 같은 제품 언어로 정리한다.
-- 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이와 restricted 경계를 같은 권한 언어로 맞춘다.
-- 모바일 하단 탭을 늘리지 않고 `홈`/`메뉴`와 PC sidebar 안에서 노무 진입 구조를 고정한다.
-- 실제 계약서/징계/사고 원문, production DB 실데이터, 외부 노무/법무/급여 연동은 계속 승인 게이트로 분리한다.
+- 급여를 labor 하위가 아니라 독립 `payroll` 모듈로 분리해 읽히게 한다.
+- 급여 유형은 월급제·시급제·일급제·연봉제·포괄임금제를 같은 contract 언어로 고정한다.
+- 본사 급여 담당 / 지점 관리자 / 일반 직원 visibility 와 self-only 명세서 경계를 같은 권한 언어로 맞춘다.
+- 지점/호텔 기준 급여 기초자료 수집 → 본사 검토 → 직원 명세서 초안 공개 흐름을 고정한다.
+- 실제 지급, 주민등록번호/계좌번호 입력, 홈택스/4대보험 신고, 외부 급여·세무 연동은 계속 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md` 가 바로 직전 HR/lifecycle 기준 문서다.
-- 이번 Phase는 그 위에 labor issue 구조를 문서/contract/API/UI skeleton 기준으로 올리는 단계다.
-- 현재 저장소 기준으로는 `work_item_labor_overtime_review`, `work_item_labor_leave_balance_adjustment`, `work_item_labor_grievance_intake`, `work_item_labor_discipline_review` placeholder 가 API/test 에 연결돼 있다.
-- 후속 수정으로 EMPLOYEE self-scope labor 카드 `work_item_labor_leave_balance_adjustment` 가 실제 fixture/test 에도 반영됐고, MANAGER 는 같은 카드에 계속 403 경계를 유지한다.
-- 리뷰/테스트/문서화는 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence 원칙, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
+- `docs/architecture/phase-27-labor-management-pass-1-scope.md` 가 바로 직전 labor 기준 문서다.
+- 이번 Phase는 그 다음 단계로 독립 payroll 구조를 contract/API/UI skeleton 기준으로 올리는 단계다.
+- 현재 저장소 기준 contract 는 `monthly`/`hourly`/`daily`/`annual`/`inclusive` pay type 을 지원한다.
+- API/test 예시는 HQ monthly profile, manager monthly profile, employee hourly profile 과 payroll period/detail/self payslip 경계를 보여 준다.
+- 리뷰/테스트/문서화는 pay type 지원 방향, line item 산정 근거, 지점 관리자 제출 범위, self-only payslip, 포괄임금제 경고, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`
+- `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`
 - `docs/architecture/phase-27-labor-management-pass-1-scope.md`
 - `docs/guides/phase-27-labor-management-pass-1-handoff.md`
 - `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md`

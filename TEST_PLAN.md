@@ -258,6 +258,27 @@ pnpm --filter @gw/mobile typecheck
 4. `apps/api/test/work-items.spec.ts` 에서 restricted labor 상세/목록 경계가 역할별로 붙들려 있는지 본다.
 5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 허브/labor route copy 가 회귀 테스트로 고정돼 있는지 본다.
 
+### 1-10-d. Phase 28A 급여 foundation 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 급여가 `/work-items/labor` 안이 아니라 독립 `/payroll` 모듈로 읽히는가
+2. 본사 급여 담당 / 지점 관리자 / 일반 직원 visibility 차이가 같은 권한 언어로 설명되는가
+3. 급여 프로필, 급여 기간, 근태/휴가 input snapshot, 수당/공제 line item, payslip draft 구조가 같은 contract 언어로 묶였는가
+4. `/payroll/me` 가 self-only 명세서 preview 로 읽히고 회사 전체 급여 조회처럼 과장되지 않는가
+5. 실제 세액/4대보험 계산, 외부 급여/세무 연동, 지급 확정이 여전히 승인 게이트로 남는가
+6. 월급제/시급제/일급제/연봉제/포괄임금제 지원 방향과 현재 placeholder 예시 범위가 구분돼 적혀 있는가
+7. 포괄임금제에서 초과 검토 필요 경고와 부족분 자동 차감 비활성 원칙이 빠지지 않았는가
+
+빠른 확인 순서:
+1. `/payroll` 에서 독립 급여 허브와 role-split 안내가 보이는지 본다.
+2. `/payroll/me` 에서 self-only 명세서 초안과 정정 안내가 보이는지 본다.
+3. `GET /api/payroll` placeholder 응답에서 profile/period/review step 설명이 읽히는지 본다.
+4. `GET /api/payroll/periods/payroll_period_2026_05` 에서 draft, input snapshot, line item, review step 이 함께 오는지 본다.
+5. line item 에 `source`, `quantity`, `unitAmount`, `premiumRate`, `amount`, `note` 가 같이 남는지 본다.
+6. `apps/api/test/auth-org.spec.ts` 에서 HQ overview 200, manager detail 403, employee self payslip 200 경계가 붙들려 있는지 본다.
+7. `apps/web/payroll.test.tsx` 에서 독립 payroll 모듈, self-only 명세서, 승인 게이트 문구가 회귀 테스트로 붙들려 있는지 본다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash

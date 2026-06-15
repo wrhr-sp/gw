@@ -541,3 +541,58 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 - `docs/architecture/phase-11-org-employees-scope.md`
+- `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`
+- `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`
+
+## 11. Phase 28A 급여 foundation / payslip pass 1
+
+이번 단계는 노무 모듈 안에 급여를 묻지 않고, 근태·휴가 다음 단계에 놓이는 독립 `payroll` 모듈 자리를 먼저 고정한다.
+
+핵심 범위:
+- `/payroll`, `/payroll/me` 화면 추가
+- `GET /api/payroll`, `GET /api/payroll/periods/:id`, `GET /api/payroll/me/payslip` contract/API 추가
+- 급여 프로필, 급여 기간, 근태/휴가 입력 snapshot, allowance/deduction line item, payslip draft schema 추가
+- 본사 급여 담당 / 지점 관리자 / 일반 직원 visibility 분리
+
+이번 단계에서 문서/contract 기준으로 먼저 고정하는 급여 유형:
+- 월급제(`monthly`)
+- 시급제(`hourly`)
+- 일급제(`daily`)
+- 연봉제(`annual`)
+- 포괄임금제(`inclusive`)
+
+설계 원칙:
+- 직원별 급여 프로필은 `payType`, `basePay`, `hourlyRate`, `dailyRate`, `annualSalary`, `inclusiveAllowance`, `standardWorkHours`, `payDay`, `effectiveFrom/to`, `branch/company scope` 를 같은 묶음으로 본다.
+- 급여 계산은 총액 한 줄이 아니라 항목별 근거를 남기는 구조로 읽혀야 한다. 즉 line item 마다 `source`, `quantity`, `unitAmount`, `premiumRate`, `amount`, `note` 가 남아야 한다.
+- 근태/휴가 기반 입력은 `attendanceHours`, `overtimeHours`, `nightHours`, `holidayHours`, `paidLeaveDays`, `unpaidLeaveDays`, `absenceDays`, `latenessCount`, `earlyLeaveCount` 같은 snapshot 으로 먼저 모은다.
+- 초기 구현은 완전 자동 확정이 아니라 `계산 보조 + 본사 급여 담당 검토 + 직원용 명세서 초안` 흐름으로 제한한다.
+
+호텔/지점 운영 기준:
+- 지점 관리자는 자기 지점의 근태·휴가·수기 수당 기초자료가 빠지지 않았는지 확인하고 제출 상태만 본다.
+- 지점 관리자는 다른 지점 급여 상세나 회사 전체 급여 총액을 보는 역할이 아니다.
+- 직원은 `/payroll/me` 에서 자기 명세서 초안과 정정 안내만 본다.
+- 본사 급여 담당은 지점 제출 이후 review step 을 열고 기간 상태를 `collecting` → `reviewing` → `confirmed` 로 올릴 준비를 한다.
+
+포괄임금제 주의:
+- 포괄 포함 시간/수당과 실제 근무시간 비교 필요성을 문서에서 숨기지 않는다.
+- 초과분은 계산 보조 또는 검토 필요 상태로 표시한다.
+- 부족분 자동 차감은 기본 전제로 쓰지 않는다.
+- 위험/노무 검토 필요 문구를 approval gate 와 함께 남긴다.
+
+상태 흐름 메모:
+1. 급여 기간 생성
+2. 근태·휴가 자료 수집
+3. 지점 관리자 확인/제출
+4. 수당·공제 입력
+5. 계산 초안 생성
+6. 본사 급여 담당 검토
+7. 수정/재계산
+8. 확정 전 상태 유지
+9. 직원 self-only 명세서 초안 공개
+10. 문의/정정 요청 skeleton 유지
+
+guardrail:
+- preview 금액과 실지급 확정값을 같은 말로 쓰지 않는다.
+- 실제 세액/4대보험 계산, 외부 급여·세무 연동, 지급 이체, production 급여 원문 저장은 이번 범위가 아니다.
+- 급여는 근태·휴가와 가깝게 읽히되 grievance/징계 같은 restricted 노무 이슈와 같은 모듈로 섞지 않는다.
+- 주민등록번호, 계좌번호, 실지급 파일, 홈택스/4대보험 신고 payload, 은행 이체 파일은 별도 승인 게이트 전까지 문서/화면/API 범위에 넣지 않는다.

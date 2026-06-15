@@ -69,6 +69,9 @@ import {
   listRolesResponseSchema,
   meResponseSchema,
   noticeListResponseSchema,
+  payrollMyPayslipResponseSchema,
+  payrollOverviewResponseSchema,
+  payrollPeriodDetailResponseSchema,
   readReceiptCreateRequestSchema,
   readReceiptCreateResponseSchema,
   workItemAttachmentsResponseSchema,
@@ -96,6 +99,12 @@ import {
   type LeaveBalance,
   type LeaveRequest,
   type LeaveType,
+  type PayrollDraft,
+  type PayrollInputSnapshot,
+  type PayrollLineItem,
+  type PayrollPeriod,
+  type PayrollProfile,
+  type PayrollReviewStep,
   type Permission,
   type RoleCode,
   type Session,
@@ -145,6 +154,7 @@ const WORK_ITEM_DETAIL_ROUTE = "/api/work-items/:id";
 const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
 const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
+const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
 
 const permissionCatalog: Permission[] = [
   { code: "company.read", description: "회사 기본 정보를 조회한다." },
@@ -159,6 +169,10 @@ const permissionCatalog: Permission[] = [
   { code: "attendance.manage", description: "근태 정정 검토와 관리자 조회 확장을 위한 권한 골격이다." },
   { code: "leave.request", description: "휴가 유형/잔여 조회와 휴가 신청 placeholder 흐름을 사용한다." },
   { code: "leave.approve", description: "휴가 승인/반려 placeholder 흐름을 처리한다." },
+  { code: "payroll.read", description: "급여 프로필, 지급 예정 기간, 역할별 payroll skeleton 읽기 흐름을 조회한다." },
+  { code: "payroll.manage", description: "본사 급여 담당자가 급여 기준 정보와 수집 상태 skeleton 을 관리하는 흐름을 다룬다." },
+  { code: "payroll.review", description: "급여 기간 확정 전 검토/승인 게이트 placeholder 흐름을 확인한다." },
+  { code: "payroll.payslip.read_self", description: "구성원이 자신의 급여명세서 초안과 정정 안내 skeleton 을 조회한다." },
   { code: "approval.form.manage", description: "전자결재 양식 placeholder 정의를 관리한다." },
   { code: "approval.line.manage", description: "전자결재 결재선 placeholder 정의를 관리한다." },
   { code: "approval.document.read", description: "전자결재 문서함과 상세 placeholder 조회를 사용한다." },
@@ -251,6 +265,256 @@ const employeeBranchAssignments: Record<string, string | null> = {
   employee_staff: "branch_hq",
   employee_employee: "branch_hotel_seoul",
 };
+
+const payrollRoleGuidance = {
+  headquartersPayroll: "본사 급여 담당은 급여 프로필, 기간 상태, 수당/공제 초안을 관리하고 최종 확정 전에 검토 게이트를 연다.",
+  branchManager: "지점 관리자는 지점별 근태/휴가/수당 기초자료가 빠졌는지 확인하고 본사 요청분만 제출한다.",
+  employeeSelf: "구성원은 본인 명세서 초안과 정정 안내만 조회하고, 회사 전체 급여 데이터에는 접근하지 않는다.",
+  auditor: "감사 사용자는 역할 분리와 승인 흔적 안내만 확인하고 민감 원문/실정산 저장은 보지 않는다.",
+  restrictedActions: [
+    "실제 세액 계산, 4대보험 확정, 외부 신고 연동은 이번 skeleton 범위 밖이다.",
+    "지점 관리자는 다른 지점 또는 회사 전체 급여 총액 상세를 볼 수 없다.",
+    "구성원은 자신의 급여명세서 초안만 볼 수 있고 동료 명세서에는 접근할 수 없다.",
+  ],
+} as const;
+
+const payrollProfiles: PayrollProfile[] = [
+  {
+    id: "payroll_profile_admin",
+    companyId: COMPANY_ID,
+    employeeId: "employee_admin",
+    employeeName: "관리자 테스트",
+    branchId: "branch_hq",
+    branchLabel: "본사 운영센터",
+    payType: "monthly",
+    basePay: 4200000,
+    hourlyRate: null,
+    dailyRate: null,
+    annualSalary: 50400000,
+    inclusiveAllowance: 250000,
+    standardWorkHours: 209,
+    payDay: 25,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    scopeNote: "본사 급여 운영 총괄 placeholder 프로필",
+    placeholder: true,
+  },
+  {
+    id: "payroll_profile_manager",
+    companyId: COMPANY_ID,
+    employeeId: "employee_manager",
+    employeeName: "운영 매니저",
+    branchId: "branch_hotel_seoul",
+    branchLabel: "서울 시티 호텔",
+    payType: "monthly",
+    basePay: 3600000,
+    hourlyRate: null,
+    dailyRate: null,
+    annualSalary: 43200000,
+    inclusiveAllowance: 180000,
+    standardWorkHours: 209,
+    payDay: 25,
+    effectiveFrom: "2026-01-01",
+    effectiveTo: null,
+    scopeNote: "지점 관리자용 기준급 placeholder",
+    placeholder: true,
+  },
+  {
+    id: "payroll_profile_employee",
+    companyId: COMPANY_ID,
+    employeeId: "employee_employee",
+    employeeName: "일반 구성원",
+    branchId: "branch_hotel_seoul",
+    branchLabel: "서울 시티 호텔",
+    payType: "hourly",
+    basePay: null,
+    hourlyRate: 12800,
+    dailyRate: null,
+    annualSalary: null,
+    inclusiveAllowance: null,
+    standardWorkHours: 174,
+    payDay: 25,
+    effectiveFrom: "2026-02-01",
+    effectiveTo: null,
+    scopeNote: "시급제 구성원 명세서 초안용 기준 정보",
+    placeholder: true,
+  },
+];
+
+const payrollPeriods: PayrollPeriod[] = [
+  {
+    id: "payroll_period_2026_05",
+    companyId: COMPANY_ID,
+    title: "2026년 5월 급여",
+    branchScopeLabel: "본사 + 서울/부산 지점 수집 완료 전 검토",
+    startsOn: "2026-05-01",
+    endsOn: "2026-05-31",
+    payDate: "2026-06-25",
+    status: "reviewing",
+    sourceSummary: "근태 확정 1차 반영, 휴가/연장수당/지점 수기 입력은 placeholder 검토 단계",
+    lockedFieldsNote: "외부 세액·4대보험 엔진 연동 전이라 금액은 preview 로만 유지",
+    placeholder: true,
+  },
+  {
+    id: "payroll_period_2026_06",
+    companyId: COMPANY_ID,
+    title: "2026년 6월 급여",
+    branchScopeLabel: "서울 지점 자료 수집 진행 중",
+    startsOn: "2026-06-01",
+    endsOn: "2026-06-30",
+    payDate: "2026-07-25",
+    status: "collecting",
+    sourceSummary: "지점 근태 마감 전 단계, 수당/공제 항목 skeleton 만 열어 둔 상태",
+    lockedFieldsNote: "본사 검토 전 직원 공개 불가",
+    placeholder: true,
+  },
+];
+
+const payrollInputSnapshots: PayrollInputSnapshot[] = [
+  {
+    id: "payroll_input_2026_05_employee_employee",
+    periodId: "payroll_period_2026_05",
+    employeeId: "employee_employee",
+    attendanceHours: 168,
+    overtimeHours: 9,
+    nightHours: 6,
+    holidayHours: 8,
+    paidLeaveDays: 1,
+    unpaidLeaveDays: 0,
+    absenceDays: 0,
+    latenessCount: 1,
+    earlyLeaveCount: 0,
+    sourceNote: "근태/휴가 데이터와 지점 수기 수당을 합친 payroll input snapshot placeholder",
+    placeholder: true,
+  },
+];
+
+const payrollDrafts: PayrollDraft[] = [
+  {
+    id: "payroll_draft_2026_05_employee_employee",
+    periodId: "payroll_period_2026_05",
+    profileId: "payroll_profile_employee",
+    employeeId: "employee_employee",
+    employeeName: "일반 구성원",
+    branchLabel: "서울 시티 호텔",
+    payType: "hourly",
+    status: "reviewing",
+    grossPay: 2510400,
+    estimatedDeductions: 327000,
+    netPayPreview: 2183400,
+    reviewNote: "본사 급여 담당 검토 전 preview 금액이며 실지급 확정값이 아니다.",
+    approvalGate: "지점 자료 제출 → 본사 급여 검토 → 직원 공개",
+    placeholder: true,
+  },
+];
+
+const payrollLineItems: PayrollLineItem[] = [
+  {
+    id: "payroll_line_2026_05_base_hours",
+    code: "BASE_HOURS",
+    label: "기본 근무시간",
+    classification: "earning",
+    source: "attendance",
+    quantity: 168,
+    unitAmount: 12800,
+    premiumRate: null,
+    amount: 2150400,
+    note: "근태 확정시간 × 시급 preview",
+    placeholder: true,
+  },
+  {
+    id: "payroll_line_2026_05_overtime",
+    code: "OT_PREMIUM",
+    label: "연장근로 수당",
+    classification: "earning",
+    source: "attendance",
+    quantity: 9,
+    unitAmount: 12800,
+    premiumRate: 1.5,
+    amount: 172800,
+    note: "연장시간 premium 계산 skeleton",
+    placeholder: true,
+  },
+  {
+    id: "payroll_line_2026_05_night",
+    code: "NIGHT_PREMIUM",
+    label: "야간근로 수당",
+    classification: "earning",
+    source: "attendance",
+    quantity: 6,
+    unitAmount: 12800,
+    premiumRate: 0.5,
+    amount: 38400,
+    note: "야간 premium preview",
+    placeholder: true,
+  },
+  {
+    id: "payroll_line_2026_05_meal",
+    code: "MEAL_ALLOWANCE",
+    label: "식대",
+    classification: "earning",
+    source: "manual",
+    quantity: 1,
+    unitAmount: 120000,
+    premiumRate: null,
+    amount: 120000,
+    note: "지점 수기 입력 allowance placeholder",
+    placeholder: true,
+  },
+  {
+    id: "payroll_line_2026_05_tax",
+    code: "WITHHOLDING_TAX",
+    label: "원천세 placeholder",
+    classification: "tax_placeholder",
+    source: "tax_placeholder",
+    quantity: null,
+    unitAmount: null,
+    premiumRate: null,
+    amount: -187000,
+    note: "실세액 엔진 연동 전 추정치 placeholder",
+    placeholder: true,
+  },
+  {
+    id: "payroll_line_2026_05_insurance",
+    code: "SOCIAL_INSURANCE",
+    label: "4대보험 placeholder",
+    classification: "insurance_placeholder",
+    source: "insurance_placeholder",
+    quantity: null,
+    unitAmount: null,
+    premiumRate: null,
+    amount: -140000,
+    note: "보험 계산 로직 미연동 preview",
+    placeholder: true,
+  },
+];
+
+const payrollReviewSteps: PayrollReviewStep[] = [
+  {
+    id: "payroll_review_2026_05_branch_submit",
+    periodId: "payroll_period_2026_05",
+    scope: "branch_manager",
+    status: "submitted",
+    note: "서울 지점 관리자가 연장/식대 기초자료를 제출한 상태",
+    placeholder: true,
+  },
+  {
+    id: "payroll_review_2026_05_hq_review",
+    periodId: "payroll_period_2026_05",
+    scope: "headquarters_payroll",
+    status: "reviewing",
+    note: "본사 급여 담당이 지급 항목 초안과 공제 placeholder 를 검토 중",
+    placeholder: true,
+  },
+  {
+    id: "payroll_review_2026_05_employee_release",
+    periodId: "payroll_period_2026_05",
+    scope: "employee",
+    status: "pending",
+    note: "검토 완료 전까지 직원 명세서 공개 대기",
+    placeholder: true,
+  },
+];
 
 const workItems: WorkItem[] = [
   {
@@ -2071,6 +2335,99 @@ function listVisibleWorkItemAuditLogs(auth: SessionContext, workItemId: string) 
 function listVisibleWorkItemDeadlines(auth: SessionContext) {
   const visibleIds = new Set(listVisibleWorkItems(auth).map((item) => item.id));
   return workItemDeadlines.filter((deadline) => visibleIds.has(deadline.workItemId));
+}
+
+function canReadPayroll(auth: SessionContext) {
+  return hasPermission(auth.user, "payroll.read");
+}
+
+function listVisiblePayrollProfiles(auth: SessionContext) {
+  if (!canReadPayroll(auth)) {
+    return [];
+  }
+
+  if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR") {
+    return payrollProfiles;
+  }
+
+  const viewerBranchId = getViewerBranchId(auth);
+  if (auth.roleCode === "MANAGER") {
+    return payrollProfiles.filter((profile) => profile.branchId === viewerBranchId || profile.employeeId === auth.user.employeeId);
+  }
+
+  return payrollProfiles.filter((profile) => profile.employeeId === auth.user.employeeId);
+}
+
+function listVisiblePayrollPeriods(auth: SessionContext) {
+  if (!canReadPayroll(auth)) {
+    return [];
+  }
+
+  if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR" || auth.roleCode === "MANAGER") {
+    return payrollPeriods;
+  }
+
+  const visiblePeriodIds = new Set(payrollDrafts.filter((draft) => draft.employeeId === auth.user.employeeId).map((draft) => draft.periodId));
+  return payrollPeriods.filter((period) => visiblePeriodIds.has(period.id));
+}
+
+function findVisiblePayrollPeriod(auth: SessionContext, periodId: string) {
+  return listVisiblePayrollPeriods(auth).find((period) => period.id === periodId) ?? null;
+}
+
+function findPayrollDraft(periodId: string) {
+  return payrollDrafts.find((draft) => draft.periodId === periodId) ?? null;
+}
+
+function findPayrollInputSnapshot(periodId: string) {
+  return payrollInputSnapshots.find((snapshot) => snapshot.periodId === periodId) ?? null;
+}
+
+function listPayrollLineItemsForPeriod(periodId: string) {
+  if (periodId !== "payroll_period_2026_05") {
+    return [];
+  }
+
+  return payrollLineItems;
+}
+
+function listVisiblePayrollReviewSteps(auth: SessionContext, periodId: string) {
+  const items = payrollReviewSteps.filter((step) => step.periodId === periodId);
+  if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR") {
+    return items;
+  }
+
+  if (auth.roleCode === "MANAGER") {
+    return items.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll");
+  }
+
+  return items.filter((step) => step.scope === "employee");
+}
+
+function canAccessPayrollDraft(auth: SessionContext, draft: PayrollDraft) {
+  if (draft.employeeId === auth.user.employeeId && hasPermission(auth.user, "payroll.payslip.read_self")) {
+    return true;
+  }
+
+  if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR") {
+    return true;
+  }
+
+  return false;
+}
+
+function buildPayrollOverviewPayload(auth: SessionContext) {
+  return {
+    profiles: listVisiblePayrollProfiles(auth),
+    periods: listVisiblePayrollPeriods(auth),
+    collectionSteps: auth.roleCode === "EMPLOYEE"
+      ? payrollReviewSteps.filter((step) => step.scope === "employee")
+      : auth.roleCode === "MANAGER"
+        ? payrollReviewSteps.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll")
+        : payrollReviewSteps,
+    roleGuidance: payrollRoleGuidance,
+    placeholder: true as const,
+  };
 }
 
 function buildAdminAuditFilters(context: Context) {
@@ -4655,6 +5012,88 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
         candidate: true,
         action: "document.file.delete",
       },
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.get(appRoutes.payroll.overview, (context) => {
+  const authResult = requirePermission(context, "payroll.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  return jsonSuccess(context, payrollOverviewResponseSchema, {
+    ok: true,
+    data: buildPayrollOverviewPayload(authResult.auth),
+    error: null,
+  });
+});
+
+app.get(PAYROLL_PERIOD_DETAIL_ROUTE, (context) => {
+  const authResult = requirePermission(context, "payroll.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const periodId = context.req.param("id");
+  const period = findVisiblePayrollPeriod(authResult.auth, periodId);
+  const draft = findPayrollDraft(periodId);
+  const inputSnapshot = findPayrollInputSnapshot(periodId);
+
+  if (!period || !draft || !inputSnapshot || !canAccessPayrollDraft(authResult.auth, draft)) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 급여 기간 상세입니다.", 403, {
+      periodId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, payrollPeriodDetailResponseSchema, {
+    ok: true,
+    data: {
+      period,
+      draft,
+      inputSnapshot,
+      lineItems: listPayrollLineItemsForPeriod(periodId),
+      reviewSteps: listVisiblePayrollReviewSteps(authResult.auth, periodId),
+      roleGuidance: payrollRoleGuidance,
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.get(appRoutes.payroll.myPayslip, (context) => {
+  const authResult = requirePermission(context, "payroll.payslip.read_self");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const draft = payrollDrafts.find((item) => item.employeeId === authResult.auth.user.employeeId);
+  if (!draft) {
+    return jsonError(context, "FORBIDDEN", "조회 가능한 급여명세서 초안이 없습니다.", 403, {
+      employeeId: authResult.auth.user.employeeId,
+      route: context.req.path,
+    });
+  }
+
+  const period = payrollPeriods.find((item) => item.id === draft.periodId);
+  if (!period) {
+    return jsonError(context, "FORBIDDEN", "급여 기간 정보를 찾을 수 없습니다.", 403, {
+      employeeId: authResult.auth.user.employeeId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, payrollMyPayslipResponseSchema, {
+    ok: true,
+    data: {
+      period,
+      payslip: draft,
+      lineItems: listPayrollLineItemsForPeriod(draft.periodId),
+      employeeMessage: "급여명세서 초안은 본사 검토 완료 전까지 preview 상태로만 표시됩니다.",
+      correctionRequestGuide: "정정이 필요하면 급여 확정 전 /attendance 정정, /leave 잔여, 지점 제출 메모를 먼저 확인한 뒤 인사/급여 담당에게 알립니다.",
       placeholder: true,
     },
     error: null,
