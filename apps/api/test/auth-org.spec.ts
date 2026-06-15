@@ -489,6 +489,7 @@ describe("Phase 2 auth/org skeleton", () => {
       "work_item_hr_branch_training_followup",
       "work_item_hr_grievance_triage",
       "work_item_tax_month_end_evidence",
+      "work_item_tax_vat_package_preparation",
       "work_item_labor_overtime_review",
       "work_item_labor_leave_balance_adjustment",
       "work_item_labor_grievance_intake",
@@ -543,8 +544,19 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(detailResponse.status).toBe(200);
     const detailPayload = workItemDetailResponseSchema.parse(await detailResponse.json());
     expect(detailPayload.data.item.id).toBe("work_item_tax_month_end_evidence");
-    expect(detailPayload.data.item.access.viewerScope).toBe("company");
+    expect(detailPayload.data.item.access.viewerScope).toBe("branch");
+    expect(detailPayload.data.item.taxContext?.branchRequests[0]?.missingEvidenceCount).toBe(2);
+    expect(detailPayload.data.item.taxContext?.visibility.branchManager).toContain("자기 지점");
     expect(detailPayload.data.auditLogs).toEqual([]);
+
+    const blockedPackageDetailResponse = await app.request(appRoutes.workItems.detail("work_item_tax_vat_package_preparation"), {
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(blockedPackageDetailResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await blockedPackageDetailResponse.json()).error.code).toBe("FORBIDDEN");
 
     const attachmentResponse = await app.request(appRoutes.workItems.attachments("work_item_tax_month_end_evidence"), {
       headers: {

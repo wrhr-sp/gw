@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `docs/architecture/phase-28-tax-management-pass-1-scope.md`, `docs/guides/phase-28-tax-management-pass-1-handoff.md` 를 추가해 Phase 25 공통 업무 엔진 위에 지점별 세무 자료 요청·증빙 제출·월말 마감·검토·세무사 전달용 패키지 준비 skeleton 을 어떻게 얹을지, tax category/filing metadata/visibility/승인 게이트를 쉬운 한국어로 고정했다.
+- `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` 를 다시 맞춰 Phase 28 문서가 실제 구현 상태와 어긋나지 않게 정리했다. 특히 `work_item_tax_month_end_evidence` branch scope 카드와 `work_item_tax_vat_package_preparation` company scope 카드, 실제 `taxContext`/`packagePreparation`/`visibility` 필드, 감사 audit log 경계를 문서에 같은 말로 반영했다.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 Phase 28 세무 관리 1차 활성 체인 기준으로 갱신해 현재 카드 ids, 직전 Phase 28A 급여와의 경계, 본사 세무 담당/지점 관리자/감사 역할 차이, 남은 승인 게이트를 한 번에 따라가게 정리했다.
+
 - `SPEC.md`, `DATA_MODEL.md`, `API.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `HANDOFF.md` 를 Phase 28A 급여 기준으로 다시 맞춰, 급여가 labor 하위가 아니라 독립 `payroll` 모듈로 읽히게 정리했다.
 - 이번 정리에는 지원 급여 유형(`monthly`/`hourly`/`daily`/`annual`/`inclusive`), 급여 기간 상태(`draft`/`collecting`/`reviewing`/`confirmed`/`closed`), line item 산정 근거(`source`/`quantity`/`unitAmount`/`premiumRate`/`amount`/`note`), 지점 관리자 대 직원 self-only 경계, 포괄임금제 검토 경고, 주민등록번호/계좌번호/실지급/외부 신고 승인 게이트를 문서 전체에 같은 말로 반영한 내용이 포함된다.
 - `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md` 를 보강해 Phase 28A 에서 여는 것/아직 안 여는 것, 지점 제출 → 본사 검토 → 직원 공개 흐름, self-only payslip 경계, 후속 구현자가 먼저 볼 파일과 검증 순서를 더 분명히 남겼다.

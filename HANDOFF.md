@@ -18,34 +18,38 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 28A 급여 foundation / payslip pass 1 이다. 근태·휴가 다음 단계에 놓이는 독립 `payroll` 모듈을 추가해, 급여 프로필·지급 기간·수당/공제 항목·직원용 명세서 초안을 같은 계약 언어로 먼저 고정하는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 28 세무 관리 1차다. Phase 25 공통 `work item` 엔진 위에 지점별 세무 자료 요청·증빙 제출·월말 마감·검토·세무사 전달용 패키지 준비 skeleton 을 `tax` 모듈로 올리는 것이 이번 체인의 핵심이다.
 
-현재 카드 진행 상태 요약:
+현재 상태 요약:
 
-- 상위 검증 카드 `t_ae2fa514` 는 shared/api/web 대상 typecheck·테스트·Cloudflare build·workspace check 와 local `/payroll`, `/payroll/me` smoke 를 통과했다.
-- 이 문서화 카드 `t_67267353` 는 Phase 28A 급여 기초자료·명세서 1차 기준을 루트 문서와 phase 문서에 다시 맞추는 단계다.
-- 다음 child 카드 `t_1fc47cdc` 는 이 문서화 결과를 이어받아 후속 체인으로 진행한다.
+- planner/builder 초기 초안 단계는 지나갔고, 현재는 실제 shared contract/API/Web/test 근거까지 반영된 Phase 28 문서 정리 기준으로 본다.
+- 문서에서 바로 따라가야 할 대표 fixture 는 `work_item_tax_month_end_evidence`(지점 제출 branch scope) 와 `work_item_tax_vat_package_preparation`(HQ 전달 패키지 company scope) 2개다.
+- 직전 재검증 기준으로 `/work-items`, `/work-items/tax`, `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 와 focused test/Cloudflare build/local preview smoke 까지 모두 통과한 상태를 기준으로 문서를 읽는다.
 
-현재 기획 상태 요약:
+현재 기획/구현 상태 요약:
 
-- 이번 Phase의 목적은 노무 하위가 아니라 독립 `payroll` 모듈로 급여 자리를 먼저 고정하는 것이다.
-- shared contract 기준 급여 유형은 `monthly`, `hourly`, `daily`, `annual`, `inclusive` 다.
-- 급여 프로필은 `payType`, `basePay`, `hourlyRate`, `dailyRate`, `annualSalary`, `inclusiveAllowance`, `standardWorkHours`, `payDay`, `effectiveFrom/to`, 회사/지점 scope 를 함께 가진다.
-- 급여 기간 상태는 `draft` → `collecting` → `reviewing` → `confirmed` → `closed` 로 보며, 직원 공개와 실지급 확정을 같은 뜻으로 쓰지 않는다.
-- 지점 관리자는 자기 지점 기초자료 제출 상태만 보고, period detail 전체나 타인 명세서 self 영역까지 보는 역할이 아니다.
-- 직원은 `/payroll/me` 에서 자기 명세서 초안과 정정 안내만 본다.
-- 포괄임금제는 초과 비교/위험 경고를 먼저 문서화하고, 부족분 자동 차감은 기본 비활성으로 둔다.
-- 실제 급여 지급, 은행 이체, 주민등록번호/계좌번호 입력, 홈택스/4대보험 신고, 외부 회계/세무 연동, production 급여 원문 저장은 계속 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`, `docs/architecture/phase-27-labor-management-pass-1-scope.md`, `docs/guides/phase-27-labor-management-pass-1-handoff.md`.
+- 이번 Phase의 목적은 실제 신고 자동화가 아니라 `tax` 모듈 안에서 세무 일정/증빙/검토/전달 패키지 자리를 먼저 고정하는 것이다.
+- 세무 종류 차이는 `evidence_collection`, `vat_closing`, `withholding_tax_filing`, `local_tax_report`, `corporate_tax_preparation`, `missing_receipt_follow_up`, `tax_adjustment_review`, `advisor_package_preparation` 같은 category 확장으로 먼저 본다.
+- 주 상태는 계속 공통 상태(`draft` → `todo` → `in_progress` → `waiting_review` → `blocked` → `done` → `archived`)를 쓰고, 세무 마감 의미는 `filingStage`, `evidenceStatus`, `deadlineKind`, `packagePreparation` 같은 보조 필드로 푼다.
+- 본사 세무 담당은 여러 지점 세무 일정/회수율/반려를 더 넓게 보고, 지점 관리자는 자기 지점 제출 상태와 보완 요청만 보며, 감사는 상태 변경/접근 흔적을 read-only 로 본다.
+- 세무사 전달은 실제 외부 전송이 아니라 전달용 패키지 준비 상태를 정리하는 단계로만 본다.
+- 실제 홈택스 제출, 회계프로그램/세무사 외부 연동, 실세무 원문 업로드, production 세무 데이터 입력은 이번 단계에서도 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-28-tax-management-pass-1-scope.md`, `docs/guides/phase-28-tax-management-pass-1-handoff.md`, `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`.
 
-2026-06-15 Phase 28A 빠른 확인 순서:
+2026-06-15 Phase 28 빠른 확인 순서:
 
-- `/payroll` — 독립 급여 허브, role split, 승인 게이트 문구를 먼저 본다.
-- `/payroll/me` — self-only 명세서 초안, 정정 안내, 실지급 미확정 문구를 본다.
-- `/api/payroll` — pay type 지원 방향, 프로필/기간/collection step/role guidance 를 본다.
-- `/api/payroll/periods/payroll_period_2026_05` — draft, input snapshot, line item, review step 이 같이 오는지 본다.
-- `apps/api/test/auth-org.spec.ts` — HQ 200, manager detail 403, employee self payslip 200 경계를 본다.
-- `apps/web/payroll.test.tsx` — 독립 payroll 모듈과 self-only copy 가 회귀 테스트로 남아 있는지 본다.
+- `/work-items` — 공통 업무 허브에서 `tax` 모듈 entry 가 먼저 보이는지 본다.
+- `/work-items/tax` — 세무 category, 본사 세무 담당/지점 관리자/감사 visibility, 승인 게이트 문구를 본다.
+- `/api/work-items?module=tax` — 세무 목록에서 category, 지점 제출 상태, review/deadline 설명이 읽히는지 본다.
+- `/api/work-item-deadlines` — 세무 일정이 공통 마감 구조 안에서 읽히는지 본다.
+- `/api/work-items/:id/reviews` — HQ 검토/반려/보완 요청이 공통 review skeleton 으로 남는지 본다.
+- `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` — tax visibility 와 role boundary 가 회귀 테스트로 남아 있는지 본다.
+
+2026-06-15 Phase 28A 선행 메모:
+
+- 급여는 labor 하위가 아니라 독립 `payroll` 모듈로 분리했고, 세무는 이번 Phase 28에서 다시 공통 `work item` 기반 `tax` 모듈 확장으로 다룬다.
+- 급여 preview 금액과 실지급 확정값, 원천세/4대보험 placeholder 와 실세무 신고를 같은 뜻으로 쓰지 않는다.
+- 지점 관리자가 급여 period detail 전체를 직접 보는 역할이 아니라는 경계와, 이번 세무 카드에서 자기 지점 제출 상태만 보는 경계가 서로 충돌하지 않아야 한다.
 
 2026-06-13 Phase 27 기획 메모:
 

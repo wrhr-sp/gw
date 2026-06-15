@@ -6,32 +6,34 @@
 
 ## 현재 활성 작업
 
-작업명: Phase 28A 급여 foundation / payslip 1차
+작업명: Phase 28 세무 관리 1차
 
 현재 체인:
 
-1. 상위 검증: `t_ae2fa514` — 해봄(`gwtester`) — 완료
-2. 문서화: `t_67267353` — 다온(`gwdocs`) — 진행 중
-3. 후속 체인: `t_1fc47cdc` — 하위 의존 카드, 문서화 완료 대기
+1. 기획: `t_d869a4e9` — 도담(`gwplanner`) — 진행 중
+2. 구현: `t_cbc146d5` — 이룸(`gwbuilder`) — 대기 중
+3. 후속 체인: `t_5263f729` — 하위 의존 카드, 구현 완료 대기
 
 현재 문서 기준 핵심 범위:
 
-- 급여를 labor 하위가 아니라 독립 `payroll` 모듈로 분리해 읽히게 한다.
-- 급여 유형은 월급제·시급제·일급제·연봉제·포괄임금제를 같은 contract 언어로 고정한다.
-- 본사 급여 담당 / 지점 관리자 / 일반 직원 visibility 와 self-only 명세서 경계를 같은 권한 언어로 맞춘다.
-- 지점/호텔 기준 급여 기초자료 수집 → 본사 검토 → 직원 명세서 초안 공개 흐름을 고정한다.
-- 실제 지급, 주민등록번호/계좌번호 입력, 홈택스/4대보험 신고, 외부 급여·세무 연동은 계속 승인 게이트로 분리한다.
+- 세무 업무를 독립 신고 앱으로 만들지 않고 공통 `work item` 기반 `tax` 모듈 확장으로 읽히게 한다.
+- 부가세·원천세·지방세·법인세 등 세목별 마감 skeleton 과 지점별 증빙 수집/보완 요청 흐름을 같은 제품 언어로 고정한다.
+- 본사 세무 담당 / 지점 관리자 / 감사 visibility 차이를 같은 권한 언어로 맞춘다.
+- 지점 자료 제출 → HQ 세무 검토 → 세무사 전달용 패키지 준비 흐름을 고정한다.
+- 실제 신고 제출, 홈택스/회계프로그램/세무사 외부 연동, 실세무 원문 업로드는 계속 승인 게이트로 분리한다.
 
 현재 구현/기획 메모:
 
-- `docs/architecture/phase-27-labor-management-pass-1-scope.md` 가 바로 직전 labor 기준 문서다.
-- 이번 Phase는 그 다음 단계로 독립 payroll 구조를 contract/API/UI skeleton 기준으로 올리는 단계다.
-- 현재 저장소 기준 contract 는 `monthly`/`hourly`/`daily`/`annual`/`inclusive` pay type 을 지원한다.
-- API/test 예시는 HQ monthly profile, manager monthly profile, employee hourly profile 과 payroll period/detail/self payslip 경계를 보여 준다.
-- 리뷰/테스트/문서화는 pay type 지원 방향, line item 산정 근거, 지점 관리자 제출 범위, self-only payslip, 포괄임금제 경고, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
+- `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md` 가 바로 앞 급여 기준 문서다.
+- 이번 Phase는 그 다음 단계로 공통 `work item` 기반 `tax` 구조를 세무 일정/증빙/검토/전달 패키지 기준으로 올리는 단계다.
+- 현재 저장소에는 `/work-items/tax`, `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 와 tax placeholder 1건이 이미 있다.
+- 이번 기획/구현의 핵심은 tax category 확장, filing/evidence/package metadata, 지점 제출 범위 대 HQ 세무 검토 범위를 같은 언어로 맞추는 것이다.
+- 리뷰/테스트/문서화는 세무 일정 skeleton, 누락/반려/보완 요청, 세무사 전달 패키지 방향, 승인 게이트 문장이 과장 없이 같은 뜻인지 확인하는 방향으로 이어간다.
 
 우선 참고 문서:
 
+- `docs/architecture/phase-28-tax-management-pass-1-scope.md`
+- `docs/guides/phase-28-tax-management-pass-1-handoff.md`
 - `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`
 - `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`
 - `docs/architecture/phase-27-labor-management-pass-1-scope.md`

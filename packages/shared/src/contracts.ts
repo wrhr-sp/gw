@@ -213,6 +213,24 @@ export const workItemLaborFollowUpTypeSchema = z.enum([
   "schedule_adjustment",
   "closure_check",
 ]);
+export const workItemTaxFilingStageSchema = z.enum(["collecting", "branch_submitted", "hq_reviewing", "package_ready", "handed_off"]);
+export const workItemTaxEvidenceStatusSchema = z.enum(["not_started", "partial", "ready", "missing", "returned"]);
+export const workItemTaxDeadlineKindSchema = z.enum(["monthly", "quarterly", "semiannual", "annual"]);
+export const workItemTaxExternalFilingStatusSchema = z.enum(["approval_required", "not_connected"]);
+export const workItemTaxSensitiveRecordStatusSchema = z.enum(["metadata_only", "upload_gated"]);
+export const workItemTaxTypeSchema = z.enum(["vat", "withholding", "local", "corporate"]);
+export const workItemTaxEvidenceItemTypeSchema = z.enum([
+  "sales_summary",
+  "expense_summary",
+  "payroll_tax_basis",
+  "invoice_register",
+  "card_receipt_batch",
+  "local_tax_basis",
+  "adjustment_note",
+  "advisor_cover_note",
+]);
+export const workItemTaxReviewScopeSchema = z.enum(["tax_hq", "branch_manager", "auditor"]);
+export const workItemTaxReviewResponsibilitySchema = z.enum(["submission", "collection_review", "missing_follow_up", "package_preparation", "audit_only"]);
 
 export const payrollPayTypeSchema = z.enum(["monthly", "hourly", "daily", "annual", "inclusive"]);
 export const payrollPeriodStatusSchema = z.enum(["draft", "collecting", "reviewing", "confirmed", "closed"]);
@@ -456,6 +474,63 @@ export const workItemLaborContextSchema = z.object({
   auditHints: z.array(z.string()).min(1),
 });
 
+export const workItemTaxBranchRequestSchema = z.object({
+  branchId: z.string(),
+  branchLabel: z.string(),
+  submissionStatus: workItemTaxEvidenceStatusSchema,
+  requestedAt: z.string().datetime(),
+  submittedAt: z.string().datetime().nullable(),
+  dueAt: z.string().datetime(),
+  missingEvidenceCount: z.number().int().nonnegative(),
+  note: z.string(),
+});
+
+export const workItemTaxEvidenceSummarySchema = z.object({
+  type: workItemTaxEvidenceItemTypeSchema,
+  summary: z.string(),
+  status: workItemTaxEvidenceStatusSchema,
+  branchLabel: z.string().nullable(),
+  containsSensitiveData: z.boolean(),
+});
+
+export const workItemTaxReviewActorSchema = z.object({
+  scope: workItemTaxReviewScopeSchema,
+  roleCode: roleCodeSchema.nullable(),
+  responsibility: workItemTaxReviewResponsibilitySchema,
+  status: z.string(),
+});
+
+export const workItemTaxPackagePreparationSchema = z.object({
+  status: z.enum(["not_started", "collecting", "ready_for_review", "ready_to_hand_off"]),
+  plannedContents: z.array(z.string()).min(1),
+  summary: z.string(),
+  deliveryGate: z.string(),
+});
+
+export const workItemTaxVisibilitySchema = z.object({
+  headquartersTax: z.string(),
+  branchManager: z.string(),
+  auditor: z.string(),
+  generalEmployee: z.string(),
+  restrictedNote: z.string(),
+});
+
+export const workItemTaxContextSchema = z.object({
+  taxType: workItemTaxTypeSchema,
+  filingStage: workItemTaxFilingStageSchema,
+  evidenceStatus: workItemTaxEvidenceStatusSchema,
+  deadlineKind: workItemTaxDeadlineKindSchema,
+  reportingPeriodLabel: z.string(),
+  externalFilingStatus: workItemTaxExternalFilingStatusSchema,
+  sensitiveRecordStatus: workItemTaxSensitiveRecordStatusSchema,
+  branchRequests: z.array(workItemTaxBranchRequestSchema).min(1),
+  evidenceSummary: z.array(workItemTaxEvidenceSummarySchema).min(1),
+  reviewActors: z.array(workItemTaxReviewActorSchema).min(1),
+  packagePreparation: workItemTaxPackagePreparationSchema,
+  visibility: workItemTaxVisibilitySchema,
+  auditHints: z.array(z.string()).min(1),
+});
+
 export const workItemSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -475,6 +550,7 @@ export const workItemSchema = z.object({
   access: workItemAccessSchema,
   hrContext: workItemHrContextSchema.nullable(),
   laborContext: workItemLaborContextSchema.nullable(),
+  taxContext: workItemTaxContextSchema.nullable().optional(),
   tags: z.array(z.string()),
   auditSummary: z.string(),
   placeholder: z.literal(true),
@@ -1874,6 +1950,7 @@ export type WorkItemViewerScope = z.infer<typeof workItemViewerScopeSchema>;
 export type WorkItemCapability = z.infer<typeof workItemCapabilitySchema>;
 export type WorkItemAssignee = z.infer<typeof workItemAssigneeSchema>;
 export type WorkItemAccess = z.infer<typeof workItemAccessSchema>;
+export type WorkItemTaxContext = z.infer<typeof workItemTaxContextSchema>;
 export type WorkItem = z.infer<typeof workItemSchema>;
 export type WorkItemDocument = z.infer<typeof workItemDocumentSchema>;
 export type WorkItemAttachment = z.infer<typeof workItemAttachmentSchema>;

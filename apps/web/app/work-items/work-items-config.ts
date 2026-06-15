@@ -50,11 +50,29 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "tax",
     href: "/work-items/tax",
     title: "세무 업무",
-    summary: "지점별 증빙 회수와 월말 마감 상태를 회사/지점 혼합 scope 로 묶습니다.",
-    roleScope: "본사 관리자 / 지점 관리자 / 감사",
-    accessNote: "실제 신고 제출 자동화는 열지 않고 회수율·마감 상태만 보여 줍니다.",
-    apiRoutes: ["/api/work-items?module=tax", "/api/work-item-deadlines", "/api/work-items/:id/reviews"],
-    milestones: ["증빙 회수", "월말 마감", "검토 메모"],
+    summary: "지점별 증빙 제출, 세목별 마감, HQ 전달 패키지 준비를 공통 work item skeleton 으로 묶습니다.",
+    roleScope: "본사 세무 담당 / 지점 관리자 / 감사",
+    accessNote: "실제 홈택스 신고·회계프로그램 연동·실세무 원문 업로드는 닫고, 제출 상태·반려 사유·전달 패키지 준비 metadata 만 먼저 보여 줍니다.",
+    apiRoutes: ["/api/work-items?module=tax", "/api/work-items/:id", "/api/work-item-deadlines", "/api/work-items/:id/reviews"],
+    milestones: ["증빙 수집", "부가세/원천세/지방세/법인세 마감 skeleton", "HQ 검토·반려·전달 패키지 준비", "본사 세무 담당 / 지점 관리자 visibility 분리"],
+    detailSections: [
+      {
+        title: "이번 단계 tax 유형",
+        items: ["증빙 수집", "부가세 마감", "원천세 신고 준비", "지방세 보고", "법인세 준비", "누락 영수증 보완", "세무 조정 검토", "세무사 전달 패키지 준비"],
+      },
+      {
+        title: "누가 어디까지 보는가",
+        items: [
+          "본사 세무 담당은 여러 지점 제출 상태와 패키지 준비 상태를 company scope 로 본다.",
+          "지점 관리자는 자기 지점 제출 대상, 반려 사유, 다음 제출 마감만 본다.",
+          "감사는 원문 대신 상태 변경, 반려 이력, 접근 흔적 중심으로 read-only 추적한다.",
+        ],
+      },
+      {
+        title: "계속 닫아 두는 것",
+        items: ["홈택스 직접 신고/전송", "회계프로그램·세무사 외부 계정 연동", "실세무 원문 대량 업로드", "제출 완료를 운영 사실처럼 기록하는 자동화"],
+      },
+    ],
   },
   {
     slug: "labor",

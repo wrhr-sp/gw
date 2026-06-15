@@ -727,6 +727,38 @@ guardrail:
 - 급여는 근태·휴가 입력 snapshot 과 연결되지만 grievance/징계 restricted 노무 기록과 직접 합치지 않는다.
 - 주민등록번호, 계좌번호, 실지급 이체 파일, 홈택스/4대보험 신고용 실 payload 는 포함하지 않는다.
 
+## 7-B. Phase 28 세무 관리 데이터 모델 메모
+
+이번 단계에서 새로 고정하는 최소 세무 metadata 묶음은 아래와 같다. 현재 shared contract 에는 이 구조가 실제 `workItemTaxContextSchema` 로 올라가 있다.
+
+- `taxContext`: 세무 work item 공통 보조 metadata. `taxType`, `filingStage`, `evidenceStatus`, `deadlineKind`, `reportingPeriodLabel`, `externalFilingStatus`, `sensitiveRecordStatus`, `branchRequests`, `evidenceSummary`, `reviewActors`, `packagePreparation`, `visibility`, `auditHints` 를 포함한다.
+- `taxDeadline`: 세목/주기/마감일/회사·지점 문맥을 설명하는 deadline 요약. 별도 독립 앱보다 기존 `work item` deadline 구조와 연결해서 본다.
+- `taxEvidenceSummary`: 매출/비용/인건비/영수증/세금계산서 등 제출 필요 자료의 metadata-only 요약과 누락 상태.
+- `taxBranchRequest`: 지점별 제출 요청 상태. `branchId`, `branchLabel`, `submissionStatus`, `requestedAt`, `submittedAt`, `dueAt`, `missingEvidenceCount`, `note` 를 남긴다.
+- `taxPackagePreparation`: 세무사 전달용 패키지 준비 묶음. 실제 외부 전송 payload 가 아니라 `status`, `plannedContents`, `summary`, `deliveryGate` 를 뜻한다.
+- `taxReviewActor`: 본사 세무 담당 / 지점 관리자 / 감사 같은 역할별 검토 책임과 현재 상태.
+- `taxVisibility`: 본사 세무 담당 / 지점 관리자 / 감사 / 일반 직원이 어디까지 보는지와 restricted note 를 텍스트로 고정하는 visibility 묶음.
+
+필드 해석 메모:
+- `filingStage` 는 `collecting`, `branch_submitted`, `hq_reviewing`, `package_ready`, `handed_off` 같은 세무 진행 의미를 담되, 공통 work item 상태를 대체하지 않는다.
+- `evidenceStatus` 는 `not_started`, `partial`, `ready`, `missing`, `returned` 같은 제출 현황을 나타내며, 완료/보류 상태와 같은 필드가 아니다.
+- `deadlineKind` 는 `monthly`, `quarterly`, `semiannual`, `annual` 주기를 뜻하고, 법정 자동 계산 엔진을 뜻하지 않는다.
+- `taxBranchRequest` 는 지점 제출률 요약이 아니라 지점별 요청/제출/누락 수를 남기는 구조이며, branch scope 카드와 HQ package 카드가 같은 필드를 다른 범위로 읽는다.
+- `taxEvidenceSummary` 는 실원문이 아니라 자료 종류, 지점 문맥, 누락/보완 상태, 민감도 메모를 남긴다.
+- `taxPackagePreparation` 은 세무사 전달용 패키지의 포함 예정 항목과 준비 상태를 남기며, 실제 메일/메신저/홈택스 전송 결과를 담지 않는다.
+- `taxVisibility` 는 권한 엔진 자체를 대체하지는 않지만, 문서/UI/API 가 같은 권한 설명을 쓰도록 맞추는 사용자-facing 해석 레이어다.
+
+호텔 위탁경영사 기준 메모:
+- 회사 전체 기준과 지점/호텔 기준을 함께 보되, 지점 관리자는 자기 지점 제출/보완 범위만 가진다.
+- 본사 세무 담당은 여러 지점 누락/반려/마감 임박을 넓게 보지만, 실신고 수행자나 외부 계정 연동 실행자로 자동 확정하지 않는다.
+- 감사 사용자는 상태 변경/접근 흔적 중심 read-only 성격이며, 세무 원문 대량 보관 구조를 여는 단계가 아니다.
+
+guardrail:
+- 세무 metadata 는 실제 신고 완료나 외부 제출 payload 를 포함하지 않는다.
+- 세무 원문 업로드와 metadata-only 제출 현황을 같은 모델로 취급하지 않는다.
+- 급여의 세액 placeholder 와 세무 신고 준비 상태는 같은 엔티티 책임으로 합치지 않는다.
+- 주민등록번호, 계좌번호, 실매출 증빙 원문, 세금계산서 원문, 홈택스 payload, 외부 세무사 계정 정보는 포함하지 않는다.
+
 ## 7. 같이 봐야 하는 문서
 
 - `API.md`
@@ -745,3 +777,5 @@ guardrail:
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 - `docs/architecture/phase-11-org-employees-scope.md`
+- `docs/architecture/phase-28-tax-management-pass-1-scope.md`
+- `docs/guides/phase-28-tax-management-pass-1-handoff.md`

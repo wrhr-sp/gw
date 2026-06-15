@@ -257,7 +257,7 @@ export const mobileMenuSections: NavSection[] = [
     items: [
       mobilePrimaryNav[7],
       { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
-      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 수집/월말 마감 placeholder" },
+      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 placeholder" },
       { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
       { href: "/work-items/legal", label: "법무 업무", shortLabel: "법무", summary: "계약 검토/승인 게이트 placeholder" },
       { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 placeholder" },

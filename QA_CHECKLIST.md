@@ -70,7 +70,14 @@
 - [ ] Phase 25 문서에서는 위 파일럿 준비 흐름 위에 공통 work item 엔진이 올라가며, 개별 모듈 완성/실민감 처리/외부 전문가 연동처럼 과장되지 않는다.
 - [ ] Phase 26 문서에서는 위 공통 work item 엔진 위에 직원 lifecycle 과 HR meeting skeleton 이 올라가며, 별도 회의 솔루션/실민감 HR 처리/외부 캘린더 연동처럼 과장되지 않는다.
 - [ ] Phase 27 문서에서는 위 공통 work item 엔진과 HR lifecycle 기준 위에 labor skeleton 이 올라가며, 별도 사건 처리 솔루션/실민감 계약·징계·사고 처리/외부 노무·급여 연동처럼 과장되지 않는다.
+- [ ] Phase 28 문서에서는 위 공통 work item 엔진 위에 tax skeleton 이 올라가며, 별도 신고 자동화/실세무 처리/외부 홈택스·세무사 연동처럼 과장되지 않는다.
 - [ ] Phase 28A 문서에서는 급여가 labor 안에 묻지 않고 독립 `/payroll` 모듈로 읽히며, 본사 급여 담당/지점 관리자/일반 직원 visibility 가 분리된다.
+- [ ] `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 근거가 같은 뜻이다.
+- [ ] branch scope `work_item_tax_month_end_evidence` 와 company scope `work_item_tax_vat_package_preparation` 가 같은 tax 모듈 안에서도 다른 열람 범위/책임을 가진다는 설명이 문서와 테스트에서 같게 유지된다.
+- [ ] 세무 일정 skeleton 과 실제 신고 완료, 세무사 전달 패키지 준비와 실제 외부 전송 완료가 같은 말처럼 섞여 쓰이지 않는다.
+- [ ] 세무 자료 metadata-only 제출 상태와 실원문/실제 홈택스 payload 가 같은 뜻처럼 섞여 쓰이지 않는다.
+- [ ] 지점 관리자가 자기 지점 자료 제출 상태를 보는 것과 회사 전체 세무 패키지 전체를 보는 것을 같은 권한처럼 섞지 않는다.
+- [ ] 급여 `payroll` 의 세액 placeholder 와 세무 `tax` 마감 준비가 같은 모듈/같은 책임처럼 섞여 쓰이지 않는다.
 - [ ] `/payroll` → `/payroll/me` → `/api/payroll` → `/api/payroll/me/payslip` 순서의 쉬운 확인 포인트와 `apps/api/test/auth-org.spec.ts`, `apps/web/payroll.test.tsx` 근거가 같은 뜻이다.
 - [ ] 급여 preview 금액과 실지급 확정값, 원천세/4대보험 placeholder 와 확정 계산값이 같은 말처럼 섞여 쓰이지 않는다.
 - [ ] Phase 28A 문서와 contract 는 월급제/시급제/일급제/연봉제/포괄임금제 지원 방향을 같은 말로 설명하고, 현재 placeholder 예시가 실제로 무엇을 보여 주는지도 숨기지 않는다.

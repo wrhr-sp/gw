@@ -476,6 +476,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 외부 노무/법무/급여/홈택스 연동, production DB 실데이터, 실제 급여 반영/법적 확정은 계속 별도 승인 목록으로 남긴다.
 - 대장이 실제로 다시 볼 때는 `/work-items` → `/work-items/labor` → `/api/work-items?module=labor` → restricted labor 경계(`apps/api/test/work-items.spec.ts`) 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
 
+### 6-10. Phase 28 문구는 "세무 마감 skeleton / 지점 제출 vs HQ 검토 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 세무를 별도 신고 자동화 앱처럼 쓰지 말고, 기존 공통 `work item` 엔진 위에 올라가는 `tax` 확장으로 적는다.
+- 부가세/원천세/지방세/법인세 차이는 새 주 상태군보다 `category(evidence_collection/vat_closing/withholding_tax_filing/local_tax_report/corporate_tax_preparation/missing_receipt_follow_up/tax_adjustment_review/advisor_package_preparation)` 와 보조 metadata(`filing_stage`, `evidence_status`, `deadline_kind`)로 먼저 푼다고 적는다.
+- 본사 세무 담당 / 지점 관리자 / 감사 visibility 차이를 분리해 적고, 지점 자료 제출 요청을 받는 것과 회사 전체 세무 패키지를 보는 것을 같은 뜻으로 쓰지 않는다.
+- 세무 자료는 metadata-only 제출 상태와 누락/반려/보완 요청 중심으로 설명하고, 실세무 원문 저장·홈택스 제출·세무사 외부 전송은 승인 게이트로 남긴다.
+- 급여의 세액 placeholder 와 세무 신고 준비를 같은 모듈/같은 API 책임처럼 섞지 않는다.
+- 대장이 실제로 다시 볼 때는 `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` → `apps/api/test/work-items.spec.ts` 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
+
 ## 7. 승인 없이 하면 안 되는 것
 
 아래는 여전히 별도 승인 대상이다.
@@ -541,6 +550,8 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 - `docs/architecture/phase-11-org-employees-scope.md`
+- `docs/architecture/phase-28-tax-management-pass-1-scope.md`
+- `docs/guides/phase-28-tax-management-pass-1-handoff.md`
 - `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`
 - `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`
 
@@ -596,3 +607,57 @@ guardrail:
 - 실제 세액/4대보험 계산, 외부 급여·세무 연동, 지급 이체, production 급여 원문 저장은 이번 범위가 아니다.
 - 급여는 근태·휴가와 가깝게 읽히되 grievance/징계 같은 restricted 노무 이슈와 같은 모듈로 섞지 않는다.
 - 주민등록번호, 계좌번호, 실지급 파일, 홈택스/4대보험 신고 payload, 은행 이체 파일은 별도 승인 게이트 전까지 문서/화면/API 범위에 넣지 않는다.
+
+## 12. Phase 28 세무 관리 pass 1
+
+이번 단계는 독립 세무 신고 시스템을 여는 것이 아니라, 기존 공통 `work item` 엔진 위에 `tax` 모듈 세무 마감 skeleton 을 올리는 단계다.
+
+현재 구현/검증 기준으로 바로 확인되는 대표 예시는 2개다.
+- `work_item_tax_month_end_evidence`: 지점 관리자 branch scope 기준 월말 증빙 제출/보완 요청 카드
+- `work_item_tax_vat_package_preparation`: 본사 세무 담당 company scope 기준 부가세 전달 패키지 준비 카드
+
+핵심 범위:
+- `/work-items/tax` 설명 화면 정리
+- `GET /api/work-items?module=tax`, `GET /api/work-item-deadlines`, `GET /api/work-items/:id/reviews` 기준의 tax placeholder/metadata 확장
+- 지점별 세무 증빙 수집, 마감 체크, HQ 검토, 세무사 전달용 패키지 준비 흐름 정리
+- 본사 세무 담당 / 지점 관리자 / 감사 visibility 분리
+
+이번 단계에서 문서/contract 기준으로 먼저 고정하는 세무 묶음:
+- 월말 증빙 수집(`evidence_collection`)
+- 부가세 마감(`vat_closing`)
+- 원천세 신고 준비(`withholding_tax_filing`)
+- 지방세 보고(`local_tax_report`)
+- 법인세 준비(`corporate_tax_preparation`)
+- 누락 영수증/증빙 보완(`missing_receipt_follow_up`)
+- 세무 조정 검토(`tax_adjustment_review`)
+- 세무사 전달 패키지 준비(`advisor_package_preparation`)
+
+설계 원칙:
+- tax 흐름도 주 상태는 공통 상태(`draft`/`todo`/`in_progress`/`waiting_review`/`blocked`/`done`/`archived`)를 그대로 쓰고, 세무 진행 의미는 `filingStage`, `evidenceStatus`, `deadlineKind` 같은 보조 필드로 푼다.
+- `taxContext` 는 이제 설명용 후보가 아니라 실제 shared contract/API fixture 에 올라와 있으며, `branchRequests`, `evidenceSummary`, `reviewActors`, `packagePreparation`, `visibility`, `auditHints` 까지 함께 읽는 기준으로 본다.
+- 세무 자료는 원문 저장보다 metadata-only 제출 현황, 누락 사유, 반려/보완 요청, 패키지 준비 상태를 먼저 남긴다.
+- 지점 관리자는 자기 지점 제출 상태만 보고, 회사 전체 세무 패키지와 다른 지점 상세를 기본적으로 보지 않는다.
+- 본사 세무 담당은 여러 지점 상태를 보되, 실제 홈택스 제출자/외부 연동 실행자로 자동 확정하지 않는다.
+- 감사 사용자는 상태 변경/접근 흔적 중심 read-only 흐름을 우선한다.
+
+호텔/지점 운영 기준:
+- 지점 관리자는 자기 지점 자료 회수와 보완 요청 대응을 본다.
+- 본사 세무 담당은 지점별 누락/반려/마감 임박 상태를 회사 기준으로 본다.
+- 일반 직원은 이번 단계의 기본 직접 열람 주체가 아니며, 필요한 경우에도 개별 제출 요청을 통해 간접 연결된다.
+
+상태 흐름 메모:
+1. 세목/마감 카드 생성
+2. 지점 자료 요청
+3. 지점별 제출/누락 확인
+4. HQ 세무 1차 검토
+5. 반려/보완 요청
+6. 마감 임박 점검
+7. 세무사 전달 패키지 준비
+8. 승인 게이트 대기
+
+guardrail:
+- 세무 일정과 신고 제출 완료를 같은 말로 쓰지 않는다.
+- 실제 홈택스/회계프로그램/세무사 외부 연동은 이번 범위가 아니다.
+- 실매출 증빙 원문, 세금계산서 원문, 카드전표 원본, 홈택스 payload 같은 민감 자료는 metadata-only 단계와 분리한다.
+- 급여 `payroll` 의 세액 placeholder 와 세무 `tax` 마감 준비를 같은 기능처럼 섞지 않는다.
+- branch scope 제출 카드와 company scope 패키지 카드가 이미 둘 다 존재하므로, 문서에서 지점 제출 흐름과 HQ 검토 흐름을 한 장짜리 동일 권한처럼 축약하지 않는다.

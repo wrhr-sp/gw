@@ -190,8 +190,8 @@ export const dashboardWorkItemCards: DashboardWorkItemCard[] = [
   {
     href: "/work-items/tax",
     title: "세무·지점 마감",
-    summary: "증빙 회수와 월말 마감을 지점별 placeholder 상태로 묶고 실제 신고 자동화는 열지 않습니다.",
-    roleScope: "본사 관리자 / 지점 관리자 / 감사",
+    summary: "지점별 증빙 제출, 세목별 마감, 세무사 전달 패키지 준비를 metadata 중심으로 묶고 실제 신고 자동화는 열지 않습니다.",
+    roleScope: "본사 세무 담당 / 지점 관리자 / 감사",
   },
 ];
 
