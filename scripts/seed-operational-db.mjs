@@ -49,21 +49,36 @@ values
 on conflict (company_id, code) do update set name = excluded.name, updated_at = excluded.updated_at;
 
 insert into users (id, company_id, login_id, email, password_hash, display_name, status, must_change_password, created_at, updated_at)
-values ('user_company_admin', 'company_demo', 'admin', 'admin@example.com', ${sqlString(passwordHash)}, '관리자 테스트', 'active', true, ${sqlString(now)}, ${sqlString(now)})
+values
+  ('user_company_admin', 'company_demo', 'admin', 'admin@example.com', ${sqlString(passwordHash)}, '관리자 테스트', 'active', true, ${sqlString(now)}, ${sqlString(now)}),
+  ('user_hr_admin', 'company_demo', 'hr-admin', 'staff@example.com', ${sqlString(passwordHash)}, '인사 담당자', 'active', true, ${sqlString(now)}, ${sqlString(now)}),
+  ('user_manager', 'company_demo', 'manager', 'manager@example.com', ${sqlString(passwordHash)}, '운영 매니저', 'active', true, ${sqlString(now)}, ${sqlString(now)}),
+  ('user_employee', 'company_demo', 'employee', 'employee@example.com', ${sqlString(passwordHash)}, '일반 구성원', 'active', true, ${sqlString(now)}, ${sqlString(now)})
 on conflict (company_id, login_id) do update set password_hash = excluded.password_hash, must_change_password = true, updated_at = excluded.updated_at;
 
 insert into employees (id, company_id, branch_id, user_id, department_id, position_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
-values ('employee_admin', 'company_demo', 'branch_hq', 'user_company_admin', 'department_exec', 'position_admin', 'A-0001', '관리자 테스트', 'active', current_date, ${sqlString(now)}, ${sqlString(now)})
-on conflict (company_id, employee_number) do update set user_id = excluded.user_id, updated_at = excluded.updated_at;
+values
+  ('employee_admin', 'company_demo', 'branch_hq', 'user_company_admin', 'department_exec', 'position_admin', 'A-0001', '관리자 테스트', 'active', current_date, ${sqlString(now)}, ${sqlString(now)}),
+  ('employee_staff', 'company_demo', 'branch_hq', 'user_hr_admin', 'department_hr', 'position_staff', 'A-0002', '인사 담당자', 'on_leave', current_date, ${sqlString(now)}, ${sqlString(now)}),
+  ('employee_manager', 'company_demo', 'branch_hotel_seoul', 'user_manager', 'department_ops', 'position_staff', 'A-0003', '운영 매니저', 'active', current_date, ${sqlString(now)}, ${sqlString(now)}),
+  ('employee_employee', 'company_demo', 'branch_hotel_seoul', 'user_employee', 'department_ops', 'position_staff', 'A-0004', '일반 구성원', 'active', current_date, ${sqlString(now)}, ${sqlString(now)})
+on conflict (company_id, employee_number) do update set user_id = excluded.user_id, branch_id = excluded.branch_id, department_id = excluded.department_id, employment_status = excluded.employment_status, updated_at = excluded.updated_at;
 
 insert into roles (id, company_id, code, name, role_scope, status, created_at, updated_at)
 values
   ('role_company_admin', 'company_demo', 'COMPANY_ADMIN', '회사 운영 총괄', 'company', 'active', ${sqlString(now)}, ${sqlString(now)}),
-  ('role_employee', 'company_demo', 'EMPLOYEE', '일반 구성원', 'self', 'active', ${sqlString(now)}, ${sqlString(now)})
-on conflict (company_id, code) do update set name = excluded.name, updated_at = excluded.updated_at;
+  ('role_hr_admin', 'company_demo', 'HR_ADMIN', '인사 운영', 'company', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('role_manager', 'company_demo', 'MANAGER', '팀 운영', 'company', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('role_employee', 'company_demo', 'EMPLOYEE', '일반 구성원', 'company', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('role_auditor', 'company_demo', 'AUDITOR', '감사 조회', 'audit', 'active', ${sqlString(now)}, ${sqlString(now)})
+on conflict (company_id, code) do update set name = excluded.name, role_scope = excluded.role_scope, updated_at = excluded.updated_at;
 
 insert into user_roles (id, company_id, user_id, role_id, branch_id, assigned_by, status, created_at, updated_at)
-values ('user_role_company_admin', 'company_demo', 'user_company_admin', 'role_company_admin', 'branch_hq', 'user_company_admin', 'active', ${sqlString(now)}, ${sqlString(now)})
+values
+  ('user_role_company_admin', 'company_demo', 'user_company_admin', 'role_company_admin', 'branch_hq', 'user_company_admin', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('user_role_hr_admin', 'company_demo', 'user_hr_admin', 'role_hr_admin', 'branch_hq', 'user_company_admin', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('user_role_manager', 'company_demo', 'user_manager', 'role_manager', 'branch_hotel_seoul', 'user_company_admin', 'active', ${sqlString(now)}, ${sqlString(now)}),
+  ('user_role_employee', 'company_demo', 'user_employee', 'role_employee', 'branch_hotel_seoul', 'user_company_admin', 'active', ${sqlString(now)}, ${sqlString(now)})
 on conflict (company_id, user_id, role_id, branch_id) do update set status = 'active', updated_at = excluded.updated_at;
 
 insert into audit_logs (id, company_id, branch_id, actor_user_id, action, resource_type, resource_id, metadata_json, created_at)
