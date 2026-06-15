@@ -1,4 +1,4 @@
-import type { Department, Employee, HomeShortcut, Permission, Role, RoleCode } from "@gw/shared";
+import { permissionCodeSchema, type Department, type Employee, type HomeShortcut, type Permission, type Role, type RoleCode } from "@gw/shared";
 import { createOperationalSql, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -29,7 +29,10 @@ function parsePermissionCodes(value: unknown): Permission["code"][] {
     return [];
   }
 
-  return value.filter((item): item is Permission["code"] => typeof item === "string");
+  return value
+    .map((item) => permissionCodeSchema.safeParse(item))
+    .filter((result): result is { success: true; data: Permission["code"] } => result.success)
+    .map((result) => result.data);
 }
 
 function normalizeRoleScope(value: unknown): Role["scope"] {

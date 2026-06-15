@@ -19,29 +19,27 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 32 게시판·공지·댓글·문서함 실사용화 준비
+### 3. 현재 문서화/검증 기준은 Phase 33 근태·휴가·전자결재 실사용화 준비
 
-현재 루트 문서와 handoff 는 게시판·공지·댓글·문서함 협업 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 근태·휴가·전자결재 일반 업무 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/boards` 와 `/documents` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/attendance`, `/leave`, `/approvals` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 route 진입과 live panel 확인뿐 아니라 preview 생성/읽음 확인/guard probe 일부까지 가능하지만, 아직 게시판 상세/게시글 상세/문서 상세 UAT 체감이 완전히 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- EMPLOYEE 기준 general 게시글 작성·댓글·read receipt 가능, notice-only 글쓰기 차단, private space 차단, forged post/read receipt 차단을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
-- COMPANY_ADMIN 기준 게시판 생성, 문서공간 생성, 문서 metadata 생성은 가능하지만 raw `storageKey` 비노출 원칙을 계속 지켜야 한다.
-- richer editor, 상세 스레드/버전 UX, 외부 공유, 실운영 업로드 확대가 닫히지 않으면 화면 실사용화와 실제 운영 협업 체감 사이 간격이 계속 남는다.
+- `/attendance`, `/leave`, `/approvals` 는 route 진입과 live panel 확인, 일부 preview 액션 문맥과 guard probe 확인이 가능하지만, 아직 PostgreSQL 저장 전환·richer stepper·실운영 연동이 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- 정책 미허용, 권한 부족, 회사 scope 차단, self-approval 금지, unknown/forged id 차단을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
+- 실급여/실정산, 은행 이체, GPS/실단말, 외부 세무·노무·법령 기관 연동, 실전자서명/원문 장기보관은 계속 별도 승인 게이트다.
+- richer 업무 히스토리, 승인 stepper, 운영 반영 UX가 닫히지 않으면 화면 실사용화와 실제 운영 체감 사이 간격이 계속 남는다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 32 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 33 단계에서 남아 있는 제품형 리스크
 
-- notice-only 게시판과 general 게시판 책임을 흐리게 쓰면 공지 전달과 일반 소통 규칙이 다시 섞일 수 있다.
-- `/boards/[boardId]` 와 `/posts/[postId]` 를 실제 협업 완성품처럼 과장하면 placeholder honesty 가 무너진다.
-- EMPLOYEE 의 general 게시글 작성 허용과 notice/private/forged 차단을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
-- `/documents` 의 metadata 중심 범위를 문서 상세/원본 저장/외부 공유 완료처럼 쓰면 storage 승인 게이트가 사라질 수 있다.
-- raw `storageKey`, bucket 내부명, public URL 같은 storage 내부정보가 화면/문서/API 예시에 드러나면 Phase 32의 보안 경계가 바로 무너진다.
-- PostgreSQL/R2 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
-- `/boards` 와 `/documents` 를 모바일 `홈`/`메뉴`/PC sidebar 에서 다른 우선순위로 풀어 쓰면 UX 안내가 다시 흔들릴 수 있다.
-- 외부 공유, production 문서 실데이터, secret, paid resource, migration 을 이번 단계의 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
+- 정책 미허용과 권한 부족을 같은 말로 쓰면 직원이 왜 막히는지 설명이 흐려질 수 있다.
+- `/attendance`, `/leave`, `/approvals` 를 실제 운영 완료품처럼 과장하면 placeholder honesty 가 무너진다.
+- self-approval 금지, unknown/forged id 차단, 회사 scope 차단을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
+- PostgreSQL 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
+- 실급여/실정산/은행/GPS/실단말/외부 기관 연동을 이번 단계 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
+- `/attendance`, `/leave`, `/approvals` 를 모바일 `홈`/대시보드/운영 정책 문서에서 다른 우선순위로 풀어 쓰면 UX 안내가 다시 흔들릴 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

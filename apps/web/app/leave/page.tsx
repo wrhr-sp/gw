@@ -1,3 +1,4 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../admin-skeleton-config";
@@ -22,6 +23,41 @@ const approvals = [
   { employee: "운영 매니저", period: "2026-06-21 오전", type: "반차", status: "pending", note: "대체 근무자 확인 필요" },
 ] as const;
 
+const requesterLane = [
+  "1. 허용된 휴가 유형과 현재 잔여를 먼저 확인합니다.",
+  "2. 신청 기간·사유를 입력하고 신청 preview 를 올립니다.",
+  "3. 내 신청 상태와 승인/반려 결과를 같은 화면에서 다시 확인합니다.",
+] as const;
+
+const approverLane = [
+  "승인 권한자만 승인 대기열을 보고 approve/reject 문맥을 확인합니다.",
+  "일반 직원은 승인 버튼 대신 내 신청과 잔여 snapshot 중심으로 제한합니다.",
+  "자기 휴가 자기승인, forged/unknown request id, 회사 scope 밖 요청은 성공처럼 처리하지 않습니다.",
+] as const;
+
+const stateAxisCards = [
+  {
+    tone: "accent" as const,
+    title: "권한 부족",
+    body: "leave.approve 권한이 없으면 승인 대기 대신 내 신청과 잔여 조회만 유지합니다.",
+  },
+  {
+    tone: "warning" as const,
+    title: "정책 미허용",
+    body: "허용되지 않은 휴가 유형, 잔여 부족, 예외 검토 필요 상태를 승인자 lane 과 섞지 않고 따로 설명합니다.",
+  },
+  {
+    tone: "default" as const,
+    title: "회사 scope 차단",
+    body: "다른 회사 요청이나 unknown request id 는 접근/승인 성공처럼 보이지 않게 유지합니다.",
+  },
+  {
+    tone: "warning" as const,
+    title: "placeholder 제한",
+    body: "실제 급여/정산 반영, 조직 master 자동 차감, production 인사 운영 반영은 이번 단계 범위 밖입니다.",
+  },
+] as const;
+
 const policyBridgeNotes = [
   "권한 부족: leave.approve 권한이 없으면 승인 대기함 대신 내 신청과 잔여 snapshot 중심으로 제한합니다.",
   "회사 scope: 팀장 승인도 같은 회사 요청만 검토하고 다른 회사 요청으로 확장하지 않습니다.",
@@ -33,9 +69,9 @@ const policyBridgeNotes = [
 export default function LeavePage() {
   return (
     <PageShell
-      eyebrow="Phase 31 휴가 신청/승인"
+      eyebrow="Phase 33 휴가 실사용 UAT"
       title="휴가"
-      description="잔여 snapshot, 신청, 승인 대기 카드를 작은 화면 우선으로 정리하고, 실제 preview API로 신청·승인·반려 흐름까지 확인할 수 있게 연결했습니다."
+      description="신청자 lane 과 승인자 lane 을 분리해 보여 주고, same-origin API 기준으로 잔여 조회·신청·승인·반려 preview 를 직접 눌러볼 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="휴가 신청 placeholder" hint="실제 신청 제출은 placeholder 범위 밖이며 온라인에서만 열립니다." />
@@ -45,6 +81,22 @@ export default function LeavePage() {
     >
       <SurfaceSection title="실사용 확인 패널" description="잔여/요청 목록을 실제 API에서 읽고, 신청·승인·반려 preview 를 바로 테스트합니다.">
         <LeaveLiveSection />
+      </SurfaceSection>
+
+      <SurfaceSection title="신청자 happy path" description="일반 직원이 지금 바로 따라갈 수 있는 휴가 사용 순서를 짧게 고정합니다.">
+        <ol className="number-list">
+          {requesterLane.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="승인자 lane / self-approval 차단" description="승인자 확인 레인과 일반 직원 레인을 하나의 문장으로 섞지 않습니다.">
+        <ul className="summary-list">
+          {approverLane.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="휴가 유형과 잔여 요약" description="모바일에서는 잔여 snapshot 을 카드형으로 먼저 읽습니다.">
@@ -110,6 +162,17 @@ export default function LeavePage() {
         <div className="link-row" style={{ marginTop: 16 }}>
           <a href={appRoutes.leave.types}>{appRoutes.leave.types}</a>
           <a href={appRoutes.leave.balances}>{appRoutes.leave.balances}</a>
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="차단 이유 4축" description="권한 부족, 정책 미허용, 회사 scope, placeholder 제한을 같은 축으로 유지합니다.">
+        <div className="grid-auto-compact">
+          {stateAxisCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <Pill tone={card.tone}>{card.title}</Pill>
+              <p>{card.body}</p>
+            </article>
+          ))}
         </div>
       </SurfaceSection>
 

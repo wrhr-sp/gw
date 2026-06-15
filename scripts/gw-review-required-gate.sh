@@ -127,6 +127,50 @@ sys.exit(0 if "review-required" in signal else 1)
 PY
 }
 
+is_blocking_review_required() {
+  local output="$1"
+  # Reviewer cards sometimes use the same review-required prefix for real
+  # blocking findings. Those must not be auto-completed by the gate.
+  SHOW_OUTPUT="$output" python3 - <<'PY'
+import os
+import re
+import sys
+
+text = os.environ.get("SHOW_OUTPUT", "")
+chunks = []
+latest = re.search(
+    r"Latest summary:\n(?P<body>.*?)(?:\n\n(?:Comments|Events|Runs|Result|Body):|\Z)",
+    text,
+    flags=re.S,
+)
+if latest:
+    chunks.append(latest.group("body"))
+runs = re.search(r"Runs \(.*?\):\n(?P<body>.*)\Z", text, flags=re.S)
+if runs:
+    chunks.append(runs.group("body"))
+comments = re.search(r"Comments \(.*?\):\n(?P<body>.*?)(?:\n\nEvents \(|\Z)", text, flags=re.S)
+if comments:
+    chunks.append(comments.group("body"))
+signal = "\n".join(chunks).lower()
+blocking_markers = (
+    "critical",
+    "authorization bypass found",
+    "권한 우회 발견",
+    "not safe to approve",
+    "not approved",
+    "changes are not safe",
+    "blocking issue",
+    "blocking 이슈",
+    "승인 불가",
+    "반려",
+    "unsafe to approve",
+    "can approve documents they are not assigned",
+    "readable-only users can approve",
+)
+sys.exit(0 if any(marker in signal for marker in blocking_markers) else 1)
+PY
+}
+
 list_blocked_task_ids() {
   local json_output
   if ! json_output="$(kanban_call list --json 2>&1)"; then
@@ -210,6 +254,12 @@ handle_task() {
 
   if ! is_review_required "$output"; then
     echo "건너뜀: $task_id 는 blocked지만 Latest summary/Runs에 review-required 신호가 없음"
+    return 0
+  fi
+
+  if is_blocking_review_required "$output"; then
+    echo "건너뜀: $task_id 는 review-required 형식이지만 critical/blocking finding 신호가 있어 자동 완료하지 않음"
+    echo "blocked remediation watcher가 fix→review→verify 체인으로 처리해야 함"
     return 0
   fi
 

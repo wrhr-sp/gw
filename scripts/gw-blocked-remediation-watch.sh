@@ -81,6 +81,13 @@ SIGNAL_PATTERNS = (
     'change requested',
     '리뷰 결과: blocking',
     'blocking 1건',
+    'blocking issue',
+    'critical',
+    'authz bypass',
+    'authorization bypass',
+    '권한 우회',
+    'not safe to approve',
+    'not approved',
     '승인 불가',
     '반려',
     '검증 실패',
@@ -91,6 +98,21 @@ SIGNAL_PATTERNS = (
     'test failed',
     '불일치',
     '회귀',
+)
+BLOCKING_REVIEW_REQUIRED_PATTERNS = (
+    'critical',
+    'authorization bypass found',
+    '권한 우회 발견',
+    'not safe to approve',
+    'not approved',
+    'changes are not safe',
+    'blocking issue',
+    'blocking 이슈',
+    '승인 불가',
+    '반려',
+    'unsafe to approve',
+    'can approve documents they are not assigned',
+    'readable-only users can approve',
 )
 RESTRICTED_PATTERNS = (
     'secret', '.env', 'credential', 'token', 'password',
@@ -171,6 +193,7 @@ def load_blocked_tasks() -> list[dict]:
     for row in rows:
         d = dict(row)
         d['parents'] = [r[0] for r in con.execute('select parent_id from task_links where child_id=? order by parent_id', (d['id'],)).fetchall()]
+        d['children'] = [r[0] for r in con.execute('select child_id from task_links where parent_id=? order by child_id', (d['id'],)).fetchall()]
         d['recent_comments'] = [dict(r) for r in con.execute(
             'select author, body, created_at from task_comments where task_id=? order by id desc limit 8',
             (d['id'],),
@@ -237,7 +260,20 @@ def reason_hash(reason: str) -> str:
 
 def restricted_hits(signal: str) -> list[str]:
     lower = signal.lower()
-    return [marker for marker in RESTRICTED_PATTERNS if marker.lower() in lower]
+    hits = [marker for marker in RESTRICTED_PATTERNS if marker.lower() in lower]
+    if not hits:
+        return []
+    # Active-card preview DB schema/migration/seed work is approved operating scope.
+    # Keep hard stops for production DB, real data, secrets, DNS, paid resources, and destructive/force.
+    preview_scope = any(marker in lower for marker in ('preview db', 'preview database', '프리뷰 db', '프리뷰 데이터베이스'))
+    hard_restricted = any(marker in lower for marker in (
+        'production db', 'prod db', '운영 실데이터', '실데이터', 'secret', '.env',
+        'credential', 'token', 'password', 'dns', 'custom domain', '도메인',
+        '유료', '비용', '결제', 'destructive', 'force', '강제',
+    ))
+    if preview_scope and not hard_restricted:
+        return []
+    return hits
 
 
 def local_substitute_evidence_hits(text: str) -> list[str]:
@@ -638,6 +674,10 @@ def classify(task: dict) -> tuple[str, str]:
     if not signal:
         return 'ignore', '실제 막힘 요약/실행 사유를 찾지 못함'
     if 'review-required' in signal:
+        if any(p.lower() in signal for p in BLOCKING_REVIEW_REQUIRED_PATTERNS):
+            # Reviewer used review-required as a handoff prefix, but the content is a real
+            # blocking defect/security finding. Do not leave this to the review-required gate.
+            return 'auto-remediate', raw_signal[:1200]
         return 'ignore', 'review-required는 전용 gate watcher가 처리함'
     has_signal = any(p.lower() in signal for p in SIGNAL_PATTERNS)
     if not has_signal:
@@ -672,6 +712,32 @@ def create(title: str, body: str, assignee: str, parent: str | None, key: str) -
         raise RuntimeError(f'create returned no task id: {p.stdout[:500]}')
     return tid
 
+
+def suspend_downstream_children(task: dict, recovery: str) -> list[str]:
+    """Prevent original downstream cards from running before the remediation is verified."""
+    children = [c for c in (task.get('children') or []) if isinstance(c, str) and re.fullmatch(r't_[0-9a-f]+', c)]
+    if not children:
+        return []
+    child_map = load_tasks_by_ids(children)
+    actions: list[str] = []
+    for child_id in children:
+        child = child_map.get(child_id)
+        if not child:
+            continue
+        status = str(child.get('status') or '')
+        title = str(child.get('title') or child_id)
+        if status in {'running', 'ready', 'todo'}:
+            if status == 'running':
+                rc = kanban('reclaim', child_id, '--reason', 'blocked remediation: fix/review/verify 완료 전 downstream 선행 방지', check=False)
+                actions.append(f'reclaim:{child_id}:{rc.returncode}')
+            sc = kanban('schedule', child_id, 'blocked remediation fix/review/verify/recovery 완료 후 재개', check=False)
+            actions.append(f'schedule:{child_id}:{sc.returncode}')
+        if status in ACTIVE_STATUSES:
+            lk = kanban('link', recovery, child_id, check=False)
+            actions.append(f'link:{recovery}->{child_id}:{lk.returncode}:{title[:60]}')
+    return actions
+
+
 def create_chain(task: dict, reason: str, st: dict) -> tuple[str, list[str]]:
     tid = task['id']
     title = task.get('title') or tid
@@ -702,8 +768,11 @@ failure group: reason_hash={current_hash}, attempt={attempt}
     verify = create('자동 재검증: ' + title, body + '\n단계: 리뷰 승인 후 관련 테스트/typecheck/build/smoke를 재실행한다.', 'gwtester', review, base_key + ':verify')
     recovery = create('복구 정리: ' + title, body + '\n단계: 재검증 근거를 확인하고 원본 blocked 카드와 원래 후속 경로를 정리한다.', 'singde', verify, base_key + ':recovery')
     comment = f'[싱드 자동 개입] blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다. reason_hash={current_hash} attempt={attempt} fix={fix} review={review} verify={verify} recovery={recovery}'
+    downstream_actions = suspend_downstream_children(task, recovery)
+    if downstream_actions:
+        comment += ' downstream_rewire=' + ';'.join(downstream_actions[:8])
     kanban('comment', tid, '--author', 'singde', comment, check=False)
-    st['handled'][tid] = {'at': int(time.time()), 'reason_hash': current_hash, 'attempt': attempt, 'fix': fix, 'review': review, 'verify': verify, 'recovery': recovery, 'title': title[:160]}
+    st['handled'][tid] = {'at': int(time.time()), 'reason_hash': current_hash, 'attempt': attempt, 'fix': fix, 'review': review, 'verify': verify, 'recovery': recovery, 'title': title[:160], 'downstream_actions': downstream_actions[:12]}
     return fix, [fix, review, verify, recovery]
 
 st = load_state()

@@ -1370,7 +1370,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(agreementPayload.data.items.every((item) => item.type === "agreement")).toBe(true);
   });
 
-  it("blocks self-approval and allows approvers to approve or reject reviewable documents", async () => {
+  it("blocks self-approval, allows the current approver review once, and forbids replay on the same document", async () => {
     const approver = await loginAndGetCookie("HR_ADMIN");
     const selfApprover = await loginAndGetCookie("MANAGER");
 
@@ -1417,10 +1417,10 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(rejectResponse.status).toBe(200);
-    const rejectPayload = approvalActionResponseSchema.parse(await rejectResponse.json());
-    expect(rejectPayload.data.document.status).toBe("rejected");
-    expect(rejectPayload.data.audit.action).toBe("approval.document.reject");
+    expect(rejectResponse.status).toBe(403);
+    const rejectPayload = errorResponseSchema.parse(await rejectResponse.json());
+    expect(rejectPayload.error.details?.documentId).toBe("approval_document_team_pending");
+    expect(rejectPayload.error.message).toContain("허용되지 않은");
   });
 
   it("forbids unknown approval document ids", async () => {

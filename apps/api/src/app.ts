@@ -135,6 +135,11 @@ import {
   type DocumentStorageEnv,
 } from "./lib/document-storage";
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
+import {
+  findCurrentPendingApprovalStep,
+  isCurrentPendingApprovalStepForEmployee,
+  sortApprovalSteps,
+} from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminUsers } from "./lib/operational-admin";
 import {
@@ -163,6 +168,26 @@ import {
   listOperationalRoles,
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
+import {
+  createOperationalApprovalDocument,
+  createOperationalApprovalForm,
+  createOperationalApprovalLine,
+  createOperationalAttendanceCorrectionRequest,
+  createOperationalLeaveRequest,
+  findOperationalApprovalDocument,
+  listOperationalApprovalDocuments,
+  listOperationalApprovalForms,
+  listOperationalApprovalLines,
+  listOperationalApprovalReferences,
+  listOperationalApprovalSteps,
+  listOperationalAttendanceRecords,
+  listOperationalLeaveBalances,
+  listOperationalLeaveRequests,
+  listOperationalLeaveTypes,
+  updateOperationalApprovalDocumentDecision,
+  updateOperationalLeaveRequestReview,
+  upsertOperationalAttendanceRecord,
+} from "./lib/operational-workflows";
 
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
@@ -2390,6 +2415,41 @@ const approvalLines: ApprovalLine[] = [
       },
     ],
   },
+  {
+    id: "approval_line_manager_hr",
+    companyId: COMPANY_ID,
+    title: "팀장 후 HR 결재선",
+    description: "팀장 승인 후 HR 승인 2단계 placeholder",
+    status: "active",
+    placeholder: true,
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    steps: [
+      {
+        id: "approval_step_template_manager_hr_1",
+        documentId: null,
+        lineId: "approval_line_manager_hr",
+        stepOrder: 1,
+        approverEmployeeId: "employee_manager",
+        stepType: "approve",
+        decisionStatus: "pending",
+        decidedAt: null,
+        decisionComment: null,
+      },
+      {
+        id: "approval_step_template_manager_hr_2",
+        documentId: null,
+        lineId: "approval_line_manager_hr",
+        stepOrder: 2,
+        approverEmployeeId: "employee_staff",
+        stepType: "approve",
+        decisionStatus: "pending",
+        decidedAt: null,
+        decisionComment: null,
+      },
+    ],
+  },
 ];
 
 const approvalDocuments: ApprovalDocument[] = [
@@ -2402,6 +2462,23 @@ const approvalDocuments: ApprovalDocument[] = [
     title: "6월 연차 신청",
     summary: "6월 20일 연차 사용 placeholder",
     documentNumber: "APR-2026-0001",
+    status: "pending_approval",
+    submittedAt: PLACEHOLDER_NOW,
+    completedAt: null,
+    createdBy: "user_employee",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "approval_document_multistep",
+    companyId: COMPANY_ID,
+    formId: "approval_form_expense",
+    lineId: "approval_line_manager_hr",
+    drafterEmployeeId: "employee_employee",
+    title: "다단계 지출 결의서",
+    summary: "팀장 승인 후 HR 최종 승인 placeholder",
+    documentNumber: "APR-2026-0004",
     status: "pending_approval",
     submittedAt: PLACEHOLDER_NOW,
     completedAt: null,
@@ -2453,6 +2530,28 @@ const approvalSteps: ApprovalStep[] = [
     lineId: "approval_line_team_manager",
     stepOrder: 1,
     approverEmployeeId: "employee_manager",
+    stepType: "approve",
+    decisionStatus: "pending",
+    decidedAt: null,
+    decisionComment: null,
+  },
+  {
+    id: "approval_step_document_multistep_1",
+    documentId: "approval_document_multistep",
+    lineId: "approval_line_manager_hr",
+    stepOrder: 1,
+    approverEmployeeId: "employee_manager",
+    stepType: "approve",
+    decisionStatus: "pending",
+    decidedAt: null,
+    decisionComment: null,
+  },
+  {
+    id: "approval_step_document_multistep_2",
+    documentId: "approval_document_multistep",
+    lineId: "approval_line_manager_hr",
+    stepOrder: 2,
+    approverEmployeeId: "employee_staff",
     stepType: "approve",
     decisionStatus: "pending",
     decidedAt: null,
@@ -3691,8 +3790,9 @@ function buildApprovalCandidates(type: ApprovalCandidate["type"]): ApprovalCandi
     }));
 }
 
-function findReviewableApprovalDocument(auth: SessionContext, documentId: string) {
-  return listApprovalInboxDocuments(auth).find((document) => document.id === documentId && document.createdBy !== auth.user.id) ?? null;
+async function findReviewableApprovalDocumentForAuth(context: AppContext, auth: SessionContext, documentId: string) {
+  const documents = await listApprovalInboxDocumentsForAuth(context, auth);
+  return documents.find((document) => document.id === documentId && document.createdBy !== auth.user.id) ?? null;
 }
 
 function findBoardById(boardId: string) {
@@ -3908,6 +4008,221 @@ function mergeById<T extends { id: string }>(fallbackItems: T[], dbItems: T[] | 
   }
 
   return [...merged.values()];
+}
+
+function buildWorkflowScopedId(prefix: string, employeeId: string) {
+  return `${prefix}_${employeeId}_${crypto.randomUUID()}`;
+}
+
+function buildAttendanceRecordFromAction(
+  auth: SessionContext,
+  status: AttendanceRecord["status"],
+  attendanceRegistrationMethod: AttendanceRegistrationMethod,
+) {
+  const now = new Date().toISOString();
+  return {
+    id: buildAttendanceRecord(auth.user.employeeId, status, attendanceRegistrationMethod).id,
+    companyId: auth.user.companyId,
+    employeeId: auth.user.employeeId,
+    workDate: now.slice(0, 10),
+    status,
+    checkInAt: status === "checked_in" ? now : null,
+    checkOutAt: status === "checked_out" ? now : null,
+    source: attendanceMethodToSource[attendanceRegistrationMethod],
+    note:
+      attendanceRegistrationMethod === "tag"
+        ? "태그 단말 기반 등록"
+        : `${status === "checked_in" ? "check-in" : "check-out"} (${attendanceRegistrationMethod})`,
+    createdBy: auth.user.id,
+  };
+}
+
+async function listAttendanceRecordsForEmployee(
+  context: AppContext,
+  auth: SessionContext,
+  employeeId: string,
+  filters?: { workDateFrom?: string; workDateTo?: string },
+) {
+  const dbItems = await listOperationalAttendanceRecords(context.env, auth.user.companyId, employeeId, filters);
+  return mergeById(buildAttendanceRecordsForEmployee(employeeId), dbItems);
+}
+
+async function listLeaveTypesForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalLeaveTypes(context.env, auth.user.companyId);
+  return mergeById(leaveTypes.filter((item) => item.companyId === auth.user.companyId), dbItems);
+}
+
+async function listLeaveBalancesForAuth(context: AppContext, auth: SessionContext, employeeId: string) {
+  const dbItems = await listOperationalLeaveBalances(context.env, auth.user.companyId, employeeId);
+  return mergeById(buildLeaveBalances(employeeId), dbItems);
+}
+
+async function listLeaveRequestsForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalLeaveRequests(context.env, auth.user.companyId);
+  const accessibleDbItems = (dbItems ?? []).filter((request) => {
+    if (request.companyId !== auth.user.companyId) {
+      return false;
+    }
+
+    if (request.requestedBy === auth.user.id || request.employeeId === auth.user.employeeId) {
+      return true;
+    }
+
+    return hasPermission(auth.user, "leave.approve");
+  });
+
+  return mergeById(buildLeaveRequests(auth), accessibleDbItems);
+}
+
+async function findReviewableLeaveRequestForAuth(context: AppContext, auth: SessionContext, leaveRequestId: string) {
+  return (
+    (await listLeaveRequestsForAuth(context, auth)).find(
+      (request) =>
+        request.id === leaveRequestId &&
+        request.companyId === auth.user.companyId &&
+        request.requestedBy !== auth.user.id &&
+        request.employeeId !== auth.user.employeeId,
+    ) ?? null
+  );
+}
+
+async function listApprovalFormsForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalApprovalForms(context.env, auth.user.companyId);
+  return mergeById(approvalForms.filter((form) => form.companyId === auth.user.companyId), dbItems);
+}
+
+async function listApprovalLinesForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalApprovalLines(context.env, auth.user.companyId);
+  return mergeById(approvalLines.filter((line) => line.companyId === auth.user.companyId), dbItems);
+}
+
+async function listApprovalStepsForDocumentForAuth(context: AppContext, auth: SessionContext, documentId: string) {
+  const dbItems = await listOperationalApprovalSteps(context.env, auth.user.companyId, documentId);
+  return sortApprovalSteps(mergeById(approvalSteps.filter((step) => step.documentId === documentId), dbItems));
+}
+
+function applyFallbackApprovalDocumentDecision(input: {
+  documentId: string;
+  approverEmployeeId: string;
+  decision: "approved" | "rejected";
+  reason: string;
+}) {
+  const document = approvalDocuments.find((item) => item.id === input.documentId);
+  if (!document) {
+    return null;
+  }
+
+  const documentSteps = sortApprovalSteps(approvalSteps.filter((step) => step.documentId === input.documentId));
+  const currentStep = findCurrentPendingApprovalStep(documentSteps);
+  if (!currentStep || currentStep.approverEmployeeId !== input.approverEmployeeId) {
+    return null;
+  }
+
+  currentStep.decisionStatus = input.decision;
+  currentStep.decisionComment = input.reason;
+  currentStep.decidedAt = PLACEHOLDER_REVIEWED_AT;
+  document.updatedAt = PLACEHOLDER_REVIEWED_AT;
+
+  if (input.decision === "rejected") {
+    document.status = "rejected";
+    document.completedAt = PLACEHOLDER_REVIEWED_AT;
+    return { ...document };
+  }
+
+  const nextPendingStep = findCurrentPendingApprovalStep(documentSteps);
+  if (nextPendingStep) {
+    document.status = "pending_approval";
+    document.completedAt = null;
+    return { ...document };
+  }
+
+  document.status = "approved";
+  document.completedAt = PLACEHOLDER_REVIEWED_AT;
+  return { ...document };
+}
+
+async function listApprovalDocumentsForUserForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalApprovalDocuments(context.env, auth.user.companyId);
+  const accessibleDbItems: ApprovalDocument[] = [];
+
+  for (const document of dbItems ?? []) {
+    if (canAccessApprovalDocument(auth, document)) {
+      accessibleDbItems.push(document);
+      continue;
+    }
+
+    const [dbSteps, dbReferences] = await Promise.all([
+      listOperationalApprovalSteps(context.env, auth.user.companyId, document.id),
+      listOperationalApprovalReferences(context.env, auth.user.companyId, document.id),
+    ]);
+
+    if (
+      (dbSteps ?? []).some((step) => step.approverEmployeeId === auth.user.employeeId) ||
+      (dbReferences ?? []).some((reference) => reference.employeeId === auth.user.employeeId)
+    ) {
+      accessibleDbItems.push(document);
+    }
+  }
+
+  return mergeById(listApprovalDocumentsForUser(auth), accessibleDbItems);
+}
+
+async function listApprovalInboxDocumentsForAuth(context: AppContext, auth: SessionContext) {
+  const documents = await listApprovalDocumentsForUserForAuth(context, auth);
+  const inboxFlags = new Map<string, boolean>();
+
+  await Promise.all(
+    documents.map(async (document) => {
+      const documentSteps = await listApprovalStepsForDocumentForAuth(context, auth, document.id);
+      inboxFlags.set(document.id, isCurrentPendingApprovalStepForEmployee(documentSteps, auth.user.employeeId));
+    }),
+  );
+
+  return documents.filter(
+    (document) =>
+      document.companyId === auth.user.companyId &&
+      document.status === "pending_approval" &&
+      (document.createdBy !== auth.user.id || document.drafterEmployeeId !== auth.user.employeeId) &&
+      inboxFlags.get(document.id) === true,
+  );
+}
+
+async function findAccessibleApprovalDocumentForAuth(context: AppContext, auth: SessionContext, documentId: string) {
+  const dbDocument = await findOperationalApprovalDocument(context.env, auth.user.companyId, documentId);
+  if (dbDocument) {
+    if (canAccessApprovalDocument(auth, dbDocument)) {
+      return dbDocument;
+    }
+
+    const [dbSteps, dbReferences] = await Promise.all([
+      listOperationalApprovalSteps(context.env, auth.user.companyId, documentId),
+      listOperationalApprovalReferences(context.env, auth.user.companyId, documentId),
+    ]);
+
+    const canAccessFromDbRelations =
+      (dbSteps ?? []).some((step) => step.approverEmployeeId === auth.user.employeeId) ||
+      (dbReferences ?? []).some((reference) => reference.employeeId === auth.user.employeeId);
+
+    if (canAccessFromDbRelations) {
+      return dbDocument;
+    }
+  }
+
+  return findAccessibleApprovalDocument(auth, documentId);
+}
+
+async function buildApprovalDocumentDetailForAuth(context: AppContext, auth: SessionContext, document: ApprovalDocument) {
+  const [steps, dbReferences] = await Promise.all([
+    listApprovalStepsForDocumentForAuth(context, auth, document.id),
+    listOperationalApprovalReferences(context.env, auth.user.companyId, document.id),
+  ]);
+
+  return {
+    document,
+    steps,
+    references: mergeById(approvalReferences.filter((reference) => reference.documentId === document.id), dbReferences),
+    placeholder: true as const,
+  };
 }
 
 async function listBoardsForAuth(context: AppContext, auth: SessionContext) {
@@ -4623,13 +4938,20 @@ app.post(appRoutes.attendance.checkIn, async (context) => {
     return policyError;
   }
 
+  const fallbackRecord = buildAttendanceRecord(authResult.auth.user.employeeId, "checked_in", requestResult.value.attendanceRegistrationMethod);
+  const record =
+    (await upsertOperationalAttendanceRecord(
+      context.env,
+      buildAttendanceRecordFromAction(authResult.auth, "checked_in", requestResult.value.attendanceRegistrationMethod),
+    )) ?? fallbackRecord;
+
   return jsonSuccess(
     context,
     attendanceActionResponseSchema,
     {
       ok: true,
       data: {
-        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_in", requestResult.value.attendanceRegistrationMethod),
+        record,
         policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
@@ -4663,13 +4985,20 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
     return policyError;
   }
 
+  const fallbackRecord = buildAttendanceRecord(authResult.auth.user.employeeId, "checked_out", requestResult.value.attendanceRegistrationMethod);
+  const record =
+    (await upsertOperationalAttendanceRecord(
+      context.env,
+      buildAttendanceRecordFromAction(authResult.auth, "checked_out", requestResult.value.attendanceRegistrationMethod),
+    )) ?? fallbackRecord;
+
   return jsonSuccess(
     context,
     attendanceActionResponseSchema,
     {
       ok: true,
       data: {
-        record: buildAttendanceRecord(authResult.auth.user.employeeId, "checked_out", requestResult.value.attendanceRegistrationMethod),
+        record,
         policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
@@ -4683,7 +5012,7 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
   );
 });
 
-app.get(appRoutes.attendance.records, (context) => {
+app.get(appRoutes.attendance.records, async (context) => {
   const authResult = requirePermission(context, "attendance.read");
   if (authResult.response) {
     return authResult.response;
@@ -4700,17 +5029,20 @@ app.get(appRoutes.attendance.records, (context) => {
     });
   }
 
+  const workDateFrom = context.req.query("workDateFrom") ?? undefined;
+  const workDateTo = context.req.query("workDateTo") ?? undefined;
+
   return jsonSuccess(
     context,
     attendanceListRecordsResponseSchema,
     {
       ok: true,
       data: {
-        items: buildAttendanceRecordsForEmployee(employeeId),
+        items: await listAttendanceRecordsForEmployee(context, authResult.auth, employeeId, { workDateFrom, workDateTo }),
         filters: {
           employeeId: requestedEmployeeId,
-          workDateFrom: context.req.query("workDateFrom") ?? undefined,
-          workDateTo: context.req.query("workDateTo") ?? undefined,
+          workDateFrom,
+          workDateTo,
         },
         policyContext: buildAttendancePolicyContext(employeeId),
         placeholder: true,
@@ -4736,28 +5068,41 @@ app.post(appRoutes.attendance.corrections, async (context) => {
     });
   }
 
+  const request =
+    (await createOperationalAttendanceCorrectionRequest(context.env, {
+      id: buildWorkflowScopedId("attendance_correction", authResult.auth.user.employeeId),
+      companyId: authResult.auth.user.companyId,
+      employeeId: authResult.auth.user.employeeId,
+      attendanceRecordId: parsed.data.attendanceRecordId,
+      requestedBy: authResult.auth.user.id,
+      reason: parsed.data.reason,
+      requestedCheckInAt: parsed.data.requestedCheckInAt ?? null,
+      requestedCheckOutAt: parsed.data.requestedCheckOutAt ?? null,
+      note: parsed.data.note ?? null,
+    })) ?? {
+      id: "attendance_correction_demo",
+      companyId: authResult.auth.user.companyId,
+      employeeId: authResult.auth.user.employeeId,
+      attendanceRecordId: parsed.data.attendanceRecordId,
+      status: "requested",
+      requestedBy: authResult.auth.user.id,
+      reviewedBy: null,
+      reviewedAt: null,
+      reason: parsed.data.reason,
+      requestedCheckInAt: parsed.data.requestedCheckInAt ?? null,
+      requestedCheckOutAt: parsed.data.requestedCheckOutAt ?? null,
+      note: parsed.data.note ?? null,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+    };
+
   return jsonSuccess(
     context,
     attendanceCorrectionResponseSchema,
     {
       ok: true,
       data: {
-        request: {
-          id: "attendance_correction_demo",
-          companyId: authResult.auth.user.companyId,
-          employeeId: authResult.auth.user.employeeId,
-          attendanceRecordId: parsed.data.attendanceRecordId,
-          status: "requested",
-          requestedBy: authResult.auth.user.id,
-          reviewedBy: null,
-          reviewedAt: null,
-          reason: parsed.data.reason,
-          requestedCheckInAt: parsed.data.requestedCheckInAt ?? null,
-          requestedCheckOutAt: parsed.data.requestedCheckOutAt ?? null,
-          note: parsed.data.note ?? null,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-        },
+        request,
         audit: {
           candidate: true,
           action: "attendance.correction.request",
@@ -4770,7 +5115,7 @@ app.post(appRoutes.attendance.corrections, async (context) => {
   );
 });
 
-app.get(appRoutes.leave.types, (context) => {
+app.get(appRoutes.leave.types, async (context) => {
   const authResult = requireAnyPermission(context, ["leave.request", "leave.approve"]);
   if (authResult.response) {
     return authResult.response;
@@ -4782,7 +5127,7 @@ app.get(appRoutes.leave.types, (context) => {
     {
       ok: true,
       data: {
-        items: leaveTypes,
+        items: await listLeaveTypesForAuth(context, authResult.auth),
         policyContext: buildLeavePolicyContext(authResult.auth),
         leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
         companySettingsModel: buildCompanySettingsModel(),
@@ -4794,7 +5139,7 @@ app.get(appRoutes.leave.types, (context) => {
   );
 });
 
-app.get(appRoutes.leave.balances, (context) => {
+app.get(appRoutes.leave.balances, async (context) => {
   const authResult = requireAnyPermission(context, ["leave.request", "leave.approve"]);
   if (authResult.response) {
     return authResult.response;
@@ -4806,7 +5151,7 @@ app.get(appRoutes.leave.balances, (context) => {
     {
       ok: true,
       data: {
-        items: buildLeaveBalances(authResult.auth.user.employeeId),
+        items: await listLeaveBalancesForAuth(context, authResult.auth, authResult.auth.user.employeeId),
         policyContext: buildLeavePolicyContext(authResult.auth),
         leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
         companySettingsModel: buildCompanySettingsModel(),
@@ -4818,7 +5163,7 @@ app.get(appRoutes.leave.balances, (context) => {
   );
 });
 
-app.get(appRoutes.leave.requests, (context) => {
+app.get(appRoutes.leave.requests, async (context) => {
   const authResult = requireAnyPermission(context, ["leave.request", "leave.approve"]);
   if (authResult.response) {
     return authResult.response;
@@ -4830,7 +5175,7 @@ app.get(appRoutes.leave.requests, (context) => {
     {
       ok: true,
       data: {
-        items: buildLeaveRequests(authResult.auth),
+        items: await listLeaveRequestsForAuth(context, authResult.auth),
         policyContext: buildLeavePolicyContext(authResult.auth),
         leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
         companySettingsModel: buildCompanySettingsModel(),
@@ -4857,30 +5202,44 @@ app.post(appRoutes.leave.requests, async (context) => {
     });
   }
 
+  const request =
+    (await createOperationalLeaveRequest(context.env, {
+      id: buildWorkflowScopedId("leave_request", authResult.auth.user.employeeId),
+      companyId: authResult.auth.user.companyId,
+      employeeId: authResult.auth.user.employeeId,
+      leaveTypeId: parsed.data.leaveTypeId,
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+      unit: parsed.data.unit,
+      days: parsed.data.days,
+      requestedBy: authResult.auth.user.id,
+      reason: parsed.data.reason,
+    })) ?? {
+      id: "leave_request_demo",
+      companyId: authResult.auth.user.companyId,
+      employeeId: authResult.auth.user.employeeId,
+      leaveTypeId: parsed.data.leaveTypeId,
+      status: "pending_approval",
+      approvalStatus: "pending",
+      startDate: parsed.data.startDate,
+      endDate: parsed.data.endDate,
+      unit: parsed.data.unit,
+      days: parsed.data.days,
+      reason: parsed.data.reason,
+      requestedBy: authResult.auth.user.id,
+      reviewedBy: null,
+      reviewedAt: null,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+    };
+
   return jsonSuccess(
     context,
     leaveRequestCreateResponseSchema,
     {
       ok: true,
       data: {
-        request: {
-          id: "leave_request_demo",
-          companyId: authResult.auth.user.companyId,
-          employeeId: authResult.auth.user.employeeId,
-          leaveTypeId: parsed.data.leaveTypeId,
-          status: "pending_approval",
-          approvalStatus: "pending",
-          startDate: parsed.data.startDate,
-          endDate: parsed.data.endDate,
-          unit: parsed.data.unit,
-          days: parsed.data.days,
-          reason: parsed.data.reason,
-          requestedBy: authResult.auth.user.id,
-          reviewedBy: null,
-          reviewedAt: null,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-        },
+        request,
         policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,
@@ -4894,7 +5253,7 @@ app.post(appRoutes.leave.requests, async (context) => {
   );
 });
 
-app.get(appRoutes.approvals.forms, (context) => {
+app.get(appRoutes.approvals.forms, async (context) => {
   const authResult = requireAnyPermission(context, ["approval.document.write", "approval.form.manage"]);
   if (authResult.response) {
     return authResult.response;
@@ -4906,7 +5265,7 @@ app.get(appRoutes.approvals.forms, (context) => {
     {
       ok: true,
       data: {
-        items: approvalForms.filter((form) => form.companyId === authResult.auth.user.companyId),
+        items: await listApprovalFormsForAuth(context, authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -4930,25 +5289,37 @@ app.post(appRoutes.approvals.forms, async (context) => {
     });
   }
 
+  const formId = buildWorkflowScopedId("approval_form", authResult.auth.user.employeeId);
+  const form =
+    (await createOperationalApprovalForm(context.env, {
+      id: formId,
+      companyId: authResult.auth.user.companyId,
+      code: parsed.data.category.replaceAll(/\s+/g, "_").toLowerCase(),
+      title: parsed.data.title,
+      category: parsed.data.category,
+      fieldSummary: parsed.data.fieldSummary,
+      createdBy: authResult.auth.user.id,
+    })) ?? {
+      id: `approval_form_${parsed.data.category}`,
+      companyId: authResult.auth.user.companyId,
+      code: parsed.data.category.replaceAll(/\s+/g, "_").toLowerCase(),
+      title: parsed.data.title,
+      category: parsed.data.category,
+      fieldSummary: parsed.data.fieldSummary,
+      status: "active",
+      placeholder: true,
+      createdBy: authResult.auth.user.id,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+    };
+
   return jsonSuccess(
     context,
     approvalFormCreateResponseSchema,
     {
       ok: true,
       data: {
-        form: {
-          id: `approval_form_${parsed.data.category}`,
-          companyId: authResult.auth.user.companyId,
-          code: parsed.data.category.replaceAll(/\s+/g, "_").toLowerCase(),
-          title: parsed.data.title,
-          category: parsed.data.category,
-          fieldSummary: parsed.data.fieldSummary,
-          status: "active",
-          placeholder: true,
-          createdBy: authResult.auth.user.id,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-        },
+        form,
         audit: {
           candidate: true,
           action: "approval.form.create",
@@ -4961,7 +5332,7 @@ app.post(appRoutes.approvals.forms, async (context) => {
   );
 });
 
-app.get(appRoutes.approvals.lines, (context) => {
+app.get(appRoutes.approvals.lines, async (context) => {
   const authResult = requireAnyPermission(context, ["approval.document.write", "approval.line.manage", "approval.document.approve"]);
   if (authResult.response) {
     return authResult.response;
@@ -4973,7 +5344,7 @@ app.get(appRoutes.approvals.lines, (context) => {
     {
       ok: true,
       data: {
-        items: approvalLines.filter((line) => line.companyId === authResult.auth.user.companyId),
+        items: await listApprovalLinesForAuth(context, authResult.auth),
         placeholder: true,
       },
       error: null,
@@ -4997,34 +5368,50 @@ app.post(appRoutes.approvals.lines, async (context) => {
     });
   }
 
+  const lineId = buildWorkflowScopedId("approval_line", authResult.auth.user.employeeId);
+  const line =
+    (await createOperationalApprovalLine(context.env, {
+      id: lineId,
+      companyId: authResult.auth.user.companyId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      createdBy: authResult.auth.user.id,
+      steps: parsed.data.steps.map((step, index) => ({
+        id: `${lineId}_step_${index + 1}`,
+        stepOrder: step.stepOrder,
+        approverEmployeeId: step.approverEmployeeId,
+        stepType: step.stepType,
+      })),
+    })) ?? {
+      id: `approval_line_${parsed.data.steps.length}`,
+      companyId: authResult.auth.user.companyId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      status: "active",
+      placeholder: true,
+      createdBy: authResult.auth.user.id,
+      createdAt: PLACEHOLDER_NOW,
+      updatedAt: PLACEHOLDER_NOW,
+      steps: parsed.data.steps.map((step, index) => ({
+        id: `approval_line_step_${index + 1}`,
+        documentId: null,
+        lineId: `approval_line_${parsed.data.steps.length}`,
+        stepOrder: step.stepOrder,
+        approverEmployeeId: step.approverEmployeeId,
+        stepType: step.stepType,
+        decisionStatus: "pending",
+        decidedAt: null,
+        decisionComment: null,
+      })),
+    };
+
   return jsonSuccess(
     context,
     approvalLineCreateResponseSchema,
     {
       ok: true,
       data: {
-        line: {
-          id: `approval_line_${parsed.data.steps.length}`,
-          companyId: authResult.auth.user.companyId,
-          title: parsed.data.title,
-          description: parsed.data.description,
-          status: "active",
-          placeholder: true,
-          createdBy: authResult.auth.user.id,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-          steps: parsed.data.steps.map((step, index) => ({
-            id: `approval_line_step_${index + 1}`,
-            documentId: null,
-            lineId: `approval_line_${parsed.data.steps.length}`,
-            stepOrder: step.stepOrder,
-            approverEmployeeId: step.approverEmployeeId,
-            stepType: step.stepType,
-            decisionStatus: "pending",
-            decidedAt: null,
-            decisionComment: null,
-          })),
-        },
+        line,
         audit: {
           candidate: true,
           action: "approval.line.create",
@@ -5037,7 +5424,7 @@ app.post(appRoutes.approvals.lines, async (context) => {
   );
 });
 
-app.get(appRoutes.approvals.documents, (context) => {
+app.get(appRoutes.approvals.documents, async (context) => {
   const authResult = requirePermission(context, "approval.document.read");
   if (authResult.response) {
     return authResult.response;
@@ -5049,7 +5436,7 @@ app.get(appRoutes.approvals.documents, (context) => {
     {
       ok: true,
       data: {
-        items: listApprovalDocumentsForUser(authResult.auth),
+        items: await listApprovalDocumentsForUserForAuth(context, authResult.auth),
         operationalContext: buildApprovalOperationalContext(authResult.auth),
         placeholder: true,
       },
@@ -5074,29 +5461,46 @@ app.post(appRoutes.approvals.documents, async (context) => {
     });
   }
 
+  const documentId = buildWorkflowScopedId("approval_document", authResult.auth.user.employeeId);
+  const fallbackDocument: ApprovalDocument = {
+    id: "approval_document_demo",
+    companyId: authResult.auth.user.companyId,
+    formId: parsed.data.formId,
+    lineId: parsed.data.lineId,
+    drafterEmployeeId: authResult.auth.user.employeeId,
+    title: parsed.data.title,
+    summary: parsed.data.summary,
+    documentNumber: "APR-2026-0100",
+    status: "pending_approval",
+    submittedAt: PLACEHOLDER_NOW,
+    completedAt: null,
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+  const document =
+    (await createOperationalApprovalDocument(context.env, {
+      id: documentId,
+      companyId: authResult.auth.user.companyId,
+      formId: parsed.data.formId,
+      lineId: parsed.data.lineId,
+      drafterEmployeeId: authResult.auth.user.employeeId,
+      title: parsed.data.title,
+      summary: parsed.data.summary,
+      documentNumber: `APR-${new Date().getUTCFullYear()}-${documentId.slice(-6).toUpperCase()}`,
+      createdBy: authResult.auth.user.id,
+      referenceEmployeeIds: parsed.data.referenceEmployeeIds,
+      agreementEmployeeIds: parsed.data.agreementEmployeeIds,
+    })) ?? fallbackDocument;
+
   return jsonSuccess(
     context,
     approvalDocumentCreateResponseSchema,
     {
       ok: true,
       data: {
-        document: {
-          id: "approval_document_demo",
-          companyId: authResult.auth.user.companyId,
-          formId: parsed.data.formId,
-          lineId: parsed.data.lineId,
-          drafterEmployeeId: authResult.auth.user.employeeId,
-          title: parsed.data.title,
-          summary: parsed.data.summary,
-          documentNumber: "APR-2026-0100",
-          status: "pending_approval",
-          submittedAt: PLACEHOLDER_NOW,
-          completedAt: null,
-          createdBy: authResult.auth.user.id,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-          placeholder: true,
-        },
+        document,
         operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
@@ -5110,14 +5514,14 @@ app.post(appRoutes.approvals.documents, async (context) => {
   );
 });
 
-app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, (context) => {
+app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, async (context) => {
   const authResult = requirePermission(context, "approval.document.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const documentId = context.req.param("id");
-  const document = documentId ? findAccessibleApprovalDocument(authResult.auth, documentId) : null;
+  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
 
   if (!document) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 문서를 조회할 수 없습니다.", 403, {
@@ -5133,7 +5537,7 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, (context) => {
     {
       ok: true,
       data: {
-        ...buildApprovalDocumentDetail(document),
+        ...(await buildApprovalDocumentDetailForAuth(context, authResult.auth, document)),
         operationalContext: buildApprovalOperationalContext(authResult.auth),
       },
       error: null,
@@ -5142,7 +5546,7 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, (context) => {
   );
 });
 
-app.get(appRoutes.approvals.inbox, (context) => {
+app.get(appRoutes.approvals.inbox, async (context) => {
   const authResult = requirePermission(context, "approval.document.approve");
   if (authResult.response) {
     return authResult.response;
@@ -5154,7 +5558,7 @@ app.get(appRoutes.approvals.inbox, (context) => {
     {
       ok: true,
       data: {
-        items: listApprovalInboxDocuments(authResult.auth),
+        items: await listApprovalInboxDocumentsForAuth(context, authResult.auth),
         operationalContext: buildApprovalOperationalContext(authResult.auth),
         placeholder: true,
       },
@@ -5232,11 +5636,47 @@ async function handleApprovalReview(
     });
   }
 
-  const document = findReviewableApprovalDocument(authResult.auth, documentId);
-  if (!document) {
+  const document = await findReviewableApprovalDocumentForAuth(context as AppContext, authResult.auth, documentId);
+
+  if (!document || document.createdBy === authResult.auth.user.id || document.drafterEmployeeId === authResult.auth.user.employeeId) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 문서를 처리할 수 없습니다.", 403, {
       documentId,
       companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  const decision = nextStatus === "approved" ? "approved" : "rejected";
+  const updatedDocument = await updateOperationalApprovalDocumentDecision((context as AppContext).env, {
+    companyId: authResult.auth.user.companyId,
+    documentId,
+    approverEmployeeId: authResult.auth.user.employeeId,
+    decision,
+    reason: parsed.data.reason,
+    reviewedBy: authResult.auth.user.id,
+  });
+
+  if (updatedDocument === null) {
+    return jsonError(context, "FORBIDDEN", "대기 중인 현재 승인 단계가 없는 전자결재 문서는 처리할 수 없습니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      approverEmployeeId: authResult.auth.user.employeeId,
+      route: context.req.path,
+    });
+  }
+
+  const responseDocument = updatedDocument ?? applyFallbackApprovalDocumentDecision({
+    documentId,
+    approverEmployeeId: authResult.auth.user.employeeId,
+    decision,
+    reason: parsed.data.reason,
+  });
+
+  if (!responseDocument) {
+    return jsonError(context, "FORBIDDEN", "대기 중인 현재 승인 단계가 없는 전자결재 문서는 처리할 수 없습니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      approverEmployeeId: authResult.auth.user.employeeId,
       route: context.req.path,
     });
   }
@@ -5247,12 +5687,7 @@ async function handleApprovalReview(
     {
       ok: true,
       data: {
-        document: {
-          ...document,
-          status: nextStatus,
-          completedAt: PLACEHOLDER_REVIEWED_AT,
-          updatedAt: PLACEHOLDER_REVIEWED_AT,
-        },
+        document: responseDocument,
         operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
@@ -5291,7 +5726,7 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
     });
   }
 
-  const leaveRequest = findReviewableLeaveRequest(authResult.auth, leaveRequestId);
+  const leaveRequest = await findReviewableLeaveRequestForAuth(context as AppContext, authResult.auth, leaveRequestId);
 
   if (!leaveRequest) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 휴가 요청을 처리할 수 없습니다.", 403, {
@@ -5301,21 +5736,30 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
     });
   }
 
+  const updatedRequest =
+    (await updateOperationalLeaveRequestReview((context as AppContext).env, {
+      companyId: authResult.auth.user.companyId,
+      requestId: leaveRequestId,
+      approvalStatus,
+      reviewedBy: authResult.auth.user.id,
+      reason: parsed.data.reason,
+    })) ?? {
+      ...leaveRequest,
+      status: approvalStatus === "approved" ? "approved" : "rejected",
+      approvalStatus,
+      reason: parsed.data.reason,
+      reviewedBy: authResult.auth.user.id,
+      reviewedAt: PLACEHOLDER_REVIEWED_AT,
+      updatedAt: PLACEHOLDER_REVIEWED_AT,
+    };
+
   return jsonSuccess(
     context,
     leaveActionResponseSchema,
     {
       ok: true,
       data: {
-        request: {
-          ...leaveRequest,
-          status: approvalStatus === "approved" ? "approved" : "rejected",
-          approvalStatus,
-          reason: parsed.data.reason,
-          reviewedBy: authResult.auth.user.id,
-          reviewedAt: PLACEHOLDER_REVIEWED_AT,
-          updatedAt: PLACEHOLDER_REVIEWED_AT,
-        },
+        request: updatedRequest,
         policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,

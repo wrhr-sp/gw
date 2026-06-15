@@ -77,6 +77,12 @@
 - [ ] 익명 `/login` 200, `/dashboard` 200, `/management` 307, `/admin` 307, `/api/me` 401 과 관리자 `/management` 200, 일반 직원 `/management` 307 `/forbidden`, 관리자 `/api/admin/users` 200, 일반 직원 `/api/admin/users` 403 경계가 문서/테스트/최종 보고에서 같은 뜻이다.
 - [ ] `/dashboard` 와 `경영업무`(`/management`) 분리가 일반 직원 홈 대 민감 모듈 허브 분리 의도와 같은 뜻으로 읽힌다.
 - [ ] `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` 는 "지금 진입 가능", "최소 happy path 후보", "아직 placeholder 비중이 큰 부분"이 분리돼 적혀 있다.
+- [ ] Phase 33 문서에서는 `/attendance`, `/leave`, `/approvals` 가 모두 지금 직접 눌러볼 일반 업무로 먼저 읽히고, 아직 운영 완료품처럼 과장되지 않는다.
+- [ ] 정책 미허용, 권한 부족, 회사 scope 차단, placeholder 제한이 같은 문장으로 섞여 쓰이지 않는다.
+- [ ] self-approval 금지, unknown/forged id 차단, 승인 권한 없는 approve/reject 차단이 휴가·전자결재 설명과 테스트에서 같은 뜻이다.
+- [ ] `/attendance` 의 출퇴근/GPS/실단말, `/leave` 의 실급여/실정산, `/approvals` 의 실전자서명/법적 효력/원문 장기보관이 아직 승인 게이트라는 점이 빠지지 않는다.
+- [ ] PostgreSQL 전환 전 상태 설명과 전환 후 구현 목표 설명이 같은 완료 문장으로 섞이지 않는다.
+- [ ] `/admin/policies` 정책 source 설명과 일반 업무 화면의 정책 안내 문구가 서로 다른 뜻으로 풀리지 않는다.
 - [ ] `/admin/users` 와 `/api/admin/users` 기준의 dev-safe 계정관리 흐름과, 실메일 초대·SSO·외부 IdP·대량 import 승인 게이트가 섞이지 않는다.
 - [ ] `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 근거가 같은 뜻이다.
 - [ ] `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 근거가 같은 뜻이다.

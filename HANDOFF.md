@@ -18,36 +18,37 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 32 게시판·공지·댓글·문서함 실사용화 준비다. 직전 Phase 31에서 로그인/홈/경영업무/계정관리 입구를 정리했으므로, 이제는 그 입구에서 실제 협업 묶음인 `/boards` 와 `/documents` 로 들어가 게시글/댓글/읽음 확인/문서 metadata/권한 차단을 직접 눌러볼 수 있게 만드는 것이 다음 체인의 핵심이다.
+현재 활성 흐름은 Phase 33 근태·휴가·전자결재 실사용화 준비다. 직전 Phase 32에서 협업 묶음(`/boards`, `/documents`)을 먼저 정리했으므로, 이제는 다시 핵심 일반 업무인 `/attendance`, `/leave`, `/approvals` 를 실제 UAT 언어로 묶어 출퇴근/휴가/기안·승인 흐름, 권한 차단, self-approval 금지, 승인 게이트를 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
 
 현재 상태 요약:
 
 - `/login`, `/dashboard`, `/management`, `/admin/users` 는 이미 Phase 31 문서로 정리된 입구 영역이다.
-- `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` 는 실제 route 와 same-origin API 연결이 있고, 이제는 게시글 preview 생성·댓글 preview 생성·읽음 확인 등록·문서 metadata preview 생성·권한 차단 확인까지 직접 눌러볼 수 있는 단계다.
-- `apps/api/test/auth-org.spec.ts` 기준 EMPLOYEE 는 notices/boards/posts 조회, general 게시글 작성, 댓글 작성/조회, read receipt 생성이 가능하고, notice-only 글쓰기/private space 접근/forged post/read receipt 는 403 으로 차단된다.
-- COMPANY_ADMIN 은 게시판 생성, 문서공간 생성, 문서 metadata 생성이 가능하고 응답에서 raw `storageKey` 는 계속 숨겨진다.
-- `/documents` 는 문서공간 목록과 파일 metadata live panel, metadata preview 생성, 문서 읽음 확인, private/missing space 차단 확인까지 직접 검증할 수 있지만 문서 상세/버전/후속 action UX는 아직 약하다.
-- 직전 blocked 정리 카드 `t_c10fc6ce`, `t_ff305819` 에서 게시글·댓글 append 와 company-scoped collab upsert 재검증이 끝났고, 현재는 문서 카드 `t_d43e9ca5` → GitHub/CI/merge 카드 `t_854aaa6c` → 최종 통합 보고 `t_4faa7030` 순서로 마무리 중이다.
-- 새 기준 문서는 `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`, `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 협업 흐름"과 "아직 DB/provider/운영 저장이 덜 닫힌 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 32 언어를 쓰게 만드는 것이다.
+- `/boards`, `/documents` 는 이미 직전 Phase 32에서 협업 묶음 기준을 정리했고, 이번 Phase 33은 다시 `/attendance`, `/leave`, `/approvals` 에 집중한다.
+- `apps/api/test/auth-org.spec.ts` 기준으로 근태·휴가·전자결재는 이미 권한/회사 scope/self-approval/unknown id 차단 근거가 존재한다.
+- `/attendance` 는 출퇴근 기록/허용 방식/정정 요청 문맥, `/leave` 는 휴가 유형/잔여/요청 상태, `/approvals` 는 기안함/결재함/결재선·후보 문맥을 실제 route 와 live section 으로 읽는 단계다.
+- `/admin/policies` 는 일반 업무 화면과 분리된 운영 정책 비교 지점으로 유지한다.
+- 현재 체인은 기획 카드 `t_a498e76b` → 운영 DB 전환 `t_32c88243` → 구현 카드 `t_268c7c7e` 순서로 이어진다.
+- 새 기준 문서는 `docs/architecture/phase-33-attendance-leave-approvals-real-usage-scope.md`, `docs/guides/phase-33-attendance-leave-approvals-real-usage-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 일반 업무 흐름"과 "아직 DB/운영연동/승인 게이트로 남은 것"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 33 언어를 쓰게 만드는 것이다.
 
-2026-06-16 Phase 32 fit-gap 메모:
+2026-06-16 Phase 33 fit-gap 메모:
 
-- 바로 사용 가능에 가까운 영역: `/boards`, `/boards/board_notice`, `/boards/board_general`, `/posts/[postId]`, `/documents`, 관련 API role boundary 테스트, preview mutation 버튼들.
-- skeleton 잔여가 큰 영역: 게시판 상세의 실제 글 목록/작성 결과 반영 UX, 게시글 상세의 실제 스레드/읽음 상태 요약, 문서 상세/버전/후속 action UX, 공지 작성 관리자 UAT 정리.
-- 다음 우선순위는 `/boards` 목록/최신 글 UAT 강화 → 게시글 상세/댓글/읽음 확인 stepper 보강 → `/documents` space/metadata/권한 차단 흐름 보강 → 배포 검증 문구 정리 순서다.
-- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/boards` → `/boards/board_notice` → `/boards/board_general` → `/posts/board_post_board_general_employee_employee` → `/documents` → `/admin/policies` 다.
+- 바로 사용 가능에 가까운 영역: `/attendance`, `/leave`, `/approvals`, `/admin/policies`, 관련 API role boundary/self-approval 차단 테스트 근거.
+- skeleton 잔여가 큰 영역: GPS/실단말·실운영 급여/정산·외부 기관 연동, richer stepper, 전자결재 실서명/원문 장기보관 UX.
+- 다음 우선순위는 `/attendance` 체크인/정정 요청 stepper 보강 → `/leave` 신청자/승인자 lane 분리 보강 → `/approvals` 기안/승인/반려/보완 요청 stepper 보강 → DB 전환 후 route/API/test 근거 재정리 순서다.
+- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/admin/policies` 다.
 - 테스트 기준 계정은 dev/test/UAT 전용 `admin / 1234` 로 문서화하되 production 금지와 초기 비밀번호 변경/seed 교체 필요를 함께 적는다.
 - 일반 직원 화면과 `경영업무` 허브는 분리 유지하고, 민감 리스크 상세는 지정 관리자/담당자만 보게 한다.
 
-현재 Phase 32 마무리 상태 요약:
+현재 Phase 33 준비 상태 요약:
 
-- `/boards/board_general` 에서는 게시글 preview 생성과 현재 세션 guard 확인을 직접 눌러볼 수 있다.
-- `/posts/board_post_board_general_employee_employee` 에서는 댓글 preview 생성, 읽음 확인 등록, forged post 차단 확인을 직접 눌러볼 수 있다.
-- `/documents` 에서는 metadata preview 생성, 문서 읽음 확인, private space 차단 확인, missing space 차단 확인을 직접 눌러볼 수 있다.
-- notice-only/general/private/forged/raw storage 비노출 guardrail 은 `apps/api/test/auth-org.spec.ts` 와 route 문구에서 같은 뜻으로 유지한다.
-- 남은 큰 잔여는 richer UX, 문서 상세/버전, 관리자 공지 작성 UAT, 외부 공유/실운영 업로드 확대 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-32-boards-notices-comments-documents-real-usage-scope.md`, `docs/guides/phase-32-boards-notices-comments-documents-real-usage-handoff.md`, `TASKS.md`, `KNOWN_ISSUES.md`.
+- 2026-06-16 parent 재검증 기준으로 shared/api/web 테스트, typecheck, `pnpm --filter @gw/web build:cf`, local preview smoke 가 다시 통과했고 비로그인 `/attendance`·`/leave`·`/approvals`·`/dashboard`·`/admin/policies` 307 및 로그인 후 핵심 route/API 200 근거가 확보돼 있다.
+- `/attendance` 에서는 출퇴근 기록/허용 방식/정정 요청 문맥을 직접 눌러볼 수 있다.
+- `/leave` 에서는 휴가 유형/잔여/요청 상태와 승인자 차단 문맥을 직접 눌러볼 수 있다.
+- `/approvals` 에서는 기안함/결재함, 승인 대기/보완 요청, self-approval 금지 문맥을 직접 눌러볼 수 있다.
+- 정책 미허용/권한 부족/회사 scope 차단/placeholder 제한 4축은 `apps/api/test/auth-org.spec.ts` 와 route 문구에서 같은 뜻으로 유지해야 한다.
+- 남은 큰 잔여는 PostgreSQL 전환, richer stepper, GPS/실단말, 실급여/실정산, 외부 기관 연동, 전자결재 실서명/원문 장기보관 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-33-attendance-leave-approvals-real-usage-scope.md`, `docs/guides/phase-33-attendance-leave-approvals-real-usage-handoff.md`, `TASKS.md`, `KNOWN_ISSUES.md`.
 
 2026-06-15 Phase 29 기획 메모:
 

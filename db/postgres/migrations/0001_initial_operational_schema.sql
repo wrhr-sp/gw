@@ -306,6 +306,9 @@ create table if not exists attendance_correction_requests (
   reviewed_by text references users(id),
   reviewed_at timestamptz,
   reason text not null,
+  requested_check_in_at timestamptz,
+  requested_check_out_at timestamptz,
+  note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
@@ -329,14 +332,17 @@ create table if not exists leave_requests (
   company_id text not null references companies(id),
   employee_id text not null references employees(id),
   leave_type_id text not null references leave_types(id),
-  status text not null default 'pending',
+  status text not null default 'pending_approval',
+  approval_status text not null default 'pending',
   start_date date not null,
   end_date date not null,
+  unit text not null default 'day',
   days numeric(6,2) not null default 1,
   requested_by text not null references users(id),
   reviewed_by text references users(id),
   reviewed_at timestamptz,
   reason text not null,
+  note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz
@@ -352,39 +358,85 @@ create table if not exists leave_balances (
   used_days numeric(8,2) not null default 0,
   reserved_days numeric(8,2) not null default 0,
   remaining_days numeric(8,2) not null default 0,
+  snapshot_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (company_id, employee_id, leave_type_id, as_of_date)
 );
 
+create table if not exists approval_forms (
+  id text primary key,
+  company_id text not null references companies(id),
+  code text not null,
+  title text not null,
+  category text not null,
+  field_summary text not null,
+  status text not null default 'active',
+  created_by text references users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, code)
+);
+
+create table if not exists approval_lines (
+  id text primary key,
+  company_id text not null references companies(id),
+  title text not null,
+  description text not null,
+  status text not null default 'active',
+  created_by text references users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists approval_documents (
   id text primary key,
   company_id text not null references companies(id),
-  drafter_user_id text not null references users(id),
-  document_number text not null,
+  form_id text not null references approval_forms(id),
+  line_id text not null references approval_lines(id),
+  drafter_employee_id text not null references employees(id),
   title text not null,
-  body text,
+  summary text,
+  document_number text not null,
   status text not null default 'draft',
   submitted_at timestamptz,
   completed_at timestamptz,
+  created_by text not null references users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   deleted_at timestamptz,
   unique (company_id, document_number)
 );
 
-create table if not exists approval_lines (
+create table if not exists approval_steps (
   id text primary key,
   company_id text not null references companies(id),
-  document_id text not null references approval_documents(id),
+  document_id text references approval_documents(id),
+  line_id text references approval_lines(id),
   step_order integer not null,
-  approver_user_id text not null references users(id),
+  approver_employee_id text not null references employees(id),
   step_type text not null default 'approve',
   decision_status text not null default 'pending',
   decided_at timestamptz,
   decision_comment text,
+  created_by text references users(id),
   created_at timestamptz not null default now(),
-  unique (document_id, step_order)
+  updated_at timestamptz not null default now(),
+  unique nulls not distinct (document_id, line_id, step_order)
+);
+
+create table if not exists approval_references (
+  id text primary key,
+  company_id text not null references companies(id),
+  document_id text not null references approval_documents(id),
+  employee_id text not null references employees(id),
+  reference_type text not null default 'reference',
+  read_at timestamptz,
+  created_by text references users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  status text not null default 'active',
+  unique (document_id, employee_id, reference_type)
 );
 
 create table if not exists work_items (
