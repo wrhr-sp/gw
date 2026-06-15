@@ -132,6 +132,7 @@ import {
 } from "./lib/document-storage";
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { authenticateOperationalUser } from "./lib/operational-auth";
+import { listOperationalAdminUsers } from "./lib/operational-admin";
 
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
@@ -4092,7 +4093,7 @@ app.post(appRoutes.admin.invites, async (context) => {
   );
 });
 
-app.get(appRoutes.admin.users, (context) => {
+app.get(appRoutes.admin.users, async (context) => {
   const authResult = requireAdminRole(context);
   if (authResult.response) {
     return authResult.response;
@@ -4106,13 +4107,20 @@ app.get(appRoutes.admin.users, (context) => {
     });
   }
 
+  const dbAdminUsers = await listOperationalAdminUsers(
+    context.env,
+    authResult.auth.user.companyId,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+
   return jsonSuccess(
     context,
     adminUsersListResponseSchema,
     {
       ok: true,
       data: {
-        items: adminUsers.filter((item) => item.companyId === authResult.auth.user.companyId),
+        items: dbAdminUsers ?? adminUsers.filter((item) => item.companyId === authResult.auth.user.companyId),
         linkedScreens: buildAdminUsersLinkedScreens(),
         companySettingsModel: buildCompanySettingsModel(),
         audit: {
