@@ -17,9 +17,9 @@ describe("admin host helper", () => {
     expect(getAdminHostInfo("127.0.0.1.nip.io:8787").isAdminHost).toBe(false);
   });
 
-  it("derives the paired admin host only for approved preview and local development hosts", () => {
+  it("derives the paired admin host only for explicitly approved or local development hosts", () => {
     expect(getAdminHostRedirectHost("example.com")).toBeNull();
-    expect(getAdminHostRedirectHost("gw-web.preview-account.workers.dev")).toBe("gw-admin.preview-account.workers.dev");
+    expect(getAdminHostRedirectHost("gw-web.preview-account.workers.dev")).toBeNull();
     expect(getAdminHostRedirectHost("localhost:3000")).toBe("admin.localhost:3000");
     expect(getAdminHostRedirectHost("127.0.0.1.nip.io:8787")).toBe("admin.127.0.0.1.nip.io:8787");
   });

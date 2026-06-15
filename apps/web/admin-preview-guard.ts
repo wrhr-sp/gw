@@ -1,10 +1,28 @@
 import { getSensitiveWorkbenchRouteKind, getViewerAccessForRoleCode, hasAdminRouteAccess, hasSensitiveWorkbenchRouteAccess, knownRoleCodes, type RoleCode } from "@gw/shared";
 
-import { getAdminHostInfo, getAdminHostRedirectHost } from "./admin-host";
+import { getAdminHostInfo, getAdminHostRedirectHost, isWorkersPreviewGeneralHost } from "./admin-host";
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
 const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest", "/offline"];
+const authenticatedWorkbenchRoutePrefixes = [
+  "/dashboard",
+  "/attendance",
+  "/leave",
+  "/payroll",
+  "/approvals",
+  "/boards",
+  "/documents",
+  "/work-items",
+  "/me",
+  "/org",
+  "/employees",
+  "/menu",
+  "/messenger",
+  "/mail",
+  "/notifications",
+  "/posts",
+] as const;
 const knownRoleCodeSet = new Set<string>(knownRoleCodes);
 
 type RouteGuardRole = RoleCode;
@@ -49,8 +67,9 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
 
   const isAdminWorkbenchRoute = isAdminRoute(pathname);
   const isSensitiveWorkbenchRoute = getSensitiveWorkbenchRouteKind(pathname) !== null;
+  const isAuthenticatedWorkbenchRoute = isMatchingRoute(pathname, authenticatedWorkbenchRoutePrefixes);
 
-  if (!isAdminWorkbenchRoute && !isSensitiveWorkbenchRoute) {
+  if (!isAdminWorkbenchRoute && !isSensitiveWorkbenchRoute && !isAuthenticatedWorkbenchRoute) {
     return { action: "allow" };
   }
 
@@ -65,10 +84,18 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return hasSensitiveWorkbenchRouteAccess(pathname, viewer) ? { action: "allow" } : { action: "redirect", location: "/forbidden" };
   }
 
+  if (isAuthenticatedWorkbenchRoute) {
+    return { action: "allow" };
+  }
+
   if (!hostInfo.isAdminHost && hasAdminRouteAccess(pathname, viewer)) {
     const targetHost = getAdminHostRedirectHost(host);
     if (targetHost) {
       return { action: "redirect", location: pathname, targetHost };
+    }
+
+    if (isWorkersPreviewGeneralHost(host)) {
+      return { action: "allow" };
     }
 
     return { action: "redirect", location: "/forbidden" };

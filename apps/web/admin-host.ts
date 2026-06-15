@@ -81,6 +81,11 @@ export function getAdminHostInfo(rawHost?: string | null): HostClassification {
   };
 }
 
+export function isWorkersPreviewGeneralHost(rawHost?: string | null) {
+  const { hostname, isAdminHost } = getAdminHostInfo(rawHost);
+  return !isAdminHost && hostname.startsWith("gw-web.") && hostname.endsWith(".workers.dev");
+}
+
 export function getAdminHostRedirectHost(rawHost?: string | null) {
   const { hostname, port, isAdminHost } = getAdminHostInfo(rawHost);
   if (!hostname || isAdminHost) {
@@ -90,10 +95,6 @@ export function getAdminHostRedirectHost(rawHost?: string | null) {
   const localAdminHost = LOCAL_ADMIN_HOST_PAIRS.get(hostname);
   if (localAdminHost) {
     return withPort(localAdminHost, port);
-  }
-
-  if (hostname.startsWith("gw-web.") && hostname.endsWith(".workers.dev")) {
-    return withPort(hostname.replace(/^gw-web\./, "gw-admin."), port);
   }
 
   const configuredAdminHost = `admin.${hostname}`;

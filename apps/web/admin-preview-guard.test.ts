@@ -19,20 +19,28 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-web.preview.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/work-items", host: "localhost:3000" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/boards/board_notice", host: "localhost:3000" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
   });
 
-  it("redirects admin users from a general host to the paired admin host", () => {
+  it("allows admin users to stay on the current preview host when no paired admin host is explicitly configured", () => {
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
       }),
-    ).toEqual({
-      action: "redirect",
-      location: "/admin",
-      targetHost: "gw-admin.preview-account.workers.dev",
-    });
+    ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/users",
@@ -65,6 +73,20 @@ describe("admin preview guard", () => {
         pathname: "/management",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_MANAGER",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/dashboard",
+        host: "gw-web.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_EMPLOYEE",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
@@ -180,7 +202,7 @@ describe("admin preview guard", () => {
   it("leaves non-admin and non-management routes alone on ordinary hosts", () => {
     expect(getAdminRouteGuardResult({ pathname: "/", host: "example.com" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/login", host: "localhost:3000" })).toEqual({ action: "allow" });
-    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
+    expect(getAdminRouteGuardResult({ pathname: "/offline", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/administrator", host: "example.com" })).toEqual({ action: "allow" });
   });
 
