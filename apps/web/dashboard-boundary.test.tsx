@@ -2,12 +2,12 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { getDashboardAdminShortcut } from "./app/dashboard/dashboard-config";
+import { getDashboardAdminShortcut, getVisibleDashboardManagementCards } from "./app/dashboard/dashboard-config";
 import { DashboardPageContent } from "./dashboard-page-content";
 
 describe("Phase 14 dashboard summary skeleton", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
-    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} />);
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} />);
 
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("휴가 잔여와 신청 확인");
@@ -23,14 +23,17 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("placeholder/dev-safe 요약이며 실제 저장이나 발송을 실행하지 않습니다.");
+    expect(html).not.toContain("경영업무 분리 진입");
   });
 
-  it("does not expose admin entry CTA in the default general-user dashboard view", () => {
-    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} />);
+  it("does not expose admin or management entry CTA in the default general-user dashboard view", () => {
+    const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} />);
 
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
     expect(html).not.toContain("관리자 허브 바로가기");
-    expect(html).not.toContain("href=" + '"/admin"');
+    expect(html).not.toContain('href="/admin"');
+    expect(html).not.toContain('href="/management"');
+    expect(html).not.toContain('href="/work-items/legal"');
   });
 
   it("only returns an admin shortcut for admin-capable roles and a separate audit shortcut for auditors", () => {
@@ -56,12 +59,26 @@ describe("Phase 14 dashboard summary skeleton", () => {
     });
   });
 
-  it("renders the actual admin CTA when a privileged viewer is supplied", () => {
+  it("only returns management cards for designated management roles", () => {
+    expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
+    expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
+    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+    expect(getVisibleDashboardManagementCards(["COMPANY_ADMIN"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+    expect(getVisibleDashboardManagementCards(["AUDITOR"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+  });
+
+  it("renders the actual admin CTA and management lane when a privileged viewer is supplied", () => {
     const html = renderToStaticMarkup(
-      <DashboardPageContent adminShortcut={getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])} />,
+      <DashboardPageContent
+        adminShortcut={getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])}
+        managementCards={getVisibleDashboardManagementCards(["COMPANY_ADMIN"])}
+      />,
     );
 
     expect(html).toContain("관리자 허브 바로가기");
     expect(html).toContain('href="/admin"');
+    expect(html).toContain("경영업무 분리 진입");
+    expect(html).toContain('href="/management"');
+    expect(html).toContain('href="/work-items/legal"');
   });
 });

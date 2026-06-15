@@ -193,7 +193,7 @@
 - migration 없음
 - shared contract 있음 (`workItem*Schema`, `workItem*ResponseSchema`, `appRoutes.workItems`)
 - placeholder API 있음 (`/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines`)
-- placeholder Web entrypoint 있음 (`/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch`)
+- placeholder Web entrypoint 있음 (`/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/management`, `/work-items/legal`, `/work-items/branch`)
 - guardrail test 있음: 역할별 목록/상세/문서/첨부/감사 visibility 경계, deadline 가시 범위, HR 민감 첨부 제한
 
 근거:
@@ -759,6 +759,38 @@ guardrail:
 - 급여의 세액 placeholder 와 세무 신고 준비 상태는 같은 엔티티 책임으로 합치지 않는다.
 - 주민등록번호, 계좌번호, 실매출 증빙 원문, 세금계산서 원문, 홈택스 payload, 외부 세무사 계정 정보는 포함하지 않는다.
 
+## 7-C. Phase 29 법무 관리 데이터 모델 메모
+
+이번 단계에서 새로 고정하는 최소 법무 metadata 묶음은 아래와 같다. 현재 shared contract 에는 이미 `workItemLegal*Schema` 와 `legalContext` 가 올라와 있으므로, 문서도 그 실제 필드 이름과 guardrail 을 기준으로 맞춘다.
+
+- `legalContext`: 법무 work item 공통 보조 metadata. `intakeStatus`, `contractType`, `renewalStatus`, `renewalDueAt`, `disputeStatus`, `externalCounselStatus`, `sensitiveDocumentStatus`, `relatedBranchRequests`, `documentSummary`, `reviewActors`, `approvalGate`, `visibility`, `auditHints` 를 포함하는 방향으로 본다.
+- `legalDocumentSummary`: 계약/분쟁/보험/사고 자료의 metadata-only 요약. 현재 schema 는 `type`, `title`, `summary`, `containsSensitiveData` 를 남긴다.
+- `legalBranchRequest`: 지점별 계약 검토/보완 요청 상태. 현재 schema 는 `branchId`, `branchLabel`, `requestStatus`, `requestedAt`, `note` 를 남긴다.
+- `legalApprovalGate`: 외부 변호사/보험사/기관 전달 전 내부 승인 게이트. 실제 외부 전송 payload 가 아니라 `required`, `stage`, `summary`, `externalActionBlocked` 를 뜻한다.
+- `legalReviewActor`: 본사 법무/운영 담당 / 지점 관리자 / 감사 같은 역할별 검토 책임과 현재 상태. 현재 schema 는 `scope`, `roleCode`, `responsibility`, `status` 를 쓴다.
+- `legalVisibility`: 본사 법무/운영 담당 / 지점 관리자 / 감사 / 일반 직원이 어디까지 보는지와 restricted note 를 텍스트로 고정하는 visibility 묶음.
+
+필드 해석 메모:
+- `intakeStatus` 는 `received`, `assigned`, `reviewing`, `revision_requested`, `approved`, `completed` 같은 법무 진행 의미를 담되, 공통 work item 상태를 대체하지 않는다.
+- `contractType` 은 위탁운영/임대차/용역/협력사/개인정보처리위탁 같은 분류를 뜻하고, 별도 계약 저장소 앱 분리를 뜻하지 않는다.
+- `renewalStatus` 는 만료 임박/검토중/결정완료 같은 계약 갱신 문맥을 나타내며, 실제 자동 알림 발송 완료를 뜻하지 않는다.
+- `disputeStatus` 는 분쟁/클레임/보험/사고 후속 단계 요약이며, 실제 기관 제출/판정 결과를 담지 않는다.
+- `legalDocumentSummary` 는 실원문이 아니라 문서 종류, 회사/지점 문맥, 민감도 메모, metadata 노출 수준을 남긴다.
+- `legalApprovalGate` 는 외부 자문/기관 전달이 필요한지와 그 전 단계 내부 결정을 남기며, 실제 메일/메신저/시스템 연동 결과를 담지 않는다.
+- `legalVisibility` 는 권한 엔진 자체를 대체하지는 않지만, 문서/UI/API 가 같은 권한 설명을 쓰도록 맞추는 사용자-facing 해석 레이어다.
+
+호텔 위탁경영사 기준 메모:
+- 현재 placeholder 기준 대표 예시는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이다.
+- 회사 전체 기준과 지점/호텔 기준을 함께 보되, 지점 관리자는 자기 지점 관련 요청/보완 범위만 가진다.
+- 본사 법무/운영 담당은 여러 지점 계약 검토 요청, 갱신 예정, 분쟁 후속을 넓게 보지만 외부 변호사 연동 실행자로 자동 확정하지 않는다.
+- 감사 사용자는 상태 변경/접근 흔적 중심 read-only 성격이며, 계약/분쟁 원문 대량 보관 구조를 여는 단계가 아니다.
+
+guardrail:
+- 법무 metadata 는 실제 계약 원문, 외부 자문 발송 결과, 기관 제출 payload 를 포함하지 않는다.
+- 계약 metadata 와 원문 저장 구조를 같은 모델로 취급하지 않는다.
+- 노무/세무/급여 문맥과 법무 검토 상태를 같은 엔티티 책임으로 합치지 않는다.
+- 서명본 계약서 원문, 분쟁 당사자 민감 진술, 개인정보처리위탁 계약 전문, 외부 변호사 계정 정보는 포함하지 않는다.
+
 ## 7. 같이 봐야 하는 문서
 
 - `API.md`
@@ -779,3 +811,5 @@ guardrail:
 - `docs/architecture/phase-11-org-employees-scope.md`
 - `docs/architecture/phase-28-tax-management-pass-1-scope.md`
 - `docs/guides/phase-28-tax-management-pass-1-handoff.md`
+- `docs/architecture/phase-29-legal-management-pass-1-scope.md`
+- `docs/guides/phase-29-legal-management-pass-1-handoff.md`

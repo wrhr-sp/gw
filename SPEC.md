@@ -374,7 +374,11 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - labor 종류 차이는 새 주 상태군보다 `category(employment_contract/work_condition_change/leave_balance_adjustment/allowance_review/overtime_review/grievance/discipline_review/incident_report/offboarding_clearance)` 와 보조 metadata(`intake_status`, `confidentiality_level`, `requires_acknowledgement`, `legal_hold_required`)로 먼저 푼다.
 - 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이와 restricted 노무 메모 경계를 같은 회사 + 지점/호텔 + 역할 + capability 언어로 적어야 한다.
 - labor evidence/사건 메모는 1차에서 원문 저장보다 metadata-only summary 와 acknowledgement/restricted 여부 수준으로 설명하고, 외부 노무/법무/급여 연동은 승인 게이트로 남긴다.
-- 현재 저장소 기준 빠른 확인 지점은 `/work-items` 공통 허브, `/work-items/labor` 노무 설명 화면, `/api/work-items?module=labor` placeholder 목록, `apps/api/test/work-items.spec.ts` 와 `apps/web/work-items*.test.tsx` 회귀 테스트다.
+- 현재 활성 Phase 29에서는 위 공통 `work item` 엔진과 직전 Phase 28 세무 기준 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 관련 legal skeleton 을 올린다.
+- legal 종류 차이는 새 주 상태군보다 `category(contract_review/contract_renewal/hotel_management_agreement/lease_agreement/service_agreement/partner_agreement/personal_data_processing_agreement/dispute_intake/claim_response/insurance_case/incident_legal_follow_up)` 와 보조 metadata(`intakeStatus`, `contractType`, `renewalStatus`, `renewalDueAt`, `disputeStatus`, `externalCounselStatus`, `sensitiveDocumentStatus`)로 먼저 푼다.
+- 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 차이와 계약/분쟁 민감 자료 경계를 같은 회사 + 지점/호텔 + 역할 + capability 언어로 적어야 한다.
+- legal metadata 는 1차에서 원문 저장보다 metadata-only summary 와 approval gate 여부 수준으로 설명하고, 외부 변호사/보험사/기관 연동은 승인 게이트로 남긴다.
+- 현재 저장소 기준 빠른 확인 지점은 `/work-items` 공통 허브, `/management`, `/work-items/legal`, `/api/work-items?module=legal`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/work-items*.test.tsx`, `apps/web/dashboard-boundary.test.tsx` 회귀 테스트다.
 - 모바일 1차 상태 안내는 offline, error, empty, forbidden 4축을 먼저 통일하고, 정상 빈 상태와 실패 상태를 섞어 설명하지 않는다.
 - `/boards` 와 `/documents` 는 모바일에서 협업 묶음 한 화면으로 시작할 수 있지만, 게시판 책임과 문서 보관 책임을 합쳐서 설명하지 않는다.
 - `/me` 성격의 내 정보 화면은 세션/역할 요약과 로그아웃 안내 중심으로 두고, 관리자 운영 변경 화면으로 키우지 않는다.
@@ -401,6 +405,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 25 문서라면 `docs/architecture/phase-25-common-work-doc-access-engine-pass-1-scope.md` 와 `docs/guides/phase-25-common-work-doc-access-engine-pass-1-handoff.md` 의 공통 work item 모델, 문서/첨부/검토/마감 skeleton, 회사+지점+역할+capability 접근 기준, 모바일/PC 메뉴 자리, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 26 문서라면 `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md` 와 `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md` 의 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 27 문서라면 `docs/architecture/phase-27-labor-management-pass-1-scope.md` 와 `docs/guides/phase-27-labor-management-pass-1-handoff.md` 의 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 29 문서라면 `docs/architecture/phase-29-legal-management-pass-1-scope.md` 와 `docs/guides/phase-29-legal-management-pass-1-handoff.md` 의 legal category, 공통 상태 대 legal intake/renewal/dispute 보조 상태 분리, 본사 법무/운영 담당/지점 관리자/감사 visibility, metadata-only 계약/분쟁 요약, 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -484,6 +489,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 세무 자료는 metadata-only 제출 상태와 누락/반려/보완 요청 중심으로 설명하고, 실세무 원문 저장·홈택스 제출·세무사 외부 전송은 승인 게이트로 남긴다.
 - 급여의 세액 placeholder 와 세무 신고 준비를 같은 모듈/같은 API 책임처럼 섞지 않는다.
 - 대장이 실제로 다시 볼 때는 `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` → `apps/api/test/work-items.spec.ts` 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
+
+### 6-11. Phase 29 문구는 "법무 검토 skeleton / 지점 요청 vs HQ 법무 검토 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 법무를 별도 외부 자문 포털처럼 쓰지 말고, 기존 공통 `work item` 엔진 위에 올라가는 `legal` 확장으로 적는다.
+- 계약/갱신/분쟁 종류 차이는 새 주 상태군보다 `category(contract_review/contract_renewal/hotel_management_agreement/lease_agreement/service_agreement/partner_agreement/personal_data_processing_agreement/dispute_intake/claim_response/insurance_case/incident_legal_follow_up)` 와 보조 metadata(`intakeStatus`, `contractType`, `renewalStatus`, `renewalDueAt`, `disputeStatus`, `externalCounselStatus`, `sensitiveDocumentStatus`)로 먼저 푼다고 적는다.
+- 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 차이를 분리해 적고, 지점에서 요청을 올리는 것과 회사 전체 민감 계약/분쟁 자료를 보는 것을 같은 뜻으로 쓰지 않는다.
+- 계약/분쟁 자료는 metadata-only 제출 상태와 보완 요청 중심으로 설명하고, 실계약서 원문 저장·외부 변호사 연동·보험사/기관 실제 제출은 승인 게이트로 남긴다.
+- 노무/세무/급여 문맥과 법무 검토 문맥을 같은 모듈/같은 API 책임처럼 섞지 않는다.
+- 대장이 실제로 다시 볼 때는 `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` → `apps/api/test/work-items.spec.ts` 순서로 확인 포인트를 짧게 따라갈 수 있어야 한다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

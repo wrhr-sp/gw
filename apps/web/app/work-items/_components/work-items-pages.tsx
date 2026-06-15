@@ -5,6 +5,7 @@ import {
   getWorkItemModuleCard,
   workItemGuardrails,
   workItemHubHighlights,
+  workItemHubModuleCards,
   workItemModuleCards,
   type WorkItemModuleKey,
 } from "../work-items-config";
@@ -28,7 +29,7 @@ export function WorkItemsHubPage() {
 
       <SurfaceSection title="모듈별 진입점" description="같은 허브 아래에서 역할별로 어디까지 보여 줄지 먼저 나눕니다.">
         <div className="grid-auto-compact">
-          {workItemModuleCards.map((card) => (
+          {workItemHubModuleCards.map((card) => (
             <article key={card.href} className="info-card">
               <Pill tone="accent">{card.roleScope}</Pill>
               <h3>{card.title}</h3>

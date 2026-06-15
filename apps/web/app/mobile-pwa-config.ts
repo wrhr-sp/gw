@@ -1,3 +1,5 @@
+import { isLegalManagementRoleCode, type RoleCode } from "@gw/shared";
+
 import { getAdminHostInfo } from "../admin-host";
 
 export type NavItem = {
@@ -253,13 +255,12 @@ export const mobileMenuSections: NavSection[] = [
   },
   {
     title: "공통 업무 엔진",
-    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·법무·지점 업무 자리를 먼저 확보합니다.",
+    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
     items: [
       mobilePrimaryNav[7],
       { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
       { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 placeholder" },
       { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
-      { href: "/work-items/legal", label: "법무 업무", shortLabel: "법무", summary: "계약 검토/승인 게이트 placeholder" },
       { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 placeholder" },
     ],
   },
@@ -272,6 +273,29 @@ export const mobileMenuSections: NavSection[] = [
     title: "협업 placeholder",
     description: "메신저, 메일, 알림은 탭/placeholder honesty 만 유지하고 실제 외부 연동은 승인 게이트로 남깁니다.",
     items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
+  },
+];
+
+export const managementPrimaryNav: NavItem[] = [
+  {
+    href: "/management",
+    label: "경영업무",
+    shortLabel: "경영",
+    summary: "법무 같은 민감 운영 모듈을 일반 업무와 분리한 전용 진입점",
+  },
+  {
+    href: "/work-items/legal",
+    label: "법무 업무",
+    shortLabel: "법무",
+    summary: "계약 검토/갱신 예정/분쟁·클레임 후속 placeholder",
+  },
+];
+
+export const managementMenuSections: NavSection[] = [
+  {
+    title: "경영업무",
+    description: "법무 같은 민감 운영 모듈은 일반 직원 메뉴와 섞지 않고 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    items: managementPrimaryNav,
   },
 ];
 
@@ -402,6 +426,18 @@ export const mobileReviewChecklist = [
   "PC 사이드바 접기/펼치기와 모바일 전체 메뉴가 같은 메뉴군을 설명하는지 확인",
 ] as const;
 
+export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
+  return roleCode ? isLegalManagementRoleCode(roleCode) : false;
+}
+
+export function getVisibleMobilePrimaryNav(roleCode?: RoleCode | null) {
+  return hasManagementMenuAccess(roleCode) ? [...mobilePrimaryNav, ...managementPrimaryNav] : mobilePrimaryNav;
+}
+
+export function getVisibleMobileMenuSections(roleCode?: RoleCode | null) {
+  return hasManagementMenuAccess(roleCode) ? [...mobileMenuSections, ...managementMenuSections] : mobileMenuSections;
+}
+
 export function getPwaManifestForHost(host?: string | null) {
   return getAdminHostInfo(host).isAdminHost ? adminPwaManifest : generalPwaManifest;
 }
@@ -410,7 +446,7 @@ export function getManifestHrefForHost(host?: string | null) {
   return getAdminHostInfo(host).isAdminHost ? adminManifestHref : generalManifestHref;
 }
 
-export function getAppShellConfigForHost(host?: string | null) {
+export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCode | null) {
   if (getAdminHostInfo(host).isAdminHost) {
     return {
       appName: adminPwaManifest.short_name,
@@ -428,9 +464,9 @@ export function getAppShellConfigForHost(host?: string | null) {
     appName: "그룹웨어 Web/PWA",
     appEyebrow: "Cloudflare-first skeleton",
     homeHref: "/",
-    navItems: mobilePrimaryNav,
+    navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,
-    menuSections: mobileMenuSections,
+    menuSections: getVisibleMobileMenuSections(roleCode),
     installGuideSteps,
     offlineGuidance,
   };

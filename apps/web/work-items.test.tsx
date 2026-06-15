@@ -2,11 +2,12 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { dashboardWorkItemCards } from "./app/dashboard/dashboard-config";
-import MenuPage from "./app/menu/page";
-import { mobileMenuSections, mobilePrimaryNav } from "./app/mobile-pwa-config";
+import { dashboardWorkItemCards, getVisibleDashboardManagementCards } from "./app/dashboard/dashboard-config";
+import ManagementPage from "./app/management/page";
+import { getVisibleMobileMenuSections, mobilePrimaryNav } from "./app/mobile-pwa-config";
 import WorkItemsHrPage from "./app/work-items/hr/page";
 import WorkItemsLaborPage from "./app/work-items/labor/page";
+import WorkItemsLegalPage from "./app/work-items/legal/page";
 import WorkItemsPage from "./app/work-items/page";
 
 describe("Phase 25 work-items web entrypoints", () => {
@@ -21,6 +22,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("민감 원문 첨부는 metadata-only 로 남기고 실제 파일 내용 노출은 하지 않습니다.");
     expect(html).toContain('href="/work-items/hr"');
     expect(html).toContain('href="/work-items/branch"');
+    expect(html).not.toContain('href="/work-items/legal"');
   });
 
   it("renders the HR module page with meeting/lifecycle guardrails and linked API routes", () => {
@@ -51,33 +53,51 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain('href="/work-items"');
   });
 
-  it("keeps dashboard and menu entrypoints wired to the shared work-item engine", () => {
+  it("renders the legal module page with contract/renewal/dispute copy and linked API routes", () => {
+    const html = renderToStaticMarkup(<WorkItemsLegalPage />);
+
+    expect(html).toContain("법무 업무");
+    expect(html).toContain("계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 공통 work item skeleton 안에서 metadata 중심으로 묶습니다.");
+    expect(html).toContain("본사 법무/운영 담당 / 지점 관리자 / 감사");
+    expect(html).toContain("이번 단계 legal 유형");
+    expect(html).toContain("임대차 계약");
+    expect(html).toContain("누가 어디까지 보는가");
+    expect(html).toContain('href="/api/work-items?module=legal"');
+    expect(html).toContain('href="/api/work-item-deadlines"');
+    expect(html).toContain('href="/work-items"');
+  });
+
+  it("moves legal entrypoints out of the shared menu/dashboard hub and into a management area", () => {
     expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items", "/work-items/hr", "/work-items/tax"]);
-    expect(dashboardWorkItemCards[0]).toMatchObject({
-      href: "/work-items",
-      title: "공통 업무 허브",
-    });
+    expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
+    expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
+    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+
     expect(mobilePrimaryNav.some((item) => item.href === "/payroll")).toBe(true);
     expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(true);
 
-    const basicMenuSection = mobileMenuSections.find((section) => section.title === "기본 업무");
-    expect(basicMenuSection?.items.map((item) => item.href)).toContain("/payroll");
-
-    const workItemMenuSection = mobileMenuSections.find((section) => section.title === "공통 업무 엔진");
+    const employeeMenuSections = getVisibleMobileMenuSections("EMPLOYEE");
+    const workItemMenuSection = employeeMenuSections.find((section) => section.title === "공통 업무 엔진");
     expect(workItemMenuSection?.items.map((item) => item.href)).toEqual([
       "/work-items",
       "/work-items/hr",
       "/work-items/tax",
       "/work-items/labor",
-      "/work-items/legal",
       "/work-items/branch",
     ]);
+    expect(employeeMenuSections.some((section) => section.title === "경영업무")).toBe(false);
 
-    const html = renderToStaticMarkup(<MenuPage />);
-    expect(html).toContain("공통 업무 엔진");
-    expect(html).toContain('href="/payroll"');
-    expect(html).toContain('href="/work-items/hr"');
+    const managerMenuSections = getVisibleMobileMenuSections("MANAGER");
+    const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
+    expect(managementSection?.items.map((item) => item.href)).toEqual(["/management", "/work-items/legal"]);
+  });
+
+  it("renders a dedicated management page for sensitive legal access", () => {
+    const html = renderToStaticMarkup(<ManagementPage />);
+
+    expect(html).toContain("경영업무");
+    expect(html).toContain("민감 모듈 진입");
     expect(html).toContain('href="/work-items/legal"');
-    expect(html).toContain("관리자 메뉴는 일반 사용자 전체 메뉴에 섞지 않고 권한/host 기준으로 분리합니다.");
+    expect(html).toContain("허용 역할만 `/management`, `/work-items/legal` 경로로 진입할 수 있습니다.");
   });
 });

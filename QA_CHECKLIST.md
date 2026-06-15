@@ -72,8 +72,15 @@
 - [ ] Phase 27 문서에서는 위 공통 work item 엔진과 HR lifecycle 기준 위에 labor skeleton 이 올라가며, 별도 사건 처리 솔루션/실민감 계약·징계·사고 처리/외부 노무·급여 연동처럼 과장되지 않는다.
 - [ ] Phase 28 문서에서는 위 공통 work item 엔진 위에 tax skeleton 이 올라가며, 별도 신고 자동화/실세무 처리/외부 홈택스·세무사 연동처럼 과장되지 않는다.
 - [ ] Phase 28A 문서에서는 급여가 labor 안에 묻지 않고 독립 `/payroll` 모듈로 읽히며, 본사 급여 담당/지점 관리자/일반 직원 visibility 가 분리된다.
+- [ ] Phase 29 문서에서는 위 공통 work item 엔진 위에 legal skeleton 이 올라가며, 별도 외부 자문 포털/실계약 원문 저장 확대/기관 제출 자동화처럼 과장되지 않는다.
 - [ ] `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 근거가 같은 뜻이다.
+- [ ] `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 근거가 같은 뜻이다.
 - [ ] branch scope `work_item_tax_month_end_evidence` 와 company scope `work_item_tax_vat_package_preparation` 가 같은 tax 모듈 안에서도 다른 열람 범위/책임을 가진다는 설명이 문서와 테스트에서 같게 유지된다.
+- [ ] 현재 legal placeholder 3건(`work_item_legal_contract_review`, `work_item_legal_contract_renewal`, `work_item_legal_dispute_intake`)을 법무 전체 구현 완료처럼 과장하지 않는다.
+- [ ] 계약 검토/보완 요청/승인 게이트와 실제 외부 변호사 전달 완료가 같은 말처럼 섞여 쓰이지 않는다.
+- [ ] 계약 metadata 요약과 실계약 원문/분쟁 원문/개인정보처리위탁 계약 전문이 같은 뜻처럼 섞여 쓰이지 않는다.
+- [ ] 지점 관리자가 자기 지점 관련 계약 요청 상태를 보는 것과 회사 전체 민감 계약/분쟁 자료를 직접 보는 것을 같은 권한처럼 섞지 않는다.
+- [ ] 노무/세무/급여 문맥과 법무 검토 문맥을 같은 모듈/같은 책임처럼 섞어 쓰지 않는다.
 - [ ] 세무 일정 skeleton 과 실제 신고 완료, 세무사 전달 패키지 준비와 실제 외부 전송 완료가 같은 말처럼 섞여 쓰이지 않는다.
 - [ ] 세무 자료 metadata-only 제출 상태와 실원문/실제 홈택스 payload 가 같은 뜻처럼 섞여 쓰이지 않는다.
 - [ ] 지점 관리자가 자기 지점 자료 제출 상태를 보는 것과 회사 전체 세무 패키지 전체를 보는 것을 같은 권한처럼 섞지 않는다.

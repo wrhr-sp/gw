@@ -1,4 +1,4 @@
-import { getViewerAccessForRoleCode, hasAdminRouteAccess, knownRoleCodes, type RoleCode } from "@gw/shared";
+import { getSensitiveWorkbenchRouteKind, getViewerAccessForRoleCode, hasAdminRouteAccess, hasSensitiveWorkbenchRouteAccess, knownRoleCodes, type RoleCode } from "@gw/shared";
 
 import { getAdminHostInfo, getAdminHostRedirectHost } from "./admin-host";
 
@@ -47,7 +47,10 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/admin" };
   }
 
-  if (!isAdminRoute(pathname)) {
+  const isAdminWorkbenchRoute = isAdminRoute(pathname);
+  const isSensitiveWorkbenchRoute = getSensitiveWorkbenchRouteKind(pathname) !== null;
+
+  if (!isAdminWorkbenchRoute && !isSensitiveWorkbenchRoute) {
     return { action: "allow" };
   }
 
@@ -56,7 +59,13 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/login" };
   }
 
-  if (!hostInfo.isAdminHost && hasAdminRouteAccess(pathname, getViewerAccessForRoleCode(roleCode))) {
+  const viewer = getViewerAccessForRoleCode(roleCode);
+
+  if (isSensitiveWorkbenchRoute) {
+    return hasSensitiveWorkbenchRouteAccess(pathname, viewer) ? { action: "allow" } : { action: "redirect", location: "/forbidden" };
+  }
+
+  if (!hostInfo.isAdminHost && hasAdminRouteAccess(pathname, viewer)) {
     const targetHost = getAdminHostRedirectHost(host);
     if (targetHost) {
       return { action: "redirect", location: pathname, targetHost };
@@ -65,7 +74,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/forbidden" };
   }
 
-  if (hostInfo.isAdminHost && hasAdminRouteAccess(pathname, getViewerAccessForRoleCode(roleCode))) {
+  if (hostInfo.isAdminHost && hasAdminRouteAccess(pathname, viewer)) {
     return { action: "allow" };
   }
 

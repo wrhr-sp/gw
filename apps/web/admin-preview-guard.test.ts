@@ -2,12 +2,20 @@ import { describe, expect, it } from "vitest";
 import { getAdminRouteGuardResult } from "./admin-preview-guard";
 
 describe("admin preview guard", () => {
-  it("redirects anonymous general-host admin routes to login", () => {
+  it("redirects anonymous general-host admin and management routes to login", () => {
     expect(getAdminRouteGuardResult({ pathname: "/admin", host: "gw-web.preview.workers.dev" })).toEqual({
       action: "redirect",
       location: "/login",
     });
     expect(getAdminRouteGuardResult({ pathname: "/admin/users", host: "localhost:3000" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/management", host: "gw-web.preview.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/work-items/legal", host: "localhost:3000" })).toEqual({
       action: "redirect",
       location: "/login",
     });
@@ -51,6 +59,43 @@ describe("admin preview guard", () => {
     });
   });
 
+  it("allows management routes only for designated management roles on ordinary hosts", () => {
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/management",
+        host: "gw-web.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_MANAGER",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items/legal",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/management",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_HR_ADMIN",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items/legal",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_EMPLOYEE",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+  });
+
   it("allows admin routes for admin roles on the admin host but keeps audit logs permission-gated", () => {
     expect(
       getAdminRouteGuardResult({
@@ -85,11 +130,18 @@ describe("admin preview guard", () => {
     ).toEqual({ action: "allow" });
   });
 
-  it("allows auditors only on audit log routes and blocks the rest on the admin host", () => {
+  it("allows auditors only on audit log routes and management routes while blocking the rest on the admin host", () => {
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/audit-logs",
         host: "gw-admin.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_AUDITOR",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/management",
+        host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_AUDITOR",
       }),
     ).toEqual({ action: "allow" });
@@ -125,7 +177,7 @@ describe("admin preview guard", () => {
     });
   });
 
-  it("leaves non-admin routes alone on ordinary hosts", () => {
+  it("leaves non-admin and non-management routes alone on ordinary hosts", () => {
     expect(getAdminRouteGuardResult({ pathname: "/", host: "example.com" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/login", host: "localhost:3000" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });

@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 쌓는 단계다. 실제 운영 데이터 연결보다 다음 구현자가 이어가기 쉬운 Web/API/shared contract/DB migration/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준으로는 Phase 28 세무 관리 1차가 최신 범위이며, Phase 25 공통 업무 엔진 위에 지점별 세무 증빙 요청·제출·마감·검토 skeleton 을 `tax` 모듈로 얹는 작업을 이어간다. 바로 앞 선행 Phase 28A에서는 급여를 독립 `payroll` 모듈로 분리했고, 이번 Phase 28은 다시 공통 `work item` 기반 세무 흐름을 확장하는 단계다.
+현재 문서화 기준으로는 Phase 29 법무 관리 1차가 최신 범위이며, Phase 25 공통 업무 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 얹는 작업을 이어간다. 바로 앞 선행 Phase 28에서는 세무를 `tax` 모듈로 확장했고, 이번 Phase 29는 그 다음 단계로 공통 `work item` 기반 법무 흐름을 확장하는 단계다.
 
 ## Phase 흐름
 
@@ -37,6 +37,7 @@
 - Phase 27: 노무 관리 1차
 - Phase 28A: 급여 foundation / payslip 1차
 - Phase 28: 세무 관리 1차
+- Phase 29: 법무 관리 1차
 
 ## MVP 성공 기준
 
@@ -52,6 +53,6 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-28-tax-management-pass-1-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-28-tax-management-pass-1-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-29-legal-management-pass-1-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-29-legal-management-pass-1-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

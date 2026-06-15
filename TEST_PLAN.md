@@ -300,6 +300,26 @@ pnpm --filter @gw/mobile typecheck
 6. `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 에서 branch scope `work_item_tax_month_end_evidence`, company scope `work_item_tax_vat_package_preparation`, 감사 audit log 경계가 역할별로 붙들려 있는지 본다.
 7. 가능하면 `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 에서 tax copy 와 공통 work item 허브가 회귀 테스트로 고정돼 있는지 본다.
 
+### 1-10-f. Phase 29 법무 관리 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 법무가 독립 포털이 아니라 기존 공통 `work item` 기반 `legal` 모듈로 읽히는가
+2. 공통 상태와 legal intake/renewal/dispute 보조 상태가 섞이지 않고 설명되는가
+3. 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 차이가 같은 권한 언어로 설명되는가
+4. 위탁운영/임대차/용역/협력사/개인정보처리위탁/분쟁/클레임/보험 범주가 하나의 제품 언어로 정리돼 있는가
+5. 계약 metadata 와 실원문/외부 자문 연동이 구분돼 approval gate 원칙이 유지되는가
+6. 노무/세무/급여 문맥과 법무 검토 책임이 같은 모듈처럼 섞이지 않는가
+7. `/management` 와 `/work-items/legal` 가 민감 법무 진입점으로 같은 확인 포인트를 가리키는가
+
+빠른 확인 순서:
+1. `/work-items` 에서 공통 업무 허브에 법무가 빠지고, `/management` 분리 진입이 따로 안내되는지 본다.
+2. `/management` 와 `/work-items/legal` 에서 법무 category, role split, 승인 게이트 문구가 바로 보이는지 본다.
+3. `GET /api/work-items?module=legal` placeholder 응답에서 `category`, `status`, `viewerScope`, 계약 검토/갱신/분쟁 설명이 읽히는지 본다.
+4. `GET /api/work-items/:id/reviews` 에서 내부 검토/보완 요청/승인 대기가 공통 review 단계로 설명되는지 본다.
+5. `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 에서 company scope `work_item_legal_contract_review`, branch scope `work_item_legal_contract_renewal`, company scope `work_item_legal_dispute_intake`, legal audit/attachment 경계가 역할별로 붙들려 있는지 본다.
+6. 가능하면 `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx`, `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 에서 legal 분리 copy, 경영업무 진입, route guard 가 회귀 테스트로 고정돼 있는지 본다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash

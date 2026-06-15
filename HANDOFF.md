@@ -18,13 +18,16 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 28 세무 관리 1차다. Phase 25 공통 `work item` 엔진 위에 지점별 세무 자료 요청·증빙 제출·월말 마감·검토·세무사 전달용 패키지 준비 skeleton 을 `tax` 모듈로 올리는 것이 이번 체인의 핵심이다.
+현재 활성 흐름은 Phase 29 법무 관리 1차다. Phase 25 공통 `work item` 엔진 위에 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 후속 skeleton 을 `legal` 모듈로 올리는 것이 이번 체인의 핵심이다.
 
 현재 상태 요약:
 
 - planner/builder 초기 초안 단계는 지나갔고, 현재는 실제 shared contract/API/Web/test 근거까지 반영된 Phase 28 문서 정리 기준으로 본다.
 - 문서에서 바로 따라가야 할 대표 fixture 는 `work_item_tax_month_end_evidence`(지점 제출 branch scope) 와 `work_item_tax_vat_package_preparation`(HQ 전달 패키지 company scope) 2개다.
 - 직전 재검증 기준으로 `/work-items`, `/work-items/tax`, `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 와 focused test/Cloudflare build/local preview smoke 까지 모두 통과한 상태를 기준으로 문서를 읽는다.
+- 이번 planner 카드는 그 위에서 Phase 29 법무 범위/가드레일/구현 handoff 를 먼저 고정하는 카드다.
+- 현재 저장소 legal fixture 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이며, 구현 전 기준은 `/management`, `/work-items/legal`, `/api/work-items?module=legal`, `/api/work-items/:id/reviews`, 관련 role boundary 테스트다.
+- 이번 문서의 목적은 현재 placeholder 를 전체 구현 완료처럼 과장하지 않고, builder/reviewer/tester가 같은 계약 검토/갱신/분쟁 언어를 쓰게 만드는 것이다.
 
 현재 기획/구현 상태 요약:
 
@@ -35,6 +38,25 @@
 - 세무사 전달은 실제 외부 전송이 아니라 전달용 패키지 준비 상태를 정리하는 단계로만 본다.
 - 실제 홈택스 제출, 회계프로그램/세무사 외부 연동, 실세무 원문 업로드, production 세무 데이터 입력은 이번 단계에서도 승인 게이트다.
 - 우선 참고 문서: `docs/architecture/phase-28-tax-management-pass-1-scope.md`, `docs/guides/phase-28-tax-management-pass-1-handoff.md`, `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`, `docs/guides/phase-28a-payroll-foundation-payslip-pass-1-handoff.md`.
+
+2026-06-15 Phase 29 기획 메모:
+
+- 이번 Phase의 목적은 실제 외부 법무/계약 원문 시스템이 아니라 `legal` 모듈 안에서 계약 검토 요청/계약 갱신/분쟁 후속 자리를 먼저 고정하는 것이다.
+- 법무 종류 차이는 `contract_review`, `contract_renewal`, `hotel_management_agreement`, `lease_agreement`, `service_agreement`, `partner_agreement`, `personal_data_processing_agreement`, `dispute_intake`, `claim_response`, `insurance_case`, `incident_legal_follow_up` 같은 category 확장으로 먼저 본다.
+- 주 상태는 계속 공통 상태(`draft` → `todo` → `in_progress` → `waiting_review` → `blocked` → `done` → `archived`)를 쓰고, 법무 intake/갱신/분쟁 의미는 `intakeStatus`, `renewalStatus`, `disputeStatus`, `approvalGate` 같은 보조 필드 후보로 푼다.
+- 본사 법무/운영 담당은 여러 지점 계약 요청/갱신 예정/분쟁 후속을 더 넓게 보고, 지점 관리자는 자기 지점 관련 요청과 보완 요청만 보며, 감사는 상태 변경/접근 흔적을 read-only 로 본다.
+- 외부 변호사/보험사/기관 전달은 실제 연동이 아니라 승인 게이트와 준비 상태를 정리하는 단계로만 본다.
+- 실제 계약 원문 저장 확대, 외부 변호사/보험사/기관 연동, 실분쟁 원문 업로드, production 법무 데이터 입력은 이번 단계에서도 승인 게이트다.
+- 우선 참고 문서: `docs/architecture/phase-29-legal-management-pass-1-scope.md`, `docs/guides/phase-29-legal-management-pass-1-handoff.md`, `docs/architecture/phase-28-tax-management-pass-1-scope.md`, `docs/guides/phase-28-tax-management-pass-1-handoff.md`.
+
+2026-06-15 Phase 29 빠른 확인 순서:
+
+- `/work-items` — 공통 업무 허브에서 법무가 빠지고 일반 업무 entry 만 남는지 본다.
+- `/management` — 경영업무 허브에서 민감 모듈 진입과 허용 역할 안내가 분리되는지 본다.
+- `/work-items/legal` — 법무 category, 본사 법무/운영 담당/지점 관리자/감사 visibility, 승인 게이트 문구를 본다.
+- `/api/work-items?module=legal` — 법무 목록에서 category, 계약 검토/갱신/분쟁 설명이 읽히는지 본다.
+- `/api/work-items/:id/reviews` — 내부 검토/보완 요청/승인 대기가 공통 review skeleton 으로 남는지 본다.
+- `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` — legal visibility 와 role boundary 가 회귀 테스트로 남아 있는지 본다.
 
 2026-06-15 Phase 28 빠른 확인 순서:
 
@@ -100,8 +122,8 @@
 - `packages/shared/src/contracts.ts` 는 이제 `appRoutes.workItems` 와 work item/document/attachment/review/deadline/audit schema·response type 을 export 한다.
 - `packages/shared/src/admin-access.ts` 는 공통 업무 읽기/관리/검토/마감/감사 권한을 역할 매트릭스에 연결한다.
 - `apps/api/src/app.ts` 는 회사/지점/역할 scope 를 설명하는 placeholder work item 데이터와 `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` read-only skeleton route 를 제공한다.
-- `apps/web/app/work-items/*` 와 `apps/web/dashboard-page-content.tsx`, `apps/web/app/dashboard/dashboard-config.ts`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/menu/page.tsx` 는 공통 업무 허브와 HR/세무/노무/법무/지점 업무 자리를 모바일/웹에서 실제 route 로 확인하게 만든다.
-- 현재 재검증 근거는 `pnpm typecheck`, `pnpm test`, `pnpm build` 통과이며, 특히 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` 가 공통 업무 엔진의 역할별 가시 범위·민감 첨부 제한·audit 비노출·메뉴/허브 연결을 붙들고 있다. 새 화면 route 는 `/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch` 다.
+- `apps/web/app/work-items/*` 와 `apps/web/dashboard-page-content.tsx`, `apps/web/app/dashboard/dashboard-config.ts`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/menu/page.tsx`, `apps/web/app/management/page.tsx` 는 공통 업무 허브와 HR/세무/노무/지점 업무, 그리고 분리된 경영업무 진입을 모바일/웹에서 실제 route 로 확인하게 만든다.
+- 현재 재검증 근거는 `pnpm typecheck`, `pnpm test`, `pnpm build` 통과이며, 특히 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx`, `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 가 공통 업무 엔진의 역할별 가시 범위·민감 첨부 제한·audit 비노출·메뉴/허브 연결·경영업무 route guard 를 붙들고 있다. 새 화면 route 는 `/work-items`, `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/management`, `/work-items/legal`, `/work-items/branch` 다.
 
 2026-06-13 Phase 24 기획 메모:
 

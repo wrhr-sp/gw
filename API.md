@@ -67,6 +67,7 @@
 | Phase 25 공통 업무 엔진 | `/api/work-items`, `/api/work-items/:id`, `/api/work-items/:id/documents`, `/api/work-items/:id/attachments`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | placeholder read-only 유지, 역할/지점 scope 차단, 민감 첨부 metadata-only, `work_item.audit.read` 없는 audit 비노출 |
 | Phase 28 세무 관리 | `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | tax도 공통 work item 기반 유지, 지점 제출 vs HQ 검토 분리, metadata-only 세무 자료, 실제 홈택스/외부 전송 미포함 |
 | Phase 28A 급여 foundation | `/api/payroll`, `/api/payroll/periods/:id`, `/api/payroll/me/payslip` | `payroll*Schema`, `apps/api/test/auth-org.spec.ts` | preview 금액과 확정값 분리, employee self-only payslip, manager/hq visibility 분리, 외부 급여/세무 연동 미포함 |
+| Phase 29 법무 관리 | `/api/work-items?module=legal`, `/api/work-items/:id/reviews` | `workItem*Schema`, `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` | legal도 공통 work item 기반 유지, 지점 요청 vs HQ 법무 검토 분리, metadata-only 계약/분쟁 자료, 실제 외부 자문/기관 제출 미포함 |
 
 ## 1. Health/Auth
 
@@ -1113,6 +1114,64 @@ guardrail:
 
 승인 게이트:
 - 실제 홈택스 제출, 세무사 메일 발송, 회계프로그램/외부 세무 계정 연동, 실세무 원문 업로드 확대는 이 API 범위가 아니다.
+
+근거:
+- `packages/shared/src/contracts.ts`
+- `apps/api/src/app.ts`
+- `apps/api/test/work-items.spec.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+## 8-A. Phase 29 법무 관리 API 메모
+
+이 단계의 법무 API 는 실제 계약 원문 저장/외부 자문 전달 API 가 아니라, 계약 검토 요청·계약 갱신일·분쟁/클레임/보험/사고 후속을 공통 `work item` 기반 same-origin placeholder 로 보여 주는 묶음이다.
+
+### `GET /api/work-items?module=legal`
+
+목적:
+- 법무 work item 목록, category, 계약 유형, 갱신 예정 여부, 역할별 안내를 한 번에 보여 준다.
+
+대표 응답:
+- `items`
+- `module: "legal"`
+- `category`
+- `status`
+- `dueAt`
+- `access`
+- `legalContext`
+- `placeholder: true`
+
+현재 확인 포인트:
+- 현재 저장소 대표 fixture 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이다.
+- 법무 종류 차이는 `contract_review`, `contract_renewal`, `hotel_management_agreement`, `lease_agreement`, `service_agreement`, `partner_agreement`, `personal_data_processing_agreement`, `dispute_intake`, `claim_response`, `insurance_case`, `incident_legal_follow_up` 같은 category 확장 방향으로 읽힌다.
+- 본사 법무/운영 담당은 여러 지점 계약 요청과 갱신/분쟁 후속 상태를 넓게 본다.
+- 지점 관리자는 자기 지점 관련 요청/보완 요청 문맥만 본다.
+- 감사 사용자는 상태 변경/접근 흔적 중심 read-only 안내를 본다.
+- 실제 응답의 `legalContext` 는 `intakeStatus`, `contractType`, `renewalStatus`, `renewalDueAt`, `disputeStatus`, `externalCounselStatus`, `sensitiveDocumentStatus`, `relatedBranchRequests`, `documentSummary`, `reviewActors`, `approvalGate`, `visibility`, `auditHints` 를 포함한다.
+
+guardrail:
+- 법무 목록 상태를 실제 계약 체결 완료나 외부 자문 완료로 설명하지 않는다.
+- 지점 관리자가 company-wide 민감 계약/분쟁 자료 전체를 보는 API처럼 문서화하지 않는다.
+
+### `GET /api/work-items/:id/reviews`
+
+목적:
+- 본사 법무/운영 담당 검토, 지점 보완 요청, 감사용 상태 변경 흔적을 공통 review skeleton 으로 보여 준다.
+
+대표 응답:
+- `reviews`
+- `status`
+- `requestedChanges`
+- `roleGuidance`
+- `placeholder: true`
+
+현재 확인 포인트:
+- 보완 요청/승인 대기가 실제 외부 회신이나 기관 제출 결과가 아니라 내부 검토 단계임을 숨기지 않는다.
+- review actor 는 본사 법무/운영 담당 / 지점 관리자 / 감사 역할 차이를 읽히게 해야 한다.
+- 계약/분쟁 자료 원문보다 metadata 중심 변경 이력과 상태 설명을 우선한다.
+- contract review 카드와 추후 dispute/renewal 카드가 같은 route 구조를 쓰더라도, 실제 열람 범위는 role/branch/company 경계로 계속 갈린다.
+
+승인 게이트:
+- 실제 계약 원문 저장 확대, 외부 변호사 메일 발송, 보험사/기관 제출 연동, 실분쟁 자료 업로드 확대는 이 API 범위가 아니다.
 
 근거:
 - `packages/shared/src/contracts.ts`

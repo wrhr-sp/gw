@@ -14,9 +14,16 @@ import {
   dashboardWaitingCards,
   dashboardWorkItemCards,
   type DashboardAdminShortcut,
+  type DashboardManagementCard,
 } from "./app/dashboard/dashboard-config";
 
-export function DashboardPageContent({ adminShortcut }: { adminShortcut: DashboardAdminShortcut | null }) {
+export function DashboardPageContent({
+  adminShortcut,
+  managementCards,
+}: {
+  adminShortcut: DashboardAdminShortcut | null;
+  managementCards: readonly DashboardManagementCard[];
+}) {
   return (
     <PageShell
       backHref="/"
@@ -117,7 +124,7 @@ export function DashboardPageContent({ adminShortcut }: { adminShortcut: Dashboa
 
       <SurfaceSection
         title="공통 업무 엔진 진입"
-        description="HR·세무·노무·법무·지점 업무를 개별 앱처럼 흩뿌리지 않고 공통 work item, 문서, 마감, 권한 설명 구조로 먼저 묶습니다."
+        description="HR·세무·노무·지점 업무를 개별 앱처럼 흩뿌리지 않고 공통 work item, 문서, 마감, 권한 설명 구조로 먼저 묶습니다."
       >
         <div className="grid-auto-compact">
           {dashboardWorkItemCards.map((card) => (
@@ -130,6 +137,24 @@ export function DashboardPageContent({ adminShortcut }: { adminShortcut: Dashboa
           ))}
         </div>
       </SurfaceSection>
+
+      {managementCards.length > 0 ? (
+        <SurfaceSection
+          title="경영업무 분리 진입"
+          description="법무 같은 민감 운영 모듈은 일반 직원용 메뉴/허브와 섞지 않고 지정 관리자·담당자만 별도 영역에서 확인합니다."
+        >
+          <div className="grid-auto-compact">
+            {managementCards.map((card) => (
+              <article key={card.href} className="info-card">
+                <Pill tone="warning">{card.roleScope}</Pill>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+                <a href={card.href}>{card.href}</a>
+              </article>
+            ))}
+          </div>
+        </SurfaceSection>
+      ) : null}
 
       <Phase16PilotPanel
         description="대시보드는 핵심 업무 route, 협업 route, 내 정보 확인, 관리자 route 를 한 화면에서 묶어 사내 검토용 초안의 시작점으로 사용합니다."

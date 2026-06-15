@@ -55,6 +55,8 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_labor_overtime_review",
           "work_item_labor_leave_balance_adjustment",
           "work_item_legal_contract_review",
+          "work_item_legal_contract_renewal",
+          "work_item_legal_dispute_intake",
           "work_item_branch_daily_report",
         ],
       },
@@ -79,6 +81,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_hr_branch_training_followup",
           "work_item_tax_month_end_evidence",
           "work_item_labor_overtime_review",
+          "work_item_legal_contract_renewal",
         ],
       },
       {
@@ -99,6 +102,8 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "work_item_labor_grievance_intake",
           "work_item_labor_discipline_review",
           "work_item_legal_contract_review",
+          "work_item_legal_contract_renewal",
+          "work_item_legal_dispute_intake",
           "work_item_branch_daily_report",
         ],
       },
@@ -211,11 +216,40 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
     expect(auditorPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_tax_package_ready"]);
   });
 
+  it("exposes legal metadata while keeping company-only and branch-visible legal boundaries separated", async () => {
+    const managerResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_legal_contract_renewal"));
+    expect(managerResponse.status).toBe(200);
+    const managerPayload = workItemDetailResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.data.item.access.viewerScope).toBe("branch");
+    expect(managerPayload.data.item.legalContext?.renewalStatus).toBe("upcoming");
+    expect(managerPayload.data.item.legalContext?.visibility.branchManager).toContain("자기 지점");
+    expect(managerPayload.data.auditLogs).toEqual([]);
+
+    const managerCompanyScopeResponse = await requestAs("MANAGER", appRoutes.workItems.detail("work_item_legal_contract_review"));
+    expect(managerCompanyScopeResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await managerCompanyScopeResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const companyAdminResponse = await requestAs("COMPANY_ADMIN", appRoutes.workItems.detail("work_item_legal_dispute_intake"));
+    expect(companyAdminResponse.status).toBe(200);
+    const companyAdminPayload = workItemDetailResponseSchema.parse(await companyAdminResponse.json());
+    expect(companyAdminPayload.data.item.legalContext?.disputeStatus).toBe("response_preparing");
+    expect(companyAdminPayload.data.item.legalContext?.approvalGate.stage).toBe("external_counsel");
+    expect(companyAdminPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_dispute_gate"]);
+
+    const auditorResponse = await requestAs("AUDITOR", appRoutes.workItems.detail("work_item_legal_dispute_intake"));
+    expect(auditorResponse.status).toBe(200);
+    const auditorPayload = workItemDetailResponseSchema.parse(await auditorResponse.json());
+    expect(auditorPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_dispute_gate"]);
+  });
+
   it("keeps sensitive work-item documents and attachments available only to explicitly allowed roles", async () => {
     const hrDocumentRoute = appRoutes.workItems.documents("work_item_hr_onboarding_packet");
     const hrAttachmentRoute = appRoutes.workItems.attachments("work_item_hr_onboarding_packet");
     const grievanceDocumentRoute = appRoutes.workItems.documents("work_item_hr_grievance_triage");
     const grievanceAttachmentRoute = appRoutes.workItems.attachments("work_item_hr_grievance_triage");
+    const legalContractDocumentRoute = appRoutes.workItems.documents("work_item_legal_contract_review");
+    const legalContractAttachmentRoute = appRoutes.workItems.attachments("work_item_legal_contract_review");
+    const legalRenewalDocumentRoute = appRoutes.workItems.documents("work_item_legal_contract_renewal");
 
     const companyAdminDocuments = workItemDocumentsResponseSchema.parse(await (await requestAs("COMPANY_ADMIN", hrDocumentRoute)).json());
     expect(companyAdminDocuments.data.items.map((item) => item.id)).toEqual(["widoc_hr_onboarding_checklist"]);
@@ -233,6 +267,18 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
     expect(hrAdminGrievanceAttachments.data.items.map((item) => item.id)).toEqual(["wiatt_hr_grievance_packet"]);
     expect(hrAdminGrievanceAttachments.data.items[0]?.sensitivityLabel).toBe("restricted");
 
+    const legalCompanyAdminDocuments = workItemDocumentsResponseSchema.parse(await (await requestAs("COMPANY_ADMIN", legalContractDocumentRoute)).json());
+    expect(legalCompanyAdminDocuments.data.items.map((item) => item.id)).toEqual(["widoc_legal_contract_review_summary"]);
+    expect(legalCompanyAdminDocuments.data.items[0]?.containsSensitiveData).toBe(true);
+
+    const legalAuditorAttachments = workItemAttachmentsResponseSchema.parse(await (await requestAs("AUDITOR", legalContractAttachmentRoute)).json());
+    expect(legalAuditorAttachments.data.items.map((item) => item.id)).toEqual(["wiatt_legal_contract_packet"]);
+    expect(legalAuditorAttachments.data.items[0]?.sensitivityLabel).toBe("restricted");
+
+    const legalManagerRenewalDocuments = workItemDocumentsResponseSchema.parse(await (await requestAs("MANAGER", legalRenewalDocumentRoute)).json());
+    expect(legalManagerRenewalDocuments.data.items.map((item) => item.id)).toEqual(["widoc_legal_renewal_tracker"]);
+    expect(legalManagerRenewalDocuments.data.items[0]?.visibility).toBe("branch");
+
     const grievanceCompanyAdminDocumentsResponse = await requestAs("COMPANY_ADMIN", grievanceDocumentRoute);
     expect(grievanceCompanyAdminDocumentsResponse.status).toBe(403);
     expect(errorResponseSchema.parse(await grievanceCompanyAdminDocumentsResponse.json()).error.code).toBe("FORBIDDEN");
@@ -244,6 +290,10 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
     const managerDocumentsResponse = await requestAs("MANAGER", hrDocumentRoute);
     expect(managerDocumentsResponse.status).toBe(403);
     expect(errorResponseSchema.parse(await managerDocumentsResponse.json()).error.code).toBe("FORBIDDEN");
+
+    const legalManagerCompanyScopeDocumentResponse = await requestAs("MANAGER", legalContractDocumentRoute);
+    expect(legalManagerCompanyScopeDocumentResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await legalManagerCompanyScopeDocumentResponse.json()).error.code).toBe("FORBIDDEN");
 
     const employeeAttachmentsResponse = await requestAs("EMPLOYEE", hrAttachmentRoute);
     expect(employeeAttachmentsResponse.status).toBe(403);
@@ -282,6 +332,9 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "wideadline_hr_branch_training",
           "wideadline_tax_month_end",
           "wideadline_tax_vat_package",
+          "wideadline_legal_contract_review",
+          "wideadline_legal_contract_renewal",
+          "wideadline_legal_dispute_intake",
           "wideadline_branch_daily_close",
         ],
       },
@@ -297,7 +350,7 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
       },
       {
         role: "MANAGER",
-        deadlineIds: ["wideadline_hr_branch_training", "wideadline_tax_month_end"],
+        deadlineIds: ["wideadline_hr_branch_training", "wideadline_tax_month_end", "wideadline_legal_contract_renewal"],
       },
       {
         role: "EMPLOYEE",
@@ -311,6 +364,9 @@ describe("Phase 26 HR meeting work-item API permission boundaries", () => {
           "wideadline_hr_branch_training",
           "wideadline_tax_month_end",
           "wideadline_tax_vat_package",
+          "wideadline_legal_contract_review",
+          "wideadline_legal_contract_renewal",
+          "wideadline_legal_dispute_intake",
           "wideadline_branch_daily_close",
         ],
       },
