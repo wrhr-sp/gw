@@ -56,7 +56,15 @@ const bridgeNotes = [
   "권한 부족: approval.document.approve 권한이 없으면 승인함 대신 내 문서함 중심으로 제한합니다.",
   "회사/문서 범위: 같은 회사 문서이면서 기안자/승인자/참조자에게만 상세를 허용합니다.",
   "정책 연결: 팀장 승인 권한과 운영 관리자 권한을 같은 것으로 보지 않고 /admin/users 설명과 분리합니다.",
+  "replay 차단: 한 번 승인/반려된 문서는 같은 단계에서 다시 성공 처리하지 않습니다.",
   "placeholder 제한: 실제 발송/저장 없이 self-approval guardrail 과 audit candidate 만 먼저 확인합니다.",
+] as const;
+
+const collaborationRoutes = [
+  "`/dashboard` 에서 승인 대기 먼저 확인",
+  "필요 시 `/boards` 에서 공지/협업 글 맥락 확인",
+  "첨부·참조 문서는 `/documents` 권한 경계 안에서만 열람",
+  "양식/결재선 운영 정책은 `/admin/policies` 에서 별도 검토",
 ] as const;
 
 const guardrailCards = [
@@ -73,7 +81,7 @@ const guardrailCards = [
   {
     tone: "default" as const,
     title: "회사 scope / unknown id 차단",
-    body: "forged·unknown document id, 회사 scope 밖 문서는 상세/승인 성공처럼 처리하지 않습니다.",
+    body: "forged·unknown document id, 회사 scope 밖 문서, replay 시도는 상세/승인 성공처럼 처리하지 않습니다.",
   },
   {
     tone: "warning" as const,
@@ -85,9 +93,9 @@ const guardrailCards = [
 export default function ApprovalsPage() {
   return (
     <PageShell
-      eyebrow="Phase 33 전자결재 실사용 UAT"
+      eyebrow="Phase 41 일상 협업 결재 도입"
       title="전자결재"
-      description="기안자와 승인자 레인을 분리해 보여 주고, same-origin API 기준으로 기안·승인·반려 preview 와 guardrail 을 직접 확인할 수 있게 정리했습니다."
+      description="기안자 lane, 승인자 lane, 운영 정책 lane 을 분리해 보여 주고, same-origin API 기준으로 기안·승인·반려 preview 와 self-approval/replay guardrail 을 직접 확인할 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="승인 placeholder" hint="실제 승인 처리는 self-approval guardrail 과 회사 범위 검증이 연결된 뒤에만 활성화됩니다." />
@@ -155,6 +163,14 @@ export default function ApprovalsPage() {
       <SurfaceSection title="운영 경계 / 차단 이유" description="팀장, 일반 구성원, 운영 관리자가 같은 차단 이유를 같은 말로 읽도록 맞춥니다.">
         <ul className="summary-list">
           {bridgeNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="협업 흐름 연결" description="전자결재는 `/dashboard` 에서 시작하는 협업 레인의 일부이며 운영 정책 화면과 책임을 섞지 않습니다.">
+        <ul className="summary-list">
+          {collaborationRoutes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

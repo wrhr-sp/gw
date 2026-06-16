@@ -51,46 +51,46 @@ export const dashboardTopBadges = ["today-first", "dev-safe summary", "small-scr
 
 export const dashboardActionCards: DashboardActionCard[] = [
   {
+    href: "/approvals",
+    title: "승인 대기 먼저 보기",
+    body: "일상 협업 시작점에서 내가 지금 처리할 결재와 팀 병목 후보를 먼저 확인합니다.",
+    detail: "내 승인함 우선, self-approval/replay guardrail 확인, 운영 정책 저장과 분리",
+  },
+  {
+    href: "/boards",
+    title: "공지/게시판 확인",
+    body: "승인 다음 단계에서 읽어야 할 공지와 일반 협업 게시글 진입점을 바로 확인합니다.",
+    detail: "notice-only 책임 분리, 댓글/읽음 확인/forged 차단은 상세에서 이어짐",
+  },
+  {
+    href: "/documents",
+    title: "문서 공간 확인",
+    body: "게시판 다음 단계에서 최근 문서 공간과 내부 보관 문서를 같은 협업 흐름으로 확인합니다.",
+    detail: "public/private space 경계, metadata-only, 읽음 확인 허용 범위를 분리",
+  },
+  {
+    href: "/me",
+    title: "내 정보 마무리 확인",
+    body: "협업 화면 뒤에 내 세션, 역할, 회사 정보와 보안 안내를 확인하는 마무리 흐름입니다.",
+    detail: "개인 세션 요약 뒤 /org, /employees 읽기 전용 조회로 이어짐",
+  },
+  {
     href: "/attendance",
-    title: "출퇴근 먼저",
-    body: "오늘 근태 상태와 마지막 기록을 먼저 보고 바로 출근/퇴근 화면으로 이동합니다.",
+    title: "출퇴근 상태 점검",
+    body: "협업 우선 확인 뒤 오늘 근태 상태와 마지막 기록, 정정 필요 여부를 다시 확인합니다.",
     detail: "마지막 기록, 정정 필요 여부, 온라인에서만 상태 변경",
   },
   {
     href: "/leave",
     title: "휴가 잔여와 신청 확인",
-    body: "출퇴근 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
+    body: "근태 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
     detail: "잔여 snapshot, 신청 placeholder, 승인 저장은 별도 검증 후",
   },
   {
     href: "/payroll",
     title: "급여 수집/명세 초안 확인",
-    body: "근태·휴가 다음 단계에서 급여 자료 수집 상태, 지급 예정 기간, 내 명세서 초안을 분리해서 확인합니다.",
+    body: "마지막으로 급여 자료 수집 상태, 지급 예정 기간, 내 명세서 초안을 분리해서 확인합니다.",
     detail: "실정산/세액 확정 없이 preview 중심, 역할별 공개 범위 분리",
-  },
-  {
-    href: "/approvals",
-    title: "승인 대기 확인",
-    body: "내 승인 대기와 팀/결재 병목 후보를 먼저 읽고 approvals 상세 화면으로 이동합니다.",
-    detail: "승인함 우선, 보완/반려 확인, 실제 처리 저장은 제외",
-  },
-  {
-    href: "/boards",
-    title: "공지/게시판 읽기",
-    body: "읽어야 할 공지와 게시판 진입점을 상단 흐름에서 바로 확인하고 상세는 게시판에서 이어집니다.",
-    detail: "notice-only 톤 유지, 상세 읽기/작성 흐름은 /boards 에서 분리",
-  },
-  {
-    href: "/documents",
-    title: "문서 공간 확인",
-    body: "최근 문서 공간과 문서함 진입점을 상단 흐름에 포함해 문서 확인 동선을 끊지 않습니다.",
-    detail: "문서 공간/첨부 metadata 읽기 중심, 운영 업로드 완료처럼 과장 금지",
-  },
-  {
-    href: "/me",
-    title: "내 정보 다시 확인",
-    body: "협업 화면 뒤에 내 세션, 역할, 회사 정보와 보안 안내를 확인하는 마무리 흐름입니다.",
-    detail: "개인 세션 요약 뒤 /org, /employees 조회로 이어짐",
   },
 ];
 
@@ -139,15 +139,15 @@ export const dashboardStatusCards: DashboardStatusCard[] = [
 export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
   {
     role: "일반 직원",
-    firstRoute: "/attendance",
-    summary: "오늘 상태를 먼저 보고 근태와 휴가, 전자결재를 순서대로 이어서 처리합니다.",
-    detail: "관리자 CTA 는 숨기고 공지/문서 뒤에 /me, /org, /employees 조회로 연결",
+    firstRoute: "/dashboard",
+    summary: "대시보드에서 승인 대기, 공지/게시판, 문서 공간, 내 정보를 먼저 읽고 필요한 업무 화면으로 이어집니다.",
+    detail: "관리자 CTA 는 숨기고 협업 우선 흐름 뒤에 /attendance, /leave, /me, /org, /employees 조회로 연결",
   },
   {
     role: "팀장 / 결재자",
     firstRoute: "/dashboard",
-    summary: "같은 허브에서 시작하되 승인 대기와 팀 병목 요약을 더 먼저 확인합니다.",
-    detail: "필요 시 /leave, /employees 에서 일정과 인원 상태를 참고",
+    summary: "같은 허브에서 시작하되 승인 대기와 팀 병목 요약을 가장 먼저 확인합니다.",
+    detail: "필요 시 /boards, /documents, /leave, /employees 에서 판단 근거를 보조로 확인",
   },
   {
     role: "인사 / 운영 관리자",

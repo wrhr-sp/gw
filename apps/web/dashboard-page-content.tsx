@@ -41,7 +41,7 @@ export function DashboardPageContent({
       backLabel="홈으로"
       eyebrow="Phase 31 홈 실사용 UAT"
       title="홈 / 대시보드"
-      description="오늘 할 일, 휴가/승인 대기, 공지·문서 진입, 내 정보와 일반 조회, 관리자 운영 검토 레인을 한 화면에서 바로 눌러볼 수 있게 다시 정리한 홈 화면입니다."
+      description="승인 대기, 공지·게시판, 문서 공간, 내 정보 같은 일상 협업 업무를 먼저 읽고, 근태·휴가·급여와 운영 검토 레인을 뒤에서 보조로 이어 가도록 다시 정리한 홈 화면입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -75,7 +75,7 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="오늘 할 일"
-        description="가장 먼저 눌러야 할 상단 액션 6가지를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정하고, 실제 상태 변경은 각 화면에서만 이어집니다."
+        description="일상 협업 기준 상단 액션을 `/approvals` → `/boards` → `/documents` → `/me` 우선으로 고정하고, 근태·휴가·급여는 그 다음 보조 레인으로 이어집니다. 실제 상태 변경은 각 화면에서만 이어집니다."
       >
         <div className="mobile-summary-grid">
           {dashboardActionCards.map((card) => (

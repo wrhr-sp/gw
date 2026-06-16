@@ -1,3 +1,4 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../_components/phase-16-pilot";
@@ -26,12 +27,18 @@ const composerChecklist = [
   "실제 rich editor 대신 title/bodyPreview 중심 placeholder 입력",
 ] as const;
 
+const collaborationBridgeNotes = [
+  "`/dashboard` 에서 읽을 공지와 일반 게시판 entry 를 먼저 고르고 상세는 `/boards` 에서 이어집니다.",
+  "공지 게시판은 운영 공지 책임, 일반 게시판은 게시글/댓글 협업 entry 라는 책임 차이를 같은 화면에서 유지합니다.",
+  "게시글 생성/댓글 생성/읽음 확인은 각각 `board.post.create`, `board.comment.create`, `read receipt` 감사 후보로 남습니다.",
+] as const;
+
 export default function BoardsPage() {
   return (
     <PageShell
-      eyebrow="Phase 32 게시판 실사용 점검"
+      eyebrow="Phase 41 일상 협업 게시판 도입"
       title="게시판"
-      description="공지/일반 게시판, 게시글 상세, 댓글, 읽음 확인 경계를 모바일에서도 읽기 쉽게 정리하고, 실제 게시판/게시글 목록을 same-origin API로 바로 확인할 수 있게 연결했습니다."
+      description="공지 확인과 일반 협업 글 읽기/작성 시작점을 같은 일상 업무 흐름 안에 두되, notice-only 운영 책임과 댓글·읽음 확인·forged 차단 경계를 분리해서 설명합니다."
       actions={<Pill tone="accent">touch-first reading flow</Pill>}
     >
       <SurfaceSection title="실사용 확인 패널" description="게시판 목록과 자유 게시판 최신 글을 실제 API 응답으로 먼저 확인합니다.">
@@ -59,6 +66,14 @@ export default function BoardsPage() {
         </ol>
       </SurfaceSection>
 
+      <SurfaceSection title="대시보드 연결 / 감사 후보" description="게시판은 단독 기능이 아니라 오늘 협업 흐름 안에 들어가며, 운영 검토용 action 언어도 같이 맞춥니다.">
+        <ul className="summary-list">
+          {collaborationBridgeNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection title="연결할 API" description="모바일 route 와 same-origin /api 경로를 그대로 이어 줍니다." muted>
         <ul className="summary-list">
           <li><a href={appRoutes.boards.notices}>{appRoutes.boards.notices}</a> — 공지형 게시판 목록</li>
@@ -69,7 +84,7 @@ export default function BoardsPage() {
       </SurfaceSection>
 
       <Phase16PilotPanel
-        description="게시판 화면은 공지 전달과 일반 게시판 흐름을 같은 협업 묶음 안에서 보여 주되, notice-only 책임과 운영 권한 경계를 분리해서 설명합니다."
+        description="게시판 화면은 공지 전달과 일반 게시판 흐름을 같은 협업 묶음 안에서 보여 주되, notice-only 책임과 운영 권한 경계, 댓글/읽음 확인 감사 후보를 분리해서 설명합니다."
         confirmItems={[
           "전사 공지는 읽기 중심이며 일반 구성원 글쓰기는 열지 않는다.",
           "자유 게시판은 게시글/댓글/읽음 확인 흐름을 placeholder 로만 검토한다.",

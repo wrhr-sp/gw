@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준 최신 범위는 Phase 40 내부 도입 리허설·관리자/직원 UAT 패키지 fit-gap 정리다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees`, `/admin/users`·`/admin/policies` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었다. 직전 Phase 38에서는 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 그리고 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인을 같은 현장 사용성 언어로 다시 맞췄다. 직전 Phase 39에서는 일반 host 대 admin host 경계, role/permission 차이, company+branch scope, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출을 운영 QA 언어로 다시 고정했다. 이제는 그 위에서 직원/승인자/경영업무 담당자/운영자 레인별 UAT 시나리오, 이슈 분류 기준, 교육자료 초안, 최종 보고 형식을 같은 내부 도입 리허설 언어로 묶는 것이 다음 우선순위다.
+현재 문서화 기준 최신 범위는 Phase 41 게시판·공지·문서·결재 일상업무 도입완성 fit-gap 정리다. 직전 Phase 40에서 `/uat` 실행 패키지, 역할별 UAT 레인, blocker/major/minor/approval-needed 분류, 교육자료 초안, 최종 보고 형식을 먼저 정리했다. 이제는 그 위에서 `/dashboard` 기준 오늘 할 협업 업무, `/approvals` 승인 대기, `/boards` 공지/일반 게시판, `/posts/[postId]` 댓글/읽음/forged 차단, `/documents` 문서 metadata/읽음/space 권한 경계, `/admin/policies`·`/admin/audit-logs` 운영 검토 레인을 같은 일상업무 도입 언어로 다시 묶는 것이 다음 우선순위다.
 
 ## Phase 흐름
 
@@ -49,6 +49,7 @@
 - Phase 38: 모바일·PC 현장 업무 사용성·알림·오프라인 fit-gap
 - Phase 39: 운영 QA·보안·감사·권한 회귀 안정화 fit-gap
 - Phase 40: 내부 도입 리허설·관리자/직원 UAT 패키지 fit-gap
+- Phase 41: 게시판·공지·문서·결재 일상업무 도입완성 fit-gap
 
 ## MVP 성공 기준
 
@@ -64,8 +65,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md`
-- 직전 범위: `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-handoff.md`
+- 직전 범위: `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`
