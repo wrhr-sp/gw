@@ -1,4 +1,4 @@
-import { isLegalManagementRoleCode, type RoleCode } from "@gw/shared";
+import { getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, isLegalManagementRoleCode, type RoleCode } from "@gw/shared";
 
 import { getAdminHostInfo } from "../admin-host";
 
@@ -600,12 +600,25 @@ export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
   return roleCode ? isLegalManagementRoleCode(roleCode) : false;
 }
 
+function filterMenuItemsByRole<T extends { href: string }>(items: readonly T[], roleCode?: RoleCode | null) {
+  if (!roleCode) {
+    return items;
+  }
+
+  const viewer = getViewerAccessForRoleCode(roleCode);
+  return items.filter((item) => hasHomeShortcutRouteAccess(item.href, viewer));
+}
+
 export function getVisibleMobilePrimaryNav(roleCode?: RoleCode | null) {
   return hasManagementMenuAccess(roleCode) ? [...mobilePrimaryNav, ...managementPrimaryNav] : mobilePrimaryNav;
 }
 
 export function getVisibleMobileMenuSections(roleCode?: RoleCode | null) {
-  return hasManagementMenuAccess(roleCode) ? [...mobileMenuSections, ...managementMenuSections] : mobileMenuSections;
+  const visibleSections = hasManagementMenuAccess(roleCode) ? [...mobileMenuSections, ...managementMenuSections] : mobileMenuSections;
+  return visibleSections.map((section) => ({
+    ...section,
+    items: filterMenuItemsByRole(section.items, roleCode),
+  }));
 }
 
 export function getPwaManifestForHost(host?: string | null) {

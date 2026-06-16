@@ -62,6 +62,12 @@ describe("middleware host boundary", () => {
     expect(employeeResponse.status).toBe(307);
     expect(getLocationPath(employeeResponse)).toBe("/forbidden");
 
+    const employeeBranchResponse = middleware(
+      createRequest("/work-items/branch", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"),
+    );
+    expect(employeeBranchResponse.status).toBe(307);
+    expect(getLocationPath(employeeBranchResponse)).toBe("/forbidden");
+
     const managerResponse = middleware(
       createRequest("/management", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
     );

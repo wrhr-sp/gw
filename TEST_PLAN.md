@@ -271,6 +271,63 @@ pnpm --filter @gw/mobile typecheck
 10. `/admin/policies`
 11. `/admin/audit-logs`
 
+### 1-14. Phase 39 쉬운 운영 QA·보안·감사·권한 회귀 판정 질문
+
+최근 Phase 39 parent 재검증 기준 명령:
+
+- `pnpm --filter @gw/web test -- admin-preview-guard.test.ts phase38-offline-admin.test.tsx dashboard-boundary.test.tsx menu-page-content.test.tsx`
+- `pnpm --filter @gw/api test -- auth-org.spec.ts`
+- `pnpm --filter @gw/shared test`
+- `pnpm --filter @gw/shared typecheck`
+- `pnpm --filter @gw/api typecheck`
+- `pnpm --filter @gw/web typecheck`
+- `pnpm --filter @gw/web build`
+- `pnpm check`
+- `pnpm --filter @gw/web build:cf`
+- `pnpm exec wrangler dev --ip 127.0.0.1 --port 8792 && PREVIEW_PORT=8792 BASE_URL=http://127.0.0.1:8792 bash scripts/gw-admin-host-preview-smoke.sh`
+
+이번 재검증에서 문서에 다시 고정할 것:
+
+- 일반 host `/admin` 은 `/login`, admin host `/` 는 `/admin` 으로 redirect boundary 가 유지된다.
+- 일반 host `/offline` 와 admin host `/offline` 는 서로 다른 복구 범위를 유지하고, 운영 레인과 일반 레인을 섞지 않는다.
+- `AUDITOR`/`HR_ADMIN`/`COMPANY_ADMIN`/`MANAGER`/`EMPLOYEE` 차이, foreign/self/company+branch scope 차단, raw storage internals 비노출은 `auth-org.spec.ts` 기준으로 다시 검증됐다.
+- 현재 범위에서는 focused web/API 회귀, shared/api/web typecheck, Next build, Cloudflare build, root `pnpm check`, local admin-host preview smoke 기준 재현 blocker 가 없었다.
+
+현재 Phase 39 기획에서 직접 다시 묶는 핵심 근거:
+
+- `apps/web/admin-preview-guard.ts`
+- `apps/web/middleware.ts`
+- `apps/web/admin-preview-guard.test.ts`
+- `apps/web/phase38-offline-admin.test.tsx`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 일반 host 와 admin host 가 같은 복구/탐색 레인처럼 섞이지 않는가
+2. `/management`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, 민감 work item 이 role/permission/company+branch scope 없이 열리지 않는가
+3. `AUDITOR`, `HR_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `EMPLOYEE` 차이가 같은 관리자 묶음처럼 뭉개지지 않는가
+4. forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않는가
+5. audit detail 과 문서/첨부/민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하는가
+6. 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 가 403 또는 validation 으로 막히는가
+7. external security 연동, production secret·실데이터, custom domain, native release, migration/destructive 작업이 계속 승인 게이트로 남는가
+
+이 7개 질문 중 하나라도 흐리면 Phase 39 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/dashboard`
+2. `/management`
+3. `/admin`
+4. `/admin/users`
+5. `/admin/policies`
+6. `/admin/audit-logs`
+7. `/offline`
+8. `/me`
+9. `apps/web/admin-preview-guard.test.ts`
+10. `apps/web/phase38-offline-admin.test.tsx`
+11. `apps/api/test/auth-org.spec.ts`
+
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
 문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:

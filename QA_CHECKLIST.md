@@ -60,6 +60,12 @@
 - [ ] `/notifications` same-origin inbox/unread count/notices 와 외부 push/메일/SMS 미연결 상태가 같은 화면·문서·API 언어로 유지되고, `/offline` 안내는 가능한 일/막히는 일/재시도 절차를 가짜 성공 UX 없이 보여 준다.
 - [ ] 일반 host `/offline` 는 공용 복구 범위(`/dashboard`, `/menu`, `/notifications`, `/offline`)만 유지하고 운영 route 를 섞지 않는다.
 - [ ] admin host `/offline` 는 관리자 복구 범위(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`)만 유지하고 일반 업무 route 를 섞지 않는다.
+- [ ] 일반 host 와 admin host 의 역할이 문서/화면/route guard/test 설명에서 같은 복구/탐색 레인처럼 섞이지 않는다.
+- [ ] `AUDITOR`, `HR_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `EMPLOYEE` 차이가 문서/코드/테스트에서 같은 관리자 묶음처럼 뭉개지지 않는다.
+- [ ] `/management`, `/admin*`, 민감 work item 설명이 메뉴 노출 여부만이 아니라 route/API guard, permission, capability, company+branch scope 와 같은 뜻으로 적혀 있다.
+- [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
+- [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
+- [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.
