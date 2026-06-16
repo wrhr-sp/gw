@@ -2027,9 +2027,10 @@ describe("Phase 5 boards/documents skeleton", () => {
     const managerDetailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_05"), {
       headers: { cookie: managerCookie },
     });
-    expect(managerDetailResponse.status).toBe(403);
-    const managerDetailPayload = errorResponseSchema.parse(await managerDetailResponse.json());
-    expect(managerDetailPayload.error.code).toBe("FORBIDDEN");
+    expect(managerDetailResponse.status).toBe(200);
+    const managerDetailPayload = payrollPeriodDetailResponseSchema.parse(await managerDetailResponse.json());
+    expect(managerDetailPayload.data.draft.branchLabel).toBe("서울 시티 호텔");
+    expect(managerDetailPayload.data.reviewSteps.every((step) => ["branch_manager", "headquarters_payroll"].includes(step.scope))).toBe(true);
 
     const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
     const payslipResponse = await app.request(appRoutes.payroll.myPayslip, { headers: { cookie: employeeCookie } });

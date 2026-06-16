@@ -42,6 +42,9 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the labor module page with category/restricted guardrails and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsLaborPage />);
 
+    expect(html).toContain("노무 업무 실사용 패널");
+    expect(html).toContain("실사용 노무 패널");
+    expect(html).toContain("guard / 상태 확인 기준");
     expect(html).toContain("노무 업무");
     expect(html).toContain("실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고");
     expect(html).toContain("노무 category 확장");
@@ -56,6 +59,9 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the legal module page with contract/renewal/dispute copy and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsLegalPage />);
 
+    expect(html).toContain("법무 업무 실사용 패널");
+    expect(html).toContain("실사용 법무 패널");
+    expect(html).toContain("company / branch guard");
     expect(html).toContain("법무 업무");
     expect(html).toContain("계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 공통 work item skeleton 안에서 metadata 중심으로 묶습니다.");
     expect(html).toContain("본사 법무/운영 담당 / 지점 관리자 / 감사");
@@ -98,6 +104,10 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("경영업무");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain('href="/work-items/legal"');
+    expect(html).toContain("추천 UAT 순서");
+    expect(html).toContain("/payroll → /payroll/me");
+    expect(html).toContain("/work-items/tax → /work-items/labor → /work-items/legal");
+    expect(html).toContain("컴플라이언스 / 감사 preview");
     expect(html).toContain("일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.");
   });
 });

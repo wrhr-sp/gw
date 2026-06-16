@@ -19,29 +19,29 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 34 인사·지점·알림·감사 운영흐름 실사용화 준비
+### 3. 현재 문서화/검증 기준은 Phase 35 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT 준비
 
-현재 루트 문서와 handoff 는 인사 조회·지점 업무·알림·감사 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 급여·세무·노무·법무·컴플라이언스 관리자 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- `/employees`, `/org` 는 route 진입과 same-origin API, 일부 PostgreSQL read fallback 확인이 가능하지만, richer 검색/상세/운영 후속 UX가 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- `/work-items/branch` 는 branch scope 업무 자리와 권한 차단 근거를 확인할 수 있지만, 독립 `/branches` 나 지점 마스터 운영 UI가 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- `/notifications` 는 same-origin inbox/read 상태/API가 이미 있지만, 외부 발송 연동과 읽음 처리 저장이 아직 닫히지 않았다는 점을 숨기면 안 된다.
-- `/admin/audit-logs` 는 read-only 감사 조회와 필터/마스킹 경계를 확인할 수 있지만, PostgreSQL 실기록 정합성과 richer drill-down 이 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- 권한 부족, 회사 scope 차단, branch scope 차단, placeholder 제한, `audit.read` 전용 허용을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
-- 외부 알림 채널, 민감 인사 원문, 실운영 branch master 변경, raw 감사 원문 노출은 계속 별도 승인 게이트다.
+- `/payroll`, `/payroll/me` 는 route 진입과 same-origin API, 권한 테스트 확인이 가능하지만, 실세액 계산/실지급/외부 신고 연동이 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 은 관리자 모듈 자리와 권한 차단 근거를 확인할 수 있지만, 개별 완성 운영 시스템이 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 흐름으로 읽히지만, dedicated compliance queue 나 richer 조치 workflow 가 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- `db/postgres/migrations/0003_phase35_payroll_workitems_admin.sql` 는 추가됐지만, 각 실행 환경 DB 에 migration 이 실제 적용되기 전까지는 `/api/payroll*`, `/api/work-items*` 가 placeholder + degraded fallback 응답을 계속 사용할 수 있다.
+- self-only, 회사 scope 차단, branch scope 차단, restricted labor/legal, placeholder 제한, `audit.read` 전용 허용을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
+- 실제 급여 지급, 외부 세무/노무/법무/법령 연동, 민감 원문 저장 확대, raw 감사 원문 노출은 계속 별도 승인 게이트다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 34 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 35 단계에서 남아 있는 제품형 리스크
 
-- 일반 조회와 관리자 운영을 같은 말로 쓰면 `/employees`·`/org` 와 `/admin/users`·`/admin/audit-logs` 책임이 흐려질 수 있다.
-- `/notifications` 를 실제 외부 발송 시스템처럼 과장하면 placeholder honesty 가 무너질 수 있다.
-- branch scope 차단, 회사 scope 차단, `audit.read` 전용 허용을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
-- employees/branches/notifications/audit_logs 의 PostgreSQL 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
-- 독립 `/branches` 화면이 아직 없는데 지점 운영이 완성된 것처럼 적으면 후속 구현 범위가 흐려질 수 있다.
-- raw 감사 원문/민감 인사 데이터/외부 알림 연동을 현재 단계 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
+- 급여 preview 와 실급여 운영을 같은 말로 쓰면 `/payroll` 현재 범위가 과장될 수 있다.
+- 세무 마감 skeleton 과 실제 홈택스/외부 세무사 연동을 같은 말로 쓰면 승인 범위가 흐려질 수 있다.
+- labor/legal restricted 경계와 일반 관리자 열람을 같은 말로 쓰면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
+- dedicated compliance route 부재를 숨기고 `/admin/audit-logs` 를 완성 컴플라이언스 조치 시스템처럼 적으면 후속 구현 범위가 흐려질 수 있다.
+- payroll/work-items/audit 의 운영 DB 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
+- raw 급여/노무/법무 원문, 외부 기관 연동, 실운영 지급/신고를 현재 단계 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

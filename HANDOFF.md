@@ -18,36 +18,38 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 34 인사·지점·알림·감사 운영흐름 실사용화 준비다. 직전 Phase 33에서 `/attendance`, `/leave`, `/approvals` 일반 업무 묶음을 먼저 정리했으므로, 이제는 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 를 실제 UAT 언어로 묶어 일반 조회 대 운영 검토 경계, branch scope, placeholder honesty, 감사 read-only 흐름, PostgreSQL 전환 준비 상태를 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
+현재 활성 흐름은 Phase 35 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT 준비다. 직전 Phase 34에서 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 운영흐름을 먼저 정리했으므로, 이제는 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 를 실제 관리자 UAT 언어로 묶어 급여 preview 대 실지급 경계, tax/labor/legal 공통 work item skeleton 경계, compliance 전용 route 부재, 감사 read-only 흐름, 운영 DB 전환 준비 상태를 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
 
 현재 상태 요약:
 
 - `/login`, `/dashboard`, `/management`, `/admin/users` 는 이미 Phase 31 문서로 정리된 입구 영역이다.
-- `/attendance`, `/leave`, `/approvals` 는 이미 직전 Phase 33에서 일반 업무 묶음 기준을 정리했고, 이번 Phase 34는 다시 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 에 집중한다.
-- `apps/api/test/auth-org.spec.ts` 기준으로 employee directory validation, branch scope 차단, `audit.read` 허용/차단 근거가 이미 존재한다.
-- `/employees` 는 직원 카드형 일반 조회, `/org` 는 조직/역할/권한 읽기 전용 조회, `/work-items/branch` 는 branch scope 운영 업무 자리, `/notifications` 는 placeholder honesty, `/admin/audit-logs` 는 read-only 감사 추적 문맥을 실제 route 로 읽는 단계다.
-- `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 일반 조회 화면과 분리된 운영 검토/정책/감사 지점으로 유지한다.
-- 현재 체인은 기획 카드 `t_031a7ba6` → 운영 DB 전환 `t_959f0f18` → 구현 카드 `t_c06b17a6` 순서로 이어진다.
-- 새 기준 문서는 `docs/architecture/phase-34-hr-branch-notifications-audit-real-usage-scope.md`, `docs/guides/phase-34-hr-branch-notifications-audit-real-usage-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 인사·지점·감사 흐름"과 "아직 DB/운영연동/승인 게이트로 남은 것"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 34 언어를 쓰게 만드는 것이다.
+- `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 는 이미 직전 Phase 34에서 운영흐름 기준을 정리했고, 이번 Phase 35는 다시 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 에 집중한다.
+- `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 기준으로 payroll role split, tax branch/company scope, labor restricted, legal visibility, `audit.read`/`work_item.audit.read` 경계 근거가 이미 존재한다.
+- `/management` 는 민감 관리자 허브, `/payroll` 은 급여 preview, `/work-items/tax`·`/work-items/labor`·`/work-items/legal` 은 공통 work item 기반 관리자 업무, `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 추적 문맥을 실제 route 로 읽는 단계다.
+- dedicated `/compliance` route 또는 `module=compliance` 구현 근거는 아직 확인되지 않았고, 현재 컴플라이언스 진입은 `/management` 의 카드와 `/admin/audit-logs` 로 읽는다.
+- 현재 체인은 기획 카드 `t_2e1397d4` → 운영 DB 전환 `t_ce50b30c` → 구현 카드 `t_9a260e35` 순서로 이어진다.
+- 새 기준 문서는 `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`, `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 관리자 급여·세무·노무·법무·감사 흐름"과 "아직 DB/운영연동/승인 게이트로 남은 것"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 35 언어를 쓰게 만드는 것이다.
 
-2026-06-16 Phase 34 fit-gap 메모:
+2026-06-16 Phase 35 fit-gap 메모:
 
-- 바로 사용 가능에 가까운 영역: `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs`, 관련 employee directory/branch scope/notification inbox/`audit.read` 차단 테스트 근거.
-- skeleton 잔여가 큰 영역: `/notifications` 외부 채널/읽음 처리 저장, 독립 `/branches` 또는 지점 마스터 UX, `/employees`·`/org` richer drill-down, audit_logs append 정합성.
-- 다음 우선순위는 employees/branches/notifications/audit_logs PostgreSQL 기준선 정리 → `/employees`·`/org` 일반 조회와 운영 경계 설명 보강 → `/work-items/branch` happy path 보강 → `/notifications` 외부 발송 경계/metadata 정리 → audit read-only UX/DB append 근거 재정리 순서다.
-- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/employees` → `/org` → `/work-items/branch` → `/notifications` → `/admin/audit-logs` 다.
+- 바로 사용 가능에 가까운 영역: `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs`, 관련 payroll/work item/audit 권한 테스트 근거.
+- skeleton 잔여가 큰 영역: 실세액/실지급/외부 신고, tax 직접 신고/외부 세무사 연동, labor/legal 실제 원문 저장, dedicated compliance queue 부재.
+- 다음 우선순위는 payroll/work-items/audit 운영 DB 기준선 정리 → `/payroll`·`/payroll/me` preview/self-only 경계 설명 보강 → `/work-items/tax`·`/labor`·`/legal` happy path 보강 → compliance 전용 route 필요 여부 판단 → audit read-only UX/DB 근거 재정리 순서다.
+- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/management` → `/payroll` → `/payroll/me` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` 다.
 - 테스트 기준 계정은 dev/test/UAT 전용 `admin / 1234` 로 문서화하되 production 금지와 초기 비밀번호 변경/seed 교체 필요를 함께 적는다.
 - 일반 조회 화면과 `경영업무`/감사 허브는 분리 유지하고, 민감 리스크 상세는 지정 관리자/감사 담당자만 보게 한다.
 
-현재 Phase 34 준비 상태 요약:
+현재 Phase 35 준비 상태 요약:
 
-- `/employees`, `/org` 는 same-origin API와 일부 PostgreSQL read fallback 근거가 있고, 일반 조회와 운영 변경 분리 문구가 이미 있다.
-- `/work-items/branch` 는 branch scope 업무 자리가 실제 route 로 존재하고, `apps/api/test/auth-org.spec.ts` 기준 branch manager/company scope 차단 근거가 있다.
-- `/notifications` 는 same-origin inbox/unread count/API 응답이 이미 있고, 외부 발송 없는 placeholder honesty 경계를 함께 보여 준다.
-- `/admin/audit-logs` 는 `audit.read` 기준 필터/타임라인/masked detail/read-only 경계를 이미 읽을 수 있다.
-- 남은 큰 잔여는 notifications 외부 채널/읽음 처리 저장, branch 독립 운영 UX, richer employee/org drill-down, audit_logs PostgreSQL append 정합성, 외부 알림/민감 인사 원문 승인 게이트다.
-- 우선 참고 문서: `docs/architecture/phase-34-hr-branch-notifications-audit-real-usage-scope.md`, `docs/guides/phase-34-hr-branch-notifications-audit-real-usage-handoff.md`, `TASKS.md`, `KNOWN_ISSUES.md`.
+- `/management` 는 급여·세무·노무·법무·감사 진입 카드와 roleScope 문구가 이미 있다.
+- `/payroll`, `/payroll/me` 는 same-origin API와 권한 테스트 근거가 있고, preview/self-only 분리 문구가 이미 있다.
+- `apps/api/src/lib/operational-management.ts` 와 `db/postgres/migrations/0003_phase35_payroll_workitems_admin.sql` 이 추가되어 payroll/work-items metadata 를 PostgreSQL operational 패턴으로 읽을 준비가 됐다. migration 이 적용된 DB 에서는 `/api/payroll*`, `/api/work-items*` 가 DB metadata 를 merge 하고, 아직 테이블이 없는 preview/old DB 에서는 degraded fallback 으로 계속 200 을 유지한다.
+- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 은 공통 work item 기반 route 로 존재하고, `apps/api/test/work-items.spec.ts` 기준 visibility/restricted/scope 차단 근거가 있다.
+- `/admin/audit-logs` 는 `audit.read` 기준 필터/타임라인/masked detail/read-only 경계를 이미 읽을 수 있고, 현재 컴플라이언스 진입을 겸한다.
+- 2026-06-16 parent 재검증 기준으로 Phase 35 focused API/Web 테스트, shared/api/web typecheck, Next/Cloudflare build, root `pnpm check`, local preview smoke 가 다시 통과했다. 문서에 적는 수동 UAT 시작점은 admin host root 가 아니라 일반 host `/dashboard` → `/management` 흐름으로 잡는 편이 정확하다.
+- 남은 큰 잔여는 실급여/외부 신고/이체, tax 직접 신고/외부 세무사 연동, labor/legal 실제 원문 저장, dedicated compliance route 부재, audit richer drill-down 과 운영 DB 정합성이다.
+- 우선 참고 문서: `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`, `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md`, `TASKS.md`, `KNOWN_ISSUES.md`.
 
 2026-06-15 Phase 29 기획 메모:
 

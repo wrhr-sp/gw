@@ -1,6 +1,7 @@
 import React from "react";
 import { appRoutes } from "@gw/shared";
 
+import { PayrollOverviewLiveSection } from "../_components/phase35-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const overviewCards = [
@@ -71,6 +72,10 @@ export default function PayrollPage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 급여 패널" description="급여 overview, 기간 상세, line item preview 를 실제 same-origin API 응답으로 먼저 확인합니다.">
+        <PayrollOverviewLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="실제 급여 계산 완료처럼 과장하지 않고 읽기 중심 구조를 먼저 맞춥니다.">
         <div className="grid-auto-compact">
           {overviewCards.map((card) => (

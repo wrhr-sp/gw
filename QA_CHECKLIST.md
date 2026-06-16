@@ -105,6 +105,14 @@
 - [ ] 급여 `payroll` 의 세액 placeholder 와 세무 `tax` 마감 준비가 같은 모듈/같은 책임처럼 섞여 쓰이지 않는다.
 - [ ] `/payroll` → `/payroll/me` → `/api/payroll` → `/api/payroll/me/payslip` 순서의 쉬운 확인 포인트와 `apps/api/test/auth-org.spec.ts`, `apps/web/payroll.test.tsx` 근거가 같은 뜻이다.
 - [ ] 급여 preview 금액과 실지급 확정값, 원천세/4대보험 placeholder 와 확정 계산값이 같은 말처럼 섞여 쓰이지 않는다.
+- [ ] `/management` → `/payroll` → `/payroll/me` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` 순서의 쉬운 확인 포인트와 `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 근거가 같은 뜻이다.
+- [ ] `/management` 가 일반 직원 홈과 분리된 민감 관리자 허브라는 설명이 문서/화면/route guard 에서 같은 뜻이다.
+- [ ] `/payroll` 의 preview/self-only/role-split 설명과 실급여 운영 승인 게이트가 같은 문단에서 뭉개지지 않는다.
+- [ ] tax branch scope 와 company scope work item 이 같은 세무 모듈 안에서도 다른 열람 범위/책임을 가진다는 설명이 문서와 테스트에서 같게 유지된다.
+- [ ] labor restricted/self-scope/confidentiality 경계와 legal visibility/approval gate 경계가 서로 다른 권한 문맥으로 유지된다.
+- [ ] 현재 dedicated `/compliance` route 또는 `module=compliance` 근거가 없다는 점이 숨겨지지 않고, 컴플라이언스 진입이 `/management` 카드와 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
+- [ ] `/admin/audit-logs` 를 현재 단계에서 완성 compliance 조치 시스템처럼 과장하지 않는다.
+- [ ] 실세액 계산, 실지급, 홈택스/4대보험/회계/노무사/세무사/변호사/법령 API 외부 연동, 민감 원문 저장 확대가 현재 관리자 UAT 완료와 같은 뜻처럼 섞이지 않는다.
 - [ ] Phase 28A 문서와 contract 는 월급제/시급제/일급제/연봉제/포괄임금제 지원 방향을 같은 말로 설명하고, 현재 placeholder 예시가 실제로 무엇을 보여 주는지도 숨기지 않는다.
 - [ ] 급여 line item 설명이 단순 총액이 아니라 `source`·`quantity`·`unitAmount`·`premiumRate`·`amount`·`note` 근거 구조와 같은 뜻이다.
 - [ ] 지점 관리자가 자기 지점 기초자료 제출 상태를 보는 것과 period detail/직원 명세서 상세를 직접 보는 것을 같은 권한처럼 섞지 않는다.

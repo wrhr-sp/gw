@@ -1,6 +1,7 @@
 import React from "react";
 import { appRoutes } from "@gw/shared";
 
+import { PayrollPayslipLiveSection } from "../../_components/phase35-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 
 const summaryCards = [
@@ -52,6 +53,10 @@ export default function PayrollMePage() {
         </div>
       }
     >
+      <SurfaceSection title="실사용 명세서 패널" description="본인 급여명세서 preview 와 self-only guard 를 실제 API 응답으로 먼저 확인합니다.">
+        <PayrollPayslipLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="한눈에 보는 요약" description="직원 화면에서 가장 먼저 보는 정보만 짧게 둡니다.">
         <div className="grid-auto-compact">
           {summaryCards.map((card) => (
