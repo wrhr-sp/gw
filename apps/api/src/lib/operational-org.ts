@@ -1,4 +1,4 @@
-import { permissionCodeSchema, type Department, type Employee, type HomeShortcut, type Permission, type Role, type RoleCode } from "@gw/shared";
+import { permissionCodeSchema, type BranchSummary, type Department, type Employee, type HomeShortcut, type Permission, type Role, type RoleCode } from "@gw/shared";
 import { createOperationalSql, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -87,6 +87,60 @@ export async function listOperationalCompanies(env: PostgresEnv | undefined, com
         : [],
     } satisfies OperationalCompany;
   });
+}
+
+export async function listOperationalBranches(env: PostgresEnv | undefined, companyId: string) {
+  const sql = createOperationalSql(env);
+  if (!sql) {
+    return null;
+  }
+
+  const rows = await sql`
+    select id, company_id, code, name, branch_type, status
+    from branches
+    where company_id = ${companyId}
+      and deleted_at is null
+    order by code, name
+  `;
+
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      company_id: string;
+      code: string;
+      name: string;
+      branch_type: string;
+      status: BranchSummary["status"];
+    };
+
+    return {
+      id: typed.id,
+      companyId: typed.company_id,
+      code: typed.code,
+      name: typed.name,
+      branchType: typed.branch_type,
+      status: typed.status,
+    } satisfies BranchSummary;
+  });
+}
+
+export async function findOperationalEmployeeBranchId(env: PostgresEnv | undefined, companyId: string, employeeId: string) {
+  const sql = createOperationalSql(env);
+  if (!sql) {
+    return null;
+  }
+
+  const rows = await sql`
+    select branch_id
+    from employees
+    where company_id = ${companyId}
+      and id = ${employeeId}
+      and deleted_at is null
+    limit 1
+  `;
+
+  const branchId = (rows[0] as { branch_id: string | null } | undefined)?.branch_id;
+  return branchId ?? null;
 }
 
 export async function listOperationalEmployeeDirectory(env: PostgresEnv | undefined, companyId: string) {

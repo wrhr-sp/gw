@@ -83,6 +83,13 @@
 - [ ] `/attendance` 의 출퇴근/GPS/실단말, `/leave` 의 실급여/실정산, `/approvals` 의 실전자서명/법적 효력/원문 장기보관이 아직 승인 게이트라는 점이 빠지지 않는다.
 - [ ] PostgreSQL 전환 전 상태 설명과 전환 후 구현 목표 설명이 같은 완료 문장으로 섞이지 않는다.
 - [ ] `/admin/policies` 정책 source 설명과 일반 업무 화면의 정책 안내 문구가 서로 다른 뜻으로 풀리지 않는다.
+- [ ] Phase 34 문서에서는 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 가 모두 지금 직접 눌러볼 인사·지점·알림·감사 흐름으로 먼저 읽히고, 운영 완료품처럼 과장되지 않는다.
+- [ ] `/employees`, `/org` 일반 조회와 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 운영 검토 흐름이 같은 책임처럼 섞여 쓰이지 않는다.
+- [ ] `/work-items/branch` 가 현재 지점 업무 진입점이라는 사실과 독립 `/branches` 미구현 상태가 같은 문서에서 숨겨지지 않는다.
+- [ ] `/notifications` same-origin inbox/read 상태/API가 이미 있다는 점과 외부 발송 연동이 아직 아니라는 점이 함께 적히고, 둘 중 하나만 적어 오해를 만들지 않는다.
+- [ ] `audit.read` 전용 허용과 관리자 전체 허용이 같은 뜻처럼 적히지 않는다.
+- [ ] employee directory validation, branch manager/company scope 차단, audit read-only 경계가 문서/route/API/test에서 같은 뜻이다.
+- [ ] employees/departments/roles/permissions read fallback, branch read/scope 근거, notifications same-origin inbox, audit read route 의 PostgreSQL 전환 상태가 같은 완료 문장으로 섞이지 않는다.
 - [ ] `/admin/users` 와 `/api/admin/users` 기준의 dev-safe 계정관리 흐름과, 실메일 초대·SSO·외부 IdP·대량 import 승인 게이트가 섞이지 않는다.
 - [ ] `/work-items` → `/work-items/tax` → `/api/work-items?module=tax` → `/api/work-item-deadlines` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts` 근거가 같은 뜻이다.
 - [ ] `/work-items` → `/management` → `/work-items/legal` → `/api/work-items?module=legal` → `/api/work-items/:id/reviews` 순서의 쉬운 확인 포인트와 `apps/api/test/work-items.spec.ts`, `apps/api/test/auth-org.spec.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/middleware.test.ts` 근거가 같은 뜻이다.

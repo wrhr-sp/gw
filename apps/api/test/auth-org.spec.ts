@@ -41,10 +41,12 @@ import {
   leaveRequestCreateResponseSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
+  listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listHomeShortcutsResponseSchema,
+  listNotificationsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
@@ -96,6 +98,10 @@ function assertListPayload(route: string, payload: unknown) {
       return listRolesResponseSchema.parse(payload);
     case appRoutes.org.permissions:
       return listPermissionsResponseSchema.parse(payload);
+    case appRoutes.org.branches:
+      return listBranchesResponseSchema.parse(payload);
+    case appRoutes.notifications:
+      return listNotificationsResponseSchema.parse(payload);
     default:
       throw new Error(`unexpected route: ${route}`);
   }
@@ -187,6 +193,42 @@ describe("Phase 2 auth/org skeleton", () => {
     const companiesPayload = listCompaniesResponseSchema.parse(await companiesResponse.json());
     expect(companiesPayload.data.items[0]?.id).toBe("company_demo");
     expect(companiesPayload.data.items[0]?.settingsModel.policyStartPoint).toContain("scope");
+  });
+
+  it("returns branch summaries and notification inbox payloads with role-aware scope", async () => {
+    const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const adminBranchesResponse = await app.request(appRoutes.org.branches, {
+      headers: {
+        cookie: adminCookie,
+      },
+    });
+    expect(adminBranchesResponse.status).toBe(200);
+    const adminBranchesPayload = listBranchesResponseSchema.parse(await adminBranchesResponse.json());
+    expect(adminBranchesPayload.data.scope).toBe("hq_admin");
+    expect(adminBranchesPayload.data.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["branch_hq", "branch_hotel_seoul", "branch_hotel_busan"]),
+    );
+
+    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
+    const managerBranchesResponse = await app.request(appRoutes.org.branches, {
+      headers: {
+        cookie: managerCookie,
+      },
+    });
+    expect(managerBranchesResponse.status).toBe(200);
+    const managerBranchesPayload = listBranchesResponseSchema.parse(await managerBranchesResponse.json());
+    expect(managerBranchesPayload.data.scope).toBe("branch_manager");
+    expect(managerBranchesPayload.data.items.map((item) => item.id)).toEqual(["branch_hotel_seoul"]);
+
+    const notificationsResponse = await app.request(appRoutes.notifications, {
+      headers: {
+        cookie: adminCookie,
+      },
+    });
+    expect(notificationsResponse.status).toBe(200);
+    const notificationsPayload = listNotificationsResponseSchema.parse(await notificationsResponse.json());
+    expect(notificationsPayload.data.unreadCount).toBeGreaterThanOrEqual(1);
+    expect(notificationsPayload.data.items.every((item) => item.userId === "user_company_admin")).toBe(true);
   });
 
   it("filters privileged home shortcuts out of the fallback payload for non-privileged viewers", async () => {

@@ -1,15 +1,18 @@
 import { neon } from "@neondatabase/serverless";
 import { describe, expect, it } from "vitest";
 import {
+  adminAuditLogListResponseSchema,
   adminUsersListResponseSchema,
   appRoutes,
   authLoginResponseSchema,
   boardResponseSchema,
   documentSpaceResponseSchema,
+  listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listHomeShortcutsResponseSchema,
+  listNotificationsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
 } from "@gw/shared";
@@ -127,6 +130,26 @@ describe("operational DB-backed auth", () => {
     const companiesPayload = listCompaniesResponseSchema.parse(await companiesResponse.json());
     expect(companiesPayload.data.items[0]?.name).toBe("데모 주식회사");
     expect(companiesPayload.data.items[0]?.settingsModel.policyStartPoint).toContain("본사 운영센터");
+
+    const branchesResponse = await app.request(appRoutes.org.branches, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(branchesResponse.status).toBe(200);
+    const branchesPayload = listBranchesResponseSchema.parse(await branchesResponse.json());
+    expect(branchesPayload.data.scope).toBe("hq_admin");
+    expect(branchesPayload.data.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["branch_hq", "branch_hotel_seoul"]),
+    );
+
+    const notificationsResponse = await app.request(appRoutes.notifications, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(notificationsResponse.status).toBe(200);
+    const notificationsPayload = listNotificationsResponseSchema.parse(await notificationsResponse.json());
+    expect(notificationsPayload.data.unreadCount).toBeGreaterThanOrEqual(1);
+    expect(notificationsPayload.data.items.some((item) => item.id === "notification_admin_seed_1")).toBe(true);
+
+    const auditLogsResponse = await app.request(appRoutes.admin.auditLogs, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(auditLogsResponse.status).toBe(200);
+    const auditLogsPayload = adminAuditLogListResponseSchema.parse(await auditLogsResponse.json());
+    expect(auditLogsPayload.data.items.some((item) => item.id === "audit_initial_seed_admin")).toBe(true);
+    expect(auditLogsPayload.data.filterOptions.actorUserIds).toEqual(expect.arrayContaining(["user_company_admin"]));
 
     const shortcutsResponse = await app.request("/api/home/shortcuts", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
     expect(shortcutsResponse.status).toBe(200);

@@ -520,6 +520,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - unknown/forged id 성공 처리 금지, self-approval 금지, 회사 scope 차단은 근태·휴가·전자결재 공통 guardrail 로 같은 권한 언어를 유지한다.
 - PostgreSQL 전환 전 상태와 전환 후 목표를 같은 완료 문장으로 섞지 않고, 기획 fit-gap 카드와 DB 전환 카드와 구현 카드의 완료 기준을 분리해 적는다.
 
+### 6-14. Phase 34 문구는 "지금 직접 눌러볼 인사·지점·알림·감사 / 일반 조회 대 운영 검토 경계 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 는 모두 route 존재 여부만이 아니라 현재 UAT에서 무엇을 직접 확인할 수 있는지 먼저 적고, 실제 운영 완료품처럼 과장하지 않는다.
+- `/employees`, `/org` 는 일반 조회이고 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 운영 검토/정책/감사라는 책임 분리를 같은 권한 언어로 유지한다.
+- 지점은 당장 독립 `/branches` 제품보다 `/work-items/branch` 와 branch scope 업무 흐름으로 먼저 읽고, branch manager 대 company scope 차단을 같은 문장으로 섞지 않는다.
+- `/notifications` 는 same-origin inbox/read 상태/API가 이미 있다는 점과 외부 발송 provider 연동이 아직 아니라는 점을 함께 적고, 둘을 한 단계 완료처럼 적지 않는다.
+- `/admin/audit-logs` 는 `audit.read` 기준 read-only 감사 조회와 필터/마스킹/회사 경계를 먼저 적고, 관리자 운영 전체 허용과 같은 말처럼 쓰지 않는다.
+- employees/departments/roles/permissions 의 PostgreSQL read fallback, branch read/scope 근거, notifications same-origin inbox + 외부발송 미구현, audit read route + append 후속을 한 단계 완료처럼 뭉개지 말고 각 영역의 전환 상태를 분리해 적는다.
+
 ## 7. 승인 없이 하면 안 되는 것
 
 아래는 여전히 별도 승인 대상이다.
@@ -585,6 +594,8 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `docs/architecture/phase-9-admin-audit-scope.md`
 - `docs/architecture/phase-10-admin-audit-pass-2-scope.md`
 - `docs/architecture/phase-11-org-employees-scope.md`
+- `docs/architecture/phase-34-hr-branch-notifications-audit-real-usage-scope.md`
+- `docs/guides/phase-34-hr-branch-notifications-audit-real-usage-handoff.md`
 - `docs/architecture/phase-28-tax-management-pass-1-scope.md`
 - `docs/guides/phase-28-tax-management-pass-1-handoff.md`
 - `docs/architecture/phase-28a-payroll-foundation-payslip-pass-1-scope.md`

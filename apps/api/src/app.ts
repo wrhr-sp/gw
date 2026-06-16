@@ -62,10 +62,12 @@ import {
   leaveRequestCreateResponseSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
+  listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listHomeShortcutsResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
+  listNotificationsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
@@ -90,9 +92,11 @@ import {
   type AttendanceRecord,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
+  type AdminAuditLog,
   type Board,
   type BoardComment,
   type BoardPost,
+  type BranchSummary,
   type DocumentFile,
   type DocumentSpace,
   type Employee,
@@ -141,7 +145,7 @@ import {
   sortApprovalSteps,
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
-import { listOperationalAdminUsers } from "./lib/operational-admin";
+import { listOperationalAdminAuditLogs, listOperationalAdminUsers } from "./lib/operational-admin";
 import {
   archiveOperationalDocumentFile,
   createOperationalBoard,
@@ -160,6 +164,8 @@ import {
   upsertOperationalReadReceipt,
 } from "./lib/operational-collab";
 import {
+  findOperationalEmployeeBranchId,
+  listOperationalBranches,
   listOperationalCompanies,
   listOperationalDepartments,
   listOperationalEmployeeDirectory,
@@ -168,6 +174,8 @@ import {
   listOperationalRoles,
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
+import { listOperationalNotifications } from "./lib/operational-notifications";
+
 import {
   createOperationalApprovalDocument,
   createOperationalApprovalForm,
@@ -339,6 +347,42 @@ const employeeBranchAssignments: Record<string, string | null> = {
   employee_staff: "branch_hq",
   employee_employee: "branch_hotel_seoul",
 };
+
+const notifications = [
+  {
+    id: "notification_admin_seed_1",
+    companyId: COMPANY_ID,
+    userId: "user_company_admin",
+    title: "운영 DB seed 완료",
+    body: "초기 운영 데이터와 관리자 shortcut, 감사 preview 를 확인하세요.",
+    notificationType: "system",
+    status: "unread" as const,
+    readAt: null,
+    createdAt: PLACEHOLDER_NOW,
+  },
+  {
+    id: "notification_admin_seed_2",
+    companyId: COMPANY_ID,
+    userId: "user_company_admin",
+    title: "감사 로그 재확인 필요",
+    body: "관리자 권한 변경 preview 는 /admin/audit-logs 에서 마스킹된 상태로 확인합니다.",
+    notificationType: "audit",
+    status: "read" as const,
+    readAt: PLACEHOLDER_NOW,
+    createdAt: PLACEHOLDER_NOW,
+  },
+  {
+    id: "notification_hr_seed_1",
+    companyId: COMPANY_ID,
+    userId: "user_hr_admin",
+    title: "인사 검토 대기",
+    body: "직원 디렉터리와 부서 구조는 읽기 전용 preview 로 유지됩니다.",
+    notificationType: "hr",
+    status: "unread" as const,
+    readAt: null,
+    createdAt: PLACEHOLDER_NOW,
+  },
+] as const;
 
 const payrollRoleGuidance = {
   headquartersPayroll: "본사 급여 담당은 급여 프로필, 기간 상태, 수당/공제 초안을 관리하고 최종 확정 전에 검토 게이트를 연다.",
@@ -2153,6 +2197,41 @@ function buildOrgDirectorySummary(title: string, description: string, count: num
   return { title, description, count };
 }
 
+function resolveBranchViewerScope(roleCode: RoleCode) {
+  return roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN" || roleCode === "SUPER_ADMIN" || roleCode === "AUDITOR"
+    ? ("hq_admin" as const)
+    : roleCode === "MANAGER"
+      ? ("branch_manager" as const)
+      : ("employee" as const);
+}
+
+async function resolveVisibleBranches(context: AppContext, auth: SessionContext) {
+  const dbBranches = await listOperationalBranches(context.env, auth.user.companyId);
+  const sourceBranches = dbBranches ?? branches.map((branch) => ({
+    id: branch.id,
+    companyId: auth.user.companyId,
+    code: branch.code,
+    name: branch.name,
+    branchType: branch.id === "branch_hq" ? "office" : "hotel",
+    status: "active" as const,
+  } satisfies BranchSummary));
+
+  const scope = resolveBranchViewerScope(auth.roleCode);
+  if (scope === "hq_admin") {
+    return { scope, items: sourceBranches };
+  }
+
+  const viewerBranchId =
+    (await findOperationalEmployeeBranchId(context.env, auth.user.companyId, auth.user.employeeId)) ??
+    employeeBranchAssignments[auth.user.employeeId] ??
+    null;
+
+  return {
+    scope,
+    items: viewerBranchId ? sourceBranches.filter((branch) => branch.id === viewerBranchId) : [],
+  };
+}
+
 const highRiskPermissionCodeSet = new Set<Permission["code"]>(highRiskPermissionCodes);
 
 const adminUsers = (Object.keys(rolePermissions) as RoleCode[]).map((code) => {
@@ -2306,7 +2385,7 @@ const adminPolicies = [
   },
 ] as const;
 
-const adminAuditLogs = [
+const adminAuditLogs: AdminAuditLog[] = [
   {
     id: "audit_admin_user_list_viewed_1",
     companyId: COMPANY_ID,
@@ -2353,7 +2432,7 @@ const adminAuditLogs = [
       sensitiveMasked: true as const,
     },
   },
-] as const;
+];
 
 const leaveTypes: LeaveType[] = [
   { id: "leave_type_annual", companyId: COMPANY_ID, code: "annual", name: "연차", unit: "day", status: "active", placeholder: true },
@@ -3206,12 +3285,12 @@ function buildAdminAuditFilters(context: Context) {
   };
 }
 
-function buildAdminAuditFilterOptions() {
+function buildAdminAuditFilterOptions(items: readonly AdminAuditLog[] = adminAuditLogs) {
   return {
-    actorUserIds: [...new Set(adminAuditLogs.map((item) => item.actorUserId))],
-    actions: [...new Set(adminAuditLogs.map((item) => item.action))],
-    targetTypes: [...new Set(adminAuditLogs.map((item) => item.targetType))],
-    categories: [...new Set(adminAuditLogs.map((item) => item.metadata.category))],
+    actorUserIds: [...new Set(items.map((item) => item.actorUserId))],
+    actions: [...new Set(items.map((item) => item.action))],
+    targetTypes: [...new Set(items.map((item) => item.targetType))],
+    categories: [...new Set(items.map((item) => item.metadata.category))],
   };
 }
 
@@ -4633,6 +4712,76 @@ app.get(appRoutes.org.permissions, async (context) => {
   return jsonSuccess(context, listPermissionsResponseSchema, { ok: true, data: { items }, error: null }, 200);
 });
 
+app.get(appRoutes.org.branches, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const visibleBranches = await resolveVisibleBranches(context, authResult.auth);
+
+  return jsonSuccess(
+    context,
+    listBranchesResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: visibleBranches.items,
+        scope: visibleBranches.scope,
+        summary: buildOrgDirectorySummary(
+          "지점/호텔 overview",
+          visibleBranches.scope === "hq_admin"
+            ? "운영 DB 기준 지점 목록을 회사 범위로 읽기 전용 요약합니다."
+            : "현재 세션에 배정된 지점 범위만 읽기 전용으로 보여 줍니다.",
+          visibleBranches.items.length,
+        ),
+        notices: [
+          "지점 마스터 생성/수정 저장은 이번 범위가 아닙니다.",
+          "branch manager 와 일반 구성원은 자기 지점 범위만 확인합니다.",
+        ],
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.notifications, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const dbNotifications = await listOperationalNotifications(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+  const items =
+    dbNotifications ??
+    notifications.filter(
+      (notification) =>
+        notification.companyId === authResult.auth.user.companyId && notification.userId === authResult.auth.user.id,
+    );
+
+  return jsonSuccess(
+    context,
+    listNotificationsResponseSchema,
+    {
+      ok: true,
+      data: {
+        items,
+        unreadCount: items.filter((item) => item.status === "unread").length,
+        notices: [
+          "알림 inbox 는 same-origin preview 이며 실제 외부 발송 상태를 뜻하지 않습니다.",
+          "읽음/미읽음과 업무 이동 CTA 만 확인하고 푸시/메일/메신저 전송은 별도 승인 게이트로 남깁니다.",
+        ],
+        operationalContext: buildOperationalBridgeSummary(),
+        placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
 app.post(appRoutes.admin.invites, async (context) => {
   const authResult = requirePermission(context, "invite.manage");
   if (authResult.response) {
@@ -4870,14 +5019,15 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
   );
 });
 
-app.get(appRoutes.admin.auditLogs, (context) => {
+app.get(appRoutes.admin.auditLogs, async (context) => {
   const authResult = requirePermission(context, "audit.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const filters = buildAdminAuditFilters(context);
-  const items = adminAuditLogs.filter((item) => {
+  const sourceItems = (await listOperationalAdminAuditLogs(context.env, authResult.auth.user.companyId)) ?? adminAuditLogs;
+  const items = sourceItems.filter((item) => {
     if (filters.actorUserId && item.actorUserId !== filters.actorUserId) {
       return false;
     }
@@ -4907,7 +5057,7 @@ app.get(appRoutes.admin.auditLogs, (context) => {
       data: {
         items,
         filters,
-        filterOptions: buildAdminAuditFilterOptions(),
+        filterOptions: buildAdminAuditFilterOptions(sourceItems),
         detailPreview: buildAdminAuditDetailPreview(),
         operationalTrail: buildOperationalBridgeSummary(),
         placeholder: true,
