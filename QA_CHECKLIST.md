@@ -52,6 +52,8 @@
 - [ ] 현재 협업 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents`)가 실제 저장소 route 와 맞고, preview 생성 결과를 운영 데이터처럼 설명하지 않는다.
 - [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 댓글 preview 생성·읽음 확인 등록·forged 차단 확인을 같은 뜻으로 안내한다.
 - [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
+- [ ] `/documents` 의 `upload-init`/`upload-complete`/`download-init`/delete 흐름이 외부 파일 공유 완료와 같은 말처럼 쓰이지 않고, `storageStatus` 상태 전이 설명으로 정리돼 있다.
+- [ ] `storageStatus`(`pending`/`ready`/`deleted`)와 문서 `status`(`active`/`archived`)가 같은 뜻처럼 섞여 쓰이지 않는다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
 - [ ] `/dashboard` 와 `/menu` 의 shortcut 설명이 회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 같은 뜻으로 가리키고, 아직 없는 편집/저장 UI를 과장하지 않는다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
@@ -168,6 +170,9 @@
 - [ ] 회사 정책에서 미허용한 출퇴근 등록 방식이 직원 화면이나 check-in/check-out API 에서 성공처럼 노출되지 않는다.
 - [ ] blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 설명된다.
 - [ ] `/admin/audit-logs` 는 read-only 감사 조회로만 읽히고 raw 감사 원문이나 운영 내부 candidate 를 일반 업무 화면에 새지 않는다.
+- [ ] `/admin/audit-logs` 의 storage 관련 설명이 masked before/after preview, `maskedFields`, `storageRef(fileId/spaceId/versionId/storageStatus)` 수준과 같은 뜻이며 raw `storageKey`/bucket/signed URL 을 노출하지 않는다.
+- [ ] `work-items`·`/payroll`·`/management` 의 첨부/민감자료 설명이 metadata preview/review/approval gate 와 실원문 저장/실지급/실신고/외부 제출을 같은 말처럼 섞지 않는다.
+- [ ] backup/export/migration/production bucket/secret/외부 반출이 현재 단계 완료처럼 적히지 않고 별도 승인 범위로 남아 있다.
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.

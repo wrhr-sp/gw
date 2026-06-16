@@ -18,7 +18,7 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 36 운영자 설정·회사정책·권한관리 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 먼저 정리했으므로, 이제는 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞춰 운영자 설정/회사 정책/권한 관리 gap 을 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
+현재 활성 흐름은 Phase 37 내부 운영 저장흐름·감사 연결 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 먼저 정리했고, 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄다. 이제는 그 위에서 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 같은 내부 운영 저장흐름 언어로 다시 맞추는 것이 다음 체인의 핵심이다.
 
 현재 상태 요약:
 
@@ -31,6 +31,21 @@
 - `/admin/audit-logs` 는 `audit.read` 기준 read-only 흐름으로 유지된다.
 - 새 기준 문서는 `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`, `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md` 다.
 - 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 읽을 수 있는 운영자 설정 read model" 과 "아직 편집 UI/실저장/외부 연동이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 36 언어를 쓰게 만드는 것이다.
+
+2026-06-16 Phase 37 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/documents`, `/admin/audit-logs`, `/management`, `/payroll`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, 관련 storage lifecycle/masked audit/approval gate 테스트 근거.
+- 현재 체인은 `t_e8e6bea1`(재검증 완료) → `t_ecfe96a8`(문서화) → `t_b73a7e86`(release gate) 순서로 이어진다.
+- 2026-06-16 parent 재검증 기준으로 focused API/Web 회귀, shared/api/web typecheck·build·OpenNext build·root `pnpm check`, local preview smoke 가 다시 통과했다.
+- 로컬 preview smoke 는 기존 8790 포트에 남아 있던 workerd listener 충돌 때문에 127.0.0.1:8791 로 옮겨 재실행했다. 문서에는 "8790 고정"이 아니라 "충돌 없는 동일 build 산출물 포트" 기준으로 남기는 편이 정확하다.
+- `apps/api/src/lib/document-storage.ts` 기준으로 파일명 정규화, 허용 MIME, 최대 파일 크기, 안전한 object key 생성 규칙이 이미 있다.
+- `apps/api/src/lib/operational-collab.ts` 기준으로 문서 파일은 `storageProvider`, `storageStatus`, `checksumSha256`, `archived` 의미로 읽는 구조가 있다.
+- `apps/api/src/lib/operational-admin.ts` 기준으로 감사 로그는 raw 원문이 아니라 masked before/after preview, `maskedFields`, `storageRef(fileId/spaceId/versionId/storageStatus)` 수준으로 읽는다.
+- `apps/api/test/auth-org.spec.ts` 기준으로 raw `storageKey`, bucket, signed URL 비노출 검증과 `upload-init` → `upload-complete` → `download-init` → delete 상태 전이 검증 흔적이 있다.
+- parent 재검증에서 다시 본 route 는 `/documents`, `/management`, `/payroll`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 이고 모두 local preview smoke 기준 200 이었다.
+- gap 이 큰 영역: backup/export 외부 반출 기능 부재, migration 실행 기준 미정리, production bucket/secret 미연결, 민감 원문 저장 확대 금지, payroll/work-items 첨부를 실원문 열람처럼 오해할 수 있는 copy 잔여.
+- 새 기준 문서는 `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md`, `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 읽을 수 있는 내부 운영 저장 read model" 과 "아직 export/backup/migration/실운영 연결이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 37 언어를 쓰게 만드는 것이다.
 
 2026-06-16 Phase 36 fit-gap 메모:
 

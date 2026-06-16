@@ -54,6 +54,7 @@ const guardrails = [
   "실세액 계산, 4대보험 확정, 외부 신고/이체 연동은 이번 Phase 범위가 아닙니다.",
   "급여는 근태·휴가와 가까이 두되, 노무 grievance/징계와 같은 민감 이슈와는 별도 모듈로 분리합니다.",
   "구성원은 /payroll/me 에서 자기 명세서 초안만 확인하고 회사 전체 급여 상세는 보지 않습니다.",
+  "preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.",
 ] as const;
 
 export default function PayrollPage() {

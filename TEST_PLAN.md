@@ -187,6 +187,48 @@ pnpm --filter @gw/mobile typecheck
 - `AUDITOR` 는 `/admin/audit-logs` read-only 만 허용된다.
 - `MANAGER`, `EMPLOYEE` 는 privileged shortcut 과 admin API 접근이 차단된다.
 
+### 1-12. Phase 37 쉬운 내부 운영 저장흐름·감사 연결 판정 질문
+
+최근 Phase 37 parent 재검증 기준 명령:
+
+- `pnpm --filter @gw/api test -- auth-org.spec.ts`
+- `pnpm --filter @gw/web test -- admin-console-pass1.test.tsx phase34-real-usage.test.tsx work-items.test.tsx phase37-storage-boundaries.test.tsx`
+- `pnpm --filter @gw/shared test`
+- `pnpm --filter @gw/shared typecheck`
+- `pnpm --filter @gw/api typecheck`
+- `pnpm --filter @gw/web typecheck`
+- `pnpm --filter @gw/web build`
+- `pnpm --filter @gw/web build:cf`
+- `pnpm check`
+- `BASE_URL=http://127.0.0.1:8791 bash scripts/gw-admin-host-preview-smoke.sh`
+
+이번 재검증에서 문서에 다시 고정할 것:
+- 8790 포트에 기존 workerd listener 가 떠 있으면 같은 build 산출물 기준 8791 같은 빈 포트로 옮겨 smoke 해도 된다. 다만 live 확인과 혼동하지 않게 포트 변경 이유를 같이 남긴다.
+- `/documents`, `/management`, `/payroll`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 는 local preview smoke 기준 다시 200 이어야 한다.
+- raw `storageKey`, bucket, signed URL/public URL 비노출과 masked audit preview 경계는 `apps/api/test/auth-org.spec.ts` 근거와 같은 뜻으로 유지돼야 한다.
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/documents` 는 지금 외부 파일 공유 서비스가 아니라 upload/download 준비와 `storageStatus` 를 읽는 내부 문서 흐름으로 보이는가
+2. `pending`·`ready`·`deleted` 같은 `storageStatus` 설명이 public download 완료 뜻처럼 과장되지 않는가
+3. `/admin/audit-logs` 의 storage 흔적이 masked preview 와 `storageRef` 수준으로만 읽히고 raw `storageKey`·bucket·signed URL 이 새지 않는가
+4. `/management`, `/payroll`, `work-items/*` 의 민감자료 설명이 metadata preview/review/approval gate 와 실원문 저장/실지급/실신고를 같은 말로 섞지 않는가
+5. backup/export/migration/production bucket/secret/외부 반출이 아직 별도 승인 범위라는 점이 숨겨지지 않는가
+6. production 데이터, secret, 실민감 원문 저장 확대, 외부 기관 제출이 계속 승인 게이트로 남아 있는가
+
+이 6개 질문 중 하나라도 흐리면 Phase 37 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/documents`
+2. `/admin/audit-logs`
+3. `/management`
+4. `/payroll`
+5. `/work-items/tax`
+6. `/work-items/labor`
+7. `/work-items/legal`
+8. `apps/api/test/auth-org.spec.ts`
+
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
 문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:

@@ -15,9 +15,9 @@ export function WorkItemsHubPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 25 공통 work/doc/access 엔진"
+      eyebrow="Phase 37 공통 업무 저장흐름 점검"
       title="공통 업무 허브"
-      description="HR·세무·노무·법무·지점 업무를 개별 앱처럼 늘리지 않고 공통 work item, 문서, 첨부, 검토, 마감 설명 구조로 먼저 묶는 skeleton 화면입니다."
+      description="HR·세무·노무·법무·지점 업무를 개별 앱처럼 늘리지 않고 공통 work item, 문서, 첨부, 검토, 마감 설명 구조를 metadata preview / approval gate 언어로 먼저 묶는 skeleton 화면입니다."
     >
       <SurfaceSection title="이번 패스에서 먼저 고정한 것" description="실운영 자동화 전에 정보 구조와 권한 설명을 먼저 맞춥니다.">
         <ul className="summary-list">
@@ -79,7 +79,7 @@ export function WorkItemModulePage({ module }: { module: Exclude<WorkItemModuleK
     <PageShell
       backHref="/work-items"
       backLabel="공통 업무 허브로"
-      eyebrow="Phase 25 모듈별 공통 업무 자리"
+      eyebrow="Phase 37 모듈별 민감자료 경계"
       title={card.title}
       description={card.summary}
       actions={

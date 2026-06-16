@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준 최신 범위는 Phase 36 운영자 설정·회사정책·권한관리 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 정리했고, 이제는 그 위에서 `/dashboard`·`/menu` 홈 shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토가 각각 어디까지 읽기/preview/승인 게이트인지 같은 언어로 다시 맞추는 것이 다음 우선순위다.
+현재 문서화 기준 최신 범위는 Phase 37 내부 운영 저장흐름·감사 연결 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/work-items/*`, `/admin/audit-logs` 관리자흐름 UAT 언어를 정리했고, 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees`, `/admin/users`·`/admin/policies` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄다. 이제는 그 위에서 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 같은 내부 운영 저장흐름 언어로 다시 맞추는 것이 다음 우선순위다.
 
 ## Phase 흐름
 
@@ -45,6 +45,7 @@
 - Phase 34: 인사·지점·알림·감사 운영흐름 실사용화
 - Phase 35: 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT
 - Phase 36: 운영자 설정·회사정책·권한관리 fit-gap
+- Phase 37: 내부 운영 저장흐름·감사 연결 fit-gap
 
 ## MVP 성공 기준
 
@@ -60,8 +61,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md`
-- 직전 범위: `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`
-- 직전 handoff: `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md`
+- 직전 범위: `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

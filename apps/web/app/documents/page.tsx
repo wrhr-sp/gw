@@ -1,3 +1,4 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../_components/phase-16-pilot";
@@ -20,22 +21,58 @@ const spaceCards = [
 ] as const;
 
 const metadataChecklist = [
-  "storage key 는 API 응답과 UI에 노출하지 않음",
+  "storage key / bucket / public URL / signed URL 전문은 API 응답과 UI에 노출하지 않음",
   "존재하지 않거나 접근 불가한 spaceId 는 metadata 생성 403",
-  "실제 업로드/다운로드 대신 fileName/contentType/fileSize/versionLabel 만 고정",
-  "R2 버킷/서명 URL/OCR 연결은 후속 승인 범위로 분리",
+  "실제 외부 공유 대신 fileName/contentType/fileSize/versionLabel 과 storageStatus 상태만 먼저 고정",
+  "R2 버킷/서명 URL/OCR 연결과 production bucket 운영은 후속 승인 범위로 분리",
+] as const;
+
+const lifecycleCards = [
+  {
+    title: "upload-init",
+    summary: "파일 메타데이터와 업로드 준비 액션을 먼저 만들고 storageStatus 를 pending 으로 시작합니다.",
+  },
+  {
+    title: "upload-complete",
+    summary: "업로드 완료 후 checksum 과 함께 storageStatus 를 ready 로 바꿉니다.",
+  },
+  {
+    title: "download-init",
+    summary: "공개 다운로드가 아니라 내부 다운로드 준비 액션과 권한 경계를 확인합니다.",
+  },
+  {
+    title: "delete / archive",
+    summary: "storageStatus=deleted 와 document status=archived 의미를 분리해서 읽습니다.",
+  },
+] as const;
+
+const boundaryNotes = [
+  "storageStatus(pending/ready/deleted)는 내부 저장 lifecycle 설명이며 public share 완료 뜻이 아닙니다.",
+  "objectKeyPreview 는 내부 경로 힌트일 뿐 외부 반출 링크가 아닙니다.",
+  "backup/export/migration/secret 입력과 production 실데이터 반영은 이번 단계 승인 범위가 아닙니다.",
 ] as const;
 
 export default function DocumentsPage() {
   return (
     <PageShell
-      eyebrow="Phase 32 문서함 실사용 점검"
+      eyebrow="Phase 37 내부 운영 저장흐름 점검"
       title="문서함"
-      description="문서함 목록/접근 경계/첨부 metadata 흐름을 모바일에서도 읽기 쉽게 카드형으로 정리하고, 실제 공간/파일 metadata 응답을 same-origin API로 바로 확인할 수 있게 연결했습니다."
+      description="문서함 목록/접근 경계/첨부 metadata 흐름을 내부 운영 저장흐름 언어로 다시 정리하고, upload/download 준비와 storageStatus 경계를 실제 same-origin API 응답으로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">no storage key leakage</Pill>}
     >
       <SurfaceSection title="실사용 확인 패널" description="문서 공간과 파일 metadata 를 실제 API 응답으로 먼저 확인합니다.">
         <DocumentsLiveSection />
+      </SurfaceSection>
+
+      <SurfaceSection title="파일 lifecycle" description="외부 공유 완료가 아니라 upload/download 준비와 상태 전이를 먼저 읽는 순서입니다.">
+        <div className="grid-auto-compact">
+          {lifecycleCards.map((item) => (
+            <article key={item.title} className="info-card">
+              <Pill tone="warning">{item.title}</Pill>
+              <p>{item.summary}</p>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection title="문서 공간 카드" description="작은 화면에서도 문서 공간 제목과 가드레일을 먼저 보여 줍니다.">
@@ -53,6 +90,14 @@ export default function DocumentsPage() {
       <SurfaceSection title="첨부 metadata placeholder" description="다운로드/preview 완성형 없이도 무엇을 노출하지 말아야 하는지 먼저 고정합니다.">
         <ul className="summary-list">
           {metadataChecklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="내부 운영 경계" description="지금 직접 읽을 수 있는 것과 아직 승인 게이트인 것을 분리합니다." muted>
+        <ul className="summary-list">
+          {boundaryNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
