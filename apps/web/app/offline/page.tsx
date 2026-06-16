@@ -1,8 +1,9 @@
+import React from "react";
 import { headers } from "next/headers";
 
 import { getTrustedHostFromHeaders } from "../../admin-host";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { getAppShellConfigForHost, getOfflineGuidanceForHost } from "../mobile-pwa-config";
+import { getAppShellConfigForHost, getOfflineGuidanceForHost, getRecoveryRouteCardsForHost, offlineTaskGuides } from "../mobile-pwa-config";
 
 async function getRequestHost() {
   const requestHeaders = await headers();
@@ -13,7 +14,9 @@ export default async function OfflinePage() {
   const host = await getRequestHost();
   const shellConfig = getAppShellConfigForHost(host);
   const offlineGuidance = getOfflineGuidanceForHost(host);
+  const recoveryRouteCards = getRecoveryRouteCardsForHost(host);
   const isAdminContext = shellConfig.homeHref === "/admin";
+  const visibleTaskGuides = offlineTaskGuides.filter((item) => (isAdminContext ? true : !item.adminOnly));
 
   return (
     <PageShell
@@ -63,6 +66,20 @@ export default async function OfflinePage() {
         </ol>
       </SurfaceSection>
 
+      <SurfaceSection title="업무별 오프라인 판정" description="현장에서 자주 쓰는 route 별로 지금 읽을 수 있는 것과 막아야 하는 것을 같은 형식으로 봅니다.">
+        <div className="grid-auto-compact">
+          {visibleTaskGuides.map((item) => (
+            <article key={item.href} className="info-card">
+              <Pill tone={item.adminOnly ? "warning" : "accent"}>{item.label}</Pill>
+              <h3>{item.href}</h3>
+              <p>{item.available}</p>
+              <p className="card-note">막힘: {item.blocked}</p>
+              <p className="card-note">재시도: {item.retryHint}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
       {isAdminContext ? (
         <SurfaceSection
           title="설치 후 바로 확인할 관리자 화면"
@@ -86,6 +103,25 @@ export default async function OfflinePage() {
             <li key={step}>{step}</li>
           ))}
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="복구 route 모음"
+        description={
+          isAdminContext
+            ? "관리자 host 에서는 관리자 허브·사용자/권한·운영 정책·감사 로그·오프라인 안내 안에서만 다시 맥락을 복구합니다."
+            : "화면이 막히면 홈·메뉴·알림·오프라인 4개 route 안에서 다시 맥락을 복구합니다."
+        }
+      >
+        <div className="grid-auto-compact">
+          {recoveryRouteCards.map((item) => (
+            <article key={item.href} className="route-card">
+              <h3>{item.label}</h3>
+              <p>{item.summary}</p>
+              <a href={item.href}>{item.href}</a>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
     </PageShell>
   );

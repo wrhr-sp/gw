@@ -50,6 +50,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("홈 바로가기");
     expect(html).toContain("회사 공통 고정");
     expect(html).toContain("권한 기반 사용자 전용");
+    expect(html).toContain("현장 업무 사용성 원칙");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
@@ -63,6 +64,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("`/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`");
     expect(html).toContain("/me");
     expect(html).toContain("/org");
+    expect(html).toContain("막힐 때 다시 가는 현장 복구 경로");
     expect(html).toContain("dev-safe 요약이며 실제 저장·발송·외부 연동은 이번 단계에서 실행하지 않습니다.");
     expect(html).not.toContain("경영업무 분리 진입");
   });

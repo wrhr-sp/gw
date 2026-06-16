@@ -18,19 +18,32 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 37 내부 운영 저장흐름·감사 연결 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 먼저 정리했고, 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄다. 이제는 그 위에서 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 같은 내부 운영 저장흐름 언어로 다시 맞추는 것이 다음 체인의 핵심이다.
+현재 활성 흐름은 Phase 38 모바일·PC 현장 업무 사용성·알림·오프라인 fit-gap 문서화 마무리다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었다. 이제는 그 위에서 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 그리고 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인이 어디서 갈라지는지를 같은 현장 사용성 언어로 다시 맞추되, 이미 끝난 parent 재검증 결과를 사용자/운영자 가이드와 release-gate handoff 문장으로 고정하는 것이 이번 카드의 핵심이다.
 
 현재 상태 요약:
 
-- `/login`, `/dashboard`, `/management`, `/admin/users` 는 이미 앞선 Phase 문서에서 입구 영역으로 정리됐다.
-- `/employees`, `/org`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 현재 운영자 설정·회사 정책·권한 관리 fit-gap 의 핵심 증거 화면이다.
-- `apps/api/test/auth-org.spec.ts` 기준으로 home shortcuts, roles/permissions, employee directory guard, admin users/policies/audit 경계 근거가 이미 존재한다.
-- `/dashboard`·`/menu` 는 회사 고정 shortcut 과 권한 기반 사용자 전용 shortcut 을 같은 API 기준으로 읽는다.
-- `/admin/users` 는 실저장 화면이 아니라 role diff, 상태 변경 preview, 고위험 권한 후보, dev-safe action form 을 먼저 보여 준다.
-- `/admin/policies` 는 current/candidate/capability/audit preview 와 회사 설정 4묶음 모델을 정책 기준 화면으로 보여 준다.
-- `/admin/audit-logs` 는 `audit.read` 기준 read-only 흐름으로 유지된다.
-- 새 기준 문서는 `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`, `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 읽을 수 있는 운영자 설정 read model" 과 "아직 편집 UI/실저장/외부 연동이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 36 언어를 쓰게 만드는 것이다.
+- `/dashboard`, `/menu`, `/notifications`, `/offline` 는 이미 route 와 같은 정보구조/안내 톤의 핵심 증거 화면이다.
+- `apps/api/test/auth-org.spec.ts` 와 home shortcut / notifications contract 기준으로 same-origin shortcut/inbox/readiness 근거가 이미 존재한다.
+- `/dashboard`·`/menu` 는 회사 공통 고정 shortcut 과 권한 기반 사용자 전용 shortcut 을 같은 API 기준으로 읽는다.
+- `/notifications` 는 same-origin inbox 와 unread count 를 보여 주지만 외부 발송은 아직 아니다.
+- `/offline` 와 app shell status banner 는 가능한 일/막히는 일/재시도 절차를 분리하고, 상태 변경을 가짜 성공처럼 포장하지 않는다.
+- `경영업무` 와 `/admin*` 는 일반 직원 홈과 다른 운영 레인으로 유지된다.
+- 새 기준 문서는 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md`, `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 눌러볼 수 있는 현장 업무 입구" 와 "아직 외부 연동/오프라인 상태변경/native 배포가 없는 영역"을 분리해 builder/reviewer/tester가 같은 Phase 38 언어를 쓰게 만드는 것이다.
+
+2026-06-16 Phase 38 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/dashboard`, `/menu`, `/notifications`, `/offline`, 모바일 하단 탭 5개, PC sidebar, `경영업무` 분리 레인, 관련 same-origin shortcut/inbox/test 근거.
+- 현재 체인은 `t_53c34c58`(기획) → `t_d777ff89`(구현) → `t_5191cf30`(리뷰) → `t_2f6683c6`(테스트) → `t_1894a9f3`(문서화) → `t_d127425a`(release gate) 순서로 이어진다.
+- parent 재검증에서는 `pnpm --filter @gw/web test -- admin-preview-guard.test.ts dashboard-boundary.test.tsx phase38-offline-admin.test.tsx`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf`, `PREVIEW_PORT=8787 BASE_URL=http://127.0.0.1:8787 bash scripts/gw-admin-host-preview-smoke.sh` 를 실제 실행했다.
+- `apps/web/app/page.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/notifications/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/_components/mobile-app-shell.tsx`, `apps/web/app/mobile-pwa-config.ts` 기준으로 홈/메뉴/알림/오프라인/운영 분리 근거가 있다.
+- `apps/api/src/app.ts`, `packages/shared/src/contracts.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 home shortcut, notifications unread count/notices, push/native/custom domain 승인 게이트 근거가 있다.
+- parent smoke 기준 일반 host `/offline` 는 공용 복구 범위(`/dashboard`, `/menu`, `/notifications`, `/offline`)를 유지하고 `/admin/users` 를 섞지 않는다.
+- parent smoke 기준 admin host `/offline` 는 관리자 복구 범위(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`)를 유지하고 일반 업무 route 를 섞지 않는다.
+- local preview smoke 기준 일반 host `/admin` 은 `/login`, admin host `/` 는 `/admin` 으로 다시 확인됐다.
+- gap 이 큰 영역: 사용자별 홈 편집/정렬 UX 부재, 외부 push/메일/SMS 미연결, background sync 부재, offline 상태변경 불가, native 배포/custom domain/secret 미확정.
+- 새 기준 문서는 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md`, `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 같은 정보구조 유지, same-origin inbox honesty, 가짜 성공 UX 금지, 일반 업무 레인 대 운영 레인 분리를 같은 언어로 다시 맞추는 것이다.
 
 2026-06-16 Phase 37 fit-gap 메모:
 

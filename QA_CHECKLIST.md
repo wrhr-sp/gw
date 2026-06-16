@@ -56,6 +56,10 @@
 - [ ] `storageStatus`(`pending`/`ready`/`deleted`)와 문서 `status`(`active`/`archived`)가 같은 뜻처럼 섞여 쓰이지 않는다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토의 목적 차이가 문서/화면 설명에서 흐려지지 않는다.
 - [ ] `/dashboard` 와 `/menu` 의 shortcut 설명이 회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 같은 뜻으로 가리키고, 아직 없는 편집/저장 UI를 과장하지 않는다.
+- [ ] `/dashboard` 와 `/menu` 가 같은 정보구조를 가리키고, 모바일 하단 탭 5개와 PC sidebar 설명이 서로 다른 사이트맵처럼 풀리지 않는다.
+- [ ] `/notifications` same-origin inbox/unread count/notices 와 외부 push/메일/SMS 미연결 상태가 같은 화면·문서·API 언어로 유지되고, `/offline` 안내는 가능한 일/막히는 일/재시도 절차를 가짜 성공 UX 없이 보여 준다.
+- [ ] 일반 host `/offline` 는 공용 복구 범위(`/dashboard`, `/menu`, `/notifications`, `/offline`)만 유지하고 운영 route 를 섞지 않는다.
+- [ ] admin host `/offline` 는 관리자 복구 범위(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`)만 유지하고 일반 업무 route 를 섞지 않는다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.

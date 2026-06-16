@@ -5,6 +5,7 @@ import type { HomeShortcut } from "@gw/shared";
 import { Phase16PilotPanel } from "./app/_components/phase-16-pilot";
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
+import { fieldUsabilityPrinciples, recoveryRouteCards } from "./app/mobile-pwa-config";
 import {
   dashboardActionCards,
   dashboardApiLinks,
@@ -97,6 +98,14 @@ export function DashboardPageContent({
           homeShortcutNotices={homeShortcutNotices}
           homeShortcutLoadError={homeShortcutLoadError}
         />
+      </SurfaceSection>
+
+      <SurfaceSection title="현장 업무 사용성 원칙" description="홈, 메뉴, 알림, 오프라인, 운영 레인이 서로 다른 제품처럼 읽히지 않도록 같은 기준을 고정합니다.">
+        <ul className="summary-list">
+          {fieldUsabilityPrinciples.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="승인/대기 요약" description="병목 후보와 다시 확인할 건을 먼저 읽고 approvals/attendance 상세 화면으로 이동합니다.">
@@ -262,6 +271,18 @@ export function DashboardPageContent({
           <li>실제 개인정보 원문, production KPI, 외부 알림, 권한 저장은 이번 단계 범위에서 제외합니다.</li>
           <li>모바일/PWA 좁은 화면에서도 카드 제목, 한 줄 상태, CTA 순서가 먼저 읽히도록 유지합니다.</li>
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="막힐 때 다시 가는 현장 복구 경로" description="홈에서 끝내지 못한 상황을 메뉴·알림·오프라인과 연결해 다시 풀 수 있게 둡니다.">
+        <div className="grid-auto-compact">
+          {recoveryRouteCards.map((item) => (
+            <article key={item.href} className="route-card">
+              <h3>{item.label}</h3>
+              <p>{item.summary}</p>
+              <a href={item.href}>{item.href}</a>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
     </PageShell>
   );

@@ -45,6 +45,8 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("same-origin inbox");
     expect(html).toContain("외부 발송 없음");
     expect(html).toContain("실사용 알림 패널");
+    expect(html).toContain("상태별 다음 행동");
+    expect(html).toContain("복구 route 모음");
     expect(html).toContain("/dashboard");
     expect(html).not.toContain("발송 완료");
   });

@@ -409,6 +409,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 27 문서라면 `docs/architecture/phase-27-labor-management-pass-1-scope.md` 와 `docs/guides/phase-27-labor-management-pass-1-handoff.md` 의 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 29 문서라면 `docs/architecture/phase-29-legal-management-pass-1-scope.md` 와 `docs/guides/phase-29-legal-management-pass-1-handoff.md` 의 legal category, 공통 상태 대 legal intake/renewal/dispute 보조 상태 분리, 본사 법무/운영 담당/지점 관리자/감사 visibility, metadata-only 계약/분쟁 요약, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 37 문서라면 `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md` 와 `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md` 의 문서 파일 lifecycle, masked audit storage preview, payroll/work-items 민감자료 approval gate, raw storage 비노출, backup/export/migration 제외 범위 설명과 같은 뜻을 유지한다.
+- Phase 38 문서라면 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md` 와 `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 의 홈/메뉴 같은 정보구조, notifications same-origin inbox honesty, offline 가능/불가/재시도 절차, 일반 업무 레인 대 `경영업무`·`/admin*` 운영 레인 분리, push/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -548,6 +549,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/admin/audit-logs` 는 storage 흔적을 보여 주더라도 masked before/after preview, `maskedFields`, `storageRef(fileId/spaceId/versionId/storageStatus)` 수준으로만 읽히게 적고, raw 원문/실파일 열람처럼 쓰지 않는다.
 - `/management`, `/payroll`, `work-items/*` 의 첨부/민감자료 설명은 metadata preview/review/approval gate 와 실원문 저장/실지급/실신고/외부 제출을 같은 말로 섞지 않는다.
 - backup/export/migration/production bucket/secret/외부 반출/실민감 원문 저장 확대는 계속 별도 승인 게이트로 남긴다.
+
+### 6-17. Phase 38 문구는 "지금 직접 눌러볼 현장 업무 입구 / 가짜 성공 UX 금지 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/dashboard` 는 홈이고 `/menu` 는 같은 shortcut·정보구조를 공유하는 전체 메뉴라는 점을 먼저 적는다.
+- 모바일 하단 탭 5개(`메뉴`·`홈`·`메신저`·`메일`·`알림`)와 PC sidebar 가 같은 업무 그룹을 가리킨다고 적고, 서로 다른 사이트맵처럼 쓰지 않는다.
+- `/notifications` 는 same-origin inbox/unread count/notices 를 먼저 적고, 외부 push/메일/SMS 발송 완료처럼 적지 않는다.
+- `/offline` 와 status banner 는 가능한 일/막히는 일/재시도 절차를 나눠 적고, offline 상태 변경 성공·완전 동기화처럼 과장하지 않는다.
+- 일반 업무 홈과 `경영업무`·`/admin*` 운영 메뉴를 같은 책임처럼 섞지 않고, route/API guard/company+branch scope/audit 경계를 함께 적는다.
+- 사용자별 홈 편집/정렬 영구 저장, background sync, native 패키징, production custom domain/app link, secret/실데이터는 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 
