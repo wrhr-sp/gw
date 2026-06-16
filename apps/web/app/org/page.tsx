@@ -1,6 +1,7 @@
 import React from "react";
 import { appRoutes } from "@gw/shared";
 
+import { OrgDirectoryLiveSection } from "../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const orgSections = [
@@ -35,16 +36,20 @@ export default function OrgPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 14 일반 조회 연결"
-      title="조직 구조 / 역할 안내 skeleton"
-      description="대시보드의 조직 구조 보기 흐름과 같은 언어로 부서 구조, 역할/직책, 권한 체계 안내를 읽기 전용으로 묶은 dev-safe placeholder 입니다."
+      eyebrow="Phase 34 인사 운영흐름 실사용화"
+      title="조직 구조 / 역할 안내"
+      description="부서, 역할, 권한, 지점 scope 읽기 응답을 same-origin API 와 연결해 보여 주는 실사용 확인 화면입니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">read-only structure</Pill>
-          <Pill>mobile section flow</Pill>
+          <Pill>branch scope visible</Pill>
         </div>
       }
     >
+      <SurfaceSection title="실사용 조직 패널" description="부서/역할/권한/지점 scope 를 실제 응답 기준으로 먼저 확인합니다.">
+        <OrgDirectoryLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="가드레일" description="관리자 정책 화면과 섞이지 않도록 경계를 먼저 적어 둡니다.">
         <ul className="bullet-list">
           {guardrails.map((item) => (

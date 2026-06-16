@@ -19,27 +19,29 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 33 근태·휴가·전자결재 실사용화 준비
+### 3. 현재 문서화/검증 기준은 Phase 34 인사·지점·알림·감사 운영흐름 실사용화 준비
 
-현재 루트 문서와 handoff 는 근태·휴가·전자결재 일반 업무 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 인사 조회·지점 업무·알림·감사 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/attendance`, `/leave`, `/approvals` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- `/attendance`, `/leave`, `/approvals` 는 route 진입과 live panel 확인, 일부 preview 액션 문맥과 guard probe 확인이 가능하지만, 아직 PostgreSQL 저장 전환·richer stepper·실운영 연동이 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- 정책 미허용, 권한 부족, 회사 scope 차단, self-approval 금지, unknown/forged id 차단을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
-- 실급여/실정산, 은행 이체, GPS/실단말, 외부 세무·노무·법령 기관 연동, 실전자서명/원문 장기보관은 계속 별도 승인 게이트다.
-- richer 업무 히스토리, 승인 stepper, 운영 반영 UX가 닫히지 않으면 화면 실사용화와 실제 운영 체감 사이 간격이 계속 남는다.
+- `/employees`, `/org` 는 route 진입과 same-origin API, 일부 PostgreSQL read fallback 확인이 가능하지만, richer 검색/상세/운영 후속 UX가 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- `/work-items/branch` 는 branch scope 업무 자리와 권한 차단 근거를 확인할 수 있지만, 독립 `/branches` 나 지점 마스터 운영 UI가 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- `/notifications` 는 same-origin inbox/read 상태/API가 이미 있지만, 외부 발송 연동과 읽음 처리 저장이 아직 닫히지 않았다는 점을 숨기면 안 된다.
+- `/admin/audit-logs` 는 read-only 감사 조회와 필터/마스킹 경계를 확인할 수 있지만, PostgreSQL 실기록 정합성과 richer drill-down 이 닫힌 것은 아니라는 점을 숨기면 안 된다.
+- 권한 부족, 회사 scope 차단, branch scope 차단, placeholder 제한, `audit.read` 전용 허용을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
+- 외부 알림 채널, 민감 인사 원문, 실운영 branch master 변경, raw 감사 원문 노출은 계속 별도 승인 게이트다.
 - production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 33 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 34 단계에서 남아 있는 제품형 리스크
 
-- 정책 미허용과 권한 부족을 같은 말로 쓰면 직원이 왜 막히는지 설명이 흐려질 수 있다.
-- `/attendance`, `/leave`, `/approvals` 를 실제 운영 완료품처럼 과장하면 placeholder honesty 가 무너진다.
-- self-approval 금지, unknown/forged id 차단, 회사 scope 차단을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
-- PostgreSQL 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
-- 실급여/실정산/은행/GPS/실단말/외부 기관 연동을 이번 단계 후속 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
-- `/attendance`, `/leave`, `/approvals` 를 모바일 `홈`/대시보드/운영 정책 문서에서 다른 우선순위로 풀어 쓰면 UX 안내가 다시 흔들릴 수 있다.
+- 일반 조회와 관리자 운영을 같은 말로 쓰면 `/employees`·`/org` 와 `/admin/users`·`/admin/audit-logs` 책임이 흐려질 수 있다.
+- `/notifications` 를 실제 외부 발송 시스템처럼 과장하면 placeholder honesty 가 무너질 수 있다.
+- branch scope 차단, 회사 scope 차단, `audit.read` 전용 허용을 문서마다 다르게 적으면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
+- employees/branches/notifications/audit_logs 의 PostgreSQL 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
+- 독립 `/branches` 화면이 아직 없는데 지점 운영이 완성된 것처럼 적으면 후속 구현 범위가 흐려질 수 있다.
+- raw 감사 원문/민감 인사 데이터/외부 알림 연동을 현재 단계 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

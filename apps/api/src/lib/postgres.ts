@@ -40,6 +40,16 @@ export function createOperationalSql(env: PostgresEnv | undefined) {
   });
 }
 
+export function isOperationalSchemaDriftError(error: unknown) {
+  const code = typeof error === "object" && error !== null && "code" in error ? (error as { code?: unknown }).code : undefined;
+  if (code === "42P01" || code === "42703" || code === "3F000") {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  return /(relation|column|schema) .* does not exist|undefined table|undefined column|schema mismatch/i.test(message);
+}
+
 export async function checkOperationalDb(env: PostgresEnv | undefined): Promise<OperationalDbStatus> {
   const sql = createOperationalSql(env);
 

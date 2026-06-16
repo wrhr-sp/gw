@@ -1,6 +1,7 @@
 import React from "react";
 import { appRoutes } from "@gw/shared";
 
+import { EmployeeDirectoryLiveSection } from "../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const employeeCards = [
@@ -46,16 +47,20 @@ export default function EmployeesPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 14 일반 조회 연결"
-      title="직원 목록 / 상태 조회 skeleton"
-      description="대시보드와 같은 언어로 직원 이름, 소속, 역할/직책 요약, 재직 상태를 읽기 쉽게 보여 주고 운영 변경 검토는 /admin/users 로 분리한 dev-safe placeholder 입니다."
+      eyebrow="Phase 34 인사 운영흐름 실사용화"
+      title="직원 목록 / 상태 조회"
+      description="직원 일반 조회를 same-origin employee directory 응답과 연결하고, 운영 변경 검토는 계속 /admin/users 로 분리한 실사용 확인 화면입니다."
       actions={
         <div className="pill-row">
-          <Pill tone="accent">general lookup</Pill>
-          <Pill>small-screen readable</Pill>
+          <Pill tone="accent">employee.read</Pill>
+          <Pill>same-origin live</Pill>
         </div>
       }
     >
+      <SurfaceSection title="실사용 조회 패널" description="직원 목록, 필터 후보, 경계 문구를 실제 API 응답으로 확인합니다.">
+        <EmployeeDirectoryLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="이 화면의 역할" description="관리자 운영 화면과 섞이지 않도록 일반 조회 범위를 먼저 고정합니다.">
         <ul className="bullet-list">
           {boundaryNotes.map((item) => (

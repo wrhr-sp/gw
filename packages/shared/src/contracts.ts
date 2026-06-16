@@ -18,7 +18,9 @@ export const appRoutes = {
     departments: "/api/departments",
     roles: "/api/roles",
     permissions: "/api/permissions",
+    branches: "/api/branches",
   },
+  notifications: "/api/notifications",
   admin: {
     invites: "/api/admin/invites",
     users: "/api/admin/users",
@@ -859,6 +861,31 @@ export const roleSchema = z.object({
   permissions: z.array(permissionCodeSchema),
 });
 
+export const branchViewerScopeSchema = z.enum(["hq_admin", "branch_manager", "employee"]);
+
+export const branchSummarySchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  code: z.string(),
+  name: z.string(),
+  branchType: z.string(),
+  status: z.enum(["active", "inactive"]),
+});
+
+export const notificationStatusSchema = z.enum(["unread", "read"]);
+
+export const notificationSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  userId: z.string(),
+  title: z.string(),
+  body: z.string(),
+  notificationType: z.string(),
+  status: notificationStatusSchema,
+  readAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+});
+
 export const orgDirectorySectionSummarySchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -906,6 +933,16 @@ export const listPermissionsResponseSchema = successResponseSchema(
   }),
 );
 
+export const listBranchesResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(branchSummarySchema),
+    scope: branchViewerScopeSchema,
+    summary: orgDirectorySectionSummarySchema,
+    notices: z.array(z.string()).min(1),
+    placeholder: z.literal(true),
+  }),
+);
+
 export const listHomeShortcutsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(homeShortcutSchema),
@@ -942,6 +979,16 @@ export const operationalBridgeSummarySchema = z.object({
   placeholderNote: z.string(),
   blockedReasons: z.array(operationalBridgeItemSchema).min(1),
 });
+
+export const listNotificationsResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(notificationSchema),
+    unreadCount: z.number().int().nonnegative(),
+    notices: z.array(z.string()).min(1),
+    operationalContext: operationalBridgeSummarySchema,
+    placeholder: z.literal(true),
+  }),
+);
 
 export const leavePolicySummarySchema = z.object({
   effectiveScopeLabel: z.string(),
@@ -1935,6 +1982,10 @@ export type EmployeeDirectorySummary = z.infer<typeof employeeDirectorySummarySc
 export type EmployeeDirectoryFilters = z.infer<typeof employeeDirectoryFiltersSchema>;
 export type EmployeeDirectoryFilterOptions = z.infer<typeof employeeDirectoryFilterOptionsSchema>;
 export type Department = z.infer<typeof departmentSchema>;
+export type BranchViewerScope = z.infer<typeof branchViewerScopeSchema>;
+export type BranchSummary = z.infer<typeof branchSummarySchema>;
+export type NotificationStatus = z.infer<typeof notificationStatusSchema>;
+export type Notification = z.infer<typeof notificationSchema>;
 export type Permission = z.infer<typeof permissionSchema>;
 export type HomeShortcut = z.infer<typeof homeShortcutSchema>;
 export type Role = z.infer<typeof roleSchema>;
@@ -1967,6 +2018,8 @@ export type AdminAuditTargetType = z.infer<typeof adminAuditTargetTypeSchema>;
 export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
 export type AdminAuditLogFilters = z.infer<typeof adminAuditLogFiltersSchema>;
 export type AdminAuditLogListResponse = z.infer<typeof adminAuditLogListResponseSchema>;
+export type NotificationListResponse = z.infer<typeof listNotificationsResponseSchema>;
+export type BranchListResponse = z.infer<typeof listBranchesResponseSchema>;
 export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;
 export type AttendanceActionRequest = z.infer<typeof attendanceActionRequestSchema>;
 export type AttendanceActionResponse = z.infer<typeof attendanceActionResponseSchema>;

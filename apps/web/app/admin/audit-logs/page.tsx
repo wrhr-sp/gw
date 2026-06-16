@@ -1,5 +1,6 @@
 import React from "react";
 
+import { AuditLogsLiveSection } from "../../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import {
   adminAuditBoundaryNotes,
@@ -14,11 +15,15 @@ export default function AdminAuditLogsPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
+      eyebrow="Phase 34 감사 운영흐름 실사용화"
       title="관리자 / 감사 로그"
-      description="운영 변경 이력을 조회 필터, 최근 이벤트 타임라인, 상세 패널, 비노출/회사 경계 기준으로 나눠 보는 화면입니다."
-      actions={<Pill tone="warning">read only</Pill>}
+      description="감사 로그 read-only 응답, 조회 필터, masked metadata, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
+      actions={<Pill tone="warning">audit.read</Pill>}
     >
+      <SurfaceSection title="실사용 감사 패널" description="감사 로그 목록과 필터 옵션을 실제 응답으로 먼저 확인합니다.">
+        <AuditLogsLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection
         title="감사 전용 진입 의미"
         description="감사 전용 사용자는 이 화면을 기본 진입점으로 보지만, 이것이 `/admin` 전체 허용을 뜻하지는 않습니다."

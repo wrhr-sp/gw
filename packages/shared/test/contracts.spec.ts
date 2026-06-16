@@ -57,10 +57,12 @@ import {
   leaveRequestCreateRequestSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
+  listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listHomeShortcutsResponseSchema,
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
+  listNotificationsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   noticeListResponseSchema,
@@ -586,6 +588,59 @@ describe("shared contracts", () => {
         error: null,
       }).data.summary.title,
     ).toContain("역할");
+  });
+
+  it("parses branch and notification placeholder payloads with scope and unread counts", () => {
+    const branchPayload = listBranchesResponseSchema.parse({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "branch_hq",
+            companyId: "company_demo",
+            code: "HQ",
+            name: "본사 운영센터",
+            branchType: "office",
+            status: "active",
+          },
+        ],
+        scope: "hq_admin",
+        summary: {
+          title: "지점/호텔 overview",
+          description: "운영 DB 기준 지점 목록을 회사 범위로 읽기 전용 요약합니다.",
+          count: 1,
+        },
+        notices: ["지점 마스터 생성/수정 저장은 이번 범위가 아닙니다."],
+        placeholder: true,
+      },
+      error: null,
+    });
+    expect(branchPayload.data.scope).toBe("hq_admin");
+
+    const notificationPayload = listNotificationsResponseSchema.parse({
+      ok: true,
+      data: {
+        items: [
+          {
+            id: "notification_admin_seed_1",
+            companyId: "company_demo",
+            userId: "user_company_admin",
+            title: "운영 DB seed 완료",
+            body: "초기 운영 데이터와 관리자 shortcut, 감사 preview 를 확인하세요.",
+            notificationType: "system",
+            status: "unread",
+            readAt: null,
+            createdAt: "2026-06-16T09:00:00.000Z",
+          },
+        ],
+        unreadCount: 1,
+        notices: ["알림 inbox 는 same-origin preview 이며 실제 외부 발송 상태를 뜻하지 않습니다."],
+        operationalContext: sampleOperationalBridge,
+        placeholder: true,
+      },
+      error: null,
+    });
+    expect(notificationPayload.data.unreadCount).toBe(1);
   });
 
   it("allows general directory payloads to omit blocked role filters while keeping valid filter options", () => {

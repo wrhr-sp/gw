@@ -360,6 +360,27 @@ pnpm --filter @gw/mobile typecheck
 6. `/admin/policies` — 정책 source 와 일반 화면 설명이 같은 뜻인지 본다.
 7. `apps/api/test/auth-org.spec.ts` — 권한, 회사 scope, self-approval, unknown/forged id 차단 근거가 실제로 붙들려 있는지 대조한다.
 
+### 1-10-i. Phase 34 인사·지점·알림·감사 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/employees`, `/org` 가 모두 "지금 눌러볼 수 있는 일반 조회" 로 먼저 읽히고 `/admin/users` 같은 운영 화면과 섞이지 않는가
+2. `/work-items/branch` 가 현재 지점 업무 진입점이라는 사실과 독립 `/branches` 미구현 상태가 같은 문서에서 정직하게 읽히는가
+3. `/notifications` 가 same-origin inbox 실응답과 외부 발송 없음 경계를 함께 보여 주는가
+4. `/admin/audit-logs` 가 `audit.read` 기준 read-only 감사 조회로 읽히고 관리자 전체 허용과 같은 뜻으로 보이지 않는가
+5. employee/branch/company/audit 권한 경계와 placeholder 제한이 같은 말로 뭉개지지 않는가
+6. employees/departments/roles/permissions read fallback, branch read/scope 근거, notifications same-origin inbox, audit read route 의 PostgreSQL 전환 상태를 한 문장으로 섞지 않았는가
+
+빠른 확인 순서:
+1. `/login` — dev/test/UAT 계정 설명과 production 금지 문구를 본다.
+2. `/dashboard` — `/employees`·`/org`·`/work-items/branch`·`/admin/audit-logs` 흐름이 어디서 갈리는지 본다.
+3. `/employees` — 일반 조회 카드, 관리자 경계 문구, employee directory 요약을 본다.
+4. `/org` — 부서/역할/권한 읽기 전용 구조를 본다.
+5. `/work-items/branch` — branch scope 업무 자리와 지점 일일 보고/마감 후속 문맥을 본다.
+6. `/notifications` — unread count, inbox 카드, 외부 발송 없음 안내와 복귀 흐름을 본다.
+7. `/admin/audit-logs` — 필터, masked detail, read-only company boundary 를 본다.
+8. `apps/api/test/auth-org.spec.ts`, `apps/api/test/phase34-degraded-routes.spec.ts` — employee directory validation, branch manager/company scope 차단, notification/audit degraded fallback, `audit.read` 허용/차단 근거가 실제로 붙들려 있는지 대조한다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash
