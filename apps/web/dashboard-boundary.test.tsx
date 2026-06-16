@@ -54,6 +54,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
+    expect(html).toContain("내부 도입 리허설 패키지");
     expect(html).toContain("관리자 운영 검토 레인");
     expect(html).toContain("오늘 상태와 마무리 조회");
     expect(html).toContain("공지/문서 진입점");
@@ -61,6 +62,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("홈 바로가기"));
     expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
+    expect(html.indexOf("역할별 첫 이동")).toBeLessThan(html.indexOf("내부 도입 리허설 패키지"));
     expect(html).toContain("`/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`");
     expect(html).toContain("/me");
     expect(html).toContain("/org");

@@ -37,6 +37,8 @@ describe("Phase 37 internal operational storage boundaries", () => {
     const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
 
     expect(managementHtml).toContain("Phase 37 내부 운영 저장흐름 허브");
+    expect(managementHtml).toContain("/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작");
+    expect(managementHtml).toContain("역할별 시나리오 + 이슈 템플릿");
     expect(managementHtml).toContain("/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인");
     expect(managementHtml).toContain("Phase 37 연결 체크");
 

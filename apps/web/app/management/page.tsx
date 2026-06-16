@@ -60,6 +60,12 @@ const managementGuardrails = [
   "급여 지급, 실제 세무 신고, production DB 입력, migration, destructive 작업은 이번 범위가 아닙니다.",
 ] as const;
 
+const rehearsalPackageHighlights = [
+  "`/uat` 에서 역할별 시나리오, 이슈 기록 템플릿, 진행자 스크립트를 한 번에 확인합니다.",
+  "blocker 와 approval-needed 를 같은 버그 목록으로 섞지 않습니다.",
+  "final report 에는 live URL, `admin / 1234`, 역할별 route, 남은 승인 게이트를 분리해 남깁니다.",
+] as const;
+
 const storageBridgeChecks = [
   "/documents 에서 upload/download 준비와 storageStatus 경계를 먼저 확인",
   "/admin/audit-logs 에서 masked storage preview 와 company boundary 확인",
@@ -97,12 +103,29 @@ export default function ManagementPage() {
       <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 가장 짧게 확인하는 흐름입니다.">
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
+          <li>/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작</li>
           <li>/management 에서 민감 모듈 허브가 일반 홈과 분리되어 보이는지 확인</li>
           <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
           <li>/payroll → /payroll/me 에서 급여 overview, 기간 상세, self-only 명세서 preview 확인</li>
           <li>/work-items/tax → /work-items/labor → /work-items/legal 에서 목록 → 상세 → review/documents/deadlines 흐름 확인</li>
           <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 production 금지 문구 확인</li>
         </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="리허설 패키지 묶음" description="내부 도입 리허설 참가자와 진행자가 같은 언어를 보도록 `/uat` 를 함께 둡니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">/uat</Pill>
+            <h3>역할별 시나리오 + 이슈 템플릿</h3>
+            <p>직원/승인자/경영업무 담당자/운영자 레인별 행동 순서와 happy path, forbidden, empty, error, offline 확인 포인트를 묶어 둡니다.</p>
+            <a href="/uat">/uat</a>
+          </article>
+        </div>
+        <ul className="summary-list">
+          {rehearsalPackageHighlights.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="Phase 37 연결 체크" description="문서 저장흐름과 감사/민감업무 읽기 모델을 같은 기준으로 다시 확인합니다.">

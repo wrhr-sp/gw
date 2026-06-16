@@ -411,6 +411,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 37 문서라면 `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md` 와 `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md` 의 문서 파일 lifecycle, masked audit storage preview, payroll/work-items 민감자료 approval gate, raw storage 비노출, backup/export/migration 제외 범위 설명과 같은 뜻을 유지한다.
 - Phase 38 문서라면 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md` 와 `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 의 홈/메뉴 같은 정보구조, notifications same-origin inbox honesty, offline 가능/불가/재시도 절차, 일반 업무 레인 대 `경영업무`·`/admin*` 운영 레인 분리, push/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 39 문서라면 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md` 와 `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 의 일반 host 대 admin host 경계, `/management`·`/admin*`·민감 work item 권한, company+branch scope, foreign/self 차단, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출, external security/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 40 문서라면 `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md` 와 `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md` 의 역할별 UAT 레인, blocker/major/minor/copy-doc/approval-needed 분류, 일반 직원 `/dashboard` 흐름 대 `/management`·`/admin*` 운영 레인 분리, happy path 대 forbidden/error/empty/offline 기록 기준, 최종 보고 형식과 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -569,6 +570,16 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - audit detail, 문서/첨부, 민감 work item 설명은 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key, bucket, signed URL, secret 을 기본 설명에 노출하지 않는다.
 - foreign employee/request id, self-approval, disallowed attendance method 같은 forged/scope 위반 요청은 403 또는 validation 으로 막힌다는 점을 같은 보안 언어로 적는다.
 - external security/audit integration, production secret·실데이터, custom domain, native release, migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
+
+### 6-19. Phase 40 문구는 "내부 도입 리허설 시나리오 / 이슈 분류 기준 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 직원 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)을 같은 UAT 시나리오처럼 섞어 쓰지 않는다.
+- 같은 `admin / 1234` 계정을 쓰더라도 직원/승인자/경영업무 담당자/운영자 문맥을 분리해 적고, production 기본 계정처럼 쓰지 않는다.
+- happy path, forbidden, empty, error, offline 을 UAT 기록표에서 서로 다른 상태로 적고, 같은 실패 상태처럼 뭉개지 않는다.
+- 권한 누출, foreign/self/company+branch scope 누출, raw 민감정보 노출은 단순 불편이 아니라 blocker 또는 major 급 질문으로 적는다.
+- `/payroll`, `/payroll/me`, `tax`, `labor`, `legal`, `/admin/audit-logs` 는 모두 확인 route 와 역할 문맥을 먼저 적되, preview/skeleton 과 실운영·실외부연동을 같은 말처럼 섞지 않는다.
+- 최종 보고에는 live URL, 테스트 계정, 역할별 시나리오, 남은 blocker/major/minor, 승인 게이트를 분리해 적을 수 있어야 한다.
+- 실제 급여 지급, 은행 이체, 주민번호/계좌번호 확대, 외부 기관 연동, production secret·실데이터, custom domain, migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

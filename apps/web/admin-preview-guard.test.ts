@@ -31,6 +31,10 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/uat", host: "gw-web.preview.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
   });
 
   it("allows admin users to stay on the current preview host when no paired admin host is explicitly configured", () => {
