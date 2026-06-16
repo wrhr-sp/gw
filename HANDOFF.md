@@ -18,7 +18,7 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 39 운영 QA·보안·감사·권한 회귀 안정화 fit-gap 기획이다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었으며, 직전 Phase 38에서는 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인을 같은 현장 사용성 언어로 다시 맞췄다. 이제는 그 위에서 일반 host 대 admin host 경계, role/permission 차이, company+branch scope, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출을 같은 운영 QA 언어로 고정하는 것이 이번 카드의 핵심이다.
+현재 활성 흐름은 Phase 40 내부 도입 리허설·관리자/직원 UAT 패키지 문서화다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었으며, 직전 Phase 38에서는 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인을 같은 현장 사용성 언어로 다시 맞췄다. 직전 Phase 39에서는 일반 host 대 admin host 경계, role/permission 차이, company+branch scope, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출을 같은 운영 QA 언어로 다시 고정했다. 이제는 그 위에서 `/uat` 실행 패키지, 직원/승인자/경영업무 담당자/운영자 레인별 UAT 시나리오, blocker/major/minor/approval-needed 분류 기준, 교육자료 초안, 최종 보고 형식을 같은 내부 도입 리허설 언어로 고정하는 것이 이번 카드의 핵심이다.
 
 현재 상태 요약:
 
@@ -26,9 +26,24 @@
 - `apps/web/admin-preview-guard.test.ts` 기준 익명 `/admin`·`/management` redirect, `HR_ADMIN` 의 audit 차단, `AUDITOR` 의 audit-only 허용, spoofed host 차단 근거가 이미 있다.
 - `apps/web/phase38-offline-admin.test.tsx` 기준 일반 host `/offline` 와 admin host `/offline` 복구 경계 분리 근거가 이미 있다.
 - `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 기준 `audit.read`, `work_item.audit.read`, company+branch scope, foreign/self 차단, raw storage internals 비노출 근거가 이미 있다.
+- `apps/web/app/uat/page.tsx`, `apps/web/app/uat/uat-package-config.ts`, `apps/web/phase40-uat-package.test.tsx` 기준 `/uat` 실행 패키지에서 live URL, 테스트 계정, 역할별 시나리오 카드, 이슈 기록 템플릿, 진행자 스크립트, 참가자용 빠른 시작, final report/approval gate 기준을 한 화면에서 볼 수 있다.
 - forbidden/error/empty/offline 을 쉬운 문구로 나누는 현재 UI 근거는 `/me`, `/admin/users`, `/offline` 쪽에 이미 있다.
-- 새 기준 문서는 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md`, `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 검토할 운영 QA 경계" 와 "아직 외부 보안 연동/실데이터/native/custom domain 이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops 가 같은 Phase 39 언어를 쓰게 만드는 것이다.
+- 새 기준 문서는 `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md`, `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 내부 도입 리허설에서 직접 눌러볼 시나리오" 와 "아직 외부 연동/실데이터/실지급/custom domain 이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops 가 같은 Phase 40 언어를 쓰게 만드는 것이다.
+- 현재 구현 산출물로 `/uat` 실행 패키지가 추가되어 live URL, `admin / 1234`, 역할별 시나리오 카드, 이슈 기록 템플릿, 진행자 스크립트, 참가자용 빠른 시작, final report/approval gate 기준을 웹에서 바로 확인할 수 있다.
+
+2026-06-16 Phase 40 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/login`, `/uat`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/management`, `/payroll`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`, 관련 route guard/API guard/test 근거.
+- 현재 체인은 `t_cc4b8957`(재검증 완료) → `t_a627fd5c`(문서화 진행 중) → `t_de5fe53c`(release gate 부모 대기) → `t_12730723`(최종 통합 보고 부모 대기) 순서로 이어진다.
+- 현재 문서화 근거는 `docs/guides/phase-31-home-auth-management-real-usage-handoff.md`, `docs/guides/phase-33-attendance-leave-approvals-real-usage-handoff.md`, `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md`, `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md`, `apps/web/app/uat/page.tsx`, `apps/web/app/uat/uat-package-config.ts`, `apps/web/phase40-uat-package.test.tsx`, `apps/web/admin-preview-guard.test.ts`, `apps/web/phase38-offline-admin.test.tsx`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 다.
+- 2026-06-16 parent 재검증 기준 익명 general host `/uat` 접근은 `/login` 으로 redirect 되고, 로그인 세션에서는 `/uat` 접근이 허용되며, focused Phase 40 guard/middleware 테스트 22개 파일·94개 테스트가 통과했다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev` 이고, 테스트 계정은 dev/test/UAT 전용 `admin / 1234` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 직원 레인(`/dashboard` 중심), 승인자 레인(`/approvals` 중심), 경영업무 레인(`/management` 중심), 운영/감사 레인(`/admin*` 중심)을 서로 다른 역할 문맥으로 읽게 만드는 것이다.
+- 권한 누출, foreign/self/company+branch scope 누출, raw 민감정보 노출은 단순 UX 불편이 아니라 blocker 또는 major 급 이슈로 적어야 한다.
+- happy path, forbidden, empty, error, offline 을 UAT 기록표에서 다른 상태로 적을 수 있게 기준을 통일해야 한다.
+- gap 이 큰 영역: 역할별 시나리오를 한 세트의 UAT 패키지로 정리한 문서 부족, blocker/major/minor/copy-doc/approval-needed 분류 기준 부족, 진행자용 설명 순서와 참가자용 빠른 시작 문구 부족.
+- 이번 문서의 목적은 제품 경계, 권한 경계, 교육자료 초안, 최종 보고 형식을 한 세트의 내부 도입 리허설 언어로 다시 맞추는 것이다.
 
 2026-06-16 Phase 39 fit-gap 메모:
 

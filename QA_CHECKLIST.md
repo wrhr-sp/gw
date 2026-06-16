@@ -66,6 +66,10 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] 직원 레인(`/login` → `/uat` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 UAT 시나리오처럼 섞이지 않는다.
+- [ ] 같은 `admin / 1234` 계정을 쓰더라도 직원/승인자/경영업무 담당자/운영자 문맥이 분리돼 있고, production 기본 계정처럼 적히지 않는다.
+- [ ] blocker / major / minor / copy-doc / approval-needed 분류 기준이 문서와 handoff 에서 같은 뜻으로 유지된다.
+- [ ] final report 에 들어갈 live URL, 시작 route(`/uat`), 테스트 계정, 역할별 시나리오, 남은 승인 게이트 형식이 문서마다 다르게 풀리지 않는다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.

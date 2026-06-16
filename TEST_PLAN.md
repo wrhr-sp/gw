@@ -328,6 +328,46 @@ pnpm --filter @gw/mobile typecheck
 10. `apps/web/phase38-offline-admin.test.tsx`
 11. `apps/api/test/auth-org.spec.ts`
 
+### 1-15. Phase 40 내부 도입 리허설·관리자/직원 UAT 패키지 판정 질문
+
+이번 Phase는 새 빌드 산출물보다 기존 route/test 근거를 내부 도입 리허설 패키지 언어로 다시 묶는 문서 단계다.
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 직원 레인(`/login` → `/uat` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 시나리오처럼 섞이지 않는가
+2. 승인자/팀장 레인, 경영업무 담당자 레인, 운영자/감사 레인이 각각 무엇을 확인하는지 따로 읽히는가
+3. happy path, forbidden, empty, error, offline 을 UAT 기록표에 따로 적을 수 있는가
+4. 권한 누출, foreign/self/company+branch scope 누출, raw 민감정보 노출을 blocker 또는 major 급 이슈로 분류하는 기준이 분명한가
+5. `/payroll`, `/payroll/me`, `tax`, `labor`, `legal`, `/admin/audit-logs` 가 각각 preview/skeleton/read-only/승인 게이트 경계를 숨기지 않는가
+6. final report 에 live URL(`https://gw-web.wereheresp.workers.dev`), 시작 route(`/uat`), 테스트 계정(`admin / 1234`), 역할별 시나리오, 남은 승인 게이트를 분리해 적을 수 있는가
+
+이 6개 질문 중 하나라도 흐리면 Phase 40 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/login`
+2. `/uat`
+3. `/dashboard`
+4. `/attendance`
+5. `/leave`
+6. `/approvals`
+7. `/boards`
+8. `/documents`
+9. `/management`
+10. `/payroll`
+11. `/work-items/tax`
+12. `/work-items/labor`
+13. `/work-items/legal`
+14. `/admin`
+15. `/admin/users`
+16. `/admin/policies`
+17. `/admin/audit-logs`
+18. `/offline`
+19. `apps/web/phase40-uat-package.test.tsx`
+20. `apps/web/admin-preview-guard.test.ts`
+21. `apps/web/phase38-offline-admin.test.tsx`
+22. `apps/api/test/auth-org.spec.ts`
+
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
 문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:

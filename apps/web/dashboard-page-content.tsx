@@ -136,6 +136,30 @@ export function DashboardPageContent({
       </SurfaceSection>
 
       <SurfaceSection
+        title="내부 도입 리허설 패키지"
+        description="역할별 시나리오, 이슈 기록 템플릿, 진행자 스크립트, approval gate 를 `/uat` 한 화면에서 다시 확인합니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">공통 시작점</Pill>
+            <h3>/uat</h3>
+            <p>직원/승인자/경영업무 담당자/운영자 레인을 섞지 않고 live URL, 테스트 계정, 추천 route 를 한 번에 확인합니다.</p>
+            <a href="/uat">/uat</a>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">이슈 분류</Pill>
+            <h3>blocker · major · minor · copy-doc · approval-needed</h3>
+            <p>권한 누출과 scope 누출은 blocker 로, 실데이터/외부 연동/production 변경은 approval-needed 로 따로 기록합니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>final report</Pill>
+            <h3>live URL + 계정 + 역할별 시나리오</h3>
+            <p>최종 보고에는 `https://gw-web.wereheresp.workers.dev`, `admin / 1234`, 확인 route, 남은 승인 게이트를 같이 남깁니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
         title="관리자 운영 검토 레인"
         description="운영자는 일반 직원 흐름과 섞지 않고 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 검토합니다."
       >
