@@ -1,5 +1,6 @@
 import React from "react";
 
+import { ManagementCompliancePreviewSection } from "../_components/phase35-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
 const managementCards = [
@@ -91,10 +92,14 @@ export default function ManagementPage() {
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/management 에서 민감 모듈 허브가 일반 홈과 분리되어 보이는지 확인</li>
-          <li>/admin/users 에서 계정 생성/권한/상태/비밀번호 초기화 preview 흐름 확인</li>
-          <li>/attendance, /leave, /approvals, /boards, /documents 에서 최소 happy path 링크 확인</li>
-          <li>/admin/audit-logs 에서 read-only 감사 경계와 production 금지 문구 확인</li>
+          <li>/payroll → /payroll/me 에서 급여 overview, 기간 상세, self-only 명세서 preview 확인</li>
+          <li>/work-items/tax → /work-items/labor → /work-items/legal 에서 목록 → 상세 → review/documents/deadlines 흐름 확인</li>
+          <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 production 금지 문구 확인</li>
         </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="컴플라이언스 / 감사 preview" description="audit.read 가 있는 역할은 same-origin 감사 응답을, 없는 역할은 403 guard 문구를 같은 화면에서 확인합니다.">
+        <ManagementCompliancePreviewSection />
       </SurfaceSection>
 
       <SurfaceSection title="분리 원칙" description="단순 메뉴 숨김이 아니라 route/API/문서 언어를 같이 맞춥니다." muted>

@@ -529,6 +529,14 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/admin/audit-logs` 는 `audit.read` 기준 read-only 감사 조회와 필터/마스킹/회사 경계를 먼저 적고, 관리자 운영 전체 허용과 같은 말처럼 쓰지 않는다.
 - employees/departments/roles/permissions 의 PostgreSQL read fallback, branch read/scope 근거, notifications same-origin inbox + 외부발송 미구현, audit read route + append 후속을 한 단계 완료처럼 뭉개지 말고 각 영역의 전환 상태를 분리해 적는다.
 
+### 6-15. Phase 35 문구는 "지금 직접 눌러볼 관리자 급여·세무·노무·법무·컴플라이언스 / preview·skeleton 대 실운영 경계 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 는 모두 route 존재 여부만이 아니라 현재 관리자 UAT에서 무엇을 직접 확인할 수 있는지 먼저 적고, 실제 운영 완료품처럼 과장하지 않는다.
+- 급여(`/payroll`)의 preview/self-only/role-split 흐름과 세무(`/work-items/tax`)의 제출/마감/review skeleton 흐름을 같은 모듈 책임처럼 섞지 않는다.
+- labor 와 legal 은 모두 공통 `work item` 기반 민감 모듈이지만, restricted labor capability 와 legal visibility/approval gate 를 같은 권한처럼 적지 않는다.
+- 현재 조사 기준 dedicated `/compliance` 또는 `module=compliance` 구현 근거가 없으면, 컴플라이언스는 `/management` 카드와 `/admin/audit-logs` read-only 흐름으로 먼저 읽히는 상태라고 정직하게 적고 전용 queue 가 닫힌 것처럼 쓰지 않는다.
+- 실세액 계산, 4대보험 확정, 실급여 지급, 홈택스/외부 세무사/노무사/변호사/법령 API 연동, 민감 원문 저장 확대, production DB 실데이터는 계속 별도 승인 게이트로 적는다.
+
 ## 7. 승인 없이 하면 안 되는 것
 
 아래는 여전히 별도 승인 대상이다.

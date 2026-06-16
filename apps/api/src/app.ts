@@ -175,6 +175,20 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
+import {
+  listOperationalPayrollDrafts,
+  listOperationalPayrollInputSnapshots,
+  listOperationalPayrollLineItems,
+  listOperationalPayrollPeriods,
+  listOperationalPayrollProfiles,
+  listOperationalPayrollReviewSteps,
+  listOperationalWorkItemAttachments,
+  listOperationalWorkItemAuditLogs,
+  listOperationalWorkItemDeadlines,
+  listOperationalWorkItemDocuments,
+  listOperationalWorkItemReviews,
+  listOperationalWorkItems,
+} from "./lib/operational-management";
 
 import {
   createOperationalApprovalDocument,
@@ -3103,29 +3117,36 @@ function canAccessWorkItem(auth: SessionContext, item: WorkItem) {
   return isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR";
 }
 
-function listVisibleWorkItems(auth: SessionContext, module?: WorkItem["module"]) {
-  return workItems.filter((item) => canAccessWorkItem(auth, item) && (!module || item.module === module));
+function filterVisibleWorkItems(items: readonly WorkItem[], auth: SessionContext, module?: WorkItem["module"]) {
+  return items.filter((item) => canAccessWorkItem(auth, item) && (!module || item.module === module));
 }
 
-function findVisibleWorkItem(auth: SessionContext, workItemId: string) {
-  return listVisibleWorkItems(auth).find((item) => item.id === workItemId) ?? null;
+function findVisibleWorkItemIn(items: readonly WorkItem[], auth: SessionContext, workItemId: string) {
+  return filterVisibleWorkItems(items, auth).find((item) => item.id === workItemId) ?? null;
 }
 
 function canReadSensitiveWorkItemAttachment(auth: SessionContext, item: WorkItem) {
   return item.access.capabilities.includes("work_item.attachment.read_sensitive") && (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR");
 }
 
-function listVisibleWorkItemDocuments(auth: SessionContext, workItemId: string) {
-  const item = findVisibleWorkItem(auth, workItemId);
+async function listVisibleWorkItemsForAuth(context: AppContext, auth: SessionContext, module?: WorkItem["module"]) {
+  const dbItems = await listOperationalWorkItems(context.env, auth.user.companyId, module);
+  return filterVisibleWorkItems(mergeById(workItems, dbItems), auth, module);
+}
+
+async function findVisibleWorkItemForAuth(context: AppContext, auth: SessionContext, workItemId: string) {
+  const dbItems = await listOperationalWorkItems(context.env, auth.user.companyId);
+  return findVisibleWorkItemIn(mergeById(workItems, dbItems), auth, workItemId);
+}
+
+async function listVisibleWorkItemDocumentsForAuth(context: AppContext, auth: SessionContext, workItemId: string) {
+  const item = await findVisibleWorkItemForAuth(context, auth, workItemId);
   if (!item) {
     return null;
   }
 
-  return workItemDocuments.filter((document) => {
-    if (document.workItemId !== workItemId) {
-      return false;
-    }
-
+  const dbItems = await listOperationalWorkItemDocuments(context.env, auth.user.companyId, workItemId);
+  return mergeById(workItemDocuments.filter((document) => document.workItemId === workItemId), dbItems).filter((document) => {
     if (!document.containsSensitiveData) {
       return true;
     }
@@ -3134,17 +3155,14 @@ function listVisibleWorkItemDocuments(auth: SessionContext, workItemId: string) 
   });
 }
 
-function listVisibleWorkItemAttachments(auth: SessionContext, workItemId: string) {
-  const item = findVisibleWorkItem(auth, workItemId);
+async function listVisibleWorkItemAttachmentsForAuth(context: AppContext, auth: SessionContext, workItemId: string) {
+  const item = await findVisibleWorkItemForAuth(context, auth, workItemId);
   if (!item) {
     return null;
   }
 
-  return workItemAttachments.filter((attachment) => {
-    if (attachment.workItemId !== workItemId) {
-      return false;
-    }
-
+  const dbItems = await listOperationalWorkItemAttachments(context.env, auth.user.companyId, workItemId);
+  return mergeById(workItemAttachments.filter((attachment) => attachment.workItemId === workItemId), dbItems).filter((attachment) => {
     if (attachment.sensitivityLabel !== "restricted") {
       return true;
     }
@@ -3153,16 +3171,18 @@ function listVisibleWorkItemAttachments(auth: SessionContext, workItemId: string
   });
 }
 
-function listVisibleWorkItemReviews(auth: SessionContext, workItemId: string) {
-  if (!findVisibleWorkItem(auth, workItemId)) {
+async function listVisibleWorkItemReviewsForAuth(context: AppContext, auth: SessionContext, workItemId: string) {
+  const item = await findVisibleWorkItemForAuth(context, auth, workItemId);
+  if (!item) {
     return null;
   }
 
-  return workItemReviews.filter((review) => review.workItemId === workItemId);
+  const dbItems = await listOperationalWorkItemReviews(context.env, auth.user.companyId, workItemId);
+  return mergeById(workItemReviews.filter((review) => review.workItemId === workItemId), dbItems);
 }
 
-function listVisibleWorkItemAuditLogs(auth: SessionContext, workItemId: string) {
-  const item = findVisibleWorkItem(auth, workItemId);
+async function listVisibleWorkItemAuditLogsForAuth(context: AppContext, auth: SessionContext, workItemId: string) {
+  const item = await findVisibleWorkItemForAuth(context, auth, workItemId);
   if (!item) {
     return null;
   }
@@ -3171,82 +3191,77 @@ function listVisibleWorkItemAuditLogs(auth: SessionContext, workItemId: string) 
     return [];
   }
 
-  return workItemAuditLogs.filter((auditLog) => auditLog.workItemId === workItemId);
+  const dbItems = await listOperationalWorkItemAuditLogs(context.env, auth.user.companyId, workItemId);
+  return mergeById(workItemAuditLogs.filter((auditLog) => auditLog.workItemId === workItemId), dbItems);
 }
 
-function listVisibleWorkItemDeadlines(auth: SessionContext) {
-  const visibleIds = new Set(listVisibleWorkItems(auth).map((item) => item.id));
-  return workItemDeadlines.filter((deadline) => visibleIds.has(deadline.workItemId));
+async function listVisibleWorkItemDeadlinesForAuth(context: AppContext, auth: SessionContext) {
+  const items = await listVisibleWorkItemsForAuth(context, auth);
+  const visibleIds = new Set(items.map((item) => item.id));
+  const dbItems = await listOperationalWorkItemDeadlines(context.env, auth.user.companyId);
+  return mergeById(workItemDeadlines, dbItems).filter((deadline) => visibleIds.has(deadline.workItemId));
 }
 
 function canReadPayroll(auth: SessionContext) {
   return hasPermission(auth.user, "payroll.read");
 }
 
-function listVisiblePayrollProfiles(auth: SessionContext) {
+function filterVisiblePayrollProfiles(profiles: readonly PayrollProfile[], auth: SessionContext) {
   if (!canReadPayroll(auth)) {
     return [];
   }
 
   if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR") {
-    return payrollProfiles;
+    return [...profiles];
   }
 
   const viewerBranchId = getViewerBranchId(auth);
   if (auth.roleCode === "MANAGER") {
-    return payrollProfiles.filter((profile) => profile.branchId === viewerBranchId || profile.employeeId === auth.user.employeeId);
+    return profiles.filter((profile) => profile.branchId === viewerBranchId || profile.employeeId === auth.user.employeeId);
   }
 
-  return payrollProfiles.filter((profile) => profile.employeeId === auth.user.employeeId);
+  return profiles.filter((profile) => profile.employeeId === auth.user.employeeId);
 }
 
-function listVisiblePayrollPeriods(auth: SessionContext) {
+function filterVisiblePayrollPeriods(periods: readonly PayrollPeriod[], drafts: readonly PayrollDraft[], auth: SessionContext) {
   if (!canReadPayroll(auth)) {
     return [];
   }
 
   if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR" || auth.roleCode === "MANAGER") {
-    return payrollPeriods;
+    return [...periods];
   }
 
-  const visiblePeriodIds = new Set(payrollDrafts.filter((draft) => draft.employeeId === auth.user.employeeId).map((draft) => draft.periodId));
-  return payrollPeriods.filter((period) => visiblePeriodIds.has(period.id));
+  const visiblePeriodIds = new Set(drafts.filter((draft) => draft.employeeId === auth.user.employeeId).map((draft) => draft.periodId));
+  return periods.filter((period) => visiblePeriodIds.has(period.id));
 }
 
-function findVisiblePayrollPeriod(auth: SessionContext, periodId: string) {
-  return listVisiblePayrollPeriods(auth).find((period) => period.id === periodId) ?? null;
+function findVisiblePayrollPeriodIn(periods: readonly PayrollPeriod[], drafts: readonly PayrollDraft[], auth: SessionContext, periodId: string) {
+  return filterVisiblePayrollPeriods(periods, drafts, auth).find((period) => period.id === periodId) ?? null;
 }
 
-function findPayrollDraft(periodId: string) {
-  return payrollDrafts.find((draft) => draft.periodId === periodId) ?? null;
-}
-
-function findPayrollInputSnapshot(periodId: string) {
-  return payrollInputSnapshots.find((snapshot) => snapshot.periodId === periodId) ?? null;
-}
-
-function listPayrollLineItemsForPeriod(periodId: string) {
+function listFallbackPayrollLineItems(periodId: string) {
   if (periodId !== "payroll_period_2026_05") {
     return [];
   }
 
-  return payrollLineItems;
+  return [...payrollLineItems];
 }
 
-function listVisiblePayrollReviewSteps(auth: SessionContext, periodId: string) {
-  const items = payrollReviewSteps.filter((step) => step.periodId === periodId);
+function filterVisiblePayrollReviewSteps(items: readonly PayrollReviewStep[], auth: SessionContext, periodId: string) {
+  const periodItems = items.filter((step) => step.periodId === periodId);
   if (isAdminRole(auth.roleCode) || auth.roleCode === "AUDITOR") {
-    return items;
+    return periodItems;
   }
 
   if (auth.roleCode === "MANAGER") {
-    return items.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll");
+    return periodItems.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll");
   }
 
-  return items.filter((step) => step.scope === "employee");
+  return periodItems.filter((step) => step.scope === "employee");
 }
 
-function canAccessPayrollDraft(auth: SessionContext, draft: PayrollDraft) {
+function canAccessPayrollDraft(auth: SessionContext, draft: PayrollDraft, profiles: readonly PayrollProfile[]) {
   if (draft.employeeId === auth.user.employeeId && hasPermission(auth.user, "payroll.payslip.read_self")) {
     return true;
   }
@@ -3255,18 +3270,82 @@ function canAccessPayrollDraft(auth: SessionContext, draft: PayrollDraft) {
     return true;
   }
 
+  if (auth.roleCode === "MANAGER") {
+    const viewerBranchId = getViewerBranchId(auth);
+    if (!viewerBranchId) {
+      return false;
+    }
+
+    const profile = profiles.find((item) => item.id === draft.profileId);
+    return profile?.branchId === viewerBranchId;
+  }
+
   return false;
 }
 
-function buildPayrollOverviewPayload(auth: SessionContext) {
+async function listPayrollProfilesForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalPayrollProfiles(context.env, auth.user.companyId);
+  return filterVisiblePayrollProfiles(mergeById(payrollProfiles, dbItems), auth);
+}
+
+async function listPayrollDraftsForAuth(context: AppContext, auth: SessionContext) {
+  const dbItems = await listOperationalPayrollDrafts(context.env, auth.user.companyId);
+  return mergeById(payrollDrafts, dbItems);
+}
+
+async function listPayrollPeriodsForAuth(context: AppContext, auth: SessionContext, drafts: readonly PayrollDraft[]) {
+  const dbItems = await listOperationalPayrollPeriods(context.env, auth.user.companyId);
+  return filterVisiblePayrollPeriods(mergeById(payrollPeriods, dbItems), drafts, auth);
+}
+
+async function listPayrollReviewStepsForAuth(context: AppContext, auth: SessionContext, periodId?: string) {
+  const dbItems = await listOperationalPayrollReviewSteps(context.env, auth.user.companyId, periodId);
+  const merged = mergeById(payrollReviewSteps, dbItems);
+  if (!periodId) {
+    if (auth.roleCode === "EMPLOYEE") {
+      return merged.filter((step) => step.scope === "employee");
+    }
+    if (auth.roleCode === "MANAGER") {
+      return merged.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll");
+    }
+    return merged;
+  }
+
+  return filterVisiblePayrollReviewSteps(merged, auth, periodId);
+}
+
+async function findPayrollInputSnapshotForAuth(context: AppContext, auth: SessionContext, periodId: string) {
+  const dbItems = await listOperationalPayrollInputSnapshots(context.env, auth.user.companyId, periodId);
+  const merged = mergeById(payrollInputSnapshots.filter((snapshot) => snapshot.periodId === periodId), dbItems);
+  return merged[0] ?? null;
+}
+
+async function findPayrollDraftForAuth(context: AppContext, auth: SessionContext, periodId: string) {
+  const drafts = await listPayrollDraftsForAuth(context, auth);
+  return drafts.find((draft) => draft.periodId === periodId) ?? null;
+}
+
+async function listPayrollLineItemsForAuth(context: AppContext, auth: SessionContext, periodId: string) {
+  const dbItems = await listOperationalPayrollLineItems(context.env, auth.user.companyId, periodId);
+  if (dbItems && dbItems.length > 0) {
+    return dbItems;
+  }
+
+  return listFallbackPayrollLineItems(periodId);
+}
+
+async function buildPayrollOverviewPayload(context: AppContext, auth: SessionContext) {
+  const drafts = await listPayrollDraftsForAuth(context, auth);
+  const [profiles, periods, collectionSteps] = await Promise.all([
+    listPayrollProfilesForAuth(context, auth),
+    listPayrollPeriodsForAuth(context, auth, drafts),
+    listPayrollReviewStepsForAuth(context, auth),
+  ]);
+
   return {
-    profiles: listVisiblePayrollProfiles(auth),
-    periods: listVisiblePayrollPeriods(auth),
-    collectionSteps: auth.roleCode === "EMPLOYEE"
-      ? payrollReviewSteps.filter((step) => step.scope === "employee")
-      : auth.roleCode === "MANAGER"
-        ? payrollReviewSteps.filter((step) => step.scope === "branch_manager" || step.scope === "headquarters_payroll")
-        : payrollReviewSteps,
+    profiles,
+    periods,
+    collectionSteps,
     roleGuidance: payrollRoleGuidance,
     placeholder: true as const,
   };
@@ -6618,7 +6697,7 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
   });
 });
 
-app.get(appRoutes.payroll.overview, (context) => {
+app.get(appRoutes.payroll.overview, async (context) => {
   const authResult = requirePermission(context, "payroll.read");
   if (authResult.response) {
     return authResult.response;
@@ -6626,23 +6705,28 @@ app.get(appRoutes.payroll.overview, (context) => {
 
   return jsonSuccess(context, payrollOverviewResponseSchema, {
     ok: true,
-    data: buildPayrollOverviewPayload(authResult.auth),
+    data: await buildPayrollOverviewPayload(context, authResult.auth),
     error: null,
   });
 });
 
-app.get(PAYROLL_PERIOD_DETAIL_ROUTE, (context) => {
+app.get(PAYROLL_PERIOD_DETAIL_ROUTE, async (context) => {
   const authResult = requirePermission(context, "payroll.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const periodId = context.req.param("id");
-  const period = findVisiblePayrollPeriod(authResult.auth, periodId);
-  const draft = findPayrollDraft(periodId);
-  const inputSnapshot = findPayrollInputSnapshot(periodId);
+  const drafts = await listPayrollDraftsForAuth(context, authResult.auth);
+  const [profiles, periods, draft, inputSnapshot] = await Promise.all([
+    listPayrollProfilesForAuth(context, authResult.auth),
+    listPayrollPeriodsForAuth(context, authResult.auth, drafts),
+    findPayrollDraftForAuth(context, authResult.auth, periodId),
+    findPayrollInputSnapshotForAuth(context, authResult.auth, periodId),
+  ]);
+  const period = findVisiblePayrollPeriodIn(periods, drafts, authResult.auth, periodId);
 
-  if (!period || !draft || !inputSnapshot || !canAccessPayrollDraft(authResult.auth, draft)) {
+  if (!period || !draft || !inputSnapshot || !canAccessPayrollDraft(authResult.auth, draft, profiles)) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 급여 기간 상세입니다.", 403, {
       periodId,
       route: context.req.path,
@@ -6655,8 +6739,8 @@ app.get(PAYROLL_PERIOD_DETAIL_ROUTE, (context) => {
       period,
       draft,
       inputSnapshot,
-      lineItems: listPayrollLineItemsForPeriod(periodId),
-      reviewSteps: listVisiblePayrollReviewSteps(authResult.auth, periodId),
+      lineItems: await listPayrollLineItemsForAuth(context, authResult.auth, periodId),
+      reviewSteps: await listPayrollReviewStepsForAuth(context, authResult.auth, periodId),
       roleGuidance: payrollRoleGuidance,
       placeholder: true,
     },
@@ -6664,13 +6748,14 @@ app.get(PAYROLL_PERIOD_DETAIL_ROUTE, (context) => {
   });
 });
 
-app.get(appRoutes.payroll.myPayslip, (context) => {
+app.get(appRoutes.payroll.myPayslip, async (context) => {
   const authResult = requirePermission(context, "payroll.payslip.read_self");
   if (authResult.response) {
     return authResult.response;
   }
 
-  const draft = payrollDrafts.find((item) => item.employeeId === authResult.auth.user.employeeId);
+  const drafts = await listPayrollDraftsForAuth(context, authResult.auth);
+  const draft = drafts.find((item) => item.employeeId === authResult.auth.user.employeeId);
   if (!draft) {
     return jsonError(context, "FORBIDDEN", "조회 가능한 급여명세서 초안이 없습니다.", 403, {
       employeeId: authResult.auth.user.employeeId,
@@ -6678,7 +6763,8 @@ app.get(appRoutes.payroll.myPayslip, (context) => {
     });
   }
 
-  const period = payrollPeriods.find((item) => item.id === draft.periodId);
+  const periods = await listPayrollPeriodsForAuth(context, authResult.auth, drafts);
+  const period = periods.find((item) => item.id === draft.periodId);
   if (!period) {
     return jsonError(context, "FORBIDDEN", "급여 기간 정보를 찾을 수 없습니다.", 403, {
       employeeId: authResult.auth.user.employeeId,
@@ -6691,7 +6777,7 @@ app.get(appRoutes.payroll.myPayslip, (context) => {
     data: {
       period,
       payslip: draft,
-      lineItems: listPayrollLineItemsForPeriod(draft.periodId),
+      lineItems: await listPayrollLineItemsForAuth(context, authResult.auth, draft.periodId),
       employeeMessage: "급여명세서 초안은 본사 검토 완료 전까지 preview 상태로만 표시됩니다.",
       correctionRequestGuide: "정정이 필요하면 급여 확정 전 /attendance 정정, /leave 잔여, 지점 제출 메모를 먼저 확인한 뒤 인사/급여 담당에게 알립니다.",
       placeholder: true,
@@ -6700,14 +6786,14 @@ app.get(appRoutes.payroll.myPayslip, (context) => {
   });
 });
 
-app.get(appRoutes.workItems.list, (context) => {
+app.get(appRoutes.workItems.list, async (context) => {
   const authResult = requirePermission(context, "work_item.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const module = context.req.query("module") as WorkItem["module"] | undefined;
-  const items = listVisibleWorkItems(authResult.auth, module);
+  const items = await listVisibleWorkItemsForAuth(context, authResult.auth, module);
 
   return jsonSuccess(context, workItemListResponseSchema, {
     ok: true,
@@ -6718,14 +6804,14 @@ app.get(appRoutes.workItems.list, (context) => {
   });
 });
 
-app.get(WORK_ITEM_DETAIL_ROUTE, (context) => {
+app.get(WORK_ITEM_DETAIL_ROUTE, async (context) => {
   const authResult = requirePermission(context, "work_item.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const workItemId = context.req.param("id");
-  const item = findVisibleWorkItem(authResult.auth, workItemId);
+  const item = await findVisibleWorkItemForAuth(context, authResult.auth, workItemId);
   if (!item) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 카드입니다.", 403, {
       workItemId,
@@ -6737,20 +6823,20 @@ app.get(WORK_ITEM_DETAIL_ROUTE, (context) => {
     ok: true,
     data: {
       item,
-      auditLogs: listVisibleWorkItemAuditLogs(authResult.auth, workItemId) ?? [],
+      auditLogs: (await listVisibleWorkItemAuditLogsForAuth(context, authResult.auth, workItemId)) ?? [],
     },
     error: null,
   });
 });
 
-app.get(WORK_ITEM_DOCUMENTS_ROUTE, (context) => {
+app.get(WORK_ITEM_DOCUMENTS_ROUTE, async (context) => {
   const authResult = requirePermission(context, "work_item.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const workItemId = context.req.param("id");
-  const items = listVisibleWorkItemDocuments(authResult.auth, workItemId);
+  const items = await listVisibleWorkItemDocumentsForAuth(context, authResult.auth, workItemId);
   if (!items) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 문서입니다.", 403, {
       workItemId,
@@ -6767,14 +6853,14 @@ app.get(WORK_ITEM_DOCUMENTS_ROUTE, (context) => {
   });
 });
 
-app.get(WORK_ITEM_ATTACHMENTS_ROUTE, (context) => {
+app.get(WORK_ITEM_ATTACHMENTS_ROUTE, async (context) => {
   const authResult = requirePermission(context, "work_item.read");
   if (authResult.response) {
     return authResult.response;
   }
 
   const workItemId = context.req.param("id");
-  const items = listVisibleWorkItemAttachments(authResult.auth, workItemId);
+  const items = await listVisibleWorkItemAttachmentsForAuth(context, authResult.auth, workItemId);
   if (!items) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 첨부입니다.", 403, {
       workItemId,
@@ -6791,14 +6877,14 @@ app.get(WORK_ITEM_ATTACHMENTS_ROUTE, (context) => {
   });
 });
 
-app.get(WORK_ITEM_REVIEWS_ROUTE, (context) => {
+app.get(WORK_ITEM_REVIEWS_ROUTE, async (context) => {
   const authResult = requireAnyPermission(context, ["work_item.read", "work_item.review"]);
   if (authResult.response) {
     return authResult.response;
   }
 
   const workItemId = context.req.param("id");
-  const items = listVisibleWorkItemReviews(authResult.auth, workItemId);
+  const items = await listVisibleWorkItemReviewsForAuth(context, authResult.auth, workItemId);
   if (!items) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 공통 업무 검토 기록입니다.", 403, {
       workItemId,
@@ -6815,7 +6901,7 @@ app.get(WORK_ITEM_REVIEWS_ROUTE, (context) => {
   });
 });
 
-app.get(appRoutes.workItems.deadlines, (context) => {
+app.get(appRoutes.workItems.deadlines, async (context) => {
   const authResult = requirePermission(context, "work_item.deadline.read");
   if (authResult.response) {
     return authResult.response;
@@ -6824,7 +6910,7 @@ app.get(appRoutes.workItems.deadlines, (context) => {
   return jsonSuccess(context, workItemDeadlinesResponseSchema, {
     ok: true,
     data: {
-      items: listVisibleWorkItemDeadlines(authResult.auth),
+      items: await listVisibleWorkItemDeadlinesForAuth(context, authResult.auth),
     },
     error: null,
   });

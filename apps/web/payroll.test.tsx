@@ -19,6 +19,9 @@ describe("Phase 28A payroll web entrypoints", () => {
     expect(html).toContain("/api/payroll");
     expect(html).toContain("/api/payroll/periods/payroll_period_2026_05");
     expect(html).toContain("/api/payroll/me/payslip");
+    expect(html).toContain("실사용 급여 패널");
+    expect(html).toContain("급여 overview 실응답");
+    expect(html).toContain("기간 상세 / 승인 게이트");
     expect(html).toContain('href="/payroll/me"');
     expect(html).toContain("실세액 계산, 4대보험 확정, 외부 신고/이체 연동은 이번 Phase 범위가 아닙니다.");
   });
@@ -31,6 +34,9 @@ describe("Phase 28A payroll web entrypoints", () => {
     expect(html).toContain("예상 실수령");
     expect(html).toContain("원천세 placeholder");
     expect(html).toContain("4대보험 placeholder");
+    expect(html).toContain("실사용 명세서 패널");
+    expect(html).toContain("내 급여명세서 실응답");
+    expect(html).toContain("self-only / 정정 안내");
     expect(html).toContain("/api/payroll/me/payslip");
     expect(html).not.toContain("실지급 확정 완료");
     expect(html).not.toContain("외부 신고 완료");

@@ -381,6 +381,36 @@ pnpm --filter @gw/mobile typecheck
 7. `/admin/audit-logs` — 필터, masked detail, read-only company boundary 를 본다.
 8. `apps/api/test/auth-org.spec.ts`, `apps/api/test/phase34-degraded-routes.spec.ts` — employee directory validation, branch manager/company scope 차단, notification/audit degraded fallback, `audit.read` 허용/차단 근거가 실제로 붙들려 있는지 대조한다.
 
+### 1-10-j. Phase 35 급여·세무·노무·법무·컴플라이언스 판정 질문
+
+문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/management` 가 민감 관리자 허브로 먼저 읽히고, 일반 직원 홈과 같은 책임처럼 섞이지 않는가
+2. `/payroll` 과 `/payroll/me` 가 preview/self-only 급여 흐름으로 읽히고, 실급여 운영 완료처럼 과장되지 않는가
+3. `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 이 공통 `work item` skeleton 위의 관리자 모듈로 읽히고, 개별 완성 운영 시스템처럼 보이지 않는가
+4. tax branch/company scope, labor restricted, legal visibility, `audit.read`/`work_item.audit.read` 경계가 같은 권한 언어로 읽히는가
+5. dedicated compliance route 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` → `/admin/audit-logs` 라는 점이 분명한가
+6. 실세액/실지급/외부 신고/외부 법무·노무 연동과 현재 관리자 UAT 범위를 한 문장으로 섞지 않았는가
+
+빠른 확인 순서:
+1. `/login` — dev/test/UAT 계정 설명과 production 금지 문구를 본다.
+2. `/dashboard` — `/management` 진입선이 자연스러운지 본다.
+3. `/management` — 급여·세무·노무·법무·감사 카드와 roleScope 를 본다.
+4. `/payroll` — 급여 프로필/기간/명세서 초안 분리가 읽히는지 본다.
+5. `/payroll/me` — self-only preview 와 placeholder 공제 문구를 본다.
+6. `/work-items/tax` — 지점 제출/마감/HQ review skeleton 을 본다.
+7. `/work-items/labor` — category/restricted/confidentiality 문맥을 본다.
+8. `/work-items/legal` — 계약 검토/갱신/분쟁 placeholder 와 approval gate 문구를 본다.
+9. `/admin/audit-logs` — 컴플라이언스/감사 read-only 경계를 본다.
+10. `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` — payroll role split, self payslip, tax branch/company scope, labor restricted, legal visibility, audit 비노출/허용 근거가 실제로 붙들려 있는지 대조한다.
+
+최근 Phase 35 재검증 기준 명령:
+- `pnpm --filter @gw/api test -- --runInBand test/auth-org.spec.ts test/work-items.spec.ts test/operational-management-fallback.spec.ts test/phase35-operational-management-db.spec.ts test/zzz-phase35-review-check.spec.ts`
+- `pnpm --filter @gw/web test -- payroll.test.tsx work-items.test.tsx zzz-phase35-review-guard.test.ts dashboard-boundary.test.tsx admin-preview-guard.test.ts`
+- `pnpm --filter @gw/shared test && pnpm --filter @gw/shared typecheck && pnpm --filter @gw/api typecheck && pnpm --filter @gw/web typecheck && pnpm --filter @gw/web build && pnpm --filter @gw/web build:cf && pnpm check`
+- local preview smoke: general host 기준 `COMPANY_ADMIN` 200 on `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs`; `MANAGER`/`EMPLOYEE` 는 민감 경로에서 forbidden 또는 차단 유지
+- 해석 메모: Phase 35 수동 UAT 는 admin host root 가 아니라 일반 host `/dashboard` → `/management` 기준으로 시작하는 편이 정확하다.
+
 ## 2. Cloudflare/Web 배포 후보 검증
 
 ```bash

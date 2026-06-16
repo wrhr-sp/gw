@@ -217,7 +217,7 @@ const adminScopeByRoleCode: Record<RoleCode, AdminScope | null> = {
 
 const adminConsoleRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"] as const;
 const adminAuditRoutePrefixes = ["/admin/audit-logs"] as const;
-const managementWorkspaceRoutePrefixes = ["/management", "/work-items/legal"] as const;
+const managementWorkspaceRoutePrefixes = ["/management", "/work-items/legal", "/work-items/tax", "/work-items/labor"] as const;
 
 function isMatchingRoute(pathname: string, prefixes: readonly string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
