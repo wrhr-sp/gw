@@ -368,6 +368,41 @@ pnpm --filter @gw/mobile typecheck
 21. `apps/web/phase38-offline-admin.test.tsx`
 22. `apps/api/test/auth-org.spec.ts`
 
+### 1-16. Phase 41 게시판·공지·문서·결재 일상업무 도입완성 판정 질문
+
+이번 Phase는 `/uat` 리허설 패키지 다음 단계로,
+이미 있는 게시판/문서/결재 route 와 guard/test 근거를
+직원이 매일 쓰는 협업 기본 업무 언어로 다시 묶는 문서 단계다.
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/dashboard` 가 `/approvals` → `/boards` → `/documents` 협업 흐름의 시작점처럼 읽히는가
+2. 공지 게시판과 일반 게시판 책임 차이가 화면/문서/API/test 에서 같은 뜻으로 유지되는가
+3. 게시글 상세에서 댓글 생성, 읽음 확인, forged post/read receipt 차단을 실제 도입 질문으로 적을 수 있는가
+4. 문서함에서 public/private/missing space 차단, metadata-only, read receipt 경계가 분명한가
+5. 전자결재에서 기안자 lane, 승인자 lane, 운영 정책 lane 이 서로 섞이지 않는가
+6. self-approval 금지, replay 차단, unknown id 차단, 권한 부족 차단이 핵심 guardrail 로 분명한가
+7. `/boards`·`/documents` 일반 협업 흐름과 `/admin/policies`·`/admin/audit-logs` 운영 검토 흐름이 같은 책임처럼 섞이지 않는가
+8. rich editor 완성형, 외부 공유, 법적 효력 있는 전자서명, 실제 운영 발송, production 실데이터가 아직 승인 게이트라는 점이 숨겨지지 않는가
+
+이 8개 질문 중 하나라도 흐리면 Phase 41 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/dashboard`
+2. `/approvals`
+3. `/boards`
+4. `/boards/board_notice`
+5. `/boards/board_general`
+6. `/posts/board_post_board_general_employee_employee`
+7. `/documents`
+8. `/admin/policies`
+9. `/admin/audit-logs`
+10. `apps/web/app/_components/real-usage-panels.tsx`
+11. `apps/api/test/auth-org.spec.ts`
+12. `apps/api/test/phase32-regression-repro.spec.ts`
+13. `apps/web/admin-preview-guard.test.ts`
+
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
 문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:

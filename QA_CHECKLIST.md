@@ -71,6 +71,10 @@
 - [ ] blocker / major / minor / copy-doc / approval-needed 분류 기준이 문서와 handoff 에서 같은 뜻으로 유지된다.
 - [ ] final report 에 들어갈 live URL, 시작 route(`/uat`), 테스트 계정, 역할별 시나리오, 남은 승인 게이트 형식이 문서마다 다르게 풀리지 않는다.
 - [ ] `/boards`·`/documents` 협업/보관 흐름과 `/admin/policies` 운영 정책 검토의 목적 차이가 문서/화면/API 설명에서 흐려지지 않는다.
+- [ ] `/dashboard` 가 `/approvals` → `/boards` → `/documents` 협업 흐름의 시작점처럼 읽히고, `경영업무`·`/admin*` 운영 레인과 주 흐름이 섞이지 않는다.
+- [ ] 공지 게시판과 일반 게시판 책임 차이, 게시글 상세의 댓글/읽음 확인/forged 차단 설명이 문서·화면·API·테스트에서 같은 뜻으로 유지된다.
+- [ ] 문서함의 public/private/missing space 차단, metadata-only, read receipt, `storageStatus` 경계가 외부 공유 완성형처럼 과장되지 않는다.
+- [ ] 전자결재의 기안자 lane, 승인자 lane, 운영 정책 lane 이 서로 섞이지 않고, self-approval 금지·replay 차단·unknown id 차단이 핵심 guardrail 로 유지된다.
 - [ ] `/attendance` 의 정책 안내와 `/admin/policies` 의 운영 정책 설명이 같은 방향을 가리킨다.
 - [ ] `/leave` 도 `/attendance` 와 비슷한 수준으로 정책 연결, placeholder 제한, 예외 설명을 공유한다.
 - [ ] `/leave` 의 운영 메모가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축을 실제 화면 문구로 분리해 보여 준다.

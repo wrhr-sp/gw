@@ -412,6 +412,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 38 문서라면 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md` 와 `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 의 홈/메뉴 같은 정보구조, notifications same-origin inbox honesty, offline 가능/불가/재시도 절차, 일반 업무 레인 대 `경영업무`·`/admin*` 운영 레인 분리, push/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 39 문서라면 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md` 와 `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 의 일반 host 대 admin host 경계, `/management`·`/admin*`·민감 work item 권한, company+branch scope, foreign/self 차단, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출, external security/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 40 문서라면 `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md` 와 `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md` 의 역할별 UAT 레인, blocker/major/minor/copy-doc/approval-needed 분류, 일반 직원 `/dashboard` 흐름 대 `/management`·`/admin*` 운영 레인 분리, happy path 대 forbidden/error/empty/offline 기록 기준, 최종 보고 형식과 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 41 문서라면 `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md` 와 `docs/guides/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-handoff.md` 의 `/dashboard` 기준 협업 기본 흐름, 공지 게시판 대 일반 게시판 책임 분리, 게시글 댓글/읽음/forged 차단, 문서 metadata/read receipt/private space 경계, 전자결재 기안자 lane 대 승인자 lane 대 운영 정책 lane 분리, `/admin/policies`·`/admin/audit-logs` 운영 검토, 외부 공유/법적 서명/실데이터 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -580,6 +581,16 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/payroll`, `/payroll/me`, `tax`, `labor`, `legal`, `/admin/audit-logs` 는 모두 확인 route 와 역할 문맥을 먼저 적되, preview/skeleton 과 실운영·실외부연동을 같은 말처럼 섞지 않는다.
 - 최종 보고에는 live URL, 테스트 계정, 역할별 시나리오, 남은 blocker/major/minor, 승인 게이트를 분리해 적을 수 있어야 한다.
 - 실제 급여 지급, 은행 이체, 주민번호/계좌번호 확대, 외부 기관 연동, production secret·실데이터, custom domain, migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
+
+### 6-20. Phase 41 문구는 "일상 협업 기본 업무 / 운영 정책 경계 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/dashboard` 는 오늘 할 협업 업무의 시작점처럼 적고, `/approvals` → `/boards` → `/documents` → `/me` 흐름이 먼저 읽혀야 한다.
+- 공지 게시판과 일반 게시판은 같은 게시판 묶음이지만 책임이 다르므로, 공지 운영과 일반 협업 글쓰기를 같은 말처럼 섞지 않는다.
+- 게시글 상세는 댓글 생성, 읽음 확인, forged post/read receipt 차단을 함께 설명해야 하며 단순 preview 화면처럼 축소하지 않는다.
+- 문서함은 외부 공유 완성형이 아니라 내부 보관/열람/권한 경계를 설명하는 화면으로 적고, `storageStatus`, private/missing space 차단, metadata-only 원칙을 숨기지 않는다.
+- 전자결재는 기안자 lane, 승인자 lane, 운영 정책 lane 을 분리해 적고, self-approval 금지·replay 차단·unknown id 차단을 단순 에러가 아니라 핵심 guardrail 로 적는다.
+- `/boards`·`/documents` 일반 협업 흐름과 `/admin/policies`·`/admin/audit-logs` 운영 검토 흐름은 같은 책임처럼 섞지 않는다.
+- rich editor 완성형, 외부 공유, 법적 효력 있는 전자서명, 실제 운영 공지 발송, production 게시글/댓글/문서/결재 실데이터, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

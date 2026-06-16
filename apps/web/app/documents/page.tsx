@@ -52,12 +52,19 @@ const boundaryNotes = [
   "backup/export/migration/secret 입력과 production 실데이터 반영은 이번 단계 승인 범위가 아닙니다.",
 ] as const;
 
+const collaborationBoundaryNotes = [
+  "전사 문서함은 일반 협업 자료 entry 이고, 인사 전용 문서함은 private HR scope 로 분리합니다.",
+  "metadata 생성과 읽음 확인은 가능하지만 접근 가능한 파일에만 허용되고 raw storage internals 는 숨깁니다.",
+  "게시판·전자결재에서 문서를 참조하더라도 문서 권한은 `/documents` 기준 403 경계를 먼저 따릅니다.",
+  "`storageStatus` 와 문서 `status` 는 같은 뜻으로 섞지 않고 각각 저장 lifecycle 과 문서 상태로 분리합니다.",
+] as const;
+
 export default function DocumentsPage() {
   return (
     <PageShell
-      eyebrow="Phase 37 내부 운영 저장흐름 점검"
+      eyebrow="Phase 41 내부 문서 협업 도입"
       title="문서함"
-      description="문서함 목록/접근 경계/첨부 metadata 흐름을 내부 운영 저장흐름 언어로 다시 정리하고, upload/download 준비와 storageStatus 경계를 실제 same-origin API 응답으로 바로 확인할 수 있게 연결했습니다."
+      description="문서 공간, 첨부 metadata, 읽음 확인, private space 차단을 내부 협업 보관/열람 언어로 다시 정리하고, upload/download 준비와 storageStatus 경계를 실제 same-origin API 응답으로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">no storage key leakage</Pill>}
     >
       <SurfaceSection title="실사용 확인 패널" description="문서 공간과 파일 metadata 를 실제 API 응답으로 먼저 확인합니다.">
@@ -90,6 +97,14 @@ export default function DocumentsPage() {
       <SurfaceSection title="첨부 metadata placeholder" description="다운로드/preview 완성형 없이도 무엇을 노출하지 말아야 하는지 먼저 고정합니다.">
         <ul className="summary-list">
           {metadataChecklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="협업 문맥 / 권한 경계" description="문서함을 게시판·결재와 같은 협업 묶음으로 읽되, 민감 문서 권한은 더 좁게 유지합니다.">
+        <ul className="summary-list">
+          {collaborationBoundaryNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

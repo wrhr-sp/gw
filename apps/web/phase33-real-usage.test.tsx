@@ -39,9 +39,11 @@ describe("Phase 33 attendance/leave/approvals real-usage pages", () => {
   it("renders approvals page with draft-to-review stepper and separated guardrails", () => {
     const html = renderToStaticMarkup(<ApprovalsPage />);
 
+    expect(html).toContain("Phase 41 일상 협업 결재 도입");
     expect(html).toContain("기안 → 승인/반려 → 보완 요청 흐름");
     expect(html).toContain("기안자 lane");
     expect(html).toContain("승인자 lane");
+    expect(html).toContain("운영 경계");
     expect(html).toContain("기안 작성 stepper");
     expect(html).toContain("1. 결재 양식 선택 (/api/approvals/forms)");
     expect(html).toContain("차단 이유 4축");

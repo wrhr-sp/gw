@@ -13,7 +13,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
   it("keeps documents focused on lifecycle and internal storage boundaries instead of public sharing", () => {
     const html = renderToStaticMarkup(<DocumentsPage />);
 
-    expect(html).toContain("Phase 37 내부 운영 저장흐름 점검");
+    expect(html).toContain("Phase 41 내부 문서 협업 도입");
     expect(html).toContain("파일 lifecycle");
     expect(html).toContain("upload-init");
     expect(html).toContain("upload-complete");

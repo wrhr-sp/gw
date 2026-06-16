@@ -1,3 +1,4 @@
+import React from "react";
 import { appRoutes } from "@gw/shared";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
@@ -11,13 +12,15 @@ type PageProps = {
 const boardPresets = {
   board_notice: {
     title: "전사 공지 상세 placeholder",
-    summary: "notice-only 게시판에서는 읽기 중심 흐름과 운영 공지 작성 guardrail 을 먼저 확인합니다.",
+    summary: "notice-only 게시판에서는 읽기 중심 흐름, 운영 공지 작성 책임, 일반 구성원 글쓰기 차단을 먼저 확인합니다.",
     posts: ["고정 공지 카드", "읽음 확인 CTA", "댓글 비활성 또는 운영 제한 안내"],
+    auditNotes: ["notice 운영 작성 action", "읽음 확인 기록", "일반 구성원 직접 작성 차단"],
   },
   board_general: {
     title: "자유 게시판 상세 placeholder",
-    summary: "일반 게시판에서는 게시글 작성, 댓글, 읽음 확인 안내를 연결합니다.",
+    summary: "일반 게시판에서는 게시글 작성, 댓글, 읽음 확인, 상세 postId 이동을 자연스럽게 연결합니다.",
     posts: ["최신 글 카드 목록", "게시글 작성 폼 진입", "댓글 수 / 읽음 상태 badge"],
+    auditNotes: ["board.post.create", "board.comment.create", "post read receipt"],
   },
 } as const;
 
@@ -27,6 +30,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
     title: `${boardId} placeholder`,
     summary: "생성된 게시판도 동일한 정보구조로 확장할 수 있도록 boardId 경로를 비워 둔 상태입니다.",
     posts: ["게시판 메타데이터", "게시글 목록", "권한 안내"],
+    auditNotes: ["게시판 접근 audit 후보", "게시글 생성 audit 후보", "읽음 확인 후보"],
   };
 
   return (
@@ -42,7 +46,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
         <BoardDetailLiveSection boardId={boardId} />
       </SurfaceSection>
 
-      <SurfaceSection title="route / 권한 문구" description="동적 라우트와 접근 경계를 모바일 화면에서도 바로 읽을 수 있게 둡니다.">
+      <SurfaceSection title="route / 권한 문구" description="동적 라우트와 접근 경계를 모바일 화면에서도 바로 읽을 수 있게 두고, `/dashboard` 에서 들어온 협업 맥락을 유지합니다.">
         <p>
           현재 경로의 boardId 는 <code>{boardId}</code> 입니다. 서버/API 연결 전에도 boardId 기반 정보와 권한 문구를 먼저 고정합니다.
         </p>
@@ -59,8 +63,17 @@ export default async function BoardDetailPage({ params }: PageProps) {
         </div>
       </SurfaceSection>
 
+      <SurfaceSection title="운영 검토용 action 언어" description="게시판 상세에서 어떤 행동이 감사 후보로 남는지 쉬운 말로 고정합니다." muted>
+        <ul className="summary-list">
+          {preset.auditNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection title="다음 진입 경로" description="게시글 상세와 문서함 route 를 같은 origin 안에서 이어 줍니다.">
         <div className="link-row">
+          <a href="/dashboard">대시보드로 돌아가기</a>
           <a href={`/posts/board_post_${boardId}_employee_employee`}>예시 게시글 상세로 이동</a>
           <a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a>
           <a href="/documents">문서함 placeholder 보기</a>
