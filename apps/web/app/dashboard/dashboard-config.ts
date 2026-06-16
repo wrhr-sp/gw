@@ -51,9 +51,21 @@ export const dashboardTopBadges = ["today-first", "dev-safe summary", "small-scr
 
 export const dashboardActionCards: DashboardActionCard[] = [
   {
+    href: "/attendance",
+    title: "오늘 출퇴근 먼저 처리",
+    body: "직원 기본 업무 시작점에서 오늘 상태, 마지막 기록, 정정 필요 여부를 먼저 확인합니다.",
+    detail: "허용된 등록 방식만 노출, 온라인에서만 상태 변경, 정책 미허용은 성공처럼 보이지 않음",
+  },
+  {
+    href: "/leave",
+    title: "휴가 잔여와 신청 확인",
+    body: "근태 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
+    detail: "잔여 snapshot, 신청 placeholder, 승인자 lane 은 /approvals 와 분리",
+  },
+  {
     href: "/approvals",
-    title: "승인 대기 먼저 보기",
-    body: "일상 협업 시작점에서 내가 지금 처리할 결재와 팀 병목 후보를 먼저 확인합니다.",
+    title: "승인 대기 보기",
+    body: "근태·휴가 기본 업무 뒤에 내가 지금 처리할 결재와 팀 병목 후보를 확인합니다.",
     detail: "내 승인함 우선, self-approval/replay guardrail 확인, 운영 정책 저장과 분리",
   },
   {
@@ -73,18 +85,6 @@ export const dashboardActionCards: DashboardActionCard[] = [
     title: "내 정보 마무리 확인",
     body: "협업 화면 뒤에 내 세션, 역할, 회사 정보와 보안 안내를 확인하는 마무리 흐름입니다.",
     detail: "개인 세션 요약 뒤 /org, /employees 읽기 전용 조회로 이어짐",
-  },
-  {
-    href: "/attendance",
-    title: "출퇴근 상태 점검",
-    body: "협업 우선 확인 뒤 오늘 근태 상태와 마지막 기록, 정정 필요 여부를 다시 확인합니다.",
-    detail: "마지막 기록, 정정 필요 여부, 온라인에서만 상태 변경",
-  },
-  {
-    href: "/leave",
-    title: "휴가 잔여와 신청 확인",
-    body: "근태 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
-    detail: "잔여 snapshot, 신청 placeholder, 승인 저장은 별도 검증 후",
   },
   {
     href: "/payroll",
@@ -140,20 +140,20 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
   {
     role: "일반 직원",
     firstRoute: "/dashboard",
-    summary: "대시보드에서 승인 대기, 공지/게시판, 문서 공간, 내 정보를 먼저 읽고 필요한 업무 화면으로 이어집니다.",
-    detail: "관리자 CTA 는 숨기고 협업 우선 흐름 뒤에 /attendance, /leave, /me, /org, /employees 조회로 연결",
+    summary: "대시보드에서 오늘 근태와 휴가를 먼저 처리하고, 그 다음 승인·공지·문서·내 정보로 이어집니다.",
+    detail: "관리자 CTA 는 숨기고 /attendance → /leave → /approvals → /boards → /documents → /me 뒤에 /org, /employees 조회로 연결",
   },
   {
     role: "팀장 / 결재자",
     firstRoute: "/dashboard",
-    summary: "같은 허브에서 시작하되 승인 대기와 팀 병목 요약을 가장 먼저 확인합니다.",
-    detail: "필요 시 /boards, /documents, /leave, /employees 에서 판단 근거를 보조로 확인",
+    summary: "같은 허브에서 시작하되 팀원 근태·휴가 맥락을 본 뒤 승인 대기와 팀 병목 요약을 확인합니다.",
+    detail: "필요 시 /attendance, /leave, /approvals, /employees 에서 판단 근거를 보조로 확인",
   },
   {
     role: "인사 / 운영 관리자",
-    firstRoute: "/admin",
-    summary: "권한 기반 운영 CTA 로 관리자 허브에 진입합니다.",
-    detail: "일반 조회와 운영 변경 검토를 분리 유지",
+    firstRoute: "/management",
+    summary: "권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
+    detail: "일반 조회와 운영 변경 검토를 분리하고 /work-items/branch 를 branch scope 운영 레인으로 유지",
   },
   {
     role: "감사 전용 사용자",

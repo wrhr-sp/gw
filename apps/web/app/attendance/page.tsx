@@ -74,9 +74,9 @@ const supportsTagSkeleton = attendancePolicyView.showTagSkeleton;
 export default function AttendancePage() {
   return (
     <PageShell
-      eyebrow="Phase 33 근태 실사용 UAT"
+      eyebrow="Phase 42 근태 기본 업무 도입"
       title="근태"
-      description="직원이 하루 동안 실제로 따라갈 순서와 승인자 검토 레인을 분리해 보여 주고, same-origin API 응답으로 출근/퇴근/정정 요청 preview 를 직접 확인할 수 있게 정리했습니다."
+      description="직원이 하루를 시작할 때 바로 따라갈 순서와 승인자 검토 레인을 분리해 보여 주고, same-origin API 응답으로 출근/퇴근/정정 요청 preview 를 직접 확인할 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           {allowedAttendanceMethods.includes("mobile") ? (

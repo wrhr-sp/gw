@@ -10,6 +10,7 @@ export function LoginForm() {
   const [loginId, setLoginId] = useState(devSafeLoginId);
   const [password, setPassword] = useState(devSafeLoginPassword);
   const [roleCode, setRoleCode] = useState<RoleCode>("COMPANY_ADMIN");
+  const [rememberSession, setRememberSession] = useState(true);
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -34,6 +35,7 @@ export function LoginForm() {
             body: JSON.stringify({
               loginId,
               password,
+              rememberSession,
             }),
           });
 
@@ -77,6 +79,20 @@ export function LoginForm() {
           </select>
         </label>
       </div>
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16 }}>
+        <input
+          type="checkbox"
+          name="rememberSession"
+          checked={rememberSession}
+          onChange={(event) => setRememberSession(event.target.checked)}
+          style={{ marginTop: 4 }}
+        />
+        <span>
+          <strong>자동 로그인</strong>
+          <br />
+          <span className="card-note">비밀번호를 저장하는 기능이 아니라, 이 브라우저에서 로그인 세션을 더 오래 유지할지 선택하는 옵션입니다.</span>
+        </span>
+      </label>
       <p className="card-note">선택한 landing: {selectedRole.landingRoute} — {selectedRole.description}</p>
       <div className="action-row">
         <button type="submit" className="touch-button" disabled={pending}>
@@ -89,6 +105,7 @@ export function LoginForm() {
             setLoginId(devSafeLoginId);
             setPassword(devSafeLoginPassword);
             setRoleCode("COMPANY_ADMIN");
+            setRememberSession(true);
             setErrorMessage(null);
           }}
         >

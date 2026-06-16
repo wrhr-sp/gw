@@ -346,9 +346,11 @@ describe("shared contracts", () => {
     const request = authLoginRequestSchema.parse({
       email: "admin@example.com",
       password: "placeholder-password",
+      rememberSession: true,
     });
 
     expect(request.email).toBe("admin@example.com");
+    expect(request.rememberSession).toBe(true);
 
     const sessionUser = sessionUserSchema.parse({
       id: "user_admin",

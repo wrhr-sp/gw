@@ -69,9 +69,9 @@ const policyBridgeNotes = [
 export default function LeavePage() {
   return (
     <PageShell
-      eyebrow="Phase 33 휴가 실사용 UAT"
+      eyebrow="Phase 42 휴가 기본 업무 도입"
       title="휴가"
-      description="신청자 lane 과 승인자 lane 을 분리해 보여 주고, same-origin API 기준으로 잔여 조회·신청·승인·반려 preview 를 직접 눌러볼 수 있게 정리했습니다."
+      description="직원이 잔여 확인 → 신청 → 상태 확인으로 바로 이어가고, 승인자 lane 은 따로 분리해 same-origin API 기준 preview 를 직접 눌러볼 수 있게 정리했습니다."
       actions={
         <div className="action-row">
           <PlaceholderAction label="휴가 신청 placeholder" hint="실제 신청 제출은 placeholder 범위 밖이며 온라인에서만 열립니다." />

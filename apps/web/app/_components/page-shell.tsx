@@ -1,7 +1,7 @@
 import React, { type ReactNode } from "react";
 
 type PageShellProps = {
-  backHref?: string;
+  backHref?: string | null;
   backLabel?: string;
   eyebrow?: string;
   title: string;
@@ -22,9 +22,11 @@ export function PageShell({
   return (
     <main className="page-shell">
       <div className="page-shell__header">
-        <a href={backHref} className="ghost-link">
-          ← {backLabel}
-        </a>
+        {backHref ? (
+          <a href={backHref ?? undefined} className="ghost-link">
+            ← {backLabel}
+          </a>
+        ) : null}
         {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
         <div className="page-shell__headline">
           <div>

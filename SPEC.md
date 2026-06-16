@@ -164,6 +164,19 @@
 - `docs/guides/rolebot-authority-decision-loop-hardening-handoff.md`
 - `docs/guides/automation-hardening-review-gate-handoff.md`
 
+### 2-7. 로그인 필수 진입 정책은 Phase 42A 기준으로 다시 고정한다.
+
+- 첫 진입은 `/login` 아이디/비밀번호 로그인 화면이다.
+- 로그인 전에는 `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 를 공개 기능처럼 열지 않는다.
+- 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택으로만 다룬다.
+- 로그아웃은 `gw_session` 과 자동 로그인 상태를 함께 해제하는 기준으로 본다.
+- `/offline` 은 업무 복구 route 가 아니라 로그인 재시도 안내 수준으로만 남긴다.
+- 로그인 후에도 `/management`, `/admin*`, 민감 업무 API 는 role/capability/company boundary guard 를 유지한다.
+
+근거:
+- `docs/architecture/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-scope.md`
+- `docs/guides/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-handoff.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
@@ -413,6 +426,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 39 문서라면 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md` 와 `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 의 일반 host 대 admin host 경계, `/management`·`/admin*`·민감 work item 권한, company+branch scope, foreign/self 차단, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출, external security/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 40 문서라면 `docs/architecture/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-scope.md` 와 `docs/guides/phase-40-internal-adoption-rehearsal-admin-employee-uat-package-fit-gap-handoff.md` 의 역할별 UAT 레인, blocker/major/minor/copy-doc/approval-needed 분류, 일반 직원 `/dashboard` 흐름 대 `/management`·`/admin*` 운영 레인 분리, happy path 대 forbidden/error/empty/offline 기록 기준, 최종 보고 형식과 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 41 문서라면 `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md` 와 `docs/guides/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-handoff.md` 의 `/dashboard` 기준 협업 기본 흐름, 공지 게시판 대 일반 게시판 책임 분리, 게시글 댓글/읽음/forged 차단, 문서 metadata/read receipt/private space 경계, 전자결재 기안자 lane 대 승인자 lane 대 운영 정책 lane 분리, `/admin/policies`·`/admin/audit-logs` 운영 검토, 외부 공유/법적 서명/실데이터 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 42 문서라면 `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md` 와 `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md` 의 `/attendance` 오늘 출퇴근 시작점, `/leave` 잔여·신청·상태 확인, `/employees`·`/org` 읽기 중심 인사/조직 조회, `/management` 아래 `/work-items/branch` branch scope 운영 레인, 정책 미허용 출퇴근 방식·admin-only role 비노출·외부 HR/GPS/태그 단말 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -591,6 +605,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 전자결재는 기안자 lane, 승인자 lane, 운영 정책 lane 을 분리해 적고, self-approval 금지·replay 차단·unknown id 차단을 단순 에러가 아니라 핵심 guardrail 로 적는다.
 - `/boards`·`/documents` 일반 협업 흐름과 `/admin/policies`·`/admin/audit-logs` 운영 검토 흐름은 같은 책임처럼 섞지 않는다.
 - rich editor 완성형, 외부 공유, 법적 효력 있는 전자서명, 실제 운영 공지 발송, production 게시글/댓글/문서/결재 실데이터, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
+
+### 6-21. Phase 42 문구는 "직원 기본 운영 업무 / 인사·지점 운영 경계 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/dashboard` 기준 직원 기본 흐름은 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 먼저 읽혀야 한다.
+- `/attendance` 는 오늘 출근/퇴근/정정 요청 시작점처럼 적고, 회사 정책에서 미허용한 등록 방식이 성공처럼 보이지 않게 적는다.
+- `/leave` 는 잔여 확인·신청·상태 조회 흐름으로 적고, 직원 신청 레인과 승인자 레인을 같은 책임처럼 섞지 않는다.
+- `/employees` 와 `/org` 는 읽기 중심 인사/조직 조회 화면으로 적고, `/admin/users` 같은 운영 편집 화면과 같은 책임처럼 쓰지 않는다.
+- `/work-items/branch` 는 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인으로 적고, 본사 운영과 지점 관리자 가시 범위를 같은 권한처럼 적지 않는다.
+- 태그 단말, GPS/위치정보, 외부 HR/급여/세무/노무 연동, production 직원·근태·휴가 실데이터, 주민번호/계좌번호 확대, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

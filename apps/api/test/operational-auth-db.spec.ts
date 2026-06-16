@@ -32,7 +32,7 @@ async function login(loginId = "admin") {
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ loginId, password: "1234" }),
+      body: JSON.stringify({ loginId, password: "1234", rememberSession: true }),
     },
     { DATABASE_URL: databaseUrl },
   );
@@ -64,13 +64,14 @@ describe("operational DB-backed auth", () => {
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ loginId: "admin", password: "1234" }),
+        body: JSON.stringify({ loginId: "admin", password: "1234", rememberSession: true }),
       },
       { DATABASE_URL: databaseUrl },
     );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toContain("gw_session=");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=2592000");
 
     const payload = authLoginResponseSchema.parse(await response.json());
     expect(payload.data.user.id).toBe("user_company_admin");

@@ -12,7 +12,7 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("keeps employees page on general lookup while exposing the live employee directory panel", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
-    expect(html).toContain("Phase 34 인사 운영흐름 실사용화");
+    expect(html).toContain("Phase 42 읽기 중심 인사 조회 도입");
     expect(html).toContain("실사용 조회 패널");
     expect(html).toContain("same-origin API 응답을 불러오는 중입니다.");
     expect(html).toContain("/admin/users");
@@ -32,9 +32,10 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("renders the branch work-items page with live list-to-detail copy before the shared module explainer", () => {
     const html = renderToStaticMarkup(<WorkItemsBranchPage />);
 
-    expect(html).toContain("Phase 34 지점 운영흐름 실사용화");
+    expect(html).toContain("Phase 42 branch scope 지점 운영 도입");
     expect(html).toContain("list → detail");
     expect(html).toContain("실사용 branch 패널");
+    expect(html).toContain("branch scope 가드레일");
     expect(html).toContain("지점 업무");
     expect(html).toContain('href="/api/work-items?module=branch"');
   });

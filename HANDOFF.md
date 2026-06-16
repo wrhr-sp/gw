@@ -18,19 +18,28 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 41 게시판·공지·문서·결재 일상업무 도입완성 문서화다. 직전 Phase 40에서 `/uat` 실행 패키지, 역할별 UAT 레인, blocker/major/minor/copy-doc/approval-needed 분류, 교육자료 초안, 최종 보고 형식을 먼저 정리했다. 이제는 그 위에서 `/dashboard` 기준 오늘 할 협업 업무, `/approvals` 승인 대기, `/boards` 공지/일반 게시판, `/posts/[postId]` 댓글/읽음/forged 차단, `/documents` 문서 metadata/space 권한 경계, `/admin/policies`·`/admin/audit-logs` 운영 검토 레인을 같은 일상업무 도입 언어로 고정하는 것이 이번 카드의 핵심이다.
+현재 활성 흐름은 Phase 42A 로그인 필수 진입 정책의 문서화·release gate 준비다. 직전 Phase 41에서 협업 기본 흐름(`/approvals`·`/boards`·`/documents`)과 운영 정책 레인을 같은 일상업무 도입 언어로 먼저 정리했고, 이제는 그 앞단의 진입 정책을 `/login` 단일 입구, 익명 내부 route/API 차단, 자동 로그인 세션 선택, `/offline` 업무 복구 제거, 로그인 후 민감 guard 유지 원칙으로 닫은 뒤 release gate로 넘기는 단계다.
 
 현재 상태 요약:
 
-- `apps/web/dashboard-page-content.tsx` 기준 `/approvals` → `/boards` → `/documents` → `/me` 협업 shortcut 흐름이 이미 있다.
-- `apps/web/app/boards/page.tsx`, `apps/web/app/boards/[boardId]/page.tsx`, `apps/web/app/posts/[postId]/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx` 기준 게시글/댓글/읽음/forged 차단 흐름이 이미 있다.
-- `apps/web/app/documents/page.tsx` 와 `apps/web/app/_components/real-usage-panels.tsx` 기준 문서 metadata 생성, 문서 읽음 확인, private/missing space 차단 흐름이 이미 있다.
-- `apps/web/app/approvals/page.tsx` 와 `apps/web/app/_components/real-usage-panels.tsx` 기준 기안 preview, 승인 preview, self-approval/replay/permission 차단 흐름이 이미 있다.
-- `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/phase38-offline-admin.test.tsx` 기준 일반 협업 레인과 운영 검토 레인 분리 근거가 이미 있다.
-- `apps/api/test/auth-org.spec.ts`, `apps/api/test/phase32-regression-repro.spec.ts` 기준 게시판/문서/결재 guardrail 과 회귀 근거가 이미 있다.
-- 새 기준 문서는 `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md`, `docs/guides/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "직원이 매일 바로 쓰는 협업 기본 업무" 와 "아직 외부 연동/실데이터/법적 효력/운영 발송이 없는 영역"을 분리해 builder/reviewer/tester 가 같은 Phase 41 언어를 쓰게 만드는 것이다.
-- 현재 후속 체인은 `t_7d912597`(테스트 재검증 완료) → `t_1650f8bf`(문서화 진행 중) → `t_9f4f5569`(release gate 부모 대기) → `t_43dc2782`(최종 통합 보고 부모 대기) 순서다.
+- `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts` 기준으로 익명 내부 route 차단과 admin 공개 노출 차단이 현재 워크스페이스에서 다시 통과한 상태다.
+- `apps/web/app/login/page.tsx`, `apps/web/app/login/login-form.tsx` 기준으로 아이디/비밀번호 로그인 입구와 자동 로그인 선택 문구가 현재 정책 기준으로 맞춰져 있다.
+- `apps/api/src/app.ts`, `apps/api/src/lib/operational-auth.ts`, `apps/web/api-same-origin-bridge.test.ts` 기준으로 `gw_session` 쿠키 발급/삭제와 인증 전제 API 흐름이 최신 테스트에서 다시 확인됐다.
+- `apps/web/app/offline/page.tsx`, `apps/web/phase38-offline-admin.test.tsx`, `apps/web/mobile-pwa.test.ts` 기준으로 `/offline` 이 로그인 재시도 안내 수준으로 축소된 현재 상태를 확인할 수 있다.
+- 새 기준 문서는 `docs/architecture/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-scope.md`, `docs/guides/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "로그인 전에는 내부 기능 진입 불가" 와 "로그인 후에도 민감 기능은 한 번 더 guard"를 사용자·운영·QA 문서까지 같은 기준으로 닫는 것이다.
+- 현재 후속 체인은 `t_9819dfdc`(기획 완료) → `t_090db8a0`(구현 완료) → `t_c076f1ad`(리뷰 완료) → `t_5a1be7c1`(테스트 완료) → `t_1fa22cf6`(문서화 진행 중) → `t_d2d9b6a4`(release gate 부모 대기) 순서다.
+
+2026-06-16 Phase 42A fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/login`, `gw_session` 발급/삭제, `/api/me` 포함 인증 API 골격, `/admin*` 공개 노출 차단, `/offline` 축소 copy, rememberSession on/off 쿠키 차이.
+- 현재 체인은 `t_9819dfdc`(기획 완료) → `t_090db8a0`(구현 완료) → `t_c076f1ad`(리뷰 완료) → `t_5a1be7c1`(테스트 완료) → `t_1fa22cf6`(문서화 진행 중) → `t_d2d9b6a4`(release gate 부모 대기) 순서로 이어진다.
+- 현재 기획 근거는 `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/web/app/login/page.tsx`, `apps/web/app/login/login-form.tsx`, `apps/web/app/offline/page.tsx`, `apps/api/src/app.ts`, `apps/api/src/lib/operational-auth.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/phase38-offline-admin.test.tsx`, `apps/web/api-same-origin-bridge.test.ts` 다.
+- 이번 Phase에서 문서가 먼저 고정해야 할 것은 익명 사용자를 `/login` 으로 전면 정리하고, `/offline` 을 업무 복구 route 가 아니라 로그인 재시도 안내로 낮춘 최신 구현/테스트 근거다.
+- 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택이라는 점을 UI/API/logout 흐름에서 같은 말로 유지해야 한다.
+- login 후에도 `/management`, `/admin*`, 민감 업무 API 는 role/capability/company boundary guard 를 그대로 유지해야 한다.
+- release gate 전 마지막 교차확인 메모: reviewer 이력에는 `admin / 1234` dev-safe fallback 과 API 기본 요청 rememberSession 처리에 대한 점검 요청이 남아 있고, 최신 tester 이력은 현재 워크스페이스 기준 route/cookie 동작이 정상 통과했다고 기록했다.
+- 이번 문서의 목적은 진입 정책, 세션 정책, 민감 경계, 승인 게이트를 한 세트의 내부 도입 기준으로 다시 맞추고, 다음 작업자가 서로 다른 run 이력을 헷갈리지 않게 하는 것이다.
 
 2026-06-16 Phase 41 fit-gap 메모:
 

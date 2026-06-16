@@ -5,7 +5,9 @@ import { getAdminHostInfo, getAdminHostRedirectHost, isWorkersPreviewGeneralHost
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
 const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest", "/offline"];
+const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest", "/offline"] as const;
 const authenticatedWorkbenchRoutePrefixes = [
+  "/",
   "/dashboard",
   "/attendance",
   "/leave",
@@ -23,6 +25,7 @@ const authenticatedWorkbenchRoutePrefixes = [
   "/notifications",
   "/posts",
   "/uat",
+  "/offline",
 ] as const;
 const knownRoleCodeSet = new Set<string>(knownRoleCodes);
 
@@ -66,11 +69,20 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "redirect", location: "/admin" };
   }
 
+  if (!hostInfo.isAdminHost && pathname === "/") {
+    return { action: "redirect", location: "/login" };
+  }
+
   const isAdminWorkbenchRoute = isAdminRoute(pathname);
   const isSensitiveWorkbenchRoute = getSensitiveWorkbenchRouteKind(pathname) !== null;
   const isAuthenticatedWorkbenchRoute = isMatchingRoute(pathname, authenticatedWorkbenchRoutePrefixes);
+  const isPublicRoute = isMatchingRoute(pathname, publicRoutePrefixes);
 
-  if (!isAdminWorkbenchRoute && !isSensitiveWorkbenchRoute && !isAuthenticatedWorkbenchRoute) {
+  if (!isAdminWorkbenchRoute && !isSensitiveWorkbenchRoute && !isAuthenticatedWorkbenchRoute && !isPublicRoute) {
+    return { action: "allow" };
+  }
+
+  if (isPublicRoute) {
     return { action: "allow" };
   }
 

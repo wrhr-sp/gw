@@ -40,6 +40,7 @@ describe("Phase 7 same-origin API bridge", () => {
         body: JSON.stringify({
           loginId: "admin",
           password: "1234",
+          rememberSession: true,
         }),
       }),
     );
@@ -82,12 +83,14 @@ describe("Phase 7 same-origin API bridge", () => {
         body: JSON.stringify({
           loginId: "admin",
           password: "1234",
+          rememberSession: true,
         }),
       }),
     );
 
     expect(loginResponse.status).toBe(200);
     expect(loginResponse.headers.get("set-cookie")).toContain("gw_session=");
+    expect(loginResponse.headers.get("set-cookie")).toContain("Max-Age=2592000");
     const loginPayload = authLoginResponseSchema.parse(await loginResponse.json());
     expect(loginPayload.data.user.roleCodes).toContain("COMPANY_ADMIN");
 
@@ -115,6 +118,7 @@ describe("Phase 7 same-origin API bridge", () => {
         body: JSON.stringify({
           loginId: "admin",
           password: "1234",
+          rememberSession: true,
         }),
       }),
     );

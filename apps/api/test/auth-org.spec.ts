@@ -76,6 +76,7 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
     body: JSON.stringify({
       loginId: "admin",
       password: "1234",
+      rememberSession: false,
     }),
   });
 
@@ -113,11 +114,44 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+    expect(response.headers.get("set-cookie")).not.toContain("Max-Age=");
 
     const payload = authLoginResponseSchema.parse(await response.json());
 
     expect(payload.data.session.placeholder).toBe(true);
     expect(payload.data.user.roleCodes).toContain("COMPANY_ADMIN");
+  });
+
+  it("switches session persistence based on the rememberSession choice", async () => {
+    const rememberedResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "1234",
+        rememberSession: true,
+      }),
+    });
+
+    expect(rememberedResponse.status).toBe(200);
+    expect(rememberedResponse.headers.get("set-cookie")).toContain("Max-Age=2592000");
+
+    const sessionOnlyResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "1234",
+        rememberSession: false,
+      }),
+    });
+
+    expect(sessionOnlyResponse.status).toBe(200);
+    expect(sessionOnlyResponse.headers.get("set-cookie")).not.toContain("Max-Age=");
   });
 
   it("rejects invalid dev-safe login credentials", async () => {

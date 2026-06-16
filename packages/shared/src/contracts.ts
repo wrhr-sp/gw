@@ -712,6 +712,7 @@ export const authLoginRequestSchema = z
     loginId: z.string().trim().min(1).optional(),
     email: z.email().optional(),
     password: z.string().min(4),
+    rememberSession: z.boolean().optional(),
   })
   .refine((value) => Boolean(value.loginId || value.email), {
     message: "loginId or email is required",

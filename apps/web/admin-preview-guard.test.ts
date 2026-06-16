@@ -35,6 +35,10 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/", host: "example.com" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
   });
 
   it("allows admin users to stay on the current preview host when no paired admin host is explicitly configured", () => {
@@ -220,10 +224,9 @@ describe("admin preview guard", () => {
     });
   });
 
-  it("leaves non-admin and non-management routes alone on ordinary hosts", () => {
-    expect(getAdminRouteGuardResult({ pathname: "/", host: "example.com" })).toEqual({ action: "allow" });
+  it("leaves truly public routes alone on ordinary hosts", () => {
     expect(getAdminRouteGuardResult({ pathname: "/login", host: "localhost:3000" })).toEqual({ action: "allow" });
-    expect(getAdminRouteGuardResult({ pathname: "/offline", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
+    expect(getAdminRouteGuardResult({ pathname: "/forbidden", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/administrator", host: "example.com" })).toEqual({ action: "allow" });
   });
 
@@ -238,7 +241,7 @@ describe("admin preview guard", () => {
   });
 
   it("does not let spoofed admin-looking hosts cross the trust boundary", () => {
-    expect(getAdminRouteGuardResult({ pathname: "/", host: "admin.attacker.example" })).toEqual({ action: "allow" });
+    expect(getAdminRouteGuardResult({ pathname: "/", host: "admin.attacker.example" })).toEqual({ action: "redirect", location: "/login" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin",
