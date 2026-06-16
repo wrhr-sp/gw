@@ -69,6 +69,11 @@ describe("Phase 13 admin console pass 1", () => {
     );
 
     expect(html).toContain("현재 검토 중인 사용자");
+    expect(html).toContain("운영자 설정 read model");
+    expect(html).toContain("정책 시작점");
+    expect(html).toContain("회사 공통 고정 바로가기 source");
+    expect(html).toContain("권한 기반 사용자 전용 바로가기 source");
+    expect(html).toContain("일반 조회와 운영 검토 책임 분리");
     expect(html).toContain("사용자 생성 dev-safe 흐름");
     expect(html).toContain("역할 / 업무권한 지정");
     expect(html).toContain("활성 / 비활성 전환");

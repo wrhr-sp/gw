@@ -52,14 +52,14 @@ const privilegedShortcuts: HomeShortcut[] = [
 ];
 
 describe("Phase 31 mobile home/menu entrypoints", () => {
-  it("renders Phase 31 mobile home copy with shared fixed/custom shortcut split", () => {
+  it("renders Phase 31 mobile home copy with shared fixed/user-scoped shortcut split", () => {
     const html = renderToStaticMarkup(
       <MenuPageContent
         roleCode="EMPLOYEE"
         homeShortcuts={companyShortcuts}
         homeShortcutNotices={[
           "운영 DB 기준 홈 바로가기를 조회했습니다.",
-          "회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다.",
+          "회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 함께 정렬해 제공합니다.",
         ]}
       />,
     );
@@ -67,7 +67,7 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
     expect(html).toContain("Phase 31 모바일 홈 실사용 UAT");
     expect(html).toContain("모바일 홈 / 전체 메뉴");
     expect(html).toContain("회사 공통 고정");
-    expect(html).toContain("내 커스텀 바로가기");
+    expect(html).toContain("권한 기반 사용자 전용");
     expect(html).toContain("근태");
     expect(html).toContain("결재");
     expect(html).toContain("운영 DB 기준 홈 바로가기를 조회했습니다.");
@@ -81,7 +81,7 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
       <MenuPageContent
         roleCode="COMPANY_ADMIN"
         homeShortcuts={[...companyShortcuts, ...privilegedShortcuts]}
-        homeShortcutNotices={["회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다."]}
+        homeShortcutNotices={["회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 함께 정렬해 제공합니다."]}
       />,
     );
 

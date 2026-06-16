@@ -6,7 +6,7 @@ import { Pill } from "./page-shell";
 function splitHomeShortcuts(homeShortcuts: readonly HomeShortcut[]) {
   return {
     fixedShortcuts: homeShortcuts.filter((item) => item.isFixed || item.scope === "company"),
-    customShortcuts: homeShortcuts.filter((item) => !item.isFixed && item.scope === "user"),
+    userScopedShortcuts: homeShortcuts.filter((item) => !item.isFixed && item.scope === "user"),
   };
 }
 
@@ -15,7 +15,7 @@ export function HomeShortcutsPanel({
   homeShortcutNotices,
   homeShortcutLoadError,
   emptyFixedMessage = "로그인 전에는 고정 바로가기 API를 읽지 않습니다.",
-  emptyCustomMessage = "현재 세션 권한으로 추가된 사용자 전용 바로가기가 없으면 이 상태를 그대로 보여 줍니다.",
+  emptyCustomMessage = "현재 세션 권한으로 열리는 사용자 전용 바로가기가 없으면 이 상태를 그대로 보여 줍니다.",
 }: {
   homeShortcuts?: readonly HomeShortcut[];
   homeShortcutNotices?: readonly string[];
@@ -23,7 +23,7 @@ export function HomeShortcutsPanel({
   emptyFixedMessage?: string;
   emptyCustomMessage?: string;
 }) {
-  const { fixedShortcuts, customShortcuts } = splitHomeShortcuts(homeShortcuts ?? []);
+  const { fixedShortcuts, userScopedShortcuts } = splitHomeShortcuts(homeShortcuts ?? []);
 
   return (
     <>
@@ -51,12 +51,12 @@ export function HomeShortcutsPanel({
           )}
         </article>
         <article className="info-card">
-          <Pill tone="warning">내 커스텀 바로가기</Pill>
-          <h3>{customShortcuts.length > 0 ? `${customShortcuts.length}개` : "추가 권한 없음"}</h3>
-          <p>관리자·감사·경영업무처럼 현재 세션 권한에 따라 달라지는 개인 전용 진입점을 분리합니다.</p>
-          {customShortcuts.length > 0 ? (
+          <Pill tone="warning">권한 기반 사용자 전용</Pill>
+          <h3>{userScopedShortcuts.length > 0 ? `${userScopedShortcuts.length}개` : "추가 권한 없음"}</h3>
+          <p>관리자·감사·경영업무처럼 현재 세션 권한으로만 열리는 개인 전용 진입점을 분리합니다.</p>
+          {userScopedShortcuts.length > 0 ? (
             <ul className="summary-list">
-              {customShortcuts.map((item) => (
+              {userScopedShortcuts.map((item) => (
                 <li key={item.id}>
                   <a href={item.href}>{item.label}</a> · {item.href}
                 </li>

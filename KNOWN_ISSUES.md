@@ -19,29 +19,28 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 35 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT 준비
+### 3. 현재 문서화/검증 기준은 Phase 36 운영자 설정·회사정책·권한관리 fit-gap 준비
 
-현재 루트 문서와 handoff 는 급여·세무·노무·법무·컴플라이언스 관리자 흐름을 실제 UAT 단계로 끌어올리는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 운영자 설정·회사정책·권한관리의 현재 read model 과 남은 gap 을 한 번에 설명하는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름, 공통 `work item` 모듈 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 가 대장이 실제로 어디까지 바로 눌러볼 수 있는가를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/dashboard`·`/menu` 홈 shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토가 대장이 실제로 어디까지 바로 읽어볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- `/payroll`, `/payroll/me` 는 route 진입과 same-origin API, 권한 테스트 확인이 가능하지만, 실세액 계산/실지급/외부 신고 연동이 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 은 관리자 모듈 자리와 권한 차단 근거를 확인할 수 있지만, 개별 완성 운영 시스템이 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 흐름으로 읽히지만, dedicated compliance queue 나 richer 조치 workflow 가 닫힌 것은 아니라는 점을 숨기면 안 된다.
-- `db/postgres/migrations/0003_phase35_payroll_workitems_admin.sql` 는 추가됐지만, 각 실행 환경 DB 에 migration 이 실제 적용되기 전까지는 `/api/payroll*`, `/api/work-items*` 가 placeholder + degraded fallback 응답을 계속 사용할 수 있다.
-- self-only, 회사 scope 차단, branch scope 차단, restricted labor/legal, placeholder 제한, `audit.read` 전용 허용을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
-- 실제 급여 지급, 외부 세무/노무/법무/법령 연동, 민감 원문 저장 확대, raw 감사 원문 노출은 계속 별도 승인 게이트다.
-- production data, secret, 실제 권한 저장, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
+- `/dashboard`·`/menu` 는 shortcut API와 권한 기반 노출 차이를 확인할 수 있지만, 회사 shortcut 정책 편집 UI나 사용자 영구 저장 커스터마이징이 이미 닫힌 것처럼 쓰면 안 된다.
+- `/employees`·`/org` 는 일반 조회/카탈로그 흐름이고, `/admin/users` 는 운영 검토 preview 흐름이라는 책임 차이를 숨기면 안 된다.
+- `/admin/policies` 는 정책 기준 화면이지만 production 정책 저장/개인 override/실장비 연동이 이미 닫힌 것처럼 쓰면 안 된다.
+- `/admin/audit-logs` 는 read-only 감사 흐름이지만 richer 조치 workflow 나 raw 감사 원문 노출이 닫힌 것처럼 쓰면 안 된다.
+- role/permission 카탈로그, shortcut 노출 기준, 운영 diff preview 가 각각 다른 층이라는 점을 문서/화면/테스트에서 같은 뜻으로 유지해야 한다.
+- production data, secret, 실제 권한 저장, 외부 IdP/실메일/외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 35 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 36 단계에서 남아 있는 제품형 리스크
 
-- 급여 preview 와 실급여 운영을 같은 말로 쓰면 `/payroll` 현재 범위가 과장될 수 있다.
-- 세무 마감 skeleton 과 실제 홈택스/외부 세무사 연동을 같은 말로 쓰면 승인 범위가 흐려질 수 있다.
-- labor/legal restricted 경계와 일반 관리자 열람을 같은 말로 쓰면 권한 테스트 근거와 UAT 설명이 어긋날 수 있다.
-- dedicated compliance route 부재를 숨기고 `/admin/audit-logs` 를 완성 컴플라이언스 조치 시스템처럼 적으면 후속 구현 범위가 흐려질 수 있다.
-- payroll/work-items/audit 의 운영 DB 전환 전 상태와 전환 후 목표를 한 문장으로 섞어 쓰면 builder/reviewer/tester가 서로 다른 완료 기준을 잡게 된다.
-- raw 급여/노무/법무 원문, 외부 기관 연동, 실운영 지급/신고를 현재 단계 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
+- 회사 고정 shortcut 과 권한 기반 사용자 전용 shortcut 을 완성 커스터마이징처럼 쓰면 현재 구현 범위가 과장될 수 있다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토를 같은 계정관리 화면처럼 쓰면 권한 책임이 흐려질 수 있다.
+- `/admin/policies` 의 current/candidate 설명과 `/attendance`·`/leave` 의 결과 안내를 다른 뜻으로 쓰면 회사 정책 모델이 흔들릴 수 있다.
+- role/permission 카탈로그 조회와 실제 권한 저장을 같은 말로 쓰면 승인 범위가 흐려질 수 있다.
+- `/admin/audit-logs` read-only 경계를 숨기고 richer 조치 workflow 가 이미 있는 것처럼 적으면 후속 구현 범위가 흐려질 수 있다.
+- 외부 IdP/실메일/대량 초대/production 정책 저장을 현재 단계 happy path 처럼 적으면 승인 범위가 흐려질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

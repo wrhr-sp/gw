@@ -10,7 +10,7 @@ export async function loadHomeShortcuts(sessionToken: string | null): Promise<{
   if (!sessionToken) {
     return {
       shortcuts: [],
-      notices: ["로그인 전에는 회사 공통 고정 바로가기와 사용자별 커스텀 바로가기를 불러오지 않습니다."],
+      notices: ["로그인 전에는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 불러오지 않습니다."],
       loadError: null,
     };
   }

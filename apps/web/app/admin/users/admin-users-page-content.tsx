@@ -3,7 +3,7 @@ import type { AdminUsersListResponse } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 
-type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens">;
+type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit">;
 
 type AdminUsersPageContentProps = {
   preview: AdminUsersPreview;
@@ -49,6 +49,24 @@ const actionJourneyMap = {
     "3) 로그아웃/재로그인 시나리오만 점검하고 production 정책은 열지 않음",
   ],
 } as const;
+
+const shortcutSourceRules = [
+  {
+    title: "회사 공통 고정 바로가기 source",
+    body: "`/api/home/shortcuts` 의 `scope=company` + `isFixed=true` 항목을 홈(`/dashboard`)·메뉴(`/menu`)와 같은 뜻으로 읽습니다.",
+    note: "근태·휴가·결재처럼 모두가 같은 순서로 찾는 기본 업무만 여기 남깁니다.",
+  },
+  {
+    title: "권한 기반 사용자 전용 바로가기 source",
+    body: "같은 API의 `scope=user` 항목을 현재 세션 권한으로만 추가하고, 일반 직원에게는 privileged shortcut 을 숨깁니다.",
+    note: "관리자 사용자·감사 로그·경영업무처럼 민감한 진입점은 홈 공통 영역과 섞지 않습니다.",
+  },
+  {
+    title: "role / permission 카탈로그 source",
+    body: "`/api/roles`, `/api/permissions`, `/api/admin/users` 를 같이 보며 role diff, 고위험 권한 후보, 노출/차단 기준을 운영 검토용으로 읽습니다.",
+    note: "`/employees` 는 일반 조회이고, 실제 권한 저장은 이번 단계 범위가 아닙니다.",
+  },
+] as const;
 
 export function AdminUsersPageContent({
   preview,
@@ -99,6 +117,91 @@ export function AdminUsersPageContent({
           <span>{loadError}</span>
         </section>
       ) : null}
+
+      <SurfaceSection title="운영자 설정 read model" description="`/dashboard`·`/menu` shortcut, role/permission source, 회사 설정 모델, dev-safe 경계를 같은 언어로 묶어 설명합니다.">
+        <article className="info-card">
+          <Pill tone="accent">{preview.companySettingsModel.companyName}</Pill>
+          <h3>정책 시작점</h3>
+          <p>{preview.companySettingsModel.policyStartPoint}</p>
+          <p className="card-note">audit candidate: {preview.audit.action}</p>
+        </article>
+        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+          {shortcutSourceRules.map((item) => (
+            <article key={item.title} className="info-card">
+              <Pill>source</Pill>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <p className="card-note">{item.note}</p>
+            </article>
+          ))}
+        </div>
+        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+          {preview.companySettingsModel.policyAxes.map((axis) => (
+            <article key={axis.id} className="info-card">
+              <Pill tone="accent">정책 축</Pill>
+              <h3>{axis.title}</h3>
+              <p>{axis.summary}</p>
+              <p className="card-note">우선순위: {axis.priority}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="회사 설정 모델과 운영 연결"
+        description="`/employees` 일반 조회와 `/admin/users` 운영 검토를 다시 섞지 않도록 회사 설정 모델의 연결 화면을 먼저 확인합니다."
+      >
+        <article className="info-card">
+          <Pill tone="accent">{preview.companySettingsModel.companyName}</Pill>
+          <h3>정책 시작점</h3>
+          <p>{preview.companySettingsModel.policyStartPoint}</p>
+          <p className="card-note">audit candidate: {preview.audit.action}</p>
+        </article>
+        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+          {preview.companySettingsModel.groups.map((group) => (
+            <article key={group.id} className="info-card">
+              <Pill>{group.owner}</Pill>
+              <h3>{group.title}</h3>
+              <p>{group.summary}</p>
+              <p className="card-note">연결 화면: {group.linkedRoutes.join(" · ")}</p>
+            </article>
+          ))}
+        </div>
+        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+          {preview.companySettingsModel.policyAxes.map((axis) => (
+            <article key={axis.id} className="info-card">
+              <Pill tone="accent">정책 축</Pill>
+              <h3>{axis.title}</h3>
+              <p>{axis.summary}</p>
+              <p className="card-note">우선순위: {axis.priority}</p>
+            </article>
+          ))}
+        </div>
+        <ul className="summary-list" style={{ marginTop: 16 }}>
+          {preview.companySettingsModel.employeeVisibilityRules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="일반 조회와 운영 검토 책임 분리"
+        description="직원 조회는 일반 읽기 흐름으로 남기고, 계정관리에서는 권한·상태·감사 후보만 검토합니다."
+        muted
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill>일반 조회</Pill>
+            <h3>/employees · /org</h3>
+            <p>직원 검색, 조직 읽기, 일반 현황 확인을 위한 조회 흐름입니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">운영 검토</Pill>
+            <h3>/admin/users</h3>
+            <p>실제 저장 없이 role diff, status preview, high-risk permission 후보, shortcut 노출 기준을 검토합니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
 
       <SurfaceSection title="현재 검토 중인 사용자" description="실제 API 응답 기반으로 역할·상태·고위험 권한 preview 를 함께 보여 줍니다.">
         {preview.items.length > 0 ? (

@@ -49,7 +49,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("홈 바로가기");
     expect(html).toContain("회사 공통 고정");
-    expect(html).toContain("내 커스텀 바로가기");
+    expect(html).toContain("권한 기반 사용자 전용");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
@@ -117,7 +117,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
         homeShortcuts={[...companyShortcuts, ...userShortcuts]}
         homeShortcutNotices={[
           "운영 DB 기준 홈 바로가기를 조회했습니다.",
-          "회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다.",
+          "회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 함께 정렬해 제공합니다.",
         ]}
       />,
     );
