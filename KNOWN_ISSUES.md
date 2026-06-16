@@ -19,27 +19,27 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 41 게시판·공지·문서·결재 일상업무 도입완성 문서화/릴리즈 게이트 준비
+### 3. 현재 문서화/검증 기준은 Phase 42A 로그인 필수 진입 정책 반영 후 release gate 준비
 
-현재 루트 문서와 handoff 는 `/dashboard` 기준 오늘 할 협업 업무, `/approvals` 승인 대기, `/boards` 공지/일반 게시판, `/posts/[postId]` 댓글/읽음/forged 차단, `/documents` 문서 metadata/space 권한 경계, `/admin/policies`·`/admin/audit-logs` 운영 검토를 한 번에 설명하는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 `/login` 단일 입구, 익명 내부 route/API 차단, 자동 로그인 세션 유지 선택, `/offline` 업무 복구 제거, 로그인 후 `/management`·`/admin*`·민감 API guard 유지 기준을 한 번에 설명하는 준비를 중심으로 맞춘다.
 
-- 일반 협업 흐름과 운영 검토 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/dashboard` → `/approvals` → `/boards` → `/documents` 직원 협업 레인과 `/admin/policies`·`/admin/audit-logs` 운영 레인을 서로 다른 책임 문맥으로 다시 분리하는 것이다.
-- 2026-06-16 parent 재검증 기준 focused web/API/shared 회귀, typecheck, `pnpm check`, Next/Cloudflare build, local admin-host preview smoke 는 다시 통과했고 현재 남은 일은 문서화 → release gate → 최종 통합 보고 체인 정리다.
+- 최신 tester 재검증에서는 익명 `/`·`/dashboard`·`/management` 차단, `/login` 허용, rememberSession on/off 쿠키 차이, general/admin host 경계, local preview smoke 가 모두 통과했다.
+- 다만 release gate 전에는 reviewer가 남긴 교차확인 메모(`admin / 1234` dev-safe fallback 운영 경계, API 기본 요청 rememberSession opt-in 보장)를 다시 본다.
+- 로그인 전 허용 route 는 `/login`, 로그인 처리 API, 정적 자산, 최소 health 로 제한한다.
+- `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 는 익명 접근 차단 대상으로 다시 고정한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- 공지 게시판과 일반 게시판 책임, 게시글 댓글/읽음 확인/forged 차단, 문서 public/private/missing space 차단, 전자결재 self-approval/replay 차단은 같은 guardrail 언어로 적어야 한다.
-- `/boards`, `/documents`, `/approvals` 는 내부 협업 기본 업무 흐름으로 적되, rich editor 완성형, 외부 공유, 법적 효력 있는 전자서명, 실제 운영 발송은 아직 승인 게이트다.
-- live URL, 테스트 계정, 역할별 추천 시나리오, 남은 승인 게이트를 최종 보고에서 같이 적을 수 있어야 한다.
-- production data, secret, 실제 운영 bucket 연결, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
+- 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택이라는 guardrail 언어로 적어야 한다.
+- `/offline` 은 업무 복구 링크 모음이 아니라 로그인 재시도 안내 수준으로 축소해야 한다.
+- production data, secret, 실제 운영 bucket 연결, 외부 SSO/OAuth/SMS/OTP, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 41 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 42A 단계에서 남아 있는 제품형 리스크
 
-- `/dashboard` 협업 shortcut 과 실제 `/approvals`·`/boards`·`/documents` 화면 설명이 어긋나면 직원 도입 흐름이 끊길 수 있다.
-- 공지 게시판과 일반 게시판 책임을 같은 게시판 UX처럼 적으면 운영 공지와 일반 협업 경계가 흐려질 수 있다.
-- 문서 metadata/read receipt/private space 차단을 외부 공유 완성 기능처럼 과장하면 보안 기대치가 왜곡될 수 있다.
-- 전자결재의 기안자 lane, 승인자 lane, 운영 정책 lane 을 같은 흐름처럼 적으면 역할 책임과 권한 경계가 흐려질 수 있다.
-- self-approval/replay/forged/private space 차단을 단순 에러처럼만 적으면 핵심 guardrail 우선순위가 약해질 수 있다.
-- external integration, production secret/실데이터, custom domain, 법적 효력 있는 전자서명 미확정 상태를 숨기고 내부 도입이 이미 닫힌 것처럼 적으면 위험하다.
+- 익명 사용자가 `/` 또는 내부 route 를 로그인 없이 볼 수 있으면 제품 진입 정책이 바로 무너진다.
+- 자동 로그인 구현이 비밀번호 저장처럼 읽히거나 실제로 그렇게 동작하면 보안/기대치 리스크가 커진다.
+- `/offline` 에 내부 업무 복구 링크가 남아 있으면 이번 정책과 운영 메시지가 정면 충돌한다.
+- login page 가 dev-safe UAT 링크를 너무 많이 유지하면 "첫 진입은 로그인만" 원칙이 흐려질 수 있다.
+- 로그인 후 `/management`, `/admin*`, 민감 업무 API guard 가 느슨해지면 로그인 전면 차단보다 더 큰 권한 리스크가 생길 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

@@ -23,6 +23,16 @@
 - [ ] production DB 실데이터, DNS/custom domain, 유료 리소스, 외부 HR 연동을 별도 승인 없이 건드리지 않았다.
 - [ ] 실제 운영 연동이 없는 placeholder/skeleton 을 완성 기능처럼 설명하지 않았다.
 
+### 로그인 필수 진입 / 오프라인 제외
+
+- [ ] `/login` 이 유일한 익명 진입점으로 유지된다.
+- [ ] 익명 `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 가 내부 기능처럼 열리지 않는다.
+- [ ] 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택으로만 설명된다.
+- [ ] `rememberSession` 요청 필드가 빠졌을 때도 장기 세션이 기본값처럼 켜지지 않는지 다시 확인했다.
+- [ ] 로그아웃 후 세션과 자동 로그인 상태가 함께 해제된다.
+- [ ] `/offline` 에 내부 업무 복구 링크가 남아 있지 않고 로그인 재시도 안내 수준으로 축소돼 있다.
+- [ ] 로그인 후에도 `/management`, `/admin*`, 민감 업무 API guard 가 role/capability/company boundary 기준으로 유지된다.
+
 ### 코드/contract/테스트 일관성
 
 - [ ] 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 두 갈래로 설명하고, `/login` 과 `/dashboard` 로 자연스럽게 이어진다.
@@ -194,6 +204,8 @@
 - [ ] `company_default < workplace < department < job_type` 우선순위와 전체 override 규칙이 문서/계약/UI/API 에서 서로 다른 말로 풀리지 않는다.
 - [ ] `/admin/policies` 의 적용 인원/샘플 직원 preview 가 설명용이라는 점이 드러나고, 실제 조직 데이터 반영·개인 override 저장 화면처럼 오해되지 않는다.
 - [ ] GPS/위치정보, 실제 태그 단말, 외부 HR 연동이 없는 현재 상태를 문서와 UI 문구가 숨기지 않는다.
+- [ ] `/attendance` 가 오늘 할 일 시작점처럼 읽히고, 회사 정책에서 미허용한 출퇴근 등록 방식이 성공처럼 노출되지 않는다.
+- [ ] `/employees` 일반 조회와 `/admin/users` 운영 편집 책임, `/org` 읽기 조회와 운영 정책 책임, `/work-items/branch` branch scope 운영과 일반 직원 홈 책임이 서로 섞이지 않는다.
 - [ ] App Store/Play Console/TestFlight/EAS, push, 실기기 권한, secret, custom domain, production data, 외부 초대/실연동이 아직 별도 승인 게이트이며 구현 TODO가 아니라 승인 checklist라는 점을 문서/summary 가 흐리지 않는다.
 - [ ] self-approval 금지, forged id 차단, private resource 차단 같은 핵심 guardrail 설명이 빠지지 않았다.
 

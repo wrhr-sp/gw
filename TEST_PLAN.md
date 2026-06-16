@@ -9,6 +9,23 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 42A 추가 검증 초점
+
+- 익명 사용자는 `/login` 만 정상 진입하고, `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 는 `/login` 또는 동등한 인증 차단으로 정리돼야 한다.
+- 자동 로그인 on/off 가 세션 유지 정책 차이로 실제 검증 가능해야 하고, 비밀번호 저장처럼 읽히면 안 된다.
+- `rememberSession` 요청 필드가 빠졌을 때도 자동 로그인 기본값처럼 동작하지 않는지 API 레벨에서 다시 본다.
+- 로그아웃 후 `gw_session` 과 자동 로그인 상태가 함께 해제돼야 한다.
+- `/offline` 은 업무 복구 링크 모음이 아니라 로그인 재시도 안내 수준으로 축소돼야 한다.
+- 로그인 후에도 `/management`, `/admin*`, 민감 업무 API 의 role/capability/company boundary 회귀를 다시 확인해야 한다.
+
+## Phase 42A 최신 재검증 근거
+
+- 최신 parent 테스트 기준으로 focused shared/API/Web 회귀, 전체 `pnpm check`, Next.js build, OpenNext Cloudflare build, local preview smoke 가 모두 통과했다.
+- local preview smoke(`http://127.0.0.1:8793`)에서는 익명 `/`, `/dashboard`, `/management` 가 모두 `/login` 으로 redirect 되고, `/login` 은 200, 로그인 후 `/dashboard`·`/management` 는 200 으로 확인됐다.
+- `rememberSession=true` 는 `Max-Age=2592000` 쿠키, `rememberSession=false` 는 브라우저 세션 쿠키로 실제 차이가 확인됐다.
+- 일반 host `/admin -> /login`, admin host `/ -> /admin`, manifest split 도 같은 smoke 에서 다시 확인됐다.
+- 다만 release gate 전에는 reviewer가 남긴 두 교차확인 메모도 다시 본다: `admin / 1234` dev-safe fallback 이 운영 경계 밖에서 남지 않는지, API 요청에서 `rememberSession` 기본값이 opt-in 원칙을 깨지 않는지.
+
 ## 1. 기본 검증 명령
 
 ### 1-1. 저장소 공통 확인
@@ -402,6 +419,39 @@ pnpm --filter @gw/mobile typecheck
 11. `apps/api/test/auth-org.spec.ts`
 12. `apps/api/test/phase32-regression-repro.spec.ts`
 13. `apps/web/admin-preview-guard.test.ts`
+
+### 1-17. Phase 42 근태·휴가·인사·지점 운영 도입완성 판정 질문
+
+이번 Phase는 이미 있는 근태/휴가/직원/조직/지점 운영 route 와 guard/test 근거를
+외부 연동 없는 내부 도입 가능한 운영 흐름 언어로 다시 묶는 문서 단계다.
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/dashboard` 가 `/attendance` → `/leave` 기본 흐름의 시작점처럼 읽히는가
+2. 회사 정책에서 미허용한 출퇴근 등록 방식이 성공 UX 처럼 보이지 않는가
+3. `/leave` 가 잔여 확인, 신청, 상태 조회 흐름을 자연스럽게 보여 주는가
+4. `/employees` 일반 조회와 `/admin/users` 운영 검토 책임이 같은 화면처럼 섞이지 않는가
+5. `/org` 가 부서/역할/권한/지점 scope 를 읽는 화면으로 설명되는가
+6. `/work-items/branch` 가 `/management` 아래 branch scope 운영 레인으로 유지되는가
+7. admin-only role 비노출, role-aware scope, validation error, 정책 우선순위가 화면/문서/API/test 에서 같은 뜻으로 유지되는가
+8. 태그 단말, GPS, 외부 HR 연동, production 실데이터가 아직 승인 게이트라는 점이 숨겨지지 않는가
+
+이 8개 질문 중 하나라도 흐리면 Phase 42 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/dashboard`
+2. `/attendance`
+3. `/leave`
+4. `/employees`
+5. `/org`
+6. `/management`
+7. `/work-items/branch`
+8. `/admin/policies`
+9. `/admin/audit-logs`
+10. `apps/web/app/_components/phase34-live-sections.tsx`
+11. `apps/api/test/auth-org.spec.ts`
+12. `apps/web/admin-preview-guard.test.ts`
 
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 

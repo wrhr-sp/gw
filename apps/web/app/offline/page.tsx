@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 
 import { getTrustedHostFromHeaders } from "../../admin-host";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { getAppShellConfigForHost, getOfflineGuidanceForHost, getRecoveryRouteCardsForHost, offlineTaskGuides } from "../mobile-pwa-config";
 
 async function getRequestHost() {
   const requestHeaders = await headers();
@@ -12,115 +11,57 @@ async function getRequestHost() {
 
 export default async function OfflinePage() {
   const host = await getRequestHost();
-  const shellConfig = getAppShellConfigForHost(host);
-  const offlineGuidance = getOfflineGuidanceForHost(host);
-  const recoveryRouteCards = getRecoveryRouteCardsForHost(host);
-  const isAdminContext = shellConfig.homeHref === "/admin";
-  const visibleTaskGuides = offlineTaskGuides.filter((item) => (isAdminContext ? true : !item.adminOnly));
+  const isAdminContext = host?.startsWith("admin.") || host?.includes("gw-admin.") || false;
+
+  const retrySteps = [
+    "네트워크 연결 상태를 다시 확인합니다.",
+    "연결이 돌아오면 로그인 화면으로 돌아가 다시 로그인합니다.",
+    "문제가 계속되면 안정적인 PC 또는 사내 네트워크에서 다시 시도합니다.",
+  ] as const;
+
+  const limits = isAdminContext
+    ? [
+        "오프라인 상태에서는 사용자·권한·정책·감사 업무를 진행하지 않습니다.",
+        "관리자 host 도 내부 허브 복구 링크를 열지 않고 로그인 재시도만 안내합니다.",
+      ]
+    : [
+        "오프라인 상태에서는 대시보드, 메뉴, 근태, 결재, 문서 같은 내부 업무를 열지 않습니다.",
+        "이 페이지는 업무 복구 입구가 아니라 로그인 재시도 안내만 제공합니다.",
+      ];
 
   return (
     <PageShell
-      backHref={shellConfig.homeHref}
-      backLabel={isAdminContext ? "관리자 홈으로" : "홈으로"}
-      eyebrow={isAdminContext ? "admin offline 안내" : "offline 안내 skeleton"}
-      title={isAdminContext ? "관리자 오프라인 / 네트워크 불안정 안내" : "오프라인 / 네트워크 불안정 안내"}
-      description={
-        isAdminContext
-          ? "관리자 PWA 는 설치 가능하더라도 사용자/권한/정책/감사 로그 변경을 오프라인 성공처럼 포장하지 않습니다."
-          : "완전한 offline sync 대신, 지금 가능한 일과 불가능한 일을 명확히 설명하는 PWA skeleton 안내입니다."
-      }
-      actions={<Pill tone="warning">{isAdminContext ? "admin changes stay online-only" : "no fake success UX"}</Pill>}
+      backHref="/login"
+      backLabel="로그인으로"
+      eyebrow={isAdminContext ? "admin offline 안내" : "offline 안내"}
+      title={isAdminContext ? "관리자 네트워크 재연결 안내" : "네트워크 재연결 안내"}
+      description="연결이 불안정할 때도 내부 업무 링크를 열어 두지 않습니다. 연결이 돌아오면 로그인 화면으로 다시 시작해 주세요."
+      actions={<Pill tone="warning">로그인 재시도만 안내</Pill>}
     >
-      <SurfaceSection
-        title="지금 가능한 기능"
-        description={isAdminContext ? "관리자 host 에서는 읽기 중심 확인과 제약 안내만 남깁니다." : "읽기 중심 흐름만 제한적으로 안내합니다."}
-      >
-        <ul className="summary-list">
-          {offlineGuidance.availableNow.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection
-        title="지금 막아야 하는 기능"
-        description={
-          isAdminContext
-            ? "관리자 상태 변경은 오프라인에서 성공처럼 보이게 만들지 않고, 최신성 검증이 필요한 판단도 막습니다."
-            : "상태 변경이 필요한 작업은 offline 에서 성공처럼 보이게 만들지 않습니다."
-        }
-        muted
-      >
-        <ul className="summary-list">
-          {offlineGuidance.blockedNow.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="다시 시도 절차" description="안심시키는 문구보다 현재 제약과 재시도 절차를 우선합니다.">
+      <SurfaceSection title="지금 해야 할 일" description="오프라인 업무 성공처럼 보이게 하지 않고, 다시 로그인하는 최소 절차만 남깁니다.">
         <ol className="number-list">
-          {offlineGuidance.retrySteps.map((step) => (
+          {retrySteps.map((step) => (
             <li key={step}>{step}</li>
           ))}
         </ol>
       </SurfaceSection>
 
-      <SurfaceSection title="업무별 오프라인 판정" description="현장에서 자주 쓰는 route 별로 지금 읽을 수 있는 것과 막아야 하는 것을 같은 형식으로 봅니다.">
-        <div className="grid-auto-compact">
-          {visibleTaskGuides.map((item) => (
-            <article key={item.href} className="info-card">
-              <Pill tone={item.adminOnly ? "warning" : "accent"}>{item.label}</Pill>
-              <h3>{item.href}</h3>
-              <p>{item.available}</p>
-              <p className="card-note">막힘: {item.blocked}</p>
-              <p className="card-note">재시도: {item.retryHint}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      {isAdminContext ? (
-        <SurfaceSection
-          title="설치 후 바로 확인할 관리자 화면"
-          description="관리자 설치는 일반 사용자 앱 대체가 아니라 운영 허브 접근성을 높이기 위한 것입니다."
-        >
-          <ul className="summary-list">
-            {shellConfig.navItems.map((item) => (
-              <li key={item.href}>
-                <strong>{item.label}</strong>
-                <div>{item.href}</div>
-                <div>{item.summary}</div>
-              </li>
-            ))}
-          </ul>
-        </SurfaceSection>
-      ) : null}
-
-      <SurfaceSection title="설치 안내와 연결되는 원칙" description="설치가 가능하더라도 같은 origin 과 현재 제약을 그대로 유지합니다.">
+      <SurfaceSection title="이 페이지에서 하지 않는 일" description="업무 복구 링크 모음이나 내부 우회 진입을 제공하지 않습니다." muted>
         <ul className="summary-list">
-          {shellConfig.installGuideSteps.map((step) => (
-            <li key={step}>{step}</li>
+          {limits.map((item) => (
+            <li key={item}>{item}</li>
           ))}
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="복구 route 모음"
-        description={
-          isAdminContext
-            ? "관리자 host 에서는 관리자 허브·사용자/권한·운영 정책·감사 로그·오프라인 안내 안에서만 다시 맥락을 복구합니다."
-            : "화면이 막히면 홈·메뉴·알림·오프라인 4개 route 안에서 다시 맥락을 복구합니다."
-        }
-      >
+      <SurfaceSection title="다시 시작 경로" description="연결이 복구되면 아래 경로만 사용합니다.">
         <div className="grid-auto-compact">
-          {recoveryRouteCards.map((item) => (
-            <article key={item.href} className="route-card">
-              <h3>{item.label}</h3>
-              <p>{item.summary}</p>
-              <a href={item.href}>{item.href}</a>
-            </article>
-          ))}
+          <article className="info-card">
+            <Pill tone="accent">로그인</Pill>
+            <h3>/login</h3>
+            <p>아이디/비밀번호 로그인 화면으로 다시 시작합니다.</p>
+            <a href="/login">/login</a>
+          </article>
         </div>
       </SurfaceSection>
     </PageShell>

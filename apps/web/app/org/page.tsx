@@ -36,9 +36,9 @@ export default function OrgPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 34 인사 운영흐름 실사용화"
+      eyebrow="Phase 42 읽기 중심 조직 조회 도입"
       title="조직 구조 / 역할 안내"
-      description="부서, 역할, 권한, 지점 scope 읽기 응답을 same-origin API 와 연결해 보여 주는 실사용 확인 화면입니다."
+      description="직원 기본 업무 뒤에 보는 부서, 역할, 권한, 지점 scope 읽기 응답을 same-origin API 와 연결해 보여 주는 실사용 확인 화면입니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">read-only structure</Pill>
@@ -50,7 +50,7 @@ export default function OrgPage() {
         <OrgDirectoryLiveSection />
       </SurfaceSection>
 
-      <SurfaceSection title="가드레일" description="관리자 정책 화면과 섞이지 않도록 경계를 먼저 적어 둡니다.">
+      <SurfaceSection title="가드레일" description="관리자 정책 화면과 섞이지 않도록 읽기 중심 경계를 먼저 적어 둡니다.">
         <ul className="bullet-list">
           {guardrails.map((item) => (
             <li key={item}>{item}</li>

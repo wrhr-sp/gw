@@ -13,8 +13,8 @@ const primaryFlows = [
   },
   {
     badge: "관리자 검토 흐름",
-    title: "/dashboard 관리자 CTA → /management → /admin/users · /admin/policies · /admin/audit-logs",
-    body: "인사/운영 관리자와 감사 사용자는 홈과 분리된 경영업무 허브를 거쳐 계정관리·정책·감사 흐름으로 이동합니다.",
+    title: "/dashboard 관리자 CTA → /management → /work-items/branch → /admin/users · /admin/policies · /admin/audit-logs",
+    body: "인사/운영 관리자와 감사 사용자는 홈과 분리된 경영업무 허브를 거쳐 지점 운영·계정관리·정책·감사 흐름으로 이동합니다.",
   },
 ] as const;
 
@@ -28,13 +28,13 @@ const roleEntryCards = [
   {
     role: "팀장 / 결재자",
     firstRoute: "/dashboard",
-    summary: "같은 대시보드에서 시작하되 승인 대기와 팀 병목 확인을 더 먼저 처리합니다.",
-    note: "필요 시 /leave, /employees 에서 일정과 인원 상태를 확인합니다.",
+    summary: "같은 대시보드에서 시작하되 팀원 근태·휴가 맥락을 본 뒤 승인 대기와 팀 병목 확인을 처리합니다.",
+    note: "필요 시 /attendance, /leave, /employees 에서 일정과 인원 상태를 확인합니다.",
   },
   {
     role: "인사 / 운영 관리자",
     firstRoute: "/management",
-    summary: "홈에서 계정관리·정책·감사로 이어지는 경영업무 허브로 먼저 이동합니다.",
+    summary: "홈에서 지점 운영·계정관리·정책·감사로 이어지는 경영업무 허브로 먼저 이동합니다.",
     note: "일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
   },
   {
@@ -56,9 +56,9 @@ export default function HomePage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 31 실사용 MVP 통합"
+      eyebrow="Phase 42 근태·휴가·인사·지점 운영 도입"
       title="그룹웨어 실사용 MVP 시작점"
-      description="홈, 로그인, 대시보드, 일반 업무 화면, 관리자 검토 화면을 한 흐름으로 눌러 보면서 직원의 하루 업무 순서를 실제 API 응답과 함께 확인할 수 있게 정리한 시작 화면입니다."
+      description="홈, 로그인, 대시보드, 근태·휴가 기본 업무, 읽기 중심 인사 조회, 경영업무 허브를 한 흐름으로 눌러 보면서 회사 내부 도입 가능 범위를 실제 API 응답과 함께 확인할 수 있게 정리한 시작 화면입니다."
       actions={
         <div className="action-row">
           <Link href="/login" className="touch-button">
@@ -74,7 +74,7 @@ export default function HomePage() {
         <p className="brand-link__eyebrow">real-usable MVP pass 1</p>
         <h2 style={{ margin: "8px 0 12px" }}>한 번에 눌러 볼 수 있는 업무 흐름과 관리자 경계를 같이 보여 줍니다.</h2>
         <p style={{ margin: 0, lineHeight: 1.7 }}>
-          이번 단계는 실제 저장이나 외부 연동을 여는 작업이 아니라, 사내 검토자가 제품의 핵심 흐름을 이해하고 역할별 진입 경계를 확인할 수 있게 묶는 단계입니다.
+          이번 단계는 실제 저장이나 외부 연동을 여는 작업이 아니라, 사내 검토자가 제품의 핵심 흐름을 이해하고 역할별 진입 경계와 승인 게이트를 확인할 수 있게 묶는 단계입니다.
         </p>
         <div className="pill-row" style={{ marginTop: 16 }}>
           <Pill tone="accent">dev-safe skeleton</Pill>

@@ -40,7 +40,11 @@ describe("middleware host boundary", () => {
     expect(getLocationPath(response)).toBe("/login");
   });
 
-  it("blocks anonymous management, dashboard, and work-item routes while allowing designated roles on ordinary hosts", () => {
+  it("blocks anonymous root, management, dashboard, and work-item routes while allowing designated roles on ordinary hosts", () => {
+    const anonymousRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev"));
+    expect(anonymousRootResponse.status).toBe(307);
+    expect(getLocationPath(anonymousRootResponse)).toBe("/login");
+
     const anonymousManagementResponse = middleware(createRequest("/management", "gw-web.preview-account.workers.dev"));
     expect(anonymousManagementResponse.status).toBe(307);
     expect(getLocationPath(anonymousManagementResponse)).toBe("/login");

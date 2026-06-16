@@ -216,6 +216,7 @@ type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const DEV_SESSION_MAX_AGE_SECONDS = 60 * 60;
+const REMEMBERED_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DEV_SAFE_LOGIN_ID = "admin";
 const DEV_SAFE_LOGIN_EMAIL = "admin@example.com";
 const DEV_SAFE_LOGIN_PASSWORD = "1234";
@@ -238,6 +239,11 @@ const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
 const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
+
+function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
+  const baseCookie = `gw_session=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`;
+  return rememberSession === false ? baseCookie : `${baseCookie}; Max-Age=${REMEMBERED_SESSION_MAX_AGE_SECONDS}`;
+}
 
 const permissionCatalog: Permission[] = [
   { code: "company.read", description: "회사 기본 정보를 조회한다." },
@@ -4527,7 +4533,7 @@ app.post(appRoutes.auth.login, async (context) => {
 
     context.header(
       "Set-Cookie",
-      `gw_session=${encodeURIComponent(session.id)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${DEV_SESSION_MAX_AGE_SECONDS}`,
+      buildSessionCookie(session.id, parsed.data.rememberSession),
     );
 
     return jsonSuccess(context, authLoginResponseSchema, payload, 200);
@@ -4554,7 +4560,7 @@ app.post(appRoutes.auth.login, async (context) => {
 
   context.header(
     "Set-Cookie",
-    `gw_session=${encodeURIComponent(session.id)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${DEV_SESSION_MAX_AGE_SECONDS}`,
+    buildSessionCookie(session.id, parsed.data.rememberSession),
   );
 
   return jsonSuccess(context, authLoginResponseSchema, payload, 200);

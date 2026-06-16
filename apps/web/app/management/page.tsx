@@ -77,9 +77,9 @@ export default function ManagementPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="홈(대시보드)으로"
-      eyebrow="Phase 37 내부 운영 저장흐름 허브"
+      eyebrow="Phase 42 경영업무·지점 운영 허브"
       title="경영업무"
-      description="민감 운영 모듈을 일반 직원 홈과 분리하고, 문서 저장흐름·감사 preview·급여/업무 approval gate 를 같은 내부 운영 언어로 직접 눌러볼 수 있게 정리한 허브입니다."
+      description="민감 운영 모듈을 일반 직원 홈과 분리하고, 지점 운영·정책·감사 preview·급여/업무 approval gate 를 같은 내부 운영 언어로 직접 눌러볼 수 있게 정리한 허브입니다."
       actions={
         <div className="pill-row">
           <Pill tone="warning">sensitive access</Pill>
@@ -87,7 +87,7 @@ export default function ManagementPage() {
         </div>
       }
     >
-      <SurfaceSection title="경영업무에서 바로 여는 화면" description="이번 단계는 전체 완성보다, 민감한 업무를 홈과 분리해서 직접 눌러볼 수 있게 이어 주는 데 집중합니다.">
+      <SurfaceSection title="경영업무에서 바로 여는 화면" description="이번 단계는 전체 완성보다, 민감한 업무와 branch scope 운영 레인을 홈과 분리해서 직접 눌러볼 수 있게 이어 주는 데 집중합니다.">
         <div className="grid-auto-compact">
           {managementCards.map((card) => (
             <article key={card.href} className="info-card">
@@ -100,11 +100,12 @@ export default function ManagementPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 가장 짧게 확인하는 흐름입니다.">
+      <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 일반 직원 레인과 운영 레인이 섞이지 않는지 가장 짧게 확인하는 흐름입니다.">
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작</li>
-          <li>/management 에서 민감 모듈 허브가 일반 홈과 분리되어 보이는지 확인</li>
+          <li>/management 에서 민감 모듈 허브와 지점 운영 레인이 일반 홈과 분리되어 보이는지 확인</li>
+          <li>/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름 확인</li>
           <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
           <li>/payroll → /payroll/me 에서 급여 overview, 기간 상세, self-only 명세서 preview 확인</li>
           <li>/work-items/tax → /work-items/labor → /work-items/legal 에서 목록 → 상세 → review/documents/deadlines 흐름 확인</li>
