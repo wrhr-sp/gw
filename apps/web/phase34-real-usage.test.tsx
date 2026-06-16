@@ -52,10 +52,11 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("renders audit logs as an audit.read-gated live preview rather than a write surface", () => {
     const html = renderToStaticMarkup(<AuditLogsPage />);
 
-    expect(html).toContain("Phase 34 감사 운영흐름 실사용화");
+    expect(html).toContain("Phase 37 내부 운영 감사 preview");
     expect(html).toContain("audit.read");
     expect(html).toContain("실사용 감사 패널");
-    expect(html).toContain("masked fields");
+    expect(html).toContain("storage preview 경계");
+    expect(html).toContain("storageRef");
     expect(html).not.toContain("사용자 저장");
   });
 });

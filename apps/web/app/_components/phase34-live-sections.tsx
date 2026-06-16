@@ -160,6 +160,11 @@ type AdminAuditPayload = {
       source: string;
       maskedFields: string[];
       storageStatus: string | null;
+      storageRef?: {
+        fileId: string;
+        spaceId: string;
+        versionId: string;
+      } | null;
     };
   }>;
   filters: {
@@ -602,6 +607,9 @@ export function AuditLogsLiveSection() {
               <h3>{item.action}</h3>
               <p>{item.metadata.source}</p>
               <p className="card-note">{formatDateTime(item.createdAt)} · masked {item.metadata.maskedFields.length}개</p>
+              {item.metadata.storageRef ? (
+                <p className="card-note">storageRef {item.metadata.storageRef.fileId} · {item.metadata.storageRef.spaceId} · {item.metadata.storageStatus ?? "status n/a"}</p>
+              ) : null}
             </article>
           ))}
         </div>

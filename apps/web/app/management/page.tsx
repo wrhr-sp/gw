@@ -60,14 +60,20 @@ const managementGuardrails = [
   "급여 지급, 실제 세무 신고, production DB 입력, migration, destructive 작업은 이번 범위가 아닙니다.",
 ] as const;
 
+const storageBridgeChecks = [
+  "/documents 에서 upload/download 준비와 storageStatus 경계를 먼저 확인",
+  "/admin/audit-logs 에서 masked storage preview 와 company boundary 확인",
+  "/payroll · /work-items/* 에서 민감 원문 대신 metadata/review/approval gate 언어 확인",
+] as const;
+
 export default function ManagementPage() {
   return (
     <PageShell
       backHref="/dashboard"
       backLabel="홈(대시보드)으로"
-      eyebrow="Phase 31 경영업무 허브"
+      eyebrow="Phase 37 내부 운영 저장흐름 허브"
       title="경영업무"
-      description="민감 운영 모듈을 일반 직원 홈과 분리하고, 대장이 홈 → 경영업무 → 계정관리 → 주요 업무 route 를 직접 눌러볼 수 있게 정리한 허브입니다."
+      description="민감 운영 모듈을 일반 직원 홈과 분리하고, 문서 저장흐름·감사 preview·급여/업무 approval gate 를 같은 내부 운영 언어로 직접 눌러볼 수 있게 정리한 허브입니다."
       actions={
         <div className="pill-row">
           <Pill tone="warning">sensitive access</Pill>
@@ -92,10 +98,19 @@ export default function ManagementPage() {
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/management 에서 민감 모듈 허브가 일반 홈과 분리되어 보이는지 확인</li>
+          <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
           <li>/payroll → /payroll/me 에서 급여 overview, 기간 상세, self-only 명세서 preview 확인</li>
           <li>/work-items/tax → /work-items/labor → /work-items/legal 에서 목록 → 상세 → review/documents/deadlines 흐름 확인</li>
           <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 production 금지 문구 확인</li>
         </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="Phase 37 연결 체크" description="문서 저장흐름과 감사/민감업무 읽기 모델을 같은 기준으로 다시 확인합니다.">
+        <ul className="summary-list">
+          {storageBridgeChecks.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="컴플라이언스 / 감사 preview" description="audit.read 가 있는 역할은 same-origin 감사 응답을, 없는 역할은 403 guard 문구를 같은 화면에서 확인합니다.">

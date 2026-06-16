@@ -14,7 +14,7 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the work-items hub with Phase 25 copy, API skeleton, and guardrails", () => {
     const html = renderToStaticMarkup(<WorkItemsPage />);
 
-    expect(html).toContain("Phase 25 공통 work/doc/access 엔진");
+    expect(html).toContain("Phase 37 공통 업무 저장흐름 점검");
     expect(html).toContain("공통 업무 허브");
     expect(html).toContain("공통 work item 목록, 상세, 문서, 첨부, 검토, 마감 API 골격을 먼저 맞춥니다.");
     expect(html).toContain("/api/work-items, /api/work-items/:id");
@@ -28,7 +28,7 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the HR module page with meeting/lifecycle guardrails and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsHrPage />);
 
-    expect(html).toContain("Phase 25 모듈별 공통 업무 자리");
+    expect(html).toContain("Phase 37 모듈별 민감자료 경계");
     expect(html).toContain("인사 업무");
     expect(html).toContain("실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 metadata 만 먼저 노출합니다.");
     expect(html).toContain("직원 lifecycle 단계");

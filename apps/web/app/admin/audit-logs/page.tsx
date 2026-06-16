@@ -10,14 +10,26 @@ import {
   adminAuditTimelineItems,
 } from "../../../admin-skeleton-config";
 
+const storagePreviewNotes = [
+  "before/after 는 raw 원문이 아니라 masked preview 로만 확인합니다.",
+  "storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.",
+  "raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.",
+] as const;
+
+const approvalGateNotes = [
+  "감사 export/download/external sink 는 이번 단계 완료 기준이 아닙니다.",
+  "감사 화면의 목적은 누가 무엇을 바꿨는지 검토하는 것이지 파일 원문을 여는 것이 아닙니다.",
+  "production 실데이터 보정, migration, secret 입력은 별도 승인 게이트로 유지합니다.",
+] as const;
+
 export default function AdminAuditLogsPage() {
   return (
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 34 감사 운영흐름 실사용화"
+      eyebrow="Phase 37 내부 운영 감사 preview"
       title="관리자 / 감사 로그"
-      description="감사 로그 read-only 응답, 조회 필터, masked metadata, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
+      description="감사 로그 read-only 응답, 조회 필터, masked metadata, storageRef 요약, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
       actions={<Pill tone="warning">audit.read</Pill>}
     >
       <SurfaceSection title="실사용 감사 패널" description="감사 로그 목록과 필터 옵션을 실제 응답으로 먼저 확인합니다.">
@@ -66,12 +78,23 @@ export default function AdminAuditLogsPage() {
         </ul>
       </SurfaceSection>
 
+      <SurfaceSection title="storage preview 경계" description="storage 흔적이 보이더라도 참조 요약만 보여 주고 raw 저장소 정보는 숨깁니다.">
+        <ul className="summary-list">
+          {storagePreviewNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection title="비노출/회사 경계" description="감사 조회 화면도 같은 회사 안의 마스킹된 메타데이터만 보여 주고 외부 반출은 허용하지 않습니다." muted>
         <ul className="bullet-list">
           {adminAuditNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
           {adminAuditBoundaryNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+          {approvalGateNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

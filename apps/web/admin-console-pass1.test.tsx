@@ -123,8 +123,7 @@ describe("Phase 13 admin console pass 1", () => {
     expect(html).toContain("최근 이벤트 타임라인");
     expect(html).toContain("상세 패널");
     expect(html).toContain("비노출/회사 경계");
-    expect(html).not.toContain("storageKey");
-    expect(html).not.toContain("signed URL");
-    expect(html).not.toContain("bucket");
+    expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");
+    expect(html).toContain("storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.");
   });
 });

@@ -408,6 +408,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 26 문서라면 `docs/architecture/phase-26-hr-meeting-management-pass-1-scope.md` 와 `docs/guides/phase-26-hr-meeting-management-pass-1-handoff.md` 의 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR/지점 관리자/일반 직원 visibility, metadata-only 메모, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 27 문서라면 `docs/architecture/phase-27-labor-management-pass-1-scope.md` 와 `docs/guides/phase-27-labor-management-pass-1-handoff.md` 의 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당/HR/지점 관리자/일반 직원 visibility, metadata-only evidence, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 29 문서라면 `docs/architecture/phase-29-legal-management-pass-1-scope.md` 와 `docs/guides/phase-29-legal-management-pass-1-handoff.md` 의 legal category, 공통 상태 대 legal intake/renewal/dispute 보조 상태 분리, 본사 법무/운영 담당/지점 관리자/감사 visibility, metadata-only 계약/분쟁 요약, 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 37 문서라면 `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md` 와 `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md` 의 문서 파일 lifecycle, masked audit storage preview, payroll/work-items 민감자료 approval gate, raw storage 비노출, backup/export/migration 제외 범위 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -538,6 +539,15 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - labor 와 legal 은 모두 공통 `work item` 기반 민감 모듈이지만, restricted labor capability 와 legal visibility/approval gate 를 같은 권한처럼 적지 않는다.
 - 현재 조사 기준 dedicated `/compliance` 또는 `module=compliance` 구현 근거가 없으면, 컴플라이언스는 `/management` 카드와 `/admin/audit-logs` read-only 흐름으로 먼저 읽히는 상태라고 정직하게 적고 전용 queue 가 닫힌 것처럼 쓰지 않는다.
 - 실세액 계산, 4대보험 확정, 실급여 지급, 홈택스/외부 세무사/노무사/변호사/법령 API 연동, 민감 원문 저장 확대, production DB 실데이터는 계속 별도 승인 게이트로 적는다.
+
+### 6-16. Phase 37 문구는 "지금 직접 읽어볼 내부 저장흐름 / metadata·preview·read-only 경계 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- `/documents` 는 외부 공유 완료 제품이 아니라 upload/download 준비와 `storageStatus` 상태 전이를 먼저 읽는 내부 문서 파일 흐름으로 적는다.
+- `storageStatus`(`pending`/`ready`/`deleted`)와 `status`(`active`/`archived`)를 같은 뜻으로 섞지 않는다.
+- raw `storageKey`, bucket 이름, public URL, signed URL 전문은 문서 기본 설명에 노출하지 않는다.
+- `/admin/audit-logs` 는 storage 흔적을 보여 주더라도 masked before/after preview, `maskedFields`, `storageRef(fileId/spaceId/versionId/storageStatus)` 수준으로만 읽히게 적고, raw 원문/실파일 열람처럼 쓰지 않는다.
+- `/management`, `/payroll`, `work-items/*` 의 첨부/민감자료 설명은 metadata preview/review/approval gate 와 실원문 저장/실지급/실신고/외부 제출을 같은 말로 섞지 않는다.
+- backup/export/migration/production bucket/secret/외부 반출/실민감 원문 저장 확대는 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

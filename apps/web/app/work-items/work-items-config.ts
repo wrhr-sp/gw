@@ -159,6 +159,7 @@ export const managementWorkItemCards = workItemModuleCards.filter((card) => card
 export const workItemHubHighlights = [
   "공통 work item 목록, 상세, 문서, 첨부, 검토, 마감 API 골격을 먼저 맞춥니다.",
   "회사/지점/역할/capability 기반 설명을 한 화면에서 읽게 하고 실제 저장·외부 전송은 열지 않습니다.",
+  "민감 문서/첨부는 metadata preview 와 approval gate 언어로만 연결하고 raw 원문 저장 완료처럼 쓰지 않습니다.",
   "모바일 하단 탭은 유지하고 홈/메뉴/PC sidebar 안에 새 허브를 추가합니다.",
 ] as const;
 
@@ -166,6 +167,7 @@ export const workItemGuardrails = [
   "민감 원문 첨부는 metadata-only 로 남기고 실제 파일 내용 노출은 하지 않습니다.",
   "세무 신고, 외부 법무, 외부 저장소 발송 같은 운영 자동화는 이번 단계 범위가 아닙니다.",
   "검토/마감 상태는 placeholder 이며 실제 승인 완료처럼 과장하지 않습니다.",
+  "payroll / documents / audit preview 와 연결되더라도 실원문 저장 확대, 외부 제출, production migration 은 계속 승인 게이트입니다.",
 ] as const;
 
 export function getWorkItemModuleCard(slug: Exclude<WorkItemModuleKey, "hub">) {

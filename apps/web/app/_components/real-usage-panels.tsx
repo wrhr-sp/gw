@@ -1215,7 +1215,7 @@ export function DocumentsLiveSection() {
                 <Pill tone={item.isPublicWithinCompany ? "accent" : "warning"}>{item.storageStatus}</Pill>
                 <h3>{item.fileName}</h3>
                 <p>{formatFileSize(item.fileSize)} · {item.versionLabel}</p>
-                <p className="card-note">storageProvider {item.storageProvider} · storageKey/public URL 직접 비노출</p>
+                <p className="card-note">storageProvider {item.storageProvider} · storageStatus 는 내부 lifecycle 이며 storageKey/public URL 직접 비노출</p>
               </article>
             ))
           ) : (

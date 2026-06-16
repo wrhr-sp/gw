@@ -518,6 +518,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(readPayload.data.filterOptions.categories).toContain("policy");
     expect(readPayload.data.detailPreview.reasonRequired).toBe(true);
     expect(readPayload.data.items[0]?.metadata.maskedFields.length).toBeGreaterThan(0);
+    expect(readPayload.data.items.some((item) => item.metadata.storageRef?.storageStatus === "linked")).toBe(true);
     expect(readPayload.data.operationalTrail.blockedReasons.some((item) => item.category === "placeholder")).toBe(true);
     expect(JSON.stringify(readPayload)).not.toContain("storageKey");
     expect(JSON.stringify(readPayload)).not.toContain("bucket");
