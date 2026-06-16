@@ -90,7 +90,7 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="홈 바로가기"
-        description="PC/모바일 홈에서 같이 쓰는 회사 공통 고정 바로가기와 현재 사용자 전용 커스텀 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
+        description="PC/모바일 홈에서 같이 쓰는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}

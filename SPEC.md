@@ -277,6 +277,8 @@
 반드시 지킬 것:
 - `/admin/*` 는 관리자 역할/권한 없으면 차단
 - `/admin/users` 는 저장 화면이 아니라 역할 diff, 상태 변경 preview, 감사 candidate 를 먼저 검토하는 운영 화면으로 두고 `/employees` 일반 조회와 책임을 섞지 않는다.
+- `/dashboard`·`/menu` 의 홈 shortcut 은 현재 회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 먼저 보여 주는 단계로 적고, 회사 정책 편집 UI나 사용자 영구 저장 커스터마이징이 이미 닫힌 것처럼 쓰지 않는다.
+- 권한 관리는 role/permission 카탈로그 조회, 일반 조회 guard, `/admin/users` diff preview 세 층으로 나눠 설명하고 실제 권한 저장과 같은 말로 섞지 않는다.
 - `/admin/policies` 의 current/candidate/capability/audit preview 는 `/attendance`, `/leave`, `/approvals`, `/employees` 에서 보이는 허용/차단/예외 설명과 같은 뜻을 가리켜야 한다.
 - `/admin/audit-logs` 는 `audit.read` 기준 read-only 화면으로 유지하고 raw 감사 원문이나 운영 내부 candidate 를 일반 업무 화면에 퍼뜨리지 않는다.
 - 일반 사용자 host 에서는 `/admin*` 를 그대로 렌더링하지 않고 숨김/redirect/차단 중 하나로 처리

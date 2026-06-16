@@ -24,7 +24,7 @@ export function MenuPageContent({
       backLabel="홈으로"
       eyebrow="Phase 31 모바일 홈 실사용 UAT"
       title="모바일 홈 / 전체 메뉴"
-      description="모바일에서도 홈과 메뉴가 같은 기준으로 회사 공통 고정 바로가기와 사용자 전용 커스텀 바로가기를 보여 주고, 하단 탭과 전체 메뉴는 같은 정보구조를 가리키도록 정리했습니다."
+      description="모바일에서도 홈과 메뉴가 같은 기준으로 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 보여 주고, 하단 탭과 전체 메뉴는 같은 정보구조를 가리키도록 정리했습니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">홈=대시보드</Pill>
@@ -34,7 +34,7 @@ export function MenuPageContent({
     >
       <SurfaceSection
         title="모바일 홈 바로가기"
-        description="하단 탭의 홈(`/dashboard`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 현재 사용자 커스텀 항목을 함께 보여 줍니다."
+        description="하단 탭의 홈(`/dashboard`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 권한 기반 사용자 전용 항목을 함께 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}

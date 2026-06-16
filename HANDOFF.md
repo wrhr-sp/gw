@@ -18,18 +18,29 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 35 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT 준비다. 직전 Phase 34에서 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 운영흐름을 먼저 정리했으므로, 이제는 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 를 실제 관리자 UAT 언어로 묶어 급여 preview 대 실지급 경계, tax/labor/legal 공통 work item skeleton 경계, compliance 전용 route 부재, 감사 read-only 흐름, 운영 DB 전환 준비 상태를 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
+현재 활성 흐름은 Phase 36 운영자 설정·회사정책·권한관리 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 먼저 정리했으므로, 이제는 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞춰 운영자 설정/회사 정책/권한 관리 gap 을 직접 설명 가능한 상태로 만드는 것이 다음 체인의 핵심이다.
 
 현재 상태 요약:
 
-- `/login`, `/dashboard`, `/management`, `/admin/users` 는 이미 Phase 31 문서로 정리된 입구 영역이다.
-- `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 는 이미 직전 Phase 34에서 운영흐름 기준을 정리했고, 이번 Phase 35는 다시 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 에 집중한다.
-- `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 기준으로 payroll role split, tax branch/company scope, labor restricted, legal visibility, `audit.read`/`work_item.audit.read` 경계 근거가 이미 존재한다.
-- `/management` 는 민감 관리자 허브, `/payroll` 은 급여 preview, `/work-items/tax`·`/work-items/labor`·`/work-items/legal` 은 공통 work item 기반 관리자 업무, `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 추적 문맥을 실제 route 로 읽는 단계다.
-- dedicated `/compliance` route 또는 `module=compliance` 구현 근거는 아직 확인되지 않았고, 현재 컴플라이언스 진입은 `/management` 의 카드와 `/admin/audit-logs` 로 읽는다.
-- 현재 체인은 기획 카드 `t_2e1397d4` → 운영 DB 전환 `t_ce50b30c` → 구현 카드 `t_9a260e35` 순서로 이어진다.
-- 새 기준 문서는 `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`, `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 를 숨기지 않고, "지금 바로 체험 가능한 관리자 급여·세무·노무·법무·감사 흐름"과 "아직 DB/운영연동/승인 게이트로 남은 것"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 35 언어를 쓰게 만드는 것이다.
+- `/login`, `/dashboard`, `/management`, `/admin/users` 는 이미 앞선 Phase 문서에서 입구 영역으로 정리됐다.
+- `/employees`, `/org`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 는 현재 운영자 설정·회사 정책·권한 관리 fit-gap 의 핵심 증거 화면이다.
+- `apps/api/test/auth-org.spec.ts` 기준으로 home shortcuts, roles/permissions, employee directory guard, admin users/policies/audit 경계 근거가 이미 존재한다.
+- `/dashboard`·`/menu` 는 회사 고정 shortcut 과 권한 기반 사용자 전용 shortcut 을 같은 API 기준으로 읽는다.
+- `/admin/users` 는 실저장 화면이 아니라 role diff, 상태 변경 preview, 고위험 권한 후보, dev-safe action form 을 먼저 보여 준다.
+- `/admin/policies` 는 current/candidate/capability/audit preview 와 회사 설정 4묶음 모델을 정책 기준 화면으로 보여 준다.
+- `/admin/audit-logs` 는 `audit.read` 기준 read-only 흐름으로 유지된다.
+- 새 기준 문서는 `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`, `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 읽을 수 있는 운영자 설정 read model" 과 "아직 편집 UI/실저장/외부 연동이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops가 같은 Phase 36 언어를 쓰게 만드는 것이다.
+
+2026-06-16 Phase 36 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/dashboard`, `/menu`, `/employees`, `/org`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, 관련 shortcut/roles/permissions/admin guard 테스트 근거.
+- 2026-06-16 parent 재검증 기준으로 focused web/admin 테스트, `apps/api/test/auth-org.spec.ts`, shared/api/web typecheck, `pnpm check`, Next/Cloudflare build, local preview admin host smoke 가 다시 통과했다.
+- 역할별 현재 판정은 `COMPANY_ADMIN` 운영 허브+admin users/policies 허용, `HR_ADMIN` users/policies 허용+audit 차단, `AUDITOR` audit-only 허용, `MANAGER`/`EMPLOYEE` privileged shortcut·`/management`·admin API 차단으로 다시 고정한다.
+- gap 이 큰 영역: 회사 shortcut 정책 편집 UI 부재, 사용자 shortcut 편집/정렬/저장 UI 부재, role/permission/shortcut source 를 한 화면에서 읽는 관리자 read model 부족, 실권한 저장/대량 초대/외부 IdP 부재.
+- 다음 우선순위는 shortcut read model 보강 → `/admin/users` 에 role/permission/company settings 연결 근거 보강 → `/dashboard`·`/menu` 와 `/admin/policies` 정책 설명 연결 보강 순서다.
+- 대장이 실제로 가장 짧게 볼 추천 순서는 `/login` → `/dashboard` → `/menu` → `/employees` → `/org` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/management` 다.
+- 일반 조회 화면과 운영 검토 화면은 계속 분리하고, 실제 권한 저장/외부 IdP/실메일/production 정책 저장은 계속 승인 게이트로 남긴다.
 
 2026-06-16 Phase 35 fit-gap 메모:
 

@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준 최신 범위는 Phase 35 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT다. 직전 Phase 34에서 `/employees`, `/org`, `/work-items/branch`, `/notifications`, `/admin/audit-logs` 운영흐름을 먼저 정리했고, 이제는 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 를 실제 관리자 UAT 언어로 묶어 급여 preview 대 실지급 경계, tax/labor/legal 공통 work item skeleton 경계, dedicated compliance route 부재, 감사 read-only 흐름, 운영 DB 전환 준비 상태를 한 번에 설명 가능한 단계로 끌어올리는 것이 다음 우선순위다.
+현재 문서화 기준 최신 범위는 Phase 36 운영자 설정·회사정책·권한관리 fit-gap 정리다. 직전 Phase 35에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 관리자흐름 UAT 언어를 정리했고, 이제는 그 위에서 `/dashboard`·`/menu` 홈 shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토가 각각 어디까지 읽기/preview/승인 게이트인지 같은 언어로 다시 맞추는 것이 다음 우선순위다.
 
 ## Phase 흐름
 
@@ -44,6 +44,7 @@
 - Phase 33: 근태·휴가·전자결재 실사용화
 - Phase 34: 인사·지점·알림·감사 운영흐름 실사용화
 - Phase 35: 급여·세무·노무·법무·컴플라이언스 관리자흐름 UAT
+- Phase 36: 운영자 설정·회사정책·권한관리 fit-gap
 
 ## MVP 성공 기준
 
@@ -59,8 +60,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md`
-- 직전 범위: `docs/architecture/phase-34-hr-branch-notifications-audit-real-usage-scope.md`
-- 직전 handoff: `docs/guides/phase-34-hr-branch-notifications-audit-real-usage-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-36-admin-settings-company-policy-permission-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-36-admin-settings-company-policy-permission-fit-gap-handoff.md`
+- 직전 범위: `docs/architecture/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-scope.md`
+- 직전 handoff: `docs/guides/phase-35-payroll-tax-labor-legal-compliance-management-real-usage-handoff.md`
 - 개발 파이프라인: `docs/workflow/development-pipeline.md`

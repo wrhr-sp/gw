@@ -66,6 +66,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/documents` 가 전사 문서함 대 인사 전용 문서함, metadata 중심 설명, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인, raw storage key/bucket/public URL 비노출 원칙을 한 화면에서 숨기지 않는지
 - live `.workers.dev` 직접 fetch 가 막히면 이를 미확인으로 남기고 `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview smoke 같은 대체 근거를 별도로 기록하는지
 - 관리자 CTA 가 일반 사용자 preview 기준 숨겨져 있고, 권한 기반 shortcut 으로만 열리는지
+- 홈 shortcut 설명이 회사 공통 고정 항목과 권한 기반 사용자 전용 항목을 같은 뜻으로 가리키고, 아직 없는 편집/저장 UI를 완료품처럼 적지 않는지
 
 ### 1-5. Mobile skeleton 검증
 
@@ -152,6 +153,39 @@ pnpm --filter @gw/mobile typecheck
 - `pnpm --filter @gw/web typecheck`
 - `pnpm check`
 - `pnpm --filter @gw/web build:cf`
+
+### 1-11. Phase 36 쉬운 운영자 설정·회사정책·권한관리 판정 질문
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. 운영자 설정이 지금 shortcut 노출, `/management`, `/admin/users`, `/admin/audit-logs` 진입 경계로 바로 읽히는가
+2. `/dashboard` 와 `/menu` 가 같은 shortcut 기준을 쓰고, 아직 없는 편집/저장 UI를 과장하지 않는가
+3. `/employees` 일반 조회와 `/admin/users` 운영 검토가 같은 책임처럼 섞이지 않는가
+4. `/admin/policies` 의 current/candidate 설명과 `/attendance`·`/leave` 의 결과 안내가 같은 뜻인가
+5. role/permission 카탈로그 조회, 일반 조회 guard, 운영 diff preview 가 서로 다른 층으로 읽히는가
+6. 실제 권한 저장, 외부 IdP/실메일, production 정책 저장이 계속 승인 게이트로 남아 있는가
+
+이 6개 질문 중 하나라도 흐리면 Phase 36 문서 작업은 완료로 보지 않는다.
+
+최근 Phase 36 parent 재검증 기준 명령:
+
+- `pnpm --filter @gw/web test -- admin-console-pass1.test.tsx dashboard-boundary.test.tsx menu-page-content.test.tsx admin-users-dev-safe-action.test.ts org-employees-boundary.test.tsx admin-preview-guard.test.ts`
+- `pnpm --filter @gw/api test -- auth-org.spec.ts`
+- `pnpm --filter @gw/shared test`
+- `pnpm --filter @gw/web typecheck`
+- `pnpm --filter @gw/api typecheck`
+- `pnpm --filter @gw/shared typecheck`
+- `pnpm --filter @gw/web build`
+- `pnpm check`
+- `pnpm --filter @gw/web build:cf`
+- `BASE_URL=http://127.0.0.1:8790 bash scripts/gw-admin-host-preview-smoke.sh`
+
+이 재검증으로 다시 확인할 경계:
+- anonymous/general host 는 `/management`, `/admin*`, `/api/admin/users` 를 직접 열지 못한다.
+- `COMPANY_ADMIN` 은 `/management`, `/admin/users`, `/admin/policies`, admin users API 를 읽을 수 있다.
+- `HR_ADMIN` 은 users/policies 까지만 열고 audit route/API 는 열지 못한다.
+- `AUDITOR` 는 `/admin/audit-logs` read-only 만 허용된다.
+- `MANAGER`, `EMPLOYEE` 는 privileged shortcut 과 admin API 접근이 차단된다.
 
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
