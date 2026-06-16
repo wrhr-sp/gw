@@ -18,18 +18,30 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 활성 흐름은 Phase 38 모바일·PC 현장 업무 사용성·알림·오프라인 fit-gap 문서화 마무리다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었다. 이제는 그 위에서 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 그리고 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인이 어디서 갈라지는지를 같은 현장 사용성 언어로 다시 맞추되, 이미 끝난 parent 재검증 결과를 사용자/운영자 가이드와 release-gate handoff 문장으로 고정하는 것이 이번 카드의 핵심이다.
+현재 활성 흐름은 Phase 39 운영 QA·보안·감사·권한 회귀 안정화 fit-gap 기획이다. 직전 Phase 36에서 `/dashboard`·`/menu` shortcut, `/org`·`/employees` 일반 조회, `/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 검토를 같은 회사 설정 모델 언어로 다시 맞췄고, 직전 Phase 37에서는 `/documents` 파일 lifecycle, `/admin/audit-logs` storage preview, `work-items`·`/payroll` 민감자료 approval gate 를 내부 운영 저장흐름 언어로 다시 묶었으며, 직전 Phase 38에서는 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell, 일반 업무 흐름 대 `경영업무`·`/admin*` 운영 레인을 같은 현장 사용성 언어로 다시 맞췄다. 이제는 그 위에서 일반 host 대 admin host 경계, role/permission 차이, company+branch scope, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출을 같은 운영 QA 언어로 고정하는 것이 이번 카드의 핵심이다.
 
 현재 상태 요약:
 
-- `/dashboard`, `/menu`, `/notifications`, `/offline` 는 이미 route 와 같은 정보구조/안내 톤의 핵심 증거 화면이다.
-- `apps/api/test/auth-org.spec.ts` 와 home shortcut / notifications contract 기준으로 same-origin shortcut/inbox/readiness 근거가 이미 존재한다.
-- `/dashboard`·`/menu` 는 회사 공통 고정 shortcut 과 권한 기반 사용자 전용 shortcut 을 같은 API 기준으로 읽는다.
-- `/notifications` 는 same-origin inbox 와 unread count 를 보여 주지만 외부 발송은 아직 아니다.
-- `/offline` 와 app shell status banner 는 가능한 일/막히는 일/재시도 절차를 분리하고, 상태 변경을 가짜 성공처럼 포장하지 않는다.
-- `경영업무` 와 `/admin*` 는 일반 직원 홈과 다른 운영 레인으로 유지된다.
-- 새 기준 문서는 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md`, `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 눌러볼 수 있는 현장 업무 입구" 와 "아직 외부 연동/오프라인 상태변경/native 배포가 없는 영역"을 분리해 builder/reviewer/tester가 같은 Phase 38 언어를 쓰게 만드는 것이다.
+- `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts` 기준 일반 host 와 admin host route guard 경계가 이미 있다.
+- `apps/web/admin-preview-guard.test.ts` 기준 익명 `/admin`·`/management` redirect, `HR_ADMIN` 의 audit 차단, `AUDITOR` 의 audit-only 허용, spoofed host 차단 근거가 이미 있다.
+- `apps/web/phase38-offline-admin.test.tsx` 기준 일반 host `/offline` 와 admin host `/offline` 복구 경계 분리 근거가 이미 있다.
+- `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 기준 `audit.read`, `work_item.audit.read`, company+branch scope, foreign/self 차단, raw storage internals 비노출 근거가 이미 있다.
+- forbidden/error/empty/offline 을 쉬운 문구로 나누는 현재 UI 근거는 `/me`, `/admin/users`, `/offline` 쪽에 이미 있다.
+- 새 기준 문서는 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md`, `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 다.
+- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "지금 바로 검토할 운영 QA 경계" 와 "아직 외부 보안 연동/실데이터/native/custom domain 이 없는 영역"을 분리해 builder/reviewer/tester/docs/ops 가 같은 Phase 39 언어를 쓰게 만드는 것이다.
+
+2026-06-16 Phase 39 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/dashboard`, `/management`, `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`, `/me`, 관련 route guard/API guard/test 근거.
+- 현재 체인은 `t_f7dbddba`(기획 완료) → `t_f77b8265`(구현 완료) → `t_e91e3b31`(리뷰 완료) → `t_fee8d493`(테스트 재검증 완료) → `t_87da953e`(문서화 진행 중) → `t_e0192dc8`(release gate 예정) 순서로 이어진다.
+- 현재 기획 근거는 `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/phase38-offline-admin.test.tsx`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts` 다.
+- 2026-06-16 parent 재검증 기준으로 `pnpm --filter @gw/web test -- admin-preview-guard.test.ts phase38-offline-admin.test.tsx dashboard-boundary.test.tsx menu-page-content.test.tsx`, `pnpm --filter @gw/api test -- auth-org.spec.ts`, `pnpm --filter @gw/shared test`, shared/api/web typecheck, `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf`, local admin-host preview smoke 가 다시 통과했다.
+- local preview smoke 기준 일반 host `/admin` 은 `/login`, admin host `/` 는 `/admin` 으로 다시 확인됐고, 일반/관리자 manifest split 과 admin host `/offline` 복구 범위도 다시 확인됐다.
+- 일반 host 대 admin host 는 같은 복구/탐색 레인이 아니라는 점을 문서와 후속 구현/리뷰/테스트에서 계속 같은 말로 유지해야 한다.
+- `AUDITOR`, `HR_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `EMPLOYEE` 차이를 같은 관리자 묶음처럼 뭉개지지 않게 유지해야 한다.
+- foreign employee/request id, self-approval, disallowed attendance method, raw storage internals 노출은 모두 현재 회귀 차단 질문으로 유지해야 한다.
+- gap 이 큰 영역: 역할/감사/권한 차이를 쉬운 운영 QA 문장으로 한 번에 묶는 설명 부족, forbidden/error/empty/offline 상태 문장 통일 부족, 외부 security/audit integration 부재, production secret/실데이터/custom domain/native release 미확정.
+- 이번 문서의 목적은 권한 누출 금지, 민감정보 비노출, 상태 혼동 금지, 승인 게이트 유지 원칙을 다음 체인 전체가 같은 언어로 이어받게 만드는 것이다.
 
 2026-06-16 Phase 38 fit-gap 메모:
 

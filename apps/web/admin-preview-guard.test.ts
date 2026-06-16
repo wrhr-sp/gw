@@ -98,6 +98,13 @@ describe("admin preview guard", () => {
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
+        pathname: "/work-items/branch",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_MANAGER",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
         pathname: "/management",
         host: "localhost:3000",
         sessionToken: "dev-placeholder-session_HR_ADMIN",
@@ -111,6 +118,16 @@ describe("admin preview guard", () => {
         pathname: "/work-items/legal",
         host: "localhost:3000",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items/branch",
+        host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_HR_ADMIN",
       }),
     ).toEqual({
       action: "redirect",

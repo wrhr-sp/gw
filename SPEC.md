@@ -410,6 +410,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 29 문서라면 `docs/architecture/phase-29-legal-management-pass-1-scope.md` 와 `docs/guides/phase-29-legal-management-pass-1-handoff.md` 의 legal category, 공통 상태 대 legal intake/renewal/dispute 보조 상태 분리, 본사 법무/운영 담당/지점 관리자/감사 visibility, metadata-only 계약/분쟁 요약, 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 37 문서라면 `docs/architecture/phase-37-internal-operational-storage-audit-fit-gap-scope.md` 와 `docs/guides/phase-37-internal-operational-storage-audit-fit-gap-handoff.md` 의 문서 파일 lifecycle, masked audit storage preview, payroll/work-items 민감자료 approval gate, raw storage 비노출, backup/export/migration 제외 범위 설명과 같은 뜻을 유지한다.
 - Phase 38 문서라면 `docs/architecture/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-scope.md` 와 `docs/guides/phase-38-mobile-pc-field-usability-notification-offline-fit-gap-handoff.md` 의 홈/메뉴 같은 정보구조, notifications same-origin inbox honesty, offline 가능/불가/재시도 절차, 일반 업무 레인 대 `경영업무`·`/admin*` 운영 레인 분리, push/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 39 문서라면 `docs/architecture/phase-39-operational-qa-security-audit-permission-regression-fit-gap-scope.md` 와 `docs/guides/phase-39-operational-qa-security-audit-permission-regression-fit-gap-handoff.md` 의 일반 host 대 admin host 경계, `/management`·`/admin*`·민감 work item 권한, company+branch scope, foreign/self 차단, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출, external security/native/custom domain 승인 게이트 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -558,6 +559,16 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/offline` 와 status banner 는 가능한 일/막히는 일/재시도 절차를 나눠 적고, offline 상태 변경 성공·완전 동기화처럼 과장하지 않는다.
 - 일반 업무 홈과 `경영업무`·`/admin*` 운영 메뉴를 같은 책임처럼 섞지 않고, route/API guard/company+branch scope/audit 경계를 함께 적는다.
 - 사용자별 홈 편집/정렬 영구 저장, background sync, native 패키징, production custom domain/app link, secret/실데이터는 계속 별도 승인 게이트로 남긴다.
+
+### 6-18. Phase 39 문구는 "운영 QA 경계 / 권한 누출 금지 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+
+- 일반 host 와 admin host 는 같은 복구/탐색 레인이 아니므로 `/offline`, `/admin*`, `/management` 설명에서 서로 섞어 쓰지 않는다.
+- `AUDITOR`, `HR_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `EMPLOYEE` 를 같은 관리자처럼 뭉뚱그려 쓰지 않고, 감사 전용·운영 전용·일반 업무 전용 차이를 먼저 적는다.
+- 메뉴 숨김만으로 끝나지 않고 route guard, API guard, permission, capability, company+branch scope, audit 경계가 함께 움직인다고 적는다.
+- forbidden 은 로그인 실패가 아니라 권한/범위 부족 상태라고 적고, error/empty/offline 과 같은 실패 상태처럼 섞지 않는다.
+- audit detail, 문서/첨부, 민감 work item 설명은 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key, bucket, signed URL, secret 을 기본 설명에 노출하지 않는다.
+- foreign employee/request id, self-approval, disallowed attendance method 같은 forged/scope 위반 요청은 403 또는 validation 으로 막힌다는 점을 같은 보안 언어로 적는다.
+- external security/audit integration, production secret·실데이터, custom domain, native release, migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

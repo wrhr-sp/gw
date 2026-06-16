@@ -76,6 +76,7 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
     expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/work-items/branch"');
   });
 
   it("shows privileged personal shortcuts and management lane only for privileged viewers", () => {

@@ -19,27 +19,28 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 38 모바일·PC 현장 업무 사용성·알림·오프라인 fit-gap 준비
+### 3. 현재 문서화/검증 기준은 Phase 39 운영 QA·보안·감사·권한 회귀 안정화 fit-gap 준비
 
-현재 루트 문서와 handoff 는 현장 업무 입구(`/dashboard`·`/menu`), 알림(`/notifications`), 오프라인 안내(`/offline`), 운영 분리 레인의 현재 read model 과 남은 gap 을 한 번에 설명하는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 일반 host 대 admin host 경계, `/management`·`/admin*`·민감 work item 권한, company+branch scope, foreign/self 차단, forbidden/error/empty/offline 분리, masked audit preview 와 raw 민감정보 비노출의 현재 read model 과 남은 gap 을 한 번에 설명하는 준비를 중심으로 맞춘다.
 
-- 기본 일반 업무 흐름과 관리자 운영 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 `/dashboard`·`/menu` 같은 정보구조, `/notifications` same-origin inbox honesty, `/offline` 가능/불가/재시도 절차, `경영업무`·`/admin*` 운영 분리 레인이 대장이 실제로 어디까지 바로 읽어볼 수 있는가를 다시 분리하는 것이다.
+- 기본 일반 업무 흐름과 관리자 운영 흐름은 계속 유지하되, 현재 활성 정리 기준은 그 위에 일반 host 대 admin host 경계, `/management`·`/admin*` 운영 레인, `AUDITOR`/`HR_ADMIN`/`COMPANY_ADMIN` 차이, foreign/self 차단, masked audit preview, forbidden/error/empty/offline 분리가 대장이 실제로 어디까지 바로 읽어볼 수 있는가를 다시 분리하는 것이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- `/dashboard`·`/menu` 는 홈/전체 메뉴 구조를 확인할 수 있지만, 사용자별 drag-and-drop 편집·영구 저장이 이미 닫힌 것처럼 쓰면 안 된다.
-- `/notifications` 는 same-origin inbox/read 상태를 확인할 수 있지만, 외부 push/메일/SMS 발송이나 background sync 가 이미 닫힌 것처럼 쓰면 안 된다.
-- `/offline` 는 가능한 일/막히는 일/재시도 절차를 확인할 수 있지만, offline 상태 변경 성공이나 완전 동기화가 이미 닫힌 것처럼 쓰면 안 된다.
 - `/management`·`/admin*` 운영 레인은 분리돼 있지만, 일반 직원 홈과 같은 책임처럼 쓰면 안 된다.
+- `AUDITOR`·`HR_ADMIN`·`COMPANY_ADMIN`·`MANAGER` 차이를 같은 관리자 묶음처럼 쓰면 안 된다.
+- `/offline` 는 가능한 일/막히는 일/재시도 절차를 확인할 수 있지만, offline 상태 변경 성공이나 완전 동기화가 이미 닫힌 것처럼 쓰면 안 된다.
+- audit log/storage preview 는 확인할 수 있지만 raw storage key/bucket/signed URL/secret 이 보이는 것처럼 쓰면 안 된다.
+- foreign employee/request id, self-approval, disallowed attendance method 차단을 단순 안내 수준으로 축소해 쓰면 안 된다.
 - production data, secret, 실제 운영 bucket 연결, 외부 연동, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 38 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 39 단계에서 남아 있는 제품형 리스크
 
-- 홈 shortcut 과 메뉴 구조를 개인 커스터마이징 완성 기능처럼 쓰면 현재 구현 범위가 과장될 수 있다.
-- notifications inbox 를 외부 push/메일/SMS 발송 완료처럼 쓰면 기대치가 과장될 수 있다.
-- offline 안내를 실제 상태 변경 성공이나 완전한 offline sync 처럼 쓰면 사용성/운영 리스크가 커질 수 있다.
-- 일반 host `/offline` 와 admin host `/offline` 의 복구 범위를 같은 화면처럼 설명하면 사용자 경계와 운영 경계가 흐려질 수 있다.
-- 일반 업무 홈과 `경영업무`·`/admin*` 운영 메뉴를 같은 책임처럼 쓰면 권한 경계가 흐려질 수 있다.
-- production custom domain/app link, secret, native 배포 미확정 상태를 숨기고 모바일 도입이 이미 닫힌 것처럼 적으면 위험하다.
+- 일반 host 와 admin host 경계를 같은 복구/탐색 레인처럼 설명하면 사용자 경계와 운영 경계가 흐려질 수 있다.
+- `AUDITOR`·`HR_ADMIN`·`COMPANY_ADMIN` 차이를 같은 관리자처럼 적으면 권한 경계가 흐려질 수 있다.
+- forbidden/error/empty/offline 을 같은 실패 상태처럼 적으면 사용성·운영 판단이 흐려질 수 있다.
+- masked audit preview 와 raw storage 비노출 경계를 흐리게 적으면 민감정보 기대치가 과장될 수 있다.
+- foreign/self/company+branch scope 차단을 약하게 적으면 운영 QA 기준이 무너질 수 있다.
+- external security 연동, production secret/실데이터, custom domain, native 배포 미확정 상태를 숨기고 내부 도입이 이미 닫힌 것처럼 적으면 위험하다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

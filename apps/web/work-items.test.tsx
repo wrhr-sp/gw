@@ -87,13 +87,18 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(workItemMenuSection?.items.map((item) => item.href)).toEqual([
       "/work-items",
       "/work-items/hr",
-      "/work-items/tax",
-      "/work-items/labor",
-      "/work-items/branch",
     ]);
     expect(employeeMenuSections.some((section) => section.title === "경영업무")).toBe(false);
 
     const managerMenuSections = getVisibleMobileMenuSections("MANAGER");
+    const managerWorkItemMenuSection = managerMenuSections.find((section) => section.title === "공통 업무 엔진");
+    expect(managerWorkItemMenuSection?.items.map((item) => item.href)).toEqual([
+      "/work-items",
+      "/work-items/hr",
+      "/work-items/tax",
+      "/work-items/labor",
+      "/work-items/branch",
+    ]);
     const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
     expect(managementSection?.items.map((item) => item.href)).toEqual(["/management", "/work-items/legal"]);
   });
