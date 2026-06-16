@@ -3,7 +3,7 @@ import type { HomeShortcut, RoleCode } from "@gw/shared";
 
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
-import { getVisibleMobileMenuSections, hasManagementMenuAccess, mobileBottomTabs } from "./app/mobile-pwa-config";
+import { fieldUsabilityPrinciples, getVisibleMobileMenuSections, hasManagementMenuAccess, mobileBottomTabs, recoveryRouteCards } from "./app/mobile-pwa-config";
 
 export function MenuPageContent({
   roleCode,
@@ -58,6 +58,14 @@ export function MenuPageContent({
         </div>
       </SurfaceSection>
 
+      <SurfaceSection title="모바일·PC 같은 정보구조 원칙" description="현장에서는 기기만 바뀌고 메뉴 뜻은 바뀌지 않도록 같은 route 체계를 유지합니다.">
+        <ul className="summary-list">
+          {fieldUsabilityPrinciples.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
       {visibleMenuSections.map((section) => (
         <SurfaceSection key={section.title} title={section.title} description={section.description}>
           <div className="grid-auto-compact">
@@ -83,6 +91,18 @@ export function MenuPageContent({
           <li>메신저/메일/알림은 placeholder honesty 를 유지하고, 실제 외부 연동은 승인 게이트로 남긴다.</li>
           <li>{hasManagementMenuAccess(roleCode) ? "현재 세션은 경영업무 분리 메뉴를 함께 확인해야 합니다." : "현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다."}</li>
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="막힐 때 다시 가는 복구 경로" description="알림/오프라인/홈을 서로 다른 화면이 아니라 같은 현장 업무 복구 세트로 읽습니다.">
+        <div className="grid-auto-compact">
+          {recoveryRouteCards.map((item) => (
+            <article key={item.href} className="route-card">
+              <h3>{item.label}</h3>
+              <p>{item.summary}</p>
+              <a href={item.href}>{item.href}</a>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
     </PageShell>
   );

@@ -2,6 +2,7 @@ import React from "react";
 
 import { NotificationsLiveSection } from "../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { notificationStateCards, recoveryRouteCards } from "../mobile-pwa-config";
 
 const checkpoints = [
   "알림 탭이 실제 푸시/문자 발송이 아니라 파일럿 공지용 placeholder 임을 명확히 보여 준다.",
@@ -36,6 +37,19 @@ export default function NotificationsPage() {
         </ul>
       </SurfaceSection>
 
+      <SurfaceSection title="상태별 다음 행동" description="알림 문구만 보고 끝내지 않고, 어떤 경우에 어느 route 로 이동해야 하는지 바로 고릅니다.">
+        <div className="grid-auto-compact">
+          {notificationStateCards.map((card) => (
+            <article key={card.title} className="route-card">
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+              <a href={card.href}>{card.actionLabel} →</a>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection title="다음 행동" description="알림 탭에서 업무가 끝나는 것이 아니라 다른 핵심 route 로 이동해야 합니다.">
         <div className="grid-auto-compact">
           <article className="route-card">
@@ -48,6 +62,18 @@ export default function NotificationsPage() {
             <p>근태, 휴가, 결재, 문서, 내 정보는 `/menu` 에서 같은 IA 로 다시 선택합니다.</p>
             <a href="/menu">/menu</a>
           </article>
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="복구 route 모음" description="네트워크 불안정이나 권한 혼동이 생기면 아래 4개 route 안에서 다시 정리합니다.">
+        <div className="grid-auto-compact">
+          {recoveryRouteCards.map((item) => (
+            <article key={item.href} className="info-card">
+              <h3>{item.label}</h3>
+              <p>{item.summary}</p>
+              <a href={item.href}>{item.href}</a>
+            </article>
+          ))}
         </div>
       </SurfaceSection>
     </PageShell>

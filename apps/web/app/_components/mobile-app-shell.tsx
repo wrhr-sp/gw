@@ -2,7 +2,7 @@
 
 import type { RoleCode } from "@gw/shared";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { SessionControls } from "./session-controls";
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
@@ -21,6 +21,7 @@ type MobileAppShellProps = {
   menuSections: readonly NavSection[];
   installGuideSteps: readonly string[];
   offlineGuidance: OfflineGuidance;
+  showMobileMenuShortcut: boolean;
   currentRoleCode: RoleCode | null;
 };
 
@@ -34,6 +35,7 @@ export function MobileAppShell({
   menuSections,
   installGuideSteps,
   offlineGuidance,
+  showMobileMenuShortcut,
   currentRoleCode,
 }: MobileAppShellProps) {
   const pathname = usePathname();
@@ -123,9 +125,11 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               <SessionControls roleCode={currentRoleCode} />
-              <a href="/menu" className="ghost-link app-topbar__mobile-only">
-                전체 메뉴
-              </a>
+              {showMobileMenuShortcut ? (
+                <a href="/menu" className="ghost-link app-topbar__mobile-only">
+                  전체 메뉴
+                </a>
+              ) : null}
               <a href="/offline" className="ghost-link">
                 오프라인 안내
               </a>

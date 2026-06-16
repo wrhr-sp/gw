@@ -23,6 +23,41 @@ export type OfflineGuidance = {
   retrySteps: readonly string[];
 };
 
+export type RecoveryRouteCard = {
+  href: string;
+  label: string;
+  summary: string;
+};
+
+export type NotificationStateCard = {
+  title: string;
+  summary: string;
+  detail: string;
+  href: string;
+  actionLabel: string;
+};
+
+export type OfflineTaskGuide = {
+  href: string;
+  label: string;
+  available: string;
+  blocked: string;
+  retryHint: string;
+  adminOnly?: boolean;
+};
+
+export type AppShellConfig = {
+  appName: string;
+  appEyebrow: string;
+  homeHref: string;
+  navItems: readonly NavItem[];
+  bottomTabs: readonly NavItem[];
+  menuSections: readonly NavSection[];
+  installGuideSteps: readonly string[];
+  offlineGuidance: OfflineGuidance;
+  showMobileMenuShortcut: boolean;
+};
+
 export const generalPwaManifest = {
   name: "GW Cloudflare-first Skeleton",
   short_name: "GW Mobile",
@@ -426,6 +461,141 @@ export const mobileReviewChecklist = [
   "PC 사이드바 접기/펼치기와 모바일 전체 메뉴가 같은 메뉴군을 설명하는지 확인",
 ] as const;
 
+export const fieldUsabilityPrinciples = [
+  "홈(`/dashboard`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
+  "알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.",
+  "오프라인(`/offline`)은 가능한 일/막히는 일/재시도 절차를 먼저 설명하고, 상태 변경 성공처럼 포장하지 않습니다.",
+  "`/management`·`/admin*` 운영 레인은 일반 직원 홈과 분리해 권한 있는 사용자만 확인합니다.",
+] as const;
+
+export const recoveryRouteCards: readonly RecoveryRouteCard[] = [
+  {
+    href: "/dashboard",
+    label: "홈 / 대시보드",
+    summary: "오늘 할 일과 역할별 첫 진입점을 다시 확인합니다.",
+  },
+  {
+    href: "/menu",
+    label: "전체 메뉴",
+    summary: "모바일 하단 탭과 PC 사이드바가 가리키는 같은 업무 묶음을 다시 고릅니다.",
+  },
+  {
+    href: "/notifications",
+    label: "알림 inbox",
+    summary: "미읽음/권한/승인 대기 안내를 same-origin 기준으로 다시 확인합니다.",
+  },
+  {
+    href: "/offline",
+    label: "오프라인 안내",
+    summary: "네트워크 불안정 시 가능한 일과 재시도 절차를 다시 봅니다.",
+  },
+] as const;
+
+export const adminRecoveryRouteCards: readonly RecoveryRouteCard[] = [
+  {
+    href: "/admin",
+    label: "관리자 허브",
+    summary: "운영 허브와 우선 점검 항목을 다시 확인합니다.",
+  },
+  {
+    href: "/admin/users",
+    label: "사용자/권한",
+    summary: "초대·권한 저장이 아니라 현재 사용자 상태와 안내 문구를 다시 읽습니다.",
+  },
+  {
+    href: "/admin/policies",
+    label: "운영 정책",
+    summary: "current/candidate 비교와 적용 전 점검 항목을 다시 확인합니다.",
+  },
+  {
+    href: "/admin/audit-logs",
+    label: "감사 로그",
+    summary: "최신성 확인이 필요한 운영 판단 전에 읽기 전용 감사 추적을 다시 봅니다.",
+  },
+  {
+    href: "/offline",
+    label: "오프라인 안내",
+    summary: "네트워크 불안정 시 관리자 작업에서 가능한 일과 재시도 절차를 다시 봅니다.",
+  },
+] as const;
+
+export const notificationStateCards: readonly NotificationStateCard[] = [
+  {
+    title: "미읽음 안내 확인",
+    summary: "같은 origin 안에서 받은 inbox 항목과 notices 를 먼저 읽습니다.",
+    detail: "실제 외부 발송을 뜻하지 않으며, 다음 업무는 해당 route 에서 이어집니다.",
+    href: "/dashboard",
+    actionLabel: "홈에서 오늘 할 일 다시 보기",
+  },
+  {
+    title: "승인 대기/처리 필요",
+    summary: "알림 문구만 보고 끝내지 말고 `/approvals` 나 `/leave` 로 이동해 실제 상태를 확인합니다.",
+    detail: "알림은 보조 허브이고, 승인/반려/신청 같은 상태 변경은 각 업무 화면에서만 처리합니다.",
+    href: "/approvals",
+    actionLabel: "승인 대기 확인",
+  },
+  {
+    title: "권한 부족 또는 관리자 확인 필요",
+    summary: "일반 사용자는 숨겨진 운영 메뉴를 대신 보여 주지 않고, 필요한 경우 권한 있는 담당자 레인으로 분리합니다.",
+    detail: "관리자·감사·경영업무 확인은 `/management` 와 `/admin*` 에서만 이어집니다.",
+    href: "/management",
+    actionLabel: "운영 레인 설명 보기",
+  },
+  {
+    title: "오프라인/네트워크 불안정",
+    summary: "알림 화면에서 성공처럼 추측하지 말고 오프라인 제약과 재시도 절차를 먼저 확인합니다.",
+    detail: "background sync, push 재전송, 외부 발송 보장은 아직 이번 단계 범위가 아닙니다.",
+    href: "/offline",
+    actionLabel: "오프라인 절차 보기",
+  },
+] as const;
+
+export const offlineTaskGuides: readonly OfflineTaskGuide[] = [
+  {
+    href: "/attendance",
+    label: "근태",
+    available: "마지막 기록과 정책 안내 같은 읽기 정보는 다시 확인할 수 있습니다.",
+    blocked: "출퇴근 등록, 정정 요청 같은 상태 변경은 오프라인 성공처럼 처리하지 않습니다.",
+    retryHint: "연결 복구 뒤 `/attendance` 에서 실제 등록 결과를 다시 확인합니다.",
+  },
+  {
+    href: "/leave",
+    label: "휴가",
+    available: "잔여/안내 문구와 현재 단계 설명은 읽을 수 있습니다.",
+    blocked: "휴가 신청, 승인, 반려 같은 상태 변경은 온라인에서만 처리합니다.",
+    retryHint: "네트워크가 안정되면 `/leave` 에서 신청/승인 상태를 다시 불러옵니다.",
+  },
+  {
+    href: "/approvals",
+    label: "전자결재",
+    available: "문서 맥락과 안내는 읽을 수 있지만 완료 판정은 보류합니다.",
+    blocked: "승인/반려/보완 요청은 오프라인에서 성공처럼 보이지 않게 막습니다.",
+    retryHint: "온라인 복구 후 `/approvals` 에서 문서 상태와 결재선을 새로 확인합니다.",
+  },
+  {
+    href: "/boards",
+    label: "게시판 / 공지",
+    available: "최근 공지 제목과 읽기 중심 안내는 확인할 수 있습니다.",
+    blocked: "게시글 작성, 댓글 등록, 외부 알림 연동은 이번 단계에서 오프라인 처리하지 않습니다.",
+    retryHint: "읽지 않은 글 확인 뒤 실제 작성/댓글은 연결 복구 후 진행합니다.",
+  },
+  {
+    href: "/documents",
+    label: "문서 / 파일",
+    available: "문서 공간 구조와 보관 규칙 안내는 읽을 수 있습니다.",
+    blocked: "metadata 생성, 업로드, 승인 연계 저장은 온라인 상태에서만 이어집니다.",
+    retryHint: "연결이 돌아오면 `/documents` 에서 실제 업로드/보관 흐름을 다시 시도합니다.",
+  },
+  {
+    href: "/admin",
+    label: "관리자 운영",
+    available: "최근 열어 둔 운영 요약과 제약 문구는 다시 읽을 수 있습니다.",
+    blocked: "사용자/권한/정책/감사 관련 판단과 저장은 최신성 검증이 필요한 만큼 오프라인에서 막습니다.",
+    retryHint: "중요 운영 변경은 안정적인 데스크톱 네트워크에서 `/admin` 부터 다시 확인합니다.",
+    adminOnly: true,
+  },
+] as const;
+
 export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
   return roleCode ? isLegalManagementRoleCode(roleCode) : false;
 }
@@ -446,7 +616,7 @@ export function getManifestHrefForHost(host?: string | null) {
   return getAdminHostInfo(host).isAdminHost ? adminManifestHref : generalManifestHref;
 }
 
-export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCode | null) {
+export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCode | null): AppShellConfig {
   if (getAdminHostInfo(host).isAdminHost) {
     return {
       appName: adminPwaManifest.short_name,
@@ -457,6 +627,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
       menuSections: adminMenuSections,
       installGuideSteps: adminInstallGuideSteps,
       offlineGuidance: adminOfflineGuidance,
+      showMobileMenuShortcut: false,
     };
   }
 
@@ -469,9 +640,14 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
     menuSections: getVisibleMobileMenuSections(roleCode),
     installGuideSteps,
     offlineGuidance,
+    showMobileMenuShortcut: true,
   };
 }
 
 export function getOfflineGuidanceForHost(host?: string | null) {
   return getAdminHostInfo(host).isAdminHost ? adminOfflineGuidance : offlineGuidance;
+}
+
+export function getRecoveryRouteCardsForHost(host?: string | null) {
+  return getAdminHostInfo(host).isAdminHost ? adminRecoveryRouteCards : recoveryRouteCards;
 }

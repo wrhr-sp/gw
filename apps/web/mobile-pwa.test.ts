@@ -10,17 +10,23 @@ import {
   adminMenuSections,
   adminPwaManifest,
   adminPrimaryNav,
+  adminRecoveryRouteCards,
+  fieldUsabilityPrinciples,
   generalManifestHref,
   generalPwaManifest,
   getAppShellConfigForHost,
   getManifestHrefForHost,
   getOfflineGuidanceForHost,
   getPwaManifestForHost,
+  getRecoveryRouteCardsForHost,
   installGuideSteps,
   mobileBottomTabs,
   mobileMenuSections,
   mobilePrimaryNav,
+  notificationStateCards,
   offlineGuidance,
+  offlineTaskGuides,
+  recoveryRouteCards,
   touchTargetStyle,
 } from "./app/mobile-pwa-config";
 
@@ -134,10 +140,24 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(offlineGuidance.availableNow).toContain("읽기 중심 placeholder 탐색");
     expect(offlineGuidance.blockedNow).toContain("출퇴근 등록/정정 요청");
     expect(offlineGuidance.retrySteps).toEqual(["네트워크 연결 확인", "잠시 후 다시 시도", "필요 시 데스크톱 또는 안정적인 네트워크에서 재시도"]);
+    expect(fieldUsabilityPrinciples).toContain("알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.");
+    expect(recoveryRouteCards.map((item) => item.href)).toEqual(["/dashboard", "/menu", "/notifications", "/offline"]);
+    expect(getRecoveryRouteCardsForHost("gw-web.preview-account.workers.dev")).toBe(recoveryRouteCards);
+    expect(notificationStateCards.map((item) => item.href)).toEqual(["/dashboard", "/approvals", "/management", "/offline"]);
+    expect(offlineTaskGuides.find((item) => item.href === "/attendance")?.blocked).toContain("오프라인 성공처럼 처리하지 않습니다");
+    expect(offlineTaskGuides.find((item) => item.href === "/admin")?.adminOnly).toBe(true);
 
     expect(adminOfflineGuidance.blockedNow).toContain("사용자 초대, 권한 변경, 비활성화 같은 상태 변경 저장");
     expect(adminOfflineGuidance.blockedNow).toContain("정책 candidate 저장/적용 및 운영 규칙 배포");
     expect(getOfflineGuidanceForHost("gw-admin.preview-account.workers.dev")).toBe(adminOfflineGuidance);
+    expect(adminRecoveryRouteCards.map((item) => item.href)).toEqual([
+      "/admin",
+      "/admin/users",
+      "/admin/policies",
+      "/admin/audit-logs",
+      "/offline",
+    ]);
+    expect(getRecoveryRouteCardsForHost("gw-admin.preview-account.workers.dev")).toBe(adminRecoveryRouteCards);
   });
 
   it("uses touch-friendly minimum action sizing and install guidance", () => {
@@ -147,6 +167,11 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev")).toMatchObject({
       homeHref: "/admin",
       offlineGuidance: adminOfflineGuidance,
+      showMobileMenuShortcut: false,
+    });
+    expect(getAppShellConfigForHost("gw-web.preview-account.workers.dev")).toMatchObject({
+      homeHref: "/",
+      showMobileMenuShortcut: true,
     });
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[0]).toContain("/admin/users");
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[2]).toContain("placeholder");

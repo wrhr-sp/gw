@@ -229,6 +229,48 @@ pnpm --filter @gw/mobile typecheck
 7. `/work-items/legal`
 8. `apps/api/test/auth-org.spec.ts`
 
+### 1-13. Phase 38 쉬운 모바일·PC 현장 업무 사용성·알림·오프라인 판정 질문
+
+최근 Phase 38 parent 재검증 기준 명령:
+
+- `pnpm --filter @gw/web test -- admin-preview-guard.test.ts dashboard-boundary.test.tsx phase38-offline-admin.test.tsx`
+- `pnpm --filter @gw/web typecheck`
+- `pnpm --filter @gw/web build`
+- `pnpm check`
+- `pnpm --filter @gw/web build:cf`
+- `PREVIEW_PORT=8787 BASE_URL=http://127.0.0.1:8787 bash scripts/gw-admin-host-preview-smoke.sh`
+
+이번 재검증에서 문서에 다시 고정할 것:
+- 일반 host `/offline` 는 공용 복구 범위(`/dashboard`, `/menu`, `/notifications`, `/offline`)를 유지하고 `/admin/users` 를 섞지 않는다.
+- admin host `/offline` 는 관리자 복구 범위(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline`)를 유지하고 일반 업무 route 를 섞지 않는다.
+- 일반 host `/admin` 은 `/login`, admin host `/` 는 `/admin` 으로 redirect boundary 가 유지된다.
+- 현재 범위에서는 web focused/full 테스트, root check, Next build, Cloudflare build, local preview admin-host smoke 기준 재현 blocker 가 없었다.
+
+문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
+
+1. `/dashboard` 와 `/menu` 가 같은 홈 shortcut 기준과 정보구조를 가리키는가
+2. 모바일 하단 탭 5개와 PC sidebar 가 같은 업무 그룹을 설명하고, `경영업무`·`/admin*` 운영 메뉴를 일반 홈과 섞지 않는가
+3. `/notifications` 는 same-origin inbox/unread count 로 읽히되 외부 push/메일/SMS 발송 완료처럼 과장되지 않는가
+4. `/offline` 안내와 status banner 가 가능한 일/막히는 일/재시도 절차를 나누고, 상태 변경을 가짜 성공처럼 보이게 하지 않는가
+5. 일반 직원 홈 흐름과 운영자 검토 흐름(`/management`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)이 같은 책임처럼 섞이지 않는가
+6. 홈 편집 영구 저장, background sync, native 배포, production custom domain/app link, secret/실데이터가 계속 승인 게이트로 남아 있는가
+
+이 6개 질문 중 하나라도 흐리면 Phase 38 문서 작업은 완료로 보지 않는다.
+
+빠른 확인 순서:
+
+1. `/dashboard`
+2. `/menu`
+3. `/notifications`
+4. `/offline`
+5. `/attendance`
+6. `/leave`
+7. `/approvals`
+8. `/management`
+9. `/admin/users`
+10. `/admin/policies`
+11. `/admin/audit-logs`
+
 ### 1-9. Phase 24 쉬운 회사 파일럿 운영 판정 질문
 
 문서/코드/운영 근거 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
