@@ -199,7 +199,12 @@ async function query(env: PostgresEnv | undefined, strings: TemplateStringsArray
   const sql = createOperationalSql(env);
   if (!sql) return null;
   const text = strings.reduce((acc, chunk, index) => acc + chunk + (index < values.length ? `$${index + 1}` : ""), "");
-  return (await sql.query(text, values)) as DbRow[];
+
+  try {
+    return (await sql.query(text, values)) as DbRow[];
+  } catch {
+    return null;
+  }
 }
 
 async function listApprovalLineTemplateSteps(env: PostgresEnv | undefined, companyId: string) {
