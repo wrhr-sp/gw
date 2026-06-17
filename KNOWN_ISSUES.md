@@ -38,6 +38,7 @@
 
 ### 4. 현재 Phase 44 단계에서 남아 있는 제품형 리스크
 
+- 최신 tester 재검증에서는 focused API 98 passed, focused web 100 passed, mobile typecheck, web build, local preview 익명 redirect smoke 가 모두 통과했지만, 이 근거는 여전히 내부 검증 기준이다.
 - 직원용 가이드와 관리자용 가이드가 섞이면 실제 도입 대상자별 안내가 흐려진다.
 - `/dashboard` 기본 업무와 `/management` 민감 운영 레인이 같은 업무 흐름처럼 읽히면 내부통제 기대치가 무너진다.
 - 로그인 전 비노출 기준이 문서마다 다르면 사용자는 "앱을 설치하면 로그인 없이도 일부 메뉴가 보여도 된다"고 오해할 수 있다.
@@ -45,7 +46,7 @@
 - `tax` branch 제출과 HQ 검토, `labor` self/branch/restricted, `legal` metadata 와 실계약/실분쟁이 섞이면 실제 운영 역할 분담이 무너진다.
 - dedicated compliance route 부재와 `/admin/audit-logs` read-only 성격이 약해지면 컴플라이언스 조치 자동화가 이미 닫힌 것처럼 오해될 수 있다.
 - 도입 체크리스트에서 approval gate 가 약해지면 실지급, 실신고, production 실데이터, 외부 연동이 이미 가능한 것처럼 오해될 수 있다.
-- `scripts/gw-admin-host-preview-smoke.sh` 기대값까지 `/login` 으로 맞췄지만, 실제 Windows Chrome/Edge 설치 UX 문구와 운영자 매뉴얼이 계속 같은 기준을 유지하는지는 live smoke 때 함께 다시 봐야 한다.
+- 일반 manifest 실측값은 `id=/login`, `start_url=/`, `display=standalone` 이고 익명 `/` 가 `/login` 으로 redirect 되어 현재 로그인-only 기준과 충돌은 없지만, 실제 Windows Chrome/Edge 설치 UX 문구와 운영자 매뉴얼이 release gate/live smoke 까지 계속 같은 기준을 유지하는지는 함께 다시 봐야 한다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

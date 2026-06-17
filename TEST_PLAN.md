@@ -25,8 +25,8 @@
 - 현재 구현 문서 세트는 `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-operator-runbook.md`, `docs/guides/phase-44-role-access-matrix.md`, `docs/guides/phase-44-adoption-checklist.md`, `docs/guides/phase-44-pc-mobile-login-only-entry-pwa-desktop-app-handoff.md` 다.
 - 이번 Phase는 새 기능을 만드는 단계보다, 이미 있는 route/API/test 근거를 실제 도입 문서 묶음으로 다시 정렬하는 문서 단계다.
 - 따라서 우선 검증 포인트는 새 happy path 추가보다도 직원 레인/민감 운영 레인 분리, 권한표 일치, approval gate 정합성이 문서와 같은 뜻인지 확인하는 데 둔다.
-- 직전 parent 재검증 기준으로 shared/api/web 전체 테스트, typecheck, `pnpm check`, web build, OpenNext Cloudflare build, local preview curl smoke 가 통과했다.
-- local preview smoke 기준으로 익명 `/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 는 `/login` 으로 redirect 되고, 역할별 route/API 경계도 다시 확인된 상태다.
+- 최신 tester 재검증 기준으로 `pnpm --filter @gw/api test -- auth-org.spec.ts work-items.spec.ts` 15 files / 98 passed / 4 skipped, `pnpm --filter @gw/web test -- admin-preview-guard.test.ts work-items.test.tsx dashboard-boundary.test.tsx payroll.test.tsx` 24 files / 100 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 모두 통과했다.
+- local preview smoke 기준으로 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인된 상태다.
 
 ## 1. 기본 검증 명령
 

@@ -166,9 +166,17 @@
 - `KNOWN_ISSUES.md`
 
 ## 10. 현재 체인
-1. Phase 44 기획·fit-gap: `t_b4d63b74` — 도담(`gwplanner`) — 현재 카드
-2. Phase 44 구현: `t_5142bc72` — 이룸(`gwbuilder`) — 부모 대기
-3. Phase 44 리뷰: `t_6123cd3a` — 바름(`gwreviewer`) — 부모 대기
-4. Phase 44 테스트: `t_f1c5e044` — 해봄(`gwtester`) — 부모 대기
-5. Phase 44 문서화: 후속 카드 연결 예정/또는 기존 체인에 따라 진행
-6. Phase 45 최종검증: Phase 44 마감 후 별도 체인에서 시작
+1. Phase 44 기획·fit-gap: `t_b4d63b74` — 도담(`gwplanner`) — 완료
+2. Phase 44 구현: `t_5142bc72` — 이룸(`gwbuilder`) — 완료
+3. Phase 44 리뷰: `t_6123cd3a` — 바름(`gwreviewer`) — 완료
+4. Phase 44 테스트: `t_f1c5e044` — 해봄(`gwtester`) — 완료
+5. Phase 44 문서화: `t_867b60e2` — 다온(`gwdocs`) — 진행 중
+6. Phase 44 GitHub PR/CI/merge/branch cleanup: `t_5ada164e` — 지킴(`gwops`) — 부모 대기
+7. Phase 45 최종검증: Phase 44 마감 후 별도 체인에서 시작
+
+최신 tester 재검증 근거:
+- focused API: `pnpm --filter @gw/api test -- auth-org.spec.ts work-items.spec.ts` → 15 files passed, 98 tests passed, 4 skipped
+- focused web: `pnpm --filter @gw/web test -- admin-preview-guard.test.ts work-items.test.tsx dashboard-boundary.test.tsx payroll.test.tsx` → 24 files passed, 100 tests passed
+- `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 통과
+- local preview smoke: 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 모두 307 `/login`, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200
+- 일반 manifest 실측값: `id=/login`, `start_url=/`, `display=standalone`
