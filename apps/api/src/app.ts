@@ -4546,7 +4546,7 @@ app.post(appRoutes.auth.login, async (context) => {
     });
   }
 
-  const roleCode = resolveRoleCode(context.req.header("x-dev-role") ?? undefined);
+  const roleCode = resolveRoleCode(parsed.data.roleCode ?? context.req.header("x-dev-role") ?? context.req.header("x-forwarded-dev-role") ?? undefined);
   const session = buildSession(roleCode);
   const payload = {
     ok: true,

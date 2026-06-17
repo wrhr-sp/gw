@@ -90,6 +90,7 @@ export function LoginForm() {
               loginId,
               password,
               rememberSession,
+              roleCode,
             }),
           });
 

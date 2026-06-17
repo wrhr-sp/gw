@@ -37,6 +37,10 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   const targetUrl = new URL(pathname, "http://gw-api.internal");
   targetUrl.search = incomingUrl.search;
   const headers = new Headers(request.headers);
+  const devRoleHeader = headers.get("x-dev-role");
+  if (devRoleHeader && !headers.has("x-forwarded-dev-role")) {
+    headers.set("x-forwarded-dev-role", devRoleHeader);
+  }
 
   if (pathname === appRoutes.me && !options?.trustDevSessionCookie) {
     const sanitizedCookie = stripDevPlaceholderSessionCookie(headers.get("cookie"));
