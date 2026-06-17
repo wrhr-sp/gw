@@ -250,6 +250,11 @@ def signal_text(task: dict) -> str:
         # Preventive handoff comments contain many approval-gate keywords and are not the actual blocker.
         if body.startswith('[preventive-handoff:'):
             continue
+        # Recovery handoffs often record restricted gates that were *not touched*.
+        # Those are evidence of safety, not the actual blocked reason.
+        lower_body = body.lower()
+        if 'approval_gates_not_touched' in lower_body or '별도 승인 대상' in body and '건드리지 않았' in body:
+            continue
         chunks.append(body)
     return '\n'.join(chunks)
 
