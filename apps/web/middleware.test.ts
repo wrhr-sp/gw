@@ -45,6 +45,10 @@ describe("middleware host boundary", () => {
     expect(anonymousRootResponse.status).toBe(307);
     expect(getLocationPath(anonymousRootResponse)).toBe("/login");
 
+    const rememberedRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev", "dev-placeholder-session_COMPANY_ADMIN"));
+    expect(rememberedRootResponse.status).toBe(307);
+    expect(getLocationPath(rememberedRootResponse)).toBe("/dashboard");
+
     const anonymousManagementResponse = middleware(createRequest("/management", "gw-web.preview-account.workers.dev"));
     expect(anonymousManagementResponse.status).toBe(307);
     expect(getLocationPath(anonymousManagementResponse)).toBe("/login");

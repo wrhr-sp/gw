@@ -34,7 +34,7 @@ const publicManifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/ma
 describe("Phase 6 mobile/PWA skeleton config", () => {
   it("keeps the general-user manifest relative and provides placeholder icons", () => {
     expect(generalPwaManifest.id).toBe("/login");
-    expect(generalPwaManifest.start_url).toBe("/login");
+    expect(generalPwaManifest.start_url).toBe("/");
     expect(generalPwaManifest.scope).toBe("/");
     expect(generalPwaManifest.display_override).toEqual(["standalone", "minimal-ui", "browser"]);
     expect(generalPwaManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual(["/dashboard", "/attendance", "/approvals"]);

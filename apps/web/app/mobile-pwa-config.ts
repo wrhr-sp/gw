@@ -63,7 +63,7 @@ export const generalPwaManifest = {
   short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
   id: "/login",
-  start_url: "/login",
+  start_url: "/",
   scope: "/",
   display: "standalone",
   display_override: ["standalone", "minimal-ui", "browser"],
