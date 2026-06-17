@@ -18,7 +18,7 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 44 운영문서·사용자가이드·관리자가이드·도입 체크리스트의 기획·fit-gap 정리다. 이번 Phase의 목적은 이미 정리된 로그인/직원 기본업무/경영업무 권한 경계를 바탕으로, 직원용 안내·관리자용 안내·운영자 runbook·권한표·도입 전 체크리스트를 한 세트로 묶어 "외부 연동 없이 회사 내부에 본격 도입 가능한 기준선"을 닫는 것이다.
+현재 메인 활성 흐름은 Phase 44 운영문서·사용자가이드·관리자가이드·도입 체크리스트의 문서화 마무리다. 이번 Phase의 목적은 이미 정리된 로그인/직원 기본업무/경영업무 권한 경계를 바탕으로, 직원용 안내·관리자용 안내·운영자 runbook·권한표·도입 전 체크리스트를 한 세트로 묶어 "외부 연동 없이 회사 내부에 본격 도입 가능한 기준선"을 닫는 것이다.
 
 현재 상태 요약:
 
@@ -30,7 +30,7 @@
 - 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "일반 직원 홈"과 "내부관리 허브"를 실제 도입 문서 묶음으로 다시 닫는 것이다.
 - 직전 활성 체인 기준 문서는 `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`, `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md` 다.
 - 현재 Phase 44 기준 문서는 `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`, `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md` 다.
-- 현재 체인은 `t_b4d63b74`(기획 진행 중) → `t_5142bc72`(구현 부모 대기) → `t_6123cd3a`(리뷰 부모 대기) → `t_f1c5e044`(테스트 부모 대기) 순서다.
+- 현재 메인 체인은 `t_b4d63b74`(기획 완료) → `t_5142bc72`(구현 완료) → `t_6123cd3a`(리뷰 완료) → `t_f1c5e044`(테스트 완료) → `t_867b60e2`(문서화 진행 중) → `t_5ada164e`(release gate 부모 대기) 순서다.
 - 병행 문서화 체인은 `t_af13ba8e`(부모 재검증 완료) → `t_adc1b214`(PC/모바일 로그인 단독 진입 + PWA 데스크톱 앱 문서화 진행 중) → `t_906e37d3`(release gate 부모 대기) 순서다.
 
 2026-06-17 Phase 44 fit-gap 메모:
@@ -41,6 +41,9 @@
 - 병행 로그인/PWA 문서화 카드에서는 `/login` 단독 진입, 로그인 전 비노출 기준, Windows Chrome/Edge PWA 설치형 앱 확인 순서를 쉬운 말로 적는다.
 - 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)은 문서에서도 절대 섞지 않는다.
 - 실지급, 실신고, 실계약, production 실데이터, 주민번호/계좌번호 확대, 외부 기관/전문가 연동, DNS/custom domain, 유료 리소스, secret, migration 은 계속 승인 게이트다.
+- 최신 tester 재검증 기준으로 focused API 15 files / 98 passed / 4 skipped, focused web 24 files / 100 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 모두 통과했다.
+- local preview smoke 기준 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 모두 307으로 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인됐다.
+- 일반 manifest 실측값은 `id=/login`, `start_url=/`, `display=standalone` 이고 익명 `/` redirect 와 함께 로그인-only 진입 기준과 충돌 없이 동작한다.
 
 2026-06-17 Phase 43 fit-gap 메모:
 

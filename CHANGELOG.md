@@ -4,6 +4,7 @@
 
 ### Changed
 
+- `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `KNOWN_ISSUES.md` 를 다시 보강해 Phase 44 현재 체인을 기획 완료 → 구현 완료 → 리뷰 완료 → 테스트 완료 → 문서화 진행 → release gate 대기로 맞췄다. 최신 tester 재검증 근거(focused API 15 files/98 passed/4 skipped, focused web 24 files/100 passed, mobile typecheck, web build, local preview 익명 redirect smoke, 일반 manifest `id=/login`·`start_url=/`·`display=standalone`)를 루트 문서에 반영했다.
 - `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-operator-runbook.md`, `docs/guides/phase-44-role-access-matrix.md`, `docs/guides/phase-44-adoption-checklist.md` 를 추가해 Phase 44 문서 세트를 실제 파일로 구현했다. 직원 기본 레인(`/login`·`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`), 관리자/담당자 레인(`/management`·`/work-items/branch`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs`), 운영자 3단계 runbook, 역할별 권한표, approval gate 묶음을 같은 언어로 고정했다.
 - `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md`, `TASKS.md`, `TEST_PLAN.md` 를 갱신해 새 Phase 44 문서 세트 경로를 연결했다.
 - `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`, `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 현재 Phase 44 기준으로 갱신했다. 직원용 가이드/관리자용 가이드/운영자 runbook/권한표/도입 체크리스트를 한 묶음으로 정의하고, 직원 기본 레인 대 `경영업무` 내부관리 레인 분리, `/payroll`·`/work-items/*`·`/admin/audit-logs` 책임 차이, approval gate 정리를 같은 언어로 다시 고정했다.
