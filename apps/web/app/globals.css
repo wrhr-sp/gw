@@ -571,16 +571,33 @@ li {
 }
 
 @media (min-width: 961px) {
+  .app-shell--responsive {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-shell__main {
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
   .desktop-sidebar {
     display: grid;
     width: 312px;
+    height: 100dvh;
+    min-height: 0;
     flex-shrink: 0;
     align-content: start;
     gap: 18px;
     padding: 24px 20px;
     position: sticky;
     top: 0;
-    min-height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     background: #f3f6fb;
     border-right: 1px solid var(--line);
   }
