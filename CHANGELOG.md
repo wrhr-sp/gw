@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-06-17
+
+### Changed
+
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md`, `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`, `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md` 를 추가·갱신해 현재 활성 문서 체인을 Phase 43 기준으로 올렸다. `/management` 내부관리 허브, `/payroll`·`/payroll/me` preview/self-only 경계, `tax`·`labor`·`legal` scope 차이, `/admin/audit-logs` read-only 컴플라이언스 진입, dedicated compliance route 부재, 실지급·실신고·외부 전문가 연동 승인 게이트를 같은 언어로 다시 고정했다.
+
 ## 2026-06-16
 
 ### Changed

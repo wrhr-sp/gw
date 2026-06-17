@@ -46,6 +46,9 @@
 - [ ] Phase 25 공통 업무·문서·마감·권한 엔진 1차 범위라면 공통 `work item` 모델, 문서/첨부/검토/마감 skeleton, 회사 + 지점/호텔 + 역할 + capability 접근 기준, 모바일/PC 새 업무 그룹 자리, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 26 HR·미팅 관리 1차 범위라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR / 지점 관리자 / 일반 직원 visibility, metadata-only 메모, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 27 노무 관리 1차 범위라면 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility, metadata-only evidence, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
+- [ ] Phase 43 내부관리 도입완성 범위라면 `/management` 내부관리 허브와 일반 직원 홈이 다른 책임으로 읽히고, `/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs` 의 확인 포인트가 같은 문서 언어로 맞춰져 있다.
+- [ ] Phase 43 문서에서는 `/payroll` preview/self-only/role-split, tax branch/HQ, labor self/branch/restricted, legal contract/company scope, `audit.read` read-only 경계가 같은 말로 유지된다.
+- [ ] dedicated `/compliance` route 또는 `module=compliance` 근거 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` 카드와 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
