@@ -55,6 +55,11 @@
 - [ ] COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 는 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 라는 로그인 직후 landing 기준과, 그 뒤 HR_ADMIN → admin host `/admin/users`, MANAGER/COMPANY_ADMIN → general host `/management`, AUDITOR → admin host `/admin/audit-logs` 다음 레인/허용·차단 route 가 문서·화면·테스트에서 같은 뜻이다.
 - [ ] 계정 생성/비밀번호 초기화 preview 가 실제 저장 완료나 production 계정 배포처럼 과장되지 않고, 비밀값이 URL/배너/예시 문장에 오래 남지 않는다.
 - [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토, `/org` 조직 읽기와 `/work-items/branch` 지점 운영 흐름이 한 문서 안에서 서로 다른 층위로 설명된다.
+- [ ] Phase 47 운영 안정성·성능·모바일/PWA 사용성 범위라면 `/dashboard`·`/menu`·`/notifications`·`/offline`·`/management`·`/admin/users`·`/admin/audit-logs` 의 상태 문장과 운영 기대치가 같은 언어로 읽힌다.
+- [ ] loading / empty / error / forbidden / offline / dev-safe 가 서로 다른 뜻으로 유지되고, 하나의 실패 상태처럼 섞이지 않는다.
+- [ ] 모바일 하단 탭 5개와 PC sidebar, home shortcut, install 안내가 같은 정보구조를 가리키고 일반 직원 홈과 운영 레인을 섞지 않는다.
+- [ ] installability / manifest 존재 / 모바일 shell 존재를 실제 offline 상태 변경 가능, background sync 완료, 외부 push 연동 완료와 같은 뜻으로 과장하지 않는다.
+- [ ] `/offline` 이 가능한 일 / 막히는 일 / 재시도 절차를 먼저 설명하고 업무 성공 화면처럼 보이지 않는다.
 - [ ] live 직접 재확인 근거와 local preview/build/release gate 대체 근거를 구분해서 기록했다.
 - [ ] 로그인 전에는 `/login` 만 익명 입구라는 기준과 로그인 전 비노출 route 목록이 문서마다 다르게 적히지 않는다.
 - [ ] 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)이 문서에서 섞이지 않는다.

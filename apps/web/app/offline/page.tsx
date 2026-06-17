@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { getTrustedHostFromHeaders } from "../../admin-host";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { adminOfflineGuidance, offlineGuidance, offlineTaskGuides } from "../mobile-pwa-config";
 
 async function getRequestHost() {
   const requestHeaders = await headers();
@@ -12,6 +13,7 @@ async function getRequestHost() {
 export default async function OfflinePage() {
   const host = await getRequestHost();
   const isAdminContext = host?.startsWith("admin.") || host?.includes("gw-admin.") || false;
+  const guidance = isAdminContext ? adminOfflineGuidance : offlineGuidance;
 
   const retrySteps = [
     "네트워크 연결 상태를 다시 확인합니다.",
@@ -38,6 +40,14 @@ export default async function OfflinePage() {
       description="연결이 불안정할 때도 내부 업무 링크를 열어 두지 않습니다. 연결이 돌아오면 로그인 화면으로 다시 시작해 주세요."
       actions={<Pill tone="warning">로그인 재시도만 안내</Pill>}
     >
+      <SurfaceSection title="지금 가능한 일" description="오프라인 상태에서도 성공처럼 보이지 않는 범위만 남깁니다.">
+        <ul className="summary-list">
+          {guidance.availableNow.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
       <SurfaceSection title="지금 해야 할 일" description="오프라인 업무 성공처럼 보이게 하지 않고, 다시 로그인하는 최소 절차만 남깁니다.">
         <ol className="number-list">
           {retrySteps.map((step) => (
@@ -48,10 +58,25 @@ export default async function OfflinePage() {
 
       <SurfaceSection title="이 페이지에서 하지 않는 일" description="업무 복구 링크 모음이나 내부 우회 진입을 제공하지 않습니다." muted>
         <ul className="summary-list">
-          {limits.map((item) => (
+          {[...limits, ...guidance.blockedNow].map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="업무별 오프라인 경계" description="대표 업무에서 가능한 일과 막히는 일을 route 기준으로 짧게 다시 확인합니다.">
+        <div className="grid-auto-compact">
+          {offlineTaskGuides
+            .filter((item) => (isAdminContext ? item.adminOnly : !item.adminOnly))
+            .map((item) => (
+              <article key={item.href} className="info-card">
+                <h3>{item.label}</h3>
+                <p>{item.available}</p>
+                <p className="card-note">막히는 일: {item.blocked}</p>
+                <p className="card-note">다시 시도: {item.retryHint}</p>
+              </article>
+            ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection title="다시 시작 경로" description="연결이 복구되면 아래 경로만 사용합니다.">

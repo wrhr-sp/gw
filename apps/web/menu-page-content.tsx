@@ -3,6 +3,7 @@ import type { HomeShortcut, RoleCode } from "@gw/shared";
 
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
+import { Phase47RecommendedFlowSection, Phase47StatusGuideSection } from "./app/_components/phase47-usage-guide";
 import { fieldUsabilityPrinciples, getVisibleMobileMenuSections, hasManagementMenuAccess, mobileBottomTabs, recoveryRouteCards } from "./app/mobile-pwa-config";
 
 export function MenuPageContent({
@@ -65,6 +66,14 @@ export function MenuPageContent({
           ))}
         </ul>
       </SurfaceSection>
+
+      <Phase47StatusGuideSection title="모바일 상태 문장 가이드" description="한 손 사용 중에도 loading, empty, error, forbidden, offline, dev-safe 의미가 섞이지 않게 같은 문장을 유지합니다." />
+
+      <Phase47RecommendedFlowSection
+        title="모바일 추천 확인 순서"
+        description="하단 탭과 전체 메뉴를 눌러 볼 때도 홈 → 복구 → 실제 업무 순서가 흔들리지 않게 고정합니다."
+        roleCode={roleCode}
+      />
 
       {visibleMenuSections.map((section) => (
         <SurfaceSection key={section.title} title={section.title} description={section.description}>

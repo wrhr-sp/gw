@@ -2,6 +2,7 @@ import React from "react";
 
 import { NotificationsLiveSection } from "../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { Phase47StatusGuideSection } from "../_components/phase47-usage-guide";
 import { notificationStateCards, recoveryRouteCards } from "../mobile-pwa-config";
 
 const checkpoints = [
@@ -49,6 +50,8 @@ export default function NotificationsPage() {
           ))}
         </div>
       </SurfaceSection>
+
+      <Phase47StatusGuideSection title="알림 상태 해석 가이드" description="알림 inbox 에서도 loading, empty, error, forbidden, offline, dev-safe 를 실제 발송/성공처럼 오해하지 않게 고정합니다." />
 
       <SurfaceSection title="다음 행동" description="알림 탭에서 업무가 끝나는 것이 아니라 다른 핵심 route 로 이동해야 합니다.">
         <div className="grid-auto-compact">

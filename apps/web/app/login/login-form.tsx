@@ -139,18 +139,18 @@ export function LoginForm() {
           />
         </label>
       </div>
-      <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-        <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div className="login-options-row">
+        <label className="login-option">
           <input type="checkbox" name="rememberLoginId" checked={rememberLoginId} onChange={(event) => setRememberLoginId(event.target.checked)} />
           <span>아이디 저장</span>
         </label>
-        <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <label className="login-option">
           <input type="checkbox" name="rememberSession" checked={rememberSession} onChange={(event) => setRememberSession(event.target.checked)} />
           <span>자동 로그인</span>
         </label>
       </div>
-      <div className="action-row">
-        <button type="submit" className="touch-button" disabled={pending}>
+      <div className="action-row login-action-row">
+        <button type="submit" className="touch-button login-submit-button" disabled={pending}>
           {pending ? "로그인 중..." : "로그인"}
         </button>
       </div>

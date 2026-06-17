@@ -218,6 +218,19 @@
 - `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
 - `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`
 
+### 2-11. 운영 안정성·성능·모바일/PWA 사용성 보강 기준은 Phase 47 문장으로 잠근다.
+
+- Phase 47의 목표는 새 외부 연동 추가보다, `/dashboard`·`/menu`·`/notifications`·`/offline`·`/management`·`/admin/users`·`/admin/audit-logs` 를 회사 전체 사용 직전의 안정성/로딩/재시도/모바일 사용성 관점으로 다시 묶는 것이다.
+- 익명 시작점은 계속 `/login` 뿐이고, COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 의 로그인 직후 공통 landing 은 `/dashboard`, AUDITOR 의 로그인 직후 landing 은 `/admin/audit-logs` 다.
+- 모바일 하단 탭 5개와 PC sidebar 는 같은 정보구조를 가리키고, `경영업무`·`/admin*` 운영 레인은 일반 직원 홈과 같은 책임처럼 섞지 않는다.
+- `/offline` 은 가능한 일 / 막히는 일 / 재시도 절차를 먼저 설명하는 복구 화면으로 유지하고, 상태 변경 성공이나 완전 offline 동기화처럼 보이게 만들지 않는다.
+- empty, error, forbidden, offline, dev-safe 문장은 서로 다른 뜻으로 유지해야 하며 installability 와 실제 offline 상태 변경 가능 여부를 같은 말처럼 섞지 않는다.
+- 외부 push/SMS/메일, background sync, native 배포, production custom domain/app link, 실제 계정 초대/외부 IdP, production 실데이터 저장/전환은 이번 완료 범위와 분리한다.
+
+근거:
+- `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`
+- `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
