@@ -4515,6 +4515,30 @@ app.post(appRoutes.auth.login, async (context) => {
     });
   }
 
+  const devSafeRequestedRoleCode = parsed.data.roleCode ?? context.req.header("x-dev-role") ?? context.req.header("x-forwarded-dev-role") ?? undefined;
+  const shouldUseDevSafeRoleOverride = Boolean(devSafeRequestedRoleCode) && isDevSafeLoginCredential(parsed.data.loginId, parsed.data.email, parsed.data.password);
+
+  if (shouldUseDevSafeRoleOverride) {
+    const roleCode = resolveRoleCode(devSafeRequestedRoleCode);
+    const session = buildSession(roleCode);
+    const payload = {
+      ok: true,
+      data: {
+        session,
+        user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
+        nextStep: "dev/test/UAT 전용 역할 전환 로그인입니다. 운영 전에는 실제 계정/권한으로 재검증해야 합니다.",
+      },
+      error: null,
+    };
+
+    context.header(
+      "Set-Cookie",
+      buildSessionCookie(session.id, parsed.data.rememberSession),
+    );
+
+    return jsonSuccess(context, authLoginResponseSchema, payload, 200);
+  }
+
   const operationalLogin = await authenticateOperationalUser(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
 
   if (operationalLogin) {
@@ -4546,7 +4570,7 @@ app.post(appRoutes.auth.login, async (context) => {
     });
   }
 
-  const roleCode = resolveRoleCode(parsed.data.roleCode ?? context.req.header("x-dev-role") ?? context.req.header("x-forwarded-dev-role") ?? undefined);
+  const roleCode = resolveRoleCode(devSafeRequestedRoleCode);
   const session = buildSession(roleCode);
   const payload = {
     ok: true,
