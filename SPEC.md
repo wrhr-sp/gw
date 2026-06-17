@@ -272,6 +272,29 @@
 - `apps/api/src/app.ts`
 - `packages/shared/src/admin-access.ts`
 
+### 2-14. 내부 그룹웨어 본격 도입 릴리즈 기준은 Phase 50 문장으로 잠근다.
+
+- Phase 50의 목표는 새 외부 연동이나 production 실데이터 확대보다, 대장이 live URL에서 로그인하고 `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 직접 따라가며 내부 도입 가능 여부를 판단할 수 있게 만드는 것이다.
+- 직원 기본업무 레인, 운영 관리자 레인, 지점관리자 레인, 감사 레인, 경영업무 민감 모듈 레인은 같은 관리자 흐름처럼 섞지 않는다.
+- `/dashboard` 는 PC/모바일 공통 홈이고, `/management` 는 일반 직원 홈의 연장이 아니라 민감 운영 허브다.
+- `/employees`, `/org` 읽기 확인과 `/admin/users`, `/admin/policies` 운영 preview 는 같은 책임처럼 설명하지 않는다.
+- `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정처럼 설명하지 않는다.
+- happy path, forbidden, empty, error, loading, mobile/PC 기록 포인트와 skeleton/placeholder/dev-safe/read-only 잔여 분류를 기능별로 함께 남긴다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거를 같은 확인 수준처럼 섞지 않는다.
+- production DB, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/은행 이체/기관 신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, DNS/custom domain, 유료 리소스, secret, destructive 작업은 계속 승인 게이트로 남긴다.
+
+근거:
+- `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`
+- `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`
+- `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/me/page.tsx`
+- `apps/web/app/management/page.tsx`
+- `apps/web/app/work-items/branch/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/api/src/app.ts`
+- `packages/shared/src/admin-access.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
@@ -456,6 +479,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 모바일 하단 탭 기본은 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, `메뉴`에서 기본 업무/내 정보·조회/협업 placeholder 전체 메뉴 화면을 연다.
+
 - 모바일 `홈` 은 회사가 고정하는 필수 핵심 메뉴와 사용자가 선택/정렬하는 개인 바로가기를 함께 다루는 구조로 적는다.
 - `홈` 바로가기와 `메뉴` 전체 기능 선택 화면은 같은 기능 id/라벨/권한 registry 를 공유해야 한다.
 - 필수 고정 메뉴는 사용자가 임의로 숨기지 못하거나, 최소한 회사 정책/관리자 설정으로 고정 여부를 통제할 수 있어야 한다.

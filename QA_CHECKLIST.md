@@ -67,6 +67,7 @@
 - [ ] dedicated `/compliance` route 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` 문맥과 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
 - [ ] 도입 체크리스트가 사전 준비 / 역할별 시나리오 점검 / 승인 게이트 확인 순서로 실제 따라가기 쉽게 정리돼 있다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
+
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
 - [ ] 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 일반 근무자 `지점 업무` 대 관리자 `지점 관리` 분리가 문서/화면/API 설명에서 같은 뜻이다.
@@ -96,6 +97,11 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] Phase 50 내부 그룹웨어 본격 도입 릴리즈 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 50 내부 그룹웨어 본격 도입 릴리즈 범위라면 직원 레인(`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`·`/me`), 운영 관리자 레인(`/management`·`/admin/users`·`/admin/policies`·`/admin/audit-logs`·`/api/health`), 지점관리자 레인(`/work-items/branch`), 감사 레인, 경영업무 민감 모듈 레인이 같은 관리자 흐름처럼 섞이지 않는다.
+- [ ] Phase 50 범위라면 skeleton/placeholder/dev-safe/read-only 잔여가 최종 릴리즈 산출물처럼 과장되지 않고, 닫지 못한 항목은 release blocker 또는 approval-needed 로 분리된다.
+- [ ] Phase 50 범위라면 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿이 같은 제품 언어와 같은 승인 게이트 기준을 쓴다.
+- [ ] Phase 50 범위라면 live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 확인 수준처럼 섞이지 않는다.
 - [ ] Phase 49 파일럿 피드백 반영·최종 UAT 회귀 범위라면 직원 레인(`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`·`/me`), 운영 관리자 레인(`/management`·`/admin/users`·`/admin/policies`·`/admin/audit-logs`·`/api/health`), 지점관리자 레인(`/work-items/branch`), 감사 레인이 같은 관리자 흐름처럼 섞이지 않는다.
 - [ ] 같은 `admin / 1234` 테스트 계정을 쓰더라도 직원/운영 관리자/지점관리자/감사 담당자 시나리오가 같은 사용자 시나리오처럼 문서에 섞이지 않는다.
 - [ ] happy path / forbidden / empty / error / loading / mobile/PC 기록 포인트가 기능별로 분리돼 있고, blocker/major/minor/copy-doc/approval-needed 같은 이슈 분류 언어와 충돌하지 않는다.
