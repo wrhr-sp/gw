@@ -94,6 +94,8 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("지점 업무 실사용 패널");
     expect(html).toContain("경영업무로");
     expect(html).toContain("branch scope 가드레일");
+    expect(html).toContain("Phase 49 지점관리자 추천 순서");
+    expect(html).toContain("happy path: 지점 업무 흐름이 자기 지점 범위 안에서 자연스럽게 이어지는가");
     expect(html).toContain("이 화면은 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인입니다.");
   });
 
@@ -143,15 +145,17 @@ describe("Phase 25 work-items web entrypoints", () => {
     const html = renderToStaticMarkup(await ManagementPage());
 
     expect(html).toContain("경영업무");
+    expect(html).toContain("Phase 49 역할별 파일럿 레인");
+    expect(html).toContain("/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain("계정관리 → 조직조회 → 경영업무 브리지");
     expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고");
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("추천 UAT 순서");
     expect(html).toContain("`/uat` 에서 시나리오를 먼저 읽고");
-    expect(html).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름 확인");
-    expect(html).toContain("/payroll/me 에서 self-only 명세서 preview 와 정정 안내가 분리되어 보이는지 확인");
-    expect(html).toContain("/work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인");
+    expect(html).toContain("/admin/users 에서 계정관리 preview 와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
+    expect(html).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
+    expect(html).toContain("UAT 기록 체크포인트");
     expect(html).toContain("컴플라이언스 / 감사 preview");
     expect(html).toContain("일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.");
   });

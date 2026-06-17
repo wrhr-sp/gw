@@ -151,10 +151,16 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
     detail: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열",
   },
   {
-    role: "운영 관리자 / 지점 관리자",
+    role: "운영 관리자",
     firstRoute: "/dashboard",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
-    detail: "공통 landing 다음 레인은 /management 이며, 일반 조회와 운영 변경 검토를 분리하고 /work-items/branch 를 branch scope 운영 레인으로 유지",
+    detail: "공통 landing 다음 레인은 /management 이며, 계정관리 preview·정책 preview·감사 read-only·민감 모듈 검토를 같은 홈처럼 섞지 않습니다.",
+  },
+  {
+    role: "지점 관리자",
+    firstRoute: "/dashboard",
+    summary: "공통 홈 뒤 `/work-items/branch` 중심 branch scope 운영 레인으로 이어지고 회사 전체 운영 권한과는 분리됩니다.",
+    detail: "`/employees`, `/org` 읽기 확인 뒤 `/management` 문맥을 보더라도 branch scope 와 company scope 를 같은 권한처럼 설명하지 않습니다.",
   },
   {
     role: "감사 전용 사용자",

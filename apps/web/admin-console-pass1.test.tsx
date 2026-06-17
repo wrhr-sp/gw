@@ -72,7 +72,8 @@ describe("Phase 13 admin console pass 1", () => {
     expect(html).toContain("Phase 46 온보딩 리허설 순서");
     expect(html).toContain("역할별 시작 레인과 차단 기준");
     expect(html).toContain("HR_ADMIN");
-    expect(html).toContain("MANAGER / COMPANY_ADMIN");
+    expect(html).toContain("MANAGER");
+    expect(html).toContain("COMPANY_ADMIN");
     expect(html).toContain("운영자 설정 read model");
     expect(html).toContain("정책 시작점");
     expect(html).toContain("회사 공통 고정 바로가기 source");
@@ -85,6 +86,8 @@ describe("Phase 13 admin console pass 1", () => {
     expect(html).toContain("방금 실행한 preview 다음 확인");
     expect(html).toContain("권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
     expect(html).toContain("/dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
+    expect(html).toContain("/work-items/branch → /employees → /org → /management");
+    expect(html).toContain("/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단");
     expect(html).toContain("forbidden / empty / error / dev-safe 경계");
     expect(html).toContain("실저장 없음");
   });

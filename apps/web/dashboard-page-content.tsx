@@ -79,6 +79,29 @@ export function DashboardPageContent({
       </SurfaceSection>
 
       <SurfaceSection
+        title="Phase 49 직원 레인 고정"
+        description="이번 파일럿/UAT에서는 일반 직원이 실제로 누를 순서를 같은 언어로 잠그고, 운영 관리자 화면과 섞이지 않게 안내합니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">추천 순서</Pill>
+            <h3>/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</h3>
+            <p>오늘 할 일부터 협업, 마무리 확인까지 실제 파일럿 기록 순서로 다시 읽습니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>분리 원칙</Pill>
+            <h3>일반 홈과 운영 허브를 섞지 않음</h3>
+            <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인입니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">UAT 기록 포인트</Pill>
+            <h3>happy · forbidden · empty · error · loading · mobile/PC</h3>
+            <p>각 화면에서 같은 분류 언어를 반복해 tester 와 docs 가 바로 이어받을 수 있게 고정합니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
         title="오늘 할 일"
         description="직원 기본 업무 기준 상단 액션을 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정하고, 조직/직원 조회는 마지막 읽기 보조 레인으로 이어집니다. 실제 상태 변경은 각 화면에서만 이어집니다."
       >
@@ -172,16 +195,15 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="관리자 운영 검토 레인"
-        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` 순서로 내부관리 레인을 검토합니다."
+        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health` 순서로 운영 기준선을 먼저 검토합니다."
       >
         <ul className="summary-list">
           <li>`/dashboard` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
-          <li>`/management` 에서 오늘 검토할 급여/세무/노무/법무/감사 체크포인트 정리</li>
-          <li>`/payroll` 에서 급여 overview, 기간 상세, self-only 명세서 preview 경계 확인</li>
-          <li>`/work-items/tax` 에서 지점 제출·HQ 검토·패키지 준비 상태 확인</li>
-          <li>`/work-items/labor` 에서 self/branch/restricted 경계와 민감도 설명 확인</li>
-          <li>`/work-items/legal` 에서 계약/갱신/분쟁 흐름과 approval gate 언어 확인</li>
-          <li>`/admin/audit-logs` 에서 masked/company boundary 기준으로 read-only 감사 추적</li>
+          <li>`/management` 에서 운영 허브가 일반 홈의 연장이 아니라는 안내 확인</li>
+          <li>`/admin/users` 에서 계정 생성·권한 diff·비밀번호 초기화가 dev-safe preview 로 읽히는지 확인</li>
+          <li>`/admin/policies` 에서 current/candidate/capability/audit preview 형식이 실제 저장 완료처럼 보이지 않는지 확인</li>
+          <li>`/admin/audit-logs` 에서 masked/company boundary 기준으로 read-only 감사 추적 확인</li>
+          <li>`/api/health` 를 full monitoring 이 아닌 최소 liveness 기준으로 기록</li>
         </ul>
       </SurfaceSection>
 

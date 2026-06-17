@@ -250,6 +250,28 @@
 - `RUNBOOK.md`
 - `DEPLOYMENT.md`
 
+### 2-13. 파일럿 피드백 반영·최종 UAT 회귀 기준은 Phase 49 문장으로 잠근다.
+
+- Phase 49의 목표는 새 외부 연동이나 실운영 저장 확대보다, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 역할별 파일럿 확인 순서로 다시 묶는 것이다.
+- 직원 레인은 `/dashboard` 중심 일반 업무 흐름으로, 운영 관리자 레인은 `/management`·`/admin*` 중심 운영 검토 흐름으로, 지점관리자 레인은 `/work-items/branch` 중심 branch scope 흐름으로, 감사 레인은 `/admin/audit-logs` read-only 흐름으로 설명해야 한다.
+- 같은 `admin / 1234` 테스트 계정을 쓰더라도 직원/운영 관리자/지점관리자/감사 담당자를 같은 사용자 시나리오처럼 섞어 쓰지 않는다.
+- happy path, forbidden, empty, error, loading, mobile/PC 확인 포인트를 기능별로 따로 기록하되 blocker/major/minor/copy-doc/approval-needed 같은 이슈 분류 언어로 다시 묶는다.
+- `/employees`, `/org` 읽기 확인과 `/admin/users`, `/admin/policies` 운영 preview 를 같은 책임처럼 설명하지 않는다.
+- `/work-items/branch` 는 branch scope 업무 레인이며 회사 전체 민감 운영 권한과 같은 뜻으로 과장하지 않는다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거를 같은 확인 수준처럼 섞지 않는다.
+- production DB, 외부 IdP, 실급여/실신고, production backup/restore, 외부 SIEM/alerting, DNS/custom domain, 유료 리소스, secret, destructive 작업은 계속 승인 게이트로 남긴다.
+
+근거:
+- `docs/architecture/phase-49-pilot-feedback-reflection-final-uat-regression-fit-gap-scope.md`
+- `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-handoff.md`
+- `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-guide.md`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/management/page.tsx`
+- `apps/web/app/work-items/branch/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/api/src/app.ts`
+- `packages/shared/src/admin-access.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
