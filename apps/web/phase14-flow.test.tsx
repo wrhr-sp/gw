@@ -28,13 +28,14 @@ describe("Phase 14 home/login flow", () => {
   it("keeps the login page focused on the bare auth controls before entry", () => {
     const html = renderToStaticMarkup(<LoginPage />);
 
-    expect(html).toContain("로그인 전용 진입");
     expect(html).toContain("그룹웨어 로그인");
     expect(html).toContain("아이디");
     expect(html).toContain("비밀번호");
     expect(html).toContain("아이디 저장");
     expect(html).toContain("자동 로그인");
-    expect(html).toContain("로그인 후 첫 화면: /dashboard");
+    expect(html).not.toContain("로그인 전용 진입");
+    expect(html).not.toContain("로그인 후 첫 화면");
+    expect(html).not.toContain("/dashboard");
     expect(html).toContain(">로그인<");
     expect(html).not.toContain("/api/auth/login");
     expect(html).not.toContain("admin / 1234");

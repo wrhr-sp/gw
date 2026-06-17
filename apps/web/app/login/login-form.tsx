@@ -2,7 +2,7 @@
 
 import { appRoutes, errorResponseSchema, type RoleCode } from "@gw/shared";
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { devSafeRoleOptions, getPostLoginRoute } from "../../dev-safe-auth";
 
@@ -38,8 +38,6 @@ export function LoginForm() {
 
     setRoleCode(resolveRoleCodeFromSearch(window.location.search));
   }, []);
-
-  const selectedRole = useMemo(() => devSafeRoleOptions.find((item) => item.value === roleCode) ?? devSafeRoleOptions[0], [roleCode]);
 
   return (
     <form
@@ -115,16 +113,11 @@ export function LoginForm() {
           <input type="checkbox" name="rememberLoginId" checked={rememberLoginId} onChange={(event) => setRememberLoginId(event.target.checked)} />
           <span>아이디 저장</span>
         </label>
-        <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <input type="checkbox" name="rememberSession" checked={rememberSession} onChange={(event) => setRememberSession(event.target.checked)} style={{ marginTop: 4 }} />
-          <span>
-            <strong>자동 로그인</strong>
-            <br />
-            <span className="card-note">비밀번호 저장이 아니라 이 브라우저의 로그인 세션을 더 오래 유지하는 옵션입니다.</span>
-          </span>
+        <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <input type="checkbox" name="rememberSession" checked={rememberSession} onChange={(event) => setRememberSession(event.target.checked)} />
+          <span>자동 로그인</span>
         </label>
       </div>
-      <p className="card-note">로그인 후 첫 화면: {selectedRole.landingRoute}</p>
       <div className="action-row">
         <button type="submit" className="touch-button" disabled={pending}>
           {pending ? "로그인 중..." : "로그인"}
