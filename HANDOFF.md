@@ -18,17 +18,26 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 50 내부 그룹웨어 본격 도입 릴리즈 체인이다. 이번 Phase의 목적은 Phase 45~49에서 잠근 내부 도입·온보딩·운영 안정성·감사·최종 UAT 회귀 기준선을 바탕으로 대장이 live URL에서 직접 로그인하고 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 실제 본격 도입 릴리즈 순서로 따라갈 수 있게 정리하는 것이다.
+현재 메인 활성 흐름은 Phase 51 게시판 실사용화 체인이다. 이번 Phase의 목적은 기존 게시판 API·route·테스트 기준선을 바탕으로 대장이 live URL에서 `/boards`, `/boards/[boardId]`, `/posts/[postId]` 를 직접 눌러 목록 → 상세 → 글 작성/공지 확인 → 댓글 → 읽음 확인까지 이어 볼 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx` 기준으로 직원 일반 업무 레인이 이미 존재한다.
-- `apps/web/app/management/page.tsx`, `apps/web/app/work-items/branch/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/src/app.ts`, `packages/shared/src/admin-access.ts` 기준으로 운영 관리자/지점관리자/감사 레인과 scope 경계 근거가 이미 존재한다.
-- `RUNBOOK.md`, `DEPLOYMENT.md`, `docs/guides/phase-44-operator-runbook.md` 기준으로 최소 운영 점검, rollback, smoke 재확인, 승인 게이트 분리 문서 근거가 있다.
-- 현재 Phase 50 기준 문서는 `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-49-pilot-feedback-reflection-final-uat-regression-fit-gap-scope.md`, `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-handoff.md` 다.
-- 현재 메인 체인은 `t_0cdaa5b7`(기획 완료) → `t_b56865a6`(구현 완료) → `t_8428a0e3`(리뷰 완료) → `t_e3d48ed0`(테스트 완료) → `t_db79476b`(문서화 진행 중) → `t_ae1c36b4`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+- `apps/web/app/boards/page.tsx`, `apps/web/app/boards/[boardId]/page.tsx`, `apps/web/app/posts/[postId]/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx` 기준으로 게시판 목록/상세/글 작성/댓글/읽음 확인 UI 뼈대가 이미 존재한다.
+- `apps/api/test/auth-org.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 accessible board 목록/상세/작성/댓글/읽음 확인, notice-only 차단, forged 차단 API 근거가 이미 존재한다.
+- 현재 Phase 51 기준 문서는 `docs/architecture/phase-51-boards-live-operations-fit-gap-scope.md`, `docs/guides/phase-51-boards-live-operations-handoff.md`, `docs/guides/phase-51-boards-live-operations-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md` 다.
+- 현재 메인 체인은 `t_e5d1a842`(기획 진행 중) → `t_fc067f42`(구현 부모 대기) → `t_864ddcd9`(리뷰 부모 대기) → `t_5148f5f8`(테스트 부모 대기) → `t_d9aeae19`(문서화 부모 대기) → `t_b681caf3`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+- Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
+2026-06-18 Phase 51 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/boards`, `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_demo`, `/posts/board_post_notice_1`, 관련 route/API/test 근거.
+- 현재 기획 근거는 `apps/web/app/boards/page.tsx`, `apps/web/app/boards/[boardId]/page.tsx`, `apps/web/app/posts/[postId]/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/api/test/auth-org.spec.ts`, `packages/shared/src/contracts.ts` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 게시판 목록 → 게시판 상세 → 글 작성 → 댓글 → 읽음 확인 happy path 와 공지형/일반형 책임 차이를 실제 사용자 흐름으로 읽히게 만드는 것이다.
+- empty/loading/error/forbidden 상태, notice-only 차단, forged post/read receipt 차단 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
+- `preview`, `guard 확인`, `감사 후보` 같은 내부 검증 문구가 live 실사용 문구를 덮지 않도록 정리해야 한다.
+- `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
+- production DB, 외부 IdP/SSO, 실급여/실신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
 
 2026-06-17 Phase 50 fit-gap 메모:
 
@@ -36,14 +45,14 @@
 - 현재 기획 근거는 `apps/web` 일반 업무/운영/지점/감사 route, `apps/api/src/app.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/contracts.ts`, parent Phase 49 release gate·smoke 기록 다.
 - 이번 Phase에서 가장 먼저 다시 고정할 것은 대장이 live URL에서 직접 따라갈 직원 기본업무 레인, 운영 관리자 레인, 지점관리자 레인, 감사 레인을 최종 본격 도입 릴리즈 언어로 다시 잠그는 것이다.
 - happy path, forbidden, empty, error, loading, mobile/PC 기록 포인트와 skeleton/placeholder/dev-safe/read-only 잔여 분류를 기능별로 같은 형식으로 남겨야 한다.
-
+- 모바일 하단바 세부 UX 포커스에서는 `메뉴` → `홈` → `메신저` → `메일` → `알림` 순서를 유지한 채, 아이콘 위/라벨 아래 세로 배치, safe-area 위 floating capsule, active pill, `0 숨김 / 1~99 / 99+` 알림 배지, 본문 하단 가림 방지 기준을 같이 잠근다.
 - `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
 - production DB, 외부 IdP/SSO, 실급여/실신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
 - parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `1f299108b47edc219fa1ac3ea6ce5fd9c8b82114` 다.
-- 최신 tester 재검증 기준은 focused API `99 passed / 4 skipped`, focused web `104 passed`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, local `next start` smoke 다.
+- 최신 tester 재검증 기준은 focused API `99 passed / 4 skipped`, focused web `105 passed`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, local `next start` smoke 다.
 - 이번 문서화 카드에서는 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 한 문서 세트로 다시 잠가서 다음 ops 카드가 그대로 배포/릴리즈 후속을 이어받게 만드는 것이 핵심이다.
 - 이번 문서의 목적은 기존 UAT 기준을 재인용하는 데서 끝내지 않고, 사용자 직접 확인 순서와 최종 릴리즈 보고 문장을 한 세트로 다시 맞추는 것이다.
-
+- 세부 모바일 UX 기준은 `docs/architecture/phase-50-mobile-floating-bottom-bar-ux-fit-gap-scope.md`, `docs/guides/phase-50-mobile-floating-bottom-bar-ux-handoff.md`, `docs/guides/phase-50-mobile-floating-bottom-bar-ux-guide.md` 에 따로 정리했다.
 
 2026-06-17 Phase 49 fit-gap 메모:
 
@@ -119,7 +128,7 @@
 
 2026-06-16 Phase 41 fit-gap 메모:
 
-- 바로 확인 가능한 영역: `/dashboard`, `/approvals`, `/boards`, `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents`, `/admin/policies`, `/admin/audit-logs`, 관련 route guard/API guard/test 근거.
+- 바로 확인 가능한 영역: `/dashboard`, `/approvals`, `/boards`, `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_demo`, `/posts/board_post_notice_1`, `/documents`, `/admin/policies`, `/admin/audit-logs`, 관련 route guard/API guard/test 근거.
 - 현재 체인은 `t_7d912597`(테스트 재검증 완료) → `t_1650f8bf`(문서화 진행 중) → `t_9f4f5569`(release gate 부모 대기) → `t_43dc2782`(최종 통합 보고 부모 대기) 순서로 이어진다.
 - 현재 기획 근거는 `apps/web/dashboard-page-content.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/boards/[boardId]/page.tsx`, `apps/web/app/posts/[postId]/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/phase32-regression-repro.spec.ts` 다.
 - 2026-06-16 parent 재검증 기준으로 `pnpm --filter @gw/web test -- phase41-collaboration-adoption.test.tsx dashboard-boundary.test.tsx phase33-real-usage.test.tsx phase37-storage-boundaries.test.tsx`, `pnpm --filter @gw/api test -- auth-org.spec.ts`, `pnpm --filter @gw/shared test`, web/api/shared typecheck, `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf`, `PREVIEW_PORT=8793 BASE_URL=http://127.0.0.1:8793 bash scripts/gw-admin-host-preview-smoke.sh` 를 실제 실행했고 현재 범위 재현 blocker 는 없었다.
@@ -349,7 +358,7 @@
 보관 메모: Phase 16 파일럿 초안 문서를 다시 볼 때 바로 확인할 쉬운 순서:
 1. `docs/architecture/phase-16-files-docs-announcements-pilot-scope.md` 의 "2026-06-13 기준 현재 판정 요약"에서 되는 것 / 아직 안 되는 것 / 승인 필요를 먼저 본다.
 2. `docs/guides/phase-16-files-docs-announcements-pilot-handoff.md` 의 "2026-06-13 기준 빠른 판정표"와 "preview/live URL에서 바로 볼 쉬운 순서"를 본다.
-3. `/dashboard` → `/boards` → `/boards/board_notice` → `/boards/board_general` → `/posts/board_post_board_general_employee_employee` → `/documents` → `/admin/policies` → `/admin/audit-logs` 순서가 현재 문서와 같은 뜻인지 본다.
+3. `/dashboard` → `/boards` → `/boards/board_notice` → `/boards/board_general` → `/posts/board_post_demo` → `/posts/board_post_notice_1` → `/documents` → `/admin/policies` → `/admin/audit-logs` 순서가 현재 문서와 같은 뜻인지 본다.
 4. live `.workers.dev` 직접 fetch 가 미확인이면 이를 완료처럼 읽지 말고, `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview smoke 가 대체 근거로 남았는지 확인한다.
 5. production data, secret, DNS/custom domain, 유료 리소스, 실제 운영 파일 업로드 확대가 아직 승인 게이트인지 다시 확인한다.
 

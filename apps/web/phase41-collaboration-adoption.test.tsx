@@ -21,21 +21,71 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(html.indexOf("문서 공간 확인")).toBeLessThan(html.indexOf("내 정보 마무리 확인"));
   });
 
-  it("renders board routes with notice/general split and audit-candidate language", async () => {
+  it("renders board routes with practical board flow, role guidance, and forged guard language", async () => {
+    const validGeneratedPostId = "board_post_board_general_employee_employee_550e8400-e29b-41d4-a716-446655440000";
+    const otherEmployeePlaceholderPostId = "board_post_board_general_employee_admin";
+    const forgedGeneratedPostId = "board_post_board_general_employee_employee_forged";
     const boardListHtml = renderToStaticMarkup(<BoardsPage />);
     const boardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_general" }) }),
     );
-    const postDetailHtml = renderToStaticMarkup(
-      await PostDetailPage({ params: Promise.resolve({ postId: "board_post_board_general_employee_employee" }) }),
+    const noticeBoardDetailHtml = renderToStaticMarkup(
+      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_notice" }) }),
+    );
+    const invalidBoardDetailHtml = renderToStaticMarkup(
+      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_unknown" }) }),
+    );
+    const generalPostDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: "board_post_demo" }) }),
+    );
+    const noticePostDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: "board_post_notice_1" }) }),
+    );
+    const validGeneratedPostDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: validGeneratedPostId }) }),
+    );
+    const otherEmployeePlaceholderDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: otherEmployeePlaceholderPostId }) }),
+    );
+    const invalidPostDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: "post_unknown" }) }),
+    );
+    const forgedGeneratedPostDetailHtml = renderToStaticMarkup(
+      await PostDetailPage({ params: Promise.resolve({ postId: forgedGeneratedPostId }) }),
     );
 
-    expect(boardListHtml).toContain("대시보드 연결 / 감사 후보");
-    expect(boardListHtml).toContain("`board.post.create`, `board.comment.create`, `read receipt`");
+    expect(boardListHtml).toContain("직원이 따라갈 기본 순서");
+    expect(boardListHtml).toContain("error / forbidden");
+    expect(boardListHtml).toContain("/posts/board_post_demo");
+    expect(boardDetailHtml).toContain("게시판별 happy path");
     expect(boardDetailHtml).toContain("운영 검토용 action 언어");
-    expect(boardDetailHtml).toContain("board.post.create");
-    expect(postDetailHtml).toContain("감사 후보 / forged 차단");
-    expect(postDetailHtml).toContain("forged·unknown postId");
+    expect(boardDetailHtml).toContain("/posts/board_post_demo");
+    expect(noticeBoardDetailHtml).toContain("/posts/board_post_notice_1");
+    expect(invalidBoardDetailHtml).toContain("board_unknown 접근 차단 안내");
+    expect(invalidBoardDetailHtml).toContain("허용된 게시판 목록으로 돌아가기");
+    expect(invalidBoardDetailHtml).not.toContain("/posts/board_post_demo");
+    expect(invalidBoardDetailHtml).not.toContain("게시글 작성");
+    expect(generalPostDetailHtml).toContain("게시글 상세 happy path");
+    expect(generalPostDetailHtml).toContain("감사 후보 / forged 차단");
+    expect(generalPostDetailHtml).toContain("forged·unknown postId");
+    expect(generalPostDetailHtml).toContain("board_post_demo");
+    expect(noticePostDetailHtml).toContain("board_post_notice_1");
+    expect(noticePostDetailHtml).toContain("게시글 상세 happy path");
+    expect(validGeneratedPostDetailHtml).toContain("게시글 상세 happy path");
+    expect(validGeneratedPostDetailHtml).toContain(validGeneratedPostId);
+    expect(otherEmployeePlaceholderDetailHtml).toContain("접근할 수 없는 게시글");
+    expect(otherEmployeePlaceholderDetailHtml).not.toContain("게시글 상세 happy path");
+    expect(otherEmployeePlaceholderDetailHtml).not.toContain("댓글 영역");
+    expect(otherEmployeePlaceholderDetailHtml).not.toContain("읽음 확인 영역");
+    expect(invalidPostDetailHtml).toContain("접근할 수 없는 게시글");
+    expect(invalidPostDetailHtml).toContain("forged·unknown 접근은 댓글/읽음 확인 CTA 없이 차단 안내만 보여 줍니다.");
+    expect(invalidPostDetailHtml).not.toContain("게시글 상세 happy path");
+    expect(invalidPostDetailHtml).not.toContain("댓글 / 읽음 확인 액션");
+    expect(invalidPostDetailHtml).not.toContain("forged post 차단 확인");
+    expect(forgedGeneratedPostDetailHtml).toContain("접근할 수 없는 게시글");
+    expect(forgedGeneratedPostDetailHtml).not.toContain("게시글 상세 happy path");
+    expect(forgedGeneratedPostDetailHtml).not.toContain("댓글 영역");
+    expect(forgedGeneratedPostDetailHtml).not.toContain("읽음 확인 영역");
   });
 
   it("keeps documents and approvals aligned to collaboration lanes without mixing policy ownership", () => {
