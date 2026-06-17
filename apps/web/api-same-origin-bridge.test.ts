@@ -107,6 +107,28 @@ describe("Phase 7 same-origin API bridge", () => {
     expect(logoutResponse.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
+  it("supports the dev-safe role override in the login body when edge runtimes strip test headers", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+          roleCode: "AUDITOR",
+        }),
+      }),
+    );
+
+    expect(loginResponse.status).toBe(200);
+    const loginPayload = authLoginResponseSchema.parse(await loginResponse.json());
+    expect(loginPayload.data.user.roleCodes).toContain("AUDITOR");
+    expect(loginResponse.headers.get("set-cookie")).toContain("dev-placeholder-session_AUDITOR");
+  });
+
   it("forwards admin users preview through same-origin route when an admin session cookie is present", async () => {
     const loginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
