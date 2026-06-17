@@ -18,7 +18,7 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 44 운영문서·사용자가이드·관리자가이드·도입 체크리스트의 문서화 마무리다. 이번 Phase의 목적은 이미 정리된 로그인/직원 기본업무/경영업무 권한 경계를 바탕으로, 직원용 안내·관리자용 안내·운영자 runbook·권한표·도입 전 체크리스트를 한 세트로 묶어 "외부 연동 없이 회사 내부에 본격 도입 가능한 기준선"을 닫는 것이다.
+현재 메인 활성 흐름은 Phase 45 외부연동 전 내부 도입 최종검증·릴리즈 체인이다. 이번 Phase의 목적은 Phase 36~44에서 정리한 로그인/직원 기본업무/경영업무/PWA/운영문서/권한 경계를 마지막으로 한 번 더 묶어, "외부 연동 없이 회사 내부 그룹웨어로 본격 도입 가능" 판정을 내릴 최종 기준선을 만드는 것이다.
 
 현재 상태 요약:
 
@@ -26,24 +26,25 @@
 - `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx` 기준으로 급여 overview/기간/명세서 preview 와 self-only 경계가 현재 구현 기준으로 맞춰져 있다.
 - `apps/web/app/work-items/work-items-config.ts`, `apps/api/test/work-items.spec.ts` 기준으로 `tax`·`labor`·`legal` 의 branch/company/self/restricted 경계가 테스트와 함께 남아 있다.
 - `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/test/auth-org.spec.ts` 기준으로 현재 컴플라이언스 진입이 read-only 감사 흐름이라는 점이 유지된다.
-- 새 기준 문서는 `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`, `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md` 다.
-- 이번 문서의 목적은 placeholder 와 승인 게이트를 숨기지 않고, "일반 직원 홈"과 "내부관리 허브"를 실제 도입 문서 묶음으로 다시 닫는 것이다.
-- 직전 활성 체인 기준 문서는 `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`, `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md` 다.
-- 현재 Phase 44 기준 문서는 `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`, `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md` 다.
-- 현재 메인 체인은 `t_b4d63b74`(기획 완료) → `t_5142bc72`(구현 완료) → `t_6123cd3a`(리뷰 완료) → `t_f1c5e044`(테스트 완료) → `t_867b60e2`(문서화 진행 중) → `t_5ada164e`(release gate 부모 대기) 순서다.
+- 현재 Phase 45 기준 문서는 `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`, `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`, `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md` 다.
+- 현재 메인 체인은 `t_e5f0bbb3`(기획 진행 중) → `t_74123511`(구현 부모 대기) → `t_74a9023c`(리뷰 부모 대기) → `t_56f81ded`(테스트 부모 대기) → `t_ee495517`(문서화 진행 중) → `t_6dd6a634`(release gate 부모 대기) 순서다.
 - 병행 문서화 체인은 `t_af13ba8e`(부모 재검증 완료) → `t_adc1b214`(PC/모바일 로그인 단독 진입 + PWA 데스크톱 앱 문서화 진행 중) → `t_906e37d3`(release gate 부모 대기) 순서다.
 
-2026-06-17 Phase 44 fit-gap 메모:
+2026-06-17 Phase 45 fit-gap 메모:
 
-- 바로 확인 가능한 영역: `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/notifications`, `/management`, `/work-items/branch`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs`.
-- 현재 기획 근거는 `apps/web/app/dashboard/page.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 다.
-- 이번 Phase에서 가장 먼저 다시 고정할 것은 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트를 같은 언어로 묶는 것이다.
+- 바로 확인 가능한 영역: `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/notifications`, `/management`, `/work-items/branch`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs`, `/uat`.
+- 현재 기획 근거는 `apps/web/app/login/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, release/rollback 근거, 승인 게이트를 최종 보고 형식으로 잠그는 것이다.
 - 병행 로그인/PWA 문서화 카드에서는 `/login` 단독 진입, 로그인 전 비노출 기준, Windows Chrome/Edge PWA 설치형 앱 확인 순서를 쉬운 말로 적는다.
 - 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)은 문서에서도 절대 섞지 않는다.
 - 실지급, 실신고, 실계약, production 실데이터, 주민번호/계좌번호 확대, 외부 기관/전문가 연동, DNS/custom domain, 유료 리소스, secret, migration 은 계속 승인 게이트다.
 - 최신 tester 재검증 기준으로 focused API 15 files / 98 passed / 4 skipped, focused web 24 files / 100 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 모두 통과했다.
-- local preview smoke 기준 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 모두 307으로 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인됐다.
+- local preview smoke 기준 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs`, `/uat` 는 모두 307으로 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인됐다.
 - 일반 manifest 실측값은 `id=/login`, `start_url=/`, `display=standalone` 이고 익명 `/` redirect 와 함께 로그인-only 진입 기준과 충돌 없이 동작한다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `8372ae1008c74b1578c17e26763b8462596b65ad` 다.
+- `/uat` 는 익명 첫 입구가 아니라 로그인 후 운영 진행자가 보는 내부 리허설 패키지 route 로 유지한다.
+- rollback 기준은 `pnpm exec wrangler deployments list --json --name gw-web` 로 version id 확인 → `pnpm exec wrangler rollback <version-id> --name gw-web -y` 실행 → `/login`, `/dashboard`, `/management`, `/payroll`, `/admin/audit-logs`, `/manifest.webmanifest` 재확인 순서다.
 
 2026-06-17 Phase 43 fit-gap 메모:
 

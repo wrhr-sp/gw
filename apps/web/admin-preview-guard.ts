@@ -24,7 +24,6 @@ const authenticatedWorkbenchRoutePrefixes = [
   "/mail",
   "/notifications",
   "/posts",
-  "/uat",
   "/offline",
 ] as const;
 const knownRoleCodeSet = new Set<string>(knownRoleCodes);

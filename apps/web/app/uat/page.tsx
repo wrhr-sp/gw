@@ -9,6 +9,7 @@ import {
   issueLogTemplate,
   issueSeverityCards,
   quickStartSteps,
+  releaseReadinessChecklist,
   roleScenarioCards,
   uatAccessCard,
 } from "./uat-package-config";
@@ -118,6 +119,14 @@ export default function UatPage() {
             <li key={item}>{item}</li>
           ))}
         </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="Phase 45 최종 검증 / 릴리즈 묶음" description="내부 도입 최종 보고에서 live 확인, release 근거, rollback 설명을 같은 문장으로 잠그는 체크입니다.">
+        <ul className="summary-list">
+          {releaseReadinessChecklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </SurfaceSection>
 
       <SurfaceSection title="수정 우선순위 기준" description="리허설 종료 후 무엇부터 고칠지 같은 말로 정리합니다.">

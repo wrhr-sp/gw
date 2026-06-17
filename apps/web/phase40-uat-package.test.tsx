@@ -22,7 +22,12 @@ describe("Phase 40 internal adoption rehearsal package", () => {
     expect(html).toContain("이슈 기록 템플릿");
     expect(html).toContain("진행자용 설명 순서");
     expect(html).toContain("참가자용 빠른 시작");
+    expect(html).toContain("/documents → /notifications → /me");
+    expect(html).toContain("/work-items/branch → /payroll → /payroll/me → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs");
+    expect(html).toContain("Phase 45 최종 검증 / 릴리즈 묶음");
+    expect(html).toContain("live 직접 클릭 근거와 local preview/build/release gate 근거를 섞지 않고 분리해서 기록한다.");
     expect(html).toContain("최종 보고 체크리스트");
+    expect(html).toContain("release gate 성공, focused test/web build, rollback 확인 포인트");
     expect(html).toContain("실제 급여 지급, 은행 이체, 실세액 확정");
     expect(html.indexOf("접속 정보")).toBeLessThan(html.indexOf("역할별 시나리오 카드"));
     expect(html.indexOf("역할별 시나리오 카드")).toBeLessThan(html.indexOf("이슈 분류 기준"));

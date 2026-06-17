@@ -434,6 +434,10 @@ describe("shared contracts", () => {
     expect(hasAdminRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
     expect(hasSensitiveWorkbenchRouteAccess("/work-items/labor", companyAdminViewer)).toBe(true);
     expect(hasSensitiveWorkbenchRouteAccess("/work-items/labor", managerViewer)).toBe(false);
+    expect(hasSensitiveWorkbenchRouteAccess("/uat", managerViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/uat", hrViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/uat", auditorViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/uat", employeeViewer)).toBe(false);
     expect(hasSensitiveWorkbenchRouteAccess("/management", managerViewer)).toBe(true);
     expect(hasSensitiveWorkbenchRouteAccess("/management", auditorViewer)).toBe(false);
     expect(hasSensitiveWorkbenchRouteAccess("/management", employeeViewer)).toBe(false);
@@ -445,9 +449,12 @@ describe("shared contracts", () => {
     expect(hasHomeShortcutRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/management", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/uat", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/uat", auditorViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/work-items/labor", managerViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/management", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/management", employeeViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/uat", employeeViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/work-items/legal", managerViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/work-items/legal", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/work-items/legal", employeeViewer)).toBe(false);

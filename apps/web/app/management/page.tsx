@@ -100,15 +100,16 @@ export default async function ManagementPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 일반 직원 레인과 내부관리 레인이 섞이지 않는지 가장 짧게 확인하는 흐름입니다.">
+      <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 `/uat` 에서 시나리오를 먼저 읽고, 아래 route 순서로 일반 직원 레인과 내부관리 레인이 섞이지 않는지 확인합니다.">
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
-          <li>/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작</li>
-          <li>/management 에서 내부관리 허브와 지점 운영 레인이 일반 홈과 분리되어 보이는지 확인</li>
-          <li>/payroll → /work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인</li>
+          <li>/management 에서 내부관리 허브가 일반 홈과 분리되어 보이는지 확인</li>
           <li>/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름 확인</li>
-          <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
+          <li>/payroll 에서 급여 preview/운영 검토 레인인지 확인</li>
+          <li>/payroll/me 에서 self-only 명세서 preview 와 정정 안내가 분리되어 보이는지 확인</li>
+          <li>/work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인</li>
           <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 production 금지 문구 확인</li>
+          <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
         </ol>
       </SurfaceSection>
 
