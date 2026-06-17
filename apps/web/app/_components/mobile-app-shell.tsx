@@ -2,7 +2,7 @@
 
 import type { RoleCode } from "@gw/shared";
 import { usePathname } from "next/navigation";
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { SessionControls } from "./session-controls";
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
@@ -319,7 +319,9 @@ export function MobileAppShell({
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
+  const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
 
@@ -344,6 +346,26 @@ export function MobileAppShell({
       window.removeEventListener("offline", syncOnlineState);
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (sidebarScrollTimerRef.current) {
+        clearTimeout(sidebarScrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleSidebarScroll() {
+    setIsSidebarScrolling(true);
+
+    if (sidebarScrollTimerRef.current) {
+      clearTimeout(sidebarScrollTimerRef.current);
+    }
+
+    sidebarScrollTimerRef.current = setTimeout(() => {
+      setIsSidebarScrolling(false);
+    }, 900);
+  }
 
   useEffect(() => {
     if (!notificationTab || isLoginRoute) {
@@ -387,7 +409,13 @@ export function MobileAppShell({
 
   return (
     <div className="app-shell app-shell--responsive">
-      <aside className={sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"} aria-label="PC 기본 탐색">
+      <aside
+        className={`${sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}${
+          isSidebarScrolling ? " desktop-sidebar--scrolling" : ""
+        }`}
+        aria-label="PC 기본 탐색"
+        onScroll={handleSidebarScroll}
+      >
         <div className="desktop-sidebar__header">
           <a href={homeHref} className="brand-link brand-link--sidebar">
             <span className="brand-link__eyebrow">{appEyebrow}</span>
