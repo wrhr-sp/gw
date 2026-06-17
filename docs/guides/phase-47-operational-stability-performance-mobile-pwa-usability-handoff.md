@@ -172,3 +172,9 @@
 - production DB 실데이터 전환/seed/migration
 - 실제 급여 지급, 기관 신고, 은행 이체
 - secret 교체, 유료 리소스, destructive 작업
+
+## 10. 이번 Phase에서 바로 쓰는 운영 문서
+- `docs/guides/phase-47-user-admin-uat-ops-guide.md`
+  - 일반 직원/팀장, 관리자/담당자, 감사 사용자가 어디서 시작하고 무엇을 확인해야 하는지 한 문서로 묶는다.
+  - `/login` → `/dashboard` → `/menu` → `/notifications` → `/offline` 공통 시작 흐름과 `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인 분리를 같이 설명한다.
+  - loading / empty / error / forbidden / offline / dev-safe 뜻, 모바일/PWA 설치 기대치, UAT 분류(blocker / major / minor / copy-doc / approval-needed), 운영 체크리스트, 남은 승인 게이트를 쉬운 말로 정리한다.
