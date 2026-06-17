@@ -66,7 +66,7 @@ export function MobileAppShell({
   }, []);
 
   if (isLoginRoute) {
-    return <div className="app-shell__body">{children}</div>;
+    return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
 
   return (
