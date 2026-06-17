@@ -34,6 +34,7 @@ describe("mobile app shell login boundary", () => {
     );
 
     expect(html).toContain("LOGIN ONLY");
+    expect(html).toContain("app-shell__body--login");
     expect(html).not.toContain("PC 기본 탐색");
     expect(html).not.toContain("전체 메뉴");
     expect(html).not.toContain("오프라인 안내");

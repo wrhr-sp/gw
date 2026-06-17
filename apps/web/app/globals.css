@@ -179,6 +179,13 @@ code {
   padding: 20px 0 104px;
 }
 
+.app-shell__body--login {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: 0;
+}
+
 .desktop-sidebar__header,
 .desktop-sidebar__status,
 .desktop-sidebar__section {
@@ -594,6 +601,10 @@ li {
 
   .app-shell__body {
     padding-bottom: 28px;
+  }
+
+  .app-shell__body--login {
+    padding: 0;
   }
 }
 
