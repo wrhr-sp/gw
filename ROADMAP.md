@@ -3,7 +3,7 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 문서화 기준 최신 범위는 Phase 42A 로그인 필수 진입 정책 fit-gap 정리다. 직전 Phase 41에서 `/dashboard` 기준 협업 기본 흐름과 `/approvals`·`/boards`·`/documents`·`/admin/policies`·`/admin/audit-logs` 경계를 일상업무 도입 언어로 정리했고, 이번 Phase에서는 그 위에 `/login` 단일 입구, 비로그인 전면 차단, 자동 로그인 세션 정책, `/offline` 업무 복구 제거, 로그인 후 민감 route/API guard 유지 원칙을 다시 고정하는 것이 다음 우선순위다.
+현재 문서화 기준 최신 범위는 Phase 42 근태·휴가·인사·지점 운영 도입완성 fit-gap 정리다. 직전 Phase 42A에서 `/login` 단일 입구, 비로그인 전면 차단, 자동 로그인 세션 정책, `/offline` 업무 복구 제거, 로그인 후 민감 route/API guard 유지 원칙을 먼저 고정했고, 이번 Phase에서는 그 위에 `/attendance`·`/leave` 직원 기본 업무와 `/employees`·`/org`·`/management`·`/work-items/branch` 운영 레인을 내부 도입 가능한 언어로 다시 닫는 것이 다음 우선순위다.
 
 ## Phase 흐름
 
@@ -67,7 +67,7 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-handoff.md`
-- 직전 범위: `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md`
+- 직전 범위: `docs/architecture/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-handoff.md`

@@ -19,27 +19,26 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 42A 로그인 필수 진입 정책 반영 후 release gate 준비
+### 3. 현재 문서화/검증 기준은 Phase 42 근태·휴가·인사·지점 운영 도입완성 반영 후 release gate 준비
 
-현재 루트 문서와 handoff 는 `/login` 단일 입구, 익명 내부 route/API 차단, 자동 로그인 세션 유지 선택, `/offline` 업무 복구 제거, 로그인 후 `/management`·`/admin*`·민감 API guard 유지 기준을 한 번에 설명하는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 `/attendance`·`/leave` 직원 기본 업무, `/employees`·`/org` 읽기 중심 조회, `/management` 아래 `/work-items/branch` 운영 레인, 정책 미허용 방식·role boundary·branch scope·승인 게이트를 한 번에 설명하는 준비를 중심으로 맞춘다.
 
-- 최신 tester 재검증에서는 익명 `/`·`/dashboard`·`/management` 차단, `/login` 허용, rememberSession on/off 쿠키 차이, general/admin host 경계, local preview smoke 가 모두 통과했다.
-- 다만 release gate 전에는 reviewer가 남긴 교차확인 메모(`admin / 1234` dev-safe fallback 운영 경계, API 기본 요청 rememberSession opt-in 보장)를 다시 본다.
-- 로그인 전 허용 route 는 `/login`, 로그인 처리 API, 정적 자산, 최소 health 로 제한한다.
-- `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 는 익명 접근 차단 대상으로 다시 고정한다.
+- 최신 tester 재검증에서는 focused shared/API/Web 회귀, `pnpm check`, Next/OpenNext build, local admin-host preview smoke, 익명·직원·매니저·회사관리자 route/API curl smoke 가 모두 통과했다.
+- reviewer 단계에서 shared contracts 구문 오류와 홈 관리자 검토 흐름의 `/work-items/branch` 누락이 한 번 발견됐고 자동 재수정 체인으로 해소됐다.
+- `/dashboard` 기본 순서는 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 로 다시 고정한다.
+- `/employees` 와 `/org` 는 읽기 중심 조회 화면이며 `/admin/users` 운영 검토와 같은 책임으로 설명하지 않는다.
+- `/management` 아래 `/work-items/branch` 는 일반 직원 홈이 아니라 branch scope 운영 레인으로 유지한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택이라는 guardrail 언어로 적어야 한다.
-- `/offline` 은 업무 복구 링크 모음이 아니라 로그인 재시도 안내 수준으로 축소해야 한다.
 - production data, secret, 실제 운영 bucket 연결, 외부 SSO/OAuth/SMS/OTP, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 42A 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 42 단계에서 남아 있는 제품형 리스크
 
-- 익명 사용자가 `/` 또는 내부 route 를 로그인 없이 볼 수 있으면 제품 진입 정책이 바로 무너진다.
-- 자동 로그인 구현이 비밀번호 저장처럼 읽히거나 실제로 그렇게 동작하면 보안/기대치 리스크가 커진다.
-- `/offline` 에 내부 업무 복구 링크가 남아 있으면 이번 정책과 운영 메시지가 정면 충돌한다.
-- login page 가 dev-safe UAT 링크를 너무 많이 유지하면 "첫 진입은 로그인만" 원칙이 흐려질 수 있다.
-- 로그인 후 `/management`, `/admin*`, 민감 업무 API guard 가 느슨해지면 로그인 전면 차단보다 더 큰 권한 리스크가 생길 수 있다.
+- `/attendance` 에서 정책 미허용 방식이 성공 UX 처럼 보이면 실제 운영 도입 때 가장 먼저 혼란이 생긴다.
+- `/leave` 에서 신청자 lane 과 승인자 lane 이 섞이면 직원 기본 업무와 승인 책임이 뒤엉킬 수 있다.
+- `/employees`·`/org` 가 읽기 중심 조회가 아니라 운영 변경 화면처럼 읽히면 `/admin/users`·`/admin/policies` 책임 경계가 무너진다.
+- `/management` 와 `/work-items/branch` 가 일반 직원 홈과 섞이면 branch scope 운영 경계와 민감 모듈 허브 분리 의도가 흐려진다.
+- 태그 단말, GPS, 외부 HR/급여/세무/노무 시스템, production 실데이터가 아직 승인 게이트라는 점이 문서에서 약해지면 과도한 기대치 리스크가 커진다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 
