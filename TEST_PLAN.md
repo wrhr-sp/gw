@@ -9,22 +9,23 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
-## Phase 42 추가 검증 초점
+## Phase 43 추가 검증 초점
 
-- `/dashboard` 가 `/attendance` → `/leave` 기본 업무의 시작점으로 읽히고, `/management` 운영 레인과 섞이지 않는지 다시 본다.
-- `/attendance` 에서 정책 미허용 출퇴근 방식이 성공 UX 처럼 보이지 않고, 허용 방식/정정 요청/승인자 검토가 분리되는지 확인한다.
-- `/leave` 에서 잔여 확인 → 신청 → 상태 조회와 승인자 lane 이 같은 문장으로 섞이지 않는지 다시 본다.
-- `/employees` 와 `/org` 가 읽기 중심 조회 화면으로 유지되고, `/admin/users`·`/admin/policies` 운영 책임과 과장 없이 분리되는지 확인한다.
-- `/management` 아래 `/work-items/branch` 가 branch scope 운영 레인으로 유지되고, 본사 운영과 지점 관리자 가시 범위가 같은 full access 로 뭉개지지 않는지 본다.
-- admin-only role 비노출, validation error, company+branch scope, route/API guard, 승인 게이트 문구가 화면·문서·API·테스트에서 같은 뜻인지 재확인한다.
+- `/management` 가 일반 직원 홈과 분리된 내부관리 허브로 읽히고, `/dashboard` 기본 업무 흐름과 섞이지 않는지 다시 본다.
+- `/payroll` 과 `/payroll/me` 가 preview/self-only/role-split 경계를 숨기지 않고, 실지급 확정 화면처럼 과장되지 않는지 확인한다.
+- `/work-items/tax` 가 지점 제출과 HQ 검토/패키지 준비를 같은 권한처럼 섞지 않는지 본다.
+- `/work-items/labor` 가 self/branch/restricted 경계를 흐리지 않고, 실민감 원문 처리 시스템처럼 과장되지 않는지 확인한다.
+- `/work-items/legal` 이 계약/갱신/분쟁 metadata 흐름과 실계약/실분쟁 처리를 같은 문장으로 섞지 않는지 본다.
+- `/admin/audit-logs` 가 현재 컴플라이언스/감사 read-only 진입점으로 읽히고, dedicated compliance 조치 queue 완료 상태처럼 보이지 않는지 재확인한다.
 
-## Phase 42 최신 재검증 근거
+## Phase 43 현재 검증 근거
 
-- 최신 parent 테스트 기준으로 focused shared/API/Web 회귀, 전체 `pnpm check`, Next.js build, OpenNext Cloudflare build, local preview smoke 가 모두 통과했다.
-- 테스트 요약은 shared 25 tests, API 98 passed/4 skipped, web 97 passed 기준으로 다시 기록됐다.
-- local preview smoke(`http://127.0.0.1:8793`)에서는 일반 host `/admin -> /login`, admin host `/ -> /admin`, manifest split 이 다시 확인됐다.
-- route/API curl smoke 기준 익명 401/redirect, 직원·매니저·회사관리자별 `/management`·`/work-items/branch`·관련 API 경계가 현재 범위에서 재현 blocker 없이 통과했다.
-- reviewer 단계에서 shared contracts stray brace 와 홈 관리자 검토 흐름의 `/work-items/branch` 누락이 한 번 잡혔고, 자동 재수정·재리뷰·재검증 체인 뒤 해소된 상태로 최종 테스트가 완료됐다.
+- 현재 기획 근거는 `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts`, `apps/web/admin-preview-guard.test.ts` 에 있다.
+- 이번 Phase는 새 테스트 결과를 추가로 만든 단계가 아니라, 이미 있는 route/API/test 근거를 내부관리 도입 언어로 다시 묶는 문서 단계다.
+- 최신 parent 재검증에서는 `pnpm --filter @gw/shared test`, `pnpm --filter @gw/shared typecheck`, `pnpm --filter @gw/api test`, `pnpm --filter @gw/api typecheck`, `pnpm --filter @gw/web test`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview curl smoke 를 실제로 다시 통과했다.
+- local preview curl smoke 기준으로 익명 `/dashboard`·`/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 는 `/login` 으로 redirect 되고, `COMPANY_ADMIN` 은 `/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 와 감사 API를 읽을 수 있었다.
+- 같은 smoke 기준으로 `MANAGER` 는 `/work-items/labor` 와 `/admin/audit-logs` 에서 차단됐고, `EMPLOYEE` 는 `/dashboard` 만 허용되며 management/payroll/work-items/audit route 와 익명 관리자 API 접근은 차단됐다. `AUDITOR` 는 `/admin/audit-logs` 만 허용되고 경영업무 레인은 차단됐다.
+- 보조 발견사항으로 `scripts/gw-admin-host-preview-smoke.sh` 는 general manifest `start_url='/'` 를 기대해 현재 로그인 우선 정책(`start_url='/login'`)과 어긋난다. 이 항목은 smoke helper 기대값 문제이며, 현재 앱 동작 자체는 middleware/mobile-pwa 테스트와 preview smoke 기준으로 정상 판정이다.
 
 ## 1. 기본 검증 명령
 
