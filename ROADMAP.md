@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 45 외부연동 전 내부 도입 최종검증·릴리즈 fit-gap 정리다. Phase 45의 목적은 Phase 36~44에서 닫은 직원 기본업무·경영업무·로그인/PWA·운영문서·권한 경계를 마지막으로 한 번 더 묶어, "외부 연동 없이 회사 내부 그룹웨어로 본격 도입 가능" 판정을 내릴 최종 기준선을 만드는 것이다.
-핵심은 새 큰 기능을 더 여는 것이 아니라, live URL·추천 route·테스트 계정·권한 경계·승인 게이트·release/rollback 근거를 최종 보고 형식으로 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 46 계정·권한·조직 온보딩 리허설 fit-gap 정리다. Phase 46의 목적은 Phase 45에서 잠근 내부 도입 기준선 위에, `/admin/users`·`/employees`·`/org`·`/management`·`/work-items/branch` 를 사람 온보딩/오프보딩 관점으로 다시 묶어 운영자가 내부 사용자를 안전하게 태우고 내리는 절차를 완성하는 것이다.
+핵심은 새 업무 모듈 추가보다, 사용자 생성·역할/권한 지정·조직/지점 배정 확인·비활성/비밀번호 초기화·공통 post-login landing(`/dashboard`) 뒤 역할별 다음 레인 검증을 dev-safe preview 와 실제 내부 도입 기준으로 분리해 잠그는 것이다.
 
 ## Phase 흐름
 
@@ -56,6 +56,7 @@
 - Phase 43: 급여·세무·노무·법무 내부관리 도입완성 fit-gap
 - Phase 44: 운영문서·사용자가이드·관리자가이드·도입 체크리스트 fit-gap
 - Phase 45: 외부연동 전 내부 도입 최종검증·릴리즈 fit-gap
+- Phase 46: 계정·권한·조직 온보딩 리허설 fit-gap
 
 ## MVP 성공 기준
 
@@ -71,7 +72,7 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md`
-- 직전 범위: `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`
+- 직전 범위: `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md`

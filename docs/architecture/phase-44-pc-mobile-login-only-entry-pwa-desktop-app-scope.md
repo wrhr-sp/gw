@@ -90,7 +90,7 @@ Phase 42A에서 이미 로그인 필수 진입 정책을 정리했지만,
 - 일반 사용자 앱 manifest 는 same-origin 상대 경로를 유지한다.
 - 일반 사용자 앱 시작점은 `/login` 으로 본다.
 - 설치 후 앱 실행 시 로그인 세션이 없으면 로그인 화면만 보여야 한다.
-- 로그인 후에는 역할별 landing 으로 이동해도 되지만, 설치 직후 비로그인 상태에서 업무 화면이 먼저 보이면 안 된다.
+- 로그인 후에는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs` 기준으로 이동해도 되지만, 설치 직후 비로그인 상태에서 업무 화면이 먼저 보이면 안 된다.
 
 ### 관리자 앱 기준
 - 관리자 manifest 분리는 유지할 수 있다.

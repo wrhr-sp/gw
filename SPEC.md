@@ -205,6 +205,19 @@
 - `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`
 - `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md`
 
+### 2-10. 계정·권한·조직 온보딩 리허설 기준은 Phase 46 문장으로 잠근다.
+
+- Phase 46의 목표는 새 업무 모듈 추가보다, `/admin/users`·`/employees`·`/org`·`/management`·`/work-items/branch` 를 사용자 온보딩/오프보딩 기준으로 다시 묶는 것이다.
+- 익명 시작점은 계속 `/login` 뿐이고, COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 의 로그인 직후 공통 landing 은 `/dashboard`, AUDITOR 의 로그인 직후 landing 은 `/admin/audit-logs` 다. 그 뒤 HR 계정관리는 admin host `/admin/users`, 운영 관리자/지점 관리 레인은 general host `/management`, 감사 read-only 레인은 admin host `/admin/audit-logs` 로 분리한다.
+- `/employees` 와 `/org` 는 읽기 중심 조회이고, `/admin/users` 는 사용자 생성/역할 diff/상태 변경/비밀번호 초기화 dev-safe preview 를 운영 검토용으로 보여 주는 화면으로 유지한다.
+- 메뉴 숨김만으로 끝내지 않고 route guard, API guard, company+branch scope, high-risk permission, audit candidate 설명이 같은 뜻으로 맞아야 한다.
+- dev/test/UAT 기본 계정 `admin / 1234` 는 계속 내부 검증 전용 문구로만 쓰고 production 기본 계정처럼 설명하지 않는다.
+- 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, production 비밀번호 배포, 실데이터 저장/전환, 외부 기관 계정 연동은 이번 완료 범위와 분리한다.
+
+근거:
+- `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
+- `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

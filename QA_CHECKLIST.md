@@ -51,6 +51,10 @@
 - [ ] Phase 44 문서 범위라면 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트, 로그인/PWA handoff 가 같은 제품 언어를 쓴다.
 - [ ] Phase 45 최종검증 범위라면 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, 최신 focused test/build/release gate 근거, 남은 승인 게이트가 같은 언어로 묶여 있다.
 - [ ] Phase 45 최종검증 문서에서는 내부 도입 완료 범위와 외부 연동/실데이터/기관 계정 연계 후속 범위를 같은 완료 문장처럼 섞지 않는다.
+- [ ] Phase 46 온보딩 리허설 범위라면 `/admin/users` 생성/권한 diff/상태 변경/비밀번호 초기화 preview 와 `/employees`·`/org` 읽기 흐름, `/management` 운영 허브, `/admin/audit-logs` 감사 read-only 흐름이 서로 다른 책임으로 읽힌다.
+- [ ] COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 는 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 라는 로그인 직후 landing 기준과, 그 뒤 HR_ADMIN → admin host `/admin/users`, MANAGER/COMPANY_ADMIN → general host `/management`, AUDITOR → admin host `/admin/audit-logs` 다음 레인/허용·차단 route 가 문서·화면·테스트에서 같은 뜻이다.
+- [ ] 계정 생성/비밀번호 초기화 preview 가 실제 저장 완료나 production 계정 배포처럼 과장되지 않고, 비밀값이 URL/배너/예시 문장에 오래 남지 않는다.
+- [ ] `/employees` 일반 조회와 `/admin/users` 운영 검토, `/org` 조직 읽기와 `/work-items/branch` 지점 운영 흐름이 한 문서 안에서 서로 다른 층위로 설명된다.
 - [ ] live 직접 재확인 근거와 local preview/build/release gate 대체 근거를 구분해서 기록했다.
 - [ ] 로그인 전에는 `/login` 만 익명 입구라는 기준과 로그인 전 비노출 route 목록이 문서마다 다르게 적히지 않는다.
 - [ ] 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)이 문서에서 섞이지 않는다.

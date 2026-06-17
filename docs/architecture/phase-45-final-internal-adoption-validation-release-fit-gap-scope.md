@@ -97,7 +97,7 @@ Phase 36~44를 거치면서 아래는 이미 많이 닫혔습니다.
 - `pnpm --filter @gw/mobile typecheck` 통과
 - `pnpm --filter @gw/web build` 통과
 - local preview smoke: 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs`, `/uat` 는 `/login` redirect, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200
-- live/release 근거: `https://gw-web.wereheresp.workers.dev`, main release-gate success, merge commit `8372ae1008c74b1578c17e26763b8462596b65ad`
+- live/release 근거: `https://gw-web.wereheresp.workers.dev`, main release-gate success, merge commit `fd5239e2e36848e711d918d45994382bf4616b39`
 
 ### 6. 운영 패키지와 rollback 기준
 - `/uat` 는 로그인 뒤 내부 도입 리허설 패키지를 다시 모아보는 운영용 route 다. 익명 첫 입구가 아니다.

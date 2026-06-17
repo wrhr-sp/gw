@@ -9,6 +9,15 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 46 추가 검증 초점
+
+- `/admin/users` 생성/권한 diff/상태 변경/비밀번호 초기화 preview 가 실제 저장 완료처럼 보이지 않는지 본다.
+- `/employees` 일반 조회와 `/admin/users` 운영 검토, `/management` 운영 허브, `/admin/audit-logs` read-only 감사 흐름이 같은 책임처럼 섞이지 않는지 본다.
+- COMPANY_ADMIN / HR_ADMIN / MANAGER / EMPLOYEE 는 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 라는 로그인 직후 landing 과, 그 뒤 역할별 다음 레인/허용·차단 route/API 가 같은 언어로 정리되는지 본다.
+- `/org` 와 `/work-items/branch` 가 조직/지점 배정 확인 레인으로 온보딩 리허설 문장에 자연스럽게 연결되는지 본다.
+- 비밀번호 초기화 preview 에서 실제 비밀값이 URL/배너/문서 예시에 오래 남지 않는지, production 정책과 혼동되지 않는지 본다.
+- 직전 Phase 45의 focused 회귀, build, login-only redirect baseline 을 Phase 46 온보딩 리허설의 대체 근거로 무리 없이 이어받는지 확인한다.
+
 ## Phase 45 추가 검증 초점
 
 - 최종 보고용 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, 승인 게이트가 한 세트로 정리되는지 본다.
@@ -36,7 +45,7 @@
 - 따라서 우선 검증 포인트는 새 happy path 추가보다도 직원 레인/민감 운영 레인 분리, 권한표 일치, approval gate 정합성이 문서와 같은 뜻인지 확인하는 데 둔다.
 - 최신 tester 재검증 기준으로 `pnpm --filter @gw/api test -- auth-org.spec.ts work-items.spec.ts` 15 files / 98 passed / 4 skipped, `pnpm --filter @gw/web test -- admin-preview-guard.test.ts work-items.test.tsx dashboard-boundary.test.tsx payroll.test.tsx` 24 files / 100 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 모두 통과했다.
 - local preview smoke 기준으로 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인된 상태다.
-- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `8372ae1008c74b1578c17e26763b8462596b65ad` 다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `fd5239e2e36848e711d918d45994382bf4616b39` 다.
 
 ## 1. 기본 검증 명령
 

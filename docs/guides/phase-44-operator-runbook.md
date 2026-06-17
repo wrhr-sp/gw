@@ -22,7 +22,7 @@
 - 테스트 계정 확인: `admin / 1234` (dev/test/UAT 전용)
 - 추천 시작 route 준비:
   - 직원 레인: `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`
-  - 관리자 레인: `/management` → `/work-items/branch` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs`
+  - 관리자 레인: `/login` → `/dashboard` → general host `/management` → `/work-items/branch` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → admin host `/admin/audit-logs`
 
 ### 1-2. 사전 문서 확인
 먼저 읽을 문서:
@@ -86,10 +86,11 @@ pnpm --filter @gw/web build:cf
 - 모바일 viewport 에서도 로그인 전 하단 탭/업무 메뉴가 먼저 보이지 않아야 함
 
 ### 2-2. 역할별 landing 점검
-- 직원 문맥: `/dashboard` 부터 시작하는지
-- 인사 관리자 문맥: `/admin/users` 계열 진입이 자연스러운지
-- 운영 관리자 문맥: `/management` 진입이 자연스러운지
-- 감사 문맥: `/admin/audit-logs` read-only 진입이 맞는지
+- COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 문맥: 로그인 직후 `/dashboard` 부터 시작하는지
+- AUDITOR 문맥: 로그인 직후 `/admin/audit-logs` 로 시작하는지
+- 인사 관리자 문맥: admin host `/admin/users` 계열 진입이 자연스러운지
+- 운영 관리자/지점 관리자 문맥: general host `/management` 진입이 자연스러운지
+- 감사 문맥: admin host `/admin/audit-logs` read-only 진입이 맞는지
 
 ### 2-3. 일반 직원 레인 점검
 순서:
@@ -134,7 +135,7 @@ Windows Chrome/Edge 기준 최소 확인:
 - `/login` 에서 설치 메뉴가 보이는지 또는 브라우저 앱 설치 메뉴가 열리는지
 - 설치 후 바탕화면/시작 메뉴에서 앱처럼 실행되는지
 - 설치된 앱을 다시 열었을 때 세션이 없으면 `/login` 부터 시작하는지
-- 로그인 후에는 역할별 landing 으로 이동하는지
+- 로그인 후에는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs` 기준으로 이동하는지
 - 이번 단계가 PWA 설치형 앱이지 `.exe` 배포가 아니라는 점을 기록에 남겼는지
 
 ### 2-7. 기록 방식

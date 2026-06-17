@@ -112,7 +112,7 @@
 
 ### Step 4. PC/mobile/preview 검증 기준을 함께 맞춥니다
 - anonymous route 차단
-- 로그인 후 landing
+- 로그인 후 공통 landing(`/dashboard`)과 AUDITOR 전용 landing(`/admin/audit-logs`)
 - mobile viewport 에서 로그인 전 shell 비노출
 - PWA manifest/installability
 - local preview smoke 와 live 확인 포인트 정리
@@ -124,7 +124,7 @@
 - 익명 `/` -> `/login`
 - 익명 `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/notifications`, `/management`, `/admin*` 차단
 - 익명 내부 API 401/403
-- 로그인 후 역할별 landing 정상
+- 로그인 후 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs` 기준 정상
 
 ### UI / viewport
 - PC/mobile 모두 로그인 전에는 로그인 form 외 기능성 nav가 먼저 보이지 않음
@@ -153,7 +153,7 @@
 - PC 확인 시작점: `/login`
 - 모바일 확인 시작점: `/login`
 - 로그인 후 직원 기본 레인: `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents`
-- 로그인 후 관리자/담당자 레인: `/management` → `/work-items/branch` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs`
+- 로그인 후 관리자/담당자 레인: `/dashboard` → general host `/management` → `/work-items/branch` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → admin host `/admin/audit-logs`
 
 ### 로그인 전 노출 기준
 아래가 로그인 전에 직접 보이면 실패로 기록합니다.
@@ -174,12 +174,12 @@
 2. Chrome 은 주소창 오른쪽 설치 아이콘 또는 메뉴의 설치 항목을, Edge 는 `앱` 또는 `이 사이트를 앱으로 설치`를 찾습니다.
 3. 설치 후 바탕화면/시작 메뉴에서 앱을 다시 엽니다.
 4. 세션이 없으면 `/login` 부터 시작하는지 확인합니다.
-5. 로그인 후에는 역할별 landing 으로 이동하는지 확인합니다.
+5. 로그인 후에는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs` 기준으로 이동하는지 확인합니다.
 
 ## 7. 현재 문서가 의존하는 최신 검증 근거
 - parent 재검증 기준으로 `pnpm --filter @gw/web test -- admin-preview-guard.test.ts middleware.test.ts mobile-pwa.test.ts mobile-app-shell-login.test.tsx phase14-flow.test.tsx api-same-origin-bridge.test.ts`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf` 가 통과했다.
 - local next start smoke 기준 익명 `/ -> /login`, `/dashboard -> /login`, `/admin -> /login`, `/api/me` 401, `/manifest.webmanifest` 200, `/sw.js` 200 이 다시 확인됐다.
-- 역할별 smoke 기준 로그인 후 `EMPLOYEE -> /dashboard`, `MANAGER -> /management`, admin host 에서 `HR_ADMIN -> /admin/users`, `COMPANY_ADMIN -> /admin`, `AUDITOR -> /admin/audit-logs` 경계가 다시 확인됐다.
+- 역할별 smoke 기준 로그인 후 공통 landing 은 `COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE -> /dashboard`, `AUDITOR -> /admin/audit-logs` 로 다시 확인됐다. 다음 레인 검토는 HR_ADMIN → admin host `/admin/users`, MANAGER/COMPANY_ADMIN → general host `/management`, AUDITOR → admin host `/admin/audit-logs` 기준으로 읽는다.
 - 다만 visible chrome 은 숨겨져도 로그인 페이지 HTML source 안 직렬화 payload 에 메뉴/대시보드 문자열이 남아 있다는 parent 메모가 있다. 현재 요구사항의 "보이면 실패" 기준에서는 직접 노출이 아니라 blocker 로 보지 않았지만, 다음 구현/리뷰/테스트에서도 계속 같은 기준으로 봐야 한다.
 
 ## 8. 바로 참고할 파일

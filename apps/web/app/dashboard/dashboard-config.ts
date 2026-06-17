@@ -146,15 +146,15 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
   },
   {
     role: "인사 관리자",
-    firstRoute: "/admin/users",
-    summary: "사용자/권한 관리가 필요한 인사 운영은 관리자 사용자 화면부터 시작합니다.",
-    detail: "HR_ADMIN 은 /management 가 아니라 /admin/users 계열에서 먼저 진입",
+    firstRoute: "/dashboard",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인에 진입합니다.",
+    detail: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열",
   },
   {
     role: "운영 관리자 / 지점 관리자",
-    firstRoute: "/management",
-    summary: "권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
-    detail: "일반 조회와 운영 변경 검토를 분리하고 /work-items/branch 를 branch scope 운영 레인으로 유지",
+    firstRoute: "/dashboard",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
+    detail: "공통 landing 다음 레인은 /management 이며, 일반 조회와 운영 변경 검토를 분리하고 /work-items/branch 를 branch scope 운영 레인으로 유지",
   },
   {
     role: "감사 전용 사용자",

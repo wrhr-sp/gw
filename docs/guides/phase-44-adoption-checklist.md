@@ -57,6 +57,8 @@
 `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`
 
 ## 4. 로그인 후 관리자/담당자 레인 체크
+- [ ] COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 는 로그인 직후 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 로 landing 한다.
+- [ ] HR_ADMIN 은 admin host `/admin/users`, MANAGER/COMPANY_ADMIN 은 general host `/management`, AUDITOR 는 admin host `/admin/audit-logs` 로 다음 레인이 갈린다.
 - [ ] `/management` 가 일반 홈과 분리된 내부관리 허브로 보인다.
 - [ ] `/work-items/branch` 가 branch scope 운영 문맥으로 읽힌다.
 - [ ] `/payroll` 과 `/payroll/me` 책임이 섞이지 않는다.
@@ -85,7 +87,7 @@
 ### 설치 후 확인 포인트
 - [ ] 주소창 없는 앱 창처럼 열린다.
 - [ ] 로그인 세션이 없으면 `/login` 부터 시작한다.
-- [ ] 로그인 후에는 역할에 맞는 landing 으로 이동한다.
+- [ ] 로그인 후에는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs` 기준으로 이동한다.
 - [ ] 설치형 앱처럼 실행돼도 same-origin `/api/*` 와 manifest 정책 설명이 바뀌지 않는다.
 
 ## 6. 모바일 확인 포인트

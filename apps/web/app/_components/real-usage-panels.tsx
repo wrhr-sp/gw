@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState, type FormEvent } from "react";
 import { appRoutes } from "@gw/shared";
 
+import { getPostLoginRoute } from "../../dev-safe-auth";
 import { Pill } from "./page-shell";
 
 type ApiEnvelope<T> = {
@@ -36,7 +37,6 @@ type LoginAccountPreset = {
   displayLabel: string;
   roleCode: LoginRoleCode;
   email: string;
-  nextRoute: string;
 };
 
 const loginAccountPresets: readonly LoginAccountPreset[] = [
@@ -45,44 +45,39 @@ const loginAccountPresets: readonly LoginAccountPreset[] = [
     displayLabel: "관리자 테스트",
     roleCode: "COMPANY_ADMIN",
     email: "admin@example.com",
-    nextRoute: "/dashboard",
   },
   {
     username: "hr",
     displayLabel: "인사 담당자",
     roleCode: "HR_ADMIN",
     email: "staff@example.com",
-    nextRoute: "/dashboard",
   },
   {
     username: "manager",
     displayLabel: "운영 매니저",
     roleCode: "MANAGER",
     email: "manager@example.com",
-    nextRoute: "/dashboard",
   },
   {
     username: "employee",
     displayLabel: "일반 구성원",
     roleCode: "EMPLOYEE",
     email: "employee@example.com",
-    nextRoute: "/dashboard",
   },
   {
     username: "auditor",
     displayLabel: "감사 전용 사용자",
     roleCode: "AUDITOR",
     email: "admin@example.com",
-    nextRoute: "/dashboard",
   },
 ] as const;
 
 const roleLandingLabels: Record<LoginRoleCode, string> = {
   COMPANY_ADMIN: "/dashboard → /management · /admin/users",
-  HR_ADMIN: "/dashboard → /leave · /admin/users",
-  MANAGER: "/dashboard → /attendance · /approvals",
+  HR_ADMIN: "/dashboard → /admin/users",
+  MANAGER: "/dashboard → /management",
   EMPLOYEE: "/dashboard → /attendance · /leave · /approvals",
-  AUDITOR: "/dashboard → /admin/audit-logs",
+  AUDITOR: "/admin/audit-logs",
 };
 
 function navigateTo(pathname: string) {
@@ -265,7 +260,7 @@ export function LoginRealUsagePanel() {
       });
 
       setSuccessMessage(`${payload.data.user.fullName} (${payload.data.user.roleCodes.join(", ")}) 로그인 성공`);
-      navigateTo(preset.nextRoute);
+      navigateTo(getPostLoginRoute(roleCode));
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : String(loginError));
     } finally {
@@ -313,7 +308,7 @@ export function LoginRealUsagePanel() {
       <article className="info-card">
         <Pill>역할별 첫 이동</Pill>
         <h3>{roleLandingLabels[roleCode]}</h3>
-        <p>{currentPreset.displayLabel} 기준으로 로그인 직후 확인하면 좋은 기본 경로입니다.</p>
+        <p>{currentPreset.displayLabel} 기준으로 로그인 직후 실제로 이어지는 기본 경로를 보여 줍니다.</p>
         <p className="card-note">admin/1234 기본값으로 바로 테스트한 뒤, HR/팀장/감사 역할로 다시 들어가 화면 차이를 확인할 수 있습니다.</p>
       </article>
     </div>

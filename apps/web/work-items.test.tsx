@@ -15,6 +15,7 @@ vi.mock("next/headers", () => ({
 import { dashboardWorkItemCards, getVisibleDashboardManagementCards } from "./app/dashboard/dashboard-config";
 import ManagementPage from "./app/management/page";
 import { getVisibleMobileMenuSections, mobilePrimaryNav } from "./app/mobile-pwa-config";
+import WorkItemsBranchPage from "./app/work-items/branch/page";
 import WorkItemsHrPage from "./app/work-items/hr/page";
 import WorkItemsLaborPage from "./app/work-items/labor/page";
 import WorkItemsLegalPage from "./app/work-items/legal/page";
@@ -87,6 +88,15 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain('href="/work-items"');
   });
 
+  it("renders the branch module page as a management-lane follow-up instead of a dashboard home link", () => {
+    const html = renderToStaticMarkup(<WorkItemsBranchPage />);
+
+    expect(html).toContain("지점 업무 실사용 패널");
+    expect(html).toContain("경영업무로");
+    expect(html).toContain("branch scope 가드레일");
+    expect(html).toContain("이 화면은 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인입니다.");
+  });
+
   it("moves legal entrypoints out of the shared menu/dashboard hub and into a management area", () => {
     expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items", "/work-items/hr", "/work-items/tax"]);
     expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
@@ -134,6 +144,8 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     expect(html).toContain("경영업무");
     expect(html).toContain("경영업무에서 바로 여는 화면");
+    expect(html).toContain("계정관리 → 조직조회 → 경영업무 브리지");
+    expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고");
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("추천 UAT 순서");
     expect(html).toContain("`/uat` 에서 시나리오를 먼저 읽고");

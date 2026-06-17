@@ -30,18 +30,18 @@ const happyPathCards = [
 const actionJourneyMap = {
   create: [
     "1) 사용자 생성 preview 결과 확인",
-    "2) 새 역할 기준 일반 업무 route 후보 확인",
-    "3) /boards, /documents, /attendance 중 하나를 눌러 홈 업무 진입 확인",
+    "2) /employees, /org 에서 조직·부서·지점 read model 연결 확인",
+    "3) /boards, /documents, /attendance 중 하나를 눌러 일반 업무 첫 진입 확인",
   ],
   role: [
     "1) 역할/업무권한 diff 확인",
-    "2) /management, /admin/users, /admin/audit-logs 노출/차단 기준 재확인",
+    "2) /dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인",
     "3) 고위험 권한은 감사 후보 문구와 함께 검토",
   ],
   status: [
     "1) 활성/비활성 상태 변경 diff 확인",
     "2) 비활성 사용자의 차단 안내와 업무 중단 범위 확인",
-    "3) 실제 저장 없이 영향 범위 문구만 검토",
+    "3) 로그아웃 → 재로그인 → landing 재확인 순서로 차단 범위를 점검",
   ],
   password: [
     "1) 비밀번호 reset preview 결과 확인",
@@ -49,6 +49,42 @@ const actionJourneyMap = {
     "3) 로그아웃/재로그인 시나리오만 점검하고 production 정책은 열지 않음",
   ],
 } as const;
+
+const onboardingRehearsalSteps = [
+  "1) /login → /dashboard 로 로그인/기본 홈 확인",
+  "2) /admin/users 에서 사용자 생성 preview 와 역할/권한 diff 검토",
+  "3) /employees 에서 읽기 중심 직원 조회, /org 에서 부서·역할·지점 구조 확인",
+  "4) 운영 담당자는 /management → /work-items/branch 로 branch scope 운영 레인 확인",
+  "5) 감사 사용자는 /admin/audit-logs 에서 read-only 추적 레인만 재확인",
+  "6) 상태 변경/비밀번호 초기화 preview 뒤 로그아웃 → 재로그인 → landing 재확인",
+] as const;
+
+const roleLaneCards = [
+  {
+    role: "EMPLOYEE",
+    firstRoute: "/dashboard",
+    summary: "일반 직원은 홈에서 근태·휴가·결재·게시판·문서 흐름을 먼저 확인합니다.",
+    blocked: "/admin/users · /management · /admin/audit-logs 기본 진입 차단",
+  },
+  {
+    role: "HR_ADMIN",
+    firstRoute: "/dashboard",
+    summary: "계정 생성/권한 지정/상태 변경/비밀번호 초기화 preview 는 공통 홈 뒤 인사 운영 레인으로 이어서 확인합니다.",
+    blocked: "첫 관리자 레인은 /management 가 아니라 /admin/users 로 고정",
+  },
+  {
+    role: "MANAGER / COMPANY_ADMIN",
+    firstRoute: "/dashboard",
+    summary: "운영 관리자와 지점 관리자는 공통 홈 뒤 경영업무 허브와 branch scope 운영 레인으로 이어져 민감 업무를 분리해 봅니다.",
+    blocked: "공통 landing 다음 레인은 /management 이며 일반 조회(/employees, /org)를 운영 변경 화면처럼 쓰지 않음",
+  },
+  {
+    role: "AUDITOR",
+    firstRoute: "/admin/audit-logs",
+    summary: "감사는 read-only 추적 레인만 먼저 열고 운영 변경 레인과 섞지 않습니다.",
+    blocked: "운영 변경 저장 레인 기본 진입 차단",
+  },
+] as const;
 
 const shortcutSourceRules = [
   {
@@ -79,9 +115,9 @@ export function AdminUsersPageContent({
 
   return (
     <PageShell
-      backHref="/management"
-      backLabel="경영업무로"
-      eyebrow="Phase 31 계정관리 / dev-safe UAT"
+      backHref="/admin"
+      backLabel="관리자 허브로"
+      eyebrow="Phase 46 계정·권한·조직 온보딩 리허설"
       title="계정관리 / 사용자·권한"
       description="사용자 생성, 역할/업무권한 지정, 활성/비활성, 비밀번호 초기화·변경을 dev-safe preview 로 눌러보고, 실제 저장은 열지 않는 계정관리 화면입니다."
       actions={
@@ -110,6 +146,33 @@ export function AdminUsersPageContent({
           ) : null}
         </SurfaceSection>
       ) : null}
+
+      <SurfaceSection
+        title="Phase 46 온보딩 리허설 순서"
+        description="이번 단계에서는 계정 preview, 조직 읽기, 운영 레인, 감사 레인을 한 절차로 묶어 같은 언어로 확인합니다."
+      >
+        <ol className="number-list">
+          {onboardingRehearsalSteps.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="역할별 시작 레인과 차단 기준"
+        description="직원·인사·운영·감사 사용자가 같은 화면을 첫 진입점으로 쓰지 않도록 route 기준을 고정합니다."
+      >
+        <div className="grid-auto-compact">
+          {roleLaneCards.map((card) => (
+            <article key={card.role} className="info-card">
+              <Pill tone="accent">{card.role}</Pill>
+              <h3>{card.firstRoute}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">차단/분리 기준: {card.blocked}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
       {loadError ? (
         <section className="status-banner status-banner--warning" role="alert">
