@@ -9,6 +9,18 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 50 추가 검증 초점
+
+- `/login` 단독 시작, 로그인/로그아웃/session 유지, 권한별 landing 이 실제 본격 도입 릴리즈 기준으로 흔들리지 않는지 본다.
+- 직원 레인(`/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)이 대장이 live URL에서 직접 따라가기 쉬운 순서인지 본다.
+
+- 운영 관리자 레인(`/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health`)이 일반 직원 홈과 섞이지 않는지 본다.
+- 지점관리자 레인(`/work-items/branch` 중심)과 회사 범위 운영 레인이 같은 권한처럼 풀리지 않는지 본다.
+- 급여/인사/노무/세무/법무/컴플라이언스 등 경영업무 민감 레인이 직원 기본업무와 같은 홈 흐름처럼 섞이지 않는지 본다.
+- 각 핵심 기능에서 happy path / forbidden / empty / error / loading / mobile/PC 기록 포인트와 skeleton/placeholder/dev-safe/read-only 잔여 분류가 같은 뜻인지 본다.
+- 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿이 서로 다른 문장으로 어긋나지 않는지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 49 추가 검증 초점
 
 - 직원 레인(`/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)이 실제 파일럿 회귀 순서로 따라가기 쉬운지 본다.
@@ -524,6 +536,7 @@ pnpm --filter @gw/mobile typecheck
 5. `/attendance`, `/leave`, `/approvals` — 업무 처리와 정책/placeholder 제한 설명이 구분되는지 본다.
 6. `/boards`, `/documents`, `/me`, 필요 시 `/org`, `/employees` — 협업/조회 흐름이 실제 운영 완료처럼 과장되지 않는지 본다.
 7. `/messenger`, `/mail`, `/notifications` — placeholder honesty 와 외부 연동 승인 게이트가 분리돼 보이는지 본다.
+
 8. `지점` 관련 안내 또는 문서 초안 — `지점 배정 필요`, 지점 업무 대 지점 관리, 본사/지점 관리자/일반 근무자 경계가 같은 언어로 적혀 있는지 본다.
 9. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 와 PC sidebar — 운영자 동행 레인과 read-only/권한 경계가 유지되는지 본다.
 10. 마지막으로 live/API/PWA/mobile 체크리스트와 승인 필요 목록을 다시 모은다.

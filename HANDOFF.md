@@ -18,16 +18,32 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 49 파일럿 피드백 반영·최종 UAT 회귀 체인이다. 이번 Phase의 목적은 Phase 45~48에서 잠근 내부 도입·온보딩·운영 안정성·감사 기준선을 바탕으로 직원/운영 관리자/지점관리자/감사 담당자 역할별 UAT 회귀 순서를 다시 묶어 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 실제 파일럿 확인 언어로 다시 정리하는 것이다.
+현재 메인 활성 흐름은 Phase 50 내부 그룹웨어 본격 도입 릴리즈 체인이다. 이번 Phase의 목적은 Phase 45~49에서 잠근 내부 도입·온보딩·운영 안정성·감사·최종 UAT 회귀 기준선을 바탕으로 대장이 live URL에서 직접 로그인하고 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 실제 본격 도입 릴리즈 순서로 따라갈 수 있게 정리하는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx` 기준으로 직원 일반 업무 레인이 이미 존재한다.
+- `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/page.tsx`, `apps/web/app/documents/page.tsx`, `apps/web/app/me/page.tsx` 기준으로 직원 일반 업무 레인이 이미 존재한다.
 - `apps/web/app/management/page.tsx`, `apps/web/app/work-items/branch/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/src/app.ts`, `packages/shared/src/admin-access.ts` 기준으로 운영 관리자/지점관리자/감사 레인과 scope 경계 근거가 이미 존재한다.
 - `RUNBOOK.md`, `DEPLOYMENT.md`, `docs/guides/phase-44-operator-runbook.md` 기준으로 최소 운영 점검, rollback, smoke 재확인, 승인 게이트 분리 문서 근거가 있다.
-- 현재 Phase 49 기준 문서는 `docs/architecture/phase-49-pilot-feedback-reflection-final-uat-regression-fit-gap-scope.md`, `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-handoff.md`, `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-48-audit-security-backup-restore-incident-ops-fit-gap-scope.md`, `docs/guides/phase-48-audit-security-backup-restore-incident-ops-handoff.md` 다.
-- 현재 메인 체인은 `t_863c42fb`(기획 완료) → `t_d8a06de9`(구현 완료) → `t_d15439a2`(리뷰 완료, 후속 수정 카드 생성) → `t_28b29919`(리뷰 후속 수정 완료) → `t_8adfef8d`(테스트 완료) → `t_57deb728`(문서 최종 보강 진행 중) 순서로 정리된다.
+- 현재 Phase 50 기준 문서는 `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-49-pilot-feedback-reflection-final-uat-regression-fit-gap-scope.md`, `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-handoff.md` 다.
+- 현재 메인 체인은 `t_0cdaa5b7`(기획 완료) → `t_b56865a6`(구현 완료) → `t_8428a0e3`(리뷰 완료) → `t_e3d48ed0`(테스트 완료) → `t_db79476b`(문서화 진행 중) → `t_ae1c36b4`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+
+
+2026-06-17 Phase 50 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/login`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health`, `RUNBOOK.md`, `DEPLOYMENT.md`.
+- 현재 기획 근거는 `apps/web` 일반 업무/운영/지점/감사 route, `apps/api/src/app.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/contracts.ts`, parent Phase 49 release gate·smoke 기록 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 대장이 live URL에서 직접 따라갈 직원 기본업무 레인, 운영 관리자 레인, 지점관리자 레인, 감사 레인을 최종 본격 도입 릴리즈 언어로 다시 잠그는 것이다.
+- happy path, forbidden, empty, error, loading, mobile/PC 기록 포인트와 skeleton/placeholder/dev-safe/read-only 잔여 분류를 기능별로 같은 형식으로 남겨야 한다.
+
+- `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
+- production DB, 외부 IdP/SSO, 실급여/실신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `1f299108b47edc219fa1ac3ea6ce5fd9c8b82114` 다.
+- 최신 tester 재검증 기준은 focused API `99 passed / 4 skipped`, focused web `104 passed`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, local `next start` smoke 다.
+- 이번 문서화 카드에서는 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 한 문서 세트로 다시 잠가서 다음 ops 카드가 그대로 배포/릴리즈 후속을 이어받게 만드는 것이 핵심이다.
+- 이번 문서의 목적은 기존 UAT 기준을 재인용하는 데서 끝내지 않고, 사용자 직접 확인 순서와 최종 릴리즈 보고 문장을 한 세트로 다시 맞추는 것이다.
+
 
 2026-06-17 Phase 49 fit-gap 메모:
 

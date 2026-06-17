@@ -19,36 +19,40 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 49 파일럿 피드백 반영·최종 UAT 회귀 단계
+### 3. 현재 문서화/검증 기준은 Phase 50 내부 그룹웨어 본격 도입 릴리즈 단계
 
 현재 루트 문서와 handoff 는 아래 기준을 함께 설명한다.
 
 - 공통 post-login landing: COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs`
+- 로그인 시작점: 익명은 `/login` 만 허용
 - 직원 UAT 레인: `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`
 - 운영 최소 확인 레인: `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health`
 - 지점관리자 레인: `/work-items/branch` → 필요 시 `/employees`·`/org` → `/management`
 - 운영 문서 레인: `RUNBOOK.md` → `DEPLOYMENT.md` → `docs/guides/phase-44-operator-runbook.md`
-- 문서 묶음: Phase 49 scope/handoff/guide + 직전 Phase 48 운영 기준선 문서 세트
+- 문서 묶음: Phase 50 scope/handoff/guide + 직전 Phase 49 UAT 회귀 문서 세트
 
 - `/admin/users` 는 dev-safe 생성/권한 diff/상태 변경/비밀번호 초기화 preview 화면이며 실제 저장 완료 화면이 아니다.
 - `/employees` 와 `/org` 는 읽기 중심 조회로 유지한다.
 - `/management` 는 일반 직원 홈이 아니라 운영 관리자 허브로 유지한다.
 - `/admin/audit-logs` 는 감사 read-only 진입점으로 유지한다.
+
 - `/api/health` 는 최소 liveness 기준이지 full monitoring dashboard 가 아니다.
 - backup/restore/disaster/incident 대응은 아직 수동 runbook/승인 게이트 중심이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
 - production data, 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 49 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 50 단계에서 남아 있는 제품형 리스크
 
-- 최신 재검증 기준은 focused API 98 passed, focused web 24 files / 103 tests passed, web typecheck, web build, web build:cf, 기존 local preview 익명 redirect smoke baseline 이다. 다만 이 근거도 여전히 내부 검증 baseline 이고 live 직접 확인과 같은 뜻은 아니다.
-- 역할별 파일럿 회귀에서 직원/운영 관리자/지점관리자/감사 레인을 같은 관리자 묶음처럼 기록하면 실제 UAT 피드백이 흐려질 수 있다.
-- happy path, forbidden, empty, error, loading, mobile/PC 기록 포인트가 기능별로 다시 잠기지 않으면 최종 보고가 route 나열 수준으로 축소될 수 있다.
+- 최신 parent 재검증 기준은 focused API `99 passed / 4 skipped`, focused web `104 passed`, `pnpm check`, `pnpm --filter @gw/web build`, `pnpm --filter @gw/web build:cf`, local `next start` smoke baseline 이다. 다만 이 근거도 여전히 내부 검증 baseline 이고 live 직접 확인과 같은 뜻은 아니다.
+- 본격 도입 릴리즈 단계에서도 직원/운영 관리자/지점관리자/감사/경영업무 민감 모듈 레인을 같은 관리자 묶음처럼 기록하면 실제 도입 판단이 흐려질 수 있다.
+- happy path, forbidden, empty, error, loading, mobile/PC 기록 포인트와 skeleton/placeholder/dev-safe/read-only 잔여 분류가 기능별로 다시 잠기지 않으면 최종 보고가 route 나열 수준으로 축소될 수 있다.
+- 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿이 서로 다른 표현을 쓰면 같은 릴리즈를 두 번 설명하는 문서처럼 보여 현장 도입 판단이 흐려질 수 있다.
+
 - `/admin/audit-logs` 의 masked/read-only/company-boundary 설명이 흐려지면 내부 감사 기대치가 무너진다.
 - 운영 관제를 `/api/health` 이상으로 과장하면 alerting/on-call/관제 dashboard 가 이미 있는 것처럼 오해될 수 있다.
 - backup/restore/disaster/incident 대응을 자동화 완료처럼 쓰면 운영 복구 기대치가 과도하게 올라간다.
-- 현재 Phase 49 사용자-facing 문서는 `wereheresp` 단일 host 를 기준으로 정리하지만, 예전 Phase 문서와 과거 handoff 에 `werehere31` 흔적이 남아 있어 과거 기록과 현재 smoke/rollback 대상을 혼동할 수 있다.
+- 현재 Phase 50 사용자-facing 문서는 `wereheresp` 단일 host 를 기준으로 정리하지만, 예전 Phase 문서와 과거 handoff 에 `werehere31` 흔적이 남아 있어 과거 기록과 현재 smoke/rollback 대상을 혼동할 수 있다.
 - 실제 초대 발송, 외부 IdP/SSO, production 비밀번호/실데이터 저장, production backup/restore 실행, 외부 SIEM/alerting, native 배포 승인 게이트가 약해지면 아직 안 닫힌 범위가 이미 가능한 것처럼 오해될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
