@@ -124,9 +124,15 @@ describe("Phase 13 admin console pass 1", () => {
     const html = renderToStaticMarkup(<AdminAuditLogsPage />);
 
     expect(html).toContain("감사 전용 진입 의미");
+    expect(html).toContain("역할별 route/API guard 요약");
+    expect(html).toContain("AUDITOR");
+    expect(html).toContain("/admin/audit-logs: 허용");
+    expect(html).toContain("/admin/users: 차단");
     expect(html).toContain("조회 필터");
     expect(html).toContain("최근 이벤트 타임라인");
     expect(html).toContain("상세 패널");
+    expect(html).toContain("운영 최소 기준선");
+    expect(html).toContain("RUNBOOK.md 와 DEPLOYMENT.md");
     expect(html).toContain("비노출/회사 경계");
     expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");
     expect(html).toContain("storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.");

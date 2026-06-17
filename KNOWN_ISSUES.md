@@ -19,34 +19,33 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 47 운영 안정성·성능·모바일/PWA 사용성 보강 단계
+### 3. 현재 문서화/검증 기준은 Phase 48 감사·보안·백업/복구·장애대응·운영관제 단계
 
 현재 루트 문서와 handoff 는 아래 기준을 함께 설명한다.
 
 - 공통 post-login landing: COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE = `/dashboard`, AUDITOR = `/admin/audit-logs`
-- 일반 직원/팀장 체감 레인: `/dashboard` → `/menu` → `/notifications` → 실제 업무 route
-- 운영 레인: `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`
-- 오프라인/재시도 레인: `/offline` 에서 가능한 일 / 막히는 일 / 재시도 절차 분리
-- 문서 묶음: Phase 47 scope/handoff/user-admin-UAT-ops guide + 직전 Phase 46 온보딩 문서 세트
+- 운영 최소 확인 레인: `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health`
+- 운영 문서 레인: `RUNBOOK.md` → `DEPLOYMENT.md` → `docs/guides/phase-44-operator-runbook.md`
+- 문서 묶음: Phase 48 scope/handoff/ops guide + 직전 Phase 47 운영 안정성 문서 세트
 
 - `/admin/users` 는 dev-safe 생성/권한 diff/상태 변경/비밀번호 초기화 preview 화면이며 실제 저장 완료 화면이 아니다.
 - `/employees` 와 `/org` 는 읽기 중심 조회로 유지한다.
 - `/management` 는 일반 직원 홈이 아니라 운영 관리자 허브로 유지한다.
-- `/offline` 은 업무 성공 화면이 아니라 복구/재시도 안내로 유지한다.
 - `/admin/audit-logs` 는 감사 read-only 진입점으로 유지한다.
-- PWA installability 와 실제 offline 상태 변경 가능 여부를 같은 뜻으로 쓰지 않는다.
+- `/api/health` 는 최소 liveness 기준이지 full monitoring dashboard 가 아니다.
+- backup/restore/disaster/incident 대응은 아직 수동 runbook/승인 게이트 중심이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- production data, 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
+- production data, 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 47 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 48 단계에서 남아 있는 제품형 리스크
 
-- 최신 재검증 기준은 focused API 98 passed, focused web 102 passed, mobile typecheck, web build, 기존 local preview 익명 redirect smoke 다. 다만 이 근거도 여전히 내부 검증 baseline 이고 live 직접 확인과 같은 뜻은 아니다.
-- 홈/메뉴/알림/오프라인의 loading·empty·error·forbidden·offline 문장이 제각각 읽히면 전사 사용 직전 체감 안정성이 떨어진다.
-- `/offline` 안내를 업무 성공이나 완전 동기화처럼 읽으면 운영 기대치가 과도하게 올라간다.
-- PWA 설치 가능, manifest 존재, 모바일 shell 존재를 background sync·실업무 offline 가능과 같은 뜻으로 읽으면 오해가 커진다.
-- `/management`·`/admin*` 운영 레인과 `/dashboard` 일반 직원 홈이 다시 섞이면 내부통제 기대치가 무너진다.
-- 실제 초대 발송, 외부 IdP/SSO, production 비밀번호/실데이터 저장, 외부 push/background sync/native 배포 승인 게이트가 약해지면 아직 안 닫힌 범위가 이미 가능한 것처럼 오해될 수 있다.
+- 최신 재검증 기준은 focused API 98 passed, focused web 102 passed, mobile typecheck, web build, 기존 local preview 익명 redirect smoke baseline 이다. 다만 이 근거도 여전히 내부 검증 baseline 이고 live 직접 확인과 같은 뜻은 아니다.
+- `/admin/audit-logs` 의 masked/read-only/company-boundary 설명이 흐려지면 내부 감사 기대치가 무너진다.
+- 운영 관제를 `/api/health` 이상으로 과장하면 alerting/on-call/관제 dashboard 가 이미 있는 것처럼 오해될 수 있다.
+- backup/restore/disaster/incident 대응을 자동화 완료처럼 쓰면 운영 복구 기대치가 과도하게 올라간다.
+- `HANDOFF.md` 와 `DEPLOYMENT.md` 사이 live URL 흔적(`werehere31` vs `wereheresp`)이 다르게 남아 있어 smoke/rollback 기준 대상을 혼동시킬 수 있다.
+- 실제 초대 발송, 외부 IdP/SSO, production 비밀번호/실데이터 저장, production backup/restore 실행, 외부 SIEM/alerting, native 배포 승인 게이트가 약해지면 아직 안 닫힌 범위가 이미 가능한 것처럼 오해될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 
