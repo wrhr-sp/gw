@@ -222,11 +222,26 @@ code {
 .desktop-sidebar__link {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 14px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 12px;
   border-radius: 14px;
+  color: var(--text-muted);
   text-decoration: none;
-  border: 1px solid transparent;
+}
+
+.desktop-sidebar__icon,
+.feature-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transform: scale(var(--icon-scale, 1));
+  transform-origin: center;
+}
+
+.desktop-sidebar__icon {
+  width: 18px;
+  height: 18px;
 }
 
 .desktop-sidebar__link--active {
@@ -597,6 +612,8 @@ li {
 .bottom-nav__icon-svg {
   width: 20px;
   height: 20px;
+  transform: scale(var(--icon-scale, 1));
+  transform-origin: center;
 }
 
 .bottom-nav__label {

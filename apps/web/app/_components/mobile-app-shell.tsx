@@ -11,9 +11,38 @@ type NotificationBadgeState = {
   unreadCount: number;
 };
 
+type FeatureIconName =
+  | "menu"
+  | "home"
+  | "messenger"
+  | "mail"
+  | "notification"
+  | "attendance"
+  | "board"
+  | "calendar"
+  | "report"
+  | "approval"
+  | "people"
+  | "payroll"
+  | "tax"
+  | "labor"
+  | "legal"
+  | "documents"
+  | "file"
+  | "admin"
+  | "settings"
+  | "dashboard";
+
 type TabIconProps = {
   href: string;
   title: string;
+  className?: string;
+};
+
+type FeatureIconProps = {
+  name: FeatureIconName;
+  title: string;
+  className?: string;
 };
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -24,10 +53,36 @@ export function formatUnreadBadge(unreadCount: number | null) {
   return unreadCount >= 100 ? "99+" : String(unreadCount);
 }
 
-function BottomTabIcon({ href, title }: TabIconProps) {
+function getFeatureIconName(href: string, label: string): FeatureIconName | null {
+  if (href === "/menu") return "menu";
+  if (href === "/dashboard") return "home";
+  if (href === "/messenger") return "messenger";
+  if (href === "/mail") return "mail";
+  if (href === "/notifications") return "notification";
+  if (href === "/attendance") return "attendance";
+  if (href === "/boards") return "board";
+  if (href === "/approvals") return "approval";
+  if (href === "/documents") return "documents";
+  if (href === "/payroll" || href === "/payroll/me") return "payroll";
+  if (href === "/management") return "dashboard";
+  if (href === "/admin") return "admin";
+  if (href.includes("/work-items/tax")) return "tax";
+  if (href.includes("/work-items/labor")) return "labor";
+  if (href.includes("/work-items/legal")) return "legal";
+  if (href.includes("/work-items/hr")) return "people";
+  if (href.includes("/work-items/branch")) return null;
+  if (label.includes("캘린더")) return "calendar";
+  if (label.includes("보고")) return "report";
+  if (label.includes("파일")) return "file";
+  if (label.includes("설정") || label.includes("정책")) return "settings";
+  if (label.includes("인사") || label.includes("직원") || label.includes("조직") || label.includes("사용자")) return "people";
+  return null;
+}
+
+function FeatureIcon({ name, title, className = "feature-nav-icon" }: FeatureIconProps) {
   const baseProps = {
     "aria-hidden": true,
-    className: "bottom-nav__icon-svg",
+    className,
     fill: "none",
     stroke: "currentColor",
     strokeLinecap: "round" as const,
@@ -36,50 +91,198 @@ function BottomTabIcon({ href, title }: TabIconProps) {
     viewBox: "0 0 24 24",
   };
 
-  switch (href) {
-    case "/menu":
+  const scaleByIcon: Partial<Record<FeatureIconName, number>> = {
+    messenger: 0.92,
+    attendance: 0.92,
+    board: 0.94,
+    report: 0.92,
+    approval: 0.94,
+    payroll: 0.92,
+    tax: 0.94,
+    labor: 0.94,
+    file: 0.94,
+    settings: 0.94,
+    dashboard: 0.92,
+  };
+  const scale = scaleByIcon[name] ?? 1;
+  const scaledStyle = { "--icon-scale": scale } as React.CSSProperties;
+
+  switch (name) {
+    case "menu":
       return (
-        <svg {...baseProps}>
+        <svg {...baseProps} style={scaledStyle}>
           <path d="M4.75 7.25h14.5" />
           <path d="M4.75 12h14.5" />
           <path d="M4.75 16.75h14.5" />
         </svg>
       );
-    case "/dashboard":
+    case "home":
       return (
-        <svg {...baseProps}>
+        <svg {...baseProps} style={scaledStyle}>
           <path d="M5.75 10.5 12 5l6.25 5.5" />
           <path d="M7.5 9.75v8.5h9v-8.5" />
         </svg>
       );
-    case "/messenger":
+    case "messenger":
       return (
-        <svg {...baseProps}>
-          <path d="M6.5 7.5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H11l-4.5 3v-3H6.5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z" />
+        <svg aria-hidden className={className} fill="currentColor" style={scaledStyle} viewBox="0 0 24 24">
+          <path d="M12 2.25A9.75 9.75 0 0 0 3.39 16.58l-1.06 3.2a1.5 1.5 0 0 0 1.9 1.9l3.2-1.06A9.75 9.75 0 1 0 12 2.25Zm0 18a8.24 8.24 0 0 1-4.13-1.11.75.75 0 0 0-.61-.06l-3.5 1.17 1.17-3.5a.75.75 0 0 0-.06-.61A8.25 8.25 0 1 1 12 20.25Z" />
         </svg>
       );
-    case "/mail":
+    case "mail":
       return (
-        <svg {...baseProps}>
+        <svg {...baseProps} style={scaledStyle}>
           <rect x="4.5" y="6.5" width="15" height="11" rx="2" />
           <path d="m5.75 8 6.25 4.75L18.25 8" />
         </svg>
       );
-    case "/notifications":
+    case "notification":
       return (
-        <svg {...baseProps}>
+        <svg {...baseProps} style={scaledStyle}>
           <path d="M12 5.5a4 4 0 0 0-4 4v2.25c0 .89-.3 1.76-.86 2.45l-.89 1.1h11.5l-.89-1.1a3.91 3.91 0 0 1-.86-2.45V9.5a4 4 0 0 0-4-4Z" />
           <path d="M10.25 18a1.9 1.9 0 0 0 3.5 0" />
         </svg>
       );
+    case "attendance":
+      return (
+        <svg aria-hidden className={className} fill="currentColor" style={scaledStyle} viewBox="0 0 24 24">
+          <path d="M12 2.25A9.75 9.75 0 1 0 21.75 12 9.76 9.76 0 0 0 12 2.25Zm0 18A8.25 8.25 0 1 1 20.25 12 8.26 8.26 0 0 1 12 20.25Zm6-8.25a.75.75 0 0 1-.75.75H12a.75.75 0 0 1-.75-.75V6.75a.75.75 0 0 1 1.5 0v4.5h4.5A.75.75 0 0 1 18 12Z" />
+        </svg>
+      );
+    case "board":
+      return (
+        <svg {...baseProps} strokeWidth={1.5} style={scaledStyle}>
+          <path d="M12 7.5H13.5M12 10.5H13.5M6 13.5H13.5M6 16.5H13.5M16.5 7.5H19.875C20.4963 7.5 21 8.00368 21 8.625V18C21 19.2426 19.9926 20.25 18.75 20.25M16.5 7.5V18C16.5 19.2426 17.5074 20.25 18.75 20.25M16.5 7.5V4.875C16.5 4.25368 15.9963 3.75 15.375 3.75H4.125C3.50368 3.75 3 4.25368 3 4.875V18C3 19.2426 4.00736 20.25 5.25 20.25H18.75M6 7.5H9V10.5H6V7.5Z" />
+        </svg>
+      );
+    case "report":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" />
+          <path d="M2 6h4" />
+          <path d="M2 10h4" />
+          <path d="M2 14h4" />
+          <path d="M2 18h4" />
+          <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+        </svg>
+      );
+    case "approval":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+          <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
+          <path d="M9 14l2 2l4 -4" />
+        </svg>
+      );
+    case "people":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <circle cx="12" cy="7" r="3" />
+          <path d="M6.5 20a5.5 5.5 0 0 1 11 0" />
+          <path d="M4 13.5a3.5 3.5 0 0 1 4-3.4" />
+          <path d="M20 13.5a3.5 3.5 0 0 0-4-3.4" />
+        </svg>
+      );
+    case "payroll":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+          <path d="M12 18V6" />
+        </svg>
+      );
+    case "tax":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M9 14l6 -6" />
+          <path d="M9 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0" />
+          <path d="M14 13.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0" />
+          <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" />
+        </svg>
+      );
+    case "labor":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
+          <path d="M14 6a6 6 0 0 1 6 6v3" />
+          <path d="M4 15v-3a6 6 0 0 1 6-6" />
+          <rect x="2" y="15" width="20" height="4" rx="1" />
+        </svg>
+      );
+    case "legal":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M12 4v16" />
+          <path d="M7 20h10" />
+          <path d="M5 8h14" />
+          <path d="M8 8l-3 6h6z" />
+          <path d="M16 8l-3 6h6z" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <rect x="4" y="5" width="16" height="15" rx="2" />
+          <path d="M8 3v4" />
+          <path d="M16 3v4" />
+          <path d="M4 10h16" />
+          <path d="M8 14h2" />
+          <path d="M13 14h3" />
+          <path d="M8 17h2" />
+        </svg>
+      );
+    case "documents":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M6 6h6l2 2h4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
+          <path d="M4 11h16" />
+          <path d="M8 15h6" />
+        </svg>
+      );
+    case "file":
+      return (
+        <svg {...baseProps} strokeWidth={1.5} style={scaledStyle}>
+          <path d="M19.5 14.25V11.625C19.5 9.76104 17.989 8.25 16.125 8.25H14.625C14.0037 8.25 13.5 7.74632 13.5 7.125V5.625C13.5 3.76104 11.989 2.25 10.125 2.25H8.25M10.5 2.25H5.625C5.00368 2.25 4.5 2.75368 4.5 3.375V20.625C4.5 21.2463 5.00368 21.75 5.625 21.75H18.375C18.9963 21.75 19.5 21.2463 19.5 20.625V11.25C19.5 6.27944 15.4706 2.25 10.5 2.25Z" />
+        </svg>
+      );
+    case "admin":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M12 4 6 6.5v5.5c0 4 2.5 6.5 6 8 3.5-1.5 6-4 6-8V6.5z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065" />
+          <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+        </svg>
+      );
+    case "dashboard":
+      return (
+        <svg {...baseProps} style={scaledStyle}>
+          <path d="M12 16v5" />
+          <path d="M16 14.639V21" />
+          <path d="M20 10.656V21" />
+          <path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15" />
+          <path d="M4 18.463V21" />
+          <path d="M8 14.656V21" />
+        </svg>
+      );
     default:
       return (
-        <svg {...baseProps}>
+        <svg {...baseProps} style={scaledStyle}>
           <title>{title}</title>
           <circle cx="12" cy="12" r="7" />
         </svg>
       );
   }
+}
+
+function BottomTabIcon({ href, title, className = "bottom-nav__icon-svg" }: TabIconProps) {
+  const iconName = getFeatureIconName(href, title);
+  return iconName ? <FeatureIcon className={className} name={iconName} title={title} /> : null;
 }
 
 function matchesPath(currentPath: string, href: string) {
@@ -216,6 +419,7 @@ export function MobileAppShell({
               <div className="desktop-sidebar__links">
                 {section.items.map((item) => {
                   const active = matchesPath(pathname, item.href);
+                  const iconName = getFeatureIconName(item.href, item.label);
                   return (
                     <a
                       key={item.href}
@@ -224,6 +428,7 @@ export function MobileAppShell({
                       aria-current={active ? "page" : undefined}
                       title={item.summary}
                     >
+                      {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                       <span>{sidebarCollapsed ? item.shortLabel : item.label}</span>
                     </a>
                   );

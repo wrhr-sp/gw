@@ -71,6 +71,35 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("bottom-nav__link-pill");
   });
 
+  it("keeps selected feature icons and leaves branch portal without a menu icon", () => {
+    const html = renderToStaticMarkup(
+      <MobileAppShell
+        appName="그룹웨어 Web/PWA"
+        appEyebrow="Cloudflare-first skeleton"
+        homeHref="/"
+        navItems={mobileBottomTabs}
+        bottomTabs={mobileBottomTabs}
+        menuSections={mobileMenuSections}
+        installGuideSteps={installGuideSteps}
+        offlineGuidance={offlineGuidance}
+        showMobileMenuShortcut={true}
+        currentRoleCode={null}
+      >
+        <main>general offline content</main>
+      </MobileAppShell>,
+    );
+
+    expect(html).toContain("M12 2.25A9.75 9.75");
+    expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
+    expect(html).toContain("M9 14l2 2l4 -4");
+    expect(html).toContain("M5 21v-16");
+    expect(html).toContain("M10 10V5");
+
+    const branchLink = html.match(/<a[^>]+href="\/work-items\/branch"[\s\S]*?<\/a>/)?.[0] ?? "";
+    expect(branchLink).toContain("지점 업무");
+    expect(branchLink).not.toContain("<svg");
+  });
+
   it("caps unread badge labels at 99+ and hides empty counts", () => {
     expect(formatUnreadBadge(0)).toBeNull();
     expect(formatUnreadBadge(12)).toBe("12");
