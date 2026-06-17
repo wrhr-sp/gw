@@ -13,8 +13,8 @@ const primaryFlows = [
   },
   {
     badge: "관리자 검토 흐름",
-    title: "/dashboard 관리자 CTA → /management → /work-items/branch → /admin/users · /admin/policies · /admin/audit-logs",
-    body: "인사/운영 관리자와 감사 사용자는 홈과 분리된 경영업무 허브를 거쳐 지점 운영·계정관리·정책·감사 흐름으로 이동합니다.",
+    title: "/dashboard 관리자 CTA → /admin/users(HR) · /management(운영) → /payroll → /work-items/tax · /work-items/labor · /work-items/legal → /admin/audit-logs",
+    body: "인사 관리자는 /admin/users 계열, 운영 관리자/지점 관리자는 /management 계열, 감사 사용자는 /admin/audit-logs 계열처럼 실제 권한 레인에 맞춰 나눠서 이동합니다.",
   },
 ] as const;
 
@@ -32,9 +32,15 @@ const roleEntryCards = [
     note: "필요 시 /attendance, /leave, /employees 에서 일정과 인원 상태를 확인합니다.",
   },
   {
-    role: "인사 / 운영 관리자",
+    role: "인사 관리자",
+    firstRoute: "/admin/users",
+    summary: "사용자/권한 관리가 필요한 인사 운영은 관리자 사용자 화면부터 확인합니다.",
+    note: "HR_ADMIN 은 /management 가 아니라 /admin/users 계열에서 먼저 시작합니다.",
+  },
+  {
+    role: "운영 관리자 / 지점 관리자",
     firstRoute: "/management",
-    summary: "홈에서 지점 운영·계정관리·정책·감사로 이어지는 경영업무 허브로 먼저 이동합니다.",
+    summary: "급여·세무·노무·법무 검토가 필요한 운영 레인은 내부관리 허브로 먼저 이동합니다.",
     note: "일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
   },
   {
@@ -56,9 +62,9 @@ export default function HomePage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 42 근태·휴가·인사·지점 운영 도입"
+      eyebrow="Phase 43 일반 직원 홈과 내부관리 허브 분리"
       title="그룹웨어 실사용 MVP 시작점"
-      description="홈, 로그인, 대시보드, 근태·휴가 기본 업무, 읽기 중심 인사 조회, 경영업무 허브를 한 흐름으로 눌러 보면서 회사 내부 도입 가능 범위를 실제 API 응답과 함께 확인할 수 있게 정리한 시작 화면입니다."
+      description="홈, 로그인, 대시보드, 근태·휴가 기본 업무, 읽기 중심 인사 조회, 내부관리 허브를 한 흐름으로 눌러 보면서 회사 내부 도입 가능 범위를 실제 API 응답과 함께 확인할 수 있게 정리한 시작 화면입니다."
       actions={
         <div className="action-row">
           <Link href="/login" className="touch-button">

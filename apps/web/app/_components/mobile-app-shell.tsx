@@ -41,6 +41,7 @@ export function MobileAppShell({
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isLoginRoute = pathname === "/login";
 
   const activeSectionTitle = useMemo(() => {
     const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
@@ -63,6 +64,10 @@ export function MobileAppShell({
       window.removeEventListener("offline", syncOnlineState);
     };
   }, []);
+
+  if (isLoginRoute) {
+    return <div className="app-shell__body">{children}</div>;
+  }
 
   return (
     <div className="app-shell app-shell--responsive">

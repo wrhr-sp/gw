@@ -62,8 +62,8 @@ export const generalPwaManifest = {
   name: "GW Cloudflare-first Skeleton",
   short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
-  id: "/",
-  start_url: "/",
+  id: "/login",
+  start_url: "/login",
   scope: "/",
   display: "standalone",
   display_override: ["standalone", "minimal-ui", "browser"],
@@ -200,12 +200,6 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "잔여, 신청, 승인 대기 요약",
   },
   {
-    href: "/payroll",
-    label: "급여",
-    shortLabel: "급여",
-    summary: "자료 수집 상태, 지급 예정 기간, 명세서 초안 확인",
-  },
-  {
     href: "/approvals",
     label: "전자결재",
     shortLabel: "결재",
@@ -254,7 +248,7 @@ export const mobileBottomTabs: NavItem[] = [
     href: "/menu",
     label: "메뉴",
     shortLabel: "메뉴",
-    summary: "근태, 휴가, 급여, 결재, 문서, 내 정보, 조직 전체 메뉴 열기",
+    summary: "근태, 휴가, 결재, 문서, 내 정보, 조직 전체 메뉴 열기",
   },
   {
     href: "/dashboard",
@@ -286,13 +280,13 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "기본 업무",
     description: "파일럿 참여자가 실제로 먼저 눌러 볼 핵심 업무 흐름입니다.",
-    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5], mobilePrimaryNav[6]],
+    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
   },
   {
     title: "공통 업무 엔진",
     description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
     items: [
-      mobilePrimaryNav[7],
+      mobilePrimaryNav[6],
       { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
       { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 placeholder" },
       { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
@@ -302,7 +296,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "내 정보 / 조회",
     description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
-    items: [mobilePrimaryNav[8], mobilePrimaryNav[9], mobilePrimaryNav[10]],
+    items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
   },
   {
     title: "협업 placeholder",
@@ -316,7 +310,25 @@ export const managementPrimaryNav: NavItem[] = [
     href: "/management",
     label: "경영업무",
     shortLabel: "경영",
-    summary: "법무 같은 민감 운영 모듈을 일반 업무와 분리한 전용 진입점",
+    summary: "급여·세무·노무·법무·감사 내부관리 모듈을 일반 업무와 분리한 전용 진입점",
+  },
+  {
+    href: "/payroll",
+    label: "급여 내부관리",
+    shortLabel: "급여",
+    summary: "급여 프로필, 기간 상태, 명세서 preview 연결 확인",
+  },
+  {
+    href: "/work-items/tax",
+    label: "세무 내부관리",
+    shortLabel: "세무",
+    summary: "지점 제출, HQ 검토, 전달 패키지 준비 확인",
+  },
+  {
+    href: "/work-items/labor",
+    label: "노무 내부관리",
+    shortLabel: "노무",
+    summary: "self/branch/restricted 경계를 포함한 노무 metadata 확인",
   },
   {
     href: "/work-items/legal",
@@ -329,7 +341,7 @@ export const managementPrimaryNav: NavItem[] = [
 export const managementMenuSections: NavSection[] = [
   {
     title: "경영업무",
-    description: "법무 같은 민감 운영 모듈은 일반 직원 메뉴와 섞지 않고 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    description: "급여·세무·노무·법무·감사 내부관리 모듈은 일반 직원 메뉴와 섞지 않고 지정 관리자/담당자만 별도 영역에서 확인합니다.",
     items: managementPrimaryNav,
   },
 ];

@@ -59,6 +59,10 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("내 정보 마무리 확인");
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
+    expect(html).toContain("인사 관리자");
+    expect(html).toContain("운영 관리자 / 지점 관리자");
+    expect(html).toContain("/admin/users");
+    expect(html).toContain("/management");
     expect(html).toContain("내부 도입 리허설 패키지");
     expect(html).toContain("관리자 운영 검토 레인");
     expect(html).toContain("오늘 상태와 마무리 조회");
@@ -68,7 +72,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
     expect(html.indexOf("역할별 첫 이동")).toBeLessThan(html.indexOf("내부 도입 리허설 패키지"));
-    expect(html).toContain("`/management` → `/work-items/branch` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`");
+    expect(html).toContain("`/management` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs`");
     expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("막힐 때 다시 가는 현장 복구 경로");
@@ -117,9 +121,20 @@ describe("Phase 14 dashboard summary skeleton", () => {
   it("only returns management cards for designated management roles", () => {
     expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
     expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
-    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
-    expect(getVisibleDashboardManagementCards(["COMPANY_ADMIN"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
-    expect(getVisibleDashboardManagementCards(["AUDITOR"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual([
+      "/management",
+      "/payroll",
+      "/work-items/tax",
+      "/work-items/legal",
+    ]);
+    expect(getVisibleDashboardManagementCards(["COMPANY_ADMIN"]).map((card) => card.href)).toEqual([
+      "/management",
+      "/payroll",
+      "/work-items/tax",
+      "/work-items/labor",
+      "/work-items/legal",
+    ]);
+    expect(getVisibleDashboardManagementCards(["AUDITOR"])).toEqual([]);
   });
 
   it("renders the actual admin CTA, shortcut split, and management lane when a privileged viewer is supplied", () => {
@@ -140,6 +155,9 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain('href="/admin"');
     expect(html).toContain("경영업무 분리 진입");
     expect(html).toContain('href="/management"');
+    expect(html).toContain('href="/payroll"');
+    expect(html).toContain('href="/work-items/tax"');
+    expect(html).toContain('href="/work-items/labor"');
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("근태");
     expect(html).toContain("관리자 사용자");

@@ -119,7 +119,7 @@ check_follow_status() {
 
 echo "== Manifest identity checks =="
 expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" name)" "GW Cloudflare-first Skeleton" "general host /manifest name"
-expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" start_url)" "/" "general host /manifest start_url"
+expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" start_url)" "/login" "general host /manifest start_url"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/manifest.webmanifest" name)" "GW Cloudflare-first Skeleton" "admin host /manifest remains general manifest"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/admin/manifest.webmanifest" name)" "GW Admin" "admin host /admin/manifest name"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/admin/manifest.webmanifest" start_url)" "/admin" "admin host /admin/manifest start_url"

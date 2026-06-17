@@ -423,6 +423,7 @@ describe("shared contracts", () => {
     expect(getAdminRouteKind("/admin/audit-logs")).toBe("admin_audit");
     expect(getAdminRouteKind("/dashboard")).toBeNull();
 
+    const companyAdminViewer = getViewerAccessForRoleCode("COMPANY_ADMIN");
     const hrViewer = getViewerAccessForRoleCode("HR_ADMIN");
     const auditorViewer = getViewerAccessForRoleCode("AUDITOR");
     const employeeViewer = getViewerAccessForRoleCode("EMPLOYEE");
@@ -431,16 +432,24 @@ describe("shared contracts", () => {
     expect(hasAdminRouteAccess("/admin", hrViewer)).toBe(true);
     expect(hasAdminRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
     expect(hasAdminRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/work-items/labor", companyAdminViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/work-items/labor", managerViewer)).toBe(false);
     expect(hasSensitiveWorkbenchRouteAccess("/management", managerViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/management", auditorViewer)).toBe(false);
     expect(hasSensitiveWorkbenchRouteAccess("/management", employeeViewer)).toBe(false);
+    expect(hasSensitiveWorkbenchRouteAccess("/payroll/me", employeeViewer)).toBe(true);
+    expect(hasSensitiveWorkbenchRouteAccess("/payroll/me", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/attendance", employeeViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/admin/users", employeeViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/admin/users", hrViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/admin/audit-logs", auditorViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/management", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/work-items/labor", managerViewer)).toBe(false);
+    expect(hasHomeShortcutRouteAccess("/management", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/management", employeeViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/work-items/legal", managerViewer)).toBe(true);
+    expect(hasHomeShortcutRouteAccess("/work-items/legal", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/work-items/legal", employeeViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/totally-unknown-shortcut", hrViewer)).toBe(false);
     expect(

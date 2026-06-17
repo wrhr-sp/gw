@@ -8,6 +8,7 @@ import { getTrustedHostFromHeaders } from "../admin-host";
 import { getPwaManifestForHost, getManifestHrefForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
 
 import { MobileAppShell } from "./_components/mobile-app-shell";
+import { PwaInstallBootstrap } from "./_components/pwa-install-bootstrap";
 
 import "./globals.css";
 
@@ -19,10 +20,12 @@ async function getRequestHost() {
 export async function generateMetadata(): Promise<Metadata> {
   const host = await getRequestHost();
   const manifest = getPwaManifestForHost(host);
+  const manifestHref = getManifestHrefForHost(host);
 
   return {
     title: manifest.name,
     description: manifest.description,
+    manifest: manifestHref,
     applicationName: manifest.short_name,
     appleWebApp: {
       capable: true,
@@ -61,6 +64,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <link rel="manifest" href={manifestHref} />
       </head>
       <body>
+        <PwaInstallBootstrap />
         <MobileAppShell {...shellConfig} currentRoleCode={roleCode}>
           {children}
         </MobileAppShell>

@@ -9,23 +9,24 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
-## Phase 43 추가 검증 초점
+## Phase 44 추가 검증 초점
 
-- `/management` 가 일반 직원 홈과 분리된 내부관리 허브로 읽히고, `/dashboard` 기본 업무 흐름과 섞이지 않는지 다시 본다.
-- `/payroll` 과 `/payroll/me` 가 preview/self-only/role-split 경계를 숨기지 않고, 실지급 확정 화면처럼 과장되지 않는지 확인한다.
-- `/work-items/tax` 가 지점 제출과 HQ 검토/패키지 준비를 같은 권한처럼 섞지 않는지 본다.
-- `/work-items/labor` 가 self/branch/restricted 경계를 흐리지 않고, 실민감 원문 처리 시스템처럼 과장되지 않는지 확인한다.
-- `/work-items/legal` 이 계약/갱신/분쟁 metadata 흐름과 실계약/실분쟁 처리를 같은 문장으로 섞지 않는지 본다.
-- `/admin/audit-logs` 가 현재 컴플라이언스/감사 read-only 진입점으로 읽히고, dedicated compliance 조치 queue 완료 상태처럼 보이지 않는지 재확인한다.
+- 직원용 가이드가 `/login` 과 `/dashboard` 중심 기본 업무 흐름을 쉬운 말로 설명하는지 본다.
+- 직원용/도입 체크리스트 문서가 로그인 전에는 로그인 화면만 보여야 한다는 기준과 비노출 route 목록을 분명히 적는지 본다.
+- 관리자/담당자 가이드가 `/management` 와 `/payroll`·`/work-items/*`·`/admin/audit-logs` 책임 차이를 흐리지 않는지 본다.
+- 운영자 runbook 이 사전 준비 / 도입 중 점검 / 도입 후 정리 3단계로 실제 따라가기 쉽게 정리되는지 확인한다.
+- 권한표가 route guard, API guard, company+branch/self/restricted/read-only scope 와 충돌하지 않는지 본다.
+- 도입 체크리스트가 Windows Chrome/Edge PWA 설치 확인 순서와 승인 게이트를 함께 적는지 본다.
+- 도입 체크리스트가 승인 게이트를 빠뜨리지 않고, 실제로 지금 가능한 범위와 별도 승인 범위를 분리해 적는지 확인한다.
 
-## Phase 43 현재 검증 근거
+## Phase 44 현재 검증 근거
 
-- 현재 기획 근거는 `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts`, `apps/web/admin-preview-guard.test.ts` 에 있다.
-- 이번 Phase는 새 테스트 결과를 추가로 만든 단계가 아니라, 이미 있는 route/API/test 근거를 내부관리 도입 언어로 다시 묶는 문서 단계다.
-- 최신 parent 재검증에서는 `pnpm --filter @gw/shared test`, `pnpm --filter @gw/shared typecheck`, `pnpm --filter @gw/api test`, `pnpm --filter @gw/api typecheck`, `pnpm --filter @gw/web test`, `pnpm --filter @gw/web typecheck`, `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf`, local preview curl smoke 를 실제로 다시 통과했다.
-- local preview curl smoke 기준으로 익명 `/dashboard`·`/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 는 `/login` 으로 redirect 되고, `COMPANY_ADMIN` 은 `/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 와 감사 API를 읽을 수 있었다.
-- 같은 smoke 기준으로 `MANAGER` 는 `/work-items/labor` 와 `/admin/audit-logs` 에서 차단됐고, `EMPLOYEE` 는 `/dashboard` 만 허용되며 management/payroll/work-items/audit route 와 익명 관리자 API 접근은 차단됐다. `AUDITOR` 는 `/admin/audit-logs` 만 허용되고 경영업무 레인은 차단됐다.
-- 보조 발견사항으로 `scripts/gw-admin-host-preview-smoke.sh` 는 general manifest `start_url='/'` 를 기대해 현재 로그인 우선 정책(`start_url='/login'`)과 어긋난다. 이 항목은 smoke helper 기대값 문제이며, 현재 앱 동작 자체는 middleware/mobile-pwa 테스트와 preview smoke 기준으로 정상 판정이다.
+- 현재 기획 근거는 `apps/web/app/dashboard/page.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 에 있다.
+- 현재 구현 문서 세트는 `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-operator-runbook.md`, `docs/guides/phase-44-role-access-matrix.md`, `docs/guides/phase-44-adoption-checklist.md`, `docs/guides/phase-44-pc-mobile-login-only-entry-pwa-desktop-app-handoff.md` 다.
+- 이번 Phase는 새 기능을 만드는 단계보다, 이미 있는 route/API/test 근거를 실제 도입 문서 묶음으로 다시 정렬하는 문서 단계다.
+- 따라서 우선 검증 포인트는 새 happy path 추가보다도 직원 레인/민감 운영 레인 분리, 권한표 일치, approval gate 정합성이 문서와 같은 뜻인지 확인하는 데 둔다.
+- 직전 parent 재검증 기준으로 shared/api/web 전체 테스트, typecheck, `pnpm check`, web build, OpenNext Cloudflare build, local preview curl smoke 가 통과했다.
+- local preview smoke 기준으로 익명 `/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 는 `/login` 으로 redirect 되고, 역할별 route/API 경계도 다시 확인된 상태다.
 
 ## 1. 기본 검증 명령
 
@@ -845,6 +846,7 @@ python3 -m unittest discover -s scripts/tests -p "test_*.py"
 확인할 것:
 - API 기본 경로가 same-origin `/api/*` 설명과 맞는가
 - manifest 경로와 `start_url` 설명이 맞는가
+- 일반 사용자 앱이 로그인 단독 진입 정책을 따르면 `start_url: /login` 같은 시작점 설명과 테스트 근거가 맞는가
 - 일반 사용자 host 와 관리자 host 의 manifest/start_url/scope 분리가 문서 기준과 맞는가
 - 일반 사용자 host 에서 `/admin*` 가 그대로 렌더링되지 않는가
 - `build:cf` 가 통과하는가
@@ -1025,6 +1027,23 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 - `apps/web/admin-preview-guard.test.ts`
 - `apps/web/admin-host.test.ts`
 - `apps/web/mobile-pwa.test.ts`
+
+### 로그인 단독 진입 / 일반 사용자 PWA
+
+다시 볼 포인트:
+- PC와 모바일 첫 진입이 `/login` 단독 화면으로 유지되는지
+- 로그인 전 `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/notifications`, `/management`, `/admin*` 가 내부 기능처럼 보이지 않는지
+- `apps/web/app/login/login-form.tsx` 에 role preview selector, landing 미리 설명, 과한 dev-safe CTA 가 기본 UI처럼 남지 않았는지
+- 자동 로그인 설명이 비밀번호 저장이 아니라 세션 유지 선택이라는 뜻을 유지하는지
+- 일반 사용자 manifest 의 `start_url`, install copy, desktop launch 경로가 로그인 단독 진입 정책과 같은 뜻인지
+- Windows Chrome/Edge 기준 설치 메뉴 노출 또는 installability 확인 가능 여부를 실제 근거로 남겼는지
+- 설치 후 실행 시 세션이 없으면 `/login` 부터 시작하는지
+
+주요 테스트:
+- `apps/web/admin-preview-guard.test.ts`
+- `apps/web/mobile-pwa.test.ts`
+- `apps/web/middleware.test.ts`
+- local `preview:cf` 또는 동등 smoke 에서 `/login`, `/`, `/dashboard`, `/admin`, `/manifest.webmanifest` 확인 기록
 
 현재 재검증 메모(부모 카드 기준):
 - 부모 카드 검증 기준으로 `pnpm --filter @gw/shared test -- contracts.spec.ts`, `pnpm --filter @gw/api test -- auth-org.spec.ts`, `pnpm --filter @gw/web test -- admin-console-pass1 admin-preview-guard dashboard-boundary middleware`, `pnpm check`, `pnpm --filter @gw/web build:cf`, `bash scripts/gw-cloudflare-check.sh`, local `preview:cf` smoke 까지 통과했고, PR #39 merge commit `c14bb65` 와 main push `release-gate` run `27398275720` 의 `cloudflare-build`/`cloudflare-deploy` 성공까지 확인됐다.

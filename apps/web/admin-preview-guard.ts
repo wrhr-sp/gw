@@ -4,8 +4,8 @@ import { getAdminHostInfo, getAdminHostRedirectHost, isWorkersPreviewGeneralHost
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
-const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest", "/offline"];
-const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest", "/offline"] as const;
+const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest"];
+const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest"] as const;
 const authenticatedWorkbenchRoutePrefixes = [
   "/",
   "/dashboard",

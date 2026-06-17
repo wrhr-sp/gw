@@ -35,6 +35,10 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/offline", host: "gw-web.preview.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
     expect(getAdminRouteGuardResult({ pathname: "/", host: "example.com" })).toEqual({
       action: "redirect",
       location: "/login",
@@ -86,6 +90,13 @@ describe("admin preview guard", () => {
     expect(
       getAdminRouteGuardResult({
         pathname: "/dashboard",
+        host: "gw-web.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_EMPLOYEE",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/payroll/me",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
       }),
@@ -177,7 +188,7 @@ describe("admin preview guard", () => {
     ).toEqual({ action: "allow" });
   });
 
-  it("allows auditors only on audit log routes and management routes while blocking the rest on the admin host", () => {
+  it("allows auditors only on audit log routes while blocking management and admin console routes", () => {
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/audit-logs",
@@ -191,11 +202,24 @@ describe("admin preview guard", () => {
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_AUDITOR",
       }),
-    ).toEqual({ action: "allow" });
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-admin.preview-account.workers.dev",
+        sessionToken: "dev-placeholder-session_AUDITOR",
+      }),
+    ).toEqual({
+      action: "redirect",
+      location: "/forbidden",
+    });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items/legal",
+        host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_AUDITOR",
       }),
     ).toEqual({
@@ -227,6 +251,7 @@ describe("admin preview guard", () => {
   it("leaves truly public routes alone on ordinary hosts", () => {
     expect(getAdminRouteGuardResult({ pathname: "/login", host: "localhost:3000" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/forbidden", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
+    expect(getAdminRouteGuardResult({ pathname: "/manifest.webmanifest", host: "gw-web.preview.workers.dev" })).toEqual({ action: "allow" });
     expect(getAdminRouteGuardResult({ pathname: "/administrator", host: "example.com" })).toEqual({ action: "allow" });
   });
 

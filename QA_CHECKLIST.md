@@ -26,7 +26,9 @@
 ### 로그인 필수 진입 / 오프라인 제외
 
 - [ ] `/login` 이 유일한 익명 진입점으로 유지된다.
+- [ ] PC와 모바일 첫 진입이 모두 `/login` 단독 화면으로 보인다.
 - [ ] 익명 `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 가 내부 기능처럼 열리지 않는다.
+- [ ] 로그인 화면이 ID/비밀번호/로그인 버튼/최소 보조 옵션만 남기고 role preview selector·landing 미리 설명·과한 dev-safe CTA 를 기본 UI처럼 노출하지 않는다.
 - [ ] 자동 로그인은 비밀번호 저장이 아니라 세션 유지 선택으로만 설명된다.
 - [ ] `rememberSession` 요청 필드가 빠졌을 때도 장기 세션이 기본값처럼 켜지지 않는지 다시 확인했다.
 - [ ] 로그아웃 후 세션과 자동 로그인 상태가 함께 해제된다.
@@ -46,9 +48,12 @@
 - [ ] Phase 25 공통 업무·문서·마감·권한 엔진 1차 범위라면 공통 `work item` 모델, 문서/첨부/검토/마감 skeleton, 회사 + 지점/호텔 + 역할 + capability 접근 기준, 모바일/PC 새 업무 그룹 자리, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 26 HR·미팅 관리 1차 범위라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR / 지점 관리자 / 일반 직원 visibility, metadata-only 메모, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 27 노무 관리 1차 범위라면 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility, metadata-only evidence, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
-- [ ] Phase 43 내부관리 도입완성 범위라면 `/management` 내부관리 허브와 일반 직원 홈이 다른 책임으로 읽히고, `/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs` 의 확인 포인트가 같은 문서 언어로 맞춰져 있다.
-- [ ] Phase 43 문서에서는 `/payroll` preview/self-only/role-split, tax branch/HQ, labor self/branch/restricted, legal contract/company scope, `audit.read` read-only 경계가 같은 말로 유지된다.
-- [ ] dedicated `/compliance` route 또는 `module=compliance` 근거 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` 카드와 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
+- [ ] Phase 44 문서 범위라면 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트, 로그인/PWA handoff 가 같은 제품 언어를 쓴다.
+- [ ] 로그인 전에는 `/login` 만 익명 입구라는 기준과 로그인 전 비노출 route 목록이 문서마다 다르게 적히지 않는다.
+- [ ] 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)이 문서에서 섞이지 않는다.
+- [ ] `/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs` 의 책임 차이와 preview/self-only/branch/company/restricted/read-only 경계가 같은 말로 유지된다.
+- [ ] dedicated `/compliance` route 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` 문맥과 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
+- [ ] 도입 체크리스트가 사전 준비 / 역할별 시나리오 점검 / 승인 게이트 확인 순서로 실제 따라가기 쉽게 정리돼 있다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.

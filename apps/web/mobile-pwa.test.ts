@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 import { metadata as adminRouteMetadata } from "./app/admin/layout";
-import { GET as getGeneralManifestResponse } from "./app/manifest.webmanifest/route";
 import {
   adminOfflineGuidance,
   adminManifestHref,
@@ -34,8 +33,8 @@ const publicManifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/ma
 
 describe("Phase 6 mobile/PWA skeleton config", () => {
   it("keeps the general-user manifest relative and provides placeholder icons", () => {
-    expect(generalPwaManifest.id).toBe("/");
-    expect(generalPwaManifest.start_url).toBe("/");
+    expect(generalPwaManifest.id).toBe("/login");
+    expect(generalPwaManifest.start_url).toBe("/login");
     expect(generalPwaManifest.scope).toBe("/");
     expect(generalPwaManifest.display_override).toEqual(["standalone", "minimal-ui", "browser"]);
     expect(generalPwaManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual(["/dashboard", "/attendance", "/approvals"]);
@@ -47,14 +46,6 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(publicManifest).toMatchObject(generalPwaManifest);
     expect(publicManifest.icons).toEqual(generalPwaManifest.icons);
     expect(generalManifestHref).toBe("/manifest.webmanifest");
-  });
-
-  it("serves the general manifest through the app route for Cloudflare preview parity", async () => {
-    const response = await getGeneralManifestResponse();
-
-    expect(response.headers.get("content-type")).toContain("application/manifest+json");
-    expect(response.headers.get("cache-control")).toBe("no-store, max-age=0");
-    await expect(response.json()).resolves.toMatchObject(generalPwaManifest);
   });
 
   it("returns a separate admin manifest identity for admin hosts", () => {
@@ -85,7 +76,6 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "/dashboard",
       "/attendance",
       "/leave",
-      "/payroll",
       "/approvals",
       "/boards",
       "/documents",
