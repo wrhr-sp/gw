@@ -19,32 +19,38 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
   const flows: RecommendedFlow[] = [
     {
       title: "일반 직원 · 팀장 확인 순서",
-      detail: "모바일/PC 공통으로 같은 정보구조를 따라 오늘 할 일 → 복구 경로 → 실제 업무 화면 순서로 확인합니다.",
-      routes: ["/login", "/dashboard", "/menu", "/notifications", "/offline", "/attendance", "/leave", "/approvals"],
+      detail: "파일럿/UAT 기준으로도 같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.",
+      routes: ["/login", "/dashboard", "/attendance", "/leave", "/approvals", "/boards", "/documents", "/me"],
     },
   ];
 
   if (roleCode && isAdminCapableRoleCode(roleCode)) {
     flows.push({
       title: "관리자 계정·정책 확인 순서",
-      detail: "일반 홈과 운영 레인을 섞지 않고, 사용자·정책 변경이 필요한 화면만 관리자 레인에서 이어 봅니다.",
-      routes: ["/login", "/dashboard", "/admin/users", "/admin/policies"],
+      detail: "일반 홈과 운영 레인을 섞지 않고, 운영 허브 확인 뒤 계정·정책·감사 레인을 같은 문장으로 이어 봅니다.",
+      routes: ["/login", "/dashboard", "/management", "/admin/users", "/admin/policies", "/admin/audit-logs", "/api/health"],
     });
   }
 
   if (roleCode && isLegalManagementRoleCode(roleCode)) {
     flows.push({
-      title: "운영 관리자 확인 순서",
-      detail: "일반 홈과 운영 허브를 섞지 않고, 최신성 확인이 필요한 내부관리 화면만 별도 허브에서 이어 봅니다.",
-      routes: ["/login", "/dashboard", "/management", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal"],
+      title: roleCode === "MANAGER" ? "지점 관리자 확인 순서" : "운영 관리자 확인 순서",
+      detail:
+        roleCode === "MANAGER"
+          ? "공통 landing 뒤 branch scope 레인과 company scope 문맥을 구분해 확인하고, 읽기 조회와 운영 검토를 같은 책임처럼 섞지 않습니다."
+          : "일반 홈과 운영 허브를 섞지 않고, 계정관리/정책 preview 와 민감 내부관리 화면을 별도 허브에서 이어 봅니다.",
+      routes:
+        roleCode === "MANAGER"
+          ? ["/login", "/dashboard", "/work-items/branch", "/employees", "/org", "/management"]
+          : ["/login", "/dashboard", "/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     });
   }
 
   if (roleCode === "AUDITOR") {
     flows.push({
       title: "감사 확인 순서",
-      detail: "감사 역할은 감사 추적 레인만 읽고, 사용자/정책 관리 레인과 섞지 않습니다.",
-      routes: ["/login", "/dashboard", "/admin/audit-logs"],
+      detail: "감사 역할은 감사 추적 레인과 최소 liveness 기준만 읽고, 사용자/정책 관리 레인과 섞지 않습니다.",
+      routes: ["/login", "/admin/audit-logs", "/api/health"],
     });
   }
 

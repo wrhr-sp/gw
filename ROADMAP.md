@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 48 감사·보안·백업/복구·장애대응·운영관제 fit-gap 정리다. Phase 48의 목적은 Phase 37 저장흐름·감사 연결, Phase 39 운영 QA·보안·권한 회귀, Phase 44 운영자 runbook, Phase 47 운영 안정성 기준선을 한 번 더 묶어 `/admin/audit-logs`, `/management`, `/admin/users`, `/admin/policies`, `/api/health`, `RUNBOOK.md`, `DEPLOYMENT.md` 를 내부 운영 가능 기준선 관점으로 다시 정리하는 것이다.
-핵심은 새 외부 보안 제품이나 backup 시스템을 바로 여는 것이 아니라, 감사 read-only/masked 기준, role+permission+company/branch 경계, 최소 health/smoke/runbook 기준, backup/restore/incident 승인 게이트를 같은 언어로 다시 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 49 파일럿 피드백 반영·최종 UAT 회귀 fit-gap 정리다. Phase 49의 목적은 Phase 45 최종 내부 도입 검증, Phase 46 온보딩 리허설, Phase 47 운영 안정성, Phase 48 감사·운영 기준선을 바탕으로 직원/운영 관리자/지점관리자/감사 담당자 역할별 UAT 회귀 순서를 다시 묶어 `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/management`, `/work-items/branch`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health` 를 실제 파일럿 확인 언어로 다시 정리하는 것이다.
+핵심은 새 외부 연동을 바로 여는 것이 아니라, 일반 업무 레인 대 운영 레인 대 지점 업무 레인 대 감사 레인을 같은 언어로 구분하고 happy path/forbidden/empty/error/loading/mobile/PC 기록 포인트와 승인 게이트를 최종 UAT 패키지로 다시 잠그는 것이다.
 
 ## Phase 흐름
 
@@ -59,6 +59,7 @@
 - Phase 46: 계정·권한·조직 온보딩 리허설 fit-gap
 - Phase 47: 운영 안정성·성능·모바일/PWA 사용성 보강 fit-gap
 - Phase 48: 감사·보안·백업/복구·장애대응·운영관제 fit-gap
+- Phase 49: 파일럿 피드백 반영·최종 UAT 회귀 fit-gap
 
 ## MVP 성공 기준
 
@@ -74,7 +75,8 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-48-audit-security-backup-restore-incident-ops-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-48-audit-security-backup-restore-incident-ops-handoff.md`
-- 직전 범위: `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-49-pilot-feedback-reflection-final-uat-regression-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-handoff.md`
+- 현재 쉬운 가이드: `docs/guides/phase-49-pilot-feedback-reflection-final-uat-regression-guide.md`
+- 직전 범위: `docs/architecture/phase-48-audit-security-backup-restore-incident-ops-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-48-audit-security-backup-restore-incident-ops-handoff.md`

@@ -9,6 +9,14 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 49 추가 검증 초점
+
+- 직원 레인(`/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)이 실제 파일럿 회귀 순서로 따라가기 쉬운지 본다.
+- 운영 관리자 레인(`/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health`)이 일반 직원 홈과 섞이지 않는지 본다.
+- 지점관리자 레인(`/work-items/branch` 중심)과 회사 범위 운영 레인이 같은 권한처럼 풀리지 않는지 본다.
+- 각 핵심 기능에서 happy path / forbidden / empty / error / loading / mobile/PC 기록 포인트가 문서와 화면 설명에서 같은 뜻인지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 48 추가 검증 초점
 
 - `/admin/audit-logs` 가 계속 `audit.read` 기반 read-only / masked preview / company boundary 기준으로 읽히는지 본다.

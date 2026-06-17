@@ -73,10 +73,16 @@ const roleLaneCards = [
     blocked: "첫 관리자 레인은 /management 가 아니라 /admin/users 로 고정",
   },
   {
-    role: "MANAGER / COMPANY_ADMIN",
+    role: "MANAGER",
     firstRoute: "/dashboard",
-    summary: "운영 관리자와 지점 관리자는 공통 홈 뒤 경영업무 허브와 branch scope 운영 레인으로 이어져 민감 업무를 분리해 봅니다.",
-    blocked: "공통 landing 다음 레인은 /management 이며 일반 조회(/employees, /org)를 운영 변경 화면처럼 쓰지 않음",
+    summary: "지점 관리자는 공통 홈 뒤 /work-items/branch → /employees → /org → /management 순서의 branch scope 운영 레인만 확인합니다.",
+    blocked: "/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단",
+  },
+  {
+    role: "COMPANY_ADMIN",
+    firstRoute: "/dashboard",
+    summary: "운영 관리자는 공통 홈 뒤 /management → /admin/users → /admin/policies → /admin/audit-logs company scope 운영 레인을 검토합니다.",
+    blocked: "공통 landing 다음 레인은 /management 이고 branch scope 읽기 화면(/employees, /org)을 관리자 저장 화면처럼 쓰지 않음",
   },
   {
     role: "AUDITOR",

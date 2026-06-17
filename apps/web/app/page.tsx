@@ -13,8 +13,10 @@ const primaryFlows = [
   },
   {
     badge: "관리자 검토 흐름",
-    title: "/dashboard 관리자 CTA → /admin/users(HR) · /management(운영) → /payroll → /work-items/tax · /work-items/labor · /work-items/legal → /admin/audit-logs",
-    body: "인사 관리자는 /admin/users 계열, 운영 관리자/지점 관리자는 /management 계열, 감사 사용자는 /admin/audit-logs 계열처럼 실제 권한 레인에 맞춰 나눠서 이동합니다.",
+    title:
+      "/dashboard 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
+    body:
+      "운영 관리자는 회사 전체 운영·정책·감사 preview 를 보는 company scope 레인으로, 지점 관리자는 자기 지점 업무·직원·조직 확인 뒤 /management 문맥만 참고하는 branch scope 레인으로 분리해 안내합니다.",
   },
 ] as const;
 
@@ -38,10 +40,16 @@ const roleEntryCards = [
     note: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.",
   },
   {
-    role: "운영 관리자 / 지점 관리자",
+    role: "운영 관리자",
     firstRoute: "/dashboard",
-    summary: "로그인 직후 공통 홈에서 시작한 뒤 운영 CTA 로 내부관리 허브와 branch scope 레인으로 이어집니다.",
-    note: "공통 landing 다음 레인은 /management 이며, 일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 company scope 운영 CTA 로 /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
+    note: "운영 관리자는 회사 공통 운영 권한을 검토하고, branch scope 업무 레인과 같은 권한처럼 설명하지 않습니다.",
+  },
+  {
+    role: "지점 관리자",
+    firstRoute: "/dashboard",
+    summary: "공통 홈 뒤 `/work-items/branch → /employees → /org → /management` 순서의 branch scope 운영 레인으로 이어집니다.",
+    note: "`/employees`, `/org` 는 읽기 확인용이고 `/management` 는 회사 공통 운영 authority 가 아니라 연결 문맥으로만 소개합니다.",
   },
   {
     role: "감사 전용 사용자",

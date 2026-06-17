@@ -23,6 +23,14 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/admin/policies", host: "gw-web.preview.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/admin/audit-logs", host: "localhost:3000" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
     expect(getAdminRouteGuardResult({ pathname: "/work-items", host: "localhost:3000" })).toEqual({
       action: "redirect",
       location: "/login",

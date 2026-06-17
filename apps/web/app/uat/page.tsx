@@ -70,7 +70,7 @@ export default function UatPage() {
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <p className="card-note">forbidden / empty / error / offline / approval-needed 확인 포인트</p>
+              <p className="card-note">forbidden / empty / error / loading / mobile/PC / approval-needed 확인 포인트</p>
               <ul className="summary-list">
                 {card.statusChecks.map((item) => (
                   <li key={item}>{item}</li>

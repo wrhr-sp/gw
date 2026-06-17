@@ -53,6 +53,8 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("현장 업무 사용성 원칙");
     expect(html).toContain("상태 안내 기준선");
     expect(html).toContain("Phase 47 추천 확인 순서");
+    expect(html).toContain("Phase 49 직원 레인 고정");
+    expect(html).toContain("/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me");
     expect(html).toContain("일반 직원 · 팀장 확인 순서");
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
     expect(html).not.toContain("감사 확인 순서");
@@ -68,7 +70,8 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("승인/대기 요약");
     expect(html).toContain("역할별 첫 이동");
     expect(html).toContain("인사 관리자");
-    expect(html).toContain("운영 관리자 / 지점 관리자");
+    expect(html).toContain("운영 관리자");
+    expect(html).toContain("지점 관리자");
     expect(html).toContain("/admin/users");
     expect(html).toContain("/management");
     expect(html).toContain("관리자 운영 검토 레인");
@@ -80,7 +83,11 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html.indexOf("상태 안내 기준선")).toBeLessThan(html.indexOf("Phase 47 추천 확인 순서"));
     expect(html.indexOf("Phase 47 추천 확인 순서")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
-    expect(html).toContain("`/management` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs`");
+    expect(html).toContain("/management");
+    expect(html).toContain("/admin/users");
+    expect(html).toContain("/admin/policies");
+    expect(html).toContain("/admin/audit-logs");
+    expect(html).toContain("/api/health");
     expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("막힐 때 다시 가는 현장 복구 경로");
@@ -190,6 +197,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("관리자 계정·정책 확인 순서");
     expect(html).toContain('href="/admin/users"');
     expect(html).toContain("/admin/policies");
+    expect(html).toContain("/api/health");
     expect(html).not.toContain("감사 확인 순서");
     expect(html).not.toContain('href="/admin/audit-logs"');
     expect(html).toContain("근태");
