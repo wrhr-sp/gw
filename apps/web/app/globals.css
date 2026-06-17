@@ -300,6 +300,45 @@ li {
   margin-bottom: 16px;
 }
 
+.login-page-shell {
+  min-height: 100dvh;
+  width: min(460px, calc(100vw - 24px));
+  place-items: center;
+  overflow: hidden;
+  padding: 16px 0;
+}
+
+.login-card {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.login-options-row {
+  display: flex;
+  gap: 18px;
+  margin-top: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.login-option {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.login-action-row {
+  justify-content: center;
+  width: 100%;
+}
+
+.login-submit-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
 .pill-row,
 .action-row,
 .link-row {
@@ -555,6 +594,19 @@ li {
 @media (max-width: 960px) {
   .page-shell {
     width: min(1120px, calc(100vw - 20px));
+  }
+
+  .login-page-shell {
+    width: min(460px, calc(100vw - 24px));
+    height: 100dvh;
+    min-height: 100dvh;
+    align-content: center;
+    overflow: hidden;
+  }
+
+  .login-card {
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
   }
 
   .page-shell__headline {

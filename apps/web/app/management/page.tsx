@@ -5,6 +5,7 @@ import { getViewerAccessForRoleCode, hasHomeShortcutRouteAccess } from "@gw/shar
 import { extractViewerRoleCodeFromSessionToken } from "../../admin-page-access";
 import { ManagementCompliancePreviewSection } from "../_components/phase35-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { Phase47RecommendedFlowSection, Phase47StatusGuideSection } from "../_components/phase47-usage-guide";
 import { getVisibleDashboardManagementCards } from "../dashboard/dashboard-config";
 
 const baseManagementCards = [
@@ -131,6 +132,14 @@ export default async function ManagementPage() {
           <li>/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인</li>
         </ol>
       </SurfaceSection>
+
+      <Phase47RecommendedFlowSection
+        title="운영 레인 고정 순서"
+        description="일반 홈과 운영 허브를 섞지 않고, live 확인 때도 같은 점검 순서를 반복합니다."
+        roleCode={roleCode}
+      />
+
+      <Phase47StatusGuideSection title="운영 상태 문장 가이드" description="민감 운영 레인에서도 loading, empty, error, forbidden, offline, dev-safe 를 각각 다른 책임으로 읽게 고정합니다." />
 
       <SurfaceSection title="리허설 패키지 묶음" description="내부 도입 리허설 참가자와 진행자가 같은 언어를 보도록 `/uat` 를 함께 둡니다.">
         <div className="grid-auto-compact">

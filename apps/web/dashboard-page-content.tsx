@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { HomeShortcut, RoleCode } from "@gw/shared";
 
 import { Phase16PilotPanel } from "./app/_components/phase-16-pilot";
+import { Phase47RecommendedFlowSection, Phase47StatusGuideSection } from "./app/_components/phase47-usage-guide";
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
 import { fieldUsabilityPrinciples, recoveryRouteCards } from "./app/mobile-pwa-config";
@@ -111,6 +112,10 @@ export function DashboardPageContent({
           ))}
         </ul>
       </SurfaceSection>
+
+      <Phase47StatusGuideSection />
+
+      <Phase47RecommendedFlowSection roleCode={viewerRoleCode as RoleCode | null} />
 
       <SurfaceSection title="승인/대기 요약" description="근태·휴가 예외와 승인 병목 후보를 먼저 읽고 attendance/leave/approvals 상세 화면으로 이동합니다.">
         <div className="grid-auto-compact">

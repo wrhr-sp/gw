@@ -51,6 +51,14 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("회사 공통 고정");
     expect(html).toContain("권한 기반 사용자 전용");
     expect(html).toContain("현장 업무 사용성 원칙");
+    expect(html).toContain("상태 안내 기준선");
+    expect(html).toContain("Phase 47 추천 확인 순서");
+    expect(html).toContain("일반 직원 · 팀장 확인 순서");
+    expect(html).not.toContain("관리자 계정·정책 확인 순서");
+    expect(html).not.toContain("감사 확인 순서");
+    expect(html).toContain("loading");
+    expect(html).toContain("forbidden");
+    expect(html).toContain("dev-safe / preview");
     expect(html).toContain("오늘 출퇴근 먼저 처리");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인 대기 보기");
@@ -68,7 +76,9 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("공지/문서 진입점");
     expect(html).toContain("운영 요약");
     expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("홈 바로가기"));
-    expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("승인/대기 요약"));
+    expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("상태 안내 기준선"));
+    expect(html.indexOf("상태 안내 기준선")).toBeLessThan(html.indexOf("Phase 47 추천 확인 순서"));
+    expect(html.indexOf("Phase 47 추천 확인 순서")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
     expect(html).toContain("`/management` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs`");
     expect(html).toContain("/me");
@@ -94,6 +104,9 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).not.toContain("내부 도입 리허설 패키지");
     expect(html).not.toContain('href="/uat"');
     expect(html).not.toContain("admin / 1234");
+    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/admin/policies"');
+    expect(html).not.toContain('href="/admin/audit-logs"');
   });
 
   it("only returns an admin shortcut for admin-capable roles and a separate audit shortcut for auditors", () => {
@@ -138,6 +151,18 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(getVisibleDashboardManagementCards(["AUDITOR"])).toEqual([]);
   });
 
+  it("renders only the audit flow for auditors without exposing admin policy routes", () => {
+    const html = renderToStaticMarkup(
+      <DashboardPageContent adminShortcut={getDashboardAdminShortcut(["AUDITOR"], ["audit.read"])} managementCards={[]} viewerRoleCode="AUDITOR" />,
+    );
+
+    expect(html).toContain("감사 확인 순서");
+    expect(html).toContain('href="/admin/audit-logs"');
+    expect(html).not.toContain("관리자 계정·정책 확인 순서");
+    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/admin/policies"');
+  });
+
   it("renders the actual admin CTA, shortcut split, and management lane when a privileged viewer is supplied", () => {
     const html = renderToStaticMarkup(
       <DashboardPageContent
@@ -162,6 +187,11 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("내부 도입 리허설 패키지");
     expect(html).toContain('href="/uat"');
+    expect(html).toContain("관리자 계정·정책 확인 순서");
+    expect(html).toContain('href="/admin/users"');
+    expect(html).toContain("/admin/policies");
+    expect(html).not.toContain("감사 확인 순서");
+    expect(html).not.toContain('href="/admin/audit-logs"');
     expect(html).toContain("근태");
     expect(html).toContain("관리자 사용자");
     expect(html).toContain("운영 DB 기준 홈 바로가기를 조회했습니다.");

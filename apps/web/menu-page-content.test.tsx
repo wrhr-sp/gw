@@ -73,6 +73,13 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
     expect(html).toContain("운영 DB 기준 홈 바로가기를 조회했습니다.");
     expect(html).toContain("메뉴/홈/메신저/메일/알림");
     expect(html).toContain("모바일·PC 같은 정보구조 원칙");
+    expect(html).toContain("모바일 상태 문장 가이드");
+    expect(html).toContain("모바일 추천 확인 순서");
+    expect(html).toContain("일반 직원 · 팀장 확인 순서");
+    expect(html).not.toContain("관리자 계정·정책 확인 순서");
+    expect(html).not.toContain("감사 확인 순서");
+    expect(html).toContain("loading");
+    expect(html).toContain("dev-safe / preview");
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
     expect(html).not.toContain('href="/admin/users"');
@@ -91,6 +98,8 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
     expect(html).toContain('href="/admin/users"');
     expect(html).toContain('href="/management"');
     expect(html).toContain("경영업무");
+    expect(html).toContain("관리자 계정·정책 확인 순서");
+    expect(html).toContain("/admin/policies");
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 경영업무 분리 메뉴를 함께 확인해야 합니다.");
   });

@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 46 계정·권한·조직 온보딩 리허설 fit-gap 정리다. Phase 46의 목적은 Phase 45에서 잠근 내부 도입 기준선 위에, `/admin/users`·`/employees`·`/org`·`/management`·`/work-items/branch` 를 사람 온보딩/오프보딩 관점으로 다시 묶어 운영자가 내부 사용자를 안전하게 태우고 내리는 절차를 완성하는 것이다.
-핵심은 새 업무 모듈 추가보다, 사용자 생성·역할/권한 지정·조직/지점 배정 확인·비활성/비밀번호 초기화·공통 post-login landing(`/dashboard`) 뒤 역할별 다음 레인 검증을 dev-safe preview 와 실제 내부 도입 기준으로 분리해 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 47 운영 안정성·성능·모바일/PWA 사용성 보강 fit-gap 정리다. Phase 47의 목적은 Phase 46에서 잠근 내부 온보딩 기준선 위에, `/dashboard`·`/menu`·`/notifications`·`/offline`·`/management`·`/admin/users`·`/admin/audit-logs` 를 회사 전체 사용 직전의 안정성/로딩/재시도/모바일 사용성 관점으로 다시 묶는 것이다.
+핵심은 새 외부 연동 추가보다, 로그인 필수 진입·역할별 landing·하단 탭/PC sidebar 같은 정보구조·오프라인 honesty·운영 레인 분리를 같은 언어로 다시 잠그고, installability 와 실제 offline 상태 변경 가능성을 같은 뜻으로 섞지 않는 것이다.
 
 ## Phase 흐름
 
@@ -57,6 +57,7 @@
 - Phase 44: 운영문서·사용자가이드·관리자가이드·도입 체크리스트 fit-gap
 - Phase 45: 외부연동 전 내부 도입 최종검증·릴리즈 fit-gap
 - Phase 46: 계정·권한·조직 온보딩 리허설 fit-gap
+- Phase 47: 운영 안정성·성능·모바일/PWA 사용성 보강 fit-gap
 
 ## MVP 성공 기준
 
@@ -72,7 +73,7 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`
-- 직전 범위: `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`
+- 직전 범위: `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`

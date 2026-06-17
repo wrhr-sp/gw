@@ -18,17 +18,29 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 46 계정·권한·조직 온보딩 리허설 체인이다. 이번 Phase의 목적은 Phase 45 내부 도입 기준선 위에서 `/admin/users`·`/employees`·`/org`·`/management`·`/work-items/branch` 를 사용자 온보딩/오프보딩 기준으로 다시 묶어, 운영자가 내부 사용자를 안전하게 태우고 내리는 절차를 같은 언어로 잠그는 것이다.
+현재 메인 활성 흐름은 Phase 47 운영 안정성·성능·모바일/PWA 사용성 보강 체인이다. 이번 Phase의 목적은 Phase 46 온보딩 기준선 위에서 `/dashboard`·`/menu`·`/notifications`·`/offline`·`/management`·`/admin/users`·`/admin/audit-logs` 를 회사 전체 사용 직전의 안정성/로딩/재시도/모바일 사용성 기준으로 다시 묶는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx` 기준으로 계정 생성/권한 diff/상태 변경/비밀번호 초기화 dev-safe preview 흐름이 이미 존재한다.
-- `apps/web/app/employees/page.tsx`, `apps/web/app/org/page.tsx`, `apps/api/src/lib/operational-org.ts` 기준으로 직원/조직 읽기 중심 흐름이 이미 존재한다.
-- `apps/web/app/management/page.tsx`, `apps/web/app/work-items/work-items-config.ts`, `apps/api/test/work-items.spec.ts` 기준으로 지점 운영과 내부관리 허브 흐름이 이미 존재한다.
-- `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/test/auth-org.spec.ts` 기준으로 감사 전용 read-only 흐름이 유지된다.
-- 현재 Phase 46 기준 문서는 `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`, `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`, `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md` 다.
-- 현재 메인 체인은 `t_9bb90fee`(기획 진행 중) → `t_c59b2bbb`(구현 부모 대기) → `t_436b2418`(리뷰 부모 대기) → `t_c98a8706`(테스트 부모 대기) → `t_897780bf`(문서화 부모 대기) → `t_502529de`(release gate 부모 대기) 순서다.
+- `apps/web/app/layout.tsx`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/_components/mobile-app-shell.tsx` 기준으로 general/admin host shell, manifest split, offline/install guidance 흐름이 이미 존재한다.
+- `apps/web/app/page.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx` 기준으로 홈 shortcut, 메뉴, 모바일 하단 탭/PC sidebar 같은 정보구조 근거가 이미 존재한다.
+- `apps/web/app/offline/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx` 기준으로 offline/empty/error/dev-safe 상태 문장을 구분하려는 현재 화면 근거가 있다.
+- `apps/web/app/management/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts` 기준으로 운영 레인과 일반 직원 레인, 감사 read-only 레인, 로그인 필수 경계가 유지된다.
+- 현재 Phase 47 기준 문서는 `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`, `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`, `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md` 다.
+- 현재 메인 체인은 `t_b1e8800c`(기획 진행 중) → `t_3dfc46d5`(구현 부모 대기) 순서다.
+
+2026-06-17 Phase 47 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/login`, `/dashboard`, `/menu`, `/notifications`, `/offline`, `/management`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/manifest.webmanifest`, `/admin/manifest.webmanifest`.
+- 현재 기획 근거는 `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/_components/mobile-app-shell.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts`, `packages/shared/src/mobile-contracts.ts` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 로그인 뒤 홈/메뉴/알림/오프라인/운영 레인을 한 번에 따라갈 때 loading·empty·error·forbidden·offline·dev-safe 가 서로 다른 뜻으로 읽히는지다.
+- COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 는 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 로 landing 하고, 그 뒤 운영 레인(`/management`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)은 일반 직원 홈과 절대 섞지 않는다.
+- 모바일 하단 탭 5개와 PC sidebar 는 같은 정보구조를 가리키고, installability 와 실제 offline 상태 변경 가능 여부를 같은 말처럼 적지 않는다.
+- `/offline` 은 가능한 일/막히는 일/재시도 절차를 안내하는 복구 화면이지 업무 완료 화면이 아니다.
+- 외부 push/SMS/메일, background sync, native 배포, production custom domain/app link, 실사용 비밀번호/실데이터/외부 IdP 는 계속 승인 게이트다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.werehere31.workers.dev`, main release-gate 는 success, merge commit 은 `8cb631709a27d4cf73bcd198a9c6e3dafc47e1b9` 다.
+- 직전 문서 기준 focused API 15 files / 98 passed / 4 skipped, focused web 24 files / 102 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 통과했다.
 
 2026-06-17 Phase 46 fit-gap 메모:
 

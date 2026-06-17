@@ -9,6 +9,15 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 47 추가 검증 초점
+
+- `/dashboard`·`/menu`·`/notifications`·`/offline` 를 먼저 따라갈 때 loading / empty / error / forbidden / offline / dev-safe 문장이 서로 다른 뜻으로 읽히는지 본다.
+- 모바일 하단 탭 5개와 PC sidebar, home shortcut, install 안내가 같은 정보구조와 같은 운영 기대치를 가리키는지 본다.
+- installability / manifest 존재 / 모바일 shell 존재를 실제 offline 상태 변경 가능이나 background sync 완료와 같은 뜻으로 과장하지 않는지 본다.
+- `/management`·`/admin/users`·`/admin/policies`·`/admin/audit-logs` 운영 레인과 `/dashboard` 일반 직원 홈이 다시 섞이지 않는지 본다.
+- `/offline` 이 가능한 일 / 막히는 일 / 재시도 절차를 먼저 안내하고, 상태 변경 성공처럼 보이지 않는지 본다.
+- parent 기준 focused API 98 passed, focused web 102 passed, mobile typecheck, web build, 기존 login-only redirect smoke baseline 을 Phase 47 대체 근거로 무리 없이 이어받는지 확인한다.
+
 ## Phase 46 추가 검증 초점
 
 - `/admin/users` 생성/권한 diff/상태 변경/비밀번호 초기화 preview 가 실제 저장 완료처럼 보이지 않는지 본다.
