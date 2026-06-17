@@ -326,6 +326,10 @@ li {
   text-align: center;
 }
 
+.login-card .field-grid {
+  grid-template-columns: 1fr;
+}
+
 .login-options-row {
   display: flex;
   gap: 18px;
