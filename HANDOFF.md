@@ -26,7 +26,7 @@
 - `apps/web/app/page.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx` 기준으로 홈 shortcut, 메뉴, 모바일 하단 탭/PC sidebar 같은 정보구조 근거가 이미 존재한다.
 - `apps/web/app/offline/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx` 기준으로 offline/empty/error/dev-safe 상태 문장을 구분하려는 현재 화면 근거가 있다.
 - `apps/web/app/management/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts` 기준으로 운영 레인과 일반 직원 레인, 감사 read-only 레인, 로그인 필수 경계가 유지된다.
-- 현재 Phase 47 기준 문서는 `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`, `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md` 다.
+- 현재 Phase 47 기준 문서는 `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`, `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`, `docs/guides/phase-47-user-admin-uat-ops-guide.md` 다.
 - 현재 직전 기준 문서는 `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`, `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md` 다.
 - 현재 메인 체인은 `t_b1e8800c`(기획 진행 중) → `t_3dfc46d5`(구현 부모 대기) 순서다.
 

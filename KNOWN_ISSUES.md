@@ -27,7 +27,7 @@
 - 일반 직원/팀장 체감 레인: `/dashboard` → `/menu` → `/notifications` → 실제 업무 route
 - 운영 레인: `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs`
 - 오프라인/재시도 레인: `/offline` 에서 가능한 일 / 막히는 일 / 재시도 절차 분리
-- 문서 묶음: Phase 47 scope/handoff + 직전 Phase 46 온보딩 문서 세트
+- 문서 묶음: Phase 47 scope/handoff/user-admin-UAT-ops guide + 직전 Phase 46 온보딩 문서 세트
 
 - `/admin/users` 는 dev-safe 생성/권한 diff/상태 변경/비밀번호 초기화 preview 화면이며 실제 저장 완료 화면이 아니다.
 - `/employees` 와 `/org` 는 읽기 중심 조회로 유지한다.
