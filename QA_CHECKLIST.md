@@ -67,7 +67,12 @@
 - [ ] dedicated `/compliance` route 부재가 숨겨지지 않고, 현재 컴플라이언스 진입이 `/management` 문맥과 `/admin/audit-logs` read-only 흐름이라는 설명이 일관된다.
 - [ ] 도입 체크리스트가 사전 준비 / 역할별 시나리오 점검 / 승인 게이트 확인 순서로 실제 따라가기 쉽게 정리돼 있다.
 - [ ] 모바일 하단 탭 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개가 고정되고, `메뉴`에서 여는 전체 메뉴 화면과 PC collapsible sidebar 가 같은 정보구조를 가리킨다.
-
+- [ ] 모바일 하단 탭 각 pill 안에서 아이콘이 글자 위에 오고, `bottom-nav__icon-wrap` 다음 `bottom-nav__label` 순서가 유지된다.
+- [ ] 모바일 하단바가 화면 edge 에 붙은 flat footer 가 아니라 safe-area 위 floating capsule 로 읽히고, 좌우 inset·radius·약한 shadow/blur/card 느낌이 과하지 않게 유지된다.
+- [ ] active 탭만 rounded pill 배경으로 강조되고, `aria-current="page"` 와 시각 active 상태가 서로 다른 탭을 가리키지 않는다.
+- [ ] 알림 배지가 0이면 숨고, 1~99는 숫자, 100 이상은 `99+` 로 표기되며 active pill 과 라벨 가독성을 가리지 않는다.
+- [ ] 모바일 하단 탭 아이콘 source/path 를 임의 재선정하지 않고 기존 5개 자산을 그대로 유지한다.
+- [ ] floating bar 높이와 safe-area 를 고려한 본문 하단 padding 이 적용돼 마지막 카드/버튼/폼이 하단바 뒤로 숨지 않는다.
 - [ ] 모바일 `홈` 은 고정 필수 메뉴와 사용자 선택/정렬 가능한 메뉴가 구분돼 적혀 있고, `홈` 바로가기와 `메뉴` 전체 기능 선택 화면이 같은 기능 registry 를 공유한다.
 - [ ] 고정 필수 메뉴가 임의로 사라지지 않는 정책 기준과, 사용자별 `홈` 커스터마이징 저장이 아직 dev-safe/local/profile skeleton 전제라는 설명이 빠지지 않는다.
 - [ ] 호텔 위탁경영사 기준 `지점/호텔 코드` 구조, `지점 배정 필요` 안내, 일반 근무자 `지점 업무` 대 관리자 `지점 관리` 분리가 문서/화면/API 설명에서 같은 뜻이다.
@@ -80,7 +85,7 @@
 - [ ] 모바일 상태 안내가 offline, error, empty, forbidden 4축을 먼저 구분하고, 정상 빈 상태와 실패 상태를 섞어 쓰지 않는다.
 - [ ] `/boards` 와 `/documents` 가 모바일에서 같은 협업 묶음 진입으로 설명되더라도 게시판 책임과 문서 보관 책임을 합쳐 쓰지 않는다.
 - [ ] `/boards` 가 `board_notice`/`board_general` 예시를 통해 notice-only와 일반 게시판 책임 차이를 먼저 설명하고, 운영 공지 작성 권한과 일반 글쓰기 권한을 섞지 않는다.
-- [ ] 현재 협업 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents`)가 실제 저장소 route 와 맞고, preview 생성 결과를 운영 데이터처럼 설명하지 않는다.
+- [ ] 현재 협업 확인 예시(`/boards/board_notice`, `/boards/board_general`, `/posts/board_post_demo`, `/posts/board_post_notice_1`, `/documents`)가 실제 저장소 route 와 맞고, preview 생성 결과를 운영 데이터처럼 설명하지 않는다.
 - [ ] `/posts/[postId]` 가 bodyPreview 중심 상세, 댓글, 읽음 확인 CTA 분리를 유지하고 댓글 preview 생성·읽음 확인 등록·forged 차단 확인을 같은 뜻으로 안내한다.
 - [ ] `/documents` 가 전사 문서함과 인사 전용 문서함의 권한 차이, metadata 중심 설명, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인, raw storage key/bucket/public URL 비노출 원칙을 한 번에 보여 준다.
 - [ ] `/documents` 의 `upload-init`/`upload-complete`/`download-init`/delete 흐름이 외부 파일 공유 완료와 같은 말처럼 쓰이지 않고, `storageStatus` 상태 전이 설명으로 정리돼 있다.
@@ -97,7 +102,11 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
-- [ ] Phase 50 내부 그룹웨어 본격 도입 릴리즈 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 51 게시판 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 51 범위라면 `/boards` 가 실사용 시작점처럼 읽히고, `/boards/board_notice` 와 `/boards/board_general` 이 공지형/일반형 책임을 먼저 구분해 보여 준다.
+- [ ] Phase 51 범위라면 `/boards/board_general` 에서 글 목록 → 글 작성 → 상세 진입, `/posts/[postId]` 에서 댓글 → 읽음 확인 happy path 가 실제로 이어진다.
+- [ ] Phase 51 범위라면 notice-only 게시판 일반 글쓰기 차단, forged post detail 차단, forged read receipt 차단이 UI/route/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 51 범위라면 empty/loading/error/forbidden 이 게시판 route 기준으로 분명히 보이고, `preview`·`guard 확인` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
 - [ ] Phase 50 내부 그룹웨어 본격 도입 릴리즈 범위라면 직원 레인(`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`·`/me`), 운영 관리자 레인(`/management`·`/admin/users`·`/admin/policies`·`/admin/audit-logs`·`/api/health`), 지점관리자 레인(`/work-items/branch`), 감사 레인, 경영업무 민감 모듈 레인이 같은 관리자 흐름처럼 섞이지 않는다.
 - [ ] Phase 50 범위라면 skeleton/placeholder/dev-safe/read-only 잔여가 최종 릴리즈 산출물처럼 과장되지 않고, 닫지 못한 항목은 release blocker 또는 approval-needed 로 분리된다.
 - [ ] Phase 50 범위라면 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿이 같은 제품 언어와 같은 승인 게이트 기준을 쓴다.

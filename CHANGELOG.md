@@ -1,11 +1,24 @@
 # CHANGELOG
 
+## 2026-06-18
+
+### Changed
+
+- `docs/guides/phase-51-boards-live-operations-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `KNOWN_ISSUES.md` 에 새 guide 경로를 연결했다. 이번 가이드는 live URL 기준 게시판 전용 사용자/관리자 확인 순서, `admin / 1234` 테스트 계정 사용 원칙, 일반 게시판 happy path, notice-only 책임 확인, forged 차단 확인, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 정리했다.
+
+- `docs/architecture/phase-51-boards-live-operations-fit-gap-scope.md`, `docs/guides/phase-51-boards-live-operations-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 51 기준으로 갱신했다. 이번 기준은 게시판 API/test 존재 자체가 아니라 `/boards` → `/boards/[boardId]` → `/posts/[postId]` 실사용 흐름, notice-only 대 일반 게시판 책임 분리, 댓글·읽음 확인 happy path, forged 차단, empty/loading/error/forbidden 상태를 live URL 기준으로 다시 잠그는 데 맞췄다.
+
 ## 2026-06-17
 
 ### Changed
 
-- `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 다시 보강했다. Phase 50 문서화 카드 기준으로 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 한 문서 세트로 정리하고, 최신 parent tester 근거(focused API 99 passed / 4 skipped, focused web 104 passed, `pnpm check`, web build/build:cf, local `next start` smoke)와 현재 체인 상태(기획/구현/리뷰/테스트 완료 → 문서화 진행 → GitHub/배포 후속 대기)를 루트 문서에 반영했다.
+- `docs/architecture/phase-50-mobile-floating-bottom-bar-ux-fit-gap-scope.md`, `docs/guides/phase-50-mobile-floating-bottom-bar-ux-handoff.md`, `docs/guides/phase-50-mobile-floating-bottom-bar-ux-guide.md`, `SPEC.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 다시 보강했다. 모바일 하단바 문서 기준을 "아이콘은 그대로 두고 글자 위로 올린 세로 배치"까지 명확히 적고, `bottom-nav__link-pill > bottom-nav__icon-wrap > bottom-nav__label` 구조, floating capsule/glass 스타일, 알림 배지 overlay, safe-area padding 검증 포인트를 한 문장 체계로 맞췄다.
 
+- `docs/guides/phase-50-mobile-floating-bottom-bar-ux-guide.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 를 갱신했다. 모바일 플로팅 하단바 문서화 카드 기준으로 변경점, 실제 확인 순서, route별 확인 포인트, 남은 승인 게이트, 사용자 확인 포인트를 쉬운 한국어로 정리하고, 구현/테스트 근거(`apps/web/app/_components/mobile-app-shell.tsx`, `apps/web/app/globals.css`, `apps/web/mobile-app-shell-admin-boundary.test.tsx`, `apps/web/mobile-app-shell-login.test.tsx`, focused web 105 passed)를 함께 연결했다.
+
+- `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 다시 보강했다. Phase 50 문서화 카드 기준으로 사용자/관리자 가이드, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 한 문서 세트로 정리하고, 최신 parent tester 근거(focused API 99 passed / 4 skipped, focused web 105 passed, `pnpm check`, web build/build:cf, local `next start` smoke)와 현재 체인 상태(기획/구현/리뷰/테스트 완료 → 문서화 진행 → GitHub/배포 후속 대기)를 루트 문서에 반영했다.
+
+- `docs/architecture/phase-50-mobile-floating-bottom-bar-ux-fit-gap-scope.md`, `docs/guides/phase-50-mobile-floating-bottom-bar-ux-handoff.md` 를 추가하고 `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 함께 갱신했다. 모바일 하단 탐색 5개(`메뉴`·`홈`·`메신저`·`메일`·`알림`) 순서는 유지한 채 safe-area 위 floating capsule, active pill, 알림 배지 `0 숨김 / 1~99 / 99+`, 본문 하단 가림 방지, 모바일 전용 회귀 질문을 Phase 50 세부 UX 기준으로 잠갔다.
 
 - `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`, `docs/guides/phase-50-internal-groupware-full-adoption-release-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 50 기준으로 갱신했다. Phase 45~49에서 잠근 내부 도입·온보딩·운영 안정성·감사·최종 UAT 회귀 기준선을 바탕으로 `/login` 단독 시작, 직원 기본업무 레인(`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`·`/me`), 운영 관리자 레인(`/management`·`/admin/users`·`/admin/policies`·`/admin/audit-logs`·`/api/health`), 지점관리자 레인(`/work-items/branch`), 경영업무 민감 모듈 분리, skeleton/placeholder/dev-safe 잔여 분류, 최종 도입 체크리스트와 승인 게이트를 같은 언어로 다시 잠갔다.
 

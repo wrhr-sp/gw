@@ -295,6 +295,28 @@
 - `apps/api/src/app.ts`
 - `packages/shared/src/admin-access.ts`
 
+### 2-15. 게시판 실사용화 기준은 Phase 51 문장으로 잠근다.
+
+- Phase 51의 목표는 게시판 관련 route/API/test 존재 자체가 아니라, `/boards` → `/boards/[boardId]` → `/posts/[postId]` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
+- `/boards` 는 공지형 게시판과 일반 게시판을 함께 보여 줄 수 있어도 notice-only 책임과 일반 글쓰기 책임을 먼저 구분해서 읽혀야 한다.
+- `/boards/[boardId]` 는 `board_notice`, `board_general` 같은 실제 예시를 기준으로 권한과 상태를 설명해야 하고, 없는 boardId 를 운영 게시판 완성처럼 포장하지 않는다.
+- `/posts/[postId]` 는 본문, 댓글, 읽음 확인, forged 차단 확인을 한 흐름으로 설명해야 한다.
+- 직원/관리자/권한 없는 사용자별 UI 노출, route guard, API guard 가 같은 뜻으로 맞아야 한다.
+- empty/loading/error/forbidden 은 placeholder 가 아니라 실제 사용자가 이해할 수 있는 상태여야 한다.
+- `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
+- skeleton/placeholder/dev-safe 문구를 최종 산출물처럼 남기지 않는다.
+
+근거:
+- `docs/architecture/phase-51-boards-live-operations-fit-gap-scope.md`
+- `docs/guides/phase-51-boards-live-operations-handoff.md`
+- `docs/guides/phase-51-boards-live-operations-guide.md`
+- `apps/web/app/boards/page.tsx`
+- `apps/web/app/boards/[boardId]/page.tsx`
+- `apps/web/app/posts/[postId]/page.tsx`
+- `apps/web/app/_components/real-usage-panels.tsx`
+- `apps/api/test/auth-org.spec.ts`
+- `packages/shared/src/contracts.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원
@@ -394,7 +416,7 @@
 - `/documents` 와 첨부 metadata 는 실제 운영 업로드/다운로드 완료처럼 보이지 않게 placeholder/dev-safe 제한을 분명히 남기고, metadata preview 생성·문서 읽음 확인·private/missing space 차단 확인처럼 지금 눌러볼 수 있는 액션은 따로 적기
 - R2 연계는 private-by-default, D1 metadata 우선, binding-aware skeleton 기준까지만 다루고 raw `storageKey`, bucket 이름, public URL 을 응답/문서/UI 기본값으로 노출하지 않기
 - `/documents` 는 전사 문서함과 인사 전용 문서함의 권한 차이를 먼저 보여 주고, fileName/contentType/fileSize/versionLabel 같은 metadata 설명이 raw storage 내부정보 노출 없이 이어지게 유지하기
-- 현재 협업 route 확인 예시는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_board_general_employee_employee`, `/documents` 기준으로 적고, 게시판/게시글 preview 생성·댓글 preview 생성이 가능해도 production 운영 데이터처럼 설명하지 않기
+- 현재 협업 route 확인 예시는 `/boards/board_notice`, `/boards/board_general`, `/posts/board_post_demo`, `/posts/board_post_notice_1`, `/documents` 기준으로 적고, 게시판/게시글 preview 생성·댓글 preview 생성이 가능해도 production 운영 데이터처럼 설명하지 않기
 - live URL 파일럿 검토 기준에서는 협업 route 를 핵심 업무 흐름과 자연스럽게 이어 보이게 하되, production data/secret/DNS/유료 리소스/외부 연동이 아직 별도 승인 범위라는 점을 숨기지 않기
 - live `.workers.dev` 직접 fetch 가 막히면 이를 확인 완료처럼 쓰지 말고, `pnpm check`, `pnpm --filter @gw/web build:cf`, targeted API/web test, local preview smoke 를 대체 근거로 분리해 적기
 
@@ -479,7 +501,13 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - 좁은 화면은 하단 탭
 - 같은 route/IA 를 유지하고 탐색 껍데기만 바꾼다.
 - 모바일 하단 탭 기본은 `메뉴`·`홈`·`메신저`·`메일`·`알림` 5개로 고정하고, `메뉴`에서 기본 업무/내 정보·조회/협업 placeholder 전체 메뉴 화면을 연다.
-
+- Phase 50 모바일 하단바 UX에서는 위 5개 순서를 그대로 유지한 채, 하단 바를 화면 맨 아래 edge 에 붙이지 않고 safe-area 위로 띄운 floating capsule 형태로 적는다.
+- 각 탭 안에서는 아이콘을 위, 라벨을 아래에 두는 세로 정렬을 기본으로 하고, `bottom-nav__icon-wrap` 다음 `bottom-nav__label` 순서를 유지한다.
+- 이번 조정은 아이콘 source/path 를 다시 고르는 작업이 아니라, 이미 정한 5개 탭 아이콘을 그대로 둔 채 모바일 배치만 바꾸는 작업으로 적는다.
+- floating capsule 은 좌우 inset, 큰 radius, 약한 shadow/blur/card 느낌을 가지되 특정 서비스 복제로 읽히지 않는 중립적인 표현을 쓴다.
+- active 탭은 아이콘+텍스트 뒤 rounded pill 배경으로 강조하고, inactive 탭은 같은 IA 를 유지하되 시각 우선순위를 낮춘다.
+- 알림 배지는 0이면 숨기고, 1~99는 숫자 그대로, 100 이상은 `99+` 로 고정한다.
+- floating bar 높이와 `env(safe-area-inset-bottom)` 를 고려한 mobile content bottom padding 을 함께 가져가 마지막 카드/버튼/폼이 바에 가리지 않게 한다.
 - 모바일 `홈` 은 회사가 고정하는 필수 핵심 메뉴와 사용자가 선택/정렬하는 개인 바로가기를 함께 다루는 구조로 적는다.
 - `홈` 바로가기와 `메뉴` 전체 기능 선택 화면은 같은 기능 id/라벨/권한 registry 를 공유해야 한다.
 - 필수 고정 메뉴는 사용자가 임의로 숨기지 못하거나, 최소한 회사 정책/관리자 설정으로 고정 여부를 통제할 수 있어야 한다.
