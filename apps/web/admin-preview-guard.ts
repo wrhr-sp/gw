@@ -60,6 +60,8 @@ function extractRoleCodeFromSessionToken(sessionToken?: string | null): RouteGua
 
 export function getAdminRouteGuardResult({ pathname, host, sessionToken }: AdminRouteGuardInput): GuardResult {
   const hostInfo = getAdminHostInfo(host);
+  const roleCode = extractRoleCodeFromSessionToken(sessionToken);
+  const hasSessionToken = Boolean(sessionToken);
 
   if (hostInfo.isAdminHost && pathname === "/") {
     return { action: "redirect", location: "/admin" };
@@ -70,7 +72,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
   }
 
   if (!hostInfo.isAdminHost && pathname === "/") {
-    return { action: "redirect", location: "/login" };
+    return { action: "redirect", location: hasSessionToken ? "/dashboard" : "/login" };
   }
 
   const isAdminWorkbenchRoute = isAdminRoute(pathname);
@@ -86,7 +88,6 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
     return { action: "allow" };
   }
 
-  const roleCode = extractRoleCodeFromSessionToken(sessionToken);
   if (!roleCode) {
     return { action: "redirect", location: "/login" };
   }
