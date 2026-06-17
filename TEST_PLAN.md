@@ -9,6 +9,15 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 45 추가 검증 초점
+
+- 최종 보고용 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, 승인 게이트가 한 세트로 정리되는지 본다.
+- 직원 레인(`/dashboard` 중심), 민감 운영 레인(`/management` 중심), 감사 read-only 레인(`/admin/audit-logs`)이 최종 문장에서도 섞이지 않는지 본다.
+- focused API/web 회귀, mobile typecheck, web build, local preview smoke, `/uat` 운영 패키지 확인, release gate 성공 근거를 최종 판정 형식으로 다시 묶을 수 있는지 확인한다.
+- live 직접 재확인이 막힐 때 local preview/build/release gate 를 대체 근거로 분리해서 기록하는지 확인한다.
+- `/uat` 를 로그인 후 운영 진행자가 보는 내부 패키지 route 로 적고, `/login` 과 같은 익명 첫 입구처럼 적지 않는지 확인한다.
+- Phase 45 완료와 외부 연동/실데이터/기관 계정 연계를 같은 완료 문장처럼 섞지 않는지 확인한다.
+
 ## Phase 44 추가 검증 초점
 
 - 직원용 가이드가 `/login` 과 `/dashboard` 중심 기본 업무 흐름을 쉬운 말로 설명하는지 본다.
@@ -27,6 +36,7 @@
 - 따라서 우선 검증 포인트는 새 happy path 추가보다도 직원 레인/민감 운영 레인 분리, 권한표 일치, approval gate 정합성이 문서와 같은 뜻인지 확인하는 데 둔다.
 - 최신 tester 재검증 기준으로 `pnpm --filter @gw/api test -- auth-org.spec.ts work-items.spec.ts` 15 files / 98 passed / 4 skipped, `pnpm --filter @gw/web test -- admin-preview-guard.test.ts work-items.test.tsx dashboard-boundary.test.tsx payroll.test.tsx` 24 files / 100 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build` 가 모두 통과했다.
 - local preview smoke 기준으로 익명 `/`, `/dashboard`, `/management`, `/payroll`, `/payroll/me`, `/work-items/labor`, `/admin/audit-logs` 는 `/login` 으로 redirect 되고, `/login` 200, `/api/health` 200, `/manifest.webmanifest` 200 이 확인된 상태다.
+- parent 최종 통합 보고 기준 live URL 은 `https://gw-web.wereheresp.workers.dev`, main release-gate 는 success, merge commit 은 `8372ae1008c74b1578c17e26763b8462596b65ad` 다.
 
 ## 1. 기본 검증 명령
 
@@ -353,7 +363,7 @@ pnpm --filter @gw/mobile typecheck
 
 문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
 
-1. 직원 레인(`/login` → `/uat` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 시나리오처럼 섞이지 않는가
+1. 직원 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 시나리오처럼 섞이지 않는가
 2. 승인자/팀장 레인, 경영업무 담당자 레인, 운영자/감사 레인이 각각 무엇을 확인하는지 따로 읽히는가
 3. happy path, forbidden, empty, error, offline 을 UAT 기록표에 따로 적을 수 있는가
 4. 권한 누출, foreign/self/company+branch scope 누출, raw 민감정보 노출을 blocker 또는 major 급 이슈로 분류하는 기준이 분명한가

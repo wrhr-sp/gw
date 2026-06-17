@@ -49,6 +49,9 @@
 - [ ] Phase 26 HR·미팅 관리 1차 범위라면 직원 lifecycle, HR meeting category, 공통 상태 대 meeting 보조 상태 분리, 본사 HR / 지점 관리자 / 일반 직원 visibility, metadata-only 메모, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 27 노무 관리 1차 범위라면 labor category, 공통 상태 대 labor intake 보조 상태 분리, 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility, metadata-only evidence, 승인 필요 범위가 문서와 code path 에서 같은 뜻이다.
 - [ ] Phase 44 문서 범위라면 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트, 로그인/PWA handoff 가 같은 제품 언어를 쓴다.
+- [ ] Phase 45 최종검증 범위라면 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, 최신 focused test/build/release gate 근거, 남은 승인 게이트가 같은 언어로 묶여 있다.
+- [ ] Phase 45 최종검증 문서에서는 내부 도입 완료 범위와 외부 연동/실데이터/기관 계정 연계 후속 범위를 같은 완료 문장처럼 섞지 않는다.
+- [ ] live 직접 재확인 근거와 local preview/build/release gate 대체 근거를 구분해서 기록했다.
 - [ ] 로그인 전에는 `/login` 만 익명 입구라는 기준과 로그인 전 비노출 route 목록이 문서마다 다르게 적히지 않는다.
 - [ ] 일반 직원 레인(`/dashboard` 중심)과 민감 운영 레인(`/management` 중심)이 문서에서 섞이지 않는다.
 - [ ] `/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs` 의 책임 차이와 preview/self-only/branch/company/restricted/read-only 경계가 같은 말로 유지된다.
@@ -84,7 +87,7 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
-- [ ] 직원 레인(`/login` → `/uat` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 UAT 시나리오처럼 섞이지 않는다.
+- [ ] 직원 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 UAT 시나리오처럼 섞이지 않는다.
 - [ ] 같은 `admin / 1234` 계정을 쓰더라도 직원/승인자/경영업무 담당자/운영자 문맥이 분리돼 있고, production 기본 계정처럼 적히지 않는다.
 - [ ] blocker / major / minor / copy-doc / approval-needed 분류 기준이 문서와 handoff 에서 같은 뜻으로 유지된다.
 - [ ] final report 에 들어갈 live URL, 시작 route(`/uat`), 테스트 계정, 역할별 시나리오, 남은 승인 게이트 형식이 문서마다 다르게 풀리지 않는다.

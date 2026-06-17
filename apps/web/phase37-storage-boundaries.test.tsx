@@ -51,9 +51,10 @@ describe("Phase 37 internal operational storage boundaries", () => {
     const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
 
     expect(managementHtml).toContain("Phase 43 급여·세무·노무·법무 내부관리 허브");
-    expect(managementHtml).toContain("/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작");
+    expect(managementHtml).toContain("`/uat` 에서 시나리오를 먼저 읽고");
     expect(managementHtml).toContain("역할별 시나리오 + 이슈 템플릿");
-    expect(managementHtml).toContain("/payroll → /work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인");
+    expect(managementHtml).toContain("/payroll/me 에서 self-only 명세서 preview 와 정정 안내가 분리되어 보이는지 확인");
+    expect(managementHtml).toContain("/work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인");
     expect(managementHtml).toContain("/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인");
     expect(managementHtml).toContain("Phase 37 연결 체크");
   

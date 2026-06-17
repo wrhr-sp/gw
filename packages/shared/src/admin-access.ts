@@ -9,6 +9,7 @@ export const knownRoleCodes = [...adminRoleCodes, ...generalRoleCodes, ...auditR
 export type ViewerAccess = Pick<SessionUser, "roleCodes" | "permissions">;
 export type AdminRouteKind = "admin_console" | "admin_audit";
 export type SensitiveWorkbenchRouteKind =
+  | "uat_workspace"
   | "management_workspace"
   | "payroll_workspace"
   | "tax_workspace"
@@ -226,6 +227,11 @@ const adminAuditRoutePrefixes = ["/admin/audit-logs"] as const;
 const selfServiceSensitiveRoutePrefixes = ["/payroll/me"] as const;
 
 const sensitiveWorkbenchRoutes = [
+  {
+    kind: "uat_workspace",
+    prefixes: ["/uat"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "AUDITOR"] as const,
+  },
   {
     kind: "management_workspace",
     prefixes: ["/management"],

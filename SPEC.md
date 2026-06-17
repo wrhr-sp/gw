@@ -192,6 +192,19 @@
 - `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`
 - `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md`
 
+### 2-9. 최종 내부 도입 검증·릴리즈 기준은 Phase 45 문장으로 잠근다.
+
+- Phase 45의 목표는 새 큰 기능 추가보다, Phase 36~44에서 정리한 직원 기본업무·경영업무·로그인/PWA·운영문서·권한 기준을 최종 UAT/권한/운영/release 관점으로 다시 묶는 것이다.
+- 최종 보고에는 live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, 최신 테스트/빌드/release gate 근거, 남은 승인 게이트를 반드시 포함해야 한다.
+- `/dashboard` 직원 레인, `/management` 민감 운영 레인, `/admin/audit-logs` 감사 read-only 레인을 같은 책임처럼 섞지 않는다.
+- `/payroll` preview, `/payroll/me` self-only, `tax` branch/company, `labor` self/branch/restricted, `legal` metadata/approval gate, `audit` read-only 경계를 최종 문서와 보고에서 같은 뜻으로 유지한다.
+- local preview smoke 근거와 live 직접 확인 근거는 같은 말처럼 섞지 않는다. live 직접 재확인이 막히면 release gate/build/local preview 근거를 대체 근거로 분리해 적는다.
+- 실지급, 은행이체, 주민번호/계좌번호 확대, production 실데이터, 외부 기관/전문가 연동, DNS/custom domain, 유료 리소스, secret, migration, destructive 작업은 Phase 45 완료와 별개 승인 게이트다.
+
+근거:
+- `docs/architecture/phase-45-final-internal-adoption-validation-release-fit-gap-scope.md`
+- `docs/guides/phase-45-final-internal-adoption-validation-release-handoff.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

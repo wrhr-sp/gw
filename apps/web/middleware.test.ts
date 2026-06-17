@@ -72,6 +72,10 @@ describe("middleware host boundary", () => {
     const employeeDashboardResponse = middleware(createRequest("/dashboard", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
     expect(employeeDashboardResponse.headers.get("location")).toBeNull();
 
+    const employeeUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
+    expect(employeeUatResponse.status).toBe(307);
+    expect(getLocationPath(employeeUatResponse)).toBe("/forbidden");
+
     const employeeResponse = middleware(
       createRequest("/work-items/legal", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"),
     );
@@ -88,5 +92,8 @@ describe("middleware host boundary", () => {
       createRequest("/management", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
     );
     expect(managerResponse.headers.get("location")).toBeNull();
+
+    const managerUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"));
+    expect(managerUatResponse.headers.get("location")).toBeNull();
   });
 });

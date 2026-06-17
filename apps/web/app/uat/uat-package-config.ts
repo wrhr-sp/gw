@@ -8,7 +8,7 @@ export const roleScenarioCards = [
   {
     role: "일반 직원",
     startRoute: "/login → /dashboard",
-    journey: ["/attendance", "/leave", "/approvals", "/boards", "/documents", "/me"],
+    journey: ["/attendance", "/leave", "/approvals", "/boards", "/documents", "/notifications", "/me"],
     actions: [
       "오늘 근태 상태와 마지막 기록을 먼저 읽는다.",
       "휴가 잔여와 신청/승인 대기 상태를 error 와 섞지 않고 확인한다.",
@@ -48,16 +48,16 @@ export const roleScenarioCards = [
   {
     role: "경영업무 담당자",
     startRoute: "/dashboard → /management",
-    journey: ["/payroll", "/payroll/me", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/work-items/branch"],
+    journey: ["/work-items/branch", "/payroll", "/payroll/me", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs"],
     actions: [
       "경영업무 허브에서 민감 모듈이 일반 홈과 분리돼 보이는지 확인한다.",
-      "급여 overview 와 self-only 명세서 preview 를 같은 기능처럼 혼동하지 않는지 본다.",
-      "세무/노무/법무/지점 업무가 metadata/review 언어로 분리돼 있는지 확인한다.",
+      "지점 운영 제출/검토 흐름과 급여 preview/self-only 명세서 preview 를 같은 기능처럼 혼동하지 않는지 본다.",
+      "세무/노무/법무/감사 read-only 레인이 metadata/review 언어로 분리돼 있는지 확인한다.",
     ],
     happyPath: [
       "급여·세무·노무·법무 책임이 각각 다른 카드와 설명으로 읽힌다.",
       "preview/skeleton 과 실운영/실지급/실신고가 같은 뜻으로 보이지 않는다.",
-      "branch/company scope 와 restricted 경계가 문구와 route 에서 함께 유지된다.",
+      "branch/company scope 와 restricted/read-only 경계가 문구와 route 에서 함께 유지된다.",
     ],
     statusChecks: [
       "forbidden: 무권한 역할에서 민감 모듈이 열리면 blocker 로 기록한다.",
@@ -151,9 +151,9 @@ export const facilitatorScript = [
 export const quickStartSteps = [
   "브라우저에서 live URL 을 연다: https://gw-web.wereheresp.workers.dev",
   "`admin / 1234` 로 로그인한다. 이 계정은 dev/test/UAT 전용이다.",
-  "직원이라면 `/dashboard` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 본다.",
+  "직원이라면 `/dashboard` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/notifications` → `/me` 순서로 본다.",
   "승인자라면 `/approvals` 를 먼저 보고 팀 병목/대기 상태를 확인한다.",
-  "경영업무 담당자라면 `/management` 에서 `/payroll` 과 `work-items` 모듈을 확인한다.",
+  "경영업무 담당자라면 `/management` → `/work-items/branch` → `/payroll` → `/payroll/me` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` 순서로 본다.",
   "운영자/감사라면 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/offline` 순서로 본다.",
   "문제가 보이면 severity 와 상태 분류를 함께 적고, 승인 필요 항목은 별도 리스트로 뺀다.",
 ] as const;
@@ -169,9 +169,18 @@ export const finalReportChecklist = [
   "live URL",
   "테스트 계정(admin / 1234, dev/test/UAT 전용)",
   "역할별 추천 시나리오와 확인 route",
+  "live 직접 확인 route 와 local preview/release gate 대체 근거를 구분한 설명",
   "현재 가능한 것 / 막히는 것 / skeleton 잔여",
   "남은 blocker/major/minor 요약",
+  "release gate 성공, focused test/web build, rollback 확인 포인트",
   "별도 승인 게이트 목록",
+] as const;
+
+export const releaseReadinessChecklist = [
+  "직원 레인(`/dashboard` 중심)과 경영업무(`/management`)·감사(`/admin/audit-logs`) 레인을 같은 홈처럼 설명하지 않는다.",
+  "`/payroll` preview, `/payroll/me` self-only, `work-items` branch/company/restricted, 감사 read-only 경계를 final report 와 화면 문구에서 같은 뜻으로 유지한다.",
+  "live 직접 클릭 근거와 local preview/build/release gate 근거를 섞지 않고 분리해서 기록한다.",
+  "rollback 설명은 되돌리기 실행보다 현재 release 성공 근거와 남은 approval gate 를 먼저 적는다.",
 ] as const;
 
 export const approvalGates = [

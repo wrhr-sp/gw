@@ -19,15 +19,17 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 44 도입 문서 묶음 정리 단계
+### 3. 현재 문서화/검증 기준은 Phase 45 내부 도입 최종검증·릴리즈 단계
 
 현재 루트 문서와 handoff 는 아래 기준을 함께 설명한다.
 
 - 직원 기본 업무 레인: `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents`
 - 내부관리 레인: `/management` 아래 `/work-items/branch`·`/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs`
 - 문서 묶음: 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트, 로그인/PWA handoff
+- 최종 보고 묶음: live URL, 추천 route 순서, 테스트 계정, 역할별 시나리오, `/uat` 운영 패키지 위치, release/rollback 근거, 승인 게이트
 
 - `/management` 는 일반 직원 홈이 아니라 내부관리 허브로 유지한다.
+- `/uat` 는 익명 첫 입구가 아니라 로그인 후 운영 진행자가 보는 내부 리허설 패키지 route 로 유지한다.
 - `/payroll` 은 급여 overview/기간/명세서 preview 화면이며 실지급 확정 화면이 아니다.
 - `/payroll/me` 는 self-only 명세서 preview 와 정정 안내 레인으로 유지한다.
 - `tax`·`labor`·`legal` 은 공통 work item 위의 관리자 모듈이며 branch/company/self/restricted 경계를 유지한다.
@@ -36,7 +38,7 @@
 - production data, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 법령 API 인증키, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 44 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 45 단계에서 남아 있는 제품형 리스크
 
 - 최신 tester 재검증에서는 focused API 98 passed, focused web 100 passed, mobile typecheck, web build, local preview 익명 redirect smoke 가 모두 통과했지만, 이 근거는 여전히 내부 검증 기준이다.
 - 직원용 가이드와 관리자용 가이드가 섞이면 실제 도입 대상자별 안내가 흐려진다.
@@ -47,6 +49,9 @@
 - dedicated compliance route 부재와 `/admin/audit-logs` read-only 성격이 약해지면 컴플라이언스 조치 자동화가 이미 닫힌 것처럼 오해될 수 있다.
 - 도입 체크리스트에서 approval gate 가 약해지면 실지급, 실신고, production 실데이터, 외부 연동이 이미 가능한 것처럼 오해될 수 있다.
 - 일반 manifest 실측값은 `id=/login`, `start_url=/`, `display=standalone` 이고 익명 `/` 가 `/login` 으로 redirect 되어 현재 로그인-only 기준과 충돌은 없지만, 실제 Windows Chrome/Edge 설치 UX 문구와 운영자 매뉴얼이 release gate/live smoke 까지 계속 같은 기준을 유지하는지는 함께 다시 봐야 한다.
+- live 직접 재확인 근거와 local preview/build/release gate 대체 근거를 구분하지 않으면 최종 보고가 과장되거나 오해를 만들 수 있다.
+- `/uat` 를 로그인 후 운영용 패키지가 아니라 누구나 바로 들어가는 시작 route 처럼 쓰면 로그인 정책과 운영 설명이 충돌할 수 있다.
+- 내부 도입 완료 선언과 외부 기관 계정/실데이터/민감정보 확대 후속 범위를 한 문장으로 섞으면 승인 경계가 무너질 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 
