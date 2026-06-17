@@ -1,6 +1,6 @@
 "use client";
 
-import { appRoutes, errorResponseSchema, type RoleCode } from "@gw/shared";
+import { appRoutes, errorResponseSchema, meResponseSchema, type RoleCode } from "@gw/shared";
 import * as React from "react";
 import { useEffect, useState } from "react";
 
@@ -37,6 +37,37 @@ export function LoginForm() {
     }
 
     setRoleCode(resolveRoleCodeFromSearch(window.location.search));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void fetch(appRoutes.me, {
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+
+        const parsed = meResponseSchema.safeParse(await response.json().catch(() => null));
+        if (!parsed.success) {
+          return;
+        }
+
+        const primaryRoleCode = parsed.data.data.user.roleCodes[0] ?? defaultRoleCode;
+        window.location.replace(getPostLoginRoute(primaryRoleCode));
+      })
+      .catch(() => {
+        // 로그인 화면은 익명 진입이 기본이므로 세션 확인 실패는 조용히 무시합니다.
+      });
+
+    return () => controller.abort();
   }, []);
 
   return (
