@@ -9,6 +9,14 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 48 추가 검증 초점
+
+- `/admin/audit-logs` 가 계속 `audit.read` 기반 read-only / masked preview / company boundary 기준으로 읽히는지 본다.
+- `AUDITOR`, `HR_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `EMPLOYEE` 가 같은 관리자 묶음처럼 풀리지 않는지, route/API/test 설명이 같은 뜻인지 본다.
+- `/api/health` 와 preview smoke, build/release gate, runbook 근거를 full monitoring/alerting 완료처럼 과장하지 않는지 본다.
+- backup/restore/incident 대응이 아직 수동 절차/승인 게이트라는 점이 문서와 handoff 에서 숨겨지지 않는지 본다.
+- live URL, 배포 기준, smoke 대상 route 가 루트 문서마다 다르면 이를 미확인 리스크로 남기고 억지로 하나로 단정하지 않는지 확인한다.
+
 ## Phase 47 추가 검증 초점
 
 - `/dashboard`·`/menu`·`/notifications`·`/offline` 를 먼저 따라갈 때 loading / empty / error / forbidden / offline / dev-safe 문장이 서로 다른 뜻으로 읽히는지 본다.

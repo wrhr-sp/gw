@@ -1,4 +1,5 @@
 import React from "react";
+import { getViewerAccessForRoleCode, hasAdminRouteAccess, hasSensitiveWorkbenchRouteAccess, type RoleCode } from "@gw/shared";
 
 import { AuditLogsLiveSection } from "../../_components/phase34-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
@@ -9,6 +10,30 @@ import {
   adminAuditNotes,
   adminAuditTimelineItems,
 } from "../../../admin-skeleton-config";
+
+const auditGuardRoles = ["AUDITOR", "HR_ADMIN", "COMPANY_ADMIN", "MANAGER", "EMPLOYEE"] as const satisfies readonly RoleCode[];
+
+const roleLandingRouteLabels: Record<(typeof auditGuardRoles)[number], string> = {
+  AUDITOR: "/admin/audit-logs",
+  HR_ADMIN: "/dashboard → /admin/users",
+  COMPANY_ADMIN: "/dashboard → /management 또는 /admin",
+  MANAGER: "/dashboard → /management",
+  EMPLOYEE: "/dashboard",
+};
+
+const guardStatusLabel = (allowed: boolean, allowedLabel: string, blockedLabel: string) => (allowed ? allowedLabel : blockedLabel);
+
+const auditGuardRows = auditGuardRoles.map((roleCode) => {
+  const viewer = getViewerAccessForRoleCode(roleCode);
+  return {
+    roleCode,
+    landingRoute: roleLandingRouteLabels[roleCode],
+    auditRoute: guardStatusLabel(hasAdminRouteAccess("/admin/audit-logs", viewer), "허용", "차단"),
+    adminUsersRoute: guardStatusLabel(hasAdminRouteAccess("/admin/users", viewer), "허용", "차단"),
+    managementRoute: guardStatusLabel(hasSensitiveWorkbenchRouteAccess("/management", viewer), "허용", "차단"),
+    healthRoute: "허용",
+  };
+});
 
 const storagePreviewNotes = [
   "before/after 는 raw 원문이 아니라 masked preview 로만 확인합니다.",
@@ -22,12 +47,19 @@ const approvalGateNotes = [
   "production 실데이터 보정, migration, secret 입력은 별도 승인 게이트로 유지합니다.",
 ] as const;
 
+const opsBaselineNotes = [
+  "/api/health 는 service / status / version 을 확인하는 최소 liveness 기준입니다.",
+  "preview smoke 와 build/release gate 는 경로가 열리는지 확인하는 운영 최소 근거입니다.",
+  "RUNBOOK.md 와 DEPLOYMENT.md 는 장애 대응·배포 확인 순서를 설명하는 문서이며, 전용 관제 dashboard 를 대신한다고 쓰지 않습니다.",
+  "backup/restore/incident 대응은 아직 수동 절차와 승인 게이트 중심입니다.",
+] as const;
+
 export default function AdminAuditLogsPage() {
   return (
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 37 내부 운영 감사 preview"
+      eyebrow="Phase 48 감사·보안·복구 운영 기준선 preview"
       title="관리자 / 감사 로그"
       description="감사 로그 read-only 응답, 조회 필터, masked metadata, storageRef 요약, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
       actions={<Pill tone="warning">audit.read</Pill>}
@@ -45,6 +77,23 @@ export default function AdminAuditLogsPage() {
           <li>사용자/정책 수정 화면 접근은 route/API guard 로 계속 분리합니다.</li>
           <li>masked fields 와 source 는 설명용 메타데이터이지 민감 원문이나 외부 전송 완료 의미가 아닙니다.</li>
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="역할별 route/API guard 요약" description="메뉴 숨김이 아니라 실제 route/API guard 기준으로 누가 어느 운영 레인을 여는지 같은 표로 고정합니다.">
+        <div className="grid-auto-compact">
+          {auditGuardRows.map((item) => (
+            <article key={item.roleCode} className="info-card">
+              <Pill>{item.roleCode}</Pill>
+              <h3>{item.landingRoute}</h3>
+              <ul className="summary-list">
+                <li>/admin/audit-logs: {item.auditRoute}</li>
+                <li>/admin/users: {item.adminUsersRoute}</li>
+                <li>/management: {item.managementRoute}</li>
+                <li>/api/health: {item.healthRoute}</li>
+              </ul>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection title="조회 필터" description="누가, 무엇을, 어디에 대해, 언제 확인했는지 같은 질문을 빠르게 좁히는 기본 필터입니다.">
@@ -73,6 +122,14 @@ export default function AdminAuditLogsPage() {
       <SurfaceSection title="상세 패널" description="선택한 이벤트는 표시 이름, 변경 사유, before/after 요약, masked fields, source 까지만 펼쳐 봅니다.">
         <ul className="summary-list">
           {adminAuditDetailFields.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="운영 최소 기준선" description="감사 화면을 운영 관제 전체와 혼동하지 않도록, 지금 실제 근거가 있는 최소 확인 세트를 함께 적습니다.">
+        <ul className="summary-list">
+          {opsBaselineNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

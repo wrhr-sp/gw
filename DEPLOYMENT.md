@@ -25,6 +25,12 @@ pnpm --filter @gw/web deploy:cf
 https://gw-web.wereheresp.workers.dev
 ```
 
+운영 기준선 메모:
+
+- 현재 공개 확인 기준은 live URL + `/api/health` + preview smoke + release-gate 기록이다.
+- 별도 관제 dashboard, alerting, paging, backup automation 이 이미 있는 것으로 간주하지 않는다.
+- `https://gw-web.werehere31.workers.dev` 는 과거 preview 흔적이므로 현재 smoke 대상 live URL 로 사용하지 않는다.
+
 기본 smoke route:
 
 - `/`

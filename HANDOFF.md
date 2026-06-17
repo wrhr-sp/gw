@@ -18,17 +18,27 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 47 운영 안정성·성능·모바일/PWA 사용성 보강 체인이다. 이번 Phase의 목적은 Phase 46 온보딩 기준선 위에서 `/dashboard`·`/menu`·`/notifications`·`/offline`·`/management`·`/admin/users`·`/admin/audit-logs` 를 회사 전체 사용 직전의 안정성/로딩/재시도/모바일 사용성 기준으로 다시 묶는 것이다.
+현재 메인 활성 흐름은 Phase 48 감사·보안·백업/복구·장애대응·운영관제 기준선 체인이다. 이번 Phase의 목적은 Phase 37 저장흐름·감사 연결, Phase 39 운영 QA·보안·권한 회귀, Phase 44 운영자 runbook, Phase 47 운영 안정성 기준선을 묶어 `/admin/audit-logs`, `/management`, `/admin/users`, `/admin/policies`, `/api/health`, `RUNBOOK.md`, `DEPLOYMENT.md` 를 내부 운영 기준선 언어로 다시 정리하는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/layout.tsx`, `apps/web/app/mobile-pwa-config.ts`, `apps/web/app/_components/mobile-app-shell.tsx` 기준으로 general/admin host shell, manifest split, offline/install guidance 흐름이 이미 존재한다.
-- `apps/web/app/page.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx` 기준으로 홈 shortcut, 메뉴, 모바일 하단 탭/PC sidebar 같은 정보구조 근거가 이미 존재한다.
-- `apps/web/app/offline/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx` 기준으로 offline/empty/error/dev-safe 상태 문장을 구분하려는 현재 화면 근거가 있다.
-- `apps/web/app/management/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts` 기준으로 운영 레인과 일반 직원 레인, 감사 read-only 레인, 로그인 필수 경계가 유지된다.
-- 현재 Phase 47 기준 문서는 `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`, `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`, `docs/guides/phase-47-user-admin-uat-ops-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`, `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md` 다.
-- 현재 메인 체인은 `t_b1e8800c`(기획 진행 중) → `t_3dfc46d5`(구현 부모 대기) 순서다.
+- `apps/api/src/lib/operational-admin.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 `/admin/audit-logs` masked preview, `audit.read`, `/api/health` 최소 liveness 응답 근거가 이미 존재한다.
+- `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts`, `packages/shared/src/admin-access.ts` 기준으로 general/admin host 경계, 관리자 route guard, role+permission+company/branch 경계가 유지된다.
+- `RUNBOOK.md`, `DEPLOYMENT.md`, `docs/guides/phase-44-operator-runbook.md` 기준으로 최소 운영 점검, rollback, smoke 재확인, 승인 게이트 분리 문서 근거가 있다.
+- 현재 Phase 48 기준 문서는 `docs/architecture/phase-48-audit-security-backup-restore-incident-ops-fit-gap-scope.md`, `docs/guides/phase-48-audit-security-backup-restore-incident-ops-handoff.md`, `docs/guides/phase-48-audit-security-backup-restore-incident-ops-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`, `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md` 다.
+- 현재 메인 체인은 `t_4a465718`(기획 진행 중) → `t_3dbc45ae`(구현 부모 대기) → `t_af1775c7`(리뷰 부모 대기) 순서다.
+
+2026-06-17 Phase 48 fit-gap 메모:
+
+- 바로 확인 가능한 영역: `/login`, `/dashboard`, `/management`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/api/health`, `RUNBOOK.md`, `DEPLOYMENT.md`.
+- 현재 기획 근거는 `apps/api/src/lib/operational-admin.ts`, `apps/api/src/app.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/contracts.ts`, `apps/web/admin-preview-guard.ts`, `apps/web/middleware.ts`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/phase34-degraded-routes.spec.ts`, `apps/web/admin-preview-guard.test.ts`, `docs/guides/phase-44-operator-runbook.md` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 감사 read-only/masked 기준, role+permission+company/branch/self/foreign 차단, `/api/health` 최소 liveness, preview smoke/release gate/runbook 대체 근거를 한 세트의 운영 기준선으로 읽히게 만드는 것이다.
+- 운영 관제는 아직 전용 dashboard 나 alerting automation 이 아니라 `/api/health`·smoke·build/release gate·runbook 수준이라고 적어야 한다.
+- backup/restore/disaster/incident 대응은 아직 수동 문서·승인 게이트 중심이며 production DB backup/restore 실행, secret, 외부 SIEM/alerting, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
+- 현재 루트 문서에는 live URL 이 `https://gw-web.werehere31.workers.dev` 와 `https://gw-web.wereheresp.workers.dev` 로 나뉘어 적힌 흔적이 있어, 다음 구현/리뷰/테스트/ops 체인에서 가장 먼저 재확인할 운영 정합성 리스크로 본다.
+- 새 운영 가이드 `docs/guides/phase-48-audit-security-backup-restore-incident-ops-guide.md` 는 감사 담당자, 운영 관리자/담당자, runbook 확인자용 추천 route, UAT 분류, 운영 체크리스트, 남은 승인 게이트를 한 문서로 묶는다.
+- parent 기준으로 focused API 15 files / 98 passed / 4 skipped, focused web 24 files / 102 passed, `pnpm --filter @gw/mobile typecheck`, `pnpm --filter @gw/web build`, login-only redirect smoke baseline 을 출발점으로 이어받는다.
 
 2026-06-17 Phase 47 fit-gap 메모:
 

@@ -96,6 +96,10 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] Phase 48 운영 기준선 범위라면 `/admin/audit-logs` 는 계속 `audit.read` 기반 read-only / masked preview / company boundary 기준으로 설명되고, 관리자 일반 권한과 같은 뜻으로 섞이지 않는다.
+- [ ] `/api/health`, preview smoke, build/release gate, `RUNBOOK.md`, `DEPLOYMENT.md` 가 현재 운영 최소 관제 근거라는 점이 과장 없이 적혀 있고, full monitoring/alerting 완료처럼 읽히지 않는다.
+- [ ] backup/restore/disaster/incident 대응은 아직 수동 절차/승인 게이트 중심이라는 설명이 빠지지 않는다.
+- [ ] live URL, 배포 기준, smoke 대상 route 가 루트 문서마다 다를 때는 미확인 리스크로 남기고 억지 확정하지 않았다.
 - [ ] 직원 레인(`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`)과 경영업무/운영 레인(`/management`, `/admin*`)이 같은 UAT 시나리오처럼 섞이지 않는다.
 - [ ] 같은 `admin / 1234` 계정을 쓰더라도 직원/승인자/경영업무 담당자/운영자 문맥이 분리돼 있고, production 기본 계정처럼 적히지 않는다.
 - [ ] blocker / major / minor / copy-doc / approval-needed 분류 기준이 문서와 handoff 에서 같은 뜻으로 유지된다.

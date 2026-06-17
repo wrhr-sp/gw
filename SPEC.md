@@ -231,6 +231,25 @@
 - `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`
 - `docs/guides/phase-47-operational-stability-performance-mobile-pwa-usability-handoff.md`
 
+### 2-12. 감사·보안·백업/복구·장애대응·운영관제 기준은 Phase 48 문장으로 잠근다.
+
+- Phase 48의 목표는 새 외부 보안 제품이나 backup 시스템 도입보다, `/admin/audit-logs`, `/management`, `/admin/users`, `/admin/policies`, `/api/health`, `RUNBOOK.md`, `DEPLOYMENT.md` 를 내부 운영 가능 기준선 관점으로 다시 묶는 것이다.
+- `/admin/audit-logs` 는 계속 `audit.read` 기반 read-only 감사 조회이며, masked before/after preview, `maskedFields`, `storageRef`, `companyBoundary` 수준으로만 설명해야 한다.
+- role/permission/company+branch/self/foreign 차단은 메뉴 숨김이 아니라 route guard, API guard, test 근거를 함께 설명해야 한다.
+- 운영 관제는 지금 단계에서 `/api/health`, preview smoke, build/release gate, runbook 수준의 최소 기준으로 적고, 전용 monitoring dashboard/alerting/on-call 자동화가 이미 있는 것처럼 쓰지 않는다.
+- backup/restore/disaster/incident 대응은 아직 수동 절차와 승인 게이트 중심으로 남기고, production backup/restore 실행, secret, production DB 실데이터, 외부 SIEM/alerting, DNS/custom domain, 유료 리소스, destructive 작업은 계속 restricted 항목으로 유지한다.
+- live URL, 배포 기준, smoke 대상 route 가 문서마다 다를 수 있으면 숨기지 말고 운영 정합성 리스크로 기록한다.
+
+근거:
+- `docs/architecture/phase-48-audit-security-backup-restore-incident-ops-fit-gap-scope.md`
+- `docs/guides/phase-48-audit-security-backup-restore-incident-ops-handoff.md`
+- `apps/api/src/lib/operational-admin.ts`
+- `apps/api/src/app.ts`
+- `packages/shared/src/admin-access.ts`
+- `packages/shared/src/contracts.ts`
+- `RUNBOOK.md`
+- `DEPLOYMENT.md`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

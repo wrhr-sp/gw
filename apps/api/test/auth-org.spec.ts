@@ -36,6 +36,7 @@ import {
   documentSpaceListResponseSchema,
   documentSpaceResponseSchema,
   errorResponseSchema,
+  healthResponseSchema,
   leaveActionResponseSchema,
   leaveBalanceListResponseSchema,
   leaveRequestCreateResponseSchema,
@@ -177,6 +178,16 @@ describe("Phase 2 auth/org skeleton", () => {
 
     const payload = errorResponseSchema.parse(await response.json());
     expect(payload.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  it("returns the minimal health contract for ops baseline checks", async () => {
+    const response = await app.request(appRoutes.health);
+    expect(response.status).toBe(200);
+
+    const payload = healthResponseSchema.parse(await response.json());
+    expect(payload.data.service).toBe("gw-api");
+    expect(payload.data.status).toBe("ok");
+    expect(payload.data.version).toBeTruthy();
   });
 
   it("returns session user and permissions with placeholder auth cookie", async () => {

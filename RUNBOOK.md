@@ -1,5 +1,18 @@
 # RUNBOOK
 
+## 운영 최소 기준선 (Phase 48)
+
+현재 운영 관제 기준은 full dashboard/alerting 이 아니라 아래 최소 확인 세트다.
+
+- `/api/health` — `service`, `status`, `version` 확인용 최소 liveness
+- preview smoke — 로그인/권한/주요 route 경계 회귀 확인
+- build/release gate — 배포 전 정적 검증과 Cloudflare build 확인
+- `DEPLOYMENT.md` — 현재 live URL, 배포 후 smoke, rollback 원칙 확인
+
+주의:
+- backup/restore/incident 대응은 아직 수동 절차와 승인 게이트 중심이다.
+- production DB 실복원, secret 입력/교체, DNS/custom domain, 유료 리소스, 외부 alerting/SIEM 은 이 runbook 범위 밖이다.
+
 ## 기본 상태 확인
 
 ```bash
