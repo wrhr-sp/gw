@@ -27,6 +27,7 @@ body {
   font-family: system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
+  overscroll-behavior: none;
 }
 
 a {
@@ -303,20 +304,25 @@ li {
 .login-page-shell {
   min-height: 100dvh;
   width: min(460px, calc(100vw - 24px));
-  place-items: center;
+  place-items: start center;
   overflow: hidden;
-  padding: 16px 0;
+  padding: clamp(150px, 20dvh, 230px) 0 16px;
 }
 
 .login-card {
   width: 100%;
   margin: 0 auto;
+  padding: 28px 20px 24px;
+}
+
+.login-card__header {
+  text-align: center;
 }
 
 .login-options-row {
   display: flex;
   gap: 18px;
-  margin-top: 16px;
+  margin-top: 22px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -600,13 +606,15 @@ li {
     width: min(460px, calc(100vw - 24px));
     height: 100dvh;
     min-height: 100dvh;
-    align-content: center;
+    align-content: start;
     overflow: hidden;
+    padding-top: clamp(148px, 20dvh, 226px);
   }
 
   .login-card {
     max-height: calc(100dvh - 24px);
     overflow: hidden;
+    padding: 32px 20px 24px;
   }
 
   .page-shell__headline {
