@@ -152,6 +152,39 @@ def looks_like_next_phase_candidate(task: dict) -> bool:
     return (phase_like and planning_like) or db_like or ('phase' in body_head and '기획' in body_head)
 
 
+def looks_like_scheduled_resume_candidate(task: dict) -> bool:
+    """Return true for scheduled workflow cards that should resume once all parents are done.
+
+    `scheduled` is also used for real approval gates. Keep those parked and only resume
+    ordinary phase pipeline steps such as implementation/review/test/docs/release/final report.
+    """
+    title = str(task.get('title') or '')
+    lower = title.lower()
+    if any(token in title for token in ('외부연동', '승인 게이트', '승인게이트')):
+        return False
+    if any(token in lower for token in ('approval gate', 'external integration')):
+        return False
+    phase_like = 'phase' in lower or '페이즈' in title
+    step_like = any(
+        token in title
+        for token in (
+            '기획',
+            'fit-gap',
+            '구현',
+            '리뷰',
+            '테스트',
+            '문서화',
+            'GitHub',
+            'PR/CI',
+            'merge',
+            'release gate',
+            '최종 통합 보고',
+            '최종보고',
+        )
+    )
+    return phase_like and step_like
+
+
 def load_state():
     if not state_path.exists():
         return {'generation': 0, 'handled': {}, 'last_checked_at': 0}
@@ -278,6 +311,42 @@ actions = []
 list_map = {str(t.get('id') or ''): dict(t) for t in items if t.get('id')}
 con = None if use_fixture else ro_connect()
 try:
+    resumed_scheduled_this_tick = False
+    for child in items:
+        child_id = child.get('id')
+        if resumed_scheduled_this_tick:
+            break
+        if not child_id or str(child.get('status') or '') != 'scheduled':
+            continue
+        if not looks_like_scheduled_resume_candidate(child):
+            continue
+        if not all_parents_done(con, child_id, list_map):
+            continue
+        if explicit_hold_marker(con, child_id, child, list_map):
+            continue
+        parents = parent_ids(con, child_id)
+        parent_key = ','.join(parents)
+        key = f'{child_id}:scheduled-parent-done-auto-resume:{parent_key}'
+        if key in handled:
+            continue
+        reason = f'싱드 자동 조치: 모든 부모({parent_key})가 done인 기준 경로 scheduled 카드 {child_id}를 자동 재개'
+        msg = '\n'.join([
+            '[worker-recovery:scheduled-parent-done-auto-resume]',
+            '감지: scheduled workflow child has all parents done',
+            f'근거: child={child_id} ({str(child.get("title") or "")}), parents={parent_key}',
+            '조치: 승인 게이트/수동 hold/superseded 표식이 없으므로 unblock 후 dispatcher를 1회 실행합니다.',
+            '안전장치: 외부연동/승인 게이트 scheduled 카드는 제외하고, 한 tick에 최대 1개만 재개합니다.',
+        ])
+        if dry_run or use_fixture:
+            record_action(action_logs, f'dry-run scheduled-parent-done-auto-resume {child_id}: would unblock and dispatch after parents {parent_key}')
+        else:
+            kanban('comment', child_id, msg, check=False)
+            kanban('unblock', '--reason', reason, child_id, check=False)
+            kanban('dispatch', '--max', '1', check=False)
+        handled[key] = {'at': now, 'generation': gen, 'category': 'scheduled-parent-done-auto-resume', 'title': str(child.get('title') or '')[:180]}
+        actions.append((child_id, 'scheduled-with-done-parents', 'scheduled-parent-done-auto-resume'))
+        resumed_scheduled_this_tick = True
+
     running_testers = []
     for t in items:
         if t.get('status') != 'running' or t.get('assignee') != 'gwtester':
