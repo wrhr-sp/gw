@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import { MobileAppShell } from "./app/_components/mobile-app-shell";
+import { MobileAppShell, formatUnreadBadge } from "./app/_components/mobile-app-shell";
 import {
   adminInstallGuideSteps,
   adminMenuSections,
@@ -67,5 +67,15 @@ describe("mobile app shell admin boundary", () => {
 
     expect(html).toContain('href="/menu"');
     expect(html).toContain("전체 메뉴");
+    expect(html).toContain("bottom-nav__icon-svg");
+    expect(html).toContain("bottom-nav__link-pill");
+  });
+
+  it("caps unread badge labels at 99+ and hides empty counts", () => {
+    expect(formatUnreadBadge(0)).toBeNull();
+    expect(formatUnreadBadge(12)).toBe("12");
+    expect(formatUnreadBadge(99)).toBe("99");
+    expect(formatUnreadBadge(100)).toBe("99+");
+    expect(formatUnreadBadge(187)).toBe("99+");
   });
 });
