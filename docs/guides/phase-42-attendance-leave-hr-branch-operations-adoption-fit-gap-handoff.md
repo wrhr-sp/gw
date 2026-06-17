@@ -119,10 +119,25 @@
 ## 7. 현재 Kanban 체인
 
 1. Phase 41 최종 통합 보고 완료: `t_43dc2782` — 싱드(`singde`) — 완료
-2. Phase 42 기획·fit-gap: `t_55849392` — 도담(`gwplanner`) — 진행 중
-3. Phase 42 구현: `t_d23392aa` — 이룸(`gwbuilder`) — 부모 대기
-4. Phase 42 리뷰: `t_0533c055` — 바름(`gwreviewer`) — 부모 대기
-5. Phase 42 테스트: `t_7d7881aa` — 해봄(`gwtester`) — 부모 대기
+2. Phase 42 기획·fit-gap: `t_55849392` — 도담(`gwplanner`) — 완료
+3. Phase 42 구현: `t_d23392aa` — 이룸(`gwbuilder`) — 완료
+4. Phase 42 리뷰: `t_0533c055` — 바름(`gwreviewer`) — 완료
+5. Phase 42 테스트: `t_7d7881aa` — 해봄(`gwtester`) — 완료
+6. Phase 42 문서화: `t_7d36b077` — 다온(`gwdocs`) — 현재 카드
+7. Phase 42 GitHub PR/CI/merge/branch cleanup: `t_bb3f666a` — 지킴(`gwops`) — 부모 대기
+
+상위 parent 메모:
+- Phase 41 최종 통합 보고 `t_43dc2782` 기준 live URL 은 `https://gw-web.wereheresp.workers.dev` 이다.
+- dev/test/UAT 전용 테스트 계정은 `admin / 1234` 다.
+
+2026-06-17 parent 재검증 메모:
+- shared vitest 2개 파일 / 25개 테스트 통과
+- API 15개 파일 / 98개 테스트 통과, 4개 skip
+- web 23개 파일 / 97개 테스트 통과
+- `pnpm --filter @gw/web build`, `pnpm check`, `pnpm --filter @gw/web build:cf` 통과
+- local admin-host preview smoke(`PREVIEW_PORT=8793 BASE_URL=http://127.0.0.1:8793 bash scripts/gw-admin-host-preview-smoke.sh`) 통과
+- route/API curl smoke 기준 익명 401/redirect, 직원·매니저·회사관리자별 `/management`·`/work-items/branch`·관련 API 경계 재확인
+- reviewer 단계에서 shared contracts stray brace 와 홈 관리자 검토 흐름의 `/work-items/branch` 누락이 한 번 발견됐고, 자동 재수정·재리뷰·재검증 체인 뒤 해소됨
 
 ## 8. 완료 판단 기준
 

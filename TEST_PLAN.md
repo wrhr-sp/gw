@@ -9,22 +9,22 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
-## Phase 42A 추가 검증 초점
+## Phase 42 추가 검증 초점
 
-- 익명 사용자는 `/login` 만 정상 진입하고, `/`, `/dashboard`, `/menu`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/messenger`, `/mail`, `/notifications`, `/uat`, `/management`, `/admin*`, 내부 업무 API 는 `/login` 또는 동등한 인증 차단으로 정리돼야 한다.
-- 자동 로그인 on/off 가 세션 유지 정책 차이로 실제 검증 가능해야 하고, 비밀번호 저장처럼 읽히면 안 된다.
-- `rememberSession` 요청 필드가 빠졌을 때도 자동 로그인 기본값처럼 동작하지 않는지 API 레벨에서 다시 본다.
-- 로그아웃 후 `gw_session` 과 자동 로그인 상태가 함께 해제돼야 한다.
-- `/offline` 은 업무 복구 링크 모음이 아니라 로그인 재시도 안내 수준으로 축소돼야 한다.
-- 로그인 후에도 `/management`, `/admin*`, 민감 업무 API 의 role/capability/company boundary 회귀를 다시 확인해야 한다.
+- `/dashboard` 가 `/attendance` → `/leave` 기본 업무의 시작점으로 읽히고, `/management` 운영 레인과 섞이지 않는지 다시 본다.
+- `/attendance` 에서 정책 미허용 출퇴근 방식이 성공 UX 처럼 보이지 않고, 허용 방식/정정 요청/승인자 검토가 분리되는지 확인한다.
+- `/leave` 에서 잔여 확인 → 신청 → 상태 조회와 승인자 lane 이 같은 문장으로 섞이지 않는지 다시 본다.
+- `/employees` 와 `/org` 가 읽기 중심 조회 화면으로 유지되고, `/admin/users`·`/admin/policies` 운영 책임과 과장 없이 분리되는지 확인한다.
+- `/management` 아래 `/work-items/branch` 가 branch scope 운영 레인으로 유지되고, 본사 운영과 지점 관리자 가시 범위가 같은 full access 로 뭉개지지 않는지 본다.
+- admin-only role 비노출, validation error, company+branch scope, route/API guard, 승인 게이트 문구가 화면·문서·API·테스트에서 같은 뜻인지 재확인한다.
 
-## Phase 42A 최신 재검증 근거
+## Phase 42 최신 재검증 근거
 
 - 최신 parent 테스트 기준으로 focused shared/API/Web 회귀, 전체 `pnpm check`, Next.js build, OpenNext Cloudflare build, local preview smoke 가 모두 통과했다.
-- local preview smoke(`http://127.0.0.1:8793`)에서는 익명 `/`, `/dashboard`, `/management` 가 모두 `/login` 으로 redirect 되고, `/login` 은 200, 로그인 후 `/dashboard`·`/management` 는 200 으로 확인됐다.
-- `rememberSession=true` 는 `Max-Age=2592000` 쿠키, `rememberSession=false` 는 브라우저 세션 쿠키로 실제 차이가 확인됐다.
-- 일반 host `/admin -> /login`, admin host `/ -> /admin`, manifest split 도 같은 smoke 에서 다시 확인됐다.
-- 다만 release gate 전에는 reviewer가 남긴 두 교차확인 메모도 다시 본다: `admin / 1234` dev-safe fallback 이 운영 경계 밖에서 남지 않는지, API 요청에서 `rememberSession` 기본값이 opt-in 원칙을 깨지 않는지.
+- 테스트 요약은 shared 25 tests, API 98 passed/4 skipped, web 97 passed 기준으로 다시 기록됐다.
+- local preview smoke(`http://127.0.0.1:8793`)에서는 일반 host `/admin -> /login`, admin host `/ -> /admin`, manifest split 이 다시 확인됐다.
+- route/API curl smoke 기준 익명 401/redirect, 직원·매니저·회사관리자별 `/management`·`/work-items/branch`·관련 API 경계가 현재 범위에서 재현 blocker 없이 통과했다.
+- reviewer 단계에서 shared contracts stray brace 와 홈 관리자 검토 흐름의 `/work-items/branch` 누락이 한 번 잡혔고, 자동 재수정·재리뷰·재검증 체인 뒤 해소된 상태로 최종 테스트가 완료됐다.
 
 ## 1. 기본 검증 명령
 

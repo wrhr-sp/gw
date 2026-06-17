@@ -221,3 +221,4 @@
 ### Guardrails
 
 - secret, production DB, DNS/custom domain, 유료 리소스, 실제 개인정보 처리, 외부 HR 연동은 계속 별도 승인 대상.
+- `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md`, `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md` 를 다시 보강해 Phase 42 문서화를 최신 체인 상태와 parent 재검증 근거에 맞췄다. 기획/구현/리뷰/테스트 완료 후 문서화 → release gate 대기 체인, focused shared/API/Web 회귀와 preview smoke 결과, `/attendance`·`/leave` 직원 기본 레인과 `/management`·`/work-items/branch` 운영 레인 분리, reviewer blocker 해소 이력을 같은 언어로 다시 고정했다.
