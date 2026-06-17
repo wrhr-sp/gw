@@ -42,6 +42,12 @@ const operationalBridgeNotes = [
   "placeholder 제한: 실제 초대, 상태 변경 저장, 권한 부여는 /admin/users review 전까지 열지 않습니다.",
 ] as const;
 
+const onboardingReadModelSteps = [
+  "1) /admin/users 에서 생성 preview 를 본 뒤 이 화면으로 와서 소속·상태가 어떤 read model 로 읽히는지 확인",
+  "2) 일반 조회는 /employees 와 /org 에서만 하고, 역할 저장/상태 변경은 다시 /admin/users 로 돌아가 검토",
+  "3) 운영 담당자만 /management → /work-items/branch 로 넘어가 branch scope 운영 레인을 확인",
+] as const;
+
 export default function EmployeesPage() {
   return (
     <PageShell
@@ -67,6 +73,14 @@ export default function EmployeesPage() {
             <li key={item}>{item}</li>
           ))}
         </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="온보딩 read model 확인 순서" description="계정 preview 다음에 이 화면을 언제 보는지 UAT 절차로 고정합니다.">
+        <ol className="number-list">
+          {onboardingReadModelSteps.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
       </SurfaceSection>
 
       <SurfaceSection title="필터 후보" description="작은 화면에서는 긴 표보다 짧은 chip/카드 흐름을 우선합니다." muted>

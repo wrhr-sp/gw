@@ -36,9 +36,17 @@ const baseManagementCards = [
 
 const managementGuardrails = [
   "일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.",
+  "HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고, 이 허브는 운영 관리자/지점 관리자 중심 레인으로 유지합니다.",
   "감사 역할은 audit.read 기준으로 감사/추적 레인을 우선 확인하고, 모듈 카드는 역할별 허용 범위만 노출합니다.",
   "실메일/실메신저/SSO/OAuth/외부 기관 계정 연동은 계속 승인 게이트입니다.",
   "급여 지급, 실제 세무 신고, production DB 입력, migration, destructive 작업은 이번 범위가 아닙니다.",
+] as const;
+
+const onboardingBridgeSteps = [
+  "1) /admin/users 에서 계정 생성·권한 diff preview 검토",
+  "2) /employees, /org 에서 소속/부서/지점 read model 재확인",
+  "3) 운영 담당자만 /management 로 넘어와 민감 업무 허브를 확인",
+  "4) /work-items/branch 에서 branch scope 운영 레인이 일반 조회와 섞이지 않는지 점검",
 ] as const;
 
 const rehearsalPackageHighlights = [
@@ -98,6 +106,17 @@ export default async function ManagementPage() {
             </article>
           ))}
         </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="계정관리 → 조직조회 → 경영업무 브리지"
+        description="인사 온보딩 레인과 운영 레인을 같은 첫 화면처럼 섞지 않고, 어디서 넘어오는지만 명확히 적어 둡니다."
+      >
+        <ol className="number-list">
+          {onboardingBridgeSteps.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
       </SurfaceSection>
 
       <SurfaceSection title="추천 UAT 순서" description="admin / 1234 로그인 뒤 `/uat` 에서 시나리오를 먼저 읽고, 아래 route 순서로 일반 직원 레인과 내부관리 레인이 섞이지 않는지 확인합니다.">

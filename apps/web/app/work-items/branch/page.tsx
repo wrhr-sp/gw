@@ -14,8 +14,8 @@ export default function WorkItemsBranchPage() {
   return (
     <>
       <PageShell
-        backHref="/dashboard"
-        backLabel="대시보드로"
+        backHref="/management"
+        backLabel="경영업무로"
         eyebrow="Phase 42 branch scope 지점 운영 도입"
         title="지점 업무 실사용 패널"
         description="경영업무 허브 아래에서 branch scope 업무 목록, 상세, 문서, 마감 응답을 먼저 직접 확인한 뒤 공통 설명 섹션으로 이어집니다."

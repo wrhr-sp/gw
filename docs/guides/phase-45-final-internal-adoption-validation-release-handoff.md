@@ -79,7 +79,7 @@
 
 ## 4. 이미 재사용 가능한 최신 근거
 - live URL: `https://gw-web.wereheresp.workers.dev`
-- merge commit: `8372ae1008c74b1578c17e26763b8462596b65ad`
+- merge commit: `fd5239e2e36848e711d918d45994382bf4616b39`
 - main release-gate: success
 - focused API: `pnpm --filter @gw/api test -- auth-org.spec.ts work-items.spec.ts` → 15 files passed, 98 tests passed, 4 skipped
 - focused web: `pnpm --filter @gw/web test -- admin-preview-guard.test.ts work-items.test.tsx dashboard-boundary.test.tsx payroll.test.tsx` → 24 files passed, 100 tests passed

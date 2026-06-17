@@ -33,15 +33,15 @@ const roleEntryCards = [
   },
   {
     role: "인사 관리자",
-    firstRoute: "/admin/users",
-    summary: "사용자/권한 관리가 필요한 인사 운영은 관리자 사용자 화면부터 확인합니다.",
-    note: "HR_ADMIN 은 /management 가 아니라 /admin/users 계열에서 먼저 시작합니다.",
+    firstRoute: "/dashboard",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인으로 이어집니다.",
+    note: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.",
   },
   {
     role: "운영 관리자 / 지점 관리자",
-    firstRoute: "/management",
-    summary: "급여·세무·노무·법무 검토가 필요한 운영 레인은 내부관리 허브로 먼저 이동합니다.",
-    note: "일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
+    firstRoute: "/dashboard",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 운영 CTA 로 내부관리 허브와 branch scope 레인으로 이어집니다.",
+    note: "공통 landing 다음 레인은 /management 이며, 일반 조회 화면과 운영 변경 검토 화면을 섞지 않습니다.",
   },
   {
     role: "감사 전용 사용자",

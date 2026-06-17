@@ -31,6 +31,12 @@ const guardrails = [
   "작은 화면에서는 긴 표보다 카드/섹션 순서가 먼저 읽히도록 유지합니다.",
 ] as const;
 
+const orgBridgeNotes = [
+  "계정 preview 뒤 /org 에서 부서·역할·지점 구조를 읽고, 실제 저장처럼 설명하지 않습니다.",
+  "직원 상태 조회는 /employees, 운영 레인은 /management → /work-items/branch 로 이어집니다.",
+  "HR_ADMIN 시작점은 /admin/users 이고, 이 화면은 구조 확인용 read-only 보조 레인입니다.",
+] as const;
+
 export default function OrgPage() {
   return (
     <PageShell
@@ -53,6 +59,14 @@ export default function OrgPage() {
       <SurfaceSection title="가드레일" description="관리자 정책 화면과 섞이지 않도록 읽기 중심 경계를 먼저 적어 둡니다.">
         <ul className="bullet-list">
           {guardrails.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="온보딩 구조 확인 메모" description="계정관리 preview 다음에 이 화면을 어떻게 읽는지 짧게 고정합니다." muted>
+        <ul className="summary-list">
+          {orgBridgeNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

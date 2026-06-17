@@ -1,7 +1,7 @@
 # Phase 44 관리자/담당자 가이드
 
 ## 한 줄 요약
-관리자와 담당자는 일반 직원 홈에서 바로 운영을 시작하지 않고, `/management` 를 내부관리 허브로 삼아 역할별로 허용된 민감 레인만 확인한다.
+관리자와 담당자는 로그인 직후 공통 홈(`/dashboard`)을 거친 뒤, 역할별로 허용된 다음 운영 레인(`/management`, `/admin/users`, `/admin/audit-logs`)만 확인한다.
 
 ## 이 가이드의 대상
 - 본사 관리자
@@ -11,7 +11,7 @@
 - 운영 리허설 동행 담당자
 
 ## 먼저 기억할 원칙
-- `/dashboard` 는 일반 업무 홈이고 `/management` 는 민감 운영 허브다.
+- `/dashboard` 는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 가 공통으로 먼저 닿는 홈이고 `/management` 는 그 뒤 민감 운영 허브다.
 - 두 레인을 같은 업무 흐름처럼 설명하면 안 된다.
 - 단순 메뉴 숨김이 아니라 route guard, API guard, company+branch scope, capability, read-only 경계가 같이 유지돼야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이다.
@@ -20,13 +20,14 @@
 ## 관리자 레인의 대표 시작점
 
 ### 1) 인사 관리자
-추천 시작점:
-- `/admin/users`
+추천 다음 레인:
+- 로그인 직후 `/dashboard`
+- admin host `/admin/users`
 - 필요 시 `/admin/policies`
 - 이후 `/admin/audit-logs`
 
 설명:
-- HR_ADMIN 은 사용자/권한 관리가 필요한 경우 `/management` 보다 `/admin/users` 계열에서 먼저 시작하는 흐름이 더 맞다.
+- HR_ADMIN 은 로그인 직후 `/dashboard` 를 거친 뒤 사용자/권한 관리가 필요한 경우 admin host `/admin/users` 계열로 이어지는 흐름이 더 맞다.
 - 일반 직원 조회(`/employees`)와 운영 변경 검토(`/admin/users`)를 섞지 않는다.
 
 근거 파일:
@@ -34,8 +35,9 @@
 - `packages/shared/src/admin-access.ts`
 
 ### 2) 운영 관리자 / 지점 관리자
-추천 시작점:
-- `/management`
+추천 다음 레인:
+- 로그인 직후 `/dashboard`
+- general host `/management`
 - `/work-items/branch`
 - `/payroll`
 - 역할에 맞는 `tax/labor/legal` 레인
@@ -45,8 +47,8 @@
 - branch scope 와 company scope 설명을 같은 말처럼 쓰면 안 된다.
 
 ### 3) 감사 전용 사용자
-추천 시작점:
-- `/admin/audit-logs`
+추천 다음 레인:
+- admin host `/admin/audit-logs`
 
 설명:
 - 감사 전용 사용자는 `/admin` 전체 허용 사용자가 아니다.

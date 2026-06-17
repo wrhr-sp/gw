@@ -29,7 +29,7 @@ Phase 44 권한표의 목적은 역할별로 어떤 route 를 열 수 있는지,
 ### 2) `/management`
 - 일반 직원 홈과 분리된 내부관리 허브다.
 - 대표 허용 역할: `SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`
-- HR_ADMIN 은 실제 운영 작업에 따라 `/admin/users` 계열을 먼저 시작점으로 보는 문맥이 더 자연스럽다.
+- HR_ADMIN 은 로그인 직후 공통 홈(`/dashboard`)을 거친 뒤 `/admin/users` 계열을 다음 운영 레인으로 보는 문맥이 더 자연스럽다.
 
 근거 파일:
 - `apps/web/app/dashboard/dashboard-config.ts`
