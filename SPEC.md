@@ -58,7 +58,7 @@
 ### 2-1. same-origin 기본값을 유지한다.
 
 - Web/PWA 기본 API 경로는 `/api/*` same-origin 상대 경로다.
-- manifest 는 `/manifest.webmanifest`, `start_url` 은 `/` 기본값을 유지한다.
+- manifest 는 `/manifest.webmanifest` same-origin 상대 경로를 유지한다. 다만 로그인 단독 진입 정책을 우선하는 일반 사용자 앱은 `start_url: /login` 같은 로그인 시작점을 쓸 수 있다.
 - preview 전용 절대 API 도메인을 제품 기본값으로 문서/코드에 박아 넣지 않는다.
 - host 기준 관리자 앱을 분리하더라도 일반 사용자용 same-origin 기본값은 유지한다.
 - 관리자용 manifest 를 따로 두더라도 `start_url: /admin`, `scope: /admin` 같은 상대 경로 원칙을 유지한다.
@@ -177,7 +177,20 @@
 - `docs/architecture/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-scope.md`
 - `docs/guides/phase-42a-login-required-entry-online-session-offline-exclusion-fit-gap-handoff.md`
 - `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`
-- `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md`
+
+### 2-8. 운영문서·사용자가이드·관리자가이드·도입 체크리스트는 Phase 44 기준으로 보강한다.
+
+- 직원용 가이드는 `/login` 과 `/dashboard` 중심 기본 업무 흐름을 먼저 설명해야 한다.
+- 관리자/담당자 가이드는 `/management` 와 `/payroll`·`/work-items/*`·`/admin/audit-logs` 책임 차이를 분명히 설명해야 한다.
+- 운영자 runbook 은 사전 준비 / 도입 중 점검 / 도입 후 정리 3단계로 읽히게 만든다.
+- 권한표는 역할, 대표 route, 차단 route, scope(company/branch/self/restricted/read-only), approval gate 비고를 함께 보여 줘야 한다.
+- 도입 체크리스트는 지금 가능한 내부 도입 범위와 별도 승인 범위를 섞지 않고 적어야 한다.
+- 로그인/PWA 문서는 로그인 전 비노출 route 기준, Windows Chrome/Edge 설치 순서, 설치 후에도 세션이 없으면 `/login` 부터 시작한다는 점을 쉬운 말로 보여 줘야 한다.
+- 실지급, 은행이체, 주민번호/계좌번호 확대, production 실데이터, 외부 기관/전문가 연동, DNS/custom domain, 유료 리소스, secret, migration 은 계속 승인 게이트다.
+
+근거:
+- `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`
+- `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md`
 
 ## 3. 역할별 행동 규칙
 
@@ -430,6 +443,7 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - Phase 41 문서라면 `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md` 와 `docs/guides/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-handoff.md` 의 `/dashboard` 기준 협업 기본 흐름, 공지 게시판 대 일반 게시판 책임 분리, 게시글 댓글/읽음/forged 차단, 문서 metadata/read receipt/private space 경계, 전자결재 기안자 lane 대 승인자 lane 대 운영 정책 lane 분리, `/admin/policies`·`/admin/audit-logs` 운영 검토, 외부 공유/법적 서명/실데이터 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 42 문서라면 `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md` 와 `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md` 의 `/attendance` 오늘 출퇴근 시작점, `/leave` 잔여·신청·상태 확인, `/employees`·`/org` 읽기 중심 인사/조직 조회, `/management` 아래 `/work-items/branch` branch scope 운영 레인, 정책 미허용 출퇴근 방식·admin-only role 비노출·외부 HR/GPS/태그 단말 승인 게이트 설명과 같은 뜻을 유지한다.
 - Phase 43 문서라면 `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md` 와 `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md` 의 `/management` 내부관리 허브, `/payroll` preview/role-split, `/payroll/me` self-only 명세서, `tax` branch 제출 대 HQ 검토, `labor` self/branch/restricted 경계, `legal` 계약/분쟁 approval gate metadata, `/admin/audit-logs` read-only 감사/컴플라이언스 진입, dedicated compliance route 부재, 외부 전문가 연동·실지급·실신고 승인 게이트 설명과 같은 뜻을 유지한다.
+- Phase 44 문서라면 `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md` 와 `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md` 의 직원 기본 레인(`/login`·`/dashboard`·`/attendance`·`/leave`·`/approvals`·`/boards`·`/documents`), 관리자/담당자 레인(`/management`·`/work-items/branch`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs`), 운영자 runbook 3단계, 권한표, 도입 체크리스트, approval gate 설명과 같은 뜻을 유지한다.
 
 ### 6-2. 코드 없이 문서만 바뀌어도 근거를 남긴다.
 
@@ -618,16 +632,16 @@ Phase 16 파일·문서·공지·검증 안정화 및 파일럿 초안에서 특
 - `/work-items/branch` 는 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인으로 적고, 본사 운영과 지점 관리자 가시 범위를 같은 권한처럼 적지 않는다.
 - 태그 단말, GPS/위치정보, 외부 HR/급여/세무/노무 연동, production 직원·근태·휴가 실데이터, 주민번호/계좌번호 확대, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
-### 6-22. Phase 43 문구는 "내부관리 허브 / 관리자 모듈별 scope 차이 / 별도 승인" 경계를 먼저 보여 줘야 한다.
+### 6-22. Phase 44 문구는 "직원 기본 레인 / 내부관리 레인 / 운영자 점검 / 별도 승인" 경계를 먼저 보여 줘야 한다.
 
+- `/dashboard` 는 직원 기본 업무 시작점으로 적고, `/management` 와 같은 책임처럼 섞지 않는다.
 - `/management` 는 일반 직원 홈과 분리된 내부관리 허브로 적고, 지점 운영/급여/세무/노무/법무/감사를 같은 책임처럼 뭉개지 않는다.
 - `/payroll` 은 급여 프로필/기간/명세서 초안 preview 를 읽는 관리자 화면으로 적고, 실지급 확정 화면처럼 쓰지 않는다.
 - `/payroll/me` 는 self-only 명세서 preview 와 정정 안내 화면으로 적고, 회사 전체 급여 조회처럼 과장하지 않는다.
-- `/work-items/tax` 는 지점 제출 대 HQ 검토 skeleton 흐름으로 적고, 홈택스 직접 신고/외부 세무사 연동과 같은 실신고 시스템처럼 쓰지 않는다.
-- `/work-items/labor` 는 self/branch/restricted 경계가 강한 metadata 중심 노무 흐름으로 적고, 실민감 원문 저장·외부 노무 연동과 같은 운영 완료 상태처럼 쓰지 않는다.
-- `/work-items/legal` 는 계약 검토/갱신/분쟁 approval gate metadata 흐름으로 적고, 실계약/실분쟁 처리 시스템처럼 과장하지 않는다.
+- `/work-items/tax`·`/work-items/labor`·`/work-items/legal` 은 각각 다른 scope 와 approval gate 를 가진 운영 모듈로 적는다.
 - `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 진입점으로 적고, dedicated compliance 조치 queue 가 이미 있는 것처럼 쓰지 않는다.
-- 실지급, 실신고, 외부 세무/노무/법무/보험/기관 연동, 민감 원문 저장 확대, production 실데이터, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
+- 운영자 runbook 은 사전 준비 / 도입 중 점검 / 도입 후 정리 3단계로 적고, blocker 와 approval-needed 를 같은 상태처럼 섞지 않는다.
+- 실지급, 실신고, 외부 세무/노무/법무/보험/기관 연동, 주민번호/계좌번호 확대, production 실데이터, secret·custom domain·migration/destructive 작업은 계속 별도 승인 게이트로 남긴다.
 
 ## 7. 승인 없이 하면 안 되는 것
 

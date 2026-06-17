@@ -19,31 +19,33 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 43 급여·세무·노무·법무 내부관리 도입완성 반영 후 release gate 준비
+### 3. 현재 문서화/검증 기준은 Phase 44 도입 문서 묶음 정리 단계
 
-현재 루트 문서와 handoff 는 `/management` 아래 `/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs` 내부관리 레인, preview/self-only/branch/company/restricted/audit.read 경계, dedicated compliance route 부재, 승인 게이트를 한 번에 설명하는 준비를 중심으로 맞춘다.
+현재 루트 문서와 handoff 는 아래 기준을 함께 설명한다.
 
-- 최신 parent 재검증에서는 shared/api/web 전체 회귀, `pnpm check`, Next/OpenNext build, local preview curl smoke 가 모두 통과했다.
-- local preview curl smoke 기준 익명 `/management`·`/payroll`·`/work-items/tax|labor|legal`·`/admin/audit-logs` 는 `/login` 으로 redirect 된다.
+- 직원 기본 업무 레인: `/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents`
+- 내부관리 레인: `/management` 아래 `/work-items/branch`·`/payroll`·`/payroll/me`·`/work-items/tax`·`/work-items/labor`·`/work-items/legal`·`/admin/audit-logs`
+- 문서 묶음: 직원용 가이드, 관리자용 가이드, 운영자 runbook, 권한표, 도입 체크리스트, 로그인/PWA handoff
+
 - `/management` 는 일반 직원 홈이 아니라 내부관리 허브로 유지한다.
 - `/payroll` 은 급여 overview/기간/명세서 preview 화면이며 실지급 확정 화면이 아니다.
 - `/payroll/me` 는 self-only 명세서 preview 와 정정 안내 레인으로 유지한다.
 - `tax`·`labor`·`legal` 은 공통 work item 위의 관리자 모듈이며 branch/company/self/restricted 경계를 유지한다.
 - `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 진입점으로 유지한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- production data, secret, 실제 급여 지급/실신고, 외부 세무/노무/법무/보험/기관 연동, 유료 리소스는 계속 별도 승인 게이트다.
+- production data, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 법령 API 인증키, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 43 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 44 단계에서 남아 있는 제품형 리스크
 
-- `/management` 가 일반 직원 홈과 섞이면 내부관리 허브 분리 의도가 흐려진다.
+- 직원용 가이드와 관리자용 가이드가 섞이면 실제 도입 대상자별 안내가 흐려진다.
+- `/dashboard` 기본 업무와 `/management` 민감 운영 레인이 같은 업무 흐름처럼 읽히면 내부통제 기대치가 무너진다.
+- 로그인 전 비노출 기준이 문서마다 다르면 사용자는 "앱을 설치하면 로그인 없이도 일부 메뉴가 보여도 된다"고 오해할 수 있다.
 - `/payroll` preview 와 실지급 확정이 섞여 보이면 급여 운영 기대치가 과도하게 올라간다.
-- `tax` branch 제출과 HQ 검토가 같은 권한처럼 읽히면 실제 운영 역할 분담이 무너진다.
-- `labor` restricted/self/branch 경계가 흐려지면 민감 노무 건 가시 범위 오해가 커진다.
-- `legal` metadata 흐름과 실계약/실분쟁 처리가 섞여 읽히면 법무 운영 기대치가 과도하게 올라간다.
+- `tax` branch 제출과 HQ 검토, `labor` self/branch/restricted, `legal` metadata 와 실계약/실분쟁이 섞이면 실제 운영 역할 분담이 무너진다.
 - dedicated compliance route 부재와 `/admin/audit-logs` read-only 성격이 약해지면 컴플라이언스 조치 자동화가 이미 닫힌 것처럼 오해될 수 있다.
-- 실지급, 실신고, 외부 전문가 연동, production 실데이터가 아직 승인 게이트라는 점이 문서에서 약해지면 과도한 기대치 리스크가 커진다.
-- `scripts/gw-admin-host-preview-smoke.sh` 의 general manifest 기대값이 아직 `start_url='/'` 에 머물러 있어, 로그인 우선 정책(`start_url='/login'`)을 반영한 문서/테스트 기준과 보조 smoke helper 가 어긋난다.
+- 도입 체크리스트에서 approval gate 가 약해지면 실지급, 실신고, production 실데이터, 외부 연동이 이미 가능한 것처럼 오해될 수 있다.
+- `scripts/gw-admin-host-preview-smoke.sh` 기대값까지 `/login` 으로 맞췄지만, 실제 Windows Chrome/Edge 설치 UX 문구와 운영자 매뉴얼이 계속 같은 기준을 유지하는지는 live smoke 때 함께 다시 봐야 한다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

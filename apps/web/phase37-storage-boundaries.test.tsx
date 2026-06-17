@@ -1,6 +1,16 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockedSessionToken = { value: "dev-placeholder-session_COMPANY_ADMIN" };
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get(name: string) {
+      return name === "gw_session" ? { value: mockedSessionToken.value } : undefined;
+    },
+  })),
+}));
 
 import AuditLogsPage from "./app/admin/audit-logs/page";
 import DocumentsPage from "./app/documents/page";
@@ -10,6 +20,10 @@ import WorkItemsPage from "./app/work-items/page";
 import { workItemGuardrails, workItemHubHighlights } from "./app/work-items/work-items-config";
 
 describe("Phase 37 internal operational storage boundaries", () => {
+  beforeEach(() => {
+    mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
+  });
+
   it("keeps documents focused on lifecycle and internal storage boundaries instead of public sharing", () => {
     const html = renderToStaticMarkup(<DocumentsPage />);
 
@@ -31,18 +45,18 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");
   });
 
-  it("bridges management, payroll, and work-items with approval-gated read-model language", () => {
-    const managementHtml = renderToStaticMarkup(<ManagementPage />);
+  it("bridges management, payroll, and work-items with approval-gated read-model language", async () => {
+    const managementHtml = renderToStaticMarkup(await ManagementPage());
     const payrollHtml = renderToStaticMarkup(<PayrollPage />);
     const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
 
-    expect(managementHtml).toContain("Phase 42 경영업무·지점 운영 허브");
+    expect(managementHtml).toContain("Phase 43 급여·세무·노무·법무 내부관리 허브");
     expect(managementHtml).toContain("/uat 에서 역할별 시나리오, 이슈 기록 템플릿, approval gate 를 먼저 읽고 시작");
     expect(managementHtml).toContain("역할별 시나리오 + 이슈 템플릿");
-    expect(managementHtml).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름 확인");
+    expect(managementHtml).toContain("/payroll → /work-items/tax → /work-items/labor → /work-items/legal 흐름이 허용 역할에서만 노출되는지 확인");
     expect(managementHtml).toContain("/documents 에서 upload-init / upload-complete / download-init / delete 경계와 storageStatus 설명 확인");
     expect(managementHtml).toContain("Phase 37 연결 체크");
-
+  
     expect(payrollHtml).toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
 
     expect(workItemsHtml).toContain("Phase 37 공통 업무 저장흐름 점검");

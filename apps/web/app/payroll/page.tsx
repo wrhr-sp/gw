@@ -60,11 +60,11 @@ const guardrails = [
 export default function PayrollPage() {
   return (
     <PageShell
-      backHref="/dashboard"
-      backLabel="대시보드로"
-      eyebrow="Phase 28A 급여 foundation pass 1"
-      title="급여 skeleton"
-      description="근태·휴가 다음 단계에서 급여 기초자료 수집, 지급 기간 상태, 명세서 초안을 분리해 읽는 독립 payroll 모듈 자리입니다."
+      backHref="/management"
+      backLabel="경영업무로"
+      eyebrow="Phase 43 급여 내부관리 도입완성"
+      title="급여 내부관리"
+      description="`/management` 아래에서 급여 프로필, 기간 상태, self-only 명세서 preview 연결을 읽는 내부관리 화면입니다. 실지급 확정, 외부 신고, 은행 이체는 이 화면에서 열지 않습니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">attendance/leave input linked</Pill>
@@ -77,7 +77,7 @@ export default function PayrollPage() {
         <PayrollOverviewLiveSection />
       </SurfaceSection>
 
-      <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="실제 급여 계산 완료처럼 과장하지 않고 읽기 중심 구조를 먼저 맞춥니다.">
+      <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="일반 직원 홈과 섞지 않고, 내부 급여 운영자가 확인할 읽기 중심 구조를 먼저 맞춥니다.">
         <div className="grid-auto-compact">
           {overviewCards.map((card) => (
             <article key={card.title} className="route-card">
@@ -90,7 +90,7 @@ export default function PayrollPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="역할별 공개 범위" description="본사 급여 담당 / 지점 관리자 / 일반 직원이 보는 범위를 같은 화면에서 설명합니다.">
+      <SurfaceSection title="역할별 공개 범위" description="본사 급여 담당 / 지점 관리자 / 일반 직원이 어디까지 보는지 같은 화면에서 분리해 설명합니다.">
         <div className="grid-auto-compact">
           {roleCards.map((card) => (
             <article key={card.role} className="info-card">
@@ -110,12 +110,13 @@ export default function PayrollPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="연결 API / 화면" description="same-origin API 와 직원 화면을 함께 확인합니다.">
+      <SurfaceSection title="연결 API / 화면" description="관리자 내부관리 화면과 구성원 self-only 화면을 같은 기준으로 확인합니다.">
         <ul className="summary-list">
           <li><a href={appRoutes.payroll.overview}>{appRoutes.payroll.overview}</a> — 급여 개요/기간/역할별 공개 범위</li>
           <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 / draft / line items</li>
           <li><a href={appRoutes.payroll.myPayslip}>{appRoutes.payroll.myPayslip}</a> — 본인 급여명세서 초안 API</li>
           <li><a href="/payroll/me">/payroll/me</a> — 구성원용 명세서 화면 skeleton</li>
+          <li><a href="/management">/management</a> — 급여·세무·노무·법무·감사 내부관리 허브</li>
         </ul>
       </SurfaceSection>
 

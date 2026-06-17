@@ -3,12 +3,18 @@ import type { AdminScope, PermissionCode, RoleCode, SessionUser } from "./contra
 export const adminRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"] as const;
 export const auditRoleCodes = ["AUDITOR"] as const;
 export const generalRoleCodes = ["MANAGER", "EMPLOYEE"] as const;
-export const legalManagementRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER", "AUDITOR"] as const;
+export const legalManagementRoleCodes = ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const;
 export const knownRoleCodes = [...adminRoleCodes, ...generalRoleCodes, ...auditRoleCodes] as const;
 
 export type ViewerAccess = Pick<SessionUser, "roleCodes" | "permissions">;
 export type AdminRouteKind = "admin_console" | "admin_audit";
-export type SensitiveWorkbenchRouteKind = "management_workspace";
+export type SensitiveWorkbenchRouteKind =
+  | "management_workspace"
+  | "payroll_workspace"
+  | "tax_workspace"
+  | "labor_workspace"
+  | "legal_workspace"
+  | "branch_workspace";
 
 const generalHomeShortcutRoutePrefixes = [
   "/dashboard",
@@ -217,7 +223,40 @@ const adminScopeByRoleCode: Record<RoleCode, AdminScope | null> = {
 
 const adminConsoleRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"] as const;
 const adminAuditRoutePrefixes = ["/admin/audit-logs"] as const;
-const managementWorkspaceRoutePrefixes = ["/management", "/work-items/legal", "/work-items/tax", "/work-items/labor", "/work-items/branch"] as const;
+const selfServiceSensitiveRoutePrefixes = ["/payroll/me"] as const;
+
+const sensitiveWorkbenchRoutes = [
+  {
+    kind: "management_workspace",
+    prefixes: ["/management"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const,
+  },
+  {
+    kind: "payroll_workspace",
+    prefixes: ["/payroll"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const,
+  },
+  {
+    kind: "tax_workspace",
+    prefixes: ["/work-items/tax"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const,
+  },
+  {
+    kind: "labor_workspace",
+    prefixes: ["/work-items/labor"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN"] as const,
+  },
+  {
+    kind: "legal_workspace",
+    prefixes: ["/work-items/legal"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const,
+  },
+  {
+    kind: "branch_workspace",
+    prefixes: ["/work-items/branch"],
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"] as const,
+  },
+] as const;
 
 function isMatchingRoute(pathname: string, prefixes: readonly string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -256,11 +295,7 @@ export function getAdminRouteKind(pathname: string): AdminRouteKind | null {
 }
 
 export function getSensitiveWorkbenchRouteKind(pathname: string): SensitiveWorkbenchRouteKind | null {
-  if (isMatchingRoute(pathname, managementWorkspaceRoutePrefixes)) {
-    return "management_workspace";
-  }
-
-  return null;
+  return sensitiveWorkbenchRoutes.find((route) => isMatchingRoute(pathname, route.prefixes))?.kind ?? null;
 }
 
 export function hasAdminConsoleAccess(viewer: ViewerAccess) {
@@ -290,13 +325,18 @@ export function hasAdminRouteAccess(pathname: string, viewer: ViewerAccess) {
 }
 
 export function hasSensitiveWorkbenchRouteAccess(pathname: string, viewer: ViewerAccess) {
-  const routeKind = getSensitiveWorkbenchRouteKind(pathname);
-
-  if (routeKind === "management_workspace") {
-    return hasLegalManagementAccess(viewer);
+  if (isMatchingRoute(pathname, selfServiceSensitiveRoutePrefixes)) {
+    return viewer.permissions.includes("payroll.payslip.read_self");
   }
 
-  return false;
+  const routeKind = getSensitiveWorkbenchRouteKind(pathname);
+  const routeConfig = routeKind ? sensitiveWorkbenchRoutes.find((route) => route.kind === routeKind) : null;
+
+  if (!routeConfig) {
+    return false;
+  }
+
+  return viewer.roleCodes.some((roleCode) => routeConfig.allowedRoleCodes.some((allowedRoleCode) => allowedRoleCode === roleCode));
 }
 
 export function hasHomeShortcutRouteAccess(pathname: string, viewer: ViewerAccess) {

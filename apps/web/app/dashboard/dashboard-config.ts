@@ -34,10 +34,11 @@ export type DashboardAdminShortcut = {
 };
 
 export type DashboardManagementCard = {
-  href: "/management" | "/work-items/legal";
+  href: "/management" | "/payroll" | "/work-items/tax" | "/work-items/labor" | "/work-items/legal";
   title: string;
   body: string;
   roleScope: string;
+  allowedRoleCodes: readonly RoleCode[];
 };
 
 export type DashboardRoleJourneyCard = {
@@ -85,12 +86,6 @@ export const dashboardActionCards: DashboardActionCard[] = [
     title: "내 정보 마무리 확인",
     body: "협업 화면 뒤에 내 세션, 역할, 회사 정보와 보안 안내를 확인하는 마무리 흐름입니다.",
     detail: "개인 세션 요약 뒤 /org, /employees 읽기 전용 조회로 이어짐",
-  },
-  {
-    href: "/payroll",
-    title: "급여 수집/명세 초안 확인",
-    body: "마지막으로 급여 자료 수집 상태, 지급 예정 기간, 내 명세서 초안을 분리해서 확인합니다.",
-    detail: "실정산/세액 확정 없이 preview 중심, 역할별 공개 범위 분리",
   },
 ];
 
@@ -150,7 +145,13 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
     detail: "필요 시 /attendance, /leave, /approvals, /employees 에서 판단 근거를 보조로 확인",
   },
   {
-    role: "인사 / 운영 관리자",
+    role: "인사 관리자",
+    firstRoute: "/admin/users",
+    summary: "사용자/권한 관리가 필요한 인사 운영은 관리자 사용자 화면부터 시작합니다.",
+    detail: "HR_ADMIN 은 /management 가 아니라 /admin/users 계열에서 먼저 진입",
+  },
+  {
+    role: "운영 관리자 / 지점 관리자",
     firstRoute: "/management",
     summary: "권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
     detail: "일반 조회와 운영 변경 검토를 분리하고 /work-items/branch 를 branch scope 운영 레인으로 유지",
@@ -206,14 +207,37 @@ export const dashboardManagementCards: DashboardManagementCard[] = [
   {
     href: "/management",
     title: "경영업무 허브",
-    body: "법무 같은 민감 운영 모듈은 일반 직원용 공통 업무 허브와 분리해 지정 관리자/담당자만 별도 영역에서 확인합니다.",
-    roleScope: "본사 관리자 / 지점 관리자 / 감사",
+    body: "급여·세무·노무·법무 같은 내부관리 모듈은 일반 직원 홈과 분리해 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    roleScope: "본사 관리자 / 지점 관리자",
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
+  },
+  {
+    href: "/payroll",
+    title: "급여 내부관리",
+    body: "급여 프로필, 기간 상태, self-only 명세서 preview 연결은 경영업무 허브 아래에서만 읽습니다.",
+    roleScope: "본사 관리자 / 인사 관리자 / 지점 관리자",
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
+  },
+  {
+    href: "/work-items/tax",
+    title: "세무 내부관리",
+    body: "지점 제출과 HQ 검토를 같은 권한처럼 섞지 않고 증빙·마감·패키지 준비 상태를 읽습니다.",
+    roleScope: "본사 세무 담당 / 지점 관리자",
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
+  },
+  {
+    href: "/work-items/labor",
+    title: "노무 내부관리",
+    body: "self/branch/restricted 경계를 숨기지 않고 고충·징계·수당·계약 이슈 metadata 를 확인합니다.",
+    roleScope: "본사 HR/노무",
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN"],
   },
   {
     href: "/work-items/legal",
     title: "법무 업무",
     body: "계약 검토 요청, 갱신 예정, 분쟁/클레임 후속은 경영업무 허브 아래에서만 metadata 중심으로 이어집니다.",
-    roleScope: "본사 법무/운영 담당 / 지점 관리자 / 감사",
+    roleScope: "본사 법무/운영 담당 / 지점 관리자",
+    allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
   },
 ];
 
@@ -250,7 +274,11 @@ export function hasDashboardManagementAccess(roleCodes: readonly RoleCode[]) {
 }
 
 export function getVisibleDashboardManagementCards(roleCodes: readonly RoleCode[]) {
-  return hasDashboardManagementAccess(roleCodes) ? dashboardManagementCards : [];
+  if (!hasDashboardManagementAccess(roleCodes)) {
+    return [];
+  }
+
+  return dashboardManagementCards.filter((card) => roleCodes.some((roleCode) => card.allowedRoleCodes.includes(roleCode)));
 }
 
 export function getDashboardAdminShortcut(

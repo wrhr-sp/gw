@@ -67,7 +67,7 @@ export function DashboardPageContent({
           <article className="info-card">
             <Pill tone="warning">경영업무 허브</Pill>
             <h3>/management</h3>
-            <p>계정관리, 감사, 세무/노무/법무 같은 민감 모듈은 홈과 분리된 별도 허브에서만 검토합니다.</p>
+            <p>급여, 세무, 노무, 법무, 감사 같은 내부관리 모듈은 홈과 분리된 별도 허브에서만 검토합니다.</p>
             <a href="/management">/management</a>
           </article>
         </div>
@@ -161,14 +161,15 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="관리자 운영 검토 레인"
-        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/work-items/branch` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 순서로 검토합니다."
+        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` 순서로 내부관리 레인을 검토합니다."
       >
         <ul className="summary-list">
           <li>`/dashboard` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
-          <li>`/management` 에서 오늘 검토할 지점 운영/정책/감사 체크포인트 정리</li>
-          <li>`/work-items/branch` 에서 branch scope 업무 목록·상세·문서·마감 흐름 확인</li>
-          <li>`/admin/users` 에서 직원 조회가 아니라 권한·상태 변경 후보를 검토</li>
-          <li>`/admin/policies` 에서 근태·휴가·결재·게시판·문서 정책 candidate 비교</li>
+          <li>`/management` 에서 오늘 검토할 급여/세무/노무/법무/감사 체크포인트 정리</li>
+          <li>`/payroll` 에서 급여 overview, 기간 상세, self-only 명세서 preview 경계 확인</li>
+          <li>`/work-items/tax` 에서 지점 제출·HQ 검토·패키지 준비 상태 확인</li>
+          <li>`/work-items/labor` 에서 self/branch/restricted 경계와 민감도 설명 확인</li>
+          <li>`/work-items/legal` 에서 계약/갱신/분쟁 흐름과 approval gate 언어 확인</li>
           <li>`/admin/audit-logs` 에서 masked/company boundary 기준으로 read-only 감사 추적</li>
         </ul>
       </SurfaceSection>
@@ -217,7 +218,7 @@ export function DashboardPageContent({
       {managementCards.length > 0 ? (
         <SurfaceSection
           title="경영업무 분리 진입"
-          description="법무 같은 민감 운영 모듈은 일반 직원용 메뉴/허브와 섞지 않고 지정 관리자·담당자만 별도 영역에서 확인합니다."
+          description="급여·세무·노무·법무·감사 내부관리 모듈은 일반 직원용 메뉴/허브와 섞지 않고 지정 관리자·담당자만 별도 영역에서 확인합니다."
         >
           <div className="grid-auto-compact">
             {managementCards.map((card) => (

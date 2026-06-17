@@ -3,7 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 실사용 전환 가능한 UAT 단계로 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러볼 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 메인 문서화 기준 최신 범위는 Phase 43 급여·세무·노무·법무 내부관리 도입완성 fit-gap 정리다. 직전 Phase 42A에서 `/login` 단일 입구, 비로그인 전면 차단, 자동 로그인 세션 정책, `/offline` 업무 복구 제거, 로그인 후 민감 route/API guard 유지 원칙을 먼저 고정했고, 이번 Phase에서는 그 위에 `/management` 아래 급여·세무·노무·법무·감사 내부관리 레인을 내부 도입 가능한 언어로 다시 닫는 것이 다음 우선순위다.
+현재 메인 문서화 기준 최신 범위는 Phase 44 운영문서·사용자가이드·관리자가이드·도입 체크리스트 fit-gap 정리다. Phase 44의 목적은 이미 정리된 로그인/직원 기본업무/경영업무 권한 경계를 바탕으로, 직원용 안내·관리자용 안내·운영자 runbook·권한표·도입 전 체크리스트를 한 세트로 묶어 "외부 연동 없이 회사 내부에 본격 도입 가능한 기준선"을 닫는 것이다.
+병행 문서화 축에서는 PC/모바일 `/login` 단독 진입, 로그인 전 비노출 기준, Windows Chrome/Edge PWA 설치형 데스크톱 앱 확인 순서를 최종 사용자도 바로 따라 할 수 있게 다듬고 있다.
 
 ## Phase 흐름
 
@@ -53,6 +54,7 @@
 - Phase 42A: 로그인 필수 진입·자동 로그인·오프라인 제외 fit-gap
 - Phase 42: 근태·휴가·인사·지점 운영 도입완성 fit-gap
 - Phase 43: 급여·세무·노무·법무 내부관리 도입완성 fit-gap
+- Phase 44: 운영문서·사용자가이드·관리자가이드·도입 체크리스트 fit-gap
 
 ## MVP 성공 기준
 
@@ -68,7 +70,7 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md`
-- 직전 범위: `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-handoff.md`
+- 현재 기준 범위: `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-44-operations-docs-user-admin-guides-adoption-checklist-handoff.md`
+- 직전 범위: `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-handoff.md`

@@ -1,6 +1,16 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockedSessionToken = { value: "dev-placeholder-session_COMPANY_ADMIN" };
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get(name: string) {
+      return name === "gw_session" ? { value: mockedSessionToken.value } : undefined;
+    },
+  })),
+}));
 
 import { dashboardWorkItemCards, getVisibleDashboardManagementCards } from "./app/dashboard/dashboard-config";
 import ManagementPage from "./app/management/page";
@@ -11,6 +21,10 @@ import WorkItemsLegalPage from "./app/work-items/legal/page";
 import WorkItemsPage from "./app/work-items/page";
 
 describe("Phase 25 work-items web entrypoints", () => {
+  beforeEach(() => {
+    mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
+  });
+
   it("renders the work-items hub with Phase 25 copy, API skeleton, and guardrails", () => {
     const html = renderToStaticMarkup(<WorkItemsPage />);
 
@@ -77,9 +91,14 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items", "/work-items/hr", "/work-items/tax"]);
     expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
     expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
-    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual(["/management", "/work-items/legal"]);
+    expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual([
+      "/management",
+      "/payroll",
+      "/work-items/tax",
+      "/work-items/legal",
+    ]);
 
-    expect(mobilePrimaryNav.some((item) => item.href === "/payroll")).toBe(true);
+    expect(mobilePrimaryNav.some((item) => item.href === "/payroll")).toBe(false);
     expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(true);
 
     const employeeMenuSections = getVisibleMobileMenuSections("EMPLOYEE");
@@ -96,23 +115,65 @@ describe("Phase 25 work-items web entrypoints", () => {
       "/work-items",
       "/work-items/hr",
       "/work-items/tax",
-      "/work-items/labor",
       "/work-items/branch",
     ]);
     const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
-    expect(managementSection?.items.map((item) => item.href)).toEqual(["/management", "/work-items/legal"]);
+    expect(managementSection?.items.map((item) => item.href)).toEqual([
+      "/management",
+      "/payroll",
+      "/work-items/tax",
+      "/work-items/legal",
+    ]);
+
+    const auditorMenuSections = getVisibleMobileMenuSections("AUDITOR");
+    expect(auditorMenuSections.some((section) => section.title === "경영업무")).toBe(false);
   });
 
-  it("renders a dedicated management page for sensitive legal access", () => {
-    const html = renderToStaticMarkup(<ManagementPage />);
+  it("renders a dedicated management page for sensitive legal access", async () => {
+    const html = renderToStaticMarkup(await ManagementPage());
 
     expect(html).toContain("경영업무");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("추천 UAT 순서");
-    expect(html).toContain("/payroll → /payroll/me");
-    expect(html).toContain("/work-items/tax → /work-items/labor → /work-items/legal");
+    expect(html).toContain("/payroll → /work-items/tax → /work-items/labor → /work-items/legal");
     expect(html).toContain("컴플라이언스 / 감사 preview");
     expect(html).toContain("일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.");
+  });
+
+  it("keeps auditors out of the management lane and on the audit-only admin shortcut", () => {
+    expect(getVisibleDashboardManagementCards(["AUDITOR"])).toEqual([]);
+  });
+
+  it("filters management-page cards to only what a manager can actually open", async () => {
+    mockedSessionToken.value = "dev-placeholder-session_MANAGER";
+
+    const html = renderToStaticMarkup(await ManagementPage());
+
+    expect(html).toContain('href="/attendance"');
+    expect(html).toContain('href="/management"');
+    expect(html).toContain('href="/payroll"');
+    expect(html).toContain('href="/work-items/tax"');
+    expect(html).toContain('href="/work-items/legal"');
+    expect(html).toContain('href="/work-items/branch"');
+    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/work-items/labor"');
+    expect(html).not.toContain('href="/admin/audit-logs"');
+  });
+
+  it("keeps HR_ADMIN on admin/users flow instead of the management lane", async () => {
+    mockedSessionToken.value = "dev-placeholder-session_HR_ADMIN";
+
+    const html = renderToStaticMarkup(await ManagementPage());
+
+    expect(html).toContain('href="/admin/users"');
+    expect(html).toContain('href="/attendance"');
+    expect(html).not.toContain('href="/management"');
+    expect(html).not.toContain('href="/payroll"');
+    expect(html).not.toContain('href="/work-items/tax"');
+    expect(html).not.toContain('href="/work-items/labor"');
+    expect(html).not.toContain('href="/work-items/legal"');
+    expect(html).not.toContain('href="/work-items/branch"');
+    expect(html).not.toContain('href="/admin/audit-logs"');
   });
 });

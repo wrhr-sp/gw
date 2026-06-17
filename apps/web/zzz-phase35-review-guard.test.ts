@@ -39,6 +39,14 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/labor",
         host: "localhost:3000",
+        sessionToken: "dev-placeholder-session_MANAGER",
+      }),
+    ).toEqual({ action: "redirect", location: "/forbidden" });
+
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/work-items/labor",
+        host: "localhost:3000",
         sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
@@ -49,6 +57,6 @@ describe("phase35 route guard review checks", () => {
         host: "localhost:3000",
         sessionToken: "dev-placeholder-session_AUDITOR",
       }),
-    ).toEqual({ action: "allow" });
+    ).toEqual({ action: "redirect", location: "/forbidden" });
   });
 });

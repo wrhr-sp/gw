@@ -40,9 +40,9 @@ const guidance = [
 export default function PayrollMePage() {
   return (
     <PageShell
-      backHref="/payroll"
-      backLabel="급여 허브로"
-      eyebrow="Phase 28A employee payslip preview"
+      backHref="/me"
+      backLabel="내 정보로"
+      eyebrow="Phase 43 self-only 급여명세서 preview"
       title="내 급여명세서 초안"
       description="구성원은 본인 급여명세서 preview 와 정정 안내만 확인합니다. 실지급 확정, 동료 급여 조회, 외부 신고 결과는 보여 주지 않습니다."
       actions={
@@ -87,6 +87,7 @@ export default function PayrollMePage() {
           <li><a href={appRoutes.attendance.records}>{appRoutes.attendance.records}</a> — 근태 기록 확인</li>
           <li><a href={appRoutes.leave.balances}>{appRoutes.leave.balances}</a> — 휴가 잔여/반영 확인</li>
           <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 preview</li>
+          <li><a href="/me">/me</a> — 내 정보에서 self-only 급여 preview 로 다시 진입</li>
         </ul>
       </SurfaceSection>
 
