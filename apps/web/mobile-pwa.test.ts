@@ -34,7 +34,7 @@ const publicManifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/ma
 describe("Phase 6 mobile/PWA skeleton config", () => {
   it("keeps the general-user manifest relative and provides placeholder icons", () => {
     expect(generalPwaManifest.id).toBe("/login");
-    expect(generalPwaManifest.start_url).toBe("/");
+    expect(generalPwaManifest.start_url).toBe("/dashboard");
     expect(generalPwaManifest.scope).toBe("/");
     expect(generalPwaManifest.display_override).toEqual(["standalone", "minimal-ui", "browser"]);
     expect(generalPwaManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual(["/dashboard", "/attendance", "/approvals"]);
@@ -92,12 +92,13 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "/mail",
       "/notifications",
     ]);
+    expect(mobileBottomTabs[0]?.summary).toContain("전체 기능 탐색");
 
     expect(mobileMenuSections.map((section) => section.title)).toEqual([
       "기본 업무",
       "공통 업무 엔진",
       "내 정보 / 조회",
-      "협업",
+      "협업 placeholder",
     ]);
   });
 
@@ -118,8 +119,9 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       menuSections: adminMenuSections,
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
-      appName: "We’reHere",
-      homeHref: "/",
+      appName: "그룹웨어 Web/PWA",
+      appEyebrow: "Phase 57 홈·메뉴 UX",
+      homeHref: "/dashboard",
       navItems: mobilePrimaryNav,
       bottomTabs: mobileBottomTabs,
       menuSections: mobileMenuSections,
@@ -160,7 +162,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       showMobileMenuShortcut: false,
     });
     expect(getAppShellConfigForHost("gw-web.preview-account.workers.dev")).toMatchObject({
-      homeHref: "/",
+      homeHref: "/dashboard",
       showMobileMenuShortcut: true,
     });
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[0]).toContain("/admin/users");

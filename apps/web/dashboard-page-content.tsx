@@ -42,11 +42,11 @@ export function DashboardPageContent({
 
   return (
     <PageShell
-      backHref="/"
-      backLabel="홈으로"
-      eyebrow="Phase 31 홈 실사용 UAT"
+      backHref="/menu"
+      backLabel="전체 메뉴로"
+      eyebrow="Phase 57 홈·메뉴 IA 실사용 UAT"
       title="홈 / 대시보드"
-      description="직원의 하루 기본 업무인 근태·휴가를 먼저 읽고, 그 다음 결재·공지·문서·내 정보와 읽기 중심 조직 조회로 이어지게 다시 정리한 홈 화면입니다."
+      description="`/dashboard` 를 오늘 할 일 시작 홈으로 고정하고, 근태·휴가·결재 같은 기본 업무를 먼저 읽은 뒤 공지·문서·내 정보·조회 흐름으로 이어지게 정리한 홈 화면입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -79,8 +79,8 @@ export function DashboardPageContent({
       </SurfaceSection>
 
       <SurfaceSection
-        title="Phase 49 직원 레인 고정"
-        description="이번 파일럿/UAT에서는 일반 직원이 실제로 누를 순서를 같은 언어로 잠그고, 운영 관리자 화면과 섞이지 않게 안내합니다."
+        title="Phase 57 홈 역할 고정"
+        description="이번 파일럿/UAT에서는 `/dashboard` 를 오늘 업무 시작 홈으로, `/menu` 를 전체 기능 탐색 메뉴로 분리하고 운영 관리자 화면과 섞이지 않게 안내합니다."
       >
         <div className="grid-auto-compact">
           <article className="info-card">
@@ -90,8 +90,8 @@ export function DashboardPageContent({
           </article>
           <article className="info-card">
             <Pill>분리 원칙</Pill>
-            <h3>일반 홈과 운영 허브를 섞지 않음</h3>
-            <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인입니다.</p>
+            <h3>/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인</h3>
+            <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인이며, `/menu` 도 전체 탐색 화면으로만 읽혀야 합니다.</p>
           </article>
           <article className="info-card">
             <Pill tone="warning">UAT 기록 포인트</Pill>
@@ -119,7 +119,7 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="홈 바로가기"
-        description="PC/모바일 홈에서 같이 쓰는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
+        description="`/dashboard` 와 `/menu` 가 같이 쓰는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}

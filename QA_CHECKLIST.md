@@ -109,14 +109,14 @@
 - [ ] Phase 55 범위라면 admin role, `permission.read`, `audit.read`, company scope, branch scope, `createdFrom`/`createdTo` 필터 기준이 문서/화면/API/test 에서 같은 뜻으로 유지된다.
 - [ ] Phase 55 범위라면 masked preview 와 raw storage key/bucket/public URL/signed URL/secret 비노출 원칙이 감사/운영 설명에서 깨지지 않는다.
 - [ ] Phase 55 범위라면 empty/loading/error/forbidden/dev-safe 가 관리자 계정·조직 route 기준으로 분명히 보이고, `preview`·`guard 확인`·`audit candidate` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
-- [ ] Phase 56 관리자 지정 경영업무 1차 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
-- [ ] Phase 56 범위라면 `/management` 가 민감 운영 허브처럼 읽히고, 일반 직원 홈 CTA 와 같은 책임처럼 보이지 않는다.
-- [ ] Phase 56 범위라면 `/payroll` 운영 급여 lane 과 `/payroll/me` self-only lane 이 서로 다른 책임으로 읽힌다.
-- [ ] Phase 56 범위라면 `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 이 같은 관리자 기능처럼 뭉개지지 않고 branch/company/self/restricted 경계가 같은 뜻으로 유지된다.
-- [ ] Phase 56 범위라면 일반 직원의 `/management`·`/work-items/*` 차단, 지정 관리자 접근, `AUDITOR` 의 `/admin/audit-logs` read-only 허용이 UI/route/API/test 에서 같은 뜻으로 유지된다.
-- [ ] Phase 56 범위라면 company scope, branch scope, self scope, restricted scope, `audit.read` 기준이 문서/화면/API/test 에서 같은 뜻으로 유지된다.
-- [ ] Phase 56 범위라면 masked preview 와 raw storage key/bucket/public URL/signed URL/secret 비노출 원칙이 급여/세무/노무/법무/감사 설명에서 깨지지 않는다.
-- [ ] Phase 56 범위라면 empty/loading/error/forbidden/dev-safe 가 경영업무 route 기준으로 분명히 보이고, `preview`·`guard 확인`·`실사용 패널` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
+- [ ] Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 범위라면 익명 시작점이 `/login` 만 유지되고, 홈(`/dashboard`)과 메뉴(`/menu`)가 서로 다른 책임으로 읽힌다.
+- [ ] Phase 57 범위라면 `/dashboard` 는 오늘 업무 시작 홈, `/menu` 는 전체 기능 탐색 화면으로 읽히고 같은 랜딩 페이지처럼 뭉개지지 않는다.
+- [ ] Phase 57 범위라면 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기가 서로 다른 정책으로 읽힌다.
+- [ ] Phase 57 범위라면 모바일 하단 탭 5개, 모바일 전체 메뉴, PC sidebar 가 같은 정보구조를 가리키고 서로 다른 사이트맵처럼 풀리지 않는다.
+- [ ] Phase 57 범위라면 `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인이 일반 직원 홈 CTA 와 같은 책임처럼 보이지 않는다.
+- [ ] Phase 57 범위라면 홈 shortcut, menu shortcut, 직접 route 접근, API guard 가 `packages/shared/src/admin-access.ts` 기준과 같은 접근 행렬을 유지한다.
+- [ ] Phase 57 범위라면 사용자 전용 바로가기 없음은 empty 상태로, 홈 바로가기 API 실패는 error 상태로 읽히며 서로 섞이지 않는다.
+- [ ] Phase 57 범위라면 empty/loading/error/forbidden/offline/dev-safe 가 홈/메뉴 route 기준으로 분명히 보이고, 아직 없는 영구 저장 커스터마이징이나 외부 연동을 완료품처럼 적지 않는다.
 - [ ] Phase 54 문서함·파일 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
 - [ ] Phase 54 범위라면 `/documents` 가 문서 실사용 시작점처럼 읽히고, 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비 → 다운로드 준비 → 읽음 확인 흐름이 실제 업무 순서로 이어진다.
 - [ ] Phase 54 범위라면 전사 문서함과 인사 전용 문서함 책임이 먼저 구분돼 보인다.

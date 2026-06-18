@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 내부 회사 본격 도입 가능한 릴리즈 단계까지 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러보며 도입 여부를 판단할 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 56 관리자 지정 경영업무 1차 실사용화 fit-gap 정리다. Phase 56의 목적은 Phase 43 경영관리 도입 기준과 Phase 55 관리자 계정·권한·조직 기준선을 바탕으로 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 묶음을 live URL에서 직접 눌러볼 수 있는 지정 관리자 실사용 흐름으로 끌어올리는 것이다.
-핵심은 실제 실지급·실신고·외부 전문가 연동을 바로 여는 것이 아니라, 운영 허브 진입 → 운영 급여 preview 확인 → self-only 급여 확인 분리 → 세무/노무/법무 모듈 책임 분리 → 감사 로그 read-only 추적 순서, 일반 직원 대 지정 관리자 대 감사 담당자 책임 분리, company/branch/self/restricted scope 차이, masked preview/비노출 원칙, empty/loading/error/forbidden/dev-safe 상태를 같은 언어로 다시 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA fit-gap 정리다. Phase 57의 목적은 Phase 24 파일럿 정보구조, Phase 47 모바일/PWA 사용성, Phase 56 운영 레인 분리 기준선을 바탕으로 `/dashboard`, `/menu`, 홈 바로가기, 모바일 하단 탭 5개, PC sidebar, 운영/감사/경영업무 진입점을 live URL에서 직접 눌러볼 수 있는 실제 탐색 구조로 다시 정리하는 것이다.
+핵심은 새 외부 연동이나 영구 저장 커스터마이징을 바로 여는 것이 아니라, 홈은 오늘 할 일 시작 화면, 메뉴는 전체 기능 탐색 화면, 회사 공통 고정 바로가기 대 권한 기반 사용자 전용 바로가기 분리, 모바일/PC 같은 정보구조 유지, 운영 레인(`/management`·`/admin/users`·`/admin/audit-logs`)의 일반 직원 홈 분리, empty/loading/error/forbidden/offline/dev-safe 상태를 같은 언어로 다시 잠그는 것이다.
 
 ## Phase 흐름
 
@@ -67,6 +67,7 @@
 - Phase 54: 문서함·파일 실사용화
 - Phase 55: 관리자 계정·권한·조직 실사용화
 - Phase 56: 관리자 지정 경영업무 1차 실사용화
+- Phase 57: 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 정리
 
 ## MVP 성공 기준
 
@@ -82,9 +83,9 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
-- 현재 실사용 가이드: `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
-- 직전 범위: `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-handoff.md`
-- 직전 가이드: `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-guide.md`
+- 현재 기준 범위: `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`
+- 현재 실사용 가이드: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
+- 직전 범위: `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
+- 직전 가이드: `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`

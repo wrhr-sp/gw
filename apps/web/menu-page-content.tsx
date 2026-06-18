@@ -23,19 +23,42 @@ export function MenuPageContent({
     <PageShell
       backHref="/dashboard"
       backLabel="홈으로"
-      eyebrow="Phase 31 모바일 홈 실사용 UAT"
-      title="모바일 홈 / 전체 메뉴"
-      description="모바일에서도 홈과 메뉴가 같은 기준으로 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 보여 주고, 하단 탭과 전체 메뉴는 같은 정보구조를 가리키도록 정리했습니다."
+      eyebrow="Phase 57 홈·메뉴 IA 실사용 UAT"
+      title="전체 메뉴 / 기능 탐색 허브"
+      description="`/dashboard` 는 오늘 할 일 시작 홈으로, `/menu` 는 전체 기능 탐색 허브로 분리하고, 두 화면은 같은 바로가기·권한 registry 와 같은 모바일/PC 정보구조를 공유하도록 정리했습니다."
       actions={
         <div className="pill-row">
-          <Pill tone="accent">홈=대시보드</Pill>
-          <Pill>PC/모바일 공통 shortcut 기준</Pill>
+          <Pill tone="accent">/dashboard = 오늘 할 일</Pill>
+          <Pill>/menu = 전체 기능 탐색</Pill>
         </div>
       }
     >
       <SurfaceSection
-        title="모바일 홈 바로가기"
-        description="하단 탭의 홈(`/dashboard`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 권한 기반 사용자 전용 항목을 함께 보여 줍니다."
+        title="홈과 메뉴 역할 분리"
+        description="두 화면은 같은 route·권한 기준을 공유하지만, 읽히는 책임은 다르게 유지합니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">오늘 업무 시작</Pill>
+            <h3>/dashboard</h3>
+            <p>근태 → 휴가 → 결재 → 게시판 → 문서 → 내 정보 순서로 오늘 먼저 눌러야 할 일을 정리하는 홈입니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>전체 기능 탐색</Pill>
+            <h3>/menu</h3>
+            <p>홈에서 우선순위상 뒤로 밀린 기능군, 조회 메뉴, 협업 placeholder, 역할별 추가 진입점을 한 화면에서 다시 고르는 메뉴입니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">같은 기준 공유</Pill>
+            <h3>같은 바로가기·권한 registry</h3>
+            <p>회사 공통 고정 / 권한 기반 사용자 전용 바로가기, 모바일 전체 메뉴, PC sidebar 는 서로 다른 사이트맵이 아니라 같은 정보구조를 다른 탐색 껍데기로 보여 줍니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
+        title="홈·메뉴 공통 바로가기"
+        description="하단 탭의 홈(`/dashboard`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 권한 기반 사용자 전용 항목을 같은 기준으로 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}
@@ -46,7 +69,7 @@ export function MenuPageContent({
         />
       </SurfaceSection>
 
-      <SurfaceSection title="하단 탭 고정 항목" description="메뉴/홈/메신저/메일/알림 5개는 모바일에서 항상 같은 순서로 고정하고, 실제 업무 진입은 홈/메뉴 shortcut 과 전체 메뉴에서 이어집니다.">
+      <SurfaceSection title="하단 탭 고정 항목" description="메뉴/홈/메신저/메일/알림 5개는 모바일에서 항상 같은 순서로 고정하고, 실제 업무 진입은 홈과 전체 메뉴에서 이어집니다.">
         <div className="grid-auto-compact">
           {mobileBottomTabs.map((item) => (
             <article key={item.href} className="info-card">
@@ -59,7 +82,7 @@ export function MenuPageContent({
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="모바일·PC 같은 정보구조 원칙" description="현장에서는 기기만 바뀌고 메뉴 뜻은 바뀌지 않도록 같은 route 체계를 유지합니다.">
+      <SurfaceSection title="모바일·PC 같은 정보구조 원칙" description="현장에서는 기기만 바뀌고 메뉴 뜻은 바뀌지 않도록 모바일 전체 메뉴와 PC sidebar 가 같은 route 체계를 가리키게 유지합니다.">
         <ul className="summary-list">
           {fieldUsabilityPrinciples.map((item) => (
             <li key={item}>{item}</li>
@@ -90,12 +113,13 @@ export function MenuPageContent({
       ))}
 
       <SurfaceSection
-        title="Phase 31 모바일 검토 포인트"
-        description="실사용 UAT에서 홈/메뉴 acceptance 를 확인할 때 꼭 같이 보는 기준입니다."
+        title="Phase 57 메뉴 검토 포인트"
+        description="실사용 UAT에서 홈/메뉴 역할 분리와 권한별 노출 acceptance 를 확인할 때 꼭 같이 보는 기준입니다."
         muted
       >
         <ul className="summary-list">
           <li>모바일 홈(`/dashboard`)과 메뉴(`/menu`)가 같은 홈 바로가기 API를 읽고 같은 권한 기준을 사용한다.</li>
+          <li>`/dashboard` 는 오늘 업무 시작 화면, `/menu` 는 전체 기능 탐색 화면으로 서로 다른 책임이 읽힌다.</li>
           <li>일반 사용자는 관리자/감사/경영업무 shortcut 을 받지 않고, 권한 있는 사용자만 개인 전용 바로가기로 본다.</li>
           <li>메신저/메일/알림은 placeholder honesty 를 유지하고, 실제 외부 연동은 승인 게이트로 남긴다.</li>
           <li>{hasManagementMenuAccess(roleCode) ? "현재 세션은 경영업무 분리 메뉴를 함께 확인해야 합니다." : "현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다."}</li>

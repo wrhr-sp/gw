@@ -51,8 +51,8 @@ const privilegedShortcuts: HomeShortcut[] = [
   },
 ];
 
-describe("Phase 31 mobile home/menu entrypoints", () => {
-  it("renders Phase 31 mobile home copy with shared fixed/user-scoped shortcut split", () => {
+describe("Phase 57 home/menu IA entrypoints", () => {
+  it("renders Phase 57 menu copy with shared fixed/user-scoped shortcut split", () => {
     const html = renderToStaticMarkup(
       <MenuPageContent
         roleCode="EMPLOYEE"
@@ -64,8 +64,12 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
       />,
     );
 
-    expect(html).toContain("Phase 31 모바일 홈 실사용 UAT");
-    expect(html).toContain("모바일 홈 / 전체 메뉴");
+    expect(html).toContain("Phase 57 홈·메뉴 IA 실사용 UAT");
+    expect(html).toContain("전체 메뉴 / 기능 탐색 허브");
+    expect(html).toContain("홈과 메뉴 역할 분리");
+    expect(html).toContain("/dashboard");
+    expect(html).toContain("/menu");
+    expect(html).toContain("같은 바로가기·권한 registry");
     expect(html).toContain("회사 공통 고정");
     expect(html).toContain("권한 기반 사용자 전용");
     expect(html).toContain("근태");
@@ -80,6 +84,7 @@ describe("Phase 31 mobile home/menu entrypoints", () => {
     expect(html).not.toContain("감사 확인 순서");
     expect(html).toContain("loading");
     expect(html).toContain("dev-safe / preview");
+    expect(html).toContain("Phase 57 메뉴 검토 포인트");
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
     expect(html).not.toContain('href="/admin/users"');

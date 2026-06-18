@@ -9,14 +9,15 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
-## Phase 56 추가 검증 초점
+## Phase 57 추가 검증 초점
 
-- `/management` 가 live URL에서 실제 지정 관리자 경영업무 허브처럼 읽히는지 본다.
-- `/payroll` 운영 급여 lane 과 `/payroll/me` self-only lane 이 실제 사용자 책임대로 분리돼 보이는지 본다.
-- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 가 같은 관리자 기능처럼 뭉개지지 않고 module별 scope/visibility/approval gate 차이를 유지하는지 본다.
-- 일반 직원 차단, 지정 관리자 허용, `AUDITOR` 감사 read-only 허용/차단이 route/API/UI 설명에서 같은 뜻인지 본다.
-- company scope, branch scope, self scope, restricted scope, masked preview, raw storage/secret 비노출이 같은 뜻인지 본다.
-- empty / loading / error / forbidden / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
+- `/dashboard` 가 live URL에서 실제 오늘 업무 시작 홈처럼 읽히는지 본다.
+- `/menu` 가 홈의 복사본이 아니라 전체 기능 탐색 화면처럼 읽히는지 본다.
+- 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기가 같은 정책처럼 뭉개지지 않는지 본다.
+- 모바일 하단 탭 5개, 모바일 전체 메뉴, PC sidebar 가 같은 정보구조를 가리키는지 본다.
+- `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인이 일반 직원 홈 CTA 와 섞이지 않는지 본다.
+- 홈 shortcut, menu shortcut, 직접 route 접근, API guard 가 같은 권한 기준을 쓰는지 본다.
+- empty / loading / error / forbidden / offline / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
 - live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
 
 ## Phase 55 추가 검증 초점

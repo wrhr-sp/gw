@@ -386,35 +386,35 @@
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
 
-### 2-19. 관리자 지정 경영업무 1차 실사용화 기준은 Phase 56 문장으로 잠근다.
+### 2-19. 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 기준은 Phase 57 문장으로 잠근다.
 
-- Phase 56의 목표는 경영업무 route/API/test 존재 자체가 아니라, `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
-- `/management` 는 일반 직원 홈의 연장이 아니라 민감 운영 허브로 읽혀야 한다.
-- `/payroll` 은 운영/관리자 급여 preview 레인이고, `/payroll/me` 는 self-only 급여 확인 레인으로 먼저 분리돼 읽혀야 한다.
-- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 은 모두 same-origin 실사용 패널이지만 branch/company/self/restricted scope 와 approval gate 가 같은 뜻으로 뭉개지면 안 된다.
-- `AUDITOR` 의 `/admin/audit-logs` 접근은 계속 `audit.read` 기반 read-only 감사 레인이며, 경영업무 운영권한 전체 허용처럼 읽히면 안 된다.
-- company scope, branch scope, self scope, restricted scope, masked preview, raw storage/secret 비노출 원칙이 route/UI/API/test 에서 같은 뜻으로 맞아야 한다.
-- empty/loading/error/forbidden/dev-safe 는 placeholder 가 아니라 실제 사용자가 구분할 수 있는 서로 다른 상태여야 한다.
-- `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
-- 실지급, 은행이체, 실신고, 외부 세무/노무/법무/보험/기관 연동, production 실데이터, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
+- Phase 57의 목표는 홈/메뉴 route 존재 자체가 아니라, `/dashboard`, `/menu`, 홈 바로가기, 모바일 하단 탭 5개, PC sidebar, 운영/감사/경영업무 진입점이 live URL에서 직접 눌러볼 수 있는 같은 탐색 구조로 읽히게 만드는 것이다.
+- `/dashboard` 는 오늘 할 일을 먼저 처리하는 홈으로 읽혀야 한다.
+- `/menu` 는 전체 기능 탐색 화면으로 읽혀야 하며, 홈의 복사본이나 또 하나의 랜딩 페이지처럼 적지 않는다.
+- 홈 바로가기는 회사 공통 고정 항목과 권한 기반 사용자 전용 항목으로 먼저 분리돼 읽혀야 한다.
+- 모바일 하단 탭 5개, 모바일 전체 메뉴, PC sidebar 는 같은 정보구조를 다른 탐색 껍데기로 보여 주는 것처럼 읽혀야 한다.
+- `/management`, `/admin/users`, `/admin/audit-logs` 운영 레인은 일반 직원 홈 CTA 와 같은 책임처럼 섞이면 안 된다.
+- dashboard shortcut, menu shortcut, 직접 route 접근, API guard 는 `packages/shared/src/admin-access.ts` shared helper 기준과 같은 접근 행렬을 따라야 한다.
+- empty/loading/error/forbidden/offline/dev-safe 는 placeholder 가 아니라 실제 사용자가 구분할 수 있는 서로 다른 상태여야 한다.
+- production DB 기반 영구 홈 커스터마이징 저장, 외부 메신저/메일/푸시 연동, native 앱 배포, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
 
 근거:
+- `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`
+- `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`
+- `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
 - `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
-- `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
-- `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
-- `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`
-- `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`
-- `apps/web/app/management/page.tsx`
-- `apps/web/app/payroll/page.tsx`
-- `apps/web/app/payroll/me/page.tsx`
-- `apps/web/app/work-items/tax/page.tsx`
-- `apps/web/app/work-items/labor/page.tsx`
-- `apps/web/app/work-items/legal/page.tsx`
-- `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/api/src/app.ts`
-- `apps/api/test/auth-org.spec.ts`
-- `apps/api/test/work-items.spec.ts`
+- `docs/architecture/phase-47-operational-stability-performance-mobile-pwa-usability-fit-gap-scope.md`
+- `docs/architecture/phase-24-company-pilot-operations-pass-1-scope.md`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/dashboard/dashboard-config.ts`
+- `apps/web/app/menu/page.tsx`
+- `apps/web/menu-page-content.tsx`
+- `apps/web/app/_components/home-shortcuts-panel.tsx`
+- `apps/web/home-shortcuts.ts`
+- `apps/web/app/mobile-pwa-config.ts`
 - `packages/shared/src/contracts.ts`
+- `packages/shared/src/admin-access.ts`
+- `packages/shared/src/mobile-contracts.ts`
 
 ## 3. 역할별 행동 규칙
 

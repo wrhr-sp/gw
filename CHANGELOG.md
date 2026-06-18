@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 를 다시 보강해 `/me` 를 사용자 설정 완료 화면이 아니라 세션·권한·개인 확인 흐름으로 읽는 기준, `admin / 1234` dev/test/UAT 계정 메모, parent tester 재검증 근거, `/payroll/me`·`/org`·`/employees` 연결 순서, 최종 보고에 넣을 `/me` 요약 포인트를 추가했다.
+
+- `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 57 기준으로 갱신했다. 이번 기준은 `/dashboard` 홈과 `/menu` 전체 메뉴 책임 분리, 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기 정책, 모바일 하단 탭 5개와 PC sidebar 의 같은 IA 원칙, `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인의 일반 직원 홈 분리, empty/loading/error/forbidden/offline/dev-safe 상태 문장을 같은 언어로 다시 잠그는 데 맞췄다.
+
 - `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 에 새 guide 경로를 연결했다. 이번 가이드는 live URL 기준 `/management` 운영 허브 확인 순서, `/payroll` 운영 급여 preview 와 `/payroll/me` self-only 급여 확인 분리, `/work-items/tax|labor|legal` 모듈 책임 차이, `/admin/audit-logs` 감사 read-only 추적, 권한 차단 확인, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 정리했다.
 
 - `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 56 기준으로 갱신했다. 이번 기준은 `/management` 운영 허브, `/payroll` 운영 급여 lane, `/payroll/me` self-only lane, `tax/labor/legal` 실사용 패널, `/admin/audit-logs` 감사 read-only 레인을 지정 관리자 경영업무 1차 실사용화 관점으로 다시 묶고, 일반 직원 차단, company/branch/self/restricted scope, masked preview 와 raw storage·secret 비노출, empty/loading/error/forbidden/dev-safe 상태를 live URL 기준으로 다시 잠그는 데 맞췄다.
