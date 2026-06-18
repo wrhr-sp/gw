@@ -253,7 +253,7 @@ export default function AttendancePage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="정정 요청 placeholder" description="requested_by / reviewed_by / reviewed_at contract 를 먼저 맞춥니다.">
+      <SurfaceSection title="정정 요청 입력 예시" description="requested_by / reviewed_by / reviewed_at contract 를 먼저 맞춥니다.">
         <div className="form-placeholder">
           <input disabled value="attendance_record_today" readOnly className="field" />
           <textarea disabled rows={4} className="textarea-field" defaultValue="퇴근 시간이 누락되었습니다. / QR 체크아웃 누락" />

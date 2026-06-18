@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `docs/guides/phase-53-leave-attendance-live-operations-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `KNOWN_ISSUES.md` 에 새 guide 경로를 연결했다. 이번 가이드는 live URL 기준 근태·휴가 전용 사용자/승인자/운영 관리자 확인 순서, `admin / 1234` 테스트 계정 사용 원칙, `/attendance` → `/leave` 직원 happy path, 승인 버튼 노출 조건, self-approval/foreign/unknown 차단 확인, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 정리했다.
+
+- `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`, `docs/guides/phase-53-leave-attendance-live-operations-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 53 기준으로 갱신했다. 이번 기준은 근태/휴가 API/test 존재 자체가 아니라 `/attendance`, `/leave` 를 live URL에서 직접 눌러 직원 근태 흐름(출근 → 상태 확인 → 퇴근 → 정정 요청), 직원 휴가 흐름(잔여 확인 → 신청 → 상태 확인), 승인자 lane, 운영 정책 lane(`/admin/policies`) 책임 분리, 권한 부족/정책 미허용/company scope/placeholder 제한 4축, self-approval 금지, foreign/unknown request 차단을 같은 언어로 다시 잠그는 데 맞췄다.
+
 - `docs/guides/phase-52-approvals-live-operations-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md` 에 새 guide 경로를 연결했다. 이번 가이드는 live URL 기준 전자결재 전용 사용자/승인자/운영 관리자 확인 순서, `admin / 1234` 테스트 계정 사용 원칙, `/approvals` → `/approvals/approval_document_demo` → `/approvals/approval_document_team_pending` 확인 흐름, self-approval/replay/unknown 차단 확인, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 정리했다.
 
 - `docs/architecture/phase-52-approvals-live-operations-fit-gap-scope.md`, `docs/guides/phase-52-approvals-live-operations-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 52 기준으로 갱신했다. 이번 기준은 전자결재 API/test 존재 자체가 아니라 `/approvals` 실사용 흐름, 내 승인함 대 내 기안함 대 참조/합의 확인함 책임 분리, 기안 → 상세 → 승인/반려 → 의견·상태 이력 happy path, 승인 권한 없는 사용자 차단, self-approval 금지, replay 차단, company scope/unknown id 차단, empty/loading/error/forbidden/dev-safe 상태를 live URL 기준으로 다시 잠그는 데 맞췄다.
