@@ -45,7 +45,9 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(html).toContain('href="/admin"');
-    expect(html).toContain('href="/offline"');
+    expect(html).toContain('href="/admin/policies"');
+    expect(html).not.toContain('href="/notifications"');
+    expect(html).not.toContain('href="/me"');
     expect(html).not.toContain('href="/menu"');
     expect(html).not.toContain('class="ghost-link app-topbar__mobile-only"');
   });
@@ -131,7 +133,14 @@ describe("mobile app shell admin boundary", () => {
 
     expect(generalHtml).toContain("일반업무포털");
     expect(generalHtml).toContain("경영업무포털로 이동");
+    expect(generalHtml).toContain('aria-label="We’reHere 일반업무포털 홈"');
+    expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('href="/management"');
+    expect(generalHtml).toContain('aria-label="설정"');
+    expect(generalHtml).toContain('aria-label="공지"');
+    expect(generalHtml).toContain('aria-label="알림"');
+    expect(generalHtml).toContain('aria-label="내 정보"');
+    expect(generalHtml).toContain("topbar-profile-avatar");
     expect(generalHtml).toContain("기본 업무");
     expect(generalHtml).not.toContain("급여 내부관리");
 
@@ -144,6 +153,7 @@ describe("mobile app shell admin boundary", () => {
 
     expect(managementHtml).toContain("경영업무포털");
     expect(managementHtml).toContain("일반업무포털로 이동");
+    expect(managementHtml).toContain('aria-label="We’reHere 경영업무포털 홈"');
     expect(managementHtml).toContain('href="/dashboard"');
     expect(managementHtml).toContain("급여 내부관리");
     expect(managementHtml).not.toContain("기본 업무");

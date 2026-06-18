@@ -4,7 +4,6 @@ import type { RoleCode } from "@gw/shared";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { SessionControls } from "./session-controls";
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
 
 type NotificationBadgeState = {
@@ -45,6 +44,13 @@ type FeatureIconProps = {
   name: FeatureIconName;
   title: string;
   className?: string;
+};
+
+type TopbarIconLinkProps = {
+  href: string;
+  label: string;
+  iconName?: FeatureIconName;
+  children?: ReactNode;
 };
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -287,6 +293,25 @@ function BottomTabIcon({ href, title, className = "bottom-nav__icon-svg" }: TabI
   return iconName ? <FeatureIcon className={className} name={iconName} title={title} /> : null;
 }
 
+function ProfileAvatarIcon() {
+  return (
+    <span className="topbar-profile-avatar" aria-hidden="true">
+      <svg className="topbar-profile-avatar__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} viewBox="0 0 24 24">
+        <circle cx="12" cy="8.25" r="3.25" />
+        <path d="M5.75 19.25a6.25 6.25 0 0 1 12.5 0" />
+      </svg>
+    </span>
+  );
+}
+
+function TopbarIconLink({ href, label, iconName, children }: TopbarIconLinkProps) {
+  return (
+    <a href={href} className="topbar-icon-link" aria-label={label} title={label}>
+      {children ?? (iconName ? <FeatureIcon className="topbar-icon-link__icon" name={iconName} title={label} /> : null)}
+    </a>
+  );
+}
+
 function matchesPath(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
@@ -345,6 +370,7 @@ export function MobileAppShell({
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
+  void currentRoleCode;
 
   const activeSectionTitle = useMemo(() => {
     const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
@@ -359,7 +385,8 @@ export function MobileAppShell({
 
     return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
   }, [hasManagementPortal, isManagementPortal, menuSections]);
-  const currentPortalLabel = isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const isAdminHostShell = homeHref === "/admin";
+  const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
   const nextPortalIcon = isManagementPortal ? "home" : "dashboard";
@@ -529,9 +556,10 @@ export function MobileAppShell({
       <div className="app-shell__main">
         <header className="app-topbar">
           <div className="app-topbar__inner">
-            <a href={homeHref} className="brand-link">
-              <span className="brand-link__eyebrow">{currentPortalLabel}</span>
+            <a href={homeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
               <strong>{appName}</strong>
+              <span className="topbar-brand-link__divider" aria-hidden="true" />
+              <span>{currentPortalLabel}</span>
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
@@ -540,15 +568,21 @@ export function MobileAppShell({
                   <span>{nextPortalLabel}</span>
                 </a>
               ) : null}
-              <SessionControls roleCode={currentRoleCode} />
+              {!isAdminHostShell ? (
+                <>
+                  <TopbarIconLink href="/admin/policies" label="설정" iconName="settings" />
+                  <TopbarIconLink href="/boards" label="공지" iconName="board" />
+                  <TopbarIconLink href="/notifications" label="알림" iconName="notification" />
+                  <TopbarIconLink href="/me" label="내 정보">
+                    <ProfileAvatarIcon />
+                  </TopbarIconLink>
+                </>
+              ) : null}
               {showMobileMenuShortcut ? (
                 <a href="/menu" className="ghost-link app-topbar__mobile-only">
                   전체 메뉴
                 </a>
               ) : null}
-              <a href="/offline" className="ghost-link">
-                오프라인 안내
-              </a>
             </div>
           </div>
         </header>
