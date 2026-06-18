@@ -279,18 +279,18 @@ export const mobileBottomTabs: NavItem[] = [
 export const mobileMenuSections: NavSection[] = [
   {
     title: "기본 업무",
-    description: "파일럿 참여자가 실제로 먼저 눌러 볼 핵심 업무 흐름입니다.",
+    description: "직원이 매일 처리하는 출퇴근, 휴가, 결재, 공지, 문서 업무입니다.",
     items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
   },
   {
     title: "공통 업무 엔진",
-    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
+    description: "지점, 인사, 세무, 노무 등 반복 업무를 한곳에서 시작합니다.",
     items: [
       mobilePrimaryNav[6],
-      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
-      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 placeholder" },
-      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
-      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 placeholder" },
+      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사, 서류 회수, 인사 점검" },
+      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출, 세목별 마감, 본부 검토" },
+      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약, 연차, 수당, 고충, 징계 업무" },
+      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고와 마감 업무" },
     ],
   },
   {
@@ -299,8 +299,8 @@ export const mobileMenuSections: NavSection[] = [
     items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
   },
   {
-    title: "협업 placeholder",
-    description: "메신저, 메일, 알림은 탭/placeholder honesty 만 유지하고 실제 외부 연동은 승인 게이트로 남깁니다.",
+    title: "협업",
+    description: "메신저, 메일, 알림으로 일상 협업 흐름을 확인합니다.",
     items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
   },
 ];
@@ -341,7 +341,7 @@ export const managementPrimaryNav: NavItem[] = [
 export const managementMenuSections: NavSection[] = [
   {
     title: "경영업무",
-    description: "급여·세무·노무·법무·감사 내부관리 모듈은 일반 직원 메뉴와 섞지 않고 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    description: "급여·세무·노무·법무·감사 업무를 일반 직원 화면과 분리해 확인합니다.",
     items: managementPrimaryNav,
   },
 ];
@@ -645,7 +645,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   if (getAdminHostInfo(host).isAdminHost) {
     return {
       appName: adminPwaManifest.short_name,
-      appEyebrow: "Admin host PWA skeleton",
+      appEyebrow: "경영업무포털",
       homeHref: "/admin",
       navItems: adminPrimaryNav,
       bottomTabs: adminPrimaryNav,
@@ -657,8 +657,8 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   }
 
   return {
-    appName: "그룹웨어 Web/PWA",
-    appEyebrow: "Cloudflare-first skeleton",
+    appName: "We’reHere",
+    appEyebrow: "일반업무포털",
     homeHref: "/",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,

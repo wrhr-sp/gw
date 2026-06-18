@@ -2,8 +2,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+let mockedPathname = "/offline";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/offline",
+  usePathname: () => mockedPathname,
   useRouter: () => ({
     push: vi.fn(),
     refresh: vi.fn(),
@@ -17,6 +19,7 @@ import {
   adminOfflineGuidance,
   adminPrimaryNav,
   installGuideSteps,
+  managementMenuSections,
   mobileBottomTabs,
   mobileMenuSections,
   offlineGuidance,
@@ -27,7 +30,7 @@ describe("mobile app shell admin boundary", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
         appName="GW Admin"
-        appEyebrow="Admin host PWA skeleton"
+        appEyebrow="경영업무포털"
         homeHref="/admin"
         navItems={adminPrimaryNav}
         bottomTabs={adminPrimaryNav}
@@ -50,8 +53,8 @@ describe("mobile app shell admin boundary", () => {
   it("keeps the general /menu shortcut on the shared web host topbar", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
-        appName="그룹웨어 Web/PWA"
-        appEyebrow="Cloudflare-first skeleton"
+        appName="We’reHere"
+        appEyebrow="일반업무포털"
         homeHref="/"
         navItems={mobileBottomTabs}
         bottomTabs={mobileBottomTabs}
@@ -77,8 +80,8 @@ describe("mobile app shell admin boundary", () => {
   it("keeps selected feature icons and leaves branch portal without a menu icon", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
-        appName="그룹웨어 Web/PWA"
-        appEyebrow="Cloudflare-first skeleton"
+        appName="We’reHere"
+        appEyebrow="일반업무포털"
         homeHref="/"
         navItems={mobileBottomTabs}
         bottomTabs={mobileBottomTabs}
@@ -103,6 +106,50 @@ describe("mobile app shell admin boundary", () => {
     expect(branchLink).not.toContain("<svg");
   });
 
+
+
+  it("separates the PC sidebar into general and management portals with opposite topbar switches", () => {
+    mockedPathname = "/dashboard";
+    const sharedProps = {
+      appName: "We’reHere",
+      appEyebrow: "일반업무포털",
+      homeHref: "/",
+      navItems: mobileBottomTabs,
+      bottomTabs: mobileBottomTabs,
+      menuSections: [...mobileMenuSections, ...managementMenuSections],
+      installGuideSteps,
+      offlineGuidance,
+      showMobileMenuShortcut: true,
+      currentRoleCode: null,
+    };
+
+    const generalHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>general content</main>
+      </MobileAppShell>,
+    );
+
+    expect(generalHtml).toContain("일반업무포털");
+    expect(generalHtml).toContain("경영업무포털로 이동");
+    expect(generalHtml).toContain('href="/management"');
+    expect(generalHtml).toContain("기본 업무");
+    expect(generalHtml).not.toContain("급여 내부관리");
+
+    mockedPathname = "/management";
+    const managementHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>management content</main>
+      </MobileAppShell>,
+    );
+
+    expect(managementHtml).toContain("경영업무포털");
+    expect(managementHtml).toContain("일반업무포털로 이동");
+    expect(managementHtml).toContain('href="/dashboard"');
+    expect(managementHtml).toContain("급여 내부관리");
+    expect(managementHtml).not.toContain("기본 업무");
+
+    mockedPathname = "/offline";
+  });
   it("caps unread badge labels at 99+ and hides empty counts", () => {
     expect(formatUnreadBadge(0)).toBeNull();
     expect(formatUnreadBadge(12)).toBe("12");
