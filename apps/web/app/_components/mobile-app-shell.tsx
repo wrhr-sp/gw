@@ -46,11 +46,14 @@ type FeatureIconProps = {
   className?: string;
 };
 
-type TopbarIconLinkProps = {
-  href: string;
+type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
+
+type TopbarIconButtonProps = {
   label: string;
   iconName?: FeatureIconName;
+  badgeText?: string | null;
   children?: ReactNode;
+  onClick: () => void;
 };
 
 type TopbarProfileState = {
@@ -326,11 +329,34 @@ function buildFallbackProfile(roleCode: RoleCode | null): TopbarProfileState {
   };
 }
 
-function TopbarIconLink({ href, label, iconName, children }: TopbarIconLinkProps) {
+function TopbarIconButton({ label, iconName, badgeText, children, onClick }: TopbarIconButtonProps) {
   return (
-    <a href={href} className="topbar-icon-link" aria-label={label} title={label}>
+    <button type="button" className="topbar-icon-link" aria-label={label} data-tooltip={label} onClick={onClick}>
       {children ?? (iconName ? <FeatureIcon className="topbar-icon-link__icon" name={iconName} title={label} /> : null)}
-    </a>
+      {badgeText ? <span className="topbar-icon-link__badge">{badgeText}</span> : null}
+    </button>
+  );
+}
+
+function SettingField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="topbar-modal-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {hint ? <small>{hint}</small> : null}
+    </div>
+  );
+}
+
+function SettingToggle({ label, description, defaultChecked = true }: { label: string; description?: string; defaultChecked?: boolean }) {
+  return (
+    <label className="topbar-modal-toggle">
+      <input type="checkbox" defaultChecked={defaultChecked} />
+      <span>
+        <strong>{label}</strong>
+        {description ? <small>{description}</small> : null}
+      </span>
+    </label>
   );
 }
 
@@ -390,6 +416,7 @@ export function MobileAppShell({
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
@@ -502,6 +529,21 @@ export function MobileAppShell({
       document.removeEventListener("keydown", closeProfileMenuWithEscape);
     };
   }, [isProfileMenuOpen]);
+
+  useEffect(() => {
+    if (!activeTopbarModal) {
+      return;
+    }
+
+    function closeTopbarModalWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActiveTopbarModal(null);
+      }
+    }
+
+    document.addEventListener("keydown", closeTopbarModalWithEscape);
+    return () => document.removeEventListener("keydown", closeTopbarModalWithEscape);
+  }, [activeTopbarModal]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -625,6 +667,182 @@ export function MobileAppShell({
     }
   }
 
+
+  function renderTopbarModal() {
+    if (!activeTopbarModal) {
+      return null;
+    }
+
+    const isProfileSettings = activeTopbarModal === "profile-settings";
+    const titleByModal: Record<TopbarActionKey, string> = {
+      settings: "설정",
+      notices: "공지사항",
+      notifications: "알림",
+      "profile-settings": "내정보 설정",
+    };
+    const descriptionByModal: Record<TopbarActionKey, string> = {
+      settings: "개인 화면과 서비스 사용 방식을 정합니다.",
+      notices: "중요 공지사항과 읽지 않은 공지를 빠르게 확인합니다.",
+      notifications: "업무 알림과 읽지 않은 항목을 한곳에서 확인합니다.",
+      "profile-settings": "내 프로필 표시와 개인 알림·화면 기본 방식을 정합니다.",
+    };
+
+    return (
+      <div className="topbar-modal-backdrop" role="presentation" onMouseDown={() => setActiveTopbarModal(null)}>
+        <section
+          className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : "topbar-modal"}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="topbar-modal-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <header className="topbar-modal__header">
+            <div>
+              <span className="topbar-modal__eyebrow">We’reHere</span>
+              <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
+              <p>{descriptionByModal[activeTopbarModal]}</p>
+            </div>
+            {!isProfileSettings ? (
+              <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={() => setActiveTopbarModal(null)}>
+                ×
+              </button>
+            ) : null}
+          </header>
+
+          {activeTopbarModal === "settings" ? (
+            <div className="topbar-modal__grid">
+              <section className="topbar-modal-card">
+                <strong>기본 시작 방식</strong>
+                <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
+                  {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item, index) => (
+                    <label key={item} className="topbar-modal-choice">
+                      <input type="radio" name="start-screen" defaultChecked={index === 0} />
+                      <span>{item}</span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+              <section className="topbar-modal-card">
+                <strong>화면 기본 방식</strong>
+                <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
+                  {['기본', '넓게', '촘촘하게'].map((item, index) => (
+                    <label key={item} className="topbar-modal-choice">
+                      <input type="radio" name="density" defaultChecked={index === 0} />
+                      <span>{item}</span>
+                    </label>
+                  ))}
+                </div>
+                <SettingToggle label="PC 사이드바 마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
+                <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>알림 기본 설정</strong>
+                <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="공지사항 알림" />
+                  <SettingToggle label="전자결재 알림" />
+                  <SettingToggle label="댓글/멘션 알림" />
+                  <SettingToggle label="근태/휴가 알림" />
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activeTopbarModal === "notices" ? (
+            <div className="topbar-modal-list">
+              {[
+                ['중요', '전사 공지사항 확인', '읽지 않은 중요 공지와 정책 안내를 먼저 보여줍니다.'],
+                ['공지', '최근 공지사항', '부서/전사 게시판의 최신 공지사항을 시간순으로 정리합니다.'],
+                ['확인', '읽음 확인 필요', '확인 요청이 있는 공지사항만 따로 모아 보여줍니다.'],
+              ].map(([tag, title, body]) => (
+                <article key={title} className="topbar-modal-list-item">
+                  <span>{tag}</span>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {activeTopbarModal === "notifications" ? (
+            <div className="topbar-modal-list">
+              {[
+                ['결재', '승인 요청과 반려/보완 알림', '전자결재에서 지금 처리해야 하는 알림을 우선 표시합니다.'],
+                ['멘션', '댓글/메신저 멘션', '나를 직접 부른 업무 대화를 놓치지 않게 모읍니다.'],
+                ['근태·휴가', '신청/승인 결과', '근태 정정, 휴가 승인 결과 같은 개인 업무 알림을 표시합니다.'],
+              ].map(([tag, title, body]) => (
+                <article key={title} className="topbar-modal-list-item">
+                  <span>{tag}</span>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{body}</p>
+                  </div>
+                </article>
+              ))}
+              <button type="button" className="topbar-modal-secondary-action">모두 읽음 처리</button>
+            </div>
+          ) : null}
+
+          {activeTopbarModal === "profile-settings" ? (
+            <div className="topbar-profile-settings">
+              <section className="topbar-modal-card topbar-profile-settings__hero">
+                <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
+                <div>
+                  <strong>프로필 이미지</strong>
+                  <p>이미지 변경과 기본 이미지 되돌리기는 프로필 저장 정책에 맞춰 연결합니다.</p>
+                  <div className="topbar-profile-settings__buttons">
+                    <button type="button">이미지 변경</button>
+                    <button type="button">기본 이미지</button>
+                  </div>
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>기본 표시 정보</strong>
+                <div className="topbar-modal-field-grid">
+                  <SettingField label="이름" value={profileState.fullName} hint="읽기 전용" />
+                  <SettingField label="직책" value={profileState.positionLabel} hint="읽기 전용" />
+                  <SettingField label="부서" value={profileState.departmentName} hint="읽기 전용" />
+                  <SettingField label="이메일" value={profileState.email} hint="직접 수정 불가 · 항상 표시" />
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>알림 받을 기능 선택</strong>
+                <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="공지사항 알림" />
+                  <SettingToggle label="전자결재 알림" />
+                  <SettingToggle label="댓글/멘션 알림" />
+                  <SettingToggle label="메일/메신저 알림" />
+                  <SettingToggle label="근태/휴가 알림" />
+                  <SettingToggle label="퇴근 후 긴급 알림만 받기" description="긴급 공지사항, 승인 요청, 멘션처럼 선택한 기능만 받습니다." />
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>개인정보 표시 범위</strong>
+                <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="프로필 사진 표시" />
+                  <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
+                  <SettingToggle label="내선번호 표시" />
+                  <SettingToggle label="상태 메시지 표시" />
+                </div>
+                <p className="topbar-modal-note">이메일은 회사 연락 기준으로 항상 표시하며 숨김 설정을 제공하지 않습니다.</p>
+              </section>
+            </div>
+          ) : null}
+
+          <footer className="topbar-modal__footer">
+            <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={() => setActiveTopbarModal(null)}>
+              취소
+            </button>
+            <button type="button" className="topbar-modal__button" onClick={() => setActiveTopbarModal(null)}>
+              저장
+            </button>
+          </footer>
+        </section>
+      </div>
+    );
+  }
+
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -707,9 +925,9 @@ export function MobileAppShell({
               ) : null}
               {!isAdminHostShell ? (
                 <>
-                  <TopbarIconLink href="/admin/policies" label="설정" iconName="settings" />
-                  <TopbarIconLink href="/boards" label="공지" iconName="board" />
-                  <TopbarIconLink href="/notifications" label="알림" iconName="notification" />
+                  <TopbarIconButton label="설정" iconName="settings" onClick={() => setActiveTopbarModal("settings")} />
+                  <TopbarIconButton label="공지사항" iconName="board" onClick={() => setActiveTopbarModal("notices")} />
+                  <TopbarIconButton label="알림" iconName="notification" badgeText={formatUnreadBadge(notificationBadge?.unreadCount ?? null)} onClick={() => setActiveTopbarModal("notifications")} />
                   <div className="topbar-profile-menu" ref={profileMenuRef}>
                     <button
                       type="button"
@@ -717,7 +935,7 @@ export function MobileAppShell({
                       aria-expanded={isProfileMenuOpen}
                       aria-haspopup="menu"
                       aria-label="내 정보"
-                      title="내 정보"
+                      data-tooltip="내정보"
                       onClick={() => setIsProfileMenuOpen((value) => !value)}
                     >
                       <ProfileAvatarIcon />
@@ -736,9 +954,17 @@ export function MobileAppShell({
                           <span>{profileState.email}</span>
                         </div>
                         <div className="topbar-profile-popover__actions">
-                          <a href="/me" className="topbar-profile-popover__action" role="menuitem">
+                          <button
+                            type="button"
+                            className="topbar-profile-popover__action"
+                            role="menuitem"
+                            onClick={() => {
+                              setIsProfileMenuOpen(false);
+                              setActiveTopbarModal("profile-settings");
+                            }}
+                          >
                             내정보 설정
-                          </a>
+                          </button>
                           <button
                             type="button"
                             className="topbar-profile-popover__action topbar-profile-popover__action--danger"
@@ -763,6 +989,8 @@ export function MobileAppShell({
             </div>
           </div>
         </header>
+
+        {renderTopbarModal()}
 
         {!isOnline ? (
           <div className="status-banner status-banner--warning" role="status" aria-live="polite">

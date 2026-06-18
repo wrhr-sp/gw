@@ -137,9 +137,13 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('href="/management"');
     expect(generalHtml).toContain('aria-label="설정"');
-    expect(generalHtml).toContain('aria-label="공지"');
+    expect(generalHtml).toContain('data-tooltip="설정"');
+    expect(generalHtml).toContain('aria-label="공지사항"');
+    expect(generalHtml).toContain('data-tooltip="공지사항"');
     expect(generalHtml).toContain('aria-label="알림"');
+    expect(generalHtml).toContain('data-tooltip="알림"');
     expect(generalHtml).toContain('aria-label="내 정보"');
+    expect(generalHtml).toContain('data-tooltip="내정보"');
     expect(generalHtml).toContain("topbar-profile-avatar");
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
