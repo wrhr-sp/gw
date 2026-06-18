@@ -575,6 +575,66 @@ export function MobileAppShell({
   }, []);
 
   useEffect(() => {
+    const urlStatusHiddenSelector = [
+      ".app-shell a[href^='/']:not(.brand-link):not(.topbar-brand-link):not([data-allow-url-status='true'])",
+      ".app-shell a[href^='./']:not([data-allow-url-status='true'])",
+    ].join(", ");
+
+    const prepareLinkButton = (anchor: HTMLAnchorElement) => {
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("//") || href.startsWith("/api/") || href.startsWith("/admin/manifest") || href.includes(".webmanifest")) {
+        return;
+      }
+
+      anchor.dataset.route = anchor.dataset.route || href;
+      anchor.dataset.urlStatusHidden = "true";
+      anchor.setAttribute("role", "button");
+      anchor.setAttribute("tabindex", anchor.getAttribute("tabindex") ?? "0");
+      anchor.removeAttribute("href");
+    };
+
+    document.querySelectorAll<HTMLAnchorElement>(urlStatusHiddenSelector).forEach(prepareLinkButton);
+
+    const mutationObserver = new MutationObserver(() => {
+      document.querySelectorAll<HTMLAnchorElement>(urlStatusHiddenSelector).forEach(prepareLinkButton);
+    });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+    const handleStatusHiddenLinkClick = (event: MouseEvent) => {
+      const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[data-url-status-hidden='true'][data-route]");
+      if (!anchor) {
+        return;
+      }
+
+      event.preventDefault();
+      router.push(anchor.dataset.route as never);
+    };
+
+    const handleStatusHiddenLinkKeydown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[data-url-status-hidden='true'][data-route]");
+      if (!anchor) {
+        return;
+      }
+
+      event.preventDefault();
+      router.push(anchor.dataset.route as never);
+    };
+
+    document.addEventListener("click", handleStatusHiddenLinkClick, true);
+    document.addEventListener("keydown", handleStatusHiddenLinkKeydown, true);
+
+    return () => {
+      mutationObserver.disconnect();
+      document.removeEventListener("click", handleStatusHiddenLinkClick, true);
+      document.removeEventListener("keydown", handleStatusHiddenLinkKeydown, true);
+    };
+  }, [router]);
+
+  useEffect(() => {
     return () => {
       if (sidebarScrollTimerRef.current) {
         clearTimeout(sidebarScrollTimerRef.current);
