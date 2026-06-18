@@ -52,7 +52,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
     const payrollHtml = renderToStaticMarkup(<PayrollPage />);
     const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
 
-    expect(managementHtml).toContain("Phase 55 운영 허브 / 관리자 진입 실사용화");
+    expect(managementHtml).toContain("Phase 56 경영업무 운영 허브 / 민감 레인 실사용화");
     expect(managementHtml).toContain("`/uat` 에서 시나리오를 먼저 읽고");
     expect(managementHtml).toContain("역할별 시나리오 + 이슈 템플릿");
     expect(managementHtml).toContain("/admin/users 에서 계정관리 preview 와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");

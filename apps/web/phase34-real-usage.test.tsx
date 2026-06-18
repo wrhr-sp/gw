@@ -55,7 +55,7 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("renders audit logs as an audit.read-gated live preview rather than a write surface", () => {
     const html = renderToStaticMarkup(<AuditLogsPage />);
 
-    expect(html).toContain("Phase 55 감사 read-only / route·API guard 확인");
+    expect(html).toContain("Phase 56 감사 read-only / audit.read 경계 확인");
     expect(html).toContain("audit.read");
     expect(html).toContain("실사용 감사 패널");
     expect(html).toContain("역할별 route/API guard 요약");

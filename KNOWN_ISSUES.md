@@ -19,30 +19,31 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 55 관리자 계정·권한·조직 실사용화 단계
+### 3. 현재 문서화/검증 기준은 Phase 56 관리자 지정 경영업무 1차 실사용화 단계
 
 현재 루트 문서, handoff 는 아래 기준을 함께 설명한다.
 
 - 로그인 시작점: 익명은 `/login` 만 허용
-- 관리자 실사용 시작 레인: `/dashboard` → `/admin/users`
-- 사용자/운영 확인 레인: 계정 preview 확인 → 역할/권한 diff 확인 → `/employees` 일반 조회 → `/org` 구조 확인 → `/management` 운영 허브 → `/admin/audit-logs` 감사 추적
-- 차단 확인 레인: admin role, `permission.read`, `audit.read`, company/branch scope 차단, raw storage·secret 비노출
-- 운영 설명 레인: 관리자 preview 와 일반 직원 CTA 는 분리
-- 문서 묶음: Phase 55 scope/handoff/guide + Phase 46 온보딩 기준 문서 + 직전 Phase 54 documents scope/handoff/guide
+- 관리자 실사용 시작 레인: `/dashboard` → `/management`
+- 사용자/운영 확인 레인: 운영 허브 확인 → `/payroll` 운영 급여 preview → `/payroll/me` self-only 확인 → `/work-items/tax|labor|legal` 모듈 확인 → `/admin/audit-logs` 감사 추적
+- 차단 확인 레인: company/branch/self/restricted scope 차단, `audit.read`, raw storage·secret 비노출
+- 운영 설명 레인: 지정 관리자 경영업무와 일반 직원 CTA 는 분리
+- 문서 묶음: Phase 56 scope/handoff/guide + Phase 55 관리자 계정·권한 기준 문서 + Phase 43 경영관리 기준 문서
 
-- `/admin/users` 는 관리자 계정·권한 entry 처럼 먼저 읽혀야 하고, `/employees` 일반 조회와 같은 책임처럼 보이면 안 된다.
-- `/admin/audit-logs` 는 감사 read-only 추적 레인이며, `AUDITOR` landing 이 `/admin` 전체 허용처럼 읽히지 않게 주의해야 한다.
-- branch/company scope 차이, admin-only 차단, `audit.read` 차단, masked preview/비노출 원칙은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
+- `/management` 는 민감 운영 허브처럼 먼저 읽혀야 하고, 일반 직원 홈 확장처럼 보이면 안 된다.
+- `/payroll` 과 `/payroll/me` 는 운영 급여 lane 과 self-only lane 으로 구분돼야 한다.
+- `/admin/audit-logs` 는 감사 read-only 추적 레인이며, `AUDITOR` landing 이 경영업무 전체 허용처럼 읽히지 않게 주의해야 한다.
+- branch/company/self/restricted scope 차이, 일반 직원 차단, audit.read 차단, masked preview/비노출 원칙은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
 - production data, 실제 초대 발송, 실제 비밀번호 운영 전환, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 55 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 56 단계에서 남아 있는 제품형 리스크
 
-- `apps/api/test/auth-org.spec.ts` 기준선은 충분하지만, live URL 기준 관리자 계정·조직 실사용 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
-- `/admin/users` 에 남은 `preview`·`audit candidate` 성격 문구가 실제 운영 저장 완료처럼 읽히면 과장 리스크가 생긴다.
-- `/employees` 일반 조회, `/org` 구조 확인, `/management` 운영 허브, `/admin/audit-logs` 감사 레인 책임이 한 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
-- admin-only 차단, `audit.read` 차단, branch/company scope 차이, masked preview/비노출 원칙은 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
+- `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts` 기준선은 충분하지만, live URL 기준 지정 관리자 경영업무 실사용 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
+- `/payroll` 과 `/payroll/me` 의 책임 차이가 문장상 흐려지면 운영 레인과 self-only 레인이 섞이는 과장 리스크가 생긴다.
+- `/management` 운영 허브, `tax/labor/legal` 모듈 레인, `/admin/audit-logs` 감사 레인 책임이 한 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
+- 일반 직원 차단, `audit.read` 차단, branch/company/self/restricted scope 차이, masked preview/비노출 원칙은 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
 - empty/loading/error/forbidden/dev-safe 가 route 기준으로 다시 잠기지 않으면 최종 보고가 happy path 위주로만 적혀 실제 사용 리스크를 숨기게 된다.
 - live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 관리자 계정·권한·조직 실사용 확인 수준이 과장될 수 있다.
 

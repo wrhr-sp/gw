@@ -386,6 +386,36 @@
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
 
+### 2-19. 관리자 지정 경영업무 1차 실사용화 기준은 Phase 56 문장으로 잠근다.
+
+- Phase 56의 목표는 경영업무 route/API/test 존재 자체가 아니라, `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
+- `/management` 는 일반 직원 홈의 연장이 아니라 민감 운영 허브로 읽혀야 한다.
+- `/payroll` 은 운영/관리자 급여 preview 레인이고, `/payroll/me` 는 self-only 급여 확인 레인으로 먼저 분리돼 읽혀야 한다.
+- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 은 모두 same-origin 실사용 패널이지만 branch/company/self/restricted scope 와 approval gate 가 같은 뜻으로 뭉개지면 안 된다.
+- `AUDITOR` 의 `/admin/audit-logs` 접근은 계속 `audit.read` 기반 read-only 감사 레인이며, 경영업무 운영권한 전체 허용처럼 읽히면 안 된다.
+- company scope, branch scope, self scope, restricted scope, masked preview, raw storage/secret 비노출 원칙이 route/UI/API/test 에서 같은 뜻으로 맞아야 한다.
+- empty/loading/error/forbidden/dev-safe 는 placeholder 가 아니라 실제 사용자가 구분할 수 있는 서로 다른 상태여야 한다.
+- `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
+- 실지급, 은행이체, 실신고, 외부 세무/노무/법무/보험/기관 연동, production 실데이터, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
+
+근거:
+- `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
+- `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
+- `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
+- `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`
+- `docs/architecture/phase-43-payroll-tax-labor-legal-internal-management-adoption-fit-gap-scope.md`
+- `apps/web/app/management/page.tsx`
+- `apps/web/app/payroll/page.tsx`
+- `apps/web/app/payroll/me/page.tsx`
+- `apps/web/app/work-items/tax/page.tsx`
+- `apps/web/app/work-items/labor/page.tsx`
+- `apps/web/app/work-items/legal/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+- `apps/api/test/work-items.spec.ts`
+- `packages/shared/src/contracts.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

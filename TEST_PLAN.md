@@ -9,6 +9,26 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 56 추가 검증 초점
+
+- `/management` 가 live URL에서 실제 지정 관리자 경영업무 허브처럼 읽히는지 본다.
+- `/payroll` 운영 급여 lane 과 `/payroll/me` self-only lane 이 실제 사용자 책임대로 분리돼 보이는지 본다.
+- `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 가 같은 관리자 기능처럼 뭉개지지 않고 module별 scope/visibility/approval gate 차이를 유지하는지 본다.
+- 일반 직원 차단, 지정 관리자 허용, `AUDITOR` 감사 read-only 허용/차단이 route/API/UI 설명에서 같은 뜻인지 본다.
+- company scope, branch scope, self scope, restricted scope, masked preview, raw storage/secret 비노출이 같은 뜻인지 본다.
+- empty / loading / error / forbidden / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
+## Phase 55 추가 검증 초점
+
+- `/admin/users` 가 live URL에서 실제 관리자 계정·권한 시작점처럼 읽히는지 본다.
+- `/employees`, `/org`, `/management`, `/admin/audit-logs` 가 일반 조회/구조 확인/운영 허브/감사 read-only 책임대로 이어지는지 본다.
+- 사용자 생성 preview → 역할/권한 diff → 조직 read model 확인 → 운영 허브 → 감사 추적 흐름이 실제 운영 순서처럼 읽히는지 본다.
+- `MANAGER` 의 `/admin/users` 차단, `HR_ADMIN` 의 `/admin/audit-logs` 차단, `AUDITOR` 의 read-only 허용이 route/API/UI 설명에서 같은 뜻인지 본다.
+- admin role, `permission.read`, `audit.read`, company scope, branch scope, `createdFrom`/`createdTo` 필터, masked preview, raw storage/secret 비노출이 같은 뜻인지 본다.
+- empty / loading / error / forbidden / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 54 추가 검증 초점
 
 - `/documents` 가 live URL에서 실제 문서 실사용 시작점처럼 읽히는지 본다.

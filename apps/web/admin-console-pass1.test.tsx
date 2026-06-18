@@ -11,7 +11,7 @@ import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
 
-describe("Phase 13 admin console pass 1", () => {
+describe("Phase 55 admin account/rbac live usage", () => {
   it("turns the admin hub into an operations-first console", () => {
     const html = renderToStaticMarkup(
       <AdminPageContent visibleAdminHubCards={getAdminPageCardsForRole("COMPANY_ADMIN")} />,
@@ -69,6 +69,7 @@ describe("Phase 13 admin console pass 1", () => {
     );
 
     expect(html).toContain("현재 검토 중인 사용자");
+    expect(html).toContain("Phase 55 관리자 계정·권한·조직 실사용화");
     expect(html).toContain("Phase 55 관리자 온보딩·운영 순서");
     expect(html).toContain("역할별 시작 레인과 차단 기준");
     expect(html).toContain("HR_ADMIN");
@@ -126,6 +127,7 @@ describe("Phase 13 admin console pass 1", () => {
   it("keeps audit logs focused on filters, timeline, detail context, and masking boundaries", () => {
     const html = renderToStaticMarkup(<AdminAuditLogsPage />);
 
+    expect(html).toContain("Phase 56 감사 read-only / audit.read 경계 확인");
     expect(html).toContain("감사 전용 진입 의미");
     expect(html).toContain("역할별 route/API guard 요약");
     expect(html).toContain("AUDITOR");
