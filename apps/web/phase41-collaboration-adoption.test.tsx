@@ -104,6 +104,10 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     );
 
     expect(documentsHtml).toContain("협업 문맥 / 권한 경계");
+    expect(documentsHtml).toContain("happy path / guardrail");
+    expect(documentsHtml).toContain("1) 목록 → 2) 상세 → 3) upload-init → 4) upload-complete → 5) download-init → 6) read receipt");
+    expect(documentsHtml).toContain("문서 상세");
+    expect(documentsHtml).toContain("classification: 정책/안내, 인사/계약 초안, 정산/집계 같은 업무 언어로만 보여 줍니다.");
     expect(documentsHtml).toContain("`storageStatus` 와 문서 `status` 는 같은 뜻으로 섞지 않고");
     expect(approvalsHtml).toContain("협업 흐름 연결");
     expect(approvalsHtml).toContain("replay 차단");

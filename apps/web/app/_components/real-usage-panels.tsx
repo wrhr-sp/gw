@@ -44,6 +44,49 @@ type SessionPayload = {
   };
 };
 
+type DocumentSpaceSummary = {
+  id: string;
+  name: string;
+  visibility: "company" | "department" | "private";
+  isPublicWithinCompany: boolean;
+  status: "active" | "archived";
+  ownerEmployeeId: string;
+};
+
+type DocumentFileSummary = {
+  id: string;
+  spaceId: string;
+  ownerEmployeeId: string;
+  versionId: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  versionLabel: string;
+  isPublicWithinCompany: boolean;
+  storageProvider: "mock" | "r2";
+  storageStatus: "pending" | "ready" | "deleted" | "failed";
+  checksumSha256: string | null;
+  status: "active" | "archived";
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DocumentActionEnvelope = {
+  file: DocumentFileSummary;
+  action?: {
+    kind: string;
+    provider: "mock" | "r2";
+    expiresAt: string;
+    uploadToken?: string;
+    downloadToken?: string;
+    objectKeyPreview: string;
+    message: string;
+  };
+  audit?: {
+    action: string;
+  };
+};
+
 type LoginRoleCode = "COMPANY_ADMIN" | "HR_ADMIN" | "MANAGER" | "EMPLOYEE" | "AUDITOR";
 
 type LoginAccountPreset = {
@@ -1426,35 +1469,116 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
   );
 }
 
+function getDocumentAudienceLabel(item: Pick<DocumentFileSummary, "isPublicWithinCompany">) {
+  return item.isPublicWithinCompany ? "전사 공개" : "제한 공개";
+}
+
+function getDocumentClassificationLabel(item: Pick<DocumentFileSummary, "contentType">) {
+  if (item.contentType.includes("pdf")) {
+    return "정책/안내";
+  }
+  if (item.contentType.includes("wordprocessingml")) {
+    return "인사/계약 초안";
+  }
+  if (item.contentType.includes("sheet") || item.contentType.includes("excel")) {
+    return "정산/집계";
+  }
+  return "일반 문서";
+}
+
+function getDocumentStorageGuide(item: Pick<DocumentFileSummary, "storageStatus" | "status">) {
+  if (item.storageStatus === "pending") {
+    return "업로드 준비 단계입니다. upload-complete 전까지는 원문 배포가 아니라 metadata/검증 흐름만 확인합니다.";
+  }
+  if (item.storageStatus === "ready" && item.status === "active") {
+    return "내부 열람 가능한 준비 상태입니다. download-init 과 읽음 확인으로 같은 회사 범위 흐름을 이어갑니다.";
+  }
+  if (item.storageStatus === "deleted" || item.status === "archived") {
+    return "삭제/보관 처리된 문서입니다. storageStatus 와 문서 status 를 분리해서 기록합니다.";
+  }
+  return "실패 또는 예외 상태입니다. error/forbidden 안내와 함께 운영 확인이 필요합니다.";
+}
+
+function getDocumentSpaceGuardLabel(space: Pick<DocumentSpaceSummary, "visibility" | "isPublicWithinCompany">) {
+  if (space.visibility === "private") {
+    return "private HR scope · 권한 없으면 목록 비노출 또는 403";
+  }
+  if (space.visibility === "department") {
+    return "부서 범위 문서함 · 관련 구성원만 접근";
+  }
+  return space.isPublicWithinCompany ? "company scope · 일반 협업 entry" : "company scope · 제한 공개";
+}
+
+export function getSelectedDocumentFile(
+  visibleFiles: readonly DocumentFileSummary[],
+  selectedFileId: string | null,
+) {
+  if (!visibleFiles.length) {
+    return null;
+  }
+
+  return visibleFiles.find((item) => item.id === selectedFileId) ?? visibleFiles[0] ?? null;
+}
+
 export function DocumentsLiveSection() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [stagedUpload, setStagedUpload] = useState<DocumentActionEnvelope | null>(null);
+  const [downloadPreview, setDownloadPreview] = useState<DocumentActionEnvelope | null>(null);
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
-  const spaces = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.spaces, refreshSeed);
-  const files = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.documents.files, refreshSeed);
-  const publicSpaceId = spaces.data?.items[0]?.id ?? "document_space_public";
-  const firstFileId = files.data?.items[0]?.id;
+  const session = useApiQuery<SessionPayload>("/api/session");
+  const spaces = useApiQuery<{ items: DocumentSpaceSummary[] }>(appRoutes.documents.spaces, refreshSeed);
+  const files = useApiQuery<{ items: DocumentFileSummary[] }>(appRoutes.documents.files, refreshSeed);
+
+  const visibleSpaces = spaces.data?.items ?? [];
+  const allFiles = files.data?.items ?? [];
+  const activeSpaceId = selectedSpaceId ?? visibleSpaces[0]?.id ?? "document_space_public";
+  const visibleFiles = allFiles.filter((item) => item.spaceId === activeSpaceId);
+  const selectedFile = getSelectedDocumentFile(visibleFiles, selectedFileId);
+  const canRead = hasSessionPermission(session.data ?? null, "document.file.read");
+  const canWrite = hasSessionPermission(session.data ?? null, "document.file.write");
+  const canManageSpace = hasSessionPermission(session.data ?? null, "document.space.manage");
+
+  useEffect(() => {
+    if (!selectedSpaceId && visibleSpaces[0]?.id) {
+      setSelectedSpaceId(visibleSpaces[0].id);
+    }
+  }, [selectedSpaceId, visibleSpaces]);
+
+  useEffect(() => {
+    if (!selectedFileId && visibleFiles[0]?.id) {
+      setSelectedFileId(visibleFiles[0].id);
+      return;
+    }
+
+    if (selectedFileId && !visibleFiles.some((item) => item.id === selectedFileId)) {
+      setSelectedFileId(visibleFiles[0]?.id ?? null);
+    }
+  }, [selectedFileId, visibleFiles]);
 
   async function handleMetadataCreate() {
     setPending(true);
     setResult(null);
     try {
-      const payload = await fetchJson<Record<string, any>>(appRoutes.documents.fileMetadata, {
+      const payload = await fetchJson<DocumentActionEnvelope>(appRoutes.documents.fileMetadata, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          spaceId: publicSpaceId,
-          fileName: "phase-32-preview.pdf",
+          spaceId: activeSpaceId,
+          fileName: "phase-54-documents-preview.pdf",
           contentType: "application/pdf",
           fileSize: 64000,
           versionLabel: "draft-1",
           isPublicWithinCompany: true,
         }),
       });
+      setSelectedFileId(payload.data.file.id);
       setResult({
         tone: "accent",
         title: "문서 metadata 생성",
-        body: `${payload.data.file.id} · ${payload.data.file.storageProvider} · ${payload.data.audit.action}`,
+        body: `${payload.data.file.id} · ${payload.data.file.storageProvider} · ${payload.data.audit?.action ?? "document.file.metadata.create"}`,
       });
       setRefreshSeed((value) => value + 1);
     } catch (mutationError) {
@@ -1468,11 +1592,148 @@ export function DocumentsLiveSection() {
     }
   }
 
+  async function handleUploadInit() {
+    setPending(true);
+    setResult(null);
+    setDownloadPreview(null);
+    try {
+      const payload = await fetchJson<DocumentActionEnvelope>(appRoutes.documents.uploadInit, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          spaceId: activeSpaceId,
+          fileName: "phase-54-handoff.pdf",
+          contentType: "application/pdf",
+          fileSize: 2048,
+          versionLabel: "draft-upload",
+          isPublicWithinCompany: false,
+        }),
+      });
+      setStagedUpload(payload.data);
+      setSelectedFileId(payload.data.file.id);
+      setResult({
+        tone: "accent",
+        title: "upload-init 완료",
+        body: `${payload.data.file.id} · ${payload.data.file.storageStatus} · ${payload.data.action?.message ?? "업로드 준비 생성"}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "upload-init 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleUploadComplete() {
+    if (!stagedUpload?.action?.uploadToken) {
+      setResult({
+        tone: "warning",
+        title: "upload-complete 대기 중",
+        body: "먼저 upload-init 을 실행해 업로드 토큰과 pending 상태를 만든 뒤 완료 단계로 이어가세요.",
+      });
+      return;
+    }
+
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<DocumentActionEnvelope>(appRoutes.documents.uploadComplete(stagedUpload.file.id), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          uploadToken: stagedUpload.action.uploadToken,
+          checksumSha256: "a".repeat(64),
+        }),
+      });
+      setStagedUpload(null);
+      setSelectedFileId(payload.data.file.id);
+      setResult({
+        tone: "accent",
+        title: "upload-complete 완료",
+        body: `${payload.data.file.id} · ${payload.data.file.storageStatus} · checksum 기록 완료`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "upload-complete 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleDownloadInit() {
+    if (!selectedFile) {
+      setResult({ tone: "warning", title: "다운로드 대상 없음", body: "먼저 문서 공간에서 파일 하나를 선택하세요." });
+      return;
+    }
+
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<DocumentActionEnvelope>(appRoutes.documents.downloadInit(selectedFile.id), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      setDownloadPreview(payload.data);
+      setResult({
+        tone: "accent",
+        title: "download-init 완료",
+        body: `${payload.data.file.id} · ${payload.data.action?.kind ?? "download"} · ${payload.data.action?.message ?? "내부 다운로드 준비"}`,
+      });
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "download-init 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleDeleteFile() {
+    if (!selectedFile) {
+      setResult({ tone: "warning", title: "삭제 대상 없음", body: "먼저 문서 상세에서 처리할 파일을 선택하세요." });
+      return;
+    }
+
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<DocumentActionEnvelope>(appRoutes.documents.deleteFile(selectedFile.id), {
+        method: "DELETE",
+      });
+      setStagedUpload(null);
+      setDownloadPreview(null);
+      setResult({
+        tone: "accent",
+        title: "문서 보관/삭제 기록 완료",
+        body: `${payload.data.file.id} · ${payload.data.file.storageStatus} · ${payload.data.file.status}`,
+      });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: "문서 보관/삭제 실패",
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function handlePrivateProbe() {
     setPending(true);
     setResult(null);
     try {
-      await fetchJson<Record<string, any>>(`${appRoutes.documents.files}?spaceId=document_space_hr_private`);
+      await fetchJson<Record<string, unknown>>(`${appRoutes.documents.files}?spaceId=document_space_hr_private`);
       setResult({
         tone: "warning",
         title: "민감 문서함 접근 허용됨",
@@ -1493,7 +1754,7 @@ export function DocumentsLiveSection() {
     setPending(true);
     setResult(null);
     try {
-      await fetchJson<Record<string, any>>(appRoutes.documents.fileMetadata, {
+      await fetchJson<Record<string, unknown>>(appRoutes.documents.fileMetadata, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1522,7 +1783,7 @@ export function DocumentsLiveSection() {
   }
 
   async function handleFileReadReceipt() {
-    if (!firstFileId) {
+    if (!selectedFile) {
       setResult({ tone: "warning", title: "읽음 확인 대상 없음", body: "먼저 접근 가능한 파일 metadata 를 하나 이상 확인하세요." });
       return;
     }
@@ -1532,7 +1793,7 @@ export function DocumentsLiveSection() {
       const payload = await fetchJson<Record<string, any>>(appRoutes.readReceipts, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ targetType: "document_file", targetId: firstFileId }),
+        body: JSON.stringify({ targetType: "document_file", targetId: selectedFile.id }),
       });
       setResult({
         tone: "accent",
@@ -1554,24 +1815,118 @@ export function DocumentsLiveSection() {
     <>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="accent">문서 공간</Pill>
-          <QueryState loading={spaces.loading || files.loading} error={spaces.error ?? files.error} />
-          {spaces.data ? (
+          <Pill tone="accent">문서 공간 목록</Pill>
+          <QueryState loading={spaces.loading || session.loading} error={spaces.error ?? session.error} />
+          {session.data ? (
             <>
-              <h3>{spaces.data.items.length}개 공간</h3>
-              <p>{spaces.data.items.map((item) => item.name).join(" · ")}</p>
-              <p className="card-note">민감 공간은 현재 세션 권한에 따라 목록에서 숨겨지거나 403 으로 차단됩니다.</p>
+              <h3>{session.data.user.fullName}</h3>
+              <p>{session.data.user.roleCodes.join(" · ")} · 문서 read {canRead ? "허용" : "차단"} · write {canWrite ? "허용" : "차단"}</p>
+              <p className="card-note">space.manage {canManageSpace ? "허용" : "없음"} · private/missing/foreign company 는 목록 비노출 또는 403 으로 끊습니다.</p>
             </>
           ) : null}
+          {visibleSpaces.length ? (
+            <div className="mobile-summary-grid" style={{ marginTop: 12 }}>
+              {visibleSpaces.map((space) => (
+                <article key={space.id} className="route-card">
+                  <div className="pill-row">
+                    <Pill tone={space.id === activeSpaceId ? "accent" : undefined}>{space.visibility}</Pill>
+                    <Pill>{space.status}</Pill>
+                  </div>
+                  <h3>{space.name}</h3>
+                  <p>{getDocumentSpaceGuardLabel(space)}</p>
+                  <p className="card-note">owner {space.ownerEmployeeId} · {space.id}</p>
+                  <button className="touch-button--secondary" onClick={() => setSelectedSpaceId(space.id)} type="button">
+                    이 문서함 보기
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </article>
+
         <article className="info-card">
-          <Pill>파일 metadata / 가드 확인</Pill>
+          <Pill>happy path / guardrail</Pill>
+          <h3>1) 목록 → 2) 상세 → 3) upload-init → 4) upload-complete → 5) download-init → 6) read receipt</h3>
+          <p>문서 분류, 상태, 권한 차단을 같은 화면에서 따라가되 외부 공유 완료처럼 과장하지 않습니다.</p>
+          <ul className="summary-list">
+            <li>empty: 접근 가능한 파일이 없어도 문서함 자체는 정상 응답일 수 있습니다.</li>
+            <li>loading/error/forbidden: 같은 same-origin API 기준으로 설명합니다.</li>
+            <li>classification: 정책/안내, 인사/계약 초안, 정산/집계 같은 업무 언어로만 보여 줍니다.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+        <article className="info-card">
+          <Pill tone="accent">파일 목록</Pill>
+          <QueryState loading={files.loading} error={files.error} emptyMessage={visibleFiles.length === 0 && files.data ? "이 문서함에서 접근 가능한 파일 metadata 가 없습니다." : undefined} />
+          {visibleFiles.length ? (
+            <div className="grid-auto-compact" style={{ marginTop: 12 }}>
+              {visibleFiles.slice(0, 5).map((item) => (
+                <article key={item.id} className="route-card">
+                  <div className="pill-row">
+                    <Pill tone={item.id === selectedFile?.id ? "accent" : undefined}>{item.storageStatus}</Pill>
+                    <Pill>{getDocumentAudienceLabel(item)}</Pill>
+                    <Pill>{getDocumentClassificationLabel(item)}</Pill>
+                  </div>
+                  <h3>{item.fileName}</h3>
+                  <p>{formatFileSize(item.fileSize)} · {item.versionLabel}</p>
+                  <p className="card-note">{getDocumentStorageGuide(item)}</p>
+                  <button className="touch-button--secondary" onClick={() => setSelectedFileId(item.id)} type="button">
+                    상세 보기
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </article>
+
+        <article className="info-card">
+          <Pill>문서 상세</Pill>
+          {selectedFile ? (
+            <>
+              <h3>{selectedFile.fileName}</h3>
+              <p>{selectedFile.id} · {selectedFile.versionId}</p>
+              <ul className="summary-list">
+                <li>분류: {getDocumentClassificationLabel(selectedFile)} / 공개범위: {getDocumentAudienceLabel(selectedFile)}</li>
+                <li>storageStatus: {selectedFile.storageStatus} / 문서 status: {selectedFile.status}</li>
+                <li>spaceId: {selectedFile.spaceId} / owner: {selectedFile.ownerEmployeeId}</li>
+                <li>contentType: {selectedFile.contentType} / updated: {formatDateTime(selectedFile.updatedAt)}</li>
+              </ul>
+              <p className="card-note">상세 패널에서 storageStatus 와 문서 status 를 따로 보여 주어 내부 저장 lifecycle 과 문서 보관 상태를 섞지 않습니다.</p>
+            </>
+          ) : (
+            <>
+              <h3>선택된 문서가 없습니다.</h3>
+              <p>목록에서 파일을 선택하거나 metadata preview 생성으로 상세 흐름을 시작하세요.</p>
+            </>
+          )}
+        </article>
+      </div>
+
+      <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <article className="info-card">
+          <Pill tone="accent">실행 액션</Pill>
           <div className="action-row" style={{ marginTop: 8 }}>
-            <button className="touch-button" disabled={pending} onClick={handleMetadataCreate} type="button">
+            <button className="touch-button" disabled={pending || !canWrite} onClick={handleMetadataCreate} type="button">
               metadata preview 생성
             </button>
-            <button className="touch-button--secondary" disabled={pending} onClick={handleFileReadReceipt} type="button">
+            <button className="touch-button" disabled={pending || !canWrite} onClick={handleUploadInit} type="button">
+              upload-init
+            </button>
+            <button className="touch-button--secondary" disabled={pending || !canWrite} onClick={handleUploadComplete} type="button">
+              upload-complete
+            </button>
+          </div>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button className="touch-button--secondary" disabled={pending || !canRead || !selectedFile} onClick={handleDownloadInit} type="button">
+              download-init
+            </button>
+            <button className="touch-button--secondary" disabled={pending || !canRead || !selectedFile} onClick={handleFileReadReceipt} type="button">
               문서 읽음 확인
+            </button>
+            <button className="touch-button--secondary" disabled={pending || !canWrite || !selectedFile} onClick={handleDeleteFile} type="button">
+              delete / archive
             </button>
           </div>
           <div className="action-row" style={{ marginTop: 12 }}>
@@ -1582,28 +1937,32 @@ export function DocumentsLiveSection() {
               missing space 차단 확인
             </button>
           </div>
+          <p className="card-note">권한이 없는 세션에서는 버튼이 비활성화되고, 직접 probe 하면 API 가 403 또는 validation error 로 끊어야 합니다.</p>
+        </article>
+
+        <article className="info-card">
+          <Pill>최근 액션 상세</Pill>
+          {stagedUpload?.action ? (
+            <>
+              <h3>upload-init 대기 중</h3>
+              <p>{stagedUpload.file.id} · {stagedUpload.action.kind}</p>
+              <p className="card-note">objectKeyPreview {stagedUpload.action.objectKeyPreview}</p>
+              <p className="card-note">raw storage key/bucket/public URL 전문은 계속 비노출입니다.</p>
+            </>
+          ) : downloadPreview?.action ? (
+            <>
+              <h3>download-init 확인</h3>
+              <p>{downloadPreview.file.id} · {downloadPreview.action.kind}</p>
+              <p className="card-note">download token 만 확인하고 외부 공유 URL 전문은 노출하지 않습니다.</p>
+            </>
+          ) : (
+            <>
+              <h3>액션 대기</h3>
+              <p>upload-init 또는 download-init 을 실행하면 최근 토큰/preview 요약이 여기 보입니다.</p>
+            </>
+          )}
         </article>
       </div>
-      {files.data ? (
-        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
-          {files.data.items.length ? (
-            files.data.items.slice(0, 4).map((item) => (
-              <article key={item.id} className="info-card">
-                <Pill tone={item.isPublicWithinCompany ? "accent" : "warning"}>{item.storageStatus}</Pill>
-                <h3>{item.fileName}</h3>
-                <p>{formatFileSize(item.fileSize)} · {item.versionLabel}</p>
-                <p className="card-note">storageProvider {item.storageProvider} · storageStatus 는 내부 lifecycle 이며 storageKey/public URL 직접 비노출</p>
-              </article>
-            ))
-          ) : (
-            <article className="info-card">
-              <Pill>빈 상태</Pill>
-              <h3>접근 가능한 파일 metadata 가 없습니다.</h3>
-              <p>metadata preview 생성 버튼으로 문서함 상세 흐름을 바로 열 수 있습니다.</p>
-            </article>
-          )}
-        </div>
-      ) : null}
       <MutationResult result={result} />
     </>
   );

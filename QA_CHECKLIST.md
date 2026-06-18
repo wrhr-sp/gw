@@ -102,6 +102,12 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] Phase 54 문서함·파일 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 54 범위라면 `/documents` 가 문서 실사용 시작점처럼 읽히고, 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비 → 다운로드 준비 → 읽음 확인 흐름이 실제 업무 순서로 이어진다.
+- [ ] Phase 54 범위라면 전사 문서함과 인사 전용 문서함 책임이 먼저 구분돼 보인다.
+- [ ] Phase 54 범위라면 private/missing space 차단, 회사 scope 차단, 권한 부족, raw storage 비노출이 UI/route/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 54 범위라면 `storageStatus` 와 문서 `status` 가 같은 뜻처럼 섞이지 않고, `upload-init`/`upload-complete`/`download-init` 이 외부 공유 완료처럼 과장되지 않는다.
+- [ ] Phase 54 범위라면 empty/loading/error/forbidden/dev-safe 가 documents route 기준으로 분명히 보이고, `preview`·`guard 확인` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
 - [ ] Phase 53 휴가·근태 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
 - [ ] Phase 53 범위라면 `/attendance` 가 직원 근태 시작점처럼 읽히고, 출근 → 오늘 상태 확인 → 퇴근 → 정정 요청 흐름이 실제 업무 순서로 이어진다.
 - [ ] Phase 53 범위라면 `/leave` 가 직원 휴가 시작점처럼 읽히고, 잔여 확인 → 신청 → 상태 확인 흐름이 실제 업무 순서로 이어진다.
