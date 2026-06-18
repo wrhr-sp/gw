@@ -19,31 +19,31 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 51 게시판 실사용화 단계
+### 3. 현재 문서화/검증 기준은 Phase 52 전자결재 실사용화 단계
 
-현재 루트 문서와 handoff 는 아래 기준을 함께 설명한다.
+현재 루트 문서, handoff, guide 는 아래 기준을 함께 설명한다.
 
 - 로그인 시작점: 익명은 `/login` 만 허용
-- 게시판 실사용 시작 레인: `/dashboard` → `/boards` → `/boards/board_general` → `/posts/{postId}`
-- 공지 책임 확인 레인: `/boards` → `/boards/board_notice`
-- 게시글 상세 확인 레인: `/posts/board_post_demo`, `/posts/board_post_notice_1` 기준 댓글/읽음 확인/차단 확인
-- 문서 묶음: Phase 51 scope/handoff/guide + 직전 Phase 50 release scope/handoff + guide + Phase 41 게시판·공지 기준 문서 세트
+- 전자결재 실사용 시작 레인: `/dashboard` → `/approvals`
+- 승인자 확인 레인: 내 승인함 → 문서 상세 → 승인/반려 → 상태 이력 확인
+- 기안자 확인 레인: 내 기안함 → 기안 stepper → 문서 상세 → 상태 확인
+- 문서 묶음: Phase 52 scope/handoff/guide + 직전 Phase 51 boards scope/handoff/guide + Phase 41 협업·결재 기준 문서 세트
 
-- `/boards` 는 공지형/일반형 게시판을 함께 보여 줄 수 있어도 notice-only 책임과 일반 글쓰기 책임을 먼저 구분해 읽혀야 한다.
-- `/boards/[boardId]` 와 `/posts/[postId]` 는 아직 실사용화 진행 단계이며, 내부 검증용 `preview` 문구가 남아 있으면 실제 운영 데이터 완료처럼 읽히지 않게 주의해야 한다.
-- 댓글/읽음 확인/forged 차단은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
+- `/approvals` 는 내 승인함/내 기안함/참조·합의 확인함을 함께 보여 줄 수 있어도 책임을 먼저 구분해 읽혀야 한다.
+- approvals 상세/액션 흐름은 아직 실사용화 진행 단계이며, 내부 검증용 `preview` 문구가 남아 있으면 실제 운영 결재 완료처럼 읽히지 않게 주의해야 한다.
+- self-approval 금지, replay 차단, unknown id 차단은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
 - production data, 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 51 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 52 단계에서 남아 있는 제품형 리스크
 
-- `apps/api/test/auth-org.spec.ts` 기준선은 충분하지만, live URL 기준 게시판 실사용 흐름 문장과 UAT 절차가 아직 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
-- `/boards`, `/boards/[boardId]`, `/posts/[postId]` 에 남은 `preview` 성격 문구가 실제 운영 데이터 완료처럼 읽히면 과장 리스크가 생긴다.
-- notice-only 공지 게시판 책임과 일반 게시판 글쓰기 책임이 한 화면에서 섞이면 운영 공지 권한 기대치가 무너질 수 있다.
-- 댓글/읽음 확인/forged 차단은 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
-- empty/loading/error/forbidden 이 route 기준으로 다시 잠기지 않으면 최종 보고가 happy path 위주로만 적혀 실제 사용 리스크를 숨기게 된다.
-- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 게시판 실사용 확인 수준이 과장될 수 있다.
+- `apps/api/test/auth-org.spec.ts` 기준선은 충분하지만, live URL 기준 전자결재 실사용 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
+- `/approvals` 에 남은 `preview`·`placeholder` 성격 문구가 실제 운영 결재 완료처럼 읽히면 과장 리스크가 생긴다.
+- 내 승인함/내 기안함/운영 정책 책임이 한 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
+- self-approval 금지, replay 차단, unknown id 차단은 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
+- empty/loading/error/forbidden/dev-safe 가 route 기준으로 다시 잠기지 않으면 최종 보고가 happy path 위주로만 적혀 실제 사용 리스크를 숨기게 된다.
+- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 전자결재 실사용 확인 수준이 과장될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

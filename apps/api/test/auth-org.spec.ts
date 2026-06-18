@@ -7,6 +7,8 @@ import {
   appRoutes,
   approvalActionResponseSchema,
   approvalCandidateListResponseSchema,
+  approvalCommentCreateResponseSchema,
+  approvalCommentListResponseSchema,
   approvalDocumentCreateResponseSchema,
   approvalDocumentDetailResponseSchema,
   approvalDocumentListResponseSchema,
@@ -1401,7 +1403,48 @@ describe("Phase 4 approvals skeleton", () => {
     const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
     expect(detailPayload.data.document.id).toBe(createPayload.data.document.id);
     expect(detailPayload.data.references.map((item) => item.referenceType)).toContain("reference");
+    expect(detailPayload.data.comments.every((item) => item.documentId === createPayload.data.document.id)).toBe(true);
+    expect(detailPayload.data.history.some((item) => item.eventType === "submitted")).toBe(true);
     expect(detailPayload.data.operationalContext.blockedReasons.some((item) => item.category === "company_scope")).toBe(true);
+  });
+
+  it("lists and creates approval comments for accessible participants", async () => {
+    const drafter = await loginAndGetCookie("EMPLOYEE");
+    const approver = await loginAndGetCookie("MANAGER");
+
+    const commentsResponse = await app.request(appRoutes.approvals.comments("approval_document_demo"), {
+      headers: {
+        cookie: drafter.cookie,
+      },
+    });
+    expect(commentsResponse.status).toBe(200);
+    const commentsPayload = approvalCommentListResponseSchema.parse(await commentsResponse.json());
+    expect(commentsPayload.data.items.map((item) => item.id)).toContain("approval_comment_demo_drafter");
+
+    const createCommentResponse = await app.request(appRoutes.approvals.comments("approval_document_demo"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: approver.cookie,
+      },
+      body: JSON.stringify({
+        body: "참조 확인 후 의견 남깁니다.",
+      }),
+    });
+    expect(createCommentResponse.status).toBe(201);
+    const createCommentPayload = approvalCommentCreateResponseSchema.parse(await createCommentResponse.json());
+    expect(createCommentPayload.data.comment.documentId).toBe("approval_document_demo");
+    expect(createCommentPayload.data.audit.action).toBe("approval.document.comment");
+
+    const detailResponse = await app.request(appRoutes.approvals.detail("approval_document_demo"), {
+      headers: {
+        cookie: drafter.cookie,
+      },
+    });
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.comments.map((item) => item.body)).toContain("참조 확인 후 의견 남깁니다.");
+    expect(detailPayload.data.history.some((item) => item.eventType === "commented" && item.message.includes("참조 확인 후 의견 남깁니다."))).toBe(true);
   });
 
   it("separates my drafts and approval inbox scopes", async () => {
