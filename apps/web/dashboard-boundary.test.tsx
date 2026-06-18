@@ -42,10 +42,11 @@ const userShortcuts: HomeShortcut[] = [
   },
 ];
 
-describe("Phase 14 dashboard summary skeleton", () => {
+describe("Phase 57 dashboard home boundary", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
+    expect(html).toContain("Phase 57 홈·메뉴 IA 실사용 UAT");
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("홈 바로가기");
     expect(html).toContain("회사 공통 고정");
@@ -53,7 +54,9 @@ describe("Phase 14 dashboard summary skeleton", () => {
     expect(html).toContain("현장 업무 사용성 원칙");
     expect(html).toContain("상태 안내 기준선");
     expect(html).toContain("Phase 47 추천 확인 순서");
-    expect(html).toContain("Phase 49 직원 레인 고정");
+    expect(html).toContain("Phase 57 홈 역할 고정");
+    expect(html).toContain("/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
+    expect(html).toContain('href="/menu"');
     expect(html).toContain("/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me");
     expect(html).toContain("일반 직원 · 팀장 확인 순서");
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
@@ -105,6 +108,7 @@ describe("Phase 14 dashboard summary skeleton", () => {
 
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
     expect(html).toContain("현재 세션 / 홈-경영업무 분리");
+    expect(html).toContain("← 전체 메뉴로");
     expect(html).not.toContain("관리자 허브 바로가기");
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain('href="/work-items/legal"');

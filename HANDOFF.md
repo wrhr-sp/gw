@@ -18,15 +18,16 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 56 관리자 지정 경영업무 1차 실사용화 체인이다. 이번 Phase의 목적은 기존 Phase 43 경영관리 도입 기준과 Phase 55 관리자 계정·권한·조직 기준선을 바탕으로 대장이 live URL에서 `/management`, `/payroll`, `/payroll/me`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 를 직접 눌러 지정 관리자 접근 경계, self-only 급여 확인, 세무/노무/법무 실사용 패널, 감사 read-only 추적 흐름까지 이어 볼 수 있게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 정리 체인이다. 이번 Phase의 목적은 기존 Phase 24 파일럿 정보구조, Phase 47 모바일/PWA 사용성, Phase 56 운영 레인 분리 기준선을 바탕으로 대장이 live URL에서 `/dashboard`, `/menu`, 홈 바로가기, 모바일 하단 탭 5개, 운영/감사/경영업무 진입점을 직접 눌러 홈과 메뉴의 역할 차이, 고정/권한 기반 바로가기, 모바일/PC 같은 IA, 운영 레인 분리 흐름까지 이어 볼 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/management/page.tsx`, `apps/web/app/payroll/page.tsx`, `apps/web/app/payroll/me/page.tsx`, `apps/web/app/work-items/tax/page.tsx`, `apps/web/app/work-items/labor/page.tsx`, `apps/web/app/work-items/legal/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 기준으로 운영 허브, 운영 급여, self-only 급여, 세무/노무/법무 실사용 패널, 감사 read-only UI 뼈대가 이미 존재한다.
-- `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 급여 self-only, work item 모듈 visibility, branch/company/restricted scope, `/api/admin/audit-logs` `audit.read` guard 근거가 이미 존재한다.
-- 현재 Phase 56 기준 문서는 `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`, `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-handoff.md`, `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-guide.md` 다.
-- 현재 메인 체인은 `t_0d629234`(기획 진행 중) → `t_6090c4b8`(구현 부모 대기) → `t_6f8ecbd2`(리뷰 부모 대기) → `t_9aa0fc51`(테스트 부모 대기) → `t_1f522af2`(문서화 부모 대기) → `t_055dbbf6`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+- `apps/web/app/dashboard/dashboard-config.ts`, `apps/web/menu-page-content.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx`, `apps/web/home-shortcuts.ts`, `apps/web/app/mobile-pwa-config.ts` 기준으로 홈 액션 카드, 홈 바로가기 분리, 모바일 전체 메뉴, 하단 탭 5개, 같은 정보구조 원칙 UI 뼈대가 이미 존재한다.
+- `apps/web/app/me/page.tsx` 기준으로 `/me` 는 관리자 설정 화면이 아니라 세션/권한/개인 확인 마무리 화면이며 `/payroll/me`·`/org`·`/employees` 읽기 흐름으로 이어진다.
+- `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 홈 shortcut schema, 권한 기반 노출 기준, 모바일 route mapping 근거가 이미 존재한다.
+- 현재 Phase 57 기준 문서는 `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md` 다.
+- 현재 메인 체인은 `t_e662066c`(기획 진행 중) → `t_4c83b740`(구현 부모 대기) 순서로 정리된다.
 - Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
 2026-06-18 Phase 56 fit-gap 메모:
@@ -37,6 +38,7 @@
 - empty/loading/error/forbidden/dev-safe 상태, company/branch/self/restricted scope 차단, `audit.read`, masked preview, raw storage·secret 비노출 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
 - `preview`, `guard 확인`, `read-only`, `실사용 패널` 같은 내부 검증 문구가 live 실사용 문구를 덮지 않도록 정리해야 한다.
 - 새 guide `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md` 는 `/management` 운영 허브 확인 순서, `/payroll` 대 `/payroll/me` 책임 분리, `tax/labor/legal` 모듈 확인, `/admin/audit-logs` 감사 추적, 권한 차단 확인, UAT 절차, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 묶는다.
+- Phase 57 guide `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 는 `/dashboard` 홈, `/menu` 전체 메뉴, 고정/사용자 전용 바로가기뿐 아니라 `/me` 를 사용자 설정 완료가 아닌 세션·권한·개인 확인 흐름으로 읽는 기준까지 포함한다.
 - `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
 - production DB, 외부 IdP/SSO, 실제 초대 발송, 실제 비밀번호 운영 전환, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
 

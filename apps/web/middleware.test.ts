@@ -40,6 +40,20 @@ describe("middleware host boundary", () => {
     expect(getLocationPath(response)).toBe("/login");
   });
 
+  it("keeps anonymous admin subroutes on ordinary hosts behind the login wall", () => {
+    const adminUsersResponse = middleware(createRequest("/admin/users", "gw-web.preview-account.workers.dev"));
+    expect(adminUsersResponse.status).toBe(307);
+    expect(getLocationPath(adminUsersResponse)).toBe("/login");
+
+    const adminPoliciesResponse = middleware(createRequest("/admin/policies", "gw-web.preview-account.workers.dev"));
+    expect(adminPoliciesResponse.status).toBe(307);
+    expect(getLocationPath(adminPoliciesResponse)).toBe("/login");
+
+    const adminAuditLogsResponse = middleware(createRequest("/admin/audit-logs", "gw-web.preview-account.workers.dev"));
+    expect(adminAuditLogsResponse.status).toBe(307);
+    expect(getLocationPath(adminAuditLogsResponse)).toBe("/login");
+  });
+
   it("blocks anonymous root, offline, management, dashboard, and work-item routes while allowing designated roles on ordinary hosts", () => {
     const anonymousRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev"));
     expect(anonymousRootResponse.status).toBe(307);
