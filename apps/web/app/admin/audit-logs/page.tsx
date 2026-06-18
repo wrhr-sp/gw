@@ -59,7 +59,7 @@ export default function AdminAuditLogsPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 48 감사·보안·복구 운영 기준선 preview"
+      eyebrow="Phase 55 감사 read-only / route·API guard 확인"
       title="관리자 / 감사 로그"
       description="감사 로그 read-only 응답, 조회 필터, masked metadata, storageRef 요약, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
       actions={<Pill tone="warning">audit.read</Pill>}

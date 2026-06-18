@@ -18,27 +18,27 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 54 문서함·파일 실사용화 체인이다. 이번 Phase의 목적은 기존 문서 공간·파일 metadata·storage guardrail 기준선을 바탕으로 대장이 live URL에서 `/documents` 를 직접 눌러 문서 공간 확인, 파일 metadata 확인, 업로드 준비/완료 상태 확인, 다운로드 준비, 읽음 확인, 권한 차단 흐름까지 이어 볼 수 있게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 55 관리자 계정·권한·조직 실사용화 체인이다. 이번 Phase의 목적은 기존 Phase 46 온보딩 리허설과 최신 운영/감사 기준선을 바탕으로 대장이 live URL에서 `/admin/users`, `/employees`, `/org`, `/management`, `/admin/audit-logs` 를 직접 눌러 계정 preview, 조직/부서/지점 read model, 역할/권한 경계, 운영 허브, 감사 read-only 추적 흐름까지 이어 볼 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/documents/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx` 기준으로 문서 공간, 파일 metadata, `storageStatus`, 읽음 확인 preview/UI 뼈대가 이미 존재한다.
-- `apps/api/test/auth-org.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 문서 공간 조회, 파일 metadata 생성, upload-init/upload-complete/download-init, private/missing space 차단, raw storage 비노출 API 근거가 이미 존재한다.
-- 현재 Phase 54 기준 문서는 `docs/architecture/phase-54-documents-files-live-operations-fit-gap-scope.md`, `docs/guides/phase-54-documents-files-live-operations-handoff.md`, `docs/guides/phase-54-documents-files-live-operations-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`, `docs/guides/phase-53-leave-attendance-live-operations-handoff.md`, `docs/guides/phase-53-leave-attendance-live-operations-guide.md` 다.
-- 현재 메인 체인은 `t_886df9dc`(기획 진행 중) → `t_77a2a381`(구현 부모 대기) → `t_014205de`(리뷰 부모 대기) → `t_0c905be8`(테스트 부모 대기) → `t_d349f165`(문서화 부모 대기) → `t_efc8bfb3`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+- `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/employees/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 기준으로 계정 preview, 조직/부서/지점 read-only, 운영 허브, 감사 read-only UI 뼈대가 이미 존재한다.
+- `apps/api/test/auth-org.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 직원/부서/역할/권한/지점 조회, `/api/admin/users`, `/api/admin/audit-logs`, branch scope, admin-only/audit.read guard, createdFrom/createdTo 필터 근거가 이미 존재한다.
+- 현재 Phase 55 기준 문서는 `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`, `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-handoff.md`, `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-54-documents-files-live-operations-fit-gap-scope.md`, `docs/guides/phase-54-documents-files-live-operations-handoff.md`, `docs/guides/phase-54-documents-files-live-operations-guide.md` 다.
+- 현재 메인 체인은 `t_14966b8c`(기획 진행 중) → `t_0c6e5a3d`(구현 부모 대기) → `t_0ff86f94`(리뷰 부모 대기) → `t_c1cd2dec`(테스트 부모 대기) → `t_6a0f7311`(문서화 부모 대기) → `t_34df084c`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
 - Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
-2026-06-18 Phase 54 fit-gap 메모:
+2026-06-18 Phase 55 fit-gap 메모:
 
-- 바로 확인 가능한 영역: `/documents`, 관련 same-origin document/read-receipt API, route/API/test 근거.
-- 현재 기획 근거는 `apps/web/app/documents/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `packages/shared/src/contracts.ts` 다.
-- 이번 Phase에서 가장 먼저 다시 고정할 것은 전사 문서함 lane, 인사 전용 문서함 lane, 업로드/다운로드 준비 흐름, 읽음 확인, 운영 설명 lane 책임 차이를 실제 사용자 흐름으로 읽히게 만드는 것이다.
-- empty/loading/error/forbidden/dev-safe 상태, 권한 부족, private/missing space 차단, company scope 차단, raw storage 비노출, `storageStatus` 대 문서 `status` 분리 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
-- `preview`, `guard 확인`, `감사 후보` 같은 내부 검증 문구가 live 실사용 문구를 덮지 않도록 정리해야 한다.
-- 새 guide 는 `/documents` 사용자 확인 순서, 관리자 lifecycle 확인 순서, private/missing space 차단 확인, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 묶는다.
+- 바로 확인 가능한 영역: `/admin/users`, `/employees`, `/org`, `/management`, `/admin/audit-logs`, 관련 same-origin org/admin API, route/API/test 근거.
+- 현재 기획 근거는 `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/employees/page.tsx`, `apps/web/app/org/page.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `packages/shared/src/contracts.ts` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 `/admin/users` 운영 검토 lane, `/employees` 일반 조회 lane, `/org` 구조 확인 lane, `/management` 운영 허브 lane, `/admin/audit-logs` 감사 read-only lane 책임 차이를 실제 운영 흐름으로 읽히게 만드는 것이다.
+- empty/loading/error/forbidden/dev-safe 상태, admin role, `permission.read`, `audit.read`, company/branch scope 차단, masked preview, raw storage·secret 비노출 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
+- `preview`, `guard 확인`, `audit candidate`, `read-only` 같은 내부 검증 문구가 live 실사용 문구를 덮지 않도록 정리해야 한다.
+- 새 guide 는 `/admin/users` 관리자 확인 순서, `/employees`·`/org` 구조 확인, `/management` 운영 허브, `/admin/audit-logs` 감사 추적, 권한 차단 확인, 운영 체크리스트, 최종 보고 템플릿을 쉬운 한국어로 묶는다.
 - `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
-- production DB, 외부 IdP/SSO, 실급여/실신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
+- production DB, 외부 IdP/SSO, 실제 초대 발송, 실제 비밀번호 운영 전환, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
 
 2026-06-17 Phase 50 fit-gap 메모:
 

@@ -12,7 +12,7 @@ describe("Phase 11 org/employees skeleton boundaries", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
     expect(html).toContain("직원 목록");
-    expect(html).toContain("온보딩 read model 확인 순서");
+    expect(html).toContain("Phase 55 read model 확인 순서");
     expect(html).toContain("/admin/users");
     expect(html).toContain("작은 화면");
     expect(html).not.toContain("초대 실행");
@@ -25,7 +25,7 @@ describe("Phase 11 org/employees skeleton boundaries", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
     expect(html).toContain("조직 구조");
-    expect(html).toContain("온보딩 구조 확인 메모");
+    expect(html).toContain("Phase 55 구조 확인 메모");
     expect(html).toContain("권한 체계 안내");
     expect(html).toContain("/admin/policies");
     expect(html).not.toContain("역할 생성");

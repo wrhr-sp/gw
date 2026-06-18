@@ -19,32 +19,32 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 54 문서함·파일 실사용화 단계
+### 3. 현재 문서화/검증 기준은 Phase 55 관리자 계정·권한·조직 실사용화 단계
 
 현재 루트 문서, handoff 는 아래 기준을 함께 설명한다.
 
 - 로그인 시작점: 익명은 `/login` 만 허용
-- 문서 실사용 시작 레인: `/dashboard` → `/documents`
-- 사용자 확인 레인: 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비/다운로드 준비 → 읽음 확인
-- 차단 확인 레인: private/missing space, 권한 부족, company scope 차단, raw storage 비노출
-- 운영 설명 레인: 문서 정책/권한 설명은 직원 CTA 와 분리
-- 문서 묶음: Phase 54 scope/handoff/guide + Phase 37 storage 기준 문서 + Phase 32 documents handoff + 직전 Phase 53 leave/attendance scope/handoff/guide
+- 관리자 실사용 시작 레인: `/dashboard` → `/admin/users`
+- 사용자/운영 확인 레인: 계정 preview 확인 → 역할/권한 diff 확인 → `/employees` 일반 조회 → `/org` 구조 확인 → `/management` 운영 허브 → `/admin/audit-logs` 감사 추적
+- 차단 확인 레인: admin role, `permission.read`, `audit.read`, company/branch scope 차단, raw storage·secret 비노출
+- 운영 설명 레인: 관리자 preview 와 일반 직원 CTA 는 분리
+- 문서 묶음: Phase 55 scope/handoff/guide + Phase 46 온보딩 기준 문서 + 직전 Phase 54 documents scope/handoff/guide
 
-- `/documents` 는 직원 기본 협업 entry 처럼 먼저 읽혀야 하고, 운영 설명 문장이 사용자 CTA 를 덮지 않아야 한다.
-- 문서 상세 액션 흐름은 아직 실사용화 진행 단계이며, 내부 검증용 `preview` 문구가 남아 있으면 실제 운영 완료처럼 읽히지 않게 주의해야 한다.
-- private/missing space 차단, raw storage 비노출, upload/download 준비 흐름은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
+- `/admin/users` 는 관리자 계정·권한 entry 처럼 먼저 읽혀야 하고, `/employees` 일반 조회와 같은 책임처럼 보이면 안 된다.
+- `/admin/audit-logs` 는 감사 read-only 추적 레인이며, `AUDITOR` landing 이 `/admin` 전체 허용처럼 읽히지 않게 주의해야 한다.
+- branch/company scope 차이, admin-only 차단, `audit.read` 차단, masked preview/비노출 원칙은 API 테스트 기준선이 있지만, live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- production data, 실제 초대 발송, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
+- production data, 실제 초대 발송, 실제 비밀번호 운영 전환, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/실신고, 주민번호/계좌번호 확대, 외부 세무/노무/법무/보험/기관 연동, 외부 push/SMS/메일, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 54 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 55 단계에서 남아 있는 제품형 리스크
 
-- `apps/api/test/auth-org.spec.ts` 기준선은 충분하지만, live URL 기준 문서함·파일 실사용 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
-- `/documents` 에 남은 `preview`·`placeholder` 성격 문구가 실제 운영 완료처럼 읽히면 과장 리스크가 생긴다.
-- 사용자 lane/민감 문서 lane/운영 설명 lane 책임이 한 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
-- private/missing space 차단, raw storage 비노출, `storageStatus` 대 문서 `status` 분리는 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
+- `apps/api/test/auth-org.spec.ts` 기준선은 충분하지만, live URL 기준 관리자 계정·조직 실사용 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "테스트는 있는데 실제로는 어떻게 써야 하는지"가 흐려질 수 있다.
+- `/admin/users` 에 남은 `preview`·`audit candidate` 성격 문구가 실제 운영 저장 완료처럼 읽히면 과장 리스크가 생긴다.
+- `/employees` 일반 조회, `/org` 구조 확인, `/management` 운영 허브, `/admin/audit-logs` 감사 레인 책임이 한 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
+- admin-only 차단, `audit.read` 차단, branch/company scope 차이, masked preview/비노출 원칙은 API 기준선이 있어도 route 상태와 사용자 안내가 정리되지 않으면 현장에서는 막힘처럼 느껴질 수 있다.
 - empty/loading/error/forbidden/dev-safe 가 route 기준으로 다시 잠기지 않으면 최종 보고가 happy path 위주로만 적혀 실제 사용 리스크를 숨기게 된다.
-- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 문서함·파일 실사용 확인 수준이 과장될 수 있다.
+- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 관리자 계정·권한·조직 실사용 확인 수준이 과장될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

@@ -123,7 +123,7 @@ export function AdminUsersPageContent({
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 46 계정·권한·조직 온보딩 리허설"
+      eyebrow="Phase 55 관리자 계정·권한·조직 실사용화"
       title="계정관리 / 사용자·권한"
       description="사용자 생성, 역할/업무권한 지정, 활성/비활성, 비밀번호 초기화·변경을 dev-safe preview 로 눌러보고, 실제 저장은 열지 않는 계정관리 화면입니다."
       actions={
@@ -154,8 +154,8 @@ export function AdminUsersPageContent({
       ) : null}
 
       <SurfaceSection
-        title="Phase 46 온보딩 리허설 순서"
-        description="이번 단계에서는 계정 preview, 조직 읽기, 운영 레인, 감사 레인을 한 절차로 묶어 같은 언어로 확인합니다."
+        title="Phase 55 관리자 온보딩·운영 순서"
+        description="이번 단계에서는 계정 preview, 조직 읽기, 운영 레인, 감사 레인을 live URL 기준 한 절차로 묶어 같은 언어로 확인합니다."
       >
         <ol className="number-list">
           {onboardingRehearsalSteps.map((item) => (
