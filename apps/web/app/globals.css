@@ -775,6 +775,85 @@ li {
 }
 
 
+
+.topbar-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topbar-brand-link strong {
+  font-size: 1.04rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.topbar-brand-link span:last-child {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.topbar-brand-link__divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+}
+
+.topbar-icon-link {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.topbar-icon-link:hover,
+.topbar-icon-link:focus-visible {
+  background: #f8fafc;
+  border-color: rgba(37, 99, 235, 0.26);
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.topbar-icon-link__icon {
+  width: 19px;
+  height: 19px;
+  transform: scale(var(--icon-scale, 1));
+}
+
+.topbar-profile-avatar {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.95) 0 22%, transparent 23%),
+    linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #64748b;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
+}
+
+.topbar-profile-avatar__icon {
+  width: 21px;
+  height: 21px;
+}
+
 .desktop-sidebar__portal-label {
   display: inline-flex;
   width: fit-content;
@@ -830,6 +909,16 @@ li {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+
+  .app-topbar__inner {
+    gap: 18px;
+  }
+
+  .app-topbar__actions {
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
   .desktop-sidebar {
@@ -923,6 +1012,17 @@ li {
 }
 
 @media (max-width: 960px) {
+  .topbar-brand-link {
+    gap: 8px;
+  }
+
+  .topbar-brand-link span:last-child,
+  .topbar-brand-link__divider,
+  .portal-switch-link,
+  .topbar-icon-link {
+    display: none;
+  }
+
   .page-shell {
     width: min(1120px, calc(100vw - 20px));
   }
