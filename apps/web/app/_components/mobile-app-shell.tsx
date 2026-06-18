@@ -291,6 +291,22 @@ function matchesPath(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
+function isManagementPortalPath(pathname: string) {
+  return (
+    pathname === "/management" ||
+    pathname.startsWith("/management/") ||
+    pathname === "/payroll" ||
+    pathname.startsWith("/payroll/") ||
+    pathname.startsWith("/work-items/tax") ||
+    pathname.startsWith("/work-items/labor") ||
+    pathname.startsWith("/work-items/legal")
+  );
+}
+
+function isManagementSection(section: NavSection) {
+  return section.title.includes("경영업무");
+}
+
 type MobileAppShellProps = {
   children: ReactNode;
   appName: string;
@@ -328,11 +344,25 @@ export function MobileAppShell({
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
+  void installGuideSteps;
 
   const activeSectionTitle = useMemo(() => {
     const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
     return matchedItem?.label ?? "현재 화면";
   }, [bottomTabs, navItems, pathname]);
+  const hasManagementPortal = menuSections.some(isManagementSection);
+  const isManagementPortal = hasManagementPortal && isManagementPortalPath(pathname);
+  const visibleDesktopMenuSections = useMemo(() => {
+    if (!hasManagementPortal) {
+      return menuSections;
+    }
+
+    return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
+  }, [hasManagementPortal, isManagementPortal, menuSections]);
+  const currentPortalLabel = isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
+  const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
+  const nextPortalIcon = isManagementPortal ? "home" : "dashboard";
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -461,12 +491,13 @@ export function MobileAppShell({
         </div>
 
         <div className="desktop-sidebar__status">
+          <span className="desktop-sidebar__portal-label">{currentPortalLabel}</span>
           <strong>{activeSectionTitle}</strong>
-          <span>{isOnline ? "현재 online preview" : "현재 offline 안내 우선"}</span>
+          <span>{isOnline ? "업무 화면" : "네트워크 불안정"}</span>
         </div>
 
-        <nav className="desktop-sidebar__nav" aria-label="PC 전체 메뉴">
-          {menuSections.map((section) => (
+        <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
+          {visibleDesktopMenuSections.map((section) => (
             <section key={section.title} className="desktop-sidebar__section">
               <div className="desktop-sidebar__section-copy">
                 <strong>{section.title}</strong>
@@ -499,10 +530,16 @@ export function MobileAppShell({
         <header className="app-topbar">
           <div className="app-topbar__inner">
             <a href={homeHref} className="brand-link">
-              <span className="brand-link__eyebrow">{appEyebrow}</span>
+              <span className="brand-link__eyebrow">{currentPortalLabel}</span>
               <strong>{appName}</strong>
             </a>
             <div className="app-topbar__actions">
+              {hasManagementPortal ? (
+                <a href={nextPortalHref} className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`}>
+                  <FeatureIcon className="portal-switch-link__icon" name={nextPortalIcon} title={nextPortalLabel} />
+                  <span>{nextPortalLabel}</span>
+                </a>
+              ) : null}
               <SessionControls roleCode={currentRoleCode} />
               {showMobileMenuShortcut ? (
                 <a href="/menu" className="ghost-link app-topbar__mobile-only">
@@ -522,13 +559,7 @@ export function MobileAppShell({
             <span>{offlineGuidance.bannerBody}</span>
             <a href="/offline">지금 가능한 기능 보기</a>
           </div>
-        ) : (
-          <div className="status-banner" role="note">
-            <strong>설치/preview 안내</strong>
-            <span>{installGuideSteps[0]}</span>
-            {installGuideSteps[1] ? <small>{installGuideSteps[1]}</small> : null}
-          </div>
-        )}
+        ) : null}
 
         <div className="app-shell__body">{children}</div>
 

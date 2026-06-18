@@ -97,7 +97,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "기본 업무",
       "공통 업무 엔진",
       "내 정보 / 조회",
-      "협업 placeholder",
+      "협업",
     ]);
   });
 
@@ -118,7 +118,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       menuSections: adminMenuSections,
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
-      appName: "그룹웨어 Web/PWA",
+      appName: "We’reHere",
       homeHref: "/",
       navItems: mobilePrimaryNav,
       bottomTabs: mobileBottomTabs,
