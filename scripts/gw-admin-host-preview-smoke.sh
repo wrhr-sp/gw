@@ -119,7 +119,7 @@ check_follow_status() {
 
 echo "== Manifest identity checks =="
 expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" name)" "GW Cloudflare-first Skeleton" "general host /manifest name"
-expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" start_url)" "/login" "general host /manifest start_url"
+expect_equals "$(fetch_json_field "$GENERAL_HOST" "/manifest.webmanifest" start_url)" "/" "general host /manifest start_url"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/manifest.webmanifest" name)" "GW Cloudflare-first Skeleton" "admin host /manifest remains general manifest"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/admin/manifest.webmanifest" name)" "GW Admin" "admin host /admin/manifest name"
 expect_equals "$(fetch_json_field "$ADMIN_HOST" "/admin/manifest.webmanifest" start_url)" "/admin" "admin host /admin/manifest start_url"
@@ -133,16 +133,20 @@ expect_equals "$(fetch_html_manifest_href "$ADMIN_HOST" "/admin")" "/admin/manif
 echo
 echo "== Redirect boundary checks (manual) =="
 check_redirect "$GENERAL_HOST" "/admin" "307" "/login" "general host /admin"
+check_redirect "$GENERAL_HOST" "/admin/users" "307" "/login" "general host /admin/users"
+check_redirect "$GENERAL_HOST" "/admin/policies" "307" "/login" "general host /admin/policies"
+check_redirect "$GENERAL_HOST" "/admin/audit-logs" "307" "/login" "general host /admin/audit-logs"
 check_redirect "$ADMIN_HOST" "/" "307" "/admin" "admin host root"
 
 echo
 echo "== Redirect boundary checks (follow) =="
 check_follow_status "$GENERAL_HOST" "/admin" "200" "general host /admin"
+check_follow_status "$GENERAL_HOST" "/login" "200" "general host /login"
 check_follow_status "$ADMIN_HOST" "/" "200" "admin host root"
+check_follow_status "$ADMIN_HOST" "/login" "200" "admin host /login"
 
-echo
 echo "Preview admin-host smoke passed"
 echo "- base_url: ${BASE_URL}"
 echo "- general host: ${GENERAL_HOST}"
 echo "- admin host: ${ADMIN_HOST}"
-echo "- verified: /manifest.webmanifest, /admin/manifest.webmanifest, HTML manifest href on / and /admin, /admin, / (manual + follow redirects)"
+echo "- verified: /manifest.webmanifest, /admin/manifest.webmanifest, HTML manifest href on / and /admin, /admin* anonymous redirects, /login reachability, / (manual + follow redirects)"

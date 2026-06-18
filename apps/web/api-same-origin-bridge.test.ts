@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { adminUsersListResponseSchema, appRoutes, authLoginResponseSchema, errorResponseSchema, healthResponseSchema } from "@gw/shared";
+import {
+  adminAuditLogListResponseSchema,
+  adminUsersListResponseSchema,
+  appRoutes,
+  authLoginResponseSchema,
+  errorResponseSchema,
+  healthResponseSchema,
+  listPermissionsResponseSchema,
+  listRolesResponseSchema,
+} from "@gw/shared";
+import { GET as getApi } from "./app/api/[...slug]/route";
 import { GET as getAdminUsers } from "./app/api/admin/users/route";
 import { POST as postLogin } from "./app/api/auth/login/route";
 import { POST as postLogout } from "./app/api/auth/logout/route";
 import { GET as getHealth } from "./app/api/health/route";
 import { GET as getMe } from "./app/api/me/route";
 
-describe("Phase 7 same-origin API bridge", () => {
+describe("Phase 55 same-origin API bridge", () => {
   it("returns the shared health contract from the web same-origin route", async () => {
     const response = await getHealth(new Request("http://localhost/api/health"));
 
@@ -157,5 +167,91 @@ describe("Phase 7 same-origin API bridge", () => {
     const payload = adminUsersListResponseSchema.parse(await adminUsersResponse.json());
     expect(payload.data.items.length).toBeGreaterThan(0);
     expect(payload.data.audit.action).toBe("admin.user.list.viewed");
+  });
+
+  it("forwards role and permission catalogs through the same-origin bridge for admin viewers", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+        }),
+      }),
+    );
+
+    const cookie = loginResponse.headers.get("set-cookie") ?? "";
+    const rolesResponse = await getApi(
+      new Request(`http://localhost${appRoutes.org.roles}`, {
+        headers: { cookie },
+      }),
+    );
+    const permissionsResponse = await getApi(
+      new Request(`http://localhost${appRoutes.org.permissions}`, {
+        headers: { cookie },
+      }),
+    );
+
+    expect(rolesResponse.status).toBe(200);
+    expect(permissionsResponse.status).toBe(200);
+    expect(listRolesResponseSchema.parse(await rolesResponse.json()).data.items.length).toBeGreaterThan(0);
+    expect(listPermissionsResponseSchema.parse(await permissionsResponse.json()).data.items.length).toBeGreaterThan(0);
+  });
+
+  it("keeps audit logs same-origin route permission-gated for HR_ADMIN and allows AUDITOR read-only access", async () => {
+    const hrLoginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "HR_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+        }),
+      }),
+    );
+
+    const auditorLoginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "AUDITOR",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+        }),
+      }),
+    );
+
+    const hrAuditResponse = await getApi(
+      new Request(`http://localhost${appRoutes.admin.auditLogs}`, {
+        headers: {
+          cookie: hrLoginResponse.headers.get("set-cookie") ?? "",
+        },
+      }),
+    );
+    const auditorAuditResponse = await getApi(
+      new Request(`http://localhost${appRoutes.admin.auditLogs}`, {
+        headers: {
+          cookie: auditorLoginResponse.headers.get("set-cookie") ?? "",
+        },
+      }),
+    );
+
+    expect(hrAuditResponse.status).toBe(403);
+    expect(errorResponseSchema.parse(await hrAuditResponse.json()).error.code).toBe("FORBIDDEN");
+    expect(auditorAuditResponse.status).toBe(200);
+    expect(adminAuditLogListResponseSchema.parse(await auditorAuditResponse.json()).data.items.length).toBeGreaterThan(0);
   });
 });

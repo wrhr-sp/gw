@@ -27,7 +27,15 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
+    expect(getAdminRouteGuardResult({ pathname: "/admin/users", host: "gw-web.preview-account.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
     expect(getAdminRouteGuardResult({ pathname: "/admin/audit-logs", host: "localhost:3000" })).toEqual({
+      action: "redirect",
+      location: "/login",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/admin/audit-logs", host: "gw-web.preview-account.workers.dev" })).toEqual({
       action: "redirect",
       location: "/login",
     });
@@ -310,6 +318,10 @@ describe("admin preview guard", () => {
 
   it("keeps admin hosts on the admin route boundary instead of rendering general work routes", () => {
     expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-admin.preview-account.workers.dev" })).toEqual({
+      action: "redirect",
+      location: "/admin",
+    });
+    expect(getAdminRouteGuardResult({ pathname: "/employees", host: "gw-admin.preview-account.workers.dev" })).toEqual({
       action: "redirect",
       location: "/admin",
     });

@@ -48,7 +48,7 @@ export type DashboardRoleJourneyCard = {
   detail: string;
 };
 
-export const dashboardTopBadges = ["today-first", "dev-safe summary", "small-screen readable"] as const;
+export const dashboardTopBadges = ["today-first", "read-only summary", "small-screen readable"] as const;
 
 export const dashboardActionCards: DashboardActionCard[] = [
   {
@@ -61,7 +61,7 @@ export const dashboardActionCards: DashboardActionCard[] = [
     href: "/leave",
     title: "휴가 잔여와 신청 확인",
     body: "근태 다음 단계에서 남은 휴가, 신청 예정, 승인 대기를 같은 흐름으로 이어서 확인합니다.",
-    detail: "잔여 snapshot, 신청 placeholder, 승인자 lane 은 /approvals 와 분리",
+    detail: "잔여 요약, 신청 준비 상태, 승인자 레인은 /approvals 와 분리",
   },
   {
     href: "/approvals",
@@ -99,7 +99,7 @@ export const dashboardWaitingCards: DashboardStatusCard[] = [
   {
     title: "팀/결재 대기",
     summary: "팀장·결재자 관점의 병목 후보를 짧게 요약합니다.",
-    detail: "실운영 집계 대신 read-only placeholder summary",
+    detail: "실운영 집계 대신 읽기 전용 요약 안내",
     href: "/approvals",
   },
   {
@@ -114,7 +114,7 @@ export const dashboardStatusCards: DashboardStatusCard[] = [
   {
     title: "오늘 근태 상태",
     summary: "출근 전/근무 중/퇴근 후 같은 현재 상태를 짧게 읽는 자리입니다.",
-    detail: "/api/attendance/records read-only placeholder 재사용",
+    detail: "/api/attendance/records 읽기 전용 요약을 재사용",
     href: "/attendance",
   },
   {
@@ -266,13 +266,13 @@ export const dashboardApiLinks = [
   { href: "/api/attendance/records", label: "근태 기록", description: "오늘 상태와 마지막 기록 후보" },
   { href: "/api/leave/balances", label: "휴가 잔여", description: "잔여 snapshot" },
   { href: "/api/leave/requests", label: "휴가 신청", description: "승인 대기/처리 결과 후보" },
-  { href: "/api/payroll", label: "급여 개요", description: "급여 프로필/기간/역할별 공개 범위 skeleton" },
+  { href: "/api/payroll", label: "급여 개요", description: "급여 프로필/기간/역할별 공개 범위 요약" },
   { href: "/api/payroll/me/payslip", label: "내 급여명세서 초안", description: "구성원 본인용 명세서 preview" },
   { href: "/api/approvals/inbox", label: "승인함", description: "내 승인 대기와 병목 후보" },
   { href: "/api/notices", label: "공지", description: "읽기 중심 공지 진입점" },
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },
-  { href: "/api/work-items", label: "공통 업무 목록", description: "공통 work item skeleton 목록" },
-  { href: "/api/work-item-deadlines", label: "공통 업무 마감", description: "마감 임박/완료 placeholder" },
+  { href: "/api/work-items", label: "공통 업무 목록", description: "공통 work item 요약 목록" },
+  { href: "/api/work-item-deadlines", label: "공통 업무 마감", description: "마감 임박/완료 안내" },
 ] as const;
 
 export function hasDashboardManagementAccess(roleCodes: readonly RoleCode[]) {

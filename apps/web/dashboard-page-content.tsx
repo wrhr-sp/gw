@@ -1,9 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import type { HomeShortcut, RoleCode } from "@gw/shared";
+import type { HomeShortcut } from "@gw/shared";
 
-import { Phase16PilotPanel } from "./app/_components/phase-16-pilot";
-import { Phase47RecommendedFlowSection, Phase47StatusGuideSection } from "./app/_components/phase47-usage-guide";
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
 import { fieldUsabilityPrinciples, recoveryRouteCards } from "./app/mobile-pwa-config";
@@ -21,6 +19,39 @@ import {
   type DashboardManagementCard,
 } from "./app/dashboard/dashboard-config";
 
+const dashboardStatusGuideCards = [
+  {
+    title: "loading",
+    summary: "아직 내용을 불러오는 중인 상태입니다.",
+    detail: "저장 성공이나 권한 부족으로 단정하지 말고 잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
+  },
+  {
+    title: "empty",
+    summary: "정상적으로 비어 있을 수 있는 상태입니다.",
+    detail: "오늘 처리할 항목이 없거나 현재 권한 범위에 해당 데이터가 없는 상태일 수 있습니다.",
+  },
+  {
+    title: "error",
+    summary: "조회나 불러오기에 실패한 상태입니다.",
+    detail: "같은 화면에서 반복 저장을 시도하지 말고 메뉴나 오프라인 안내로 이동해 복구 경로를 다시 확인합니다.",
+  },
+  {
+    title: "forbidden",
+    summary: "권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "숨겨진 운영 메뉴를 대신 열지 않고, 필요한 경우 지정 담당자 레인에서만 확인합니다.",
+  },
+  {
+    title: "offline",
+    summary: "네트워크가 불안정해 재시도가 필요한 상태입니다.",
+    detail: "가능한 일과 막히는 일을 먼저 확인한 뒤 안정적인 네트워크에서 다시 시도합니다.",
+  },
+  {
+    title: "참고용 요약 데이터",
+    summary: "현재 화면에서 먼저 읽어 보는 안내 상태입니다.",
+    detail: "현재 화면 정보는 실제 저장 완료나 외부 발송 완료로 설명하지 않습니다.",
+  },
+] as const;
+
 export function DashboardPageContent({
   adminShortcut,
   managementCards,
@@ -36,21 +67,19 @@ export function DashboardPageContent({
   homeShortcutNotices?: readonly string[];
   homeShortcutLoadError?: string | null;
 }) {
-  const canViewUatRehearsalPackage = viewerRoleCode
-    ? new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "AUDITOR"]).has(viewerRoleCode as RoleCode)
-    : false;
+  const canViewManagementEntry = managementCards.length > 0;
 
   return (
     <PageShell
       backHref="/menu"
       backLabel="전체 메뉴로"
-      eyebrow="Phase 57 홈·메뉴 IA 실사용 UAT"
+      eyebrow="오늘 할 일 시작 홈"
       title="홈 / 대시보드"
       description="`/dashboard` 를 오늘 할 일 시작 홈으로 고정하고, 근태·휴가·결재 같은 기본 업무를 먼저 읽은 뒤 공지·문서·내 정보·조회 흐름으로 이어지게 정리한 홈 화면입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
-            <Pill key={badge} tone={badge === "dev-safe summary" ? "accent" : "default"}>
+            <Pill key={badge} tone={badge === "read-only summary" ? "accent" : "default"}>
               {badge}
             </Pill>
           ))}
@@ -79,8 +108,8 @@ export function DashboardPageContent({
       </SurfaceSection>
 
       <SurfaceSection
-        title="Phase 57 홈 역할 고정"
-        description="이번 파일럿/UAT에서는 `/dashboard` 를 오늘 업무 시작 홈으로, `/menu` 를 전체 기능 탐색 메뉴로 분리하고 운영 관리자 화면과 섞이지 않게 안내합니다."
+        title="홈 역할 안내"
+        description="`/dashboard` 를 오늘 업무 시작 홈으로, `/menu` 를 전체 기능 탐색 메뉴로 분리하고 운영 관리자 화면과 섞이지 않게 안내합니다."
       >
         <div className="grid-auto-compact">
           <article className="info-card">
@@ -94,9 +123,9 @@ export function DashboardPageContent({
             <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인이며, `/menu` 도 전체 탐색 화면으로만 읽혀야 합니다.</p>
           </article>
           <article className="info-card">
-            <Pill tone="warning">UAT 기록 포인트</Pill>
+            <Pill tone="warning">확인 포인트</Pill>
             <h3>happy · forbidden · empty · error · loading · mobile/PC</h3>
-            <p>각 화면에서 같은 분류 언어를 반복해 tester 와 docs 가 바로 이어받을 수 있게 고정합니다.</p>
+            <p>각 화면에서 같은 분류 언어를 유지해 사용자와 운영 담당자가 같은 기준으로 상태를 이해할 수 있게 맞춥니다.</p>
           </article>
         </div>
       </SurfaceSection>
@@ -136,9 +165,41 @@ export function DashboardPageContent({
         </ul>
       </SurfaceSection>
 
-      <Phase47StatusGuideSection />
+      <SurfaceSection title="상태 안내 기준선" description="loading, empty, error, forbidden, offline, 참고용 요약 데이터를 서로 다른 의미로 읽도록 홈 기준 문장을 고정합니다.">
+        <div className="grid-auto-compact">
+          {dashboardStatusGuideCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-      <Phase47RecommendedFlowSection roleCode={viewerRoleCode as RoleCode | null} />
+      <SurfaceSection title="추천 확인 순서" description="실사용 화면에서 직접 눌러 볼 때도 홈·복구·운영 레인을 같은 순서로 따라가게 고정합니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <h3>일반 직원 · 팀장 확인 순서</h3>
+            <p>같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.</p>
+            <p className="card-note">/login → /dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
+          </article>
+          {viewerRoleCode && canViewManagementEntry ? (
+            <article className="info-card">
+              <h3>관리자 계정·정책 확인 순서</h3>
+              <p>일반 홈과 운영 허브를 섞지 않고 계정관리, 정책, 감사, 내부관리 화면을 별도 레인으로 이어 봅니다.</p>
+              <p className="card-note">/login → /dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
+            </article>
+          ) : null}
+          {viewerRoleCode === "AUDITOR" ? (
+            <article className="info-card">
+              <h3>감사 확인 순서</h3>
+              <p>운영 전체 허브 대신 조회 전용 감사 경로부터 확인합니다.</p>
+              <p className="card-note">/login → /admin/audit-logs → /documents → /me</p>
+            </article>
+          ) : null}
+        </div>
+      </SurfaceSection>
 
       <SurfaceSection title="승인/대기 요약" description="근태·휴가 예외와 승인 병목 후보를 먼저 읽고 attendance/leave/approvals 상세 화면으로 이동합니다.">
         <div className="grid-auto-compact">
@@ -167,32 +228,6 @@ export function DashboardPageContent({
         </div>
       </SurfaceSection>
 
-      {canViewUatRehearsalPackage ? (
-        <SurfaceSection
-          title="내부 도입 리허설 패키지"
-          description="역할별 시나리오, 이슈 기록 템플릿, 진행자 스크립트, approval gate 를 `/uat` 한 화면에서 다시 확인합니다."
-        >
-          <div className="grid-auto-compact">
-            <article className="info-card">
-              <Pill tone="accent">권한 있는 진행자용 시작점</Pill>
-              <h3>/uat</h3>
-              <p>경영업무 담당자, 운영자, 감사 담당자가 live URL, 테스트 계정, 추천 route 를 한 번에 확인하는 내부 진행용 패키지입니다.</p>
-              <a href="/uat">/uat</a>
-            </article>
-            <article className="info-card">
-              <Pill tone="warning">이슈 분류</Pill>
-              <h3>blocker · major · minor · copy-doc · approval-needed</h3>
-              <p>권한 누출과 scope 누출은 blocker 로, 실데이터/외부 연동/production 변경은 approval-needed 로 따로 기록합니다.</p>
-            </article>
-            <article className="info-card">
-              <Pill>final report</Pill>
-              <h3>live URL + 역할별 시나리오 + 승인 게이트</h3>
-              <p>최종 보고에는 live URL, 확인 route, 역할별 시나리오, 남은 승인 게이트를 분리해 남깁니다.</p>
-            </article>
-          </div>
-        </SurfaceSection>
-      ) : null}
-
       <SurfaceSection
         title="관리자 운영 검토 레인"
         description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health` 순서로 운영 기준선을 먼저 검토합니다."
@@ -200,8 +235,8 @@ export function DashboardPageContent({
         <ul className="summary-list">
           <li>`/dashboard` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
           <li>`/management` 에서 운영 허브가 일반 홈의 연장이 아니라는 안내 확인</li>
-          <li>`/admin/users` 에서 계정 생성·권한 diff·비밀번호 초기화가 dev-safe preview 로 읽히는지 확인</li>
-          <li>`/admin/policies` 에서 current/candidate/capability/audit preview 형식이 실제 저장 완료처럼 보이지 않는지 확인</li>
+          <li>`/admin/users` 에서 계정 생성·권한 diff·비밀번호 초기화가 참고용 안내로 읽히는지 확인</li>
+          <li>`/admin/policies` 에서 current/candidate/capability/audit 안내 형식이 실제 저장 완료처럼 보이지 않는지 확인</li>
           <li>`/admin/audit-logs` 에서 masked/company boundary 기준으로 read-only 감사 추적 확인</li>
           <li>`/api/health` 를 full monitoring 이 아닌 최소 liveness 기준으로 기록</li>
         </ul>
@@ -266,34 +301,47 @@ export function DashboardPageContent({
         </SurfaceSection>
       ) : null}
 
-      <Phase16PilotPanel
-        description="대시보드는 핵심 업무 route, 협업 route, 내 정보 확인, 관리자 route 를 한 화면에서 묶어 사내 검토용 초안의 시작점으로 사용합니다."
-        confirmItems={[
-          "일반 직원은 /attendance, /leave, /approvals, /boards, /documents, /me 로 자연스럽게 이동한다.",
-          "팀장/승인자는 같은 허브에서 시작하되 approvals 우선순위를 더 먼저 확인한다.",
-          "운영 관리자와 감사 사용자는 일반 조회와 /admin 계열 preview 가 분리돼 보인다.",
-        ]}
-        blockedItems={[
-          "실제 production KPI, 외부 알림 발송, 개인정보 원문 노출은 이번 단계에서 열지 않는다.",
-          "게시판/문서 진입점은 읽기 중심 placeholder 이며 운영 저장 완료 화면처럼 보이지 않게 유지한다.",
-        ]}
-        nextRoutes={[
-          { href: "/attendance", label: "/attendance", description: "오늘 근태 상태와 정정 필요 여부 확인" },
-          { href: "/leave", label: "/leave", description: "잔여와 신청/승인 대기 흐름 확인" },
-          { href: "/approvals", label: "/approvals", description: "승인 대기와 팀 병목 후보 확인" },
-          { href: "/boards", label: "/boards", description: "공지/게시판 가드레일 확인" },
-          { href: "/documents", label: "/documents", description: "문서 공간/첨부 metadata 경계 확인" },
-          { href: "/me", label: "/me", description: "세션, 역할, 보안 안내 뒤 조직 조회로 이어지는지 확인" },
-        ]}
-        approvalGates={[
-          "production data 반영",
-          "secret 입력/교체",
-          "DNS/custom domain",
-          "유료 리소스 생성·증액",
-          "외부 연동",
-        ]}
-        evidenceNote="live fetch 가 막히면 pnpm check, pnpm --filter @gw/web build:cf, local preview/deployment metadata 를 대체 근거로 남깁니다."
-      />
+      <SurfaceSection title="홈 점검 메모" description="핵심 업무 route, 협업 route, 내 정보 확인, 관리자 route 를 한 화면에서 묶어 점검 기준을 맞춥니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">이번 화면에서 확인할 것</Pill>
+            <ul className="summary-list" style={{ marginTop: 12 }}>
+              <li>일반 직원은 /attendance, /leave, /approvals, /boards, /documents, /me 로 자연스럽게 이동한다.</li>
+              <li>팀장/승인자는 같은 허브에서 시작하되 approvals 우선순위를 더 먼저 확인한다.</li>
+              <li>운영 관리자와 감사 사용자는 일반 조회와 /admin 계열 관리자 화면이 분리돼 보인다.</li>
+            </ul>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">아직 안 여는 것</Pill>
+            <ul className="summary-list" style={{ marginTop: 12 }}>
+              <li>실제 production KPI, 외부 알림 발송, 개인정보 원문 노출은 이번 단계에서 열지 않는다.</li>
+              <li>게시판/문서 진입점은 읽기 중심 안내이며 운영 저장 완료 화면처럼 보이지 않게 유지한다.</li>
+            </ul>
+          </article>
+          <article className="info-card">
+            <Pill>별도 승인 필요</Pill>
+            <ul className="summary-list" style={{ marginTop: 12 }}>
+              <li>production data 반영</li>
+              <li>secret 입력/교체</li>
+              <li>DNS/custom domain</li>
+              <li>유료 리소스 생성·증액</li>
+              <li>외부 연동</li>
+            </ul>
+          </article>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <p className="meta-copy">접속 경로에서 이어서 눌러 볼 route</p>
+          <ul className="summary-list">
+            <li><a href="/attendance">/attendance</a> — 오늘 근태 상태와 정정 필요 여부 확인</li>
+            <li><a href="/leave">/leave</a> — 잔여와 신청/승인 대기 흐름 확인</li>
+            <li><a href="/approvals">/approvals</a> — 승인 대기와 팀 병목 후보 확인</li>
+            <li><a href="/boards">/boards</a> — 공지/게시판 가드레일 확인</li>
+            <li><a href="/documents">/documents</a> — 문서 공간/첨부 metadata 경계 확인</li>
+            <li><a href="/me">/me</a> — 세션, 역할, 보안 안내 뒤 조직 조회로 이어지는지 확인</li>
+          </ul>
+        </div>
+        <p className="card-note" style={{ marginTop: 16 }}>화면 안내와 실제 동작이 다를 때는 해당 업무 화면의 권한, 저장, 연결 상태를 다시 확인합니다.</p>
+      </SurfaceSection>
 
       <SurfaceSection title="운영 요약" description="직원 기본 업무 뒤에 보는 읽기 중심 조직/직원 진입점과 관리자 운영 경계를 분리한 상태로 안내합니다." muted>
         <div className="grid-auto-compact">
@@ -305,7 +353,7 @@ export function DashboardPageContent({
             </article>
           ))}
           <article className="info-card">
-            <Pill tone="warning">admin boundary</Pill>
+            <Pill tone="warning">관리자 전용</Pill>
             <h3>관리자 진입 경계</h3>
             <p>권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.</p>
             <p className="card-note">일반 사용자 기본 화면에서는 관리자 전용 링크를 숨기고, /admin route/API guard 를 그대로 유지합니다.</p>
@@ -324,9 +372,9 @@ export function DashboardPageContent({
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="dev-safe / 승인 게이트" description="운영처럼 보이더라도 아직 열지 않은 범위를 숨기지 않기 위한 고정 문구입니다.">
+      <SurfaceSection title="이용 안내 / 별도 승인 범위" description="운영처럼 보이더라도 아직 바로 실행하지 않는 범위를 미리 안내하는 고정 문구입니다.">
         <ul className="bullet-list">
-          <li>dev-safe 요약이며 실제 저장·발송·외부 연동은 이번 단계에서 실행하지 않습니다.</li>
+          <li>참고용 요약이며 실제 저장·발송·외부 연동은 각 업무 화면과 권한 범위에서 다시 확인해야 합니다.</li>
           <li>실제 개인정보 원문, production KPI, 외부 알림, 권한 저장은 이번 단계 범위에서 제외합니다.</li>
           <li>모바일/PWA 좁은 화면에서도 카드 제목, 한 줄 상태, CTA 순서가 먼저 읽히도록 유지합니다.</li>
         </ul>
