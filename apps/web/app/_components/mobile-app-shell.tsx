@@ -320,6 +320,7 @@ export function MobileAppShell({
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
+  const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoginRoute = pathname === "/login";
@@ -504,8 +505,20 @@ export function MobileAppShell({
 
         <div className="app-shell__body">{children}</div>
 
-        <nav className="bottom-nav" aria-label="모바일 주요 탐색">
-          <div className="bottom-nav__inner">
+        <nav
+          className={isBottomNavCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}
+          aria-label="모바일 주요 탐색"
+        >
+          <button
+            type="button"
+            className="bottom-nav__collapse-toggle"
+            onClick={() => setIsBottomNavCollapsed((value) => !value)}
+            aria-expanded={!isBottomNavCollapsed}
+            aria-label={isBottomNavCollapsed ? "모바일 하단바 펼치기" : "모바일 하단바 접기"}
+          >
+            <span aria-hidden>{isBottomNavCollapsed ? "»" : "«"}</span>
+          </button>
+          <div className="bottom-nav__inner" aria-hidden={isBottomNavCollapsed}>
             {bottomTabs.map((item) => {
               const active = matchesPath(pathname, item.href);
               const badgeText = item.href === "/notifications" ? formatUnreadBadge(notificationBadge?.unreadCount ?? null) : null;
@@ -521,6 +534,7 @@ export function MobileAppShell({
                   className={active ? "bottom-nav__link bottom-nav__link--active" : "bottom-nav__link"}
                   aria-current={active ? "page" : undefined}
                   aria-label={ariaLabel}
+                  tabIndex={isBottomNavCollapsed ? -1 : undefined}
                 >
                   <span className="bottom-nav__link-pill">
                     <span className="bottom-nav__icon-wrap">
