@@ -228,6 +228,38 @@ function hasSessionPermission(session: SessionPayload | null, permission: string
   return session?.user.permissions.includes(permission) ?? false;
 }
 
+type ApprovalDetailLike = {
+  document: {
+    status?: string | null;
+    drafterEmployeeId?: string | null;
+  };
+  steps: Array<{
+    approverEmployeeId?: string | null;
+    decisionStatus?: string | null;
+  }>;
+};
+
+export function canReviewApprovalDocument(session: SessionPayload | null, detail: ApprovalDetailLike | null) {
+  if (!session || !detail) {
+    return false;
+  }
+
+  if (!hasSessionPermission(session, "approval.document.approve")) {
+    return false;
+  }
+
+  if (detail.document.status !== "pending_approval") {
+    return false;
+  }
+
+  if (detail.document.drafterEmployeeId === session.user.employeeId) {
+    return false;
+  }
+
+  const currentPendingStep = detail.steps.find((step) => step.decisionStatus === "pending");
+  return currentPendingStep?.approverEmployeeId === session.user.employeeId;
+}
+
 function formatBoardWriterGuide(boardId: string, session: SessionPayload | null) {
   const canWriteGeneral = hasSessionPermission(session, "board.post.write");
   const canManageBoard = hasSessionPermission(session, "board.manage");
@@ -651,11 +683,20 @@ export function LeaveLiveSection() {
 export function ApprovalsLiveSection() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
+  const [title, setTitle] = useState("6월 연차 신청");
+  const [summary, setSummary] = useState("6월 20일 연차 사용 placeholder");
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
   const documents = useApiQuery<{ items: Array<Record<string, any>>; operationalContext: Record<string, any> }>(appRoutes.approvals.documents, refreshSeed);
   const inbox = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.inbox, refreshSeed);
+  const forms = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.forms, refreshSeed);
+  const lines = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.lines, refreshSeed);
+  const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
+  const firstDocumentId = documents.data?.items[0]?.id ?? "approval_document_demo";
+  const firstInboxId = inbox.data?.items[0]?.id ?? "approval_document_team_pending";
+  const selectedFormId = forms.data?.items[0]?.id ?? "approval_form_leave";
+  const selectedLineId = lines.data?.items[0]?.id ?? "approval_line_team_manager";
 
-  async function runAction(url: string, title: string, body: Record<string, unknown>) {
+  async function runAction(url: string, actionTitle: string, body: Record<string, unknown>) {
     setPending(true);
     setResult(null);
     try {
@@ -664,12 +705,145 @@ export function ApprovalsLiveSection() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      const document = payload.data.document;
+      const document = payload.data.document ?? payload.data.comment;
       setResult({
         tone: "accent",
-        title,
-        body: `${document.id} · ${document.status}`,
+        title: actionTitle,
+        body: `${document.id}${document.status ? ` · ${document.status}` : ""}`,
       });
+      setRefreshSeed((value) => value + 1);
+    } catch (mutationError) {
+      setResult({
+        tone: "warning",
+        title: `${actionTitle} 실패`,
+        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="grid-auto-compact">
+        <article className="info-card">
+          <Pill tone="accent">실제 결재함</Pill>
+          <QueryState loading={documents.loading || inbox.loading || forms.loading || lines.loading} error={documents.error ?? inbox.error ?? forms.error ?? lines.error} />
+          {documents.data ? (
+            <>
+              <h3>내 문서 {documents.data.items.length}건 · 승인함 {inbox.data?.items.length ?? 0}건</h3>
+              <p>{documents.data.operationalContext.currentState}</p>
+              <p className="card-note">
+                {session.data
+                  ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 조회 중입니다.`
+                  : "로그인 전이면 /login 에서 admin / 1234 로 먼저 시작하세요."}
+              </p>
+              <p className="card-note">상세 route 시작점: <a href={`/approvals/${firstDocumentId}`}>/approvals/{firstDocumentId}</a></p>
+            </>
+          ) : null}
+        </article>
+        <article className="info-card">
+          <Pill>기안 / 승인 / 반려</Pill>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>제목</strong>
+            <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
+          </label>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>요약</strong>
+            <textarea className="field" onChange={(event) => setSummary(event.target.value)} rows={3} value={summary} />
+          </label>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button
+              className="touch-button"
+              disabled={pending}
+              onClick={() =>
+                runAction(appRoutes.approvals.documents, "결재 문서 기안", {
+                  formId: selectedFormId,
+                  title,
+                  summary,
+                  lineId: selectedLineId,
+                  referenceEmployeeIds: ["employee_staff"],
+                  agreementEmployeeIds: ["employee_admin"],
+                })
+              }
+              type="button"
+            >
+              기안 preview 생성
+            </button>
+            <button
+              className="touch-button--secondary"
+              disabled={pending}
+              onClick={() => runAction(appRoutes.approvals.approve(firstInboxId), "문서 승인", { reason: "예산 범위와 대체 장비 확인 완료" })}
+              type="button"
+            >
+              승인함 첫 문서 승인
+            </button>
+            <button
+              className="touch-button--secondary"
+              disabled={pending}
+              onClick={() => runAction(appRoutes.approvals.reject(firstInboxId), "문서 반려", { reason: "추가 증빙 확인 필요" })}
+              type="button"
+            >
+              승인함 첫 문서 반려
+            </button>
+          </div>
+          <p className="card-note" style={{ marginTop: 12 }}>기안은 forms/lines API 응답의 첫 항목을 기본값으로 사용하고, 승인/반려는 현재 승인함 첫 문서를 대상으로 합니다.</p>
+        </article>
+      </div>
+      {documents.data ? (
+        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
+          {documents.data.items.map((item) => (
+            <article key={item.id} className="route-card">
+              <Pill tone={item.status === "approved" ? "accent" : item.status === "rejected" ? "warning" : "default"}>{item.status}</Pill>
+              <h3>{item.title}</h3>
+              <p>{item.documentNumber}</p>
+              <p className="card-note">제출 {formatDateTime(item.submittedAt)}</p>
+              <a href={`/approvals/${item.id}`}>상세에서 승인선 / 의견 / 이력 보기 →</a>
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {inbox.data?.items.length ? (
+        <article className="info-card" style={{ marginTop: 16 }}>
+          <Pill>지금 승인 가능한 문서</Pill>
+          <h3>{inbox.data.items[0]?.title}</h3>
+          <p>{inbox.data.items[0]?.summary}</p>
+          <a href={`/approvals/${firstInboxId}`}>승인함 첫 문서 상세 열기 →</a>
+        </article>
+      ) : null}
+      <MutationResult result={result} />
+    </>
+  );
+}
+
+export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: string }) {
+  const [refreshSeed, setRefreshSeed] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [commentBody, setCommentBody] = useState("증빙과 사유를 확인했습니다.");
+  const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
+  const detail = useApiQuery<{
+    document: Record<string, any>;
+    steps: Array<Record<string, any>>;
+    references: Array<Record<string, any>>;
+    comments: Array<Record<string, any>>;
+    history: Array<Record<string, any>>;
+    operationalContext: Record<string, any>;
+  }>(appRoutes.approvals.detail(documentId), refreshSeed);
+  const comments = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.comments(documentId), refreshSeed);
+  const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
+  const canReview = canReviewApprovalDocument(session.data ?? null, detail.data ?? null);
+
+  async function handleAction(url: string, title: string, body: Record<string, unknown>) {
+    setPending(true);
+    setResult(null);
+    try {
+      const payload = await fetchJson<Record<string, any>>(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const primary = payload.data.document ?? payload.data.comment;
+      setResult({ tone: "accent", title, body: `${primary.id}${primary.status ? ` · ${primary.status}` : ""}` });
       setRefreshSeed((value) => value + 1);
     } catch (mutationError) {
       setResult({
@@ -686,65 +860,81 @@ export function ApprovalsLiveSection() {
     <>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="accent">실제 결재함</Pill>
-          <QueryState loading={documents.loading || inbox.loading} error={documents.error ?? inbox.error} />
-          {documents.data ? (
+          <Pill tone="accent">문서 상세 실응답</Pill>
+          <QueryState loading={detail.loading || comments.loading} error={detail.error ?? comments.error} />
+          {detail.data ? (
             <>
-              <h3>{documents.data.items.length}건</h3>
-              <p>{documents.data.operationalContext.currentState}</p>
+              <h3>{detail.data.document.title}</h3>
+              <p>{detail.data.document.documentNumber} · {detail.data.document.status}</p>
+              <p className="card-note">{detail.data.operationalContext.currentState}</p>
             </>
           ) : null}
         </article>
         <article className="info-card">
-          <Pill>검토 / 확인 흐름</Pill>
-          <button
-            className="touch-button"
-            disabled={pending}
-            onClick={() =>
-              runAction(appRoutes.approvals.documents, "결재 문서 기안", {
-                formId: "approval_form_leave",
-                title: "6월 연차 신청",
-                summary: "6월 20일 연차 사용 placeholder",
-                lineId: "approval_line_team_manager",
-                referenceEmployeeIds: ["employee_staff"],
-                agreementEmployeeIds: ["employee_admin"],
-              })
-            }
-            type="button"
-          >
-            기안 preview 생성
-          </button>
+          <Pill>상세에서 바로 실행</Pill>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>의견 / 댓글</strong>
+            <textarea className="field" onChange={(event) => setCommentBody(event.target.value)} rows={3} value={commentBody} />
+          </label>
+          <p className="card-note" style={{ marginTop: 12 }}>
+            승인/반려 버튼은 approval.document.approve 권한이 있으면서 현재 승인 단계 담당자인 세션에서만 보입니다.
+          </p>
           <div className="action-row" style={{ marginTop: 12 }}>
-            <button
-              className="touch-button--secondary"
-              disabled={pending}
-              onClick={() => runAction(appRoutes.approvals.approve("approval_document_team_pending"), "문서 승인", { reason: "예산 범위와 대체 장비 확인 완료" })}
-              type="button"
-            >
-              팀 문서 승인
+            <button className="touch-button" disabled={pending} onClick={() => handleAction(appRoutes.approvals.comments(documentId), "의견 등록", { body: commentBody })} type="button">
+              의견 남기기
             </button>
-            <button
-              className="touch-button--secondary"
-              disabled={pending}
-              onClick={() => runAction(appRoutes.approvals.reject("approval_document_team_pending"), "문서 반려", { reason: "추가 증빙 확인 필요" })}
-              type="button"
-            >
-              팀 문서 반려
-            </button>
+            {canReview ? (
+              <>
+                <button className="touch-button--secondary" disabled={pending} onClick={() => handleAction(appRoutes.approvals.approve(documentId), "문서 승인", { reason: "상세 화면에서 승인 처리" })} type="button">
+                  승인
+                </button>
+                <button className="touch-button--secondary" disabled={pending} onClick={() => handleAction(appRoutes.approvals.reject(documentId), "문서 반려", { reason: "상세 화면에서 보완 요청" })} type="button">
+                  반려
+                </button>
+              </>
+            ) : null}
           </div>
         </article>
       </div>
-      {documents.data ? (
+      {detail.data ? (
         <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
-          {documents.data.items.map((item) => (
-            <article key={item.id} className="info-card">
-              <Pill>{item.status}</Pill>
-              <h3>{item.title}</h3>
-              <p>{item.documentNumber}</p>
-              <p className="card-note">제출 {formatDateTime(item.submittedAt)}</p>
-            </article>
-          ))}
+          <article className="info-card">
+            <Pill>승인선</Pill>
+            <ul className="summary-list" style={{ marginTop: 12 }}>
+              {detail.data.steps.map((step) => (
+                <li key={step.id}>{step.stepOrder}차 · {step.approverEmployeeId} · {step.decisionStatus}{step.decisionComment ? ` · ${step.decisionComment}` : ""}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="info-card">
+            <Pill>참조 / 합의</Pill>
+            <ul className="summary-list" style={{ marginTop: 12 }}>
+              {detail.data.references.map((reference) => (
+                <li key={reference.id}>{reference.referenceType} · {reference.employeeId}{reference.readAt ? ` · 읽음 ${formatDateTime(reference.readAt)}` : " · 미열람"}</li>
+              ))}
+            </ul>
+          </article>
         </div>
+      ) : null}
+      {comments.data ? (
+        <article className="info-card" style={{ marginTop: 16 }}>
+          <Pill>의견 / 댓글</Pill>
+          <ul className="summary-list" style={{ marginTop: 12 }}>
+            {comments.data.items.map((comment) => (
+              <li key={comment.id}>{comment.authorEmployeeId} · {comment.body}</li>
+            ))}
+          </ul>
+        </article>
+      ) : null}
+      {detail.data ? (
+        <article className="info-card" style={{ marginTop: 16 }}>
+          <Pill>상태 이력</Pill>
+          <ol className="number-list" style={{ marginTop: 12 }}>
+            {detail.data.history.map((item) => (
+              <li key={item.id}>{item.eventType} · {item.actorEmployeeId ?? "system"} · {item.message}</li>
+            ))}
+          </ol>
+        </article>
       ) : null}
       <MutationResult result={result} />
     </>

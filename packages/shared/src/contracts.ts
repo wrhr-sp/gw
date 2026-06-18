@@ -52,6 +52,7 @@ export const appRoutes = {
     lines: "/api/approvals/lines",
     documents: "/api/approvals/documents",
     detail: (documentId: string) => `/api/approvals/documents/${documentId}`,
+    comments: (documentId: string) => `/api/approvals/documents/${documentId}/comments`,
     inbox: "/api/approvals/inbox",
     approve: (documentId: string) => `/api/approvals/documents/${documentId}/approve`,
     reject: (documentId: string) => `/api/approvals/documents/${documentId}/reject`,
@@ -1498,6 +1499,36 @@ export const approvalReferenceSchema = z.object({
   readAt: z.string().datetime().nullable(),
 });
 
+export const approvalCommentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  documentId: z.string(),
+  authorEmployeeId: z.string(),
+  body: z.string(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  placeholder: z.literal(true),
+});
+
+export const approvalHistoryEventTypeSchema = z.enum([
+  "submitted",
+  "commented",
+  "step_pending",
+  "approved",
+  "rejected",
+  "completed",
+]);
+
+export const approvalHistoryItemSchema = z.object({
+  id: z.string(),
+  documentId: z.string(),
+  eventType: approvalHistoryEventTypeSchema,
+  actorEmployeeId: z.string().nullable(),
+  message: z.string(),
+  createdAt: z.string().datetime(),
+});
+
 export const approvalCandidateSchema = z.object({
   employeeId: z.string(),
   companyId: z.string(),
@@ -1585,6 +1616,8 @@ export const approvalDocumentDetailResponseSchema = successResponseSchema(
     document: approvalDocumentSchema,
     steps: z.array(approvalStepSchema),
     references: z.array(approvalReferenceSchema),
+    comments: z.array(approvalCommentSchema),
+    history: z.array(approvalHistoryItemSchema),
     operationalContext: operationalBridgeSummarySchema,
     placeholder: z.literal(true),
   }),
@@ -1594,6 +1627,26 @@ export const approvalInboxResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalDocumentSchema),
     operationalContext: operationalBridgeSummarySchema,
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalCommentListResponseSchema = successResponseSchema(
+  z.object({
+    document: approvalDocumentSchema,
+    items: z.array(approvalCommentSchema),
+    placeholder: z.literal(true),
+  }),
+);
+
+export const approvalCommentCreateRequestSchema = z.object({
+  body: z.string().min(1),
+});
+
+export const approvalCommentCreateResponseSchema = successResponseSchema(
+  z.object({
+    comment: approvalCommentSchema,
+    audit: auditCandidateSchema,
     placeholder: z.literal(true),
   }),
 );
@@ -2043,6 +2096,8 @@ export type ApprovalStep = z.infer<typeof approvalStepSchema>;
 export type ApprovalLine = z.infer<typeof approvalLineSchema>;
 export type ApprovalDocument = z.infer<typeof approvalDocumentSchema>;
 export type ApprovalReference = z.infer<typeof approvalReferenceSchema>;
+export type ApprovalComment = z.infer<typeof approvalCommentSchema>;
+export type ApprovalHistoryItem = z.infer<typeof approvalHistoryItemSchema>;
 export type ApprovalCandidate = z.infer<typeof approvalCandidateSchema>;
 export type ApprovalFormListResponse = z.infer<typeof approvalFormListResponseSchema>;
 export type ApprovalFormCreateRequest = z.infer<typeof approvalFormCreateRequestSchema>;
@@ -2055,6 +2110,9 @@ export type ApprovalDocumentListResponse = z.infer<typeof approvalDocumentListRe
 export type ApprovalDocumentCreateResponse = z.infer<typeof approvalDocumentCreateResponseSchema>;
 export type ApprovalDocumentDetailResponse = z.infer<typeof approvalDocumentDetailResponseSchema>;
 export type ApprovalInboxResponse = z.infer<typeof approvalInboxResponseSchema>;
+export type ApprovalCommentListResponse = z.infer<typeof approvalCommentListResponseSchema>;
+export type ApprovalCommentCreateRequest = z.infer<typeof approvalCommentCreateRequestSchema>;
+export type ApprovalCommentCreateResponse = z.infer<typeof approvalCommentCreateResponseSchema>;
 export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateListResponseSchema>;
 export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;

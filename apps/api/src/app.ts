@@ -10,6 +10,9 @@ import {
   approvalActionRequestSchema,
   approvalActionResponseSchema,
   approvalCandidateListResponseSchema,
+  approvalCommentCreateRequestSchema,
+  approvalCommentCreateResponseSchema,
+  approvalCommentListResponseSchema,
   approvalDocumentCreateRequestSchema,
   approvalDocumentCreateResponseSchema,
   approvalDocumentDetailResponseSchema,
@@ -84,7 +87,9 @@ import {
   workItemListResponseSchema,
   workItemReviewsResponseSchema,
   type ApprovalCandidate,
+  type ApprovalComment,
   type ApprovalDocument,
+  type ApprovalHistoryItem,
   type ApprovalLine,
   type ApprovalReference,
   type ApprovalStep,
@@ -2704,6 +2709,31 @@ const approvalReferences: ApprovalReference[] = [
   },
 ];
 
+const approvalComments: ApprovalComment[] = [
+  {
+    id: "approval_comment_demo_drafter",
+    companyId: COMPANY_ID,
+    documentId: "approval_document_demo",
+    authorEmployeeId: "employee_employee",
+    body: "오전 업무 인수인계 후 연차를 사용하려고 합니다.",
+    createdBy: "user_employee",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "approval_comment_team_pending_reviewer",
+    companyId: COMPANY_ID,
+    documentId: "approval_document_team_pending",
+    authorEmployeeId: "employee_staff",
+    body: "예산 범위와 대체 장비 재고를 검토 중입니다.",
+    createdBy: "user_hr_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+];
+
 const boards: Board[] = [
   {
     id: "board_notice",
@@ -3933,11 +3963,101 @@ function findAccessibleApprovalDocument(auth: SessionContext, documentId: string
   return listApprovalDocumentsForUser(auth).find((document) => document.id === documentId) ?? null;
 }
 
+function listApprovalComments(documentId: string) {
+  return approvalComments
+    .filter((comment) => comment.documentId === documentId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
+function buildApprovalDocumentHistory(
+  document: ApprovalDocument,
+  sourceSteps: ApprovalStep[] = approvalSteps.filter((step) => step.documentId === document.id),
+  sourceComments: ApprovalComment[] = listApprovalComments(document.id),
+): ApprovalHistoryItem[] {
+  const documentSteps = [...sourceSteps].sort((left, right) => left.stepOrder - right.stepOrder);
+  const documentComments = [...sourceComments].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+
+  const history: ApprovalHistoryItem[] = [
+    {
+      id: `${document.id}_submitted`,
+      documentId: document.id,
+      eventType: "submitted",
+      actorEmployeeId: document.drafterEmployeeId,
+      message: `${document.title} 기안이 제출되었습니다.`,
+      createdAt: document.submittedAt ?? document.createdAt,
+    },
+    ...documentSteps.flatMap((step) => {
+      const pendingEntry: ApprovalHistoryItem = {
+        id: `${step.id}_pending`,
+        documentId: document.id,
+        eventType: "step_pending",
+        actorEmployeeId: step.approverEmployeeId,
+        message: `${step.stepOrder}차 결재가 ${step.approverEmployeeId}에게 요청되었습니다.`,
+        createdAt: document.submittedAt ?? document.createdAt,
+      };
+      if (step.decisionStatus === "approved") {
+        return [
+          pendingEntry,
+          {
+            id: `${step.id}_approved`,
+            documentId: document.id,
+            eventType: "approved" as const,
+            actorEmployeeId: step.approverEmployeeId,
+            message: step.decisionComment?.trim()
+              ? `${step.stepOrder}차 결재 승인: ${step.decisionComment}`
+              : `${step.stepOrder}차 결재가 승인되었습니다.`,
+            createdAt: step.decidedAt ?? document.updatedAt,
+          },
+        ];
+      }
+      if (step.decisionStatus === "rejected") {
+        return [
+          pendingEntry,
+          {
+            id: `${step.id}_rejected`,
+            documentId: document.id,
+            eventType: "rejected" as const,
+            actorEmployeeId: step.approverEmployeeId,
+            message: step.decisionComment?.trim()
+              ? `${step.stepOrder}차 결재 반려: ${step.decisionComment}`
+              : `${step.stepOrder}차 결재가 반려되었습니다.`,
+            createdAt: step.decidedAt ?? document.updatedAt,
+          },
+        ];
+      }
+      return [pendingEntry];
+    }),
+    ...documentComments.map((comment) => ({
+      id: `${comment.id}_commented`,
+      documentId: document.id,
+      eventType: "commented" as const,
+      actorEmployeeId: comment.authorEmployeeId,
+      message: comment.body,
+      createdAt: comment.createdAt,
+    })),
+  ];
+
+  if (document.status === "approved" || document.status === "rejected") {
+    history.push({
+      id: `${document.id}_completed`,
+      documentId: document.id,
+      eventType: "completed",
+      actorEmployeeId: null,
+      message: document.status === "approved" ? "문서가 최종 승인되었습니다." : "문서가 최종 반려되었습니다.",
+      createdAt: document.completedAt ?? document.updatedAt,
+    });
+  }
+
+  return history.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
 function buildApprovalDocumentDetail(document: ApprovalDocument) {
   return {
     document,
     steps: approvalSteps.filter((step) => step.documentId === document.id),
     references: approvalReferences.filter((reference) => reference.documentId === document.id),
+    comments: listApprovalComments(document.id),
+    history: buildApprovalDocumentHistory(document),
     placeholder: true as const,
   };
 }
@@ -4380,11 +4500,15 @@ async function buildApprovalDocumentDetailForAuth(context: AppContext, auth: Ses
     listApprovalStepsForDocumentForAuth(context, auth, document.id),
     listOperationalApprovalReferences(context.env, auth.user.companyId, document.id),
   ]);
+  const references = mergeById(approvalReferences.filter((reference) => reference.documentId === document.id), dbReferences);
+  const comments = listApprovalComments(document.id);
 
   return {
     document,
     steps,
-    references: mergeById(approvalReferences.filter((reference) => reference.documentId === document.id), dbReferences),
+    references,
+    comments,
+    history: buildApprovalDocumentHistory(document, steps, comments),
     placeholder: true as const,
   };
 }
@@ -5803,6 +5927,85 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, async (context) => {
     },
     200,
   );
+});
+
+app.get(appRoutes.approvals.comments(":id"), async (context) => {
+  const authResult = requirePermission(context, "approval.document.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const documentId = context.req.param("id");
+  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
+  if (!document) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 목록입니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(context, approvalCommentListResponseSchema, {
+    ok: true,
+    data: {
+      document,
+      items: listApprovalComments(document.id),
+      placeholder: true,
+    },
+    error: null,
+  });
+});
+
+app.post(appRoutes.approvals.comments(":id"), async (context) => {
+  const authResult = requirePermission(context, "approval.document.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const documentId = context.req.param("id");
+  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
+  if (!document) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 작성입니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = approvalCommentCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "전자결재 의견 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  const comment: ApprovalComment = {
+    id: buildWorkflowScopedId("approval_comment", authResult.auth.user.employeeId),
+    companyId: authResult.auth.user.companyId,
+    documentId: document.id,
+    authorEmployeeId: authResult.auth.user.employeeId,
+    body: parsed.data.body,
+    createdBy: authResult.auth.user.id,
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  };
+
+  approvalComments.push(comment);
+
+  return jsonSuccess(context, approvalCommentCreateResponseSchema, {
+    ok: true,
+    data: {
+      comment,
+      audit: {
+        candidate: true,
+        action: "approval.document.comment",
+      },
+      placeholder: true,
+    },
+    error: null,
+  }, 201);
 });
 
 app.get(appRoutes.approvals.inbox, async (context) => {

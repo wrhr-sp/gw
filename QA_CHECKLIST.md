@@ -102,6 +102,11 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] Phase 52 전자결재 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 52 범위라면 `/approvals` 가 실사용 시작점처럼 읽히고, 내 승인함/내 기안함/참조·합의 확인함 책임이 먼저 분리돼 보인다.
+- [ ] Phase 52 범위라면 기안 stepper, 문서 상세, 승인/반려, 의견·상태 이력 흐름이 실제 업무 순서로 이어진다.
+- [ ] Phase 52 범위라면 승인 권한 없는 사용자의 inbox 접근 차단, self-approval 금지, replay 차단, same-company 후보 제한, unknown id 차단이 UI/route/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 52 범위라면 empty/loading/error/forbidden/dev-safe 가 approvals route 기준으로 분명히 보이고, `preview`·`guard 확인` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
 - [ ] Phase 51 게시판 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
 - [ ] Phase 51 범위라면 `/boards` 가 실사용 시작점처럼 읽히고, `/boards/board_notice` 와 `/boards/board_general` 이 공지형/일반형 책임을 먼저 구분해 보여 준다.
 - [ ] Phase 51 범위라면 `/boards/board_general` 에서 글 목록 → 글 작성 → 상세 진입, `/posts/[postId]` 에서 댓글 → 읽음 확인 happy path 가 실제로 이어진다.

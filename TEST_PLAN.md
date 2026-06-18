@@ -9,6 +9,17 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 52 추가 검증 초점
+
+- `/approvals` 가 live URL에서 실제 전자결재 시작점처럼 읽히는지 본다.
+- 내 승인함, 내 기안함, 참조/합의 확인함이 서로 다른 책임으로 먼저 읽히는지 본다.
+- 기안 stepper 와 문서 상세, 승인/반려, 의견·상태 이력 흐름이 실제 업무 순서로 이어지는지 본다.
+- `approval.document.approve` 권한 없는 사용자의 inbox 접근 차단이 route/API/UI 설명에서 같은 뜻인지 본다.
+- self-approval 금지, replay 차단, same-company 후보 제한, unknown document id 차단이 유지되는지 본다.
+- empty / loading / error / forbidden / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
+- `apps/api/test/auth-org.spec.ts` 의 approvals 근거와 웹 화면 설명이 같은 뜻인지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 51 추가 검증 초점
 
 - `/boards` 가 live URL에서 실제 게시판 시작점처럼 읽히는지 본다.

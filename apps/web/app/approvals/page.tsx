@@ -49,6 +49,7 @@ const detailSections = [
   "문서 기본 정보: 제목, 문서번호, 상태, 기안자",
   "결재선 단계: 순서, 승인자, decisionStatus",
   "참조/합의 대상: referenceType, readAt placeholder",
+  "의견/댓글과 상태 이력을 같은 상세 route 에서 함께 확인",
   "승인/반려 버튼과 상태 안내 placeholder",
 ] as const;
 
@@ -181,6 +182,8 @@ export default function ApprovalsPage() {
           <li><a href={appRoutes.approvals.forms}>{appRoutes.approvals.forms}</a> — 결재 양식 목록/생성 skeleton</li>
           <li><a href={appRoutes.approvals.lines}>{appRoutes.approvals.lines}</a> — 결재선 목록/생성 skeleton</li>
           <li><a href={appRoutes.approvals.documents}>{appRoutes.approvals.documents}</a> — 내 문서함/기안 skeleton</li>
+          <li><a href={appRoutes.approvals.detail("approval_document_demo")}>{appRoutes.approvals.detail("approval_document_demo")}</a> — 문서 상세/승인선/이력</li>
+          <li><a href={appRoutes.approvals.comments("approval_document_demo")}>{appRoutes.approvals.comments("approval_document_demo")}</a> — 의견/댓글 목록·작성</li>
           <li><a href={appRoutes.approvals.inbox}>{appRoutes.approvals.inbox}</a> — 승인함 skeleton</li>
           <li><a href={appRoutes.approvals.referenceCandidates}>{appRoutes.approvals.referenceCandidates}</a> — 참조 후보</li>
           <li><a href={appRoutes.approvals.agreementCandidates}>{appRoutes.approvals.agreementCandidates}</a> — 합의 후보</li>
