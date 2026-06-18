@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 내부 회사 본격 도입 가능한 릴리즈 단계까지 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러보며 도입 여부를 판단할 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 53 휴가·근태 실사용화 fit-gap 정리다. Phase 53의 목적은 Phase 3·33·42에서 이미 확인한 근태/휴가 guardrail 과 Phase 50 내부 그룹웨어 본격 도입 기준을 바탕으로 `/attendance`, `/leave` 묶음을 live URL에서 직접 눌러볼 수 있는 실사용 흐름으로 끌어올리는 것이다.
-핵심은 새 외부 연동이나 실정산을 바로 여는 것이 아니라, 직원 근태 흐름(출근 → 오늘 상태 확인 → 퇴근 → 정정 요청), 직원 휴가 흐름(잔여 확인 → 신청 → 상태 확인), 승인자 lane, 운영 정책 lane(`/admin/policies`) 책임 분리, 권한 부족/정책 미허용/company scope/placeholder 제한 4축, self-approval 금지, unknown/foreign request 차단, empty/loading/error/forbidden/dev-safe 상태를 같은 언어로 다시 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 54 문서함·파일 실사용화 fit-gap 정리다. Phase 54의 목적은 Phase 32·37·41에서 이미 확인한 문서 공간/파일 metadata/storage guardrail 과 Phase 50 내부 그룹웨어 본격 도입 기준을 바탕으로 `/documents` 묶음을 live URL에서 직접 눌러볼 수 있는 실사용 흐름으로 끌어올리는 것이다.
+핵심은 새 외부 공유나 실운영 bucket 전환을 바로 여는 것이 아니라, 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비 → 다운로드 준비 → 읽음 확인 순서, 전사 문서함 대 인사 전용 문서함 책임 분리, 권한 부족/private·missing space/company scope/placeholder 제한 4축, raw storage internals 비노출, `storageStatus` 대 문서 `status` 구분, empty/loading/error/forbidden/dev-safe 상태를 같은 언어로 다시 잠그는 것이다.
 
 ## Phase 흐름
 
@@ -64,6 +64,7 @@
 - Phase 51: 게시판 실사용화
 - Phase 52: 전자결재 실사용화
 - Phase 53: 휴가·근태 실사용화
+- Phase 54: 문서함·파일 실사용화
 
 ## MVP 성공 기준
 
@@ -79,9 +80,9 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-53-leave-attendance-live-operations-handoff.md`
-- 현재 사용자/UAT 가이드: `docs/guides/phase-53-leave-attendance-live-operations-guide.md`
-- 직전 범위: `docs/architecture/phase-52-approvals-live-operations-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-52-approvals-live-operations-handoff.md`
-- 직전 가이드: `docs/guides/phase-52-approvals-live-operations-guide.md`
+- 현재 기준 범위: `docs/architecture/phase-54-documents-files-live-operations-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-54-documents-files-live-operations-handoff.md`
+- 현재 사용자/UAT 가이드: `docs/guides/phase-54-documents-files-live-operations-guide.md`
+- 직전 범위: `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-53-leave-attendance-live-operations-handoff.md`
+- 직전 가이드: `docs/guides/phase-53-leave-attendance-live-operations-guide.md`

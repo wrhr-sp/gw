@@ -64,7 +64,7 @@ export default function DocumentsPage() {
     <PageShell
       eyebrow="Phase 41 내부 문서 협업 도입"
       title="문서함"
-      description="문서 공간, 첨부 metadata, 읽음 확인, private space 차단을 내부 협업 보관/열람 언어로 다시 정리하고, upload/download 준비와 storageStatus 경계를 실제 same-origin API 응답으로 바로 확인할 수 있게 연결했습니다."
+      description="문서 공간 목록, 문서 상세, 첨부 metadata, upload/download 준비, 읽음 확인, 분류 문장, private space 차단을 내부 협업 보관/열람 언어로 다시 정리하고 실제 same-origin API 응답으로 바로 확인할 수 있게 연결했습니다."
       actions={<Pill tone="accent">no storage key leakage</Pill>}
     >
       <SurfaceSection title="실사용 확인 패널" description="문서 공간과 파일 metadata 를 실제 API 응답으로 먼저 확인합니다.">

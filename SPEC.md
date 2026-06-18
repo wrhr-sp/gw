@@ -340,6 +340,26 @@
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
 
+### 2-17. 문서함·파일 실사용화 기준은 Phase 54 문장으로 잠근다.
+
+- Phase 54의 목표는 documents 관련 route/API/test 존재 자체가 아니라, `/documents` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
+- `/documents` 는 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비 → 다운로드 준비 → 읽음 확인 순서를 먼저 읽히게 해야 한다.
+- 전사 문서함과 인사 전용 문서함은 한 화면에 같이 보여도 책임과 권한 경계를 먼저 구분해서 읽혀야 한다.
+- `storageStatus(pending/ready/deleted)` 와 문서 `status(active/archived)` 는 같은 뜻처럼 섞지 않는다.
+- `upload-init`, `upload-complete`, `download-init` 은 외부 공유 완료가 아니라 내부 저장 lifecycle/다운로드 준비 단계로 적는다.
+- raw storage key, bucket, public URL 전문, signed URL 전문, secret 은 응답/UI/문서에 그대로 노출하지 않는다.
+- private/missing/foreign company space 차단, 권한 부족, empty/loading/error/forbidden/dev-safe 상태를 route/UI/API/test 에서 같은 뜻으로 유지한다.
+
+근거:
+- `docs/architecture/phase-54-documents-files-live-operations-fit-gap-scope.md`
+- `docs/guides/phase-54-documents-files-live-operations-handoff.md`
+- `docs/guides/phase-54-documents-files-live-operations-guide.md`
+- `apps/web/app/documents/page.tsx`
+- `apps/web/app/_components/real-usage-panels.tsx`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+- `packages/shared/src/contracts.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

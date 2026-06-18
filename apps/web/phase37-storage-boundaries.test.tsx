@@ -32,6 +32,8 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).toContain("upload-init");
     expect(html).toContain("upload-complete");
     expect(html).toContain("download-init");
+    expect(html).toContain("문서 상세");
+    expect(html).toContain("최근 액션 상세");
     expect(html).toContain("storageStatus(pending/ready/deleted)는 내부 저장 lifecycle 설명이며 public share 완료 뜻이 아닙니다.");
     expect(html).not.toContain("public URL 발급 완료");
   });
