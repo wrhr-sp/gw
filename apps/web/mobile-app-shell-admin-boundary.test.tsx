@@ -45,7 +45,7 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(html).toContain('href="/admin"');
-    expect(html).toContain('href="/admin/policies"');
+    expect(html).toContain('data-route="/admin/policies"');
     expect(html).not.toContain('href="/notifications"');
     expect(html).not.toContain('href="/me"');
     expect(html).not.toContain('href="/menu"');
@@ -70,7 +70,7 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
 
-    expect(html).toContain('href="/menu"');
+    expect(html).toContain('data-route="/menu"');
     expect(html).toContain("전체 메뉴");
     expect(html).toContain("bottom-nav__icon-svg");
     expect(html).toContain("bottom-nav__link-pill");
@@ -103,7 +103,7 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("M5 21v-16");
     expect(html).toContain("M10 10V5");
 
-    const branchLink = html.match(/<a[^>]+href="\/work-items\/branch"[\s\S]*?<\/a>/)?.[0] ?? "";
+    const branchLink = html.match(/<button[^>]+data-route="\/work-items\/branch"[\s\S]*?<\/button>/)?.[0] ?? "";
     expect(branchLink).toContain("지점 업무");
     expect(branchLink).not.toContain("<svg");
   });
@@ -135,7 +135,8 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("경영업무포털로 이동");
     expect(generalHtml).toContain('aria-label="We’reHere 일반업무포털 홈"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
-    expect(generalHtml).toContain('href="/management"');
+    expect(generalHtml).toContain('data-route="/management"');
+    expect(generalHtml).not.toContain('href="/management"');
     expect(generalHtml).toContain('aria-label="설정"');
     expect(generalHtml).toContain('data-tooltip="설정"');
     expect(generalHtml).toContain('aria-label="공지사항"');
@@ -160,7 +161,7 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).toContain("경영업무포털");
     expect(managementHtml).toContain("일반업무포털로 이동");
     expect(managementHtml).toContain('aria-label="We’reHere 경영업무포털 홈"');
-    expect(managementHtml).toContain('href="/dashboard"');
+    expect(managementHtml).toContain('data-route="/dashboard"');
     expect(managementHtml).toContain("급여 내부관리");
     expect(managementHtml).not.toContain("기본 업무");
 

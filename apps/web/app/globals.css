@@ -1285,8 +1285,10 @@ li {
 
 .topbar-modal {
   width: min(760px, calc(100vw - 32px));
+  display: flex;
   max-height: min(760px, calc(100vh - 48px));
-  overflow: auto;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 30px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(239, 246, 255, 0.9));
@@ -1297,15 +1299,16 @@ li {
 }
 
 .topbar-modal--profile-settings {
-  width: min(860px, calc(100vw - 32px));
+  width: min(920px, calc(100vw - 32px));
 }
 
 .topbar-modal__header {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .topbar-modal__eyebrow {
@@ -1355,8 +1358,21 @@ li {
 .topbar-modal__grid,
 .topbar-profile-settings {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
   gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+  scrollbar-color: rgba(37, 99, 235, 0.38) transparent;
+  scrollbar-width: thin;
+}
+
+.topbar-modal__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topbar-profile-settings {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .topbar-modal-card,
@@ -1404,7 +1420,6 @@ li {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
 }
 
 .topbar-profile-settings__buttons button,
@@ -1546,4 +1561,94 @@ li {
   .topbar-modal-field-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.desktop-sidebar__link,
+.bottom-nav__link,
+.portal-switch-link,
+.ghost-link.app-topbar__mobile-only {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.desktop-sidebar__link,
+.bottom-nav__link {
+  border: 0;
+  text-align: left;
+}
+
+.bottom-nav__link {
+  background: transparent;
+  text-align: center;
+}
+
+.portal-switch-link {
+  border: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.ghost-link.app-topbar__mobile-only {
+  border: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.topbar-modal__grid::-webkit-scrollbar,
+.topbar-profile-settings::-webkit-scrollbar {
+  width: 8px;
+}
+
+.topbar-modal__grid::-webkit-scrollbar-track,
+.topbar-profile-settings::-webkit-scrollbar-track {
+  margin-block: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.topbar-modal__grid::-webkit-scrollbar-thumb,
+.topbar-profile-settings::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2));
+}
+
+.topbar-modal-toggle--locked {
+  background: rgba(226, 232, 240, 0.7);
+  color: #475569;
+}
+
+.topbar-modal-toggle--locked input {
+  cursor: not-allowed;
+}
+
+.topbar-modal-toggle--locked strong::after {
+  margin-left: 6px;
+  color: #2563eb;
+  content: "고정";
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.topbar-modal-card--after-hours {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.78), rgba(255, 255, 255, 0.72));
+}
+
+.topbar-modal-toggle-grid--after-hours {
+  margin-top: 12px;
+}
+
+.topbar-modal-toast {
+  position: fixed;
+  left: 50%;
+  top: max(20px, env(safe-area-inset-top, 0px) + 16px);
+  z-index: 95;
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  border-radius: 999px;
+  background: rgba(239, 246, 255, 0.94);
+  box-shadow: 0 18px 46px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  padding: 12px 18px;
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px) saturate(1.18);
 }
