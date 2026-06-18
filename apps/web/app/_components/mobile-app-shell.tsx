@@ -348,10 +348,20 @@ function SettingField({ label, value, hint }: { label: string; value: string; hi
   );
 }
 
-function SettingToggle({ label, description, defaultChecked = true }: { label: string; description?: string; defaultChecked?: boolean }) {
+function SettingToggle({
+  label,
+  description,
+  defaultChecked = true,
+  disabled = false,
+}: {
+  label: string;
+  description?: string;
+  defaultChecked?: boolean;
+  disabled?: boolean;
+}) {
   return (
-    <label className="topbar-modal-toggle">
-      <input type="checkbox" defaultChecked={defaultChecked} />
+    <label className={disabled ? "topbar-modal-toggle topbar-modal-toggle--locked" : "topbar-modal-toggle"}>
+      <input type="checkbox" defaultChecked={defaultChecked} disabled={disabled} />
       <span>
         <strong>{label}</strong>
         {description ? <small>{description}</small> : null}
@@ -417,10 +427,12 @@ export function MobileAppShell({
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
+  const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
@@ -567,6 +579,9 @@ export function MobileAppShell({
       if (sidebarScrollTimerRef.current) {
         clearTimeout(sidebarScrollTimerRef.current);
       }
+      if (settingsSaveToastTimerRef.current) {
+        clearTimeout(settingsSaveToastTimerRef.current);
+      }
     };
   }, []);
 
@@ -668,6 +683,16 @@ export function MobileAppShell({
   }
 
 
+  function handleTopbarSettingsSave() {
+    setSettingsSaveToastVisible(true);
+    if (settingsSaveToastTimerRef.current) {
+      clearTimeout(settingsSaveToastTimerRef.current);
+    }
+    settingsSaveToastTimerRef.current = setTimeout(() => {
+      setSettingsSaveToastVisible(false);
+    }, 1600);
+  }
+
   function renderTopbarModal() {
     if (!activeTopbarModal) {
       return null;
@@ -702,12 +727,16 @@ export function MobileAppShell({
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
-            {!isProfileSettings ? (
-              <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={() => setActiveTopbarModal(null)}>
-                ×
-              </button>
-            ) : null}
+            <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={() => setActiveTopbarModal(null)}>
+              ×
+            </button>
           </header>
+
+          {settingsSaveToastVisible ? (
+            <div className="topbar-modal-toast" role="status" aria-live="polite">
+              변경된 설정이 적용되었습니다.
+            </div>
+          ) : null}
 
           {activeTopbarModal === "settings" ? (
             <div className="topbar-modal__grid">
@@ -790,7 +819,6 @@ export function MobileAppShell({
                 <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
                 <div>
                   <strong>프로필 이미지</strong>
-                  <p>이미지 변경과 기본 이미지 되돌리기는 프로필 저장 정책에 맞춰 연결합니다.</p>
                   <div className="topbar-profile-settings__buttons">
                     <button type="button">이미지 변경</button>
                     <button type="button">기본 이미지</button>
@@ -814,18 +842,30 @@ export function MobileAppShell({
                   <SettingToggle label="댓글/멘션 알림" />
                   <SettingToggle label="메일/메신저 알림" />
                   <SettingToggle label="근태/휴가 알림" />
-                  <SettingToggle label="퇴근 후 긴급 알림만 받기" description="긴급 공지사항, 승인 요청, 멘션처럼 선택한 기능만 받습니다." />
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
+                <strong>퇴근 후 알림 설정</strong>
+                <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
+                <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
+                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." />
+                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." />
+                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." />
+                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." />
+                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." />
+                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." defaultChecked={false} />
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>개인정보 표시 범위</strong>
                 <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="이메일 표시" description="회사 연락 기준으로 항상 표시됩니다." disabled />
+                  <SettingToggle label="내선번호 표시" description="내선번호가 등록되어 있으면 항상 표시됩니다." disabled />
                   <SettingToggle label="프로필 사진 표시" />
                   <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
-                  <SettingToggle label="내선번호 표시" />
                   <SettingToggle label="상태 메시지 표시" />
                 </div>
-                <p className="topbar-modal-note">이메일은 회사 연락 기준으로 항상 표시하며 숨김 설정을 제공하지 않습니다.</p>
+                <p className="topbar-modal-note">이메일과 등록된 내선번호는 버튼은 보이지만 해제할 수 없습니다.</p>
               </section>
             </div>
           ) : null}
@@ -834,13 +874,17 @@ export function MobileAppShell({
             <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={() => setActiveTopbarModal(null)}>
               취소
             </button>
-            <button type="button" className="topbar-modal__button" onClick={() => setActiveTopbarModal(null)}>
+            <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>
               저장
             </button>
           </footer>
         </section>
       </div>
     );
+  }
+
+  function navigateTo(href: string) {
+    router.push(href as never);
   }
 
   if (isLoginRoute) {
@@ -890,16 +934,19 @@ export function MobileAppShell({
                   const active = matchesPath(pathname, item.href);
                   const iconName = getFeatureIconName(item.href, item.label);
                   return (
-                    <a
+                    <button
                       key={item.href}
-                      href={item.href}
+                      type="button"
                       className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"}
                       aria-current={active ? "page" : undefined}
+                      aria-label={item.label}
+                      data-route={item.href}
                       title={item.summary}
+                      onClick={() => navigateTo(item.href)}
                     >
                       {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                       <span>{sidebarCollapsed ? item.shortLabel : item.label}</span>
-                    </a>
+                    </button>
                   );
                 })}
               </div>
@@ -918,10 +965,10 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <a href={nextPortalHref} className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`}>
+                <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateTo(nextPortalHref)}>
                   <FeatureIcon className="portal-switch-link__icon" name={nextPortalIcon} title={nextPortalLabel} />
                   <span>{nextPortalLabel}</span>
-                </a>
+                </button>
               ) : null}
               {!isAdminHostShell ? (
                 <>
@@ -982,9 +1029,9 @@ export function MobileAppShell({
                 </>
               ) : null}
               {showMobileMenuShortcut ? (
-                <a href="/menu" className="ghost-link app-topbar__mobile-only">
+                <button type="button" className="ghost-link app-topbar__mobile-only" data-route="/menu" onClick={() => navigateTo("/menu")}>
                   전체 메뉴
-                </a>
+                </button>
               ) : null}
             </div>
           </div>
@@ -1027,13 +1074,15 @@ export function MobileAppShell({
                   : item.label;
 
               return (
-                <a
+                <button
                   key={item.href}
-                  href={item.href}
+                  type="button"
                   className={active ? "bottom-nav__link bottom-nav__link--active" : "bottom-nav__link"}
                   aria-current={active ? "page" : undefined}
                   aria-label={ariaLabel}
+                  data-route={item.href}
                   tabIndex={isBottomNavCollapsed ? -1 : undefined}
+                  onClick={() => navigateTo(item.href)}
                 >
                   <span className="bottom-nav__link-pill">
                     <span className="bottom-nav__icon-wrap">
@@ -1042,7 +1091,7 @@ export function MobileAppShell({
                     </span>
                     <span className="bottom-nav__label">{item.shortLabel}</span>
                   </span>
-                </a>
+                </button>
               );
             })}
           </div>
