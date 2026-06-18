@@ -31,8 +31,8 @@ import {
 
 const publicManifest = JSON.parse(readFileSync(resolve(process.cwd(), "public/manifest.webmanifest"), "utf-8")) as typeof generalPwaManifest;
 
-describe("Phase 6 mobile/PWA skeleton config", () => {
-  it("keeps the general-user manifest relative and provides placeholder icons", () => {
+describe("mobile/PWA config", () => {
+  it("keeps the general-user manifest relative and provides local icons", () => {
     expect(generalPwaManifest.id).toBe("/login");
     expect(generalPwaManifest.start_url).toBe("/dashboard");
     expect(generalPwaManifest.scope).toBe("/");
@@ -71,7 +71,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     expect(adminRouteMetadata.applicationName).toBe(adminPwaManifest.short_name);
   });
 
-  it("exposes mobile-first navigation for the approved Phase 25 pilot routes", () => {
+  it("exposes mobile-first navigation for the approved pilot routes", () => {
     expect(mobilePrimaryNav.map((item) => item.href)).toEqual([
       "/dashboard",
       "/attendance",
@@ -98,7 +98,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       "기본 업무",
       "공통 업무 엔진",
       "내 정보 / 조회",
-      "협업 placeholder",
+      "협업 확인",
     ]);
   });
 
@@ -120,7 +120,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
       appName: "그룹웨어 Web/PWA",
-      appEyebrow: "Phase 57 홈·메뉴 UX",
+      appEyebrow: "오늘 할 일 · 전체 메뉴",
       homeHref: "/dashboard",
       navItems: mobilePrimaryNav,
       bottomTabs: mobileBottomTabs,
@@ -129,7 +129,7 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
   });
 
   it("defines honest offline guidance without pretending state-changing actions succeed", () => {
-    expect(offlineGuidance.availableNow).toContain("읽기 중심 placeholder 탐색");
+    expect(offlineGuidance.availableNow).toContain("읽기 중심 안내 탐색");
     expect(offlineGuidance.blockedNow).toContain("출퇴근 등록/정정 요청");
     expect(offlineGuidance.retrySteps).toEqual(["네트워크 연결 확인", "잠시 후 다시 시도", "필요 시 데스크톱 또는 안정적인 네트워크에서 재시도"]);
     expect(fieldUsabilityPrinciples).toContain("알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.");
@@ -166,6 +166,6 @@ describe("Phase 6 mobile/PWA skeleton config", () => {
       showMobileMenuShortcut: true,
     });
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[0]).toContain("/admin/users");
-    expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[2]).toContain("placeholder");
+    expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[2]).toContain("기본 자산");
   });
 });

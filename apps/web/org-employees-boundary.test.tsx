@@ -7,10 +7,11 @@ import EmployeesPage from "./app/employees/page";
 import MePage from "./app/me/page";
 import OrgPage from "./app/org/page";
 
-describe("Phase 11 org/employees skeleton boundaries", () => {
+describe("Phase 55 org/employees/admin boundaries", () => {
   it("keeps employees page focused on general lookup instead of admin actions", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
+    expect(html).toContain("Phase 55 직원 일반 조회 / 조직 연결");
     expect(html).toContain("직원 목록");
     expect(html).toContain("Phase 55 read model 확인 순서");
     expect(html).toContain("/admin/users");
@@ -24,6 +25,7 @@ describe("Phase 11 org/employees skeleton boundaries", () => {
   it("keeps org page read-only and points policy changes back to admin routes", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
+    expect(html).toContain("Phase 55 조직 구조 / 역할·권한 read-only 확인");
     expect(html).toContain("조직 구조");
     expect(html).toContain("Phase 55 구조 확인 메모");
     expect(html).toContain("권한 체계 안내");
@@ -45,6 +47,7 @@ describe("Phase 11 org/employees skeleton boundaries", () => {
   it("keeps admin users page positioned as a higher-risk review surface", () => {
     const html = renderToStaticMarkup(<AdminUsersPage />);
 
+    expect(html).toContain("Phase 55 관리자 계정·권한·조직 실사용화");
     expect(html).toContain("역할 후보");
     expect(html).toContain("상태 변경 diff");
     expect(html).toContain("감사 후보");

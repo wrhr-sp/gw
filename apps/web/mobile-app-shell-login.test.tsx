@@ -24,7 +24,7 @@ describe("mobile app shell login boundary", () => {
       <MobileAppShell
         appName="그룹웨어 Web/PWA"
         appEyebrow="로그인 전용 진입"
-        homeHref="/"
+        homeHref="/dashboard"
         navItems={[{ href: "/dashboard", label: "대시보드", shortLabel: "대시", summary: "요약" }]}
         bottomTabs={[{ href: "/menu", label: "메뉴", shortLabel: "메뉴", summary: "전체 메뉴" }]}
         menuSections={[{ title: "기본 업무", description: "설명", items: [{ href: "/dashboard", label: "대시보드", shortLabel: "대시", summary: "요약" }] }]}

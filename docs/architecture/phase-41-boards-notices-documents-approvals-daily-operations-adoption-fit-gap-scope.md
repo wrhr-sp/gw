@@ -223,14 +223,15 @@
 3. `/boards`
 4. `/boards/board_notice`
 5. `/boards/board_general`
-6. `/posts/board_post_board_general_employee_employee`
-7. `/documents`
-8. `/admin/policies`
-9. `/admin/audit-logs`
-10. `apps/web/app/_components/real-usage-panels.tsx`
-11. `apps/api/test/auth-org.spec.ts`
-12. `apps/api/test/phase32-regression-repro.spec.ts`
-13. `apps/web/admin-preview-guard.test.ts`
+6. `/posts/board_post_demo`
+7. `/posts/board_post_notice_1`
+8. `/documents`
+9. `/admin/policies`
+10. `/admin/audit-logs`
+11. `apps/web/app/_components/real-usage-panels.tsx`
+12. `apps/api/test/auth-org.spec.ts`
+13. `apps/api/test/phase32-regression-repro.spec.ts`
+14. `apps/web/admin-preview-guard.test.ts`
 
 ## 8. 다음 작업자에게 넘길 핵심 문장
 

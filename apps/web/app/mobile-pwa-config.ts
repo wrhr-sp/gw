@@ -59,7 +59,7 @@ export type AppShellConfig = {
 };
 
 export const generalPwaManifest = {
-  name: "GW Cloudflare-first Skeleton",
+  name: "그룹웨어 Web/PWA",
   short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
   id: "/login",
@@ -82,7 +82,7 @@ export const generalPwaManifest = {
     {
       name: "근태",
       short_name: "근태",
-      description: "출퇴근 CTA 와 최근 기록 placeholder 를 엽니다.",
+      description: "출퇴근 CTA 와 최근 기록 요약을 엽니다.",
       url: "/attendance",
     },
     {
@@ -260,13 +260,13 @@ export const mobileBottomTabs: NavItem[] = [
     href: "/messenger",
     label: "메신저",
     shortLabel: "메신저",
-    summary: "실시간 메신저 연동 전 placeholder 상태와 운영 경계 안내",
+    summary: "실시간 메신저 연동 전 내부 확인 상태와 운영 경계 안내",
   },
   {
     href: "/mail",
     label: "메일",
     shortLabel: "메일",
-    summary: "사내 메일 연동 전 placeholder 상태와 승인 게이트 안내",
+    summary: "사내 메일 연동 전 내부 확인 상태와 승인 게이트 안내",
   },
   {
     href: "/notifications",
@@ -279,7 +279,7 @@ export const mobileBottomTabs: NavItem[] = [
 export const mobileMenuSections: NavSection[] = [
   {
     title: "기본 업무",
-    description: "파일럿 참여자가 실제로 먼저 눌러 볼 핵심 업무 흐름입니다.",
+    description: "실사용 기준으로 먼저 눌러 볼 핵심 업무 흐름입니다.",
     items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
   },
   {
@@ -287,10 +287,10 @@ export const mobileMenuSections: NavSection[] = [
     description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
     items: [
       mobilePrimaryNav[6],
-      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 placeholder" },
-      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 placeholder" },
-      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 skeleton 과 restricted 경계 placeholder" },
-      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 placeholder" },
+      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
+      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 현황" },
+      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 검토와 restricted 경계 안내" },
+      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" },
     ],
   },
   {
@@ -299,8 +299,8 @@ export const mobileMenuSections: NavSection[] = [
     items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
   },
   {
-    title: "협업 placeholder",
-    description: "메신저, 메일, 알림은 탭/placeholder honesty 만 유지하고 실제 외부 연동은 승인 게이트로 남깁니다.",
+    title: "협업 확인",
+    description: "메신저, 메일, 알림은 현재 확인 가능한 범위만 안내하고 실제 외부 연동은 승인 게이트로 남깁니다.",
     items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
   },
 ];
@@ -316,7 +316,7 @@ export const managementPrimaryNav: NavItem[] = [
     href: "/payroll",
     label: "급여 내부관리",
     shortLabel: "급여",
-    summary: "급여 프로필, 기간 상태, 명세서 preview 연결 확인",
+    summary: "급여 프로필, 기간 상태, 명세서 안내 연결 확인",
   },
   {
     href: "/work-items/tax",
@@ -334,7 +334,7 @@ export const managementPrimaryNav: NavItem[] = [
     href: "/work-items/legal",
     label: "법무 업무",
     shortLabel: "법무",
-    summary: "계약 검토/갱신 예정/분쟁·클레임 후속 placeholder",
+    summary: "계약 검토/갱신 예정/분쟁·클레임 후속 현황",
   },
 ];
 
@@ -403,23 +403,23 @@ export const mobileQuickActions = [
 ] as const;
 
 export const installGuideSteps = [
-  "브라우저 메뉴에서 ‘홈 화면에 추가’ 또는 ‘설치’가 보이면 preview/production 공통 상대 경로 manifest 를 기준으로 동작합니다.",
+  "브라우저 메뉴에서 ‘홈 화면에 추가’ 또는 ‘설치’가 보이면 공통 상대 경로 manifest 를 기준으로 동작합니다.",
   "설치 후에도 same-origin /api 경로 정책은 그대로 유지됩니다.",
-  "이번 Phase 에서는 push, background sync, 실제 디바이스 배포 없이 설치 안내 문구와 경로만 고정합니다.",
+  "이번 단계에서는 push, background sync, 실제 디바이스 배포 없이 설치 안내 문구와 경로만 고정합니다.",
 ] as const;
 
 export const adminInstallGuideSteps = [
   "관리자 host 에서는 일반 사용자 홈이 아니라 `/admin` 을 시작점으로 설치되고, 주요 점검 화면은 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 입니다.",
   "관리자용 설치 후에도 권한 검증과 same-origin /api 정책은 그대로 유지되며, 일반 사용자용 근태/휴가 앱과 목적이 다릅니다.",
-  "현재 아이콘은 관리자 전용 placeholder 자산이지만 any/maskable 경로를 분리해 두었고, 이번 Phase 에서는 push/background sync/native 패키징은 포함하지 않습니다.",
+  "현재 아이콘은 관리자 전용 기본 자산이지만 any/maskable 경로를 분리해 두었고, 이번 단계에서는 push/background sync/native 패키징은 포함하지 않습니다.",
 ] as const;
 
 export const offlineGuidance: OfflineGuidance = {
-  bannerTitle: "오프라인/불안정 네트워크 안내 skeleton",
+  bannerTitle: "오프라인/불안정 네트워크 안내",
   bannerBody:
     "현재 단계에서는 읽기 중심 진입만 일부 안내하고, 상태 변경이 필요한 작업은 성공처럼 보이게 만들지 않습니다.",
   availableNow: [
-    "읽기 중심 placeholder 탐색",
+    "읽기 중심 안내 탐색",
     "최근 확인한 안내 문구 재확인",
     "오프라인 제약과 재시도 절차 확인",
   ],
@@ -466,9 +466,9 @@ export const touchTargetStyle = {
 
 export const mobileReviewChecklist = [
   "가로 스크롤 없이 카드/버튼이 한 손 사용 범위 안에 있는지 확인",
-  "오프라인/placeholder 문구가 실제 완료처럼 보이지 않는지 확인",
+  "오프라인/안내 문구가 실제 완료처럼 보이지 않는지 확인",
   "게시판·문서·전자결재 접근 경계가 모바일에서도 흐려지지 않는지 확인",
-  "manifest 와 내부 링크가 preview 전용 절대 경로를 하드코딩하지 않았는지 확인",
+  "manifest 와 내부 링크가 특정 배포 전용 절대 경로를 하드코딩하지 않았는지 확인",
   "모바일 하단 탭 5개(메뉴/홈/메신저/메일/알림)가 같은 파일럿 정보구조를 가리키는지 확인",
   "PC 사이드바 접기/펼치기와 모바일 전체 메뉴가 같은 메뉴군을 설명하는지 확인",
 ] as const;
@@ -645,7 +645,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   if (getAdminHostInfo(host).isAdminHost) {
     return {
       appName: adminPwaManifest.short_name,
-      appEyebrow: "Admin host PWA skeleton",
+      appEyebrow: "관리자 운영 PWA",
       homeHref: "/admin",
       navItems: adminPrimaryNav,
       bottomTabs: adminPrimaryNav,
@@ -658,7 +658,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
 
   return {
     appName: "그룹웨어 Web/PWA",
-    appEyebrow: "Phase 57 홈·메뉴 UX",
+    appEyebrow: "오늘 할 일 · 전체 메뉴",
     homeHref: "/dashboard",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,

@@ -3,8 +3,40 @@ import type { HomeShortcut, RoleCode } from "@gw/shared";
 
 import { HomeShortcutsPanel } from "./app/_components/home-shortcuts-panel";
 import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
-import { Phase47RecommendedFlowSection, Phase47StatusGuideSection } from "./app/_components/phase47-usage-guide";
 import { fieldUsabilityPrinciples, getVisibleMobileMenuSections, hasManagementMenuAccess, mobileBottomTabs, recoveryRouteCards } from "./app/mobile-pwa-config";
+
+const menuStatusGuideCards = [
+  {
+    title: "loading",
+    summary: "아직 내용을 불러오는 중인 상태입니다.",
+    detail: "잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
+  },
+  {
+    title: "empty",
+    summary: "정상적으로 비어 있을 수 있는 상태입니다.",
+    detail: "현재 권한에서 추가로 볼 항목이 없을 수 있습니다.",
+  },
+  {
+    title: "error",
+    summary: "조회나 불러오기에 실패한 상태입니다.",
+    detail: "복구 경로와 오프라인 안내를 먼저 확인한 뒤 다시 시도합니다.",
+  },
+  {
+    title: "forbidden",
+    summary: "권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "관리자 전용 메뉴를 대신 열지 않고 허용된 레인에서만 확인합니다.",
+  },
+  {
+    title: "offline",
+    summary: "네트워크가 불안정해 재시도가 필요한 상태입니다.",
+    detail: "가능한 일과 막히는 일을 먼저 확인합니다.",
+  },
+  {
+    title: "내부 확인용 데이터",
+    summary: "외부 연동 전 내부 확인에 쓰는 안내 상태입니다.",
+    detail: "실제 저장 완료나 외부 발송 완료로 설명하지 않습니다.",
+  },
+] as const;
 
 export function MenuPageContent({
   roleCode,
@@ -23,7 +55,7 @@ export function MenuPageContent({
     <PageShell
       backHref="/dashboard"
       backLabel="홈으로"
-      eyebrow="Phase 57 홈·메뉴 IA 실사용 UAT"
+      eyebrow="전체 기능 탐색"
       title="전체 메뉴 / 기능 탐색 허브"
       description="`/dashboard` 는 오늘 할 일 시작 홈으로, `/menu` 는 전체 기능 탐색 허브로 분리하고, 두 화면은 같은 바로가기·권한 registry 와 같은 모바일/PC 정보구조를 공유하도록 정리했습니다."
       actions={
@@ -46,7 +78,7 @@ export function MenuPageContent({
           <article className="info-card">
             <Pill>전체 기능 탐색</Pill>
             <h3>/menu</h3>
-            <p>홈에서 우선순위상 뒤로 밀린 기능군, 조회 메뉴, 협업 placeholder, 역할별 추가 진입점을 한 화면에서 다시 고르는 메뉴입니다.</p>
+            <p>홈에서 우선순위상 뒤로 밀린 기능군, 조회 메뉴, 협업 도구, 역할별 추가 진입점을 한 화면에서 다시 고르는 메뉴입니다.</p>
           </article>
           <article className="info-card">
             <Pill tone="warning">같은 기준 공유</Pill>
@@ -90,13 +122,34 @@ export function MenuPageContent({
         </ul>
       </SurfaceSection>
 
-      <Phase47StatusGuideSection title="모바일 상태 문장 가이드" description="한 손 사용 중에도 loading, empty, error, forbidden, offline, dev-safe 의미가 섞이지 않게 같은 문장을 유지합니다." />
+      <SurfaceSection title="모바일 상태 문장 가이드" description="한 손 사용 중에도 loading, empty, error, forbidden, offline, 내부 확인용 데이터 의미가 섞이지 않게 같은 문장을 유지합니다.">
+        <div className="grid-auto-compact">
+          {menuStatusGuideCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-      <Phase47RecommendedFlowSection
-        title="모바일 추천 확인 순서"
-        description="하단 탭과 전체 메뉴를 눌러 볼 때도 홈 → 복구 → 실제 업무 순서가 흔들리지 않게 고정합니다."
-        roleCode={roleCode}
-      />
+      <SurfaceSection title="모바일 추천 확인 순서" description="하단 탭과 전체 메뉴를 눌러 볼 때도 홈 → 복구 → 실제 업무 순서가 흔들리지 않게 고정합니다.">
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <h3>일반 직원 · 팀장 확인 순서</h3>
+            <p>같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.</p>
+            <p className="card-note">/login → /dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
+          </article>
+          {hasManagementMenuAccess(roleCode) ? (
+            <article className="info-card">
+              <h3>관리자 계정·정책 확인 순서</h3>
+              <p>모바일 메뉴에서는 일반 업무 뒤에만 경영업무 분리 메뉴를 확인합니다.</p>
+              <p className="card-note">/menu → /management → /admin/users → /admin/policies → /admin/audit-logs</p>
+            </article>
+          ) : null}
+        </div>
+      </SurfaceSection>
 
       {visibleMenuSections.map((section) => (
         <SurfaceSection key={section.title} title={section.title} description={section.description}>
@@ -113,15 +166,15 @@ export function MenuPageContent({
       ))}
 
       <SurfaceSection
-        title="Phase 57 메뉴 검토 포인트"
-        description="실사용 UAT에서 홈/메뉴 역할 분리와 권한별 노출 acceptance 를 확인할 때 꼭 같이 보는 기준입니다."
+        title="메뉴 검토 포인트"
+        description="실사용 기준으로 홈/메뉴 역할 분리와 권한별 노출 기준을 확인할 때 꼭 같이 보는 점검 항목입니다."
         muted
       >
         <ul className="summary-list">
           <li>모바일 홈(`/dashboard`)과 메뉴(`/menu`)가 같은 홈 바로가기 API를 읽고 같은 권한 기준을 사용한다.</li>
           <li>`/dashboard` 는 오늘 업무 시작 화면, `/menu` 는 전체 기능 탐색 화면으로 서로 다른 책임이 읽힌다.</li>
           <li>일반 사용자는 관리자/감사/경영업무 shortcut 을 받지 않고, 권한 있는 사용자만 개인 전용 바로가기로 본다.</li>
-          <li>메신저/메일/알림은 placeholder honesty 를 유지하고, 실제 외부 연동은 승인 게이트로 남긴다.</li>
+          <li>메신저/메일/알림은 현재 확인 가능한 범위를 안내하고, 실제 외부 연동은 승인 게이트로 남긴다.</li>
           <li>{hasManagementMenuAccess(roleCode) ? "현재 세션은 경영업무 분리 메뉴를 함께 확인해야 합니다." : "현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다."}</li>
         </ul>
       </SurfaceSection>

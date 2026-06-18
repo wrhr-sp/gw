@@ -36,7 +36,7 @@ describe("Phase 42A offline login retry guidance", () => {
 
     expect(html).toContain("네트워크 재연결 안내");
     expect(html).toContain("지금 가능한 일");
-    expect(html).toContain("읽기 중심 placeholder 탐색");
+    expect(html).toContain("읽기 중심 안내 탐색");
     expect(html).toContain("업무별 오프라인 경계");
     expect(html).toContain("근태");
     expect(html).toContain('href="/login"');

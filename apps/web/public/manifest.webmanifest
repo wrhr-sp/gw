@@ -1,5 +1,5 @@
 {
-  "name": "GW Cloudflare-first Skeleton",
+  "name": "그룹웨어 Web/PWA",
   "short_name": "GW Mobile",
   "description": "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
   "id": "/login",
@@ -22,7 +22,7 @@
     {
       "name": "근태",
       "short_name": "근태",
-      "description": "출퇴근 CTA 와 최근 기록 placeholder 를 엽니다.",
+      "description": "출퇴근 CTA 와 최근 기록 요약을 엽니다.",
       "url": "/attendance"
     },
     {

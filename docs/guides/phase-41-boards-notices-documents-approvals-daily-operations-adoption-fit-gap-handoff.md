@@ -31,7 +31,8 @@
 - `/approvals`
 - `/boards`
 - `/boards/board_general`
-- `/posts/board_post_board_general_employee_employee`
+- `/posts/board_post_demo`
+- `/posts/board_post_notice_1`
 - `/documents`
 - `/me`
 

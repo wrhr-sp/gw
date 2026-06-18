@@ -52,14 +52,14 @@ describe("Phase 37 internal operational storage boundaries", () => {
     const payrollHtml = renderToStaticMarkup(<PayrollPage />);
     const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
 
-    expect(managementHtml).toContain("Phase 56 경영업무 운영 허브 / 민감 레인 실사용화");
-    expect(managementHtml).toContain("`/uat` 에서 시나리오를 먼저 읽고");
-    expect(managementHtml).toContain("역할별 시나리오 + 이슈 템플릿");
-    expect(managementHtml).toContain("/admin/users 에서 계정관리 preview 와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
-    expect(managementHtml).toContain("/admin/policies 에서 current/candidate/capability/audit preview 형식 확인");
+    expect(managementHtml).toContain("지정 관리자 업무 허브");
+    expect(managementHtml).toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
+    expect(managementHtml).toContain("/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
+    expect(managementHtml).toContain("/admin/policies 에서 current/candidate/capability/audit 안내 형식 확인");
     expect(managementHtml).toContain("/api/health 에서 최소 liveness 기준만 기록");
     expect(managementHtml).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
-    expect(managementHtml).toContain("Phase 37 연결 체크");
+    expect(managementHtml).toContain("연결 체크");
+    expect(managementHtml).not.toMatch(/Phase |Skeleton|UAT|dev-safe|placeholder|skeleton/);
   
     expect(payrollHtml).toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
 

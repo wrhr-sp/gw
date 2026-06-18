@@ -46,15 +46,15 @@ describe("Phase 57 dashboard home boundary", () => {
   it("keeps dashboard focused on today-first work, role journeys, read-only lookup, and admin boundaries", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
-    expect(html).toContain("Phase 57 홈·메뉴 IA 실사용 UAT");
+    expect(html).toContain("오늘 할 일 시작 홈");
     expect(html).toContain("오늘 할 일");
     expect(html).toContain("홈 바로가기");
     expect(html).toContain("회사 공통 고정");
     expect(html).toContain("권한 기반 사용자 전용");
     expect(html).toContain("현장 업무 사용성 원칙");
     expect(html).toContain("상태 안내 기준선");
-    expect(html).toContain("Phase 47 추천 확인 순서");
-    expect(html).toContain("Phase 57 홈 역할 고정");
+    expect(html).toContain("추천 확인 순서");
+    expect(html).toContain("홈 역할 안내");
     expect(html).toContain("/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
     expect(html).toContain('href="/menu"');
     expect(html).toContain("/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me");
@@ -63,7 +63,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).not.toContain("감사 확인 순서");
     expect(html).toContain("loading");
     expect(html).toContain("forbidden");
-    expect(html).toContain("dev-safe / preview");
+    expect(html).toContain("참고용 요약 데이터");
     expect(html).toContain("오늘 출퇴근 먼저 처리");
     expect(html).toContain("휴가 잔여와 신청 확인");
     expect(html).toContain("승인 대기 보기");
@@ -83,18 +83,21 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("운영 요약");
     expect(html.indexOf("오늘 할 일")).toBeLessThan(html.indexOf("홈 바로가기"));
     expect(html.indexOf("홈 바로가기")).toBeLessThan(html.indexOf("상태 안내 기준선"));
-    expect(html.indexOf("상태 안내 기준선")).toBeLessThan(html.indexOf("Phase 47 추천 확인 순서"));
-    expect(html.indexOf("Phase 47 추천 확인 순서")).toBeLessThan(html.indexOf("승인/대기 요약"));
+    expect(html.indexOf("상태 안내 기준선")).toBeLessThan(html.indexOf("추천 확인 순서"));
+    expect(html.indexOf("추천 확인 순서")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
     expect(html).toContain("/management");
     expect(html).toContain("/admin/users");
     expect(html).toContain("/admin/policies");
     expect(html).toContain("/admin/audit-logs");
     expect(html).toContain("/api/health");
+    expect(html).not.toContain("내부 도입 리허설 패키지");
+    expect(html).not.toContain('href="/uat"');
     expect(html).toContain("/me");
     expect(html).toContain("/org");
     expect(html).toContain("막힐 때 다시 가는 현장 복구 경로");
-    expect(html).toContain("dev-safe 요약이며 실제 저장·발송·외부 연동은 이번 단계에서 실행하지 않습니다.");
+    expect(html).toContain("참고용 요약이며 실제 저장·발송·외부 연동은 각 업무 화면과 권한 범위에서 다시 확인해야 합니다.");
+    expect(html).not.toMatch(/Phase |Skeleton|UAT|dev-safe|placeholder|skeleton/);
     expect(html).not.toContain("경영업무 분리 진입");
     expect(html.indexOf("오늘 출퇴근 먼저 처리")).toBeLessThan(html.indexOf("휴가 잔여와 신청 확인"));
     expect(html.indexOf("휴가 잔여와 신청 확인")).toBeLessThan(html.indexOf("승인 대기 보기"));
@@ -196,12 +199,12 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain('href="/work-items/tax"');
     expect(html).toContain('href="/work-items/labor"');
     expect(html).toContain('href="/work-items/legal"');
-    expect(html).toContain("내부 도입 리허설 패키지");
-    expect(html).toContain('href="/uat"');
     expect(html).toContain("관리자 계정·정책 확인 순서");
     expect(html).toContain('href="/admin/users"');
     expect(html).toContain("/admin/policies");
     expect(html).toContain("/api/health");
+    expect(html).not.toContain("내부 도입 리허설 패키지");
+    expect(html).not.toContain('href="/uat"');
     expect(html).not.toContain("감사 확인 순서");
     expect(html).not.toContain('href="/admin/audit-logs"');
     expect(html).toContain("근태");

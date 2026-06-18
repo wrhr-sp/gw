@@ -64,7 +64,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
       />,
     );
 
-    expect(html).toContain("Phase 57 홈·메뉴 IA 실사용 UAT");
+    expect(html).toContain("전체 기능 탐색");
     expect(html).toContain("전체 메뉴 / 기능 탐색 허브");
     expect(html).toContain("홈과 메뉴 역할 분리");
     expect(html).toContain("/dashboard");
@@ -83,12 +83,13 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
     expect(html).not.toContain("감사 확인 순서");
     expect(html).toContain("loading");
-    expect(html).toContain("dev-safe / preview");
-    expect(html).toContain("Phase 57 메뉴 검토 포인트");
+    expect(html).toContain("내부 확인용 데이터");
+    expect(html).toContain("메뉴 검토 포인트");
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
     expect(html).not.toContain('href="/admin/users"');
     expect(html).not.toContain('href="/work-items/branch"');
+    expect(html).not.toMatch(/Phase |Skeleton|UAT|dev-safe|placeholder|skeleton/);
   });
 
   it("shows privileged personal shortcuts and management lane only for privileged viewers", () => {

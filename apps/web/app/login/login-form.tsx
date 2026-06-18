@@ -2,7 +2,7 @@
 
 import { appRoutes, errorResponseSchema, meResponseSchema, type RoleCode } from "@gw/shared";
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { devSafeRoleOptions, getPostLoginRoute } from "../../dev-safe-auth";
 
@@ -24,6 +24,7 @@ export function LoginForm() {
   const [roleCode, setRoleCode] = useState<RoleCode>(defaultRoleCode);
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -37,6 +38,7 @@ export function LoginForm() {
     }
 
     setRoleCode(resolveRoleCodeFromSearch(window.location.search));
+    setSignedOut(new URLSearchParams(window.location.search).get("signedOut") === "1");
   }, []);
 
   useEffect(() => {
@@ -69,6 +71,11 @@ export function LoginForm() {
 
     return () => controller.abort();
   }, []);
+
+  const selectedRoleOption = useMemo(
+    () => devSafeRoleOptions.find((option) => option.value === roleCode) ?? devSafeRoleOptions[0],
+    [roleCode],
+  );
 
   return (
     <form
@@ -113,6 +120,7 @@ export function LoginForm() {
         }
       }}
     >
+      {signedOut ? <p className="meta-copy">로그아웃이 완료되었습니다. 다시 로그인하면 역할별 첫 화면으로 이동합니다.</p> : null}
       <div className="field-grid">
         <label>
           <span className="meta-copy">아이디</span>
@@ -140,6 +148,20 @@ export function LoginForm() {
           />
         </label>
       </div>
+      <label>
+        <span className="meta-copy">UAT 역할 선택</span>
+        <select className="field" name="roleCode" value={roleCode} onChange={(event) => setRoleCode(event.target.value as RoleCode)}>
+          {devSafeRoleOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="meta-copy">
+        선택한 역할: {selectedRoleOption.label} · 로그인 후 첫 화면 {selectedRoleOption.landingRoute}
+      </p>
+      <p className="meta-copy">{selectedRoleOption.description}</p>
       <div className="login-options-row">
         <label className="login-option">
           <input type="checkbox" name="rememberLoginId" checked={rememberLoginId} onChange={(event) => setRememberLoginId(event.target.checked)} />
