@@ -1,7 +1,7 @@
 "use client";
 
-import type { RoleCode } from "@gw/shared";
-import { usePathname } from "next/navigation";
+import { appRoutes, type RoleCode } from "@gw/shared";
+import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
@@ -51,6 +51,13 @@ type TopbarIconLinkProps = {
   label: string;
   iconName?: FeatureIconName;
   children?: ReactNode;
+};
+
+type TopbarProfileState = {
+  fullName: string;
+  email: string;
+  departmentName: string;
+  positionLabel: string;
 };
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -293,15 +300,30 @@ function BottomTabIcon({ href, title, className = "bottom-nav__icon-svg" }: TabI
   return iconName ? <FeatureIcon className={className} name={iconName} title={title} /> : null;
 }
 
-function ProfileAvatarIcon() {
-  return (
-    <span className="topbar-profile-avatar" aria-hidden="true">
-      <svg className="topbar-profile-avatar__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} viewBox="0 0 24 24">
-        <circle cx="12" cy="8.25" r="3.25" />
-        <path d="M5.75 19.25a6.25 6.25 0 0 1 12.5 0" />
-      </svg>
-    </span>
-  );
+function ProfileAvatarIcon({ className = "topbar-profile-avatar" }: { className?: string }) {
+  return <img className={className} src="/profile-avatar-placeholder.svg" alt="" aria-hidden="true" loading="lazy" decoding="async" />;
+}
+
+function getRoleLabel(roleCode: RoleCode | null) {
+  const labels: Partial<Record<RoleCode, string>> = {
+    SUPER_ADMIN: "최고관리자",
+    COMPANY_ADMIN: "총괄관리자",
+    HR_ADMIN: "인사관리자",
+    MANAGER: "관리자",
+    AUDITOR: "감사 담당자",
+    EMPLOYEE: "직원",
+  };
+
+  return roleCode ? labels[roleCode] ?? roleCode : "직책 미지정";
+}
+
+function buildFallbackProfile(roleCode: RoleCode | null): TopbarProfileState {
+  return {
+    fullName: roleCode === "COMPANY_ADMIN" ? "총괄관리계정" : "사용자",
+    email: "이메일 확인 중",
+    departmentName: "소속 부서 미지정",
+    positionLabel: getRoleLabel(roleCode),
+  };
 }
 
 function TopbarIconLink({ href, label, iconName, children }: TopbarIconLinkProps) {
@@ -360,17 +382,22 @@ export function MobileAppShell({
   currentRoleCode,
 }: MobileAppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
+  const [profileActionPending, setProfileActionPending] = useState(false);
+  const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
-  void currentRoleCode;
 
   const activeSectionTitle = useMemo(() => {
     const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
@@ -390,6 +417,91 @@ export function MobileAppShell({
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
   const nextPortalIcon = isManagementPortal ? "home" : "dashboard";
+
+
+  useEffect(() => {
+    setProfileState((value) => ({
+      ...value,
+      positionLabel: getRoleLabel(currentRoleCode),
+      fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
+    }));
+  }, [currentRoleCode]);
+
+  useEffect(() => {
+    if (isLoginRoute || !currentRoleCode) {
+      return;
+    }
+
+    let active = true;
+    fetch(appRoutes.me, { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`me ${response.status}`);
+        }
+
+        return (await response.json()) as {
+          ok?: boolean;
+          data?: {
+            user?: {
+              fullName?: string;
+              email?: string;
+              roleCodes?: RoleCode[];
+            };
+          };
+        };
+      })
+      .then((payload) => {
+        if (!active || !payload.ok) {
+          return;
+        }
+
+        const user = payload.data?.user;
+        const primaryRole = user?.roleCodes?.[0] ?? currentRoleCode;
+        setProfileState({
+          fullName: user?.fullName?.trim() || buildFallbackProfile(currentRoleCode).fullName,
+          email: user?.email || "이메일 미등록",
+          departmentName: "소속 부서 미지정",
+          positionLabel: getRoleLabel(primaryRole),
+        });
+      })
+      .catch(() => {
+        if (active) {
+          setProfileState(buildFallbackProfile(currentRoleCode));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentRoleCode, isLoginRoute]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) {
+      return;
+    }
+
+    function closeProfileMenu(event: MouseEvent) {
+      if (profileMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsProfileMenuOpen(false);
+    }
+
+    function closeProfileMenuWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsProfileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeProfileMenu);
+    document.addEventListener("keydown", closeProfileMenuWithEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeProfileMenu);
+      document.removeEventListener("keydown", closeProfileMenuWithEscape);
+    };
+  }, [isProfileMenuOpen]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -488,6 +600,31 @@ export function MobileAppShell({
     };
   }, [isLoginRoute, notificationTab]);
 
+
+  async function handleProfileLogout() {
+    setProfileActionPending(true);
+    setProfileActionError(null);
+
+    try {
+      const response = await fetch(appRoutes.auth.logout, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) {
+        throw new Error(`logout failed: ${response.status}`);
+      }
+
+      setIsProfileMenuOpen(false);
+      router.push("/login?signedOut=1");
+      router.refresh();
+    } catch (error) {
+      setProfileActionError(error instanceof Error ? error.message : "로그아웃에 실패했습니다.");
+    } finally {
+      setProfileActionPending(false);
+    }
+  }
+
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -573,9 +710,49 @@ export function MobileAppShell({
                   <TopbarIconLink href="/admin/policies" label="설정" iconName="settings" />
                   <TopbarIconLink href="/boards" label="공지" iconName="board" />
                   <TopbarIconLink href="/notifications" label="알림" iconName="notification" />
-                  <TopbarIconLink href="/me" label="내 정보">
-                    <ProfileAvatarIcon />
-                  </TopbarIconLink>
+                  <div className="topbar-profile-menu" ref={profileMenuRef}>
+                    <button
+                      type="button"
+                      className="topbar-icon-link topbar-profile-button"
+                      aria-expanded={isProfileMenuOpen}
+                      aria-haspopup="menu"
+                      aria-label="내 정보"
+                      title="내 정보"
+                      onClick={() => setIsProfileMenuOpen((value) => !value)}
+                    >
+                      <ProfileAvatarIcon />
+                    </button>
+                    {isProfileMenuOpen ? (
+                      <div className="topbar-profile-popover" role="menu" aria-label="내 정보 메뉴">
+                        <div className="topbar-profile-popover__summary">
+                          <ProfileAvatarIcon className="topbar-profile-popover__avatar" />
+                          <div className="topbar-profile-popover__identity">
+                            <strong>{profileState.fullName}</strong>
+                            <span>{profileState.positionLabel}</span>
+                          </div>
+                        </div>
+                        <div className="topbar-profile-popover__meta">
+                          <span>{profileState.departmentName}</span>
+                          <span>{profileState.email}</span>
+                        </div>
+                        <div className="topbar-profile-popover__actions">
+                          <a href="/me" className="topbar-profile-popover__action" role="menuitem">
+                            내정보 설정
+                          </a>
+                          <button
+                            type="button"
+                            className="topbar-profile-popover__action topbar-profile-popover__action--danger"
+                            disabled={profileActionPending}
+                            role="menuitem"
+                            onClick={handleProfileLogout}
+                          >
+                            {profileActionPending ? "로그아웃 중..." : "로그아웃"}
+                          </button>
+                        </div>
+                        {profileActionError ? <p className="topbar-profile-popover__error">{profileActionError}</p> : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               ) : null}
               {showMobileMenuShortcut ? (
