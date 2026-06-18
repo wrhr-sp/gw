@@ -145,7 +145,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     const html = renderToStaticMarkup(await ManagementPage());
 
     expect(html).toContain("경영업무");
-    expect(html).toContain("Phase 55 역할별 운영 레인");
+    expect(html).toContain("Phase 56 역할별 운영 레인");
     expect(html).toContain("/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain("계정관리 → 조직조회 → 경영업무 브리지");

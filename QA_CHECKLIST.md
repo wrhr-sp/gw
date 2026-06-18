@@ -102,6 +102,21 @@
 - [ ] forbidden/error/empty/offline 이 같은 실패 상태처럼 섞이지 않고, 로그인 실패/권한 부족/정상 빈 상태/오프라인 복구 안내가 각자 다른 뜻으로 유지된다.
 - [ ] 타 회사 employee id, foreign request id, self-approval, disallowed attendance method 차단이 문서/route/API/test 에서 같은 guardrail 로 설명된다.
 - [ ] audit detail, 문서/첨부, 민감자료 설명이 masked preview·metadata-only·read-only 경계를 유지하고 raw storage key/bucket/signed URL/secret 비노출 원칙을 깬 문장이 없다.
+- [ ] Phase 55 관리자 계정·권한·조직 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 55 범위라면 `/admin/users` 가 관리자 계정·권한 시작점처럼 읽히고, 사용자 생성 preview → 역할/권한 diff → 조직 read model 확인 흐름이 실제 운영 순서로 이어진다.
+- [ ] Phase 55 범위라면 `/employees` 일반 조회, `/org` 구조 확인, `/management` 운영 허브, `/admin/audit-logs` 감사 read-only 책임이 먼저 구분돼 보인다.
+- [ ] Phase 55 범위라면 `MANAGER` 의 `/admin/users` 차단, `HR_ADMIN` 의 `/admin/audit-logs` 차단, `AUDITOR` 의 `/admin/audit-logs` read-only 허용이 UI/route/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 55 범위라면 admin role, `permission.read`, `audit.read`, company scope, branch scope, `createdFrom`/`createdTo` 필터 기준이 문서/화면/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 55 범위라면 masked preview 와 raw storage key/bucket/public URL/signed URL/secret 비노출 원칙이 감사/운영 설명에서 깨지지 않는다.
+- [ ] Phase 55 범위라면 empty/loading/error/forbidden/dev-safe 가 관리자 계정·조직 route 기준으로 분명히 보이고, `preview`·`guard 확인`·`audit candidate` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
+- [ ] Phase 56 관리자 지정 경영업무 1차 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
+- [ ] Phase 56 범위라면 `/management` 가 민감 운영 허브처럼 읽히고, 일반 직원 홈 CTA 와 같은 책임처럼 보이지 않는다.
+- [ ] Phase 56 범위라면 `/payroll` 운영 급여 lane 과 `/payroll/me` self-only lane 이 서로 다른 책임으로 읽힌다.
+- [ ] Phase 56 범위라면 `/work-items/tax`, `/work-items/labor`, `/work-items/legal` 이 같은 관리자 기능처럼 뭉개지지 않고 branch/company/self/restricted 경계가 같은 뜻으로 유지된다.
+- [ ] Phase 56 범위라면 일반 직원의 `/management`·`/work-items/*` 차단, 지정 관리자 접근, `AUDITOR` 의 `/admin/audit-logs` read-only 허용이 UI/route/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 56 범위라면 company scope, branch scope, self scope, restricted scope, `audit.read` 기준이 문서/화면/API/test 에서 같은 뜻으로 유지된다.
+- [ ] Phase 56 범위라면 masked preview 와 raw storage key/bucket/public URL/signed URL/secret 비노출 원칙이 급여/세무/노무/법무/감사 설명에서 깨지지 않는다.
+- [ ] Phase 56 범위라면 empty/loading/error/forbidden/dev-safe 가 경영업무 route 기준으로 분명히 보이고, `preview`·`guard 확인`·`실사용 패널` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
 - [ ] Phase 54 문서함·파일 실사용화 범위라면 익명 시작점이 `/login` 만 유지되고, `admin / 1234` 가 dev/test/UAT 전용 계정으로만 읽히며 production 기본 계정처럼 적히지 않는다.
 - [ ] Phase 54 범위라면 `/documents` 가 문서 실사용 시작점처럼 읽히고, 문서 공간 확인 → 파일 metadata 확인 → 업로드 준비 → 다운로드 준비 → 읽음 확인 흐름이 실제 업무 순서로 이어진다.
 - [ ] Phase 54 범위라면 전사 문서함과 인사 전용 문서함 책임이 먼저 구분돼 보인다.
