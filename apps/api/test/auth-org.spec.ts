@@ -230,6 +230,10 @@ describe("Phase 2 auth/org skeleton", () => {
     const shortcutsPayload = listHomeShortcutsResponseSchema.parse(await shortcutsResponse.json());
     expect(shortcutsPayload.data.items.some((item) => item.code === "attendance" && item.scope === "company")).toBe(true);
     expect(shortcutsPayload.data.items.some((item) => item.code === "admin_users" && item.scope === "user")).toBe(true);
+    expect(shortcutsPayload.data.notices).toEqual([
+      "운영 DB 연결값이 없으면 기본 홈 바로가기 세트를 사용합니다.",
+      "권한별 추가 바로가기는 현재 세션 권한을 기준으로만 계산합니다.",
+    ]);
 
     const companiesResponse = await app.request(appRoutes.org.companies, {
       headers: {
