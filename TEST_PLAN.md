@@ -9,6 +9,17 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 53 추가 검증 초점
+
+- `/attendance` 가 live URL에서 실제 근태 시작점처럼 읽히는지 본다.
+- `/leave` 가 live URL에서 실제 휴가 시작점처럼 읽히는지 본다.
+- 직원 근태 흐름(출근 → 오늘 상태 확인 → 퇴근 → 정정 요청)과 휴가 흐름(잔여 확인 → 신청 → 상태 확인)이 실제 업무 순서로 이어지는지 본다.
+- 승인자 lane 과 운영 정책 lane(`/admin/policies`)이 직원 CTA 와 섞이지 않는지 본다.
+- 미허용 출퇴근 방식, 미허용 휴가유형, self-approval, foreign/unknown request id 차단이 route/API/UI 설명에서 같은 뜻인지 본다.
+- 권한 부족 / 정책 미허용 / 회사 scope / placeholder 제한 4축이 근태·휴가 화면 모두에 같은 구조로 보이는지 본다.
+- empty / loading / error / forbidden / dev-safe 상태가 route 기준으로 분명히 보이고 서로 다른 뜻으로 읽히는지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 52 추가 검증 초점
 
 - `/approvals` 가 live URL에서 실제 전자결재 시작점처럼 읽히는지 본다.

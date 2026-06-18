@@ -18,23 +18,23 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 52 전자결재 실사용화 체인이다. 이번 Phase의 목적은 기존 전자결재 API·route·테스트 기준선을 바탕으로 대장이 live URL에서 `/approvals` 를 직접 눌러 내 승인함 → 내 기안함 → 문서 상세 → 승인/반려 → 의견·이력 확인까지 이어 볼 수 있게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 53 휴가·근태 실사용화 체인이다. 이번 Phase의 목적은 기존 근태·휴가 API·route·테스트 기준선을 바탕으로 대장이 live URL에서 `/attendance`, `/leave` 를 직접 눌러 출근/퇴근/정정 요청과 잔여 확인/휴가 신청/승인·반려 흐름까지 이어 볼 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/approvals/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/web/dashboard-page-content.tsx` 기준으로 전자결재 목록/기안/승인·반려 preview/UI 뼈대가 이미 존재한다.
-- `apps/api/test/auth-org.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 forms/lines/documents/inbox, same-company 후보 제한, self-approval 차단, replay 차단, unknown id 차단 API 근거가 이미 존재한다.
-- 현재 Phase 52 기준 문서는 `docs/architecture/phase-52-approvals-live-operations-fit-gap-scope.md`, `docs/guides/phase-52-approvals-live-operations-handoff.md`, `docs/guides/phase-52-approvals-live-operations-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-51-boards-live-operations-fit-gap-scope.md`, `docs/guides/phase-51-boards-live-operations-handoff.md`, `docs/guides/phase-51-boards-live-operations-guide.md` 다.
-- 현재 메인 체인은 `t_72474725`(기획 진행 중) → `t_05018199`(구현 부모 대기) → `t_6cd426f1`(리뷰 부모 대기) → `t_a3add90f`(테스트 부모 대기) → `t_6745df98`(문서화 부모 대기) → `t_5980157c`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
+- `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx` 기준으로 근태/휴가 직원 흐름, 승인자 확인, 상태 변경 preview/UI 뼈대가 이미 존재한다.
+- `apps/api/test/auth-org.spec.ts`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 기준으로 check-in/check-out/correction, leave request/approve/reject, self-approval 차단, foreign/unknown request 차단 API 근거가 이미 존재한다.
+- 현재 Phase 53 기준 문서는 `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`, `docs/guides/phase-53-leave-attendance-live-operations-handoff.md`, `docs/guides/phase-53-leave-attendance-live-operations-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-52-approvals-live-operations-fit-gap-scope.md`, `docs/guides/phase-52-approvals-live-operations-handoff.md`, `docs/guides/phase-52-approvals-live-operations-guide.md` 다.
+- 현재 메인 체인은 `t_88f64ab6`(기획 진행 중) → `t_b729d0a6`(구현 부모 대기) → `t_40689590`(리뷰 부모 대기) → `t_c157ce5b`(테스트 부모 대기) → `t_e92efde2`(문서화 부모 대기) → `t_42d0a17a`(GitHub/배포 후속 부모 대기) 순서로 정리된다.
 - Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
-2026-06-18 Phase 52 fit-gap 메모:
+2026-06-18 Phase 53 fit-gap 메모:
 
-- 바로 확인 가능한 영역: `/approvals`, 관련 same-origin approvals API, route/API/test 근거.
-- 현재 기획 근거는 `apps/web/app/approvals/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/web/dashboard-page-content.tsx`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `packages/shared/src/contracts.ts` 다.
-- 이번 Phase에서 가장 먼저 다시 고정할 것은 내 승인함 → 내 기안함 → 문서 상세 → 승인/반려 → 의견·상태 이력 happy path 와 기안자/승인자/운영정책 책임 차이를 실제 사용자 흐름으로 읽히게 만드는 것이다.
-- empty/loading/error/forbidden/dev-safe 상태, 승인 권한 부족, self-approval 금지, replay 차단, company scope/unknown id 차단 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
+- 바로 확인 가능한 영역: `/attendance`, `/leave`, 관련 same-origin attendance/leave API, route/API/test 근거.
+- 현재 기획 근거는 `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/_components/real-usage-panels.tsx`, `apps/api/src/app.ts`, `apps/api/test/auth-org.spec.ts`, `packages/shared/src/contracts.ts` 다.
+- 이번 Phase에서 가장 먼저 다시 고정할 것은 직원 근태 흐름(출근 → 상태 확인 → 퇴근 → 정정 요청), 직원 휴가 흐름(잔여 확인 → 신청 → 상태 확인), 승인자 lane, 운영정책 lane 책임 차이를 실제 사용자 흐름으로 읽히게 만드는 것이다.
+- empty/loading/error/forbidden/dev-safe 상태, 권한 부족, self-approval 금지, 미허용 출퇴근 방식/휴가유형 차단, company scope/unknown id 차단 설명을 route/UI/API/test 에서 같은 말로 유지해야 한다.
 - `preview`, `guard 확인`, `감사 후보` 같은 내부 검증 문구가 live 실사용 문구를 덮지 않도록 정리해야 한다.
 - `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
 - production DB, 외부 IdP/SSO, 실급여/실신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.

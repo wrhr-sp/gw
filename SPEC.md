@@ -317,24 +317,25 @@
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
 
-### 2-16. 전자결재 실사용화 기준은 Phase 52 문장으로 잠근다.
+### 2-16. 휴가·근태 실사용화 기준은 Phase 53 문장으로 잠근다.
 
-- Phase 52의 목표는 approvals 관련 route/API/test 존재 자체가 아니라, `/approvals` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
-- `/approvals` 는 내 승인함, 내 기안함, 참조/합의 확인함을 함께 보여 줄 수 있어도 책임은 먼저 분리해서 읽혀야 한다.
-- 기안자 lane 은 양식 선택 → 결재선 선택 → 참조/합의 후보 선택 → 제목/요약 입력 → 상태 확인 흐름으로 설명해야 한다.
-- 승인자 lane 은 승인함 진입 → 문서 상세 검토 → 승인/반려 → 상태/이력 확인 흐름으로 설명해야 한다.
-- `approval.document.approve` 권한 없는 사용자의 승인함 접근 차단, self-approval 금지, replay 차단, same-company 후보 제한, unknown document id 차단이 같은 뜻으로 맞아야 한다.
+- Phase 53의 목표는 attendance/leave 관련 route/API/test 존재 자체가 아니라, `/attendance`, `/leave` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
+- `/attendance` 는 직원 근태 흐름(출근 → 오늘 상태 확인 → 퇴근 → 정정 요청), 승인자 예외 검토, 운영 정책 확인을 한 화면에 둘 수 있어도 책임은 먼저 분리해서 읽혀야 한다.
+- `/leave` 는 잔여 확인 → 신청 → 상태 확인 흐름과 승인자 approve/reject 흐름을 함께 보여 줄 수 있어도 신청자 lane 과 승인자 lane 을 먼저 분리해서 읽혀야 한다.
+- `leave.approve` 권한 없는 사용자의 승인 액션 접근 차단, self-approval 금지, 미허용 출퇴근 방식/휴가유형 차단, foreign/unknown request id 차단이 같은 뜻으로 맞아야 한다.
+- 권한 부족 / 정책 미허용 / 회사 scope / placeholder 제한 4축이 `/attendance`, `/leave`, `/admin/policies` 설명에서 같은 뜻으로 맞아야 한다.
 - empty/loading/error/forbidden/dev-safe 는 placeholder 가 아니라 실제 사용자가 이해할 수 있는 상태여야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
-- 실전자서명, 법적 효력, 외부 발송, production 실데이터, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
+- GPS/위치정보, 태그 단말 실연동, 실급여/실정산 자동 반영, 외부 HR/급여/세무/노무 시스템 연동, production 실데이터, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
 
 근거:
-- `docs/architecture/phase-52-approvals-live-operations-fit-gap-scope.md`
-- `docs/guides/phase-52-approvals-live-operations-handoff.md`
-- `docs/architecture/phase-41-boards-notices-documents-approvals-daily-operations-adoption-fit-gap-scope.md`
-- `apps/web/app/approvals/page.tsx`
+- `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`
+- `docs/guides/phase-53-leave-attendance-live-operations-handoff.md`
+- `docs/guides/phase-53-leave-attendance-live-operations-guide.md`
+- `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md`
+- `apps/web/app/attendance/page.tsx`
+- `apps/web/app/leave/page.tsx`
 - `apps/web/app/_components/real-usage-panels.tsx`
-- `apps/web/dashboard-page-content.tsx`
 - `apps/api/src/app.ts`
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
@@ -411,6 +412,8 @@
 
 관련 문서:
 - `docs/architecture/phase-3-attendance-leave-scope.md`
+- `docs/architecture/phase-42-attendance-leave-hr-branch-operations-adoption-fit-gap-scope.md`
+- `docs/architecture/phase-53-leave-attendance-live-operations-fit-gap-scope.md`
 
 ### 4-3. 전자결재
 

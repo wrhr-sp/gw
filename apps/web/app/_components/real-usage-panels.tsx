@@ -1,8 +1,22 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, type FormEvent } from "react";
-import { appRoutes } from "@gw/shared";
+import {
+  appRoutes,
+  type AttendanceListRecordsResponse,
+  type AttendanceRegistrationMethod,
+  type LeaveBalanceListResponse,
+  type LeaveRequest,
+  type LeaveRequestListResponse,
+  type LeaveTypeListResponse,
+} from "@gw/shared";
 
+import {
+  attendanceRegistrationMethodLabels,
+  employeeAttendanceEffectivePolicy,
+  getAttendancePagePolicyView,
+  leaveTypeCodeLabels,
+} from "../../admin-skeleton-config";
 import { getPostLoginRoute } from "../../dev-safe-auth";
 import { Pill } from "./page-shell";
 
@@ -226,6 +240,30 @@ function MutationResult({
 
 function hasSessionPermission(session: SessionPayload | null, permission: string) {
   return session?.user.permissions.includes(permission) ?? false;
+}
+
+const attendanceLivePolicyView = getAttendancePagePolicyView(employeeAttendanceEffectivePolicy);
+const attendanceLiveAllowedMethods = attendanceLivePolicyView.allowedMethods;
+const attendancePrimaryMethod = attendanceLiveAllowedMethods[0] ?? "tag";
+
+export function pickLeaveApprovalRequest(session: SessionPayload | null, requests: readonly LeaveRequest[] | null | undefined) {
+  if (!session || !requests?.length) {
+    return null;
+  }
+
+  return requests.find((request) => request.approvalStatus === "pending" && request.employeeId !== session.user.employeeId) ?? null;
+}
+
+export function canShowLeaveApprovalActions(
+  session: SessionPayload | null,
+  policySummary: LeaveBalanceListResponse["data"]["leavePolicySummary"] | LeaveRequestListResponse["data"]["leavePolicySummary"] | null | undefined,
+  approvalRequest: LeaveRequest | null,
+) {
+  if (!session || !approvalRequest || !policySummary) {
+    return false;
+  }
+
+  return hasSessionPermission(session, "leave.approve") && policySummary.approvalQueueVisibleToCurrentUser;
 }
 
 type ApprovalDetailLike = {
@@ -490,7 +528,12 @@ export function AttendanceLiveSection() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
-  const { data, error, loading } = useApiQuery<{ items: Array<Record<string, any>>; policyContext: Record<string, any> }>(appRoutes.attendance.records, refreshSeed);
+  const { data, error, loading } = useApiQuery<AttendanceListRecordsResponse["data"]>(appRoutes.attendance.records, refreshSeed);
+  const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
+  const canUseAttendance = hasSessionPermission(session.data ?? null, "attendance.read");
+  const correctionTargetId = data?.items[0]?.id ?? null;
+  const correctionBlocked = !correctionTargetId || pending || !canUseAttendance;
+  const attendanceActionLabel = attendanceRegistrationMethodLabels[attendancePrimaryMethod as AttendanceRegistrationMethod];
 
   async function runAction(url: string, title: string, body: Record<string, unknown>) {
     setPending(true);
@@ -524,30 +567,47 @@ export function AttendanceLiveSection() {
       <div className="grid-auto-compact">
         <article className="info-card">
           <Pill tone="accent">실제 근태 기록</Pill>
-          <QueryState loading={loading} error={error} emptyMessage={!data ? "기록이 없습니다." : undefined} />
+          <QueryState loading={loading} error={error} emptyMessage={!data ? "오늘 근태 기록이 아직 없습니다. 로그인 후 출근 등록부터 시작하세요." : undefined} />
           {data ? (
             <>
               <h3>{data.items[0]?.status ?? "-"}</h3>
               <p>{data.policyContext.currentState}</p>
+              <p className="card-note">
+                {session.data
+                  ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 본인 기록을 확인합니다.`
+                  : "로그인 전이면 /login 에서 admin / 1234 로 먼저 시작하세요."}
+              </p>
             </>
           ) : null}
         </article>
         <article className="info-card">
-          <Pill>상태 변경 테스트</Pill>
+          <Pill>직원 실행 레인</Pill>
+          <h3>{attendanceActionLabel} 기준 출근 → 상태 확인 → 퇴근</h3>
+          <p className="card-note">승인자 검토와 운영 정책 확인은 이 카드에서 섞지 않고, 직원이 직접 해보는 순서만 남깁니다.</p>
           <div className="action-row" style={{ marginTop: 8 }}>
-            <button className="touch-button" disabled={pending} onClick={() => runAction(appRoutes.attendance.checkIn, "출근 등록", { attendanceRegistrationMethod: "tag" })} type="button">
-              태그 출근
+            <button
+              className="touch-button"
+              disabled={pending || !canUseAttendance}
+              onClick={() => runAction(appRoutes.attendance.checkIn, `${attendanceActionLabel} 출근 등록`, { attendanceRegistrationMethod: attendancePrimaryMethod })}
+              type="button"
+            >
+              {attendanceActionLabel} 출근 등록
             </button>
-            <button className="touch-button--secondary" disabled={pending} onClick={() => runAction(appRoutes.attendance.checkOut, "퇴근 등록", { attendanceRegistrationMethod: "pc" })} type="button">
-              PC 퇴근
+            <button
+              className="touch-button--secondary"
+              disabled={pending || !canUseAttendance}
+              onClick={() => runAction(appRoutes.attendance.checkOut, `${attendanceActionLabel} 퇴근 등록`, { attendanceRegistrationMethod: attendancePrimaryMethod })}
+              type="button"
+            >
+              {attendanceActionLabel} 퇴근 등록
             </button>
           </div>
           <button
             className="touch-button--secondary"
-            disabled={pending}
+            disabled={correctionBlocked}
             onClick={() =>
               runAction(appRoutes.attendance.corrections, "정정 요청", {
-                attendanceRecordId: data?.items[0]?.id ?? "attendance_record_today",
+                attendanceRecordId: correctionTargetId,
                 reason: "퇴근 시간이 누락되었습니다.",
                 requestedCheckOutAt: "2026-06-10T18:10:00.000Z",
                 note: "QR 체크아웃 누락",
@@ -558,6 +618,23 @@ export function AttendanceLiveSection() {
           >
             정정 요청 preview
           </button>
+          <p className="card-note" style={{ marginTop: 12 }}>
+            {!canUseAttendance
+              ? "attendance.read 권한이 없으면 버튼 대신 차단 안내만 확인합니다."
+              : correctionTargetId
+                ? "정정 요청은 방금 조회한 본인 기록에만 연결합니다. 다른 직원 기록이나 forged id 는 성공처럼 처리하지 않습니다."
+                : "먼저 오늘 기록을 조회하거나 출근/퇴근 등록을 한 뒤 정정 요청을 이어가세요."}
+          </p>
+        </article>
+        <article className="info-card">
+          <Pill>승인자 / 운영자 분리</Pill>
+          <h3>직원 화면은 오늘 기록과 예외 요청까지만</h3>
+          <p>예외 검토와 정책 source 비교는 승인자/운영자 레인에서 확인합니다.</p>
+          <ul className="summary-list" style={{ marginTop: 12 }}>
+            <li><a href={appRoutes.attendance.records}>{appRoutes.attendance.records}</a> — 본인 최근 기록과 현재 상태</li>
+            <li><a href={appRoutes.attendance.corrections}>{appRoutes.attendance.corrections}</a> — 본인 정정 요청 생성 preview</li>
+            <li><a href="/admin/policies">/admin/policies</a> — 허용 방식과 운영 기준 source 비교</li>
+          </ul>
         </article>
       </div>
       {data ? (
@@ -580,8 +657,14 @@ export function LeaveLiveSection() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
-  const balances = useApiQuery<{ items: Array<Record<string, any>>; leavePolicySummary: Record<string, any> }>(appRoutes.leave.balances, refreshSeed);
-  const requests = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.leave.requests, refreshSeed);
+  const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
+  const types = useApiQuery<LeaveTypeListResponse["data"]>(appRoutes.leave.types, refreshSeed);
+  const balances = useApiQuery<LeaveBalanceListResponse["data"]>(appRoutes.leave.balances, refreshSeed);
+  const requests = useApiQuery<LeaveRequestListResponse["data"]>(appRoutes.leave.requests, refreshSeed);
+  const canRequestLeave = hasSessionPermission(session.data ?? null, "leave.request");
+  const approvalRequest = pickLeaveApprovalRequest(session.data ?? null, requests.data?.items);
+  const showApprovalActions = canShowLeaveApprovalActions(session.data ?? null, requests.data?.leavePolicySummary ?? balances.data?.leavePolicySummary, approvalRequest);
+  const selectedLeaveType = types.data?.items.find((item) => item.code === balances.data?.leavePolicySummary.allowedLeaveTypeCodes[0]) ?? types.data?.items[0] ?? null;
 
   async function runAction(url: string, title: string, body: Record<string, unknown>) {
     setPending(true);
@@ -615,25 +698,34 @@ export function LeaveLiveSection() {
       <div className="grid-auto-compact">
         <article className="info-card">
           <Pill tone="accent">잔여/승인 현황</Pill>
-          <QueryState loading={balances.loading || requests.loading} error={balances.error ?? requests.error} />
+          <QueryState loading={types.loading || balances.loading || requests.loading} error={types.error ?? balances.error ?? requests.error} />
           {balances.data ? (
             <>
               <h3>{balances.data.items.length}개 휴가 유형</h3>
-              <p className="card-note">허용 유형: {balances.data.leavePolicySummary.allowedLeaveTypeCodes?.join(", ")}</p>
+              <p className="card-note">
+                허용 유형: {balances.data.leavePolicySummary.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels] ?? code).join(", ")}
+              </p>
+              <p className="card-note">
+                {session.data
+                  ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 내 잔여와 요청 상태를 읽고 있습니다.`
+                  : "로그인 전이면 /login 에서 admin / 1234 로 먼저 시작하세요."}
+              </p>
             </>
           ) : null}
         </article>
         <article className="info-card">
-          <Pill>상태 변경 테스트</Pill>
+          <Pill>신청자 실행 레인</Pill>
+          <h3>잔여 확인 → 신청 → 내 상태 확인</h3>
+          <p className="card-note">일반 직원은 승인 버튼 대신 본인 신청과 잔여 snapshot 을 중심으로 확인합니다.</p>
           <button
             className="touch-button"
-            disabled={pending}
+            disabled={pending || !canRequestLeave || !selectedLeaveType}
             onClick={() =>
               runAction(appRoutes.leave.requests, "휴가 신청", {
-                leaveTypeId: "leave_type_annual",
+                leaveTypeId: selectedLeaveType?.id,
                 startDate: "2026-06-20",
                 endDate: "2026-06-20",
-                unit: "day",
+                unit: selectedLeaveType?.unit ?? "day",
                 days: 1,
                 reason: "가족 행사",
               })
@@ -642,24 +734,44 @@ export function LeaveLiveSection() {
           >
             휴가 신청 preview
           </button>
-          <div className="action-row" style={{ marginTop: 12 }}>
-            <button
-              className="touch-button--secondary"
-              disabled={pending}
-              onClick={() => runAction(appRoutes.leave.approve("leave_request_team_pending"), "휴가 승인", { reason: "인수인계 계획 확인 완료" })}
-              type="button"
-            >
-              팀 요청 승인
-            </button>
-            <button
-              className="touch-button--secondary"
-              disabled={pending}
-              onClick={() => runAction(appRoutes.leave.reject("leave_request_team_pending"), "휴가 반려", { reason: "대체 근무자 확인 전 재조정 필요" })}
-              type="button"
-            >
-              팀 요청 반려
-            </button>
-          </div>
+          <p className="card-note" style={{ marginTop: 12 }}>
+            {!canRequestLeave
+              ? "leave.request 권한이 없으면 신청 버튼 대신 차단 안내만 확인합니다."
+              : selectedLeaveType
+                ? `${selectedLeaveType.name} 유형으로 dev-safe 신청 preview 를 생성합니다. 실차감/급여 반영은 이번 단계 범위 밖입니다.`
+                : "허용된 휴가 유형을 먼저 불러온 뒤 신청 흐름을 시작하세요."}
+          </p>
+        </article>
+        <article className="info-card">
+          <Pill>승인자 레인</Pill>
+          <h3>{showApprovalActions ? `승인 대기 ${approvalRequest?.id}` : "승인 버튼은 승인 권한자에게만 노출"}</h3>
+          <p className="card-note">
+            {showApprovalActions
+              ? "승인/반려는 현재 세션이 승인 권한을 갖고, 자기 요청이 아닌 pending 요청이 있을 때만 실행합니다."
+              : session.data
+                ? "일반 직원 세션에서는 승인 대기열을 설명만 하고 버튼은 열지 않습니다. self-approval 과 forged/unknown id 도 같은 원칙으로 차단합니다."
+                : "로그인 후 팀장/인사 승인자 세션으로 다시 열면 승인 대기 레인을 확인할 수 있습니다."}
+          </p>
+          {showApprovalActions && approvalRequest ? (
+            <div className="action-row" style={{ marginTop: 12 }}>
+              <button
+                className="touch-button--secondary"
+                disabled={pending}
+                onClick={() => runAction(appRoutes.leave.approve(approvalRequest.id), "휴가 승인", { reason: "인수인계 계획 확인 완료" })}
+                type="button"
+              >
+                팀 요청 승인
+              </button>
+              <button
+                className="touch-button--secondary"
+                disabled={pending}
+                onClick={() => runAction(appRoutes.leave.reject(approvalRequest.id), "휴가 반려", { reason: "대체 근무자 확인 전 재조정 필요" })}
+                type="button"
+              >
+                팀 요청 반려
+              </button>
+            </div>
+          ) : null}
         </article>
       </div>
       {requests.data ? (

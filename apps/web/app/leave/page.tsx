@@ -74,8 +74,8 @@ export default function LeavePage() {
       description="직원이 잔여 확인 → 신청 → 상태 확인으로 바로 이어가고, 승인자 lane 은 따로 분리해 same-origin API 기준 preview 를 직접 눌러볼 수 있게 정리했습니다."
       actions={
         <div className="action-row">
-          <PlaceholderAction label="휴가 신청 placeholder" hint="실제 신청 제출은 placeholder 범위 밖이며 온라인에서만 열립니다." />
-          <PlaceholderAction label="승인 대기 보기" hint="승인 대기함은 연결된 승인 데이터가 준비될 때까지 읽기 전용 안내만 제공합니다." tone="secondary" />
+          <PlaceholderAction label="휴가 신청 바로 확인" hint="온라인에서 신청 preview 를 눌러 잔여 확인 → 신청 → 상태 확인 순서를 먼저 따라갑니다." />
+          <PlaceholderAction label="승인 대기 레인 보기" hint="승인 권한자만 승인 대기 문맥을 확인하고, 일반 직원은 내 신청 상태 중심으로 제한합니다." tone="secondary" />
         </div>
       }
     >
@@ -176,7 +176,7 @@ export default function LeavePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="휴가 신청 placeholder" description="필드 순서를 줄이고 입력 부담을 최소화한 모바일 1차 구조입니다.">
+      <SurfaceSection title="휴가 신청 입력 예시" description="필드 순서를 줄이고 입력 부담을 최소화한 모바일 1차 구조입니다.">
         <div className="field-grid">
           <input disabled value="leave_type_annual" readOnly className="field" />
           <input disabled value="2026-06-20" readOnly className="field" />
@@ -198,7 +198,7 @@ export default function LeavePage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="승인 / 반려 대기 placeholder" description="긴 목록 대신 카드형 대기 상태를 먼저 보여 줍니다." muted>
+      <SurfaceSection title="승인 / 반려 대기 예시" description="긴 목록 대신 카드형 대기 상태를 먼저 보여 줍니다." muted>
         <div className="mobile-summary-grid">
           {approvals.map((row) => (
             <article key={`${row.employee}-${row.period}`} className="info-card">
