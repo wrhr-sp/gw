@@ -108,7 +108,7 @@ export default async function ManagementPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="홈(대시보드)으로"
-      eyebrow="Phase 43 급여·세무·노무·법무 내부관리 허브"
+      eyebrow="Phase 55 운영 허브 / 관리자 진입 실사용화"
       title="경영업무"
       description="민감 운영 모듈을 일반 직원 홈과 분리하고, 급여·세무·노무·법무·감사 레인을 역할별 허용 범위에 맞춰 직접 눌러볼 수 있게 정리한 내부관리 허브입니다."
       actions={
@@ -131,7 +131,7 @@ export default async function ManagementPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="Phase 49 역할별 파일럿 레인" description="직원 홈과 운영 허브를 섞지 않도록, 이번 UAT 에서 실제로 기록할 route 순서를 역할별로 다시 잠급니다.">
+      <SurfaceSection title="Phase 55 역할별 운영 레인" description="직원 홈과 운영 허브를 섞지 않도록, 이번 UAT 에서 실제로 기록할 route 순서를 역할별로 다시 잠급니다.">
         <div className="grid-auto-compact">
           {pilotLaneCards.map((card) => (
             <article key={card.title} className="info-card">

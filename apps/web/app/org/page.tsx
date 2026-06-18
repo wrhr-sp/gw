@@ -42,7 +42,7 @@ export default function OrgPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 42 읽기 중심 조직 조회 도입"
+      eyebrow="Phase 55 조직 구조 / 역할·권한 read-only 확인"
       title="조직 구조 / 역할 안내"
       description="직원 기본 업무 뒤에 보는 부서, 역할, 권한, 지점 scope 읽기 응답을 same-origin API 와 연결해 보여 주는 실사용 확인 화면입니다."
       actions={
@@ -64,7 +64,7 @@ export default function OrgPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="온보딩 구조 확인 메모" description="계정관리 preview 다음에 이 화면을 어떻게 읽는지 짧게 고정합니다." muted>
+      <SurfaceSection title="Phase 55 구조 확인 메모" description="계정관리 preview 다음에 이 화면을 어떻게 읽는지 짧게 고정합니다." muted>
         <ul className="summary-list">
           {orgBridgeNotes.map((item) => (
             <li key={item}>{item}</li>

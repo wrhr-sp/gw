@@ -53,7 +53,7 @@ export default function EmployeesPage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 42 읽기 중심 인사 조회 도입"
+      eyebrow="Phase 55 직원 일반 조회 / 조직 연결"
       title="직원 목록 / 상태 조회"
       description="직원 기본 업무 뒤에 보는 일반 조회를 same-origin employee directory 응답과 연결하고, 운영 변경 검토는 계속 /admin/users 로 분리한 실사용 확인 화면입니다."
       actions={
@@ -75,7 +75,7 @@ export default function EmployeesPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="온보딩 read model 확인 순서" description="계정 preview 다음에 이 화면을 언제 보는지 UAT 절차로 고정합니다.">
+      <SurfaceSection title="Phase 55 read model 확인 순서" description="계정 preview 다음에 이 화면을 언제 보는지 실제 운영/UAT 절차로 고정합니다.">
         <ol className="number-list">
           {onboardingReadModelSteps.map((item) => (
             <li key={item}>{item}</li>

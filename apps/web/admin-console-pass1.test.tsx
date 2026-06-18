@@ -69,7 +69,7 @@ describe("Phase 13 admin console pass 1", () => {
     );
 
     expect(html).toContain("현재 검토 중인 사용자");
-    expect(html).toContain("Phase 46 온보딩 리허설 순서");
+    expect(html).toContain("Phase 55 관리자 온보딩·운영 순서");
     expect(html).toContain("역할별 시작 레인과 차단 기준");
     expect(html).toContain("HR_ADMIN");
     expect(html).toContain("MANAGER");

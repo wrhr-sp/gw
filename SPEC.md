@@ -360,6 +360,32 @@
 - `apps/api/test/auth-org.spec.ts`
 - `packages/shared/src/contracts.ts`
 
+### 2-18. 관리자 계정·권한·조직 실사용화 기준은 Phase 55 문장으로 잠근다.
+
+- Phase 55의 목표는 admin/org 관련 route/API/test 존재 자체가 아니라, `/admin/users`, `/employees`, `/org`, `/management`, `/admin/audit-logs` 흐름을 live URL에서 직접 눌러볼 수 있게 만드는 것이다.
+- `/admin/users` 는 실제 저장 완료 화면이 아니라 사용자 생성 preview, 역할/권한 diff, 상태 변경/비밀번호 reset preview 를 먼저 검토하는 운영 시작점으로 읽혀야 한다.
+- `/employees` 는 일반 직원 조회, `/org` 는 부서/역할/권한/지점 구조 read-only 확인, `/management` 는 운영 허브, `/admin/audit-logs` 는 감사 read-only 추적이라는 책임을 먼저 분리해서 읽혀야 한다.
+- `MANAGER` 가 직원 조회를 볼 수 있어도 `/admin/users` 까지 바로 허용되는 것은 아니며, `AUDITOR` 기본 시작점이 `/admin/audit-logs` 라고 해서 `/admin` 전체 허용처럼 읽히면 안 된다.
+- admin role, `permission.read`, `audit.read`, company scope, branch scope, `createdFrom`/`createdTo` 필터, masked preview, raw storage/secret 비노출 원칙이 route/UI/API/test 에서 같은 뜻으로 맞아야 한다.
+- empty/loading/error/forbidden/dev-safe 는 placeholder 가 아니라 실제 운영자가 이해할 수 있는 상태여야 한다.
+- `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
+- 실제 초대 발송, 실비밀번호 운영 전환, 외부 IdP/SSO/SAML/SCIM, production 실데이터, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업은 계속 승인 게이트로 남긴다.
+
+근거:
+- `docs/architecture/phase-55-admin-account-rbac-org-audit-live-operations-fit-gap-scope.md`
+- `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-handoff.md`
+- `docs/guides/phase-55-admin-account-rbac-org-audit-live-operations-guide.md`
+- `docs/architecture/phase-46-account-permission-organization-onboarding-rehearsal-fit-gap-scope.md`
+- `docs/guides/phase-46-account-permission-organization-onboarding-rehearsal-handoff.md`
+- `apps/web/app/admin/users/admin-users-page-content.tsx`
+- `apps/web/app/employees/page.tsx`
+- `apps/web/app/org/page.tsx`
+- `apps/web/app/management/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/api/src/app.ts`
+- `apps/api/test/auth-org.spec.ts`
+- `packages/shared/src/contracts.ts`
+
 ## 3. 역할별 행동 규칙
 
 ### 3-1. 일반 직원

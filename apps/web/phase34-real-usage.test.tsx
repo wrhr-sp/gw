@@ -12,7 +12,7 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("keeps employees page on general lookup while exposing the live employee directory panel", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
-    expect(html).toContain("Phase 42 읽기 중심 인사 조회 도입");
+    expect(html).toContain("Phase 55 직원 일반 조회 / 조직 연결");
     expect(html).toContain("실사용 조회 패널");
     expect(html).toContain("same-origin API 응답을 불러오는 중입니다.");
     expect(html).toContain("/admin/users");
@@ -55,7 +55,7 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("renders audit logs as an audit.read-gated live preview rather than a write surface", () => {
     const html = renderToStaticMarkup(<AuditLogsPage />);
 
-    expect(html).toContain("Phase 48 감사·보안·복구 운영 기준선 preview");
+    expect(html).toContain("Phase 55 감사 read-only / route·API guard 확인");
     expect(html).toContain("audit.read");
     expect(html).toContain("실사용 감사 패널");
     expect(html).toContain("역할별 route/API guard 요약");
