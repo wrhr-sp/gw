@@ -69,6 +69,9 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("전체 메뉴");
     expect(html).toContain("bottom-nav__icon-svg");
     expect(html).toContain("bottom-nav__link-pill");
+    expect(html).toContain("bottom-nav__collapse-toggle");
+    expect(html).toContain('aria-label="모바일 하단바 접기"');
+    expect(html).toContain('aria-expanded="true"');
   });
 
   it("keeps selected feature icons and leaves branch portal without a menu icon", () => {
