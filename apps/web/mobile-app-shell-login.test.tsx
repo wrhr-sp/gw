@@ -6,6 +6,10 @@ let mockPathname = "/login";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
 import { MobileAppShell } from "./app/_components/mobile-app-shell";

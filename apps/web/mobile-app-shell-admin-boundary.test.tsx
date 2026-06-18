@@ -141,6 +141,8 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('aria-label="알림"');
     expect(generalHtml).toContain('aria-label="내 정보"');
     expect(generalHtml).toContain("topbar-profile-avatar");
+    expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
+    expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain("기본 업무");
     expect(generalHtml).not.toContain("급여 내부관리");
 
