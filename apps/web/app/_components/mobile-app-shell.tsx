@@ -11,6 +11,8 @@ type NotificationBadgeState = {
   unreadCount: number;
 };
 
+const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
+
 type FeatureIconName =
   | "menu"
   | "home"
@@ -321,6 +323,7 @@ export function MobileAppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
+  const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoginRoute = pathname === "/login";
@@ -355,6 +358,30 @@ export function MobileAppShell({
       }
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      setIsBottomNavCollapsed(window.localStorage.getItem(BOTTOM_NAV_COLLAPSED_STORAGE_KEY) === "true");
+    } catch {
+      setIsBottomNavCollapsed(false);
+    } finally {
+      setIsBottomNavPreferenceLoaded(true);
+    }
+  }, []);
+
+  function handleBottomNavCollapseToggle() {
+    setIsBottomNavCollapsed((value) => {
+      const nextValue = !value;
+
+      try {
+        window.localStorage.setItem(BOTTOM_NAV_COLLAPSED_STORAGE_KEY, String(nextValue));
+      } catch {
+        // localStorage가 막힌 환경에서도 화면 토글 자체는 유지한다.
+      }
+
+      return nextValue;
+    });
+  }
 
   function handleSidebarScroll() {
     setIsSidebarScrolling(true);
@@ -506,13 +533,15 @@ export function MobileAppShell({
         <div className="app-shell__body">{children}</div>
 
         <nav
-          className={isBottomNavCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}
+          className={`${isBottomNavCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}${
+            isBottomNavPreferenceLoaded ? " bottom-nav--preference-loaded" : ""
+          }`}
           aria-label="모바일 주요 탐색"
         >
           <button
             type="button"
             className="bottom-nav__collapse-toggle"
-            onClick={() => setIsBottomNavCollapsed((value) => !value)}
+            onClick={handleBottomNavCollapseToggle}
             aria-expanded={!isBottomNavCollapsed}
             aria-label={isBottomNavCollapsed ? "모바일 하단바 펼치기" : "모바일 하단바 접기"}
           >
