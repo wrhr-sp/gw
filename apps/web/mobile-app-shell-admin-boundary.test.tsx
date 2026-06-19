@@ -103,9 +103,7 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("M6 6h6l2 2h4");
     expect(html).toContain("M16 8h-6a2 2 0 1 0 0 4h4");
 
-    const branchLink = html.match(/<button[^>]+data-route="\/work-items\/branch"[\s\S]*?<\/button>/)?.[0] ?? "";
-    expect(branchLink).toContain("지점 업무");
-    expect(branchLink).not.toContain("<svg");
+    expect(html).not.toContain('data-route="/work-items/branch"');
   });
 
 
