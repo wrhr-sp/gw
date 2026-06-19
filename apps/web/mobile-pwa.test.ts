@@ -105,6 +105,7 @@ describe("mobile/PWA config", () => {
       "급여/비용",
       "운영/기타",
     ]);
+    expect(mobilePrimaryNav[0]).toMatchObject({ href: "/dashboard", label: "홈", shortLabel: "홈" });
     expect(mobileMenuSections.flatMap((section) => section.items.map((item) => item.href))).toEqual([
       "/mail",
       "/messenger",
@@ -112,16 +113,41 @@ describe("mobile/PWA config", () => {
       "/boards",
       "/org",
       "/employees",
-      "/dashboard",
+      "#community",
       "/me",
       "/work-items",
+      "#calendar",
+      "#reservation",
+      "#reports",
+      "#todo-plus",
       "/attendance",
       "/leave",
       "/work-items/hr",
+      "#employee-training",
+      "#employment-contract",
       "/approvals",
       "/documents",
+      "#library",
+      "#company-documents",
+      "#drive",
       "/payroll/me",
+      "#expense",
       "/work-items/branch",
+      "#vehicle-log",
+    ]);
+    expect(mobileMenuSections.flatMap((section) => section.items).filter((item) => item.disabled).map((item) => item.label)).toEqual([
+      "커뮤니티",
+      "캘린더",
+      "예약",
+      "보고",
+      "ToDO+",
+      "직원교육",
+      "고용전자계약",
+      "자료실",
+      "전사 문서함",
+      "드라이브",
+      "경비",
+      "차량운행일지",
     ]);
   });
 

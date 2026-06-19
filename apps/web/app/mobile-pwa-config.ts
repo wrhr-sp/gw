@@ -7,6 +7,8 @@ export type NavItem = {
   label: string;
   shortLabel: string;
   summary: string;
+  disabled?: boolean;
+  badge?: string;
 };
 
 export type NavSection = {
@@ -183,8 +185,8 @@ export const pwaManifest = generalPwaManifest;
 export const mobilePrimaryNav: NavItem[] = [
   {
     href: "/dashboard",
-    label: "대시보드",
-    shortLabel: "대시",
+    label: "홈",
+    shortLabel: "홈",
     summary: "오늘 할 일과 역할별 첫 진입점",
   },
   {
@@ -249,6 +251,21 @@ export const mobilePrimaryNav: NavItem[] = [
   },
 ];
 
+const plannedNavItems = {
+  calendar: { href: "#calendar", label: "캘린더", shortLabel: "캘린더", summary: "일정 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  reservation: { href: "#reservation", label: "예약", shortLabel: "예약", summary: "회의실·차량·공용장비 같은 사내 자원 예약 후보입니다. 이번 작업에서는 기능을 만들지 않습니다.", disabled: true, badge: "준비중" },
+  community: { href: "#community", label: "커뮤니티", shortLabel: "커뮤", summary: "사내 커뮤니티 공간은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  report: { href: "#reports", label: "보고", shortLabel: "보고", summary: "업무 보고 작성·제출 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  todo: { href: "#todo-plus", label: "ToDO+", shortLabel: "ToDO", summary: "개인/팀 할 일 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  library: { href: "#library", label: "자료실", shortLabel: "자료실", summary: "공용 자료실 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  companyDocs: { href: "#company-documents", label: "전사 문서함", shortLabel: "전사문서", summary: "전사 문서함 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  drive: { href: "#drive", label: "드라이브", shortLabel: "드라이브", summary: "파일 드라이브 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  training: { href: "#employee-training", label: "직원교육", shortLabel: "교육", summary: "직원교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  employmentContract: { href: "#employment-contract", label: "고용전자계약", shortLabel: "전자계약", summary: "고용 전자계약 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  expense: { href: "#expense", label: "경비", shortLabel: "경비", summary: "경비 신청·정산 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  vehicleLog: { href: "#vehicle-log", label: "차량운행일지", shortLabel: "차량일지", summary: "차량 운행일지 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+} satisfies Record<string, NavItem>;
+
 export const mobileBottomTabs: NavItem[] = [
   {
     href: "/menu",
@@ -285,44 +302,47 @@ export const mobileBottomTabs: NavItem[] = [
 export const mobileMenuSections: NavSection[] = [
   {
     title: "협업/소통",
-    description: "메일·메신저·알림·게시판·주소록처럼 직원이 매일 확인하는 소통 메뉴입니다.",
+    description: "",
     items: [
       mobileBottomTabs[3],
       mobileBottomTabs[2],
       mobileBottomTabs[4],
       mobilePrimaryNav[4],
-      { href: "/org", label: "주소록/조직", shortLabel: "주소록", summary: "부서·역할·권한 체계와 연락 기준 확인" },
+      { href: "/org", label: "주소록", shortLabel: "주소록", summary: "부서·역할·권한 체계와 연락 기준 확인" },
       mobilePrimaryNav[9],
+      plannedNavItems.community,
     ],
   },
   {
     title: "일정/개인 업무",
-    description: "홈과 내 정보를 중심으로 오늘 할 일, 내 상태, 개인 확인 흐름을 먼저 모읍니다.",
-    items: [mobilePrimaryNav[0], mobilePrimaryNav[7], mobilePrimaryNav[6]],
+    description: "",
+    items: [mobilePrimaryNav[7], mobilePrimaryNav[6], plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
   },
   {
     title: "근무/인사",
-    description: "근태·휴가·인사 확인처럼 직원과 팀장이 자주 보는 사람/근무 관련 메뉴입니다.",
+    description: "",
     items: [
       mobilePrimaryNav[1],
       mobilePrimaryNav[2],
       { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
+      plannedNavItems.training,
+      plannedNavItems.employmentContract,
     ],
   },
   {
     title: "결재/문서",
-    description: "전자결재와 문서 확인 흐름을 한 묶음으로 둡니다.",
-    items: [mobilePrimaryNav[3], mobilePrimaryNav[5]],
+    description: "",
+    items: [mobilePrimaryNav[3], mobilePrimaryNav[5], plannedNavItems.library, plannedNavItems.companyDocs, plannedNavItems.drive],
   },
   {
     title: "급여/비용",
-    description: "직원 본인에게 공개 가능한 급여 조회와 비용성 업무 진입점을 분리합니다.",
-    items: [mobilePrimaryNav[10]],
+    description: "",
+    items: [mobilePrimaryNav[10], plannedNavItems.expense],
   },
   {
     title: "운영/기타",
-    description: "지점 보고와 공통 업무처럼 별도 앱으로 확장될 업무를 모읍니다.",
-    items: [{ href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" }],
+    description: "",
+    items: [{ href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" }, plannedNavItems.vehicleLog],
   },
 ];
 
@@ -633,13 +653,13 @@ export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
   return roleCode ? isLegalManagementRoleCode(roleCode) : false;
 }
 
-function filterMenuItemsByRole<T extends { href: string }>(items: readonly T[], roleCode?: RoleCode | null) {
+function filterMenuItemsByRole<T extends { href: string; disabled?: boolean }>(items: readonly T[], roleCode?: RoleCode | null) {
   if (!roleCode) {
     return items;
   }
 
   const viewer = getViewerAccessForRoleCode(roleCode);
-  return items.filter((item) => hasHomeShortcutRouteAccess(item.href, viewer));
+  return items.filter((item) => item.disabled || hasHomeShortcutRouteAccess(item.href, viewer));
 }
 
 export function getVisibleMobilePrimaryNav(roleCode?: RoleCode | null) {
