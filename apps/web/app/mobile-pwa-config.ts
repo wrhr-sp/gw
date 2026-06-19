@@ -59,8 +59,8 @@ export type AppShellConfig = {
 };
 
 export const generalPwaManifest = {
-  name: "그룹웨어 Web/PWA",
-  short_name: "GW Mobile",
+  name: "We'reHere",
+  short_name: "We'reHere",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
   id: "/login",
   start_url: "/dashboard",
@@ -657,7 +657,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   }
 
   return {
-    appName: "그룹웨어 Web/PWA",
+    appName: "We'reHere",
     appEyebrow: "오늘 할 일 · 전체 메뉴",
     homeHref: "/dashboard",
     navItems: getVisibleMobilePrimaryNav(roleCode),

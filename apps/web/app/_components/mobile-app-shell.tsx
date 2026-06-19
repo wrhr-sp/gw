@@ -63,6 +63,9 @@ type TopbarProfileState = {
   positionLabel: string;
 };
 
+type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
+type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
+
 export function formatUnreadBadge(unreadCount: number | null) {
   if (!unreadCount || unreadCount <= 0) {
     return null;
@@ -353,15 +356,25 @@ function SettingToggle({
   description,
   defaultChecked = true,
   disabled = false,
+  checked,
+  onChange,
 }: {
   label: string;
   description?: string;
   defaultChecked?: boolean;
   disabled?: boolean;
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
 }) {
   return (
     <label className={disabled ? "topbar-modal-toggle topbar-modal-toggle--locked" : "topbar-modal-toggle"}>
-      <input type="checkbox" defaultChecked={defaultChecked} disabled={disabled} />
+      <input
+        type="checkbox"
+        defaultChecked={checked === undefined ? defaultChecked : undefined}
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange ? (event) => onChange(event.target.checked) : undefined}
+      />
       <span>
         <strong>{label}</strong>
         {description ? <small>{description}</small> : null}
@@ -429,6 +442,21 @@ export function MobileAppShell({
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
+  const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
+    notices: true,
+    approvals: true,
+    mentions: true,
+    mail: true,
+    attendance: true,
+  });
+  const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>({
+    urgentNotices: true,
+    approvalRequests: true,
+    approvalFeedback: true,
+    mentions: true,
+    attendanceResults: true,
+    importantMail: false,
+  });
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -455,7 +483,6 @@ export function MobileAppShell({
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
-  const nextPortalIcon = isManagementPortal ? "home" : "dashboard";
 
 
   useEffect(() => {
@@ -718,6 +745,29 @@ export function MobileAppShell({
   }, [isLoginRoute, notificationTab]);
 
 
+
+  function setNotificationPreference(key: NotificationPreferenceKey, enabled: boolean) {
+    setNotificationPreferences((value) => ({ ...value, [key]: enabled }));
+    if (!enabled) {
+      setAfterHoursPreferences((value) => {
+        const next = { ...value };
+        if (key === "notices") next.urgentNotices = false;
+        if (key === "approvals") {
+          next.approvalRequests = false;
+          next.approvalFeedback = false;
+        }
+        if (key === "mentions") next.mentions = false;
+        if (key === "mail") next.importantMail = false;
+        if (key === "attendance") next.attendanceResults = false;
+        return next;
+      });
+    }
+  }
+
+  function setAfterHoursPreference(key: AfterHoursPreferenceKey, enabled: boolean) {
+    setAfterHoursPreferences((value) => ({ ...value, [key]: enabled }));
+  }
+
   async function handleProfileLogout() {
     setProfileActionPending(true);
     setProfileActionError(null);
@@ -783,7 +833,7 @@ export function MobileAppShell({
         >
           <header className="topbar-modal__header">
             <div>
-              <span className="topbar-modal__eyebrow">We’reHere</span>
+              <span className="topbar-modal__eyebrow">We'reHere</span>
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
@@ -821,8 +871,14 @@ export function MobileAppShell({
                     </label>
                   ))}
                 </div>
-                <SettingToggle label="PC 사이드바 마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
-                <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+              </section>
+              <section className="topbar-modal-card">
+                <strong>PC 사이드바</strong>
+                <SettingToggle label="마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
+              </section>
+              <section className="topbar-modal-card">
+                <strong>모바일 하단탭</strong>
+                <SettingToggle label="간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 기본 설정</strong>
@@ -888,56 +944,57 @@ export function MobileAppShell({
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>기본 표시 정보</strong>
                 <div className="topbar-modal-field-grid">
-                  <SettingField label="이름" value={profileState.fullName} hint="읽기 전용" />
-                  <SettingField label="직책" value={profileState.positionLabel} hint="읽기 전용" />
-                  <SettingField label="부서" value={profileState.departmentName} hint="읽기 전용" />
-                  <SettingField label="이메일" value={profileState.email} hint="직접 수정 불가 · 항상 표시" />
+                  <SettingField label="이름" value={profileState.fullName} />
+                  <SettingField label="직책" value={profileState.positionLabel} />
+                  <SettingField label="부서" value={profileState.departmentName} />
+                  <SettingField label="이메일" value={profileState.email} />
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 받을 기능 선택</strong>
                 <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" />
-                  <SettingToggle label="전자결재 알림" />
-                  <SettingToggle label="댓글/멘션 알림" />
-                  <SettingToggle label="메일/메신저 알림" />
-                  <SettingToggle label="근태/휴가 알림" />
+                  <SettingToggle label="공지사항 알림" checked={notificationPreferences.notices} onChange={(checked) => setNotificationPreference("notices", checked)} />
+                  <SettingToggle label="전자결재 알림" checked={notificationPreferences.approvals} onChange={(checked) => setNotificationPreference("approvals", checked)} />
+                  <SettingToggle label="댓글/멘션 알림" checked={notificationPreferences.mentions} onChange={(checked) => setNotificationPreference("mentions", checked)} />
+                  <SettingToggle label="메일/메신저 알림" checked={notificationPreferences.mail} onChange={(checked) => setNotificationPreference("mail", checked)} />
+                  <SettingToggle label="근태/휴가 알림" checked={notificationPreferences.attendance} onChange={(checked) => setNotificationPreference("attendance", checked)} />
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
                 <strong>퇴근 후 알림 설정</strong>
                 <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
                 <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
-                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." />
-                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." />
-                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." />
-                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." />
-                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." />
-                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." defaultChecked={false} />
+                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} disabled={!notificationPreferences.notices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
+                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
+                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
+                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
+                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
+                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>개인정보 표시 범위</strong>
                 <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="이메일 표시" description="회사 연락 기준으로 항상 표시됩니다." disabled />
-                  <SettingToggle label="내선번호 표시" description="내선번호가 등록되어 있으면 항상 표시됩니다." disabled />
+                  <SettingToggle label="이메일 표시" disabled />
+                  <SettingToggle label="내선번호 표시" disabled />
                   <SettingToggle label="프로필 사진 표시" />
                   <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
                   <SettingToggle label="상태 메시지 표시" />
                 </div>
-                <p className="topbar-modal-note">이메일과 등록된 내선번호는 버튼은 보이지만 해제할 수 없습니다.</p>
               </section>
             </div>
           ) : null}
 
-          <footer className="topbar-modal__footer">
-            <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={() => setActiveTopbarModal(null)}>
-              취소
-            </button>
-            <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>
-              저장
-            </button>
-          </footer>
+          {activeTopbarModal === "settings" || activeTopbarModal === "profile-settings" ? (
+            <footer className="topbar-modal__footer">
+              <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={() => setActiveTopbarModal(null)}>
+                취소
+              </button>
+              <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>
+                저장
+              </button>
+            </footer>
+          ) : null}
         </section>
       </div>
     );
@@ -1026,8 +1083,8 @@ export function MobileAppShell({
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
                 <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateTo(nextPortalHref)}>
-                  <FeatureIcon className="portal-switch-link__icon" name={nextPortalIcon} title={nextPortalLabel} />
                   <span>{nextPortalLabel}</span>
+                  <span className="portal-switch-link__icon" aria-hidden="true">↗</span>
                 </button>
               ) : null}
               {!isAdminHostShell ? (

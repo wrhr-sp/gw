@@ -44,22 +44,21 @@ describe("Phase 14 home/login flow", () => {
     expect(getPostLoginRoute("AUDITOR")).toBe("/admin/audit-logs");
   });
 
-  it("turns the login page into a direct Phase 50 entry with role-aware UAT guidance", () => {
+  it("keeps the login page focused on the integrated UAT admin login form", () => {
     const html = renderToStaticMarkup(<LoginPage />);
 
-    expect(html).toContain("We’reHere Login");
-    expect(html).toContain("로그인 전용 진입");
+    expect(html).toContain("We&#x27;reHere Login");
     expect(html).toContain("아이디");
     expect(html).toContain("비밀번호");
-    expect(html).toContain("UAT 역할 선택");
     expect(html).toContain("아이디 저장");
     expect(html).toContain("자동 로그인");
-    expect(html).toContain("로그인 후 첫 화면");
-    expect(html).toContain("/dashboard");
-    expect(html).toContain("/admin/audit-logs");
     expect(html).toContain(">로그인<");
+    expect(html).not.toContain("로그인 전용 진입");
+    expect(html).not.toContain("UAT 역할 선택");
+    expect(html).not.toContain("로그인 후 첫 화면");
+    expect(html).not.toContain("/dashboard");
+    expect(html).not.toContain("/admin/audit-logs");
+    expect(html).not.toContain("admin / 1234");
     expect(html).not.toContain("/api/auth/login");
-    expect(html).toContain("admin / 1234");
-    expect(html).toContain("production 기본 계정처럼 유지하면 안 됩니다.");
   });
 });

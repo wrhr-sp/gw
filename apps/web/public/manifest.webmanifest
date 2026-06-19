@@ -1,6 +1,6 @@
 {
-  "name": "그룹웨어 Web/PWA",
-  "short_name": "GW Mobile",
+  "name": "We'reHere",
+  "short_name": "We'reHere",
   "description": "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
   "id": "/login",
   "start_url": "/dashboard",

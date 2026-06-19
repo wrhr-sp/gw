@@ -119,7 +119,7 @@ describe("mobile/PWA config", () => {
       menuSections: adminMenuSections,
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
-      appName: "그룹웨어 Web/PWA",
+      appName: "We'reHere",
       appEyebrow: "오늘 할 일 · 전체 메뉴",
       homeHref: "/dashboard",
       navItems: mobilePrimaryNav,
