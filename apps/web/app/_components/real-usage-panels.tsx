@@ -130,10 +130,10 @@ const loginAccountPresets: readonly LoginAccountPreset[] = [
 ] as const;
 
 const roleLandingLabels: Record<LoginRoleCode, string> = {
-  COMPANY_ADMIN: "/dashboard → /management · /admin/users",
-  HR_ADMIN: "/dashboard → /admin/users",
-  MANAGER: "/dashboard → /management",
-  EMPLOYEE: "/dashboard → /attendance · /leave · /approvals",
+  COMPANY_ADMIN: "/home → /management · /admin/users",
+  HR_ADMIN: "/home → /admin/users",
+  MANAGER: "/home → /management",
+  EMPLOYEE: "/home → /attendance · /leave · /approvals",
   AUDITOR: "/admin/audit-logs",
 };
 

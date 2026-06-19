@@ -134,31 +134,31 @@ export const dashboardStatusCards: DashboardStatusCard[] = [
 export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
   {
     role: "일반 직원",
-    firstRoute: "/dashboard",
+    firstRoute: "/home",
     summary: "대시보드에서 오늘 근태와 휴가를 먼저 처리하고, 그 다음 승인·공지·문서·내 정보로 이어집니다.",
     detail: "관리자 CTA 는 숨기고 /attendance → /leave → /approvals → /boards → /documents → /me 뒤에 /org, /employees 조회로 연결",
   },
   {
     role: "팀장 / 결재자",
-    firstRoute: "/dashboard",
+    firstRoute: "/home",
     summary: "같은 허브에서 시작하되 팀원 근태·휴가 맥락을 본 뒤 승인 대기와 팀 병목 요약을 확인합니다.",
     detail: "필요 시 /attendance, /leave, /approvals, /employees 에서 판단 근거를 보조로 확인",
   },
   {
     role: "인사 관리자",
-    firstRoute: "/dashboard",
+    firstRoute: "/home",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인에 진입합니다.",
     detail: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열",
   },
   {
     role: "운영 관리자",
-    firstRoute: "/dashboard",
+    firstRoute: "/home",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
     detail: "공통 landing 다음 레인은 /management 이며, 계정관리 preview·정책 preview·감사 read-only·민감 모듈 검토를 같은 홈처럼 섞지 않습니다.",
   },
   {
     role: "지점 관리자",
-    firstRoute: "/dashboard",
+    firstRoute: "/home",
     summary: "공통 홈 뒤 `/work-items/branch` 중심 branch scope 운영 레인으로 이어지고 회사 전체 운영 권한과는 분리됩니다.",
     detail: "`/employees`, `/org` 읽기 확인 뒤 `/management` 문맥을 보더라도 branch scope 와 company scope 를 같은 권한처럼 설명하지 않습니다.",
   },

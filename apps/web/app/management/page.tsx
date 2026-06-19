@@ -86,12 +86,12 @@ const onboardingBridgeSteps = [
 const pilotLaneCards = [
   {
     title: "HR 관리자 첫 검토 레인",
-    route: "/dashboard → /admin/users → /employees → /org → /management",
+    route: "/home → /admin/users → /employees → /org → /management",
     summary: "HR_ADMIN 은 공통 홈 뒤 계정관리부터 열고, 조직 read model 을 확인한 뒤 필요할 때만 운영 허브로 넘어갑니다.",
   },
   {
     title: "운영 관리자 레인",
-    route: "/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health",
+    route: "/home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health",
     summary: "운영 허브, 계정·정책 안내, 감사 read-only, 최소 liveness 를 같은 점검 순서로 기록합니다.",
   },
   {
@@ -101,7 +101,7 @@ const pilotLaneCards = [
   },
   {
     title: "지점관리자 레인",
-    route: "/dashboard → /work-items/branch → /employees → /org → /management",
+    route: "/home → /work-items/branch → /employees → /org → /management",
     summary: "branch scope 업무 확인 뒤 필요할 때만 읽기 조회와 운영 허브 문맥을 이어 보고 company scope 와 구분합니다.",
   },
 ] as const;
@@ -141,7 +141,7 @@ export default async function ManagementPage() {
 
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="홈(대시보드)으로"
       eyebrow="지정 관리자 업무 허브"
       title="경영업무"
@@ -191,7 +191,7 @@ export default async function ManagementPage() {
 
       <SurfaceSection title="추천 확인 순서" description="아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.">
         <ol className="number-list">
-          <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
+          <li>/home 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/management 에서 관리자 업무 허브가 일반 홈과 분리되어 보이는지 확인</li>
           <li>HR_ADMIN 은 /management 보다 /admin/users 를 첫 관리자 레인으로 읽는지 확인</li>
           <li>/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인</li>
@@ -215,17 +215,17 @@ export default async function ManagementPage() {
           <article className="info-card">
             <h3>일반 직원 · 팀장 확인 순서</h3>
             <p>같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.</p>
-            <p className="card-note">/login → /dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
+            <p className="card-note">/login → /home → /attendance → /leave → /approvals → /boards → /documents → /me</p>
           </article>
           <article className="info-card">
             <h3>관리자 계정·정책 확인 순서</h3>
             <p>일반 홈과 운영 레인을 섞지 않고 운영 허브 확인 뒤 계정, 정책, 감사 레인을 같은 문장으로 이어 봅니다.</p>
-            <p className="card-note">/login → /dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
+            <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
           </article>
           <article className="info-card">
             <h3>운영 관리자 확인 순서</h3>
             <p>일반 홈과 운영 허브를 섞지 않고 계정관리, 정책, 민감 내부관리 화면을 별도 허브에서 이어 봅니다.</p>
-            <p className="card-note">/login → /dashboard → /management → /admin/users → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health</p>
+            <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health</p>
           </article>
         </div>
       </SurfaceSection>

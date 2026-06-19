@@ -11,8 +11,8 @@ type PageShellProps = {
 };
 
 export function PageShell({
-  backHref = "/dashboard",
-  backLabel = "대시보드로",
+  backHref = "/home",
+  backLabel = "홈으로",
   eyebrow,
   title,
   description,

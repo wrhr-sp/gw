@@ -53,14 +53,14 @@ export function MenuPageContent({
 
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="홈으로"
       eyebrow="전체 기능 탐색"
       title="전체 메뉴 / 기능 탐색 허브"
-      description="`/dashboard` 는 오늘 할 일 시작 홈으로, `/menu` 는 전체 기능 탐색 허브로 분리하고, 두 화면은 같은 바로가기·권한 registry 와 같은 모바일/PC 정보구조를 공유하도록 정리했습니다."
+      description="`/home` 는 오늘 할 일 시작 홈으로, `/menu` 는 전체 기능 탐색 허브로 분리하고, 두 화면은 같은 바로가기·권한 registry 와 같은 모바일/PC 정보구조를 공유하도록 정리했습니다."
       actions={
         <div className="pill-row">
-          <Pill tone="accent">/dashboard = 오늘 할 일</Pill>
+          <Pill tone="accent">/home = 오늘 할 일</Pill>
           <Pill>/menu = 전체 기능 탐색</Pill>
         </div>
       }
@@ -72,7 +72,7 @@ export function MenuPageContent({
         <div className="grid-auto-compact">
           <article className="info-card">
             <Pill tone="accent">오늘 업무 시작</Pill>
-            <h3>/dashboard</h3>
+            <h3>/home</h3>
             <p>근태 → 휴가 → 결재 → 게시판 → 문서 → 내 정보 순서로 오늘 먼저 눌러야 할 일을 정리하는 홈입니다.</p>
           </article>
           <article className="info-card">
@@ -90,7 +90,7 @@ export function MenuPageContent({
 
       <SurfaceSection
         title="홈·메뉴 공통 바로가기"
-        description="하단 탭의 홈(`/dashboard`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 권한 기반 사용자 전용 항목을 같은 기준으로 보여 줍니다."
+        description="하단 탭의 홈(`/home`)과 메뉴(`/menu`)에서 같은 홈 바로가기 API를 읽어 회사 공통 고정 + 권한 기반 사용자 전용 항목을 같은 기준으로 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}
@@ -105,7 +105,7 @@ export function MenuPageContent({
         <div className="grid-auto-compact">
           {mobileBottomTabs.map((item) => (
             <article key={item.href} className="info-card">
-              <Pill tone={item.href === "/dashboard" ? "accent" : "default"}>{item.shortLabel}</Pill>
+              <Pill tone={item.href === "/home" ? "accent" : "default"}>{item.shortLabel}</Pill>
               <h3>{item.label}</h3>
               <p>{item.summary}</p>
               <a href={item.href}>{item.href}</a>
@@ -139,7 +139,7 @@ export function MenuPageContent({
           <article className="info-card">
             <h3>일반 직원 · 팀장 확인 순서</h3>
             <p>같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.</p>
-            <p className="card-note">/login → /dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
+            <p className="card-note">/login → /home → /attendance → /leave → /approvals → /boards → /documents → /me</p>
           </article>
           {hasManagementMenuAccess(roleCode) ? (
             <article className="info-card">
@@ -171,8 +171,8 @@ export function MenuPageContent({
         muted
       >
         <ul className="summary-list">
-          <li>모바일 홈(`/dashboard`)과 메뉴(`/menu`)가 같은 홈 바로가기 API를 읽고 같은 권한 기준을 사용한다.</li>
-          <li>`/dashboard` 는 오늘 업무 시작 화면, `/menu` 는 전체 기능 탐색 화면으로 서로 다른 책임이 읽힌다.</li>
+          <li>모바일 홈(`/home`)과 메뉴(`/menu`)가 같은 홈 바로가기 API를 읽고 같은 권한 기준을 사용한다.</li>
+          <li>`/home` 는 오늘 업무 시작 화면, `/menu` 는 전체 기능 탐색 화면으로 서로 다른 책임이 읽힌다.</li>
           <li>일반 사용자는 관리자/감사/경영업무 shortcut 을 받지 않고, 권한 있는 사용자만 개인 전용 바로가기로 본다.</li>
           <li>메신저/메일/알림은 현재 확인 가능한 범위를 안내하고, 실제 외부 연동은 승인 게이트로 남긴다.</li>
           <li>{hasManagementMenuAccess(roleCode) ? "현재 세션은 경영업무 분리 메뉴를 함께 확인해야 합니다." : "현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다."}</li>

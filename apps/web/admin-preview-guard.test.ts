@@ -19,7 +19,7 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
-    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-web.preview.workers.dev" })).toEqual({
+    expect(getAdminRouteGuardResult({ pathname: "/home", host: "gw-web.preview.workers.dev" })).toEqual({
       action: "redirect",
       location: "/login",
     });
@@ -119,7 +119,7 @@ describe("admin preview guard", () => {
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
-        pathname: "/dashboard",
+        pathname: "/home",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
       }),
@@ -317,7 +317,7 @@ describe("admin preview guard", () => {
   });
 
   it("keeps admin hosts on the admin route boundary instead of rendering general work routes", () => {
-    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-admin.preview-account.workers.dev" })).toEqual({
+    expect(getAdminRouteGuardResult({ pathname: "/home", host: "gw-admin.preview-account.workers.dev" })).toEqual({
       action: "redirect",
       location: "/admin",
     });

@@ -55,9 +55,9 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("상태 안내 기준선");
     expect(html).toContain("추천 확인 순서");
     expect(html).toContain("홈 역할 안내");
-    expect(html).toContain("/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
+    expect(html).toContain("/home 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
     expect(html).toContain('href="/menu"');
-    expect(html).toContain("/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me");
+    expect(html).toContain("/home → /attendance → /leave → /approvals → /boards → /documents → /me");
     expect(html).toContain("일반 직원 · 팀장 확인 순서");
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
     expect(html).not.toContain("감사 확인 순서");

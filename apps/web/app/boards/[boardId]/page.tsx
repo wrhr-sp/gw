@@ -69,7 +69,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
       ]
     : [
         { href: "/boards", label: "/boards", description: "허용된 게시판 목록으로 돌아가기" },
-        { href: "/dashboard", label: "/dashboard", description: "기본 업무 화면으로 복귀" },
+        { href: "/home", label: "/home", description: "기본 업무 화면으로 복귀" },
         { href: "/login", label: "/login", description: "세션/권한을 바꿔 다시 확인" },
       ];
 
@@ -130,7 +130,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
             ? [
                 `${boardId} 경로가 허용된 게시판인지 먼저 확인한다.`,
                 "차단된 boardId 는 게시글 상세·글쓰기 같은 happy path 를 노출하지 않는다.",
-                "사용자는 /boards 또는 /dashboard 로 되돌아간다.",
+                "사용자는 /boards 또는 /home 로 되돌아간다.",
               ]
             : [
                 `${boardId} 경로가 boardId 기반 정보와 권한 문구를 먼저 보여 준다.`,

@@ -67,7 +67,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("전체 기능 탐색");
     expect(html).toContain("전체 메뉴 / 기능 탐색 허브");
     expect(html).toContain("홈과 메뉴 역할 분리");
-    expect(html).toContain("/dashboard");
+    expect(html).toContain("/home");
     expect(html).toContain("/menu");
     expect(html).toContain("같은 바로가기·권한 registry");
     expect(html).toContain("회사 공통 고정");

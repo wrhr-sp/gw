@@ -51,7 +51,7 @@ const onboardingReadModelSteps = [
 export default function EmployeesPage() {
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="대시보드로"
       eyebrow="Phase 55 직원 일반 조회 / 조직 연결"
       title="직원 목록 / 상태 조회"

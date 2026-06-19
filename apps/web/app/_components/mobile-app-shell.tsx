@@ -104,7 +104,7 @@ export function formatUnreadBadge(unreadCount: number | null) {
 
 function getFeatureIconName(href: string, label: string): FeatureIconName | null {
   if (href === "/menu") return "menu";
-  if (href === "/dashboard") return "home";
+  if (href === "/home" || href === "/dashboard") return "home";
   if (href === "/messenger") return "messenger";
   if (href === "/mail") return "mail";
   if (href === "/notifications") return "notification";
@@ -503,6 +503,22 @@ export function MobileAppShell({
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
 
+  function blurActiveElement() {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+  }
+
+  function closeTopbarModal() {
+    setActiveTopbarModal(null);
+    window.requestAnimationFrame(blurActiveElement);
+  }
+
   const hasManagementPortal = menuSections.some(isManagementSection);
   const isManagementPortal = hasManagementPortal && isManagementPortalPath(pathname);
   const visibleDesktopMenuSections = useMemo(() => {
@@ -514,10 +530,10 @@ export function MobileAppShell({
   }, [hasManagementPortal, isManagementPortal, menuSections]);
   const isAdminHostShell = homeHref === "/admin";
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
-  const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/dashboard";
-  const desktopHomeItem = !isAdminHostShell && !isManagementPortal ? navItems.find((item) => item.href === "/dashboard") : null;
+  const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/home";
+  const desktopHomeItem = !isAdminHostShell && !isManagementPortal ? navItems.find((item) => item.href === "/home") : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
-  const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
+  const nextPortalHref = isManagementPortal ? "/home" : "/management";
   const branchPortalLabel = "지점관리포털";
   const branchPortalHref = "/work-items/branch";
 
@@ -594,6 +610,7 @@ export function MobileAppShell({
     function closeProfileMenuWithEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsProfileMenuOpen(false);
+        window.requestAnimationFrame(blurActiveElement);
       }
     }
 
@@ -613,7 +630,7 @@ export function MobileAppShell({
 
     function closeTopbarModalWithEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setActiveTopbarModal(null);
+        closeTopbarModal();
       }
     }
 
@@ -640,7 +657,7 @@ export function MobileAppShell({
 
   useEffect(() => {
     const urlStatusHiddenSelector = [
-      ".app-shell a[href^='/']:not(.brand-link):not(.topbar-brand-link):not([data-allow-url-status='true'])",
+      ".app-shell a[href^='/']:not(.brand-link):not(.topbar-brand-link):not(.portal-switch-link):not([data-allow-url-status='true'])",
       ".app-shell a[href^='./']:not([data-allow-url-status='true'])",
     ].join(", ");
 
@@ -930,7 +947,7 @@ export function MobileAppShell({
     };
 
     return (
-      <div className="topbar-modal-backdrop" role="presentation" onMouseDown={() => setActiveTopbarModal(null)}>
+      <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeTopbarModal}>
         <section
           className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : "topbar-modal"}
           role="dialog"
@@ -944,7 +961,7 @@ export function MobileAppShell({
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
-            <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={() => setActiveTopbarModal(null)}>
+            <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={closeTopbarModal}>
               ×
             </button>
           </header>
@@ -981,7 +998,6 @@ export function MobileAppShell({
               </section>
               <section className="topbar-modal-card">
                 <strong>기기별 화면 설정</strong>
-                <SettingToggle label="PC 사이드바 마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
                 <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
@@ -1092,7 +1108,7 @@ export function MobileAppShell({
 
           {activeTopbarModal === "settings" || activeTopbarModal === "profile-settings" ? (
             <footer className="topbar-modal__footer">
-              <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={() => setActiveTopbarModal(null)}>
+              <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
               </button>
               <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>
@@ -1206,6 +1222,7 @@ export function MobileAppShell({
                   <a
                     className="portal-switch-link portal-switch-link--branch"
                     aria-label={`${branchPortalLabel} 새 탭에서 보기`}
+                    data-allow-url-status="true"
                     data-route={branchPortalHref}
                     href={branchPortalHref}
                     target="_blank"
@@ -1221,6 +1238,7 @@ export function MobileAppShell({
                   <a
                     className="portal-switch-link"
                     aria-label={`${nextPortalLabel} 새 탭에서 보기`}
+                    data-allow-url-status="true"
                     data-route={nextPortalHref}
                     href={nextPortalHref}
                     target="_blank"

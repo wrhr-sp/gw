@@ -65,7 +65,7 @@ export const generalPwaManifest = {
   short_name: "We'reHere",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 We'reHere 스켈레톤",
   id: "/login",
-  start_url: "/dashboard",
+  start_url: "/home",
   scope: "/",
   display: "browser",
   display_override: ["browser"],
@@ -79,7 +79,7 @@ export const generalPwaManifest = {
       name: "모바일 대시보드",
       short_name: "대시보드",
       description: "작은 화면 기준 오늘 상태와 핵심 진입점을 먼저 엽니다.",
-      url: "/dashboard",
+      url: "/home",
     },
     {
       name: "근태",
@@ -184,7 +184,7 @@ export const pwaManifest = generalPwaManifest;
 
 export const mobilePrimaryNav: NavItem[] = [
   {
-    href: "/dashboard",
+    href: "/home",
     label: "홈",
     shortLabel: "홈",
     summary: "오늘 할 일과 역할별 첫 진입점",
@@ -274,7 +274,7 @@ export const mobileBottomTabs: NavItem[] = [
     summary: "홈에서 다 보지 못한 전체 기능 탐색과 역할별 추가 진입점 열기",
   },
   {
-    href: "/dashboard",
+    href: "/home",
     label: "홈",
     shortLabel: "홈",
     summary: "오늘 해야 할 일과 파일럿 시작 화면 열기",
@@ -515,7 +515,7 @@ export const mobileReviewChecklist = [
 ] as const;
 
 export const fieldUsabilityPrinciples = [
-  "홈(`/dashboard`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
+  "홈(`/home`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
   "알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.",
   "오프라인(`/offline`)은 가능한 일/막히는 일/재시도 절차를 먼저 설명하고, 상태 변경 성공처럼 포장하지 않습니다.",
   "`/management`·`/admin*` 운영 레인은 일반 직원 홈과 분리해 권한 있는 사용자만 확인합니다.",
@@ -523,7 +523,7 @@ export const fieldUsabilityPrinciples = [
 
 export const recoveryRouteCards: readonly RecoveryRouteCard[] = [
   {
-    href: "/dashboard",
+    href: "/home",
     label: "홈 / 대시보드",
     summary: "오늘 할 일과 역할별 첫 진입점을 다시 확인합니다.",
   },
@@ -577,7 +577,7 @@ export const notificationStateCards: readonly NotificationStateCard[] = [
     title: "미읽음 안내 확인",
     summary: "같은 origin 안에서 받은 inbox 항목과 notices 를 먼저 읽습니다.",
     detail: "실제 외부 발송을 뜻하지 않으며, 다음 업무는 해당 route 에서 이어집니다.",
-    href: "/dashboard",
+    href: "/home",
     actionLabel: "홈에서 오늘 할 일 다시 보기",
   },
   {
@@ -700,7 +700,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   return {
     appName: "We'reHere",
     appEyebrow: "일반업무포털",
-    homeHref: "/dashboard",
+    homeHref: "/home",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,
     menuSections: getVisibleMobileMenuSections(roleCode),

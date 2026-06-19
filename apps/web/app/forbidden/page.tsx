@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function ForbiddenPage() {
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
-      <Link href="/dashboard">← 대시보드로</Link>
+      <Link href="/home">← 대시보드로</Link>
       <h1>접근 권한이 없습니다</h1>
       <p style={{ lineHeight: 1.7 }}>
         이 preview 에서는 로그인 여부만이 아니라 역할 경계도 함께 확인합니다. 일반 사용자와 감사 전용 사용자는 허용된 운영 경로만 열리고,

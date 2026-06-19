@@ -8,7 +8,7 @@ const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manif
 const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest"] as const;
 const authenticatedWorkbenchRoutePrefixes = [
   "/",
-  "/dashboard",
+  "/home",
   "/attendance",
   "/leave",
   "/payroll",
@@ -71,7 +71,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
   }
 
   if (!hostInfo.isAdminHost && pathname === "/") {
-    return { action: "redirect", location: hasSessionToken ? "/dashboard" : "/login" };
+    return { action: "redirect", location: hasSessionToken ? "/home" : "/login" };
   }
 
   const isAdminWorkbenchRoute = isAdminRoute(pathname);

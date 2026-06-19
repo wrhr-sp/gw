@@ -13,7 +13,7 @@ import {
 export function WorkItemsHubPage() {
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="대시보드로"
       eyebrow="Phase 37 공통 업무 저장흐름 점검"
       title="공통 업무 허브"

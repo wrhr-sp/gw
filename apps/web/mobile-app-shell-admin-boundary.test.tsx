@@ -110,7 +110,7 @@ describe("mobile app shell admin boundary", () => {
 
 
   it("separates the PC sidebar into general and management portals with opposite topbar switches", () => {
-    mockedPathname = "/dashboard";
+    mockedPathname = "/home";
     const sharedProps = {
       appName: "We'reHere",
       appEyebrow: "일반업무포털",
@@ -136,7 +136,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('target="_blank"');
     expect(generalHtml).toContain('rel="noopener noreferrer"');
     expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
-    expect(generalHtml).toContain('href="/dashboard" class="topbar-brand-link"');
+    expect(generalHtml).toContain('href="/home" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('data-route="/work-items/branch"');
     expect(generalHtml).toContain('href="/work-items/branch"');
@@ -199,8 +199,8 @@ describe("mobile app shell admin boundary", () => {
     const managementNextPortalSwitchIndex = managementHtml.indexOf('aria-label="일반업무포털 새 탭에서 보기"');
     expect(managementBranchSwitchIndex).toBeGreaterThan(-1);
     expect(managementBranchSwitchIndex).toBeLessThan(managementNextPortalSwitchIndex);
-    expect(managementHtml).toContain('data-route="/dashboard"');
-    expect(managementHtml).toContain('href="/dashboard"');
+    expect(managementHtml).toContain('data-route="/home"');
+    expect(managementHtml).toContain('href="/home"');
     expect(managementHtml).toContain("급여 내부관리");
     expect(managementHtml).not.toContain("협업/소통");
     expect(managementHtml).not.toContain("일정/개인 업무");
@@ -259,17 +259,25 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
     expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");
     expect(globalCss).toContain("--desktop-topbar-height: 64px");
-    expect(globalCss).toContain("padding-top: var(--desktop-topbar-height)");
+    expect(globalCss).toContain("margin-top: var(--desktop-topbar-height)");
+    expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
+    expect(globalCss).toContain("scroll-padding-top: 24px");
     expect(globalCss).toContain("z-index: 70");
     expect(globalCss).toContain("top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
     expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
+    expect(globalCss).toContain(".desktop-sidebar--collapsed .desktop-sidebar__section-copy");
+    expect(globalCss).toContain("display: none");
+    expect(globalCss).toContain(".app-shell *");
+    expect(globalCss).toContain("[contenteditable=\"true\"] *");
     expect(globalCss).toContain(".desktop-sidebar__header::after");
-    expect(globalCss).toContain("transform: translateY(-8px) scaleY(0.72)");
-    expect(globalCss).toContain("radial-gradient(ellipse at 50% 0%");
+    expect(globalCss).toContain("transform: translateY(-3px)");
+    expect(globalCss).toContain("bottom: -8px");
+    expect(globalCss).toContain("height: 10px");
     expect(globalCss).toContain("overflow: hidden");
     expect(globalCss).toContain("overflow-y: auto");
+    expect(globalCss).not.toContain("box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18)");
     expect(globalCss).not.toContain(".desktop-sidebar--scrolling");
   });
 });
