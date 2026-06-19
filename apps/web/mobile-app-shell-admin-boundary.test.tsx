@@ -249,6 +249,9 @@ describe("mobile app shell admin boundary", () => {
     const globalCss = readFileSync("app/globals.css", "utf8");
 
     expect(shellSource).toContain('element.classList.contains("app-shell__main")');
+    expect(shellSource).toContain('app-shell--suppress-topbar-tooltips');
+    expect(shellSource).toContain('setSuppressTopbarTooltips(true)');
+    expect(shellSource).toContain('window.addEventListener("pointermove", clearSuppressedTooltip, { once: true })');
     expect(shellSource).toContain('element.dataset.autoScrollbar = "true"');
     expect(shellSource).toContain('element.dataset.autoScrollbarScrolling = "true"');
     expect(shellSource).toContain("}, 1000)");

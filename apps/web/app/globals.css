@@ -1400,6 +1400,12 @@ li {
   transform: translate(-50%, 0);
 }
 
+.app-shell--suppress-topbar-tooltips .topbar-icon-link::after,
+.app-shell--suppress-topbar-tooltips .topbar-profile-button::after {
+  opacity: 0 !important;
+  transform: translate(-50%, -4px) !important;
+}
+
 .topbar-icon-link__badge {
   position: absolute;
   top: -3px;
