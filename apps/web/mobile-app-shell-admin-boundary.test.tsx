@@ -247,7 +247,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('element.classList.contains("app-shell__main")');
     expect(shellSource).toContain('element.dataset.autoScrollbar = "true"');
     expect(shellSource).toContain('element.dataset.autoScrollbarScrolling = "true"');
-    expect(shellSource).toContain("}, 700)");
+    expect(shellSource).toContain("}, 1000)");
     expect(shellSource).not.toContain("desktop-sidebar--scrolling");
 
     expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');

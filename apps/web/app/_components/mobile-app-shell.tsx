@@ -781,7 +781,7 @@ export function MobileAppShell({
         setTimeout(() => {
           delete element.dataset.autoScrollbarScrolling;
           scrollTimers.delete(element);
-        }, 700),
+        }, 1000),
       );
     }
 
