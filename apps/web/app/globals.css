@@ -1021,7 +1021,7 @@ li {
   line-height: 1;
   padding: 9px 12px;
   text-decoration: none;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .portal-switch-link:hover,
@@ -1032,14 +1032,35 @@ li {
 }
 
 .portal-switch-link__icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
   transform: scale(var(--icon-scale, 1));
 }
 
+.portal-switch-link__box,
+.portal-switch-link__arrow-outline {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+
+.portal-switch-link__arrow-fill {
+  fill: currentColor;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.portal-switch-link:hover .portal-switch-link__arrow-fill,
+.portal-switch-link:focus-visible .portal-switch-link__arrow-fill {
+  opacity: 1;
+}
+
 @media (min-width: 961px) {
   .app-shell--responsive {
+    display: block;
     height: 100dvh;
     min-height: 100dvh;
     overflow: hidden;
@@ -1048,6 +1069,7 @@ li {
   .app-shell__main {
     height: 100dvh;
     min-height: 0;
+    margin-left: 116px;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -1071,8 +1093,10 @@ li {
     align-content: start;
     gap: 18px;
     padding: 24px 20px;
-    position: sticky;
+    position: fixed;
+    left: 0;
     top: 0;
+    z-index: 35;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
@@ -1118,6 +1142,10 @@ li {
 
   .desktop-sidebar--collapsed {
     width: 116px;
+  }
+
+  .desktop-sidebar:not(.desktop-sidebar--collapsed) {
+    box-shadow: 18px 0 42px rgba(15, 23, 42, 0.12), inset -1px 0 0 rgba(255, 255, 255, 0.72);
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__section-copy p,
@@ -1618,13 +1646,6 @@ li {
   cursor: not-allowed;
 }
 
-.topbar-modal-toggle--locked strong::after {
-  margin-left: 6px;
-  color: #2563eb;
-  content: "고정";
-  font-size: 0.68rem;
-  font-weight: 950;
-}
 
 .topbar-modal-card--after-hours {
   border-color: rgba(37, 99, 235, 0.18);

@@ -136,6 +136,8 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('aria-label="We’reHere 일반업무포털 홈"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('data-route="/management"');
+    expect(generalHtml).toContain("portal-switch-link__arrow-outline");
+    expect(generalHtml).not.toContain("↗");
     expect(generalHtml).not.toContain('href="/management"');
     expect(generalHtml).toContain('aria-label="설정"');
     expect(generalHtml).toContain('data-tooltip="설정"');

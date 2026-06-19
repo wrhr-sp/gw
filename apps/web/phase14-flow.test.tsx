@@ -54,6 +54,8 @@ describe("Phase 14 home/login flow", () => {
     expect(html).toContain("자동 로그인");
     expect(html).toContain(">로그인<");
     expect(html).not.toContain("로그인 전용 진입");
+    expect(html).not.toContain("아이디와 비밀번호를 입력해 그룹웨어로 들어갑니다.");
+    expect(html).not.toContain("로그아웃이 완료되었습니다.");
     expect(html).not.toContain("UAT 역할 선택");
     expect(html).not.toContain("로그인 후 첫 화면");
     expect(html).not.toContain("/dashboard");
