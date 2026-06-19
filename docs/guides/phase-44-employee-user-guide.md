@@ -1,7 +1,9 @@
 # Phase 44 직원용 사용자 가이드
 
 ## 한 줄 요약
-직원은 `/login` 에서 시작해 `/dashboard` 를 홈으로 쓰고, 하루 기본 업무를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` 순서로 따라가면 된다.
+직원은 `/login` 에서 시작해 `/dashboard` 를 홈으로 쓰고,
+필요하면 `/menu` 로 전체 기능을 다시 찾으며,
+하루 기본 업무를 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` 순서로 따라가면 된다.
 
 ## 이 가이드가 설명하는 범위
 - 이 문서는 일반 직원이 지금 바로 어디로 들어가고 무엇을 확인해야 하는지 설명한다.
@@ -13,6 +15,8 @@
 - 테스트 계정 `admin / 1234` 는 dev/test/UAT 전용이다. production 기본 계정으로 이해하면 안 된다.
 - 현재 공개 UAT 기준 URL은 `https://gw-web.wereheresp.workers.dev` 이다.
 - 로그인 뒤 보이는 화면은 역할에 따라 다를 수 있지만, 일반 직원의 기본 시작점은 `/dashboard` 다.
+- `/menu` 는 홈 복사본이 아니라 전체 기능 탐색 허브다.
+- `empty`, `forbidden`, `error`, `offline`, `dev-safe` 는 서로 다른 뜻이다.
 
 ## 로그인 전에는 무엇이 보여야 하나
 - 정상은 "로그인 화면만 보이는 상태"다.
@@ -30,19 +34,22 @@
 2. `/dashboard`
    - 홈이다.
    - 오늘 먼저 할 일, 자주 가는 메뉴, 협업 흐름 진입점을 여기서 본다.
-3. `/attendance`
+3. 필요 시 `/menu`
+   - 전체 기능을 다시 찾는 화면이다.
+   - 홈에서 안 보이는 메뉴를 억지로 여는 우회 통로가 아니라, 권한 안에서 다시 찾는 탐색 화면이다.
+4. `/attendance`
    - 오늘 출근/퇴근 상태, 마지막 기록, 정정 필요 여부를 먼저 확인한다.
-4. `/leave`
+5. `/leave`
    - 잔여 휴가, 신청 예정, 현재 상태를 확인한다.
-5. `/approvals`
+6. `/approvals`
    - 내가 처리해야 할 결재와 확인이 필요한 문서를 본다.
-6. `/boards`
+7. `/boards`
    - 공지와 일반 게시판을 본다.
-7. `/documents`
+8. `/documents`
    - 문서 공간과 최근 문서를 읽기 중심으로 확인한다.
-8. `/me`
+9. `/me`
    - 내 세션, 역할, 보안 안내를 확인한다.
-9. 필요 시 `/org`, `/employees`
+10. 필요 시 `/org`, `/employees`
    - 조직 구조와 직원 목록을 읽기 전용으로 확인한다.
 
 ## 화면별로 무엇을 보면 되는가
@@ -51,6 +58,12 @@
 - 오늘 해야 할 일의 시작점이다.
 - 근태, 휴가, 결재, 게시판, 문서, 내 정보로 이어지는 순서를 보여 준다.
 - 관리자 전용 CTA 는 일반 직원 홈에 기본으로 섞이지 않는다.
+
+### 1-1) `/menu` — 전체 기능 다시 찾기
+- 홈과 다른 책임의 화면이다.
+- `forbidden` 이면 권한 없는 운영 메뉴를 우회해서 열어 주는 화면이 아니라는 뜻이다.
+- `empty` 는 지금 보여 줄 추가 메뉴가 없는 정상 상태일 수 있다.
+- `error` 는 메뉴 조회 실패고, `offline` 은 네트워크 불안정이므로 같은 실패처럼 적지 않는다.
 
 근거 파일:
 - `apps/web/app/dashboard/page.tsx`
@@ -142,6 +155,8 @@
 - 화면이 있다고 해서 실운영이 모두 열린 것이 아니다.
 - placeholder/skeleton 설명은 실제 처리 완료 약속이 아니다.
 - 오프라인, 에러, 권한 부족, 정상 빈 상태는 서로 다른 의미다.
+- `/menu` 는 홈의 복사본이 아니라 전체 기능 탐색 허브다.
+- `/payroll/me` preview 와 실제 급여 지급 결과는 같은 뜻이 아니다.
 
 ## 지금 단계에서 하지 않는 것
 - 실제 급여 지급
@@ -159,6 +174,7 @@
 - `/login` 이 첫 입구로 보이는가
 - 로그인 전 내부 기능 화면이 먼저 보이지 않는가
 - `/dashboard` 가 홈으로 읽히는가
+- `/menu` 가 전체 기능 탐색 화면으로 읽히는가
 - `/attendance` 와 `/leave` 가 하루 기본 흐름으로 이어지는가
 - `/approvals`, `/boards`, `/documents` 가 협업 흐름으로 자연스럽게 이어지는가
 - `/management` 와 `/admin*` 가 직원 기본 레인에 섞이지 않는가
@@ -170,4 +186,6 @@
 - `docs/guides/phase-44-operator-runbook.md`
 - `docs/guides/phase-44-role-access-matrix.md`
 - `docs/guides/phase-44-adoption-checklist.md`
+- `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
+- `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md`
 - `docs/architecture/phase-44-operations-docs-user-admin-guides-adoption-checklist-fit-gap-scope.md`

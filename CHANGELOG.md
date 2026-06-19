@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-06-19
+
+### Changed
+
+- `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md` 를 추가하고 `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md`, `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `KNOWN_ISSUES.md` 를 함께 갱신했다. 이번 Phase 59 문서화에서는 Phase 44 사용자/관리자/도입 체크리스트 문서 세트를 최신 홈/메뉴 IA, 상태 문장, 역할별 차단 레인 기준에 맞춰 다시 묶고, `/dashboard` 대 `/menu` 책임 분리, HR_ADMIN 다음 레인 `/admin/users`, AUDITOR 시작점 `/admin/audit-logs`, `empty`/`forbidden`·`error`/`offline`·`preview/dev-safe` 차이, PWA 설치 확인, 승인 게이트를 한 세트의 쉬운 한국어로 최종 정리했다.
+- `docs/guides/phase-58-ui-microfix-settings-profile-notice-alert-branding-guide.md` 를 추가해 설정 팝업의 기기별 화면 설정 분리, 공지사항/알림 팝업 footer 제거, 내 정보 설정 보조 문구 제거, 알림 기능 선택과 퇴근 후 알림 설정 동기화, `We'reHere` 브랜드 통일, 일반업무포털/경영업무포털 전환 표기 정리를 쉬운 한국어 UAT 가이드로 묶었다. 이 문서에는 parent tester 재검증 근거(focused web 21건, typecheck, build, build:cf, ad-hoc modal smoke)와 live 직접 확인 시 질문도 함께 정리했다.
+
 ## 2026-06-18
 
 ### Changed
