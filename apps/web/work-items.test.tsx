@@ -114,21 +114,19 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(true);
 
     const employeeMenuSections = getVisibleMobileMenuSections("EMPLOYEE");
-    const workItemMenuSection = employeeMenuSections.find((section) => section.title === "공통 업무 엔진");
-    expect(workItemMenuSection?.items.map((item) => item.href)).toEqual([
-      "/work-items",
-      "/work-items/hr",
-    ]);
+    const employeeMenuHrefs = employeeMenuSections.flatMap((section) => section.items.map((item) => item.href));
+    expect(employeeMenuHrefs).toContain("/work-items");
+    expect(employeeMenuHrefs).toContain("/work-items/hr");
+    expect(employeeMenuHrefs).not.toContain("/work-items/tax");
+    expect(employeeMenuHrefs).not.toContain("/work-items/labor");
+    expect(employeeMenuHrefs).not.toContain("/work-items/legal");
     expect(employeeMenuSections.some((section) => section.title === "경영업무")).toBe(false);
 
     const managerMenuSections = getVisibleMobileMenuSections("MANAGER");
-    const managerWorkItemMenuSection = managerMenuSections.find((section) => section.title === "공통 업무 엔진");
-    expect(managerWorkItemMenuSection?.items.map((item) => item.href)).toEqual([
-      "/work-items",
-      "/work-items/hr",
-      "/work-items/tax",
-      "/work-items/branch",
-    ]);
+    const managerMenuHrefs = managerMenuSections.flatMap((section) => section.items.map((item) => item.href));
+    expect(managerMenuHrefs).toContain("/work-items");
+    expect(managerMenuHrefs).toContain("/work-items/hr");
+    expect(managerMenuHrefs).toContain("/work-items/branch");
     const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
     expect(managementSection?.items.map((item) => item.href)).toEqual([
       "/management",

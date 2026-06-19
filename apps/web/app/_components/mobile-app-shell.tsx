@@ -430,7 +430,7 @@ function isManagementPortalPath(pathname: string) {
     pathname === "/management" ||
     pathname.startsWith("/management/") ||
     pathname === "/payroll" ||
-    pathname.startsWith("/payroll/") ||
+    (pathname.startsWith("/payroll/") && pathname !== "/payroll/me") ||
     pathname.startsWith("/work-items/tax") ||
     pathname.startsWith("/work-items/labor") ||
     pathname.startsWith("/work-items/legal")

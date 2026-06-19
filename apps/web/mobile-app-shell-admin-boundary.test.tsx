@@ -100,8 +100,8 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("M12 2.25A9.75 9.75");
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
     expect(html).toContain("M9 14l2 2l4 -4");
-    expect(html).toContain("M5 21v-16");
-    expect(html).toContain("M10 10V5");
+    expect(html).toContain("M6 6h6l2 2h4");
+    expect(html).toContain("M16 8h-6a2 2 0 1 0 0 4h4");
 
     const branchLink = html.match(/<button[^>]+data-route="\/work-items\/branch"[\s\S]*?<\/button>/)?.[0] ?? "";
     expect(branchLink).toContain("지점 업무");
@@ -162,7 +162,11 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("topbar-profile-avatar");
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
-    expect(generalHtml).toContain("기본 업무");
+    expect(generalHtml).toContain("협업/소통");
+    expect(generalHtml).toContain("일정/개인 업무");
+    expect(generalHtml).toContain("근무/인사");
+    expect(generalHtml).toContain("결재/문서");
+    expect(generalHtml).toContain("급여/비용");
     expect(generalHtml).not.toContain("급여 내부관리");
 
     mockedPathname = "/management";
@@ -190,7 +194,8 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).toContain('data-route="/dashboard"');
     expect(managementHtml).toContain('href="/dashboard"');
     expect(managementHtml).toContain("급여 내부관리");
-    expect(managementHtml).not.toContain("기본 업무");
+    expect(managementHtml).not.toContain("협업/소통");
+    expect(managementHtml).not.toContain("일정/개인 업무");
 
     mockedPathname = "/offline";
   });

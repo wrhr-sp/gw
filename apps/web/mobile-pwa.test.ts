@@ -97,10 +97,30 @@ describe("mobile/PWA config", () => {
     expect(mobileBottomTabs[0]?.summary).toContain("전체 기능 탐색");
 
     expect(mobileMenuSections.map((section) => section.title)).toEqual([
-      "기본 업무",
-      "공통 업무 엔진",
-      "내 정보 / 조회",
-      "협업 확인",
+      "협업/소통",
+      "일정/개인 업무",
+      "근무/인사",
+      "결재/문서",
+      "급여/비용",
+      "운영/기타",
+    ]);
+    expect(mobileMenuSections.flatMap((section) => section.items.map((item) => item.href))).toEqual([
+      "/mail",
+      "/messenger",
+      "/notifications",
+      "/boards",
+      "/org",
+      "/employees",
+      "/dashboard",
+      "/me",
+      "/work-items",
+      "/attendance",
+      "/leave",
+      "/work-items/hr",
+      "/approvals",
+      "/documents",
+      "/payroll/me",
+      "/work-items/branch",
     ]);
   });
 
