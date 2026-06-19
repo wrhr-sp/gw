@@ -132,12 +132,15 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(generalHtml).toContain("일반업무포털");
-    expect(generalHtml).toContain("경영업무포털로 이동");
+    expect(generalHtml).toContain("경영업무포털");
+    expect(generalHtml).toContain('aria-label="경영업무포털 새 탭에서 보기"');
+    expect(generalHtml).toContain('target="_blank"');
+    expect(generalHtml).toContain('rel="noopener noreferrer"');
     expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
     expect(generalHtml).toContain('href="/dashboard" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('data-route="/management"');
-    expect(generalHtml).toContain('href="/management" target="_blank" rel="noreferrer"');
+    expect(generalHtml).toContain('href="/management"');
     expect(generalHtml).toContain("portal-switch-link__arrow-outline");
     expect(generalHtml).not.toContain("↗");
     expect(generalHtml).toContain('aria-label="설정"');
@@ -162,11 +165,14 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(managementHtml).toContain("경영업무포털");
-    expect(managementHtml).toContain("일반업무포털로 이동");
+    expect(managementHtml).toContain("일반업무포털");
+    expect(managementHtml).toContain('aria-label="일반업무포털 새 탭에서 보기"');
+    expect(managementHtml).toContain('target="_blank"');
+    expect(managementHtml).toContain('rel="noopener noreferrer"');
     expect(managementHtml).toContain(`aria-label="We&#x27;reHere 경영업무포털 홈"`);
     expect(managementHtml).toContain('href="/management" class="topbar-brand-link"');
     expect(managementHtml).toContain('data-route="/dashboard"');
-    expect(managementHtml).toContain('href="/dashboard" target="_blank" rel="noreferrer"');
+    expect(managementHtml).toContain('href="/dashboard"');
     expect(managementHtml).toContain("급여 내부관리");
     expect(managementHtml).not.toContain("기본 업무");
 

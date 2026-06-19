@@ -1118,8 +1118,19 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <a className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} href={nextPortalHref} target="_blank" rel="noreferrer">
-                  <span>{nextPortalLabel}로 이동</span>
+                <a
+                  className="portal-switch-link"
+                  aria-label={`${nextPortalLabel} 새 탭에서 보기`}
+                  data-route={nextPortalHref}
+                  href={nextPortalHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.open(new URL(nextPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <span>{nextPortalLabel}</span>
                   <PortalShortcutIcon />
                 </a>
               ) : null}
