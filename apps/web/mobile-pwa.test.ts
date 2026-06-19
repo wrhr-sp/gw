@@ -36,7 +36,8 @@ describe("mobile/PWA config", () => {
     expect(generalPwaManifest.id).toBe("/login");
     expect(generalPwaManifest.start_url).toBe("/dashboard");
     expect(generalPwaManifest.scope).toBe("/");
-    expect(generalPwaManifest.display_override).toEqual(["standalone", "minimal-ui", "browser"]);
+    expect(generalPwaManifest.display).toBe("browser");
+    expect(generalPwaManifest.display_override).toEqual(["browser"]);
     expect(generalPwaManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual(["/dashboard", "/attendance", "/approvals"]);
     expect(generalPwaManifest.icons.length).toBeGreaterThanOrEqual(2);
     expect(generalPwaManifest.icons.every((icon) => icon.src.startsWith("/icons/"))).toBe(true);
@@ -56,7 +57,8 @@ describe("mobile/PWA config", () => {
     expect(adminManifest.id).toBe("/admin");
     expect(adminManifest.start_url).toBe("/admin");
     expect(adminManifest.scope).toBe("/admin");
-    expect(adminManifest.display_override).toEqual(["standalone", "minimal-ui", "browser"]);
+    expect(adminManifest.display).toBe("browser");
+    expect(adminManifest.display_override).toEqual(["browser"]);
     expect(adminManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual([
       "/admin",
       "/admin/users",
