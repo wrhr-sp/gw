@@ -126,7 +126,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     const managerMenuHrefs = managerMenuSections.flatMap((section) => section.items.map((item) => item.href));
     expect(managerMenuHrefs).toContain("/work-items");
     expect(managerMenuHrefs).toContain("/work-items/hr");
-    expect(managerMenuHrefs).toContain("/work-items/branch");
+    expect(managerMenuHrefs).not.toContain("/work-items/branch");
     const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
     expect(managementSection?.items.map((item) => item.href)).toEqual([
       "/management",

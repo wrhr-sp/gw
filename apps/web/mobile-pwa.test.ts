@@ -106,6 +106,7 @@ describe("mobile/PWA config", () => {
       "운영/기타",
     ]);
     expect(mobilePrimaryNav[0]).toMatchObject({ href: "/dashboard", label: "홈", shortLabel: "홈" });
+    expect(mobilePrimaryNav[5]).toMatchObject({ href: "/documents", label: "전사 문서함", shortLabel: "전사문서" });
     expect(mobileMenuSections.flatMap((section) => section.items.map((item) => item.href))).toEqual([
       "/mail",
       "/messenger",
@@ -113,8 +114,7 @@ describe("mobile/PWA config", () => {
       "/boards",
       "/org",
       "/employees",
-      "#community",
-      "/me",
+      "#anonymous-board",
       "/work-items",
       "#calendar",
       "#reservation",
@@ -128,15 +128,13 @@ describe("mobile/PWA config", () => {
       "/approvals",
       "/documents",
       "#library",
-      "#company-documents",
       "#drive",
       "/payroll/me",
       "#expense",
-      "/work-items/branch",
       "#vehicle-log",
     ]);
     expect(mobileMenuSections.flatMap((section) => section.items).filter((item) => item.disabled).map((item) => item.label)).toEqual([
-      "커뮤니티",
+      "익명게시판",
       "캘린더",
       "예약",
       "보고",
@@ -144,7 +142,6 @@ describe("mobile/PWA config", () => {
       "직원교육",
       "고용전자계약",
       "자료실",
-      "전사 문서함",
       "드라이브",
       "경비",
       "차량운행일지",

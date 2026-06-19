@@ -215,8 +215,8 @@ export const mobilePrimaryNav: NavItem[] = [
   },
   {
     href: "/documents",
-    label: "문서",
-    shortLabel: "문서",
+    label: "전사 문서함",
+    shortLabel: "전사문서",
     summary: "문서 공간과 보관 흐름 확인",
   },
   {
@@ -254,11 +254,11 @@ export const mobilePrimaryNav: NavItem[] = [
 const plannedNavItems = {
   calendar: { href: "#calendar", label: "캘린더", shortLabel: "캘린더", summary: "일정 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   reservation: { href: "#reservation", label: "예약", shortLabel: "예약", summary: "회의실·차량·공용장비 같은 사내 자원 예약 후보입니다. 이번 작업에서는 기능을 만들지 않습니다.", disabled: true, badge: "준비중" },
-  community: { href: "#community", label: "커뮤니티", shortLabel: "커뮤", summary: "사내 커뮤니티 공간은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  community: { href: "#anonymous-board", label: "익명게시판", shortLabel: "익명", summary: "익명 게시판 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   report: { href: "#reports", label: "보고", shortLabel: "보고", summary: "업무 보고 작성·제출 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   todo: { href: "#todo-plus", label: "ToDO+", shortLabel: "ToDO", summary: "개인/팀 할 일 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   library: { href: "#library", label: "자료실", shortLabel: "자료실", summary: "공용 자료실 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  companyDocs: { href: "#company-documents", label: "전사 문서함", shortLabel: "전사문서", summary: "전사 문서함 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+
   drive: { href: "#drive", label: "드라이브", shortLabel: "드라이브", summary: "파일 드라이브 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   training: { href: "#employee-training", label: "직원교육", shortLabel: "교육", summary: "직원교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   employmentContract: { href: "#employment-contract", label: "고용전자계약", shortLabel: "전자계약", summary: "고용 전자계약 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
@@ -316,7 +316,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "일정/개인 업무",
     description: "",
-    items: [mobilePrimaryNav[7], mobilePrimaryNav[6], plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
+    items: [mobilePrimaryNav[6], plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
   },
   {
     title: "근무/인사",
@@ -332,7 +332,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "결재/문서",
     description: "",
-    items: [mobilePrimaryNav[3], mobilePrimaryNav[5], plannedNavItems.library, plannedNavItems.companyDocs, plannedNavItems.drive],
+    items: [mobilePrimaryNav[3], mobilePrimaryNav[5], plannedNavItems.library, plannedNavItems.drive],
   },
   {
     title: "급여/비용",
@@ -342,7 +342,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "운영/기타",
     description: "",
-    items: [{ href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" }, plannedNavItems.vehicleLog],
+    items: [plannedNavItems.vehicleLog],
   },
 ];
 
