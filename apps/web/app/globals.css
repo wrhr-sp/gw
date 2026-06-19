@@ -517,6 +517,37 @@ li {
   overflow-x: auto;
 }
 
+.app-shell [data-auto-scrollbar="true"] {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+  transition: scrollbar-color 180ms ease;
+}
+
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-track {
+  margin-block: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+  transition: background 180ms ease;
+}
+
+.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"] {
+  scrollbar-color: rgba(37, 99, 235, 0.38) transparent;
+}
+
+.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2));
+}
+
 .responsive-table {
   width: 100%;
   min-width: 560px;
@@ -1145,40 +1176,9 @@ li {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color 180ms ease;
     background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
     border-right: 1px solid var(--line);
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.72);
-  }
-
-  .desktop-sidebar--scrolling {
-    scrollbar-color: rgba(100, 116, 139, 0.42) transparent;
-  }
-
-  .desktop-sidebar::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .desktop-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .desktop-sidebar::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background-color: transparent;
-    background-clip: content-box;
-    transition: background-color 180ms ease;
-  }
-
-  .desktop-sidebar--scrolling::-webkit-scrollbar-thumb {
-    background-color: rgba(100, 116, 139, 0.42);
-  }
-
-  .desktop-sidebar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(71, 85, 105, 0.62);
   }
 
   .desktop-sidebar--collapsed {
@@ -1465,8 +1465,6 @@ li {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 8px;
-  scrollbar-color: rgba(37, 99, 235, 0.38) transparent;
-  scrollbar-width: thin;
 }
 
 .topbar-modal__grid {
@@ -1691,24 +1689,6 @@ li {
 
 .ghost-link.app-topbar__mobile-only {
   border: 1px solid rgba(37, 99, 235, 0.16);
-}
-
-.topbar-modal__grid::-webkit-scrollbar,
-.topbar-profile-settings::-webkit-scrollbar {
-  width: 8px;
-}
-
-.topbar-modal__grid::-webkit-scrollbar-track,
-.topbar-profile-settings::-webkit-scrollbar-track {
-  margin-block: 2px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-.topbar-modal__grid::-webkit-scrollbar-thumb,
-.topbar-profile-settings::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2));
 }
 
 .topbar-modal-toggle--locked {

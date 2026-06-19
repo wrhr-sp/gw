@@ -1,4 +1,5 @@
 import React from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -237,5 +238,22 @@ describe("mobile app shell admin boundary", () => {
       attendanceResults: false,
       importantMail: false,
     });
+  });
+
+  it("standardizes internal scrollbars without applying the auto-hide rule to full-page scrolling", () => {
+    const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
+    const globalCss = readFileSync("app/globals.css", "utf8");
+
+    expect(shellSource).toContain('element.classList.contains("app-shell__main")');
+    expect(shellSource).toContain('element.dataset.autoScrollbar = "true"');
+    expect(shellSource).toContain('element.dataset.autoScrollbarScrolling = "true"');
+    expect(shellSource).toContain("}, 700)");
+    expect(shellSource).not.toContain("desktop-sidebar--scrolling");
+
+    expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');
+    expect(globalCss).toContain("scrollbar-color: transparent transparent");
+    expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
+    expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");
+    expect(globalCss).not.toContain(".desktop-sidebar--scrolling");
   });
 });

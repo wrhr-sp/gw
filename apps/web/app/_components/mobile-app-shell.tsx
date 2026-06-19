@@ -472,7 +472,7 @@ export function MobileAppShell({
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
+
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
@@ -497,7 +497,6 @@ export function MobileAppShell({
   });
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
-  const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
@@ -701,9 +700,6 @@ export function MobileAppShell({
 
   useEffect(() => {
     return () => {
-      if (sidebarScrollTimerRef.current) {
-        clearTimeout(sidebarScrollTimerRef.current);
-      }
       if (settingsSaveToastTimerRef.current) {
         clearTimeout(settingsSaveToastTimerRef.current);
       }
@@ -734,17 +730,91 @@ export function MobileAppShell({
     });
   }
 
-  function handleSidebarScroll() {
-    setIsSidebarScrolling(true);
-
-    if (sidebarScrollTimerRef.current) {
-      clearTimeout(sidebarScrollTimerRef.current);
+  useEffect(() => {
+    if (isLoginRoute || typeof window === "undefined") {
+      return;
     }
 
-    sidebarScrollTimerRef.current = setTimeout(() => {
-      setIsSidebarScrolling(false);
-    }, 700);
-  }
+    const scrollTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+    const scrollableOverflowValues = new Set(["auto", "scroll", "overlay"]);
+
+    function isFullPageScrollElement(element: HTMLElement) {
+      return element === document.documentElement || element === document.body || element.classList.contains("app-shell__main");
+    }
+
+    function isScrollableElement(element: HTMLElement) {
+      if (isFullPageScrollElement(element)) {
+        return false;
+      }
+
+      const style = window.getComputedStyle(element);
+      const canScrollY = scrollableOverflowValues.has(style.overflowY) && element.scrollHeight > element.clientHeight + 1;
+      const canScrollX = scrollableOverflowValues.has(style.overflowX) && element.scrollWidth > element.clientWidth + 1;
+      return canScrollY || canScrollX;
+    }
+
+    function markScrollableElements(root: ParentNode = document) {
+      const candidates = root instanceof HTMLElement ? [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))] : Array.from(root.querySelectorAll<HTMLElement>(".app-shell *"));
+
+      candidates.forEach((element) => {
+        if (isScrollableElement(element)) {
+          element.dataset.autoScrollbar = "true";
+        }
+      });
+    }
+
+    function showScrollbarWhileScrolling(element: HTMLElement) {
+      if (!isScrollableElement(element)) {
+        return;
+      }
+
+      element.dataset.autoScrollbar = "true";
+      element.dataset.autoScrollbarScrolling = "true";
+
+      const existingTimer = scrollTimers.get(element);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      scrollTimers.set(
+        element,
+        setTimeout(() => {
+          delete element.dataset.autoScrollbarScrolling;
+          scrollTimers.delete(element);
+        }, 700),
+      );
+    }
+
+    markScrollableElements();
+
+    const mutationObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (node instanceof HTMLElement) {
+            markScrollableElements(node);
+          }
+        });
+      }
+    });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+    const handleAutoScrollbarScroll = (event: Event) => {
+      const element = event.target instanceof HTMLElement ? event.target : null;
+      if (element) {
+        showScrollbarWhileScrolling(element);
+      }
+    };
+
+    document.addEventListener("scroll", handleAutoScrollbarScroll, true);
+
+    return () => {
+      mutationObserver.disconnect();
+      document.removeEventListener("scroll", handleAutoScrollbarScroll, true);
+      document.querySelectorAll<HTMLElement>("[data-auto-scrollbar-scrolling]").forEach((element) => {
+        delete element.dataset.autoScrollbarScrolling;
+      });
+    };
+  }, [isLoginRoute]);
 
   useEffect(() => {
     if (!notificationTab || isLoginRoute) {
@@ -1046,11 +1116,8 @@ export function MobileAppShell({
   return (
     <div className="app-shell app-shell--responsive">
       <aside
-        className={`${sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}${
-          isSidebarScrolling ? " desktop-sidebar--scrolling" : ""
-        }`}
+        className={sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}
         aria-label="PC 기본 탐색"
-        onScroll={handleSidebarScroll}
       >
         <div className="desktop-sidebar__header">
           <a href={homeHref} className="brand-link brand-link--sidebar">
