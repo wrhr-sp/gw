@@ -9,6 +9,15 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 60 추가 검증 초점
+
+- `docs/guides/phase-60-first-real-usage-release-notes-user-admin-handoff.md` 가 live URL, 테스트 계정, 역할별 추천 route, 직접 눌러볼 액션, 승인 게이트를 한 문서에서 바로 재사용 가능하게 정리했는지 본다.
+- 직원 레인(`/dashboard` 중심)과 관리자 레인(`/management` 또는 `/admin/users` 중심), 감사 레인(`/admin/audit-logs`)이 같은 홈 흐름처럼 섞이지 않는지 본다.
+- HR_ADMIN 첫 관리자 레인이 `/admin/users`, COMPANY_ADMIN/MANAGER 운영 허브가 `/management`, AUDITOR 시작점이 `/admin/audit-logs` 라는 기준이 release note 와 handoff 에서 흔들리지 않는지 본다.
+- `/dashboard` 와 `/menu` 책임 차이, `/me` 의 세션·개인 확인 의미, `empty`/`forbidden`/`error`/`loading`/`dev-safe` 해석이 최종 인수인계 문장에서도 같은 뜻인지 본다.
+- parent tester 재검증 근거(28 files / 123 tests, shared/api/web typecheck, build, build:cf, `pnpm check`)와 live 직접 확인 행동 안내가 같은 확인 수준처럼 섞이지 않는지 본다.
+- production DB, 실제 초대 발송, 실제 비밀번호 운영 전환, 외부 IdP/SSO, 실제 급여 지급, secret, DNS/custom domain, 유료 리소스, migration, destructive 작업이 이번 릴리즈 완료 문장 속에 숨지지 않는지 본다.
+
 ## Phase 59 추가 검증 초점
 
 - `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md` 가 최신 홈/메뉴/상태 문장 기준과 같은 뜻인지 본다.
