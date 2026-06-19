@@ -22,7 +22,7 @@ describe("mobile app shell login boundary", () => {
   it("hides navigation chrome on the anonymous login route", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
-        appName="그룹웨어 Web/PWA"
+        appName="We'reHere"
         appEyebrow="로그인 전용 진입"
         homeHref="/dashboard"
         navItems={[{ href: "/dashboard", label: "대시보드", shortLabel: "대시", summary: "요약" }]}
