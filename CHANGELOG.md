@@ -4,6 +4,8 @@
 
 ### Changed
 
+- `docs/architecture/phase-58-state-copy-recovery-role-lane-fit-gap-scope.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-handoff.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 58 기준으로 갱신했다. 이번 기준은 `/dashboard`·`/menu`·`/management`·`/admin/users`·`/admin/audit-logs`·`/me` 에 흩어진 `loading`·`empty`·`error`·`forbidden`·`offline`·`dev-safe` 상태 문장을 같은 복구 언어로 다시 잠그고, HR_ADMIN/MANAGER/COMPANY_ADMIN/AUDITOR/EMPLOYEE 첫 진입점과 차단 레인을 실사용 안내 문장으로 다시 정리하는 데 맞췄다. 이후 guide 에 route별 UAT 체크리스트를 추가해 대장이 화면별 확인 질문을 바로 따라갈 수 있게 보강했다.
+
 - `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 를 다시 보강해 `/me` 를 사용자 설정 완료 화면이 아니라 세션·권한·개인 확인 흐름으로 읽는 기준, `admin / 1234` dev/test/UAT 계정 메모, parent tester 재검증 근거, `/payroll/me`·`/org`·`/employees` 연결 순서, 최종 보고에 넣을 `/me` 요약 포인트를 추가했다.
 
 - `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `SPEC.md`, `TEST_PLAN.md`, `QA_CHECKLIST.md`, `KNOWN_ISSUES.md` 를 Phase 57 기준으로 갱신했다. 이번 기준은 `/dashboard` 홈과 `/menu` 전체 메뉴 책임 분리, 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기 정책, 모바일 하단 탭 5개와 PC sidebar 의 같은 IA 원칙, `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인의 일반 직원 홈 분리, empty/loading/error/forbidden/offline/dev-safe 상태 문장을 같은 언어로 다시 잠그는 데 맞췄다.

@@ -9,7 +9,7 @@ const menuStatusGuideCards = [
   {
     title: "loading",
     summary: "아직 내용을 불러오는 중인 상태입니다.",
-    detail: "잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
+    detail: "저장 성공이나 권한 차단으로 단정하지 말고 잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
   },
   {
     title: "empty",
@@ -23,18 +23,18 @@ const menuStatusGuideCards = [
   },
   {
     title: "forbidden",
-    summary: "권한 또는 접근 범위가 맞지 않는 상태입니다.",
-    detail: "관리자 전용 메뉴를 대신 열지 않고 허용된 레인에서만 확인합니다.",
+    summary: "로그인은 되었지만 현재 업무 권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "관리자 전용 메뉴를 대신 열지 않고 허용된 홈·메뉴 레인에서만 확인합니다.",
   },
   {
     title: "offline",
     summary: "네트워크가 불안정해 재시도가 필요한 상태입니다.",
-    detail: "가능한 일과 막히는 일을 먼저 확인합니다.",
+    detail: "가능한 일과 막히는 일을 먼저 확인한 뒤 안정적인 네트워크에서 다시 시도합니다.",
   },
   {
     title: "내부 확인용 데이터",
-    summary: "외부 연동 전 내부 확인에 쓰는 안내 상태입니다.",
-    detail: "실제 저장 완료나 외부 발송 완료로 설명하지 않습니다.",
+    summary: "외부 연동 전 먼저 읽는 dev-safe 안내 상태입니다.",
+    detail: "실제 저장 완료, 외부 발송 완료, 운영 반영 완료로 설명하지 않습니다.",
   },
 ] as const;
 
@@ -144,7 +144,7 @@ export function MenuPageContent({
           {hasManagementMenuAccess(roleCode) ? (
             <article className="info-card">
               <h3>관리자 계정·정책 확인 순서</h3>
-              <p>모바일 메뉴에서는 일반 업무 뒤에만 경영업무 분리 메뉴를 확인합니다.</p>
+              <p>모바일 메뉴에서도 일반 업무 뒤에만 경영업무 분리 메뉴를 확인하고, HR_ADMIN 은 첫 관리자 레인을 /admin/users 로 읽습니다.</p>
               <p className="card-note">/menu → /management → /admin/users → /admin/policies → /admin/audit-logs</p>
             </article>
           ) : null}

@@ -76,7 +76,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("운영 관리자");
     expect(html).toContain("지점 관리자");
     expect(html).toContain("/admin/users");
-    expect(html).toContain("/management");
+    expect(html).not.toContain('href="/management"');
     expect(html).toContain("관리자 운영 검토 레인");
     expect(html).toContain("오늘 상태와 마무리 조회");
     expect(html).toContain("공지/문서 진입점");
@@ -97,7 +97,8 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("/org");
     expect(html).toContain("막힐 때 다시 가는 현장 복구 경로");
     expect(html).toContain("참고용 요약이며 실제 저장·발송·외부 연동은 각 업무 화면과 권한 범위에서 다시 확인해야 합니다.");
-    expect(html).not.toMatch(/Phase |Skeleton|UAT|dev-safe|placeholder|skeleton/);
+    expect(html).toContain("dev-safe");
+    expect(html).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
     expect(html).not.toContain("경영업무 분리 진입");
     expect(html.indexOf("오늘 출퇴근 먼저 처리")).toBeLessThan(html.indexOf("휴가 잔여와 신청 확인"));
     expect(html.indexOf("휴가 잔여와 신청 확인")).toBeLessThan(html.indexOf("승인 대기 보기"));
@@ -110,10 +111,12 @@ describe("Phase 57 dashboard home boundary", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
+    expect(html).toContain("권한 있는 사용자에게만 경영업무 허브 진입 링크를 노출합니다.");
     expect(html).toContain("현재 세션 / 홈-경영업무 분리");
     expect(html).toContain("← 전체 메뉴로");
     expect(html).not.toContain("관리자 허브 바로가기");
     expect(html).not.toContain('href="/admin"');
+    expect(html).not.toContain('href="/management"');
     expect(html).not.toContain('href="/work-items/legal"');
     expect(html).not.toContain("내부 도입 리허설 패키지");
     expect(html).not.toContain('href="/uat"');

@@ -109,6 +109,12 @@
 - [ ] Phase 55 범위라면 admin role, `permission.read`, `audit.read`, company scope, branch scope, `createdFrom`/`createdTo` 필터 기준이 문서/화면/API/test 에서 같은 뜻으로 유지된다.
 - [ ] Phase 55 범위라면 masked preview 와 raw storage key/bucket/public URL/signed URL/secret 비노출 원칙이 감사/운영 설명에서 깨지지 않는다.
 - [ ] Phase 55 범위라면 empty/loading/error/forbidden/dev-safe 가 관리자 계정·조직 route 기준으로 분명히 보이고, `preview`·`guard 확인`·`audit candidate` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는다.
+- [ ] Phase 58 상태 문장·복구 안내·역할별 차단 레인 범위라면 `/dashboard`, `/menu`, `/management`, `/admin/users`, `/admin/audit-logs`, `/me` 에서 `loading`·`empty`·`error`·`forbidden`·`offline`·`dev-safe` 가 서로 다른 뜻으로 읽힌다.
+- [ ] Phase 58 범위라면 `empty` 와 `forbidden`, `error` 와 `offline`, `preview/dev-safe` 와 실제 저장 완료가 같은 뜻처럼 섞이지 않는다.
+- [ ] Phase 58 범위라면 EMPLOYEE/MANAGER/HR_ADMIN/COMPANY_ADMIN/AUDITOR 의 첫 진입점과 차단 레인이 UI/route/API/문서에서 같은 뜻으로 유지된다.
+- [ ] Phase 58 범위라면 HR_ADMIN 의 첫 관리자 레인이 `/management` 가 아니라 `/admin/users` 로 읽히고, AUDITOR 는 `/admin/audit-logs` read-only 시작점으로 읽힌다.
+- [ ] Phase 58 범위라면 홈/메뉴의 복구 안내가 권한 없는 운영 route 우회처럼 읽히지 않고, `/management`·`/admin/users` 상태 배너도 실운영 저장 성공처럼 과장되지 않는다.
+- [ ] Phase 58 범위라면 `/me` 가 세션·권한·개인 확인 레인으로 읽히고 관리자 설정 화면처럼 과장되지 않는다.
 - [ ] Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 범위라면 익명 시작점이 `/login` 만 유지되고, 홈(`/dashboard`)과 메뉴(`/menu`)가 서로 다른 책임으로 읽힌다.
 - [ ] Phase 57 범위라면 `/dashboard` 는 오늘 업무 시작 홈, `/menu` 는 전체 기능 탐색 화면으로 읽히고 같은 랜딩 페이지처럼 뭉개지지 않는다.
 - [ ] Phase 57 범위라면 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기가 서로 다른 정책으로 읽힌다.

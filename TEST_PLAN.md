@@ -9,6 +9,17 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 58 추가 검증 초점
+
+- `/dashboard`, `/menu`, `/management`, `/admin/users`, `/admin/audit-logs`, `/me` 에서 `loading / empty / error / forbidden / offline / dev-safe` 가 서로 다른 뜻으로 읽히는지 본다.
+- `empty` 와 `forbidden`, `error` 와 `offline`, `preview/dev-safe` 와 실제 저장 완료가 같은 뜻처럼 섞이지 않는지 본다.
+- EMPLOYEE, MANAGER, HR_ADMIN, COMPANY_ADMIN, AUDITOR 의 첫 진입점과 차단 레인이 route/UI/문서에서 같은 뜻인지 본다.
+- HR_ADMIN 이 `/management` 가 아니라 `/admin/users` 를 첫 관리자 레인으로 읽는지, AUDITOR 가 `/admin/audit-logs` read-only 시작점으로 읽히는지 본다.
+- 홈/메뉴의 복구 안내가 권한 없는 운영 route 우회처럼 읽히지 않는지 본다.
+- `/management` 와 `/admin/users` 의 상태 배너가 실운영 저장 성공처럼 과장되지 않는지 본다.
+- `/me` 가 세션·권한·개인 확인 레인으로 읽히고 관리자 설정 화면처럼 과장되지 않는지 본다.
+- live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 57 추가 검증 초점
 
 - `/dashboard` 가 live URL에서 실제 오늘 업무 시작 홈처럼 읽히는지 본다.

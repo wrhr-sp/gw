@@ -18,16 +18,16 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 정리 체인이다. 이번 Phase의 목적은 기존 Phase 24 파일럿 정보구조, Phase 47 모바일/PWA 사용성, Phase 56 운영 레인 분리 기준선을 바탕으로 대장이 live URL에서 `/dashboard`, `/menu`, 홈 바로가기, 모바일 하단 탭 5개, 운영/감사/경영업무 진입점을 직접 눌러 홈과 메뉴의 역할 차이, 고정/권한 기반 바로가기, 모바일/PC 같은 IA, 운영 레인 분리 흐름까지 이어 볼 수 있게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 58 상태 문장, 복구 안내, 역할별 차단 레인 정리 체인이다. 이번 Phase의 목적은 기존 Phase 57 홈/메뉴 IA 기준선, Phase 56 운영 레인 분리, Phase 47 상태/오프라인 안내 기준선을 바탕으로 대장이 live URL에서 `/dashboard`, `/menu`, `/management`, `/admin/users`, `/admin/audit-logs`, `/me` 를 직접 눌러 `loading`·`empty`·`error`·`forbidden`·`offline`·`dev-safe` 뜻과 복구 순서, 역할별 첫 진입점과 차단 레인을 한 번에 이어 볼 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/app/dashboard/dashboard-config.ts`, `apps/web/menu-page-content.tsx`, `apps/web/app/_components/home-shortcuts-panel.tsx`, `apps/web/home-shortcuts.ts`, `apps/web/app/mobile-pwa-config.ts` 기준으로 홈 액션 카드, 홈 바로가기 분리, 모바일 전체 메뉴, 하단 탭 5개, 같은 정보구조 원칙 UI 뼈대가 이미 존재한다.
-- `apps/web/app/me/page.tsx` 기준으로 `/me` 는 관리자 설정 화면이 아니라 세션/권한/개인 확인 마무리 화면이며 `/payroll/me`·`/org`·`/employees` 읽기 흐름으로 이어진다.
-- `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 홈 shortcut schema, 권한 기반 노출 기준, 모바일 route mapping 근거가 이미 존재한다.
-- 현재 Phase 57 기준 문서는 `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`, `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md` 다.
-- 현재 메인 체인은 `t_e662066c`(기획 진행 중) → `t_4c83b740`(구현 부모 대기) 순서로 정리된다.
+- `apps/web/dashboard-page-content.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/me/page.tsx` 기준으로 홈/메뉴/운영 허브/계정관리/내 정보 상태 문장 뼈대가 이미 존재한다.
+- `apps/web/app/_components/real-usage-panels.tsx`, `apps/web/app/_components/phase35-live-sections.tsx` 기준으로 실제 query state loading/forbidden/error/empty 표현 근거가 이미 존재한다.
+- `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 role/shortcut/route/access 기준선이 이미 존재한다.
+- 현재 Phase 58 기준 문서는 `docs/architecture/phase-58-state-copy-recovery-role-lane-fit-gap-scope.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-handoff.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md` 다.
+- 현재 직전 기준 문서는 `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 다.
+- 현재 메인 체인은 `t_be97eac9`(기획 진행 중) → `t_c85c5588`(구현 부모 대기) 순서로 정리된다.
 - Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
 2026-06-18 Phase 56 fit-gap 메모:

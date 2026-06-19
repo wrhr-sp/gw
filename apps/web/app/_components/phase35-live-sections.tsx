@@ -110,19 +110,24 @@ function useApiQuery<T>(url: string | null): QueryResult<T> {
 
 function QueryState({ query, emptyMessage }: { query: QueryResult<unknown>; emptyMessage?: string }) {
   if (query.loading) {
-    return <p className="card-note">same-origin API 응답을 불러오는 중입니다.</p>;
+    return <p className="card-note">loading 상태: same-origin API 응답을 불러오는 중입니다. 저장 성공이나 권한 차단으로 단정하지 말고 잠시 기다린 뒤 다시 확인합니다.</p>;
   }
 
   if (query.error) {
     if (query.error.code === "FORBIDDEN") {
-      return <p className="card-note">권한/회사 scope 가 맞지 않으면 API 가 403 으로 차단됩니다. ({query.error.message})</p>;
+      return <p className="card-note">forbidden 상태: 로그인은 되었지만 현재 권한 또는 회사 scope 가 맞지 않아 API 가 403 으로 차단됩니다. ({query.error.message})</p>;
     }
 
-    return <p className="card-note">{query.error.message}</p>;
+    const normalizedMessage = query.error.message.toLowerCase();
+    if (normalizedMessage.includes("failed to fetch") || normalizedMessage.includes("network") || normalizedMessage.includes("fetch failed")) {
+      return <p className="card-note">offline 또는 network error 상태: 네트워크가 불안정해 same-origin API 응답을 읽지 못했습니다. 가능한 일과 막히는 일을 먼저 확인한 뒤 다시 시도합니다. ({query.error.message})</p>;
+    }
+
+    return <p className="card-note">error 상태: 조회나 불러오기에 실패했습니다. 같은 작업을 성공처럼 넘기지 말고 복구 경로를 먼저 확인합니다. ({query.error.message})</p>;
   }
 
   if (!query.data && emptyMessage) {
-    return <p className="card-note">{emptyMessage}</p>;
+    return <p className="card-note">empty 상태: {emptyMessage}</p>;
   }
 
   return null;

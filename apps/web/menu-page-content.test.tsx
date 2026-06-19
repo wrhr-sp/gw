@@ -89,7 +89,8 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
     expect(html).not.toContain('href="/admin/users"');
     expect(html).not.toContain('href="/work-items/branch"');
-    expect(html).not.toMatch(/Phase |Skeleton|UAT|dev-safe|placeholder|skeleton/);
+    expect(html).toContain("dev-safe 안내 상태");
+    expect(html).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
   });
 
   it("shows privileged personal shortcuts and management lane only for privileged viewers", () => {
