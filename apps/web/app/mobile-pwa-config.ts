@@ -241,6 +241,12 @@ export const mobilePrimaryNav: NavItem[] = [
     shortLabel: "직원",
     summary: "조직 확인 뒤 직원 상태와 소속 조회",
   },
+  {
+    href: "/payroll/me",
+    label: "급여",
+    shortLabel: "급여",
+    summary: "본인 급여명세서 초안과 정정 안내 확인",
+  },
 ];
 
 export const mobileBottomTabs: NavItem[] = [
@@ -311,7 +317,7 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "급여/비용",
     description: "직원 본인에게 공개 가능한 급여 조회와 비용성 업무 진입점을 분리합니다.",
-    items: [{ href: "/payroll/me", label: "급여", shortLabel: "급여", summary: "본인 급여명세서 초안과 정정 안내 확인" }],
+    items: [mobilePrimaryNav[10]],
   },
   {
     title: "운영/기타",
