@@ -1031,6 +1031,19 @@ li {
   transform: translateY(-1px);
 }
 
+.portal-switch-link--branch {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.portal-switch-link--branch:hover,
+.portal-switch-link--branch:focus-visible {
+  background: #d1fae5;
+  border-color: #34d399;
+  color: #047857;
+}
+
 .portal-switch-link__icon {
   width: 22px;
   height: 22px;

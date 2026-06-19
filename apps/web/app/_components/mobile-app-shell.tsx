@@ -522,6 +522,8 @@ export function MobileAppShell({
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/dashboard";
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
+  const branchPortalLabel = "지점관리포털";
+  const branchPortalHref = "/work-items/branch";
 
 
   useEffect(() => {
@@ -1118,21 +1120,38 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <a
-                  className="portal-switch-link"
-                  aria-label={`${nextPortalLabel} 새 탭에서 보기`}
-                  data-route={nextPortalHref}
-                  href={nextPortalHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    window.open(new URL(nextPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
-                  }}
-                >
-                  <span>{nextPortalLabel}</span>
-                  <PortalShortcutIcon />
-                </a>
+                <>
+                  <a
+                    className="portal-switch-link portal-switch-link--branch"
+                    aria-label={`${branchPortalLabel} 새 탭에서 보기`}
+                    data-route={branchPortalHref}
+                    href={branchPortalHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      window.open(new URL(branchPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <span>{branchPortalLabel}</span>
+                    <PortalShortcutIcon />
+                  </a>
+                  <a
+                    className="portal-switch-link"
+                    aria-label={`${nextPortalLabel} 새 탭에서 보기`}
+                    data-route={nextPortalHref}
+                    href={nextPortalHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      window.open(new URL(nextPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <span>{nextPortalLabel}</span>
+                    <PortalShortcutIcon />
+                  </a>
+                </>
               ) : null}
               {!isAdminHostShell ? (
                 <>
