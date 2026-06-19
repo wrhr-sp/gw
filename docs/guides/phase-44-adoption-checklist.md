@@ -47,18 +47,23 @@
 
 ## 3. 로그인 후 직원 기본 레인 체크
 - [ ] `/dashboard` 가 홈처럼 읽힌다.
+- [ ] `/menu` 가 홈 복사본이 아니라 전체 기능 탐색 허브로 읽힌다.
 - [ ] `/attendance` 가 오늘 근태 시작점처럼 이어진다.
 - [ ] `/leave` 가 잔여/신청/상태 확인 흐름으로 이어진다.
 - [ ] `/approvals` 가 협업 흐름으로 이어진다.
 - [ ] `/boards` 와 `/documents` 가 자연스럽게 이어진다.
 - [ ] `/management` 와 `/admin*` 가 직원 기본 레인에 섞이지 않는다.
+- [ ] `empty` 와 `forbidden` 을 같은 상태처럼 적지 않는다.
+- [ ] `error` 와 `offline` 을 같은 실패처럼 적지 않는다.
+- [ ] `preview/dev-safe` 를 실제 저장 완료처럼 적지 않는다.
 
 추천 확인 순서:
-`/login` → `/dashboard` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`
+`/login` → `/dashboard` → `/menu` → `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me`
 
 ## 4. 로그인 후 관리자/담당자 레인 체크
 - [ ] COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 는 로그인 직후 `/dashboard`, AUDITOR 는 `/admin/audit-logs` 로 landing 한다.
 - [ ] HR_ADMIN 은 admin host `/admin/users`, MANAGER/COMPANY_ADMIN 은 general host `/management`, AUDITOR 는 admin host `/admin/audit-logs` 로 다음 레인이 갈린다.
+- [ ] `/menu` 가 운영 우회 통로가 아니라 전체 기능 탐색 허브로 읽힌다.
 - [ ] `/management` 가 일반 홈과 분리된 내부관리 허브로 보인다.
 - [ ] `/work-items/branch` 가 branch scope 운영 문맥으로 읽힌다.
 - [ ] `/payroll` 과 `/payroll/me` 책임이 섞이지 않는다.
@@ -114,3 +119,4 @@
 - `docs/guides/phase-44-operator-runbook.md`
 - `docs/guides/phase-44-role-access-matrix.md`
 - `docs/guides/phase-44-pc-mobile-login-only-entry-pwa-desktop-app-handoff.md`
+- `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md`

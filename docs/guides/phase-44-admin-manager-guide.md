@@ -12,10 +12,12 @@
 
 ## 먼저 기억할 원칙
 - `/dashboard` 는 COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE 가 공통으로 먼저 닿는 홈이고 `/management` 는 그 뒤 민감 운영 허브다.
+- `/menu` 는 홈이 아니라 전체 기능 탐색 허브다.
 - 두 레인을 같은 업무 흐름처럼 설명하면 안 된다.
 - 단순 메뉴 숨김이 아니라 route guard, API guard, company+branch scope, capability, read-only 경계가 같이 유지돼야 한다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이다.
 - 로그인 전에는 관리자도 내부 화면을 바로 보는 것이 아니라 `/login` 부터 시작하는 것이 정상이다.
+- `empty`, `forbidden`, `error`, `offline`, `dev-safe` 는 같은 실패 묶음이 아니다.
 
 ## 관리자 레인의 대표 시작점
 
@@ -37,6 +39,7 @@
 ### 2) 운영 관리자 / 지점 관리자
 추천 다음 레인:
 - 로그인 직후 `/dashboard`
+- 필요 시 `/menu`
 - general host `/management`
 - `/work-items/branch`
 - `/payroll`
@@ -68,6 +71,7 @@
 - 홈과 관리자 CTA 가 섞이지 않는지
 - 역할별 허용 카드만 보이는지
 - `/payroll`, `/work-items/*`, `/admin/audit-logs` 의 책임이 구분되는지
+- `empty` 는 정상 빈 상태, `forbidden` 은 역할/범위 차단, `error` 는 조회 실패, `dev-safe` 는 미연결 운영 게이트로 읽히는지
 
 근거 파일:
 - `apps/web/app/management/page.tsx`
@@ -161,10 +165,11 @@
 
 ## 운영자가 자주 확인할 질문
 1. 일반 직원 홈과 `/management` 허브가 분리되어 보이는가
-2. `/payroll` 과 `/payroll/me` 의 책임 차이가 분명한가
-3. `tax`, `labor`, `legal`, `branch` 가 서로 다른 책임과 scope 를 가지는가
-4. `/admin/audit-logs` 가 read-only 감사 진입점으로 읽히는가
-5. role/capability/company/branch 경계가 문서 문장과 실제 guard 에서 같은 뜻인가
+2. `/menu` 가 운영 우회 통로가 아니라 전체 기능 탐색 허브로 읽히는가
+3. `/payroll` 과 `/payroll/me` 의 책임 차이가 분명한가
+4. `tax`, `labor`, `legal`, `branch` 가 서로 다른 책임과 scope 를 가지는가
+5. `/admin/audit-logs` 가 read-only 감사 진입점으로 읽히는가
+6. role/capability/company/branch 경계가 문서 문장과 실제 guard 에서 같은 뜻인가
 
 ## 아직 하지 않는 것
 - 실제 급여 지급
@@ -179,15 +184,19 @@
 ## 관리자용 빠른 점검 순서
 1. `/login` 에서 시작하는지 확인
 2. `/dashboard` 에서 관리자 CTA 위치 확인
-3. `/management` 허브 분리 확인
-4. `/work-items/branch` branch scope 확인
-5. `/payroll` 과 `/payroll/me` 책임 분리 확인
-6. `/work-items/tax` / `/work-items/labor` / `/work-items/legal` 역할 분리 확인
-7. `/admin/audit-logs` read-only / masked / company boundary 확인
-8. 필요 시 Windows Chrome/Edge 설치 후 앱 재실행 시 세션 없으면 `/login` 부터 시작하는지 확인
+3. 필요 시 `/menu` 전체 기능 탐색 허브 확인
+4. `/management` 허브 분리 확인
+5. `/work-items/branch` branch scope 확인
+6. `/payroll` 과 `/payroll/me` 책임 분리 확인
+7. `/work-items/tax` / `/work-items/labor` / `/work-items/legal` 역할 분리 확인
+8. `/admin/audit-logs` read-only / masked / company boundary 확인
+9. 필요 시 Windows Chrome/Edge 설치 후 앱 재실행 시 세션 없으면 `/login` 부터 시작하는지 확인
 
 ## 함께 볼 문서
 - `docs/guides/phase-44-employee-user-guide.md`
 - `docs/guides/phase-44-operator-runbook.md`
 - `docs/guides/phase-44-role-access-matrix.md`
 - `docs/guides/phase-44-adoption-checklist.md`
+- `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
+- `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
+- `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md`

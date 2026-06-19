@@ -19,7 +19,7 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 58 상태 문장, 복구 안내, 역할별 차단 레인 단계
+### 3. 현재 문서화/검증 기준은 Phase 59 UAT·사용자/관리자 가이드·도입 체크리스트 최종 정리 단계
 
 현재 루트 문서, handoff 는 아래 기준을 함께 설명한다.
 
@@ -29,7 +29,7 @@
 - 운영/관리 확인 레인: 필요 시 `/management` → `/admin/users` → `/admin/audit-logs` → `/me`
 - 차단 확인 레인: `empty`/`forbidden`, `error`/`offline`, `preview`/`dev-safe` 구분
 - 역할 확인 레인: EMPLOYEE/MANAGER/HR_ADMIN/COMPANY_ADMIN/AUDITOR 시작점과 차단 레인 분리
-- 문서 묶음: Phase 58 scope/handoff/guide + Phase 57 홈/메뉴 IA 문서 + Phase 56 운영 레인 분리 문서 + Phase 47 상태/PWA 기준 문서
+- 문서 묶음: Phase 59 최종 정리 문서 + Phase 44 직원/관리자/체크리스트 문서 + Phase 58 상태 문장 문서 + Phase 57 홈/메뉴 IA 문서 + Phase 56 운영 레인 분리 문서
 
 - `/dashboard`, `/menu`, `/management`, `/admin/users`, `/me` 는 같은 상태 체계를 공유하되 같은 책임 화면처럼 읽히면 안 된다.
 - `empty` 는 정상 빈 상태일 수 있고, `forbidden` 은 로그인 실패가 아니라 권한/범위 차단 상태로 읽혀야 한다.
@@ -39,9 +39,10 @@
 - production data, 실제 초대 발송, 실제 비밀번호 운영 전환, 외부 IdP/SSO/SAML/SCIM, production DB 기반 개인 홈 커스터마이징 영구 저장, 외부 메신저/메일/푸시/SMS 연동, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 58 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 59 단계에서 남아 있는 제품형 리스크
 
 - 상태 문장이 route마다 조금씩 다르면 같은 `empty` 도 어떤 화면에서는 정상, 어떤 화면에서는 실패처럼 읽혀 사용자 기대치가 흔들릴 수 있다.
+- `/dashboard` 와 `/menu` 를 같은 홈 흐름처럼 적으면 사용자 가이드와 체크리스트가 다시 어긋날 수 있다.
 - `forbidden` 을 로그인 실패나 네트워크 오류처럼 적으면 권한 이슈와 접속 이슈가 한데 섞여 운영 대응이 늦어질 수 있다.
 - `preview/dev-safe` 와 실제 저장 완료를 분리하지 못하면 `/management` 와 `/admin/users` 의 현재 범위를 과장하게 된다.
 - HR_ADMIN/MANAGER/COMPANY_ADMIN/AUDITOR 의 첫 진입점과 차단 레인이 흐려지면 홈, 운영 허브, 감사 레인 경계가 다시 무너질 수 있다.

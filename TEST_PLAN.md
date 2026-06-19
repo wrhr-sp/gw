@@ -9,6 +9,16 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+## Phase 59 추가 검증 초점
+
+- `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md` 가 최신 홈/메뉴/상태 문장 기준과 같은 뜻인지 본다.
+- `/dashboard` 와 `/menu` 책임 분리가 사용자용/관리자용/체크리스트 문서에서 모두 같은지 본다.
+- `COMPANY_ADMIN/HR_ADMIN/MANAGER/EMPLOYEE -> /dashboard`, `AUDITOR -> /admin/audit-logs`, `HR_ADMIN 다음 레인 -> /admin/users` 기준이 문서마다 흔들리지 않는지 본다.
+- `empty` 와 `forbidden`, `error` 와 `offline`, `preview/dev-safe` 와 실제 저장 완료가 문서에서 같은 뜻처럼 섞이지 않는지 본다.
+- 직원 레인과 관리자/감사 레인이 같은 홈 흐름처럼 섞이지 않는지 본다.
+- Windows Chrome/Edge PWA 설치 확인, 로그인 전 비노출 기준, 승인 게이트가 문서 세트 전체에서 같은 언어인지 본다.
+- live 직접 재확인 근거와 parent tester/local preview/build/test 대체 근거가 같은 수준으로 섞이지 않는지 본다.
+
 ## Phase 58 추가 검증 초점
 
 - `/dashboard`, `/menu`, `/management`, `/admin/users`, `/admin/audit-logs`, `/me` 에서 `loading / empty / error / forbidden / offline / dev-safe` 가 서로 다른 뜻으로 읽히는지 본다.
