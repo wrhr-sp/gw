@@ -1015,15 +1015,6 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
-  function navigateToPortalPage(href: string) {
-    if (typeof window === "undefined") {
-      router.push(href as never);
-      return;
-    }
-
-    window.location.assign(href);
-  }
-
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -1102,10 +1093,10 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateToPortalPage(nextPortalHref)}>
+                <a className="portal-switch-link" aria-label={`${nextPortalLabel} 새 탭에서 보기`} data-route={nextPortalHref} href={nextPortalHref} target="_blank" rel="noreferrer">
                   <span>{nextPortalLabel}</span>
                   <PortalShortcutIcon />
-                </button>
+                </a>
               ) : null}
               {!isAdminHostShell ? (
                 <>
