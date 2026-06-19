@@ -19,35 +19,34 @@
 - 실제 운영 파일 업로드 확대/공개 다운로드 없음
 - 실제 앱스토어 배포/외부 테스터 배포 없음
 
-### 3. 현재 문서화/검증 기준은 Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 단계
+### 3. 현재 문서화/검증 기준은 Phase 58 상태 문장, 복구 안내, 역할별 차단 레인 단계
 
 현재 루트 문서, handoff 는 아래 기준을 함께 설명한다.
 
 - 로그인 시작점: 익명은 `/login` 만 허용
 - 홈 확인 시작 레인: `/dashboard`
 - 전체 탐색 확인 레인: `/menu`
-- 사용자/운영 확인 레인: 회사 공통 고정 바로가기 확인 → 권한 기반 사용자 전용 바로가기 확인 → 하단 탭 5개 → 필요 시 `/management`·`/admin/users`·`/admin/audit-logs`
-- 차단 확인 레인: 권한 없는 운영 shortcut 비노출, 운영/감사 route 분리, empty/error/offline/dev-safe 구분
-- 운영 설명 레인: 일반 직원 홈 CTA 와 운영/감사/경영업무 진입점은 분리
-- 문서 묶음: Phase 57 scope/handoff/guide + Phase 56 운영 레인 분리 문서 + Phase 47 모바일/PWA 기준 문서 + Phase 24 파일럿 IA 문서
+- 운영/관리 확인 레인: 필요 시 `/management` → `/admin/users` → `/admin/audit-logs` → `/me`
+- 차단 확인 레인: `empty`/`forbidden`, `error`/`offline`, `preview`/`dev-safe` 구분
+- 역할 확인 레인: EMPLOYEE/MANAGER/HR_ADMIN/COMPANY_ADMIN/AUDITOR 시작점과 차단 레인 분리
+- 문서 묶음: Phase 58 scope/handoff/guide + Phase 57 홈/메뉴 IA 문서 + Phase 56 운영 레인 분리 문서 + Phase 47 상태/PWA 기준 문서
 
-- `/dashboard` 는 오늘 할 일 시작 홈처럼 먼저 읽혀야 하고, `/menu` 는 전체 기능 탐색 화면처럼 읽혀야 한다.
-- 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기는 서로 다른 정책으로 읽혀야 한다.
-- `/management`·`/admin/users`·`/admin/audit-logs` 는 운영/감사 레인이며, 일반 직원 홈 확장처럼 보이면 안 된다.
-- 모바일 하단 탭 5개, 모바일 전체 메뉴, PC sidebar 는 같은 정보구조를 가리켜야 하며 서로 다른 사이트맵처럼 풀리면 안 된다.
-- 권한 기반 shortcut 노출 기준, 직접 route 접근 기준, API guard 기준은 shared helper 기준선이 있어도 live URL에서의 사용자 문장과 route 상태는 이번 Phase에서 다시 잠가야 한다.
+- `/dashboard`, `/menu`, `/management`, `/admin/users`, `/me` 는 같은 상태 체계를 공유하되 같은 책임 화면처럼 읽히면 안 된다.
+- `empty` 는 정상 빈 상태일 수 있고, `forbidden` 은 로그인 실패가 아니라 권한/범위 차단 상태로 읽혀야 한다.
+- `error` 는 조회/불러오기 실패, `offline` 은 네트워크 불안정으로 구분돼야 한다.
+- `preview`, `dev-safe`, `참고용 요약 데이터`, `내부 확인용 데이터` 는 실저장/실발송/실반영 완료처럼 읽히면 안 된다.
+- HR_ADMIN 의 첫 관리자 레인은 `/management` 가 아니라 `/admin/users` 여야 하고, AUDITOR 는 `/admin/audit-logs` read-only 시작점으로 남아야 한다.
 - production data, 실제 초대 발송, 실제 비밀번호 운영 전환, 외부 IdP/SSO/SAML/SCIM, production DB 기반 개인 홈 커스터마이징 영구 저장, 외부 메신저/메일/푸시/SMS 연동, background sync, native 배포, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 별도 승인 게이트다.
 - restricted 항목(secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업)은 계속 별도 승인 범위다.
 
-### 4. 현재 Phase 57 단계에서 남아 있는 제품형 리스크
+### 4. 현재 Phase 58 단계에서 남아 있는 제품형 리스크
 
-- `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준선은 충분하지만, live URL 기준 홈/메뉴 실사용 탐색 흐름 문장, 역할별 가이드, UAT 절차가 약하면 "코드는 있는데 실제로는 어떻게 찾고 써야 하는지"가 흐려질 수 있다.
-- `/dashboard` 와 `/menu` 의 책임 차이가 문장상 흐려지면 홈과 전체 메뉴가 중복 랜딩처럼 보이는 과장 리스크가 생긴다.
-- 고정 바로가기와 사용자 전용 바로가기의 책임 차이가 흐려지면 권한 없는 사용자도 운영 메뉴를 기대하게 될 수 있다.
-- `/management`·`/admin/users`·`/admin/audit-logs` 운영 레인이 홈 CTA 와 같은 화면 설명에서 섞이면 사용자 권한 기대치가 무너질 수 있다.
-- 모바일 하단 탭 5개, 전체 메뉴, PC sidebar 가 서로 다른 사이트맵처럼 읽히면 실제 현장 사용자가 메뉴 위치를 헷갈릴 수 있다.
-- empty/loading/error/forbidden/offline/dev-safe 가 route 기준으로 다시 잠기지 않으면 최종 보고가 happy path 위주로만 적혀 실제 사용 리스크를 숨기게 된다.
-- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 홈·메뉴 IA 실사용 확인 수준이 과장될 수 있다.
+- 상태 문장이 route마다 조금씩 다르면 같은 `empty` 도 어떤 화면에서는 정상, 어떤 화면에서는 실패처럼 읽혀 사용자 기대치가 흔들릴 수 있다.
+- `forbidden` 을 로그인 실패나 네트워크 오류처럼 적으면 권한 이슈와 접속 이슈가 한데 섞여 운영 대응이 늦어질 수 있다.
+- `preview/dev-safe` 와 실제 저장 완료를 분리하지 못하면 `/management` 와 `/admin/users` 의 현재 범위를 과장하게 된다.
+- HR_ADMIN/MANAGER/COMPANY_ADMIN/AUDITOR 의 첫 진입점과 차단 레인이 흐려지면 홈, 운영 허브, 감사 레인 경계가 다시 무너질 수 있다.
+- `/me` 를 세션·권한·개인 확인이 아니라 관리자 설정 화면처럼 읽게 되면 일반 사용자와 운영자 문맥이 다시 섞일 수 있다.
+- live 직접 확인 근거와 local build/test/release gate 대체 근거가 섞이면 상태 문장 정비 수준이 과장될 수 있다.
 
 ### 5. 역할봇 스킬 동기화 이슈 이력
 

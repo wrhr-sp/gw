@@ -10,7 +10,7 @@ const managementStatusGuideCards = [
   {
     title: "loading",
     summary: "아직 내용을 불러오는 중인 상태입니다.",
-    detail: "저장 성공으로 단정하지 말고 잠시 기다린 뒤 다시 확인합니다.",
+    detail: "저장 성공이나 권한 차단으로 단정하지 말고 잠시 기다린 뒤 다시 확인합니다.",
   },
   {
     title: "empty",
@@ -24,18 +24,18 @@ const managementStatusGuideCards = [
   },
   {
     title: "forbidden",
-    summary: "권한 또는 접근 범위가 맞지 않는 상태입니다.",
-    detail: "허용되지 않은 역할은 민감 운영 레인으로 들어오지 않습니다.",
+    summary: "로그인은 되었지만 현재 운영 권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "허용되지 않은 역할은 민감 운영 레인으로 들어오지 않고 허용된 홈·감사 레인으로 돌아갑니다.",
   },
   {
     title: "offline",
     summary: "네트워크가 불안정해 재시도가 필요한 상태입니다.",
-    detail: "상태 변경 전 최신 연결 상태를 먼저 확인합니다.",
+    detail: "가능한 일과 막히는 일을 먼저 확인한 뒤 상태 변경 전 최신 연결 상태를 다시 확인합니다.",
   },
   {
     title: "참고용 요약 데이터",
-    summary: "현재 화면에서 먼저 읽어 보는 안내 상태입니다.",
-    detail: "실제 저장 완료나 외부 연동 완료로 설명하지 않습니다.",
+    summary: "현재 화면에서 먼저 읽는 dev-safe 안내 상태입니다.",
+    detail: "실제 저장 완료, 외부 연동 완료, 운영 반영 완료로 설명하지 않습니다.",
   },
 ] as const;
 
@@ -85,9 +85,19 @@ const onboardingBridgeSteps = [
 
 const pilotLaneCards = [
   {
+    title: "HR 관리자 첫 검토 레인",
+    route: "/dashboard → /admin/users → /employees → /org → /management",
+    summary: "HR_ADMIN 은 공통 홈 뒤 계정관리부터 열고, 조직 read model 을 확인한 뒤 필요할 때만 운영 허브로 넘어갑니다.",
+  },
+  {
     title: "운영 관리자 레인",
     route: "/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health",
     summary: "운영 허브, 계정·정책 안내, 감사 read-only, 최소 liveness 를 같은 점검 순서로 기록합니다.",
+  },
+  {
+    title: "감사 시작 레인",
+    route: "/admin/audit-logs → /documents → /me",
+    summary: "AUDITOR 는 운영 저장 레인 대신 read-only 추적 레인부터 열고 필요한 문서·내 정보 확인으로 이어집니다.",
   },
   {
     title: "지점관리자 레인",
@@ -183,9 +193,10 @@ export default async function ManagementPage() {
         <ol className="number-list">
           <li>/dashboard 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/management 에서 관리자 업무 허브가 일반 홈과 분리되어 보이는지 확인</li>
+          <li>HR_ADMIN 은 /management 보다 /admin/users 를 첫 관리자 레인으로 읽는지 확인</li>
           <li>/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인</li>
           <li>/admin/policies 에서 current/candidate/capability/audit 안내 형식 확인</li>
-          <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 production 금지 문구 확인</li>
+          <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 AUDITOR 시작 레인 문구 확인</li>
           <li>/api/health 에서 최소 liveness 기준만 기록</li>
           <li>/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인</li>
         </ol>

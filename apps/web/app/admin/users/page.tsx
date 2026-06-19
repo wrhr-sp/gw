@@ -5,6 +5,7 @@ import { adminUsersListResponseSchema, appRoutes, type AdminUsersListResponse } 
 import { app as apiApp } from "../../../../api/src/app";
 
 import { AdminUsersPageContent } from "./admin-users-page-content";
+import { classifyAdminUsersLoadErrorKind } from "./load-error-kind";
 
 function getFallbackPreview(): Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit"> {
   return {
@@ -91,21 +92,38 @@ function getFallbackPreview(): Pick<AdminUsersListResponse["data"], "items" | "l
   };
 }
 
-async function loadAdminUsersPreview(sessionToken: string | null) {
+async function loadAdminUsersPreview(
+  sessionToken: string | null,
+): Promise<{
+  preview: Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit"> | null;
+  loadError: string | null;
+  loadErrorKind: "error" | "offline" | null;
+}> {
   if (!sessionToken) {
-    return { preview: null, loadError: "세션이 없어 계정관리 preview 를 불러올 수 없습니다." };
+    return { preview: null, loadError: "세션이 없어 계정관리 preview 를 불러올 수 없습니다.", loadErrorKind: "error" };
   }
 
-  const response = await apiApp.request(appRoutes.admin.users, {
-    headers: {
-      cookie: `gw_session=${encodeURIComponent(sessionToken)}`,
-    },
-  });
+  let response;
+  try {
+    response = await apiApp.request(appRoutes.admin.users, {
+      headers: {
+        cookie: `gw_session=${encodeURIComponent(sessionToken)}`,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      preview: null,
+      loadError: `계정관리 preview 재조회가 중단되었습니다: ${message}`,
+      loadErrorKind: classifyAdminUsersLoadErrorKind(message),
+    };
+  }
 
   if (!response.ok) {
     return {
       preview: null,
       loadError: `계정관리 preview API 응답이 ${response.status} 상태를 반환했습니다.`,
+      loadErrorKind: classifyAdminUsersLoadErrorKind(`status ${response.status}`),
     };
   }
 
@@ -114,10 +132,11 @@ async function loadAdminUsersPreview(sessionToken: string | null) {
     return {
       preview: null,
       loadError: "계정관리 preview 응답 형식을 해석하지 못했습니다.",
+      loadErrorKind: "error",
     };
   }
 
-  return { preview: parsed.data.data, loadError: null };
+  return { preview: parsed.data.data, loadError: null, loadErrorKind: null };
 }
 
 async function AdminUsersPageResolved({
@@ -131,13 +150,14 @@ async function AdminUsersPageResolved({
   const actionMessage = typeof params.result === "string" ? params.result : null;
   const actionType = typeof params.actionType === "string" ? params.actionType : null;
   const focusMessage = typeof params.focus === "string" ? params.focus : null;
-  const { preview, loadError } = await loadAdminUsersPreview(sessionToken);
+  const { preview, loadError, loadErrorKind } = await loadAdminUsersPreview(sessionToken);
 
   return (
     <AdminUsersPageContent
       preview={preview ?? getFallbackPreview()}
       actionMessage={actionMessage}
       loadError={loadError}
+      loadErrorKind={loadErrorKind}
       actionType={actionType}
       focusMessage={focusMessage}
     />

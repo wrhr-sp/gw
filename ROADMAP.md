@@ -3,8 +3,8 @@
 ## 현재 단계
 
 현재 저장소는 Preview / MVP skeleton을 내부 회사 본격 도입 가능한 릴리즈 단계까지 끌어올리는 중이다. 실제 운영 데이터 연결보다 먼저, 대장이 배포 URL에서 로그인하고 주요 업무 흐름을 직접 눌러보며 도입 여부를 판단할 수 있게 Web/API/shared contract/권한/문서 기준을 맞추는 것을 우선한다.
-현재 저장소의 최신 메인 기준 범위는 Phase 57 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA fit-gap 정리다. Phase 57의 목적은 Phase 24 파일럿 정보구조, Phase 47 모바일/PWA 사용성, Phase 56 운영 레인 분리 기준선을 바탕으로 `/dashboard`, `/menu`, 홈 바로가기, 모바일 하단 탭 5개, PC sidebar, 운영/감사/경영업무 진입점을 live URL에서 직접 눌러볼 수 있는 실제 탐색 구조로 다시 정리하는 것이다.
-핵심은 새 외부 연동이나 영구 저장 커스터마이징을 바로 여는 것이 아니라, 홈은 오늘 할 일 시작 화면, 메뉴는 전체 기능 탐색 화면, 회사 공통 고정 바로가기 대 권한 기반 사용자 전용 바로가기 분리, 모바일/PC 같은 정보구조 유지, 운영 레인(`/management`·`/admin/users`·`/admin/audit-logs`)의 일반 직원 홈 분리, empty/loading/error/forbidden/offline/dev-safe 상태를 같은 언어로 다시 잠그는 것이다.
+현재 저장소의 최신 메인 기준 범위는 Phase 58 상태 문장, 복구 안내, 역할별 차단 레인 fit-gap 정리다. Phase 58의 목적은 Phase 57 홈·메뉴 IA 기준선, Phase 56 운영 레인 분리, Phase 47 상태/오프라인/PWA 안내 기준선을 바탕으로 `/dashboard`, `/menu`, `/management`, `/admin/users`, `/admin/audit-logs`, `/me` 에 흩어진 `loading`·`empty`·`error`·`forbidden`·`offline`·`dev-safe` 문장을 같은 복구 언어로 다시 정리하는 것이다.
+핵심은 새 외부 연동이나 실운영 저장 기능을 여는 것이 아니라, 정상 빈 상태와 권한 차단, 조회 실패와 네트워크 불안정, preview/dev-safe 와 실제 저장 완료를 분명히 구분하고, EMPLOYEE/MANAGER/HR_ADMIN/COMPANY_ADMIN/AUDITOR 의 첫 진입점과 차단 레인을 홈/운영/감사 화면 전반에서 같은 말로 다시 잠그는 것이다.
 
 ## Phase 흐름
 
@@ -68,6 +68,7 @@
 - Phase 55: 관리자 계정·권한·조직 실사용화
 - Phase 56: 관리자 지정 경영업무 1차 실사용화
 - Phase 57: 홈·대시보드 분리, 고정/커스텀 바로가기, 모바일/PC IA 정리
+- Phase 58: 상태 문장, 복구 안내, 역할별 차단 레인 정리
 
 ## MVP 성공 기준
 
@@ -83,9 +84,12 @@
 
 - 제품 로드맵: `docs/product/groupware-vision-roadmap.md`
 - Phase별 범위: `docs/architecture/phase-*-scope.md`
-- 현재 기준 범위: `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`
-- 현재 쉬운 handoff: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`
-- 현재 실사용 가이드: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
-- 직전 범위: `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
-- 직전 handoff: `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
-- 직전 가이드: `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
+- 현재 기준 범위: `docs/architecture/phase-58-state-copy-recovery-role-lane-fit-gap-scope.md`
+- 현재 쉬운 handoff: `docs/guides/phase-58-state-copy-recovery-role-lane-handoff.md`
+- 현재 실사용 가이드: `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md`
+- 직전 범위: `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`
+- 직전 handoff: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`
+- 직전 가이드: `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md`
+- 이전 운영 기준 범위: `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
+- 이전 운영 기준 handoff: `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
+- 이전 운영 기준 guide: `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`

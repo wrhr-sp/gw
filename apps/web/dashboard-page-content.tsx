@@ -23,7 +23,7 @@ const dashboardStatusGuideCards = [
   {
     title: "loading",
     summary: "아직 내용을 불러오는 중인 상태입니다.",
-    detail: "저장 성공이나 권한 부족으로 단정하지 말고 잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
+    detail: "저장 성공이나 권한 차단으로 단정하지 말고 잠시 기다린 뒤 홈 또는 메뉴에서 다시 확인합니다.",
   },
   {
     title: "empty",
@@ -37,8 +37,8 @@ const dashboardStatusGuideCards = [
   },
   {
     title: "forbidden",
-    summary: "권한 또는 접근 범위가 맞지 않는 상태입니다.",
-    detail: "숨겨진 운영 메뉴를 대신 열지 않고, 필요한 경우 지정 담당자 레인에서만 확인합니다.",
+    summary: "로그인은 되었지만 현재 업무 권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "숨겨진 운영 메뉴를 대신 열지 않고 허용된 홈·메뉴 레인으로 돌아가거나 지정 담당자 레인에서만 확인합니다.",
   },
   {
     title: "offline",
@@ -47,8 +47,8 @@ const dashboardStatusGuideCards = [
   },
   {
     title: "참고용 요약 데이터",
-    summary: "현재 화면에서 먼저 읽어 보는 안내 상태입니다.",
-    detail: "현재 화면 정보는 실제 저장 완료나 외부 발송 완료로 설명하지 않습니다.",
+    summary: "현재 화면에서 먼저 읽는 dev-safe 안내 상태입니다.",
+    detail: "현재 화면 정보는 실제 저장 완료, 외부 발송 완료, 운영 반영 완료로 설명하지 않습니다.",
   },
 ] as const;
 
@@ -102,7 +102,7 @@ export function DashboardPageContent({
             <Pill tone="warning">경영업무 허브</Pill>
             <h3>/management</h3>
             <p>급여, 세무, 노무, 법무, 감사 같은 내부관리 모듈은 홈과 분리된 별도 허브에서만 검토합니다.</p>
-            <a href="/management">/management</a>
+            {canViewManagementEntry ? <Link href="/management">/management</Link> : <p className="card-note">권한 있는 사용자에게만 경영업무 허브 진입 링크를 노출합니다.</p>}
           </article>
         </div>
       </SurfaceSection>
@@ -125,7 +125,7 @@ export function DashboardPageContent({
           <article className="info-card">
             <Pill tone="warning">확인 포인트</Pill>
             <h3>happy · forbidden · empty · error · loading · mobile/PC</h3>
-            <p>각 화면에서 같은 분류 언어를 유지해 사용자와 운영 담당자가 같은 기준으로 상태를 이해할 수 있게 맞춥니다.</p>
+            <p>각 화면에서 같은 분류 언어를 유지해 사용자와 운영 담당자가 loading, empty, error, forbidden, offline, dev-safe 를 같은 뜻으로 읽게 맞춥니다.</p>
           </article>
         </div>
       </SurfaceSection>

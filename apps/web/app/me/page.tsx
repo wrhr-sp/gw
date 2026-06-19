@@ -7,8 +7,8 @@ import { MeLiveSection } from "../_components/real-usage-panels";
 const profileCards = [
   {
     title: "내 세션 상태",
-    summary: "placeholder authenticated 세션으로 로그인 뒤 흐름을 확인하는 단계입니다.",
-    detail: "실제 비밀번호 검증, 운영 토큰 저장, SSO 연결은 아직 열지 않습니다.",
+    summary: "로그인 뒤 same-origin 세션과 로그아웃 흐름을 확인하는 개인 확인 단계입니다.",
+    detail: "실제 비밀번호 운영 전환, 운영 토큰 저장, SSO 연결은 아직 열지 않습니다.",
     href: appRoutes.me,
   },
   {
@@ -20,7 +20,7 @@ const profileCards = [
   {
     title: "내 급여명세서 초안",
     summary: "근태·휴가 확인 다음에 내 급여 preview 와 정정 안내를 보는 개인 화면입니다.",
-    detail: "실지급 확정이나 동료 급여 조회가 아니라 self-only 급여명세서 skeleton 입니다.",
+    detail: "실지급 확정이나 동료 급여 조회가 아니라 self-only dev-safe 급여명세서 안내입니다.",
     href: "/payroll/me",
   },
   {
@@ -32,6 +32,11 @@ const profileCards = [
 ] as const;
 
 const stateGuides = [
+  {
+    state: "loading",
+    meaning: "아직 내 세션·권한 정보를 불러오는 중인 상태",
+    note: "성공, 세션 만료, 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /me 또는 /dashboard 에서 다시 확인합니다.",
+  },
   {
     state: "empty",
     meaning: "할 일이 없는 정상 상태",
@@ -52,6 +57,11 @@ const stateGuides = [
     meaning: "읽기 중심 확인만 가능하고 서버 반영형 작업은 막아야 하는 상태",
     note: "로그아웃, 보안 설정 변경, 저장형 작업은 온라인에서만 성공처럼 보이게 합니다.",
   },
+  {
+    state: "dev-safe",
+    meaning: "실운영 완료가 아니라 내부 확인용 안내만 남기는 상태",
+    note: "비밀번호 변경, MFA, SSO, 외부 초대 메일은 계속 승인 게이트로 남깁니다.",
+  },
 ] as const;
 
 const securityNotes = [
@@ -65,9 +75,9 @@ export default function MePage() {
     <PageShell
       backHref="/dashboard"
       backLabel="대시보드로"
-      eyebrow="Phase 31 내 정보 / 세션 마무리 확인"
+      eyebrow="내 세션 / 권한 / 개인 확인 레인"
       title="내 정보"
-      description="공지·문서 확인 뒤 내 세션, 역할, 회사 정보, 보안 안내를 다시 확인하고 조직/직원 조회로 이어지게 정리했으며, 실제 same-origin 세션 확인과 로그아웃까지 바로 검증할 수 있습니다."
+      description="공지·문서 확인 뒤 내 세션, 역할, 회사 정보, 보안 안내를 다시 확인하고 조직/직원 조회로 이어지게 정리했으며, 관리자 설정 화면처럼 과장하지 않고 실제 same-origin 세션 확인과 로그아웃까지 바로 검증할 수 있습니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">session summary</Pill>
@@ -92,11 +102,11 @@ export default function MePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="상태 안내를 쉬운 말로 구분" description="내 정보 화면에서도 empty/error/forbidden/offline 뜻을 섞지 않습니다.">
+      <SurfaceSection title="상태 안내를 쉬운 말로 구분" description="내 정보 화면에서도 loading, empty, error, forbidden, offline, dev-safe 뜻을 섞지 않습니다.">
         <div className="grid-auto-compact">
           {stateGuides.map((item) => (
             <article key={item.state} className="info-card">
-              <Pill tone={item.state === "error" ? "warning" : item.state === "forbidden" ? "warning" : "accent"}>{item.state}</Pill>
+              <Pill tone={item.state === "error" || item.state === "forbidden" ? "warning" : "accent"}>{item.state}</Pill>
               <strong>{item.meaning}</strong>
               <p>{item.note}</p>
             </article>

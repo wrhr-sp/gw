@@ -2,6 +2,7 @@ import React from "react";
 import type { AdminUsersListResponse } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
 
 type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit">;
 
@@ -9,6 +10,7 @@ type AdminUsersPageContentProps = {
   preview: AdminUsersPreview;
   actionMessage?: string | null;
   loadError?: string | null;
+  loadErrorKind?: "error" | "offline" | null;
   actionType?: string | null;
   focusMessage?: string | null;
 };
@@ -110,14 +112,58 @@ const shortcutSourceRules = [
   },
 ] as const;
 
+const statusBoundaryCards = [
+  {
+    title: "loading",
+    tone: "accent" as const,
+    summary: "아직 계정관리 미리보기를 불러오는 중인 상태입니다.",
+    detail: "저장 성공이나 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /admin/users 또는 허용된 홈 레인에서 다시 확인합니다.",
+  },
+  {
+    title: "empty",
+    tone: "default" as const,
+    summary: "현재 회사 scope 에 계정이나 검토 큐가 없는 정상 빈 상태일 수 있습니다.",
+    detail: "실패나 권한 차단으로 섞지 않고, 지금 추가로 검토할 계정이 없는 상태로 기록합니다.",
+  },
+  {
+    title: "error",
+    tone: "warning" as const,
+    summary: "조회나 dev-safe preview 처리에 실패한 상태입니다.",
+    detail: "같은 작업을 성공처럼 넘기지 말고 경고 배너, 재조회, 복구 경로를 먼저 확인합니다.",
+  },
+  {
+    title: "offline",
+    tone: "warning" as const,
+    summary: "네트워크가 불안정하거나 연결이 끊겨 preview 를 다시 시도해야 하는 상태입니다.",
+    detail: "가능한 읽기 업무와 막히는 저장/실행 업무를 먼저 구분한 뒤 안정적인 네트워크에서 다시 확인합니다.",
+  },
+  {
+    title: "forbidden",
+    tone: "warning" as const,
+    summary: "로그인은 되었지만 현재 인사 운영 권한 또는 접근 범위가 맞지 않는 상태입니다.",
+    detail: "일반 직원이나 비허용 역할은 /admin/users 를 우회하지 않고 허용된 홈·감사 레인으로 돌아갑니다.",
+  },
+  {
+    title: "dev-safe",
+    tone: "accent" as const,
+    summary: "현재 화면은 실제 저장 대신 preview 와 내부 확인용 데이터만 보여 주는 상태입니다.",
+    detail: "실제 메일 발송, 외부 IdP, production password policy, 대량 import 는 계속 승인 게이트로 남깁니다.",
+  },
+] as const;
+
 export function AdminUsersPageContent({
   preview,
   actionMessage,
   loadError,
+  loadErrorKind,
   actionType,
   focusMessage,
 }: AdminUsersPageContentProps) {
   const activeJourney = actionJourneyMap[actionType as keyof typeof actionJourneyMap] ?? null;
+  const loadErrorTitle =
+    loadErrorKind === "offline"
+      ? "offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다"
+      : "error 상태: 계정관리 미리보기를 불러오지 못했습니다";
 
   return (
     <PageShell
@@ -154,6 +200,21 @@ export function AdminUsersPageContent({
       ) : null}
 
       <SurfaceSection
+        title="forbidden / empty / error / offline / loading / dev-safe 경계"
+        description="계정관리 화면에서는 좋아 보이는 상태만 남기지 않고, 각 상태를 서로 다른 의미로 고정합니다."
+      >
+        <div className="grid-auto-compact">
+          {statusBoundaryCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <Pill tone={card.tone}>{card.title}</Pill>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection
         title="Phase 55 관리자 온보딩·운영 순서"
         description="이번 단계에서는 계정 preview, 조직 읽기, 운영 레인, 감사 레인을 live URL 기준 한 절차로 묶어 같은 언어로 확인합니다."
       >
@@ -182,8 +243,19 @@ export function AdminUsersPageContent({
 
       {loadError ? (
         <section className="status-banner status-banner--warning" role="alert">
-          <strong>계정관리 미리보기를 불러오지 못했습니다</strong>
+          <strong>{loadErrorTitle}</strong>
           <span>{loadError}</span>
+          {loadErrorKind === "offline" ? (
+            <>
+              <span>{adminOfflineGuidance.bannerBody}</span>
+              <ul className="summary-list">
+                {adminOfflineGuidance.retrySteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+              <p className="card-note">복구 경로: {adminRecoveryRouteCards.map((route) => route.href).join(" · ")}</p>
+            </>
+          ) : null}
         </section>
       ) : null}
 
@@ -290,7 +362,7 @@ export function AdminUsersPageContent({
         ) : (
           <article className="info-card">
             <h3>empty 상태</h3>
-            <p>이번 회사 scope 에 아직 계정관리 대상 사용자가 없으면 여기서 empty 를 그대로 보여 줍니다.</p>
+            <p>이번 회사 scope 에 아직 계정관리 대상 사용자가 없으면 실패나 권한 차단으로 바꾸지 않고 empty 를 그대로 보여 줍니다.</p>
           </article>
         )}
       </SurfaceSection>
@@ -404,23 +476,23 @@ export function AdminUsersPageContent({
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="forbidden / empty / error / dev-safe 경계" description="좋아 보이는 상태만 숨기지 않고 같이 남깁니다." muted>
+      <SurfaceSection title="권한 차단과 승인 게이트 메모" description="실사용 검토 때 자주 헷갈리는 경계를 다시 한 번 짧게 남깁니다." muted>
         <div className="grid-auto-compact">
           <article className="info-card">
             <Pill tone="warning">forbidden</Pill>
-            <p>일반 직원이나 비허용 역할은 /admin/users, /management, /admin/audit-logs 에서 차단됩니다.</p>
+            <p>일반 직원이나 비허용 역할은 /admin/users 를 우회하지 않고 허용된 홈·감사 레인으로 돌아갑니다.</p>
           </article>
           <article className="info-card">
             <Pill>empty</Pill>
-            <p>현재 회사 scope 에 계정이 없거나 검토 큐가 비어 있으면 empty 를 정상 상태로 그대로 보여 줍니다.</p>
+            <p>현재 회사 scope 에 계정이 없거나 검토 큐가 비어 있으면 empty 를 정상 빈 상태로 그대로 보여 줍니다.</p>
           </article>
           <article className="info-card">
             <Pill tone="warning">error</Pill>
-            <p>API preview 나 dev-safe action 처리에 실패하면 성공처럼 넘기지 않고 경고 배너로 남깁니다.</p>
+            <p>API preview 나 dev-safe action 처리에 실패하면 성공처럼 넘기지 않고 경고 배너와 재확인 순서를 남깁니다.</p>
           </article>
           <article className="info-card">
             <Pill tone="accent">dev-safe</Pill>
-            <p>실제 메일 발송, 외부 IdP, production password policy, 대량 import 는 이번 단계에 포함하지 않습니다.</p>
+            <p>실제 메일 발송, 외부 IdP, production password policy, 대량 import 는 계속 승인 게이트로 남깁니다.</p>
           </article>
         </div>
       </SurfaceSection>

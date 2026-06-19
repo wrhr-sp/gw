@@ -7,6 +7,7 @@ import { AdminPageContent } from "./admin-page-content";
 import { getAdminPageCardsForRole } from "./admin-page-access";
 import { app } from "../api/src/app";
 import { AdminUsersPageContent } from "./app/admin/users/admin-users-page-content";
+import { classifyAdminUsersLoadErrorKind } from "./app/admin/users/load-error-kind";
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
@@ -89,8 +90,84 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("/dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
     expect(html).toContain("/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단");
-    expect(html).toContain("forbidden / empty / error / dev-safe 경계");
+    expect(html).toContain("forbidden / empty / error / offline / loading / dev-safe 경계");
     expect(html).toContain("실저장 없음");
+  });
+
+  it("separates offline recovery copy from generic errors on the admin users page", async () => {
+    const loginResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-dev-role": "COMPANY_ADMIN",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "1234",
+      }),
+    });
+    const cookie = loginResponse.headers.get("set-cookie");
+    if (!cookie) {
+      throw new Error("expected login response to include set-cookie header");
+    }
+
+    const previewResponse = await app.request(appRoutes.admin.users, {
+      headers: {
+        cookie,
+      },
+    });
+    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    const html = renderToStaticMarkup(
+      <AdminUsersPageContent
+        preview={preview}
+        loadErrorKind="offline"
+        loadError="계정관리 preview 재조회가 중단되었습니다: network timeout"
+      />,
+    );
+
+    expect(classifyAdminUsersLoadErrorKind("network timeout while fetching admin users")).toBe("offline");
+    expect(classifyAdminUsersLoadErrorKind("네트워크 연결이 끊겼습니다")).toBe("offline");
+    expect(classifyAdminUsersLoadErrorKind("응답 형식을 해석하지 못했습니다")).toBe("error");
+    expect(html).toContain("offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다");
+    expect(html).toContain("관리자 PWA 는 읽기 중심 확인만 일부 도와주며");
+    expect(html).toContain("네트워크 연결을 다시 확인하고 `/admin` 에서 새로고침");
+    expect(html).toContain("복구 경로: /admin · /admin/users · /admin/policies · /admin/audit-logs · /offline");
+  });
+
+  it("separates offline retry guidance from generic preview errors on the admin users page", async () => {
+    const loginResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-dev-role": "COMPANY_ADMIN",
+      },
+      body: JSON.stringify({
+        loginId: "admin",
+        password: "1234",
+      }),
+    });
+    const cookie = loginResponse.headers.get("set-cookie");
+    if (!cookie) {
+      throw new Error("expected login response to include set-cookie header");
+    }
+
+    const previewResponse = await app.request(appRoutes.admin.users, {
+      headers: {
+        cookie,
+      },
+    });
+    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    const html = renderToStaticMarkup(
+      <AdminUsersPageContent
+        preview={preview}
+        loadErrorKind="offline"
+        loadError="네트워크 연결이 끊겨 계정관리 preview 를 다시 불러오지 못했습니다."
+      />,
+    );
+
+    expect(html).toContain("offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다");
+    expect(html).toContain("네트워크 연결이 끊겨 계정관리 preview 를 다시 불러오지 못했습니다.");
+    expect(html).toContain("네트워크가 불안정하거나 연결이 끊겨 preview 를 다시 시도해야 하는 상태입니다.");
   });
 
   it("keeps policy review cards in a consistent current-candidate-capability format", () => {
