@@ -66,6 +66,34 @@ type TopbarProfileState = {
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 
+const afterHoursExceptionKeys = new Set<AfterHoursPreferenceKey>(["urgentNotices"]);
+
+export function syncAfterHoursSettings(
+  notificationSettings: Record<NotificationPreferenceKey, boolean>,
+  previousAfterHoursSettings: Record<AfterHoursPreferenceKey, boolean>,
+) {
+  const nextSettings = { ...previousAfterHoursSettings };
+
+  if (!notificationSettings.approvals) {
+    nextSettings.approvalRequests = false;
+    nextSettings.approvalFeedback = false;
+  }
+  if (!notificationSettings.mentions) {
+    nextSettings.mentions = false;
+  }
+  if (!notificationSettings.mail) {
+    nextSettings.importantMail = false;
+  }
+  if (!notificationSettings.attendance) {
+    nextSettings.attendanceResults = false;
+  }
+  if (!notificationSettings.notices && !afterHoursExceptionKeys.has("urgentNotices")) {
+    nextSettings.urgentNotices = false;
+  }
+
+  return nextSettings;
+}
+
 export function formatUnreadBadge(unreadCount: number | null) {
   if (!unreadCount || unreadCount <= 0) {
     return null;
@@ -758,24 +786,23 @@ export function MobileAppShell({
 
 
   function setNotificationPreference(key: NotificationPreferenceKey, enabled: boolean) {
-    setNotificationPreferences((value) => ({ ...value, [key]: enabled }));
-    if (!enabled) {
-      setAfterHoursPreferences((value) => {
-        const next = { ...value };
-        if (key === "notices") next.urgentNotices = false;
-        if (key === "approvals") {
-          next.approvalRequests = false;
-          next.approvalFeedback = false;
-        }
-        if (key === "mentions") next.mentions = false;
-        if (key === "mail") next.importantMail = false;
-        if (key === "attendance") next.attendanceResults = false;
-        return next;
-      });
-    }
+    setNotificationPreferences((value) => {
+      const nextPreferences = { ...value, [key]: enabled };
+      setAfterHoursPreferences((previousAfterHoursSettings) => syncAfterHoursSettings(nextPreferences, previousAfterHoursSettings));
+      return nextPreferences;
+    });
   }
 
   function setAfterHoursPreference(key: AfterHoursPreferenceKey, enabled: boolean) {
+    if (
+      ((key === "approvalRequests" || key === "approvalFeedback") && !notificationPreferences.approvals) ||
+      (key === "mentions" && !notificationPreferences.mentions) ||
+      (key === "attendanceResults" && !notificationPreferences.attendance) ||
+      (key === "importantMail" && !notificationPreferences.mail)
+    ) {
+      return;
+    }
+
     setAfterHoursPreferences((value) => ({ ...value, [key]: enabled }));
   }
 
@@ -884,12 +911,9 @@ export function MobileAppShell({
                 </div>
               </section>
               <section className="topbar-modal-card">
-                <strong>PC 사이드바</strong>
-                <SettingToggle label="마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
-              </section>
-              <section className="topbar-modal-card">
-                <strong>모바일 하단탭</strong>
-                <SettingToggle label="간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+                <strong>기기별 화면 설정</strong>
+                <SettingToggle label="PC 사이드바 마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
+                <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 기본 설정</strong>
@@ -975,13 +999,14 @@ export function MobileAppShell({
                 <strong>퇴근 후 알림 설정</strong>
                 <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
                 <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
-                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} disabled={!notificationPreferences.notices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
+                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
                   <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
                   <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
                   <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
                   <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
                   <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
                 </div>
+                {!notificationPreferences.notices ? <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p> : null}
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>개인정보 표시 범위</strong>
@@ -1093,8 +1118,8 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <a className="portal-switch-link" aria-label={`${nextPortalLabel} 새 탭에서 보기`} data-route={nextPortalHref} href={nextPortalHref} target="_blank" rel="noreferrer">
-                  <span>{nextPortalLabel}</span>
+                <a className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} href={nextPortalHref} target="_blank" rel="noreferrer">
+                  <span>{nextPortalLabel}로 이동</span>
                   <PortalShortcutIcon />
                 </a>
               ) : null}

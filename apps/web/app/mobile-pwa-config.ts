@@ -61,7 +61,7 @@ export type AppShellConfig = {
 export const generalPwaManifest = {
   name: "We'reHere",
   short_name: "We'reHere",
-  description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 그룹웨어 Web/PWA 스켈레톤",
+  description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 We'reHere 스켈레톤",
   id: "/login",
   start_url: "/dashboard",
   scope: "/",

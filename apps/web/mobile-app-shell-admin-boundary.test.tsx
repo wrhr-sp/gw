@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import { MobileAppShell, formatUnreadBadge } from "./app/_components/mobile-app-shell";
+import { MobileAppShell, formatUnreadBadge, syncAfterHoursSettings } from "./app/_components/mobile-app-shell";
 import {
   adminInstallGuideSteps,
   adminMenuSections,
@@ -55,7 +55,7 @@ describe("mobile app shell admin boundary", () => {
   it("keeps the general /menu shortcut on the shared web host topbar", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
-        appName="We’reHere"
+        appName="We'reHere"
         appEyebrow="일반업무포털"
         homeHref="/"
         navItems={mobileBottomTabs}
@@ -82,7 +82,7 @@ describe("mobile app shell admin boundary", () => {
   it("keeps selected feature icons and leaves branch portal without a menu icon", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
-        appName="We’reHere"
+        appName="We'reHere"
         appEyebrow="일반업무포털"
         homeHref="/"
         navItems={mobileBottomTabs}
@@ -113,7 +113,7 @@ describe("mobile app shell admin boundary", () => {
   it("separates the PC sidebar into general and management portals with opposite topbar switches", () => {
     mockedPathname = "/dashboard";
     const sharedProps = {
-      appName: "We’reHere",
+      appName: "We'reHere",
       appEyebrow: "일반업무포털",
       homeHref: "/",
       navItems: mobileBottomTabs,
@@ -132,8 +132,8 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(generalHtml).toContain("일반업무포털");
-    expect(generalHtml).toContain("경영업무포털 새 탭에서 보기");
-    expect(generalHtml).toContain('aria-label="We’reHere 일반업무포털 홈"');
+    expect(generalHtml).toContain("경영업무포털로 이동");
+    expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
     expect(generalHtml).toContain('href="/dashboard" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('data-route="/management"');
@@ -162,8 +162,8 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(managementHtml).toContain("경영업무포털");
-    expect(managementHtml).toContain("일반업무포털 새 탭에서 보기");
-    expect(managementHtml).toContain('aria-label="We’reHere 경영업무포털 홈"');
+    expect(managementHtml).toContain("일반업무포털로 이동");
+    expect(managementHtml).toContain(`aria-label="We&#x27;reHere 경영업무포털 홈"`);
     expect(managementHtml).toContain('href="/management" class="topbar-brand-link"');
     expect(managementHtml).toContain('data-route="/dashboard"');
     expect(managementHtml).toContain('href="/dashboard" target="_blank" rel="noreferrer"');
@@ -178,5 +178,34 @@ describe("mobile app shell admin boundary", () => {
     expect(formatUnreadBadge(99)).toBe("99");
     expect(formatUnreadBadge(100)).toBe("99+");
     expect(formatUnreadBadge(187)).toBe("99+");
+  });
+
+  it("turns off after-hours toggles when the parent notification is disabled except urgent notices", () => {
+    expect(
+      syncAfterHoursSettings(
+        {
+          notices: false,
+          approvals: false,
+          mentions: true,
+          mail: false,
+          attendance: false,
+        },
+        {
+          urgentNotices: true,
+          approvalRequests: true,
+          approvalFeedback: true,
+          mentions: true,
+          attendanceResults: true,
+          importantMail: true,
+        },
+      ),
+    ).toEqual({
+      urgentNotices: true,
+      approvalRequests: false,
+      approvalFeedback: false,
+      mentions: true,
+      attendanceResults: false,
+      importantMail: false,
+    });
   });
 });
