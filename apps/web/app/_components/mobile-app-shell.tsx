@@ -351,6 +351,16 @@ function SettingField({ label, value, hint }: { label: string; value: string; hi
   );
 }
 
+function PortalShortcutIcon() {
+  return (
+    <svg className="portal-switch-link__icon" aria-hidden="true" viewBox="0 0 24 24">
+      <path className="portal-switch-link__box" d="M5.5 9.25v8.25a2 2 0 0 0 2 2h8.25a2 2 0 0 0 2-2v-4.25" />
+      <path className="portal-switch-link__arrow-fill" d="M8.05 15.95c2.5-4.68 5.76-6.75 9.56-7.15V5.05l5.29 5.17-5.29 5.2v-3.54c-3.3.12-6.33 1.11-9.56 4.07Z" />
+      <path className="portal-switch-link__arrow-outline" d="M8.05 15.95c2.5-4.68 5.76-6.75 9.56-7.15V5.05l5.29 5.17-5.29 5.2v-3.54c-3.3.12-6.33 1.11-9.56 4.07Z" />
+    </svg>
+  );
+}
+
 function SettingToggle({
   label,
   description,
@@ -1084,7 +1094,7 @@ export function MobileAppShell({
               {hasManagementPortal ? (
                 <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateTo(nextPortalHref)}>
                   <span>{nextPortalLabel}</span>
-                  <span className="portal-switch-link__icon" aria-hidden="true">↗</span>
+                  <PortalShortcutIcon />
                 </button>
               ) : null}
               {!isAdminHostShell ? (

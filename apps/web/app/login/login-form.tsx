@@ -17,7 +17,6 @@ export function LoginForm() {
   const roleCode: RoleCode = defaultRoleCode;
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -30,7 +29,6 @@ export function LoginForm() {
       setRememberLoginId(true);
     }
 
-    setSignedOut(new URLSearchParams(window.location.search).get("signedOut") === "1");
   }, []);
 
   useEffect(() => {
@@ -63,7 +61,6 @@ export function LoginForm() {
 
     return () => controller.abort();
   }, []);
-
 
   return (
     <form
@@ -108,7 +105,6 @@ export function LoginForm() {
         }
       }}
     >
-      {signedOut ? <p className="meta-copy">로그아웃이 완료되었습니다. 다시 로그인할 수 있습니다.</p> : null}
       <div className="field-grid">
         <label>
           <span className="meta-copy">아이디</span>
