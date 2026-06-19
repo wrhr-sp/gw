@@ -520,6 +520,7 @@ export function MobileAppShell({
   const isAdminHostShell = homeHref === "/admin";
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/dashboard";
+  const desktopHomeItem = !isAdminHostShell && !isManagementPortal ? navItems.find((item) => item.href === "/dashboard") : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
   const branchPortalLabel = "지점관리포털";
@@ -1078,11 +1079,26 @@ export function MobileAppShell({
         </div>
 
         <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
+          {desktopHomeItem ? (
+            <div className="desktop-sidebar__home-link">
+              <button
+                type="button"
+                className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"}
+                aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined}
+                aria-label={desktopHomeItem.label}
+                data-route={desktopHomeItem.href}
+                title={desktopHomeItem.summary}
+                onClick={() => navigateTo(desktopHomeItem.href)}
+              >
+                <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
+                <span>{sidebarCollapsed ? desktopHomeItem.shortLabel : desktopHomeItem.label}</span>
+              </button>
+            </div>
+          ) : null}
           {visibleDesktopMenuSections.map((section) => (
             <section key={section.title} className="desktop-sidebar__section">
               <div className="desktop-sidebar__section-copy">
                 <strong>{section.title}</strong>
-                {!sidebarCollapsed ? <p>{section.description}</p> : null}
               </div>
               <div className="desktop-sidebar__links">
                 {section.items.map((item) => {
@@ -1092,15 +1108,28 @@ export function MobileAppShell({
                     <button
                       key={item.href}
                       type="button"
-                      className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"}
-                      aria-current={active ? "page" : undefined}
-                      aria-label={item.label}
+                      className={
+                        item.disabled
+                          ? "desktop-sidebar__link desktop-sidebar__link--disabled"
+                          : active
+                            ? "desktop-sidebar__link desktop-sidebar__link--active"
+                            : "desktop-sidebar__link"
+                      }
+                      aria-current={active && !item.disabled ? "page" : undefined}
+                      aria-disabled={item.disabled ? true : undefined}
+                      aria-label={item.badge ? `${item.label} ${item.badge}` : item.label}
                       data-route={item.href}
                       title={item.summary}
-                      onClick={() => navigateTo(item.href)}
+                      disabled={item.disabled}
+                      onClick={() => {
+                        if (!item.disabled) {
+                          navigateTo(item.href);
+                        }
+                      }}
                     >
                       {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                       <span>{sidebarCollapsed ? item.shortLabel : item.label}</span>
+                      {!sidebarCollapsed && item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
                     </button>
                   );
                 })}
