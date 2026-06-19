@@ -169,6 +169,9 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("조직도");
     expect(generalHtml).toContain("내 인사");
     expect(generalHtml).toContain("직장인교육");
+    expect(generalHtml).toContain('class="desktop-sidebar desktop-sidebar--collapsed"');
+    expect(generalHtml).toContain('aria-label="사이드바 펼치기"');
+    expect(generalHtml).not.toContain("gw.desktopSidebarCollapsed");
     expect(generalHtml).not.toContain("brand-link--sidebar");
     expect(generalHtml).not.toContain("desktop-sidebar__status");
     expect(generalHtml).not.toContain("오늘 할 일 · 전체 메뉴");
@@ -255,6 +258,11 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("scrollbar-color: transparent transparent");
     expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
     expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");
+    expect(globalCss).toContain("--desktop-topbar-height: 64px");
+    expect(globalCss).toContain("padding-top: var(--desktop-topbar-height)");
+    expect(globalCss).toContain("z-index: 70");
+    expect(globalCss).toContain("top: var(--desktop-topbar-height)");
+    expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
     expect(globalCss).not.toContain(".desktop-sidebar--scrolling");
   });
 });
