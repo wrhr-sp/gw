@@ -18,17 +18,17 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 59 UAT·사용자/관리자 가이드·도입 체크리스트 최종 정리 체인이다. 이번 Phase의 목적은 기존 Phase 44 문서 세트에 Phase 56 운영 레인 분리, Phase 57 홈/메뉴 IA, Phase 58 상태 문장·복구 안내·역할별 차단 레인 기준을 반영해 대장이 live URL에서 직원 흐름, 관리자 흐름, 체크리스트 흐름을 문서 한 세트로 바로 따라가게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 60 실사용 1차 내부 사용 릴리즈 노트·사용자/관리자 인수인계 체인이다. 이번 Phase의 목적은 Phase 59에서 최종 정리한 UAT·사용자/관리자 가이드·도입 체크리스트를 바탕으로, 대장이 live URL에서 직접 눌러볼 route·액션·역할별 happy path·상태 문장·승인 게이트를 release note + handoff 문장으로 바로 재사용 가능하게 만드는 것이다.
 
 현재 상태 요약:
 
-- `apps/web/dashboard-page-content.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/me/page.tsx` 기준으로 홈/메뉴/운영 허브/계정관리/내 정보 상태 문장 뼈대가 이미 존재한다.
+- `apps/web/dashboard-page-content.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 기준으로 홈/메뉴/운영 허브/계정관리/내 정보/감사 레인 문장 뼈대가 이미 존재한다.
 - `apps/web/app/_components/real-usage-panels.tsx`, `apps/web/app/_components/phase35-live-sections.tsx` 기준으로 실제 query state loading/forbidden/error/empty 표현 근거가 이미 존재한다.
 - `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 role/shortcut/route/access 기준선이 이미 존재한다.
-- 현재 Phase 59 기준 문서는 `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md`, `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md` 다.
+- 현재 Phase 60 기준 문서는 `docs/guides/phase-60-first-real-usage-release-notes-user-admin-handoff.md`, `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md`, `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md` 다.
 - UI microfix 후속 사용자 안내 문서는 `docs/guides/phase-58-ui-microfix-settings-profile-notice-alert-branding-guide.md` 다. 설정 팝업 섹션 분리, 공지사항/알림 팝업 footer 제거, 내 정보 설정 문구 정리, 알림 기능 선택 ↔ 퇴근 후 알림 설정 관계, `We'reHere` 브랜드/포털 전환 표기 확인 순서를 따로 묶어 두었다.
-- 현재 직전 기준 문서는 `docs/architecture/phase-57-home-dashboard-shortcuts-mobile-pc-ia-fit-gap-scope.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-handoff.md`, `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 다.
-- 현재 메인 체인은 `t_1122b615`(문서화 진행 중) → `t_20a0bf84`(GitHub/배포 확인 부모 대기) 순서로 정리된다.
+- 현재 직전 기준 문서는 `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-handoff.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md` 다.
+- 현재 메인 체인은 `t_b1cf2c7c`(문서화 진행 중) → `t_75b2172c`(GitHub/배포 확인 부모 대기) 순서로 정리된다.
 - Phase 50 세부 UX 포커스 체인으로 `t_c2551b81`(모바일 플로팅 하단바 기획 진행 중) → `t_b05b8631`(구현 부모 대기) → `t_72fc15aa`(리뷰 부모 대기) 도 함께 따라간다.
 
 2026-06-18 Phase 56 fit-gap 메모:
