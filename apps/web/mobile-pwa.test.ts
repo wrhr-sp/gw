@@ -85,6 +85,7 @@ describe("mobile/PWA config", () => {
       "/me",
       "/org",
       "/employees",
+      "/payroll/me",
     ]);
 
     expect(mobileBottomTabs.map((item) => item.href)).toEqual([
