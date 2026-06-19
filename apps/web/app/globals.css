@@ -1132,6 +1132,7 @@ li {
 
 @media (min-width: 961px) {
   .app-shell--responsive {
+    --desktop-topbar-height: 64px;
     display: block;
     height: 100dvh;
     min-height: 100dvh;
@@ -1144,6 +1145,15 @@ li {
     margin-left: 116px;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-top: var(--desktop-topbar-height);
+  }
+
+  .app-topbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 70;
   }
 
 
@@ -1159,7 +1169,7 @@ li {
   .desktop-sidebar {
     display: grid;
     width: 312px;
-    height: 100dvh;
+    height: calc(100dvh - var(--desktop-topbar-height));
     min-height: 0;
     flex-shrink: 0;
     align-content: start;
@@ -1167,7 +1177,7 @@ li {
     padding: 24px 20px;
     position: fixed;
     left: 0;
-    top: 0;
+    top: var(--desktop-topbar-height);
     z-index: 35;
     overflow-y: auto;
     overscroll-behavior: contain;

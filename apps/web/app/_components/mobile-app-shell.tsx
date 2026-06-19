@@ -471,7 +471,7 @@ export function MobileAppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
