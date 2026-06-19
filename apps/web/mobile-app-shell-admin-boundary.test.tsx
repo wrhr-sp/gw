@@ -169,6 +169,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("조직도");
     expect(generalHtml).toContain("내 인사");
     expect(generalHtml).toContain("직장인교육");
+    expect(generalHtml).not.toContain("brand-link--sidebar");
     expect(generalHtml).not.toContain("desktop-sidebar__status");
     expect(generalHtml).not.toContain("오늘 할 일 · 전체 메뉴");
     expect(generalHtml).not.toContain("급여 내부관리");

@@ -106,10 +106,6 @@ code {
   text-decoration: none;
 }
 
-.brand-link--sidebar {
-  gap: 6px;
-}
-
 .brand-link__eyebrow,
 .page-shell__eyebrow,
 .muted-copy,
@@ -1190,17 +1186,12 @@ li {
     box-shadow: 18px 0 42px rgba(15, 23, 42, 0.12), inset -1px 0 0 rgba(255, 255, 255, 0.72);
   }
 
-  .desktop-sidebar--collapsed .desktop-sidebar__section-copy p,
-  .desktop-sidebar--collapsed .brand-link__eyebrow {
+  .desktop-sidebar--collapsed .desktop-sidebar__section-copy p {
     display: none;
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__header {
     justify-items: center;
-  }
-
-  .desktop-sidebar--collapsed .brand-link--sidebar {
-    text-align: center;
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__section-copy {

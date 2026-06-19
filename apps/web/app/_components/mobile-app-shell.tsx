@@ -1120,10 +1120,6 @@ export function MobileAppShell({
         aria-label="PC 기본 탐색"
       >
         <div className="desktop-sidebar__header">
-          <a href={homeHref} className="brand-link brand-link--sidebar">
-            <span className="brand-link__eyebrow">{appEyebrow}</span>
-            <strong>{appName}</strong>
-          </a>
           <button
             type="button"
             className="sidebar-toggle"
