@@ -263,6 +263,13 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("z-index: 70");
     expect(globalCss).toContain("top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
+    expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
+    expect(globalCss).toContain(".desktop-sidebar__header::after");
+    expect(globalCss).toContain("transform: translateY(-8px) scaleY(0.72)");
+    expect(globalCss).toContain("radial-gradient(ellipse at 50% 0%");
+    expect(globalCss).toContain("overflow: hidden");
+    expect(globalCss).toContain("overflow-y: auto");
     expect(globalCss).not.toContain(".desktop-sidebar--scrolling");
   });
 });
