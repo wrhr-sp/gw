@@ -278,30 +278,45 @@ export const mobileBottomTabs: NavItem[] = [
 
 export const mobileMenuSections: NavSection[] = [
   {
-    title: "기본 업무",
-    description: "실사용 기준으로 먼저 눌러 볼 핵심 업무 흐름입니다.",
-    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
-  },
-  {
-    title: "공통 업무 엔진",
-    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
+    title: "협업/소통",
+    description: "메일·메신저·알림·게시판·주소록처럼 직원이 매일 확인하는 소통 메뉴입니다.",
     items: [
-      mobilePrimaryNav[6],
-      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
-      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 현황" },
-      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 검토와 restricted 경계 안내" },
-      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" },
+      mobileBottomTabs[3],
+      mobileBottomTabs[2],
+      mobileBottomTabs[4],
+      mobilePrimaryNav[4],
+      { href: "/org", label: "주소록/조직", shortLabel: "주소록", summary: "부서·역할·권한 체계와 연락 기준 확인" },
+      mobilePrimaryNav[9],
     ],
   },
   {
-    title: "내 정보 / 조회",
-    description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
-    items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
+    title: "일정/개인 업무",
+    description: "홈과 내 정보를 중심으로 오늘 할 일, 내 상태, 개인 확인 흐름을 먼저 모읍니다.",
+    items: [mobilePrimaryNav[0], mobilePrimaryNav[7], mobilePrimaryNav[6]],
   },
   {
-    title: "협업 확인",
-    description: "메신저, 메일, 알림은 현재 확인 가능한 범위만 안내하고 실제 외부 연동은 승인 게이트로 남깁니다.",
-    items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
+    title: "근무/인사",
+    description: "근태·휴가·인사 확인처럼 직원과 팀장이 자주 보는 사람/근무 관련 메뉴입니다.",
+    items: [
+      mobilePrimaryNav[1],
+      mobilePrimaryNav[2],
+      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
+    ],
+  },
+  {
+    title: "결재/문서",
+    description: "전자결재와 문서 확인 흐름을 한 묶음으로 둡니다.",
+    items: [mobilePrimaryNav[3], mobilePrimaryNav[5]],
+  },
+  {
+    title: "급여/비용",
+    description: "직원 본인에게 공개 가능한 급여 조회와 비용성 업무 진입점을 분리합니다.",
+    items: [{ href: "/payroll/me", label: "급여", shortLabel: "급여", summary: "본인 급여명세서 초안과 정정 안내 확인" }],
+  },
+  {
+    title: "운영/기타",
+    description: "지점 보고와 공통 업무처럼 별도 앱으로 확장될 업무를 모읍니다.",
+    items: [{ href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" }],
   },
 ];
 
