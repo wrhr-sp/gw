@@ -735,11 +735,9 @@ export function MobileAppShell({
     }
 
     window.addEventListener("pointermove", clearSuppressedTooltip, { once: true });
-    window.addEventListener("keydown", clearSuppressedTooltip, { once: true });
 
     return () => {
       window.removeEventListener("pointermove", clearSuppressedTooltip);
-      window.removeEventListener("keydown", clearSuppressedTooltip);
     };
   }, [suppressTopbarTooltips]);
 
