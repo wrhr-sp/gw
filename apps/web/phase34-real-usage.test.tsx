@@ -2,6 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { getWorkItemAccessCapabilities } from "./app/_components/phase34-live-sections";
 import AuditLogsPage from "./app/admin/audit-logs/page";
 import EmployeesPage from "./app/employees/page";
 import NotificationsPage from "./app/notifications/page";
@@ -38,6 +39,24 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("branch scope 가드레일");
     expect(html).toContain("지점 업무");
     expect(html).toContain('href="/api/work-items?module=branch"');
+  });
+
+  it("keeps branch work item capability labels compatible with current API payload names", () => {
+    expect(
+      getWorkItemAccessCapabilities({
+        viewerScope: "branch",
+        capabilities: ["work_item.read", "work_item.deadline.read"],
+        maskedFields: [],
+      }).join(", "),
+    ).toBe("work_item.read, work_item.deadline.read");
+
+    expect(
+      getWorkItemAccessCapabilities({
+        viewerScope: "branch",
+        allowedCapabilities: ["legacy.read"],
+        maskedFields: [],
+      }).join(", "),
+    ).toBe("legacy.read");
   });
 
   it("keeps notifications honest about same-origin inbox vs external delivery", () => {
