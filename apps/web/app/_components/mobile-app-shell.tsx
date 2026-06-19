@@ -478,6 +478,7 @@ export function MobileAppShell({
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
+  const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
@@ -516,6 +517,7 @@ export function MobileAppShell({
 
   function closeTopbarModal() {
     setActiveTopbarModal(null);
+    setSuppressTopbarTooltips(true);
     window.requestAnimationFrame(blurActiveElement);
   }
 
@@ -722,6 +724,24 @@ export function MobileAppShell({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!suppressTopbarTooltips) {
+      return;
+    }
+
+    function clearSuppressedTooltip() {
+      setSuppressTopbarTooltips(false);
+    }
+
+    window.addEventListener("pointermove", clearSuppressedTooltip, { once: true });
+    window.addEventListener("keydown", clearSuppressedTooltip, { once: true });
+
+    return () => {
+      window.removeEventListener("pointermove", clearSuppressedTooltip);
+      window.removeEventListener("keydown", clearSuppressedTooltip);
+    };
+  }, [suppressTopbarTooltips]);
 
   useEffect(() => {
     try {
@@ -1130,7 +1150,7 @@ export function MobileAppShell({
   }
 
   return (
-    <div className="app-shell app-shell--responsive">
+    <div className={suppressTopbarTooltips ? "app-shell app-shell--responsive app-shell--suppress-topbar-tooltips" : "app-shell app-shell--responsive"}>
       <aside
         className={sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}
         aria-label="PC 기본 탐색"
