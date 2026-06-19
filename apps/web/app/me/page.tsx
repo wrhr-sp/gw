@@ -35,7 +35,7 @@ const stateGuides = [
   {
     state: "loading",
     meaning: "아직 내 세션·권한 정보를 불러오는 중인 상태",
-    note: "성공, 세션 만료, 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /me 또는 /dashboard 에서 다시 확인합니다.",
+    note: "성공, 세션 만료, 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /me 또는 /home 에서 다시 확인합니다.",
   },
   {
     state: "empty",
@@ -73,7 +73,7 @@ const securityNotes = [
 export default function MePage() {
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="대시보드로"
       eyebrow="내 세션 / 권한 / 개인 확인 레인"
       title="내 정보"

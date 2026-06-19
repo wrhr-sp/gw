@@ -48,7 +48,7 @@ const stateGuideCards = [
 ] as const;
 
 const collaborationBridgeNotes = [
-  "`/dashboard` 에서 읽을 공지와 일반 게시판 entry 를 먼저 고르고 상세는 `/boards` 에서 이어집니다.",
+  "`/home` 에서 읽을 공지와 일반 게시판 entry 를 먼저 고르고 상세는 `/boards` 에서 이어집니다.",
   "공지 게시판은 운영 공지 책임, 일반 게시판은 게시글/댓글 협업 entry 라는 책임 차이를 같은 화면에서 유지합니다.",
   "게시글 생성/댓글 생성/읽음 확인은 각각 `board.post.create`, `board.comment.create`, `read receipt` 감사 후보로 남습니다.",
 ] as const;

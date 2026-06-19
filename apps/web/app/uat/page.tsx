@@ -17,7 +17,7 @@ import {
 export default function UatPage() {
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="대시보드로"
       eyebrow="Phase 40 내부 도입 리허설 패키지"
       title="내부 도입 리허설 / UAT 패키지"
@@ -44,7 +44,7 @@ export default function UatPage() {
           <article className="info-card">
             <Pill tone="warning">시작 원칙</Pill>
             <h3>홈과 운영 레인을 섞지 않기</h3>
-            <p>직원은 `/dashboard`, 경영업무 담당자는 `/management`, 운영자/감사는 `/admin*` 문맥에서 시작합니다.</p>
+            <p>직원은 `/home`, 경영업무 담당자는 `/management`, 운영자/감사는 `/admin*` 문맥에서 시작합니다.</p>
           </article>
         </div>
       </SurfaceSection>

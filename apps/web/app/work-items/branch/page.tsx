@@ -12,7 +12,7 @@ const branchScopeNotes = [
 ] as const;
 
 const branchPilotSequence = [
-  "/dashboard 에서 공통 landing 뒤 지점 업무 CTA 문맥 확인",
+  "/home 에서 공통 landing 뒤 지점 업무 CTA 문맥 확인",
   "/work-items/branch 에서 branch 목록 → 상세 → 문서 → 마감 흐름 확인",
   "/employees 에서 읽기 중심 직원 조회가 운영 변경 화면처럼 보이지 않는지 확인",
   "/org 에서 지점/부서/역할 구조를 read-only 로 확인",

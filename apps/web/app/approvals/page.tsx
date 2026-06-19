@@ -62,7 +62,7 @@ const bridgeNotes = [
 ] as const;
 
 const collaborationRoutes = [
-  "`/dashboard` 에서 승인 대기 먼저 확인",
+  "`/home` 에서 승인 대기 먼저 확인",
   "필요 시 `/boards` 에서 공지/협업 글 맥락 확인",
   "첨부·참조 문서는 `/documents` 권한 경계 안에서만 열람",
   "양식/결재선 운영 정책은 `/admin/policies` 에서 별도 검토",
@@ -169,7 +169,7 @@ export default function ApprovalsPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="협업 흐름 연결" description="전자결재는 `/dashboard` 에서 시작하는 협업 레인의 일부이며 운영 정책 화면과 책임을 섞지 않습니다.">
+      <SurfaceSection title="협업 흐름 연결" description="전자결재는 `/home` 에서 시작하는 협업 레인의 일부이며 운영 정책 화면과 책임을 섞지 않습니다.">
         <ul className="summary-list">
           {collaborationRoutes.map((item) => (
             <li key={item}>{item}</li>

@@ -87,7 +87,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("비밀번호 초기화 / 변경");
     expect(html).toContain("방금 실행한 preview 다음 확인");
     expect(html).toContain("권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
-    expect(html).toContain("/dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
+    expect(html).toContain("/home 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
     expect(html).toContain("/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단");
     expect(html).toContain("forbidden / empty / error / offline / loading / dev-safe 경계");

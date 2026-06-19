@@ -7,7 +7,7 @@ export const uatAccessCard = {
 export const roleScenarioCards = [
   {
     role: "일반 직원",
-    startRoute: "/login → /dashboard",
+    startRoute: "/login → /home",
     journey: ["/attendance", "/leave", "/approvals", "/boards", "/documents", "/notifications", "/me"],
     actions: [
       "오늘 근태 상태와 마지막 기록을 먼저 읽는다.",
@@ -29,7 +29,7 @@ export const roleScenarioCards = [
   },
   {
     role: "승인자 / 팀장",
-    startRoute: "/dashboard → /approvals",
+    startRoute: "/home → /approvals",
     journey: ["/approvals", "/attendance", "/leave"],
     actions: [
       "승인 대기와 팀 병목 후보를 먼저 읽는다.",
@@ -50,7 +50,7 @@ export const roleScenarioCards = [
   },
   {
     role: "운영 관리자",
-    startRoute: "/dashboard → /management",
+    startRoute: "/home → /management",
     journey: ["/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     actions: [
       "경영업무 허브에서 민감 모듈이 일반 홈과 분리돼 보이는지 확인한다.",
@@ -73,7 +73,7 @@ export const roleScenarioCards = [
   },
   {
     role: "지점 관리자",
-    startRoute: "/dashboard → /work-items/branch",
+    startRoute: "/home → /work-items/branch",
     journey: ["/work-items/branch", "/employees", "/org", "/management"],
     actions: [
       "branch scope 업무 목록·상세·문서·마감 흐름이 회사 전체 운영 권한처럼 보이지 않는지 확인한다.",
@@ -121,7 +121,7 @@ export const issueSeverityCards = [
     label: "blocker",
     summary: "로그인/핵심 happy path/권한 차단/company+branch scope 가 깨져 내부 리허설을 계속 진행할 수 없는 상태",
     examples: [
-      "`/login` 또는 `/dashboard` 진입 자체 실패",
+      "`/login` 또는 `/home` 진입 자체 실패",
       "권한 없는 사용자가 `/management`, `/admin*`, 민감 API 를 본다.",
       "foreign/self/company+branch scope 차단 실패",
     ],
@@ -159,7 +159,7 @@ export const issueSeverityCards = [
 export const issueLogTemplate = [
   "제목: [severity] 역할/화면 한 줄 요약",
   "역할: 직원 | 승인자 | 운영 관리자 | 지점 관리자 | 감사 담당자",
-  "재현 route: 예) /dashboard → /management → /payroll",
+  "재현 route: 예) /home → /management → /payroll",
   "기대 결과: 무엇이 보여야 하는가",
   "실제 결과: 무엇이 달랐는가",
   "상태 분류: happy path | forbidden | empty | error | loading | mobile/PC | approval-needed",
@@ -170,7 +170,7 @@ export const issueLogTemplate = [
 export const facilitatorScript = [
   "1분: 이번 리허설은 외부 연동/실데이터 없이 현재 제품으로 어디까지 실제 업무처럼 점검 가능한지 맞추는 자리라고 소개한다.",
   "2분: `admin / 1234` 는 dev/test/UAT 전용이며 production 기본 계정이 아니라는 점을 먼저 읽어 준다.",
-  "3분: 직원(`/dashboard`), 운영 관리자(`/management`), 지점 관리자(`/work-items/branch`), 감사(`/admin/audit-logs`) 레인을 섞지 말라고 설명한다.",
+  "3분: 직원(`/home`), 운영 관리자(`/management`), 지점 관리자(`/work-items/branch`), 감사(`/admin/audit-logs`) 레인을 섞지 말라고 설명한다.",
   "4분: happy path 와 forbidden/empty/error/loading/mobile·PC 를 다른 상태로 기록해야 한다고 예시를 든다.",
   "5~8분: 역할별 추천 시나리오를 따라 직접 클릭하게 하고, branch/company scope 차이와 read-only 경계를 즉시 기록하게 한다.",
   "9~10분: blocker 와 approval-needed 를 같은 버그 목록으로 넣지 말라고 다시 확인한다.",
@@ -180,7 +180,7 @@ export const facilitatorScript = [
 export const quickStartSteps = [
   "브라우저에서 live URL 을 연다: https://gw-web.wereheresp.workers.dev",
   "`admin / 1234` 로 로그인한다. 이 계정은 dev/test/UAT 전용이다.",
-  "직원이라면 `/dashboard` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/notifications` → `/me` 순서로 본다.",
+  "직원이라면 `/home` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/notifications` → `/me` 순서로 본다.",
   "승인자라면 `/approvals` 를 먼저 보고 팀 병목/대기 상태를 확인한다.",
   "운영 관리자라면 `/management` → `/admin/users` → `/admin/policies` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` → `/api/health` 순서로 본다.",
   "지점 관리자라면 `/work-items/branch` → `/employees` → `/org` → `/management` 순서로 branch/company scope 차이를 확인한다.",
@@ -207,7 +207,7 @@ export const finalReportChecklist = [
 ] as const;
 
 export const releaseReadinessChecklist = [
-  "직원 레인(`/dashboard` 중심)과 경영업무(`/management`)·감사(`/admin/audit-logs`) 레인을 같은 홈처럼 설명하지 않는다.",
+  "직원 레인(`/home` 중심)과 경영업무(`/management`)·감사(`/admin/audit-logs`) 레인을 같은 홈처럼 설명하지 않는다.",
   "`/payroll` preview, `/payroll/me` self-only, `work-items` branch/company/restricted, 감사 read-only 경계를 final report 와 화면 문구에서 같은 뜻으로 유지한다.",
   "live 직접 클릭 근거와 local preview/build/release gate 근거를 섞지 않고 분리해서 기록한다.",
   "rollback 설명은 되돌리기 실행보다 현재 release 성공 근거와 남은 approval gate 를 먼저 적는다.",

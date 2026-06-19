@@ -99,7 +99,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("이 화면은 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인입니다.");
   });
 
-  it("moves legal entrypoints out of the shared menu/dashboard hub and into a management area", () => {
+  it("moves legal entrypoints out of the shared menu/home hub and into a management area", () => {
     expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items", "/work-items/hr", "/work-items/tax"]);
     expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
     expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
@@ -144,7 +144,7 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     expect(html).toContain("경영업무");
     expect(html).toContain("역할별 운영 레인");
-    expect(html).toContain("/dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health");
+    expect(html).toContain("/home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain("계정관리 → 조직조회 → 경영업무 브리지");
     expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고");

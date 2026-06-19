@@ -118,7 +118,7 @@ export default async function ApprovalDocumentDetailPage({ params }: PageProps) 
             <a href="/approvals">전자결재 목록으로 돌아가기</a>
             <a href="/approvals/approval_document_demo">허용된 예시 문서 보기</a>
             <a href="/approvals/approval_document_team_pending">승인 대기 예시 보기</a>
-            <a href="/dashboard">대시보드로 돌아가기</a>
+            <a href="/home">대시보드로 돌아가기</a>
           </div>
         </SurfaceSection>
 

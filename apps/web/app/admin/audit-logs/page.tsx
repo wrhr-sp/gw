@@ -15,10 +15,10 @@ const auditGuardRoles = ["AUDITOR", "HR_ADMIN", "COMPANY_ADMIN", "MANAGER", "EMP
 
 const roleLandingRouteLabels: Record<(typeof auditGuardRoles)[number], string> = {
   AUDITOR: "/admin/audit-logs",
-  HR_ADMIN: "/dashboard → /admin/users",
-  COMPANY_ADMIN: "/dashboard → /management 또는 /admin",
-  MANAGER: "/dashboard → /management",
-  EMPLOYEE: "/dashboard",
+  HR_ADMIN: "/home → /admin/users",
+  COMPANY_ADMIN: "/home → /management 또는 /admin",
+  MANAGER: "/home → /management",
+  EMPLOYEE: "/home",
 };
 
 const guardStatusLabel = (allowed: boolean, allowedLabel: string, blockedLabel: string) => (allowed ? allowedLabel : blockedLabel);

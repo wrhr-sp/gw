@@ -97,7 +97,7 @@ export default async function PostDetailPage({ params }: PageProps) {
             <a href="/boards">게시판 목록으로 돌아가기</a>
             <a href="/boards/board_general">자유 게시판 다시 보기</a>
             <a href="/posts/board_post_demo">허용된 예시 게시글 보기</a>
-            <a href="/dashboard">대시보드로 돌아가기</a>
+            <a href="/home">대시보드로 돌아가기</a>
           </div>
         </SurfaceSection>
 
