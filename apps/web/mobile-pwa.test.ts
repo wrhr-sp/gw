@@ -107,6 +107,7 @@ describe("mobile/PWA config", () => {
     ]);
     expect(mobilePrimaryNav[0]).toMatchObject({ href: "/dashboard", label: "홈", shortLabel: "홈" });
     expect(mobilePrimaryNav[5]).toMatchObject({ href: "/documents", label: "전사 문서함", shortLabel: "전사문서" });
+    expect(mobilePrimaryNav[9]).toMatchObject({ href: "/employees", label: "조직도", shortLabel: "조직도" });
     expect(mobileMenuSections.flatMap((section) => section.items.map((item) => item.href))).toEqual([
       "/mail",
       "/messenger",
@@ -139,7 +140,7 @@ describe("mobile/PWA config", () => {
       "예약",
       "보고",
       "ToDO+",
-      "직원교육",
+      "직장인교육",
       "고용전자계약",
       "자료실",
       "드라이브",
@@ -166,7 +167,7 @@ describe("mobile/PWA config", () => {
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
       appName: "We'reHere",
-      appEyebrow: "오늘 할 일 · 전체 메뉴",
+      appEyebrow: "일반업무포털",
       homeHref: "/dashboard",
       navItems: mobilePrimaryNav,
       bottomTabs: mobileBottomTabs,

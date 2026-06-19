@@ -504,10 +504,6 @@ export function MobileAppShell({
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
 
-  const activeSectionTitle = useMemo(() => {
-    const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
-    return matchedItem?.label ?? "현재 화면";
-  }, [bottomTabs, navItems, pathname]);
   const hasManagementPortal = menuSections.some(isManagementSection);
   const isManagementPortal = hasManagementPortal && isManagementPortalPath(pathname);
   const visibleDesktopMenuSections = useMemo(() => {
@@ -747,7 +743,7 @@ export function MobileAppShell({
 
     sidebarScrollTimerRef.current = setTimeout(() => {
       setIsSidebarScrolling(false);
-    }, 900);
+    }, 700);
   }
 
   useEffect(() => {
@@ -1070,12 +1066,6 @@ export function MobileAppShell({
           >
             {sidebarCollapsed ? "열기" : "접기"}
           </button>
-        </div>
-
-        <div className="desktop-sidebar__status">
-          <span className="desktop-sidebar__portal-label">{currentPortalLabel}</span>
-          <strong>{activeSectionTitle}</strong>
-          <span>{isOnline ? "업무 화면" : "네트워크 불안정"}</span>
         </div>
 
         <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
