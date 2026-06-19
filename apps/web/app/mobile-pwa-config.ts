@@ -239,8 +239,8 @@ export const mobilePrimaryNav: NavItem[] = [
   },
   {
     href: "/employees",
-    label: "직원",
-    shortLabel: "직원",
+    label: "조직도",
+    shortLabel: "조직도",
     summary: "조직 확인 뒤 직원 상태와 소속 조회",
   },
   {
@@ -260,7 +260,7 @@ const plannedNavItems = {
   library: { href: "#library", label: "자료실", shortLabel: "자료실", summary: "공용 자료실 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
 
   drive: { href: "#drive", label: "드라이브", shortLabel: "드라이브", summary: "파일 드라이브 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  training: { href: "#employee-training", label: "직원교육", shortLabel: "교육", summary: "직원교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  training: { href: "#employee-training", label: "직장인교육", shortLabel: "교육", summary: "직장인교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   employmentContract: { href: "#employment-contract", label: "고용전자계약", shortLabel: "전자계약", summary: "고용 전자계약 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   expense: { href: "#expense", label: "경비", shortLabel: "경비", summary: "경비 신청·정산 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   vehicleLog: { href: "#vehicle-log", label: "차량운행일지", shortLabel: "차량일지", summary: "차량 운행일지 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
@@ -324,7 +324,7 @@ export const mobileMenuSections: NavSection[] = [
     items: [
       mobilePrimaryNav[1],
       mobilePrimaryNav[2],
-      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
+      { href: "/work-items/hr", label: "내 인사", shortLabel: "내인사", summary: "내 인사 관련 요청과 서류 확인" },
       plannedNavItems.training,
       plannedNavItems.employmentContract,
     ],
@@ -699,7 +699,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
 
   return {
     appName: "We'reHere",
-    appEyebrow: "오늘 할 일 · 전체 메뉴",
+    appEyebrow: "일반업무포털",
     homeHref: "/dashboard",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,
