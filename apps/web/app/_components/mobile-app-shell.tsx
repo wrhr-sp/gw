@@ -491,6 +491,7 @@ export function MobileAppShell({
   }, [hasManagementPortal, isManagementPortal, menuSections]);
   const isAdminHostShell = homeHref === "/admin";
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/dashboard";
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
 
@@ -1014,6 +1015,15 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
+  function navigateToPortalPage(href: string) {
+    if (typeof window === "undefined") {
+      router.push(href as never);
+      return;
+    }
+
+    window.location.assign(href);
+  }
+
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -1085,14 +1095,14 @@ export function MobileAppShell({
       <div className="app-shell__main">
         <header className="app-topbar">
           <div className="app-topbar__inner">
-            <a href={homeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
+            <a href={currentPortalHomeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
               <strong>{appName}</strong>
               <span className="topbar-brand-link__divider" aria-hidden="true" />
               <span>{currentPortalLabel}</span>
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateTo(nextPortalHref)}>
+                <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateToPortalPage(nextPortalHref)}>
                   <span>{nextPortalLabel}</span>
                   <PortalShortcutIcon />
                 </button>
