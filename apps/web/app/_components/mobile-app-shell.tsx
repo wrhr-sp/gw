@@ -484,6 +484,10 @@ function resolveSidebarSelection(items: readonly NavItem[], savedHrefs: readonly
     .slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
 }
 
+function areSidebarSelectionsEqual(left: readonly string[], right: readonly string[]) {
+  return left.length === right.length && left.every((href, index) => href === right[index]);
+}
+
 function isManagementSection(section: NavSection) {
   return section.title.includes("경영업무");
 }
@@ -528,6 +532,7 @@ export function MobileAppShell({
   const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
+  const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
@@ -1061,7 +1066,8 @@ export function MobileAppShell({
   }
 
 
-  function handleTopbarSettingsSave() {
+  function handleTopbarSettingsSave(message = "변경된 설정이 적용되었습니다.") {
+    setSettingsSaveToastMessage(message);
     setSettingsSaveToastVisible(true);
     if (settingsSaveToastTimerRef.current) {
       clearTimeout(settingsSaveToastTimerRef.current);
@@ -1132,11 +1138,14 @@ export function MobileAppShell({
 
   function handleSidebarSettingsApply() {
     const appliedSelection = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    persistSidebarSelection(sidebarPortalKey, appliedSelection);
+    const hasSidebarChanges = !areSidebarSelectionsEqual(appliedSelection, sidebarSelectedHrefs);
+    if (hasSidebarChanges) {
+      persistSidebarSelection(sidebarPortalKey, appliedSelection);
+    }
     setSidebarDraftSelections(appliedSelection);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
-    handleTopbarSettingsSave();
+    handleTopbarSettingsSave(hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다.");
   }
 
   function renderSidebarSettingsModal() {
@@ -1173,8 +1182,8 @@ export function MobileAppShell({
           </header>
 
           {settingsSaveToastVisible ? (
-            <div className="topbar-modal-toast" role="status" aria-live="polite">
-              변경된 설정이 적용되었습니다.
+            <div className="topbar-modal-toast topbar-modal-toast--inline" role="status" aria-live="polite">
+              {settingsSaveToastMessage}
             </div>
           ) : null}
 
@@ -1312,7 +1321,7 @@ export function MobileAppShell({
 
           {settingsSaveToastVisible ? (
             <div className="topbar-modal-toast" role="status" aria-live="polite">
-              변경된 설정이 적용되었습니다.
+              {settingsSaveToastMessage}
             </div>
           ) : null}
 
@@ -1455,7 +1464,7 @@ export function MobileAppShell({
               <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
               </button>
-              <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>
+              <button type="button" className="topbar-modal__button" onClick={() => handleTopbarSettingsSave()}>
                 저장
               </button>
             </footer>

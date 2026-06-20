@@ -283,6 +283,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('function handleSidebarSettingsApply()');
     expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
     expect(shellSource).toContain('setSidebarDraftSelections(appliedSelection)');
+    expect(shellSource).toContain('areSidebarSelectionsEqual');
+    expect(shellSource).toContain('hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다."');
+    expect(shellSource).toContain('topbar-modal-toast topbar-modal-toast--inline');
     expect(shellSource).not.toContain('setIsSidebarSettingsOpen(false);\n    handleTopbarSettingsSave();');
     expect(shellSource).toContain('sortNavSectionsByItemLabel');
     expect(shellSource).toContain('localeCompare(right.label, "ko-KR"');
@@ -342,6 +345,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".sidebar-settings-preview-row--dragging");
     expect(globalCss).toContain(".sidebar-settings-preview-row--drop-target::before");
     expect(globalCss).toContain("left: calc(100% + 7px)");
+    expect(globalCss).toContain(".topbar-modal-toast--inline");
+    expect(globalCss).toContain("overflow: visible");
     expect(globalCss).not.toContain(".sidebar-settings-preview-row--dragging {\n  opacity");
     expect(globalCss).not.toContain(".sidebar-settings-preview-row--dragging .sidebar-settings-preview-button {\n  cursor: grabbing;\n  outline");
     expect(globalCss).toContain(".sidebar-settings-preview-icon");
