@@ -11,6 +11,10 @@ type NotificationBadgeState = {
 };
 
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
+const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
+const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
+
+type SidebarPortalKey = "general" | "management" | "branch";
 
 type FeatureIconName =
   | "menu"
@@ -437,6 +441,41 @@ function isManagementPortalPath(pathname: string) {
   );
 }
 
+function isBranchPortalPath(pathname: string) {
+  return pathname === "/work-items/branch" || pathname.startsWith("/work-items/branch/");
+}
+
+function isBranchPortalItem(item: NavItem) {
+  return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger" || item.href === "/notifications";
+}
+
+function getSidebarPortalStorageKey(portalKey: SidebarPortalKey) {
+  return `${SIDEBAR_CUSTOM_STORAGE_PREFIX}.${portalKey}`;
+}
+
+function flattenNavSections(sections: readonly NavSection[]) {
+  const seen = new Set<string>();
+  const items: NavItem[] = [];
+  sections.forEach((section) => section.items.forEach((item) => {
+    if (!seen.has(item.href)) {
+      seen.add(item.href);
+      items.push(item);
+    }
+  }));
+  return items;
+}
+
+function buildDefaultSidebarSelection(items: readonly NavItem[], homeHref: string) {
+  return items.filter((item) => item.href !== homeHref).slice(0, SIDEBAR_CUSTOM_MENU_LIMIT).map((item) => item.href);
+}
+
+function resolveSidebarSelection(items: readonly NavItem[], savedHrefs: readonly string[] | null, homeHref: string) {
+  const allowed = new Set(items.map((item) => item.href));
+  return (savedHrefs ?? buildDefaultSidebarSelection(items, homeHref))
+    .filter((href, index, array) => href !== homeHref && allowed.has(href) && array.indexOf(href) === index)
+    .slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
+}
+
 function isManagementSection(section: NavSection) {
   return section.title.includes("경영업무");
 }
@@ -481,6 +520,7 @@ export function MobileAppShell({
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
+  const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
     notices: true,
     approvals: true,
@@ -522,23 +562,39 @@ export function MobileAppShell({
   }
 
   const hasManagementPortal = menuSections.some(isManagementSection);
-  const isManagementPortal = hasManagementPortal && isManagementPortalPath(pathname);
-  const visibleDesktopMenuSections = useMemo(() => {
-    if (!hasManagementPortal) {
-      return menuSections;
-    }
-
-    return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
-  }, [hasManagementPortal, isManagementPortal, menuSections]);
   const isAdminHostShell = homeHref === "/admin";
-  const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
-  const currentPortalHomeHref = isAdminHostShell ? homeHref : isManagementPortal ? "/management" : "/home";
-  const desktopHomeItem = !isAdminHostShell && !isManagementPortal ? navItems.find((item) => item.href === "/home") : null;
+  const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
+  const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
+  const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
+  const visibleDesktopMenuSections = useMemo(() => {
+    if (!hasManagementPortal) return menuSections;
+    if (isBranchPortal) {
+      return menuSections
+        .filter((section) => !isManagementSection(section))
+        .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
+        .filter((section) => section.items.length > 0);
+    }
+    return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
+  }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
+  const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
+  const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
   const nextPortalHref = isManagementPortal ? "/home" : "/management";
   const branchPortalLabel = "지점관리포털";
   const branchPortalHref = "/work-items/branch";
-
+  const sidebarCustomizationItems = useMemo(
+    () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
+    [visibleDesktopMenuSections],
+  );
+  const sidebarSelectedHrefs = useMemo(
+    () => resolveSidebarSelection(sidebarCustomizationItems, sidebarCustomSelections[sidebarPortalKey], currentPortalHomeHref),
+    [currentPortalHomeHref, sidebarCustomSelections, sidebarCustomizationItems, sidebarPortalKey],
+  );
+  const collapsedSidebarItems = useMemo(() => {
+    const byHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
+    return sidebarSelectedHrefs.map((href) => byHref.get(href)).filter((item): item is NavItem => Boolean(item));
+  }, [sidebarCustomizationItems, sidebarSelectedHrefs]);
 
   useEffect(() => {
     setProfileState((value) => ({
@@ -547,6 +603,20 @@ export function MobileAppShell({
       fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
     }));
   }, [currentRoleCode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    function readSidebarSelection(portalKey: SidebarPortalKey) {
+      try {
+        const raw = window.localStorage.getItem(getSidebarPortalStorageKey(portalKey));
+        const parsed = raw ? JSON.parse(raw) : null;
+        return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : null;
+      } catch {
+        return null;
+      }
+    }
+    setSidebarCustomSelections({ general: readSidebarSelection("general"), management: readSidebarSelection("management"), branch: readSidebarSelection("branch") });
+  }, []);
 
   useEffect(() => {
     if (isLoginRoute || !currentRoleCode) {
@@ -945,6 +1015,28 @@ export function MobileAppShell({
     }, 1600);
   }
 
+  function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
+    const nextHrefs = selectedHrefs.slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
+    setSidebarCustomSelections((value) => ({ ...value, [portalKey]: nextHrefs }));
+    if (typeof window !== "undefined") window.localStorage.setItem(getSidebarPortalStorageKey(portalKey), JSON.stringify(nextHrefs));
+  }
+
+  function toggleSidebarCustomItem(href: string) {
+    const selected = sidebarSelectedHrefs.includes(href)
+      ? sidebarSelectedHrefs.filter((itemHref) => itemHref !== href)
+      : sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT ? sidebarSelectedHrefs : [...sidebarSelectedHrefs, href];
+    persistSidebarSelection(sidebarPortalKey, selected);
+  }
+
+  function moveSidebarCustomItem(href: string, direction: -1 | 1) {
+    const index = sidebarSelectedHrefs.indexOf(href);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= sidebarSelectedHrefs.length) return;
+    const nextSelection = [...sidebarSelectedHrefs];
+    [nextSelection[index], nextSelection[nextIndex]] = [nextSelection[nextIndex], nextSelection[index]];
+    persistSidebarSelection(sidebarPortalKey, nextSelection);
+  }
+
   function renderTopbarModal() {
     if (!activeTopbarModal) {
       return null;
@@ -1017,6 +1109,28 @@ export function MobileAppShell({
               <section className="topbar-modal-card">
                 <strong>기기별 화면 설정</strong>
                 <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide sidebar-custom-panel">
+                <strong>{currentPortalLabel} 접힘 사이드바 버튼</strong>
+                <p className="topbar-modal-note">홈은 최상단 고정이며, 홈을 제외하고 최대 {SIDEBAR_CUSTOM_MENU_LIMIT}개까지 노출·순서를 선택할 수 있습니다.</p>
+                <div className="sidebar-custom-panel__summary">선택 {sidebarSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</div>
+                <div className="sidebar-custom-list">
+                  <div className="sidebar-custom-list__home" aria-label="고정 메뉴"><span>홈</span><em>최상단 고정</em></div>
+                  {sidebarCustomizationItems.filter((item) => item.href !== currentPortalHomeHref).map((item) => {
+                    const selected = sidebarSelectedHrefs.includes(item.href);
+                    const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
+                    const limitReached = !selected && sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
+                    return (
+                      <div key={item.href} className="sidebar-custom-list__item">
+                        <label><input type="checkbox" checked={selected} disabled={limitReached} onChange={() => toggleSidebarCustomItem(item.href)} /><span>{item.label}</span></label>
+                        <div className="sidebar-custom-list__actions" aria-label={`${item.label} 순서 조정`}>
+                          <button type="button" disabled={!selected || selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>위</button>
+                          <button type="button" disabled={!selected || selectedIndex < 0 || selectedIndex >= sidebarSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>아래</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 기본 설정</strong>
@@ -1166,64 +1280,52 @@ export function MobileAppShell({
         </div>
 
         <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
-          {desktopHomeItem ? (
-            <div className="desktop-sidebar__home-link">
-              <button
-                type="button"
-                className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"}
-                aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined}
-                aria-label={desktopHomeItem.label}
-                data-route={desktopHomeItem.href}
-                title={desktopHomeItem.summary}
-                onClick={() => navigateTo(desktopHomeItem.href)}
-              >
+          {sidebarCollapsed && desktopHomeItem ? (
+            <div className="desktop-sidebar__collapsed-stack">
+              <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} title={desktopHomeItem.summary} onClick={() => navigateTo(desktopHomeItem.href)}>
                 <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
-                <span>{sidebarCollapsed ? desktopHomeItem.shortLabel : desktopHomeItem.label}</span>
+                <span>{desktopHomeItem.shortLabel}</span>
               </button>
+              {collapsedSidebarItems.map((item) => {
+                const active = matchesPath(pathname, item.href);
+                const iconName = getFeatureIconName(item.href, item.label);
+                return (
+                  <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} title={item.summary} onClick={() => navigateTo(item.href)}>
+                    {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                    <span>{item.shortLabel}</span>
+                  </button>
+                );
+              })}
             </div>
-          ) : null}
-          {visibleDesktopMenuSections.map((section) => (
-            <section key={section.title} className="desktop-sidebar__section">
-              <div className="desktop-sidebar__section-copy">
-                <strong>{section.title}</strong>
-              </div>
-              <div className="desktop-sidebar__links">
-                {section.items.map((item) => {
-                  const active = matchesPath(pathname, item.href);
-                  const iconName = getFeatureIconName(item.href, item.label);
-                  return (
-                    <button
-                      key={item.href}
-                      type="button"
-                      className={
-                        item.disabled
-                          ? "desktop-sidebar__link desktop-sidebar__link--disabled"
-                          : active
-                            ? "desktop-sidebar__link desktop-sidebar__link--active"
-                            : "desktop-sidebar__link"
-                      }
-                      aria-current={active && !item.disabled ? "page" : undefined}
-                      aria-disabled={item.disabled ? true : undefined}
-                      aria-label={item.badge ? `${item.label} ${item.badge}` : item.label}
-                      data-route={item.href}
-                      title={item.summary}
-                      disabled={item.disabled}
-                      onClick={() => {
-                        if (!item.disabled) {
-                          navigateTo(item.href);
-                        }
-                      }}
-                    >
-                      {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                      <span>{sidebarCollapsed ? item.shortLabel : item.label}</span>
-                      {!sidebarCollapsed && item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+          ) : (
+            visibleDesktopMenuSections.map((section) => (
+              <section key={section.title} className="desktop-sidebar__section">
+                <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
+                <div className="desktop-sidebar__links">
+                  {section.items.map((item) => {
+                    const active = matchesPath(pathname, item.href);
+                    const iconName = getFeatureIconName(item.href, item.label);
+                    return (
+                      <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} title={item.summary} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
+                        {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                        <span>{item.label}</span>
+                        {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
+          )}
         </nav>
+        {sidebarCollapsed ? (
+          <div className="desktop-sidebar__footer">
+            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 버튼 설정`} onClick={() => setActiveTopbarModal("settings")}>
+              <FeatureIcon className="desktop-sidebar__icon" name="settings" title="설정" />
+              <span>설정</span>
+            </button>
+          </div>
+        ) : null}
       </aside>
 
       <div className="app-shell__main">

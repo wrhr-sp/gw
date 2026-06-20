@@ -100,9 +100,10 @@ describe("mobile app shell admin boundary", () => {
 
     expect(html).toContain("M12 2.25A9.75 9.75");
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
-    expect(html).toContain("M9 14l2 2l4 -4");
-    expect(html).toContain("M6 6h6l2 2h4");
-    expect(html).toContain("M16 8h-6a2 2 0 1 0 0 4h4");
+    expect(html).toContain('aria-label="일반업무포털 사이드바 버튼 설정"');
+    expect(html).toContain('class="desktop-sidebar__collapsed-stack"');
+    expect(html).toContain('class="desktop-sidebar__footer"');
+    expect(html).toContain('class="desktop-sidebar__settings-button"');
 
     expect(html).not.toContain('data-route="/work-items/branch"');
   });
@@ -161,14 +162,17 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("topbar-profile-avatar");
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
-    expect(generalHtml).toContain("협업/소통");
-    expect(generalHtml).toContain("일정/개인 업무");
-    expect(generalHtml).toContain("근무/인사");
-    expect(generalHtml).toContain("결재/문서");
-    expect(generalHtml).toContain("급여/비용");
+    expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
+    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 버튼 설정"');
+    expect(generalHtml).toContain('data-route="/home"');
     expect(generalHtml).toContain("조직도");
-    expect(generalHtml).toContain("내 인사");
-    expect(generalHtml).toContain("직장인교육");
+    expect(generalHtml).toContain("내인사");
+    expect(generalHtml).not.toContain("급여 내부관리");
+    expect(generalHtml).not.toContain("협업/소통");
+    expect(generalHtml).not.toContain("일정/개인 업무");
+    expect(generalHtml).not.toContain("근무/인사");
+    expect(generalHtml).not.toContain("결재/문서");
+    expect(generalHtml).not.toContain("급여/비용");
     expect(generalHtml).toContain('class="desktop-sidebar desktop-sidebar--collapsed"');
     expect(generalHtml).toContain('aria-label="사이드바 펼치기"');
     expect(generalHtml).not.toContain("gw.desktopSidebarCollapsed");
