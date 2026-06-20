@@ -1829,7 +1829,7 @@ li {
   justify-content: center;
   gap: 5px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sidebar-settings-preview-row {
@@ -2156,4 +2156,11 @@ li {
   padding: 12px 18px;
   transform: translateX(-50%);
   backdrop-filter: blur(16px) saturate(1.18);
+}
+
+.topbar-modal-toast--inline {
+  position: static;
+  justify-self: center;
+  margin: 12px 26px 0;
+  transform: none;
 }
