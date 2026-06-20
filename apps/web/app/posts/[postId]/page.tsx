@@ -7,16 +7,16 @@ type PageProps = {
   params: Promise<{ postId: string }>;
 };
 
-const validBoardIds = new Set(["board_notice", "board_general"]);
+const validBoardIds = new Set(["board_notice", "board_department_notice", "board_general", "board_data_share"]);
 const validEmployeeIds = new Set(["employee_admin", "employee_manager", "employee_staff", "employee_employee"]);
 const uuidSuffixPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isSupportedPostRoute(postId: string) {
-  if (postId === "board_post_demo" || postId === "board_post_notice_1") {
+  if (postId === "board_post_demo" || postId === "board_post_notice_1" || postId === "board_post_department_notice_1" || postId === "board_post_data_share_1") {
     return true;
   }
 
-  const generatedMatch = /^board_post_(board_notice|board_general)_(employee_[a-z]+)_([0-9a-f-]+)$/i.exec(postId);
+  const generatedMatch = /^board_post_(board_notice|board_department_notice|board_general|board_data_share)_(employee_[a-z]+)_([0-9a-f-]+)$/i.exec(postId);
   if (generatedMatch) {
     return (
       validBoardIds.has(generatedMatch[1]) &&

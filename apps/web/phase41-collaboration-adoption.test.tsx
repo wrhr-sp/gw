@@ -34,6 +34,12 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     const noticeBoardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_notice" }) }),
     );
+    const departmentBoardDetailHtml = renderToStaticMarkup(
+      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_department_notice" }) }),
+    );
+    const dataShareBoardDetailHtml = renderToStaticMarkup(
+      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_data_share" }) }),
+    );
     const invalidBoardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_unknown" }) }),
     );
@@ -57,20 +63,29 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     );
 
     expect(boardListHtml).toContain("게시판 현황");
-    expect(boardListHtml).toContain("게시판 바로가기");
-    expect(boardListHtml).toContain("게시판에서 할 수 있는 일");
+    expect(boardListHtml).toContain("게시판 목록");
+    expect(boardListHtml).toContain("글 등록 순서");
     expect(boardListHtml).toContain("전사 공지");
+    expect(boardListHtml).toContain("부서별 공지");
     expect(boardListHtml).toContain("자유 게시판");
+    expect(boardListHtml).toContain("자료 공유");
+    expect(boardListHtml).toContain("등록 버튼");
     expect(boardListHtml).not.toContain("Phase 51");
     expect(boardListHtml).not.toContain("happy path");
     expect(boardListHtml).not.toContain("API 스모크");
     expect(boardDetailHtml).toContain("이 게시판에서 할 수 있는 일");
-    expect(boardDetailHtml).toContain("사용 순서");
+    expect(boardDetailHtml).toContain("글 등록 순서");
     expect(boardDetailHtml).toContain("대표 글 보기");
     expect(boardDetailHtml).not.toContain("게시판별 happy path");
     expect(boardDetailHtml).not.toContain("운영 검토용 action 언어");
     expect(noticeBoardDetailHtml).toContain("전사 공지");
     expect(noticeBoardDetailHtml).toContain("대표 글 보기");
+    expect(departmentBoardDetailHtml).toContain("부서별 공지");
+    expect(departmentBoardDetailHtml).toContain("공지 등록");
+    expect(departmentBoardDetailHtml).toContain("대표 글 보기");
+    expect(dataShareBoardDetailHtml).toContain("자료 공유");
+    expect(dataShareBoardDetailHtml).toContain("자료 글 등록");
+    expect(dataShareBoardDetailHtml).toContain("대표 글 보기");
     expect(invalidBoardDetailHtml).toContain("접근할 수 없는 게시판");
     expect(invalidBoardDetailHtml).toContain("게시판 목록");
     expect(invalidBoardDetailHtml).not.toContain("/posts/board_post_demo");
