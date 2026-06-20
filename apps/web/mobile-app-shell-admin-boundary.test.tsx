@@ -315,7 +315,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="logout-confirm-backdrop"');
     expect(shellSource).toContain('className="logout-confirm-modal"');
     expect(shellSource).toContain('id="logout-confirm-title"');
-    expect(shellSource).toContain('로그아웃할까요?');
+    expect(shellSource).toContain('로그아웃 하시겠습니까?');
     expect(shellSource).toContain('onClick={openLogoutConfirm}');
     expect(shellSource).toContain('onClick={closeLogoutConfirm}');
     expect(shellSource).toContain('onClick={handleProfileLogout}');
