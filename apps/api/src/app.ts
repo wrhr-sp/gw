@@ -4205,7 +4205,8 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
 
   for (const board of boards) {
     const generatedPostId = buildPlaceholderBoardPostId(board.id, auth.user.employeeId);
-    if (postId === generatedPostId && canAccessBoard(auth, board)) {
+    const generatedPostPrefix = `${generatedPostId}_`;
+    if ((postId === generatedPostId || postId.startsWith(generatedPostPrefix)) && canAccessBoard(auth, board)) {
       return {
         board,
         post: {
@@ -4213,9 +4214,9 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
           companyId: auth.user.companyId,
           boardId: board.id,
           authorEmployeeId: auth.user.employeeId,
-          title: "점심 메뉴 추천",
-          bodyPreview: "오늘 뭐 드실래요?",
-          isNotice: false,
+          title: board.isNoticeOnly ? "등록한 공지" : "등록한 게시글",
+          bodyPreview: board.isNoticeOnly ? "등록 버튼으로 작성한 공지입니다." : "등록 버튼으로 작성한 게시글입니다.",
+          isNotice: board.isNoticeOnly,
           publishedAt: PLACEHOLDER_NOW,
           pinnedUntil: null,
           status: "published",
