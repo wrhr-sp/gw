@@ -1091,16 +1091,22 @@ export function MobileAppShell({
                 <span>선택 {sidebarSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
               </div>
               <div className="sidebar-settings-preview-shell">
-                <div className="sidebar-settings-preview-row sidebar-settings-preview-row--fixed">
-                  <div className="sidebar-settings-preview-button sidebar-settings-preview-button--active">홈</div>
-                  <span>최상단 고정</span>
-                </div>
                 <div className="sidebar-settings-preview-list">
+                  <div className="sidebar-settings-preview-row">
+                    <div className="sidebar-settings-preview-button sidebar-settings-preview-button--active">
+                      <FeatureIcon className="sidebar-settings-preview-icon" name="home" title="홈" />
+                      <span>홈</span>
+                    </div>
+                  </div>
                   {selectedItems.map((item) => {
                     const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
+                    const iconName = getFeatureIconName(item.href, item.label);
                     return (
                       <div key={item.href} className="sidebar-settings-preview-row">
-                        <div className="sidebar-settings-preview-button">{item.shortLabel}</div>
+                        <div className="sidebar-settings-preview-button">
+                          {iconName ? <FeatureIcon className="sidebar-settings-preview-icon" name={iconName} title={item.label} /> : null}
+                          <span>{item.shortLabel}</span>
+                        </div>
                         <div className="sidebar-settings-preview-actions" aria-label={`${item.label} 순서 조정`}>
                           <button type="button" disabled={selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>↑</button>
                           <button type="button" disabled={selectedIndex < 0 || selectedIndex >= sidebarSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
@@ -1109,37 +1115,31 @@ export function MobileAppShell({
                     );
                   })}
                 </div>
-                <div className="sidebar-settings-preview-row sidebar-settings-preview-row--fixed">
-                  <div className="sidebar-settings-preview-button">설정</div>
-                  <span>최하단 고정</span>
-                </div>
               </div>
             </section>
 
             <section className="sidebar-settings-list-card" aria-label="메뉴 추가 및 해제">
               <div className="sidebar-settings-card-title">
                 <strong>메뉴 추가/해제</strong>
-                <span>홈 제외 최대 {SIDEBAR_CUSTOM_MENU_LIMIT}개</span>
               </div>
               <div className="sidebar-settings-menu-list">
                 {selectableItems.map((item) => {
                   const selected = sidebarSelectedHrefs.includes(item.href);
-                  const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
                   const limitReached = !selected && sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
                   return (
                     <div key={item.href} className="sidebar-settings-menu-item">
-                      <div>
-                        <strong>{item.label}</strong>
-                        <small>{selected ? `선택됨 · 미리보기 ${selectedIndex + 1}번째` : limitReached ? "최대 개수 도달" : "추가 가능"}</small>
+                      <strong>{item.label}</strong>
+                      <div className="sidebar-settings-menu-item__actions">
+                        {limitReached ? <span className="sidebar-settings-menu-item__limit">최대개수 도달</span> : null}
+                        <button
+                          type="button"
+                          className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
+                          disabled={limitReached}
+                          onClick={() => toggleSidebarCustomItem(item.href)}
+                        >
+                          {selected ? "해제" : limitReached ? "추가 불가" : "추가"}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
-                        disabled={limitReached}
-                        onClick={() => toggleSidebarCustomItem(item.href)}
-                      >
-                        {selected ? "해제" : limitReached ? "추가 불가" : "추가"}
-                      </button>
                     </div>
                   );
                 })}
