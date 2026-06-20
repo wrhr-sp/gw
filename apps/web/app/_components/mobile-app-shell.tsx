@@ -550,6 +550,7 @@ export function MobileAppShell({
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
+  const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
   const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
@@ -654,6 +655,7 @@ export function MobileAppShell({
 
   useEffect(() => {
     setSidebarCustomSelections(readStoredSidebarCustomSelections());
+    setIsSidebarCustomSelectionLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -1512,16 +1514,21 @@ export function MobileAppShell({
                 <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
                 <span>{desktopHomeItem.shortLabel}</span>
               </button>
-              {collapsedSidebarItems.map((item) => {
-                const active = matchesPath(pathname, item.href);
-                const iconName = getFeatureIconName(item.href, item.label);
-                return (
-                  <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} title={item.summary} onClick={() => navigateTo(item.href)}>
-                    {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                    <span>{item.shortLabel}</span>
-                  </button>
-                );
-              })}
+              <div
+                className={isSidebarCustomSelectionLoaded ? "desktop-sidebar__collapsed-custom-list" : "desktop-sidebar__collapsed-custom-list desktop-sidebar__collapsed-custom-list--loading"}
+                aria-hidden={isSidebarCustomSelectionLoaded ? undefined : true}
+              >
+                {collapsedSidebarItems.map((item) => {
+                  const active = matchesPath(pathname, item.href);
+                  const iconName = getFeatureIconName(item.href, item.label);
+                  return (
+                    <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} title={item.summary} onClick={() => navigateTo(item.href)}>
+                      {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                      <span>{item.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <>
