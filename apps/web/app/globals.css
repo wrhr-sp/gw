@@ -1216,10 +1216,10 @@ li {
 
 
   .app-topbar__inner {
-    width: calc(100% - 116px);
+    width: calc(100% - 232px);
     max-width: none;
     margin-left: 116px;
-    margin-right: 0;
+    margin-right: 116px;
     gap: 18px;
     padding-inline: 24px;
   }
@@ -2171,11 +2171,11 @@ li {
   left: 50%;
   top: 0;
   z-index: 2;
-  border: 1px solid rgba(254, 202, 202, 0.9);
+  border: 1px solid rgba(191, 219, 254, 0.8);
   border-radius: 999px;
-  background: rgba(254, 242, 242, 0.96);
+  background: rgba(239, 246, 255, 0.94);
   box-shadow: none;
-  color: #b91c1c;
+  color: #1d4ed8;
   font-size: 0.9rem;
   font-weight: 950;
   letter-spacing: -0.02em;
@@ -2183,6 +2183,12 @@ li {
   white-space: nowrap;
   transform: translateX(-50%);
   backdrop-filter: blur(16px) saturate(1.18);
+}
+
+.topbar-modal-toast--no-change {
+  border-color: rgba(254, 202, 202, 0.9);
+  background: rgba(254, 242, 242, 0.96);
+  color: #b91c1c;
 }
 
 .topbar-modal-toast--inline {
