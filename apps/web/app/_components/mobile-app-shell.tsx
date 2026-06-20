@@ -1158,7 +1158,7 @@ export function MobileAppShell({
           aria-labelledby="logout-confirm-title"
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <h2 id="logout-confirm-title">로그아웃할까요?</h2>
+          <h2 id="logout-confirm-title">로그아웃 하시겠습니까?</h2>
           {profileActionError ? <p className="logout-confirm-modal__error">{profileActionError}</p> : null}
           <div className="logout-confirm-modal__actions">
             <button type="button" className="logout-confirm-modal__button" onClick={closeLogoutConfirm} disabled={profileActionPending}>
