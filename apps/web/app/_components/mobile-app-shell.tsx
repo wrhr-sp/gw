@@ -1417,8 +1417,8 @@ export function MobileAppShell({
         </nav>
         {sidebarCollapsed ? (
           <div className="desktop-sidebar__footer">
-            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 이름 편집`} onClick={() => setIsSidebarSettingsOpen(true)}>
-              <span>이름 편집</span>
+            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 편집`} onClick={() => setIsSidebarSettingsOpen(true)}>
+              <span>편집</span>
             </button>
           </div>
         ) : null}
