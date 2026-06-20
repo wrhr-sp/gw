@@ -542,6 +542,38 @@ type MobileAppShellProps = {
   currentRoleCode: RoleCode | null;
 };
 
+type GeneralSettingsState = {
+  startScreen: string;
+  density: string;
+  compactMobileBottomNav: boolean;
+  notices: boolean;
+  approvals: boolean;
+  mentions: boolean;
+  attendance: boolean;
+};
+
+const DEFAULT_GENERAL_SETTINGS: GeneralSettingsState = {
+  startScreen: "홈",
+  density: "기본",
+  compactMobileBottomNav: false,
+  notices: true,
+  approvals: true,
+  mentions: true,
+  attendance: true,
+};
+
+function areGeneralSettingsEqual(left: GeneralSettingsState, right: GeneralSettingsState) {
+  return (
+    left.startScreen === right.startScreen &&
+    left.density === right.density &&
+    left.compactMobileBottomNav === right.compactMobileBottomNav &&
+    left.notices === right.notices &&
+    left.approvals === right.approvals &&
+    left.mentions === right.mentions &&
+    left.attendance === right.attendance
+  );
+}
+
 export function MobileAppShell({
   children,
   appName,
@@ -569,6 +601,8 @@ export function MobileAppShell({
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
+  const [settingsSaveToastTone, setSettingsSaveToastTone] = useState<"success" | "no-change">("success");
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
@@ -579,6 +613,7 @@ export function MobileAppShell({
   const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>(() => ({ ...DEFAULT_AFTER_HOURS_PREFERENCES }));
   const savedNotificationPreferencesRef = useRef<Record<NotificationPreferenceKey, boolean>>({ ...DEFAULT_NOTIFICATION_PREFERENCES });
   const savedAfterHoursPreferencesRef = useRef<Record<AfterHoursPreferenceKey, boolean>>({ ...DEFAULT_AFTER_HOURS_PREFERENCES });
+  const savedGeneralSettingsRef = useRef<GeneralSettingsState>({ ...DEFAULT_GENERAL_SETTINGS });
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1083,8 +1118,9 @@ export function MobileAppShell({
   }
 
 
-  function handleTopbarSettingsSave(message = "변경된 설정이 적용되었습니다.") {
+  function handleTopbarSettingsSave(message = "변경된 설정이 적용되었습니다.", tone: "success" | "no-change" = "success") {
     setSettingsSaveToastMessage(message);
+    setSettingsSaveToastTone(tone);
     setSettingsSaveToastVisible(true);
     if (settingsSaveToastTimerRef.current) {
       clearTimeout(settingsSaveToastTimerRef.current);
@@ -1093,7 +1129,12 @@ export function MobileAppShell({
   }
 
   function handleSettingsSave() {
-    handleTopbarSettingsSave("변경된 내용이 없습니다.");
+    if (!areGeneralSettingsEqual(generalSettings, savedGeneralSettingsRef.current)) {
+      savedGeneralSettingsRef.current = { ...generalSettings };
+      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success");
+      return;
+    }
+    handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change");
   }
 
   function handleProfileSettingsSave() {
@@ -1102,10 +1143,10 @@ export function MobileAppShell({
     if (hasNotificationChanges || hasAfterHoursChanges) {
       savedNotificationPreferencesRef.current = { ...notificationPreferences };
       savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
-      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.");
+      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success");
       return;
     }
-    handleTopbarSettingsSave("변경된 내용이 없습니다.");
+    handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change");
   }
 
   function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
@@ -1176,7 +1217,7 @@ export function MobileAppShell({
     setSidebarDraftSelections(appliedSelection);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
-    handleTopbarSettingsSave(hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다.");
+    handleTopbarSettingsSave(hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다.", hasSidebarChanges ? "success" : "no-change");
   }
 
   function renderSidebarSettingsModal() {
@@ -1211,7 +1252,7 @@ export function MobileAppShell({
                 <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
               </div>
               {settingsSaveToastVisible ? (
-                <div className="topbar-modal-toast" role="status" aria-live="polite">
+                <div className={`topbar-modal-toast${settingsSaveToastTone === "no-change" ? " topbar-modal-toast--no-change" : ""}`} role="status" aria-live="polite">
                   {settingsSaveToastMessage}
                 </div>
               ) : null}
@@ -1347,7 +1388,7 @@ export function MobileAppShell({
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
             {settingsSaveToastVisible ? (
-              <div className="topbar-modal-toast" role="status" aria-live="polite">
+              <div className={`topbar-modal-toast${settingsSaveToastTone === "no-change" ? " topbar-modal-toast--no-change" : ""}`} role="status" aria-live="polite">
                 {settingsSaveToastMessage}
               </div>
             ) : null}
@@ -1361,9 +1402,14 @@ export function MobileAppShell({
               <section className="topbar-modal-card">
                 <strong>기본 시작 방식</strong>
                 <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                  {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item, index) => (
+                  {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
                     <label key={item} className="topbar-modal-choice">
-                      <input type="radio" name="start-screen" defaultChecked={index === 0} />
+                      <input
+                        type="radio"
+                        name="start-screen"
+                        checked={generalSettings.startScreen === item}
+                        onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
+                      />
                       <span>{item}</span>
                     </label>
                   ))}
@@ -1372,9 +1418,14 @@ export function MobileAppShell({
               <section className="topbar-modal-card">
                 <strong>화면 기본 방식</strong>
                 <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
-                  {['기본', '넓게', '촘촘하게'].map((item, index) => (
+                  {['기본', '넓게', '촘촘하게'].map((item) => (
                     <label key={item} className="topbar-modal-choice">
-                      <input type="radio" name="density" defaultChecked={index === 0} />
+                      <input
+                        type="radio"
+                        name="density"
+                        checked={generalSettings.density === item}
+                        onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
+                      />
                       <span>{item}</span>
                     </label>
                   ))}
@@ -1382,15 +1433,20 @@ export function MobileAppShell({
               </section>
               <section className="topbar-modal-card">
                 <strong>기기별 화면 설정</strong>
-                <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+                <SettingToggle
+                  label="모바일 하단탭 간결 표시"
+                  description="좁은 화면에서 하단탭을 더 작게 표시합니다."
+                  checked={generalSettings.compactMobileBottomNav}
+                  onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
+                />
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 기본 설정</strong>
                 <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" />
-                  <SettingToggle label="전자결재 알림" />
-                  <SettingToggle label="댓글/멘션 알림" />
-                  <SettingToggle label="근태/휴가 알림" />
+                  <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
+                  <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
+                  <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
+                  <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
                 </div>
               </section>
             </div>
