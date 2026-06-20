@@ -1112,26 +1112,26 @@ export function BoardsLiveSection() {
     <>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="accent">실제 게시판 목록</Pill>
+          <Pill tone="accent">게시판 현황</Pill>
           <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} />
           {boards.data ? (
             <>
-              <h3>공지 {notices.data?.items.length ?? 0}개 · 일반 {boards.data.items.length}개</h3>
-              <p className="card-note">same-origin /api/notices, /api/boards, /api/boards/board_general/posts 응답을 직접 읽습니다.</p>
+              <h3>공지 {notices.data?.items.length ?? 0}개 · 자유 게시판 {boards.data.items.length}개</h3>
+              <p className="card-note">확인할 공지와 직원 소통 게시판을 한곳에서 모아 봅니다.</p>
               <p className="card-note">
                 {session.data
                   ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 읽고 있습니다.`
-                  : "로그인 전이면 /login 에서 admin / 1234 로 먼저 시작하세요."}
+                  : "로그인 후 내 권한에 맞는 게시판을 확인할 수 있습니다."}
               </p>
             </>
           ) : null}
         </article>
         <article className="info-card">
-          <Pill>지금 바로 눌러볼 순서</Pill>
+          <Pill>빠른 이동</Pill>
           <ol className="number-list" style={{ marginTop: 12 }}>
-            <li><a href="/boards/board_notice">공지 게시판에서 notice-only 책임 확인</a></li>
-            <li><a href="/boards/board_general">일반 게시판에서 글쓰기/상세 흐름 시작</a></li>
-            <li><a href={`/posts/${firstPostId}`}>최신 글 상세에서 댓글/읽음 확인</a></li>
+            <li><a href="/boards/board_notice">전사 공지 확인</a></li>
+            <li><a href="/boards/board_general">자유 게시판 글 보기</a></li>
+            <li><a href={`/posts/${firstPostId}`}>최신 글에서 댓글과 읽음 확인</a></li>
           </ol>
         </article>
       </div>
@@ -1139,10 +1139,10 @@ export function BoardsLiveSection() {
         <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
           {[...(notices.data?.items ?? []), ...boards.data.items].map((item) => (
             <article key={item.id} className="route-card">
-              <Pill tone={item.isNoticeOnly ? "warning" : "accent"}>{item.boardType}</Pill>
+              <Pill tone={item.isNoticeOnly ? "warning" : "accent"}>{item.isNoticeOnly ? "공지" : "게시판"}</Pill>
               <h3>{item.name}</h3>
-              <p>{item.visibility} · {item.isNoticeOnly ? "읽기 중심/운영 공지" : "글쓰기/댓글 허용"}</p>
-              <p className="card-note">{item.isNoticeOnly ? "공지 읽기 → 읽음 확인 → 운영 공지 등록 권한 확인" : "글 목록 → 글 작성 → 상세 → 댓글 → 읽음 확인"}</p>
+              <p>{item.visibility} · {item.isNoticeOnly ? "읽기와 확인 중심" : "글쓰기와 댓글 가능"}</p>
+              <p className="card-note">{item.isNoticeOnly ? "중요 공지를 읽고 확인 상태를 남깁니다." : "글을 읽고 댓글로 의견을 이어갑니다."}</p>
               <a href={`/boards/${item.id}`}>이 게시판 흐름 보기 →</a>
             </article>
           ))}
@@ -1153,7 +1153,7 @@ export function BoardsLiveSection() {
           <Pill>자유 게시판 최신 글</Pill>
           <h3>{posts.data.items[0]?.title ?? "게시글 없음"}</h3>
           <p>{posts.data.items[0]?.bodyPreview ?? "아직 생성된 일반 게시글이 없습니다."}</p>
-          <p className="card-note">다음 단계: 상세로 들어가 댓글 작성 → 읽음 확인 → forged 차단 안내를 확인합니다.</p>
+          <p className="card-note">상세 화면에서 댓글을 남기고 읽음 확인까지 이어갑니다.</p>
           <a href={`/posts/${firstPostId}`}>최신 글 상세로 이동 →</a>
         </article>
       ) : null}
@@ -1238,13 +1238,13 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
     <>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="accent">현재 게시판 실응답</Pill>
+          <Pill tone="accent">현재 게시판</Pill>
           <QueryState loading={posts.loading} error={posts.error} emptyMessage={!posts.data ? "게시판 데이터를 불러오지 못했습니다." : undefined} />
           {posts.data ? (
             <>
               <h3>{posts.data.board.name}</h3>
-              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "notice-only" : "general"}</p>
-              <p className="card-note">게시글 {posts.data.items.length}건 · 첫 상세 route <a href={`/posts/${samplePostId}`}>/posts/{samplePostId}</a></p>
+              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "자유 소통"}</p>
+              <p className="card-note">게시글 {posts.data.items.length}건 · <a href={`/posts/${samplePostId}`}>대표 글 보기</a></p>
               <p className="card-note">{formatBoardWriterGuide(boardId, session.data ?? null)}</p>
             </>
           ) : null}
@@ -1265,10 +1265,10 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
                 {pending ? "작성 처리 중" : boardId === "board_notice" ? "공지 등록" : "게시글 작성"}
               </button>
               <button className="touch-button--secondary" disabled={pending} onClick={handleGuardProbe} type="button">
-                권한 차단 확인
+                작성 가능 여부 확인
               </button>
             </div>
-            <p className="card-note">공지형 게시판은 운영 공지 등록과 일반 구성원 차단을 분리해 확인합니다.</p>
+            <p className="card-note">공지 작성은 운영 권한에 따라 제한될 수 있습니다.</p>
           </article>
         ) : (
           <article className="info-card">
@@ -1293,10 +1293,10 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
           {posts.data.items.length ? (
             posts.data.items.slice(0, 4).map((item) => (
               <article key={item.id} className="info-card">
-                <Pill tone={item.isNotice ? "warning" : "accent"}>{item.isNotice ? "notice" : item.status}</Pill>
+                <Pill tone={item.isNotice ? "warning" : "accent"}>{item.isNotice ? "공지" : item.status}</Pill>
                 <h3>{item.title}</h3>
                 <p>{item.bodyPreview}</p>
-                <p className="card-note">게시글 상세 → 댓글 → 읽음 확인</p>
+                <p className="card-note">상세에서 댓글과 읽음 확인을 이어갑니다.</p>
                 <a href={`/posts/${item.id}`}>이 글 상세로 이동 →</a>
               </article>
             ))
@@ -1304,7 +1304,7 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
             <article className="info-card">
               <Pill>빈 상태</Pill>
               <h3>아직 이 게시판에 생성된 글이 없습니다.</h3>
-              <p>위 작성 폼으로 첫 글을 만든 뒤 상세 route 를 눌러 흐름을 이어가세요.</p>
+              <p>위 작성 폼으로 첫 글을 만든 뒤 상세 화면에서 댓글을 이어가세요.</p>
             </article>
           )}
         </div>
@@ -1361,14 +1361,14 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
       });
       setResult({
         tone: "accent",
-        title: "읽음 확인 등록",
+        title: "읽음 확인",
         body: `${payload.data.receipt.id} · ${payload.data.audit.action}`,
       });
       setRefreshSeed((value) => value + 1);
     } catch (mutationError) {
       setResult({
         tone: "warning",
-        title: "읽음 확인 등록 실패",
+        title: "읽음 확인 실패",
         body: mutationError instanceof Error ? mutationError.message : String(mutationError),
       });
     } finally {
@@ -1383,13 +1383,13 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
       await fetchJson<Record<string, any>>(appRoutes.boards.postDetail("board_post_board_general_forged"));
       setResult({
         tone: "warning",
-        title: "forged 접근이 허용됨",
-        body: "예상과 다릅니다. forged post 차단 규칙을 다시 확인해야 합니다.",
+        title: "잘못된 글 접근이 허용됨",
+        body: "예상과 다릅니다. 게시글 접근 제한을 다시 확인해야 합니다.",
       });
     } catch (mutationError) {
       setResult({
         tone: "accent",
-        title: "forged post 차단 확인",
+        title: "잘못된 글 접근 확인",
         body: mutationError instanceof Error ? mutationError.message : String(mutationError),
       });
     } finally {
@@ -1401,13 +1401,13 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
     <>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="accent">게시글 상세 실응답</Pill>
+          <Pill tone="accent">게시글 내용</Pill>
           <QueryState loading={detail.loading || comments.loading} error={detail.error ?? comments.error} emptyMessage={!detail.data ? "게시글 상세를 불러오지 못했습니다." : undefined} />
           {detail.data ? (
             <>
               <h3>{detail.data.post.title}</h3>
               <p>{detail.data.post.bodyPreview}</p>
-              <p className="card-note">{detail.data.board.name} · {detail.data.post.status} · 공지 여부 {detail.data.post.isNotice ? "예" : "아니오"}</p>
+              <p className="card-note">{detail.data.board.name} · {detail.data.post.status} · {detail.data.post.isNotice ? "공지" : "일반 글"}</p>
               <p className="card-note">
                 댓글 작성 {hasSessionPermission(session.data ?? null, "board.comment.write") ? "가능" : "불가"} · 읽음 확인은 접근 가능한 게시글에서만 가능합니다.
               </p>
@@ -1416,7 +1416,7 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
         </article>
         {canShowPostActions ? (
           <article className="info-card">
-            <Pill>댓글 / 읽음 확인 액션</Pill>
+            <Pill>댓글과 읽음 확인</Pill>
             <label className="form-placeholder" style={{ marginTop: 12 }}>
               <strong>댓글 본문</strong>
               <input className="field" onChange={(event) => setCommentBody(event.target.value)} value={commentBody} />
@@ -1426,11 +1426,11 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
                 댓글 작성
               </button>
               <button className="touch-button--secondary" disabled={pending} onClick={handleReadReceipt} type="button">
-                읽음 확인 등록
+                읽음 확인
               </button>
             </div>
             <button className="touch-button--secondary" disabled={pending} onClick={handleForgedProbe} style={{ marginTop: 12 }} type="button">
-              forged post 차단 확인
+              잘못된 글 접근 확인
             </button>
           </article>
         ) : (
@@ -1457,7 +1457,7 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
                 <Pill>{item.status}</Pill>
                 <h3>{item.authorEmployeeId}</h3>
                 <p>{item.body}</p>
-                <p className="card-note">댓글 route: {appRoutes.boards.comments(postId)}</p>
+                <p className="card-note">이 글에 남긴 의견입니다.</p>
               </article>
             ))
           ) : (
