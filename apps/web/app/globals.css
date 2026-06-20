@@ -902,9 +902,11 @@ li {
 }
 
 .topbar-brand-link strong {
+  color: #2563eb;
   font-size: 1.35rem;
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .topbar-brand-link span:last-child {

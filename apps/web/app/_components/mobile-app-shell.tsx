@@ -52,6 +52,8 @@ type FeatureIconProps = {
 
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
+const brandWordmark = "WE’REHERE";
+
 type TopbarIconButtonProps = {
   label: string;
   iconName?: FeatureIconName;
@@ -1303,7 +1305,7 @@ export function MobileAppShell({
           <header className="sidebar-settings-modal__header">
             <div className="sidebar-settings-modal__header-row">
               <div>
-                <span className="topbar-modal__eyebrow">We'reHere</span>
+                <span className="topbar-modal__eyebrow">{brandWordmark}</span>
                 <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
                 <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
               </div>
@@ -1439,7 +1441,7 @@ export function MobileAppShell({
         >
           <header className="topbar-modal__header">
             <div>
-              <span className="topbar-modal__eyebrow">We'reHere</span>
+              <span className="topbar-modal__eyebrow">{brandWordmark}</span>
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
@@ -1714,7 +1716,7 @@ export function MobileAppShell({
         <header className="app-topbar">
           <div className="app-topbar__inner">
             <a href={currentPortalHomeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
-              <strong>{appName}</strong>
+              <strong>{brandWordmark}</strong>
               <span className="topbar-brand-link__divider" aria-hidden="true" />
               <span>{currentPortalLabel}</span>
             </a>
