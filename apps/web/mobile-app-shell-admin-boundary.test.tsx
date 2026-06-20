@@ -280,6 +280,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain("선택됨 · 미리보기");
     expect(shellSource).toContain('onClick={openSidebarSettings}');
     expect(shellSource).toContain('const [sidebarDraftSelections, setSidebarDraftSelections]');
+    expect(shellSource).toContain('readStoredSidebarCustomSelections');
+    expect(shellSource).toContain('useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections())');
     expect(shellSource).toContain('function handleSidebarSettingsApply()');
     expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
     expect(shellSource).toContain('setSidebarDraftSelections(appliedSelection)');
