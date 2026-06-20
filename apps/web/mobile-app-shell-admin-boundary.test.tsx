@@ -332,6 +332,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('sidebar-settings-preview-row--drop-target');
     expect(shellSource).toContain('draggable\n                          title="드래그해서 순서를 바꿀 수 있습니다."');
     expect(shellSource).toContain('className="desktop-sidebar__home-link"');
+    expect(shellSource).not.toContain('title={desktopHomeItem.summary}');
+    expect(shellSource).not.toContain('title={item.summary}');
+    expect(shellSource).toContain('aria-label={desktopHomeItem.label}');
+    expect(shellSource).toContain('aria-label={item.label}');
     expect(shellSource).toContain('className="sidebar-settings-menu-section"');
     expect(shellSource).toContain("사이드바 편집");
     expect(shellSource).not.toContain("이름 편집");
