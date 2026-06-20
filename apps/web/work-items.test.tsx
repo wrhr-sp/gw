@@ -51,7 +51,8 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("이번 단계 meeting 유형");
     expect(html).toContain('href="/api/work-items?module=hr"');
     expect(html).toContain('href="/api/work-items/:id/attachments"');
-    expect(html).toContain('href="/work-items"');
+    expect(html).not.toContain('class="ghost-link"');
+    expect(html).not.toContain("공통 업무 허브로");
   });
 
   it("renders the labor module page with category/restricted guardrails and linked API routes", () => {
@@ -68,7 +69,8 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("restricted labor capability 분리");
     expect(html).toContain('href="/api/work-items?module=labor"');
     expect(html).toContain('href="/api/work-items/:id"');
-    expect(html).toContain('href="/work-items"');
+    expect(html).not.toContain('class="ghost-link"');
+    expect(html).not.toContain("공통 업무 허브로");
   });
 
   it("renders the legal module page with contract/renewal/dispute copy and linked API routes", () => {
@@ -85,14 +87,15 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("누가 어디까지 보는가");
     expect(html).toContain('href="/api/work-items?module=legal"');
     expect(html).toContain('href="/api/work-item-deadlines"');
-    expect(html).toContain('href="/work-items"');
+    expect(html).not.toContain('class="ghost-link"');
+    expect(html).not.toContain("공통 업무 허브로");
   });
 
   it("renders the branch module page as a management-lane follow-up instead of a dashboard home link", () => {
     const html = renderToStaticMarkup(<WorkItemsBranchPage />);
 
     expect(html).toContain("지점 업무 실사용 패널");
-    expect(html).toContain("경영업무로");
+    expect(html).not.toContain("← 경영업무로");
     expect(html).toContain("branch scope 가드레일");
     expect(html).toContain("Phase 49 지점관리자 추천 순서");
     expect(html).toContain("happy path: 지점 업무 흐름이 자기 지점 범위 안에서 자연스럽게 이어지는가");

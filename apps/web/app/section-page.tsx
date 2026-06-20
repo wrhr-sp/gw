@@ -1,10 +1,7 @@
-import Link from "next/link";
-
 export function buildSectionPage(title: string, description: string) {
   return function SectionPage() {
     return (
       <main style={{ maxWidth: 860, margin: "0 auto", padding: "48px 24px" }}>
-        <Link href="/">← 홈으로</Link>
         <h1>{title}</h1>
         <p style={{ lineHeight: 1.7 }}>{description}</p>
         <p style={{ color: "#4b5563" }}>

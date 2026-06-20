@@ -113,7 +113,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
     expect(html).toContain("권한 있는 사용자에게만 경영업무 허브 진입 링크를 노출합니다.");
     expect(html).toContain("현재 세션 / 홈-경영업무 분리");
-    expect(html).toContain("← 전체 메뉴로");
+    expect(html).not.toContain("← 전체 메뉴로");
     expect(html).not.toContain("관리자 허브 바로가기");
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain('href="/management"');

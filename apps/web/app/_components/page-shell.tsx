@@ -11,8 +11,6 @@ type PageShellProps = {
 };
 
 export function PageShell({
-  backHref = "/home",
-  backLabel = "홈으로",
   eyebrow,
   title,
   description,
@@ -22,11 +20,6 @@ export function PageShell({
   return (
     <main className="page-shell">
       <div className="page-shell__header">
-        {backHref ? (
-          <a href={backHref ?? undefined} className="ghost-link">
-            ← {backLabel}
-          </a>
-        ) : null}
         {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
         <div className="page-shell__headline">
           <div>
