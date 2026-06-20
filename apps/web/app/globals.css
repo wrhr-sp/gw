@@ -1110,6 +1110,71 @@ li {
   font-weight: 700;
 }
 
+.logout-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 24px;
+  backdrop-filter: blur(8px);
+}
+
+.logout-confirm-modal {
+  width: min(360px, calc(100vw - 32px));
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: none;
+  color: #0f172a;
+  padding: 20px;
+  text-align: center;
+  backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.logout-confirm-modal h2 {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 950;
+  letter-spacing: -0.035em;
+}
+
+.logout-confirm-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.logout-confirm-modal__button {
+  min-height: 42px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 13px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.logout-confirm-modal__button--danger {
+  color: #b91c1c;
+}
+
+.logout-confirm-modal__button:disabled {
+  cursor: progress;
+  opacity: 0.68;
+}
+
+.logout-confirm-modal__error {
+  margin: 10px 0 0;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .desktop-sidebar__portal-label {
   display: inline-flex;
   width: fit-content;
