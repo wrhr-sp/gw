@@ -1216,7 +1216,27 @@ li {
 
 
   .app-topbar__inner {
+    width: 100%;
+    max-width: none;
     gap: 18px;
+    padding-inline: 24px;
+  }
+
+  .page-shell,
+  .status-banner {
+    width: 100%;
+    max-width: none;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .page-shell {
+    padding-inline: 24px;
+  }
+
+  .status-banner {
+    width: calc(100% - 48px);
+    margin: 12px 24px 0;
   }
 
   .app-topbar__actions {
@@ -1747,21 +1767,6 @@ li {
   gap: 18px;
 }
 
-.sidebar-settings-modal__toast-grid {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 20px;
-}
-
-.sidebar-settings-modal__toast {
-  grid-column: 1 / -1;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-}
-
 .sidebar-settings-modal__header h2 {
   margin: 4px 0 6px;
   color: #0f172a;
@@ -2180,9 +2185,4 @@ li {
   justify-self: center;
   margin: 12px 26px 0;
   transform: none;
-}
-
-.sidebar-settings-modal__toast-grid .sidebar-settings-modal__toast {
-  justify-self: stretch;
-  margin: 0;
 }
