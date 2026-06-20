@@ -6452,8 +6452,15 @@ app.post("/api/boards/:id/posts", async (context) => {
     placeholder: true,
   };
 
+  let operationalPost: BoardPost | null = null;
+  try {
+    operationalPost = await createOperationalBoardPost(context.env, postInput);
+  } catch {
+    operationalPost = null;
+  }
+
   const post =
-    (await createOperationalBoardPost(context.env, postInput)) ??
+    operationalPost ??
     (() => {
       boardPosts.push(postInput);
       return postInput;
