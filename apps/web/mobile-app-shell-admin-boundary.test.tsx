@@ -102,6 +102,7 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
     expect(html).toContain('aria-label="일반업무포털 사이드바 편집"');
     expect(html).toContain('class="desktop-sidebar__collapsed-stack"');
+    expect(html).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(html).toContain('class="desktop-sidebar__footer"');
     expect(html).toContain('class="desktop-sidebar__settings-button"');
     expect(html).toContain("편집");
@@ -167,6 +168,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
+    expect(generalHtml).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 편집"');
     expect(generalHtml).toContain('data-route="/home"');
     expect(generalHtml).toContain("조직도");
@@ -281,6 +283,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('onClick={openSidebarSettings}');
     expect(shellSource).toContain('const [sidebarDraftSelections, setSidebarDraftSelections]');
     expect(shellSource).toContain('readStoredSidebarCustomSelections');
+    expect(shellSource).toContain('const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false)');
+    expect(shellSource).toContain('setIsSidebarCustomSelectionLoaded(true)');
+    expect(shellSource).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(shellSource).toContain('useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections())');
     expect(shellSource).toContain('function handleSidebarSettingsApply()');
     expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
@@ -314,6 +319,14 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain(".desktop-sidebar__nav:focus-within");
     expect(globalCss).toContain("scrollbar-color: transparent transparent");
     expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
+    expect(globalCss).toContain("--shadow: none");
+    const nonNoneBoxShadowRules = globalCss
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("box-shadow:") && line !== "box-shadow: none;");
+    expect(nonNoneBoxShadowRules).toEqual([]);
+    expect(globalCss).toContain(".desktop-sidebar__collapsed-custom-list--loading");
+    expect(globalCss).toContain("visibility: hidden");
     expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");
     expect(globalCss).toContain("--desktop-topbar-height: 64px");
     expect(globalCss).toContain("margin-top: var(--desktop-topbar-height)");
