@@ -1180,19 +1180,22 @@ export function MobileAppShell({
           onMouseDown={(event) => event.stopPropagation()}
         >
           <header className="sidebar-settings-modal__header">
-            <div>
-              <span className="topbar-modal__eyebrow">We'reHere</span>
-              <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
-              <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
+            <div className="sidebar-settings-modal__header-row">
+              <div>
+                <span className="topbar-modal__eyebrow">We'reHere</span>
+                <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
+                <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
+              </div>
+              <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
             </div>
-            <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
+            {settingsSaveToastVisible ? (
+              <div className="sidebar-settings-modal__toast-grid">
+                <div className="topbar-modal-toast topbar-modal-toast--inline sidebar-settings-modal__toast" role="status" aria-live="polite">
+                  {settingsSaveToastMessage}
+                </div>
+              </div>
+            ) : null}
           </header>
-
-          {settingsSaveToastVisible ? (
-            <div className="topbar-modal-toast topbar-modal-toast--inline" role="status" aria-live="polite">
-              {settingsSaveToastMessage}
-            </div>
-          ) : null}
 
           <div className="sidebar-settings-modal__body">
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
