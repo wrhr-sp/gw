@@ -488,6 +488,21 @@ function areSidebarSelectionsEqual(left: readonly string[], right: readonly stri
   return left.length === right.length && left.every((href, index) => href === right[index]);
 }
 
+function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] | null> {
+  function readSidebarSelection(portalKey: SidebarPortalKey) {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(getSidebarPortalStorageKey(portalKey));
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return { general: readSidebarSelection("general"), management: readSidebarSelection("management"), branch: readSidebarSelection("branch") };
+}
+
 function isManagementSection(section: NavSection) {
   return section.title.includes("경영업무");
 }
@@ -534,7 +549,7 @@ export function MobileAppShell({
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
-  const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
+  const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
   const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
@@ -638,17 +653,7 @@ export function MobileAppShell({
   }, [currentRoleCode]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    function readSidebarSelection(portalKey: SidebarPortalKey) {
-      try {
-        const raw = window.localStorage.getItem(getSidebarPortalStorageKey(portalKey));
-        const parsed = raw ? JSON.parse(raw) : null;
-        return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : null;
-      } catch {
-        return null;
-      }
-    }
-    setSidebarCustomSelections({ general: readSidebarSelection("general"), management: readSidebarSelection("management"), branch: readSidebarSelection("branch") });
+    setSidebarCustomSelections(readStoredSidebarCustomSelections());
   }, []);
 
   useEffect(() => {
