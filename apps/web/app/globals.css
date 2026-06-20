@@ -1833,19 +1833,28 @@ li {
 }
 
 .sidebar-settings-preview-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 86px auto;
+  width: 86px;
+  grid-template-columns: 86px;
   align-items: center;
-  gap: 7px;
-}
-
-.sidebar-settings-preview-row--dragging {
-  opacity: 0.58;
+  justify-content: center;
 }
 
 .sidebar-settings-preview-row--dragging .sidebar-settings-preview-button {
   cursor: grabbing;
-  outline: 2px solid rgba(37, 99, 235, 0.24);
+}
+
+.sidebar-settings-preview-row--drop-target::before {
+  position: absolute;
+  right: -4px;
+  left: -4px;
+  top: -4px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  content: "";
 }
 
 .sidebar-settings-preview-button {
@@ -1878,6 +1887,8 @@ li {
 }
 
 .sidebar-settings-preview-actions {
+  position: absolute;
+  left: calc(100% + 7px);
   display: inline-flex;
   gap: 3px;
 }
