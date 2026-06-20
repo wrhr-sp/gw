@@ -1496,6 +1496,8 @@ li {
   z-index: 80;
   display: grid;
   place-items: center;
+  overflow: hidden;
+  overscroll-behavior: contain;
   padding: 24px;
   background: rgba(15, 23, 42, 0.28);
   backdrop-filter: blur(8px);
@@ -1714,15 +1716,17 @@ li {
   z-index: 90;
   display: grid;
   place-items: center;
+  overflow: hidden;
+  overscroll-behavior: contain;
   background: rgba(15, 23, 42, 0.28);
   backdrop-filter: blur(6px);
-  padding: 32px;
+  padding: 24px;
 }
 
 .sidebar-settings-modal {
-  width: min(920px, calc(100vw - 48px));
-  height: min(720px, calc(100dvh - 56px));
-  max-height: calc(100dvh - 56px);
+  width: min(1120px, calc(100vw - 32px));
+  height: min(820px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -1759,7 +1763,7 @@ li {
 
 .sidebar-settings-modal__body {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 360px minmax(0, 1fr);
   gap: 20px;
   min-height: 0;
   overflow: hidden;
@@ -1823,37 +1827,47 @@ li {
   display: grid;
   align-content: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   min-height: 0;
   overflow: hidden;
 }
 
 .sidebar-settings-preview-row {
   display: grid;
-  grid-template-columns: 74px auto;
+  grid-template-columns: 86px auto;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+}
+
+.sidebar-settings-preview-row--dragging {
+  opacity: 0.58;
+}
+
+.sidebar-settings-preview-row--dragging .sidebar-settings-preview-button {
+  cursor: grabbing;
+  outline: 2px solid rgba(37, 99, 235, 0.24);
 }
 
 .sidebar-settings-preview-button {
-  width: 74px;
-  min-height: 34px;
+  width: 86px;
+  min-height: 42px;
   display: grid;
   place-items: center;
-  gap: 1px;
-  border-radius: 10px;
+  gap: 2px;
+  border-radius: 12px;
   background: #fff;
   color: #334155;
-  font-size: 0.62rem;
+  cursor: grab;
+  font-size: 0.68rem;
   font-weight: 950;
-  line-height: 1.05;
+  line-height: 1.08;
   text-align: center;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .sidebar-settings-preview-icon {
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   transform: scale(var(--icon-scale, 1));
   transform-origin: center;
 }
@@ -1869,8 +1883,8 @@ li {
 }
 
 .sidebar-settings-preview-actions button {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 1px solid rgba(148, 163, 184, 0.32);
   border-radius: 8px;
   background: #fff;
@@ -1889,11 +1903,30 @@ li {
 
 .sidebar-settings-menu-list {
   display: grid;
-  gap: 8px;
+  align-content: start;
+  gap: 14px;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 6px;
+}
+
+.sidebar-settings-menu-section {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar-settings-menu-section h3 {
+  margin: 0;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-settings-menu-section__items {
+  display: grid;
+  gap: 8px;
 }
 
 .sidebar-settings-menu-item {
@@ -1912,6 +1945,18 @@ li {
   color: #0f172a;
   font-size: 0.86rem;
   font-weight: 930;
+}
+
+.sidebar-settings-menu-item small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.sidebar-settings-menu-item--disabled {
+  background: rgba(241, 245, 249, 0.72);
 }
 
 .sidebar-settings-menu-item__actions {
