@@ -517,6 +517,7 @@ export function MobileAppShell({
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
+  const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
@@ -558,6 +559,11 @@ export function MobileAppShell({
   function closeTopbarModal() {
     setActiveTopbarModal(null);
     setSuppressTopbarTooltips(true);
+    window.requestAnimationFrame(blurActiveElement);
+  }
+
+  function closeSidebarSettings() {
+    setIsSidebarSettingsOpen(false);
     window.requestAnimationFrame(blurActiveElement);
   }
 
@@ -709,6 +715,21 @@ export function MobileAppShell({
     document.addEventListener("keydown", closeTopbarModalWithEscape);
     return () => document.removeEventListener("keydown", closeTopbarModalWithEscape);
   }, [activeTopbarModal]);
+
+  useEffect(() => {
+    if (!isSidebarSettingsOpen) {
+      return;
+    }
+
+    function closeSidebarSettingsWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeSidebarSettings();
+      }
+    }
+
+    document.addEventListener("keydown", closeSidebarSettingsWithEscape);
+    return () => document.removeEventListener("keydown", closeSidebarSettingsWithEscape);
+  }, [isSidebarSettingsOpen]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -1037,6 +1058,104 @@ export function MobileAppShell({
     persistSidebarSelection(sidebarPortalKey, nextSelection);
   }
 
+  function renderSidebarSettingsModal() {
+    if (!isSidebarSettingsOpen) {
+      return null;
+    }
+
+    const selectedItems = collapsedSidebarItems;
+    const selectableItems = sidebarCustomizationItems.filter((item) => item.href !== currentPortalHomeHref);
+
+    return (
+      <div className="sidebar-settings-backdrop" role="presentation" onMouseDown={closeSidebarSettings}>
+        <section
+          className="sidebar-settings-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sidebar-settings-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <header className="sidebar-settings-modal__header">
+            <div>
+              <span className="topbar-modal__eyebrow">사이드바 전용 설정</span>
+              <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
+              <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
+            </div>
+            <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
+          </header>
+
+          <div className="sidebar-settings-modal__body">
+            <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
+              <div className="sidebar-settings-card-title">
+                <strong>미리보기</strong>
+                <span>선택 {sidebarSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
+              </div>
+              <div className="sidebar-settings-preview-shell">
+                <div className="sidebar-settings-preview-row sidebar-settings-preview-row--fixed">
+                  <div className="sidebar-settings-preview-button sidebar-settings-preview-button--active">홈</div>
+                  <span>최상단 고정</span>
+                </div>
+                <div className="sidebar-settings-preview-list">
+                  {selectedItems.map((item) => {
+                    const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
+                    return (
+                      <div key={item.href} className="sidebar-settings-preview-row">
+                        <div className="sidebar-settings-preview-button">{item.shortLabel}</div>
+                        <div className="sidebar-settings-preview-actions" aria-label={`${item.label} 순서 조정`}>
+                          <button type="button" disabled={selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>↑</button>
+                          <button type="button" disabled={selectedIndex < 0 || selectedIndex >= sidebarSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="sidebar-settings-preview-row sidebar-settings-preview-row--fixed">
+                  <div className="sidebar-settings-preview-button">설정</div>
+                  <span>최하단 고정</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="sidebar-settings-list-card" aria-label="메뉴 추가 및 해제">
+              <div className="sidebar-settings-card-title">
+                <strong>메뉴 추가/해제</strong>
+                <span>홈 제외 최대 {SIDEBAR_CUSTOM_MENU_LIMIT}개</span>
+              </div>
+              <div className="sidebar-settings-menu-list">
+                {selectableItems.map((item) => {
+                  const selected = sidebarSelectedHrefs.includes(item.href);
+                  const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
+                  const limitReached = !selected && sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
+                  return (
+                    <div key={item.href} className="sidebar-settings-menu-item">
+                      <div>
+                        <strong>{item.label}</strong>
+                        <small>{selected ? `선택됨 · 미리보기 ${selectedIndex + 1}번째` : limitReached ? "최대 개수 도달" : "추가 가능"}</small>
+                      </div>
+                      <button
+                        type="button"
+                        className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
+                        disabled={limitReached}
+                        onClick={() => toggleSidebarCustomItem(item.href)}
+                      >
+                        {selected ? "해제" : limitReached ? "추가 불가" : "추가"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+
+          <footer className="sidebar-settings-modal__footer">
+            <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSidebarSettings}>닫기</button>
+            <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>적용</button>
+          </footer>
+        </section>
+      </div>
+    );
+  }
+
   function renderTopbarModal() {
     if (!activeTopbarModal) {
       return null;
@@ -1109,28 +1228,6 @@ export function MobileAppShell({
               <section className="topbar-modal-card">
                 <strong>기기별 화면 설정</strong>
                 <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide sidebar-custom-panel">
-                <strong>{currentPortalLabel} 접힘 사이드바 버튼</strong>
-                <p className="topbar-modal-note">홈은 최상단 고정이며, 홈을 제외하고 최대 {SIDEBAR_CUSTOM_MENU_LIMIT}개까지 노출·순서를 선택할 수 있습니다.</p>
-                <div className="sidebar-custom-panel__summary">선택 {sidebarSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</div>
-                <div className="sidebar-custom-list">
-                  <div className="sidebar-custom-list__home" aria-label="고정 메뉴"><span>홈</span><em>최상단 고정</em></div>
-                  {sidebarCustomizationItems.filter((item) => item.href !== currentPortalHomeHref).map((item) => {
-                    const selected = sidebarSelectedHrefs.includes(item.href);
-                    const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
-                    const limitReached = !selected && sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
-                    return (
-                      <div key={item.href} className="sidebar-custom-list__item">
-                        <label><input type="checkbox" checked={selected} disabled={limitReached} onChange={() => toggleSidebarCustomItem(item.href)} /><span>{item.label}</span></label>
-                        <div className="sidebar-custom-list__actions" aria-label={`${item.label} 순서 조정`}>
-                          <button type="button" disabled={!selected || selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>위</button>
-                          <button type="button" disabled={!selected || selectedIndex < 0 || selectedIndex >= sidebarSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>아래</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 기본 설정</strong>
@@ -1320,9 +1417,8 @@ export function MobileAppShell({
         </nav>
         {sidebarCollapsed ? (
           <div className="desktop-sidebar__footer">
-            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 버튼 설정`} onClick={() => setActiveTopbarModal("settings")}>
-              <FeatureIcon className="desktop-sidebar__icon" name="settings" title="설정" />
-              <span>설정</span>
+            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 이름 편집`} onClick={() => setIsSidebarSettingsOpen(true)}>
+              <span>이름 편집</span>
             </button>
           </div>
         ) : null}
@@ -1441,6 +1537,7 @@ export function MobileAppShell({
         </header>
 
         {renderTopbarModal()}
+        {renderSidebarSettingsModal()}
 
         {!isOnline ? (
           <div className="status-banner status-banner--warning" role="status" aria-live="polite">

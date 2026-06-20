@@ -100,10 +100,13 @@ describe("mobile app shell admin boundary", () => {
 
     expect(html).toContain("M12 2.25A9.75 9.75");
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
-    expect(html).toContain('aria-label="일반업무포털 사이드바 버튼 설정"');
+    expect(html).toContain('aria-label="일반업무포털 사이드바 이름 편집"');
     expect(html).toContain('class="desktop-sidebar__collapsed-stack"');
     expect(html).toContain('class="desktop-sidebar__footer"');
     expect(html).toContain('class="desktop-sidebar__settings-button"');
+    expect(html).toContain("이름 편집");
+    expect(html).not.toContain('name="settings" title="설정"');
+    expect(html).not.toContain("sidebar-custom-panel");
 
     expect(html).not.toContain('data-route="/work-items/branch"');
   });
@@ -163,9 +166,10 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
-    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 버튼 설정"');
+    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 이름 편집"');
     expect(generalHtml).toContain('data-route="/home"');
     expect(generalHtml).toContain("조직도");
+    expect(generalHtml).toContain("휴가");
     expect(generalHtml).toContain("내인사");
     expect(generalHtml).not.toContain("급여 내부관리");
     expect(generalHtml).not.toContain("협업/소통");
@@ -261,6 +265,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('element.dataset.autoScrollbarScrolling = "true"');
     expect(shellSource).toContain("}, 1000)");
     expect(shellSource).not.toContain("desktop-sidebar--scrolling");
+    expect(shellSource).toContain("const SIDEBAR_CUSTOM_MENU_LIMIT = 10");
+    expect(shellSource).toContain("function renderSidebarSettingsModal()");
+    expect(shellSource).toContain('className="sidebar-settings-preview-button"');
+    expect(shellSource).toContain('className="sidebar-settings-preview-actions"');
+    expect(shellSource).toContain('onClick={() => setIsSidebarSettingsOpen(true)}');
+    expect(shellSource).not.toContain("sidebar-custom-panel");
 
     expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');
     expect(globalCss).toContain(".app-shell__main,");
