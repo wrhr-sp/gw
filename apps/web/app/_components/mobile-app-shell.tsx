@@ -70,6 +70,23 @@ type TopbarProfileState = {
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 
+const DEFAULT_NOTIFICATION_PREFERENCES: Record<NotificationPreferenceKey, boolean> = {
+  notices: true,
+  approvals: true,
+  mentions: true,
+  mail: true,
+  attendance: true,
+};
+
+const DEFAULT_AFTER_HOURS_PREFERENCES: Record<AfterHoursPreferenceKey, boolean> = {
+  urgentNotices: true,
+  approvalRequests: true,
+  approvalFeedback: true,
+  mentions: true,
+  attendanceResults: true,
+  importantMail: false,
+};
+
 const afterHoursExceptionKeys = new Set<AfterHoursPreferenceKey>(["urgentNotices"]);
 
 export function syncAfterHoursSettings(
@@ -488,6 +505,10 @@ function areSidebarSelectionsEqual(left: readonly string[], right: readonly stri
   return left.length === right.length && left.every((href, index) => href === right[index]);
 }
 
+function areBooleanRecordsEqual<Key extends string>(left: Record<Key, boolean>, right: Record<Key, boolean>) {
+  return (Object.keys(left) as Key[]).every((key) => left[key] === right[key]);
+}
+
 function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] | null> {
   function readSidebarSelection(portalKey: SidebarPortalKey) {
     if (typeof window === "undefined") return null;
@@ -554,21 +575,10 @@ export function MobileAppShell({
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
   const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
-  const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
-    notices: true,
-    approvals: true,
-    mentions: true,
-    mail: true,
-    attendance: true,
-  });
-  const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>({
-    urgentNotices: true,
-    approvalRequests: true,
-    approvalFeedback: true,
-    mentions: true,
-    attendanceResults: true,
-    importantMail: false,
-  });
+  const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>(() => ({ ...DEFAULT_NOTIFICATION_PREFERENCES }));
+  const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>(() => ({ ...DEFAULT_AFTER_HOURS_PREFERENCES }));
+  const savedNotificationPreferencesRef = useRef<Record<NotificationPreferenceKey, boolean>>({ ...DEFAULT_NOTIFICATION_PREFERENCES });
+  const savedAfterHoursPreferencesRef = useRef<Record<AfterHoursPreferenceKey, boolean>>({ ...DEFAULT_AFTER_HOURS_PREFERENCES });
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1079,9 +1089,23 @@ export function MobileAppShell({
     if (settingsSaveToastTimerRef.current) {
       clearTimeout(settingsSaveToastTimerRef.current);
     }
-    settingsSaveToastTimerRef.current = setTimeout(() => {
-      setSettingsSaveToastVisible(false);
-    }, 1600);
+    settingsSaveToastTimerRef.current = setTimeout(() => setSettingsSaveToastVisible(false), 1600);
+  }
+
+  function handleSettingsSave() {
+    handleTopbarSettingsSave("변경된 내용이 없습니다.");
+  }
+
+  function handleProfileSettingsSave() {
+    const hasNotificationChanges = !areBooleanRecordsEqual(notificationPreferences, savedNotificationPreferencesRef.current);
+    const hasAfterHoursChanges = !areBooleanRecordsEqual(afterHoursPreferences, savedAfterHoursPreferencesRef.current);
+    if (hasNotificationChanges || hasAfterHoursChanges) {
+      savedNotificationPreferencesRef.current = { ...notificationPreferences };
+      savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
+      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.");
+      return;
+    }
+    handleTopbarSettingsSave("변경된 내용이 없습니다.");
   }
 
   function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
@@ -1188,14 +1212,13 @@ export function MobileAppShell({
               </div>
               <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
             </div>
-            {settingsSaveToastVisible ? (
-              <div className="sidebar-settings-modal__toast-grid">
-                <div className="topbar-modal-toast topbar-modal-toast--inline sidebar-settings-modal__toast" role="status" aria-live="polite">
-                  {settingsSaveToastMessage}
-                </div>
-              </div>
-            ) : null}
           </header>
+
+          {settingsSaveToastVisible ? (
+            <div className="topbar-modal-toast" role="status" aria-live="polite">
+              {settingsSaveToastMessage}
+            </div>
+          ) : null}
 
           <div className="sidebar-settings-modal__body">
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
@@ -1474,7 +1497,11 @@ export function MobileAppShell({
               <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
               </button>
-              <button type="button" className="topbar-modal__button" onClick={() => handleTopbarSettingsSave()}>
+              <button
+                type="button"
+                className="topbar-modal__button"
+                onClick={activeTopbarModal === "profile-settings" ? handleProfileSettingsSave : handleSettingsSave}
+              >
                 저장
               </button>
             </footer>
