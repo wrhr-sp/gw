@@ -1210,15 +1210,14 @@ export function MobileAppShell({
                 <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
                 <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
               </div>
+              {settingsSaveToastVisible ? (
+                <div className="topbar-modal-toast" role="status" aria-live="polite">
+                  {settingsSaveToastMessage}
+                </div>
+              ) : null}
               <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
             </div>
           </header>
-
-          {settingsSaveToastVisible ? (
-            <div className="topbar-modal-toast" role="status" aria-live="polite">
-              {settingsSaveToastMessage}
-            </div>
-          ) : null}
 
           <div className="sidebar-settings-modal__body">
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
@@ -1347,16 +1346,15 @@ export function MobileAppShell({
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
+            {settingsSaveToastVisible ? (
+              <div className="topbar-modal-toast" role="status" aria-live="polite">
+                {settingsSaveToastMessage}
+              </div>
+            ) : null}
             <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={closeTopbarModal}>
               ×
             </button>
           </header>
-
-          {settingsSaveToastVisible ? (
-            <div className="topbar-modal-toast" role="status" aria-live="polite">
-              {settingsSaveToastMessage}
-            </div>
-          ) : null}
 
           {activeTopbarModal === "settings" ? (
             <div className="topbar-modal__grid">

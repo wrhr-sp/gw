@@ -1216,8 +1216,10 @@ li {
 
 
   .app-topbar__inner {
-    width: 100%;
+    width: calc(100% - 116px);
     max-width: none;
+    margin-left: 116px;
+    margin-right: 0;
     gap: 18px;
     padding-inline: 24px;
   }
@@ -1540,6 +1542,7 @@ li {
 }
 
 .topbar-modal__header {
+  position: relative;
   display: flex;
   flex: 0 0 auto;
   align-items: flex-start;
@@ -1761,6 +1764,7 @@ li {
 }
 
 .sidebar-settings-modal__header-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2163,26 +2167,27 @@ li {
 }
 
 .topbar-modal-toast {
-  position: fixed;
+  position: absolute;
   left: 50%;
-  top: max(20px, env(safe-area-inset-top, 0px) + 16px);
-  z-index: 95;
-  border: 1px solid rgba(191, 219, 254, 0.8);
+  top: 0;
+  z-index: 2;
+  border: 1px solid rgba(254, 202, 202, 0.9);
   border-radius: 999px;
-  background: rgba(239, 246, 255, 0.94);
+  background: rgba(254, 242, 242, 0.96);
   box-shadow: none;
-  color: #1d4ed8;
+  color: #b91c1c;
   font-size: 0.9rem;
   font-weight: 950;
   letter-spacing: -0.02em;
   padding: 12px 18px;
+  white-space: nowrap;
   transform: translateX(-50%);
   backdrop-filter: blur(16px) saturate(1.18);
 }
 
 .topbar-modal-toast--inline {
-  position: static;
+  position: absolute;
   justify-self: center;
-  margin: 12px 26px 0;
-  transform: none;
+  margin: 0;
+  transform: translateX(-50%);
 }
