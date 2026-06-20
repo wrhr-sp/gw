@@ -350,15 +350,13 @@ function formatBoardWriterGuide(boardId: string, session: SessionPayload | null)
   const canWriteGeneral = hasSessionPermission(session, "board.post.write");
   const canManageBoard = hasSessionPermission(session, "board.manage");
 
-  if (boardId === "board_notice") {
+  if (boardId === "board_notice" || boardId === "board_department_notice") {
     return canManageBoard
-      ? "현재 세션은 공지 등록이 가능합니다. 일반 구성원 차단도 같은 API에서 확인하세요."
-      : "현재 세션은 공지 읽기 전용입니다. 공지 등록은 운영 권한이 있는 사용자만 가능합니다.";
+      ? "현재 세션은 공지 등록이 가능합니다. 등록 버튼으로 새 공지를 작성할 수 있습니다."
+      : "공지 등록은 운영 권한이 있어야 가능하고, 일반 구성원은 읽기와 확인 중심입니다.";
   }
 
-  return canWriteGeneral
-    ? "현재 세션은 일반 게시글을 작성할 수 있습니다. 저장 후 상세에서 댓글과 읽음 확인으로 이어가세요."
-    : "현재 세션은 이 게시판에 글을 쓸 수 없습니다. 권한 차단 안내와 API 응답을 함께 확인하세요.";
+  return canWriteGeneral ? "현재 세션은 등록 버튼으로 게시글을 작성할 수 있습니다." : "글쓰기 권한이 없으면 목록/상세 읽기만 가능합니다.";
 }
 
 function getDefaultBoardPostId(boardId: string) {
@@ -366,11 +364,19 @@ function getDefaultBoardPostId(boardId: string) {
     return "board_post_notice_1";
   }
 
+  if (boardId === "board_department_notice") {
+    return "board_post_department_notice_1";
+  }
+
   if (boardId === "board_general") {
     return "board_post_demo";
   }
 
-  return `board_post_${boardId}_employee_employee`;
+  if (boardId === "board_data_share") {
+    return "board_post_data_share_1";
+  }
+
+  return "board_post_demo";
 }
 
 export function LoginRealUsagePanel() {
@@ -1107,6 +1113,8 @@ export function BoardsLiveSection() {
   const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
   const session = useApiQuery<SessionPayload>("/api/session");
   const firstPostId = posts.data?.items[0]?.id ?? "board_post_demo";
+  const noticeCount = notices.data?.items.length ?? 0;
+  const boardCount = boards.data?.items.length ?? 0;
 
   return (
     <>
@@ -1116,8 +1124,8 @@ export function BoardsLiveSection() {
           <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} />
           {boards.data ? (
             <>
-              <h3>공지 {notices.data?.items.length ?? 0}개 · 자유 게시판 {boards.data.items.length}개</h3>
-              <p className="card-note">확인할 공지와 직원 소통 게시판을 한곳에서 모아 봅니다.</p>
+              <h3>공지 {noticeCount}개 · 게시판 {boardCount}개</h3>
+              <p className="card-note">전사공지, 부서별 공지, 자유게시판, 자료공유를 한곳에서 모아 봅니다.</p>
               <p className="card-note">
                 {session.data
                   ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 읽고 있습니다.`
@@ -1130,7 +1138,9 @@ export function BoardsLiveSection() {
           <Pill>빠른 이동</Pill>
           <ol className="number-list" style={{ marginTop: 12 }}>
             <li><a href="/boards/board_notice">전사 공지 확인</a></li>
+            <li><a href="/boards/board_department_notice">부서별 공지 확인</a></li>
             <li><a href="/boards/board_general">자유 게시판 글 보기</a></li>
+            <li><a href="/boards/board_data_share">자료 공유 글 보기</a></li>
             <li><a href={`/posts/${firstPostId}`}>최신 글에서 댓글과 읽음 확인</a></li>
           </ol>
         </article>
@@ -1164,15 +1174,22 @@ export function BoardsLiveSection() {
 export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
-  const [title, setTitle] = useState(boardId === "board_notice" ? "전사 공지 안내" : "점심 메뉴 추천");
+  const [title, setTitle] = useState(boardId === "board_notice" ? "전사 공지 안내" : boardId === "board_department_notice" ? "부서별 공지 안내" : boardId === "board_data_share" ? "업무 양식 공유" : "점심 메뉴 추천");
   const [bodyPreview, setBodyPreview] = useState(
-    boardId === "board_notice" ? "오늘 공지 핵심만 짧게 전달합니다." : "오늘 뭐 드실래요? 댓글로 의견을 남겨 보세요.",
+    boardId === "board_notice"
+      ? "오늘 공지 핵심만 짧게 전달합니다."
+      : boardId === "board_department_notice"
+        ? "부서별 안내 사항을 짧게 공유합니다."
+        : boardId === "board_data_share"
+          ? "자주 쓰는 업무 양식을 공유합니다."
+          : "오늘 뭐 드실래요? 댓글로 의견을 남겨 보세요.",
   );
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
   const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(boardId), refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
   const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(boardId);
   const canShowBoardFlow = Boolean(posts.data);
+  const isNoticeBoard = Boolean(posts.data?.board.isNoticeOnly ?? (boardId === "board_notice" || boardId === "board_department_notice"));
 
   async function handleCreatePost() {
     setPending(true);
@@ -1184,19 +1201,19 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
         body: JSON.stringify({
           title,
           bodyPreview,
-          isNotice: boardId === "board_notice",
+          isNotice: isNoticeBoard,
         }),
       });
       setResult({
         tone: "accent",
-        title: boardId === "board_notice" ? "공지 등록 완료" : "게시글 등록 완료",
+        title: isNoticeBoard ? "공지 등록 완료" : "게시글 등록 완료",
         body: `${payload.data.post.id} · ${payload.data.audit.action}`,
       });
       setRefreshSeed((value) => value + 1);
     } catch (mutationError) {
       setResult({
         tone: "warning",
-        title: boardId === "board_notice" ? "공지 등록 실패" : "게시글 등록 실패",
+        title: isNoticeBoard ? "공지 등록 실패" : "게시글 등록 실패",
         body: mutationError instanceof Error ? mutationError.message : String(mutationError),
       });
     } finally {
@@ -1251,7 +1268,7 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
         </article>
         {canShowBoardFlow ? (
           <article className="info-card">
-            <Pill>{boardId === "board_notice" ? "운영 공지 등록" : "일반 게시글 작성"}</Pill>
+            <Pill>{isNoticeBoard ? "공지 등록" : "게시글 등록"}</Pill>
             <label className="form-placeholder" style={{ marginTop: 12 }}>
               <strong>제목</strong>
               <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
@@ -1262,13 +1279,13 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
             </label>
             <div className="action-row" style={{ marginTop: 12 }}>
               <button className="touch-button" disabled={pending} onClick={handleCreatePost} type="button">
-                {pending ? "작성 처리 중" : boardId === "board_notice" ? "공지 등록" : "게시글 작성"}
+                {pending ? "작성 처리 중" : isNoticeBoard ? "공지 등록" : "게시글 등록"}
               </button>
               <button className="touch-button--secondary" disabled={pending} onClick={handleGuardProbe} type="button">
                 작성 가능 여부 확인
               </button>
             </div>
-            <p className="card-note">공지 작성은 운영 권한에 따라 제한될 수 있습니다.</p>
+            <p className="card-note">{isNoticeBoard ? "공지 작성은 운영 권한에 따라 제한될 수 있습니다." : "등록한 글은 목록에 반영되고 상세 화면에서 댓글과 읽음 확인으로 이어집니다."}</p>
           </article>
         ) : (
           <article className="info-card">

@@ -20,19 +20,27 @@ type BoardPreset = {
 const boardPresets: Record<string, BoardPreset> = {
   board_notice: {
     title: "전사 공지",
-    summary: "회사에서 꼭 확인해야 하는 공지를 모아 보고, 읽음 확인으로 전달 상태를 남깁니다.",
+    summary: "회사에서 꼭 확인해야 하는 공지를 모아 보고, 등록 권한이 있으면 새 공지를 올립니다.",
     samplePostId: "board_post_notice_1",
     cards: [
-      { title: "고정 공지", body: "중요 공지는 목록 위쪽에서 먼저 확인합니다." },
+      { title: "공지 목록", body: "중요 공지는 목록 위쪽에서 먼저 확인합니다." },
+      { title: "공지 등록", body: "등록 버튼을 눌러 제목과 본문을 작성합니다." },
       { title: "읽음 확인", body: "공지 내용을 확인한 뒤 읽음 상태를 남깁니다." },
-      { title: "작성 권한", body: "공지 등록은 운영 권한이 있는 사용자에게만 열립니다." },
     ],
-    usageSteps: [
-      "공지 제목과 요약을 확인합니다.",
-      "중요한 공지는 상세 화면에서 본문을 읽습니다.",
-      "확인이 끝나면 읽음 확인을 남깁니다.",
-    ],
+    usageSteps: ["공지 목록을 확인합니다.", "등록 버튼으로 새 공지를 작성합니다.", "상세 화면에서 읽음 확인을 남깁니다."],
     policyNotes: ["일반 직원은 공지 읽기 중심으로 사용합니다.", "공지 등록과 수정은 운영 권한 기준으로 제한합니다."],
+  },
+  board_department_notice: {
+    title: "부서별 공지",
+    summary: "부서나 지점 단위 안내를 따로 올리고 확인하는 게시판입니다.",
+    samplePostId: "board_post_department_notice_1",
+    cards: [
+      { title: "부서 안내", body: "인사팀, 운영팀, 지점별 안내를 구분해서 확인합니다." },
+      { title: "부서 공지 등록", body: "등록 버튼으로 부서별 공지 제목과 본문을 작성합니다." },
+      { title: "확인 흐름", body: "공지 확인 뒤 댓글과 읽음 확인으로 후속 반응을 남깁니다." },
+    ],
+    usageSteps: ["내가 볼 부서 공지를 확인합니다.", "필요하면 새 부서 공지를 등록합니다.", "작성된 글을 상세에서 다시 확인합니다."],
+    policyNotes: ["부서별 공지는 department 범위 안내로 표시합니다.", "공지형 게시판이라 등록 권한이 없으면 작성이 차단될 수 있습니다."],
   },
   board_general: {
     title: "자유 게시판",
@@ -40,15 +48,23 @@ const boardPresets: Record<string, BoardPreset> = {
     samplePostId: "board_post_demo",
     cards: [
       { title: "최신 글", body: "최근 올라온 글을 먼저 확인합니다." },
-      { title: "새 글 작성", body: "제목과 본문을 입력해 바로 글을 올립니다." },
+      { title: "게시글 등록", body: "등록 버튼을 눌러 제목과 본문을 입력합니다." },
       { title: "댓글", body: "상세 화면에서 댓글을 남기고 대화를 이어갑니다." },
     ],
-    usageSteps: [
-      "최신 글 목록에서 읽을 글을 고릅니다.",
-      "필요하면 새 글을 작성합니다.",
-      "상세 화면에서 댓글과 읽음 확인을 마무리합니다.",
-    ],
+    usageSteps: ["최신 글 목록에서 읽을 글을 고릅니다.", "등록 버튼으로 새 글을 작성합니다.", "상세 화면에서 댓글과 읽음 확인을 마무리합니다."],
     policyNotes: ["직원 소통용 글쓰기를 우선합니다.", "권한이 없는 글이나 잘못된 주소는 안내 화면으로 돌려보냅니다."],
+  },
+  board_data_share: {
+    title: "자료 공유",
+    summary: "업무 양식, 안내 자료, 참고 링크를 모아 직원들이 빠르게 찾는 게시판입니다.",
+    samplePostId: "board_post_data_share_1",
+    cards: [
+      { title: "자료 목록", body: "자주 쓰는 양식과 참고 자료를 목록에서 확인합니다." },
+      { title: "자료 글 등록", body: "등록 버튼으로 자료 제목과 설명을 작성합니다." },
+      { title: "보완 댓글", body: "상세 화면에서 추가 설명이나 보완 요청을 댓글로 남깁니다." },
+    ],
+    usageSteps: ["필요한 자료 글을 찾습니다.", "새 자료가 있으면 등록 버튼으로 설명 글을 작성합니다.", "상세 화면에서 댓글로 보완 내용을 남깁니다."],
+    policyNotes: ["이번 단계는 자료 설명 글 등록까지 다룹니다.", "파일 첨부/R2 업로드는 별도 승인 후 다음 단계에서 연결합니다."],
   },
 } as const;
 
@@ -75,15 +91,15 @@ export default async function BoardDetailPage({ params }: PageProps) {
       eyebrow={preset.invalidRoute ? "접근 안내" : "게시판"}
       title={preset.title}
       description={preset.summary}
-      actions={<Pill tone={preset.invalidRoute ? "warning" : "accent"}>{preset.invalidRoute ? "확인 필요" : "사용 가능"}</Pill>}
+      actions={<Pill tone={preset.invalidRoute ? "warning" : "accent"}>{preset.invalidRoute ? "확인 필요" : "등록 가능"}</Pill>}
     >
       {preset.invalidRoute ? null : (
-        <SurfaceSection title="게시판 내용" description="글 목록, 작성 가능 여부, 현재 세션 기준 권한을 한 화면에서 확인합니다.">
+        <SurfaceSection title="게시판 내용과 등록" description="글 목록, 등록 버튼, 현재 세션 기준 권한을 한 화면에서 확인합니다.">
           <BoardDetailLiveSection boardId={boardId} />
         </SurfaceSection>
       )}
 
-      <SurfaceSection title={preset.invalidRoute ? "접근 안내" : "이 게시판에서 할 수 있는 일"} description={preset.invalidRoute ? "잘못된 게시판 주소에서는 작성 화면을 열지 않습니다." : "게시판 성격에 따라 먼저 볼 정보와 행동을 정리했습니다."}>
+      <SurfaceSection title={preset.invalidRoute ? "접근 안내" : "이 게시판에서 할 수 있는 일"} description={preset.invalidRoute ? "잘못된 게시판 주소에서는 작성 화면을 열지 않습니다." : "게시판 성격에 따라 먼저 볼 정보와 등록 행동을 정리했습니다."}>
         <div className="grid-auto-compact">
           {preset.cards.map((item) => (
             <article key={item.title} className="info-card">
@@ -94,7 +110,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title={preset.invalidRoute ? "다시 확인하는 순서" : "사용 순서"} description="실제 화면에서 바로 따라갈 수 있는 순서입니다.">
+      <SurfaceSection title={preset.invalidRoute ? "다시 확인하는 순서" : "글 등록 순서"} description="실제 화면에서 바로 따라갈 수 있는 순서입니다.">
         <ol className="number-list">
           {preset.usageSteps.map((item) => (
             <li key={item}>{item}</li>
