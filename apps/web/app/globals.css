@@ -535,34 +535,64 @@ li {
   overflow-x: auto;
 }
 
-.app-shell [data-auto-scrollbar="true"] {
+.app-shell [data-auto-scrollbar="true"],
+.app-shell__main,
+.desktop-sidebar__nav,
+.topbar-modal__grid,
+.topbar-profile-settings {
   scrollbar-color: transparent transparent;
   scrollbar-width: thin;
   transition: scrollbar-color 180ms ease;
 }
 
-.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar {
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar,
+.app-shell__main::-webkit-scrollbar,
+.desktop-sidebar__nav::-webkit-scrollbar,
+.topbar-modal__grid::-webkit-scrollbar,
+.topbar-profile-settings::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-track {
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-track,
+.app-shell__main::-webkit-scrollbar-track,
+.desktop-sidebar__nav::-webkit-scrollbar-track,
+.topbar-modal__grid::-webkit-scrollbar-track,
+.topbar-profile-settings::-webkit-scrollbar-track {
   margin-block: 2px;
   border-radius: 999px;
   background: transparent;
 }
 
-.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-thumb {
+.app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-thumb,
+.app-shell__main::-webkit-scrollbar-thumb,
+.desktop-sidebar__nav::-webkit-scrollbar-thumb,
+.topbar-modal__grid::-webkit-scrollbar-thumb,
+.topbar-profile-settings::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: transparent;
   transition: background 180ms ease;
 }
 
-.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"] {
+.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"],
+.app-shell__main:hover,
+.app-shell__main:focus-within,
+.desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"],
+.desktop-sidebar__nav:hover,
+.desktop-sidebar__nav:focus-within,
+.topbar-modal__grid[data-auto-scrollbar-scrolling="true"],
+.topbar-profile-settings[data-auto-scrollbar-scrolling="true"] {
   scrollbar-color: rgba(37, 99, 235, 0.38) transparent;
 }
 
-.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
+.app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
+.app-shell__main:hover::-webkit-scrollbar-thumb,
+.app-shell__main:focus-within::-webkit-scrollbar-thumb,
+.desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
+.desktop-sidebar__nav:hover::-webkit-scrollbar-thumb,
+.desktop-sidebar__nav:focus-within::-webkit-scrollbar-thumb,
+.topbar-modal__grid[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
+.topbar-profile-settings[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2));
 }
 

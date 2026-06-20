@@ -244,7 +244,7 @@ describe("mobile app shell admin boundary", () => {
     });
   });
 
-  it("standardizes internal scrollbars without applying the auto-hide rule to full-page scrolling", () => {
+  it("standardizes internal scrollbars and prevents first-paint scrollbar flicker", () => {
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
     const globalCss = readFileSync("app/globals.css", "utf8");
 
@@ -259,6 +259,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain("desktop-sidebar--scrolling");
 
     expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');
+    expect(globalCss).toContain(".app-shell__main,");
+    expect(globalCss).toContain(".desktop-sidebar__nav,");
+    expect(globalCss).toContain(".topbar-modal__grid,");
+    expect(globalCss).toContain(".topbar-profile-settings {");
+    expect(globalCss).toContain(".app-shell__main:hover");
+    expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
     expect(globalCss).toContain("scrollbar-color: transparent transparent");
     expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
     expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");
