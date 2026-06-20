@@ -273,10 +273,14 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="sidebar-settings-preview-icon"');
     expect(shellSource).toContain('className="sidebar-settings-menu-item__limit"');
     expect(shellSource).not.toContain("홈 제외 최대");
+    expect(shellSource).not.toContain("사이드바 전용 설정");
     expect(shellSource).not.toContain("최상단 고정");
     expect(shellSource).not.toContain("최하단 고정");
     expect(shellSource).not.toContain("선택됨 · 미리보기");
-    expect(shellSource).toContain('onClick={() => setIsSidebarSettingsOpen(true)}');
+    expect(shellSource).toContain('onClick={openSidebarSettings}');
+    expect(shellSource).toContain('const [sidebarDraftSelections, setSidebarDraftSelections]');
+    expect(shellSource).toContain('function handleSidebarSettingsApply()');
+    expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
     expect(shellSource).toContain("사이드바 편집");
     expect(shellSource).not.toContain("이름 편집");
     expect(shellSource).not.toContain("sidebar-custom-panel");
@@ -322,6 +326,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("place-items: center");
     expect(globalCss).toContain(".sidebar-settings-menu-list");
     expect(globalCss).toContain(".sidebar-settings-preview-icon");
+    expect(globalCss).toContain("width: 74px");
+    expect(globalCss).toContain("min-height: 34px");
+    expect(globalCss).toContain("width: 22px");
     expect(globalCss).toContain("overflow-y: auto");
     expect(globalCss).toContain("overflow: hidden");
     expect(globalCss).not.toContain(".desktop-sidebar--scrolling");

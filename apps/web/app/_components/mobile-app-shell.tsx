@@ -522,6 +522,7 @@ export function MobileAppShell({
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
+  const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
     notices: true,
     approvals: true,
@@ -562,7 +563,13 @@ export function MobileAppShell({
     window.requestAnimationFrame(blurActiveElement);
   }
 
+  function openSidebarSettings() {
+    setSidebarDraftSelections(sidebarSelectedHrefs);
+    setIsSidebarSettingsOpen(true);
+  }
+
   function closeSidebarSettings() {
+    setSidebarDraftSelections(null);
     setIsSidebarSettingsOpen(false);
     window.requestAnimationFrame(blurActiveElement);
   }
@@ -1043,19 +1050,28 @@ export function MobileAppShell({
   }
 
   function toggleSidebarCustomItem(href: string) {
-    const selected = sidebarSelectedHrefs.includes(href)
-      ? sidebarSelectedHrefs.filter((itemHref) => itemHref !== href)
-      : sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT ? sidebarSelectedHrefs : [...sidebarSelectedHrefs, href];
-    persistSidebarSelection(sidebarPortalKey, selected);
+    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
+    const selected = currentDraft.includes(href)
+      ? currentDraft.filter((itemHref) => itemHref !== href)
+      : currentDraft.length >= SIDEBAR_CUSTOM_MENU_LIMIT ? currentDraft : [...currentDraft, href];
+    setSidebarDraftSelections(selected);
   }
 
   function moveSidebarCustomItem(href: string, direction: -1 | 1) {
-    const index = sidebarSelectedHrefs.indexOf(href);
+    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
+    const index = currentDraft.indexOf(href);
     const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= sidebarSelectedHrefs.length) return;
-    const nextSelection = [...sidebarSelectedHrefs];
+    if (index < 0 || nextIndex < 0 || nextIndex >= currentDraft.length) return;
+    const nextSelection = [...currentDraft];
     [nextSelection[index], nextSelection[nextIndex]] = [nextSelection[nextIndex], nextSelection[index]];
-    persistSidebarSelection(sidebarPortalKey, nextSelection);
+    setSidebarDraftSelections(nextSelection);
+  }
+
+  function handleSidebarSettingsApply() {
+    persistSidebarSelection(sidebarPortalKey, sidebarDraftSelections ?? sidebarSelectedHrefs);
+    setSidebarDraftSelections(null);
+    setIsSidebarSettingsOpen(false);
+    handleTopbarSettingsSave();
   }
 
   function renderSidebarSettingsModal() {
@@ -1063,7 +1079,9 @@ export function MobileAppShell({
       return null;
     }
 
-    const selectedItems = collapsedSidebarItems;
+    const draftSelectedHrefs = resolveSidebarSelection(sidebarCustomizationItems, sidebarDraftSelections ?? sidebarSelectedHrefs, currentPortalHomeHref);
+    const draftItemsByHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
+    const selectedItems = draftSelectedHrefs.map((href) => draftItemsByHref.get(href)).filter((item): item is NavItem => Boolean(item));
     const selectableItems = sidebarCustomizationItems.filter((item) => item.href !== currentPortalHomeHref);
 
     return (
@@ -1077,7 +1095,7 @@ export function MobileAppShell({
         >
           <header className="sidebar-settings-modal__header">
             <div>
-              <span className="topbar-modal__eyebrow">사이드바 전용 설정</span>
+              <span className="topbar-modal__eyebrow">We'reHere</span>
               <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
               <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
             </div>
@@ -1088,7 +1106,7 @@ export function MobileAppShell({
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
               <div className="sidebar-settings-card-title">
                 <strong>미리보기</strong>
-                <span>선택 {sidebarSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
+                <span>선택 {draftSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
               </div>
               <div className="sidebar-settings-preview-shell">
                 <div className="sidebar-settings-preview-list">
@@ -1099,7 +1117,7 @@ export function MobileAppShell({
                     </div>
                   </div>
                   {selectedItems.map((item) => {
-                    const selectedIndex = sidebarSelectedHrefs.indexOf(item.href);
+                    const selectedIndex = draftSelectedHrefs.indexOf(item.href);
                     const iconName = getFeatureIconName(item.href, item.label);
                     return (
                       <div key={item.href} className="sidebar-settings-preview-row">
@@ -1109,7 +1127,7 @@ export function MobileAppShell({
                         </div>
                         <div className="sidebar-settings-preview-actions" aria-label={`${item.label} 순서 조정`}>
                           <button type="button" disabled={selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>↑</button>
-                          <button type="button" disabled={selectedIndex < 0 || selectedIndex >= sidebarSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
+                          <button type="button" disabled={selectedIndex < 0 || selectedIndex >= draftSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
                         </div>
                       </div>
                     );
@@ -1124,8 +1142,8 @@ export function MobileAppShell({
               </div>
               <div className="sidebar-settings-menu-list">
                 {selectableItems.map((item) => {
-                  const selected = sidebarSelectedHrefs.includes(item.href);
-                  const limitReached = !selected && sidebarSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
+                  const selected = draftSelectedHrefs.includes(item.href);
+                  const limitReached = !selected && draftSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
                   return (
                     <div key={item.href} className="sidebar-settings-menu-item">
                       <strong>{item.label}</strong>
@@ -1149,7 +1167,7 @@ export function MobileAppShell({
 
           <footer className="sidebar-settings-modal__footer">
             <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSidebarSettings}>닫기</button>
-            <button type="button" className="topbar-modal__button" onClick={handleTopbarSettingsSave}>적용</button>
+            <button type="button" className="topbar-modal__button" onClick={handleSidebarSettingsApply}>적용</button>
           </footer>
         </section>
       </div>
@@ -1417,7 +1435,7 @@ export function MobileAppShell({
         </nav>
         {sidebarCollapsed ? (
           <div className="desktop-sidebar__footer">
-            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 편집`} onClick={() => setIsSidebarSettingsOpen(true)}>
+            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 편집`} onClick={openSidebarSettings}>
               <span>편집</span>
             </button>
           </div>
