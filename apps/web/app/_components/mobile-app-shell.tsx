@@ -1650,7 +1650,7 @@ export function MobileAppShell({
         <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
           {sidebarCollapsed && desktopHomeItem ? (
             <div className="desktop-sidebar__collapsed-stack">
-              <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} title={desktopHomeItem.summary} onClick={() => navigateTo(desktopHomeItem.href)}>
+              <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} onClick={() => navigateTo(desktopHomeItem.href)}>
                 <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
                 <span>{desktopHomeItem.shortLabel}</span>
               </button>
@@ -1662,7 +1662,7 @@ export function MobileAppShell({
                   const active = matchesPath(pathname, item.href);
                   const iconName = getFeatureIconName(item.href, item.label);
                   return (
-                    <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} title={item.summary} onClick={() => navigateTo(item.href)}>
+                    <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} onClick={() => navigateTo(item.href)}>
                       {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                       <span>{item.shortLabel}</span>
                     </button>
@@ -1674,7 +1674,7 @@ export function MobileAppShell({
             <>
               {desktopHomeItem ? (
                 <div className="desktop-sidebar__home-link">
-                  <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} title={desktopHomeItem.summary} onClick={() => navigateTo(desktopHomeItem.href)}>
+                  <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} onClick={() => navigateTo(desktopHomeItem.href)}>
                     <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
                     <span>{desktopHomeItem.label}</span>
                   </button>
@@ -1688,7 +1688,7 @@ export function MobileAppShell({
                       const active = matchesPath(pathname, item.href);
                       const iconName = getFeatureIconName(item.href, item.label);
                       return (
-                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} title={item.summary} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
+                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
                           {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                           <span>{item.label}</span>
                           {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
