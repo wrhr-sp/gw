@@ -465,6 +465,14 @@ function flattenNavSections(sections: readonly NavSection[]) {
   return items;
 }
 
+function compareNavItemsByLabel(left: NavItem, right: NavItem) {
+  return left.label.localeCompare(right.label, "ko-KR", { numeric: true, sensitivity: "base" });
+}
+
+function sortNavSectionsByItemLabel(sections: readonly NavSection[]) {
+  return sections.map((section) => ({ ...section, items: [...section.items].sort(compareNavItemsByLabel) }));
+}
+
 function buildDefaultSidebarSelection(items: readonly NavItem[], homeHref: string) {
   return items.filter((item) => item.href !== homeHref).slice(0, SIDEBAR_CUSTOM_MENU_LIMIT).map((item) => item.href);
 }
@@ -523,6 +531,7 @@ export function MobileAppShell({
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
+  const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
     notices: true,
     approvals: true,
@@ -565,11 +574,13 @@ export function MobileAppShell({
 
   function openSidebarSettings() {
     setSidebarDraftSelections(sidebarSelectedHrefs);
+    setSidebarDraggingHref(null);
     setIsSidebarSettingsOpen(true);
   }
 
   function closeSidebarSettings() {
     setSidebarDraftSelections(null);
+    setSidebarDraggingHref(null);
     setIsSidebarSettingsOpen(false);
     window.requestAnimationFrame(blurActiveElement);
   }
@@ -580,14 +591,15 @@ export function MobileAppShell({
   const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
   const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
   const visibleDesktopMenuSections = useMemo(() => {
-    if (!hasManagementPortal) return menuSections;
-    if (isBranchPortal) {
-      return menuSections
-        .filter((section) => !isManagementSection(section))
-        .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
-        .filter((section) => section.items.length > 0);
-    }
-    return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
+    const sections = !hasManagementPortal
+      ? menuSections
+      : isBranchPortal
+        ? menuSections
+          .filter((section) => !isManagementSection(section))
+          .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
+          .filter((section) => section.items.length > 0)
+        : menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
+    return sortNavSectionsByItemLabel(sections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
@@ -737,6 +749,19 @@ export function MobileAppShell({
     document.addEventListener("keydown", closeSidebarSettingsWithEscape);
     return () => document.removeEventListener("keydown", closeSidebarSettingsWithEscape);
   }, [isSidebarSettingsOpen]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!activeTopbarModal && !isSidebarSettingsOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [activeTopbarModal, isSidebarSettingsOpen]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -1067,9 +1092,35 @@ export function MobileAppShell({
     setSidebarDraftSelections(nextSelection);
   }
 
+  function reorderSidebarCustomItem(sourceHref: string, targetHref: string) {
+    if (sourceHref === targetHref) return;
+    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
+    const sourceIndex = currentDraft.indexOf(sourceHref);
+    const targetIndex = currentDraft.indexOf(targetHref);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const nextSelection = [...currentDraft];
+    const [movedHref] = nextSelection.splice(sourceIndex, 1);
+    nextSelection.splice(targetIndex, 0, movedHref);
+    setSidebarDraftSelections(nextSelection);
+  }
+
+  function handleSidebarPreviewDragStart(event: React.DragEvent<HTMLDivElement>, href: string) {
+    setSidebarDraggingHref(href);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", href);
+  }
+
+  function handleSidebarPreviewDrop(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
+    event.preventDefault();
+    const sourceHref = sidebarDraggingHref ?? event.dataTransfer.getData("text/plain");
+    if (sourceHref) reorderSidebarCustomItem(sourceHref, targetHref);
+    setSidebarDraggingHref(null);
+  }
+
   function handleSidebarSettingsApply() {
     persistSidebarSelection(sidebarPortalKey, sidebarDraftSelections ?? sidebarSelectedHrefs);
     setSidebarDraftSelections(null);
+    setSidebarDraggingHref(null);
     setIsSidebarSettingsOpen(false);
     handleTopbarSettingsSave();
   }
@@ -1082,7 +1133,12 @@ export function MobileAppShell({
     const draftSelectedHrefs = resolveSidebarSelection(sidebarCustomizationItems, sidebarDraftSelections ?? sidebarSelectedHrefs, currentPortalHomeHref);
     const draftItemsByHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
     const selectedItems = draftSelectedHrefs.map((href) => draftItemsByHref.get(href)).filter((item): item is NavItem => Boolean(item));
-    const selectableItems = sidebarCustomizationItems.filter((item) => item.href !== currentPortalHomeHref);
+    const selectableSections = visibleDesktopMenuSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.href !== currentPortalHomeHref && !item.href.startsWith("#")),
+      }))
+      .filter((section) => section.items.length > 0);
 
     return (
       <div className="sidebar-settings-backdrop" role="presentation" onMouseDown={closeSidebarSettings}>
@@ -1106,7 +1162,6 @@ export function MobileAppShell({
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
               <div className="sidebar-settings-card-title">
                 <strong>미리보기</strong>
-                <span>선택 {draftSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
               </div>
               <div className="sidebar-settings-preview-shell">
                 <div className="sidebar-settings-preview-list">
@@ -1120,8 +1175,16 @@ export function MobileAppShell({
                     const selectedIndex = draftSelectedHrefs.indexOf(item.href);
                     const iconName = getFeatureIconName(item.href, item.label);
                     return (
-                      <div key={item.href} className="sidebar-settings-preview-row">
-                        <div className="sidebar-settings-preview-button">
+                      <div
+                        key={item.href}
+                        className={sidebarDraggingHref === item.href ? "sidebar-settings-preview-row sidebar-settings-preview-row--dragging" : "sidebar-settings-preview-row"}
+                        draggable
+                        onDragStart={(event) => handleSidebarPreviewDragStart(event, item.href)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => handleSidebarPreviewDrop(event, item.href)}
+                        onDragEnd={() => setSidebarDraggingHref(null)}
+                      >
+                        <div className="sidebar-settings-preview-button" title="드래그해서 순서를 바꿀 수 있습니다.">
                           {iconName ? <FeatureIcon className="sidebar-settings-preview-icon" name={iconName} title={item.label} /> : null}
                           <span>{item.shortLabel}</span>
                         </div>
@@ -1139,28 +1202,40 @@ export function MobileAppShell({
             <section className="sidebar-settings-list-card" aria-label="메뉴 추가 및 해제">
               <div className="sidebar-settings-card-title">
                 <strong>메뉴 추가/해제</strong>
+                <span>선택 {draftSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
               </div>
               <div className="sidebar-settings-menu-list">
-                {selectableItems.map((item) => {
-                  const selected = draftSelectedHrefs.includes(item.href);
-                  const limitReached = !selected && draftSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
-                  return (
-                    <div key={item.href} className="sidebar-settings-menu-item">
-                      <strong>{item.label}</strong>
-                      <div className="sidebar-settings-menu-item__actions">
-                        {limitReached ? <span className="sidebar-settings-menu-item__limit">최대개수 도달</span> : null}
-                        <button
-                          type="button"
-                          className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
-                          disabled={limitReached}
-                          onClick={() => toggleSidebarCustomItem(item.href)}
-                        >
-                          {selected ? "해제" : limitReached ? "추가 불가" : "추가"}
-                        </button>
-                      </div>
+                {selectableSections.map((section) => (
+                  <section key={section.title} className="sidebar-settings-menu-section">
+                    <h3>{section.title}</h3>
+                    <div className="sidebar-settings-menu-section__items">
+                      {section.items.map((item) => {
+                        const selected = draftSelectedHrefs.includes(item.href);
+                        const limitReached = !selected && draftSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
+                        const disabled = Boolean(item.disabled);
+                        return (
+                          <div key={item.href} className={disabled ? "sidebar-settings-menu-item sidebar-settings-menu-item--disabled" : "sidebar-settings-menu-item"}>
+                            <div>
+                              <strong>{item.label}</strong>
+                              {disabled ? <small>준비중</small> : null}
+                            </div>
+                            <div className="sidebar-settings-menu-item__actions">
+                              {limitReached && !disabled ? <span className="sidebar-settings-menu-item__limit">최대개수 도달</span> : null}
+                              <button
+                                type="button"
+                                className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
+                                disabled={disabled || limitReached}
+                                onClick={() => toggleSidebarCustomItem(item.href)}
+                              >
+                                {disabled ? "준비중" : selected ? "해제" : limitReached ? "추가 불가" : "추가"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </section>
+                ))}
               </div>
             </section>
           </div>
