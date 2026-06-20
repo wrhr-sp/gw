@@ -14,7 +14,6 @@
   --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   --mobile-bottom-nav-height: 74px;
   --mobile-bottom-nav-offset: 7px;
-  --desktop-sidebar-button-gap: 8px;
 }
 
 * {
@@ -192,32 +191,6 @@ code {
   gap: 10px;
 }
 
-.desktop-sidebar__header {
-  position: relative;
-  z-index: 1;
-  padding-bottom: 2px;
-}
-
-.desktop-sidebar__header::after {
-  position: absolute;
-  right: 0;
-  bottom: -8px;
-  left: 0;
-  height: 10px;
-  pointer-events: none;
-  content: "";
-  opacity: 0;
-  transform: translateY(-3px);
-  transform-origin: top;
-  transition: opacity 220ms ease, transform 140ms ease-out;
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.04) 46%, rgba(37, 99, 235, 0));
-}
-
-.desktop-sidebar:has(.desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"]) .desktop-sidebar__header::after {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 .desktop-sidebar__status {
   padding: 14px;
   border-radius: 18px;
@@ -235,11 +208,7 @@ code {
 .desktop-sidebar__nav,
 .desktop-sidebar__links {
   display: grid;
-  gap: var(--desktop-sidebar-button-gap);
-}
-
-.desktop-sidebar__section {
-  gap: var(--desktop-sidebar-button-gap);
+  gap: 12px;
 }
 
 .desktop-sidebar__nav {
@@ -250,30 +219,20 @@ code {
 }
 
 .desktop-sidebar__links {
-  gap: var(--desktop-sidebar-button-gap);
+  gap: 8px;
 }
 
 .desktop-sidebar__link {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  height: 38px;
   min-height: 38px;
-  box-sizing: border-box;
   padding: 9px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.72);
   color: #334155;
   text-decoration: none;
   transition: background-color 160ms ease, color 160ms ease;
-}
-
-.desktop-sidebar__link span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .desktop-sidebar__link:hover,
@@ -1261,6 +1220,23 @@ li {
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__section-copy {
+    display: block;
+    text-align: center;
+  }
+
+  .desktop-sidebar--collapsed .desktop-sidebar__section-copy strong {
+    display: block;
+    overflow: hidden;
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .desktop-sidebar--collapsed .desktop-sidebar__section-copy p {
     display: none;
   }
 
