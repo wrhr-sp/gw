@@ -308,6 +308,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-profile-settings {");
     expect(globalCss).toContain(".app-shell__main:hover");
     expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
+    expect(globalCss).not.toContain(".desktop-sidebar__nav:hover");
+    expect(globalCss).not.toContain(".desktop-sidebar__nav:focus-within");
     expect(globalCss).toContain("scrollbar-color: transparent transparent");
     expect(globalCss).toContain("scrollbar-color: rgba(37, 99, 235, 0.38) transparent");
     expect(globalCss).toContain("linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2))");

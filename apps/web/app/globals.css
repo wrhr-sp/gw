@@ -585,8 +585,6 @@ li {
 .app-shell__main:hover,
 .app-shell__main:focus-within,
 .desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"],
-.desktop-sidebar__nav:hover,
-.desktop-sidebar__nav:focus-within,
 .topbar-modal__grid[data-auto-scrollbar-scrolling="true"],
 .topbar-profile-settings[data-auto-scrollbar-scrolling="true"] {
   scrollbar-color: rgba(37, 99, 235, 0.38) transparent;
@@ -596,8 +594,6 @@ li {
 .app-shell__main:hover::-webkit-scrollbar-thumb,
 .app-shell__main:focus-within::-webkit-scrollbar-thumb,
 .desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
-.desktop-sidebar__nav:hover::-webkit-scrollbar-thumb,
-.desktop-sidebar__nav:focus-within::-webkit-scrollbar-thumb,
 .topbar-modal__grid[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
 .topbar-profile-settings[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(37, 99, 235, 0.44), rgba(96, 165, 250, 0.2));
