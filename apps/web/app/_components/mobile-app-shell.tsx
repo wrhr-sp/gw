@@ -596,6 +596,7 @@ export function MobileAppShell({
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
   const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
@@ -651,6 +652,16 @@ export function MobileAppShell({
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
     setIsSidebarSettingsOpen(false);
+    window.requestAnimationFrame(blurActiveElement);
+  }
+
+  function openLogoutConfirm() {
+    setIsProfileMenuOpen(false);
+    setIsLogoutConfirmOpen(true);
+  }
+
+  function closeLogoutConfirm() {
+    setIsLogoutConfirmOpen(false);
     window.requestAnimationFrame(blurActiveElement);
   }
 
@@ -811,8 +822,23 @@ export function MobileAppShell({
   }, [isSidebarSettingsOpen]);
 
   useEffect(() => {
+    if (!isLogoutConfirmOpen) {
+      return;
+    }
+
+    function closeLogoutConfirmWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeLogoutConfirm();
+      }
+    }
+
+    document.addEventListener("keydown", closeLogoutConfirmWithEscape);
+    return () => document.removeEventListener("keydown", closeLogoutConfirmWithEscape);
+  }, [isLogoutConfirmOpen]);
+
+  useEffect(() => {
     if (typeof document === "undefined") return;
-    if (!activeTopbarModal && !isSidebarSettingsOpen) return;
+    if (!activeTopbarModal && !isSidebarSettingsOpen && !isLogoutConfirmOpen) return;
     const previousOverflow = document.body.style.overflow;
     const previousOverscrollBehavior = document.body.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
@@ -821,7 +847,7 @@ export function MobileAppShell({
       document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior = previousOverscrollBehavior;
     };
-  }, [activeTopbarModal, isSidebarSettingsOpen]);
+  }, [activeTopbarModal, isSidebarSettingsOpen, isLogoutConfirmOpen]);
 
   useEffect(() => {
     if (typeof navigator === "undefined") {
@@ -1108,6 +1134,7 @@ export function MobileAppShell({
       }
 
       setIsProfileMenuOpen(false);
+      setIsLogoutConfirmOpen(false);
       router.push("/login?signedOut=1");
       router.refresh();
     } catch (error) {
@@ -1115,6 +1142,35 @@ export function MobileAppShell({
     } finally {
       setProfileActionPending(false);
     }
+  }
+
+  function renderLogoutConfirmModal() {
+    if (!isLogoutConfirmOpen) {
+      return null;
+    }
+
+    return (
+      <div className="logout-confirm-backdrop" role="presentation" onMouseDown={closeLogoutConfirm}>
+        <section
+          className="logout-confirm-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-confirm-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <h2 id="logout-confirm-title">로그아웃할까요?</h2>
+          {profileActionError ? <p className="logout-confirm-modal__error">{profileActionError}</p> : null}
+          <div className="logout-confirm-modal__actions">
+            <button type="button" className="logout-confirm-modal__button" onClick={closeLogoutConfirm} disabled={profileActionPending}>
+              취소
+            </button>
+            <button type="button" className="logout-confirm-modal__button logout-confirm-modal__button--danger" onClick={handleProfileLogout} disabled={profileActionPending}>
+              {profileActionPending ? "로그아웃 중..." : "로그아웃"}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
   }
 
 
@@ -1746,7 +1802,7 @@ export function MobileAppShell({
                             className="topbar-profile-popover__action topbar-profile-popover__action--danger"
                             disabled={profileActionPending}
                             role="menuitem"
-                            onClick={handleProfileLogout}
+                            onClick={openLogoutConfirm}
                           >
                             {profileActionPending ? "로그아웃 중..." : "로그아웃"}
                           </button>
@@ -1768,6 +1824,7 @@ export function MobileAppShell({
 
         {renderTopbarModal()}
         {renderSidebarSettingsModal()}
+        {renderLogoutConfirmModal()}
 
         {!isOnline ? (
           <div className="status-banner status-banner--warning" role="status" aria-live="polite">
