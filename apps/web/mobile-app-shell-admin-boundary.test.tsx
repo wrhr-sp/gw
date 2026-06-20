@@ -276,6 +276,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".app-shell *");
     expect(globalCss).toContain("[contenteditable=\"true\"] *");
     expect(globalCss).toContain(".desktop-sidebar__header::after");
+    expect(globalCss).toContain("--desktop-sidebar-button-gap: 8px");
+    expect(globalCss).toContain("gap: var(--desktop-sidebar-button-gap)");
+    expect(globalCss).toContain(".desktop-sidebar__section {");
     expect(globalCss).toContain("transform: translateY(-3px)");
     expect(globalCss).toContain("bottom: -8px");
     expect(globalCss).toContain("height: 10px");

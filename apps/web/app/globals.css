@@ -14,6 +14,7 @@
   --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
   --mobile-bottom-nav-height: 74px;
   --mobile-bottom-nav-offset: 7px;
+  --desktop-sidebar-button-gap: 8px;
 }
 
 * {
@@ -234,7 +235,11 @@ code {
 .desktop-sidebar__nav,
 .desktop-sidebar__links {
   display: grid;
-  gap: 12px;
+  gap: var(--desktop-sidebar-button-gap);
+}
+
+.desktop-sidebar__section {
+  gap: var(--desktop-sidebar-button-gap);
 }
 
 .desktop-sidebar__nav {
@@ -245,7 +250,7 @@ code {
 }
 
 .desktop-sidebar__links {
-  gap: 8px;
+  gap: var(--desktop-sidebar-button-gap);
 }
 
 .desktop-sidebar__link {
