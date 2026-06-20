@@ -271,6 +271,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="sidebar-settings-preview-button"');
     expect(shellSource).toContain('className="sidebar-settings-preview-actions"');
     expect(shellSource).toContain('className="sidebar-settings-preview-icon"');
+    expect(shellSource).not.toContain('name="home" title="홈" />');
     expect(shellSource).toContain('className="sidebar-settings-menu-item__limit"');
     expect(shellSource).not.toContain("홈 제외 최대");
     expect(shellSource).not.toContain("사이드바 전용 설정");
@@ -281,11 +282,17 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const [sidebarDraftSelections, setSidebarDraftSelections]');
     expect(shellSource).toContain('function handleSidebarSettingsApply()');
     expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
+    expect(shellSource).toContain('setSidebarDraftSelections(appliedSelection)');
+    expect(shellSource).not.toContain('setIsSidebarSettingsOpen(false);\n    handleTopbarSettingsSave();');
     expect(shellSource).toContain('sortNavSectionsByItemLabel');
     expect(shellSource).toContain('localeCompare(right.label, "ko-KR"');
     expect(shellSource).toContain('document.body.style.overflow = "hidden"');
     expect(shellSource).toContain('handleSidebarPreviewDragStart');
+    expect(shellSource).toContain('handleSidebarPreviewDragOver');
     expect(shellSource).toContain('handleSidebarPreviewDrop');
+    expect(shellSource).toContain('sidebar-settings-preview-row--drop-target');
+    expect(shellSource).toContain('draggable\n                          title="드래그해서 순서를 바꿀 수 있습니다."');
+    expect(shellSource).toContain('className="desktop-sidebar__home-link"');
     expect(shellSource).toContain('className="sidebar-settings-menu-section"');
     expect(shellSource).toContain("사이드바 편집");
     expect(shellSource).not.toContain("이름 편집");
@@ -333,6 +340,10 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".sidebar-settings-menu-list");
     expect(globalCss).toContain(".sidebar-settings-menu-section");
     expect(globalCss).toContain(".sidebar-settings-preview-row--dragging");
+    expect(globalCss).toContain(".sidebar-settings-preview-row--drop-target::before");
+    expect(globalCss).toContain("left: calc(100% + 7px)");
+    expect(globalCss).not.toContain(".sidebar-settings-preview-row--dragging {\n  opacity");
+    expect(globalCss).not.toContain(".sidebar-settings-preview-row--dragging .sidebar-settings-preview-button {\n  cursor: grabbing;\n  outline");
     expect(globalCss).toContain(".sidebar-settings-preview-icon");
     expect(globalCss).toContain("width: 86px");
     expect(globalCss).toContain("min-height: 42px");

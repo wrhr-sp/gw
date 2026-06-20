@@ -532,6 +532,7 @@ export function MobileAppShell({
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>({ general: null, management: null, branch: null });
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
+  const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>({
     notices: true,
     approvals: true,
@@ -575,12 +576,14 @@ export function MobileAppShell({
   function openSidebarSettings() {
     setSidebarDraftSelections(sidebarSelectedHrefs);
     setSidebarDraggingHref(null);
+    setSidebarDragOverHref(null);
     setIsSidebarSettingsOpen(true);
   }
 
   function closeSidebarSettings() {
     setSidebarDraftSelections(null);
     setSidebarDraggingHref(null);
+    setSidebarDragOverHref(null);
     setIsSidebarSettingsOpen(false);
     window.requestAnimationFrame(blurActiveElement);
   }
@@ -1106,8 +1109,17 @@ export function MobileAppShell({
 
   function handleSidebarPreviewDragStart(event: React.DragEvent<HTMLDivElement>, href: string) {
     setSidebarDraggingHref(href);
+    setSidebarDragOverHref(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", href);
+  }
+
+  function handleSidebarPreviewDragOver(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (sidebarDraggingHref && sidebarDraggingHref !== targetHref) {
+      setSidebarDragOverHref(targetHref);
+    }
   }
 
   function handleSidebarPreviewDrop(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
@@ -1115,13 +1127,15 @@ export function MobileAppShell({
     const sourceHref = sidebarDraggingHref ?? event.dataTransfer.getData("text/plain");
     if (sourceHref) reorderSidebarCustomItem(sourceHref, targetHref);
     setSidebarDraggingHref(null);
+    setSidebarDragOverHref(null);
   }
 
   function handleSidebarSettingsApply() {
-    persistSidebarSelection(sidebarPortalKey, sidebarDraftSelections ?? sidebarSelectedHrefs);
-    setSidebarDraftSelections(null);
+    const appliedSelection = sidebarDraftSelections ?? sidebarSelectedHrefs;
+    persistSidebarSelection(sidebarPortalKey, appliedSelection);
+    setSidebarDraftSelections(appliedSelection);
     setSidebarDraggingHref(null);
-    setIsSidebarSettingsOpen(false);
+    setSidebarDragOverHref(null);
     handleTopbarSettingsSave();
   }
 
@@ -1158,6 +1172,12 @@ export function MobileAppShell({
             <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
           </header>
 
+          {settingsSaveToastVisible ? (
+            <div className="topbar-modal-toast" role="status" aria-live="polite">
+              변경된 설정이 적용되었습니다.
+            </div>
+          ) : null}
+
           <div className="sidebar-settings-modal__body">
             <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
               <div className="sidebar-settings-card-title">
@@ -1165,26 +1185,28 @@ export function MobileAppShell({
               </div>
               <div className="sidebar-settings-preview-shell">
                 <div className="sidebar-settings-preview-list">
-                  <div className="sidebar-settings-preview-row">
-                    <div className="sidebar-settings-preview-button sidebar-settings-preview-button--active">
-                      <FeatureIcon className="sidebar-settings-preview-icon" name="home" title="홈" />
-                      <span>홈</span>
-                    </div>
-                  </div>
                   {selectedItems.map((item) => {
                     const selectedIndex = draftSelectedHrefs.indexOf(item.href);
                     const iconName = getFeatureIconName(item.href, item.label);
                     return (
                       <div
                         key={item.href}
-                        className={sidebarDraggingHref === item.href ? "sidebar-settings-preview-row sidebar-settings-preview-row--dragging" : "sidebar-settings-preview-row"}
-                        draggable
-                        onDragStart={(event) => handleSidebarPreviewDragStart(event, item.href)}
-                        onDragOver={(event) => event.preventDefault()}
+                        className={[
+                          "sidebar-settings-preview-row",
+                          sidebarDraggingHref === item.href ? "sidebar-settings-preview-row--dragging" : "",
+                          sidebarDraggingHref && sidebarDragOverHref === item.href ? "sidebar-settings-preview-row--drop-target" : "",
+                        ].filter(Boolean).join(" ")}
+                        onDragOver={(event) => handleSidebarPreviewDragOver(event, item.href)}
+                        onDragLeave={() => { if (sidebarDragOverHref === item.href) setSidebarDragOverHref(null); }}
                         onDrop={(event) => handleSidebarPreviewDrop(event, item.href)}
-                        onDragEnd={() => setSidebarDraggingHref(null)}
                       >
-                        <div className="sidebar-settings-preview-button" title="드래그해서 순서를 바꿀 수 있습니다.">
+                        <div
+                          className="sidebar-settings-preview-button"
+                          draggable
+                          title="드래그해서 순서를 바꿀 수 있습니다."
+                          onDragStart={(event) => handleSidebarPreviewDragStart(event, item.href)}
+                          onDragEnd={() => { setSidebarDraggingHref(null); setSidebarDragOverHref(null); }}
+                        >
                           {iconName ? <FeatureIcon className="sidebar-settings-preview-icon" name={iconName} title={item.label} /> : null}
                           <span>{item.shortLabel}</span>
                         </div>
@@ -1488,24 +1510,34 @@ export function MobileAppShell({
               })}
             </div>
           ) : (
-            visibleDesktopMenuSections.map((section) => (
-              <section key={section.title} className="desktop-sidebar__section">
-                <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
-                <div className="desktop-sidebar__links">
-                  {section.items.map((item) => {
-                    const active = matchesPath(pathname, item.href);
-                    const iconName = getFeatureIconName(item.href, item.label);
-                    return (
-                      <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} title={item.summary} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
-                        {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                        <span>{item.label}</span>
-                        {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
-                      </button>
-                    );
-                  })}
+            <>
+              {desktopHomeItem ? (
+                <div className="desktop-sidebar__home-link">
+                  <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} title={desktopHomeItem.summary} onClick={() => navigateTo(desktopHomeItem.href)}>
+                    <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
+                    <span>{desktopHomeItem.label}</span>
+                  </button>
                 </div>
-              </section>
-            ))
+              ) : null}
+              {visibleDesktopMenuSections.map((section) => (
+                <section key={section.title} className="desktop-sidebar__section">
+                  <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
+                  <div className="desktop-sidebar__links">
+                    {section.items.map((item) => {
+                      const active = matchesPath(pathname, item.href);
+                      const iconName = getFeatureIconName(item.href, item.label);
+                      return (
+                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} title={item.summary} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
+                          {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                          <span>{item.label}</span>
+                          {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </>
           )}
         </nav>
         {sidebarCollapsed ? (
