@@ -100,11 +100,12 @@ describe("mobile app shell admin boundary", () => {
 
     expect(html).toContain("M12 2.25A9.75 9.75");
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
-    expect(html).toContain('aria-label="일반업무포털 사이드바 이름 편집"');
+    expect(html).toContain('aria-label="일반업무포털 사이드바 편집"');
     expect(html).toContain('class="desktop-sidebar__collapsed-stack"');
     expect(html).toContain('class="desktop-sidebar__footer"');
     expect(html).toContain('class="desktop-sidebar__settings-button"');
-    expect(html).toContain("이름 편집");
+    expect(html).toContain("편집");
+    expect(html).not.toContain("이름 편집");
     expect(html).not.toContain('name="settings" title="설정"');
     expect(html).not.toContain("sidebar-custom-panel");
 
@@ -166,7 +167,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
-    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 이름 편집"');
+    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 편집"');
     expect(generalHtml).toContain('data-route="/home"');
     expect(generalHtml).toContain("조직도");
     expect(generalHtml).toContain("휴가");
@@ -270,6 +271,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="sidebar-settings-preview-button"');
     expect(shellSource).toContain('className="sidebar-settings-preview-actions"');
     expect(shellSource).toContain('onClick={() => setIsSidebarSettingsOpen(true)}');
+    expect(shellSource).toContain("사이드바 편집");
+    expect(shellSource).not.toContain("이름 편집");
     expect(shellSource).not.toContain("sidebar-custom-panel");
 
     expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');
@@ -305,6 +308,10 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("overflow: hidden");
     expect(globalCss).toContain("overflow-y: auto");
     expect(globalCss).not.toContain("box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18)");
+    expect(globalCss).toContain(".desktop-sidebar--collapsed .desktop-sidebar__collapsed-stack");
+    expect(globalCss).toContain("min-height: 44px");
+    expect(globalCss).toContain("min-height: 32px");
+    expect(globalCss).toContain("padding: 10px 14px 8px");
     expect(globalCss).not.toContain(".desktop-sidebar--scrolling");
   });
 });
