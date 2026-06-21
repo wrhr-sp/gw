@@ -310,8 +310,14 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('areBooleanRecordsEqual');
     expect(shellSource).toContain('function handleAdminSecondaryPasswordSubmit()');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
-    expect(shellSource).toContain('관리자설정 확인');
+    expect(shellSource).toContain('2차 비밀번호 설정하기');
+    expect(shellSource).toContain('topbar-profile-security-card');
+    expect(shellSource).toContain('renderSecondaryPasswordEditor');
+    expect(shellSource).toContain('type AdminSettingsPanelKey = "access" | "admin-rights"');
+    expect(shellSource).toContain('민감정보 2차 비밀번호 확인');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
+    expect(shellSource).toContain('접근권한');
+    expect(shellSource).toContain('관리자 권한');
     expect(shellSource).toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');
     expect(shellSource).toContain('? handleAdminSecondaryPasswordSubmit');
     expect(shellSource).toContain('topbar-modal-toast--no-change');
@@ -329,7 +335,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}');
     expect(shellSource).toContain('handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)');
     expect(shellSource).toContain('사용자 계정 목록');
-    expect(shellSource).toContain('기능 권한');
+    expect(shellSource).toContain('기능 접근권한');
     expect(shellSource).toContain('selectedPermissionUserId');
     expect(shellSource).toContain('const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)');
     expect(shellSource).toContain('function openLogoutConfirm()');

@@ -16,6 +16,7 @@ export function PageShell({
   description,
   children,
   actions,
+  backHref = "/home",
 }: PageShellProps) {
   return (
     <main className="page-shell">
@@ -23,7 +24,7 @@ export function PageShell({
         {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
         <div className="page-shell__headline">
           <div>
-            <h1>{title}</h1>
+            <h1><a className="page-shell__title-link" href={backHref ?? "/home"}>{title}</a></h1>
             {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className="page-shell__actions">{actions}</div> : null}
