@@ -22,6 +22,10 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("background: var(--surface);");
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
     expect(globalCss).toContain(".page-shell__content > .surface-card + .surface-card {");
+    expect(globalCss).toContain(".page-shell__headline h1 {");
+    expect(globalCss).toContain("font-size: 1.35rem;");
+    expect(globalCss).toContain("font-weight: 900;");
+    expect(globalCss).toContain("letter-spacing: 0.03em;");
   });
 
   it("removes ad-hoc centered feature page shells from fallback routes", () => {
