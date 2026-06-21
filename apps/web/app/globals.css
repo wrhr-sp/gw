@@ -1774,6 +1774,7 @@ li {
 
 .topbar-modal__grid,
 .topbar-profile-settings,
+.topbar-admin-secondary-gate,
 .topbar-admin-settings {
   display: grid;
   min-height: 0;
@@ -1789,6 +1790,12 @@ li {
 
 .topbar-profile-settings {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.topbar-modal--integrated-settings .topbar-modal__grid,
+.topbar-modal--integrated-settings .topbar-admin-secondary-gate,
+.topbar-modal--integrated-settings .topbar-admin-settings {
+  flex: 1 1 auto;
 }
 
 .topbar-settings-tabs {
@@ -1817,6 +1824,56 @@ li {
 
 .topbar-admin-settings {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+}
+
+.topbar-admin-secondary-gate {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+}
+
+.topbar-admin-secondary-card {
+  width: min(460px, 100%);
+}
+
+.topbar-admin-secondary-card p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.topbar-admin-secondary-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.topbar-admin-secondary-field span {
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.topbar-admin-secondary-field input {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.48em;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.topbar-admin-secondary-error {
+  margin: 10px 0 0;
+  color: #b91c1c;
+  font-size: 0.84rem;
+  font-weight: 900;
 }
 
 .topbar-admin-settings__users,

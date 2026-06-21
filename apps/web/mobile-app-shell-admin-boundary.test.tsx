@@ -297,6 +297,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('function areGeneralSettingsEqual');
     expect(shellSource).toContain('const [generalSettings, setGeneralSettings]');
     expect(shellSource).toContain('const [adminPermissionSettings, setAdminPermissionSettings]');
+    expect(shellSource).toContain('const [adminSettingsUnlocked, setAdminSettingsUnlocked]');
+    expect(shellSource).toContain('const [adminSecondaryPassword, setAdminSecondaryPassword]');
     expect(shellSource).toContain('const savedGeneralSettingsRef');
     expect(shellSource).toContain('const savedAdminPermissionSettingsRef');
     expect(shellSource).toContain('areAdminPermissionStatesEqual');
@@ -306,7 +308,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change")');
     expect(shellSource).toContain('function handleProfileSettingsSave()');
     expect(shellSource).toContain('areBooleanRecordsEqual');
-    expect(shellSource).toContain('onClick={activeTopbarModal === "profile-settings" ? handleProfileSettingsSave : handleSettingsSave}');
+    expect(shellSource).toContain('function handleAdminSecondaryPasswordSubmit()');
+    expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
+    expect(shellSource).toContain('관리자설정 확인');
+    expect(shellSource).toContain('topbar-admin-secondary-gate');
+    expect(shellSource).toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');
+    expect(shellSource).toContain('? handleAdminSecondaryPasswordSubmit');
     expect(shellSource).toContain('topbar-modal-toast--no-change');
     expect(shellSource).toContain('checked={generalSettings.startScreen === item}');
     expect(shellSource).toContain('checked={generalSettings.density === item}');
@@ -366,6 +373,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-modal__grid,");
     expect(globalCss).toContain(".topbar-profile-settings,");
     expect(globalCss).toContain(".topbar-admin-settings {");
+    expect(globalCss).toContain(".topbar-admin-secondary-gate");
+    expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-admin-settings");
+    expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain(".topbar-modal--integrated-settings {");
     expect(globalCss).toContain("width: min(1240px, calc(100vw - 20px));");
     expect(globalCss).toContain("height: min(860px, calc(100dvh - 20px));");
