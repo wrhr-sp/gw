@@ -156,8 +156,8 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('href="/management"');
     expect(generalHtml).toContain("portal-switch-link__arrow-outline");
     expect(generalHtml).not.toContain("↗");
-    expect(generalHtml).toContain('aria-label="설정"');
-    expect(generalHtml).toContain('data-tooltip="설정"');
+    expect(generalHtml).toContain('aria-label="통합설정"');
+    expect(generalHtml).toContain('data-tooltip="통합설정"');
     expect(generalHtml).toContain('aria-label="공지사항"');
     expect(generalHtml).toContain('data-tooltip="공지사항"');
     expect(generalHtml).toContain('aria-label="알림"');
@@ -312,6 +312,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const adminSettingsRoleCodes');
     expect(shellSource).toContain('const adminPermissionUsers');
     expect(shellSource).toContain('const adminFeaturePermissions');
+    expect(shellSource).toContain('settings: "통합설정"');
+    expect(shellSource).toContain('topbar-modal--integrated-settings');
     expect(shellSource).toContain('사용자 계정 목록');
     expect(shellSource).toContain('기능 권한');
     expect(shellSource).toContain('selectedPermissionUserId');
@@ -354,6 +356,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-modal__grid,");
     expect(globalCss).toContain(".topbar-profile-settings,");
     expect(globalCss).toContain(".topbar-admin-settings {");
+    expect(globalCss).toContain(".topbar-modal--integrated-settings {");
+    expect(globalCss).toContain("width: min(1240px, calc(100vw - 20px));");
+    expect(globalCss).toContain("height: min(860px, calc(100dvh - 20px));");
     expect(globalCss).toContain(".topbar-settings-tabs");
     expect(globalCss).toContain(".topbar-admin-user-row--active");
     expect(globalCss).toContain(".logout-confirm-backdrop");

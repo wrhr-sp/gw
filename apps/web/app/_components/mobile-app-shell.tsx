@@ -1457,8 +1457,9 @@ export function MobileAppShell({
     }
 
     const isProfileSettings = activeTopbarModal === "profile-settings";
+    const isIntegratedSettings = activeTopbarModal === "settings";
     const titleByModal: Record<TopbarActionKey, string> = {
-      settings: "설정",
+      settings: "통합설정",
       notices: "공지사항",
       notifications: "알림",
       "profile-settings": "내정보 설정",
@@ -1473,7 +1474,7 @@ export function MobileAppShell({
     return (
       <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeTopbarModal}>
         <section
-          className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : "topbar-modal"}
+          className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : isIntegratedSettings ? "topbar-modal topbar-modal--integrated-settings" : "topbar-modal"}
           role="dialog"
           aria-modal="true"
           aria-labelledby="topbar-modal-title"
@@ -1852,7 +1853,7 @@ export function MobileAppShell({
               {!isAdminHostShell ? (
                 <>
                   <TopbarIconButton
-                    label="설정"
+                    label="통합설정"
                     iconName="settings"
                     onClick={() => {
                       setSettingsTab(canUseAdminSettings ? "admin" : "basic");
