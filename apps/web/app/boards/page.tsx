@@ -98,9 +98,9 @@ function BoardSection({ title, boards }: BoardSectionProps) {
           <a key={board.id} href={`/boards/${board.id}`} className="board-tree-link">
             <span className="board-tree-link__copy">
               <strong>{board.name}</strong>
-              <small>{board.department ? `${board.department} · ` : ""}{board.unread > 0 ? `미확인 ${board.unread}건` : "새 글 없음"}</small>
+              {board.department || board.unread === 0 ? <small>{board.department ?? "새 글 없음"}</small> : null}
             </span>
-            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`미확인 ${board.unread}건`}>{board.unread}</span> : null}
+            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`${board.name} 새 글 ${board.unread}건`}>{board.unread}</span> : null}
           </a>
         ))}
       </div>
@@ -114,6 +114,7 @@ export default function BoardsPage() {
   return (
     <PageShell
       title="게시판"
+      titleHref="/boards"
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
