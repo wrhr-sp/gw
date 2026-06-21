@@ -63,13 +63,15 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     );
 
     expect(boardListHtml).toContain("board-workspace");
-    expect(boardListHtml).toContain("왼쪽 목록 기준");
+    expect(boardListHtml).not.toContain("사내 소통");
+    expect(boardListHtml).not.toContain("왼쪽 목록 기준");
+    expect(boardListHtml).not.toContain("왼쪽 게시판 목록에서");
     expect(boardListHtml).toContain("글쓰기");
     expect(boardListHtml).toContain("전사게시판");
     expect(boardListHtml).toContain("부서게시판");
     expect(boardListHtml).toContain("관리자 설정");
     expect(boardListHtml).toContain("하위 게시판 만들기");
-    expect(boardListHtml).toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
+    expect(boardListHtml).not.toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
     expect(boardListHtml).toContain("전사 공지");
     expect(boardListHtml).toContain("인사팀 게시판");
     expect(boardListHtml).toContain("자유 게시판");
