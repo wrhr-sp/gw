@@ -72,6 +72,7 @@ type TopbarProfileState = {
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 type SettingsTabKey = "basic" | "admin";
+type AdminSettingsPanelKey = "access" | "admin-rights";
 
 type SecondaryPasswordFormState = {
   current: string;
@@ -818,6 +819,10 @@ export function MobileAppShell({
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>("basic");
+  const [adminSettingsPanel, setAdminSettingsPanel] = useState<AdminSettingsPanelKey>("access");
+  const [pendingSensitiveRoute, setPendingSensitiveRoute] = useState<string | null>(null);
+  const [sensitiveRoutePassword, setSensitiveRoutePassword] = useState("");
+  const [sensitiveRoutePasswordError, setSensitiveRoutePasswordError] = useState<string | null>(null);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
@@ -857,6 +862,7 @@ export function MobileAppShell({
     setAdminSettingsUnlocked(false);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setAdminSettingsPanel("access");
     setIsSecondaryPasswordDialogOpen(false);
     setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
     setSecondaryPasswordErrors({});
@@ -1449,6 +1455,45 @@ export function MobileAppShell({
     permissionNoticeTimerRef.current = setTimeout(() => setPermissionNoticeVisible(false), 2200);
   }
 
+  function isSensitiveRoute(href: string) {
+    return ["/admin", "/employees", "/org", "/payroll", "/payroll/me", "/work-items/hr"].some((route) => href === route || href.startsWith(`${route}/`));
+  }
+
+  function requestSensitiveRouteAccess(href: string) {
+    setPendingSensitiveRoute(href);
+    setSensitiveRoutePassword("");
+    setSensitiveRoutePasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+  }
+
+  function closeSensitiveRouteGate() {
+    setPendingSensitiveRoute(null);
+    setSensitiveRoutePassword("");
+    setSensitiveRoutePasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+  }
+
+  function handleSensitiveRoutePasswordSubmit() {
+    if (!hasSecondaryPassword) {
+      openSecondaryPasswordDialog();
+      return;
+    }
+    if (!/^\d{4}$/.test(sensitiveRoutePassword)) {
+      setSensitiveRoutePasswordError("2차 비밀번호 4자리를 입력해 주세요.");
+      return;
+    }
+    if (sensitiveRoutePassword !== secondaryPasswordValue) {
+      setSensitiveRoutePasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+      return;
+    }
+    const targetHref = pendingSensitiveRoute;
+    closeSensitiveRouteGate();
+    if (targetHref) {
+      navigateTo(targetHref);
+    }
+  }
+
+
   function openAdminSettingsTab() {
     if (!canUseAdminSettings) {
       return;
@@ -1521,7 +1566,51 @@ export function MobileAppShell({
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
     closeSecondaryPasswordDialog();
+    if (pendingSensitiveRoute) {
+      const targetHref = pendingSensitiveRoute;
+      setPendingSensitiveRoute(null);
+      setSensitiveRoutePassword("");
+      setSensitiveRoutePasswordError(null);
+      navigateTo(targetHref);
+      return;
+    }
     handleTopbarSettingsSave(saveResult.toastMessage, "success");
+  }
+
+  function renderSecondaryPasswordEditor() {
+    const mode = getSecondaryPasswordMode(hasSecondaryPassword);
+    return (
+      <div className="secondary-password-editor" aria-label={mode === "change" ? "2차 비밀번호 변경" : "2차 비밀번호 설정"}>
+        {mode === "change" ? (
+          <PinField
+            label="현재 2차 비밀번호"
+            value={secondaryPasswordForm.current}
+            error={secondaryPasswordErrors.current}
+            onChange={(value) => handleSecondaryPasswordFieldChange("current", value)}
+          />
+        ) : null}
+        <PinField
+          label={mode === "change" ? "새 2차 비밀번호" : "2차 비밀번호"}
+          value={secondaryPasswordForm.next}
+          error={secondaryPasswordErrors.next}
+          onChange={(value) => handleSecondaryPasswordFieldChange("next", value)}
+        />
+        <PinField
+          label="2차 비밀번호 확인"
+          value={secondaryPasswordForm.confirm}
+          error={secondaryPasswordErrors.confirm}
+          onChange={(value) => handleSecondaryPasswordFieldChange("confirm", value)}
+        />
+        <div className="secondary-password-editor__actions">
+          <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSecondaryPasswordDialog}>
+            취소
+          </button>
+          <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>
+            {mode === "change" ? "변경" : "설정"}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
@@ -1830,12 +1919,16 @@ export function MobileAppShell({
                     }}
                   />
                 ) : (
-                  <div className="topbar-settings-security-card">
+                  <div className="topbar-settings-security-card topbar-settings-security-card--setup">
                     <strong>아직 2차 비밀번호가 없습니다.</strong>
                     <p>이번 미리보기에서는 서버 저장 없이 화면 상태로만 2차 비밀번호를 설정합니다.</p>
-                    <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
-                      2차 비밀번호 설정하기
-                    </button>
+                    {isSecondaryPasswordDialogOpen ? (
+                      renderSecondaryPasswordEditor()
+                    ) : (
+                      <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                        2차 비밀번호 설정하기
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
@@ -1868,42 +1961,43 @@ export function MobileAppShell({
                   </div>
 
                   {settingsTab === "admin" && canUseAdminSettings ? (
-                    <div className="topbar-admin-settings">
-                      <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
-                        <strong>사용자 계정 목록</strong>
-                        <div className="topbar-admin-user-list">
-                          {adminPermissionUsers.map((user) => (
-                            <button
-                              key={user.id}
-                              type="button"
-                              className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"}
-                              aria-current={user.id === selectedPermissionUserId ? "true" : undefined}
-                              onClick={() => setSelectedPermissionUserId(user.id)}
-                            >
-                              <span>
-                                <strong>{user.name}</strong>
-                                <small>{user.department} · {user.role}</small>
-                              </span>
-                            </button>
-                          ))}
+                    <div className="topbar-admin-settings topbar-admin-settings--split">
+                      <nav className="topbar-admin-panel-tabs" aria-label="관리자설정 세부 탭">
+                        <button type="button" className={adminSettingsPanel === "access" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "access"} onClick={() => setAdminSettingsPanel("access")}>접근권한</button>
+                        <button type="button" className={adminSettingsPanel === "admin-rights" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "admin-rights"} onClick={() => setAdminSettingsPanel("admin-rights")}>관리자 권한</button>
+                      </nav>
+                      {adminSettingsPanel === "access" ? (
+                        <div className="topbar-admin-settings__panel">
+                          <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
+                            <strong>사용자 계정 목록</strong>
+                            <div className="topbar-admin-user-list">
+                              {adminPermissionUsers.map((user) => (
+                                <button key={user.id} type="button" className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"} aria-current={user.id === selectedPermissionUserId ? "true" : undefined} onClick={() => setSelectedPermissionUserId(user.id)}>
+                                  <span><strong>{user.name}</strong><small>{user.department} · {user.role}</small></span>
+                                </button>
+                              ))}
+                            </div>
+                          </section>
+                          <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 접근권한`}>
+                            <div className="topbar-admin-settings__selected-user"><strong>{selectedPermissionUser.name}</strong><span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span></div>
+                            <div className="topbar-modal-toggle-grid">
+                              {adminFeaturePermissions.map((permission) => (
+                                <SettingToggle key={permission.key} label={permission.label} checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]} onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)} />
+                              ))}
+                            </div>
+                          </section>
                         </div>
-                      </section>
-                      <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 권한`}>
-                        <div className="topbar-admin-settings__selected-user">
-                          <strong>{selectedPermissionUser.name}</strong>
-                          <span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span>
-                        </div>
-                        <div className="topbar-modal-toggle-grid">
-                          {adminFeaturePermissions.map((permission) => (
-                            <SettingToggle
-                              key={permission.key}
-                              label={permission.label}
-                              checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}
-                              onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)}
-                            />
-                          ))}
-                        </div>
-                      </section>
+                      ) : (
+                        <section className="topbar-admin-settings__admin-rights" aria-label="관리자 권한">
+                          <strong>관리자 권한</strong>
+                          <p className="topbar-modal-note">관리자 등급 부여와 회수는 기능 접근권한과 분리해서 확인합니다.</p>
+                          <div className="topbar-modal-toggle-grid">
+                            <SettingToggle label="총괄관리자 권한" description="회사 전체 설정과 모든 사용자 권한을 관리합니다." checked={selectedPermissionUser.id === "admin"} disabled />
+                            <SettingToggle label="HR 관리자 권한" description="조직도, 직원, 근태, 휴가 기능의 관리자 권한입니다." checked={selectedPermissionUser.id === "hr_manager"} />
+                            <SettingToggle label="지점 관리자 권한" description="소속 지점 사용자와 지점 업무를 관리합니다." checked={selectedPermissionUser.id === "branch_manager"} />
+                          </div>
+                        </section>
+                      )}
                     </div>
                   ) : (
                     <div className="topbar-modal__grid">
@@ -1964,6 +2058,17 @@ export function MobileAppShell({
 
           {isProfileSettings && adminSettingsUnlocked ? (
             <div className="topbar-profile-settings">
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-profile-security-card">
+                <strong>2차 비밀번호</strong>
+                <p className="topbar-modal-note">설정 관련 기능과 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
+                {isSecondaryPasswordDialogOpen ? (
+                  renderSecondaryPasswordEditor()
+                ) : (
+                  <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                    {hasSecondaryPassword ? "2차 비밀번호 변경하기" : "2차 비밀번호 설정하기"}
+                  </button>
+                )}
+              </section>
               <section className="topbar-modal-card topbar-profile-settings__hero">
                 <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
                 <div>
@@ -2015,13 +2120,7 @@ export function MobileAppShell({
                   <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
                   <SettingToggle label="상태 메시지 표시" />
                 </div>
-                <div className="topbar-settings-security-card">
-                  <strong>보안 설정</strong>
-                  <p>설정한 4자리 PIN은 관리자설정 진입에도 같은 값으로 사용합니다.</p>
-                  <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
-                    2차 비밀번호 변경하기
-                  </button>
-                </div>
+
               </section>
             </div>
           ) : null}
@@ -2154,9 +2253,14 @@ export function MobileAppShell({
       showPermissionDeniedNotice();
       return;
     }
-    if (!item.disabled) {
-      navigateTo(item.href);
+    if (item.disabled) {
+      return;
     }
+    if (isSensitiveRoute(item.href) && !adminSettingsUnlocked) {
+      requestSensitiveRouteAccess(item.href);
+      return;
+    }
+    navigateTo(item.href);
   }
 
   function openPortalShortcut(href: string) {
@@ -2372,6 +2476,36 @@ export function MobileAppShell({
         </header>
 
         {renderTopbarModal()}
+        {pendingSensitiveRoute ? (
+          <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeSensitiveRouteGate}>
+            <section className="topbar-modal topbar-modal--sensitive-gate" role="dialog" aria-modal="true" aria-label="민감정보 2차 비밀번호 확인" onMouseDown={(event) => event.stopPropagation()}>
+              <header className="topbar-modal__header">
+                <div>
+                  <span className="topbar-modal__eyebrow">WE’REHERE</span>
+                  <h2>2차 비밀번호 확인</h2>
+                  <p>급여·조직·관리자 같은 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
+                </div>
+                <button type="button" className="topbar-modal__close" aria-label="민감정보 확인 팝업 닫기" onClick={closeSensitiveRouteGate}>×</button>
+              </header>
+              <div className="topbar-settings-gate topbar-admin-secondary-gate sensitive-route-gate">
+                <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
+                  {hasSecondaryPassword ? (
+                    <>
+                      <PinField label="2차 비밀번호" value={sensitiveRoutePassword} autoFocus error={sensitiveRoutePasswordError} hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다." onChange={(value) => { setSensitiveRoutePassword(value); setSensitiveRoutePasswordError(null); }} />
+                      <button type="button" className="topbar-modal__button" onClick={handleSensitiveRoutePasswordSubmit}>확인</button>
+                    </>
+                  ) : (
+                    <div className="topbar-settings-security-card topbar-settings-security-card--setup">
+                      <strong>아직 2차 비밀번호가 없습니다.</strong>
+                      <p>먼저 4자리 PIN을 설정하면 바로 민감정보 기능으로 이동합니다.</p>
+                      {isSecondaryPasswordDialogOpen ? renderSecondaryPasswordEditor() : <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>2차 비밀번호 설정하기</button>}
+                    </div>
+                  )}
+                </section>
+              </div>
+            </section>
+          </div>
+        ) : null}
         {renderSidebarSettingsModal()}
         {renderLogoutConfirmModal()}
         {permissionNoticeVisible ? (

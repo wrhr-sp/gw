@@ -96,11 +96,11 @@ function BoardSection({ title, boards }: BoardSectionProps) {
       <div className="board-tree-section__items">
         {boards.map((board) => (
           <a key={board.id} href={`/boards/${board.id}`} className="board-tree-link">
-            <span className="board-tree-link__prefix">ㄴ</span>
-            <span>
+            <span className="board-tree-link__copy">
               <strong>{board.name}</strong>
               <small>{board.department ? `${board.department} · ` : ""}{board.unread > 0 ? `미확인 ${board.unread}건` : "새 글 없음"}</small>
             </span>
+            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`미확인 ${board.unread}건`}>{board.unread}</span> : null}
           </a>
         ))}
       </div>
