@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import { MobileAppShell, formatUnreadBadge, syncAfterHoursSettings } from "./app/_components/mobile-app-shell";
+import { MobileAppShell, formatUnreadBadge, resolveSettingsSaveToast, syncAfterHoursSettings } from "./app/_components/mobile-app-shell";
 import {
   adminInstallGuideSteps,
   adminMenuSections,
@@ -291,7 +291,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('onClick={handleSidebarSettingsApply}');
     expect(shellSource).toContain('setSidebarDraftSelections(appliedSelection)');
     expect(shellSource).toContain('areSidebarSelectionsEqual');
-    expect(shellSource).toContain('hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다."');
+    expect(shellSource).toContain('showScopedSettingsSaveToast("sidebar-settings", hasSidebarChanges)');
     expect(shellSource).toContain('type GeneralSettingsState');
     expect(shellSource).toContain('const DEFAULT_GENERAL_SETTINGS');
     expect(shellSource).toContain('function areGeneralSettingsEqual');
@@ -304,9 +304,17 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('areAdminPermissionStatesEqual');
     expect(shellSource).toContain('function handleSettingsSave()');
     expect(shellSource).toContain('savedGeneralSettingsRef.current = { ...generalSettings }');
-    expect(shellSource).toContain('handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success")');
-    expect(shellSource).toContain('handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change")');
+    expect(shellSource).toContain('showScopedSettingsSaveToast("integrated-settings", true)');
+    expect(shellSource).toContain('showScopedSettingsSaveToast("integrated-settings", false)');
     expect(shellSource).toContain('function handleProfileSettingsSave()');
+    expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", true)');
+    expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", false)');
+    expect(shellSource).toContain('function showSettingsSaveToast(message: string');
+    expect(shellSource).not.toContain('function handleTopbarSettingsSave');
+    expect(resolveSettingsSaveToast("integrated-settings", true)).toEqual({ message: "통합설정이 적용되었습니다.", tone: "success" });
+    expect(resolveSettingsSaveToast("profile-settings", true)).toEqual({ message: "내정보 설정이 적용되었습니다.", tone: "success" });
+    expect(resolveSettingsSaveToast("sidebar-settings", true)).toEqual({ message: "사이드바 설정이 적용되었습니다.", tone: "success" });
+    expect(resolveSettingsSaveToast("profile-settings", false)).toEqual({ message: "변경된 내용이 없습니다.", tone: "no-change" });
     expect(shellSource).toContain('areBooleanRecordsEqual');
     expect(shellSource).toContain('function handleAdminSecondaryPasswordSubmit()');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
