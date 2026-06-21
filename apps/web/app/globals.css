@@ -1843,37 +1843,77 @@ li {
   line-height: 1.45;
 }
 
-.topbar-admin-secondary-field {
+.secondary-pin-field {
   display: grid;
   gap: 8px;
   margin-top: 18px;
 }
 
-.topbar-admin-secondary-field span {
+.secondary-pin-field > span {
   color: #334155;
   font-size: 0.84rem;
   font-weight: 900;
 }
 
-.topbar-admin-secondary-field input {
-  width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f172a;
-  font: inherit;
-  font-size: 1.35rem;
-  font-weight: 900;
-  letter-spacing: 0.48em;
-  padding: 12px 14px;
-  text-align: center;
+.secondary-pin-field__control {
+  position: relative;
+  display: inline-grid;
+  width: min(252px, 100%);
 }
 
+.secondary-pin-visual {
+  display: grid;
+  grid-template-columns: repeat(4, 48px);
+  gap: 10px;
+}
+
+.secondary-pin-visual__box {
+  aspect-ratio: 1;
+  border: 1.5px solid rgba(59, 130, 246, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.secondary-pin-visual__box--filled {
+  border-color: rgba(37, 99, 235, 0.72);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(99, 102, 241, 0.12));
+}
+
+.secondary-pin-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0.02;
+  font-size: 16px;
+}
+
+.secondary-pin-field__control:focus-within .secondary-pin-visual__box {
+  border-color: rgba(37, 99, 235, 0.72);
+}
+
+.secondary-pin-error,
 .topbar-admin-secondary-error {
   margin: 10px 0 0;
   color: #b91c1c;
   font-size: 0.84rem;
   font-weight: 900;
+}
+
+.secondary-password-editor {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  padding-top: 14px;
+}
+
+.topbar-profile-security-card .topbar-modal-secondary-action {
+  justify-self: start;
 }
 
 .topbar-admin-settings__users,

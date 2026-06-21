@@ -72,6 +72,19 @@ type TopbarProfileState = {
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 type SettingsTabKey = "basic" | "admin";
+type SecondaryPasswordMode = "setup" | "change";
+type SecondaryPasswordState = { hasSecondaryPassword: boolean; value: string };
+type SecondaryPasswordFormState = { current: string; next: string; confirm: string };
+
+const emptySecondaryPasswordForm: SecondaryPasswordFormState = { current: "", next: "", confirm: "" };
+
+function sanitizePin(value: string) {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+function getSecondaryPasswordMode(state: SecondaryPasswordState): SecondaryPasswordMode {
+  return state.hasSecondaryPassword ? "change" : "setup";
+}
 
 const adminSettingsRoleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"]);
 
@@ -658,6 +671,10 @@ export function MobileAppShell({
   const [adminSettingsUnlocked, setAdminSettingsUnlocked] = useState(false);
   const [adminSecondaryPassword, setAdminSecondaryPassword] = useState("");
   const [adminSecondaryPasswordError, setAdminSecondaryPasswordError] = useState<string | null>(null);
+  const [secondaryPasswordState, setSecondaryPasswordState] = useState<SecondaryPasswordState>({ hasSecondaryPassword: false, value: "" });
+  const [secondaryPasswordForm, setSecondaryPasswordForm] = useState<SecondaryPasswordFormState>(emptySecondaryPasswordForm);
+  const [secondaryPasswordFormErrors, setSecondaryPasswordFormErrors] = useState<Partial<Record<keyof SecondaryPasswordFormState, string>>>({});
+  const [isSecondaryPasswordEditorOpen, setIsSecondaryPasswordEditorOpen] = useState(false);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
@@ -699,6 +716,9 @@ export function MobileAppShell({
     setAdminSettingsUnlocked(false);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordEditorOpen(false);
+    setSecondaryPasswordForm(emptySecondaryPasswordForm);
+    setSecondaryPasswordFormErrors({});
     setSuppressTopbarTooltips(true);
     window.requestAnimationFrame(blurActiveElement);
   }
@@ -1268,15 +1288,102 @@ export function MobileAppShell({
     setAdminSecondaryPasswordError(null);
   }
 
+  function renderPinVisual(value: string, label: string) {
+    return (
+      <div className="secondary-pin-visual" aria-hidden="true" data-filled-count={value.length}>
+        {[0, 1, 2, 3].map((index) => (
+          <span key={`${label}-${index}`} className={index < value.length ? "secondary-pin-visual__box secondary-pin-visual__box--filled" : "secondary-pin-visual__box"} />
+        ))}
+      </div>
+    );
+  }
+
+  function renderSecondaryPinField({
+    id,
+    label,
+    value,
+    error,
+    onChange,
+    onEnter,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    error?: string | null;
+    onChange: (value: string) => void;
+    onEnter?: () => void;
+  }) {
+    const errorId = error ? `${id}-error` : undefined;
+    return (
+      <label className="secondary-pin-field" htmlFor={id}>
+        <span>{label}</span>
+        <div className="secondary-pin-field__control">
+          {renderPinVisual(value, id)}
+          <input
+            id={id}
+            className="secondary-pin-field__input"
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            value={value}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={errorId}
+            autoComplete="one-time-code"
+            onChange={(event) => onChange(sanitizePin(event.target.value))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onEnter?.();
+            }}
+          />
+        </div>
+        {error ? <p id={errorId} className="secondary-pin-error">{error}</p> : null}
+      </label>
+    );
+  }
+
   function handleAdminSecondaryPasswordSubmit() {
     if (!/^\d{4}$/.test(adminSecondaryPassword)) {
       setAdminSecondaryPasswordError("2차 비밀번호 4자리를 입력해 주세요.");
       return;
     }
 
+    if (secondaryPasswordState.hasSecondaryPassword && adminSecondaryPassword !== secondaryPasswordState.value) {
+      setAdminSecondaryPasswordError("2차 비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
     setAdminSettingsUnlocked(true);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+  }
+
+  function handleSecondaryPasswordFormChange(field: keyof SecondaryPasswordFormState, value: string) {
+    setSecondaryPasswordForm((current) => ({ ...current, [field]: sanitizePin(value) }));
+    setSecondaryPasswordFormErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function handleSecondaryPasswordSave() {
+    const mode = getSecondaryPasswordMode(secondaryPasswordState);
+    const errors: Partial<Record<keyof SecondaryPasswordFormState, string>> = {};
+
+    if (mode === "change") {
+      if (secondaryPasswordForm.current.length !== 4) errors.current = "현재 2차 비밀번호 4자리를 입력해 주세요.";
+      else if (secondaryPasswordForm.current !== secondaryPasswordState.value) errors.current = "현재 2차 비밀번호가 일치하지 않습니다.";
+    }
+    if (secondaryPasswordForm.next.length !== 4) errors.next = "새 2차 비밀번호는 숫자 4자리만 입력할 수 있습니다.";
+    if (secondaryPasswordForm.confirm.length !== 4) errors.confirm = "확인용 2차 비밀번호도 숫자 4자리를 입력해 주세요.";
+    else if (secondaryPasswordForm.next !== secondaryPasswordForm.confirm) errors.confirm = "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.";
+
+    if (Object.keys(errors).length > 0) {
+      setSecondaryPasswordFormErrors(errors);
+      return;
+    }
+
+    setSecondaryPasswordState({ hasSecondaryPassword: true, value: secondaryPasswordForm.next });
+    setSecondaryPasswordForm(emptySecondaryPasswordForm);
+    setSecondaryPasswordFormErrors({});
+    setIsSecondaryPasswordEditorOpen(false);
+    handleTopbarSettingsSave(mode === "change" ? "2차 비밀번호가 변경되었습니다." : "2차 비밀번호가 설정되었습니다.", "success");
   }
 
   function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
@@ -1528,6 +1635,8 @@ export function MobileAppShell({
 
     const isProfileSettings = activeTopbarModal === "profile-settings";
     const isIntegratedSettings = activeTopbarModal === "settings";
+    const needsSecondaryGate = (activeTopbarModal === "settings" || activeTopbarModal === "profile-settings") && !adminSettingsUnlocked;
+    const secondaryPasswordMode = getSecondaryPasswordMode(secondaryPasswordState);
     const titleByModal: Record<TopbarActionKey, string> = {
       settings: "통합설정",
       notices: "공지사항",
@@ -1579,33 +1688,31 @@ export function MobileAppShell({
                 ) : null}
               </nav>
 
-              {settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? (
+              {needsSecondaryGate ? (
                 <div className="topbar-admin-secondary-gate">
-                  <section className="topbar-modal-card topbar-admin-secondary-card" aria-label="관리자설정 2차 비밀번호 확인">
-                    <strong>관리자설정 확인</strong>
-                    <p>관리자 권한 변경은 민감한 작업입니다. 2차 비밀번호 4자리를 입력해 주세요.</p>
-                    <label className="topbar-admin-secondary-field">
-                      <span>2차 비밀번호</span>
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={4}
-                        value={adminSecondaryPassword}
-                        aria-invalid={adminSecondaryPasswordError ? true : undefined}
-                        aria-describedby={adminSecondaryPasswordError ? "admin-secondary-password-error" : undefined}
-                        onChange={(event) => {
-                          setAdminSecondaryPassword(event.target.value.replace(/\D/g, "").slice(0, 4));
-                          setAdminSecondaryPasswordError(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            handleAdminSecondaryPasswordSubmit();
-                          }
-                        }}
-                      />
-                    </label>
-                    {adminSecondaryPasswordError ? <p id="admin-secondary-password-error" className="topbar-admin-secondary-error">{adminSecondaryPasswordError}</p> : null}
+                  <section className="topbar-modal-card topbar-admin-secondary-card" aria-label="설정 2차 비밀번호 확인">
+                    <strong>{secondaryPasswordState.hasSecondaryPassword ? "2차 비밀번호 확인" : "2차 비밀번호 설정"}</strong>
+                    <p>설정과 민감정보 관련 기능은 2차 비밀번호 4자리를 한 번 더 확인합니다.</p>
+                    {secondaryPasswordState.hasSecondaryPassword
+                      ? renderSecondaryPinField({
+                          id: "settings-secondary-password",
+                          label: "2차 비밀번호",
+                          value: adminSecondaryPassword,
+                          error: adminSecondaryPasswordError,
+                          onChange: (value) => { setAdminSecondaryPassword(value); setAdminSecondaryPasswordError(null); },
+                          onEnter: handleAdminSecondaryPasswordSubmit,
+                        })
+                      : null}
+                    {!secondaryPasswordState.hasSecondaryPassword || isSecondaryPasswordEditorOpen ? (
+                      <div className="secondary-password-editor" aria-label={secondaryPasswordMode === "change" ? "2차 비밀번호 변경" : "2차 비밀번호 설정"}>
+                        {secondaryPasswordMode === "change" ? renderSecondaryPinField({ id: "secondary-password-current", label: "현재 2차 비밀번호", value: secondaryPasswordForm.current, error: secondaryPasswordFormErrors.current, onChange: (value) => handleSecondaryPasswordFormChange("current", value) }) : null}
+                        {renderSecondaryPinField({ id: "secondary-password-next", label: secondaryPasswordMode === "change" ? "새 2차 비밀번호" : "2차 비밀번호", value: secondaryPasswordForm.next, error: secondaryPasswordFormErrors.next, onChange: (value) => handleSecondaryPasswordFormChange("next", value) })}
+                        {renderSecondaryPinField({ id: "secondary-password-confirm", label: "2차 비밀번호 확인", value: secondaryPasswordForm.confirm, error: secondaryPasswordFormErrors.confirm, onChange: (value) => handleSecondaryPasswordFormChange("confirm", value), onEnter: handleSecondaryPasswordSave })}
+                        <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>{secondaryPasswordMode === "change" ? "변경" : "설정"}</button>
+                      </div>
+                    ) : (
+                      <button type="button" className="topbar-modal-secondary-action" onClick={() => setIsSecondaryPasswordEditorOpen(true)}>2차 비밀번호 변경하기</button>
+                    )}
                   </section>
                 </div>
               ) : settingsTab === "admin" && canUseAdminSettings ? (
@@ -1740,7 +1847,7 @@ export function MobileAppShell({
             </div>
           ) : null}
 
-          {activeTopbarModal === "profile-settings" ? (
+          {activeTopbarModal === "profile-settings" && !needsSecondaryGate ? (
             <div className="topbar-profile-settings">
               <section className="topbar-modal-card topbar-profile-settings__hero">
                 <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
@@ -1760,6 +1867,19 @@ export function MobileAppShell({
                   <SettingField label="부서" value={profileState.departmentName} />
                   <SettingField label="이메일" value={profileState.email} />
                 </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-profile-security-card">
+                <strong>계정 보안</strong>
+                <button type="button" className="topbar-modal-secondary-action" onClick={() => setIsSecondaryPasswordEditorOpen((value) => !value)}>2차 비밀번호 변경하기</button>
+                <p className="topbar-modal-note">민감정보가 있는 기능과 설정 진입 시 4칸 PIN으로 한 번 더 확인합니다.</p>
+                {isSecondaryPasswordEditorOpen ? (
+                  <div className="secondary-password-editor" aria-label="2차 비밀번호 변경하기">
+                    {getSecondaryPasswordMode(secondaryPasswordState) === "change" ? renderSecondaryPinField({ id: "profile-secondary-password-current", label: "현재 2차 비밀번호", value: secondaryPasswordForm.current, error: secondaryPasswordFormErrors.current, onChange: (value) => handleSecondaryPasswordFormChange("current", value) }) : null}
+                    {renderSecondaryPinField({ id: "profile-secondary-password-next", label: getSecondaryPasswordMode(secondaryPasswordState) === "change" ? "새 2차 비밀번호" : "2차 비밀번호", value: secondaryPasswordForm.next, error: secondaryPasswordFormErrors.next, onChange: (value) => handleSecondaryPasswordFormChange("next", value) })}
+                    {renderSecondaryPinField({ id: "profile-secondary-password-confirm", label: "2차 비밀번호 확인", value: secondaryPasswordForm.confirm, error: secondaryPasswordFormErrors.confirm, onChange: (value) => handleSecondaryPasswordFormChange("confirm", value), onEnter: handleSecondaryPasswordSave })}
+                    <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>{getSecondaryPasswordMode(secondaryPasswordState) === "change" ? "변경" : "설정"}</button>
+                  </div>
+                ) : null}
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 받을 기능 선택</strong>
@@ -1806,14 +1926,14 @@ export function MobileAppShell({
                 type="button"
                 className="topbar-modal__button"
                 onClick={
-                  activeTopbarModal === "profile-settings"
-                    ? handleProfileSettingsSave
-                    : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked
-                      ? handleAdminSecondaryPasswordSubmit
+                  needsSecondaryGate
+                    ? handleAdminSecondaryPasswordSubmit
+                    : activeTopbarModal === "profile-settings"
+                      ? handleProfileSettingsSave
                       : handleSettingsSave
                 }
               >
-                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "확인" : "저장"}
+                {needsSecondaryGate ? "확인" : "저장"}
               </button>
             </footer>
           ) : null}

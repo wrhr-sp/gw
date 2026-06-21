@@ -310,9 +310,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('areBooleanRecordsEqual');
     expect(shellSource).toContain('function handleAdminSecondaryPasswordSubmit()');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
-    expect(shellSource).toContain('관리자설정 확인');
+    expect(shellSource).toContain('2차 비밀번호 확인');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
-    expect(shellSource).toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');
+    expect(shellSource).toContain('secondary-pin-visual');
+    expect(shellSource).toContain('2차 비밀번호 변경하기');
+    expect(shellSource).toContain('민감정보가 있는 기능과 설정 진입 시 4칸 PIN');
+    expect(shellSource).toContain('needsSecondaryGate');
     expect(shellSource).toContain('? handleAdminSecondaryPasswordSubmit');
     expect(shellSource).toContain('topbar-modal-toast--no-change');
     expect(shellSource).toContain('checked={generalSettings.startScreen === item}');
@@ -374,6 +377,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-profile-settings,");
     expect(globalCss).toContain(".topbar-admin-settings {");
     expect(globalCss).toContain(".topbar-admin-secondary-gate");
+    expect(globalCss).toContain(".secondary-pin-visual");
+    expect(globalCss).toContain(".secondary-pin-visual__box");
     expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-admin-settings");
     expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain(".topbar-modal--integrated-settings {");
