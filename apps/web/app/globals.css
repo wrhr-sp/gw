@@ -1310,6 +1310,14 @@ li {
     padding-inline: var(--desktop-content-padding-inline);
   }
 
+  .login-page-shell {
+    width: min(460px, calc(100vw - 24px));
+    max-width: 460px;
+    margin-right: auto;
+    margin-left: auto;
+    padding: clamp(150px, 20dvh, 230px) 0 16px;
+  }
+
   .status-banner {
     width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));
     margin: 12px var(--desktop-content-padding-inline) 0;
