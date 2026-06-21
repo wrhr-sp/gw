@@ -62,14 +62,19 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
       await PostDetailPage({ params: Promise.resolve({ postId: forgedGeneratedPostId }) }),
     );
 
-    expect(boardListHtml).toContain("게시판 현황");
-    expect(boardListHtml).toContain("게시판 목록");
-    expect(boardListHtml).toContain("글 등록 순서");
+    expect(boardListHtml).toContain("board-workspace");
+    expect(boardListHtml).toContain("왼쪽 목록 기준");
+    expect(boardListHtml).toContain("글쓰기");
+    expect(boardListHtml).toContain("전사게시판");
+    expect(boardListHtml).toContain("부서게시판");
+    expect(boardListHtml).toContain("관리자 설정");
+    expect(boardListHtml).toContain("하위 게시판 만들기");
+    expect(boardListHtml).toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
     expect(boardListHtml).toContain("전사 공지");
-    expect(boardListHtml).toContain("부서별 공지");
+    expect(boardListHtml).toContain("인사팀 게시판");
     expect(boardListHtml).toContain("자유 게시판");
     expect(boardListHtml).toContain("자료 공유");
-    expect(boardListHtml).toContain("등록 버튼");
+    expect(boardListHtml).toContain("읽음 98명 / 전체 120명");
     expect(boardListHtml).not.toContain("Phase 51");
     expect(boardListHtml).not.toContain("happy path");
     expect(boardListHtml).not.toContain("API 스모크");
