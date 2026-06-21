@@ -71,6 +71,41 @@ type TopbarProfileState = {
 
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
+type SettingsTabKey = "basic" | "admin";
+
+const adminSettingsRoleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"]);
+
+const adminPermissionUsers = [
+  { id: "admin", name: "총괄관리계정", department: "본사", role: "회사 관리자" },
+  { id: "hr_manager", name: "인사팀 관리자", department: "인사팀", role: "HR 관리자" },
+  { id: "branch_manager", name: "지점 관리자", department: "강남지점", role: "지점 관리자" },
+  { id: "employee", name: "일반 직원", department: "영업팀", role: "직원" },
+] as const;
+
+const adminFeaturePermissions = [
+  { key: "attendance", label: "근태 관리" },
+  { key: "leave", label: "휴가 관리" },
+  { key: "approvals", label: "전자결재" },
+  { key: "boards", label: "게시판" },
+  { key: "documents", label: "문서함" },
+  { key: "employees", label: "조직/직원" },
+  { key: "payroll", label: "급여 조회" },
+  { key: "management", label: "경영 포털" },
+] as const;
+
+type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
+type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
+
+function createAdminPermissionSet(values: AdminFeaturePermissionKey[]) {
+  return new Set<AdminFeaturePermissionKey>(values);
+}
+
+const defaultAdminPermissionByUser: Record<AdminPermissionUserId, Set<AdminFeaturePermissionKey>> = {
+  admin: createAdminPermissionSet(adminFeaturePermissions.map((permission) => permission.key)),
+  hr_manager: createAdminPermissionSet(["attendance", "leave", "approvals", "employees", "documents"]),
+  branch_manager: createAdminPermissionSet(["attendance", "leave", "boards", "documents"]),
+  employee: createAdminPermissionSet(["attendance", "leave", "approvals", "boards", "documents"]),
+};
 
 const DEFAULT_NOTIFICATION_PREFERENCES: Record<NotificationPreferenceKey, boolean> = {
   notices: true,
@@ -606,6 +641,8 @@ export function MobileAppShell({
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [settingsSaveToastTone, setSettingsSaveToastTone] = useState<"success" | "no-change">("success");
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
+  const [settingsTab, setSettingsTab] = useState<SettingsTabKey>(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
+  const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
@@ -669,6 +706,8 @@ export function MobileAppShell({
 
   const hasManagementPortal = menuSections.some(isManagementSection);
   const isAdminHostShell = homeHref === "/admin";
+  const canUseAdminSettings = adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE");
+  const selectedPermissionUser = adminPermissionUsers.find((user) => user.id === selectedPermissionUserId) ?? adminPermissionUsers[0];
   const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
   const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
   const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
@@ -709,6 +748,7 @@ export function MobileAppShell({
       positionLabel: getRoleLabel(currentRoleCode),
       fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
     }));
+    setSettingsTab(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
   }, [currentRoleCode]);
 
   useEffect(() => {
@@ -1456,58 +1496,110 @@ export function MobileAppShell({
           </header>
 
           {activeTopbarModal === "settings" ? (
-            <div className="topbar-modal__grid">
-              <section className="topbar-modal-card">
-                <strong>기본 시작 방식</strong>
-                <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                  {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
-                    <label key={item} className="topbar-modal-choice">
-                      <input
-                        type="radio"
-                        name="start-screen"
-                        checked={generalSettings.startScreen === item}
-                        onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
-                      />
-                      <span>{item}</span>
-                    </label>
-                  ))}
+            <>
+              <nav className="topbar-settings-tabs" aria-label="설정 기능 구분">
+                <button type="button" aria-current={settingsTab === "basic" ? "page" : undefined} onClick={() => setSettingsTab("basic")}>
+                  기본 기능
+                </button>
+                {canUseAdminSettings ? (
+                  <button type="button" aria-current={settingsTab === "admin" ? "page" : undefined} onClick={() => setSettingsTab("admin")}>
+                    관리자 기능
+                  </button>
+                ) : null}
+              </nav>
+
+              {settingsTab === "admin" && canUseAdminSettings ? (
+                <div className="topbar-admin-settings">
+                  <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
+                    <strong>사용자 계정 목록</strong>
+                    <div className="topbar-admin-user-list">
+                      {adminPermissionUsers.map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"}
+                          aria-current={user.id === selectedPermissionUserId ? "true" : undefined}
+                          onClick={() => setSelectedPermissionUserId(user.id)}
+                        >
+                          <span>
+                            <strong>{user.name}</strong>
+                            <small>{user.department} · {user.role}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 권한`}>
+                    <div className="topbar-admin-settings__selected-user">
+                      <strong>{selectedPermissionUser.name}</strong>
+                      <span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span>
+                    </div>
+                    <div className="topbar-modal-toggle-grid">
+                      {adminFeaturePermissions.map((permission) => (
+                        <SettingToggle
+                          key={permission.key}
+                          label={permission.label}
+                          defaultChecked={defaultAdminPermissionByUser[selectedPermissionUser.id].has(permission.key)}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 </div>
-              </section>
-              <section className="topbar-modal-card">
-                <strong>화면 기본 방식</strong>
-                <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
-                  {['기본', '넓게', '촘촘하게'].map((item) => (
-                    <label key={item} className="topbar-modal-choice">
-                      <input
-                        type="radio"
-                        name="density"
-                        checked={generalSettings.density === item}
-                        onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
-                      />
-                      <span>{item}</span>
-                    </label>
-                  ))}
+              ) : (
+                <div className="topbar-modal__grid">
+                  <section className="topbar-modal-card">
+                    <strong>기본 시작 방식</strong>
+                    <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
+                      {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
+                        <label key={item} className="topbar-modal-choice">
+                          <input
+                            type="radio"
+                            name="start-screen"
+                            checked={generalSettings.startScreen === item}
+                            onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
+                          />
+                          <span>{item}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="topbar-modal-card">
+                    <strong>화면 기본 방식</strong>
+                    <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
+                      {['기본', '넓게', '촘촘하게'].map((item) => (
+                        <label key={item} className="topbar-modal-choice">
+                          <input
+                            type="radio"
+                            name="density"
+                            checked={generalSettings.density === item}
+                            onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
+                          />
+                          <span>{item}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="topbar-modal-card">
+                    <strong>기기별 화면 설정</strong>
+                    <SettingToggle
+                      label="모바일 하단탭 간결 표시"
+                      description="좁은 화면에서 하단탭을 더 작게 표시합니다."
+                      checked={generalSettings.compactMobileBottomNav}
+                      onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
+                    />
+                  </section>
+                  <section className="topbar-modal-card topbar-modal-card--wide">
+                    <strong>알림 기본 설정</strong>
+                    <div className="topbar-modal-toggle-grid">
+                      <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
+                      <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
+                      <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
+                      <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
+                    </div>
+                  </section>
                 </div>
-              </section>
-              <section className="topbar-modal-card">
-                <strong>기기별 화면 설정</strong>
-                <SettingToggle
-                  label="모바일 하단탭 간결 표시"
-                  description="좁은 화면에서 하단탭을 더 작게 표시합니다."
-                  checked={generalSettings.compactMobileBottomNav}
-                  onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
-                />
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>알림 기본 설정</strong>
-                <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
-                  <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
-                  <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
-                  <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
-                </div>
-              </section>
-            </div>
+              )}
+            </>
           ) : null}
 
           {activeTopbarModal === "notices" ? (
@@ -1759,7 +1851,14 @@ export function MobileAppShell({
               ) : null}
               {!isAdminHostShell ? (
                 <>
-                  <TopbarIconButton label="설정" iconName="settings" onClick={() => setActiveTopbarModal("settings")} />
+                  <TopbarIconButton
+                    label="설정"
+                    iconName="settings"
+                    onClick={() => {
+                      setSettingsTab(canUseAdminSettings ? "admin" : "basic");
+                      setActiveTopbarModal("settings");
+                    }}
+                  />
                   <TopbarIconButton label="공지사항" iconName="board" onClick={() => setActiveTopbarModal("notices")} />
                   <TopbarIconButton label="알림" iconName="notification" badgeText={formatUnreadBadge(notificationBadge?.unreadCount ?? null)} onClick={() => setActiveTopbarModal("notifications")} />
                   <div className="topbar-profile-menu" ref={profileMenuRef}>
