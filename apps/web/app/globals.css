@@ -420,6 +420,29 @@ li {
   padding-top: 20px;
 }
 
+.page-shell__content .grid-auto,
+.page-shell__content .grid-auto-compact,
+.page-shell__content .mobile-summary-grid {
+  gap: 0;
+}
+
+.page-shell__content .info-card,
+.page-shell__content .stat-card,
+.page-shell__content .route-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.page-shell__content .info-card + .info-card,
+.page-shell__content .stat-card + .stat-card,
+.page-shell__content .route-card + .route-card {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
 .login-page-shell {
   min-height: 100dvh;
   width: min(460px, calc(100vw - 24px));
