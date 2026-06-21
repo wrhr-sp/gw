@@ -27,7 +27,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     const validGeneratedPostId = "board_post_board_general_employee_employee_550e8400-e29b-41d4-a716-446655440000";
     const otherEmployeePlaceholderPostId = "board_post_board_general_employee_admin";
     const forgedGeneratedPostId = "board_post_board_general_employee_employee_forged";
-    const boardListHtml = renderToStaticMarkup(<BoardsPage />);
+    const boardListHtml = renderToStaticMarkup(await BoardsPage({ searchParams: Promise.resolve({}) }));
+    const boardAdminHtml = renderToStaticMarkup(await BoardsPage({ searchParams: Promise.resolve({ tab: "admin" }) }));
     const boardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_general" }) }),
     );
@@ -70,14 +71,24 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(boardListHtml).toContain("글쓰기");
     expect(boardListHtml).toContain("전사게시판");
     expect(boardListHtml).toContain("부서게시판");
-    expect(boardListHtml).toContain("관리자 설정");
-    expect(boardListHtml).toContain("하위 게시판 만들기");
+    expect(boardListHtml).toContain("기본 기능");
+    expect(boardListHtml).toContain("관리자 기능");
+    expect(boardListHtml).toContain("/boards?tab=admin#board-admin-settings");
+    expect(boardListHtml).not.toContain("하위 게시판 만들기");
     expect(boardListHtml).not.toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
     expect(boardListHtml).toContain("전사 공지");
     expect(boardListHtml).toContain("인사팀 게시판");
     expect(boardListHtml).toContain("자유 게시판");
     expect(boardListHtml).toContain("자료 공유");
-    expect(boardListHtml).toContain("읽음 98명 / 전체 120명");
+    expect(boardListHtml).not.toContain("읽음 98명 / 전체 120명");
+    expect(boardListHtml).not.toContain("대표 글 보기");
+    expect(boardListHtml).not.toContain("board-workspace__detail");
+    expect(boardAdminHtml).toContain("aria-current=\"page\">관리자 기능");
+    expect(boardAdminHtml).toContain("id=\"board-admin-settings\"");
+    expect(boardAdminHtml).toContain("하위 게시판 관리");
+    expect(boardAdminHtml).toContain("운영 정책");
+    expect(boardAdminHtml).toContain("읽음 확인");
+    expect(boardAdminHtml).not.toContain("게시글 목록");
     expect(boardListHtml).not.toContain("Phase 51");
     expect(boardListHtml).not.toContain("happy path");
     expect(boardListHtml).not.toContain("API 스모크");
