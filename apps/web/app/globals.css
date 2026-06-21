@@ -1685,6 +1685,12 @@ li {
   width: min(920px, calc(100vw - 32px));
 }
 
+.topbar-modal--integrated-settings {
+  width: min(1240px, calc(100vw - 20px));
+  height: min(860px, calc(100dvh - 20px));
+  max-height: calc(100dvh - 20px);
+}
+
 .topbar-modal__header {
   position: relative;
   display: flex;
