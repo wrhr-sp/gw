@@ -1258,7 +1258,7 @@ li {
 @media (min-width: 961px) {
   .app-shell--responsive {
     --desktop-topbar-height: 64px;
-    --desktop-content-padding-inline: clamp(18px, 2vw, 32px);
+    --desktop-content-padding-inline: clamp(9px, 1vw, 16px);
     --desktop-grid-gap: clamp(12px, 1.1vw, 16px);
     --desktop-grid-min: clamp(190px, 15.6vw, 220px);
     --desktop-grid-compact-min: clamp(156px, 12.8vw, 180px);

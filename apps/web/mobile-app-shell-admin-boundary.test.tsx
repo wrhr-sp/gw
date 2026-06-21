@@ -419,7 +419,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain(".sidebar-settings-modal__toast");
     expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 116px");
     expect(globalCss).toContain("--desktop-sidebar-expanded-width: 312px");
-    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(18px, 2vw, 32px)");
+    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(9px, 1vw, 16px)");
     expect(globalCss).toContain("--desktop-grid-min: clamp(190px, 15.6vw, 220px)");
     expect(globalCss).toContain("--desktop-grid-compact-min: clamp(156px, 12.8vw, 180px)");
     expect(globalCss).toContain("--desktop-summary-grid-min: clamp(224px, 18.4vw, 260px)");

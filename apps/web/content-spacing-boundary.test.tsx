@@ -11,7 +11,7 @@ describe("feature page content spacing baseline", () => {
     const globalCss = readFileSync(new URL("./app/globals.css", import.meta.url), "utf8");
 
     expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 116px");
-    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(18px, 2vw, 32px)");
+    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(9px, 1vw, 16px)");
     expect(globalCss).toContain(".page-shell,");
     expect(globalCss).toContain("width: 100%");
     expect(globalCss).toContain("max-width: none");
