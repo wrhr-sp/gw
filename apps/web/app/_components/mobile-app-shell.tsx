@@ -73,6 +73,29 @@ type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" |
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 type SettingsTabKey = "basic" | "admin";
 
+type SecondaryPasswordFormState = {
+  current: string;
+  next: string;
+  confirm: string;
+};
+
+type SecondaryPasswordState = {
+  hasSecondaryPassword: boolean;
+  secondaryPasswordValue: string;
+};
+
+type SecondaryPasswordSaveResult =
+  | {
+      ok: false;
+      errors: Partial<Record<keyof SecondaryPasswordFormState, string>>;
+    }
+  | {
+      ok: true;
+      nextState: SecondaryPasswordState;
+      nextMode: "change";
+      toastMessage: string;
+    };
+
 const adminSettingsRoleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"]);
 
 const adminPermissionUsers = [
@@ -160,6 +183,60 @@ export function syncAfterHoursSettings(
   }
 
   return nextSettings;
+}
+
+export function getSecondaryPasswordMode(hasSecondaryPassword: boolean): "setup" | "change" {
+  return hasSecondaryPassword ? "change" : "setup";
+}
+
+export function buildInitialSecondaryPasswordState(): SecondaryPasswordState {
+  return {
+    hasSecondaryPassword: false,
+    secondaryPasswordValue: "",
+  };
+}
+
+export function resolveSecondaryPasswordSave(
+  previousState: SecondaryPasswordState,
+  form: SecondaryPasswordFormState,
+): SecondaryPasswordSaveResult {
+  const nextErrors: Partial<Record<keyof SecondaryPasswordFormState, string>> = {};
+  const mode = getSecondaryPasswordMode(previousState.hasSecondaryPassword);
+
+  if (mode === "change") {
+    if (form.current.length !== 4) {
+      nextErrors.current = "현재 2차 비밀번호 4자리를 입력해 주세요.";
+    } else if (form.current !== previousState.secondaryPasswordValue) {
+      nextErrors.current = "현재 2차 비밀번호가 일치하지 않습니다.";
+    }
+  }
+
+  if (form.next.length !== 4) {
+    nextErrors.next = "새 2차 비밀번호는 숫자 4자리만 입력할 수 있습니다.";
+  }
+
+  if (form.confirm.length !== 4) {
+    nextErrors.confirm = "확인용 2차 비밀번호도 숫자 4자리를 입력해 주세요.";
+  } else if (form.next !== form.confirm) {
+    nextErrors.confirm = "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.";
+  }
+
+  if (Object.keys(nextErrors).length > 0) {
+    return {
+      ok: false,
+      errors: nextErrors,
+    };
+  }
+
+  return {
+    ok: true,
+    nextState: {
+      hasSecondaryPassword: true,
+      secondaryPasswordValue: form.next,
+    },
+    nextMode: "change",
+    toastMessage: mode === "change" ? "2차 비밀번호가 변경되었습니다." : "2차 비밀번호가 설정되었습니다.",
+  };
 }
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -457,6 +534,80 @@ function PortalShortcutIcon() {
   );
 }
 
+function sanitizePinValue(value: string) {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+function buildEmptySecondaryPasswordForm(): SecondaryPasswordFormState {
+  return {
+    current: "",
+    next: "",
+    confirm: "",
+  };
+}
+
+function PinField({
+  label,
+  value,
+  onChange,
+  error,
+  autoFocus = false,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string | null;
+  autoFocus?: boolean;
+  hint?: string;
+}) {
+  const inputId = label.replace(/\s+/g, "-").toLowerCase();
+
+  return (
+    <div className="pin-field">
+      <label className="pin-field__label" htmlFor={inputId}>
+        {label}
+      </label>
+      <div className={error ? "pin-field__surface pin-field__surface--error" : "pin-field__surface"}>
+        <input
+          id={inputId}
+          className="pin-field__input"
+          type="password"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]*"
+          maxLength={4}
+          value={value}
+          autoFocus={autoFocus}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
+          onChange={(event) => onChange(sanitizePinValue(event.target.value))}
+        />
+        <span className="pin-field__slots" aria-hidden="true">
+          {Array.from({ length: 4 }).map((_, index) => {
+            const filled = index < value.length;
+            return (
+              <span key={`${label}-${index}`} className={filled ? "pin-field__slot pin-field__slot--filled" : "pin-field__slot"}>
+                {filled ? "●" : ""}
+              </span>
+            );
+          })}
+        </span>
+      </div>
+      {hint ? (
+        <small id={`${inputId}-hint`} className="pin-field__hint">
+          {hint}
+        </small>
+      ) : null}
+      {error ? (
+        <p id={`${inputId}-error`} className="pin-field__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function SettingToggle({
   label,
   description,
@@ -658,9 +809,15 @@ export function MobileAppShell({
   const [adminSettingsUnlocked, setAdminSettingsUnlocked] = useState(false);
   const [adminSecondaryPassword, setAdminSecondaryPassword] = useState("");
   const [adminSecondaryPasswordError, setAdminSecondaryPasswordError] = useState<string | null>(null);
+  const initialSecondaryPasswordState = useMemo(() => buildInitialSecondaryPasswordState(), []);
+  const [hasSecondaryPassword, setHasSecondaryPassword] = useState(initialSecondaryPasswordState.hasSecondaryPassword);
+  const [secondaryPasswordValue, setSecondaryPasswordValue] = useState(initialSecondaryPasswordState.secondaryPasswordValue);
+  const [isSecondaryPasswordDialogOpen, setIsSecondaryPasswordDialogOpen] = useState(false);
+  const [secondaryPasswordForm, setSecondaryPasswordForm] = useState<SecondaryPasswordFormState>(() => buildEmptySecondaryPasswordForm());
+  const [secondaryPasswordErrors, setSecondaryPasswordErrors] = useState<Partial<Record<keyof SecondaryPasswordFormState, string>>>({});
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
-  const [settingsTab, setSettingsTab] = useState<SettingsTabKey>(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
+  const [settingsTab, setSettingsTab] = useState<SettingsTabKey>("basic");
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
@@ -696,11 +853,37 @@ export function MobileAppShell({
 
   function closeTopbarModal() {
     setActiveTopbarModal(null);
+    setSettingsTab("basic");
     setAdminSettingsUnlocked(false);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
     setSuppressTopbarTooltips(true);
     window.requestAnimationFrame(blurActiveElement);
+  }
+
+  function openUnifiedSettings() {
+    setSettingsTab("basic");
+    setAdminSettingsUnlocked(false);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+    setActiveTopbarModal("settings");
+  }
+
+  function openProfileSettings() {
+    setSettingsTab("basic");
+    setAdminSettingsUnlocked(false);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+    setActiveTopbarModal("profile-settings");
   }
 
   function openSidebarSettings() {
@@ -731,6 +914,7 @@ export function MobileAppShell({
   const hasManagementPortal = menuSections.some(isManagementSection);
   const isAdminHostShell = homeHref === "/admin";
   const canUseAdminSettings = adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE");
+  const secondaryPasswordMode = getSecondaryPasswordMode(hasSecondaryPassword);
   const selectedPermissionUser = adminPermissionUsers.find((user) => user.id === selectedPermissionUserId) ?? adminPermissionUsers[0];
   const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
   const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
@@ -773,10 +957,13 @@ export function MobileAppShell({
       positionLabel: getRoleLabel(currentRoleCode),
       fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
     }));
-    setSettingsTab(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
+    setSettingsTab("basic");
     setAdminSettingsUnlocked(false);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
   }, [currentRoleCode]);
 
   useEffect(() => {
@@ -1263,20 +1450,78 @@ export function MobileAppShell({
   }
 
   function openAdminSettingsTab() {
+    if (!canUseAdminSettings) {
+      return;
+    }
     setSettingsTab("admin");
-    setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setIsSecondaryPasswordDialogOpen(false);
+  }
+
+  function openSecondaryPasswordDialog() {
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+    setIsSecondaryPasswordDialogOpen(true);
+  }
+
+  function closeSecondaryPasswordDialog() {
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+  }
+
+  function handleSecondaryPasswordFieldChange(key: keyof SecondaryPasswordFormState, value: string) {
+    setSecondaryPasswordForm((previousValue) => ({
+      ...previousValue,
+      [key]: value,
+    }));
+    setSecondaryPasswordErrors((previousValue) => ({
+      ...previousValue,
+      [key]: undefined,
+    }));
   }
 
   function handleAdminSecondaryPasswordSubmit() {
+    if (!hasSecondaryPassword) {
+      openSecondaryPasswordDialog();
+      return;
+    }
+
     if (!/^\d{4}$/.test(adminSecondaryPassword)) {
       setAdminSecondaryPasswordError("2차 비밀번호 4자리를 입력해 주세요.");
+      return;
+    }
+
+    if (adminSecondaryPassword !== secondaryPasswordValue) {
+      setAdminSecondaryPasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
       return;
     }
 
     setAdminSettingsUnlocked(true);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+  }
+
+  function handleSecondaryPasswordSave() {
+    const saveResult = resolveSecondaryPasswordSave(
+      {
+        hasSecondaryPassword,
+        secondaryPasswordValue,
+      },
+      secondaryPasswordForm,
+    );
+
+    if (!saveResult.ok) {
+      setSecondaryPasswordErrors(saveResult.errors);
+      return;
+    }
+
+    setSecondaryPasswordValue(saveResult.nextState.secondaryPasswordValue);
+    setHasSecondaryPassword(saveResult.nextState.hasSecondaryPassword);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+    closeSecondaryPasswordDialog();
+    handleTopbarSettingsSave(saveResult.toastMessage, "success");
   }
 
   function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
@@ -1528,6 +1773,7 @@ export function MobileAppShell({
 
     const isProfileSettings = activeTopbarModal === "profile-settings";
     const isIntegratedSettings = activeTopbarModal === "settings";
+    const requiresSettingsGate = isIntegratedSettings || isProfileSettings;
     const titleByModal: Record<TopbarActionKey, string> = {
       settings: "통합설정",
       notices: "공지사항",
@@ -1566,141 +1812,218 @@ export function MobileAppShell({
             </button>
           </header>
 
-          {activeTopbarModal === "settings" ? (
-            <>
-              <nav className="topbar-settings-tabs" aria-label="설정 기능 구분">
-                <button type="button" aria-current={settingsTab === "basic" ? "page" : undefined} onClick={() => setSettingsTab("basic")}>
-                  기본 설정
-                </button>
-                {canUseAdminSettings ? (
-                  <button type="button" aria-current={settingsTab === "admin" ? "page" : undefined} onClick={openAdminSettingsTab}>
-                    관리자설정
-                  </button>
-                ) : null}
-              </nav>
+          {requiresSettingsGate && !adminSettingsUnlocked ? (
+            <div className="topbar-settings-gate topbar-admin-secondary-gate">
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
+                <strong>2차 비밀번호</strong>
+                <p className="topbar-modal-note">설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
+                {hasSecondaryPassword ? (
+                  <PinField
+                    label="2차 비밀번호"
+                    value={adminSecondaryPassword}
+                    autoFocus
+                    error={adminSecondaryPasswordError}
+                    hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다."
+                    onChange={(value) => {
+                      setAdminSecondaryPassword(value);
+                      setAdminSecondaryPasswordError(null);
+                    }}
+                  />
+                ) : (
+                  <div className="topbar-settings-security-card">
+                    <strong>아직 2차 비밀번호가 없습니다.</strong>
+                    <p>이번 미리보기에서는 서버 저장 없이 화면 상태로만 2차 비밀번호를 설정합니다.</p>
+                    <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                      2차 비밀번호 설정하기
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>
+          ) : null}
 
-              {settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? (
-                <div className="topbar-admin-secondary-gate">
-                  <section className="topbar-modal-card topbar-admin-secondary-card" aria-label="관리자설정 2차 비밀번호 확인">
-                    <strong>관리자설정 확인</strong>
-                    <p>관리자 권한 변경은 민감한 작업입니다. 2차 비밀번호 4자리를 입력해 주세요.</p>
-                    <label className="topbar-admin-secondary-field">
-                      <span>2차 비밀번호</span>
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={4}
-                        value={adminSecondaryPassword}
-                        aria-invalid={adminSecondaryPasswordError ? true : undefined}
-                        aria-describedby={adminSecondaryPasswordError ? "admin-secondary-password-error" : undefined}
-                        onChange={(event) => {
-                          setAdminSecondaryPassword(event.target.value.replace(/\D/g, "").slice(0, 4));
-                          setAdminSecondaryPasswordError(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            handleAdminSecondaryPasswordSubmit();
-                          }
-                        }}
-                      />
-                    </label>
-                    {adminSecondaryPasswordError ? <p id="admin-secondary-password-error" className="topbar-admin-secondary-error">{adminSecondaryPasswordError}</p> : null}
-                  </section>
-                </div>
-              ) : settingsTab === "admin" && canUseAdminSettings ? (
-                <div className="topbar-admin-settings">
-                  <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
-                    <strong>사용자 계정 목록</strong>
-                    <div className="topbar-admin-user-list">
-                      {adminPermissionUsers.map((user) => (
-                        <button
-                          key={user.id}
-                          type="button"
-                          className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"}
-                          aria-current={user.id === selectedPermissionUserId ? "true" : undefined}
-                          onClick={() => setSelectedPermissionUserId(user.id)}
-                        >
-                          <span>
-                            <strong>{user.name}</strong>
-                            <small>{user.department} · {user.role}</small>
-                          </span>
-                        </button>
-                      ))}
+          {isIntegratedSettings && adminSettingsUnlocked ? (
+            <>
+                  <div className="topbar-settings-tabs" role="tablist" aria-label="통합 설정 탭">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={settingsTab === "basic"}
+                      className={settingsTab === "basic" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
+                      onClick={() => setSettingsTab("basic")}
+                    >
+                      기본 설정
+                    </button>
+                    {canUseAdminSettings ? (
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={settingsTab === "admin"}
+                        className={settingsTab === "admin" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
+                        onClick={openAdminSettingsTab}
+                      >
+                        관리자설정
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {settingsTab === "admin" && canUseAdminSettings ? (
+                    <div className="topbar-admin-settings">
+                      <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
+                        <strong>사용자 계정 목록</strong>
+                        <div className="topbar-admin-user-list">
+                          {adminPermissionUsers.map((user) => (
+                            <button
+                              key={user.id}
+                              type="button"
+                              className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"}
+                              aria-current={user.id === selectedPermissionUserId ? "true" : undefined}
+                              onClick={() => setSelectedPermissionUserId(user.id)}
+                            >
+                              <span>
+                                <strong>{user.name}</strong>
+                                <small>{user.department} · {user.role}</small>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                      <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 권한`}>
+                        <div className="topbar-admin-settings__selected-user">
+                          <strong>{selectedPermissionUser.name}</strong>
+                          <span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span>
+                        </div>
+                        <div className="topbar-modal-toggle-grid">
+                          {adminFeaturePermissions.map((permission) => (
+                            <SettingToggle
+                              key={permission.key}
+                              label={permission.label}
+                              checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}
+                              onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)}
+                            />
+                          ))}
+                        </div>
+                      </section>
                     </div>
-                  </section>
-                  <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 권한`}>
-                    <div className="topbar-admin-settings__selected-user">
-                      <strong>{selectedPermissionUser.name}</strong>
-                      <span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span>
-                    </div>
-                    <div className="topbar-modal-toggle-grid">
-                      {adminFeaturePermissions.map((permission) => (
+                  ) : (
+                    <div className="topbar-modal__grid">
+                      <section className="topbar-modal-card">
+                        <strong>기본 시작 방식</strong>
+                        <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
+                          {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
+                            <label key={item} className="topbar-modal-choice">
+                              <input
+                                type="radio"
+                                name="start-screen"
+                                checked={generalSettings.startScreen === item}
+                                onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
+                              />
+                              <span>{item}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </section>
+                      <section className="topbar-modal-card">
+                        <strong>화면 기본 방식</strong>
+                        <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
+                          {['기본', '넓게', '촘촘하게'].map((item) => (
+                            <label key={item} className="topbar-modal-choice">
+                              <input
+                                type="radio"
+                                name="density"
+                                checked={generalSettings.density === item}
+                                onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
+                              />
+                              <span>{item}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </section>
+                      <section className="topbar-modal-card">
+                        <strong>기기별 화면 설정</strong>
                         <SettingToggle
-                          key={permission.key}
-                          label={permission.label}
-                          checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}
-                          onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)}
+                          label="모바일 하단탭 간결 표시"
+                          description="좁은 화면에서 하단탭을 더 작게 표시합니다."
+                          checked={generalSettings.compactMobileBottomNav}
+                          onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
                         />
-                      ))}
+                      </section>
+                      <section className="topbar-modal-card topbar-modal-card--wide">
+                        <strong>알림 기본 설정</strong>
+                        <div className="topbar-modal-toggle-grid">
+                          <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
+                          <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
+                          <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
+                          <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
+                        </div>
+                      </section>
                     </div>
-                  </section>
+                  )}
+                </>
+              ) : null}
+
+          {isProfileSettings && adminSettingsUnlocked ? (
+            <div className="topbar-profile-settings">
+              <section className="topbar-modal-card topbar-profile-settings__hero">
+                <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
+                <div>
+                  <strong>프로필 이미지</strong>
+                  <div className="topbar-profile-settings__buttons">
+                    <button type="button">이미지 변경</button>
+                    <button type="button">기본 이미지</button>
+                  </div>
                 </div>
-              ) : (
-                <div className="topbar-modal__grid">
-                  <section className="topbar-modal-card">
-                    <strong>기본 시작 방식</strong>
-                    <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                      {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
-                        <label key={item} className="topbar-modal-choice">
-                          <input
-                            type="radio"
-                            name="start-screen"
-                            checked={generalSettings.startScreen === item}
-                            onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
-                          />
-                          <span>{item}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-                  <section className="topbar-modal-card">
-                    <strong>화면 기본 방식</strong>
-                    <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
-                      {['기본', '넓게', '촘촘하게'].map((item) => (
-                        <label key={item} className="topbar-modal-choice">
-                          <input
-                            type="radio"
-                            name="density"
-                            checked={generalSettings.density === item}
-                            onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
-                          />
-                          <span>{item}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-                  <section className="topbar-modal-card">
-                    <strong>기기별 화면 설정</strong>
-                    <SettingToggle
-                      label="모바일 하단탭 간결 표시"
-                      description="좁은 화면에서 하단탭을 더 작게 표시합니다."
-                      checked={generalSettings.compactMobileBottomNav}
-                      onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
-                    />
-                  </section>
-                  <section className="topbar-modal-card topbar-modal-card--wide">
-                    <strong>알림 기본 설정</strong>
-                    <div className="topbar-modal-toggle-grid">
-                      <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
-                      <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
-                      <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
-                      <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
-                    </div>
-                  </section>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>기본 표시 정보</strong>
+                <div className="topbar-modal-field-grid">
+                  <SettingField label="이름" value={profileState.fullName} />
+                  <SettingField label="직책" value={profileState.positionLabel} />
+                  <SettingField label="부서" value={profileState.departmentName} />
+                  <SettingField label="이메일" value={profileState.email} />
                 </div>
-              )}
-            </>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>알림 받을 기능 선택</strong>
+                <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="공지사항 알림" checked={notificationPreferences.notices} onChange={(checked) => setNotificationPreference("notices", checked)} />
+                  <SettingToggle label="전자결재 알림" checked={notificationPreferences.approvals} onChange={(checked) => setNotificationPreference("approvals", checked)} />
+                  <SettingToggle label="댓글/멘션 알림" checked={notificationPreferences.mentions} onChange={(checked) => setNotificationPreference("mentions", checked)} />
+                  <SettingToggle label="메일/메신저 알림" checked={notificationPreferences.mail} onChange={(checked) => setNotificationPreference("mail", checked)} />
+                  <SettingToggle label="근태/휴가 알림" checked={notificationPreferences.attendance} onChange={(checked) => setNotificationPreference("attendance", checked)} />
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
+                <strong>퇴근 후 알림 설정</strong>
+                <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
+                <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
+                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
+                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
+                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
+                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
+                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
+                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
+                </div>
+                {!notificationPreferences.notices ? <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p> : null}
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>개인정보 표시 범위</strong>
+                <div className="topbar-modal-toggle-grid">
+                  <SettingToggle label="이메일 표시" disabled />
+                  <SettingToggle label="내선번호 표시" disabled />
+                  <SettingToggle label="프로필 사진 표시" />
+                  <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
+                  <SettingToggle label="상태 메시지 표시" />
+                </div>
+                <div className="topbar-settings-security-card">
+                  <strong>보안 설정</strong>
+                  <p>설정한 4자리 PIN은 관리자설정 진입에도 같은 값으로 사용합니다.</p>
+                  <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                    2차 비밀번호 변경하기
+                  </button>
+                </div>
+              </section>
+            </div>
           ) : null}
 
           {activeTopbarModal === "notices" ? (
@@ -1813,7 +2136,7 @@ export function MobileAppShell({
                       : handleSettingsSave
                 }
               >
-                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "확인" : "저장"}
+                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "관리자설정 확인" : "저장"}
               </button>
             </footer>
           ) : null}
