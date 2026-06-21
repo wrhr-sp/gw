@@ -305,6 +305,7 @@ code {
 .page-shell__header {
   display: grid;
   gap: 12px;
+  padding-inline: 20px;
 }
 
 
@@ -340,7 +341,7 @@ article h4 {
 }
 
 .page-shell__headline h1 {
-  font-size: 1.35rem;
+  font-size: 1.42rem;
   font-weight: 900;
   letter-spacing: 0.03em;
 }
