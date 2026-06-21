@@ -123,11 +123,6 @@ export default function BoardsPage() {
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
-          <div className="board-workspace__nav-header">
-            <div>
-              <strong>게시판</strong>
-            </div>
-          </div>
           <a href="/boards/board_general" className="board-write-button">글쓰기</a>
           <BoardSection title="전사게시판" boards={companyBoards} canManage={canManageBoards} />
           <BoardSection title="부서게시판" boards={departmentBoards} canManage={canManageBoards} />
