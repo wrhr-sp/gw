@@ -339,6 +339,12 @@ article h4 {
   margin: 0;
 }
 
+.page-shell__headline h1 {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
 .page-shell__headline p,
 .surface-card__header p,
 article p,
