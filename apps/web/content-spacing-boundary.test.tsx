@@ -17,6 +17,11 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("max-width: none");
     expect(globalCss).toContain("padding-inline: var(--desktop-content-padding-inline)");
     expect(globalCss).toContain("width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline))");
+    expect(globalCss).toContain(".page-shell__content {");
+    expect(globalCss).toContain("gap: 0;");
+    expect(globalCss).toContain("background: var(--surface);");
+    expect(globalCss).toContain(".page-shell__content > .surface-card {");
+    expect(globalCss).toContain(".page-shell__content > .surface-card + .surface-card {");
   });
 
   it("removes ad-hoc centered feature page shells from fallback routes", () => {
