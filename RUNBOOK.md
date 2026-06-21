@@ -13,6 +13,24 @@
 - backup/restore/incident 대응은 아직 수동 절차와 승인 게이트 중심이다.
 - production DB 실복원, secret 입력/교체, DNS/custom domain, 유료 리소스, 외부 alerting/SIEM 은 이 runbook 범위 밖이다.
 
+## Phase 61 운영 DB 준비 메모
+
+운영 DB 연결 준비는 `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md` 를 함께 본다.
+운영자 handoff 순서는 `docs/guides/phase-61-operational-db-admin-handoff-checklist.md` 를 함께 본다.
+핵심만 짧게 적으면 아래와 같다.
+
+- secret 은 git ignored `.secrets/` 또는 승인된 secret store 로만 다룬다.
+- 앱 runtime DB URL 해석 규칙은 `DATABASE_URL` 우선, 없으면 `APP_ENV=preview` 일 때 `DATABASE_URL_PREVIEW`, 그 외에는 `DATABASE_URL_PRODUCTION` 이다.
+- migration/seed 스크립트는 runtime 규칙과 별개로 본다. preview target 은 `DATABASE_URL_PREVIEW` 우선이고, 수동 preview/local 범위에서만 `--allow-preview-fallback` 으로 `DATABASE_URL` fallback 을 허용할 수 있다.
+- `workers.dev` 또는 preview 배포는 preview DB 기준, 승인된 custom domain 또는 production 배포 후보는 production DB 기준 후보로 읽는다.
+- production migration/seed target 은 `DATABASE_URL_PRODUCTION` 필수다. `DATABASE_URL` fallback 은 금지하며, 값이 없으면 hard fail 한다.
+- Cloudflare 명령은 `set -a; . .secrets/cloudflare.env; set +a; <command>` 패턴으로 실행한다.
+- code rollback 과 DB rollback 을 같은 뜻으로 쓰지 않는다.
+- DB rollback 은 destructive down migration 보다 snapshot restore 또는 forward-fix 우선으로 적는다.
+- restore drill 은 preview/staging 우선, production 실복원은 별도 승인 후 진행한다.
+- restore 뒤 최소 smoke 는 `/api/health`, `/login`, `/dashboard`, `/api/employees`, `/api/attendance/records`, `/api/leave/requests`, `/api/approvals/documents`, `/api/admin/audit-logs`, `/api/notifications` 순서로 본다.
+- 운영자에게 먼저 받아야 할 결정은 provider 확정, secret 전달 경로, preview/prod URL 분리 여부, migration 승인 범위다.
+
 ## 기본 상태 확인
 
 ```bash

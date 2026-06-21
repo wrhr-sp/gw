@@ -1,156 +1,115 @@
 import React from "react";
+import { appRoutes } from "@gw/shared";
 
-import { PageShell, Pill } from "../_components/page-shell";
+import { Phase16PilotPanel } from "../_components/phase-16-pilot";
+import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import { BoardsLiveSection } from "../_components/real-usage-panels";
 
-const companyBoards = [
-  {
-    id: "board_notice",
-    name: "전사 공지",
-    description: "회사 전체에 꼭 전달해야 하는 공지를 확인하고 읽음 상태를 남기는 공간입니다.",
-    unread: 2,
-  },
-  {
-    id: "board_company_alert",
-    name: "전사 알람",
-    description: "점검, 긴급 안내, 일정 변경처럼 전 직원에게 빠르게 알려야 하는 알람을 모읍니다.",
-    unread: 1,
-  },
-  {
-    id: "board_general",
-    name: "자유 게시판",
-    description: "전 직원이 볼 수 있는 일반 소통 게시판입니다.",
-    unread: 4,
-  },
-  {
-    id: "board_data_share",
-    name: "자료 공유",
-    description: "업무 양식과 참고 자료를 전사 기준으로 공유합니다.",
-    unread: 0,
-  },
+const practicalFlowChecklist = [
+  "`/boards` 에서 공지 게시판과 일반 게시판 책임을 먼저 구분합니다.",
+  "`/boards/board_general` 에서 글을 등록하고 상세 route 로 이동합니다.",
+  "`/posts/[postId]` 에서 댓글 작성과 읽음 확인을 같은 흐름으로 끝냅니다.",
+  "권한이 맞지 않으면 UI 안내와 API 차단 이유가 같은 뜻으로 보이게 유지합니다.",
 ] as const;
 
-const departmentBoards = [
+const stateGuideCards = [
   {
-    id: "board_department_notice",
-    name: "인사팀 게시판",
-    department: "내 부서",
-    description: "로그인한 사용자의 부서 기준으로 보여 주는 부서 전용 공지와 업무 안내입니다.",
-    unread: 3,
-  },
-  {
-    id: "board_department_daily",
-    name: "부서 업무 공유",
-    department: "내 부서",
-    description: "부서 안에서만 공유하는 업무 메모, 요청, 확인 사항을 정리합니다.",
-    unread: 0,
-  },
-] as const;
-
-const recentPosts = [
-  {
-    board: "전사 공지",
-    title: "하반기 운영 기준 안내",
-    writer: "관리팀",
-    meta: "읽음 82% · 오늘 09:20",
-    tone: "warning" as const,
-    href: "/posts/board_post_notice_1",
-  },
-  {
-    board: "인사팀 게시판",
-    title: "이번 주 근태 정정 요청 마감 안내",
-    writer: "인사팀",
-    meta: "댓글 2 · 오늘 11:10",
     tone: "accent" as const,
-    href: "/boards/board_department_notice",
+    title: "empty",
+    body: "아직 글이 없으면 첫 글 작성 버튼과 다음 route 를 바로 안내합니다.",
   },
   {
-    board: "전사 알람",
-    title: "시스템 점검 예정 알림",
-    writer: "운영관리자",
-    meta: "긴급 · 내일 20:00",
-    tone: "warning" as const,
-    href: "/boards/board_company_alert",
-  },
-  {
-    board: "부서 업무 공유",
-    title: "지점별 제출 자료 확인 요청",
-    writer: "박매니저",
-    meta: "댓글 5 · 어제",
     tone: "accent" as const,
-    href: "/boards/board_department_daily",
+    title: "loading",
+    body: "실제 API 응답을 불러오는 중인지 분명하게 보여 줍니다.",
+  },
+  {
+    tone: "warning" as const,
+    title: "error / forbidden",
+    body: "네트워크 오류와 권한 차단을 같은 실패로 섞지 않고, 왜 막혔는지 따로 설명합니다.",
   },
 ] as const;
 
-type BoardSectionProps = {
-  title: string;
-  boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
-};
-
-function BoardSection({ title, boards }: BoardSectionProps) {
-  return (
-    <section className="board-tree-section">
-      <div className="board-tree-section__header">
-        <strong>{title}</strong>
-      </div>
-      <div className="board-tree-section__items">
-        {boards.map((board) => (
-          <a key={board.id} href={`/boards/${board.id}`} className="board-tree-link">
-            <span className="board-tree-link__copy">
-              <strong>{board.name}</strong>
-              {board.department || board.unread === 0 ? <small>{board.department ?? "새 글 없음"}</small> : null}
-            </span>
-            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`${board.name} 새 글 ${board.unread}건`}>{board.unread}</span> : null}
-          </a>
-        ))}
-      </div>
-    </section>
-  );
-}
+const collaborationBridgeNotes = [
+  "`/dashboard` 에서 읽을 공지와 일반 게시판 entry 를 먼저 고르고 상세는 `/boards` 에서 이어집니다.",
+  "공지 게시판은 운영 공지 책임, 일반 게시판은 게시글/댓글 협업 entry 라는 책임 차이를 같은 화면에서 유지합니다.",
+  "게시글 생성/댓글 생성/읽음 확인은 각각 `board.post.create`, `board.comment.create`, `read receipt` 감사 후보로 남습니다.",
+] as const;
 
 export default function BoardsPage() {
-  const canManageBoards = true;
-
   return (
     <PageShell
+      eyebrow="Phase 51 게시판 실사용 흐름"
       title="게시판"
       titleHref="/boards"
+      description="공지 확인과 일반 협업 글 작성 시작점을 같은 업무 흐름 안에 두되, /boards 화면에서 게시판 목록과 게시글 목록이 실제로 나뉘어 보이게 정리했습니다."
+      actions={<Pill tone="accent">touch-first reading flow</Pill>}
     >
-      <div className="board-workspace">
-        <aside className="board-workspace__nav" aria-label="게시판 목록">
-          <a href="/boards/board_general" className="board-write-button">글쓰기</a>
-          <BoardSection title="전사게시판" boards={companyBoards} />
-          <BoardSection title="부서게시판" boards={departmentBoards} />
-          {!canManageBoards ? (
-            <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
-              <Pill>일반 사용자</Pill>
-            </section>
-          ) : null}
-        </aside>
+      <SurfaceSection title="실사용 확인 패널" description="게시판 목록과 게시글 목록을 좌우 2영역으로 나눠, 왼쪽에서 게시판을 고르고 오른쪽에서 바로 글 흐름을 이어가게 맞췄습니다.">
+        <p className="card-note" style={{ marginBottom: 16 }}>실제 데이터가 로드되면 왼쪽은 게시판 목록, 오른쪽은 게시글 목록으로 보이고 자유 게시판 글쓰기 CTA 가 바로 드러납니다.</p>
+        <BoardsLiveSection />
+      </SurfaceSection>
 
-        <section className="board-workspace__list" aria-label="게시글 목록">
-          <div className="board-section-title">
-            <div>
-              <Pill tone="accent">현재 선택</Pill>
-              <h2>전사 공지</h2>
-            </div>
-            <a href="/boards/board_notice" className="board-inline-action">공지 보기</a>
-          </div>
-          <BoardsLiveSection />
-          <div className="board-post-list">
-            {recentPosts.map((post) => (
-              <a key={post.title} href={post.href} className="board-post-row">
-                <Pill tone={post.tone}>{post.board}</Pill>
-                <div>
-                  <strong>{post.title}</strong>
-                  <p>{post.writer} · {post.meta}</p>
-                </div>
-                <span aria-hidden="true">›</span>
-              </a>
-            ))}
-          </div>
-        </section>
-      </div>
+      <SurfaceSection title="직원이 따라갈 기본 순서" description="live URL 에서 바로 눌러볼 수 있는 기본 happy path 를 화면 문장과 맞췄습니다.">
+        <ol className="number-list">
+          {practicalFlowChecklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>
+      </SurfaceSection>
+
+      <SurfaceSection title="상태 구분 원칙" description="비어 있음, 불러오는 중, 오류, 권한 없음이 서로 다른 뜻으로 읽히게 유지합니다.">
+        <div className="grid-auto-compact">
+          {stateGuideCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <Pill tone={card.tone}>{card.title}</Pill>
+              <p>{card.body}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="대시보드 연결 / 감사 후보" description="게시판은 단독 기능이 아니라 오늘 협업 흐름 안에 들어가며, 운영 검토용 action 언어도 같이 맞춥니다.">
+        <ul className="summary-list">
+          {collaborationBridgeNotes.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="연결할 API" description="모바일 route 와 same-origin /api 경로를 그대로 이어 줍니다." muted>
+        <ul className="summary-list">
+          <li><a href={appRoutes.boards.notices}>{appRoutes.boards.notices}</a> — 공지형 게시판 목록</li>
+          <li><a href={appRoutes.boards.boards}>{appRoutes.boards.boards}</a> — 일반 게시판 목록/생성</li>
+          <li><a href={appRoutes.boards.posts("board_general")}>{appRoutes.boards.posts("board_general")}</a> — 자유 게시판 글 목록/작성</li>
+          <li><a href={appRoutes.readReceipts}>{appRoutes.readReceipts}</a> — 게시글 읽음 확인 등록</li>
+        </ul>
+      </SurfaceSection>
+
+      <Phase16PilotPanel
+        description="게시판 화면은 공지 전달과 일반 게시판 흐름을 같은 협업 묶음 안에서 보여 주되, notice-only 책임과 운영 권한 경계, 댓글/읽음 확인 감사 후보를 분리해서 설명합니다."
+        confirmItems={[
+          "전사 공지는 읽기 중심이며 일반 구성원 글쓰기는 열지 않는다.",
+          "자유 게시판은 게시글 작성 뒤 댓글과 읽음 확인까지 이어지는 기본 흐름을 제공한다.",
+          "공지/게시판 상세와 문서함 route 가 같은 origin 안에서 이어진다.",
+        ]}
+        blockedItems={[
+          "실제 rich editor, 외부 알림 발송, 운영 공지 게시 자동화는 이번 단계 범위가 아니다.",
+          "게시판을 완성형 협업툴처럼 과장하지 않고 title/bodyPreview 중심으로 유지한다.",
+        ]}
+        nextRoutes={[
+          { href: "/boards/board_notice", label: "/boards/board_notice", description: "공지 게시판에서 읽기와 운영 공지 책임 확인" },
+          { href: "/boards/board_general", label: "/boards/board_general", description: "일반 게시판에서 글 작성과 상세 이동 시작" },
+          { href: "/posts/board_post_demo", label: "/posts/[postId]", description: "게시글 상세·댓글·읽음 확인 흐름 확인" },
+          { href: "/documents", label: "/documents", description: "협업 자료 문맥에서 문서 공간 흐름 비교" },
+        ]}
+        approvalGates={[
+          "실제 운영 공지 발송",
+          "production 게시글/댓글 데이터 반영",
+          "외부 메일/메신저 연동",
+        ]}
+        evidenceNote="same-origin API 스모크는 /api/notices, /api/boards, /api/boards/:boardId/posts, /api/read-receipts 로 이어서 확인합니다."
+      />
     </PageShell>
   );
 }

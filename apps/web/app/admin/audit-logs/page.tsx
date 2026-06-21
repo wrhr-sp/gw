@@ -15,10 +15,10 @@ const auditGuardRoles = ["AUDITOR", "HR_ADMIN", "COMPANY_ADMIN", "MANAGER", "EMP
 
 const roleLandingRouteLabels: Record<(typeof auditGuardRoles)[number], string> = {
   AUDITOR: "/admin/audit-logs",
-  HR_ADMIN: "/home → /admin/users",
-  COMPANY_ADMIN: "/home → /management 또는 /admin",
-  MANAGER: "/home → /management",
-  EMPLOYEE: "/home",
+  HR_ADMIN: "/dashboard → /admin/users",
+  COMPANY_ADMIN: "/dashboard → /management 또는 /admin",
+  MANAGER: "/dashboard → /management",
+  EMPLOYEE: "/dashboard",
 };
 
 const guardStatusLabel = (allowed: boolean, allowedLabel: string, blockedLabel: string) => (allowed ? allowedLabel : blockedLabel);
@@ -61,6 +61,7 @@ export default function AdminAuditLogsPage() {
       backLabel="관리자 허브로"
       eyebrow="Phase 56 감사 read-only / audit.read 경계 확인"
       title="관리자 / 감사 로그"
+      titleHref="/admin/audit-logs"
       description="감사 로그 read-only 응답, 조회 필터, masked metadata, storageRef 요약, company boundary 를 실제 API 기준으로 확인하는 화면입니다."
       actions={<Pill tone="warning">audit.read</Pill>}
     >

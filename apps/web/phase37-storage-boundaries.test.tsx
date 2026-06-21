@@ -36,6 +36,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).toContain("최근 액션 상세");
     expect(html).toContain("storageStatus(pending/ready/deleted)는 내부 저장 lifecycle 설명이며 public share 완료 뜻이 아닙니다.");
     expect(html).not.toContain("public URL 발급 완료");
+    expect(html).toContain('href="/documents"');
   });
 
   it("keeps audit logs on masked preview and storageRef summary only", () => {
@@ -45,6 +46,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).toContain("storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.");
     expect(html).toContain("감사 export/download/external sink 는 이번 단계 완료 기준이 아닙니다.");
     expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");
+    expect(html).toContain('href="/admin/audit-logs"');
   });
 
   it("bridges management, payroll, and work-items with approval-gated read-model language", async () => {
@@ -60,9 +62,16 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(managementHtml).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
     expect(managementHtml).toContain("연결 체크");
     expect(managementHtml).toContain("dev-safe 안내 상태");
-    expect(managementHtml).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
+    expect(managementHtml).toContain("관리자 안내 흐름");
+    expect(managementHtml).toContain('href="/uat"');
+    expect(managementHtml).toContain('href="https://github.com/wrhr-sp/gw/blob/main/docs/guides/phase-56-management-admin-live-operations-pass1-guide.md"');
+    expect(managementHtml).not.toMatch(/Phase |Skeleton|placeholder|skeleton/);
+    expect(managementHtml).toContain('href="/management"');
   
-    expect(payrollHtml).toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
+    expect(payrollHtml).toContain("민감 정보 확인");
+    expect(payrollHtml).toContain("콘텐츠 영역 안에서 2차 비밀번호 4자리를 먼저 확인한 뒤 보여 줍니다.");
+    expect(payrollHtml).toContain('href="/payroll"');
+    expect(payrollHtml).not.toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
 
     expect(workItemsHtml).toContain("Phase 37 공통 업무 저장흐름 점검");
     expect(workItemsHtml).toContain("metadata preview / approval gate 언어");

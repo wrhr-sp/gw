@@ -20,7 +20,7 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
     {
       title: "일반 직원 · 팀장 확인 순서",
       detail: "파일럿/UAT 기준으로도 같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.",
-      routes: ["/login", "/home", "/attendance", "/leave", "/approvals", "/boards", "/documents", "/me"],
+      routes: ["/login", "/dashboard", "/attendance", "/leave", "/approvals", "/boards", "/documents", "/me"],
     },
   ];
 
@@ -28,7 +28,7 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
     flows.push({
       title: "관리자 계정·정책 확인 순서",
       detail: "일반 홈과 운영 레인을 섞지 않고, 운영 허브 확인 뒤 계정·정책·감사 레인을 같은 문장으로 이어 봅니다.",
-      routes: ["/login", "/home", "/management", "/admin/users", "/admin/policies", "/admin/audit-logs", "/api/health"],
+      routes: ["/login", "/dashboard", "/management", "/admin/users", "/admin/policies", "/admin/audit-logs", "/api/health"],
     });
   }
 
@@ -41,8 +41,8 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
           : "일반 홈과 운영 허브를 섞지 않고, 계정관리/정책 preview 와 민감 내부관리 화면을 별도 허브에서 이어 봅니다.",
       routes:
         roleCode === "MANAGER"
-          ? ["/login", "/home", "/work-items/branch", "/employees", "/org", "/management"]
-          : ["/login", "/home", "/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
+          ? ["/login", "/dashboard", "/work-items/branch", "/employees", "/org", "/management"]
+          : ["/login", "/dashboard", "/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     });
   }
 
@@ -61,7 +61,7 @@ export const phase47StatusGuideCards: readonly StatusGuideCard[] = [
   {
     title: "loading",
     summary: "아직 읽어 오는 중인 상태입니다.",
-    detail: "저장 성공이나 권한 부족으로 단정하지 말고 잠시 기다린 뒤 `/home` 또는 `/menu` 에서 다시 확인합니다.",
+    detail: "저장 성공이나 권한 부족으로 단정하지 말고 잠시 기다린 뒤 `/dashboard` 또는 `/menu` 에서 다시 확인합니다.",
   },
   {
     title: "empty",
@@ -71,7 +71,7 @@ export const phase47StatusGuideCards: readonly StatusGuideCard[] = [
   {
     title: "error",
     summary: "조회 응답이나 불러오기에 실패한 상태입니다.",
-    detail: "같은 화면에서 반복 저장을 시도하지 말고 `/home` · `/menu` · `/offline` 순서로 복구 경로를 다시 탑니다.",
+    detail: "같은 화면에서 반복 저장을 시도하지 말고 `/dashboard` · `/menu` · `/offline` 순서로 복구 경로를 다시 탑니다.",
   },
   {
     title: "forbidden",

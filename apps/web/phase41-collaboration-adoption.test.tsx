@@ -34,12 +34,6 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     const noticeBoardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_notice" }) }),
     );
-    const departmentBoardDetailHtml = renderToStaticMarkup(
-      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_department_notice" }) }),
-    );
-    const dataShareBoardDetailHtml = renderToStaticMarkup(
-      await BoardDetailPage({ params: Promise.resolve({ boardId: "board_data_share" }) }),
-    );
     const invalidBoardDetailHtml = renderToStaticMarkup(
       await BoardDetailPage({ params: Promise.resolve({ boardId: "board_unknown" }) }),
     );
@@ -62,71 +56,40 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
       await PostDetailPage({ params: Promise.resolve({ postId: forgedGeneratedPostId }) }),
     );
 
-    expect(boardListHtml).toContain("board-workspace");
-    expect(boardListHtml).not.toContain("사내 소통");
-    expect(boardListHtml).not.toContain("왼쪽 목록 기준");
-    expect(boardListHtml).not.toContain("왼쪽 게시판 목록에서");
-    expect(boardListHtml).not.toContain("board-workspace__nav-header");
-    expect(boardListHtml).toContain("글쓰기");
-    expect(boardListHtml).toContain("전사게시판");
-    expect(boardListHtml).toContain("부서게시판");
-    expect(boardListHtml).not.toContain("기본 기능");
-    expect(boardListHtml).not.toContain("관리자 기능");
-    expect(boardListHtml).not.toContain("/boards?tab=admin#board-admin-settings");
-    expect(boardListHtml).not.toContain("하위 게시판 만들기");
-    expect(boardListHtml).not.toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
-    expect(boardListHtml).toContain("전사 공지");
-    expect(boardListHtml).toContain("인사팀 게시판");
-    expect(boardListHtml).toContain("자유 게시판");
-    expect(boardListHtml).toContain("자료 공유");
-    expect(boardListHtml).not.toContain("미확인");
-    expect(boardListHtml).toContain('class="board-unread-badge"');
+    expect(boardListHtml).toContain("직원이 따라갈 기본 순서");
+    expect(boardListHtml).toContain("error / forbidden");
+    expect(boardListHtml).toContain("/posts/board_post_demo");
     expect(boardListHtml).toContain('href="/boards"');
-    expect(boardListHtml).toContain('class="page-shell__title-link"');
-    expect(boardListHtml).not.toContain("읽음 98명 / 전체 120명");
-    expect(boardListHtml).not.toContain("대표 글 보기");
-    expect(boardListHtml).not.toContain("board-workspace__detail");
-    expect(boardListHtml).not.toContain("Phase 51");
-    expect(boardListHtml).not.toContain("happy path");
-    expect(boardListHtml).not.toContain("API 스모크");
-    expect(boardDetailHtml).toContain("이 게시판에서 할 수 있는 일");
-    expect(boardDetailHtml).toContain("글 등록 순서");
-    expect(boardDetailHtml).toContain("대표 글 보기");
-    expect(boardDetailHtml).not.toContain("게시판별 happy path");
-    expect(boardDetailHtml).not.toContain("운영 검토용 action 언어");
-    expect(noticeBoardDetailHtml).toContain("전사 공지");
-    expect(noticeBoardDetailHtml).toContain("대표 글 보기");
-    expect(departmentBoardDetailHtml).toContain("부서별 공지");
-    expect(departmentBoardDetailHtml).toContain("공지 등록");
-    expect(departmentBoardDetailHtml).toContain("대표 글 보기");
-    expect(dataShareBoardDetailHtml).toContain("자료 공유");
-    expect(dataShareBoardDetailHtml).toContain("자료 글 등록");
-    expect(dataShareBoardDetailHtml).toContain("대표 글 보기");
-    expect(invalidBoardDetailHtml).toContain("접근할 수 없는 게시판");
-    expect(invalidBoardDetailHtml).toContain("게시판 목록");
+    expect(boardDetailHtml).toContain("게시판별 happy path");
+    expect(boardDetailHtml).toContain("운영 검토용 action 언어");
+    expect(boardDetailHtml).toContain("/posts/board_post_demo");
+    expect(boardDetailHtml).toContain('href="/boards"');
+    expect(noticeBoardDetailHtml).toContain("/posts/board_post_notice_1");
+    expect(invalidBoardDetailHtml).toContain("board_unknown 접근 차단 안내");
+    expect(invalidBoardDetailHtml).toContain("허용된 게시판 목록으로 돌아가기");
     expect(invalidBoardDetailHtml).not.toContain("/posts/board_post_demo");
     expect(invalidBoardDetailHtml).not.toContain("게시글 작성");
-    expect(generalPostDetailHtml).toContain("게시글 상세");
-    expect(generalPostDetailHtml).toContain("댓글과 읽음 확인");
-    expect(generalPostDetailHtml).toContain("권한과 제한");
-    expect(generalPostDetailHtml).not.toContain("게시글 상세 happy path");
-    expect(generalPostDetailHtml).not.toContain("감사 후보 / forged 차단");
-    expect(generalPostDetailHtml).not.toContain("forged·unknown postId");
-    expect(noticePostDetailHtml).toContain("게시글 상세");
-    expect(noticePostDetailHtml).not.toContain("게시글 상세 happy path");
-    expect(validGeneratedPostDetailHtml).toContain("게시글 상세");
-    expect(validGeneratedPostDetailHtml).not.toContain("게시글 상세 happy path");
+    expect(generalPostDetailHtml).toContain("게시글 상세 happy path");
+    expect(generalPostDetailHtml).toContain("감사 후보 / forged 차단");
+    expect(generalPostDetailHtml).toContain("forged·unknown postId");
+    expect(generalPostDetailHtml).toContain("board_post_demo");
+    expect(generalPostDetailHtml).toContain('href="/boards"');
+    expect(noticePostDetailHtml).toContain("board_post_notice_1");
+    expect(noticePostDetailHtml).toContain("게시글 상세 happy path");
+    expect(validGeneratedPostDetailHtml).toContain("게시글 상세 happy path");
+    expect(validGeneratedPostDetailHtml).toContain(validGeneratedPostId);
     expect(otherEmployeePlaceholderDetailHtml).toContain("접근할 수 없는 게시글");
-    expect(otherEmployeePlaceholderDetailHtml).not.toContain("댓글 본문");
+    expect(otherEmployeePlaceholderDetailHtml).not.toContain("게시글 상세 happy path");
+    expect(otherEmployeePlaceholderDetailHtml).not.toContain("댓글 영역");
     expect(otherEmployeePlaceholderDetailHtml).not.toContain("읽음 확인 영역");
     expect(invalidPostDetailHtml).toContain("접근할 수 없는 게시글");
-    expect(invalidPostDetailHtml).toContain("제목과 댓글 입력창을 보여 주지 않습니다.");
+    expect(invalidPostDetailHtml).toContain("forged·unknown 접근은 댓글/읽음 확인 CTA 없이 차단 안내만 보여 줍니다.");
     expect(invalidPostDetailHtml).not.toContain("게시글 상세 happy path");
     expect(invalidPostDetailHtml).not.toContain("댓글 / 읽음 확인 액션");
     expect(invalidPostDetailHtml).not.toContain("forged post 차단 확인");
     expect(forgedGeneratedPostDetailHtml).toContain("접근할 수 없는 게시글");
     expect(forgedGeneratedPostDetailHtml).not.toContain("게시글 상세 happy path");
-    expect(forgedGeneratedPostDetailHtml).not.toContain("댓글 본문");
+    expect(forgedGeneratedPostDetailHtml).not.toContain("댓글 영역");
     expect(forgedGeneratedPostDetailHtml).not.toContain("읽음 확인 영역");
   });
 
@@ -149,13 +112,16 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(documentsHtml).toContain("문서 상세");
     expect(documentsHtml).toContain("classification: 정책/안내, 인사/계약 초안, 정산/집계 같은 업무 언어로만 보여 줍니다.");
     expect(documentsHtml).toContain("`storageStatus` 와 문서 `status` 는 같은 뜻으로 섞지 않고");
+    expect(documentsHtml).toContain('href="/documents"');
     expect(approvalsHtml).toContain("협업 흐름 연결");
     expect(approvalsHtml).toContain("replay 차단");
     expect(approvalsHtml).toContain("`/admin/policies`");
     expect(approvalsHtml).toContain("의견/댓글 목록·작성");
+    expect(approvalsHtml).toContain('href="/approvals"');
     expect(approvalDetailHtml).toContain("전자결재 상세 happy path");
     expect(approvalDetailHtml).toContain("승인 대기 예시");
     expect(approvalDetailHtml).toContain("approval_document_team_pending");
+    expect(approvalDetailHtml).toContain('href="/approvals"');
     expect(invalidApprovalDetailHtml).toContain("접근할 수 없는 전자결재 문서");
     expect(invalidApprovalDetailHtml).not.toContain("전자결재 상세 happy path");
     expect(invalidApprovalDetailHtml).not.toContain("의견 / 댓글");

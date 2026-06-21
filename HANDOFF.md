@@ -18,13 +18,27 @@
 - Orchestrator: 싱드(`singde`)
 - 역할봇: 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`)
 
-현재 메인 활성 흐름은 Phase 60 실사용 1차 내부 사용 릴리즈 노트·사용자/관리자 인수인계 체인이다. 이번 Phase의 목적은 Phase 59에서 최종 정리한 UAT·사용자/관리자 가이드·도입 체크리스트를 바탕으로, 대장이 live URL에서 직접 눌러볼 route·액션·역할별 happy path·상태 문장·승인 게이트를 release note + handoff 문장으로 바로 재사용 가능하게 만드는 것이다.
+현재 메인 활성 흐름은 Phase 61 운영 DB provider·비용·승인 체크리스트 후속 문서화와 runbook·secret/backup/restore·운영자 인수인계 보강, 직전 Phase 60 실사용 1차 내부 사용 릴리즈 노트·사용자/관리자 인수인계 문서 세트를 함께 유지하는 체인이다. 이번 Phase 61의 목적은 운영 DB 관련 흩어진 문서를 한 번에 읽을 수 있는 체크리스트와 운영자 handoff 세트로 다시 묶어, 대장이 provider·비용·secret 전달 경로·rollback/restore 기준·승인 게이트를 바로 결정할 수 있게 만드는 것이다.
 
 현재 상태 요약:
 
+- 관리자설정 2차 비밀번호 운영 설계 초안 문서 `docs/architecture/admin-settings-secondary-password-server-policy.md` 와 handoff `docs/guides/admin-settings-secondary-password-server-policy-handoff.md` 를 새로 추가했다. 현재 `apps/web/app/_components/mobile-app-shell.tsx` 안의 local state preview(`secondaryPasswordValue`, `isAdminSettingsUnlocked`)를 운영 보안 기능으로 그대로 보면 안 된다는 점, 운영 버전은 사용자별 해시 저장 + 짧은 재인증 세션 + 보호 API 재검증 + 실패 횟수 제한 + 감사 로그 구조로 가야 한다는 점, 일반 개인 설정 전체가 아니라 관리자설정/고위험 변경 액션 중심으로 범위를 좁히는 권장안, 분실 복구는 자동 self-service 보다 운영자 승인형 초기화가 안전하다는 점을 한 문서 세트로 묶었다.
+- 이 설계 카드에서 아직 하지 않은 것: DB migration 생성/적용, hash 알고리즘 최종 확정, pepper secret 주입, production rollout, 실데이터 변경, 분실 복구 운영 프로세스 확정.
+- 권장 후속 순서는 승인 정리 → 서버 구현 → 웹 연동 → 보안 리뷰 → 테스트 → 문서화다.
+- 새 기준 문서 `docs/guides/phase-61-operational-db-provider-cost-approval-checklist.md` 는 운영 DB 방향을 `Neon PostgreSQL 1개 + Cloudflare R2 + PostgreSQL FTS` 로 다시 고정하고, Neon 우선 / Supabase 대체 후보, Redis·Meilisearch 보류, secret 입력 규칙, 승인 체크리스트, 다음 단계 체크리스트, 미정 사항 표를 한 문서에 모았다.
+- 새 handoff 문서 `docs/guides/phase-61-operational-db-admin-handoff-checklist.md` 는 운영자가 실제로 먼저 읽을 파일 순서, 먼저 받아야 할 승인 질문, secret 전달 금지/허용 경로, Workers env 해석, rollback/restore 분리, restore 후 최소 smoke, handoff 완료 기준을 쉬운 한국어로 다시 묶었다.
+- 운영 DB 완료 문장은 `DB 연결 성공` 과 `권한/API guard·audit·backup/restore·rollback·live smoke 확인 완료` 를 분리해서 적어야 한다.
+- production migration, 실데이터 반입, 민감정보 원문 확대 저장, 외부기관 연동, DNS/custom domain, 유료 리소스 증설, destructive 작업은 계속 별도 승인 게이트다.
 - `apps/web/dashboard-page-content.tsx`, `apps/web/menu-page-content.tsx`, `apps/web/app/management/page.tsx`, `apps/web/app/admin/users/admin-users-page-content.tsx`, `apps/web/app/me/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx` 기준으로 홈/메뉴/운영 허브/계정관리/내 정보/감사 레인 문장 뼈대가 이미 존재한다.
 - `apps/web/app/_components/real-usage-panels.tsx`, `apps/web/app/_components/phase35-live-sections.tsx` 기준으로 실제 query state loading/forbidden/error/empty 표현 근거가 이미 존재한다.
+- 기능 페이지 제목 클릭 시 해당 기능의 기본 route 로 돌아가는 UX 기획 handoff 는 `docs/guides/page-title-reset-initial-route-ux-handoff.md` 에 정리했다. 이번 기준은 `PageShell` 공통 옵션 중심이며, 우선 reset 대상은 `/approvals/[documentId] -> /approvals`, `/boards/[boardId]`·`/posts/[postId] -> /boards`, `/work-items/* -> /management` 와 주요 허브 페이지들이다.
 - `packages/shared/src/contracts.ts`, `packages/shared/src/admin-access.ts`, `packages/shared/src/mobile-contracts.ts` 기준으로 role/shortcut/route/access 기준선이 이미 존재한다.
+- 통합설정 2차 비밀번호 최신 사용자 안내 문서는 `docs/guides/unified-settings-secondary-password-preview-flow.md` 다. 현재 기준은 설정 관련 진입점 공통 4칸 PIN 게이트, 통합설정 첫 탭 `기본 설정`, 관리자설정 우상단 변경 버튼 제거, `내정보 설정` 안 `2차 비밀번호 변경하기` 버튼 배치다.
+- 병행 설계/운영 범위 문서는 `docs/architecture/admin-settings-secondary-password-server-policy.md`, `docs/guides/admin-settings-secondary-password-server-policy-handoff.md` 다. 이 문서들은 현재 preview UI 설명과 이후 서버/API/DB 승인 범위를 분리해서 읽어야 한다.
+- 관리자설정 안의 접근권한/관리자 권한 분리 기준 문서는 `docs/architecture/admin-settings-access-admin-permission-tabs-scope.md`, `docs/guides/admin-settings-access-admin-permission-tabs-handoff.md` 다.
+- 이번 기준은 통합설정 상단 `기본 설정` / `관리자설정` 구조는 유지한 채, `관리자설정` 내부에서 `접근권한` 은 조회·열람·진입 권한, `관리자 권한` 은 변경·부여·관리 권한으로 나누는 데 초점을 둔다.
+- 같은 주제라도 read 와 manage 를 분리해 적어야 한다. 예를 들어 감사 로그 열람은 `접근권한`, 감사/보안 운영 관리는 `관리자 권한` 쪽 의미다.
+- 이번 분리는 preview/local state UI 정리 범위까지만 다루며, 실제 권한 저장·서버 API·DB/migration·감사 로그 운영 반영은 별도 승인 게이트다.
 - 현재 Phase 60 기준 문서는 `docs/guides/phase-60-first-real-usage-release-notes-user-admin-handoff.md`, `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md`, `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md` 다.
 - UI microfix 후속 사용자 안내 문서는 `docs/guides/phase-58-ui-microfix-settings-profile-notice-alert-branding-guide.md` 다. 설정 팝업 섹션 분리, 공지사항/알림 팝업 footer 제거, 내 정보 설정 문구 정리, 알림 기능 선택 ↔ 퇴근 후 알림 설정 관계, `We'reHere` 브랜드/포털 전환 표기 확인 순서를 따로 묶어 두었다.
 - 현재 직전 기준 문서는 `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-handoff.md`, `docs/guides/phase-58-state-copy-recovery-role-lane-guide.md` 다.
@@ -42,6 +56,24 @@
 - Phase 57 guide `docs/guides/phase-57-home-dashboard-shortcuts-mobile-pc-ia-guide.md` 는 `/dashboard` 홈, `/menu` 전체 메뉴, 고정/사용자 전용 바로가기뿐 아니라 `/me` 를 사용자 설정 완료가 아닌 세션·권한·개인 확인 흐름으로 읽는 기준까지 포함한다.
 - `admin / 1234` 는 계속 dev/test/UAT 전용 계정이며 production 기본 계정처럼 적지 않는다.
 - production DB, 외부 IdP/SSO, 실제 초대 발송, 실제 비밀번호 운영 전환, production backup/restore 실행, 외부 SIEM/alerting, secret, DNS/custom domain, 유료 리소스는 계속 restricted 승인 게이트다.
+
+2026-06-19 Phase 61 운영 DB 체크리스트 메모:
+
+- 바로 다시 볼 근거 문서는 `db/postgres/README.md`, `docs/architecture/operational-db-initial-setup.md`, `docs/architecture/operational-db-target-architecture.md`, `docs/guides/phase-61-operational-db-provider-cost-approval-checklist.md`, `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md`, `RUNBOOK.md` 다.
+- 운영자 인수인계 시작 문서는 `docs/guides/phase-61-operational-db-admin-handoff-checklist.md` 다.
+- 초기 권장 조합은 `Neon PostgreSQL 1개 + Cloudflare R2 + PostgreSQL Full Text Search` 다.
+- Redis/Meilisearch 는 초기 고정비 절감을 위해 보류하고, 병목이 확인될 때 중기 카드로 분리한다.
+- provider 비교는 길게 하지 않고 Neon 우선 / Supabase 대체 후보 수준으로만 유지한다.
+- secret 은 git ignored `.secrets` 또는 승인된 secret store 로만 받고, 채팅/로그/커밋에 원문을 남기지 않는다.
+- 앱 runtime DB URL 해석 규칙은 `DATABASE_URL` 우선, 없으면 `APP_ENV=preview` 에서 `DATABASE_URL_PREVIEW`, 그 외에는 `DATABASE_URL_PRODUCTION` 이다.
+- migration/seed 스크립트는 runtime 과 다르게 production fallback 을 금지한다. preview target 은 `DATABASE_URL_PREVIEW` 우선, 수동 preview/local 범위에서만 `--allow-preview-fallback` 으로 `DATABASE_URL` fallback 가능, production target 은 `DATABASE_URL_PRODUCTION` 없으면 hard fail 한다.
+- `workers.dev` 또는 preview 배포는 preview DB 기준, 승인된 custom domain 또는 production 배포 후보는 production DB 기준 후보로 읽는다. production migration/seed 는 host 이름과 무관하게 `DATABASE_URL_PRODUCTION` 없으면 실행하지 않는다.
+- Cloudflare/Workers 첫 연결은 Worker secret 주입 + 현재 Neon serverless driver 경로 유지 기준으로 적고, Hyperdrive 는 초기 필수값으로 고정하지 않는다.
+- rollback 문장은 code rollback 과 DB rollback 을 분리해서 적고, DB rollback 은 destructive down migration 보다 snapshot restore 또는 forward-fix 우선으로 적는다.
+- restore drill 은 preview/staging 우선으로 적고, production 실복원은 계속 별도 승인 게이트다.
+- 운영자가 먼저 받아야 할 질문은 provider 확정, secret 전달 경로, preview/prod URL 분리 여부, migration 승인 범위, R2 운영 준비 포함 여부다.
+- provider 최종 선택, 실제 connection string 제공, 유료 리소스 생성·증설, production migration, 민감정보 원문 확대, 외부기관 연동, DNS/custom domain, destructive 작업은 계속 사용자 승인 게이트다.
+- 이번 문서의 목적은 실제 DB 작업을 이미 끝냈다고 적는 것이 아니라, 무엇을 지금 승인해야 하고 무엇은 아직 하지 않는지 한 번에 읽히게 만드는 것이다.
 
 2026-06-17 Phase 50 fit-gap 메모:
 

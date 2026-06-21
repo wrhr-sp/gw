@@ -55,9 +55,9 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("상태 안내 기준선");
     expect(html).toContain("추천 확인 순서");
     expect(html).toContain("홈 역할 안내");
-    expect(html).toContain("/home 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
+    expect(html).toContain("/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인");
     expect(html).toContain('href="/menu"');
-    expect(html).toContain("/home → /attendance → /leave → /approvals → /boards → /documents → /me");
+    expect(html).toContain("/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me");
     expect(html).toContain("일반 직원 · 팀장 확인 순서");
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
     expect(html).not.toContain("감사 확인 순서");
@@ -113,7 +113,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("권한 있는 사용자에게만 관리자 진입 CTA를 노출합니다.");
     expect(html).toContain("권한 있는 사용자에게만 경영업무 허브 진입 링크를 노출합니다.");
     expect(html).toContain("현재 세션 / 홈-경영업무 분리");
-    expect(html).not.toContain("← 전체 메뉴로");
+    expect(html).toContain("← 전체 메뉴로");
     expect(html).not.toContain("관리자 허브 바로가기");
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain('href="/management"');

@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="980" viewBox="0 0 1280 980">
+<defs><symbol id="gw-icon-menu" viewBox="0 0 24 24">
+    <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+  </symbol>
+<symbol id="gw-icon-home" viewBox="0 0 24 24">
+    <path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10.5V20h11v-9.5"/><path d="M10 20v-5h4v5"/>
+  </symbol>
+<symbol id="gw-icon-messenger" viewBox="0 0 24 24">
+    <g transform="translate(0 0) scale(0.09375)">
+    <path d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm0,192a87.87,87.87,0,0,1-44.06-11.81,8,8,0,0,0-6.54-.67L40,216,52.47,178.6a8,8,0,0,0-.66-6.54A88,88,0,1,1,128,216Z"/>
+  </g>
+  </symbol>
+<symbol id="gw-icon-mail" viewBox="0 0 24 24">
+    <rect x="4" y="6" width="16" height="12" rx="2"/><path d="m5 8 7 5 7-5"/>
+  </symbol>
+<symbol id="gw-icon-notification" viewBox="0 0 24 24">
+    <path d="M18 10a6 6 0 0 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10 19a2 2 0 0 0 4 0"/>
+  </symbol>
+<symbol id="gw-icon-attendance" viewBox="0 0 24 24">
+    <g transform="translate(0 0) scale(0.09375)">
+    <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/>
+  </g>
+  </symbol>
+<symbol id="gw-icon-board" viewBox="0 0 24 24">
+    <path d="M12 7.5H13.5M12 10.5H13.5M6 13.5H13.5M6 16.5H13.5M16.5 7.5H19.875C20.4963 7.5 21 8.00368 21 8.625V18C21 19.2426 19.9926 20.25 18.75 20.25M16.5 7.5V18C16.5 19.2426 17.5074 20.25 18.75 20.25M16.5 7.5V4.875C16.5 4.25368 15.9963 3.75 15.375 3.75H4.125C3.50368 3.75 3 4.25368 3 4.875V18C3 19.2426 4.00736 20.25 5.25 20.25H18.75M6 7.5H9V10.5H6V7.5Z" stroke="#0F172A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+<symbol id="gw-icon-calendar" viewBox="0 0 24 24">
+    <rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/><path d="M8 14h2"/><path d="M13 14h3"/><path d="M8 17h2"/>
+  </symbol>
+<symbol id="gw-icon-report" viewBox="0 0 24 24">
+    <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" />
+  <path d="M2 6h4" />
+  <path d="M2 10h4" />
+  <path d="M2 14h4" />
+  <path d="M2 18h4" />
+  <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+  </symbol>
+<symbol id="gw-icon-approval" viewBox="0 0 24 24">
+    <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+  <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
+  <path d="M9 14l2 2l4 -4" />
+  </symbol>
+<symbol id="gw-icon-people" viewBox="0 0 24 24">
+    <circle cx="12" cy="7" r="3"/><path d="M6.5 20a5.5 5.5 0 0 1 11 0"/><path d="M4 13.5a3.5 3.5 0 0 1 4-3.4"/><path d="M20 13.5a3.5 3.5 0 0 0-4-3.4"/>
+  </symbol>
+<symbol id="gw-icon-payroll" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" />
+  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+  <path d="M12 18V6" />
+  </symbol>
+<symbol id="gw-icon-tax" viewBox="0 0 24 24">
+    <path d="M9 14l6 -6" />
+  <path d="M9 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0" fill="none" />
+  <path d="M14 13.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0" fill="none" />
+  <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2" />
+  </symbol>
+<symbol id="gw-icon-labor" viewBox="0 0 24 24">
+    <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
+  <path d="M14 6a6 6 0 0 1 6 6v3" />
+  <path d="M4 15v-3a6 6 0 0 1 6-6" />
+  <rect x="2" y="15" width="20" height="4" rx="1" />
+  </symbol>
+<symbol id="gw-icon-legal" viewBox="0 0 24 24">
+    <path d="M12 4v16"/><path d="M7 20h10"/><path d="M5 8h14"/><path d="M8 8l-3 6h6z"/><path d="M16 8l-3 6h6z"/>
+  </symbol>
+<symbol id="gw-icon-documents" viewBox="0 0 24 24">
+    <path d="M6 6h6l2 2h4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/><path d="M4 11h16"/><path d="M8 15h6"/>
+  </symbol>
+<symbol id="gw-icon-file" viewBox="0 0 24 24">
+    <path d="M19.5 14.25V11.625C19.5 9.76104 17.989 8.25 16.125 8.25H14.625C14.0037 8.25 13.5 7.74632 13.5 7.125V5.625C13.5 3.76104 11.989 2.25 10.125 2.25H8.25M10.5 2.25H5.625C5.00368 2.25 4.5 2.75368 4.5 3.375V20.625C4.5 21.2463 5.00368 21.75 5.625 21.75H18.375C18.9963 21.75 19.5 21.2463 19.5 20.625V11.25C19.5 6.27944 15.4706 2.25 10.5 2.25Z" stroke="#0F172A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+<symbol id="gw-icon-admin" viewBox="0 0 24 24">
+    <path d="M12 4 6 6.5v5.5c0 4 2.5 6.5 6 8 3.5-1.5 6-4 6-8V6.5z"/><path d="m9 12 2 2 4-4"/>
+  </symbol>
+<symbol id="gw-icon-settings" viewBox="0 0 24 24">
+    <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065" />
+  <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+  </symbol>
+<symbol id="gw-icon-dashboard" viewBox="0 0 24 24">
+    <path d="M12 16v5" />
+  <path d="M16 14.639V21" />
+  <path d="M20 10.656V21" />
+  <path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15" />
+  <path d="M4 18.463V21" />
+  <path d="M8 14.656V21" />
+  </symbol></defs>
+<style>
+.title{font:34px sans-serif;fill:#111827}.sub{font:18px sans-serif;fill:#64748b}.label{font:18px sans-serif;fill:#111827;text-anchor:middle}.code{font:12px monospace;fill:#64748b;text-anchor:middle}.card{fill:#fff;stroke:#e5e7eb}.box{fill:#f3f4f6}
+.icon{fill:none;stroke:#111827;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<text x="44" y="62" class="title">We’reHere 그룹웨어 기능 아이콘 7차 — 크기 비율만 조율</text>
+<text x="44" y="98" class="sub">아이콘 모양은 유지, 표시 scale만 조정</text>
+<rect x="44" y="140" width="216" height="150" rx="28" class="card"/>
+<rect x="122" y="162" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(140.000 180.000) scale(1.000)"><use href="#gw-icon-menu" width="24" height="24"/></g>
+<text x="152" y="240" class="label">메뉴</text>
+<text x="152" y="265" class="code">menu · 1.00x</text>
+<rect x="284" y="140" width="216" height="150" rx="28" class="card"/>
+<rect x="362" y="162" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(380.000 180.000) scale(1.000)"><use href="#gw-icon-home" width="24" height="24"/></g>
+<text x="392" y="240" class="label">홈</text>
+<text x="392" y="265" class="code">home · 1.00x</text>
+<rect x="524" y="140" width="216" height="150" rx="28" class="card"/>
+<rect x="602" y="162" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(621.440 181.440) scale(0.880)"><use href="#gw-icon-messenger" width="24" height="24"/></g>
+<text x="632" y="240" class="label">메신저</text>
+<text x="632" y="265" class="code">messenger · 0.88x</text>
+<rect x="764" y="140" width="216" height="150" rx="28" class="card"/>
+<rect x="842" y="162" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(860.000 180.000) scale(1.000)"><use href="#gw-icon-mail" width="24" height="24"/></g>
+<text x="872" y="240" class="label">메일</text>
+<text x="872" y="265" class="code">mail · 1.00x</text>
+<rect x="1004" y="140" width="216" height="150" rx="28" class="card"/>
+<rect x="1082" y="162" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(1100.240 180.240) scale(0.980)"><use href="#gw-icon-notification" width="24" height="24"/></g>
+<text x="1112" y="240" class="label">알림</text>
+<text x="1112" y="265" class="code">notification · 0.98x</text>
+<rect x="44" y="314" width="216" height="150" rx="28" class="card"/>
+<rect x="122" y="336" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(141.440 355.440) scale(0.880)"><use href="#gw-icon-attendance" width="24" height="24"/></g>
+<text x="152" y="414" class="label">근태</text>
+<text x="152" y="439" class="code">attendance · 0.88x</text>
+<rect x="284" y="314" width="216" height="150" rx="28" class="card"/>
+<rect x="362" y="336" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(380.960 354.960) scale(0.920)"><use href="#gw-icon-board" width="24" height="24"/></g>
+<text x="392" y="414" class="label">게시판</text>
+<text x="392" y="439" class="code">board · 0.92x</text>
+<rect x="524" y="314" width="216" height="150" rx="28" class="card"/>
+<rect x="602" y="336" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(620.240 354.240) scale(0.980)"><use href="#gw-icon-calendar" width="24" height="24"/></g>
+<text x="632" y="414" class="label">캘린더</text>
+<text x="632" y="439" class="code">calendar · 0.98x</text>
+<rect x="764" y="314" width="216" height="150" rx="28" class="card"/>
+<rect x="842" y="336" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(861.200 355.200) scale(0.900)"><use href="#gw-icon-report" width="24" height="24"/></g>
+<text x="872" y="414" class="label">보고</text>
+<text x="872" y="439" class="code">report · 0.90x</text>
+<rect x="1004" y="314" width="216" height="150" rx="28" class="card"/>
+<rect x="1082" y="336" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(1100.720 354.720) scale(0.940)"><use href="#gw-icon-approval" width="24" height="24"/></g>
+<text x="1112" y="414" class="label">전자결재</text>
+<text x="1112" y="439" class="code">approval · 0.94x</text>
+<rect x="44" y="488" width="216" height="150" rx="28" class="card"/>
+<rect x="122" y="510" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(140.240 528.240) scale(0.980)"><use href="#gw-icon-people" width="24" height="24"/></g>
+<text x="152" y="588" class="label">인사</text>
+<text x="152" y="613" class="code">people · 0.98x</text>
+<rect x="284" y="488" width="216" height="150" rx="28" class="card"/>
+<rect x="362" y="510" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(381.200 529.200) scale(0.900)"><use href="#gw-icon-payroll" width="24" height="24"/></g>
+<text x="392" y="588" class="label">급여</text>
+<text x="392" y="613" class="code">payroll · 0.90x</text>
+<rect x="524" y="488" width="216" height="150" rx="28" class="card"/>
+<rect x="602" y="510" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(620.840 528.840) scale(0.930)"><use href="#gw-icon-tax" width="24" height="24"/></g>
+<text x="632" y="588" class="label">세무</text>
+<text x="632" y="613" class="code">tax · 0.93x</text>
+<rect x="764" y="488" width="216" height="150" rx="28" class="card"/>
+<rect x="842" y="510" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(860.720 528.720) scale(0.940)"><use href="#gw-icon-labor" width="24" height="24"/></g>
+<text x="872" y="588" class="label">노무</text>
+<text x="872" y="613" class="code">labor · 0.94x</text>
+<rect x="1004" y="488" width="216" height="150" rx="28" class="card"/>
+<rect x="1082" y="510" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(1100.480 528.480) scale(0.960)"><use href="#gw-icon-legal" width="24" height="24"/></g>
+<text x="1112" y="588" class="label">법무</text>
+<text x="1112" y="613" class="code">legal · 0.96x</text>
+<rect x="44" y="662" width="216" height="150" rx="28" class="card"/>
+<rect x="122" y="684" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(140.240 702.240) scale(0.980)"><use href="#gw-icon-documents" width="24" height="24"/></g>
+<text x="152" y="762" class="label">문서함</text>
+<text x="152" y="787" class="code">documents · 0.98x</text>
+<rect x="284" y="662" width="216" height="150" rx="28" class="card"/>
+<rect x="362" y="684" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(380.960 702.960) scale(0.920)"><use href="#gw-icon-file" width="24" height="24"/></g>
+<text x="392" y="762" class="label">파일</text>
+<text x="392" y="787" class="code">file · 0.92x</text>
+<rect x="524" y="662" width="216" height="150" rx="28" class="card"/>
+<rect x="602" y="684" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(620.480 702.480) scale(0.960)"><use href="#gw-icon-admin" width="24" height="24"/></g>
+<text x="632" y="762" class="label">관리자</text>
+<text x="632" y="787" class="code">admin · 0.96x</text>
+<rect x="764" y="662" width="216" height="150" rx="28" class="card"/>
+<rect x="842" y="684" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(861.440 703.440) scale(0.880)"><use href="#gw-icon-settings" width="24" height="24"/></g>
+<text x="872" y="762" class="label">설정</text>
+<text x="872" y="787" class="code">settings · 0.88x</text>
+<rect x="1004" y="662" width="216" height="150" rx="28" class="card"/>
+<rect x="1082" y="684" width="60" height="60" rx="20" class="box"/>
+<g class="icon" transform="translate(1101.200 703.200) scale(0.900)"><use href="#gw-icon-dashboard" width="24" height="24"/></g>
+<text x="1112" y="762" class="label">경영대시보드</text>
+<text x="1112" y="787" class="code">dashboard · 0.90x</text>
+</svg>

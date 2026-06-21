@@ -17,9 +17,11 @@ describe("Phase 55 org/employees/admin boundaries", () => {
     expect(html).toContain("/admin/users");
     expect(html).toContain("작은 화면");
     expect(html).not.toContain("초대 실행");
+    expect(html).not.toContain('href="/me"');
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("COMPANY_ADMIN");
     expect(html).not.toContain("HR_ADMIN");
+    expect(html).toContain('href="/employees"');
   });
 
   it("keeps org page read-only and points policy changes back to admin routes", () => {
@@ -31,6 +33,7 @@ describe("Phase 55 org/employees/admin boundaries", () => {
     expect(html).toContain("권한 체계 안내");
     expect(html).toContain("/admin/policies");
     expect(html).not.toContain("역할 생성");
+    expect(html).toContain('href="/org"');
   });
 
   it("keeps me page focused on session summary and read-only personal context", () => {
@@ -42,6 +45,7 @@ describe("Phase 55 org/employees/admin boundaries", () => {
     expect(html).toContain("/employees");
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("초대 실행");
+    expect(html).toContain('href="/me"');
   });
 
   it("keeps admin users page positioned as a higher-risk review surface", () => {
@@ -51,5 +55,6 @@ describe("Phase 55 org/employees/admin boundaries", () => {
     expect(html).toContain("역할 후보");
     expect(html).toContain("상태 변경 diff");
     expect(html).toContain("감사 후보");
+    expect(html).toContain('href="/admin/users"');
   });
 });

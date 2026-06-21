@@ -110,7 +110,20 @@ export function buildDocumentStorageKey(input: BuildDocumentStorageKeyInput) {
 }
 
 export function buildDocumentStoragePreview(objectKey: string) {
-  return objectKey;
+  const segments = objectKey.split("/").filter(Boolean);
+
+  if (
+    segments.length >= 9 &&
+    segments[0] === "companies" &&
+    segments[2] === "spaces" &&
+    segments[4] === "files" &&
+    segments[6] === "versions"
+  ) {
+    const [, companyId, , spaceId, , fileId, , versionId] = segments;
+    return `masked-object/${companyId}/${spaceId}/${fileId}/${versionId}`;
+  }
+
+  return "masked-object/redacted";
 }
 
 export function ensureDocumentUploadPolicy(input: { contentType: string; fileSize: number }) {

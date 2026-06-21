@@ -1,5 +1,5 @@
 import type { Board, BoardComment, BoardPost, DocumentFile, DocumentSpace, ReadReceipt } from "@gw/shared";
-import { createOperationalSql, type PostgresEnv } from "./postgres";
+import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 type BoardRow = {
   id: string;
@@ -185,23 +185,50 @@ function mapDocumentFile(row: DocumentFileRow): DocumentFile {
   };
 }
 
+function runOperationalRead<T>(query: () => Promise<T>): Promise<T | null> {
+  return Promise.resolve()
+    .then(query)
+    .catch((error) => {
+      if (isOperationalSchemaDriftError(error)) {
+        return null;
+      }
+      throw error;
+    });
+}
+
+function runOperationalWrite<T>(query: () => Promise<T>): Promise<T | null> {
+  return Promise.resolve()
+    .then(query)
+    .catch((error) => {
+      if (isOperationalSchemaDriftError(error)) {
+        return null;
+      }
+      throw error;
+    });
+}
+
 export async function listOperationalBoards(env: PostgresEnv | undefined, companyId: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at
-    from boards
-    where company_id = ${companyId}
-      and deleted_at is null
-    order by name, id
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at
+      from boards
+      where company_id = ${companyId}
+        and deleted_at is null
+      order by name, id
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return rows.map((row) => mapBoard(row as BoardRow));
 }
-
 export async function createOperationalBoard(
   env: PostgresEnv | undefined,
   input: Pick<Board, "id" | "companyId" | "boardType" | "name" | "slug" | "visibility" | "status" | "createdBy" | "createdAt" | "updatedAt">,
@@ -211,98 +238,113 @@ export async function createOperationalBoard(
     return null;
   }
 
-  const rows = await sql`
-    insert into boards (id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at)
-    values (
-      ${input.id},
-      ${input.companyId},
-      ${input.slug},
-      ${input.name},
-      ${input.boardType},
-      ${input.visibility},
-      ${input.status},
-      ${input.createdBy},
-      ${input.createdAt}::timestamptz,
-      ${input.updatedAt}::timestamptz
-    )
-    on conflict (company_id, code) do update set
-      name = excluded.name,
-      board_type = excluded.board_type,
-      visibility = excluded.visibility,
-      status = excluded.status,
-      created_by = excluded.created_by,
-      updated_at = excluded.updated_at
-    where boards.company_id = excluded.company_id
-      and boards.code = excluded.code
-    returning id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at
-  `;
+  const rows = await runOperationalWrite(() => {
+    return sql`
+      insert into boards (id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at)
+      values (
+        ${input.id},
+        ${input.companyId},
+        ${input.slug},
+        ${input.name},
+        ${input.boardType},
+        ${input.visibility},
+        ${input.status},
+        ${input.createdBy},
+        ${input.createdAt}::timestamptz,
+        ${input.updatedAt}::timestamptz
+      )
+      on conflict (company_id, code) do update set
+        name = excluded.name,
+        board_type = excluded.board_type,
+        visibility = excluded.visibility,
+        status = excluded.status,
+        created_by = excluded.created_by,
+        updated_at = excluded.updated_at
+      where boards.company_id = excluded.company_id
+        and boards.code = excluded.code
+      returning id, company_id, code, name, board_type, visibility, status, created_by, created_at, updated_at
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return mapBoard(rows[0] as BoardRow);
 }
-
 export async function listOperationalBoardPosts(env: PostgresEnv | undefined, companyId: string, boardId?: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select
-      p.id,
-      p.company_id,
-      p.board_id,
-      p.author_user_id,
-      e.id as author_employee_id,
-      p.title,
-      p.body,
-      p.is_notice,
-      p.published_at,
-      p.status,
-      p.created_at,
-      p.updated_at
-    from posts p
-    left join employees e on e.user_id = p.author_user_id and e.company_id = p.company_id and e.deleted_at is null
-    where p.company_id = ${companyId}
-      and (${boardId ?? null}::text is null or p.board_id = ${boardId ?? null})
-      and p.deleted_at is null
-    order by coalesce(p.published_at, p.created_at) desc, p.id desc
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        p.id,
+        p.company_id,
+        p.board_id,
+        p.author_user_id,
+        e.id as author_employee_id,
+        p.title,
+        p.body,
+        p.is_notice,
+        p.published_at,
+        p.status,
+        p.created_at,
+        p.updated_at
+      from posts p
+      left join employees e on e.user_id = p.author_user_id and e.company_id = p.company_id and e.deleted_at is null
+      where p.company_id = ${companyId}
+        and (${boardId ?? null}::text is null or p.board_id = ${boardId ?? null})
+        and p.deleted_at is null
+      order by coalesce(p.published_at, p.created_at) desc, p.id desc
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return rows.map((row) => mapBoardPost(row as BoardPostRow));
 }
-
 export async function findOperationalBoardPost(env: PostgresEnv | undefined, companyId: string, postId: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select
-      p.id,
-      p.company_id,
-      p.board_id,
-      p.author_user_id,
-      e.id as author_employee_id,
-      p.title,
-      p.body,
-      p.is_notice,
-      p.published_at,
-      p.status,
-      p.created_at,
-      p.updated_at
-    from posts p
-    left join employees e on e.user_id = p.author_user_id and e.company_id = p.company_id and e.deleted_at is null
-    where p.company_id = ${companyId}
-      and p.id = ${postId}
-      and p.deleted_at is null
-    limit 1
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        p.id,
+        p.company_id,
+        p.board_id,
+        p.author_user_id,
+        e.id as author_employee_id,
+        p.title,
+        p.body,
+        p.is_notice,
+        p.published_at,
+        p.status,
+        p.created_at,
+        p.updated_at
+      from posts p
+      left join employees e on e.user_id = p.author_user_id and e.company_id = p.company_id and e.deleted_at is null
+      where p.company_id = ${companyId}
+        and p.id = ${postId}
+        and p.deleted_at is null
+      limit 1
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   const row = rows[0] as BoardPostRow | undefined;
   return row ? mapBoardPost(row) : null;
 }
-
 export async function createOperationalBoardPost(
   env: PostgresEnv | undefined,
   input: Pick<BoardPost, "id" | "companyId" | "boardId" | "authorEmployeeId" | "title" | "bodyPreview" | "isNotice" | "status" | "createdBy" | "createdAt" | "updatedAt"> & {
@@ -314,64 +356,74 @@ export async function createOperationalBoardPost(
     return null;
   }
 
-  const rows = await sql`
-    insert into posts (id, company_id, board_id, author_user_id, title, body, status, is_notice, published_at, created_at, updated_at)
-    values (
-      ${input.id},
-      ${input.companyId},
-      ${input.boardId},
-      ${input.createdBy},
-      ${input.title},
-      ${input.bodyPreview},
-      ${input.status},
-      ${input.isNotice},
-      ${input.publishedAt}::timestamptz,
-      ${input.createdAt}::timestamptz,
-      ${input.updatedAt}::timestamptz
-    )
-    on conflict (id) do update set
-      title = excluded.title,
-      body = excluded.body,
-      status = excluded.status,
-      is_notice = excluded.is_notice,
-      published_at = excluded.published_at,
-      updated_at = excluded.updated_at
-    returning id, company_id, board_id, author_user_id, ${input.authorEmployeeId}::text as author_employee_id, title, body, is_notice, published_at, status, created_at, updated_at
-  `;
+  const rows = await runOperationalWrite(() => {
+    return sql`
+      insert into posts (id, company_id, board_id, author_user_id, title, body, status, is_notice, published_at, created_at, updated_at)
+      values (
+        ${input.id},
+        ${input.companyId},
+        ${input.boardId},
+        ${input.createdBy},
+        ${input.title},
+        ${input.bodyPreview},
+        ${input.status},
+        ${input.isNotice},
+        ${input.publishedAt}::timestamptz,
+        ${input.createdAt}::timestamptz,
+        ${input.updatedAt}::timestamptz
+      )
+      on conflict (id) do update set
+        title = excluded.title,
+        body = excluded.body,
+        status = excluded.status,
+        is_notice = excluded.is_notice,
+        published_at = excluded.published_at,
+        updated_at = excluded.updated_at
+      returning id, company_id, board_id, author_user_id, ${input.authorEmployeeId}::text as author_employee_id, title, body, is_notice, published_at, status, created_at, updated_at
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return mapBoardPost(rows[0] as BoardPostRow);
 }
-
 export async function listOperationalBoardComments(env: PostgresEnv | undefined, companyId: string, postId: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select
-      c.id,
-      c.company_id,
-      c.post_id,
-      c.author_user_id,
-      e.id as author_employee_id,
-      c.parent_comment_id,
-      c.body,
-      c.deleted_at,
-      c.status,
-      c.created_at,
-      c.updated_at
-    from comments c
-    left join employees e on e.user_id = c.author_user_id and e.company_id = c.company_id and e.deleted_at is null
-    where c.company_id = ${companyId}
-      and c.post_id = ${postId}
-      and c.deleted_at is null
-    order by c.created_at asc, c.id asc
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        c.id,
+        c.company_id,
+        c.post_id,
+        c.author_user_id,
+        e.id as author_employee_id,
+        c.parent_comment_id,
+        c.body,
+        c.deleted_at,
+        c.status,
+        c.created_at,
+        c.updated_at
+      from comments c
+      left join employees e on e.user_id = c.author_user_id and e.company_id = c.company_id and e.deleted_at is null
+      where c.company_id = ${companyId}
+        and c.post_id = ${postId}
+        and c.deleted_at is null
+      order by c.created_at asc, c.id asc
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return rows.map((row) => mapBoardComment(row as BoardCommentRow));
 }
-
 export async function createOperationalBoardComment(
   env: PostgresEnv | undefined,
   input: Pick<BoardComment, "id" | "companyId" | "postId" | "authorEmployeeId" | "parentCommentId" | "body" | "status" | "createdBy" | "createdAt" | "updatedAt">,
@@ -381,58 +433,70 @@ export async function createOperationalBoardComment(
     return null;
   }
 
-  const rows = await sql`
-    insert into comments (id, company_id, post_id, author_user_id, parent_comment_id, body, status, created_at, updated_at)
-    values (
-      ${input.id},
-      ${input.companyId},
-      ${input.postId},
-      ${input.createdBy},
-      ${input.parentCommentId},
-      ${input.body},
-      ${input.status},
-      ${input.createdAt}::timestamptz,
-      ${input.updatedAt}::timestamptz
-    )
-    on conflict (id) do update set
-      parent_comment_id = excluded.parent_comment_id,
-      body = excluded.body,
-      status = excluded.status,
-      updated_at = excluded.updated_at
-    returning id, company_id, post_id, author_user_id, ${input.authorEmployeeId}::text as author_employee_id, parent_comment_id, body, null::timestamptz as deleted_at, status, created_at, updated_at
-  `;
+  let rows;
+  try {
+    rows = await sql`
+      insert into comments (id, company_id, post_id, author_user_id, parent_comment_id, body, status, created_at, updated_at)
+      values (
+        ${input.id},
+        ${input.companyId},
+        ${input.postId},
+        ${input.createdBy},
+        ${input.parentCommentId},
+        ${input.body},
+        ${input.status},
+        ${input.createdAt}::timestamptz,
+        ${input.updatedAt}::timestamptz
+      )
+      on conflict (id) do update set
+        parent_comment_id = excluded.parent_comment_id,
+        body = excluded.body,
+        status = excluded.status,
+        updated_at = excluded.updated_at
+      returning id, company_id, post_id, author_user_id, ${input.authorEmployeeId}::text as author_employee_id, parent_comment_id, body, null::timestamptz as deleted_at, status, created_at, updated_at
+    `;
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) {
+      return null;
+    }
+    throw error;
+  }
 
   return mapBoardComment(rows[0] as BoardCommentRow);
 }
-
 export async function listOperationalDocumentSpaces(env: PostgresEnv | undefined, companyId: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select
-      ds.id,
-      ds.company_id,
-      ds.code,
-      ds.name,
-      ds.visibility,
-      e.id as owner_employee_id,
-      ds.owner_user_id,
-      ds.status,
-      ds.created_at,
-      ds.updated_at
-    from document_spaces ds
-    left join employees e on e.user_id = ds.owner_user_id and e.company_id = ds.company_id and e.deleted_at is null
-    where ds.company_id = ${companyId}
-      and ds.deleted_at is null
-    order by ds.name, ds.id
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        ds.id,
+        ds.company_id,
+        ds.code,
+        ds.name,
+        ds.visibility,
+        e.id as owner_employee_id,
+        ds.owner_user_id,
+        ds.status,
+        ds.created_at,
+        ds.updated_at
+      from document_spaces ds
+      left join employees e on e.user_id = ds.owner_user_id and e.company_id = ds.company_id and e.deleted_at is null
+      where ds.company_id = ${companyId}
+        and ds.deleted_at is null
+      order by ds.name, ds.id
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return rows.map((row) => mapDocumentSpace(row as DocumentSpaceRow));
 }
-
 export async function createOperationalDocumentSpace(
   env: PostgresEnv | undefined,
   input: Pick<DocumentSpace, "id" | "companyId" | "name" | "slug" | "visibility" | "ownerEmployeeId" | "status" | "createdBy" | "createdAt" | "updatedAt">,
@@ -475,76 +539,86 @@ export async function listOperationalDocumentFiles(env: PostgresEnv | undefined,
     return null;
   }
 
-  const rows = await sql`
-    select
-      fo.id as file_id,
-      fo.company_id,
-      d.space_id,
-      e.id as owner_employee_id,
-      coalesce(fo.owner_user_id, d.owner_user_id) as owner_user_id,
-      d.id as version_id,
-      coalesce(fo.file_name, d.title) as file_name,
-      fo.content_type,
-      fo.file_size,
-      d.summary as version_label,
-      ds.visibility,
-      d.status as document_status,
-      fo.checksum_sha256,
-      fo.bucket,
-      fo.created_at,
-      coalesce(d.updated_at, fo.created_at) as updated_at,
-      fo.deleted_at as file_deleted_at
-    from file_objects fo
-    join documents d on d.id = fo.document_id and d.company_id = fo.company_id and d.deleted_at is null
-    join document_spaces ds on ds.id = d.space_id and ds.company_id = fo.company_id and ds.deleted_at is null
-    left join employees e on e.user_id = coalesce(fo.owner_user_id, d.owner_user_id) and e.company_id = fo.company_id and e.deleted_at is null
-    where fo.company_id = ${companyId}
-      and (${spaceId ?? null}::text is null or ds.id = ${spaceId ?? null})
-      and fo.deleted_at is null
-    order by fo.created_at desc, fo.id desc
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        fo.id as file_id,
+        fo.company_id,
+        d.space_id,
+        e.id as owner_employee_id,
+        coalesce(fo.owner_user_id, d.owner_user_id) as owner_user_id,
+        d.id as version_id,
+        coalesce(fo.file_name, d.title) as file_name,
+        fo.content_type,
+        fo.file_size,
+        d.summary as version_label,
+        ds.visibility,
+        d.status as document_status,
+        fo.checksum_sha256,
+        fo.bucket,
+        fo.created_at,
+        coalesce(d.updated_at, fo.created_at) as updated_at,
+        fo.deleted_at as file_deleted_at
+      from file_objects fo
+      join documents d on d.id = fo.document_id and d.company_id = fo.company_id and d.deleted_at is null
+      join document_spaces ds on ds.id = d.space_id and ds.company_id = fo.company_id and ds.deleted_at is null
+      left join employees e on e.user_id = coalesce(fo.owner_user_id, d.owner_user_id) and e.company_id = fo.company_id and e.deleted_at is null
+      where fo.company_id = ${companyId}
+        and (${spaceId ?? null}::text is null or ds.id = ${spaceId ?? null})
+        and fo.deleted_at is null
+      order by fo.created_at desc, fo.id desc
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   return rows.map((row) => mapDocumentFile(row as DocumentFileRow));
 }
-
 export async function findOperationalDocumentFile(env: PostgresEnv | undefined, companyId: string, fileId: string) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const rows = await sql`
-    select
-      fo.id as file_id,
-      fo.company_id,
-      d.space_id,
-      e.id as owner_employee_id,
-      coalesce(fo.owner_user_id, d.owner_user_id) as owner_user_id,
-      d.id as version_id,
-      coalesce(fo.file_name, d.title) as file_name,
-      fo.content_type,
-      fo.file_size,
-      d.summary as version_label,
-      ds.visibility,
-      d.status as document_status,
-      fo.checksum_sha256,
-      fo.bucket,
-      fo.created_at,
-      coalesce(d.updated_at, fo.created_at) as updated_at,
-      fo.deleted_at as file_deleted_at
-    from file_objects fo
-    join documents d on d.id = fo.document_id and d.company_id = fo.company_id and d.deleted_at is null
-    join document_spaces ds on ds.id = d.space_id and ds.company_id = fo.company_id and ds.deleted_at is null
-    left join employees e on e.user_id = coalesce(fo.owner_user_id, d.owner_user_id) and e.company_id = fo.company_id and e.deleted_at is null
-    where fo.company_id = ${companyId}
-      and fo.id = ${fileId}
-    limit 1
-  `;
+  const rows = await runOperationalRead(() => {
+    return sql`
+      select
+        fo.id as file_id,
+        fo.company_id,
+        d.space_id,
+        e.id as owner_employee_id,
+        coalesce(fo.owner_user_id, d.owner_user_id) as owner_user_id,
+        d.id as version_id,
+        coalesce(fo.file_name, d.title) as file_name,
+        fo.content_type,
+        fo.file_size,
+        d.summary as version_label,
+        ds.visibility,
+        d.status as document_status,
+        fo.checksum_sha256,
+        fo.bucket,
+        fo.created_at,
+        coalesce(d.updated_at, fo.created_at) as updated_at,
+        fo.deleted_at as file_deleted_at
+      from file_objects fo
+      join documents d on d.id = fo.document_id and d.company_id = fo.company_id and d.deleted_at is null
+      join document_spaces ds on ds.id = d.space_id and ds.company_id = fo.company_id and ds.deleted_at is null
+      left join employees e on e.user_id = coalesce(fo.owner_user_id, d.owner_user_id) and e.company_id = fo.company_id and e.deleted_at is null
+      where fo.company_id = ${companyId}
+        and fo.id = ${fileId}
+      limit 1
+    `;
+  });
+
+  if (!rows) {
+    return null;
+  }
 
   const row = rows[0] as DocumentFileRow | undefined;
   return row ? mapDocumentFile(row) : null;
 }
-
 export async function createOperationalDocumentFile(
   env: PostgresEnv | undefined,
   input: Pick<DocumentFile, "id" | "companyId" | "spaceId" | "ownerEmployeeId" | "versionId" | "fileName" | "contentType" | "fileSize" | "versionLabel" | "status" | "createdAt" | "updatedAt"> & {
@@ -694,19 +768,26 @@ export async function upsertOperationalReadReceipt(
     return null;
   }
 
-  await sql`
-    insert into read_receipts (id, company_id, target_type, target_id, user_id, read_at)
-    values (
-      ${input.id},
-      ${input.companyId},
-      ${input.targetType},
-      ${input.targetId},
-      ${input.userId},
-      ${input.readAt}::timestamptz
-    )
-    on conflict (company_id, target_type, target_id, user_id)
-    do update set read_at = excluded.read_at
-  `;
+  try {
+    await sql`
+      insert into read_receipts (id, company_id, target_type, target_id, user_id, read_at)
+      values (
+        ${input.id},
+        ${input.companyId},
+        ${input.targetType},
+        ${input.targetId},
+        ${input.userId},
+        ${input.readAt}::timestamptz
+      )
+      on conflict (company_id, target_type, target_id, user_id)
+      do update set read_at = excluded.read_at
+    `;
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) {
+      return null;
+    }
+    throw error;
+  }
 
   return {
     id: input.id,

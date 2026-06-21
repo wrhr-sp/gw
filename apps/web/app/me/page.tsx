@@ -3,6 +3,7 @@ import { appRoutes } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import { MeLiveSection } from "../_components/real-usage-panels";
+import { phase59HelpEntryCards } from "../uat/phase59-uat-config";
 
 const profileCards = [
   {
@@ -35,7 +36,7 @@ const stateGuides = [
   {
     state: "loading",
     meaning: "아직 내 세션·권한 정보를 불러오는 중인 상태",
-    note: "성공, 세션 만료, 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /me 또는 /home 에서 다시 확인합니다.",
+    note: "성공, 세션 만료, 권한 차단으로 단정하지 말고 잠시 기다린 뒤 /me 또는 /dashboard 에서 다시 확인합니다.",
   },
   {
     state: "empty",
@@ -73,10 +74,11 @@ const securityNotes = [
 export default function MePage() {
   return (
     <PageShell
-      backHref="/home"
+      backHref="/dashboard"
       backLabel="대시보드로"
       eyebrow="내 세션 / 권한 / 개인 확인 레인"
       title="내 정보"
+      titleHref="/me"
       description="공지·문서 확인 뒤 내 세션, 역할, 회사 정보, 보안 안내를 다시 확인하고 조직/직원 조회로 이어지게 정리했으며, 관리자 설정 화면처럼 과장하지 않고 실제 same-origin 세션 확인과 로그아웃까지 바로 검증할 수 있습니다."
       actions={
         <div className="pill-row">
@@ -111,6 +113,25 @@ export default function MePage() {
               <p>{item.note}</p>
             </article>
           ))}
+        </div>
+      </SurfaceSection>
+
+      <SurfaceSection title="사용자 도움말 진입" description="내 정보에서 세션·권한·self-only 문맥을 확인한 뒤, 필요한 도움말 entry 를 다시 찾아 UAT 기록을 마무리합니다.">
+        <div className="grid-auto-compact">
+          {phase59HelpEntryCards.map((card) => (
+            <article key={card.title} className="info-card">
+              <Pill tone="accent">{card.route}</Pill>
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.followUp}</p>
+            </article>
+          ))}
+          <article className="info-card">
+            <Pill>/uat</Pill>
+            <h3>통합 UAT 체크 화면</h3>
+            <p>역할별 entry, 상태/차단 기록표, 관리자 안내 흐름을 한 번에 다시 확인합니다.</p>
+            <a href="/uat">/uat</a>
+          </article>
         </div>
       </SurfaceSection>
 

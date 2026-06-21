@@ -20,6 +20,7 @@ MAX_DISPATCH="${MAX_DISPATCH:-1}"
 STATE_FILE="$ROOT/.hermes/gw-blocked-remediation-watch.state.json"
 KANBAN_LOCK="${KANBAN_LOCK:-$ROOT/.hermes/locks/gw-kanban.lock}"
 CORRUPT_BACKOFF_SECONDS="${CORRUPT_BACKOFF_SECONDS:-1800}"
+DONE_SIGNAL_LOOKBACK_SECONDS="${DONE_SIGNAL_LOOKBACK_SECONDS:-86400}"
 
 usage() {
   printf '%s\n' '사용법: ./scripts/gw-blocked-remediation-watch.sh [--once] [--dry-run] [--interval 초] [--board 보드]'
@@ -45,7 +46,7 @@ source "$ROOT/scripts/gw-hermes-env.sh"
 mkdir -p "$(dirname "$STATE_FILE")" "$(dirname "$KANBAN_LOCK")"
 
 run_once() {
-  flock -n "$STATE_FILE.lock" python3 - "$BOARD" "$STATE_FILE" "$KANBAN_LOCK" "$DRY_RUN" "$MAX_DISPATCH" <<'PY'
+  flock -n "$STATE_FILE.lock" python3 - "$BOARD" "$STATE_FILE" "$KANBAN_LOCK" "$DRY_RUN" "$MAX_DISPATCH" "$DONE_SIGNAL_LOOKBACK_SECONDS" <<'PY'
 from __future__ import annotations
 import hashlib
 import json
@@ -57,7 +58,7 @@ import sys
 import time
 from pathlib import Path
 
-board, state_arg, lock, dry_run_arg, max_dispatch = sys.argv[1:6]
+board, state_arg, lock, dry_run_arg, max_dispatch, done_signal_lookback = sys.argv[1:7]
 root = Path('/home/wrhrgw/gw')
 state_path = Path(state_arg)
 hermes = os.environ['HERMES_BIN']
@@ -183,7 +184,7 @@ def load_blocked_tasks() -> list[dict]:
     con.row_factory = sqlite3.Row
     rows = con.execute(
         """
-        select id, title, body, assignee, status, result, last_failure_error, created_at, started_at
+        select id, title, body, assignee, status, result, last_failure_error, created_at, started_at, completed_at
         from tasks
         where status = 'blocked'
         order by priority desc, created_at asc
@@ -206,6 +207,69 @@ def load_blocked_tasks() -> list[dict]:
             "select count(*) from task_comments where task_id=? and body like '%blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다%'",
             (d['id'],),
         ).fetchone()[0]
+        d['source_kind'] = 'blocked'
+        out.append(d)
+    con.close()
+    return out
+
+
+def load_done_signal_tasks() -> list[dict]:
+    """Find recently-completed cards whose result/comment is actually a blocker.
+
+    Some role bots finish a review card as `done` with result `changes-requested`
+    and only a comment explains the blocking defect. If a downstream verifier is
+    still active, this must be treated like a blocker: suspend downstream and
+    insert a fix→review→verify→recovery chain.
+    """
+    try:
+        lookback = int(done_signal_lookback)
+    except Exception:
+        lookback = 86400
+    cutoff = int(time.time()) - max(lookback, 60)
+    con = ro_connect()
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        """
+        select id, title, body, assignee, status, result, last_failure_error, created_at, started_at, completed_at
+        from tasks
+        where status = 'done'
+          and coalesce(completed_at, 0) >= ?
+        order by completed_at desc
+        limit 80
+        """,
+        (cutoff,),
+    ).fetchall()
+    out = []
+    remediation_prefixes = ('자동 재수정:', '자동 수정:', '자동 재리뷰:', '자동 재검증:', '복구 정리:', '재수정:')
+    for row in rows:
+        d = dict(row)
+        if str(d.get('title') or '').startswith(remediation_prefixes):
+            continue
+        d['parents'] = [r[0] for r in con.execute('select parent_id from task_links where child_id=? order by parent_id', (d['id'],)).fetchall()]
+        d['children'] = [r[0] for r in con.execute('select child_id from task_links where parent_id=? order by parent_id', (d['id'],)).fetchall()]
+        if not d['children']:
+            continue
+        child_rows = [dict(r) for r in con.execute(
+            "select id, title, status, assignee from tasks where id in (%s)" % ','.join('?' for _ in d['children']),
+            d['children'],
+        ).fetchall()]
+        active_children = [c for c in child_rows if c.get('status') in ACTIVE_STATUSES]
+        if not active_children:
+            continue
+        d['child_statuses'] = child_rows
+        d['recent_comments'] = [dict(r) for r in con.execute(
+            'select author, body, created_at from task_comments where task_id=? order by id desc limit 8',
+            (d['id'],),
+        ).fetchall()]
+        d['runs'] = [dict(r) for r in con.execute(
+            'select status, outcome, summary, error, started_at, ended_at from task_runs where task_id=? order by id desc limit 3',
+            (d['id'],),
+        ).fetchall()]
+        d['auto_intervention_count'] = con.execute(
+            "select count(*) from task_comments where task_id=? and (body like '%done-signal remediation watcher%' or body like '%blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다%')",
+            (d['id'],),
+        ).fetchone()[0]
+        d['source_kind'] = 'done-signal'
         out.append(d)
     con.close()
     return out
@@ -316,6 +380,88 @@ def extract_parent(task: dict) -> str | None:
 def already_intervened(task: dict) -> bool:
     haystack = signal_text(task)
     return 'blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다' in haystack or re.search(r'fix=t_[0-9a-f]+\s+review=t_[0-9a-f]+\s+verify=t_[0-9a-f]+\s+recovery=t_[0-9a-f]+', haystack) is not None
+
+
+def normalize_recovery_title(title: str) -> str:
+    normalized = title.strip()
+    prefixes = (
+        '자동 재수정:',
+        '자동 재리뷰:',
+        '자동 재검증:',
+        '복구 정리:',
+        '재수정:',
+    )
+    changed = True
+    while changed:
+        changed = False
+        for prefix in prefixes:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix):].strip()
+                changed = True
+    return re.sub(r'\s+', ' ', normalized)[:180]
+
+
+def active_recovery_title_count(task: dict) -> int:
+    """Count active recovery-loop cards sharing the same normalized problem title.
+
+    The previous guard counted attempts per task id/reason hash, so a watcher could create
+    many sibling tasks with different ids/hashes around the same failure. 3+ active sibling
+    cards means the main orchestrator must intervene instead of spawning another chain.
+    """
+    title = normalize_recovery_title(str(task.get('title') or ''))
+    if not title:
+        return 0
+    con = ro_connect()
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        """
+        select id, title, status
+        from tasks
+        where status in ('blocked','todo','ready','running','scheduled')
+          and (
+            title like '자동 재수정:%'
+            or title like '자동 재리뷰:%'
+            or title like '자동 재검증:%'
+            or title like '복구 정리:%'
+            or title like '재수정:%'
+          )
+        """
+    ).fetchall()
+    con.close()
+    return sum(1 for row in rows if normalize_recovery_title(str(row['title'] or '')) == title)
+
+
+def existing_remediation_children(task: dict) -> list[str]:
+    """Return active or already-resolved remediation children attached to a source task.
+
+    This prevents duplicate chains when Singde or a watcher already inserted a fix
+    child for a done+changes-requested card before the next sweep runs. Done fix
+    children with clear pass/review-gate evidence are treated as resolved evidence,
+    not as a reason to spawn another remediation chain.
+    """
+    children = [c for c in (task.get('children') or []) if isinstance(c, str) and re.fullmatch(r't_[0-9a-f]+', c)]
+    if not children:
+        return []
+    child_map = load_tasks_by_ids(children)
+    prefixes = ('자동 재수정:', '자동 수정:', '재수정:', '자동 재리뷰:', '자동 재검증:', '복구 정리:')
+    resolved_markers = (
+        'review-required 자동 처리 완료', '검증 통과', '테스트 통과', 'pnpm check',
+        'typecheck exit_code=0', 'focused tests', 'build 통과', 'completed',
+    )
+    found: list[str] = []
+    for cid, child in child_map.items():
+        title = str(child.get('title') or '')
+        if not title.startswith(prefixes):
+            continue
+        status = str(child.get('status') or '')
+        if status in ACTIVE_STATUSES:
+            found.append(f'{cid}:{status}:{title[:80]}')
+            continue
+        if status == 'done':
+            child_signal = signal_text(child).lower()
+            if any(marker.lower() in child_signal for marker in resolved_markers):
+                found.append(f'{cid}:done-resolved:{title[:80]}')
+    return found
 
 
 def extract_chain_ids(task: dict, st: dict) -> dict[str, str]:
@@ -746,13 +892,16 @@ def suspend_downstream_children(task: dict, recovery: str) -> list[str]:
 def create_chain(task: dict, reason: str, st: dict) -> tuple[str, list[str]]:
     tid = task['id']
     title = task.get('title') or tid
+    source_kind = task.get('source_kind') or 'blocked'
     parent = extract_parent(task) or tid
     current_hash = reason_hash(reason)
     attempt = bump_reason_group_count(task, st, current_hash)
-    base_key = f'blocked-remediation:{board}:{tid}:{current_hash}'
-    body = f'''blocked 자동 재수정 체인입니다.
+    base_key = f'blocked-remediation:{board}:{tid}:{source_kind}:{current_hash}'
+    source_label = '원본 blocked 카드' if source_kind == 'blocked' else '원본 done changes-requested/review 카드'
+    body = f'''blocked/done-signal 자동 재수정 체인입니다.
 
-원본 blocked 카드: {tid}
+{source_label}: {tid}
+원본 상태: {task.get('status')}
 원본 제목: {title}
 failure group: reason_hash={current_hash}, attempt={attempt}
 
@@ -761,7 +910,7 @@ failure group: reason_hash={current_hash}, attempt={attempt}
 
 요구사항:
 - 원본 blocker의 코드/문서/테스트 불일치 또는 검증 실패를 승인된 개발 범위 안에서 최소 수정한다.
-- 원본 blocked 카드는 억지로 complete/unblock하지 않는다.
+- 원본 카드가 blocked이면 억지로 complete/unblock하지 않는다. 원본 카드가 done+changes-requested이면 후속 검증/문서/배포가 fix 검증 전 선행되지 않게 한다.
 - 구현 → 재리뷰 → 재검증 → 싱드 복구정리 체인으로 근거를 남긴다.
 - 검증 실패가 반복되면 새 체인을 증식하지 말고 싱드 복구정리에서 원인을 분류한다.
 
@@ -772,7 +921,8 @@ failure group: reason_hash={current_hash}, attempt={attempt}
     review = create('자동 재리뷰: ' + title, body + '\n단계: 수정 결과 리뷰. 보안/권한/요구사항/검증 근거를 확인한다.', 'gwreviewer', fix, base_key + ':review')
     verify = create('자동 재검증: ' + title, body + '\n단계: 리뷰 승인 후 관련 테스트/typecheck/build/smoke를 재실행한다.', 'gwtester', review, base_key + ':verify')
     recovery = create('복구 정리: ' + title, body + '\n단계: 재검증 근거를 확인하고 원본 blocked 카드와 원래 후속 경로를 정리한다.', 'singde', verify, base_key + ':recovery')
-    comment = f'[싱드 자동 개입] blocked remediation watcher가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다. reason_hash={current_hash} attempt={attempt} fix={fix} review={review} verify={verify} recovery={recovery}'
+    comment_prefix = 'done-signal remediation watcher' if source_kind == 'done-signal' else 'blocked remediation watcher'
+    comment = f'[싱드 자동 개입] {comment_prefix}가 승인 범위 내 자동 재수정 후보를 감지해 체인을 생성했습니다. reason_hash={current_hash} attempt={attempt} fix={fix} review={review} verify={verify} recovery={recovery}'
     downstream_actions = suspend_downstream_children(task, recovery)
     if downstream_actions:
         comment += ' downstream_rewire=' + ';'.join(downstream_actions[:8])
@@ -788,6 +938,7 @@ if cooldown > 0 and now - int(st.get('last_checked_at') or 0) < cooldown:
     sys.exit(0)
 try:
     blocked = load_blocked_tasks()
+    done_signal = load_done_signal_tasks()
 except sqlite3.Error as exc:
     text = str(exc).lower()
     if any(c in text for c in CORRUPT):
@@ -796,8 +947,18 @@ except sqlite3.Error as exc:
     print(f'blocked remediation: sqlite read-only query failed: {exc}', file=sys.stderr)
     sys.exit(1)
 
+# Process blocked first, then done+changes-requested/review-signal cards.  De-dupe
+# in case a future schema/status transition surfaces the same id twice.
+seen_ids: set[str] = set()
+candidates = []
+for task in blocked + done_signal:
+    tid = task.get('id')
+    if tid and tid not in seen_ids:
+        candidates.append(task)
+        seen_ids.add(tid)
+
 actions = []
-for task in blocked:
+for task in candidates:
     tid = task.get('id')
     if not tid:
         continue
@@ -839,6 +1000,10 @@ for task in blocked:
             st['approval_reported'][tid] = key
             actions.append(f'{tid}:approval-required')
         continue
+    existing_children = existing_remediation_children(task)
+    if existing_children:
+        actions.append(f'{tid}:existing-remediation-child:{";".join(existing_children[:4])}')
+        continue
     if already_intervened(task) or tid in st['handled']:
         recheck_state, recheck_reason, chain_ids = chain_recheck(task, st)
         if recheck_state == 'resolved':
@@ -870,6 +1035,15 @@ for task in blocked:
         actions.append(f'{tid}:already-handled-recheck-recreate:{recheck_reason}')
     if dry_run:
         actions.append(f'{tid}:would-create-chain')
+        continue
+    sibling_count = active_recovery_title_count(task)
+    if sibling_count >= 3:
+        current_hash = reason_hash(reason)
+        key = f'overgrowth:{normalize_recovery_title(str(task.get("title") or ""))}:{current_hash}'
+        if st['approval_reported'].get(tid) != key:
+            kanban('comment', tid, '--author', 'singde', f'[싱드 직접 개입 필요] 같은 실패군/제목의 자동 복구 카드가 {sibling_count}건 이상 활성 상태라 새 자동 재수정 체인을 만들지 않습니다. reason_hash={current_hash}. 싱드가 원본/후속 체인을 직접 확인해 기준 경로 1개만 남기고 정리해야 합니다.', check=False)
+            st['approval_reported'][tid] = key
+        actions.append(f'{tid}:overgrowth-guard:siblings={sibling_count}')
         continue
     fix, chain = create_chain(task, reason, st)
     actions.append(f'{tid}:created:{"/".join(chain)}')

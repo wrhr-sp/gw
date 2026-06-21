@@ -8,7 +8,7 @@ const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manif
 const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest"] as const;
 const authenticatedWorkbenchRoutePrefixes = [
   "/",
-  "/home",
+  "/dashboard",
   "/attendance",
   "/leave",
   "/payroll",
@@ -26,7 +26,6 @@ const authenticatedWorkbenchRoutePrefixes = [
   "/posts",
   "/offline",
 ] as const;
-const knownRoleCodeSet = new Set<string>(knownRoleCodes);
 
 type RouteGuardRole = RoleCode;
 
@@ -53,8 +52,9 @@ function extractRoleCodeFromSessionToken(sessionToken?: string | null): RouteGua
     return null;
   }
 
-  const candidate = sessionToken.slice(DEV_SESSION_PREFIX.length);
-  return knownRoleCodeSet.has(candidate) ? (candidate as RouteGuardRole) : null;
+  const suffix = sessionToken.slice(DEV_SESSION_PREFIX.length);
+  const matched = knownRoleCodes.find((roleCode) => suffix === roleCode || suffix.startsWith(`${roleCode}_`));
+  return matched ?? null;
 }
 
 export function getAdminRouteGuardResult({ pathname, host, sessionToken }: AdminRouteGuardInput): GuardResult {
@@ -71,7 +71,7 @@ export function getAdminRouteGuardResult({ pathname, host, sessionToken }: Admin
   }
 
   if (!hostInfo.isAdminHost && pathname === "/") {
-    return { action: "redirect", location: hasSessionToken ? "/home" : "/login" };
+    return { action: "redirect", location: hasSessionToken ? "/dashboard" : "/login" };
   }
 
   const isAdminWorkbenchRoute = isAdminRoute(pathname);

@@ -12,6 +12,7 @@ export default function WorkItemsTaxPage() {
         backLabel="경영업무로"
         eyebrow="Phase 35 세무 관리자흐름 UAT"
         title="세무 업무 실사용 패널"
+        titleHref="/management"
         description="세무 업무 목록, 상세, review/document/deadline 흐름을 실제 same-origin API 응답으로 먼저 확인합니다."
         actions={
           <div className="pill-row">

@@ -31,7 +31,7 @@ export function HomeShortcutsPanel({
         <section className="status-banner status-banner--warning" role="alert">
           <strong>홈 바로가기를 불러오지 못했습니다</strong>
           <span>{homeShortcutLoadError}</span>
-          <small>잠시 후 `/home` 또는 `/menu` 를 새로 열어 다시 확인하고, 네트워크가 불안정하면 `/offline` 안내를 먼저 봅니다.</small>
+          <small>잠시 후 `/dashboard` 또는 `/menu` 를 새로 열어 다시 확인하고, 네트워크가 불안정하면 `/offline` 안내를 먼저 봅니다.</small>
         </section>
       ) : null}
       <div className="grid-auto-compact">

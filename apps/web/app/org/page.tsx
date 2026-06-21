@@ -40,10 +40,11 @@ const orgBridgeNotes = [
 export default function OrgPage() {
   return (
     <PageShell
-      backHref="/home"
+      backHref="/dashboard"
       backLabel="대시보드로"
       eyebrow="Phase 55 조직 구조 / 역할·권한 read-only 확인"
       title="조직 구조 / 역할 안내"
+      titleHref="/org"
       description="직원 기본 업무 뒤에 보는 부서, 역할, 권한, 지점 scope 읽기 응답을 same-origin API 와 연결해 보여 주는 실사용 확인 화면입니다."
       actions={
         <div className="pill-row">

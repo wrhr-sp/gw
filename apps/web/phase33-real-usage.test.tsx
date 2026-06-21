@@ -21,6 +21,8 @@ describe("Phase 33 attendance/leave/approvals real-usage pages", () => {
     expect(html).toContain("placeholder 제한");
     expect(html).toContain("/api/attendance/records");
     expect(html).toContain("/api/attendance/corrections");
+    expect(html).toContain('href="/attendance"');
+    expect(html).toContain('class="page-shell__title-link"');
   });
 
   it("renders leave page with requester/approver split and self-approval guard copy", () => {
@@ -34,6 +36,7 @@ describe("Phase 33 attendance/leave/approvals real-usage pages", () => {
     expect(html).toContain("/api/leave/requests");
     expect(html).toContain("/api/leave/balances");
     expect(html.indexOf("신청자 happy path")).toBeLessThan(html.indexOf("승인자 lane / self-approval 차단"));
+    expect(html).toContain('href="/leave"');
   });
 
   it("renders approvals page with draft-to-review stepper and separated guardrails", () => {
@@ -51,5 +54,6 @@ describe("Phase 33 attendance/leave/approvals real-usage pages", () => {
     expect(html).toContain("회사 scope / unknown id 차단");
     expect(html).toContain("/api/approvals/documents");
     expect(html).toContain("/api/approvals/inbox");
+    expect(html).toContain('href="/approvals"');
   });
 });
