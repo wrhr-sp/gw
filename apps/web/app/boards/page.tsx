@@ -85,20 +85,13 @@ const recentPosts = [
 type BoardSectionProps = {
   title: string;
   boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
-  canManage: boolean;
-  settingsHref: string;
 };
 
-function BoardSection({ title, boards, canManage, settingsHref }: BoardSectionProps) {
+function BoardSection({ title, boards }: BoardSectionProps) {
   return (
     <section className="board-tree-section">
       <div className="board-tree-section__header">
         <strong>{title}</strong>
-        {canManage ? (
-          <a href={settingsHref} className="board-settings-button" aria-label={`${title} 설정`}>
-            설정
-          </a>
-        ) : null}
       </div>
       <div className="board-tree-section__items">
         {boards.map((board) => (
@@ -115,32 +108,18 @@ function BoardSection({ title, boards, canManage, settingsHref }: BoardSectionPr
   );
 }
 
-type BoardsPageProps = {
-  searchParams?: Promise<{ tab?: string }>;
-};
-
-export default async function BoardsPage({ searchParams }: BoardsPageProps) {
+export default function BoardsPage() {
   const canManageBoards = true;
-  const params = searchParams ? await searchParams : {};
-  const activeTab = canManageBoards && params.tab === "admin" ? "admin" : "basic";
-  const settingsHref = "/boards?tab=admin#board-admin-settings";
 
   return (
     <PageShell
       title="게시판"
     >
-      <nav className="board-function-tabs" aria-label="게시판 기능 구분">
-        <a href="/boards" aria-current={activeTab === "basic" ? "page" : undefined}>기본 기능</a>
-        {canManageBoards ? (
-          <a href={settingsHref} aria-current={activeTab === "admin" ? "page" : undefined}>관리자 기능</a>
-        ) : null}
-      </nav>
-
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
           <a href="/boards/board_general" className="board-write-button">글쓰기</a>
-          <BoardSection title="전사게시판" boards={companyBoards} canManage={canManageBoards} settingsHref={settingsHref} />
-          <BoardSection title="부서게시판" boards={departmentBoards} canManage={canManageBoards} settingsHref={settingsHref} />
+          <BoardSection title="전사게시판" boards={companyBoards} />
+          <BoardSection title="부서게시판" boards={departmentBoards} />
           {!canManageBoards ? (
             <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
               <Pill>일반 사용자</Pill>
@@ -148,52 +127,28 @@ export default async function BoardsPage({ searchParams }: BoardsPageProps) {
           ) : null}
         </aside>
 
-        {activeTab === "admin" ? (
-          <section id="board-admin-settings" className="board-workspace__admin" aria-label="관리자 기능">
-            <div className="board-section-title">
-              <h2>관리자 기능</h2>
+        <section className="board-workspace__list" aria-label="게시글 목록">
+          <div className="board-section-title">
+            <div>
+              <Pill tone="accent">현재 선택</Pill>
+              <h2>전사 공지</h2>
             </div>
-            <div className="board-admin-settings-card">
-              <h3>하위 게시판 관리</h3>
-              <div className="board-admin-settings-card__fields">
-                <span>하위 게시판명</span>
-                <span>노출 대상/부서</span>
-                <span>쓰기 권한</span>
-              </div>
-            </div>
-            <div className="board-admin-settings-card">
-              <h3>운영 정책</h3>
-              <div className="board-admin-settings-card__fields">
-                <span>읽음 확인</span>
-                <span>댓글 허용</span>
-                <span>관리자 지정</span>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="board-workspace__list" aria-label="게시글 목록">
-            <div className="board-section-title">
-              <div>
-                <Pill tone="accent">현재 선택</Pill>
-                <h2>전사 공지</h2>
-              </div>
-              <a href="/boards/board_notice" className="board-inline-action">공지 보기</a>
-            </div>
-            <BoardsLiveSection />
-            <div className="board-post-list">
-              {recentPosts.map((post) => (
-                <a key={post.title} href={post.href} className="board-post-row">
-                  <Pill tone={post.tone}>{post.board}</Pill>
-                  <div>
-                    <strong>{post.title}</strong>
-                    <p>{post.writer} · {post.meta}</p>
-                  </div>
-                  <span aria-hidden="true">›</span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )}
+            <a href="/boards/board_notice" className="board-inline-action">공지 보기</a>
+          </div>
+          <BoardsLiveSection />
+          <div className="board-post-list">
+            {recentPosts.map((post) => (
+              <a key={post.title} href={post.href} className="board-post-row">
+                <Pill tone={post.tone}>{post.board}</Pill>
+                <div>
+                  <strong>{post.title}</strong>
+                  <p>{post.writer} · {post.meta}</p>
+                </div>
+                <span aria-hidden="true">›</span>
+              </a>
+            ))}
+          </div>
+        </section>
       </div>
     </PageShell>
   );

@@ -1741,7 +1741,8 @@ li {
 }
 
 .topbar-modal__grid,
-.topbar-profile-settings {
+.topbar-profile-settings,
+.topbar-admin-settings {
   display: grid;
   min-height: 0;
   gap: 14px;
@@ -1756,6 +1757,84 @@ li {
 
 .topbar-profile-settings {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.topbar-settings-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  margin-bottom: 14px;
+}
+
+.topbar-settings-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 950;
+  padding: 0 18px 10px 0;
+}
+
+.topbar-settings-tabs button[aria-current="page"] {
+  border-bottom-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.topbar-admin-settings {
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+}
+
+.topbar-admin-settings__users,
+.topbar-admin-settings__permissions {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 12px;
+}
+
+.topbar-admin-settings__permissions {
+  border-left: 1px solid rgba(148, 163, 184, 0.24);
+  padding-left: 16px;
+}
+
+.topbar-admin-user-list {
+  display: grid;
+  gap: 0;
+}
+
+.topbar-admin-user-row {
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  padding: 12px 0;
+  text-align: left;
+}
+
+.topbar-admin-user-row--active strong,
+.topbar-admin-user-row:hover strong {
+  color: #1d4ed8;
+}
+
+.topbar-admin-user-row strong,
+.topbar-admin-settings__selected-user strong {
+  display: block;
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.topbar-admin-user-row small,
+.topbar-admin-settings__selected-user span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 780;
 }
 
 .topbar-modal-card,
@@ -2245,26 +2324,6 @@ li {
   width: 100%;
 }
 
-.board-function-tabs {
-  display: flex;
-  gap: 0;
-  padding-inline: 20px;
-}
-
-.board-function-tabs a {
-  min-height: 40px;
-  border-bottom: 2px solid transparent;
-  color: #64748b;
-  font-weight: 950;
-  text-decoration: none;
-  padding: 8px 18px 10px 0;
-}
-
-.board-function-tabs a[aria-current="page"] {
-  border-bottom-color: #2563eb;
-  color: #1d4ed8;
-}
-
 .board-workspace {
   display: grid;
   grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
@@ -2274,7 +2333,6 @@ li {
 
 .board-workspace__nav,
 .board-workspace__list,
-.board-workspace__admin,
 .board-workspace__detail {
   min-width: 0;
   padding: 0 clamp(16px, 1.6vw, 22px);
@@ -2289,7 +2347,6 @@ li {
 }
 
 .board-workspace__list,
-.board-workspace__admin,
 .board-workspace__detail {
   border-left: 1px solid var(--line);
 }
@@ -2319,7 +2376,6 @@ li {
 .board-section-title p,
 .board-detail-preview p,
 .board-user-scope-card p,
-.board-admin-settings-card p,
 .board-post-row p {
   margin: 6px 0 0;
   color: #64748b;
@@ -2347,7 +2403,6 @@ li {
 
 .board-tree-section,
 .board-user-scope-card,
-.board-admin-settings-card,
 .board-detail-preview {
   display: grid;
   gap: 12px;
@@ -2355,9 +2410,7 @@ li {
 }
 
 .board-tree-section + .board-tree-section,
-.board-tree-section + .board-admin-settings-card,
-.board-tree-section + .board-user-scope-card,
-.board-admin-settings-card + .board-admin-settings-card {
+.board-tree-section + .board-user-scope-card {
   border-top: 1px solid var(--line);
 }
 
@@ -2373,21 +2426,8 @@ li {
   font-weight: 950;
 }
 
-.board-settings-button {
-  border: 1px solid rgba(37, 99, 235, 0.22);
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 950;
-  padding: 6px 10px;
-}
-
 .board-tree-section__items,
-.board-post-list,
-.board-admin-settings-card__fields {
+.board-post-list {
   display: grid;
   gap: 8px;
 }
@@ -2418,8 +2458,7 @@ li {
 
 .board-tree-link strong,
 .board-post-row strong,
-.board-read-status strong,
-.board-admin-settings-card h3 {
+.board-read-status strong {
   display: block;
   color: #0f172a;
   font-weight: 950;
@@ -2434,8 +2473,7 @@ li {
   font-weight: 760;
 }
 
-.board-workspace__list,
-.board-workspace__admin {
+.board-workspace__list {
   display: grid;
   gap: 18px;
 }
@@ -2458,16 +2496,6 @@ li {
   font-weight: 950;
 }
 
-.board-admin-settings-card__fields span {
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 850;
-  padding: 9px 0;
-}
-
-.board-admin-settings-card__fields span + span {
-  border-top: 1px solid var(--line);
-}
 
 .board-read-status {
   display: grid;

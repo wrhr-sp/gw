@@ -308,6 +308,13 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('checked={generalSettings.startScreen === item}');
     expect(shellSource).toContain('checked={generalSettings.density === item}');
     expect(shellSource).toContain('checked={generalSettings.compactMobileBottomNav}');
+    expect(shellSource).toContain('type SettingsTabKey = "basic" | "admin"');
+    expect(shellSource).toContain('const adminSettingsRoleCodes');
+    expect(shellSource).toContain('const adminPermissionUsers');
+    expect(shellSource).toContain('const adminFeaturePermissions');
+    expect(shellSource).toContain('사용자 계정 목록');
+    expect(shellSource).toContain('기능 권한');
+    expect(shellSource).toContain('selectedPermissionUserId');
     expect(shellSource).toContain('const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)');
     expect(shellSource).toContain('function openLogoutConfirm()');
     expect(shellSource).toContain('function closeLogoutConfirm()');
@@ -345,7 +352,10 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".app-shell__main,");
     expect(globalCss).toContain(".desktop-sidebar__nav,");
     expect(globalCss).toContain(".topbar-modal__grid,");
-    expect(globalCss).toContain(".topbar-profile-settings {");
+    expect(globalCss).toContain(".topbar-profile-settings,");
+    expect(globalCss).toContain(".topbar-admin-settings {");
+    expect(globalCss).toContain(".topbar-settings-tabs");
+    expect(globalCss).toContain(".topbar-admin-user-row--active");
     expect(globalCss).toContain(".logout-confirm-backdrop");
     expect(globalCss).toContain(".logout-confirm-modal");
     expect(globalCss).toContain(".logout-confirm-modal__actions");
