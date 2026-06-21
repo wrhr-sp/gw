@@ -296,7 +296,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const DEFAULT_GENERAL_SETTINGS');
     expect(shellSource).toContain('function areGeneralSettingsEqual');
     expect(shellSource).toContain('const [generalSettings, setGeneralSettings]');
+    expect(shellSource).toContain('const [adminPermissionSettings, setAdminPermissionSettings]');
     expect(shellSource).toContain('const savedGeneralSettingsRef');
+    expect(shellSource).toContain('const savedAdminPermissionSettingsRef');
+    expect(shellSource).toContain('areAdminPermissionStatesEqual');
     expect(shellSource).toContain('function handleSettingsSave()');
     expect(shellSource).toContain('savedGeneralSettingsRef.current = { ...generalSettings }');
     expect(shellSource).toContain('handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success")');
@@ -314,6 +317,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const adminFeaturePermissions');
     expect(shellSource).toContain('settings: "통합설정"');
     expect(shellSource).toContain('topbar-modal--integrated-settings');
+    expect(shellSource).toContain('기본 설정');
+    expect(shellSource).toContain('관리자설정');
+    expect(shellSource).toContain('checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}');
+    expect(shellSource).toContain('handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)');
     expect(shellSource).toContain('사용자 계정 목록');
     expect(shellSource).toContain('기능 권한');
     expect(shellSource).toContain('selectedPermissionUserId');
@@ -344,7 +351,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain('title={desktopHomeItem.summary}');
     expect(shellSource).not.toContain('title={item.summary}');
     expect(shellSource).toContain('aria-label={desktopHomeItem.label}');
-    expect(shellSource).toContain('aria-label={item.label}');
+    expect(shellSource).toContain('aria-label={item.badge ? `${item.label} ${item.badge}` : item.label}');
+    expect(shellSource).toContain('permissionDenied');
+    expect(shellSource).toContain('권한이 없습니다. 관리자에게 권한을 요청하세요.');
+    expect(shellSource).toContain('permission-denied-toast');
     expect(shellSource).toContain('className="sidebar-settings-menu-section"');
     expect(shellSource).toContain("사이드바 편집");
     expect(shellSource).not.toContain("이름 편집");
@@ -365,6 +375,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".logout-confirm-modal");
     expect(globalCss).toContain(".logout-confirm-modal__actions");
     expect(globalCss).toContain(".logout-confirm-modal__button--danger");
+    expect(globalCss).toContain(".desktop-sidebar__link--permission-denied");
+    expect(globalCss).toContain(".permission-denied-toast");
     expect(globalCss).toContain(".app-shell__main:hover");
     expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
     expect(globalCss).not.toContain(".desktop-sidebar__nav:hover");

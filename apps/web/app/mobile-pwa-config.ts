@@ -8,6 +8,7 @@ export type NavItem = {
   shortLabel: string;
   summary: string;
   disabled?: boolean;
+  permissionDenied?: boolean;
   badge?: string;
 };
 
@@ -653,24 +654,38 @@ export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
   return roleCode ? isLegalManagementRoleCode(roleCode) : false;
 }
 
-function filterMenuItemsByRole<T extends { href: string; disabled?: boolean }>(items: readonly T[], roleCode?: RoleCode | null) {
+function markMenuItemsByRole<T extends NavItem>(items: readonly T[], roleCode?: RoleCode | null) {
   if (!roleCode) {
     return items;
   }
 
   const viewer = getViewerAccessForRoleCode(roleCode);
-  return items.filter((item) => item.disabled || hasHomeShortcutRouteAccess(item.href, viewer));
+  return items.map((item) => {
+    if (item.disabled || hasHomeShortcutRouteAccess(item.href, viewer)) {
+      return item;
+    }
+
+    return { ...item, permissionDenied: true, badge: "권한필요" };
+  });
 }
 
 export function getVisibleMobilePrimaryNav(roleCode?: RoleCode | null) {
-  return hasManagementMenuAccess(roleCode) ? [...mobilePrimaryNav, ...managementPrimaryNav] : mobilePrimaryNav;
+  if (!roleCode) {
+    return mobilePrimaryNav;
+  }
+
+  return markMenuItemsByRole([...mobilePrimaryNav, ...managementPrimaryNav], roleCode);
 }
 
 export function getVisibleMobileMenuSections(roleCode?: RoleCode | null) {
-  const visibleSections = hasManagementMenuAccess(roleCode) ? [...mobileMenuSections, ...managementMenuSections] : mobileMenuSections;
+  if (!roleCode) {
+    return mobileMenuSections;
+  }
+
+  const visibleSections = [...mobileMenuSections, ...managementMenuSections];
   return visibleSections.map((section) => ({
     ...section,
-    items: filterMenuItemsByRole(section.items, roleCode),
+    items: markMenuItemsByRole(section.items, roleCode),
   }));
 }
 

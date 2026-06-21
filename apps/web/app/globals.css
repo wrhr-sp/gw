@@ -267,6 +267,32 @@ code {
   opacity: 0.58;
 }
 
+.desktop-sidebar__link--permission-denied {
+  opacity: 0.74;
+}
+
+.desktop-sidebar__link--permission-denied:hover,
+.desktop-sidebar__link--permission-denied:focus-visible {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(254, 242, 242, 0.88);
+  color: #b91c1c;
+}
+
+.permission-denied-toast {
+  position: fixed;
+  top: calc(var(--desktop-topbar-height, 64px) + 14px);
+  left: 50%;
+  z-index: 95;
+  transform: translateX(-50%);
+  border: 1px solid rgba(248, 113, 113, 0.32);
+  border-radius: 999px;
+  background: rgba(254, 242, 242, 0.96);
+  color: #b91c1c;
+  padding: 10px 16px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
 .desktop-sidebar__link-badge {
   margin-left: auto;
   border-radius: 999px;

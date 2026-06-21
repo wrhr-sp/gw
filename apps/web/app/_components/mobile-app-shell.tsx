@@ -1,6 +1,6 @@
 "use client";
 
-import { appRoutes, type RoleCode } from "@gw/shared";
+import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type RoleCode } from "@gw/shared";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -95,6 +95,7 @@ const adminFeaturePermissions = [
 
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
 type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
+type AdminPermissionState = Record<AdminPermissionUserId, Record<AdminFeaturePermissionKey, boolean>>;
 
 function createAdminPermissionSet(values: AdminFeaturePermissionKey[]) {
   return new Set<AdminFeaturePermissionKey>(values);
@@ -106,6 +107,15 @@ const defaultAdminPermissionByUser: Record<AdminPermissionUserId, Set<AdminFeatu
   branch_manager: createAdminPermissionSet(["attendance", "leave", "boards", "documents"]),
   employee: createAdminPermissionSet(["attendance", "leave", "approvals", "boards", "documents"]),
 };
+
+function createDefaultAdminPermissionState(): AdminPermissionState {
+  return Object.fromEntries(
+    adminPermissionUsers.map((user) => [
+      user.id,
+      Object.fromEntries(adminFeaturePermissions.map((permission) => [permission.key, defaultAdminPermissionByUser[user.id].has(permission.key)])),
+    ]),
+  ) as AdminPermissionState;
+}
 
 const DEFAULT_NOTIFICATION_PREFERENCES: Record<NotificationPreferenceKey, boolean> = {
   notices: true,
@@ -546,6 +556,10 @@ function areBooleanRecordsEqual<Key extends string>(left: Record<Key, boolean>, 
   return (Object.keys(left) as Key[]).every((key) => left[key] === right[key]);
 }
 
+function areAdminPermissionStatesEqual(left: AdminPermissionState, right: AdminPermissionState) {
+  return adminPermissionUsers.every((user) => areBooleanRecordsEqual(left[user.id], right[user.id]));
+}
+
 function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] | null> {
   function readSidebarSelection(portalKey: SidebarPortalKey) {
     if (typeof window === "undefined") return null;
@@ -640,7 +654,9 @@ export function MobileAppShell({
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [settingsSaveToastTone, setSettingsSaveToastTone] = useState<"success" | "no-change">("success");
+  const [permissionNoticeVisible, setPermissionNoticeVisible] = useState(false);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
+  const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
@@ -654,9 +670,11 @@ export function MobileAppShell({
   const savedNotificationPreferencesRef = useRef<Record<NotificationPreferenceKey, boolean>>({ ...DEFAULT_NOTIFICATION_PREFERENCES });
   const savedAfterHoursPreferencesRef = useRef<Record<AfterHoursPreferenceKey, boolean>>({ ...DEFAULT_AFTER_HOURS_PREFERENCES });
   const savedGeneralSettingsRef = useRef<GeneralSettingsState>({ ...DEFAULT_GENERAL_SETTINGS });
+  const savedAdminPermissionSettingsRef = useRef<AdminPermissionState>(createDefaultAdminPermissionState());
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const permissionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
@@ -729,6 +747,7 @@ export function MobileAppShell({
   const nextPortalHref = isManagementPortal ? "/home" : "/management";
   const branchPortalLabel = "지점관리포털";
   const branchPortalHref = "/work-items/branch";
+  const canOpenRoute = (href: string) => !currentRoleCode || hasHomeShortcutRouteAccess(href, getViewerAccessForRoleCode(currentRoleCode));
   const sidebarCustomizationItems = useMemo(
     () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
     [visibleDesktopMenuSections],
@@ -1226,9 +1245,34 @@ export function MobileAppShell({
     settingsSaveToastTimerRef.current = setTimeout(() => setSettingsSaveToastVisible(false), 1600);
   }
 
+  function showPermissionDeniedNotice() {
+    setPermissionNoticeVisible(true);
+    if (permissionNoticeTimerRef.current) {
+      clearTimeout(permissionNoticeTimerRef.current);
+    }
+    permissionNoticeTimerRef.current = setTimeout(() => setPermissionNoticeVisible(false), 2200);
+  }
+
+  function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
+    setAdminPermissionSettings((value) => ({
+      ...value,
+      [userId]: {
+        ...value[userId],
+        [permissionKey]: enabled,
+      },
+    }));
+  }
+
   function handleSettingsSave() {
-    if (!areGeneralSettingsEqual(generalSettings, savedGeneralSettingsRef.current)) {
+    const hasGeneralChanges = !areGeneralSettingsEqual(generalSettings, savedGeneralSettingsRef.current);
+    const hasAdminPermissionChanges = !areAdminPermissionStatesEqual(adminPermissionSettings, savedAdminPermissionSettingsRef.current);
+
+    if (hasGeneralChanges || hasAdminPermissionChanges) {
       savedGeneralSettingsRef.current = { ...generalSettings };
+      savedAdminPermissionSettingsRef.current = createDefaultAdminPermissionState();
+      adminPermissionUsers.forEach((user) => {
+        savedAdminPermissionSettingsRef.current[user.id] = { ...adminPermissionSettings[user.id] };
+      });
       handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success");
       return;
     }
@@ -1500,11 +1544,11 @@ export function MobileAppShell({
             <>
               <nav className="topbar-settings-tabs" aria-label="설정 기능 구분">
                 <button type="button" aria-current={settingsTab === "basic" ? "page" : undefined} onClick={() => setSettingsTab("basic")}>
-                  기본 기능
+                  기본 설정
                 </button>
                 {canUseAdminSettings ? (
                   <button type="button" aria-current={settingsTab === "admin" ? "page" : undefined} onClick={() => setSettingsTab("admin")}>
-                    관리자 기능
+                    관리자설정
                   </button>
                 ) : null}
               </nav>
@@ -1540,7 +1584,8 @@ export function MobileAppShell({
                         <SettingToggle
                           key={permission.key}
                           label={permission.label}
-                          defaultChecked={defaultAdminPermissionByUser[selectedPermissionUser.id].has(permission.key)}
+                          checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}
+                          onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)}
                         />
                       ))}
                     </div>
@@ -1720,6 +1765,24 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
+  function handleNavItemClick(item: NavItem) {
+    if (item.permissionDenied) {
+      showPermissionDeniedNotice();
+      return;
+    }
+    if (!item.disabled) {
+      navigateTo(item.href);
+    }
+  }
+
+  function openPortalShortcut(href: string) {
+    if (!canOpenRoute(href)) {
+      showPermissionDeniedNotice();
+      return;
+    }
+    window.open(new URL(href, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+  }
+
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -1757,7 +1820,7 @@ export function MobileAppShell({
                   const active = matchesPath(pathname, item.href);
                   const iconName = getFeatureIconName(item.href, item.label);
                   return (
-                    <button key={item.href} type="button" className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active ? "page" : undefined} aria-label={item.label} data-route={item.href} onClick={() => navigateTo(item.href)}>
+                    <button key={item.href} type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} onClick={() => handleNavItemClick(item)}>
                       {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                       <span>{item.shortLabel}</span>
                     </button>
@@ -1783,7 +1846,7 @@ export function MobileAppShell({
                       const active = matchesPath(pathname, item.href);
                       const iconName = getFeatureIconName(item.href, item.label);
                       return (
-                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} disabled={item.disabled} onClick={() => { if (!item.disabled) navigateTo(item.href); }}>
+                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
                           {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                           <span>{item.label}</span>
                           {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
@@ -1826,7 +1889,7 @@ export function MobileAppShell({
                     rel="noopener noreferrer"
                     onClick={(event) => {
                       event.preventDefault();
-                      window.open(new URL(branchPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+                      openPortalShortcut(branchPortalHref);
                     }}
                   >
                     <span>{branchPortalLabel}</span>
@@ -1842,7 +1905,7 @@ export function MobileAppShell({
                     rel="noopener noreferrer"
                     onClick={(event) => {
                       event.preventDefault();
-                      window.open(new URL(nextPortalHref, window.location.origin).toString(), "_blank", "noopener,noreferrer");
+                      openPortalShortcut(nextPortalHref);
                     }}
                   >
                     <span>{nextPortalLabel}</span>
@@ -1927,6 +1990,11 @@ export function MobileAppShell({
         {renderTopbarModal()}
         {renderSidebarSettingsModal()}
         {renderLogoutConfirmModal()}
+        {permissionNoticeVisible ? (
+          <div className="permission-denied-toast" role="status" aria-live="polite">
+            권한이 없습니다. 관리자에게 권한을 요청하세요.
+          </div>
+        ) : null}
 
         {!isOnline ? (
           <div className="status-banner status-banner--warning" role="status" aria-live="polite">
@@ -1971,7 +2039,7 @@ export function MobileAppShell({
                   aria-label={ariaLabel}
                   data-route={item.href}
                   tabIndex={isBottomNavCollapsed ? -1 : undefined}
-                  onClick={() => navigateTo(item.href)}
+                  onClick={() => handleNavItemClick(item)}
                 >
                   <span className="bottom-nav__link-pill">
                     <span className="bottom-nav__icon-wrap">

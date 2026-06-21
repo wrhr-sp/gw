@@ -120,10 +120,14 @@ describe("Phase 25 work-items web entrypoints", () => {
     const employeeMenuHrefs = employeeMenuSections.flatMap((section) => section.items.map((item) => item.href));
     expect(employeeMenuHrefs).toContain("/work-items");
     expect(employeeMenuHrefs).toContain("/work-items/hr");
-    expect(employeeMenuHrefs).not.toContain("/work-items/tax");
-    expect(employeeMenuHrefs).not.toContain("/work-items/labor");
-    expect(employeeMenuHrefs).not.toContain("/work-items/legal");
-    expect(employeeMenuSections.some((section) => section.title === "경영업무")).toBe(false);
+    expect(employeeMenuHrefs).toContain("/work-items/tax");
+    expect(employeeMenuHrefs).toContain("/work-items/labor");
+    expect(employeeMenuHrefs).toContain("/work-items/legal");
+    expect(employeeMenuSections.some((section) => section.title === "경영업무")).toBe(true);
+    expect(employeeMenuSections.flatMap((section) => section.items).find((item) => item.href === "/work-items/legal")).toMatchObject({
+      permissionDenied: true,
+      badge: "권한필요",
+    });
 
     const managerMenuSections = getVisibleMobileMenuSections("MANAGER");
     const managerMenuHrefs = managerMenuSections.flatMap((section) => section.items.map((item) => item.href));
@@ -135,11 +139,17 @@ describe("Phase 25 work-items web entrypoints", () => {
       "/management",
       "/payroll",
       "/work-items/tax",
+      "/work-items/labor",
       "/work-items/legal",
     ]);
+    expect(managementSection?.items.find((item) => item.href === "/work-items/labor")).toMatchObject({ permissionDenied: true });
 
     const auditorMenuSections = getVisibleMobileMenuSections("AUDITOR");
-    expect(auditorMenuSections.some((section) => section.title === "경영업무")).toBe(false);
+    expect(auditorMenuSections.some((section) => section.title === "경영업무")).toBe(true);
+    expect(auditorMenuSections.flatMap((section) => section.items).find((item) => item.href === "/management")).toMatchObject({
+      permissionDenied: true,
+      badge: "권한필요",
+    });
   });
 
   it("renders a dedicated management page for sensitive legal access", async () => {
