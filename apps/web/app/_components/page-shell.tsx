@@ -5,7 +5,7 @@ type PageShellProps = {
   backLabel?: string;
   eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
   actions?: ReactNode;
 };
@@ -24,7 +24,7 @@ export function PageShell({
         <div className="page-shell__headline">
           <div>
             <h1>{title}</h1>
-            <p>{description}</p>
+            {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className="page-shell__actions">{actions}</div> : null}
         </div>

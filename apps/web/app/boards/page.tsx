@@ -119,17 +119,13 @@ export default function BoardsPage() {
 
   return (
     <PageShell
-      eyebrow="사내 소통"
       title="게시판"
-      description="왼쪽 게시판 목록에서 전사게시판과 내 부서 게시판을 고르고, 글쓰기·글 목록·댓글·읽음 확인을 한 흐름으로 처리합니다."
-      actions={<Pill tone="accent">왼쪽 목록 기준</Pill>}
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
           <div className="board-workspace__nav-header">
             <div>
               <strong>게시판</strong>
-              <p>전사게시판과 내 부서 게시판</p>
             </div>
           </div>
           <a href="/boards/board_general" className="board-write-button">글쓰기</a>
@@ -139,7 +135,6 @@ export default function BoardsPage() {
             <section className="board-admin-settings-card" aria-label="게시판 관리자 설정">
               <Pill tone="warning">관리자 설정</Pill>
               <h3>하위 게시판 만들기</h3>
-              <p>전사게시판과 부서게시판의 설정 버튼에서 하위 목록, 쓰기 권한, 댓글 허용, 읽음 확인 사용 여부를 관리합니다. 일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다.</p>
               <div className="board-admin-settings-card__fields">
                 <span>하위 게시판명</span>
                 <span>노출 대상/부서</span>
@@ -149,7 +144,6 @@ export default function BoardsPage() {
           ) : (
             <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
               <Pill>일반 사용자</Pill>
-              <p>일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다. 게시판 설정 버튼은 관리자에게만 보입니다.</p>
             </section>
           )}
         </aside>
@@ -159,7 +153,6 @@ export default function BoardsPage() {
             <div>
               <Pill tone="accent">현재 선택</Pill>
               <h2>전사 공지</h2>
-              <p>중요 공지와 읽음 확인이 필요한 글을 먼저 보여 줍니다.</p>
             </div>
             <a href="/boards/board_notice" className="board-inline-action">공지 보기</a>
           </div>
@@ -182,7 +175,6 @@ export default function BoardsPage() {
           <div className="board-detail-preview">
             <Pill tone="warning">읽음 확인</Pill>
             <h2>하반기 운영 기준 안내</h2>
-            <p>전사 공지는 본문 확인 뒤 읽음 확인을 남기고, 댓글이 필요한 글은 상세에서 바로 의견을 남깁니다.</p>
             <div className="board-read-status">
               <strong>읽음 98명 / 전체 120명</strong>
               <span>미확인 22명</span>
