@@ -197,6 +197,27 @@ export function buildInitialSecondaryPasswordState(): SecondaryPasswordState {
   };
 }
 
+export type SettingsSaveToastScope = "integrated-settings" | "profile-settings" | "sidebar-settings";
+
+export type SettingsSaveToastResult = {
+  message: string;
+  tone: "success" | "no-change";
+};
+
+export function resolveSettingsSaveToast(scope: SettingsSaveToastScope, hasChanges: boolean): SettingsSaveToastResult {
+  if (!hasChanges) {
+    return { message: "변경된 내용이 없습니다.", tone: "no-change" };
+  }
+
+  const messageByScope: Record<SettingsSaveToastScope, string> = {
+    "integrated-settings": "통합설정이 적용되었습니다.",
+    "profile-settings": "내정보 설정이 적용되었습니다.",
+    "sidebar-settings": "사이드바 설정이 적용되었습니다.",
+  };
+
+  return { message: messageByScope[scope], tone: "success" };
+}
+
 export function resolveSecondaryPasswordSave(
   previousState: SecondaryPasswordState,
   form: SecondaryPasswordFormState,
@@ -1437,7 +1458,7 @@ export function MobileAppShell({
   }
 
 
-  function handleTopbarSettingsSave(message = "변경된 설정이 적용되었습니다.", tone: "success" | "no-change" = "success") {
+  function showSettingsSaveToast(message: string, tone: "success" | "no-change" = "success") {
     setSettingsSaveToastMessage(message);
     setSettingsSaveToastTone(tone);
     setSettingsSaveToastVisible(true);
@@ -1445,6 +1466,11 @@ export function MobileAppShell({
       clearTimeout(settingsSaveToastTimerRef.current);
     }
     settingsSaveToastTimerRef.current = setTimeout(() => setSettingsSaveToastVisible(false), 1600);
+  }
+
+  function showScopedSettingsSaveToast(scope: SettingsSaveToastScope, hasChanges: boolean) {
+    const toast = resolveSettingsSaveToast(scope, hasChanges);
+    showSettingsSaveToast(toast.message, toast.tone);
   }
 
   function showPermissionDeniedNotice() {
@@ -1574,7 +1600,7 @@ export function MobileAppShell({
       navigateTo(targetHref);
       return;
     }
-    handleTopbarSettingsSave(saveResult.toastMessage, "success");
+    showSettingsSaveToast(saveResult.toastMessage, "success");
   }
 
   function renderSecondaryPasswordEditor() {
@@ -1633,10 +1659,10 @@ export function MobileAppShell({
       adminPermissionUsers.forEach((user) => {
         savedAdminPermissionSettingsRef.current[user.id] = { ...adminPermissionSettings[user.id] };
       });
-      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success");
+      showScopedSettingsSaveToast("integrated-settings", true);
       return;
     }
-    handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change");
+    showScopedSettingsSaveToast("integrated-settings", false);
   }
 
   function handleProfileSettingsSave() {
@@ -1645,10 +1671,10 @@ export function MobileAppShell({
     if (hasNotificationChanges || hasAfterHoursChanges) {
       savedNotificationPreferencesRef.current = { ...notificationPreferences };
       savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
-      handleTopbarSettingsSave("변경된 설정이 적용되었습니다.", "success");
+      showScopedSettingsSaveToast("profile-settings", true);
       return;
     }
-    handleTopbarSettingsSave("변경된 내용이 없습니다.", "no-change");
+    showScopedSettingsSaveToast("profile-settings", false);
   }
 
   function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
@@ -1719,7 +1745,7 @@ export function MobileAppShell({
     setSidebarDraftSelections(appliedSelection);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
-    handleTopbarSettingsSave(hasSidebarChanges ? "변경된 설정이 적용되었습니다." : "변경된 내용이 없습니다.", hasSidebarChanges ? "success" : "no-change");
+    showScopedSettingsSaveToast("sidebar-settings", hasSidebarChanges);
   }
 
   function renderSidebarSettingsModal() {
