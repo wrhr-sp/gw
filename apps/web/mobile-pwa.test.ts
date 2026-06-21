@@ -173,6 +173,13 @@ describe("mobile/PWA config", () => {
       bottomTabs: mobileBottomTabs,
       menuSections: mobileMenuSections,
     });
+
+    const employeeShell = getAppShellConfigForHost("localhost:3000", "EMPLOYEE");
+    expect(employeeShell.menuSections.map((section) => section.title)).toContain("경영업무");
+    expect(employeeShell.menuSections.flatMap((section) => section.items).find((item) => item.href === "/management")).toMatchObject({
+      permissionDenied: true,
+      badge: "권한필요",
+    });
   });
 
   it("defines honest offline guidance without pretending state-changing actions succeed", () => {
