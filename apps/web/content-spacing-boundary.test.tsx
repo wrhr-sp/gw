@@ -23,9 +23,10 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
     expect(globalCss).toContain(".page-shell__content > .surface-card + .surface-card {");
     expect(globalCss).toContain(".page-shell__content .grid-auto,");
-    expect(globalCss).toContain("grid-template-columns: 1fr;");
     expect(globalCss).toContain(".page-shell__content .info-card,");
-    expect(globalCss).toContain(".page-shell__content .grid-auto > * + *,");
+    expect(globalCss).not.toContain(".page-shell__content .grid-auto > * + *");
+    expect(globalCss).toContain(".board-workspace__list,");
+    expect(globalCss).toContain("border-left: 1px solid var(--line);");
     expect(globalCss).toContain(".page-shell__headline h1 {");
     expect(globalCss).toContain("font-size: 1.42rem;");
     expect(globalCss).toContain("font-weight: 900;");
