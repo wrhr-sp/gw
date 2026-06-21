@@ -1,117 +1,196 @@
 import React from "react";
 
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { PageShell, Pill } from "../_components/page-shell";
 import { BoardsLiveSection } from "../_components/real-usage-panels";
 
-const boardCards = [
+const companyBoards = [
   {
     id: "board_notice",
     name: "전사 공지",
-    description: "회사 전체에 꼭 전달해야 하는 안내를 확인하고 읽음 상태를 남기는 공간입니다.",
-    badge: "공지",
-    primaryAction: "공지 확인",
-    secondaryText: "관리 권한이 있는 사용자는 공지 등록 버튼으로 새 공지를 올릴 수 있습니다.",
+    description: "회사 전체에 꼭 전달해야 하는 공지를 확인하고 읽음 상태를 남기는 공간입니다.",
+    unread: 2,
   },
   {
-    id: "board_department_notice",
-    name: "부서별 공지",
-    description: "인사팀, 운영팀, 지점처럼 담당 부서별 안내를 따로 확인하는 공간입니다.",
-    badge: "부서",
-    primaryAction: "부서 공지 확인",
-    secondaryText: "부서별 안내도 등록 버튼을 눌러 제목과 본문을 작성하는 흐름으로 이어집니다.",
+    id: "board_company_alert",
+    name: "전사 알람",
+    description: "점검, 긴급 안내, 일정 변경처럼 전 직원에게 빠르게 알려야 하는 알람을 모읍니다.",
+    unread: 1,
   },
   {
     id: "board_general",
     name: "자유 게시판",
-    description: "직원들이 글을 올리고 댓글로 의견을 나누는 사내 소통 공간입니다.",
-    badge: "소통",
-    primaryAction: "글 보러 가기",
-    secondaryText: "새 글 등록, 댓글, 읽음 확인을 한 흐름으로 이어갑니다.",
+    description: "전 직원이 볼 수 있는 일반 소통 게시판입니다.",
+    unread: 4,
   },
   {
     id: "board_data_share",
     name: "자료 공유",
-    description: "업무 양식, 안내 자료, 참고 링크를 모아 직원들이 빠르게 찾는 공간입니다.",
-    badge: "자료",
-    primaryAction: "자료 글 보기",
-    secondaryText: "자료 소개 글을 등록하고 상세 화면에서 댓글로 보완 내용을 남길 수 있습니다.",
+    description: "업무 양식과 참고 자료를 전사 기준으로 공유합니다.",
+    unread: 0,
   },
 ] as const;
 
-const boardUsageNotes = [
-  "먼저 전사공지, 부서별 공지, 자유게시판, 자료공유 중 필요한 게시판을 고릅니다.",
-  "게시판 안에서 등록 버튼을 눌러 제목과 본문을 작성합니다.",
-  "작성된 글은 목록에 바로 반영되고 상세 화면에서 댓글과 읽음 확인을 이어갑니다.",
-  "권한이 없거나 존재하지 않는 글은 성공 화면처럼 보이지 않고 안내 화면으로 돌려보냅니다.",
+const departmentBoards = [
+  {
+    id: "board_department_notice",
+    name: "인사팀 게시판",
+    department: "내 부서",
+    description: "로그인한 사용자의 부서 기준으로 보여 주는 부서 전용 공지와 업무 안내입니다.",
+    unread: 3,
+  },
+  {
+    id: "board_department_daily",
+    name: "부서 업무 공유",
+    department: "내 부서",
+    description: "부서 안에서만 공유하는 업무 메모, 요청, 확인 사항을 정리합니다.",
+    unread: 0,
+  },
 ] as const;
 
-const statusCards = [
+const recentPosts = [
   {
-    title: "등록 버튼",
-    body: "게시판 상세 화면에서 제목과 본문을 입력한 뒤 공지 등록 또는 게시글 등록을 누릅니다.",
+    board: "전사 공지",
+    title: "하반기 운영 기준 안내",
+    writer: "관리팀",
+    meta: "읽음 82% · 오늘 09:20",
+    tone: "warning" as const,
+    href: "/posts/board_post_notice_1",
   },
   {
-    title: "읽지 않은 글",
-    body: "아직 확인하지 않은 공지와 일반 게시글을 먼저 볼 수 있게 합니다.",
+    board: "인사팀 게시판",
+    title: "이번 주 근태 정정 요청 마감 안내",
+    writer: "인사팀",
+    meta: "댓글 2 · 오늘 11:10",
+    tone: "accent" as const,
+    href: "/boards/board_department_notice",
   },
   {
-    title: "권한 안내",
-    body: "공지처럼 제한된 행동은 가능한 사용자와 불가능한 사용자를 분명히 나눕니다.",
+    board: "전사 알람",
+    title: "시스템 점검 예정 알림",
+    writer: "운영관리자",
+    meta: "긴급 · 내일 20:00",
+    tone: "warning" as const,
+    href: "/boards/board_company_alert",
+  },
+  {
+    board: "부서 업무 공유",
+    title: "지점별 제출 자료 확인 요청",
+    writer: "박매니저",
+    meta: "댓글 5 · 어제",
+    tone: "accent" as const,
+    href: "/boards/board_department_daily",
   },
 ] as const;
+
+type BoardSectionProps = {
+  title: string;
+  boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
+  canManage: boolean;
+};
+
+function BoardSection({ title, boards, canManage }: BoardSectionProps) {
+  return (
+    <section className="board-tree-section">
+      <div className="board-tree-section__header">
+        <strong>{title}</strong>
+        {canManage ? (
+          <button type="button" className="board-settings-button" aria-label={`${title} 설정`}>
+            설정
+          </button>
+        ) : null}
+      </div>
+      <div className="board-tree-section__items">
+        {boards.map((board) => (
+          <a key={board.id} href={`/boards/${board.id}`} className="board-tree-link">
+            <span className="board-tree-link__prefix">ㄴ</span>
+            <span>
+              <strong>{board.name}</strong>
+              <small>{board.department ? `${board.department} · ` : ""}{board.unread > 0 ? `미확인 ${board.unread}건` : "새 글 없음"}</small>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function BoardsPage() {
+  const canManageBoards = true;
+
   return (
     <PageShell
       eyebrow="사내 소통"
       title="게시판"
-      description="전사공지, 부서별 공지, 자유게시판, 자료공유를 한곳에서 확인하고 등록 버튼으로 글 작성까지 이어갑니다."
-      actions={<Pill tone="accent">목록과 글 등록</Pill>}
+      description="왼쪽 게시판 목록에서 전사게시판과 내 부서 게시판을 고르고, 글쓰기·글 목록·댓글·읽음 확인을 한 흐름으로 처리합니다."
+      actions={<Pill tone="accent">왼쪽 목록 기준</Pill>}
     >
-      <SurfaceSection title="게시판 현황" description="내가 확인할 공지와 게시판 최신 글을 먼저 보여 줍니다.">
-        <BoardsLiveSection />
-      </SurfaceSection>
+      <div className="board-workspace">
+        <aside className="board-workspace__nav" aria-label="게시판 목록">
+          <div className="board-workspace__nav-header">
+            <div>
+              <strong>게시판</strong>
+              <p>전사게시판과 내 부서 게시판</p>
+            </div>
+          </div>
+          <a href="/boards/board_general" className="board-write-button">글쓰기</a>
+          <BoardSection title="전사게시판" boards={companyBoards} canManage={canManageBoards} />
+          <BoardSection title="부서게시판" boards={departmentBoards} canManage={canManageBoards} />
+          {canManageBoards ? (
+            <section className="board-admin-settings-card" aria-label="게시판 관리자 설정">
+              <Pill tone="warning">관리자 설정</Pill>
+              <h3>하위 게시판 만들기</h3>
+              <p>전사게시판과 부서게시판의 설정 버튼에서 하위 목록, 쓰기 권한, 댓글 허용, 읽음 확인 사용 여부를 관리합니다. 일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다.</p>
+              <div className="board-admin-settings-card__fields">
+                <span>하위 게시판명</span>
+                <span>노출 대상/부서</span>
+                <span>쓰기 권한</span>
+              </div>
+            </section>
+          ) : (
+            <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
+              <Pill>일반 사용자</Pill>
+              <p>일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다. 게시판 설정 버튼은 관리자에게만 보입니다.</p>
+            </section>
+          )}
+        </aside>
 
-      <SurfaceSection title="게시판 목록" description="업무 목적에 맞는 게시판을 고른 뒤 등록 버튼으로 글을 작성합니다.">
-        <div className="grid-auto">
-          {boardCards.map((board) => (
-            <article key={board.id} className="route-card">
-              <Pill tone={board.id === "board_notice" || board.id === "board_department_notice" ? "warning" : "accent"}>{board.badge}</Pill>
-              <h3>{board.name}</h3>
-              <p>{board.description}</p>
-              <p className="card-note">{board.secondaryText}</p>
-              <a href={`/boards/${board.id}`}>{board.primaryAction} →</a>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
+        <section className="board-workspace__list" aria-label="게시글 목록">
+          <div className="board-section-title">
+            <div>
+              <Pill tone="accent">현재 선택</Pill>
+              <h2>전사 공지</h2>
+              <p>중요 공지와 읽음 확인이 필요한 글을 먼저 보여 줍니다.</p>
+            </div>
+            <a href="/boards/board_notice" className="board-inline-action">공지 보기</a>
+          </div>
+          <BoardsLiveSection />
+          <div className="board-post-list">
+            {recentPosts.map((post) => (
+              <a key={post.title} href={post.href} className="board-post-row">
+                <Pill tone={post.tone}>{post.board}</Pill>
+                <div>
+                  <strong>{post.title}</strong>
+                  <p>{post.writer} · {post.meta}</p>
+                </div>
+                <span aria-hidden="true">›</span>
+              </a>
+            ))}
+          </div>
+        </section>
 
-      <SurfaceSection title="글 등록 순서" description="실제 화면에서 바로 따라갈 수 있는 작성 흐름입니다.">
-        <ol className="number-list">
-          {boardUsageNotes.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ol>
-      </SurfaceSection>
-
-      <SurfaceSection title="상태 안내" description="작성 가능, 비어 있음, 오류, 권한 없음이 각각 다르게 보이도록 유지합니다.">
-        <div className="grid-auto-compact">
-          {statusCards.map((card) => (
-            <article key={card.title} className="info-card">
-              <Pill>{card.title}</Pill>
-              <p>{card.body}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="다음에 이어질 기능" description="이번 화면은 기본 게시판 목록과 글 등록 흐름을 먼저 다룹니다. 첨부파일, 외부 알림, 고급 편집기는 별도 단계에서 붙입니다." muted>
-        <ul className="summary-list">
-          <li>전사공지와 부서별 공지는 읽기와 등록 권한 안내를 우선합니다.</li>
-          <li>자유게시판과 자료공유는 글 등록, 상세 확인, 댓글 작성을 우선합니다.</li>
-          <li>실제 외부 알림과 첨부파일 운영화는 별도 승인 후 진행합니다.</li>
-        </ul>
-      </SurfaceSection>
+        <aside className="board-workspace__detail" aria-label="게시글 상세 미리보기">
+          <div className="board-detail-preview">
+            <Pill tone="warning">읽음 확인</Pill>
+            <h2>하반기 운영 기준 안내</h2>
+            <p>전사 공지는 본문 확인 뒤 읽음 확인을 남기고, 댓글이 필요한 글은 상세에서 바로 의견을 남깁니다.</p>
+            <div className="board-read-status">
+              <strong>읽음 98명 / 전체 120명</strong>
+              <span>미확인 22명</span>
+            </div>
+            <a href="/posts/board_post_notice_1" className="board-inline-action board-inline-action--full">대표 글 보기</a>
+          </div>
+        </aside>
+      </div>
     </PageShell>
   );
 }
