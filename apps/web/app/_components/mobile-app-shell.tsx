@@ -655,6 +655,9 @@ export function MobileAppShell({
   const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
   const [settingsSaveToastTone, setSettingsSaveToastTone] = useState<"success" | "no-change">("success");
   const [permissionNoticeVisible, setPermissionNoticeVisible] = useState(false);
+  const [adminSettingsUnlocked, setAdminSettingsUnlocked] = useState(false);
+  const [adminSecondaryPassword, setAdminSecondaryPassword] = useState("");
+  const [adminSecondaryPasswordError, setAdminSecondaryPasswordError] = useState<string | null>(null);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
@@ -693,6 +696,9 @@ export function MobileAppShell({
 
   function closeTopbarModal() {
     setActiveTopbarModal(null);
+    setAdminSettingsUnlocked(false);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
     setSuppressTopbarTooltips(true);
     window.requestAnimationFrame(blurActiveElement);
   }
@@ -768,6 +774,9 @@ export function MobileAppShell({
       fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
     }));
     setSettingsTab(adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE") ? "admin" : "basic");
+    setAdminSettingsUnlocked(false);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
   }, [currentRoleCode]);
 
   useEffect(() => {
@@ -1253,6 +1262,23 @@ export function MobileAppShell({
     permissionNoticeTimerRef.current = setTimeout(() => setPermissionNoticeVisible(false), 2200);
   }
 
+  function openAdminSettingsTab() {
+    setSettingsTab("admin");
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+  }
+
+  function handleAdminSecondaryPasswordSubmit() {
+    if (!/^\d{4}$/.test(adminSecondaryPassword)) {
+      setAdminSecondaryPasswordError("2차 비밀번호 4자리를 입력해 주세요.");
+      return;
+    }
+
+    setAdminSettingsUnlocked(true);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+  }
+
   function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
     setAdminPermissionSettings((value) => ({
       ...value,
@@ -1547,13 +1573,42 @@ export function MobileAppShell({
                   기본 설정
                 </button>
                 {canUseAdminSettings ? (
-                  <button type="button" aria-current={settingsTab === "admin" ? "page" : undefined} onClick={() => setSettingsTab("admin")}>
+                  <button type="button" aria-current={settingsTab === "admin" ? "page" : undefined} onClick={openAdminSettingsTab}>
                     관리자설정
                   </button>
                 ) : null}
               </nav>
 
-              {settingsTab === "admin" && canUseAdminSettings ? (
+              {settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? (
+                <div className="topbar-admin-secondary-gate">
+                  <section className="topbar-modal-card topbar-admin-secondary-card" aria-label="관리자설정 2차 비밀번호 확인">
+                    <strong>관리자설정 확인</strong>
+                    <p>관리자 권한 변경은 민감한 작업입니다. 2차 비밀번호 4자리를 입력해 주세요.</p>
+                    <label className="topbar-admin-secondary-field">
+                      <span>2차 비밀번호</span>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={adminSecondaryPassword}
+                        aria-invalid={adminSecondaryPasswordError ? true : undefined}
+                        aria-describedby={adminSecondaryPasswordError ? "admin-secondary-password-error" : undefined}
+                        onChange={(event) => {
+                          setAdminSecondaryPassword(event.target.value.replace(/\D/g, "").slice(0, 4));
+                          setAdminSecondaryPasswordError(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            handleAdminSecondaryPasswordSubmit();
+                          }
+                        }}
+                      />
+                    </label>
+                    {adminSecondaryPasswordError ? <p id="admin-secondary-password-error" className="topbar-admin-secondary-error">{adminSecondaryPasswordError}</p> : null}
+                  </section>
+                </div>
+              ) : settingsTab === "admin" && canUseAdminSettings ? (
                 <div className="topbar-admin-settings">
                   <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
                     <strong>사용자 계정 목록</strong>
@@ -1750,9 +1805,15 @@ export function MobileAppShell({
               <button
                 type="button"
                 className="topbar-modal__button"
-                onClick={activeTopbarModal === "profile-settings" ? handleProfileSettingsSave : handleSettingsSave}
+                onClick={
+                  activeTopbarModal === "profile-settings"
+                    ? handleProfileSettingsSave
+                    : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked
+                      ? handleAdminSecondaryPasswordSubmit
+                      : handleSettingsSave
+                }
               >
-                저장
+                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "확인" : "저장"}
               </button>
             </footer>
           ) : null}
