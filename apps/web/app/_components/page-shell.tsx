@@ -3,33 +3,49 @@ import React, { type ReactNode } from "react";
 type PageShellProps = {
   backHref?: string | null;
   backLabel?: string;
-  titleHref?: string | null;
   eyebrow?: string;
   title: string;
-  description?: string;
+  titleHref?: string | null;
+  titleLinkLabel?: string;
+  description: string;
   children: ReactNode;
   actions?: ReactNode;
 };
 
 export function PageShell({
+  backHref = "/dashboard",
+  backLabel = "대시보드로",
   eyebrow,
   title,
+  titleHref = null,
+  titleLinkLabel,
   description,
   children,
   actions,
-  backHref = "/home",
-  titleHref,
 }: PageShellProps) {
-  const resolvedTitleHref = titleHref ?? backHref ?? "/home";
+  const computedTitleLinkLabel = titleLinkLabel ?? `${title} 초기 화면으로 이동`;
 
   return (
     <main className="page-shell">
       <div className="page-shell__header">
+        {backHref ? (
+          <a href={backHref ?? undefined} className="ghost-link">
+            ← {backLabel}
+          </a>
+        ) : null}
         {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
         <div className="page-shell__headline">
           <div>
-            <h1><a className="page-shell__title-link" href={resolvedTitleHref}>{title}</a></h1>
-            {description ? <p>{description}</p> : null}
+            <h1>
+              {titleHref ? (
+                <a href={titleHref} className="page-shell__title-link" aria-label={computedTitleLinkLabel}>
+                  {title}
+                </a>
+              ) : (
+                title
+              )}
+            </h1>
+            <p>{description}</p>
           </div>
           {actions ? <div className="page-shell__actions">{actions}</div> : null}
         </div>

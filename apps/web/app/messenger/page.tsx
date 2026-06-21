@@ -24,6 +24,7 @@ export default function MessengerPage() {
       backLabel="전체 메뉴로"
       eyebrow="Phase 24 협업 placeholder"
       title="메신저 placeholder"
+      titleHref="/messenger"
       description="실시간 메신저 외부 연동 전 단계에서 탭/메뉴 위치와 안내 문구를 먼저 고정한 파일럿 placeholder 화면입니다."
       actions={
         <div className="pill-row">

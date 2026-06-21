@@ -67,7 +67,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("전체 기능 탐색");
     expect(html).toContain("전체 메뉴 / 기능 탐색 허브");
     expect(html).toContain("홈과 메뉴 역할 분리");
-    expect(html).toContain("/home");
+    expect(html).toContain("/dashboard");
     expect(html).toContain("/menu");
     expect(html).toContain("같은 바로가기·권한 registry");
     expect(html).toContain("회사 공통 고정");
@@ -79,6 +79,11 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("모바일·PC 같은 정보구조 원칙");
     expect(html).toContain("모바일 상태 문장 가이드");
     expect(html).toContain("모바일 추천 확인 순서");
+    expect(html).toContain("UAT 체크 / 도움말 진입");
+    expect(html).toContain('href="/uat"');
+    expect(html).toContain("게시판·공지 실사용 가이드");
+    expect(html).toContain("참고 문서: <a href=");
+    expect(html).toContain('href="https://github.com/wrhr-sp/gw/blob/main/docs/guides/phase-51-boards-live-operations-guide.md"');
     expect(html).toContain("일반 직원 · 팀장 확인 순서");
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
     expect(html).not.toContain("감사 확인 순서");
@@ -90,7 +95,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).not.toContain('href="/admin/users"');
     expect(html).not.toContain('href="/work-items/branch"');
     expect(html).toContain("dev-safe 안내 상태");
-    expect(html).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
+    expect(html).not.toMatch(/Phase |Skeleton|placeholder|skeleton/);
   });
 
   it("shows privileged personal shortcuts and management lane only for privileged viewers", () => {

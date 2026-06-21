@@ -18,7 +18,7 @@
 ## 지금 저장소에 적용한 것
 
 - `.secrets/neon.env`
-  - 대장이 `DATABASE_URL`만 넣을 수 있는 비밀 파일
+  - 대장이 local/manual 확인용 `DATABASE_URL`, preview 전용 `DATABASE_URL_PREVIEW`, production 전용 `DATABASE_URL_PRODUCTION` 을 나눠 넣을 수 있는 비밀 파일
 - `db/postgres/migrations/0001_initial_operational_schema.sql`
   - 초기 운영 PostgreSQL schema SQL
 - `db/postgres/README.md`
@@ -58,13 +58,21 @@ Neon에서 PostgreSQL 프로젝트를 만든 뒤, 연결 문자열을 채팅에 
 nano /home/wrhrgw/gw/.secrets/neon.env
 ```
 
-채울 값:
+채울 값 예시:
 
 ```env
-DATABASE_URL=postgresql://...
+DATABASE_URL=postgresql://...              # 로컬 수동 점검 / 단일 환경 강제 확인용
+DATABASE_URL_PREVIEW=postgresql://...      # preview migration/seed, preview worker 용
+DATABASE_URL_PRODUCTION=postgresql://...   # production migration/seed, production worker 용
 ```
 
 저장 후 저에게 `저장했어`라고만 말하면 된다.
+
+추가 메모:
+- 이 파일의 `DATABASE_URL` 은 로컬 수동 점검이나 단일 환경 강제 확인용으로 먼저 쓴다.
+- preview migration/seed 나 preview worker 연결부터는 `DATABASE_URL_PREVIEW` 를 같이 채운다.
+- production migration/seed 나 production worker 연결은 `DATABASE_URL_PRODUCTION` 이 필수다. `DATABASE_URL` fallback 은 허용하지 않는다.
+- preview / production 분리, Cloudflare Worker secret 주입, rollback/runbook 기준은 `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md` 를 함께 본다.
 
 ## 아직 적용하지 않은 것
 
@@ -75,4 +83,4 @@ DATABASE_URL=postgresql://...
 - Redis/Meilisearch 연결
 - 외부연동
 
-위 항목은 `DATABASE_URL` 제공 후 단계별로 검증하면서 진행한다.
+위 항목은 local/manual `DATABASE_URL` 과 환경별 `DATABASE_URL_PREVIEW` / `DATABASE_URL_PRODUCTION` 준비 후 단계별로 검증하면서 진행한다.

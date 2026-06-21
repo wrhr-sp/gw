@@ -9,6 +9,8 @@
     "test": "pnpm -r test",
     "check": "pnpm test && pnpm typecheck",
     "db:pg:check": "node scripts/validate-operational-postgres-schema.mjs",
+    "db:pg:migrate:preview": "node scripts/apply-operational-postgres-migrations.mjs preview --apply",
+    "db:pg:migrate:production": "node scripts/apply-operational-postgres-migrations.mjs production --apply",
     "db:pg:seed:preview": "node scripts/seed-operational-db.mjs preview",
     "db:pg:seed:production": "node scripts/seed-operational-db.mjs production"
   }

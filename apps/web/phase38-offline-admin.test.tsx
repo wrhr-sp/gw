@@ -40,7 +40,7 @@ describe("Phase 42A offline login retry guidance", () => {
     expect(html).toContain("업무별 오프라인 경계");
     expect(html).toContain("근태");
     expect(html).toContain('href="/login"');
-    expect(html).not.toContain('href="/home"');
+    expect(html).not.toContain('href="/dashboard"');
     expect(html).not.toContain('href="/menu"');
     expect(html).not.toContain('href="/notifications"');
     expect(html).not.toContain('href="/admin/users"');
@@ -61,7 +61,7 @@ describe("Phase 42A offline login retry guidance", () => {
     expect(html).not.toContain('href="/admin/users"');
     expect(html).not.toContain('href="/admin/policies"');
     expect(html).not.toContain('href="/admin/audit-logs"');
-    expect(html).not.toContain('href="/home"');
+    expect(html).not.toContain('href="/dashboard"');
   });
 
   it("keeps the admin host shell topbar inside the admin boundary", async () => {
@@ -76,7 +76,7 @@ describe("Phase 42A offline login retry guidance", () => {
 
     expect(html).toContain('href="/admin"');
     expect(html).not.toContain('href="/menu"');
-    expect(html).not.toContain('href="/home"');
+    expect(html).not.toContain('href="/dashboard"');
     expect(html).not.toContain('href="/notifications"');
   });
 });

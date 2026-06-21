@@ -105,16 +105,11 @@ type WorkItemListPayload = {
     auditSummary: string;
     access: {
       viewerScope: string;
-      capabilities?: string[];
-      allowedCapabilities?: string[];
+      allowedCapabilities: string[];
       maskedFields: string[];
     };
   }>;
 };
-
-export function getWorkItemAccessCapabilities(access: WorkItemListPayload["items"][number]["access"]) {
-  return access.allowedCapabilities ?? access.capabilities ?? [];
-}
 
 type WorkItemDetailPayload = {
   item: WorkItemListPayload["items"][number];
@@ -468,7 +463,7 @@ export function BranchOperationsLiveSection() {
             <>
               <h3>{detail.data.item.status} · {detail.data.item.priority}</h3>
               <p>{detail.data.item.branchLabel ?? "회사 공통"} · viewerScope {detail.data.item.access.viewerScope}</p>
-              <p className="card-note">허용 capability: {getWorkItemAccessCapabilities(detail.data.item.access).join(", ") || "없음"}</p>
+              <p className="card-note">허용 capability: {detail.data.item.access.allowedCapabilities.join(", ")}</p>
             </>
           ) : null}
         </article>

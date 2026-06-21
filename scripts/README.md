@@ -65,6 +65,7 @@ DB 작업 preview:
 
 ```bash
 ./scripts/gw-db-safe.sh --env prod --mode migrate-preview
+./scripts/gw-db-safe.sh --env staging --mode status
 ```
 
 Cloudflare 전환 준비 점검:

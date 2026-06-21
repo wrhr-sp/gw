@@ -7,9 +7,6 @@ export type NavItem = {
   label: string;
   shortLabel: string;
   summary: string;
-  disabled?: boolean;
-  permissionDenied?: boolean;
-  badge?: string;
 };
 
 export type NavSection = {
@@ -63,13 +60,13 @@ export type AppShellConfig = {
 
 export const generalPwaManifest = {
   name: "We'reHere",
-  short_name: "We'reHere",
+  short_name: "GW Mobile",
   description: "작은 화면 우선 탐색과 same-origin API 원칙을 유지하는 We'reHere 스켈레톤",
   id: "/login",
-  start_url: "/home",
+  start_url: "/dashboard",
   scope: "/",
-  display: "browser",
-  display_override: ["browser"],
+  display: "standalone",
+  display_override: ["standalone", "minimal-ui", "browser"],
   orientation: "portrait-primary",
   background_color: "#0f172a",
   theme_color: "#0f172a",
@@ -80,7 +77,7 @@ export const generalPwaManifest = {
       name: "모바일 대시보드",
       short_name: "대시보드",
       description: "작은 화면 기준 오늘 상태와 핵심 진입점을 먼저 엽니다.",
-      url: "/home",
+      url: "/dashboard",
     },
     {
       name: "근태",
@@ -124,8 +121,8 @@ export const adminPwaManifest = {
   id: "/admin",
   start_url: "/admin",
   scope: "/admin",
-  display: "browser",
-  display_override: ["browser"],
+  display: "standalone",
+  display_override: ["standalone", "minimal-ui", "browser"],
   orientation: "portrait-primary",
   background_color: "#111827",
   theme_color: "#111827",
@@ -185,9 +182,9 @@ export const pwaManifest = generalPwaManifest;
 
 export const mobilePrimaryNav: NavItem[] = [
   {
-    href: "/home",
-    label: "홈",
-    shortLabel: "홈",
+    href: "/dashboard",
+    label: "대시보드",
+    shortLabel: "대시",
     summary: "오늘 할 일과 역할별 첫 진입점",
   },
   {
@@ -216,8 +213,8 @@ export const mobilePrimaryNav: NavItem[] = [
   },
   {
     href: "/documents",
-    label: "전사 문서함",
-    shortLabel: "전사문서",
+    label: "문서",
+    shortLabel: "문서",
     summary: "문서 공간과 보관 흐름 확인",
   },
   {
@@ -240,32 +237,11 @@ export const mobilePrimaryNav: NavItem[] = [
   },
   {
     href: "/employees",
-    label: "조직도",
-    shortLabel: "조직도",
+    label: "직원",
+    shortLabel: "직원",
     summary: "조직 확인 뒤 직원 상태와 소속 조회",
   },
-  {
-    href: "/payroll/me",
-    label: "급여",
-    shortLabel: "급여",
-    summary: "본인 급여명세서 초안과 정정 안내 확인",
-  },
 ];
-
-const plannedNavItems = {
-  calendar: { href: "#calendar", label: "캘린더", shortLabel: "캘린더", summary: "일정 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  reservation: { href: "#reservation", label: "예약", shortLabel: "예약", summary: "회의실·차량·공용장비 같은 사내 자원 예약 후보입니다. 이번 작업에서는 기능을 만들지 않습니다.", disabled: true, badge: "준비중" },
-  community: { href: "#anonymous-board", label: "익명게시판", shortLabel: "익명", summary: "익명 게시판 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  report: { href: "#reports", label: "보고", shortLabel: "보고", summary: "업무 보고 작성·제출 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  todo: { href: "#todo-plus", label: "ToDO+", shortLabel: "ToDO", summary: "개인/팀 할 일 관리 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  library: { href: "#library", label: "자료실", shortLabel: "자료실", summary: "공용 자료실 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-
-  drive: { href: "#drive", label: "드라이브", shortLabel: "드라이브", summary: "파일 드라이브 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  training: { href: "#employee-training", label: "직장인교육", shortLabel: "교육", summary: "직장인교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  employmentContract: { href: "#employment-contract", label: "고용전자계약", shortLabel: "전자계약", summary: "고용 전자계약 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  expense: { href: "#expense", label: "경비", shortLabel: "경비", summary: "경비 신청·정산 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  vehicleLog: { href: "#vehicle-log", label: "차량운행일지", shortLabel: "차량일지", summary: "차량 운행일지 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-} satisfies Record<string, NavItem>;
 
 export const mobileBottomTabs: NavItem[] = [
   {
@@ -275,7 +251,7 @@ export const mobileBottomTabs: NavItem[] = [
     summary: "홈에서 다 보지 못한 전체 기능 탐색과 역할별 추가 진입점 열기",
   },
   {
-    href: "/home",
+    href: "/dashboard",
     label: "홈",
     shortLabel: "홈",
     summary: "오늘 해야 할 일과 파일럿 시작 화면 열기",
@@ -302,48 +278,30 @@ export const mobileBottomTabs: NavItem[] = [
 
 export const mobileMenuSections: NavSection[] = [
   {
-    title: "협업/소통",
-    description: "",
+    title: "기본 업무",
+    description: "실사용 기준으로 먼저 눌러 볼 핵심 업무 흐름입니다.",
+    items: [mobilePrimaryNav[0], mobilePrimaryNav[1], mobilePrimaryNav[2], mobilePrimaryNav[3], mobilePrimaryNav[4], mobilePrimaryNav[5]],
+  },
+  {
+    title: "공통 업무 엔진",
+    description: "하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 HR·세무·노무·지점 업무 자리를 먼저 확보합니다.",
     items: [
-      mobileBottomTabs[3],
-      mobileBottomTabs[2],
-      mobileBottomTabs[4],
-      mobilePrimaryNav[4],
-      { href: "/org", label: "주소록", shortLabel: "주소록", summary: "부서·역할·권한 체계와 연락 기준 확인" },
-      mobilePrimaryNav[9],
-      plannedNavItems.community,
+      mobilePrimaryNav[6],
+      { href: "/work-items/hr", label: "인사 업무", shortLabel: "인사", summary: "입퇴사/서류 회수/인사 점검 현황" },
+      { href: "/work-items/tax", label: "세무 업무", shortLabel: "세무", summary: "증빙 제출/세목별 마감/HQ 전달 패키지 준비 현황" },
+      { href: "/work-items/labor", label: "노무 업무", shortLabel: "노무", summary: "계약/연차/수당/고충/징계 검토와 restricted 경계 안내" },
+      { href: "/work-items/branch", label: "지점 업무", shortLabel: "지점", summary: "지점 일일 보고/마감 현황" },
     ],
   },
   {
-    title: "일정/개인 업무",
-    description: "",
-    items: [mobilePrimaryNav[6], plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
+    title: "내 정보 / 조회",
+    description: "업무 처리 뒤 세션과 조직 맥락을 읽는 마무리 메뉴입니다.",
+    items: [mobilePrimaryNav[7], mobilePrimaryNav[8], mobilePrimaryNav[9]],
   },
   {
-    title: "근무/인사",
-    description: "",
-    items: [
-      mobilePrimaryNav[1],
-      mobilePrimaryNav[2],
-      { href: "/work-items/hr", label: "내 인사", shortLabel: "내인사", summary: "내 인사 관련 요청과 서류 확인" },
-      plannedNavItems.training,
-      plannedNavItems.employmentContract,
-    ],
-  },
-  {
-    title: "결재/문서",
-    description: "",
-    items: [mobilePrimaryNav[3], mobilePrimaryNav[5], plannedNavItems.library, plannedNavItems.drive],
-  },
-  {
-    title: "급여/비용",
-    description: "",
-    items: [mobilePrimaryNav[10], plannedNavItems.expense],
-  },
-  {
-    title: "운영/기타",
-    description: "",
-    items: [plannedNavItems.vehicleLog],
+    title: "협업 확인",
+    description: "메신저, 메일, 알림은 현재 확인 가능한 범위만 안내하고 실제 외부 연동은 승인 게이트로 남깁니다.",
+    items: [mobileBottomTabs[2], mobileBottomTabs[3], mobileBottomTabs[4]],
   },
 ];
 
@@ -516,7 +474,7 @@ export const mobileReviewChecklist = [
 ] as const;
 
 export const fieldUsabilityPrinciples = [
-  "홈(`/home`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
+  "홈(`/dashboard`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
   "알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.",
   "오프라인(`/offline`)은 가능한 일/막히는 일/재시도 절차를 먼저 설명하고, 상태 변경 성공처럼 포장하지 않습니다.",
   "`/management`·`/admin*` 운영 레인은 일반 직원 홈과 분리해 권한 있는 사용자만 확인합니다.",
@@ -524,7 +482,7 @@ export const fieldUsabilityPrinciples = [
 
 export const recoveryRouteCards: readonly RecoveryRouteCard[] = [
   {
-    href: "/home",
+    href: "/dashboard",
     label: "홈 / 대시보드",
     summary: "오늘 할 일과 역할별 첫 진입점을 다시 확인합니다.",
   },
@@ -578,7 +536,7 @@ export const notificationStateCards: readonly NotificationStateCard[] = [
     title: "미읽음 안내 확인",
     summary: "같은 origin 안에서 받은 inbox 항목과 notices 를 먼저 읽습니다.",
     detail: "실제 외부 발송을 뜻하지 않으며, 다음 업무는 해당 route 에서 이어집니다.",
-    href: "/home",
+    href: "/dashboard",
     actionLabel: "홈에서 오늘 할 일 다시 보기",
   },
   {
@@ -654,38 +612,24 @@ export function hasManagementMenuAccess(roleCode?: RoleCode | null) {
   return roleCode ? isLegalManagementRoleCode(roleCode) : false;
 }
 
-function markMenuItemsByRole<T extends NavItem>(items: readonly T[], roleCode?: RoleCode | null) {
+function filterMenuItemsByRole<T extends { href: string }>(items: readonly T[], roleCode?: RoleCode | null) {
   if (!roleCode) {
     return items;
   }
 
   const viewer = getViewerAccessForRoleCode(roleCode);
-  return items.map((item) => {
-    if (item.disabled || hasHomeShortcutRouteAccess(item.href, viewer)) {
-      return item;
-    }
-
-    return { ...item, permissionDenied: true, badge: "권한필요" };
-  });
+  return items.filter((item) => hasHomeShortcutRouteAccess(item.href, viewer));
 }
 
 export function getVisibleMobilePrimaryNav(roleCode?: RoleCode | null) {
-  if (!roleCode) {
-    return mobilePrimaryNav;
-  }
-
-  return markMenuItemsByRole([...mobilePrimaryNav, ...managementPrimaryNav], roleCode);
+  return hasManagementMenuAccess(roleCode) ? [...mobilePrimaryNav, ...managementPrimaryNav] : mobilePrimaryNav;
 }
 
 export function getVisibleMobileMenuSections(roleCode?: RoleCode | null) {
-  if (!roleCode) {
-    return mobileMenuSections;
-  }
-
-  const visibleSections = [...mobileMenuSections, ...managementMenuSections];
+  const visibleSections = hasManagementMenuAccess(roleCode) ? [...mobileMenuSections, ...managementMenuSections] : mobileMenuSections;
   return visibleSections.map((section) => ({
     ...section,
-    items: markMenuItemsByRole(section.items, roleCode),
+    items: filterMenuItemsByRole(section.items, roleCode),
   }));
 }
 
@@ -714,8 +658,8 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
 
   return {
     appName: "We'reHere",
-    appEyebrow: "일반업무포털",
-    homeHref: "/home",
+    appEyebrow: "오늘 할 일 · 전체 메뉴",
+    homeHref: "/dashboard",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,
     menuSections: getVisibleMobileMenuSections(roleCode),

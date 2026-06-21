@@ -1,6 +1,6 @@
 "use client";
 
-import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type RoleCode } from "@gw/shared";
+import { appRoutes, type RoleCode } from "@gw/shared";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -11,10 +11,6 @@ type NotificationBadgeState = {
 };
 
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
-const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
-const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
-
-type SidebarPortalKey = "general" | "management" | "branch";
 
 type FeatureIconName =
   | "menu"
@@ -51,28 +47,8 @@ type FeatureIconProps = {
 };
 
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
-
-const brandWordmark = "WE’REHERE";
-
-type TopbarIconButtonProps = {
-  label: string;
-  iconName?: FeatureIconName;
-  badgeText?: string | null;
-  children?: ReactNode;
-  onClick: () => void;
-};
-
-type TopbarProfileState = {
-  fullName: string;
-  email: string;
-  departmentName: string;
-  positionLabel: string;
-};
-
-type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
-type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
 type SettingsTabKey = "basic" | "admin";
-type AdminSettingsPanelKey = "access" | "admin-rights";
+type AdminSettingsSubtabKey = "access" | "adminPermissions";
 
 type SecondaryPasswordFormState = {
   current: string;
@@ -97,91 +73,96 @@ type SecondaryPasswordSaveResult =
       toastMessage: string;
     };
 
-const adminSettingsRoleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN"]);
-
-const adminPermissionUsers = [
-  { id: "admin", name: "총괄관리계정", department: "본사", role: "회사 관리자" },
-  { id: "hr_manager", name: "인사팀 관리자", department: "인사팀", role: "HR 관리자" },
-  { id: "branch_manager", name: "지점 관리자", department: "강남지점", role: "지점 관리자" },
-  { id: "employee", name: "일반 직원", department: "영업팀", role: "직원" },
-] as const;
-
-const adminFeaturePermissions = [
-  { key: "attendance", label: "근태 관리" },
-  { key: "leave", label: "휴가 관리" },
-  { key: "approvals", label: "전자결재" },
-  { key: "boards", label: "게시판" },
-  { key: "documents", label: "문서함" },
-  { key: "employees", label: "조직/직원" },
-  { key: "payroll", label: "급여 조회" },
-  { key: "management", label: "경영 포털" },
-] as const;
-
-type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
-type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
-type AdminPermissionState = Record<AdminPermissionUserId, Record<AdminFeaturePermissionKey, boolean>>;
-
-function createAdminPermissionSet(values: AdminFeaturePermissionKey[]) {
-  return new Set<AdminFeaturePermissionKey>(values);
-}
-
-const defaultAdminPermissionByUser: Record<AdminPermissionUserId, Set<AdminFeaturePermissionKey>> = {
-  admin: createAdminPermissionSet(adminFeaturePermissions.map((permission) => permission.key)),
-  hr_manager: createAdminPermissionSet(["attendance", "leave", "approvals", "employees", "documents"]),
-  branch_manager: createAdminPermissionSet(["attendance", "leave", "boards", "documents"]),
-  employee: createAdminPermissionSet(["attendance", "leave", "approvals", "boards", "documents"]),
+type TopbarIconButtonProps = {
+  label: string;
+  iconName?: FeatureIconName;
+  badgeText?: string | null;
+  children?: ReactNode;
+  onClick: () => void;
 };
 
-function createDefaultAdminPermissionState(): AdminPermissionState {
-  return Object.fromEntries(
-    adminPermissionUsers.map((user) => [
-      user.id,
-      Object.fromEntries(adminFeaturePermissions.map((permission) => [permission.key, defaultAdminPermissionByUser[user.id].has(permission.key)])),
-    ]),
-  ) as AdminPermissionState;
-}
+type TopbarProfileState = {
+  fullName: string;
+  email: string;
+  departmentName: string;
+  positionLabel: string;
+};
 
-const DEFAULT_NOTIFICATION_PREFERENCES: Record<NotificationPreferenceKey, boolean> = {
-  notices: true,
-  approvals: true,
-  mentions: true,
+type ProfileNotificationKey = "notice" | "approval" | "comment" | "mail" | "attendance";
+
+type AfterHoursNotificationKey = "urgentNotice" | "approvalRequest" | "approvalRevision" | "commentMention" | "attendanceResult" | "importantMail";
+
+type ProfileNotificationSettings = Record<ProfileNotificationKey, boolean>;
+type AfterHoursNotificationSettings = Record<AfterHoursNotificationKey, boolean>;
+
+const defaultProfileNotificationSettings: ProfileNotificationSettings = {
+  notice: true,
+  approval: true,
+  comment: true,
   mail: true,
   attendance: true,
 };
 
-const DEFAULT_AFTER_HOURS_PREFERENCES: Record<AfterHoursPreferenceKey, boolean> = {
-  urgentNotices: true,
-  approvalRequests: true,
-  approvalFeedback: true,
-  mentions: true,
-  attendanceResults: true,
+const defaultAfterHoursNotificationSettings: AfterHoursNotificationSettings = {
+  urgentNotice: true,
+  approvalRequest: true,
+  approvalRevision: true,
+  commentMention: true,
+  attendanceResult: true,
   importantMail: false,
 };
 
-const afterHoursExceptionKeys = new Set<AfterHoursPreferenceKey>(["urgentNotices"]);
+const afterHoursParentByKey: Record<AfterHoursNotificationKey, ProfileNotificationKey> = {
+  urgentNotice: "notice",
+  approvalRequest: "approval",
+  approvalRevision: "approval",
+  commentMention: "comment",
+  attendanceResult: "attendance",
+  importantMail: "mail",
+};
+
+const afterHoursExceptionKeys = new Set<AfterHoursNotificationKey>(["urgentNotice"]);
+
+const adminSettingsSubtabMeta: Record<
+  AdminSettingsSubtabKey,
+  {
+    label: string;
+    summary: string;
+    previewNote: string;
+  }
+> = {
+  access: {
+    label: "접근권한",
+    summary: "어디를 볼 수 있는지 정리합니다.",
+    previewNote: "이번 미리보기에서는 선택 상태만 확인합니다. 실제 저장이나 운영 반영은 하지 않습니다.",
+  },
+  adminPermissions: {
+    label: "관리자 권한",
+    summary: "무엇을 바꾸고 부여할 수 있는지 정리합니다.",
+    previewNote: "권한 변경 영향이 있는 관리 항목을 미리보기로만 구분합니다. 운영 반영은 별도 승인 범위입니다.",
+  },
+};
+
+export function formatUnreadBadge(unreadCount: number | null) {
+  if (!unreadCount || unreadCount <= 0) {
+    return null;
+  }
+
+  return unreadCount >= 100 ? "99+" : String(unreadCount);
+}
 
 export function syncAfterHoursSettings(
-  notificationSettings: Record<NotificationPreferenceKey, boolean>,
-  previousAfterHoursSettings: Record<AfterHoursPreferenceKey, boolean>,
-) {
+  profileSettings: ProfileNotificationSettings,
+  previousAfterHoursSettings: AfterHoursNotificationSettings,
+): AfterHoursNotificationSettings {
   const nextSettings = { ...previousAfterHoursSettings };
 
-  if (!notificationSettings.approvals) {
-    nextSettings.approvalRequests = false;
-    nextSettings.approvalFeedback = false;
-  }
-  if (!notificationSettings.mentions) {
-    nextSettings.mentions = false;
-  }
-  if (!notificationSettings.mail) {
-    nextSettings.importantMail = false;
-  }
-  if (!notificationSettings.attendance) {
-    nextSettings.attendanceResults = false;
-  }
-  if (!notificationSettings.notices && !afterHoursExceptionKeys.has("urgentNotices")) {
-    nextSettings.urgentNotices = false;
-  }
+  (Object.keys(nextSettings) as AfterHoursNotificationKey[]).forEach((key) => {
+    const parentEnabled = profileSettings[afterHoursParentByKey[key]];
+    if (!parentEnabled && !afterHoursExceptionKeys.has(key)) {
+      nextSettings[key] = false;
+    }
+  });
 
   return nextSettings;
 }
@@ -197,25 +178,8 @@ export function buildInitialSecondaryPasswordState(): SecondaryPasswordState {
   };
 }
 
-export type SettingsSaveToastScope = "integrated-settings" | "profile-settings" | "sidebar-settings";
-
-export type SettingsSaveToastResult = {
-  message: string;
-  tone: "success" | "no-change";
-};
-
-export function resolveSettingsSaveToast(scope: SettingsSaveToastScope, hasChanges: boolean): SettingsSaveToastResult {
-  if (!hasChanges) {
-    return { message: "변경된 내용이 없습니다.", tone: "no-change" };
-  }
-
-  const messageByScope: Record<SettingsSaveToastScope, string> = {
-    "integrated-settings": "통합설정이 적용되었습니다.",
-    "profile-settings": "내정보 설정이 적용되었습니다.",
-    "sidebar-settings": "사이드바 설정이 적용되었습니다.",
-  };
-
-  return { message: messageByScope[scope], tone: "success" };
+export function resolveSettingsModalSaveToast(modal: "settings" | "profile-settings") {
+  return modal === "profile-settings" ? "내정보 설정이 적용되었습니다." : "설정이 적용되었습니다.";
 }
 
 export function resolveSecondaryPasswordSave(
@@ -261,17 +225,9 @@ export function resolveSecondaryPasswordSave(
   };
 }
 
-export function formatUnreadBadge(unreadCount: number | null) {
-  if (!unreadCount || unreadCount <= 0) {
-    return null;
-  }
-
-  return unreadCount >= 100 ? "99+" : String(unreadCount);
-}
-
 function getFeatureIconName(href: string, label: string): FeatureIconName | null {
   if (href === "/menu") return "menu";
-  if (href === "/home" || href === "/dashboard") return "home";
+  if (href === "/dashboard") return "home";
   if (href === "/messenger") return "messenger";
   if (href === "/mail") return "mail";
   if (href === "/notifications") return "notification";
@@ -527,33 +483,8 @@ function buildFallbackProfile(roleCode: RoleCode | null): TopbarProfileState {
   };
 }
 
-function TopbarIconButton({ label, iconName, badgeText, children, onClick }: TopbarIconButtonProps) {
-  return (
-    <button type="button" className="topbar-icon-link" aria-label={label} data-tooltip={label} onClick={onClick}>
-      {children ?? (iconName ? <FeatureIcon className="topbar-icon-link__icon" name={iconName} title={label} /> : null)}
-      {badgeText ? <span className="topbar-icon-link__badge">{badgeText}</span> : null}
-    </button>
-  );
-}
-
-function SettingField({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="topbar-modal-field">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {hint ? <small>{hint}</small> : null}
-    </div>
-  );
-}
-
-function PortalShortcutIcon() {
-  return (
-    <svg className="portal-switch-link__icon" aria-hidden="true" viewBox="0 0 24 24">
-      <path className="portal-switch-link__box" d="M5.5 9.25v8.25a2 2 0 0 0 2 2h8.25a2 2 0 0 0 2-2v-4.25" />
-      <path className="portal-switch-link__arrow-fill" d="M8.05 15.95c2.5-4.68 5.76-6.75 9.56-7.15V5.05l5.29 5.17-5.29 5.2v-3.54c-3.3.12-6.33 1.11-9.56 4.07Z" />
-      <path className="portal-switch-link__arrow-outline" d="M8.05 15.95c2.5-4.68 5.76-6.75 9.56-7.15V5.05l5.29 5.17-5.29 5.2v-3.54c-3.3.12-6.33 1.11-9.56 4.07Z" />
-    </svg>
-  );
+function isAdminSettingsRole(roleCode: RoleCode | null) {
+  return roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN" || roleCode === "MANAGER";
 }
 
 function sanitizePinValue(value: string) {
@@ -630,27 +561,45 @@ function PinField({
   );
 }
 
+function TopbarIconButton({ label, iconName, badgeText, children, onClick }: TopbarIconButtonProps) {
+  return (
+    <button type="button" className="topbar-icon-link" aria-label={label} data-tooltip={label} onClick={onClick}>
+      {children ?? (iconName ? <FeatureIcon className="topbar-icon-link__icon" name={iconName} title={label} /> : null)}
+      {badgeText ? <span className="topbar-icon-link__badge">{badgeText}</span> : null}
+    </button>
+  );
+}
+
+function SettingField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="topbar-modal-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {hint ? <small>{hint}</small> : null}
+    </div>
+  );
+}
+
 function SettingToggle({
   label,
   description,
   defaultChecked = true,
-  disabled = false,
   checked,
+  disabled = false,
   onChange,
 }: {
   label: string;
   description?: string;
   defaultChecked?: boolean;
-  disabled?: boolean;
   checked?: boolean;
+  disabled?: boolean;
   onChange?: (checked: boolean) => void;
 }) {
   return (
     <label className={disabled ? "topbar-modal-toggle topbar-modal-toggle--locked" : "topbar-modal-toggle"}>
       <input
         type="checkbox"
-        defaultChecked={checked === undefined ? defaultChecked : undefined}
-        checked={checked}
+        {...(checked === undefined ? { defaultChecked } : { checked })}
         disabled={disabled}
         onChange={onChange ? (event) => onChange(event.target.checked) : undefined}
       />
@@ -671,81 +620,11 @@ function isManagementPortalPath(pathname: string) {
     pathname === "/management" ||
     pathname.startsWith("/management/") ||
     pathname === "/payroll" ||
-    (pathname.startsWith("/payroll/") && pathname !== "/payroll/me") ||
+    pathname.startsWith("/payroll/") ||
     pathname.startsWith("/work-items/tax") ||
     pathname.startsWith("/work-items/labor") ||
     pathname.startsWith("/work-items/legal")
   );
-}
-
-function isBranchPortalPath(pathname: string) {
-  return pathname === "/work-items/branch" || pathname.startsWith("/work-items/branch/");
-}
-
-function isBranchPortalItem(item: NavItem) {
-  return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger" || item.href === "/notifications";
-}
-
-function getSidebarPortalStorageKey(portalKey: SidebarPortalKey) {
-  return `${SIDEBAR_CUSTOM_STORAGE_PREFIX}.${portalKey}`;
-}
-
-function flattenNavSections(sections: readonly NavSection[]) {
-  const seen = new Set<string>();
-  const items: NavItem[] = [];
-  sections.forEach((section) => section.items.forEach((item) => {
-    if (!seen.has(item.href)) {
-      seen.add(item.href);
-      items.push(item);
-    }
-  }));
-  return items;
-}
-
-function compareNavItemsByLabel(left: NavItem, right: NavItem) {
-  return left.label.localeCompare(right.label, "ko-KR", { numeric: true, sensitivity: "base" });
-}
-
-function sortNavSectionsByItemLabel(sections: readonly NavSection[]) {
-  return sections.map((section) => ({ ...section, items: [...section.items].sort(compareNavItemsByLabel) }));
-}
-
-function buildDefaultSidebarSelection(items: readonly NavItem[], homeHref: string) {
-  return items.filter((item) => item.href !== homeHref).slice(0, SIDEBAR_CUSTOM_MENU_LIMIT).map((item) => item.href);
-}
-
-function resolveSidebarSelection(items: readonly NavItem[], savedHrefs: readonly string[] | null, homeHref: string) {
-  const allowed = new Set(items.map((item) => item.href));
-  return (savedHrefs ?? buildDefaultSidebarSelection(items, homeHref))
-    .filter((href, index, array) => href !== homeHref && allowed.has(href) && array.indexOf(href) === index)
-    .slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
-}
-
-function areSidebarSelectionsEqual(left: readonly string[], right: readonly string[]) {
-  return left.length === right.length && left.every((href, index) => href === right[index]);
-}
-
-function areBooleanRecordsEqual<Key extends string>(left: Record<Key, boolean>, right: Record<Key, boolean>) {
-  return (Object.keys(left) as Key[]).every((key) => left[key] === right[key]);
-}
-
-function areAdminPermissionStatesEqual(left: AdminPermissionState, right: AdminPermissionState) {
-  return adminPermissionUsers.every((user) => areBooleanRecordsEqual(left[user.id], right[user.id]));
-}
-
-function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] | null> {
-  function readSidebarSelection(portalKey: SidebarPortalKey) {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem(getSidebarPortalStorageKey(portalKey));
-      const parsed = raw ? JSON.parse(raw) : null;
-      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : null;
-    } catch {
-      return null;
-    }
-  }
-
-  return { general: readSidebarSelection("general"), management: readSidebarSelection("management"), branch: readSidebarSelection("branch") };
 }
 
 function isManagementSection(section: NavSection) {
@@ -766,38 +645,6 @@ type MobileAppShellProps = {
   currentRoleCode: RoleCode | null;
 };
 
-type GeneralSettingsState = {
-  startScreen: string;
-  density: string;
-  compactMobileBottomNav: boolean;
-  notices: boolean;
-  approvals: boolean;
-  mentions: boolean;
-  attendance: boolean;
-};
-
-const DEFAULT_GENERAL_SETTINGS: GeneralSettingsState = {
-  startScreen: "홈",
-  density: "기본",
-  compactMobileBottomNav: false,
-  notices: true,
-  approvals: true,
-  mentions: true,
-  attendance: true,
-};
-
-function areGeneralSettingsEqual(left: GeneralSettingsState, right: GeneralSettingsState) {
-  return (
-    left.startScreen === right.startScreen &&
-    left.density === right.density &&
-    left.compactMobileBottomNav === right.compactMobileBottomNav &&
-    left.notices === right.notices &&
-    left.approvals === right.approvals &&
-    left.mentions === right.mentions &&
-    left.attendance === right.attendance
-  );
-}
-
 export function MobileAppShell({
   children,
   appName,
@@ -814,169 +661,68 @@ export function MobileAppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isSidebarScrolling, setIsSidebarScrolling] = useState(false);
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
-  const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
-  const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
-  const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
-  const [settingsSaveToastMessage, setSettingsSaveToastMessage] = useState("변경된 설정이 적용되었습니다.");
-  const [settingsSaveToastTone, setSettingsSaveToastTone] = useState<"success" | "no-change">("success");
-  const [permissionNoticeVisible, setPermissionNoticeVisible] = useState(false);
-  const [adminSettingsUnlocked, setAdminSettingsUnlocked] = useState(false);
-  const [adminSecondaryPassword, setAdminSecondaryPassword] = useState("");
-  const [adminSecondaryPasswordError, setAdminSecondaryPasswordError] = useState<string | null>(null);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabKey>("basic");
+  const [activeAdminSettingsSubtab, setActiveAdminSettingsSubtab] = useState<AdminSettingsSubtabKey>("access");
+  const [settingsToastMessage, setSettingsToastMessage] = useState<string | null>(null);
+  const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
+  const [profileNotificationSettings, setProfileNotificationSettings] = useState<ProfileNotificationSettings>(defaultProfileNotificationSettings);
+  const [afterHoursNotificationSettings, setAfterHoursNotificationSettings] = useState<AfterHoursNotificationSettings>(defaultAfterHoursNotificationSettings);
+  const [profileActionPending, setProfileActionPending] = useState(false);
+  const [profileActionError, setProfileActionError] = useState<string | null>(null);
+  const [adminAccessPin, setAdminAccessPin] = useState("");
+  const [adminAccessError, setAdminAccessError] = useState<string | null>(null);
+  const [isAdminSettingsUnlocked, setIsAdminSettingsUnlocked] = useState(false);
   const initialSecondaryPasswordState = useMemo(() => buildInitialSecondaryPasswordState(), []);
   const [hasSecondaryPassword, setHasSecondaryPassword] = useState(initialSecondaryPasswordState.hasSecondaryPassword);
   const [secondaryPasswordValue, setSecondaryPasswordValue] = useState(initialSecondaryPasswordState.secondaryPasswordValue);
   const [isSecondaryPasswordDialogOpen, setIsSecondaryPasswordDialogOpen] = useState(false);
   const [secondaryPasswordForm, setSecondaryPasswordForm] = useState<SecondaryPasswordFormState>(() => buildEmptySecondaryPasswordForm());
   const [secondaryPasswordErrors, setSecondaryPasswordErrors] = useState<Partial<Record<keyof SecondaryPasswordFormState, string>>>({});
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
-  const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
-  const [settingsTab, setSettingsTab] = useState<SettingsTabKey>("basic");
-  const [adminSettingsPanel, setAdminSettingsPanel] = useState<AdminSettingsPanelKey>("access");
-  const [pendingSensitiveRoute, setPendingSensitiveRoute] = useState<string | null>(null);
-  const [sensitiveRoutePassword, setSensitiveRoutePassword] = useState("");
-  const [sensitiveRoutePasswordError, setSensitiveRoutePasswordError] = useState<string | null>(null);
-  const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
-  const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
-  const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
-  const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
-  const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
-  const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
-  const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
-  const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>(() => ({ ...DEFAULT_NOTIFICATION_PREFERENCES }));
-  const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>(() => ({ ...DEFAULT_AFTER_HOURS_PREFERENCES }));
-  const savedNotificationPreferencesRef = useRef<Record<NotificationPreferenceKey, boolean>>({ ...DEFAULT_NOTIFICATION_PREFERENCES });
-  const savedAfterHoursPreferencesRef = useRef<Record<AfterHoursPreferenceKey, boolean>>({ ...DEFAULT_AFTER_HOURS_PREFERENCES });
-  const savedGeneralSettingsRef = useRef<GeneralSettingsState>({ ...DEFAULT_GENERAL_SETTINGS });
-  const savedAdminPermissionSettingsRef = useRef<AdminPermissionState>(createDefaultAdminPermissionState());
-  const [profileActionPending, setProfileActionPending] = useState(false);
-  const [profileActionError, setProfileActionError] = useState<string | null>(null);
+  const [adminPermissionChecks, setAdminPermissionChecks] = useState({
+    orgReadModel: true,
+    userRolePolicy: true,
+    defaultLandingGuard: true,
+    auditPreview: true,
+  });
+  const sidebarScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const permissionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
 
-  function blurActiveElement() {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur();
-    }
-  }
-
-  function closeTopbarModal() {
-    setActiveTopbarModal(null);
-    setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
-    setAdminSettingsPanel("access");
-    setIsSecondaryPasswordDialogOpen(false);
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
-    setSuppressTopbarTooltips(true);
-    window.requestAnimationFrame(blurActiveElement);
-  }
-
-  function openUnifiedSettings() {
-    setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
-    setIsSecondaryPasswordDialogOpen(false);
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
-    setActiveTopbarModal("settings");
-  }
-
-  function openProfileSettings() {
-    setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
-    setIsSecondaryPasswordDialogOpen(false);
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
-    setActiveTopbarModal("profile-settings");
-  }
-
-  function openSidebarSettings() {
-    setSidebarDraftSelections(sidebarSelectedHrefs);
-    setSidebarDraggingHref(null);
-    setSidebarDragOverHref(null);
-    setIsSidebarSettingsOpen(true);
-  }
-
-  function closeSidebarSettings() {
-    setSidebarDraftSelections(null);
-    setSidebarDraggingHref(null);
-    setSidebarDragOverHref(null);
-    setIsSidebarSettingsOpen(false);
-    window.requestAnimationFrame(blurActiveElement);
-  }
-
-  function openLogoutConfirm() {
-    setIsProfileMenuOpen(false);
-    setIsLogoutConfirmOpen(true);
-  }
-
-  function closeLogoutConfirm() {
-    setIsLogoutConfirmOpen(false);
-    window.requestAnimationFrame(blurActiveElement);
-  }
-
+  const activeSectionTitle = useMemo(() => {
+    const matchedItem = navItems.find((item) => matchesPath(pathname, item.href)) ?? bottomTabs.find((item) => matchesPath(pathname, item.href));
+    return matchedItem?.label ?? "현재 화면";
+  }, [bottomTabs, navItems, pathname]);
   const hasManagementPortal = menuSections.some(isManagementSection);
-  const isAdminHostShell = homeHref === "/admin";
-  const canUseAdminSettings = adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE");
-  const secondaryPasswordMode = getSecondaryPasswordMode(hasSecondaryPassword);
-  const selectedPermissionUser = adminPermissionUsers.find((user) => user.id === selectedPermissionUserId) ?? adminPermissionUsers[0];
-  const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
-  const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
-  const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
+  const isManagementPortal = hasManagementPortal && isManagementPortalPath(pathname);
   const visibleDesktopMenuSections = useMemo(() => {
-    const sections = !hasManagementPortal
-      ? menuSections
-      : isBranchPortal
-        ? menuSections
-          .filter((section) => !isManagementSection(section))
-          .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
-          .filter((section) => section.items.length > 0)
-        : menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
-    return sortNavSectionsByItemLabel(sections);
-  }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
-  const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
-  const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
-  const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
+    if (!hasManagementPortal) {
+      return menuSections;
+    }
+
+    return menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
+  }, [hasManagementPortal, isManagementPortal, menuSections]);
+  const isAdminHostShell = homeHref === "/admin";
+  const currentPortalLabel = isAdminHostShell ? appEyebrow : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
-  const nextPortalHref = isManagementPortal ? "/home" : "/management";
-  const branchPortalLabel = "지점관리포털";
-  const branchPortalHref = "/work-items/branch";
-  const canOpenRoute = (href: string) => !currentRoleCode || hasHomeShortcutRouteAccess(href, getViewerAccessForRoleCode(currentRoleCode));
-  const sidebarCustomizationItems = useMemo(
-    () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
-    [visibleDesktopMenuSections],
-  );
-  const sidebarSelectedHrefs = useMemo(
-    () => resolveSidebarSelection(sidebarCustomizationItems, sidebarCustomSelections[sidebarPortalKey], currentPortalHomeHref),
-    [currentPortalHomeHref, sidebarCustomSelections, sidebarCustomizationItems, sidebarPortalKey],
-  );
-  const collapsedSidebarItems = useMemo(() => {
-    const byHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
-    return sidebarSelectedHrefs.map((href) => byHref.get(href)).filter((item): item is NavItem => Boolean(item));
-  }, [sidebarCustomizationItems, sidebarSelectedHrefs]);
+  const nextPortalHref = isManagementPortal ? "/dashboard" : "/management";
+  const nextPortalIcon = isManagementPortal ? "home" : "dashboard";
+  const canAccessAdminSettings = isAdminSettingsRole(currentRoleCode);
+  const secondaryPasswordMode = getSecondaryPasswordMode(hasSecondaryPassword);
+  const settingsSaveToastVisible = Boolean(settingsToastMessage);
+  const accessPermissionKeys = ["orgReadModel", "auditPreview"] as const;
+  const adminPermissionKeys = ["userRolePolicy", "defaultLandingGuard"] as const;
+  const selectedAccessPermissionCount = accessPermissionKeys.filter((key) => adminPermissionChecks[key]).length;
+  const selectedAdminPermissionCount = adminPermissionKeys.filter((key) => adminPermissionChecks[key]).length;
 
   useEffect(() => {
     setProfileState((value) => ({
@@ -984,19 +730,7 @@ export function MobileAppShell({
       positionLabel: getRoleLabel(currentRoleCode),
       fullName: value.fullName === "사용자" || value.fullName === "총괄관리계정" ? buildFallbackProfile(currentRoleCode).fullName : value.fullName,
     }));
-    setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
-    setIsSecondaryPasswordDialogOpen(false);
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
   }, [currentRoleCode]);
-
-  useEffect(() => {
-    setSidebarCustomSelections(readStoredSidebarCustomSelections());
-    setIsSidebarCustomSelectionLoaded(true);
-  }, []);
 
   useEffect(() => {
     if (isLoginRoute || !currentRoleCode) {
@@ -1062,7 +796,6 @@ export function MobileAppShell({
     function closeProfileMenuWithEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsProfileMenuOpen(false);
-        window.requestAnimationFrame(blurActiveElement);
       }
     }
 
@@ -1091,49 +824,6 @@ export function MobileAppShell({
   }, [activeTopbarModal]);
 
   useEffect(() => {
-    if (!isSidebarSettingsOpen) {
-      return;
-    }
-
-    function closeSidebarSettingsWithEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeSidebarSettings();
-      }
-    }
-
-    document.addEventListener("keydown", closeSidebarSettingsWithEscape);
-    return () => document.removeEventListener("keydown", closeSidebarSettingsWithEscape);
-  }, [isSidebarSettingsOpen]);
-
-  useEffect(() => {
-    if (!isLogoutConfirmOpen) {
-      return;
-    }
-
-    function closeLogoutConfirmWithEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closeLogoutConfirm();
-      }
-    }
-
-    document.addEventListener("keydown", closeLogoutConfirmWithEscape);
-    return () => document.removeEventListener("keydown", closeLogoutConfirmWithEscape);
-  }, [isLogoutConfirmOpen]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (!activeTopbarModal && !isSidebarSettingsOpen && !isLogoutConfirmOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.overscrollBehavior = previousOverscrollBehavior;
-    };
-  }, [activeTopbarModal, isSidebarSettingsOpen, isLogoutConfirmOpen]);
-
-  useEffect(() => {
     if (typeof navigator === "undefined") {
       return;
     }
@@ -1152,7 +842,7 @@ export function MobileAppShell({
 
   useEffect(() => {
     const urlStatusHiddenSelector = [
-      ".app-shell a[href^='/']:not(.brand-link):not(.topbar-brand-link):not(.portal-switch-link):not([data-allow-url-status='true'])",
+      ".app-shell a[href^='/']:not(.brand-link):not(.topbar-brand-link):not([data-allow-url-status='true'])",
       ".app-shell a[href^='./']:not([data-allow-url-status='true'])",
     ].join(", ");
 
@@ -1212,27 +902,14 @@ export function MobileAppShell({
 
   useEffect(() => {
     return () => {
+      if (sidebarScrollTimerRef.current) {
+        clearTimeout(sidebarScrollTimerRef.current);
+      }
       if (settingsSaveToastTimerRef.current) {
         clearTimeout(settingsSaveToastTimerRef.current);
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!suppressTopbarTooltips) {
-      return;
-    }
-
-    function clearSuppressedTooltip() {
-      setSuppressTopbarTooltips(false);
-    }
-
-    window.addEventListener("pointermove", clearSuppressedTooltip, { once: true });
-
-    return () => {
-      window.removeEventListener("pointermove", clearSuppressedTooltip);
-    };
-  }, [suppressTopbarTooltips]);
 
   useEffect(() => {
     try {
@@ -1258,91 +935,17 @@ export function MobileAppShell({
     });
   }
 
-  useEffect(() => {
-    if (isLoginRoute || typeof window === "undefined") {
-      return;
+  function handleSidebarScroll() {
+    setIsSidebarScrolling(true);
+
+    if (sidebarScrollTimerRef.current) {
+      clearTimeout(sidebarScrollTimerRef.current);
     }
 
-    const scrollTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-    const scrollableOverflowValues = new Set(["auto", "scroll", "overlay"]);
-
-    function isFullPageScrollElement(element: HTMLElement) {
-      return element === document.documentElement || element === document.body || element.classList.contains("app-shell__main");
-    }
-
-    function isScrollableElement(element: HTMLElement) {
-      if (isFullPageScrollElement(element)) {
-        return false;
-      }
-
-      const style = window.getComputedStyle(element);
-      const canScrollY = scrollableOverflowValues.has(style.overflowY) && element.scrollHeight > element.clientHeight + 1;
-      const canScrollX = scrollableOverflowValues.has(style.overflowX) && element.scrollWidth > element.clientWidth + 1;
-      return canScrollY || canScrollX;
-    }
-
-    function markScrollableElements(root: ParentNode = document) {
-      const candidates = root instanceof HTMLElement ? [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))] : Array.from(root.querySelectorAll<HTMLElement>(".app-shell *"));
-
-      candidates.forEach((element) => {
-        if (isScrollableElement(element)) {
-          element.dataset.autoScrollbar = "true";
-        }
-      });
-    }
-
-    function showScrollbarWhileScrolling(element: HTMLElement) {
-      if (!isScrollableElement(element)) {
-        return;
-      }
-
-      element.dataset.autoScrollbar = "true";
-      element.dataset.autoScrollbarScrolling = "true";
-
-      const existingTimer = scrollTimers.get(element);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      scrollTimers.set(
-        element,
-        setTimeout(() => {
-          delete element.dataset.autoScrollbarScrolling;
-          scrollTimers.delete(element);
-        }, 1000),
-      );
-    }
-
-    markScrollableElements();
-
-    const mutationObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        mutation.addedNodes.forEach((node) => {
-          if (node instanceof HTMLElement) {
-            markScrollableElements(node);
-          }
-        });
-      }
-    });
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
-
-    const handleAutoScrollbarScroll = (event: Event) => {
-      const element = event.target instanceof HTMLElement ? event.target : null;
-      if (element) {
-        showScrollbarWhileScrolling(element);
-      }
-    };
-
-    document.addEventListener("scroll", handleAutoScrollbarScroll, true);
-
-    return () => {
-      mutationObserver.disconnect();
-      document.removeEventListener("scroll", handleAutoScrollbarScroll, true);
-      document.querySelectorAll<HTMLElement>("[data-auto-scrollbar-scrolling]").forEach((element) => {
-        delete element.dataset.autoScrollbarScrolling;
-      });
-    };
-  }, [isLoginRoute]);
+    sidebarScrollTimerRef.current = setTimeout(() => {
+      setIsSidebarScrolling(false);
+    }, 900);
+  }
 
   useEffect(() => {
     if (!notificationTab || isLoginRoute) {
@@ -1381,28 +984,6 @@ export function MobileAppShell({
   }, [isLoginRoute, notificationTab]);
 
 
-
-  function setNotificationPreference(key: NotificationPreferenceKey, enabled: boolean) {
-    setNotificationPreferences((value) => {
-      const nextPreferences = { ...value, [key]: enabled };
-      setAfterHoursPreferences((previousAfterHoursSettings) => syncAfterHoursSettings(nextPreferences, previousAfterHoursSettings));
-      return nextPreferences;
-    });
-  }
-
-  function setAfterHoursPreference(key: AfterHoursPreferenceKey, enabled: boolean) {
-    if (
-      ((key === "approvalRequests" || key === "approvalFeedback") && !notificationPreferences.approvals) ||
-      (key === "mentions" && !notificationPreferences.mentions) ||
-      (key === "attendanceResults" && !notificationPreferences.attendance) ||
-      (key === "importantMail" && !notificationPreferences.mail)
-    ) {
-      return;
-    }
-
-    setAfterHoursPreferences((value) => ({ ...value, [key]: enabled }));
-  }
-
   async function handleProfileLogout() {
     setProfileActionPending(true);
     setProfileActionError(null);
@@ -1418,7 +999,6 @@ export function MobileAppShell({
       }
 
       setIsProfileMenuOpen(false);
-      setIsLogoutConfirmOpen(false);
       router.push("/login?signedOut=1");
       router.refresh();
     } catch (error) {
@@ -1428,117 +1008,87 @@ export function MobileAppShell({
     }
   }
 
-  function renderLogoutConfirmModal() {
-    if (!isLogoutConfirmOpen) {
-      return null;
-    }
 
-    return (
-      <div className="logout-confirm-backdrop" role="presentation" onMouseDown={closeLogoutConfirm}>
-        <section
-          className="logout-confirm-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="logout-confirm-title"
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <h2 id="logout-confirm-title">로그아웃 하시겠습니까?</h2>
-          {profileActionError ? <p className="logout-confirm-modal__error">{profileActionError}</p> : null}
-          <div className="logout-confirm-modal__actions">
-            <button type="button" className="logout-confirm-modal__button" onClick={closeLogoutConfirm} disabled={profileActionPending}>
-              취소
-            </button>
-            <button type="button" className="logout-confirm-modal__button logout-confirm-modal__button--danger" onClick={handleProfileLogout} disabled={profileActionPending}>
-              {profileActionPending ? "로그아웃 중..." : "로그아웃"}
-            </button>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-
-  function showSettingsSaveToast(message: string, tone: "success" | "no-change" = "success") {
-    setSettingsSaveToastMessage(message);
-    setSettingsSaveToastTone(tone);
-    setSettingsSaveToastVisible(true);
+  function showSettingsToast(message: string) {
+    setSettingsToastMessage(message);
     if (settingsSaveToastTimerRef.current) {
       clearTimeout(settingsSaveToastTimerRef.current);
     }
-    settingsSaveToastTimerRef.current = setTimeout(() => setSettingsSaveToastVisible(false), 1600);
+    settingsSaveToastTimerRef.current = setTimeout(() => {
+      setSettingsToastMessage(null);
+    }, 1600);
   }
 
-  function showScopedSettingsSaveToast(scope: SettingsSaveToastScope, hasChanges: boolean) {
-    const toast = resolveSettingsSaveToast(scope, hasChanges);
-    showSettingsSaveToast(toast.message, toast.tone);
+  function handleUnifiedSettingsSave() {
+    showSettingsToast(resolveSettingsModalSaveToast("settings"));
   }
 
-  function showPermissionDeniedNotice() {
-    setPermissionNoticeVisible(true);
-    if (permissionNoticeTimerRef.current) {
-      clearTimeout(permissionNoticeTimerRef.current);
+  function handleProfileSettingsSave() {
+    showSettingsToast(resolveSettingsModalSaveToast("profile-settings"));
+  }
+
+  function resetSettingsAccessState() {
+    setAdminAccessPin("");
+    setAdminAccessError(null);
+    setIsAdminSettingsUnlocked(false);
+    setActiveAdminSettingsSubtab("access");
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+  }
+
+  function closeTopbarModal() {
+    setActiveTopbarModal(null);
+    setActiveSettingsTab("basic");
+    resetSettingsAccessState();
+  }
+
+  function openUnifiedSettings() {
+    setActiveSettingsTab("basic");
+    resetSettingsAccessState();
+    setActiveTopbarModal("settings");
+  }
+
+  function openProfileSettings() {
+    setActiveSettingsTab("basic");
+    resetSettingsAccessState();
+    setActiveTopbarModal("profile-settings");
+  }
+
+  function handleBasicSettingsTabOpen() {
+    setActiveSettingsTab("basic");
+    setIsSecondaryPasswordDialogOpen(false);
+  }
+
+  function handleAdminSettingsTabOpen() {
+    if (!canAccessAdminSettings) {
+      return;
     }
-    permissionNoticeTimerRef.current = setTimeout(() => setPermissionNoticeVisible(false), 2200);
-  }
-
-  function isSensitiveRoute(href: string) {
-    return ["/admin", "/employees", "/org", "/payroll", "/payroll/me", "/work-items/hr"].some((route) => href === route || href.startsWith(`${route}/`));
-  }
-
-  function requestSensitiveRouteAccess(href: string) {
-    setPendingSensitiveRoute(href);
-    setSensitiveRoutePassword("");
-    setSensitiveRoutePasswordError(null);
+    setActiveSettingsTab("admin");
+    setActiveAdminSettingsSubtab("access");
+    setAdminAccessError(null);
     setIsSecondaryPasswordDialogOpen(false);
   }
 
-  function closeSensitiveRouteGate() {
-    setPendingSensitiveRoute(null);
-    setSensitiveRoutePassword("");
-    setSensitiveRoutePasswordError(null);
-    setIsSecondaryPasswordDialogOpen(false);
-  }
-
-  function handleSensitiveRoutePasswordSubmit() {
+  function handleAdminAccessSubmit() {
     if (!hasSecondaryPassword) {
       openSecondaryPasswordDialog();
       return;
     }
-    if (!/^\d{4}$/.test(sensitiveRoutePassword)) {
-      setSensitiveRoutePasswordError("2차 비밀번호 4자리를 입력해 주세요.");
+
+    if (adminAccessPin.length !== 4) {
+      setAdminAccessError("2차 비밀번호 4자리를 입력해 주세요.");
       return;
     }
-    if (sensitiveRoutePassword !== secondaryPasswordValue) {
-      setSensitiveRoutePasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+
+    if (adminAccessPin !== secondaryPasswordValue) {
+      setAdminAccessError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
       return;
     }
-    const targetHref = pendingSensitiveRoute;
-    closeSensitiveRouteGate();
-    if (targetHref) {
-      navigateTo(targetHref);
-    }
-  }
 
-
-  function openAdminSettingsTab() {
-    if (!canUseAdminSettings) {
-      return;
-    }
-    setSettingsTab("admin");
-    setAdminSecondaryPasswordError(null);
-    setIsSecondaryPasswordDialogOpen(false);
-  }
-
-  function openSecondaryPasswordDialog() {
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
-    setIsSecondaryPasswordDialogOpen(true);
-  }
-
-  function closeSecondaryPasswordDialog() {
-    setIsSecondaryPasswordDialogOpen(false);
-    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
-    setSecondaryPasswordErrors({});
+    setIsAdminSettingsUnlocked(true);
+    setAdminAccessPin("");
+    setAdminAccessError(null);
   }
 
   function handleSecondaryPasswordFieldChange(key: keyof SecondaryPasswordFormState, value: string) {
@@ -1552,25 +1102,16 @@ export function MobileAppShell({
     }));
   }
 
-  function handleAdminSecondaryPasswordSubmit() {
-    if (!hasSecondaryPassword) {
-      openSecondaryPasswordDialog();
-      return;
-    }
+  function openSecondaryPasswordDialog() {
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
+    setIsSecondaryPasswordDialogOpen(true);
+  }
 
-    if (!/^\d{4}$/.test(adminSecondaryPassword)) {
-      setAdminSecondaryPasswordError("2차 비밀번호 4자리를 입력해 주세요.");
-      return;
-    }
-
-    if (adminSecondaryPassword !== secondaryPasswordValue) {
-      setAdminSecondaryPasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
-      return;
-    }
-
-    setAdminSettingsUnlocked(true);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
+  function closeSecondaryPasswordDialog() {
+    setIsSecondaryPasswordDialogOpen(false);
+    setSecondaryPasswordForm(buildEmptySecondaryPasswordForm());
+    setSecondaryPasswordErrors({});
   }
 
   function handleSecondaryPasswordSave() {
@@ -1589,296 +1130,34 @@ export function MobileAppShell({
 
     setSecondaryPasswordValue(saveResult.nextState.secondaryPasswordValue);
     setHasSecondaryPassword(saveResult.nextState.hasSecondaryPassword);
-    setAdminSecondaryPassword("");
-    setAdminSecondaryPasswordError(null);
+    setAdminAccessPin("");
+    setAdminAccessError(null);
     closeSecondaryPasswordDialog();
-    if (pendingSensitiveRoute) {
-      const targetHref = pendingSensitiveRoute;
-      setPendingSensitiveRoute(null);
-      setSensitiveRoutePassword("");
-      setSensitiveRoutePasswordError(null);
-      navigateTo(targetHref);
-      return;
-    }
-    showSettingsSaveToast(saveResult.toastMessage, "success");
+    showSettingsToast(saveResult.toastMessage);
   }
 
-  function renderSecondaryPasswordEditor() {
-    const mode = getSecondaryPasswordMode(hasSecondaryPassword);
-    return (
-      <div className="secondary-password-editor" aria-label={mode === "change" ? "2차 비밀번호 변경" : "2차 비밀번호 설정"}>
-        {mode === "change" ? (
-          <PinField
-            label="현재 2차 비밀번호"
-            value={secondaryPasswordForm.current}
-            error={secondaryPasswordErrors.current}
-            onChange={(value) => handleSecondaryPasswordFieldChange("current", value)}
-          />
-        ) : null}
-        <PinField
-          label={mode === "change" ? "새 2차 비밀번호" : "2차 비밀번호"}
-          value={secondaryPasswordForm.next}
-          error={secondaryPasswordErrors.next}
-          onChange={(value) => handleSecondaryPasswordFieldChange("next", value)}
-        />
-        <PinField
-          label="2차 비밀번호 확인"
-          value={secondaryPasswordForm.confirm}
-          error={secondaryPasswordErrors.confirm}
-          onChange={(value) => handleSecondaryPasswordFieldChange("confirm", value)}
-        />
-        <div className="secondary-password-editor__actions">
-          <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSecondaryPasswordDialog}>
-            취소
-          </button>
-          <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>
-            {mode === "change" ? "변경" : "설정"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
-    setAdminPermissionSettings((value) => ({
-      ...value,
-      [userId]: {
-        ...value[userId],
-        [permissionKey]: enabled,
-      },
+  function handleAdminPermissionCheckToggle(key: keyof typeof adminPermissionChecks) {
+    setAdminPermissionChecks((previousValue) => ({
+      ...previousValue,
+      [key]: !previousValue[key],
     }));
   }
 
-  function handleSettingsSave() {
-    const hasGeneralChanges = !areGeneralSettingsEqual(generalSettings, savedGeneralSettingsRef.current);
-    const hasAdminPermissionChanges = !areAdminPermissionStatesEqual(adminPermissionSettings, savedAdminPermissionSettingsRef.current);
+  function handleProfileNotificationToggle(key: ProfileNotificationKey, checked: boolean) {
+    setProfileNotificationSettings((previousSettings) => {
+      const nextSettings = { ...previousSettings, [key]: checked };
+      setAfterHoursNotificationSettings((previousAfterHoursSettings) => syncAfterHoursSettings(nextSettings, previousAfterHoursSettings));
+      return nextSettings;
+    });
+  }
 
-    if (hasGeneralChanges || hasAdminPermissionChanges) {
-      savedGeneralSettingsRef.current = { ...generalSettings };
-      savedAdminPermissionSettingsRef.current = createDefaultAdminPermissionState();
-      adminPermissionUsers.forEach((user) => {
-        savedAdminPermissionSettingsRef.current[user.id] = { ...adminPermissionSettings[user.id] };
-      });
-      showScopedSettingsSaveToast("integrated-settings", true);
+  function handleAfterHoursNotificationToggle(key: AfterHoursNotificationKey, checked: boolean) {
+    const parentEnabled = profileNotificationSettings[afterHoursParentByKey[key]];
+    if (!parentEnabled && !afterHoursExceptionKeys.has(key)) {
       return;
     }
-    showScopedSettingsSaveToast("integrated-settings", false);
-  }
 
-  function handleProfileSettingsSave() {
-    const hasNotificationChanges = !areBooleanRecordsEqual(notificationPreferences, savedNotificationPreferencesRef.current);
-    const hasAfterHoursChanges = !areBooleanRecordsEqual(afterHoursPreferences, savedAfterHoursPreferencesRef.current);
-    if (hasNotificationChanges || hasAfterHoursChanges) {
-      savedNotificationPreferencesRef.current = { ...notificationPreferences };
-      savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
-      showScopedSettingsSaveToast("profile-settings", true);
-      return;
-    }
-    showScopedSettingsSaveToast("profile-settings", false);
-  }
-
-  function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
-    const nextHrefs = selectedHrefs.slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
-    setSidebarCustomSelections((value) => ({ ...value, [portalKey]: nextHrefs }));
-    if (typeof window !== "undefined") window.localStorage.setItem(getSidebarPortalStorageKey(portalKey), JSON.stringify(nextHrefs));
-  }
-
-  function toggleSidebarCustomItem(href: string) {
-    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    const selected = currentDraft.includes(href)
-      ? currentDraft.filter((itemHref) => itemHref !== href)
-      : currentDraft.length >= SIDEBAR_CUSTOM_MENU_LIMIT ? currentDraft : [...currentDraft, href];
-    setSidebarDraftSelections(selected);
-  }
-
-  function moveSidebarCustomItem(href: string, direction: -1 | 1) {
-    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    const index = currentDraft.indexOf(href);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= currentDraft.length) return;
-    const nextSelection = [...currentDraft];
-    [nextSelection[index], nextSelection[nextIndex]] = [nextSelection[nextIndex], nextSelection[index]];
-    setSidebarDraftSelections(nextSelection);
-  }
-
-  function reorderSidebarCustomItem(sourceHref: string, targetHref: string) {
-    if (sourceHref === targetHref) return;
-    const currentDraft = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    const sourceIndex = currentDraft.indexOf(sourceHref);
-    const targetIndex = currentDraft.indexOf(targetHref);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-    const nextSelection = [...currentDraft];
-    const [movedHref] = nextSelection.splice(sourceIndex, 1);
-    nextSelection.splice(targetIndex, 0, movedHref);
-    setSidebarDraftSelections(nextSelection);
-  }
-
-  function handleSidebarPreviewDragStart(event: React.DragEvent<HTMLDivElement>, href: string) {
-    setSidebarDraggingHref(href);
-    setSidebarDragOverHref(null);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", href);
-  }
-
-  function handleSidebarPreviewDragOver(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    if (sidebarDraggingHref && sidebarDraggingHref !== targetHref) {
-      setSidebarDragOverHref(targetHref);
-    }
-  }
-
-  function handleSidebarPreviewDrop(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
-    event.preventDefault();
-    const sourceHref = sidebarDraggingHref ?? event.dataTransfer.getData("text/plain");
-    if (sourceHref) reorderSidebarCustomItem(sourceHref, targetHref);
-    setSidebarDraggingHref(null);
-    setSidebarDragOverHref(null);
-  }
-
-  function handleSidebarSettingsApply() {
-    const appliedSelection = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    const hasSidebarChanges = !areSidebarSelectionsEqual(appliedSelection, sidebarSelectedHrefs);
-    if (hasSidebarChanges) {
-      persistSidebarSelection(sidebarPortalKey, appliedSelection);
-    }
-    setSidebarDraftSelections(appliedSelection);
-    setSidebarDraggingHref(null);
-    setSidebarDragOverHref(null);
-    showScopedSettingsSaveToast("sidebar-settings", hasSidebarChanges);
-  }
-
-  function renderSidebarSettingsModal() {
-    if (!isSidebarSettingsOpen) {
-      return null;
-    }
-
-    const draftSelectedHrefs = resolveSidebarSelection(sidebarCustomizationItems, sidebarDraftSelections ?? sidebarSelectedHrefs, currentPortalHomeHref);
-    const draftItemsByHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
-    const selectedItems = draftSelectedHrefs.map((href) => draftItemsByHref.get(href)).filter((item): item is NavItem => Boolean(item));
-    const selectableSections = visibleDesktopMenuSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => item.href !== currentPortalHomeHref && !item.href.startsWith("#")),
-      }))
-      .filter((section) => section.items.length > 0);
-
-    return (
-      <div className="sidebar-settings-backdrop" role="presentation" onMouseDown={closeSidebarSettings}>
-        <section
-          className="sidebar-settings-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="sidebar-settings-title"
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <header className="sidebar-settings-modal__header">
-            <div className="sidebar-settings-modal__header-row">
-              <div>
-                <span className="topbar-modal__eyebrow">{brandWordmark}</span>
-                <h2 id="sidebar-settings-title">{currentPortalLabel} 접힘 사이드바 버튼</h2>
-                <p>왼쪽 미리보기에서 실제 접힌 사이드바 모양을 보고, 오른쪽에서 메뉴를 추가하거나 해제합니다.</p>
-              </div>
-              {settingsSaveToastVisible ? (
-                <div className={`topbar-modal-toast${settingsSaveToastTone === "no-change" ? " topbar-modal-toast--no-change" : ""}`} role="status" aria-live="polite">
-                  {settingsSaveToastMessage}
-                </div>
-              ) : null}
-              <button type="button" className="topbar-modal__close" aria-label="사이드바 설정 팝업 닫기" onClick={closeSidebarSettings}>×</button>
-            </div>
-          </header>
-
-          <div className="sidebar-settings-modal__body">
-            <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
-              <div className="sidebar-settings-card-title">
-                <strong>미리보기</strong>
-              </div>
-              <div className="sidebar-settings-preview-shell">
-                <div className="sidebar-settings-preview-list">
-                  {selectedItems.map((item) => {
-                    const selectedIndex = draftSelectedHrefs.indexOf(item.href);
-                    const iconName = getFeatureIconName(item.href, item.label);
-                    return (
-                      <div
-                        key={item.href}
-                        className={[
-                          "sidebar-settings-preview-row",
-                          sidebarDraggingHref === item.href ? "sidebar-settings-preview-row--dragging" : "",
-                          sidebarDraggingHref && sidebarDragOverHref === item.href ? "sidebar-settings-preview-row--drop-target" : "",
-                        ].filter(Boolean).join(" ")}
-                        onDragOver={(event) => handleSidebarPreviewDragOver(event, item.href)}
-                        onDragLeave={() => { if (sidebarDragOverHref === item.href) setSidebarDragOverHref(null); }}
-                        onDrop={(event) => handleSidebarPreviewDrop(event, item.href)}
-                      >
-                        <div
-                          className="sidebar-settings-preview-button"
-                          draggable
-                          title="드래그해서 순서를 바꿀 수 있습니다."
-                          onDragStart={(event) => handleSidebarPreviewDragStart(event, item.href)}
-                          onDragEnd={() => { setSidebarDraggingHref(null); setSidebarDragOverHref(null); }}
-                        >
-                          {iconName ? <FeatureIcon className="sidebar-settings-preview-icon" name={iconName} title={item.label} /> : null}
-                          <span>{item.shortLabel}</span>
-                        </div>
-                        <div className="sidebar-settings-preview-actions" aria-label={`${item.label} 순서 조정`}>
-                          <button type="button" disabled={selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>↑</button>
-                          <button type="button" disabled={selectedIndex < 0 || selectedIndex >= draftSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            <section className="sidebar-settings-list-card" aria-label="메뉴 추가 및 해제">
-              <div className="sidebar-settings-card-title">
-                <strong>메뉴 추가/해제</strong>
-                <span>선택 {draftSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
-              </div>
-              <div className="sidebar-settings-menu-list">
-                {selectableSections.map((section) => (
-                  <section key={section.title} className="sidebar-settings-menu-section">
-                    <h3>{section.title}</h3>
-                    <div className="sidebar-settings-menu-section__items">
-                      {section.items.map((item) => {
-                        const selected = draftSelectedHrefs.includes(item.href);
-                        const limitReached = !selected && draftSelectedHrefs.length >= SIDEBAR_CUSTOM_MENU_LIMIT;
-                        const disabled = Boolean(item.disabled);
-                        return (
-                          <div key={item.href} className={disabled ? "sidebar-settings-menu-item sidebar-settings-menu-item--disabled" : "sidebar-settings-menu-item"}>
-                            <div>
-                              <strong>{item.label}</strong>
-                              {disabled ? <small>준비중</small> : null}
-                            </div>
-                            <div className="sidebar-settings-menu-item__actions">
-                              {limitReached && !disabled ? <span className="sidebar-settings-menu-item__limit">최대개수 도달</span> : null}
-                              <button
-                                type="button"
-                                className={selected ? "sidebar-settings-menu-item__remove" : "sidebar-settings-menu-item__add"}
-                                disabled={disabled || limitReached}
-                                onClick={() => toggleSidebarCustomItem(item.href)}
-                              >
-                                {disabled ? "준비중" : selected ? "해제" : limitReached ? "추가 불가" : "추가"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <footer className="sidebar-settings-modal__footer">
-            <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSidebarSettings}>닫기</button>
-            <button type="button" className="topbar-modal__button" onClick={handleSidebarSettingsApply}>적용</button>
-          </footer>
-        </section>
-      </div>
-    );
+    setAfterHoursNotificationSettings((previousSettings) => ({ ...previousSettings, [key]: checked }));
   }
 
   function renderTopbarModal() {
@@ -1886,11 +1165,15 @@ export function MobileAppShell({
       return null;
     }
 
+    const isSettingsModal = activeTopbarModal === "settings";
     const isProfileSettings = activeTopbarModal === "profile-settings";
-    const isIntegratedSettings = activeTopbarModal === "settings";
-    const requiresSettingsGate = isIntegratedSettings || isProfileSettings;
+    const requiresSettingsGate = isSettingsModal || isProfileSettings;
+    const isSettingsGateLocked = requiresSettingsGate && !isAdminSettingsUnlocked;
+    const settingsGateAction = hasSecondaryPassword ? handleAdminAccessSubmit : openSecondaryPasswordDialog;
+    const settingsGateActionLabel = hasSecondaryPassword ? "확인" : "2차 비밀번호 설정";
+    const settingsFooterSaveAction = isProfileSettings ? handleProfileSettingsSave : handleUnifiedSettingsSave;
     const titleByModal: Record<TopbarActionKey, string> = {
-      settings: "통합설정",
+      settings: "설정",
       notices: "공지사항",
       notifications: "알림",
       "profile-settings": "내정보 설정",
@@ -1905,7 +1188,7 @@ export function MobileAppShell({
     return (
       <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeTopbarModal}>
         <section
-          className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : isIntegratedSettings ? "topbar-modal topbar-modal--integrated-settings" : "topbar-modal"}
+          className={isProfileSettings ? "topbar-modal topbar-modal--profile-settings" : "topbar-modal"}
           role="dialog"
           aria-modal="true"
           aria-labelledby="topbar-modal-title"
@@ -1913,13 +1196,13 @@ export function MobileAppShell({
         >
           <header className="topbar-modal__header">
             <div>
-              <span className="topbar-modal__eyebrow">{brandWordmark}</span>
+              <span className="topbar-modal__eyebrow">We'reHere</span>
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
               <p>{descriptionByModal[activeTopbarModal]}</p>
             </div>
             {settingsSaveToastVisible ? (
-              <div className={`topbar-modal-toast${settingsSaveToastTone === "no-change" ? " topbar-modal-toast--no-change" : ""}`} role="status" aria-live="polite">
-                {settingsSaveToastMessage}
+              <div className="topbar-modal-toast" role="status" aria-live="polite">
+                {settingsToastMessage}
               </div>
             ) : null}
             <button type="button" className="topbar-modal__close" aria-label={`${titleByModal[activeTopbarModal]} 팝업 닫기`} onClick={closeTopbarModal}>
@@ -1927,228 +1210,163 @@ export function MobileAppShell({
             </button>
           </header>
 
-          {requiresSettingsGate && !adminSettingsUnlocked ? (
-            <div className="topbar-settings-gate topbar-admin-secondary-gate">
+          {isSettingsGateLocked ? (
+            <div className="topbar-settings-gate">
               <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
                 <strong>2차 비밀번호</strong>
                 <p className="topbar-modal-note">설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
                 {hasSecondaryPassword ? (
                   <PinField
                     label="2차 비밀번호"
-                    value={adminSecondaryPassword}
+                    value={adminAccessPin}
                     autoFocus
-                    error={adminSecondaryPasswordError}
+                    error={adminAccessError}
                     hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다."
                     onChange={(value) => {
-                      setAdminSecondaryPassword(value);
-                      setAdminSecondaryPasswordError(null);
+                      setAdminAccessPin(value);
+                      setAdminAccessError(null);
                     }}
                   />
                 ) : (
-                  <div className="topbar-settings-security-card topbar-settings-security-card--setup">
+                  <div className="topbar-settings-security-card">
                     <strong>아직 2차 비밀번호가 없습니다.</strong>
                     <p>이번 미리보기에서는 서버 저장 없이 화면 상태로만 2차 비밀번호를 설정합니다.</p>
-                    {isSecondaryPasswordDialogOpen ? (
-                      renderSecondaryPasswordEditor()
-                    ) : (
-                      <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
-                        2차 비밀번호 설정하기
-                      </button>
-                    )}
+                    <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                      2차 비밀번호 설정하기
+                    </button>
                   </div>
                 )}
               </section>
             </div>
           ) : null}
 
-          {isIntegratedSettings && adminSettingsUnlocked ? (
+          {isSettingsModal && isAdminSettingsUnlocked ? (
             <>
-                  <div className="topbar-settings-tabs" role="tablist" aria-label="통합 설정 탭">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={settingsTab === "basic"}
-                      className={settingsTab === "basic" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
-                      onClick={() => setSettingsTab("basic")}
-                    >
-                      기본 설정
-                    </button>
-                    {canUseAdminSettings ? (
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={settingsTab === "admin"}
-                        className={settingsTab === "admin" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
-                        onClick={openAdminSettingsTab}
-                      >
-                        관리자설정
-                      </button>
-                    ) : null}
-                  </div>
+              <div className="topbar-settings-tabs" role="tablist" aria-label="통합 설정 탭">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSettingsTab === "basic"}
+                  className={activeSettingsTab === "basic" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
+                  onClick={handleBasicSettingsTabOpen}
+                >
+                  기본 설정
+                </button>
+                {canAccessAdminSettings ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeSettingsTab === "admin"}
+                    className={activeSettingsTab === "admin" ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
+                    onClick={handleAdminSettingsTabOpen}
+                  >
+                    관리자설정
+                  </button>
+                ) : null}
+              </div>
 
-                  {settingsTab === "admin" && canUseAdminSettings ? (
-                    <div className="topbar-admin-settings topbar-admin-settings--split">
-                      <nav className="topbar-admin-panel-tabs" aria-label="관리자설정 세부 탭">
-                        <button type="button" className={adminSettingsPanel === "access" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "access"} onClick={() => setAdminSettingsPanel("access")}>접근권한</button>
-                        <button type="button" className={adminSettingsPanel === "admin-rights" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "admin-rights"} onClick={() => setAdminSettingsPanel("admin-rights")}>관리자 권한</button>
-                      </nav>
-                      {adminSettingsPanel === "access" ? (
-                        <div className="topbar-admin-settings__panel">
-                          <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
-                            <strong>사용자 계정 목록</strong>
-                            <div className="topbar-admin-user-list">
-                              {adminPermissionUsers.map((user) => (
-                                <button key={user.id} type="button" className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"} aria-current={user.id === selectedPermissionUserId ? "true" : undefined} onClick={() => setSelectedPermissionUserId(user.id)}>
-                                  <span><strong>{user.name}</strong><small>{user.department} · {user.role}</small></span>
-                                </button>
-                              ))}
-                            </div>
-                          </section>
-                          <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 접근권한`}>
-                            <div className="topbar-admin-settings__selected-user"><strong>{selectedPermissionUser.name}</strong><span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span></div>
-                            <div className="topbar-modal-toggle-grid">
-                              {adminFeaturePermissions.map((permission) => (
-                                <SettingToggle key={permission.key} label={permission.label} checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]} onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)} />
-                              ))}
-                            </div>
-                          </section>
-                        </div>
-                      ) : (
-                        <section className="topbar-admin-settings__admin-rights" aria-label="관리자 권한">
-                          <strong>관리자 권한</strong>
-                          <p className="topbar-modal-note">관리자 등급 부여와 회수는 기능 접근권한과 분리해서 확인합니다.</p>
-                          <div className="topbar-modal-toggle-grid">
-                            <SettingToggle label="총괄관리자 권한" description="회사 전체 설정과 모든 사용자 권한을 관리합니다." checked={selectedPermissionUser.id === "admin"} disabled />
-                            <SettingToggle label="HR 관리자 권한" description="조직도, 직원, 근태, 휴가 기능의 관리자 권한입니다." checked={selectedPermissionUser.id === "hr_manager"} />
-                            <SettingToggle label="지점 관리자 권한" description="소속 지점 사용자와 지점 업무를 관리합니다." checked={selectedPermissionUser.id === "branch_manager"} />
-                          </div>
-                        </section>
-                      )}
+              {activeSettingsTab === "basic" ? (
+                <div className="topbar-modal__grid">
+                  <section className="topbar-modal-card">
+                    <strong>기본 시작 방식</strong>
+                    <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
+                      {["홈", "일반업무포털", "경영업무포털", "마지막으로 보던 화면"].map((item, index) => (
+                        <label key={item} className="topbar-modal-choice">
+                          <input type="radio" name="start-screen" defaultChecked={index === 0} />
+                          <span>{item}</span>
+                        </label>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="topbar-modal__grid">
-                      <section className="topbar-modal-card">
-                        <strong>기본 시작 방식</strong>
-                        <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                          {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
-                            <label key={item} className="topbar-modal-choice">
-                              <input
-                                type="radio"
-                                name="start-screen"
-                                checked={generalSettings.startScreen === item}
-                                onChange={() => setGeneralSettings((value) => ({ ...value, startScreen: item }))}
-                              />
-                              <span>{item}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </section>
-                      <section className="topbar-modal-card">
-                        <strong>화면 기본 방식</strong>
-                        <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
-                          {['기본', '넓게', '촘촘하게'].map((item) => (
-                            <label key={item} className="topbar-modal-choice">
-                              <input
-                                type="radio"
-                                name="density"
-                                checked={generalSettings.density === item}
-                                onChange={() => setGeneralSettings((value) => ({ ...value, density: item }))}
-                              />
-                              <span>{item}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </section>
-                      <section className="topbar-modal-card">
-                        <strong>기기별 화면 설정</strong>
-                        <SettingToggle
-                          label="모바일 하단탭 간결 표시"
-                          description="좁은 화면에서 하단탭을 더 작게 표시합니다."
-                          checked={generalSettings.compactMobileBottomNav}
-                          onChange={(checked) => setGeneralSettings((value) => ({ ...value, compactMobileBottomNav: checked }))}
-                        />
-                      </section>
-                      <section className="topbar-modal-card topbar-modal-card--wide">
-                        <strong>알림 기본 설정</strong>
-                        <div className="topbar-modal-toggle-grid">
-                          <SettingToggle label="공지사항 알림" checked={generalSettings.notices} onChange={(checked) => setGeneralSettings((value) => ({ ...value, notices: checked }))} />
-                          <SettingToggle label="전자결재 알림" checked={generalSettings.approvals} onChange={(checked) => setGeneralSettings((value) => ({ ...value, approvals: checked }))} />
-                          <SettingToggle label="댓글/멘션 알림" checked={generalSettings.mentions} onChange={(checked) => setGeneralSettings((value) => ({ ...value, mentions: checked }))} />
-                          <SettingToggle label="근태/휴가 알림" checked={generalSettings.attendance} onChange={(checked) => setGeneralSettings((value) => ({ ...value, attendance: checked }))} />
-                        </div>
-                      </section>
+                  </section>
+                  <section className="topbar-modal-card">
+                    <strong>화면 기본 방식</strong>
+                    <div className="topbar-modal-choice-group" role="group" aria-label="화면 표시 밀도 선택">
+                      {["기본", "넓게", "촘촘하게"].map((item, index) => (
+                        <label key={item} className="topbar-modal-choice">
+                          <input type="radio" name="density" defaultChecked={index === 0} />
+                          <span>{item}</span>
+                        </label>
+                      ))}
                     </div>
-                  )}
-                </>
+                  </section>
+                  <section className="topbar-modal-card">
+                    <strong>기기별 화면 설정</strong>
+                    <SettingToggle label="PC 사이드바 마지막 상태 기억" description="펼침/접힘 상태를 다음 접속에도 유지합니다." />
+                    <SettingToggle label="모바일 하단탭 간결 표시" description="좁은 화면에서 하단탭을 더 작게 표시합니다." defaultChecked={false} />
+                  </section>
+                  <section className="topbar-modal-card topbar-modal-card--wide">
+                    <strong>알림 기본 설정</strong>
+                    <div className="topbar-modal-toggle-grid">
+                      <SettingToggle label="공지사항 알림" />
+                      <SettingToggle label="전자결재 알림" />
+                      <SettingToggle label="댓글/멘션 알림" />
+                      <SettingToggle label="근태/휴가 알림" />
+                    </div>
+                  </section>
+                </div>
               ) : null}
 
-          {isProfileSettings && adminSettingsUnlocked ? (
-            <div className="topbar-profile-settings">
-              <section className="topbar-modal-card topbar-modal-card--wide topbar-profile-security-card">
-                <strong>2차 비밀번호</strong>
-                <p className="topbar-modal-note">설정 관련 기능과 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
-                {isSecondaryPasswordDialogOpen ? (
-                  renderSecondaryPasswordEditor()
-                ) : (
-                  <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
-                    {hasSecondaryPassword ? "2차 비밀번호 변경하기" : "2차 비밀번호 설정하기"}
-                  </button>
-                )}
-              </section>
-              <section className="topbar-modal-card topbar-profile-settings__hero">
-                <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
-                <div>
-                  <strong>프로필 이미지</strong>
-                  <div className="topbar-profile-settings__buttons">
-                    <button type="button">이미지 변경</button>
-                    <button type="button">기본 이미지</button>
-                  </div>
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>기본 표시 정보</strong>
-                <div className="topbar-modal-field-grid">
-                  <SettingField label="이름" value={profileState.fullName} />
-                  <SettingField label="직책" value={profileState.positionLabel} />
-                  <SettingField label="부서" value={profileState.departmentName} />
-                  <SettingField label="이메일" value={profileState.email} />
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>알림 받을 기능 선택</strong>
-                <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" checked={notificationPreferences.notices} onChange={(checked) => setNotificationPreference("notices", checked)} />
-                  <SettingToggle label="전자결재 알림" checked={notificationPreferences.approvals} onChange={(checked) => setNotificationPreference("approvals", checked)} />
-                  <SettingToggle label="댓글/멘션 알림" checked={notificationPreferences.mentions} onChange={(checked) => setNotificationPreference("mentions", checked)} />
-                  <SettingToggle label="메일/메신저 알림" checked={notificationPreferences.mail} onChange={(checked) => setNotificationPreference("mail", checked)} />
-                  <SettingToggle label="근태/휴가 알림" checked={notificationPreferences.attendance} onChange={(checked) => setNotificationPreference("attendance", checked)} />
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
-                <strong>퇴근 후 알림 설정</strong>
-                <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
-                <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
-                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
-                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
-                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
-                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
-                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
-                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
-                </div>
-                {!notificationPreferences.notices ? <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p> : null}
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>개인정보 표시 범위</strong>
-                <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="이메일 표시" disabled />
-                  <SettingToggle label="내선번호 표시" disabled />
-                  <SettingToggle label="프로필 사진 표시" />
-                  <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
-                  <SettingToggle label="상태 메시지 표시" />
-                </div>
+              {activeSettingsTab === "admin" ? (
+                <div className="topbar-profile-settings">
+                  <section className="topbar-modal-card topbar-modal-card--wide topbar-admin-settings-card">
+                    <div className="topbar-admin-settings-card__header">
+                      <div>
+                        <strong>관리자설정 권한 미리보기</strong>
+                        <p className="topbar-modal-note">조회·열람 흐름과 변경·부여 흐름을 같은 카드에서 섞지 않도록 하위 탭으로 나눴습니다.</p>
+                      </div>
+                      <span className="topbar-admin-settings-card__badge">local state preview</span>
+                    </div>
+                    <div className="topbar-settings-tabs topbar-settings-tabs--nested" role="tablist" aria-label="관리자설정 권한 탭">
+                      {(Object.entries(adminSettingsSubtabMeta) as [AdminSettingsSubtabKey, (typeof adminSettingsSubtabMeta)[AdminSettingsSubtabKey]][]).map(([key, meta]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          role="tab"
+                          aria-selected={activeAdminSettingsSubtab === key}
+                          className={activeAdminSettingsSubtab === key ? "topbar-settings-tab topbar-settings-tab--active" : "topbar-settings-tab"}
+                          onClick={() => setActiveAdminSettingsSubtab(key)}
+                        >
+                          {meta.label}
+                        </button>
+                      ))}
+                    </div>
 
-              </section>
-            </div>
+                    {activeAdminSettingsSubtab === "access" ? (
+                      <div className="topbar-admin-settings-panel" role="tabpanel" aria-label="접근권한">
+                        <div className="topbar-admin-settings-panel__summary">
+                          <strong>{adminSettingsSubtabMeta.access.label}</strong>
+                          <p>{adminSettingsSubtabMeta.access.summary}</p>
+                        </div>
+                        <p className="topbar-modal-note">{adminSettingsSubtabMeta.access.previewNote}</p>
+                        <div className="topbar-modal-toggle-grid">
+                          <SettingToggle label="조직 조회 모델" description="조직도와 직원 정보를 열람할 수 있는 미리보기 접근 범위를 확인합니다." checked={adminPermissionChecks.orgReadModel} onChange={() => handleAdminPermissionCheckToggle("orgReadModel")} />
+                          <SettingToggle label="감사 로그 미리보기" description="감사 로그 화면에 들어가 읽을 수 있는 범위를 미리보기로 나눕니다." checked={adminPermissionChecks.auditPreview} onChange={() => handleAdminPermissionCheckToggle("auditPreview")} />
+                        </div>
+                        <p className="topbar-admin-settings-panel__status">현재 {selectedAccessPermissionCount}개 항목이 열람/진입 기준으로 선택되어 있습니다.</p>
+                      </div>
+                    ) : null}
+
+                    {activeAdminSettingsSubtab === "adminPermissions" ? (
+                      <div className="topbar-admin-settings-panel" role="tabpanel" aria-label="관리자 권한">
+                        <div className="topbar-admin-settings-panel__summary">
+                          <strong>{adminSettingsSubtabMeta.adminPermissions.label}</strong>
+                          <p>{adminSettingsSubtabMeta.adminPermissions.summary}</p>
+                        </div>
+                        <div className="topbar-admin-settings-warning" role="note" aria-label="관리자 권한 주의 안내">
+                          <strong>주의 필요</strong>
+                          <p>{adminSettingsSubtabMeta.adminPermissions.previewNote}</p>
+                        </div>
+                        <div className="topbar-modal-toggle-grid">
+                          <SettingToggle label="사용자 역할 정책" description="사용자 역할을 바꾸거나 부여할 수 있는 관리 범위를 미리보기로 구분합니다." checked={adminPermissionChecks.userRolePolicy} onChange={() => handleAdminPermissionCheckToggle("userRolePolicy")} />
+                          <SettingToggle label="기본 랜딩 보호" description="권한별 시작 화면과 접근 정책을 변경하는 관리 항목을 미리보기로 분리합니다." checked={adminPermissionChecks.defaultLandingGuard} onChange={() => handleAdminPermissionCheckToggle("defaultLandingGuard")} />
+                        </div>
+                        <p className="topbar-admin-settings-panel__status">현재 {selectedAdminPermissionCount}개 항목이 변경/부여 기준으로 선택되어 있습니다.</p>
+                      </div>
+                    ) : null}
+                  </section>
+                </div>
+              ) : null}
+            </>
           ) : null}
 
           {activeTopbarModal === "notices" ? (
@@ -2188,7 +1406,7 @@ export function MobileAppShell({
             </div>
           ) : null}
 
-          {activeTopbarModal === "profile-settings" ? (
+          {isProfileSettings && isAdminSettingsUnlocked ? (
             <div className="topbar-profile-settings">
               <section className="topbar-modal-card topbar-profile-settings__hero">
                 <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
@@ -2209,28 +1427,37 @@ export function MobileAppShell({
                   <SettingField label="이메일" value={profileState.email} />
                 </div>
               </section>
+              <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-security-card">
+                <strong>계정/보안</strong>
+                <p>개인 설정 화면 안에서 2차 비밀번호를 바로 설정하거나 변경할 수 있습니다.</p>
+                <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
+                  2차 비밀번호 변경하기
+                </button>
+              </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>알림 받을 기능 선택</strong>
                 <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" checked={notificationPreferences.notices} onChange={(checked) => setNotificationPreference("notices", checked)} />
-                  <SettingToggle label="전자결재 알림" checked={notificationPreferences.approvals} onChange={(checked) => setNotificationPreference("approvals", checked)} />
-                  <SettingToggle label="댓글/멘션 알림" checked={notificationPreferences.mentions} onChange={(checked) => setNotificationPreference("mentions", checked)} />
-                  <SettingToggle label="메일/메신저 알림" checked={notificationPreferences.mail} onChange={(checked) => setNotificationPreference("mail", checked)} />
-                  <SettingToggle label="근태/휴가 알림" checked={notificationPreferences.attendance} onChange={(checked) => setNotificationPreference("attendance", checked)} />
+                  <SettingToggle label="공지사항 알림" checked={profileNotificationSettings.notice} onChange={(checked) => handleProfileNotificationToggle("notice", checked)} />
+                  <SettingToggle label="전자결재 알림" checked={profileNotificationSettings.approval} onChange={(checked) => handleProfileNotificationToggle("approval", checked)} />
+                  <SettingToggle label="댓글/멘션 알림" checked={profileNotificationSettings.comment} onChange={(checked) => handleProfileNotificationToggle("comment", checked)} />
+                  <SettingToggle label="메일/메신저 알림" checked={profileNotificationSettings.mail} onChange={(checked) => handleProfileNotificationToggle("mail", checked)} />
+                  <SettingToggle label="근태/휴가 알림" checked={profileNotificationSettings.attendance} onChange={(checked) => handleProfileNotificationToggle("attendance", checked)} />
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
                 <strong>퇴근 후 알림 설정</strong>
                 <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
                 <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
-                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
-                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
-                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
-                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
-                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
-                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
+                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursNotificationSettings.urgentNotice} onChange={(checked) => handleAfterHoursNotificationToggle("urgentNotice", checked)} />
+                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursNotificationSettings.approvalRequest} disabled={!profileNotificationSettings.approval} onChange={(checked) => handleAfterHoursNotificationToggle("approvalRequest", checked)} />
+                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursNotificationSettings.approvalRevision} disabled={!profileNotificationSettings.approval} onChange={(checked) => handleAfterHoursNotificationToggle("approvalRevision", checked)} />
+                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursNotificationSettings.commentMention} disabled={!profileNotificationSettings.comment} onChange={(checked) => handleAfterHoursNotificationToggle("commentMention", checked)} />
+                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursNotificationSettings.attendanceResult} disabled={!profileNotificationSettings.attendance} onChange={(checked) => handleAfterHoursNotificationToggle("attendanceResult", checked)} />
+                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursNotificationSettings.importantMail} disabled={!profileNotificationSettings.mail} onChange={(checked) => handleAfterHoursNotificationToggle("importantMail", checked)} />
                 </div>
-                {!notificationPreferences.notices ? <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p> : null}
+                {!profileNotificationSettings.notice ? (
+                  <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p>
+                ) : null}
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
                 <strong>개인정보 표시 범위</strong>
@@ -2245,24 +1472,52 @@ export function MobileAppShell({
             </div>
           ) : null}
 
-          {activeTopbarModal === "settings" || activeTopbarModal === "profile-settings" ? (
+          {isSecondaryPasswordDialogOpen ? (
+            <div className="secondary-password-dialog-backdrop" role="presentation" onMouseDown={closeSecondaryPasswordDialog}>
+              <section className="secondary-password-dialog" role="dialog" aria-modal="true" aria-labelledby="secondary-password-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+                <header className="secondary-password-dialog__header">
+                  <div>
+                    <span className="topbar-modal__eyebrow">Security PIN</span>
+                    <h3 id="secondary-password-dialog-title">{secondaryPasswordMode === "change" ? "2차 비밀번호 변경" : "2차 비밀번호 설정"}</h3>
+                    <p>{secondaryPasswordMode === "change" ? "현재 비밀번호를 확인한 뒤 새 4자리 PIN으로 변경합니다." : "설정 관련 기능에서 사용할 4자리 PIN을 등록합니다."}</p>
+                  </div>
+                  <button type="button" className="topbar-modal__close" aria-label="2차 비밀번호 팝업 닫기" onClick={closeSecondaryPasswordDialog}>
+                    ×
+                  </button>
+                </header>
+                <div className="secondary-password-dialog__body">
+                  {secondaryPasswordMode === "change" ? (
+                    <PinField label="현재 2차 비밀번호" value={secondaryPasswordForm.current} autoFocus error={secondaryPasswordErrors.current} onChange={(value) => handleSecondaryPasswordFieldChange("current", value)} />
+                  ) : null}
+                  <PinField label="새 2차 비밀번호" value={secondaryPasswordForm.next} autoFocus={secondaryPasswordMode !== "change"} error={secondaryPasswordErrors.next} onChange={(value) => handleSecondaryPasswordFieldChange("next", value)} />
+                  <PinField label="새 2차 비밀번호 확인" value={secondaryPasswordForm.confirm} error={secondaryPasswordErrors.confirm} onChange={(value) => handleSecondaryPasswordFieldChange("confirm", value)} />
+                </div>
+                <footer className="topbar-modal__footer">
+                  <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSecondaryPasswordDialog}>
+                    취소
+                  </button>
+                  <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>
+                    {secondaryPasswordMode === "change" ? "변경" : "설정"}
+                  </button>
+                </footer>
+              </section>
+            </div>
+          ) : null}
+
+          {(isSettingsModal || isProfileSettings) && !isSecondaryPasswordDialogOpen ? (
             <footer className="topbar-modal__footer">
               <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
               </button>
-              <button
-                type="button"
-                className="topbar-modal__button"
-                onClick={
-                  activeTopbarModal === "profile-settings"
-                    ? handleProfileSettingsSave
-                    : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked
-                      ? handleAdminSecondaryPasswordSubmit
-                      : handleSettingsSave
-                }
-              >
-                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "관리자설정 확인" : "저장"}
-              </button>
+              {isSettingsGateLocked ? (
+                <button type="button" className="topbar-modal__button" onClick={settingsGateAction}>
+                  {settingsGateActionLabel}
+                </button>
+              ) : (
+                <button type="button" className="topbar-modal__button" onClick={settingsFooterSaveAction}>
+                  저장
+                </button>
+              )}
             </footer>
           ) : null}
         </section>
@@ -2274,40 +1529,28 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
-  function handleNavItemClick(item: NavItem) {
-    if (item.permissionDenied) {
-      showPermissionDeniedNotice();
-      return;
-    }
-    if (item.disabled) {
-      return;
-    }
-    if (isSensitiveRoute(item.href) && !adminSettingsUnlocked) {
-      requestSensitiveRouteAccess(item.href);
-      return;
-    }
-    navigateTo(item.href);
-  }
-
-  function openPortalShortcut(href: string) {
-    if (!canOpenRoute(href)) {
-      showPermissionDeniedNotice();
-      return;
-    }
-    window.open(new URL(href, window.location.origin).toString(), "_blank", "noopener,noreferrer");
-  }
-
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
 
   return (
-    <div className={suppressTopbarTooltips ? "app-shell app-shell--responsive app-shell--suppress-topbar-tooltips" : "app-shell app-shell--responsive"}>
+    <div
+      className={`app-shell app-shell--responsive ${
+        sidebarCollapsed ? "app-shell--sidebar-collapsed" : "app-shell--sidebar-expanded"
+      }`}
+    >
       <aside
-        className={sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}
+        className={`${sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}${
+          isSidebarScrolling ? " desktop-sidebar--scrolling" : ""
+        }`}
         aria-label="PC 기본 탐색"
+        onScroll={handleSidebarScroll}
       >
         <div className="desktop-sidebar__header">
+          <a href={homeHref} className="brand-link brand-link--sidebar">
+            <span className="brand-link__eyebrow">{appEyebrow}</span>
+            <strong>{appName}</strong>
+          </a>
           <button
             type="button"
             className="sidebar-toggle"
@@ -2319,124 +1562,63 @@ export function MobileAppShell({
           </button>
         </div>
 
+        <div className="desktop-sidebar__status">
+          <span className="desktop-sidebar__portal-label">{currentPortalLabel}</span>
+          <strong>{activeSectionTitle}</strong>
+          <span>{isOnline ? "업무 화면" : "네트워크 불안정"}</span>
+        </div>
+
         <nav className="desktop-sidebar__nav" aria-label={`${currentPortalLabel} PC 메뉴`}>
-          {sidebarCollapsed && desktopHomeItem ? (
-            <div className="desktop-sidebar__collapsed-stack">
-              <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} onClick={() => navigateTo(desktopHomeItem.href)}>
-                <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
-                <span>{desktopHomeItem.shortLabel}</span>
-              </button>
-              <div
-                className={isSidebarCustomSelectionLoaded ? "desktop-sidebar__collapsed-custom-list" : "desktop-sidebar__collapsed-custom-list desktop-sidebar__collapsed-custom-list--loading"}
-                aria-hidden={isSidebarCustomSelectionLoaded ? undefined : true}
-              >
-                {collapsedSidebarItems.map((item) => {
+          {visibleDesktopMenuSections.map((section) => (
+            <section key={section.title} className="desktop-sidebar__section">
+              <div className="desktop-sidebar__section-copy">
+                <strong>{section.title}</strong>
+                {!sidebarCollapsed ? <p>{section.description}</p> : null}
+              </div>
+              <div className="desktop-sidebar__links">
+                {section.items.map((item) => {
                   const active = matchesPath(pathname, item.href);
                   const iconName = getFeatureIconName(item.href, item.label);
                   return (
-                    <button key={item.href} type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} onClick={() => handleNavItemClick(item)}>
+                    <button
+                      key={item.href}
+                      type="button"
+                      className={active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={item.label}
+                      data-route={item.href}
+                      title={item.summary}
+                      onClick={() => navigateTo(item.href)}
+                    >
                       {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                      <span>{item.shortLabel}</span>
+                      <span>{sidebarCollapsed ? item.shortLabel : item.label}</span>
                     </button>
                   );
                 })}
               </div>
-            </div>
-          ) : (
-            <>
-              {desktopHomeItem ? (
-                <div className="desktop-sidebar__home-link">
-                  <button type="button" className={matchesPath(pathname, desktopHomeItem.href) ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={matchesPath(pathname, desktopHomeItem.href) ? "page" : undefined} aria-label={desktopHomeItem.label} data-route={desktopHomeItem.href} onClick={() => navigateTo(desktopHomeItem.href)}>
-                    <FeatureIcon className="desktop-sidebar__icon" name="home" title={desktopHomeItem.label} />
-                    <span>{desktopHomeItem.label}</span>
-                  </button>
-                </div>
-              ) : null}
-              {visibleDesktopMenuSections.map((section) => (
-                <section key={section.title} className="desktop-sidebar__section">
-                  <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
-                  <div className="desktop-sidebar__links">
-                    {section.items.map((item) => {
-                      const active = matchesPath(pathname, item.href);
-                      const iconName = getFeatureIconName(item.href, item.label);
-                      return (
-                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
-                          {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                          <span>{item.label}</span>
-                          {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </>
-          )}
+            </section>
+          ))}
         </nav>
-        {sidebarCollapsed ? (
-          <div className="desktop-sidebar__footer">
-            <button type="button" className="desktop-sidebar__settings-button" aria-label={`${currentPortalLabel} 사이드바 편집`} onClick={openSidebarSettings}>
-              <span>편집</span>
-            </button>
-          </div>
-        ) : null}
       </aside>
 
       <div className="app-shell__main">
         <header className="app-topbar">
           <div className="app-topbar__inner">
-            <a href={currentPortalHomeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
-              <strong>{brandWordmark}</strong>
+            <a href={homeHref} className="topbar-brand-link" aria-label={`${appName} ${currentPortalLabel} 홈`}>
+              <strong>{appName}</strong>
               <span className="topbar-brand-link__divider" aria-hidden="true" />
               <span>{currentPortalLabel}</span>
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <>
-                  <a
-                    className="portal-switch-link portal-switch-link--branch"
-                    aria-label={`${branchPortalLabel} 새 탭에서 보기`}
-                    data-allow-url-status="true"
-                    data-route={branchPortalHref}
-                    href={branchPortalHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openPortalShortcut(branchPortalHref);
-                    }}
-                  >
-                    <span>{branchPortalLabel}</span>
-                    <PortalShortcutIcon />
-                  </a>
-                  <a
-                    className="portal-switch-link"
-                    aria-label={`${nextPortalLabel} 새 탭에서 보기`}
-                    data-allow-url-status="true"
-                    data-route={nextPortalHref}
-                    href={nextPortalHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openPortalShortcut(nextPortalHref);
-                    }}
-                  >
-                    <span>{nextPortalLabel}</span>
-                    <PortalShortcutIcon />
-                  </a>
-                </>
+                <button type="button" className="portal-switch-link" aria-label={`${nextPortalLabel}로 이동`} data-route={nextPortalHref} onClick={() => navigateTo(nextPortalHref)}>
+                  <FeatureIcon className="portal-switch-link__icon" name={nextPortalIcon} title={nextPortalLabel} />
+                  <span>{nextPortalLabel}</span>
+                </button>
               ) : null}
               {!isAdminHostShell ? (
                 <>
-                  <TopbarIconButton
-                    label="통합설정"
-                    iconName="settings"
-                    onClick={() => {
-                      setSettingsTab(canUseAdminSettings ? "admin" : "basic");
-                      setActiveTopbarModal("settings");
-                    }}
-                  />
+                  <TopbarIconButton label="설정" iconName="settings" onClick={openUnifiedSettings} />
                   <TopbarIconButton label="공지사항" iconName="board" onClick={() => setActiveTopbarModal("notices")} />
                   <TopbarIconButton label="알림" iconName="notification" badgeText={formatUnreadBadge(notificationBadge?.unreadCount ?? null)} onClick={() => setActiveTopbarModal("notifications")} />
                   <div className="topbar-profile-menu" ref={profileMenuRef}>
@@ -2471,7 +1653,7 @@ export function MobileAppShell({
                             role="menuitem"
                             onClick={() => {
                               setIsProfileMenuOpen(false);
-                              setActiveTopbarModal("profile-settings");
+                              openProfileSettings();
                             }}
                           >
                             내정보 설정
@@ -2481,7 +1663,7 @@ export function MobileAppShell({
                             className="topbar-profile-popover__action topbar-profile-popover__action--danger"
                             disabled={profileActionPending}
                             role="menuitem"
-                            onClick={openLogoutConfirm}
+                            onClick={handleProfileLogout}
                           >
                             {profileActionPending ? "로그아웃 중..." : "로그아웃"}
                           </button>
@@ -2502,43 +1684,6 @@ export function MobileAppShell({
         </header>
 
         {renderTopbarModal()}
-        {pendingSensitiveRoute ? (
-          <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeSensitiveRouteGate}>
-            <section className="topbar-modal topbar-modal--sensitive-gate" role="dialog" aria-modal="true" aria-label="민감정보 2차 비밀번호 확인" onMouseDown={(event) => event.stopPropagation()}>
-              <header className="topbar-modal__header">
-                <div>
-                  <span className="topbar-modal__eyebrow">WE’REHERE</span>
-                  <h2>2차 비밀번호 확인</h2>
-                  <p>급여·조직·관리자 같은 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
-                </div>
-                <button type="button" className="topbar-modal__close" aria-label="민감정보 확인 팝업 닫기" onClick={closeSensitiveRouteGate}>×</button>
-              </header>
-              <div className="topbar-settings-gate topbar-admin-secondary-gate sensitive-route-gate">
-                <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
-                  {hasSecondaryPassword ? (
-                    <>
-                      <PinField label="2차 비밀번호" value={sensitiveRoutePassword} autoFocus error={sensitiveRoutePasswordError} hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다." onChange={(value) => { setSensitiveRoutePassword(value); setSensitiveRoutePasswordError(null); }} />
-                      <button type="button" className="topbar-modal__button" onClick={handleSensitiveRoutePasswordSubmit}>확인</button>
-                    </>
-                  ) : (
-                    <div className="topbar-settings-security-card topbar-settings-security-card--setup">
-                      <strong>아직 2차 비밀번호가 없습니다.</strong>
-                      <p>먼저 4자리 PIN을 설정하면 바로 민감정보 기능으로 이동합니다.</p>
-                      {isSecondaryPasswordDialogOpen ? renderSecondaryPasswordEditor() : <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>2차 비밀번호 설정하기</button>}
-                    </div>
-                  )}
-                </section>
-              </div>
-            </section>
-          </div>
-        ) : null}
-        {renderSidebarSettingsModal()}
-        {renderLogoutConfirmModal()}
-        {permissionNoticeVisible ? (
-          <div className="permission-denied-toast" role="status" aria-live="polite">
-            권한이 없습니다. 관리자에게 권한을 요청하세요.
-          </div>
-        ) : null}
 
         {!isOnline ? (
           <div className="status-banner status-banner--warning" role="status" aria-live="polite">
@@ -2583,7 +1728,7 @@ export function MobileAppShell({
                   aria-label={ariaLabel}
                   data-route={item.href}
                   tabIndex={isBottomNavCollapsed ? -1 : undefined}
-                  onClick={() => handleNavItemClick(item)}
+                  onClick={() => navigateTo(item.href)}
                 >
                   <span className="bottom-nav__link-pill">
                     <span className="bottom-nav__icon-wrap">

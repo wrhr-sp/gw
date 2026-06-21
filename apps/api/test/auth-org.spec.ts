@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   adminAuditLogListResponseSchema,
+  adminSecondaryPasswordMutationResponseSchema,
+  adminSecondaryPasswordStatusResponseSchema,
   adminPoliciesListResponseSchema,
   adminPolicyUpdateResponseSchema,
   adminUsersListResponseSchema,
@@ -67,7 +69,8 @@ import {
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
 } from "@gw/shared";
-import { app, isAttendanceRegistrationMethodAllowed } from "../src/app";
+import { app, isAttendanceRegistrationMethodAllowed, resetApiPreviewState } from "../src/app";
+import { resetAdminSecondaryPasswordPreviewState } from "../src/lib/admin-secondary-password";
 
 async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   const response = await app.request(appRoutes.auth.login, {
@@ -84,12 +87,53 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   });
 
   const cookie = response.headers.get("set-cookie");
-
   if (!cookie) {
     throw new Error("expected login response to include set-cookie header");
   }
 
   return { response, cookie };
+}
+
+const secondaryPasswordPins: Record<string, string> = {
+  COMPANY_ADMIN: "2468",
+  HR_ADMIN: "1357",
+};
+
+async function loginAndVerifyHighRiskAdminCookie(role: keyof typeof secondaryPasswordPins = "COMPANY_ADMIN") {
+  const { cookie } = await loginAndGetCookie(role);
+
+  const statusResponse = await app.request(appRoutes.admin.secondaryPassword.status, {
+    headers: { cookie },
+  });
+  expect(statusResponse.status).toBe(200);
+  const statusPayload = adminSecondaryPasswordStatusResponseSchema.parse(await statusResponse.json());
+
+  const pin = secondaryPasswordPins[role];
+
+  if (statusPayload.data.enrollmentRequired) {
+    const enrollResponse = await app.request(appRoutes.admin.secondaryPassword.enroll, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        primaryPassword: "1234",
+        nextPin: pin,
+        confirmPin: pin,
+      }),
+    });
+    expect(enrollResponse.status).toBe(200);
+  }
+
+  const verifyResponse = await app.request(appRoutes.admin.secondaryPassword.verify, {
+    method: "POST",
+    headers: { cookie, "content-type": "application/json" },
+    body: JSON.stringify({
+      pin,
+      scope: "admin_high_risk",
+    }),
+  });
+  expect(verifyResponse.status).toBe(200);
+
+  return { cookie };
 }
 
 function assertListPayload(route: string, payload: unknown) {
@@ -112,6 +156,11 @@ function assertListPayload(route: string, payload: unknown) {
 }
 
 describe("Phase 2 auth/org skeleton", () => {
+  beforeEach(async () => {
+    await resetApiPreviewState();
+    resetAdminSecondaryPasswordPreviewState();
+  });
+
   it("logs in with placeholder auth and returns shared contract", async () => {
     const { response } = await loginAndGetCookie();
 
@@ -328,7 +377,7 @@ describe("Phase 2 auth/org skeleton", () => {
   });
 
   it("creates placeholder invite skeleton for admins", async () => {
-    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const { cookie } = await loginAndVerifyHighRiskAdminCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.invites, {
       method: "POST",
@@ -448,7 +497,7 @@ describe("Phase 2 auth/org skeleton", () => {
   });
 
   it("returns masked document policy update candidates without raw storage details", async () => {
-    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const { cookie } = await loginAndVerifyHighRiskAdminCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.policyDocuments, {
       method: "POST",
@@ -477,7 +526,7 @@ describe("Phase 2 auth/org skeleton", () => {
   });
 
   it("returns board policy candidate summary with review requirement", async () => {
-    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const { cookie } = await loginAndVerifyHighRiskAdminCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.policyBoards, {
       method: "POST",
@@ -503,7 +552,7 @@ describe("Phase 2 auth/org skeleton", () => {
   });
 
   it("rejects attendance registration policy payload on board policy endpoint", async () => {
-    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+    const { cookie } = await loginAndVerifyHighRiskAdminCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.policyBoards, {
       method: "POST",
@@ -589,35 +638,43 @@ describe("Phase 2 auth/org skeleton", () => {
 
   it("filters admin audit logs by createdFrom and createdTo query params", async () => {
     const { cookie } = await loginAndGetCookie("AUDITOR");
+    const createdFrom = "2026-06-10T09:00:00.000Z";
+    const createdTo = "2026-06-10T08:59:59.999Z";
 
-    const createdFromResponse = await app.request(
-      `${appRoutes.admin.auditLogs}?createdFrom=2026-06-10T09:00:00.000Z`,
-      {
-        headers: {
-          cookie,
-        },
+    const baseResponse = await app.request(appRoutes.admin.auditLogs, {
+      headers: {
+        cookie,
       },
-    );
+    });
+    expect(baseResponse.status).toBe(200);
+    const basePayload = adminAuditLogListResponseSchema.parse(await baseResponse.json());
+
+    const createdFromResponse = await app.request(`${appRoutes.admin.auditLogs}?createdFrom=${encodeURIComponent(createdFrom)}`, {
+      headers: {
+        cookie,
+      },
+    });
 
     expect(createdFromResponse.status).toBe(200);
     const createdFromPayload = adminAuditLogListResponseSchema.parse(await createdFromResponse.json());
-    expect(createdFromPayload.data.items).toHaveLength(2);
-
-    const createdToResponse = await app.request(
-      `${appRoutes.admin.auditLogs}?createdTo=2026-06-10T08:59:59.999Z`,
-      {
-        headers: {
-          cookie,
-        },
-      },
+    expect(createdFromPayload.data.items.map((item) => item.id)).toEqual(
+      basePayload.data.items.filter((item) => item.createdAt >= createdFrom).map((item) => item.id),
     );
+
+    const createdToResponse = await app.request(`${appRoutes.admin.auditLogs}?createdTo=${encodeURIComponent(createdTo)}`, {
+      headers: {
+        cookie,
+      },
+    });
 
     expect(createdToResponse.status).toBe(200);
     const createdToPayload = adminAuditLogListResponseSchema.parse(await createdToResponse.json());
-    expect(createdToPayload.data.items).toHaveLength(0);
+    expect(createdToPayload.data.items.map((item) => item.id)).toEqual(
+      basePayload.data.items.filter((item) => item.createdAt <= createdTo).map((item) => item.id),
+    );
 
     const boundedResponse = await app.request(
-      `${appRoutes.admin.auditLogs}?category=policy&createdFrom=2026-06-10T09:00:00.000Z&createdTo=2026-06-10T09:00:00.000Z`,
+      `${appRoutes.admin.auditLogs}?category=policy&createdFrom=${encodeURIComponent(createdFrom)}&createdTo=${encodeURIComponent(createdFrom)}`,
       {
         headers: {
           cookie,
@@ -627,10 +684,11 @@ describe("Phase 2 auth/org skeleton", () => {
 
     expect(boundedResponse.status).toBe(200);
     const boundedPayload = adminAuditLogListResponseSchema.parse(await boundedResponse.json());
-    expect(boundedPayload.data.items).toHaveLength(1);
-    expect(boundedPayload.data.items[0]?.id).toBe("audit_admin_policy_document_1");
-    expect(boundedPayload.data.filters.createdFrom).toBe("2026-06-10T09:00:00.000Z");
-    expect(boundedPayload.data.filters.createdTo).toBe("2026-06-10T09:00:00.000Z");
+    expect(boundedPayload.data.items.map((item) => item.id)).toEqual(
+      basePayload.data.items.filter((item) => item.metadata.category === "policy" && item.createdAt >= createdFrom && item.createdAt <= createdFrom).map((item) => item.id),
+    );
+    expect(boundedPayload.data.filters.createdFrom).toBe(createdFrom);
+    expect(boundedPayload.data.filters.createdTo).toBe(createdFrom);
   });
 
   it("filters common work items by role/module and keeps branch-only items out of HR admin scope", async () => {
@@ -1947,9 +2005,10 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(uploadInitPayload.data.file.storageStatus).toBe("pending");
     expect(uploadInitPayload.data.file.versionId).toMatch(/^document_version_/);
     expect(uploadInitPayload.data.action.kind).toMatch(/upload/);
-    expect(uploadInitPayload.data.action.objectKeyPreview).toContain("companies/company_demo/spaces/document_space_public/files/");
+    expect(uploadInitPayload.data.action.objectKeyPreview).toContain("masked-object/company_demo/document_space_public/");
+    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain("phase8-plan-v1.pdf");
+    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain("companies/company_demo/spaces/");
     expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain("phase8-plan v1.pdf");
-    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain(" ");
     expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "storageKey")).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "bucketName")).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "publicUrl")).toBe(false);

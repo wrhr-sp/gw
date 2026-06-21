@@ -1,0 +1,132 @@
+{
+  "name": "D1 public icon candidate set",
+  "report_default": "Tabler clipboard-text",
+  "items": [
+    {
+      "key": "messenger",
+      "label": "메신저",
+      "library": "Phosphor",
+      "icon": "chat-circle",
+      "url": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/chat-circle.svg",
+      "local": "svg/messenger.svg"
+    },
+    {
+      "key": "attendance",
+      "label": "근태",
+      "library": "Phosphor",
+      "icon": "clock",
+      "url": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/clock.svg",
+      "local": "svg/attendance.svg"
+    },
+    {
+      "key": "board",
+      "label": "게시판",
+      "library": "Heroicons",
+      "icon": "newspaper",
+      "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/src/24/outline/newspaper.svg",
+      "local": "svg/board.svg"
+    },
+    {
+      "key": "report",
+      "label": "보고",
+      "library": "Tabler",
+      "icon": "clipboard-text",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/clipboard-text.svg",
+      "local": "svg/report.svg"
+    },
+    {
+      "key": "approval",
+      "label": "전자결재",
+      "library": "Tabler",
+      "icon": "clipboard-check",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/clipboard-check.svg",
+      "local": "svg/approval.svg"
+    },
+    {
+      "key": "payroll",
+      "label": "급여",
+      "library": "Lucide",
+      "icon": "circle-dollar-sign",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/circle-dollar-sign.svg",
+      "local": "svg/payroll.svg"
+    },
+    {
+      "key": "tax",
+      "label": "세무",
+      "library": "Tabler",
+      "icon": "receipt-tax",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/receipt-tax.svg",
+      "local": "svg/tax.svg"
+    },
+    {
+      "key": "labor",
+      "label": "노무",
+      "library": "Lucide",
+      "icon": "hard-hat",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/hard-hat.svg",
+      "local": "svg/labor.svg"
+    },
+    {
+      "key": "file",
+      "label": "파일",
+      "library": "Heroicons",
+      "icon": "document",
+      "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/src/24/outline/document.svg",
+      "local": "svg/file.svg"
+    },
+    {
+      "key": "settings",
+      "label": "설정",
+      "library": "Tabler",
+      "icon": "settings",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/settings.svg",
+      "local": "svg/settings.svg"
+    },
+    {
+      "key": "executive-dashboard",
+      "label": "경영대시보드",
+      "library": "Lucide",
+      "icon": "chart-no-axes-combined",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/chart-no-axes-combined.svg",
+      "local": "svg/executive-dashboard.svg"
+    }
+  ],
+  "report_alternatives": [
+    {
+      "label": "보고-A",
+      "library": "Lucide",
+      "icon": "file-text",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file-text.svg"
+    },
+    {
+      "label": "보고-B-D1",
+      "library": "Tabler",
+      "icon": "clipboard-text",
+      "url": "https://raw.githubusercontent.com/tabler/tabler-icons/main/icons/outline/clipboard-text.svg"
+    },
+    {
+      "label": "보고-C",
+      "library": "Heroicons",
+      "icon": "document-text",
+      "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/src/24/outline/document-text.svg"
+    },
+    {
+      "label": "보고-D",
+      "library": "Phosphor",
+      "icon": "article",
+      "url": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/article.svg"
+    },
+    {
+      "label": "보고-E",
+      "library": "Bootstrap",
+      "icon": "journal-text",
+      "url": "https://raw.githubusercontent.com/twbs/icons/main/icons/journal-text.svg"
+    },
+    {
+      "label": "보고-F",
+      "library": "Lucide",
+      "icon": "book-open-text",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/book-open-text.svg"
+    }
+  ]
+}

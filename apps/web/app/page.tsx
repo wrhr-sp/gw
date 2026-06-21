@@ -8,13 +8,13 @@ import { installGuideSteps, mobileBottomTabs, mobilePrimaryNav, mobileReviewChec
 const primaryFlows = [
   {
     badge: "일반 업무 흐름",
-    title: "/ → /login → /home → /attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees",
+    title: "/ → /login → /dashboard → /attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees",
     body: "일반 직원과 팀장은 오늘 할 일 확인 뒤 출퇴근, 휴가, 전자결재, 공지/문서, 내 정보, 조직/직원 조회 순서로 하루 흐름을 먼저 봅니다.",
   },
   {
     badge: "관리자 검토 흐름",
     title:
-      "/home 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
+      "/dashboard 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
     body:
       "운영 관리자는 회사 전체 운영·정책·감사 preview 를 보는 company scope 레인으로, 지점 관리자는 자기 지점 업무·직원·조직 확인 뒤 /management 문맥만 참고하는 branch scope 레인으로 분리해 안내합니다.",
   },
@@ -23,31 +23,31 @@ const primaryFlows = [
 const roleEntryCards = [
   {
     role: "일반 직원",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "오늘 상태를 먼저 보고 출퇴근, 휴가, 전자결재로 이동합니다.",
     note: "관리자 기능은 기본 흐름에 노출하지 않습니다.",
   },
   {
     role: "팀장 / 결재자",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "같은 대시보드에서 시작하되 팀원 근태·휴가 맥락을 본 뒤 승인 대기와 팀 병목 확인을 처리합니다.",
     note: "필요 시 /attendance, /leave, /employees 에서 일정과 인원 상태를 확인합니다.",
   },
   {
     role: "인사 관리자",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인으로 이어집니다.",
     note: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.",
   },
   {
     role: "운영 관리자",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 company scope 운영 CTA 로 /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
     note: "운영 관리자는 회사 공통 운영 권한을 검토하고, branch scope 업무 레인과 같은 권한처럼 설명하지 않습니다.",
   },
   {
     role: "지점 관리자",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "공통 홈 뒤 `/work-items/branch → /employees → /org → /management` 순서의 branch scope 운영 레인으로 이어집니다.",
     note: "`/employees`, `/org` 는 읽기 확인용이고 `/management` 는 회사 공통 운영 authority 가 아니라 연결 문맥으로만 소개합니다.",
   },
@@ -68,7 +68,7 @@ const secondaryLinks = [
 export default function HomePage() {
   return (
     <PageShell
-      backHref="/home"
+      backHref="/dashboard"
       backLabel="대시보드로"
       eyebrow="Phase 43 일반 직원 홈과 내부관리 허브 분리"
       title="그룹웨어 실사용 MVP 시작점"
@@ -78,7 +78,7 @@ export default function HomePage() {
           <Link href="/login" className="touch-button">
             로그인 흐름 보기
           </Link>
-          <Link href="/home" className="touch-button--secondary">
+          <Link href="/dashboard" className="touch-button--secondary">
             대시보드 보기
           </Link>
         </div>
@@ -132,7 +132,7 @@ export default function HomePage() {
         <div className="grid-auto-compact">
           {mobileBottomTabs.map((item) => (
             <article key={item.href} className="info-card">
-              <Pill tone={item.href === "/home" ? "accent" : "default"}>{item.shortLabel}</Pill>
+              <Pill tone={item.href === "/dashboard" ? "accent" : "default"}>{item.shortLabel}</Pill>
               <h3>{item.label}</h3>
               <p>{item.summary}</p>
               <a href={item.href}>{item.href}</a>

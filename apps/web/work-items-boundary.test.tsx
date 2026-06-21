@@ -47,7 +47,7 @@ describe("Phase 25 work-items skeleton boundaries", () => {
     expect(html).toContain("/api/work-items/:id/attachments");
     expect(html).toContain("이번 단계 meeting 유형");
     expect(html).toContain("누가 어디까지 보는가");
-    expect(html).not.toContain("공통 업무 허브로");
+    expect(html).toContain("공통 업무 허브로");
     expect(html).not.toContain("저장 완료");
     expect(html).not.toContain("외부 전송");
   });

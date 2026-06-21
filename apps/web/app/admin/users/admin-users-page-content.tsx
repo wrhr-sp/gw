@@ -37,7 +37,7 @@ const actionJourneyMap = {
   ],
   role: [
     "1) 역할/업무권한 diff 확인",
-    "2) /home 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인",
+    "2) /dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인",
     "3) 고위험 권한은 감사 후보 문구와 함께 검토",
   ],
   status: [
@@ -53,7 +53,7 @@ const actionJourneyMap = {
 } as const;
 
 const onboardingRehearsalSteps = [
-  "1) /login → /home 로 로그인/기본 홈 확인",
+  "1) /login → /dashboard 로 로그인/기본 홈 확인",
   "2) /admin/users 에서 사용자 생성 preview 와 역할/권한 diff 검토",
   "3) /employees 에서 읽기 중심 직원 조회, /org 에서 부서·역할·지점 구조 확인",
   "4) 운영 담당자는 /management → /work-items/branch 로 branch scope 운영 레인 확인",
@@ -64,25 +64,25 @@ const onboardingRehearsalSteps = [
 const roleLaneCards = [
   {
     role: "EMPLOYEE",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "일반 직원은 홈에서 근태·휴가·결재·게시판·문서 흐름을 먼저 확인합니다.",
     blocked: "/admin/users · /management · /admin/audit-logs 기본 진입 차단",
   },
   {
     role: "HR_ADMIN",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "계정 생성/권한 지정/상태 변경/비밀번호 초기화 preview 는 공통 홈 뒤 인사 운영 레인으로 이어서 확인합니다.",
     blocked: "첫 관리자 레인은 /management 가 아니라 /admin/users 로 고정",
   },
   {
     role: "MANAGER",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "지점 관리자는 공통 홈 뒤 /work-items/branch → /employees → /org → /management 순서의 branch scope 운영 레인만 확인합니다.",
     blocked: "/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단",
   },
   {
     role: "COMPANY_ADMIN",
-    firstRoute: "/home",
+    firstRoute: "/dashboard",
     summary: "운영 관리자는 공통 홈 뒤 /management → /admin/users → /admin/policies → /admin/audit-logs company scope 운영 레인을 검토합니다.",
     blocked: "공통 landing 다음 레인은 /management 이고 branch scope 읽기 화면(/employees, /org)을 관리자 저장 화면처럼 쓰지 않음",
   },
@@ -97,7 +97,7 @@ const roleLaneCards = [
 const shortcutSourceRules = [
   {
     title: "회사 공통 고정 바로가기 source",
-    body: "`/api/home/shortcuts` 의 `scope=company` + `isFixed=true` 항목을 홈(`/home`)·메뉴(`/menu`)와 같은 뜻으로 읽습니다.",
+    body: "`/api/home/shortcuts` 의 `scope=company` + `isFixed=true` 항목을 홈(`/dashboard`)·메뉴(`/menu`)와 같은 뜻으로 읽습니다.",
     note: "근태·휴가·결재처럼 모두가 같은 순서로 찾는 기본 업무만 여기 남깁니다.",
   },
   {
@@ -171,6 +171,7 @@ export function AdminUsersPageContent({
       backLabel="관리자 허브로"
       eyebrow="Phase 55 관리자 계정·권한·조직 실사용화"
       title="계정관리 / 사용자·권한"
+      titleHref="/admin/users"
       description="사용자 생성, 역할/업무권한 지정, 활성/비활성, 비밀번호 초기화·변경을 dev-safe preview 로 눌러보고, 실제 저장은 열지 않는 계정관리 화면입니다."
       actions={
         <div className="pill-row">
@@ -259,7 +260,7 @@ export function AdminUsersPageContent({
         </section>
       ) : null}
 
-      <SurfaceSection title="운영자 설정 read model" description="`/home`·`/menu` shortcut, role/permission source, 회사 설정 모델, dev-safe 경계를 같은 언어로 묶어 설명합니다.">
+      <SurfaceSection title="운영자 설정 read model" description="`/dashboard`·`/menu` shortcut, role/permission source, 회사 설정 모델, dev-safe 경계를 같은 언어로 묶어 설명합니다.">
         <article className="info-card">
           <Pill tone="accent">{preview.companySettingsModel.companyName}</Pill>
           <h3>정책 시작점</h3>

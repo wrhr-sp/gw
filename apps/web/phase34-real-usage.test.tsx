@@ -2,7 +2,6 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { getWorkItemAccessCapabilities } from "./app/_components/phase34-live-sections";
 import AuditLogsPage from "./app/admin/audit-logs/page";
 import EmployeesPage from "./app/employees/page";
 import NotificationsPage from "./app/notifications/page";
@@ -41,24 +40,6 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain('href="/api/work-items?module=branch"');
   });
 
-  it("keeps branch work item capability labels compatible with current API payload names", () => {
-    expect(
-      getWorkItemAccessCapabilities({
-        viewerScope: "branch",
-        capabilities: ["work_item.read", "work_item.deadline.read"],
-        maskedFields: [],
-      }).join(", "),
-    ).toBe("work_item.read, work_item.deadline.read");
-
-    expect(
-      getWorkItemAccessCapabilities({
-        viewerScope: "branch",
-        allowedCapabilities: ["legacy.read"],
-        maskedFields: [],
-      }).join(", "),
-    ).toBe("legacy.read");
-  });
-
   it("keeps notifications honest about same-origin inbox vs external delivery", () => {
     const html = renderToStaticMarkup(<NotificationsPage />);
 
@@ -67,7 +48,7 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("실사용 알림 패널");
     expect(html).toContain("상태별 다음 행동");
     expect(html).toContain("복구 route 모음");
-    expect(html).toContain("/home");
+    expect(html).toContain("/dashboard");
     expect(html).not.toContain("발송 완료");
   });
 

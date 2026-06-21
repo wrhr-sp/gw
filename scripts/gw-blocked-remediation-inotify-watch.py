@@ -114,7 +114,13 @@ def has_new_blocked_event(db_path: Path, state_path: Path) -> bool:
     state["updated_at"] = int(time.time())
     save_event_state(state_path, state)
     for _event_id, _task_id, kind, _payload in rows:
-        if kind == "blocked":
+        # `blocked` is the obvious path, but some role bots complete a review card
+        # with result/comment like `changes-requested` or `승인 불가` and the
+        # downstream verifier may start before a remediation chain is created.
+        # Wake the bounded handler on terminal/comment events too; the handler is
+        # idempotent, uses cooldown, and only writes when it finds a real safe
+        # remediation candidate.
+        if kind in {"blocked", "completed", "commented"}:
             return True
     return False
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDocumentStorageKey,
+  buildDocumentStoragePreview,
   createDocumentStorageAdapter,
   DEFAULT_ALLOWED_DOCUMENT_MIME_TYPES,
   DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
@@ -36,6 +37,16 @@ describe("document storage skeleton", () => {
         fileName: "phase8-plan.pdf",
       }),
     ).toThrow(/unsafe companyId/i);
+  });
+
+  it("sanitizes storage previews before returning them to clients", () => {
+    const preview = buildDocumentStoragePreview(
+      "companies/company_demo/spaces/document_space_public/files/document_file_phase8/versions/document_version_1/phase8-plan-v1.pdf",
+    );
+
+    expect(preview).toContain("masked-object/company_demo/document_space_public/");
+    expect(preview).not.toContain("phase8-plan-v1.pdf");
+    expect(preview).not.toContain("companies/company_demo/spaces/");
   });
 
   it("falls back to the mock adapter when FILES_BUCKET binding is missing", async () => {

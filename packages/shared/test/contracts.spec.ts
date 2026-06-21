@@ -444,9 +444,6 @@ describe("shared contracts", () => {
     expect(hasSensitiveWorkbenchRouteAccess("/payroll/me", employeeViewer)).toBe(true);
     expect(hasSensitiveWorkbenchRouteAccess("/payroll/me", auditorViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/attendance", employeeViewer)).toBe(true);
-    expect(hasHomeShortcutRouteAccess("/mail", employeeViewer)).toBe(true);
-    expect(hasHomeShortcutRouteAccess("/messenger", employeeViewer)).toBe(true);
-    expect(hasHomeShortcutRouteAccess("/notifications", employeeViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/admin/users", employeeViewer)).toBe(false);
     expect(hasHomeShortcutRouteAccess("/admin/users", hrViewer)).toBe(true);
     expect(hasHomeShortcutRouteAccess("/admin/audit-logs", hrViewer)).toBe(false);

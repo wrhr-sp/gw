@@ -11,6 +11,7 @@ export default function AdminPoliciesPage() {
       backLabel="관리자 허브로"
       eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 / 정책"
+      titleHref="/admin/policies"
       description="근태·휴가·결재·문서·게시판 정책을 실제 저장 전에 current/candidate/capability 형식으로 비교하는 화면입니다."
       actions={<Pill tone="warning">candidate only</Pill>}
     >
