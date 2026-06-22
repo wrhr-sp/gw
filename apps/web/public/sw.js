@@ -26,7 +26,7 @@ function shouldShowRefreshPage(request) {
     return false;
   }
 
-  return request.cache === "reload";
+  return request.cache === "reload" || request.cache === "no-cache";
 }
 
 function createRefreshResponse(returnUrl) {
