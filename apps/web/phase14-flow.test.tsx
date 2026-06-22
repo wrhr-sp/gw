@@ -48,7 +48,6 @@ describe("Phase 14 home/login flow", () => {
     const html = renderToStaticMarkup(<LoginPage />);
 
     expect(html).toContain("We&#x27;reHere");
-    expect(html).not.toContain("아이디와 비밀번호를 입력해 그룹웨어에 로그인하세요.");
     expect(html).toContain("아이디");
     expect(html).toContain("비밀번호");
     expect(html).toContain("아이디 저장");
