@@ -1153,7 +1153,6 @@ export function MobileAppShell({
 
   useEffect(() => {
     setSidebarCustomSelections(readStoredSidebarCustomSelections());
-    setIsSidebarCustomSelectionLoaded(true);
   }, []);
 
 
@@ -1164,6 +1163,8 @@ export function MobileAppShell({
     }
 
     let active = true;
+    setIsSidebarCustomSelectionLoaded(false);
+    setIsBottomNavPreferenceLoaded(false);
     fetch(appRoutes.user.preferences, { credentials: "same-origin" })
       .then(async (response) => {
         if (!response.ok) {
@@ -1194,10 +1195,15 @@ export function MobileAppShell({
         setIsSidebarCustomSelectionLoaded(true);
         if (typeof preferences.bottomNavCollapsed === "boolean") {
           setIsBottomNavCollapsed(preferences.bottomNavCollapsed);
+        }
+        setIsBottomNavPreferenceLoaded(true);
+      })
+      .catch(() => {
+        if (active) {
+          setIsSidebarCustomSelectionLoaded(true);
           setIsBottomNavPreferenceLoaded(true);
         }
-      })
-      .catch(() => undefined);
+      });
 
     return () => {
       active = false;
@@ -1541,8 +1547,6 @@ export function MobileAppShell({
       setIsBottomNavCollapsed(window.localStorage.getItem(BOTTOM_NAV_COLLAPSED_STORAGE_KEY) === "true");
     } catch {
       setIsBottomNavCollapsed(false);
-    } finally {
-      setIsBottomNavPreferenceLoaded(true);
     }
   }, []);
 
@@ -2063,19 +2067,23 @@ export function MobileAppShell({
 
     return (
       <section className={cardClassName}>
-        <strong className="secondary-password-gate__title">2차 비밀번호</strong>
-        {!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (
-          <PinField
-            label="2차 비밀번호"
-            value={value}
-            autoFocus={autoFocus}
-            hideLabel
-            error={error}
-            onChange={onChange}
-          />
-        ) : (
-          renderSecondaryPasswordEditor()
-        )}
+        {isSecondaryPasswordLoaded ? (
+          <>
+            <strong className="secondary-password-gate__title">2차 비밀번호</strong>
+            {hasSecondaryPassword ? (
+              <PinField
+                label="2차 비밀번호"
+                value={value}
+                autoFocus={autoFocus}
+                hideLabel
+                error={error}
+                onChange={onChange}
+              />
+            ) : (
+              renderSecondaryPasswordEditor()
+            )}
+          </>
+        ) : null}
       </section>
     );
   }

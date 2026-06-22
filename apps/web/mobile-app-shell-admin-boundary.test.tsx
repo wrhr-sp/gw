@@ -285,6 +285,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('readStoredSidebarCustomSelections');
     expect(shellSource).toContain('const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false)');
     expect(shellSource).toContain('setIsSidebarCustomSelectionLoaded(true)');
+    expect(shellSource).toContain('setIsSidebarCustomSelectionLoaded(false);');
+    expect(shellSource).not.toContain('setSidebarCustomSelections(readStoredSidebarCustomSelections());\n    setIsSidebarCustomSelectionLoaded(true);');
     expect(shellSource).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(shellSource).toContain('useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections())');
     expect(shellSource).toContain('function handleSidebarSettingsApply()');
@@ -349,7 +351,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('setIsSecondaryPasswordLoaded(true);');
     expect(shellSource).toContain('function renderSecondaryPasswordGateCard({');
     expect(shellSource).toContain('<strong className="secondary-password-gate__title">2차 비밀번호</strong>');
-    expect(shellSource).toContain('{!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (');
+    expect(shellSource).toContain('{isSecondaryPasswordLoaded ? (');
+    expect(shellSource).not.toContain('<strong className="secondary-password-gate__title">2차 비밀번호</strong>\n        {!isSecondaryPasswordLoaded ? null');
     expect(shellSource).toContain('const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);');
     expect(shellSource).toContain('setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));');
     expect(shellSource).toContain('sensitiveRoutePasswordRequestRef.current += 1;');
@@ -474,7 +477,16 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("font-size: 1.42rem;");
     expect(globalCss).toContain("text-align: center;");
     expect(globalCss).toContain(".topbar-settings-gate__card > .secondary-password-gate__title {");
-    expect(globalCss).toContain("margin-bottom: 0;");
+    const gateTitleOverrideStart = globalCss.indexOf(".topbar-settings-gate__card > .secondary-password-gate__title {");
+    const gateTitleOverrideEnd = globalCss.indexOf("}", gateTitleOverrideStart);
+    const gateTitleOverride = globalCss.slice(gateTitleOverrideStart, gateTitleOverrideEnd);
+    expect(gateTitleOverride).toContain("font-size: 1.42rem;");
+    expect(gateTitleOverride).toContain("font-weight: 900;");
+    expect(gateTitleOverride).toContain("letter-spacing: 0.03em;");
+    expect(gateTitleOverride).not.toContain("margin-bottom");
+    expect(gateTitleOverride).not.toContain("display:");
+    expect(gateTitleOverride).not.toContain("place-items");
+    expect(gateTitleOverride).not.toContain("min-height");
     expect(globalCss.indexOf(".topbar-settings-gate__card > .secondary-password-gate__title {")).toBeGreaterThan(
       globalCss.indexOf(".topbar-modal-card > strong,")
     );
