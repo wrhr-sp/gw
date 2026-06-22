@@ -960,6 +960,7 @@ export function MobileAppShell({
   const [pendingSensitiveRoute, setPendingSensitiveRoute] = useState<string | null>(null);
   const [sensitiveRoutePassword, setSensitiveRoutePassword] = useState("");
   const [sensitiveRoutePasswordError, setSensitiveRoutePasswordError] = useState<string | null>(null);
+  const sensitiveRoutePasswordRequestRef = useRef(0);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
@@ -1074,6 +1075,8 @@ export function MobileAppShell({
     return sortNavSectionsByItemLabel(sections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
+  const shouldShowSensitiveRouteGate = isCurrentSensitiveRoute && !adminSettingsUnlocked;
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
@@ -1714,10 +1717,11 @@ export function MobileAppShell({
   }
 
   function requestSensitiveRouteAccess(href: string) {
-    setPendingSensitiveRoute(href);
+    setPendingSensitiveRoute(null);
     setSensitiveRoutePassword("");
     setSensitiveRoutePasswordError(null);
     setIsSecondaryPasswordDialogOpen(false);
+    navigateTo(href);
   }
 
   function closeSensitiveRouteGate() {
@@ -1738,15 +1742,52 @@ export function MobileAppShell({
     }
     try {
       await verifySecondaryPasswordWithPreviewDb(sensitiveRoutePassword);
-    } catch (error) {
-      setSensitiveRoutePasswordError(error instanceof Error ? error.message : "현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+    } catch {
+      setSensitiveRoutePassword("");
+      setSensitiveRoutePasswordError("2차 비밀번호가 맞지 않습니다.");
       return;
     }
+    setAdminSettingsUnlocked(true);
     const targetHref = pendingSensitiveRoute;
     closeSensitiveRouteGate();
     if (targetHref) {
       navigateTo(targetHref);
     }
+  }
+
+  async function handleSensitiveRoutePasswordChange(value: string) {
+    setSensitiveRoutePassword(value);
+    setSensitiveRoutePasswordError(null);
+    const requestId = sensitiveRoutePasswordRequestRef.current + 1;
+    sensitiveRoutePasswordRequestRef.current = requestId;
+
+    if (value.length !== 4) {
+      return;
+    }
+
+    if (!hasSecondaryPassword) {
+      openSecondaryPasswordDialog();
+      return;
+    }
+
+    try {
+      await verifySecondaryPasswordWithPreviewDb(value);
+    } catch {
+      if (sensitiveRoutePasswordRequestRef.current !== requestId) {
+        return;
+      }
+      setSensitiveRoutePassword("");
+      setSensitiveRoutePasswordError("2차 비밀번호가 맞지 않습니다.");
+      return;
+    }
+
+    if (sensitiveRoutePasswordRequestRef.current !== requestId) {
+      return;
+    }
+
+    setAdminSettingsUnlocked(true);
+    setSensitiveRoutePassword("");
+    setSensitiveRoutePasswordError(null);
   }
 
 
@@ -1880,6 +1921,9 @@ export function MobileAppShell({
 
     setSecondaryPasswordValue("");
     setHasSecondaryPassword(saveResult.nextState.hasSecondaryPassword);
+    if (isCurrentSensitiveRoute) {
+      setAdminSettingsUnlocked(true);
+    }
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
     closeSecondaryPasswordDialog();
@@ -2058,6 +2102,36 @@ export function MobileAppShell({
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
     showScopedSettingsSaveToast("sidebar-settings", hasSidebarChanges);
+  }
+
+  function renderSensitiveRouteGateContent() {
+    return (
+      <main className="page-shell sensitive-route-page-gate" aria-label="민감정보 2차 비밀번호 확인">
+        <div className="page-shell__header">
+          <div className="page-shell__headline">
+            <div>
+              <h1>2차 비밀번호</h1>
+            </div>
+          </div>
+        </div>
+        <div className="page-shell__content">
+          <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card sensitive-route-gate__card">
+            {hasSecondaryPassword ? (
+              <PinField
+                label="2차 비밀번호"
+                value={sensitiveRoutePassword}
+                autoFocus
+                hideLabel
+                error={sensitiveRoutePasswordError}
+                onChange={(value) => void handleSensitiveRoutePasswordChange(value)}
+              />
+            ) : (
+              renderSecondaryPasswordEditor()
+            )}
+          </section>
+        </div>
+      </main>
+    );
   }
 
   function renderSidebarSettingsModal() {
@@ -2735,32 +2809,6 @@ export function MobileAppShell({
         </header>
 
         {renderTopbarModal()}
-        {pendingSensitiveRoute ? (
-          <div className="topbar-modal-backdrop" role="presentation" onMouseDown={closeSensitiveRouteGate}>
-            <section className="topbar-modal topbar-modal--sensitive-gate" role="dialog" aria-modal="true" aria-label="민감정보 2차 비밀번호 확인" onMouseDown={(event) => event.stopPropagation()}>
-              <header className="topbar-modal__header">
-                <div>
-                  <span className="topbar-modal__eyebrow">WE’REHERE</span>
-                  <h2>2차 비밀번호 확인</h2>
-                  <p>{hasSecondaryPassword ? "급여·조직·관리자 같은 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다." : "2차 비밀번호를 설정해주세요."}</p>
-                </div>
-                <button type="button" className="topbar-modal__close" aria-label="민감정보 확인 팝업 닫기" onClick={closeSensitiveRouteGate}>×</button>
-              </header>
-              <div className="topbar-settings-gate topbar-admin-secondary-gate sensitive-route-gate">
-                <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
-                  {hasSecondaryPassword ? (
-                    <>
-                      <PinField label="2차 비밀번호" value={sensitiveRoutePassword} autoFocus error={sensitiveRoutePasswordError} onChange={(value) => { setSensitiveRoutePassword(value); setSensitiveRoutePasswordError(null); }} />
-                      <button type="button" className="topbar-modal__button" onClick={handleSensitiveRoutePasswordSubmit}>확인</button>
-                    </>
-                  ) : (
-                    renderSecondaryPasswordEditor()
-                  )}
-                </section>
-              </div>
-            </section>
-          </div>
-        ) : null}
         {renderSidebarSettingsModal()}
         {renderLogoutConfirmModal()}
         {permissionNoticeVisible ? (
@@ -2777,7 +2825,7 @@ export function MobileAppShell({
           </div>
         ) : null}
 
-        <div className="app-shell__body">{children}</div>
+        <div className="app-shell__body">{shouldShowSensitiveRouteGate ? renderSensitiveRouteGateContent() : children}</div>
 
         <nav
           className={`${isBottomNavCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}${
