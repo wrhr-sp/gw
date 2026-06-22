@@ -188,15 +188,19 @@ code {
 }
 
 .app-shell__body--refresh {
+  height: 100dvh;
   min-height: 100dvh;
+  overflow: hidden;
   padding: 0;
 }
 
 .refresh-page {
   display: grid;
+  height: 100dvh;
   min-height: 100dvh;
+  overflow: hidden;
   place-items: center;
-  padding: 24px;
+  padding: clamp(12px, 3.2vmin, 24px);
   background:
     radial-gradient(circle at 50% 22%, rgba(219, 234, 254, 0.9), transparent 34%),
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
@@ -205,7 +209,8 @@ code {
 .refresh-page__card {
   display: grid;
   justify-items: center;
-  gap: 18px;
+  gap: clamp(8px, 2.4vmin, 18px);
+  max-height: calc(100dvh - clamp(24px, 6.4vmin, 48px));
   color: #0f172a;
 }
 
@@ -214,7 +219,8 @@ code {
   display: grid;
   place-items: center;
   width: min(840px, calc(100vw - 32px));
-  min-height: clamp(132px, 25vw, 236px);
+  height: clamp(104px, 24vmin, 236px);
+  max-height: calc(100dvh - 84px);
   perspective: 920px;
 }
 
@@ -223,7 +229,7 @@ code {
   align-items: center;
   justify-content: center;
   color: #2f5fb8;
-  font-size: clamp(4.2rem, 18vw, 8.4rem);
+  font-size: clamp(3.4rem, 14vmin, 8.4rem);
   font-weight: 950;
   letter-spacing: -0.12em;
   line-height: 0.86;
