@@ -1896,11 +1896,13 @@ li {
 
 .topbar-settings-gate__card {
   display: flex;
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   aspect-ratio: 4 / 3;
   box-sizing: border-box;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 18px;
   overflow-y: auto;
 }
 
@@ -1913,6 +1915,16 @@ li {
   color: #334155;
   font-size: 0.84rem;
   font-weight: 900;
+}
+
+.pin-field__label--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .pin-field__surface {
@@ -1943,21 +1955,21 @@ li {
 
 .pin-field__slots {
   display: grid;
-  grid-template-columns: repeat(4, 44px);
-  gap: 10px;
+  grid-template-columns: repeat(4, 56px);
+  gap: 12px;
 }
 
 .pin-field__slot {
   display: inline-grid;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   place-items: center;
   box-sizing: border-box;
   border: 1px solid rgba(148, 163, 184, 0.48);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.94);
   color: #1d4ed8;
-  font-size: 1.05rem;
+  font-size: 1.18rem;
   font-weight: 950;
   line-height: 1;
 }

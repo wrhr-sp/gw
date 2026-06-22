@@ -679,6 +679,7 @@ function PinField({
   error,
   autoFocus = false,
   hint,
+  hideLabel = false,
 }: {
   label: string;
   value: string;
@@ -686,12 +687,13 @@ function PinField({
   error?: string | null;
   autoFocus?: boolean;
   hint?: string;
+  hideLabel?: boolean;
 }) {
   const inputId = label.replace(/\s+/g, "-").toLowerCase();
 
   return (
     <div className="pin-field">
-      <label className="pin-field__label" htmlFor={inputId}>
+      <label className={hideLabel ? "pin-field__label pin-field__label--hidden" : "pin-field__label"} htmlFor={inputId}>
         {label}
       </label>
       <div className={error ? "pin-field__surface pin-field__surface--error" : "pin-field__surface"}>
@@ -937,6 +939,7 @@ export function MobileAppShell({
   const [adminSettingsUnlocked, setAdminSettingsUnlocked] = useState(false);
   const [adminSecondaryPassword, setAdminSecondaryPassword] = useState("");
   const [adminSecondaryPasswordError, setAdminSecondaryPasswordError] = useState<string | null>(null);
+  const adminSecondaryPasswordRequestRef = useRef(0);
   const initialSecondaryPasswordState = useMemo(() => buildInitialSecondaryPasswordState(), []);
   const [hasSecondaryPassword, setHasSecondaryPassword] = useState(initialSecondaryPasswordState.hasSecondaryPassword);
   const [secondaryPasswordValue, setSecondaryPasswordValue] = useState(initialSecondaryPasswordState.secondaryPasswordValue);
@@ -1786,14 +1789,52 @@ export function MobileAppShell({
 
     try {
       await verifySecondaryPasswordWithPreviewDb(adminSecondaryPassword);
-    } catch (error) {
-      setAdminSecondaryPasswordError(error instanceof Error ? error.message : "현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+    } catch {
+      setAdminSecondaryPassword("");
+      setAdminSecondaryPasswordError("2차 비밀번호가 맞지 않습니다.");
       return;
     }
 
     setAdminSettingsUnlocked(true);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
+    setSettingsTab("basic");
+  }
+
+  async function handleAdminSecondaryPasswordChange(value: string) {
+    setAdminSecondaryPassword(value);
+    setAdminSecondaryPasswordError(null);
+    const requestId = adminSecondaryPasswordRequestRef.current + 1;
+    adminSecondaryPasswordRequestRef.current = requestId;
+
+    if (value.length !== 4) {
+      return;
+    }
+
+    if (!hasSecondaryPassword) {
+      openSecondaryPasswordDialog();
+      return;
+    }
+
+    try {
+      await verifySecondaryPasswordWithPreviewDb(value);
+    } catch {
+      if (adminSecondaryPasswordRequestRef.current !== requestId) {
+        return;
+      }
+      setAdminSecondaryPassword("");
+      setAdminSecondaryPasswordError("2차 비밀번호가 맞지 않습니다.");
+      return;
+    }
+
+    if (adminSecondaryPasswordRequestRef.current !== requestId) {
+      return;
+    }
+
+    setAdminSettingsUnlocked(true);
+    setAdminSecondaryPassword("");
+    setAdminSecondaryPasswordError(null);
+    setSettingsTab("basic");
   }
 
   async function handleSecondaryPasswordSave() {
@@ -2196,17 +2237,14 @@ export function MobileAppShell({
             <div className="topbar-settings-gate topbar-admin-secondary-gate">
               <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
                 <strong>2차 비밀번호</strong>
-                <p className="topbar-modal-note">{hasSecondaryPassword ? "설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다." : "2차 비밀번호를 설정해주세요."}</p>
                 {hasSecondaryPassword ? (
                   <PinField
                     label="2차 비밀번호"
                     value={adminSecondaryPassword}
                     autoFocus
+                    hideLabel
                     error={adminSecondaryPasswordError}
-                    onChange={(value) => {
-                      setAdminSecondaryPassword(value);
-                      setAdminSecondaryPasswordError(null);
-                    }}
+                    onChange={(value) => void handleAdminSecondaryPasswordChange(value)}
                   />
                 ) : (
                   renderSecondaryPasswordEditor()
@@ -2340,7 +2378,6 @@ export function MobileAppShell({
             <div className="topbar-profile-settings">
               <section className="topbar-modal-card topbar-modal-card--wide topbar-profile-security-card">
                 <strong>2차 비밀번호</strong>
-                <p className="topbar-modal-note">설정 관련 기능과 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
                 {isSecondaryPasswordDialogOpen ? (
                   renderSecondaryPasswordEditor()
                 ) : (
@@ -2442,7 +2479,7 @@ export function MobileAppShell({
             </div>
           ) : null}
 
-          {activeTopbarModal === "settings" || activeTopbarModal === "profile-settings" ? (
+          {(activeTopbarModal === "settings" || activeTopbarModal === "profile-settings") && adminSettingsUnlocked ? (
             <footer className="topbar-modal__footer">
               <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
@@ -2450,10 +2487,6 @@ export function MobileAppShell({
               {activeTopbarModal === "profile-settings" ? (
                 <button type="button" className="topbar-modal__button profile-settings-save-button" onClick={handleProfileSettingsSave}>
                   저장
-                </button>
-              ) : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? (
-                <button type="button" className="topbar-modal__button admin-settings-confirm-button" onClick={handleAdminSecondaryPasswordSubmit}>
-                  관리자설정 확인
                 </button>
               ) : (
                 <button type="button" className="topbar-modal__button unified-settings-save-button" onClick={handleSettingsSave}>
@@ -2629,10 +2662,7 @@ export function MobileAppShell({
                   <TopbarIconButton
                     label="통합설정"
                     iconName="settings"
-                    onClick={() => {
-                      setSettingsTab(canUseAdminSettings ? "admin" : "basic");
-                      setActiveTopbarModal("settings");
-                    }}
+                    onClick={openUnifiedSettings}
                   />
                   <TopbarIconButton label="공지사항" iconName="board" onClick={() => setActiveTopbarModal("notices")} />
                   <TopbarIconButton label="알림" iconName="notification" badgeText={formatUnreadBadge(notificationBadge?.unreadCount ?? null)} onClick={() => setActiveTopbarModal("notifications")} />
