@@ -1,6 +1,6 @@
 const GW_REFRESH_BYPASS_HEADER = "x-gw-refresh-preload";
 const GW_REFRESH_VISIBLE_MS = 900;
-const GW_REFRESH_PRELOAD_TIMEOUT_MS = 2600;
+const GW_REFRESH_PRELOAD_TIMEOUT_MS = 4200;
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -68,23 +68,36 @@ function createRefreshResponse(returnUrl) {
       var returnUrl = ${safeReturnUrl};
       var preloadHeaderName = ${preloadHeaderName};
       var minimumDelay = new Promise(function (resolve) { window.setTimeout(resolve, ${GW_REFRESH_VISIBLE_MS}); });
-      var preload = (async function () {
+      var loadFreshDocument = (async function () {
         var controller = new AbortController();
         var timeout = window.setTimeout(function () { controller.abort(); }, ${GW_REFRESH_PRELOAD_TIMEOUT_MS});
         try {
-          await fetch(returnUrl, {
+          var response = await fetch(returnUrl, {
             cache: "reload",
             credentials: "same-origin",
             headers: { [preloadHeaderName]: "1" },
             signal: controller.signal
           });
+          if (!response.ok) {
+            throw new Error("새로고침 문서 요청 실패");
+          }
+          var html = await response.text();
+          return html;
         } catch (error) {
+          return null;
         } finally {
           window.clearTimeout(timeout);
         }
       })();
-      Promise.all([minimumDelay, preload]).then(function () {
-        window.location.replace(returnUrl);
+      Promise.all([minimumDelay, loadFreshDocument]).then(function (results) {
+        var freshHtml = results[1];
+        if (freshHtml) {
+          document.open("text/html", "replace");
+          document.write(freshHtml);
+          document.close();
+          return;
+        }
+        window.location.reload();
       });
     })();
   </script>
