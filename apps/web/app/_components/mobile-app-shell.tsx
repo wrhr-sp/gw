@@ -2046,6 +2046,40 @@ export function MobileAppShell({
     );
   }
 
+  function renderSecondaryPasswordGateCard({
+    className = "",
+    value,
+    error,
+    autoFocus = false,
+    onChange,
+  }: {
+    className?: string;
+    value: string;
+    error: string | null;
+    autoFocus?: boolean;
+    onChange: (value: string) => void;
+  }) {
+    const cardClassName = ["topbar-modal-card", "topbar-modal-card--wide", "topbar-settings-gate__card", className].filter(Boolean).join(" ");
+
+    return (
+      <section className={cardClassName}>
+        <strong className="secondary-password-gate__title">2차 비밀번호</strong>
+        {!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (
+          <PinField
+            label="2차 비밀번호"
+            value={value}
+            autoFocus={autoFocus}
+            hideLabel
+            error={error}
+            onChange={onChange}
+          />
+        ) : (
+          renderSecondaryPasswordEditor()
+        )}
+      </section>
+    );
+  }
+
   function handleAdminPermissionChange(userId: AdminPermissionUserId, permissionKey: AdminFeaturePermissionKey, enabled: boolean) {
     setAdminPermissionSettings((value) => ({
       ...value,
@@ -2187,21 +2221,13 @@ export function MobileAppShell({
           </div>
         </div>
         <div className="page-shell__content">
-          <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card sensitive-route-gate__card">
-            {!isSecondaryPasswordLoaded ? (
-              <strong>2차 비밀번호</strong>
-            ) : hasSecondaryPassword ? (
-              <PinField
-                label="2차 비밀번호"
-                value={sensitiveRoutePassword}
-                autoFocus
-                error={sensitiveRoutePasswordError}
-                onChange={(value) => void handleSensitiveRoutePasswordChange(value)}
-              />
-            ) : (
-              renderSecondaryPasswordEditor()
-            )}
-          </section>
+          {renderSecondaryPasswordGateCard({
+            className: "sensitive-route-gate__card",
+            value: sensitiveRoutePassword,
+            error: sensitiveRoutePasswordError,
+            autoFocus: true,
+            onChange: (value) => void handleSensitiveRoutePasswordChange(value),
+          })}
         </div>
       </main>
     );
@@ -2388,21 +2414,12 @@ export function MobileAppShell({
 
           {requiresSettingsGate && !adminSettingsUnlocked ? (
             <div className="topbar-settings-gate topbar-admin-secondary-gate">
-              <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
-                <strong>2차 비밀번호</strong>
-                {!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (
-                  <PinField
-                    label="2차 비밀번호"
-                    value={adminSecondaryPassword}
-                    autoFocus
-                    hideLabel
-                    error={adminSecondaryPasswordError}
-                    onChange={(value) => void handleAdminSecondaryPasswordChange(value)}
-                  />
-                ) : (
-                  renderSecondaryPasswordEditor()
-                )}
-              </section>
+              {renderSecondaryPasswordGateCard({
+                value: adminSecondaryPassword,
+                error: adminSecondaryPasswordError,
+                autoFocus: true,
+                onChange: (value) => void handleAdminSecondaryPasswordChange(value),
+              })}
             </div>
           ) : null}
 
