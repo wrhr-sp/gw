@@ -1908,7 +1908,7 @@ li {
 
 .sensitive-route-page-gate .page-shell__content {
   display: grid;
-  min-height: 360px;
+  min-height: max(520px, calc(100dvh - 260px));
   place-items: center;
 }
 

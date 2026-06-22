@@ -798,6 +798,16 @@ function isBranchPortalItem(item: NavItem) {
   return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger" || item.href === "/notifications";
 }
 
+function getSensitiveRoutePageTitle(pathname: string) {
+  if (pathname === "/payroll/me" || pathname.startsWith("/payroll/me/")) return "내 급여명세서 초안";
+  if (pathname === "/payroll" || pathname.startsWith("/payroll/")) return "급여 내부관리";
+  if (pathname === "/employees" || pathname.startsWith("/employees/")) return "직원 목록 / 상태 조회";
+  if (pathname === "/org" || pathname.startsWith("/org/")) return "조직 구조 / 역할 안내";
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "관리자 허브";
+  if (pathname === "/work-items/hr" || pathname.startsWith("/work-items/hr/")) return "HR 업무";
+  return "민감정보 기능";
+}
+
 function getSidebarPortalStorageKey(portalKey: SidebarPortalKey) {
   return `${SIDEBAR_CUSTOM_STORAGE_PREFIX}.${portalKey}`;
 }
@@ -1077,6 +1087,7 @@ export function MobileAppShell({
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const shouldShowSensitiveRouteGate = isCurrentSensitiveRoute && !adminSettingsUnlocked;
+  const currentSensitiveRoutePageTitle = getSensitiveRoutePageTitle(pathname);
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
@@ -2110,7 +2121,7 @@ export function MobileAppShell({
         <div className="page-shell__header">
           <div className="page-shell__headline">
             <div>
-              <h1>2차 비밀번호</h1>
+              <h1>{currentSensitiveRoutePageTitle}</h1>
             </div>
           </div>
         </div>
