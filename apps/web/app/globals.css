@@ -2013,6 +2013,7 @@ li {
   overflow-y: auto;
 }
 
+.secondary-password-gate__title,
 .topbar-settings-gate__card > strong,
 .pin-field__label {
   display: grid;
