@@ -399,6 +399,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-profile-settings,");
     expect(globalCss).toContain(".topbar-admin-settings {");
     expect(globalCss).toContain(".topbar-admin-secondary-gate");
+    expect(globalCss).toContain(".topbar-settings-gate__card {");
+    expect(globalCss).toContain("aspect-ratio: 4 / 3;");
+    expect(globalCss).toContain("justify-content: center;");
     expect(globalCss).toContain(".pin-field__slots");
     expect(globalCss).toContain("grid-template-columns: repeat(4, 44px)");
     expect(globalCss).toContain("width: 44px");
