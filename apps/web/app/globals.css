@@ -1894,6 +1894,92 @@ li {
   width: min(560px, 100%);
 }
 
+.pin-field {
+  display: grid;
+  gap: 8px;
+}
+
+.pin-field__label {
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.pin-field__surface {
+  position: relative;
+  display: inline-grid;
+  width: max-content;
+}
+
+.pin-field__input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 1px;
+  letter-spacing: 0;
+  opacity: 0;
+}
+
+.pin-field__input:focus {
+  outline: none;
+}
+
+.pin-field__slots {
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 10px;
+}
+
+.pin-field__slot {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1d4ed8;
+  font-size: 1.05rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.pin-field__surface:focus-within .pin-field__slot {
+  border-color: rgba(37, 99, 235, 0.62);
+}
+
+.pin-field__surface--error .pin-field__slot {
+  border-color: rgba(185, 28, 28, 0.68);
+}
+
+.pin-field__slot--filled {
+  background: rgba(239, 246, 255, 0.96);
+}
+
+.pin-field__hint,
+.pin-field__error {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.pin-field__hint {
+  color: #64748b;
+}
+
+.pin-field__error {
+  color: #b91c1c;
+}
+
 .secondary-password-editor {
   display: grid;
   gap: 12px;

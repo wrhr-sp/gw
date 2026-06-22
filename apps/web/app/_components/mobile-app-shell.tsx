@@ -1895,8 +1895,8 @@ export function MobileAppShell({
       notifications: "알림",
       "profile-settings": "내정보 설정",
     };
-    const descriptionByModal: Record<TopbarActionKey, string> = {
-      settings: "개인 화면과 서비스 사용 방식을 정합니다.",
+    const descriptionByModal: Record<TopbarActionKey, string | null> = {
+      settings: null,
       notices: "중요 공지사항과 읽지 않은 공지를 빠르게 확인합니다.",
       notifications: "업무 알림과 읽지 않은 항목을 한곳에서 확인합니다.",
       "profile-settings": "내 프로필 표시와 개인 알림·화면 기본 방식을 정합니다.",
@@ -1915,7 +1915,7 @@ export function MobileAppShell({
             <div>
               <span className="topbar-modal__eyebrow">{brandWordmark}</span>
               <h2 id="topbar-modal-title">{titleByModal[activeTopbarModal]}</h2>
-              <p>{descriptionByModal[activeTopbarModal]}</p>
+              {descriptionByModal[activeTopbarModal] ? <p>{descriptionByModal[activeTopbarModal]}</p> : null}
             </div>
             {settingsSaveToastVisible ? (
               <div className={`topbar-modal-toast${settingsSaveToastTone === "no-change" ? " topbar-modal-toast--no-change" : ""}`} role="status" aria-live="polite">
@@ -1938,7 +1938,6 @@ export function MobileAppShell({
                     value={adminSecondaryPassword}
                     autoFocus
                     error={adminSecondaryPasswordError}
-                    hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다."
                     onChange={(value) => {
                       setAdminSecondaryPassword(value);
                       setAdminSecondaryPasswordError(null);
@@ -2450,7 +2449,7 @@ export function MobileAppShell({
                 <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
                   {hasSecondaryPassword ? (
                     <>
-                      <PinField label="2차 비밀번호" value={sensitiveRoutePassword} autoFocus error={sensitiveRoutePasswordError} hint="숫자 4자리만 입력할 수 있으며 화면에는 직접 표시되지 않습니다." onChange={(value) => { setSensitiveRoutePassword(value); setSensitiveRoutePasswordError(null); }} />
+                      <PinField label="2차 비밀번호" value={sensitiveRoutePassword} autoFocus error={sensitiveRoutePasswordError} onChange={(value) => { setSensitiveRoutePassword(value); setSensitiveRoutePasswordError(null); }} />
                       <button type="button" className="topbar-modal__button" onClick={handleSensitiveRoutePasswordSubmit}>확인</button>
                     </>
                   ) : (

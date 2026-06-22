@@ -346,6 +346,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const adminPermissionUsers');
     expect(shellSource).toContain('const adminFeaturePermissions');
     expect(shellSource).toContain('settings: "통합설정"');
+    expect(shellSource).toContain('settings: null');
+    expect(shellSource).not.toContain('개인 화면과 서비스 사용 방식을 정합니다.');
     expect(shellSource).toContain('topbar-modal--integrated-settings');
     expect(shellSource).toContain('기본 설정');
     expect(shellSource).toContain('관리자설정');
@@ -397,6 +399,13 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-profile-settings,");
     expect(globalCss).toContain(".topbar-admin-settings {");
     expect(globalCss).toContain(".topbar-admin-secondary-gate");
+    expect(globalCss).toContain(".pin-field__slots");
+    expect(globalCss).toContain("grid-template-columns: repeat(4, 44px)");
+    expect(globalCss).toContain("width: 44px");
+    expect(globalCss).toContain("height: 44px");
+    expect(globalCss).toContain("border-radius: 12px");
+    expect(globalCss).toContain("caret-color: transparent");
+    expect(globalCss).toContain(".pin-field__surface:focus-within .pin-field__slot");
     expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-admin-settings");
     expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain(".topbar-modal--integrated-settings {");
