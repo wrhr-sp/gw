@@ -969,6 +969,7 @@ export function MobileAppShell({
   const initialSecondaryPasswordState = useMemo(() => buildInitialSecondaryPasswordState(), []);
   const [hasSecondaryPassword, setHasSecondaryPassword] = useState(initialSecondaryPasswordState.hasSecondaryPassword);
   const [secondaryPasswordValue, setSecondaryPasswordValue] = useState(initialSecondaryPasswordState.secondaryPasswordValue);
+  const [isSecondaryPasswordLoaded, setIsSecondaryPasswordLoaded] = useState(false);
   const [isSecondaryPasswordDialogOpen, setIsSecondaryPasswordDialogOpen] = useState(false);
   const [secondaryPasswordForm, setSecondaryPasswordForm] = useState<SecondaryPasswordFormState>(() => buildEmptySecondaryPasswordForm());
   const [secondaryPasswordErrors, setSecondaryPasswordErrors] = useState<Partial<Record<keyof SecondaryPasswordFormState, string>>>({});
@@ -1229,10 +1230,12 @@ export function MobileAppShell({
 
   useEffect(() => {
     if (isLoginRoute || !currentRoleCode) {
+      setIsSecondaryPasswordLoaded(false);
       return;
     }
 
     let active = true;
+    setIsSecondaryPasswordLoaded(false);
     fetch(appRoutes.security.secondaryPassword, { credentials: "same-origin" })
       .then(async (response) => {
         if (!response.ok) {
@@ -1246,11 +1249,13 @@ export function MobileAppShell({
         }
         setHasSecondaryPassword(Boolean(payload.data?.hasSecondaryPassword));
         setSecondaryPasswordValue("");
+        setIsSecondaryPasswordLoaded(true);
       })
       .catch(() => {
         if (active) {
           setHasSecondaryPassword(initialSecondaryPasswordState.hasSecondaryPassword);
           setSecondaryPasswordValue(initialSecondaryPasswordState.secondaryPasswordValue);
+          setIsSecondaryPasswordLoaded(true);
         }
       });
 
@@ -2147,7 +2152,9 @@ export function MobileAppShell({
         </div>
         <div className="page-shell__content">
           <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card sensitive-route-gate__card">
-            {hasSecondaryPassword ? (
+            {!isSecondaryPasswordLoaded ? (
+              <strong>2차 비밀번호</strong>
+            ) : hasSecondaryPassword ? (
               <PinField
                 label="2차 비밀번호"
                 value={sensitiveRoutePassword}
@@ -2347,7 +2354,7 @@ export function MobileAppShell({
             <div className="topbar-settings-gate topbar-admin-secondary-gate">
               <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
                 <strong>2차 비밀번호</strong>
-                {hasSecondaryPassword ? (
+                {!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (
                   <PinField
                     label="2차 비밀번호"
                     value={adminSecondaryPassword}

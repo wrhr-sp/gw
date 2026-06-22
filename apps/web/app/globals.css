@@ -1917,13 +1917,23 @@ li {
 }
 
 .sensitive-route-page-gate {
-  min-height: calc(100dvh - 88px);
+  min-height: 0;
 }
 
 .sensitive-route-page-gate .page-shell__content {
   display: grid;
-  min-height: max(820px, calc(100dvh - 132px));
+  min-height: min(680px, calc(100dvh - 190px));
   place-items: center;
+}
+
+@media (max-height: 760px) {
+  .sensitive-route-page-gate {
+    gap: 14px;
+  }
+
+  .sensitive-route-page-gate .page-shell__content {
+    min-height: min(520px, calc(100dvh - 170px));
+  }
 }
 
 .sensitive-route-gate__card {

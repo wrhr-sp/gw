@@ -344,6 +344,11 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('function getSensitiveRouteKey(pathname: string)');
     expect(shellSource).toContain('const currentSensitiveRoutePageTitle = getSensitiveRoutePageTitle(pathname);');
     expect(shellSource).toContain('const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => new Set());');
+    expect(shellSource).toContain('const [isSecondaryPasswordLoaded, setIsSecondaryPasswordLoaded] = useState(false);');
+    expect(shellSource).toContain('setIsSecondaryPasswordLoaded(false);');
+    expect(shellSource).toContain('setIsSecondaryPasswordLoaded(true);');
+    expect(shellSource).toContain('{!isSecondaryPasswordLoaded ? (');
+    expect(shellSource).toContain('{!isSecondaryPasswordLoaded ? null : hasSecondaryPassword ? (');
     expect(shellSource).toContain('const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);');
     expect(shellSource).toContain('setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));');
     expect(shellSource).toContain('sensitiveRoutePasswordRequestRef.current += 1;');
@@ -435,9 +440,12 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("font-size: 1.42rem;");
     expect(globalCss).toContain("text-align: center;");
     expect(globalCss).toContain(".sensitive-route-page-gate {");
-    expect(globalCss).toContain("min-height: calc(100dvh - 88px);");
+    expect(globalCss).toContain("min-height: 0;");
     expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");
-    expect(globalCss).toContain("min-height: max(820px, calc(100dvh - 132px));");
+    expect(globalCss).toContain("min-height: min(680px, calc(100dvh - 190px));");
+    expect(globalCss).toContain("@media (max-height: 760px)");
+    expect(globalCss).toContain("min-height: min(520px, calc(100dvh - 170px));");
+    expect(globalCss).not.toContain("min-height: max(820px, calc(100dvh - 132px));");
     expect(globalCss).not.toContain("min-height: max(680px, calc(100dvh - 180px));");
     expect(globalCss).not.toContain("min-height: max(520px, calc(100dvh - 260px));");
     expect(globalCss).toContain(".sensitive-route-gate__card");
