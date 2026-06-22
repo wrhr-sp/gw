@@ -228,7 +228,7 @@ export function resolveSecondaryPasswordSave(
   if (mode === "change") {
     if (form.current.length !== 4) {
       nextErrors.current = "현재 2차 비밀번호 4자리를 입력해 주세요.";
-    } else if (form.current !== previousState.secondaryPasswordValue) {
+    } else if (previousState.secondaryPasswordValue && form.current !== previousState.secondaryPasswordValue) {
       nextErrors.current = "현재 2차 비밀번호가 일치하지 않습니다.";
     }
   }
@@ -267,6 +267,29 @@ export function formatUnreadBadge(unreadCount: number | null) {
   }
 
   return unreadCount >= 100 ? "99+" : String(unreadCount);
+}
+
+
+async function readApiErrorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: { message?: string; details?: { field?: string } } };
+    return payload.error?.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function verifySecondaryPasswordWithPreviewDb(pin: string) {
+  const response = await fetch(appRoutes.security.verifySecondaryPassword, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ pin }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, "현재 저장된 2차 비밀번호와 일치하지 않습니다."));
+  }
 }
 
 function getFeatureIconName(href: string, label: string): FeatureIconName | null {
@@ -837,6 +860,7 @@ export function MobileAppShell({
   const [isSecondaryPasswordDialogOpen, setIsSecondaryPasswordDialogOpen] = useState(false);
   const [secondaryPasswordForm, setSecondaryPasswordForm] = useState<SecondaryPasswordFormState>(() => buildEmptySecondaryPasswordForm());
   const [secondaryPasswordErrors, setSecondaryPasswordErrors] = useState<Partial<Record<keyof SecondaryPasswordFormState, string>>>({});
+  const [isSecondaryPasswordSaving, setIsSecondaryPasswordSaving] = useState(false);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsState>(() => ({ ...DEFAULT_GENERAL_SETTINGS }));
   const [adminPermissionSettings, setAdminPermissionSettings] = useState<AdminPermissionState>(() => createDefaultAdminPermissionState());
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>("basic");
@@ -997,6 +1021,39 @@ export function MobileAppShell({
     setSidebarCustomSelections(readStoredSidebarCustomSelections());
     setIsSidebarCustomSelectionLoaded(true);
   }, []);
+
+
+  useEffect(() => {
+    if (isLoginRoute || !currentRoleCode) {
+      return;
+    }
+
+    let active = true;
+    fetch(appRoutes.security.secondaryPassword, { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`secondary-password ${response.status}`);
+        }
+        return (await response.json()) as { ok?: boolean; data?: { hasSecondaryPassword?: boolean; persistence?: string } };
+      })
+      .then((payload) => {
+        if (!active || !payload.ok) {
+          return;
+        }
+        setHasSecondaryPassword(Boolean(payload.data?.hasSecondaryPassword));
+        setSecondaryPasswordValue("");
+      })
+      .catch(() => {
+        if (active) {
+          setHasSecondaryPassword(initialSecondaryPasswordState.hasSecondaryPassword);
+          setSecondaryPasswordValue(initialSecondaryPasswordState.secondaryPasswordValue);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentRoleCode, initialSecondaryPasswordState.hasSecondaryPassword, initialSecondaryPasswordState.secondaryPasswordValue, isLoginRoute]);
 
   useEffect(() => {
     if (isLoginRoute || !currentRoleCode) {
@@ -1499,7 +1556,7 @@ export function MobileAppShell({
     setIsSecondaryPasswordDialogOpen(false);
   }
 
-  function handleSensitiveRoutePasswordSubmit() {
+  async function handleSensitiveRoutePasswordSubmit() {
     if (!hasSecondaryPassword) {
       openSecondaryPasswordDialog();
       return;
@@ -1508,8 +1565,10 @@ export function MobileAppShell({
       setSensitiveRoutePasswordError("2차 비밀번호 4자리를 입력해 주세요.");
       return;
     }
-    if (sensitiveRoutePassword !== secondaryPasswordValue) {
-      setSensitiveRoutePasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+    try {
+      await verifySecondaryPasswordWithPreviewDb(sensitiveRoutePassword);
+    } catch (error) {
+      setSensitiveRoutePasswordError(error instanceof Error ? error.message : "현재 저장된 2차 비밀번호와 일치하지 않습니다.");
       return;
     }
     const targetHref = pendingSensitiveRoute;
@@ -1552,7 +1611,7 @@ export function MobileAppShell({
     }));
   }
 
-  function handleAdminSecondaryPasswordSubmit() {
+  async function handleAdminSecondaryPasswordSubmit() {
     if (!hasSecondaryPassword) {
       openSecondaryPasswordDialog();
       return;
@@ -1563,8 +1622,10 @@ export function MobileAppShell({
       return;
     }
 
-    if (adminSecondaryPassword !== secondaryPasswordValue) {
-      setAdminSecondaryPasswordError("현재 저장된 2차 비밀번호와 일치하지 않습니다.");
+    try {
+      await verifySecondaryPasswordWithPreviewDb(adminSecondaryPassword);
+    } catch (error) {
+      setAdminSecondaryPasswordError(error instanceof Error ? error.message : "현재 저장된 2차 비밀번호와 일치하지 않습니다.");
       return;
     }
 
@@ -1573,7 +1634,7 @@ export function MobileAppShell({
     setAdminSecondaryPasswordError(null);
   }
 
-  function handleSecondaryPasswordSave() {
+  async function handleSecondaryPasswordSave() {
     const saveResult = resolveSecondaryPasswordSave(
       {
         hasSecondaryPassword,
@@ -1587,7 +1648,28 @@ export function MobileAppShell({
       return;
     }
 
-    setSecondaryPasswordValue(saveResult.nextState.secondaryPasswordValue);
+    setIsSecondaryPasswordSaving(true);
+    try {
+      const response = await fetch(appRoutes.security.secondaryPassword, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          currentPin: hasSecondaryPassword ? secondaryPasswordForm.current : undefined,
+          nextPin: secondaryPasswordForm.next,
+          confirmPin: secondaryPasswordForm.confirm,
+        }),
+      });
+      if (!response.ok) {
+        const message = await readApiErrorMessage(response, "2차 비밀번호 저장에 실패했습니다.");
+        setSecondaryPasswordErrors(hasSecondaryPassword ? { current: message } : { next: message });
+        return;
+      }
+    } finally {
+      setIsSecondaryPasswordSaving(false);
+    }
+
+    setSecondaryPasswordValue("");
     setHasSecondaryPassword(saveResult.nextState.hasSecondaryPassword);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
@@ -1631,8 +1713,8 @@ export function MobileAppShell({
           <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeSecondaryPasswordDialog}>
             취소
           </button>
-          <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave}>
-            {mode === "change" ? "변경" : "설정"}
+          <button type="button" className="topbar-modal__button" onClick={handleSecondaryPasswordSave} disabled={isSecondaryPasswordSaving}>
+            {isSecondaryPasswordSaving ? "저장 중" : mode === "change" ? "변경" : "설정"}
           </button>
         </div>
       </div>

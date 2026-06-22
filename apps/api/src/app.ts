@@ -74,6 +74,11 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  secondaryPasswordStatusResponseSchema,
+  secondaryPasswordUpdateRequestSchema,
+  secondaryPasswordUpdateResponseSchema,
+  secondaryPasswordVerifyRequestSchema,
+  secondaryPasswordVerifyResponseSchema,
   noticeListResponseSchema,
   payrollMyPayslipResponseSchema,
   payrollOverviewResponseSchema,
@@ -180,6 +185,11 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
+import {
+  getOperationalSecondaryPasswordStatus,
+  saveOperationalSecondaryPassword,
+  verifySecondaryPasswordPin,
+} from "./lib/operational-security";
 import {
   listOperationalPayrollDrafts,
   listOperationalPayrollInputSnapshots,
@@ -4809,6 +4819,115 @@ app.get(appRoutes.me, (context) => {
       data: {
         session: authResult.auth.session,
         user: authResult.auth.user,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+
+app.get(appRoutes.security.secondaryPassword, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const status = await getOperationalSecondaryPasswordStatus(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+
+  return jsonSuccess(
+    context,
+    secondaryPasswordStatusResponseSchema,
+    {
+      ok: true,
+      data: {
+        hasSecondaryPassword: status?.hasSecondaryPassword ?? false,
+        persistence: status ? "preview-db" : "memory-fallback",
+        updatedAt: status?.updatedAt ?? null,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.security.secondaryPassword, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = secondaryPasswordUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  if (parsed.data.nextPin !== parsed.data.confirmPin) {
+    return jsonError(context, "VALIDATION_ERROR", "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.", 400, { field: "confirmPin" });
+  }
+
+  const status = await getOperationalSecondaryPasswordStatus(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+  if (!status) {
+    return jsonError(context, "NOT_IMPLEMENTED", "preview DB 보안 설정 저장소가 아직 준비되지 않았습니다.", 501, { persistence: "memory-fallback" });
+  }
+
+  if (status.hasSecondaryPassword) {
+    if (!parsed.data.currentPin || !(await verifySecondaryPasswordPin(parsed.data.currentPin, status.hash))) {
+      return jsonError(context, "FORBIDDEN", "현재 2차 비밀번호가 일치하지 않습니다.", 403, { field: "currentPin" });
+    }
+  }
+
+  const saved = await saveOperationalSecondaryPassword(context.env, authResult.auth.user.companyId, authResult.auth.user.id, parsed.data.nextPin);
+  if (!saved) {
+    return jsonError(context, "NOT_IMPLEMENTED", "preview DB 보안 설정 저장소가 아직 준비되지 않았습니다.", 501, { persistence: "memory-fallback" });
+  }
+
+  return jsonSuccess(
+    context,
+    secondaryPasswordUpdateResponseSchema,
+    {
+      ok: true,
+      data: {
+        hasSecondaryPassword: true,
+        persistence: "preview-db",
+        updatedAt: saved.updatedAt,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.security.verifySecondaryPassword, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = secondaryPasswordVerifyRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 4자리를 입력해 주세요.", 400, { issues: parsed.error.issues });
+  }
+
+  const status = await getOperationalSecondaryPasswordStatus(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+  if (!status?.hasSecondaryPassword) {
+    return jsonError(context, "VALIDATION_ERROR", "설정된 2차 비밀번호가 없습니다.", 400, { hasSecondaryPassword: false });
+  }
+
+  if (!(await verifySecondaryPasswordPin(parsed.data.pin, status.hash))) {
+    return jsonError(context, "FORBIDDEN", "현재 저장된 2차 비밀번호와 일치하지 않습니다.", 403, { field: "pin" });
+  }
+
+  return jsonSuccess(
+    context,
+    secondaryPasswordVerifyResponseSchema,
+    {
+      ok: true,
+      data: {
+        verified: true,
+        persistence: "preview-db",
       },
       error: null,
     },

@@ -1,7 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
-const schemaPath = new URL('../db/postgres/migrations/0001_initial_operational_schema.sql', import.meta.url);
-const sql = readFileSync(schemaPath, 'utf8').toLowerCase();
+const migrationsDir = new URL('../db/postgres/migrations/', import.meta.url);
+const sql = readdirSync(migrationsDir)
+  .filter((fileName) => fileName.endsWith('.sql'))
+  .sort()
+  .map((fileName) => readFileSync(new URL(fileName, migrationsDir), 'utf8'))
+  .join('\n')
+  .toLowerCase();
 
 const requiredTables = [
   'companies',
@@ -15,6 +20,7 @@ const requiredTables = [
   'user_roles',
   'role_permissions',
   'auth_sessions',
+  'user_security_settings',
   'home_shortcuts',
   'boards',
   'posts',
@@ -47,6 +53,7 @@ const requiredFragments = [
   'timestamptz',
   'references companies(id)',
   'unique (company_id, login_id)',
+  'unique (company_id, user_id)',
   'unique (bucket, object_key)',
 ];
 

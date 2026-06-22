@@ -4,12 +4,15 @@ import {
   adminUsersListResponseSchema,
   appRoutes,
   authLoginResponseSchema,
+  secondaryPasswordStatusResponseSchema,
+  secondaryPasswordUpdateResponseSchema,
+  secondaryPasswordVerifyResponseSchema,
   errorResponseSchema,
   healthResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
 } from "@gw/shared";
-import { GET as getApi } from "./app/api/[...slug]/route";
+import { GET as getApi, POST as postApi } from "./app/api/[...slug]/route";
 import { GET as getAdminUsers } from "./app/api/admin/users/route";
 import { POST as postLogin } from "./app/api/auth/login/route";
 import { POST as postLogout } from "./app/api/auth/logout/route";
@@ -167,6 +170,66 @@ describe("Phase 55 same-origin API bridge", () => {
     const payload = adminUsersListResponseSchema.parse(await adminUsersResponse.json());
     expect(payload.data.items.length).toBeGreaterThan(0);
     expect(payload.data.audit.action).toBe("admin.user.list.viewed");
+  });
+
+
+  it("keeps secondary password in preview DB contracts without exposing the raw PIN", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+        }),
+      }),
+    );
+    const cookie = loginResponse.headers.get("set-cookie") ?? "";
+
+    const statusResponse = await getApi(
+      new Request("http://localhost/api/security/secondary-password", { headers: { cookie } }),
+    );
+
+    expect(statusResponse.status).toBe(200);
+    const statusPayload = secondaryPasswordStatusResponseSchema.parse(await statusResponse.json());
+    expect(statusPayload.data).toMatchObject({
+      hasSecondaryPassword: false,
+      persistence: "memory-fallback",
+      updatedAt: null,
+    });
+
+    const saveResponse = await postApi(
+      new Request("http://localhost/api/security/secondary-password", {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ nextPin: "2580", confirmPin: "2580" }),
+      }),
+    );
+
+    expect(saveResponse.status).toBe(501);
+    expect(errorResponseSchema.parse(await saveResponse.json()).error.details?.persistence).toBe("memory-fallback");
+
+    expect(() =>
+      secondaryPasswordUpdateResponseSchema.parse({
+        ok: true,
+        data: { hasSecondaryPassword: true, persistence: "preview-db", updatedAt: "2026-06-22T00:00:00.000Z" },
+        error: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      secondaryPasswordVerifyResponseSchema.parse({
+        ok: true,
+        data: { verified: true, persistence: "preview-db" },
+        error: null,
+      }),
+    ).not.toThrow();
   });
 
   it("forwards role and permission catalogs through the same-origin bridge for admin viewers", async () => {

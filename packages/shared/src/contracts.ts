@@ -9,6 +9,10 @@ export const appRoutes = {
     logout: "/api/auth/logout",
   },
   me: "/api/me",
+  security: {
+    secondaryPassword: "/api/security/secondary-password",
+    verifySecondaryPassword: "/api/security/secondary-password/verify",
+  },
   home: {
     shortcuts: "/api/home/shortcuts",
   },
@@ -742,6 +746,39 @@ export const meResponseSchema = successResponseSchema(
   z.object({
     session: sessionSchema,
     user: sessionUserSchema,
+  }),
+);
+
+export const secondaryPasswordStatusResponseSchema = successResponseSchema(
+  z.object({
+    hasSecondaryPassword: z.boolean(),
+    persistence: z.enum(["preview-db", "memory-fallback"]),
+    updatedAt: z.string().datetime().nullable(),
+  }),
+);
+
+export const secondaryPasswordUpdateRequestSchema = z.object({
+  currentPin: z.string().regex(/^\d{4}$/).optional(),
+  nextPin: z.string().regex(/^\d{4}$/),
+  confirmPin: z.string().regex(/^\d{4}$/),
+});
+
+export const secondaryPasswordUpdateResponseSchema = successResponseSchema(
+  z.object({
+    hasSecondaryPassword: z.literal(true),
+    persistence: z.literal("preview-db"),
+    updatedAt: z.string().datetime(),
+  }),
+);
+
+export const secondaryPasswordVerifyRequestSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/),
+});
+
+export const secondaryPasswordVerifyResponseSchema = successResponseSchema(
+  z.object({
+    verified: z.literal(true),
+    persistence: z.literal("preview-db"),
   }),
 );
 
@@ -2031,6 +2068,11 @@ export type AuthLoginRequest = z.infer<typeof authLoginRequestSchema>;
 export type AuthLoginResponse = z.infer<typeof authLoginResponseSchema>;
 export type AuthLogoutResponse = z.infer<typeof authLogoutResponseSchema>;
 export type MeResponse = z.infer<typeof meResponseSchema>;
+export type SecondaryPasswordStatusResponse = z.infer<typeof secondaryPasswordStatusResponseSchema>;
+export type SecondaryPasswordUpdateRequest = z.infer<typeof secondaryPasswordUpdateRequestSchema>;
+export type SecondaryPasswordUpdateResponse = z.infer<typeof secondaryPasswordUpdateResponseSchema>;
+export type SecondaryPasswordVerifyRequest = z.infer<typeof secondaryPasswordVerifyRequestSchema>;
+export type SecondaryPasswordVerifyResponse = z.infer<typeof secondaryPasswordVerifyResponseSchema>;
 export type Company = z.infer<typeof companySchema>;
 export type Employee = z.infer<typeof employeeSchema>;
 export type EmployeeDirectorySummary = z.infer<typeof employeeDirectorySummarySchema>;
