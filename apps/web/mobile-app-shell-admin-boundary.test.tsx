@@ -473,6 +473,11 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("place-items: center;");
     expect(globalCss).toContain("font-size: 1.42rem;");
     expect(globalCss).toContain("text-align: center;");
+    expect(globalCss).toContain(".topbar-settings-gate__card > .secondary-password-gate__title {");
+    expect(globalCss).toContain("margin-bottom: 0;");
+    expect(globalCss.indexOf(".topbar-settings-gate__card > .secondary-password-gate__title {")).toBeGreaterThan(
+      globalCss.indexOf(".topbar-modal-card > strong,")
+    );
     expect(globalCss).toContain(".sensitive-route-page-gate {");
     expect(globalCss).toContain("min-height: 0;");
     expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");

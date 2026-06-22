@@ -2307,6 +2307,19 @@ li {
   letter-spacing: -0.025em;
 }
 
+.topbar-settings-gate__card > .secondary-password-gate__title {
+  display: grid;
+  width: min(260px, 100%);
+  min-height: 36px;
+  margin-bottom: 0;
+  place-items: center;
+  font-size: 1.42rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  text-align: center;
+}
+
 .topbar-modal-card--wide,
 .topbar-profile-settings__hero {
   grid-column: 1 / -1;
