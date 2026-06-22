@@ -1908,6 +1908,10 @@ li {
 
 .topbar-settings-gate__card > strong,
 .pin-field__label {
+  display: grid;
+  width: min(260px, 100%);
+  min-height: 36px;
+  place-items: center;
   color: #0f172a;
   font-size: 1.42rem;
   font-weight: 900;
@@ -1922,7 +1926,12 @@ li {
 
 .sensitive-route-page-gate .page-shell__content {
   display: grid;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   min-height: min(680px, calc(100dvh - 190px));
+  padding: 0;
   place-items: center;
 }
 
@@ -1943,6 +1952,8 @@ li {
 .pin-field {
   display: grid;
   gap: 8px;
+  justify-items: center;
+  width: 100%;
 }
 
 .pin-field__label--hidden {
@@ -1958,6 +1969,7 @@ li {
 .pin-field__surface {
   position: relative;
   display: inline-grid;
+  justify-self: center;
   width: max-content;
 }
 
