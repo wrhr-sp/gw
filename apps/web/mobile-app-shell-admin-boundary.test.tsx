@@ -323,7 +323,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('theme: pickString(source.theme, DEFAULT_GENERAL_SETTINGS.theme)');
     expect(shellSource).toContain('const hasThemeChanges = generalSettings.theme !== savedGeneralSettingsRef.current.theme;');
     expect(shellSource).toContain('hasThemeChanges || hasNotificationChanges || hasAfterHoursChanges || hasSecondaryPasswordFeatureChanges');
+    expect(shellSource).toContain('"profile-settings": null');
     expect(shellSource).not.toContain('내 프로필 표시와 개인 알림·화면 기본 방식을 정합니다.');
+    expect(shellSource).not.toContain('내정보, 알림, 2차비밀번호 범위를 나눠 관리합니다.');
     expect(shellSource).not.toContain('>\n                            내정보 설정\n                          </button>');
     expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", true)');
     expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", false)');
@@ -590,6 +592,17 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain(".topbar-modal--profile-settings {");
     expect(globalCss).not.toContain(".topbar-modal--integrated-settings {\n  width: min(1240px, calc(100vw - 20px));");
     expect(globalCss).toContain(".topbar-settings-tabs");
+    const modalEyebrowStart = globalCss.indexOf(".topbar-modal__eyebrow {");
+    const modalEyebrowEnd = globalCss.indexOf("}", modalEyebrowStart);
+    const modalEyebrowRule = globalCss.slice(modalEyebrowStart, modalEyebrowEnd);
+    expect(modalEyebrowRule).toContain("font-size: clamp(1rem, 1.25vw, 1.16rem);");
+    expect(modalEyebrowRule).not.toContain("font-size: 0.76rem;");
+    expect(globalCss).toContain("gap: 20px;");
+    expect(globalCss).toContain("align-items: flex-end;");
+    expect(globalCss).toContain("padding: 0 0 10px;");
+    expect(globalCss).toContain('.topbar-settings-tabs button[aria-selected="true"]');
+    expect(globalCss).toContain(".topbar-settings-tab--active");
+    expect(globalCss).not.toContain("padding: 0 18px 10px 0;");
     expect(globalCss).toContain(".topbar-admin-user-row--active");
     expect(globalCss).toContain(".logout-confirm-backdrop");
     expect(globalCss).toContain(".logout-confirm-modal");

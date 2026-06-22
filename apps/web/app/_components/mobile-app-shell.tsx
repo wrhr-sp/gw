@@ -2617,7 +2617,7 @@ export function MobileAppShell({
       settings: null,
       notices: "중요 공지사항과 읽지 않은 공지를 빠르게 확인합니다.",
       notifications: "업무 알림과 읽지 않은 항목을 한곳에서 확인합니다.",
-      "profile-settings": "내정보, 알림, 2차비밀번호 범위를 나눠 관리합니다.",
+      "profile-settings": null,
     };
 
     return (
