@@ -1896,7 +1896,7 @@ li {
 
 .topbar-settings-gate__card {
   display: flex;
-  width: min(640px, 100%);
+  width: min(320px, 100%);
   aspect-ratio: 4 / 3;
   box-sizing: border-box;
   flex-direction: column;
@@ -1904,6 +1904,16 @@ li {
   justify-content: center;
   gap: 18px;
   overflow-y: auto;
+}
+
+.sensitive-route-page-gate .page-shell__content {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+}
+
+.sensitive-route-gate__card {
+  margin-inline: auto;
 }
 
 .pin-field {
@@ -2088,11 +2098,6 @@ li {
 .topbar-admin-settings__admin-rights {
   display: grid;
   gap: 12px;
-}
-
-.topbar-modal--sensitive-gate .topbar-modal__button {
-  justify-self: end;
-  margin-top: 14px;
 }
 
 .topbar-admin-settings__users,

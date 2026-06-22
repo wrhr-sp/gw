@@ -326,7 +326,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('hideLabel');
     expect(shellSource).toContain('cursor ? "pin-field__slot--cursor" : ""');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
-    expect(shellSource).toContain('2차 비밀번호를 설정해주세요.');
+    expect(shellSource).not.toContain('2차 비밀번호를 설정해주세요.');
     expect(shellSource).not.toContain('설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다.');
     expect(shellSource).not.toContain('설정 관련 기능과 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.');
     expect(shellSource).not.toContain('관리자설정 확인');
@@ -338,6 +338,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('renderSecondaryPasswordEditor');
     expect(shellSource).toContain('type AdminSettingsPanelKey = "access" | "admin-rights"');
     expect(shellSource).toContain('민감정보 2차 비밀번호 확인');
+    expect(shellSource).toContain('shouldShowSensitiveRouteGate ? renderSensitiveRouteGateContent() : children');
+    expect(shellSource).toContain('function renderSensitiveRouteGateContent()');
+    expect(shellSource).toContain('className="page-shell sensitive-route-page-gate"');
+    expect(shellSource).toContain('onChange={(value) => void handleSensitiveRoutePasswordChange(value)}');
+    expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
+    expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
@@ -409,9 +415,12 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-admin-secondary-gate");
     expect(globalCss).toContain(".topbar-settings-gate__card {");
     expect(globalCss).toContain("aspect-ratio: 4 / 3;");
-    expect(globalCss).toContain("width: min(640px, 100%);");
+    expect(globalCss).toContain("width: min(320px, 100%);");
+    expect(globalCss).not.toContain("width: min(640px, 100%);");
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("justify-content: center;");
+    expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");
+    expect(globalCss).toContain(".sensitive-route-gate__card");
     expect(globalCss).toContain(".pin-field__label--hidden");
     expect(globalCss).toContain(".pin-field__slots");
     expect(globalCss).toContain("grid-template-columns: repeat(4, 56px)");
