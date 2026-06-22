@@ -13,7 +13,6 @@ type NotificationBadgeState = {
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
-const APP_REFRESH_RETURN_PATH_STORAGE_KEY = "gw.appRefreshReturnPath";
 
 type SidebarPortalKey = "general" | "management" | "branch";
 
@@ -1418,33 +1417,6 @@ export function MobileAppShell({
     };
   }, []);
 
-  useEffect(() => {
-    if (isLoginRoute || isRefreshRoute || typeof window === "undefined") {
-      return;
-    }
-
-    function handleAppRefreshShortcut(event: KeyboardEvent) {
-      const key = event.key.toLowerCase();
-      const isKeyboardRefresh = event.key === "F5" || ((event.ctrlKey || event.metaKey) && key === "r");
-      if (!isKeyboardRefresh) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}` || "/dashboard";
-      try {
-        window.sessionStorage.setItem(APP_REFRESH_RETURN_PATH_STORAGE_KEY, returnPath);
-      } catch {
-        // sessionStorage가 막힌 환경에서는 새로고침 화면만 보여주고 기본 홈으로 복귀한다.
-      }
-      router.push("/refresh" as never);
-    }
-
-    window.addEventListener("keydown", handleAppRefreshShortcut, true);
-    return () => window.removeEventListener("keydown", handleAppRefreshShortcut, true);
-  }, [isLoginRoute, isRefreshRoute, router]);
 
   useEffect(() => {
     const urlStatusHiddenSelector = [
