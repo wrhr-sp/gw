@@ -1,4 +1,5 @@
 import type { Permission, RoleCode, SessionUser } from "@gw/shared";
+import { permissionCodeSchema } from "@gw/shared";
 import { createOperationalSql, type PostgresEnv } from "./postgres";
 
 export type OperationalLoginInput = {
@@ -51,6 +52,17 @@ function parseRoleCodes(value: unknown): RoleCode[] {
   return parsed.length > 0 ? parsed : ["EMPLOYEE"];
 }
 
+function parsePermissionCodes(value: unknown): Permission["code"][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => permissionCodeSchema.safeParse(item))
+    .filter((result): result is { success: true; data: Permission["code"] } => result.success)
+    .map((result) => result.data);
+}
+
 export async function authenticateOperationalUser(
   env: PostgresEnv | undefined,
   input: OperationalLoginInput,
@@ -75,11 +87,14 @@ export async function authenticateOperationalUser(
       u.email,
       coalesce(e.full_name, u.display_name) as full_name,
       u.password_hash,
-      coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes
+      coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes,
+      coalesce(json_agg(distinct p.code) filter (where p.code is not null), '[]'::json) as permission_codes
     from users u
     left join employees e on e.user_id = u.id and e.company_id = u.company_id
     left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
     left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
+    left join role_permissions rp on rp.role_id = r.id
+    left join permissions p on p.id = rp.permission_id
     where u.status = 'active'
       and (
         (${loginId} <> '' and lower(u.login_id) = ${loginId})
@@ -98,6 +113,7 @@ export async function authenticateOperationalUser(
         full_name: string;
         password_hash: string;
         role_codes: unknown;
+        permission_codes: unknown;
       }
     | undefined;
 
@@ -106,7 +122,8 @@ export async function authenticateOperationalUser(
   }
 
   const parsedRoleCodes = parseRoleCodes(row.role_codes);
-  const permissions = [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
+  const dbPermissionCodes = parsePermissionCodes(row.permission_codes);
+  const permissions = dbPermissionCodes.length > 0 ? dbPermissionCodes : [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
 
   return {
     primaryRoleCode: parsedRoleCodes[0] ?? "EMPLOYEE",

@@ -229,6 +229,18 @@ const adminConsoleRoutePrefixes = ["/admin", "/admin/users", "/admin/policies"] 
 const adminAuditRoutePrefixes = ["/admin/audit-logs"] as const;
 const selfServiceSensitiveRoutePrefixes = ["/payroll/me"] as const;
 
+const featureRoutePermissionPrefixes = [
+  { prefixes: ["/attendance"], permissions: ["attendance.read"] },
+  { prefixes: ["/leave"], permissions: ["leave.request", "leave.approve"] },
+  { prefixes: ["/approvals"], permissions: ["approval.document.read", "approval.document.write", "approval.document.approve"] },
+  { prefixes: ["/boards", "/posts"], permissions: ["board.notice.read", "board.post.write", "board.comment.write", "board.manage"] },
+  { prefixes: ["/documents"], permissions: ["document.space.read", "document.file.read", "document.file.write"] },
+  { prefixes: ["/employees", "/org"], permissions: ["employee.read", "department.read"] },
+  { prefixes: ["/payroll/me"], permissions: ["payroll.payslip.read_self"] },
+  { prefixes: ["/payroll"], permissions: ["payroll.read", "payroll.manage", "payroll.review"] },
+  { prefixes: ["/management", "/work-items"], permissions: ["work_item.read", "work_item.manage", "work_item.review"] },
+] as const satisfies readonly { prefixes: readonly string[]; permissions: readonly PermissionCode[] }[];
+
 const sensitiveWorkbenchRoutes = [
   {
     kind: "uat_workspace",
@@ -351,6 +363,11 @@ export function hasSensitiveWorkbenchRouteAccess(pathname: string, viewer: Viewe
 export function hasHomeShortcutRouteAccess(pathname: string, viewer: ViewerAccess) {
   if (getAdminRouteKind(pathname)) {
     return hasAdminRouteAccess(pathname, viewer);
+  }
+
+  const featureRoute = featureRoutePermissionPrefixes.find((route) => isMatchingRoute(pathname, route.prefixes));
+  if (featureRoute && !featureRoute.permissions.some((permission) => viewer.permissions.includes(permission))) {
+    return false;
   }
 
   if (getSensitiveWorkbenchRouteKind(pathname)) {

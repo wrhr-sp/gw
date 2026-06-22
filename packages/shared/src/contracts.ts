@@ -31,6 +31,7 @@ export const appRoutes = {
   admin: {
     invites: "/api/admin/invites",
     users: "/api/admin/users",
+    permissions: "/api/admin/permissions",
     policies: "/api/admin/policies",
     policyDocuments: "/api/admin/policies/documents",
     policyBoards: "/api/admin/policies/boards",
@@ -702,7 +703,7 @@ export const sessionSchema = z.object({
   id: z.string(),
   status: z.enum(["authenticated", "signed_out"]),
   expiresAt: z.string().datetime(),
-  placeholder: z.literal(true),
+  placeholder: z.boolean(),
 });
 
 export const sessionUserSchema = z.object({
@@ -804,6 +805,33 @@ export const userPreferencesUpdateRequestSchema = z.object({
 export const userPreferencesUpdateResponseSchema = successResponseSchema(
   z.object({
     preferences: userPreferencesSchema,
+    persistence: z.literal("preview-db"),
+    updatedAt: z.string().datetime(),
+  }),
+);
+
+export const adminPermissionUserIdSchema = z.enum(["admin", "hr_manager", "branch_manager", "employee"]);
+export const adminFeaturePermissionKeySchema = z.enum(["attendance", "leave", "approvals", "boards", "documents", "employees", "payroll", "management"]);
+export const adminPermissionStateSchema = z.record(
+  adminPermissionUserIdSchema,
+  z.record(adminFeaturePermissionKeySchema, z.boolean()),
+);
+
+export const adminPermissionSettingsResponseSchema = successResponseSchema(
+  z.object({
+    settings: adminPermissionStateSchema,
+    persistence: z.enum(["preview-db", "fallback"]),
+    updatedAt: z.string().datetime().nullable(),
+  }),
+);
+
+export const adminPermissionSettingsUpdateRequestSchema = z.object({
+  settings: adminPermissionStateSchema,
+});
+
+export const adminPermissionSettingsUpdateResponseSchema = successResponseSchema(
+  z.object({
+    settings: adminPermissionStateSchema,
     persistence: z.literal("preview-db"),
     updatedAt: z.string().datetime(),
   }),
@@ -2103,6 +2131,12 @@ export type SecondaryPasswordVerifyResponse = z.infer<typeof secondaryPasswordVe
 export type UserPreferencesResponse = z.infer<typeof userPreferencesResponseSchema>;
 export type UserPreferencesUpdateRequest = z.infer<typeof userPreferencesUpdateRequestSchema>;
 export type UserPreferencesUpdateResponse = z.infer<typeof userPreferencesUpdateResponseSchema>;
+export type AdminPermissionUserId = z.infer<typeof adminPermissionUserIdSchema>;
+export type AdminFeaturePermissionKey = z.infer<typeof adminFeaturePermissionKeySchema>;
+export type AdminPermissionState = z.infer<typeof adminPermissionStateSchema>;
+export type AdminPermissionSettingsResponse = z.infer<typeof adminPermissionSettingsResponseSchema>;
+export type AdminPermissionSettingsUpdateRequest = z.infer<typeof adminPermissionSettingsUpdateRequestSchema>;
+export type AdminPermissionSettingsUpdateResponse = z.infer<typeof adminPermissionSettingsUpdateResponseSchema>;
 export type Company = z.infer<typeof companySchema>;
 export type Employee = z.infer<typeof employeeSchema>;
 export type EmployeeDirectorySummary = z.infer<typeof employeeDirectorySummarySchema>;

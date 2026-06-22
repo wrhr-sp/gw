@@ -1,6 +1,6 @@
 "use client";
 
-import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type RoleCode } from "@gw/shared";
+import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type Permission, type RoleCode } from "@gw/shared";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -290,6 +290,19 @@ async function saveUserPreferencesToPreviewDb(preferences: Record<string, unknow
 
   if (!response.ok) {
     throw new Error(await readApiErrorMessage(response, "사용자 설정 저장에 실패했습니다."));
+  }
+}
+
+async function saveAdminPermissionSettingsToPreviewDb(settings: AdminPermissionState) {
+  const response = await fetch(appRoutes.admin.permissions, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ settings }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, "권한 설정 저장에 실패했습니다."));
   }
 }
 
@@ -855,6 +868,7 @@ type MobileAppShellProps = {
   offlineGuidance: OfflineGuidance;
   showMobileMenuShortcut: boolean;
   currentRoleCode: RoleCode | null;
+  currentPermissions?: Permission["code"][] | null;
 };
 
 type GeneralSettingsState = {
@@ -901,6 +915,7 @@ export function MobileAppShell({
   offlineGuidance,
   showMobileMenuShortcut,
   currentRoleCode,
+  currentPermissions,
 }: MobileAppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -1056,7 +1071,10 @@ export function MobileAppShell({
   const nextPortalHref = isManagementPortal ? "/home" : "/management";
   const branchPortalLabel = "지점관리포털";
   const branchPortalHref = "/work-items/branch";
-  const canOpenRoute = (href: string) => !currentRoleCode || hasHomeShortcutRouteAccess(href, getViewerAccessForRoleCode(currentRoleCode));
+  const viewerAccess = currentRoleCode
+    ? { roleCodes: [currentRoleCode], permissions: currentPermissions ?? [...getViewerAccessForRoleCode(currentRoleCode).permissions] }
+    : null;
+  const canOpenRoute = (href: string) => !viewerAccess || hasHomeShortcutRouteAccess(href, viewerAccess);
   const sidebarCustomizationItems = useMemo(
     () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
     [visibleDesktopMenuSections],
@@ -1130,6 +1148,34 @@ export function MobileAppShell({
           setIsBottomNavCollapsed(preferences.bottomNavCollapsed);
           setIsBottomNavPreferenceLoaded(true);
         }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [currentRoleCode, isLoginRoute]);
+
+  useEffect(() => {
+    if (isLoginRoute || !currentRoleCode || !adminSettingsRoleCodes.has(currentRoleCode)) {
+      return;
+    }
+
+    let active = true;
+    fetch(appRoutes.admin.permissions, { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`admin-permissions ${response.status}`);
+        }
+        return (await response.json()) as { ok?: boolean; data?: { settings?: AdminPermissionState; persistence?: string } };
+      })
+      .then((payload) => {
+        if (!active || !payload.ok || !payload.data?.settings) {
+          return;
+        }
+        const nextAdminPermissionSettings = normalizeAdminPermissionSettings(payload.data.settings);
+        setAdminPermissionSettings(nextAdminPermissionSettings);
+        savedAdminPermissionSettingsRef.current = nextAdminPermissionSettings;
       })
       .catch(() => undefined);
 
@@ -1857,6 +1903,9 @@ export function MobileAppShell({
           generalSettings,
           adminPermissionSettings,
         });
+        if (hasAdminPermissionChanges) {
+          await saveAdminPermissionSettingsToPreviewDb(adminPermissionSettings);
+        }
       } catch {
         // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
       }
