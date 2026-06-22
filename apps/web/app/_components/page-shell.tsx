@@ -3,6 +3,7 @@ import React, { type ReactNode } from "react";
 type PageShellProps = {
   backHref?: string | null;
   backLabel?: string;
+  titleHref?: string | null;
   eyebrow?: string;
   title: string;
   description?: string;
@@ -13,18 +14,27 @@ type PageShellProps = {
 export function PageShell({
   eyebrow,
   title,
+  titleHref,
   description,
   children,
   actions,
   backHref = "/home",
 }: PageShellProps) {
+  const resolvedTitleHref = titleHref === undefined ? backHref : titleHref;
+
   return (
     <main className="page-shell">
       <div className="page-shell__header">
         {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
         <div className="page-shell__headline">
           <div>
-            <h1><a className="page-shell__title-link" href={backHref ?? "/home"}>{title}</a></h1>
+            <h1>
+              {resolvedTitleHref ? (
+                <a className="page-shell__title-link" href={resolvedTitleHref}>{title}</a>
+              ) : (
+                title
+              )}
+            </h1>
             {description ? <p>{description}</p> : null}
           </div>
           {actions ? <div className="page-shell__actions">{actions}</div> : null}

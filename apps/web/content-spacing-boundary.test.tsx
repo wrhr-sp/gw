@@ -41,6 +41,7 @@ describe("feature page content spacing baseline", () => {
 
     expect(forbiddenHtml).toContain('class="page-shell"');
     expect(sectionHtml).toContain('class="page-shell"');
+    expect(sectionHtml).not.toContain('class="page-shell__title-link"');
     expect(forbiddenHtml).not.toContain("max-width:720px");
     expect(sectionHtml).not.toContain("max-width:860px");
     expect(forbiddenHtml).not.toContain("padding:48px 24px");
