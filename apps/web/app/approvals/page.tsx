@@ -96,6 +96,7 @@ export default function ApprovalsPage() {
     <PageShell
       eyebrow="Phase 41 일상 협업 결재 도입"
       title="전자결재"
+      titleHref="/approvals"
       description="기안자 lane, 승인자 lane, 운영 정책 lane 을 분리해 보여 주고, same-origin API 기준으로 기안·승인·반려 preview 와 self-approval/replay guardrail 을 직접 확인할 수 있게 정리했습니다."
       actions={
         <div className="action-row">

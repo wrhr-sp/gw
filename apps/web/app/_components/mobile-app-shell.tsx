@@ -2188,81 +2188,24 @@ export function MobileAppShell({
             </div>
           ) : null}
 
-          {activeTopbarModal === "profile-settings" ? (
-            <div className="topbar-profile-settings">
-              <section className="topbar-modal-card topbar-profile-settings__hero">
-                <ProfileAvatarIcon className="topbar-profile-settings__avatar" />
-                <div>
-                  <strong>프로필 이미지</strong>
-                  <div className="topbar-profile-settings__buttons">
-                    <button type="button">이미지 변경</button>
-                    <button type="button">기본 이미지</button>
-                  </div>
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>기본 표시 정보</strong>
-                <div className="topbar-modal-field-grid">
-                  <SettingField label="이름" value={profileState.fullName} />
-                  <SettingField label="직책" value={profileState.positionLabel} />
-                  <SettingField label="부서" value={profileState.departmentName} />
-                  <SettingField label="이메일" value={profileState.email} />
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>알림 받을 기능 선택</strong>
-                <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="공지사항 알림" checked={notificationPreferences.notices} onChange={(checked) => setNotificationPreference("notices", checked)} />
-                  <SettingToggle label="전자결재 알림" checked={notificationPreferences.approvals} onChange={(checked) => setNotificationPreference("approvals", checked)} />
-                  <SettingToggle label="댓글/멘션 알림" checked={notificationPreferences.mentions} onChange={(checked) => setNotificationPreference("mentions", checked)} />
-                  <SettingToggle label="메일/메신저 알림" checked={notificationPreferences.mail} onChange={(checked) => setNotificationPreference("mail", checked)} />
-                  <SettingToggle label="근태/휴가 알림" checked={notificationPreferences.attendance} onChange={(checked) => setNotificationPreference("attendance", checked)} />
-                </div>
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide topbar-modal-card--after-hours">
-                <strong>퇴근 후 알림 설정</strong>
-                <p className="topbar-modal-note">업무시간 이후에도 받을 알림을 기능별로 자세히 선택합니다.</p>
-                <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--after-hours">
-                  <SettingToggle label="긴급 공지사항" description="전사 긴급 공지와 확인 요청만 받습니다." checked={afterHoursPreferences.urgentNotices} onChange={(checked) => setAfterHoursPreference("urgentNotices", checked)} />
-                  <SettingToggle label="전자결재 승인 요청" description="내 결재 순서가 온 문서만 받습니다." checked={afterHoursPreferences.approvalRequests} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalRequests", checked)} />
-                  <SettingToggle label="전자결재 반려/보완 요청" description="내 기안 문서의 상태 변경만 받습니다." checked={afterHoursPreferences.approvalFeedback} disabled={!notificationPreferences.approvals} onChange={(checked) => setAfterHoursPreference("approvalFeedback", checked)} />
-                  <SettingToggle label="메신저/댓글 멘션" description="나를 직접 지정한 멘션만 받습니다." checked={afterHoursPreferences.mentions} disabled={!notificationPreferences.mentions} onChange={(checked) => setAfterHoursPreference("mentions", checked)} />
-                  <SettingToggle label="근태/휴가 승인 결과" description="신청 결과와 정정 요청 결과만 받습니다." checked={afterHoursPreferences.attendanceResults} disabled={!notificationPreferences.attendance} onChange={(checked) => setAfterHoursPreference("attendanceResults", checked)} />
-                  <SettingToggle label="메일 중요 표시" description="중요 표시된 사내 메일만 받습니다." checked={afterHoursPreferences.importantMail} disabled={!notificationPreferences.mail} onChange={(checked) => setAfterHoursPreference("importantMail", checked)} />
-                </div>
-                {!notificationPreferences.notices ? <p className="topbar-modal-note">긴급 공지는 일반 공지 알림과 별도로 받을 수 있습니다.</p> : null}
-              </section>
-              <section className="topbar-modal-card topbar-modal-card--wide">
-                <strong>개인정보 표시 범위</strong>
-                <div className="topbar-modal-toggle-grid">
-                  <SettingToggle label="이메일 표시" disabled />
-                  <SettingToggle label="내선번호 표시" disabled />
-                  <SettingToggle label="프로필 사진 표시" />
-                  <SettingToggle label="휴대폰 번호 표시" defaultChecked={false} />
-                  <SettingToggle label="상태 메시지 표시" />
-                </div>
-              </section>
-            </div>
-          ) : null}
-
           {activeTopbarModal === "settings" || activeTopbarModal === "profile-settings" ? (
             <footer className="topbar-modal__footer">
               <button type="button" className="topbar-modal__button topbar-modal__button--ghost" onClick={closeTopbarModal}>
                 취소
               </button>
-              <button
-                type="button"
-                className="topbar-modal__button"
-                onClick={
-                  activeTopbarModal === "profile-settings"
-                    ? handleProfileSettingsSave
-                    : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked
-                      ? handleAdminSecondaryPasswordSubmit
-                      : handleSettingsSave
-                }
-              >
-                {activeTopbarModal === "settings" && settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? "관리자설정 확인" : "저장"}
-              </button>
+              {activeTopbarModal === "profile-settings" ? (
+                <button type="button" className="topbar-modal__button profile-settings-save-button" onClick={handleProfileSettingsSave}>
+                  저장
+                </button>
+              ) : settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked ? (
+                <button type="button" className="topbar-modal__button admin-settings-confirm-button" onClick={handleAdminSecondaryPasswordSubmit}>
+                  관리자설정 확인
+                </button>
+              ) : (
+                <button type="button" className="topbar-modal__button unified-settings-save-button" onClick={handleSettingsSave}>
+                  저장
+                </button>
+              )}
             </footer>
           ) : null}
         </section>

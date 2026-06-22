@@ -309,6 +309,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('function handleProfileSettingsSave()');
     expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", true)');
     expect(shellSource).toContain('showScopedSettingsSaveToast("profile-settings", false)');
+    expect(shellSource).toContain('className="topbar-modal__button profile-settings-save-button"');
+    expect(shellSource).toContain('className="topbar-modal__button admin-settings-confirm-button"');
+    expect(shellSource).toContain('className="topbar-modal__button unified-settings-save-button"');
     expect(shellSource).toContain('function showSettingsSaveToast(message: string');
     expect(shellSource).not.toContain('function handleTopbarSettingsSave');
     expect(resolveSettingsSaveToast("integrated-settings", true)).toEqual({ message: "통합설정이 적용되었습니다.", tone: "success" });
@@ -327,7 +330,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
     expect(shellSource).toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');
-    expect(shellSource).toContain('? handleAdminSecondaryPasswordSubmit');
+    expect(shellSource).not.toContain('? handleAdminSecondaryPasswordSubmit');
+    expect((shellSource.match(/isProfileSettings && adminSettingsUnlocked/g) ?? []).length).toBe(1);
+    expect(shellSource).not.toContain('activeTopbarModal === "profile-settings" ? (\n            <div className="topbar-profile-settings">');
     expect(shellSource).toContain('topbar-modal-toast--no-change');
     expect(shellSource).toContain('checked={generalSettings.startScreen === item}');
     expect(shellSource).toContain('checked={generalSettings.density === item}');
