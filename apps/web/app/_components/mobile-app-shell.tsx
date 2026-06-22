@@ -2,7 +2,7 @@
 
 import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type Permission, type RoleCode } from "@gw/shared";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
 
@@ -998,8 +998,12 @@ export function MobileAppShell({
   const savedAdminPermissionSettingsRef = useRef<AdminPermissionState>(createDefaultAdminPermissionState());
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
+  const [isAppRefreshOverlayVisible, setIsAppRefreshOverlayVisible] = useState(false);
+  const [isAppRefreshPending, startAppRefreshTransition] = useTransition();
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const permissionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appRefreshStartedAtRef = useRef(0);
+  const appRefreshOverlayTimerRef = useRef<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
@@ -1417,6 +1421,58 @@ export function MobileAppShell({
     };
   }, []);
 
+  useEffect(() => {
+    if (isLoginRoute || isRefreshRoute || typeof window === "undefined") {
+      return;
+    }
+
+    function beginAppRefresh() {
+      if (appRefreshOverlayTimerRef.current) {
+        window.clearTimeout(appRefreshOverlayTimerRef.current);
+        appRefreshOverlayTimerRef.current = null;
+      }
+      appRefreshStartedAtRef.current = window.performance.now();
+      setIsAppRefreshOverlayVisible(true);
+      startAppRefreshTransition(() => {
+        router.refresh();
+      });
+    }
+
+    function handleAppRefreshShortcut(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      const isKeyboardRefresh = event.key === "F5" || ((event.ctrlKey || event.metaKey) && key === "r");
+      if (!isKeyboardRefresh) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      beginAppRefresh();
+    }
+
+    window.addEventListener("keydown", handleAppRefreshShortcut, true);
+    return () => window.removeEventListener("keydown", handleAppRefreshShortcut, true);
+  }, [isLoginRoute, isRefreshRoute, router, startAppRefreshTransition]);
+
+  useEffect(() => {
+    if (!isAppRefreshOverlayVisible || isAppRefreshPending || typeof window === "undefined") {
+      return;
+    }
+
+    const elapsed = window.performance.now() - appRefreshStartedAtRef.current;
+    const remaining = Math.max(900 - elapsed, 180);
+    appRefreshOverlayTimerRef.current = window.setTimeout(() => {
+      setIsAppRefreshOverlayVisible(false);
+      appRefreshOverlayTimerRef.current = null;
+    }, remaining);
+
+    return () => {
+      if (appRefreshOverlayTimerRef.current) {
+        window.clearTimeout(appRefreshOverlayTimerRef.current);
+        appRefreshOverlayTimerRef.current = null;
+      }
+    };
+  }, [isAppRefreshOverlayVisible, isAppRefreshPending]);
 
   useEffect(() => {
     const urlStatusHiddenSelector = [
@@ -2646,6 +2702,31 @@ export function MobileAppShell({
     window.open(new URL(href, window.location.origin).toString(), "_blank", "noopener,noreferrer");
   }
 
+  function renderAppRefreshOverlay() {
+    if (!isAppRefreshOverlayVisible) {
+      return null;
+    }
+
+    return (
+      <div className="app-refresh-overlay" role="status" aria-live="polite" aria-label="새로고침 중">
+        <section className="refresh-page refresh-page--overlay">
+          <div className="refresh-page__card">
+            <div className="refresh-page__flag" aria-label={brandWordmark}>
+              <span className="refresh-page__flag-word" aria-hidden="true">
+                {brandWordmark.split("").map((letter, index) => (
+                  <span key={`${letter}-${index}`} className="refresh-page__flag-letter" style={{ "--wave-index": index } as React.CSSProperties}>
+                    {letter}
+                  </span>
+                ))}
+              </span>
+            </div>
+            <p>새로고침 중</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   if (isLoginRoute) {
     return <div className="app-shell__body app-shell__body--login">{children}</div>;
   }
@@ -2869,6 +2950,7 @@ export function MobileAppShell({
         ) : null}
 
         <div className="app-shell__body">{shouldShowSensitiveRouteGate ? renderSensitiveRouteGateContent() : children}</div>
+        {renderAppRefreshOverlay()}
 
         <nav
           className={`${isBottomNavCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}${
