@@ -2362,12 +2362,8 @@ li {
 }
 
 @media (min-width: 1024px) {
-  .topbar-modal--integrated-settings .topbar-modal-choice-group,
   .topbar-modal--integrated-settings .topbar-modal-toggle-grid,
-  .topbar-modal--integrated-settings .topbar-modal-field-grid,
-  .topbar-modal--profile-settings .topbar-modal-choice-group,
-  .topbar-modal--profile-settings .topbar-modal-toggle-grid,
-  .topbar-modal--profile-settings .topbar-modal-field-grid {
+  .topbar-modal--profile-settings .topbar-modal-toggle-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

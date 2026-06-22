@@ -607,6 +607,10 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-modal-toggle-grid");
     expect(globalCss).toContain(".topbar-modal--profile-settings .topbar-modal-toggle-grid");
     expect(globalCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
+    expect(globalCss).not.toContain(".topbar-modal--integrated-settings .topbar-modal-choice-group");
+    expect(globalCss).not.toContain(".topbar-modal--profile-settings .topbar-modal-choice-group");
+    expect(globalCss).not.toContain(".topbar-modal--integrated-settings .topbar-modal-field-grid,");
+    expect(globalCss).not.toContain(".topbar-modal--profile-settings .topbar-modal-field-grid");
     expect(globalCss).toContain(".topbar-admin-user-row--active");
     expect(globalCss).toContain(".logout-confirm-backdrop");
     expect(globalCss).toContain(".logout-confirm-modal");
