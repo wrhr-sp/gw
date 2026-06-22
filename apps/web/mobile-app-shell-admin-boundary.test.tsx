@@ -353,6 +353,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain('value={sensitiveRoutePassword}\n                autoFocus\n                hideLabel\n                error={sensitiveRoutePasswordError}');
     expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
     expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
+    expect(shellSource).not.toContain('F5');
+    expect(shellSource).not.toContain('ctrlKey');
+    expect(shellSource).not.toContain('metaKey');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
@@ -428,8 +431,14 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain("width: min(640px, 100%);");
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("justify-content: center;");
+    expect(globalCss).toContain(".topbar-settings-gate__card > strong,");
+    expect(globalCss).toContain("font-size: 1.42rem;");
+    expect(globalCss).toContain("text-align: center;");
+    expect(globalCss).toContain(".sensitive-route-page-gate {");
+    expect(globalCss).toContain("min-height: calc(100dvh - 88px);");
     expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");
-    expect(globalCss).toContain("min-height: max(680px, calc(100dvh - 180px));");
+    expect(globalCss).toContain("min-height: max(820px, calc(100dvh - 132px));");
+    expect(globalCss).not.toContain("min-height: max(680px, calc(100dvh - 180px));");
     expect(globalCss).not.toContain("min-height: max(520px, calc(100dvh - 260px));");
     expect(globalCss).toContain(".sensitive-route-gate__card");
     expect(globalCss).toContain(".pin-field__label--hidden");
