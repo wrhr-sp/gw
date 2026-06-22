@@ -358,9 +358,15 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain('value={sensitiveRoutePassword}\n                autoFocus\n                hideLabel\n                error={sensitiveRoutePasswordError}');
     expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
     expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
-    expect(shellSource).not.toContain('F5');
-    expect(shellSource).not.toContain('ctrlKey');
-    expect(shellSource).not.toContain('metaKey');
+    expect(shellSource).toContain('const APP_REFRESH_RETURN_PATH_STORAGE_KEY = "gw.appRefreshReturnPath";');
+    expect(shellSource).toContain('const isRefreshRoute = pathname === "/refresh";');
+    expect(shellSource).toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
+    expect(shellSource).toContain('event.key === "F5"');
+    expect(shellSource).toContain('event.ctrlKey || event.metaKey');
+    expect(shellSource).toContain('window.sessionStorage.setItem(APP_REFRESH_RETURN_PATH_STORAGE_KEY, returnPath);');
+    expect(shellSource).toContain('router.push("/refresh" as never);');
+    expect(shellSource).toContain('window.addEventListener("keydown", handleAppRefreshShortcut, true);');
+    expect(shellSource).toContain('app-shell__body app-shell__body--refresh');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
@@ -424,6 +430,12 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain("sidebar-custom-panel");
 
     expect(globalCss).toContain('.app-shell [data-auto-scrollbar="true"]');
+    expect(globalCss).toContain("overscroll-behavior-y: none;");
+    expect(globalCss).toContain(".app-shell__body--refresh");
+    expect(globalCss).toContain(".refresh-page {");
+    expect(globalCss).toContain(".refresh-page__flag span");
+    expect(globalCss).toContain("animation: refresh-logo-wave 1.15s ease-in-out infinite;");
+    expect(globalCss).toContain("@keyframes refresh-logo-wave");
     expect(globalCss).toContain(".app-shell__main,");
     expect(globalCss).toContain(".desktop-sidebar__nav,");
     expect(globalCss).toContain(".topbar-modal__grid,");
