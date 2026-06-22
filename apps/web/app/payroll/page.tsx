@@ -3,7 +3,6 @@ import { appRoutes } from "@gw/shared";
 
 import { PayrollOverviewLiveSection } from "../_components/phase35-live-sections";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
-import { SensitiveContentPinGate } from "../_components/sensitive-content-pin-gate";
 
 const overviewCards = [
   {
@@ -65,7 +64,6 @@ export default function PayrollPage() {
       backLabel="경영업무로"
       eyebrow="Phase 43 급여 내부관리 도입완성"
       title="급여 내부관리"
-      titleHref="/payroll"
       description="`/management` 아래에서 급여 프로필, 기간 상태, self-only 명세서 preview 연결을 읽는 내부관리 화면입니다. 실지급 확정, 외부 신고, 은행 이체는 이 화면에서 열지 않습니다."
       actions={
         <div className="pill-row">
@@ -75,65 +73,60 @@ export default function PayrollPage() {
         </div>
       }
     >
-      <SensitiveContentPinGate
-        title="민감 정보 확인"
-        description="급여 프로필, 기간 상태, 지급 preview 같은 민감 콘텐츠는 콘텐츠 영역 안에서 2차 비밀번호 4자리를 먼저 확인한 뒤 보여 줍니다."
-      >
-        <SurfaceSection title="실사용 급여 패널" description="급여 overview, 기간 상세, line item preview 를 실제 same-origin API 응답으로 먼저 확인합니다.">
-          <PayrollOverviewLiveSection />
-        </SurfaceSection>
+      <SurfaceSection title="실사용 급여 패널" description="급여 overview, 기간 상세, line item preview 를 실제 same-origin API 응답으로 먼저 확인합니다.">
+        <PayrollOverviewLiveSection />
+      </SurfaceSection>
 
-        <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="일반 직원 홈과 섞지 않고, 내부 급여 운영자가 확인할 읽기 중심 구조를 먼저 맞춥니다.">
-          <div className="grid-auto-compact">
-            {overviewCards.map((card) => (
-              <article key={card.title} className="route-card">
-                <h3>{card.title}</h3>
-                <p>{card.summary}</p>
-                <p className="card-note">{card.detail}</p>
-                <a href={card.href}>{card.href}</a>
-              </article>
-            ))}
-          </div>
-        </SurfaceSection>
+      <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="일반 직원 홈과 섞지 않고, 내부 급여 운영자가 확인할 읽기 중심 구조를 먼저 맞춥니다.">
+        <div className="grid-auto-compact">
+          {overviewCards.map((card) => (
+            <article key={card.title} className="route-card">
+              <h3>{card.title}</h3>
+              <p>{card.summary}</p>
+              <p className="card-note">{card.detail}</p>
+              <a href={card.href}>{card.href}</a>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-        <SurfaceSection title="역할별 공개 범위" description="본사 급여 담당 / 지점 관리자 / 일반 직원이 어디까지 보는지 같은 화면에서 분리해 설명합니다.">
-          <div className="grid-auto-compact">
-            {roleCards.map((card) => (
-              <article key={card.role} className="info-card">
-                <Pill tone="accent">{card.role}</Pill>
-                <strong>{card.scope}</strong>
-                <p>{card.note}</p>
-              </article>
-            ))}
-          </div>
-        </SurfaceSection>
+      <SurfaceSection title="역할별 공개 범위" description="본사 급여 담당 / 지점 관리자 / 일반 직원이 어디까지 보는지 같은 화면에서 분리해 설명합니다.">
+        <div className="grid-auto-compact">
+          {roleCards.map((card) => (
+            <article key={card.role} className="info-card">
+              <Pill tone="accent">{card.role}</Pill>
+              <strong>{card.scope}</strong>
+              <p>{card.note}</p>
+            </article>
+          ))}
+        </div>
+      </SurfaceSection>
 
-        <SurfaceSection title="수당·공제 항목 skeleton" description="급여 line item 을 어디서 설명할지 먼저 고정합니다.">
-          <ul className="summary-list">
-            {lineItemExamples.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </SurfaceSection>
+      <SurfaceSection title="수당·공제 항목 skeleton" description="급여 line item 을 어디서 설명할지 먼저 고정합니다.">
+        <ul className="summary-list">
+          {lineItemExamples.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
 
-        <SurfaceSection title="연결 API / 화면" description="관리자 내부관리 화면과 구성원 self-only 화면을 같은 기준으로 확인합니다.">
-          <ul className="summary-list">
-            <li><a href={appRoutes.payroll.overview}>{appRoutes.payroll.overview}</a> — 급여 개요/기간/역할별 공개 범위</li>
-            <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 / draft / line items</li>
-            <li><a href={appRoutes.payroll.myPayslip}>{appRoutes.payroll.myPayslip}</a> — 본인 급여명세서 초안 API</li>
-            <li><a href="/payroll/me">/payroll/me</a> — 구성원용 명세서 화면 skeleton</li>
-            <li><a href="/management">/management</a> — 급여·세무·노무·법무·감사 내부관리 허브</li>
-          </ul>
-        </SurfaceSection>
+      <SurfaceSection title="연결 API / 화면" description="관리자 내부관리 화면과 구성원 self-only 화면을 같은 기준으로 확인합니다.">
+        <ul className="summary-list">
+          <li><a href={appRoutes.payroll.overview}>{appRoutes.payroll.overview}</a> — 급여 개요/기간/역할별 공개 범위</li>
+          <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 / draft / line items</li>
+          <li><a href={appRoutes.payroll.myPayslip}>{appRoutes.payroll.myPayslip}</a> — 본인 급여명세서 초안 API</li>
+          <li><a href="/payroll/me">/payroll/me</a> — 구성원용 명세서 화면 skeleton</li>
+          <li><a href="/management">/management</a> — 급여·세무·노무·법무·감사 내부관리 허브</li>
+        </ul>
+      </SurfaceSection>
 
-        <SurfaceSection title="guardrail" description="급여 모듈에서 이번 단계에 하지 않는 일" muted>
-          <ul className="summary-list">
-            {guardrails.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </SurfaceSection>
-      </SensitiveContentPinGate>
+      <SurfaceSection title="guardrail" description="급여 모듈에서 이번 단계에 하지 않는 일" muted>
+        <ul className="summary-list">
+          {guardrails.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
     </PageShell>
   );
 }

@@ -97,22 +97,20 @@ while true; do
   elif [[ -n "$stale" ]]; then
     echo "[$now] 오래 대기 중인 ready 카드 감지:"
     echo "$stale"
-    echo "[$now] serial graph guard 실행(max worker=1)"
-    if ! dispatch_output="$(./scripts/gw-serial-graph-watch.sh --once --board "$BOARD" 2>&1)"; then
+    echo "[$now] dispatcher 실행(max=${MAX_DISPATCH})"
+    if ! dispatch_output="$(kanban_call dispatch --max "$MAX_DISPATCH" 2>&1)"; then
       echo "$dispatch_output"
       if is_corrupt_kanban_error "$dispatch_output"; then
         echo "[$now] Kanban DB 손상 신호 감지. ${CORRUPT_BACKOFF_SECONDS}s 동안 장기 대기"
         sleep "$CORRUPT_BACKOFF_SECONDS"
         continue
       fi
-      echo "[$now] serial graph guard 실행 실패; 다음 주기에 재시도"
+      echo "[$now] dispatcher 실행 실패; 다음 주기에 재시도"
     else
       echo "$dispatch_output"
     fi
   else
     echo "[$now] 오래 대기 중인 ready 카드 없음"
-    # running/ready가 모두 비었고 parent가 완료된 scheduled/todo가 있으면 1개만 재개한다.
-    ./scripts/gw-serial-graph-watch.sh --once --board "$BOARD" || true
   fi
   if [[ "$rc" -eq 75 ]]; then
     echo "[$now] Kanban DB 손상 신호 감지. ${CORRUPT_BACKOFF_SECONDS}s 동안 장기 대기"

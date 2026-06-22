@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { adminAuditLogListResponseSchema, appRoutes, listNotificationsResponseSchema } from "@gw/shared";
 
 vi.mock("../src/lib/postgres", async () => {
@@ -34,22 +34,9 @@ vi.mock("../src/lib/postgres", async () => {
   };
 });
 
-async function getFreshApp() {
-  vi.resetModules();
-  const mod = await import("../src/app");
-  return mod.app;
-}
+import { app } from "../src/app";
 
-afterEach(() => {
-  vi.resetModules();
-});
-
-afterAll(() => {
-  vi.doUnmock("../src/lib/postgres");
-  vi.resetModules();
-});
-
-async function loginAndGetCookie(app: Awaited<ReturnType<typeof getFreshApp>>, role = "COMPANY_ADMIN") {
+async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   const response = await app.request(appRoutes.auth.login, {
     method: "POST",
     headers: {
@@ -72,8 +59,7 @@ async function loginAndGetCookie(app: Awaited<ReturnType<typeof getFreshApp>>, r
 
 describe("phase34 degraded DB route fallback", () => {
   it("falls back to placeholder notifications instead of returning 500", async () => {
-    const app = await getFreshApp();
-    const { cookie } = await loginAndGetCookie(app, "COMPANY_ADMIN");
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.notifications, {
       headers: { cookie },
@@ -86,8 +72,7 @@ describe("phase34 degraded DB route fallback", () => {
   });
 
   it("falls back to placeholder audit logs instead of returning 500", async () => {
-    const app = await getFreshApp();
-    const { cookie } = await loginAndGetCookie(app, "AUDITOR");
+    const { cookie } = await loginAndGetCookie("AUDITOR");
 
     const response = await app.request(appRoutes.admin.auditLogs, {
       headers: { cookie },

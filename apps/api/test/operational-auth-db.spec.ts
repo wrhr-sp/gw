@@ -5,8 +5,6 @@ import {
   adminUsersListResponseSchema,
   appRoutes,
   authLoginResponseSchema,
-  boardCommentCreateResponseSchema,
-  boardPostCreateResponseSchema,
   boardResponseSchema,
   documentSpaceResponseSchema,
   listBranchesResponseSchema,
@@ -17,7 +15,6 @@ import {
   listNotificationsResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
-  readReceiptCreateResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 
@@ -142,29 +139,6 @@ describe("operational DB-backed auth", () => {
     expect(branchesPayload.data.items.map((item) => item.id)).toEqual(
       expect.arrayContaining(["branch_hq", "branch_hotel_seoul"]),
     );
-
-    if (!sql) {
-      throw new Error("DATABASE_URL_PREVIEW is required");
-    }
-    await sql`
-      insert into notifications (id, company_id, user_id, title, body, notification_type, read_at, created_at)
-      values (
-        'notification_admin_seed_1',
-        'company_demo',
-        'user_company_admin',
-        '운영 DB 알림 seed',
-        '운영 DB smoke 확인용 읽지 않은 알림입니다.',
-        'system',
-        null,
-        now()
-      )
-      on conflict (id) do update
-      set read_at = null,
-          title = excluded.title,
-          body = excluded.body,
-          notification_type = excluded.notification_type,
-          created_at = excluded.created_at
-    `;
 
     const notificationsResponse = await app.request(appRoutes.notifications, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
     expect(notificationsResponse.status).toBe(200);
@@ -329,156 +303,6 @@ describe("operational DB-backed auth", () => {
       );
     } finally {
       await cleanupCrossCompanySlugRows(boardSlug, spaceSlug);
-    }
-  });
-
-  runWhenDbConfigured("maps board collaboration audit resource types back to board_policy in admin audit logs", async () => {
-    if (!sql) {
-      throw new Error("DATABASE_URL_PREVIEW is required");
-    }
-
-    const adminCookie = await login();
-    const auditBoardSlug = `audit-mapping-${Date.now()}`;
-    const auditBoardId = `board_company_demo_${auditBoardSlug}`;
-
-    await sql`
-      delete from read_receipts
-      where company_id = 'company_demo'
-        and target_id in (select id from posts where board_id in (select id from boards where code like 'audit-mapping-%'))
-    `;
-    await sql`
-      delete from comments
-      where company_id = 'company_demo'
-        and post_id in (select id from posts where board_id in (select id from boards where code like 'audit-mapping-%'))
-    `;
-    await sql`
-      delete from posts
-      where company_id = 'company_demo'
-        and board_id in (select id from boards where code like 'audit-mapping-%')
-    `;
-    await sql`
-      delete from audit_logs
-      where company_id = 'company_demo'
-        and (
-          resource_id = ${auditBoardId}
-          or resource_id in (select id from boards where code like 'audit-mapping-%')
-        )
-    `;
-    await sql`delete from boards where id = ${auditBoardId}`;
-
-    try {
-      const createBoardResponse = await app.request(
-        appRoutes.boards.boards,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            cookie: adminCookie,
-          },
-          body: JSON.stringify({
-            boardType: "general",
-            name: "운영 DB audit 매핑 게시판",
-            slug: auditBoardSlug,
-            visibility: "company",
-            isNoticeOnly: false,
-          }),
-        },
-        { DATABASE_URL: databaseUrl },
-      );
-      expect(createBoardResponse.status).toBe(201);
-      const createBoardPayload = boardResponseSchema.parse(await createBoardResponse.json());
-
-      const createPostResponse = await app.request(
-        appRoutes.boards.posts(createBoardPayload.data.board.id),
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            cookie: adminCookie,
-          },
-          body: JSON.stringify({
-            title: `운영 DB audit 매핑 점검 ${Date.now()}`,
-            bodyPreview: "게시글 감사 로그 targetType 확인",
-            isNotice: false,
-          }),
-        },
-        { DATABASE_URL: databaseUrl },
-      );
-      expect(createPostResponse.status).toBe(201);
-      const createPostPayload = boardPostCreateResponseSchema.parse(await createPostResponse.json());
-
-      const createCommentResponse = await app.request(
-        appRoutes.boards.comments(createPostPayload.data.post.id),
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            cookie: adminCookie,
-          },
-          body: JSON.stringify({
-            body: "댓글 감사 로그 targetType 확인",
-          }),
-        },
-        { DATABASE_URL: databaseUrl },
-      );
-      expect(createCommentResponse.status).toBe(201);
-      const createCommentPayload = boardCommentCreateResponseSchema.parse(await createCommentResponse.json());
-
-      const createReceiptResponse = await app.request(
-        appRoutes.readReceipts,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            cookie: adminCookie,
-          },
-          body: JSON.stringify({
-            targetType: "post",
-            targetId: createPostPayload.data.post.id,
-          }),
-        },
-        { DATABASE_URL: databaseUrl },
-      );
-      expect(createReceiptResponse.status).toBe(201);
-      readReceiptCreateResponseSchema.parse(await createReceiptResponse.json());
-
-      const auditLogsResponse = await app.request(
-        appRoutes.admin.auditLogs,
-        { headers: { cookie: adminCookie } },
-        { DATABASE_URL: databaseUrl },
-      );
-      expect(auditLogsResponse.status).toBe(200);
-      const auditLogsPayload = adminAuditLogListResponseSchema.parse(await auditLogsResponse.json());
-
-      expect(
-        auditLogsPayload.data.items.find(
-          (item) => item.action === "board.post.create" && item.targetId === createPostPayload.data.post.id,
-        )?.targetType,
-      ).toBe("board_policy");
-      expect(
-        auditLogsPayload.data.items.find(
-          (item) => item.action === "board.comment.create" && item.targetId === createCommentPayload.data.comment.id,
-        )?.targetType,
-      ).toBe("board_policy");
-      expect(
-        auditLogsPayload.data.items.find(
-          (item) => item.action === "read_receipt.create" && item.targetId === createPostPayload.data.post.id,
-        )?.targetType,
-      ).toBe("board_policy");
-    } finally {
-      await sql`
-        delete from read_receipts
-        where company_id = 'company_demo'
-          and target_id in (select id from posts where board_id = ${auditBoardId})
-      `;
-      await sql`
-        delete from comments
-        where company_id = 'company_demo'
-          and post_id in (select id from posts where board_id = ${auditBoardId})
-      `;
-      await sql`delete from posts where board_id = ${auditBoardId}`;
-      await sql`delete from audit_logs where company_id = 'company_demo' and resource_id = ${auditBoardId}`;
-      await sql`delete from boards where id = ${auditBoardId}`;
     }
   });
 });

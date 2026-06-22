@@ -15,7 +15,7 @@ describe("Phase 14 home/login flow", () => {
     expect(html).toContain("/attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees");
     expect(html).toContain("관리자 검토 흐름");
     expect(html).toContain(
-      "/dashboard 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
+      "/home 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
     );
     expect(html).toContain("역할별 첫 진입점");
     expect(html).toContain("인사 관리자");
@@ -37,31 +37,30 @@ describe("Phase 14 home/login flow", () => {
   });
 
   it("keeps post-login routing aligned with the role guidance copy", () => {
-    expect(getPostLoginRoute("COMPANY_ADMIN")).toBe("/dashboard");
-    expect(getPostLoginRoute("HR_ADMIN")).toBe("/dashboard");
-    expect(getPostLoginRoute("MANAGER")).toBe("/dashboard");
-    expect(getPostLoginRoute("EMPLOYEE")).toBe("/dashboard");
+    expect(getPostLoginRoute("COMPANY_ADMIN")).toBe("/home");
+    expect(getPostLoginRoute("HR_ADMIN")).toBe("/home");
+    expect(getPostLoginRoute("MANAGER")).toBe("/home");
+    expect(getPostLoginRoute("EMPLOYEE")).toBe("/home");
     expect(getPostLoginRoute("AUDITOR")).toBe("/admin/audit-logs");
   });
 
-  it("keeps the login page as a plain login-only entry without UAT guidance", () => {
+  it("keeps the login page focused on the integrated UAT admin login form", () => {
     const html = renderToStaticMarkup(<LoginPage />);
 
-    expect(html).toContain("We&#x27;reHere");
-    expect(html).not.toContain("아이디와 비밀번호를 입력해 그룹웨어에 로그인하세요.");
+    expect(html).toContain("We&#x27;reHere Login");
     expect(html).toContain("아이디");
     expect(html).toContain("비밀번호");
     expect(html).toContain("아이디 저장");
     expect(html).toContain("자동 로그인");
     expect(html).toContain(">로그인<");
+    expect(html).not.toContain("로그인 전용 진입");
+    expect(html).not.toContain("아이디와 비밀번호를 입력해 그룹웨어로 들어갑니다.");
+    expect(html).not.toContain("로그아웃이 완료되었습니다.");
     expect(html).not.toContain("UAT 역할 선택");
-    expect(html).not.toContain("선택한 역할");
-    expect(html).not.toContain("도움말 / UAT 체크 시작");
-    expect(html).not.toContain("통합 UAT 체크 화면");
-    expect(html).not.toContain("admin / 1234");
-    expect(html).not.toContain("dev/test/UAT");
-    expect(html).not.toContain("/dashboard");
+    expect(html).not.toContain("로그인 후 첫 화면");
+    expect(html).not.toContain("/home");
     expect(html).not.toContain("/admin/audit-logs");
+    expect(html).not.toContain("admin / 1234");
     expect(html).not.toContain("/api/auth/login");
   });
 });

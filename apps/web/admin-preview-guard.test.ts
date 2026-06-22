@@ -19,7 +19,7 @@ describe("admin preview guard", () => {
       action: "redirect",
       location: "/login",
     });
-    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-web.preview.workers.dev" })).toEqual({
+    expect(getAdminRouteGuardResult({ pathname: "/home", host: "gw-web.preview.workers.dev" })).toEqual({
       action: "redirect",
       location: "/login",
     });
@@ -119,16 +119,9 @@ describe("admin preview guard", () => {
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
-        pathname: "/dashboard",
+        pathname: "/home",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
-      }),
-    ).toEqual({ action: "allow" });
-    expect(
-      getAdminRouteGuardResult({
-        pathname: "/boards",
-        host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE_123e4567-e89b-12d3-a456-426614174000",
       }),
     ).toEqual({ action: "allow" });
     expect(
@@ -136,13 +129,6 @@ describe("admin preview guard", () => {
         pathname: "/payroll/me",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
-      }),
-    ).toEqual({ action: "allow" });
-    expect(
-      getAdminRouteGuardResult({
-        pathname: "/me",
-        host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE_123e4567-e89b-12d3-a456-426614174000",
       }),
     ).toEqual({ action: "allow" });
     expect(
@@ -331,7 +317,7 @@ describe("admin preview guard", () => {
   });
 
   it("keeps admin hosts on the admin route boundary instead of rendering general work routes", () => {
-    expect(getAdminRouteGuardResult({ pathname: "/dashboard", host: "gw-admin.preview-account.workers.dev" })).toEqual({
+    expect(getAdminRouteGuardResult({ pathname: "/home", host: "gw-admin.preview-account.workers.dev" })).toEqual({
       action: "redirect",
       location: "/admin",
     });

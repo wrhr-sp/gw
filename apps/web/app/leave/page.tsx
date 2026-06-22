@@ -71,7 +71,6 @@ export default function LeavePage() {
     <PageShell
       eyebrow="Phase 42 휴가 기본 업무 도입"
       title="휴가"
-      titleHref="/leave"
       description="직원이 잔여 확인 → 신청 → 상태 확인으로 바로 이어가고, 승인자 lane 은 따로 분리해 same-origin API 기준 preview 를 직접 눌러볼 수 있게 정리했습니다."
       actions={
         <div className="action-row">

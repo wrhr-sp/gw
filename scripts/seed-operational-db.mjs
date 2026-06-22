@@ -3,25 +3,13 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from 'node:util';
-import { maskDatabaseUrl, redactDatabaseUrls, resolveOperationalDbTarget } from './operational-db-env.mjs';
 
-const { positionals, values } = parseArgs({
-  allowPositionals: true,
-  options: {
-    allowPreviewFallback: { type: 'boolean', default: false },
-  },
-});
-
-const target = (positionals[0] || 'preview').toLowerCase();
-const databaseTarget = resolveOperationalDbTarget(process.env, target, {
-  allowPreviewFallback: values.allowPreviewFallback,
-});
-const envName = databaseTarget.target.toUpperCase();
-const url = databaseTarget.url;
+const target = process.argv[2] || 'preview';
+const envName = target.toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'PREVIEW';
+const url = process.env[`DATABASE_URL_${envName}`] || (envName === 'PRODUCTION' ? process.env.DATABASE_URL : '');
 
 if (!url) {
-  console.error(databaseTarget.error);
+  console.error(`DATABASE_URL_${envName} is not set`);
   process.exit(1);
 }
 
@@ -245,7 +233,7 @@ values
   ('shortcut_me', 'company_demo', null, 'me', '내 정보', '/me', 'user', true, 60, 'active', ${sqlString(now)}, ${sqlString(now)}),
   ('shortcut_admin_users_company_admin', 'company_demo', 'user_company_admin', 'admin_users', '관리자 사용자', '/admin/users', 'shield', false, 110, 'active', ${sqlString(now)}, ${sqlString(now)}),
   ('shortcut_audit_logs_company_admin', 'company_demo', 'user_company_admin', 'audit_logs', '감사 로그', '/admin/audit-logs', 'history', false, 120, 'active', ${sqlString(now)}, ${sqlString(now)})
-on conflict (id) do update set company_id = excluded.company_id, user_id = excluded.user_id, code = excluded.code, label = excluded.label, href = excluded.href, icon = excluded.icon, is_fixed = excluded.is_fixed, sort_order = excluded.sort_order, status = excluded.status, updated_at = excluded.updated_at;
+on conflict (company_id, user_id, code) do update set label = excluded.label, href = excluded.href, icon = excluded.icon, is_fixed = excluded.is_fixed, sort_order = excluded.sort_order, status = excluded.status, updated_at = excluded.updated_at;
 
 insert into notifications (id, company_id, user_id, title, body, notification_type, read_at, created_at)
 values
@@ -271,10 +259,8 @@ const result = spawnSync('psql', [url, '-v', 'ON_ERROR_STOP=1', '-f', file], { e
 rmSync(dir, { recursive: true, force: true });
 
 if (result.status !== 0) {
-  console.error(redactDatabaseUrls(result.stderr, url, process.env.DATABASE_URL));
+  console.error(result.stderr.replace(/postgresql:\/\/\S+/g, '[REDACTED_URL]'));
   process.exit(result.status ?? 1);
 }
 
-console.log(
-  `초기 관리자 seed 완료: target=${envName}, source_env=${databaseTarget.source}, preview_fallback=${databaseTarget.usedFallback}, database=${maskDatabaseUrl(url)}, loginId=admin, mustChangePassword=true`,
-);
+console.log(`초기 관리자 seed 완료: target=${envName}, loginId=admin, mustChangePassword=true`);

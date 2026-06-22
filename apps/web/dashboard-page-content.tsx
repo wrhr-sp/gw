@@ -74,9 +74,8 @@ export function DashboardPageContent({
       backHref="/menu"
       backLabel="전체 메뉴로"
       eyebrow="오늘 할 일 시작 홈"
-      title="홈 / 대시보드"
-      titleHref="/dashboard"
-      description="`/dashboard` 를 오늘 할 일 시작 홈으로 고정하고, 근태·휴가·결재 같은 기본 업무를 먼저 읽은 뒤 공지·문서·내 정보·조회 흐름으로 이어지게 정리한 홈 화면입니다."
+      title="홈"
+      description="`/home`을 오늘 할 일 시작 홈으로 고정하고, 근태·휴가·결재 같은 기본 업무를 먼저 읽은 뒤 공지·문서·내 정보·조회 흐름으로 이어지게 정리한 홈 화면입니다."
       actions={
         <div className="pill-row">
           {dashboardTopBadges.map((badge) => (
@@ -87,16 +86,16 @@ export function DashboardPageContent({
         </div>
       }
     >
-      <SurfaceSection title="현재 세션 / 홈-경영업무 분리" description="로그인 뒤 홈은 /dashboard 로 고정하고, 직원 기본 업무와 민감 운영 업무를 다른 레인으로 분리해 확인합니다.">
+      <SurfaceSection title="현재 세션 / 홈-경영업무 분리" description="로그인 뒤 홈은 /home 로 고정하고, 직원 기본 업무와 민감 운영 업무를 다른 레인으로 분리해 확인합니다.">
         <div className="grid-auto-compact">
           <article className="info-card">
             <Pill tone="accent">현재 세션</Pill>
             <h3>{viewerRoleCode ?? "로그인 전"}</h3>
-            <p>로그인 성공 시 topbar 로그아웃과 함께 gw_session 세션을 유지하고, 홈은 /dashboard 에서 계속 확인합니다.</p>
+            <p>로그인 성공 시 topbar 로그아웃과 함께 gw_session 세션을 유지하고, 홈은 /home 에서 계속 확인합니다.</p>
           </article>
           <article className="info-card">
             <Pill>일반 홈</Pill>
-            <h3>/dashboard</h3>
+            <h3>/home</h3>
             <p>근태, 휴가, 전자결재, 게시판, 문서, 내 정보 같은 일반 직원 기본 업무 시작점입니다.</p>
           </article>
           <article className="info-card">
@@ -110,17 +109,17 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="홈 역할 안내"
-        description="`/dashboard` 를 오늘 업무 시작 홈으로, `/menu` 를 전체 기능 탐색 메뉴로 분리하고 운영 관리자 화면과 섞이지 않게 안내합니다."
+        description="`/home` 를 오늘 업무 시작 홈으로, `/menu` 를 전체 기능 탐색 메뉴로 분리하고 운영 관리자 화면과 섞이지 않게 안내합니다."
       >
         <div className="grid-auto-compact">
           <article className="info-card">
             <Pill tone="accent">추천 순서</Pill>
-            <h3>/dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</h3>
+            <h3>/home → /attendance → /leave → /approvals → /boards → /documents → /me</h3>
             <p>오늘 할 일부터 협업, 마무리 확인까지 실제 파일럿 기록 순서로 다시 읽습니다.</p>
           </article>
           <article className="info-card">
             <Pill>분리 원칙</Pill>
-            <h3>/dashboard 는 홈, /menu 는 탐색, 운영 허브는 별도 레인</h3>
+            <h3>/home 는 홈, /menu 는 탐색, 운영 허브는 별도 레인</h3>
             <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인이며, `/menu` 도 전체 탐색 화면으로만 읽혀야 합니다.</p>
           </article>
           <article className="info-card">
@@ -149,7 +148,7 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="홈 바로가기"
-        description="`/dashboard` 와 `/menu` 가 같이 쓰는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
+        description="`/home` 와 `/menu` 가 같이 쓰는 회사 공통 고정 바로가기와 권한 기반 사용자 전용 바로가기를 실제 API 기준으로 나눠 보여 줍니다."
       >
         <HomeShortcutsPanel
           homeShortcuts={homeShortcuts}
@@ -183,13 +182,13 @@ export function DashboardPageContent({
           <article className="info-card">
             <h3>일반 직원 · 팀장 확인 순서</h3>
             <p>같은 정보구조를 따라 홈 → 근태 → 휴가 → 결재 → 협업 → 내 정보 순서로 확인합니다.</p>
-            <p className="card-note">/login → /dashboard → /attendance → /leave → /approvals → /boards → /documents → /me</p>
+            <p className="card-note">/login → /home → /attendance → /leave → /approvals → /boards → /documents → /me</p>
           </article>
           {viewerRoleCode && canViewManagementEntry ? (
             <article className="info-card">
               <h3>관리자 계정·정책 확인 순서</h3>
               <p>일반 홈과 운영 허브를 섞지 않고 계정관리, 정책, 감사, 내부관리 화면을 별도 레인으로 이어 봅니다.</p>
-              <p className="card-note">/login → /dashboard → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
+              <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
             </article>
           ) : null}
           {viewerRoleCode === "AUDITOR" ? (
@@ -234,7 +233,7 @@ export function DashboardPageContent({
         description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health` 순서로 운영 기준선을 먼저 검토합니다."
       >
         <ul className="summary-list">
-          <li>`/dashboard` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
+          <li>`/home` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
           <li>`/management` 에서 운영 허브가 일반 홈의 연장이 아니라는 안내 확인</li>
           <li>`/admin/users` 에서 계정 생성·권한 diff·비밀번호 초기화가 참고용 안내로 읽히는지 확인</li>
           <li>`/admin/policies` 에서 current/candidate/capability/audit 안내 형식이 실제 저장 완료처럼 보이지 않는지 확인</li>

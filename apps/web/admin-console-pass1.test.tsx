@@ -87,12 +87,11 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("비밀번호 초기화 / 변경");
     expect(html).toContain("방금 실행한 preview 다음 확인");
     expect(html).toContain("권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
-    expect(html).toContain("/dashboard 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
+    expect(html).toContain("/home 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
     expect(html).toContain("/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단");
     expect(html).toContain("forbidden / empty / error / offline / loading / dev-safe 경계");
     expect(html).toContain("실저장 없음");
-    expect(html).toContain('href="/admin/users"');
   });
 
   it("separates offline recovery copy from generic errors on the admin users page", async () => {
@@ -189,7 +188,6 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("예상 적용 인원 2명");
     expect(html).toContain("샘플 직원 미리보기");
     expect(html).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
-    expect(html).toContain('href="/admin/policies"');
   });
 
   it("shows only the effective-policy-approved attendance methods on the employee attendance page", () => {
@@ -201,7 +199,6 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).not.toContain("모바일 출근 등록");
     expect(html).not.toContain("PC 출근 등록");
     expect(html).toContain("태그 단말 연동은 별도 승인 후 연결합니다");
-    expect(html).toContain('href="/attendance"');
   });
 
   it("keeps audit logs focused on filters, timeline, detail context, and masking boundaries", () => {
@@ -221,6 +218,5 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("비노출/회사 경계");
     expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");
     expect(html).toContain("storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.");
-    expect(html).toContain('href="/admin/audit-logs"');
   });
 });

@@ -5,14 +5,6 @@ import {
   adminPoliciesListResponseSchema,
   adminPolicyDocumentUpdateRequestSchema,
   adminPolicyUpdateResponseSchema,
-  adminSecondaryPasswordAdminResetRequestSchema,
-  adminSecondaryPasswordChangeRequestSchema,
-  adminSecondaryPasswordEnrollRequestSchema,
-  adminSecondaryPasswordMutationResponseSchema,
-  adminSecondaryPasswordResetRequestResponseSchema,
-  adminSecondaryPasswordResetRequestSchema,
-  adminSecondaryPasswordStatusResponseSchema,
-  adminSecondaryPasswordVerifyRequestSchema,
   adminUsersListResponseSchema,
   appRoutes,
   approvalActionRequestSchema,
@@ -106,7 +98,6 @@ import {
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
   type AdminAuditLog,
-  type AdminAuditTargetType,
   type Board,
   type BoardComment,
   type BoardPost,
@@ -127,7 +118,6 @@ import {
   type PayrollReviewStep,
   type Permission,
   type Company,
-  type ReadReceipt,
   type RoleCode,
   type Session,
   type SessionUser,
@@ -153,18 +143,7 @@ import {
   ensureDocumentUploadPolicy,
   type DocumentStorageEnv,
 } from "./lib/document-storage";
-import { buildDocumentAuditPreview } from "./lib/document-audit";
-import {
-  changeSecondaryPassword,
-  ensureSecondaryPasswordVerification,
-  enrollSecondaryPassword,
-  getSecondaryPasswordStatus,
-  requestSecondaryPasswordReset,
-  resetSecondaryPasswordByAdmin,
-  secondaryPasswordPolicy,
-  verifySecondaryPassword,
-} from "./lib/admin-secondary-password";
-import { checkOperationalDb, isOperationalSchemaDriftError, type PostgresEnv } from "./lib/postgres";
+import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import {
   findCurrentPendingApprovalStep,
   isCurrentPendingApprovalStepForEmployee,
@@ -172,7 +151,6 @@ import {
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminAuditLogs, listOperationalAdminUsers } from "./lib/operational-admin";
-import { buildOperationalAuditMetadata, appendOperationalAuditLog, resetOperationalAuditLogs } from "./lib/operational-audit";
 import {
   archiveOperationalDocumentFile,
   createOperationalBoard,
@@ -266,7 +244,6 @@ const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
 const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
-const ADMIN_SECONDARY_PASSWORD_RESET_ROUTE = "/api/admin/users/:userId/secondary-password/reset";
 
 function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
   const baseCookie = `gw_session=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`;
@@ -2433,7 +2410,7 @@ const adminPolicies = [
   },
 ] as const;
 
-const INITIAL_ADMIN_AUDIT_LOGS: AdminAuditLog[] = [
+const adminAuditLogs: AdminAuditLog[] = [
   {
     id: "audit_admin_user_list_viewed_1",
     companyId: COMPANY_ID,
@@ -2481,8 +2458,6 @@ const INITIAL_ADMIN_AUDIT_LOGS: AdminAuditLog[] = [
     },
   },
 ];
-
-const adminAuditLogs: AdminAuditLog[] = INITIAL_ADMIN_AUDIT_LOGS.map((item) => structuredClone(item));
 
 const leaveTypes: LeaveType[] = [
   { id: "leave_type_annual", companyId: COMPANY_ID, code: "annual", name: "연차", unit: "day", status: "active", placeholder: true },
@@ -2775,11 +2750,39 @@ const boards: Board[] = [
     placeholder: true,
   },
   {
+    id: "board_department_notice",
+    companyId: COMPANY_ID,
+    boardType: "department",
+    name: "부서별 공지",
+    slug: "department-notice",
+    visibility: "department",
+    isNoticeOnly: true,
+    status: "active",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
     id: "board_general",
     companyId: COMPANY_ID,
     boardType: "general",
     name: "자유 게시판",
     slug: "general",
+    visibility: "company",
+    isNoticeOnly: false,
+    status: "active",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "board_data_share",
+    companyId: COMPANY_ID,
+    boardType: "document",
+    name: "자료 공유",
+    slug: "data-share",
     visibility: "company",
     isNoticeOnly: false,
     status: "active",
@@ -2819,6 +2822,38 @@ const boardPosts: BoardPost[] = [
     pinnedUntil: null,
     status: "published",
     createdBy: "user_employee",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "board_post_department_notice_1",
+    companyId: COMPANY_ID,
+    boardId: "board_department_notice",
+    authorEmployeeId: "employee_admin",
+    title: "인사팀 공지",
+    bodyPreview: "부서별 안내와 확인 사항을 이 게시판에서 공유합니다.",
+    isNotice: true,
+    publishedAt: PLACEHOLDER_NOW,
+    pinnedUntil: null,
+    status: "published",
+    createdBy: "user_company_admin",
+    createdAt: PLACEHOLDER_NOW,
+    updatedAt: PLACEHOLDER_NOW,
+    placeholder: true,
+  },
+  {
+    id: "board_post_data_share_1",
+    companyId: COMPANY_ID,
+    boardId: "board_data_share",
+    authorEmployeeId: "employee_manager",
+    title: "업무 양식 모음",
+    bodyPreview: "자주 쓰는 신청서와 안내 자료를 모아 둡니다.",
+    isNotice: false,
+    publishedAt: PLACEHOLDER_NOW,
+    pinnedUntil: null,
+    status: "published",
+    createdBy: "user_manager",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
     placeholder: true,
@@ -2953,9 +2988,9 @@ function resolveRoleCode(rawRole: string | undefined): RoleCode {
   return rawRole && rawRole in rolePermissions ? (rawRole as RoleCode) : "COMPANY_ADMIN";
 }
 
-function buildSession(roleCode: RoleCode, sessionId = `${DEV_SESSION_PREFIX}${roleCode}`): Session {
+function buildSession(roleCode: RoleCode): Session {
   return {
-    id: sessionId,
+    id: `${DEV_SESSION_PREFIX}${roleCode}`,
     status: "authenticated",
     expiresAt: SESSION_EXPIRY,
     placeholder: true,
@@ -3004,18 +3039,29 @@ function resolveSessionEmail(loginId?: string, email?: string) {
   return DEV_SAFE_LOGIN_EMAIL;
 }
 
-function extractRoleCodeFromSessionToken(sessionToken: string | null): RoleCode | null {
+function extractRoleCode(cookieHeader: string | null): RoleCode | null {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const match = cookieHeader.match(/gw_session=([^;]+)/);
+  if (!match) {
+    return null;
+  }
+
+  const sessionToken = (() => {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
+  })();
   if (!sessionToken?.startsWith(DEV_SESSION_PREFIX)) {
     return null;
   }
 
-  const suffix = sessionToken.slice(DEV_SESSION_PREFIX.length);
-  const matched = (Object.keys(rolePermissions) as RoleCode[]).find((roleCode) => suffix === roleCode || suffix.startsWith(`${roleCode}_`));
-  return matched ?? null;
-}
-
-function extractRoleCode(cookieHeader: string | null): RoleCode | null {
-  return extractRoleCodeFromSessionToken(extractSessionToken(cookieHeader));
+  const candidate = sessionToken.slice(DEV_SESSION_PREFIX.length);
+  return candidate in rolePermissions ? (candidate as RoleCode) : null;
 }
 
 type SessionContext = {
@@ -3028,50 +3074,15 @@ type AuthorizationResult =
   | { auth: SessionContext; response?: never }
   | { auth?: never; response: Response };
 
-const sessionContexts = new Map<string, SessionContext>();
-
-export async function resetApiPreviewState() {
-  sessionContexts.clear();
-  adminAuditLogs.splice(0, adminAuditLogs.length, ...INITIAL_ADMIN_AUDIT_LOGS.map((item) => structuredClone(item)));
-  await resetOperationalAuditLogs(process.env as PostgresEnv, COMPANY_ID);
-}
-
-function extractSessionToken(cookieHeader: string | null) {
-  if (!cookieHeader) {
-    return null;
-  }
-
-  const match = cookieHeader.match(/gw_session=([^;]+)/);
-  if (!match) {
-    return null;
-  }
-
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return null;
-  }
-}
-
 function requireSession(context: Context): SessionContext | null {
-  const sessionToken = extractSessionToken(context.req.header("cookie") ?? null);
-  if (!sessionToken) {
-    return null;
-  }
-
-  const storedSession = sessionContexts.get(sessionToken);
-  if (storedSession) {
-    return storedSession;
-  }
-
-  const roleCode = extractRoleCodeFromSessionToken(sessionToken);
+  const roleCode = extractRoleCode(context.req.header("cookie") ?? null);
   if (!roleCode) {
     return null;
   }
 
   return {
     roleCode,
-    session: buildSession(roleCode, sessionToken),
+    session: buildSession(roleCode),
     user: buildUser(roleCode),
   };
 }
@@ -3150,78 +3161,6 @@ function requireAdminRole(context: Context): AuthorizationResult {
   }
 
   return authResult;
-}
-
-function buildUniqueSessionId(roleCode: RoleCode) {
-  return `${DEV_SESSION_PREFIX}${roleCode}_${crypto.randomUUID()}`;
-}
-
-function rememberSessionContext(roleCode: RoleCode, user: SessionUser, sessionId: string) {
-  const sessionContext = {
-    roleCode,
-    session: buildSession(roleCode, sessionId),
-    user,
-  } satisfies SessionContext;
-  sessionContexts.set(sessionId, sessionContext);
-  return sessionContext;
-}
-
-function clearStoredSession(context: Context) {
-  const sessionToken = extractSessionToken(context.req.header("cookie") ?? null);
-  if (sessionToken) {
-    sessionContexts.delete(sessionToken);
-  }
-}
-
-function buildSecondaryPasswordRequestContext(context: Context) {
-  return {
-    ip: context.req.header("cf-connecting-ip") ?? context.req.header("x-forwarded-for") ?? null,
-    userAgent: context.req.header("user-agent") ?? null,
-  };
-}
-
-async function verifyPrimaryPasswordForCurrentUser(context: AppContext, auth: SessionContext, primaryPassword: string) {
-  if (isDevSafeLoginCredential(undefined, auth.user.email, primaryPassword)) {
-    return true;
-  }
-
-  const operationalLogin = await authenticateOperationalUser(
-    context.env,
-    {
-      email: auth.user.email,
-      password: primaryPassword,
-    },
-    (roleCode) => [...rolePermissions[roleCode]],
-  );
-
-  return operationalLogin?.user.id === auth.user.id;
-}
-
-function requireSecondaryPasswordGuard(
-  context: AppContext,
-  auth: SessionContext,
-  options: { minFreshnessMinutes?: number; routeAction: string },
-) {
-  const verification = ensureSecondaryPasswordVerification({
-    companyId: auth.user.companyId,
-    userId: auth.user.id,
-    sessionId: auth.session.id,
-    required: true,
-    minFreshnessMinutes: options.minFreshnessMinutes,
-  });
-
-  if (verification.ok) {
-    return null;
-  }
-
-  return jsonError(context, "FORBIDDEN", verification.message, 403, {
-    route: context.req.path,
-    routeAction: options.routeAction,
-    verificationStatus: verification.status,
-    requiredScope: options.minFreshnessMinutes ? "admin_high_risk" : "admin_settings",
-    recommendedVerifyScope: options.minFreshnessMinutes ? "admin_high_risk" : "admin_settings",
-    freshnessMinutes: options.minFreshnessMinutes ?? secondaryPasswordPolicy.verificationTtlMinutes,
-  });
 }
 
 function ensureCompanyBoundary(context: Context, companyId: string, auth: SessionContext) {
@@ -4266,7 +4205,8 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
 
   for (const board of boards) {
     const generatedPostId = buildPlaceholderBoardPostId(board.id, auth.user.employeeId);
-    if (postId === generatedPostId && canAccessBoard(auth, board)) {
+    const generatedPostPrefix = `${generatedPostId}_`;
+    if ((postId === generatedPostId || postId.startsWith(generatedPostPrefix)) && canAccessBoard(auth, board)) {
       return {
         board,
         post: {
@@ -4274,9 +4214,9 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
           companyId: auth.user.companyId,
           boardId: board.id,
           authorEmployeeId: auth.user.employeeId,
-          title: "점심 메뉴 추천",
-          bodyPreview: "오늘 뭐 드실래요?",
-          isNotice: false,
+          title: board.isNoticeOnly ? "등록한 공지" : "등록한 게시글",
+          bodyPreview: board.isNoticeOnly ? "등록 버튼으로 작성한 공지입니다." : "등록 버튼으로 작성한 게시글입니다.",
+          isNotice: board.isNoticeOnly,
           publishedAt: PLACEHOLDER_NOW,
           pinnedUntil: null,
           status: "published",
@@ -4413,134 +4353,6 @@ function mergeById<T extends { id: string }>(fallbackItems: T[], dbItems: T[] | 
   }
 
   return [...merged.values()];
-}
-
-function preferOperationalItems<T>(fallbackItems: T[], dbItems: T[] | null | undefined) {
-  return dbItems ?? fallbackItems;
-}
-
-function resolveFallbackAdminAuditTargetType(resourceType: string): AdminAuditTargetType {
-  switch (resourceType) {
-    case "user":
-    case "role_assignment":
-    case "policy_documents":
-    case "policy_boards":
-    case "document_space":
-    case "document_file":
-    case "document_policy":
-    case "board_policy":
-    case "audit_log":
-      return resourceType;
-    case "board":
-    case "post":
-    case "comment":
-      return "board_policy";
-    default:
-      return "audit_log";
-  }
-}
-
-async function appendCollabAuditLog(
-  context: AppContext,
-  auth: SessionContext,
-  input: {
-    action: string;
-    resourceType: string;
-    resourceId: string;
-    createdAt?: string;
-    beforeJson?: unknown;
-    afterJson?: unknown;
-    metadata?: Record<string, unknown>;
-  },
-) {
-  const createdAt = input.createdAt ?? PLACEHOLDER_NOW;
-  const auditId = `audit_${input.resourceType}_${input.resourceId}_${crypto.randomUUID()}`;
-  const appended = await appendOperationalAuditLog(context.env, {
-    id: auditId,
-    companyId: auth.user.companyId,
-    branchId: getViewerBranchId(auth),
-    actorUserId: auth.user.id,
-    action: input.action,
-    resourceType: input.resourceType,
-    resourceId: input.resourceId,
-    beforeJson: input.beforeJson,
-    afterJson: input.afterJson,
-    metadata: input.metadata,
-    createdAt,
-  });
-
-  if (appended) {
-    return appended;
-  }
-
-  adminAuditLogs.unshift({
-    id: auditId,
-    companyId: auth.user.companyId,
-    actorUserId: auth.user.id,
-    actorEmployeeId: auth.user.employeeId,
-    action: input.action,
-    targetType: resolveFallbackAdminAuditTargetType(input.resourceType),
-    targetId: input.resourceId,
-    createdAt,
-    metadata: buildOperationalAuditMetadata(input.resourceType, input.metadata, input.beforeJson, input.afterJson),
-  });
-
-  return { id: auditId };
-}
-
-function buildDocumentStorageRef(file: Pick<DocumentFile, "id" | "spaceId" | "versionId" | "storageStatus">) {
-  return {
-    fileId: file.id,
-    spaceId: file.spaceId,
-    versionId: file.versionId,
-    storageStatus: file.storageStatus === "ready" ? "linked" : file.storageStatus,
-  } as const;
-}
-
-function buildBoardAuditPreview<T extends Board | BoardPost | BoardComment>(item: T) {
-  if ("boardType" in item) {
-    return {
-      boardId: item.id,
-      slug: item.slug,
-      boardType: item.boardType,
-      visibility: item.visibility,
-      status: item.status,
-    };
-  }
-
-  if ("postId" in item) {
-    return {
-      commentId: item.id,
-      postId: item.postId,
-      parentCommentId: item.parentCommentId,
-      status: item.status,
-    };
-  }
-
-  return {
-    postId: item.id,
-    boardId: item.boardId,
-    isNotice: item.isNotice,
-    status: item.status,
-  };
-}
-
-function buildDocumentSpaceAuditPreview(space: Pick<DocumentSpace, "id" | "slug" | "visibility" | "status">) {
-  return {
-    spaceId: space.id,
-    slug: space.slug,
-    visibility: space.visibility,
-    status: space.status,
-  };
-}
-
-function buildReadReceiptAuditPreview(receipt: Pick<ReadReceipt, "targetType" | "targetId" | "employeeId" | "readAt">) {
-  return {
-    targetType: receipt.targetType,
-    targetId: receipt.targetId,
-    employeeId: receipt.employeeId,
-    readAt: receipt.readAt,
-  };
 }
 
 function buildWorkflowScopedId(prefix: string, employeeId: string) {
@@ -4763,20 +4575,8 @@ async function buildApprovalDocumentDetailForAuth(context: AppContext, auth: Ses
 }
 
 async function listBoardsForAuth(context: AppContext, auth: SessionContext) {
-  const fallbackBoards = boards.filter((board) => canAccessBoard(auth, board));
-
-  try {
-    const dbBoards = await listOperationalBoards(context.env, auth.user.companyId);
-    return preferOperationalItems(
-      fallbackBoards,
-      dbBoards?.filter((board) => canAccessBoard(auth, board)),
-    );
-  } catch (error) {
-    if (isOperationalSchemaDriftError(error)) {
-      return fallbackBoards;
-    }
-    throw error;
-  }
+  const dbBoards = await listOperationalBoards(context.env, auth.user.companyId);
+  return mergeById(boards.filter((board) => canAccessBoard(auth, board)), dbBoards?.filter((board) => canAccessBoard(auth, board)));
 }
 
 async function findAccessibleBoardForAuth(context: AppContext, auth: SessionContext, boardId: string) {
@@ -4786,7 +4586,7 @@ async function findAccessibleBoardForAuth(context: AppContext, auth: SessionCont
 
 async function listBoardPostsForAuth(context: AppContext, auth: SessionContext, boardId: string) {
   const dbPosts = await listOperationalBoardPosts(context.env, auth.user.companyId, boardId);
-  return preferOperationalItems(listBoardPosts(auth, boardId), dbPosts);
+  return mergeById(listBoardPosts(auth, boardId), dbPosts);
 }
 
 async function findAccessiblePostForAuth(context: AppContext, auth: SessionContext, postId: string) {
@@ -4806,24 +4606,15 @@ async function findAccessiblePostForAuth(context: AppContext, auth: SessionConte
 async function listBoardCommentsForAuth(context: AppContext, auth: SessionContext, postId: string) {
   const dbComments = await listOperationalBoardComments(context.env, auth.user.companyId, postId);
   const fallbackComments = listBoardComments(auth, postId) as unknown as BoardComment[];
-  return preferOperationalItems(fallbackComments, dbComments);
+  return mergeById<BoardComment>(fallbackComments, dbComments);
 }
 
 async function listDocumentSpacesForAuth(context: AppContext, auth: SessionContext) {
-  const fallbackSpaces = documentSpaces.filter((space) => canAccessDocumentSpace(auth, space));
-
-  try {
-    const dbSpaces = await listOperationalDocumentSpaces(context.env, auth.user.companyId);
-    return preferOperationalItems(
-      fallbackSpaces,
-      dbSpaces?.filter((space) => canAccessDocumentSpace(auth, space)),
-    );
-  } catch (error) {
-    if (isOperationalSchemaDriftError(error)) {
-      return fallbackSpaces;
-    }
-    throw error;
-  }
+  const dbSpaces = await listOperationalDocumentSpaces(context.env, auth.user.companyId);
+  return mergeById(
+    documentSpaces.filter((space) => canAccessDocumentSpace(auth, space)),
+    dbSpaces?.filter((space) => canAccessDocumentSpace(auth, space)),
+  );
 }
 
 async function findAccessibleDocumentSpaceForAuth(context: AppContext, auth: SessionContext, spaceId: string) {
@@ -4832,26 +4623,17 @@ async function findAccessibleDocumentSpaceForAuth(context: AppContext, auth: Ses
 }
 
 async function listDocumentFilesForAuth(context: AppContext, auth: SessionContext, spaceId?: string | null) {
-  if (spaceId) {
-    const space = await findAccessibleDocumentSpaceForAuth(context, auth, spaceId);
-    if (!space) {
-      return null;
-    }
+  const fallbackItems = listDocumentFiles(auth, spaceId);
+  if (spaceId && fallbackItems === null) {
+    return null;
   }
 
-  const fallbackItems = listDocumentFiles(auth, spaceId) ?? [];
+  const dbItems = await listOperationalDocumentFiles(context.env, auth.user.companyId, spaceId ?? undefined);
   const accessibleSpaceIds = new Set((await listDocumentSpacesForAuth(context, auth)).map((space) => space.id));
-
-  try {
-    const dbItems = await listOperationalDocumentFiles(context.env, auth.user.companyId, spaceId ?? undefined);
-    const sourceItems = preferOperationalItems(fallbackItems, dbItems);
-    return sourceItems.filter((file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId));
-  } catch (error) {
-    if (isOperationalSchemaDriftError(error)) {
-      return fallbackItems.filter((file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId));
-    }
-    throw error;
-  }
+  const merged = mergeById(fallbackItems ?? [], dbItems).filter(
+    (file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId),
+  );
+  return merged;
 }
 
 async function findAccessibleDocumentFileForAuth(context: AppContext, auth: SessionContext, fileId: string) {
@@ -4923,14 +4705,12 @@ app.post(appRoutes.auth.login, async (context) => {
 
   if (shouldUseDevSafeRoleOverride) {
     const roleCode = resolveRoleCode(devSafeRequestedRoleCode);
-    const sessionId = buildUniqueSessionId(roleCode);
-    const user = buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email));
-    const session = rememberSessionContext(roleCode, user, sessionId).session;
+    const session = buildSession(roleCode);
     const payload = {
       ok: true,
       data: {
         session,
-        user,
+        user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
         nextStep: "dev/test/UAT 전용 역할 전환 로그인입니다. 운영 전에는 실제 계정/권한으로 재검증해야 합니다.",
       },
       error: null,
@@ -4947,8 +4727,7 @@ app.post(appRoutes.auth.login, async (context) => {
   const operationalLogin = await authenticateOperationalUser(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
 
   if (operationalLogin) {
-    const sessionId = buildUniqueSessionId(operationalLogin.primaryRoleCode);
-    const session = rememberSessionContext(operationalLogin.primaryRoleCode, operationalLogin.user, sessionId).session;
+    const session = buildSession(operationalLogin.primaryRoleCode);
     const payload = {
       ok: true,
       data: {
@@ -4977,14 +4756,12 @@ app.post(appRoutes.auth.login, async (context) => {
   }
 
   const roleCode = resolveRoleCode(devSafeRequestedRoleCode);
-  const sessionId = buildUniqueSessionId(roleCode);
-  const user = buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email));
-  const session = rememberSessionContext(roleCode, user, sessionId).session;
+  const session = buildSession(roleCode);
   const payload = {
     ok: true,
     data: {
       session,
-      user,
+      user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
       nextStep: "운영 DB 연결값이 없거나 DB 인증이 실패하면 dev/test/UAT 전용 fallback 으로만 동작합니다.",
     },
     error: null,
@@ -4999,7 +4776,6 @@ app.post(appRoutes.auth.login, async (context) => {
 });
 
 app.post(appRoutes.auth.logout, (context) => {
-  clearStoredSession(context);
   context.header("Set-Cookie", "gw_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0");
 
   return jsonSuccess(
@@ -5301,38 +5077,18 @@ app.get(appRoutes.notifications, async (context) => {
 });
 
 app.post(appRoutes.admin.invites, async (context) => {
-  const authResult = requireAdminRole(context);
+  const authResult = requirePermission(context, "invite.manage");
   if (authResult.response) {
     return authResult.response;
   }
 
-  if (!hasPermission(authResult.auth.user, "invite.manage")) {
-    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
-      requiredPermission: "invite.manage",
-      roleCodes: authResult.auth.user.roleCodes,
-      route: context.req.path,
-    });
-  }
-
-  const guardError = requireSecondaryPasswordGuard(context, authResult.auth, {
-    minFreshnessMinutes: secondaryPasswordPolicy.highRiskFreshnessMinutes,
-    routeAction: "admin.invite.create",
-  });
-  if (guardError) {
-    return guardError;
-  }
-
   const body = await context.req.json().catch(() => null);
   const parsed = createInviteRequestSchema.safeParse(body);
+
   if (!parsed.success) {
     return jsonError(context, "VALIDATION_ERROR", "초대 요청 형식이 올바르지 않습니다.", 400, {
       issues: parsed.error.issues,
     });
-  }
-
-  const boundaryError = ensureCompanyBoundary(context, parsed.data.companyId, authResult.auth);
-  if (boundaryError) {
-    return boundaryError;
   }
 
   return jsonSuccess(
@@ -5357,386 +5113,6 @@ app.post(appRoutes.admin.invites, async (context) => {
       error: null,
     },
     201,
-  );
-});
-
-app.get(appRoutes.admin.secondaryPassword.status, (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordStatusResponseSchema,
-    {
-      ok: true,
-      data: getSecondaryPasswordStatus({
-        companyId: authResult.auth.user.companyId,
-        userId: authResult.auth.user.id,
-        sessionId: authResult.auth.session.id,
-        required: true,
-      }),
-      error: null,
-    },
-    200,
-  );
-});
-
-app.post(appRoutes.admin.secondaryPassword.enroll, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminSecondaryPasswordEnrollRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 등록 요청 형식이 올바르지 않습니다.", 400, {
-      issues: parsed.error.issues,
-    });
-  }
-
-  const primaryPasswordVerified = await verifyPrimaryPasswordForCurrentUser(context, authResult.auth, parsed.data.primaryPassword);
-  if (!primaryPasswordVerified) {
-    return jsonError(context, "FORBIDDEN", "1차 비밀번호 확인에 실패했습니다.", 403, {
-      route: context.req.path,
-      action: "admin.secondary_password.enroll",
-    });
-  }
-
-  const result = await enrollSecondaryPassword({
-    companyId: authResult.auth.user.companyId,
-    userId: authResult.auth.user.id,
-    sessionId: authResult.auth.session.id,
-    actorUserId: authResult.auth.user.id,
-    nextPin: parsed.data.nextPin,
-    confirmPin: parsed.data.confirmPin,
-    requestContext: buildSecondaryPasswordRequestContext(context),
-  });
-
-  if (!result.ok) {
-    return jsonError(context, result.reason === "validation" ? "VALIDATION_ERROR" : "FORBIDDEN", result.message, result.reason === "validation" ? 400 : 403, {
-      route: context.req.path,
-      verificationStatus: result.status,
-    });
-  }
-
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: result.auditEvent,
-    resourceType: "audit_log",
-    resourceId: authResult.auth.user.id,
-    afterJson: {
-      credentialStatus: result.status.credentialStatus,
-      verified: result.status.verification.verified,
-    },
-    metadata: {
-      category: "audit",
-      reason: "관리자 2차 비밀번호 등록 완료",
-      source: "api-admin",
-      maskedFields: ["pin", "hash", "salt", "primaryPassword"],
-    },
-  });
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordMutationResponseSchema,
-    {
-      ok: true,
-      data: {
-        status: result.status,
-        audit: {
-          candidate: true,
-          action: result.auditEvent,
-        },
-        placeholder: true,
-      },
-      error: null,
-    },
-    200,
-  );
-});
-
-app.post(appRoutes.admin.secondaryPassword.verify, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminSecondaryPasswordVerifyRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 확인 요청 형식이 올바르지 않습니다.", 400, {
-      issues: parsed.error.issues,
-    });
-  }
-
-  const result = await verifySecondaryPassword({
-    companyId: authResult.auth.user.companyId,
-    userId: authResult.auth.user.id,
-    sessionId: authResult.auth.session.id,
-    pin: parsed.data.pin,
-    scope: parsed.data.scope,
-    requestContext: buildSecondaryPasswordRequestContext(context),
-  });
-
-  if (!result.ok) {
-    return jsonError(context, result.reason === "validation" ? "VALIDATION_ERROR" : "FORBIDDEN", result.message, result.reason === "validation" ? 400 : 403, {
-      route: context.req.path,
-      verificationStatus: result.status,
-      requestedScope: parsed.data.scope,
-    });
-  }
-
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: result.auditEvent,
-    resourceType: "audit_log",
-    resourceId: authResult.auth.user.id,
-    afterJson: {
-      scope: parsed.data.scope,
-      verifiedUntil: result.status.verification.expiresAt,
-      freshUntil: result.status.verification.freshUntil,
-    },
-    metadata: {
-      category: "audit",
-      reason: parsed.data.scope === "admin_high_risk" ? "고위험 관리자 작업 전 2차 비밀번호 재확인" : "관리자 설정 진입 전 2차 비밀번호 확인",
-      source: "api-admin",
-      maskedFields: ["pin", "hash", "salt"],
-    },
-  });
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordMutationResponseSchema,
-    {
-      ok: true,
-      data: {
-        status: result.status,
-        audit: {
-          candidate: true,
-          action: result.auditEvent,
-        },
-        placeholder: true,
-      },
-      error: null,
-    },
-    200,
-  );
-});
-
-app.post(appRoutes.admin.secondaryPassword.change, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminSecondaryPasswordChangeRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 변경 요청 형식이 올바르지 않습니다.", 400, {
-      issues: parsed.error.issues,
-    });
-  }
-
-  const guardError = requireSecondaryPasswordGuard(context, authResult.auth, {
-    minFreshnessMinutes: secondaryPasswordPolicy.highRiskFreshnessMinutes,
-    routeAction: "admin.secondary_password.change",
-  });
-  if (guardError) {
-    return guardError;
-  }
-
-  const result = await changeSecondaryPassword({
-    companyId: authResult.auth.user.companyId,
-    userId: authResult.auth.user.id,
-    sessionId: authResult.auth.session.id,
-    actorUserId: authResult.auth.user.id,
-    currentPin: parsed.data.currentPin,
-    nextPin: parsed.data.nextPin,
-    confirmPin: parsed.data.confirmPin,
-    requestContext: buildSecondaryPasswordRequestContext(context),
-  });
-
-  if (!result.ok) {
-    return jsonError(context, result.reason === "validation" ? "VALIDATION_ERROR" : "FORBIDDEN", result.message, result.reason === "validation" ? 400 : 403, {
-      route: context.req.path,
-      verificationStatus: result.status,
-    });
-  }
-
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: result.auditEvent,
-    resourceType: "audit_log",
-    resourceId: authResult.auth.user.id,
-    afterJson: {
-      verificationRevoked: true,
-      verifiedUntil: result.status.verification.expiresAt,
-    },
-    metadata: {
-      category: "audit",
-      reason: "관리자 2차 비밀번호 변경 완료",
-      source: "api-admin",
-      maskedFields: ["currentPin", "nextPin", "hash", "salt"],
-    },
-  });
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordMutationResponseSchema,
-    {
-      ok: true,
-      data: {
-        status: result.status,
-        audit: {
-          candidate: true,
-          action: result.auditEvent,
-        },
-        placeholder: true,
-      },
-      error: null,
-    },
-    200,
-  );
-});
-
-app.post(appRoutes.admin.secondaryPassword.resetRequest, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminSecondaryPasswordResetRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "2차 비밀번호 초기화 요청 형식이 올바르지 않습니다.", 400, {
-      issues: parsed.error.issues,
-    });
-  }
-
-  const result = requestSecondaryPasswordReset({
-    companyId: authResult.auth.user.companyId,
-    userId: authResult.auth.user.id,
-    sessionId: authResult.auth.session.id,
-    actorUserId: authResult.auth.user.id,
-    reason: parsed.data.reason,
-  });
-
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: result.auditEvent,
-    resourceType: "audit_log",
-    resourceId: authResult.auth.user.id,
-    afterJson: {
-      reason: parsed.data.reason,
-      reviewRequired: true,
-    },
-    metadata: {
-      category: "audit",
-      reason: "관리자 2차 비밀번호 분실 초기화 요청 접수",
-      source: "api-admin",
-      maskedFields: ["reason 상세 원문"],
-    },
-  });
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordResetRequestResponseSchema,
-    {
-      ok: true,
-      data: {
-        status: result.status,
-        requestRecorded: true,
-        reviewRequired: true,
-        audit: {
-          candidate: true,
-          action: result.auditEvent,
-        },
-        placeholder: true,
-      },
-      error: null,
-    },
-    200,
-  );
-});
-
-app.post(ADMIN_SECONDARY_PASSWORD_RESET_ROUTE, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  if (!hasPermission(authResult.auth.user, "employee.write")) {
-    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
-      requiredPermission: "employee.write",
-      roleCodes: authResult.auth.user.roleCodes,
-      route: context.req.path,
-    });
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminSecondaryPasswordAdminResetRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "관리자 강제 초기화 요청 형식이 올바르지 않습니다.", 400, {
-      issues: parsed.error.issues,
-    });
-  }
-
-  const targetUserId = context.req.param("userId");
-  if (targetUserId === authResult.auth.user.id) {
-    return jsonError(context, "FORBIDDEN", "자기 자신의 2차 비밀번호를 강제 초기화해 우회할 수 없습니다.", 403, {
-      route: context.req.path,
-      selfBypassBlocked: true,
-    });
-  }
-
-  const guardError = requireSecondaryPasswordGuard(context, authResult.auth, {
-    minFreshnessMinutes: secondaryPasswordPolicy.highRiskFreshnessMinutes,
-    routeAction: "admin.secondary_password.reset_completed",
-  });
-  if (guardError) {
-    return guardError;
-  }
-
-  const result = resetSecondaryPasswordByAdmin({
-    companyId: authResult.auth.user.companyId,
-    userId: authResult.auth.user.id,
-    sessionId: authResult.auth.session.id,
-    actorUserId: authResult.auth.user.id,
-    targetUserId,
-    reason: parsed.data.reason,
-  });
-
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: result.auditEvent,
-    resourceType: "user",
-    resourceId: targetUserId,
-    afterJson: {
-      targetUserId,
-      credentialStatus: result.status.credentialStatus,
-    },
-    metadata: {
-      category: "user",
-      reason: "관리자 승인형 2차 비밀번호 강제 초기화",
-      source: "api-admin",
-      maskedFields: ["reason 상세 원문", "pin", "hash", "salt"],
-    },
-  });
-
-  return jsonSuccess(
-    context,
-    adminSecondaryPasswordMutationResponseSchema,
-    {
-      ok: true,
-      data: {
-        status: result.status,
-        audit: {
-          candidate: true,
-          action: result.auditEvent,
-        },
-        placeholder: true,
-      },
-      error: null,
-    },
-    200,
   );
 });
 
@@ -5823,14 +5199,6 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
     });
   }
 
-  const guardError = requireSecondaryPasswordGuard(context, authResult.auth, {
-    minFreshnessMinutes: secondaryPasswordPolicy.highRiskFreshnessMinutes,
-    routeAction: "admin.policy.document.updated",
-  });
-  if (guardError) {
-    return guardError;
-  }
-
   const body = await context.req.json().catch(() => null);
   const parsed = adminPolicyDocumentUpdateRequestSchema.safeParse(body);
   if (!parsed.success) {
@@ -5893,14 +5261,6 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
       roleCodes: authResult.auth.user.roleCodes,
       route: context.req.path,
     });
-  }
-
-  const guardError = requireSecondaryPasswordGuard(context, authResult.auth, {
-    minFreshnessMinutes: secondaryPasswordPolicy.highRiskFreshnessMinutes,
-    routeAction: "admin.policy.board.updated",
-  });
-  if (guardError) {
-    return guardError;
   }
 
   const body = await context.req.json().catch(() => null);
@@ -7005,18 +6365,6 @@ app.post(appRoutes.boards.boards, async (context) => {
       boards.push(boardInput);
       return boardInput;
     })();
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "board.create",
-    resourceType: "board",
-    resourceId: board.id,
-    afterJson: buildBoardAuditPreview(board),
-    metadata: {
-      category: "board",
-      reason: "게시판 생성",
-      source: "api-admin",
-      maskedFields: [],
-    },
-  });
 
   return jsonSuccess(context, boardResponseSchema, {
     ok: true,
@@ -7105,24 +6453,19 @@ app.post("/api/boards/:id/posts", async (context) => {
     placeholder: true,
   };
 
+  let operationalPost: BoardPost | null = null;
+  try {
+    operationalPost = await createOperationalBoardPost(context.env, postInput);
+  } catch {
+    operationalPost = null;
+  }
+
   const post =
-    (await createOperationalBoardPost(context.env, postInput)) ??
+    operationalPost ??
     (() => {
       boardPosts.push(postInput);
       return postInput;
     })();
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "board.post.create",
-    resourceType: "post",
-    resourceId: post.id,
-    afterJson: buildBoardAuditPreview(post),
-    metadata: {
-      category: "board",
-      reason: board.isNoticeOnly || post.isNotice ? "공지 게시글 생성" : "게시글 생성",
-      source: "api-admin",
-      maskedFields: ["bodyPreview"],
-    },
-  });
 
   return jsonSuccess(context, boardPostCreateResponseSchema, {
     ok: true,
@@ -7235,18 +6578,6 @@ app.post("/api/posts/:id/comments", async (context) => {
       boardComments.push(commentInput);
       return commentInput;
     })();
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "board.comment.create",
-    resourceType: "comment",
-    resourceId: comment.id,
-    afterJson: buildBoardAuditPreview(comment),
-    metadata: {
-      category: "board",
-      reason: "게시글 댓글 생성",
-      source: "api-admin",
-      maskedFields: ["body"],
-    },
-  });
 
   return jsonSuccess(context, boardCommentCreateResponseSchema, {
     ok: true,
@@ -7312,18 +6643,6 @@ app.post(appRoutes.documents.spaces, async (context) => {
       documentSpaces.push(spaceInput);
       return spaceInput;
     })();
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.space.create",
-    resourceType: "document_space",
-    resourceId: space.id,
-    afterJson: buildDocumentSpaceAuditPreview(space),
-    metadata: {
-      category: "document_space",
-      reason: "문서함 생성",
-      source: "api-admin",
-      maskedFields: [],
-    },
-  });
 
   return jsonSuccess(context, documentSpaceResponseSchema, {
     ok: true,
@@ -7415,19 +6734,6 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
       documentFiles.push(fileInput);
       return fileInput;
     })();
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.file.metadata.create",
-    resourceType: "document_file",
-    resourceId: file.id,
-    afterJson: buildDocumentAuditPreview(file),
-    metadata: {
-      category: "document_file",
-      reason: "문서 메타데이터 생성",
-      source: "api-admin",
-      maskedFields: ["checksumSha256"],
-      storageRef: buildDocumentStorageRef(file),
-    },
-  });
 
   return jsonSuccess(context, documentFileMetadataCreateResponseSchema, {
     ok: true,
@@ -7523,19 +6829,6 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
       return fileInput;
     })();
   documentUploadTokens.set(action.uploadToken, { fileId: file.id, versionId: file.versionId });
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.file.upload_init",
-    resourceType: "document_file",
-    resourceId: file.id,
-    afterJson: buildDocumentAuditPreview(file),
-    metadata: {
-      category: "document_file",
-      reason: "문서 업로드 초기화",
-      source: "api-admin",
-      maskedFields: ["checksumSha256"],
-      storageRef: buildDocumentStorageRef(file),
-    },
-  });
 
   return jsonSuccess(context, documentFileUploadInitResponseSchema, {
     ok: true,
@@ -7583,7 +6876,6 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
     });
   }
 
-  const beforeFileAuditPreview = buildDocumentAuditPreview(file);
   const completedFile =
     (await markOperationalDocumentFileUploaded(context.env, {
       companyId: file.companyId,
@@ -7599,20 +6891,6 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
       return file;
     })();
   documentUploadTokens.delete(parsed.data.uploadToken);
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.file.upload_complete",
-    resourceType: "document_file",
-    resourceId: completedFile.id,
-    beforeJson: beforeFileAuditPreview,
-    afterJson: buildDocumentAuditPreview(completedFile),
-    metadata: {
-      category: "document_file",
-      reason: "문서 업로드 완료",
-      source: "api-admin",
-      maskedFields: ["checksumSha256"],
-      storageRef: buildDocumentStorageRef(completedFile),
-    },
-  });
 
   return jsonSuccess(context, documentFileUploadCompleteResponseSchema, {
     ok: true,
@@ -7650,19 +6928,6 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
     fileId: file.id,
     versionId: file.versionId,
     fileName: file.fileName,
-  });
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.file.download_init",
-    resourceType: "document_file",
-    resourceId: file.id,
-    afterJson: buildDocumentAuditPreview(file),
-    metadata: {
-      category: "document_file",
-      reason: "문서 다운로드 초기화",
-      source: "api-admin",
-      maskedFields: ["checksumSha256"],
-      storageRef: buildDocumentStorageRef(file),
-    },
   });
 
   return jsonSuccess(context, documentFileDownloadInitResponseSchema, {
@@ -7704,7 +6969,6 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
     fileName: file.fileName,
   });
 
-  const beforeArchivedFileAuditPreview = buildDocumentAuditPreview(file);
   const archivedFile =
     (await archiveOperationalDocumentFile(context.env, {
       companyId: file.companyId,
@@ -7719,20 +6983,6 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
       return file;
     })();
   removeDocumentUploadTokensForFile(file.id);
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "document.file.delete",
-    resourceType: "document_file",
-    resourceId: archivedFile.id,
-    beforeJson: beforeArchivedFileAuditPreview,
-    afterJson: buildDocumentAuditPreview(archivedFile),
-    metadata: {
-      category: "document_file",
-      reason: "문서 삭제",
-      source: "api-admin",
-      maskedFields: ["checksumSha256"],
-      storageRef: buildDocumentStorageRef(archivedFile),
-    },
-  });
 
   return jsonSuccess(context, documentFileDeleteResponseSchema, {
     ok: true,
@@ -8010,18 +7260,6 @@ app.post(appRoutes.readReceipts, async (context) => {
       createdAt: PLACEHOLDER_NOW,
       updatedAt: PLACEHOLDER_NOW,
     };
-  await appendCollabAuditLog(context, authResult.auth, {
-    action: "read_receipt.create",
-    resourceType: parsed.data.targetType,
-    resourceId: parsed.data.targetId,
-    afterJson: buildReadReceiptAuditPreview(receipt),
-    metadata: {
-      category: parsed.data.targetType === "document_file" ? "document_file" : "board",
-      reason: parsed.data.targetType === "document_file" ? "문서 읽음 확인" : "게시글 읽음 확인",
-      source: "api-admin",
-      maskedFields: [],
-    },
-  });
 
   return jsonSuccess(context, readReceiptCreateResponseSchema, {
     ok: true,

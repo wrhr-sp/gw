@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   appRoutes,
   payrollOverviewResponseSchema,
@@ -249,22 +249,9 @@ vi.mock("../src/lib/postgres", async () => {
   };
 });
 
-async function getFreshApp() {
-  vi.resetModules();
-  const mod = await import("../src/app");
-  return mod.app;
-}
+import { app } from "../src/app";
 
-afterEach(() => {
-  vi.resetModules();
-});
-
-afterAll(() => {
-  vi.doUnmock("../src/lib/postgres");
-  vi.resetModules();
-});
-
-async function loginAndGetCookie(app: Awaited<ReturnType<typeof getFreshApp>>, role = "COMPANY_ADMIN") {
+async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   const response = await app.request(appRoutes.auth.login, {
     method: "POST",
     headers: {
@@ -285,10 +272,9 @@ async function loginAndGetCookie(app: Awaited<ReturnType<typeof getFreshApp>>, r
   return cookie;
 }
 
-describe("phase35 operational management PostgreSQL integration", () => {
+describe("phase35 operational metadata DB routes", () => {
   it("merges PostgreSQL-backed payroll metadata into overview/detail responses", async () => {
-    const app = await getFreshApp();
-    const cookie = await loginAndGetCookie(app, "COMPANY_ADMIN");
+    const cookie = await loginAndGetCookie("COMPANY_ADMIN");
 
     const overviewResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie } }, { DATABASE_URL: "postgres://example" });
     expect(overviewResponse.status).toBe(200);
@@ -306,8 +292,7 @@ describe("phase35 operational management PostgreSQL integration", () => {
   });
 
   it("serves PostgreSQL-backed work-item metadata and audit logs", async () => {
-    const app = await getFreshApp();
-    const cookie = await loginAndGetCookie(app, "COMPANY_ADMIN");
+    const cookie = await loginAndGetCookie("COMPANY_ADMIN");
 
     const detailResponse = await app.request(appRoutes.workItems.detail("work_item_tax_db_deadline"), { headers: { cookie } }, { DATABASE_URL: "postgres://example" });
     expect(detailResponse.status).toBe(200);

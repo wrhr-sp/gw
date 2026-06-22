@@ -28,14 +28,6 @@ export const appRoutes = {
     policyDocuments: "/api/admin/policies/documents",
     policyBoards: "/api/admin/policies/boards",
     auditLogs: "/api/admin/audit-logs",
-    secondaryPassword: {
-      status: "/api/admin/secondary-password/status",
-      enroll: "/api/admin/secondary-password/enroll",
-      verify: "/api/admin/secondary-password/verify",
-      change: "/api/admin/secondary-password/change",
-      resetRequest: "/api/admin/secondary-password/reset-request",
-      reset: (userId: string) => `/api/admin/users/${userId}/secondary-password/reset`,
-    },
   },
   attendance: {
     checkIn: "/api/attendance/check-in",
@@ -1256,83 +1248,6 @@ export const adminAuditLogListResponseSchema = successResponseSchema(
   }),
 );
 
-export const adminSecondaryPasswordCredentialStatusSchema = z.enum(["active", "reset_required", "disabled"]);
-export const adminSecondaryPasswordVerificationScopeSchema = z.enum([
-  "admin_settings",
-  "admin_high_risk",
-  "admin_users",
-  "admin_policies",
-  "secondary_password",
-]);
-export const adminSecondaryPasswordStatusSchema = z.object({
-  required: z.boolean(),
-  enrollmentRequired: z.boolean(),
-  hasSecondaryPassword: z.boolean(),
-  credentialStatus: adminSecondaryPasswordCredentialStatusSchema,
-  verification: z.object({
-    verified: z.boolean(),
-    verifiedAt: z.string().datetime().nullable(),
-    expiresAt: z.string().datetime().nullable(),
-    freshUntil: z.string().datetime().nullable(),
-  }),
-  lock: z.object({
-    locked: z.boolean(),
-    lockedUntil: z.string().datetime().nullable(),
-    failedAttemptCount: z.number().int().nonnegative(),
-  }),
-  policy: z.object({
-    verificationTtlMinutes: z.number().int().positive(),
-    highRiskFreshnessMinutes: z.number().int().positive(),
-    maxAttempts: z.number().int().positive(),
-    lockMinutes: z.number().int().positive(),
-  }),
-});
-
-export const adminSecondaryPasswordStatusResponseSchema = successResponseSchema(adminSecondaryPasswordStatusSchema);
-
-export const adminSecondaryPasswordEnrollRequestSchema = z.object({
-  primaryPassword: z.string().min(1),
-  nextPin: z.string().min(4),
-  confirmPin: z.string().min(4),
-});
-
-export const adminSecondaryPasswordVerifyRequestSchema = z.object({
-  pin: z.string().min(4),
-  scope: adminSecondaryPasswordVerificationScopeSchema,
-});
-
-export const adminSecondaryPasswordChangeRequestSchema = z.object({
-  currentPin: z.string().min(4),
-  nextPin: z.string().min(4),
-  confirmPin: z.string().min(4),
-});
-
-export const adminSecondaryPasswordResetRequestSchema = z.object({
-  reason: z.string().min(1),
-});
-
-export const adminSecondaryPasswordAdminResetRequestSchema = z.object({
-  reason: z.string().min(1),
-});
-
-export const adminSecondaryPasswordMutationResponseSchema = successResponseSchema(
-  z.object({
-    status: adminSecondaryPasswordStatusSchema,
-    audit: auditCandidateSchema,
-    placeholder: z.literal(true),
-  }),
-);
-
-export const adminSecondaryPasswordResetRequestResponseSchema = successResponseSchema(
-  z.object({
-    status: adminSecondaryPasswordStatusSchema,
-    requestRecorded: z.literal(true),
-    reviewRequired: z.literal(true),
-    audit: auditCandidateSchema,
-    placeholder: z.literal(true),
-  }),
-);
-
 export const attendanceRecordStatusSchema = z.enum(["checked_in", "checked_out", "needs_correction"]);
 export const attendanceSourceSchema = z.enum(["web", "mobile", "admin", "import"]);
 export const attendanceActionRequestSchema = z.object({
@@ -2158,17 +2073,6 @@ export type AdminAuditTargetType = z.infer<typeof adminAuditTargetTypeSchema>;
 export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
 export type AdminAuditLogFilters = z.infer<typeof adminAuditLogFiltersSchema>;
 export type AdminAuditLogListResponse = z.infer<typeof adminAuditLogListResponseSchema>;
-export type AdminSecondaryPasswordCredentialStatus = z.infer<typeof adminSecondaryPasswordCredentialStatusSchema>;
-export type AdminSecondaryPasswordVerificationScope = z.infer<typeof adminSecondaryPasswordVerificationScopeSchema>;
-export type AdminSecondaryPasswordStatus = z.infer<typeof adminSecondaryPasswordStatusSchema>;
-export type AdminSecondaryPasswordStatusResponse = z.infer<typeof adminSecondaryPasswordStatusResponseSchema>;
-export type AdminSecondaryPasswordEnrollRequest = z.infer<typeof adminSecondaryPasswordEnrollRequestSchema>;
-export type AdminSecondaryPasswordVerifyRequest = z.infer<typeof adminSecondaryPasswordVerifyRequestSchema>;
-export type AdminSecondaryPasswordChangeRequest = z.infer<typeof adminSecondaryPasswordChangeRequestSchema>;
-export type AdminSecondaryPasswordResetRequest = z.infer<typeof adminSecondaryPasswordResetRequestSchema>;
-export type AdminSecondaryPasswordAdminResetRequest = z.infer<typeof adminSecondaryPasswordAdminResetRequestSchema>;
-export type AdminSecondaryPasswordMutationResponse = z.infer<typeof adminSecondaryPasswordMutationResponseSchema>;
-export type AdminSecondaryPasswordResetRequestResponse = z.infer<typeof adminSecondaryPasswordResetRequestResponseSchema>;
 export type NotificationListResponse = z.infer<typeof listNotificationsResponseSchema>;
 export type BranchListResponse = z.infer<typeof listBranchesResponseSchema>;
 export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;

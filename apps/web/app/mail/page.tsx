@@ -9,7 +9,6 @@ export default function MailPage() {
       backLabel="전체 메뉴로"
       eyebrow="Phase 24 협업 placeholder"
       title="메일 placeholder"
-      titleHref="/mail"
       description="기업 메일 서버, 실제 발송, 초대 메일 연동 전 단계에서 파일럿 사용자가 기대해야 할 범위를 먼저 정리하는 안내 화면입니다."
       actions={
         <div className="pill-row">

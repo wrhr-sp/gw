@@ -37,10 +37,6 @@
 
 ### 코드/contract/테스트 일관성
 
-- [ ] `/boards`는 게시판 목록과 게시글 목록이 실제 화면에서 분리되어 보이고, 자유 게시판 글쓰기 CTA가 로그인 후 노출되며, `미확인 n건` 텍스트는 노출하지 않는다.
-- [ ] `/payroll` 같은 민감 콘텐츠 페이지는 콘텐츠 영역 PIN 게이트가 풀리기 전 민감 children과 live API query가 mount되지 않는다.
-- [ ] dev/UAT placeholder session 쿠키가 `dev-placeholder-session_<ROLE>_<uuid>` 형식이어도 `/boards`, `/payroll`, `/me` 같은 authenticated page route가 `/login`으로 되돌아가지 않는다.
-
 - [ ] 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 두 갈래로 설명하고, `/login` 과 `/dashboard` 로 자연스럽게 이어진다.
 - [ ] 로그인(`/login`)이 placeholder 세션 계약과 역할별 첫 이동(`/dashboard`, `/approvals`, `/admin`, `/admin/audit-logs`)을 실제 인증 완료처럼 과장하지 않는다.
 - [ ] 대시보드(`/dashboard`) 상단 액션 순서가 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 우선순위를 유지하고, 이후 `/org`·`/employees` 조회 마무리 흐름까지 자연스럽게 이어지며 상세 처리는 각 화면으로 넘긴다.
