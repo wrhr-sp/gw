@@ -1906,9 +1906,23 @@ li {
   overflow-y: auto;
 }
 
+.topbar-settings-gate__card > strong,
+.pin-field__label {
+  color: #0f172a;
+  font-size: 1.42rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.sensitive-route-page-gate {
+  min-height: calc(100dvh - 88px);
+}
+
 .sensitive-route-page-gate .page-shell__content {
   display: grid;
-  min-height: max(680px, calc(100dvh - 180px));
+  min-height: max(820px, calc(100dvh - 132px));
   place-items: center;
 }
 
@@ -1919,12 +1933,6 @@ li {
 .pin-field {
   display: grid;
   gap: 8px;
-}
-
-.pin-field__label {
-  color: #334155;
-  font-size: 0.84rem;
-  font-weight: 900;
 }
 
 .pin-field__label--hidden {
