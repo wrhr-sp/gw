@@ -1806,15 +1806,16 @@ li {
   place-items: center;
   overflow: hidden;
   overscroll-behavior: contain;
-  padding: 24px;
+  padding: 10px;
   background: rgba(15, 23, 42, 0.28);
   backdrop-filter: blur(8px);
 }
 
 .topbar-modal {
-  width: min(760px, calc(100vw - 32px));
   display: flex;
-  max-height: min(760px, calc(100vh - 48px));
+  width: calc(100vw - 20px);
+  height: calc(100dvh - 20px);
+  max-height: calc(100dvh - 20px);
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -1824,16 +1825,6 @@ li {
   color: #0f172a;
   padding: 24px;
   backdrop-filter: blur(22px) saturate(1.16);
-}
-
-.topbar-modal--profile-settings {
-  width: min(920px, calc(100vw - 32px));
-}
-
-.topbar-modal--integrated-settings {
-  width: min(1240px, calc(100vw - 20px));
-  height: min(860px, calc(100dvh - 20px));
-  max-height: calc(100dvh - 20px);
 }
 
 .topbar-modal__header {
@@ -1896,6 +1887,7 @@ li {
 .topbar-admin-secondary-gate,
 .topbar-admin-settings {
   display: grid;
+  flex: 1 1 auto;
   min-height: 0;
   gap: 14px;
   overflow-y: auto;
@@ -2729,7 +2721,13 @@ li {
 
 .topbar-modal-list {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
   gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 8px;
 }
 
 .topbar-modal-list-item {
