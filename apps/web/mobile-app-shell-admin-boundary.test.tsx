@@ -360,14 +360,16 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
     expect(shellSource).toContain('const isRefreshRoute = pathname === "/refresh";');
     expect(shellSource).toContain('const [isAppRefreshOverlayVisible, setIsAppRefreshOverlayVisible] = useState(false);');
-    expect(shellSource).toContain('const [isAppRefreshPending, startAppRefreshTransition] = useTransition();');
+    expect(shellSource).toContain('import { flushSync } from "react-dom";');
     expect(shellSource).toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
     expect(shellSource).toContain('event.key === "F5"');
     expect(shellSource).toContain('event.ctrlKey || event.metaKey');
     expect(shellSource).toContain('event.preventDefault();');
-    expect(shellSource).toContain('router.refresh();');
+    expect(shellSource).toContain('flushSync(() => setIsAppRefreshOverlayVisible(true));');
+    expect(shellSource).toContain('window.location.reload();');
     expect(shellSource).toContain('window.addEventListener("keydown", handleAppRefreshShortcut, true);');
     expect(shellSource).not.toContain('router.push("/refresh" as never);');
+    expect(shellSource).not.toContain('startAppRefreshTransition');
     expect(shellSource).toContain('function renderAppRefreshOverlay()');
     expect(shellSource).toContain('className="app-refresh-overlay"');
     expect(shellSource).toContain('{renderAppRefreshOverlay()}');

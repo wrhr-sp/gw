@@ -15,7 +15,9 @@ describe("refresh service worker", () => {
     expect(swSource).not.toContain('window.location.replace(returnUrl);');
 
     expect(shellSource).toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
-    expect(shellSource).toContain('router.refresh();');
+    expect(shellSource).toContain('flushSync(() => setIsAppRefreshOverlayVisible(true));');
+    expect(shellSource).toContain('window.location.reload();');
+    expect(shellSource).not.toContain('startAppRefreshTransition');
     expect(shellSource).toContain('function renderAppRefreshOverlay()');
     expect(shellSource).toContain('className="app-refresh-overlay"');
   });
