@@ -1894,6 +1894,16 @@ li {
   width: min(560px, 100%);
 }
 
+.topbar-settings-gate__card {
+  display: flex;
+  width: min(560px, 100%);
+  aspect-ratio: 4 / 3;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  overflow-y: auto;
+}
+
 .pin-field {
   display: grid;
   gap: 8px;
