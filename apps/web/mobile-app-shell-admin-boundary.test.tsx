@@ -433,9 +433,12 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("overscroll-behavior-y: none;");
     expect(globalCss).toContain(".app-shell__body--refresh");
     expect(globalCss).toContain(".refresh-page {");
-    expect(globalCss).toContain(".refresh-page__flag span");
-    expect(globalCss).toContain("animation: refresh-logo-wave 1.15s ease-in-out infinite;");
-    expect(globalCss).toContain("@keyframes refresh-logo-wave");
+    expect(globalCss).toContain(".refresh-page__flag-word");
+    expect(globalCss).toContain(".refresh-page__flag-letter");
+    expect(globalCss).toContain("animation: refresh-logo-flag-sway 1.35s ease-in-out infinite;");
+    expect(globalCss).toContain("animation: refresh-logo-letter-wave 1.35s ease-in-out infinite;");
+    expect(globalCss).toContain("@keyframes refresh-logo-flag-sway");
+    expect(globalCss).toContain("@keyframes refresh-logo-letter-wave");
     expect(globalCss).toContain(".app-shell__main,");
     expect(globalCss).toContain(".desktop-sidebar__nav,");
     expect(globalCss).toContain(".topbar-modal__grid,");

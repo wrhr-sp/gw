@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 const APP_REFRESH_RETURN_PATH_STORAGE_KEY = "gw.appRefreshReturnPath";
 const APP_REFRESH_VISIBLE_MS = 900;
@@ -24,8 +23,6 @@ function getSafeReturnPath() {
 }
 
 export default function RefreshPage() {
-  const router = useRouter();
-
   useEffect(() => {
     const returnPath = getSafeReturnPath();
     const timer = window.setTimeout(() => {
@@ -34,18 +31,23 @@ export default function RefreshPage() {
       } catch {
         // 저장소 접근이 막힌 환경은 무시한다.
       }
-      router.replace(returnPath as never);
-      window.setTimeout(() => router.refresh(), 0);
+      window.location.replace(returnPath);
     }, APP_REFRESH_VISIBLE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [router]);
+  }, []);
 
   return (
     <main className="refresh-page" aria-label="새로고침 중">
       <section className="refresh-page__card" role="status" aria-live="polite">
-        <div className="refresh-page__flag" aria-hidden="true">
-          <span>WE&apos;REHERE</span>
+        <div className="refresh-page__flag" aria-label="WE’REHERE">
+          <span className="refresh-page__flag-word" aria-hidden="true">
+            {"WE’REHERE".split("").map((letter, index) => (
+              <span key={`${letter}-${index}`} className="refresh-page__flag-letter" style={{ "--wave-index": index } as React.CSSProperties}>
+                {letter}
+              </span>
+            ))}
+          </span>
         </div>
         <p>새로고침 중</p>
       </section>
