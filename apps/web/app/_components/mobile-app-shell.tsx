@@ -714,8 +714,14 @@ function PinField({
         <span className="pin-field__slots" aria-hidden="true">
           {Array.from({ length: 4 }).map((_, index) => {
             const filled = index < value.length;
+            const cursor = index === value.length && value.length < 4;
+            const slotClassName = [
+              "pin-field__slot",
+              filled ? "pin-field__slot--filled" : "",
+              cursor ? "pin-field__slot--cursor" : "",
+            ].filter(Boolean).join(" ");
             return (
-              <span key={`${label}-${index}`} className={filled ? "pin-field__slot pin-field__slot--filled" : "pin-field__slot"}>
+              <span key={`${label}-${index}`} className={slotClassName}>
                 {filled ? "●" : ""}
               </span>
             );

@@ -324,6 +324,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('onChange={(value) => void handleAdminSecondaryPasswordChange(value)}');
     expect(shellSource).toContain('2차 비밀번호가 맞지 않습니다.');
     expect(shellSource).toContain('hideLabel');
+    expect(shellSource).toContain('cursor ? "pin-field__slot--cursor" : ""');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
     expect(shellSource).toContain('2차 비밀번호를 설정해주세요.');
     expect(shellSource).not.toContain('설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다.');
@@ -418,6 +419,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("height: 56px");
     expect(globalCss).toContain("border-radius: 14px");
     expect(globalCss).toContain("caret-color: transparent");
+    expect(globalCss).toContain(".pin-field__surface:focus-within .pin-field__slot--cursor::after");
+    expect(globalCss).toContain("animation: pin-field-caret-blink 1s step-end infinite;");
+    expect(globalCss).toContain("@keyframes pin-field-caret-blink");
     expect(globalCss).toContain(".pin-field__surface:focus-within .pin-field__slot");
     expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-admin-settings");
     expect(globalCss).toContain("flex: 1 1 auto");
