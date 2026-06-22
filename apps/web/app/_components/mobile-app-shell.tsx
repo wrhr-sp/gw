@@ -88,6 +88,27 @@ type TopbarProfileState = {
 
 type NotificationPreferenceKey = "notices" | "approvals" | "mentions" | "mail" | "attendance";
 type AfterHoursPreferenceKey = "urgentNotices" | "approvalRequests" | "approvalFeedback" | "mentions" | "attendanceResults" | "importantMail";
+type SecondaryPasswordFeatureKey =
+  | "boards"
+  | "messenger"
+  | "mail"
+  | "notifications"
+  | "attendance"
+  | "leave"
+  | "approvals"
+  | "documents"
+  | "org"
+  | "employees"
+  | "me"
+  | "payroll"
+  | "payrollMe"
+  | "workItems"
+  | "branch"
+  | "hr"
+  | "tax"
+  | "labor"
+  | "legal"
+  | "admin";
 type SettingsTabKey = "basic" | "admin";
 type AdminSettingsPanelKey = "access" | "admin-rights";
 
@@ -176,6 +197,35 @@ const DEFAULT_AFTER_HOURS_PREFERENCES: Record<AfterHoursPreferenceKey, boolean> 
 };
 
 const afterHoursExceptionKeys = new Set<AfterHoursPreferenceKey>(["urgentNotices"]);
+
+const secondaryPasswordFeatureOptions: readonly { key: SecondaryPasswordFeatureKey; label: string; routes: readonly string[] }[] = [
+  { key: "boards", label: "게시판", routes: ["/boards", "/posts"] },
+  { key: "messenger", label: "메신저", routes: ["/messenger"] },
+  { key: "mail", label: "메일", routes: ["/mail"] },
+  { key: "notifications", label: "알림", routes: ["/notifications"] },
+  { key: "attendance", label: "근태", routes: ["/attendance"] },
+  { key: "leave", label: "휴가", routes: ["/leave"] },
+  { key: "approvals", label: "전자결재", routes: ["/approvals"] },
+  { key: "documents", label: "문서함", routes: ["/documents"] },
+  { key: "org", label: "조직도", routes: ["/org"] },
+  { key: "employees", label: "직원/조직", routes: ["/employees"] },
+  { key: "me", label: "내정보", routes: ["/me"] },
+  { key: "payrollMe", label: "내 급여", routes: ["/payroll/me"] },
+  { key: "payroll", label: "급여", routes: ["/payroll"] },
+  { key: "workItems", label: "공통 업무", routes: ["/work-items"] },
+  { key: "branch", label: "지점관리 업무", routes: ["/work-items/branch"] },
+  { key: "hr", label: "HR 업무", routes: ["/work-items/hr"] },
+  { key: "tax", label: "세무", routes: ["/work-items/tax"] },
+  { key: "labor", label: "노무", routes: ["/work-items/labor"] },
+  { key: "legal", label: "법무", routes: ["/work-items/legal"] },
+  { key: "admin", label: "관리자", routes: ["/admin"] },
+];
+
+const defaultSecondaryPasswordEnabledFeatureKeys = new Set<SecondaryPasswordFeatureKey>(["admin", "employees", "org", "payroll", "payrollMe", "hr"]);
+
+const DEFAULT_SECONDARY_PASSWORD_FEATURE_SETTINGS: Record<SecondaryPasswordFeatureKey, boolean> = Object.fromEntries(
+  secondaryPasswordFeatureOptions.map((option) => [option.key, defaultSecondaryPasswordEnabledFeatureKeys.has(option.key)]),
+) as Record<SecondaryPasswordFeatureKey, boolean>;
 
 export function syncAfterHoursSettings(
   notificationSettings: Record<NotificationPreferenceKey, boolean>,
@@ -336,6 +386,10 @@ function pickBooleanRecord<T extends string>(value: unknown, defaults: Record<T,
   return Object.fromEntries(keys.map((key) => [key, typeof source[key] === "boolean" ? source[key] : defaults[key]])) as Record<T, boolean>;
 }
 
+function normalizeSecondaryPasswordFeatureSettings(value: unknown) {
+  return pickBooleanRecord(value, DEFAULT_SECONDARY_PASSWORD_FEATURE_SETTINGS, secondaryPasswordFeatureKeys);
+}
+
 function normalizeGeneralSettings(value: unknown): GeneralSettingsState {
   const source = isRecord(value) ? value : {};
   return {
@@ -351,6 +405,7 @@ function normalizeGeneralSettings(value: unknown): GeneralSettingsState {
 
 const notificationPreferenceKeys: readonly NotificationPreferenceKey[] = ["notices", "approvals", "mentions", "mail", "attendance"];
 const afterHoursPreferenceKeys: readonly AfterHoursPreferenceKey[] = ["urgentNotices", "approvalRequests", "approvalFeedback", "mentions", "attendanceResults", "importantMail"];
+const secondaryPasswordFeatureKeys: readonly SecondaryPasswordFeatureKey[] = secondaryPasswordFeatureOptions.map((option) => option.key);
 const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch"];
 
 function normalizeAdminPermissionSettings(value: unknown): AdminPermissionState {
@@ -930,24 +985,18 @@ function isBranchPortalItem(item: NavItem) {
   return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger" || item.href === "/notifications";
 }
 
+function getSecondaryPasswordFeatureOptionForPath(pathname: string) {
+  return [...secondaryPasswordFeatureOptions]
+    .sort((left, right) => Math.max(...right.routes.map((route) => route.length)) - Math.max(...left.routes.map((route) => route.length)))
+    .find((option) => option.routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))) ?? null;
+}
+
 function getSensitiveRoutePageTitle(pathname: string) {
-  if (pathname === "/payroll/me" || pathname.startsWith("/payroll/me/")) return "내 급여명세서 초안";
-  if (pathname === "/payroll" || pathname.startsWith("/payroll/")) return "급여 내부관리";
-  if (pathname === "/employees" || pathname.startsWith("/employees/")) return "직원 목록 / 상태 조회";
-  if (pathname === "/org" || pathname.startsWith("/org/")) return "조직 구조 / 역할 안내";
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "관리자 허브";
-  if (pathname === "/work-items/hr" || pathname.startsWith("/work-items/hr/")) return "HR 업무";
-  return "민감정보 기능";
+  return getSecondaryPasswordFeatureOptionForPath(pathname)?.label ?? "민감정보 기능";
 }
 
 function getSensitiveRouteKey(pathname: string) {
-  if (pathname === "/payroll/me" || pathname.startsWith("/payroll/me/")) return "/payroll/me";
-  if (pathname === "/payroll" || pathname.startsWith("/payroll/")) return "/payroll";
-  if (pathname === "/employees" || pathname.startsWith("/employees/")) return "/employees";
-  if (pathname === "/org" || pathname.startsWith("/org/")) return "/org";
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "/admin";
-  if (pathname === "/work-items/hr" || pathname.startsWith("/work-items/hr/")) return "/work-items/hr";
-  return pathname;
+  return getSecondaryPasswordFeatureOptionForPath(pathname)?.key ?? pathname;
 }
 
 function getSidebarPortalStorageKey(portalKey: SidebarPortalKey) {
@@ -1125,8 +1174,10 @@ export function MobileAppShell({
   const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>(() => ({ ...DEFAULT_NOTIFICATION_PREFERENCES }));
   const [afterHoursPreferences, setAfterHoursPreferences] = useState<Record<AfterHoursPreferenceKey, boolean>>(() => ({ ...DEFAULT_AFTER_HOURS_PREFERENCES }));
+  const [secondaryPasswordFeatureSettings, setSecondaryPasswordFeatureSettings] = useState<Record<SecondaryPasswordFeatureKey, boolean>>(() => ({ ...DEFAULT_SECONDARY_PASSWORD_FEATURE_SETTINGS }));
   const savedNotificationPreferencesRef = useRef<Record<NotificationPreferenceKey, boolean>>({ ...DEFAULT_NOTIFICATION_PREFERENCES });
   const savedAfterHoursPreferencesRef = useRef<Record<AfterHoursPreferenceKey, boolean>>({ ...DEFAULT_AFTER_HOURS_PREFERENCES });
+  const savedSecondaryPasswordFeatureSettingsRef = useRef<Record<SecondaryPasswordFeatureKey, boolean>>({ ...DEFAULT_SECONDARY_PASSWORD_FEATURE_SETTINGS });
   const savedGeneralSettingsRef = useRef<GeneralSettingsState>({ ...DEFAULT_GENERAL_SETTINGS });
   const savedAdminPermissionSettingsRef = useRef<AdminPermissionState>(createDefaultAdminPermissionState());
   const [profileActionPending, setProfileActionPending] = useState(false);
@@ -1316,6 +1367,7 @@ export function MobileAppShell({
         const nextGeneralSettings = normalizeGeneralSettings(preferences.generalSettings);
         const nextNotificationPreferences = pickBooleanRecord(preferences.notificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferenceKeys);
         const nextAfterHoursPreferences = pickBooleanRecord(preferences.afterHoursPreferences, DEFAULT_AFTER_HOURS_PREFERENCES, afterHoursPreferenceKeys);
+        const nextSecondaryPasswordFeatureSettings = normalizeSecondaryPasswordFeatureSettings(preferences.secondaryPasswordFeatureSettings);
         const nextAdminPermissionSettings = normalizeAdminPermissionSettings(preferences.adminPermissionSettings);
         const nextSidebarSelections = normalizeSidebarCustomSelections(preferences.sidebarCustomSelections);
 
@@ -1325,6 +1377,8 @@ export function MobileAppShell({
         savedNotificationPreferencesRef.current = { ...nextNotificationPreferences };
         setAfterHoursPreferences(nextAfterHoursPreferences);
         savedAfterHoursPreferencesRef.current = { ...nextAfterHoursPreferences };
+        setSecondaryPasswordFeatureSettings(nextSecondaryPasswordFeatureSettings);
+        savedSecondaryPasswordFeatureSettingsRef.current = { ...nextSecondaryPasswordFeatureSettings };
         setAdminPermissionSettings(nextAdminPermissionSettings);
         savedAdminPermissionSettingsRef.current = nextAdminPermissionSettings;
         setSidebarCustomSelections(nextSidebarSelections);
@@ -1846,6 +1900,10 @@ export function MobileAppShell({
     setAfterHoursPreferences((value) => ({ ...value, [key]: enabled }));
   }
 
+  function setSecondaryPasswordFeatureSetting(key: SecondaryPasswordFeatureKey, enabled: boolean) {
+    setSecondaryPasswordFeatureSettings((value) => ({ ...value, [key]: enabled }));
+  }
+
   async function handleProfileLogout() {
     setProfileActionPending(true);
     setProfileActionError(null);
@@ -1927,7 +1985,8 @@ export function MobileAppShell({
   }
 
   function isSensitiveRoute(href: string) {
-    return ["/admin", "/employees", "/org", "/payroll", "/payroll/me", "/work-items/hr"].some((route) => href === route || href.startsWith(`${route}/`));
+    const featureKey = getSecondaryPasswordFeatureOptionForPath(href)?.key;
+    return Boolean(featureKey && secondaryPasswordFeatureSettings[featureKey]);
   }
 
   function requestSensitiveRouteAccess(href: string) {
@@ -2283,17 +2342,20 @@ export function MobileAppShell({
   async function handleProfileSettingsSave() {
     const hasNotificationChanges = !areBooleanRecordsEqual(notificationPreferences, savedNotificationPreferencesRef.current);
     const hasAfterHoursChanges = !areBooleanRecordsEqual(afterHoursPreferences, savedAfterHoursPreferencesRef.current);
-    if (hasNotificationChanges || hasAfterHoursChanges) {
+    const hasSecondaryPasswordFeatureChanges = !areBooleanRecordsEqual(secondaryPasswordFeatureSettings, savedSecondaryPasswordFeatureSettingsRef.current);
+    if (hasNotificationChanges || hasAfterHoursChanges || hasSecondaryPasswordFeatureChanges) {
       try {
         await saveUserPreferencesToPreviewDb({
           notificationPreferences,
           afterHoursPreferences,
+          secondaryPasswordFeatureSettings,
         });
       } catch {
         // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
       }
       savedNotificationPreferencesRef.current = { ...notificationPreferences };
       savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
+      savedSecondaryPasswordFeatureSettingsRef.current = { ...secondaryPasswordFeatureSettings };
       showScopedSettingsSaveToast("profile-settings", true);
       return;
     }
@@ -2736,6 +2798,19 @@ export function MobileAppShell({
                   <SettingField label="직책" value={profileState.positionLabel} />
                   <SettingField label="부서" value={profileState.departmentName} />
                   <SettingField label="이메일" value={profileState.email} />
+                </div>
+              </section>
+              <section className="topbar-modal-card topbar-modal-card--wide">
+                <strong>2차 비밀번호 적용 기능</strong>
+                <div className="topbar-modal-toggle-grid topbar-modal-toggle-grid--secondary-password-features">
+                  {secondaryPasswordFeatureOptions.map((feature) => (
+                    <SettingToggle
+                      key={feature.key}
+                      label={feature.label}
+                      checked={secondaryPasswordFeatureSettings[feature.key]}
+                      onChange={(checked) => setSecondaryPasswordFeatureSetting(feature.key, checked)}
+                    />
+                  ))}
                 </div>
               </section>
               <section className="topbar-modal-card topbar-modal-card--wide">
