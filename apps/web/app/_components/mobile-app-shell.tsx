@@ -471,12 +471,13 @@ function removeJsonStorageValue(key: string) {
 
 function getSecondaryPasswordFailureLimitState(now = Date.now()): SecondaryPasswordFailureLimitState {
   const savedState = readJsonStorageValue<SecondaryPasswordFailureLimitState>(SECONDARY_PASSWORD_FAILURE_STORAGE_KEY, { count: 0, lockedUntil: 0 });
-  if (!Number.isFinite(savedState.lockedUntil) || savedState.lockedUntil <= now) {
+  const lockedUntil = Number(savedState.lockedUntil) || 0;
+  if (!Number.isFinite(lockedUntil) || (lockedUntil > 0 && lockedUntil <= now)) {
     return { count: 0, lockedUntil: 0 };
   }
   return {
     count: Math.min(Math.max(Number(savedState.count) || 0, 0), SECONDARY_PASSWORD_MAX_FAILURES),
-    lockedUntil: savedState.lockedUntil,
+    lockedUntil,
   };
 }
 

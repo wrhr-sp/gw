@@ -350,6 +350,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const SECONDARY_PASSWORD_UNLOCK_MS = 10 * 60 * 1000;');
     expect(shellSource).toContain('2차 비밀번호 5회 오류로 10분간 잠겼습니다. (5/5)');
     expect(shellSource).toContain('2차 비밀번호 5회 오류로 ${remainingMinutes}분 후 다시 시도할 수 있습니다. (5/5)');
+    expect(shellSource).toContain('const lockedUntil = Number(savedState.lockedUntil) || 0;');
+    expect(shellSource).toContain('lockedUntil > 0 && lockedUntil <= now');
+    expect(shellSource).not.toContain('savedState.lockedUntil <= now)');
     expect(shellSource).toContain('return `2차 비밀번호가 맞지 않습니다. (${state.count}/${SECONDARY_PASSWORD_MAX_FAILURES})`;');
     expect(shellSource).toContain('const [secondaryPasswordFailureState, setSecondaryPasswordFailureState] = useState<SecondaryPasswordFailureLimitState>(() => getSecondaryPasswordFailureLimitState());');
     expect(shellSource).toContain('const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => readSecondaryPasswordUnlockedFeatureKeys());');
