@@ -178,6 +178,8 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
 
 1. 현재 공개 preview URL 과 최근 확인 결과
    - 현재 공개 Web preview URL: `https://gw-web.wereheresp.workers.dev`
+   - 이 URL은 개발자 임시 화면이 아니라 production/custom domain 전환 전에 실제 업무 흐름을 검증하는 UAT/preview URL 입니다.
+   - preview URL은 preview DB 또는 UAT용 PostgreSQL branch/app role에 연결해 사용자가 직접 만든 검증 데이터가 저장·조회될 수 있어야 합니다.
    - 공개 smoke 확인 결과: `/`, `/login`, `/dashboard`, `/menu`, `/admin/users` 는 200
    - 로컬 `pnpm --filter @gw/web preview:cf` smoke 도 같은 패턴을 재현했고 `/manifest.webmanifest` 는 200 이었습니다.
    - 이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview 기록이며, 현재는 HTTP 404 를 반환했습니다.
@@ -194,7 +196,9 @@ Cloudflare preview URL 준비 기준은 별도 문서로 정리했습니다.
    - `apps/web/app/layout.tsx` 의 `manifest: "/manifest.webmanifest"` 유지
    - 앱 내부 링크와 API 기본 경로는 same-origin 상대 경로(`/api/*`) 우선 유지
 5. preview 가 떠도 production 승인과는 별개
-   - 실제 secret 반영, 운영 리소스 연결, 외부 공개 확대는 다시 승인받아야 함
+   - preview DB schema/migration/seed/검증용 데이터 준비는 승인된 작업카드 범위 안에서 진행할 수 있습니다.
+   - production DB, production 실데이터, DNS/custom domain, 유료 리소스, secret 입력·교체·출력, destructive 작업은 다시 승인받아야 합니다.
+   - 완료 보고는 route 200만이 아니라 preview URL에서 생성 → 저장 → 재조회가 확인됐는지 함께 남깁니다.
 
 ## Phase 6 모바일/PWA 1차 현재 상태
 

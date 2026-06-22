@@ -120,6 +120,27 @@ admin 노출 remediation 근거:
 - workers.dev/pages.dev 후보 비교와 승인 게이트 정리
 - Phase 6 모바일/PWA handoff 기준 정리
 
+## 5-1. workers.dev preview URL 운영 정책
+
+`workers.dev` preview URL은 개발자 임시 화면이나 데이터가 쌓이지 않는 테스트 화면이 아니다.
+그룹웨어 production/custom domain 전환 전에 대장이 실제 사용자처럼 눌러보며 업무 흐름과 권한, 저장/조회 동작을 확인하는 UAT/preview 환경이다.
+
+정책:
+
+- preview URL은 `preview DB` 또는 그에 준하는 UAT용 PostgreSQL branch/app role에 연결한다.
+- preview DB에는 게시글, 댓글, 휴가 신청, 결재 문서, 설정 변경처럼 사용자가 직접 만든 검증 데이터가 누적될 수 있어야 한다.
+- 기능 완료 보고는 route 200, 화면 렌더링, local build만으로 끝내지 않고 preview URL에서 생성 → 저장 → 재조회가 되는지 확인한 근거를 포함한다.
+- preview DB schema/migration/seed/검증용 데이터 준비는 승인된 작업카드 범위 안에서는 진행 가능하다. 단, secret 값은 출력·커밋하지 않는다.
+- 현재 개발 산출물은 개발/테스트용 별도 앱이 아니라 실제 사용할 그룹웨어다. 사용자-facing 화면에는 `dev`, `test`, `UAT`, `Phase`, `preview`, `skeleton`, `placeholder` 같은 내부 개발 문구를 남기지 않는다.
+- production/custom domain은 preview와 분리한다. production DB, 실데이터 migration, DNS/custom domain, 유료 리소스, secret 입력·교체·출력, destructive 작업은 계속 별도 승인 게이트다.
+
+검증 예시:
+
+- 게시판: 글쓰기 → 목록 반영 → 상세 조회 → 댓글/읽음 확인
+- 휴가: 신청 → 관리자 승인/반려 → 상태 변경 확인
+- 결재: 기안 → 승인/반려 → 이력 확인
+- 설정: 변경 저장 → 새로고침 후 유지 확인
+
 ## 6. 별도 승인 전 하면 안 되는 일
 
 아래는 이번 카드 범위에서 실행하면 안 되는 일입니다.

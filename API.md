@@ -251,6 +251,12 @@ guardrail 초안:
 - 사용자가 볼 수 없는 권한 메뉴는 `availableItems[]` 에서도 제거한다.
 - 이번 Phase 24 문서에서는 production DB 영구 저장이 아니라 dev-safe/local/profile skeleton 전제를 유지한다.
 
+현재 이후 API 완료 기준:
+- 과거 Phase 문서에 남은 `dev-safe`, `placeholder`, `skeleton` 표현은 당시 단계의 이력으로만 본다.
+- 현재 개발은 실제 사용할 그룹웨어를 만드는 기준이며, Cloudflare `workers.dev` preview URL은 preview DB 기반 UAT 환경으로 본다.
+- mutation API는 route 200 또는 mock 응답만으로 완료하지 않고 preview DB에서 생성 → 저장 → 재조회가 되는지 확인한다.
+- preview DB schema/migration/seed/검증용 데이터 준비는 승인된 작업카드 범위 안에서 진행할 수 있다. production DB, production 실데이터, DNS/custom domain, 유료 리소스, secret 입력·교체·출력, destructive 작업은 별도 승인 게이트다.
+
 #### 제안 2) `GET /api/branches`
 
 목적:
