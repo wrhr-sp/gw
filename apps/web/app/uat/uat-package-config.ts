@@ -8,7 +8,7 @@ export const roleScenarioCards = [
   {
     role: "일반 직원",
     startRoute: "/login → /home",
-    journey: ["/attendance", "/leave", "/approvals", "/boards", "/documents", "/notifications", "/me"],
+    journey: ["/attendance", "/leave", "/approvals", "/boards", "/documents", "/sales", "/me"],
     actions: [
       "오늘 근태 상태와 마지막 기록을 먼저 읽는다.",
       "휴가 잔여와 신청/승인 대기 상태를 error 와 섞지 않고 확인한다.",
@@ -180,7 +180,7 @@ export const facilitatorScript = [
 export const quickStartSteps = [
   "브라우저에서 live URL 을 연다: https://gw-web.wereheresp.workers.dev",
   "`admin / 1234` 로 로그인한다. 이 계정은 dev/test/UAT 전용이다.",
-  "직원이라면 `/home` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/notifications` → `/me` 순서로 본다.",
+  "직원이라면 `/home` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/sales` → `/me` 순서로 본다.",
   "승인자라면 `/approvals` 를 먼저 보고 팀 병목/대기 상태를 확인한다.",
   "운영 관리자라면 `/management` → `/admin/users` → `/admin/policies` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` → `/api/health` 순서로 본다.",
   "지점 관리자라면 `/work-items/branch` → `/employees` → `/org` → `/management` 순서로 branch/company scope 차이를 확인한다.",

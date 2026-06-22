@@ -92,7 +92,7 @@ type SecondaryPasswordFeatureKey =
   | "boards"
   | "messenger"
   | "mail"
-  | "notifications"
+  | "sales"
   | "attendance"
   | "leave"
   | "approvals"
@@ -102,7 +102,6 @@ type SecondaryPasswordFeatureKey =
   | "me"
   | "payroll"
   | "payrollMe"
-  | "workItems"
   | "branch"
   | "hr"
   | "tax"
@@ -202,7 +201,7 @@ const secondaryPasswordFeatureOptions: readonly { key: SecondaryPasswordFeatureK
   { key: "boards", label: "게시판", routes: ["/boards", "/posts"] },
   { key: "messenger", label: "메신저", routes: ["/messenger"] },
   { key: "mail", label: "메일", routes: ["/mail"] },
-  { key: "notifications", label: "알림", routes: ["/notifications"] },
+  { key: "sales", label: "영업관리", routes: ["/sales"] },
   { key: "attendance", label: "근태", routes: ["/attendance"] },
   { key: "leave", label: "휴가", routes: ["/leave"] },
   { key: "approvals", label: "전자결재", routes: ["/approvals"] },
@@ -212,7 +211,6 @@ const secondaryPasswordFeatureOptions: readonly { key: SecondaryPasswordFeatureK
   { key: "me", label: "내정보", routes: ["/me"] },
   { key: "payrollMe", label: "내 급여", routes: ["/payroll/me"] },
   { key: "payroll", label: "급여", routes: ["/payroll"] },
-  { key: "workItems", label: "공통 업무", routes: ["/work-items"] },
   { key: "branch", label: "지점관리 업무", routes: ["/work-items/branch"] },
   { key: "hr", label: "HR 업무", routes: ["/work-items/hr"] },
   { key: "tax", label: "세무", routes: ["/work-items/tax"] },
@@ -563,7 +561,7 @@ function getFeatureIconName(href: string, label: string): FeatureIconName | null
   if (href === "/home" || href === "/dashboard") return "home";
   if (href === "/messenger") return "messenger";
   if (href === "/mail") return "mail";
-  if (href === "/notifications") return "notification";
+  if (href === "/sales") return "report";
   if (href === "/attendance") return "attendance";
   if (href === "/boards") return "board";
   if (href === "/approvals") return "approval";
@@ -983,7 +981,7 @@ function isBranchPortalPath(pathname: string) {
 }
 
 function isBranchPortalItem(item: NavItem) {
-  return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger" || item.href === "/notifications";
+  return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger";
 }
 
 function getSecondaryPasswordFeatureOptionForPath(pathname: string) {
@@ -1190,7 +1188,6 @@ export function MobileAppShell({
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
-  const notificationTab = bottomTabs.find((item) => item.href === "/notifications");
   void installGuideSteps;
 
   function blurActiveElement() {
@@ -1843,7 +1840,7 @@ export function MobileAppShell({
   }, [isLoginRoute]);
 
   useEffect(() => {
-    if (!notificationTab || isLoginRoute) {
+    if (isLoginRoute) {
       setNotificationBadge(null);
       return;
     }
@@ -1876,7 +1873,7 @@ export function MobileAppShell({
     return () => {
       active = false;
     };
-  }, [isLoginRoute, notificationTab]);
+  }, [isLoginRoute]);
 
 
 

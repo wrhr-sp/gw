@@ -32,14 +32,6 @@ export type RecoveryRouteCard = {
   summary: string;
 };
 
-export type NotificationStateCard = {
-  title: string;
-  summary: string;
-  detail: string;
-  href: string;
-  actionLabel: string;
-};
-
 export type OfflineTaskGuide = {
   href: string;
   label: string;
@@ -221,10 +213,10 @@ export const mobilePrimaryNav: NavItem[] = [
     summary: "문서 공간과 보관 흐름 확인",
   },
   {
-    href: "/work-items",
-    label: "공통 업무",
-    shortLabel: "업무",
-    summary: "HR·세무·노무·법무·지점 업무 공통 엔진 확인",
+    href: "/sales",
+    label: "영업관리",
+    shortLabel: "영업",
+    summary: "상담, 거래, 후속 연락 흐름 확인",
   },
   {
     href: "/me",
@@ -292,12 +284,7 @@ export const mobileBottomTabs: NavItem[] = [
     shortLabel: "메일",
     summary: "사내 메일 연동 전 내부 확인 상태와 승인 게이트 안내",
   },
-  {
-    href: "/notifications",
-    label: "알림",
-    shortLabel: "알림",
-    summary: "푸시/외부 알림 연동 전 확인 가능한 안내와 재확인 포인트",
-  },
+
 ];
 
 export const mobileMenuSections: NavSection[] = [
@@ -307,7 +294,6 @@ export const mobileMenuSections: NavSection[] = [
     items: [
       mobileBottomTabs[3],
       mobileBottomTabs[2],
-      mobileBottomTabs[4],
       mobilePrimaryNav[4],
       { href: "/org", label: "주소록", shortLabel: "주소록", summary: "부서·역할·권한 체계와 연락 기준 확인" },
       mobilePrimaryNav[9],
@@ -317,7 +303,12 @@ export const mobileMenuSections: NavSection[] = [
   {
     title: "일정/개인 업무",
     description: "",
-    items: [mobilePrimaryNav[6], plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
+    items: [plannedNavItems.calendar, plannedNavItems.reservation, plannedNavItems.report, plannedNavItems.todo],
+  },
+  {
+    title: "영업",
+    description: "",
+    items: [mobilePrimaryNav[6]],
   },
   {
     title: "근무/인사",
@@ -511,13 +502,13 @@ export const mobileReviewChecklist = [
   "오프라인/안내 문구가 실제 완료처럼 보이지 않는지 확인",
   "게시판·문서·전자결재 접근 경계가 모바일에서도 흐려지지 않는지 확인",
   "manifest 와 내부 링크가 특정 배포 전용 절대 경로를 하드코딩하지 않았는지 확인",
-  "모바일 하단 탭 5개(메뉴/홈/메신저/메일/알림)가 같은 파일럿 정보구조를 가리키는지 확인",
+  "모바일 하단 탭 4개(메뉴/홈/메신저/메일)가 같은 파일럿 정보구조를 가리키는지 확인",
   "PC 사이드바 접기/펼치기와 모바일 전체 메뉴가 같은 메뉴군을 설명하는지 확인",
 ] as const;
 
 export const fieldUsabilityPrinciples = [
   "홈(`/home`)과 메뉴(`/menu`)는 모바일/PC에서 같은 정보구조를 가리키고, 탐색 껍데기만 다르게 유지합니다.",
-  "알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.",
+  "알림은 상단바 알림 버튼 전용이며, 기능페이지나 사이드바 메뉴로 노출하지 않습니다.",
   "오프라인(`/offline`)은 가능한 일/막히는 일/재시도 절차를 먼저 설명하고, 상태 변경 성공처럼 포장하지 않습니다.",
   "`/management`·`/admin*` 운영 레인은 일반 직원 홈과 분리해 권한 있는 사용자만 확인합니다.",
 ] as const;
@@ -533,11 +524,7 @@ export const recoveryRouteCards: readonly RecoveryRouteCard[] = [
     label: "전체 메뉴",
     summary: "모바일 하단 탭과 PC 사이드바가 가리키는 같은 업무 묶음을 다시 고릅니다.",
   },
-  {
-    href: "/notifications",
-    label: "알림 inbox",
-    summary: "미읽음/권한/승인 대기 안내를 same-origin 기준으로 다시 확인합니다.",
-  },
+
   {
     href: "/offline",
     label: "오프라인 안내",
@@ -570,37 +557,6 @@ export const adminRecoveryRouteCards: readonly RecoveryRouteCard[] = [
     href: "/offline",
     label: "오프라인 안내",
     summary: "네트워크 불안정 시 관리자 작업에서 가능한 일과 재시도 절차를 다시 봅니다.",
-  },
-] as const;
-
-export const notificationStateCards: readonly NotificationStateCard[] = [
-  {
-    title: "미읽음 안내 확인",
-    summary: "같은 origin 안에서 받은 inbox 항목과 notices 를 먼저 읽습니다.",
-    detail: "실제 외부 발송을 뜻하지 않으며, 다음 업무는 해당 route 에서 이어집니다.",
-    href: "/home",
-    actionLabel: "홈에서 오늘 할 일 다시 보기",
-  },
-  {
-    title: "승인 대기/처리 필요",
-    summary: "알림 문구만 보고 끝내지 말고 `/approvals` 나 `/leave` 로 이동해 실제 상태를 확인합니다.",
-    detail: "알림은 보조 허브이고, 승인/반려/신청 같은 상태 변경은 각 업무 화면에서만 처리합니다.",
-    href: "/approvals",
-    actionLabel: "승인 대기 확인",
-  },
-  {
-    title: "권한 부족 또는 관리자 확인 필요",
-    summary: "일반 사용자는 숨겨진 운영 메뉴를 대신 보여 주지 않고, 필요한 경우 권한 있는 담당자 레인으로 분리합니다.",
-    detail: "관리자·감사·경영업무 확인은 `/management` 와 `/admin*` 에서만 이어집니다.",
-    href: "/management",
-    actionLabel: "운영 레인 설명 보기",
-  },
-  {
-    title: "오프라인/네트워크 불안정",
-    summary: "알림 화면에서 성공처럼 추측하지 말고 오프라인 제약과 재시도 절차를 먼저 확인합니다.",
-    detail: "background sync, push 재전송, 외부 발송 보장은 아직 이번 단계 범위가 아닙니다.",
-    href: "/offline",
-    actionLabel: "오프라인 절차 보기",
   },
 ] as const;
 

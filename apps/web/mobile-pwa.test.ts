@@ -22,7 +22,6 @@ import {
   mobileBottomTabs,
   mobileMenuSections,
   mobilePrimaryNav,
-  notificationStateCards,
   offlineGuidance,
   offlineTaskGuides,
   recoveryRouteCards,
@@ -81,7 +80,7 @@ describe("mobile/PWA config", () => {
       "/approvals",
       "/boards",
       "/documents",
-      "/work-items",
+      "/sales",
       "/me",
       "/org",
       "/employees",
@@ -93,13 +92,13 @@ describe("mobile/PWA config", () => {
       "/home",
       "/messenger",
       "/mail",
-      "/notifications",
     ]);
     expect(mobileBottomTabs[0]?.summary).toContain("전체 기능 탐색");
 
     expect(mobileMenuSections.map((section) => section.title)).toEqual([
       "협업/소통",
       "일정/개인 업무",
+      "영업",
       "근무/인사",
       "결재/문서",
       "급여/비용",
@@ -107,20 +106,20 @@ describe("mobile/PWA config", () => {
     ]);
     expect(mobilePrimaryNav[0]).toMatchObject({ href: "/home", label: "홈", shortLabel: "홈" });
     expect(mobilePrimaryNav[5]).toMatchObject({ href: "/documents", label: "전사 문서함", shortLabel: "전사문서" });
+    expect(mobilePrimaryNav[6]).toMatchObject({ href: "/sales", label: "영업관리", shortLabel: "영업" });
     expect(mobilePrimaryNav[9]).toMatchObject({ href: "/employees", label: "조직도", shortLabel: "조직도" });
     expect(mobileMenuSections.flatMap((section) => section.items.map((item) => item.href))).toEqual([
       "/mail",
       "/messenger",
-      "/notifications",
       "/boards",
       "/org",
       "/employees",
       "#anonymous-board",
-      "/work-items",
       "#calendar",
       "#reservation",
       "#reports",
       "#todo-plus",
+      "/sales",
       "/attendance",
       "/leave",
       "/work-items/hr",
@@ -186,10 +185,9 @@ describe("mobile/PWA config", () => {
     expect(offlineGuidance.availableNow).toContain("읽기 중심 안내 탐색");
     expect(offlineGuidance.blockedNow).toContain("출퇴근 등록/정정 요청");
     expect(offlineGuidance.retrySteps).toEqual(["네트워크 연결 확인", "잠시 후 다시 시도", "필요 시 데스크톱 또는 안정적인 네트워크에서 재시도"]);
-    expect(fieldUsabilityPrinciples).toContain("알림(`/notifications`)은 same-origin inbox 확인 화면이며, 외부 push·메일·문자 발송 성공처럼 쓰지 않습니다.");
-    expect(recoveryRouteCards.map((item) => item.href)).toEqual(["/home", "/menu", "/notifications", "/offline"]);
+    expect(fieldUsabilityPrinciples).toContain("알림은 상단바 알림 버튼 전용이며, 기능페이지나 사이드바 메뉴로 노출하지 않습니다.");
+    expect(recoveryRouteCards.map((item) => item.href)).toEqual(["/home", "/menu", "/offline"]);
     expect(getRecoveryRouteCardsForHost("gw-web.preview-account.workers.dev")).toBe(recoveryRouteCards);
-    expect(notificationStateCards.map((item) => item.href)).toEqual(["/home", "/approvals", "/management", "/offline"]);
     expect(offlineTaskGuides.find((item) => item.href === "/attendance")?.blocked).toContain("오프라인 성공처럼 처리하지 않습니다");
     expect(offlineTaskGuides.find((item) => item.href === "/admin")?.adminOnly).toBe(true);
 

@@ -3,71 +3,9 @@ import React from "react";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import {
   getWorkItemModuleCard,
-  workItemGuardrails,
-  workItemHubHighlights,
-  workItemHubModuleCards,
   workItemModuleCards,
   type WorkItemModuleKey,
 } from "../work-items-config";
-
-export function WorkItemsHubPage() {
-  return (
-    <PageShell
-      backHref="/home"
-      backLabel="대시보드로"
-      eyebrow="Phase 37 공통 업무 저장흐름 점검"
-      title="공통 업무 허브"
-      description="HR·세무·노무·법무·지점 업무를 개별 앱처럼 늘리지 않고 공통 work item, 문서, 첨부, 검토, 마감 설명 구조를 metadata preview / approval gate 언어로 먼저 묶는 skeleton 화면입니다."
-    >
-      <SurfaceSection title="이번 패스에서 먼저 고정한 것" description="실운영 자동화 전에 정보 구조와 권한 설명을 먼저 맞춥니다.">
-        <ul className="summary-list">
-          {workItemHubHighlights.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="모듈별 진입점" description="같은 허브 아래에서 역할별로 어디까지 보여 줄지 먼저 나눕니다.">
-        <div className="grid-auto-compact">
-          {workItemHubModuleCards.map((card) => (
-            <article key={card.href} className="info-card">
-              <Pill tone="accent">{card.roleScope}</Pill>
-              <h3>{card.title}</h3>
-              <p>{card.summary}</p>
-              <p className="card-note">{card.accessNote}</p>
-              <a href={card.href}>{card.href}</a>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="읽기 API 골격" description="UI 자리와 같은 이름으로 API 골격을 확인할 수 있게 맞춥니다.">
-        <div className="grid-auto-compact">
-          <article className="route-card">
-            <h3>공통 목록/상세</h3>
-            <p>/api/work-items, /api/work-items/:id</p>
-          </article>
-          <article className="route-card">
-            <h3>문서/첨부/검토</h3>
-            <p>/api/work-items/:id/documents · /attachments · /reviews</p>
-          </article>
-          <article className="route-card">
-            <h3>마감 보기</h3>
-            <p>/api/work-item-deadlines</p>
-          </article>
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="고정 가드레일" description="운영처럼 보이더라도 과장하지 않기 위한 기준입니다." muted>
-        <ul className="bullet-list">
-          {workItemGuardrails.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-    </PageShell>
-  );
-}
 
 export function WorkItemModulePage({ module }: { module: Exclude<WorkItemModuleKey, "hub"> }) {
   const card = getWorkItemModuleCard(module);
@@ -77,8 +15,8 @@ export function WorkItemModulePage({ module }: { module: Exclude<WorkItemModuleK
 
   return (
     <PageShell
-      backHref="/work-items"
-      backLabel="공통 업무 허브로"
+      backHref="/home"
+      backLabel="홈으로"
       eyebrow="Phase 37 모듈별 민감자료 경계"
       title={card.title}
       description={card.summary}

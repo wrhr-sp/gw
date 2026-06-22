@@ -128,7 +128,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="모바일 하단 탭 5개" description="파일럿 모바일 기본 탐색은 `메뉴`, `홈`, `메신저`, `메일`, `알림` 5개로 고정하고, 실제 업무 기능은 `메뉴`에서 같은 정보구조로 다시 고릅니다.">
+      <SurfaceSection title="모바일 하단 탭 4개" description="파일럿 모바일 기본 탐색은 `메뉴`, `홈`, `메신저`, `메일` 4개로 고정하고, 알림은 상단바 알림 버튼 전용으로 둡니다.">
         <div className="grid-auto-compact">
           {mobileBottomTabs.map((item) => (
             <article key={item.href} className="info-card">

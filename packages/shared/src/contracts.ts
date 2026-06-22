@@ -102,7 +102,7 @@ export const appSections = [
   { href: "/approvals", label: "전자결재", description: "결재 문서 제출/승인 UI 골격" },
   { href: "/boards", label: "게시판", description: "사내 공지와 게시글 기능 후보" },
   { href: "/documents", label: "문서", description: "R2 기반 첨부/문서 관리 후보 영역" },
-  { href: "/work-items", label: "공통 업무", description: "HR·세무·노무·법무·지점 업무가 함께 타는 공통 work item skeleton" },
+  { href: "/sales", label: "영업관리", description: "상담, 거래, 후속 연락 흐름을 확인하는 영업 업무 영역" },
   { href: "/me", label: "내 정보", description: "세션, 역할, 회사 정보와 보안 안내를 확인하는 개인 영역" },
   { href: "/org", label: "조직도", description: "부서/직책 구조를 탐색하는 조직 보기" },
   { href: "/employees", label: "직원", description: "직원 기본정보와 인사 상태를 조회하는 공간" },

@@ -375,7 +375,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('{ key: "boards", label: "게시판", routes: ["/boards", "/posts"] }');
     expect(shellSource).toContain('{ key: "messenger", label: "메신저", routes: ["/messenger"] }');
     expect(shellSource).toContain('{ key: "mail", label: "메일", routes: ["/mail"] }');
-    expect(shellSource).toContain('{ key: "notifications", label: "알림", routes: ["/notifications"] }');
+    expect(shellSource).toContain('{ key: "sales", label: "영업관리", routes: ["/sales"] }');
+    expect(shellSource).not.toContain('{ key: "notifications", label: "알림", routes: ["/notifications"] }');
     expect(shellSource).toContain('{ key: "attendance", label: "근태", routes: ["/attendance"] }');
     expect(shellSource).toContain('{ key: "leave", label: "휴가", routes: ["/leave"] }');
     expect(shellSource).toContain('{ key: "approvals", label: "전자결재", routes: ["/approvals"] }');
@@ -385,7 +386,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('{ key: "me", label: "내정보", routes: ["/me"] }');
     expect(shellSource).toContain('{ key: "payrollMe", label: "내 급여", routes: ["/payroll/me"] }');
     expect(shellSource).toContain('{ key: "payroll", label: "급여", routes: ["/payroll"] }');
-    expect(shellSource).toContain('{ key: "workItems", label: "공통 업무", routes: ["/work-items"] }');
+    expect(shellSource).not.toContain('{ key: "workItems", label: "공통 업무", routes: ["/work-items"] }');
     expect(shellSource).toContain('{ key: "branch", label: "지점관리 업무", routes: ["/work-items/branch"] }');
     expect(shellSource).toContain('{ key: "hr", label: "HR 업무", routes: ["/work-items/hr"] }');
     expect(shellSource).toContain('{ key: "tax", label: "세무", routes: ["/work-items/tax"] }');

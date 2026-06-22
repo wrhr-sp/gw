@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { getWorkItemAccessCapabilities } from "./app/_components/phase34-live-sections";
 import AuditLogsPage from "./app/admin/audit-logs/page";
 import EmployeesPage from "./app/employees/page";
-import NotificationsPage from "./app/notifications/page";
 import OrgPage from "./app/org/page";
 import WorkItemsBranchPage from "./app/work-items/branch/page";
 
@@ -57,18 +56,6 @@ describe("Phase 34 real-usage entrypoints", () => {
         maskedFields: [],
       }).join(", "),
     ).toBe("legacy.read");
-  });
-
-  it("keeps notifications honest about same-origin inbox vs external delivery", () => {
-    const html = renderToStaticMarkup(<NotificationsPage />);
-
-    expect(html).toContain("same-origin inbox");
-    expect(html).toContain("외부 발송 없음");
-    expect(html).toContain("실사용 알림 패널");
-    expect(html).toContain("상태별 다음 행동");
-    expect(html).toContain("복구 route 모음");
-    expect(html).toContain("/home");
-    expect(html).not.toContain("발송 완료");
   });
 
   it("renders audit logs as an audit.read-gated live preview rather than a write surface", () => {

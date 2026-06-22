@@ -22,7 +22,6 @@ const authenticatedWorkbenchRoutePrefixes = [
   "/menu",
   "/messenger",
   "/mail",
-  "/notifications",
   "/posts",
   "/offline",
 ] as const;
