@@ -12,10 +12,16 @@ describe("refresh service worker", () => {
     expect(swSource).toContain('request.headers.get(GW_REFRESH_BYPASS_HEADER) === "1"');
     expect(swSource).toContain('url.pathname === "/refresh"');
     expect(swSource).toContain('createRefreshResponse(event.request.url)');
+    expect(swSource).toContain('const GW_REFRESH_PRELOAD_TIMEOUT_MS = 4200;');
     expect(swSource).toContain('cache: "reload"');
     expect(swSource).toContain('credentials: "same-origin"');
     expect(swSource).toContain('headers: { [preloadHeaderName]: "1" }');
-    expect(swSource).toContain('window.location.replace(returnUrl);');
+    expect(swSource).toContain('var html = await response.text();');
+    expect(swSource).toContain('document.open("text/html", "replace");');
+    expect(swSource).toContain('document.write(freshHtml);');
+    expect(swSource).toContain('document.close();');
+    expect(swSource).not.toContain('window.location.replace(returnUrl);');
+    expect(swSource).toContain('window.location.reload();');
     expect(swSource).toContain('WE’REHERE');
     expect(swSource).toContain('overflow: hidden');
     expect(swSource).toContain('refresh-logo-letter-wave');
