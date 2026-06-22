@@ -341,10 +341,16 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('shouldShowSensitiveRouteGate ? renderSensitiveRouteGateContent() : children');
     expect(shellSource).toContain('function renderSensitiveRouteGateContent()');
     expect(shellSource).toContain('function getSensitiveRoutePageTitle(pathname: string)');
+    expect(shellSource).toContain('function getSensitiveRouteKey(pathname: string)');
     expect(shellSource).toContain('const currentSensitiveRoutePageTitle = getSensitiveRoutePageTitle(pathname);');
+    expect(shellSource).toContain('const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => new Set());');
+    expect(shellSource).toContain('const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);');
+    expect(shellSource).toContain('setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));');
+    expect(shellSource).toContain('sensitiveRoutePasswordRequestRef.current += 1;');
     expect(shellSource).toContain('<h1>{currentSensitiveRoutePageTitle}</h1>');
     expect(shellSource).toContain('className="page-shell sensitive-route-page-gate"');
     expect(shellSource).toContain('onChange={(value) => void handleSensitiveRoutePasswordChange(value)}');
+    expect(shellSource).not.toContain('value={sensitiveRoutePassword}\n                autoFocus\n                hideLabel\n                error={sensitiveRoutePasswordError}');
     expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
     expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
@@ -423,7 +429,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("justify-content: center;");
     expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");
-    expect(globalCss).toContain("min-height: max(520px, calc(100dvh - 260px));");
+    expect(globalCss).toContain("min-height: max(680px, calc(100dvh - 180px));");
+    expect(globalCss).not.toContain("min-height: max(520px, calc(100dvh - 260px));");
     expect(globalCss).toContain(".sensitive-route-gate__card");
     expect(globalCss).toContain(".pin-field__label--hidden");
     expect(globalCss).toContain(".pin-field__slots");

@@ -808,6 +808,16 @@ function getSensitiveRoutePageTitle(pathname: string) {
   return "민감정보 기능";
 }
 
+function getSensitiveRouteKey(pathname: string) {
+  if (pathname === "/payroll/me" || pathname.startsWith("/payroll/me/")) return "/payroll/me";
+  if (pathname === "/payroll" || pathname.startsWith("/payroll/")) return "/payroll";
+  if (pathname === "/employees" || pathname.startsWith("/employees/")) return "/employees";
+  if (pathname === "/org" || pathname.startsWith("/org/")) return "/org";
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "/admin";
+  if (pathname === "/work-items/hr" || pathname.startsWith("/work-items/hr/")) return "/work-items/hr";
+  return pathname;
+}
+
 function getSidebarPortalStorageKey(portalKey: SidebarPortalKey) {
   return `${SIDEBAR_CUSTOM_STORAGE_PREFIX}.${portalKey}`;
 }
@@ -970,6 +980,7 @@ export function MobileAppShell({
   const [pendingSensitiveRoute, setPendingSensitiveRoute] = useState<string | null>(null);
   const [sensitiveRoutePassword, setSensitiveRoutePassword] = useState("");
   const [sensitiveRoutePasswordError, setSensitiveRoutePasswordError] = useState<string | null>(null);
+  const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => new Set());
   const sensitiveRoutePasswordRequestRef = useRef(0);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
@@ -1086,8 +1097,17 @@ export function MobileAppShell({
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
-  const shouldShowSensitiveRouteGate = isCurrentSensitiveRoute && !adminSettingsUnlocked;
+  const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
+  const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);
+  const shouldShowSensitiveRouteGate = isCurrentSensitiveRoute && !isCurrentSensitiveRouteUnlocked;
   const currentSensitiveRoutePageTitle = getSensitiveRoutePageTitle(pathname);
+
+  useEffect(() => {
+    sensitiveRoutePasswordRequestRef.current += 1;
+    setSensitiveRoutePassword("");
+    setSensitiveRoutePasswordError(null);
+  }, [currentSensitiveRouteKey]);
+
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
@@ -1758,7 +1778,7 @@ export function MobileAppShell({
       setSensitiveRoutePasswordError("2차 비밀번호가 맞지 않습니다.");
       return;
     }
-    setAdminSettingsUnlocked(true);
+    setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));
     const targetHref = pendingSensitiveRoute;
     closeSensitiveRouteGate();
     if (targetHref) {
@@ -1796,7 +1816,7 @@ export function MobileAppShell({
       return;
     }
 
-    setAdminSettingsUnlocked(true);
+    setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));
     setSensitiveRoutePassword("");
     setSensitiveRoutePasswordError(null);
   }
@@ -2132,7 +2152,6 @@ export function MobileAppShell({
                 label="2차 비밀번호"
                 value={sensitiveRoutePassword}
                 autoFocus
-                hideLabel
                 error={sensitiveRoutePasswordError}
                 onChange={(value) => void handleSensitiveRoutePasswordChange(value)}
               />
@@ -2603,7 +2622,7 @@ export function MobileAppShell({
     if (item.disabled) {
       return;
     }
-    if (isSensitiveRoute(item.href) && !adminSettingsUnlocked) {
+    if (isSensitiveRoute(item.href) && !unlockedSensitiveRouteKeys.has(getSensitiveRouteKey(item.href))) {
       requestSensitiveRouteAccess(item.href);
       return;
     }
