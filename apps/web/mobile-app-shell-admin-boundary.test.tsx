@@ -340,6 +340,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('민감정보 2차 비밀번호 확인');
     expect(shellSource).toContain('shouldShowSensitiveRouteGate ? renderSensitiveRouteGateContent() : children');
     expect(shellSource).toContain('function renderSensitiveRouteGateContent()');
+    expect(shellSource).toContain('function getSensitiveRoutePageTitle(pathname: string)');
+    expect(shellSource).toContain('const currentSensitiveRoutePageTitle = getSensitiveRoutePageTitle(pathname);');
+    expect(shellSource).toContain('<h1>{currentSensitiveRoutePageTitle}</h1>');
     expect(shellSource).toContain('className="page-shell sensitive-route-page-gate"');
     expect(shellSource).toContain('onChange={(value) => void handleSensitiveRoutePasswordChange(value)}');
     expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
@@ -420,6 +423,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("justify-content: center;");
     expect(globalCss).toContain(".sensitive-route-page-gate .page-shell__content");
+    expect(globalCss).toContain("min-height: max(520px, calc(100dvh - 260px));");
     expect(globalCss).toContain(".sensitive-route-gate__card");
     expect(globalCss).toContain(".pin-field__label--hidden");
     expect(globalCss).toContain(".pin-field__slots");
