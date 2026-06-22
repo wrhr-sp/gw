@@ -155,6 +155,13 @@ const adminFeaturePermissions = [
   { key: "management", label: "경영 포털" },
 ] as const;
 
+const generalBranchManagementDesktopItem: NavItem = {
+  href: "/branches",
+  label: "지점관리",
+  shortLabel: "지점관리",
+  summary: "일반업무포털 안에서 지점 목록과 운영 상태를 확인합니다.",
+};
+
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
 type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
 type AdminPermissionState = Record<AdminPermissionUserId, Record<AdminFeaturePermissionKey, boolean>>;
@@ -569,6 +576,7 @@ function getFeatureIconName(href: string, label: string): FeatureIconName | null
   if (href === "/approvals") return "approval";
   if (href === "/documents") return "documents";
   if (href === "/payroll" || href === "/payroll/me") return "payroll";
+  if (href === "/branches") return "people";
   if (href === "/management") return "dashboard";
   if (href === "/admin") return "admin";
   if (href.includes("/work-items/tax")) return "tax";
@@ -986,6 +994,31 @@ function isBranchPortalItem(item: NavItem) {
   return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger";
 }
 
+function addGeneralBranchManagementDesktopItem(sections: readonly NavSection[]) {
+  const hasBranchesItem = sections.some((section) => section.items.some((item) => item.href === generalBranchManagementDesktopItem.href));
+  if (hasBranchesItem) {
+    return sections;
+  }
+
+  const hasWorkHrSection = sections.some((section) => section.title === "근무/인사");
+  if (!hasWorkHrSection) {
+    return [
+      ...sections,
+      {
+        title: "지점관리",
+        description: "일반업무포털 안에서 확인하는 지점 기본 정보와 운영 상태입니다.",
+        items: [generalBranchManagementDesktopItem],
+      },
+    ];
+  }
+
+  return sections.map((section) =>
+    section.title === "근무/인사"
+      ? { ...section, items: [...section.items, generalBranchManagementDesktopItem] }
+      : section,
+  );
+}
+
 function getSecondaryPasswordFeatureOptionForPath(pathname: string) {
   return [...secondaryPasswordFeatureOptions]
     .sort((left, right) => Math.max(...right.routes.map((route) => route.length)) - Math.max(...left.routes.map((route) => route.length)))
@@ -1288,7 +1321,8 @@ export function MobileAppShell({
           .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
           .filter((section) => section.items.length > 0)
         : menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
-    return sortNavSectionsByItemLabel(sections);
+    const desktopSections = !hasManagementPortal || isBranchPortal || isManagementPortal ? sections : addGeneralBranchManagementDesktopItem(sections);
+    return sortNavSectionsByItemLabel(desktopSections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
   const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
