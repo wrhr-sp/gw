@@ -321,6 +321,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('areBooleanRecordsEqual');
     expect(shellSource).toContain('function handleAdminSecondaryPasswordSubmit()');
     expect(shellSource).toContain('2차 비밀번호 4자리를 입력해 주세요.');
+    expect(shellSource).toContain('2차 비밀번호를 설정해주세요.');
+    expect(shellSource).not.toContain('아직 2차 비밀번호가 없습니다.');
+    expect(shellSource).not.toContain('이번 미리보기에서는 서버 저장 없이 화면 상태로만 2차 비밀번호를 설정합니다.');
+    expect(shellSource).not.toContain('먼저 4자리 PIN을 설정하면 바로 민감정보 기능으로 이동합니다.');
     expect(shellSource).toContain('2차 비밀번호 설정하기');
     expect(shellSource).toContain('topbar-profile-security-card');
     expect(shellSource).toContain('renderSecondaryPasswordEditor');

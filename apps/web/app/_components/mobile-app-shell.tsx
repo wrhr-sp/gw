@@ -1931,7 +1931,7 @@ export function MobileAppShell({
             <div className="topbar-settings-gate topbar-admin-secondary-gate">
               <section className="topbar-modal-card topbar-modal-card--wide topbar-settings-gate__card">
                 <strong>2차 비밀번호</strong>
-                <p className="topbar-modal-note">설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
+                <p className="topbar-modal-note">{hasSecondaryPassword ? "설정 관련 기능에 들어가기 전에 4자리 PIN을 확인합니다." : "2차 비밀번호를 설정해주세요."}</p>
                 {hasSecondaryPassword ? (
                   <PinField
                     label="2차 비밀번호"
@@ -1945,17 +1945,7 @@ export function MobileAppShell({
                     }}
                   />
                 ) : (
-                  <div className="topbar-settings-security-card topbar-settings-security-card--setup">
-                    <strong>아직 2차 비밀번호가 없습니다.</strong>
-                    <p>이번 미리보기에서는 서버 저장 없이 화면 상태로만 2차 비밀번호를 설정합니다.</p>
-                    {isSecondaryPasswordDialogOpen ? (
-                      renderSecondaryPasswordEditor()
-                    ) : (
-                      <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>
-                        2차 비밀번호 설정하기
-                      </button>
-                    )}
-                  </div>
+                  renderSecondaryPasswordEditor()
                 )}
               </section>
             </div>
@@ -2452,7 +2442,7 @@ export function MobileAppShell({
                 <div>
                   <span className="topbar-modal__eyebrow">WE’REHERE</span>
                   <h2>2차 비밀번호 확인</h2>
-                  <p>급여·조직·관리자 같은 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다.</p>
+                  <p>{hasSecondaryPassword ? "급여·조직·관리자 같은 민감정보 기능에 들어가기 전에 4자리 PIN을 확인합니다." : "2차 비밀번호를 설정해주세요."}</p>
                 </div>
                 <button type="button" className="topbar-modal__close" aria-label="민감정보 확인 팝업 닫기" onClick={closeSensitiveRouteGate}>×</button>
               </header>
@@ -2464,11 +2454,7 @@ export function MobileAppShell({
                       <button type="button" className="topbar-modal__button" onClick={handleSensitiveRoutePasswordSubmit}>확인</button>
                     </>
                   ) : (
-                    <div className="topbar-settings-security-card topbar-settings-security-card--setup">
-                      <strong>아직 2차 비밀번호가 없습니다.</strong>
-                      <p>먼저 4자리 PIN을 설정하면 바로 민감정보 기능으로 이동합니다.</p>
-                      {isSecondaryPasswordDialogOpen ? renderSecondaryPasswordEditor() : <button type="button" className="topbar-modal-secondary-action" onClick={openSecondaryPasswordDialog}>2차 비밀번호 설정하기</button>}
-                    </div>
+                    renderSecondaryPasswordEditor()
                   )}
                 </section>
               </div>
