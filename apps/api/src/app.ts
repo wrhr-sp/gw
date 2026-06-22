@@ -82,6 +82,9 @@ import {
   userPreferencesResponseSchema,
   userPreferencesUpdateRequestSchema,
   userPreferencesUpdateResponseSchema,
+  adminPermissionSettingsResponseSchema,
+  adminPermissionSettingsUpdateRequestSchema,
+  adminPermissionSettingsUpdateResponseSchema,
   noticeListResponseSchema,
   payrollMyPayslipResponseSchema,
   payrollOverviewResponseSchema,
@@ -159,6 +162,7 @@ import {
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
 import { listOperationalAdminAuditLogs, listOperationalAdminUsers } from "./lib/operational-admin";
+import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import {
   archiveOperationalDocumentFile,
   createOperationalBoard,
@@ -234,6 +238,7 @@ type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-placeholder-session_";
+const OPERATIONAL_SESSION_PREFIX = "op-session_";
 const DEV_SESSION_MAX_AGE_SECONDS = 60 * 60;
 const REMEMBERED_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DEV_SAFE_LOGIN_ID = "admin";
@@ -346,6 +351,16 @@ const roles = (Object.keys(rolePermissions) as RoleCode[]).map((code) => ({
   scope: getAdminScopeForRoleCode(code) ?? "company",
   permissions: [...rolePermissions[code]],
 }));
+
+
+function createDefaultAdminPermissionStateForApi() {
+  return {
+    admin: { attendance: true, leave: true, approvals: true, boards: true, documents: true, employees: true, payroll: true, management: true },
+    hr_manager: { attendance: true, leave: true, approvals: true, boards: false, documents: true, employees: true, payroll: false, management: false },
+    branch_manager: { attendance: true, leave: true, approvals: false, boards: true, documents: true, employees: false, payroll: false, management: false },
+    employee: { attendance: true, leave: true, approvals: true, boards: true, documents: true, employees: false, payroll: false, management: false },
+  } as const;
+}
 
 const employeeRoleCodeByEmployeeId = new Map<string, RoleCode>(
   Object.entries(roleEmployeeIds)
@@ -3011,6 +3026,37 @@ function buildSession(roleCode: RoleCode): Session {
   };
 }
 
+function encodeOperationalSessionUser(user: SessionUser) {
+  const encoded = btoa(encodeURIComponent(JSON.stringify(user))).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return `${OPERATIONAL_SESSION_PREFIX}${encoded}`;
+}
+
+function decodeOperationalSessionUser(sessionToken: string): SessionUser | null {
+  if (!sessionToken.startsWith(OPERATIONAL_SESSION_PREFIX)) {
+    return null;
+  }
+  try {
+    const body = sessionToken.slice(OPERATIONAL_SESSION_PREFIX.length).replaceAll("-", "+").replaceAll("_", "/");
+    const padded = body.padEnd(Math.ceil(body.length / 4) * 4, "=");
+    const parsed = JSON.parse(decodeURIComponent(atob(padded))) as SessionUser;
+    if (!Array.isArray(parsed.roleCodes) || !Array.isArray(parsed.permissions) || !parsed.id || !parsed.companyId || !parsed.employeeId) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function buildOperationalSession(user: SessionUser): Session {
+  return {
+    id: encodeOperationalSessionUser(user),
+    status: "authenticated",
+    expiresAt: SESSION_EXPIRY,
+    placeholder: false,
+  };
+}
+
 function buildUser(roleCode: RoleCode, email = DEV_SAFE_LOGIN_EMAIL): SessionUser {
   const employeeId = roleEmployeeIds[roleCode] ?? "employee_admin";
   const employee = employees.find((item) => item.id === employeeId) ?? employees[0];
@@ -3053,23 +3099,23 @@ function resolveSessionEmail(loginId?: string, email?: string) {
   return DEV_SAFE_LOGIN_EMAIL;
 }
 
-function extractRoleCode(cookieHeader: string | null): RoleCode | null {
+function extractSessionToken(cookieHeader: string | null) {
   if (!cookieHeader) {
     return null;
   }
-
   const match = cookieHeader.match(/gw_session=([^;]+)/);
   if (!match) {
     return null;
   }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
 
-  const sessionToken = (() => {
-    try {
-      return decodeURIComponent(match[1]);
-    } catch {
-      return null;
-    }
-  })();
+function extractRoleCode(cookieHeader: string | null): RoleCode | null {
+  const sessionToken = extractSessionToken(cookieHeader);
   if (!sessionToken?.startsWith(DEV_SESSION_PREFIX)) {
     return null;
   }
@@ -3089,6 +3135,24 @@ type AuthorizationResult =
   | { auth?: never; response: Response };
 
 function requireSession(context: Context): SessionContext | null {
+  const sessionToken = extractSessionToken(context.req.header("cookie") ?? null);
+  if (sessionToken) {
+    const operationalUser = decodeOperationalSessionUser(sessionToken);
+    if (operationalUser) {
+      const roleCode = operationalUser.roleCodes[0] ?? "EMPLOYEE";
+      return {
+        roleCode,
+        session: {
+          id: sessionToken,
+          status: "authenticated",
+          expiresAt: SESSION_EXPIRY,
+          placeholder: false,
+        },
+        user: operationalUser,
+      };
+    }
+  }
+
   const roleCode = extractRoleCode(context.req.header("cookie") ?? null);
   if (!roleCode) {
     return null;
@@ -4741,7 +4805,7 @@ app.post(appRoutes.auth.login, async (context) => {
   const operationalLogin = await authenticateOperationalUser(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
 
   if (operationalLogin) {
-    const session = buildSession(operationalLogin.primaryRoleCode);
+    const session = buildOperationalSession(operationalLogin.user);
     const payload = {
       ok: true,
       data: {
@@ -5332,6 +5396,64 @@ app.get(appRoutes.admin.users, async (context) => {
           action: "admin.user.list.viewed",
         },
         placeholder: true,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+
+app.get(appRoutes.admin.permissions, async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const result = await listOperationalAdminPermissionSettings(context.env, authResult.auth.user.companyId, (roleCode) => [...rolePermissions[roleCode]]);
+
+  return jsonSuccess(
+    context,
+    adminPermissionSettingsResponseSchema,
+    {
+      ok: true,
+      data: {
+        settings: result?.settings ?? createDefaultAdminPermissionStateForApi(),
+        persistence: result ? "preview-db" : "fallback",
+        updatedAt: result?.updatedAt ?? null,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.put(appRoutes.admin.permissions, async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminPermissionSettingsUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "권한 설정 저장 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await saveOperationalAdminPermissionSettings(context.env, authResult.auth.user.companyId, authResult.auth.user.id, parsed.data.settings);
+  if (!result) {
+    return jsonError(context, "NOT_IMPLEMENTED", "preview DB 권한 저장소가 아직 준비되지 않았습니다.", 501, { persistence: "fallback" });
+  }
+
+  return jsonSuccess(
+    context,
+    adminPermissionSettingsUpdateResponseSchema,
+    {
+      ok: true,
+      data: {
+        settings: result.settings,
+        persistence: "preview-db",
+        updatedAt: result.updatedAt,
       },
       error: null,
     },
