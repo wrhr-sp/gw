@@ -8,7 +8,7 @@ describe("refresh service worker", () => {
 
     expect(swSource).toContain('const GW_REFRESH_BYPASS_HEADER = "x-gw-refresh-preload";');
     expect(swSource).toContain('request.mode !== "navigate"');
-    expect(swSource).toContain('request.cache === "reload"');
+    expect(swSource).toContain('request.cache === "reload" || request.cache === "no-cache"');
     expect(swSource).toContain('request.headers.get(GW_REFRESH_BYPASS_HEADER) === "1"');
     expect(swSource).toContain('url.pathname === "/refresh"');
     expect(swSource).toContain('createRefreshResponse(event.request.url)');
@@ -24,5 +24,13 @@ describe("refresh service worker", () => {
     expect(shellSource).not.toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
     expect(shellSource).not.toContain('event.key === "F5"');
     expect(shellSource).not.toContain('event.ctrlKey || event.metaKey');
+  });
+
+  it("asks the browser to update the active service worker on app start", () => {
+    const bootstrapSource = readFileSync("app/_components/pwa-install-bootstrap.tsx", "utf8");
+
+    expect(bootstrapSource).toContain('navigator.serviceWorker');
+    expect(bootstrapSource).toContain('.register("/sw.js", { scope: "/" })');
+    expect(bootstrapSource).toContain('.then((registration) => registration.update())');
   });
 });

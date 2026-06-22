@@ -8,9 +8,12 @@ export function PwaInstallBootstrap() {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-      // installability bootstrap failure should not break page rendering
-    });
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((registration) => registration.update())
+      .catch(() => {
+        // installability bootstrap failure should not break page rendering
+      });
   }, []);
 
   return null;
