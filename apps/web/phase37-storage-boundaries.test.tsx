@@ -16,7 +16,6 @@ import AuditLogsPage from "./app/admin/audit-logs/page";
 import DocumentsPage from "./app/documents/page";
 import ManagementPage from "./app/management/page";
 import PayrollPage from "./app/payroll/page";
-import WorkItemsPage from "./app/work-items/page";
 import { workItemGuardrails, workItemHubHighlights } from "./app/work-items/work-items-config";
 
 describe("Phase 37 internal operational storage boundaries", () => {
@@ -50,8 +49,6 @@ describe("Phase 37 internal operational storage boundaries", () => {
   it("bridges management, payroll, and work-items with approval-gated read-model language", async () => {
     const managementHtml = renderToStaticMarkup(await ManagementPage());
     const payrollHtml = renderToStaticMarkup(<PayrollPage />);
-    const workItemsHtml = renderToStaticMarkup(<WorkItemsPage />);
-
     expect(managementHtml).toContain("지정 관리자 업무 허브");
     expect(managementHtml).toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
     expect(managementHtml).toContain("/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
@@ -64,8 +61,6 @@ describe("Phase 37 internal operational storage boundaries", () => {
   
     expect(payrollHtml).toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
 
-    expect(workItemsHtml).toContain("Phase 37 공통 업무 저장흐름 점검");
-    expect(workItemsHtml).toContain("metadata preview / approval gate 언어");
     expect(workItemHubHighlights).toContain("민감 문서/첨부는 metadata preview 와 approval gate 언어로만 연결하고 raw 원문 저장 완료처럼 쓰지 않습니다.");
     expect(workItemGuardrails).toContain("payroll / documents / audit preview 와 연결되더라도 실원문 저장 확대, 외부 제출, production migration 은 계속 승인 게이트입니다.");
   });

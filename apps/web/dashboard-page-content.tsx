@@ -268,8 +268,8 @@ export function DashboardPageContent({
       </SurfaceSection>
 
       <SurfaceSection
-        title="공통 업무 엔진 진입"
-        description="HR·세무·노무·지점 업무를 개별 앱처럼 흩뿌리지 않고 공통 work item, 문서, 마감, 권한 설명 구조로 먼저 묶습니다."
+        title="업무 모듈 진입"
+        description="인사·세무 같은 업무 모듈을 필요한 권한과 범위에 맞춰 바로 확인합니다. 공통 업무 허브 화면은 노출하지 않습니다."
       >
         <div className="grid-auto-compact">
           {dashboardWorkItemCards.map((card) => (

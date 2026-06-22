@@ -5,38 +5,14 @@ import { describe, expect, it } from "vitest";
 import WorkItemsHrPage from "./app/work-items/hr/page";
 import WorkItemsLaborPage from "./app/work-items/labor/page";
 import WorkItemsLegalPage from "./app/work-items/legal/page";
-import WorkItemsPage from "./app/work-items/page";
 import {
   managementWorkItemCards,
   workItemGuardrails,
-  workItemHubHighlights,
   workItemHubModuleCards,
   workItemModuleCards,
 } from "./app/work-items/work-items-config";
 
 describe("Phase 25 work-items skeleton boundaries", () => {
-  it("keeps the shared hub focused on common work/document/access structure instead of pretending full operations", () => {
-    const html = renderToStaticMarkup(<WorkItemsPage />);
-
-    expect(html).toContain("공통 업무 허브");
-    expect(html).toContain("모듈별 진입점");
-    expect(html).toContain("/api/work-items, /api/work-items/:id");
-    expect(html).toContain("/api/work-item-deadlines");
-    expect(html).toContain("metadata-only");
-    expect(html).toContain("실제 홈택스 신고·회계프로그램 연동·실세무 원문 업로드는 닫고, 제출 상태·반려 사유·전달 패키지 준비 metadata 만 먼저 보여 줍니다.");
-
-    for (const item of workItemHubHighlights) {
-      expect(html).toContain(item);
-    }
-
-    for (const card of workItemHubModuleCards) {
-      expect(html).toContain(card.title);
-      expect(html).toContain(card.href);
-    }
-
-    expect(html).not.toContain('href="/work-items/legal"');
-  });
-
   it("renders module pages with role/access notes, linked API names, and no fake state-changing claims", () => {
     const html = renderToStaticMarkup(<WorkItemsHrPage />);
 

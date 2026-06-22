@@ -190,12 +190,6 @@ export const dashboardReadingCards: DashboardRouteCard[] = [
 
 export const dashboardWorkItemCards: DashboardWorkItemCard[] = [
   {
-    href: "/work-items",
-    title: "공통 업무 허브",
-    summary: "내 업무·검토 대기·마감 임박 카드를 HR/세무/노무/지점 공통 구조로 먼저 읽습니다.",
-    roleScope: "회사 + 지점 + 역할 + capability",
-  },
-  {
     href: "/work-items/hr",
     title: "인사 업무",
     summary: "온보딩/서류 회수/인사 점검을 민감 문서 원문 없이 metadata 중심으로 보여 줍니다.",

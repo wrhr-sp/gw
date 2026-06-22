@@ -19,25 +19,23 @@ import WorkItemsBranchPage from "./app/work-items/branch/page";
 import WorkItemsHrPage from "./app/work-items/hr/page";
 import WorkItemsLaborPage from "./app/work-items/labor/page";
 import WorkItemsLegalPage from "./app/work-items/legal/page";
-import WorkItemsPage from "./app/work-items/page";
+import SalesPage from "./app/sales/page";
 
 describe("Phase 25 work-items web entrypoints", () => {
   beforeEach(() => {
     mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
   });
 
-  it("renders the work-items hub with Phase 25 copy, API skeleton, and guardrails", () => {
-    const html = renderToStaticMarkup(<WorkItemsPage />);
+  it("renders the sales page as the general portal replacement for the removed shared work-items hub", () => {
+    const html = renderToStaticMarkup(<SalesPage />);
 
-    expect(html).toContain("Phase 37 공통 업무 저장흐름 점검");
-    expect(html).toContain("공통 업무 허브");
-    expect(html).toContain("공통 work item 목록, 상세, 문서, 첨부, 검토, 마감 API 골격을 먼저 맞춥니다.");
-    expect(html).toContain("/api/work-items, /api/work-items/:id");
-    expect(html).toContain("/api/work-item-deadlines");
-    expect(html).toContain("민감 원문 첨부는 metadata-only 로 남기고 실제 파일 내용 노출은 하지 않습니다.");
-    expect(html).toContain('href="/work-items/hr"');
-    expect(html).toContain('href="/work-items/branch"');
-    expect(html).not.toContain('href="/work-items/legal"');
+    expect(html).toContain("영업관리");
+    expect(html).toContain("영업 현황");
+    expect(html).toContain("거래처/고객");
+    expect(html).toContain("오늘 상담");
+    expect(html).toContain("진행 중 거래");
+    expect(html).not.toContain("공통 업무 허브");
+    expect(html).not.toContain('href="/work-items"');
   });
 
   it("renders the HR module page with meeting/lifecycle guardrails and linked API routes", () => {
@@ -103,7 +101,7 @@ describe("Phase 25 work-items web entrypoints", () => {
   });
 
   it("moves legal entrypoints out of the shared menu/home hub and into a management area", () => {
-    expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items", "/work-items/hr", "/work-items/tax"]);
+    expect(dashboardWorkItemCards.map((card) => card.href)).toEqual(["/work-items/hr", "/work-items/tax"]);
     expect(getVisibleDashboardManagementCards(["EMPLOYEE"])).toEqual([]);
     expect(getVisibleDashboardManagementCards(["HR_ADMIN"])).toEqual([]);
     expect(getVisibleDashboardManagementCards(["MANAGER"]).map((card) => card.href)).toEqual([
@@ -114,11 +112,13 @@ describe("Phase 25 work-items web entrypoints", () => {
     ]);
 
     expect(mobilePrimaryNav.some((item) => item.href === "/payroll")).toBe(false);
-    expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(true);
+    expect(mobilePrimaryNav.some((item) => item.href === "/work-items")).toBe(false);
+    expect(mobilePrimaryNav.some((item) => item.href === "/sales")).toBe(true);
 
     const employeeMenuSections = getVisibleMobileMenuSections("EMPLOYEE");
     const employeeMenuHrefs = employeeMenuSections.flatMap((section) => section.items.map((item) => item.href));
-    expect(employeeMenuHrefs).toContain("/work-items");
+    expect(employeeMenuHrefs).not.toContain("/work-items");
+    expect(employeeMenuHrefs).toContain("/sales");
     expect(employeeMenuHrefs).toContain("/work-items/hr");
     expect(employeeMenuHrefs).toContain("/work-items/tax");
     expect(employeeMenuHrefs).toContain("/work-items/labor");
@@ -131,7 +131,8 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     const managerMenuSections = getVisibleMobileMenuSections("MANAGER");
     const managerMenuHrefs = managerMenuSections.flatMap((section) => section.items.map((item) => item.href));
-    expect(managerMenuHrefs).toContain("/work-items");
+    expect(managerMenuHrefs).not.toContain("/work-items");
+    expect(managerMenuHrefs).toContain("/sales");
     expect(managerMenuHrefs).toContain("/work-items/hr");
     expect(managerMenuHrefs).not.toContain("/work-items/branch");
     const managementSection = managerMenuSections.find((section) => section.title === "경영업무");
