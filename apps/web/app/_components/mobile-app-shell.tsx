@@ -14,6 +14,22 @@ type NotificationBadgeState = {
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
+const SECONDARY_PASSWORD_MAX_FAILURES = 5;
+const SECONDARY_PASSWORD_LOCK_MS = 10 * 60 * 1000;
+const SECONDARY_PASSWORD_UNLOCK_MS = 10 * 60 * 1000;
+const SECONDARY_PASSWORD_FAILURE_STORAGE_KEY = "gw.secondaryPassword.failureLimit";
+const SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY = "gw.secondaryPassword.unlockedFeatures";
+
+type SecondaryPasswordFailureLimitState = {
+  count: number;
+  lockedUntil: number;
+};
+
+type SecondaryPasswordVerifyFailure = {
+  message: string;
+  state: SecondaryPasswordFailureLimitState;
+  locked: boolean;
+};
 
 type SidebarPortalKey = "general" | "management" | "branch";
 
@@ -361,7 +377,116 @@ function normalizeSidebarCustomSelections(value: unknown): Record<SidebarPortalK
   ) as Record<SidebarPortalKey, string[] | null>;
 }
 
+function readJsonStorageValue<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const rawValue = window.sessionStorage.getItem(key);
+    return rawValue ? (JSON.parse(rawValue) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonStorageValue(key: string, value: unknown) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // 세션 저장소가 막혀도 현재 화면 state로만 동작한다.
+  }
+}
+
+function removeJsonStorageValue(key: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
+
+function getSecondaryPasswordFailureLimitState(now = Date.now()): SecondaryPasswordFailureLimitState {
+  const savedState = readJsonStorageValue<SecondaryPasswordFailureLimitState>(SECONDARY_PASSWORD_FAILURE_STORAGE_KEY, { count: 0, lockedUntil: 0 });
+  if (!Number.isFinite(savedState.lockedUntil) || savedState.lockedUntil <= now) {
+    return { count: 0, lockedUntil: 0 };
+  }
+  return {
+    count: Math.min(Math.max(Number(savedState.count) || 0, 0), SECONDARY_PASSWORD_MAX_FAILURES),
+    lockedUntil: savedState.lockedUntil,
+  };
+}
+
+function formatSecondaryPasswordFailureMessage(state: SecondaryPasswordFailureLimitState, now = Date.now()) {
+  if (state.lockedUntil > now) {
+    const remainingMinutes = Math.max(1, Math.ceil((state.lockedUntil - now) / 60000));
+    return `2차 비밀번호 5회 오류로 ${remainingMinutes}분 후 다시 시도할 수 있습니다. (5/5)`;
+  }
+  return `2차 비밀번호가 맞지 않습니다. (${state.count}/${SECONDARY_PASSWORD_MAX_FAILURES})`;
+}
+
+function recordSecondaryPasswordFailure(now = Date.now()): SecondaryPasswordVerifyFailure {
+  const previousState = getSecondaryPasswordFailureLimitState(now);
+  const nextCount = Math.min(previousState.count + 1, SECONDARY_PASSWORD_MAX_FAILURES);
+  const nextState = {
+    count: nextCount,
+    lockedUntil: nextCount >= SECONDARY_PASSWORD_MAX_FAILURES ? now + SECONDARY_PASSWORD_LOCK_MS : 0,
+  };
+  writeJsonStorageValue(SECONDARY_PASSWORD_FAILURE_STORAGE_KEY, nextState);
+  return {
+    message: nextCount >= SECONDARY_PASSWORD_MAX_FAILURES
+      ? "2차 비밀번호 5회 오류로 10분간 잠겼습니다. (5/5)"
+      : formatSecondaryPasswordFailureMessage(nextState, now),
+    state: nextState,
+    locked: nextState.lockedUntil > now,
+  };
+}
+
+function clearSecondaryPasswordFailures() {
+  removeJsonStorageValue(SECONDARY_PASSWORD_FAILURE_STORAGE_KEY);
+}
+
+function readSecondaryPasswordUnlockedFeatureKeys(now = Date.now()) {
+  const savedUnlocks = readJsonStorageValue<Record<string, number>>(SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY, {});
+  const activeUnlocks = Object.fromEntries(
+    Object.entries(savedUnlocks).filter(([, expiresAt]) => Number.isFinite(expiresAt) && expiresAt > now),
+  );
+  writeJsonStorageValue(SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY, activeUnlocks);
+  return new Set(Object.keys(activeUnlocks));
+}
+
+function grantSecondaryPasswordFeatureUnlock(featureKey: string, now = Date.now()) {
+  const savedUnlocks = readJsonStorageValue<Record<string, number>>(SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY, {});
+  const expiresAt = now + SECONDARY_PASSWORD_UNLOCK_MS;
+  const nextUnlocks = Object.fromEntries(
+    Object.entries({ ...savedUnlocks, [featureKey]: expiresAt }).filter(([, value]) => Number.isFinite(value) && value > now),
+  );
+  writeJsonStorageValue(SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY, nextUnlocks);
+  return new Set(Object.keys(nextUnlocks));
+}
+
+function clearSecondaryPasswordFeatureUnlocks() {
+  removeJsonStorageValue(SECONDARY_PASSWORD_UNLOCK_STORAGE_KEY);
+}
+
+function buildSecondaryPasswordModalFeatureKey(modal: TopbarActionKey) {
+  return `topbar:${modal}`;
+}
+
 async function verifySecondaryPasswordWithPreviewDb(pin: string) {
+  const failureLimitState = getSecondaryPasswordFailureLimitState();
+  if (failureLimitState.lockedUntil > Date.now()) {
+    throw new Error(formatSecondaryPasswordFailureMessage(failureLimitState));
+  }
+
   const response = await fetch(appRoutes.security.verifySecondaryPassword, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -370,8 +495,11 @@ async function verifySecondaryPasswordWithPreviewDb(pin: string) {
   });
 
   if (!response.ok) {
-    throw new Error(await readApiErrorMessage(response, "현재 저장된 2차 비밀번호와 일치하지 않습니다."));
+    const failure = recordSecondaryPasswordFailure();
+    throw new Error(failure.message);
   }
+
+  clearSecondaryPasswordFailures();
 }
 
 function getFeatureIconName(href: string, label: string): FeatureIconName | null {
@@ -681,6 +809,7 @@ function PinField({
   autoFocus = false,
   hint,
   hideLabel = false,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -689,6 +818,7 @@ function PinField({
   autoFocus?: boolean;
   hint?: string;
   hideLabel?: boolean;
+  disabled?: boolean;
 }) {
   const inputId = label.replace(/\s+/g, "-").toLowerCase();
 
@@ -707,7 +837,8 @@ function PinField({
           pattern="[0-9]*"
           maxLength={4}
           value={value}
-          autoFocus={autoFocus}
+          autoFocus={autoFocus && !disabled}
+          disabled={disabled}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
           onChange={(event) => onChange(sanitizePinValue(event.target.value))}
@@ -982,7 +1113,8 @@ export function MobileAppShell({
   const [pendingSensitiveRoute, setPendingSensitiveRoute] = useState<string | null>(null);
   const [sensitiveRoutePassword, setSensitiveRoutePassword] = useState("");
   const [sensitiveRoutePasswordError, setSensitiveRoutePasswordError] = useState<string | null>(null);
-  const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => new Set());
+  const [secondaryPasswordFailureState, setSecondaryPasswordFailureState] = useState<SecondaryPasswordFailureLimitState>(() => getSecondaryPasswordFailureLimitState());
+  const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => readSecondaryPasswordUnlockedFeatureKeys());
   const sensitiveRoutePasswordRequestRef = useRef(0);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
@@ -1036,7 +1168,8 @@ export function MobileAppShell({
 
   function openUnifiedSettings() {
     setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    setAdminSettingsUnlocked(readSecondaryPasswordUnlockedFeatureKeys().has(buildSecondaryPasswordModalFeatureKey("settings")));
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
     setIsSecondaryPasswordDialogOpen(false);
@@ -1047,7 +1180,8 @@ export function MobileAppShell({
 
   function openProfileSettings() {
     setSettingsTab("basic");
-    setAdminSettingsUnlocked(false);
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    setAdminSettingsUnlocked(readSecondaryPasswordUnlockedFeatureKeys().has(buildSecondaryPasswordModalFeatureKey("profile-settings")));
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
     setIsSecondaryPasswordDialogOpen(false);
@@ -1111,6 +1245,8 @@ export function MobileAppShell({
     sensitiveRoutePasswordRequestRef.current += 1;
     setSensitiveRoutePassword("");
     setSensitiveRoutePasswordError(null);
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    setUnlockedSensitiveRouteKeys(readSecondaryPasswordUnlockedFeatureKeys());
   }, [currentSensitiveRouteKey]);
 
   const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
@@ -1726,6 +1862,8 @@ export function MobileAppShell({
 
       setIsProfileMenuOpen(false);
       setIsLogoutConfirmOpen(false);
+      clearSecondaryPasswordFeatureUnlocks();
+      setUnlockedSensitiveRouteKeys(new Set());
       router.push("/login?signedOut=1");
       router.refresh();
     } catch (error) {
@@ -1818,12 +1956,14 @@ export function MobileAppShell({
     }
     try {
       await verifySecondaryPasswordWithPreviewDb(sensitiveRoutePassword);
-    } catch {
+    } catch (error) {
+      setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
       setSensitiveRoutePassword("");
-      setSensitiveRoutePasswordError("2차 비밀번호가 맞지 않습니다.");
+      setSensitiveRoutePasswordError(error instanceof Error ? error.message : "2차 비밀번호가 맞지 않습니다.");
       return;
     }
-    setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    setUnlockedSensitiveRouteKeys(grantSecondaryPasswordFeatureUnlock(currentSensitiveRouteKey));
     const targetHref = pendingSensitiveRoute;
     closeSensitiveRouteGate();
     if (targetHref) {
@@ -1848,12 +1988,13 @@ export function MobileAppShell({
 
     try {
       await verifySecondaryPasswordWithPreviewDb(value);
-    } catch {
+    } catch (error) {
       if (sensitiveRoutePasswordRequestRef.current !== requestId) {
         return;
       }
+      setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
       setSensitiveRoutePassword("");
-      setSensitiveRoutePasswordError("2차 비밀번호가 맞지 않습니다.");
+      setSensitiveRoutePasswordError(error instanceof Error ? error.message : "2차 비밀번호가 맞지 않습니다.");
       return;
     }
 
@@ -1861,7 +2002,8 @@ export function MobileAppShell({
       return;
     }
 
-    setUnlockedSensitiveRouteKeys((keys) => new Set(keys).add(currentSensitiveRouteKey));
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    setUnlockedSensitiveRouteKeys(grantSecondaryPasswordFeatureUnlock(currentSensitiveRouteKey));
     setSensitiveRoutePassword("");
     setSensitiveRoutePasswordError(null);
   }
@@ -1912,12 +2054,17 @@ export function MobileAppShell({
 
     try {
       await verifySecondaryPasswordWithPreviewDb(adminSecondaryPassword);
-    } catch {
+    } catch (error) {
+      setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
       setAdminSecondaryPassword("");
-      setAdminSecondaryPasswordError("2차 비밀번호가 맞지 않습니다.");
+      setAdminSecondaryPasswordError(error instanceof Error ? error.message : "2차 비밀번호가 맞지 않습니다.");
       return;
     }
 
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    if (activeTopbarModal) {
+      setUnlockedSensitiveRouteKeys(grantSecondaryPasswordFeatureUnlock(buildSecondaryPasswordModalFeatureKey(activeTopbarModal)));
+    }
     setAdminSettingsUnlocked(true);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
@@ -1941,12 +2088,13 @@ export function MobileAppShell({
 
     try {
       await verifySecondaryPasswordWithPreviewDb(value);
-    } catch {
+    } catch (error) {
       if (adminSecondaryPasswordRequestRef.current !== requestId) {
         return;
       }
+      setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
       setAdminSecondaryPassword("");
-      setAdminSecondaryPasswordError("2차 비밀번호가 맞지 않습니다.");
+      setAdminSecondaryPasswordError(error instanceof Error ? error.message : "2차 비밀번호가 맞지 않습니다.");
       return;
     }
 
@@ -1954,6 +2102,10 @@ export function MobileAppShell({
       return;
     }
 
+    setSecondaryPasswordFailureState(getSecondaryPasswordFailureLimitState());
+    if (activeTopbarModal) {
+      setUnlockedSensitiveRouteKeys(grantSecondaryPasswordFeatureUnlock(buildSecondaryPasswordModalFeatureKey(activeTopbarModal)));
+    }
     setAdminSettingsUnlocked(true);
     setAdminSecondaryPassword("");
     setAdminSecondaryPasswordError(null);
@@ -2064,6 +2216,8 @@ export function MobileAppShell({
     onChange: (value: string) => void;
   }) {
     const cardClassName = ["topbar-modal-card", "topbar-modal-card--wide", "topbar-settings-gate__card", className].filter(Boolean).join(" ");
+    const isSecondaryPasswordLocked = secondaryPasswordFailureState.lockedUntil > Date.now();
+    const gateError = isSecondaryPasswordLocked ? formatSecondaryPasswordFailureMessage(secondaryPasswordFailureState) : error;
 
     return (
       <section className={cardClassName}>
@@ -2073,10 +2227,11 @@ export function MobileAppShell({
             {hasSecondaryPassword ? (
               <PinField
                 label="2차 비밀번호"
-                value={value}
+                value={isSecondaryPasswordLocked ? "" : value}
                 autoFocus={autoFocus}
                 hideLabel
-                error={error}
+                error={gateError}
+                disabled={isSecondaryPasswordLocked}
                 onChange={onChange}
               />
             ) : (
@@ -2905,7 +3060,7 @@ export function MobileAppShell({
                             role="menuitem"
                             onClick={() => {
                               setIsProfileMenuOpen(false);
-                              setActiveTopbarModal("profile-settings");
+                              openProfileSettings();
                             }}
                           >
                             내정보 설정
