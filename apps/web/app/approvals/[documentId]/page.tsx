@@ -94,7 +94,6 @@ export default async function ApprovalDocumentDetailPage({ params }: PageProps) 
         backLabel="전자결재로"
         eyebrow="Phase 52 전자결재 상세"
         title="접근할 수 없는 전자결재 문서"
-        titleHref="/approvals"
         description="이 documentId 는 허용된 전자결재 흐름에서 확인되지 않았습니다. unknown·forged 접근은 승인/반려/의견 CTA 없이 차단 안내만 먼저 보여 줍니다."
         actions={<Pill tone="warning">{documentId}</Pill>}
       >
@@ -119,7 +118,7 @@ export default async function ApprovalDocumentDetailPage({ params }: PageProps) 
             <a href="/approvals">전자결재 목록으로 돌아가기</a>
             <a href="/approvals/approval_document_demo">허용된 예시 문서 보기</a>
             <a href="/approvals/approval_document_team_pending">승인 대기 예시 보기</a>
-            <a href="/dashboard">대시보드로 돌아가기</a>
+            <a href="/home">대시보드로 돌아가기</a>
           </div>
         </SurfaceSection>
 
@@ -153,7 +152,6 @@ export default async function ApprovalDocumentDetailPage({ params }: PageProps) 
       backLabel="전자결재로"
       eyebrow="Phase 52 전자결재 상세"
       title="전자결재 상세"
-      titleHref="/approvals"
       description="documentId 기준 상세 응답이 확인된 경우에만 승인선·참조/합의·의견·상태 이력을 이어서 확인하고, forged/unknown 접근은 먼저 차단 안내로 정리합니다."
       actions={<Pill>{documentId}</Pill>}
     >

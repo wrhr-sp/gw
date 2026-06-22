@@ -23,11 +23,10 @@ const adminApiLinks = [
 export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCards: readonly AdminHubCard[] }) {
   return (
     <PageShell
-      backHref="/dashboard"
+      backHref="/home"
       backLabel="대시보드로"
       eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
       title="관리자 허브"
-      titleHref="/admin"
       description="권한 있는 운영자가 어디서 들어와 무엇을 먼저 검토해야 하는지 고정한 operations-first 콘솔입니다. 실제 저장 대신 검토 순서, 감사 preview, 승인 게이트를 먼저 보여 줍니다."
       actions={
         <div className="pill-row">
@@ -41,7 +40,7 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
     >
       <SurfaceSection
         title="운영 검토 순서"
-        description="이번 단계의 기준 순서는 `/dashboard` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 입니다."
+        description="이번 단계의 기준 순서는 `/home` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 입니다."
       >
         <ul className="summary-list">
           <li>대시보드에서 권한 기반 운영 CTA 또는 감사 CTA 를 확인합니다.</li>

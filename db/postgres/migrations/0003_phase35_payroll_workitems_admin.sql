@@ -141,68 +141,6 @@ create table if not exists work_items (
   updated_at timestamptz not null default now(),
   closed_at timestamptz
 );
-alter table if exists work_items
-  add column if not exists branch_label text,
-  add column if not exists module text,
-  add column if not exists category text,
-  add column if not exists description_preview text,
-  add column if not exists priority text default 'medium',
-  add column if not exists assignee_json jsonb default '{}'::jsonb,
-  add column if not exists requester_user_id text references users(id),
-  add column if not exists due_at timestamptz,
-  add column if not exists review_required boolean default false,
-  add column if not exists contains_sensitive_data boolean default true,
-  add column if not exists access_json jsonb default '{}'::jsonb,
-  add column if not exists hr_context_json jsonb,
-  add column if not exists labor_context_json jsonb,
-  add column if not exists tax_context_json jsonb,
-  add column if not exists legal_context_json jsonb,
-  add column if not exists tags_json jsonb default '[]'::jsonb,
-  add column if not exists audit_summary text,
-  add column if not exists closed_at timestamptz;
-
-update work_items
-set module = coalesce(module, case when work_type in ('tax', 'labor', 'legal', 'branch') then work_type else 'hr' end),
-    category = coalesce(category, work_type, 'general'),
-    description_preview = coalesce(description_preview, summary, title),
-    priority = coalesce(priority, 'medium'),
-    assignee_json = coalesce(assignee_json, case when assigned_user_id is not null then jsonb_build_object('userId', assigned_user_id) else '{}'::jsonb end),
-    requester_user_id = coalesce(requester_user_id, created_by),
-    due_at = coalesce(due_at, case when due_date is not null then due_date::timestamptz else null end),
-    review_required = coalesce(review_required, false),
-    contains_sensitive_data = coalesce(contains_sensitive_data, true),
-    access_json = coalesce(access_json, '{}'::jsonb),
-    tags_json = coalesce(tags_json, '[]'::jsonb),
-    audit_summary = coalesce(audit_summary, summary, title),
-    updated_at = coalesce(updated_at, now())
-where module is null
-   or category is null
-   or description_preview is null
-   or priority is null
-   or assignee_json is null
-   or review_required is null
-   or contains_sensitive_data is null
-   or access_json is null
-   or tags_json is null
-   or audit_summary is null;
-
-alter table if exists work_items
-  alter column module set not null,
-  alter column category set not null,
-  alter column description_preview set not null,
-  alter column priority set not null,
-  alter column assignee_json set default '{}'::jsonb,
-  alter column assignee_json set not null,
-  alter column review_required set default false,
-  alter column review_required set not null,
-  alter column contains_sensitive_data set default true,
-  alter column contains_sensitive_data set not null,
-  alter column access_json set default '{}'::jsonb,
-  alter column access_json set not null,
-  alter column tags_json set default '[]'::jsonb,
-  alter column tags_json set not null,
-  alter column audit_summary set not null;
-
 create index if not exists idx_work_items_company_module on work_items (company_id, module, updated_at desc);
 create index if not exists idx_work_items_company_branch on work_items (company_id, branch_id, updated_at desc);
 
@@ -281,27 +219,6 @@ create table if not exists compliance_alerts (
   updated_at timestamptz not null default now(),
   reviewed_at timestamptz
 );
-alter table if exists compliance_alerts
-  add column if not exists module text default 'compliance',
-  add column if not exists summary text,
-  add column if not exists linked_resource_type text,
-  add column if not exists linked_resource_id text,
-  add column if not exists metadata_json jsonb default '{}'::jsonb;
-
-update compliance_alerts
-set module = coalesce(module, 'compliance'),
-    summary = coalesce(summary, message, title),
-    metadata_json = coalesce(metadata_json, '{}'::jsonb),
-    updated_at = coalesce(updated_at, now())
-where module is null or summary is null or metadata_json is null;
-
-alter table if exists compliance_alerts
-  alter column module set default 'compliance',
-  alter column module set not null,
-  alter column summary set not null,
-  alter column metadata_json set default '{}'::jsonb,
-  alter column metadata_json set not null;
-
 create index if not exists idx_compliance_alerts_company_status on compliance_alerts (company_id, status, created_at desc);
 
 commit;

@@ -44,7 +44,6 @@ export default function PayrollMePage() {
       backLabel="내 정보로"
       eyebrow="Phase 43 self-only 급여명세서 preview"
       title="내 급여명세서 초안"
-      titleHref="/payroll/me"
       description="구성원은 본인 급여명세서 preview 와 정정 안내만 확인합니다. 실지급 확정, 동료 급여 조회, 외부 신고 결과는 보여 주지 않습니다."
       actions={
         <div className="pill-row">

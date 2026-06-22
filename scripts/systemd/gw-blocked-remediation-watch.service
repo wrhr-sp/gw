@@ -7,7 +7,6 @@ Type=simple
 WorkingDirectory=/home/wrhrgw/gw
 Environment=MAX_DISPATCH=1
 Environment=EVENT_COOLDOWN_SECONDS=10
-Environment=DONE_SIGNAL_LOOKBACK_SECONDS=86400
 ExecStart=/usr/bin/python3 /home/wrhrgw/gw/scripts/gw-blocked-remediation-inotify-watch.py --board groupware --sweep-interval 120
 Restart=always
 RestartSec=10

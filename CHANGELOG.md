@@ -1,29 +1,9 @@
 # CHANGELOG
 
-## 2026-06-22
-
-### Changed
-
-- `/boards` 실사용 패널을 게시판 목록/게시글 목록 2영역으로 보강하고, 자유 게시판 글쓰기 CTA와 게시글 상세 이동 흐름을 실제 화면에서 바로 확인할 수 있게 정리했다. `미확인 n건` 텍스트는 노출하지 않는 기준을 테스트에 고정했다.
-- `/payroll` 민감 콘텐츠는 콘텐츠 영역 2차 비밀번호 게이트가 풀리기 전에는 DOM/API query가 mount되지 않도록 바꿨다. 잠금 전에는 급여 패널과 API 링크가 렌더링되지 않고, preview PIN 통과 뒤에만 콘텐츠가 보이는 기준을 테스트에 추가했다.
-- dev/UAT placeholder session 쿠키가 `dev-placeholder-session_<ROLE>_<uuid>` 형식이어도 `/boards`, `/payroll`, `/me` 같은 authenticated page route가 `/login`으로 튕기지 않도록 route guard role parsing을 보강했다.
-
-## 2026-06-21
-
-### Changed
-
-- `docs/architecture/admin-settings-access-admin-permission-tabs-scope.md`, `docs/guides/admin-settings-access-admin-permission-tabs-handoff.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 추가/갱신했다. 이번 기획 카드에서는 통합설정 상단 `기본 설정` / `관리자설정` 구조는 유지한 채, `관리자설정` 내부를 `접근권한`(조회·열람·진입) 과 `관리자 권한`(변경·부여·관리) 으로 다시 나누는 preview UI 기준과 acceptance 를 정리했고, 실제 저장/API/DB/migration/감사 로그 운영 반영은 별도 승인 게이트로 잠갔다.
-- `docs/guides/phase-61-operational-db-provider-cost-approval-checklist.md`, `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md`, `docs/guides/phase-61-operational-db-admin-handoff-checklist.md`, `db/postgres/README.md`, `RUNBOOK.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 다시 맞췄다. 이번 보강에서는 `workers.dev`/preview 배포는 preview DB 기준, 승인된 custom domain/production 배포 후보는 production DB 기준 후보라는 운영 문장을 추가하고, production migration/seed 는 공개 주소와 무관하게 `DATABASE_URL_PRODUCTION` 없으면 실행하지 않는다는 기준을 문서 세트 전체에 같은 말로 잠갔다.
-- `docs/guides/unified-settings-secondary-password-preview-flow.md` 를 추가하고 `docs/architecture/admin-settings-secondary-password-server-policy.md`, `docs/guides/admin-settings-secondary-password-server-policy-handoff.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 함께 갱신했다. 이번 문서화에서는 설정 관련 진입점 공통 4칸 PIN 게이트, 통합설정 첫 탭 `기본 설정`, 관리자설정 우상단 변경 버튼 제거, `내정보 설정` 안 `2차 비밀번호 변경하기` 버튼 위치, 그리고 현재 preview UI/state 범위와 이후 서버/API/DB 승인 범위를 분리해서 읽는 기준을 쉬운 한국어로 다시 묶었다.
-- `docs/architecture/admin-settings-secondary-password-server-policy.md`, `docs/guides/admin-settings-secondary-password-server-policy-handoff.md` 를 추가하고 `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 함께 갱신했다. 이번 설계 카드에서는 현재 `apps/web/app/_components/mobile-app-shell.tsx` 안의 local state preview 2차 비밀번호를 운영 보안 기능으로 그대로 보면 안 된다는 점을 먼저 고정하고, 운영 버전 목표를 사용자별 해시 저장 + 짧은 재인증 세션 + 보호 API 재검증 + 실패 횟수 제한 + 감사 로그 구조로 정리했으며, 관리자설정/고위험 변경 액션 중심 범위, 분실 복구 운영자 승인형 권장안, DB migration/hash/pepper/production rollout 승인 게이트, 후속 구현 카드 그래프를 한 세트의 쉬운 한국어 문서로 묶었다.
-- `scripts/operational-db-env.mjs`, `scripts/apply-operational-postgres-migrations.mjs`, `scripts/seed-operational-db.mjs`, `scripts/gw-db-safe.sh`, `scripts/operational-db-env.test.mjs` 를 추가/갱신했다. migration/seed 스크립트는 이제 production target 에서 `DATABASE_URL_PRODUCTION` 없으면 hard fail 하고 `DATABASE_URL` fallback 을 금지하며, preview target 은 `DATABASE_URL_PREVIEW` 우선 + 수동 preview/local 범위에서만 `--allow-preview-fallback` 을 허용한다. `gw-db-safe.sh` 는 선택된 env 변수 이름과 masked DB 요약만 보여 주고 secret 원문은 출력하지 않는다.
-- `docs/guides/phase-61-operational-db-admin-handoff-checklist.md` 를 추가하고 `docs/guides/phase-61-operational-db-provider-cost-approval-checklist.md`, `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md`, `RUNBOOK.md`, `TASKS.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 함께 갱신했다. 이번 Phase 61 후속 문서화에서는 운영자가 실제로 먼저 읽을 파일 순서, provider·secret 전달 경로·preview/prod URL 분리·migration 승인 범위 질문, Cloudflare/Workers env 해석, code rollback 대 DB rollback 분리, restore 후 최소 smoke, 아직 승인 없이는 하지 않는 항목을 한 세트의 쉬운 한국어 handoff 로 다시 묶었다.
-
 ## 2026-06-19
 
 ### Changed
 
-- `docs/guides/phase-61-operational-db-secret-cloudflare-rollback-runbook.md` 를 추가하고 `RUNBOOK.md`, `HANDOFF.md`, `KNOWN_ISSUES.md`, `TEST_PLAN.md` 를 함께 갱신했다. 이번 Phase 61 ops 준비 문서화에서는 secret 을 git ignored `.secrets` 또는 승인된 secret store 로만 다루는 규칙, `DATABASE_URL`/`DATABASE_URL_PREVIEW`/`DATABASE_URL_PRODUCTION` + `APP_ENV=preview` 해석 규칙, Worker secret 주입 기반 Cloudflare/Workers 초기 연결 전략, Hyperdrive 보류 기준, code rollback 대 DB rollback 분리, restore 후 최소 smoke 묶음을 한 세트로 정리했다.
 - `docs/guides/phase-60-first-real-usage-release-notes-user-admin-handoff.md` 를 추가하고 `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `KNOWN_ISSUES.md` 를 Phase 60 기준으로 갱신했다. 이번 Phase 60 문서화에서는 Phase 59 최종 정리 문서를 바탕으로 실사용 1차 내부 사용 릴리즈 노트와 사용자/관리자 인수인계 문장을 새로 묶고, live URL·테스트 계정·역할별 추천 route·직접 눌러볼 액션·상태 문장 해석·승인 게이트를 후속 ops/release 카드와 최종 통합 보고가 바로 재사용할 수 있게 정리했다.
 - `docs/guides/phase-59-uat-user-admin-adoption-guides-final.md` 를 추가하고 `docs/guides/phase-44-employee-user-guide.md`, `docs/guides/phase-44-admin-manager-guide.md`, `docs/guides/phase-44-adoption-checklist.md`, `ROADMAP.md`, `TASKS.md`, `HANDOFF.md`, `TEST_PLAN.md`, `KNOWN_ISSUES.md` 를 함께 갱신했다. 이번 Phase 59 문서화에서는 Phase 44 사용자/관리자/도입 체크리스트 문서 세트를 최신 홈/메뉴 IA, 상태 문장, 역할별 차단 레인 기준에 맞춰 다시 묶고, `/dashboard` 대 `/menu` 책임 분리, HR_ADMIN 다음 레인 `/admin/users`, AUDITOR 시작점 `/admin/audit-logs`, `empty`/`forbidden`·`error`/`offline`·`preview/dev-safe` 차이, PWA 설치 확인, 승인 게이트를 한 세트의 쉬운 한국어로 최종 정리했다.
 - `docs/guides/phase-58-ui-microfix-settings-profile-notice-alert-branding-guide.md` 를 추가해 설정 팝업의 기기별 화면 설정 분리, 공지사항/알림 팝업 footer 제거, 내 정보 설정 보조 문구 제거, 알림 기능 선택과 퇴근 후 알림 설정 동기화, `We'reHere` 브랜드 통일, 일반업무포털/경영업무포털 전환 표기 정리를 쉬운 한국어 UAT 가이드로 묶었다. 이 문서에는 parent tester 재검증 근거(focused web 21건, typecheck, build, build:cf, ad-hoc modal smoke)와 live 직접 확인 시 질문도 함께 정리했다.

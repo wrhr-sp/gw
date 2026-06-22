@@ -61,7 +61,7 @@ describe("middleware host boundary", () => {
 
     const rememberedRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev", "dev-placeholder-session_COMPANY_ADMIN"));
     expect(rememberedRootResponse.status).toBe(307);
-    expect(getLocationPath(rememberedRootResponse)).toBe("/dashboard");
+    expect(getLocationPath(rememberedRootResponse)).toBe("/home");
 
     const anonymousManagementResponse = middleware(createRequest("/management", "gw-web.preview-account.workers.dev"));
     expect(anonymousManagementResponse.status).toBe(307);
@@ -71,7 +71,7 @@ describe("middleware host boundary", () => {
     expect(anonymousOfflineResponse.status).toBe(307);
     expect(getLocationPath(anonymousOfflineResponse)).toBe("/login");
 
-    const anonymousDashboardResponse = middleware(createRequest("/dashboard", "gw-web.preview-account.workers.dev"));
+    const anonymousDashboardResponse = middleware(createRequest("/home", "gw-web.preview-account.workers.dev"));
     expect(anonymousDashboardResponse.status).toBe(307);
     expect(getLocationPath(anonymousDashboardResponse)).toBe("/login");
 
@@ -83,35 +83,8 @@ describe("middleware host boundary", () => {
     expect(anonymousUatResponse.status).toBe(307);
     expect(getLocationPath(anonymousUatResponse)).toBe("/login");
 
-    const employeeDashboardResponse = middleware(createRequest("/dashboard", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
+    const employeeDashboardResponse = middleware(createRequest("/home", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
     expect(employeeDashboardResponse.headers.get("location")).toBeNull();
-
-    const employeeBoardsResponse = middleware(
-      createRequest(
-        "/boards",
-        "gw-web.preview-account.workers.dev",
-        "dev-placeholder-session_EMPLOYEE_123e4567-e89b-12d3-a456-426614174000",
-      ),
-    );
-    expect(employeeBoardsResponse.headers.get("location")).toBeNull();
-
-    const employeeMeResponse = middleware(
-      createRequest(
-        "/me",
-        "gw-web.preview-account.workers.dev",
-        "dev-placeholder-session_EMPLOYEE_123e4567-e89b-12d3-a456-426614174000",
-      ),
-    );
-    expect(employeeMeResponse.headers.get("location")).toBeNull();
-
-    const managerPayrollResponse = middleware(
-      createRequest(
-        "/payroll",
-        "gw-web.preview-account.workers.dev",
-        "dev-placeholder-session_MANAGER_123e4567-e89b-12d3-a456-426614174000",
-      ),
-    );
-    expect(managerPayrollResponse.headers.get("location")).toBeNull();
 
     const employeeUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
     expect(employeeUatResponse.status).toBe(307);

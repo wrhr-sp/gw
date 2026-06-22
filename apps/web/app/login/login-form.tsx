@@ -4,27 +4,19 @@ import { appRoutes, errorResponseSchema, meResponseSchema, type RoleCode } from 
 import * as React from "react";
 import { useEffect, useState } from "react";
 
-import { devSafeRoleOptions, getPostLoginRoute } from "../../dev-safe-auth";
+import { getPostLoginRoute } from "../../dev-safe-auth";
 
 const SAVED_LOGIN_ID_KEY = "gw_saved_login_id";
 const defaultRoleCode: RoleCode = "COMPANY_ADMIN";
-
-function resolveRoleCodeFromSearch(search: string): RoleCode {
-  const params = new URLSearchParams(search);
-  const candidate = params.get("role");
-  const matched = devSafeRoleOptions.find((option) => option.value === candidate);
-  return matched?.value ?? defaultRoleCode;
-}
 
 export function LoginForm() {
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [rememberSession, setRememberSession] = useState(true);
   const [rememberLoginId, setRememberLoginId] = useState(false);
-  const [roleCode, setRoleCode] = useState<RoleCode>(defaultRoleCode);
+  const roleCode: RoleCode = defaultRoleCode;
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -37,8 +29,6 @@ export function LoginForm() {
       setRememberLoginId(true);
     }
 
-    setRoleCode(resolveRoleCodeFromSearch(window.location.search));
-    setSignedOut(new URLSearchParams(window.location.search).get("signedOut") === "1");
   }, []);
 
   useEffect(() => {
@@ -115,7 +105,6 @@ export function LoginForm() {
         }
       }}
     >
-      {signedOut ? <p className="meta-copy">로그아웃이 완료되었습니다. 다시 로그인해 주세요.</p> : null}
       <div className="field-grid">
         <label>
           <span className="meta-copy">아이디</span>
