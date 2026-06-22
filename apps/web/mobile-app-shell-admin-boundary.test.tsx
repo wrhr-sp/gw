@@ -358,14 +358,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain('value={sensitiveRoutePassword}\n                autoFocus\n                hideLabel\n                error={sensitiveRoutePasswordError}');
     expect(shellSource).not.toContain('topbar-modal--sensitive-gate');
     expect(shellSource).not.toContain('민감정보 확인 팝업 닫기');
-    expect(shellSource).toContain('const APP_REFRESH_RETURN_PATH_STORAGE_KEY = "gw.appRefreshReturnPath";');
     expect(shellSource).toContain('const isRefreshRoute = pathname === "/refresh";');
-    expect(shellSource).toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
-    expect(shellSource).toContain('event.key === "F5"');
-    expect(shellSource).toContain('event.ctrlKey || event.metaKey');
-    expect(shellSource).toContain('window.sessionStorage.setItem(APP_REFRESH_RETURN_PATH_STORAGE_KEY, returnPath);');
-    expect(shellSource).toContain('router.push("/refresh" as never);');
-    expect(shellSource).toContain('window.addEventListener("keydown", handleAppRefreshShortcut, true);');
+    expect(shellSource).not.toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
+    expect(shellSource).not.toContain('window.addEventListener("keydown", handleAppRefreshShortcut, true);');
+    expect(shellSource).not.toContain('router.push("/refresh" as never);');
     expect(shellSource).toContain('app-shell__body app-shell__body--refresh');
     expect(shellSource).toContain('topbar-admin-secondary-gate');
     expect(shellSource).toContain('접근권한');
