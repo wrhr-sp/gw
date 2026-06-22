@@ -1960,6 +1960,7 @@ li {
 }
 
 .pin-field__slot {
+  position: relative;
   display: inline-grid;
   width: 56px;
   height: 56px;
@@ -1984,6 +1985,29 @@ li {
 
 .pin-field__slot--filled {
   background: rgba(239, 246, 255, 0.96);
+}
+
+.pin-field__surface:focus-within .pin-field__slot--cursor::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 999px;
+  background: #1d4ed8;
+  transform: translateX(-50%);
+  animation: pin-field-caret-blink 1s step-end infinite;
+}
+
+@keyframes pin-field-caret-blink {
+  0%, 45% {
+    opacity: 1;
+  }
+
+  46%, 100% {
+    opacity: 0;
+  }
 }
 
 .pin-field__hint,
