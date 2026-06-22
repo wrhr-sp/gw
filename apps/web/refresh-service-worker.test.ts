@@ -2,34 +2,22 @@ import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 
 describe("refresh service worker", () => {
-  it("intercepts browser reload navigations with the refresh page and bypasses its own preload", () => {
+  it("keeps the service worker as an install/update shell and leaves refresh UI to the app", () => {
     const swSource = readFileSync("public/sw.js", "utf8");
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
 
-    expect(swSource).toContain('const GW_REFRESH_BYPASS_HEADER = "x-gw-refresh-preload";');
-    expect(swSource).toContain('request.mode !== "navigate"');
-    expect(swSource).toContain('request.cache === "reload" || request.cache === "no-cache"');
-    expect(swSource).toContain('request.headers.get(GW_REFRESH_BYPASS_HEADER) === "1"');
-    expect(swSource).toContain('url.pathname === "/refresh"');
-    expect(swSource).toContain('createRefreshResponse(event.request.url)');
-    expect(swSource).toContain('const GW_REFRESH_PRELOAD_TIMEOUT_MS = 4200;');
-    expect(swSource).toContain('cache: "reload"');
-    expect(swSource).toContain('credentials: "same-origin"');
-    expect(swSource).toContain('headers: { [preloadHeaderName]: "1" }');
-    expect(swSource).toContain('var html = await response.text();');
-    expect(swSource).toContain('document.open("text/html", "replace");');
-    expect(swSource).toContain('document.write(freshHtml);');
-    expect(swSource).toContain('document.close();');
+    expect(swSource).toContain('self.addEventListener("install"');
+    expect(swSource).toContain('self.addEventListener("activate"');
+    expect(swSource).not.toContain('self.addEventListener("fetch"');
+    expect(swSource).not.toContain('GW_REFRESH_BYPASS_HEADER');
+    expect(swSource).not.toContain('request.cache === "reload"');
+    expect(swSource).not.toContain('document.write');
     expect(swSource).not.toContain('window.location.replace(returnUrl);');
-    expect(swSource).toContain('window.location.reload();');
-    expect(swSource).toContain('WE’REHERE');
-    expect(swSource).toContain('overflow: hidden');
-    expect(swSource).toContain('refresh-logo-letter-wave');
-    expect(swSource).not.toContain('<button');
 
-    expect(shellSource).not.toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
-    expect(shellSource).not.toContain('event.key === "F5"');
-    expect(shellSource).not.toContain('event.ctrlKey || event.metaKey');
+    expect(shellSource).toContain('function handleAppRefreshShortcut(event: KeyboardEvent)');
+    expect(shellSource).toContain('router.refresh();');
+    expect(shellSource).toContain('function renderAppRefreshOverlay()');
+    expect(shellSource).toContain('className="app-refresh-overlay"');
   });
 
   it("asks the browser to update the active service worker on app start", () => {
