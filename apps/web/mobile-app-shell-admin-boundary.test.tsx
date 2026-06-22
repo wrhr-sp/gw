@@ -171,6 +171,8 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 편집"');
     expect(generalHtml).toContain('data-route="/home"');
+    expect(generalHtml).toContain('data-route="/branches"');
+    expect(generalHtml).toContain("지점관리");
     expect(generalHtml).toContain("조직도");
     expect(generalHtml).toContain("휴가");
     expect(generalHtml).toContain("내인사");
@@ -213,6 +215,7 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).toContain('data-route="/home"');
     expect(managementHtml).toContain('href="/home"');
     expect(managementHtml).toContain("급여 내부관리");
+    expect(managementHtml).not.toContain('data-route="/branches"');
     expect(managementHtml).not.toContain("협업/소통");
     expect(managementHtml).not.toContain("일정/개인 업무");
 
