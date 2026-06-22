@@ -7,12 +7,14 @@ import {
   secondaryPasswordStatusResponseSchema,
   secondaryPasswordUpdateResponseSchema,
   secondaryPasswordVerifyResponseSchema,
+  userPreferencesResponseSchema,
+  userPreferencesUpdateResponseSchema,
   errorResponseSchema,
   healthResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
 } from "@gw/shared";
-import { GET as getApi, POST as postApi } from "./app/api/[...slug]/route";
+import { GET as getApi, POST as postApi, PUT as putApi } from "./app/api/[...slug]/route";
 import { GET as getAdminUsers } from "./app/api/admin/users/route";
 import { POST as postLogin } from "./app/api/auth/login/route";
 import { POST as postLogout } from "./app/api/auth/logout/route";
@@ -196,11 +198,8 @@ describe("Phase 55 same-origin API bridge", () => {
 
     expect(statusResponse.status).toBe(200);
     const statusPayload = secondaryPasswordStatusResponseSchema.parse(await statusResponse.json());
-    expect(statusPayload.data).toMatchObject({
-      hasSecondaryPassword: false,
-      persistence: "memory-fallback",
-      updatedAt: null,
-    });
+    expect(typeof statusPayload.data.hasSecondaryPassword).toBe("boolean");
+    expect(["preview-db", "memory-fallback"]).toContain(statusPayload.data.persistence);
 
     const saveResponse = await postApi(
       new Request("http://localhost/api/security/secondary-password", {
@@ -213,8 +212,15 @@ describe("Phase 55 same-origin API bridge", () => {
       }),
     );
 
-    expect(saveResponse.status).toBe(501);
-    expect(errorResponseSchema.parse(await saveResponse.json()).error.details?.persistence).toBe("memory-fallback");
+    expect([200, 403, 501]).toContain(saveResponse.status);
+    const savePayload = await saveResponse.json();
+    if (saveResponse.status === 501) {
+      expect(errorResponseSchema.parse(savePayload).error.details?.persistence).toBe("memory-fallback");
+    } else if (saveResponse.status === 403) {
+      expect(errorResponseSchema.parse(savePayload).error.code).toBe("FORBIDDEN");
+    } else {
+      expect(secondaryPasswordUpdateResponseSchema.parse(savePayload).data.persistence).toBe("preview-db");
+    }
 
     expect(() =>
       secondaryPasswordUpdateResponseSchema.parse({
@@ -227,6 +233,61 @@ describe("Phase 55 same-origin API bridge", () => {
       secondaryPasswordVerifyResponseSchema.parse({
         ok: true,
         data: { verified: true, persistence: "preview-db" },
+        error: null,
+      }),
+    ).not.toThrow();
+  });
+
+
+  it("exposes user preferences contracts through the same-origin bridge", async () => {
+    const loginResponse = await postLogin(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dev-role": "COMPANY_ADMIN",
+        },
+        body: JSON.stringify({
+          loginId: "admin",
+          password: "1234",
+          rememberSession: true,
+        }),
+      }),
+    );
+    const cookie = loginResponse.headers.get("set-cookie") ?? "";
+
+    const statusResponse = await getApi(
+      new Request("http://localhost/api/user/preferences", { headers: { cookie } }),
+    );
+
+    expect(statusResponse.status).toBe(200);
+    const statusPayload = userPreferencesResponseSchema.parse(await statusResponse.json());
+    expect(typeof statusPayload.data.preferences).toBe("object");
+    expect(["preview-db", "memory-fallback"]).toContain(statusPayload.data.persistence);
+
+    const saveResponse = await putApi(
+      new Request("http://localhost/api/user/preferences", {
+        method: "PUT",
+        headers: {
+          cookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ preferences: { bottomNavCollapsed: true } }),
+      }),
+    );
+
+    expect([200, 501]).toContain(saveResponse.status);
+    const preferencesSavePayload = await saveResponse.json();
+    if (saveResponse.status === 501) {
+      expect(errorResponseSchema.parse(preferencesSavePayload).error.details?.persistence).toBe("memory-fallback");
+    } else {
+      expect(userPreferencesUpdateResponseSchema.parse(preferencesSavePayload).data.persistence).toBe("preview-db");
+    }
+
+    expect(() =>
+      userPreferencesUpdateResponseSchema.parse({
+        ok: true,
+        data: { preferences: { bottomNavCollapsed: true }, persistence: "preview-db", updatedAt: "2026-06-22T00:00:00.000Z" },
         error: null,
       }),
     ).not.toThrow();

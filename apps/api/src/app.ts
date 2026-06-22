@@ -79,6 +79,9 @@ import {
   secondaryPasswordUpdateResponseSchema,
   secondaryPasswordVerifyRequestSchema,
   secondaryPasswordVerifyResponseSchema,
+  userPreferencesResponseSchema,
+  userPreferencesUpdateRequestSchema,
+  userPreferencesUpdateResponseSchema,
   noticeListResponseSchema,
   payrollMyPayslipResponseSchema,
   payrollOverviewResponseSchema,
@@ -185,6 +188,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
+import { getOperationalUserPreferences, saveOperationalUserPreferences } from "./lib/operational-preferences";
 import {
   getOperationalSecondaryPasswordStatus,
   saveOperationalSecondaryPassword,
@@ -4928,6 +4932,64 @@ app.post(appRoutes.security.verifySecondaryPassword, async (context) => {
       data: {
         verified: true,
         persistence: "preview-db",
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+
+app.get(appRoutes.user.preferences, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const result = await getOperationalUserPreferences(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+
+  return jsonSuccess(
+    context,
+    userPreferencesResponseSchema,
+    {
+      ok: true,
+      data: {
+        preferences: result?.preferences ?? {},
+        persistence: result ? "preview-db" : "memory-fallback",
+        updatedAt: result?.updatedAt ?? null,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.put(appRoutes.user.preferences, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = userPreferencesUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "사용자 설정 저장 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await saveOperationalUserPreferences(context.env, authResult.auth.user.companyId, authResult.auth.user.id, parsed.data.preferences);
+  if (!result) {
+    return jsonError(context, "NOT_IMPLEMENTED", "preview DB 사용자 설정 저장소가 아직 준비되지 않았습니다.", 501, { persistence: "memory-fallback" });
+  }
+
+  return jsonSuccess(
+    context,
+    userPreferencesUpdateResponseSchema,
+    {
+      ok: true,
+      data: {
+        preferences: result.preferences,
+        persistence: "preview-db",
+        updatedAt: result.updatedAt,
       },
       error: null,
     },

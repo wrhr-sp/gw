@@ -21,6 +21,7 @@ const requiredTables = [
   'role_permissions',
   'auth_sessions',
   'user_security_settings',
+  'user_preferences',
   'home_shortcuts',
   'boards',
   'posts',

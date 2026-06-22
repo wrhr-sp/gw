@@ -279,6 +279,74 @@ async function readApiErrorMessage(response: Response, fallback: string) {
   }
 }
 
+
+async function saveUserPreferencesToPreviewDb(preferences: Record<string, unknown>) {
+  const response = await fetch(appRoutes.user.preferences, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ preferences }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiErrorMessage(response, "사용자 설정 저장에 실패했습니다."));
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function pickString(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function pickBooleanRecord<T extends string>(value: unknown, defaults: Record<T, boolean>, keys: readonly T[]) {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(keys.map((key) => [key, typeof source[key] === "boolean" ? source[key] : defaults[key]])) as Record<T, boolean>;
+}
+
+function normalizeGeneralSettings(value: unknown): GeneralSettingsState {
+  const source = isRecord(value) ? value : {};
+  return {
+    startScreen: pickString(source.startScreen, DEFAULT_GENERAL_SETTINGS.startScreen),
+    density: pickString(source.density, DEFAULT_GENERAL_SETTINGS.density),
+    compactMobileBottomNav: typeof source.compactMobileBottomNav === "boolean" ? source.compactMobileBottomNav : DEFAULT_GENERAL_SETTINGS.compactMobileBottomNav,
+    notices: typeof source.notices === "boolean" ? source.notices : DEFAULT_GENERAL_SETTINGS.notices,
+    approvals: typeof source.approvals === "boolean" ? source.approvals : DEFAULT_GENERAL_SETTINGS.approvals,
+    mentions: typeof source.mentions === "boolean" ? source.mentions : DEFAULT_GENERAL_SETTINGS.mentions,
+    attendance: typeof source.attendance === "boolean" ? source.attendance : DEFAULT_GENERAL_SETTINGS.attendance,
+  };
+}
+
+const notificationPreferenceKeys: readonly NotificationPreferenceKey[] = ["notices", "approvals", "mentions", "mail", "attendance"];
+const afterHoursPreferenceKeys: readonly AfterHoursPreferenceKey[] = ["urgentNotices", "approvalRequests", "approvalFeedback", "mentions", "attendanceResults", "importantMail"];
+const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch"];
+
+function normalizeAdminPermissionSettings(value: unknown): AdminPermissionState {
+  const source = isRecord(value) ? value : {};
+  const fallback = createDefaultAdminPermissionState();
+  const next = createDefaultAdminPermissionState();
+  adminPermissionUsers.forEach((user) => {
+    const userSource = (isRecord(source[user.id]) ? source[user.id] : {}) as Record<string, unknown>;
+    adminFeaturePermissions.forEach((permission) => {
+      const rawPermissionValue = userSource[permission.key];
+      next[user.id][permission.key] = typeof rawPermissionValue === "boolean" ? rawPermissionValue : fallback[user.id][permission.key];
+    });
+  });
+  return next;
+}
+
+function normalizeSidebarCustomSelections(value: unknown): Record<SidebarPortalKey, string[] | null> {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    sidebarPortalKeys.map((key) => {
+      const selection = source[key];
+      return [key, Array.isArray(selection) ? selection.filter((item): item is string => typeof item === "string").slice(0, SIDEBAR_CUSTOM_MENU_LIMIT) : null];
+    }),
+  ) as Record<SidebarPortalKey, string[] | null>;
+}
+
 async function verifySecondaryPasswordWithPreviewDb(pin: string) {
   const response = await fetch(appRoutes.security.verifySecondaryPassword, {
     method: "POST",
@@ -1023,6 +1091,53 @@ export function MobileAppShell({
   }, []);
 
 
+
+  useEffect(() => {
+    if (isLoginRoute || !currentRoleCode) {
+      return;
+    }
+
+    let active = true;
+    fetch(appRoutes.user.preferences, { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`user-preferences ${response.status}`);
+        }
+        return (await response.json()) as { ok?: boolean; data?: { preferences?: Record<string, unknown>; persistence?: string } };
+      })
+      .then((payload) => {
+        if (!active || !payload.ok) {
+          return;
+        }
+        const preferences = payload.data?.preferences ?? {};
+        const nextGeneralSettings = normalizeGeneralSettings(preferences.generalSettings);
+        const nextNotificationPreferences = pickBooleanRecord(preferences.notificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferenceKeys);
+        const nextAfterHoursPreferences = pickBooleanRecord(preferences.afterHoursPreferences, DEFAULT_AFTER_HOURS_PREFERENCES, afterHoursPreferenceKeys);
+        const nextAdminPermissionSettings = normalizeAdminPermissionSettings(preferences.adminPermissionSettings);
+        const nextSidebarSelections = normalizeSidebarCustomSelections(preferences.sidebarCustomSelections);
+
+        setGeneralSettings(nextGeneralSettings);
+        savedGeneralSettingsRef.current = { ...nextGeneralSettings };
+        setNotificationPreferences(nextNotificationPreferences);
+        savedNotificationPreferencesRef.current = { ...nextNotificationPreferences };
+        setAfterHoursPreferences(nextAfterHoursPreferences);
+        savedAfterHoursPreferencesRef.current = { ...nextAfterHoursPreferences };
+        setAdminPermissionSettings(nextAdminPermissionSettings);
+        savedAdminPermissionSettingsRef.current = nextAdminPermissionSettings;
+        setSidebarCustomSelections(nextSidebarSelections);
+        setIsSidebarCustomSelectionLoaded(true);
+        if (typeof preferences.bottomNavCollapsed === "boolean") {
+          setIsBottomNavCollapsed(preferences.bottomNavCollapsed);
+          setIsBottomNavPreferenceLoaded(true);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, [currentRoleCode, isLoginRoute]);
+
   useEffect(() => {
     if (isLoginRoute || !currentRoleCode) {
       return;
@@ -1310,6 +1425,7 @@ export function MobileAppShell({
       } catch {
         // localStorage가 막힌 환경에서도 화면 토글 자체는 유지한다.
       }
+      void saveUserPreferencesToPreviewDb({ bottomNavCollapsed: nextValue }).catch(() => undefined);
 
       return nextValue;
     });
@@ -1731,11 +1847,19 @@ export function MobileAppShell({
     }));
   }
 
-  function handleSettingsSave() {
+  async function handleSettingsSave() {
     const hasGeneralChanges = !areGeneralSettingsEqual(generalSettings, savedGeneralSettingsRef.current);
     const hasAdminPermissionChanges = !areAdminPermissionStatesEqual(adminPermissionSettings, savedAdminPermissionSettingsRef.current);
 
     if (hasGeneralChanges || hasAdminPermissionChanges) {
+      try {
+        await saveUserPreferencesToPreviewDb({
+          generalSettings,
+          adminPermissionSettings,
+        });
+      } catch {
+        // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
+      }
       savedGeneralSettingsRef.current = { ...generalSettings };
       savedAdminPermissionSettingsRef.current = createDefaultAdminPermissionState();
       adminPermissionUsers.forEach((user) => {
@@ -1747,10 +1871,18 @@ export function MobileAppShell({
     showScopedSettingsSaveToast("integrated-settings", false);
   }
 
-  function handleProfileSettingsSave() {
+  async function handleProfileSettingsSave() {
     const hasNotificationChanges = !areBooleanRecordsEqual(notificationPreferences, savedNotificationPreferencesRef.current);
     const hasAfterHoursChanges = !areBooleanRecordsEqual(afterHoursPreferences, savedAfterHoursPreferencesRef.current);
     if (hasNotificationChanges || hasAfterHoursChanges) {
+      try {
+        await saveUserPreferencesToPreviewDb({
+          notificationPreferences,
+          afterHoursPreferences,
+        });
+      } catch {
+        // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
+      }
       savedNotificationPreferencesRef.current = { ...notificationPreferences };
       savedAfterHoursPreferencesRef.current = { ...afterHoursPreferences };
       showScopedSettingsSaveToast("profile-settings", true);
@@ -1761,7 +1893,9 @@ export function MobileAppShell({
 
   function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
     const nextHrefs = selectedHrefs.slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
-    setSidebarCustomSelections((value) => ({ ...value, [portalKey]: nextHrefs }));
+    const nextSelections = { ...sidebarCustomSelections, [portalKey]: nextHrefs };
+    setSidebarCustomSelections(nextSelections);
+    void saveUserPreferencesToPreviewDb({ sidebarCustomSelections: nextSelections }).catch(() => undefined);
     if (typeof window !== "undefined") window.localStorage.setItem(getSidebarPortalStorageKey(portalKey), JSON.stringify(nextHrefs));
   }
 

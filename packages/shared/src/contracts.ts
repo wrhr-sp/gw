@@ -13,6 +13,9 @@ export const appRoutes = {
     secondaryPassword: "/api/security/secondary-password",
     verifySecondaryPassword: "/api/security/secondary-password/verify",
   },
+  user: {
+    preferences: "/api/user/preferences",
+  },
   home: {
     shortcuts: "/api/home/shortcuts",
   },
@@ -779,6 +782,30 @@ export const secondaryPasswordVerifyResponseSchema = successResponseSchema(
   z.object({
     verified: z.literal(true),
     persistence: z.literal("preview-db"),
+  }),
+);
+
+
+
+export const userPreferencesSchema = z.record(z.string(), z.unknown());
+
+export const userPreferencesResponseSchema = successResponseSchema(
+  z.object({
+    preferences: userPreferencesSchema,
+    persistence: z.enum(["preview-db", "memory-fallback"]),
+    updatedAt: z.string().datetime().nullable(),
+  }),
+);
+
+export const userPreferencesUpdateRequestSchema = z.object({
+  preferences: userPreferencesSchema,
+});
+
+export const userPreferencesUpdateResponseSchema = successResponseSchema(
+  z.object({
+    preferences: userPreferencesSchema,
+    persistence: z.literal("preview-db"),
+    updatedAt: z.string().datetime(),
   }),
 );
 
@@ -2073,6 +2100,9 @@ export type SecondaryPasswordUpdateRequest = z.infer<typeof secondaryPasswordUpd
 export type SecondaryPasswordUpdateResponse = z.infer<typeof secondaryPasswordUpdateResponseSchema>;
 export type SecondaryPasswordVerifyRequest = z.infer<typeof secondaryPasswordVerifyRequestSchema>;
 export type SecondaryPasswordVerifyResponse = z.infer<typeof secondaryPasswordVerifyResponseSchema>;
+export type UserPreferencesResponse = z.infer<typeof userPreferencesResponseSchema>;
+export type UserPreferencesUpdateRequest = z.infer<typeof userPreferencesUpdateRequestSchema>;
+export type UserPreferencesUpdateResponse = z.infer<typeof userPreferencesUpdateResponseSchema>;
 export type Company = z.infer<typeof companySchema>;
 export type Employee = z.infer<typeof employeeSchema>;
 export type EmployeeDirectorySummary = z.infer<typeof employeeDirectorySummarySchema>;

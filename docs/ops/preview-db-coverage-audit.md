@@ -12,31 +12,33 @@
   - 보안 기준: PIN 원문 저장 금지, `sha256:salt:hash` 형식으로 저장
   - 적용 화면: 내정보 설정/통합설정의 2차 비밀번호 설정, 관리자 설정 잠금, 민감 메뉴 진입 게이트
 
-## 아직 preview DB 미반영 목록
+## 이번 후속 반영 완료
 
 - 통합설정 > 기본 설정
-  - 시작 화면, 언어/시간대, 화면 밀도 등 현재 UI 상태 기준으로만 동작한다.
-  - 필요 작업: 사용자별 설정 table/API와 저장/조회 연결.
+  - preview DB `user_preferences.preferences.generalSettings`에 저장/조회한다.
 
 - 통합설정 > 알림 설정
-  - 공지/결재/멘션/메일/근태 알림 토글은 현재 화면 상태 기준이다.
-  - 필요 작업: 사용자별 알림 설정 table/API와 저장/조회 연결.
+  - preview DB `user_preferences.preferences.notificationPreferences`에 저장/조회한다.
 
 - 통합설정 > 퇴근 후 알림 설정
-  - 긴급 공지/결재 요청 등 퇴근 후 알림 토글은 현재 화면 상태 기준이다.
-  - 필요 작업: 알림 설정과 같은 저장소에 시간대/정책 필드 추가.
+  - preview DB `user_preferences.preferences.afterHoursPreferences`에 저장/조회한다.
 
-- 통합설정 > 관리자 설정의 권한 편집
-  - 사용자별 메뉴 권한 토글은 현재 화면 상태 기준이다.
-  - 필요 작업: 운영 권한/역할 변경 API, 감사 로그, 관리자 승인 게이트 연결.
+- 통합설정 > 관리자 설정의 권한 편집 preview 토글
+  - preview DB `user_preferences.preferences.adminPermissionSettings`에 저장/조회한다.
+  - 실제 운영 권한/RBAC 변경은 아직 별도 기능이며, 현재는 설정 화면 preview 상태 저장이다.
 
 - 사이드바 메뉴 편집
-  - 현재 `localStorage`(`gw.sidebar.custom.*`)에 저장한다.
-  - 필요 작업: 사용자별 홈/사이드바 바로가기 저장 API로 통합.
+  - preview DB `user_preferences.preferences.sidebarCustomSelections`에 저장/조회한다.
+  - `localStorage`는 preview DB 저장 실패/초기 로딩 전 fallback 용도로만 유지한다.
 
 - 모바일 하단 메뉴 접힘 상태
-  - 현재 `localStorage`(`gw.mobileBottomNavCollapsed`)에 저장한다.
-  - 필요 작업: 사용자별 UI 선호 설정 API에 포함.
+  - preview DB `user_preferences.preferences.bottomNavCollapsed`에 저장/조회한다.
+  - `localStorage`는 fallback 용도로만 유지한다.
+
+## 아직 별도 기능으로 남은 항목
+
+- 실제 운영 권한/RBAC 변경
+  - 관리자 설정의 권한 토글을 실제 role/permission/user assignment에 반영하는 것은 별도 감사 로그·승인 게이트가 필요한 운영 권한 기능이다.
 
 ## 다음 구현 기준
 
