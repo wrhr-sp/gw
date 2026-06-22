@@ -603,6 +603,10 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain('.topbar-settings-tabs button[aria-selected="true"]');
     expect(globalCss).toContain(".topbar-settings-tab--active");
     expect(globalCss).not.toContain("padding: 0 18px 10px 0;");
+    expect(globalCss).toContain("@media (min-width: 1024px)");
+    expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-modal-toggle-grid");
+    expect(globalCss).toContain(".topbar-modal--profile-settings .topbar-modal-toggle-grid");
+    expect(globalCss).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
     expect(globalCss).toContain(".topbar-admin-user-row--active");
     expect(globalCss).toContain(".logout-confirm-backdrop");
     expect(globalCss).toContain(".logout-confirm-modal");
