@@ -283,6 +283,15 @@
 - live 직접 재확인 근거와 local preview/build/test/release gate 대체 근거를 같은 확인 수준처럼 섞지 않는다.
 - production DB, 외부 IdP/SSO/SAML/SCIM, 실제 급여 지급/은행 이체/기관 신고, 주민번호/계좌번호 확대, production backup/restore 실행, 외부 SIEM/alerting, DNS/custom domain, 유료 리소스, secret, destructive 작업은 계속 승인 게이트로 남긴다.
 
+### 2-15. Cloudflare preview URL은 preview DB 기반 UAT 환경으로 본다.
+
+- `workers.dev` preview URL은 개발자 임시 화면이 아니라 production/custom domain 전환 전 실제 사용 검증 환경이다.
+- preview URL은 preview DB 또는 UAT용 PostgreSQL branch/app role에 연결되어야 하며, 사용자가 만든 검증 데이터가 저장·조회될 수 있어야 한다.
+- 기능 완료 기준에는 화면 렌더링과 route 200뿐 아니라 preview URL에서 생성 → 저장 → 재조회가 되는지 확인한 근거를 포함한다.
+- preview DB schema/migration/seed/검증용 데이터 준비는 승인된 작업카드 범위 안에서 진행할 수 있다. secret 값은 출력·커밋하지 않는다.
+- 사용자-facing 화면은 실제 사용할 그룹웨어 기준으로 작성하며 `dev`, `test`, `UAT`, `Phase`, `preview`, `skeleton`, `placeholder` 같은 내부 개발 문구를 남기지 않는다.
+- production DB, production 실데이터 migration, DNS/custom domain, 유료 리소스, secret 입력·교체·출력, destructive 작업은 계속 별도 승인 게이트로 남긴다.
+
 근거:
 - `docs/architecture/phase-50-internal-groupware-full-adoption-release-fit-gap-scope.md`
 - `docs/guides/phase-50-internal-groupware-full-adoption-release-handoff.md`

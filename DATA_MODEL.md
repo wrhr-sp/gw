@@ -24,6 +24,11 @@
 - guardrail test 있음: `apps/api/test/auth-org.spec.ts` 또는 관련 테스트에서 권한/회사 경계/validation 을 확인한다.
 - 운영 연결 미실시: production DB, 실데이터 migration, 외부 연동, 실제 개인정보 처리 같은 운영 연결은 아직 범위 밖이다.
 
+현재 이후 preview DB 기준:
+- `workers.dev` preview URL은 개발자 임시 화면이 아니라 production/custom domain 전환 전 UAT/preview 환경이다.
+- preview DB 또는 UAT용 PostgreSQL branch/app role에는 검증용 업무 데이터가 저장·조회될 수 있어야 한다.
+- schema/migration/seed는 먼저 preview DB에서 검증하고, production DB·실데이터 migration·DNS/custom domain·유료 리소스·secret 입력/교체/출력·destructive 작업은 별도 승인 게이트로 둔다.
+
 ## 엔티티군 한눈에 보기
 
 | 엔티티군 | 대표 엔티티 | 민감도 | 현재 상태 | 주요 근거 |

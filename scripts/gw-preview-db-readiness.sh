@@ -38,18 +38,18 @@ for key in "${required[@]}"; do
   fi
 done
 
-if [[ -n "${PREVIEW_DATABASE_READONLY_URL:-}" || -n "${PREVIEW_DATABASE_URL:-}" ]]; then
-  echo "ok: preview read-only DB URL present"
+if [[ -n "${PREVIEW_DATABASE_READONLY_URL:-}" || -n "${PREVIEW_DATABASE_URL:-}" || -n "${DATABASE_URL_PREVIEW:-}" ]]; then
+  echo "ok: preview DB URL present"
 else
-  echo "missing: PREVIEW_DATABASE_READONLY_URL or PREVIEW_DATABASE_URL"
+  echo "missing: PREVIEW_DATABASE_READONLY_URL, PREVIEW_DATABASE_URL, or DATABASE_URL_PREVIEW"
   missing=1
 fi
 
-if [[ -n "${PREVIEW_DATABASE_ADMIN_URL:-}" ]]; then
+if [[ -n "${PREVIEW_DATABASE_ADMIN_URL:-}" || -n "${DATABASE_URL_PREVIEW:-}" ]]; then
   echo "ok: preview admin/migration DB URL present"
 else
-  echo "missing: PREVIEW_DATABASE_ADMIN_URL"
-  echo "note: migration 적용은 admin URL 없이는 진행하지 않습니다."
+  echo "missing: PREVIEW_DATABASE_ADMIN_URL or DATABASE_URL_PREVIEW"
+  echo "note: migration 적용은 admin/preview URL 없이는 진행하지 않습니다."
 fi
 
 if [[ "${HYPERDRIVE_PREVIEW_CREATE_APPROVED:-no}" != "yes" ]]; then

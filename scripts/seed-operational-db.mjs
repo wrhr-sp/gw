@@ -233,7 +233,7 @@ values
   ('shortcut_me', 'company_demo', null, 'me', '내 정보', '/me', 'user', true, 60, 'active', ${sqlString(now)}, ${sqlString(now)}),
   ('shortcut_admin_users_company_admin', 'company_demo', 'user_company_admin', 'admin_users', '관리자 사용자', '/admin/users', 'shield', false, 110, 'active', ${sqlString(now)}, ${sqlString(now)}),
   ('shortcut_audit_logs_company_admin', 'company_demo', 'user_company_admin', 'audit_logs', '감사 로그', '/admin/audit-logs', 'history', false, 120, 'active', ${sqlString(now)}, ${sqlString(now)})
-on conflict (company_id, user_id, code) do update set label = excluded.label, href = excluded.href, icon = excluded.icon, is_fixed = excluded.is_fixed, sort_order = excluded.sort_order, status = excluded.status, updated_at = excluded.updated_at;
+on conflict (id) do update set label = excluded.label, href = excluded.href, icon = excluded.icon, is_fixed = excluded.is_fixed, sort_order = excluded.sort_order, status = excluded.status, updated_at = excluded.updated_at;
 
 insert into notifications (id, company_id, user_id, title, body, notification_type, read_at, created_at)
 values
