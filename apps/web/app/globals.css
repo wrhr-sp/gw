@@ -2195,35 +2195,9 @@ li {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.topbar-admin-panel-tabs {
-  display: inline-flex;
-  width: max-content;
-  gap: 6px;
-  border-radius: 999px;
-  background: rgba(241, 245, 249, 0.9);
-  padding: 4px;
-}
-
-.topbar-admin-panel-tab {
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.84rem;
-  font-weight: 950;
-  padding: 8px 14px;
-}
-
-.topbar-admin-panel-tab--active {
-  background: #fff;
-  color: #1d4ed8;
-}
-
 .topbar-admin-settings__panel {
   display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(190px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(190px, 240px) minmax(170px, 210px) minmax(190px, 240px) minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
 }
@@ -2234,7 +2208,8 @@ li {
 }
 
 .topbar-admin-settings__users,
-.topbar-admin-settings__scopes,
+.topbar-admin-settings__ranges,
+.topbar-admin-settings__list,
 .topbar-admin-settings__permissions {
   display: grid;
   align-content: start;
@@ -2242,20 +2217,23 @@ li {
   gap: 12px;
 }
 
-.topbar-admin-settings__scopes,
+.topbar-admin-settings__ranges,
+.topbar-admin-settings__list,
 .topbar-admin-settings__permissions {
   border-left: 1px solid rgba(148, 163, 184, 0.24);
   padding-left: 16px;
 }
 
 .topbar-admin-user-list,
-.topbar-admin-scope-list {
+.topbar-admin-range-list,
+.topbar-admin-permission-list {
   display: grid;
   gap: 0;
 }
 
 .topbar-admin-user-row,
-.topbar-admin-scope-row {
+.topbar-admin-range-row,
+.topbar-admin-list-row {
   border: 0;
   border-top: 1px solid rgba(148, 163, 184, 0.22);
   background: transparent;
@@ -2268,13 +2246,16 @@ li {
 
 .topbar-admin-user-row--active strong,
 .topbar-admin-user-row:hover strong,
-.topbar-admin-scope-row--active strong,
-.topbar-admin-scope-row:hover strong {
+.topbar-admin-range-row--active strong,
+.topbar-admin-range-row:hover strong,
+.topbar-admin-list-row--active strong,
+.topbar-admin-list-row:hover strong {
   color: #1d4ed8;
 }
 
 .topbar-admin-user-row strong,
-.topbar-admin-scope-row strong,
+.topbar-admin-range-row strong,
+.topbar-admin-list-row strong,
 .topbar-admin-settings__selected-user strong {
   display: block;
   color: #0f172a;
@@ -2282,7 +2263,8 @@ li {
 }
 
 .topbar-admin-user-row small,
-.topbar-admin-scope-row small,
+.topbar-admin-range-row small,
+.topbar-admin-list-row small,
 .topbar-admin-settings__selected-user span {
   display: block;
   margin-top: 4px;
@@ -3107,7 +3089,8 @@ li {
     grid-template-columns: 1fr;
   }
 
-  .topbar-admin-settings__scopes,
+  .topbar-admin-settings__ranges,
+  .topbar-admin-settings__list,
   .topbar-admin-settings__permissions {
     border-left: 0;
     border-top: 1px solid rgba(148, 163, 184, 0.24);
