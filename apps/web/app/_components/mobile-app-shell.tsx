@@ -155,12 +155,72 @@ const adminFeaturePermissions = [
   { key: "management", label: "경영 포털" },
 ] as const;
 
-const adminPermissionScopes = [
-  { id: "work", label: "근무/휴가", summary: "근태와 휴가 사용 범위", permissions: ["attendance", "leave"] },
-  { id: "approval", label: "결재/문서", summary: "전자결재, 문서함, 게시판 접근", permissions: ["approvals", "documents", "boards"] },
-  { id: "people", label: "인사/조직", summary: "조직도와 직원 정보 확인", permissions: ["employees"] },
-  { id: "payroll", label: "급여", summary: "급여 조회 접근", permissions: ["payroll"] },
-  { id: "management", label: "경영/관리", summary: "경영 포털 접근", permissions: ["management"] },
+const adminPermissionRanges = [
+  { id: "access", label: "접근권한", summary: "기능별 화면 진입과 사용 범위" },
+  { id: "admin-rights", label: "관리자 권한", summary: "관리자 등급과 관리 역할 범위" },
+] as const;
+
+const adminAccessPermissionDetails: Record<AdminFeaturePermissionKey, readonly { id: string; label: string; description?: string }[]> = {
+  attendance: [
+    { id: "read", label: "근태 조회" },
+    { id: "record", label: "출퇴근 등록" },
+    { id: "edit", label: "근태 정정" },
+    { id: "manage", label: "근태 관리" },
+  ],
+  leave: [
+    { id: "read", label: "휴가 조회" },
+    { id: "request", label: "휴가 신청" },
+    { id: "approve", label: "휴가 승인" },
+    { id: "policy", label: "휴가 정책 관리" },
+  ],
+  approvals: [
+    { id: "read", label: "결재함 조회" },
+    { id: "draft", label: "문서 기안" },
+    { id: "approve", label: "승인/반려" },
+    { id: "line", label: "결재선 관리" },
+  ],
+  boards: [
+    { id: "read", label: "게시글 조회" },
+    { id: "write", label: "글 작성" },
+    { id: "comment", label: "댓글 작성" },
+    { id: "notice", label: "공지 작성" },
+    { id: "manage", label: "게시판 관리" },
+  ],
+  documents: [
+    { id: "read", label: "문서 조회" },
+    { id: "upload", label: "업로드" },
+    { id: "download", label: "다운로드" },
+    { id: "delete", label: "삭제" },
+    { id: "space", label: "공간 관리" },
+  ],
+  employees: [
+    { id: "read", label: "직원 조회" },
+    { id: "edit", label: "직원 정보 수정" },
+    { id: "department", label: "부서/직책 관리" },
+    { id: "role", label: "역할 확인" },
+  ],
+  payroll: [
+    { id: "self", label: "본인 급여 조회" },
+    { id: "team", label: "직원 급여 조회" },
+    { id: "edit", label: "급여 수정" },
+    { id: "approve", label: "급여 승인" },
+    { id: "manage", label: "급여 관리자 설정" },
+  ],
+  management: [
+    { id: "enter", label: "경영 포털 진입" },
+    { id: "read", label: "경영 현황 조회" },
+    { id: "review", label: "검토 업무 처리" },
+    { id: "manage", label: "경영 설정 관리" },
+  ],
+};
+
+const adminRightPermissionItems = [
+  { key: "super", label: "총괄관리자 권한", description: "회사 전체 설정과 모든 사용자 권한" },
+  { key: "hr", label: "HR 관리자 권한", description: "조직도, 직원, 근태, 휴가 관리" },
+  { key: "branch", label: "지점 관리자 권한", description: "소속 지점 사용자와 지점 업무 관리" },
+  { key: "document", label: "문서 관리자 권한", description: "문서함 공간과 파일 운영 관리" },
+  { key: "board", label: "게시판 관리자 권한", description: "공지와 게시판 운영 관리" },
+  { key: "payroll", label: "급여 관리자 권한", description: "급여 조회·승인·관리 범위" },
 ] as const;
 
 const generalBranchManagementDesktopItem: NavItem = {
@@ -172,7 +232,8 @@ const generalBranchManagementDesktopItem: NavItem = {
 
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
 type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
-type AdminPermissionScopeId = (typeof adminPermissionScopes)[number]["id"];
+type AdminPermissionRangeId = (typeof adminPermissionRanges)[number]["id"];
+type AdminRightPermissionKey = (typeof adminRightPermissionItems)[number]["key"];
 type AdminPermissionState = Record<AdminPermissionUserId, Record<AdminFeaturePermissionKey, boolean>>;
 
 function createAdminPermissionSet(values: AdminFeaturePermissionKey[]) {
@@ -1213,7 +1274,8 @@ export function MobileAppShell({
   const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => readSecondaryPasswordUnlockedFeatureKeys());
   const sensitiveRoutePasswordRequestRef = useRef(0);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
-  const [selectedPermissionScopeId, setSelectedPermissionScopeId] = useState<AdminPermissionScopeId>("work");
+  const [selectedAccessPermissionKey, setSelectedAccessPermissionKey] = useState<AdminFeaturePermissionKey>("attendance");
+  const [selectedAdminRightKey, setSelectedAdminRightKey] = useState<AdminRightPermissionKey>("super");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
@@ -1319,9 +1381,10 @@ export function MobileAppShell({
   const canUseAdminSettings = adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE");
   const secondaryPasswordMode = getSecondaryPasswordMode(hasSecondaryPassword);
   const selectedPermissionUser = adminPermissionUsers.find((user) => user.id === selectedPermissionUserId) ?? adminPermissionUsers[0];
-  const selectedPermissionScope = adminPermissionScopes.find((scope) => scope.id === selectedPermissionScopeId) ?? adminPermissionScopes[0];
-  const selectedPermissionScopeKeys = new Set<AdminFeaturePermissionKey>(selectedPermissionScope.permissions);
-  const selectedPermissionScopeItems = adminFeaturePermissions.filter((permission) => selectedPermissionScopeKeys.has(permission.key));
+  const selectedPermissionRange = adminPermissionRanges.find((range) => range.id === adminSettingsPanel) ?? adminPermissionRanges[0];
+  const selectedAccessPermission = adminFeaturePermissions.find((permission) => permission.key === selectedAccessPermissionKey) ?? adminFeaturePermissions[0];
+  const selectedAdminRight = adminRightPermissionItems.find((permission) => permission.key === selectedAdminRightKey) ?? adminRightPermissionItems[0];
+  const selectedAccessDetailChecks = adminAccessPermissionDetails[selectedAccessPermission.key];
   const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
   const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
   const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
@@ -2730,54 +2793,57 @@ export function MobileAppShell({
 
                   {settingsTab === "admin" && canUseAdminSettings ? (
                     <div className="topbar-admin-settings topbar-admin-settings--split">
-                      <nav className="topbar-admin-panel-tabs" aria-label="관리자설정 세부 탭">
-                        <button type="button" className={adminSettingsPanel === "access" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "access"} onClick={() => setAdminSettingsPanel("access")}>접근권한</button>
-                        <button type="button" className={adminSettingsPanel === "admin-rights" ? "topbar-admin-panel-tab topbar-admin-panel-tab--active" : "topbar-admin-panel-tab"} aria-selected={adminSettingsPanel === "admin-rights"} onClick={() => setAdminSettingsPanel("admin-rights")}>관리자 권한</button>
-                      </nav>
-                      {adminSettingsPanel === "access" ? (
-                        <div className="topbar-admin-settings__panel">
-                          <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
-                            <strong>사용자 계정 목록</strong>
-                            <div className="topbar-admin-user-list">
-                              {adminPermissionUsers.map((user) => (
-                                <button key={user.id} type="button" className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"} aria-current={user.id === selectedPermissionUserId ? "true" : undefined} onClick={() => setSelectedPermissionUserId(user.id)}>
-                                  <span><strong>{user.name}</strong><small>{user.department} · {user.role}</small></span>
-                                </button>
-                              ))}
-                            </div>
-                          </section>
-                          <section className="topbar-admin-settings__scopes" aria-label="권한 범위 선택">
-                            <strong>권한 범위 선택</strong>
-                            <div className="topbar-admin-scope-list">
-                              {adminPermissionScopes.map((scope) => (
-                                <button key={scope.id} type="button" className={scope.id === selectedPermissionScopeId ? "topbar-admin-scope-row topbar-admin-scope-row--active" : "topbar-admin-scope-row"} aria-current={scope.id === selectedPermissionScopeId ? "true" : undefined} onClick={() => setSelectedPermissionScopeId(scope.id)}>
-                                  <span><strong>{scope.label}</strong><small>{scope.summary}</small></span>
-                                </button>
-                              ))}
-                            </div>
-                          </section>
-                          <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} ${selectedPermissionScope.label} 체크`}>
-                            <div className="topbar-admin-settings__selected-user"><strong>체크</strong><span>{selectedPermissionUser.name} · {selectedPermissionScope.label}</span></div>
-                            <div className="topbar-modal-toggle-grid topbar-admin-permission-check-grid">
-                              {selectedPermissionScopeItems.map((permission) => (
-                                <SettingToggle key={permission.key} label={permission.label} checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]} onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)} />
-                              ))}
-                            </div>
-                          </section>
-                        </div>
-                      ) : (
-                        <section className="topbar-admin-settings__admin-rights" aria-label="관리자 권한">
-                          <strong>관리자 권한</strong>
-                          <p className="topbar-modal-note">관리자 등급 부여와 회수는 기능 접근권한과 분리해서 확인합니다.</p>
-                          <div className="topbar-modal-toggle-grid">
-                            <SettingToggle label="총괄관리자 권한" description="회사 전체 설정과 모든 사용자 권한을 관리합니다." checked={selectedPermissionUser.id === "admin"} disabled />
-                            <SettingToggle label="HR 관리자 권한" description="조직도, 직원, 근태, 휴가 기능의 관리자 권한입니다." checked={selectedPermissionUser.id === "hr_manager"} />
-                            <SettingToggle label="지점 관리자 권한" description="소속 지점 사용자와 지점 업무를 관리합니다." checked={selectedPermissionUser.id === "branch_manager"} />
+                      <div className="topbar-admin-settings__panel">
+                        <section className="topbar-admin-settings__users" aria-label="사용자 계정 목록">
+                          <strong>사용자 계정 목록</strong>
+                          <div className="topbar-admin-user-list">
+                            {adminPermissionUsers.map((user) => (
+                              <button key={user.id} type="button" className={user.id === selectedPermissionUserId ? "topbar-admin-user-row topbar-admin-user-row--active" : "topbar-admin-user-row"} aria-current={user.id === selectedPermissionUserId ? "true" : undefined} onClick={() => setSelectedPermissionUserId(user.id)}>
+                                <span><strong>{user.name}</strong><small>{user.department} · {user.role}</small></span>
+                              </button>
+                            ))}
                           </div>
                         </section>
-                      )}
-                    </div>
-                  ) : (
+                        <section className="topbar-admin-settings__ranges" aria-label="권한 범위 선택">
+                          <strong>권한 범위 선택</strong>
+                          <div className="topbar-admin-range-list">
+                            {adminPermissionRanges.map((range) => (
+                              <button key={range.id} type="button" className={range.id === adminSettingsPanel ? "topbar-admin-range-row topbar-admin-range-row--active" : "topbar-admin-range-row"} aria-current={range.id === adminSettingsPanel ? "true" : undefined} onClick={() => setAdminSettingsPanel(range.id)}>
+                                <span><strong>{range.label}</strong><small>{range.summary}</small></span>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                        <section className="topbar-admin-settings__list" aria-label={`${selectedPermissionRange.label} 목록`}>
+                          <strong>목록</strong>
+                          <div className="topbar-admin-permission-list">
+                            {adminSettingsPanel === "access"
+                              ? adminFeaturePermissions.map((permission) => (
+                                <button key={permission.key} type="button" className={permission.key === selectedAccessPermissionKey ? "topbar-admin-list-row topbar-admin-list-row--active" : "topbar-admin-list-row"} aria-current={permission.key === selectedAccessPermissionKey ? "true" : undefined} onClick={() => setSelectedAccessPermissionKey(permission.key)}>
+                                  <span><strong>{permission.label}</strong><small>세부 권한 체크</small></span>
+                                </button>
+                              ))
+                              : adminRightPermissionItems.map((permission) => (
+                                <button key={permission.key} type="button" className={permission.key === selectedAdminRightKey ? "topbar-admin-list-row topbar-admin-list-row--active" : "topbar-admin-list-row"} aria-current={permission.key === selectedAdminRightKey ? "true" : undefined} onClick={() => setSelectedAdminRightKey(permission.key)}>
+                                  <span><strong>{permission.label}</strong><small>{permission.description}</small></span>
+                                </button>
+                              ))}
+                          </div>
+                        </section>
+                        <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} ${selectedPermissionRange.label} 세부 권한 체크`}>
+                          <div className="topbar-admin-settings__selected-user"><strong>세부 권한 체크</strong><span>{selectedPermissionUser.name} · {adminSettingsPanel === "access" ? selectedAccessPermission.label : selectedAdminRight.label}</span></div>
+                          <div className="topbar-modal-toggle-grid topbar-admin-permission-check-grid">
+                            {adminSettingsPanel === "access"
+                              ? selectedAccessDetailChecks.map((detail) => (
+                                <SettingToggle key={detail.id} label={detail.label} description={detail.description} checked={adminPermissionSettings[selectedPermissionUser.id][selectedAccessPermission.key]} onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, selectedAccessPermission.key, checked)} />
+                              ))
+                              : (
+                                <SettingToggle key={selectedAdminRight.key} label={selectedAdminRight.label} description={selectedAdminRight.description} checked={selectedAdminRight.key === "super" ? selectedPermissionUser.id === "admin" : selectedAdminRight.key === "hr" ? selectedPermissionUser.id === "hr_manager" : selectedAdminRight.key === "branch" ? selectedPermissionUser.id === "branch_manager" : false} disabled={selectedAdminRight.key === "super"} />
+                              )}
+                          </div>
+                        </section>
+                      </div>
+                    </div>                  ) : (
                     <div className="topbar-modal__grid">
                       <section className="topbar-modal-card">
                         <strong>기본 시작 방식</strong>
