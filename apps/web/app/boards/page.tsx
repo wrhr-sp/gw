@@ -88,19 +88,21 @@ type BoardSectionProps = {
 };
 
 function BoardSection({ title, boards }: BoardSectionProps) {
+  const isDepartmentSection = title === "부서게시판";
+
   return (
-    <section className="board-tree-section">
+    <section className={isDepartmentSection ? "board-tree-section board-tree-section--department" : "board-tree-section"}>
       <div className="board-tree-section__header">
         <strong>{title}</strong>
       </div>
       <div className="board-tree-section__items">
         {boards.map((board) => (
           <a key={board.id} href={`/boards/${board.id}`} className="board-tree-link">
+            <span className="board-tree-link__branch" aria-hidden="true">ㄴ</span>
             <span className="board-tree-link__copy">
               <strong>{board.name}</strong>
-              <small>{board.department ? `${board.department} · ` : ""}{board.unread > 0 ? `새 글 ${board.unread}` : "새 글 없음"}</small>
             </span>
-            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`새 글 ${board.unread}개`}>{board.unread}</span> : null}
+            {board.unread > 0 ? <span className="board-unread-badge" aria-label={`${board.name} 안 읽은 글 ${board.unread}개`}>{board.unread}</span> : null}
           </a>
         ))}
       </div>

@@ -8,8 +8,12 @@ describe("requested UI boundary fixes", () => {
 
   it("keeps board navigation clean and unread badges round/red", () => {
     expect(boardsSource).not.toContain("board-tree-link__prefix");
-    expect(boardsSource).not.toContain("ㄴ");
+    expect(boardsSource).toContain("board-tree-link__branch");
+    expect(boardsSource).toContain("ㄴ");
+    expect(boardsSource).not.toContain("새 글 없음");
+    expect(boardsSource).not.toContain("새 글 ${board.unread}");
     expect(boardsSource).toContain("board-unread-badge");
+    expect(globalCss).toContain(".board-tree-section--department");
     expect(globalCss).toContain(".board-unread-badge");
     expect(globalCss).toContain("background: #ef4444");
     expect(globalCss).toContain("border-radius: 999px");
