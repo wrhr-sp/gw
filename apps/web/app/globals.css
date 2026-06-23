@@ -2919,7 +2919,6 @@ li {
   text-decoration: none;
 }
 
-.board-tree-link + .board-tree-link,
 .board-post-row + .board-post-row {
   border-top: 1px solid var(--line);
 }
