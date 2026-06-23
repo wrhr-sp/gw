@@ -175,7 +175,7 @@ export default function BoardsPage() {
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
-          <button className="board-write-button" onClick={() => openBoard("board_general", "write")} type="button">글쓰기</button>
+          <button className="board-write-button" onClick={() => openBoard(selectedBoardId, "write")} type="button">글쓰기</button>
           <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
           <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
           {!canManageBoards ? (
@@ -216,7 +216,7 @@ export default function BoardsPage() {
             </>
           ) : view.kind === "board" ? (
             liveBoardIds.has(selectedBoardId) ? (
-              <BoardDetailLiveSection boardId={selectedBoardId} onOpenPost={(postId) => openPost(postId, selectedBoardId)} />
+              <BoardDetailLiveSection boardId={selectedBoardId} intent={view.intent} onOpenPost={(postId) => openPost(postId, selectedBoardId)} />
             ) : (
               <BoardLocalPanel boardId={selectedBoardId} />
             )

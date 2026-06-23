@@ -1791,6 +1791,16 @@ export const boardPostSchema = z.object({
   authorEmployeeId: z.string(),
   title: z.string(),
   bodyPreview: z.string(),
+  bodyHtml: z.string().optional(),
+  prefix: z.string().nullable().optional(),
+  visibilitySetting: z.string().optional(),
+  notificationSettings: z.object({
+    mail: z.boolean().default(false),
+    push: z.boolean().default(false),
+  }).optional(),
+  accessPolicy: z.object({
+    scope: z.string().default("board-default"),
+  }).optional(),
   isNotice: z.boolean(),
   publishedAt: z.string().datetime().nullable(),
   pinnedUntil: z.string().datetime().nullable(),
@@ -1849,7 +1859,17 @@ export const boardResponseSchema = successResponseSchema(
 export const boardPostCreateRequestSchema = z.object({
   title: z.string().min(1),
   bodyPreview: z.string().min(1),
+  bodyHtml: z.string().optional(),
+  prefix: z.string().nullable().optional(),
+  visibility: z.string().optional(),
   isNotice: z.boolean().default(false),
+  notificationSettings: z.object({
+    mail: z.boolean().default(false),
+    push: z.boolean().default(false),
+  }).optional(),
+  accessPolicy: z.object({
+    scope: z.string().default("board-default"),
+  }).optional(),
 });
 
 export const boardPostListResponseSchema = successResponseSchema(
