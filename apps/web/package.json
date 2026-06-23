@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@gw/shared": "workspace:*",
+    "@tinymce/tinymce-react": "^6.3.0",
     "next": "^15.5.19",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tinymce": "^8.6.0"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.19.11",

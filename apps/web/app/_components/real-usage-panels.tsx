@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Editor } from "@tinymce/tinymce-react";
 import {
   appRoutes,
   type AttendanceListRecordsResponse,
@@ -1187,80 +1188,109 @@ export function BoardsLiveSection({ onOpenBoard, onOpenPost }: BoardInlineNaviga
     </>
   );
 }
+function stripHtmlToPreview(value: string) {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
+}
 
-export function BoardDetailLiveSection({ boardId, onOpenPost }: { boardId: string; onOpenPost?: (postId: string) => void }) {
+type BoardWriteSettings = {
+  prefixOptions?: string[];
+  accessScopes?: Array<{ id: string; label: string }>;
+};
+
+function readBoardWriteSettings(board: Record<string, any> | null | undefined): BoardWriteSettings {
+  const settings = board?.writeSettings ?? board?.settings ?? {};
+  return {
+    prefixOptions: Array.isArray(settings.prefixOptions) ? settings.prefixOptions.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0) : [],
+    accessScopes: Array.isArray(settings.accessScopes)
+      ? settings.accessScopes.filter((item: unknown): item is { id: string; label: string } => {
+        return Boolean(item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string" && typeof (item as { label?: unknown }).label === "string");
+      })
+      : [],
+  };
+}
+
+export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
-  const [title, setTitle] = useState(boardId === "board_notice" ? "전사 공지 안내" : boardId === "board_department_notice" ? "부서별 공지 안내" : boardId === "board_data_share" ? "업무 양식 공유" : "점심 메뉴 추천");
-  const [bodyPreview, setBodyPreview] = useState(
-    boardId === "board_notice"
-      ? "오늘 공지 핵심만 짧게 전달합니다."
-      : boardId === "board_department_notice"
-        ? "부서별 안내 사항을 짧게 공유합니다."
-        : boardId === "board_data_share"
-          ? "자주 쓰는 업무 양식을 공유합니다."
-          : "오늘 뭐 드실래요? 댓글로 의견을 남겨 보세요.",
-  );
+  const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices, refreshSeed);
+  const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards, refreshSeed);
+  const [selectedBoardId, setSelectedBoardId] = useState(boardId);
+  const [selectedPrefix, setSelectedPrefix] = useState("");
+  const [title, setTitle] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("<p></p>");
+  const [visibility, setVisibility] = useState("board-default");
+  const [isNotice, setIsNotice] = useState(false);
+  const [mailAlert, setMailAlert] = useState(false);
+  const [pushAlert, setPushAlert] = useState(false);
+  const [accessScope, setAccessScope] = useState("board-default");
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
-  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(boardId), refreshSeed);
+  const availableBoards = useMemo(() => [...(notices.data?.items ?? []), ...(boards.data?.items ?? [])], [notices.data, boards.data]);
+  const selectedBoard = availableBoards.find((item) => item.id === selectedBoardId) ?? null;
+  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(selectedBoardId), refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
-  const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(boardId);
-  const canShowBoardFlow = Boolean(posts.data);
-  const isNoticeBoard = Boolean(posts.data?.board.isNoticeOnly ?? (boardId === "board_notice" || boardId === "board_department_notice"));
+  const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(selectedBoardId);
+  const canShowBoardFlow = Boolean(posts.data || selectedBoard);
+  const boardSettings = readBoardWriteSettings(selectedBoard ?? posts.data?.board);
+  const prefixOptions = boardSettings.prefixOptions ?? [];
+  const accessScopes = boardSettings.accessScopes ?? [];
+  const showWriteForm = intent === "write";
+
+  useEffect(() => {
+    setSelectedBoardId(boardId);
+  }, [boardId]);
+
+  useEffect(() => {
+    setSelectedPrefix("");
+    setIsNotice(Boolean((selectedBoard ?? posts.data?.board)?.isNoticeOnly));
+    setAccessScope("board-default");
+  }, [selectedBoardId, selectedBoard, posts.data?.board]);
 
   async function handleCreatePost() {
+    const bodyPreview = stripHtmlToPreview(bodyHtml);
+    if (!title.trim() || !bodyPreview) {
+      setResult({ tone: "warning", title: "게시글 등록 실패", body: "제목과 본문을 입력해 주세요." });
+      return;
+    }
+
     setPending(true);
     setResult(null);
     try {
-      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(boardId), {
+      const fullTitle = selectedPrefix ? `[${selectedPrefix}] ${title.trim()}` : title.trim();
+      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(selectedBoardId), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: fullTitle,
           bodyPreview,
-          isNotice: isNoticeBoard,
+          bodyHtml,
+          prefix: selectedPrefix || null,
+          visibility,
+          isNotice,
+          notificationSettings: {
+            mail: mailAlert,
+            push: pushAlert,
+          },
+          accessPolicy: {
+            scope: accessScope,
+          },
         }),
       });
       setResult({
         tone: "accent",
-        title: isNoticeBoard ? "공지 등록 완료" : "게시글 등록 완료",
+        title: isNotice ? "공지 등록 완료" : "게시글 등록 완료",
         body: `${payload.data.post.id} · ${payload.data.audit.action}`,
       });
       setRefreshSeed((value) => value + 1);
+      onOpenPost?.(payload.data.post.id);
     } catch (mutationError) {
       setResult({
         tone: "warning",
-        title: isNoticeBoard ? "공지 등록 실패" : "게시글 등록 실패",
-        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
-      });
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleGuardProbe() {
-    setPending(true);
-    setResult(null);
-    try {
-      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(boardId), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: "권한 점검용 작성 시도",
-          bodyPreview: "현재 세션이 이 게시판에 쓸 수 있는지 확인합니다.",
-          isNotice: false,
-        }),
-      });
-      setResult({
-        tone: "accent",
-        title: "현재 세션 기준 작성 가능",
-        body: `${payload.data.post.id} 생성 성공 — 이 세션은 현재 게시판에 쓸 수 있습니다.`,
-      });
-      setRefreshSeed((value) => value + 1);
-    } catch (mutationError) {
-      setResult({
-        tone: "warning",
-        title: "현재 세션 기준 작성 차단 확인",
+        title: isNotice ? "공지 등록 실패" : "게시글 등록 실패",
         body: mutationError instanceof Error ? mutationError.message : String(mutationError),
       });
     } finally {
@@ -1270,47 +1300,95 @@ export function BoardDetailLiveSection({ boardId, onOpenPost }: { boardId: strin
 
   return (
     <>
-      <div className="grid-auto-compact">
+      <div className={showWriteForm ? "board-write-layout" : "grid-auto-compact"}>
+        {showWriteForm ? (
+          <article className="info-card board-write-form">
+          <Pill tone="accent">글쓰기</Pill>
+          <div className="board-write-grid" style={{ marginTop: 12 }}>
+            <label className="form-placeholder">
+              <strong>게시판 선택</strong>
+              <select className="field" onChange={(event) => setSelectedBoardId(event.target.value)} value={selectedBoardId}>
+                {availableBoards.map((board) => (
+                  <option key={board.id} value={board.id}>{board.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="form-placeholder">
+              <strong>말머리</strong>
+              <select className="field" disabled={!prefixOptions.length} onChange={(event) => setSelectedPrefix(event.target.value)} value={selectedPrefix}>
+                <option value="">{prefixOptions.length ? "말머리 선택 안 함" : "설정된 말머리 없음"}</option>
+                {prefixOptions.map((prefix) => (
+                  <option key={prefix} value={prefix}>{prefix}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <strong>제목</strong>
+            <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목을 입력하세요" value={title} />
+          </label>
+          <div className="board-tinymce-field" style={{ marginTop: 12 }}>
+            <strong>본문</strong>
+            <Editor
+              apiKey="no-api-key"
+              tinymceScriptSrc="/tinymce/tinymce.min.js"
+              licenseKey="gpl"
+              value={bodyHtml}
+              onEditorChange={(value) => setBodyHtml(value)}
+              init={{
+                height: 380,
+                menubar: false,
+                plugins: "lists link table code autoresize",
+                toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
+                branding: false,
+                promotion: false,
+                content_style: "body { font-family: Arial, sans-serif; font-size: 14px; }",
+              }}
+            />
+          </div>
+          <div className="board-write-grid" style={{ marginTop: 12 }}>
+            <label className="form-placeholder">
+              <strong>공개 설정</strong>
+              <select className="field" onChange={(event) => setVisibility(event.target.value)} value={visibility}>
+                <option value="board-default">선택한 게시판 기본 공개 설정</option>
+                <option value="public">공개</option>
+                <option value="private">비공개</option>
+              </select>
+            </label>
+            <label className="form-placeholder">
+              <strong>접근 권한</strong>
+              <select className="field" disabled={!accessScopes.length} onChange={(event) => setAccessScope(event.target.value)} value={accessScope}>
+                <option value="board-default">{accessScopes.length ? "게시판 기본 권한" : "게시판 설정값 사용"}</option>
+                {accessScopes.map((scope) => (
+                  <option key={scope.id} value={scope.id}>{scope.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="board-write-options" style={{ marginTop: 12 }}>
+            <label><input checked={isNotice} onChange={(event) => setIsNotice(event.target.checked)} type="checkbox" /> 선택한 게시판의 공지로 등록</label>
+            <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일 알림</label>
+            <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시 알림</label>
+          </div>
+          <div className="action-row" style={{ marginTop: 12 }}>
+            <button className="touch-button" disabled={pending || !canShowBoardFlow} onClick={handleCreatePost} type="button">
+              {pending ? "작성 처리 중" : "게시글 등록"}
+            </button>
+          </div>
+          </article>
+        ) : null}
         <article className="info-card">
-          <Pill tone="accent">현재 게시판</Pill>
-          <QueryState loading={posts.loading} error={posts.error} emptyMessage={!posts.data ? "게시판 데이터를 불러오지 못했습니다." : undefined} />
+          <Pill>현재 게시판</Pill>
+          <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} emptyMessage={!canShowBoardFlow ? "선택 가능한 게시판이 없습니다." : undefined} />
           {posts.data ? (
             <>
               <h3>{posts.data.board.name}</h3>
-              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "자유 소통"}</p>
+              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "게시글 작성 가능"}</p>
               <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
-              <p className="card-note">{formatBoardWriterGuide(boardId, session.data ?? null)}</p>
+              <p className="card-note">{formatBoardWriterGuide(selectedBoardId, session.data ?? null)}</p>
             </>
           ) : null}
         </article>
-        {canShowBoardFlow ? (
-          <article className="info-card">
-            <Pill>{isNoticeBoard ? "공지 등록" : "게시글 등록"}</Pill>
-            <label className="form-placeholder" style={{ marginTop: 12 }}>
-              <strong>제목</strong>
-              <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
-            </label>
-            <label className="form-placeholder" style={{ marginTop: 12 }}>
-              <strong>본문 미리보기</strong>
-              <input className="field" onChange={(event) => setBodyPreview(event.target.value)} value={bodyPreview} />
-            </label>
-            <div className="action-row" style={{ marginTop: 12 }}>
-              <button className="touch-button" disabled={pending} onClick={handleCreatePost} type="button">
-                {pending ? "작성 처리 중" : isNoticeBoard ? "공지 등록" : "게시글 등록"}
-              </button>
-              <button className="touch-button--secondary" disabled={pending} onClick={handleGuardProbe} type="button">
-                작성 가능 여부 확인
-              </button>
-            </div>
-            <p className="card-note">{isNoticeBoard ? "공지 작성은 운영 권한에 따라 제한될 수 있습니다." : "등록한 글은 목록에 반영되고 상세 화면에서 댓글과 읽음 확인으로 이어집니다."}</p>
-          </article>
-        ) : (
-          <article className="info-card">
-            <Pill tone="warning">게시판 접근 차단 상태</Pill>
-            <h3>허용된 게시판이 확인되기 전에는 작성/상세 이동 흐름을 노출하지 않습니다.</h3>
-            <p>현재 boardId 는 API 응답이 확인되지 않았습니다. 차단 사유를 확인한 뒤 /boards 로 돌아가 허용된 게시판을 다시 선택하세요.</p>
-          </article>
-        )}
       </div>
       {session.data ? (
         <article className="info-card" style={{ marginTop: 16 }}>
