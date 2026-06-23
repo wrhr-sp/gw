@@ -1107,7 +1107,24 @@ export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: 
   );
 }
 
-export function BoardsLiveSection() {
+type BoardInlineNavigationProps = {
+  onOpenBoard?: (boardId: string) => void;
+  onOpenPost?: (postId: string) => void;
+};
+
+function InlineNavigationLink({ children, href, onClick }: { children: React.ReactNode; href: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button className="inline-navigation-button" onClick={onClick} type="button">
+        {children}
+      </button>
+    );
+  }
+
+  return <a href={href}>{children}</a>;
+}
+
+export function BoardsLiveSection({ onOpenBoard, onOpenPost }: BoardInlineNavigationProps = {}) {
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards);
   const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
@@ -1137,11 +1154,11 @@ export function BoardsLiveSection() {
         <article className="info-card">
           <Pill>빠른 이동</Pill>
           <ol className="number-list" style={{ marginTop: 12 }}>
-            <li><a href="/boards/board_notice">전사 공지 확인</a></li>
-            <li><a href="/boards/board_department_notice">부서별 공지 확인</a></li>
-            <li><a href="/boards/board_general">자유 게시판 글 보기</a></li>
-            <li><a href="/boards/board_data_share">자료 공유 글 보기</a></li>
-            <li><a href={`/posts/${firstPostId}`}>최신 글에서 댓글과 읽음 확인</a></li>
+            <li><InlineNavigationLink href="/boards/board_notice" onClick={onOpenBoard ? () => onOpenBoard("board_notice") : undefined}>전사 공지 확인</InlineNavigationLink></li>
+            <li><InlineNavigationLink href="/boards/board_department_notice" onClick={onOpenBoard ? () => onOpenBoard("board_department_notice") : undefined}>부서별 공지 확인</InlineNavigationLink></li>
+            <li><InlineNavigationLink href="/boards/board_general" onClick={onOpenBoard ? () => onOpenBoard("board_general") : undefined}>자유 게시판 글 보기</InlineNavigationLink></li>
+            <li><InlineNavigationLink href="/boards/board_data_share" onClick={onOpenBoard ? () => onOpenBoard("board_data_share") : undefined}>자료 공유 글 보기</InlineNavigationLink></li>
+            <li><InlineNavigationLink href={`/posts/${firstPostId}`} onClick={onOpenPost ? () => onOpenPost(firstPostId) : undefined}>최신 글에서 댓글과 읽음 확인</InlineNavigationLink></li>
           </ol>
         </article>
       </div>
@@ -1153,7 +1170,7 @@ export function BoardsLiveSection() {
               <h3>{item.name}</h3>
               <p>{item.visibility} · {item.isNoticeOnly ? "읽기와 확인 중심" : "글쓰기와 댓글 가능"}</p>
               <p className="card-note">{item.isNoticeOnly ? "중요 공지를 읽고 확인 상태를 남깁니다." : "글을 읽고 댓글로 의견을 이어갑니다."}</p>
-              <a href={`/boards/${item.id}`}>이 게시판 흐름 보기 →</a>
+              <InlineNavigationLink href={`/boards/${item.id}`} onClick={onOpenBoard ? () => onOpenBoard(item.id) : undefined}>이 게시판 흐름 보기 →</InlineNavigationLink>
             </article>
           ))}
         </div>
@@ -1164,14 +1181,14 @@ export function BoardsLiveSection() {
           <h3>{posts.data.items[0]?.title ?? "게시글 없음"}</h3>
           <p>{posts.data.items[0]?.bodyPreview ?? "아직 생성된 일반 게시글이 없습니다."}</p>
           <p className="card-note">상세 화면에서 댓글을 남기고 읽음 확인까지 이어갑니다.</p>
-          <a href={`/posts/${firstPostId}`}>최신 글 상세로 이동 →</a>
+          <InlineNavigationLink href={`/posts/${firstPostId}`} onClick={onOpenPost ? () => onOpenPost(firstPostId) : undefined}>최신 글 상세로 이동 →</InlineNavigationLink>
         </article>
       ) : null}
     </>
   );
 }
 
-export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
+export function BoardDetailLiveSection({ boardId, onOpenPost }: { boardId: string; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const [title, setTitle] = useState(boardId === "board_notice" ? "전사 공지 안내" : boardId === "board_department_notice" ? "부서별 공지 안내" : boardId === "board_data_share" ? "업무 양식 공유" : "점심 메뉴 추천");
@@ -1261,7 +1278,7 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
             <>
               <h3>{posts.data.board.name}</h3>
               <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "자유 소통"}</p>
-              <p className="card-note">게시글 {posts.data.items.length}건 · <a href={`/posts/${samplePostId}`}>대표 글 보기</a></p>
+              <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
               <p className="card-note">{formatBoardWriterGuide(boardId, session.data ?? null)}</p>
             </>
           ) : null}
@@ -1314,7 +1331,7 @@ export function BoardDetailLiveSection({ boardId }: { boardId: string }) {
                 <h3>{item.title}</h3>
                 <p>{item.bodyPreview}</p>
                 <p className="card-note">상세에서 댓글과 읽음 확인을 이어갑니다.</p>
-                <a href={`/posts/${item.id}`}>이 글 상세로 이동 →</a>
+                <InlineNavigationLink href={`/posts/${item.id}`} onClick={onOpenPost ? () => onOpenPost(item.id) : undefined}>이 글 상세로 이동 →</InlineNavigationLink>
               </article>
             ))
           ) : (
