@@ -464,6 +464,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('const adminSettingsRoleCodes');
     expect(shellSource).toContain('const adminPermissionUsers');
     expect(shellSource).toContain('const adminFeaturePermissions');
+    expect(shellSource).toContain('const adminPermissionScopes');
     expect(shellSource).toContain('settings: "통합설정"');
     expect(shellSource).toContain('settings: null');
     expect(shellSource).not.toContain('개인 화면과 서비스 사용 방식을 정합니다.');
@@ -473,7 +474,9 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]}');
     expect(shellSource).toContain('handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)');
     expect(shellSource).toContain('사용자 계정 목록');
-    expect(shellSource).toContain('기능 접근권한');
+    expect(shellSource).toContain('권한 범위 선택');
+    expect(shellSource).toContain('selectedPermissionScopeItems.map');
+    expect(shellSource).toContain('topbar-admin-permission-check-grid');
     expect(shellSource).toContain('selectedPermissionUserId');
     expect(shellSource).toContain('const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)');
     expect(shellSource).toContain('function openLogoutConfirm()');

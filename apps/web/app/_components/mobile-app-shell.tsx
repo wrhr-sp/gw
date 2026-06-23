@@ -155,6 +155,14 @@ const adminFeaturePermissions = [
   { key: "management", label: "경영 포털" },
 ] as const;
 
+const adminPermissionScopes = [
+  { id: "work", label: "근무/휴가", summary: "근태와 휴가 사용 범위", permissions: ["attendance", "leave"] },
+  { id: "approval", label: "결재/문서", summary: "전자결재, 문서함, 게시판 접근", permissions: ["approvals", "documents", "boards"] },
+  { id: "people", label: "인사/조직", summary: "조직도와 직원 정보 확인", permissions: ["employees"] },
+  { id: "payroll", label: "급여", summary: "급여 조회 접근", permissions: ["payroll"] },
+  { id: "management", label: "경영/관리", summary: "경영 포털 접근", permissions: ["management"] },
+] as const;
+
 const generalBranchManagementDesktopItem: NavItem = {
   href: "/branches",
   label: "지점관리",
@@ -164,6 +172,7 @@ const generalBranchManagementDesktopItem: NavItem = {
 
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
 type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
+type AdminPermissionScopeId = (typeof adminPermissionScopes)[number]["id"];
 type AdminPermissionState = Record<AdminPermissionUserId, Record<AdminFeaturePermissionKey, boolean>>;
 
 function createAdminPermissionSet(values: AdminFeaturePermissionKey[]) {
@@ -1204,6 +1213,7 @@ export function MobileAppShell({
   const [unlockedSensitiveRouteKeys, setUnlockedSensitiveRouteKeys] = useState<Set<string>>(() => readSecondaryPasswordUnlockedFeatureKeys());
   const sensitiveRoutePasswordRequestRef = useRef(0);
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<(typeof adminPermissionUsers)[number]["id"]>("admin");
+  const [selectedPermissionScopeId, setSelectedPermissionScopeId] = useState<AdminPermissionScopeId>("work");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
@@ -1309,6 +1319,9 @@ export function MobileAppShell({
   const canUseAdminSettings = adminSettingsRoleCodes.has(currentRoleCode ?? "EMPLOYEE");
   const secondaryPasswordMode = getSecondaryPasswordMode(hasSecondaryPassword);
   const selectedPermissionUser = adminPermissionUsers.find((user) => user.id === selectedPermissionUserId) ?? adminPermissionUsers[0];
+  const selectedPermissionScope = adminPermissionScopes.find((scope) => scope.id === selectedPermissionScopeId) ?? adminPermissionScopes[0];
+  const selectedPermissionScopeKeys = new Set<AdminFeaturePermissionKey>(selectedPermissionScope.permissions);
+  const selectedPermissionScopeItems = adminFeaturePermissions.filter((permission) => selectedPermissionScopeKeys.has(permission.key));
   const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
   const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
   const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
@@ -2733,10 +2746,20 @@ export function MobileAppShell({
                               ))}
                             </div>
                           </section>
-                          <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} 기능 접근권한`}>
-                            <div className="topbar-admin-settings__selected-user"><strong>{selectedPermissionUser.name}</strong><span>{selectedPermissionUser.department} · {selectedPermissionUser.role}</span></div>
-                            <div className="topbar-modal-toggle-grid">
-                              {adminFeaturePermissions.map((permission) => (
+                          <section className="topbar-admin-settings__scopes" aria-label="권한 범위 선택">
+                            <strong>권한 범위 선택</strong>
+                            <div className="topbar-admin-scope-list">
+                              {adminPermissionScopes.map((scope) => (
+                                <button key={scope.id} type="button" className={scope.id === selectedPermissionScopeId ? "topbar-admin-scope-row topbar-admin-scope-row--active" : "topbar-admin-scope-row"} aria-current={scope.id === selectedPermissionScopeId ? "true" : undefined} onClick={() => setSelectedPermissionScopeId(scope.id)}>
+                                  <span><strong>{scope.label}</strong><small>{scope.summary}</small></span>
+                                </button>
+                              ))}
+                            </div>
+                          </section>
+                          <section className="topbar-admin-settings__permissions" aria-label={`${selectedPermissionUser.name} ${selectedPermissionScope.label} 체크`}>
+                            <div className="topbar-admin-settings__selected-user"><strong>체크</strong><span>{selectedPermissionUser.name} · {selectedPermissionScope.label}</span></div>
+                            <div className="topbar-modal-toggle-grid topbar-admin-permission-check-grid">
+                              {selectedPermissionScopeItems.map((permission) => (
                                 <SettingToggle key={permission.key} label={permission.label} checked={adminPermissionSettings[selectedPermissionUser.id][permission.key]} onChange={(checked) => handleAdminPermissionChange(selectedPermissionUser.id, permission.key, checked)} />
                               ))}
                             </div>

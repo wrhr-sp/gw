@@ -2223,7 +2223,7 @@ li {
 
 .topbar-admin-settings__panel {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(210px, 260px) minmax(190px, 240px) minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
 }
@@ -2234,6 +2234,7 @@ li {
 }
 
 .topbar-admin-settings__users,
+.topbar-admin-settings__scopes,
 .topbar-admin-settings__permissions {
   display: grid;
   align-content: start;
@@ -2241,17 +2242,20 @@ li {
   gap: 12px;
 }
 
+.topbar-admin-settings__scopes,
 .topbar-admin-settings__permissions {
   border-left: 1px solid rgba(148, 163, 184, 0.24);
   padding-left: 16px;
 }
 
-.topbar-admin-user-list {
+.topbar-admin-user-list,
+.topbar-admin-scope-list {
   display: grid;
   gap: 0;
 }
 
-.topbar-admin-user-row {
+.topbar-admin-user-row,
+.topbar-admin-scope-row {
   border: 0;
   border-top: 1px solid rgba(148, 163, 184, 0.22);
   background: transparent;
@@ -2263,11 +2267,14 @@ li {
 }
 
 .topbar-admin-user-row--active strong,
-.topbar-admin-user-row:hover strong {
+.topbar-admin-user-row:hover strong,
+.topbar-admin-scope-row--active strong,
+.topbar-admin-scope-row:hover strong {
   color: #1d4ed8;
 }
 
 .topbar-admin-user-row strong,
+.topbar-admin-scope-row strong,
 .topbar-admin-settings__selected-user strong {
   display: block;
   color: #0f172a;
@@ -2275,12 +2282,17 @@ li {
 }
 
 .topbar-admin-user-row small,
+.topbar-admin-scope-row small,
 .topbar-admin-settings__selected-user span {
   display: block;
   margin-top: 4px;
   color: #64748b;
   font-size: 0.78rem;
   font-weight: 780;
+}
+
+.topbar-admin-permission-check-grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .topbar-modal-card,
@@ -3087,6 +3099,20 @@ li {
 @media (max-width: 900px) {
   .sidebar-settings-modal__body {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar-admin-settings__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-admin-settings__scopes,
+  .topbar-admin-settings__permissions {
+    border-left: 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.24);
+    padding-left: 0;
+    padding-top: 14px;
   }
 }
 
