@@ -164,10 +164,14 @@ export default function BoardsPage() {
     setView({ kind: "post", boardId, postId });
   }
 
+  function resetBoardHome() {
+    setView({ kind: "home", boardId: "board_notice" });
+  }
+
   return (
     <PageShell
       title="게시판"
-      titleHref="/boards"
+      onTitleClick={resetBoardHome}
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
