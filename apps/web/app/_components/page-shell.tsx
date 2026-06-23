@@ -4,6 +4,7 @@ type PageShellProps = {
   backHref?: string | null;
   backLabel?: string;
   titleHref?: string | null;
+  onTitleClick?: () => void;
   eyebrow?: string;
   title: string;
   description?: string;
@@ -15,6 +16,7 @@ export function PageShell({
   eyebrow,
   title,
   titleHref,
+  onTitleClick,
   description,
   children,
   actions,
@@ -29,7 +31,9 @@ export function PageShell({
         <div className="page-shell__headline">
           <div>
             <h1>
-              {resolvedTitleHref ? (
+              {onTitleClick ? (
+                <button className="page-shell__title-link page-shell__title-button" onClick={onTitleClick} type="button">{title}</button>
+              ) : resolvedTitleHref ? (
                 <a className="page-shell__title-link" href={resolvedTitleHref}>{title}</a>
               ) : (
                 title

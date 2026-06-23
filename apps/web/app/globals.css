@@ -494,8 +494,17 @@ li {
 
 
 .page-shell__title-link {
+  border: 0;
+  background: transparent;
   color: inherit;
+  font: inherit;
+  padding: 0;
   text-decoration: none;
+}
+
+.page-shell__title-button {
+  cursor: pointer;
+  text-align: left;
 }
 
 .page-shell__title-link:hover,
