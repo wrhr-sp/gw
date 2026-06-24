@@ -36,8 +36,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain(".board-workspace__list,");
     expect(globalCss).toContain("border-left: 1px solid var(--line);");
     expect(globalCss).toContain(".page-shell__headline h1 {");
-    expect(globalCss).toContain("font-size: 1.15rem;");
-    expect(globalCss).toContain("font-weight: 900;");
+    expect(globalCss).toContain("font-size: var(--font-size-lg);");
+    expect(globalCss).toContain("font-weight: var(--font-weight-heavy);");
     expect(globalCss).toContain("letter-spacing: 0.03em;");
     expect(globalCss).toContain("padding-inline: 14px;");
   });

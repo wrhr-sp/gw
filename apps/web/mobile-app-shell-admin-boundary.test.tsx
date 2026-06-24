@@ -549,14 +549,14 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("width: min(260px, 100%);");
     expect(globalCss).toContain("min-height: 36px;");
     expect(globalCss).toContain("place-items: center;");
-    expect(globalCss).toContain("font-size: 1.42rem;");
+    expect(globalCss).toContain("font-size: var(--font-size-xl);");
     expect(globalCss).toContain("text-align: center;");
     expect(globalCss).toContain(".topbar-settings-gate__card > .secondary-password-gate__title {");
     const gateTitleOverrideStart = globalCss.indexOf(".topbar-settings-gate__card > .secondary-password-gate__title {");
     const gateTitleOverrideEnd = globalCss.indexOf("}", gateTitleOverrideStart);
     const gateTitleOverride = globalCss.slice(gateTitleOverrideStart, gateTitleOverrideEnd);
-    expect(gateTitleOverride).toContain("font-size: 1.42rem;");
-    expect(gateTitleOverride).toContain("font-weight: 900;");
+    expect(gateTitleOverride).toContain("font-size: var(--font-size-xl);");
+    expect(gateTitleOverride).toContain("font-weight: var(--font-weight-heavy);");
     expect(gateTitleOverride).toContain("letter-spacing: 0.03em;");
     expect(gateTitleOverride).not.toContain("margin-bottom");
     expect(gateTitleOverride).not.toContain("display:");
@@ -605,8 +605,8 @@ describe("mobile app shell admin boundary", () => {
     const modalEyebrowStart = globalCss.indexOf(".topbar-modal__eyebrow {");
     const modalEyebrowEnd = globalCss.indexOf("}", modalEyebrowStart);
     const modalEyebrowRule = globalCss.slice(modalEyebrowStart, modalEyebrowEnd);
-    expect(modalEyebrowRule).toContain("font-size: clamp(1rem, 1.25vw, 1.16rem);");
-    expect(modalEyebrowRule).not.toContain("font-size: 0.76rem;");
+    expect(modalEyebrowRule).toContain("font-size: var(--font-size-lg);");
+    expect(modalEyebrowRule).not.toContain("font-size: var(--font-size-sm);");
     expect(globalCss).toContain("gap: 20px;");
     expect(globalCss).toContain("align-items: flex-end;");
     expect(globalCss).toContain("padding: 0 0 10px;");
