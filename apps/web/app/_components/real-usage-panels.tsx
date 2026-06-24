@@ -1202,6 +1202,8 @@ type BoardWriteSettings = {
   accessScopes?: Array<{ id: string; label: string }>;
 };
 
+type BoardCategory = "company" | "department";
+
 function readBoardWriteSettings(board: Record<string, any> | null | undefined): BoardWriteSettings {
   const settings = board?.writeSettings ?? board?.settings ?? {};
   return {
@@ -1214,26 +1216,35 @@ function readBoardWriteSettings(board: Record<string, any> | null | undefined): 
   };
 }
 
+function getBoardCategory(board: Record<string, any> | null | undefined): BoardCategory {
+  return board?.visibility === "department" || board?.boardType === "department" ? "department" : "company";
+}
+
 export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices, refreshSeed);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards, refreshSeed);
   const [selectedBoardId, setSelectedBoardId] = useState(boardId);
+  const [selectedCategory, setSelectedCategory] = useState<BoardCategory>("company");
   const [selectedPrefix, setSelectedPrefix] = useState("");
   const [title, setTitle] = useState("");
   const [bodyHtml, setBodyHtml] = useState("<p></p>");
-  const [visibility, setVisibility] = useState("board-default");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isNotice, setIsNotice] = useState(false);
+  const [noticeStartDate, setNoticeStartDate] = useState("");
+  const [noticeEndDate, setNoticeEndDate] = useState("");
   const [mailAlert, setMailAlert] = useState(false);
   const [pushAlert, setPushAlert] = useState(false);
   const [accessScope, setAccessScope] = useState("board-default");
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
   const availableBoards = useMemo(() => [...(notices.data?.items ?? []), ...(boards.data?.items ?? [])], [notices.data, boards.data]);
-  const selectedBoard = availableBoards.find((item) => item.id === selectedBoardId) ?? null;
-  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(selectedBoardId), refreshSeed);
+  const categoryBoards = useMemo(() => availableBoards.filter((board) => getBoardCategory(board) === selectedCategory), [availableBoards, selectedCategory]);
+  const selectedBoard = availableBoards.find((item) => item.id === selectedBoardId) ?? categoryBoards[0] ?? null;
+  const effectiveBoardId = selectedBoard?.id ?? selectedBoardId;
+  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(effectiveBoardId), refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
-  const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(selectedBoardId);
+  const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(effectiveBoardId);
   const canShowBoardFlow = Boolean(posts.data || selectedBoard);
   const boardSettings = readBoardWriteSettings(selectedBoard ?? posts.data?.board);
   const prefixOptions = boardSettings.prefixOptions ?? [];
@@ -1242,13 +1253,26 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
   useEffect(() => {
     setSelectedBoardId(boardId);
-  }, [boardId]);
+    const initialBoard = availableBoards.find((item) => item.id === boardId);
+    if (initialBoard) {
+      setSelectedCategory(getBoardCategory(initialBoard));
+    }
+  }, [availableBoards, boardId]);
+
+  useEffect(() => {
+    const nextBoard = categoryBoards.find((board) => board.id === selectedBoardId) ?? categoryBoards[0];
+    if (nextBoard && nextBoard.id !== selectedBoardId) {
+      setSelectedBoardId(String(nextBoard.id));
+    }
+  }, [categoryBoards, selectedBoardId]);
 
   useEffect(() => {
     setSelectedPrefix("");
     setIsNotice(Boolean((selectedBoard ?? posts.data?.board)?.isNoticeOnly));
+    setNoticeStartDate("");
+    setNoticeEndDate("");
     setAccessScope("board-default");
-  }, [selectedBoardId, selectedBoard, posts.data?.board]);
+  }, [effectiveBoardId, selectedBoard, posts.data?.board]);
 
   async function handleCreatePost() {
     const bodyPreview = stripHtmlToPreview(bodyHtml);
@@ -1261,7 +1285,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
     setResult(null);
     try {
       const fullTitle = selectedPrefix ? `[${selectedPrefix}] ${title.trim()}` : title.trim();
-      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(selectedBoardId), {
+      const payload = await fetchJson<Record<string, any>>(appRoutes.boards.posts(effectiveBoardId), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1271,6 +1295,12 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
           prefix: selectedPrefix || null,
           visibility,
           isNotice,
+          noticePeriod: isNotice
+            ? {
+              startDate: noticeStartDate || null,
+              endDate: noticeEndDate || null,
+            }
+            : null,
           notificationSettings: {
             mail: mailAlert,
             push: pushAlert,
@@ -1303,78 +1333,79 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
       <div className={showWriteForm ? "board-write-layout" : "grid-auto-compact"}>
         {showWriteForm ? (
           <article className="info-card board-write-form">
-          <Pill tone="accent">글쓰기</Pill>
-          <div className="board-write-grid" style={{ marginTop: 12 }}>
-            <label className="form-placeholder">
+            <Pill tone="accent">글쓰기</Pill>
+            <div className="board-write-line board-write-line--board" style={{ marginTop: 12 }}>
               <strong>게시판 선택</strong>
-              <select className="field" onChange={(event) => setSelectedBoardId(event.target.value)} value={selectedBoardId}>
-                {availableBoards.map((board) => (
-                  <option key={board.id} value={board.id}>{board.name}</option>
-                ))}
+              <select className="field" onChange={(event) => setSelectedCategory(event.target.value as BoardCategory)} value={selectedCategory}>
+                <option value="company">전사게시판</option>
+                <option value="department">부서게시판</option>
               </select>
-            </label>
-            <label className="form-placeholder">
-              <strong>말머리</strong>
+              <select className="field" onChange={(event) => setSelectedBoardId(event.target.value)} value={effectiveBoardId}>
+                {categoryBoards.length ? categoryBoards.map((board) => (
+                  <option key={board.id} value={board.id}>{board.name}</option>
+                )) : <option value="">선택 가능한 하위게시판 없음</option>}
+              </select>
+            </div>
+            <div className="board-write-line board-write-line--title" style={{ marginTop: 12 }}>
+              <strong>제목</strong>
               <select className="field" disabled={!prefixOptions.length} onChange={(event) => setSelectedPrefix(event.target.value)} value={selectedPrefix}>
-                <option value="">{prefixOptions.length ? "말머리 선택 안 함" : "설정된 말머리 없음"}</option>
+                <option value="">{prefixOptions.length ? "말머리 선택" : "설정된 말머리 없음"}</option>
                 {prefixOptions.map((prefix) => (
                   <option key={prefix} value={prefix}>{prefix}</option>
                 ))}
               </select>
-            </label>
-          </div>
-          <label className="form-placeholder" style={{ marginTop: 12 }}>
-            <strong>제목</strong>
-            <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목을 입력하세요" value={title} />
-          </label>
-          <div className="board-tinymce-field" style={{ marginTop: 12 }}>
-            <strong>본문</strong>
-            <Editor
-              apiKey="no-api-key"
-              tinymceScriptSrc="/tinymce/tinymce.min.js"
-              licenseKey="gpl"
-              value={bodyHtml}
-              onEditorChange={(value) => setBodyHtml(value)}
-              init={{
-                height: 380,
-                menubar: false,
-                plugins: "lists link table code autoresize",
-                toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
-                branding: false,
-                promotion: false,
-                content_style: "body { font-family: Arial, sans-serif; font-size: 14px; }",
-              }}
-            />
-          </div>
-          <div className="board-write-grid" style={{ marginTop: 12 }}>
-            <label className="form-placeholder">
-              <strong>공개 설정</strong>
-              <select className="field" onChange={(event) => setVisibility(event.target.value)} value={visibility}>
-                <option value="board-default">선택한 게시판 기본 공개 설정</option>
-                <option value="public">공개</option>
-                <option value="private">비공개</option>
-              </select>
-            </label>
-            <label className="form-placeholder">
-              <strong>접근 권한</strong>
-              <select className="field" disabled={!accessScopes.length} onChange={(event) => setAccessScope(event.target.value)} value={accessScope}>
-                <option value="board-default">{accessScopes.length ? "게시판 기본 권한" : "게시판 설정값 사용"}</option>
-                {accessScopes.map((scope) => (
-                  <option key={scope.id} value={scope.id}>{scope.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="board-write-options" style={{ marginTop: 12 }}>
-            <label><input checked={isNotice} onChange={(event) => setIsNotice(event.target.checked)} type="checkbox" /> 선택한 게시판의 공지로 등록</label>
-            <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일 알림</label>
-            <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시 알림</label>
-          </div>
-          <div className="action-row" style={{ marginTop: 12 }}>
-            <button className="touch-button" disabled={pending || !canShowBoardFlow} onClick={handleCreatePost} type="button">
-              {pending ? "작성 처리 중" : "게시글 등록"}
-            </button>
-          </div>
+              <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목 입력" value={title} />
+            </div>
+            <div className="board-tinymce-field" style={{ marginTop: 12 }}>
+              <strong>본문</strong>
+              <Editor
+                apiKey="no-api-key"
+                tinymceScriptSrc="/tinymce/tinymce.min.js"
+                licenseKey="gpl"
+                value={bodyHtml}
+                onEditorChange={(value) => setBodyHtml(value)}
+                init={{
+                  height: 380,
+                  menubar: false,
+                  plugins: "lists link table code autoresize",
+                  toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
+                  branding: false,
+                  promotion: false,
+                  content_style: "body { font-family: Arial, sans-serif; font-size: 14px; }",
+                }}
+              />
+            </div>
+            <fieldset className="board-write-choice-row" style={{ marginTop: 12 }}>
+              <legend>공개설정</legend>
+              <label><input checked={visibility === "public"} onChange={() => setVisibility("public")} name="board-post-visibility" type="radio" /> 공개</label>
+              <label><input checked={visibility === "private"} onChange={() => setVisibility("private")} name="board-post-visibility" type="radio" /> 비공개</label>
+            </fieldset>
+            <div className="board-write-notice" style={{ marginTop: 12 }}>
+              <strong>공지 등록 여부</strong>
+              <label><input checked={isNotice} onChange={(event) => setIsNotice(event.target.checked)} type="checkbox" /> 공지등록</label>
+              {isNotice ? (
+                <div className="board-write-date-range">
+                  <label className="form-placeholder">
+                    <strong>시작일</strong>
+                    <input className="field" onChange={(event) => setNoticeStartDate(event.target.value)} type="date" value={noticeStartDate} />
+                  </label>
+                  <label className="form-placeholder">
+                    <strong>종료일</strong>
+                    <input className="field" onChange={(event) => setNoticeEndDate(event.target.value)} type="date" value={noticeEndDate} />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+            <div className="board-write-options" style={{ marginTop: 12 }}>
+              <strong>알림</strong>
+              <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일알림</label>
+              <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시알림</label>
+            </div>
+            <div className="action-row" style={{ marginTop: 12 }}>
+              <button className="touch-button" disabled={pending || !canShowBoardFlow} onClick={handleCreatePost} type="button">
+                {pending ? "작성 처리 중" : "게시글 등록"}
+              </button>
+            </div>
           </article>
         ) : null}
         <article className="info-card">
@@ -1385,7 +1416,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               <h3>{posts.data.board.name}</h3>
               <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "게시글 작성 가능"}</p>
               <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
-              <p className="card-note">{formatBoardWriterGuide(selectedBoardId, session.data ?? null)}</p>
+              <p className="card-note">{formatBoardWriterGuide(effectiveBoardId, session.data ?? null)}</p>
             </>
           ) : null}
         </article>
@@ -1425,7 +1456,6 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
     </>
   );
 }
-
 export function PostDetailLiveSection({ postId }: { postId: string }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
