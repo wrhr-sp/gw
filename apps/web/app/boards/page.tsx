@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import React, { useState } from "react";
 
 import { PageShell, Pill } from "../_components/page-shell";
@@ -50,50 +49,13 @@ const departmentBoards = [
   },
 ] as const;
 
-const recentPosts = [
-  {
-    id: "board_post_notice_1",
-    boardId: "board_notice",
-    board: "전사 공지",
-    title: "하반기 운영 기준 안내",
-    writer: "관리팀",
-    meta: "읽음 82% · 오늘 09:20",
-    tone: "warning" as const,
-  },
-  {
-    id: "board_post_department_notice_1",
-    boardId: "board_department_notice",
-    board: "인사팀 게시판",
-    title: "이번 주 근태 정정 요청 마감 안내",
-    writer: "인사팀",
-    meta: "댓글 2 · 오늘 11:10",
-    tone: "accent" as const,
-  },
-  {
-    id: "board_post_company_alert_1",
-    boardId: "board_company_alert",
-    board: "전사 알람",
-    title: "시스템 점검 예정 알림",
-    writer: "운영관리자",
-    meta: "긴급 · 내일 20:00",
-    tone: "warning" as const,
-  },
-  {
-    id: "board_post_department_daily_1",
-    boardId: "board_department_daily",
-    board: "부서 업무 공유",
-    title: "지점별 제출 자료 확인 요청",
-    writer: "박매니저",
-    meta: "댓글 5 · 어제",
-    tone: "accent" as const,
-  },
-] as const;
 
 type BoardId = (typeof companyBoards)[number]["id"] | (typeof departmentBoards)[number]["id"];
 
 type BoardWorkspaceView =
-  | { kind: "home"; boardId: BoardId }
-  | { kind: "board"; boardId: BoardId; intent?: "write" | "list" }
+  | { kind: "home" }
+  | { kind: "board"; boardId: BoardId }
+  | { kind: "write"; boardId: BoardId | null }
   | { kind: "post"; boardId: BoardId; postId: string };
 
 const liveBoardIds = new Set<BoardId>(["board_notice", "board_department_notice", "board_general", "board_data_share"]);
@@ -101,7 +63,7 @@ const liveBoardIds = new Set<BoardId>(["board_notice", "board_department_notice"
 type BoardSectionProps = {
   title: string;
   boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
-  selectedBoardId: string;
+  selectedBoardId: string | null;
   onSelectBoard: (boardId: BoardId) => void;
 };
 
@@ -154,19 +116,25 @@ function BoardLocalPanel({ boardId }: { boardId: BoardId }) {
 
 export default function BoardsPage() {
   const canManageBoards = true;
-  const [view, setView] = useState<BoardWorkspaceView>({ kind: "home", boardId: "board_notice" });
-  const selectedBoardId = view.boardId;
+  const [view, setView] = useState<BoardWorkspaceView>({ kind: "home" });
+  const contentBoardId = view.kind === "board" || view.kind === "post" ? view.boardId : null;
+  const activeNavBoardId = view.kind === "board" || view.kind === "post" ? view.boardId : null;
+  const writeInitialBoardId = view.kind === "write" ? view.boardId : contentBoardId;
 
-  function openBoard(boardId: string, intent: "write" | "list" = "list") {
-    setView({ kind: "board", boardId: boardId as BoardId, intent });
+  function openBoard(boardId: string) {
+    setView({ kind: "board", boardId: boardId as BoardId });
   }
 
-  function openPost(postId: string, boardId: BoardId = selectedBoardId) {
+  function openWrite() {
+    setView({ kind: "write", boardId: contentBoardId });
+  }
+
+  function openPost(postId: string, boardId: BoardId = contentBoardId ?? "board_general") {
     setView({ kind: "post", boardId, postId });
   }
 
   function resetBoardHome() {
-    setView({ kind: "home", boardId: "board_notice" });
+    setView({ kind: "home" });
   }
 
   return (
@@ -176,9 +144,9 @@ export default function BoardsPage() {
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
-          <Link className="board-write-button" href={`/boards/post/write?boardId=${encodeURIComponent(selectedBoardId)}`}>글쓰기</Link>
-          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
-          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <button className="board-write-button" onClick={openWrite} type="button">글쓰기</button>
+          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
           {!canManageBoards ? (
             <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
               <Pill>일반 사용자</Pill>
@@ -190,37 +158,22 @@ export default function BoardsPage() {
           <div className="board-section-title">
             <div>
               <Pill tone="accent">현재 선택</Pill>
-              <h2>{view.kind === "post" ? "게시글 상세" : getBoardName(selectedBoardId)}</h2>
+              <h2>{view.kind === "post" ? "게시글 상세" : view.kind === "board" ? getBoardName(view.boardId) : view.kind === "write" ? "글쓰기" : "내가 볼 수 있는 게시글"}</h2>
             </div>
             <button className="board-inline-action" onClick={() => openBoard("board_notice")} type="button">공지 보기</button>
           </div>
           {view.kind === "home" ? (
             <>
-              <BoardsLiveSection onOpenBoard={openBoard} onOpenPost={(postId) => openPost(postId, "board_general")} />
-              <div className="board-post-list">
-                {recentPosts.map((post) => (
-                  <button
-                    key={post.title}
-                    className="board-post-row"
-                    onClick={() => (liveBoardIds.has(post.boardId) ? openPost(post.id, post.boardId) : openBoard(post.boardId))}
-                    type="button"
-                  >
-                    <Pill tone={post.tone}>{post.board}</Pill>
-                    <div>
-                      <strong>{post.title}</strong>
-                      <p>{post.writer} · {post.meta}</p>
-                    </div>
-                    <span aria-hidden="true">›</span>
-                  </button>
-                ))}
-              </div>
+              <BoardsLiveSection onOpenPost={(postId, boardId) => openPost(postId, (boardId as BoardId | undefined) ?? "board_general")} />
             </>
           ) : view.kind === "board" ? (
-            liveBoardIds.has(selectedBoardId) ? (
-              <BoardDetailLiveSection boardId={selectedBoardId} intent={view.intent} onOpenPost={(postId) => openPost(postId, selectedBoardId)} />
+            liveBoardIds.has(view.boardId) ? (
+              <BoardDetailLiveSection boardId={view.boardId} onOpenPost={(postId) => openPost(postId, view.boardId)} />
             ) : (
-              <BoardLocalPanel boardId={selectedBoardId} />
+              <BoardLocalPanel boardId={view.boardId} />
             )
+          ) : view.kind === "write" ? (
+            <BoardDetailLiveSection boardId={writeInitialBoardId} intent="write" onOpenPost={(postId) => openPost(postId, writeInitialBoardId ?? "board_general")} />
           ) : (
             <PostDetailLiveSection postId={view.postId} />
           )}
