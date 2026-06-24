@@ -14,8 +14,8 @@
   --shadow: none;
   --mobile-bottom-nav-height: 74px;
   --mobile-bottom-nav-offset: 7px;
-  --desktop-sidebar-collapsed-width: 96px;
-  --desktop-sidebar-expanded-width: 260px;
+  --desktop-sidebar-collapsed-width: 86px;
+  --desktop-sidebar-expanded-width: 234px;
 }
 
 * {
@@ -1621,13 +1621,13 @@ li {
 
 @media (min-width: 961px) {
   .app-shell--responsive {
-    --desktop-topbar-height: 56px;
-    --desktop-content-padding-inline: clamp(7px, 0.8vw, 13px);
-    --desktop-grid-gap: clamp(10px, 0.88vw, 13px);
-    --desktop-grid-min: clamp(176px, 12.5vw, 200px);
-    --desktop-grid-compact-min: clamp(144px, 10.2vw, 164px);
-    --desktop-summary-grid-min: clamp(204px, 14.8vw, 236px);
-    font-size: 0.9rem;
+    --desktop-topbar-height: 50px;
+    --desktop-content-padding-inline: clamp(6px, 0.72vw, 12px);
+    --desktop-grid-gap: clamp(9px, 0.8vw, 12px);
+    --desktop-grid-min: clamp(158px, 11.25vw, 180px);
+    --desktop-grid-compact-min: clamp(130px, 9.2vw, 148px);
+    --desktop-summary-grid-min: clamp(184px, 13.3vw, 212px);
+    font-size: 0.81rem;
     display: block;
     height: 100dvh;
     min-height: 100dvh;
@@ -1646,25 +1646,25 @@ li {
   }
 
   .page-shell {
-    gap: 16px;
+    gap: 14px;
   }
 
   .page-shell__header {
-    gap: 9px;
-    padding-inline: 16px;
+    gap: 8px;
+    padding-inline: 14px;
   }
 
   .page-shell__headline {
-    gap: 12px;
+    gap: 11px;
   }
 
   .page-shell__headline h1 {
-    font-size: 1.28rem;
+    font-size: 1.15rem;
   }
 
   .page-shell__content {
-    border-radius: 20px;
-    padding: 16px;
+    border-radius: 18px;
+    padding: 14px;
   }
 
   .hero-card,
@@ -1672,25 +1672,25 @@ li {
   .info-card,
   .stat-card,
   .route-card {
-    border-radius: 20px;
-    padding: 16px;
+    border-radius: 18px;
+    padding: 14px;
   }
 
   .page-shell__content > .surface-card + .surface-card {
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: 14px;
+    padding-top: 14px;
   }
 
   .touch-button,
   .touch-button--secondary {
-    min-height: 40px;
-    padding: 9px 14px;
+    min-height: 36px;
+    padding: 8px 13px;
   }
 
   .field,
   .textarea-field {
-    border-radius: 12px;
-    padding: 10px 12px;
+    border-radius: 11px;
+    padding: 9px 11px;
   }
 
   .app-topbar {
@@ -1713,17 +1713,17 @@ li {
   }
 
   .topbar-brand-link strong {
-    font-size: 1.18rem;
+    font-size: 1.06rem;
   }
 
   .topbar-icon-link {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .topbar-profile-avatar {
-    width: 29px;
-    height: 29px;
+    width: 26px;
+    height: 26px;
   }
 
   .page-shell,
@@ -1782,8 +1782,8 @@ li {
     min-height: 0;
     flex-shrink: 0;
     align-content: start;
-    gap: 14px;
-    padding: 18px 16px;
+    gap: 13px;
+    padding: 16px 14px;
     position: fixed;
     left: 0;
     top: var(--desktop-topbar-height);
@@ -1797,27 +1797,27 @@ li {
   .desktop-sidebar--collapsed {
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: var(--desktop-sidebar-collapsed-width);
-    padding-inline: 10px;
+    padding-inline: 9px;
   }
 
   .desktop-sidebar__header,
   .desktop-sidebar__status,
   .desktop-sidebar__section,
   .desktop-sidebar__nav {
-    gap: 8px;
+    gap: 7px;
   }
 
   .desktop-sidebar__links,
   .desktop-sidebar__collapsed-stack,
   .desktop-sidebar__collapsed-custom-list {
-    gap: 6px;
+    gap: 5px;
   }
 
   .desktop-sidebar__link {
-    min-height: 34px;
-    border-radius: 12px;
-    gap: 7px;
-    padding: 7px 10px;
+    min-height: 31px;
+    border-radius: 11px;
+    gap: 6px;
+    padding: 6px 9px;
   }
 
   .desktop-sidebar:not(.desktop-sidebar--collapsed) {
@@ -1851,17 +1851,17 @@ li {
 
   .desktop-sidebar--collapsed .desktop-sidebar__link {
     width: 100%;
-    min-height: 44px;
+    min-height: 40px;
     flex-direction: column;
     justify-content: center;
     gap: 4px;
-    padding: 6px 4px;
+    padding: 5px 4px;
     text-align: center;
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__settings-button {
     width: 100%;
-    min-height: 30px;
+    min-height: 27px;
     flex-direction: column;
     justify-content: center;
     gap: 2px;
@@ -1909,8 +1909,8 @@ li {
   }
 
   .desktop-sidebar--collapsed .desktop-sidebar__icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .bottom-nav {

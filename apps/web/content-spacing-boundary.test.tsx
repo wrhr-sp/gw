@@ -10,8 +10,8 @@ describe("feature page content spacing baseline", () => {
   it("keeps desktop feature pages on the shared PageShell spacing model", () => {
     const globalCss = readFileSync(new URL("./app/globals.css", import.meta.url), "utf8");
 
-    expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 96px");
-    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(7px, 0.8vw, 13px)");
+    expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 86px");
+    expect(globalCss).toContain("--desktop-content-padding-inline: clamp(6px, 0.72vw, 12px)");
     expect(globalCss).toContain(".page-shell,");
     expect(globalCss).toContain("width: 100%");
     expect(globalCss).toContain("max-width: none");
@@ -28,10 +28,10 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain(".board-workspace__list,");
     expect(globalCss).toContain("border-left: 1px solid var(--line);");
     expect(globalCss).toContain(".page-shell__headline h1 {");
-    expect(globalCss).toContain("font-size: 1.28rem;");
+    expect(globalCss).toContain("font-size: 1.15rem;");
     expect(globalCss).toContain("font-weight: 900;");
     expect(globalCss).toContain("letter-spacing: 0.03em;");
-    expect(globalCss).toContain("padding-inline: 16px;");
+    expect(globalCss).toContain("padding-inline: 14px;");
   });
 
   it("removes ad-hoc centered feature page shells from fallback routes", () => {
