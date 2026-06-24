@@ -680,8 +680,11 @@ li {
 }
 
 .board-write-layout,
-.board-write-grid,
-.board-write-options {
+.board-write-line,
+.board-write-options,
+.board-write-notice,
+.board-write-date-range,
+.board-write-choice-row {
   display: grid;
   gap: 16px;
 }
@@ -691,15 +694,56 @@ li {
   align-items: start;
 }
 
-.board-write-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+.board-write-line {
+  align-items: end;
+  grid-template-columns: 104px minmax(170px, 0.8fr) minmax(260px, 1.4fr);
 }
 
-.board-write-options {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+.board-write-line > strong,
+.board-write-options > strong,
+.board-write-notice > strong,
+.board-tinymce-field > strong,
+.board-write-choice-row > legend {
+  color: var(--text);
+  font-weight: 800;
 }
 
-.board-write-options label {
+.board-write-options,
+.board-write-choice-row {
+  align-items: center;
+  grid-template-columns: 104px repeat(2, max-content);
+}
+
+.board-write-choice-row {
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+}
+
+.board-write-choice-row > legend {
+  float: left;
+  width: 104px;
+  padding: 0;
+}
+
+.board-write-choice-row::after {
+  display: block;
+  clear: both;
+  content: "";
+}
+
+.board-write-notice {
+  grid-template-columns: 104px max-content 1fr;
+  align-items: start;
+}
+
+.board-write-date-range {
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+}
+
+.board-write-options label,
+.board-write-notice label,
+.board-write-choice-row label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1734,8 +1778,18 @@ li {
     width: min(1120px, calc(100vw - 20px));
   }
 
-  .board-write-layout {
+  .board-write-layout,
+  .board-write-line,
+  .board-write-options,
+  .board-write-notice,
+  .board-write-choice-row,
+  .board-write-date-range {
     grid-template-columns: 1fr;
+  }
+
+  .board-write-choice-row > legend {
+    float: none;
+    width: auto;
   }
 
   .login-page-shell {

@@ -1798,6 +1798,10 @@ export const boardPostSchema = z.object({
     mail: z.boolean().default(false),
     push: z.boolean().default(false),
   }).optional(),
+  noticePeriod: z.object({
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+  }).nullable().optional(),
   accessPolicy: z.object({
     scope: z.string().default("board-default"),
   }).optional(),
@@ -1867,6 +1871,10 @@ export const boardPostCreateRequestSchema = z.object({
     mail: z.boolean().default(false),
     push: z.boolean().default(false),
   }).optional(),
+  noticePeriod: z.object({
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+  }).nullable().optional(),
   accessPolicy: z.object({
     scope: z.string().default("board-default"),
   }).optional(),
