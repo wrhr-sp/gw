@@ -24,6 +24,10 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain("font-size: 1.42rem;");
     expect(globalCss).toContain("font-weight: 900;");
     expect(globalCss).toContain("letter-spacing: 0.03em;");
+    expect(globalCss).toContain(".board-write-line--board");
+    expect(globalCss).toContain("grid-template-columns: 104px max-content max-content;");
+    expect(globalCss).toContain(".board-write-line select.field");
+    expect(globalCss).toContain("min-width: max-content;");
   });
 
   it("keeps dashboard employee-first before collaboration and supporting status lanes", () => {
