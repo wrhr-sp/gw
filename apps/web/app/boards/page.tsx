@@ -50,10 +50,12 @@ const departmentBoards = [
 ] as const;
 
 
-type BoardId = (typeof companyBoards)[number]["id"] | (typeof departmentBoards)[number]["id"];
+type BoardId = string;
 
 type BoardWorkspaceView =
   | { kind: "home" }
+  | { kind: "companyHome" }
+  | { kind: "departmentHome" }
   | { kind: "board"; boardId: BoardId }
   | { kind: "write"; boardId: BoardId | null }
   | { kind: "post"; boardId: BoardId; postId: string };
@@ -64,16 +66,19 @@ type BoardSectionProps = {
   title: string;
   boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
   selectedBoardId: string | null;
+  onOpenHome: () => void;
   onSelectBoard: (boardId: BoardId) => void;
 };
 
-function BoardSection({ title, boards, selectedBoardId, onSelectBoard }: BoardSectionProps) {
+function BoardSection({ title, boards, selectedBoardId, onOpenHome, onSelectBoard }: BoardSectionProps) {
   const isDepartmentSection = title === "부서게시판";
 
   return (
     <section className={isDepartmentSection ? "board-tree-section board-tree-section--department" : "board-tree-section"}>
       <div className="board-tree-section__header">
-        <strong>{title}</strong>
+        <button className="board-tree-section__home-button" onClick={onOpenHome} type="button">
+          <strong>{title}</strong>
+        </button>
       </div>
       <div className="board-tree-section__items">
         {boards.map((board) => (
@@ -122,7 +127,7 @@ export default function BoardsPage() {
   const writeInitialBoardId = view.kind === "write" ? view.boardId : contentBoardId;
 
   function openBoard(boardId: string) {
-    setView({ kind: "board", boardId: boardId as BoardId });
+    setView({ kind: "board", boardId });
   }
 
   function openWrite() {
@@ -137,6 +142,23 @@ export default function BoardsPage() {
     setView({ kind: "home" });
   }
 
+  function getContentTitle() {
+    if (view.kind === "post") {
+      return "게시글 상세";
+    }
+    if (view.kind === "board") {
+      return getBoardName(view.boardId);
+    }
+    if (view.kind === "companyHome") {
+      return "전사게시판 홈";
+    }
+    if (view.kind === "departmentHome") {
+      return "부서게시판 홈";
+    }
+
+    return "게시판 홈";
+  }
+
   return (
     <PageShell
       title="게시판"
@@ -145,8 +167,8 @@ export default function BoardsPage() {
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
           <button className="board-write-button" onClick={openWrite} type="button">글쓰기</button>
-          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
-          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} onOpenHome={() => setView({ kind: "companyHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} onOpenHome={() => setView({ kind: "departmentHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
           {!canManageBoards ? (
             <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
               <Pill>일반 사용자</Pill>
@@ -159,15 +181,19 @@ export default function BoardsPage() {
             <div className="board-section-title">
               <div>
                 <Pill tone="accent">현재 선택</Pill>
-                <h2>{view.kind === "post" ? "게시글 상세" : view.kind === "board" ? getBoardName(view.boardId) : "내가 볼 수 있는 게시글"}</h2>
+                <h2>{getContentTitle()}</h2>
               </div>
               <button className="board-inline-action" onClick={() => openBoard("board_notice")} type="button">공지 보기</button>
             </div>
           ) : null}
           {view.kind === "home" ? (
             <>
-              <BoardsLiveSection onOpenPost={(postId, boardId) => openPost(postId, (boardId as BoardId | undefined) ?? "board_general")} />
+              <BoardsLiveSection scope="all" onOpenPost={(postId, boardId) => openPost(postId, boardId ?? "board_general")} />
             </>
+          ) : view.kind === "companyHome" ? (
+            <BoardsLiveSection scope="company" onOpenPost={(postId, boardId) => openPost(postId, boardId ?? "board_general")} />
+          ) : view.kind === "departmentHome" ? (
+            <BoardsLiveSection scope="department" onOpenPost={(postId, boardId) => openPost(postId, boardId ?? "board_department_notice")} />
           ) : view.kind === "board" ? (
             liveBoardIds.has(view.boardId) ? (
               <BoardDetailLiveSection boardId={view.boardId} onOpenPost={(postId) => openPost(postId, view.boardId)} />

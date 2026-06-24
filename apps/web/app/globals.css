@@ -3124,6 +3124,25 @@ li {
   font-weight: 950;
 }
 
+.board-tree-section__home-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.board-tree-section__home-button:hover strong,
+.board-tree-section__home-button:focus-visible strong {
+  color: #1d4ed8;
+}
+
+.board-tree-section__home-button:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 3px;
+}
+
 .board-tree-section__items,
 .board-post-list {
   display: grid;
