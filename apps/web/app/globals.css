@@ -3254,22 +3254,27 @@ li {
   align-items: center;
   gap: 6px;
   width: fit-content;
-  border-bottom: 1px solid var(--line);
+  padding: 4px;
+  border: 1px solid #dbe7ff;
+  border-radius: 999px;
+  background: #f8fbff;
 }
 
 .board-home-tabs button {
+  min-width: 76px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: #64748b;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 900;
-  padding: 0 4px 10px;
+  padding: 8px 14px;
 }
 
 .board-home-tabs button[aria-selected="true"] {
-  border-bottom: 2px solid #1d4ed8;
-  color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .board-home-tabs button:focus-visible {
