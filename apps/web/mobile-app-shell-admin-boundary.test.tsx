@@ -712,6 +712,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
     expect(globalCss).toContain(".app-shell__body > .page-shell");
     expect(globalCss).toContain("flex: 1 1 auto");
+    expect(globalCss).toContain("padding-bottom: var(--desktop-content-padding-inline)");
+    expect(globalCss).not.toContain("padding-bottom: 28px;");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-grid-min), 1fr))");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-grid-compact-min), 1fr))");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-summary-grid-min), 1fr))");
