@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState } from "react";
 
 import { PageShell, Pill } from "../_components/page-shell";
@@ -175,7 +176,7 @@ export default function BoardsPage() {
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
-          <button className="board-write-button" onClick={() => openBoard(selectedBoardId, "write")} type="button">글쓰기</button>
+          <Link className="board-write-button" href={`/boards/post/write?boardId=${encodeURIComponent(selectedBoardId)}`}>글쓰기</Link>
           <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
           <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={selectedBoardId} onSelectBoard={(boardId) => openBoard(boardId)} />
           {!canManageBoards ? (
