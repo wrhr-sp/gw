@@ -917,6 +917,7 @@ li {
 
 .app-shell [data-auto-scrollbar="true"],
 .app-shell__main,
+.page-shell__content,
 .desktop-sidebar__nav,
 .topbar-modal__grid,
 .topbar-profile-settings {
@@ -927,6 +928,7 @@ li {
 
 .app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar,
 .app-shell__main::-webkit-scrollbar,
+.page-shell__content::-webkit-scrollbar,
 .desktop-sidebar__nav::-webkit-scrollbar,
 .topbar-modal__grid::-webkit-scrollbar,
 .topbar-profile-settings::-webkit-scrollbar {
@@ -936,6 +938,7 @@ li {
 
 .app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-track,
 .app-shell__main::-webkit-scrollbar-track,
+.page-shell__content::-webkit-scrollbar-track,
 .desktop-sidebar__nav::-webkit-scrollbar-track,
 .topbar-modal__grid::-webkit-scrollbar-track,
 .topbar-profile-settings::-webkit-scrollbar-track {
@@ -946,6 +949,7 @@ li {
 
 .app-shell [data-auto-scrollbar="true"]::-webkit-scrollbar-thumb,
 .app-shell__main::-webkit-scrollbar-thumb,
+.page-shell__content::-webkit-scrollbar-thumb,
 .desktop-sidebar__nav::-webkit-scrollbar-thumb,
 .topbar-modal__grid::-webkit-scrollbar-thumb,
 .topbar-profile-settings::-webkit-scrollbar-thumb {
@@ -957,6 +961,8 @@ li {
 .app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"],
 .app-shell__main:hover,
 .app-shell__main:focus-within,
+.page-shell__content:hover,
+.page-shell__content:focus-within,
 .desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"],
 .topbar-modal__grid[data-auto-scrollbar-scrolling="true"],
 .topbar-profile-settings[data-auto-scrollbar-scrolling="true"] {
@@ -966,6 +972,8 @@ li {
 .app-shell [data-auto-scrollbar="true"][data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
 .app-shell__main:hover::-webkit-scrollbar-thumb,
 .app-shell__main:focus-within::-webkit-scrollbar-thumb,
+.page-shell__content:hover::-webkit-scrollbar-thumb,
+.page-shell__content:focus-within::-webkit-scrollbar-thumb,
 .desktop-sidebar__nav[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
 .topbar-modal__grid[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
 .topbar-profile-settings[data-auto-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
@@ -1638,7 +1646,7 @@ li {
     height: calc(100dvh - var(--desktop-topbar-height));
     min-height: 0;
     margin-left: var(--desktop-sidebar-collapsed-width);
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
     padding-top: 0;
     margin-top: var(--desktop-topbar-height);
@@ -1647,6 +1655,23 @@ li {
 
   .page-shell {
     gap: 14px;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-shell__body {
+    display: flex;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 28px;
+  }
+
+  .app-shell__body > .page-shell {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .page-shell__header {
@@ -1664,6 +1689,9 @@ li {
 
   .page-shell__content {
     border-radius: 18px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 14px;
   }
 

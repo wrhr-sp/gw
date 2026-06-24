@@ -20,6 +20,12 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain(".page-shell__content {");
     expect(globalCss).toContain("gap: 0;");
     expect(globalCss).toContain("background: var(--surface);");
+    expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr);");
+    expect(globalCss).toContain(".app-shell__body > .page-shell {");
+    expect(globalCss).toContain("flex: 1 1 auto;");
+    expect(globalCss).toContain("overflow: hidden;");
+    expect(globalCss).toContain("overflow-y: auto;");
+    expect(globalCss).toContain(".page-shell__content:hover");
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
     expect(globalCss).toContain(".page-shell__content > .surface-card + .surface-card {");
     expect(globalCss).toContain(".page-shell__content .grid-auto,");
