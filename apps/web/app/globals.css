@@ -680,6 +680,7 @@ li {
 }
 
 .board-write-layout,
+.board-write-form-only,
 .board-write-line,
 .board-write-options,
 .board-write-notice,
@@ -692,6 +693,10 @@ li {
 .board-write-layout {
   grid-template-columns: minmax(0, 2fr) minmax(260px, 0.75fr);
   align-items: start;
+}
+
+.board-write-form-only {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .board-write-line {
@@ -1779,6 +1784,7 @@ li {
   }
 
   .board-write-layout,
+  .board-write-form-only,
   .board-write-line,
   .board-write-options,
   .board-write-notice,

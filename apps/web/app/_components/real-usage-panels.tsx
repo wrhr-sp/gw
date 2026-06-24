@@ -1331,7 +1331,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
   return (
     <>
-      <div className={showWriteForm ? "board-write-layout" : "grid-auto-compact"}>
+      <div className={showWriteForm ? "board-write-form-only" : "grid-auto-compact"}>
         {showWriteForm ? (
           <article className="info-card board-write-form">
             <Pill tone="accent">글쓰기</Pill>
@@ -1411,20 +1411,22 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
             </div>
           </article>
         ) : null}
-        <article className="info-card">
-          <Pill>현재 게시판</Pill>
-          <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} emptyMessage={!canShowBoardFlow ? "선택 가능한 게시판이 없습니다." : undefined} />
-          {posts.data ? (
-            <>
-              <h3>{posts.data.board.name}</h3>
-              <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "게시글 작성 가능"}</p>
-              <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
-              <p className="card-note">{formatBoardWriterGuide(effectiveBoardId, session.data ?? null)}</p>
-            </>
-          ) : null}
-        </article>
+        {!showWriteForm ? (
+          <article className="info-card">
+            <Pill>현재 게시판</Pill>
+            <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} emptyMessage={!canShowBoardFlow ? "선택 가능한 게시판이 없습니다." : undefined} />
+            {posts.data ? (
+              <>
+                <h3>{posts.data.board.name}</h3>
+                <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "게시글 작성 가능"}</p>
+                <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
+                <p className="card-note">{formatBoardWriterGuide(effectiveBoardId, session.data ?? null)}</p>
+              </>
+            ) : null}
+          </article>
+        ) : null}
       </div>
-      {session.data ? (
+      {!showWriteForm && session.data ? (
         <article className="info-card" style={{ marginTop: 16 }}>
           <Pill tone="accent">현재 세션 권한</Pill>
           <h3>{session.data.user.fullName}</h3>
@@ -1434,7 +1436,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
           </p>
         </article>
       ) : null}
-      {posts.data ? (
+      {!showWriteForm && posts.data ? (
         <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
           {posts.data.items.length ? (
             posts.data.items.slice(0, 4).map((item) => (
