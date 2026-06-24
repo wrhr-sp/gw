@@ -713,8 +713,14 @@ li {
 }
 
 .board-write-line {
-  align-items: end;
+  align-items: center;
   grid-template-columns: 104px max-content minmax(260px, 1fr);
+}
+
+.board-write-line > strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
 }
 
 .board-write-line--board {
@@ -760,7 +766,7 @@ li {
 }
 
 .board-write-notice {
-  grid-template-columns: 104px max-content max-content max-content minmax(260px, 0.8fr);
+  grid-template-columns: 104px max-content max-content max-content max-content;
   align-items: center;
 }
 
@@ -782,7 +788,8 @@ li {
 }
 
 .board-write-period-range .field {
-  min-width: 260px;
+  width: max-content;
+  min-width: 22ch;
 }
 
 .board-write-period-range__trigger {
@@ -1881,6 +1888,7 @@ li {
   }
 
   .board-write-period-range .field {
+    width: 100%;
     min-width: 0;
   }
 
