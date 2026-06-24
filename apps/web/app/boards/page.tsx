@@ -155,13 +155,15 @@ export default function BoardsPage() {
         </aside>
 
         <section className="board-workspace__list" aria-label="게시글 목록">
-          <div className="board-section-title">
-            <div>
-              <Pill tone="accent">현재 선택</Pill>
-              <h2>{view.kind === "post" ? "게시글 상세" : view.kind === "board" ? getBoardName(view.boardId) : view.kind === "write" ? "글쓰기" : "내가 볼 수 있는 게시글"}</h2>
+          {view.kind !== "write" ? (
+            <div className="board-section-title">
+              <div>
+                <Pill tone="accent">현재 선택</Pill>
+                <h2>{view.kind === "post" ? "게시글 상세" : view.kind === "board" ? getBoardName(view.boardId) : "내가 볼 수 있는 게시글"}</h2>
+              </div>
+              <button className="board-inline-action" onClick={() => openBoard("board_notice")} type="button">공지 보기</button>
             </div>
-            <button className="board-inline-action" onClick={() => openBoard("board_notice")} type="button">공지 보기</button>
-          </div>
+          ) : null}
           {view.kind === "home" ? (
             <>
               <BoardsLiveSection onOpenPost={(postId, boardId) => openPost(postId, (boardId as BoardId | undefined) ?? "board_general")} />
