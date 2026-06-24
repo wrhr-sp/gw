@@ -35,7 +35,8 @@ describe("refresh page", () => {
     expect(globalCss).toContain("width: min(840px, calc(100vw - 32px));");
     expect(globalCss).toContain("height: clamp(104px, 24vmin, 236px);");
     expect(globalCss).toContain("max-height: calc(100dvh - 84px);");
-    expect(globalCss).toContain("font-size: clamp(3.4rem, 14vmin, 8.4rem);");
+    expect(globalCss).toContain("--font-size-refresh-logo: clamp(3.4rem, 14vmin, 8.4rem);");
+    expect(globalCss).toContain("font-size: var(--font-size-refresh-logo);");
     expect(globalCss).toContain("color: #2f5fb8;");
     expect(globalCss).toContain("animation: refresh-logo-flag-sway 1.35s ease-in-out infinite;");
     expect(globalCss).toContain("animation: refresh-logo-letter-wave 1.35s ease-in-out infinite;");
