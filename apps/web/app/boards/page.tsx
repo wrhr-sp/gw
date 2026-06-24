@@ -157,7 +157,7 @@ export default function BoardsPage() {
       return "부서게시판 홈";
     }
 
-    return "게시판 홈";
+    return "전체 게시판";
   }
 
   return (
