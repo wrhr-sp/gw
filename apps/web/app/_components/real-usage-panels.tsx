@@ -1276,6 +1276,9 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
   const [noticePeriodPreset, setNoticePeriodPreset] = useState<NoticePeriodPreset>("7");
   const defaultNoticeRange = getNoticePeriodRange("7");
   const [noticePeriodRange, setNoticePeriodRange] = useState(defaultNoticeRange.rangeText);
+  const [noticeCustomStartDate, setNoticeCustomStartDate] = useState("");
+  const [noticeCustomEndDate, setNoticeCustomEndDate] = useState("");
+  const [noticeCalendarOpen, setNoticeCalendarOpen] = useState(false);
   const [mailAlert, setMailAlert] = useState(false);
   const [pushAlert, setPushAlert] = useState(false);
   const [accessScope, setAccessScope] = useState("board-default");
@@ -1317,11 +1320,15 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
     setNoticePeriodPreset("7");
     const nextNoticeRange = getNoticePeriodRange("7");
     setNoticePeriodRange(nextNoticeRange.rangeText);
+    setNoticeCustomStartDate("");
+    setNoticeCustomEndDate("");
+    setNoticeCalendarOpen(false);
     setAccessScope("board-default");
   }, [effectiveBoardId, selectedBoard, posts.data?.board]);
 
   function handleNoticeToggle(checked: boolean) {
     setIsNotice(checked);
+    setNoticeCalendarOpen(false);
     if (checked && !noticePeriodRange) {
       const nextPreset = noticePeriodPreset === "custom" ? "7" : noticePeriodPreset;
       const nextRange = getNoticePeriodRange(nextPreset);
@@ -1332,17 +1339,26 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
   function handleNoticePeriodPresetChange(value: NoticePeriodPreset) {
     setNoticePeriodPreset(value);
+    setNoticeCalendarOpen(false);
     if (value === "custom") {
+      setNoticeCustomStartDate("");
+      setNoticeCustomEndDate("");
       setNoticePeriodRange("");
       return;
     }
 
     const nextRange = getNoticePeriodRange(value);
     setNoticePeriodRange(nextRange.rangeText);
+    setNoticeCustomStartDate("");
+    setNoticeCustomEndDate("");
   }
 
-  function handleNoticePeriodRangeChange(value: string) {
-    setNoticePeriodRange(value);
+  function handleNoticeCustomDateChange(part: "start" | "end", value: string) {
+    const nextStartDate = part === "start" ? value : noticeCustomStartDate;
+    const nextEndDate = part === "end" ? value : noticeCustomEndDate;
+    setNoticeCustomStartDate(nextStartDate);
+    setNoticeCustomEndDate(nextEndDate);
+    setNoticePeriodRange(nextStartDate && nextEndDate ? `${nextStartDate} ~ ${nextEndDate}` : "");
   }
 
   async function handleCreatePost() {
@@ -1359,7 +1375,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
     const noticePeriodForPayload = isNotice ? parseNoticePeriodRange(noticePeriodRange) : null;
     if (isNotice && !noticePeriodForPayload) {
-      setResult({ tone: "warning", title: "공지 등록 실패", body: "공지노출기간을 YYYY-MM-DD ~ YYYY-MM-DD 형식으로 입력해 주세요." });
+      setResult({ tone: "warning", title: "공지 등록 실패", body: "직접설정 기간을 YYYY-MM-DD ~ YYYY-MM-DD 형식으로 입력해 주세요." });
       return;
     }
 
@@ -1467,27 +1483,43 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
             <div className="board-write-notice" style={{ marginTop: 12 }}>
               <strong>공지등록여부</strong>
               <label><input checked={isNotice} onChange={(event) => handleNoticeToggle(event.target.checked)} type="checkbox" /> 공지등록</label>
-              <select
-                className="field board-write-notice-period-select"
-                disabled={!isNotice}
-                onChange={(event) => handleNoticePeriodPresetChange(event.target.value as NoticePeriodPreset)}
-                value={noticePeriodPreset}
-              >
-                {noticePeriodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <label className="board-write-period-range">
-                <span>공지노출기간</span>
-                <input
-                  className="field"
-                  disabled={!isNotice}
-                  onChange={(event) => handleNoticePeriodRangeChange(event.target.value)}
-                  placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
-                  readOnly={isNotice && noticePeriodPreset !== "custom"}
-                  value={isNotice ? noticePeriodRange : ""}
-                />
-              </label>
+              {isNotice ? (
+                <>
+                  <span className="board-write-notice-period-label">공지등록기간</span>
+                  <select
+                    className="field board-write-notice-period-select"
+                    onChange={(event) => handleNoticePeriodPresetChange(event.target.value as NoticePeriodPreset)}
+                    value={noticePeriodPreset}
+                  >
+                    {noticePeriodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  {noticePeriodPreset === "custom" ? (
+                    <div className="board-write-period-range">
+                      <button
+                        className="field board-write-period-range__trigger"
+                        onClick={() => setNoticeCalendarOpen((value) => !value)}
+                        type="button"
+                      >
+                        {noticePeriodRange || "YYYY-MM-DD ~ YYYY-MM-DD"}
+                      </button>
+                      {noticeCalendarOpen ? (
+                        <div className="board-write-period-calendar" aria-label="공지 직접설정 기간 선택">
+                          <label>
+                            <span>시작일</span>
+                            <input className="field" onChange={(event) => handleNoticeCustomDateChange("start", event.target.value)} type="date" value={noticeCustomStartDate} />
+                          </label>
+                          <label>
+                            <span>종료일</span>
+                            <input className="field" onChange={(event) => handleNoticeCustomDateChange("end", event.target.value)} type="date" value={noticeCustomEndDate} />
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
             <div className="board-write-options" style={{ marginTop: 12 }}>
               <strong>알림</strong>
