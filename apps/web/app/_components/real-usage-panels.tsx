@@ -203,7 +203,7 @@ async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promi
   return payload;
 }
 
-function useApiQuery<T>(url: string, refreshSeed = 0) {
+function useApiQuery<T>(url: string | null, refreshSeed = 0) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -211,8 +211,15 @@ function useApiQuery<T>(url: string, refreshSeed = 0) {
   useEffect(() => {
     let active = true;
 
-    setLoading(true);
+    setLoading(Boolean(url));
     setError(null);
+
+    if (!url) {
+      setData(null);
+      return () => {
+        active = false;
+      };
+    }
 
     fetchJson<T>(url)
       .then((payload) => {
@@ -1110,7 +1117,7 @@ export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: 
 
 type BoardInlineNavigationProps = {
   onOpenBoard?: (boardId: string) => void;
-  onOpenPost?: (postId: string) => void;
+  onOpenPost?: (postId: string, boardId?: string) => void;
 };
 
 function InlineNavigationLink({ children, href, onClick }: { children: React.ReactNode; href: string; onClick?: () => void }) {
@@ -1125,67 +1132,54 @@ function InlineNavigationLink({ children, href, onClick }: { children: React.Rea
   return <a href={href}>{children}</a>;
 }
 
-export function BoardsLiveSection({ onOpenBoard, onOpenPost }: BoardInlineNavigationProps = {}) {
+export function BoardsLiveSection({ onOpenPost }: BoardInlineNavigationProps = {}) {
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards);
-  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
+  const noticePosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_notice"));
+  const departmentPosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_department_notice"));
+  const generalPosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
+  const dataSharePosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_data_share"));
   const session = useApiQuery<SessionPayload>("/api/session");
-  const firstPostId = posts.data?.items[0]?.id ?? "board_post_demo";
-  const noticeCount = notices.data?.items.length ?? 0;
-  const boardCount = boards.data?.items.length ?? 0;
+  const accessibleBoardIds = new Set([...(notices.data?.items ?? []), ...(boards.data?.items ?? [])].map((board) => String(board.id)));
+  const postSources = [noticePosts, departmentPosts, generalPosts, dataSharePosts];
+  const feedItems = postSources.flatMap((source) => {
+    const board = source.data?.board;
+    if (!board || !accessibleBoardIds.has(String(board.id))) {
+      return [];
+    }
+
+    return source.data?.items.map((item) => ({ board, post: item })) ?? [];
+  });
+  const loading = notices.loading || boards.loading || session.loading || postSources.some((source) => source.loading);
+  const error = notices.error ?? boards.error ?? postSources.find((source) => source.error)?.error ?? null;
 
   return (
-    <>
-      <div className="grid-auto-compact">
-        <article className="info-card">
-          <Pill tone="accent">게시판 현황</Pill>
-          <QueryState loading={notices.loading || boards.loading || posts.loading} error={notices.error ?? boards.error ?? posts.error} />
-          {boards.data ? (
-            <>
-              <h3>공지 {noticeCount}개 · 게시판 {boardCount}개</h3>
-              <p className="card-note">전사공지, 부서별 공지, 자유게시판, 자료공유를 한곳에서 모아 봅니다.</p>
-              <p className="card-note">
-                {session.data
-                  ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 읽고 있습니다.`
-                  : "로그인 후 내 권한에 맞는 게시판을 확인할 수 있습니다."}
-              </p>
-            </>
-          ) : null}
-        </article>
-        <article className="info-card">
-          <Pill>빠른 이동</Pill>
-          <ol className="number-list" style={{ marginTop: 12 }}>
-            <li><InlineNavigationLink href="/boards/board_notice" onClick={onOpenBoard ? () => onOpenBoard("board_notice") : undefined}>전사 공지 확인</InlineNavigationLink></li>
-            <li><InlineNavigationLink href="/boards/board_department_notice" onClick={onOpenBoard ? () => onOpenBoard("board_department_notice") : undefined}>부서별 공지 확인</InlineNavigationLink></li>
-            <li><InlineNavigationLink href="/boards/board_general" onClick={onOpenBoard ? () => onOpenBoard("board_general") : undefined}>자유 게시판 글 보기</InlineNavigationLink></li>
-            <li><InlineNavigationLink href="/boards/board_data_share" onClick={onOpenBoard ? () => onOpenBoard("board_data_share") : undefined}>자료 공유 글 보기</InlineNavigationLink></li>
-            <li><InlineNavigationLink href={`/posts/${firstPostId}`} onClick={onOpenPost ? () => onOpenPost(firstPostId) : undefined}>최신 글에서 댓글과 읽음 확인</InlineNavigationLink></li>
-          </ol>
-        </article>
-      </div>
-      {boards.data ? (
-        <div className="mobile-summary-grid" style={{ marginTop: 16 }}>
-          {[...(notices.data?.items ?? []), ...boards.data.items].map((item) => (
-            <article key={item.id} className="route-card">
-              <Pill tone={item.isNoticeOnly ? "warning" : "accent"}>{item.isNoticeOnly ? "공지" : "게시판"}</Pill>
-              <h3>{item.name}</h3>
-              <p>{item.visibility} · {item.isNoticeOnly ? "읽기와 확인 중심" : "글쓰기와 댓글 가능"}</p>
-              <p className="card-note">{item.isNoticeOnly ? "중요 공지를 읽고 확인 상태를 남깁니다." : "글을 읽고 댓글로 의견을 이어갑니다."}</p>
-              <InlineNavigationLink href={`/boards/${item.id}`} onClick={onOpenBoard ? () => onOpenBoard(item.id) : undefined}>이 게시판 흐름 보기 →</InlineNavigationLink>
-            </article>
+    <article className="info-card">
+      <Pill tone="accent">내가 볼 수 있는 게시글</Pill>
+      <QueryState loading={loading} error={error} emptyMessage={!feedItems.length ? "현재 권한으로 볼 수 있는 게시글이 없습니다." : undefined} />
+      {session.data ? (
+        <p className="card-note">{session.data.user.fullName} · {session.data.user.roleCodes.join(", ")} 권한으로 볼 수 있는 게시글만 모았습니다.</p>
+      ) : null}
+      {feedItems.length ? (
+        <div className="board-post-list" style={{ marginTop: 12 }}>
+          {feedItems.map(({ board, post }) => (
+            <button
+              key={`${board.id}-${post.id}`}
+              className="board-post-row"
+              onClick={() => onOpenPost?.(String(post.id), String(board.id))}
+              type="button"
+            >
+              <Pill tone={post.isNotice ? "warning" : "accent"}>{post.isNotice ? "공지" : board.name}</Pill>
+              <div>
+                <strong>{post.title}</strong>
+                <p>{board.name} · {post.bodyPreview}</p>
+              </div>
+              <span aria-hidden="true">›</span>
+            </button>
           ))}
         </div>
       ) : null}
-      {posts.data ? (
-        <article className="info-card" style={{ marginTop: 16 }}>
-          <Pill>자유 게시판 최신 글</Pill>
-          <h3>{posts.data.items[0]?.title ?? "게시글 없음"}</h3>
-          <p>{posts.data.items[0]?.bodyPreview ?? "아직 생성된 일반 게시글이 없습니다."}</p>
-          <p className="card-note">상세 화면에서 댓글을 남기고 읽음 확인까지 이어갑니다.</p>
-          <InlineNavigationLink href={`/posts/${firstPostId}`} onClick={onOpenPost ? () => onOpenPost(firstPostId) : undefined}>최신 글 상세로 이동 →</InlineNavigationLink>
-        </article>
-      ) : null}
-    </>
+    </article>
   );
 }
 function stripHtmlToPreview(value: string) {
@@ -1202,7 +1196,7 @@ type BoardWriteSettings = {
   accessScopes?: Array<{ id: string; label: string }>;
 };
 
-type BoardCategory = "company" | "department";
+type BoardCategory = "" | "company" | "department";
 
 function readBoardWriteSettings(board: Record<string, any> | null | undefined): BoardWriteSettings {
   const settings = board?.writeSettings ?? board?.settings ?? {};
@@ -1216,17 +1210,17 @@ function readBoardWriteSettings(board: Record<string, any> | null | undefined): 
   };
 }
 
-function getBoardCategory(board: Record<string, any> | null | undefined): BoardCategory {
+function getBoardCategory(board: Record<string, any> | null | undefined): Exclude<BoardCategory, ""> {
   return board?.visibility === "department" || board?.boardType === "department" ? "department" : "company";
 }
 
-export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
+export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string | null; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices, refreshSeed);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards, refreshSeed);
-  const [selectedBoardId, setSelectedBoardId] = useState(boardId);
-  const [selectedCategory, setSelectedCategory] = useState<BoardCategory>("company");
+  const [selectedBoardId, setSelectedBoardId] = useState(boardId ?? "");
+  const [selectedCategory, setSelectedCategory] = useState<BoardCategory>("");
   const [selectedPrefix, setSelectedPrefix] = useState("");
   const [title, setTitle] = useState("");
   const [bodyHtml, setBodyHtml] = useState("<p></p>");
@@ -1239,10 +1233,10 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
   const [accessScope, setAccessScope] = useState("board-default");
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
   const availableBoards = useMemo(() => [...(notices.data?.items ?? []), ...(boards.data?.items ?? [])], [notices.data, boards.data]);
-  const categoryBoards = useMemo(() => availableBoards.filter((board) => getBoardCategory(board) === selectedCategory), [availableBoards, selectedCategory]);
-  const selectedBoard = availableBoards.find((item) => item.id === selectedBoardId) ?? categoryBoards[0] ?? null;
+  const categoryBoards = useMemo(() => (selectedCategory ? availableBoards.filter((board) => getBoardCategory(board) === selectedCategory) : []), [availableBoards, selectedCategory]);
+  const selectedBoard = availableBoards.find((item) => item.id === selectedBoardId) ?? null;
   const effectiveBoardId = selectedBoard?.id ?? selectedBoardId;
-  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(effectiveBoardId), refreshSeed);
+  const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(effectiveBoardId ? appRoutes.boards.posts(effectiveBoardId) : null, refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
   const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(effectiveBoardId);
   const canShowBoardFlow = Boolean(posts.data || selectedBoard);
@@ -1252,19 +1246,21 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
   const showWriteForm = intent === "write";
 
   useEffect(() => {
-    setSelectedBoardId(boardId);
-    const initialBoard = availableBoards.find((item) => item.id === boardId);
-    if (initialBoard) {
-      setSelectedCategory(getBoardCategory(initialBoard));
-    }
+    setSelectedBoardId(boardId ?? "");
+    const initialBoard = boardId ? availableBoards.find((item) => item.id === boardId) : null;
+    setSelectedCategory(initialBoard ? getBoardCategory(initialBoard) : "");
   }, [availableBoards, boardId]);
 
   useEffect(() => {
-    const nextBoard = categoryBoards.find((board) => board.id === selectedBoardId) ?? categoryBoards[0];
-    if (nextBoard && nextBoard.id !== selectedBoardId) {
-      setSelectedBoardId(String(nextBoard.id));
+    if (!selectedCategory) {
+      return;
     }
-  }, [categoryBoards, selectedBoardId]);
+
+    const selectedStillInCategory = categoryBoards.some((board) => board.id === selectedBoardId);
+    if (!selectedStillInCategory) {
+      setSelectedBoardId("");
+    }
+  }, [categoryBoards, selectedBoardId, selectedCategory]);
 
   useEffect(() => {
     setSelectedPrefix("");
@@ -1276,6 +1272,11 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
   async function handleCreatePost() {
     const bodyPreview = stripHtmlToPreview(bodyHtml);
+    if (!effectiveBoardId) {
+      setResult({ tone: "warning", title: "게시글 등록 실패", body: "게시판을 선택해 주세요." });
+      return;
+    }
+
     if (!title.trim() || !bodyPreview) {
       setResult({ tone: "warning", title: "게시글 등록 실패", body: "제목과 본문을 입력해 주세요." });
       return;
@@ -1337,13 +1338,15 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
             <div className="board-write-line board-write-line--board" style={{ marginTop: 12 }}>
               <strong>게시판 선택</strong>
               <select className="field" onChange={(event) => setSelectedCategory(event.target.value as BoardCategory)} value={selectedCategory}>
+                <option value="">게시판 구분 선택</option>
                 <option value="company">전사게시판</option>
                 <option value="department">부서게시판</option>
               </select>
-              <select className="field" onChange={(event) => setSelectedBoardId(event.target.value)} value={effectiveBoardId}>
-                {categoryBoards.length ? categoryBoards.map((board) => (
+              <select className="field" disabled={!selectedCategory || !categoryBoards.length} onChange={(event) => setSelectedBoardId(event.target.value)} value={effectiveBoardId}>
+                <option value="">하위게시판 선택</option>
+                {categoryBoards.map((board) => (
                   <option key={board.id} value={board.id}>{board.name}</option>
-                )) : <option value="">선택 가능한 하위게시판 없음</option>}
+                ))}
               </select>
             </div>
             <div className="board-write-line board-write-line--title" style={{ marginTop: 12 }}>
@@ -1402,7 +1405,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시알림</label>
             </div>
             <div className="action-row" style={{ marginTop: 12 }}>
-              <button className="touch-button" disabled={pending || !canShowBoardFlow} onClick={handleCreatePost} type="button">
+              <button className="touch-button" disabled={pending || !effectiveBoardId || !canShowBoardFlow} onClick={handleCreatePost} type="button">
                 {pending ? "작성 처리 중" : "게시글 등록"}
               </button>
             </div>
