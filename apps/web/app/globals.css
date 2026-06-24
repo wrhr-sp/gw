@@ -760,8 +760,13 @@ li {
 }
 
 .board-write-notice {
-  grid-template-columns: 104px max-content max-content minmax(260px, 0.8fr);
+  grid-template-columns: 104px max-content max-content max-content minmax(260px, 0.8fr);
   align-items: center;
+}
+
+.board-write-notice-period-label {
+  color: var(--text);
+  font-weight: 800;
 }
 
 .board-write-notice select.field {
@@ -770,14 +775,43 @@ li {
 }
 
 .board-write-notice .board-write-period-range {
+  position: relative;
   display: grid;
   gap: 8px;
-  grid-template-columns: max-content minmax(220px, 1fr);
   align-items: center;
 }
 
 .board-write-period-range .field {
   min-width: 260px;
+}
+
+.board-write-period-range__trigger {
+  justify-content: flex-start;
+  text-align: left;
+  font: inherit;
+}
+
+.board-write-period-calendar {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 10px;
+  min-width: 360px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.board-write-notice .board-write-period-calendar label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .board-write-date-range {
@@ -1838,6 +1872,12 @@ li {
 
   .board-write-notice .board-write-period-range {
     grid-template-columns: 1fr;
+  }
+
+  .board-write-period-calendar {
+    position: static;
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   .board-write-period-range .field {

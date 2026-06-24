@@ -29,13 +29,17 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain(".board-write-line select.field");
     expect(globalCss).toContain("min-width: max-content;");
     expect(panelSource).toContain("공지등록여부");
+    expect(panelSource).toContain("공지등록기간");
     expect(panelSource).toContain("무기한등록");
     expect(panelSource).toContain("직접설정");
-    expect(panelSource).toContain("공지노출기간");
     expect(panelSource).toContain("YYYY-MM-DD ~ YYYY-MM-DD");
+    expect(panelSource).toContain("board-write-period-range__trigger");
+    expect(panelSource).toContain("board-write-period-calendar");
+    expect(panelSource).not.toContain("공지노출기간");
     expect(panelSource).not.toContain("<strong>시작일</strong>");
     expect(panelSource).not.toContain("<strong>종료일</strong>");
     expect(globalCss).toContain(".board-write-notice .board-write-period-range");
+    expect(globalCss).toContain(".board-write-period-calendar");
   });
 
   it("keeps dashboard employee-first before collaboration and supporting status lanes", () => {
