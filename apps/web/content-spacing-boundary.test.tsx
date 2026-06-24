@@ -23,6 +23,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr);");
     expect(globalCss).toContain(".app-shell__body > .page-shell {");
     expect(globalCss).toContain("flex: 1 1 auto;");
+    expect(globalCss).toContain("padding-bottom: var(--desktop-content-padding-inline);");
+    expect(globalCss).not.toContain("padding-bottom: 28px;");
     expect(globalCss).toContain("overflow: hidden;");
     expect(globalCss).toContain("overflow-y: auto;");
     expect(globalCss).toContain(".page-shell__content:hover");

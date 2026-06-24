@@ -1666,7 +1666,7 @@ li {
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 28px;
+    padding-bottom: var(--desktop-content-padding-inline);
   }
 
   .app-shell__body > .page-shell {
@@ -1950,7 +1950,7 @@ li {
   }
 
   .app-shell__body {
-    padding-bottom: 28px;
+    padding-bottom: var(--desktop-content-padding-inline);
   }
 
   .app-shell__body--login {
