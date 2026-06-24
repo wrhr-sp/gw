@@ -34,7 +34,11 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("직접설정");
     expect(panelSource).toContain("YYYY-MM-DD ~ YYYY-MM-DD");
     expect(panelSource).toContain("board-write-period-range__trigger");
+    expect(panelSource).toContain("handleNoticePeriodRangeOpen");
+    expect(panelSource).toContain('setNoticePeriodPreset("custom")');
     expect(panelSource).toContain("board-write-period-calendar");
+    expect(panelSource).toContain("height: 1520");
+    expect(panelSource).toContain("min_height: 1520");
     expect(panelSource).not.toContain("공지노출기간");
     expect(panelSource).not.toContain("<strong>시작일</strong>");
     expect(panelSource).not.toContain("<strong>종료일</strong>");
