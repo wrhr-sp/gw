@@ -3244,6 +3244,39 @@ li {
   gap: 18px;
 }
 
+.board-home-feed {
+  display: grid;
+  gap: 14px;
+}
+
+.board-home-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border-bottom: 1px solid var(--line);
+}
+
+.board-home-tabs button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 900;
+  padding: 0 4px 10px;
+}
+
+.board-home-tabs button[aria-selected="true"] {
+  border-bottom: 2px solid #1d4ed8;
+  color: #1d4ed8;
+}
+
+.board-home-tabs button:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 3px;
+}
+
 .board-inline-action {
   flex: 0 0 auto;
   background: #eff6ff;
@@ -3254,6 +3287,67 @@ li {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   padding: 14px 0;
+}
+
+.board-post-row--feed {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  padding: 18px 0;
+}
+
+.board-post-row--feed + .board-post-row--feed {
+  border-top: 1px solid var(--line);
+}
+
+.board-post-row--feed:hover .board-post-row__title,
+.board-post-row--feed:focus-visible .board-post-row__title {
+  color: #1d4ed8;
+}
+
+.board-post-row__title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.board-post-row__preview {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.board-post-row__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.board-post-row.board-post-row--feed > .board-post-row__meta {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.board-post-row__avatar {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: #e0edff;
+  color: #1d4ed8;
+  font-size: 0.76rem;
+  font-weight: 950;
 }
 
 .board-post-row > span {

@@ -1161,6 +1161,8 @@ type BoardFeedItem = {
   post: Record<string, any>;
 };
 
+type BoardFeedTab = "all" | "favorites";
+
 function isDepartmentBoard(board: Record<string, any>) {
   return board.visibility === "department" || board.boardType === "department";
 }
@@ -1179,24 +1181,53 @@ function filterBoardsByFeedScope(boards: Array<Record<string, any>>, scope: Boar
 function getBoardFeedCopy(scope: BoardFeedScope) {
   if (scope === "company") {
     return {
-      pill: "전사게시판 홈",
       empty: "현재 권한으로 볼 수 있는 전사게시판 글이 없습니다.",
-      note: "전사게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
     };
   }
   if (scope === "department") {
     return {
-      pill: "부서게시판 홈",
       empty: "현재 권한으로 볼 수 있는 부서게시판 글이 없습니다.",
-      note: "부서게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
     };
   }
 
   return {
-    pill: "게시판 홈",
     empty: "현재 권한으로 볼 수 있는 게시글이 없습니다.",
-    note: "전사게시판과 부서게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
   };
+}
+
+function isFavoriteBoardPost(post: Record<string, any>) {
+  return post.isFavorite === true || post.favorite === true || post.bookmarked === true;
+}
+
+function formatBoardPostDate(value: unknown) {
+  if (typeof value !== "string" || !value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function getBoardAuthorProfile(post: Record<string, any>, employees: Array<Record<string, any>>, summaries: Array<Record<string, any>>) {
+  const authorEmployeeId = String(post.authorEmployeeId ?? "");
+  const employee = employees.find((item) => String(item.id) === authorEmployeeId);
+  const summary = summaries.find((item) => String(item.employeeId) === authorEmployeeId);
+  const name = employee?.fullName ? String(employee.fullName) : authorEmployeeId || "작성자";
+  const position = summary?.roleSummary ? String(summary.roleSummary) : "구성원";
+  const initials = name.trim().slice(0, 1) || "작";
+
+  return { name, position, initials };
 }
 
 function useBoardFeedItems(boards: Array<Record<string, any>>, scope: BoardFeedScope) {
@@ -1265,39 +1296,48 @@ function InlineNavigationLink({ children, href, onClick }: { children: React.Rea
 }
 
 export function BoardsLiveSection({ onOpenPost, scope = "all" }: BoardInlineNavigationProps & { scope?: BoardFeedScope } = {}) {
+  const [activeTab, setActiveTab] = useState<BoardFeedTab>("all");
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards);
-  const session = useApiQuery<SessionPayload>("/api/session");
+  const employees = useApiQuery<{ items: Array<Record<string, any>>; summaries?: Array<Record<string, any>> }>(appRoutes.org.employees);
   const accessibleBoards = useMemo(() => [...(notices.data?.items ?? []), ...(boards.data?.items ?? [])], [boards.data?.items, notices.data?.items]);
   const feed = useBoardFeedItems(accessibleBoards, scope);
   const feedCopy = getBoardFeedCopy(scope);
-  const loading = notices.loading || boards.loading || session.loading || feed.loading;
-  const error = notices.error ?? boards.error ?? feed.error ?? null;
+  const visibleItems = activeTab === "favorites" ? feed.items.filter(({ post }) => isFavoriteBoardPost(post)) : feed.items;
+  const loading = notices.loading || boards.loading || employees.loading || feed.loading;
+  const error = notices.error ?? boards.error ?? employees.error ?? feed.error ?? null;
+  const emptyMessage = activeTab === "favorites" ? "즐겨찾기한 게시글이 없습니다." : feedCopy.empty;
 
   return (
-    <article className="info-card">
-      <Pill tone="accent">{feedCopy.pill}</Pill>
-      <QueryState loading={loading} error={error} emptyMessage={!feed.items.length ? feedCopy.empty : undefined} />
-      {session.data ? (
-        <p className="card-note">{session.data.user.fullName} · {session.data.user.roleCodes.join(", ")} 권한 기준입니다. {feedCopy.note}</p>
-      ) : null}
-      {feed.items.length ? (
-        <div className="board-post-list" style={{ marginTop: 12 }}>
-          {feed.items.map(({ board, post }) => (
-            <button
-              key={`${board.id}-${post.id}`}
-              className="board-post-row"
-              onClick={() => onOpenPost?.(String(post.id), String(board.id))}
-              type="button"
-            >
-              <Pill tone={post.isNotice ? "warning" : "accent"}>{post.isNotice ? "공지" : board.name}</Pill>
-              <div>
-                <strong>{post.title}</strong>
-                <p>{board.name} · {post.bodyPreview}</p>
-              </div>
-              <span aria-hidden="true">›</span>
-            </button>
-          ))}
+    <article className="board-home-feed">
+      <div className="board-home-tabs" role="tablist" aria-label="게시판 홈 필터">
+        <button aria-selected={activeTab === "all"} onClick={() => setActiveTab("all")} role="tab" type="button">전체</button>
+        <button aria-selected={activeTab === "favorites"} onClick={() => setActiveTab("favorites")} role="tab" type="button">즐겨찾기</button>
+      </div>
+      <QueryState loading={loading} error={error} emptyMessage={!visibleItems.length ? emptyMessage : undefined} />
+      {visibleItems.length ? (
+        <div className="board-post-list">
+          {visibleItems.map(({ board, post }) => {
+            const author = getBoardAuthorProfile(post, employees.data?.items ?? [], employees.data?.summaries ?? []);
+            const publishedAt = formatBoardPostDate(post.publishedAt ?? post.createdAt);
+
+            return (
+              <button
+                key={`${board.id}-${post.id}`}
+                className="board-post-row board-post-row--feed"
+                onClick={() => onOpenPost?.(String(post.id), String(board.id))}
+                type="button"
+              >
+                <strong className="board-post-row__title">{post.title}</strong>
+                <p className="board-post-row__preview">{post.bodyPreview}</p>
+                <span className="board-post-row__meta">
+                  <span className="board-post-row__avatar" aria-hidden="true">{author.initials}</span>
+                  <span>{author.name}{author.position ? ` ${author.position}` : ""}</span>
+                  {publishedAt ? <span>{publishedAt}</span> : null}
+                </span>
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </article>
