@@ -531,6 +531,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("@keyframes refresh-logo-flag-sway");
     expect(globalCss).toContain("@keyframes refresh-logo-letter-wave");
     expect(globalCss).toContain(".app-shell__main,");
+    expect(globalCss).toContain(".page-shell__content,");
     expect(globalCss).toContain(".desktop-sidebar__nav,");
     expect(globalCss).toContain(".topbar-modal__grid,");
     expect(globalCss).toContain(".topbar-profile-settings,");
@@ -628,6 +629,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".desktop-sidebar__link--permission-denied");
     expect(globalCss).toContain(".permission-denied-toast");
     expect(globalCss).toContain(".app-shell__main:hover");
+    expect(globalCss).toContain(".page-shell__content:hover");
     expect(globalCss).toContain(".desktop-sidebar__nav[data-auto-scrollbar-scrolling=\"true\"]");
     expect(globalCss).not.toContain(".desktop-sidebar__nav:hover");
     expect(globalCss).not.toContain(".desktop-sidebar__nav:focus-within");
@@ -707,6 +709,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("margin-right: var(--desktop-sidebar-collapsed-width)");
     expect(globalCss).toContain("padding-inline: var(--desktop-content-padding-inline)");
     expect(globalCss).toContain("width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline))");
+    expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(globalCss).toContain(".app-shell__body > .page-shell");
+    expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-grid-min), 1fr))");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-grid-compact-min), 1fr))");
     expect(globalCss).toContain("grid-template-columns: repeat(auto-fit, minmax(var(--desktop-summary-grid-min), 1fr))");
