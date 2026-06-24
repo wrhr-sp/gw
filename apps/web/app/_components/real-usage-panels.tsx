@@ -1154,6 +1154,104 @@ type BoardInlineNavigationProps = {
   onOpenPost?: (postId: string, boardId?: string) => void;
 };
 
+type BoardFeedScope = "all" | "company" | "department";
+
+type BoardFeedItem = {
+  board: Record<string, any>;
+  post: Record<string, any>;
+};
+
+function isDepartmentBoard(board: Record<string, any>) {
+  return board.visibility === "department" || board.boardType === "department";
+}
+
+function filterBoardsByFeedScope(boards: Array<Record<string, any>>, scope: BoardFeedScope) {
+  if (scope === "department") {
+    return boards.filter((board) => isDepartmentBoard(board));
+  }
+  if (scope === "company") {
+    return boards.filter((board) => !isDepartmentBoard(board));
+  }
+
+  return boards;
+}
+
+function getBoardFeedCopy(scope: BoardFeedScope) {
+  if (scope === "company") {
+    return {
+      pill: "전사게시판 홈",
+      empty: "현재 권한으로 볼 수 있는 전사게시판 글이 없습니다.",
+      note: "전사게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
+    };
+  }
+  if (scope === "department") {
+    return {
+      pill: "부서게시판 홈",
+      empty: "현재 권한으로 볼 수 있는 부서게시판 글이 없습니다.",
+      note: "부서게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
+    };
+  }
+
+  return {
+    pill: "게시판 홈",
+    empty: "현재 권한으로 볼 수 있는 게시글이 없습니다.",
+    note: "전사게시판과 부서게시판 중 현재 권한으로 볼 수 있는 글만 모았습니다.",
+  };
+}
+
+function useBoardFeedItems(boards: Array<Record<string, any>>, scope: BoardFeedScope) {
+  const [items, setItems] = useState<BoardFeedItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const boardIdsKey = boards.map((board) => String(board.id)).join("|");
+
+  useEffect(() => {
+    let active = true;
+    const scopedBoards = filterBoardsByFeedScope(boards, scope);
+
+    setError(null);
+    setItems([]);
+    if (!scopedBoards.length) {
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setLoading(true);
+    Promise.all(
+      scopedBoards.map(async (board) => {
+        const payload = await fetchJson<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts(String(board.id)));
+        return (payload.data.items ?? []).map((post) => ({ board: payload.data.board ?? board, post }));
+      }),
+    )
+      .then((groups) => {
+        if (!active) {
+          return;
+        }
+        const nextItems = groups.flat().sort((left, right) => String(right.post.publishedAt ?? right.post.createdAt ?? "").localeCompare(String(left.post.publishedAt ?? left.post.createdAt ?? "")));
+        setItems(nextItems);
+      })
+      .catch((fetchError) => {
+        if (!active) {
+          return;
+        }
+        setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [boardIdsKey, boards, scope]);
+
+  return { items, error, loading };
+}
+
 function InlineNavigationLink({ children, href, onClick }: { children: React.ReactNode; href: string; onClick?: () => void }) {
   if (onClick) {
     return (
@@ -1166,37 +1264,26 @@ function InlineNavigationLink({ children, href, onClick }: { children: React.Rea
   return <a href={href}>{children}</a>;
 }
 
-export function BoardsLiveSection({ onOpenPost }: BoardInlineNavigationProps = {}) {
+export function BoardsLiveSection({ onOpenPost, scope = "all" }: BoardInlineNavigationProps & { scope?: BoardFeedScope } = {}) {
   const notices = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.notices);
   const boards = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.boards.boards);
-  const noticePosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_notice"));
-  const departmentPosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_department_notice"));
-  const generalPosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_general"));
-  const dataSharePosts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(appRoutes.boards.posts("board_data_share"));
   const session = useApiQuery<SessionPayload>("/api/session");
-  const accessibleBoardIds = new Set([...(notices.data?.items ?? []), ...(boards.data?.items ?? [])].map((board) => String(board.id)));
-  const postSources = [noticePosts, departmentPosts, generalPosts, dataSharePosts];
-  const feedItems = postSources.flatMap((source) => {
-    const board = source.data?.board;
-    if (!board || !accessibleBoardIds.has(String(board.id))) {
-      return [];
-    }
-
-    return source.data?.items.map((item) => ({ board, post: item })) ?? [];
-  });
-  const loading = notices.loading || boards.loading || session.loading || postSources.some((source) => source.loading);
-  const error = notices.error ?? boards.error ?? postSources.find((source) => source.error)?.error ?? null;
+  const accessibleBoards = useMemo(() => [...(notices.data?.items ?? []), ...(boards.data?.items ?? [])], [boards.data?.items, notices.data?.items]);
+  const feed = useBoardFeedItems(accessibleBoards, scope);
+  const feedCopy = getBoardFeedCopy(scope);
+  const loading = notices.loading || boards.loading || session.loading || feed.loading;
+  const error = notices.error ?? boards.error ?? feed.error ?? null;
 
   return (
     <article className="info-card">
-      <Pill tone="accent">내가 볼 수 있는 게시글</Pill>
-      <QueryState loading={loading} error={error} emptyMessage={!feedItems.length ? "현재 권한으로 볼 수 있는 게시글이 없습니다." : undefined} />
+      <Pill tone="accent">{feedCopy.pill}</Pill>
+      <QueryState loading={loading} error={error} emptyMessage={!feed.items.length ? feedCopy.empty : undefined} />
       {session.data ? (
-        <p className="card-note">{session.data.user.fullName} · {session.data.user.roleCodes.join(", ")} 권한으로 볼 수 있는 게시글만 모았습니다.</p>
+        <p className="card-note">{session.data.user.fullName} · {session.data.user.roleCodes.join(", ")} 권한 기준입니다. {feedCopy.note}</p>
       ) : null}
-      {feedItems.length ? (
+      {feed.items.length ? (
         <div className="board-post-list" style={{ marginTop: 12 }}>
-          {feedItems.map(({ board, post }) => (
+          {feed.items.map(({ board, post }) => (
             <button
               key={`${board.id}-${post.id}`}
               className="board-post-row"
