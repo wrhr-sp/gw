@@ -3138,6 +3138,10 @@ li {
   color: #1d4ed8;
 }
 
+.board-tree-section__home-button[aria-current="page"] strong {
+  color: #1d4ed8;
+}
+
 .board-tree-section__home-button:focus-visible {
   outline: 2px solid rgba(37, 99, 235, 0.28);
   outline-offset: 3px;
