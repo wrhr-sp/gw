@@ -699,6 +699,19 @@ li {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.board-write-form {
+  display: grid;
+  gap: 10px;
+}
+
+.board-write-heading {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.42rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
 .board-write-line {
   align-items: end;
   grid-template-columns: 104px minmax(170px, 0.8fr) minmax(260px, 1.4fr);

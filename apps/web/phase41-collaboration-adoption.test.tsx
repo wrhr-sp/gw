@@ -1,4 +1,5 @@
 import React from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -12,6 +13,19 @@ import { DashboardPageContent } from "./dashboard-page-content";
 import { canReviewApprovalDocument } from "./app/_components/real-usage-panels";
 
 describe("Phase 41 collaboration adoption fit-gap", () => {
+  it("keeps board write title as plain page-title sized text without a pill/card wrapper", () => {
+    const panelSource = readFileSync("app/_components/real-usage-panels.tsx", "utf8");
+    const globalCss = readFileSync("app/globals.css", "utf8");
+
+    expect(panelSource).toContain('className="board-write-heading"');
+    expect(panelSource).not.toContain('<Pill tone="accent">글쓰기</Pill>');
+    expect(panelSource).not.toContain('className="info-card board-write-form"');
+    expect(globalCss).toContain(".board-write-heading");
+    expect(globalCss).toContain("font-size: 1.42rem;");
+    expect(globalCss).toContain("font-weight: 900;");
+    expect(globalCss).toContain("letter-spacing: 0.03em;");
+  });
+
   it("keeps dashboard employee-first before collaboration and supporting status lanes", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 

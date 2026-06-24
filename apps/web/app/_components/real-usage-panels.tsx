@@ -1333,8 +1333,8 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
     <>
       <div className={showWriteForm ? "board-write-form-only" : "grid-auto-compact"}>
         {showWriteForm ? (
-          <article className="info-card board-write-form">
-            <Pill tone="accent">글쓰기</Pill>
+          <section className="board-write-form" aria-labelledby="board-write-form-title">
+            <h2 className="board-write-heading" id="board-write-form-title">글쓰기</h2>
             <div className="board-write-line board-write-line--board" style={{ marginTop: 12 }}>
               <strong>게시판 선택</strong>
               <select className="field" onChange={(event) => setSelectedCategory(event.target.value as BoardCategory)} value={selectedCategory}>
@@ -1409,7 +1409,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 {pending ? "작성 처리 중" : "게시글 등록"}
               </button>
             </div>
-          </article>
+          </section>
         ) : null}
         {!showWriteForm ? (
           <article className="info-card">
