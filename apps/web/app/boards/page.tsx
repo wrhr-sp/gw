@@ -66,17 +66,18 @@ type BoardSectionProps = {
   title: string;
   boards: readonly { id: string; name: string; description: string; unread: number; department?: string }[];
   selectedBoardId: string | null;
+  isHomeActive: boolean;
   onOpenHome: () => void;
   onSelectBoard: (boardId: BoardId) => void;
 };
 
-function BoardSection({ title, boards, selectedBoardId, onOpenHome, onSelectBoard }: BoardSectionProps) {
+function BoardSection({ title, boards, selectedBoardId, isHomeActive, onOpenHome, onSelectBoard }: BoardSectionProps) {
   const isDepartmentSection = title === "부서게시판";
 
   return (
     <section className={isDepartmentSection ? "board-tree-section board-tree-section--department" : "board-tree-section"}>
       <div className="board-tree-section__header">
-        <button className="board-tree-section__home-button" onClick={onOpenHome} type="button">
+        <button aria-current={isHomeActive ? "page" : undefined} className="board-tree-section__home-button" onClick={onOpenHome} type="button">
           <strong>{title}</strong>
         </button>
       </div>
@@ -167,8 +168,8 @@ export default function BoardsPage() {
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
           <button className="board-write-button" onClick={openWrite} type="button">글쓰기</button>
-          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} onOpenHome={() => setView({ kind: "companyHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
-          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} onOpenHome={() => setView({ kind: "departmentHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} isHomeActive={view.kind === "companyHome"} onOpenHome={() => setView({ kind: "companyHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
+          <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} isHomeActive={view.kind === "departmentHome"} onOpenHome={() => setView({ kind: "departmentHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
           {!canManageBoards ? (
             <section className="board-user-scope-card" aria-label="일반 사용자 게시판 범위">
               <Pill>일반 사용자</Pill>
