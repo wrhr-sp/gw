@@ -173,6 +173,40 @@ function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" }).format(date);
 }
 
+function formatIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getNoticePeriodRange(preset: NoticePeriodPreset, baseDate = new Date()) {
+  const startDate = formatIsoDate(baseDate);
+  if (preset === "indefinite") {
+    return { startDate, endDate: "", rangeText: `${startDate} ~ 무기한` };
+  }
+  if (preset === "custom") {
+    return { startDate: "", endDate: "", rangeText: "" };
+  }
+
+  const endDateValue = new Date(baseDate);
+  endDateValue.setDate(baseDate.getDate() + Number(preset) - 1);
+  const endDate = formatIsoDate(endDateValue);
+  return { startDate, endDate, rangeText: `${startDate} ~ ${endDate}` };
+}
+
+function parseNoticePeriodRange(value: string) {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2}|무기한)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    startDate: match[1],
+    endDate: match[2] === "무기한" ? "" : match[2],
+  };
+}
+
 function formatFileSize(value: number | null | undefined) {
   if (!value) {
     return "0 B";
@@ -1196,6 +1230,19 @@ type BoardWriteSettings = {
   accessScopes?: Array<{ id: string; label: string }>;
 };
 
+type NoticePeriodPreset = "1" | "3" | "5" | "7" | "15" | "30" | "indefinite" | "custom";
+
+const noticePeriodOptions: Array<{ value: NoticePeriodPreset; label: string }> = [
+  { value: "1", label: "1일" },
+  { value: "3", label: "3일" },
+  { value: "5", label: "5일" },
+  { value: "7", label: "7일" },
+  { value: "15", label: "15일" },
+  { value: "30", label: "30일" },
+  { value: "indefinite", label: "무기한등록" },
+  { value: "custom", label: "직접설정" },
+];
+
 type BoardCategory = "" | "company" | "department";
 
 function readBoardWriteSettings(board: Record<string, any> | null | undefined): BoardWriteSettings {
@@ -1226,8 +1273,9 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
   const [bodyHtml, setBodyHtml] = useState("<p></p>");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [isNotice, setIsNotice] = useState(false);
-  const [noticeStartDate, setNoticeStartDate] = useState("");
-  const [noticeEndDate, setNoticeEndDate] = useState("");
+  const [noticePeriodPreset, setNoticePeriodPreset] = useState<NoticePeriodPreset>("7");
+  const defaultNoticeRange = getNoticePeriodRange("7");
+  const [noticePeriodRange, setNoticePeriodRange] = useState(defaultNoticeRange.rangeText);
   const [mailAlert, setMailAlert] = useState(false);
   const [pushAlert, setPushAlert] = useState(false);
   const [accessScope, setAccessScope] = useState("board-default");
@@ -1264,11 +1312,38 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
   useEffect(() => {
     setSelectedPrefix("");
-    setIsNotice(Boolean((selectedBoard ?? posts.data?.board)?.isNoticeOnly));
-    setNoticeStartDate("");
-    setNoticeEndDate("");
+    const nextIsNotice = Boolean((selectedBoard ?? posts.data?.board)?.isNoticeOnly);
+    setIsNotice(nextIsNotice);
+    setNoticePeriodPreset("7");
+    const nextNoticeRange = getNoticePeriodRange("7");
+    setNoticePeriodRange(nextNoticeRange.rangeText);
     setAccessScope("board-default");
   }, [effectiveBoardId, selectedBoard, posts.data?.board]);
+
+  function handleNoticeToggle(checked: boolean) {
+    setIsNotice(checked);
+    if (checked && !noticePeriodRange) {
+      const nextPreset = noticePeriodPreset === "custom" ? "7" : noticePeriodPreset;
+      const nextRange = getNoticePeriodRange(nextPreset);
+      setNoticePeriodPreset(nextPreset);
+      setNoticePeriodRange(nextRange.rangeText);
+    }
+  }
+
+  function handleNoticePeriodPresetChange(value: NoticePeriodPreset) {
+    setNoticePeriodPreset(value);
+    if (value === "custom") {
+      setNoticePeriodRange("");
+      return;
+    }
+
+    const nextRange = getNoticePeriodRange(value);
+    setNoticePeriodRange(nextRange.rangeText);
+  }
+
+  function handleNoticePeriodRangeChange(value: string) {
+    setNoticePeriodRange(value);
+  }
 
   async function handleCreatePost() {
     const bodyPreview = stripHtmlToPreview(bodyHtml);
@@ -1279,6 +1354,12 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
     if (!title.trim() || !bodyPreview) {
       setResult({ tone: "warning", title: "게시글 등록 실패", body: "제목과 본문을 입력해 주세요." });
+      return;
+    }
+
+    const noticePeriodForPayload = isNotice ? parseNoticePeriodRange(noticePeriodRange) : null;
+    if (isNotice && !noticePeriodForPayload) {
+      setResult({ tone: "warning", title: "공지 등록 실패", body: "공지노출기간을 YYYY-MM-DD ~ YYYY-MM-DD 형식으로 입력해 주세요." });
       return;
     }
 
@@ -1296,10 +1377,10 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
           prefix: selectedPrefix || null,
           visibility,
           isNotice,
-          noticePeriod: isNotice
+          noticePeriod: isNotice && noticePeriodForPayload
             ? {
-              startDate: noticeStartDate || null,
-              endDate: noticeEndDate || null,
+              startDate: noticePeriodForPayload.startDate || null,
+              endDate: noticePeriodForPayload.endDate || null,
             }
             : null,
           notificationSettings: {
@@ -1384,20 +1465,29 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               <label><input checked={visibility === "private"} onChange={() => setVisibility("private")} name="board-post-visibility" type="radio" /> 비공개</label>
             </fieldset>
             <div className="board-write-notice" style={{ marginTop: 12 }}>
-              <strong>공지 등록 여부</strong>
-              <label><input checked={isNotice} onChange={(event) => setIsNotice(event.target.checked)} type="checkbox" /> 공지등록</label>
-              {isNotice ? (
-                <div className="board-write-date-range">
-                  <label className="form-placeholder">
-                    <strong>시작일</strong>
-                    <input className="field" onChange={(event) => setNoticeStartDate(event.target.value)} type="date" value={noticeStartDate} />
-                  </label>
-                  <label className="form-placeholder">
-                    <strong>종료일</strong>
-                    <input className="field" onChange={(event) => setNoticeEndDate(event.target.value)} type="date" value={noticeEndDate} />
-                  </label>
-                </div>
-              ) : null}
+              <strong>공지등록여부</strong>
+              <label><input checked={isNotice} onChange={(event) => handleNoticeToggle(event.target.checked)} type="checkbox" /> 공지등록</label>
+              <select
+                className="field board-write-notice-period-select"
+                disabled={!isNotice}
+                onChange={(event) => handleNoticePeriodPresetChange(event.target.value as NoticePeriodPreset)}
+                value={noticePeriodPreset}
+              >
+                {noticePeriodOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <label className="board-write-period-range">
+                <span>공지노출기간</span>
+                <input
+                  className="field"
+                  disabled={!isNotice}
+                  onChange={(event) => handleNoticePeriodRangeChange(event.target.value)}
+                  placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
+                  readOnly={isNotice && noticePeriodPreset !== "custom"}
+                  value={isNotice ? noticePeriodRange : ""}
+                />
+              </label>
             </div>
             <div className="board-write-options" style={{ marginTop: 12 }}>
               <strong>알림</strong>

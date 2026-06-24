@@ -760,8 +760,24 @@ li {
 }
 
 .board-write-notice {
-  grid-template-columns: 104px max-content 1fr;
-  align-items: start;
+  grid-template-columns: 104px max-content max-content minmax(260px, 0.8fr);
+  align-items: center;
+}
+
+.board-write-notice select.field {
+  width: auto;
+  min-width: max-content;
+}
+
+.board-write-notice .board-write-period-range {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: max-content minmax(220px, 1fr);
+  align-items: center;
+}
+
+.board-write-period-range .field {
+  min-width: 260px;
 }
 
 .board-write-date-range {
@@ -1815,8 +1831,17 @@ li {
     grid-template-columns: 1fr;
   }
 
-  .board-write-line select.field {
+  .board-write-line select.field,
+  .board-write-notice select.field {
     width: 100%;
+  }
+
+  .board-write-notice .board-write-period-range {
+    grid-template-columns: 1fr;
+  }
+
+  .board-write-period-range .field {
+    min-width: 0;
   }
 
   .board-write-choice-row > legend {
