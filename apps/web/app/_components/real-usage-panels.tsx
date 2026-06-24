@@ -1349,13 +1349,23 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
 
     const nextRange = getNoticePeriodRange(value);
     setNoticePeriodRange(nextRange.rangeText);
-    setNoticeCustomStartDate("");
-    setNoticeCustomEndDate("");
+    setNoticeCustomStartDate(nextRange.startDate);
+    setNoticeCustomEndDate(nextRange.endDate);
+  }
+
+  function handleNoticePeriodRangeOpen() {
+    const parsedRange = parseNoticePeriodRange(noticePeriodRange);
+    if (parsedRange) {
+      setNoticeCustomStartDate(parsedRange.startDate);
+      setNoticeCustomEndDate(parsedRange.endDate);
+    }
+    setNoticeCalendarOpen((value) => !value);
   }
 
   function handleNoticeCustomDateChange(part: "start" | "end", value: string) {
     const nextStartDate = part === "start" ? value : noticeCustomStartDate;
     const nextEndDate = part === "end" ? value : noticeCustomEndDate;
+    setNoticePeriodPreset("custom");
     setNoticeCustomStartDate(nextStartDate);
     setNoticeCustomEndDate(nextEndDate);
     setNoticePeriodRange(nextStartDate && nextEndDate ? `${nextStartDate} ~ ${nextEndDate}` : "");
@@ -1465,7 +1475,8 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 value={bodyHtml}
                 onEditorChange={(value) => setBodyHtml(value)}
                 init={{
-                  height: 380,
+                  height: 1520,
+                  min_height: 1520,
                   menubar: false,
                   plugins: "lists link table code autoresize",
                   toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
@@ -1495,29 +1506,27 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
-                  {noticePeriodPreset === "custom" ? (
-                    <div className="board-write-period-range">
-                      <button
-                        className="field board-write-period-range__trigger"
-                        onClick={() => setNoticeCalendarOpen((value) => !value)}
-                        type="button"
-                      >
-                        {noticePeriodRange || "YYYY-MM-DD ~ YYYY-MM-DD"}
-                      </button>
-                      {noticeCalendarOpen ? (
-                        <div className="board-write-period-calendar" aria-label="공지 직접설정 기간 선택">
-                          <label>
-                            <span>시작일</span>
-                            <input className="field" onChange={(event) => handleNoticeCustomDateChange("start", event.target.value)} type="date" value={noticeCustomStartDate} />
-                          </label>
-                          <label>
-                            <span>종료일</span>
-                            <input className="field" onChange={(event) => handleNoticeCustomDateChange("end", event.target.value)} type="date" value={noticeCustomEndDate} />
-                          </label>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
+                  <div className="board-write-period-range">
+                    <button
+                      className="field board-write-period-range__trigger"
+                      onClick={handleNoticePeriodRangeOpen}
+                      type="button"
+                    >
+                      {noticePeriodRange || "YYYY-MM-DD ~ YYYY-MM-DD"}
+                    </button>
+                    {noticeCalendarOpen ? (
+                      <div className="board-write-period-calendar" aria-label="공지 등록기간 선택">
+                        <label>
+                          <span>시작일</span>
+                          <input className="field" onChange={(event) => handleNoticeCustomDateChange("start", event.target.value)} type="date" value={noticeCustomStartDate} />
+                        </label>
+                        <label>
+                          <span>종료일</span>
+                          <input className="field" onChange={(event) => handleNoticeCustomDateChange("end", event.target.value)} type="date" value={noticeCustomEndDate} />
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               ) : null}
             </div>
