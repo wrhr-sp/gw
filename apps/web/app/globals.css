@@ -101,6 +101,17 @@
   --status-badge-min-width: 22px;
   --status-badge-font-size: var(--font-size-badge-px);
   --status-badge-radius: var(--radius-pill);
+  --board-tree-section-gap: 8px;
+  --board-tree-item-gap: 3px;
+  --board-tree-link-padding-block: 3px;
+  --board-tree-parent-weight: var(--font-weight-bold);
+  --board-tree-child-weight: var(--font-weight-semibold);
+  --board-tree-unread-badge-height: 18px;
+  --board-tree-unread-badge-min-width: 18px;
+  --board-tree-unread-badge-padding-inline: 5px;
+  --board-tree-unread-badge-font-size: 10px;
+  --board-tree-unread-badge-font-weight: var(--font-weight-medium);
+  --board-tree-unread-badge-radius: var(--radius-pill);
   --empty-state-padding: var(--space-xl);
   --empty-state-gap: 10px;
   --empty-state-action-gap: var(--space-xs);
@@ -3379,7 +3390,7 @@ li {
 
 .board-tree-section {
   display: grid;
-  gap: 10px;
+  gap: var(--board-tree-section-gap);
 }
 
 .board-tree-section--department,
@@ -3398,7 +3409,7 @@ li {
 
 .board-tree-section__header strong {
   color: var(--text);
-  font-weight: var(--font-weight-black);
+  font-weight: var(--board-tree-parent-weight);
 }
 
 .board-tree-section__home-button {
@@ -3424,7 +3435,11 @@ li {
   outline-offset: 3px;
 }
 
-.board-tree-section__items,
+.board-tree-section__items {
+  display: grid;
+  gap: var(--board-tree-item-gap);
+}
+
 .board-post-list {
   display: grid;
   gap: 8px;
@@ -3449,7 +3464,7 @@ li {
 .board-tree-link {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
-  padding: 9px 0;
+  padding: var(--board-tree-link-padding-block) 0;
 }
 
 .board-tree-link:hover,
@@ -3476,7 +3491,7 @@ li {
 .board-tree-link__branch {
   color: #94a3b8;
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-black);
+  font-weight: var(--board-tree-parent-weight);
   line-height: var(--line-height-snug);
   padding-top: 1px;
 }
@@ -3485,7 +3500,12 @@ li {
   min-width: 0;
 }
 
-.board-tree-link strong,
+.board-tree-link strong {
+  display: block;
+  color: var(--text);
+  font-weight: var(--board-tree-child-weight);
+}
+
 .board-post-row strong,
 .board-read-status strong {
   display: block;
@@ -3504,16 +3524,16 @@ li {
 
 .board-unread-badge {
   display: inline-grid;
-  min-width: var(--status-badge-min-width);
-  height: var(--status-badge-height);
+  min-width: var(--board-tree-unread-badge-min-width);
+  height: var(--board-tree-unread-badge-height);
   place-items: center;
-  border-radius: var(--status-badge-radius);
+  border-radius: var(--board-tree-unread-badge-radius);
   background: var(--danger);
   color: #fff;
-  font-size: var(--status-badge-font-size);
-  font-weight: var(--font-weight-black);
+  font-size: var(--board-tree-unread-badge-font-size);
+  font-weight: var(--board-tree-unread-badge-font-weight);
   line-height: var(--line-height-tight);
-  padding: 0 6px;
+  padding: 0 var(--board-tree-unread-badge-padding-inline);
 }
 
 .board-workspace__list {

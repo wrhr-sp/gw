@@ -49,7 +49,7 @@ describe("remaining balanced design tokens", () => {
     expect(globalCss).toContain("padding: var(--mobile-nav-padding) var(--mobile-nav-padding) var(--mobile-nav-padding) 0;");
     expect(globalCss).toContain("min-height: var(--mobile-nav-link-min-height);");
     expect(globalCss).toContain("min-height: var(--mobile-nav-pill-min-height);");
-    expect(globalCss).toContain("min-width: var(--status-badge-min-width);");
-    expect(globalCss).toContain("height: var(--status-badge-height);");
+    expect(globalCss).toContain("--status-badge-min-width: 22px;");
+    expect(globalCss).toContain("--status-badge-height: 22px;");
   });
 });
