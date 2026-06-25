@@ -711,6 +711,10 @@ li {
   background: var(--warning-soft);
 }
 
+.page-shell__content .pill {
+  display: none;
+}
+
 .grid-auto,
 .grid-auto-compact,
 .mobile-summary-grid {
