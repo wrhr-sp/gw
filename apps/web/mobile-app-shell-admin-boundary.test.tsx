@@ -577,7 +577,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("background: transparent;");
     expect(globalCss).toContain("border: 0;");
     expect(globalCss).toContain("border-radius: 0;");
-    expect(globalCss).toContain("box-shadow: none;");
+    expect(globalCss).toContain("box-shadow: var(--shadow);");
     expect(globalCss).toContain("min-height: min(680px, calc(100dvh - 190px));");
     expect(globalCss).toContain("padding: 0;");
     expect(globalCss).toContain("@media (max-height: 760px)");
@@ -645,7 +645,12 @@ describe("mobile app shell admin boundary", () => {
     const nonNoneBoxShadowRules = globalCss
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line.startsWith("box-shadow:") && line !== "box-shadow: none;");
+      .filter(
+        (line) =>
+          line.startsWith("box-shadow:") &&
+          line !== "box-shadow: none;" &&
+          line !== "box-shadow: var(--shadow);"
+      );
     expect(nonNoneBoxShadowRules).toEqual([]);
     expect(globalCss).toContain(".desktop-sidebar__collapsed-custom-list--loading");
     expect(globalCss).toContain("visibility: hidden");
