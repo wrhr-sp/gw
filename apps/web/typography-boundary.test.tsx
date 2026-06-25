@@ -20,11 +20,11 @@ describe("groupware typography baseline", () => {
     expect(globalCss).toContain("--font-size-lg: 1.15rem;");
     expect(globalCss).toContain("--font-size-xl: 1.42rem;");
     expect(globalCss).toContain("--font-weight-regular: 400;");
-    expect(globalCss).toContain("--font-weight-medium: 600;");
-    expect(globalCss).toContain("--font-weight-semibold: 700;");
-    expect(globalCss).toContain("--font-weight-bold: 800;");
-    expect(globalCss).toContain("--font-weight-heavy: 900;");
-    expect(globalCss).toContain("--font-weight-black: 920;");
+    expect(globalCss).toContain("--font-weight-medium: 500;");
+    expect(globalCss).toContain("--font-weight-semibold: 600;");
+    expect(globalCss).toContain("--font-weight-bold: 700;");
+    expect(globalCss).toContain("--font-weight-heavy: 800;");
+    expect(globalCss).toContain("--font-weight-black: 850;");
     expect(globalCss).toContain("--line-height-tight: 1;");
     expect(globalCss).toContain("--line-height-compact: 1.15;");
     expect(globalCss).toContain("--line-height-snug: 1.35;");
