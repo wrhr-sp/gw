@@ -527,7 +527,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("overscroll-behavior-y: none;");
     expect(globalCss).toContain(".app-shell__body--refresh");
     expect(globalCss).toContain(".app-refresh-overlay {");
-    expect(globalCss).toContain("z-index: 9999;");
+    expect(globalCss).toContain("--z-refresh-overlay: 9999;");
+    expect(globalCss).toContain("z-index: var(--z-refresh-overlay);");
     expect(globalCss).toContain(".refresh-page--overlay {");
     expect(globalCss).toContain(".refresh-page {");
     expect(globalCss).toContain(".refresh-page__flag-word");
@@ -602,9 +603,9 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".topbar-modal--integrated-settings .topbar-admin-settings");
     expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain(".topbar-modal {");
-    expect(globalCss).toContain("width: calc(100vw - 20px);");
-    expect(globalCss).toContain("height: calc(100dvh - 20px);");
-    expect(globalCss).toContain("max-height: calc(100dvh - 20px);");
+    expect(globalCss).toContain("width: calc(100vw - var(--layer-modal-inset) - var(--layer-modal-inset));");
+    expect(globalCss).toContain("height: calc(100dvh - var(--layer-modal-inset) - var(--layer-modal-inset));");
+    expect(globalCss).toContain("max-height: calc(100dvh - var(--layer-modal-inset) - var(--layer-modal-inset));");
     expect(globalCss).not.toContain(".topbar-modal--profile-settings {");
     expect(globalCss).not.toContain(".topbar-modal--integrated-settings {\n  width: min(1240px, calc(100vw - 20px));");
     expect(globalCss).toContain(".topbar-settings-tabs");
@@ -659,7 +660,8 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("margin-top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
     expect(globalCss).toContain("scroll-padding-top: 24px");
-    expect(globalCss).toContain("z-index: 70");
+    expect(globalCss).toContain("--z-desktop-topbar: 70;");
+    expect(globalCss).toContain("z-index: var(--z-desktop-topbar)");
     expect(globalCss).toContain("top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("height: calc(100dvh - var(--desktop-topbar-height))");
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
