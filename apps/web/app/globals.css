@@ -1810,6 +1810,13 @@ li {
     --desktop-grid-min: clamp(158px, 11.25vw, 180px);
     --desktop-grid-compact-min: clamp(130px, 9.2vw, 148px);
     --desktop-summary-grid-min: clamp(184px, 13.3vw, 212px);
+    --feature-page-outer-gap-block: var(--desktop-content-padding-inline);
+    --feature-page-outer-gap-inline: var(--desktop-content-padding-inline);
+    --feature-page-card-radius: 18px;
+    --feature-page-card-padding: 14px;
+    --feature-page-title-offset-block: var(--feature-page-card-padding);
+    --feature-page-title-offset-inline: var(--feature-page-card-padding);
+    --feature-page-title-content-gap: 0px;
     font-size: var(--font-size-pc-density);
     display: block;
     height: 100dvh;
@@ -1829,8 +1836,9 @@ li {
   }
 
   .page-shell {
-    gap: 14px;
+    gap: var(--feature-page-title-content-gap);
     min-height: 0;
+    padding-inline: var(--feature-page-outer-gap-inline);
     grid-template-rows: auto minmax(0, 1fr);
   }
 
@@ -1841,7 +1849,8 @@ li {
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: var(--desktop-content-padding-inline);
+    padding-top: var(--feature-page-outer-gap-block);
+    padding-bottom: var(--feature-page-outer-gap-block);
   }
 
   .app-shell__body > .page-shell {
@@ -1851,7 +1860,11 @@ li {
 
   .page-shell__header {
     gap: 8px;
-    padding-inline: 14px;
+    padding: var(--feature-page-title-offset-block) var(--feature-page-title-offset-inline);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: var(--feature-page-card-radius) var(--feature-page-card-radius) 0 0;
   }
 
   .page-shell__headline {
@@ -1859,11 +1872,12 @@ li {
   }
 
   .page-shell__content {
-    border-radius: 18px;
+    border-top: 0;
+    border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 14px;
+    padding: var(--feature-page-card-padding);
   }
 
   .hero-card,
@@ -1941,7 +1955,7 @@ li {
   }
 
   .page-shell {
-    padding-inline: var(--desktop-content-padding-inline);
+    padding-inline: var(--feature-page-outer-gap-inline);
   }
 
   .login-page-shell {

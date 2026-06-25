@@ -12,10 +12,17 @@ describe("feature page content spacing baseline", () => {
 
     expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 86px");
     expect(globalCss).toContain("--desktop-content-padding-inline: clamp(6px, 0.72vw, 12px)");
+    expect(globalCss).toContain("--feature-page-outer-gap-block: var(--desktop-content-padding-inline);");
+    expect(globalCss).toContain("--feature-page-outer-gap-inline: var(--desktop-content-padding-inline);");
+    expect(globalCss).toContain("--feature-page-card-radius: 18px;");
+    expect(globalCss).toContain("--feature-page-card-padding: 14px;");
+    expect(globalCss).toContain("--feature-page-title-offset-block: var(--feature-page-card-padding);");
+    expect(globalCss).toContain("--feature-page-title-offset-inline: var(--feature-page-card-padding);");
+    expect(globalCss).toContain("--feature-page-title-content-gap: 0px;");
     expect(globalCss).toContain(".page-shell,");
     expect(globalCss).toContain("width: 100%");
     expect(globalCss).toContain("max-width: none");
-    expect(globalCss).toContain("padding-inline: var(--desktop-content-padding-inline)");
+    expect(globalCss).toContain("padding-inline: var(--feature-page-outer-gap-inline)");
     expect(globalCss).toContain("width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline))");
     expect(globalCss).toContain(".page-shell__content {");
     expect(globalCss).toContain("gap: 0;");
@@ -23,11 +30,17 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr);");
     expect(globalCss).toContain(".app-shell__body > .page-shell {");
     expect(globalCss).toContain("flex: 1 1 auto;");
-    expect(globalCss).toContain("padding-bottom: var(--desktop-content-padding-inline);");
+    expect(globalCss).toContain("padding-top: var(--feature-page-outer-gap-block);");
+    expect(globalCss).toContain("padding-bottom: var(--feature-page-outer-gap-block);");
     expect(globalCss).not.toContain("padding-bottom: 28px;");
     expect(globalCss).toContain("overflow: hidden;");
     expect(globalCss).toContain("overflow-y: auto;");
     expect(globalCss).toContain(".page-shell__content:hover");
+    expect(globalCss).toContain("padding: var(--feature-page-title-offset-block) var(--feature-page-title-offset-inline);");
+    expect(globalCss).toContain("border-radius: var(--feature-page-card-radius) var(--feature-page-card-radius) 0 0;");
+    expect(globalCss).toContain("border-top: 0;");
+    expect(globalCss).toContain("border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);");
+    expect(globalCss).toContain("padding: var(--feature-page-card-padding);");
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
     expect(globalCss).toContain(".page-shell__content > .surface-card + .surface-card {");
     expect(globalCss).toContain(".page-shell__content .grid-auto,");
@@ -46,7 +59,7 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
     expect(globalCss).toContain(".page-shell__content .pill {");
     expect(globalCss).toContain("display: none;");
-    expect(globalCss).toContain("padding-inline: 14px;");
+    expect(globalCss).toContain("padding: var(--feature-page-title-offset-block) var(--feature-page-title-offset-inline);");
   });
 
   it("removes ad-hoc centered feature page shells from fallback routes", () => {
