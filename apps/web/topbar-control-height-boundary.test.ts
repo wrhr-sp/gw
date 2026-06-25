@@ -7,7 +7,7 @@ describe("PC topbar control height baseline", () => {
 
     expect(globalCss).toContain("--desktop-topbar-control-size: 32px;");
     expect(globalCss).toContain("--desktop-portal-switch-height: var(--desktop-topbar-control-size);");
-    expect(globalCss).toContain("--desktop-portal-switch-radius: 9px;");
+    expect(globalCss).toContain("--desktop-portal-switch-radius: var(--radius-pill);");
     expect(globalCss).toContain("@media (min-width: 961px) {");
     expect(globalCss).toContain(".topbar-icon-link {");
     expect(globalCss).toContain("width: var(--desktop-topbar-control-size);");

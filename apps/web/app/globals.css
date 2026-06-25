@@ -125,7 +125,7 @@
   --desktop-sidebar-expanded-width: 234px;
   --desktop-topbar-control-size: 32px;
   --desktop-portal-switch-height: var(--desktop-topbar-control-size);
-  --desktop-portal-switch-radius: 9px;
+  --desktop-portal-switch-radius: var(--radius-pill);
   --font-family-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-size-2xs: 0.65rem;
   --font-size-xs: 0.72rem;
