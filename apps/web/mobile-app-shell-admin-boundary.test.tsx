@@ -266,6 +266,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('app-shell--suppress-topbar-tooltips');
     expect(globalCss).toContain(".topbar-icon-link::after,");
     expect(globalCss).toContain(".topbar-profile-button::after {");
+    expect(globalCss).toContain(".topbar-brand-link span:last-child {");
     expect(globalCss).toContain("font-weight: var(--font-weight-semibold);");
     expect(globalCss).toContain(".topbar-icon-link__badge {");
     expect(globalCss).toContain("font-weight: var(--font-weight-bold);");
