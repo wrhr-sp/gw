@@ -35,10 +35,13 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).not.toContain(".page-shell__content .grid-auto > * + *");
     expect(globalCss).toContain(".board-workspace__list,");
     expect(globalCss).toContain("border-left: 1px solid var(--line);");
-    expect(globalCss).toContain(".page-shell__headline h1 {");
-    expect(globalCss).toContain("font-size: var(--font-size-lg);");
-    expect(globalCss).toContain("font-weight: var(--font-weight-heavy);");
-    expect(globalCss).toContain("letter-spacing: 0.03em;");
+    expect(globalCss).toContain(".page-shell__headline h1,");
+    expect(globalCss).toContain(".surface-card__header h2,");
+    expect(globalCss).toContain(".board-section-title h2,");
+    expect(globalCss).toContain(".board-detail-preview h2 {");
+    expect(globalCss).toContain("font-size: var(--font-size-feature-title);");
+    expect(globalCss).toContain("font-weight: var(--font-weight-feature-title);");
+    expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
     expect(globalCss).toContain("padding-inline: 14px;");
   });
 

@@ -18,6 +18,7 @@ describe("groupware typography baseline", () => {
     expect(globalCss).toContain("--font-size-md: 0.88rem;");
     expect(globalCss).toContain("--font-size-body: 1rem;");
     expect(globalCss).toContain("--font-size-lg: 1.15rem;");
+    expect(globalCss).toContain("--font-size-feature-title: 1.22rem;");
     expect(globalCss).toContain("--font-size-xl: 1.42rem;");
     expect(globalCss).toContain("--font-weight-regular: 400;");
     expect(globalCss).toContain("--font-weight-medium: 500;");
@@ -25,6 +26,8 @@ describe("groupware typography baseline", () => {
     expect(globalCss).toContain("--font-weight-bold: 700;");
     expect(globalCss).toContain("--font-weight-heavy: 800;");
     expect(globalCss).toContain("--font-weight-black: 850;");
+    expect(globalCss).toContain("--font-weight-feature-title: var(--font-weight-black);");
+    expect(globalCss).toContain("--letter-spacing-feature-title: -0.04em;");
     expect(globalCss).toContain("--line-height-tight: 1;");
     expect(globalCss).toContain("--line-height-compact: 1.15;");
     expect(globalCss).toContain("--line-height-snug: 1.35;");
