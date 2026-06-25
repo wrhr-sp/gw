@@ -123,6 +123,8 @@
   --mobile-bottom-nav-offset: var(--mobile-nav-offset);
   --desktop-sidebar-collapsed-width: 86px;
   --desktop-sidebar-expanded-width: 234px;
+  --desktop-topbar-control-size: 32px;
+  --desktop-portal-switch-height: var(--desktop-topbar-control-size);
   --font-family-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-size-2xs: 0.65rem;
   --font-size-xs: 0.72rem;
@@ -1902,8 +1904,14 @@ li {
   }
 
   .topbar-icon-link {
-    width: 32px;
-    height: 32px;
+    width: var(--desktop-topbar-control-size);
+    height: var(--desktop-topbar-control-size);
+  }
+
+  .portal-switch-link {
+    height: var(--desktop-portal-switch-height);
+    min-height: var(--desktop-portal-switch-height);
+    padding: 0 var(--space-md);
   }
 
   .topbar-profile-avatar {
