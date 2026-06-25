@@ -42,6 +42,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("font-size: var(--font-size-feature-title);");
     expect(globalCss).toContain("font-weight: var(--font-weight-feature-title);");
     expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
+    expect(globalCss).toContain(".page-shell__content .pill {");
+    expect(globalCss).toContain("display: none;");
     expect(globalCss).toContain("padding-inline: 14px;");
   });
 
