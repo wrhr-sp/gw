@@ -16,8 +16,8 @@ describe("requested UI boundary fixes", () => {
     expect(globalCss).toContain(".board-tree-section--department");
     expect(globalCss).not.toContain(".board-tree-link + .board-tree-link");
     expect(globalCss).toContain(".board-unread-badge");
-    expect(globalCss).toContain("background: #ef4444");
-    expect(globalCss).toContain("border-radius: 999px");
+    expect(globalCss).toContain("background: var(--danger)");
+    expect(globalCss).toContain("border-radius: var(--radius-pill)");
     expect(globalCss).toContain(".board-write-button:hover");
     expect(globalCss).toContain("background: #fff");
   });

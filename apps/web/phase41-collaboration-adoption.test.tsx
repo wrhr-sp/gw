@@ -21,9 +21,9 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).not.toContain('<Pill tone="accent">글쓰기</Pill>');
     expect(panelSource).not.toContain('className="info-card board-write-form"');
     expect(globalCss).toContain(".board-write-heading");
-    expect(globalCss).toContain("font-size: var(--font-size-xl);");
-    expect(globalCss).toContain("font-weight: var(--font-weight-heavy);");
-    expect(globalCss).toContain("letter-spacing: 0.03em;");
+    expect(globalCss).toContain("font-size: var(--font-size-page-title);");
+    expect(globalCss).toContain("font-weight: var(--font-weight-page-title);");
+    expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
     expect(globalCss).toContain(".board-write-line--board");
     expect(globalCss).toContain("grid-template-columns: 104px max-content max-content;");
     expect(globalCss).toContain(".board-write-line select.field");
