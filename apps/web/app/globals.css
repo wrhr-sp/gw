@@ -84,8 +84,43 @@
   --content-padding: var(--space-xl);
   --card-padding: var(--space-xl);
   --grid-gap: var(--space-lg);
-  --mobile-bottom-nav-height: 74px;
-  --mobile-bottom-nav-offset: 7px;
+  --form-control-height: 40px;
+  --form-control-radius: var(--radius-md);
+  --form-control-padding: 12px 14px;
+  --form-textarea-min-height: 120px;
+  --form-grid-gap: var(--space-md);
+  --form-grid-min: 180px;
+  --form-label-size: var(--font-size-md);
+  --form-label-weight: var(--font-weight-semibold);
+  --form-helper-size: var(--font-size-sm);
+  --state-disabled-opacity: 0.6;
+  --state-disabled-cursor: not-allowed;
+  --data-card-gap: 10px;
+  --data-card-padding: 18px;
+  --status-badge-height: 22px;
+  --status-badge-min-width: 22px;
+  --status-badge-font-size: var(--font-size-badge-px);
+  --status-badge-radius: var(--radius-pill);
+  --empty-state-padding: var(--space-xl);
+  --empty-state-gap: 10px;
+  --empty-state-action-gap: var(--space-xs);
+  --empty-state-title-size: var(--font-size-body);
+  --empty-state-title-weight: var(--font-weight-semibold);
+  --empty-state-copy-size: var(--font-size-md);
+  --status-banner-padding: 14px var(--space-lg);
+  --status-banner-radius: var(--radius-lg);
+  --mobile-nav-height: 74px;
+  --mobile-nav-offset: 7px;
+  --mobile-nav-max-width: 640px;
+  --mobile-nav-collapsed-width: 56px;
+  --mobile-nav-toggle-width: 48px;
+  --mobile-nav-gap: 4px;
+  --mobile-nav-padding: 6px;
+  --mobile-nav-link-min-height: 58px;
+  --mobile-nav-pill-min-height: 62px;
+  --mobile-touch-target: 48px;
+  --mobile-bottom-nav-height: var(--mobile-nav-height);
+  --mobile-bottom-nav-offset: var(--mobile-nav-offset);
   --desktop-sidebar-collapsed-width: 86px;
   --desktop-sidebar-expanded-width: 234px;
   --font-family-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -275,8 +310,8 @@ code {
 .status-banner {
   width: min(1120px, calc(100vw - 24px));
   margin: 12px auto 0;
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: var(--status-banner-padding);
+  border-radius: var(--status-banner-radius);
   background: var(--surface);
   border: 1px solid var(--line);
   display: grid;
@@ -978,7 +1013,7 @@ li {
 .stat-card,
 .route-card {
   display: grid;
-  gap: 10px;
+  gap: var(--data-card-gap);
 }
 
 .info-card a,
@@ -992,7 +1027,7 @@ li {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: var(--mobile-touch-target);
   padding: 12px 18px;
   border-radius: var(--radius-pill);
   border: 1px solid transparent;
@@ -1014,13 +1049,13 @@ li {
 .touch-button--secondary:disabled,
 .touch-button[aria-disabled="true"],
 .touch-button--secondary[aria-disabled="true"] {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: var(--state-disabled-opacity);
+  cursor: var(--state-disabled-cursor);
 }
 
 .placeholder-action {
   display: grid;
-  gap: 6px;
+  gap: var(--empty-state-action-gap);
   flex: 1 1 220px;
 }
 
@@ -1032,7 +1067,7 @@ li {
 .placeholder-action__hint {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--font-size-md);
+  font-size: var(--empty-state-copy-size);
   line-height: var(--line-height-readable);
 }
 
@@ -1146,34 +1181,35 @@ li {
 
 .form-placeholder {
   display: grid;
-  gap: 12px;
+  gap: var(--empty-state-gap);
 }
 
 .field-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--form-grid-gap);
+  grid-template-columns: repeat(auto-fit, minmax(var(--form-grid-min), 1fr));
 }
 
 .field,
 .textarea-field {
   width: 100%;
+  min-height: var(--form-control-height);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: var(--form-control-radius);
+  padding: var(--form-control-padding);
   background: #fff;
   color: var(--text-muted);
 }
 
 .textarea-field {
-  min-height: 120px;
+  min-height: var(--form-textarea-min-height);
   resize: vertical;
 }
 
 .bottom-nav {
   position: fixed;
-  left: max(12px, calc((100vw - 640px) / 2));
-  width: min(640px, calc(100vw - 24px));
+  left: max(12px, calc((100vw - var(--mobile-nav-max-width)) / 2));
+  width: min(var(--mobile-nav-max-width), calc(100vw - 24px));
   transform: none;
   bottom: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-bottom-nav-offset));
   z-index: var(--z-bottom-nav);
@@ -1197,7 +1233,7 @@ li {
 }
 
 .bottom-nav--collapsed {
-  width: 56px;
+  width: var(--mobile-nav-collapsed-width);
   box-shadow: var(--shadow);
 }
 
@@ -1205,9 +1241,9 @@ li {
   position: relative;
   z-index: 2;
   display: inline-flex;
-  width: 48px;
+  width: var(--mobile-nav-toggle-width);
   min-height: var(--mobile-bottom-nav-height);
-  flex: 0 0 48px;
+  flex: 0 0 var(--mobile-nav-toggle-width);
   align-items: center;
   justify-content: center;
   border: 0;
@@ -1234,9 +1270,9 @@ li {
   min-height: var(--mobile-bottom-nav-height);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--mobile-nav-gap);
   flex: 1 1 auto;
-  padding: 6px 6px 6px 0;
+  padding: var(--mobile-nav-padding) var(--mobile-nav-padding) var(--mobile-nav-padding) 0;
   transform-origin: left center;
 }
 
@@ -1261,7 +1297,7 @@ li {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 58px;
+  min-height: var(--mobile-nav-link-min-height);
   border-radius: var(--radius-pill);
   text-decoration: none;
   color: var(--text-muted);
@@ -1276,7 +1312,7 @@ li {
   display: inline-flex;
   flex-direction: column;
   min-width: 100%;
-  min-height: 62px;
+  min-height: var(--mobile-nav-pill-min-height);
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -3458,13 +3494,13 @@ li {
 
 .board-unread-badge {
   display: inline-grid;
-  min-width: 22px;
-  height: 22px;
+  min-width: var(--status-badge-min-width);
+  height: var(--status-badge-height);
   place-items: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--status-badge-radius);
   background: var(--danger);
   color: #fff;
-  font-size: var(--font-size-xs);
+  font-size: var(--status-badge-font-size);
   font-weight: var(--font-weight-black);
   line-height: var(--line-height-tight);
   padding: 0 6px;
