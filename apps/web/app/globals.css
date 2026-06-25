@@ -125,6 +125,7 @@
   --desktop-sidebar-expanded-width: 234px;
   --desktop-topbar-control-size: 32px;
   --desktop-portal-switch-height: var(--desktop-topbar-control-size);
+  --desktop-portal-switch-radius: 9px;
   --font-family-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-size-2xs: 0.65rem;
   --font-size-xs: 0.72rem;
@@ -1911,6 +1912,7 @@ li {
   .portal-switch-link {
     height: var(--desktop-portal-switch-height);
     min-height: var(--desktop-portal-switch-height);
+    border-radius: var(--desktop-portal-switch-radius);
     padding: 0 var(--space-md);
   }
 
