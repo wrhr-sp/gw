@@ -47,8 +47,11 @@ describe("groupware typography baseline", () => {
     expect(realUsagePanels).toContain("elementpath: false");
     expect(realUsagePanels).toContain("height: 550");
     expect(realUsagePanels).toContain("min_height: 550");
+    expect(realUsagePanels).toContain("font_size_formats: boardTinymceFontSizeFormats");
     expect(realUsagePanels).toContain("content_style: boardTinymceContentStyle");
     expect(realUsagePanels).not.toContain("font-family: Arial, sans-serif");
+    expect(realUsagePanels).toContain("const boardTinymceFontSizeFormats = \"8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 24pt 36pt\"");
+    expect(realUsagePanels).toContain("font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 10pt;");
     expect(realUsagePanels).toContain("기본 글꼴=Pretendard Variable,Pretendard,'Malgun Gothic','맑은 고딕',sans-serif");
     expect(realUsagePanels).toContain("프리텐다드=Pretendard Variable,Pretendard,sans-serif");
     expect(realUsagePanels).toContain("본고딕=Noto Sans KR,Noto Sans CJK KR,Source Han Sans KR,sans-serif");
