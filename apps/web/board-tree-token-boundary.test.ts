@@ -8,6 +8,7 @@ describe("board tree compact token baseline", () => {
     expect(globalCss).toContain("--board-tree-section-gap: 8px;");
     expect(globalCss).toContain("--board-tree-item-gap: 3px;");
     expect(globalCss).toContain("--board-tree-link-padding-block: 3px;");
+    expect(globalCss).toContain("--board-tree-parent-font-size: calc(var(--font-size-body) * 2);");
     expect(globalCss).toContain("--board-tree-parent-weight: var(--font-weight-bold);");
     expect(globalCss).toContain("--board-tree-child-weight: var(--font-weight-semibold);");
     expect(globalCss).toContain("--board-tree-unread-badge-height: 18px;");
@@ -19,6 +20,7 @@ describe("board tree compact token baseline", () => {
     expect(globalCss).toContain("gap: var(--board-tree-section-gap);");
     expect(globalCss).toContain("gap: var(--board-tree-item-gap);");
     expect(globalCss).toContain("padding: var(--board-tree-link-padding-block) 0;");
+    expect(globalCss).toContain("font-size: var(--board-tree-parent-font-size);");
     expect(globalCss).toContain("font-weight: var(--board-tree-parent-weight);");
     expect(globalCss).toContain("font-weight: var(--board-tree-child-weight);");
     expect(globalCss).toContain("min-width: var(--board-tree-unread-badge-min-width);");

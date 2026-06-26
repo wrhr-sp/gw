@@ -243,6 +243,7 @@
   --board-tree-section-gap: 8px;
   --board-tree-item-gap: 3px;
   --board-tree-link-padding-block: 3px;
+  --board-tree-parent-font-size: calc(var(--font-size-body) * 2);
   --board-tree-parent-weight: var(--font-weight-bold);
   --board-tree-child-weight: var(--font-weight-semibold);
   --board-tree-unread-badge-height: 18px;
@@ -252,13 +253,15 @@
   --board-tree-unread-badge-font-weight: var(--font-weight-medium);
   --board-tree-unread-badge-radius: var(--radius-pill);
   --board-home-feed-gap: 14px;
-  --board-home-tab-group-gap: 6px;
-  --board-home-tab-group-padding: 4px;
-  --board-home-tab-group-border: 1px solid var(--primary-soft-strong);
+  --board-home-tab-group-gap: 3px;
+  --board-home-tab-group-padding: 2px;
+  --board-home-tab-group-border: 0.5px solid var(--primary-soft-strong);
   --board-home-tab-group-bg: var(--surface-subtle);
-  --board-home-tab-min-width: 76px;
-  --board-home-tab-padding-block: var(--space-sm);
-  --board-home-tab-padding-inline: 14px;
+  --board-home-tab-min-width: 38px;
+  --board-home-tab-padding-block: calc(var(--space-sm) / 2);
+  --board-home-tab-padding-inline: 7px;
+  --board-home-tab-font-size: calc(var(--font-size-md) / 2);
+  --board-home-tab-font-weight: var(--font-weight-regular);
   --board-home-tab-active-bg: var(--primary-hover);
   --board-home-tab-active-text: var(--surface);
   --board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);
@@ -4030,6 +4033,7 @@ li {
 
 .board-tree-section__header strong {
   color: var(--text);
+  font-size: var(--board-tree-parent-font-size);
   font-weight: var(--board-tree-parent-weight);
 }
 
@@ -4186,8 +4190,8 @@ li {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-heavy);
+  font-size: var(--board-home-tab-font-size);
+  font-weight: var(--board-home-tab-font-weight);
   padding: var(--board-home-tab-padding-block) var(--board-home-tab-padding-inline);
 }
 
