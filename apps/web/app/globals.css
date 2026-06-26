@@ -580,9 +580,14 @@
   --desktop-status-banner-width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));
   --status-banner-margin: 12px var(--desktop-content-padding-inline) 0;
   --desktop-topbar-actions-gap: 8px;
-  --desktop-sidebar-height: calc(100dvh - var(--desktop-topbar-height));
+  --desktop-sidebar-fixed-height: calc(100dvh - var(--desktop-topbar-height));
+  --desktop-sidebar-height: var(--desktop-sidebar-fixed-height);
+  --desktop-sidebar-nav-scroll-height: calc(var(--desktop-sidebar-fixed-height) - var(--desktop-sidebar-gap) - var(--desktop-sidebar-padding-block-start) - var(--desktop-sidebar-padding-block-end) - var(--desktop-sidebar-header-height));
+  --desktop-sidebar-padding-block-start: 16px;
+  --desktop-sidebar-padding-block-end: 16px;
+  --desktop-sidebar-header-height: 0px;
   --desktop-sidebar-gap: 13px;
-  --desktop-sidebar-padding: 16px 14px;
+  --desktop-sidebar-padding: var(--desktop-sidebar-padding-block-start) 14px var(--desktop-sidebar-padding-block-end);
   --desktop-sidebar-background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
   --desktop-sidebar-border-right: 1px solid var(--line);
   --desktop-sidebar-collapsed-padding-inline: 9px;
@@ -2358,13 +2363,22 @@ li {
     --desktop-grid-min: clamp(158px, 11.25vw, 180px);
     --desktop-grid-compact-min: clamp(130px, 9.2vw, 148px);
     --desktop-summary-grid-min: clamp(184px, 13.3vw, 212px);
-    --feature-page-outer-gap-block: var(--desktop-content-padding-inline);
-    --feature-page-outer-gap-inline: var(--desktop-content-padding-inline);
+    --feature-page-content-outer-gap: 12px;
+    --feature-page-outer-gap-block: var(--feature-page-content-outer-gap);
+    --feature-page-outer-gap-inline: var(--feature-page-content-outer-gap);
     --feature-page-card-radius: 18px;
     --feature-page-card-padding: 14px;
     --feature-page-title-offset-block: var(--feature-page-card-padding);
     --feature-page-title-offset-inline: var(--feature-page-card-padding);
     --feature-page-title-content-gap: 0px;
+    --feature-page-shell-height: calc(var(--app-shell-main-height) - var(--feature-page-outer-gap-block) - var(--feature-page-outer-gap-block));
+    --feature-page-shell-overflow: hidden;
+    --feature-page-content-height: 100%;
+    --feature-page-content-overflow-y: auto;
+    --two-column-content-height: 100%;
+    --two-column-content-overflow: hidden;
+    --two-column-content-column-height: 100%;
+    --two-column-content-column-overflow-y: auto;
     --two-column-content-sidebar-width: minmax(220px, 260px);
     --two-column-content-sidebar-width-compact: minmax(200px, 240px);
     --two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);
@@ -2392,8 +2406,11 @@ li {
 
   .page-shell {
     gap: var(--feature-page-title-content-gap);
+    height: var(--feature-page-shell-height);
+    max-height: var(--feature-page-shell-height);
     min-height: 0;
-    padding-inline: var(--feature-page-outer-gap-inline);
+    overflow: var(--feature-page-shell-overflow);
+    padding-inline: 0;
     grid-template-rows: auto minmax(0, 1fr);
   }
 
@@ -2404,13 +2421,15 @@ li {
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    padding-top: var(--feature-page-outer-gap-block);
-    padding-bottom: var(--feature-page-outer-gap-block);
+    padding: var(--feature-page-outer-gap-block) var(--feature-page-outer-gap-inline);
   }
 
   .app-shell__body > .page-shell {
     flex: 1 1 auto;
+    height: var(--feature-page-shell-height);
+    max-height: var(--feature-page-shell-height);
     min-height: 0;
+    overflow: var(--feature-page-shell-overflow);
   }
 
   .page-shell__header {
@@ -2429,8 +2448,10 @@ li {
   .page-shell__content {
     border-top: 0;
     border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);
+    height: var(--feature-page-content-height);
+    max-height: var(--feature-page-content-height);
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: var(--feature-page-content-overflow-y);
     overscroll-behavior: contain;
     padding: var(--feature-page-card-padding);
   }
@@ -2442,6 +2463,8 @@ li {
   .page-shell--title-in-content .page-shell__content {
     border-top: var(--page-shell-content-border-top);
     border-radius: var(--feature-page-card-radius);
+    height: var(--feature-page-shell-height);
+    max-height: var(--feature-page-shell-height);
   }
 
   .hero-card,
@@ -2562,7 +2585,8 @@ li {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     width: var(--desktop-sidebar-expanded-width);
-    height: var(--desktop-sidebar-height);
+    height: var(--desktop-sidebar-fixed-height);
+    max-height: var(--desktop-sidebar-fixed-height);
     min-height: 0;
     flex-shrink: 0;
     align-content: start;
@@ -2581,6 +2605,8 @@ li {
   .desktop-sidebar--collapsed {
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: var(--desktop-sidebar-collapsed-width);
+    height: var(--desktop-sidebar-fixed-height);
+    max-height: var(--desktop-sidebar-fixed-height);
     padding-inline: var(--desktop-sidebar-collapsed-padding-inline);
   }
 
@@ -2594,6 +2620,9 @@ li {
 
   .desktop-sidebar__nav {
     gap: var(--desktop-sidebar-compact-nav-gap);
+    height: 100%;
+    max-height: var(--desktop-sidebar-nav-scroll-height);
+    overflow-y: auto;
   }
 
   .desktop-sidebar__links,
@@ -3871,13 +3900,18 @@ li {
   grid-template-columns: var(--two-column-content-sidebar-width) minmax(0, 1fr);
   gap: var(--two-column-content-column-gap);
   align-items: stretch;
-  min-height: 100%;
+  height: var(--two-column-content-height);
+  min-height: 0;
+  overflow: var(--two-column-content-overflow);
 }
 
 .board-workspace__nav,
 .board-workspace__list,
 .board-workspace__detail {
+  height: var(--two-column-content-column-height);
+  min-height: 0;
   min-width: 0;
+  overflow-y: var(--two-column-content-column-overflow-y);
   padding: 0 var(--two-column-content-column-padding-inline);
 }
 
