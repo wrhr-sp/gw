@@ -28,7 +28,8 @@ describe("refresh page", () => {
     expect(source).toContain("window.location.replace(returnPath);");
     expect(source).not.toContain("router.refresh()");
     expect(source).not.toContain("<button");
-    expect(globalCss).toContain("height: 100dvh;");
+    expect(globalCss).toContain("--phase5-refresh-page-height-c3092: 100dvh;");
+    expect(globalCss).toContain("height: var(--phase5-refresh-page-height-c3092);");
     expect(globalCss).toContain("overflow: hidden;");
     expect(globalCss).toContain("--refresh-page-padding: clamp(var(--space-md), 3.2vmin, var(--radius-xl));");
     expect(globalCss).toContain("--refresh-page-bg-spot: rgba(219, 234, 254, 0.9);");

@@ -25,7 +25,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain("font-weight: var(--font-weight-page-title);");
     expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
     expect(globalCss).toContain(".board-write-line--board");
-    expect(globalCss).toContain("grid-template-columns: 104px max-content max-content;");
+    expect(globalCss).toContain("--phase5-board-write-line-board-grid-template-columns-2add1: 104px max-content max-content;");
+    expect(globalCss).toContain("grid-template-columns: var(--phase5-board-write-line-board-grid-template-columns-2add1);");
     expect(globalCss).toContain(".board-write-line select.field");
     expect(globalCss).toContain("min-width: max-content;");
     expect(panelSource).toContain("공지등록여부");
@@ -40,7 +41,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("height: 760");
     expect(panelSource).toContain("min_height: 760");
     expect(globalCss).toContain("align-items: center;");
-    expect(globalCss).toContain("min-height: 48px;");
+    expect(globalCss).toContain("--phase5-board-write-line-min-height-f82f2: 48px;");
+    expect(globalCss).toContain("min-height: var(--phase5-board-write-line-min-height-f82f2);");
     expect(globalCss).toContain("min-width: 22ch;");
     expect(panelSource).not.toContain("공지노출기간");
     expect(panelSource).not.toContain("<strong>시작일</strong>");
