@@ -257,11 +257,13 @@
   --board-home-tab-group-padding: 2px;
   --board-home-tab-group-border: 0.5px solid var(--primary-soft-strong);
   --board-home-tab-group-bg: var(--surface-subtle);
+  --board-home-tab-width: 6em;
   --board-home-tab-min-width: max-content;
   --board-home-tab-padding-block: 0.35em;
   --board-home-tab-padding-inline: 0.7em;
   --board-home-tab-font-size: inherit;
-  --board-home-tab-font-weight: var(--font-weight-black);
+  --board-home-tab-font-weight: var(--board-write-button-font-weight);
+  --board-home-tab-font-variation-settings: var(--board-write-button-font-variation-settings);
   --board-home-tab-active-bg: var(--primary-hover);
   --board-home-tab-active-text: var(--surface);
   --board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);
@@ -681,6 +683,8 @@
   --topbar-modal-button-ghost-background: rgba(255, 255, 255, 0.8);
   --board-workspace-nav-gap: 16px;
   --board-post-row-margin: 6px 0 0;
+  --board-write-button-font-weight: var(--font-weight-black);
+  --board-write-button-font-variation-settings: "wght" 900;
   --board-write-button-min-height: 42px;
   --board-write-button-border: 1px solid rgba(37, 99, 235, 0.2);
   --board-write-button-border-radius: 16px;
@@ -3974,7 +3978,8 @@ li {
   border-radius: var(--board-write-button-border-radius);
   background: var(--board-write-button-background);
   color: var(--primary-hover);
-  font-weight: var(--font-weight-black);
+  font-variation-settings: var(--board-write-button-font-variation-settings);
+  font-weight: var(--board-write-button-font-weight);
   text-decoration: none;
   padding: var(--board-write-button-padding);
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
@@ -4184,6 +4189,7 @@ li {
 }
 
 .board-home-tabs button {
+  width: var(--board-home-tab-width);
   min-width: var(--board-home-tab-min-width);
   border: 0;
   border-radius: var(--radius-pill);
@@ -4191,6 +4197,7 @@ li {
   color: var(--text-muted);
   cursor: pointer;
   font-size: var(--board-home-tab-font-size);
+  font-variation-settings: var(--board-home-tab-font-variation-settings);
   font-weight: var(--board-home-tab-font-weight);
   padding: var(--board-home-tab-padding-block) var(--board-home-tab-padding-inline);
 }
@@ -4198,6 +4205,8 @@ li {
 .board-home-tabs button[aria-selected="true"] {
   background: var(--board-home-tab-active-bg);
   color: var(--board-home-tab-active-text);
+  font-variation-settings: var(--board-home-tab-font-variation-settings);
+  font-weight: var(--board-home-tab-font-weight);
 }
 
 .board-home-tabs button:focus-visible {
