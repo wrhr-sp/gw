@@ -580,7 +580,7 @@
   --desktop-status-banner-width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));
   --status-banner-margin: 12px var(--desktop-content-padding-inline) 0;
   --desktop-topbar-actions-gap: 8px;
-  --desktop-sidebar-height: calc(100dvh - var(--desktop-topbar-height));
+  --desktop-sidebar-height: calc(100dvh - 50px);
   --desktop-sidebar-gap: 13px;
   --desktop-sidebar-padding: 16px 14px;
   --desktop-sidebar-background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
@@ -2358,8 +2358,9 @@ li {
     --desktop-grid-min: clamp(158px, 11.25vw, 180px);
     --desktop-grid-compact-min: clamp(130px, 9.2vw, 148px);
     --desktop-summary-grid-min: clamp(184px, 13.3vw, 212px);
-    --feature-page-outer-gap-block: var(--desktop-content-padding-inline);
-    --feature-page-outer-gap-inline: var(--desktop-content-padding-inline);
+    --feature-page-outer-gap: 12px;
+    --feature-page-outer-gap-block: var(--feature-page-outer-gap);
+    --feature-page-outer-gap-inline: var(--feature-page-outer-gap);
     --feature-page-card-radius: 18px;
     --feature-page-card-padding: 14px;
     --feature-page-title-offset-block: var(--feature-page-card-padding);
@@ -2370,6 +2371,7 @@ li {
     --feature-page-content-max-height: 100%;
     --two-column-content-height: 100%;
     --two-column-content-overflow: hidden;
+    --two-column-content-column-height: 100%;
     --two-column-content-column-max-height: 100%;
     --two-column-content-column-overflow-y: auto;
     --desktop-sidebar-nav-max-height: 100%;
@@ -2443,6 +2445,7 @@ li {
   .page-shell__content {
     border-top: 0;
     border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);
+    height: 100%;
     max-height: var(--feature-page-content-max-height);
     min-height: 0;
     overflow-y: auto;
@@ -2608,6 +2611,7 @@ li {
   }
 
   .desktop-sidebar__nav {
+    height: 100%;
     max-height: var(--desktop-sidebar-nav-max-height);
   }
 
@@ -3894,6 +3898,7 @@ li {
 .board-workspace__nav,
 .board-workspace__list,
 .board-workspace__detail {
+  height: var(--two-column-content-column-height);
   max-height: var(--two-column-content-column-max-height);
   min-height: 0;
   min-width: 0;
