@@ -51,7 +51,11 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("<div className=\"board-write-choice-row\" role=\"group\" aria-label=\"공개설정\">");
     expect(panelSource).toContain("<div className=\"board-write-notice\">");
     expect(panelSource).toContain("<div className=\"board-write-options\">");
-    expect(panelSource.indexOf("<div className=\"board-write-options\">")).toBeLessThan(panelSource.indexOf("<div className=\"board-write-notice\">"));
+    const optionsIndex = panelSource.indexOf("<div className=\"board-write-options\">");
+    const noticeIndex = panelSource.indexOf("<div className=\"board-write-notice\">");
+    const submitIndex = panelSource.indexOf("className=\"touch-button board-write-submit\"");
+    expect(optionsIndex).toBeLessThan(noticeIndex);
+    expect(noticeIndex).toBeLessThan(submitIndex);
     expect(panelSource).toContain("className=\"touch-button board-write-submit\"");
     expect(panelSource).toContain("{pending ? \"등록 중\" : \"등록\"}");
     expect(panelSource).not.toContain("{pending ? \"작성 처리 중\" : \"게시글 등록\"}");
