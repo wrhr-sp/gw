@@ -49,14 +49,14 @@ describe("mobile app shell login boundary", () => {
     const globalCss = readFileSync("app/globals.css", "utf8");
 
     expect(globalCss).toContain(".login-page-shell {");
-    expect(globalCss).toContain("--phase5-login-page-shell-width-c4516: min(460px, calc(100vw - 24px));");
-    expect(globalCss).toContain("width: var(--phase5-login-page-shell-width-c4516)");
-    expect(globalCss).toContain("--phase5-login-page-shell-max-width-7ec9c: 460px;");
-    expect(globalCss).toContain("max-width: var(--phase5-login-page-shell-max-width-7ec9c)");
+    expect(globalCss).toContain("--login-page-shell-width: min(460px, calc(100vw - 24px));");
+    expect(globalCss).toContain("width: var(--login-page-shell-width)");
+    expect(globalCss).toContain("--login-page-shell-max-width: 460px;");
+    expect(globalCss).toContain("max-width: var(--login-page-shell-max-width)");
     expect(globalCss).toContain("margin-right: auto");
     expect(globalCss).toContain("margin-left: auto");
-    expect(globalCss).toContain("--phase5-login-page-shell-padding-305ae: clamp(150px, 20dvh, 230px) 0 16px;");
-    expect(globalCss).toContain("padding: var(--phase5-login-page-shell-padding-305ae)");
+    expect(globalCss).toContain("--login-page-shell-padding: clamp(150px, 20dvh, 230px) 0 16px;");
+    expect(globalCss).toContain("padding: var(--login-page-shell-padding)");
     expect(globalCss).toContain(".login-card .field-grid");
   });
 });

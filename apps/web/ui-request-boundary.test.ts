@@ -19,8 +19,8 @@ describe("requested UI boundary fixes", () => {
     expect(globalCss).toContain("background: var(--danger)");
     expect(globalCss).toContain("border-radius: var(--radius-pill)");
     expect(globalCss).toContain(".board-write-button:hover");
-    expect(globalCss).toContain("--phase5-board-write-button-background-0928b: #fff;");
-    expect(globalCss).toContain("background: var(--phase5-board-write-button-background-0928b)");
+    expect(globalCss).toContain("--board-write-button-background: #fff;");
+    expect(globalCss).toContain("background: var(--board-write-button-background)");
   });
 
   it("lets feature page titles return to the initial screen", () => {

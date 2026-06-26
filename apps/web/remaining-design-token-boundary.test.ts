@@ -54,8 +54,8 @@ describe("remaining balanced design tokens", () => {
     expect(globalCss).toContain("border-radius: var(--form-control-radius);");
     expect(globalCss).toContain("padding: var(--form-control-padding);");
     expect(globalCss).toContain("min-height: var(--form-textarea-min-height);");
-    expect(globalCss).toContain("--phase5-bottom-nav-width-46c72: min(var(--mobile-nav-max-width), calc(100vw - var(--mobile-nav-viewport-gutter)));");
-    expect(globalCss).toContain("width: var(--phase5-bottom-nav-width-46c72);");
+    expect(globalCss).toContain("--bottom-nav-width: min(var(--mobile-nav-max-width), calc(100vw - var(--mobile-nav-viewport-gutter)));");
+    expect(globalCss).toContain("width: var(--bottom-nav-width);");
     expect(globalCss).toContain("background: var(--mobile-nav-bg);");
     expect(globalCss).toContain("border: var(--mobile-nav-border);");
     expect(globalCss).toContain("width: var(--mobile-nav-collapsed-width);");
