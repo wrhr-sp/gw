@@ -2365,9 +2365,13 @@ li {
     --feature-page-title-offset-block: var(--feature-page-card-padding);
     --feature-page-title-offset-inline: var(--feature-page-card-padding);
     --feature-page-title-content-gap: 0px;
-    --feature-page-shell-height: 100%;
+    --feature-page-shell-height: calc(var(--app-shell-main-height) - var(--feature-page-outer-gap-block) - var(--feature-page-outer-gap-block));
     --feature-page-shell-overflow: hidden;
     --feature-page-content-max-height: 100%;
+    --two-column-content-height: 100%;
+    --two-column-content-overflow: hidden;
+    --two-column-content-column-max-height: 100%;
+    --two-column-content-column-overflow-y: auto;
     --desktop-sidebar-max-height: var(--desktop-sidebar-height);
     --desktop-sidebar-nav-max-height: 100%;
     --two-column-content-sidebar-width: minmax(220px, 260px);
@@ -3883,13 +3887,18 @@ li {
   grid-template-columns: var(--two-column-content-sidebar-width) minmax(0, 1fr);
   gap: var(--two-column-content-column-gap);
   align-items: stretch;
+  height: var(--two-column-content-height);
   min-height: 100%;
+  overflow: var(--two-column-content-overflow);
 }
 
 .board-workspace__nav,
 .board-workspace__list,
 .board-workspace__detail {
+  max-height: var(--two-column-content-column-max-height);
+  min-height: 0;
   min-width: 0;
+  overflow-y: var(--two-column-content-column-overflow-y);
   padding: 0 var(--two-column-content-column-padding-inline);
 }
 
