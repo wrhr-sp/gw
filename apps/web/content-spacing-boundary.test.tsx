@@ -23,8 +23,9 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--page-shell-gap: var(--space-xl);");
     expect(globalCss).toContain("--hero-card-text-color: var(--surface-subtle);");
     expect(globalCss).toContain("--desktop-content-padding-inline: clamp(6px, 0.72vw, 12px)");
-    expect(globalCss).toContain("--feature-page-outer-gap-block: var(--desktop-content-padding-inline);");
-    expect(globalCss).toContain("--feature-page-outer-gap-inline: var(--desktop-content-padding-inline);");
+    expect(globalCss).toContain("--feature-page-outer-gap: 12px;");
+    expect(globalCss).toContain("--feature-page-outer-gap-block: var(--feature-page-outer-gap);");
+    expect(globalCss).toContain("--feature-page-outer-gap-inline: var(--feature-page-outer-gap);");
     expect(globalCss).toContain("--feature-page-card-radius: 18px;");
     expect(globalCss).toContain("--feature-page-card-padding: 14px;");
     expect(globalCss).toContain("--feature-page-title-offset-block: var(--feature-page-card-padding);");
@@ -35,6 +36,7 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-page-content-max-height: 100%;");
     expect(globalCss).toContain("--two-column-content-height: 100%;");
     expect(globalCss).toContain("--two-column-content-overflow: hidden;");
+    expect(globalCss).toContain("--two-column-content-column-height: 100%;");
     expect(globalCss).toContain("--two-column-content-column-max-height: 100%;");
     expect(globalCss).toContain("--two-column-content-column-overflow-y: auto;");
     expect(globalCss).toContain("--desktop-sidebar-nav-max-height: 100%;");
@@ -74,6 +76,7 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("min-height: var(--app-topbar-min-height);");
     expect(globalCss).toContain("--app-shell-body-padding: var(--app-body-padding-top) 0 calc(var(--mobile-bottom-nav-offset) + var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--app-body-mobile-bottom-extra));");
     expect(globalCss).toContain("padding: var(--app-shell-body-padding);");
+    expect(globalCss).toContain("--desktop-sidebar-height: calc(100dvh - 50px);");
     expect(globalCss).toContain("height: var(--desktop-sidebar-height);");
     expect(globalCss).toContain("max-height: var(--desktop-sidebar-nav-max-height);");
     expect(globalCss).toContain("background: var(--desktop-sidebar-link-bg);");
@@ -104,6 +107,7 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("border-radius: var(--feature-page-card-radius) var(--feature-page-card-radius) 0 0;");
     expect(globalCss).toContain("border-top: 0;");
     expect(globalCss).toContain("border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);");
+    expect(globalCss).toContain("height: 100%;");
     expect(globalCss).toContain("max-height: var(--feature-page-content-max-height);");
     expect(globalCss).toContain("padding: var(--feature-page-card-padding);");
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
@@ -122,6 +126,7 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("height: var(--two-column-content-height);");
     expect(globalCss).toContain("min-height: 100%;");
     expect(globalCss).toContain("overflow: var(--two-column-content-overflow);");
+    expect(globalCss).toContain("height: var(--two-column-content-column-height);");
     expect(globalCss).toContain("max-height: var(--two-column-content-column-max-height);");
     expect(globalCss).toContain("overflow-y: var(--two-column-content-column-overflow-y);");
     expect(globalCss).toContain("padding: 0 var(--two-column-content-column-padding-inline);");
