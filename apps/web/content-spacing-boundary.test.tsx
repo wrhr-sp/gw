@@ -33,13 +33,14 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-page-title-content-gap: 0px;");
     expect(globalCss).toContain("--feature-page-shell-height: calc(var(--app-shell-main-height) - var(--feature-page-outer-gap-block) - var(--feature-page-outer-gap-block));");
     expect(globalCss).toContain("--feature-page-shell-overflow: hidden;");
+    expect(globalCss).toContain("--feature-page-content-height: 100%;");
     expect(globalCss).toContain("--feature-page-content-max-height: 100%;");
     expect(globalCss).toContain("--two-column-content-height: 100%;");
     expect(globalCss).toContain("--two-column-content-overflow: hidden;");
     expect(globalCss).toContain("--two-column-content-column-height: 100%;");
     expect(globalCss).toContain("--two-column-content-column-max-height: 100%;");
     expect(globalCss).toContain("--two-column-content-column-overflow-y: auto;");
-    expect(globalCss).toContain("--desktop-sidebar-nav-max-height: 100%;");
+    expect(globalCss).toContain("--desktop-sidebar-nav-max-height: none;");
     expect(globalCss).toContain("--two-column-content-sidebar-width: minmax(220px, 260px);");
     expect(globalCss).toContain("--two-column-content-sidebar-width-compact: minmax(200px, 240px);");
     expect(globalCss).toContain("--two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);");
@@ -107,7 +108,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("border-radius: var(--feature-page-card-radius) var(--feature-page-card-radius) 0 0;");
     expect(globalCss).toContain("border-top: 0;");
     expect(globalCss).toContain("border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);");
-    expect(globalCss).toContain("height: 100%;");
+    expect(globalCss).toContain("align-self: stretch;");
+    expect(globalCss).toContain("height: var(--feature-page-content-height);");
     expect(globalCss).toContain("max-height: var(--feature-page-content-max-height);");
     expect(globalCss).toContain("padding: var(--feature-page-card-padding);");
     expect(globalCss).toContain(".page-shell__content > .surface-card {");
@@ -119,6 +121,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("grid-template-rows: minmax(0, 1fr);");
     expect(globalCss).toContain(".page-shell--title-in-content .page-shell__content {");
     expect(globalCss).toContain("border-radius: var(--feature-page-card-radius);");
+    expect(globalCss).toContain("height: var(--feature-page-shell-height);");
+    expect(globalCss).toContain("max-height: var(--feature-page-shell-height);");
     expect(globalCss).toContain(".board-workspace__list,");
     expect(globalCss).toContain("border-left: var(--two-column-content-divider);");
     expect(globalCss).toContain("grid-template-columns: var(--two-column-content-sidebar-width) minmax(0, 1fr);");

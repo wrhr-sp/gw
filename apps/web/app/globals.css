@@ -2368,13 +2368,14 @@ li {
     --feature-page-title-content-gap: 0px;
     --feature-page-shell-height: calc(var(--app-shell-main-height) - var(--feature-page-outer-gap-block) - var(--feature-page-outer-gap-block));
     --feature-page-shell-overflow: hidden;
+    --feature-page-content-height: 100%;
     --feature-page-content-max-height: 100%;
     --two-column-content-height: 100%;
     --two-column-content-overflow: hidden;
     --two-column-content-column-height: 100%;
     --two-column-content-column-max-height: 100%;
     --two-column-content-column-overflow-y: auto;
-    --desktop-sidebar-nav-max-height: 100%;
+    --desktop-sidebar-nav-max-height: none;
     --two-column-content-sidebar-width: minmax(220px, 260px);
     --two-column-content-sidebar-width-compact: minmax(200px, 240px);
     --two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);
@@ -2445,7 +2446,8 @@ li {
   .page-shell__content {
     border-top: 0;
     border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);
-    height: 100%;
+    align-self: stretch;
+    height: var(--feature-page-content-height);
     max-height: var(--feature-page-content-max-height);
     min-height: 0;
     overflow-y: auto;
@@ -2460,6 +2462,8 @@ li {
   .page-shell--title-in-content .page-shell__content {
     border-top: var(--page-shell-content-border-top);
     border-radius: var(--feature-page-card-radius);
+    height: var(--feature-page-shell-height);
+    max-height: var(--feature-page-shell-height);
   }
 
   .hero-card,
@@ -2583,7 +2587,7 @@ li {
     height: var(--desktop-sidebar-height);
     min-height: 0;
     flex-shrink: 0;
-    align-content: start;
+    align-content: stretch;
     gap: var(--desktop-sidebar-gap);
     padding: var(--desktop-sidebar-padding);
     position: fixed;
@@ -2611,7 +2615,8 @@ li {
   }
 
   .desktop-sidebar__nav {
-    height: 100%;
+    align-self: stretch;
+    height: auto;
     max-height: var(--desktop-sidebar-nav-max-height);
   }
 
