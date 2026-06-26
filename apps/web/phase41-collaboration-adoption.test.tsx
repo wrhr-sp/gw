@@ -38,8 +38,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("handleNoticePeriodRangeOpen");
     expect(panelSource).toContain('setNoticePeriodPreset("custom")');
     expect(panelSource).toContain("board-write-period-calendar");
-    expect(panelSource).toContain("height: 760");
-    expect(panelSource).toContain("min_height: 760");
+    expect(panelSource).toContain("height: 550");
+    expect(panelSource).toContain("min_height: 550");
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("--board-write-line-min-height: 48px;");
     expect(globalCss).toContain("min-height: var(--board-write-line-min-height);");
