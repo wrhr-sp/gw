@@ -1039,6 +1039,7 @@ code {
 
 .desktop-sidebar__nav {
   min-height: 0;
+  grid-auto-rows: max-content;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--desktop-sidebar-nav-padding);
