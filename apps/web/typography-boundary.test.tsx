@@ -5,6 +5,7 @@ describe("groupware typography baseline", () => {
   it("self-hosts Pretendard and routes all app text through typography tokens", () => {
     const globalCss = readFileSync("app/globals.css", "utf8");
     const tinymceContentCss = readFileSync("public/tinymce/skins/content/default/content.min.css", "utf8");
+    const realUsagePanels = readFileSync("app/_components/real-usage-panels.tsx", "utf8");
 
     expect(existsSync("public/fonts/pretendard/PretendardVariable.woff2")).toBe(true);
     expect(existsSync("public/fonts/pretendard/LICENSE.txt")).toBe(true);
@@ -42,5 +43,19 @@ describe("groupware typography baseline", () => {
     expect(globalCss).not.toContain("'Segoe UI',Roboto");
     expect(tinymceContentCss).toContain("Pretendard Variable");
     expect(tinymceContentCss).toContain("/fonts/pretendard/PretendardVariable.woff2");
+    expect(realUsagePanels).toContain("font_family_formats: boardTinymceFontFamilyFormats");
+    expect(realUsagePanels).toContain("content_style: boardTinymceContentStyle");
+    expect(realUsagePanels).not.toContain("font-family: Arial, sans-serif");
+    expect(realUsagePanels).toContain("기본 글꼴=Pretendard Variable,Pretendard,'Malgun Gothic','맑은 고딕',sans-serif");
+    expect(realUsagePanels).toContain("맑은 고딕='Malgun Gothic','맑은 고딕',sans-serif");
+    expect(realUsagePanels).toContain("맑은 고딕 Light='Malgun Gothic Semilight','맑은 고딕 Semilight','Malgun Gothic','맑은 고딕',sans-serif");
+    expect(realUsagePanels).toContain("돋움=Dotum,'돋움',sans-serif");
+    expect(realUsagePanels).toContain("돋움체=DotumChe,'돋움체',monospace");
+    expect(realUsagePanels).toContain("굴림=Gulim,'굴림',sans-serif");
+    expect(realUsagePanels).toContain("굴림체=GulimChe,'굴림체',monospace");
+    expect(realUsagePanels).toContain("바탕=Batang,'바탕',serif");
+    expect(realUsagePanels).toContain("바탕체=BatangChe,'바탕체',monospace");
+    expect(realUsagePanels).toContain("궁서=Gungsuh,'궁서',serif");
+    expect(realUsagePanels).toContain("궁서체=GungsuhChe,'궁서체',monospace");
   });
 });
