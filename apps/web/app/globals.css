@@ -243,7 +243,7 @@
   --board-tree-section-gap: 8px;
   --board-tree-item-gap: 3px;
   --board-tree-link-padding-block: 3px;
-  --board-tree-parent-font-size: calc(var(--font-size-page-title) - 1px);
+  --board-tree-parent-font-size: calc(var(--font-size-page-title) - 3px);
   --board-tree-parent-weight: var(--font-weight-bold);
   --board-tree-child-weight: var(--font-weight-semibold);
   --board-tree-unread-badge-height: 18px;
@@ -260,8 +260,8 @@
   --board-home-tab-min-width: max-content;
   --board-home-tab-padding-block: 0.35em;
   --board-home-tab-padding-inline: 0.7em;
-  --board-home-tab-font-size: var(--font-size-body);
-  --board-home-tab-font-weight: inherit;
+  --board-home-tab-font-size: inherit;
+  --board-home-tab-font-weight: var(--font-weight-black);
   --board-home-tab-active-bg: var(--primary-hover);
   --board-home-tab-active-text: var(--surface);
   --board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);
