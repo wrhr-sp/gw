@@ -1434,7 +1434,9 @@ const boardTinymceFontFamilyFormats = [
   "Fira Code=Fira Code,Courier New,monospace",
 ].join("; ");
 
-const boardTinymceContentStyle = "body { font-family: Pretendard Variable, Pretendard, 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 14px; }";
+const boardTinymceFontSizeFormats = "8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 24pt 36pt";
+
+const boardTinymceContentStyle = "body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 10pt; }";
 
 export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string | null; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
@@ -1656,6 +1658,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                   plugins: "lists link table code autoresize",
                   toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
                   font_family_formats: boardTinymceFontFamilyFormats,
+                  font_size_formats: boardTinymceFontSizeFormats,
                   elementpath: false,
                   branding: false,
                   promotion: false,
