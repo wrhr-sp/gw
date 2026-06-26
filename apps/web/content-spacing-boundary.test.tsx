@@ -19,8 +19,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-page-title-offset-block: var(--feature-page-card-padding);");
     expect(globalCss).toContain("--feature-page-title-offset-inline: var(--feature-page-card-padding);");
     expect(globalCss).toContain("--feature-page-title-content-gap: 0px;");
-    expect(globalCss).toContain("--two-column-content-sidebar-width: minmax(240px, 280px);");
-    expect(globalCss).toContain("--two-column-content-sidebar-width-compact: minmax(220px, 260px);");
+    expect(globalCss).toContain("--two-column-content-sidebar-width: minmax(220px, 260px);");
+    expect(globalCss).toContain("--two-column-content-sidebar-width-compact: minmax(200px, 240px);");
     expect(globalCss).toContain("--two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);");
     expect(globalCss).toContain("--two-column-content-column-gap: 0px;");
     expect(globalCss).toContain("--two-column-content-title-gap: 14px;");
