@@ -1819,8 +1819,8 @@ li {
     --feature-page-title-offset-block: var(--feature-page-card-padding);
     --feature-page-title-offset-inline: var(--feature-page-card-padding);
     --feature-page-title-content-gap: 0px;
-    --two-column-content-sidebar-width: minmax(240px, 280px);
-    --two-column-content-sidebar-width-compact: minmax(220px, 260px);
+    --two-column-content-sidebar-width: minmax(220px, 260px);
+    --two-column-content-sidebar-width-compact: minmax(200px, 240px);
     --two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);
     --two-column-content-column-gap: 0px;
     --two-column-content-title-gap: 14px;
