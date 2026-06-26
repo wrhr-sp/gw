@@ -51,11 +51,11 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--board-home-tab-group-padding: 2px;");
     expect(globalCss).toContain("--board-home-tab-group-border: 0.5px solid var(--primary-soft-strong);");
     expect(globalCss).toContain("--board-home-tab-group-bg: var(--surface-subtle);");
-    expect(globalCss).toContain("--board-home-tab-min-width: 38px;");
-    expect(globalCss).toContain("--board-home-tab-padding-block: calc(var(--space-sm) / 2);");
-    expect(globalCss).toContain("--board-home-tab-padding-inline: 7px;");
-    expect(globalCss).toContain("--board-home-tab-font-size: calc(var(--font-size-md) / 2);");
-    expect(globalCss).toContain("--board-home-tab-font-weight: var(--font-weight-regular);");
+    expect(globalCss).toContain("--board-home-tab-min-width: max-content;");
+    expect(globalCss).toContain("--board-home-tab-padding-block: 0.35em;");
+    expect(globalCss).toContain("--board-home-tab-padding-inline: 0.7em;");
+    expect(globalCss).toContain("--board-home-tab-font-size: var(--font-size-body);");
+    expect(globalCss).toContain("--board-home-tab-font-weight: inherit;");
     expect(globalCss).toContain("--board-home-tab-active-bg: var(--primary-hover);");
     expect(globalCss).toContain("--board-home-tab-active-text: var(--surface);");
     expect(globalCss).toContain("--board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);");
