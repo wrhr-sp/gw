@@ -30,6 +30,7 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain("transform: translateX(var(--board-write-label-shift-x));");
     expect(globalCss).toContain(".board-write-line--board");
     expect(globalCss).toContain("--board-write-line-board-grid-template-columns: 104px max-content max-content;");
+    expect(globalCss).toContain("--board-write-options-grid-template-columns: 104px repeat(2, max-content) minmax(0, 1fr) max-content;");
     expect(globalCss).toContain("grid-template-columns: var(--board-write-line-board-grid-template-columns);");
     expect(globalCss).toContain(".board-write-line select.field");
     expect(globalCss).toContain("min-width: max-content;");
@@ -50,6 +51,14 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("<div className=\"board-write-choice-row\" role=\"group\" aria-label=\"공개설정\">");
     expect(panelSource).toContain("<div className=\"board-write-notice\">");
     expect(panelSource).toContain("<div className=\"board-write-options\">");
+    expect(panelSource.indexOf("<div className=\"board-write-options\">")).toBeLessThan(panelSource.indexOf("<div className=\"board-write-notice\">"));
+    expect(panelSource).toContain("className=\"touch-button board-write-submit\"");
+    expect(panelSource).toContain("{pending ? \"등록 중\" : \"등록\"}");
+    expect(panelSource).not.toContain("{pending ? \"작성 처리 중\" : \"게시글 등록\"}");
+    expect(globalCss).toContain(".board-write-submit");
+    expect(globalCss).toContain("grid-column: 5;");
+    expect(globalCss).toContain("justify-self: end;");
+    expect(globalCss).toContain("align-self: start;");
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("--board-write-line-min-height: 48px;");
     expect(globalCss).toContain("min-height: var(--board-write-line-min-height);");

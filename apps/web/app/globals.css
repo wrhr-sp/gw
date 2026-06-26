@@ -494,7 +494,7 @@
   --board-write-label-shift-x: var(--board-write-layout-gap);
   --board-write-line-min-height: 48px;
   --board-write-line-board-grid-template-columns: 104px max-content max-content;
-  --board-write-options-grid-template-columns: 104px repeat(2, max-content);
+  --board-write-options-grid-template-columns: 104px repeat(2, max-content) minmax(0, 1fr) max-content;
   --board-write-choice-row-width: 104px;
   --board-write-notice-grid-template-columns: 104px max-content max-content max-content max-content;
   --board-write-notice-gap: 8px;
@@ -1492,6 +1492,16 @@ li {
 .board-write-choice-row {
   align-items: center;
   grid-template-columns: var(--board-write-options-grid-template-columns);
+}
+
+.board-write-options {
+  align-items: start;
+}
+
+.board-write-submit {
+  grid-column: 5;
+  justify-self: end;
+  align-self: start;
 }
 
 .board-write-choice-row {

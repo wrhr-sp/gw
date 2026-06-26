@@ -1671,6 +1671,14 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               <label><input checked={visibility === "public"} onChange={() => setVisibility("public")} name="board-post-visibility" type="radio" /> 공개</label>
               <label><input checked={visibility === "private"} onChange={() => setVisibility("private")} name="board-post-visibility" type="radio" /> 비공개</label>
             </div>
+            <div className="board-write-options">
+              <strong>알림</strong>
+              <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일알림</label>
+              <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시알림</label>
+              <button className="touch-button board-write-submit" disabled={pending || !effectiveBoardId || !canShowBoardFlow} onClick={handleCreatePost} type="button">
+                {pending ? "등록 중" : "등록"}
+              </button>
+            </div>
             <div className="board-write-notice">
               <strong>공지등록여부</strong>
               <label><input checked={isNotice} onChange={(event) => handleNoticeToggle(event.target.checked)} type="checkbox" /> 공지등록</label>
@@ -1709,16 +1717,6 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                   </div>
                 </>
               ) : null}
-            </div>
-            <div className="board-write-options">
-              <strong>알림</strong>
-              <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일알림</label>
-              <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시알림</label>
-            </div>
-            <div className="action-row" style={{ marginTop: 12 }}>
-              <button className="touch-button" disabled={pending || !effectiveBoardId || !canShowBoardFlow} onClick={handleCreatePost} type="button">
-                {pending ? "작성 처리 중" : "게시글 등록"}
-              </button>
             </div>
           </section>
         ) : null}
