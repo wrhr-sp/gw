@@ -26,6 +26,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
     expect(globalCss).toContain("--board-write-form-gap: 3px;");
     expect(globalCss).toContain("--board-tinymce-field-gap: 3px;");
+    expect(globalCss).toContain("--board-write-label-shift-x: var(--board-write-layout-gap);");
+    expect(globalCss).toContain("transform: translateX(var(--board-write-label-shift-x));");
     expect(globalCss).toContain(".board-write-line--board");
     expect(globalCss).toContain("--board-write-line-board-grid-template-columns: 104px max-content max-content;");
     expect(globalCss).toContain("grid-template-columns: var(--board-write-line-board-grid-template-columns);");
@@ -45,7 +47,7 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("<div className=\"board-write-line board-write-line--board\">");
     expect(panelSource).toContain("<div className=\"board-write-line board-write-line--title\">");
     expect(panelSource).toContain("<div className=\"board-tinymce-field\">");
-    expect(panelSource).toContain("<fieldset className=\"board-write-choice-row\">");
+    expect(panelSource).toContain("<div className=\"board-write-choice-row\" role=\"group\" aria-label=\"공개설정\">");
     expect(panelSource).toContain("<div className=\"board-write-notice\">");
     expect(panelSource).toContain("<div className=\"board-write-options\">");
     expect(globalCss).toContain("align-items: center;");

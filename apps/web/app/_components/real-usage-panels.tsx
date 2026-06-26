@@ -1663,11 +1663,11 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 }}
               />
             </div>
-            <fieldset className="board-write-choice-row">
-              <legend>공개설정</legend>
+            <div className="board-write-choice-row" role="group" aria-label="공개설정">
+              <strong>공개설정</strong>
               <label><input checked={visibility === "public"} onChange={() => setVisibility("public")} name="board-post-visibility" type="radio" /> 공개</label>
               <label><input checked={visibility === "private"} onChange={() => setVisibility("private")} name="board-post-visibility" type="radio" /> 비공개</label>
-            </fieldset>
+            </div>
             <div className="board-write-notice">
               <strong>공지등록여부</strong>
               <label><input checked={isNotice} onChange={(event) => handleNoticeToggle(event.target.checked)} type="checkbox" /> 공지등록</label>
