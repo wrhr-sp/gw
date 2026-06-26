@@ -11,6 +11,17 @@ describe("feature page content spacing baseline", () => {
     const globalCss = readFileSync(new URL("./app/globals.css", import.meta.url), "utf8");
 
     expect(globalCss).toContain("--desktop-sidebar-collapsed-width: 86px");
+    expect(globalCss).toContain("--app-shell-max-width: 1120px;");
+    expect(globalCss).toContain("--app-shell-viewport-gutter: 24px;");
+    expect(globalCss).toContain("--app-topbar-bg: rgba(248, 250, 252, 0.92);");
+    expect(globalCss).toContain("--app-topbar-border: 1px solid rgba(219, 226, 234, 0.9);");
+    expect(globalCss).toContain("--app-topbar-min-height: 64px;");
+    expect(globalCss).toContain("--app-body-padding-top: var(--space-xl);");
+    expect(globalCss).toContain("--app-body-mobile-bottom-extra: 28px;");
+    expect(globalCss).toContain("--desktop-sidebar-link-bg: rgba(255, 255, 255, 0.72);");
+    expect(globalCss).toContain("--desktop-sidebar-link-transition: background-color 160ms ease, color 160ms ease;");
+    expect(globalCss).toContain("--page-shell-gap: var(--space-xl);");
+    expect(globalCss).toContain("--hero-card-text-color: var(--surface-subtle);");
     expect(globalCss).toContain("--desktop-content-padding-inline: clamp(6px, 0.72vw, 12px)");
     expect(globalCss).toContain("--feature-page-outer-gap-block: var(--desktop-content-padding-inline);");
     expect(globalCss).toContain("--feature-page-outer-gap-inline: var(--desktop-content-padding-inline);");
@@ -48,6 +59,15 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--board-post-avatar-bg: var(--primary-soft-strong);");
     expect(globalCss).toContain("--board-post-arrow-color: #94a3b8;");
     expect(globalCss).toContain(".page-shell,");
+    expect(globalCss).toContain("width: min(var(--app-shell-max-width), calc(100vw - var(--app-shell-viewport-gutter)))");
+    expect(globalCss).toContain("background: var(--app-topbar-bg);");
+    expect(globalCss).toContain("border-bottom: var(--app-topbar-border);");
+    expect(globalCss).toContain("min-height: var(--app-topbar-min-height);");
+    expect(globalCss).toContain("padding: var(--app-body-padding-top) 0 calc(var(--mobile-bottom-nav-offset) + var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--app-body-mobile-bottom-extra));");
+    expect(globalCss).toContain("background: var(--desktop-sidebar-link-bg);");
+    expect(globalCss).toContain("transition: var(--desktop-sidebar-link-transition);");
+    expect(globalCss).toContain("gap: var(--page-shell-gap);");
+    expect(globalCss).toContain("color: var(--hero-card-text-color);");
     expect(globalCss).toContain("width: 100%");
     expect(globalCss).toContain("max-width: none");
     expect(globalCss).toContain("padding-inline: var(--feature-page-outer-gap-inline)");
