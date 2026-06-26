@@ -112,6 +112,27 @@
   --board-tree-unread-badge-font-size: 10px;
   --board-tree-unread-badge-font-weight: var(--font-weight-medium);
   --board-tree-unread-badge-radius: var(--radius-pill);
+  --board-home-feed-gap: 14px;
+  --board-home-tab-group-gap: 6px;
+  --board-home-tab-group-padding: 4px;
+  --board-home-tab-group-border: 1px solid var(--primary-soft-strong);
+  --board-home-tab-group-bg: var(--surface-subtle);
+  --board-home-tab-min-width: 76px;
+  --board-home-tab-padding-block: var(--space-sm);
+  --board-home-tab-padding-inline: 14px;
+  --board-home-tab-active-bg: var(--primary-hover);
+  --board-home-tab-active-text: var(--surface);
+  --board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);
+  --board-home-tab-focus-outline-offset: 3px;
+  --board-post-row-gap: var(--space-md);
+  --board-post-row-padding-block: 14px;
+  --board-home-feed-row-gap: 7px;
+  --board-home-feed-row-padding-block: 18px;
+  --board-home-feed-row-divider: 1px solid var(--line);
+  --board-post-meta-gap: var(--space-sm);
+  --board-post-avatar-size: 24px;
+  --board-post-avatar-bg: var(--primary-soft-strong);
+  --board-post-arrow-color: #94a3b8;
   --empty-state-padding: var(--space-xl);
   --empty-state-gap: 10px;
   --empty-state-action-gap: var(--space-xs);
@@ -3575,22 +3596,22 @@ li {
 
 .board-home-feed {
   display: grid;
-  gap: 14px;
+  gap: var(--board-home-feed-gap);
 }
 
 .board-home-tabs {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--board-home-tab-group-gap);
   width: fit-content;
-  padding: 4px;
-  border: 1px solid #dbe7ff;
+  padding: var(--board-home-tab-group-padding);
+  border: var(--board-home-tab-group-border);
   border-radius: var(--radius-pill);
-  background: #f8fbff;
+  background: var(--board-home-tab-group-bg);
 }
 
 .board-home-tabs button {
-  min-width: 76px;
+  min-width: var(--board-home-tab-min-width);
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -3598,17 +3619,17 @@ li {
   cursor: pointer;
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-heavy);
-  padding: 8px 14px;
+  padding: var(--board-home-tab-padding-block) var(--board-home-tab-padding-inline);
 }
 
 .board-home-tabs button[aria-selected="true"] {
-  background: var(--primary-hover);
-  color: #fff;
+  background: var(--board-home-tab-active-bg);
+  color: var(--board-home-tab-active-text);
 }
 
 .board-home-tabs button:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.28);
-  outline-offset: 3px;
+  outline: var(--board-home-tab-focus-outline);
+  outline-offset: var(--board-home-tab-focus-outline-offset);
 }
 
 .board-inline-action {
@@ -3619,18 +3640,18 @@ li {
 
 .board-post-row {
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 14px 0;
+  gap: var(--board-post-row-gap);
+  padding: var(--board-post-row-padding-block) 0;
 }
 
 .board-post-row--feed {
   grid-template-columns: minmax(0, 1fr);
-  gap: 7px;
-  padding: 18px 0;
+  gap: var(--board-home-feed-row-gap);
+  padding: var(--board-home-feed-row-padding-block) 0;
 }
 
 .board-post-row--feed + .board-post-row--feed {
-  border-top: 1px solid var(--line);
+  border-top: var(--board-home-feed-row-divider);
 }
 
 .board-post-row--feed:hover .board-post-row__title,
@@ -3658,7 +3679,7 @@ li {
 .board-post-row__meta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--board-post-meta-gap);
   min-width: 0;
   color: var(--text-muted);
   font-size: var(--font-size-sm);
@@ -3673,19 +3694,19 @@ li {
 
 .board-post-row__avatar {
   display: inline-grid;
-  width: 24px;
-  height: 24px;
+  width: var(--board-post-avatar-size);
+  height: var(--board-post-avatar-size);
   flex: 0 0 auto;
   place-items: center;
   border-radius: var(--radius-pill);
-  background: #e0edff;
+  background: var(--board-post-avatar-bg);
   color: var(--primary-hover);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-black);
 }
 
 .board-post-row > span {
-  color: #94a3b8;
+  color: var(--board-post-arrow-color);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-black);
 }
