@@ -1388,6 +1388,23 @@ function getBoardCategory(board: Record<string, any> | null | undefined): Exclud
   return board?.visibility === "department" || board?.boardType === "department" ? "department" : "company";
 }
 
+// Windows 기본 한글 글꼴은 파일을 번들링하지 않고 family name만 참조해 라이선스 재배포 위험을 피한다.
+const boardTinymceFontFamilyFormats = [
+  "기본 글꼴=Pretendard Variable,Pretendard,'Malgun Gothic','맑은 고딕',sans-serif",
+  "맑은 고딕='Malgun Gothic','맑은 고딕',sans-serif",
+  "맑은 고딕 Light='Malgun Gothic Semilight','맑은 고딕 Semilight','Malgun Gothic','맑은 고딕',sans-serif",
+  "돋움=Dotum,'돋움',sans-serif",
+  "돋움체=DotumChe,'돋움체',monospace",
+  "굴림=Gulim,'굴림',sans-serif",
+  "굴림체=GulimChe,'굴림체',monospace",
+  "바탕=Batang,'바탕',serif",
+  "바탕체=BatangChe,'바탕체',monospace",
+  "궁서=Gungsuh,'궁서',serif",
+  "궁서체=GungsuhChe,'궁서체',monospace",
+].join("; ");
+
+const boardTinymceContentStyle = "body { font-family: Pretendard Variable, Pretendard, 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 14px; }";
+
 export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string | null; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
@@ -1607,9 +1624,10 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                   menubar: false,
                   plugins: "lists link table code autoresize",
                   toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
+                  font_family_formats: boardTinymceFontFamilyFormats,
                   branding: false,
                   promotion: false,
-                  content_style: "body { font-family: Arial, sans-serif; font-size: 14px; }",
+                  content_style: boardTinymceContentStyle,
                 }}
               />
             </div>
