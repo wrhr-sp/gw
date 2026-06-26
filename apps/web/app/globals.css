@@ -2542,7 +2542,7 @@ li {
   }
 
   .page-shell {
-    padding-inline: var(--feature-page-outer-gap-inline);
+    padding-inline: 0;
   }
 
   .login-page-shell {
@@ -2740,7 +2740,7 @@ li {
   }
 
   .app-shell__body {
-    padding-bottom: var(--desktop-content-padding-inline);
+    padding-bottom: var(--feature-page-outer-gap-block);
   }
 
   .app-shell__body--login {
