@@ -489,7 +489,7 @@
   --grid-auto-compact-grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   --board-write-layout-gap: 16px;
   --board-write-layout-grid-template-columns: minmax(0, 2fr) minmax(260px, 0.75fr);
-  --board-write-form-gap: 10px;
+  --board-write-form-gap: 3px;
   --board-write-line-grid-template-columns: 104px max-content minmax(260px, 1fr);
   --board-write-line-min-height: 48px;
   --board-write-line-board-grid-template-columns: 104px max-content max-content;
@@ -507,7 +507,7 @@
   --board-write-notice-helper-gap: 6px;
   --board-write-date-range-grid-template-columns: repeat(2, minmax(150px, 1fr));
   --board-write-options-gap: 8px;
-  --board-tinymce-field-gap: 12px;
+  --board-tinymce-field-gap: 3px;
   --board-write-form-border-radius: 16px;
   --mobile-summary-grid-grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   --info-card-text-underline-offset: 3px;

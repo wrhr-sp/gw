@@ -1617,7 +1617,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
         {showWriteForm ? (
           <section className="board-write-form" aria-labelledby="board-write-form-title">
             <h2 className="board-write-heading" id="board-write-form-title">글쓰기</h2>
-            <div className="board-write-line board-write-line--board" style={{ marginTop: 12 }}>
+            <div className="board-write-line board-write-line--board">
               <strong>게시판 선택</strong>
               <select className="field" onChange={(event) => setSelectedCategory(event.target.value as BoardCategory)} value={selectedCategory}>
                 <option value="">게시판 구분 선택</option>
@@ -1631,7 +1631,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 ))}
               </select>
             </div>
-            <div className="board-write-line board-write-line--title" style={{ marginTop: 12 }}>
+            <div className="board-write-line board-write-line--title">
               <strong>제목</strong>
               <select className="field" disabled={!prefixOptions.length} onChange={(event) => setSelectedPrefix(event.target.value)} value={selectedPrefix}>
                 <option value="">{prefixOptions.length ? "말머리 선택" : "설정된 말머리 없음"}</option>
@@ -1641,7 +1641,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               </select>
               <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목 입력" value={title} />
             </div>
-            <div className="board-tinymce-field" style={{ marginTop: 12 }}>
+            <div className="board-tinymce-field">
               <strong>본문</strong>
               <Editor
                 apiKey="no-api-key"
@@ -1663,12 +1663,12 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 }}
               />
             </div>
-            <fieldset className="board-write-choice-row" style={{ marginTop: 12 }}>
+            <fieldset className="board-write-choice-row">
               <legend>공개설정</legend>
               <label><input checked={visibility === "public"} onChange={() => setVisibility("public")} name="board-post-visibility" type="radio" /> 공개</label>
               <label><input checked={visibility === "private"} onChange={() => setVisibility("private")} name="board-post-visibility" type="radio" /> 비공개</label>
             </fieldset>
-            <div className="board-write-notice" style={{ marginTop: 12 }}>
+            <div className="board-write-notice">
               <strong>공지등록여부</strong>
               <label><input checked={isNotice} onChange={(event) => handleNoticeToggle(event.target.checked)} type="checkbox" /> 공지등록</label>
               {isNotice ? (
@@ -1707,7 +1707,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 </>
               ) : null}
             </div>
-            <div className="board-write-options" style={{ marginTop: 12 }}>
+            <div className="board-write-options">
               <strong>알림</strong>
               <label><input checked={mailAlert} onChange={(event) => setMailAlert(event.target.checked)} type="checkbox" /> 메일알림</label>
               <label><input checked={pushAlert} onChange={(event) => setPushAlert(event.target.checked)} type="checkbox" /> 푸시알림</label>

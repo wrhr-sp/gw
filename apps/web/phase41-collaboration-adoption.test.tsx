@@ -24,6 +24,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(globalCss).toContain("font-size: var(--font-size-page-title);");
     expect(globalCss).toContain("font-weight: var(--font-weight-page-title);");
     expect(globalCss).toContain("letter-spacing: var(--letter-spacing-feature-title);");
+    expect(globalCss).toContain("--board-write-form-gap: 3px;");
+    expect(globalCss).toContain("--board-tinymce-field-gap: 3px;");
     expect(globalCss).toContain(".board-write-line--board");
     expect(globalCss).toContain("--board-write-line-board-grid-template-columns: 104px max-content max-content;");
     expect(globalCss).toContain("grid-template-columns: var(--board-write-line-board-grid-template-columns);");
@@ -40,6 +42,12 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("board-write-period-calendar");
     expect(panelSource).toContain("height: 550");
     expect(panelSource).toContain("min_height: 550");
+    expect(panelSource).toContain("<div className=\"board-write-line board-write-line--board\">");
+    expect(panelSource).toContain("<div className=\"board-write-line board-write-line--title\">");
+    expect(panelSource).toContain("<div className=\"board-tinymce-field\">");
+    expect(panelSource).toContain("<fieldset className=\"board-write-choice-row\">");
+    expect(panelSource).toContain("<div className=\"board-write-notice\">");
+    expect(panelSource).toContain("<div className=\"board-write-options\">");
     expect(globalCss).toContain("align-items: center;");
     expect(globalCss).toContain("--board-write-line-min-height: 48px;");
     expect(globalCss).toContain("min-height: var(--board-write-line-min-height);");
