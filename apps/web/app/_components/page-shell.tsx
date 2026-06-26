@@ -7,6 +7,7 @@ type PageShellProps = {
   onTitleClick?: () => void;
   eyebrow?: string;
   title: string;
+  titlePlacement?: "header" | "content";
   description?: string;
   children: ReactNode;
   actions?: ReactNode;
@@ -15,6 +16,7 @@ type PageShellProps = {
 export function PageShell({
   eyebrow,
   title,
+  titlePlacement = "header",
   titleHref,
   onTitleClick,
   description,
@@ -25,25 +27,27 @@ export function PageShell({
   const resolvedTitleHref = titleHref === undefined ? backHref : titleHref;
 
   return (
-    <main className="page-shell">
-      <div className="page-shell__header">
-        {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
-        <div className="page-shell__headline">
-          <div>
-            <h1>
-              {onTitleClick ? (
-                <button className="page-shell__title-link page-shell__title-button" onClick={onTitleClick} type="button">{title}</button>
-              ) : resolvedTitleHref ? (
-                <a className="page-shell__title-link" href={resolvedTitleHref}>{title}</a>
-              ) : (
-                title
-              )}
-            </h1>
-            {description ? <p>{description}</p> : null}
+    <main className={titlePlacement === "content" ? "page-shell page-shell--title-in-content" : "page-shell"}>
+      {titlePlacement === "header" ? (
+        <div className="page-shell__header">
+          {eyebrow ? <p className="page-shell__eyebrow">{eyebrow}</p> : null}
+          <div className="page-shell__headline">
+            <div>
+              <h1>
+                {onTitleClick ? (
+                  <button className="page-shell__title-link page-shell__title-button" onClick={onTitleClick} type="button">{title}</button>
+                ) : resolvedTitleHref ? (
+                  <a className="page-shell__title-link" href={resolvedTitleHref}>{title}</a>
+                ) : (
+                  title
+                )}
+              </h1>
+              {description ? <p>{description}</p> : null}
+            </div>
+            {actions ? <div className="page-shell__actions">{actions}</div> : null}
           </div>
-          {actions ? <div className="page-shell__actions">{actions}</div> : null}
         </div>
-      </div>
+      ) : null}
       <div className="page-shell__content">{children}</div>
     </main>
   );
