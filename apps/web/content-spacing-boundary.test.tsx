@@ -59,13 +59,13 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--board-post-avatar-bg: var(--primary-soft-strong);");
     expect(globalCss).toContain("--board-post-arrow-color: #94a3b8;");
     expect(globalCss).toContain(".page-shell,");
-    expect(globalCss).toContain("--phase5-page-shell-width-5d775: min(var(--app-shell-max-width), calc(100vw - var(--app-shell-viewport-gutter)));");
-    expect(globalCss).toContain("width: var(--phase5-page-shell-width-5d775);");
+    expect(globalCss).toContain("--page-shell-width: min(var(--app-shell-max-width), calc(100vw - var(--app-shell-viewport-gutter)));");
+    expect(globalCss).toContain("width: var(--page-shell-width);");
     expect(globalCss).toContain("background: var(--app-topbar-bg);");
     expect(globalCss).toContain("border-bottom: var(--app-topbar-border);");
     expect(globalCss).toContain("min-height: var(--app-topbar-min-height);");
-    expect(globalCss).toContain("--phase5-app-shell__body-padding-d018e: var(--app-body-padding-top) 0 calc(var(--mobile-bottom-nav-offset) + var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--app-body-mobile-bottom-extra));");
-    expect(globalCss).toContain("padding: var(--phase5-app-shell__body-padding-d018e);");
+    expect(globalCss).toContain("--app-shell-body-padding: var(--app-body-padding-top) 0 calc(var(--mobile-bottom-nav-offset) + var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--app-body-mobile-bottom-extra));");
+    expect(globalCss).toContain("padding: var(--app-shell-body-padding);");
     expect(globalCss).toContain("background: var(--desktop-sidebar-link-bg);");
     expect(globalCss).toContain("transition: var(--desktop-sidebar-link-transition);");
     expect(globalCss).toContain("gap: var(--page-shell-gap);");
@@ -73,8 +73,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("width: 100%");
     expect(globalCss).toContain("max-width: none");
     expect(globalCss).toContain("padding-inline: var(--feature-page-outer-gap-inline)");
-    expect(globalCss).toContain("--phase5-status-banner-width-dc08f: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));");
-    expect(globalCss).toContain("width: var(--phase5-status-banner-width-dc08f);");
+    expect(globalCss).toContain("--desktop-status-banner-width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));");
+    expect(globalCss).toContain("width: var(--desktop-status-banner-width);");
     expect(globalCss).toContain(".page-shell__content {");
     expect(globalCss).toContain("gap: 0;");
     expect(globalCss).toContain("background: var(--surface);");
