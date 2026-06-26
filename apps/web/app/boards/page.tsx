@@ -163,10 +163,16 @@ export default function BoardsPage() {
   return (
     <PageShell
       title="게시판"
+      titlePlacement="content"
       onTitleClick={resetBoardHome}
     >
       <div className="board-workspace">
         <aside className="board-workspace__nav" aria-label="게시판 목록">
+          <div className="board-workspace__nav-header">
+            <h1>
+              <button className="page-shell__title-link page-shell__title-button" onClick={resetBoardHome} type="button">게시판</button>
+            </h1>
+          </div>
           <button className="board-write-button" onClick={openWrite} type="button">글쓰기</button>
           <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} isHomeActive={view.kind === "companyHome"} onOpenHome={() => setView({ kind: "companyHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
           <BoardSection title="부서게시판" boards={departmentBoards} selectedBoardId={activeNavBoardId} isHomeActive={view.kind === "departmentHome"} onOpenHome={() => setView({ kind: "departmentHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />
