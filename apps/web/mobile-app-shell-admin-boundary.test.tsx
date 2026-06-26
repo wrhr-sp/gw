@@ -755,6 +755,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("--desktop-status-banner-width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));");
     expect(globalCss).toContain("width: var(--desktop-status-banner-width);");
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");
+    expect(globalCss).toContain("grid-auto-rows: max-content");
     expect(globalCss).toContain(".app-shell__body > .page-shell");
     expect(globalCss).toContain("flex: 1 1 auto");
     expect(globalCss).toContain("padding-bottom: var(--feature-page-outer-gap-block)");
