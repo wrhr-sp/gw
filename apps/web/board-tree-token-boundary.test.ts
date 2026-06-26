@@ -8,7 +8,7 @@ describe("board tree compact token baseline", () => {
     expect(globalCss).toContain("--board-tree-section-gap: 8px;");
     expect(globalCss).toContain("--board-tree-item-gap: 3px;");
     expect(globalCss).toContain("--board-tree-link-padding-block: 3px;");
-    expect(globalCss).toContain("--board-tree-parent-font-size: calc(var(--font-size-body) * 2);");
+    expect(globalCss).toContain("--board-tree-parent-font-size: calc(var(--font-size-page-title) - 1px);");
     expect(globalCss).toContain("--board-tree-parent-weight: var(--font-weight-bold);");
     expect(globalCss).toContain("--board-tree-child-weight: var(--font-weight-semibold);");
     expect(globalCss).toContain("--board-tree-unread-badge-height: 18px;");
