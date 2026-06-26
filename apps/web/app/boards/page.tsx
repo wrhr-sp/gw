@@ -190,7 +190,6 @@ export default function BoardsPage() {
                 <Pill tone="accent">현재 선택</Pill>
                 <h2>{getContentTitle()}</h2>
               </div>
-              <button className="board-inline-action" onClick={() => openBoard("board_notice")} type="button">공지 보기</button>
             </div>
           ) : null}
           {view.kind === "home" ? (
