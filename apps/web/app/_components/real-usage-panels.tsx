@@ -1650,8 +1650,8 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 value={bodyHtml}
                 onEditorChange={(value) => setBodyHtml(value)}
                 init={{
-                  height: 760,
-                  min_height: 760,
+                  height: 550,
+                  min_height: 550,
                   menubar: false,
                   plugins: "lists link table code autoresize",
                   toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
