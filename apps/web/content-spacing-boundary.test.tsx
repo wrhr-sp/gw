@@ -56,8 +56,8 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--board-home-tab-padding-block: 0.35em;");
     expect(globalCss).toContain("--board-home-tab-padding-inline: 0.7em;");
     expect(globalCss).toContain("--board-home-tab-font-size: inherit;");
-    expect(globalCss).toContain("--board-home-tab-font-weight: var(--font-weight-bold);");
-    expect(globalCss).toContain("--board-home-tab-font-variation-settings: \"wght\" 700;");
+    expect(globalCss).toContain("--board-home-tab-font-weight: var(--font-weight-semibold);");
+    expect(globalCss).toContain("--board-home-tab-font-variation-settings: \"wght\" 600;");
     expect(globalCss).toContain("--board-write-button-font-weight: var(--font-weight-black);");
     expect(globalCss).toContain("--board-write-button-font-variation-settings: \"wght\" 900;");
     expect(globalCss).toContain("--board-home-tab-active-bg: var(--primary-hover);");
