@@ -262,11 +262,10 @@
   --board-home-tab-padding-block: 0.35em;
   --board-home-tab-padding-inline: 0.7em;
   --board-home-tab-font-size: inherit;
-  --board-home-tab-font-weight: var(--board-write-button-font-weight);
-  --board-home-tab-font-variation-settings: var(--board-write-button-font-variation-settings);
-  --board-home-tab-text: var(--primary-hover);
-  --board-home-tab-active-bg: var(--board-write-button-background);
-  --board-home-tab-active-text: var(--board-home-tab-text);
+  --board-home-tab-font-weight: var(--font-weight-bold);
+  --board-home-tab-font-variation-settings: "wght" 700;
+  --board-home-tab-active-bg: var(--primary-hover);
+  --board-home-tab-active-text: var(--surface);
   --board-home-tab-focus-outline: 2px solid rgba(37, 99, 235, 0.28);
   --board-home-tab-focus-outline-offset: 3px;
   --board-post-row-gap: var(--space-md);
@@ -4195,7 +4194,7 @@ li {
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--board-home-tab-text);
+  color: var(--text-muted);
   cursor: pointer;
   font-size: var(--board-home-tab-font-size);
   font-variation-settings: var(--board-home-tab-font-variation-settings);
