@@ -2358,6 +2358,10 @@ li {
 @media (min-width: 961px) {
   .app-shell--responsive {
     --desktop-topbar-height: 50px;
+    --app-shell-main-height: calc(100dvh - var(--desktop-topbar-height));
+    --desktop-sidebar-fixed-height: calc(100dvh - var(--desktop-topbar-height));
+    --desktop-sidebar-height: var(--desktop-sidebar-fixed-height);
+    --desktop-sidebar-nav-scroll-height: calc(var(--desktop-sidebar-fixed-height) - var(--desktop-sidebar-gap) - var(--desktop-sidebar-padding-block-start) - var(--desktop-sidebar-padding-block-end) - var(--desktop-sidebar-header-height));
     --desktop-content-padding-inline: clamp(6px, 0.72vw, 12px);
     --desktop-grid-gap: clamp(9px, 0.8vw, 12px);
     --desktop-grid-min: clamp(158px, 11.25vw, 180px);
