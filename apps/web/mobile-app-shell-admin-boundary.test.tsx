@@ -676,7 +676,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("--desktop-topbar-height: 50px");
     expect(globalCss).toContain("margin-top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("--app-shell-main-height: calc(100dvh - var(--desktop-topbar-height));");
-    expect(globalCss).toContain("--desktop-sidebar-height: calc(100dvh - 50px);");
+    expect(globalCss).toContain("--desktop-sidebar-height: calc(100dvh - var(--desktop-topbar-height));");
     expect(globalCss).toContain("height: var(--app-shell-main-height);");
     expect(globalCss).toContain("height: var(--desktop-sidebar-height);");
     expect(globalCss).toContain("--app-shell-main-scroll-padding-top: 24px;");
@@ -685,7 +685,7 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain("z-index: var(--z-desktop-topbar)");
     expect(globalCss).toContain("top: var(--desktop-topbar-height)");
     expect(globalCss).toContain("--app-shell-main-height: calc(100dvh - var(--desktop-topbar-height));");
-    expect(globalCss).toContain("--desktop-sidebar-height: calc(100dvh - 50px);");
+    expect(globalCss).toContain("--desktop-sidebar-height: calc(100dvh - var(--desktop-topbar-height));");
     expect(globalCss).toContain("height: var(--app-shell-main-height);");
     expect(globalCss).toContain("height: var(--desktop-sidebar-height);");
     expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr)");

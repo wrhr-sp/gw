@@ -580,7 +580,7 @@
   --desktop-status-banner-width: calc(100% - var(--desktop-content-padding-inline) - var(--desktop-content-padding-inline));
   --status-banner-margin: 12px var(--desktop-content-padding-inline) 0;
   --desktop-topbar-actions-gap: 8px;
-  --desktop-sidebar-height: calc(100dvh - 50px);
+  --desktop-sidebar-height: calc(100dvh - var(--desktop-topbar-height));
   --desktop-sidebar-gap: 13px;
   --desktop-sidebar-padding: 16px 14px;
   --desktop-sidebar-background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
@@ -2358,24 +2358,13 @@ li {
     --desktop-grid-min: clamp(158px, 11.25vw, 180px);
     --desktop-grid-compact-min: clamp(130px, 9.2vw, 148px);
     --desktop-summary-grid-min: clamp(184px, 13.3vw, 212px);
-    --feature-page-outer-gap: 12px;
-    --feature-page-outer-gap-block: var(--feature-page-outer-gap);
-    --feature-page-outer-gap-inline: var(--feature-page-outer-gap);
+    --feature-page-outer-gap-block: var(--desktop-content-padding-inline);
+    --feature-page-outer-gap-inline: var(--desktop-content-padding-inline);
     --feature-page-card-radius: 18px;
     --feature-page-card-padding: 14px;
     --feature-page-title-offset-block: var(--feature-page-card-padding);
     --feature-page-title-offset-inline: var(--feature-page-card-padding);
     --feature-page-title-content-gap: 0px;
-    --feature-page-shell-height: calc(var(--app-shell-main-height) - var(--feature-page-outer-gap-block) - var(--feature-page-outer-gap-block));
-    --feature-page-shell-overflow: hidden;
-    --feature-page-content-height: 100%;
-    --feature-page-content-max-height: 100%;
-    --two-column-content-height: 100%;
-    --two-column-content-overflow: hidden;
-    --two-column-content-column-height: 100%;
-    --two-column-content-column-max-height: 100%;
-    --two-column-content-column-overflow-y: auto;
-    --desktop-sidebar-nav-max-height: none;
     --two-column-content-sidebar-width: minmax(220px, 260px);
     --two-column-content-sidebar-width-compact: minmax(200px, 240px);
     --two-column-content-column-padding-inline: clamp(16px, 1.6vw, 22px);
@@ -2403,10 +2392,7 @@ li {
 
   .page-shell {
     gap: var(--feature-page-title-content-gap);
-    height: var(--feature-page-shell-height);
-    max-height: var(--feature-page-shell-height);
     min-height: 0;
-    overflow: var(--feature-page-shell-overflow);
     padding-inline: var(--feature-page-outer-gap-inline);
     grid-template-rows: auto minmax(0, 1fr);
   }
@@ -2424,10 +2410,7 @@ li {
 
   .app-shell__body > .page-shell {
     flex: 1 1 auto;
-    height: var(--feature-page-shell-height);
-    max-height: var(--feature-page-shell-height);
     min-height: 0;
-    overflow: var(--feature-page-shell-overflow);
   }
 
   .page-shell__header {
@@ -2446,9 +2429,6 @@ li {
   .page-shell__content {
     border-top: 0;
     border-radius: 0 0 var(--feature-page-card-radius) var(--feature-page-card-radius);
-    align-self: stretch;
-    height: var(--feature-page-content-height);
-    max-height: var(--feature-page-content-max-height);
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -2462,8 +2442,6 @@ li {
   .page-shell--title-in-content .page-shell__content {
     border-top: var(--page-shell-content-border-top);
     border-radius: var(--feature-page-card-radius);
-    height: var(--feature-page-shell-height);
-    max-height: var(--feature-page-shell-height);
   }
 
   .hero-card,
@@ -2587,7 +2565,7 @@ li {
     height: var(--desktop-sidebar-height);
     min-height: 0;
     flex-shrink: 0;
-    align-content: stretch;
+    align-content: start;
     gap: var(--desktop-sidebar-gap);
     padding: var(--desktop-sidebar-padding);
     position: fixed;
@@ -2615,9 +2593,7 @@ li {
   }
 
   .desktop-sidebar__nav {
-    align-self: stretch;
-    height: auto;
-    max-height: var(--desktop-sidebar-nav-max-height);
+    gap: var(--desktop-sidebar-compact-nav-gap);
   }
 
   .desktop-sidebar__links,
@@ -3895,19 +3871,13 @@ li {
   grid-template-columns: var(--two-column-content-sidebar-width) minmax(0, 1fr);
   gap: var(--two-column-content-column-gap);
   align-items: stretch;
-  height: var(--two-column-content-height);
   min-height: 100%;
-  overflow: var(--two-column-content-overflow);
 }
 
 .board-workspace__nav,
 .board-workspace__list,
 .board-workspace__detail {
-  height: var(--two-column-content-column-height);
-  max-height: var(--two-column-content-column-max-height);
-  min-height: 0;
   min-width: 0;
-  overflow-y: var(--two-column-content-column-overflow-y);
   padding: 0 var(--two-column-content-column-padding-inline);
 }
 
