@@ -112,6 +112,7 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(boardListHtml).not.toContain('href="/boards/board_notice"');
     expect(boardListHtml).not.toContain('href="/posts/board_post_notice_1"');
     expect(boardListHtml).toContain("글쓰기");
+    expect(boardListHtml).not.toContain("공지 보기");
     expect(boardListHtml).toContain("전사게시판");
     expect(boardListHtml).toContain("부서게시판");
     expect(boardListHtml).not.toContain("기본 기능");
