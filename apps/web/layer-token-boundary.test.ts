@@ -35,6 +35,7 @@ describe("PC layer, modal, popover, and toast design tokens", () => {
     expect(globalCss).toContain("padding: var(--layer-padding-popover);");
     expect(globalCss).toContain(".permission-denied-toast {");
     expect(globalCss).toContain("top: var(--layer-toast-top);");
-    expect(globalCss).toContain("width: min(var(--layer-toast-max-width), calc(100vw - 24px));");
+    expect(globalCss).toContain("--phase5-permission-denied-toast-width-48cd2: min(var(--layer-toast-max-width), calc(100vw - 24px));");
+    expect(globalCss).toContain("width: var(--phase5-permission-denied-toast-width-48cd2);");
   });
 });
