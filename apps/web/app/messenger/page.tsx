@@ -1,53 +1,281 @@
-import React from "react";
+"use client";
+
+import React, { useMemo, useState } from "react";
 
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 
-const statusCards = [
+type MessengerContact = {
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+  status: "온라인" | "회의 중" | "자리 비움";
+};
+
+type MessengerThread = {
+  id: string;
+  title: string;
+  subtitle: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+  kind: "1:1" | "그룹";
+};
+
+const messengerThreads: readonly MessengerThread[] = [
   {
-    title: "현재 열어 둔 것",
-    body: "모바일 하단 탭과 PC 사이드바에서 같은 `메신저` 메뉴를 확인하고 placeholder honesty 를 유지합니다.",
+    id: "thread-hr-kim",
+    title: "김민수 과장",
+    subtitle: "경영지원팀 · 1:1",
+    lastMessage: "오늘 회의자료 확인했습니다.",
+    time: "오전 10:24",
+    unread: 2,
+    kind: "1:1",
   },
   {
-    title: "아직 열지 않은 것",
-    body: "실시간 채팅 서버, 읽음 동기화, 외부 메신저 브리지, 파일 전송은 이번 파일럿 범위에 포함하지 않습니다.",
+    id: "thread-dev-room",
+    title: "개발팀 업무방",
+    subtitle: "개발팀 · 그룹",
+    lastMessage: "메신저 1차 UI preview 범위만 먼저 확인합니다.",
+    time: "어제",
+    unread: 0,
+    kind: "그룹",
   },
   {
-    title: "파일럿에서 확인할 것",
-    body: "사용자가 메신저가 아직 준비 중인 기능임을 오해 없이 이해하는지, 다른 핵심 업무 흐름으로 자연스럽게 돌아갈 수 있는지 봅니다.",
+    id: "thread-admin-notice",
+    title: "관리 공지 확인방",
+    subtitle: "총괄관리 · 그룹",
+    lastMessage: "실시간 채팅 서버는 후속 승인 범위로 남깁니다.",
+    time: "월요일",
+    unread: 5,
+    kind: "그룹",
   },
 ] as const;
 
+const organizationGroups: readonly { department: string; contacts: readonly MessengerContact[] }[] = [
+  {
+    department: "경영지원팀",
+    contacts: [
+      { id: "emp-kim", name: "김민수", department: "경영지원팀", position: "과장", status: "온라인" },
+      { id: "emp-lee", name: "이서연", department: "경영지원팀", position: "대리", status: "자리 비움" },
+    ],
+  },
+  {
+    department: "개발팀",
+    contacts: [
+      { id: "emp-park", name: "박지훈", department: "개발팀", position: "책임", status: "회의 중" },
+      { id: "emp-choi", name: "최유진", department: "개발팀", position: "선임", status: "온라인" },
+    ],
+  },
+  {
+    department: "인사팀",
+    contacts: [
+      { id: "emp-jung", name: "정하늘", department: "인사팀", position: "팀장", status: "온라인" },
+    ],
+  },
+] as const;
+
+const allContacts = organizationGroups.flatMap((group) => group.contacts);
+
 export default function MessengerPage() {
+  const [activeThreadId, setActiveThreadId] = useState(messengerThreads[0].id);
+  const [threadSearch, setThreadSearch] = useState("");
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
+  const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
+  const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
+
+  const activeThread = messengerThreads.find((thread) => thread.id === activeThreadId) ?? messengerThreads[0];
+  const selectedContacts = allContacts.filter((contact) => selectedContactIds.includes(contact.id));
+
+  const filteredThreads = useMemo(() => {
+    const keyword = threadSearch.trim().toLowerCase();
+    if (!keyword) {
+      return messengerThreads;
+    }
+
+    return messengerThreads.filter((thread) =>
+      [thread.title, thread.subtitle, thread.lastMessage, thread.kind].some((value) => value.toLowerCase().includes(keyword)),
+    );
+  }, [threadSearch]);
+
+  const filteredOrganizationGroups = useMemo(() => {
+    const keyword = recipientSearch.trim().toLowerCase();
+    if (!keyword) {
+      return organizationGroups;
+    }
+
+    return organizationGroups
+      .map((group) => ({
+        ...group,
+        contacts: group.contacts.filter((contact) =>
+          [contact.name, contact.department, contact.position, contact.status].some((value) => value.toLowerCase().includes(keyword)),
+        ),
+      }))
+      .filter((group) => group.contacts.length > 0);
+  }, [recipientSearch]);
+
+  function toggleContact(contactId: string) {
+    setSelectedContactIds((current) =>
+      current.includes(contactId) ? current.filter((id) => id !== contactId) : [...current, contactId],
+    );
+  }
+
+  function handleStartConversation() {
+    const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
+    setPreviewMessage(names ? `${names}에게 보낼 새 대화 preview가 준비됐습니다.` : "대상자를 선택하면 대화 시작 preview가 표시됩니다.");
+  }
+
+  function handleSendPreview() {
+    setPreviewMessage(messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.");
+  }
+
   return (
     <PageShell
       backHref="/menu"
       backLabel="전체 메뉴로"
-      eyebrow="Phase 24 협업 placeholder"
-      title="메신저 placeholder"
-      description="실시간 메신저 외부 연동 전 단계에서 탭/메뉴 위치와 안내 문구를 먼저 고정한 파일럿 placeholder 화면입니다."
+      eyebrow="Phase 24 협업 preview"
+      title="메신저"
+      description="채팅목록, 대화창, 새 메시지 대상 선택을 먼저 눌러보는 1차 UI입니다. 실시간 서버/푸시/파일전송은 아직 연결하지 않습니다."
       actions={
         <div className="pill-row">
-          <Pill tone="warning">실시간 연동 없음</Pill>
-          <Pill>pilot honesty</Pill>
+          <Pill tone="warning">preview UI</Pill>
+          <Pill>실시간 연동 전</Pill>
         </div>
       }
     >
-      <SurfaceSection title="왜 지금 이 화면이 필요한가" description="탭만 만들어 두고 실제 기능처럼 보이지 않게 경계를 먼저 설명합니다.">
-        <ul className="summary-list">
-          <li>하단 탭 `메신저`가 실제 업무 제품 기대와 어떻게 연결되는지 위치를 먼저 고정합니다.</li>
-          <li>아직 연결되지 않은 기능은 명확히 막고, 파일럿 참여자가 다른 업무 흐름으로 바로 복귀할 수 있게 둡니다.</li>
-          <li>실제 실시간 채팅, 외부 메신저 연동, 푸시 알림은 별도 승인 게이트로 남깁니다.</li>
-        </ul>
+      <SurfaceSection title="메신저 1차 흐름" description="채팅목록에서 대화를 고르고, 새 메시지는 검색 또는 조직도 팝업에서 사람을 선택해 시작합니다.">
+        <div className="messenger-shell" aria-label="메신저 preview">
+          <aside className="messenger-sidebar" aria-label="채팅목록">
+            <div className="messenger-sidebar__header">
+              <div>
+                <Pill tone="accent">채팅목록</Pill>
+                <h2>대화</h2>
+              </div>
+              <button className="touch-button--secondary messenger-new-button" type="button" onClick={handleStartConversation}>
+                새 메시지
+              </button>
+            </div>
+            <label className="messenger-search">
+              <span>채팅 검색</span>
+              <input className="field" value={threadSearch} onChange={(event) => setThreadSearch(event.target.value)} placeholder="이름, 부서, 메시지 검색" />
+            </label>
+            <div className="messenger-thread-list">
+              {filteredThreads.map((thread) => (
+                <button
+                  key={thread.id}
+                  className="messenger-thread"
+                  aria-current={thread.id === activeThread.id ? "page" : undefined}
+                  onClick={() => setActiveThreadId(thread.id)}
+                  type="button"
+                >
+                  <span className="messenger-thread__avatar" aria-hidden="true">{thread.title.slice(0, 1)}</span>
+                  <span className="messenger-thread__body">
+                    <span className="messenger-thread__title-row">
+                      <strong>{thread.title}</strong>
+                      <small>{thread.time}</small>
+                    </span>
+                    <span className="messenger-thread__subtitle">{thread.subtitle}</span>
+                    <span className="messenger-thread__message">{thread.lastMessage}</span>
+                  </span>
+                  {thread.unread ? <span className="messenger-unread-badge">{thread.unread}</span> : null}
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="messenger-conversation" aria-label="대화창">
+            <header className="messenger-conversation__header">
+              <div>
+                <Pill>{activeThread.kind}</Pill>
+                <h2>{activeThread.title}</h2>
+                <p>{activeThread.subtitle}</p>
+              </div>
+              <Pill tone="warning">저장 전 preview</Pill>
+            </header>
+            <div className="messenger-message-list" aria-label="메시지 목록 preview">
+              <article className="messenger-message messenger-message--other">
+                <strong>김민수 과장</strong>
+                <p>오늘 회의자료 확인 부탁드립니다.</p>
+                <small>오전 10:21</small>
+              </article>
+              <article className="messenger-message messenger-message--mine">
+                <strong>나</strong>
+                <p>{previewMessage}</p>
+                <small>오전 10:24 · 화면 preview</small>
+              </article>
+            </div>
+            <div className="messenger-composer" aria-label="메시지 입력 preview">
+              <input className="field" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
+              <button className="touch-button" type="button" onClick={handleSendPreview}>보내기</button>
+            </div>
+          </section>
+
+          <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업">
+            <div className="messenger-recipient-panel__header">
+              <div>
+                <Pill tone="accent">새 메시지</Pill>
+                <h2>대상 선택</h2>
+              </div>
+              <Pill>조직도 팝업</Pill>
+            </div>
+            <label className="messenger-search">
+              <span>사람 검색</span>
+              <input className="field" value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="이름, 부서, 직급 검색" />
+            </label>
+            <div className="messenger-recipient-tabs" aria-label="대상 선택 방식">
+              <button type="button" aria-current="page">최근</button>
+              <button type="button" aria-current="page">조직도</button>
+              <button type="button">검색결과</button>
+            </div>
+            <div className="messenger-org-tree" aria-label="조직도 선택 목록">
+              {filteredOrganizationGroups.map((group) => (
+                <section key={group.department} className="messenger-org-group">
+                  <h3>▾ {group.department}</h3>
+                  {group.contacts.map((contact) => (
+                    <label key={contact.id} className="messenger-contact-row">
+                      <input checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} type="checkbox" />
+                      <span>
+                        <strong>{contact.name} {contact.position}</strong>
+                        <small>{contact.department} · {contact.status}</small>
+                      </span>
+                    </label>
+                  ))}
+                </section>
+              ))}
+            </div>
+            <div className="messenger-selected-box" aria-label="선택한 사람">
+              <strong>선택한 사람</strong>
+              <div className="messenger-selected-chips">
+                {selectedContacts.length ? selectedContacts.map((contact) => (
+                  <button key={contact.id} type="button" onClick={() => toggleContact(contact.id)}>
+                    {contact.name} {contact.position} ×
+                  </button>
+                )) : <span>아직 선택한 사람이 없습니다.</span>}
+              </div>
+            </div>
+            <div className="messenger-recipient-actions">
+              <button className="touch-button--secondary" type="button" onClick={() => setSelectedContactIds([])}>취소</button>
+              <button className="touch-button" type="button" onClick={handleStartConversation}>대화 시작</button>
+            </div>
+          </aside>
+        </div>
       </SurfaceSection>
 
-      <SurfaceSection title="현재 상태" description="지금 되는 것과 아직 안 되는 것을 분리합니다.">
+      <SurfaceSection title="이번 preview 범위" description="사용자가 흐름을 눌러보는 UI만 먼저 만들고, 운영 영향 기능은 후속 승인으로 남깁니다.">
         <div className="grid-auto-compact">
-          {statusCards.map((card) => (
-            <article key={card.title} className="info-card">
-              <h3>{card.title}</h3>
-              <p>{card.body}</p>
-            </article>
-          ))}
+          <article className="info-card">
+            <h3>포함</h3>
+            <p>채팅목록, 대화창, 메시지 입력 preview, 새 메시지 검색, 조직도 팝업, 선택 chip, 대화 시작 preview.</p>
+          </article>
+          <article className="info-card">
+            <h3>제외</h3>
+            <p>WebSocket 실시간 채팅, push 알림, 파일 전송, 외부 메신저 연동, 운영 DB 실데이터 저장.</p>
+          </article>
+          <article className="info-card">
+            <h3>다음 단계</h3>
+            <p>대장이 화면 흐름을 확인한 뒤, 채팅 저장 API와 읽음 동기화 범위를 별도 승인으로 나눕니다.</p>
+          </article>
         </div>
       </SurfaceSection>
     </PageShell>
