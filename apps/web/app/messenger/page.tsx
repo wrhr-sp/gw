@@ -82,6 +82,7 @@ export default function MessengerPage() {
   const [threadSearch, setThreadSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
+  const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
 
@@ -124,6 +125,7 @@ export default function MessengerPage() {
   function handleStartConversation() {
     const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
     setPreviewMessage(names ? `${names}에게 보낼 새 대화 preview가 준비됐습니다.` : "대상자를 선택하면 대화 시작 preview가 표시됩니다.");
+    setIsRecipientPanelOpen(false);
   }
 
   function handleSendPreview() {
@@ -134,25 +136,19 @@ export default function MessengerPage() {
     <PageShell
       backHref="/menu"
       backLabel="전체 메뉴로"
-      eyebrow="Phase 24 협업 preview"
       title="메신저"
-      description="채팅목록, 대화창, 새 메시지 대상 선택을 먼저 눌러보는 1차 UI입니다. 실시간 서버/푸시/파일전송은 아직 연결하지 않습니다."
-      actions={
-        <div className="pill-row">
-          <Pill tone="warning">preview UI</Pill>
-          <Pill>실시간 연동 전</Pill>
-        </div>
-      }
+      titlePlacement="content"
     >
-      <SurfaceSection title="메신저 1차 흐름" description="채팅목록에서 대화를 고르고, 새 메시지는 검색 또는 조직도 팝업에서 사람을 선택해 시작합니다.">
+      <SurfaceSection title="메신저">
         <div className="messenger-shell" aria-label="메신저 preview">
-          <aside className="messenger-sidebar" aria-label="채팅목록">
+          <aside className="messenger-sidebar" aria-label="대화목록">
             <div className="messenger-sidebar__header">
-              <div>
-                <Pill tone="accent">채팅목록</Pill>
-                <h2>대화</h2>
-              </div>
-              <button className="touch-button--secondary messenger-new-button" type="button" onClick={handleStartConversation}>
+              <h2>대화목록</h2>
+              <button
+                className="touch-button--secondary messenger-new-button"
+                type="button"
+                onClick={() => setIsRecipientPanelOpen(true)}
+              >
                 새 메시지
               </button>
             </div>
@@ -184,14 +180,14 @@ export default function MessengerPage() {
             </div>
           </aside>
 
-          <section className="messenger-conversation" aria-label="대화창">
+          <section className="messenger-conversation" aria-label="채팅방">
             <header className="messenger-conversation__header">
               <div>
                 <Pill>{activeThread.kind}</Pill>
-                <h2>{activeThread.title}</h2>
-                <p>{activeThread.subtitle}</p>
+                <h2>채팅방</h2>
+                <p>{activeThread.title} · {activeThread.subtitle}</p>
               </div>
-              <Pill tone="warning">저장 전 preview</Pill>
+              <Pill tone="warning">preview</Pill>
             </header>
             <div className="messenger-message-list" aria-label="메시지 목록 preview">
               <article className="messenger-message messenger-message--other">
@@ -210,14 +206,18 @@ export default function MessengerPage() {
               <button className="touch-button" type="button" onClick={handleSendPreview}>보내기</button>
             </div>
           </section>
+        </div>
 
-          <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업">
+        <div className="messenger-recipient-backdrop" hidden={!isRecipientPanelOpen} role="presentation">
+          <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업" role="dialog" aria-modal="true">
             <div className="messenger-recipient-panel__header">
               <div>
                 <Pill tone="accent">새 메시지</Pill>
                 <h2>대상 선택</h2>
               </div>
-              <Pill>조직도 팝업</Pill>
+              <button className="touch-button--secondary" type="button" onClick={() => setIsRecipientPanelOpen(false)}>
+                닫기
+              </button>
             </div>
             <label className="messenger-search">
               <span>사람 검색</span>
@@ -259,23 +259,6 @@ export default function MessengerPage() {
               <button className="touch-button" type="button" onClick={handleStartConversation}>대화 시작</button>
             </div>
           </aside>
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="이번 preview 범위" description="사용자가 흐름을 눌러보는 UI만 먼저 만들고, 운영 영향 기능은 후속 승인으로 남깁니다.">
-        <div className="grid-auto-compact">
-          <article className="info-card">
-            <h3>포함</h3>
-            <p>채팅목록, 대화창, 메시지 입력 preview, 새 메시지 검색, 조직도 팝업, 선택 chip, 대화 시작 preview.</p>
-          </article>
-          <article className="info-card">
-            <h3>제외</h3>
-            <p>WebSocket 실시간 채팅, push 알림, 파일 전송, 외부 메신저 연동, 운영 DB 실데이터 저장.</p>
-          </article>
-          <article className="info-card">
-            <h3>다음 단계</h3>
-            <p>대장이 화면 흐름을 확인한 뒤, 채팅 저장 API와 읽음 동기화 범위를 별도 승인으로 나눕니다.</p>
-          </article>
         </div>
       </SurfaceSection>
     </PageShell>
