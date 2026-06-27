@@ -25,12 +25,15 @@ describe("Phase 55 org/employees/admin boundaries", () => {
   it("keeps org page read-only and points policy changes back to admin routes", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
-    expect(html).toContain("Phase 55 조직 구조 / 역할·권한 read-only 확인");
-    expect(html).toContain("조직 구조");
-    expect(html).toContain("Phase 55 구조 확인 메모");
-    expect(html).toContain("권한 체계 안내");
-    expect(html).toContain("/admin/policies");
+    expect(html).toContain("조직도");
+    expect(html).toContain("부서 목록");
+    expect(html).toContain("구성원 검색");
+    expect(html).toContain("직원 상세");
+    expect(html).toContain("운영 DB seed");
+    expect(html).toContain("조직 편집");
+    expect(html).toContain("실제 조직 API가 붙으면 화면 내부 preview 상수만 API 응답으로 바꾸면 됩니다.");
     expect(html).not.toContain("역할 생성");
+    expect(html).not.toContain("권한 저장");
   });
 
   it("keeps me page focused on session summary and read-only personal context", () => {

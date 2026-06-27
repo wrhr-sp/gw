@@ -23,9 +23,12 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("keeps org page read-only while surfacing company and branch scope panels", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
-    expect(html).toContain("실사용 조직 패널");
-    expect(html).toContain("branch scope visible");
-    expect(html).toContain("/admin/policies");
+    expect(html).toContain("조직도");
+    expect(html).toContain("부서 목록");
+    expect(html).toContain("구성원 검색");
+    expect(html).toContain("직원 상세");
+    expect(html).toContain("운영 DB에 저장하지 않습니다");
+    expect(html).toContain("실데이터 변경");
     expect(html).not.toContain("역할 생성");
   });
 
