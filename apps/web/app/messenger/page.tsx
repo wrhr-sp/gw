@@ -83,6 +83,7 @@ export default function MessengerPage() {
   const [recipientSearch, setRecipientSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
 
@@ -202,8 +203,29 @@ export default function MessengerPage() {
               </article>
             </div>
             <div className="messenger-composer" aria-label="메시지 입력 preview">
+              <div className="messenger-attachment-wrap">
+                <button
+                  className="messenger-composer-icon-button"
+                  type="button"
+                  aria-label="첨부 메뉴 열기"
+                  aria-expanded={isAttachmentMenuOpen}
+                  onClick={() => setIsAttachmentMenuOpen((current) => !current)}
+                >
+                  +
+                </button>
+                <div className="messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview">
+                  <button type="button" role="menuitem">파일첨부</button>
+                  <button type="button" role="menuitem">사진보내기</button>
+                  <button type="button" role="menuitem">문서함에서 선택</button>
+                </div>
+              </div>
               <input className="field" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
-              <button className="touch-button" type="button" onClick={handleSendPreview}>보내기</button>
+              <button className="messenger-composer-icon-button" type="button" aria-label="이모티콘 선택">☺</button>
+              <button className="messenger-send-button" type="button" onClick={handleSendPreview} aria-label="메시지 보내기">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                  <path d="M3.7 20.1 21 12 3.7 3.9 3 10.2l10.2 1.8L3 13.8l.7 6.3Z" />
+                </svg>
+              </button>
             </div>
           </section>
         </div>

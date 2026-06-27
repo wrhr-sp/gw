@@ -4689,10 +4689,88 @@ li {
 
 .messenger-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  align-items: center;
   gap: var(--space-sm);
   border-top: 1px solid var(--line);
   border-bottom: 0;
+}
+
+.messenger-attachment-wrap {
+  position: relative;
+}
+
+.messenger-composer-icon-button,
+.messenger-send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--text-subtle);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.messenger-composer-icon-button:hover,
+.messenger-send-button:hover,
+.messenger-composer-icon-button[aria-expanded="true"] {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-strong);
+}
+
+.messenger-send-button {
+  color: var(--surface);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.messenger-send-button:hover {
+  color: var(--surface);
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.messenger-send-button svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.messenger-attachment-menu[hidden] {
+  display: none;
+}
+
+.messenger-attachment-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  display: grid;
+  gap: 4px;
+  width: 180px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.messenger-attachment-menu button {
+  min-height: 34px;
+  padding: 7px 10px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.messenger-attachment-menu button:hover {
+  background: var(--surface-subtle);
 }
 
 .messenger-message-list {
