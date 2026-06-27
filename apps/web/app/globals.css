@@ -496,7 +496,7 @@
   --board-write-line-board-grid-template-columns: 104px max-content max-content;
   --board-write-options-grid-template-columns: 104px repeat(2, max-content) minmax(0, 1fr) max-content;
   --board-write-choice-row-width: 104px;
-  --board-write-notice-grid-template-columns: 104px max-content max-content max-content max-content;
+  --board-write-notice-grid-template-columns: 104px max-content max-content max-content max-content minmax(0, 1fr) max-content;
   --board-write-notice-gap: 8px;
   --board-write-period-calendar-top: calc(100% + 8px);
   --board-write-period-calendar-grid-template-columns: repeat(2, minmax(150px, 1fr));
@@ -1499,7 +1499,7 @@ li {
 }
 
 .board-write-submit {
-  grid-column: 5;
+  grid-column: 7;
   justify-self: end;
   align-self: start;
 }
