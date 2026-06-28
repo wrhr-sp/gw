@@ -27,6 +27,11 @@ describe("messenger preview page", () => {
     expect(html).toContain("메시지 입력 도구 묶음");
     expect(html).toContain("내 PC 파일첨부");
     expect(html).toContain("문서함에서 선택");
+    expect(html).toContain("문서함에서 선택 팝업");
+    expect(html).toContain("문서함 선택 팝업 닫기");
+    expect(html).toContain("문서함 선택 목록");
+    expect(html).toContain("회의자료.pdf");
+    expect(html).toContain("근태현황.xlsx");
     expect(html).toContain("이모티콘 선택");
     expect(html).toContain("이모티콘 선택 메뉴");
     expect(html).toContain("😀 이모티콘 입력");
@@ -51,7 +56,9 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain("overflow-y: var(--messenger-thread-list-overflow-y);");
     expect(globalCss).toContain("overflow-y: var(--messenger-message-list-overflow-y);");
     expect(globalCss).toContain(".messenger-recipient-backdrop[hidden]");
+    expect(globalCss).toContain(".messenger-document-backdrop[hidden]");
     expect(globalCss).toContain(".messenger-recipient-backdrop .messenger-recipient-panel");
+    expect(globalCss).toContain(".messenger-document-panel");
     expect(globalCss).toContain(".messenger-dialog-close");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
@@ -63,6 +70,9 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-composer-input-box > * + *");
     expect(globalCss).toContain("border-left: 0;");
     expect(globalCss).toContain(".messenger-composer-input-box .messenger-composer-input");
+    expect(globalCss).toContain(".messenger-file-input");
+    expect(globalCss).toContain(".messenger-attachment-preview");
+    expect(globalCss).toContain(".messenger-attachment-chip");
     expect(globalCss).toContain(".messenger-composer-icon-button");
     expect(globalCss).toContain("border-radius: var(--radius-pill);");
     expect(globalCss).toContain(".messenger-send-button svg");
@@ -71,6 +81,8 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-attachment-menu[hidden]");
     expect(globalCss).toContain(".messenger-emoji-menu[hidden]");
     expect(globalCss).toContain(".messenger-popover-menu button");
+    expect(globalCss).toContain(".messenger-document-list button");
+    expect(globalCss).toContain("white-space: pre-line;");
     expect(globalCss).toContain("cursor: pointer;");
   });
 });
