@@ -25,17 +25,21 @@ describe("messenger preview page", () => {
     expect(html).toContain("aria-expanded=\"true\"");
     expect(html).toContain("첨부 메뉴 열기");
     expect(html).toContain("메시지 입력 도구 묶음");
-    expect(html).toContain("파일첨부");
-    expect(html).toContain("사진보내기");
+    expect(html).toContain("내 PC 파일첨부");
+    expect(html).toContain("문서함에서 선택");
     expect(html).toContain("이모티콘 선택");
+    expect(html).toContain("이모티콘 선택 메뉴");
+    expect(html).toContain("😀 이모티콘 입력");
     expect(html).toContain("메시지 보내기");
     expect(html).toContain("messenger-surface");
+    expect(html).toContain("messenger-surface__title-button");
     expect(html).not.toContain("이번 preview 범위");
     expect(html).not.toContain("WebSocket 실시간 채팅");
     expect(html).not.toContain("운영 DB 실데이터 저장");
     expect(html).not.toContain(">대상 선택<");
     expect(html).not.toContain(">사람 검색<");
     expect(html).not.toContain(">닫기<");
+    expect(html).not.toContain(">사진보내기<");
 
     expect(globalCss).toContain(".messenger-shell");
     expect(globalCss).toContain("--messenger-surface-height: 100%;");
@@ -62,6 +66,11 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-composer-icon-button");
     expect(globalCss).toContain("border-radius: var(--radius-pill);");
     expect(globalCss).toContain(".messenger-send-button svg");
+    expect(globalCss).toContain(".messenger-surface__title-button");
+    expect(globalCss).toContain(".messenger-popover-menu[hidden]");
     expect(globalCss).toContain(".messenger-attachment-menu[hidden]");
+    expect(globalCss).toContain(".messenger-emoji-menu[hidden]");
+    expect(globalCss).toContain(".messenger-popover-menu button");
+    expect(globalCss).toContain("cursor: pointer;");
   });
 });
