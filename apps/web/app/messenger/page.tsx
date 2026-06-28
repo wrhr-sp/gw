@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { PageShell, Pill } from "../_components/page-shell";
 
@@ -20,6 +20,13 @@ type MessengerThread = {
   time: string;
   unread: number;
   kind: "1:1" | "그룹";
+};
+
+type MessengerAttachment = {
+  id: string;
+  name: string;
+  sizeLabel: string;
+  source: "pc" | "document";
 };
 
 const messengerThreads: readonly MessengerThread[] = [
@@ -77,8 +84,26 @@ const organizationGroups: readonly { department: string; contacts: readonly Mess
 
 const allContacts = organizationGroups.flatMap((group) => group.contacts);
 const messengerEmojiOptions = ["😀", "👍", "🙏", "🎉", "👌", "😊", "✅", "🙌"] as const;
+const messengerDocumentOptions: readonly MessengerAttachment[] = [
+  { id: "doc-meeting-material", name: "회의자료.pdf", sizeLabel: "1.2MB", source: "document" },
+  { id: "doc-attendance-report", name: "근태현황.xlsx", sizeLabel: "840KB", source: "document" },
+  { id: "doc-company-notice", name: "공지문.docx", sizeLabel: "320KB", source: "document" },
+] as const;
+
+function formatMessengerFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)}MB`;
+  }
+
+  if (size >= 1024) {
+    return `${Math.ceil(size / 1024)}KB`;
+  }
+
+  return `${size}B`;
+}
 
 export default function MessengerPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeThreadId, setActiveThreadId] = useState(messengerThreads[0].id);
   const [threadSearch, setThreadSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
@@ -86,7 +111,9 @@ export default function MessengerPage() {
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
+  const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
+  const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
 
@@ -139,7 +166,9 @@ export default function MessengerPage() {
   }
 
   function handleSendPreview() {
-    setPreviewMessage(messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.");
+    const attachmentNames = pendingAttachments.map((attachment) => attachment.name).join(", ");
+    const messageText = messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.";
+    setPreviewMessage(attachmentNames ? `${messageText}\n첨부: ${attachmentNames}` : messageText);
   }
 
   function handleTitleClick() {
@@ -149,6 +178,7 @@ export default function MessengerPage() {
     setIsRecipientPanelOpen(false);
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
+    setIsDocumentPickerOpen(false);
   }
 
   function toggleAttachmentMenu() {
@@ -166,8 +196,45 @@ export default function MessengerPage() {
     setIsEmojiMenuOpen(false);
   }
 
+  function openPcFilePicker() {
+    setIsAttachmentMenuOpen(false);
+    fileInputRef.current?.click();
+  }
+
+  function openDocumentPicker() {
+    setIsAttachmentMenuOpen(false);
+    setIsDocumentPickerOpen(true);
+  }
+
+  function handlePcFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+    if (files.length > 0) {
+      setPendingAttachments((current) => [
+        ...current,
+        ...files.map((file, index) => ({
+          id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
+          name: file.name,
+          sizeLabel: formatMessengerFileSize(file.size),
+          source: "pc" as const,
+        })),
+      ]);
+    }
+    event.currentTarget.value = "";
+  }
+
+  function addDocumentAttachment(documentAttachment: MessengerAttachment) {
+    setPendingAttachments((current) =>
+      current.some((attachment) => attachment.id === documentAttachment.id) ? current : [...current, documentAttachment],
+    );
+    setIsDocumentPickerOpen(false);
+  }
+
+  function removeAttachment(attachmentId: string) {
+    setPendingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+  }
+
   useEffect(() => {
-    if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen) {
+    if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen && !isDocumentPickerOpen) {
       return;
     }
 
@@ -176,12 +243,13 @@ export default function MessengerPage() {
         setIsRecipientPanelOpen(false);
         setIsAttachmentMenuOpen(false);
         setIsEmojiMenuOpen(false);
+        setIsDocumentPickerOpen(false);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen]);
+  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen, isDocumentPickerOpen]);
 
   return (
     <PageShell
@@ -205,6 +273,7 @@ export default function MessengerPage() {
           onClick={() => {
             setIsAttachmentMenuOpen(false);
             setIsEmojiMenuOpen(false);
+            setIsDocumentPickerOpen(false);
           }}
         >
           <aside className="messenger-sidebar" aria-label="대화목록">
@@ -268,6 +337,32 @@ export default function MessengerPage() {
               </article>
             </div>
             <div className="messenger-composer" aria-label="메시지 입력 preview">
+              <input
+                ref={fileInputRef}
+                className="messenger-file-input"
+                type="file"
+                multiple
+                aria-label="내 PC 파일첨부"
+                onChange={handlePcFileChange}
+              />
+              {pendingAttachments.length ? (
+                <div className="messenger-attachment-preview" aria-label="첨부 대기 목록">
+                  <strong>첨부됨</strong>
+                  <div className="messenger-attachment-chip-list">
+                    {pendingAttachments.map((attachment) => (
+                      <span key={attachment.id} className="messenger-attachment-chip">
+                        <span>
+                          {attachment.name}
+                          <small>{attachment.source === "pc" ? "내 PC" : "문서함"} · {attachment.sizeLabel}</small>
+                        </span>
+                        <button type="button" aria-label={`${attachment.name} 첨부 삭제`} onClick={() => removeAttachment(attachment.id)}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="messenger-composer-input-box" aria-label="메시지 입력 도구 묶음">
                 <div className="messenger-attachment-wrap">
                   <button
@@ -283,8 +378,8 @@ export default function MessengerPage() {
                     +
                   </button>
                   <div className="messenger-popover-menu messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview" onClick={(event) => event.stopPropagation()}>
-                    <button type="button" role="menuitem">내 PC 파일첨부</button>
-                    <button type="button" role="menuitem">문서함에서 선택</button>
+                    <button type="button" role="menuitem" onClick={openPcFilePicker}>내 PC 파일첨부</button>
+                    <button type="button" role="menuitem" onClick={openDocumentPicker}>문서함에서 선택</button>
                   </div>
                 </div>
                 <input className="field messenger-composer-input" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
@@ -382,6 +477,36 @@ export default function MessengerPage() {
             <div className="messenger-recipient-actions">
               <button className="touch-button--secondary" type="button" onClick={() => setSelectedContactIds([])}>취소</button>
               <button className="touch-button" type="button" onClick={handleStartConversation}>대화 시작</button>
+            </div>
+          </aside>
+        </div>
+
+        <div
+          className="messenger-document-backdrop"
+          hidden={!isDocumentPickerOpen}
+          onClick={() => setIsDocumentPickerOpen(false)}
+          role="presentation"
+        >
+          <aside className="messenger-document-panel" aria-label="문서함에서 선택 팝업" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="messenger-recipient-panel__header">
+              <div>
+                <Pill tone="accent">문서함</Pill>
+                <h2>문서함에서 선택</h2>
+              </div>
+              <button className="messenger-dialog-close" type="button" aria-label="문서함 선택 팝업 닫기" onClick={() => setIsDocumentPickerOpen(false)}>
+                ×
+              </button>
+            </div>
+            <div className="messenger-document-list" aria-label="문서함 선택 목록">
+              {messengerDocumentOptions.map((documentAttachment) => (
+                <button key={documentAttachment.id} type="button" onClick={() => addDocumentAttachment(documentAttachment)}>
+                  <span>
+                    <strong>{documentAttachment.name}</strong>
+                    <small>문서함 · {documentAttachment.sizeLabel}</small>
+                  </span>
+                  <span aria-hidden="true">추가</span>
+                </button>
+              ))}
             </div>
           </aside>
         </div>
