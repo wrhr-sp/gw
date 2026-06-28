@@ -29,6 +29,22 @@ type MessengerAttachment = {
   source: "pc" | "document";
 };
 
+type MessengerDocumentCategory = "전체" | "최근문서" | "공지/규정" | "인사/근태" | "업무자료" | "양식";
+
+type MessengerDocumentAttachment = MessengerAttachment & {
+  category: Exclude<MessengerDocumentCategory, "전체" | "최근문서">;
+  owner: string;
+  updatedAt: string;
+  isRecent?: boolean;
+};
+
+type MessengerEmojiCategory = "자주사용" | "표정" | "반응" | "업무" | "상태" | "기념";
+
+type MessengerEmojiGroup = {
+  category: MessengerEmojiCategory;
+  emojis: readonly string[];
+};
+
 const messengerThreads: readonly MessengerThread[] = [
   {
     id: "thread-hr-kim",
@@ -83,11 +99,28 @@ const organizationGroups: readonly { department: string; contacts: readonly Mess
 ] as const;
 
 const allContacts = organizationGroups.flatMap((group) => group.contacts);
-const messengerEmojiOptions = ["😀", "👍", "🙏", "🎉", "👌", "😊", "✅", "🙌"] as const;
-const messengerDocumentOptions: readonly MessengerAttachment[] = [
-  { id: "doc-meeting-material", name: "회의자료.pdf", sizeLabel: "1.2MB", source: "document" },
-  { id: "doc-attendance-report", name: "근태현황.xlsx", sizeLabel: "840KB", source: "document" },
-  { id: "doc-company-notice", name: "공지문.docx", sizeLabel: "320KB", source: "document" },
+const messengerDocumentCategories: readonly MessengerDocumentCategory[] = ["전체", "최근문서", "공지/규정", "인사/근태", "업무자료", "양식"] as const;
+const messengerDocumentOptions: readonly MessengerDocumentAttachment[] = [
+  { id: "doc-company-notice", name: "전사 공지문.docx", sizeLabel: "320KB", source: "document", category: "공지/규정", owner: "총괄관리", updatedAt: "오늘", isRecent: true },
+  { id: "doc-privacy-policy", name: "개인정보 처리지침.pdf", sizeLabel: "760KB", source: "document", category: "공지/규정", owner: "경영지원팀", updatedAt: "어제" },
+  { id: "doc-work-rule", name: "복무 규정.pdf", sizeLabel: "1.4MB", source: "document", category: "공지/규정", owner: "인사팀", updatedAt: "06.25" },
+  { id: "doc-attendance-report", name: "근태현황.xlsx", sizeLabel: "840KB", source: "document", category: "인사/근태", owner: "인사팀", updatedAt: "오늘", isRecent: true },
+  { id: "doc-leave-form", name: "휴가 신청 양식.docx", sizeLabel: "220KB", source: "document", category: "인사/근태", owner: "공용양식", updatedAt: "06.24" },
+  { id: "doc-employee-list", name: "직원 명단.xlsx", sizeLabel: "1.1MB", source: "document", category: "인사/근태", owner: "인사팀", updatedAt: "06.21" },
+  { id: "doc-meeting-material", name: "회의자료.pdf", sizeLabel: "1.2MB", source: "document", category: "업무자료", owner: "개발팀", updatedAt: "오늘", isRecent: true },
+  { id: "doc-weekly-report", name: "주간업무보고.docx", sizeLabel: "540KB", source: "document", category: "업무자료", owner: "경영지원팀", updatedAt: "06.26" },
+  { id: "doc-project-checklist", name: "프로젝트 체크리스트.xlsx", sizeLabel: "680KB", source: "document", category: "업무자료", owner: "개발팀", updatedAt: "06.22" },
+  { id: "doc-draft-template", name: "기안서 양식.docx", sizeLabel: "260KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.20" },
+  { id: "doc-expense-template", name: "지출결의서 양식.xlsx", sizeLabel: "310KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.19" },
+  { id: "doc-trip-template", name: "출장신청서.pdf", sizeLabel: "410KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.18" },
+] as const;
+const messengerEmojiGroups: readonly MessengerEmojiGroup[] = [
+  { category: "자주사용", emojis: ["😀", "👍", "🙏", "🎉", "✅", "🙌", "📌", "💬"] },
+  { category: "표정", emojis: ["😀", "😄", "😊", "🙂", "😅", "😂", "😮", "😢", "😡", "🤔", "😴", "😎"] },
+  { category: "반응", emojis: ["👍", "👎", "👏", "🙌", "🙏", "👌", "💪", "🤝", "🙆", "🙅", "🙇", "👀"] },
+  { category: "업무", emojis: ["✅", "📌", "📎", "📝", "📄", "📁", "📅", "⏰", "💬", "📣", "🔍", "💡"] },
+  { category: "상태", emojis: ["🔴", "🟡", "🟢", "🔵", "⚠️", "🔒", "🔔", "🚫", "⏳", "☑️", "❗", "❓"] },
+  { category: "기념", emojis: ["🎉", "🎊", "🎁", "🥳", "⭐", "❤️", "✨", "🏆", "☕", "🍀", "🌟", "💐"] },
 ] as const;
 
 function formatMessengerFileSize(size: number) {
@@ -112,6 +145,8 @@ export default function MessengerPage() {
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
   const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
+  const [activeDocumentCategory, setActiveDocumentCategory] = useState<MessengerDocumentCategory>("전체");
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState<MessengerEmojiCategory>("자주사용");
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
   const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
@@ -146,6 +181,23 @@ export default function MessengerPage() {
       }))
       .filter((group) => group.contacts.length > 0);
   }, [recipientSearch]);
+
+  const filteredDocumentOptions = useMemo(() => {
+    if (activeDocumentCategory === "전체") {
+      return messengerDocumentOptions;
+    }
+
+    if (activeDocumentCategory === "최근문서") {
+      return messengerDocumentOptions.filter((documentAttachment) => documentAttachment.isRecent);
+    }
+
+    return messengerDocumentOptions.filter((documentAttachment) => documentAttachment.category === activeDocumentCategory);
+  }, [activeDocumentCategory]);
+
+  const activeEmojiOptions = useMemo(
+    () => messengerEmojiGroups.find((group) => group.category === activeEmojiCategory)?.emojis ?? messengerEmojiGroups[0].emojis,
+    [activeEmojiCategory],
+  );
 
   function toggleContact(contactId: string) {
     setSelectedContactIds((current) =>
@@ -184,16 +236,17 @@ export default function MessengerPage() {
   function toggleAttachmentMenu() {
     setIsAttachmentMenuOpen((current) => !current);
     setIsEmojiMenuOpen(false);
+    setIsDocumentPickerOpen(false);
   }
 
   function toggleEmojiMenu() {
     setIsEmojiMenuOpen((current) => !current);
     setIsAttachmentMenuOpen(false);
+    setIsDocumentPickerOpen(false);
   }
 
   function appendEmoji(emoji: string) {
     setMessageDraft((current) => `${current}${emoji}`);
-    setIsEmojiMenuOpen(false);
   }
 
   function openPcFilePicker() {
@@ -397,11 +450,25 @@ export default function MessengerPage() {
                     ☺
                   </button>
                   <div className="messenger-popover-menu messenger-emoji-menu" hidden={!isEmojiMenuOpen} role="menu" aria-label="이모티콘 선택 메뉴" onClick={(event) => event.stopPropagation()}>
-                    {messengerEmojiOptions.map((emoji) => (
-                      <button key={emoji} type="button" role="menuitem" aria-label={`${emoji} 이모티콘 입력`} onClick={() => appendEmoji(emoji)}>
-                        {emoji}
-                      </button>
-                    ))}
+                    <div className="messenger-emoji-tabs" aria-label="이모티콘 분류">
+                      {messengerEmojiGroups.map((group) => (
+                        <button
+                          key={group.category}
+                          type="button"
+                          aria-pressed={activeEmojiCategory === group.category}
+                          onClick={() => setActiveEmojiCategory(group.category)}
+                        >
+                          {group.category}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="messenger-emoji-grid" aria-label={`${activeEmojiCategory} 이모티콘 목록`}>
+                      {activeEmojiOptions.map((emoji) => (
+                        <button key={`${activeEmojiCategory}-${emoji}`} type="button" role="menuitem" aria-label={`${emoji} 이모티콘 입력`} onClick={() => appendEmoji(emoji)}>
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -497,14 +564,26 @@ export default function MessengerPage() {
                 ×
               </button>
             </div>
-            <div className="messenger-document-list" aria-label="문서함 선택 목록">
-              {messengerDocumentOptions.map((documentAttachment) => (
+            <div className="messenger-document-tabs" aria-label="문서함 분류">
+              {messengerDocumentCategories.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  aria-pressed={activeDocumentCategory === category}
+                  onClick={() => setActiveDocumentCategory(category)}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+            <div className="messenger-document-list" aria-label={`${activeDocumentCategory} 문서함 선택 목록`}>
+              {filteredDocumentOptions.map((documentAttachment) => (
                 <button key={documentAttachment.id} type="button" onClick={() => addDocumentAttachment(documentAttachment)}>
                   <span>
                     <strong>{documentAttachment.name}</strong>
-                    <small>문서함 · {documentAttachment.sizeLabel}</small>
+                    <small>{documentAttachment.category} · {documentAttachment.sizeLabel} · {documentAttachment.owner}</small>
                   </span>
-                  <span aria-hidden="true">추가</span>
+                  <span aria-hidden="true">{documentAttachment.updatedAt}</span>
                 </button>
               ))}
             </div>
