@@ -41,8 +41,10 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-composer-input-box");
     expect(globalCss).toContain("grid-template-columns: 42px minmax(0, 1fr) 42px;");
     expect(globalCss).toContain(".messenger-composer-input-box > * + *");
+    expect(globalCss).toContain("border-left: 0;");
     expect(globalCss).toContain(".messenger-composer-input-box .messenger-composer-input");
     expect(globalCss).toContain(".messenger-composer-icon-button");
+    expect(globalCss).toContain("border-radius: var(--radius-pill);");
     expect(globalCss).toContain(".messenger-send-button svg");
     expect(globalCss).toContain(".messenger-attachment-menu[hidden]");
   });
