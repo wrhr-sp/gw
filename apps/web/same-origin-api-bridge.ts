@@ -1,3 +1,4 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { appRoutes } from "@gw/shared";
 import { app as apiApp } from "../api/src/app";
 
@@ -66,11 +67,19 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
 }
 
 function buildApiBindings() {
+  let cloudflareEnv: Record<string, unknown> = {};
+  try {
+    cloudflareEnv = getCloudflareContext().env as Record<string, unknown>;
+  } catch {
+    cloudflareEnv = {};
+  }
+
   return {
-    DATABASE_URL: process.env.DATABASE_URL,
-    DATABASE_URL_PRODUCTION: process.env.DATABASE_URL_PRODUCTION,
-    DATABASE_URL_PREVIEW: process.env.DATABASE_URL_PREVIEW,
-    APP_ENV: process.env.APP_ENV,
+    DATABASE_URL: cloudflareEnv.DATABASE_URL ?? process.env.DATABASE_URL,
+    DATABASE_URL_PRODUCTION: cloudflareEnv.DATABASE_URL_PRODUCTION ?? process.env.DATABASE_URL_PRODUCTION,
+    DATABASE_URL_PREVIEW: cloudflareEnv.DATABASE_URL_PREVIEW ?? process.env.DATABASE_URL_PREVIEW,
+    APP_ENV: cloudflareEnv.APP_ENV ?? process.env.APP_ENV,
+    FILES_BUCKET: cloudflareEnv.FILES_BUCKET,
   };
 }
 
