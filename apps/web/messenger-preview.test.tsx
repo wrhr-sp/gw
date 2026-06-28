@@ -30,6 +30,9 @@ describe("messenger preview page", () => {
     expect(html).not.toContain("메시지 목록 preview");
     expect(html).not.toContain("첨부 메뉴 열기");
     expect(html).not.toContain("메시지 보내기");
+    expect(html).not.toContain("채팅방 닫기");
+    expect(pageSource).toContain("closeActiveThread");
+    expect(pageSource).toContain("채팅방 닫기");
     expect(pageSource).toContain("첨부 메뉴 열기");
     expect(pageSource).toContain("메시지 입력 도구 묶음");
     expect(pageSource).toContain("내 PC 파일첨부");
@@ -84,6 +87,7 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-recipient-backdrop .messenger-recipient-panel");
     expect(globalCss).toContain(".messenger-document-panel");
     expect(globalCss).toContain(".messenger-dialog-close");
+    expect(globalCss).toContain(".messenger-conversation-close");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
