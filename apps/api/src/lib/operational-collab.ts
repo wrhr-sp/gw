@@ -162,7 +162,7 @@ function mapDocumentSpace(row: DocumentSpaceRow): DocumentSpace {
 
 function mapDocumentFile(row: DocumentFileRow): DocumentFile {
   const status = row.file_deleted_at || row.document_status === "archived" ? "deleted" : row.document_status === "pending_upload" ? "pending" : "ready";
-  const provider = row.bucket === "mock" ? "mock" : "r2";
+  const provider = "r2";
   const ownerEmployeeId = row.owner_employee_id ?? row.owner_user_id ?? "system";
   return {
     id: row.file_id,
@@ -559,7 +559,7 @@ export async function createOperationalDocumentFile(
     return null;
   }
 
-  const bucket = input.storageProvider === "r2" ? "gw-files" : "mock";
+  const bucket = "gw-files";
   const objectKey = `companies/${input.companyId}/spaces/${input.spaceId}/files/${input.id}/${input.versionId}`;
   const documentStatus = input.storageStatus === "deleted" ? "archived" : input.storageStatus === "pending" ? "pending_upload" : "active";
   const createdBy = input.createdBy ?? input.ownerEmployeeId;

@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { adminUsersListResponseSchema, appRoutes } from "@gw/shared";
+import { errorResponseSchema, appRoutes } from "@gw/shared";
 
 import { AdminPageContent } from "./admin-page-content";
 import { getAdminPageCardsForRole } from "./admin-page-access";
@@ -11,6 +11,49 @@ import { classifyAdminUsersLoadErrorKind } from "./app/admin/users/load-error-ki
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
+
+function buildAdminUsersPreviewFixture(): any {
+  return {
+    items: [
+      {
+        userId: "user_admin_fixture",
+        fullName: "관리자 테스트",
+        email: "admin@example.com",
+        departmentName: "운영팀",
+        roleCodes: ["COMPANY_ADMIN"],
+        highRiskPermissions: ["audit.read"],
+        employmentStatus: "active",
+        roleChangePreview: { nextRoleCodes: ["HR_ADMIN"] },
+        statusChangePreview: { nextStatus: "offboarded" },
+      },
+    ],
+    linkedScreens: [
+      {
+        source: "/api/admin/users",
+        category: "계정관리",
+        title: "계정관리 preview",
+        description: "DB 연결 후 운영자 read model을 확인합니다.",
+      },
+    ],
+    companySettingsModel: {
+      companyName: "위아히어",
+      policyStartPoint: "관리자 승인 후 적용",
+      groups: [
+        {
+          id: "group_ops",
+          owner: "운영팀",
+          title: "운영 계정",
+          summary: "운영자 계정 검토",
+          description: "운영자 계정 검토",
+          linkedRoutes: ["/admin/users"],
+        },
+      ],
+      policyAxes: [{ id: "axis_role", title: "역할", description: "role / permission 기준" }],
+      employeeVisibilityRules: ["일반 조회와 운영 검토 책임 분리"],
+    },
+    audit: { action: "admin.user.list.viewed" },
+  };
+}
 
 describe("Phase 55 admin account/rbac live usage", () => {
   it("turns the admin hub into an operations-first console", () => {
@@ -59,7 +102,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
         cookie,
       },
     });
-    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    expect(previewResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const preview = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
         preview={preview}
@@ -116,7 +161,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
         cookie,
       },
     });
-    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    expect(previewResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const preview = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
         preview={preview}
@@ -156,7 +203,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
         cookie,
       },
     });
-    const preview = adminUsersListResponseSchema.parse(await previewResponse.json()).data;
+    expect(previewResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const preview = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
         preview={preview}

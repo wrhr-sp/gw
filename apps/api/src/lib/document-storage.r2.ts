@@ -13,12 +13,12 @@ export class R2DocumentStorageAdapter implements DocumentStorageAdapter {
     const objectKey = buildDocumentStorageKey(input);
     return {
       provider: this.provider,
-      kind: "r2-upload-placeholder",
+      kind: "r2-upload",
       objectKey,
       objectKeyPreview: buildDocumentStoragePreview(objectKey),
       expiresAt: EXPIRES_AT,
       uploadToken: `upload_token_${input.fileId}_${input.versionId}`,
-      message: "R2 binding detected; signed upload URL remains disabled in phase 8 skeleton.",
+      message: "R2 binding detected; upload must be completed through the Cloudflare R2-backed upload endpoint.",
     };
   }
 
@@ -26,12 +26,12 @@ export class R2DocumentStorageAdapter implements DocumentStorageAdapter {
     const objectKey = buildDocumentStorageKey(input);
     return {
       provider: this.provider,
-      kind: "r2-download-placeholder",
+      kind: "r2-download",
       objectKey,
       objectKeyPreview: buildDocumentStoragePreview(objectKey),
       expiresAt: EXPIRES_AT,
       downloadToken: `download_token_${input.fileId}_${input.versionId}`,
-      message: "R2 binding detected; signed download URL remains disabled in phase 8 skeleton.",
+      message: "R2 binding detected; download must be served through the Cloudflare R2-backed download endpoint.",
     };
   }
 
