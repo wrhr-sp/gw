@@ -17,10 +17,12 @@ describe("messenger preview page", () => {
     expect(html).toContain("이름, 부서, 메시지 검색");
     expect(html).toContain("메시지 입력 preview");
     expect(html).toContain("새 메시지 대상 선택 팝업");
-    expect(html).toContain("사람 검색");
+    expect(html).toContain("새 메시지 받을 사람 검색");
     expect(html).toContain("조직도");
     expect(html).toContain("선택한 사람");
     expect(html).toContain("대화 시작");
+    expect(html).toContain("새 메시지 팝업 닫기");
+    expect(html).toContain("aria-expanded=\"true\"");
     expect(html).toContain("첨부 메뉴 열기");
     expect(html).toContain("메시지 입력 도구 묶음");
     expect(html).toContain("파일첨부");
@@ -31,6 +33,9 @@ describe("messenger preview page", () => {
     expect(html).not.toContain("이번 preview 범위");
     expect(html).not.toContain("WebSocket 실시간 채팅");
     expect(html).not.toContain("운영 DB 실데이터 저장");
+    expect(html).not.toContain(">대상 선택<");
+    expect(html).not.toContain(">사람 검색<");
+    expect(html).not.toContain(">닫기<");
 
     expect(globalCss).toContain(".messenger-shell");
     expect(globalCss).toContain("--messenger-surface-height: 100%;");
@@ -43,6 +48,9 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain("overflow-y: var(--messenger-message-list-overflow-y);");
     expect(globalCss).toContain(".messenger-recipient-backdrop[hidden]");
     expect(globalCss).toContain(".messenger-recipient-backdrop .messenger-recipient-panel");
+    expect(globalCss).toContain(".messenger-dialog-close");
+    expect(globalCss).toContain(".messenger-org-group__toggle");
+    expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
     expect(globalCss).toContain(".messenger-message--mine");
     expect(globalCss).toContain("grid-template-columns: minmax(0, 1fr) max-content;");

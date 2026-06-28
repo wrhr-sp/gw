@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { PageShell, Pill } from "../_components/page-shell";
 
@@ -84,6 +84,7 @@ export default function MessengerPage() {
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
 
@@ -123,6 +124,12 @@ export default function MessengerPage() {
     );
   }
 
+  function toggleDepartment(department: string) {
+    setExpandedDepartments((current) =>
+      current.includes(department) ? current.filter((item) => item !== department) : [...current, department],
+    );
+  }
+
   function handleStartConversation() {
     const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
     setPreviewMessage(names ? `${names}에게 보낼 새 대화 preview가 준비됐습니다.` : "대상자를 선택하면 대화 시작 preview가 표시됩니다.");
@@ -132,6 +139,21 @@ export default function MessengerPage() {
   function handleSendPreview() {
     setPreviewMessage(messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.");
   }
+
+  useEffect(() => {
+    if (!isRecipientPanelOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsRecipientPanelOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isRecipientPanelOpen]);
 
   return (
     <PageShell
@@ -235,20 +257,28 @@ export default function MessengerPage() {
           </section>
         </div>
 
-        <div className="messenger-recipient-backdrop" hidden={!isRecipientPanelOpen} role="presentation">
+        <div
+          className="messenger-recipient-backdrop"
+          hidden={!isRecipientPanelOpen}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsRecipientPanelOpen(false);
+            }
+          }}
+          role="presentation"
+        >
           <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업" role="dialog" aria-modal="true">
             <div className="messenger-recipient-panel__header">
               <div>
                 <Pill tone="accent">새 메시지</Pill>
-                <h2>대상 선택</h2>
+                <h2>새 메시지</h2>
               </div>
-              <button className="touch-button--secondary" type="button" onClick={() => setIsRecipientPanelOpen(false)}>
-                닫기
+              <button className="messenger-dialog-close" type="button" aria-label="새 메시지 팝업 닫기" onClick={() => setIsRecipientPanelOpen(false)}>
+                ×
               </button>
             </div>
             <label className="messenger-search">
-              <span>사람 검색</span>
-              <input className="field" value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="이름, 부서, 직급 검색" />
+              <input className="field" aria-label="새 메시지 받을 사람 검색" value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="이름, 부서, 직급 검색" />
             </label>
             <div className="messenger-recipient-tabs" aria-label="대상 선택 방식">
               <button type="button" aria-current="page">최근</button>
@@ -258,16 +288,26 @@ export default function MessengerPage() {
             <div className="messenger-org-tree" aria-label="조직도 선택 목록">
               {filteredOrganizationGroups.map((group) => (
                 <section key={group.department} className="messenger-org-group">
-                  <h3>▾ {group.department}</h3>
-                  {group.contacts.map((contact) => (
-                    <label key={contact.id} className="messenger-contact-row">
-                      <input checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} type="checkbox" />
-                      <span>
-                        <strong>{contact.name} {contact.position}</strong>
-                        <small>{contact.department} · {contact.status}</small>
-                      </span>
-                    </label>
-                  ))}
+                  <button
+                    className="messenger-org-group__toggle"
+                    type="button"
+                    aria-expanded={expandedDepartments.includes(group.department)}
+                    onClick={() => toggleDepartment(group.department)}
+                  >
+                    <span>{expandedDepartments.includes(group.department) ? "▾" : "▸"} {group.department}</span>
+                    <small>{group.contacts.length}명</small>
+                  </button>
+                  <div className="messenger-org-group__contacts" hidden={!expandedDepartments.includes(group.department)}>
+                    {group.contacts.map((contact) => (
+                      <label key={contact.id} className="messenger-contact-row">
+                        <input checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} type="checkbox" />
+                        <span>
+                          <strong>{contact.name} {contact.position}</strong>
+                          <small>{contact.department} · {contact.status}</small>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </section>
               ))}
             </div>
