@@ -16,5 +16,11 @@
   ],
   "images": {
     "binding": "IMAGES"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "FILES_BUCKET",
+      "bucket_name": "gw-files"
+    }
+  ]
 }
