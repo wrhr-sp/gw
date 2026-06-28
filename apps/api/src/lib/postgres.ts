@@ -1,11 +1,12 @@
-import { neon } from "@neondatabase/serverless";
+import {
+  DATABASE_URL_NOT_CONFIGURED_MESSAGE,
+  createOptionalDbClient,
+  resolveDatabaseUrl,
+  type DatabaseEnv,
+} from "../utils/db";
 
-export type PostgresEnv = {
-  DATABASE_URL?: string;
-  DATABASE_URL_PRODUCTION?: string;
-  DATABASE_URL_PREVIEW?: string;
-  APP_ENV?: string;
-};
+export type PostgresEnv = DatabaseEnv;
+export { resolveDatabaseUrl };
 
 export type OperationalDbStatus = {
   configured: boolean;
@@ -16,28 +17,8 @@ export type OperationalDbStatus = {
   error: string | null;
 };
 
-export function resolveDatabaseUrl(env: PostgresEnv | undefined) {
-  const explicit = env?.DATABASE_URL?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  if (env?.APP_ENV === "preview") {
-    return env.DATABASE_URL_PREVIEW?.trim() || null;
-  }
-
-  return env?.DATABASE_URL_PRODUCTION?.trim() || null;
-}
-
 export function createOperationalSql(env: PostgresEnv | undefined) {
-  const databaseUrl = resolveDatabaseUrl(env);
-  if (!databaseUrl) {
-    return null;
-  }
-
-  return neon(databaseUrl, {
-    fullResults: false,
-  });
+  return createOptionalDbClient(env);
 }
 
 export function isOperationalSchemaDriftError(error: unknown) {
@@ -60,13 +41,17 @@ export async function checkOperationalDb(env: PostgresEnv | undefined): Promise<
       database: null,
       user: null,
       schema: null,
-      error: "DATABASE_URL is not configured",
+      error: DATABASE_URL_NOT_CONFIGURED_MESSAGE,
     };
   }
 
   try {
-    const rows = await sql`select current_database() as database, current_user as user, current_schema() as schema`;
-    const row = rows[0] as { database?: string; user?: string; schema?: string } | undefined;
+    const rows = (await sql`select current_database() as database, current_user as user, current_schema() as schema`) as Array<{
+      database?: string;
+      user?: string;
+      schema?: string;
+    }>;
+    const row = rows[0];
 
     return {
       configured: true,

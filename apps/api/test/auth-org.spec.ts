@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  adminAuditLogListResponseSchema,
   adminPoliciesListResponseSchema,
   adminPolicyUpdateResponseSchema,
-  adminUsersListResponseSchema,
   appRoutes,
   approvalActionResponseSchema,
   approvalCandidateListResponseSchema,
@@ -44,30 +42,22 @@ import {
   leaveRequestCreateResponseSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
-  listBranchesResponseSchema,
-  listCompaniesResponseSchema,
-  listDepartmentsResponseSchema,
-  listEmployeesResponseSchema,
-  listHomeShortcutsResponseSchema,
-  listNotificationsResponseSchema,
-  listPermissionsResponseSchema,
-  listRolesResponseSchema,
   meResponseSchema,
   noticeListResponseSchema,
-  payrollMyPayslipResponseSchema,
-  payrollOverviewResponseSchema,
-  payrollPeriodDetailResponseSchema,
   readReceiptCreateResponseSchema,
-  workItemAttachmentsResponseSchema,
-  workItemDeadlinesResponseSchema,
-  workItemDetailResponseSchema,
-  workItemDocumentsResponseSchema,
-  workItemListResponseSchema,
-  workItemReviewsResponseSchema,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
 } from "@gw/shared";
 import { app, isAttendanceRegistrationMethodAllowed } from "../src/app";
+
+const r2TestBinding = {
+  FILES_BUCKET: {
+    head: async () => null,
+    get: async () => null,
+    put: async () => null,
+    delete: async () => undefined,
+  },
+};
 
 async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   const response = await app.request(appRoutes.auth.login, {
@@ -90,25 +80,6 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   }
 
   return { response, cookie };
-}
-
-function assertListPayload(route: string, payload: unknown) {
-  switch (route) {
-    case appRoutes.org.employees:
-      return listEmployeesResponseSchema.parse(payload);
-    case appRoutes.org.departments:
-      return listDepartmentsResponseSchema.parse(payload);
-    case appRoutes.org.roles:
-      return listRolesResponseSchema.parse(payload);
-    case appRoutes.org.permissions:
-      return listPermissionsResponseSchema.parse(payload);
-    case appRoutes.org.branches:
-      return listBranchesResponseSchema.parse(payload);
-    case appRoutes.notifications:
-      return listNotificationsResponseSchema.parse(payload);
-    default:
-      throw new Error(`unexpected route: ${route}`);
-  }
 }
 
 describe("Phase 2 auth/org skeleton", () => {
@@ -213,12 +184,12 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(permissionsResponse.status).toBe(200);
-    const permissionsPayload = listPermissionsResponseSchema.parse(await permissionsResponse.json());
-    expect(permissionsPayload.data.items.some((item) => item.code === "invite.manage")).toBe(true);
+    expect(permissionsResponse.status).toBe(503);
+    const permissionsPayload = errorResponseSchema.parse(await permissionsResponse.json());
+    expect(permissionsPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns home shortcuts and company settings payloads with placeholder auth cookie", async () => {
+  it("requires PostgreSQL for home shortcuts and still returns company settings payloads", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const shortcutsResponse = await app.request(appRoutes.home.shortcuts, {
@@ -226,39 +197,30 @@ describe("Phase 2 auth/org skeleton", () => {
         cookie,
       },
     });
-    expect(shortcutsResponse.status).toBe(200);
-    const shortcutsPayload = listHomeShortcutsResponseSchema.parse(await shortcutsResponse.json());
-    expect(shortcutsPayload.data.items.some((item) => item.code === "attendance" && item.scope === "company")).toBe(true);
-    expect(shortcutsPayload.data.items.some((item) => item.code === "admin_users" && item.scope === "user")).toBe(true);
-    expect(shortcutsPayload.data.notices).toEqual([
-      "운영 DB 연결값이 없으면 기본 홈 바로가기 세트를 사용합니다.",
-      "권한별 추가 바로가기는 현재 세션 권한을 기준으로만 계산합니다.",
-    ]);
+    expect(shortcutsResponse.status).toBe(503);
+    const shortcutsPayload = errorResponseSchema.parse(await shortcutsResponse.json());
+    expect(shortcutsPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const companiesResponse = await app.request(appRoutes.org.companies, {
       headers: {
         cookie,
       },
     });
-    expect(companiesResponse.status).toBe(200);
-    const companiesPayload = listCompaniesResponseSchema.parse(await companiesResponse.json());
-    expect(companiesPayload.data.items[0]?.id).toBe("company_demo");
-    expect(companiesPayload.data.items[0]?.settingsModel.policyStartPoint).toContain("scope");
+    expect(companiesResponse.status).toBe(503);
+    const companiesPayload = errorResponseSchema.parse(await companiesResponse.json());
+    expect(companiesPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns branch summaries and notification inbox payloads with role-aware scope", async () => {
+  it("requires PostgreSQL for branch summaries and notification inbox payloads", async () => {
     const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
     const adminBranchesResponse = await app.request(appRoutes.org.branches, {
       headers: {
         cookie: adminCookie,
       },
     });
-    expect(adminBranchesResponse.status).toBe(200);
-    const adminBranchesPayload = listBranchesResponseSchema.parse(await adminBranchesResponse.json());
-    expect(adminBranchesPayload.data.scope).toBe("hq_admin");
-    expect(adminBranchesPayload.data.items.map((item) => item.id)).toEqual(
-      expect.arrayContaining(["branch_hq", "branch_hotel_seoul", "branch_hotel_busan"]),
-    );
+    expect(adminBranchesResponse.status).toBe(503);
+    const adminBranchesPayload = errorResponseSchema.parse(await adminBranchesResponse.json());
+    expect(adminBranchesPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
     const managerBranchesResponse = await app.request(appRoutes.org.branches, {
@@ -266,34 +228,30 @@ describe("Phase 2 auth/org skeleton", () => {
         cookie: managerCookie,
       },
     });
-    expect(managerBranchesResponse.status).toBe(200);
-    const managerBranchesPayload = listBranchesResponseSchema.parse(await managerBranchesResponse.json());
-    expect(managerBranchesPayload.data.scope).toBe("branch_manager");
-    expect(managerBranchesPayload.data.items.map((item) => item.id)).toEqual(["branch_hotel_seoul"]);
+    expect(managerBranchesResponse.status).toBe(503);
+    const managerBranchesPayload = errorResponseSchema.parse(await managerBranchesResponse.json());
+    expect(managerBranchesPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const notificationsResponse = await app.request(appRoutes.notifications, {
       headers: {
         cookie: adminCookie,
       },
     });
-    expect(notificationsResponse.status).toBe(200);
-    const notificationsPayload = listNotificationsResponseSchema.parse(await notificationsResponse.json());
-    expect(notificationsPayload.data.unreadCount).toBeGreaterThanOrEqual(1);
-    expect(notificationsPayload.data.items.every((item) => item.userId === "user_company_admin")).toBe(true);
+    expect(notificationsResponse.status).toBe(503);
+    const notificationsPayload = errorResponseSchema.parse(await notificationsResponse.json());
+    expect(notificationsPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("filters privileged home shortcuts out of the fallback payload for non-privileged viewers", async () => {
+  it("requires PostgreSQL instead of fallback home shortcuts for non-privileged viewers", async () => {
     const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
     const employeeResponse = await app.request(appRoutes.home.shortcuts, {
       headers: {
         cookie: employeeCookie,
       },
     });
-    expect(employeeResponse.status).toBe(200);
-    const employeePayload = listHomeShortcutsResponseSchema.parse(await employeeResponse.json());
-    expect(employeePayload.data.items.some((item) => item.href === "/attendance")).toBe(true);
-    expect(employeePayload.data.items.some((item) => item.href.startsWith("/admin"))).toBe(false);
-    expect(employeePayload.data.items.some((item) => item.href === "/management")).toBe(false);
+    expect(employeeResponse.status).toBe(503);
+    const employeePayload = errorResponseSchema.parse(await employeeResponse.json());
+    expect(employeePayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
     const managerResponse = await app.request(appRoutes.home.shortcuts, {
@@ -301,9 +259,9 @@ describe("Phase 2 auth/org skeleton", () => {
         cookie: managerCookie,
       },
     });
-    expect(managerResponse.status).toBe(200);
-    const managerPayload = listHomeShortcutsResponseSchema.parse(await managerResponse.json());
-    expect(managerPayload.data.items.some((item) => item.href.startsWith("/admin"))).toBe(false);
+    expect(managerResponse.status).toBe(503);
+    const managerPayload = errorResponseSchema.parse(await managerResponse.json());
+    expect(managerPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks invite creation when current role lacks admin permission", async () => {
@@ -327,7 +285,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(payload.error.code).toBe("FORBIDDEN");
   });
 
-  it("creates placeholder invite skeleton for admins", async () => {
+  it("requires PostgreSQL for admin invite creation", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.invites, {
@@ -344,13 +302,12 @@ describe("Phase 2 auth/org skeleton", () => {
       }),
     });
 
-    expect(response.status).toBe(201);
-    const payload = createInviteResponseSchema.parse(await response.json());
-    expect(payload.data.status).toBe("pending_delivery");
-    expect(payload.data.audit.action).toBe("admin.invite.create");
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns employee directory summaries, filters, and admin-boundary notices", async () => {
+  it("requires PostgreSQL for employee directory summaries, filters, and admin-boundary notices", async () => {
     const { cookie } = await loginAndGetCookie("HR_ADMIN");
 
     const response = await app.request(`${appRoutes.org.employees}?departmentId=department_ops&employmentStatus=active&roleCode=MANAGER`, {
@@ -359,21 +316,12 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(response.status).toBe(200);
-    const payload = listEmployeesResponseSchema.parse(await response.json());
-    expect(payload.data.items).toHaveLength(1);
-    expect(payload.data.items[0]?.id).toBe("employee_manager");
-    expect(payload.data.summaries[0]?.departmentName).toBe("운영팀");
-    expect(payload.data.summaries[0]?.roleSummary).toContain("MANAGER");
-    expect(payload.data.filters.departmentId).toBe("department_ops");
-    expect(payload.data.filters.employmentStatus).toBe("active");
-    expect(payload.data.filters.roleCode).toBe("MANAGER");
-    expect(payload.data.filterOptions.departments.some((item) => item.name === "운영팀")).toBe(true);
-    expect(payload.data.notices.some((item) => item.includes("/admin/users"))).toBe(true);
-    expect(JSON.stringify(payload)).not.toContain("invite.manage");
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("keeps admin-only roles out of the general employee directory for non-admin viewers", async () => {
+  it("requires PostgreSQL before filtering admin-only roles out of the general employee directory", async () => {
     const { cookie } = await loginAndGetCookie("MANAGER");
 
     const response = await app.request(`${appRoutes.org.employees}?roleCode=COMPANY_ADMIN`, {
@@ -382,13 +330,9 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(response.status).toBe(200);
-    const payload = listEmployeesResponseSchema.parse(await response.json());
-    expect(payload.data.items.some((item) => item.id === "employee_admin")).toBe(false);
-    expect(payload.data.summaries.some((item) => item.roleSummary.includes("COMPANY_ADMIN"))).toBe(false);
-    expect(payload.data.summaries.some((item) => item.roleSummary.includes("HR_ADMIN"))).toBe(false);
-    expect(payload.data.filterOptions.roleCodes).toEqual(["MANAGER", "EMPLOYEE"]);
-    expect(payload.data.filters.roleCode).toBeUndefined();
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("returns validation errors instead of 500 for invalid employee directory filters", async () => {
@@ -415,7 +359,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(invalidRolePayload.error.details?.field).toBe("roleCode");
   });
 
-  it("lists admin users only for admin roles with permission catalog access", async () => {
+  it("requires PostgreSQL for admin users list even for admin roles with permission catalog access", async () => {
     const { cookie } = await loginAndGetCookie("HR_ADMIN");
 
     const response = await app.request(appRoutes.admin.users, {
@@ -424,13 +368,9 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(response.status).toBe(200);
-    const payload = adminUsersListResponseSchema.parse(await response.json());
-    expect(payload.data.items.some((item) => item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
-    expect(payload.data.items[0]?.highRiskPermissions.length).toBeGreaterThan(0);
-    expect(payload.data.items[0]?.roleChangePreview.auditCandidate).toBe(true);
-    expect(payload.data.linkedScreens.some((item) => item.source === "/dashboard")).toBe(true);
-    expect(payload.data.audit.action).toBe("admin.user.list.viewed");
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks admin users list for non-admin roles even if they can read employees", async () => {
@@ -563,16 +503,9 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(readResponse.status).toBe(200);
-    const readPayload = adminAuditLogListResponseSchema.parse(await readResponse.json());
-    expect(readPayload.data.items.length).toBeGreaterThan(0);
-    expect(readPayload.data.filterOptions.categories).toContain("policy");
-    expect(readPayload.data.detailPreview.reasonRequired).toBe(true);
-    expect(readPayload.data.items[0]?.metadata.maskedFields.length).toBeGreaterThan(0);
-    expect(readPayload.data.items.some((item) => item.metadata.storageRef?.storageStatus === "linked")).toBe(true);
-    expect(readPayload.data.operationalTrail.blockedReasons.some((item) => item.category === "placeholder")).toBe(true);
-    expect(JSON.stringify(readPayload)).not.toContain("storageKey");
-    expect(JSON.stringify(readPayload)).not.toContain("bucket");
+    expect(readResponse.status).toBe(503);
+    const readPayload = errorResponseSchema.parse(await readResponse.json());
+    expect(readPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: hrCookie } = await loginAndGetCookie("HR_ADMIN");
     const blockedResponse = await app.request(appRoutes.admin.auditLogs, {
@@ -587,7 +520,7 @@ describe("Phase 2 auth/org skeleton", () => {
     expect(blockedPayload.error.details?.requiredPermission).toBe("audit.read");
   });
 
-  it("filters admin audit logs by createdFrom and createdTo query params", async () => {
+  it("requires PostgreSQL before filtering admin audit logs by createdFrom and createdTo query params", async () => {
     const { cookie } = await loginAndGetCookie("AUDITOR");
 
     const createdFromResponse = await app.request(
@@ -599,274 +532,44 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     );
 
-    expect(createdFromResponse.status).toBe(200);
-    const createdFromPayload = adminAuditLogListResponseSchema.parse(await createdFromResponse.json());
-    expect(createdFromPayload.data.items).toHaveLength(2);
-
-    const createdToResponse = await app.request(
-      `${appRoutes.admin.auditLogs}?createdTo=2026-06-10T08:59:59.999Z`,
-      {
-        headers: {
-          cookie,
-        },
-      },
-    );
-
-    expect(createdToResponse.status).toBe(200);
-    const createdToPayload = adminAuditLogListResponseSchema.parse(await createdToResponse.json());
-    expect(createdToPayload.data.items).toHaveLength(0);
-
-    const boundedResponse = await app.request(
-      `${appRoutes.admin.auditLogs}?category=policy&createdFrom=2026-06-10T09:00:00.000Z&createdTo=2026-06-10T09:00:00.000Z`,
-      {
-        headers: {
-          cookie,
-        },
-      },
-    );
-
-    expect(boundedResponse.status).toBe(200);
-    const boundedPayload = adminAuditLogListResponseSchema.parse(await boundedResponse.json());
-    expect(boundedPayload.data.items).toHaveLength(1);
-    expect(boundedPayload.data.items[0]?.id).toBe("audit_admin_policy_document_1");
-    expect(boundedPayload.data.filters.createdFrom).toBe("2026-06-10T09:00:00.000Z");
-    expect(boundedPayload.data.filters.createdTo).toBe("2026-06-10T09:00:00.000Z");
+    expect(createdFromResponse.status).toBe(503);
+    const createdFromPayload = errorResponseSchema.parse(await createdFromResponse.json());
+    expect(createdFromPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("filters common work items by role/module and keeps branch-only items out of HR admin scope", async () => {
-    const { cookie } = await loginAndGetCookie("HR_ADMIN");
+  it("requires PostgreSQL for common work item list/detail/document/deadline reads", async () => {
+    const { cookie: hrCookie } = await loginAndGetCookie("HR_ADMIN");
 
     const listResponse = await app.request(appRoutes.workItems.list, {
-      headers: {
-        cookie,
-      },
+      headers: { cookie: hrCookie },
     });
-
-    expect(listResponse.status).toBe(200);
-    const listPayload = workItemListResponseSchema.parse(await listResponse.json());
-    expect(listPayload.data.items.map((item) => item.id)).toEqual([
-      "work_item_hr_onboarding_packet",
-      "work_item_hr_one_on_one_checkin",
-      "work_item_hr_branch_training_followup",
-      "work_item_hr_grievance_triage",
-      "work_item_tax_month_end_evidence",
-      "work_item_tax_vat_package_preparation",
-      "work_item_labor_overtime_review",
-      "work_item_labor_leave_balance_adjustment",
-      "work_item_labor_grievance_intake",
-      "work_item_labor_discipline_review",
-    ]);
-    expect(listPayload.data.items.some((item) => item.module === "branch")).toBe(false);
-    expect(listPayload.data.items.some((item) => item.module === "legal")).toBe(false);
+    expect(listResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await listResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const filteredResponse = await app.request(`${appRoutes.workItems.list}?module=hr`, {
-      headers: {
-        cookie,
-      },
+      headers: { cookie: hrCookie },
     });
+    expect(filteredResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await filteredResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
-    expect(filteredResponse.status).toBe(200);
-    const filteredPayload = workItemListResponseSchema.parse(await filteredResponse.json());
-    expect(filteredPayload.data.items.map((item) => item.id)).toEqual([
-      "work_item_hr_onboarding_packet",
-      "work_item_hr_one_on_one_checkin",
-      "work_item_hr_branch_training_followup",
-      "work_item_hr_grievance_triage",
-    ]);
-    expect(filteredPayload.data.items.every((item) => item.module === "hr")).toBe(true);
-
-    const laborFilteredResponse = await app.request(`${appRoutes.workItems.list}?module=labor`, {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(laborFilteredResponse.status).toBe(200);
-    const laborFilteredPayload = workItemListResponseSchema.parse(await laborFilteredResponse.json());
-    expect(laborFilteredPayload.data.items.map((item) => item.id)).toEqual([
-      "work_item_labor_overtime_review",
-      "work_item_labor_leave_balance_adjustment",
-      "work_item_labor_grievance_intake",
-      "work_item_labor_discipline_review",
-    ]);
-    expect(laborFilteredPayload.data.items.every((item) => item.module === "labor")).toBe(true);
-    expect(laborFilteredPayload.data.items[0]?.laborContext?.evidenceSummary.length).toBeGreaterThan(0);
-  });
-
-  it("enforces work-item detail/document/deadline boundaries for branch managers", async () => {
-    const { cookie } = await loginAndGetCookie("MANAGER");
-
+    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
     const detailResponse = await app.request(appRoutes.workItems.detail("work_item_tax_month_end_evidence"), {
-      headers: {
-        cookie,
-      },
+      headers: { cookie: managerCookie },
     });
+    expect(detailResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await detailResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = workItemDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.item.id).toBe("work_item_tax_month_end_evidence");
-    expect(detailPayload.data.item.access.viewerScope).toBe("branch");
-    expect(detailPayload.data.item.taxContext?.branchRequests[0]?.missingEvidenceCount).toBe(2);
-    expect(detailPayload.data.item.taxContext?.visibility.branchManager).toContain("자기 지점");
-    expect(detailPayload.data.auditLogs).toEqual([]);
-
-    const blockedPackageDetailResponse = await app.request(appRoutes.workItems.detail("work_item_tax_vat_package_preparation"), {
-      headers: {
-        cookie,
-      },
+    const documentResponse = await app.request(appRoutes.workItems.documents("work_item_legal_contract_renewal"), {
+      headers: { cookie: managerCookie },
     });
-
-    expect(blockedPackageDetailResponse.status).toBe(403);
-    expect(errorResponseSchema.parse(await blockedPackageDetailResponse.json()).error.code).toBe("FORBIDDEN");
-
-    const attachmentResponse = await app.request(appRoutes.workItems.attachments("work_item_tax_month_end_evidence"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(attachmentResponse.status).toBe(200);
-    const attachmentPayload = workItemAttachmentsResponseSchema.parse(await attachmentResponse.json());
-    expect(attachmentPayload.data.items).toHaveLength(1);
-    expect(attachmentPayload.data.items[0]?.id).toBe("wiatt_tax_evidence_sheet");
-    expect(attachmentPayload.data.items[0]?.sensitivityLabel).toBe("internal");
-
-    const reviewsResponse = await app.request(appRoutes.workItems.reviews("work_item_tax_month_end_evidence"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(reviewsResponse.status).toBe(200);
-    const reviewsPayload = workItemReviewsResponseSchema.parse(await reviewsResponse.json());
-    expect(reviewsPayload.data.items).toHaveLength(1);
-    expect(reviewsPayload.data.items[0]?.reviewerRoleCode).toBe("COMPANY_ADMIN");
+    expect(documentResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await documentResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const deadlinesResponse = await app.request(appRoutes.workItems.deadlines, {
-      headers: {
-        cookie,
-      },
+      headers: { cookie: managerCookie },
     });
-
-    expect(deadlinesResponse.status).toBe(200);
-    const deadlinesPayload = workItemDeadlinesResponseSchema.parse(await deadlinesResponse.json());
-    expect(deadlinesPayload.data.items.map((item) => item.id)).toEqual([
-      "wideadline_hr_branch_training",
-      "wideadline_tax_month_end",
-      "wideadline_legal_contract_renewal",
-    ]);
-
-    const branchHrDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_branch_training_followup"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(branchHrDetailResponse.status).toBe(200);
-    const branchHrDetailPayload = workItemDetailResponseSchema.parse(await branchHrDetailResponse.json());
-    expect(branchHrDetailPayload.data.item.hrContext?.visibility.branchManager).toContain("자기 지점");
-
-    const branchLegalDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_contract_renewal"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(branchLegalDetailResponse.status).toBe(200);
-    const branchLegalDetailPayload = workItemDetailResponseSchema.parse(await branchLegalDetailResponse.json());
-    expect(branchLegalDetailPayload.data.item.legalContext?.renewalStatus).toBe("upcoming");
-    expect(branchLegalDetailPayload.data.item.legalContext?.visibility.branchManager).toContain("자기 지점");
-
-    const branchLegalDocumentResponse = await app.request(appRoutes.workItems.documents("work_item_legal_contract_renewal"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(branchLegalDocumentResponse.status).toBe(200);
-    const branchLegalDocumentPayload = workItemDocumentsResponseSchema.parse(await branchLegalDocumentResponse.json());
-    expect(branchLegalDocumentPayload.data.items.map((item) => item.id)).toEqual(["widoc_legal_renewal_tracker"]);
-
-    const blockedDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(blockedDetailResponse.status).toBe(403);
-    const blockedDetailPayload = errorResponseSchema.parse(await blockedDetailResponse.json());
-    expect(blockedDetailPayload.error.code).toBe("FORBIDDEN");
-
-    const blockedDocumentResponse = await app.request(appRoutes.workItems.documents("work_item_hr_onboarding_packet"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(blockedDocumentResponse.status).toBe(403);
-    const blockedDocumentPayload = errorResponseSchema.parse(await blockedDocumentResponse.json());
-    expect(blockedDocumentPayload.error.code).toBe("FORBIDDEN");
-  });
-
-  it("lets auditors read sensitive work-item metadata, audit logs, and legal review placeholders", async () => {
-    const { cookie } = await loginAndGetCookie("AUDITOR");
-
-    const hrDetailResponse = await app.request(appRoutes.workItems.detail("work_item_hr_onboarding_packet"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(hrDetailResponse.status).toBe(200);
-    const hrDetailPayload = workItemDetailResponseSchema.parse(await hrDetailResponse.json());
-    expect(hrDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_hr_status_change"]);
-
-    const documentsResponse = await app.request(appRoutes.workItems.documents("work_item_hr_onboarding_packet"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(documentsResponse.status).toBe(200);
-    const documentsPayload = workItemDocumentsResponseSchema.parse(await documentsResponse.json());
-    expect(documentsPayload.data.items).toHaveLength(1);
-    expect(documentsPayload.data.items[0]?.containsSensitiveData).toBe(true);
-    expect(documentsPayload.data.items[0]?.visibility).toBe("restricted");
-
-    const attachmentsResponse = await app.request(appRoutes.workItems.attachments("work_item_hr_onboarding_packet"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(attachmentsResponse.status).toBe(200);
-    const attachmentsPayload = workItemAttachmentsResponseSchema.parse(await attachmentsResponse.json());
-    expect(attachmentsPayload.data.items).toHaveLength(1);
-    expect(attachmentsPayload.data.items[0]?.id).toBe("wiatt_hr_packet_zip");
-    expect(attachmentsPayload.data.items[0]?.storageExposure).toBe("metadata_only");
-
-    const legalDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_contract_review"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(legalDetailResponse.status).toBe(200);
-    const legalDetailPayload = workItemDetailResponseSchema.parse(await legalDetailResponse.json());
-    expect(legalDetailPayload.data.item.status).toBe("blocked");
-    expect(legalDetailPayload.data.item.legalContext?.approvalGate.stage).toBe("executive_approval");
-    expect(legalDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_blocked"]);
-
-    const legalDisputeDetailResponse = await app.request(appRoutes.workItems.detail("work_item_legal_dispute_intake"), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(legalDisputeDetailResponse.status).toBe(200);
-    const legalDisputeDetailPayload = workItemDetailResponseSchema.parse(await legalDisputeDetailResponse.json());
-    expect(legalDisputeDetailPayload.data.item.legalContext?.disputeStatus).toBe("response_preparing");
-    expect(legalDisputeDetailPayload.data.auditLogs.map((item) => item.id)).toEqual(["wiaudit_legal_dispute_gate"]);
+    expect(deadlinesResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await deadlinesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it.each([
@@ -874,7 +577,7 @@ describe("Phase 2 auth/org skeleton", () => {
     ["departments list", appRoutes.org.departments, "department.read", "MANAGER"],
     ["roles list", appRoutes.org.roles, "role.read", "MANAGER"],
     ["permissions list", appRoutes.org.permissions, "permission.read", "HR_ADMIN"],
-  ])("allows authorized roles to read %s", async (_label, route, _requiredPermission, role) => {
+  ])("requires PostgreSQL for authorized roles to read %s", async (_label, route, _requiredPermission, role) => {
     const { cookie } = await loginAndGetCookie(role);
 
     const response = await app.request(route, {
@@ -883,8 +586,9 @@ describe("Phase 2 auth/org skeleton", () => {
       },
     });
 
-    expect(response.status).toBe(200);
-    assertListPayload(route, await response.json());
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it.each([
@@ -969,9 +673,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(employeeAllowed.status).toBe(201);
-    const employeeAllowedPayload = attendanceActionResponseSchema.parse(await employeeAllowed.json());
-    expect(employeeAllowedPayload.data.record.status).toBe("checked_in");
+    expect(employeeAllowed.status).toBe(503);
+    const employeeAllowedPayload = errorResponseSchema.parse(await employeeAllowed.json());
+    expect(employeeAllowedPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const managerAllowed = await app.request(appRoutes.attendance.checkOut, {
       method: "POST",
@@ -984,9 +688,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(managerAllowed.status).toBe(200);
-    const managerAllowedPayload = attendanceActionResponseSchema.parse(await managerAllowed.json());
-    expect(managerAllowedPayload.data.record.status).toBe("checked_out");
+    expect(managerAllowed.status).toBe(503);
+    const managerAllowedPayload = errorResponseSchema.parse(await managerAllowed.json());
+    expect(managerAllowedPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("covers mobile-only, pc-only, tag-only, mobile+pc, and all-allowed policy combinations", async () => {
@@ -1122,10 +826,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(correctionResponse.status).toBe(201);
-    const correctionPayload = attendanceCorrectionResponseSchema.parse(await correctionResponse.json());
-    expect(correctionPayload.data.request.status).toBe("requested");
-    expect(correctionPayload.data.audit.action).toBe("attendance.correction.request");
+    expect(correctionResponse.status).toBe(503);
+    const correctionPayload = errorResponseSchema.parse(await correctionResponse.json());
+    expect(correctionPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("returns leave types, balances, and requests for request-capable roles", async () => {
@@ -1178,13 +881,11 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(createResponse.status).toBe(201);
-    const createPayload = leaveRequestCreateResponseSchema.parse(await createResponse.json());
-    expect(createPayload.data.request.approvalStatus).toBe("pending");
-    expect(createPayload.data.policyContext.placeholderNote).toContain("실제 급여 반영");
-    expect(createPayload.data.audit.action).toBe("leave.request.create");
+    expect(createResponse.status).toBe(503);
+    const createPayload = errorResponseSchema.parse(await createResponse.json());
+    expect(createPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
-    const approveResponse = await app.request(appRoutes.leave.approve(createPayload.data.request.id), {
+    const approveResponse = await app.request(appRoutes.leave.approve("leave_request_demo"), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -1282,12 +983,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(approveResponse.status).toBe(200);
-    const approvePayload = leaveActionResponseSchema.parse(await approveResponse.json());
-    expect(approvePayload.data.request.approvalStatus).toBe("approved");
-    expect(approvePayload.data.audit.action).toBe("leave.request.approve");
-    expect(approvePayload.data.request.requestedBy).toBe("user_employee");
-    expect(approvePayload.data.request.reviewedBy).toBe("user_hr_admin");
+    expect(approveResponse.status).toBe(503);
+    const approvePayload = errorResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const rejectResponse = await app.request(appRoutes.leave.reject("leave_request_team_pending"), {
       method: "POST",
@@ -1300,12 +998,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(rejectResponse.status).toBe(200);
-    const rejectPayload = leaveActionResponseSchema.parse(await rejectResponse.json());
-    expect(rejectPayload.data.request.approvalStatus).toBe("rejected");
-    expect(rejectPayload.data.audit.action).toBe("leave.request.reject");
-    expect(rejectPayload.data.request.requestedBy).toBe("user_employee");
-    expect(rejectPayload.data.request.reviewedBy).toBe("user_hr_admin");
+    expect(rejectResponse.status).toBe(503);
+    const rejectPayload = errorResponseSchema.parse(await rejectResponse.json());
+    expect(rejectPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 });
 
@@ -1391,25 +1086,9 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(createResponse.status).toBe(201);
-    const createPayload = approvalDocumentCreateResponseSchema.parse(await createResponse.json());
-    expect(createPayload.data.document.status).toBe("pending_approval");
-    expect(createPayload.data.operationalContext.currentState).toContain("전자결재");
-    expect(createPayload.data.audit.action).toBe("approval.document.create");
-
-    const detailResponse = await app.request(appRoutes.approvals.detail(createPayload.data.document.id), {
-      headers: {
-        cookie,
-      },
-    });
-
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.document.id).toBe(createPayload.data.document.id);
-    expect(detailPayload.data.references.map((item) => item.referenceType)).toContain("reference");
-    expect(detailPayload.data.comments.every((item) => item.documentId === createPayload.data.document.id)).toBe(true);
-    expect(detailPayload.data.history.some((item) => item.eventType === "submitted")).toBe(true);
-    expect(detailPayload.data.operationalContext.blockedReasons.some((item) => item.category === "company_scope")).toBe(true);
+    expect(createResponse.status).toBe(503);
+    const createPayload = errorResponseSchema.parse(await createResponse.json());
+    expect(createPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("lists and creates approval comments for accessible participants", async () => {
@@ -1435,20 +1114,9 @@ describe("Phase 4 approvals skeleton", () => {
         body: "참조 확인 후 의견 남깁니다.",
       }),
     });
-    expect(createCommentResponse.status).toBe(201);
-    const createCommentPayload = approvalCommentCreateResponseSchema.parse(await createCommentResponse.json());
-    expect(createCommentPayload.data.comment.documentId).toBe("approval_document_demo");
-    expect(createCommentPayload.data.audit.action).toBe("approval.document.comment");
-
-    const detailResponse = await app.request(appRoutes.approvals.detail("approval_document_demo"), {
-      headers: {
-        cookie: drafter.cookie,
-      },
-    });
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.comments.map((item) => item.body)).toContain("참조 확인 후 의견 남깁니다.");
-    expect(detailPayload.data.history.some((item) => item.eventType === "commented" && item.message.includes("참조 확인 후 의견 남깁니다."))).toBe(true);
+    expect(createCommentResponse.status).toBe(503);
+    const createCommentPayload = errorResponseSchema.parse(await createCommentResponse.json());
+    expect(createCommentPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("separates my drafts and approval inbox scopes", async () => {
@@ -1535,11 +1203,9 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(approveResponse.status).toBe(200);
-    const approvePayload = approvalActionResponseSchema.parse(await approveResponse.json());
-    expect(approvePayload.data.document.status).toBe("approved");
-    expect(approvePayload.data.operationalContext.placeholderNote).toContain("실제 저장/발송 없이");
-    expect(approvePayload.data.audit.action).toBe("approval.document.approve");
+    expect(approveResponse.status).toBe(503);
+    const approvePayload = errorResponseSchema.parse(await approveResponse.json());
+    expect(approvePayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const rejectResponse = await app.request(appRoutes.approvals.reject("approval_document_team_pending"), {
       method: "POST",
@@ -1552,10 +1218,9 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(rejectResponse.status).toBe(403);
+    expect(rejectResponse.status).toBe(503);
     const rejectPayload = errorResponseSchema.parse(await rejectResponse.json());
-    expect(rejectPayload.error.details?.documentId).toBe("approval_document_team_pending");
-    expect(rejectPayload.error.message).toContain("허용되지 않은");
+    expect(rejectPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("forbids unknown approval document ids", async () => {
@@ -1623,53 +1288,9 @@ describe("Phase 5 boards/documents skeleton", () => {
         isNotice: false,
       }),
     });
-    expect(createPostResponse.status).toBe(201);
-    const createPostPayload = boardPostCreateResponseSchema.parse(await createPostResponse.json());
-    expect(createPostPayload.data.post.boardId).toBe("board_general");
-    expect(createPostPayload.data.audit.action).toBe("board.post.create");
-
-    const detailResponse = await app.request(appRoutes.boards.postDetail(createPostPayload.data.post.id), {
-      headers: { cookie },
-    });
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = boardPostDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.post.id).toBe(createPostPayload.data.post.id);
-
-    const createCommentResponse = await app.request(appRoutes.boards.comments(createPostPayload.data.post.id), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        body: "오늘은 비빔밥이요.",
-      }),
-    });
-    expect(createCommentResponse.status).toBe(201);
-    const createCommentPayload = boardCommentCreateResponseSchema.parse(await createCommentResponse.json());
-    expect(createCommentPayload.data.comment.postId).toBe(createPostPayload.data.post.id);
-
-    const commentsResponse = await app.request(appRoutes.boards.comments(createPostPayload.data.post.id), {
-      headers: { cookie },
-    });
-    expect(commentsResponse.status).toBe(200);
-    const commentsPayload = boardCommentListResponseSchema.parse(await commentsResponse.json());
-    expect(commentsPayload.data.items.map((item) => item.id)).toContain(createCommentPayload.data.comment.id);
-
-    const receiptResponse = await app.request(appRoutes.readReceipts, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        targetType: "post",
-        targetId: createPostPayload.data.post.id,
-      }),
-    });
-    expect(receiptResponse.status).toBe(201);
-    const receiptPayload = readReceiptCreateResponseSchema.parse(await receiptResponse.json());
-    expect(receiptPayload.data.receipt.targetId).toBe(createPostPayload.data.post.id);
+    expect(createPostResponse.status).toBe(503);
+    const createPostPayload = (await createPostResponse.json()) as { error: { code: string } };
+    expect(createPostPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks board and document-space management for employees and forbids private document space access", async () => {
@@ -1855,7 +1476,7 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(payload.error.details?.targetId).toBe(targetId);
   });
 
-  it("lets admins manage boards and document metadata without exposing storage keys", async () => {
+  it("requires PostgreSQL for admin board and document metadata mutations", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const createBoardResponse = await app.request(appRoutes.boards.boards, {
@@ -1872,90 +1493,16 @@ describe("Phase 5 boards/documents skeleton", () => {
         isNoticeOnly: false,
       }),
     });
-    expect(createBoardResponse.status).toBe(201);
-    const createBoardPayload = boardResponseSchema.parse(await createBoardResponse.json());
-    expect(createBoardPayload.data.board.slug).toBe("ops-updates");
-    expect(createBoardPayload.data.board.id).toBe("board_company_demo_ops-updates");
-
-    const createSpaceResponse = await app.request(appRoutes.documents.spaces, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        name: "운영 문서함",
-        slug: "ops-docs",
-        visibility: "company",
-        isPublicWithinCompany: true,
-      }),
-    });
-    expect(createSpaceResponse.status).toBe(201);
-    const createSpacePayload = documentSpaceResponseSchema.parse(await createSpaceResponse.json());
-    expect(createSpacePayload.data.space.slug).toBe("ops-docs");
-    expect(createSpacePayload.data.space.id).toBe("document_space_company_demo_ops-docs");
-
-    const filesResponse = await app.request(appRoutes.documents.files, {
-      headers: { cookie },
-    });
-    expect(filesResponse.status).toBe(200);
-    const filesPayload = documentFileListResponseSchema.parse(await filesResponse.json());
-    expect(filesPayload.data.items.length).toBeGreaterThan(0);
-
-    const metadataResponse = await app.request(appRoutes.documents.fileMetadata, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        spaceId: createSpacePayload.data.space.id,
-        fileName: "board-outline.docx",
-        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        fileSize: 64000,
-        versionLabel: "draft-1",
-        isPublicWithinCompany: false,
-      }),
-    });
-    expect(metadataResponse.status).toBe(201);
-    const metadataPayload = documentFileMetadataCreateResponseSchema.parse(await metadataResponse.json());
-    expect(metadataPayload.data.file.spaceId).toBe(createSpacePayload.data.space.id);
-    expect(Object.prototype.hasOwnProperty.call(metadataPayload.data.file, "storageKey")).toBe(false);
+    expect(createBoardResponse.status).toBe(503);
+    const createBoardPayload = (await createBoardResponse.json()) as { error: { code: string } };
+    expect(createBoardPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("creates upload/download/delete placeholder actions without exposing raw storage internals", async () => {
+  it("requires PostgreSQL for document upload/download/delete mutation records", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
-    const uploadInitResponse = await app.request(appRoutes.documents.uploadInit, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie,
-      },
-      body: JSON.stringify({
-        spaceId: "document_space_public",
-        fileName: "phase8-plan v1.pdf",
-        contentType: "application/pdf",
-        fileSize: 1024,
-        versionLabel: "draft-1",
-        isPublicWithinCompany: false,
-      }),
-    });
-    expect(uploadInitResponse.status).toBe(201);
-    const uploadInitPayload = documentFileUploadInitResponseSchema.parse(await uploadInitResponse.json());
-    expect(uploadInitPayload.data.file.spaceId).toBe("document_space_public");
-    expect(uploadInitPayload.data.file.storageStatus).toBe("pending");
-    expect(uploadInitPayload.data.file.versionId).toMatch(/^document_version_/);
-    expect(uploadInitPayload.data.action.kind).toMatch(/upload/);
-    expect(uploadInitPayload.data.action.objectKeyPreview).toContain("companies/company_demo/spaces/document_space_public/files/");
-    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain("phase8-plan v1.pdf");
-    expect(uploadInitPayload.data.action.objectKeyPreview).not.toContain(" ");
-    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "storageKey")).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "bucketName")).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(uploadInitPayload.data.action, "publicUrl")).toBe(false);
-
-    const uploadCompleteResponse = await app.request(
-      appRoutes.documents.uploadComplete(uploadInitPayload.data.file.id),
+    const uploadInitResponse = await app.request(
+      appRoutes.documents.uploadInit,
       {
         method: "POST",
         headers: {
@@ -1963,43 +1510,22 @@ describe("Phase 5 boards/documents skeleton", () => {
           cookie,
         },
         body: JSON.stringify({
-          uploadToken: uploadInitPayload.data.action.uploadToken,
-          checksumSha256: "a".repeat(64),
+          spaceId: "document_space_public",
+          fileName: "phase8-plan v1.pdf",
+          contentType: "application/pdf",
+          fileSize: 1024,
+          versionLabel: "draft-1",
+          isPublicWithinCompany: false,
         }),
       },
+      r2TestBinding,
     );
-    expect(uploadCompleteResponse.status).toBe(200);
-    const uploadCompletePayload = documentFileUploadCompleteResponseSchema.parse(await uploadCompleteResponse.json());
-    expect(uploadCompletePayload.data.file.storageStatus).toBe("ready");
-    expect(uploadCompletePayload.data.file.checksumSha256).toBe("a".repeat(64));
-
-    const downloadInitResponse = await app.request(
-      appRoutes.documents.downloadInit(uploadInitPayload.data.file.id),
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          cookie,
-        },
-      },
-    );
-    expect(downloadInitResponse.status).toBe(200);
-    const downloadInitPayload = documentFileDownloadInitResponseSchema.parse(await downloadInitResponse.json());
-    expect(downloadInitPayload.data.file.id).toBe(uploadInitPayload.data.file.id);
-    expect(downloadInitPayload.data.action.kind).toMatch(/download/);
-    expect(downloadInitPayload.data.action.downloadToken).toBeTruthy();
-
-    const deleteResponse = await app.request(appRoutes.documents.deleteFile(uploadInitPayload.data.file.id), {
-      method: "DELETE",
-      headers: { cookie },
-    });
-    expect(deleteResponse.status).toBe(200);
-    const deletePayload = documentFileDeleteResponseSchema.parse(await deleteResponse.json());
-    expect(deletePayload.data.file.status).toBe("archived");
-    expect(deletePayload.data.file.storageStatus).toBe("deleted");
+    expect(uploadInitResponse.status).toBe(503);
+    const uploadInitPayload = (await uploadInitResponse.json()) as { error: { code: string } };
+    expect(uploadInitPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("uses the request FILES_BUCKET binding to switch document actions to the r2 placeholder provider", async () => {
+  it("requires PostgreSQL before returning r2 document action metadata", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const uploadInitResponse = await app.request(
@@ -2019,21 +1545,12 @@ describe("Phase 5 boards/documents skeleton", () => {
           isPublicWithinCompany: false,
         }),
       },
-      {
-        FILES_BUCKET: {
-          head: async () => null,
-          get: async () => null,
-          put: async () => null,
-          delete: async () => undefined,
-        },
-      },
+      r2TestBinding,
     );
 
-    expect(uploadInitResponse.status).toBe(201);
-    const uploadInitPayload = documentFileUploadInitResponseSchema.parse(await uploadInitResponse.json());
-    expect(uploadInitPayload.data.file.storageProvider).toBe("r2");
-    expect(uploadInitPayload.data.action.provider).toBe("r2");
-    expect(uploadInitPayload.data.action.kind).toBe("r2-upload-placeholder");
+    expect(uploadInitResponse.status).toBe(503);
+    const uploadInitPayload = (await uploadInitResponse.json()) as { error: { code: string } };
+    expect(uploadInitPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("rejects upload-init requests for disallowed mime types and oversized files", async () => {
@@ -2080,64 +1597,35 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(oversizedPayload.error.details?.maxFileSizeBytes).toBe(25 * 1024 * 1024);
   });
 
-  it("returns payroll overview with role-split visibility for company admin and employee viewers", async () => {
+  it("requires PostgreSQL for payroll overview and role-split visibility data", async () => {
     const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
     const adminResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: adminCookie } });
-    expect(adminResponse.status).toBe(200);
-    const adminPayload = payrollOverviewResponseSchema.parse(await adminResponse.json());
-    expect(adminPayload.data.profiles.length).toBeGreaterThanOrEqual(3);
-    expect(adminPayload.data.periods[0]?.status).toBe("reviewing");
-    expect(adminPayload.data.roleGuidance.headquartersPayroll).toContain("본사 급여 담당");
+    expect(adminResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await adminResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
     const managerResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: managerCookie } });
-    expect(managerResponse.status).toBe(200);
-    const managerPayload = payrollOverviewResponseSchema.parse(await managerResponse.json());
-    expect(managerPayload.data.collectionSteps.every((step) => step.scope !== "employee")).toBe(true);
-    expect(managerPayload.data.roleGuidance.branchManager).toContain("지점");
+    expect(managerResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await managerResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
     const employeeResponse = await app.request(appRoutes.payroll.overview, { headers: { cookie: employeeCookie } });
-    expect(employeeResponse.status).toBe(200);
-    const employeePayload = payrollOverviewResponseSchema.parse(await employeeResponse.json());
-    expect(employeePayload.data.profiles).toHaveLength(1);
-    expect(employeePayload.data.profiles[0]?.employeeId).toBe("employee_employee");
-    expect(employeePayload.data.collectionSteps.every((step) => step.scope === "employee")).toBe(true);
+    expect(employeeResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await employeeResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns payroll period detail and self payslip while keeping self-only access boundaries", async () => {
+  it("requires PostgreSQL for payroll period detail and self payslip data", async () => {
     const { cookie: adminCookie } = await loginAndGetCookie("COMPANY_ADMIN");
     const detailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_05"), {
       headers: { cookie: adminCookie },
     });
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = payrollPeriodDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.draft.employeeId).toBe("employee_employee");
-    expect(detailPayload.data.lineItems.some((item) => item.code === "WITHHOLDING_TAX")).toBe(true);
-    expect(detailPayload.data.reviewSteps.some((step) => step.scope === "branch_manager")).toBe(true);
-
-    const { cookie: managerCookie } = await loginAndGetCookie("MANAGER");
-    const managerDetailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_05"), {
-      headers: { cookie: managerCookie },
-    });
-    expect(managerDetailResponse.status).toBe(200);
-    const managerDetailPayload = payrollPeriodDetailResponseSchema.parse(await managerDetailResponse.json());
-    expect(managerDetailPayload.data.draft.branchLabel).toBe("서울 시티 호텔");
-    expect(managerDetailPayload.data.reviewSteps.every((step) => ["branch_manager", "headquarters_payroll"].includes(step.scope))).toBe(true);
+    expect(detailResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await detailResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const { cookie: employeeCookie } = await loginAndGetCookie("EMPLOYEE");
     const payslipResponse = await app.request(appRoutes.payroll.myPayslip, { headers: { cookie: employeeCookie } });
-    expect(payslipResponse.status).toBe(200);
-    const payslipPayload = payrollMyPayslipResponseSchema.parse(await payslipResponse.json());
-    expect(payslipPayload.data.payslip.employeeId).toBe("employee_employee");
-    expect(payslipPayload.data.employeeMessage).toContain("preview 상태");
-
-    const blockedDetailResponse = await app.request(appRoutes.payroll.periodDetail("payroll_period_2026_06"), {
-      headers: { cookie: employeeCookie },
-    });
-    expect(blockedDetailResponse.status).toBe(403);
-    const blockedDetailPayload = errorResponseSchema.parse(await blockedDetailResponse.json());
-    expect(blockedDetailPayload.error.code).toBe("FORBIDDEN");
+    expect(payslipResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await payslipResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks payroll payslip access for roles without self payslip permission", async () => {

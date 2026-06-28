@@ -38,21 +38,8 @@ describe("document storage skeleton", () => {
     ).toThrow(/unsafe companyId/i);
   });
 
-  it("falls back to the mock adapter when FILES_BUCKET binding is missing", async () => {
-    const adapter = createDocumentStorageAdapter({});
-    const upload = await adapter.prepareUpload({
-      companyId: "company_demo",
-      spaceId: "document_space_public",
-      fileId: "document_file_phase8",
-      versionId: "document_version_1",
-      fileName: "phase8-plan.pdf",
-      contentType: "application/pdf",
-      fileSize: 1024,
-    });
-
-    expect(upload.provider).toBe("mock");
-    expect(upload.kind).toBe("mock-upload");
-    expect(upload.objectKey).toContain("companies/company_demo/spaces/document_space_public/files/document_file_phase8/");
+  it("requires FILES_BUCKET R2 binding instead of falling back to a mock adapter", () => {
+    expect(() => createDocumentStorageAdapter({})).toThrow(/FILES_BUCKET R2 binding is required/i);
   });
 
   it("exports allowlist and max-size defaults for endpoint validation", () => {

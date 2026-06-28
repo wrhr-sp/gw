@@ -121,6 +121,7 @@ export const errorCodeSchema = z.enum([
   "FORBIDDEN",
   "VALIDATION_ERROR",
   "NOT_IMPLEMENTED",
+  "DB_NOT_CONFIGURED",
 ]);
 
 export const errorResponseSchema = z.object({
@@ -1928,7 +1929,7 @@ export const boardCommentCreateResponseSchema = successResponseSchema(
 
 export const documentSpaceVisibilitySchema = z.enum(["company", "department", "private"]);
 export const documentStatusSchema = z.enum(["active", "archived"]);
-export const documentStorageProviderSchema = z.enum(["mock", "r2"]);
+export const documentStorageProviderSchema = z.enum(["r2"]);
 export const documentStorageStatusSchema = z.enum(["pending", "ready", "deleted", "failed"]);
 
 export const documentSpaceSchema = z.object({
@@ -1976,7 +1977,7 @@ export const documentFileUploadInitRequestSchema = z.object({
 });
 
 export const documentFileActionSchema = z.object({
-  kind: z.enum(["mock-upload", "r2-upload-placeholder", "mock-download", "r2-download-placeholder"]),
+  kind: z.enum(["r2-upload", "r2-download"]),
   provider: documentStorageProviderSchema,
   expiresAt: z.string().datetime(),
   uploadToken: z.string().min(1).optional(),

@@ -1,18 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  adminAuditLogListResponseSchema,
-  adminUsersListResponseSchema,
   appRoutes,
   authLoginResponseSchema,
-  secondaryPasswordStatusResponseSchema,
-  secondaryPasswordUpdateResponseSchema,
-  secondaryPasswordVerifyResponseSchema,
-  userPreferencesResponseSchema,
-  userPreferencesUpdateResponseSchema,
   errorResponseSchema,
   healthResponseSchema,
-  listPermissionsResponseSchema,
-  listRolesResponseSchema,
 } from "@gw/shared";
 import { GET as getApi, POST as postApi, PUT as putApi } from "./app/api/[...slug]/route";
 import { GET as getAdminUsers } from "./app/api/admin/users/route";
@@ -20,6 +11,12 @@ import { POST as postLogin } from "./app/api/auth/login/route";
 import { POST as postLogout } from "./app/api/auth/logout/route";
 import { GET as getHealth } from "./app/api/health/route";
 import { GET as getMe } from "./app/api/me/route";
+
+async function expectDbRequired(response: Response) {
+  expect(response.status).toBe(503);
+  const payload = errorResponseSchema.parse(await response.json());
+  expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+}
 
 describe("Phase 55 same-origin API bridge", () => {
   it("returns the shared health contract from the web same-origin route", async () => {
@@ -144,7 +141,7 @@ describe("Phase 55 same-origin API bridge", () => {
     expect(loginResponse.headers.get("set-cookie")).toContain("dev-placeholder-session_AUDITOR");
   });
 
-  it("forwards admin users preview through same-origin route when an admin session cookie is present", async () => {
+  it("requires PostgreSQL before forwarding admin users through the same-origin route", async () => {
     const loginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -168,14 +165,11 @@ describe("Phase 55 same-origin API bridge", () => {
       }),
     );
 
-    expect(adminUsersResponse.status).toBe(200);
-    const payload = adminUsersListResponseSchema.parse(await adminUsersResponse.json());
-    expect(payload.data.items.length).toBeGreaterThan(0);
-    expect(payload.data.audit.action).toBe("admin.user.list.viewed");
+    await expectDbRequired(adminUsersResponse);
   });
 
 
-  it("keeps secondary password in preview DB contracts without exposing the raw PIN", async () => {
+  it("requires PostgreSQL for secondary password same-origin contracts", async () => {
     const loginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -192,54 +186,22 @@ describe("Phase 55 same-origin API bridge", () => {
     );
     const cookie = loginResponse.headers.get("set-cookie") ?? "";
 
-    const statusResponse = await getApi(
-      new Request("http://localhost/api/security/secondary-password", { headers: { cookie } }),
+    await expectDbRequired(
+      await getApi(new Request("http://localhost/api/security/secondary-password", { headers: { cookie } })),
     );
-
-    expect(statusResponse.status).toBe(200);
-    const statusPayload = secondaryPasswordStatusResponseSchema.parse(await statusResponse.json());
-    expect(typeof statusPayload.data.hasSecondaryPassword).toBe("boolean");
-    expect(["preview-db", "memory-fallback"]).toContain(statusPayload.data.persistence);
-
-    const saveResponse = await postApi(
-      new Request("http://localhost/api/security/secondary-password", {
-        method: "POST",
-        headers: {
-          cookie,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ nextPin: "2580", confirmPin: "2580" }),
-      }),
+    await expectDbRequired(
+      await postApi(
+        new Request("http://localhost/api/security/secondary-password", {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({ nextPin: "2580", confirmPin: "2580" }),
+        }),
+      ),
     );
-
-    expect([200, 403, 501]).toContain(saveResponse.status);
-    const savePayload = await saveResponse.json();
-    if (saveResponse.status === 501) {
-      expect(errorResponseSchema.parse(savePayload).error.details?.persistence).toBe("memory-fallback");
-    } else if (saveResponse.status === 403) {
-      expect(errorResponseSchema.parse(savePayload).error.code).toBe("FORBIDDEN");
-    } else {
-      expect(secondaryPasswordUpdateResponseSchema.parse(savePayload).data.persistence).toBe("preview-db");
-    }
-
-    expect(() =>
-      secondaryPasswordUpdateResponseSchema.parse({
-        ok: true,
-        data: { hasSecondaryPassword: true, persistence: "preview-db", updatedAt: "2026-06-22T00:00:00.000Z" },
-        error: null,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      secondaryPasswordVerifyResponseSchema.parse({
-        ok: true,
-        data: { verified: true, persistence: "preview-db" },
-        error: null,
-      }),
-    ).not.toThrow();
   });
 
 
-  it("exposes user preferences contracts through the same-origin bridge", async () => {
+  it("requires PostgreSQL for user preferences same-origin contracts", async () => {
     const loginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -256,44 +218,19 @@ describe("Phase 55 same-origin API bridge", () => {
     );
     const cookie = loginResponse.headers.get("set-cookie") ?? "";
 
-    const statusResponse = await getApi(
-      new Request("http://localhost/api/user/preferences", { headers: { cookie } }),
+    await expectDbRequired(await getApi(new Request("http://localhost/api/user/preferences", { headers: { cookie } })));
+    await expectDbRequired(
+      await putApi(
+        new Request("http://localhost/api/user/preferences", {
+          method: "PUT",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({ preferences: { bottomNavCollapsed: true } }),
+        }),
+      ),
     );
-
-    expect(statusResponse.status).toBe(200);
-    const statusPayload = userPreferencesResponseSchema.parse(await statusResponse.json());
-    expect(typeof statusPayload.data.preferences).toBe("object");
-    expect(["preview-db", "memory-fallback"]).toContain(statusPayload.data.persistence);
-
-    const saveResponse = await putApi(
-      new Request("http://localhost/api/user/preferences", {
-        method: "PUT",
-        headers: {
-          cookie,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ preferences: { bottomNavCollapsed: true } }),
-      }),
-    );
-
-    expect([200, 501]).toContain(saveResponse.status);
-    const preferencesSavePayload = await saveResponse.json();
-    if (saveResponse.status === 501) {
-      expect(errorResponseSchema.parse(preferencesSavePayload).error.details?.persistence).toBe("memory-fallback");
-    } else {
-      expect(userPreferencesUpdateResponseSchema.parse(preferencesSavePayload).data.persistence).toBe("preview-db");
-    }
-
-    expect(() =>
-      userPreferencesUpdateResponseSchema.parse({
-        ok: true,
-        data: { preferences: { bottomNavCollapsed: true }, persistence: "preview-db", updatedAt: "2026-06-22T00:00:00.000Z" },
-        error: null,
-      }),
-    ).not.toThrow();
   });
 
-  it("forwards role and permission catalogs through the same-origin bridge for admin viewers", async () => {
+  it("requires PostgreSQL before forwarding role and permission catalogs", async () => {
     const loginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -310,24 +247,11 @@ describe("Phase 55 same-origin API bridge", () => {
     );
 
     const cookie = loginResponse.headers.get("set-cookie") ?? "";
-    const rolesResponse = await getApi(
-      new Request(`http://localhost${appRoutes.org.roles}`, {
-        headers: { cookie },
-      }),
-    );
-    const permissionsResponse = await getApi(
-      new Request(`http://localhost${appRoutes.org.permissions}`, {
-        headers: { cookie },
-      }),
-    );
-
-    expect(rolesResponse.status).toBe(200);
-    expect(permissionsResponse.status).toBe(200);
-    expect(listRolesResponseSchema.parse(await rolesResponse.json()).data.items.length).toBeGreaterThan(0);
-    expect(listPermissionsResponseSchema.parse(await permissionsResponse.json()).data.items.length).toBeGreaterThan(0);
+    await expectDbRequired(await getApi(new Request(`http://localhost${appRoutes.org.roles}`, { headers: { cookie } })));
+    await expectDbRequired(await getApi(new Request(`http://localhost${appRoutes.org.permissions}`, { headers: { cookie } })));
   });
 
-  it("keeps audit logs same-origin route permission-gated for HR_ADMIN and allows AUDITOR read-only access", async () => {
+  it("keeps audit logs permission-gated and requires PostgreSQL for allowed auditors", async () => {
     const hrLoginResponse = await postLogin(
       new Request("http://localhost/api/auth/login", {
         method: "POST",
@@ -375,7 +299,6 @@ describe("Phase 55 same-origin API bridge", () => {
 
     expect(hrAuditResponse.status).toBe(403);
     expect(errorResponseSchema.parse(await hrAuditResponse.json()).error.code).toBe("FORBIDDEN");
-    expect(auditorAuditResponse.status).toBe(200);
-    expect(adminAuditLogListResponseSchema.parse(await auditorAuditResponse.json()).data.items.length).toBeGreaterThan(0);
+    await expectDbRequired(auditorAuditResponse);
   });
 });

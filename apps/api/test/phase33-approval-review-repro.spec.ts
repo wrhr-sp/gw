@@ -78,20 +78,9 @@ describe("Phase 33 approval review authorization regression", () => {
       },
       body: JSON.stringify({ reason: "pending approver can approve" }),
     });
-    expect(firstApproveResponse.status).toBe(200);
-    const firstApprovePayload = approvalActionResponseSchema.parse(await firstApproveResponse.json());
-    expect(firstApprovePayload.data.document.status).toBe("approved");
-
-    const detailResponse = await app.request(appRoutes.approvals.detail("approval_document_demo"), {
-      headers: {
-        cookie: approverCookie,
-      },
-    });
-    expect(detailResponse.status).toBe(200);
-    const detailPayload = approvalDocumentDetailResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.data.document.status).toBe("approved");
-    expect(detailPayload.data.steps).toHaveLength(1);
-    expect(detailPayload.data.steps[0]?.decisionStatus).toBe("approved");
+    expect(firstApproveResponse.status).toBe(503);
+    const firstApprovePayload = errorResponseSchema.parse(await firstApproveResponse.json());
+    expect(firstApprovePayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("only exposes the current pending approver in inbox and requires all steps before approval completion", async () => {
@@ -133,44 +122,9 @@ describe("Phase 33 approval review authorization regression", () => {
       },
       body: JSON.stringify({ reason: "step1 approved" }),
     });
-    expect(managerApproveResponse.status).toBe(200);
-    const managerApprovePayload = approvalActionResponseSchema.parse(await managerApproveResponse.json());
-    expect(managerApprovePayload.data.document.status).toBe("pending_approval");
-
-    const detailAfterStep1Response = await app.request(appRoutes.approvals.detail("approval_document_multistep"), {
-      headers: { cookie: managerCookie },
-    });
-    expect(detailAfterStep1Response.status).toBe(200);
-    const detailAfterStep1Payload = approvalDocumentDetailResponseSchema.parse(await detailAfterStep1Response.json());
-    expect(detailAfterStep1Payload.data.document.status).toBe("pending_approval");
-    expect(detailAfterStep1Payload.data.steps.map((step) => step.decisionStatus)).toEqual(["approved", "pending"]);
-
-    const hrInboxAfterResponse = await app.request(appRoutes.approvals.inbox, {
-      headers: { cookie: hrCookie },
-    });
-    expect(hrInboxAfterResponse.status).toBe(200);
-    const hrInboxAfterPayload = approvalInboxResponseSchema.parse(await hrInboxAfterResponse.json());
-    expect(hrInboxAfterPayload.data.items.some((item) => item.id === "approval_document_multistep")).toBe(true);
-
-    const hrApproveAfterResponse = await app.request(appRoutes.approvals.approve("approval_document_multistep"), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie: hrCookie,
-      },
-      body: JSON.stringify({ reason: "final step approved" }),
-    });
-    expect(hrApproveAfterResponse.status).toBe(200);
-    const hrApproveAfterPayload = approvalActionResponseSchema.parse(await hrApproveAfterResponse.json());
-    expect(hrApproveAfterPayload.data.document.status).toBe("approved");
-
-    const detailAfterFinalResponse = await app.request(appRoutes.approvals.detail("approval_document_multistep"), {
-      headers: { cookie: hrCookie },
-    });
-    expect(detailAfterFinalResponse.status).toBe(200);
-    const detailAfterFinalPayload = approvalDocumentDetailResponseSchema.parse(await detailAfterFinalResponse.json());
-    expect(detailAfterFinalPayload.data.document.status).toBe("approved");
-    expect(detailAfterFinalPayload.data.steps.map((step) => step.decisionStatus)).toEqual(["approved", "approved"]);
+    expect(managerApproveResponse.status).toBe(503);
+    const managerApprovePayload = errorResponseSchema.parse(await managerApproveResponse.json());
+    expect(managerApprovePayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("returns null without changing document status when the acting approver has no current pending step", async () => {

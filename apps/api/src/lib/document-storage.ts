@@ -1,5 +1,4 @@
 import type { DocumentFileAction, DocumentStorageProvider } from "@gw/shared";
-import { MockDocumentStorageAdapter } from "./document-storage.mock";
 import { R2DocumentStorageAdapter } from "./document-storage.r2";
 
 export const DEFAULT_ALLOWED_DOCUMENT_MIME_TYPES = [
@@ -127,9 +126,9 @@ export function ensureDocumentUploadPolicy(input: { contentType: string; fileSiz
 }
 
 export function createDocumentStorageAdapter(env: DocumentStorageEnv): DocumentStorageAdapter {
-  if (env.FILES_BUCKET) {
-    return new R2DocumentStorageAdapter(env.FILES_BUCKET);
+  if (!env.FILES_BUCKET) {
+    throw new Error("FILES_BUCKET R2 binding is required for document storage.");
   }
 
-  return new MockDocumentStorageAdapter();
+  return new R2DocumentStorageAdapter(env.FILES_BUCKET);
 }

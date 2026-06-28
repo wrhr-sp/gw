@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { adminAuditLogListResponseSchema, appRoutes, listNotificationsResponseSchema } from "@gw/shared";
+import { appRoutes, errorResponseSchema } from "@gw/shared";
 
 vi.mock("../src/lib/postgres", async () => {
   const actual = await vi.importActual<typeof import("../src/lib/postgres")>("../src/lib/postgres");
@@ -58,29 +58,27 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
 }
 
 describe("phase34 degraded DB route fallback", () => {
-  it("falls back to placeholder notifications instead of returning 500", async () => {
+  it("returns DB_NOT_CONFIGURED for degraded notifications instead of placeholder fallback", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.notifications, {
       headers: { cookie },
     });
 
-    expect(response.status).toBe(200);
-    const payload = listNotificationsResponseSchema.parse(await response.json());
-    expect(payload.data.items.length).toBeGreaterThan(0);
-    expect(payload.data.items.every((item) => item.userId === "user_company_admin")).toBe(true);
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("falls back to placeholder audit logs instead of returning 500", async () => {
+  it("returns DB_NOT_CONFIGURED for degraded audit logs instead of placeholder fallback", async () => {
     const { cookie } = await loginAndGetCookie("AUDITOR");
 
     const response = await app.request(appRoutes.admin.auditLogs, {
       headers: { cookie },
     });
 
-    expect(response.status).toBe(200);
-    const payload = adminAuditLogListResponseSchema.parse(await response.json());
-    expect(payload.data.items.length).toBeGreaterThan(0);
-    expect(payload.data.items.every((item) => item.companyId === "company_demo")).toBe(true);
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 });
