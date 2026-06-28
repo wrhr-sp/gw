@@ -22,6 +22,7 @@ describe("messenger preview page", () => {
     expect(html).toContain("선택한 사람");
     expect(html).toContain("대화 시작");
     expect(html).toContain("첨부 메뉴 열기");
+    expect(html).toContain("메시지 입력 도구 묶음");
     expect(html).toContain("파일첨부");
     expect(html).toContain("사진보내기");
     expect(html).toContain("이모티콘 선택");
@@ -36,7 +37,10 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-recipient-backdrop .messenger-recipient-panel");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
     expect(globalCss).toContain(".messenger-message--mine");
-    expect(globalCss).toContain("grid-template-columns: max-content minmax(0, 1fr) max-content max-content;");
+    expect(globalCss).toContain("grid-template-columns: minmax(0, 1fr) max-content;");
+    expect(globalCss).toContain(".messenger-composer-input-box");
+    expect(globalCss).toContain("grid-template-columns: 42px minmax(0, 1fr) 42px;");
+    expect(globalCss).toContain(".messenger-composer-input-box > * + *");
     expect(globalCss).toContain(".messenger-composer-icon-button");
     expect(globalCss).toContain(".messenger-send-button svg");
     expect(globalCss).toContain(".messenger-attachment-menu[hidden]");

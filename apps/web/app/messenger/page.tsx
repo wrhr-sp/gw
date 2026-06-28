@@ -203,24 +203,26 @@ export default function MessengerPage() {
               </article>
             </div>
             <div className="messenger-composer" aria-label="메시지 입력 preview">
-              <div className="messenger-attachment-wrap">
-                <button
-                  className="messenger-composer-icon-button"
-                  type="button"
-                  aria-label="첨부 메뉴 열기"
-                  aria-expanded={isAttachmentMenuOpen}
-                  onClick={() => setIsAttachmentMenuOpen((current) => !current)}
-                >
-                  +
-                </button>
-                <div className="messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview">
-                  <button type="button" role="menuitem">파일첨부</button>
-                  <button type="button" role="menuitem">사진보내기</button>
-                  <button type="button" role="menuitem">문서함에서 선택</button>
+              <div className="messenger-composer-input-box" aria-label="메시지 입력 도구 묶음">
+                <div className="messenger-attachment-wrap">
+                  <button
+                    className="messenger-composer-icon-button"
+                    type="button"
+                    aria-label="첨부 메뉴 열기"
+                    aria-expanded={isAttachmentMenuOpen}
+                    onClick={() => setIsAttachmentMenuOpen((current) => !current)}
+                  >
+                    +
+                  </button>
+                  <div className="messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview">
+                    <button type="button" role="menuitem">파일첨부</button>
+                    <button type="button" role="menuitem">사진보내기</button>
+                    <button type="button" role="menuitem">문서함에서 선택</button>
+                  </div>
                 </div>
+                <input className="field messenger-composer-input" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
+                <button className="messenger-composer-icon-button" type="button" aria-label="이모티콘 선택">☺</button>
               </div>
-              <input className="field" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
-              <button className="messenger-composer-icon-button" type="button" aria-label="이모티콘 선택">☺</button>
               <button className="messenger-send-button" type="button" onClick={handleSendPreview} aria-label="메시지 보내기">
                 <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
                   <path d="M3.7 20.1 21 12 3.7 3.9 3 10.2l10.2 1.8L3 13.8l.7 6.3Z" />
