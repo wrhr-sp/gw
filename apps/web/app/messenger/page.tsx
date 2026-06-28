@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { PageShell, Pill } from "../_components/page-shell";
 
 type MessengerContact = {
   id: string;
@@ -140,7 +140,10 @@ export default function MessengerPage() {
       title="메신저"
       titlePlacement="content"
     >
-      <SurfaceSection title="메신저">
+      <section className="surface-card messenger-surface">
+        <div className="surface-card__header">
+          <h2>메신저</h2>
+        </div>
         <div className="messenger-shell" aria-label="메신저 preview">
           <aside className="messenger-sidebar" aria-label="대화목록">
             <div className="messenger-sidebar__header">
@@ -284,7 +287,7 @@ export default function MessengerPage() {
             </div>
           </aside>
         </div>
-      </SurfaceSection>
+      </section>
     </PageShell>
   );
 }

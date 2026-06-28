@@ -27,12 +27,20 @@ describe("messenger preview page", () => {
     expect(html).toContain("사진보내기");
     expect(html).toContain("이모티콘 선택");
     expect(html).toContain("메시지 보내기");
+    expect(html).toContain("messenger-surface");
     expect(html).not.toContain("이번 preview 범위");
     expect(html).not.toContain("WebSocket 실시간 채팅");
     expect(html).not.toContain("운영 DB 실데이터 저장");
 
     expect(globalCss).toContain(".messenger-shell");
+    expect(globalCss).toContain("--messenger-surface-height: 100%;");
+    expect(globalCss).toContain("--messenger-shell-min-height: 0px;");
+    expect(globalCss).toContain(".messenger-surface");
+    expect(globalCss).toContain("grid-template-rows: auto minmax(0, 1fr);");
     expect(globalCss).toContain("grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);");
+    expect(globalCss).toContain("height: var(--messenger-surface-height);");
+    expect(globalCss).toContain("overflow-y: var(--messenger-thread-list-overflow-y);");
+    expect(globalCss).toContain("overflow-y: var(--messenger-message-list-overflow-y);");
     expect(globalCss).toContain(".messenger-recipient-backdrop[hidden]");
     expect(globalCss).toContain(".messenger-recipient-backdrop .messenger-recipient-panel");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
