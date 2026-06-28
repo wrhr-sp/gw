@@ -76,6 +76,7 @@ const organizationGroups: readonly { department: string; contacts: readonly Mess
 ] as const;
 
 const allContacts = organizationGroups.flatMap((group) => group.contacts);
+const messengerEmojiOptions = ["😀", "👍", "🙏", "🎉", "👌", "😊", "✅", "🙌"] as const;
 
 export default function MessengerPage() {
   const [activeThreadId, setActiveThreadId] = useState(messengerThreads[0].id);
@@ -84,6 +85,7 @@ export default function MessengerPage() {
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
@@ -140,33 +142,71 @@ export default function MessengerPage() {
     setPreviewMessage(messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.");
   }
 
+  function handleTitleClick() {
+    setActiveThreadId(messengerThreads[0].id);
+    setThreadSearch("");
+    setRecipientSearch("");
+    setIsRecipientPanelOpen(false);
+    setIsAttachmentMenuOpen(false);
+    setIsEmojiMenuOpen(false);
+  }
+
+  function toggleAttachmentMenu() {
+    setIsAttachmentMenuOpen((current) => !current);
+    setIsEmojiMenuOpen(false);
+  }
+
+  function toggleEmojiMenu() {
+    setIsEmojiMenuOpen((current) => !current);
+    setIsAttachmentMenuOpen(false);
+  }
+
+  function appendEmoji(emoji: string) {
+    setMessageDraft((current) => `${current}${emoji}`);
+    setIsEmojiMenuOpen(false);
+  }
+
   useEffect(() => {
-    if (!isRecipientPanelOpen) {
+    if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen) {
       return;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsRecipientPanelOpen(false);
+        setIsAttachmentMenuOpen(false);
+        setIsEmojiMenuOpen(false);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecipientPanelOpen]);
+  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen]);
 
   return (
     <PageShell
       backHref="/menu"
       backLabel="전체 메뉴로"
       title="메신저"
+      onTitleClick={handleTitleClick}
       titlePlacement="content"
     >
       <section className="surface-card messenger-surface">
         <div className="surface-card__header">
-          <h2>메신저</h2>
+          <h2>
+            <button className="page-shell__title-link page-shell__title-button messenger-surface__title-button" type="button" onClick={handleTitleClick}>
+              메신저
+            </button>
+          </h2>
         </div>
-        <div className="messenger-shell" aria-label="메신저 preview">
+        <div
+          className="messenger-shell"
+          aria-label="메신저 preview"
+          onClick={() => {
+            setIsAttachmentMenuOpen(false);
+            setIsEmojiMenuOpen(false);
+          }}
+        >
           <aside className="messenger-sidebar" aria-label="대화목록">
             <div className="messenger-sidebar__header">
               <h2>대화목록</h2>
@@ -235,18 +275,40 @@ export default function MessengerPage() {
                     type="button"
                     aria-label="첨부 메뉴 열기"
                     aria-expanded={isAttachmentMenuOpen}
-                    onClick={() => setIsAttachmentMenuOpen((current) => !current)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleAttachmentMenu();
+                    }}
                   >
                     +
                   </button>
-                  <div className="messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview">
-                    <button type="button" role="menuitem">파일첨부</button>
-                    <button type="button" role="menuitem">사진보내기</button>
+                  <div className="messenger-popover-menu messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview" onClick={(event) => event.stopPropagation()}>
+                    <button type="button" role="menuitem">내 PC 파일첨부</button>
                     <button type="button" role="menuitem">문서함에서 선택</button>
                   </div>
                 </div>
                 <input className="field messenger-composer-input" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
-                <button className="messenger-composer-icon-button" type="button" aria-label="이모티콘 선택">☺</button>
+                <div className="messenger-emoji-wrap">
+                  <button
+                    className="messenger-composer-icon-button"
+                    type="button"
+                    aria-label="이모티콘 선택"
+                    aria-expanded={isEmojiMenuOpen}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleEmojiMenu();
+                    }}
+                  >
+                    ☺
+                  </button>
+                  <div className="messenger-popover-menu messenger-emoji-menu" hidden={!isEmojiMenuOpen} role="menu" aria-label="이모티콘 선택 메뉴" onClick={(event) => event.stopPropagation()}>
+                    {messengerEmojiOptions.map((emoji) => (
+                      <button key={emoji} type="button" role="menuitem" aria-label={`${emoji} 이모티콘 입력`} onClick={() => appendEmoji(emoji)}>
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <button className="messenger-send-button" type="button" onClick={handleSendPreview} aria-label="메시지 보내기">
                 <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">

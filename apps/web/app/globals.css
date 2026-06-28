@@ -4523,6 +4523,10 @@ li {
   min-height: var(--messenger-shell-min-height);
 }
 
+.messenger-surface__title-button {
+  user-select: none;
+}
+
 .messenger-shell {
   display: grid;
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
@@ -4770,6 +4774,12 @@ li {
   position: relative;
 }
 
+.messenger-emoji-wrap {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
 .messenger-composer-input-box .messenger-attachment-wrap {
   display: grid;
   min-width: 0;
@@ -4846,24 +4856,35 @@ li {
   fill: currentColor;
 }
 
-.messenger-attachment-menu[hidden] {
+.messenger-popover-menu[hidden],
+.messenger-attachment-menu[hidden],
+.messenger-emoji-menu[hidden] {
   display: none;
 }
 
-.messenger-attachment-menu {
+.messenger-popover-menu {
   position: absolute;
-  left: 0;
   bottom: calc(100% + 8px);
   z-index: 10;
   display: grid;
   gap: 4px;
-  width: 180px;
   padding: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
 }
 
+.messenger-attachment-menu {
+  left: 0;
+  width: 180px;
+}
+
+.messenger-emoji-menu {
+  right: 0;
+  grid-template-columns: repeat(4, 34px);
+}
+
+.messenger-popover-menu button,
 .messenger-attachment-menu button {
   min-height: 34px;
   padding: 7px 10px;
@@ -4872,8 +4893,20 @@ li {
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
+.messenger-emoji-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  padding: 0;
+  font-size: 18px;
+  text-align: center;
+}
+
+.messenger-popover-menu button:hover,
 .messenger-attachment-menu button:hover {
   background: var(--surface-subtle);
 }
