@@ -137,7 +137,7 @@ function formatMessengerFileSize(size: number) {
 
 export default function MessengerPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeThreadId, setActiveThreadId] = useState(messengerThreads[0].id);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadSearch, setThreadSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
@@ -152,7 +152,7 @@ export default function MessengerPage() {
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
   const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
 
-  const activeThread = messengerThreads.find((thread) => thread.id === activeThreadId) ?? messengerThreads[0];
+  const activeThread = messengerThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const selectedContacts = allContacts.filter((contact) => selectedContactIds.includes(contact.id));
 
   const filteredThreads = useMemo(() => {
@@ -224,9 +224,12 @@ export default function MessengerPage() {
   }
 
   function handleTitleClick() {
-    setActiveThreadId(messengerThreads[0].id);
+    setActiveThreadId(null);
     setThreadSearch("");
     setRecipientSearch("");
+    setPendingAttachments([]);
+    setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
+    setPreviewMessage("회의자료 확인했습니다.");
     setIsRecipientPanelOpen(false);
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
@@ -313,13 +316,6 @@ export default function MessengerPage() {
       titlePlacement="content"
     >
       <section className="surface-card messenger-surface">
-        <div className="surface-card__header">
-          <h2>
-            <button className="page-shell__title-link page-shell__title-button messenger-surface__title-button" type="button" onClick={handleTitleClick}>
-              메신저
-            </button>
-          </h2>
-        </div>
         <div
           className="messenger-shell"
           aria-label="메신저 preview"
@@ -331,7 +327,11 @@ export default function MessengerPage() {
         >
           <aside className="messenger-sidebar" aria-label="대화목록">
             <div className="messenger-sidebar__header">
-              <h2>대화목록</h2>
+              <h1>
+                <button className="page-shell__title-link page-shell__title-button messenger-surface__title-button" type="button" onClick={handleTitleClick}>
+                  메신저
+                </button>
+              </h1>
               <button
                 className="touch-button--secondary messenger-new-button"
                 type="button"
@@ -349,7 +349,7 @@ export default function MessengerPage() {
                 <button
                   key={thread.id}
                   className="messenger-thread"
-                  aria-current={thread.id === activeThread.id ? "page" : undefined}
+                  aria-current={thread.id === activeThreadId ? "page" : undefined}
                   onClick={() => setActiveThreadId(thread.id)}
                   type="button"
                 >
@@ -369,27 +369,29 @@ export default function MessengerPage() {
           </aside>
 
           <section className="messenger-conversation" aria-label="채팅방">
-            <header className="messenger-conversation__header">
-              <div>
-                <Pill>{activeThread.kind}</Pill>
-                <h2>채팅방</h2>
-                <p>{activeThread.title} · {activeThread.subtitle}</p>
-              </div>
-              <Pill tone="warning">preview</Pill>
-            </header>
-            <div className="messenger-message-list" aria-label="메시지 목록 preview">
-              <article className="messenger-message messenger-message--other">
-                <strong>김민수 과장</strong>
-                <p>오늘 회의자료 확인 부탁드립니다.</p>
-                <small>오전 10:21</small>
-              </article>
-              <article className="messenger-message messenger-message--mine">
-                <strong>나</strong>
-                <p>{previewMessage}</p>
-                <small>오전 10:24 · 화면 preview</small>
-              </article>
-            </div>
-            <div className="messenger-composer" aria-label="메시지 입력 preview">
+            {activeThread ? (
+              <>
+                <header className="messenger-conversation__header">
+                  <div>
+                    <Pill>{activeThread.kind}</Pill>
+                    <h2>채팅방</h2>
+                    <p>{activeThread.title} · {activeThread.subtitle}</p>
+                  </div>
+                  <Pill tone="warning">preview</Pill>
+                </header>
+                <div className="messenger-message-list" aria-label="메시지 목록 preview">
+                  <article className="messenger-message messenger-message--other">
+                    <strong>김민수 과장</strong>
+                    <p>오늘 회의자료 확인 부탁드립니다.</p>
+                    <small>오전 10:21</small>
+                  </article>
+                  <article className="messenger-message messenger-message--mine">
+                    <strong>나</strong>
+                    <p>{previewMessage}</p>
+                    <small>오전 10:24 · 화면 preview</small>
+                  </article>
+                </div>
+                <div className="messenger-composer" aria-label="메시지 입력 preview">
               <input
                 ref={fileInputRef}
                 className="messenger-file-input"
@@ -477,7 +479,14 @@ export default function MessengerPage() {
                   <path d="M3.7 20.1 21 12 3.7 3.9 3 10.2l10.2 1.8L3 13.8l.7 6.3Z" />
                 </svg>
               </button>
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className="messenger-empty-state" aria-label="채팅방 선택 안내">
+                <strong>채팅방을 선택하세요</strong>
+                <p>왼쪽 대화목록에서 대화를 선택하면 내용이 표시됩니다.</p>
+              </div>
+            )}
           </section>
         </div>
 

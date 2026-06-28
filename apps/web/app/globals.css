@@ -1196,6 +1196,7 @@ select,
 
 .page-shell__headline h1,
 .board-workspace__nav-header h1,
+.messenger-sidebar__header h1,
 .surface-card__header h2,
 article h3,
 article h4 {
@@ -1209,6 +1210,7 @@ article h4 {
 }
 
 .board-workspace__nav-header h1,
+.messenger-sidebar__header h1,
 .surface-card__header h2,
 .board-section-title h2,
 .board-detail-preview h2 {
@@ -4518,7 +4520,7 @@ li {
 
 .messenger-surface {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: var(--messenger-surface-height);
   min-height: var(--messenger-shell-min-height);
 }
@@ -5060,6 +5062,28 @@ li {
 .messenger-message p {
   margin: 0;
   white-space: pre-line;
+}
+
+.messenger-empty-state {
+  display: grid;
+  grid-row: 1 / -1;
+  place-content: center;
+  gap: 6px;
+  min-height: var(--messenger-shell-min-height);
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--surface-subtle);
+}
+
+.messenger-empty-state strong {
+  color: var(--text);
+  font-size: var(--font-size-content-title);
+  font-weight: var(--font-weight-content-title);
+}
+
+.messenger-empty-state p {
+  margin: 0;
 }
 
 .messenger-document-list {
