@@ -4964,7 +4964,40 @@ li {
 
 .messenger-emoji-menu {
   right: 0;
-  grid-template-columns: repeat(4, 34px);
+  width: min(320px, calc(100vw - 40px));
+}
+
+.messenger-emoji-tabs,
+.messenger-document-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.messenger-emoji-tabs button,
+.messenger-document-tabs button {
+  min-height: 28px;
+  padding: 5px 8px;
+  color: var(--text-subtle);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.messenger-emoji-tabs button[aria-pressed="true"],
+.messenger-document-tabs button[aria-pressed="true"] {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-soft-strong);
+}
+
+.messenger-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 34px);
+  gap: 4px;
 }
 
 .messenger-popover-menu button,
@@ -4979,7 +5012,7 @@ li {
   cursor: pointer;
 }
 
-.messenger-emoji-menu button {
+.messenger-emoji-grid button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
