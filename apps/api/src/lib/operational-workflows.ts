@@ -198,10 +198,9 @@ function mapApprovalReference(row: DbRow): ApprovalReference {
 async function query(env: PostgresEnv | undefined, strings: TemplateStringsArray, ...values: any[]) {
   const sql = createOperationalSql(env);
   if (!sql) return null;
-  const text = strings.reduce((acc, chunk, index) => acc + chunk + (index < values.length ? `$${index + 1}` : ""), "");
 
   try {
-    return (await sql.query(text, values)) as DbRow[];
+    return (await sql(strings, ...values)) as DbRow[];
   } catch {
     return null;
   }
