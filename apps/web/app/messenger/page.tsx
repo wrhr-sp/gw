@@ -260,14 +260,10 @@ export default function MessengerPage() {
         <div
           className="messenger-recipient-backdrop"
           hidden={!isRecipientPanelOpen}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsRecipientPanelOpen(false);
-            }
-          }}
+          onClick={() => setIsRecipientPanelOpen(false)}
           role="presentation"
         >
-          <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업" role="dialog" aria-modal="true">
+          <aside className="messenger-recipient-panel" aria-label="새 메시지 대상 선택 팝업" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="messenger-recipient-panel__header">
               <div>
                 <Pill tone="accent">새 메시지</Pill>
