@@ -4640,6 +4640,10 @@ li {
   color: var(--text-muted);
 }
 
+.messenger-conversation-close {
+  flex: 0 0 auto;
+}
+
 .messenger-new-button {
   white-space: nowrap;
 }

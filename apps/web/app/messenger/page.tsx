@@ -236,6 +236,16 @@ export default function MessengerPage() {
     setIsDocumentPickerOpen(false);
   }
 
+  function closeActiveThread() {
+    setActiveThreadId(null);
+    setPendingAttachments([]);
+    setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
+    setPreviewMessage("회의자료 확인했습니다.");
+    setIsAttachmentMenuOpen(false);
+    setIsEmojiMenuOpen(false);
+    setIsDocumentPickerOpen(false);
+  }
+
   function toggleAttachmentMenu() {
     setIsAttachmentMenuOpen((current) => !current);
     setIsEmojiMenuOpen(false);
@@ -377,7 +387,9 @@ export default function MessengerPage() {
                     <h2>채팅방</h2>
                     <p>{activeThread.title} · {activeThread.subtitle}</p>
                   </div>
-                  <Pill tone="warning">preview</Pill>
+                  <button className="messenger-dialog-close messenger-conversation-close" type="button" aria-label="채팅방 닫기" onClick={closeActiveThread}>
+                    ×
+                  </button>
                 </header>
                 <div className="messenger-message-list" aria-label="메시지 목록 preview">
                   <article className="messenger-message messenger-message--other">
