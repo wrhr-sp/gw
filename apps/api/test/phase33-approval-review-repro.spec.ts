@@ -149,7 +149,7 @@ describe("Phase 33 approval review authorization regression", () => {
     });
 
     expect(result).toBeNull();
-    expect(sqlMock).toHaveBeenCalledTimes(1);
-    expect(sqlMock.query).not.toHaveBeenCalled();
+    expect(sqlMock.query).toHaveBeenCalledTimes(1);
+    expect(sqlMock).not.toHaveBeenCalled();
   });
 });

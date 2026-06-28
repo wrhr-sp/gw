@@ -199,9 +199,16 @@ async function query(env: PostgresEnv | undefined, strings: TemplateStringsArray
   const sql = createOperationalSql(env);
   if (!sql) return null;
 
+  let text = "";
+  for (let index = 0; index < values.length; index += 1) {
+    text += `${strings[index] ?? ""}$${index + 1}`;
+  }
+  text += strings[values.length] ?? "";
+
   try {
-    return (await sql(strings, ...values)) as DbRow[];
-  } catch {
+    return (await sql.query(text, values)) as DbRow[];
+  } catch (error) {
+    console.error("Operational workflow query failed", error instanceof Error ? error.message : "unknown database error");
     return null;
   }
 }
@@ -242,33 +249,34 @@ export async function listOperationalAttendanceRecords(env: PostgresEnv | undefi
 }
 
 export async function upsertOperationalAttendanceRecord(env: PostgresEnv | undefined, input: { id: string; companyId: string; employeeId: string; workDate: string; status: AttendanceRecord["status"]; checkInAt: string | null; checkOutAt: string | null; source: AttendanceRecord["source"]; note: string | null; createdBy: string; }) {
-  const rows = await query(env, [
-    `
-    insert into attendance_records (
-      id, company_id, employee_id, work_date, status, check_in_at, check_out_at, source, note, created_by
-    ) values (
-      `,
-    `, `,
-    `, `,
-    `::date, `,
-    `, `,
-    `, `,
-    `, `,
-    `, `,
-    `
-    )
-    on conflict (company_id, employee_id, work_date)
-    do update set
-      status = excluded.status,
-      check_in_at = coalesce(excluded.check_in_at, attendance_records.check_in_at),
-      check_out_at = excluded.check_out_at,
-      source = excluded.source,
-      note = excluded.note,
-      updated_at = now()
-    returning id, company_id, employee_id, status, work_date, check_in_at, check_out_at, source, note, created_at, updated_at
-  `,
-  ] as unknown as TemplateStringsArray, input.id, input.companyId, input.employeeId, input.workDate, input.status, input.checkInAt, input.checkOutAt, input.source, input.note, input.createdBy);
-  return rows?.[0] ? mapAttendanceRecord(rows[0]) : null;
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  try {
+    const rows = (await sql.query(
+      `
+      insert into attendance_records (
+        id, company_id, employee_id, work_date, status, check_in_at, check_out_at, source, note, created_by
+      ) values (
+        $1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10
+      )
+      on conflict (company_id, employee_id, work_date)
+      do update set
+        status = excluded.status,
+        check_in_at = coalesce(excluded.check_in_at, attendance_records.check_in_at),
+        check_out_at = excluded.check_out_at,
+        source = excluded.source,
+        note = excluded.note,
+        updated_at = now()
+      returning id, company_id, employee_id, status, work_date, check_in_at, check_out_at, source, note, created_at, updated_at
+    `,
+      [input.id, input.companyId, input.employeeId, input.workDate, input.status, input.checkInAt, input.checkOutAt, input.source, input.note, input.createdBy],
+    )) as DbRow[];
+    return rows?.[0] ? mapAttendanceRecord(rows[0]) : null;
+  } catch (error) {
+    console.error("Operational attendance upsert failed", error instanceof Error ? error.message : "unknown database error");
+    return null;
+  }
 }
 
 export async function createOperationalAttendanceCorrectionRequest(env: PostgresEnv | undefined, input: { id: string; companyId: string; employeeId: string; attendanceRecordId: string; requestedBy: string; reason: string; requestedCheckInAt?: string | null; requestedCheckOutAt?: string | null; note?: string | null; }) {
@@ -337,26 +345,26 @@ export async function listOperationalLeaveRequests(env: PostgresEnv | undefined,
 }
 
 export async function createOperationalLeaveRequest(env: PostgresEnv | undefined, input: { id: string; companyId: string; employeeId: string; leaveTypeId: string; startDate: string; endDate: string; unit: LeaveRequest["unit"]; days: number; requestedBy: string; reason: string; note?: string | null; }) {
-  const rows = await query(env, [
-    `
-    insert into leave_requests (
-      id, company_id, employee_id, leave_type_id, status, approval_status, start_date, end_date, unit, days, requested_by, reason, note
-    ) values (
-      `,
-    `, `,
-    `, `,
-    `, 'pending_approval', 'pending', `,
-    `::date, `,
-    `::date, `,
-    `, `,
-    `, `,
-    `, `,
-    `
-    )
-    returning id, company_id, employee_id, leave_type_id, status, approval_status, start_date, end_date, unit, days, requested_by, reviewed_by, reviewed_at, reason, note, created_at, updated_at
-  `,
-  ] as unknown as TemplateStringsArray, input.id, input.companyId, input.employeeId, input.leaveTypeId, input.startDate, input.endDate, input.unit, input.days, input.requestedBy, input.reason, input.note ?? null);
-  return rows?.[0] ? mapLeaveRequest(rows[0]) : null;
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  try {
+    const rows = (await sql.query(
+      `
+      insert into leave_requests (
+        id, company_id, employee_id, leave_type_id, status, approval_status, start_date, end_date, unit, days, requested_by, reason, note
+      ) values (
+        $1, $2, $3, $4, 'pending_approval', 'pending', $5::date, $6::date, $7, $8, $9, $10, $11
+      )
+      returning id, company_id, employee_id, leave_type_id, status, approval_status, start_date, end_date, unit, days, requested_by, reviewed_by, reviewed_at, reason, note, created_at, updated_at
+    `,
+      [input.id, input.companyId, input.employeeId, input.leaveTypeId, input.startDate, input.endDate, input.unit, input.days, input.requestedBy, input.reason, input.note ?? null],
+    )) as DbRow[];
+    return rows?.[0] ? mapLeaveRequest(rows[0]) : null;
+  } catch (error) {
+    console.error("Operational leave request insert failed", error instanceof Error ? error.message : "unknown database error");
+    return null;
+  }
 }
 
 export async function updateOperationalLeaveRequestReview(env: PostgresEnv | undefined, input: { companyId: string; requestId: string; approvalStatus: LeaveRequest["approvalStatus"]; reviewedBy: string; reason: string; }) {
