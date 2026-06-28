@@ -4712,6 +4712,11 @@ li {
   border-left: 1px solid var(--line);
 }
 
+.messenger-composer-input-box .messenger-composer-input,
+.messenger-composer-input-box .messenger-composer-icon-button:last-child {
+  border-left: 1px solid var(--line);
+}
+
 .messenger-attachment-wrap {
   position: relative;
 }
