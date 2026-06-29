@@ -7,33 +7,33 @@ import EmployeesPage from "./app/employees/page";
 import MePage from "./app/me/page";
 import OrgPage from "./app/org/page";
 
-describe("Phase 55 org/employees/admin boundaries", () => {
+describe("org/employees/admin boundaries", () => {
   it("keeps employees page focused on general lookup instead of admin actions", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
-    expect(html).toContain("Phase 55 직원 일반 조회 / 조직 연결");
+    expect(html).toContain("직원");
     expect(html).toContain("직원 목록");
-    expect(html).toContain("Phase 55 read model 확인 순서");
-    expect(html).toContain("/admin/users");
-    expect(html).toContain("작은 화면");
+    expect(html).toContain("직원 상세");
+    expect(html).toContain("근무 상태");
+    expect(html).toContain("권한 요청");
     expect(html).not.toContain("초대 실행");
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("COMPANY_ADMIN");
     expect(html).not.toContain("HR_ADMIN");
+    expect(html).not.toContain("Phase");
   });
 
-  it("keeps org page read-only and points policy changes back to admin routes", () => {
+  it("keeps org page read-only and separates policy-sensitive access scope", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
     expect(html).toContain("조직도");
-    expect(html).toContain("부서 목록");
-    expect(html).toContain("구성원 검색");
-    expect(html).toContain("직원 상세");
-    expect(html).toContain("운영 DB seed");
-    expect(html).toContain("조직 편집");
-    expect(html).toContain("실제 조직 API가 붙으면 화면 내부 preview 상수만 API 응답으로 바꾸면 됩니다.");
+    expect(html).toContain("조직 트리");
+    expect(html).toContain("부서 상세");
+    expect(html).toContain("구성원");
+    expect(html).toContain("접근 범위");
     expect(html).not.toContain("역할 생성");
     expect(html).not.toContain("권한 저장");
+    expect(html).not.toContain("운영 DB seed");
   });
 
   it("keeps me page focused on session summary and read-only personal context", () => {

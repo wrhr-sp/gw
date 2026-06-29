@@ -23,18 +23,16 @@ describe("Phase 37 internal operational storage boundaries", () => {
     mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
   });
 
-  it("keeps documents focused on lifecycle and internal storage boundaries instead of public sharing", () => {
+  it("keeps documents focused on internal document storage instead of public sharing", () => {
     const html = renderToStaticMarkup(<DocumentsPage />);
 
-    expect(html).toContain("Phase 41 내부 문서 협업 도입");
-    expect(html).toContain("파일 lifecycle");
-    expect(html).toContain("upload-init");
-    expect(html).toContain("upload-complete");
-    expect(html).toContain("download-init");
+    expect(html).toContain("문서함 목록");
+    expect(html).toContain("파일 올리기");
     expect(html).toContain("문서 상세");
-    expect(html).toContain("최근 액션 상세");
-    expect(html).toContain("storageStatus(pending/ready/deleted)는 내부 저장 lifecycle 설명이며 public share 완료 뜻이 아닙니다.");
+    expect(html).toContain("공유 상태");
+    expect(html).toContain("인사·근태 문서함");
     expect(html).not.toContain("public URL 발급 완료");
+    expect(html).not.toContain("Phase");
   });
 
   it("keeps audit logs on masked preview and storageRef summary only", () => {

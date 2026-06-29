@@ -1,133 +1,82 @@
 import React from "react";
-import { appRoutes } from "@gw/shared";
 
-import { EmployeeDirectoryLiveSection } from "../_components/phase34-live-sections";
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../_components/feature-workspace";
+import { PageShell } from "../_components/page-shell";
 
-const employeeCards = [
-  {
-    name: "운영 매니저",
-    department: "운영팀",
-    roleSummary: "MANAGER · 팀 운영",
-    status: "재직",
-    note: "조직/업무 맥락 확인용 기본 조회",
-  },
-  {
-    name: "인사 코디네이터",
-    department: "인사팀",
-    roleSummary: "MANAGER · 운영 지원",
-    status: "휴직/부재",
-    note: "민감 권한 구분 없이 상태와 소속만 먼저 노출",
-  },
-  {
-    name: "일반 구성원",
-    department: "운영팀",
-    roleSummary: "EMPLOYEE · 일반 구성원",
-    status: "재직",
-    note: "작은 화면에서도 한 줄 요약이 먼저 보이도록 유지",
-  },
-] as const;
-
-const filterChips = ["부서", "재직 상태", "역할/직책"] as const;
-const boundaryNotes = [
-  "이 화면은 직원을 찾고 상태를 이해하는 일반 조회 화면입니다.",
-  "관리자 변경 검토는 /admin/users 에서 분리해 다룹니다.",
-  "개인정보 상세 편집, 초대 기능, 권한 변경 저장은 이번 범위가 아닙니다.",
-] as const;
-
-const operationalBridgeNotes = [
-  "권한 부족: 일반 조회 화면에서는 고위험 관리자 역할을 직접 노출하지 않습니다.",
-  "회사 scope: 직원 목록과 상태 요약은 같은 회사 범위로만 유지합니다.",
-  "정책 연결: 근태/휴가/결재에서 막힌 이유는 /admin/policies 설명과 같은 말로 이어집니다.",
-  "placeholder 제한: 실제 초대, 상태 변경 저장, 권한 부여는 /admin/users review 전까지 열지 않습니다.",
-] as const;
-
-const onboardingReadModelSteps = [
-  "1) /admin/users 에서 생성 preview 를 본 뒤 이 화면으로 와서 소속·상태가 어떤 read model 로 읽히는지 확인",
-  "2) 일반 조회는 /employees 와 /org 에서만 하고, 역할 저장/상태 변경은 다시 /admin/users 로 돌아가 검토",
-  "3) 운영 담당자만 /management → /work-items/branch 로 넘어가 branch scope 운영 레인을 확인",
-] as const;
+const employeesConfig: FeatureWorkspaceConfig = {
+  title: "직원",
+  eyebrow: "직원 검색, 상태, 소속, 연락처를 업무용 범위 안에서 확인합니다.",
+  tabs: [
+    { id: "directory", label: "직원 목록", badge: "검색" },
+    { id: "profile", label: "직원 상세", badge: "정보" },
+    { id: "status", label: "근무 상태", badge: "상태" },
+    { id: "request", label: "권한 요청", badge: "신청" },
+  ],
+  utility: [
+    { label: "재직", value: "42명" },
+    { label: "휴가", value: "3명" },
+    { label: "외근", value: "5명" },
+  ],
+  panels: [
+    {
+      id: "directory",
+      heading: "직원 목록",
+      summary: "부서, 이름, 직책, 근무 상태로 직원을 빠르게 찾습니다.",
+      formFields: [
+        { label: "검색", value: "이름 또는 부서" },
+        { label: "부서", value: "전체 부서", type: "select" },
+      ],
+      rows: [
+        { title: "윤서진", meta: "전략기획팀 · 팀장", status: "재직" },
+        { title: "정하늘", meta: "인사운영팀 · 팀장", status: "재직" },
+        { title: "김민수", meta: "인사운영팀 · 과장", status: "휴가" },
+        { title: "오민재", meta: "서울지점 · 지점장", status: "외근" },
+      ],
+    },
+    {
+      id: "profile",
+      heading: "직원 상세",
+      summary: "업무에 필요한 소속, 직책, 연락 가능 상태만 먼저 보여 줍니다.",
+      statusCards: [
+        { label: "소속", value: "인사운영팀" },
+        { label: "직책", value: "팀장", tone: "accent" },
+        { label: "상태", value: "재직" },
+      ],
+      rows: [
+        { title: "정하늘", meta: "인사운영팀 · 팀장", status: "재직", body: "근태·휴가 승인 담당자입니다." },
+        { title: "연락", meta: "내선 1201 · 메신저 가능", status: "온라인" },
+        { title: "담당 업무", meta: "휴가 승인, 근태 정정, 조직 정보 확인", status: "운영" },
+      ],
+      actions: [{ label: "메신저 보내기", tone: "primary" }, { label: "조직에서 보기" }],
+    },
+    {
+      id: "status",
+      heading: "근무 상태",
+      summary: "휴가, 외근, 회의 중 상태를 직원 목록에서 바로 확인합니다.",
+      rows: [
+        { title: "김민수", meta: "연차 · 2026-06-30", status: "휴가" },
+        { title: "오민재", meta: "서울지점 점검", status: "외근" },
+        { title: "최유진", meta: "QA 검토 회의", status: "회의" },
+      ],
+    },
+    {
+      id: "request",
+      heading: "권한 요청",
+      summary: "보이지 않는 관리 기능은 권한 요청으로 연결하고, 임의 접근은 차단합니다.",
+      formFields: [
+        { label: "요청 기능", value: "휴가 승인", type: "select" },
+        { label: "요청 사유", value: "팀원 휴가 승인 업무를 담당하게 되었습니다.", type: "textarea" },
+      ],
+      actions: [{ label: "권한 요청", tone: "primary" }, { label: "취소" }],
+      notes: ["관리자 권한 변경은 담당 승인 후 적용합니다.", "민감 정보는 권한이 없으면 화면에 표시하지 않습니다."],
+    },
+  ],
+};
 
 export default function EmployeesPage() {
   return (
-    <PageShell
-      backHref="/home"
-      backLabel="대시보드로"
-      eyebrow="Phase 55 직원 일반 조회 / 조직 연결"
-      title="직원 목록 / 상태 조회"
-      description="직원 기본 업무 뒤에 보는 일반 조회를 same-origin employee directory 응답과 연결하고, 운영 변경 검토는 계속 /admin/users 로 분리한 실사용 확인 화면입니다."
-      actions={
-        <div className="pill-row">
-          <Pill tone="accent">employee.read</Pill>
-          <Pill>same-origin live</Pill>
-        </div>
-      }
-    >
-      <SurfaceSection title="실사용 조회 패널" description="직원 목록, 필터 후보, 경계 문구를 실제 API 응답으로 확인합니다.">
-        <EmployeeDirectoryLiveSection />
-      </SurfaceSection>
-
-      <SurfaceSection title="이 화면의 역할" description="관리자 운영 화면과 섞이지 않도록 직원 기본 업무 뒤에 보는 일반 조회 범위를 먼저 고정합니다.">
-        <ul className="bullet-list">
-          {boundaryNotes.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="Phase 55 read model 확인 순서" description="계정 preview 다음에 이 화면을 언제 보는지 실제 운영/UAT 절차로 고정합니다.">
-        <ol className="number-list">
-          {onboardingReadModelSteps.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ol>
-      </SurfaceSection>
-
-      <SurfaceSection title="필터 후보" description="작은 화면에서는 긴 표보다 짧은 chip/카드 흐름을 우선합니다." muted>
-        <div className="pill-row">
-          {filterChips.map((item) => (
-            <Pill key={item}>{item}</Pill>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="직원 목록" description="모바일에서도 읽기 쉬운 카드형 기본안을 먼저 고정합니다.">
-        <div className="mobile-summary-grid">
-          {employeeCards.map((employee) => (
-            <article key={employee.name} className="route-card">
-              <div className="pill-row">
-                <Pill tone={employee.status === "재직" ? "accent" : "warning"}>{employee.status}</Pill>
-                <Pill>{employee.department}</Pill>
-              </div>
-              <h3>{employee.name}</h3>
-              <p>{employee.roleSummary}</p>
-              <p>{employee.note}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="운영 경계 메모" description="일반 조회 화면이 운영 변경 화면처럼 보이지 않도록 차단 이유를 미리 적어 둡니다." muted>
-        <ul className="summary-list">
-          {operationalBridgeNotes.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="연결 API / 안내" description="실데이터 변경 없이 읽기 응답과 안내 문구만 맞춥니다.">
-        <ul className="summary-list">
-          <li>
-            <a href={appRoutes.org.employees}>{appRoutes.org.employees}</a> — 직원 목록과 상태 요약
-          </li>
-          <li>
-            <a href={appRoutes.org.departments}>{appRoutes.org.departments}</a> — 부서 필터 후보
-          </li>
-          <li>
-            <a href="/admin/users">/admin/users</a> — 운영 사용자/권한 검토 분리 경로
-          </li>
-        </ul>
-      </SurfaceSection>
+    <PageShell title="직원" titlePlacement="content" titleHref={null}>
+      <FeatureWorkspace config={employeesConfig} />
     </PageShell>
   );
 }

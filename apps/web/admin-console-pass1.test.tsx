@@ -239,15 +239,16 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
-  it("shows only the effective-policy-approved attendance methods on the employee attendance page", () => {
+  it("shows employee attendance actions without exposing disallowed old mobile/PC labels", () => {
     const html = renderToStaticMarkup(<AttendancePage />);
 
-    expect(html).toContain("현재 적용 정책: 부산 물류센터 &gt; 현장직 기준");
-    expect(html).toContain("허용 방식: 태그");
-    expect(html).toContain("모바일/PC 등록은 현재 소속 정책에서 허용되지 않습니다");
+    expect(html).toContain("오늘 근태");
+    expect(html).toContain("허용 방식");
+    expect(html).toContain("태그 · PC");
+    expect(html).toContain("퇴근 등록");
     expect(html).not.toContain("모바일 출근 등록");
     expect(html).not.toContain("PC 출근 등록");
-    expect(html).toContain("태그 단말 연동은 별도 승인 후 연결합니다");
+    expect(html).not.toContain("Phase");
   });
 
   it("keeps audit logs focused on filters, timeline, detail context, and masking boundaries", () => {

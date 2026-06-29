@@ -9,27 +9,29 @@ import OrgPage from "./app/org/page";
 import WorkItemsBranchPage from "./app/work-items/branch/page";
 
 describe("Phase 34 real-usage entrypoints", () => {
-  it("keeps employees page on general lookup while exposing the live employee directory panel", () => {
+  it("keeps employees page on general lookup without admin save actions", () => {
     const html = renderToStaticMarkup(<EmployeesPage />);
 
-    expect(html).toContain("Phase 55 직원 일반 조회 / 조직 연결");
-    expect(html).toContain("실사용 조회 패널");
-    expect(html).toContain("same-origin API 응답을 불러오는 중입니다.");
-    expect(html).toContain("/admin/users");
+    expect(html).toContain("직원 목록");
+    expect(html).toContain("직원 상세");
+    expect(html).toContain("근무 상태");
+    expect(html).toContain("권한 요청");
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("초대 실행");
+    expect(html).not.toContain("Phase");
   });
 
   it("keeps org page read-only while surfacing company and branch scope panels", () => {
     const html = renderToStaticMarkup(<OrgPage />);
 
     expect(html).toContain("조직도");
-    expect(html).toContain("부서 목록");
-    expect(html).toContain("구성원 검색");
-    expect(html).toContain("직원 상세");
-    expect(html).toContain("운영 DB에 저장하지 않습니다");
-    expect(html).toContain("실데이터 변경");
+    expect(html).toContain("조직 트리");
+    expect(html).toContain("부서 상세");
+    expect(html).toContain("구성원");
+    expect(html).toContain("접근 범위");
+    expect(html).toContain("서울지점");
     expect(html).not.toContain("역할 생성");
+    expect(html).not.toContain("운영 DB seed");
   });
 
   it("renders the branch work-items page with live list-to-detail copy before the shared module explainer", () => {
