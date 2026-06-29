@@ -216,16 +216,20 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
       await ApprovalDocumentDetailPage({ params: Promise.resolve({ documentId: "approval_document_employee_employee_550e8400-e29b-41d4-a716-446655440000" }) }),
     );
 
-    expect(documentsHtml).toContain("협업 문맥 / 권한 경계");
-    expect(documentsHtml).toContain("happy path / guardrail");
-    expect(documentsHtml).toContain("1) 목록 → 2) 상세 → 3) upload-init → 4) upload-complete → 5) download-init → 6) read receipt");
+    expect(documentsHtml).toContain("문서함 목록");
+    expect(documentsHtml).toContain("파일 올리기");
     expect(documentsHtml).toContain("문서 상세");
-    expect(documentsHtml).toContain("classification: 정책/안내, 인사/계약 초안, 정산/집계 같은 업무 언어로만 보여 줍니다.");
-    expect(documentsHtml).toContain("`storageStatus` 와 문서 `status` 는 같은 뜻으로 섞지 않고");
-    expect(approvalsHtml).toContain("협업 흐름 연결");
-    expect(approvalsHtml).toContain("replay 차단");
-    expect(approvalsHtml).toContain("`/admin/policies`");
-    expect(approvalsHtml).toContain("의견/댓글 목록·작성");
+    expect(documentsHtml).toContain("공유 상태");
+    expect(documentsHtml).toContain("인사·근태 문서함");
+    expect(documentsHtml).not.toContain("happy path");
+    expect(documentsHtml).not.toContain("/api/documents");
+    expect(approvalsHtml).toContain("내 결재함");
+    expect(approvalsHtml).toContain("기안 작성");
+    expect(approvalsHtml).toContain("결재선");
+    expect(approvalsHtml).toContain("문서 상태");
+    expect(approvalsHtml).toContain("보완 요청");
+    expect(approvalsHtml).not.toContain("/admin/policies");
+    expect(approvalsHtml).not.toContain("/api/approvals");
     expect(approvalDetailHtml).toContain("전자결재 상세 happy path");
     expect(approvalDetailHtml).toContain("승인 대기 예시");
     expect(approvalDetailHtml).toContain("approval_document_team_pending");
