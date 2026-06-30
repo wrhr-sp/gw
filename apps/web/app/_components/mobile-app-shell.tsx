@@ -3581,11 +3581,11 @@ export function MobileAppShell({
                     {isDepartmentPortalOpen ? (
                       <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
                         {departmentPortalItems.map((department) => (
-                          <a key={department.label} className="department-portal-popover__item" href={department.href} target="_blank" rel="noreferrer" role="menuitem" onClick={closeDepartmentPortalMenu}>
+                          <a key={department.label} className="department-portal-popover__item" href={department.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true" onClick={closeDepartmentPortalMenu}>
                             {department.label}
                           </a>
                         ))}
-                        <a className="department-portal-popover__item department-portal-popover__item--admin" href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" onClick={closeDepartmentPortalMenu}>
+                        <a className="department-portal-popover__item department-portal-popover__item--admin" href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true" onClick={closeDepartmentPortalMenu}>
                           {departmentPortalAdminItem.label}
                         </a>
                       </div>
