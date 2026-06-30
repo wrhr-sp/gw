@@ -348,7 +348,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
     expect(shellSource).not.toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
-    expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
+    expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true"');
+    expect(shellSource).toContain('href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true"');
     expect(shellSource).toContain('function getDepartmentScopedNavHref(item: NavItem)');
     expect(shellSource).toContain('department=${encodeURIComponent(department.id)}');
     expect(shellSource).toContain("sidebar-settings-divider-option");
