@@ -1,7 +1,6 @@
 import React from "react";
 
-import { FeatureWorkspace, type FeatureWorkspaceConfig } from "./feature-workspace";
-import { PageShell } from "./page-shell";
+import { PageShell, Pill, SurfaceSection } from "./page-shell";
 
 type DepartmentWorkspacePageProps = {
   koreanName: string;
@@ -9,76 +8,148 @@ type DepartmentWorkspacePageProps = {
   roleSummary: string;
 };
 
+const departmentIdByName: Record<string, string> = {
+  대표이사실: "ceo",
+  전략기획실: "strategy",
+  경영지원팀: "support",
+  영업관리팀: "sales-admin",
+  광고사업팀: "ads",
+  운영사업부: "operations",
+};
+
+const sharedWorkLinks = [
+  { label: "게시판", href: "/boards", description: "부서 공지와 업무 공유 글을 확인합니다." },
+  { label: "메일", href: "/mail", description: "부서 문맥을 유지한 상태로 메일 업무를 엽니다." },
+  { label: "메신저", href: "/messenger", description: "부서 협업 대화를 이어갑니다." },
+  { label: "결재", href: "/approvals", description: "부서 결재 문서와 승인 흐름을 확인합니다." },
+  { label: "문서", href: "/documents", description: "부서 문서함과 첨부 자료를 확인합니다." },
+  { label: "근태", href: "/attendance", description: "부서 구성원의 근태 흐름을 확인합니다." },
+] as const;
+
+const departmentWorkLinksById: Record<string, readonly { label: string; href: string; description: string }[]> = {
+  ceo: [
+    { label: "경영 현황", href: "/management", description: "전사 경영 지표와 주요 관리 업무로 이동합니다." },
+    { label: "영업 현황", href: "/sales", description: "영업 실적과 운영 흐름을 확인합니다." },
+    { label: "지점관리", href: "/Place of business", description: "지점관리포털 홈을 새 업무 흐름으로 확인합니다." },
+    { label: "관리자 페이지", href: "/admin", description: "총괄관리계정 기준 관리자 기능으로 이동합니다." },
+  ],
+  strategy: [
+    { label: "경영 현황", href: "/management", description: "전략 과제와 연결되는 경영 지표를 확인합니다." },
+    { label: "영업 현황", href: "/sales", description: "전략 수립에 필요한 영업 흐름을 확인합니다." },
+    { label: "세무 내부관리", href: "/work-items/tax", description: "세무 관련 내부 관리 항목을 확인합니다." },
+    { label: "법무 내부관리", href: "/work-items/legal", description: "법무 검토와 계약 관련 내부 업무를 확인합니다." },
+  ],
+  support: [
+    { label: "HR 내부관리", href: "/work-items/hr", description: "인사·조직 지원 업무를 확인합니다." },
+    { label: "급여 내부관리", href: "/payroll", description: "급여 내부관리 업무로 이동합니다." },
+    { label: "노무 내부관리", href: "/work-items/labor", description: "노무 관련 내부 업무를 확인합니다." },
+    { label: "관리자 페이지", href: "/admin", description: "관리자 기능과 정책 설정을 확인합니다." },
+  ],
+  "sales-admin": [
+    { label: "영업 현황", href: "/sales", description: "영업관리팀 전용 실적·고객 업무를 확인합니다." },
+    { label: "지점관리", href: "/Place of business", description: "지점 영업 운영 흐름을 확인합니다." },
+    { label: "법무 내부관리", href: "/work-items/legal", description: "계약·법무 검토 흐름을 확인합니다." },
+  ],
+  ads: [
+    { label: "영업 현황", href: "/sales", description: "광고 영업과 캠페인 관련 업무를 확인합니다." },
+    { label: "경영 현황", href: "/management", description: "광고 사업 지표와 경영 흐름을 확인합니다." },
+    { label: "법무 내부관리", href: "/work-items/legal", description: "광고 계약·법무 검토 업무를 확인합니다." },
+  ],
+  operations: [
+    { label: "지점관리", href: "/Place of business", description: "운영사업부의 지점관리포털로 이동합니다." },
+    { label: "지점 업무", href: "/work-items/branch", description: "지점 업무 처리와 보고 흐름을 확인합니다." },
+    { label: "노무 내부관리", href: "/work-items/labor", description: "운영 조직의 노무 관련 업무를 확인합니다." },
+  ],
+};
+
+function withDepartment(href: string, departmentId: string) {
+  if (href === "/admin" || href === "/Place of business") {
+    return href;
+  }
+
+  return `${href}${href.includes("?") ? "&" : "?"}department=${encodeURIComponent(departmentId)}`;
+}
+
 export function DepartmentWorkspacePage({ koreanName, englishName, roleSummary }: DepartmentWorkspacePageProps) {
-  const config: FeatureWorkspaceConfig = {
-    title: `${koreanName} / ${englishName}`,
-    eyebrow: roleSummary,
-    tabs: [
-      { id: "overview", label: "업무 현황", badge: "오늘" },
-      { id: "tasks", label: "업무 목록", badge: "진행" },
-      { id: "reports", label: "보고", badge: "작성" },
-      { id: "members", label: "구성원", badge: "권한" },
-    ],
-    utility: [
-      { label: "현재 부서", value: koreanName },
-      { label: "영문명", value: englishName },
-      { label: "처리 대기", value: "3건" },
-    ],
-    panels: [
-      {
-        id: "overview",
-        heading: "업무 현황",
-        summary: `${koreanName}에서 오늘 확인해야 할 주요 업무와 보고 상태를 모아 봅니다.`,
-        permissionHint: "부서별 접근 권한이 있는 계정만 해당 부서 화면을 볼 수 있습니다.",
-        statusCards: [
-          { label: "진행 업무", value: "8건", tone: "accent" },
-          { label: "검토 필요", value: "3건", tone: "warning" },
-          { label: "완료", value: "5건" },
-        ],
-        rows: [
-          { title: `${koreanName} 주간 업무`, meta: "담당자별 진행률 확인", status: "진행", actions: [{ label: "업무 보기", tone: "primary" }] },
-          { title: `${koreanName} 보고 대기`, meta: "승인/검토 전 보고 모음", status: "검토", actions: [{ label: "보고 확인" }] },
-          { title: `${koreanName} 공지`, meta: "부서 공통 안내와 공유사항", status: "공유" },
-        ],
-      },
-      {
-        id: "tasks",
-        heading: "업무 목록",
-        summary: "부서 내부 업무를 상태별로 확인하고 필요한 처리를 이어갑니다.",
-        rows: [
-          { title: "신규 요청", meta: "부서 접수 업무", status: "대기", actions: [{ label: "접수" }] },
-          { title: "진행 중", meta: "담당자 배정 업무", status: "진행", actions: [{ label: "상세" }] },
-          { title: "완료 확인", meta: "결과 검토가 필요한 업무", status: "확인" },
-        ],
-      },
-      {
-        id: "reports",
-        heading: "보고",
-        summary: "부서별 보고를 작성하고 검토 상태를 확인합니다.",
-        formFields: [
-          { label: "보고 제목", value: `${koreanName} 업무 보고` },
-          { label: "보고 유형", value: "일일 보고", type: "select" },
-          { label: "내용", value: "주요 진행 상황과 특이사항을 입력합니다.", type: "textarea" },
-        ],
-        actions: [{ label: "보고 제출", tone: "primary" }, { label: "임시저장" }],
-      },
-      {
-        id: "members",
-        heading: "구성원/권한",
-        summary: "부서 화면 접근과 업무 처리 권한을 구성원별로 분리합니다.",
-        rows: [
-          { title: "부서 관리자", meta: "부서 설정과 권한 요청 처리", status: "관리" },
-          { title: "부서 담당자", meta: "업무 작성/처리", status: "작성" },
-          { title: "조회 전용", meta: "부서 현황 읽기", status: "조회" },
-        ],
-        notes: ["실제 계정별 권한 저장은 후속 DB/API 연결 범위입니다.", "이번 단계는 부서별 전용 페이지와 화면 흐름 분리입니다."],
-      },
-    ],
-  };
+  const departmentId = departmentIdByName[koreanName] ?? "operations";
+  const departmentWorkLinks = departmentWorkLinksById[departmentId] ?? [];
 
   return (
-    <PageShell title={`${koreanName} / ${englishName}`} titlePlacement="content" titleHref={null}>
-      <FeatureWorkspace config={config} />
+    <PageShell
+      title={`${koreanName} / ${englishName}`}
+      titlePlacement="content"
+      titleHref={null}
+      description={`${koreanName} 업무포털입니다. 기본업무로 이동해도 ${koreanName} 문맥을 유지합니다.`}
+    >
+      <div className="feature-workspace" aria-label={`${koreanName} 업무포털 진입 화면`}>
+        <aside className="feature-workspace__nav" aria-label={`${koreanName} 업무포털 요약`}>
+          <div className="feature-workspace__nav-header">
+            <h1>{koreanName} / {englishName}</h1>
+            <p><strong>{koreanName} 업무포털</strong> · {roleSummary}</p>
+          </div>
+          <div className="feature-workspace__utility" aria-label="부서 정보">
+            <div>
+              <span>현재 부서</span>
+              <strong>{koreanName}</strong>
+            </div>
+            <div>
+              <span>영문명</span>
+              <strong>{englishName}</strong>
+            </div>
+            <div>
+              <span>문맥 유지</span>
+              <strong>department={departmentId}</strong>
+            </div>
+          </div>
+        </aside>
+
+        <section className="feature-workspace__panel" aria-labelledby="department-portal-heading">
+          <div className="feature-workspace__panel-header">
+            <div>
+              <h2 id="department-portal-heading">{koreanName}에서 사용할 업무</h2>
+              <p>아래 항목은 실제 기능 페이지로 이동합니다. 기본업무도 부서 문맥을 유지한 URL로 엽니다.</p>
+            </div>
+            <p className="feature-workspace__permission-hint">부서별 접근 권한은 기존 route guard와 권한 정책을 따릅니다.</p>
+          </div>
+
+          <SurfaceSection title="기본업무">
+            <div className="feature-workspace__row-list">
+              {sharedWorkLinks.map((item) => (
+                <article className="feature-workspace__row" key={item.href}>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.description}</p>
+                  </div>
+                  <a className="feature-workspace__row-action" href={withDepartment(item.href, departmentId)}>
+                    {item.label} 열기
+                  </a>
+                </article>
+              ))}
+            </div>
+          </SurfaceSection>
+
+          <SurfaceSection title={`${koreanName} 부서업무`}>
+            <div className="feature-workspace__row-list">
+              {departmentWorkLinks.map((item) => (
+                <article className="feature-workspace__row" key={item.href}>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.description}</p>
+                  </div>
+                  <a className="feature-workspace__row-action" href={withDepartment(item.href, departmentId)}>
+                    {item.label} 열기
+                  </a>
+                </article>
+              ))}
+            </div>
+          </SurfaceSection>
+
+          <div className="feature-workspace__notes" aria-label="부서업무포털 안내">
+            <Pill tone="accent">새 탭 진입 후 현재 부서명 유지</Pill>
+            <p>상단 부서업무포털 팝업에서 들어온 뒤 기본업무를 눌러도 로고 옆 문구가 {koreanName}으로 유지되도록 구성했습니다.</p>
+          </div>
+        </section>
+      </div>
     </PageShell>
   );
 }
