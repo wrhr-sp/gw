@@ -1,6 +1,6 @@
 "use client";
 
-import { appRoutes, getViewerAccessForRoleCode, hasHomeShortcutRouteAccess, type Permission, type RoleCode } from "@gw/shared";
+import { appRoutes, type Permission, type RoleCode } from "@gw/shared";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -70,6 +70,7 @@ type FeatureIconProps = {
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
 const brandWordmark = "WE’REHERE";
+const departmentPortalItems = ["전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부"] as const;
 
 type TopbarIconButtonProps = {
   label: string;
@@ -1244,6 +1245,7 @@ export function MobileAppShell({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
+  const [isDepartmentPortalOpen, setIsDepartmentPortalOpen] = useState(false);
   const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
@@ -1297,6 +1299,7 @@ export function MobileAppShell({
   const permissionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appRefreshOverlayTimerRef = useRef<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const departmentPortalRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
   void installGuideSteps;
@@ -1400,7 +1403,7 @@ export function MobileAppShell({
     const desktopSections = !hasManagementPortal || isBranchPortal || isManagementPortal ? sections : addGeneralBranchManagementDesktopItem(sections);
     return sortNavSectionsByItemLabel(desktopSections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
-  const currentPortalLabel = isAdminHostShell ? appEyebrow : isBranchPortal ? "지점관리포털" : isManagementPortal ? "경영업무포털" : "일반업무포털";
+  const currentPortalLabel = isAdminHostShell ? appEyebrow : "일반업무포털";
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
   const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);
@@ -1415,16 +1418,9 @@ export function MobileAppShell({
     setUnlockedSensitiveRouteKeys(readSecondaryPasswordUnlockedFeatureKeys());
   }, [currentSensitiveRouteKey]);
 
-  const currentPortalHomeHref = isAdminHostShell ? homeHref : isBranchPortal ? "/work-items/branch" : isManagementPortal ? "/management" : "/home";
+  const currentPortalHomeHref = isAdminHostShell ? homeHref : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
-  const nextPortalLabel = isManagementPortal ? "일반업무포털" : "경영업무포털";
-  const nextPortalHref = isManagementPortal ? "/home" : "/management";
-  const branchPortalLabel = "지점관리포털";
-  const branchPortalHref = "/work-items/branch";
-  const viewerAccess = currentRoleCode
-    ? { roleCodes: [currentRoleCode], permissions: currentPermissions ?? [...getViewerAccessForRoleCode(currentRoleCode).permissions] }
-    : null;
-  const canOpenRoute = (href: string) => !viewerAccess || hasHomeShortcutRouteAccess(href, viewerAccess);
+  const departmentPortalLabel = "부서업무포털";
   const sidebarCustomizationItems = useMemo(
     () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
     [visibleDesktopMenuSections],
@@ -1670,6 +1666,33 @@ export function MobileAppShell({
     document.addEventListener("keydown", closeTopbarModalWithEscape);
     return () => document.removeEventListener("keydown", closeTopbarModalWithEscape);
   }, [activeTopbarModal]);
+
+  useEffect(() => {
+    if (!isDepartmentPortalOpen) {
+      return;
+    }
+
+    function closeDepartmentPortal(event: MouseEvent | KeyboardEvent) {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") {
+          setIsDepartmentPortalOpen(false);
+        }
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Node && !departmentPortalRef.current?.contains(target)) {
+        setIsDepartmentPortalOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeDepartmentPortal);
+    document.addEventListener("keydown", closeDepartmentPortal);
+    return () => {
+      document.removeEventListener("mousedown", closeDepartmentPortal);
+      document.removeEventListener("keydown", closeDepartmentPortal);
+    };
+  }, [isDepartmentPortalOpen]);
 
   useEffect(() => {
     if (!isSidebarSettingsOpen) {
@@ -2848,7 +2871,7 @@ export function MobileAppShell({
                       <section className="topbar-modal-card">
                         <strong>기본 시작 방식</strong>
                         <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                          {['홈', '일반업무포털', '경영업무포털', '마지막으로 보던 화면'].map((item) => (
+                          {['홈', '일반업무포털', '부서업무포털', '마지막으로 보던 화면'].map((item) => (
                             <label key={item} className="topbar-modal-choice">
                               <input
                                 type="radio"
@@ -3122,14 +3145,6 @@ export function MobileAppShell({
     navigateTo(item.href);
   }
 
-  function openPortalShortcut(href: string) {
-    if (!canOpenRoute(href)) {
-      showPermissionDeniedNotice();
-      return;
-    }
-    window.open(new URL(href, window.location.origin).toString(), "_blank", "noopener,noreferrer");
-  }
-
   function renderAppRefreshOverlay() {
     if (!isAppRefreshOverlayVisible) {
       return null;
@@ -3254,40 +3269,28 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <>
-                  <a
-                    className="portal-switch-link portal-switch-link--branch"
-                    aria-label={`${branchPortalLabel} 새 탭에서 보기`}
-                    data-allow-url-status="true"
-                    data-route={branchPortalHref}
-                    href={branchPortalHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openPortalShortcut(branchPortalHref);
-                    }}
+                <div className="department-portal-menu" ref={departmentPortalRef}>
+                  <button
+                    className="portal-switch-link department-portal-button"
+                    type="button"
+                    aria-label={`${departmentPortalLabel} 열기`}
+                    aria-expanded={isDepartmentPortalOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setIsDepartmentPortalOpen((value) => !value)}
                   >
-                    <span>{branchPortalLabel}</span>
+                    <span>{departmentPortalLabel}</span>
                     <PortalShortcutIcon />
-                  </a>
-                  <a
-                    className="portal-switch-link"
-                    aria-label={`${nextPortalLabel} 새 탭에서 보기`}
-                    data-allow-url-status="true"
-                    data-route={nextPortalHref}
-                    href={nextPortalHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openPortalShortcut(nextPortalHref);
-                    }}
-                  >
-                    <span>{nextPortalLabel}</span>
-                    <PortalShortcutIcon />
-                  </a>
-                </>
+                  </button>
+                  {isDepartmentPortalOpen ? (
+                    <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
+                      {departmentPortalItems.map((department) => (
+                        <button key={department} className="department-portal-popover__item" type="button" role="menuitem">
+                          {department}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
               {!isAdminHostShell ? (
                 <>
