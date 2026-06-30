@@ -37,12 +37,14 @@ describe("Phase 34 real-usage entrypoints", () => {
   it("renders the branch work-items page with live list-to-detail copy before the shared module explainer", () => {
     const html = renderToStaticMarkup(<WorkItemsBranchPage />);
 
-    expect(html).toContain("Phase 42 branch scope 지점 운영 도입");
-    expect(html).toContain("list → detail");
-    expect(html).toContain("실사용 branch 패널");
-    expect(html).toContain("branch scope 가드레일");
+    expect(html).toContain("feature-workspace");
     expect(html).toContain("지점 업무");
-    expect(html).toContain('href="/api/work-items?module=branch"');
+    expect(html).toContain("업무 목록");
+    expect(html).toContain("접수/분류");
+    expect(html).toContain("검토/마감");
+    expect(html).toContain("권한 범위");
+    expect(html).not.toContain("Phase");
+    expect(html).not.toContain("happy path");
   });
 
   it("keeps branch work item capability labels compatible with current API payload names", () => {

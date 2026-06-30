@@ -1,103 +1,79 @@
 import React from "react";
-import { appRoutes } from "@gw/shared";
 
-import { PayrollPayslipLiveSection } from "../../_components/phase35-live-sections";
-import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../../_components/feature-workspace";
+import { PageShell } from "../../_components/page-shell";
 
-const summaryCards = [
-  {
-    label: "지급 기간",
-    value: "2026년 5월 급여",
-    note: "본사 검토 완료 전까지 preview 로만 표시됩니다.",
-  },
-  {
-    label: "예상 실수령",
-    value: "2,183,400원",
-    note: "원천세/4대보험은 placeholder 추정치입니다.",
-  },
-  {
-    label: "공개 상태",
-    value: "reviewing / 직원 공개 대기",
-    note: "급여 확정 전에는 문의 안내만 노출합니다.",
-  },
-] as const;
-
-const lineItems = [
-  { label: "기본 근무시간", amount: "2,150,400원", note: "168시간 × 시급 preview" },
-  { label: "연장근로 수당", amount: "172,800원", note: "9시간 premium preview" },
-  { label: "야간근로 수당", amount: "38,400원", note: "야간 premium preview" },
-  { label: "식대", amount: "120,000원", note: "지점 수기 allowance placeholder" },
-  { label: "원천세 placeholder", amount: "-187,000원", note: "실세액 엔진 미연동" },
-  { label: "4대보험 placeholder", amount: "-140,000원", note: "보험 계산 미연동" },
-] as const;
-
-const guidance = [
-  "급여명세서 초안과 실제 지급 확정값을 같은 말로 표시하지 않습니다.",
-  "근태/휴가 정정이 필요하면 급여 확정 전에 먼저 관련 화면과 담당자 안내를 확인합니다.",
-  "동료 명세서 조회, 통장 이체 결과, 세무 신고 제출은 이번 화면에 넣지 않습니다.",
-] as const;
+const payrollMeConfig: FeatureWorkspaceConfig = {
+  title: "내 급여명세서",
+  eyebrow: "본인 명세서, 지급·공제 항목, 정정 요청 상태를 확인합니다.",
+  tabs: [
+    { id: "summary", label: "명세서 요약", badge: "6월" },
+    { id: "items", label: "지급/공제", badge: "상세" },
+    { id: "correction", label: "정정 요청", badge: "신청" },
+    { id: "history", label: "이전 명세서", badge: "12" },
+  ],
+  utility: [
+    { label: "지급 기간", value: "2026년 6월" },
+    { label: "공개 상태", value: "대기" },
+    { label: "문의 상태", value: "없음" },
+  ],
+  panels: [
+    {
+      id: "summary",
+      heading: "명세서 요약",
+      summary: "이번 달 지급 예정액, 공개 상태, 확인해야 할 항목을 직원 눈높이로 보여 줍니다.",
+      statusCards: [
+        { label: "예상 실수령", value: "2,183,400원", tone: "accent" },
+        { label: "지급일", value: "7월 10일" },
+        { label: "확인 필요", value: "0건" },
+      ],
+      rows: [
+        { title: "근태 반영", meta: "정상 근무 18일 · 휴가 1일", status: "확인" },
+        { title: "수당 반영", meta: "연장 9시간 · 야간 2시간", status: "검토" },
+        { title: "공제 반영", meta: "원천세 · 4대보험", status: "대기" },
+      ],
+    },
+    {
+      id: "items",
+      heading: "지급/공제 항목",
+      summary: "지급 항목과 공제 항목을 나누어 금액과 사유를 확인합니다.",
+      rows: [
+        { title: "기본 근무시간", meta: "168시간", status: "2,150,400원" },
+        { title: "연장근로 수당", meta: "9시간", status: "172,800원" },
+        { title: "식대", meta: "월 고정", status: "120,000원" },
+        { title: "원천세", meta: "확정 전", status: "-187,000원" },
+        { title: "4대보험", meta: "확정 전", status: "-140,000원" },
+      ],
+    },
+    {
+      id: "correction",
+      heading: "정정 요청",
+      summary: "근태나 수당이 다르면 공개 전 담당자에게 정정을 요청합니다.",
+      formFields: [
+        { label: "정정 항목", value: "연장근로 수당", type: "select" },
+        { label: "대상 날짜", value: "2026-06-18", type: "date" },
+        { label: "요청 사유", value: "근무시간 확인이 필요합니다.", type: "textarea" },
+      ],
+      actions: [{ label: "정정 요청", tone: "primary" }, { label: "임시 저장" }],
+      notes: ["본인 명세서에 대해서만 정정 요청할 수 있습니다.", "급여 담당자는 근태·휴가 기록과 함께 확인합니다."],
+    },
+    {
+      id: "history",
+      heading: "이전 명세서",
+      summary: "이전 달 명세서 공개 여부와 확인 상태를 한 줄씩 봅니다.",
+      rows: [
+        { title: "2026년 5월", meta: "지급 완료", status: "확인" },
+        { title: "2026년 4월", meta: "지급 완료", status: "확인" },
+        { title: "2026년 3월", meta: "지급 완료", status: "확인" },
+      ],
+    },
+  ],
+};
 
 export default function PayrollMePage() {
   return (
-    <PageShell
-      backHref="/me"
-      backLabel="내 정보로"
-      eyebrow="Phase 43 self-only 급여명세서 preview"
-      title="내 급여명세서 초안"
-      description="구성원은 본인 급여명세서 preview 와 정정 안내만 확인합니다. 실지급 확정, 동료 급여 조회, 외부 신고 결과는 보여 주지 않습니다."
-      actions={
-        <div className="pill-row">
-          <Pill tone="accent">self-only</Pill>
-          <Pill>preview amount</Pill>
-          <Pill>correction guidance</Pill>
-        </div>
-      }
-    >
-      <SurfaceSection title="실사용 명세서 패널" description="본인 급여명세서 preview 와 self-only guard 를 실제 API 응답으로 먼저 확인합니다.">
-        <PayrollPayslipLiveSection />
-      </SurfaceSection>
-
-      <SurfaceSection title="한눈에 보는 요약" description="직원 화면에서 가장 먼저 보는 정보만 짧게 둡니다.">
-        <div className="grid-auto-compact">
-          {summaryCards.map((card) => (
-            <article key={card.label} className="stat-card">
-              <p className="meta-copy">{card.label}</p>
-              <h3>{card.value}</h3>
-              <p>{card.note}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="지급/공제 항목 preview" description="실제 계산 엔진이 아니라 항목 구조와 공개 방식만 먼저 맞춥니다.">
-        <div className="grid-auto-compact">
-          {lineItems.map((item) => (
-            <article key={item.label} className="info-card">
-              <strong>{item.label}</strong>
-              <p>{item.amount}</p>
-              <p>{item.note}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="정정 안내 / 연결 API" description="정정은 급여 확정 전에 관련 입력 소스를 먼저 확인하도록 안내합니다.">
-        <ul className="summary-list">
-          <li><a href={appRoutes.payroll.myPayslip}>{appRoutes.payroll.myPayslip}</a> — 본인 급여명세서 초안 API</li>
-          <li><a href={appRoutes.attendance.records}>{appRoutes.attendance.records}</a> — 근태 기록 확인</li>
-          <li><a href={appRoutes.leave.balances}>{appRoutes.leave.balances}</a> — 휴가 잔여/반영 확인</li>
-          <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 preview</li>
-          <li><a href="/me">/me</a> — 내 정보에서 self-only 급여 preview 로 다시 진입</li>
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="쉬운 말 안내" description="직원용 화면에서 혼동을 줄이기 위한 고정 문구입니다." muted>
-        <ul className="summary-list">
-          {guidance.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
+    <PageShell title="내 급여명세서" titlePlacement="content" titleHref={null}>
+      <FeatureWorkspace config={payrollMeConfig} />
     </PageShell>
   );
 }

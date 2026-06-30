@@ -1,64 +1,86 @@
 import React from "react";
 
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../_components/feature-workspace";
+import { PageShell } from "../_components/page-shell";
 
-const salesSummaryCards = [
-  {
-    title: "오늘 상담",
-    value: "12건",
-    detail: "신규 문의 4건 · 재상담 8건",
-  },
-  {
-    title: "진행 중 거래",
-    value: "7건",
-    detail: "제안 3건 · 계약 검토 4건",
-  },
-  {
-    title: "후속 연락",
-    value: "5건",
-    detail: "오늘 마감 2건 · 이번 주 마감 3건",
-  },
-] as const;
-
-const salesPipeline = [
-  { stage: "신규 문의", count: 4, owner: "영업 1팀" },
-  { stage: "상담 진행", count: 8, owner: "담당 영업" },
-  { stage: "제안 전달", count: 3, owner: "영업 관리자" },
-  { stage: "계약 검토", count: 4, owner: "영업/법무" },
-] as const;
+const salesConfig: FeatureWorkspaceConfig = {
+  title: "영업관리",
+  eyebrow: "상담, 제안, 계약 검토, 후속 연락을 업무 단계별로 확인합니다.",
+  tabs: [
+    { id: "pipeline", label: "영업 현황", badge: "27" },
+    { id: "customer", label: "거래처", badge: "관리" },
+    { id: "followup", label: "후속 연락", badge: "5" },
+    { id: "contract", label: "계약 검토", badge: "4" },
+  ],
+  utility: [
+    { label: "오늘 상담", value: "12건" },
+    { label: "진행 거래", value: "7건" },
+    { label: "오늘 마감", value: "2건" },
+  ],
+  panels: [
+    {
+      id: "pipeline",
+      heading: "영업 현황",
+      summary: "신규 문의부터 계약 검토까지 오늘 확인할 거래 흐름을 봅니다.",
+      statusCards: [
+        { label: "신규 문의", value: "4건" },
+        { label: "상담 진행", value: "8건", tone: "accent" },
+        { label: "계약 검토", value: "4건", tone: "warning" },
+      ],
+      rows: [
+        { title: "강남 법인 고객", meta: "제안 전달 · 영업 1팀", status: "진행" },
+        { title: "부산 지점 계약", meta: "법무 검토 요청", status: "검토" },
+        { title: "신규 문의 4건", meta: "오늘 접수", status: "배정 대기" },
+      ],
+      actions: [{ label: "상담 등록", tone: "primary" }, { label: "담당자 배정" }],
+    },
+    {
+      id: "customer",
+      heading: "거래처",
+      summary: "최근 거래처와 담당자, 다음 연락 일정을 함께 확인합니다.",
+      rows: [
+        { title: "위어히어 호텔", meta: "담당 김지윤 · 서울", status: "활성" },
+        { title: "부산 파트너사", meta: "담당 박민재 · 부산", status: "제안" },
+        { title: "대전 운영사", meta: "담당 이서연 · 대전", status: "후속" },
+      ],
+      formFields: [
+        { label: "거래처명", value: "신규 거래처" },
+        { label: "담당자", value: "담당 영업" },
+      ],
+      actions: [{ label: "거래처 등록", tone: "primary" }],
+    },
+    {
+      id: "followup",
+      heading: "후속 연락",
+      summary: "오늘 처리해야 할 연락과 이번 주 마감 건을 분리합니다.",
+      rows: [
+        { title: "견적 회신", meta: "오늘 15:00", status: "오늘" },
+        { title: "계약 조건 재확인", meta: "내일 오전", status: "예정" },
+        { title: "방문 일정 조율", meta: "이번 주", status: "대기" },
+      ],
+      actions: [{ label: "완료 처리", tone: "primary" }, { label: "일정 변경" }],
+    },
+    {
+      id: "contract",
+      heading: "계약 검토",
+      summary: "계약 단계의 법무 검토와 보완 요청 상태를 확인합니다.",
+      statusCards: [
+        { label: "검토중", value: "4건", tone: "warning" },
+        { label: "보완요청", value: "1건" },
+        { label: "완료", value: "9건", tone: "accent" },
+      ],
+      rows: [
+        { title: "위탁 운영 계약", meta: "법무 검토", status: "진행" },
+        { title: "개인정보 처리 위탁", meta: "보완 요청", status: "보완" },
+      ],
+    },
+  ],
+};
 
 export default function SalesPage() {
   return (
-    <PageShell title="영업관리" titleHref="/sales">
-      <div className="grid-auto-compact">
-        {salesSummaryCards.map((card) => (
-          <article key={card.title} className="info-card">
-            <Pill tone="accent">{card.title}</Pill>
-            <h3>{card.value}</h3>
-            <p>{card.detail}</p>
-          </article>
-        ))}
-      </div>
-
-      <SurfaceSection title="영업 현황" description="상담, 제안, 계약 검토처럼 오늘 바로 확인할 영업 흐름을 한곳에 모읍니다.">
-        <div className="grid-auto-compact">
-          {salesPipeline.map((item) => (
-            <article key={item.stage} className="route-card">
-              <h3>{item.stage}</h3>
-              <p>{item.count}건 진행 중</p>
-              <p className="card-note">담당: {item.owner}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="거래처/고객" description="최근 거래처와 후속 연락 대상을 먼저 확인하는 1차 영업관리 화면입니다.">
-        <ul className="summary-list">
-          <li>최근 상담 거래처와 담당자를 확인합니다.</li>
-          <li>미처리 후속 연락과 계약 검토 상태를 분리해서 봅니다.</li>
-          <li>실제 CRM·외부 영업 도구 연동은 별도 승인 전까지 연결하지 않습니다.</li>
-        </ul>
-      </SurfaceSection>
+    <PageShell title="영업관리" titlePlacement="content" titleHref={null}>
+      <FeatureWorkspace config={salesConfig} />
     </PageShell>
   );
 }

@@ -31,9 +31,9 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     expect(html).toContain("영업관리");
     expect(html).toContain("영업 현황");
-    expect(html).toContain("거래처/고객");
+    expect(html).toContain("거래처");
     expect(html).toContain("오늘 상담");
-    expect(html).toContain("진행 중 거래");
+    expect(html).toContain("계약 검토");
     expect(html).not.toContain("공통 업무 허브");
     expect(html).not.toContain('href="/work-items"');
   });
@@ -41,14 +41,13 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the HR module page with meeting/lifecycle guardrails and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsHrPage />);
 
-    expect(html).toContain("Phase 37 모듈별 민감자료 경계");
+    expect(html).toContain("feature-workspace");
     expect(html).toContain("인사 업무");
-    expect(html).toContain("실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 metadata 만 먼저 노출합니다.");
+    expect(html).toContain("업무 목록");
+    expect(html).toContain("접수/분류");
+    expect(html).toContain("검토/마감");
+    expect(html).toContain("권한 범위");
     expect(html).toContain("직원 lifecycle 단계");
-    expect(html).toContain("본사 HR / 지점 관리자 / 일반 직원 visibility 분리");
-    expect(html).toContain("이번 단계 meeting 유형");
-    expect(html).toContain('href="/api/work-items?module=hr"');
-    expect(html).toContain('href="/api/work-items/:id/attachments"');
     expect(html).not.toContain('class="ghost-link"');
     expect(html).not.toContain("공통 업무 허브로");
   });
@@ -56,17 +55,10 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the labor module page with category/restricted guardrails and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsLaborPage />);
 
-    expect(html).toContain("노무 업무 실사용 패널");
-    expect(html).toContain("실사용 노무 패널");
-    expect(html).toContain("guard / 상태 확인 기준");
+    expect(html).toContain("feature-workspace");
     expect(html).toContain("노무 업무");
-    expect(html).toContain("실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고");
     expect(html).toContain("노무 category 확장");
-    expect(html).toContain("이번 단계 labor 유형");
-    expect(html).toContain("징계 검토");
-    expect(html).toContain("restricted labor capability 분리");
-    expect(html).toContain('href="/api/work-items?module=labor"');
-    expect(html).toContain('href="/api/work-items/:id"');
+    expect(html).toContain("민감 labor capability 분리");
     expect(html).not.toContain('class="ghost-link"');
     expect(html).not.toContain("공통 업무 허브로");
   });
@@ -74,17 +66,11 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the legal module page with contract/renewal/dispute copy and linked API routes", () => {
     const html = renderToStaticMarkup(<WorkItemsLegalPage />);
 
-    expect(html).toContain("법무 업무 실사용 패널");
-    expect(html).toContain("실사용 법무 패널");
-    expect(html).toContain("company / branch guard");
+    expect(html).toContain("feature-workspace");
     expect(html).toContain("법무 업무");
-    expect(html).toContain("계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 공통 work item skeleton 안에서 metadata 중심으로 묶습니다.");
     expect(html).toContain("본사 법무/운영 담당 / 지점 관리자 / 감사");
-    expect(html).toContain("이번 단계 legal 유형");
     expect(html).toContain("임대차 계약");
-    expect(html).toContain("누가 어디까지 보는가");
-    expect(html).toContain('href="/api/work-items?module=legal"');
-    expect(html).toContain('href="/api/work-item-deadlines"');
+    expect(html).toContain("권한 범위");
     expect(html).not.toContain('class="ghost-link"');
     expect(html).not.toContain("공통 업무 허브로");
   });
@@ -92,12 +78,14 @@ describe("Phase 25 work-items web entrypoints", () => {
   it("renders the branch module page as a management-lane follow-up instead of a dashboard home link", () => {
     const html = renderToStaticMarkup(<WorkItemsBranchPage />);
 
-    expect(html).toContain("지점 업무 실사용 패널");
+    expect(html).toContain("feature-workspace");
+    expect(html).toContain("지점 업무");
+    expect(html).toContain("업무 목록");
+    expect(html).toContain("접수/분류");
+    expect(html).toContain("권한 범위");
     expect(html).not.toContain("← 경영업무로");
-    expect(html).toContain("branch scope 가드레일");
-    expect(html).toContain("Phase 49 지점관리자 추천 순서");
-    expect(html).toContain("happy path: 지점 업무 흐름이 자기 지점 범위 안에서 자연스럽게 이어지는가");
-    expect(html).toContain("이 화면은 일반 직원 홈이 아니라 `/management` 아래 branch scope 운영 레인입니다.");
+    expect(html).not.toContain("Phase");
+    expect(html).not.toContain("happy path");
   });
 
   it("moves legal entrypoints out of the shared menu/home hub and into a management area", () => {
