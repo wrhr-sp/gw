@@ -224,6 +224,76 @@ describe("mobile app shell admin boundary", () => {
     expect(departmentHtml).toContain(`aria-label="We&#x27;reHere 전략기획실 홈"`);
     expect(departmentHtml).toContain('href="/Strategic Planning" class="topbar-brand-link"');
     expect(departmentHtml).toContain(">전략기획실</span>");
+    expect(departmentHtml).toContain('aria-label="전략기획실 사이드바 편집"');
+    expect(departmentHtml).toContain('data-route="/Strategic Planning"');
+    expect(departmentHtml).toContain('data-route="/management"');
+    expect(departmentHtml).toContain('data-route="/sales"');
+    expect(departmentHtml).toContain('data-route="/work-items/tax"');
+    expect(departmentHtml).toContain('data-route="/work-items/legal"');
+    expect(departmentHtml).not.toContain('data-route="/attendance"');
+    expect(departmentHtml).not.toContain('data-route="/payroll/me"');
+    expect(departmentHtml).not.toContain('data-route="/work-items/hr"');
+
+    mockedPathname = "/CEO";
+    mockedSearchParams = new URLSearchParams();
+    const ceoHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>ceo department content</main>
+      </MobileAppShell>,
+    );
+    expect(ceoHtml).toContain('aria-label="대표이사실 사이드바 편집"');
+    expect(ceoHtml).toContain('data-route="/CEO"');
+    expect(ceoHtml).toContain('data-route="/payroll"');
+    expect(ceoHtml).toContain('data-route="/work-items/labor"');
+    expect(ceoHtml).toContain('data-route="/work-items/legal"');
+    expect(ceoHtml).not.toContain('data-route="/payroll/me"');
+    expect(ceoHtml).not.toContain('data-route="/work-items/hr"');
+
+    mockedPathname = "/Management Support";
+    mockedSearchParams = new URLSearchParams();
+    const supportHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>support department content</main>
+      </MobileAppShell>,
+    );
+    expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
+    expect(supportHtml).toContain('data-route="/Management Support"');
+    expect(supportHtml).toContain('data-route="/attendance"');
+    expect(supportHtml).toContain('data-route="/work-items/hr"');
+    expect(supportHtml).toContain('data-route="/payroll"');
+    expect(supportHtml).not.toContain('data-route="/sales"');
+    expect(supportHtml).not.toContain('data-route="/work-items/legal"');
+
+    mockedPathname = "/Sales Management";
+    mockedSearchParams = new URLSearchParams();
+    const salesDepartmentHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>sales department content</main>
+      </MobileAppShell>,
+    );
+    expect(salesDepartmentHtml).toContain('aria-label="영업관리팀 사이드바 편집"');
+    expect(salesDepartmentHtml).toContain('data-route="/Sales Management"');
+    expect(salesDepartmentHtml).toContain('data-route="/sales"');
+    expect(salesDepartmentHtml).toContain('data-route="/mail"');
+    expect(salesDepartmentHtml).toContain('data-route="/messenger"');
+    expect(salesDepartmentHtml).toContain('data-route="/work-items/legal"');
+    expect(salesDepartmentHtml).not.toContain('data-route="/attendance"');
+    expect(salesDepartmentHtml).not.toContain('data-route="/payroll"');
+
+    mockedPathname = "/Operations Management";
+    mockedSearchParams = new URLSearchParams();
+    const operationsDepartmentHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>operations department content</main>
+      </MobileAppShell>,
+    );
+    expect(operationsDepartmentHtml).toContain('aria-label="운영사업부 사이드바 편집"');
+    expect(operationsDepartmentHtml).toContain('data-route="/Operations Management"');
+    expect(operationsDepartmentHtml).toContain('data-route="/attendance"');
+    expect(operationsDepartmentHtml).toContain('data-route="/leave"');
+    expect(operationsDepartmentHtml).toContain('data-route="/work-items/labor"');
+    expect(operationsDepartmentHtml).not.toContain('data-route="/sales"');
+    expect(operationsDepartmentHtml).not.toContain('data-route="/payroll"');
 
     mockedPathname = "/Place of business/seoul";
     mockedSearchParams = new URLSearchParams();
@@ -235,6 +305,15 @@ describe("mobile app shell admin boundary", () => {
     expect(branchHtml).toContain(`aria-label="We&#x27;reHere 서울지점 홈"`);
     expect(branchHtml).toContain('href="/Place of business" class="topbar-brand-link"');
     expect(branchHtml).toContain(">서울지점</span>");
+    expect(branchHtml).toContain('aria-label="서울지점 사이드바 편집"');
+    expect(branchHtml).toContain('data-route="/Place of business"');
+    expect(branchHtml).toContain('data-route="/work-items/branch"');
+    expect(branchHtml).toContain('data-route="/attendance"');
+    expect(branchHtml).toContain('data-route="/sales"');
+    expect(branchHtml).toContain('data-route="/mail"');
+    expect(branchHtml).toContain('data-route="/messenger"');
+    expect(branchHtml).not.toContain('data-route="/payroll"');
+    expect(branchHtml).not.toContain('data-route="/work-items/tax"');
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
     expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
@@ -242,6 +321,13 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
     expect(shellSource).toContain('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"');
     expect(shellSource).toContain('const branchPortalItems = [');
+    expect(shellSource).toContain('const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = {');
+    expect(shellSource).toContain('ceo: [');
+    expect(shellSource).toContain('strategy: [');
+    expect(shellSource).toContain('support: [');
+    expect(shellSource).toContain('"sales-admin": [');
+    expect(shellSource).toContain('ads: [');
+    expect(shellSource).toContain('operations: [');
     expect(shellSource).toContain('aria-label={`${branchPortalLabel} 새 탭에서 보기`}');
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');

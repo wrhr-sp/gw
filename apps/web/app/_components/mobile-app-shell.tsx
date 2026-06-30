@@ -31,7 +31,7 @@ type SecondaryPasswordVerifyFailure = {
   locked: boolean;
 };
 
-type SidebarPortalKey = "general" | "management" | "branch";
+type SidebarPortalKey = "general" | "management" | "branch" | "ceo" | "strategy" | "support" | "sales-admin" | "ads" | "operations";
 
 type FeatureIconName =
   | "menu"
@@ -324,6 +324,13 @@ const generalBranchManagementDesktopItem: NavItem = {
   summary: "일반(공통)업무 안에서 지점 목록과 운영 상태를 확인합니다.",
 };
 
+const branchPortalWorkItem: NavItem = {
+  href: "/work-items/branch",
+  label: "지점 업무",
+  shortLabel: "지점업무",
+  summary: "선택한 지점의 요청, 운영 이슈, 처리 현황을 확인합니다.",
+};
+
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
 type AdminFeaturePermissionKey = (typeof adminFeaturePermissions)[number]["key"];
 type AdminPermissionRangeId = (typeof adminPermissionRanges)[number]["id"];
@@ -577,7 +584,7 @@ function normalizeGeneralSettings(value: unknown): GeneralSettingsState {
 const notificationPreferenceKeys: readonly NotificationPreferenceKey[] = ["notices", "approvals", "mentions", "mail", "attendance"];
 const afterHoursPreferenceKeys: readonly AfterHoursPreferenceKey[] = ["urgentNotices", "approvalRequests", "approvalFeedback", "mentions", "attendanceResults", "importantMail"];
 const secondaryPasswordFeatureKeys: readonly SecondaryPasswordFeatureKey[] = secondaryPasswordFeatureOptions.map((option) => option.key);
-const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch"];
+const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch", "ceo", "strategy", "support", "sales-admin", "ads", "operations"];
 
 function normalizeAdminPermissionSettings(value: unknown): AdminPermissionState {
   const source = isRecord(value) ? value : {};
@@ -740,7 +747,7 @@ function getFeatureIconName(href: string, label: string): FeatureIconName | null
   if (href === "/approvals") return "approval";
   if (href === "/documents") return "documents";
   if (href === "/payroll" || href === "/payroll/me") return "payroll";
-  if (href === "/branches") return "people";
+  if (href === "/branches" || href === "/Place of business") return "people";
   if (href === "/management") return "dashboard";
   if (href === "/admin") return "admin";
   if (href.includes("/work-items/tax")) return "tax";
@@ -1151,11 +1158,139 @@ function isManagementPortalPath(pathname: string) {
 }
 
 function isBranchPortalPath(pathname: string) {
-  return pathname === "/work-items/branch" || pathname.startsWith("/work-items/branch/");
+  const normalizedPathname = normalizeAppPathname(pathname);
+  return (
+    normalizedPathname === "/Place of business" ||
+    normalizedPathname.startsWith("/Place of business/") ||
+    normalizedPathname === "/place-of-business" ||
+    normalizedPathname.startsWith("/place-of-business/") ||
+    normalizedPathname === "/work-items/branch" ||
+    normalizedPathname.startsWith("/work-items/branch/")
+  );
 }
 
-function isBranchPortalItem(item: NavItem) {
-  return item.href === "/work-items/branch" || item.href === "/employees" || item.href === "/org" || item.href === "/documents" || item.href === "/boards" || item.href === "/mail" || item.href === "/messenger";
+const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = {
+  general: [
+    "/mail",
+    "/messenger",
+    "/boards",
+    "/org",
+    "/employees",
+    "/attendance",
+    "/leave",
+    "/approvals",
+    "/documents",
+    "/sales",
+    "/me",
+    "/payroll/me",
+    "/work-items/hr",
+    "/branches",
+  ],
+  ceo: [
+    "/management",
+    "/employees",
+    "/approvals",
+    "/documents",
+    "/boards",
+    "/sales",
+    "/payroll",
+    "/work-items/tax",
+    "/work-items/labor",
+    "/work-items/legal",
+  ],
+  strategy: [
+    "/management",
+    "/sales",
+    "/employees",
+    "/approvals",
+    "/documents",
+    "/boards",
+    "/work-items/tax",
+    "/work-items/legal",
+  ],
+  support: [
+    "/employees",
+    "/attendance",
+    "/leave",
+    "/approvals",
+    "/documents",
+    "/boards",
+    "/work-items/hr",
+    "/payroll",
+    "/work-items/labor",
+    "/admin",
+  ],
+  "sales-admin": [
+    "/sales",
+    "/boards",
+    "/mail",
+    "/messenger",
+    "/approvals",
+    "/documents",
+    "/employees",
+    "/work-items/legal",
+  ],
+  ads: [
+    "/sales",
+    "/approvals",
+    "/documents",
+    "/boards",
+    "/mail",
+    "/messenger",
+    "/employees",
+    "/work-items/legal",
+    "/management",
+  ],
+  operations: [
+    "/attendance",
+    "/leave",
+    "/approvals",
+    "/documents",
+    "/boards",
+    "/employees",
+    "/work-items/hr",
+    "/work-items/labor",
+  ],
+  branch: [
+    "/work-items/branch",
+    "/attendance",
+    "/leave",
+    "/boards",
+    "/approvals",
+    "/documents",
+    "/employees",
+    "/sales",
+    "/mail",
+    "/messenger",
+  ],
+  management: [
+    "/management",
+    "/payroll",
+    "/work-items/tax",
+    "/work-items/labor",
+    "/work-items/legal",
+    "/employees",
+    "/approvals",
+    "/documents",
+  ],
+};
+
+function getSidebarPortalKey(pathname: string, departmentId: string | null, isAdminHostShell: boolean, hasManagementPortal: boolean): SidebarPortalKey {
+  if (isAdminHostShell) return "general";
+  if (isBranchPortalPath(pathname)) return "branch";
+  if (hasManagementPortal && isManagementPortalPath(pathname)) return "management";
+  const department = getDepartmentByCurrentRoute(pathname, departmentId);
+  if (department && department.id !== "common" && department.id !== "admin") {
+    return department.id as SidebarPortalKey;
+  }
+  return "general";
+}
+
+function filterMenuSectionsByPortal(sections: readonly NavSection[], portalKey: SidebarPortalKey) {
+  const allowed = new Set(sidebarPortalAllowedHrefs[portalKey]);
+  return sections
+    .map((section) => ({ ...section, items: section.items.filter((item) => allowed.has(item.href)) }))
+    .filter((section) => section.items.length > 0);
 }
 
 function addGeneralBranchManagementDesktopItem(sections: readonly NavSection[]) {
@@ -1256,7 +1391,7 @@ function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] 
     }
   }
 
-  return { general: readSidebarSelection("general"), management: readSidebarSelection("management"), branch: readSidebarSelection("branch") };
+  return Object.fromEntries(sidebarPortalKeys.map((key) => [key, readSidebarSelection(key)])) as Record<SidebarPortalKey, string[] | null>;
 }
 
 function isManagementSection(section: NavSection) {
@@ -1482,22 +1617,25 @@ export function MobileAppShell({
   const selectedAccessPermission = adminFeaturePermissions.find((permission) => permission.key === selectedAccessPermissionKey) ?? adminFeaturePermissions[0];
   const selectedAdminRight = adminRightPermissionItems.find((permission) => permission.key === selectedAdminRightKey) ?? adminRightPermissionItems[0];
   const selectedAccessDetailChecks = adminAccessPermissionDetails[selectedAccessPermission.key];
-  const isBranchPortal = !isAdminHostShell && isBranchPortalPath(pathname);
-  const isManagementPortal = !isBranchPortal && hasManagementPortal && isManagementPortalPath(pathname);
-  const sidebarPortalKey: SidebarPortalKey = isBranchPortal ? "branch" : isManagementPortal ? "management" : "general";
-  const visibleDesktopMenuSections = useMemo(() => {
-    const sections = !hasManagementPortal
-      ? menuSections
-      : isBranchPortal
-        ? menuSections
-          .filter((section) => !isManagementSection(section))
-          .map((section) => ({ ...section, items: section.items.filter(isBranchPortalItem) }))
-          .filter((section) => section.items.length > 0)
-        : menuSections.filter((section) => (isManagementPortal ? isManagementSection(section) : !isManagementSection(section)));
-    const desktopSections = !hasManagementPortal || isBranchPortal || isManagementPortal ? sections : addGeneralBranchManagementDesktopItem(sections);
-    return sortNavSectionsByItemLabel(desktopSections);
-  }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
   const currentDepartmentId = searchParams.get("department");
+  const sidebarPortalKey = getSidebarPortalKey(pathname, currentDepartmentId, isAdminHostShell, hasManagementPortal);
+  const isBranchPortal = sidebarPortalKey === "branch";
+  const isManagementPortal = sidebarPortalKey === "management";
+  const visibleDesktopMenuSections = useMemo(() => {
+    const sourceSections = sidebarPortalKey === "general"
+      ? addGeneralBranchManagementDesktopItem(menuSections)
+      : sidebarPortalKey === "branch"
+        ? [
+          ...menuSections,
+          {
+            title: "지점 운영",
+            description: "지점관리포털에서 선택한 지점의 운영 업무와 공통 협업 기능입니다.",
+            items: [branchPortalWorkItem],
+          },
+        ]
+        : menuSections;
+    return sortNavSectionsByItemLabel(filterMenuSectionsByPortal(sourceSections, sidebarPortalKey));
+  }, [menuSections, sidebarPortalKey]);
   const currentPortalLabel = isAdminHostShell ? getCurrentLocationLabel(pathname, null, appEyebrow) : getCurrentLocationLabel(pathname, currentDepartmentId, COMMON_WORK_LABEL);
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
