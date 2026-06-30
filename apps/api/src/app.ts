@@ -75,6 +75,8 @@ import {
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
   mailBoxSchema,
+  mailAttachmentListResponseSchema,
+  mailAttachmentUploadResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendRequestSchema,
@@ -207,6 +209,13 @@ import {
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailMessage, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
+import {
+  buildMailAttachmentObjectKey,
+  canAccessOperationalMailMessage,
+  createOperationalMailAttachment,
+  findOperationalMailAttachmentForAccess,
+  listOperationalMailAttachments,
+} from "./lib/operational-mail-attachments";
 import { getOperationalUserPreferences, saveOperationalUserPreferences } from "./lib/operational-preferences";
 import {
   getOperationalSecondaryPasswordStatus,
@@ -279,6 +288,8 @@ const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
 const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
 const MAIL_MESSAGE_READ_ROUTE = "/api/mail/messages/:id/read";
+const MAIL_MESSAGE_ATTACHMENTS_ROUTE = "/api/mail/messages/:id/attachments";
+const MAIL_ATTACHMENT_DOWNLOAD_ROUTE = "/api/mail/attachments/:id/download";
 
 function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
   const baseCookie = `gw_session=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`;
@@ -2469,6 +2480,10 @@ function buildGeneratedBoardCommentId(postId: string, employeeId: string) {
 
 function buildGeneratedMailMessageId(companyId: string, senderUserId: string) {
   return `mail_${companyId}_${senderUserId}_${crypto.randomUUID()}`;
+}
+
+function buildGeneratedMailAttachmentId(messageId: string) {
+  return `mail_attachment_${messageId}_${crypto.randomUUID()}`;
 }
 
 function buildGeneratedBoardId(companyId: string, slug: string) {
@@ -5878,6 +5893,153 @@ app.post(MAIL_MESSAGE_READ_ROUTE, async (context) => {
   } catch {
     return jsonDatabaseRequired(context, "메일 읽음 처리");
   }
+});
+
+app.get(MAIL_MESSAGE_ATTACHMENTS_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  try {
+    const messageId = context.req.param("id");
+    const items = await listOperationalMailAttachments(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId,
+    });
+
+    return jsonSuccess(context, mailAttachmentListResponseSchema, {
+      ok: true,
+      data: {
+        messageId,
+        items,
+        source: "postgres-r2",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 목록 조회");
+  }
+});
+
+app.post(MAIL_MESSAGE_ATTACHMENTS_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const bucket = context.env.FILES_BUCKET as R2BucketBinding | undefined;
+  if (!bucket) {
+    return jsonError(context, "NOT_IMPLEMENTED", "FILES_BUCKET R2 binding이 필요합니다.", 501, { route: context.req.path });
+  }
+
+  const messageId = context.req.param("id");
+  try {
+    const canAccess = await canAccessOperationalMailMessage(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId,
+    });
+    if (!canAccess) {
+      return jsonError(context, "FORBIDDEN", "첨부할 수 없는 메일입니다.", 403, { messageId, route: context.req.path });
+    }
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 권한 확인");
+  }
+
+  const form = await context.req.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) {
+    return jsonError(context, "VALIDATION_ERROR", "첨부 파일이 필요합니다.", 400, { route: context.req.path });
+  }
+
+  const policy = ensureDocumentUploadPolicy({ contentType: file.type || "application/octet-stream", fileSize: file.size });
+  if (!policy.contentTypeAllowed || !policy.fileSizeAllowed) {
+    return jsonError(context, "VALIDATION_ERROR", "허용되지 않는 첨부 파일입니다.", 400, {
+      contentTypeAllowed: policy.contentTypeAllowed,
+      fileSizeAllowed: policy.fileSizeAllowed,
+      maxSizeBytes: DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
+    });
+  }
+
+  const attachmentId = buildGeneratedMailAttachmentId(messageId);
+  const objectKey = buildMailAttachmentObjectKey({
+    companyId: authResult.auth.user.companyId,
+    messageId,
+    attachmentId,
+    fileName: file.name,
+  });
+  await bucket.put(objectKey, await file.arrayBuffer(), { httpMetadata: { contentType: policy.normalizedContentType } });
+
+  try {
+    const attachment = await createOperationalMailAttachment(context.env, {
+      id: attachmentId,
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId,
+      fileName: file.name,
+      contentType: policy.normalizedContentType,
+      fileSize: file.size,
+      objectKey,
+    });
+    if (!attachment) {
+      return jsonError(context, "FORBIDDEN", "첨부할 수 없는 메일입니다.", 403, { messageId, route: context.req.path });
+    }
+
+    return jsonSuccess(context, mailAttachmentUploadResponseSchema, {
+      ok: true,
+      data: {
+        attachment,
+        audit: {
+          candidate: true,
+          action: "mail.attachment.upload",
+        },
+        source: "postgres-r2",
+      },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 저장");
+  }
+});
+
+app.get(MAIL_ATTACHMENT_DOWNLOAD_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const bucket = context.env.FILES_BUCKET as R2BucketBinding | undefined;
+  if (!bucket) {
+    return jsonError(context, "NOT_IMPLEMENTED", "FILES_BUCKET R2 binding이 필요합니다.", 501, { route: context.req.path });
+  }
+
+  let result: Awaited<ReturnType<typeof findOperationalMailAttachmentForAccess>>;
+  try {
+    result = await findOperationalMailAttachmentForAccess(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      attachmentId: context.req.param("id"),
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 다운로드");
+  }
+
+  if (!result) {
+    return jsonError(context, "FORBIDDEN", "다운로드할 수 없는 메일 첨부입니다.", 403, { route: context.req.path });
+  }
+
+  const object = await bucket.get(result.objectKey);
+  if (!object?.body) {
+    return jsonError(context, "NOT_IMPLEMENTED", "R2에서 첨부 파일을 찾을 수 없습니다.", 501, { route: context.req.path });
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("content-disposition", `attachment; filename="${encodeURIComponent(result.attachment.fileName)}"`);
+  headers.set("etag", object.httpEtag);
+  return new Response(object.body, { headers });
 });
 
 app.get(appRoutes.workItems.list, async (context) => {
