@@ -374,7 +374,7 @@ export const managementPrimaryNav: NavItem[] = [
 export const managementMenuSections: NavSection[] = [
   {
     title: "경영업무",
-    description: "급여·세무·노무·법무·감사 내부관리 모듈은 일반 직원 메뉴와 섞지 않고 지정 관리자/담당자만 별도 영역에서 확인합니다.",
+    description: "급여·세무·노무·법무·감사 내부관리 기능입니다.",
     items: managementPrimaryNav,
   },
 ];
@@ -657,7 +657,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
   if (getAdminHostInfo(host).isAdminHost) {
     return {
       appName: adminPwaManifest.short_name,
-      appEyebrow: "관리자 운영 PWA",
+      appEyebrow: "그룹웨어 관리자 페이지",
       homeHref: "/admin",
       navItems: adminPrimaryNav,
       bottomTabs: adminPrimaryNav,
@@ -670,7 +670,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
 
   return {
     appName: "We'reHere",
-    appEyebrow: "일반(공통)업무",
+    appEyebrow: "기본업무",
     homeHref: "/home",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,

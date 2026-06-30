@@ -14,6 +14,7 @@ type NotificationBadgeState = {
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
+const SIDEBAR_GROUP_DIVIDER_STORAGE_PREFIX = "gw.sidebar.groupDivider";
 const SECONDARY_PASSWORD_MAX_FAILURES = 5;
 const SECONDARY_PASSWORD_LOCK_MS = 10 * 60 * 1000;
 const SECONDARY_PASSWORD_UNLOCK_MS = 10 * 60 * 1000;
@@ -31,7 +32,7 @@ type SecondaryPasswordVerifyFailure = {
   locked: boolean;
 };
 
-type SidebarPortalKey = "general" | "management" | "branch" | "ceo" | "strategy" | "support" | "sales-admin" | "ads" | "operations";
+type SidebarPortalKey = "general" | "management" | "branch" | "admin" | "ceo" | "strategy" | "support" | "sales-admin" | "ads" | "operations";
 
 type FeatureIconName =
   | "menu"
@@ -70,7 +71,7 @@ type FeatureIconProps = {
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
 const brandWordmark = "WE’REHERE";
-const COMMON_WORK_LABEL = "일반(공통)업무";
+const COMMON_WORK_LABEL = "기본업무";
 
 const departmentPortalItems = [
   { id: "ceo", label: "대표이사실", englishLabel: "CEO", href: "/CEO" },
@@ -79,8 +80,6 @@ const departmentPortalItems = [
   { id: "sales-admin", label: "영업관리팀", englishLabel: "Sales Management", href: "/Sales Management" },
   { id: "ads", label: "광고사업팀", englishLabel: "Advertising Business", href: "/Advertising Business" },
   { id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management" },
-  { id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home" },
-  { id: "admin", label: "관리자 페이지", englishLabel: "Admin", href: "/admin" },
 ] as const;
 
 const branchPortalItems = [
@@ -136,7 +135,7 @@ function getCurrentLocationLabel(pathname: string, departmentId: string | null, 
   const normalizedPathname = normalizeAppPathname(pathname);
 
   if (normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/")) {
-    return "관리자 페이지";
+    return "그룹웨어 관리자 페이지";
   }
 
   const placeBranchMatch = /^\/Place of business\/([^/]+)/.exec(normalizedPathname) ?? /^\/place-of-business\/([^/]+)/.exec(normalizedPathname);
@@ -584,7 +583,7 @@ function normalizeGeneralSettings(value: unknown): GeneralSettingsState {
 const notificationPreferenceKeys: readonly NotificationPreferenceKey[] = ["notices", "approvals", "mentions", "mail", "attendance"];
 const afterHoursPreferenceKeys: readonly AfterHoursPreferenceKey[] = ["urgentNotices", "approvalRequests", "approvalFeedback", "mentions", "attendanceResults", "importantMail"];
 const secondaryPasswordFeatureKeys: readonly SecondaryPasswordFeatureKey[] = secondaryPasswordFeatureOptions.map((option) => option.key);
-const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch", "ceo", "strategy", "support", "sales-admin", "ads", "operations"];
+const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management", "branch", "admin", "ceo", "strategy", "support", "sales-admin", "ads", "operations"];
 
 function normalizeAdminPermissionSettings(value: unknown): AdminPermissionState {
   const source = isRecord(value) ? value : {};
@@ -608,6 +607,19 @@ function normalizeSidebarCustomSelections(value: unknown): Record<SidebarPortalK
       return [key, Array.isArray(selection) ? selection.filter((item): item is string => typeof item === "string").slice(0, SIDEBAR_CUSTOM_MENU_LIMIT) : null];
     }),
   ) as Record<SidebarPortalKey, string[] | null>;
+}
+
+const departmentSidebarPortalKeys = new Set<SidebarPortalKey>(["ceo", "strategy", "support", "sales-admin", "ads", "operations"]);
+
+const defaultSidebarGroupDividerSettings: Record<SidebarPortalKey, boolean> = Object.fromEntries(
+  sidebarPortalKeys.map((key) => [key, departmentSidebarPortalKeys.has(key)]),
+) as Record<SidebarPortalKey, boolean>;
+
+function normalizeSidebarGroupDividerSettings(value: unknown): Record<SidebarPortalKey, boolean> {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    sidebarPortalKeys.map((key) => [key, typeof source[key] === "boolean" ? source[key] : defaultSidebarGroupDividerSettings[key]]),
+  ) as Record<SidebarPortalKey, boolean>;
 }
 
 function readJsonStorageValue<T>(key: string, fallback: T): T {
@@ -1169,128 +1181,103 @@ function isBranchPortalPath(pathname: string) {
   );
 }
 
-const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = {
-  general: [
-    "/mail",
-    "/messenger",
-    "/boards",
-    "/org",
-    "/employees",
-    "/attendance",
-    "/leave",
-    "/approvals",
-    "/documents",
-    "/sales",
-    "/me",
-    "/payroll/me",
-    "/work-items/hr",
-    "/branches",
-  ],
-  ceo: [
-    "/management",
-    "/employees",
-    "/approvals",
-    "/documents",
-    "/boards",
-    "/sales",
-    "/payroll",
-    "/work-items/tax",
-    "/work-items/labor",
-    "/work-items/legal",
-  ],
-  strategy: [
-    "/management",
-    "/sales",
-    "/employees",
-    "/approvals",
-    "/documents",
-    "/boards",
-    "/work-items/tax",
-    "/work-items/legal",
-  ],
-  support: [
-    "/employees",
-    "/attendance",
-    "/leave",
-    "/approvals",
-    "/documents",
-    "/boards",
-    "/work-items/hr",
-    "/payroll",
-    "/work-items/labor",
-    "/admin",
-  ],
-  "sales-admin": [
-    "/sales",
-    "/boards",
-    "/mail",
-    "/messenger",
-    "/approvals",
-    "/documents",
-    "/employees",
-    "/work-items/legal",
-  ],
-  ads: [
-    "/sales",
-    "/approvals",
-    "/documents",
-    "/boards",
-    "/mail",
-    "/messenger",
-    "/employees",
-    "/work-items/legal",
-    "/management",
-  ],
-  operations: [
-    "/attendance",
-    "/leave",
-    "/approvals",
-    "/documents",
-    "/boards",
-    "/employees",
-    "/work-items/hr",
-    "/work-items/labor",
-  ],
-  branch: [
-    "/work-items/branch",
-    "/attendance",
-    "/leave",
-    "/boards",
-    "/approvals",
-    "/documents",
-    "/employees",
-    "/sales",
-    "/mail",
-    "/messenger",
-  ],
-  management: [
-    "/management",
-    "/payroll",
-    "/work-items/tax",
-    "/work-items/labor",
-    "/work-items/legal",
-    "/employees",
-    "/approvals",
-    "/documents",
-  ],
+const sidebarBasicHrefs = [
+  "/mail",
+  "/messenger",
+  "/boards",
+  "/org",
+  "/employees",
+  "/attendance",
+  "/leave",
+  "/approvals",
+  "/documents",
+  "/me",
+  "/payroll/me",
+  "/work-items/hr",
+] as const;
+
+const branchPortalHomeItem: NavItem = {
+  href: "/Place of business",
+  label: "지점관리포털",
+  shortLabel: "지점",
+  summary: "지점관리포털 홈으로 이동합니다.",
 };
 
-function getSidebarPortalKey(pathname: string, departmentId: string | null, isAdminHostShell: boolean, hasManagementPortal: boolean): SidebarPortalKey {
-  if (isAdminHostShell) return "general";
+const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = {
+  general: sidebarBasicHrefs,
+  ceo: ["/management", "/sales", "/Place of business", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin"],
+  strategy: ["/management", "/sales", "/Place of business", "/work-items/tax", "/work-items/legal"],
+  support: ["/work-items/hr", "/payroll", "/work-items/labor", "/work-items/tax", "/admin"],
+  "sales-admin": ["/sales", "/Place of business", "/work-items/legal"],
+  ads: ["/sales", "/management", "/work-items/legal"],
+  operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
+  branch: ["/work-items/branch", "/sales", "/employees"],
+  management: ["/management", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal"],
+  admin: ["/admin", "/admin/users", "/admin/policies", "/admin/audit-logs", "/admin/users/dev-safe-action"],
+};
+
+const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = Object.fromEntries(
+  sidebarPortalKeys.map((key) => {
+    const values = departmentSidebarPortalKeys.has(key)
+      ? [...sidebarBasicHrefs, ...sidebarPortalSpecificHrefs[key]]
+      : sidebarPortalSpecificHrefs[key];
+    return [key, Array.from(new Set(values))];
+  }),
+) as unknown as Record<SidebarPortalKey, readonly string[]>;
+
+const sidebarPortalWorkSectionTitle: Record<SidebarPortalKey, string> = {
+  general: COMMON_WORK_LABEL,
+  ceo: "대표이사실 업무",
+  strategy: "전략기획실 업무",
+  support: "경영지원팀 업무",
+  "sales-admin": "영업관리팀 업무",
+  ads: "광고사업팀 업무",
+  operations: "운영사업부 업무",
+  branch: "지점관리 업무",
+  management: "관리 업무",
+  admin: "그룹웨어 관리자",
+};
+
+function getSidebarItemGroup(portalKey: SidebarPortalKey, href: string): "basic" | "portal" {
+  return departmentSidebarPortalKeys.has(portalKey) && new Set<string>(sidebarBasicHrefs).has(href) && !new Set<string>(sidebarPortalSpecificHrefs[portalKey]).has(href) ? "basic" : "portal";
+}
+
+function shouldShowSidebarGroupDivider(portalKey: SidebarPortalKey) {
+  return departmentSidebarPortalKeys.has(portalKey);
+}
+
+function buildSectionFromHrefs(title: string, description: string, hrefs: readonly string[], itemsByHref: Map<string, NavItem>): NavSection | null {
+  const items = hrefs.map((href) => itemsByHref.get(href)).filter((item): item is NavItem => Boolean(item));
+  return items.length > 0 ? { title, description, items } : null;
+}
+
+function buildSidebarSectionsByPortal(sections: readonly NavSection[], portalKey: SidebarPortalKey) {
+  const baseItems = flattenNavSections(sections);
+  const itemsByHref = new Map(baseItems.map((item) => [item.href, item]));
+  itemsByHref.set(branchPortalHomeItem.href, branchPortalHomeItem);
+  itemsByHref.set(branchPortalWorkItem.href, branchPortalWorkItem);
+
+  if (departmentSidebarPortalKeys.has(portalKey)) {
+    const basicHrefs = sidebarBasicHrefs.filter((href) => !new Set<string>(sidebarPortalSpecificHrefs[portalKey]).has(href));
+    return [
+      buildSectionFromHrefs(COMMON_WORK_LABEL, "", basicHrefs, itemsByHref),
+      buildSectionFromHrefs(sidebarPortalWorkSectionTitle[portalKey], "", sidebarPortalSpecificHrefs[portalKey], itemsByHref),
+    ].filter((section): section is NavSection => Boolean(section));
+  }
+
+  return [
+    buildSectionFromHrefs(sidebarPortalWorkSectionTitle[portalKey], "", sidebarPortalAllowedHrefs[portalKey], itemsByHref),
+  ].filter((section): section is NavSection => Boolean(section));
+}
+
+function getSidebarPortalKey(pathname: string, departmentId: string | null, isAdminHostShell: boolean, _hasManagementPortal: boolean): SidebarPortalKey {
+  if (isAdminHostShell || pathname === "/admin" || pathname.startsWith("/admin/")) return "admin";
   if (isBranchPortalPath(pathname)) return "branch";
-  if (hasManagementPortal && isManagementPortalPath(pathname)) return "management";
   const department = getDepartmentByCurrentRoute(pathname, departmentId);
-  if (department && department.id !== "common" && department.id !== "admin") {
+  if (department) {
     return department.id as SidebarPortalKey;
   }
   return "general";
-}
-
-function filterMenuSectionsByPortal(sections: readonly NavSection[], portalKey: SidebarPortalKey) {
-  const allowed = new Set(sidebarPortalAllowedHrefs[portalKey]);
-  return sections
-    .map((section) => ({ ...section, items: section.items.filter((item) => allowed.has(item.href)) }))
-    .filter((section) => section.items.length > 0);
 }
 
 function addGeneralBranchManagementDesktopItem(sections: readonly NavSection[]) {
@@ -1356,13 +1343,19 @@ function sortNavSectionsByItemLabel(sections: readonly NavSection[]) {
   return sections.map((section) => ({ ...section, items: [...section.items].sort(compareNavItemsByLabel) }));
 }
 
-function buildDefaultSidebarSelection(items: readonly NavItem[], homeHref: string) {
-  return items.filter((item) => item.href !== homeHref).slice(0, SIDEBAR_CUSTOM_MENU_LIMIT).map((item) => item.href);
+function buildDefaultSidebarSelection(items: readonly NavItem[], homeHref: string, portalKey: SidebarPortalKey) {
+  const availableItems = items.filter((item) => item.href !== homeHref);
+  if (departmentSidebarPortalKeys.has(portalKey)) {
+    const basicItems = availableItems.filter((item) => getSidebarItemGroup(portalKey, item.href) === "basic").slice(0, 3);
+    const portalItems = availableItems.filter((item) => getSidebarItemGroup(portalKey, item.href) === "portal").slice(0, SIDEBAR_CUSTOM_MENU_LIMIT - basicItems.length);
+    return [...basicItems, ...portalItems].map((item) => item.href);
+  }
+  return availableItems.slice(0, SIDEBAR_CUSTOM_MENU_LIMIT).map((item) => item.href);
 }
 
-function resolveSidebarSelection(items: readonly NavItem[], savedHrefs: readonly string[] | null, homeHref: string) {
+function resolveSidebarSelection(items: readonly NavItem[], savedHrefs: readonly string[] | null, homeHref: string, portalKey: SidebarPortalKey) {
   const allowed = new Set(items.map((item) => item.href));
-  return (savedHrefs ?? buildDefaultSidebarSelection(items, homeHref))
+  return (savedHrefs ?? buildDefaultSidebarSelection(items, homeHref, portalKey))
     .filter((href, index, array) => href !== homeHref && allowed.has(href) && array.indexOf(href) === index)
     .slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
 }
@@ -1392,6 +1385,18 @@ function readStoredSidebarCustomSelections(): Record<SidebarPortalKey, string[] 
   }
 
   return Object.fromEntries(sidebarPortalKeys.map((key) => [key, readSidebarSelection(key)])) as Record<SidebarPortalKey, string[] | null>;
+}
+
+function getSidebarGroupDividerStorageKey(portalKey: SidebarPortalKey) {
+  return `${SIDEBAR_GROUP_DIVIDER_STORAGE_PREFIX}.${portalKey}`;
+}
+
+function readStoredSidebarGroupDividers(): Record<SidebarPortalKey, boolean> {
+  if (typeof window === "undefined") return normalizeSidebarGroupDividerSettings(null);
+  return Object.fromEntries(sidebarPortalKeys.map((key) => {
+    const raw = window.localStorage.getItem(getSidebarGroupDividerStorageKey(key));
+    return [key, raw === null ? defaultSidebarGroupDividerSettings[key] : raw === "true"];
+  })) as Record<SidebarPortalKey, boolean>;
 }
 
 function isManagementSection(section: NavSection) {
@@ -1509,8 +1514,10 @@ export function MobileAppShell({
   const [selectedAdminRightKey, setSelectedAdminRightKey] = useState<AdminRightPermissionKey>("super");
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
+  const [sidebarGroupDividers, setSidebarGroupDividers] = useState<Record<SidebarPortalKey, boolean>>(() => normalizeSidebarGroupDividerSettings(null));
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
+  const [sidebarDraftDividerVisible, setSidebarDraftDividerVisible] = useState<boolean | null>(null);
   const [sidebarDraggingHref, setSidebarDraggingHref] = useState<string | null>(null);
   const [sidebarDragOverHref, setSidebarDragOverHref] = useState<string | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState<Record<NotificationPreferenceKey, boolean>>(() => ({ ...DEFAULT_NOTIFICATION_PREFERENCES }));
@@ -1585,6 +1592,7 @@ export function MobileAppShell({
 
   function openSidebarSettings() {
     setSidebarDraftSelections(sidebarSelectedHrefs);
+    setSidebarDraftDividerVisible(sidebarGroupDividers[sidebarPortalKey]);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
     setIsSidebarSettingsOpen(true);
@@ -1592,6 +1600,7 @@ export function MobileAppShell({
 
   function closeSidebarSettings() {
     setSidebarDraftSelections(null);
+    setSidebarDraftDividerVisible(null);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
     setIsSidebarSettingsOpen(false);
@@ -1621,21 +1630,7 @@ export function MobileAppShell({
   const sidebarPortalKey = getSidebarPortalKey(pathname, currentDepartmentId, isAdminHostShell, hasManagementPortal);
   const isBranchPortal = sidebarPortalKey === "branch";
   const isManagementPortal = sidebarPortalKey === "management";
-  const visibleDesktopMenuSections = useMemo(() => {
-    const sourceSections = sidebarPortalKey === "general"
-      ? addGeneralBranchManagementDesktopItem(menuSections)
-      : sidebarPortalKey === "branch"
-        ? [
-          ...menuSections,
-          {
-            title: "지점 운영",
-            description: "지점관리포털에서 선택한 지점의 운영 업무와 공통 협업 기능입니다.",
-            items: [branchPortalWorkItem],
-          },
-        ]
-        : menuSections;
-    return sortNavSectionsByItemLabel(filterMenuSectionsByPortal(sourceSections, sidebarPortalKey));
-  }, [menuSections, sidebarPortalKey]);
+  const visibleDesktopMenuSections = useMemo(() => buildSidebarSectionsByPortal(menuSections, sidebarPortalKey), [menuSections, sidebarPortalKey]);
   const currentPortalLabel = isAdminHostShell ? getCurrentLocationLabel(pathname, null, appEyebrow) : getCurrentLocationLabel(pathname, currentDepartmentId, COMMON_WORK_LABEL);
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
@@ -1661,13 +1656,14 @@ export function MobileAppShell({
     [visibleDesktopMenuSections],
   );
   const sidebarSelectedHrefs = useMemo(
-    () => resolveSidebarSelection(sidebarCustomizationItems, sidebarCustomSelections[sidebarPortalKey], currentPortalHomeHref),
+    () => resolveSidebarSelection(sidebarCustomizationItems, sidebarCustomSelections[sidebarPortalKey], currentPortalHomeHref, sidebarPortalKey),
     [currentPortalHomeHref, sidebarCustomSelections, sidebarCustomizationItems, sidebarPortalKey],
   );
   const collapsedSidebarItems = useMemo(() => {
     const byHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
     return sidebarSelectedHrefs.map((href) => byHref.get(href)).filter((item): item is NavItem => Boolean(item));
   }, [sidebarCustomizationItems, sidebarSelectedHrefs]);
+  const sidebarDividerVisible = sidebarGroupDividers[sidebarPortalKey] && shouldShowSidebarGroupDivider(sidebarPortalKey);
 
   useEffect(() => {
     setProfileState((value) => ({
@@ -1686,6 +1682,7 @@ export function MobileAppShell({
 
   useEffect(() => {
     setSidebarCustomSelections(readStoredSidebarCustomSelections());
+    setSidebarGroupDividers(readStoredSidebarGroupDividers());
   }, []);
 
 
@@ -1716,6 +1713,7 @@ export function MobileAppShell({
         const nextSecondaryPasswordFeatureSettings = normalizeSecondaryPasswordFeatureSettings(preferences.secondaryPasswordFeatureSettings);
         const nextAdminPermissionSettings = normalizeAdminPermissionSettings(preferences.adminPermissionSettings);
         const nextSidebarSelections = normalizeSidebarCustomSelections(preferences.sidebarCustomSelections);
+        const nextSidebarGroupDividers = normalizeSidebarGroupDividerSettings(preferences.sidebarGroupDividers);
 
         setGeneralSettings(nextGeneralSettings);
         savedGeneralSettingsRef.current = { ...nextGeneralSettings };
@@ -1728,6 +1726,7 @@ export function MobileAppShell({
         setAdminPermissionSettings(nextAdminPermissionSettings);
         savedAdminPermissionSettingsRef.current = nextAdminPermissionSettings;
         setSidebarCustomSelections(nextSidebarSelections);
+        setSidebarGroupDividers(nextSidebarGroupDividers);
         setIsSidebarCustomSelectionLoaded(true);
         if (typeof preferences.bottomNavCollapsed === "boolean") {
           setIsBottomNavCollapsed(preferences.bottomNavCollapsed);
@@ -2738,12 +2737,17 @@ export function MobileAppShell({
     showScopedSettingsSaveToast("profile-settings", false);
   }
 
-  function persistSidebarSelection(portalKey: SidebarPortalKey, selectedHrefs: string[]) {
+  function persistSidebarSettings(portalKey: SidebarPortalKey, selectedHrefs: string[], dividerVisible: boolean) {
     const nextHrefs = selectedHrefs.slice(0, SIDEBAR_CUSTOM_MENU_LIMIT);
     const nextSelections = { ...sidebarCustomSelections, [portalKey]: nextHrefs };
+    const nextDividers = { ...sidebarGroupDividers, [portalKey]: dividerVisible };
     setSidebarCustomSelections(nextSelections);
-    void saveUserPreferencesToPreviewDb({ sidebarCustomSelections: nextSelections }).catch(() => undefined);
-    if (typeof window !== "undefined") window.localStorage.setItem(getSidebarPortalStorageKey(portalKey), JSON.stringify(nextHrefs));
+    setSidebarGroupDividers(nextDividers);
+    void saveUserPreferencesToPreviewDb({ sidebarCustomSelections: nextSelections, sidebarGroupDividers: nextDividers }).catch(() => undefined);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(getSidebarPortalStorageKey(portalKey), JSON.stringify(nextHrefs));
+      window.localStorage.setItem(getSidebarGroupDividerStorageKey(portalKey), String(dividerVisible));
+    }
   }
 
   function toggleSidebarCustomItem(href: string) {
@@ -2801,11 +2805,13 @@ export function MobileAppShell({
 
   function handleSidebarSettingsApply() {
     const appliedSelection = sidebarDraftSelections ?? sidebarSelectedHrefs;
-    const hasSidebarChanges = !areSidebarSelectionsEqual(appliedSelection, sidebarSelectedHrefs);
+    const appliedDividerVisible = sidebarDraftDividerVisible ?? sidebarGroupDividers[sidebarPortalKey];
+    const hasSidebarChanges = !areSidebarSelectionsEqual(appliedSelection, sidebarSelectedHrefs) || appliedDividerVisible !== sidebarGroupDividers[sidebarPortalKey];
     if (hasSidebarChanges) {
-      persistSidebarSelection(sidebarPortalKey, appliedSelection);
+      persistSidebarSettings(sidebarPortalKey, appliedSelection, appliedDividerVisible);
     }
     setSidebarDraftSelections(appliedSelection);
+    setSidebarDraftDividerVisible(appliedDividerVisible);
     setSidebarDraggingHref(null);
     setSidebarDragOverHref(null);
     showScopedSettingsSaveToast("sidebar-settings", hasSidebarChanges);
@@ -2839,7 +2845,7 @@ export function MobileAppShell({
       return null;
     }
 
-    const draftSelectedHrefs = resolveSidebarSelection(sidebarCustomizationItems, sidebarDraftSelections ?? sidebarSelectedHrefs, currentPortalHomeHref);
+    const draftSelectedHrefs = resolveSidebarSelection(sidebarCustomizationItems, sidebarDraftSelections ?? sidebarSelectedHrefs, currentPortalHomeHref, sidebarPortalKey);
     const draftItemsByHref = new Map(sidebarCustomizationItems.map((item) => [item.href, item]));
     const selectedItems = draftSelectedHrefs.map((href) => draftItemsByHref.get(href)).filter((item): item is NavItem => Boolean(item));
     const selectableSections = visibleDesktopMenuSections
@@ -2848,6 +2854,8 @@ export function MobileAppShell({
         items: section.items.filter((item) => item.href !== currentPortalHomeHref && !item.href.startsWith("#")),
       }))
       .filter((section) => section.items.length > 0);
+    const canToggleSidebarDivider = shouldShowSidebarGroupDivider(sidebarPortalKey);
+    const draftDividerVisible = (sidebarDraftDividerVisible ?? sidebarGroupDividers[sidebarPortalKey]) && canToggleSidebarDivider;
 
     return (
       <div className="sidebar-settings-backdrop" role="presentation" onMouseDown={closeSidebarSettings}>
@@ -2881,12 +2889,15 @@ export function MobileAppShell({
               </div>
               <div className="sidebar-settings-preview-shell">
                 <div className="sidebar-settings-preview-list">
-                  {selectedItems.map((item) => {
+                  {selectedItems.map((item, itemIndex) => {
                     const selectedIndex = draftSelectedHrefs.indexOf(item.href);
                     const iconName = getFeatureIconName(item.href, item.label);
+                    const previousItem = itemIndex > 0 ? selectedItems[itemIndex - 1] : null;
+                    const insertDivider = draftDividerVisible && previousItem && getSidebarItemGroup(sidebarPortalKey, previousItem.href) !== getSidebarItemGroup(sidebarPortalKey, item.href);
                     return (
+                      <React.Fragment key={item.href}>
+                        {insertDivider ? <div className="sidebar-settings-preview-divider" aria-hidden="true" /> : null}
                       <div
-                        key={item.href}
                         className={[
                           "sidebar-settings-preview-row",
                           sidebarDraggingHref === item.href ? "sidebar-settings-preview-row--dragging" : "",
@@ -2911,6 +2922,7 @@ export function MobileAppShell({
                           <button type="button" disabled={selectedIndex < 0 || selectedIndex >= draftSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
                         </div>
                       </div>
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -2922,6 +2934,16 @@ export function MobileAppShell({
                 <strong>메뉴 추가/해제</strong>
                 <span>선택 {draftSelectedHrefs.length} / {SIDEBAR_CUSTOM_MENU_LIMIT}</span>
               </div>
+              {canToggleSidebarDivider ? (
+                <label className="sidebar-settings-divider-option">
+                  <input
+                    type="checkbox"
+                    checked={draftDividerVisible}
+                    onChange={(event) => setSidebarDraftDividerVisible(event.target.checked)}
+                  />
+                  <span><strong>구분선 표시</strong><small>{COMMON_WORK_LABEL}와 {sidebarPortalWorkSectionTitle[sidebarPortalKey]}를 나눕니다.</small></span>
+                </label>
+              ) : null}
               <div className="sidebar-settings-menu-list">
                 {selectableSections.map((section) => (
                   <section key={section.title} className="sidebar-settings-menu-section">
@@ -3106,7 +3128,7 @@ export function MobileAppShell({
                       <section className="topbar-modal-card">
                         <strong>기본 시작 방식</strong>
                         <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                          {['홈', '일반(공통)업무', '부서업무포털', '마지막으로 보던 화면'].map((item) => (
+                          {['홈', '기본업무', '부서업무포털', '마지막으로 보던 화면'].map((item) => (
                             <label key={item} className="topbar-modal-choice">
                               <input
                                 type="radio"
@@ -3446,14 +3468,19 @@ export function MobileAppShell({
                 className={isSidebarCustomSelectionLoaded ? "desktop-sidebar__collapsed-custom-list" : "desktop-sidebar__collapsed-custom-list desktop-sidebar__collapsed-custom-list--loading"}
                 aria-hidden={isSidebarCustomSelectionLoaded ? undefined : true}
               >
-                {collapsedSidebarItems.map((item) => {
+                {collapsedSidebarItems.map((item, itemIndex) => {
                   const active = matchesPath(pathname, item.href);
                   const iconName = getFeatureIconName(item.href, item.label);
+                  const previousItem = itemIndex > 0 ? collapsedSidebarItems[itemIndex - 1] : null;
+                  const insertDivider = sidebarDividerVisible && previousItem && getSidebarItemGroup(sidebarPortalKey, previousItem.href) !== getSidebarItemGroup(sidebarPortalKey, item.href);
                   return (
-                    <button key={item.href} type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} onClick={() => handleNavItemClick(item)}>
-                      {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                      <span>{item.shortLabel}</span>
-                    </button>
+                    <React.Fragment key={item.href}>
+                      {insertDivider ? <span className="desktop-sidebar__collapsed-group-divider" aria-hidden="true" /> : null}
+                      <button type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} onClick={() => handleNavItemClick(item)}>
+                        {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                        <span>{item.shortLabel}</span>
+                      </button>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -3468,8 +3495,8 @@ export function MobileAppShell({
                   </button>
                 </div>
               ) : null}
-              {visibleDesktopMenuSections.map((section) => (
-                <section key={section.title} className="desktop-sidebar__section">
+              {visibleDesktopMenuSections.map((section, sectionIndex) => (
+                <section key={section.title} className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider" : "desktop-sidebar__section"}>
                   <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
                   <div className="desktop-sidebar__links">
                     {section.items.map((item) => {

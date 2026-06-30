@@ -395,6 +395,7 @@
   --sidebar-settings-preview-bg: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
   --sidebar-settings-preview-padding: 10px;
   --sidebar-settings-preview-list-gap: clamp(3px, 0.55dvh, 5px);
+  --sidebar-settings-preview-divider-width: 54px;
   --sidebar-settings-preview-row-width: 128px;
   --sidebar-settings-preview-row-columns: minmax(0, 76px) auto;
   --sidebar-settings-preview-row-gap: 5px;
@@ -659,6 +660,9 @@
   --desktop-sidebar-collapsed-padding-inline: 9px;
   --desktop-sidebar-compact-nav-gap: 7px;
   --desktop-sidebar-collapsed-custom-list-gap: 5px;
+  --desktop-sidebar-group-divider: 1px solid rgba(148, 163, 184, 0.34);
+  --desktop-sidebar-group-divider-margin: 5px 4px;
+  --desktop-sidebar-collapsed-divider-width: 28px;
   --desktop-sidebar-link-min-height: 31px;
   --desktop-sidebar-link-border-radius: 11px;
   --desktop-sidebar-link-gap: 6px;
