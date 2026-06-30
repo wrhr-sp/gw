@@ -55,6 +55,11 @@ export const appRoutes = {
     periodDetail: (periodId: string) => `/api/payroll/periods/${periodId}`,
     myPayslip: "/api/payroll/me/payslip",
   },
+  mail: {
+    messages: "/api/mail/messages",
+    send: "/api/mail/messages/send",
+    markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
+  },
   approvals: {
     forms: "/api/approvals/forms",
     lines: "/api/approvals/lines",
@@ -133,6 +138,66 @@ export const errorResponseSchema = z.object({
     details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
+
+export const mailBoxSchema = z.enum(["inbox", "sent", "drafts"]);
+export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived"]);
+export const mailImportanceSchema = z.enum(["normal", "important"]);
+
+export const mailMessageSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  senderUserId: z.string(),
+  senderName: z.string(),
+  recipientUserId: z.string().nullable(),
+  recipientName: z.string().nullable(),
+  subject: z.string(),
+  body: z.string(),
+  status: mailMessageStatusSchema,
+  importance: mailImportanceSchema,
+  sentAt: z.string().datetime().nullable(),
+  readAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const mailMessageListResponseSchema = successResponseSchema(
+  z.object({
+    box: mailBoxSchema,
+    items: z.array(mailMessageSchema),
+    counts: z.object({
+      inbox: z.number().int().nonnegative(),
+      unread: z.number().int().nonnegative(),
+      sent: z.number().int().nonnegative(),
+      drafts: z.number().int().nonnegative(),
+    }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageSendRequestSchema = z.object({
+  recipientUserId: z.string().min(1),
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(10000),
+  importance: mailImportanceSchema.default("normal"),
+});
+
+export const mailMessageSendResponseSchema = successResponseSchema(
+  z.object({
+    message: mailMessageSchema,
+    audit: z.object({
+      candidate: z.literal(true),
+      action: z.string(),
+    }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageReadResponseSchema = successResponseSchema(
+  z.object({
+    message: mailMessageSchema,
+    source: z.literal("postgres"),
+  }),
+);
 
 export const roleCodeSchema = z.enum([
   "SUPER_ADMIN",
@@ -2251,6 +2316,12 @@ export type ApprovalCommentCreateResponse = z.infer<typeof approvalCommentCreate
 export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateListResponseSchema>;
 export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
+export type MailBox = z.infer<typeof mailBoxSchema>;
+export type MailMessage = z.infer<typeof mailMessageSchema>;
+export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSchema>;
+export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
+export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
+export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
 export type Board = z.infer<typeof boardSchema>;
 export type BoardPost = z.infer<typeof boardPostSchema>;
 export type BoardComment = z.infer<typeof boardCommentSchema>;

@@ -74,6 +74,11 @@ import {
   leaveRequestCreateResponseSchema,
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
+  mailBoxSchema,
+  mailMessageListResponseSchema,
+  mailMessageReadResponseSchema,
+  mailMessageSendRequestSchema,
+  mailMessageSendResponseSchema,
   listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listHomeShortcutsResponseSchema,
@@ -201,6 +206,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
+import { createOperationalMailMessage, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
 import { getOperationalUserPreferences, saveOperationalUserPreferences } from "./lib/operational-preferences";
 import {
   getOperationalSecondaryPasswordStatus,
@@ -272,6 +278,7 @@ const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
 const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
+const MAIL_MESSAGE_READ_ROUTE = "/api/mail/messages/:id/read";
 
 function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
   const baseCookie = `gw_session=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`;
@@ -2458,6 +2465,10 @@ function buildGeneratedBoardPostId(boardId: string, employeeId: string) {
 
 function buildGeneratedBoardCommentId(postId: string, employeeId: string) {
   return `board_comment_${postId}_${employeeId}_${crypto.randomUUID()}`;
+}
+
+function buildGeneratedMailMessageId(companyId: string, senderUserId: string) {
+  return `mail_${companyId}_${senderUserId}_${crypto.randomUUID()}`;
 }
 
 function buildGeneratedBoardId(companyId: string, slug: string) {
@@ -5750,6 +5761,123 @@ app.get(appRoutes.payroll.myPayslip, async (context) => {
     },
     error: null,
   });
+});
+
+app.get(appRoutes.mail.messages, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const boxParse = mailBoxSchema.safeParse(context.req.query("box") ?? "inbox");
+  if (!boxParse.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일함 구분이 올바르지 않습니다.", 400, {
+      route: context.req.path,
+    });
+  }
+
+  try {
+    const result = await listOperationalMailMessages(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      box: boxParse.data,
+    });
+
+    return jsonSuccess(context, mailMessageListResponseSchema, {
+      ok: true,
+      data: {
+        box: boxParse.data,
+        items: result.items,
+        counts: result.counts,
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 목록 조회");
+  }
+});
+
+app.post(appRoutes.mail.send, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageSendRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 발송 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  try {
+    const message = await createOperationalMailMessage(context.env, {
+      id: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      recipientUserId: parsed.data.recipientUserId,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+      importance: parsed.data.importance,
+    });
+
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "수신자를 찾을 수 없거나 같은 회사 사용자가 아닙니다.", 403, {
+        recipientUserId: parsed.data.recipientUserId,
+        route: context.req.path,
+      });
+    }
+
+    return jsonSuccess(context, mailMessageSendResponseSchema, {
+      ok: true,
+      data: {
+        message,
+        audit: {
+          candidate: true,
+          action: "mail.message.send",
+        },
+        source: "postgres",
+      },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메일 발송");
+  }
+});
+
+app.post(MAIL_MESSAGE_READ_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  try {
+    const message = await markOperationalMailMessageRead(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId: context.req.param("id"),
+    });
+
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "읽음 처리할 수 없는 메일입니다.", 403, {
+        messageId: context.req.param("id"),
+        route: context.req.path,
+      });
+    }
+
+    return jsonSuccess(context, mailMessageReadResponseSchema, {
+      ok: true,
+      data: {
+        message,
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 읽음 처리");
+  }
 });
 
 app.get(appRoutes.workItems.list, async (context) => {
