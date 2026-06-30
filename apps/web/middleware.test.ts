@@ -110,4 +110,16 @@ describe("middleware host boundary", () => {
     const managerUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"));
     expect(managerUatResponse.headers.get("location")).toBeNull();
   });
+
+  it("rewrites encoded space routes to worker-safe route segments after auth allow", () => {
+    const strategyResponse = middleware(
+      createRequest("/Strategic%20Planning", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
+    );
+    expect(strategyResponse.headers.get("x-middleware-rewrite")).toContain("/strategic-planning");
+
+    const placeResponse = middleware(
+      createRequest("/Place%20of%20business/seoul", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
+    );
+    expect(placeResponse.headers.get("x-middleware-rewrite")).toContain("/place-of-business/seoul");
+  });
 });
