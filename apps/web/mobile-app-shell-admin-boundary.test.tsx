@@ -224,6 +224,7 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
     expect(departmentHtml).toContain(`aria-label="We&#x27;reHere 전략기획실 홈"`);
+    expect(departmentHtml).toContain('href="/Strategic Planning" class="topbar-brand-link"');
     expect(departmentHtml).toContain(">전략기획실</span>");
 
     mockedPathname = "/Place of business/seoul";
@@ -234,6 +235,7 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
     expect(branchHtml).toContain(`aria-label="We&#x27;reHere 서울지점 홈"`);
+    expect(branchHtml).toContain('href="/Place of business" class="topbar-brand-link"');
     expect(branchHtml).toContain(">서울지점</span>");
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");

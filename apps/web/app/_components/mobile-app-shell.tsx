@@ -91,14 +91,55 @@ const branchPortalItems = [
   { id: "gwangju", name: "광주지점", region: "광주", manager: "최현우", access: "입금요청 확인" },
 ] as const;
 
+function normalizeAppPathname(pathname: string) {
+  return decodeURI(pathname);
+}
+
+function getDepartmentByCurrentRoute(pathname: string, departmentId: string | null) {
+  const normalizedPathname = normalizeAppPathname(pathname);
+  const matchedDepartment = departmentPortalItems.find((department) => department.href === normalizedPathname);
+  if (matchedDepartment) {
+    return matchedDepartment;
+  }
+
+  if (normalizedPathname === "/operations" || normalizedPathname.startsWith("/operations/")) {
+    return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations")) ?? departmentPortalItems.find((department) => department.id === "operations") ?? null;
+  }
+
+  return null;
+}
+
+function getCurrentPortalHomeHref(pathname: string, departmentId: string | null, fallbackHomeHref: string) {
+  const normalizedPathname = normalizeAppPathname(pathname);
+
+  if (normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/")) {
+    return fallbackHomeHref;
+  }
+
+  if (normalizedPathname === "/Place of business" || normalizedPathname.startsWith("/Place of business/")) {
+    return "/Place of business";
+  }
+
+  if (normalizedPathname.startsWith("/place-of-business")) {
+    return "/Place of business";
+  }
+
+  const matchedDepartment = getDepartmentByCurrentRoute(pathname, departmentId);
+  if (matchedDepartment) {
+    return matchedDepartment.href;
+  }
+
+  return fallbackHomeHref;
+}
+
 function getCurrentLocationLabel(pathname: string, departmentId: string | null, adminLabel: string) {
-  const normalizedPathname = decodeURI(pathname);
+  const normalizedPathname = normalizeAppPathname(pathname);
 
   if (normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/")) {
     return "관리자 페이지";
   }
 
-  const placeBranchMatch = /^\/Place of business\/([^/]+)/.exec(normalizedPathname);
+  const placeBranchMatch = /^\/Place of business\/([^/]+)/.exec(normalizedPathname) ?? /^\/place-of-business\/([^/]+)/.exec(normalizedPathname);
   if (placeBranchMatch) {
     return branchPortalItems.find((branch) => branch.id === decodeURIComponent(placeBranchMatch[1]))?.name ?? "지점관리포털";
   }
@@ -108,17 +149,13 @@ function getCurrentLocationLabel(pathname: string, departmentId: string | null, 
     return branchPortalItems.find((branch) => branch.id === decodeURIComponent(operationsBranchMatch[1]))?.name ?? "지점관리포털";
   }
 
-  if (normalizedPathname === "/Place of business") {
+  if (normalizedPathname === "/Place of business" || normalizedPathname === "/place-of-business") {
     return "지점관리포털";
   }
 
-  const matchedDepartment = departmentPortalItems.find((department) => department.href === normalizedPathname);
+  const matchedDepartment = getDepartmentByCurrentRoute(pathname, departmentId);
   if (matchedDepartment) {
     return matchedDepartment.label;
-  }
-
-  if (normalizedPathname === "/operations" || normalizedPathname.startsWith("/operations/")) {
-    return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations"))?.label ?? "운영사업부";
   }
 
   if (normalizedPathname === "/management" || normalizedPathname.startsWith("/management/")) {
@@ -1463,7 +1500,8 @@ export function MobileAppShell({
     const desktopSections = !hasManagementPortal || isBranchPortal || isManagementPortal ? sections : addGeneralBranchManagementDesktopItem(sections);
     return sortNavSectionsByItemLabel(desktopSections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
-  const currentPortalLabel = isAdminHostShell ? getCurrentLocationLabel(pathname, null, appEyebrow) : getCurrentLocationLabel(pathname, searchParams.get("department"), COMMON_WORK_LABEL);
+  const currentDepartmentId = searchParams.get("department");
+  const currentPortalLabel = isAdminHostShell ? getCurrentLocationLabel(pathname, null, appEyebrow) : getCurrentLocationLabel(pathname, currentDepartmentId, COMMON_WORK_LABEL);
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
   const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);
@@ -1478,7 +1516,7 @@ export function MobileAppShell({
     setUnlockedSensitiveRouteKeys(readSecondaryPasswordUnlockedFeatureKeys());
   }, [currentSensitiveRouteKey]);
 
-  const currentPortalHomeHref = isAdminHostShell ? homeHref : "/home";
+  const currentPortalHomeHref = isAdminHostShell ? homeHref : getCurrentPortalHomeHref(pathname, currentDepartmentId, "/home");
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const branchPortalLabel = "지점관리포털";
   const branchPortalHomeHref = "/Place of business";
