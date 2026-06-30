@@ -19,7 +19,7 @@ export function PageShell({
   titlePlacement = "header",
   titleHref,
   onTitleClick,
-  description,
+  description: _description,
   children,
   actions,
   backHref = "/home",
@@ -42,7 +42,6 @@ export function PageShell({
                   title
                 )}
               </h1>
-              {description ? <p>{description}</p> : null}
             </div>
             {actions ? <div className="page-shell__actions">{actions}</div> : null}
           </div>
@@ -55,7 +54,7 @@ export function PageShell({
 
 export function SurfaceSection({
   title,
-  description,
+  description: _description,
   children,
   muted = false,
 }: {
@@ -68,7 +67,6 @@ export function SurfaceSection({
     <section className={muted ? "surface-card surface-card--muted" : "surface-card"}>
       <div className="surface-card__header">
         <h2>{title}</h2>
-        {description ? <p>{description}</p> : null}
       </div>
       {children}
     </section>

@@ -78,7 +78,7 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
   it("keeps dashboard employee-first before collaboration and supporting status lanes", () => {
     const html = renderToStaticMarkup(<DashboardPageContent adminShortcut={null} managementCards={[]} viewerRoleCode={null} />);
 
-    expect(html).toContain("직원 기본 업무 기준 상단 액션을 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정");
+    expect(html).not.toContain("직원 기본 업무 기준 상단 액션을 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 순서로 고정");
     expect(html.indexOf("오늘 출퇴근 먼저 처리")).toBeLessThan(html.indexOf("휴가 잔여와 신청 확인"));
     expect(html.indexOf("휴가 잔여와 신청 확인")).toBeLessThan(html.indexOf("승인 대기 보기"));
     expect(html.indexOf("승인 대기 보기")).toBeLessThan(html.indexOf("공지/게시판 확인"));

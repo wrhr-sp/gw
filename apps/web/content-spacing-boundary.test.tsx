@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import ForbiddenPage from "./app/forbidden/page";
+import { FeatureWorkspace, type FeatureWorkspaceConfig } from "./app/_components/feature-workspace";
+import { PageShell, SurfaceSection } from "./app/_components/page-shell";
 import { buildSectionPage } from "./app/section-page";
 
 describe("feature page content spacing baseline", () => {
@@ -225,6 +227,41 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("padding: var(--feature-page-title-offset-block) var(--feature-page-title-offset-inline);");
   });
 
+  it("does not render feature page title or section description copy", () => {
+    const shellHtml = renderToStaticMarkup(
+      <PageShell title="문서함" titleHref={null} description="문서 보관, 업로드, 열람 권한, 버전 상태를 한 화면에서 확인합니다.">
+        <SurfaceSection title="문서함 목록" description="전사, 부서, 인사 전용처럼 성격이 다른 문서함을 왼쪽에서 빠르게 선택합니다.">
+          <p>전사 문서함</p>
+        </SurfaceSection>
+      </PageShell>,
+    );
+    const workspaceConfig: FeatureWorkspaceConfig = {
+      title: "문서함",
+      eyebrow: "문서 보관, 업로드, 열람 권한, 버전 상태를 한 화면에서 확인합니다.",
+      tabs: [{ id: "spaces", label: "문서함 목록" }],
+      panels: [
+        {
+          id: "spaces",
+          heading: "문서함 목록",
+          summary: "전사, 부서, 인사 전용처럼 성격이 다른 문서함을 왼쪽에서 빠르게 선택합니다.",
+          rows: [{ title: "전사 문서함", meta: "공지, 규정, 공용 양식", status: "열람 가능" }],
+        },
+      ],
+    };
+    const workspaceHtml = renderToStaticMarkup(<FeatureWorkspace config={workspaceConfig} />);
+
+    expect(shellHtml).toContain("문서함");
+    expect(shellHtml).toContain("문서함 목록");
+    expect(shellHtml).toContain("전사 문서함");
+    expect(shellHtml).not.toContain("문서 보관, 업로드, 열람 권한");
+    expect(shellHtml).not.toContain("전사, 부서, 인사 전용처럼");
+    expect(workspaceHtml).toContain("문서함");
+    expect(workspaceHtml).toContain("문서함 목록");
+    expect(workspaceHtml).toContain("전사 문서함");
+    expect(workspaceHtml).not.toContain("문서 보관, 업로드, 열람 권한");
+    expect(workspaceHtml).not.toContain("전사, 부서, 인사 전용처럼");
+  });
+
   it("removes ad-hoc centered feature page shells from fallback routes", () => {
     const SectionPage = buildSectionPage("테스트 섹션", "테스트 설명");
     const forbiddenHtml = renderToStaticMarkup(<ForbiddenPage />);
@@ -232,6 +269,7 @@ describe("feature page content spacing baseline", () => {
 
     expect(forbiddenHtml).toContain('class="page-shell"');
     expect(sectionHtml).toContain('class="page-shell"');
+    expect(sectionHtml).not.toContain("테스트 설명");
     expect(sectionHtml).not.toContain('class="page-shell__title-link"');
     expect(forbiddenHtml).not.toContain("max-width:720px");
     expect(sectionHtml).not.toContain("max-width:860px");
