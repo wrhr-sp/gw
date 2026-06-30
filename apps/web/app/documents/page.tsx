@@ -22,9 +22,10 @@ const documentsConfig: FeatureWorkspaceConfig = {
       id: "spaces",
       heading: "문서함 목록",
       summary: "전사, 부서, 인사 전용처럼 성격이 다른 문서함을 왼쪽에서 빠르게 선택합니다.",
+      permissionHint: "document.read 권한과 문서 공간 접근 범위를 함께 확인합니다.",
       rows: [
-        { title: "전사 문서함", meta: "공지, 규정, 공용 양식", status: "열람 가능" },
-        { title: "인사·근태 문서함", meta: "근태 신청서, 휴가 증빙", status: "권한 필요" },
+        { title: "전사 문서함", meta: "공지, 규정, 공용 양식", status: "열람 가능", actions: [{ label: "문서 열기", tone: "primary" }, { label: "권한 확인" }] },
+        { title: "인사·근태 문서함", meta: "근태 신청서, 휴가 증빙", status: "권한 필요", actions: [{ label: "권한 요청" }, { label: "담당자 확인" }] },
         { title: "업무자료", meta: "회의자료, 매뉴얼, 운영 문서", status: "열람 가능" },
         { title: "계약/법무", meta: "계약 검토 자료", status: "담당자 전용" },
       ],
@@ -52,7 +53,7 @@ const documentsConfig: FeatureWorkspaceConfig = {
         { label: "읽음", value: "24명" },
       ],
       rows: [
-        { title: "운영 매뉴얼.pdf", meta: "업무자료 · 총괄관리 업로드", status: "최신" },
+        { title: "운영 매뉴얼.pdf", meta: "업무자료 · 총괄관리 업로드", status: "최신", actions: [{ label: "미리보기", tone: "primary" }, { label: "다운로드 요청" }] },
         { title: "v2 변경 내용", meta: "근태 처리 절차 추가", status: "보관" },
         { title: "v1 최초 등록", meta: "기본 운영 절차", status: "보관" },
       ],
@@ -67,6 +68,7 @@ const documentsConfig: FeatureWorkspaceConfig = {
         { title: "편집 권한", meta: "총괄관리 · 문서 담당자", status: "제한" },
         { title: "민감 문서", meta: "인사 담당자 전용", status: "차단" },
       ],
+      emptyState: { title: "접근 가능한 문서가 없으면", body: "공개 링크를 만들지 않고 문서 공간 담당자에게 권한 요청 흐름을 안내합니다.", actionLabel: "권한 요청" },
     },
   ],
 };

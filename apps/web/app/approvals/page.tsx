@@ -22,14 +22,15 @@ const approvalsConfig: FeatureWorkspaceConfig = {
       id: "inbox",
       heading: "내 결재함",
       summary: "내가 처리해야 할 문서를 먼저 보여 주고, 승인·반려·보완 요청 버튼을 문서 옆에 둡니다.",
+      permissionHint: "approval.act 권한과 결재선 순서가 맞을 때만 처리 버튼을 노출합니다.",
       statusCards: [
         { label: "오늘 처리", value: "2건", tone: "warning" },
         { label: "마감 임박", value: "1건" },
         { label: "완료", value: "12건", tone: "accent" },
       ],
       rows: [
-        { title: "지출결의서", meta: "운영 매니저 · 128,000원", status: "승인 대기", body: "영수증 확인 후 승인 또는 보완 요청합니다." },
-        { title: "휴가 승인 협조", meta: "인사 코디네이터 · 2026-07-08", status: "검토" },
+        { title: "지출결의서", meta: "운영 매니저 · 128,000원", status: "승인 대기", body: "영수증 확인 후 승인 또는 보완 요청합니다.", actions: [{ label: "승인", tone: "primary" }, { label: "반려", tone: "danger" }, { label: "보완 요청" }] },
+        { title: "휴가 승인 협조", meta: "인사 코디네이터 · 2026-07-08", status: "검토", actions: [{ label: "상세 보기" }, { label: "의견 남기기" }] },
       ],
       actions: [{ label: "승인", tone: "primary" }, { label: "반려", tone: "danger" }, { label: "보완 요청" }],
     },
@@ -55,6 +56,7 @@ const approvalsConfig: FeatureWorkspaceConfig = {
         { title: "참조", meta: "인사운영팀", status: "읽음 확인" },
       ],
       actions: [{ label: "결재선 적용", tone: "primary" }, { label: "결재선 저장" }],
+      emptyState: { title: "결재선 후보가 없으면", body: "조직도와 직원 정보에서 승인자를 먼저 확인한 뒤 결재선을 다시 선택합니다.", actionLabel: "조직도 확인" },
     },
     {
       id: "history",

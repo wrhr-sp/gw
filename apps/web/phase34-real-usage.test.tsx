@@ -1,4 +1,5 @@
 import React from "react";
+import { readFileSync } from "fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,10 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("직원 상세");
     expect(html).toContain("근무 상태");
     expect(html).toContain("권한 요청");
+    expect(html).toContain("employee.read 기준의 조회 화면이며 계정 생성·권한 변경은 관리자 화면에서만 처리합니다.");
+    expect(html).toContain("프로필 보기");
+    const employeesSource = readFileSync(new URL("./app/employees/page.tsx", import.meta.url), "utf8");
+    expect(employeesSource).toContain("검색 초기화");
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("초대 실행");
     expect(html).not.toContain("Phase");
@@ -30,6 +35,10 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("구성원");
     expect(html).toContain("접근 범위");
     expect(html).toContain("서울지점");
+    expect(html).toContain("조직 조회는 read-only이며 역할·정책 변경은 관리자 영역으로 분리합니다.");
+    expect(html).toContain("부서 펼치기");
+    const orgSource = readFileSync(new URL("./app/org/page.tsx", import.meta.url), "utf8");
+    expect(orgSource).toContain("범위 확인");
     expect(html).not.toContain("역할 생성");
     expect(html).not.toContain("운영 DB seed");
   });

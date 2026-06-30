@@ -21,6 +21,7 @@ export type FeatureWorkspaceRow = {
   meta: string;
   status: string;
   body?: string;
+  actions?: readonly { label: string; tone?: "primary" | "secondary" | "danger" }[];
 };
 
 export type FeatureWorkspacePanel = {
@@ -32,6 +33,8 @@ export type FeatureWorkspacePanel = {
   actions?: readonly { label: string; tone?: "primary" | "secondary" | "danger" }[];
   rows?: readonly FeatureWorkspaceRow[];
   notes?: readonly string[];
+  emptyState?: { title: string; body: string; actionLabel?: string };
+  permissionHint?: string;
 };
 
 export type FeatureWorkspaceConfig = {
@@ -110,6 +113,7 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
           <div>
             <h2 id={`${activePanel.id}-heading`}>{activePanel.heading}</h2>
           </div>
+          {activePanel.permissionHint ? <p className="feature-workspace__permission-hint">{activePanel.permissionHint}</p> : null}
         </div>
 
         {activePanel.statusCards?.length ? (
@@ -160,11 +164,28 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
                   <strong>{row.title}</strong>
                   <span>{row.meta}</span>
                   {row.body ? <p>{row.body}</p> : null}
+                  {row.actions?.length ? (
+                    <div className="feature-workspace__row-actions" aria-label={`${row.title} 처리`}>
+                      {row.actions.map((action) => (
+                        <button className={`feature-workspace__row-action feature-workspace__row-action--${action.tone ?? "secondary"}`} key={action.label} type="button">
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <em>{row.status}</em>
               </article>
             ))}
           </div>
+        ) : null}
+
+        {activePanel.emptyState ? (
+          <aside className="feature-workspace__empty-state" aria-label={`${activePanel.heading} 빈 상태 안내`}>
+            <strong>{activePanel.emptyState.title}</strong>
+            <p>{activePanel.emptyState.body}</p>
+            {activePanel.emptyState.actionLabel ? <button className="feature-workspace__empty-action" type="button">{activePanel.emptyState.actionLabel}</button> : null}
+          </aside>
         ) : null}
 
         {activePanel.notes?.length ? (

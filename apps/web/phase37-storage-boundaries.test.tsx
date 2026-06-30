@@ -31,6 +31,9 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).toContain("문서 상세");
     expect(html).toContain("공유 상태");
     expect(html).toContain("인사·근태 문서함");
+    expect(html).toContain("document.read 권한과 문서 공간 접근 범위를 함께 확인합니다.");
+    expect(html).toContain("문서 열기");
+    expect(html).toContain("권한 요청");
     expect(html).not.toContain("public URL 발급 완료");
     expect(html).not.toContain("Phase");
   });
