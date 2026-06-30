@@ -152,7 +152,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고");
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("추천 확인 순서");
-    expect(html).toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
+    expect(html).not.toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
     expect(html).toContain("/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
     expect(html).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
     expect(html).toContain("기록 체크포인트");

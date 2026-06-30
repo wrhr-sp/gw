@@ -48,7 +48,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
     const managementHtml = renderToStaticMarkup(await ManagementPage());
     const payrollHtml = renderToStaticMarkup(<PayrollPage />);
     expect(managementHtml).toContain("지정 관리자 업무 허브");
-    expect(managementHtml).toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
+    expect(managementHtml).not.toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
     expect(managementHtml).toContain("/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
     expect(managementHtml).toContain("/admin/policies 에서 current/candidate/capability/audit 안내 형식 확인");
     expect(managementHtml).toContain("/api/health 에서 최소 liveness 기준만 기록");

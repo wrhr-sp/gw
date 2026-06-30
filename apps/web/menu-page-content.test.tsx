@@ -75,7 +75,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("근태");
     expect(html).toContain("결재");
     expect(html).toContain("운영 DB 기준 홈 바로가기를 조회했습니다.");
-    expect(html).toContain("메뉴/홈/메신저/메일/알림");
+    expect(html).not.toContain("메뉴/홈/메신저/메일/알림");
     expect(html).toContain("모바일·PC 같은 정보구조 원칙");
     expect(html).toContain("모바일 상태 문장 가이드");
     expect(html).toContain("모바일 추천 확인 순서");

@@ -42,7 +42,7 @@ describe("work-items feature workspace boundaries", () => {
     const html = renderToStaticMarkup(<WorkItemsLegalPage />);
 
     expect(html).toContain("법무 업무");
-    expect(html).toContain("업무 카드 안에서 핵심 정보 중심으로 묶습니다.");
+    expect(html).not.toContain("업무 카드 안에서 핵심 정보 중심으로 묶습니다.");
     expect(html).toContain("계약 갱신 예정");
     expect(html).toContain("권한 범위");
     expect(html).not.toContain("실제 서명 완료");

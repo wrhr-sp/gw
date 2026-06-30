@@ -74,7 +74,6 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
               {config.title}
             </button>
           </h1>
-          {config.eyebrow ? <p>{config.eyebrow}</p> : null}
         </div>
 
         <div className="feature-workspace__tab-list" role="tablist" aria-label={`${config.title} 화면 선택`}>
@@ -110,7 +109,6 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
         <div className="feature-workspace__panel-header">
           <div>
             <h2 id={`${activePanel.id}-heading`}>{activePanel.heading}</h2>
-            <p>{activePanel.summary}</p>
           </div>
         </div>
 
