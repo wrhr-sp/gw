@@ -34,6 +34,7 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("font-size: var(--feature-page-sublist-font-size);");
     expect(globalCss).toContain("font-family: var(--feature-page-sublist-font-family);");
     expect(globalCss).toContain("font-weight: var(--feature-page-sublist-font-weight);");
+    expect(globalCss).toContain(".board-tree-link,\n.mail-folder-list__item--child {");
     expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
     expect(globalCss).toContain("content: var(--feature-page-sublist-marker-content);");
     expect(globalCss).toContain(".feature-workspace__tab-list {");

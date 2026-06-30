@@ -26,6 +26,7 @@ describe("board tree compact token baseline", () => {
     expect(globalCss).toContain("--feature-page-list-item-padding-block: var(--feature-page-sublist-padding-block);");
     expect(globalCss).toContain("--feature-page-sublist-grid-columns: auto minmax(0, 1fr) auto;");
     expect(globalCss).toContain("--feature-page-sublist-font-weight: var(--board-tree-child-weight);");
+    expect(globalCss).toContain(".board-tree-link,\n.mail-folder-list__item--child {");
     expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
     expect(globalCss).toContain("gap: var(--feature-page-sublist-section-gap);");
     expect(globalCss).toContain("gap: var(--feature-page-sublist-item-gap);");
