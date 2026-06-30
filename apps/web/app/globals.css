@@ -2480,6 +2480,51 @@ li {
   color: var(--primary-hover);
 }
 
+.branch-portal-popover {
+  width: min(360px, calc(100vw - 24px));
+  gap: 8px;
+}
+
+.branch-portal-popover__search {
+  display: grid;
+  gap: 6px;
+  padding: 4px;
+}
+
+.branch-portal-popover__search span,
+.branch-portal-popover__item span,
+.branch-portal-popover__empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+.branch-portal-popover__search input {
+  border: var(--input-border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.branch-portal-popover__list {
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.branch-portal-popover__item {
+  display: grid;
+  gap: 3px;
+}
+
+.branch-portal-popover__empty {
+  margin: 0;
+  padding: 10px 12px;
+}
+
 @media (min-width: 961px) {
   .app-shell--responsive {
     --desktop-topbar-height: 50px;
