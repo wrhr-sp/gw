@@ -66,7 +66,7 @@ const branchesConfig: FeatureWorkspaceConfig = {
         { label: "운영 상태", value: "근태 확인 필요", type: "select" },
       ],
       actions: [{ label: "변경 요청", tone: "primary" }],
-      notes: ["지점 추가·비활성화는 관리자 승인 후 처리합니다.", "기존 지점관리포털 경로와 일반업무포털 경로를 분리합니다."],
+      notes: ["지점 추가·비활성화는 관리자 승인 후 처리합니다.", "기존 지점관리포털 경로와 일반(공통)업무 경로를 분리합니다."],
     },
   ],
 };

@@ -670,7 +670,7 @@ export function getAppShellConfigForHost(host?: string | null, roleCode?: RoleCo
 
   return {
     appName: "We'reHere",
-    appEyebrow: "일반업무포털",
+    appEyebrow: "일반(공통)업무",
     homeHref: "/home",
     navItems: getVisibleMobilePrimaryNav(roleCode),
     bottomTabs: mobileBottomTabs,

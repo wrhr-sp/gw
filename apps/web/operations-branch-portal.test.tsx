@@ -39,10 +39,12 @@ describe("operations branch portal", () => {
   it("keeps branch portal topbar search and department portal order scoped to source", () => {
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
 
-    expect(shellSource.indexOf('label: "운영사업부", href: "/operations"')).toBeLessThan(shellSource.indexOf('label: "일반(공통)업무", href: "/home"'));
-    expect(shellSource.indexOf('label: "일반(공통)업무", href: "/home"')).toBeLessThan(shellSource.indexOf('label: "관리자 페이지", href: "/admin"'));
+    expect(shellSource.indexOf('id: "operations", label: "운영사업부", href: "/operations"')).toBeLessThan(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, href: "/home"'));
+    expect(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, href: "/home"')).toBeLessThan(shellSource.indexOf('label: "관리자 페이지", href: "/admin"'));
     expect(shellSource).toContain("지점관리포털");
     expect(shellSource).toContain("branchPortalSearch");
+    expect(shellSource).toContain("getCurrentLocationLabel");
+    expect(shellSource).toContain("서울지점");
     expect(shellSource).toContain("filteredBranchPortalItems");
     expect(shellSource).toContain("/operations/branches/${branchId}");
   });

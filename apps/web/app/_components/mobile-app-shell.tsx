@@ -1,7 +1,7 @@
 "use client";
 
 import { appRoutes, type Permission, type RoleCode } from "@gw/shared";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
@@ -70,23 +70,47 @@ type FeatureIconProps = {
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
 const brandWordmark = "WE’REHERE";
+const COMMON_WORK_LABEL = "일반(공통)업무";
+
 const departmentPortalItems = [
-  { label: "대표이사실", href: "/operations?department=ceo" },
-  { label: "전략기획실", href: "/operations?department=strategy" },
-  { label: "경영지원팀", href: "/operations?department=support" },
-  { label: "영업관리팀", href: "/operations?department=sales-admin" },
-  { label: "광고사업팀", href: "/operations?department=ads" },
-  { label: "운영사업부", href: "/operations" },
-  { label: "일반(공통)업무", href: "/home" },
-  { label: "관리자 페이지", href: "/admin" },
+  { id: "ceo", label: "대표이사실", href: "/operations?department=ceo" },
+  { id: "strategy", label: "전략기획실", href: "/operations?department=strategy" },
+  { id: "support", label: "경영지원팀", href: "/operations?department=support" },
+  { id: "sales-admin", label: "영업관리팀", href: "/operations?department=sales-admin" },
+  { id: "ads", label: "광고사업팀", href: "/operations?department=ads" },
+  { id: "operations", label: "운영사업부", href: "/operations" },
+  { id: "common", label: COMMON_WORK_LABEL, href: "/home" },
+  { id: "admin", label: "관리자 페이지", href: "/admin" },
 ] as const;
 
 const branchPortalItems = [
   { id: "gangnam", name: "강남지점", region: "서울", manager: "김지윤", access: "전체 운영관리" },
+  { id: "seoul", name: "서울지점", region: "서울", manager: "정하린", access: "전체 운영관리" },
   { id: "busan", name: "부산지점", region: "부산", manager: "박민재", access: "운영이슈 확인" },
   { id: "daejeon", name: "대전지점", region: "대전", manager: "이서연", access: "매출보고 확인" },
   { id: "gwangju", name: "광주지점", region: "광주", manager: "최현우", access: "입금요청 확인" },
 ] as const;
+
+function getCurrentLocationLabel(pathname: string, departmentId: string | null, adminLabel: string) {
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return "관리자 페이지";
+  }
+
+  const branchMatch = /^\/operations\/branches\/([^/]+)/.exec(pathname);
+  if (branchMatch) {
+    return branchPortalItems.find((branch) => branch.id === decodeURIComponent(branchMatch[1]))?.name ?? "지점관리포털";
+  }
+
+  if (pathname === "/operations" || pathname.startsWith("/operations/")) {
+    return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations"))?.label ?? "운영사업부";
+  }
+
+  if (pathname === "/management" || pathname.startsWith("/management/")) {
+    return COMMON_WORK_LABEL;
+  }
+
+  return adminLabel || COMMON_WORK_LABEL;
+}
 
 type TopbarIconButtonProps = {
   label: string;
@@ -244,7 +268,7 @@ const generalBranchManagementDesktopItem: NavItem = {
   href: "/branches",
   label: "지점관리",
   shortLabel: "지점관리",
-  summary: "일반업무포털 안에서 지점 목록과 운영 상태를 확인합니다.",
+  summary: "일반(공통)업무 안에서 지점 목록과 운영 상태를 확인합니다.",
 };
 
 type AdminPermissionUserId = (typeof adminPermissionUsers)[number]["id"];
@@ -1093,7 +1117,7 @@ function addGeneralBranchManagementDesktopItem(sections: readonly NavSection[]) 
       ...sections,
       {
         title: "지점관리",
-        description: "일반업무포털 안에서 확인하는 지점 기본 정보와 운영 상태입니다.",
+        description: "일반(공통)업무 안에서 확인하는 지점 기본 정보와 운영 상태입니다.",
         items: [generalBranchManagementDesktopItem],
       },
     ];
@@ -1251,6 +1275,7 @@ export function MobileAppShell({
   currentPermissions,
 }: MobileAppShellProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -1422,7 +1447,7 @@ export function MobileAppShell({
     const desktopSections = !hasManagementPortal || isBranchPortal || isManagementPortal ? sections : addGeneralBranchManagementDesktopItem(sections);
     return sortNavSectionsByItemLabel(desktopSections);
   }, [hasManagementPortal, isBranchPortal, isManagementPortal, menuSections]);
-  const currentPortalLabel = isAdminHostShell ? appEyebrow : "일반업무포털";
+  const currentPortalLabel = isAdminHostShell ? getCurrentLocationLabel(pathname, null, appEyebrow) : getCurrentLocationLabel(pathname, searchParams.get("department"), COMMON_WORK_LABEL);
   const isCurrentSensitiveRoute = isSensitiveRoute(pathname);
   const currentSensitiveRouteKey = getSensitiveRouteKey(pathname);
   const isCurrentSensitiveRouteUnlocked = unlockedSensitiveRouteKeys.has(currentSensitiveRouteKey);
@@ -2923,7 +2948,7 @@ export function MobileAppShell({
                       <section className="topbar-modal-card">
                         <strong>기본 시작 방식</strong>
                         <div className="topbar-modal-choice-group" role="group" aria-label="기본 시작 화면 선택">
-                          {['홈', '일반업무포털', '부서업무포털', '마지막으로 보던 화면'].map((item) => (
+                          {['홈', '일반(공통)업무', '부서업무포털', '마지막으로 보던 화면'].map((item) => (
                             <label key={item} className="topbar-modal-choice">
                               <input
                                 type="radio"
