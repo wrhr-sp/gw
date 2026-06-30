@@ -177,15 +177,20 @@ export const mailMessageListResponseSchema = successResponseSchema(
 );
 
 export const mailMessageSendRequestSchema = z.object({
-  recipientUserId: z.string().min(1),
+  recipientUserId: z.string().min(1).optional(),
+  recipientUserIds: z.array(z.string().min(1)).min(1).max(20).optional(),
   subject: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),
   importance: mailImportanceSchema.default("normal"),
+}).refine((value) => Boolean(value.recipientUserId || value.recipientUserIds?.length), {
+  message: "recipientUserId or recipientUserIds is required",
+  path: ["recipientUserIds"],
 });
 
 export const mailMessageSendResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
+    messages: z.array(mailMessageSchema).min(1).optional(),
     audit: z.object({
       candidate: z.literal(true),
       action: z.string(),

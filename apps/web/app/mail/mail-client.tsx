@@ -40,7 +40,7 @@ export function MailClient() {
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
-  const [recipientUserId, setRecipientUserId] = useState("user_hr_admin");
+  const [recipientUserIds, setRecipientUserIds] = useState<string[]>(["user_hr_admin"]);
   const [subject, setSubject] = useState("근태 정정 확인 요청");
   const [body, setBody] = useState("확인 필요한 내용을 입력하세요.");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
@@ -91,6 +91,16 @@ export function MailClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [box]);
 
+  function toggleRecipient(recipientId: string) {
+    setRecipientUserIds((current) => {
+      if (current.includes(recipientId)) {
+        const next = current.filter((id) => id !== recipientId);
+        return next.length ? next : current;
+      }
+      return [...current, recipientId];
+    });
+  }
+
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
@@ -100,7 +110,7 @@ export function MailClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserId, subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds, subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -108,23 +118,26 @@ export function MailClient() {
         return;
       }
       const parsed = mailMessageSendResponseSchema.parse(payload);
+      const sentMessages = parsed.data.messages ?? [parsed.data.message];
       if (attachmentFile) {
-        const formData = new FormData();
-        formData.append("file", attachmentFile);
-        const attachmentResponse = await fetch(appRoutes.mail.attachments(parsed.data.message.id), {
-          method: "POST",
-          credentials: "same-origin",
-          body: formData,
-        });
-        const attachmentPayload = await attachmentResponse.json();
-        if (!attachmentResponse.ok) {
-          setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 첨부 업로드에 실패했습니다.");
-          return;
+        for (const message of sentMessages) {
+          const formData = new FormData();
+          formData.append("file", attachmentFile);
+          const attachmentResponse = await fetch(appRoutes.mail.attachments(message.id), {
+            method: "POST",
+            credentials: "same-origin",
+            body: formData,
+          });
+          const attachmentPayload = await attachmentResponse.json();
+          if (!attachmentResponse.ok) {
+            setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 일부 첨부 업로드에 실패했습니다.");
+            return;
+          }
+          mailAttachmentUploadResponseSchema.parse(attachmentPayload);
         }
-        mailAttachmentUploadResponseSchema.parse(attachmentPayload);
       }
       setAttachmentFile(null);
-      setStatus("메일과 첨부가 DB/R2에 저장되고 보낸 메일함에 반영됐습니다.");
+      setStatus(`메일 ${sentMessages.length}건과 첨부가 DB/R2에 저장되고 보낸 메일함에 반영됐습니다.`);
       setBox("sent");
       await loadMessages("sent");
     } finally {
@@ -187,12 +200,19 @@ export function MailClient() {
 
         {box === "drafts" ? (
           <form className="feature-workspace__form" onSubmit={sendMessage}>
-            <label>
-              <span>받는 사람</span>
-              <select aria-label="받는 사람" value={recipientUserId} onChange={(event) => setRecipientUserId(event.target.value)}>
-                {recipientOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-              </select>
-            </label>
+            <fieldset className="feature-workspace__field-group">
+              <legend>받는 사람</legend>
+              {recipientOptions.map((option) => (
+                <label key={option.id}>
+                  <input
+                    checked={recipientUserIds.includes(option.id)}
+                    onChange={() => toggleRecipient(option.id)}
+                    type="checkbox"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </fieldset>
             <label>
               <span>중요도</span>
               <select aria-label="중요도" value={importance} onChange={(event) => setImportance(event.target.value as "normal" | "important")}>
