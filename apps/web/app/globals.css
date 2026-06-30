@@ -2462,6 +2462,7 @@ li {
 }
 
 .department-portal-popover__item {
+  display: block;
   border: 0;
   border-radius: var(--department-portal-popover-item-radius);
   background: transparent;
@@ -2472,6 +2473,7 @@ li {
   font-weight: var(--font-weight-semibold);
   padding: var(--department-portal-popover-item-padding);
   text-align: left;
+  text-decoration: none;
 }
 
 .department-portal-popover__item:hover,

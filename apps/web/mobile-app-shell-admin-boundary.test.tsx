@@ -216,8 +216,8 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).not.toContain("협업/소통");
     expect(managementHtml).not.toContain("일정/개인 업무");
 
-    mockedPathname = "/operations";
-    mockedSearchParams = new URLSearchParams("department=strategy");
+    mockedPathname = "/Strategic Planning";
+    mockedSearchParams = new URLSearchParams();
     const departmentHtml = renderToStaticMarkup(
       <MobileAppShell {...sharedProps}>
         <main>strategy department content</main>
@@ -226,7 +226,7 @@ describe("mobile app shell admin boundary", () => {
     expect(departmentHtml).toContain(`aria-label="We&#x27;reHere 전략기획실 홈"`);
     expect(departmentHtml).toContain(">전략기획실</span>");
 
-    mockedPathname = "/operations/branches/seoul";
+    mockedPathname = "/Place of business/seoul";
     mockedSearchParams = new URLSearchParams();
     const branchHtml = renderToStaticMarkup(
       <MobileAppShell {...sharedProps}>
@@ -238,14 +238,16 @@ describe("mobile app shell admin boundary", () => {
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
     expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
-    expect(shellSource).toContain('id: "operations", label: "운영사업부", href: "/operations"');
-    expect(shellSource).toContain('id: "common", label: COMMON_WORK_LABEL, href: "/home"');
-    expect(shellSource).toContain('label: "관리자 페이지", href: "/admin"');
+    expect(shellSource).toContain('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"');
+    expect(shellSource).toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
+    expect(shellSource).toContain('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"');
     expect(shellSource).toContain('const branchPortalItems = [');
     expect(shellSource).toContain('aria-label="지점관리포털 검색"');
     expect(shellSource).toContain('placeholder="지점명, 지역, 담당자"');
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
+    expect(shellSource).toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
+    expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
     expect(shellSource).not.toContain("nextPortalLabel");
 
     mockedPathname = "/offline";

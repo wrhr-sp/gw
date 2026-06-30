@@ -73,14 +73,14 @@ const brandWordmark = "WE’REHERE";
 const COMMON_WORK_LABEL = "일반(공통)업무";
 
 const departmentPortalItems = [
-  { id: "ceo", label: "대표이사실", href: "/operations?department=ceo" },
-  { id: "strategy", label: "전략기획실", href: "/operations?department=strategy" },
-  { id: "support", label: "경영지원팀", href: "/operations?department=support" },
-  { id: "sales-admin", label: "영업관리팀", href: "/operations?department=sales-admin" },
-  { id: "ads", label: "광고사업팀", href: "/operations?department=ads" },
-  { id: "operations", label: "운영사업부", href: "/operations" },
-  { id: "common", label: COMMON_WORK_LABEL, href: "/home" },
-  { id: "admin", label: "관리자 페이지", href: "/admin" },
+  { id: "ceo", label: "대표이사실", englishLabel: "CEO", href: "/CEO" },
+  { id: "strategy", label: "전략기획실", englishLabel: "Strategic Planning", href: "/Strategic Planning" },
+  { id: "support", label: "경영지원팀", englishLabel: "Management Support", href: "/Management Support" },
+  { id: "sales-admin", label: "영업관리팀", englishLabel: "Sales Management", href: "/Sales Management" },
+  { id: "ads", label: "광고사업팀", englishLabel: "Advertising Business", href: "/Advertising Business" },
+  { id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management" },
+  { id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home" },
+  { id: "admin", label: "관리자 페이지", englishLabel: "Admin", href: "/admin" },
 ] as const;
 
 const branchPortalItems = [
@@ -92,20 +92,36 @@ const branchPortalItems = [
 ] as const;
 
 function getCurrentLocationLabel(pathname: string, departmentId: string | null, adminLabel: string) {
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+  const normalizedPathname = decodeURI(pathname);
+
+  if (normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/")) {
     return "관리자 페이지";
   }
 
-  const branchMatch = /^\/operations\/branches\/([^/]+)/.exec(pathname);
-  if (branchMatch) {
-    return branchPortalItems.find((branch) => branch.id === decodeURIComponent(branchMatch[1]))?.name ?? "지점관리포털";
+  const placeBranchMatch = /^\/Place of business\/([^/]+)/.exec(normalizedPathname);
+  if (placeBranchMatch) {
+    return branchPortalItems.find((branch) => branch.id === decodeURIComponent(placeBranchMatch[1]))?.name ?? "지점관리포털";
   }
 
-  if (pathname === "/operations" || pathname.startsWith("/operations/")) {
+  const operationsBranchMatch = /^\/operations\/branches\/([^/]+)/.exec(normalizedPathname);
+  if (operationsBranchMatch) {
+    return branchPortalItems.find((branch) => branch.id === decodeURIComponent(operationsBranchMatch[1]))?.name ?? "지점관리포털";
+  }
+
+  if (normalizedPathname === "/Place of business") {
+    return "지점관리포털";
+  }
+
+  const matchedDepartment = departmentPortalItems.find((department) => department.href === normalizedPathname);
+  if (matchedDepartment) {
+    return matchedDepartment.label;
+  }
+
+  if (normalizedPathname === "/operations" || normalizedPathname.startsWith("/operations/")) {
     return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations"))?.label ?? "운영사업부";
   }
 
-  if (pathname === "/management" || pathname.startsWith("/management/")) {
+  if (normalizedPathname === "/management" || normalizedPathname.startsWith("/management/")) {
     return COMMON_WORK_LABEL;
   }
 
@@ -1465,6 +1481,7 @@ export function MobileAppShell({
   const currentPortalHomeHref = isAdminHostShell ? homeHref : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
   const branchPortalLabel = "지점관리포털";
+  const branchPortalHomeHref = "/Place of business";
   const departmentPortalLabel = "부서업무포털";
   const filteredBranchPortalItems = branchPortalItems.filter((branch) => {
     const keyword = branchPortalSearch.trim().toLowerCase();
@@ -3207,15 +3224,13 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
-  function openDepartmentPortalItem(href: string) {
+  function closeDepartmentPortalMenu() {
     setIsDepartmentPortalOpen(false);
-    navigateTo(href);
   }
 
-  function openBranchPortalItem(branchId: string) {
+  function closeBranchPortalMenu() {
     setIsBranchPortalOpen(false);
     setBranchPortalSearch("");
-    navigateTo(`/operations/branches/${branchId}`);
   }
 
   function handleNavItemClick(item: NavItem) {
@@ -3381,13 +3396,17 @@ export function MobileAppShell({
                             placeholder="지점명, 지역, 담당자"
                           />
                         </label>
+                        <a className="department-portal-popover__item branch-portal-popover__item" href={branchPortalHomeHref} target="_blank" rel="noreferrer" onClick={closeBranchPortalMenu}>
+                          <strong>지점관리포털</strong>
+                          <span>Place of business · 전체 지점 검색/선택</span>
+                        </a>
                         <div className="branch-portal-popover__list" role="listbox" aria-label="접근 가능한 지점">
                           {filteredBranchPortalItems.length ? (
                             filteredBranchPortalItems.map((branch) => (
-                              <button key={branch.id} className="department-portal-popover__item branch-portal-popover__item" type="button" role="option" onClick={() => openBranchPortalItem(branch.id)}>
+                              <a key={branch.id} className="department-portal-popover__item branch-portal-popover__item" href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer" role="option" onClick={closeBranchPortalMenu}>
                                 <strong>{branch.name}</strong>
                                 <span>{branch.region} · {branch.manager} · {branch.access}</span>
-                              </button>
+                              </a>
                             ))
                           ) : (
                             <p className="branch-portal-popover__empty">접근 가능한 지점이 없습니다.</p>
@@ -3411,9 +3430,9 @@ export function MobileAppShell({
                     {isDepartmentPortalOpen ? (
                       <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
                         {departmentPortalItems.map((department) => (
-                          <button key={department.label} className="department-portal-popover__item" type="button" role="menuitem" onClick={() => openDepartmentPortalItem(department.href)}>
+                          <a key={department.label} className="department-portal-popover__item" href={department.href} target="_blank" rel="noreferrer" role="menuitem" onClick={closeDepartmentPortalMenu}>
                             {department.label}
-                          </button>
+                          </a>
                         ))}
                       </div>
                     ) : null}
