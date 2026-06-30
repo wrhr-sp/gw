@@ -20,6 +20,9 @@ describe("board tree compact token baseline", () => {
     expect(globalCss).toContain("--feature-page-list-section-gap: var(--board-tree-section-gap);");
     expect(globalCss).toContain("--feature-page-list-item-gap: var(--board-tree-item-gap);");
     expect(globalCss).toContain("--feature-page-list-item-padding-block: var(--board-tree-link-padding-block);");
+    expect(globalCss).toContain("--feature-page-sublist-grid-columns: auto minmax(0, 1fr) auto;");
+    expect(globalCss).toContain("--feature-page-sublist-font-weight: var(--board-tree-child-weight);");
+    expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
     expect(globalCss).toContain("gap: var(--feature-page-list-section-gap);");
     expect(globalCss).toContain("gap: var(--feature-page-list-item-gap);");
     expect(globalCss).toContain("padding: var(--feature-page-list-item-padding-block) 0;");
