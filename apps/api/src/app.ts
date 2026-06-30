@@ -208,7 +208,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailMessage, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
+import { createOperationalMailMessages, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
 import {
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
@@ -5828,19 +5828,24 @@ app.post(appRoutes.mail.send, async (context) => {
   }
 
   try {
-    const message = await createOperationalMailMessage(context.env, {
-      id: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+    const recipientUserIds = Array.from(new Set([
+      ...(parsed.data.recipientUserIds ?? []),
+      ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
+    ]));
+    const messages = await createOperationalMailMessages(context.env, {
+      idPrefix: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
       companyId: authResult.auth.user.companyId,
       senderUserId: authResult.auth.user.id,
-      recipientUserId: parsed.data.recipientUserId,
+      recipientUserIds,
       subject: parsed.data.subject,
       body: parsed.data.body,
       importance: parsed.data.importance,
     });
 
-    if (!message) {
+    if (messages.length !== recipientUserIds.length) {
       return jsonError(context, "FORBIDDEN", "수신자를 찾을 수 없거나 같은 회사 사용자가 아닙니다.", 403, {
-        recipientUserId: parsed.data.recipientUserId,
+        recipientUserIds,
+        deliveredCount: messages.length,
         route: context.req.path,
       });
     }
@@ -5848,7 +5853,8 @@ app.post(appRoutes.mail.send, async (context) => {
     return jsonSuccess(context, mailMessageSendResponseSchema, {
       ok: true,
       data: {
-        message,
+        message: messages[0],
+        messages,
         audit: {
           candidate: true,
           action: "mail.message.send",

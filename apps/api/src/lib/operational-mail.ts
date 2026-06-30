@@ -196,6 +196,28 @@ export async function createOperationalMailMessage(env: DatabaseEnv | undefined,
   return row ? mapMailMessage(row) : null;
 }
 
+export async function createOperationalMailMessages(env: DatabaseEnv | undefined, input: { idPrefix: string; companyId: string; senderUserId: string; recipientUserIds: string[]; subject: string; body: string; importance: MailMessage["importance"] }) {
+  const messages: MailMessage[] = [];
+  const uniqueRecipientIds = Array.from(new Set(input.recipientUserIds));
+
+  for (const [index, recipientUserId] of uniqueRecipientIds.entries()) {
+    const message = await createOperationalMailMessage(env, {
+      id: `${input.idPrefix}_${index + 1}`,
+      companyId: input.companyId,
+      senderUserId: input.senderUserId,
+      recipientUserId,
+      subject: input.subject,
+      body: input.body,
+      importance: input.importance,
+    });
+    if (message) {
+      messages.push(message);
+    }
+  }
+
+  return messages;
+}
+
 export async function markOperationalMailMessageRead(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`

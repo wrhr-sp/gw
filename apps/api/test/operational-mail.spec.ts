@@ -107,6 +107,34 @@ describe("operational mail API", () => {
     await sql`delete from mail_messages where id = ${sendPayload.data.message.id}`;
   });
 
+  runWhenDbConfigured("sends one internal mail to multiple recipients through PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 다중수신 DB smoke ${Date.now()}`;
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserIds: ["user_hr_admin", "user_manager"], subject, body: "다중 수신 저장 조회 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(sendResponse.status).toBe(201);
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+    expect(sendPayload.data.messages?.length).toBe(2);
+    expect(new Set(sendPayload.data.messages?.map((message) => message.recipientUserId)).size).toBe(2);
+
+    const sentResponse = await app.request(`${appRoutes.mail.messages}?box=sent`, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(sentResponse.status).toBe(200);
+    const sentPayload = mailMessageListResponseSchema.parse(await sentResponse.json());
+    expect(sentPayload.data.items.filter((item) => item.subject === subject)).toHaveLength(2);
+
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+  });
+
   runWhenDbConfigured("uploads, lists, and downloads mail attachments through R2 and PostgreSQL", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const r2 = createFakeR2Bucket();
