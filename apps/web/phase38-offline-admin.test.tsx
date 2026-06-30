@@ -14,6 +14,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/offline",
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({
     push: vi.fn(),
     refresh: vi.fn(),

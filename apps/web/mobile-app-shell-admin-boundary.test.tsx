@@ -4,9 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 let mockedPathname = "/offline";
+let mockedSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockedPathname,
+  useSearchParams: () => mockedSearchParams,
   useRouter: () => ({
     push: vi.fn(),
     refresh: vi.fn(),
@@ -31,7 +33,7 @@ describe("mobile app shell admin boundary", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
         appName="GW Admin"
-        appEyebrow="경영업무포털"
+        appEyebrow="관리자 페이지"
         homeHref="/admin"
         navItems={adminPrimaryNav}
         bottomTabs={adminPrimaryNav}
@@ -57,7 +59,7 @@ describe("mobile app shell admin boundary", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
         appName="We'reHere"
-        appEyebrow="일반업무포털"
+        appEyebrow="일반(공통)업무"
         homeHref="/"
         navItems={mobileBottomTabs}
         bottomTabs={mobileBottomTabs}
@@ -84,7 +86,7 @@ describe("mobile app shell admin boundary", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
         appName="We'reHere"
-        appEyebrow="일반업무포털"
+        appEyebrow="일반(공통)업무"
         homeHref="/"
         navItems={mobileBottomTabs}
         bottomTabs={mobileBottomTabs}
@@ -100,7 +102,7 @@ describe("mobile app shell admin boundary", () => {
 
     expect(html).toContain("M12 2.25A9.75 9.75");
     expect(html).toContain("M12 2.25A9.75 9.75 0 1 0 21.75 12");
-    expect(html).toContain('aria-label="일반업무포털 사이드바 편집"');
+    expect(html).toContain('aria-label="일반(공통)업무 사이드바 편집"');
     expect(html).toContain('class="desktop-sidebar__collapsed-stack"');
     expect(html).toContain('desktop-sidebar__collapsed-custom-list--loading');
     expect(html).toContain('class="desktop-sidebar__footer"');
@@ -119,7 +121,7 @@ describe("mobile app shell admin boundary", () => {
     mockedPathname = "/home";
     const sharedProps = {
       appName: "We'reHere",
-      appEyebrow: "일반업무포털",
+      appEyebrow: "일반(공통)업무",
       homeHref: "/",
       navItems: mobileBottomTabs,
       bottomTabs: mobileBottomTabs,
@@ -136,7 +138,7 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
 
-    expect(generalHtml).toContain("일반업무포털");
+    expect(generalHtml).toContain("일반(공통)업무");
     expect(generalHtml).toContain("지점관리포털");
     expect(generalHtml).toContain("부서업무포털");
     expect(generalHtml).toContain('aria-label="지점관리포털 열기"');
@@ -147,7 +149,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
     expect(generalHtml).not.toContain('target="_blank"');
     expect(generalHtml).not.toContain('rel="noopener noreferrer"');
-    expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
+    expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반(공통)업무 홈"`);
     expect(generalHtml).toContain('href="/home" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
     expect(generalHtml).toContain('class="portal-switch-link department-portal-button"');
@@ -166,7 +168,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
     expect(generalHtml).toContain('desktop-sidebar__collapsed-custom-list--loading');
-    expect(generalHtml).toContain('aria-label="일반업무포털 사이드바 편집"');
+    expect(generalHtml).toContain('aria-label="일반(공통)업무 사이드바 편집"');
     expect(generalHtml).toContain('data-route="/home"');
     expect(generalHtml).toContain('data-route="/branches"');
     expect(generalHtml).toContain("지점관리");
@@ -188,24 +190,25 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).not.toContain("급여 내부관리");
 
     mockedPathname = "/management";
+    mockedSearchParams = new URLSearchParams();
     const managementHtml = renderToStaticMarkup(
       <MobileAppShell {...sharedProps}>
         <main>management content</main>
       </MobileAppShell>,
     );
 
-    expect(managementHtml).toContain("일반업무포털");
+    expect(managementHtml).toContain("일반(공통)업무");
     expect(managementHtml).toContain("지점관리포털");
     expect(managementHtml).toContain("부서업무포털");
     expect(managementHtml).toContain('aria-label="지점관리포털 열기"');
     expect(managementHtml).toContain('aria-label="부서업무포털 열기"');
     expect(managementHtml).toContain('aria-haspopup="menu"');
     expect(managementHtml).toContain('aria-expanded="false"');
-    expect(managementHtml).not.toContain('aria-label="일반업무포털 새 탭에서 보기"');
+    expect(managementHtml).not.toContain('aria-label="일반(공통)업무 새 탭에서 보기"');
     expect(managementHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
     expect(managementHtml).not.toContain('target="_blank"');
     expect(managementHtml).not.toContain('rel="noopener noreferrer"');
-    expect(managementHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
+    expect(managementHtml).toContain(`aria-label="We&#x27;reHere 일반(공통)업무 홈"`);
     expect(managementHtml).toContain('href="/home" class="topbar-brand-link"');
     expect(managementHtml).toContain('class="portal-switch-link department-portal-button"');
     expect(managementHtml).toContain("급여 내부관리");
@@ -213,10 +216,30 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).not.toContain("협업/소통");
     expect(managementHtml).not.toContain("일정/개인 업무");
 
+    mockedPathname = "/operations";
+    mockedSearchParams = new URLSearchParams("department=strategy");
+    const departmentHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>strategy department content</main>
+      </MobileAppShell>,
+    );
+    expect(departmentHtml).toContain(`aria-label="We&#x27;reHere 전략기획실 홈"`);
+    expect(departmentHtml).toContain(">전략기획실</span>");
+
+    mockedPathname = "/operations/branches/seoul";
+    mockedSearchParams = new URLSearchParams();
+    const branchHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>seoul branch content</main>
+      </MobileAppShell>,
+    );
+    expect(branchHtml).toContain(`aria-label="We&#x27;reHere 서울지점 홈"`);
+    expect(branchHtml).toContain(">서울지점</span>");
+
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
-    expect(shellSource).toContain('label: "대표이사실"');
-    expect(shellSource).toContain('label: "운영사업부", href: "/operations"');
-    expect(shellSource).toContain('label: "일반(공통)업무", href: "/home"');
+    expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
+    expect(shellSource).toContain('id: "operations", label: "운영사업부", href: "/operations"');
+    expect(shellSource).toContain('id: "common", label: COMMON_WORK_LABEL, href: "/home"');
     expect(shellSource).toContain('label: "관리자 페이지", href: "/admin"');
     expect(shellSource).toContain('const branchPortalItems = [');
     expect(shellSource).toContain('aria-label="지점관리포털 검색"');
@@ -226,6 +249,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).not.toContain("nextPortalLabel");
 
     mockedPathname = "/offline";
+    mockedSearchParams = new URLSearchParams();
   });
   it("caps unread badge labels at 99+ and hides empty counts", () => {
     expect(formatUnreadBadge(0)).toBeNull();
