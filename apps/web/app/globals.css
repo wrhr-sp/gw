@@ -631,6 +631,48 @@
   --feature-workspace-row-divider: 1px solid rgba(148, 163, 184, 0.22);
   --feature-workspace-badge-padding: 3px 8px;
   --feature-workspace-badge-font-size: var(--font-size-sm);
+  --feature-page-sublist-font-family: inherit;
+  --feature-page-sublist-font-size: inherit;
+  --feature-page-sublist-font-weight: inherit;
+  --feature-page-sublist-font-variation-settings: inherit;
+  --feature-page-sublist-line-height: inherit;
+  --feature-page-sublist-hover-color: var(--primary-hover);
+  --feature-page-sublist-padding-left: 10px;
+  --feature-page-sublist-marker-content: "ㄴ";
+  --feature-page-sublist-marker-color: var(--board-tree-link-branch-color);
+  --feature-page-sublist-marker-font-size: var(--font-size-sm);
+  --feature-page-sublist-marker-font-weight: var(--board-tree-parent-weight);
+  --feature-page-sublist-marker-line-height: var(--line-height-snug);
+  --feature-page-sublist-marker-gap: var(--board-tree-link-gap);
+  --feature-page-sublist-marker-padding-top: var(--board-tree-link-branch-padding-top);
+  --feature-page-write-button-min-height: var(--board-write-button-min-height);
+  --feature-page-write-button-border: var(--board-write-button-border);
+  --feature-page-write-button-border-radius: var(--board-write-button-border-radius);
+  --feature-page-write-button-background: var(--board-write-button-background);
+  --feature-page-write-button-color: var(--primary-hover);
+  --feature-page-write-button-font-weight: var(--board-write-button-font-weight);
+  --feature-page-write-button-font-variation-settings: var(--board-write-button-font-variation-settings);
+  --feature-page-write-button-padding: var(--board-write-button-padding);
+  --feature-page-write-button-hover-border-color: var(--board-inline-action-border-color);
+  --feature-page-write-button-hover-bg: var(--primary-soft);
+  --feature-page-list-parent-divider: var(--board-tree-section-department-border-top);
+  --feature-page-list-parent-divider-margin-top: var(--board-tree-section-department-margin-top);
+  --feature-page-list-parent-divider-padding-top: var(--board-tree-section-department-padding-top);
+  --feature-page-title-settings-button-size: 28px;
+  --feature-page-title-settings-button-border: var(--feature-workspace-control-border);
+  --feature-page-title-settings-button-radius: var(--radius-pill);
+  --feature-page-title-settings-button-bg: var(--surface-subtle);
+  --feature-page-title-settings-button-color: var(--text);
+  --feature-page-title-settings-button-icon-size: 16px;
+  --feature-page-title-settings-button-hover-border-color: var(--primary-soft-strong);
+  --feature-page-title-settings-button-hover-color: var(--primary-hover);
+  --feature-page-count-badge-bg: var(--primary-soft);
+  --feature-page-count-badge-color: var(--primary-hover);
+  --feature-page-count-badge-font-family: var(--feature-page-sublist-font-family);
+  --feature-page-count-badge-font-size: var(--feature-page-sublist-font-size);
+  --feature-page-count-badge-font-weight: var(--feature-page-sublist-font-weight);
+  --feature-page-count-badge-font-variation-settings: var(--feature-page-sublist-font-variation-settings);
+  --feature-page-count-badge-padding: var(--feature-workspace-badge-padding);
   --touch-button-secondary-min-height: 36px;
   --touch-button-secondary-padding: 8px 13px;
   --textarea-field-border-radius: 11px;
@@ -4188,22 +4230,27 @@ li {
 }
 
 .mail-folder-settings-button {
-  border: var(--feature-workspace-control-border);
-  border-radius: var(--radius-pill);
-  background: var(--surface-subtle);
-  color: var(--text);
+  display: inline-grid;
+  width: var(--feature-page-title-settings-button-size);
+  height: var(--feature-page-title-settings-button-size);
+  place-items: center;
+  border: var(--feature-page-title-settings-button-border);
+  border-radius: var(--feature-page-title-settings-button-radius);
+  background: var(--feature-page-title-settings-button-bg);
+  color: var(--feature-page-title-settings-button-color);
   cursor: pointer;
   font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--feature-workspace-emphasis-font-weight);
-  padding: 5px 10px;
+  font-size: var(--feature-page-title-settings-button-icon-size);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  padding: 0;
 }
 
 .mail-folder-settings-button:hover,
 .mail-folder-settings-button:focus-visible,
 .mail-folder-settings-button[aria-expanded="true"] {
-  border-color: var(--primary-soft-strong);
-  color: var(--primary-hover);
+  border-color: var(--feature-page-title-settings-button-hover-border-color);
+  color: var(--feature-page-title-settings-button-hover-color);
 }
 
 .mail-write-button {
@@ -4223,6 +4270,13 @@ li {
   gap: var(--feature-workspace-row-inner-gap);
 }
 
+.mail-folder-list__group + .mail-folder-list__item,
+.mail-folder-list__item + .mail-folder-list__group {
+  border-top: var(--feature-page-list-parent-divider);
+  margin-top: var(--feature-page-list-parent-divider-margin-top);
+  padding-top: var(--feature-page-list-parent-divider-padding-top);
+}
+
 .mail-folder-list__group-title {
   color: var(--text);
   font-size: var(--font-size-sm);
@@ -4236,32 +4290,54 @@ li {
   justify-content: space-between;
   gap: var(--feature-workspace-row-inner-gap);
   border: 0;
-  border-bottom: var(--feature-workspace-row-divider);
   background: transparent;
   color: var(--text);
   cursor: pointer;
   font: inherit;
+  font-family: var(--feature-page-sublist-font-family);
+  font-size: var(--feature-page-sublist-font-size);
+  font-variation-settings: var(--feature-page-sublist-font-variation-settings);
+  font-weight: var(--feature-page-sublist-font-weight);
+  line-height: var(--feature-page-sublist-line-height);
   padding: var(--feature-workspace-row-padding-block) 0;
   text-align: left;
 }
 
 .mail-folder-list__item--child {
-  padding-left: 10px;
+  padding-left: var(--feature-page-sublist-padding-left);
+}
+
+.mail-folder-list__item--child span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--feature-page-sublist-marker-gap);
+}
+
+.mail-folder-list__item--child span::before {
+  content: var(--feature-page-sublist-marker-content);
+  color: var(--feature-page-sublist-marker-color);
+  font-size: var(--feature-page-sublist-marker-font-size);
+  font-weight: var(--feature-page-sublist-marker-font-weight);
+  line-height: var(--feature-page-sublist-marker-line-height);
+  padding-top: var(--feature-page-sublist-marker-padding-top);
 }
 
 .mail-folder-list__item[aria-selected="true"] span,
 .mail-folder-list__item:hover span,
 .mail-folder-list__item:focus-visible span {
-  color: var(--primary-hover);
+  color: var(--feature-page-sublist-hover-color);
 }
 
 .mail-folder-list__item strong {
   justify-self: start;
   border-radius: var(--radius-pill);
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-  font-size: var(--feature-workspace-badge-font-size);
-  padding: var(--feature-workspace-badge-padding);
+  background: var(--feature-page-count-badge-bg);
+  color: var(--feature-page-count-badge-color);
+  font-family: var(--feature-page-count-badge-font-family);
+  font-size: var(--feature-page-count-badge-font-size);
+  font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
+  font-weight: var(--feature-page-count-badge-font-weight);
+  padding: var(--feature-page-count-badge-padding);
 }
 
 .mail-folder-editor {
@@ -4557,17 +4633,17 @@ li {
 .board-write-button,
 .board-inline-action {
   display: inline-flex;
-  min-height: var(--board-write-button-min-height);
+  min-height: var(--feature-page-write-button-min-height);
   align-items: center;
   justify-content: center;
-  border: var(--board-write-button-border);
-  border-radius: var(--board-write-button-border-radius);
-  background: var(--board-write-button-background);
-  color: var(--primary-hover);
-  font-variation-settings: var(--board-write-button-font-variation-settings);
-  font-weight: var(--board-write-button-font-weight);
+  border: var(--feature-page-write-button-border);
+  border-radius: var(--feature-page-write-button-border-radius);
+  background: var(--feature-page-write-button-background);
+  color: var(--feature-page-write-button-color);
+  font-variation-settings: var(--feature-page-write-button-font-variation-settings);
+  font-weight: var(--feature-page-write-button-font-weight);
   text-decoration: none;
-  padding: var(--board-write-button-padding);
+  padding: var(--feature-page-write-button-padding);
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
@@ -4584,9 +4660,9 @@ li {
 .board-write-button:focus-visible,
 .board-inline-action:hover,
 .board-inline-action:focus-visible {
-  border-color: var(--board-inline-action-border-color);
-  background: var(--primary-soft);
-  color: var(--primary-hover);
+  border-color: var(--feature-page-write-button-hover-border-color);
+  background: var(--feature-page-write-button-hover-bg);
+  color: var(--feature-page-write-button-color);
   outline: none;
 }
 
@@ -4705,11 +4781,11 @@ li {
 }
 
 .board-tree-link__branch {
-  color: var(--board-tree-link-branch-color);
-  font-size: var(--font-size-sm);
-  font-weight: var(--board-tree-parent-weight);
-  line-height: var(--line-height-snug);
-  padding-top: var(--board-tree-link-branch-padding-top);
+  color: var(--feature-page-sublist-marker-color);
+  font-size: var(--feature-page-sublist-marker-font-size);
+  font-weight: var(--feature-page-sublist-marker-font-weight);
+  line-height: var(--feature-page-sublist-marker-line-height);
+  padding-top: var(--feature-page-sublist-marker-padding-top);
 }
 
 .board-tree-link__copy {

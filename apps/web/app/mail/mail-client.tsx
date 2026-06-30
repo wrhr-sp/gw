@@ -250,7 +250,7 @@ export function MailClient() {
         role="treeitem"
         type="button"
       >
-        <span>{nested ? `ㄴ${folder.label}` : folder.label}</span>
+        <span>{folder.label}</span>
         {badge ? <strong>{badge}</strong> : null}
       </button>
     );
@@ -307,7 +307,7 @@ export function MailClient() {
             aria-label="메일 목록 편집"
             onClick={() => setIsFolderEditorOpen((value) => !value)}
           >
-            설정
+            <span aria-hidden="true">⚙</span>
           </button>
         </div>
         <div className="mail-folder-list" role="tree" aria-label="메일함 목록">
