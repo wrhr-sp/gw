@@ -22,6 +22,7 @@ const attendanceConfig: FeatureWorkspaceConfig = {
       id: "today",
       heading: "오늘 근태",
       summary: "출근 상태, 퇴근 버튼, 누락 알림을 먼저 보여 줘 직원이 바로 다음 행동을 할 수 있게 했습니다.",
+      permissionHint: "attendance.read 권한이 없으면 버튼 대신 차단 안내만 확인합니다.",
       statusCards: [
         { label: "출근", value: "09:00", note: "태그 등록 완료", tone: "accent" },
         { label: "퇴근", value: "대기", note: "퇴근 시 버튼 활성" },
@@ -33,7 +34,7 @@ const attendanceConfig: FeatureWorkspaceConfig = {
       ],
       rows: [
         { title: "오전 출근", meta: "태그 · 본사 출입", status: "확인", body: "기준 시각보다 늦지 않아 정상 근무로 표시됩니다." },
-        { title: "퇴근 전 확인", meta: "오늘 18:00 예정", status: "대기", body: "퇴근 전 미처리 정정 요청이 있으면 함께 표시합니다." },
+        { title: "퇴근 전 확인", meta: "오늘 18:00 예정", status: "대기", body: "퇴근 전 미처리 정정 요청이 있으면 함께 표시합니다.", actions: [{ label: "퇴근 등록", tone: "primary" }, { label: "정정 요청" }] },
       ],
     },
     {
@@ -48,7 +49,7 @@ const attendanceConfig: FeatureWorkspaceConfig = {
       rows: [
         { title: "2026-06-30", meta: "09:00 ~ 진행중", status: "출근" },
         { title: "2026-06-29", meta: "09:05 ~ 18:00", status: "정상" },
-        { title: "2026-06-28", meta: "09:00 ~ 퇴근 누락", status: "정정중" },
+        { title: "2026-06-28", meta: "09:00 ~ 퇴근 누락", status: "정정중", actions: [{ label: "사유 확인" }, { label: "요청 보완" }] },
       ],
     },
     {
@@ -77,6 +78,7 @@ const attendanceConfig: FeatureWorkspaceConfig = {
         { title: "인사 코디네이터", meta: "지각 사유 제출", status: "확인" },
       ],
       actions: [{ label: "선택 승인", tone: "primary" }, { label: "보완 요청" }],
+      emptyState: { title: "검토할 예외가 없으면", body: "오늘 예외 기록이 없을 때는 최근 처리 완료 기록과 정책 기준만 남겨 불필요한 조작을 줄입니다.", actionLabel: "처리 완료 보기" },
     },
   ],
 };

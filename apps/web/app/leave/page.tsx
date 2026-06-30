@@ -22,6 +22,7 @@ const leaveConfig: FeatureWorkspaceConfig = {
       id: "balance",
       heading: "잔여 휴가",
       summary: "직원이 신청 전에 사용할 수 있는 휴가와 이미 신청한 일정을 먼저 확인합니다.",
+      permissionHint: "leave.request 권한 기준으로 신청 CTA를 노출합니다.",
       statusCards: [
         { label: "사용 가능", value: "11일", tone: "accent" },
         { label: "승인 대기", value: "1일", tone: "warning" },
@@ -51,7 +52,7 @@ const leaveConfig: FeatureWorkspaceConfig = {
       heading: "내 신청 내역",
       summary: "신청한 휴가의 승인, 반려, 취소 가능 상태를 한눈에 봅니다.",
       rows: [
-        { title: "2026-07-08 연차", meta: "1일 · 개인 일정", status: "승인 대기" },
+        { title: "2026-07-08 연차", meta: "1일 · 개인 일정", status: "승인 대기", actions: [{ label: "상세 보기" }, { label: "신청 취소" }] },
         { title: "2026-06-21 오전 반차", meta: "0.5일 · 병원 방문", status: "승인" },
         { title: "2026-06-05 연차", meta: "1일 · 가족 일정", status: "완료" },
       ],
@@ -67,10 +68,11 @@ const leaveConfig: FeatureWorkspaceConfig = {
         { label: "반려 후 보완", value: "0건" },
       ],
       rows: [
-        { title: "운영 매니저", meta: "2026-07-08 · 연차 1일", status: "승인 대기" },
+        { title: "운영 매니저", meta: "2026-07-08 · 연차 1일", status: "승인 대기", actions: [{ label: "승인", tone: "primary" }, { label: "반려", tone: "danger" }, { label: "보완 요청" }] },
         { title: "인사 코디네이터", meta: "2026-07-10 오전 · 반차", status: "대체 확인" },
       ],
       actions: [{ label: "승인", tone: "primary" }, { label: "반려", tone: "danger" }, { label: "보완 요청" }],
+      emptyState: { title: "승인 대기가 없으면", body: "팀원 휴가 요청이 없을 때는 정책 예외와 최근 처리 내역만 확인합니다.", actionLabel: "최근 처리 보기" },
     },
   ],
 };

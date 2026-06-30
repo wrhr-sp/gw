@@ -22,14 +22,15 @@ const employeesConfig: FeatureWorkspaceConfig = {
       id: "directory",
       heading: "직원 목록",
       summary: "부서, 이름, 직책, 근무 상태로 직원을 빠르게 찾습니다.",
+      permissionHint: "employee.read 기준의 조회 화면이며 계정 생성·권한 변경은 관리자 화면에서만 처리합니다.",
       formFields: [
         { label: "검색", value: "이름 또는 부서" },
         { label: "부서", value: "전체 부서", type: "select" },
       ],
       rows: [
-        { title: "윤서진", meta: "전략기획팀 · 팀장", status: "재직" },
+        { title: "윤서진", meta: "전략기획팀 · 팀장", status: "재직", actions: [{ label: "프로필 보기", tone: "primary" }, { label: "조직도 위치" }] },
         { title: "정하늘", meta: "인사운영팀 · 팀장", status: "재직" },
-        { title: "김민수", meta: "인사운영팀 · 과장", status: "휴가" },
+        { title: "김민수", meta: "인사운영팀 · 과장", status: "휴가", actions: [{ label: "대체 연락" }, { label: "근무 상태" }] },
         { title: "오민재", meta: "서울지점 · 지점장", status: "외근" },
       ],
     },
@@ -69,6 +70,7 @@ const employeesConfig: FeatureWorkspaceConfig = {
       ],
       actions: [{ label: "권한 요청", tone: "primary" }, { label: "취소" }],
       notes: ["관리자 권한 변경은 담당 승인 후 적용합니다.", "민감 정보는 권한이 없으면 화면에 표시하지 않습니다."],
+      emptyState: { title: "조회 가능한 직원이 없으면", body: "검색어와 부서 범위를 확인하고, 권한이 필요한 정보는 관리자에게 요청합니다.", actionLabel: "검색 초기화" },
     },
   ],
 };
