@@ -569,11 +569,38 @@
   --feature-page-header-gap: 8px;
   --page-shell-header-border: 1px solid var(--line);
   --feature-page-headline-gap: 11px;
-  --page-shell-content-border-top: 1px solid var(--line);
+  --feature-page-content-bg: var(--surface);
+  --feature-page-content-border: var(--page-shell-content-border);
+  --feature-page-content-radius: var(--radius-xl);
+  --feature-page-content-shadow: var(--shadow);
+  --feature-page-content-padding: var(--content-padding);
+  --feature-page-content-title-border-top: 1px solid var(--line);
+  --page-shell-content-border-top: var(--feature-page-content-title-border-top);
+  --feature-page-section-divider: var(--surface-card-border-top);
+  --feature-page-section-divider-margin-top: var(--space-xl);
+  --feature-page-section-divider-padding-top: var(--space-xl);
+  --feature-page-nested-grid-gap: var(--grid-gap);
+  --feature-page-nested-card-bg: transparent;
+  --feature-page-nested-card-border: 0;
+  --feature-page-nested-card-radius: 0;
+  --feature-page-nested-card-padding: 0;
   --route-card-border-radius: 18px;
   --route-card-padding: 14px;
   --surface-card-margin-top: 14px;
   --surface-card-padding-top: 14px;
+  --feature-workspace-control-border: 1px solid rgba(148, 163, 184, 0.34);
+  --feature-workspace-control-radius: 10px;
+  --feature-workspace-control-bg: rgba(255, 255, 255, 0.76);
+  --feature-workspace-control-padding: 10px 12px;
+  --feature-workspace-form-label-gap: 6px;
+  --feature-workspace-field-group-gap: 8px;
+  --feature-workspace-field-legend-margin-bottom: 2px;
+  --feature-workspace-field-row-gap: 8px;
+  --feature-workspace-row-inner-gap: 4px;
+  --feature-workspace-row-padding-block: 10px;
+  --feature-workspace-row-divider: 1px solid rgba(148, 163, 184, 0.22);
+  --feature-workspace-badge-padding: 3px 8px;
+  --feature-workspace-badge-font-size: var(--font-size-sm);
   --touch-button-secondary-min-height: 36px;
   --touch-button-secondary-padding: 8px 13px;
   --textarea-field-border-radius: 11px;
@@ -1256,11 +1283,11 @@ li {
 .page-shell__content {
   display: grid;
   gap: 0;
-  background: var(--surface);
-  border: var(--page-shell-content-border);
-  border-radius: var(--radius-xl);
+  background: var(--feature-page-content-bg);
+  border: var(--feature-page-content-border);
+  border-radius: var(--feature-page-content-radius);
   box-shadow: var(--shadow);
-  padding: var(--content-padding);
+  padding: var(--feature-page-content-padding);
 }
 
 .hero-card,
@@ -1298,35 +1325,35 @@ li {
 }
 
 .page-shell__content > .surface-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
+  background: var(--feature-page-nested-card-bg);
+  border: var(--feature-page-nested-card-border);
+  border-radius: var(--feature-page-nested-card-radius);
+  padding: var(--feature-page-nested-card-padding);
 }
 
 .page-shell__content > .surface-card--muted {
-  background: transparent;
+  background: var(--feature-page-nested-card-bg);
 }
 
 .page-shell__content > .surface-card + .surface-card {
-  border-top: var(--surface-card-border-top);
-  margin-top: var(--space-xl);
-  padding-top: var(--space-xl);
+  border-top: var(--feature-page-section-divider);
+  margin-top: var(--feature-page-section-divider-margin-top);
+  padding-top: var(--feature-page-section-divider-padding-top);
 }
 
 .page-shell__content .grid-auto,
 .page-shell__content .grid-auto-compact,
 .page-shell__content .mobile-summary-grid {
-  gap: var(--grid-gap);
+  gap: var(--feature-page-nested-grid-gap);
 }
 
 .page-shell__content .info-card,
 .page-shell__content .stat-card,
 .page-shell__content .route-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
+  background: var(--feature-page-nested-card-bg);
+  border: var(--feature-page-nested-card-border);
+  border-radius: var(--feature-page-nested-card-radius);
+  padding: var(--feature-page-nested-card-padding);
 }
 
 .login-page-shell {
@@ -4011,9 +4038,9 @@ li {
 .feature-workspace__utility > div,
 .feature-workspace__status {
   display: grid;
-  gap: 4px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  gap: var(--feature-workspace-row-inner-gap);
+  padding: var(--feature-workspace-row-padding-block) 0;
+  border-bottom: var(--feature-workspace-row-divider);
   color: var(--text);
   text-align: left;
 }
@@ -4042,9 +4069,9 @@ li {
   border-radius: var(--radius-pill);
   background: var(--primary-soft);
   color: var(--primary-hover);
-  font-size: var(--font-size-sm);
+  font-size: var(--feature-workspace-badge-font-size);
   font-style: normal;
-  padding: 3px 8px;
+  padding: var(--feature-workspace-badge-padding);
 }
 
 .feature-workspace__status-grid {
@@ -4063,7 +4090,7 @@ li {
 
 .feature-workspace__form label {
   display: grid;
-  gap: 6px;
+  gap: var(--feature-workspace-form-label-gap);
   color: var(--text-muted);
   font-size: var(--font-size-sm);
   font-weight: 700;
@@ -4071,14 +4098,14 @@ li {
 
 .feature-workspace__field-group {
   display: grid;
-  gap: 8px;
+  gap: var(--feature-workspace-field-group-gap);
   border: 0;
   margin: 0;
   padding: 0;
 }
 
 .feature-workspace__field-group legend {
-  margin-bottom: 2px;
+  margin-bottom: var(--feature-workspace-field-legend-margin-bottom);
   color: var(--text-muted);
   font-size: var(--font-size-sm);
   font-weight: 800;
@@ -4087,7 +4114,7 @@ li {
 .feature-workspace__field-group label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--feature-workspace-field-row-gap);
 }
 
 .feature-workspace__field-group input[type="checkbox"] {
@@ -4099,12 +4126,12 @@ li {
 .feature-workspace__form select,
 .feature-workspace__form textarea {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.34);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.76);
+  border: var(--feature-workspace-control-border);
+  border-radius: var(--feature-workspace-control-radius);
+  background: var(--feature-workspace-control-bg);
   color: var(--text);
   font: inherit;
-  padding: 10px 12px;
+  padding: var(--feature-workspace-control-padding);
 }
 
 .feature-workspace__actions {
