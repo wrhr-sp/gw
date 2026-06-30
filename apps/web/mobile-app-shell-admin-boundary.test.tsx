@@ -230,10 +230,23 @@ describe("mobile app shell admin boundary", () => {
     expect(departmentHtml).toContain('data-route="/sales"');
     expect(departmentHtml).toContain('data-route="/work-items/tax"');
     expect(departmentHtml).toContain('data-route="/work-items/legal"');
-    expect(departmentHtml).toContain('data-route="/mail"');
-    expect(departmentHtml).toContain('data-route="/messenger"');
-    expect(departmentHtml).toContain('data-route="/boards"');
+    expect(departmentHtml).toContain('data-route="/mail?department=strategy"');
+    expect(departmentHtml).toContain('data-route="/messenger?department=strategy"');
+    expect(departmentHtml).toContain('data-route="/boards?department=strategy"');
     expect(departmentHtml).toContain("desktop-sidebar__collapsed-group-divider");
+
+    mockedPathname = "/boards";
+    mockedSearchParams = new URLSearchParams("department=strategy");
+    const departmentBasicWorkHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>strategy board content</main>
+      </MobileAppShell>,
+    );
+    expect(departmentBasicWorkHtml).toContain(`aria-label="We&#x27;reHere 전략기획실 홈"`);
+    expect(departmentBasicWorkHtml).toContain('href="/Strategic Planning" class="topbar-brand-link"');
+    expect(departmentBasicWorkHtml).toContain(">전략기획실</span>");
+    expect(departmentBasicWorkHtml).not.toContain(`aria-label="We&#x27;reHere 기본업무 홈"`);
+    expect(departmentBasicWorkHtml).toContain('data-route="/mail?department=strategy"');
 
     mockedPathname = "/CEO";
     mockedSearchParams = new URLSearchParams();
@@ -247,8 +260,8 @@ describe("mobile app shell admin boundary", () => {
     expect(ceoHtml).toContain('data-route="/payroll"');
     expect(ceoHtml).toContain('data-route="/work-items/labor"');
     expect(ceoHtml).toContain('data-route="/work-items/legal"');
-    expect(ceoHtml).toContain('data-route="/mail"');
-    expect(ceoHtml).toContain('data-route="/messenger"');
+    expect(ceoHtml).toContain('data-route="/mail?department=ceo"');
+    expect(ceoHtml).toContain('data-route="/messenger?department=ceo"');
 
     mockedPathname = "/Management Support";
     mockedSearchParams = new URLSearchParams();
@@ -259,7 +272,7 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
-    expect(supportHtml).toContain('data-route="/mail"');
+    expect(supportHtml).toContain('data-route="/mail?department=support"');
     expect(supportHtml).toContain('data-route="/work-items/hr"');
     expect(supportHtml).toContain('data-route="/payroll"');
     expect(supportHtml).not.toContain('data-route="/sales"');
@@ -275,8 +288,8 @@ describe("mobile app shell admin boundary", () => {
     expect(salesDepartmentHtml).toContain('aria-label="영업관리팀 사이드바 편집"');
     expect(salesDepartmentHtml).toContain('data-route="/Sales Management"');
     expect(salesDepartmentHtml).toContain('data-route="/sales"');
-    expect(salesDepartmentHtml).toContain('data-route="/mail"');
-    expect(salesDepartmentHtml).toContain('data-route="/messenger"');
+    expect(salesDepartmentHtml).toContain('data-route="/mail?department=sales-admin"');
+    expect(salesDepartmentHtml).toContain('data-route="/messenger?department=sales-admin"');
     expect(salesDepartmentHtml).toContain('data-route="/work-items/legal"');
     expect(salesDepartmentHtml).not.toContain('data-route="/attendance"');
     expect(salesDepartmentHtml).not.toContain('data-route="/payroll"');
@@ -290,8 +303,8 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(operationsDepartmentHtml).toContain('aria-label="운영사업부 사이드바 편집"');
     expect(operationsDepartmentHtml).toContain('data-route="/Operations Management"');
-    expect(operationsDepartmentHtml).toContain('data-route="/mail"');
-    expect(operationsDepartmentHtml).toContain('data-route="/messenger"');
+    expect(operationsDepartmentHtml).toContain('data-route="/mail?department=operations"');
+    expect(operationsDepartmentHtml).toContain('data-route="/messenger?department=operations"');
     expect(operationsDepartmentHtml).toContain('data-route="/work-items/labor"');
     expect(operationsDepartmentHtml).not.toContain('data-route="/sales"');
     expect(operationsDepartmentHtml).not.toContain('data-route="/payroll"');
@@ -320,9 +333,11 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
     expect(shellSource).toContain('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"');
     expect(shellSource).not.toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
-    expect(shellSource).not.toContain('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"');
+    expect(shellSource).toContain('const departmentPortalAdminItem = { label: "그룹웨어 관리자 페이지", href: "/admin" } as const;');
+    expect(shellSource).toContain('className="department-portal-popover__item department-portal-popover__item--admin"');
+    expect(shellSource).toContain('href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer"');
     expect(shellSource).toContain('const branchPortalItems = [');
-    expect(shellSource).toContain('const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = Object.fromEntries');
+
     expect(shellSource).toContain('ceo: ["/management"');
     expect(shellSource).toContain('strategy: ["/management"');
     expect(shellSource).toContain('support: ["/work-items/hr"');
@@ -334,6 +349,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
     expect(shellSource).not.toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
     expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
+    expect(shellSource).toContain('function getDepartmentScopedNavHref(item: NavItem)');
+    expect(shellSource).toContain('department=${encodeURIComponent(department.id)}');
     expect(shellSource).toContain("sidebar-settings-divider-option");
     expect(shellSource).toContain("desktop-sidebar__collapsed-group-divider");
     expect(shellSource).toContain("그룹웨어 관리자 페이지");

@@ -82,6 +82,8 @@ const departmentPortalItems = [
   { id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management" },
 ] as const;
 
+const departmentPortalAdminItem = { label: "그룹웨어 관리자 페이지", href: "/admin" } as const;
+
 const branchPortalItems = [
   { id: "gangnam", name: "강남지점", region: "서울", manager: "김지윤", access: "전체 운영관리" },
   { id: "seoul", name: "서울지점", region: "서울", manager: "정하린", access: "전체 운영관리" },
@@ -103,6 +105,10 @@ function getDepartmentByCurrentRoute(pathname: string, departmentId: string | nu
 
   if (normalizedPathname === "/operations" || normalizedPathname.startsWith("/operations/")) {
     return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations")) ?? departmentPortalItems.find((department) => department.id === "operations") ?? null;
+  }
+
+  if (departmentId && sidebarBasicHrefs.some((href) => normalizedPathname === href || normalizedPathname.startsWith(`${href}/`))) {
+    return departmentPortalItems.find((department) => department.id === departmentId) ?? null;
   }
 
   return null;
@@ -3387,6 +3393,20 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
+  function getDepartmentScopedNavHref(item: NavItem) {
+    if (!departmentSidebarPortalKeys.has(sidebarPortalKey) || getSidebarItemGroup(sidebarPortalKey, item.href) !== "basic") {
+      return item.href;
+    }
+
+    const department = getDepartmentByCurrentRoute(pathname, currentDepartmentId) ?? departmentPortalItems.find((portalItem) => portalItem.id === sidebarPortalKey);
+    if (!department) {
+      return item.href;
+    }
+
+    const separator = item.href.includes("?") ? "&" : "?";
+    return `${item.href}${separator}department=${encodeURIComponent(department.id)}`;
+  }
+
   function closeDepartmentPortalMenu() {
     setIsDepartmentPortalOpen(false);
   }
@@ -3403,7 +3423,7 @@ export function MobileAppShell({
       requestSensitiveRouteAccess(item.href);
       return;
     }
-    navigateTo(item.href);
+    navigateTo(getDepartmentScopedNavHref(item));
   }
 
   function renderAppRefreshOverlay() {
@@ -3476,7 +3496,7 @@ export function MobileAppShell({
                   return (
                     <React.Fragment key={item.href}>
                       {insertDivider ? <span className="desktop-sidebar__collapsed-group-divider" aria-hidden="true" /> : null}
-                      <button type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} onClick={() => handleNavItemClick(item)}>
+                      <button type="button" className={item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.permissionDenied ? "page" : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} onClick={() => handleNavItemClick(item)}>
                         {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                         <span>{item.shortLabel}</span>
                       </button>
@@ -3503,7 +3523,7 @@ export function MobileAppShell({
                       const active = matchesPath(pathname, item.href);
                       const iconName = getFeatureIconName(item.href, item.label);
                       return (
-                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={item.href} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
+                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
                           {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
                           <span>{item.label}</span>
                           {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
@@ -3565,6 +3585,9 @@ export function MobileAppShell({
                             {department.label}
                           </a>
                         ))}
+                        <a className="department-portal-popover__item department-portal-popover__item--admin" href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" onClick={closeDepartmentPortalMenu}>
+                          {departmentPortalAdminItem.label}
+                        </a>
                       </div>
                     ) : null}
                   </div>
