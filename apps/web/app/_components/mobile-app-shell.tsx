@@ -70,7 +70,23 @@ type FeatureIconProps = {
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
 const brandWordmark = "WE’REHERE";
-const departmentPortalItems = ["대표이사실", "전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부", "일반(공통)업무"] as const;
+const departmentPortalItems = [
+  { label: "대표이사실", href: "/operations?department=ceo" },
+  { label: "전략기획실", href: "/operations?department=strategy" },
+  { label: "경영지원팀", href: "/operations?department=support" },
+  { label: "영업관리팀", href: "/operations?department=sales-admin" },
+  { label: "광고사업팀", href: "/operations?department=ads" },
+  { label: "운영사업부", href: "/operations" },
+  { label: "일반(공통)업무", href: "/home" },
+  { label: "관리자 페이지", href: "/admin" },
+] as const;
+
+const branchPortalItems = [
+  { id: "gangnam", name: "강남지점", region: "서울", manager: "김지윤", access: "전체 운영관리" },
+  { id: "busan", name: "부산지점", region: "부산", manager: "박민재", access: "운영이슈 확인" },
+  { id: "daejeon", name: "대전지점", region: "대전", manager: "이서연", access: "매출보고 확인" },
+  { id: "gwangju", name: "광주지점", region: "광주", manager: "최현우", access: "입금요청 확인" },
+] as const;
 
 type TopbarIconButtonProps = {
   label: string;
@@ -1246,6 +1262,8 @@ export function MobileAppShell({
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
   const [isDepartmentPortalOpen, setIsDepartmentPortalOpen] = useState(false);
+  const [isBranchPortalOpen, setIsBranchPortalOpen] = useState(false);
+  const [branchPortalSearch, setBranchPortalSearch] = useState("");
   const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
@@ -1300,6 +1318,7 @@ export function MobileAppShell({
   const appRefreshOverlayTimerRef = useRef<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const departmentPortalRef = useRef<HTMLDivElement | null>(null);
+  const branchPortalRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
   void installGuideSteps;
@@ -1420,7 +1439,13 @@ export function MobileAppShell({
 
   const currentPortalHomeHref = isAdminHostShell ? homeHref : "/home";
   const desktopHomeItem = !isAdminHostShell ? { href: currentPortalHomeHref, label: "홈", shortLabel: "홈", summary: `${currentPortalLabel} 홈` } : null;
+  const branchPortalLabel = "지점관리포털";
   const departmentPortalLabel = "부서업무포털";
+  const filteredBranchPortalItems = branchPortalItems.filter((branch) => {
+    const keyword = branchPortalSearch.trim().toLowerCase();
+    if (!keyword) return true;
+    return `${branch.name} ${branch.region} ${branch.manager}`.toLowerCase().includes(keyword);
+  });
   const sidebarCustomizationItems = useMemo(
     () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
     [visibleDesktopMenuSections],
@@ -1693,6 +1718,33 @@ export function MobileAppShell({
       document.removeEventListener("keydown", closeDepartmentPortal);
     };
   }, [isDepartmentPortalOpen]);
+
+  useEffect(() => {
+    if (!isBranchPortalOpen) {
+      return;
+    }
+
+    function closeBranchPortal(event: MouseEvent | KeyboardEvent) {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") {
+          setIsBranchPortalOpen(false);
+        }
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Node && !branchPortalRef.current?.contains(target)) {
+        setIsBranchPortalOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeBranchPortal);
+    document.addEventListener("keydown", closeBranchPortal);
+    return () => {
+      document.removeEventListener("mousedown", closeBranchPortal);
+      document.removeEventListener("keydown", closeBranchPortal);
+    };
+  }, [isBranchPortalOpen]);
 
   useEffect(() => {
     if (!isSidebarSettingsOpen) {
@@ -3130,6 +3182,17 @@ export function MobileAppShell({
     router.push(href as never);
   }
 
+  function openDepartmentPortalItem(href: string) {
+    setIsDepartmentPortalOpen(false);
+    navigateTo(href);
+  }
+
+  function openBranchPortalItem(branchId: string) {
+    setIsBranchPortalOpen(false);
+    setBranchPortalSearch("");
+    navigateTo(`/operations/branches/${branchId}`);
+  }
+
   function handleNavItemClick(item: NavItem) {
     if (item.permissionDenied) {
       showPermissionDeniedNotice();
@@ -3269,28 +3332,68 @@ export function MobileAppShell({
             </a>
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
-                <div className="department-portal-menu" ref={departmentPortalRef}>
-                  <button
-                    className="portal-switch-link department-portal-button"
-                    type="button"
-                    aria-label={`${departmentPortalLabel} 열기`}
-                    aria-expanded={isDepartmentPortalOpen}
-                    aria-haspopup="menu"
-                    onClick={() => setIsDepartmentPortalOpen((value) => !value)}
-                  >
-                    <span>{departmentPortalLabel}</span>
-                    <PortalShortcutIcon />
-                  </button>
-                  {isDepartmentPortalOpen ? (
-                    <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
-                      {departmentPortalItems.map((department) => (
-                        <button key={department} className="department-portal-popover__item" type="button" role="menuitem">
-                          {department}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <>
+                  <div className="department-portal-menu branch-portal-menu" ref={branchPortalRef}>
+                    <button
+                      className="portal-switch-link branch-portal-button"
+                      type="button"
+                      aria-label={`${branchPortalLabel} 열기`}
+                      aria-expanded={isBranchPortalOpen}
+                      aria-haspopup="dialog"
+                      onClick={() => setIsBranchPortalOpen((value) => !value)}
+                    >
+                      <span>{branchPortalLabel}</span>
+                      <PortalShortcutIcon />
+                    </button>
+                    {isBranchPortalOpen ? (
+                      <div className="department-portal-popover branch-portal-popover" role="dialog" aria-label="지점관리포털 검색">
+                        <label className="branch-portal-popover__search">
+                          <span>지점 검색</span>
+                          <input
+                            aria-label="지점 검색"
+                            value={branchPortalSearch}
+                            onChange={(event) => setBranchPortalSearch(event.target.value)}
+                            placeholder="지점명, 지역, 담당자"
+                          />
+                        </label>
+                        <div className="branch-portal-popover__list" role="listbox" aria-label="접근 가능한 지점">
+                          {filteredBranchPortalItems.length ? (
+                            filteredBranchPortalItems.map((branch) => (
+                              <button key={branch.id} className="department-portal-popover__item branch-portal-popover__item" type="button" role="option" onClick={() => openBranchPortalItem(branch.id)}>
+                                <strong>{branch.name}</strong>
+                                <span>{branch.region} · {branch.manager} · {branch.access}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <p className="branch-portal-popover__empty">접근 가능한 지점이 없습니다.</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="department-portal-menu" ref={departmentPortalRef}>
+                    <button
+                      className="portal-switch-link department-portal-button"
+                      type="button"
+                      aria-label={`${departmentPortalLabel} 열기`}
+                      aria-expanded={isDepartmentPortalOpen}
+                      aria-haspopup="menu"
+                      onClick={() => setIsDepartmentPortalOpen((value) => !value)}
+                    >
+                      <span>{departmentPortalLabel}</span>
+                      <PortalShortcutIcon />
+                    </button>
+                    {isDepartmentPortalOpen ? (
+                      <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
+                        {departmentPortalItems.map((department) => (
+                          <button key={department.label} className="department-portal-popover__item" type="button" role="menuitem" onClick={() => openDepartmentPortalItem(department.href)}>
+                            {department.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
               ) : null}
               {!isAdminHostShell ? (
                 <>

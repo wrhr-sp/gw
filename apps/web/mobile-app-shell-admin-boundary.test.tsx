@@ -137,7 +137,9 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(generalHtml).toContain("일반업무포털");
+    expect(generalHtml).toContain("지점관리포털");
     expect(generalHtml).toContain("부서업무포털");
+    expect(generalHtml).toContain('aria-label="지점관리포털 열기"');
     expect(generalHtml).toContain('aria-label="부서업무포털 열기"');
     expect(generalHtml).toContain('aria-haspopup="menu"');
     expect(generalHtml).toContain('aria-expanded="false"');
@@ -193,7 +195,9 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(managementHtml).toContain("일반업무포털");
+    expect(managementHtml).toContain("지점관리포털");
     expect(managementHtml).toContain("부서업무포털");
+    expect(managementHtml).toContain('aria-label="지점관리포털 열기"');
     expect(managementHtml).toContain('aria-label="부서업무포털 열기"');
     expect(managementHtml).toContain('aria-haspopup="menu"');
     expect(managementHtml).toContain('aria-expanded="false"');
@@ -210,10 +214,15 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).not.toContain("일정/개인 업무");
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
-    expect(shellSource).toContain('const departmentPortalItems = ["대표이사실", "전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부", "일반(공통)업무"] as const;');
+    expect(shellSource).toContain('label: "대표이사실"');
+    expect(shellSource).toContain('label: "운영사업부", href: "/operations"');
+    expect(shellSource).toContain('label: "일반(공통)업무", href: "/home"');
+    expect(shellSource).toContain('label: "관리자 페이지", href: "/admin"');
+    expect(shellSource).toContain('const branchPortalItems = [');
+    expect(shellSource).toContain('aria-label="지점관리포털 검색"');
+    expect(shellSource).toContain('placeholder="지점명, 지역, 담당자"');
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
-    expect(shellSource).not.toContain("branchPortalLabel");
     expect(shellSource).not.toContain("nextPortalLabel");
 
     mockedPathname = "/offline";
