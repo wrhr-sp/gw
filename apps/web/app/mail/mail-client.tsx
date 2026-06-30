@@ -21,10 +21,37 @@ const recipientOptions = [
 ];
 
 const boxLabels: Record<MailBox, string> = {
-  inbox: "받은 메일",
-  sent: "보낸 메일",
-  drafts: "임시보관",
+  inbox: "받은 메일함",
+  sent: "보낸메일함",
+  drafts: "임시보관함",
 };
+
+type MailFolderId = "favorites" | "inbox" | "sent" | "drafts" | "scheduled" | "spam" | "trash" | "external";
+type MailView = MailFolderId | "compose" | "security";
+
+type MailFolderConfig = {
+  id: MailFolderId;
+  label: string;
+  group: "standalone" | "mailbox";
+  box?: MailBox;
+};
+
+const defaultMailFolders: readonly MailFolderConfig[] = [
+  { id: "favorites", label: "즐겨찾기", group: "standalone" },
+  { id: "inbox", label: "받은 메일함", group: "mailbox", box: "inbox" },
+  { id: "sent", label: "보낸메일함", group: "mailbox", box: "sent" },
+  { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
+  { id: "scheduled", label: "예약메일함", group: "mailbox" },
+  { id: "spam", label: "스팸메일함", group: "mailbox" },
+  { id: "trash", label: "휴지통", group: "mailbox" },
+  { id: "external", label: "외부메일함", group: "standalone" },
+];
+
+const defaultVisibleFolderIds = defaultMailFolders.map((folder) => folder.id);
+
+function isMailBox(value: MailView): value is MailBox {
+  return value === "inbox" || value === "sent" || value === "drafts";
+}
 
 function formatMeta(message: MailMessage, box: MailBox) {
   const when = message.sentAt ?? message.updatedAt;
@@ -34,8 +61,28 @@ function formatMeta(message: MailMessage, box: MailBox) {
   return `${message.senderName} · ${label}`;
 }
 
+function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number }) {
+  if (folder.id === "inbox") return String(counts.inbox);
+  if (folder.id === "sent") return String(counts.sent);
+  if (folder.id === "drafts") return String(counts.drafts);
+  if (folder.id === "favorites") return "★";
+  return "";
+}
+
+function moveFolder(folderIds: MailFolderId[], folderId: MailFolderId, direction: "up" | "down") {
+  const index = folderIds.indexOf(folderId);
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || nextIndex < 0 || nextIndex >= folderIds.length) {
+    return folderIds;
+  }
+  const next = [...folderIds];
+  const [item] = next.splice(index, 1);
+  next.splice(nextIndex, 0, item);
+  return next;
+}
+
 export function MailClient() {
-  const [box, setBox] = useState<MailBox>("inbox");
+  const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
@@ -46,16 +93,22 @@ export function MailClient() {
   const [importance, setImportance] = useState<"normal" | "important">("normal");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
+  const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
+  const [visibleFolderIds, setVisibleFolderIds] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
 
-  const tabs = useMemo(
-    () => [
-      { id: "inbox" as const, label: "받은 메일", badge: String(counts.inbox) },
-      { id: "compose" as const, label: "메일 작성", badge: "작성" },
-      { id: "sent" as const, label: "보낸 메일", badge: String(counts.sent) },
-      { id: "security" as const, label: "보안 확인", badge: counts.unread > 0 ? "점검" : "정상" },
-    ],
-    [counts.inbox, counts.sent, counts.unread],
+  const orderedFolders = useMemo(
+    () => folderOrder
+      .map((folderId) => defaultMailFolders.find((folder) => folder.id === folderId))
+      .filter((folder): folder is MailFolderConfig => Boolean(folder)),
+    [folderOrder],
   );
+  const visibleFolders = orderedFolders.filter((folder) => visibleFolderIds.includes(folder.id));
+  const standaloneBeforeMailbox = visibleFolders.filter((folder) => folder.group === "standalone" && folder.id !== "external");
+  const mailboxFolders = visibleFolders.filter((folder) => folder.group === "mailbox");
+  const externalFolders = visibleFolders.filter((folder) => folder.id === "external");
+  const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
+  const currentBox = isMailBox(view) ? view : null;
 
   async function loadAttachments(messages: MailMessage[]) {
     const entries = await Promise.all(messages.map(async (message) => {
@@ -67,7 +120,7 @@ export function MailClient() {
     setAttachmentsByMessageId(Object.fromEntries(entries));
   }
 
-  async function loadMessages(nextBox: MailBox = box) {
+  async function loadMessages(nextBox: MailBox) {
     setStatus("메일함을 불러오는 중입니다.");
     const response = await fetch(`${appRoutes.mail.messages}?box=${nextBox}`, { credentials: "same-origin" });
     const payload = await response.json();
@@ -85,11 +138,23 @@ export function MailClient() {
   }
 
   useEffect(() => {
-    if (box === "inbox" || box === "sent") {
-      void loadMessages(box);
+    if (isMailBox(view)) {
+      void loadMessages(view);
+      return;
     }
+    if (view === "compose") {
+      setStatus("메일 작성 화면입니다.");
+      return;
+    }
+    if (view === "security") {
+      setStatus(counts.unread > 0 ? "읽지 않은 메일을 먼저 확인하세요." : "보안 확인 상태가 정상입니다.");
+      return;
+    }
+    setItems([]);
+    setAttachmentsByMessageId({});
+    setStatus(`${currentFolder?.label ?? "메일함"}은 목록 위치만 준비되어 있습니다. 실제 연동은 별도 설정 후 연결합니다.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box]);
+  }, [view]);
 
   function toggleRecipient(recipientId: string) {
     setRecipientUserIds((current) => {
@@ -99,6 +164,22 @@ export function MailClient() {
       }
       return [...current, recipientId];
     });
+  }
+
+  function toggleFolderVisibility(folderId: MailFolderId) {
+    setVisibleFolderIds((current) => {
+      if (current.includes(folderId)) {
+        const next = current.filter((id) => id !== folderId);
+        return next.length ? next : current;
+      }
+      return [...current, folderId];
+    });
+  }
+
+  function resetFolderSettings() {
+    setFolderOrder([...defaultVisibleFolderIds]);
+    setVisibleFolderIds([...defaultVisibleFolderIds]);
+    setStatus("메일 목록 기본값을 다시 적용했습니다.");
   }
 
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
@@ -118,7 +199,7 @@ export function MailClient() {
         return;
       }
       const parsed = mailMessageSendResponseSchema.parse(payload);
-      const sentMessages = parsed.data.messages ?? [parsed.data.message];
+      const sentMessages = [parsed.data.message];
       if (attachmentFile) {
         for (const message of sentMessages) {
           const formData = new FormData();
@@ -138,7 +219,7 @@ export function MailClient() {
       }
       setAttachmentFile(null);
       setStatus(`메일 ${sentMessages.length}건과 첨부가 DB/R2에 저장되고 보낸 메일함에 반영됐습니다.`);
-      setBox("sent");
+      setView("sent");
       await loadMessages("sent");
     } finally {
       setIsSubmitting(false);
@@ -157,31 +238,91 @@ export function MailClient() {
     await loadMessages("inbox");
   }
 
+  function renderFolderButton(folder: MailFolderConfig, nested = false) {
+    const selected = view === folder.id;
+    const badge = getFolderBadge(folder, counts);
+    return (
+      <button
+        aria-selected={selected}
+        className={nested ? "mail-folder-list__item mail-folder-list__item--child" : "mail-folder-list__item"}
+        key={folder.id}
+        onClick={() => setView(folder.id)}
+        role="treeitem"
+        type="button"
+      >
+        <span>{nested ? `ㄴ${folder.label}` : folder.label}</span>
+        {badge ? <strong>{badge}</strong> : null}
+      </button>
+    );
+  }
+
+  function renderFolderEditor() {
+    if (!isFolderEditorOpen) return null;
+
+    return (
+      <section className="mail-folder-editor" aria-label="메일 목록 편집">
+        <div className="mail-folder-editor__header">
+          <strong>메일 목록 편집</strong>
+          <button className="mail-folder-editor__close" type="button" aria-label="메일 목록 편집 닫기" onClick={() => setIsFolderEditorOpen(false)}>×</button>
+        </div>
+        <div className="mail-folder-editor__list">
+          {orderedFolders.map((folder, index) => (
+            <div className="mail-folder-editor__row" key={folder.id}>
+              <label>
+                <input
+                  checked={visibleFolderIds.includes(folder.id)}
+                  onChange={() => toggleFolderVisibility(folder.id)}
+                  type="checkbox"
+                />
+                <span>{folder.label}</span>
+              </label>
+              <div className="mail-folder-editor__row-actions">
+                <button type="button" disabled={index === 0} onClick={() => setFolderOrder((current) => moveFolder(current, folder.id, "up"))}>위</button>
+                <button type="button" disabled={index === orderedFolders.length - 1} onClick={() => setFolderOrder((current) => moveFolder(current, folder.id, "down"))}>아래</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mail-folder-editor__actions">
+          <button type="button" className="touch-button feature-workspace__action feature-workspace__action--secondary" onClick={resetFolderSettings}>기본값</button>
+          <button type="button" className="touch-button feature-workspace__action feature-workspace__action--primary" onClick={() => setIsFolderEditorOpen(false)}>적용</button>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className="feature-workspace">
+    <div className="feature-workspace mail-workspace">
       <aside className="feature-workspace__nav" aria-label="메일 메뉴">
-        <div className="feature-workspace__nav-header">
+        <div className="feature-workspace__nav-header mail-workspace__title-row">
           <h1>
-            <button className="page-shell__title-link page-shell__title-button" onClick={() => setBox("inbox")} type="button">
+            <button className="page-shell__title-link page-shell__title-button" onClick={() => setView("inbox")} type="button">
               메일
             </button>
           </h1>
+          <button
+            type="button"
+            className="mail-folder-settings-button"
+            aria-expanded={isFolderEditorOpen}
+            aria-label="메일 목록 편집"
+            onClick={() => setIsFolderEditorOpen((value) => !value)}
+          >
+            설정
+          </button>
         </div>
-        <div className="feature-workspace__tab-list" role="tablist" aria-label="메일 화면 선택">
-          {tabs.map((tab) => (
-            <button
-              aria-selected={(tab.id === "compose" && box === "drafts") || tab.id === box || (tab.id === "security" && false)}
-              className="feature-workspace__tab"
-              key={tab.id}
-              onClick={() => setBox(tab.id === "compose" ? "drafts" : tab.id === "security" ? "inbox" : tab.id)}
-              role="tab"
-              type="button"
-            >
-              <span>{tab.label}</span>
-              <strong>{tab.badge}</strong>
-            </button>
-          ))}
+        <div className="mail-folder-list" role="tree" aria-label="메일함 목록">
+          {standaloneBeforeMailbox.map((folder) => renderFolderButton(folder))}
+          {mailboxFolders.length ? (
+            <section className="mail-folder-list__group" aria-label="메일함">
+              <strong className="mail-folder-list__group-title">메일함</strong>
+              <div className="mail-folder-list__children">
+                {mailboxFolders.map((folder) => renderFolderButton(folder, true))}
+              </div>
+            </section>
+          ) : null}
+          {externalFolders.map((folder) => renderFolderButton(folder))}
         </div>
+        {renderFolderEditor()}
         <div className="feature-workspace__utility" aria-label="요약 정보">
           <div><span>읽지 않음</span><strong>{counts.unread}건</strong></div>
           <div><span>받은 메일</span><strong>{counts.inbox}건</strong></div>
@@ -192,12 +333,15 @@ export function MailClient() {
       <section className="feature-workspace__panel" aria-labelledby="mail-panel-heading">
         <div className="feature-workspace__panel-header">
           <div>
-            <h2 id="mail-panel-heading">{box === "drafts" ? "메일 작성" : boxLabels[box]}</h2>
+            <h2 id="mail-panel-heading">{view === "compose" ? "메일 작성" : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
           </div>
+          {view !== "compose" ? (
+            <button className="board-write-button mail-write-button" type="button" onClick={() => setView("compose")}>메일쓰기</button>
+          ) : null}
         </div>
         <p className="feature-workspace__panel-status" role="status">{status}</p>
 
-        {box === "drafts" ? (
+        {view === "compose" ? (
           <form className="feature-workspace__form" onSubmit={sendMessage}>
             <fieldset className="feature-workspace__field-group">
               <legend>받는 사람</legend>
@@ -238,7 +382,7 @@ export function MailClient() {
               </button>
             </div>
           </form>
-        ) : (
+        ) : currentBox ? (
           <div className="feature-workspace__rows">
             {items.length === 0 ? (
               <article className="feature-workspace__row"><div><strong>표시할 메일이 없습니다.</strong><span>DB 조회 결과</span></div><em>비어 있음</em></article>
@@ -246,7 +390,7 @@ export function MailClient() {
               <article className="feature-workspace__row" key={message.id}>
                 <div>
                   <strong>{message.subject}</strong>
-                  <span>{formatMeta(message, box)}</span>
+                  <span>{formatMeta(message, currentBox)}</span>
                   <p>{message.body}</p>
                   {attachmentsByMessageId[message.id]?.length ? (
                     <ul className="feature-workspace__notes">
@@ -259,11 +403,21 @@ export function MailClient() {
                     </ul>
                   ) : null}
                 </div>
-                {box === "inbox" && !message.readAt ? (
+                {currentBox === "inbox" && !message.readAt ? (
                   <button className="touch-button feature-workspace__action feature-workspace__action--secondary" onClick={() => void markRead(message.id)} type="button">읽음</button>
                 ) : <em>{message.importance === "important" ? "중요" : message.readAt ? "읽음" : "발송"}</em>}
               </article>
             ))}
+          </div>
+        ) : (
+          <div className="feature-workspace__rows">
+            <article className="feature-workspace__row">
+              <div>
+                <strong>{currentFolder?.label ?? "메일함"}</strong>
+                <span>목록 편집에서 표시 여부와 순서를 조정할 수 있습니다.</span>
+              </div>
+              <em>연결 대기</em>
+            </article>
           </div>
         )}
       </section>
