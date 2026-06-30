@@ -645,6 +645,10 @@
   --feature-page-sublist-marker-line-height: var(--line-height-snug);
   --feature-page-sublist-marker-gap: var(--board-tree-link-gap);
   --feature-page-sublist-marker-padding-top: var(--board-tree-link-branch-padding-top);
+  --feature-page-list-section-gap: var(--board-tree-section-gap);
+  --feature-page-list-item-gap: var(--board-tree-item-gap);
+  --feature-page-list-item-inner-gap: var(--board-tree-link-gap);
+  --feature-page-list-item-padding-block: var(--board-tree-link-padding-block);
   --feature-page-write-button-min-height: var(--board-write-button-min-height);
   --feature-page-write-button-border: var(--board-write-button-border);
   --feature-page-write-button-border-radius: var(--board-write-button-border-radius);
@@ -4192,6 +4196,10 @@ li {
   gap: var(--feature-workspace-list-gap);
 }
 
+.feature-workspace__tab-list {
+  gap: var(--feature-page-list-item-gap);
+}
+
 .feature-workspace__tab,
 .feature-workspace__row,
 .feature-workspace__status,
@@ -4217,6 +4225,8 @@ li {
 .feature-workspace__tab {
   font: inherit;
   cursor: pointer;
+  gap: var(--feature-page-list-item-inner-gap);
+  padding: var(--feature-page-list-item-padding-block) 0;
 }
 
 .feature-workspace__tab[aria-selected="true"] span,
@@ -4262,12 +4272,16 @@ li {
 .mail-folder-list__children,
 .mail-folder-editor__list {
   display: grid;
-  gap: var(--feature-workspace-list-gap);
+  gap: var(--feature-page-list-item-gap);
+}
+
+.mail-folder-list {
+  gap: var(--feature-page-list-section-gap);
 }
 
 .mail-folder-list__group {
   display: grid;
-  gap: var(--feature-workspace-row-inner-gap);
+  gap: var(--feature-page-list-item-gap);
 }
 
 .mail-folder-list__group + .mail-folder-list__item,
@@ -4281,14 +4295,14 @@ li {
   color: var(--text);
   font-size: var(--font-size-sm);
   font-weight: var(--feature-workspace-emphasis-font-weight);
-  padding-top: var(--feature-workspace-row-padding-block);
+  padding-top: var(--feature-page-list-item-padding-block);
 }
 
 .mail-folder-list__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--feature-workspace-row-inner-gap);
+  gap: var(--feature-page-list-item-inner-gap);
   border: 0;
   background: transparent;
   color: var(--text);
@@ -4299,7 +4313,7 @@ li {
   font-variation-settings: var(--feature-page-sublist-font-variation-settings);
   font-weight: var(--feature-page-sublist-font-weight);
   line-height: var(--feature-page-sublist-line-height);
-  padding: var(--feature-workspace-row-padding-block) 0;
+  padding: var(--feature-page-list-item-padding-block) 0;
   text-align: left;
 }
 
@@ -4681,14 +4695,14 @@ li {
 
 .board-tree-section {
   display: grid;
-  gap: var(--board-tree-section-gap);
+  gap: var(--feature-page-list-section-gap);
 }
 
 .board-tree-section--department,
 .board-tree-section + .board-user-scope-card {
-  border-top: var(--board-tree-section-department-border-top);
-  margin-top: var(--board-tree-section-department-margin-top);
-  padding-top: var(--board-tree-section-department-padding-top);
+  border-top: var(--feature-page-list-parent-divider);
+  margin-top: var(--feature-page-list-parent-divider-margin-top);
+  padding-top: var(--feature-page-list-parent-divider-padding-top);
 }
 
 .board-tree-section__header {
@@ -4729,7 +4743,7 @@ li {
 
 .board-tree-section__items {
   display: grid;
-  gap: var(--board-tree-item-gap);
+  gap: var(--feature-page-list-item-gap);
 }
 
 .board-post-list {
@@ -4755,8 +4769,8 @@ li {
 
 .board-tree-link {
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: var(--board-tree-link-gap);
-  padding: var(--board-tree-link-padding-block) 0;
+  gap: var(--feature-page-list-item-inner-gap);
+  padding: var(--feature-page-list-item-padding-block) 0;
 }
 
 .board-tree-link:hover,
@@ -5300,7 +5314,7 @@ li {
 .messenger-thread-list,
 .messenger-org-tree {
   display: grid;
-  gap: 6px;
+  gap: var(--feature-page-list-item-gap);
 }
 
 .messenger-thread-list {
@@ -5342,7 +5356,7 @@ li {
 
 .messenger-thread__body {
   display: grid;
-  gap: 3px;
+  gap: var(--feature-page-list-item-gap);
   min-width: 0;
 }
 
