@@ -115,7 +115,7 @@ describe("mobile app shell admin boundary", () => {
 
 
 
-  it("separates the PC sidebar into general and management portals with opposite topbar switches", () => {
+  it("keeps the PC sidebar portal split while replacing topbar portal switches with a department portal menu", () => {
     mockedPathname = "/home";
     const sharedProps = {
       appName: "We'reHere",
@@ -137,23 +137,18 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(generalHtml).toContain("일반업무포털");
-    expect(generalHtml).toContain("경영업무포털");
-    expect(generalHtml).toContain('aria-label="경영업무포털 새 탭에서 보기"');
-    expect(generalHtml).toContain('target="_blank"');
-    expect(generalHtml).toContain('rel="noopener noreferrer"');
+    expect(generalHtml).toContain("부서업무포털");
+    expect(generalHtml).toContain('aria-label="부서업무포털 열기"');
+    expect(generalHtml).toContain('aria-haspopup="menu"');
+    expect(generalHtml).toContain('aria-expanded="false"');
+    expect(generalHtml).not.toContain('aria-label="경영업무포털 새 탭에서 보기"');
+    expect(generalHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
+    expect(generalHtml).not.toContain('target="_blank"');
+    expect(generalHtml).not.toContain('rel="noopener noreferrer"');
     expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
     expect(generalHtml).toContain('href="/home" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
-    expect(generalHtml).toContain('data-route="/work-items/branch"');
-    expect(generalHtml).toContain('href="/work-items/branch"');
-    expect(generalHtml).toContain('class="portal-switch-link portal-switch-link--branch"');
-    expect(generalHtml).toContain('aria-label="지점관리포털 새 탭에서 보기"');
-    const generalBranchSwitchIndex = generalHtml.indexOf('class="portal-switch-link portal-switch-link--branch"');
-    const generalNextPortalSwitchIndex = generalHtml.indexOf('aria-label="경영업무포털 새 탭에서 보기"');
-    expect(generalBranchSwitchIndex).toBeGreaterThan(-1);
-    expect(generalBranchSwitchIndex).toBeLessThan(generalNextPortalSwitchIndex);
-    expect(generalHtml).toContain('data-route="/management"');
-    expect(generalHtml).toContain('href="/management"');
+    expect(generalHtml).toContain('class="portal-switch-link department-portal-button"');
     expect(generalHtml).toContain("portal-switch-link__arrow-outline");
     expect(generalHtml).not.toContain("↗");
     expect(generalHtml).toContain('aria-label="통합설정"');
@@ -197,27 +192,29 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
 
-    expect(managementHtml).toContain("경영업무포털");
     expect(managementHtml).toContain("일반업무포털");
-    expect(managementHtml).toContain('aria-label="일반업무포털 새 탭에서 보기"');
-    expect(managementHtml).toContain('target="_blank"');
-    expect(managementHtml).toContain('rel="noopener noreferrer"');
-    expect(managementHtml).toContain(`aria-label="We&#x27;reHere 경영업무포털 홈"`);
-    expect(managementHtml).toContain('href="/management" class="topbar-brand-link"');
-    expect(managementHtml).toContain('data-route="/work-items/branch"');
-    expect(managementHtml).toContain('href="/work-items/branch"');
-    expect(managementHtml).toContain('class="portal-switch-link portal-switch-link--branch"');
-    expect(managementHtml).toContain('aria-label="지점관리포털 새 탭에서 보기"');
-    const managementBranchSwitchIndex = managementHtml.indexOf('class="portal-switch-link portal-switch-link--branch"');
-    const managementNextPortalSwitchIndex = managementHtml.indexOf('aria-label="일반업무포털 새 탭에서 보기"');
-    expect(managementBranchSwitchIndex).toBeGreaterThan(-1);
-    expect(managementBranchSwitchIndex).toBeLessThan(managementNextPortalSwitchIndex);
-    expect(managementHtml).toContain('data-route="/home"');
-    expect(managementHtml).toContain('href="/home"');
+    expect(managementHtml).toContain("부서업무포털");
+    expect(managementHtml).toContain('aria-label="부서업무포털 열기"');
+    expect(managementHtml).toContain('aria-haspopup="menu"');
+    expect(managementHtml).toContain('aria-expanded="false"');
+    expect(managementHtml).not.toContain('aria-label="일반업무포털 새 탭에서 보기"');
+    expect(managementHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
+    expect(managementHtml).not.toContain('target="_blank"');
+    expect(managementHtml).not.toContain('rel="noopener noreferrer"');
+    expect(managementHtml).toContain(`aria-label="We&#x27;reHere 일반업무포털 홈"`);
+    expect(managementHtml).toContain('href="/home" class="topbar-brand-link"');
+    expect(managementHtml).toContain('class="portal-switch-link department-portal-button"');
     expect(managementHtml).toContain("급여 내부관리");
     expect(managementHtml).not.toContain('data-route="/branches"');
     expect(managementHtml).not.toContain("협업/소통");
     expect(managementHtml).not.toContain("일정/개인 업무");
+
+    const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
+    expect(shellSource).toContain('const departmentPortalItems = ["전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부"] as const;');
+    expect(shellSource).toContain('className="department-portal-popover"');
+    expect(shellSource).toContain('aria-label="부서업무포털 선택"');
+    expect(shellSource).not.toContain("branchPortalLabel");
+    expect(shellSource).not.toContain("nextPortalLabel");
 
     mockedPathname = "/offline";
   });

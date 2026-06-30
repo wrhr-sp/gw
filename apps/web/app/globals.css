@@ -562,6 +562,15 @@
   --portal-switch-link-icon-width: 22px;
   --portal-switch-link-icon-height: 22px;
   --portal-switch-link-arrow-fill-transition: opacity 160ms ease;
+  --department-portal-popover-top: calc(100% + 10px);
+  --department-portal-popover-width: 196px;
+  --department-portal-popover-padding: 8px;
+  --department-portal-popover-gap: 4px;
+  --department-portal-popover-border: 1px solid var(--layer-border);
+  --department-portal-popover-radius: var(--layer-radius-popover);
+  --department-portal-popover-bg: var(--surface);
+  --department-portal-popover-item-padding: 10px 12px;
+  --department-portal-popover-item-radius: 12px;
   --app-shell-responsive-height: 100dvh;
   --app-shell-responsive-min-height: 100dvh;
   --app-shell-main-height: calc(100dvh - var(--desktop-topbar-height));
@@ -607,6 +616,16 @@
   --feature-workspace-field-legend-margin-bottom: 2px;
   --feature-workspace-field-row-gap: 8px;
   --feature-workspace-row-inner-gap: 4px;
+  --feature-workspace-list-gap: 10px;
+  --feature-workspace-status-grid-gap: 14px;
+  --feature-workspace-actions-gap: 8px;
+  --feature-workspace-notes-padding-left: 18px;
+  --feature-workspace-label-font-weight: var(--font-weight-bold);
+  --feature-workspace-emphasis-font-weight: var(--font-weight-heavy);
+  --feature-workspace-panel-status-margin: var(--feature-page-description-margin);
+  --feature-workspace-panel-status-color: var(--feature-page-description-color);
+  --feature-workspace-panel-status-font-size: var(--feature-page-description-font-size);
+  --feature-workspace-panel-status-line-height: var(--feature-page-description-line-height);
   --feature-workspace-row-padding-block: 10px;
   --feature-workspace-row-divider: 1px solid rgba(148, 163, 184, 0.22);
   --feature-workspace-badge-padding: 3px 8px;
@@ -2379,6 +2398,8 @@ li {
   border-radius: var(--radius-pill);
   background: var(--primary-soft);
   color: var(--primary-hover);
+  cursor: pointer;
+  font: inherit;
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
@@ -2392,19 +2413,6 @@ li {
   background: var(--primary-soft-strong);
   border-color: var(--portal-switch-link-border-color);
   transform: var(--portal-switch-link-transform);
-}
-
-.portal-switch-link--branch {
-  background: var(--success-soft);
-  border-color: var(--success-line);
-  color: var(--success);
-}
-
-.portal-switch-link--branch:hover,
-.portal-switch-link--branch:focus-visible {
-  background: var(--success-soft);
-  border-color: var(--success);
-  color: var(--success);
 }
 
 .portal-switch-link__icon {
@@ -2432,6 +2440,44 @@ li {
 .portal-switch-link:hover .portal-switch-link__arrow-fill,
 .portal-switch-link:focus-visible .portal-switch-link__arrow-fill {
   opacity: 1;
+}
+
+.department-portal-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.department-portal-popover {
+  position: absolute;
+  top: var(--department-portal-popover-top);
+  right: 0;
+  z-index: var(--z-popover);
+  display: grid;
+  width: var(--department-portal-popover-width);
+  gap: var(--department-portal-popover-gap);
+  padding: var(--department-portal-popover-padding);
+  border: var(--department-portal-popover-border);
+  border-radius: var(--department-portal-popover-radius);
+  background: var(--department-portal-popover-bg);
+}
+
+.department-portal-popover__item {
+  border: 0;
+  border-radius: var(--department-portal-popover-item-radius);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--department-portal-popover-item-padding);
+  text-align: left;
+}
+
+.department-portal-popover__item:hover,
+.department-portal-popover__item:focus-visible {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
 }
 
 @media (min-width: 961px) {
@@ -4037,13 +4083,20 @@ li {
   line-height: var(--feature-page-description-line-height);
 }
 
+.feature-workspace__panel-status {
+  margin: var(--feature-workspace-panel-status-margin);
+  color: var(--feature-workspace-panel-status-color);
+  font-size: var(--feature-workspace-panel-status-font-size);
+  line-height: var(--feature-workspace-panel-status-line-height);
+}
+
 .feature-workspace__tab-list,
 .feature-workspace__utility,
 .feature-workspace__rows,
 .feature-workspace__notes,
 .feature-workspace__form {
   display: grid;
-  gap: 10px;
+  gap: var(--feature-workspace-list-gap);
 }
 
 .feature-workspace__tab,
@@ -4083,7 +4136,7 @@ li {
 .feature-workspace__row strong,
 .feature-workspace__status strong,
 .feature-workspace__utility strong {
-  font-weight: 800;
+  font-weight: var(--feature-workspace-emphasis-font-weight);
 }
 
 .feature-workspace__tab strong,
@@ -4100,7 +4153,7 @@ li {
 .feature-workspace__status-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: var(--feature-workspace-status-grid-gap);
 }
 
 .feature-workspace__status--accent strong {
@@ -4116,7 +4169,7 @@ li {
   gap: var(--feature-workspace-form-label-gap);
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-weight: var(--feature-workspace-label-font-weight);
 }
 
 .feature-workspace__field-group {
@@ -4131,7 +4184,7 @@ li {
   margin-bottom: var(--feature-workspace-field-legend-margin-bottom);
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-  font-weight: 800;
+  font-weight: var(--feature-workspace-emphasis-font-weight);
 }
 
 .feature-workspace__field-group label {
@@ -4161,7 +4214,7 @@ li {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--feature-workspace-actions-gap);
 }
 
 .feature-workspace__action--primary {
@@ -4176,7 +4229,7 @@ li {
 
 .feature-workspace__notes {
   margin: 0;
-  padding-left: 18px;
+  padding-left: var(--feature-workspace-notes-padding-left);
   color: var(--text-muted);
 }
 

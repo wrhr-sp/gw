@@ -166,7 +166,6 @@ export function MailClient() {
               메일
             </button>
           </h1>
-          <p>받은 메일, 작성, 발송 내역을 실제 DB 저장·조회 기준으로 처리합니다.</p>
         </div>
         <div className="feature-workspace__tab-list" role="tablist" aria-label="메일 화면 선택">
           {tabs.map((tab) => (
@@ -194,9 +193,9 @@ export function MailClient() {
         <div className="feature-workspace__panel-header">
           <div>
             <h2 id="mail-panel-heading">{box === "drafts" ? "메일 작성" : boxLabels[box]}</h2>
-            <p>{status}</p>
           </div>
         </div>
+        <p className="feature-workspace__panel-status" role="status">{status}</p>
 
         {box === "drafts" ? (
           <form className="feature-workspace__form" onSubmit={sendMessage}>
