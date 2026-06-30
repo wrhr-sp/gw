@@ -107,7 +107,7 @@ function getDepartmentByCurrentRoute(pathname: string, departmentId: string | nu
     return departmentPortalItems.find((department) => department.id === (departmentId ?? "operations")) ?? departmentPortalItems.find((department) => department.id === "operations") ?? null;
   }
 
-  if (departmentId && sidebarBasicHrefs.some((href) => normalizedPathname === href || normalizedPathname.startsWith(`${href}/`))) {
+  if (departmentId && shouldKeepDepartmentContextForHref(normalizedPathname)) {
     return departmentPortalItems.find((department) => department.id === departmentId) ?? null;
   }
 
@@ -1230,6 +1230,27 @@ const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = O
     return [key, Array.from(new Set(values))];
   }),
 ) as unknown as Record<SidebarPortalKey, readonly string[]>;
+
+function departmentSidebarPortalKeysHasHref(href: string) {
+  const matchesHref = (candidate: string) => href === candidate || href.startsWith(`${candidate}/`);
+  if (sidebarBasicHrefs.some(matchesHref)) {
+    return true;
+  }
+
+  return Array.from(departmentSidebarPortalKeys).some((portalKey) => sidebarPortalSpecificHrefs[portalKey].some(matchesHref));
+}
+
+function shouldKeepDepartmentContextForHref(href: string) {
+  const normalizedHref = normalizeAppPathname(href);
+  if (normalizedHref === "/admin" || normalizedHref.startsWith("/admin/")) {
+    return false;
+  }
+  if (isBranchPortalPath(normalizedHref)) {
+    return false;
+  }
+
+  return departmentSidebarPortalKeysHasHref(normalizedHref);
+}
 
 const sidebarPortalWorkSectionTitle: Record<SidebarPortalKey, string> = {
   general: COMMON_WORK_LABEL,
@@ -3394,7 +3415,7 @@ export function MobileAppShell({
   }
 
   function getDepartmentScopedNavHref(item: NavItem) {
-    if (!departmentSidebarPortalKeys.has(sidebarPortalKey) || getSidebarItemGroup(sidebarPortalKey, item.href) !== "basic") {
+    if (!departmentSidebarPortalKeys.has(sidebarPortalKey) || !shouldKeepDepartmentContextForHref(item.href)) {
       return item.href;
     }
 

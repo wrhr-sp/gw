@@ -226,10 +226,10 @@ describe("mobile app shell admin boundary", () => {
     expect(departmentHtml).toContain(">전략기획실</span>");
     expect(departmentHtml).toContain('aria-label="전략기획실 사이드바 편집"');
     expect(departmentHtml).toContain('data-route="/Strategic Planning"');
-    expect(departmentHtml).toContain('data-route="/management"');
-    expect(departmentHtml).toContain('data-route="/sales"');
-    expect(departmentHtml).toContain('data-route="/work-items/tax"');
-    expect(departmentHtml).toContain('data-route="/work-items/legal"');
+    expect(departmentHtml).toContain('data-route="/management?department=strategy"');
+    expect(departmentHtml).toContain('data-route="/sales?department=strategy"');
+    expect(departmentHtml).toContain('data-route="/work-items/tax?department=strategy"');
+    expect(departmentHtml).toContain('data-route="/work-items/legal?department=strategy"');
     expect(departmentHtml).toContain('data-route="/mail?department=strategy"');
     expect(departmentHtml).toContain('data-route="/messenger?department=strategy"');
     expect(departmentHtml).toContain('data-route="/boards?department=strategy"');
@@ -248,6 +248,19 @@ describe("mobile app shell admin boundary", () => {
     expect(departmentBasicWorkHtml).not.toContain(`aria-label="We&#x27;reHere 기본업무 홈"`);
     expect(departmentBasicWorkHtml).toContain('data-route="/mail?department=strategy"');
 
+    mockedPathname = "/payroll";
+    mockedSearchParams = new URLSearchParams("department=ceo");
+    const departmentPortalWorkHtml = renderToStaticMarkup(
+      <MobileAppShell {...sharedProps}>
+        <main>ceo payroll content</main>
+      </MobileAppShell>,
+    );
+    expect(departmentPortalWorkHtml).toContain(`aria-label="We&#x27;reHere 대표이사실 홈"`);
+    expect(departmentPortalWorkHtml).toContain('href="/CEO" class="topbar-brand-link"');
+    expect(departmentPortalWorkHtml).toContain(">대표이사실</span>");
+    expect(departmentPortalWorkHtml).not.toContain(`aria-label="We&#x27;reHere 기본업무 홈"`);
+    expect(departmentPortalWorkHtml).toContain('data-route="/payroll?department=ceo"');
+
     mockedPathname = "/CEO";
     mockedSearchParams = new URLSearchParams();
     const ceoHtml = renderToStaticMarkup(
@@ -257,9 +270,9 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(ceoHtml).toContain('aria-label="대표이사실 사이드바 편집"');
     expect(ceoHtml).toContain('data-route="/CEO"');
-    expect(ceoHtml).toContain('data-route="/payroll"');
-    expect(ceoHtml).toContain('data-route="/work-items/labor"');
-    expect(ceoHtml).toContain('data-route="/work-items/legal"');
+    expect(ceoHtml).toContain('data-route="/payroll?department=ceo"');
+    expect(ceoHtml).toContain('data-route="/work-items/labor?department=ceo"');
+    expect(ceoHtml).toContain('data-route="/work-items/legal?department=ceo"');
     expect(ceoHtml).toContain('data-route="/mail?department=ceo"');
     expect(ceoHtml).toContain('data-route="/messenger?department=ceo"');
 
@@ -273,8 +286,8 @@ describe("mobile app shell admin boundary", () => {
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
-    expect(supportHtml).toContain('data-route="/work-items/hr"');
-    expect(supportHtml).toContain('data-route="/payroll"');
+    expect(supportHtml).toContain('data-route="/work-items/hr?department=support"');
+    expect(supportHtml).toContain('data-route="/payroll?department=support"');
     expect(supportHtml).not.toContain('data-route="/sales"');
     expect(supportHtml).not.toContain('data-route="/work-items/legal"');
 
@@ -287,10 +300,10 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(salesDepartmentHtml).toContain('aria-label="영업관리팀 사이드바 편집"');
     expect(salesDepartmentHtml).toContain('data-route="/Sales Management"');
-    expect(salesDepartmentHtml).toContain('data-route="/sales"');
+    expect(salesDepartmentHtml).toContain('data-route="/sales?department=sales-admin"');
     expect(salesDepartmentHtml).toContain('data-route="/mail?department=sales-admin"');
     expect(salesDepartmentHtml).toContain('data-route="/messenger?department=sales-admin"');
-    expect(salesDepartmentHtml).toContain('data-route="/work-items/legal"');
+    expect(salesDepartmentHtml).toContain('data-route="/work-items/legal?department=sales-admin"');
     expect(salesDepartmentHtml).not.toContain('data-route="/attendance"');
     expect(salesDepartmentHtml).not.toContain('data-route="/payroll"');
 
@@ -305,7 +318,7 @@ describe("mobile app shell admin boundary", () => {
     expect(operationsDepartmentHtml).toContain('data-route="/Operations Management"');
     expect(operationsDepartmentHtml).toContain('data-route="/mail?department=operations"');
     expect(operationsDepartmentHtml).toContain('data-route="/messenger?department=operations"');
-    expect(operationsDepartmentHtml).toContain('data-route="/work-items/labor"');
+    expect(operationsDepartmentHtml).toContain('data-route="/work-items/labor?department=operations"');
     expect(operationsDepartmentHtml).not.toContain('data-route="/sales"');
     expect(operationsDepartmentHtml).not.toContain('data-route="/payroll"');
 
@@ -351,6 +364,7 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true"');
     expect(shellSource).toContain('href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true"');
     expect(shellSource).toContain('function getDepartmentScopedNavHref(item: NavItem)');
+    expect(shellSource).toContain('function shouldKeepDepartmentContextForHref(href: string)');
     expect(shellSource).toContain('department=${encodeURIComponent(department.id)}');
     expect(shellSource).toContain("sidebar-settings-divider-option");
     expect(shellSource).toContain("desktop-sidebar__collapsed-group-divider");
