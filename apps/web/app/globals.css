@@ -569,6 +569,16 @@
   --feature-page-header-gap: 8px;
   --page-shell-header-border: 1px solid var(--line);
   --feature-page-headline-gap: 11px;
+  --feature-page-title-font-size: var(--font-size-page-title);
+  --feature-page-title-font-weight: var(--font-weight-page-title);
+  --feature-page-title-letter-spacing: var(--letter-spacing-feature-title);
+  --feature-page-content-title-font-size: var(--font-size-content-title);
+  --feature-page-content-title-font-weight: var(--font-weight-content-title);
+  --feature-page-content-title-letter-spacing: var(--letter-spacing-feature-title);
+  --feature-page-description-margin: var(--board-post-row-margin);
+  --feature-page-description-color: var(--text-muted);
+  --feature-page-description-font-size: var(--font-size-md);
+  --feature-page-description-line-height: var(--line-height-readable);
   --feature-page-content-bg: var(--surface);
   --feature-page-content-border: var(--page-shell-content-border);
   --feature-page-content-radius: var(--radius-xl);
@@ -866,8 +876,8 @@ code {
 .page-shell__eyebrow,
 .muted-copy,
 .meta-copy {
-  color: var(--text-muted);
-  font-size: var(--font-size-md);
+  color: var(--feature-page-description-color);
+  font-size: var(--feature-page-description-font-size);
 }
 
 .card-note,
@@ -1230,24 +1240,37 @@ article h4 {
   margin: 0;
 }
 
-.page-shell__headline h1 {
-  font-size: var(--font-size-page-title);
-  font-weight: var(--font-weight-page-title);
-  letter-spacing: var(--letter-spacing-feature-title);
-}
-
+.page-shell__headline h1,
 .board-workspace__nav-header h1,
 .messenger-sidebar__header h1,
+.feature-workspace__nav-header h1 {
+  font-size: var(--feature-page-title-font-size);
+  font-weight: var(--feature-page-title-font-weight);
+  letter-spacing: var(--feature-page-title-letter-spacing);
+}
+
 .surface-card__header h2,
 .board-section-title h2,
-.board-detail-preview h2 {
-  font-size: var(--font-size-content-title);
-  font-weight: var(--font-weight-content-title);
-  letter-spacing: var(--letter-spacing-feature-title);
+.board-detail-preview h2,
+.feature-workspace__panel-header h2 {
+  font-size: var(--feature-page-content-title-font-size);
+  font-weight: var(--feature-page-content-title-font-weight);
+  letter-spacing: var(--feature-page-content-title-letter-spacing);
 }
 
 .page-shell__headline p,
 .surface-card__header p,
+.board-workspace__nav-header p,
+.board-section-title p,
+.board-detail-preview p,
+.feature-workspace__nav-header p,
+.feature-workspace__panel-header p {
+  margin: var(--feature-page-description-margin);
+  color: var(--feature-page-description-color);
+  font-size: var(--feature-page-description-font-size);
+  line-height: var(--feature-page-description-line-height);
+}
+
 article p,
 li {
   line-height: var(--line-height-comfortable);
@@ -4008,10 +4031,10 @@ li {
 .feature-workspace__status p,
 .feature-workspace__row p,
 .feature-workspace__tab small {
-  margin: var(--board-post-row-margin);
-  color: var(--text-muted);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-readable);
+  margin: var(--feature-page-description-margin);
+  color: var(--feature-page-description-color);
+  font-size: var(--feature-page-description-font-size);
+  line-height: var(--feature-page-description-line-height);
 }
 
 .feature-workspace__tab-list,
@@ -4226,10 +4249,10 @@ li {
 .board-detail-preview p,
 .board-user-scope-card p,
 .board-post-row p {
-  margin: var(--board-post-row-margin);
-  color: var(--text-muted);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-readable);
+  margin: var(--feature-page-description-margin);
+  color: var(--feature-page-description-color);
+  font-size: var(--feature-page-description-font-size);
+  line-height: var(--feature-page-description-line-height);
 }
 
 .board-write-button,
@@ -4820,9 +4843,9 @@ li {
 .messenger-conversation__header h2 {
   margin: 0;
   color: var(--text);
-  font-size: var(--font-size-page-title);
-  font-weight: var(--font-weight-page-title);
-  letter-spacing: var(--letter-spacing-feature-title);
+  font-size: var(--feature-page-title-font-size);
+  font-weight: var(--feature-page-title-font-weight);
+  letter-spacing: var(--feature-page-title-letter-spacing);
 }
 
 .messenger-recipient-backdrop[hidden],
@@ -4880,7 +4903,7 @@ li {
 
 .messenger-conversation__header p {
   margin: 4px 0 0;
-  color: var(--text-muted);
+  color: var(--feature-page-description-color);
 }
 
 .messenger-conversation-close {
