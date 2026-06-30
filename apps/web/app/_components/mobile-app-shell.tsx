@@ -1340,8 +1340,6 @@ export function MobileAppShell({
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
   const [isDepartmentPortalOpen, setIsDepartmentPortalOpen] = useState(false);
-  const [isBranchPortalOpen, setIsBranchPortalOpen] = useState(false);
-  const [branchPortalSearch, setBranchPortalSearch] = useState("");
   const [isSidebarSettingsOpen, setIsSidebarSettingsOpen] = useState(false);
   const [suppressTopbarTooltips, setSuppressTopbarTooltips] = useState(false);
   const [settingsSaveToastVisible, setSettingsSaveToastVisible] = useState(false);
@@ -1396,7 +1394,6 @@ export function MobileAppShell({
   const appRefreshOverlayTimerRef = useRef<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const departmentPortalRef = useRef<HTMLDivElement | null>(null);
-  const branchPortalRef = useRef<HTMLDivElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
   void installGuideSteps;
@@ -1521,11 +1518,6 @@ export function MobileAppShell({
   const branchPortalLabel = "지점관리포털";
   const branchPortalHomeHref = "/Place of business";
   const departmentPortalLabel = "부서업무포털";
-  const filteredBranchPortalItems = branchPortalItems.filter((branch) => {
-    const keyword = branchPortalSearch.trim().toLowerCase();
-    if (!keyword) return true;
-    return `${branch.name} ${branch.region} ${branch.manager}`.toLowerCase().includes(keyword);
-  });
   const sidebarCustomizationItems = useMemo(
     () => flattenNavSections(visibleDesktopMenuSections).filter((item) => !item.disabled && !item.href.startsWith("#")),
     [visibleDesktopMenuSections],
@@ -1798,33 +1790,6 @@ export function MobileAppShell({
       document.removeEventListener("keydown", closeDepartmentPortal);
     };
   }, [isDepartmentPortalOpen]);
-
-  useEffect(() => {
-    if (!isBranchPortalOpen) {
-      return;
-    }
-
-    function closeBranchPortal(event: MouseEvent | KeyboardEvent) {
-      if (event instanceof KeyboardEvent) {
-        if (event.key === "Escape") {
-          setIsBranchPortalOpen(false);
-        }
-        return;
-      }
-
-      const target = event.target;
-      if (target instanceof Node && !branchPortalRef.current?.contains(target)) {
-        setIsBranchPortalOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeBranchPortal);
-    document.addEventListener("keydown", closeBranchPortal);
-    return () => {
-      document.removeEventListener("mousedown", closeBranchPortal);
-      document.removeEventListener("keydown", closeBranchPortal);
-    };
-  }, [isBranchPortalOpen]);
 
   useEffect(() => {
     if (!isSidebarSettingsOpen) {
@@ -3266,11 +3231,6 @@ export function MobileAppShell({
     setIsDepartmentPortalOpen(false);
   }
 
-  function closeBranchPortalMenu() {
-    setIsBranchPortalOpen(false);
-    setBranchPortalSearch("");
-  }
-
   function handleNavItemClick(item: NavItem) {
     if (item.permissionDenied) {
       showPermissionDeniedNotice();
@@ -3411,48 +3371,16 @@ export function MobileAppShell({
             <div className="app-topbar__actions">
               {hasManagementPortal ? (
                 <>
-                  <div className="department-portal-menu branch-portal-menu" ref={branchPortalRef}>
-                    <button
-                      className="portal-switch-link branch-portal-button"
-                      type="button"
-                      aria-label={`${branchPortalLabel} 열기`}
-                      aria-expanded={isBranchPortalOpen}
-                      aria-haspopup="dialog"
-                      onClick={() => setIsBranchPortalOpen((value) => !value)}
-                    >
-                      <span>{branchPortalLabel}</span>
-                      <PortalShortcutIcon />
-                    </button>
-                    {isBranchPortalOpen ? (
-                      <div className="department-portal-popover branch-portal-popover" role="dialog" aria-label="지점관리포털 검색">
-                        <label className="branch-portal-popover__search">
-                          <span>지점 검색</span>
-                          <input
-                            aria-label="지점 검색"
-                            value={branchPortalSearch}
-                            onChange={(event) => setBranchPortalSearch(event.target.value)}
-                            placeholder="지점명, 지역, 담당자"
-                          />
-                        </label>
-                        <a className="department-portal-popover__item branch-portal-popover__item" href={branchPortalHomeHref} target="_blank" rel="noreferrer" onClick={closeBranchPortalMenu}>
-                          <strong>지점관리포털</strong>
-                          <span>Place of business · 전체 지점 검색/선택</span>
-                        </a>
-                        <div className="branch-portal-popover__list" role="listbox" aria-label="접근 가능한 지점">
-                          {filteredBranchPortalItems.length ? (
-                            filteredBranchPortalItems.map((branch) => (
-                              <a key={branch.id} className="department-portal-popover__item branch-portal-popover__item" href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer" role="option" onClick={closeBranchPortalMenu}>
-                                <strong>{branch.name}</strong>
-                                <span>{branch.region} · {branch.manager} · {branch.access}</span>
-                              </a>
-                            ))
-                          ) : (
-                            <p className="branch-portal-popover__empty">접근 가능한 지점이 없습니다.</p>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <a
+                    className="portal-switch-link branch-portal-button"
+                    href={branchPortalHomeHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${branchPortalLabel} 새 탭에서 보기`}
+                  >
+                    <span>{branchPortalLabel}</span>
+                    <PortalShortcutIcon />
+                  </a>
                   <div className="department-portal-menu" ref={departmentPortalRef}>
                     <button
                       className="portal-switch-link department-portal-button"

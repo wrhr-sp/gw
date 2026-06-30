@@ -141,14 +141,13 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain("일반(공통)업무");
     expect(generalHtml).toContain("지점관리포털");
     expect(generalHtml).toContain("부서업무포털");
-    expect(generalHtml).toContain('aria-label="지점관리포털 열기"');
+    expect(generalHtml).toContain('aria-label="지점관리포털 새 탭에서 보기"');
     expect(generalHtml).toContain('aria-label="부서업무포털 열기"');
     expect(generalHtml).toContain('aria-haspopup="menu"');
     expect(generalHtml).toContain('aria-expanded="false"');
     expect(generalHtml).not.toContain('aria-label="경영업무포털 새 탭에서 보기"');
-    expect(generalHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
-    expect(generalHtml).not.toContain('target="_blank"');
-    expect(generalHtml).not.toContain('rel="noopener noreferrer"');
+    expect(generalHtml).toContain('aria-label="지점관리포털 새 탭에서 보기"');
+    expect(generalHtml).toContain('href="/Place of business" target="_blank" rel="noreferrer"');
     expect(generalHtml).toContain(`aria-label="We&#x27;reHere 일반(공통)업무 홈"`);
     expect(generalHtml).toContain('href="/home" class="topbar-brand-link"');
     expect(generalHtml).toContain('class="topbar-brand-link__divider"');
@@ -200,13 +199,12 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).toContain("일반(공통)업무");
     expect(managementHtml).toContain("지점관리포털");
     expect(managementHtml).toContain("부서업무포털");
-    expect(managementHtml).toContain('aria-label="지점관리포털 열기"');
+    expect(managementHtml).toContain('aria-label="지점관리포털 새 탭에서 보기"');
     expect(managementHtml).toContain('aria-label="부서업무포털 열기"');
     expect(managementHtml).toContain('aria-haspopup="menu"');
     expect(managementHtml).toContain('aria-expanded="false"');
     expect(managementHtml).not.toContain('aria-label="일반(공통)업무 새 탭에서 보기"');
-    expect(managementHtml).not.toContain('aria-label="지점관리포털 새 탭에서 보기"');
-    expect(managementHtml).not.toContain('target="_blank"');
+    expect(managementHtml).toContain('href="/Place of business" target="_blank" rel="noreferrer"');
     expect(managementHtml).not.toContain('rel="noopener noreferrer"');
     expect(managementHtml).toContain(`aria-label="We&#x27;reHere 일반(공통)업무 홈"`);
     expect(managementHtml).toContain('href="/home" class="topbar-brand-link"');
@@ -244,11 +242,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
     expect(shellSource).toContain('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"');
     expect(shellSource).toContain('const branchPortalItems = [');
-    expect(shellSource).toContain('aria-label="지점관리포털 검색"');
-    expect(shellSource).toContain('placeholder="지점명, 지역, 담당자"');
+    expect(shellSource).toContain('aria-label={`${branchPortalLabel} 새 탭에서 보기`}');
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
-    expect(shellSource).toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
+    expect(shellSource).not.toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
     expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
     expect(shellSource).not.toContain("nextPortalLabel");
 

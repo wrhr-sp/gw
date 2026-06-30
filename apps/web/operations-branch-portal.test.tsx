@@ -53,7 +53,7 @@ describe("operations branch portal", () => {
     expect(seoulHtml).toContain("서울지점 지점관리");
   });
 
-  it("keeps branch portal topbar search and department portal order scoped to source", () => {
+  it("keeps direct branch portal link and department portal order scoped to source", () => {
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
 
     expect(shellSource.indexOf('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"')).toBeLessThan(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"'));
@@ -62,11 +62,12 @@ describe("operations branch portal", () => {
     expect(shellSource).toContain('href: "/Strategic Planning"');
     expect(shellSource).toContain('const branchPortalHomeHref = "/Place of business";');
     expect(shellSource).toContain("지점관리포털");
-    expect(shellSource).toContain("branchPortalSearch");
+    expect(shellSource).not.toContain("branchPortalSearch");
     expect(shellSource).toContain("getCurrentLocationLabel");
     expect(shellSource).toContain("서울지점");
-    expect(shellSource).toContain("filteredBranchPortalItems");
-    expect(shellSource).toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
+    expect(shellSource).not.toContain("filteredBranchPortalItems");
+    expect(shellSource).toContain('href={branchPortalHomeHref}');
+    expect(shellSource).toContain('aria-label={`${branchPortalLabel} 새 탭에서 보기`}');
     expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
   });
 });
