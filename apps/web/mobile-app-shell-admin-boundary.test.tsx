@@ -210,7 +210,7 @@ describe("mobile app shell admin boundary", () => {
     expect(managementHtml).not.toContain("일정/개인 업무");
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
-    expect(shellSource).toContain('const departmentPortalItems = ["전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부"] as const;');
+    expect(shellSource).toContain('const departmentPortalItems = ["대표이사실", "전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부", "일반(공통)업무"] as const;');
     expect(shellSource).toContain('className="department-portal-popover"');
     expect(shellSource).toContain('aria-label="부서업무포털 선택"');
     expect(shellSource).not.toContain("branchPortalLabel");

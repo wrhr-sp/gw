@@ -70,7 +70,7 @@ type FeatureIconProps = {
 type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-settings";
 
 const brandWordmark = "WE’REHERE";
-const departmentPortalItems = ["전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부"] as const;
+const departmentPortalItems = ["대표이사실", "전략기획실", "경영지원팀", "영업관리팀", "광고사업팀", "운영사업부", "일반(공통)업무"] as const;
 
 type TopbarIconButtonProps = {
   label: string;
