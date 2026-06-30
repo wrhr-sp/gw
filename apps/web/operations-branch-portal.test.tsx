@@ -47,7 +47,13 @@ describe("operations branch portal", () => {
     const seoulHtml = renderToStaticMarkup(await PlaceOfBusinessBranchPage({ params: Promise.resolve({ branchId: "seoul" }) }));
 
     expect(ceoHtml).toContain("대표이사실 / CEO");
+    expect(ceoHtml).toContain("대표이사실 업무포털");
+    expect(ceoHtml).toContain('href="/boards?department=ceo"');
+    expect(ceoHtml).not.toContain("처리 대기");
     expect(strategyHtml).toContain("전략기획실 / Strategic Planning");
+    expect(strategyHtml).toContain("전략기획실 업무포털");
+    expect(strategyHtml).toContain('href="/boards?department=strategy"');
+    expect(strategyHtml).not.toContain("처리 대기");
     expect(placeHtml).toContain("지점관리포털 / Place of business");
     expect(placeHtml).toContain('/Place of business/seoul');
     expect(seoulHtml).toContain("서울지점 지점관리");
