@@ -38,6 +38,8 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
     expect(globalCss).toContain("content: var(--feature-page-sublist-marker-content);");
     expect(globalCss).toContain(".feature-workspace__tab-list {");
+    expect(globalCss).toContain(".mail-folder-list {\n  gap: var(--feature-page-sublist-item-gap);\n}");
+    expect(globalCss).not.toContain(".mail-folder-list {\n  gap: var(--feature-page-sublist-section-gap);\n}");
     expect(globalCss).toContain("gap: var(--feature-page-sublist-item-gap);");
     expect(globalCss).toContain("gap: var(--feature-page-sublist-section-gap);");
     expect(globalCss).toContain("gap: var(--feature-page-sublist-column-gap);");
