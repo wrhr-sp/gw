@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { appRoutes, mailMessageListResponseSchema, mailMessageReadResponseSchema, mailMessageSendResponseSchema, type MailBox, type MailMessage } from "@gw/shared";
+import {
+  appRoutes,
+  mailAttachmentListResponseSchema,
+  mailAttachmentUploadResponseSchema,
+  mailMessageListResponseSchema,
+  mailMessageReadResponseSchema,
+  mailMessageSendResponseSchema,
+  type MailAttachment,
+  type MailBox,
+  type MailMessage,
+} from "@gw/shared";
 
 const recipientOptions = [
   { id: "user_hr_admin", label: "인사 담당자" },
@@ -27,12 +37,14 @@ function formatMeta(message: MailMessage, box: MailBox) {
 export function MailClient() {
   const [box, setBox] = useState<MailBox>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
+  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipientUserId, setRecipientUserId] = useState("user_hr_admin");
   const [subject, setSubject] = useState("근태 정정 확인 요청");
   const [body, setBody] = useState("확인 필요한 내용을 입력하세요.");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const tabs = useMemo(
@@ -45,18 +57,30 @@ export function MailClient() {
     [counts.inbox, counts.sent, counts.unread],
   );
 
+  async function loadAttachments(messages: MailMessage[]) {
+    const entries = await Promise.all(messages.map(async (message) => {
+      const response = await fetch(appRoutes.mail.attachments(message.id), { credentials: "same-origin" });
+      if (!response.ok) return [message.id, []] as const;
+      const parsed = mailAttachmentListResponseSchema.parse(await response.json());
+      return [message.id, parsed.data.items] as const;
+    }));
+    setAttachmentsByMessageId(Object.fromEntries(entries));
+  }
+
   async function loadMessages(nextBox: MailBox = box) {
     setStatus("메일함을 불러오는 중입니다.");
     const response = await fetch(`${appRoutes.mail.messages}?box=${nextBox}`, { credentials: "same-origin" });
     const payload = await response.json();
     if (!response.ok) {
       setItems([]);
+      setAttachmentsByMessageId({});
       setStatus(payload?.error?.message ?? "메일함을 불러오지 못했습니다.");
       return;
     }
     const parsed = mailMessageListResponseSchema.parse(payload);
     setItems(parsed.data.items);
     setCounts(parsed.data.counts);
+    await loadAttachments(parsed.data.items);
     setStatus(`${boxLabels[nextBox]} ${parsed.data.items.length}건을 불러왔습니다.`);
   }
 
@@ -83,8 +107,24 @@ export function MailClient() {
         setStatus(payload?.error?.message ?? "메일 발송에 실패했습니다.");
         return;
       }
-      mailMessageSendResponseSchema.parse(payload);
-      setStatus("메일이 DB에 저장되고 보낸 메일함에 반영됐습니다.");
+      const parsed = mailMessageSendResponseSchema.parse(payload);
+      if (attachmentFile) {
+        const formData = new FormData();
+        formData.append("file", attachmentFile);
+        const attachmentResponse = await fetch(appRoutes.mail.attachments(parsed.data.message.id), {
+          method: "POST",
+          credentials: "same-origin",
+          body: formData,
+        });
+        const attachmentPayload = await attachmentResponse.json();
+        if (!attachmentResponse.ok) {
+          setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 첨부 업로드에 실패했습니다.");
+          return;
+        }
+        mailAttachmentUploadResponseSchema.parse(attachmentPayload);
+      }
+      setAttachmentFile(null);
+      setStatus("메일과 첨부가 DB/R2에 저장되고 보낸 메일함에 반영됐습니다.");
       setBox("sent");
       await loadMessages("sent");
     } finally {
@@ -168,6 +208,11 @@ export function MailClient() {
               <span>본문</span>
               <textarea aria-label="본문" rows={6} value={body} onChange={(event) => setBody(event.target.value)} />
             </label>
+            <label>
+              <span>첨부파일</span>
+              <input aria-label="첨부파일" type="file" onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)} />
+            </label>
+            {attachmentFile ? <p>선택한 첨부: {attachmentFile.name}</p> : null}
             <div className="feature-workspace__actions">
               <button className="touch-button feature-workspace__action feature-workspace__action--primary" disabled={isSubmitting} type="submit">
                 보내기
@@ -184,6 +229,16 @@ export function MailClient() {
                   <strong>{message.subject}</strong>
                   <span>{formatMeta(message, box)}</span>
                   <p>{message.body}</p>
+                  {attachmentsByMessageId[message.id]?.length ? (
+                    <ul className="feature-workspace__notes">
+                      {attachmentsByMessageId[message.id].map((attachment) => (
+                        <li key={attachment.id}>
+                          <a href={appRoutes.mail.downloadAttachment(attachment.id)}>{attachment.fileName}</a>
+                          <span> · {Math.ceil(attachment.fileSize / 1024)}KB</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 {box === "inbox" && !message.readAt ? (
                   <button className="touch-button feature-workspace__action feature-workspace__action--secondary" onClick={() => void markRead(message.id)} type="button">읽음</button>

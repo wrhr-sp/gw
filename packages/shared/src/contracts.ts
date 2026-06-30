@@ -59,6 +59,8 @@ export const appRoutes = {
     messages: "/api/mail/messages",
     send: "/api/mail/messages/send",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
+    attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
+    downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
   },
   approvals: {
     forms: "/api/approvals/forms",
@@ -196,6 +198,37 @@ export const mailMessageReadResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
     source: z.literal("postgres"),
+  }),
+);
+
+export const mailAttachmentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  messageId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  fileSize: z.number().int().nonnegative(),
+  objectKeyPreview: z.string(),
+  uploadedBy: z.string(),
+  uploadedAt: z.string().datetime(),
+});
+
+export const mailAttachmentListResponseSchema = successResponseSchema(
+  z.object({
+    messageId: z.string(),
+    items: z.array(mailAttachmentSchema),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const mailAttachmentUploadResponseSchema = successResponseSchema(
+  z.object({
+    attachment: mailAttachmentSchema,
+    audit: z.object({
+      candidate: z.literal(true),
+      action: z.string(),
+    }),
+    source: z.literal("postgres-r2"),
   }),
 );
 
@@ -2322,6 +2355,9 @@ export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSche
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
+export type MailAttachment = z.infer<typeof mailAttachmentSchema>;
+export type MailAttachmentListResponse = z.infer<typeof mailAttachmentListResponseSchema>;
+export type MailAttachmentUploadResponse = z.infer<typeof mailAttachmentUploadResponseSchema>;
 export type Board = z.infer<typeof boardSchema>;
 export type BoardPost = z.infer<typeof boardPostSchema>;
 export type BoardComment = z.infer<typeof boardCommentSchema>;

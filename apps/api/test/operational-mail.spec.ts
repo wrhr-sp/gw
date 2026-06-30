@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   appRoutes,
   errorResponseSchema,
+  mailAttachmentListResponseSchema,
+  mailAttachmentUploadResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
@@ -12,6 +14,29 @@ import { app } from "../src/app";
 const databaseUrl = process.env.DATABASE_URL_PREVIEW;
 const runWhenDbConfigured = databaseUrl ? it : it.skip;
 const sql = databaseUrl ? neon(databaseUrl, { fullResults: false }) : null;
+
+function createFakeR2Bucket() {
+  const objects = new Map<string, { body: ArrayBuffer; contentType: string }>();
+  return {
+    objects,
+    binding: {
+      async put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType: string } }) {
+        objects.set(key, { body: value, contentType: options?.httpMetadata?.contentType ?? "application/octet-stream" });
+      },
+      async get(key: string) {
+        const object = objects.get(key);
+        if (!object) return null;
+        return {
+          body: object.body,
+          httpEtag: `etag-${key}`,
+          writeHttpMetadata(headers: Headers) {
+            headers.set("content-type", object.contentType);
+          },
+        };
+      },
+    },
+  };
+}
 
 async function login(roleCode: "COMPANY_ADMIN" | "HR_ADMIN" = "COMPANY_ADMIN") {
   const response = await app.request(
@@ -80,5 +105,58 @@ describe("operational mail API", () => {
     expect(readPayload.data.message.readAt).not.toBeNull();
 
     await sql`delete from mail_messages where id = ${sendPayload.data.message.id}`;
+  });
+
+  runWhenDbConfigured("uploads, lists, and downloads mail attachments through R2 and PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const r2 = createFakeR2Bucket();
+    const subject = `메일 첨부 DB smoke ${Date.now()}`;
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "첨부 저장 조회 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+    const messageId = sendPayload.data.message.id;
+
+    const form = new FormData();
+    form.append("file", new File(["attachment-body"], "mail-smoke.txt", { type: "text/plain" }));
+    const uploadResponse = await app.request(
+      appRoutes.mail.attachments(messageId),
+      { method: "POST", headers: { cookie: adminCookie }, body: form },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(uploadResponse.status).toBe(201);
+    const uploadPayload = mailAttachmentUploadResponseSchema.parse(await uploadResponse.json());
+    expect(uploadPayload.data.attachment.fileName).toBe("mail-smoke.txt");
+    expect(r2.objects.has(uploadPayload.data.attachment.objectKeyPreview)).toBe(true);
+
+    const hrCookie = await login("HR_ADMIN");
+    const listResponse = await app.request(
+      appRoutes.mail.attachments(messageId),
+      { headers: { cookie: hrCookie } },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(listResponse.status).toBe(200);
+    const listPayload = mailAttachmentListResponseSchema.parse(await listResponse.json());
+    expect(listPayload.data.items.map((item) => item.id)).toContain(uploadPayload.data.attachment.id);
+
+    const downloadResponse = await app.request(
+      appRoutes.mail.downloadAttachment(uploadPayload.data.attachment.id),
+      { headers: { cookie: hrCookie } },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(downloadResponse.status).toBe(200);
+    expect(downloadResponse.headers.get("content-type")).toContain("text/plain");
+    expect(await downloadResponse.text()).toBe("attachment-body");
+
+    await sql`delete from mail_messages where id = ${messageId}`;
   });
 });
