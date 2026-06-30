@@ -166,7 +166,7 @@ describe("mobile/PWA config", () => {
     });
     expect(getAppShellConfigForHost("localhost:3000")).toMatchObject({
       appName: "We'reHere",
-      appEyebrow: "일반(공통)업무",
+      appEyebrow: "기본업무",
       homeHref: "/home",
       navItems: mobilePrimaryNav,
       bottomTabs: mobileBottomTabs,

@@ -56,8 +56,9 @@ describe("operations branch portal", () => {
   it("keeps direct branch portal link and department portal order scoped to source", () => {
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
 
-    expect(shellSource.indexOf('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"')).toBeLessThan(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"'));
-    expect(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"')).toBeLessThan(shellSource.indexOf('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"'));
+    expect(shellSource).toContain('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"');
+    expect(shellSource).not.toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
+    expect(shellSource).not.toContain('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"');
     expect(shellSource).toContain('href: "/CEO"');
     expect(shellSource).toContain('href: "/Strategic Planning"');
     expect(shellSource).toContain('const branchPortalHomeHref = "/Place of business";');
