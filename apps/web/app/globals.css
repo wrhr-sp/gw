@@ -643,6 +643,7 @@
   --feature-page-sublist-item-gap: var(--board-tree-item-gap);
   --feature-page-sublist-column-gap: var(--board-tree-link-gap);
   --feature-page-sublist-padding-block: var(--board-tree-link-padding-block);
+  --feature-page-sublist-row-min-height: calc(var(--board-tree-unread-badge-height) + var(--feature-page-sublist-padding-block) + var(--feature-page-sublist-padding-block));
   --feature-page-sublist-marker-content: "ㄴ";
   --feature-page-sublist-marker-color: var(--board-tree-link-branch-color);
   --feature-page-sublist-marker-font-size: var(--font-size-sm);
@@ -678,10 +679,14 @@
   --feature-page-count-badge-bg: var(--primary-soft);
   --feature-page-count-badge-color: var(--primary-hover);
   --feature-page-count-badge-font-family: var(--feature-page-sublist-font-family);
-  --feature-page-count-badge-font-size: var(--feature-page-sublist-font-size);
-  --feature-page-count-badge-font-weight: var(--feature-page-sublist-font-weight);
+  --feature-page-count-badge-font-size: var(--board-tree-unread-badge-font-size);
+  --feature-page-count-badge-font-weight: var(--board-tree-unread-badge-font-weight);
   --feature-page-count-badge-font-variation-settings: var(--feature-page-sublist-font-variation-settings);
-  --feature-page-count-badge-padding: var(--feature-workspace-badge-padding);
+  --feature-page-count-badge-height: var(--board-tree-unread-badge-height);
+  --feature-page-count-badge-min-width: var(--board-tree-unread-badge-min-width);
+  --feature-page-count-badge-padding-inline: var(--board-tree-unread-badge-padding-inline);
+  --feature-page-count-badge-radius: var(--board-tree-unread-badge-radius);
+  --feature-page-count-badge-line-height: var(--line-height-tight);
   --touch-button-secondary-min-height: 36px;
   --touch-button-secondary-padding: 8px 13px;
   --textarea-field-border-radius: 11px;
@@ -4333,6 +4338,7 @@ li {
   align-items: center;
   grid-template-columns: var(--feature-page-sublist-grid-columns);
   gap: var(--feature-page-sublist-column-gap);
+  min-height: var(--feature-page-sublist-row-min-height);
   padding: var(--feature-page-sublist-padding-block) 0;
 }
 
@@ -4369,14 +4375,23 @@ li {
 
 .mail-folder-list__item strong {
   justify-self: start;
-  border-radius: var(--radius-pill);
   background: var(--feature-page-count-badge-bg);
   color: var(--feature-page-count-badge-color);
+}
+
+.board-unread-badge,
+.mail-folder-list__item strong {
+  display: inline-grid;
+  min-width: var(--feature-page-count-badge-min-width);
+  height: var(--feature-page-count-badge-height);
+  place-items: center;
+  border-radius: var(--feature-page-count-badge-radius);
   font-family: var(--feature-page-count-badge-font-family);
   font-size: var(--feature-page-count-badge-font-size);
   font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
   font-weight: var(--feature-page-count-badge-font-weight);
-  padding: var(--feature-page-count-badge-padding);
+  line-height: var(--feature-page-count-badge-line-height);
+  padding: 0 var(--feature-page-count-badge-padding-inline);
 }
 
 .mail-folder-editor {
@@ -4855,17 +4870,8 @@ li {
 }
 
 .board-unread-badge {
-  display: inline-grid;
-  min-width: var(--board-tree-unread-badge-min-width);
-  height: var(--board-tree-unread-badge-height);
-  place-items: center;
-  border-radius: var(--board-tree-unread-badge-radius);
   background: var(--danger);
   color: var(--board-unread-badge-color);
-  font-size: var(--board-tree-unread-badge-font-size);
-  font-weight: var(--board-tree-unread-badge-font-weight);
-  line-height: var(--line-height-tight);
-  padding: 0 var(--board-tree-unread-badge-padding-inline);
 }
 
 .board-workspace__list {

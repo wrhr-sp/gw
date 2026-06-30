@@ -14,6 +14,7 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("--feature-page-sublist-item-gap: var(--board-tree-item-gap);");
     expect(globalCss).toContain("--feature-page-sublist-column-gap: var(--board-tree-link-gap);");
     expect(globalCss).toContain("--feature-page-sublist-padding-block: var(--board-tree-link-padding-block);");
+    expect(globalCss).toContain("--feature-page-sublist-row-min-height: calc(var(--board-tree-unread-badge-height) + var(--feature-page-sublist-padding-block) + var(--feature-page-sublist-padding-block));");
     expect(globalCss).toContain("--feature-page-sublist-marker-content: \"ㄴ\";");
     expect(globalCss).toContain("--feature-page-sublist-marker-color: var(--board-tree-link-branch-color);");
     expect(globalCss).toContain("--feature-page-sublist-marker-gap: var(--feature-page-sublist-column-gap);");
@@ -29,13 +30,20 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("--feature-page-title-settings-button-icon-size: 16px;");
     expect(globalCss).toContain("--feature-page-count-badge-bg: var(--primary-soft);");
     expect(globalCss).toContain("--feature-page-count-badge-color: var(--primary-hover);");
-    expect(globalCss).toContain("--feature-page-count-badge-font-size: var(--feature-page-sublist-font-size);");
+    expect(globalCss).toContain("--feature-page-count-badge-font-size: var(--board-tree-unread-badge-font-size);");
+    expect(globalCss).toContain("--feature-page-count-badge-height: var(--board-tree-unread-badge-height);");
+    expect(globalCss).toContain("--feature-page-count-badge-min-width: var(--board-tree-unread-badge-min-width);");
+    expect(globalCss).toContain("--feature-page-count-badge-padding-inline: var(--board-tree-unread-badge-padding-inline);");
 
     expect(globalCss).toContain("font-size: var(--feature-page-sublist-font-size);");
     expect(globalCss).toContain("font-family: var(--feature-page-sublist-font-family);");
     expect(globalCss).toContain("font-weight: var(--feature-page-sublist-font-weight);");
     expect(globalCss).toContain(".board-tree-link,\n.mail-folder-list__item--child {");
     expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
+    expect(globalCss).toContain("min-height: var(--feature-page-sublist-row-min-height);");
+    expect(globalCss).toContain(".board-unread-badge,\n.mail-folder-list__item strong {");
+    expect(globalCss).toContain("height: var(--feature-page-count-badge-height);");
+    expect(globalCss).toContain("padding: 0 var(--feature-page-count-badge-padding-inline);");
     expect(globalCss).toContain("content: var(--feature-page-sublist-marker-content);");
     expect(globalCss).toContain(".feature-workspace__tab-list {");
     expect(globalCss).toContain(".mail-folder-list {\n  gap: var(--feature-page-sublist-item-gap);\n}");
