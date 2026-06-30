@@ -10,6 +10,17 @@
 6. `RUNBOOK.md` — 운영/장애 대응
 7. `DEPLOYMENT.md` — 배포 확인 기준
 
+
+## no-mock 운영 기능 인수인계 기준
+
+다음 작업자는 기능을 완료로 넘기기 전에 반드시 아래를 확인한다.
+
+- 화면·버튼·폼·CTA가 실제 API를 호출하거나, 아직 미연결이면 비활성/승인 필요/범위 밖 상태로 보이는가.
+- API가 Service/Repository/DB 흐름을 거치고, 저장 후 재조회로 유지되는가.
+- 입력 검증, role/permission/company/branch/self scope, forbidden/not found/validation/schema drift/DB 미설정 오류, audit 로그가 확인됐는가.
+- mock/placeholder/skeleton/dummy/dev-safe/static sample이 운영 기능 완료처럼 남아 있지 않은가.
+- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 별도 승인 게이트로 분리됐는가.
+
 ## 현재 오케스트레이션 상태
 
 - Board: `groupware`

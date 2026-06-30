@@ -95,3 +95,8 @@
 - 이전 운영 기준 범위: `docs/architecture/phase-56-management-admin-live-operations-pass1-fit-gap-scope.md`
 - 이전 운영 기준 handoff: `docs/guides/phase-56-management-admin-live-operations-pass1-handoff.md`
 - 이전 운영 기준 guide: `docs/guides/phase-56-management-admin-live-operations-pass1-guide.md`
+## no-mock MVP 성공 기준
+
+- 핵심 CRUD와 상태 변경은 실제 persistence와 재조회 검증을 갖춘다.
+- skeleton/placeholder는 MVP 완료 기능으로 계산하지 않는다.
+- 대장이 preview/UAT URL에서 실제 업무 흐름을 수행할 수 있는 기능만 완료로 본다.

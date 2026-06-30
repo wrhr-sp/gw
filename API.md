@@ -12,6 +12,16 @@
 
 ## 공통 규칙
 
+
+### API 운영 완료 기준
+
+- API route가 존재하거나 200을 반환하는 것만으로 완료가 아니다. mutation은 Service/Repository/DB 계층을 통과해야 한다.
+- DB/R2/schema가 필요한 기능은 미설정 상태에서 sample, memory, mock, fallback 데이터로 성공처럼 응답하지 않는다. `DB_NOT_CONFIGURED`, schema drift, validation, forbidden, not found를 구분한다.
+- 생성/수정/삭제/상태변경은 저장 후 동일 권한·scope로 재조회해 id/status/value가 유지되는지 검증해야 한다.
+- 관리자/권한/계정/문서/결재/근태/휴가/급여처럼 운영상 중요한 변경은 audit_logs 또는 동등한 감사 기록을 남겨야 한다.
+- preview DB는 UAT용 실제 저장·조회 검증 대상이다. production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 별도 승인 게이트다.
+- 테스트 fixture와 mock은 테스트 내부에서만 허용하며 운영 응답 contract의 성공 source로 남기지 않는다.
+
 ### 응답 envelope
 
 성공 응답:

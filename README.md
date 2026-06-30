@@ -2,8 +2,8 @@
 
 그룹웨어 개발/운영 자동화 저장소입니다.
 
-이 저장소는 Cloudflare-first 기반 그룹웨어 monorepo skeleton을 포함합니다.
-지금 단계에서는 실서비스 배포가 아니라, 다음 구현자가 바로 이어서 작업할 수 있는 Web/API/공통계약/DB 골격을 맞추는 데 집중합니다.
+이 저장소는 Cloudflare-first 기반 그룹웨어 monorepo입니다. 초기 skeleton 이력은 남아 있지만, 현재 개발 기준은 “그럴듯한 화면”이 아니라 실제 업무가 되는 운영 기능으로 전환하는 것입니다.
+완료 기능은 화면 → API → Service/Repository → DB 저장·재조회 → 권한·검증·예외·감사로그 확인까지 이어져야 하며, mock/placeholder/skeleton/dummy/dev-safe는 완료로 보지 않습니다.
 
 ## 지금 들어 있는 것
 

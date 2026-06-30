@@ -8,6 +8,12 @@
 - 현재 일부 API와 화면은 skeleton/placeholder지만, 이는 완제품으로 가기 위한 중간 산출물이다.
 - 문서와 작업 카드는 “영구 제외”가 아니라 “별도 승인 후 단계적으로 실사용 연결”할 항목을 구분해야 한다.
 
+### no-mock 운영 기능 전환 리스크
+
+- mock/placeholder/skeleton/dummy/dev-safe/static sample 또는 in-memory fallback이 남은 기능은 운영 기능 완료가 아니라 미완료/전환 대상이다.
+- 실제 완료 기능은 화면 → API → Service/Repository → DB 저장·재조회 → 권한·검증·예외·감사로그 확인까지 이어져야 한다.
+- 사용자에게 보이는 버튼이 실제 API와 연결되지 않았으면 비활성/승인 필요/범위 밖으로 표시해야 하며, fake success처럼 동작하면 known issue로 분류한다.
+
 ### 2. production 데이터/secret/DNS/유료 리소스는 미연결 또는 승인 대기 범위
 
 - production DB 실데이터 변경 없음

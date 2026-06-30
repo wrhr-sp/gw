@@ -35,6 +35,16 @@
 - [ ] `/offline` 에 내부 업무 복구 링크가 남아 있지 않고 로그인 재시도 안내 수준으로 축소돼 있다.
 - [ ] 로그인 후에도 `/management`, `/admin*`, 민감 업무 API guard 가 role/capability/company boundary 기준으로 유지된다.
 
+
+### no-mock / 운영 기능 완료 기준
+
+- [ ] mock/placeholder/skeleton/dummy/dev-safe UI를 완료 기능으로 보고하지 않았다.
+- [ ] 모든 활성 저장·수정·삭제·신청·승인·반려·제출·임시저장·정정 요청 버튼은 실제 API를 호출하거나, 아직 미연결이면 비활성/승인 필요/범위 밖으로 표시했다.
+- [ ] mutation은 Service/Repository/DB 경로를 통과하고 저장 후 재조회로 확인했다.
+- [ ] in-memory fallback, static sample 병합, fake success가 운영 성공 응답으로 남아 있지 않다.
+- [ ] validation/authz/company scope/branch scope/self-foreign/error/audit 기준을 확인했다.
+- [ ] production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 별도 승인 게이트로 분리했다.
+
 ### 코드/contract/테스트 일관성
 
 - [ ] 홈(`/`)이 일반 업무 흐름과 관리자 검토 흐름을 두 갈래로 설명하고, `/login` 과 `/dashboard` 로 자연스럽게 이어진다.

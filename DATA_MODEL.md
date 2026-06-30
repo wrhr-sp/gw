@@ -15,6 +15,8 @@
 - API payload 와 화면 계약의 1차 근거는 `packages/shared/src/contracts.ts` 이다.
 - placeholder 응답 예시와 권한/회사 경계는 `apps/api/src/app.ts` 와 `apps/api/test/auth-org.spec.ts` 로 다시 확인한다.
 - Phase 상세 guardrail 은 `docs/architecture/phase-2-auth-org-scope.md` 부터 `docs/architecture/phase-11-org-employees-scope.md` 까지의 범위 문서를 함께 본다.
+- 운영 기능으로 표시되는 CRUD는 migration/schema, Service/Repository, 실제 DB 저장, 재조회 검증, audit 근거가 있어야 한다.
+- in-memory 상태, placeholder payload, static sample만 있는 모델은 운영 persistence 완료로 보지 않는다.
 
 ## 상태 라벨 읽는 법
 

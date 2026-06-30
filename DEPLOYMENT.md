@@ -70,3 +70,9 @@ curl -I https://gw-web.wereheresp.workers.dev/
 - 우선 GitHub에서 이전 정상 commit/PR을 확인한다.
 - 긴급 수정은 별도 hotfix 카드로 기획→수정→리뷰→테스트→PR/merge→배포 확인 순서를 따른다.
 - production DB/실데이터 롤백은 현재 범위 밖이며 별도 승인 없이는 진행하지 않는다.
+
+## no-mock 배포 전 확인
+
+- 운영 기능이라고 표기한 변경에 mock/fake success/in-memory fallback/static sample 병합이 남아 있지 않은지 확인한다.
+- 상태 변경 버튼은 실제 API 호출 또는 명확한 비활성/승인 필요 상태인지 확인한다.
+- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 자동 배포 승인 범위가 아니며 별도 승인 게이트로 둔다.

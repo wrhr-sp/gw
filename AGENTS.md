@@ -29,6 +29,16 @@
 - UI/UX, 기능 배치, 정보구조, 근태/휴가/급여/노무/문서/결재 화면을 설계하거나 구현할 때는 `docs/ux/groupware-benchmark-principles.md`와 `docs/product/groupware-vision-roadmap.md`를 먼저 참고한다.
 - 벤치마크는 국내 그룹웨어/HR/근태/급여/노무 서비스의 공개 페이지와 공개 도움말에서 추출한 일반 패턴만 사용하며, 화면·문구·로고·색상·레이아웃을 복제하지 않는다.
 
+## 운영 기능 완료 기준 / no-mock 원칙
+- UI mock, placeholder, skeleton, dummy, dev-safe 화면·버튼·폼·CTA는 완료 기능으로 보고하지 않는다.
+- 사용자가 누를 수 있는 저장·수정·삭제·신청·승인·반려·제출·임시저장·정정 요청 버튼은 실제 API 호출로 연결되어야 한다. 아직 승인 전이거나 범위 밖이면 버튼처럼 동작하게 두지 말고 비활성, 승인 필요, 범위 밖 상태로 명확히 표시한다.
+- 화면을 완료하려면 화면 → 실제 API → Service/Repository → DB 저장·조회 흐름이 있어야 한다. 단순 화면 이동, 안내 문구, preview 카드, route 200, mock 응답만으로 완료 처리하지 않는다.
+- API route는 임시 응답이나 in-memory fallback으로 성공처럼 보이면 안 된다. DB/R2/schema가 준비되지 않았으면 `DB_NOT_CONFIGURED`, schema drift, forbidden, not found, validation error 등으로 구분해 실패해야 한다.
+- CRUD 완료 기준은 생성 → 저장 → 재조회 → 수정 또는 상태변경 → 재조회 → 삭제 또는 후속 상태확인까지 실제 DB에 반영되는 것이다.
+- 상태 변경 기능은 필수값/형식/길이/enum 검증, role/permission/company scope/branch scope/self-foreign 권한 검증, 예외처리, audit_logs 또는 동등한 감사기록을 포함해야 한다.
+- 테스트 fixture는 테스트 내부에서만 허용한다. 운영 화면·완료 기능·seed/API hardcode에 dummy/mock/static sample 데이터를 완료 상태처럼 남기지 않는다.
+- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 HR/메일/메신저/푸시/SMS 연동, destructive migration은 계속 별도 승인 게이트로 둔다.
+
 ## 작업범위·기능 독립성 강제 규칙
 - 사용자가 말한 작업범위 밖의 코드, UI, 문구, 레이아웃, 권한, 데이터 흐름 변경은 절대 금지한다.
 - 필요해 보이는 개선이라도 승인 전에는 제안만 하고 실행하지 않는다.
