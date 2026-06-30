@@ -22,9 +22,9 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "hr",
     href: "/work-items/hr",
     title: "인사 업무",
-    summary: "직원 lifecycle, 1:1/인사면담/평가/고충/교육 흐름을 공통 work item skeleton 위에 얹어 설명합니다.",
+    summary: "직원 lifecycle, 1:1/인사면담/평가/고충/교육 흐름을 업무 카드 흐름으로 묶어 관리합니다.",
     roleScope: "본사 HR / 지점 관리자 / 일반 직원(자기 건) / 감사",
-    accessNote: "실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 metadata 만 먼저 노출합니다.",
+    accessNote: "실민감 인사 원문과 외부 캘린더 연동은 닫고, 일정·참석자·안건·후속조치 핵심 상태와 후속조치만 먼저 보여 줍니다.",
     apiRoutes: ["/api/work-items?module=hr", "/api/work-items/:id", "/api/work-items/:id/documents", "/api/work-items/:id/attachments"],
     milestones: ["직원 lifecycle 단계", "1:1·인사면담·평가·고충·교육 카테고리", "본사 HR / 지점 관리자 / 일반 직원 visibility 분리"],
     detailSections: [
@@ -50,11 +50,11 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "tax",
     href: "/work-items/tax",
     title: "세무 업무",
-    summary: "지점별 증빙 제출, 세목별 마감, HQ 전달 패키지 준비를 공통 work item skeleton 으로 묶습니다.",
+    summary: "지점별 증빙 제출, 세목별 마감, HQ 전달 패키지 준비를 업무 카드 흐름으로 묶어 관리합니다.",
     roleScope: "본사 세무 담당 / 지점 관리자 / 감사",
     accessNote: "실제 홈택스 신고·회계프로그램 연동·실세무 원문 업로드는 닫고, 제출 상태·반려 사유·전달 패키지 준비 metadata 만 먼저 보여 줍니다.",
     apiRoutes: ["/api/work-items?module=tax", "/api/work-items/:id", "/api/work-item-deadlines", "/api/work-items/:id/reviews"],
-    milestones: ["증빙 수집", "부가세/원천세/지방세/법인세 마감 skeleton", "HQ 검토·반려·전달 패키지 준비", "본사 세무 담당 / 지점 관리자 visibility 분리"],
+    milestones: ["증빙 수집", "부가세/원천세/지방세/법인세 마감", "HQ 검토·반려·전달 패키지 준비", "본사 세무 담당 / 지점 관리자 visibility 분리"],
     detailSections: [
       {
         title: "이번 단계 tax 유형",
@@ -78,11 +78,11 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "labor",
     href: "/work-items/labor",
     title: "노무 업무",
-    summary: "근로계약·연차/수당·고충·징계·사고·퇴사 이슈를 공통 work item 위의 labor skeleton 으로 묶고 restricted 경계를 더 좁게 나눕니다.",
+    summary: "근로계약·연차/수당·고충·징계·사고·퇴사 이슈를 노무 업무 카드로 묶고 민감 접근 경계를 더 좁게 나눕니다.",
     roleScope: "본사 HR/노무 · 지점 관리자 · 일반 직원(자기 건 일부) · 감사",
-    accessNote: "실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고, category·intake·evidence·follow-up metadata 만 먼저 노출합니다.",
+    accessNote: "실제 계약서/징계/사고 원문 저장과 외부 노무·급여 연동은 닫고, category·intake·evidence·follow-up 핵심 상태와 후속조치만 먼저 보여 줍니다.",
     apiRoutes: ["/api/work-items?module=labor", "/api/work-items/:id", "/api/work-item-deadlines"],
-    milestones: ["노무 category 확장", "intake/confidentiality metadata", "restricted labor capability 분리"],
+    milestones: ["노무 category 확장", "intake/confidentiality metadata", "민감 labor capability 분리"],
     detailSections: [
       {
         title: "이번 단계 labor 유형",
@@ -91,7 +91,7 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
       {
         title: "누가 어디까지 보는가",
         items: [
-          "본사 HR/노무는 회사 단위 labor metadata 를 보고 restricted 건은 별도 capability 가 있어야 본다.",
+          "본사 HR/노무는 회사 단위 labor metadata 를 보고 민감 건은 별도 capability 가 있어야 본다.",
           "지점 관리자는 자기 지점 일정/자료 요청/후속조치 요약만 보고 제한 메모 원문은 보지 않는다.",
           "일반 직원은 자기 제출 요청과 자기 이슈 상태 일부만 보는 전제다.",
           "감사는 민감 원문 대신 열람 흔적과 상태 변경 중심으로 본다.",
@@ -107,9 +107,9 @@ export const workItemModuleCards: WorkItemModuleCard[] = [
     slug: "legal",
     href: "/work-items/legal",
     title: "법무 업무",
-    summary: "계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 공통 work item skeleton 안에서 metadata 중심으로 묶습니다.",
+    summary: "계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속을 업무 카드 안에서 핵심 정보 중심으로 묶습니다.",
     roleScope: "본사 법무/운영 담당 / 지점 관리자 / 감사",
-    accessNote: "실계약서 원문, 분쟁 자료 원문, 외부 변호사/보험사 연동은 닫고 계약 분류·갱신일·답변 준비·승인 게이트 metadata 만 먼저 노출합니다.",
+    accessNote: "실계약서 원문, 분쟁 자료 원문, 외부 변호사/보험사 연동은 닫고 계약 분류·갱신일·답변 준비·승인 게이트 핵심 상태와 후속조치만 먼저 보여 줍니다.",
     apiRoutes: ["/api/work-items?module=legal", "/api/work-items/:id", "/api/work-items/:id/reviews", "/api/work-item-deadlines"],
     milestones: ["계약 검토 요청", "계약 분류와 갱신 예정", "분쟁/클레임/보험 후속", "본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 분리"],
     detailSections: [
@@ -159,15 +159,15 @@ export const managementWorkItemCards = workItemModuleCards.filter((card) => card
 export const workItemHubHighlights = [
   "공통 work item 목록, 상세, 문서, 첨부, 검토, 마감 API 골격을 먼저 맞춥니다.",
   "회사/지점/역할/capability 기반 설명을 한 화면에서 읽게 하고 실제 저장·외부 전송은 열지 않습니다.",
-  "민감 문서/첨부는 metadata preview 와 approval gate 언어로만 연결하고 raw 원문 저장 완료처럼 쓰지 않습니다.",
+  "민감 문서/첨부는 metadata 확인용 와 승인 기준 언어로만 연결하고 원문 저장 완료처럼 쓰지 않습니다.",
   "모바일 하단 탭은 유지하고 홈/메뉴/PC sidebar 안에 새 허브를 추가합니다.",
 ] as const;
 
 export const workItemGuardrails = [
   "민감 원문 첨부는 metadata-only 로 남기고 실제 파일 내용 노출은 하지 않습니다.",
   "세무 신고, 외부 법무, 외부 저장소 발송 같은 운영 자동화는 이번 단계 범위가 아닙니다.",
-  "검토/마감 상태는 placeholder 이며 실제 승인 완료처럼 과장하지 않습니다.",
-  "payroll / documents / audit preview 와 연결되더라도 실원문 저장 확대, 외부 제출, production migration 은 계속 승인 게이트입니다.",
+  "검토/마감 상태는 확인 대기 이며 실제 승인 완료처럼 과장하지 않습니다.",
+  "급여 / 문서 / 감사 확인용 와 연결되더라도 실원문 저장 확대, 외부 제출, 운영 전환 은 계속 승인 게이트입니다.",
 ] as const;
 
 export function getWorkItemModuleCard(slug: Exclude<WorkItemModuleKey, "hub">) {

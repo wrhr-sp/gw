@@ -36,15 +36,19 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("운영 DB seed");
   });
 
-  it("keeps me page focused on session summary and read-only personal context", () => {
+  it("keeps me page focused on personal workspace and read-only context", () => {
     const html = renderToStaticMarkup(<MePage />);
 
-    expect(html).toContain("내 정보에서 먼저 보는 카드");
-    expect(html).toContain("same-origin /api/me");
-    expect(html).toContain("할 일이 없는 정상 상태");
+    expect(html).toContain("feature-workspace");
+    expect(html).toContain("내 정보");
+    expect(html).toContain("보안");
+    expect(html).toContain("권한");
+    expect(html).toContain("연결 업무");
     expect(html).toContain("/employees");
+    expect(html).toContain("/payroll/me");
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("초대 실행");
+    expect(html).not.toContain("dev-safe");
   });
 
   it("keeps admin users page positioned as a higher-risk review surface", () => {

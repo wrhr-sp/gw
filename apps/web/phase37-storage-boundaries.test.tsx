@@ -57,9 +57,12 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(managementHtml).toContain("dev-safe 안내 상태");
     expect(managementHtml).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
   
-    expect(payrollHtml).toContain("preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.");
+    expect(payrollHtml).toContain("feature-workspace");
+    expect(payrollHtml).toContain("급여 현황");
+    expect(payrollHtml).toContain("급여 프로필");
+    expect(payrollHtml).toContain("마감/검토");
 
-    expect(workItemHubHighlights).toContain("민감 문서/첨부는 metadata preview 와 approval gate 언어로만 연결하고 raw 원문 저장 완료처럼 쓰지 않습니다.");
-    expect(workItemGuardrails).toContain("payroll / documents / audit preview 와 연결되더라도 실원문 저장 확대, 외부 제출, production migration 은 계속 승인 게이트입니다.");
+    expect(workItemHubHighlights).toContain("민감 문서/첨부는 metadata 확인용 와 승인 기준 언어로만 연결하고 원문 저장 완료처럼 쓰지 않습니다.");
+    expect(workItemGuardrails).toContain("급여 / 문서 / 감사 확인용 와 연결되더라도 실원문 저장 확대, 외부 제출, 운영 전환 은 계속 승인 게이트입니다.");
   });
 });

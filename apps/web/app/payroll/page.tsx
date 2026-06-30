@@ -1,132 +1,81 @@
 import React from "react";
-import { appRoutes } from "@gw/shared";
 
-import { PayrollOverviewLiveSection } from "../_components/phase35-live-sections";
-import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
+import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../_components/feature-workspace";
+import { PageShell } from "../_components/page-shell";
 
-const overviewCards = [
-  {
-    title: "급여 프로필 skeleton",
-    summary: "직원별 지급 형태, 기준급/시급, 지급일, 적용 시작일을 한 자리에서 읽습니다.",
-    detail: "프로필 저장/변경 확정 없이 기준 필드와 공개 범위만 먼저 맞춥니다.",
-    href: appRoutes.payroll.overview,
-  },
-  {
-    title: "급여 기간 / 마감 상태",
-    summary: "월별 급여 기간을 collecting → reviewing → confirmed 흐름으로 구분합니다.",
-    detail: "실정산 확정이 아니라 어떤 단계까지 왔는지 보여 주는 skeleton 입니다.",
-    href: appRoutes.payroll.periodDetail("payroll_period_2026_05"),
-  },
-  {
-    title: "내 급여명세서 초안",
-    summary: "구성원은 본인 명세서 preview 와 정정 안내만 분리해서 봅니다.",
-    detail: "동료 급여, 회사 총액, 실제 이체/신고 결과는 열지 않습니다.",
-    href: "/payroll/me",
-  },
-] as const;
-
-const roleCards = [
-  {
-    role: "본사 급여 담당",
-    scope: "급여 프로필, 수당/공제 항목, 기간 상태, HQ 검토 게이트",
-    note: "근태/휴가 입력을 받아 preview 초안을 만들고 최종 확정 전까지 read-only skeleton 으로 유지합니다.",
-  },
-  {
-    role: "지점 관리자",
-    scope: "지점 근태 마감, 수기 수당, 누락 자료 제출 상태",
-    note: "다른 지점/회사 전체 급여 총액 상세는 숨기고 제출 책임 구간만 보여 줍니다.",
-  },
-  {
-    role: "일반 직원",
-    scope: "본인 명세서 초안, 정정 요청 안내, 공개 시점 안내",
-    note: "본인 외 급여 데이터에는 접근하지 않으며, 실지급 확정 전에는 preview 문구를 고정합니다.",
-  },
-] as const;
-
-const lineItemExamples = [
-  "기본급 / 시급 / 일급 기준",
-  "연장·야간·휴일 수당 preview",
-  "식대·직책수당 같은 수기 allowance skeleton",
-  "원천세 / 4대보험 placeholder deduction",
-] as const;
-
-const guardrails = [
-  "실세액 계산, 4대보험 확정, 외부 신고/이체 연동은 이번 Phase 범위가 아닙니다.",
-  "급여는 근태·휴가와 가까이 두되, 노무 grievance/징계와 같은 민감 이슈와는 별도 모듈로 분리합니다.",
-  "구성원은 /payroll/me 에서 자기 명세서 초안만 확인하고 회사 전체 급여 상세는 보지 않습니다.",
-  "preview 금액, review step, approval gate 는 내부 운영 read model 이며 실지급/실신고 완료 뜻이 아닙니다.",
-] as const;
+const payrollConfig: FeatureWorkspaceConfig = {
+  title: "급여 내부관리",
+  eyebrow: "급여 프로필, 마감, 수당·공제, 본인 명세서 공개 상태를 확인합니다.",
+  tabs: [
+    { id: "overview", label: "급여 현황", badge: "6월" },
+    { id: "profile", label: "급여 프로필", badge: "직원" },
+    { id: "closing", label: "마감/검토", badge: "진행" },
+    { id: "items", label: "수당·공제", badge: "항목" },
+  ],
+  utility: [
+    { label: "이번 급여", value: "검토중" },
+    { label: "정정 요청", value: "3건" },
+    { label: "공개 대기", value: "42명" },
+  ],
+  panels: [
+    {
+      id: "overview",
+      heading: "급여 현황",
+      summary: "월별 급여 처리 상태와 직원 공개 전 확인 대상을 먼저 보여 줍니다.",
+      statusCards: [
+        { label: "수집", value: "완료", tone: "accent" },
+        { label: "검토", value: "진행중", tone: "warning" },
+        { label: "직원 공개", value: "대기" },
+      ],
+      rows: [
+        { title: "2026년 6월 급여", meta: "근태·휴가 반영 확인", status: "검토" },
+        { title: "정정 요청", meta: "근태 2건 · 수당 1건", status: "처리 필요" },
+        { title: "본인 명세서 공개", meta: "최종 확인 후 공개", status: "대기" },
+      ],
+      actions: [{ label: "검토 시작", tone: "primary" }, { label: "정정 요청 보기" }],
+    },
+    {
+      id: "profile",
+      heading: "급여 프로필",
+      summary: "직원별 지급 형태, 기준급, 지급일, 적용 시작일을 관리합니다.",
+      formFields: [
+        { label: "직원", value: "운영 매니저" },
+        { label: "지급 형태", value: "월급", type: "select" },
+        { label: "기준급", value: "2,800,000원" },
+        { label: "적용 시작일", value: "2026-07-01", type: "date" },
+      ],
+      actions: [{ label: "변경 요청", tone: "primary" }, { label: "이력 보기" }],
+      notes: ["실지급 확정 전에 변경 사유와 승인자를 함께 남깁니다.", "일반 직원은 본인 공개 명세서만 확인합니다."],
+    },
+    {
+      id: "closing",
+      heading: "마감/검토",
+      summary: "지점 제출, 본사 검토, 직원 공개 전 단계별 상태를 확인합니다.",
+      rows: [
+        { title: "지점 제출", meta: "8곳 중 7곳 완료", status: "1곳 대기" },
+        { title: "본사 검토", meta: "수당·공제 항목 확인", status: "진행" },
+        { title: "직원 공개", meta: "검토 완료 후 공개", status: "대기" },
+      ],
+      actions: [{ label: "마감 확인", tone: "primary" }, { label: "보완 요청" }],
+    },
+    {
+      id: "items",
+      heading: "수당·공제",
+      summary: "기본급, 연장·야간·휴일수당, 식대, 세금·보험 항목을 분리해서 봅니다.",
+      rows: [
+        { title: "기본급", meta: "월급 기준", status: "확인" },
+        { title: "연장·야간 수당", meta: "근태 기록 반영", status: "검토" },
+        { title: "식대·직책수당", meta: "수기 입력 확인", status: "보완" },
+        { title: "원천세·4대보험", meta: "확정 전 검토", status: "대기" },
+      ],
+    },
+  ],
+};
 
 export default function PayrollPage() {
   return (
-    <PageShell
-      backHref="/management"
-      backLabel="경영업무로"
-      eyebrow="Phase 43 급여 내부관리 도입완성"
-      title="급여 내부관리"
-      description="`/management` 아래에서 급여 프로필, 기간 상태, self-only 명세서 preview 연결을 읽는 내부관리 화면입니다. 실지급 확정, 외부 신고, 은행 이체는 이 화면에서 열지 않습니다."
-      actions={
-        <div className="pill-row">
-          <Pill tone="accent">attendance/leave input linked</Pill>
-          <Pill>preview only</Pill>
-          <Pill>role-split visibility</Pill>
-        </div>
-      }
-    >
-      <SurfaceSection title="실사용 급여 패널" description="급여 overview, 기간 상세, line item preview 를 실제 same-origin API 응답으로 먼저 확인합니다.">
-        <PayrollOverviewLiveSection />
-      </SurfaceSection>
-
-      <SurfaceSection title="이번 Phase 에 먼저 여는 카드" description="일반 직원 홈과 섞지 않고, 내부 급여 운영자가 확인할 읽기 중심 구조를 먼저 맞춥니다.">
-        <div className="grid-auto-compact">
-          {overviewCards.map((card) => (
-            <article key={card.title} className="route-card">
-              <h3>{card.title}</h3>
-              <p>{card.summary}</p>
-              <p className="card-note">{card.detail}</p>
-              <a href={card.href}>{card.href}</a>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="역할별 공개 범위" description="본사 급여 담당 / 지점 관리자 / 일반 직원이 어디까지 보는지 같은 화면에서 분리해 설명합니다.">
-        <div className="grid-auto-compact">
-          {roleCards.map((card) => (
-            <article key={card.role} className="info-card">
-              <Pill tone="accent">{card.role}</Pill>
-              <strong>{card.scope}</strong>
-              <p>{card.note}</p>
-            </article>
-          ))}
-        </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="수당·공제 항목 skeleton" description="급여 line item 을 어디서 설명할지 먼저 고정합니다.">
-        <ul className="summary-list">
-          {lineItemExamples.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="연결 API / 화면" description="관리자 내부관리 화면과 구성원 self-only 화면을 같은 기준으로 확인합니다.">
-        <ul className="summary-list">
-          <li><a href={appRoutes.payroll.overview}>{appRoutes.payroll.overview}</a> — 급여 개요/기간/역할별 공개 범위</li>
-          <li><a href={appRoutes.payroll.periodDetail("payroll_period_2026_05")}>{appRoutes.payroll.periodDetail("payroll_period_2026_05")}</a> — 기간 상세 / draft / line items</li>
-          <li><a href={appRoutes.payroll.myPayslip}>{appRoutes.payroll.myPayslip}</a> — 본인 급여명세서 초안 API</li>
-          <li><a href="/payroll/me">/payroll/me</a> — 구성원용 명세서 화면 skeleton</li>
-          <li><a href="/management">/management</a> — 급여·세무·노무·법무·감사 내부관리 허브</li>
-        </ul>
-      </SurfaceSection>
-
-      <SurfaceSection title="guardrail" description="급여 모듈에서 이번 단계에 하지 않는 일" muted>
-        <ul className="summary-list">
-          {guardrails.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
+    <PageShell title="급여 내부관리" titlePlacement="content" titleHref={null}>
+      <FeatureWorkspace config={payrollConfig} />
     </PageShell>
   );
 }
