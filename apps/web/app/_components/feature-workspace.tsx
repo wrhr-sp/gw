@@ -16,12 +16,25 @@ export type FeatureWorkspaceCard = {
   tone?: "default" | "accent" | "warning";
 };
 
+export type FeatureWorkspaceAction = {
+  label: string;
+  tone?: "primary" | "secondary" | "danger";
+  /**
+   * FeatureWorkspace is a generic static workspace surface. A visible action must
+   * either be wired by a feature-specific component/API flow, or be explicitly
+   * disabled here so it is not mistaken for a completed mutation.
+   */
+  disabledReason?: string;
+};
+
+const DEFAULT_DISABLED_ACTION_REASON = "실제 API 연결 또는 승인 범위 확정이 필요한 기능입니다.";
+
 export type FeatureWorkspaceRow = {
   title: string;
   meta: string;
   status: string;
   body?: string;
-  actions?: readonly { label: string; tone?: "primary" | "secondary" | "danger" }[];
+  actions?: readonly FeatureWorkspaceAction[];
 };
 
 export type FeatureWorkspacePanel = {
@@ -30,7 +43,7 @@ export type FeatureWorkspacePanel = {
   summary: string;
   statusCards?: readonly FeatureWorkspaceCard[];
   formFields?: readonly { label: string; value: string; type?: "text" | "date" | "select" | "textarea" }[];
-  actions?: readonly { label: string; tone?: "primary" | "secondary" | "danger" }[];
+  actions?: readonly FeatureWorkspaceAction[];
   rows?: readonly FeatureWorkspaceRow[];
   notes?: readonly string[];
   emptyState?: { title: string; body: string; actionLabel?: string };
@@ -59,6 +72,23 @@ function renderField(field: { label: string; value: string; type?: "text" | "dat
   }
 
   return <input aria-label={field.label} defaultValue={field.value} type={field.type ?? "text"} />;
+}
+
+function renderDisabledActionButton(action: FeatureWorkspaceAction, className: string) {
+  const disabledReason = action.disabledReason ?? DEFAULT_DISABLED_ACTION_REASON;
+
+  return (
+    <button
+      aria-disabled="true"
+      aria-label={`${action.label} — ${disabledReason}`}
+      className={className}
+      disabled
+      title={disabledReason}
+      type="button"
+    >
+      {action.label}
+    </button>
+  );
 }
 
 export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig }) {
@@ -139,9 +169,12 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
             {activePanel.actions?.length ? (
               <div className="feature-workspace__actions">
                 {activePanel.actions.map((action) => (
-                  <button className={`touch-button feature-workspace__action feature-workspace__action--${action.tone ?? "secondary"}`} key={action.label} type="button">
-                    {action.label}
-                  </button>
+                  <React.Fragment key={action.label}>
+                    {renderDisabledActionButton(
+                      action,
+                      `touch-button feature-workspace__action feature-workspace__action--${action.tone ?? "secondary"}`,
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
             ) : null}
@@ -149,9 +182,12 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
         ) : activePanel.actions?.length ? (
           <div className="feature-workspace__actions">
             {activePanel.actions.map((action) => (
-              <button className={`touch-button feature-workspace__action feature-workspace__action--${action.tone ?? "secondary"}`} key={action.label} type="button">
-                {action.label}
-              </button>
+              <React.Fragment key={action.label}>
+                {renderDisabledActionButton(
+                  action,
+                  `touch-button feature-workspace__action feature-workspace__action--${action.tone ?? "secondary"}`,
+                )}
+              </React.Fragment>
             ))}
           </div>
         ) : null}
@@ -167,9 +203,12 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
                   {row.actions?.length ? (
                     <div className="feature-workspace__row-actions" aria-label={`${row.title} 처리`}>
                       {row.actions.map((action) => (
-                        <button className={`feature-workspace__row-action feature-workspace__row-action--${action.tone ?? "secondary"}`} key={action.label} type="button">
-                          {action.label}
-                        </button>
+                        <React.Fragment key={action.label}>
+                          {renderDisabledActionButton(
+                            action,
+                            `feature-workspace__row-action feature-workspace__row-action--${action.tone ?? "secondary"}`,
+                          )}
+                        </React.Fragment>
                       ))}
                     </div>
                   ) : null}
@@ -184,7 +223,18 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
           <aside className="feature-workspace__empty-state" aria-label={`${activePanel.heading} 빈 상태 안내`}>
             <strong>{activePanel.emptyState.title}</strong>
             <p>{activePanel.emptyState.body}</p>
-            {activePanel.emptyState.actionLabel ? <button className="feature-workspace__empty-action" type="button">{activePanel.emptyState.actionLabel}</button> : null}
+            {activePanel.emptyState.actionLabel ? (
+              <button
+                aria-disabled="true"
+                aria-label={`${activePanel.emptyState.actionLabel} — ${DEFAULT_DISABLED_ACTION_REASON}`}
+                className="feature-workspace__empty-action"
+                disabled
+                title={DEFAULT_DISABLED_ACTION_REASON}
+                type="button"
+              >
+                {activePanel.emptyState.actionLabel}
+              </button>
+            ) : null}
           </aside>
         ) : null}
 

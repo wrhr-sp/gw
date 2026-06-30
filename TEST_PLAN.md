@@ -9,6 +9,17 @@
 - 권한/회사 경계/placeholder 오해 방지까지 같이 본다.
 - PR 전, merge 후, live smoke, 문서 일관성 확인을 서로 분리해 기록한다.
 
+
+## no-mock 운영 기능 검증 축
+
+완료 기능 검증은 화면 존재나 API 200만 보지 않고 아래 흐름을 확인한다.
+
+- 활성 버튼/폼/CTA가 실제 API를 호출하는지, 아니면 명확히 비활성/승인 필요/범위 밖 상태인지 확인한다.
+- mutation 기능은 입력 검증 실패, 권한 없음, 다른 회사/지점/사용자 접근 차단, 정상 생성, 저장 후 재조회, 수정 또는 상태변경 후 재조회, 감사로그 기록을 확인한다.
+- DB 미설정, schema drift, R2 미설정, 네트워크/저장 실패가 성공처럼 보이지 않는지 확인한다.
+- mock/placeholder/skeleton/dummy/dev-safe 문구나 static sample이 운영 화면·완료 기능에 남아 있으면 미완료/known issue로 분류한다.
+- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 검증 범위와 별도 승인 게이트를 분리해 기록한다.
+
 ## Phase 60 추가 검증 초점
 
 - `docs/guides/phase-60-first-real-usage-release-notes-user-admin-handoff.md` 가 live URL, 테스트 계정, 역할별 추천 route, 직접 눌러볼 액션, 승인 게이트를 한 문서에서 바로 재사용 가능하게 정리했는지 본다.

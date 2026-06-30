@@ -9,9 +9,11 @@ Next.js App Router Web (`apps/web`)
   ↓ same-origin `/api/*`
 Cloudflare Workers + Hono API (`apps/api`)
   ↓
-Shared contract (`packages/shared`)
+Service / Repository 계층
   ↓
-Cloudflare D1 / R2 / KV / Durable Objects / Queues / Cron 후보
+PostgreSQL preview/UAT DB + R2 파일 저장소
+  ↓
+Shared contract (`packages/shared`) 기준 응답 검증
 ```
 
 ## 주요 모듈
@@ -40,3 +42,7 @@ Cloudflare D1 / R2 / KV / Durable Objects / Queues / Cron 후보
 
 - Cloudflare 플랫폼 계획: `docs/architecture/next-cloudflare-platform-plan.md`
 - 자동화 구조: `docs/workflow/groupware-kanban-automation.md`
+
+## 운영 기능 데이터 흐름 기준
+
+운영 기능은 route handler 내부 임시 응답이 아니라 `Web 화면 → same-origin API → Service → Repository → DB/R2 → 재조회 → shared contract 응답` 흐름을 따른다. DB/R2/schema 미설정 시 mock/in-memory fallback 성공으로 숨기지 않고 명시적 오류로 실패한다. production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 별도 승인 게이트다.
