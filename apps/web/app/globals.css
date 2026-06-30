@@ -4327,9 +4327,16 @@ li {
   text-align: left;
 }
 
+.board-tree-link,
 .mail-folder-list__item--child {
   display: grid;
+  align-items: center;
   grid-template-columns: var(--feature-page-sublist-grid-columns);
+  gap: var(--feature-page-sublist-column-gap);
+  padding: var(--feature-page-sublist-padding-block) 0;
+}
+
+.mail-folder-list__item--child {
   padding-left: 0;
 }
 
@@ -4786,13 +4793,10 @@ li {
 }
 
 .board-tree-link {
-  grid-template-columns: var(--feature-page-sublist-grid-columns);
-  gap: var(--feature-page-sublist-column-gap);
   font-family: var(--feature-page-sublist-font-family);
   font-size: var(--feature-page-sublist-font-size);
   font-variation-settings: var(--feature-page-sublist-font-variation-settings);
   line-height: var(--feature-page-sublist-line-height);
-  padding: var(--feature-page-sublist-padding-block) 0;
 }
 
 .board-tree-link:hover,
