@@ -4286,7 +4286,7 @@ li {
 }
 
 .mail-folder-list {
-  gap: var(--feature-page-sublist-section-gap);
+  gap: var(--feature-page-sublist-item-gap);
 }
 
 .mail-folder-list__group {
