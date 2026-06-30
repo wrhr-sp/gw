@@ -12,6 +12,10 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("--feature-page-sublist-marker-content: \"ㄴ\";");
     expect(globalCss).toContain("--feature-page-sublist-marker-color: var(--board-tree-link-branch-color);");
     expect(globalCss).toContain("--feature-page-sublist-marker-gap: var(--board-tree-link-gap);");
+    expect(globalCss).toContain("--feature-page-list-section-gap: var(--board-tree-section-gap);");
+    expect(globalCss).toContain("--feature-page-list-item-gap: var(--board-tree-item-gap);");
+    expect(globalCss).toContain("--feature-page-list-item-inner-gap: var(--board-tree-link-gap);");
+    expect(globalCss).toContain("--feature-page-list-item-padding-block: var(--board-tree-link-padding-block);");
     expect(globalCss).toContain("--feature-page-write-button-min-height: var(--board-write-button-min-height);");
     expect(globalCss).toContain("--feature-page-write-button-font-weight: var(--board-write-button-font-weight);");
     expect(globalCss).toContain("--feature-page-write-button-font-variation-settings: var(--board-write-button-font-variation-settings);");
@@ -24,6 +28,11 @@ describe("feature content area common tokens", () => {
 
     expect(globalCss).toContain("font-size: var(--feature-page-sublist-font-size);");
     expect(globalCss).toContain("content: var(--feature-page-sublist-marker-content);");
+    expect(globalCss).toContain(".feature-workspace__tab-list {");
+    expect(globalCss).toContain("gap: var(--feature-page-list-item-gap);");
+    expect(globalCss).toContain("gap: var(--feature-page-list-section-gap);");
+    expect(globalCss).toContain("gap: var(--feature-page-list-item-inner-gap);");
+    expect(globalCss).toContain("padding: var(--feature-page-list-item-padding-block) 0;");
     expect(globalCss).toContain("border: var(--feature-page-write-button-border);");
     expect(globalCss).toContain("border-top: var(--feature-page-list-parent-divider);");
     expect(globalCss).toContain("width: var(--feature-page-title-settings-button-size);");
