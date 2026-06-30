@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import OperationsPage from "./app/operations/page";
 import OperationsBranchPage from "./app/operations/branches/[branchId]/page";
+import CEOPage from "./app/CEO/page";
+import StrategicPlanningPage from "./app/Strategic Planning/page";
+import PlaceOfBusinessPage from "./app/Place of business/page";
+import PlaceOfBusinessBranchPage from "./app/Place of business/[branchId]/page";
 
 describe("operations branch portal", () => {
   it("renders the operations department portal with branch permission and report lanes", () => {
@@ -36,16 +40,33 @@ describe("operations branch portal", () => {
     expect(source).toContain("은행 API 자동확인은 이번 1차 범위 밖입니다.");
   });
 
+  it("renders department and place-of-business route pages", async () => {
+    const ceoHtml = renderToStaticMarkup(<CEOPage />);
+    const strategyHtml = renderToStaticMarkup(<StrategicPlanningPage />);
+    const placeHtml = renderToStaticMarkup(<PlaceOfBusinessPage />);
+    const seoulHtml = renderToStaticMarkup(await PlaceOfBusinessBranchPage({ params: Promise.resolve({ branchId: "seoul" }) }));
+
+    expect(ceoHtml).toContain("대표이사실 / CEO");
+    expect(strategyHtml).toContain("전략기획실 / Strategic Planning");
+    expect(placeHtml).toContain("지점관리포털 / Place of business");
+    expect(placeHtml).toContain('/Place of business/seoul');
+    expect(seoulHtml).toContain("서울지점 지점관리");
+  });
+
   it("keeps branch portal topbar search and department portal order scoped to source", () => {
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
 
-    expect(shellSource.indexOf('id: "operations", label: "운영사업부", href: "/operations"')).toBeLessThan(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, href: "/home"'));
-    expect(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, href: "/home"')).toBeLessThan(shellSource.indexOf('label: "관리자 페이지", href: "/admin"'));
+    expect(shellSource.indexOf('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"')).toBeLessThan(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"'));
+    expect(shellSource.indexOf('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"')).toBeLessThan(shellSource.indexOf('label: "관리자 페이지", englishLabel: "Admin", href: "/admin"'));
+    expect(shellSource).toContain('href: "/CEO"');
+    expect(shellSource).toContain('href: "/Strategic Planning"');
+    expect(shellSource).toContain('const branchPortalHomeHref = "/Place of business";');
     expect(shellSource).toContain("지점관리포털");
     expect(shellSource).toContain("branchPortalSearch");
     expect(shellSource).toContain("getCurrentLocationLabel");
     expect(shellSource).toContain("서울지점");
     expect(shellSource).toContain("filteredBranchPortalItems");
-    expect(shellSource).toContain("/operations/branches/${branchId}");
+    expect(shellSource).toContain('href={`/Place of business/${branch.id}`} target="_blank" rel="noreferrer"');
+    expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
   });
 });
