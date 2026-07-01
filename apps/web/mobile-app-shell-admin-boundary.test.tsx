@@ -429,6 +429,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('element.dataset.autoScrollbar = "true"');
     expect(shellSource).toContain('element.dataset.autoScrollbarScrolling = "true"');
     expect(shellSource).toContain("}, 1000)");
+    expect(shellSource).toContain('function collapseSidebarForDifferentScreen(href: string)');
+    expect(shellSource).toContain('if (!sidebarCollapsed && targetPath !== currentPath)');
+    expect(shellSource).toContain('setSidebarCollapsed(true);');
+    expect(shellSource).toContain('}, [pathname, router, sidebarCollapsed]);');
     expect(shellSource).not.toContain("desktop-sidebar--scrolling");
     expect(shellSource).toContain("const SIDEBAR_CUSTOM_MENU_LIMIT = 10");
     expect(shellSource).toContain("function renderSidebarSettingsModal()");
