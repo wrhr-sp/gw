@@ -14,7 +14,7 @@
 
 아직 부족한 것:
 
-- 관리자 허브가 실제 운영자가 매일 보는 콘솔 느낌보다는 설명형 placeholder 에 가깝습니다.
+- 관리자 허브가 실제 운영자가 매일 보는 콘솔 느낌보다는 설명형 Production-ready (실구현) 에 가깝습니다.
 - 각 하위 화면이 "무엇을 먼저 확인해야 하는지"가 더 선명하게 보이지 않습니다.
 - 진입점, 화면 구조, guard, 테스트를 다음 구현자가 한 번에 따라가도록 묶은 handoff 가 더 필요합니다.
 
@@ -80,7 +80,7 @@
 - 고위험 권한 노출 요약
 - 역할 before/after diff
 - 상태 변경 preview
-- 감사 candidate / 변경 사유 placeholder
+- 감사 candidate / 변경 사유 Production-ready (실구현)
 
 ### 4) `/admin/policies` 는 도메인 카드별 공통 형식을 맞춘다.
 
@@ -90,7 +90,7 @@
 - candidate 값
 - before/after diff
 - 필요한 capability
-- 변경 사유 placeholder
+- 변경 사유 Production-ready (실구현)
 - 감사 preview
 - 비노출/마스킹 주의사항
 
@@ -112,11 +112,11 @@
 - 로그인한 일반 사용자는 `/forbidden` 으로 차단됩니다.
 - 감사 전용 사용자는 `/admin/audit-logs` 만 허용되고 `/admin`, `/admin/users`, `/admin/policies` 는 계속 차단됩니다.
 - 관리자 역할 사용자는 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 화면 렌더링이 정상입니다.
-- 관리자 CTA 비노출/허용 경계, admin skeleton 구조, API 권한 경계, build/typecheck 까지 한 번에 통과했습니다.
+- 관리자 CTA 비노출/허용 경계, admin Production-ready (실구현) 구조, API 권한 경계, build/typecheck 까지 한 번에 통과했습니다.
 
 검증 명령:
 
-- `npx pnpm --filter @gw/web test -- admin-preview-guard admin-skeleton-config admin-console-pass1 dashboard-boundary org-employees-boundary api-same-origin-bridge mobile-pwa`
+- `npx pnpm --filter @gw/web test -- admin-preview-guard admin-Production-ready (실구현)-config admin-console-pass1 dashboard-boundary org-employees-boundary api-same-origin-bridge mobile-pwa`
 - `npx pnpm --filter @gw/shared test`
 - `npx pnpm --filter @gw/api test -- auth-org.spec.ts`
 - `npx pnpm --filter @gw/web typecheck`
@@ -137,7 +137,7 @@
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/admin-preview-guard.ts`
 - `apps/web/admin-preview-guard.test.ts`
 - `apps/web/app/forbidden/page.tsx`
@@ -154,7 +154,7 @@
 
 1. `docs/architecture/phase-13-admin-console-pass-1-scope.md` 와 이 handoff 문서를 먼저 읽습니다.
 2. `apps/web/app/dashboard/dashboard-config.ts` 에서 역할별 관리자 CTA 문구와 목적을 먼저 고정합니다.
-3. `apps/web/admin-skeleton-config.ts` 를 중심으로 허브/사용자/정책/감사 로그 화면에 공통으로 쓸 카드 문구와 체크포인트를 정리합니다.
+3. `apps/web/admin-Production-ready (실구현)-config.ts` 를 중심으로 허브/사용자/정책/감사 로그 화면에 공통으로 쓸 카드 문구와 체크포인트를 정리합니다.
 4. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 의 정보 블록 순서를 실사용 우선순위로 재배치합니다.
 5. shared/API 쪽에서 화면이 필요로 하는 최소 필드만 보강합니다. 큰 새 저장 로직은 만들지 않습니다.
 6. `apps/web/admin-preview-guard.test.ts` 와 관련 API/shared 테스트로 권한 경계와 masked 규칙을 회귀로 고정합니다.

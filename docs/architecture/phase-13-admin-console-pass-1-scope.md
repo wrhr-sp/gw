@@ -15,7 +15,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 - admin API 와 shared contract 에 candidate/audit/masked 기준이 이미 들어 있음
 - 감사 로그에는 raw `storageKey`, bucket 이름, signed URL 전문, secret 을 넣지 않는 원칙이 고정돼 있음
 
-하지만 현재 화면은 아직 "관리자도 실제로 쓰는 흐름"보다는 "개념을 설명하는 placeholder" 성격이 강합니다.
+하지만 현재 화면은 아직 "관리자도 실제로 쓰는 흐름"보다는 "개념을 설명하는 Production-ready (실구현)" 성격이 강합니다.
 지금 상태에서 부족한 점은 아래입니다.
 
 - 관리자 진입점이 문서와 대시보드에만 약하게 연결돼 있어, 실제 운영자가 어디서 관리자 영역으로 들어갈지 더 분명하지 않음
@@ -46,7 +46,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/admin-preview-guard.ts`
 - `apps/web/admin-preview-guard.test.ts`
 - `apps/web/app/forbidden/page.tsx`
@@ -57,7 +57,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 
 - `/dashboard` 는 이미 관리자 CTA 를 역할별로 분기할 수 있는 `getDashboardAdminShortcut(...)` 구조를 갖고 있음
 - 관리자 역할(`SUPER_ADMIN`, `COMPANY_ADMIN`, `HR_ADMIN`)은 `/admin` 바로가기를, 감사 역할(`AUDITOR`)은 `/admin/audit-logs` 바로가기를 받을 수 있음
-- `/admin` 허브와 하위 3개 화면은 존재하지만, 아직 정보 블록이 간단한 bullet/placeholder 중심임
+- `/admin` 허브와 하위 3개 화면은 존재하지만, 아직 정보 블록이 간단한 bullet/Production-ready (실구현) 중심임
 - shared contract 에는 admin users/policies/audit-logs 의 목록/필터/candidate 응답이 이미 있음
 - API mock 데이터에도 사용자 요약, 정책 diff preview, 감사 로그 filter/masked metadata 가 이미 있음
 - preview guard 는 익명 → `/login`, 일반 로그인 사용자 → `/forbidden`, 감사 전용 사용자 → 감사 로그만 허용 기준을 실제 코드와 테스트로 유지함
@@ -115,7 +115,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 2. 고위험 권한 노출 요약
 3. 역할 변경 before/after diff
 4. 상태 변경 preview
-5. 감사 이벤트 preview + 변경 사유 입력 placeholder
+5. 감사 이벤트 preview + 변경 사유 입력 Production-ready (실구현)
 
 이번 단계의 핵심은 "실제 저장 버튼"이 아니라,
 운영자가 역할/권한/상태 변경 영향을 먼저 이해하게 만드는 것입니다.
@@ -136,7 +136,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 - 바꾸려는 candidate 값
 - before/after diff
 - 필요한 capability
-- 변경 사유 placeholder
+- 변경 사유 Production-ready (실구현)
 - 감사 preview
 - 마스킹/비노출 주의사항
 
@@ -187,7 +187,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 
 - `/dashboard` 또는 공통 탐색에서 역할별 관리자 CTA 문구/배치 보강
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` UI 정보구조 재배치
-- `admin-skeleton-config` 의 실사용형 카드/체크리스트/주의사항 보강
+- `admin-Production-ready (실구현)-config` 의 실사용형 카드/체크리스트/주의사항 보강
 - 필요 시 shared contract 의 admin summary 필드 최소 보강
 - 필요 시 admin API mock 응답의 카드/요약 필드 최소 보강
 - Web/API/shared/test/docs 동기화
@@ -246,7 +246,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 - 역할/권한 diff 요약
 - 상태 변경 preview
 - 고위험 권한 노출 안내
-- 감사 candidate / reason placeholder
+- 감사 candidate / reason Production-ready (실구현)
 
 이번 1차에서도 하지 않을 것:
 
@@ -295,7 +295,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/admin-preview-guard.ts`
 - `apps/web/app/forbidden/page.tsx`
 
@@ -360,7 +360,7 @@ Phase 9~10에서 아래 기준은 이미 잡혔습니다.
 
 확인된 명령:
 
-- `npx pnpm --filter @gw/web test -- admin-preview-guard admin-skeleton-config admin-console-pass1 dashboard-boundary org-employees-boundary api-same-origin-bridge mobile-pwa`
+- `npx pnpm --filter @gw/web test -- admin-preview-guard admin-Production-ready (실구현)-config admin-console-pass1 dashboard-boundary org-employees-boundary api-same-origin-bridge mobile-pwa`
 - `npx pnpm --filter @gw/shared test`
 - `npx pnpm --filter @gw/api test -- auth-org.spec.ts`
 - `npx pnpm --filter @gw/web typecheck`

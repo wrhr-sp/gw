@@ -2,7 +2,7 @@
 
 한 줄 요약:
 이번 Phase 21은
-회사/조직/직원/권한/근태·휴가 정책 skeleton 을
+회사/조직/직원/권한/근태·휴가 정책 Production-ready (실구현) 을
 "실제 회사라면 어떤 설정 묶음으로 관리될지" 기준으로 다시 묶는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
@@ -13,7 +13,7 @@
 - `/org`, `/employees`, `/admin/users` 의 일반 조회 대 운영 검토 경계
 - 출퇴근 정책의 `company_default < workplace < department < job_type` 우선순위
 - `/admin/policies` 와 `/api/attendance/*`, `/api/leave/*` 를 잇는 운영 설명의 뼈대
-- 직원 화면에서 권한/회사 scope/정책 미허용/placeholder 제한을 나눠 설명하는 방향
+- 직원 화면에서 권한/회사 scope/정책 미허용/Production-ready (실구현) 제한을 나눠 설명하는 방향
 
 아직 운영 완료로 보면 안 되는 것:
 
@@ -51,7 +51,7 @@
 
 핵심은
 메뉴를 무조건 늘리는 것이 아니라,
-문서와 UI/API skeleton 이 이 4묶음을 같은 말로 설명하게 만드는 것입니다.
+문서와 UI/API Production-ready (실구현) 이 이 4묶음을 같은 말로 설명하게 만드는 것입니다.
 
 ### 2) 회사 기본 설정은 정책의 시작점이다.
 
@@ -116,7 +116,7 @@
 8. `/admin/users`, `/admin/policies`, `/admin/audit-logs`
 9. `/admin`
 
-이 순서대로 볼 때도 각 단계가 반드시 "지금 확인 가능 / 아직 skeleton / 승인 필요" 중 어디인지 읽혀야 합니다.
+이 순서대로 볼 때도 각 단계가 반드시 "지금 확인 가능 / 아직 Production-ready (실구현) / 승인 필요" 중 어디인지 읽혀야 합니다.
 
 ## 4. 먼저 볼 파일
 
@@ -141,7 +141,7 @@
 - `API.md`
 - `packages/shared/src/attendance-policy.ts`
 - `packages/shared/src/contracts.ts`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/api/src/app.ts`
 
 ## 5. 권장 구현 순서
@@ -197,7 +197,7 @@
 
 집중할 것:
 
-- 실운영 연결이 아닌 preview/dev-safe skeleton 범위임을 계속 분리 기록
+- 실운영 연결이 아닌 preview/dev-safe Production-ready (실구현) 범위임을 계속 분리 기록
 - live 확인이 있더라도 production data/GPS/실장비/external HR 미연결 상태를 숨기지 않기
 
 ## 7. 남은 승인 게이트

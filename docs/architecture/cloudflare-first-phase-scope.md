@@ -28,16 +28,16 @@
 ### 로컬 스켈레톤 범위
 
 - monorepo 기본 구조 준비
-- `apps/web`용 Next.js Web/PWA skeleton
-- `apps/api`용 Workers + Hono API skeleton
-- `packages/shared`용 공통 타입 / schema skeleton
-- `db/migrations`용 D1 SQL migration skeleton
+- `apps/web`용 Next.js Web/PWA Production-ready (실구현)
+- `apps/api`용 Workers + Hono API Production-ready (실구현)
+- `packages/shared`용 공통 타입 / schema Production-ready (실구현)
+- `db/migrations`용 D1 SQL migration Production-ready (실구현)
 - health check 수준의 최소 API 진입점
 - 로컬에서 실행 가능한 검증 명령 정의
 
 ### 구현 제한
 
-- 예시 설정 파일, placeholder, mock 값까지만 허용
+- 예시 설정 파일, Production-ready (실구현), mock 값까지만 허용
 - 실제 비밀값, 실제 Cloudflare 리소스 ID, 실제 운영 DB 접속값은 넣지 않음
 - 실제 외부 배포 없이 로컬 검증 가능한 범위까지만 진행
 
@@ -97,7 +97,7 @@ docs/
 - Web 앱 기본 실행 또는 typecheck/build가 가능함
 - API health endpoint가 로컬에서 응답함
 - shared 타입 패키지가 web/api 양쪽에서 참조 가능함
-- migration skeleton 파일이 존재함
+- migration Production-ready (실구현) 파일이 존재함
 - README 또는 관련 문서에 로컬 검증 명령이 정리됨
 
 ## 6. 완료 기준
@@ -115,10 +115,10 @@ docs/
 다음 구현 카드에서는 아래 순서로 진행하면 된다.
 
 1. 워크스페이스/패키지 매니저 구조 확정
-2. `apps/web` skeleton 생성
-3. `apps/api` skeleton 생성
+2. `apps/web` Production-ready (실구현) 생성
+3. `apps/api` Production-ready (실구현) 생성
 4. `packages/shared` 타입 / schema 골격 생성
-5. `db/migrations` 초기 migration skeleton 생성
+5. `db/migrations` 초기 migration Production-ready (실구현) 생성
 6. health endpoint 및 로컬 검증 명령 연결
 7. 변경 파일과 검증 결과 기록
 

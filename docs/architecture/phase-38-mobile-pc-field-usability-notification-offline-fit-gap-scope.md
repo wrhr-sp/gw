@@ -4,7 +4,7 @@
 
 이번 Phase 38의 목적은 `/dashboard`·`/menu`·`/notifications`·`/offline` 와 공통 app shell 을 다시 한 묶음으로 보면서,
 "직원이 모바일/PC에서 하루 업무를 끊기지 않게 따라갈 수 있는가"와
-"어디까지는 지금 실제로 읽고 누를 수 있고 어디부터는 아직 placeholder·승인 게이트인가"를 쉬운 언어로 다시 고정하는 것이다.
+"어디까지는 지금 실제로 읽고 누를 수 있고 어디부터는 아직 Production-ready (실구현)·승인 게이트인가"를 쉬운 언어로 다시 고정하는 것이다.
 
 핵심은 새 외부 연동을 여는 것이 아니라,
 홈/메뉴/알림/오프라인 안내/권한 분리/같은 정보구조가 이미 있는 구현과 같은 뜻으로 읽히게 만드는 것이다.
@@ -48,7 +48,7 @@
 
 - 현재 알림은 "same-origin inbox / 미읽음 수 / 운영 가드레일 확인" 범위로 적는다.
 - 외부 발송 provider, push token, background sync, 읽음 처리 영구 저장 확대는 별도 후속 과제 또는 승인 게이트로 남긴다.
-- 오프라인, 권한 부족, 승인 대기, placeholder 제한을 실제 성공 알림처럼 포장하지 않는다.
+- 오프라인, 권한 부족, 승인 대기, Production-ready (실구현) 제한을 실제 성공 알림처럼 포장하지 않는다.
 - 알림 탭 자체가 업무 종착점이 아니라 `/dashboard` 와 `/menu` 로 다시 이어지는 보조 허브라고 적는다.
 
 ### 3-3. 오프라인 안내(`/offline`)와 status banner 는 "가짜 성공 UX 금지"를 먼저 보여 줘야 한다
@@ -109,7 +109,7 @@
 
 ### 알림/오프라인 안내
 - `apps/web/app/notifications/page.tsx`
-  - same-origin inbox 와 외부 발송 없음, placeholder honesty, `/dashboard`·`/menu` 재진입을 함께 설명한다.
+  - same-origin inbox 와 외부 발송 없음, Production-ready (실구현) honesty, `/dashboard`·`/menu` 재진입을 함께 설명한다.
 - `apps/web/app/offline/page.tsx`
   - 가능한 일/막히는 일/재시도 절차와 관리자 offline 레인을 분리해 보여 준다.
 - `apps/web/app/_components/mobile-app-shell.tsx`

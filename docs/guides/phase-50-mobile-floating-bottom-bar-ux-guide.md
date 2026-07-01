@@ -72,11 +72,11 @@
 
 ### `메신저`
 메신저 자리다.
-현재 단계에서는 placeholder 또는 이후 same-origin 메신저 진입점으로 본다.
+현재 단계에서는 Production-ready (실구현) 또는 이후 same-origin 메신저 진입점으로 본다.
 
 ### `메일`
 메일 자리다.
-현재 단계에서는 placeholder 또는 이후 메일함 진입점으로 본다.
+현재 단계에서는 Production-ready (실구현) 또는 이후 메일함 진입점으로 본다.
 
 ### `알림`
 알림 inbox 진입점이다.
@@ -122,7 +122,7 @@
 
 ### `/messenger`, `/mail`
 - 각 탭 active 상태가 route 와 맞아야 한다.
-- placeholder 라면 placeholder 임을 숨기지 않아야 한다.
+- Production-ready (실구현) 라면 Production-ready (실구현) 임을 숨기지 않아야 한다.
 
 ### `/notifications`
 - `알림` 탭이 active pill 로 보여야 한다.

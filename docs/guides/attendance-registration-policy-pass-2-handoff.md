@@ -11,7 +11,7 @@
 
 - 정책 방식 enum 은 `mobile`, `pc`, `tag` 3가지다.
 - 회사 기본 정책이 허용한 방식만 직원 화면과 API 에서 통과해야 한다.
-- `tag` 는 실장비 연동이 아니라 skeleton 안내 항목이다.
+- `tag` 는 실장비 연동이 아니라 Production-ready (실구현) 안내 항목이다.
 
 아직 부족한 것:
 
@@ -88,7 +88,7 @@
 혹시 sample/legacy 데이터 때문에 중복이 보이면:
 
 1. 관리자 preview 에 경고를 띄웁니다.
-2. 임시 정렬은 `updatedAt desc -> policyId asc` 로 둡니다.
+2. 프로덕션 기준 정렬은 `updatedAt desc -> policyId asc` 로 둡니다.
 3. 하지만 문서와 리뷰에서는 "데이터 이상 상태"라고 분명히 적습니다.
 
 ## 3. 가장 먼저 볼 파일
@@ -114,7 +114,7 @@
 ### Web
 
 - `apps/web/app/admin/policies/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/app/attendance/page.tsx`
 - 필요 시 `apps/web/app/dashboard/page.tsx`
 - 필요 시 `apps/web/app/employees/page.tsx`
@@ -175,7 +175,7 @@
 - 중복/충돌 경고
 - 필요한 capability
 - 감사 preview
-- `tag` skeleton 안내
+- `tag` Production-ready (실구현) 안내
 - GPS/실장비/외부 연동 제외 안내
 
 쉬운 문구 예시:
@@ -185,7 +185,7 @@
 - `샘플 직원 3명 미리보기`
 - `현재 effective: 모바일, PC → 변경 후: 태그`
 - `동일 target 활성 정책 중복 경고`
-- `태그 방식은 사내 단말 연동 전 안내형 skeleton 입니다`
+- `태그 방식은 사내 단말 연동 전 안내형 Production-ready (실구현) 입니다`
 
 피해야 할 문구:
 
@@ -318,7 +318,7 @@
 - 적용 인원 preview 와 sample 직원 영향 범위를 읽을 수 있다.
 - 직원 화면에서 최종 effective policy 기준 허용 방식만 보인다.
 - API 가 같은 effective policy 기준으로 허용/차단한다.
-- `tag` 는 여전히 skeleton 경계 안에 있다.
+- `tag` 는 여전히 Production-ready (실구현) 경계 안에 있다.
 - 테스트가 우선순위와 정책 차단 규칙을 함께 덮는다.
 
 정리하면 이번 handoff 의 핵심은 하나입니다.

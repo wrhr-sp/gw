@@ -4,14 +4,14 @@
 이번 Phase 28은
 Phase 25 공통 업무 엔진 위에,
 지점별 세무 증빙 요청·제출·마감·검토·전달 패키지 준비 흐름을
-`tax` 모듈 skeleton 으로 올리는 단계입니다.
+`tax` 모듈 Production-ready (실구현) 으로 올리는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
 
 이미 있는 기반:
 
 - 공통 `work item` 엔진이 이미 있다.
-- `tax` 모듈 placeholder 자리도 이미 있다.
+- `tax` 모듈 Production-ready (실구현) 자리도 이미 있다.
 - `/work-items/tax`, `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 같은 공통 진입점이 있다.
 - 모바일 하단 탭 5개 유지와 `홈`/`메뉴`/PC sidebar 확장 원칙도 있다.
 - 급여는 이미 독립 `payroll` 모듈로 분리돼 있다.
@@ -21,7 +21,7 @@ Phase 25 공통 업무 엔진 위에,
 - 지점별 세무 자료 요청을 어떤 category 로 나눌지
 - 세무 일정/증빙 제출/검토/반려/전달 패키지 준비를 어떤 metadata 로 설명할지
 - 본사 세무 담당 / 지점 관리자 / 감사 visibility 를 어디서 갈라야 하는지
-- 실제 신고 자동화 없이 어디까지 preview/dev-safe skeleton 으로 보여 줄지
+- 실제 신고 자동화 없이 어디까지 preview/dev-safe Production-ready (실구현) 으로 보여 줄지
 
 아직 안 여는 것:
 
@@ -41,7 +41,7 @@ Phase 25 공통 업무 엔진 위에,
 
 이번 단계에서 먼저 보는 것은
 별도 신고 솔루션이 아니라
-기존 `work item` 엔진 위에 올라가는 `tax` skeleton 입니다.
+기존 `work item` 엔진 위에 올라가는 `tax` Production-ready (실구현) 입니다.
 
 핵심 category 초안:
 
@@ -86,7 +86,7 @@ tax 쪽에서 추가로 필요한 것은
 - 세무 업무 진행 단계와 업무 처리 상태를 한 필드에 섞으면 더 복잡해진다.
 - 그래서 "업무는 어디까지 갔는가"와 "세무 마감은 어떤 단계인가"를 나눠 읽게 한다.
 
-### 3) tax skeleton 은 일정·자료·검토·전달·기록 5묶음으로 본다.
+### 3) tax Production-ready (실구현) 은 일정·자료·검토·전달·기록 5묶음으로 본다.
 
 이번 단계에서 같이 보는 구조는 아래입니다.
 
@@ -118,7 +118,7 @@ tax 쪽에서 추가로 필요한 것은
 
 중요:
 
-- 급여의 세액 placeholder 와 세무 신고 준비를 같은 기능으로 쓰지 않는다.
+- 급여의 세액 Production-ready (실구현) 와 세무 신고 준비를 같은 기능으로 쓰지 않는다.
 - 노무 restricted 기록과 세무 증빙 추적을 같은 민감도/같은 화면 책임으로 다루지 않는다.
 - 세무는 지점 제출과 HQ 검토 흐름이 핵심이고, 실제 외부 제출은 계속 승인 게이트다.
 
@@ -221,7 +221,7 @@ tax 쪽에서 추가로 필요한 것은
 
 1. 기존 `work item` / `tax` 모듈 기초를 다시 확인한다.
 2. 세무 이슈 유형을 새 상태군이 아니라 `category` + 보조 metadata 로 정리한다.
-3. 일정/evidence/review/package/audit 구조를 metadata 중심 skeleton 으로 설계한다.
+3. 일정/evidence/review/package/audit 구조를 metadata 중심 Production-ready (실구현) 으로 설계한다.
 4. 본사 세무 담당 / 지점 관리자 / 감사 visibility 차이를 API/UI copy 에 같이 반영한다.
 5. `/work-items/tax` 중심으로 tax entry 를 우선 정리한다.
 6. 실제 홈택스/회계프로그램/세무사 연동, 실원문 업로드, production data 비사용이 문서와 구현에서 흔들리지 않는지 마지막에 다시 본다.
@@ -245,7 +245,7 @@ tax 쪽에서 추가로 필요한 것은
 - 승인 게이트 문구가 실제 연동 완료처럼 바뀌지 않았는지 확인한다.
 
 ### docs
-- 세무 일정 skeleton 과 실제 신고 자동화를 같은 말로 쓰지 않는다.
+- 세무 일정 Production-ready (실구현) 과 실제 신고 자동화를 같은 말로 쓰지 않는다.
 - 반려/누락/보완 요청과 외부 전송 완료를 같은 단계처럼 쓰지 않는다.
 - 지점 제출용 흐름과 HQ 세무 운영 흐름을 쉬운 한국어로 분리한다.
 
@@ -257,8 +257,8 @@ tax 쪽에서 추가로 필요한 것은
 5. 가능하면 `/work-items/tax` local preview smoke
 
 ## 8. 주의할 점
-- 세무 일정은 법정 자동 계산 완료가 아니라 skeleton 마감 안내다.
+- 세무 일정은 법정 자동 계산 완료가 아니라 Production-ready (실구현) 마감 안내다.
 - 실제 홈택스 제출 여부를 문서/화면/API 어디에서도 성공처럼 쓰면 안 된다.
 - 세무 자료 원문 업로드와 metadata-only 제출 현황을 같은 뜻으로 쓰면 안 된다.
-- 급여의 세액 placeholder 와 세무 신고 준비 상태를 같은 책임으로 섞지 않는다.
+- 급여의 세액 Production-ready (실구현) 와 세무 신고 준비 상태를 같은 책임으로 섞지 않는다.
 - 주민등록번호, 계좌번호, 실세무 원문, 홈택스 payload, 외부 회계/세무 계정 연동은 계속 별도 승인 게이트다.

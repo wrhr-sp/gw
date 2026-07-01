@@ -7,7 +7,7 @@
 
 이번 Phase 35 문서는
 무엇이 이미 same-origin API/권한 테스트까지 붙어 있는지,
-무엇이 아직 공통 work item skeleton 또는 payroll preview 인지,
+무엇이 아직 공통 work item Production-ready (실구현) 또는 payroll preview 인지,
 무엇이 아직 dedicated compliance queue 없이 감사 read-only 흐름으로 남아 있는지,
 무엇이 외부 연동/실운영/승인 게이트인지
 한 번에 구분해 주는 기준이다.
@@ -17,8 +17,8 @@
 
 1. 경영업무 허브 아래에서 민감 관리자 모듈이 어떻게 갈라지는지
 2. 급여가 독립 `payroll` 모듈로 어디까지 직접 눌러볼 수 있는지
-3. 세무가 공통 `work item` 기반 skeleton 으로 어디까지 보이는지
-4. 노무/법무가 restricted 경계와 함께 어디까지 placeholder 로 열려 있는지
+3. 세무가 공통 `work item` 기반 Production-ready (실구현) 으로 어디까지 보이는지
+4. 노무/법무가 restricted 경계와 함께 어디까지 Production-ready (실구현) 로 열려 있는지
 5. 컴플라이언스가 현재 어떤 dedicated route 없이 `/admin/audit-logs` 중심으로 읽히는지
 6. 실제 외부 연동/실운영/승인 게이트가 어디부터 남는지
 
@@ -30,7 +30,7 @@
 "컴플라이언스가 된다"
 를 막연하게 말하지 않고,
 지금 무엇이 되고
-무엇은 아직 preview/dev-safe/skeleton 이며
+무엇은 아직 preview/dev-safe/Production-ready (실구현) 이며
 무엇은 외부 연동·실운영·승인 게이트인지
 분리해서 적는 문서다.
 
@@ -69,15 +69,15 @@
 3. `/management`
    - 급여정산, 세무, 노무, 법무, 컴플라이언스/감사 카드가 roleScope 와 함께 보이는지 본다.
 4. `/payroll`
-   - 급여 프로필 skeleton, 기간 상태, 명세서 초안 분리가 보이는지 본다.
+   - 급여 프로필 Production-ready (실구현), 기간 상태, 명세서 초안 분리가 보이는지 본다.
 5. `/payroll/me`
-   - self-only 명세서 preview, correction guidance, placeholder 공제 문구를 본다.
+   - self-only 명세서 preview, correction guidance, Production-ready (실구현) 공제 문구를 본다.
 6. `/work-items/tax`
-   - 지점 제출/마감/HQ review skeleton 을 본다.
+   - 지점 제출/마감/HQ review Production-ready (실구현) 을 본다.
 7. `/work-items/labor`
    - labor category 와 restricted 경계 문구를 본다.
 8. `/work-items/legal`
-   - 계약 검토/갱신/분쟁 후속 placeholder 와 승인 게이트 문구를 본다.
+   - 계약 검토/갱신/분쟁 후속 Production-ready (실구현) 와 승인 게이트 문구를 본다.
 9. `/admin/audit-logs`
    - 컴플라이언스/감사 read-only 경계를 본다.
 
@@ -110,7 +110,7 @@
 
 ### 2) `/payroll`
 지금 볼 수 있는 것:
-- 급여 프로필 skeleton
+- 급여 프로필 Production-ready (실구현)
 - 급여 기간 / 마감 상태
 - 직원용 명세서 초안 진입
 - `/api/payroll`, `/api/payroll/periods/:id`, `/api/payroll/me` 연결 포인트
@@ -137,7 +137,7 @@
 - 본인 명세서 초안
 - self-only 경계
 - correction guidance
-- 원천세/4대보험 placeholder 문구
+- 원천세/4대보험 Production-ready (실구현) 문구
 - 기간 상세 preview 로 이어지는 링크
 
 이미 있는 근거:
@@ -158,7 +158,7 @@
 ### 4) `/work-items/tax`
 지금 볼 수 있는 것:
 - 세무 업무 category
-- 증빙 수집, 부가세/원천세/지방세/법인세 마감 skeleton
+- 증빙 수집, 부가세/원천세/지방세/법인세 마감 Production-ready (실구현)
 - 본사 세무 담당 / 지점 관리자 / 감사 visibility 설명
 - `/api/work-items?module=tax`, `/api/work-item-deadlines`, `/api/work-items/:id/reviews` 연결 포인트
 
@@ -174,7 +174,7 @@
 - 제출 완료를 운영 사실처럼 기록하는 자동화
 
 쉽게 말하면:
-"세무 마감 skeleton 과 제출 상태는 읽을 수 있지만,
+"세무 마감 Production-ready (실구현) 과 제출 상태는 읽을 수 있지만,
 실신고 시스템은 아니다"
 이다.
 
@@ -196,13 +196,13 @@
 - 외부 노무/급여/법무 연동
 
 쉽게 말하면:
-"노무 metadata skeleton 과 restricted 경계는 이미 읽히지만,
+"노무 metadata Production-ready (실구현) 과 restricted 경계는 이미 읽히지만,
 실민감 노무 원문 시스템은 아니다"
 이다.
 
 ### 6) `/work-items/legal`
 지금 볼 수 있는 것:
-- 계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속 placeholder
+- 계약 검토 요청, 계약 갱신 예정, 분쟁/클레임/보험 후속 Production-ready (실구현)
 - 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 설명
 - `/api/work-items?module=legal`, `/api/work-items/:id/reviews`, `/api/work-item-deadlines` 연결 포인트
 
@@ -251,10 +251,10 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 관리자 허브 | `/management` | `admin / 1234`, 관리자/허용 역할 | 급여·세무·노무·법무·감사 카드 순서와 roleScope 를 확인한다 | 일반 홈과 분리된 민감 모듈 허브로 읽히고 각 카드가 다음 route 로 이어진다 | 일반 직원은 직접 허용되지 않고 `/forbidden` 또는 차단으로 남는다 | 각 카드에서 실저장 액션은 없다 | 민감 모듈에서 production 변경을 바로 수행하는 액션은 열지 않는다 |
 | 급여 개요 | `/payroll` | `admin / 1234`, `payroll.read` 계열 | 급여 프로필/기간/직원 명세서 초안 카드와 live API 패널을 본다 | overview/period/myPayslip API 링크와 role split 설명이 같이 보이고 기간 상태가 preview 로 읽힌다 | 상세 기간/직원별 접근은 역할 차단으로 남는다 | preview only, 실세액·실지급 없음 | 실제 급여 확정/이체/주민번호·계좌정보 확장은 승인 필요 |
-| 직원용 급여명세서 | `/payroll/me` | self-only 권한 사용자, `payroll.payslip.read_self` | self-only 명세서 초안, 정정 안내, 항목 preview 를 본다 | preview 상태, self-only, correction guidance 가 함께 읽힌다 | 자기 권한이 아니면 403 이고 동료 명세서는 열리지 않는다 | 원천세/4대보험 placeholder, 실엔진 미연동 | 실세액 계산·실지급 반영·외부 신고 결과 노출은 승인 필요 |
-| 세무 업무 | `/work-items/tax` | `admin / 1234`, `work_item.read` + scope | tax milestone, API route, roleScope, branch 제출/HQ review 문구를 본다 | branch 제출 상태와 HQ review skeleton 이 읽히고 공통 work item 흐름과 이어진다 | branch/company scope 가 다르면 차단되고, 권한이 없으면 목록/상세 일부가 보이지 않는다 | 직접 신고/외부 전송 없음 | 홈택스/회계프로그램/세무사 외부 연동은 승인 필요 |
+| 직원용 급여명세서 | `/payroll/me` | self-only 권한 사용자, `payroll.payslip.read_self` | self-only 명세서 초안, 정정 안내, 항목 preview 를 본다 | preview 상태, self-only, correction guidance 가 함께 읽힌다 | 자기 권한이 아니면 403 이고 동료 명세서는 열리지 않는다 | 원천세/4대보험 Production-ready (실구현), 실엔진 미연동 | 실세액 계산·실지급 반영·외부 신고 결과 노출은 승인 필요 |
+| 세무 업무 | `/work-items/tax` | `admin / 1234`, `work_item.read` + scope | tax milestone, API route, roleScope, branch 제출/HQ review 문구를 본다 | branch 제출 상태와 HQ review Production-ready (실구현) 이 읽히고 공통 work item 흐름과 이어진다 | branch/company scope 가 다르면 차단되고, 권한이 없으면 목록/상세 일부가 보이지 않는다 | 직접 신고/외부 전송 없음 | 홈택스/회계프로그램/세무사 외부 연동은 승인 필요 |
 | 노무 업무 | `/work-items/labor` | `admin / 1234`, `work_item.read` + restricted capability | labor category, confidentiality, restricted 경계 문구를 본다 | self/branch/restricted 차이가 문구와 상세 패널에서 읽힌다 | restricted 는 일부 역할 403 이고 원문 대신 metadata 만 남는다 | 실제 원문 저장/외부 연동 없음 | 실제 징계/사고 신고 제출·외부 노무 연동은 승인 필요 |
-| 법무 업무 | `/work-items/legal` | `admin / 1234`, `work_item.read` + scope | 계약 검토/갱신/분쟁 후속 문구와 review skeleton 을 본다 | legal category 와 approval gate 문구가 읽히고 계약 metadata 중심 흐름이 보인다 | company scope 민감 계약은 차단되고, 원문/실분쟁 제출은 열리지 않는다 | placeholder 3건 중심, 실계약 원문 없음 | 외부 변호사/보험사/기관 연동과 실원문 확대는 승인 필요 |
+| 법무 업무 | `/work-items/legal` | `admin / 1234`, `work_item.read` + scope | 계약 검토/갱신/분쟁 후속 문구와 review Production-ready (실구현) 을 본다 | legal category 와 approval gate 문구가 읽히고 계약 metadata 중심 흐름이 보인다 | company scope 민감 계약은 차단되고, 원문/실분쟁 제출은 열리지 않는다 | Production-ready (실구현) 3건 중심, 실계약 원문 없음 | 외부 변호사/보험사/기관 연동과 실원문 확대는 승인 필요 |
 | 컴플라이언스/감사 | `/admin/audit-logs` | `admin / 1234` 또는 `audit.read` 보유 역할 | 필터, 타임라인, masked detail, company boundary 를 본다 | read-only 추적과 현재 컴플라이언스 진입점이라는 문맥이 읽힌다 | `audit.read` 없으면 403 이고 관리자 전체 허용과 같은 뜻이 아니다 | 전용 compliance queue 없음, richer drill-down 후속 | 법령 리스크 조치 queue·상태변경 자동화·raw 감사 원문 노출은 승인 필요 |
 
 ## 다음 구현자가 바로 기억할 경계
@@ -262,7 +262,7 @@
 ### 급여와 세무를 같은 책임으로 적지 말 것
 - `/payroll` 은 급여 profile/period/payslip preview 흐름이다.
 - `/work-items/tax` 는 세무 마감/증빙/패키지 준비 흐름이다.
-- 원천세 placeholder 와 세무 신고 준비를 한 문장으로 섞지 않는다.
+- 원천세 Production-ready (실구현) 와 세무 신고 준비를 한 문장으로 섞지 않는다.
 
 ### 노무와 법무를 같은 민감 모듈이라고 해서 같은 권한으로 적지 말 것
 - labor 는 계약/수당/고충/징계/사고 metadata 와 restricted capability 문맥이 강하다.

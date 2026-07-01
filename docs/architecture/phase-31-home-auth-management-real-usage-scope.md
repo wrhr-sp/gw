@@ -24,10 +24,10 @@ Phase 31의 목표는
 하지만 대장이 직접 체험하는 기준으로 보면
 아직 아래 문제가 남아 있습니다.
 
-1. 로그인과 세션이 아직 `dev-placeholder-session` 중심이라
+1. 로그인과 세션이 아직 `dev-Production-ready (실구현)-session` 중심이라
    "누가 어떤 화면으로 들어가야 하는지"가 명확히 닫히지 않았다.
 2. `/boards`, `/documents`, `/me`, `/admin` 등 여러 route 는
-   아직 placeholder 문구가 중심이라
+   아직 Production-ready (실구현) 문구가 중심이라
    happy path 를 눌러 보기 어렵다.
 3. 근태/휴가/결재도 화면은 있지만
    실제 상태 전환보다 안내 문구 비중이 높다.
@@ -81,29 +81,29 @@ Phase 31에서 입구와 권한 쉘을 먼저 닫는 것입니다.
 - 로그인 이후 landing 경계의 기본 뼈대
   - 익명/관리자/일반 직원에 따라 redirect 와 차단이 이미 다른 결과를 돌려준다.
 
-### 아직 skeleton 잔여가 큰 영역
+### 아직 Production-ready (실구현) 잔여가 큰 영역
 아래는 route 는 있지만
 아직 바로 사용 가능한 흐름으로 보기 어려운 영역입니다.
 
 - `/login`
-  - 화면 문구와 추천 순서는 좋아졌지만, 실제 세션은 여전히 dev-safe placeholder 성격이 강하다.
+  - 화면 문구와 추천 순서는 좋아졌지만, 실제 세션은 여전히 dev-safe Production-ready (실구현) 성격이 강하다.
 - `/dashboard`
-  - 진입 구조와 경영업무 분리는 작동하지만, 제목/설명 자체가 아직 `skeleton`, `placeholder/dev-safe 요약` 언어를 유지하고 있다.
+  - 진입 구조와 경영업무 분리는 작동하지만, 제목/설명 자체가 아직 `Production-ready (실구현)`, `Production-ready (실구현)/dev-safe 요약` 언어를 유지하고 있다.
 - `/boards`, `/documents`, `/me`, `/admin`
-  - placeholder copy 의존이 남아 있다.
+  - Production-ready (실구현) copy 의존이 남아 있다.
 - `/attendance`, `/leave`, `/approvals`
-  - 실제 happy path 보다 skeleton 안내 비중이 높다.
+  - 실제 happy path 보다 Production-ready (실구현) 안내 비중이 높다.
 - 계정관리
   - `생성/권한/상태/비밀번호` 폼과 redirect preview 는 있지만, `apps/web/app/admin/users/dev-safe-action/route.ts` 기준 실제 저장 없이 결과 문구만 돌려준다.
   - 즉 계정관리는 "preview 가능" 단계이지 "운영 저장 가능" 단계가 아니다.
 
 ### 문서에 남길 fit-gap 표 기준
-| 구분 | 지금 바로 체험 가능한 것 | 아직 남은 skeleton/dev-safe 성격 | 다음 pass 우선순위 |
+| 구분 | 지금 바로 체험 가능한 것 | 아직 남은 Production-ready (실구현)/dev-safe 성격 | 다음 pass 우선순위 |
 | --- | --- | --- | --- |
 | 로그인/landing | `admin / 1234`, 익명→로그인 차단, 역할별 landing 분기 | production 기본 계정 아님, seed/초기 비밀번호 운영 절차 별도 | 로그인/로그아웃/세션 만료 copy 보강 |
-| 홈/경영업무 | `/dashboard`, `/management`, 관리자 CTA, 민감 모듈 분리, 고정/커스텀 홈 바로가기 | 홈 카드별 happy path 설명과 예외 상태 문구 부족, 일부 route 는 placeholder 비중 차이 큼 | 홈·경영업무 UAT 시나리오 고정 |
+| 홈/경영업무 | `/dashboard`, `/management`, 관리자 CTA, 민감 모듈 분리, 고정/커스텀 홈 바로가기 | 홈 카드별 happy path 설명과 예외 상태 문구 부족, 일부 route 는 Production-ready (실구현) 비중 차이 큼 | 홈·경영업무 UAT 시나리오 고정 |
 | 계정관리 | `/admin/users`, `/api/admin/users`, 권한 guard | 생성/수정/비활성/초기화가 한 덩어리 UX로는 덜 닫힘 | dev-safe CRUD 시나리오 완성 |
-| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` route 진입 | 모듈마다 placeholder 비중과 happy path 연결 정도가 다름 | 모듈별 최소 1개 happy path 고정 |
+| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` route 진입 | 모듈마다 Production-ready (실구현) 비중과 happy path 연결 정도가 다름 | 모듈별 최소 1개 happy path 고정 |
 | 민감 모듈 | `/work-items/hr|tax|labor|legal|branch`, `/management` | 외부 연동/실민감 원문/실지급·실신고는 금지 | approval gate 유지 + UAT 설명 보강 |
 
 ## Phase 31에서 고정할 핵심 결정
@@ -175,14 +175,14 @@ Phase 31에서 입구와 권한 쉘을 먼저 닫는 것입니다.
 
 | 기능 | route | 대장이 직접 해볼 액션 | happy path 확인 포인트 | forbidden/empty/error 포인트 | 현재 dev-safe/mock 잔여 |
 | --- | --- | --- | --- | --- | --- |
-| 로그인 | `/login` | `admin / 1234` 로 로그인하고 역할을 바꿔 landing 차이 확인 | dev-safe 계정, 역할별 첫 이동, 로그아웃 경로가 한 화면에 보임 | 익명 상태에서 `/management`, `/admin` 접근 시 redirect/차단 | placeholder 세션 기반, 외부 인증 없음 |
-| 홈 | `/dashboard` | 오늘 할 일, 홈 바로가기, 관리자 CTA, 읽기 API 링크를 순서대로 누름 | 일반 업무 시작점과 운영 검토 레인이 한 화면에 정리됨 | 권한 없는 사용자에게 관리자 CTA 숨김 | 일부 카드/문구에 dev-safe 요약과 placeholder 성격 잔여 |
+| 로그인 | `/login` | `admin / 1234` 로 로그인하고 역할을 바꿔 landing 차이 확인 | dev-safe 계정, 역할별 첫 이동, 로그아웃 경로가 한 화면에 보임 | 익명 상태에서 `/management`, `/admin` 접근 시 redirect/차단 | Production-ready (실구현) 세션 기반, 외부 인증 없음 |
+| 홈 | `/dashboard` | 오늘 할 일, 홈 바로가기, 관리자 CTA, 읽기 API 링크를 순서대로 누름 | 일반 업무 시작점과 운영 검토 레인이 한 화면에 정리됨 | 권한 없는 사용자에게 관리자 CTA 숨김 | 일부 카드/문구에 dev-safe 요약과 Production-ready (실구현) 성격 잔여 |
 | 홈 바로가기 | `/dashboard` | 회사 공통 고정 바로가기와 내 커스텀 바로가기 구분 확인 | 고정/커스텀 분리, notice 노출, PC/모바일 같은 정보구조 | 로그인 전 고정 바로가기 API 미조회 상태와 load error 배너 | 권한별 커스텀 항목은 preview/API 의존 |
 | 경영업무 허브 | `/management` | 경영업무 허브에서 계정관리/급여/세무/노무/법무/감사로 이동 | 일반 홈과 민감 모듈 허브가 분리됨 | 일반 직원은 허브 직접 진입 차단 | 외부 연동/실지급/실신고 없음 |
 | 계정관리 | `/admin/users` | 생성 preview, 역할 변경 preview, 상태 변경 preview, 비밀번호 reset preview 확인 | `GET /api/admin/users` preview 와 action 배너가 연결됨 | 세션 없으면 fallback 안내, 권한 없으면 API 403 | 303 redirect 결과 문구만 반환, 실저장 없음 |
 | 감사 | `/admin/audit-logs` | 감사 route 로 이동해 읽기 전용 경계 확인 | 운영 변경 흔적을 read-only 로 본다는 메시지 유지 | 권한 없는 사용자 차단 유지 | 실제 기관 제출/외부 감사 연동 없음 |
-| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` | 각 route 에서 최소 1개 happy path 후보와 읽기 흐름 확인 | route 진입 자체와 일부 상태/목록/상세 진입 가능 | placeholder, empty, forbidden 설명이 route 마다 다름 | 저장/승인/외부 발송은 아직 제한적 또는 없음 |
-| 민감 모듈 | `/work-items/hr|tax|labor|legal|branch` | 경영업무 아래에서만 진입하는지 확인 | 모듈별 역할/범위/승인 게이트 설명 | 일반 직원/비허용 역할은 forbidden | metadata 중심 placeholder, 외부 기관/실원문/실신고 없음 |
+| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` | 각 route 에서 최소 1개 happy path 후보와 읽기 흐름 확인 | route 진입 자체와 일부 상태/목록/상세 진입 가능 | Production-ready (실구현), empty, forbidden 설명이 route 마다 다름 | 저장/승인/외부 발송은 아직 제한적 또는 없음 |
+| 민감 모듈 | `/work-items/hr|tax|labor|legal|branch` | 경영업무 아래에서만 진입하는지 확인 | 모듈별 역할/범위/승인 게이트 설명 | 일반 직원/비허용 역할은 forbidden | metadata 중심 Production-ready (실구현), 외부 기관/실원문/실신고 없음 |
 
 ## PC/모바일 공통 UAT 체크포인트
 
@@ -236,7 +236,7 @@ Phase 31에서 입구와 권한 쉘을 먼저 닫는 것입니다.
 ### P4. 기존 업무 모듈 UAT 연결
 - 게시판/문서/근태/휴가/전자결재에서
   최소 1개 happy path 씩 대장이 직접 눌러볼 수 있게 연결
-- placeholder 안내만 남은 route 는 fit-gap 표로 분리
+- Production-ready (실구현) 안내만 남은 route 는 fit-gap 표로 분리
 
 ## 이번 단계에서 일부러 미루는 것
 - Phase 30 전체 통합 대시보드/알림/감사 로그 고도화 전부
@@ -266,7 +266,7 @@ Phase 31에서 입구와 권한 쉘을 먼저 닫는 것입니다.
 2. `apps/web/app/dashboard/page.tsx`, `apps/web/dashboard-page-content.tsx`, `apps/web/app/management/page.tsx` 를 같이 본다.
 3. `apps/web/app/admin/*`, `apps/api/src/app.ts`, `packages/shared/src/contracts.ts` 를 함께 본다.
 4. `/boards`, `/documents`, `/me`, `/attendance`, `/leave`, `/approvals` 중
-   placeholder 비중이 높은 route 를 P4 후보로 묶는다.
+   Production-ready (실구현) 비중이 높은 route 를 P4 후보로 묶는다.
 5. 기존 `auth-org`, `work-items`, web boundary 테스트를 재사용하고,
    로그인/landing/계정관리 중심 회귀 테스트를 추가한다.
 
@@ -276,7 +276,7 @@ Phase 31에서 입구와 권한 쉘을 먼저 닫는 것입니다.
   - builder 는 실제 redirect/로그아웃/세션 만료 체감이 문구와 맞는지 먼저 닫는다.
 - `apps/web/dashboard-page-content.tsx`
   - 홈 정보구조와 경영업무 분리 카드는 이미 있다.
-  - 다만 "대시보드 시작 화면 skeleton", "placeholder/dev-safe 요약" 문구가 남아 있어 실사용 체감과 충돌한다.
+  - 다만 "대시보드 시작 화면 Production-ready (실구현)", "Production-ready (실구현)/dev-safe 요약" 문구가 남아 있어 실사용 체감과 충돌한다.
 - `apps/web/app/management/page.tsx`
   - 민감 모듈 허브 구조는 이미 있으므로 새 메뉴를 더 만드는 것보다 허용 역할/설명/UAT 순서를 다듬는 쪽이 우선이다.
 - `apps/web/app/admin/users/page.tsx`

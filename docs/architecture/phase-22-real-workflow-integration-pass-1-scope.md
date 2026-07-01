@@ -12,7 +12,7 @@ Phase 22의 목표는
 
 중요한 점은 이번 단계도
 실운영 데이터 입력, 외부 공개, secret 주입, 실권한 변경을 여는 단계가 아니라,
-preview/dev-safe skeleton 안에서
+preview/dev-safe Production-ready (실구현) 안에서
 업무 흐름 연결성과 상태 안내 언어를 정리하는 단계라는 점입니다.
 
 ## 2. 왜 이번 단계가 필요한가
@@ -61,7 +61,7 @@ Phase 22는
 현재 저장소 기준으로 확인되는 사실:
 
 - `/dashboard` 는 이미 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/me` 상단 액션과, 그 뒤 `/org`·`/employees` 조회 마무리 흐름을 설명하는 허브로 잡혀 있다.
-- 로그인 페이지와 mobile session bridge 설명은 placeholder 인증 범위와 역할별 첫 이동을 분리해 적기 시작했다.
+- 로그인 페이지와 mobile session bridge 설명은 Production-ready (실구현) 인증 범위와 역할별 첫 이동을 분리해 적기 시작했다.
 - attendance/leave/approvals/boards/documents/me/org/employees route 는 각각 존재하지만, "하루 흐름" 관점 설명은 문서와 화면에서 더 단단히 맞출 여지가 있다.
 - mobile 쪽은 `packages/shared/src/mobile-contracts.ts` 와 `apps/mobile/src/workflow.ts` 로 로그인 → 대시보드 → 출퇴근 → 휴가 → 결재함 → 공지/문서 → 내 정보 7개 핵심 흐름을 이미 코드 helper 로 갖고 있다.
 - mobile 은 일반 사용자 첫 액션을 `attendance`, 승인 lane 권한 사용자의 첫 액션을 `approvals` 로 분기한다.
@@ -199,7 +199,7 @@ Phase 22에서 mobile 비교는
 ### 대장/최종 판단자
 
 - "직원이 로그인 후 무엇을 먼저 하고 무엇을 나중에 보는지"를 바로 파악할 수 있어야 한다.
-- 무엇이 이미 따라가 볼 수 있고, 무엇이 아직 skeleton 이며, 무엇이 승인 필요인지 쉽게 구분할 수 있어야 한다.
+- 무엇이 이미 따라가 볼 수 있고, 무엇이 아직 Production-ready (실구현) 이며, 무엇이 승인 필요인지 쉽게 구분할 수 있어야 한다.
 
 ## 6. 이번 Phase에 포함되는 범위
 
@@ -213,7 +213,7 @@ Phase 22에서 mobile 비교는
 
 ### 다음 구현 카드에서 허용하는 범위
 
-- 로그인/session placeholder 와 핵심 업무 route 연결 copy 보강
+- 로그인/session Production-ready (실구현) 와 핵심 업무 route 연결 copy 보강
 - dashboard 상단 액션과 실제 각 route 문구 정렬
 - attendance/leave/approvals/boards/documents/me/org/employees 설명 연결 보강
 - mobile workflow/helper 와 Web route 문장 정렬

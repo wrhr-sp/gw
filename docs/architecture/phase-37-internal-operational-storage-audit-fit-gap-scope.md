@@ -35,7 +35,7 @@
 
 - raw `storageKey`, bucket 이름, public URL, signed URL 전문은 기본 설명에 노출하지 않는다.
 - `pending` / `ready` / `deleted` 같은 저장 상태는 보여 주되, 실운영 외부 공유가 열린 것처럼 쓰지 않는다.
-- `mock` provider 와 `r2` placeholder provider 차이는 "준비 방식" 차이로 설명하고, production 연결 완료처럼 적지 않는다.
+- `mock` provider 와 `r2` Production-ready (실구현) provider 차이는 "준비 방식" 차이로 설명하고, production 연결 완료처럼 적지 않는다.
 - `objectKeyPreview` 같은 preview 문자열은 내부 경로 힌트일 뿐, 외부 반출 기능이나 공개 링크와 같은 말로 쓰지 않는다.
 
 ### 3-2. 감사 로그에서 storage 흔적을 어디까지 보여 줄지 고정한다
@@ -55,7 +55,7 @@
 
 이번 Phase에서는 아래 원칙을 문서에 다시 고정한다.
 
-- `work-items` 의 첨부/문서/리뷰는 "공통 업무 엔진에 붙는 metadata/preview/read-only skeleton" 으로 읽는다.
+- `work-items` 의 첨부/문서/리뷰는 "공통 업무 엔진에 붙는 metadata/preview/read-only Production-ready (실구현)" 으로 읽는다.
 - labor/legal/tax/payroll 문맥에서 민감 원문 저장 확대는 아직 승인 게이트다.
 - `/payroll` 의 preview 금액, `/work-items/*` 의 review/deadline/attachment, `/admin/audit-logs` 의 감사 preview 를 같은 "운영 검토용 read model" 계층으로 정리한다.
 - 파일 접근 흔적과 감사 흔적은 사용자-facing 완성 기능이 아니라 내부 운영 안전장치 언어로 설명한다.

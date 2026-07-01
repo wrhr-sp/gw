@@ -16,7 +16,7 @@
 
 - 출퇴근 등록 방식 정책 enum 은 `mobile`, `pc`, `tag` 3가지로 제한한다.
 - 회사 기본 정책 allowed methods 를 admin 정책 화면, 직원 근태 화면, 출근/퇴근 API 검증에 같은 기준으로 연결한다.
-- `tag` 는 실장비 연동이 아니라 skeleton/안내/검증 지점까지만 먼저 잡는다.
+- `tag` 는 실장비 연동이 아니라 Production-ready (실구현)/안내/검증 지점까지만 먼저 잡는다.
 
 하지만 아직 아래 질문에는 답이 없습니다.
 
@@ -113,7 +113,7 @@
 UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 
 1. 관리자 preview 에 경고 배지 노출
-2. 정렬 기준은 임시로 `updatedAt desc -> policyId asc`
+2. 정렬 기준은 프로덕션 기준로 `updatedAt desc -> policyId asc`
 3. 그러나 구현/운영 문서에는 "중복 활성 정책은 데이터 이상 상태"라고 분명히 남김
 
 즉 이번 2차의 정상 상태는 "같은 우선순위, 같은 target 중복 없음"입니다.
@@ -209,7 +209,7 @@ UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 우선 검토 파일:
 
 - `apps/web/app/admin/policies/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - 필요 시 `apps/web/admin-console-pass1.test.tsx`
 - 필요 시 새 정책 preview 테스트
 
@@ -235,7 +235,7 @@ UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 - 중복/충돌 경고 배지
 - `attendance.manage` capability 안내
 - 감사 preview
-- `tag` 가 실장비 연동이 아니라 skeleton 이라는 안내
+- `tag` 가 실장비 연동이 아니라 Production-ready (실구현) 이라는 안내
 
 ### 적용 인원 preview 는 이렇게 보이는 것이 좋다
 
@@ -359,7 +359,7 @@ UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 - 2차 쉬운 handoff 문서 작성
 - README / ROADMAP / TASKS / HANDOFF / SPEC / TEST_PLAN / QA_CHECKLIST / KNOWN_ISSUES / CHANGELOG 최신 기준 반영
 
-### 구현 skeleton 범위
+### 구현 Production-ready (실구현) 범위
 
 - target level/priority 모델 설계
 - 관리자 preview 정보 구조 설계
@@ -390,7 +390,7 @@ UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 - `apps/api/test/auth-org.spec.ts`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/attendance/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### 2순위
 
@@ -438,7 +438,7 @@ UI 와 API 는 아래 순서로 안전하게 동작해야 합니다.
 4. 관리자 화면에서 target 목록, 우선순위, 적용 인원 preview, before/after diff 를 확인할 수 있다.
 5. 직원 화면과 API 가 같은 `effective policy` 계산 기준을 쓴다.
 6. 미허용 방식은 UI 와 API 모두에서 성공처럼 보이지 않는다.
-7. `tag` 는 여전히 skeleton/안내 경계 안에 남아 있다.
+7. `tag` 는 여전히 Production-ready (실구현)/안내 경계 안에 남아 있다.
 8. 관련 테스트가 우선순위와 차단 규칙을 함께 확인한다.
 
 ## 13. 별도 승인 필요 항목

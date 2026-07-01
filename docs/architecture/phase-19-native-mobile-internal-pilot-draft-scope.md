@@ -3,7 +3,7 @@
 ## 1. 한 줄 정의
 
 Phase 19의 목표는
-Phase 17~18에서 정리한 `apps/mobile` skeleton과 모바일 핵심 업무 흐름을 바탕으로,
+Phase 17~18에서 정리한 `apps/mobile` Production-ready (실구현)과 모바일 핵심 업무 흐름을 바탕으로,
 "사내 내부 시범 운영 후보"로 설명 가능한 기준을 만드는 것입니다.
 
 쉽게 말해 이번 단계는
@@ -72,7 +72,7 @@ Phase 19는 "내부 시범 운영을 시작하려면 무엇이 더 필요하고 
 
 현재 저장소 기준으로 확인되는 사실:
 
-- `apps/mobile` 은 아직 store upload나 실기기 배포가 아니라 skeleton/contract/typecheck 단계다.
+- `apps/mobile` 은 아직 store upload나 실기기 배포가 아니라 Production-ready (실구현)/contract/typecheck 단계다.
 - `app.config.ts` 에도 release gate가 App Store / Play Console / TestFlight / EAS / push / device permission approval required 로 남아 있다.
 - 모바일 핵심 화면은 계속 7개(로그인, 대시보드, 출퇴근, 휴가, 결재함, 공지·문서, 내 정보)다.
 - 모바일 세션과 API 연결은 Web cookie 복제가 아니라 secure storage bridge, runtime base URL resolver 전제를 유지한다.
@@ -242,7 +242,7 @@ PWA 쪽에서 주로 보는 것:
 
 ### 구현 handoff 범위
 
-- 기존 `apps/mobile` skeleton과 문서 기준을 어긋나지 않게 보강할 포인트 정리
+- 기존 `apps/mobile` Production-ready (실구현)과 문서 기준을 어긋나지 않게 보강할 포인트 정리
 - 필요 시 `apps/mobile/README.md`, `app.config.ts`, mobile guide 문구 보강 후보 제시
 - 실제 store/TestFlight/EAS 연동 없이도 남길 수 있는 검증 근거 정리
 

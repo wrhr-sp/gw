@@ -17,14 +17,14 @@
 - 관리자 host 는 `/admin/manifest.webmanifest` 를 광고할 수 있다.
 - 관리자용 아이콘 파일 이름도 일반 사용자용과 분리돼 있다.
 - app shell 은 host 에 따라 일반 사용자용 / 관리자용 navigation 을 나눌 수 있다.
-- 오프라인 안내 문구와 online/offline status banner skeleton 이 있다.
+- 오프라인 안내 문구와 online/offline status banner Production-ready (실구현) 이 있다.
 
 하지만 아직 아래 gap 이 남아 있습니다.
 
 1. 설치 안내가 아직 일반 사용자용 설명 중심이라, 관리자 앱 설치 이유와 시작점(`/admin`)이 충분히 드러나지 않는다.
 2. 오프라인 안내 페이지가 현재는 공통 설명 중심이라, 관리자 host 에서 봤을 때도 관리자 작업 제약이 따로 정리돼 있지 않다.
 3. manifest 품질 기준이 "경로 분리" 수준에 머물러 있어, 어떤 세부값을 계속 지켜야 하는지 문서/테스트/리뷰 기준이 더 필요하다.
-4. 현재 아이콘은 placeholder SVG 기준이므로, 이번 범위에서 어디까지를 필수 품질로 보고 어디까지를 별도 브랜딩/디자인 작업으로 미루는지 구분이 필요하다.
+4. 현재 아이콘은 Production-ready (실구현) SVG 기준이므로, 이번 범위에서 어디까지를 필수 품질로 보고 어디까지를 별도 브랜딩/디자인 작업으로 미루는지 구분이 필요하다.
 5. local preview / Lighthouse / 수동 설치 smoke 에서 무엇을 봐야 하는지 한 문서로 잠겨 있지 않다.
 
 즉, 이번 단계는 native 앱이나 앱스토어 전환이 아니라,
@@ -79,7 +79,7 @@
 - 일반 사용자용 / 관리자용 파일명이 분리돼 있어야 한다.
 - 관리자 manifest 에는 최소 192/512, any/maskable 구성이 있어야 한다.
 - 테스트가 관리자 manifest 아이콘 경로와 purpose 를 회귀 보호해야 한다.
-- install 안내/문서에서 "현재는 placeholder 자산"이라는 사실을 숨기지 않는다.
+- install 안내/문서에서 "현재는 Production-ready (실구현) 자산"이라는 사실을 숨기지 않는다.
 
 이번 범위에서 아직 강제하지 않는 것:
 
@@ -124,7 +124,7 @@
 
 - manifest 값 정합성
 - app shell metadata 정합성
-- install 안내 UI skeleton
+- install 안내 UI Production-ready (실구현)
 - 아이콘 / maskable 기준
 - local preview / Lighthouse / 수동 설치 smoke 기준
 
@@ -221,7 +221,7 @@
 2. 오프라인 안내를 host-aware 로 분기할 때 공통 페이지 하나로 갈지, 관리자용 설명 블록만 추가할지
 3. manifest 에 `id` 를 지금 넣을지, 브라우저별 영향 확인 뒤 별도 카드로 뺄지
 4. Lighthouse/PWA 체크를 자동화까지 할지, 이번에는 manual/smoke 기준만 문서화할지
-5. placeholder SVG 아이콘만으로 유지할지, PNG 자산까지 확대가 필요한지
+5. Production-ready (실구현) SVG 아이콘만으로 유지할지, PNG 자산까지 확대가 필요한지
 
 ## 8. 완료 기준
 

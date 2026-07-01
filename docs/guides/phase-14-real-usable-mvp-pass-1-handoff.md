@@ -2,7 +2,7 @@
 
 한 줄 요약:
 이번 1차는 새로운 업무 엔진을 여는 단계가 아니라,
-이미 있는 홈/로그인/대시보드/일반 업무/관리자 skeleton 을
+이미 있는 홈/로그인/대시보드/일반 업무/관리자 Production-ready (실구현) 을
 "사내 검토자가 한 흐름으로 눌러 볼 수 있는 MVP 초안"으로 묶는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
@@ -12,10 +12,10 @@
 - 홈(`/`)과 로그인(`/login`) 시작점
 - `/dashboard` 오늘 할 일 중심 대시보드
 - `/org`, `/employees` 일반 조회 흐름
-- `/attendance` effective policy 기반 근태 skeleton
-- `/approvals` 모바일 전자결재 skeleton
-- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 관리자 콘솔 skeleton
-- dev-safe / placeholder / 권한 경계 원칙
+- `/attendance` effective policy 기반 근태 Production-ready (실구현)
+- `/approvals` 모바일 전자결재 Production-ready (실구현)
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 관리자 콘솔 Production-ready (실구현)
+- dev-safe / Production-ready (실구현) / 권한 경계 원칙
 
 아직 부족한 것:
 
@@ -105,7 +105,7 @@
 - 이 앱이 어떤 핵심 업무를 먼저 다루는지
 - 로그인 후 어디로 가는지
 - 일반 조회/업무 화면과 관리자 검토 화면이 어떻게 갈리는지
-- 지금 단계가 dev-safe skeleton 이라는 사실
+- 지금 단계가 dev-safe Production-ready (실구현) 이라는 사실
 
 ### 3) 대시보드는 여전히 "오늘 할 일 먼저"가 중심이다.
 
@@ -136,9 +136,9 @@
 이 두 화면이 서로 다른 말을 하면 안 됩니다.
 이번 Phase는 "실제 저장"보다 "같은 기준을 설명하는 상태"가 더 중요합니다.
 
-### 6) approvals 는 결재 완료 앱이 아니라 검토 가능한 skeleton 으로 남긴다.
+### 6) approvals 는 결재 완료 앱이 아니라 검토 가능한 Production-ready (실구현) 으로 남긴다.
 
-- 승인/반려 placeholder 는 유지
+- 승인/반려 Production-ready (실구현) 는 유지
 - self-approval/company scope 같은 guardrail 설명 유지
 - 실제 저장이 된 것처럼 보이는 CTA/문구는 금지
 
@@ -165,7 +165,7 @@
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### 문서
 
@@ -183,7 +183,7 @@
 2. `/dashboard` 에서 일반 직원/팀장/관리자 각각의 첫 액션이 잘 드러나는지 확인합니다.
 3. `/org`, `/employees`, `/attendance`, `/approvals` 의 설명 문구가 대시보드와 같은 언어를 쓰도록 맞춥니다.
 4. 관리자 CTA 와 `/admin/*` 흐름을 일반 업무 흐름과 헷갈리지 않게 다듬습니다.
-5. 필요 시 `dashboard-config.ts`, `admin-skeleton-config.ts` 의 카드/문구/우선순위를 먼저 고칩니다.
+5. 필요 시 `dashboard-config.ts`, `admin-Production-ready (실구현)-config.ts` 의 카드/문구/우선순위를 먼저 고칩니다.
 6. 그 다음에 정말 필요한 shared contract/API mock summary 보강만 최소 범위로 붙입니다.
 7. 마지막에 route/API guard 와 smoke 기준을 같이 확인합니다.
 
@@ -212,7 +212,7 @@
 - 일반 사용자 흐름에 admin leak 없는지
 - `/employees` 와 `/admin/users` 의 역할 혼동 없는지
 - `/attendance` 와 정책 문구 충돌 없는지
-- placeholder 가 완료처럼 보이지 않는지
+- Production-ready (실구현) 가 완료처럼 보이지 않는지
 
 ### 테스터(gwtester)
 
@@ -248,12 +248,12 @@
 2. `/login` 이 로그인 후 어디로 이어지는지 과장 없이 설명한다.
 3. `/dashboard` 가 오늘 할 일 → 대기/예외 → 하위 업무 화면 연결 순서를 유지한다.
 4. `/org`, `/employees` 는 일반 조회 화면으로 읽힌다.
-5. `/attendance` 는 허용 방식 안내와 placeholder 경계가 분명하다.
+5. `/attendance` 는 허용 방식 안내와 Production-ready (실구현) 경계가 분명하다.
 6. `/approvals` 는 승인 처리 앱처럼 보이되 실제 저장 완료를 속이지 않는다.
 7. 일반 사용자에게는 관리자 CTA 가 보이지 않는다.
 8. 권한 있는 사용자에게만 `/admin` 또는 `/admin/audit-logs` 진입이 보인다.
 9. 익명 preview 에서 `/admin*` 공개 노출이 없다.
-10. skeleton/dev-safe/placeholder 문구가 빠지지 않는다.
+10. Production-ready (실구현)/dev-safe/Production-ready (실구현) 문구가 빠지지 않는다.
 
 ## 8. 꼭 지켜야 할 guardrail
 
@@ -271,10 +271,10 @@
 - 대장이 핵심 route 를 순서대로 눌러 보며 제품 흐름을 이해할 수 있다.
 - 직원/팀장/인사/관리자 각 관점의 첫 진입 동선이 설명된다.
 - 관리자 기능은 권한 없는 사용자에게 드러나지 않는다.
-- mock/dev-safe/placeholder 경계가 흐려지지 않는다.
+- mock/dev-safe/Production-ready (실구현) 경계가 흐려지지 않는다.
 - 다음 단계에서 실제 연동을 붙일 우선순위가 문서와 화면에 같이 남는다.
 
 정리하면,
 이번 handoff 의 핵심은 하나입니다.
 Phase 14는 "기능 추가 경쟁"이 아니라
-"따로 놀던 skeleton을 실사용 MVP 흐름으로 묶는 정리 단계"입니다.
+"따로 놀던 Production-ready (실구현)을 실사용 MVP 흐름으로 묶는 정리 단계"입니다.

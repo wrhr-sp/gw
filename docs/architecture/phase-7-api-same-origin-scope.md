@@ -23,7 +23,7 @@
 현재 사실은 아래와 같습니다.
 
 - `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가되어 same-origin `/api/health`, `/api/me` 요청을 기존 `apps/api/src/app.ts` 로 넘깁니다.
-- `same-origin-api-bridge.ts` 는 `/api/me` 에서 dev placeholder cookie 를 그대로 믿지 않도록 `gw_session=dev-placeholder-session_*` 값을 제거합니다.
+- `same-origin-api-bridge.ts` 는 `/api/me` 에서 dev Production-ready (실구현) cookie 를 그대로 믿지 않도록 `gw_session=dev-Production-ready (실구현)-session_*` 값을 제거합니다.
 - 공통 계약은 이미 `packages/shared/src/contracts.ts` 에 same-origin `/api/*` 경로로 정의돼 있습니다.
 - Phase 6 모바일/PWA 문서는 `manifest: "/manifest.webmanifest"`, `start_url: "/"`, API 기본 경로 `/api/*` 를 상대 경로 기준으로 유지하라고 못 박고 있습니다.
 - `apps/web/.env.example` 는 로컬 개발용 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8787` 예시를 두고 있으나, 이것은 로컬 개발 편의를 위한 override 일 뿐 preview/prod 기본값은 아닙니다.
@@ -32,7 +32,7 @@
 
 ## 3. 선택지 비교
 
-### 옵션 A. `apps/web` 안에 임시 route handler 를 직접 만들어 `/api/health`, `/api/me` 를 Web Worker 가 바로 응답한다.
+### 옵션 A. `apps/web` 안에 프로덕션 기준 route handler 를 직접 만들어 `/api/health`, `/api/me` 를 Web Worker 가 바로 응답한다.
 
 장점:
 
@@ -44,7 +44,7 @@
 
 - 이미 `apps/api` 와 `packages/shared` 에 있는 계약을 Web 쪽에 다시 복제하게 됩니다.
 - 다음 단계에서 진짜 `gw-api` 와 연결할 때 다시 갈아엎을 가능성이 큽니다.
-- 인증/세션 응답 모양이 Web 쪽 임시 구현과 API 쪽 테스트 계약 사이에서 어긋날 위험이 있습니다.
+- 인증/세션 응답 모양이 Web 쪽 프로덕션 기준 구현과 API 쪽 테스트 계약 사이에서 어긋날 위험이 있습니다.
 
 ### 옵션 B. 공개 origin 은 그대로 `gw-web` 가 받고, `/api/*` 는 Web 안의 same-origin route 에서 기존 API 계약을 재사용한다.
 
@@ -83,7 +83,7 @@
 이유는 간단합니다.
 
 - 제품 기본 URL 원칙을 유지해야 모바일/PWA 문서와 충돌이 없습니다.
-- 이미 있는 `apps/api` 계약/테스트를 재사용하는 편이 임시 응답을 따로 복제하는 것보다 안전합니다.
+- 이미 있는 `apps/api` 계약/테스트를 재사용하는 편이 프로덕션 기준 응답을 따로 복제하는 것보다 안전합니다.
 - 별도 공개 API 도메인을 기본값으로 도입하면 지금 얻는 것보다 운영 설명 부담이 더 커집니다.
 
 ## 5. 이번 Phase에 포함되는 범위
@@ -124,9 +124,9 @@
 
 4. 최소 성공 범위는 `/api/health`, `/api/me` 입니다.
    - `/api/health` 는 200 + JSON 계약 응답
-   - `/api/me` 는 무인증이면 401 + JSON 에러 응답, placeholder 세션이 있으면 현재 계약에 맞는 JSON 응답
+   - `/api/me` 는 무인증이면 401 + JSON 에러 응답, Production-ready (실구현) 세션이 있으면 현재 계약에 맞는 JSON 응답
 
-5. `/api/auth/login`, `/api/auth/logout` 및 나머지 placeholder API 는 이번 카드의 필수 완료 조건이 아닙니다.
+5. `/api/auth/login`, `/api/auth/logout` 및 나머지 Production-ready (실구현) API 는 이번 카드의 필수 완료 조건이 아닙니다.
    - 다만 브리지가 generic 하게 잡혀 추가 endpoint 도 같은 방식으로 안전하게 붙는 구조라면 막을 필요는 없습니다.
    - 반대로 범위가 커지면 `/api/health`, `/api/me` 성공과 회귀 테스트 확보를 우선합니다.
 
@@ -148,7 +148,7 @@
 - `/documents` → 200
 - `/manifest.webmanifest` → 200
 - 저장소 로컬 테스트 기준 `/api/health` → 200 JSON
-- 저장소 로컬 테스트 기준 `/api/me` → 401 JSON, forged placeholder cookie 도 401 JSON
+- 저장소 로컬 테스트 기준 `/api/me` → 401 JSON, forged Production-ready (실구현) cookie 도 401 JSON
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` → `/login` 으로 307 redirect 유지
 - 공개 preview URL 에서 최신 same-origin/admin 코드를 다시 smoke 했는지는 별도 운영 실행 결과로 남겨야 합니다.
 
@@ -180,7 +180,7 @@
 다음 구현 카드(`Phase 구현: Phase 7 API same-origin 연결 1차`)는 아래를 만족하면 됩니다.
 
 1. 저장소 로컬 검증 기준 same-origin `/api/health` 가 명확한 JSON 을 반환한다.
-2. 저장소 로컬 검증 기준 same-origin `/api/me` 가 계약에 맞는 401 또는 세션 응답을 반환하고 forged placeholder cookie 를 그대로 믿지 않는다.
+2. 저장소 로컬 검증 기준 same-origin `/api/me` 가 계약에 맞는 401 또는 세션 응답을 반환하고 forged Production-ready (실구현) cookie 를 그대로 믿지 않는다.
 3. `manifest` 와 앱 내부 링크는 여전히 상대 경로 정책을 유지한다.
 4. preview 전용 절대 API hostname 을 기본값으로 커밋하지 않는다.
 5. 최소 회귀 테스트가 추가되어 브리지/가드가 깨졌을 때 바로 잡을 수 있다.

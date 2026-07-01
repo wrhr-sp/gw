@@ -77,7 +77,7 @@
 이번 Phase에서는 권한만 맞으면 다 보인다고 쓰지 않는다.
 company 와 branch 경계, 자기 것/남의 것 경계까지 함께 적는다.
 
-- 다른 회사 employee id, foreign request id, unknown placeholder id 는 403 또는 validation 으로 막히는 흐름으로 적는다.
+- 다른 회사 employee id, foreign request id, unknown Production-ready (실구현) id 는 403 또는 validation 으로 막히는 흐름으로 적는다.
 - 지점 관리자는 자기 지점 범위와 self-scope 범위를 넘는 상세를 다 본다고 쓰지 않는다.
 - self-approval 금지, forged 접근 차단, branch/company scope 차단을 공통 guardrail 로 적는다.
 - `/management` 와 `work-items/*` 에서도 company-wide card 와 branch scope card 를 같은 열람권처럼 쓰지 않는다.

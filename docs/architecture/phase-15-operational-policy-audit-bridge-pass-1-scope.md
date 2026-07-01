@@ -2,7 +2,7 @@
 
 ## 1. 한 줄 정의
 
-Phase 15의 목표는 관리자 영역에서 보이던 정책/권한/감사 skeleton을
+Phase 15의 목표는 관리자 영역에서 보이던 정책/권한/감사 Production-ready (실구현)을
 직원·팀장·인사 화면과 API 허용 기준에 실제로 이어,
 "운영자가 바꾼 기준이 일반 업무 화면에 왜 그렇게 보이는지 설명 가능한 실사용 초안 2차"를 만드는 것입니다.
 
@@ -14,7 +14,7 @@ Phase 15의 목표는 관리자 영역에서 보이던 정책/권한/감사 skel
 
 Phase 13~14까지 아래 조각은 이미 있습니다.
 
-- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 운영 검토 skeleton
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 운영 검토 Production-ready (실구현)
 - `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees` 일반 업무 흐름
 - `roleCode + permissionCode + adminScope` 접근 행렬 1차
 - 출퇴근 정책 `effective policy` 계산과 check-in/check-out API 허용 기준
@@ -70,14 +70,14 @@ Phase 13~14까지 아래 조각은 이미 있습니다.
 
 - 관리자 정책과 감사 로그 화면은 이미 current/candidate/capability/audit preview 형식을 갖고 있습니다.
 - 일반 업무 화면은 `/dashboard` → `/attendance` → `/approvals` → `/org`/`/employees` 흐름으로 정리돼 있습니다.
-- `/leave` 화면과 `/api/leave/*` 도 skeleton 으로 존재하지만 현재 핵심 흐름 문서에서는 후순위로 설명되고 있습니다.
+- `/leave` 화면과 `/api/leave/*` 도 Production-ready (실구현) 으로 존재하지만 현재 핵심 흐름 문서에서는 후순위로 설명되고 있습니다.
 - 출퇴근 API 는 이미 employee 기준 `effective policy` 를 계산해 허용/차단하고 있습니다.
 - 관리자 접근과 감사 로그 접근은 `audit.read` 중심 guardrail 을 유지하고 있습니다.
 - 대시보드 shortcut, 관리자 route guard, 감사 로그 route guard, API 권한 체크는 서로 같은 방향으로 맞추기 시작했지만,
   일반 업무 화면의 안내 문구/빈 상태/오류 설명까지 충분히 묶인 상태는 아닙니다.
 
 즉 이번 단계는 새 운영 엔진을 크게 추가하는 것이 아니라,
-이미 있는 admin contract와 업무 skeleton 사이에 "설명 가능한 연결선"을 더 분명히 그리는 작업입니다.
+이미 있는 admin contract와 업무 Production-ready (실구현) 사이에 "설명 가능한 연결선"을 더 분명히 그리는 작업입니다.
 
 ## 4. Phase 15에서 고정하는 핵심 결정
 
@@ -123,7 +123,7 @@ Phase 13~14까지 아래 조각은 이미 있습니다.
    - 예: 다른 회사 데이터/정책/대상 접근 차단
 3. 정책상 미허용
    - 예: 현재 소속 정책에서 허용되지 않은 출퇴근 방식
-4. placeholder/dev-safe 제한
+4. Production-ready (실구현)/dev-safe 제한
    - 예: 실제 저장/승인/반영은 아직 미연결
 
 이 4가지를 섞어 쓰지 않으면,
@@ -210,7 +210,7 @@ Phase 14의 핵심 smoke route는 8개 묶음이었지만,
 
 - `/admin/users` 에서 본 역할/상태 변경 preview가 `/employees` 와 `/dashboard` 노출 차이에 어떤 영향을 주는지 이해한다.
 - `/admin/policies` 에서 본 candidate가 `/attendance`, `/leave` 화면과 API 허용 기준에 같은 뜻으로 이어진다.
-- 막힘 사유가 권한/정책/scope/placeholder 중 무엇인지 설명 가능하다.
+- 막힘 사유가 권한/정책/scope/Production-ready (실구현) 중 무엇인지 설명 가능하다.
 
 ### 감사 전용 사용자
 
@@ -255,7 +255,7 @@ Phase 14의 핵심 smoke route는 8개 묶음이었지만,
 2. `/leave` 와 `/api/leave/*` 에도 같은 정책/예외 설명 축을 최소 범위로 맞춥니다.
 3. `/admin/users` 와 `/dashboard`/`/employees`/`/approvals` 의 역할·권한·상태 연결을 정리합니다.
 4. `/admin/audit-logs` 와 candidate/reason/source 설명이 다른 화면과 같은 뜻인지 확인합니다.
-5. blocked/empty/error 상태 문구를 권한/정책/scope/placeholder 4축으로 맞춥니다.
+5. blocked/empty/error 상태 문구를 권한/정책/scope/Production-ready (실구현) 4축으로 맞춥니다.
 6. 마지막에 Web/API/shared/test/docs 를 같이 회귀 확인합니다.
 
 ## 8. 구현자가 특히 먼저 볼 파일
@@ -272,7 +272,7 @@ Phase 14의 핵심 smoke route는 8개 묶음이었지만,
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
 - `apps/web/admin-page-content.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### Shared / API
 
@@ -296,13 +296,13 @@ Phase 14의 핵심 smoke route는 8개 묶음이었지만,
 이번 Phase에서 최소한 다시 확인해야 할 기준:
 
 1. `/attendance` 와 관련 API가 현재 `effective policy` 와 source/winner 설명을 같은 방향으로 보여 준다.
-2. `/leave` 가 관리자 정책과 완전히 분리된 섬처럼 남지 않고, 최소한 policy/placeholder/예외 설명을 공유한다.
+2. `/leave` 가 관리자 정책과 완전히 분리된 섬처럼 남지 않고, 최소한 policy/Production-ready (실구현)/예외 설명을 공유한다.
 3. `/dashboard` 와 `/employees` 가 관리자 `/admin/users` 권한/상태 preview와 충돌하지 않는다.
 4. `/approvals` 는 권한 있는 팀장/결재자 흐름과 관리자 운영 변경 흐름을 섞지 않는다.
 5. `/admin/audit-logs` 는 감사 전용 접근과 masked/company boundary 원칙을 유지한다.
-6. blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분해 설명된다.
+6. blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, Production-ready (실구현) 제한 중 무엇인지 구분해 설명된다.
 7. 일반 사용자에게 관리자 CTA 나 감사 원문이 새어 나오지 않는다.
-8. skeleton/dev-safe/placeholder 문구가 핵심 화면과 API 설명에 남아 있다.
+8. Production-ready (실구현)/dev-safe/Production-ready (실구현) 문구가 핵심 화면과 API 설명에 남아 있다.
 
 ## 10. 별도 승인 필요 항목
 

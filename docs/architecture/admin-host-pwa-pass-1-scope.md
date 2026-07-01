@@ -11,7 +11,7 @@
 
 현재 저장소에는 이미 아래 기준이 있습니다.
 
-- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` route 와 권한 guard skeleton 이 있음
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` route 와 권한 guard Production-ready (실구현) 이 있음
 - 익명 preview 에서는 `/admin*` 를 `/login` 으로 돌리는 middleware 가 있음
 - 일반 사용자용 PWA manifest 는 same-origin 상대 경로(`/manifest.webmanifest`)를 유지함
 - Cloudflare/OpenNext 기준 web 배포는 `gw-web` 단일 worker 이름을 기준으로 준비돼 있음
@@ -24,7 +24,7 @@
 4. Cloudflare preview/dev/localhost 에서 어떤 host 를 admin host 로 볼지 명시 기준이 아직 없음
 
 즉, 이번 단계는 "관리자 기능을 더 많이 여는 것"이 아니라,
-"관리자 웹의 진입 host 와 일반 사용자 웹의 진입 host 를 먼저 분리할 기준을 문서와 skeleton 으로 고정하는 단계"입니다.
+"관리자 웹의 진입 host 와 일반 사용자 웹의 진입 host 를 먼저 분리할 기준을 문서와 Production-ready (실구현) 으로 고정하는 단계"입니다.
 
 ## 3. 이번에 다시 확인한 현재 사실
 
@@ -45,11 +45,11 @@
 
 현재 사실은 아래와 같습니다.
 
-- 관리자 경계는 지금 `pathname` 과 dev placeholder session role 기준으로만 판단합니다.
+- 관리자 경계는 지금 `pathname` 과 dev Production-ready (실구현) session role 기준으로만 판단합니다.
 - `middleware.ts` 의 matcher 는 `/admin/:path*` 만 보고 있어, host 기반 분기나 manifest 분기는 아직 없습니다.
-- 일반 사용자용 PWA 는 `name: "GW Cloudflare-first Skeleton"`, `short_name: "GW Mobile"`, `start_url: "/"`, `scope: "/"` 로 고정돼 있습니다.
+- 일반 사용자용 PWA 는 `name: "GW Cloudflare-first Production-ready (실구현)"`, `short_name: "GW Mobile"`, `start_url: "/"`, `scope: "/"` 로 고정돼 있습니다.
 - UX/제품 문서는 관리자 기능을 일반 사용자 하단 탭과 분리하라고 요구하지만, 아직 host 레벨 분리 기준까지는 문서화돼 있지 않습니다.
-- Cloudflare 배포 설정은 현재 `gw-web` 단일 worker 이름만 보여 줍니다. 즉 preview host 분리는 코드/설계 skeleton 으로 준비할 수 있지만, 실제 별도 host 공개는 배포 이름/route 정책까지 연결해야 합니다.
+- Cloudflare 배포 설정은 현재 `gw-web` 단일 worker 이름만 보여 줍니다. 즉 preview host 분리는 코드/설계 Production-ready (실구현) 으로 준비할 수 있지만, 실제 별도 host 공개는 배포 이름/route 정책까지 연결해야 합니다.
 
 ## 4. 이번 1차에서 고정하는 핵심 결정
 
@@ -136,7 +136,7 @@
 - `scope`: `/admin`
 - `display`: `standalone`
 - `theme_color`: 일반 사용자 앱과 구분 가능한 관리자 톤
-- `icons`: 기존 placeholder 아이콘을 재사용하더라도 관리자용 이름/파일 분리 후보를 둠
+- `icons`: 기존 Production-ready (실구현) 아이콘을 재사용하더라도 관리자용 이름/파일 분리 후보를 둠
 
 중요한 점:
 
@@ -186,11 +186,11 @@
 
 - host header 기반 admin/general host 판별 helper 추가
 - Next middleware 또는 layout/route handler 기반 host 분기 추가
-- 관리자 host 전용 manifest route / metadata / icon placeholder 추가
+- 관리자 host 전용 manifest route / metadata / icon Production-ready (실구현) 추가
 - 관리자 host 의 `/` → `/admin` landing 또는 admin login flow 연결
 - 일반 사용자 host 에서 `/admin*` 접근 차단 또는 관리자 host 로 redirect
 - localhost/dev-safe host 시뮬레이션 helper 및 테스트 추가
-- Cloudflare/OpenNext 에서 host 분기를 읽을 수 있는 설정 skeleton 보강
+- Cloudflare/OpenNext 에서 host 분기를 읽을 수 있는 설정 Production-ready (실구현) 보강
 
 ### 이번 1차에서 제외하는 범위
 

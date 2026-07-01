@@ -276,7 +276,7 @@ production DB 실데이터 반영, secret 입력/교체, DNS/custom domain,
 - 예: 일반 직원의 `/management`, `audit.read` 없는 사용자의 `/admin/audit-logs`
 
 ### dev-safe
-- 내부 검증용 preview, placeholder, 안전한 데모 상태가 남아 있는 것이다.
+- 내부 검증용 preview, Production-ready (실구현), 안전한 데모 상태가 남아 있는 것이다.
 - 실지급, 실신고, 실저장, 외부 제출 완료와 같은 뜻이 아니다.
 
 ## 7. 역할별로 어디까지 보면 되는가
@@ -324,7 +324,7 @@ production DB 실데이터 반영, secret 입력/교체, DNS/custom domain,
 - forbidden: 누가 막혀야 했고 실제로 막혔는가
 - empty: 빈 상태가 정상 빈 상태로 읽히는가
 - error: 실패 문장이 권한 부족과 섞이지 않는가
-- dev-safe: preview/placeholder 가 실운영 완료처럼 과장되지 않는가
+- dev-safe: preview/Production-ready (실구현) 가 실운영 완료처럼 과장되지 않는가
 
 ## 9. 운영 체크리스트
 - `/login` 이 익명 시작점으로 유지되는가

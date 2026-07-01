@@ -4,7 +4,7 @@
 Phase 29의 목표는
 Phase 25 공통 `work item` 엔진 위에,
 계약 검토 요청·계약 갱신일·분쟁/클레임·보험/사고 문서 보관 흐름을
-`legal` 모듈 skeleton 으로 올리는 것입니다.
+`legal` 모듈 Production-ready (실구현) 으로 올리는 것입니다.
 
 쉽게 말하면 이번 단계는
 "실제 계약서 원문 저장 시스템"이나
@@ -15,7 +15,7 @@ Phase 25 공통 `work item` 엔진 위에,
 ## 왜 이번 단계가 필요한가
 
 호텔 위탁경영사 실사용 관점에서는
-HR·세무·노무 skeleton 까지만 있어서는
+HR·세무·노무 Production-ready (실구현) 까지만 있어서는
 실제 계약 관리와 분쟁 대응까지 업무 흐름을 끝까지 설명하기 어렵습니다.
 
 현장에서는 아래 흐름이 계속 붙습니다.
@@ -64,16 +64,16 @@ HR·세무·노무 skeleton 까지만 있어서는
 
 현재 기준으로 확인되는 사실:
 
-- 공통 `work item` 엔진과 `legal` 모듈 placeholder 자리는 이미 있다.
-- 현재 `legal` placeholder 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이라, 계약·갱신·분쟁 흐름이 최소 예시까지는 연결돼 있다.
-- 다만 아직도 fixture 3건 수준의 skeleton 이라서, 이를 전체 법무 처리 구현 완료처럼 읽어서는 안 된다.
+- 공통 `work item` 엔진과 `legal` 모듈 Production-ready (실구현) 자리는 이미 있다.
+- 현재 `legal` Production-ready (실구현) 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이라, 계약·갱신·분쟁 흐름이 최소 예시까지는 연결돼 있다.
+- 다만 아직도 fixture 3건 수준의 Production-ready (실구현) 이라서, 이를 전체 법무 처리 구현 완료처럼 읽어서는 안 된다.
 - `/management`, `/work-items/legal`, `/api/work-items?module=legal`, `/api/work-items/:id/reviews` 같은 공통 진입점은 이미 있다.
 - 모바일 하단 탭 5개 유지, `홈`/`메뉴`/PC sidebar 확장 원칙은 그대로 유지해야 한다.
 - 아직 실제 계약서 원문 저장 확대, 외부 변호사 계정 연동, 실제 분쟁 자료 업로드 확대, production DB 실데이터 반영은 모두 승인 게이트다.
 
 따라서 이번 Phase의 핵심은
 법무 기능을 많이 완성하는 것이 아니라,
-기존 공통 업무 엔진이 계약 검토와 갱신/분쟁 skeleton 을
+기존 공통 업무 엔진이 계약 검토와 갱신/분쟁 Production-ready (실구현) 을
 어떻게 안전하게 담는지 설명 가능한 상태로 만드는 것입니다.
 
 ## Phase 29에서 고정하는 핵심 결정
@@ -135,7 +135,7 @@ legal 보조 필드 초안:
 공통 업무 상태와
 법무 intake/갱신/분쟁 의미를 한 필드에 억지로 섞지 않습니다.
 
-### 결정 C. 법무 skeleton 은 검토·계약·갱신·분쟁·기록 5묶음으로 본다.
+### 결정 C. 법무 Production-ready (실구현) 은 검토·계약·갱신·분쟁·기록 5묶음으로 본다.
 
 초기 설명 기준:
 
@@ -151,7 +151,7 @@ legal 보조 필드 초안:
 
 3. 갱신/만료
    - 언제 종료되거나 갱신 판단이 필요한지
-   - 알림 skeleton 을 어디까지 둘지
+   - 알림 Production-ready (실구현) 을 어디까지 둘지
    - 실제 자동 발송 없이 어떤 상태를 보여 줄지
 
 4. 분쟁/클레임/보험/사고 후속
@@ -250,12 +250,12 @@ UX 기준:
 1. `/work-items` — 공통 업무 허브가 먼저 보이는지 본다.
 2. `/work-items/legal` — 법무 category, role split, 승인 게이트 문구를 본다.
 3. `/api/work-items?module=legal` — 법무 목록이 category/갱신/분쟁/검토 상태를 읽히게 하는지 본다.
-4. `/api/work-items/:id/reviews` — 내부 검토/보완 요청/승인 대기 메모를 같은 review skeleton 으로 읽게 하는지 본다.
+4. `/api/work-items/:id/reviews` — 내부 검토/보완 요청/승인 대기 메모를 같은 review Production-ready (실구현) 으로 읽게 하는지 본다.
 5. `apps/api/test/work-items.spec.ts` / `apps/api/test/auth-org.spec.ts` — legal module visibility 경계가 역할별로 붙들려 있는지 본다.
 
 ## builder 최소 구현 방향
-- 기존 `legal` placeholder 를 단일 계약 검토 카드 수준에서, 계약 분류/갱신일/분쟁 후속 설명이 있는 방향으로 확장한다.
-- 가능하면 `legalContext` 같은 보조 metadata 묶음을 shared contract 와 placeholder API 에 추가해 contract/renewal/dispute/access/approval gate 를 한 묶음으로 설명하게 한다.
+- 기존 `legal` Production-ready (실구현) 를 단일 계약 검토 카드 수준에서, 계약 분류/갱신일/분쟁 후속 설명이 있는 방향으로 확장한다.
+- 가능하면 `legalContext` 같은 보조 metadata 묶음을 shared contract 와 Production-ready (실구현) API 에 추가해 contract/renewal/dispute/access/approval gate 를 한 묶음으로 설명하게 한다.
 - branch scope 계약 요청 카드와 company scope 분쟁/갱신 카드가 다른 visibility 를 가진다는 점을 fixture/test/API copy 에 같이 남긴다.
 - 실제 계약 원문 저장, 외부 변호사 연동, 실분쟁 문서 업로드 확대는 열지 않는다.
 

@@ -26,7 +26,7 @@ Phase 49에서는 파일럿 피드백 반영·최종 UAT 회귀를 다시 묶었
 
 1. "핵심 route 가 있다"와 "대장이 live URL에서 실제 업무를 직접 눌러볼 수 있다"는 같은 뜻이 아니다.
 2. 일반 직원 레인, 운영 관리자 레인, 지점관리자 레인, 감사 레인이 존재해도 최종 릴리즈 보고 언어로 한 번에 잠겨 있지 않으면 사용자 직접 확인이 어렵다.
-3. skeleton/placeholder/dev-safe/read-only 문구가 남아 있는 영역은 무엇을 이번 릴리즈에서 실제로 닫아야 하고, 무엇을 honest 하게 제한으로 남겨야 하는지 우선순위가 더 또렷해야 한다.
+3. Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 문구가 남아 있는 영역은 무엇을 이번 릴리즈에서 실제로 닫아야 하고, 무엇을 honest 하게 제한으로 남겨야 하는지 우선순위가 더 또렷해야 한다.
 4. `admin / 1234` 테스트 계정, live URL, 추천 route, 승인 게이트, 운영 체크리스트, 사용자 안내 문구가 최종 도입 패키지 형식으로 다시 정리돼야 한다.
 5. 외부 기관 연동, production 실데이터, 민감정보 확대 같은 restricted 범위를 내부 도입 완료 문장과 섞지 않도록 마지막 범위 통제가 필요하다.
 
@@ -45,7 +45,7 @@ Phase 49에서는 파일럿 피드백 반영·최종 UAT 회귀를 다시 묶었
 - `/employees`, `/org` 는 읽기 중심 조회 레인이고 `/admin/users`, `/admin/policies` 운영 변경 preview 와 같은 층위가 아니다.
 - `/admin/audit-logs` 는 계속 `audit.read` 기반 read-only 감사 레인이다.
 - `admin / 1234` 는 dev/test/UAT 전용 테스트 계정이며 production 기본 계정이 아니다.
-- skeleton/placeholder 를 최종 산출물처럼 포장하지 않는다. 닫지 못한 영역은 honest 하게 제한과 승인 게이트로 남긴다.
+- Production-ready (실구현)/Production-ready (실구현) 를 최종 산출물처럼 포장하지 않는다. 닫지 못한 영역은 honest 하게 제한과 승인 게이트로 남긴다.
 
 ## 4. 현재 바로 재사용할 근거
 
@@ -116,10 +116,10 @@ Phase 49에서는 파일럿 피드백 반영·최종 UAT 회귀를 다시 묶었
 - 감사 레인: `/admin/audit-logs` → 필요 시 `/employees`·`/org` → `/api/health`
 - 경영업무/민감 모듈 확인 레인: `/management` 안에서 급여·세무·노무·법무·컴플라이언스 카드/진입 설명이 직원 기본 홈과 섞이지 않는지 다시 잠근다.
 
-### 5-2. skeleton/placeholder 잔여를 최종 릴리즈 언어로 분류한다
+### 5-2. Production-ready (실구현)/Production-ready (실구현) 잔여를 최종 릴리즈 언어로 분류한다
 - 실제 내부 도입 가능한 흐름은 happy path 로 끝까지 이어져야 한다.
 - 아직 실처리나 외부 연동이 없는 화면은 preview/dev-safe/read-only/approval-needed 로 honest 하게 적는다.
-- 사용자 직접 확인 대상에 남길 수 없는 placeholder 잔여는 builder 단계에서 줄이거나, 줄이지 못하면 release blocker 로 승격한다.
+- 사용자 직접 확인 대상에 남길 수 없는 Production-ready (실구현) 잔여는 builder 단계에서 줄이거나, 줄이지 못하면 release blocker 로 승격한다.
 
 ### 5-3. 계정/권한/가드/감사를 최종 릴리즈 기준으로 다시 묶는다
 - 로그인/로그아웃/session 유지/권한별 landing 을 직접 따라갈 수 있게 정리한다.
@@ -152,7 +152,7 @@ Phase 49에서는 파일럿 피드백 반영·최종 UAT 회귀를 다시 묶었
 2. 대장이 live URL에서 로그인 후 주요 업무 흐름을 직접 따라갈 수 있는지
 3. 일반 직원 레인과 `경영업무`/감사/지점 운영 레인이 서로 섞이지 않는지
 4. `admin / 1234` 계정이 테스트 전용으로만 읽히는지
-5. skeleton/placeholder 잔여가 최종 릴리즈 산출물처럼 포장되지 않는지
+5. Production-ready (실구현)/Production-ready (실구현) 잔여가 최종 릴리즈 산출물처럼 포장되지 않는지
 
 ### P1. 이번 릴리즈 패키지에서 함께 닫아야 하는 것
 1. 기능별 happy/forbidden/empty/error/loading/mobile/PC 기록 포인트
@@ -216,8 +216,8 @@ Phase 49에서는 파일럿 피드백 반영·최종 UAT 회귀를 다시 묶었
 - 지정 관리자/담당자만 접근해야 하고, 실제 외부 처리/실민감 처리 완료처럼 보이지 않는지 확인
 
 ## 10. 역할별 후속 작업 기준
-- builder: 릴리즈 blocker 급 placeholder, 경영업무/일반업무 혼동, 권한·가드·route/API 경계, 핵심 happy path 잔여를 우선 수정
-- reviewer: skeleton 잔여, 권한 누출, 로그인 우회, 민감정보 노출, 승인 게이트 위반, 과장 문구를 검토
+- builder: 릴리즈 blocker 급 Production-ready (실구현), 경영업무/일반업무 혼동, 권한·가드·route/API 경계, 핵심 happy path 잔여를 우선 수정
+- reviewer: Production-ready (실구현) 잔여, 권한 누출, 로그인 우회, 민감정보 노출, 승인 게이트 위반, 과장 문구를 검토
 - tester: 대장이 직접 따라갈 route 와 happy/forbidden/empty/error/loading/mobile/PC, build/typecheck/smoke 를 재검증
 - docs: 본격 도입 체크리스트, 사용자 안내, 관리자 안내, 최종 보고 문장을 쉬운 말로 묶기
 - ops: live URL, release gate, smoke, rollback, direct verification note 를 최종 결과 보고 형식으로 정리

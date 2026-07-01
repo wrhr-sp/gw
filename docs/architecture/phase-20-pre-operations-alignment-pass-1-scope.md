@@ -3,7 +3,7 @@
 ## 1. 한 줄 정의
 
 Phase 20의 목표는
-지금까지 쌓아 온 preview/skeleton 결과물을
+지금까지 쌓아 온 preview/Production-ready (실구현) 결과물을
 "실제 회사 운영을 바로 시작해도 된다"는 뜻으로 오해하지 않도록 다시 정리하고,
 반대로 지금 바로 검토 가능한 것과 별도 승인 없이는 열 수 없는 것을
 대장이 한 번에 구분할 수 있게 만드는 것입니다.
@@ -12,7 +12,7 @@ Phase 20의 목표는
 새 기능을 크게 더 만드는 단계라기보다,
 현재 저장소 기준에서
 - 지금 확인 가능한 것
-- 아직 placeholder/skeleton 인 것
+- 아직 Production-ready (실구현)/Production-ready (실구현) 인 것
 - 실제 운영 전에 추가 승인·비용·권한이 필요한 것
 을 같은 언어로 맞추는 단계입니다.
 
@@ -28,8 +28,8 @@ Phase 19까지 오면서 아래는 많이 정리됐습니다.
 
 하지만 아직 아래가 한눈에 보이지 않을 수 있습니다.
 
-- 문서마다 preview/skeleton/운영 준비 표현이 조금씩 다르게 읽힐 수 있다.
-- 어떤 화면은 "되는 것"처럼 보이지만 실제로는 placeholder 설명 단계일 수 있다.
+- 문서마다 preview/Production-ready (실구현)/운영 준비 표현이 조금씩 다르게 읽힐 수 있다.
+- 어떤 화면은 "되는 것"처럼 보이지만 실제로는 Production-ready (실구현) 설명 단계일 수 있다.
 - live/PWA/API/mobile 확인 포인트가 한 문서에서는 기능 목록처럼, 다른 문서에서는 운영 readiness 처럼 읽힐 수 있다.
 - 관리자/일반 사용자 권한 경계가 route 설명, QA 문장, handoff 문장 사이에서 미세하게 달라질 수 있다.
 - 실제 운영 전에 필요한 승인 항목이 모바일 계정 준비물, Web 배포 확인, production secret, 외부 초대 같은 서로 다른 축에 흩어져 있을 수 있다.
@@ -63,15 +63,15 @@ Phase 20은
 현재 저장소 기준으로 확인되는 사실:
 
 - 핵심 업무 흐름은 여전히 `/login` → `/dashboard` → `/attendance`·`/leave`·`/approvals` → `/boards`·`/documents` → `/me` 와 Web/API 대응 route 기준으로 읽힌다.
-- 모바일은 `apps/mobile` skeleton + shared contract + typecheck 기준이며, 실제 앱스토어/실기기 배포 단계는 아니다.
+- 모바일은 `apps/mobile` Production-ready (실구현) + shared contract + typecheck 기준이며, 실제 앱스토어/실기기 배포 단계는 아니다.
 - Web/PWA는 same-origin `/api/*`, manifest 상대 경로, Cloudflare build 기준을 유지한다.
 - 관리자 기능은 `/admin/*` 로 분리하고, 일반 업무 화면과 책임을 섞지 않는다.
-- placeholder/skeleton 은 실제 저장 완료·승인 완료·배포 완료처럼 보이면 안 된다.
+- Production-ready (실구현)/Production-ready (실구현) 은 실제 저장 완료·승인 완료·배포 완료처럼 보이면 안 된다.
 - production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, 실제 대량 사용자 초대, 실제 앱스토어/스토어 배포는 계속 별도 승인 범위다.
 
 ## 4. Phase 20에서 고정하는 핵심 결정
 
-### 결정 A. 현재 상태는 "운영 준비 점검용 preview/skeleton" 으로 통일해 설명한다.
+### 결정 A. 현재 상태는 "운영 준비 점검용 preview/Production-ready (실구현)" 으로 통일해 설명한다.
 
 이 단계에서 중요한 것은
 "이미 된다" 또는 "아예 안 된다"의 이분법이 아니라,
@@ -80,9 +80,9 @@ Phase 20은
 1. 지금 저장소에서 바로 확인 가능한 것
    - route 구조
    - contract/typecheck/test/build 근거
-   - placeholder 상태 안내
+   - Production-ready (실구현) 상태 안내
    - 권한/회사 scope/관리자 경계
-2. 아직 skeleton/preview 설명 단계인 것
+2. 아직 Production-ready (실구현)/preview 설명 단계인 것
    - 실제 운영 저장
    - 실배포 후 사용자 반응
    - 외부 서비스 실연동
@@ -101,14 +101,14 @@ Phase 20은
 
 - Web: route 흐름, 역할별 진입, 일반 업무/관리자 분리
 - PWA: manifest/install/offline/same-origin 원칙
-- API: 권한, 회사 scope, placeholder 응답 honesty
+- API: 권한, 회사 scope, Production-ready (실구현) 응답 honesty
 - Mobile: base URL resolver, secure storage bridge, 7개 핵심 화면, 상태 4축
 
 하지만 최종 결론은 축별로 따로 흩어두지 않고,
 아래 3분류로 합쳐 읽게 합니다.
 
 - 지금 확인됨
-- 아직 안 열림 또는 skeleton
+- 아직 안 열림 또는 Production-ready (실구현)
 - 별도 승인 필요
 
 ### 결정 C. 운영 전 판정 질문은 "되는 것/안 되는 것/승인 필요" 중심으로 바꾼다.
@@ -116,7 +116,7 @@ Phase 20은
 Phase 20에서 대장이 먼저 볼 질문:
 
 1. 지금 저장소에서 바로 확인 가능한 핵심 흐름이 무엇인가?
-2. placeholder/skeleton 이라서 실제 운영 성공처럼 보면 안 되는 항목이 무엇인가?
+2. Production-ready (실구현)/Production-ready (실구현) 이라서 실제 운영 성공처럼 보면 안 되는 항목이 무엇인가?
 3. production 운영 전에 별도 승인·계정·비용·권한이 필요한 항목이 무엇인가?
 4. live/PWA/API/mobile 확인 포인트가 서로 다른 말을 하지 않는가?
 5. 관리자와 일반 사용자 경계가 route/문서/검증 기준에서 같은 뜻인가?
@@ -155,7 +155,7 @@ Phase 20에서 대장이 먼저 볼 질문:
 
 ### 일반 직원 관점
 
-- 지금 확인 가능한 업무 흐름과 아직 placeholder 인 흐름을 구분해 이해할 수 있어야 한다.
+- 지금 확인 가능한 업무 흐름과 아직 Production-ready (실구현) 인 흐름을 구분해 이해할 수 있어야 한다.
 - 공지/문서/근태/휴가/결재가 어디까지 읽기·검토용인지 과장 없이 보여야 한다.
 
 ### 팀장/승인자 관점
@@ -187,7 +187,7 @@ Phase 20에서 대장이 먼저 볼 질문:
 ### 구현 handoff 범위
 
 - 문서와 실제 저장소 표현이 어긋나는 문구 정리 포인트 제시
-- placeholder/skeleton 을 운영 완료처럼 읽히게 만드는 문구 수정 후보 정리
+- Production-ready (실구현)/Production-ready (실구현) 을 운영 완료처럼 읽히게 만드는 문구 수정 후보 정리
 - README/설명 copy/route 메모/guardrail 표현에서 우선 손볼 안전 범위 제시
 
 ### 검증 범위
@@ -214,7 +214,7 @@ Phase 20에서 대장이 먼저 볼 질문:
 
 아래가 충족되면 이번 Phase 20 기획은 성공으로 봅니다.
 
-- 대장이 현재 저장소 기준에서 무엇이 이미 검토 가능하고 무엇이 아직 skeleton 인지 바로 구분할 수 있다.
+- 대장이 현재 저장소 기준에서 무엇이 이미 검토 가능하고 무엇이 아직 Production-ready (실구현) 인지 바로 구분할 수 있다.
 - live/PWA/API/mobile 확인 포인트가 서로 다른 말을 하지 않는다.
 - 관리자/일반 사용자 경계와 승인 게이트가 루트 문서와 handoff 에서 같은 뜻으로 정리된다.
 - 실제 운영 전에 필요한 별도 승인 항목이 기능 설명 속에 묻히지 않는다.

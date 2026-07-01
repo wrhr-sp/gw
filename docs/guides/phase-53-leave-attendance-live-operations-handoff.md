@@ -10,7 +10,7 @@ Phase 53은 `/attendance` 와 `/leave` 를 직원이 실제로 따라갈 수 있
 - 근태는 "출근 등록 → 오늘 상태 확인 → 퇴근 등록 → 정정 요청" 흐름을 중심으로 본다.
 - 휴가는 "잔여 확인 → 신청 → 내 신청 상태 확인" 흐름을 중심으로 본다.
 - 승인자 lane 과 운영 정책 lane 은 직원 CTA 와 섞지 않는다.
-- 권한 부족 / 정책 미허용 / 회사 scope / placeholder 제한 4축을 근태·휴가 공통 언어로 유지한다.
+- 권한 부족 / 정책 미허용 / 회사 scope / Production-ready (실구현) 제한 4축을 근태·휴가 공통 언어로 유지한다.
 
 ## 지금 바로 봐야 할 파일
 
@@ -82,7 +82,7 @@ API/테스트 기준:
 - 권한 부족
 - 정책 미허용
 - 회사 scope 차단
-- placeholder 제한
+- Production-ready (실구현) 제한
 
 이 4축은 문서/화면/API/test 에서 같은 구조로 반복돼야 한다.
 
@@ -96,7 +96,7 @@ API/테스트 기준:
 - empty/loading/error/forbidden/dev-safe 문장을 실제 사용자가 이해할 표현으로 맞추기
 
 구현 시 체크:
-- `preview` 나 `placeholder` 문구가 실사용 happy path 설명을 덮지 않는가
+- `preview` 나 `Production-ready (실구현)` 문구가 실사용 happy path 설명을 덮지 않는가
 - 승인 대기/승인 버튼이 권한 없는 사용자에게 과하게 노출되지 않는가
 - `/dashboard` 상단 액션과 `/attendance`·`/leave` 설명 순서가 맞는가
 
@@ -122,7 +122,7 @@ API/테스트 기준:
 집중 포인트:
 - 사용자용 짧은 UAT 순서
 - 승인자/관리자 확인 순서 분리
-- 지금 눌러볼 수 있는 것 / 아직 placeholder 인 것 / 승인 필요한 것 분리
+- 지금 눌러볼 수 있는 것 / 아직 Production-ready (실구현) 인 것 / 승인 필요한 것 분리
 - `admin / 1234` 를 dev/test/UAT 전용으로만 표기
 
 ### ops 카드 `t_42d0a17a`

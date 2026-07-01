@@ -59,7 +59,7 @@
 
 읽는 포인트:
 - branch 제출과 HQ 검토가 다른 역할로 읽히는지
-- review/deadline skeleton 이 실제 신고 완료처럼 과장되지 않는지
+- review/deadline Production-ready (실구현) 이 실제 신고 완료처럼 과장되지 않는지
 - 감사 역할과 세무 담당 역할이 같은 뜻처럼 보이지 않는지
 
 ### D. 노무 / 법무 / 감사 레인
@@ -81,9 +81,9 @@
 - 일반 직원 홈에서 민감 관리자 업무를 직접 여는 UX 로 되돌아가지 않게 한다.
 
 ### B. 급여
-- `/payroll` 은 급여 프로필 skeleton, 기간 상태, 명세서 초안 진입을 같은 흐름으로 읽게 유지한다.
+- `/payroll` 은 급여 프로필 Production-ready (실구현), 기간 상태, 명세서 초안 진입을 같은 흐름으로 읽게 유지한다.
 - `/payroll/me` 는 self-only, preview, correction guidance 를 고정 문장으로 유지한다.
-- 원천세/4대보험 placeholder, reviewing 상태, attendance/leave linked 문구가 실지급 확정처럼 보이지 않게 한다.
+- 원천세/4대보험 Production-ready (실구현), reviewing 상태, attendance/leave linked 문구가 실지급 확정처럼 보이지 않게 한다.
 
 ### C. 세무
 - `/work-items/tax` 는 branch 제출과 HQ package preparation 을 같은 권한처럼 적지 않는다.

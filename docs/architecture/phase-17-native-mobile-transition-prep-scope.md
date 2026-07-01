@@ -11,7 +11,7 @@ Expo/React Native 기반 네이티브 모바일앱으로 안전하게 넘어갈 
 앱스토어 배포를 바로 시작하는 단계가 아니라,
 "어디까지는 지금 monorepo 안에서 안전하게 준비할 수 있고,
 어디부터는 비용/계정/실기기/스토어 승인 게이트가 필요한가"를
-문서와 skeleton 기준으로 분리하는 단계입니다.
+문서와 Production-ready (실구현) 기준으로 분리하는 단계입니다.
 
 이번 단계도 production 데이터 반영, 실제 사용자 배포,
 App Store/Play Console/TestFlight/EAS 유료 빌드,
@@ -23,8 +23,8 @@ Web/PWA와 운영 경계가 흔들리지 않게 기준을 잠그는 것입니다
 
 지금까지 이미 있는 기반은 아래와 같습니다.
 
-- `apps/web` 중심 Next.js App Router + PWA skeleton
-- `apps/api` 중심 same-origin `/api/*` 계약과 role/scope 기반 API skeleton
+- `apps/web` 중심 Next.js App Router + PWA Production-ready (실구현)
+- `apps/api` 중심 same-origin `/api/*` 계약과 role/scope 기반 API Production-ready (실구현)
 - `packages/shared` 중심 공통 contract/type/schema 구조
 - 모바일 UX 원칙과 PWA 흐름 문서
 - 관리자 host 분리, preview/dev-safe 검증 기준, restricted 승인 게이트 정리
@@ -85,7 +85,7 @@ Phase 17은 그 다음 단계인
    - `apps/mobile`
 2. 계속 공유할 것
    - `packages/shared` 의 route/schema/type/role/scope 계약
-   - 공통 도메인 타입과 mock/skeleton 데이터 shape
+   - 공통 도메인 타입과 mock/Production-ready (실구현) 데이터 shape
 3. 분리할 것
    - Web 전용 렌더/UI 컴포넌트
    - 브라우저/PWA 전용 install/offline UX
@@ -188,7 +188,7 @@ Phase 17 기본 mapping 표준안:
 이번 Phase 17에서 성공 근거로 인정하는 것:
 
 - monorepo 배치와 package 경계가 문서로 확정됨
-- `apps/mobile` skeleton 또는 그에 준하는 구조 기준이 생김
+- `apps/mobile` Production-ready (실구현) 또는 그에 준하는 구조 기준이 생김
 - 공통 contract/auth/route mapping 문서가 정리됨
 - 로컬 타입체크/계약 검증/문서 정합성 확인 가능
 - mock 또는 dev-safe API 연결 기준이 남음
@@ -260,8 +260,8 @@ restricted 범위를 "개발 편의"로 우회하지 않습니다.
 
 ### 다음 구현 카드에서 허용하는 범위
 
-- `apps/mobile` skeleton 또는 Expo 앱 기본 구조 추가
-- mobile navigation shell / screen placeholder 추가
+- `apps/mobile` Production-ready (실구현) 또는 Expo 앱 기본 구조 추가
+- mobile navigation shell / screen Production-ready (실구현) 추가
 - `packages/shared` 재사용 기준에 맞춘 모바일 계약 연결
 - dev-safe base URL resolver, mock adapter, route mapping 보강
 - 문서/테스트/QA 기준에 모바일 검증 항목 추가
@@ -279,7 +279,7 @@ restricted 범위를 "개발 편의"로 우회하지 않습니다.
 
 1. monorepo 안에 `apps/mobile` 위치를 만들고 Expo/React Native 기본 shell을 둔다.
 2. 모바일이 재사용할 `packages/shared` 계약과 Web 전용 코드를 분리한다.
-3. 로그인/대시보드/출퇴근/휴가/결재/공지·문서/내 정보 7개 화면 placeholder를 먼저 만든다.
+3. 로그인/대시보드/출퇴근/휴가/결재/공지·문서/내 정보 7개 화면 Production-ready (실구현)를 먼저 만든다.
 4. API 호출은 same-origin 절대가 아니라 안전한 base URL resolver + 환경 주입 방식으로 둔다.
 5. 세션 저장은 secure storage bridge 계층을 전제로 하고, Web cookie 복제를 기본값으로 삼지 않는다.
 6. 관리자 route, 실기기 권한, 스토어 배포, 유료 빌드는 별도 게이트로 남긴다.
@@ -296,4 +296,4 @@ restricted 범위를 "개발 편의"로 우회하지 않습니다.
 
 이 기준이 있어야 다음 구현자가
 불필요하게 운영 리스크를 건드리지 않고
-모바일 skeleton 작업을 바로 시작할 수 있습니다.
+모바일 Production-ready (실구현) 작업을 바로 시작할 수 있습니다.

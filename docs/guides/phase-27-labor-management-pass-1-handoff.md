@@ -4,14 +4,14 @@
 이번 Phase 27은
 Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에,
 근로계약·연차/수당·고충/징계/사고·퇴사 관련 노무 이슈를
-권한 강하게 분리한 최소 안전 skeleton 으로 올리는 단계입니다.
+권한 강하게 분리한 최소 안전 Production-ready (실구현) 으로 올리는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
 
 이미 있는 기반:
 
 - 공통 `work item` 엔진이 이미 있다.
-- `labor` 모듈 placeholder 자리도 이미 있다.
+- `labor` 모듈 Production-ready (실구현) 자리도 이미 있다.
 - 회사 + 지점/호텔 + 역할 + capability 접근 기준도 이미 문서와 구현에 올라와 있다.
 - 모바일 하단 탭 5개 유지와 `홈`/`메뉴`/PC sidebar 확장 원칙도 있다.
 - HR meeting/lifecycle 구조는 이미 `hr` 모듈에서 category + metadata + visibility 방식으로 1차 정리돼 있다.
@@ -41,7 +41,7 @@ Phase 25 공통 업무 엔진과 Phase 26 HR lifecycle 기준 위에,
 
 이번 단계에서 먼저 보는 것은
 별도 사건 처리 솔루션이 아니라
-기존 `work item` 엔진 위에 올라가는 labor skeleton 입니다.
+기존 `work item` 엔진 위에 올라가는 labor Production-ready (실구현) 입니다.
 
 핵심 category 초안:
 
@@ -86,7 +86,7 @@ labor 쪽에서 추가로 필요한 것은
 - 노무 사건의 검토 단계와 업무 처리 상태를 한 필드에 섞으면 더 복잡해진다.
 - 그래서 "업무는 어디까지 갔는가"와 "노무 검토는 어떤 단계인가"를 나눠 읽게 한다.
 
-### 3) labor skeleton 은 접수·근거·검토·조치·기록 5묶음으로 본다.
+### 3) labor Production-ready (실구현) 은 접수·근거·검토·조치·기록 5묶음으로 본다.
 
 이번 단계에서 같이 보는 구조는 아래입니다.
 
@@ -190,7 +190,7 @@ labor 쪽에서 추가로 필요한 것은
 
 1. `/work-items` — 공통 업무 허브와 API 골격이 먼저 보이는지 확인
 2. `/work-items/labor` — 노무 이슈 유형, 권한 분리, 승인 게이트 문구 확인
-3. `/api/work-items?module=labor` — labor placeholder 목록과 `viewerScope` / `confidentialityLevel` 확인
+3. `/api/work-items?module=labor` — labor Production-ready (실구현) 목록과 `viewerScope` / `confidentialityLevel` 확인
 4. `apps/api/test/work-items.spec.ts` — restricted labor 경계 테스트 확인
 5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` — 허브/labor route copy 와 route 연결 회귀 확인
 6. 마지막으로 실제 계약서/징계/사고/급여 연동/production data 가 여전히 승인 게이트로 남았는지 확인
@@ -232,7 +232,7 @@ labor 쪽에서 추가로 필요한 것은
 
 1. 기존 `work item` / `labor` 모듈 기초를 다시 확인한다.
 2. labor 이슈 유형을 새 상태군이 아니라 `category` + 보조 metadata 로 정리한다.
-3. evidence/review/follow-up/audit 구조를 metadata 중심 skeleton 으로 설계한다.
+3. evidence/review/follow-up/audit 구조를 metadata 중심 Production-ready (실구현) 으로 설계한다.
 4. 본사 노무 담당 / HR / 지점 관리자 / 일반 직원 visibility 차이를 API/UI copy 에 같이 반영한다.
 5. `/work-items/labor` 중심으로 labor entry 를 우선 정리한다.
 6. 실제 계약서 원문 비저장, 외부 전문가/급여 시스템 비연동, production data 비사용이 문서와 구현에서 흔들리지 않는지 마지막에 다시 본다.
@@ -245,7 +245,7 @@ labor 쪽에서 추가로 필요한 것은
 
 - 기존 Phase 25 공통 `work item` 엔진 위에 `labor` issue metadata 확장
 - `category`, `intake_status`, `confidentiality_level`, `requires_acknowledgement`, `legal_hold_required` 같은 보조 필드 검토
-- `/work-items/labor` 또는 그 하위 skeleton copy/API placeholder 에 노무 구조 반영
+- `/work-items/labor` 또는 그 하위 Production-ready (실구현) copy/API Production-ready (실구현) 에 노무 구조 반영
 - 근거 자료/검토 주체/후속조치 요약 응답과 visibility 테스트
 
 피해야 할 것:
@@ -275,7 +275,7 @@ labor 쪽에서 추가로 필요한 것은
 ## 7. builder에게 바로 넘길 구현 체크리스트
 
 1. `packages/shared/src/contracts.ts` 에 labor context 후보를 추가하되 기존 HR/common schema 와 충돌하지 않게 한다.
-2. `apps/api/src/app.ts` 의 `module=labor` placeholder 항목에서 category, visibility, confidentiality, evidence/follow-up 요약을 읽히게 한다.
+2. `apps/api/src/app.ts` 의 `module=labor` Production-ready (실구현) 항목에서 category, visibility, confidentiality, evidence/follow-up 요약을 읽히게 한다.
 3. `/work-items/labor` 화면 copy 는 계약/연차/수당/고충/징계/사고/퇴사 범주를 쉬운 말로 보여 주되, 실민감 원문 처리/외부 연동을 완료처럼 쓰지 않는다.
 4. restricted labor 이슈는 일반 관리자/지점 관리자 범위와 더 좁게 분리한다.
 5. 테스트는 공통 엔진 회귀 + labor visibility 경계를 같이 잡는다.
@@ -292,4 +292,4 @@ labor 쪽에서 추가로 필요한 것은
 
 핵심은
 "노무 관리 완성"이 아니라
-"노무 이슈를 안전하게 담는 기본 skeleton 확정"입니다.
+"노무 이슈를 안전하게 담는 기본 Production-ready (실구현) 확정"입니다.

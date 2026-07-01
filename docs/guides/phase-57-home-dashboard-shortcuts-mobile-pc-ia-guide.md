@@ -121,7 +121,7 @@ migration, destructive 작업 문서가 아니다.
 4. 기본 업무 섹션 확인
 5. 공통 업무 엔진 섹션 확인
 6. 내 정보 / 조회 섹션 확인
-7. 협업 placeholder 섹션 확인
+7. 협업 Production-ready (실구현) 섹션 확인
 8. 필요 시 경영업무 분리 메뉴 확인
 
 ### 어떻게 읽으면 되는가
@@ -135,7 +135,7 @@ migration, destructive 작업 문서가 아니다.
 - 기본 업무: 파일럿 참여자가 가장 먼저 누를 핵심 흐름
 - 공통 업무 엔진: 하단 탭을 늘리지 않고 홈/메뉴/PC sidebar 안에서 자리를 확보한 업무군
 - 내 정보 / 조회: 업무 처리 뒤 읽는 마무리 메뉴
-- 협업 placeholder: 실제 외부 연동 전 honesty 를 유지하는 안내 메뉴
+- 협업 Production-ready (실구현): 실제 외부 연동 전 honesty 를 유지하는 안내 메뉴
 
 ### 메뉴에서 바로 확인할 질문
 - `/menu` 가 홈과 다른 책임을 가진 탐색 화면처럼 읽히는가
@@ -215,7 +215,7 @@ migration, destructive 작업 문서가 아니다.
 - 하단 탭 5개와 PC sidebar 가 서로 다른 사이트맵처럼 설명되지 않는가
 - 모바일은 축소판이 아니라 우선순위 재정렬 버전이라는 기준이 유지되는가
 - 새 업무군 자리를 하단 탭 추가가 아니라 홈/메뉴/sidebar 그룹으로 확보한다는 원칙이 살아 있는가
-- 메신저/메일/알림 placeholder honesty 가 유지되는가
+- 메신저/메일/알림 Production-ready (실구현) honesty 가 유지되는가
 
 ## 6. 관리자/감사/경영업무 분리 노출 확인 가이드
 
@@ -289,7 +289,7 @@ migration, destructive 작업 문서가 아니다.
 - 홈 바로가기가 고정/사용자 전용 두 층으로 읽히는가
 - 권한 없는 세션에 운영/감사 shortcut 이 보이지 않는가
 - 모바일 하단 탭 5개와 PC sidebar 가 같은 메뉴군을 가리키는가
-- 메신저/메일/알림은 placeholder honesty 를 유지하는가
+- 메신저/메일/알림은 Production-ready (실구현) honesty 를 유지하는가
 - 운영 레인(`/management`, `/admin/users`, `/admin/audit-logs`)이 일반 직원 홈과 섞이지 않는가
 - `/payroll/me`, `/org`, `/employees` 가 `/me` 이후 개인 확인/읽기 흐름으로 이어지고 운영 변경 화면과 섞이지 않는가
 - 영구 저장 커스터마이징과 외부 연동이 아직 승인 게이트라는 사실이 유지되는가
@@ -303,7 +303,7 @@ migration, destructive 작업 문서가 아니다.
 - 고정 바로가기 / 사용자 전용 바로가기 정책 요약
 - 모바일 하단 탭 / 전체 메뉴 / PC sidebar IA 요약
 - 운영/감사/경영업무 분리 노출 요약
-- 아직 dev-safe / placeholder / 승인 게이트로 남는 항목
+- 아직 dev-safe / Production-ready (실구현) / 승인 게이트로 남는 항목
 - live 직접 확인 근거와 local build/test 근거를 분리한 메모
 
 ## 계속 승인 게이트로 남기는 것

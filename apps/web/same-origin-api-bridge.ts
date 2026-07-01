@@ -37,6 +37,7 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   const incomingUrl = new URL(request.url);
   const targetUrl = new URL(pathname, "http://gw-api.internal");
   targetUrl.search = incomingUrl.search;
+
   const headers = new Headers(request.headers);
   const devRoleHeader = headers.get("x-dev-role");
   if (devRoleHeader && !headers.has("x-forwarded-dev-role")) {
@@ -52,7 +53,7 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
     }
   }
 
-  const requestInit: Record<string, unknown> = {
+  const requestInit: RequestInit & { duplex?: "half" } = {
     method: request.method,
     headers,
     body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
@@ -68,6 +69,7 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
 
 function buildApiBindings() {
   let cloudflareEnv: Record<string, unknown> = {};
+
   try {
     cloudflareEnv = getCloudflareContext().env as Record<string, unknown>;
   } catch {

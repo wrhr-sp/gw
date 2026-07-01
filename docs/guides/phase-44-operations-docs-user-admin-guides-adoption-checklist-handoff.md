@@ -101,7 +101,7 @@
 - 허용 route
 - 차단 route
 - scope 기준
-- 승인 게이트/placeholder 비고
+- 승인 게이트/Production-ready (실구현) 비고
 
 ### E. 도입 체크리스트
 최소 3단계:
@@ -114,7 +114,7 @@
 2. 관리자용 문서가 실제 route guard/API guard/scope 와 충돌하지 않는가
 3. `admin / 1234` 가 production 기본 계정처럼 보이지 않는가
 4. 실지급·실신고·실계약·외부 연동·production 실데이터가 이미 가능한 것처럼 과장되지 않는가
-5. approval-needed / placeholder / blocked 분류가 문서마다 같은 뜻인가
+5. approval-needed / Production-ready (실구현) / blocked 분류가 문서마다 같은 뜻인가
 
 ## 6. tester가 바로 따라갈 확인 순서
 1. `/login`

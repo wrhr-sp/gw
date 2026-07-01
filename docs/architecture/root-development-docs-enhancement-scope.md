@@ -70,7 +70,7 @@
 - 어떤 엔티티/endpoint/화면군이 있는지
 - 어떤 권한/회사 scope/자기행동 금지 규칙이 공통인지
 - 어떤 테스트 축이 모든 phase에 반복 적용되는지
-- 어떤 항목은 여전히 skeleton/placeholder 인지
+- 어떤 항목은 여전히 Production-ready (실구현)/Production-ready (실구현) 인지
 - 무엇이 승인 없이 금지인지
 
 즉, 루트 문서는 "Phase를 가로지르는 기준"을 담당하고, 세부 예시는 관련 phase 문서로 연결합니다.
@@ -84,8 +84,8 @@
 - 다른 엔티티와의 관계
 - 민감도 또는 보안 주의사항
 - 현재 저장소 상태
-  - skeleton only
-  - placeholder response
+  - Production-ready (실구현) only
+  - Production-ready (실구현) response
   - guardrail test 있음
   - 운영 연결 미실시
 - 소스 근거
@@ -131,7 +131,7 @@
 - 관리자 화면과 일반 업무 화면은 어디서 갈라지는가
 - 회사 scope 는 어디서 막아야 하는가
 - 자기 문서/자기 요청/자기 승인 금지는 어디에 적용되는가
-- placeholder/skeleton 단계에서 성공처럼 보이면 안 되는 동작은 무엇인가
+- Production-ready (실구현)/Production-ready (실구현) 단계에서 성공처럼 보이면 안 되는 동작은 무엇인가
 - 모바일/PWA/same-origin 기본값은 어디까지 고정인가
 
 즉, `SPEC.md` 는 API와 UI 사이의 공통 행동 규칙 문서가 되어야 합니다.
@@ -148,7 +148,7 @@
 2. 무엇을 확인하는지
    - contract/type
    - 권한/회사 scope
-   - placeholder가 실제 저장처럼 보이지 않는지
+   - Production-ready (실구현)가 실제 저장처럼 보이지 않는지
    - 관리자/일반 경계
    - same-origin/manifest/build:cf
    - 문서 링크/설명 일관성
@@ -219,7 +219,7 @@
 
 - 역할별 행동 규칙
 - 관리자/일반 경계
-- 회사 scope / 자기승인 금지 / placeholder 주의
+- 회사 scope / 자기승인 금지 / Production-ready (실구현) 주의
 - 모바일/PWA/same-origin 공통 기준
 - phase 상세 문서로 이어지는 링크
 

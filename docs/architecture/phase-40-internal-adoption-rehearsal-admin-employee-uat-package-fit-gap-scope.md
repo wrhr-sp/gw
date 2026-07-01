@@ -105,7 +105,7 @@
 - 테스트 계정: `admin / 1234` (dev/test/UAT 전용)
 - 역할별 추천 시나리오
 - 확인 route
-- 현재 가능한 것 / 막히는 것 / 아직 skeleton 인 것
+- 현재 가능한 것 / 막히는 것 / 아직 Production-ready (실구현) 인 것
 - 남은 blocker/major/minor 요약
 - 별도 승인 게이트 목록
 

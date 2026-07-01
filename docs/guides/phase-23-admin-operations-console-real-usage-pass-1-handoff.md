@@ -141,7 +141,7 @@
 8. `/boards`, `/documents`
 
 이 순서대로 볼 때도 각 단계가 반드시
-"지금 확인 가능 / 아직 skeleton / 승인 필요"
+"지금 확인 가능 / 아직 Production-ready (실구현) / 승인 필요"
 중 어디인지 읽혀야 합니다.
 
 ## 4. 먼저 볼 파일
@@ -170,7 +170,7 @@
 - `apps/web/app/admin/audit-logs/page.tsx`
 - `apps/web/admin-preview-guard.ts`
 - `apps/web/admin-preview-guard.test.ts`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `packages/shared/src/admin-access.ts`
 - `packages/shared/src/contracts.ts`
 - `packages/shared/test/contracts.spec.ts`
@@ -228,7 +228,7 @@
 집중할 것:
 
 - 관리자 운영 흐름을 쉬운 한국어로 고정
-- 되는 것 / 아직 skeleton / 승인 필요 분류를 같은 언어로 정리
+- 되는 것 / 아직 Production-ready (실구현) / 승인 필요 분류를 같은 언어로 정리
 - 일반 조회 화면과 운영 검토 화면 경계를 문서마다 일관되게 유지
 - 파일·문서·공지 권한과 관리자 경계를 과장 없이 설명
 
@@ -236,7 +236,7 @@
 
 집중할 것:
 
-- preview/dev-safe skeleton 범위임을 계속 분리 기록
+- preview/dev-safe Production-ready (실구현) 범위임을 계속 분리 기록
 - release gate 와 build/test 근거가 있어도 production data/secret/실권한 변경 미완료 상태를 숨기지 않기
 - 최종 보고용 근거를 운영 콘솔 순서와 승인 게이트 기준으로 정리
 

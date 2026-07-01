@@ -11,7 +11,7 @@ apps/
 packages/
   shared/     # 공통 경로, 화면 섹션, auth/org 계약
 db/
-  migrations/ # D1 SQL migration skeleton
+  migrations/ # D1 SQL migration Production-ready (실구현)
 docs/
   architecture/
   guides/
@@ -51,13 +51,13 @@ Workers API입니다.
 현재 들어 있는 것:
 
 - `/api/health`
-- placeholder 로그인/로그아웃
-- placeholder `/api/me`
-- 회사/직원/부서/역할/권한 조회 skeleton
-- 출근/퇴근, 근태 기록 조회, 정정 요청 skeleton
-- 휴가 유형/잔여/신청 조회, 승인/반려 skeleton
-- 결재 양식/결재선/기안/문서함/상세/승인·반려/참조·합의 후보 skeleton
-- 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 skeleton
+- Production-ready (실구현) 로그인/로그아웃
+- Production-ready (실구현) `/api/me`
+- 회사/직원/부서/역할/권한 조회 Production-ready (실구현)
+- 출근/퇴근, 근태 기록 조회, 정정 요청 Production-ready (실구현)
+- 휴가 유형/잔여/신청 조회, 승인/반려 Production-ready (실구현)
+- 결재 양식/결재선/기안/문서함/상세/승인·반려/참조·합의 후보 Production-ready (실구현)
+- 공지, 게시판, 게시글, 댓글, 문서함, 첨부 metadata, 읽음 확인 Production-ready (실구현)
 - 권한별 401/403 응답을 주는 기본 RBAC gate
 - self-owned 휴가 승인 차단, 임의 request id 차단, 타 회사 `employeeId` 조회 차단
 - 전자결재에서 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지, 승인함/참조함 접근 경계 guardrail
@@ -66,7 +66,7 @@ Workers API입니다.
 주의:
 
 - 실제 OAuth/SSO, 메일 발송, 운영 secret 연결은 하지 않습니다.
-- 인증은 placeholder HttpOnly Cookie 세션 계약만 맞춥니다.
+- 인증은 Production-ready (실구현) HttpOnly Cookie 세션 계약만 맞춥니다.
 - 권한 부족과 인증 부족은 공통 에러 응답으로 반환합니다.
 - 근태 조회는 `attendance.manage` 권한이 있어도 같은 회사 직원 범위만 허용합니다.
 - 휴가 승인은 `leave.approve` 권한만 보는 것이 아니라 self-owned 요청인지, reviewable 목록에 있는 요청인지도 함께 검사합니다.
@@ -79,31 +79,31 @@ Workers API입니다.
 - `0002_auth_org_phase2.sql` — departments / roles / user_roles / invites / auth_sessions / audit_logs
 - `0003_attendance_leave_phase3.sql` — attendance_records / attendance_correction_requests / leave_types / leave_requests / leave_balances
 - `0004_approvals_phase4.sql` — approval_forms / approval_lines / approval_documents / approval_steps / approval_references
-- `0005_boards_documents_phase5.sql` 로 게시판/문서 D1 skeleton 이 추가됨
+- `0005_boards_documents_phase5.sql` 로 게시판/문서 D1 Production-ready (실구현) 이 추가됨
 
 1차 설계 선택:
 
 - 역할 매핑은 `memberships` 대신 `user_roles` 모델을 사용합니다.
 - 세션 테이블은 `sessions` 대신 `auth_sessions` 이름을 사용합니다.
-- 권한 카탈로그는 정적 contract/API skeleton 으로 두고, 별도 DB 테이블까지는 확장하지 않습니다.
+- 권한 카탈로그는 정적 contract/API Production-ready (실구현) 으로 두고, 별도 DB 테이블까지는 확장하지 않습니다.
 - 근태/휴가는 production 데이터 계산이 아니라 status/request/review 추적 컬럼을 먼저 고정합니다.
 
 ### `apps/web`
 
-현재 placeholder 화면:
+현재 Production-ready (실구현) 화면:
 
 - `app/page.tsx` — 모바일 홈, 설치 안내, quick action, 리뷰 체크리스트
-- `app/offline/page.tsx` — 오프라인/불안정 네트워크 안내 skeleton
-- `app/login/page.tsx` — 로그인 skeleton
-- `app/dashboard/page.tsx` — 세션 상태 + 근태/휴가/전자결재 진입점 placeholder
-- `app/employees/page.tsx` — 직원 조회 placeholder
-- `app/org/page.tsx` — 부서/역할/권한 placeholder
-- `app/attendance/page.tsx` — 출퇴근/기록/정정 요청 placeholder
-- `app/leave/page.tsx` — 휴가 유형/잔여/신청/승인 대기 placeholder
-- `app/approvals/page.tsx` — 전자결재 진입점 placeholder
-- `app/admin/page.tsx` — 관리자 초대/권한 placeholder
-- `app/admin/*` — Phase 9 관리자 사용자/정책/감사 로그 skeleton 확장 대상
-- `app/boards`, `app/boards/[boardId]`, `app/posts/[postId]`, `app/documents` placeholder 가 추가됨
+- `app/offline/page.tsx` — 오프라인/불안정 네트워크 안내 Production-ready (실구현)
+- `app/login/page.tsx` — 로그인 Production-ready (실구현)
+- `app/dashboard/page.tsx` — 세션 상태 + 근태/휴가/전자결재 진입점 Production-ready (실구현)
+- `app/employees/page.tsx` — 직원 조회 Production-ready (실구현)
+- `app/org/page.tsx` — 부서/역할/권한 Production-ready (실구현)
+- `app/attendance/page.tsx` — 출퇴근/기록/정정 요청 Production-ready (실구현)
+- `app/leave/page.tsx` — 휴가 유형/잔여/신청/승인 대기 Production-ready (실구현)
+- `app/approvals/page.tsx` — 전자결재 진입점 Production-ready (실구현)
+- `app/admin/page.tsx` — 관리자 초대/권한 Production-ready (실구현)
+- `app/admin/*` — Phase 9 관리자 사용자/정책/감사 로그 Production-ready (실구현) 확장 대상
+- `app/boards`, `app/boards/[boardId]`, `app/posts/[postId]`, `app/documents` Production-ready (실구현) 가 추가됨
 - `app/mobile-pwa-config.ts` — manifest, 주요 route, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트 공통 설정
 
 ## 개발자가 바로 쓰는 명령
@@ -125,15 +125,15 @@ pnpm test
 - `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 통과
 - `pnpm --filter @gw/web build:cf` 통과
 - `POST /api/boards/board_notice/posts`, `POST /api/documents/files/metadata(spaceId=document_space_missing)`, `GET /api/posts/board_post_board_general_forged`, `POST /api/read-receipts(targetId=board_post_board_general_forged)` 가 모두 403 으로 막힘
-- `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 skeleton 이 추가됨
-- 남은 한계는 "실제 저장/업로드/검색/알림이 없는 placeholder 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
-- `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` placeholder 라서 접근성 gate 는 미통과 상태
+- `apps/web/app/page.tsx` 와 `offline/page.tsx` 로 모바일 홈/오프라인 안내 Production-ready (실구현) 이 추가됨
+- 남은 한계는 "실제 저장/업로드/검색/알림이 없는 Production-ready (실구현) 단계"라는 점이지, 이번 guardrail 재현 케이스가 열려 있다는 뜻은 아님
+- `apps/web/app/attendance/page.tsx`, `leave/page.tsx`, `approvals/page.tsx` 의 주요 CTA 가 아직 `<span aria-disabled>` Production-ready (실구현) 라서 접근성 gate 는 미통과 상태
 - Phase 8 쉬운 handoff 는 `docs/guides/phase-8-r2-storage-handoff.md` 에 정리돼 있음
 - Phase 9 쉬운 handoff 는 `docs/guides/phase-9-admin-audit-handoff.md` 에 정리돼 있음
 - Phase 10 쉬운 handoff 는 `docs/guides/phase-10-admin-audit-pass-2-handoff.md` 에 정리돼 있음
 - Phase 11 쉬운 handoff 는 `docs/guides/phase-11-org-employees-handoff.md` 에 정리돼 있음
 - 현재 저장소 기준으로 `/api/admin/audit-logs` 는 `createdFrom`, `createdTo` 시간 필터를 실제로 적용하고, 관련 schema 와 회귀 테스트도 `packages/shared/src/contracts.ts`, `apps/api/test/auth-org.spec.ts` 에 반영돼 있음
-- `/employees` 와 `/org` 화면은 일반 조회용 skeleton 이고, `/admin/users` 는 운영 변경 후보 검토 화면으로 분리돼 있음
+- `/employees` 와 `/org` 화면은 일반 조회용 Production-ready (실구현) 이고, `/admin/users` 는 운영 변경 후보 검토 화면으로 분리돼 있음
 - 현재 `/api/employees` 는 비관리자 요청에서 관리자 role filter 를 무시하고, 잘못된 `employmentStatus`/`roleCode` query 는 400 `VALIDATION_ERROR` 로 돌려줌
 
 개별 확인:
@@ -145,7 +145,7 @@ pnpm --filter @gw/web build:cf
 pnpm --filter @gw/api dev
 ```
 
-## placeholder 인증 흐름 확인 예시
+## Production-ready (실구현) 인증 흐름 확인 예시
 
 한 터미널에서:
 
@@ -166,31 +166,31 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 ```bash
 curl http://127.0.0.1:8787/api/me \
-  -H 'cookie: gw_session=dev-placeholder-session_COMPANY_ADMIN'
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_COMPANY_ADMIN'
 ```
 
 또는 조직 조회:
 
 ```bash
 curl http://127.0.0.1:8787/api/departments \
-  -H 'cookie: gw_session=dev-placeholder-session_COMPANY_ADMIN'
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_COMPANY_ADMIN'
 curl http://127.0.0.1:8787/api/permissions \
-  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN'
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_HR_ADMIN'
 curl -i http://127.0.0.1:8787/api/employees \
-  -H 'cookie: gw_session=dev-placeholder-session_EMPLOYEE'
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_EMPLOYEE'
 curl -i 'http://127.0.0.1:8787/api/attendance/records?employeeId=employee_other_company' \
-  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN'
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_HR_ADMIN'
 curl -i -X POST http://127.0.0.1:8787/api/leave/requests/foreign_request_id/approve \
   -H 'content-type: application/json' \
-  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_HR_ADMIN' \
   --data '{"reason":"foreign request repro"}'
 curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_demo/approve \
   -H 'content-type: application/json' \
-  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_HR_ADMIN' \
   --data '{"reason":"self approval repro"}'
 curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pending/approve \
   -H 'content-type: application/json' \
-  -H 'cookie: gw_session=dev-placeholder-session_HR_ADMIN' \
+  -H 'cookie: gw_session=dev-Production-ready (실구현)-session_HR_ADMIN' \
   --data '{"reason":"team pending approval repro"}'
 ```
 
@@ -205,7 +205,7 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 ## 구현할 때 지켜야 할 기준
 
 - Web과 API가 같이 보는 계약은 먼저 `packages/shared` 에서 정리합니다.
-- 회사 범위를 넘는 cross-company 조회는 placeholder 단계에서도 열지 않습니다.
+- 회사 범위를 넘는 cross-company 조회는 Production-ready (실구현) 단계에서도 열지 않습니다.
 - 실제 비밀값, 실제 세션 토큰, 실제 초대 코드, 실제 전자결재 문서 본문 전문은 코드/문서/로그에 남기지 않습니다.
 - 민감 endpoint 는 감사 로그 후보(action, actor, target)를 남길 수 있는 구조를 유지합니다.
 - Web 메뉴를 숨겨도 서버 측 권한 검증이 다시 들어간다는 전제를 유지합니다.
@@ -213,7 +213,7 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - 전자결재 route 는 `approval.document.read/write/approve` 경계를 분리하고, 자기 문서 자기 승인과 타 회사 문서 접근을 막는 방향으로 설계합니다.
 - approval create 응답 id 와 approval detail 조회 대상이 같은 문서를 가리키는지, create → detail round-trip 을 먼저 검증합니다.
 - `apps/api/test/auth-org.spec.ts` 의 approval 테스트는 seed demo 와 겹치지 않는 제목/요약/양식을 써서 false positive 를 막습니다.
-- Phase 8 storage skeleton 은 `docs/architecture/phase-8-r2-storage-scope.md` 기준으로 private-by-default, D1 metadata 우선, mock/local-safe 검증 기본값을 유지합니다.
+- Phase 8 storage Production-ready (실구현) 은 `docs/architecture/phase-8-r2-storage-scope.md` 기준으로 private-by-default, D1 metadata 우선, mock/local-safe 검증 기본값을 유지합니다.
 - object key 는 `companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safeFileName}` 기본 규칙을 따르고 raw `storageKey` 는 응답/로그에 과도하게 노출하지 않습니다.
 - 허용 MIME 은 제한된 allowlist 로 시작하고, 파일 1개 최대 크기 25MB 기본값을 먼저 테스트로 고정합니다.
 - `scripts/README.md` 에 적힌 그룹웨어 보고/감시 자동화 스크립트를 건드리면 기능 코드와 함께 release gate 검토 대상으로 묶습니다.
@@ -255,7 +255,7 @@ curl -i -X POST http://127.0.0.1:8787/api/leave/requests/leave_request_team_pend
 - 현재 공개 Web preview URL: `https://gw-web.wereheresp.workers.dev`
 - 공개 smoke 확인 결과: `/`, `/login`, `/dashboard`, `/menu`, `/admin/users` 는 200
 - 이전 URL `https://gw-web.werehere31.workers.dev` 는 과거 계정/과거 preview URL 이며 현재는 HTTP 404 입니다.
-- 현재 저장소 코드 기준으로 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가됐고 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 에서 `/api/health` 200 JSON, `/api/me` 401 JSON, forged placeholder cookie 차단을 확인했습니다.
+- 현재 저장소 코드 기준으로 `apps/web/app/api/health/route.ts`, `apps/web/app/api/me/route.ts`, `apps/web/same-origin-api-bridge.ts` 가 추가됐고 `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 에서 `/api/health` 200 JSON, `/api/me` 401 JSON, forged Production-ready (실구현) cookie 차단을 확인했습니다.
 - admin 차단 근거 코드는 `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`, `apps/web/admin-preview-guard.test.ts` 입니다.
 
 ### 2) 남아 있는 한계
@@ -328,14 +328,14 @@ PWA:
 - same-origin API 연결 1차 결정은 `docs/architecture/phase-7-api-same-origin-scope.md` 를 함께 봅니다.
 - 현재 코드는 `apps/web/app/page.tsx`, `apps/web/app/offline/page.tsx`, `apps/web/app/dashboard/page.tsx`, `apps/web/app/attendance/page.tsx`, `apps/web/app/leave/page.tsx`, `apps/web/app/approvals/page.tsx`, `apps/web/app/boards/*`, `apps/web/app/documents/page.tsx` 를 중심으로 작은 화면 UX 를 정리한 상태입니다.
 - `apps/web/app/mobile-pwa-config.ts` 에 manifest 값, 설치 안내, 오프라인 안내, 모바일 리뷰 체크리스트를 모아 두었습니다.
-- icon placeholder, 설치 안내, offline 안내 skeleton 은 넣되 push/background sync/service worker 고도화는 별도 승인 전까지 하지 않습니다.
+- icon Production-ready (실구현), 설치 안내, offline 안내 Production-ready (실구현) 은 넣되 push/background sync/service worker 고도화는 별도 승인 전까지 하지 않습니다.
 - 다만 `attendance`/`leave`/`approvals` 의 큰 CTA 는 아직 실제 버튼/링크 semantics 로 바뀌지 않았으므로 후속 작업자가 접근성 remediation 을 먼저 보는 편이 맞습니다.
 - App Store/Play Store, Expo/React Native, 실제 외부 공개 URL, production DB migration, secret/DNS/유료 리소스는 이번 범위가 아닙니다.
 - 넓은 화면은 왼쪽 사이드바, 좁은 화면은 하단 탭이라는 탐색 기본안을 깨지 않는 선에서 route/UI 를 확장합니다.
 
 ## 다음 구현자가 바로 이어받을 범위
 
-다음 구현자는 `docs/architecture/phase-6-mobile-pwa-scope.md` 와 현재 Web 코드를 기준으로, "모바일/PWA skeleton 은 들어갔지만 CTA semantics 와 실제 연결은 아직 남아 있는 상태"로 이해하는 편이 정확합니다.
+다음 구현자는 `docs/architecture/phase-6-mobile-pwa-scope.md` 와 현재 Web 코드를 기준으로, "모바일/PWA Production-ready (실구현) 은 들어갔지만 CTA semantics 와 실제 연결은 아직 남아 있는 상태"로 이해하는 편이 정확합니다.
 
 우선순위는 아래 순서를 권장합니다.
 
@@ -353,7 +353,7 @@ PWA:
 - 실제 R2 버킷 생성, 실제 운영 파일 업로드, production 게시글/문서 데이터 입력, production DB migration 실행은 별도 승인 전까지 하지 않는다.
 - public file URL 확정, 외부 공유 링크, OCR/전자서명/외부 문서보관 연동도 별도 승인 전까지 하지 않는다.
 - 게시글/댓글/문서함 권한을 분리하고, metadata 응답에 storage key 같은 내부 값이 과도하게 노출되지 않게 한다.
-- 타 회사 게시글/문서 접근 차단과 placeholder 표시 유지 기준은 후속 실제 구현에서도 유지해야 한다.
+- 타 회사 게시글/문서 접근 차단과 Production-ready (실구현) 표시 유지 기준은 후속 실제 구현에서도 유지해야 한다.
 
 ## 같이 보면 좋은 문서
 

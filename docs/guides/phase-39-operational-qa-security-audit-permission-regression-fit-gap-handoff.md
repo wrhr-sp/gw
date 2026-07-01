@@ -31,7 +31,7 @@ route guard, API guard, company+branch scope, masked audit preview, forbidden/er
 - `/management` 와 `/admin*` 는 둘 다 민감 레인이지만 서로 같은 상세 허용 범위로 쓰지 않는다.
 
 ### C. scope / foreign / self 차단
-- 타 회사 employee id, foreign request id, unknown placeholder id, self-approval 같은 요청은 차단/검증 실패가 기준이다.
+- 타 회사 employee id, foreign request id, unknown Production-ready (실구현) id, self-approval 같은 요청은 차단/검증 실패가 기준이다.
 - branch scope 와 self-scope 를 company-wide access 처럼 확장해서 설명하면 안 된다.
 
 ### D. 민감정보 비노출

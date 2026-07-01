@@ -9,7 +9,7 @@ Expo/React Native 네이티브 앱을 monorepo 안에서 안전하게 시작할 
 
 이미 있는 것:
 
-- `apps/web` 중심 PWA skeleton
+- `apps/web` 중심 PWA Production-ready (실구현)
 - `apps/api` 중심 same-origin `/api/*` 계약
 - `packages/shared` 중심 공통 type/schema/role/scope 계약
 - 모바일 UX 원칙: "모바일은 축소판이 아니라 핵심 행동 우선 재배열"
@@ -142,7 +142,7 @@ Expo/React Native 네이티브 앱을 monorepo 안에서 안전하게 시작할 
 - `/boards`, `/documents` → 모바일 공지/문서 묶음
 - `/admin/*` → 모바일 기본 탭 제외, 후속 범위 또는 Web fallback 후보
 
-### 6) 이번 단계의 성공 기준은 store build가 아니라 skeleton 준비 완료다.
+### 6) 이번 단계의 성공 기준은 store build가 아니라 Production-ready (실구현) 준비 완료다.
 
 성공으로 보는 것:
 
@@ -184,7 +184,7 @@ Expo/React Native 네이티브 앱을 monorepo 안에서 안전하게 시작할 
 
 1. `apps/mobile` 위치와 Expo 앱 초기 구조를 만든다.
 2. `packages/shared` 재사용 범위와 Web 전용 의존성을 분리한다.
-3. 로그인/대시보드/출퇴근/휴가/결재/공지·문서/내 정보 7개 placeholder를 먼저 만든다.
+3. 로그인/대시보드/출퇴근/휴가/결재/공지·문서/내 정보 7개 Production-ready (실구현)를 먼저 만든다.
 4. 모바일 API 연결은 base URL resolver + mock/dev-safe adapter 기준으로 둔다.
 5. 세션 저장은 secure storage bridge 전제로 구성하고 Web cookie 직접 복제를 피한다.
 6. 관리자 화면, 스토어 배포, 푸시, 실기기 권한은 별도 승인 게이트로 남긴다.
@@ -195,8 +195,8 @@ Expo/React Native 네이티브 앱을 monorepo 안에서 안전하게 시작할 
 
 집중할 것:
 
-- `apps/mobile` skeleton 또는 Expo app shell
-- navigation shell + 7개 핵심 화면 placeholder
+- `apps/mobile` Production-ready (실구현) 또는 Expo app shell
+- navigation shell + 7개 핵심 화면 Production-ready (실구현)
 - `packages/shared` 재사용 기준에 맞는 route/type 연결
 - base URL resolver / mock adapter / dev-safe 환경 기준
 
@@ -214,7 +214,7 @@ Expo/React Native 네이티브 앱을 monorepo 안에서 안전하게 시작할 
 - 모바일 도입이 role/scope/auth 경계를 흐리지 않는지
 - Web 전용 코드와 모바일 전용 코드가 과도하게 섞이지 않는지
 - preview/dev-safe가 운영 기본값처럼 문서화되지 않는지
-- placeholder를 실제 배포 완료처럼 보이게 하는 문구가 없는지
+- Production-ready (실구현)를 실제 배포 완료처럼 보이게 하는 문구가 없는지
 
 ### 테스터(gwtester)
 

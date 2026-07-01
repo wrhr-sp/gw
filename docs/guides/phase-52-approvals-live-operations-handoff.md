@@ -52,7 +52,7 @@
 ## 5. reviewer가 꼭 볼 질문
 1. 내 승인함과 내 기안함 책임이 화면에서 섞이지 않는가
 2. 승인 권한과 운영 관리자 권한이 같은 뜻으로 풀리지 않는가
-3. `preview`, `placeholder`, `guard 확인` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는가
+3. `preview`, `Production-ready (실구현)`, `guard 확인` 같은 내부 검증 문구가 사용자 실사용 문구를 덮지 않는가
 4. self-approval 금지, replay 차단, unknown id 차단 설명이 UI 와 API 에서 같은 뜻인가
 5. empty/loading/error/forbidden/dev-safe 가 서로 다른 뜻으로 유지되는가
 

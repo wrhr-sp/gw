@@ -9,7 +9,7 @@ Phase 25에서 먼저 만든 공통 `work item` 엔진 위에,
 
 쉽게 말하면 이번 단계는
 "인사팀 전용 복잡한 ERP"를 한 번에 만드는 것이 아니라,
-"직원 관련 미팅과 면담을 같은 제품 언어로 담는 최소 안전 skeleton"
+"직원 관련 미팅과 면담을 같은 제품 언어로 담는 최소 안전 Production-ready (실구현)"
 을 먼저 고정하는 단계입니다.
 
 이번 단계도
@@ -49,7 +49,7 @@ HR·세무·노무·법무·지점 운영 업무가 같이 타는
 
 그래서 Phase 26에서는
 Phase 25 공통 업무 엔진을 그대로 두고,
-그 위에 "직원 lifecycle + HR meeting skeleton"
+그 위에 "직원 lifecycle + HR meeting Production-ready (실구현)"
 을 얹는 규칙을 문서와 최소 구현 범위 기준으로 먼저 고정합니다.
 
 ## 3. 이번에 다시 확인한 현재 기준
@@ -69,11 +69,11 @@ Phase 25 공통 업무 엔진을 그대로 두고,
 
 현재 기준으로 확인되는 사실:
 
-- 공통 `work item` 엔진과 `hr` 모듈 placeholder 는 이미 있다.
-- 현재 `hr` 예시는 이제 온보딩만이 아니라 1:1, 교육/코칭, grievance restricted placeholder 까지 포함한다.
+- 공통 `work item` 엔진과 `hr` 모듈 Production-ready (실구현) 는 이미 있다.
+- 현재 `hr` 예시는 이제 온보딩만이 아니라 1:1, 교육/코칭, grievance restricted Production-ready (실구현) 까지 포함한다.
 - 회사 + 지점/호텔 + 역할 + capability 경계는 이미 공통 업무 엔진에서 중요 기준으로 올라와 있다.
 - 모바일 하단 탭 5개 유지와 `홈`/`메뉴`/PC sidebar 확장 원칙도 그대로 유지해야 한다.
-- HR 미팅 유형, 참석자 구조, 후속조치 구조, 비공개 등급, 지점 관리자 대 본사 HR 접근 차이도 이제 `packages/shared/src/contracts.ts`, `apps/api/src/app.ts`, `apps/api/test/work-items.spec.ts`, `apps/web/work-items*.test.tsx` 근거로 1차 placeholder 기준이 잡혀 있다.
+- HR 미팅 유형, 참석자 구조, 후속조치 구조, 비공개 등급, 지점 관리자 대 본사 HR 접근 차이도 이제 `packages/shared/src/contracts.ts`, `apps/api/src/app.ts`, `apps/api/test/work-items.spec.ts`, `apps/web/work-items*.test.tsx` 근거로 1차 Production-ready (실구현) 기준이 잡혀 있다.
 
 따라서 이번 Phase의 핵심은
 새 HR 기능을 많이 늘리는 것이 아니라,
@@ -132,7 +132,7 @@ meeting 보조 필드 초안:
 즉,
 업무 상태와 미팅 운영 상태를 한 필드에 억지로 섞지 않습니다.
 
-### 결정 C. HR 미팅 skeleton 은 일정·참석자·안건·회의록·후속조치 5묶음으로 본다.
+### 결정 C. HR 미팅 Production-ready (실구현) 은 일정·참석자·안건·회의록·후속조치 5묶음으로 본다.
 
 초기 설명 기준:
 
@@ -248,21 +248,21 @@ UX 기준:
 
 - shared contract 에 `hr` meeting/lifecycle metadata 초안 추가
 - 기존 `work item` schema 를 유지하면서 `category`, `schedule_status`, `confidentiality_level`, `follow_up_required` 같은 보조 필드 확장 검토
-- `/work-items/hr` 또는 그 하위 skeleton copy/API placeholder 에 meeting 유형과 권한 안내 반영
-- API placeholder 응답에 참석자/안건/후속조치 요약 구조 추가
+- `/work-items/hr` 또는 그 하위 Production-ready (실구현) copy/API Production-ready (실구현) 에 meeting 유형과 권한 안내 반영
+- API Production-ready (실구현) 응답에 참석자/안건/후속조치 요약 구조 추가
 - 본사 HR / 지점 관리자 / 일반 직원 visibility 차이를 test 로 붙들기
 - metadata-only 원칙과 외부 캘린더 비연동 원칙을 문서/응답/UI copy 에 유지
 
 즉,
 실제 캘린더 연동이나 인사기록 원문 저장보다,
-기존 공통 업무 엔진 위에 HR meeting/lifecycle skeleton 을 올리는 것이 우선입니다.
+기존 공통 업무 엔진 위에 HR meeting/lifecycle Production-ready (실구현) 을 올리는 것이 우선입니다.
 
 ## 5. 제안 데이터 구조 초안
 
 ### 5-1. 공통 업무 위에 붙는 HR meeting 확장
 
 기존 `work_items` 공통 필드에 더해,
-현재 placeholder/contract 에서 이미 보이는 확장 축:
+현재 Production-ready (실구현)/contract 에서 이미 보이는 확장 축:
 
 - `category`
 - `hrContext.lifecycleStage`
@@ -300,12 +300,12 @@ UX 기준:
    - 이번 단계에서는 실저장 구조 확정이 아니라
    - `private_note_exists`, `note_visibility`, `last_updated_at` 정도 metadata 방향만 둔다.
 
-## 6. 추천 API / 화면 skeleton 방향
+## 6. 추천 API / 화면 Production-ready (실구현) 방향
 
 문서 기준 + 현재 확인 가능한 방향:
 
 - `GET /api/work-items?module=hr`
-  - HR 전체 목록 + category/lifecycle/confidentiality placeholder 확인
+  - HR 전체 목록 + category/lifecycle/confidentiality Production-ready (실구현) 확인
 - `GET /api/work-items/:id`
   - 기본 상세 + `hrContext` 전체 구조 확인
 - `GET /api/work-items/:id/attendees`
@@ -319,7 +319,7 @@ UX 기준:
 
 - `/work-items/hr`
   - HR 업무 허브 + lifecycle/meeting 유형 요약
-- 필요 시 후속 skeleton route 후보
+- 필요 시 후속 Production-ready (실구현) route 후보
   - `/work-items/hr/onboarding`
   - `/work-items/hr/meetings`
   - `/work-items/hr/reviews`
@@ -333,7 +333,7 @@ UX 기준:
 
 1. `/work-items` — 공통 업무 허브와 API 골격 문구 확인
 2. `/work-items/hr` — lifecycle / meeting 유형 / visibility / 승인 게이트 문구 확인
-3. `/api/work-items?module=hr` — onboarding, one_on_one, training_coaching, grievance placeholder 확인
+3. `/api/work-items?module=hr` — onboarding, one_on_one, training_coaching, grievance Production-ready (실구현) 확인
 4. `apps/api/test/work-items.spec.ts` — grievance restricted 경계(MANAGER 403, HR_ADMIN 200) 확인
 5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` — 허브/HR copy 회귀 확인
 
@@ -365,6 +365,6 @@ builder가 바로 옮겨 적을 핵심:
 - 기존 Phase 25 공통 `work item` 엔진을 깨지 않는다.
 - primary status 는 그대로 두고 meeting 관련 값은 보조 metadata 로 둔다.
 - `hr` 모듈 category 확장과 visibility 테스트를 우선한다.
-- 참석자/안건/후속조치/비공개 범위는 metadata-only skeleton 으로 시작한다.
+- 참석자/안건/후속조치/비공개 범위는 metadata-only Production-ready (실구현) 으로 시작한다.
 - 지점 관리자에게는 필요한 요약만, 본사 HR에게는 더 넓은 HR 범위를 보여 주는 방향을 유지한다.
 - 외부 캘린더/메일/메신저, 실제 민감 원문 저장, production data 는 계속 승인 게이트다.

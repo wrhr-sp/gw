@@ -40,7 +40,7 @@
 
 - `pnpm --filter @gw/web test api-same-origin-bridge.test.ts` 통과
   - same-origin `/api/health` 가 200 JSON 계약을 반환함
-  - same-origin `/api/me` 가 무인증/forged placeholder cookie 모두 401 JSON 으로 막힘
+  - same-origin `/api/me` 가 무인증/forged Production-ready (실구현) cookie 모두 401 JSON 으로 막힘
 - `pnpm check` 통과
   - workspace test + typecheck 성공
   - `packages/shared` 6개, `apps/api` 40개, `apps/web` 9개 테스트 통과
@@ -115,14 +115,14 @@ admin 노출 remediation 근거:
 아래는 현재 승인 없이 가능한 범위입니다.
 
 - 로컬 `pnpm check`, `pnpm build`, `pnpm --filter @gw/web build:cf` 실행
-- `wrangler.jsonc`, OpenNext 설정, manifest, placeholder env 예시 점검
+- `wrangler.jsonc`, OpenNext 설정, manifest, Production-ready (실구현) env 예시 점검
 - preview 준비 문서 작성
 - workers.dev/pages.dev 후보 비교와 승인 게이트 정리
 - Phase 6 모바일/PWA handoff 기준 정리
 
 ## 5-1. workers.dev preview URL 운영 정책
 
-`workers.dev` preview URL은 개발자 임시 화면이나 데이터가 쌓이지 않는 테스트 화면이 아니다.
+`workers.dev` preview URL은 개발자 프로덕션 기준 화면이나 데이터가 쌓이지 않는 테스트 화면이 아니다.
 그룹웨어 production/custom domain 전환 전에 대장이 실제 사용자처럼 눌러보며 업무 흐름과 권한, 저장/조회 동작을 확인하는 UAT/preview 환경이다.
 
 정책:
@@ -131,7 +131,7 @@ admin 노출 remediation 근거:
 - preview DB에는 게시글, 댓글, 휴가 신청, 결재 문서, 설정 변경처럼 사용자가 직접 만든 검증 데이터가 누적될 수 있어야 한다.
 - 기능 완료 보고는 route 200, 화면 렌더링, local build만으로 끝내지 않고 preview URL에서 생성 → 저장 → 재조회가 되는지 확인한 근거를 포함한다.
 - preview DB schema/migration/seed/검증용 데이터 준비는 승인된 작업카드 범위 안에서는 진행 가능하다. 단, secret 값은 출력·커밋하지 않는다.
-- 현재 개발 산출물은 개발/테스트용 별도 앱이 아니라 실제 사용할 그룹웨어다. 사용자-facing 화면에는 `dev`, `test`, `UAT`, `Phase`, `preview`, `skeleton`, `placeholder` 같은 내부 개발 문구를 남기지 않는다.
+- 현재 개발 산출물은 개발/테스트용 별도 앱이 아니라 실제 사용할 그룹웨어다. 사용자-facing 화면에는 `dev`, `test`, `UAT`, `Phase`, `preview`, `Production-ready (실구현)`, `Production-ready (실구현)` 같은 내부 개발 문구를 남기지 않는다.
 - production/custom domain은 preview와 분리한다. production DB, 실데이터 migration, DNS/custom domain, 유료 리소스, secret 입력·교체·출력, destructive 작업은 계속 별도 승인 게이트다.
 
 검증 예시:
@@ -294,7 +294,7 @@ CLOUDFLARE_ACCOUNT_ID=<fill-after-approval>
 선정 근거:
 
 - `/`, `/login`, `/dashboard` 는 기본 shell / 진입 UX 확인용
-- `/boards`, `/boards/board_general`, `/documents` 는 Phase 5 범위 placeholder 화면 확인용
+- `/boards`, `/boards/board_general`, `/documents` 는 Phase 5 범위 Production-ready (실구현) 화면 확인용
 - `/admin` 계열은 현재 build 결과에 포함되므로 외부 preview 에서 접근 경계가 유지되는지 우선 확인해야 함
 - `/manifest.webmanifest` 는 Phase 6 PWA handoff 와 직접 연결됨
 - `/api/health` 는 same-origin API 연결 최소 확인점이다

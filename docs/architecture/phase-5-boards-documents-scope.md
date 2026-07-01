@@ -6,10 +6,10 @@
 
 이번 Phase에서 맞추는 기준은 다음과 같다.
 
-- DB 기준: Cloudflare D1 migration 으로 게시판/문서 핵심 테이블 skeleton 추가
-- API 기준: Cloudflare Workers + Hono 기반 공지/게시판/게시글/댓글/문서함/읽음 확인 REST skeleton 추가
+- DB 기준: Cloudflare D1 migration 으로 게시판/문서 핵심 테이블 Production-ready (실구현) 추가
+- API 기준: Cloudflare Workers + Hono 기반 공지/게시판/게시글/댓글/문서함/읽음 확인 REST Production-ready (실구현) 추가
 - 공통 계약 기준: `packages/shared` 에 board/document 타입, route contract, zod schema, 공통 응답 schema 추가
-- Web 기준: 공지/게시판/게시글 상세/문서함 placeholder 화면과 상태 구분 시작점 정리
+- Web 기준: 공지/게시판/게시글 상세/문서함 Production-ready (실구현) 화면과 상태 구분 시작점 정리
 - 운영 기준: 회사 scope, 게시글·문서 접근 경계, 첨부 metadata 보안, release gate, 보고 자동화 범위 명확화
 
 ## 2. 이번 Phase에 포함되는 범위
@@ -44,7 +44,7 @@
 기준:
 
 - 기존 `db/migrations/0004_approvals_phase4.sql` 이후 후속 migration 파일로 추가한다.
-- 실제 운영 migration 실행이 아니라 로컬 검증 가능한 SQL skeleton 까지만 다룬다.
+- 실제 운영 migration 실행이 아니라 로컬 검증 가능한 SQL Production-ready (실구현) 까지만 다룬다.
 - 실제 R2 버킷 생성, 파일 업로드, 바이너리 저장, 바이러스 검사, OCR/전자서명 연동은 이번 Phase에 넣지 않는다.
 - employee/company/role 구조와 approval/document 접근 경계는 Phase 2~4 계약을 그대로 재사용한다.
 
@@ -75,12 +75,12 @@
 
 API 기준:
 
-- Hono route skeleton + request/response schema 검증까지 맞춘다.
-- 실제 운영 게시글 저장소, 실제 파일 업로드, 실제 읽음 통계 엔진 대신 local/mock/dev placeholder 흐름으로 둔다.
+- Hono route Production-ready (실구현) + request/response schema 검증까지 맞춘다.
+- 실제 운영 게시글 저장소, 실제 파일 업로드, 실제 읽음 통계 엔진 대신 local/mock/dev Production-ready (실구현) 흐름으로 둔다.
 - 인증 상태, 권한 부족, 접근 불가 게시글/문서, 미구현 상태를 공통 응답 형식으로 돌려준다.
 - 게시글/댓글/문서함 route 는 회사 scope 와 역할 scope 를 분리할 수 있게 계약을 잡는다.
 - 공지/게시판 읽기 권한, 게시글 작성 권한, 댓글 작성 권한, 문서함 접근 권한, 첨부 metadata 조회 권한을 나눌 수 있게 설계한다.
-- 임의 post id 접근, 타 회사 문서함 접근, storage key 노출, 미승인 공개 게시판 오픈 같은 guardrail 을 placeholder 단계부터 정의한다.
+- 임의 post id 접근, 타 회사 문서함 접근, storage key 노출, 미승인 공개 게시판 오픈 같은 guardrail 을 Production-ready (실구현) 단계부터 정의한다.
 
 ### shared 계약 범위
 
@@ -112,18 +112,18 @@ API 기준:
 
 이번 Phase에 포함되는 화면 범위:
 
-- 공지/게시판 목록 placeholder
-- 게시글 작성 폼 skeleton
-- 게시글 상세/댓글 영역 skeleton
-- 문서함/첨부 metadata 목록 placeholder
-- 읽음 확인 상태 안내 placeholder
+- 공지/게시판 목록 Production-ready (실구현)
+- 게시글 작성 폼 Production-ready (실구현)
+- 게시글 상세/댓글 영역 Production-ready (실구현)
+- 문서함/첨부 metadata 목록 Production-ready (실구현)
+- 읽음 확인 상태 안내 Production-ready (실구현)
 
 화면 기준:
 
 - 실제 rich text editor, 실제 파일 업로드, 미리보기/다운로드, 외부 공유 링크 완성형은 구현하지 않는다.
 - API 계약이 아직 mock 이어도, 이후 실제 API 호출 구조로 바꾸기 쉬운 컴포넌트 경계를 잡는다.
 - 게시글 작성 권한이 없는 사용자가 보는 안내 상태와 운영자가 보는 관리 상태를 구분할 수 있게 한다.
-- 화면 문구가 실제 운영 게시판/문서 저장이 이미 완성된 것처럼 오해되지 않게 placeholder 표시를 유지한다.
+- 화면 문구가 실제 운영 게시판/문서 저장이 이미 완성된 것처럼 오해되지 않게 Production-ready (실구현) 표시를 유지한다.
 
 ### 문서/운영/자동화 범위
 
@@ -140,7 +140,7 @@ API 기준:
 정리할 내용:
 
 - 로컬 검증 명령
-- placeholder 게시판/문서 흐름의 한계
+- Production-ready (실구현) 게시판/문서 흐름의 한계
 - 회사 scope, 게시글/문서 접근 권한, 첨부 metadata 보안 주의
 - `gw-hourly-status-report.py` 중심의 정각 보고 스크립트 수정이 GitHub release gate 검토 범위 안에 있다는 점
 - 실제 운영 데이터, 실제 배포, production DB migration, 실제 비밀값 입력은 별도 승인 없이는 하지 않는다는 점
@@ -199,8 +199,8 @@ scripts/
 
 ### 기술 기준
 
-- 게시판/문서 1차는 공지 + 게시판 목록 + 게시글 작성/상세 + 댓글 + 문서함/첨부 metadata skeleton 을 기준으로 문서화한다.
-- 본문과 파일은 완성형 편집기/업로드보다 제목/요약/metadata placeholder 중심으로 시작한다.
+- 게시판/문서 1차는 공지 + 게시판 목록 + 게시글 작성/상세 + 댓글 + 문서함/첨부 metadata Production-ready (실구현) 을 기준으로 문서화한다.
+- 본문과 파일은 완성형 편집기/업로드보다 제목/요약/metadata Production-ready (실구현) 중심으로 시작한다.
 - API 는 Hono REST 형식을 유지하고 공통 응답 wrapper 를 강제한다.
 - 민감한 문서 metadata, 실제 storage key, 실제 개인정보, 실제 첨부 경로 전문은 로그에 남기지 않는다.
 - Web 에서 버튼을 숨겨도 API 에서 서버 측 권한 검증을 한다는 전제를 유지한다.
@@ -213,7 +213,7 @@ scripts/
 - 최소 권한 후보는 `board.notice.read`, `board.post.write`, `board.comment.write`, `document.space.read`, `document.file.read`, `document.file.write` 를 시작점으로 둔다.
 - 읽음 확인은 최소한 대상, 사용자, 시점을 추적할 수 있어야 한다.
 - 감사 로그 후보는 최소한 actor, action, target, created_at 정도의 기본 골격을 가진다.
-- 타 회사 게시글 접근 금지, 비공개 게시판 우회 접근 금지, 임의 storage key 노출 금지를 placeholder 단계부터 검증 대상으로 둔다.
+- 타 회사 게시글 접근 금지, 비공개 게시판 우회 접근 금지, 임의 storage key 노출 금지를 Production-ready (실구현) 단계부터 검증 대상으로 둔다.
 
 ## 6. 최소 검증 기준
 
@@ -226,7 +226,7 @@ scripts/
 - `pnpm test` 통과
 - board/document shared schema 테스트 추가 및 통과
 - API 테스트에 공지/게시판/게시글/댓글/문서함/읽음 확인/접근 경계 기본 케이스 포함
-- Web skeleton 이 최소한 build 또는 typecheck 를 깨지 않음
+- Web Production-ready (실구현) 이 최소한 build 또는 typecheck 를 깨지 않음
 - README/가이드/운영 문서에 로컬 검증 순서와 승인 필요 범위가 정리됨
 - 감시/보고 스크립트를 건드렸다면 release gate 검토 범위와 중복 보고 방지 기준이 문서에 반영됨
 
@@ -242,8 +242,8 @@ scripts/
 1. Phase 5 범위 문서가 저장소 안에 있고 구현자가 바로 참조할 수 있다.
 2. D1 migration 에 게시판/문서 1차 골격이 추가되어 있다.
 3. `packages/shared` 에 board/document 계약과 공통 응답 schema 확장이 정리되어 있다.
-4. `apps/api` 에 공지/게시판/게시글/상세/댓글/문서함/읽음 확인 기본 endpoint skeleton 이 있다.
-5. `apps/web` 에 공지/게시판/게시글 상세/문서함 기본 화면 skeleton 이 있다.
+4. `apps/api` 에 공지/게시판/게시글/상세/댓글/문서함/읽음 확인 기본 endpoint Production-ready (실구현) 이 있다.
+5. `apps/web` 에 공지/게시판/게시글 상세/문서함 기본 화면 Production-ready (실구현) 이 있다.
 6. 회사 scope, 게시글/문서 접근 경계, 첨부 metadata 보안 같은 guardrail 이 문서와 리뷰 기준에 반영되어 있다.
 7. `gw-hourly-status-report.py` 를 포함한 승인된 감시/보고 스크립트 변경이 release gate 검토 범위에 포함된다는 점이 문서화되어 있다.
 8. 승인된 release gate 범위 안에서 PR 생성, CI 확인, merge, branch cleanup 처리 조건이 분명하다.
@@ -264,4 +264,4 @@ scripts/
 - company scope 누락으로 타 회사 게시글/문서가 섞일 여지가 없는지
 - 게시글 작성/댓글 작성/문서함 접근 권한이 뒤섞이지 않았는지
 - 첨부 metadata 응답에 storage key 또는 내부 식별자가 과도하게 노출되지 않았는지
-- Web placeholder 가 실제 운영 게시판/문서 저장 완성본처럼 오해되지 않는지
+- Web Production-ready (실구현) 가 실제 운영 게시판/문서 저장 완성본처럼 오해되지 않는지

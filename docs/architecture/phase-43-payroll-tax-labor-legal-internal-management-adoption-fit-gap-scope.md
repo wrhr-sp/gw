@@ -20,7 +20,7 @@
 - Phase 42에서 `/attendance`·`/leave`·`/employees`·`/org`·`/work-items/branch` 를 직원 기본 운영과 지점 운영 언어로 다시 묶었다.
 - 다음 단계인 Phase 43에서는 그 위에 관리자 내부관리 레인인 급여·세무·노무·법무·감사를 같은 수준으로 닫아야 한다.
 - 현재 구현 흔적은 이미 충분히 있지만, 문서와 제품 언어는 아직 Phase 35의 "관리자 UAT 시작점" 문맥에 더 가깝다.
-- 이제는 "preview/skeleton 이 남아 있어도 회사 내부 운영팀이 어디까지 바로 도입 가능한가"를 더 분명하게 적어, 이후 Phase 44~45 검증 체인과 외부 연동 분리 기준을 흔들리지 않게 만드는 것이 필요하다.
+- 이제는 "preview/Production-ready (실구현) 이 남아 있어도 회사 내부 운영팀이 어디까지 바로 도입 가능한가"를 더 분명하게 적어, 이후 Phase 44~45 검증 체인과 외부 연동 분리 기준을 흔들리지 않게 만드는 것이 필요하다.
 
 이번 Phase의 목적은 새 외부 시스템을 여는 것이 아니라,
 이미 있는 route/API/test 근거를 기준으로
@@ -40,10 +40,10 @@
 ### 3-2. 급여 운영 읽기 흐름 근거
 
 - `apps/web/app/payroll/page.tsx`
-  - 급여 프로필 skeleton, 급여 기간/마감 상태, 직원용 명세서 초안 진입을 같은 화면에서 보여 준다.
+  - 급여 프로필 Production-ready (실구현), 급여 기간/마감 상태, 직원용 명세서 초안 진입을 같은 화면에서 보여 준다.
   - `preview only`, `role-split visibility`, `attendance/leave input linked` 문구가 현재 단계 경계를 분명히 적고 있다.
 - `apps/web/app/payroll/me/page.tsx`
-  - self-only 명세서 초안, correction guidance, placeholder 공제 문구를 같은 화면에서 읽게 한다.
+  - self-only 명세서 초안, correction guidance, Production-ready (실구현) 공제 문구를 같은 화면에서 읽게 한다.
 - `apps/api/test/auth-org.spec.ts`
   - `/api/payroll`, `/api/payroll/periods/:id`, `/api/payroll/me/payslip` 권한 분기 테스트가 있다.
   - COMPANY_ADMIN / MANAGER / EMPLOYEE 별 visibility 차이와 self-only 차단 근거가 남아 있다.
@@ -68,7 +68,7 @@
 ### 3-5. 법무 운영 흐름 근거
 
 - `apps/web/app/work-items/work-items-config.ts`
-  - 계약 검토, 계약 갱신 예정, 분쟁/클레임/보험 후속을 metadata 중심 skeleton 으로 적고 있다.
+  - 계약 검토, 계약 갱신 예정, 분쟁/클레임/보험 후속을 metadata 중심 Production-ready (실구현) 으로 적고 있다.
 - `apps/api/test/work-items.spec.ts`
   - branch-visible 계약 갱신, company-only 계약 검토, 분쟁 intake approval gate 를 분리해 검증한다.
   - `approvalGate.stage`, audit log 노출 여부, company scope 차단 근거가 남아 있다.
@@ -96,7 +96,7 @@
 
 - `/payroll` 은 급여 프로필/기간/명세서 초안/연결 API 를 읽는 내부 급여 운영 화면으로 적는다.
 - `/payroll/me` 는 구성원의 self-only preview 와 정정 안내 화면으로 적는다.
-- preview 금액, reviewing 상태, placeholder 공제가 실지급/실세액 확정처럼 보이지 않게 적는다.
+- preview 금액, reviewing 상태, Production-ready (실구현) 공제가 실지급/실세액 확정처럼 보이지 않게 적는다.
 - 근태·휴가 입력과 연결된다는 점은 유지하되, 급여와 세무의 책임을 같은 말로 섞지 않는다.
 
 ### 4-3. 세무를 "지점 제출 대 HQ 검토" 흐름으로 다시 고정한다

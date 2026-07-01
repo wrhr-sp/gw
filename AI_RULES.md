@@ -1,3 +1,9 @@
+# ARCHITECTURAL MANDATORY RULE: All Values Must Be Tokenized
+
+- 모든 UI의 색상, 간격(패딩/마진), 테두리 값은 반드시 디자인 토큰(CSS 변수 또는 Tailwind 테마 토큰)으로만 구현한다.
+- 하드코딩된 `#HEX` 색상 코드와 `px` 단위 생 숫자는 완료 기준에서 제외한다.
+- 필요한 값이 없으면 `apps/web/app/globals.css` 또는 Tailwind 테마 설정에 의미 기반 토큰을 먼저 추가하고, 컴포넌트는 토큰 이름만 참조한다.
+
 # 그룹웨어 봇 팀 공통 규칙
 
 이 문서는 그룹웨어 작업 폴더의 봇 팀 운영 규칙 원본이다.
@@ -50,113 +56,8 @@
 - 리팩토링은 동작 검증과 함께 진행한다.
 
 ## 4-1. 운영 기능 완료 기준 / no-mock 원칙
-- mock, placeholder, skeleton, dummy, dev-safe는 초기 설계·테스트·미완료 표시에만 허용하며, 완료 기능으로 보고하지 않는다.
-- 화면·버튼·폼·CTA는 실제 API 호출 또는 명확한 비활성/승인 필요/범위 밖 상태 중 하나여야 한다. 실제 동작 없는 버튼을 완료 화면에 남기지 않는다.
-- 기능 완료는 화면 → API → Service/Repository → DB → 재조회 → 화면 반영까지 이어지는 실제 업무 흐름을 기준으로 판단한다.
-- API는 임시 성공 응답, in-memory fallback, static sample 병합으로 저장·조회 성공처럼 보이면 안 된다. 미설정/스키마 문제는 명시적 오류로 실패해야 한다.
-- CRUD와 상태 변경은 입력 검증, 권한과 scope 검증, 예외처리, 감사로그, 저장 후 재조회 검증을 포함해야 완료다.
-- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 연동, destructive migration은 별도 승인 없이 실행하지 않는다.
-
-## 5. 작업 등급 기준
-- **Tier 0: 읽기/파악/요약**
-  - 파일 변경 없이 자료 확인, 목록화, 요약만 수행한다.
-  - 공식 작업지시서는 생략할 수 있고, 사용자-facing 요약만 제공할 수 있다.
-- **Tier 1: 작은 문서 수정**
-  - 오탈자, 링크, 짧은 문구, 작은 표 보정처럼 낮은 위험의 문서 수정이다.
-  - 변경 파일은 1~3개 수준을 권장하고, 변경 요약을 남긴다.
-- **Tier 2: 제품/정책/설계/워크플로우 문서 변경**
-  - 그룹웨어 범위, PRD, API 초안, ERD, 봇 규칙, 승인 기준처럼 의미가 바뀌는 문서 작업이다.
-  - 관련 정본 문서를 확인하고, 사용자 확인이 필요한지 판단한다.
-- **Tier 3: 코드/권한/runtime/DB/보안/배포성 작업**
-  - 코드 변경, DB migration, systemd/gateway, 배포, 외부 API, 결제/정산/개인정보 관련 작업이다.
-  - 사용자 명시 승인과 검증 보고가 필요하다.
-
-## 6. 위험도 기반 승인 기준
-- **routine**: 읽기, 목록화, 검증 재실행, 요약. 싱드 내부 판단으로 처리할 수 있다.
-- **low**: 기존 승인 범위 안의 작은 문서 정리. 싱드 승인으로 처리할 수 있다.
-- **medium**: 제품 범위, 정책, 설계, API/ERD, 봇 규칙 변경. 사용자 확인을 권장하거나 필요로 한다.
-- **high**: 코드 변경, PR 생성, 대규모 구조 변경, 운영 영향 가능 작업. 사용자 승인 필수다.
-- **restricted**: secret, `.env`, DB migration, systemd/gateway, 외부 전송, 결제/정산/개인정보, 대량 삭제. 단, merge/release/deploy/배포가 카드 작업범위에 명시되어 있으면 그 범위 안에서는 승인된 것으로 보고 진행하되 검증 근거를 남긴다.
-
-## 6-0. 카드 작업범위 승인 규칙
-- Kanban 카드의 제목/본문/체크리스트에 `merge`, `release`, `릴리즈`, `deploy`, `디플로이`, `배포`, `PR merge`, `branch cleanup`, `release gate`가 작업범위로 명시되어 있으면, 그 항목은 대장이 카드 작업범위로 명시 승인한 것으로 간주하고 진행한다.
-- 단, 작업자는 여전히 최신 head 기준 CI/check, 빌드/테스트, 배포 전 guard, smoke check, 롤백/복구 가능성, 변경 범위를 검증하고 근거를 남겨야 한다.
-- 카드에 명시되지 않은 secret 입력/교체, production DB 실데이터 변경, DNS/custom domain, 유료 리소스 생성·증액, 결제/환불/개인정보 처리, destructive 삭제는 별도 승인 없이는 진행하지 않는다.
-- 카드 범위가 애매하거나 "배포 준비"처럼 실행 여부가 불명확하면 실행하지 말고 싱드가 범위를 확인한다.
-
-## 6-1. Kanban DB·자동화 스크립트 안전 규칙
-자동화, watcher, Kanban, systemd, dispatcher, 보고 스크립트를 생성하거나 수정할 때는 아래를 필수로 지킨다.
-
-- `kanban.db`, `kanban.db-wal`, `kanban.db-shm`을 직접 쓰거나 편집하지 않는다. 상태 변경은 `hermes kanban ...` CLI를 사용하고, 감시 목적은 SQLite read-only URI 또는 CLI 조회만 사용한다.
-- 스크립트 변경 전 `hermes kanban --board groupware list --json`, DB `pragma integrity_check`, 관련 watcher/service 상태, 중복 프로세스 여부를 먼저 확인한다.
-- watcher는 단일 인스턴스만 허용한다. systemd service 또는 lock 파일로 중복 실행을 막고, 여러 watcher가 동시에 `dispatch`하지 않게 한다.
-- `dispatch_in_gateway`는 `singde` 단일 소유 원칙을 유지한다. 역할봇과 `gw-dev-bot`/아리아에서 dispatcher를 켜지 않는다.
-- watcher가 `database disk image is malformed`, `file is not a database`, `disk I/O error`를 만나면 반복 재시도하지 말고 circuit-breaker/long-backoff로 멈춘 뒤 보고한다.
-- 스크립트 수정 후에는 `bash -n`, `python3 -m py_compile`, 관련 테스트, `systemctl --user status`, journal, `systemctl --user --failed`, `dispatch --dry-run`을 가능한 범위에서 검증한다.
-- Telegram 사용자 보고 경로는 Kanban 이벤트 watcher의 자동 중계가 아니라 싱드가 이벤트/카드/runs/log를 읽고 판단해 직접 보내는 방식이다. 허용 보고 유형은 `자동 조치`, `사용자 승인 필요`, `정각 보고`, `작업 최종 결과` 4가지로 제한한다.
-- `자동 조치`, `사용자 승인 필요`, `작업 최종 결과`는 카드 생성/상태변경 이벤트를 그대로 쏘지 않는다. 이벤트가 발생하면 싱드가 근거를 확인하고 보고양식에 맞춰 직접 보고한다.
-- `정각 보고`는 기존 `gw-hourly-status-report.timer` 기반 09~22시 정각 현황 보고만 유지한다.
-- 별도 사용자 결과보고/막힘 보고 카드를 생성하거나 `notify-subscribe`를 붙이는 방식은 중복·아리아 경유 보고를 만들 수 있으므로 대장 명시 승인 없이는 켜지 않는다.
-- 자동화 스크립트가 카드 생성/완료/보류/dispatch를 수행한다면 idempotency key, state 파일, 중복 방지, 실패 시 safe stop 조건을 반드시 둔다.
-
-## 6-2. 검증 실패 3회 이상 반복 시 싱드 개입 규칙
-- 자동화 스크립트나 역할봇 체인이 같은 카드/같은 실패군에서 `반려`, `검증 실패`, `자동 재수정`을 3회 이상 반복하면 새 재수정 카드를 계속 늘리지 않는다.
-- 싱드가 직접 원본 카드, runs/log, 실패 명령, 변경 파일, 중복 worker 여부를 확인해 원인을 분류한다.
-- 자동 조치 가능하면 기준 복구 카드 1개만 남기고 수정→리뷰→검증 체인으로 다시 넘긴다.
-- secret, production DB, DNS/custom domain, 유료 리소스, migration, destructive 작업이 필요하면 `사용자 승인 필요` 보고로 전환하고 실행하지 않는다.
-- 이 개입은 Telegram `[자동 조치]` 유형으로 짧게 보고하되, Kanban 이벤트 raw dump를 보내지 않는다.
-
-## 7. 공통 중단 조건
-다음 상황에서는 즉시 멈추고 싱드에게 보고한다.
-
-- 작업 범위나 승인 범위가 불명확한 경우
-- 금지 파일 또는 범위 밖 파일 수정이 필요한 경우
-- secret, `.env`, credential, 개인정보, 기업 제휴 코드, 결제/정산 정보 노출 가능성이 있는 경우
-- 검증 실패, 충돌, 보안 위험, 운영 위험이 발견된 경우
-- DB migration, systemd/gateway, 외부 API 실제 연동이 필요하거나, 배포/merge/release가 카드 작업범위에 명시되지 않았는데 필요한 경우
-- 봇의 역할 범위를 넘어서는 결정이나 실행이 필요한 경우
-
-## 8. 보고 규칙
-가능하면 아래 형식으로 보고한다.
-- 결론
-- 카드 정보
-- 한 일 또는 막힌 이유
-- 확인된 근거
-- 다음 액션: `대장이 해줘야 할 것`과 `싱드 처리`를 분리
-- 승인 게이트
-
-작업 최종 결과 보고에는 배포가 포함된 경우 사용자가 URL에서 직접 보면 되는 화면/경로/확인 포인트를 반드시 포함한다. 예: live URL, `/`, `/login`, `/dashboard`, 관련 기능 route, manifest/API/smoke 확인 지점.
-
-## 9. 역할별 기본 원칙
-- 기획/책사 역할: 방향과 선택지를 정리하되 구현 완료를 단정하지 않는다.
-- 구현 역할: 변경 내용과 검증 근거를 함께 제출한다.
-- 리뷰 역할: 다른 봇의 주장만 믿지 말고 근거를 확인한다.
-- 운영/배포 역할: 승인 없는 위험 작업을 하지 않는다.
-
-## OTA/GW 경계 분리 규칙
-- 그룹웨어 팀과 `groupware` board는 그룹웨어 repo(`/home/wrhrgw/gw`)와 그룹웨어 bot home(`/home/wrhrgw/gw-dev-bot/.hermes`)만 본다.
-- 그룹웨어 개발 메인봇은 싱드(`singde`) 하나다. 아리아(`gw-dev-bot`)는 접수·보고·보조 역할이며 개발 메인봇이나 dispatcher 소유자가 아니다.
-- 싱드/그룹웨어 역할봇은 OTA board(`ota`), OTA repo(`/home/wrhrota/ota`), OTA bot home(`/home/wrhrota/ota-dev-bot/.hermes`)에 직접 카드 생성·수정·dispatch·보고 지시를 하지 않는다.
-- OTA 관련 판단이 필요해 보이면 그룹웨어 결과 안에 OTA 조치 판단을 섞지 말고, "그룹웨어 범위 밖"이라고 표시한 뒤 동글/대장에게 별도 확인을 요청한다.
-- 예외는 대장이 명시적으로 "OTA와 GW 양쪽 동기화" 또는 "양쪽 모두 적용"을 승인한 경우뿐이며, 그때도 각 board에는 자기 팀 메인봇이 자기 범위 작업만 만든다.
-
-## 10. 그룹웨어 gateway / dispatcher 운영 규칙
-- 그룹웨어 역할봇 gateway는 active 상태를 유지한다.
-- 대상 역할봇은 도담(`gwplanner`), 이룸(`gwbuilder`), 바름(`gwreviewer`), 해봄(`gwtester`), 다온(`gwdocs`), 지킴(`gwops`) 이다.
-- 단, 역할봇 gateway는 `groupware` board dispatcher를 직접 실행하지 않는다.
-- 역할봇 프로필의 `dispatch_in_gateway`는 항상 `false`로 유지한다.
-- `groupware` board의 Kanban dispatch는 메인 오케스트레이터 `singde`가 단일 소유로 담당한다.
-- 역할봇은 dispatcher가 아니라 작업자(worker) 실행 대상으로만 동작한다.
-- `gw-dev-bot`/아리아는 접수·보고·보조 역할이며 `groupware` board dispatcher를 직접 돌리지 않는다.
-- 역할봇 또는 `gw-dev-bot`에서 `dispatch_in_gateway`를 다시 켜는 변경은 기본 금지다.
-- 예외적으로 dispatcher 재활성화가 필요하다고 판단될 때는 아래 절차를 모두 거친다.
-  1. 현재 각 프로필 `config.yaml`의 `dispatch_in_gateway` 값 확인
-  2. `groupware` Kanban DB integrity 확인
-  3. 다중 dispatcher가 Kanban DB 안정성에 줄 수 있는 위험 설명
-  4. 대장 명시 승인
-  5. 변경 후 `singde` 단일 dispatcher 구조 또는 승인된 구조 재검증
-
-## 11. 문서 운영 원칙
-- 이 파일은 규칙 원본이다.
-- Hermes가 실제 실행 시 읽어야 하는 핵심 규칙은 `AGENTS.md`에 미러 반영한다.
-- 봇의 인격과 말투는 `~/.hermes/SOUL.md`를 원본으로 삼는다.
+- 완료 기능은 Production-ready (실구현) 기준만 허용한다. 화면 → 실제 API → Service/Repository → DB 저장·조회 → 권한·검증·예외·감사로그 확인 흐름이 이어져야 한다.
+- 새 구현에서 mock, setTimeout, in-memory fallback, static sample 병합, Production-ready (실구현) 표지만 붙인 미가동 코드는 금지한다.
+- 사용자가 누를 수 있는 저장·수정·삭제·신청·승인·반려·제출·임시저장·정정 요청 버튼은 실제 API 호출로 연결되어야 하며, 범위 밖 동작은 비활성 또는 명시적 오류 상태로 둔다.
+- API route는 DB/R2/schema가 준비되지 않았으면 `DB_NOT_CONFIGURED`, schema drift, forbidden, not found, validation error 등으로 실패해야 하며 성공처럼 보이는 대체 응답을 반환하지 않는다.
+- production DB 실데이터, secret, DNS/custom domain, 유료 리소스, 외부 HR/메일/메신저/푸시/SMS 연동, destructive migration은 계속 별도 승인 게이트로 둔다.

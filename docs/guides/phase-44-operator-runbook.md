@@ -1,7 +1,7 @@
 # Phase 44 운영자 runbook
 
 ## 한 줄 요약
-운영자는 도입 전 준비 → 도입 중 점검 → 도입 후 정리 3단계로 진행하고, blocker / approval-needed / placeholder 를 서로 다른 항목으로 기록해야 한다.
+운영자는 도입 전 준비 → 도입 중 점검 → 도입 후 정리 3단계로 진행하고, blocker / approval-needed / Production-ready (실구현) 를 서로 다른 항목으로 기록해야 한다.
 
 ## 대상
 - 내부 도입 리허설 진행자
@@ -106,7 +106,7 @@ pnpm --filter @gw/web build:cf
 확인 포인트:
 - 하루 기본 흐름이 쉬운 말로 이어지는가
 - 관리자 전용 운영 화면이 섞이지 않는가
-- placeholder 와 완료 기능을 같은 말로 쓰지 않는가
+- Production-ready (실구현) 와 완료 기능을 같은 말로 쓰지 않는가
 
 ### 2-4. 민감 운영 레인 점검
 순서:
@@ -148,7 +148,7 @@ Windows Chrome/Edge 기준 최소 확인:
 
 중요:
 - approval-needed 를 버그처럼 적지 않는다.
-- placeholder 를 blocker 로 오해하지 않는다.
+- Production-ready (실구현) 를 blocker 로 오해하지 않는다.
 - forbidden/error/empty/offline 을 같은 실패로 뭉개지 않는다.
 
 ## 3단계. 도입 후 정리

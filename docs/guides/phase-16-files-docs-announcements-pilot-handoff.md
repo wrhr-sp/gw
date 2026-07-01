@@ -2,7 +2,7 @@
 
 한 줄 요약:
 이번 Phase 16은 파일/R2/문서/공지 흐름을 새로 크게 여는 단계가 아니라,
-이미 있는 게시판·문서함·첨부 metadata skeleton과 전체 smoke 기준을 안정화해
+이미 있는 게시판·문서함·첨부 metadata Production-ready (실구현)과 전체 smoke 기준을 안정화해
 대장이 사내 검토용 초안을 preview/live URL에서 직접 확인할 수 있게 만드는 단계입니다.
 
 ## 0. 2026-06-13 기준 빠른 판정표
@@ -10,7 +10,7 @@
 ### 지금 되는 것
 
 - `/dashboard` 상단 액션이 `/attendance` → `/approvals` → `/boards` → `/documents` → `/employees` 순서로 맞춰져 있고, 대시보드 eyebrow 도 Phase 16 문구로 정리돼 있습니다.
-- `/boards`, `/boards/board_notice`, `/boards/board_general`, 예시 게시글 상세(`/posts/board_post_board_notice_employee_employee`), `/documents` 를 따라가며 게시판/문서 placeholder 흐름을 읽을 수 있습니다.
+- `/boards`, `/boards/board_notice`, `/boards/board_general`, 예시 게시글 상세(`/posts/board_post_board_notice_employee_employee`), `/documents` 를 따라가며 게시판/문서 Production-ready (실구현) 흐름을 읽을 수 있습니다.
 - 관리자 경계는 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/admin/manifest.webmanifest` 와 일반 host 분리 기준으로 다시 검증됐습니다.
 - API/guardrail 기준으로 notice-only 글쓰기 차단, private 문서공간 차단, forged post/read receipt 차단, raw storage/internal bucket 정보 비노출이 다시 확인됐습니다.
 
@@ -44,8 +44,8 @@
 - 일반 업무 흐름: `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/employees`, `/org`
 - 협업 흐름: `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents`
 - 관리자 흐름: `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`
-- board/document API skeleton, private space 차단, notice-only guardrail, metadata 비노출 기준
-- R2 private-by-default, D1 metadata 우선, binding-aware skeleton 방향
+- board/document API Production-ready (실구현), private space 차단, notice-only guardrail, metadata 비노출 기준
+- R2 private-by-default, D1 metadata 우선, binding-aware Production-ready (실구현) 방향
 - preview deploy 와 build:cf/local preview/deployment metadata 대체 근거 운용
 
 아직 부족한 것:
@@ -118,7 +118,7 @@
 기대하는 경험:
 
 - raw 민감정보 노출 없이도 운영 변경과 예외 기준을 추적할 수 있습니다.
-- 게시판/문서/첨부 흐름이 정책·권한·placeholder 제한과 같은 방향으로 설명되는지 확인할 수 있습니다.
+- 게시판/문서/첨부 흐름이 정책·권한·Production-ready (실구현) 제한과 같은 방향으로 설명되는지 확인할 수 있습니다.
 
 ## 3. 이번 Phase에서 고정할 핵심 결정
 
@@ -128,8 +128,8 @@
 
 - 홈/로그인/대시보드 흐름
 - 근태/휴가/결재 기본 흐름
-- 게시판/게시글/댓글 skeleton
-- 문서함/첨부 metadata skeleton
+- 게시판/게시글/댓글 Production-ready (실구현)
+- 문서함/첨부 metadata Production-ready (실구현)
 - 관리자 정책/권한/감사 preview
 
 승인 없이는 안 하는 것:
@@ -187,13 +187,13 @@
 - 권한 부족
 - 회사 scope 불일치
 - 정책상 미허용
-- placeholder/dev-safe 제한
+- Production-ready (실구현)/dev-safe 제한
 
 추가 메모:
 
 - notice-only 글쓰기 차단은 권한/운영 정책 축
 - private 문서공간 차단은 권한/회사 scope 축
-- 첨부 업로드 미연결은 placeholder/dev-safe 축
+- 첨부 업로드 미연결은 Production-ready (실구현)/dev-safe 축
 - live fetch 불가 시 대체 근거 사용은 검증 환경 메모로 분리
 
 ## 3-1. 대장이 preview/live URL에서 바로 볼 쉬운 순서
@@ -280,7 +280,7 @@
 - 공지/게시판/문서/첨부 흐름이 일반 협업과 운영 관리자 경계를 흐리지 않는지
 - raw storage 정보, 내부 운영 후보, 관리자 정보가 일반 화면에 새지 않는지
 - notice-only/private space/forged 접근 차단이 문서와 구현에서 같은 뜻인지
-- placeholder를 완료 기능처럼 보이게 하는 문구가 없는지
+- Production-ready (실구현)를 완료 기능처럼 보이게 하는 문구가 없는지
 
 ### 테스터(gwtester)
 

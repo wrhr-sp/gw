@@ -2,7 +2,7 @@
 
 한 줄 요약:
 이번 Phase 18은 스토어 배포를 여는 단계가 아니라,
-Phase 17에서 준비한 모바일 skeleton 위에
+Phase 17에서 준비한 모바일 Production-ready (실구현) 위에
 로그인부터 핵심 업무 확인까지 한 흐름으로 따라갈 수 있는 기준을
 화면·상태·검증 단위로 더 촘촘하게 연결하는 단계입니다.
 
@@ -26,7 +26,7 @@ Phase 17에서 준비한 모바일 skeleton 위에
 
 즉 이번 단계는
 "구조는 있다"에서 한 걸음 더 나아가
-"실제 사용 흐름처럼 읽히되 아직 placeholder인 부분과 승인 게이트를 숨기지 않는다"에 가깝습니다.
+"실제 사용 흐름처럼 읽히되 아직 Production-ready (실구현)인 부분과 승인 게이트를 숨기지 않는다"에 가깝습니다.
 
 ## 2. 먼저 잡아야 할 기본 흐름
 
@@ -50,7 +50,7 @@ Phase 17에서 준비한 모바일 skeleton 위에
 
 봐야 할 것:
 
-- 회사 이메일/비밀번호 placeholder
+- 회사 이메일/비밀번호 Production-ready (실구현)
 - secure storage bridge 안내
 - 실제 운영 SSO는 별도 승인 게이트라는 안내
 
@@ -149,7 +149,7 @@ Phase 17에서 준비한 모바일 skeleton 위에
 
 - 공지 목록
 - 게시판/문서 묶음 진입
-- 읽기 중심 placeholder
+- 읽기 중심 Production-ready (실구현)
 - 파일 업로드 승인 게이트 안내
 
 연결 기준:
@@ -255,8 +255,8 @@ Phase 17에서 준비한 모바일 skeleton 위에
 ## 7. 권장 구현 순서
 
 1. shared contract 기준으로 화면별 API 연결 표면을 맞춘다.
-2. 로그인 → 대시보드 → 핵심 업무 → 내 정보 흐름이 끊기지 않게 skeleton을 정리한다.
-3. offline/error/empty/forbidden 상태를 화면 설명이나 placeholder 구조에 드러낸다.
+2. 로그인 → 대시보드 → 핵심 업무 → 내 정보 흐름이 끊기지 않게 Production-ready (실구현)을 정리한다.
+3. offline/error/empty/forbidden 상태를 화면 설명이나 Production-ready (실구현) 구조에 드러낸다.
 4. 승인자와 일반 사용자의 CTA 차이를 최소한의 설명으로 분리한다.
 5. `/admin/*`, 스토어, push, 실기기 권한은 후속 범위로 남긴다.
 
@@ -284,7 +284,7 @@ Phase 17에서 준비한 모바일 skeleton 위에
 
 - 상태 안내가 숨겨지지 않는지
 - 권한 없음/회사 scope 경계가 흐려지지 않는지
-- placeholder 를 완성 배포처럼 보이게 하지 않는지
+- Production-ready (실구현) 를 완성 배포처럼 보이게 하지 않는지
 - PWA와 네이티브 차이 설명이 과장되지 않는지
 
 ### 테스터(gwtester)
@@ -303,7 +303,7 @@ Phase 17에서 준비한 모바일 skeleton 위에
 
 - SPEC/TEST_PLAN/QA_CHECKLIST/HANDOFF/CHANGELOG 갱신
 - 상태 분류 4축을 쉬운 한국어로 정리
-- "지금 되는 것 / 아직 placeholder / 승인 필요" 분리
+- "지금 되는 것 / 아직 Production-ready (실구현) / 승인 필요" 분리
 
 ### 운영(gwops)
 

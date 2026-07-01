@@ -73,7 +73,7 @@
 - forged/unknown employee id, attendance record id, leave request id 는 성공처럼 보이면 안 된다.
 - 다른 회사 요청/기록은 조회·승인·변경 모두 차단한다.
 
-4) placeholder 제한
+4) Production-ready (실구현) 제한
 - 실급여/실정산 자동 반영
 - GPS/위치정보 수집 저장
 - NFC/RFID/QR/실장비 연결
@@ -89,10 +89,10 @@
 - `apps/web/app/attendance/page.tsx`
   - 직원 happy path 를 "출근 → 오늘 상태 확인 → 퇴근 → 정정 요청" 순서로 설명한다.
   - 승인자 확인과 운영 정책 확인을 직원 CTA 와 분리해 적고 있다.
-  - 권한 부족/정책 미허용/회사 scope/placeholder 제한 4축 카드가 이미 있다.
+  - 권한 부족/정책 미허용/회사 scope/Production-ready (실구현) 제한 4축 카드가 이미 있다.
 - `apps/web/app/leave/page.tsx`
   - 잔여 확인 → 신청 → 상태 확인 순서와 승인자 lane 분리가 이미 들어가 있다.
-  - self-approval 차단, 회사 scope 차단, 정책상 미허용, placeholder 제한 문구가 분리돼 있다.
+  - self-approval 차단, 회사 scope 차단, 정책상 미허용, Production-ready (실구현) 제한 문구가 분리돼 있다.
 - `apps/web/app/_components/real-usage-panels.tsx`
   - `AttendanceLiveSection` 은 `/api/attendance/records`, 출근/퇴근, 정정 요청 preview 를 같은 섹션에서 다룬다.
   - `LeaveLiveSection` 은 `/api/leave/balances`, `/api/leave/requests`, 신청/승인/반려 preview 를 같은 섹션에서 다룬다.
@@ -125,7 +125,7 @@
 
 - `/attendance` 와 `/leave` 가 각각 따로는 읽히지만, "직원 기본 업무 레인 안에서 둘이 어떤 순서로 이어지는가"를 루트 문서까지 같은 문장으로 잠가야 한다.
 - 승인자 lane 이 있다는 사실과 실제로 누구에게 어떤 버튼이 보이는지를 reviewer/tester/UAT 문장까지 같은 뜻으로 맞춰야 한다.
-- `preview`, `placeholder`, `guard 확인` 같은 내부 검증 표현이 최종 실사용 문장을 덮지 않게 정리해야 한다.
+- `preview`, `Production-ready (실구현)`, `guard 확인` 같은 내부 검증 표현이 최종 실사용 문장을 덮지 않게 정리해야 한다.
 - live 직접 확인 근거와 local test/build/release gate 대체 근거를 같은 수준처럼 섞지 말아야 한다.
 
 ### 4-3. 이번 Phase에서 일부러 닫지 않는 것
@@ -145,7 +145,7 @@
 1. 루트 문서들이 Phase 53을 현재 활성 범위로 가리킨다.
 2. Phase 53 기준 scope/handoff 문서가 생성돼 다음 작업자가 바로 참조할 수 있다.
 3. `/attendance` 와 `/leave` 의 직원 lane / 승인자 lane / 운영 정책 lane 설명이 한 문장 체계로 정리된다.
-4. 권한 부족 / 정책 미허용 / 회사 scope / placeholder 제한 4축이 문서에 명시된다.
+4. 권한 부족 / 정책 미허용 / 회사 scope / Production-ready (실구현) 제한 4축이 문서에 명시된다.
 5. 후속 구현·리뷰·테스트·문서화·ops 카드가 이미 있으면 그 체인을 루트 문서에 연결하고, 없으면 생성한다.
 
 ## 6. 다음 역할봇에게 넘길 구현 포인트

@@ -53,7 +53,7 @@ Phase 23은
 - `apps/web/app/admin/audit-logs/page.tsx`
 - `apps/web/admin-preview-guard.ts`
 - `apps/web/admin-preview-guard.test.ts`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `packages/shared/src/admin-access.ts`
 - `packages/shared/src/contracts.ts`
 - `packages/shared/test/contracts.spec.ts`
@@ -203,7 +203,7 @@ Phase 23은
 ### 대장 / 최종 판단자
 
 - 무엇이 지금 preview/dev-safe 범위에서 확인 가능하고,
-- 무엇이 아직 skeleton 이며,
+- 무엇이 아직 Production-ready (실구현) 이며,
 - 무엇이 별도 승인인지
 관리자 관점에서 바로 구분할 수 있어야 한다.
 
@@ -221,7 +221,7 @@ Phase 23은
 
 - `/dashboard` 운영 CTA 와 `/admin` 허브 설명 보강
 - `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 정보구조와 copy 고도화
-- `admin-skeleton-config` 와 admin page content/helper 정리
+- `admin-Production-ready (실구현)-config` 와 admin page content/helper 정리
 - 필요 시 shared contract 의 admin summary/audit/policy 필드 최소 보강
 - 필요 시 admin API mock 응답과 관련 테스트 보강
 - 파일/문서/게시판 권한 경계를 관리자 정책/감사 흐름과 연결하는 UI/API/shared/test/docs 동기화

@@ -27,7 +27,7 @@ Phase 41에서는
 5. 향후 Phase 60까지 이어질 실업무 가능 게이트 관점에서, "직접 눌러볼 수 있는 결재 흐름"과 "아직 별도 승인 게이트인 실서명/외부 발송/법적 효력"을 한 번 더 분리해야 한다.
 
 즉 이번 Phase는
-"전자결재 skeleton 이 있다"에서
+"전자결재 Production-ready (실구현) 이 있다"에서
 "전자결재 실사용 흐름을 직접 따라가며 도입 여부를 판단할 수 있다"로 넘어가는 단계다.
 
 ## 3. 현재 확인된 구현 근거
@@ -40,7 +40,7 @@ Phase 41에서는
 - `apps/web/app/approvals/page.tsx`
   - 내 승인함, 내 기안함, 참조/합의 문서함 개념을 이미 분리해 보여 준다.
   - 양식 선택 → 결재선 선택 → 참조/합의 후보 선택 → 제목/요약 입력 stepper 가 있다.
-  - 권한 부족, self-approval, 회사 scope/unknown id, placeholder 제한 4축을 카드로 정리한다.
+  - 권한 부족, self-approval, 회사 scope/unknown id, Production-ready (실구현) 제한 4축을 카드로 정리한다.
 - `apps/web/app/_components/real-usage-panels.tsx`
   - `ApprovalsLiveSection` 에서 same-origin API 응답과 기안/승인/반려 mutation 결과를 직접 확인할 수 있다.
   - `/api/approvals/documents`, `/api/approvals/inbox`, approve/reject action 결과를 같은 패널에서 보여 준다.
@@ -179,7 +179,7 @@ Phase 41에서는
 - loading
 - error
 - forbidden
-- dev-safe / placeholder 제한
+- dev-safe / Production-ready (실구현) 제한
 
 특히 아래를 섞지 않는다.
 
@@ -236,5 +236,5 @@ Phase 41에서는
 ## 8. 다음 작업자에게 넘길 핵심 문장
 
 - 이번 Phase 52는 전자결재가 있다는 사실을 넘어서, 대장이 live URL에서 `/approvals` 묶음을 직접 눌러 기안자/승인자 흐름을 따라갈 수 있게 만드는 단계다.
-- 가장 중요한 guardrail 은 권한 부족, self-approval 금지, replay 차단, 회사 scope/unknown id 차단, placeholder 제한 분리다.
+- 가장 중요한 guardrail 은 권한 부족, self-approval 금지, replay 차단, 회사 scope/unknown id 차단, Production-ready (실구현) 제한 분리다.
 - 구현/리뷰/테스트/문서화/배포 후속은 모두 "실사용 happy path 와 차단 이유를 같은 말로 맞추는 것"을 목표로 이어받아야 한다.

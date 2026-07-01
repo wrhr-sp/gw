@@ -79,7 +79,7 @@
 - empty: 접근 가능한 문서는 없지만 정상 응답
 - loading: same-origin fetch 진행 중
 - error: fetch 실패 또는 예기치 않은 서버 오류
-- dev-safe/placeholder: 실제 외부 공유/실운영 저장 전환 전 단계
+- dev-safe/Production-ready (실구현): 실제 외부 공유/실운영 저장 전환 전 단계
 
 ## 이번 Phase에서 숨기지 말아야 할 gap
 

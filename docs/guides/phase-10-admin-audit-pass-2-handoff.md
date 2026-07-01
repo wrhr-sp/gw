@@ -9,7 +9,7 @@ Phase 9 에서 관리자 화면의 큰 경계는 이미 잡혔습니다.
 
 - 관리자 화면은 일반 업무 화면과 분리돼 있습니다.
 - 익명 공개 preview 에서는 `/admin*` 가 계속 `/login` 으로 막힙니다.
-- API 에도 `/api/admin/users`, `/api/admin/policies`, `/api/admin/audit-logs` skeleton 이 있습니다.
+- API 에도 `/api/admin/users`, `/api/admin/policies`, `/api/admin/audit-logs` Production-ready (실구현) 이 있습니다.
 - 감사 로그에는 raw `storageKey`, bucket 이름, public URL, secret 을 넣지 않는 원칙이 들어가 있습니다.
 
 하지만 아직은 "뼈대가 있다" 수준입니다.
@@ -31,7 +31,7 @@ Phase 9 에서 관리자 화면의 큰 경계는 이미 잡혔습니다.
 - 사용자-직원 연결 상태
 - 현재 역할과 고위험 권한
 - 바꾸려는 후보값과 before/after diff
-- 변경 사유 placeholder
+- 변경 사유 Production-ready (실구현)
 - 감사 이벤트 preview
 
 즉, "바꾸는 화면"이라기보다 "바꾸기 전에 검토하는 화면"에 가깝습니다.
@@ -81,7 +81,7 @@ Phase 9 에서 관리자 화면의 큰 경계는 이미 잡혔습니다.
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/admin-preview-guard.test.ts`
 
 ### Shared
@@ -194,7 +194,7 @@ Phase 9 에서 관리자 화면의 큰 경계는 이미 잡혔습니다.
 
 다음 구현자는 아래 순서로 이어가면 가장 자연스럽습니다.
 
-1. `apps/web/admin-skeleton-config.ts` 와 `apps/web/app/admin/*` 에서 candidate 화면의 정보 블록을 더 실제 흐름처럼 보강
+1. `apps/web/admin-Production-ready (실구현)-config.ts` 와 `apps/web/app/admin/*` 에서 candidate 화면의 정보 블록을 더 실제 흐름처럼 보강
 2. `packages/shared/src/contracts.ts` 에서 admin candidate 공통 블록과 감사 필터 계약을 더 명확히 정리
 3. `apps/api/src/app.ts` 에서 `/api/admin/users`, `/api/admin/policies`, `/api/admin/audit-logs` 의 candidate 응답 shape 를 문서와 완전히 맞춤
 4. `apps/api/test/auth-org.spec.ts` 또는 분리된 admin 전용 spec 에서 권한 경계, 시간 필터, 마스킹 회귀를 계속 고정

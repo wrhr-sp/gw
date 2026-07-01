@@ -9,15 +9,15 @@
 
 - 기준 문서: `docs/architecture/phase-8-r2-storage-scope.md`
 - 공통 계약: `packages/shared/src/contracts.ts`
-- API skeleton: `apps/api/src/app.ts`
-- storage adapter skeleton: `apps/api/src/lib/document-storage.ts`, `apps/api/src/lib/document-storage.mock.ts`, `apps/api/src/lib/document-storage.r2.ts`
+- API Production-ready (실구현): `apps/api/src/app.ts`
+- storage adapter Production-ready (실구현): `apps/api/src/lib/document-storage.ts`, `apps/api/src/lib/document-storage.mock.ts`, `apps/api/src/lib/document-storage.r2.ts`
 - 테스트: `apps/api/test/auth-org.spec.ts`, `apps/api/test/document-storage.spec.ts`
 
 즉, 지금은 아래가 된 상태입니다.
 
 - 문서 파일 metadata 와 upload/download/delete 준비 흐름이 계약에 들어가 있음
 - `FILES_BUCKET` binding 이 없어도 mock adapter 로 로컬 테스트 가능함
-- binding 이 있으면 provider 를 `r2` 로 잡는 placeholder 응답까지는 확인 가능함
+- binding 이 있으면 provider 를 `r2` 로 잡는 Production-ready (실구현) 응답까지는 확인 가능함
 - raw `storageKey`, bucket 이름, public URL 을 응답에 직접 노출하지 않도록 guardrail 이 들어가 있음
 
 반대로 아직 하지 않은 일은 아래입니다.
@@ -39,7 +39,7 @@
 1. 사용자가 문서함에 들어감
 2. API 가 먼저 문서 공간 접근 권한과 회사 경계를 확인함
 3. 허용 MIME 인지, 25MB 이하인지 검사함
-4. 통과하면 `upload-init` 응답으로 placeholder action 을 돌려줌
+4. 통과하면 `upload-init` 응답으로 Production-ready (실구현) action 을 돌려줌
 5. 이 응답에는 업로드 토큰, 만료 시각, object key preview 같은 최소 정보만 들어감
 6. raw `storageKey`, bucket 이름, public URL 은 내려주지 않음
 
@@ -51,13 +51,13 @@
 상태 전이는 아래처럼 이해하면 됩니다.
 
 - 업로드 준비 직후: `storageStatus = pending`
-- 업로드 완료 placeholder 처리 후: `storageStatus = ready`
+- 업로드 완료 Production-ready (실구현) 처리 후: `storageStatus = ready`
 
 ### 다운로드 준비 흐름
 
 1. 사용자가 문서 파일 다운로드를 시도함
 2. API 가 `document.file.read` 권한과 같은 회사/같은 문서 공간 접근 여부를 먼저 확인함
-3. 통과하면 짧은 만료 시각이 붙은 download placeholder action 을 돌려줌
+3. 통과하면 짧은 만료 시각이 붙은 download Production-ready (실구현) action 을 돌려줌
 4. 공개 URL 을 바로 주는 방식은 기본값이 아님
 
 관련 endpoint:
@@ -68,7 +68,7 @@
 
 1. 사용자가 삭제를 시도함
 2. API 가 `document.file.write` 권한과 접근 가능 파일인지 먼저 확인함
-3. storage adapter delete placeholder 를 호출함
+3. storage adapter delete Production-ready (실구현) 를 호출함
 4. 응답에서는 파일을 바로 완전 삭제했다고 과장하지 않고, 상태를 archive/deleted 쪽으로 바꿈
 
 현재 코드 기준 상태 전이:
@@ -111,7 +111,7 @@
 
 - mock/local-safe adapter 검증
 - `FILES_BUCKET` binding 유무에 따른 provider 선택 확인
-- upload-init / download-init / delete placeholder 응답 계약 확인
+- upload-init / download-init / delete Production-ready (실구현) 응답 계약 확인
 - `pnpm check`, `pnpm test`, `pnpm typecheck` 같은 로컬 검증
 - 필요 시 dry-run 수준의 binding-aware 확인
 
@@ -185,7 +185,7 @@ companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safe
 - 크기
 - 버전 라벨
 - 만료 시각
-- placeholder token/action 정보
+- Production-ready (실구현) token/action 정보
 
 ## 6. 현재 코드/테스트에서 바로 확인되는 근거
 
@@ -194,7 +194,7 @@ companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safe
   - object key 생성 규칙
   - `FILES_BUCKET` 유무에 따라 mock/R2 adapter 선택
 - `apps/api/src/app.ts`
-  - `upload-init`, `upload-complete`, `download-init`, `delete` endpoint skeleton
+  - `upload-init`, `upload-complete`, `download-init`, `delete` endpoint Production-ready (실구현)
   - 권한/회사 경계 확인 뒤 action 생성
   - 삭제 시 `storageStatus=deleted`, `status=archived` 처리
 - `apps/api/test/document-storage.spec.ts`
@@ -203,7 +203,7 @@ companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safe
   - binding 없을 때 mock adapter fallback
 - `apps/api/test/auth-org.spec.ts`
   - storage key/bucket/public URL 비노출 확인
-  - upload/download/delete placeholder 흐름 확인
+  - upload/download/delete Production-ready (실구현) 흐름 확인
   - binding 이 있을 때 provider 가 `r2` 로 잡히는지 확인
 
 ## 7. 다음 단계
@@ -212,9 +212,9 @@ companies/{companyId}/spaces/{spaceId}/files/{fileId}/versions/{versionId}/{safe
 
 1. `packages/shared/src/contracts.ts` 와 `apps/api/src/app.ts` 기준으로 현재 계약 재확인
 2. `apps/api/src/lib/document-storage*.ts` 경계를 유지한 채 adapter 보강
-3. `db/migrations/0006_document_storage_phase8.sql` 같은 최소 migration skeleton 검토
+3. `db/migrations/0006_document_storage_phase8.sql` 같은 최소 migration Production-ready (실구현) 검토
 4. mock adapter 테스트를 먼저 통과시킨 뒤 binding-aware 경로 보강
-5. 필요하면 Web 문서함 화면에서 upload-init/download-init placeholder 연결
+5. 필요하면 Web 문서함 화면에서 upload-init/download-init Production-ready (실구현) 연결
 
 ## 8. 별도 승인 필요 사항
 

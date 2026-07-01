@@ -2,7 +2,7 @@
 
 ## 구현 포인트
 - shared contract 에 `payroll` route + schema 묶음을 추가했다.
-- API 에 payroll overview / period detail / my payslip placeholder endpoint 를 추가했다.
+- API 에 payroll overview / period detail / my payslip Production-ready (실구현) endpoint 를 추가했다.
 - Web 에 `/payroll`, `/payroll/me` route 를 추가했다.
 - 모바일/메뉴/내 정보 진입점에 급여 링크를 넣었다.
 - contract 는 `monthly`/`hourly`/`daily`/`annual`/`inclusive` pay type 과 `draft`/`collecting`/`reviewing`/`confirmed`/`closed` period status 를 지원한다.

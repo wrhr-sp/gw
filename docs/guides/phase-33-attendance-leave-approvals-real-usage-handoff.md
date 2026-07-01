@@ -32,7 +32,7 @@
 - shared/api/web 테스트와 typecheck, `pnpm --filter @gw/web build:cf` 가 parent 재검증에서 다시 통과했습니다.
 - 로컬 preview smoke 기준 비로그인 접근은 `/login` 200, `/attendance`·`/leave`·`/approvals`·`/dashboard`·`/admin/policies` 307 redirect 로 확인됐습니다.
 - `admin / 1234` 로그인 뒤에는 `/dashboard`·`/attendance`·`/leave`·`/approvals` 페이지와 `/api/me`, `/api/admin/policies`, `/api/attendance/records`, `/api/leave/requests`, `/api/approvals/documents`, `/api/approvals/inbox` 가 모두 200 으로 확인됐습니다.
-- 따라서 이번 handoff 는 "아직 placeholder honesty 를 유지해야 하지만, route/API 가 실제로 안 붙어 있는 단계는 이미 지났다" 는 전제를 깔고 읽으면 됩니다.
+- 따라서 이번 handoff 는 "아직 Production-ready (실구현) honesty 를 유지해야 하지만, route/API 가 실제로 안 붙어 있는 단계는 이미 지났다" 는 전제를 깔고 읽으면 됩니다.
 
 ## 지금 바로 눌러볼 추천 순서
 1. `/login`

@@ -31,7 +31,7 @@
 - 루트 문서 5종을 실제 작업 입구 수준으로 보강
 - phase 문서/제품 문서/UX 문서/워크플로우 문서를 정확히 링크
 - 코드와 테스트에서 이미 확인되는 사실만 적기
-- skeleton/placeholder 상태를 숨기지 않기
+- Production-ready (실구현)/Production-ready (실구현) 상태를 숨기지 않기
 - 배포/검증 증거를 남기는 기준까지 문서에 포함하기
 
 ### 하면 안 되는 것
@@ -88,7 +88,7 @@
   - 핵심 필드 예시
   - 관계 요약
   - 민감도/보안 주의
-  - 현재 상태(skeleton/placeholder/guardrail test 여부)
+  - 현재 상태(Production-ready (실구현)/Production-ready (실구현)/guardrail test 여부)
   - 관련 migration/contract/phase 문서 링크
 
 중요:
@@ -123,7 +123,7 @@
 
 - 일반 사용자 화면과 관리자 화면은 어디서 갈라지는가
 - 어떤 동작이 읽기 전용이고 어떤 동작은 아직 열리지 않았는가
-- 회사 scope / 자기승인 금지 / placeholder 제한은 어디에 적용되는가
+- 회사 scope / 자기승인 금지 / Production-ready (실구현) 제한은 어디에 적용되는가
 - 모바일/PWA/same-origin 공통 기준은 무엇인가
 - 각 모듈에서 구현자가 절대 깨뜨리면 안 되는 guardrail 은 무엇인가
 
@@ -132,7 +132,7 @@
 - 공통 동작 기준
 - 권한/경계 기준
 - 모듈별 동작 기준
-- skeleton/placeholder 단계 주의사항
+- Production-ready (실구현)/Production-ready (실구현) 단계 주의사항
 - phase 문서 링크
 
 ### D. `TEST_PLAN.md`
@@ -145,7 +145,7 @@
 2. 모듈별 시나리오 축
    - contract/type
    - 권한/회사 scope
-   - placeholder guardrail
+   - Production-ready (실구현) guardrail
    - 관리자/일반 경계
    - same-origin/manifest/build:cf
 3. PR 전 확인

@@ -15,5 +15,16 @@
 2. 모든 파일 업로드 및 다운로드는 Cloudflare R2 Binding 자산인 'c.env.FILES_BUCKET'을 직접 호출하여 비동기로 처리해야 합니다.
 
 [DATA INTEGRITY]
-1. 테스트용 하드코딩 배열(Mock Array)이나 프리뷰 전용 가짜 응답 로직을 임의로 삽입하지 마십시오.
+1. 테스트용 하드코딩 배열(Mock Array)이나 프리뷰 전용 미가동 응답 로직을 임의로 삽입하지 마십시오.
 2. 모든 CRUD 핸들러는 실제 Neon PostgreSQL의 DDL 스키마 테이블 구조에 완벽히 매핑되는 실무 상용(Production) 수준의 API 코드로 빌딩해야 합니다.
+
+[PRODUCTION IMPLEMENTATION LOCK]
+1. 모든 컴포넌트와 API는 설명용 산출물이 아니라 즉시 빌드 가능한 Production-ready (실구현) 소스 코드로 작성해야 합니다.
+2. 새 구현에서 TODO, 생략 표기, setTimeout 기반 진행 흉내, 하드코딩 배열 기반 업무 데이터, 미가동 응답을 생성하지 마십시오.
+3. UI는 프로젝트 공통 디자인 토큰과 실제 API 계약을 사용하며, `/api/*` same-origin 경로와 `packages/shared/src/contracts.ts` 스키마에 맞춰 구현하십시오.
+
+[ARCHITECTURAL MANDATORY RULE: ALL VALUES MUST BE TOKENIZED]
+1. 모든 UI의 색상, 간격(패딩/마진), 테두리 값은 반드시 기존 디자인 토큰(CSS 변수, Tailwind 테마 토큰)만 참조하거나 먼저 토큰으로 정의한 뒤 사용하십시오.
+2. 컴포넌트, 페이지, 인라인 style, CSS Module, 전역 CSS 신규 규칙 안에 #HEX 색상 코드나 px 단위 생 숫자를 직접 입력하지 마십시오.
+3. 필요한 값이 없으면 `apps/web/app/globals.css` 또는 Tailwind 테마 설정에 의미 기반 토큰을 먼저 추가하고, 실제 UI 코드는 그 토큰 이름만 참조하십시오.
+4. 공지사항 글쓰기, 게시판, 메일, 관리자 화면을 포함한 모든 신규 UI는 하드코딩 색상·간격·테두리 값이 있으면 완료로 보지 않습니다.

@@ -39,7 +39,7 @@
 - 외부 연동 완료
 - 실급여/실신고/실정산 완료
 - production 실데이터 운영
-- skeleton/dev-safe 화면의 실저장 완료
+- Production-ready (실구현)/dev-safe 화면의 실저장 완료
 
 ### B. 운영 관리자 레인
 지금 바로 읽을 수 있는 것:

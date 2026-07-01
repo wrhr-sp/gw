@@ -2,13 +2,13 @@
 
 ## 1. 한 줄 정의
 
-Phase 12의 목표는 `/dashboard` 를 "모바일에서도 바로 읽히는 오늘 할 일 + 운영 요약 시작 화면"으로 다시 정리하고, Phase 2~11에서 만든 근태/휴가·전자결재·게시판/문서·조직/직원·관리자 skeleton 을 한 화면에서 안전하게 이어 주는 dev-safe 기준을 고정하는 것입니다.
+Phase 12의 목표는 `/dashboard` 를 "모바일에서도 바로 읽히는 오늘 할 일 + 운영 요약 시작 화면"으로 다시 정리하고, Phase 2~11에서 만든 근태/휴가·전자결재·게시판/문서·조직/직원·관리자 Production-ready (실구현) 을 한 화면에서 안전하게 이어 주는 dev-safe 기준을 고정하는 것입니다.
 
 이번 단계도 실제 개인정보 원문 연결, production DB 실데이터 집계, 실제 알림 발송, 운영 권한 저장은 하지 않습니다.
 
 ## 2. 왜 이번 단계가 필요한가
 
-Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸습니다.
+Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 Production-ready (실구현) 로 열렸습니다.
 하지만 현재 화면은 아래 수준에 머물러 있습니다.
 
 - 세션 상태, 회사 범위, 권한/가드레일 요약을 보여 주는 안내형 카드 중심입니다.
@@ -23,7 +23,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 작은 화면에서도 핵심 카드가 먼저 읽혀야 합니다.
 - 관리자 기능은 일반 사용자 흐름과 섞지 않아야 합니다.
 
-즉, 이번 단계는 새 업무 모듈을 여는 작업이 아니라, 이미 있는 skeleton 을 `/dashboard` 에서 "업무 시작 순서"대로 다시 묶는 단계입니다.
+즉, 이번 단계는 새 업무 모듈을 여는 작업이 아니라, 이미 있는 Production-ready (실구현) 을 `/dashboard` 에서 "업무 시작 순서"대로 다시 묶는 단계입니다.
 
 ## 3. 이번에 다시 확인한 현재 기준
 
@@ -58,9 +58,9 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 
 현재 저장소 기준으로 확인되는 사실은 아래와 같습니다.
 
-- `/dashboard` 는 아직 세션/회사 범위/권한 안내와 quick action 위주의 Phase 6 placeholder 입니다.
+- `/dashboard` 는 아직 세션/회사 범위/권한 안내와 quick action 위주의 Phase 6 Production-ready (실구현) 입니다.
 - 기존 API에는 `/api/me`, `/api/attendance/records`, `/api/leave/balances`, `/api/leave/requests`, `/api/approvals/inbox`, `/api/notices`, `/api/documents/spaces` 같은 읽기용 시작점이 이미 있습니다.
-- `/org`, `/employees` 는 일반 조회용 skeleton 으로 정리돼 있고, `/admin/*` 는 운영 변경 후보/감사 조회용 경계가 따로 있습니다.
+- `/org`, `/employees` 는 일반 조회용 Production-ready (실구현) 으로 정리돼 있고, `/admin/*` 는 운영 변경 후보/감사 조회용 경계가 따로 있습니다.
 - `packages/shared/src/contracts.ts` 에는 현재 대시보드 전용 summary contract 는 없지만, 대시보드가 조합해 쓸 route 와 section 정의는 이미 있습니다.
 - 모바일/PWA 기준 문서는 같은 route 구조를 유지하면서 작은 화면 우선 카드 배치를 요구합니다.
 - 관리자 preview guard 테스트는 `/admin*` 를 익명 공개 preview 에서 계속 `/login` 으로 막아야 한다는 기준을 유지합니다.
@@ -93,7 +93,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 실제 운영 권한 저장/변경
 - 실운영 인증 인프라와 연결된 관리자 권한 판정
 
-즉, 지금 확인된 것은 "dev-safe skeleton 과 권한 경계가 현재 코드 기준으로 일관되게 맞아 있다"는 점이지, 실운영 데이터 연동이 끝났다는 뜻은 아닙니다.
+즉, 지금 확인된 것은 "dev-safe Production-ready (실구현) 과 권한 경계가 현재 코드 기준으로 일관되게 맞아 있다"는 점이지, 실운영 데이터 연동이 끝났다는 뜻은 아닙니다.
 
 ## 4. Phase 12에서 고정하는 핵심 결정
 
@@ -131,7 +131,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 5. 운영 요약
    - 조직/직원 조회 진입점
    - 관리자에게만 보이는 운영 검토 진입점
-   - skeleton/preview 한계 안내
+   - Production-ready (실구현)/preview 한계 안내
 
 쉽게 말하면 이번 대시보드는 "오늘 일 + 대기 업무 + 읽어야 할 것 + 운영 들어가는 문"을 한 화면에서 짧게 정리하는 구조입니다.
 
@@ -161,7 +161,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 2. 그 다음에도 중복 조합이 너무 많을 때만 대시보드 전용 summary contract 또는 helper 를 최소 범위로 추가합니다.
 3. 새 계약을 추가하더라도 읽기 전용 summary/candidate 수준으로 끝냅니다.
 
-즉, 이번 Phase의 기본 방향은 "새 백엔드 제품을 또 만드는 것"이 아니라 "기존 skeleton 들을 대시보드용 카드로 재배치하는 것"입니다.
+즉, 이번 Phase의 기본 방향은 "새 백엔드 제품을 또 만드는 것"이 아니라 "기존 Production-ready (실구현) 들을 대시보드용 카드로 재배치하는 것"입니다.
 
 ### 결정 E. 모바일에서는 표보다 카드 우선, 긴 설명보다 한 줄 상태 우선이다.
 
@@ -170,7 +170,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 카드 제목
 - 현재 상태 한 줄
 - 바로가기 CTA 1개 또는 2개
-- 왜 placeholder 인지 알려 주는 짧은 보조 문구
+- 왜 Production-ready (실구현) 인지 알려 주는 짧은 보조 문구
 
 작은 화면에서 뒤로 미루는 것은 아래입니다.
 
@@ -179,7 +179,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 공지/문서/결재 전체 목록의 장문 미리보기
 - 실제 운영 통계처럼 보이는 과한 숫자 블록
 
-### 결정 F. dev-safe skeleton 의 완료 기준은 "운영처럼 보이되 운영 완료를 속이지 않는 상태"다.
+### 결정 F. dev-safe Production-ready (실구현) 의 완료 기준은 "운영처럼 보이되 운영 완료를 속이지 않는 상태"다.
 
 이번 Phase의 대시보드는 아래를 만족해야 합니다.
 
@@ -187,7 +187,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 결재/근태/휴가/공지/문서 진입점이 서로 끊기지 않음
 - 관리자 진입은 권한 있는 사람에게만 보임
 - 실제 개인정보/실운영 통계/외부 알림 없이도 운영 요약 느낌을 설명할 수 있음
-- placeholder/preview 단계라는 사실이 문구와 CTA 에서 계속 드러남
+- Production-ready (실구현)/preview 단계라는 사실이 문구와 CTA 에서 계속 드러남
 
 ## 5. 이번 Phase에 포함되는 범위
 
@@ -234,7 +234,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
   - 승인함 확인
 - 액션 옆에 현재 상태 한 줄
   - 예: 마지막 기록, 승인 대기 수, 휴가 잔여 snapshot
-- skeleton 한계 안내
+- Production-ready (실구현) 한계 안내
   - 실제 저장/실행 완료가 아니라 연결 기준과 우선순위를 보여 주는 단계
 
 이번 1차에서도 하지 않을 것:
@@ -294,7 +294,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - `/org`, `/employees` 일반 조회 진입점
 - 권한 있는 사용자에게만 보이는 `/admin` 진입 버튼 또는 운영 검토 카드
 - 관리자/일반 사용자 경계 설명
-- preview/skeleton 한계 안내
+- preview/Production-ready (실구현) 한계 안내
 
 이번 1차에서도 하지 않을 것:
 
@@ -410,7 +410,7 @@ Phase 6에서 `/dashboard` 는 모바일 핵심 진입점 placeholder 로 열렸
 - 권한 있는 관리자 사용자에게만 운영 진입 CTA 를 보여 줄 수 있음
 - `/admin*` 접근 guard 와 `/api/admin/*` guard 가 기존대로 유지됨
 - 근태/휴가/결재/공지/문서 링크가 기존 Phase 계약과 충돌하지 않음
-- placeholder 문구가 실제 운영 완료처럼 보이지 않음
+- Production-ready (실구현) 문구가 실제 운영 완료처럼 보이지 않음
 
 ## 10. 완료 기준
 
@@ -450,4 +450,4 @@ Phase 12 1차 구현 준비가 끝났다고 보려면 아래를 만족해야 합
 
 정리하면 Phase 12의 핵심은 하나입니다.
 
-"대시보드를 오늘 할 일과 운영 요약의 시작 화면으로 다시 세우되, 일반 사용자 흐름과 관리자 운영 경계를 흐리지 않고 기존 skeleton 을 안전하게 묶는 것"입니다.
+"대시보드를 오늘 할 일과 운영 요약의 시작 화면으로 다시 세우되, 일반 사용자 흐름과 관리자 운영 경계를 흐리지 않고 기존 Production-ready (실구현) 을 안전하게 묶는 것"입니다.

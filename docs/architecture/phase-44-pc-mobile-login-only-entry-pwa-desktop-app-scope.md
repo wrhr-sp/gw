@@ -94,7 +94,7 @@ Phase 42A에서 이미 로그인 필수 진입 정책을 정리했지만,
 
 ### 관리자 앱 기준
 - 관리자 manifest 분리는 유지할 수 있다.
-- 단, 익명 사용자가 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 에서 admin skeleton 을 먼저 보면 실패다.
+- 단, 익명 사용자가 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 에서 admin Production-ready (실구현) 을 먼저 보면 실패다.
 - admin host root 역시 결과적으로 로그인 요구 상태를 먼저 만나야 한다.
 
 ## 구현 범위

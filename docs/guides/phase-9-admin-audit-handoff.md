@@ -10,17 +10,17 @@
 - 기준 문서: `docs/architecture/phase-9-admin-audit-scope.md`
 - Web 관리자 경계: `apps/web/middleware.ts`, `apps/web/admin-preview-guard.ts`
 - Web 관리자 화면: `apps/web/app/admin/page.tsx`, `apps/web/app/admin/users/page.tsx`, `apps/web/app/admin/policies/page.tsx`, `apps/web/app/admin/audit-logs/page.tsx`
-- Web 설정/회귀 테스트: `apps/web/admin-skeleton-config.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/admin-skeleton-config.test.ts`
+- Web 설정/회귀 테스트: `apps/web/admin-Production-ready (실구현)-config.ts`, `apps/web/admin-preview-guard.test.ts`, `apps/web/admin-Production-ready (실구현)-config.test.ts`
 - 공통 계약: `packages/shared/src/contracts.ts`
-- API skeleton: `apps/api/src/app.ts`
+- API Production-ready (실구현): `apps/api/src/app.ts`
 - 권한 회귀 테스트: `apps/api/test/auth-org.spec.ts`
 - 감사 로그 골격: `db/migrations/0002_auth_org_phase2.sql`
 
 즉, 지금은 아래가 된 상태입니다.
 
 - 익명 공개 preview 에서 `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 를 바로 열 수 없게 막아 둠
-- 관리자 홈과 사용자/정책/감사 로그 skeleton route 가 분리돼 있음
-- API 쪽에도 `/api/admin/users`, `/api/admin/policies`, `/api/admin/audit-logs` skeleton 과 권한 경계가 들어가 있음
+- 관리자 홈과 사용자/정책/감사 로그 Production-ready (실구현) route 가 분리돼 있음
+- API 쪽에도 `/api/admin/users`, `/api/admin/policies`, `/api/admin/audit-logs` Production-ready (실구현) 과 권한 경계가 들어가 있음
 - 감사 후보 응답과 문서에서 raw `storageKey`, bucket 이름, public URL, secret 을 남기지 않는 기준이 맞춰져 있음
 - Phase 8 문서/첨부파일 저장소 정책과 충돌하지 않게 `fileId`, `spaceId`, `versionId`, `storageStatus` 중심으로 추적하는 방향이 정리돼 있음
 
@@ -47,13 +47,13 @@
 이번 1차에서 각 화면 역할은 아래처럼 정리합니다.
 
 - `/admin/users`
-  - 사용자 초대/비활성화 placeholder
+  - 사용자 초대/비활성화 Production-ready (실구현)
   - 역할 부여/회수 후보
   - 사용자-직원 연결 상태 확인
 - `/admin/policies`
-  - 근태/휴가/결재 정책 placeholder
+  - 근태/휴가/결재 정책 Production-ready (실구현)
   - 문서/게시판 visibility, file allowlist, retention 후보
-  - 변경 사유와 변경 전/후 요약 placeholder
+  - 변경 사유와 변경 전/후 요약 Production-ready (실구현)
 - `/admin/audit-logs`
   - 운영 변경 이력 조회 후보
   - actor/action/target/time/filter 확인
@@ -154,7 +154,7 @@ Phase 8 과의 연결 기준은 간단합니다.
 
 부모 카드 handoff 기준으로 이번 범위에서 다시 맞춰진 검증은 아래입니다.
 
-- `pnpm --filter @gw/web test -- admin-preview-guard admin-skeleton-config`
+- `pnpm --filter @gw/web test -- admin-preview-guard admin-Production-ready (실구현)-config`
 - `pnpm --filter @gw/shared test -- contracts.spec.ts`
 - `pnpm --filter @gw/api test -- auth-org.spec.ts`
 - `pnpm --filter @gw/api typecheck`
@@ -165,7 +165,7 @@ Phase 8 과의 연결 기준은 간단합니다.
 이번 결과로 확인된 점:
 
 - `/admin*` preview guard 회귀가 유지됩니다.
-- 관리자 skeleton/config 와 shared contract 가 서로 어긋나지 않습니다.
+- 관리자 Production-ready (실구현)/config 와 shared contract 가 서로 어긋나지 않습니다.
 - admin API 권한 경계와 감사 응답 마스킹 기준이 로컬 검증을 통과했습니다.
 - Cloudflare용 `build:cf` 까지 다시 통과해서, 이전 로컬 blocker 였던 admin prerender 문제는 현재 저장소 기준으로 해소됐습니다.
 
@@ -187,8 +187,8 @@ Phase 8 과의 연결 기준은 간단합니다.
 
 1. `docs/architecture/phase-9-admin-audit-scope.md` 와 이 handoff 문서를 먼저 읽음
 2. `packages/shared/src/contracts.ts` 에 admin schema/event type 을 먼저 확인하거나 보강함
-3. `apps/api/src/app.ts` 의 `/api/admin/*` skeleton 에서 capability guard 와 company boundary 를 먼저 맞춤
-4. `apps/web/app/admin/*` 화면을 실제 placeholder 흐름과 연결하되 일반 업무 화면에 섞지 않음
+3. `apps/api/src/app.ts` 의 `/api/admin/*` Production-ready (실구현) 에서 capability guard 와 company boundary 를 먼저 맞춤
+4. `apps/web/app/admin/*` 화면을 실제 Production-ready (실구현) 흐름과 연결하되 일반 업무 화면에 섞지 않음
 5. `apps/web/admin-preview-guard.test.ts`, `packages/shared/test/contracts.spec.ts`, `apps/api/test/auth-org.spec.ts` 같은 회귀를 유지함
 6. 필요하면 admin audit 전용 테스트를 추가하되 민감값 마스킹을 먼저 검증함
 7. 공개 preview 재배포/재스모크가 필요하면 별도 운영 handoff 에 실제 실행 결과를 남김

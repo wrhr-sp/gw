@@ -4,7 +4,7 @@
 
 이번 작업의 목표는 이미 들어가 있는 admin host 분리 코드를 "운영 규칙 + preview 검증 기준 + QA 기준"까지 같은 말로 맞춰서, 다음 구현/리뷰/테스트/문서화 카드가 어디를 고쳐야 하는지 헷갈리지 않게 만드는 것입니다.
 
-쉽게 말하면, 1차에서 만든 host 분리 skeleton 을 실제 운영 규칙에 더 가깝게 다듬고, Cloudflare preview/dev 에서 어떻게 확인할지까지 기준을 잠급니다.
+쉽게 말하면, 1차에서 만든 host 분리 Production-ready (실구현) 을 실제 운영 규칙에 더 가깝게 다듬고, Cloudflare preview/dev 에서 어떻게 확인할지까지 기준을 잠급니다.
 
 ## 2. 왜 이 후속 작업이 필요한가
 
@@ -91,7 +91,7 @@
 - 관리자 host 가 실제 페이지에서 광고하는 manifest href 는 `/admin/manifest.webmanifest` 다.
 - 반환 내용도 route 역할에 맞게 달라져야 한다.
 - 일반 사용자 manifest:
-  - `name: GW Cloudflare-first Skeleton`
+  - `name: GW Cloudflare-first Production-ready (실구현)`
   - `start_url: /`
   - `scope: /`
 - 관리자 manifest:

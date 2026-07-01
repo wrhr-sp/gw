@@ -16,7 +16,7 @@
 
 아직 운영 완료로 보면 안 되는 것:
 
-- placeholder/skeleton 상태의 저장·승인·업로드·배포 표현
+- Production-ready (실구현)/Production-ready (실구현) 상태의 저장·승인·업로드·배포 표현
 - 실제 production 데이터 반영
 - 외부 서비스 실연동
 - 실제 스토어/실기기 배포
@@ -49,7 +49,7 @@
 최종 결론표:
 
 - 지금 확인됨
-- 아직 skeleton/preview
+- 아직 Production-ready (실구현)/preview
 - 별도 승인 필요
 
 중요:
@@ -64,19 +64,19 @@
 - Web/live 근거가 있어도 mobile 쪽 승인 게이트가 사라지는 것은 아니다.
 - `/admin/*` 운영 화면은 mobile 기본 탭이나 일반 직원 핵심 흐름으로 섞지 않는다.
 
-### 3) placeholder/skeleton 은 "아직 운영 전"이라는 뜻을 숨기면 안 된다.
+### 3) Production-ready (실구현)/Production-ready (실구현) 은 "아직 운영 전"이라는 뜻을 숨기면 안 된다.
 
 특히 다시 볼 것:
 
 - 저장/승인/배포가 실제 완료처럼 읽히는 문구가 없는지
 - empty 와 error 를 섞어 쓰지 않는지
-- 권한 부족/회사 scope/정책 미허용/placeholder 제한이 구분되는지
+- 권한 부족/회사 scope/정책 미허용/Production-ready (실구현) 제한이 구분되는지
 - 승인 항목이 개발 TODO 속에 숨어버리지 않는지
 
 ## 3. 대장이 가장 먼저 볼 5가지 질문
 
 1. 지금 저장소에서 바로 확인 가능한 핵심 흐름은 무엇인가?
-2. 아직 skeleton/preview 라서 운영 완료처럼 보면 안 되는 것은 무엇인가?
+2. 아직 Production-ready (실구현)/preview 라서 운영 완료처럼 보면 안 되는 것은 무엇인가?
 3. production 운영 전에 별도 승인·계정·비용·권한이 필요한 것은 무엇인가?
 4. live/PWA/API/mobile 확인 포인트가 서로 다른 말을 하지 않는가?
 5. 관리자와 일반 사용자 경계가 route·문서·QA 기준에서 같은 뜻인가?
@@ -139,7 +139,7 @@
 
 집중할 것:
 
-- placeholder/skeleton 이 실제 운영 완료처럼 읽히지 않는지
+- Production-ready (실구현)/Production-ready (실구현) 이 실제 운영 완료처럼 읽히지 않는지
 - live/PWA/API/mobile 설명이 서로 충돌하지 않는지
 - 관리자/일반 사용자 경계가 약해지지 않는지
 - 승인 게이트가 구현 TODO에 묻히지 않는지
@@ -185,7 +185,7 @@
 ## 8. 다음 작업자가 기억할 6가지
 
 1. 이번 Phase 20의 목적은 새 기능 확장이 아니라 운영 전 오해 방지 정리다.
-2. 문서 결론은 항상 "지금 확인됨 / 아직 skeleton / 승인 필요" 3분류로 모은다.
+2. 문서 결론은 항상 "지금 확인됨 / 아직 Production-ready (실구현) / 승인 필요" 3분류로 모은다.
 3. mobile 은 전체 readiness 의 일부이지 전체를 대신하지 않는다.
 4. `/admin/*` 운영 기능과 일반 사용자 핵심 흐름을 다시 섞지 않는다.
 5. live/PWA/API/mobile 검증 포인트는 따로 보되 최종 결론은 같은 언어로 맞춘다.

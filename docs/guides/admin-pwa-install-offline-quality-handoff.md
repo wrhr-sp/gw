@@ -12,7 +12,7 @@
 - `/manifest.webmanifest` 와 `/admin/manifest.webmanifest` 분리
 - 관리자용 아이콘 파일명 분리
 - host 에 따라 app shell/nav/install steps 를 바꿀 수 있는 config
-- 공통 오프라인 안내 페이지와 online/offline banner skeleton
+- 공통 오프라인 안내 페이지와 online/offline banner Production-ready (실구현)
 - 관리자 host route boundary 와 manifest 분기 테스트 기초
 
 즉, 이번 작업은 "없는 기능을 처음 설계"하는 단계가 아니라,
@@ -66,7 +66,7 @@
 무조건 많이 넣는 것이 목표가 아닙니다.
 브라우저별 의미를 설명하기 어려운 값은 별도 후속으로 빼도 됩니다.
 
-### gap 4. placeholder 아이콘 상태를 숨기면 안 된다
+### gap 4. Production-ready (실구현) 아이콘 상태를 숨기면 안 된다
 
 현재 관리자 아이콘 파일 분리는 되어 있지만,
 이것이 "최종 브랜딩 자산 완성"을 뜻하는 것은 아닙니다.
@@ -76,7 +76,7 @@
 - 일반/관리자 아이콘 파일이 섞이지 않음
 - 관리자 manifest 가 192/512, any/maskable 구성을 유지함
 - 테스트가 아이콘 경로/purpose 를 회귀 보호함
-- 문서가 placeholder 자산 상태를 숨기지 않음
+- 문서가 Production-ready (실구현) 자산 상태를 숨기지 않음
 
 ## 3. 구현 우선순위
 
@@ -93,7 +93,7 @@
 2. 관리자 앱의 주요 사용 화면(`/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs`)을 드러낼 것
 3. 관리자 오프라인 제약 문구가 공통 오프라인 안내보다 더 구체적일 것
 4. manifest 세부값이 테스트로 보호될 것
-5. placeholder 아이콘 상태를 문서/문구가 과장하지 않을 것
+5. Production-ready (실구현) 아이콘 상태를 문서/문구가 과장하지 않을 것
 
 ### 2순위. app shell / offline page 를 host-aware copy 로 보강
 
@@ -185,7 +185,7 @@ bash scripts/gw-admin-host-preview-smoke.sh
 - `TEST_PLAN.md`: install/manual/Lighthouse smoke 기준
 - `QA_CHECKLIST.md`: 관리자 설치 copy, maskable/icons, offline honesty 체크
 - `HANDOFF.md`: 현재 활성 체인과 남은 quality gap
-- `KNOWN_ISSUES.md`: placeholder icon/native 미포함 범위 명시
+- `KNOWN_ISSUES.md`: Production-ready (실구현) icon/native 미포함 범위 명시
 - `CHANGELOG.md`: 이번 품질 개선 내용 기록
 
 ## 8. 이번 범위에서 하지 말 것

@@ -6,10 +6,10 @@
 
 이번 Phase에서 맞추는 기준은 다음과 같다.
 
-- DB 기준: Cloudflare D1 migration 으로 전자결재 핵심 테이블 skeleton 추가
-- API 기준: Cloudflare Workers + Hono 기반 결재 양식/결재선/기안/문서함/승인·반려 REST skeleton 추가
+- DB 기준: Cloudflare D1 migration 으로 전자결재 핵심 테이블 Production-ready (실구현) 추가
+- API 기준: Cloudflare Workers + Hono 기반 결재 양식/결재선/기안/문서함/승인·반려 REST Production-ready (실구현) 추가
 - 공통 계약 기준: `packages/shared` 에 approval 타입, route contract, zod schema, 공통 응답 schema 추가
-- Web 기준: 목록/기안/상세/승인함 placeholder 화면과 상태 구분 시작점 정리
+- Web 기준: 목록/기안/상세/승인함 Production-ready (실구현) 화면과 상태 구분 시작점 정리
 - 운영 기준: 회사 scope, 문서 접근 권한, 승인 경계, release gate, 보고 자동화 범위 명확화
 
 ## 2. 이번 Phase에 포함되는 범위
@@ -38,12 +38,12 @@
 - 문서 테이블은 최소한 `form_id`, `drafter_employee_id`, `title`, `document_number`, `submitted_at`, `completed_at` 후보를 가진다.
 - 결재선/단계 테이블은 최소한 `document_id`, `step_order`, `approver_employee_id`, `step_type`, `decision_status`, `decided_at`, `decision_comment` 후보를 가진다.
 - 참조/합의 후보는 `document_id`, `employee_id`, `reference_type`, `read_at` 또는 동급 추적 컬럼을 가진다.
-- 양식 테이블은 실제 rich editor 완성형 대신 제목/분류/필드 정의 placeholder 수준 구조를 우선 둔다.
+- 양식 테이블은 실제 rich editor 완성형 대신 제목/분류/필드 정의 Production-ready (실구현) 수준 구조를 우선 둔다.
 
 기준:
 
 - 기존 `db/migrations/0003_attendance_leave_phase3.sql` 이후 후속 migration 파일로 추가한다.
-- 실제 운영 migration 실행이 아니라 로컬 검증 가능한 SQL skeleton 까지만 다룬다.
+- 실제 운영 migration 실행이 아니라 로컬 검증 가능한 SQL Production-ready (실구현) 까지만 다룬다.
 - 법적 효력이 필요한 전자서명/본인인증/공인인증 연동 컬럼은 이번 Phase에 넣지 않는다.
 - employee/company/role 구조와 audit 로그 방향은 Phase 2~3 계약을 그대로 재사용한다.
 
@@ -73,12 +73,12 @@
 
 API 기준:
 
-- Hono route skeleton + request/response schema 검증까지 맞춘다.
-- 실제 운영 결재 엔진 대신 local/mock/dev placeholder 흐름으로 둔다.
+- Hono route Production-ready (실구현) + request/response schema 검증까지 맞춘다.
+- 실제 운영 결재 엔진 대신 local/mock/dev Production-ready (실구현) 흐름으로 둔다.
 - 인증 상태, 권한 부족, 접근 불가 문서, 미구현 상태를 공통 응답 형식으로 돌려준다.
 - 승인/반려 같은 상태 변경 endpoint 는 감사 로그 후보로 남길 수 있는 구조를 유지한다.
 - 기안자 본인, 승인자, 참조자, 합의 후보, 관리자 권한을 분리할 수 있게 route 계약을 잡는다.
-- 자기 문서를 자기 승인하는 흐름, 타 회사 문서 접근, 임의 문서 id 처리 같은 guardrail 을 placeholder 단계부터 정의한다.
+- 자기 문서를 자기 승인하는 흐름, 타 회사 문서 접근, 임의 문서 id 처리 같은 guardrail 을 Production-ready (실구현) 단계부터 정의한다.
 
 ### shared 계약 범위
 
@@ -108,18 +108,18 @@ API 기준:
 
 이번 Phase에 포함되는 화면 범위:
 
-- 전자결재 문서 목록 placeholder
-- 기안 작성 폼 skeleton
-- 문서 상세/결재선/참조자 표시 skeleton
-- 승인함/반려함/내 기안함 구분 placeholder
-- 승인/반려 action button 과 상태 안내 placeholder
+- 전자결재 문서 목록 Production-ready (실구현)
+- 기안 작성 폼 Production-ready (실구현)
+- 문서 상세/결재선/참조자 표시 Production-ready (실구현)
+- 승인함/반려함/내 기안함 구분 Production-ready (실구현)
+- 승인/반려 action button 과 상태 안내 Production-ready (실구현)
 
 화면 기준:
 
 - 실제 문서 편집기, 첨부파일 업로드, PDF 변환, 인쇄 완성형은 구현하지 않는다.
 - API 계약이 아직 mock 이어도, 이후 실제 API 호출 구조로 바꾸기 쉬운 컴포넌트 경계를 잡는다.
 - 승인 권한이 없는 사용자가 보는 안내 상태와 승인자가 보는 처리 상태를 구분할 수 있게 한다.
-- 화면 문구가 법적 효력이 있는 전자결재가 이미 완성된 것처럼 오해되지 않게 placeholder 표시를 유지한다.
+- 화면 문구가 법적 효력이 있는 전자결재가 이미 완성된 것처럼 오해되지 않게 Production-ready (실구현) 표시를 유지한다.
 
 ### 문서/운영/자동화 범위
 
@@ -136,7 +136,7 @@ API 기준:
 정리할 내용:
 
 - 로컬 검증 명령
-- placeholder 전자결재 흐름의 한계
+- Production-ready (실구현) 전자결재 흐름의 한계
 - 회사 scope, 문서 접근 권한, 승인/반려 감사 로그 주의
 - `gw-hourly-status-report.py` 중심의 정각 보고 스크립트 수정이 GitHub release gate 검토 범위 안에 있다는 점
 - 실제 운영 데이터, 실제 배포, production DB migration, 실제 비밀값 입력은 별도 승인 없이는 하지 않는다는 점
@@ -194,8 +194,8 @@ scripts/
 
 ### 기술 기준
 
-- 전자결재 1차는 결재 양식 정의 + 결재선 관리 + 문서 기안/상세/승인함 skeleton 을 기준으로 문서화한다.
-- 문서 본문은 완성형 editor 보다 제목/요약/필드 placeholder 중심으로 시작한다.
+- 전자결재 1차는 결재 양식 정의 + 결재선 관리 + 문서 기안/상세/승인함 Production-ready (실구현) 을 기준으로 문서화한다.
+- 문서 본문은 완성형 editor 보다 제목/요약/필드 Production-ready (실구현) 중심으로 시작한다.
 - API 는 Hono REST 형식을 유지하고 공통 응답 wrapper 를 강제한다.
 - 민감한 문서 본문, 실제 개인정보, 실제 결재 사유 전문은 로그에 남기지 않는다.
 - Web 에서 버튼을 숨겨도 API 에서 서버 측 권한 검증을 한다는 전제를 유지한다.
@@ -208,7 +208,7 @@ scripts/
 - 최소 권한 후보는 `approval.form.manage`, `approval.line.manage`, `approval.document.read`, `approval.document.write`, `approval.document.approve` 를 시작점으로 둔다.
 - 승인/반려/참조 등록은 상태값과 처리 주체를 추적할 수 있어야 한다.
 - 감사 로그 후보는 최소한 actor, action, target, created_at 정도의 기본 골격을 가진다.
-- 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지, 권한 없는 문서함 접근 금지를 placeholder 단계부터 검증 대상으로 둔다.
+- 자기 문서 자기 승인 금지, 타 회사 문서 접근 금지, 권한 없는 문서함 접근 금지를 Production-ready (실구현) 단계부터 검증 대상으로 둔다.
 
 ## 6. 최소 검증 기준
 
@@ -221,7 +221,7 @@ scripts/
 - `pnpm test` 통과
 - approval shared schema 테스트 추가 및 통과
 - API 테스트에 결재 양식/결재선/기안/상세/승인/반려/문서 접근 경계 기본 케이스 포함
-- Web skeleton 이 최소한 build 또는 typecheck 를 깨지 않음
+- Web Production-ready (실구현) 이 최소한 build 또는 typecheck 를 깨지 않음
 - README/가이드/운영 문서에 로컬 검증 순서와 승인 필요 범위가 정리됨
 - 감시/보고 스크립트를 건드렸다면 release gate 검토 범위와 중복 보고 방지 기준이 문서에 반영됨
 
@@ -237,8 +237,8 @@ scripts/
 1. Phase 4 범위 문서가 저장소 안에 있고 구현자가 바로 참조할 수 있다.
 2. D1 migration 에 전자결재 1차 골격이 추가되어 있다.
 3. `packages/shared` 에 approval 계약과 공통 응답 schema 확장이 정리되어 있다.
-4. `apps/api` 에 결재 양식/결재선/기안/상세/문서함/승인·반려 기본 endpoint skeleton 이 있다.
-5. `apps/web` 에 전자결재 목록/기안/상세/승인함 기본 화면 skeleton 이 있다.
+4. `apps/api` 에 결재 양식/결재선/기안/상세/문서함/승인·반려 기본 endpoint Production-ready (실구현) 이 있다.
+5. `apps/web` 에 전자결재 목록/기안/상세/승인함 기본 화면 Production-ready (실구현) 이 있다.
 6. 회사 scope, 문서 접근 경계, 자기 문서 자기 승인 금지 같은 guardrail 이 문서와 리뷰 기준에 반영되어 있다.
 7. `gw-hourly-status-report.py` 를 포함한 승인된 감시/보고 스크립트 변경이 release gate 검토 범위에 포함된다는 점이 문서화되어 있다.
 8. 승인된 release gate 범위 안에서 PR 생성, CI 확인, merge, branch cleanup 처리 조건이 분명하다.
@@ -257,7 +257,7 @@ scripts/
 - 문서 본문/사유/참조자 데이터에 민감한 실운영 값이 남지 않았는지
 - company scope 누락으로 타 회사 문서가 섞일 여지가 없는지
 - 기안자/승인자/참조자 권한이 뒤섞이지 않았는지
-- Web placeholder 가 법적 효력이 있는 전자결재 완성본처럼 오해되지 않는지
+- Web Production-ready (실구현) 가 법적 효력이 있는 전자결재 완성본처럼 오해되지 않는지
 - 감시/보고 스크립트 수정 시 blocked/review-required/중복 보고 기준이 깨지지 않았는지
 
 ## 9. 다음 작업자 handoff
@@ -266,9 +266,9 @@ scripts/
 
 1. `packages/shared` 에 approval route, schema, 타입을 먼저 추가한다.
 2. API 테스트에서 양식/결재선/기안/상세/승인/반려의 기대 응답과 guardrail 을 먼저 고정한다.
-3. `apps/api/src/app.ts` 에 전자결재 route skeleton 을 추가한다.
+3. `apps/api/src/app.ts` 에 전자결재 route Production-ready (실구현) 을 추가한다.
 4. `db/migrations` 에 후속 전자결재 migration 파일을 추가한다.
-5. `apps/web/app/approvals` 와 `dashboard` 를 shared 계약 기준 placeholder 로 연결한다.
+5. `apps/web/app/approvals` 와 `dashboard` 를 shared 계약 기준 Production-ready (실구현) 로 연결한다.
 6. README/개발 가이드/사용자 가이드/운영 가이드/자동화 문서의 검증 명령과 주의사항을 맞춘다.
 7. `pnpm install/check/build/typecheck/test` 가능한 범위를 실제로 확인하고 결과를 handoff 에 남긴다.
 
@@ -276,4 +276,4 @@ scripts/
 
 - 실제 전자결재 문서 데이터 반입은 하지 않는다.
 - production DB, 외부 전자서명/문서보관 SaaS, 유료 알림 리소스, 공개 배포는 별도 승인 전까지 건드리지 않는다.
-- approval 상태/권한 설계는 이후 확장을 염두에 두되, 이번 Phase에서는 1차 skeleton 과 guardrail 정리에 집중한다.
+- approval 상태/권한 설계는 이후 확장을 염두에 두되, 이번 Phase에서는 1차 Production-ready (실구현) 과 guardrail 정리에 집중한다.

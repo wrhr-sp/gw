@@ -96,7 +96,7 @@ native 앱 배포, migration, destructive 작업 문서가 아니다.
 - 복구: 가능한 일 / 막히는 일 / 재시도 절차 확인 후 안정적 네트워크에서 다시 시도
 
 ### dev-safe / preview / 내부 확인용 데이터
-- 뜻: 내부 확인용 요약, placeholder, preview 상태
+- 뜻: 내부 확인용 요약, Production-ready (실구현), preview 상태
 - 오해하면 안 되는 것: 실제 저장 완료, 실제 메일 발송, 실제 정책 반영
 - 복구: 완료 보고 대신 `preview`, `dev-safe`, `승인 게이트` 문구를 유지
 

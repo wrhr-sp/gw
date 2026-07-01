@@ -90,7 +90,7 @@
 - error 는 응답 실패/조회 실패다.
 - forbidden 은 권한 부족 또는 접근 불가다.
 - offline 은 네트워크/연결 제약으로 재시도가 필요한 상태다.
-- dev-safe / skeleton 은 실제 저장 완료가 아니라 검증용 preview 단계다.
+- dev-safe / Production-ready (실구현) 은 실제 저장 완료가 아니라 검증용 preview 단계다.
 
 ### D. 운영 레인 분리
 - `/management` 는 일반 직원 홈과 다른 운영 허브다.

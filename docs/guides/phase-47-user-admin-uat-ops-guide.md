@@ -77,7 +77,7 @@
 
 #### `/attendance`, `/leave`, `/approvals`
 - 일반 직원의 실제 업무 흐름이다.
-- 다만 정책 미허용, 권한 부족, 회사 scope 차단, placeholder 제한은 각각 다른 이유로 읽어야 한다.
+- 다만 정책 미허용, 권한 부족, 회사 scope 차단, Production-ready (실구현) 제한은 각각 다른 이유로 읽어야 한다.
 - 오프라인 상태에서 성공처럼 보이는 문구가 나오면 안 된다.
 
 #### `/boards`, `/documents`

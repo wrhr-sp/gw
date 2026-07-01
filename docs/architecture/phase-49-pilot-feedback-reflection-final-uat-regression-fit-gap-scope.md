@@ -11,7 +11,7 @@
 이미 열어 둔 로그인/홈/일반업무/운영업무/감사/지점 업무 흐름을
 실제 파일럿 관점으로 다시 눌러 보면서
 1) 어디가 바로 써도 되는지
-2) 어디가 아직 preview/dev-safe/read-only/skeleton 인지
+2) 어디가 아직 preview/dev-safe/read-only/Production-ready (실구현) 인지
 3) 어디가 권한/승인 게이트 때문에 막히는지
 를 더 또렷하게 고정하는 단계다.
 
@@ -123,7 +123,7 @@ Phase 48에서는 감사·보안·운영 최소 기준선을 다시 묶었다.
 ### 5-2. 파일럿 피드백을 화면/문서/테스트 같은 언어로 묶는다
 - 홈(`/dashboard`)에서 오늘 할 일과 운영 CTA 가 섞이지 않는지 다시 본다.
 - 계정관리 preview, 게시판/문서 협업, 근태/휴가/결재 상태 변경, 지점 업무, 감사 read-only 설명이 각각 무엇을 직접 확인하는 단계인지 다시 맞춘다.
-- skeleton/placeholder/dev-safe/read-only 문구를 숨기지 않고, 실제 저장/실지급/실신고/외부연동 완료처럼 보이지 않게 유지한다.
+- Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 문구를 숨기지 않고, 실제 저장/실지급/실신고/외부연동 완료처럼 보이지 않게 유지한다.
 
 ### 5-3. 최종 UAT 회귀 기록 기준을 잠근다
 - 각 핵심 기능마다 happy path, forbidden, empty, error, loading, mobile/PC 확인 포인트를 남긴다.
@@ -195,7 +195,7 @@ Phase 48에서는 감사·보안·운영 최소 기준선을 다시 묶었다.
 
 ## 9. 역할별 후속 작업 기준
 - builder: 역할별 파일럿 회귀를 실제 화면 흐름으로 더 또렷하게 만들고, 운영/지점/감사 레인 혼동을 줄이는 UX·copy·guard 보강
-- reviewer: 역할 경계, branch/company scope, dev-safe/read-only/skeleton 과장, 승인 게이트 누락을 검토
+- reviewer: 역할 경계, branch/company scope, dev-safe/read-only/Production-ready (실구현) 과장, 승인 게이트 누락을 검토
 - tester: 직원/운영 관리자/지점관리자/감사 레인 UAT 회귀와 happy/forbidden/empty/error/loading/mobile/PC 기록 재검증
 - docs: 최종 UAT 절차, 파일럿 피드백 기록 형식, 최종 보고 패키지 문장을 쉬운 말로 정리
 - ops: live URL, smoke 대상, release gate, rollback/runbook 확인 순서를 최종 결과 보고 형식으로 정리

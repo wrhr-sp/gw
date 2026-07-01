@@ -9,7 +9,7 @@
 핵심은 새 외부 연동을 여는 것이 아니라,
 직원과 승인자가 `/dashboard` 에서 시작해 `/approvals`, `/boards`, `/documents` 를 자연스럽게 오가고,
 운영자는 공지/문서 정책/권한/audit 경계를 별도 레인으로 관리하며,
-각 화면이 placeholder 를 숨기지 않으면서도 "지금 내부 도입 가능한 수준"으로 읽히게 만드는 것이다.
+각 화면이 Production-ready (실구현) 를 숨기지 않으면서도 "지금 내부 도입 가능한 수준"으로 읽히게 만드는 것이다.
 
 ## 2. 왜 지금 이 Phase가 필요한가
 
@@ -69,8 +69,8 @@
 - `apps/web/app/approvals/page.tsx`
   - 내 승인함/내 기안함/참조·합의 문서함,
     기안 stepper,
-    승인/반려 placeholder,
-    권한 부족/self-approval/company scope/placeholder 제한 4축을 보여 준다.
+    승인/반려 Production-ready (실구현),
+    권한 부족/self-approval/company scope/Production-ready (실구현) 제한 4축을 보여 준다.
 - `apps/web/app/_components/real-usage-panels.tsx`
   - `ApprovalsLiveSection` 에서 실제 결재함 조회, 기안 preview 생성, 팀 문서 승인/반려 mutation 을 직접 검증할 수 있다.
 - `apps/api/test/auth-org.spec.ts`
@@ -152,7 +152,7 @@
 - self-approval 금지
 - forged/unknown document id 차단
 - 1회 승인 후 replay 차단
-- placeholder note 와 실운영 법적 효력을 같은 뜻으로 적지 않기
+- Production-ready (실구현) note 와 실운영 법적 효력을 같은 뜻으로 적지 않기
 
 ### 4-4. 홈/대시보드에서 "오늘 할 협업 업무"를 먼저 읽히게 맞춘다
 
@@ -214,7 +214,7 @@
 5. 전자결재에서 기안자 lane 과 승인자 lane, 운영 정책 lane 이 서로 섞이지 않는가
 6. self-approval 금지, replay 차단, permission 차단이 단순 에러가 아니라 핵심 guardrail 로 분명한가
 7. `/boards`·`/documents` 일반 협업 흐름과 `/admin/policies`·`/admin/audit-logs` 운영 검토 흐름이 섞이지 않는가
-8. 여전히 placeholder 인 것과 지금 바로 내부 도입 가능한 것을 같은 말로 쓰지 않는가
+8. 여전히 Production-ready (실구현) 인 것과 지금 바로 내부 도입 가능한 것을 같은 말로 쓰지 않는가
 
 ## 7. 권장 확인 순서
 

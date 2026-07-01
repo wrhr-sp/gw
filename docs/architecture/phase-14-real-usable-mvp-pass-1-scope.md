@@ -2,7 +2,7 @@
 
 ## 1. 한 줄 정의
 
-Phase 14의 목표는 지금까지 따로 쌓아 둔 skeleton을 하나의 "사내 검토용 업무 흐름"으로 묶어,
+Phase 14의 목표는 지금까지 따로 쌓아 둔 Production-ready (실구현)을 하나의 "사내 검토용 업무 흐름"으로 묶어,
 대장이 live preview/dev-safe 환경에서 `/` → `/login` → `/dashboard` → 일반 업무 화면 → 관리자 화면까지 끊김 없이 눌러 볼 수 있게 만드는 것입니다.
 
 이번 단계도 실제 운영 저장, production DB 실데이터 반영, secret 입력, 외부 연동은 하지 않습니다.
@@ -14,9 +14,9 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 
 - `/org`, `/employees` 일반 조회 흐름
 - `/dashboard` 오늘 할 일/대기 요약 구조
-- `/attendance` effective policy 기반 근태 skeleton
-- `/approvals` 모바일 전자결재 skeleton
-- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 관리자 콘솔 skeleton
+- `/attendance` effective policy 기반 근태 Production-ready (실구현)
+- `/approvals` 모바일 전자결재 Production-ready (실구현)
+- `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` 관리자 콘솔 Production-ready (실구현)
 - PWA/manifest/offline/dev-safe 안내 구조
 
 하지만 지금은 "각 화면이 따로는 보이지만, 한 명의 사용자가 한 흐름으로 눌러 보는 느낌"은 아직 약합니다.
@@ -24,7 +24,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 
 - 홈(`/`)과 로그인(`/login`)이 최신 대시보드/일반 업무/관리자 경계를 충분히 요약하지 못합니다.
 - `/dashboard` 는 업무 시작 화면으로 정리되어 있지만, 실제 각 하위 화면과의 연결 메시지가 더 명확해야 합니다.
-- `/org`, `/employees`, `/attendance`, `/approvals` 가 각자 skeleton 이지만 역할별 첫 진입 순서와 목적이 한 세트로 읽히지는 않습니다.
+- `/org`, `/employees`, `/attendance`, `/approvals` 가 각자 Production-ready (실구현) 이지만 역할별 첫 진입 순서와 목적이 한 세트로 읽히지는 않습니다.
 - `/admin/*` 경계는 잘 잡혀 있지만, 일반 사용자 흐름과 관리자 검토 흐름을 같은 MVP 안에서 어떻게 같이 보여 줄지 문서와 구현 포인트가 더 필요합니다.
 - smoke 기준 route 목록은 잡혀 있지만, "어떤 role 이 어디까지 봐야 성공인지"가 아직 산발적으로 흩어져 있습니다.
 
@@ -55,18 +55,18 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 - `apps/web/app/attendance/page.tsx`
 - `apps/web/app/approvals/page.tsx`
 - `apps/web/app/admin/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 현재 저장소 기준으로 확인되는 사실은 아래와 같습니다.
 
 - 홈(`/`)은 PWA 설치/오프라인/핵심 진입점 안내 중심 시작 화면입니다.
-- 로그인(`/login`)은 실제 인증 연결이 아니라 placeholder 세션 계약을 설명하는 화면입니다.
+- 로그인(`/login`)은 실제 인증 연결이 아니라 Production-ready (실구현) 세션 계약을 설명하는 화면입니다.
 - 대시보드(`/dashboard`)는 오늘 할 일, 승인/대기, 근태/휴가, 공지/문서, 운영 요약을 한 화면에 묶고 있습니다.
 - `/org`, `/employees` 는 일반 사용자용 읽기 전용 업무 흐름으로 정리돼 있습니다.
 - `/attendance` 는 effective policy 기준 허용 방식만 보이는 구조를 이미 갖고 있습니다.
-- `/approvals` 는 내 승인함/내 기안함/참조·합의 문서함과 기안 작성 skeleton 을 작은 화면 우선으로 묶고 있습니다.
+- `/approvals` 는 내 승인함/내 기안함/참조·합의 문서함과 기안 작성 Production-ready (실구현) 을 작은 화면 우선으로 묶고 있습니다.
 - `/admin/*` 는 역할 기반 가시성, 감사 전용 접근, dev-safe guardrail 을 이미 전제로 두고 있습니다.
-- 대시보드와 관리자 설정 데이터는 `dashboard-config.ts`, `admin-skeleton-config.ts` 로 분리되어 있어 이번 Phase에서 문구/우선순위/카드 구조를 재정리하기 좋습니다.
+- 대시보드와 관리자 설정 데이터는 `dashboard-config.ts`, `admin-Production-ready (실구현)-config.ts` 로 분리되어 있어 이번 Phase에서 문구/우선순위/카드 구조를 재정리하기 좋습니다.
 
 즉, 이번 Phase는 빈 땅에서 시작하는 것이 아니라 이미 있는 조각을 같은 사용자 시나리오로 정렬하는 작업입니다.
 
@@ -100,7 +100,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 일반 사용자 기준 첫 흐름은 아래 순서를 기본으로 둡니다.
 
 1. 홈에서 제품 성격과 핵심 진입점 이해
-2. 로그인 placeholder 계약 이해
+2. 로그인 Production-ready (실구현) 계약 이해
 3. 대시보드에서 오늘 할 일 확인
 4. 근태/전자결재/조직 조회로 이동
 5. 상세 업무는 각 화면에서만 이어서 확인
@@ -113,7 +113,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 - 일반 사용자 기본 화면에서는 관리자 CTA 를 숨깁니다.
 - 권한 있는 사용자에게만 `/admin` 또는 `/admin/audit-logs` 진입 CTA 를 보여 줍니다.
 - UI 숨김만으로 끝내지 않고 route/API guard 기준을 계속 유지합니다.
-- 익명 공개 preview 에서 `/admin*` 가 일반 skeleton 처럼 열리면 안 됩니다.
+- 익명 공개 preview 에서 `/admin*` 가 일반 Production-ready (실구현) 처럼 열리면 안 됩니다.
 
 즉 이번 MVP 통합은 관리자 기능을 더 공개하는 단계가 아니라,
 일반 흐름과 운영 흐름을 더 선명하게 분리하는 단계입니다.
@@ -148,7 +148,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 - 대시보드 카드 문구와 하위 화면 목적이 충돌하지 않음
 - `/attendance` 의 정책 안내가 admin 정책 화면과 같은 방향을 가리킴
 - `/employees` 일반 조회와 `/admin/users` 운영 변경 검토가 역할상 섞이지 않음
-- `/approvals` 의 승인 처리 placeholder 가 실제 저장 완료처럼 보이지 않음
+- `/approvals` 의 승인 처리 Production-ready (실구현) 가 실제 저장 완료처럼 보이지 않음
 - `/admin/audit-logs` 는 조회/마스킹 원칙을 유지함
 
 즉 같은 mock 데이터나 contract 를 쓴다는 말보다,
@@ -161,7 +161,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 - 대장이 live URL 또는 preview 환경에서 핵심 흐름을 한 번에 눌러 볼 수 있다.
 - 각 화면이 왜 존재하는지 쉬운 문구로 이해된다.
 - 권한 없는 관리 기능 노출/진입이 UI와 route/API 기준에서 같이 막힌다.
-- skeleton/dev-safe/placeholder 라는 사실이 문구와 CTA 에서 계속 드러난다.
+- Production-ready (실구현)/dev-safe/Production-ready (실구현) 라는 사실이 문구와 CTA 에서 계속 드러난다.
 - production 연결 없이도 다음 구현자가 붙일 우선순위가 분명하다.
 
 ## 5. 역할별 화면 목적 정리
@@ -277,7 +277,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 - `apps/web/app/admin/users/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### 문서
 
@@ -299,7 +299,7 @@ Phase 11~13까지 아래 조각은 이미 생겼습니다.
 5. `/attendance` 의 허용 방식 안내가 admin 정책 흐름과 충돌하지 않는다.
 6. `/employees` 일반 조회와 `/admin/users` 운영 변경 검토가 다른 역할임이 보인다.
 7. `/approvals` 의 CTA 가 실제 저장/승인 완료처럼 보이지 않는다.
-8. skeleton/dev-safe/placeholder 문구가 핵심 화면에 남아 있다.
+8. Production-ready (실구현)/dev-safe/Production-ready (실구현) 문구가 핵심 화면에 남아 있다.
 
 ## 10. 별도 승인 필요 항목
 

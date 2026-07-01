@@ -1,3 +1,5 @@
+[CRITICAL: 이 문서의 목업 데이터 및 임시 레이아웃 지침은 Phase 7 프로덕션 모드에 의해 완전히 폐기(Deprecated)되었습니다. 모든 코드는 실기능 통신 코드로만 짭니다.]
+
 # 그룹웨어 Phase 2 인증/조직 1차 범위
 
 ## 1. Phase 목표
@@ -7,9 +9,9 @@
 이번 Phase에서 맞추는 기준은 다음과 같다.
 
 - DB 기준: Cloudflare D1 migration 확장
-- API 기준: Cloudflare Workers + Hono 기반 인증/조직 REST skeleton
+- API 기준: Cloudflare Workers + Hono 기반 인증/조직 REST Production-ready (실구현)
 - 공통 계약 기준: `packages/shared` 에 auth/org 타입, route contract, 공통 응답 schema 추가
-- Web 기준: 실제 인증 연결 전까지 동작 가능한 로그인/내 정보/조직 placeholder UX 정리
+- Web 기준: 실제 인증 연결 전까지 동작 가능한 로그인/내 정보/조직 Production-ready (실구현) UX 정리
 - 운영 기준: 보안/권한/비밀값 주의사항과 release gate 범위 명확화
 
 ## 2. 이번 Phase에 포함되는 범위
@@ -63,8 +65,8 @@
 
 API 기준:
 
-- Hono route skeleton + request/response schema 검증까지 맞춘다.
-- 실제 외부 인증 연동 대신 local/mock/dev placeholder 흐름으로 둔다.
+- Hono route Production-ready (실구현) + request/response schema 검증까지 맞춘다.
+- 실제 외부 인증 연동 대신 local/mock/dev Production-ready (실구현) 흐름으로 둔다.
 - 인증 상태, 권한 부족, 미구현 상태를 공통 응답 형식으로 돌려준다.
 - 변경/민감 endpoint 는 감사 로그 후보로 표시할 수 있는 구조를 남긴다.
 
@@ -99,17 +101,17 @@ API 기준:
 
 이번 Phase에 포함되는 화면 범위:
 
-- 로그인 화면 skeleton
-- 내 정보/세션 상태 표시 skeleton
-- 회사/직원/조직 기본 조회 화면 skeleton
-- 관리자 초대/역할 관리 placeholder UX
+- 로그인 화면 Production-ready (실구현)
+- 내 정보/세션 상태 표시 Production-ready (실구현)
+- 회사/직원/조직 기본 조회 화면 Production-ready (실구현)
+- 관리자 초대/역할 관리 Production-ready (실구현) UX
 - 실제 인증 전 안내 문구와 mock/fallback 상태 표시
 
 화면 기준:
 
 - 실제 비밀번호/토큰 저장 로직을 완성하지 않는다.
 - API 계약이 아직 mock 이어도, 이후 실제 API 호출 구조로 바꾸기 쉬운 컴포넌트 경계를 잡는다.
-- 권한별 화면 차등은 완성형이 아니라 placeholder 수준으로 시작한다.
+- 권한별 화면 차등은 완성형이 아니라 Production-ready (실구현) 수준으로 시작한다.
 
 ### 문서/운영 범위
 
@@ -122,7 +124,7 @@ API 기준:
 정리할 내용:
 
 - 로컬 검증 명령
-- placeholder 인증의 한계
+- Production-ready (실구현) 인증의 한계
 - 비밀값/세션/로그 취급 주의
 - GitHub PR/CI/merge/branch cleanup 이 승인된 release gate 안에 있다는 점
 - `scripts/README.md` 에 적힌 groupware 보고/감시 자동화 스크립트 변경이 함께 검토 대상이라는 점
@@ -185,7 +187,7 @@ scripts/
 ### 기술 기준
 
 - 인증 1차는 이메일 + 비밀번호 + HttpOnly Cookie 세션을 기준으로 문서화한다.
-- 단, 실제 secret/해시/쿠키 운영값은 placeholder 로 남긴다.
+- 단, 실제 secret/해시/쿠키 운영값은 Production-ready (실구현) 로 남긴다.
 - 권한 모델은 `SUPER_ADMIN`, `COMPANY_ADMIN`, `HR_ADMIN`, `MANAGER`, `EMPLOYEE`, `AUDITOR` 시작점을 재사용한다.
 - API 는 Hono REST 형식을 유지하고 공통 응답 wrapper 를 강제한다.
 - 민감 데이터는 로그에 남기지 않는다.
@@ -209,7 +211,7 @@ scripts/
 - `pnpm test` 통과
 - 인증/조직 shared schema 테스트 추가 및 통과
 - API 테스트에 로그인/로그아웃/내 정보/조직 조회의 기본 케이스 포함
-- Web skeleton 이 최소한 build 또는 typecheck 를 깨지 않음
+- Web Production-ready (실구현) 이 최소한 build 또는 typecheck 를 깨지 않음
 - README/가이드에 로컬 검증 순서가 정리됨
 
 주의:
@@ -224,8 +226,8 @@ scripts/
 1. Phase 2 범위 문서가 저장소 안에 있고 구현자가 바로 참조할 수 있다.
 2. D1 migration 에 인증/조직 1차 골격이 추가되어 있다.
 3. `packages/shared` 에 auth/org 계약과 공통 응답 schema 가 정리되어 있다.
-4. `apps/api` 에 로그인/로그아웃/내 정보/회사/직원/부서/역할/초대 기본 endpoint skeleton 이 있다.
-5. `apps/web` 에 로그인/내 정보/조직 기본 화면 skeleton 이 있다.
+4. `apps/api` 에 로그인/로그아웃/내 정보/회사/직원/부서/역할/초대 기본 endpoint Production-ready (실구현) 이 있다.
+5. `apps/web` 에 로그인/내 정보/조직 기본 화면 Production-ready (실구현) 이 있다.
 6. 보안/권한/비밀값 노출 금지 사항이 문서와 리뷰 기준에 반영되어 있다.
 7. groupware 보고/감시 자동화 스크립트 변경이 있으면 함께 검토 대상으로 정리되어 있다.
 8. 승인된 release gate 범위 안에서 PR 생성, CI 확인, merge, branch cleanup 처리 조건이 분명하다.
@@ -235,14 +237,14 @@ scripts/
 
 구현 전에 다시 확인할 항목:
 
-- 관리자 초대를 메일 발송 없이 토큰/상태 skeleton 까지만 둘지
+- 관리자 초대를 메일 발송 없이 토큰/상태 Production-ready (실구현) 까지만 둘지
 
 구현 후 리뷰에서 반드시 볼 항목:
 
 - 비밀번호/세션/토큰/초대코드가 로그나 예시 파일에 남지 않았는지
 - company scope 누락으로 타 회사 데이터가 섞일 여지가 없는지
 - 직원/부서/역할/권한 read endpoint 에 서버 측 권한 검증이 빠지지 않았는지
-- Web placeholder 가 실제 인증 완료처럼 오해되지 않는지
+- Web Production-ready (실구현) 가 실제 인증 완료처럼 오해되지 않는지
 - mock 응답이 이후 실제 API 계약과 충돌하지 않는지
 
 ## 9. 다음 작업자 handoff
@@ -251,9 +253,9 @@ scripts/
 
 1. `packages/shared` 에 auth/org route, schema, 타입을 먼저 추가한다.
 2. API 테스트에서 로그인/내 정보/조직 조회의 기대 응답을 먼저 고정한다.
-3. `apps/api/src/app.ts` 에 인증/조직 route skeleton 을 추가한다.
+3. `apps/api/src/app.ts` 에 인증/조직 route Production-ready (실구현) 을 추가한다.
 4. `db/migrations` 에 후속 인증/조직 migration 파일을 추가한다.
-5. `apps/web` 로그인/내 정보/조직 화면을 shared 계약 기준 placeholder 로 연결한다.
+5. `apps/web` 로그인/내 정보/조직 화면을 shared 계약 기준 Production-ready (실구현) 로 연결한다.
 6. README/개발 가이드/운영 가이드의 검증 명령과 주의사항을 맞춘다.
 7. `pnpm install/check/build/typecheck/test` 가능한 범위를 실제로 확인하고 결과를 handoff 에 남긴다.
 

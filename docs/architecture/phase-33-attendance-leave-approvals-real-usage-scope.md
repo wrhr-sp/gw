@@ -7,8 +7,8 @@ Phase 33의 목표는
 실제 same-origin API 응답, 권한 차단, 승인자/일반직원 경계까지 포함해 직접 눌러볼 수 있게 만드는 것입니다.
 
 쉽게 말하면 이번 단계는
-예전 Phase 3/4/15/22에서 잡아 둔 근태·휴가·전자결재 skeleton 과 정책 설명을
-"설명용 placeholder" 에서
+예전 Phase 3/4/15/22에서 잡아 둔 근태·휴가·전자결재 Production-ready (실구현) 과 정책 설명을
+"설명용 Production-ready (실구현)" 에서
 "지금 어디까지 직접 체험 가능한지 분명한 업무 흐름" 으로 끌어올리는 단계입니다.
 
 ## 왜 지금 Phase 33이 필요한가
@@ -89,7 +89,7 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 - `apps/api/test/auth-org.spec.ts`
   - 권한/회사 scope/self-approval/unknown id 차단 근거 재확인
 
-### 아직 placeholder/dev-safe 비중이 큰 영역
+### 아직 Production-ready (실구현)/dev-safe 비중이 큰 영역
 - 근태에서 실제 위치/GPS/NFC/RFID/QR 장비 연동, 현장 단말 연동
 - 휴가에서 production 조직 master 기준 자동 차감/정산/급여 연동
 - 전자결재에서 실서명, 외부 메일/메신저 알림, 실원문 장기보관/법적 효력 연결
@@ -113,9 +113,9 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 ### 결정 C. 정책 미허용 이유와 권한 부족 이유를 같은 축으로 설명하지 않는다.
 - 정책상 미허용은 "회사 정책 기준 현재 허용되지 않음" 으로 적습니다.
 - 권한 부족은 "승인 권한 없음/회사 scope 아님" 으로 적습니다.
-- placeholder 제한은 "아직 dev-safe 단계" 로 따로 적습니다.
+- Production-ready (실구현) 제한은 "아직 dev-safe 단계" 로 따로 적습니다.
 - 즉 blocked/empty/error/forbidden 을 최소
-  권한 부족 / 회사 scope / 정책 미허용 / placeholder 제한
+  권한 부족 / 회사 scope / 정책 미허용 / Production-ready (실구현) 제한
   4축으로 유지합니다.
 
 ### 결정 D. self-approval 금지와 forged/unknown id 차단은 전자결재만의 세부 규칙이 아니라 공통 guardrail 로 본다.
@@ -141,7 +141,7 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 | 근태 | `/attendance`, 출퇴근 기록/허용 방식/정정 요청 문맥, live section 상태 분기 | 실제 현장 장비/GPS/위치정보/단말 연동 없음, richer stepper 약함 | 직원 기준 체크인/체크아웃/정정 요청을 한 흐름으로 더 또렷하게 |
 | 휴가 | `/leave`, 휴가 유형/잔여/요청 상태, 신청과 승인 차단 문맥 | 자동 차감/급여 반영/조직 master 연동 없음, 승인자 lane 설명 보강 필요 | 신청자 lane 과 승인자 lane 을 분리한 UAT 정리 |
 | 전자결재 | `/approvals`, 기안함/결재함 분리, self-approval 금지, 결재 후보 경계 | 실서명/외부 알림/실원문 보관 없음, richer 문서 상세 UX 약함 | 기안 → 승인/반려/보완 요청 stepper 강화 |
-| 정책/운영 경계 | `/admin/policies` 와 일반 화면 비교 | 정책 미허용 vs 권한 부족 vs placeholder 제한 문구가 더 정리돼야 함 | 4축 상태 문구를 route/API/문서에서 같은 언어로 고정 |
+| 정책/운영 경계 | `/admin/policies` 와 일반 화면 비교 | 정책 미허용 vs 권한 부족 vs Production-ready (실구현) 제한 문구가 더 정리돼야 함 | 4축 상태 문구를 route/API/문서에서 같은 언어로 고정 |
 | 권한/forbidden | 승인 권한 없음, self-approval 금지, 회사 scope 차단, unknown id 차단 테스트 근거 | 화면에서 왜 막히는지 즉시 읽히는 UX는 더 보강 가능 | forbidden 이유를 API와 route 에서 같은 문장으로 맞추기 |
 | 운영 데이터/실연동 | dev-safe 계정으로 흐름 확인 가능 | production DB, 실급여, 은행, 외부 기관/장비 연동은 여전히 별도 승인 | 승인 게이트를 문서와 최종 보고에서 계속 분리 유지 |
 
@@ -222,7 +222,7 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 - 체크인/체크아웃
 - 허용 방식/정책 source
 - 정정 요청
-- 미허용 이유/placeholder 제한 구분
+- 미허용 이유/Production-ready (실구현) 제한 구분
 
 ### P2. `/leave` 신청자 lane / 승인자 lane 분리 강화
 - 유형/잔여/요청 상태
@@ -238,7 +238,7 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 
 ### P4. 일반 업무 화면과 운영 정책 화면 언어 정렬
 - `/dashboard` 와 `/admin/policies` 설명 맞추기
-- 정책 미허용 / 권한 부족 / placeholder 제한 4축 유지
+- 정책 미허용 / 권한 부족 / Production-ready (실구현) 제한 4축 유지
 - 급여/세무/노무/외부기관 연동이 아직 별도 승인이라는 점 고정
 
 ## 이번 단계에서 일부러 안 하는 것
@@ -263,8 +263,8 @@ Phase 32에서 협업 묶음(`/boards`, `/documents`)을 실사용 언어로 다
 9. `docs/product/groupware-vision-roadmap.md`
 
 ## reviewer/tester가 특히 볼 쟁점
-- `/attendance`, `/leave`, `/approvals` 가 same-origin API 응답을 실제로 읽으면서도 placeholder honesty 를 잃지 않는지
-- 정책 미허용, 권한 부족, 회사 scope 차단, placeholder 제한 4축이 route/API/test/문서에서 같은 뜻인지
+- `/attendance`, `/leave`, `/approvals` 가 same-origin API 응답을 실제로 읽으면서도 Production-ready (실구현) honesty 를 잃지 않는지
+- 정책 미허용, 권한 부족, 회사 scope 차단, Production-ready (실구현) 제한 4축이 route/API/test/문서에서 같은 뜻인지
 - self-approval 금지와 unknown/forged id 차단이 계속 유지되는지
 - 운영 정책 화면과 일반 업무 화면 설명이 다시 섞이지 않는지
 - production DB, 실급여, 은행, 외부 기관/장비 연동이 후속 happy path 처럼 과장되지 않는지

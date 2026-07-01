@@ -3,11 +3,11 @@
 ## 1. 한 줄 정의
 
 Phase 21의 목표는
-지금까지 따로 보이던 회사/조직/직원/권한/근태·휴가 정책 skeleton 을
+지금까지 따로 보이던 회사/조직/직원/권한/근태·휴가 정책 Production-ready (실구현) 을
 "실제 회사라면 어떤 설정 묶음으로 관리될지" 기준으로 다시 연결해,
 대장이 파일럿 준비 관점에서
 무엇이 이미 회사 설정 모델처럼 읽히고
-무엇이 아직 preview/skeleton 이며
+무엇이 아직 preview/Production-ready (실구현) 이며
 무엇이 별도 승인 없이는 열리면 안 되는지
 한 번에 이해할 수 있게 만드는 것입니다.
 
@@ -18,11 +18,11 @@ Phase 21의 목표는
 ## 2. 왜 이번 단계가 필요한가
 
 Phase 20에서 우리는
-preview/skeleton 결과물을 운영 전 점검표 관점으로 다시 정리했습니다.
+preview/Production-ready (실구현) 결과물을 운영 전 점검표 관점으로 다시 정리했습니다.
 
 즉 아래는 이미 많이 맞춰졌습니다.
 
-- 지금 저장소에서 바로 확인 가능한 것 / 아직 skeleton 인 것 / 승인 필요한 것 3분류
+- 지금 저장소에서 바로 확인 가능한 것 / 아직 Production-ready (실구현) 인 것 / 승인 필요한 것 3분류
 - `/login` → `/dashboard` → `/org`·`/employees` → `/attendance`·`/leave` → `/approvals` → `/boards`·`/documents` → `/me` → `/admin/users`·`/admin/policies`·`/admin/audit-logs` → `/admin` 확인 순서
 - `/admin/*` 운영 화면과 일반 업무 화면의 경계
 - live/PWA/API/mobile 을 따로 확인하되 최종 결론은 같은 readiness 언어로 모으는 방식
@@ -53,7 +53,7 @@ Phase 21은
 - `API.md`
 - `packages/shared/src/attendance-policy.ts`
 - `packages/shared/src/contracts.ts`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/api/src/app.ts`
 
 현재 저장소 기준으로 확인되는 사실:
@@ -62,7 +62,7 @@ Phase 21은
 - `/org`, `/employees` 는 일반 조회 중심 모듈이고, `/admin/users` 는 운영 사용자/권한 검토 candidate 화면으로 분리돼 있다.
 - 출퇴근 정책은 이미 `company_default`, `workplace`, `department`, `job_type` 4단계 우선순위와 `effective policy` 계산 helper 를 갖고 있다.
 - `/api/admin/policies` 는 근태/휴가/결재/문서/게시판 정책 candidate 조회의 중심 endpoint 로 쓰이고 있다.
-- `/api/attendance/*`, `/api/leave/*` 는 정책·권한·회사 scope·placeholder 제한을 분리해 설명하기 시작했다.
+- `/api/attendance/*`, `/api/leave/*` 는 정책·권한·회사 scope·Production-ready (실구현) 제한을 분리해 설명하기 시작했다.
 - 휴가/근무 정책과 회사 기본 설정은 아직 dedicated 운영 설정 모델보다 preview payload 성격이 더 강하다.
 - GPS, 실제 태그 단말, 외부 HR, production DB 실데이터, 대량 사용자 초대 같은 운영 연결은 여전히 승인 게이트로 분리돼 있다.
 
@@ -97,7 +97,7 @@ Phase 21은
 
 중요한 점은
 이 4개를 메뉴를 무조건 늘려서 푼다는 뜻이 아니라,
-문서·UI skeleton·API 설명이 이 4묶음 관계를 같은 말로 설명해야 한다는 뜻입니다.
+문서·UI Production-ready (실구현)·API 설명이 이 4묶음 관계를 같은 말로 설명해야 한다는 뜻입니다.
 
 ### 결정 B. 회사 기본 설정은 "정책의 시작점"으로 고정한다.
 
@@ -154,13 +154,13 @@ Phase 21에서 중요한 것은
 - `/attendance` 는 현재 effective policy 기준 허용된 등록 방식만 드러낸다.
 - `/leave` 는 현재 회사/조직 정책상 허용되는 유형·승인 기준만 설명한다.
 - `/employees` 는 정책 편집 화면처럼 보이면 안 된다.
-- 정책상 미허용, 권한 부족, 회사 scope 불일치, placeholder 제한은 계속 4축으로 나눠 설명한다.
+- 정책상 미허용, 권한 부족, 회사 scope 불일치, Production-ready (실구현) 제한은 계속 4축으로 나눠 설명한다.
 
 쉽게 말하면,
 직원 화면은 "관리자가 설정할 수 있는 모든 것"을 보여 주는 곳이 아니라,
 "현재 내 회사 설정에서 내가 지금 볼 수 있는 것"만 보여 주는 곳으로 읽혀야 합니다.
 
-### 결정 F. 관리자 UI/API skeleton 은 새 상위 메뉴보다 현재 `/admin/policies`·`/admin/users` 고도화를 우선한다.
+### 결정 F. 관리자 UI/API Production-ready (실구현) 은 새 상위 메뉴보다 현재 `/admin/policies`·`/admin/users` 고도화를 우선한다.
 
 이번 1차에서 우선 보는 구현 방향:
 

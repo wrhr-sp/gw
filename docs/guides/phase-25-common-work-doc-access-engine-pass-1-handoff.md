@@ -155,7 +155,7 @@ Phase 25에서도 아래는 그대로 유지합니다.
 4. 회사 + 지점/호텔 + 역할 + capability 접근 기준이 같은 언어로 설명되는가?
 5. 일반 근무자 / 지점 관리자 / 본사 관리자 / 감사 사용자의 가시 범위가 구분되는가?
 6. 모바일 하단 탭을 늘리지 않고도 새 업무 모듈 자리를 `홈`/`메뉴`/PC sidebar 에 확보하는가?
-7. builder가 먼저 구현할 최소 안전 범위가 공통 engine skeleton 중심으로 정리돼 있는가?
+7. builder가 먼저 구현할 최소 안전 범위가 공통 engine Production-ready (실구현) 중심으로 정리돼 있는가?
 8. 민감 문서, 실데이터, 외부 연동, 실제 신고/제출 자동화가 여전히 승인 게이트로 남아 있는가?
 
 이 8개 질문에 바로 답이 안 보이면
@@ -191,9 +191,9 @@ Phase 25에서도 아래는 그대로 유지합니다.
 
 1. 공통 work item 필드와 상태값을 먼저 맞춘다.
 2. 문서/첨부/검토/마감/감사 로그를 work item에 붙이는 구조를 정리한다.
-3. 회사 + 지점 + 역할 + capability 접근 기준을 placeholder copy 와 API 설명에 같이 반영한다.
+3. 회사 + 지점 + 역할 + capability 접근 기준을 Production-ready (실구현) copy 와 API 설명에 같이 반영한다.
 4. 모바일 `홈`/`메뉴`, PC sidebar 에 새 업무 그룹 자리를 과장 없이 확보한다.
-5. `/work-items`, `/hr`, `/tax`, `/labor`, `/legal`, `/branch/tasks`, `/admin/work-items` 같은 route 초안 중 최소 skeleton 범위를 정한다.
+5. `/work-items`, `/hr`, `/tax`, `/labor`, `/legal`, `/branch/tasks`, `/admin/work-items` 같은 route 초안 중 최소 Production-ready (실구현) 범위를 정한다.
 6. 실민감 자료/외부 연동/실처리 항목이 문서 중간에서 구현 TODO처럼 섞이지 않았는지 마지막에 다시 본다.
 
 ## 6. 각 역할 카드에 넘길 핵심 포인트
@@ -204,7 +204,7 @@ Phase 25에서도 아래는 그대로 유지합니다.
 
 - 공통 work item contract
 - 공통 문서/첨부/검토/마감 schema 초안
-- placeholder route 또는 응답 skeleton
+- Production-ready (실구현) route 또는 응답 Production-ready (실구현)
 - `홈`/`메뉴`/PC sidebar 새 업무 그룹 자리 확보
 - 지점 scope 와 역할 scope 를 함께 설명하는 copy
 
@@ -227,9 +227,9 @@ Phase 25에서도 아래는 그대로 유지합니다.
 
 집중할 것:
 
-- 공통 contract, route, placeholder, 메뉴 자리가 문서와 맞는지
+- 공통 contract, route, Production-ready (실구현), 메뉴 자리가 문서와 맞는지
 - 일반 근무자/지점 관리자/본사 관리자 가시 범위가 섞이지 않는지
-- 막힘이 권한/자료부족/승인필요/placeholder 제한 중 무엇인지 나눠 기록되는지
+- 막힘이 권한/자료부족/승인필요/Production-ready (실구현) 제한 중 무엇인지 나눠 기록되는지
 
 ### 문서화(gwdocs)
 

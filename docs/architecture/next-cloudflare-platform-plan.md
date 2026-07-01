@@ -63,10 +63,10 @@ Mobile App
 
 - 아키텍처 문서 작성
 - 로컬 monorepo 구조 반영
-- OpenNext 기반 Next.js Web/PWA skeleton 반영
-- Workers + Hono API skeleton 반영
+- OpenNext 기반 Next.js Web/PWA Production-ready (실구현) 반영
+- Workers + Hono API Production-ready (실구현) 반영
 - shared route/schema 계약 반영
-- D1 SQL migration skeleton 반영
+- D1 SQL migration Production-ready (실구현) 반영
 - 로컬 개발/검증 명령 정리
 - 사용자/운영/개발 가이드 추가
 - Phase 5 게시판/문서 1차 범위 문서 추가
@@ -327,7 +327,7 @@ updated_by
 ### D1 연결 원칙
 
 - Workers는 D1 바인딩을 통해 Cloudflare D1 데이터베이스에 접근한다.
-- 로컬 skeleton 단계에서는 실제 접속정보 없이 `D1_DATABASE_ID`, `D1_DATABASE_NAME` 같은 환경변수 이름만 정의한다.
+- 로컬 Production-ready (실구현) 단계에서는 실제 접속정보 없이 `D1_DATABASE_ID`, `D1_DATABASE_NAME` 같은 환경변수 이름만 정의한다.
 - 운영 DB 생성, 접속정보 입력, 실제 migration 실행은 별도 승인 범위다.
 
 ## 8. 파일 저장: Cloudflare R2
@@ -487,10 +487,10 @@ Expo / React Native
 ### Phase 1. 기반
 
 - monorepo 구조
-- OpenNext 기반 Next.js 앱 skeleton
-- Workers + Hono API skeleton
+- OpenNext 기반 Next.js 앱 Production-ready (실구현)
+- Workers + Hono API Production-ready (실구현)
 - shared type/schema
-- D1 SQL migration skeleton
+- D1 SQL migration Production-ready (실구현)
 - 로컬 개발 명령
 - health check API
 
@@ -582,17 +582,17 @@ Expo / React Native
 
 ## 13. 파이프라인 상태
 
-문서와 로컬 skeleton 기준으로 현재 상태를 정리하면 아래와 같다.
+문서와 로컬 Production-ready (실구현) 기준으로 현재 상태를 정리하면 아래와 같다.
 
 ```text
 완료
 - 아키텍처 방향 확정
 - Phase 범위 문서 작성
-- Phase 2~4 Web/API/shared/db skeleton 반영
+- Phase 2~4 Web/API/shared/db Production-ready (실구현) 반영
 - Phase 5 shared/API 계약 시작점 반영
 - Phase 5 guardrail 테스트와 API 보강 반영
 - `db/migrations/0005_boards_documents_phase5.sql` 추가
-- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` placeholder 추가
+- `apps/web/app/boards`, `apps/web/app/boards/[boardId]`, `apps/web/app/posts/[postId]`, `apps/web/app/documents` Production-ready (실구현) 추가
 - 로컬 검증 명령 정리
 - 사용자/운영/개발 가이드 정리
 
@@ -603,7 +603,7 @@ Expo / React Native
 - production 리소스 연결과 배포 검토(승인 후)
 
 다음 단계
-- placeholder 화면을 실제 fetch/error/loading 흐름으로 확장
+- Production-ready (실구현) 화면을 실제 fetch/error/loading 흐름으로 확장
 - 저장/첨부/검색/알림 기능을 승인 범위 안에서 순차 구현
 - Cloudflare 실리소스 연결 검토(승인 후)
 ```

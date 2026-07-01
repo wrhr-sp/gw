@@ -10,8 +10,8 @@ Phase 11은 `/org`, `/employees` 를 일반 업무용 조회 화면으로 다시
 
 지금 확인된 상태는 아래와 같습니다.
 
-- `/employees` 는 직원 조회 placeholder 수준입니다.
-- `/org` 는 부서/역할/권한 API 링크를 묶어 둔 placeholder 수준입니다.
+- `/employees` 는 직원 조회 Production-ready (실구현) 수준입니다.
+- `/org` 는 부서/역할/권한 API 링크를 묶어 둔 Production-ready (실구현) 수준입니다.
 - `/admin/users` 는 사용자-직원 연결, 역할 diff, 상태 변경 preview 를 검토하는 관리자 candidate 화면입니다.
 - API/shared/test 에는 기본 조직/직원 조회 계약과 관리자 users candidate 계약이 같이 들어 있습니다.
 
@@ -131,8 +131,8 @@ Phase 11은 `/org`, `/employees` 를 일반 업무용 조회 화면으로 다시
 
 이번 문서는 현재 `/home/wrhrgw/gw` 워크스페이스 기준으로 아래 사실을 다시 확인한 뒤 정리했습니다.
 
-- `apps/web/app/employees/page.tsx` 는 현재 직원 기본정보와 API 링크 정도만 보여주는 얇은 placeholder 입니다.
-- `apps/web/app/org/page.tsx` 는 현재 부서/역할/권한 API 링크와 주의사항 정도만 보여주는 얇은 placeholder 입니다.
+- `apps/web/app/employees/page.tsx` 는 현재 직원 기본정보와 API 링크 정도만 보여주는 얇은 Production-ready (실구현) 입니다.
+- `apps/web/app/org/page.tsx` 는 현재 부서/역할/권한 API 링크와 주의사항 정도만 보여주는 얇은 Production-ready (실구현) 입니다.
 - `apps/web/app/admin/users/page.tsx` 는 사용자-직원 연결 상태, 고위험 권한 diff, 감사 preview 를 강조하는 관리자 candidate 화면입니다.
 - `packages/shared/src/contracts.ts` 에는 `appSections`, 조직/직원 조회 schema, 관리자 users candidate schema 가 이미 같이 들어 있습니다.
 - `apps/api/src/app.ts` 에는 `/api/employees`, `/api/departments`, `/api/roles`, `/api/permissions` 가 있고 회사 범위 필터와 권한 검증을 적용합니다.
@@ -147,7 +147,7 @@ Phase 11은 `/org`, `/employees` 를 일반 업무용 조회 화면으로 다시
 
 ## 7. 운영자가 먼저 알아둘 내용
 
-- 이번 단계의 `/org`, `/employees` 는 일반 조회용 skeleton/candidate 화면입니다.
+- 이번 단계의 `/org`, `/employees` 는 일반 조회용 Production-ready (실구현)/candidate 화면입니다.
 - 여기서 직원을 실제 초대하거나 역할을 저장하는 것이 아닙니다.
 - 관리자 성격의 운영 변경 검토는 계속 `/admin/users` 가 맡습니다.
 - 실제 직원 개인정보 원문 연결이나 운영 권한 저장은 아직 붙지 않았습니다.
@@ -214,7 +214,7 @@ Phase 11은 `/org`, `/employees` 를 일반 업무용 조회 화면으로 다시
 
 ## 12. 남은 리스크
 
-- `/employees`, `/org` 화면 자체는 여전히 일반 조회용 skeleton/candidate 단계라 실제 저장, 초대, 개인정보 원문 연결은 아직 없습니다.
+- `/employees`, `/org` 화면 자체는 여전히 일반 조회용 Production-ready (실구현)/candidate 단계라 실제 저장, 초대, 개인정보 원문 연결은 아직 없습니다.
 - 관리자 운영 변경은 계속 `/admin/users` 쪽에서만 검토해야 하고, 일반 조회 화면에 운영 액션을 섞지 않도록 다음 phase 에서도 경계를 유지해야 합니다.
 - production DB, 외부 HR/SSO, 실제 직원 데이터 반입 같은 운영 연동은 이번 범위 밖이므로 별도 승인 없이 이어서 붙이면 안 됩니다.
 

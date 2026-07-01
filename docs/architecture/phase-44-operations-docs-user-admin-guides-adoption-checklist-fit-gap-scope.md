@@ -31,7 +31,7 @@ Phase 42A~43까지 오면서 아래 기준은 이미 많이 정리됐습니다.
 실제 내부 도입 문서 묶음으로 다시 정렬하는 단계입니다.
 
 ## 이번 Phase의 도입 기준
-- 목표는 skeleton 설명이 아니라 "외부 연동 없이 회사 내부 그룹웨어로 본격 도입 가능한 범위"를 분명히 적는 것이다.
+- 목표는 Production-ready (실구현) 설명이 아니라 "외부 연동 없이 회사 내부 그룹웨어로 본격 도입 가능한 범위"를 분명히 적는 것이다.
 - 대시보드 = 홈이다. PC/모바일 홈은 고정 바로가기 + 사용자 커스텀 바로가기를 제공하는 방향으로 읽는다.
 - 일반 직원 화면과 `경영업무` 페이지는 다른 책임 레인으로 분리해 설명한다.
 - 경영업무(인사/급여/근태관리/세무/노무/법무/지점/컴플라이언스)는 지정된 관리자/담당자만 접근하는 것으로 설명한다.
@@ -117,7 +117,7 @@ Phase 42A~43까지 오면서 아래 기준은 이미 많이 정리됐습니다.
 - 도입 전 준비: 계정, 권한, 회사/지점 scope, 테스트 시나리오, live URL 확인
 - 도입 중 점검: 익명 차단, 역할별 landing, `/management` 분리, 민감 route 차단, 로그아웃/세션 확인
 - 도입 후 점검: audit 확인 포인트, blocker 기록, 승인 필요 항목 분리, Phase 45 전 최종 점검 준비
-- 장애/오해 방지: placeholder/skeleton 과 승인 게이트를 숨기지 않는 원칙
+- 장애/오해 방지: Production-ready (실구현)/Production-ready (실구현) 과 승인 게이트를 숨기지 않는 원칙
 
 ### 4. 권한표
 최소한 아래 축을 묶어야 함:
@@ -125,7 +125,7 @@ Phase 42A~43까지 오면서 아래 기준은 이미 많이 정리됐습니다.
 - 접근 가능한 대표 route
 - 접근 불가 route
 - scope 기준(company/branch/self/restricted/read-only)
-- 비고(approval gate / placeholder / external integration 미포함)
+- 비고(approval gate / Production-ready (실구현) / external integration 미포함)
 
 최소 포함 역할 예시:
 - EMPLOYEE
@@ -190,7 +190,7 @@ Phase 42A~43까지 오면서 아래 기준은 이미 많이 정리됐습니다.
 
 ### D. 운영자 runbook 검증
 - 도입 전 준비 / 도입 중 점검 / 도입 후 정리 순서가 실제 운영자가 따라가기 쉬운 형태다.
-- blocker, approval-needed, placeholder 항목을 구분해서 기록하게 돼 있다.
+- blocker, approval-needed, Production-ready (실구현) 항목을 구분해서 기록하게 돼 있다.
 
 ### E. 승인 게이트 검증
 - 승인 없이 하면 안 되는 항목이 누락되지 않는다.

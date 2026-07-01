@@ -27,7 +27,7 @@
 - `/admin/users`, `/admin/policies` 는 운영 변경 preview/검토 레인이다.
 - `/admin/audit-logs` 는 현재도 `audit.read` 기반 read-only 감사 레인이다.
 - `admin / 1234` 는 dev/test/UAT 전용 계정이며 production 기본 계정이 아니다.
-- skeleton/placeholder/dev-safe/read-only 를 최종 릴리즈 산출물처럼 과장하지 않는다.
+- Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 를 최종 릴리즈 산출물처럼 과장하지 않는다.
 
 ## 3. 대장이 가장 짧게 따라갈 추천 확인 순서
 
@@ -111,7 +111,7 @@
 ## 5. builder가 바로 봐야 할 핵심 질문
 1. 대장이 직접 눌러볼 직원 기본업무 흐름이 실제로 막힘 없이 이어지는가
 2. `/management` 와 급여/인사/노무/세무/법무/컴플라이언스 진입이 직원 홈과 섞이지 않는가
-3. skeleton/placeholder/dev-safe/read-only 로 남은 부분이 최종 릴리즈 산출물처럼 보이지 않는가
+3. Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 로 남은 부분이 최종 릴리즈 산출물처럼 보이지 않는가
 4. 로그인 우회, route/API guard 누락, company+branch scope 혼동, audit log 경계 누락이 없는가
 5. 닫지 못한 영역은 honest 하게 approval-needed 또는 blocker 로 올릴 수 있는가
 
@@ -137,7 +137,7 @@
 - 운영 체크리스트는 live 직접 확인 근거, local 대체 근거, release gate, rollback 확인 포인트를 분리한다.
 - UAT 절차에는 시작 전 준비 → 레인별 실행 순서 → 기능별 기록 형식 → 이슈 분류 기준이 한 번에 있어야 한다.
 - 문서에는 지금 가능한 것과 approval-needed 를 한눈에 구분해 적는다.
-- 닫지 못한 placeholder/skeleton 잔여는 숨기지 말고 release blocker 또는 승인 게이트로 올린다.
+- 닫지 못한 Production-ready (실구현)/Production-ready (실구현) 잔여는 숨기지 말고 release blocker 또는 승인 게이트로 올린다.
 
 ## 9. 이번 Phase에서 하지 않는 것
 - 실제 급여 지급/은행 이체

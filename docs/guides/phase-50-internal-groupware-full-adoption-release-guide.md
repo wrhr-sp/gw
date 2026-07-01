@@ -179,7 +179,7 @@
 - mobile/PC: 같은 정보구조로 읽히는가
 
 추가로 같이 적을 것:
-- skeleton/placeholder/dev-safe/read-only 잔여 여부
+- Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 잔여 여부
 - release blocker 인지, approval-needed 인지
 - live 직접 확인인지, local 대체 근거인지
 
@@ -210,7 +210,7 @@
 - error:
 - loading:
 - mobile/PC:
-- skeleton/dev-safe/read-only 메모:
+- Production-ready (실구현)/dev-safe/read-only 메모:
 - 증거 종류: `live 직접 확인` 또는 `local/build/test/release gate 대체 근거`
 - 이슈 분류:
 
@@ -256,7 +256,7 @@
 - 테스트 계정 `admin / 1234`
 - 직원/운영 관리자/지점관리자/감사 추천 route 순서
 - 주요 기능별 happy/forbidden/empty/error/loading/mobile/PC 기록 포인트
-- skeleton/placeholder/dev-safe/read-only 잔여 메모
+- Production-ready (실구현)/Production-ready (실구현)/dev-safe/read-only 잔여 메모
 - 운영 문서 확인 포인트
 - 남아 있는 승인 게이트
 - live 직접 확인 근거와 local 대체 근거를 나눠 적은 메모

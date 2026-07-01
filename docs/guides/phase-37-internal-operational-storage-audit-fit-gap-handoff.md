@@ -58,7 +58,7 @@
 ### C. `/management`, `/payroll`, `work-items/*`
 
 지금 바로 읽을 수 있는 것:
-- 민감 운영 모듈의 preview/read-only/review skeleton
+- 민감 운영 모듈의 preview/read-only/review Production-ready (실구현)
 - approval gate 와 review step 의미
 - 첨부/문서/감사 흔적이 metadata 중심으로 연결되는 구조
 

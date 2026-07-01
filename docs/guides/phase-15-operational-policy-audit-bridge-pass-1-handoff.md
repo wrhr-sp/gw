@@ -9,9 +9,9 @@
 
 이미 있는 것:
 
-- `/admin/users`, `/admin/policies`, `/admin/audit-logs` 운영 검토 skeleton
+- `/admin/users`, `/admin/policies`, `/admin/audit-logs` 운영 검토 Production-ready (실구현)
 - `/dashboard`, `/attendance`, `/approvals`, `/org`, `/employees` 일반 업무 흐름
-- `/leave` skeleton 과 `/api/leave/*` placeholder API
+- `/leave` Production-ready (실구현) 과 `/api/leave/*` Production-ready (실구현) API
 - `effective policy` 기반 출퇴근 허용/차단 구조
 - `audit.read`, company boundary, masked preview 기준
 
@@ -20,7 +20,7 @@
 - 관리자 화면의 정책/권한 preview가 일반 업무 화면과 API 결과에 왜 연결되는지 설명이 약합니다.
 - `/attendance` 는 정책 연결이 비교적 있지만 `/leave` 는 운영 정책 연결이 문서/화면 기준으로 약합니다.
 - `/admin/users` 의 역할/상태 변경 preview가 `/dashboard`/`/employees`/`/approvals` 에 어떤 차이를 주는지 흐름이 약합니다.
-- 막힘 사유가 권한 문제인지, 정책 미허용인지, 회사 scope 문제인지, placeholder 제한인지 한눈에 분리되지 않습니다.
+- 막힘 사유가 권한 문제인지, 정책 미허용인지, 회사 scope 문제인지, Production-ready (실구현) 제한인지 한눈에 분리되지 않습니다.
 
 즉 이번 단계의 핵심은 기능 추가보다
 "운영 기준이 실제 업무 결과와 같은 뜻으로 읽히게 만드는 것"입니다.
@@ -71,7 +71,7 @@
 기대하는 경험:
 
 - 운영 화면에서 본 candidate/reason/audit preview가 실제 일반 화면/API 결과와 연결된다.
-- 막힘 사유를 권한/정책/scope/placeholder 중 어디서 생긴 것인지 설명할 수 있다.
+- 막힘 사유를 권한/정책/scope/Production-ready (실구현) 중 어디서 생긴 것인지 설명할 수 있다.
 - `/employees` 일반 조회와 `/admin/users` 운영 검토가 계속 다른 역할로 보인다.
 
 ### 감사 전용 사용자 관점
@@ -101,7 +101,7 @@
 
 - 현재 허용/차단 결과
 - 마지막으로 적용된 정책 source 또는 권한 기준
-- placeholder/dev-safe 제한 여부
+- Production-ready (실구현)/dev-safe 제한 여부
 
 예:
 
@@ -114,7 +114,7 @@
 - 권한 부족
 - 회사 scope 불일치
 - 정책상 미허용
-- placeholder/dev-safe 제한
+- Production-ready (실구현)/dev-safe 제한
 
 이 4가지를 섞어 쓰지 않는 것이 이번 handoff의 핵심입니다.
 
@@ -144,7 +144,7 @@ Phase 14에서는 `/leave` 가 후순위였지만,
 - `apps/web/app/admin/policies/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
 - `apps/web/admin-page-content.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### Shared / API
 
@@ -168,7 +168,7 @@ Phase 14에서는 `/leave` 가 후순위였지만,
 2. `/leave` 에도 같은 정책/예외 설명 축을 최소 범위로 연결합니다.
 3. `/admin/users` 와 `/dashboard`/`/employees`/`/approvals` 의 권한/상태 연결을 정리합니다.
 4. `/admin/audit-logs` 와 candidate/reason/source 설명이 다른 화면과 같은 뜻인지 맞춥니다.
-5. blocked/empty/error 문구를 권한/정책/scope/placeholder 4축으로 맞춥니다.
+5. blocked/empty/error 문구를 권한/정책/scope/Production-ready (실구현) 4축으로 맞춥니다.
 6. 마지막에 Web/API/shared/test/docs 를 같이 회귀 확인합니다.
 
 ## 6. 각 역할 카드에 넘길 핵심 포인트
@@ -194,7 +194,7 @@ Phase 14에서는 `/leave` 가 후순위였지만,
 집중할 것:
 
 - 일반 업무 화면에 관리자 내부 정보가 새지 않는지
-- 권한 부족 / 정책 미허용 / 회사 scope / placeholder 제한이 서로 섞이지 않는지
+- 권한 부족 / 정책 미허용 / 회사 scope / Production-ready (실구현) 제한이 서로 섞이지 않는지
 - `/employees` 와 `/admin/users` 역할 경계가 흐려지지 않는지
 - `/attendance` 와 `/leave` 가 정책 연결에서 서로 다른 말을 하지 않는지
 - 감사 로그 연결이 raw 정보 노출로 번지지 않는지
@@ -230,13 +230,13 @@ Phase 14에서는 `/leave` 가 후순위였지만,
 이번 1차에서 꼭 다시 볼 기준:
 
 1. `/attendance` 와 관련 API가 같은 허용/차단 이유를 설명한다.
-2. `/leave` 가 운영 정책과 동떨어진 placeholder로만 남지 않는다.
+2. `/leave` 가 운영 정책과 동떨어진 Production-ready (실구현)로만 남지 않는다.
 3. `/dashboard` 와 `/employees` 설명이 `/admin/users` 권한/상태 preview와 충돌하지 않는다.
 4. `/approvals` 는 팀장 권한과 관리자 운영 권한을 섞지 않는다.
 5. `/admin/audit-logs` 는 `audit.read`/masked/company boundary 원칙을 유지한다.
-6. blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 중 무엇인지 구분된다.
+6. blocked/empty/error 상태가 권한 부족, 회사 scope, 정책 미허용, Production-ready (실구현) 제한 중 무엇인지 구분된다.
 7. 일반 사용자에게 관리자 CTA, 감사 원문, 운영 내부 정보가 새어 나오지 않는다.
-8. skeleton/dev-safe/placeholder 문구가 빠지지 않는다.
+8. Production-ready (실구현)/dev-safe/Production-ready (실구현) 문구가 빠지지 않는다.
 
 ## 8. 꼭 지켜야 할 guardrail
 
@@ -252,7 +252,7 @@ Phase 14에서는 `/leave` 가 후순위였지만,
 ## 9. 완료로 볼 최소 기준
 
 - 운영 정책/권한/감사 기준이 일반 업무 화면과 API 결과에 같은 뜻으로 이어진다.
-- 막힘 사유가 최소 4축(권한/정책/scope/placeholder)으로 구분된다.
+- 막힘 사유가 최소 4축(권한/정책/scope/Production-ready (실구현))으로 구분된다.
 - `/leave` 까지 포함한 운영 연결 1차가 설명 가능해진다.
 - 관리자 내부 정보는 새지 않으면서 운영 연결 설명은 더 선명해진다.
 - 다음 단계에서 실제 저장/실데이터 연결을 붙일 우선순위가 문서와 화면에 같이 남는다.

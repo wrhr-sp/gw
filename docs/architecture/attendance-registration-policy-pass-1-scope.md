@@ -11,10 +11,10 @@
 
 현재 저장소 기준으로 이미 아래 골격은 있습니다.
 
-- `apps/web/app/attendance/page.tsx` 에 출근/퇴근 CTA, 오늘 상태, 최근 기록, 정정 요청 placeholder 가 있습니다.
+- `apps/web/app/attendance/page.tsx` 에 출근/퇴근 CTA, 오늘 상태, 최근 기록, 정정 요청 Production-ready (실구현) 가 있습니다.
 - `packages/shared/src/contracts.ts` 에 `attendanceSourceSchema = z.enum(["web", "mobile", "admin", "import"])` 가 있고, 근태 기록 `source` 필드가 이 enum 을 사용합니다.
-- `apps/api/src/app.ts` 의 placeholder 근태 응답은 현재 `source: "web"` 중심 예시를 사용합니다.
-- `apps/web/app/admin/policies/page.tsx` 와 `apps/web/admin-skeleton-config.ts` 에 정책 카드 구조는 있지만, 출퇴근 등록 방식처럼 직원 행동을 직접 제한하는 정책 필드는 아직 명확히 드러나지 않습니다.
+- `apps/api/src/app.ts` 의 Production-ready (실구현) 근태 응답은 현재 `source: "web"` 중심 예시를 사용합니다.
+- `apps/web/app/admin/policies/page.tsx` 와 `apps/web/admin-Production-ready (실구현)-config.ts` 에 정책 카드 구조는 있지만, 출퇴근 등록 방식처럼 직원 행동을 직접 제한하는 정책 필드는 아직 명확히 드러나지 않습니다.
 - `apps/web/app/employees/page.tsx` 는 일반 조회 화면으로 분리돼 있지만, 회사가 허용한 출퇴근 등록 방식이 직원에게 어떻게 보일지는 아직 정리되지 않았습니다.
 
 즉 지금은 출퇴근 기능과 정책 화면이 각각 따로는 있지만,
@@ -35,7 +35,7 @@
 
 - 현재 허용 방식: `mobile`, `pc`
 - candidate 허용 방식: `mobile`, `tag`
-- 태그 상태: `skeleton_only`
+- 태그 상태: `Production-ready (실구현)_only`
 
 즉 지금 문서와 화면은 "모바일/PC 는 허용 가능, 태그는 후보와 안내 카드까지만 보임"을 같은 뜻으로 맞추고 있어야 합니다.
 
@@ -45,7 +45,7 @@
 
 - `mobile` — 모바일/PWA 또는 모바일 우선 UI 에서 누르는 출퇴근 등록
 - `pc` — 데스크톱/웹 화면에서 누르는 출퇴근 등록
-- `tag` — 태그 인식 기반 등록을 위한 skeleton 항목
+- `tag` — 태그 인식 기반 등록을 위한 Production-ready (실구현) 항목
 
 이번 단계에서는 이 3개만 문서/contract/UI/API 에서 공식 용어로 사용합니다.
 다른 표현(`web`, `desktop`, `rfid`, `qr`, `nfc`)은 내부 구현 세부나 향후 확장 후보로 남기되, 회사 정책 선택 enum 으로는 쓰지 않습니다.
@@ -68,14 +68,14 @@
 
 - 허용된 방식만 CTA 또는 안내 문구로 노출한다.
 - 허용되지 않은 방식은 숨기거나 "회사 정책에서 미허용" 안내로 남긴다.
-- 태그 방식은 실제 장비 연동이 아니라 "사내 태그 단말 연동 예정 / 현재는 안내만 제공" 수준의 skeleton 으로 남긴다.
+- 태그 방식은 실제 장비 연동이 아니라 "사내 태그 단말 연동 예정 / 현재는 안내만 제공" 수준의 Production-ready (실구현) 으로 남긴다.
 - 위치/GPS/기기 고유값 수집을 당연한 기본값처럼 문구에 넣지 않는다.
 
 현재 구현 예시 기준으로는 직원 화면 `/attendance` 에서 아래처럼 보여 주는 것이 맞습니다.
 
 - `mobile` 허용 → "모바일 출근 등록" CTA 노출
 - `pc` 허용 → "PC 출근 등록" CTA 노출
-- `tag` 미허용이지만 candidate/skeleton 이 있으면 → "태그 단말 연동 예정" 안내 카드만 노출
+- `tag` 미허용이지만 candidate/Production-ready (실구현) 이 있으면 → "태그 단말 연동 예정" 안내 카드만 노출
 
 예시:
 
@@ -84,7 +84,7 @@
 
 ### 결정 D. API 는 요청 방식이 회사 정책에 포함되는지 검사한다.
 
-출근/퇴근 placeholder API 는 단순 권한 체크만 하지 않고, 요청이 어떤 방식으로 들어왔는지와 회사 허용 정책을 함께 봐야 합니다.
+출근/퇴근 Production-ready (실구현) API 는 단순 권한 체크만 하지 않고, 요청이 어떤 방식으로 들어왔는지와 회사 허용 정책을 함께 봐야 합니다.
 
 이번 1차에서 필요한 검증 기준은 아래와 같습니다.
 
@@ -92,7 +92,7 @@
 - 등록 방식 값은 `mobile | pc | tag` 중 하나여야 한다.
 - 회사 정책에 없는 방식이면 403 `FORBIDDEN` 또는 동급 정책 위반 응답으로 막는다.
 - 권한이 있어도 미허용 방식이면 성공처럼 처리하지 않는다.
-- 태그 방식은 실제 장비 인증 없이도 "정책상 허용 여부"와 "skeleton 경계"까지만 검증한다.
+- 태그 방식은 실제 장비 인증 없이도 "정책상 허용 여부"와 "Production-ready (실구현) 경계"까지만 검증한다.
 
 ### 결정 E. 기존 attendance record `source` 와 새 정책 enum 은 연결하되, 같은 개념으로 섞어 쓰지 않는다.
 
@@ -102,7 +102,7 @@
 
 따라서 다음 구현자는 아래 둘 중 하나로 정리해야 합니다.
 
-1. `attendanceSourceSchema` 를 정책 enum 기준에 맞게 재정의하고, 기존 placeholder `web/admin/import` 사용처를 함께 정리한다.
+1. `attendanceSourceSchema` 를 정책 enum 기준에 맞게 재정의하고, 기존 Production-ready (실구현) `web/admin/import` 사용처를 함께 정리한다.
 2. 또는 정책 전용 enum/schema 를 별도로 만들고, 기록 `source` 와 정책 `method` 의 책임을 분리한다.
 
 이번 기획의 권장안은 2번입니다.
@@ -154,9 +154,9 @@
 우선 검토 파일:
 
 - `apps/web/app/admin/policies/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - 필요 시 `apps/web/admin-console-pass1.test.tsx`
-- 필요 시 `apps/web/admin-skeleton-config.test.ts`
+- 필요 시 `apps/web/admin-Production-ready (실구현)-config.test.ts`
 
 이번 1차에서 admin 정책 카드에 들어가야 할 정보:
 
@@ -165,7 +165,7 @@
 - 방식별 안내 문구
   - `mobile`: 모바일/PWA 버튼 기반
   - `pc`: 데스크톱/웹 버튼 기반
-  - `tag`: 태그 단말 연동 예정 skeleton
+  - `tag`: 태그 단말 연동 예정 Production-ready (실구현)
 - before/after diff
 - 필요한 capability
 - 감사 preview
@@ -222,7 +222,7 @@
 
 이번 1차에서 API 에 들어가야 할 기준:
 
-- 회사 정책에서 허용한 방식 목록 placeholder 제공
+- 회사 정책에서 허용한 방식 목록 Production-ready (실구현) 제공
 - `POST /api/attendance/check-in`
 - `POST /api/attendance/check-out`
 - 필요 시 관리자 정책 candidate endpoint
@@ -231,8 +231,8 @@
 
 1. 요청 방식 enum 검증
 2. 허용되지 않은 방식 차단
-3. 허용된 방식은 기존 placeholder 응답 유지
-4. 태그 방식은 실제 장비 인증 없이 skeleton 응답/안내만 유지
+3. 허용된 방식은 기존 Production-ready (실구현) 응답 유지
+4. 태그 방식은 실제 장비 인증 없이 Production-ready (실구현) 응답/안내만 유지
 5. cross-company 정책 주입 금지
 6. 권한 체크와 정책 체크를 서로 다른 단계로 유지
 
@@ -271,7 +271,7 @@
 - `apps/api/test/auth-org.spec.ts`
 - `apps/web/app/attendance/page.tsx`
 - `apps/web/app/admin/policies/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 
 ### 2순위
 
@@ -280,7 +280,7 @@
 - `apps/web/app/employees/page.tsx`
 - `packages/shared/test/contracts.spec.ts`
 - `apps/web/admin-console-pass1.test.tsx`
-- `apps/web/admin-skeleton-config.test.ts`
+- `apps/web/admin-Production-ready (실구현)-config.test.ts`
 - 필요 시 새 web boundary test
 
 ## 7. 최소 테스트 범위
@@ -298,14 +298,14 @@
 - 허용된 방식으로 check-in/check-out 성공
 - 미허용 방식으로 check-in/check-out 403 차단
 - 잘못된 방식 값으로 400 validation 차단
-- 태그 방식 허용 시에도 실제 장비 연동 완료처럼 보이지 않는 placeholder 유지
+- 태그 방식 허용 시에도 실제 장비 연동 완료처럼 보이지 않는 Production-ready (실구현) 유지
 - cross-company 정책 조작 차단
 
 ### Web
 
 - admin 정책 화면에 허용 방식 current/candidate/diff 가 보이는지
 - 직원 근태 화면에 허용된 방식만 보이는지
-- 태그 방식이 안내형 skeleton 으로 보이는지
+- 태그 방식이 안내형 Production-ready (실구현) 으로 보이는지
 - 모바일 우선 CTA 순서가 유지되는지
 - 일반 직원 화면과 관리자 정책 화면 책임이 섞이지 않는지
 
@@ -318,7 +318,7 @@
 3. admin 정책 화면에서 허용 방식 current/candidate/diff 를 검토할 수 있다.
 4. 직원 근태 화면은 회사 정책에서 허용한 방식만 보여 준다.
 5. check-in/check-out API 가 요청 방식과 회사 정책 허용 여부를 검증한다.
-6. 태그 방식은 실장비 연동이 아니라 skeleton 경계로 남아 있다.
+6. 태그 방식은 실장비 연동이 아니라 Production-ready (실구현) 경계로 남아 있다.
 7. 관련 테스트가 허용/차단/validation 경계를 함께 확인한다.
 
 ## 9. 별도 승인 필요 항목

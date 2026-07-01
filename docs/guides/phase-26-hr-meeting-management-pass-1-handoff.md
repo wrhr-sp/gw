@@ -4,21 +4,21 @@
 이번 Phase 26은
 Phase 25 공통 업무 엔진 위에,
 직원 lifecycle 과 HR 미팅/면담/교육/온보딩 흐름을
-호텔 지점 권한 기준으로 얹는 최소 안전 skeleton 을 고정하는 단계입니다.
+호텔 지점 권한 기준으로 얹는 최소 안전 Production-ready (실구현) 을 고정하는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
 
 이미 있는 기반:
 
 - 공통 `work item` 엔진이 이미 있다.
-- `hr` 모듈 placeholder 와 온보딩 예시도 이미 있다.
+- `hr` 모듈 Production-ready (실구현) 와 온보딩 예시도 이미 있다.
 - 회사 + 지점/호텔 + 역할 + capability 접근 기준도 이미 문서와 구현에 올라와 있다.
 - 모바일 하단 탭 5개 유지와 `홈`/`메뉴`/PC sidebar 확장 원칙도 있다.
 
 이번 패스에서 이미 보이는 것:
 
 - `/work-items/hr` 에서 직원 lifecycle, meeting 유형, visibility 분리 문구를 바로 볼 수 있다.
-- `/api/work-items?module=hr` 에 onboarding, 1:1, 교육/코칭, grievance restricted placeholder 가 있다.
+- `/api/work-items?module=hr` 에 onboarding, 1:1, 교육/코칭, grievance restricted Production-ready (실구현) 가 있다.
 - `packages/shared/src/contracts.ts` 와 `apps/api/src/app.ts` 에 참석자/안건/후속조치/visibility metadata 구조가 이미 올라와 있다.
 - grievance restricted 경계는 `apps/api/test/work-items.spec.ts` 에서 MANAGER 403, HR_ADMIN 200 으로 다시 확인할 수 있다.
 
@@ -31,7 +31,7 @@ Phase 25 공통 업무 엔진 위에,
 즉 지금은
 "공통 업무 그릇" 위에
 "직원 관련 면담과 lifecycle 을 어떻게 안전하게 담는지"
-를 실제 placeholder 와 테스트 근거까지 포함해 1차로 맞춘 상태입니다.
+를 실제 Production-ready (실구현) 와 테스트 근거까지 포함해 1차로 맞춘 상태입니다.
 
 ## 2. 이번 Phase를 어떻게 이해하면 되는가
 
@@ -39,7 +39,7 @@ Phase 25 공통 업무 엔진 위에,
 
 이번 단계에서 먼저 보는 것은
 별도 회의 솔루션이 아니라
-기존 `work item` 엔진 위에 올라가는 HR meeting skeleton 입니다.
+기존 `work item` 엔진 위에 올라가는 HR meeting Production-ready (실구현) 입니다.
 
 핵심 category 초안:
 
@@ -82,7 +82,7 @@ meeting 쪽에서 추가로 필요한 것은
 - meeting 일정 상태와 업무 처리 상태를 한 필드에 섞으면 더 복잡해진다.
 - 그래서 "업무는 어디까지 갔는가"와 "meeting 일정은 어떤가"를 나눠 읽게 한다.
 
-### 3) meeting skeleton 은 일정·참석자·안건·메모·후속조치 5묶음으로 본다.
+### 3) meeting Production-ready (실구현) 은 일정·참석자·안건·메모·후속조치 5묶음으로 본다.
 
 이번 단계에서 같이 보는 구조는 아래입니다.
 
@@ -182,7 +182,7 @@ meeting 을 단순 일정표가 아니라
 
 1. `/work-items` — 공통 업무 허브와 API 골격이 먼저 보이는지 확인
 2. `/work-items/hr` — 직원 lifecycle, meeting 유형, visibility 분리, 승인 게이트 문구 확인
-3. `/api/work-items?module=hr` — HR placeholder 4종과 `viewerScope` / `confidentialityLevel` 확인
+3. `/api/work-items?module=hr` — HR Production-ready (실구현) 4종과 `viewerScope` / `confidentialityLevel` 확인
 4. `apps/api/test/work-items.spec.ts` — grievance restricted 경계 테스트 확인
 5. `apps/web/work-items.test.tsx`, `apps/web/work-items-boundary.test.tsx` — 화면 copy 와 route 연결 회귀 확인
 6. 마지막으로 외부 캘린더/실민감 원문 저장/production data 가 여전히 닫혀 있는지 확인
@@ -224,7 +224,7 @@ meeting 을 단순 일정표가 아니라
 
 1. 기존 `work item` / `hr` 모듈 기초를 다시 확인한다.
 2. meeting 유형을 새 상태군이 아니라 `category` + 보조 metadata 로 정리한다.
-3. 참석자/안건/메모/후속조치 구조를 metadata 중심 skeleton 으로 설계한다.
+3. 참석자/안건/메모/후속조치 구조를 metadata 중심 Production-ready (실구현) 으로 설계한다.
 4. 본사 HR / 지점 관리자 / 일반 직원 visibility 차이를 API/UI copy 에 같이 반영한다.
 5. `/work-items/hr` 중심으로 HR meeting/lifecycle entry 를 우선 정리한다.
 6. 외부 캘린더 비연동, 실민감 원문 비저장, production data 비사용이 문서와 구현에서 흔들리지 않는지 마지막에 다시 본다.
@@ -237,7 +237,7 @@ meeting 을 단순 일정표가 아니라
 
 - 기존 Phase 25 공통 `work item` 엔진 위에 `hr` meeting/lifecycle metadata 확장
 - `category`, `schedule_status`, `confidentiality_level`, `follow_up_required` 같은 보조 필드 검토
-- `/work-items/hr` 또는 그 하위 skeleton copy/API placeholder 에 meeting 구조 반영
+- `/work-items/hr` 또는 그 하위 Production-ready (실구현) copy/API Production-ready (실구현) 에 meeting 구조 반영
 - 참석자/안건/후속조치 요약 응답과 visibility 테스트
 
 피해야 할 것:
@@ -278,7 +278,7 @@ meeting 을 단순 일정표가 아니라
 - 기존 `workItem*Schema` 를 깨지 않는 확장으로 접근한다.
 - `hr` 모듈 category 확장을 먼저 정리한다.
 - 주 상태는 공통 상태를 유지하고 meeting 일정 의미는 보조 필드로 둔다.
-- 참석자/안건/후속조치/비공개 범위는 metadata-only skeleton 으로 시작한다.
+- 참석자/안건/후속조치/비공개 범위는 metadata-only Production-ready (실구현) 으로 시작한다.
 - `/work-items/hr` 에서 lifecycle/meeting 유형과 권한 안내를 먼저 보여 준다.
 - 본사 HR 이 더 넓은 범위를 보고, 지점 관리자는 필요한 요약만 보는 경계를 테스트로 붙든다.
 

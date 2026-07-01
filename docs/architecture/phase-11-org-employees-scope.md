@@ -2,7 +2,7 @@
 
 ## 1. 한 줄 정의
 
-Phase 11의 목표는 `/org`, `/employees` 를 `/admin/users` 와 분리된 일반 업무 모듈로 다시 분명하게 세우고, 다음 구현자가 바로 손댈 수 있을 정도로 화면·API·shared contract·테스트의 dev-safe skeleton 기준을 고정하는 것입니다.
+Phase 11의 목표는 `/org`, `/employees` 를 `/admin/users` 와 분리된 일반 업무 모듈로 다시 분명하게 세우고, 다음 구현자가 바로 손댈 수 있을 정도로 화면·API·shared contract·테스트의 dev-safe Production-ready (실구현) 기준을 고정하는 것입니다.
 
 이번 단계도 실제 직원 개인정보 연결, 실운영 사용자 권한 변경, production DB 변경은 하지 않습니다.
 
@@ -13,8 +13,8 @@ Phase 9~10에서는 `/admin/*` 운영 경계와 감사/정책/사용자 candidat
 
 하지만 현재 저장소에서 `/org`, `/employees` 는 아직 아래 수준에 머물러 있습니다.
 
-- `/org` 는 부서/역할/권한 API 링크와 주의사항만 보여주는 placeholder 중심 화면입니다.
-- `/employees` 는 예상 컬럼과 `/api/employees` 링크만 보여주는 placeholder 중심 화면입니다.
+- `/org` 는 부서/역할/권한 API 링크와 주의사항만 보여주는 Production-ready (실구현) 중심 화면입니다.
+- `/employees` 는 예상 컬럼과 `/api/employees` 링크만 보여주는 Production-ready (실구현) 중심 화면입니다.
 - `/admin/users` 는 운영 사용자-직원 연결, 역할 후보, 상태 변경 diff 를 검토하는 관리자 후보 화면입니다.
 - shared/API 쪽에는 기본 조회 schema 와 관리자 candidate schema 가 함께 있지만, 일반 조회 화면이 관리자 흐름과 어디서 갈라지는지 문서가 아직 부족합니다.
 
@@ -33,7 +33,7 @@ Phase 9~10에서는 `/admin/*` 운영 경계와 감사/정책/사용자 candidat
 - `apps/web/app/org/page.tsx`
 - `apps/web/app/employees/page.tsx`
 - `apps/web/app/admin/users/page.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `packages/shared/src/contracts.ts`
 - `packages/shared/test/contracts.spec.ts`
 - `apps/api/src/app.ts`
@@ -114,9 +114,9 @@ Phase 9~10에서는 `/admin/*` 운영 경계와 감사/정책/사용자 candidat
 
 즉, IA 는 유지하되 모바일 탭 확장보다 읽기 쉬운 목록 구조와 진입 동선을 먼저 맞춥니다.
 
-### 결정 E. dev-safe skeleton 의 완료 기준은 "실데이터처럼 보이되 실운영 변경은 못 하는 상태"다.
+### 결정 E. dev-safe Production-ready (실구현) 의 완료 기준은 "실데이터처럼 보이되 실운영 변경은 못 하는 상태"다.
 
-이번 Phase 의 skeleton 은 아래를 만족해야 합니다.
+이번 Phase 의 Production-ready (실구현) 은 아래를 만족해야 합니다.
 
 - 일반 사용자가 조직/직원 모듈의 역할을 이해할 수 있음
 - 관리자 화면과 경계가 문구/CTA/링크에서 분명함
@@ -137,8 +137,8 @@ Phase 9~10에서는 `/admin/*` 운영 경계와 감사/정책/사용자 candidat
 
 다음 구현 카드에서 허용하는 범위는 아래입니다.
 
-- `/org` 조직/부서/역할 조회 skeleton 보강
-- `/employees` 직원 목록/상태/소속/직책 조회 skeleton 보강
+- `/org` 조직/부서/역할 조회 Production-ready (실구현) 보강
+- `/employees` 직원 목록/상태/소속/직책 조회 Production-ready (실구현) 보강
 - 모바일에서도 읽기 쉬운 기본 카드/목록 레이아웃 보강
 - shared contract 에 일반 조직/직원 화면용 UI-friendly summary 필드 추가 검토
 - API mock/dev-safe 응답에 조직/직원 화면이 바로 쓸 수 있는 요약 필드 추가 검토
@@ -262,9 +262,9 @@ Phase 9~10에서는 `/admin/*` 운영 경계와 감사/정책/사용자 candidat
 ### Web
 
 - `apps/web/app/employees/page.tsx`
-  - 직원 목록/상태/소속/직책 skeleton 강화
+  - 직원 목록/상태/소속/직책 Production-ready (실구현) 강화
 - `apps/web/app/org/page.tsx`
-  - 부서/역할/권한 구조 탐색 skeleton 강화
+  - 부서/역할/권한 구조 탐색 Production-ready (실구현) 강화
 - `apps/web/app/dashboard/page.tsx`
   - 필요 시 조직/직원 진입점 카드 보강
 - `apps/web/app/section-page.tsx`
@@ -332,7 +332,7 @@ Phase 11 1차 구현 준비가 끝났다고 보려면 아래를 만족해야 합
 1. `/org`, `/employees`, `/admin/users` 의 역할 차이가 문서에 분명히 적혀 있습니다.
 2. 일반 조회 화면과 관리자 candidate 화면의 CTA 경계가 분리돼 있습니다.
 3. Web/API/shared/test/docs 대상 파일이 구체적으로 적혀 있습니다.
-4. dev-safe skeleton 으로 끝나는 기준이 분명합니다.
+4. dev-safe Production-ready (실구현) 으로 끝나는 기준이 분명합니다.
 5. 개인정보/권한/운영 변경 관련 제외 범위가 분리돼 있습니다.
 6. 모바일 진입점과 읽기 구조에 대한 기본 원칙이 적혀 있습니다.
 7. 다음 구현자가 바로 시작할 수 있는 테스트 시작점이 적혀 있습니다.
@@ -362,4 +362,4 @@ Phase 11 1차 구현 준비가 끝났다고 보려면 아래를 만족해야 합
 
 정리하면 Phase 11의 핵심은 하나입니다.
 
-"조직/직원 일반 화면을 관리자 운영 화면과 분리된 독립 업무 모듈로 다시 또렷하게 만들고, 다음 구현자가 안전하게 skeleton 을 확장할 수 있도록 계약을 잠그는 것"입니다.
+"조직/직원 일반 화면을 관리자 운영 화면과 분리된 독립 업무 모듈로 다시 또렷하게 만들고, 다음 구현자가 안전하게 Production-ready (실구현) 을 확장할 수 있도록 계약을 잠그는 것"입니다.

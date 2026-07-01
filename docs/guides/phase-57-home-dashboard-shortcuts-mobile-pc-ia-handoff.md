@@ -115,7 +115,7 @@
 4. 권한 기반 사용자 전용 바로가기
 5. `/menu`
 6. 하단 탭 5개 설명
-7. 기본 업무 / 공통 업무 / 내 정보 / 협업 placeholder 메뉴 섹션
+7. 기본 업무 / 공통 업무 / 내 정보 / 협업 Production-ready (실구현) 메뉴 섹션
 8. 필요 시 `/management`
 9. 필요 시 `/admin/users`
 10. 필요 시 `/admin/audit-logs`

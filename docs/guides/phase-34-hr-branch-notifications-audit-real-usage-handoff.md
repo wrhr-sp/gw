@@ -7,7 +7,7 @@
 
 이번 Phase 34 문서는
 무엇이 이미 same-origin API/권한 테스트/DB read fallback까지 붙어 있는지,
-무엇이 아직 placeholder 안내 화면인지,
+무엇이 아직 Production-ready (실구현) 안내 화면인지,
 무엇이 PostgreSQL 전환과 다음 구현 과제로 남는지
 한 번에 구분해 주는 기준입니다.
 
@@ -16,7 +16,7 @@
 
 1. 인사 조회 route 와 관리자 인사 운영 route의 경계
 2. 지점 업무가 현재 어떤 route와 scope로 노출되는지
-3. 알림 inbox 가 어디까지 same-origin 실응답이고 어디부터 외부 발송 placeholder 인지
+3. 알림 inbox 가 어디까지 same-origin 실응답이고 어디부터 외부 발송 Production-ready (실구현) 인지
 4. 감사 로그가 어떤 권한으로 읽히고 무엇을 숨기는지
 5. PostgreSQL 전환이 이미 시작된 영역과 아직 아닌 영역
 
@@ -44,7 +44,7 @@
 5. `/work-items/branch`
    - 지점 업무가 공통 work item branch module로 노출되는지 봅니다.
 6. `/notifications`
-   - 실제 발송이 아니라 안내형 placeholder 인지 봅니다.
+   - 실제 발송이 아니라 안내형 Production-ready (실구현) 인지 봅니다.
 7. `/admin/audit-logs`
    - 감사 전용 진입, 필터, masked detail, read-only 경계를 봅니다.
 
@@ -179,7 +179,7 @@
 - 현재 지점 route 기준은 `/work-items/branch`
 - 독립 지점 마스터 화면이 아직 없다는 사실을 숨기면 안 됩니다.
 
-### 알림은 placeholder honesty를 깨면 안 됨
+### 알림은 Production-ready (실구현) honesty를 깨면 안 됨
 - 읽음/발송/재시도/API/외부 채널이 아직 없으면 있다고 쓰지 않습니다.
 - 이번 단계에서는 "어디까지 아직 안 됨" 이 중요한 정보입니다.
 
@@ -227,5 +227,5 @@ Phase 34는
 인사·지점·알림·감사를
 "자리만 있는 화면"
 에서
-"무엇은 이미 연결됐고 무엇은 아직 placeholder/DB 전환 과제인지 설명 가능한 운영 흐름"
+"무엇은 이미 연결됐고 무엇은 아직 Production-ready (실구현)/DB 전환 과제인지 설명 가능한 운영 흐름"
 으로 끌어올리는 기준 단계입니다.

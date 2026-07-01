@@ -3,15 +3,15 @@
 ## 1. 한 줄 정의
 
 Phase 18의 목표는
-Phase 17에서 준비한 `apps/mobile` skeleton과 shared contract를 바탕으로
+Phase 17에서 준비한 `apps/mobile` Production-ready (실구현)과 shared contract를 바탕으로
 사용자가 모바일 초안 안에서 핵심 업무 흐름을 한 번 따라가 볼 수 있게
 화면별 상태, 연결 규칙, 제외 범위를 1차로 고정하는 것입니다.
 
 쉽게 말해 이번 단계는
 "모바일 앱 껍데기를 만들었다"에서 끝내지 않고,
 "로그인 이후 어떤 업무를 어떤 순서로 보고,
-어디까지는 dev-safe skeleton으로 연결하고,
-어디서부터는 아직 placeholder/승인 게이트인지"를
+어디까지는 dev-safe Production-ready (실구현)으로 연결하고,
+어디서부터는 아직 Production-ready (실구현)/승인 게이트인지"를
 더 분명하게 정리하는 단계입니다.
 
 이번 단계도 production 데이터 반영,
@@ -105,7 +105,7 @@ Phase 18은 "업무 흐름을 따라가도 해석이 흔들리지 않게" 만드
 중요한 점:
 
 - API를 실제 운영 연결처럼 과장하지 않는다.
-- contract는 연결하되, placeholder/dev-safe 여부를 화면 설명과 테스트 기준에서 숨기지 않는다.
+- contract는 연결하되, Production-ready (실구현)/dev-safe 여부를 화면 설명과 테스트 기준에서 숨기지 않는다.
 
 ### 결정 C. 상태 안내는 offline/error/empty/forbidden 4축으로 먼저 통일한다.
 
@@ -152,7 +152,7 @@ Phase 18은 "업무 흐름을 따라가도 해석이 흔들리지 않게" 만드
 즉 "기능이 완전히 다르다"가 아니라
 "같은 업무 흐름을 다른 실행 환경에서 안전하게 풀어 쓴다"가 핵심입니다.
 
-### 결정 F. 성공 기준은 연결 가능한 skeleton과 검증 기준을 남기는 것이다.
+### 결정 F. 성공 기준은 연결 가능한 Production-ready (실구현)과 검증 기준을 남기는 것이다.
 
 이번 Phase 18에서 성공으로 보는 것:
 
@@ -206,8 +206,8 @@ Phase 18은 "업무 흐름을 따라가도 해석이 흔들리지 않게" 만드
 
 ### 구현 handoff 범위
 
-- 로그인/session placeholder 와 API client contract 연결 정리
-- 대시보드/출퇴근/휴가/결재함/공지·문서/내 정보 skeleton 연결 기준 정리
+- 로그인/session Production-ready (실구현) 와 API client contract 연결 정리
+- 대시보드/출퇴근/휴가/결재함/공지·문서/내 정보 Production-ready (실구현) 연결 기준 정리
 - offline/error/empty/forbidden 상태를 코드와 문서에서 드러내는 방향 고정
 - shared contract 재사용 우선, Web 전용 책임 분리 유지
 
@@ -253,7 +253,7 @@ Phase 18은 "업무 흐름을 따라가도 해석이 흔들리지 않게" 만드
 
 - 상태 분류가 숨겨지지 않는지
 - 권한 없음/회사 scope 경계가 흐려지지 않는지
-- placeholder 를 실제 배포 완료처럼 보이게 하지 않는지
+- Production-ready (실구현) 를 실제 배포 완료처럼 보이게 하지 않는지
 - PWA와 네이티브 차이 설명이 과장되지 않는지
 
 ### 테스터(gwtester)
@@ -271,7 +271,7 @@ Phase 18은 "업무 흐름을 따라가도 해석이 흔들리지 않게" 만드
 
 - SPEC/TEST_PLAN/QA_CHECKLIST/HANDOFF/CHANGELOG 최신화
 - 상태 분류 4축과 화면별 흐름을 쉬운 한국어로 정리
-- "지금 되는 것 / 아직 placeholder / 승인 필요" 구분 강화
+- "지금 되는 것 / 아직 Production-ready (실구현) / 승인 필요" 구분 강화
 
 ### 운영(gwops)
 

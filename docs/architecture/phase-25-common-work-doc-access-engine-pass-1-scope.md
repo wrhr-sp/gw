@@ -48,7 +48,7 @@ Phase 24에서는
 그래서 Phase 25에서는
 개별 도메인 기능보다 먼저
 "공통 업무 엔진"
-을 문서와 skeleton 기준으로 고정합니다.
+을 문서와 Production-ready (실구현) 기준으로 고정합니다.
 
 ## 3. 이번에 다시 확인한 현재 기준
 
@@ -108,7 +108,7 @@ Phase 24에서는
 
 - 모듈이 달라도 상태/마감/담당자 구조는 최대한 같이 간다.
 - 실제 업무 세부 필드는 `payload` 또는 템플릿 확장으로 뒤에 붙인다.
-- 지금 단계에서는 실데이터 입력보다 skeleton 구조와 guardrail 기준을 먼저 맞춘다.
+- 지금 단계에서는 실데이터 입력보다 Production-ready (실구현) 구조와 guardrail 기준을 먼저 맞춘다.
 
 ### 결정 B. 상태값은 공통 흐름으로 시작한다.
 
@@ -137,7 +137,7 @@ Phase 24에서는
 - 세무/노무/법무처럼 실제 법정 처리 책임이 붙는 업무도 처음부터 별도 상태군을 남발하지 않는다.
 - 꼭 필요한 차이는 `module`, `category`, `review_required`, `contains_sensitive_data` 로 분리한다.
 
-### 결정 C. 문서/첨부/검토/마감은 work item에 붙는 공통 skeleton으로 본다.
+### 결정 C. 문서/첨부/검토/마감은 work item에 붙는 공통 Production-ready (실구현)으로 본다.
 
 공통 연결 초안:
 
@@ -219,14 +219,14 @@ UX 기준:
 - 유료 리소스 생성·증설
 - destructive migration/삭제 작업
 
-### 결정 G. builder는 공통 엔진 skeleton을 우선 구현한다.
+### 결정 G. builder는 공통 엔진 Production-ready (실구현)을 우선 구현한다.
 
 이번 기획 기준에서 builder가 먼저 잡아야 할 최소 안전 범위는 아래입니다.
 
 - shared contract 에 공통 work item / document / review / deadline schema 초안 추가
-- API placeholder route 또는 응답 skeleton 추가
+- API Production-ready (실구현) route 또는 응답 Production-ready (실구현) 추가
 - 모바일 `홈`/`메뉴`와 PC sidebar 에 새 업무 그룹 자리를 과장 없이 확보
-- 지점 scope + 역할 scope 가 섞이지 않도록 placeholder copy 정리
+- 지점 scope + 역할 scope 가 섞이지 않도록 Production-ready (실구현) copy 정리
 - 테스트/문서에서 "실운영 처리 아님" guardrail 유지
 
 즉,
@@ -359,10 +359,10 @@ UX 기준:
 
 집중할 것:
 
-- 공통 work item contract 와 placeholder route 최소 뼈대
+- 공통 work item contract 와 Production-ready (실구현) route 최소 뼈대
 - 공통 문서/첨부/검토/마감 schema 초안
 - 모바일 `홈`/`메뉴`, PC sidebar 의 새 업무 그룹 자리 확보
-- 지점 scope 와 역할 scope 를 같이 보는 placeholder copy
+- 지점 scope 와 역할 scope 를 같이 보는 Production-ready (실구현) copy
 
 피해야 할 것:
 
@@ -383,9 +383,9 @@ UX 기준:
 
 집중할 것:
 
-- 공통 contract, route, placeholder, 메뉴 배치가 문서와 맞는지
+- 공통 contract, route, Production-ready (실구현), 메뉴 배치가 문서와 맞는지
 - 일반 사용자/지점 관리자/본사 관리자 가시 범위가 섞이지 않는지
-- blocked 이유가 권한/자료부족/승인필요/placeholder 제한 중 무엇인지 구분되는지
+- blocked 이유가 권한/자료부족/승인필요/Production-ready (실구현) 제한 중 무엇인지 구분되는지
 
 ### 문서화(gwdocs)
 

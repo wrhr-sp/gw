@@ -61,7 +61,7 @@
 
 핵심 질문:
 - 급여/세무/노무/법무/지점 업무 책임이 서로 섞이지 않는가
-- preview/skeleton 과 실운영을 같은 말로 쓰지 않는가
+- preview/Production-ready (실구현) 과 실운영을 같은 말로 쓰지 않는가
 - branch/company scope 와 restricted 경계가 유지되는가
 
 ### D. 운영자/감사 레인
@@ -124,7 +124,7 @@
 ### D. 민감 모듈 설명은 항상 "지금 되는 것/아직 안 되는 것"을 같이 적는다
 - `/payroll` 은 관리자 preview 흐름이다.
 - `/payroll/me` 는 self-only payslip preview 흐름이다.
-- `tax`·`labor`·`legal` 은 공통 work item 기반 skeleton/metadata 흐름이 남아 있다.
+- `tax`·`labor`·`legal` 은 공통 work item 기반 Production-ready (실구현)/metadata 흐름이 남아 있다.
 - `/admin/audit-logs` 는 현재 컴플라이언스/감사 read-only 진입점이다.
 
 ## 6. 현재 근거 파일

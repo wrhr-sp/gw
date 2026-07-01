@@ -21,7 +21,7 @@
 - 익명 사용자는 `/admin*` 에서 `/login` 으로 차단된다.
 - 일반 로그인 사용자는 `/forbidden` 으로 차단된다.
 - 감사 전용 사용자는 `/admin/audit-logs` 만 허용하는 preview guard 가 있다.
-- 관리자 CTA 와 admin skeleton 화면 구조가 이미 있다.
+- 관리자 CTA 와 admin Production-ready (실구현) 화면 구조가 이미 있다.
 
 하지만 지금은 host 경계가 강해진 반면, 역할/권한 기준은 아직 1차 골격 수준이라 다음 같은 위험이 남아 있습니다.
 
@@ -31,7 +31,7 @@
 4. 계약 문서에는 역할/권한/범위 정보가 있는데, 구현이 그 의미를 끝까지 재사용하지 않을 수 있다.
 
 즉, 이번 1차는 새 보안 시스템을 크게 만드는 작업이 아니라,
-이미 있는 역할/권한 skeleton 을 관리자 접근 통제 기준으로 다시 정리하는 작업입니다.
+이미 있는 역할/권한 Production-ready (실구현) 을 관리자 접근 통제 기준으로 다시 정리하는 작업입니다.
 
 ## 3. 이번에 다시 확인한 현재 사실
 
@@ -43,7 +43,7 @@
 - `apps/web/admin-preview-guard.test.ts`
 - `apps/web/app/dashboard/dashboard-config.ts`
 - `apps/web/dashboard-boundary.test.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `docs/architecture/phase-13-admin-console-pass-1-scope.md`
 - `docs/guides/phase-13-admin-console-pass-1-handoff.md`
 - `docs/ux/groupware-benchmark-principles.md`
@@ -75,7 +75,7 @@
 - `board.manage`
 - `document.space.manage`
 
-### 관리자 데이터 skeleton
+### 관리자 데이터 Production-ready (실구현)
 
 shared contract 에 이미 아래 골격이 있습니다.
 
@@ -182,7 +182,7 @@ shared contract 에 이미 아래 골격이 있습니다.
 
 1. shared contract 와 helper 에서 공통 기준을 먼저 만든다.
 2. Web/API 가 그 기준을 재사용하게 한다.
-3. 필요하면 테스트 fixture 와 skeleton config 를 같은 기준으로 정리한다.
+3. 필요하면 테스트 fixture 와 Production-ready (실구현) config 를 같은 기준으로 정리한다.
 4. production DB migration, 실권한 저장, 실제 role assignment write 는 하지 않는다.
 
 즉, 이번 단계의 중심은 "새 테이블 추가"가 아니라 "같은 기준을 여러 곳에서 다시 쓰게 만드는 것"입니다.
@@ -201,7 +201,7 @@ shared contract 에 이미 아래 골격이 있습니다.
 - shared helper 또는 contract 기준 정리
 - Web preview guard 를 permission 기준까지 맞추는 수정
 - dashboard/admin hub 노출 조건 정리
-- admin skeleton config 에 역할/권한 설명 보강
+- admin Production-ready (실구현) config 에 역할/권한 설명 보강
 - API/Web/shared 테스트 기대값 정렬
 - 문서/QA/HANDOFF 동기화
 
@@ -313,4 +313,4 @@ shared contract 에 이미 아래 골격이 있습니다.
 
 정리하면 이번 1차의 핵심은 하나입니다.
 관리자 화면의 문을 host 만으로 나누는 데서 멈추지 않고,
-role/permission/scope skeleton 기준으로 같은 뜻으로 열고 닫는 구조를 먼저 굳히는 것입니다.
+role/permission/scope Production-ready (실구현) 기준으로 같은 뜻으로 열고 닫는 구조를 먼저 굳히는 것입니다.

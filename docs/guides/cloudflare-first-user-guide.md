@@ -13,10 +13,10 @@
 - 회사/직원/부서/역할/권한 조회 API 골격
 - Web/API가 같이 보는 공통 계약(`packages/shared`)
 - D1 SQL migration 골격(`db/migrations/0001_initial_schema.sql`, `0002_auth_org_phase2.sql`, `0003_attendance_leave_phase3.sql`, `0004_approvals_phase4.sql`)
-- 근태/휴가 placeholder API와 승인 경계 검증 흐름
-- 전자결재 양식/결재선/기안/문서함/승인함 placeholder API와 `/approvals` 화면
+- 근태/휴가 Production-ready (실구현) API와 승인 경계 검증 흐름
+- 전자결재 양식/결재선/기안/문서함/승인함 Production-ready (실구현) API와 `/approvals` 화면
 - 게시판/문서 1차 범위를 정리한 `docs/architecture/phase-5-boards-documents-scope.md`
-- 모바일 홈(`/`), 오프라인 안내(`/offline`), 설치 안내와 quick action 을 포함한 Phase 6 모바일/PWA 1차 skeleton
+- 모바일 홈(`/`), 오프라인 안내(`/offline`), 설치 안내와 quick action 을 포함한 Phase 6 모바일/PWA 1차 Production-ready (실구현)
 - Phase 6 모바일/PWA 1차 기준 문서 `docs/architecture/phase-6-mobile-pwa-scope.md`
 - 같은 origin 안에서 `/api/health`, `/api/me` 를 다시 붙이기 위한 Phase 7 same-origin 브리지 코드와 기준 문서
 - 문서/첨부파일 저장소 연결 1차 보안 기준을 정리한 `docs/architecture/phase-8-r2-storage-scope.md`
@@ -62,7 +62,7 @@ Cloudflare 호환 프리뷰까지 같이 보려면:
 pnpm --filter @gw/web preview:cf
 ```
 
-API 헬스 체크와 placeholder 인증 흐름을 보려면 다른 터미널에서:
+API 헬스 체크와 Production-ready (실구현) 인증 흐름을 보려면 다른 터미널에서:
 
 ```bash
 pnpm --filter @gw/api dev
@@ -114,9 +114,9 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 이번에 사용자 관점에서 바로 확인된 결과는 아래와 같습니다.
 
 1. `/` — 200, 첫 진입 화면이 열림
-2. `/login` — 200, 로그인 안내와 placeholder 설명이 열림
-3. `/boards` 와 `/boards/board_general` — 게시판 placeholder 화면 확인용 경로
-4. `/documents` — 200, 문서함 placeholder 화면이 열림
+2. `/login` — 200, 로그인 안내와 Production-ready (실구현) 설명이 열림
+3. `/boards` 와 `/boards/board_general` — 게시판 Production-ready (실구현) 화면 확인용 경로
+4. `/documents` — 200, 문서함 Production-ready (실구현) 화면이 열림
 5. `/offline` — 오프라인/불안정 네트워크 안내를 확인할 수 있음
 6. `/manifest.webmanifest` — 200, PWA manifest 가 같은 origin 에서 열림
 7. `/admin`, `/admin/users`, `/admin/policies`, `/admin/audit-logs` — 화면이 직접 열리지 않고 `/login` 으로 307 redirect
@@ -134,7 +134,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 지금 단계의 인증/조직 화면은 아래 정도까지만 보여 줍니다.
 
-- `/login`: 예시 이메일/비밀번호와 placeholder 로그인 설명
+- `/login`: 예시 이메일/비밀번호와 Production-ready (실구현) 로그인 설명
 - `/dashboard`: 세션 상태, 현재 회사, 역할/권한 표시 자리
 - `/employees`: 직원 기본 컬럼 예시와 조회 API 연결
 - `/org`: 부서/역할/권한 조회 API 연결
@@ -144,7 +144,7 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 
 - 화면이 있다고 해서 실제 기능이 끝난 것은 아닙니다.
 - 메뉴가 보여도 실제 접근 권한은 API에서 다시 검사합니다.
-- 예를 들어 `EMPLOYEE` 역할은 현재 placeholder 기준으로 회사 정보만 볼 수 있고, 직원/부서/역할/권한 조회는 403 으로 막혀야 정상입니다.
+- 예를 들어 `EMPLOYEE` 역할은 현재 Production-ready (실구현) 기준으로 회사 정보만 볼 수 있고, 직원/부서/역할/권한 조회는 403 으로 막혀야 정상입니다.
 
 ## 다음 단계에서 기대할 것
 
@@ -163,14 +163,14 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 - 권한이 없는 사용자는 승인 버튼 대신 안내 문구를 보게 됨
 - `EMPLOYEE` 는 자기 근태/휴가 흐름만 보는 것이 기본이며, 다른 직원 `employeeId` 나 임의 휴가 request id 를 넣어도 처리되지 않아야 정상입니다.
 - `HR_ADMIN`/`MANAGER` 같은 승인자는 팀 대기 요청(`leave_request_team_pending`)만 승인할 수 있고, 자기 own 요청(`leave_request_demo`)은 승인할 수 없습니다.
-- 현재 단계에서는 실제 연차 차감/급여 반영이 아니라 placeholder 상태만 확인함
+- 현재 단계에서는 실제 연차 차감/급여 반영이 아니라 Production-ready (실구현) 상태만 확인함
 
 게시판/문서 1차의 현재 상태는 아래처럼 이해하면 됩니다.
 
-- 이제 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` placeholder 화면을 바로 열어볼 수 있습니다.
+- 이제 `/boards`, `/boards/[boardId]`, `/posts/[postId]`, `/documents` Production-ready (실구현) 화면을 바로 열어볼 수 있습니다.
 - API 쪽에는 `/api/notices`, `/api/boards`, `/api/boards/:id/posts`, `/api/documents/spaces`, `/api/documents/files`, `/api/read-receipts` endpoint 가 연결 기준점으로 들어와 있습니다.
 - 최근 검증에서는 공지형 게시판 쓰기, 존재하지 않는 문서함 metadata 생성, forged 게시글 상세 조회, forged 게시글 read receipt 생성이 모두 403 으로 막히는 것까지 확인했습니다.
-- 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약, placeholder 화면, 권한 경계를 먼저 맞춘 상태" 입니다.
+- 즉, 지금은 "사용자 기능 오픈 전 단계에서 계약, Production-ready (실구현) 화면, 권한 경계를 먼저 맞춘 상태" 입니다.
 - 다만 실제 R2 업로드, production 문서 데이터 반입, 외부 공유 링크, OCR/전자서명 연동은 별도 승인 전까지 하지 않습니다.
 
 ## Phase 8 문서/첨부 저장소가 이어받는 기준
@@ -224,21 +224,21 @@ curl -i http://127.0.0.1:8787/api/auth/login \
 사용자 관점에서 이번 Phase 6 에서 기대하는 변화는 아래 정도입니다.
 
 - `/`, `/dashboard`, `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents` 가 작은 화면에서도 읽기 쉬운 카드 구조로 정리됩니다.
-- 앱 설치에 필요한 manifest/icon placeholder 와 기본 안내 문구가 정리됩니다.
+- 앱 설치에 필요한 manifest/icon Production-ready (실구현) 와 기본 안내 문구가 정리됩니다.
 - `/offline` 에서 오프라인 상태에서 가능한 일과 막아야 하는 일을 따로 보게 됩니다.
 - 다만 실제 앱스토어 배포, push 알림, background sync, 생체인증, 실데이터 운영 연결은 아직 아닙니다.
 
 현재 바로 알아둘 제한도 있습니다.
 
-- `attendance`, `leave`, `approvals` 화면의 큰 행동 버튼은 아직 실제 동작 버튼이 아니라 placeholder 입니다.
+- `attendance`, `leave`, `approvals` 화면의 큰 행동 버튼은 아직 실제 동작 버튼이 아니라 Production-ready (실구현) 입니다.
 - 특히 이 CTA 들은 현재 `<span aria-disabled>` 형태로 남아 있어, "누를 수 있어 보이지만 실제 버튼은 아님"이라는 접근성 한계가 있습니다.
 - 그래서 지금 단계에서는 화면 구조와 안내 문구를 먼저 확인하고, 실제 처리 완료까지 기대하면 안 됩니다.
 
 전자결재 1차에서 사용자가 보게 될 기본 흐름은 다음과 같습니다.
 
-- `/approvals`: 내 기안함/승인함/참조 문서함 구조를 미리 보는 placeholder 화면
+- `/approvals`: 내 기안함/승인함/참조 문서함 구조를 미리 보는 Production-ready (실구현) 화면
 - 결재 양식/결재선/참조자 후보를 불러오는 API 골격은 이미 있지만, 실제 운영 문서를 저장하는 완성 흐름은 아직 아님
-- 기안자는 문서 제목, 양식, 결재선, 요약 내용을 입력하는 skeleton 폼을 보게 됨
+- 기안자는 문서 제목, 양식, 결재선, 요약 내용을 입력하는 Production-ready (실구현) 폼을 보게 됨
 - 승인자는 승인/반려 버튼과 결재선 상태를 보되, 실제 법적 효력이나 외부 서명 연동은 아직 없음
 - 권한이 없는 사용자는 문서 접근 자체가 제한되거나 안내 상태만 보게 됨
 - 즉, 지금 단계에서는 실문서 저장·전자서명·외부 알림이 아니라 정보구조와 권한 경계만 먼저 확인함

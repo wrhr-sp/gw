@@ -11,7 +11,7 @@
 
 이미 확인 가능한 것:
 
-- `/login` 에서 placeholder 인증 범위와 역할별 첫 이동 설명이 있다.
+- `/login` 에서 Production-ready (실구현) 인증 범위와 역할별 첫 이동 설명이 있다.
 - `/dashboard` 는 오늘 할 일, 상단 액션 우선순위, 승인 대기, 공지/문서 진입, 일반 조회 진입을 먼저 보여 주는 허브로 잡혀 있다.
 - `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me`, `/org`, `/employees` route 는 각각 존재한다.
 - mobile 쪽은 shared contract 와 workflow helper 로 7개 핵심 흐름을 이미 코드 기준으로 정리해 두었다.
@@ -150,7 +150,7 @@ Phase 22가 정리하는 것은
 9. 마지막에 필요하면 `/admin/users`, `/admin/policies`, `/admin/audit-logs`, `/admin`
 
 이 순서대로 볼 때도 각 단계가 반드시
-"지금 확인 가능 / 아직 skeleton / 승인 필요"
+"지금 확인 가능 / 아직 Production-ready (실구현) / 승인 필요"
 중 어디인지 읽혀야 합니다.
 
 ## 4. 먼저 볼 파일
@@ -203,7 +203,7 @@ Phase 22가 정리하는 것은
 
 집중할 것:
 
-- 로그인/session placeholder 와 dashboard 허브 설명을 실제 업무 흐름 기준으로 정렬
+- 로그인/session Production-ready (실구현) 와 dashboard 허브 설명을 실제 업무 흐름 기준으로 정렬
 - attendance/leave/approvals/boards/documents/me/org/employees 문구와 연결성 보강
 - shared/mobile workflow helper 와 Web 설명이 같은 뜻이 되게 정리
 - empty/error/forbidden/offline 상태 문구를 실제 사용자 언어로 정리
@@ -237,14 +237,14 @@ Phase 22가 정리하는 것은
 집중할 것:
 
 - 로그인 → 대시보드 → 핵심 업무 → 협업 → 내 정보/조직 확인 순서를 쉬운 한국어로 고정
-- 되는 것 / 아직 skeleton / 승인 필요 분류를 같은 언어로 정리
+- 되는 것 / 아직 Production-ready (실구현) / 승인 필요 분류를 같은 언어로 정리
 - 관리자 운영 화면은 별도 확인 포인트로 남긴다는 점을 문서마다 일관되게 유지
 
 ### 운영(gwops)
 
 집중할 것:
 
-- preview/dev-safe skeleton 범위임을 계속 분리 기록
+- preview/dev-safe Production-ready (실구현) 범위임을 계속 분리 기록
 - release gate 와 live evidence 가 있더라도 production data/secret/실연동 미완료 상태를 숨기지 않기
 - 최종 보고용 근거를 route 순서와 승인 게이트 기준으로 정리
 

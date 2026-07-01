@@ -16,7 +16,7 @@
 
 아직 대장이 직접 눌러 보기엔 부족한 것:
 - 로그인/세션/로그아웃/redirect 기준이 UAT 관점에서 덜 닫혀 있음
-- `/boards`, `/documents`, `/me`, `/admin` 은 placeholder 의존이 큼
+- `/boards`, `/documents`, `/me`, `/admin` 은 Production-ready (실구현) 의존이 큼
 - `/attendance`, `/leave`, `/approvals` 는 happy path 보다 안내 문구 비중이 큼
 - 계정 생성/권한 변경/비활성/비밀번호 초기화가 한 묶음 관리 흐름으로 아직 닫히지 않음
 
@@ -111,7 +111,7 @@
   - `apps/web/app/_components/home-shortcuts-panel.tsx` 기준으로 회사 공통 고정 바로가기와 사용자 전용 커스텀 바로가기를 나눠 보여 준다.
   - 고정 바로가기 API 미조회, 사용자 전용 바로가기 없음, API load error 를 서로 다른 빈 상태/경고 상태로 남긴다.
   - 일반 host 와 관리자 host 는 `apps/web/mobile-pwa.test.ts` 기준 서로 다른 manifest/shortcut 세트를 유지한다.
-  - 다만 제목과 placeholder 문구가 아직 강하게 남아 있어 "실사용 홈" 체감은 덜 닫혀 있다.
+  - 다만 제목과 Production-ready (실구현) 문구가 아직 강하게 남아 있어 "실사용 홈" 체감은 덜 닫혀 있다.
 - `apps/web/app/management/page.tsx`
   - `/admin/users`, `/payroll`, `/work-items/tax|labor|legal|branch`, `/admin/audit-logs` 로 이어지는 허브가 이미 있다.
 - `apps/web/app/admin/users/page.tsx` + `admin-users-page-content.tsx`
@@ -125,15 +125,15 @@
 2. 홈/경영업무 landing 분리
 3. 계정관리 dev-safe CRUD "preview" 를 UAT 체감 흐름으로 더 명확히 정리
 4. 게시판/문서/근태/휴가/결재의 최소 happy path 연결
-5. placeholder 잔여 route 를 fit-gap 표로 분리
+5. Production-ready (실구현) 잔여 route 를 fit-gap 표로 분리
 
 ### 이번 문서에서 고정할 fit-gap 표
-| 구분 | 지금 대장이 직접 눌러볼 수 있는 것 | 아직 dev-safe / skeleton 잔여 | 다음 구현 우선순위 |
+| 구분 | 지금 대장이 직접 눌러볼 수 있는 것 | 아직 dev-safe / Production-ready (실구현) 잔여 | 다음 구현 우선순위 |
 | --- | --- | --- | --- |
 | 로그인/landing | `admin / 1234` 로그인, 익명→로그인 redirect, 일반 직원 vs 관리자 landing 분리 | production 기본 계정으로 쓰면 안 됨, seed 교체/초기 비밀번호 변경 절차는 별도 | 로그인 copy, 로그아웃, 세션 만료/forbidden 안내 다듬기 |
-| 홈/경영업무 | `/dashboard`, `/management`, `/work-items*`, 관리자 CTA/민감 모듈 분리 | 대시보드 제목/설명이 아직 `skeleton`, `placeholder/dev-safe` 언어를 유지 | 홈 바로가기·경영업무 허브 문구 정리, 역할별 첫 액션을 더 짧게 |
+| 홈/경영업무 | `/dashboard`, `/management`, `/work-items*`, 관리자 CTA/민감 모듈 분리 | 대시보드 제목/설명이 아직 `Production-ready (실구현)`, `Production-ready (실구현)/dev-safe` 언어를 유지 | 홈 바로가기·경영업무 허브 문구 정리, 역할별 첫 액션을 더 짧게 |
 | 계정관리 | `/admin/users`, `/api/admin/users`, 역할별 admin guard, create/role/status/password preview 폼 | preview 는 가능하지만 실제 저장은 없고 303 redirect 결과 문구 중심 | dev-safe 계정 CRUD 시나리오 1세트 완성 + preview 경계 명확화 |
-| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` route 진입과 일부 상태 확인 | route별 happy path 가 고르게 닫히지 않았고 placeholder 비중 차이가 큼 | 모듈별 최소 1개 happy path + forbidden/empty/error 고정 |
+| 일반 업무 | `/attendance`, `/leave`, `/approvals`, `/boards`, `/documents`, `/me` route 진입과 일부 상태 확인 | route별 happy path 가 고르게 닫히지 않았고 Production-ready (실구현) 비중 차이가 큼 | 모듈별 최소 1개 happy path + forbidden/empty/error 고정 |
 | 민감 모듈 | `/work-items/hr`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/work-items/branch` 와 `/management` 분리 | 실제 외부 연동/실민감 원문 저장/실지급·실신고는 계속 금지 | UAT 설명 강화, approval gate 유지 |
 
 ## 3-1. 대장이 실제로 바로 눌러볼 추천 클릭 순서
@@ -202,10 +202,10 @@
 구현자는 아래 순서로 읽으면 됩니다.
 
 1. 로그인과 세션부터 닫는다.
-2. `/dashboard` 와 `/management` 의 역할별 landing 을 닫되, 기존 카드 구조를 버리지 말고 skeleton 문구를 줄인다.
+2. `/dashboard` 와 `/management` 의 역할별 landing 을 닫되, 기존 카드 구조를 버리지 말고 Production-ready (실구현) 문구를 줄인다.
 3. `/admin/users` 에서 dev-safe 계정관리 preview 흐름을 닫고, 실제 저장처럼 보이지 않게 경계를 더 분명히 한다.
 4. 게시판/문서/근태/휴가/결재 중 UAT 체감이 큰 route 부터 happy path 를 하나씩 연결한다.
-5. 남은 placeholder route 는 문서에 숨기지 말고 fit-gap 표로 남긴다.
+5. 남은 Production-ready (실구현) route 는 문서에 숨기지 말고 fit-gap 표로 남긴다.
 
 ## 6-1. builder가 바로 보면 좋은 실제 파일 순서
 1. `apps/web/app/login/page.tsx` + `apps/web/app/login/login-form.tsx`
@@ -216,7 +216,7 @@
 6. `apps/web/dashboard-boundary.test.tsx`, `apps/web/admin-users-dev-safe-action.test.ts`, `apps/api/test/auth-org.spec.ts`, `apps/api/test/work-items.spec.ts`
 
 ## 6-2. reviewer/tester가 특히 볼 쟁점
-- 대시보드가 경영업무 분리를 잘 보여 주더라도, 여전히 "placeholder/dev-safe" 언어를 유지하는 부분이 남아 있는지
+- 대시보드가 경영업무 분리를 잘 보여 주더라도, 여전히 "Production-ready (실구현)/dev-safe" 언어를 유지하는 부분이 남아 있는지
 - `/admin/users` 가 preview 를 "저장 성공"처럼 과장하지 않는지
 - 비밀번호 preview 에서 민감값이 URL/배너에 남지 않는지
 - 일반 직원 화면에서 `/management`, `/admin`, `/api/admin/users` 가 계속 차단되는지
@@ -242,7 +242,7 @@
 
 ## 7-2. 이번 문서화에서 일부러 분리해 적어야 하는 것
 - 지금 바로 체험 가능한 route
-- 아직 placeholder 비중이 큰 route
+- 아직 Production-ready (실구현) 비중이 큰 route
 - forbidden/empty/error 로 확인해야 하는 route
 - dev-safe 계정/fixture 에 기대는 부분
 - 별도 승인 없이는 절대 열지 않는 부분

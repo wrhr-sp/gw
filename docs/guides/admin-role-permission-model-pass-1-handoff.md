@@ -9,7 +9,7 @@
 
 - 일반 사용자 host 와 관리자 host 분리가 들어가 있다.
 - 익명/일반 사용자/관리자/감사 전용 사용자의 `/admin*` 접근 경계가 preview guard 에 있고, `/admin/audit-logs` 는 `audit.read` capability 기준으로 분리됐다.
-- shared contract 에 `adminScope`, `highRiskPermissions`, policy capability, audit metadata skeleton 이 있다.
+- shared contract 에 `adminScope`, `highRiskPermissions`, policy capability, audit metadata Production-ready (실구현) 이 있다.
 - `packages/shared/src/admin-access.ts` 가 role/permission/adminScope/admin route kind 기준의 단일 helper 역할을 한다.
 - dashboard 에 관리자 shortcut 과 감사 shortcut 분기 구조가 있고, admin hub 카드 노출도 같은 접근 행렬을 재사용한다.
 - API 에 `requireAdminRole`, `requirePermission`, `ensureCompanyBoundary` helper 가 있다.
@@ -21,7 +21,7 @@
 - `HR_ADMIN` 과 `AUDITOR` 의 경계는 문서/구현/테스트에서 같은 말로 남겨야 한다.
 
 즉, 이번 단계는 관리자 host 를 또 나누는 작업이 아니라,
-이미 있는 관리자 skeleton 에 "누가 어디까지 들어가나"를 명확히 연결했고 그 결과를 다음 작업자도 같은 기준으로 읽게 만드는 작업입니다.
+이미 있는 관리자 Production-ready (실구현) 에 "누가 어디까지 들어가나"를 명확히 연결했고 그 결과를 다음 작업자도 같은 기준으로 읽게 만드는 작업입니다.
 
 ## 2. 이번 1차에서 고정한 핵심 해석
 
@@ -80,7 +80,7 @@
 - `apps/web/admin-preview-guard.test.ts`
 - `apps/web/app/dashboard/dashboard-config.ts`
 - `apps/web/dashboard-boundary.test.tsx`
-- `apps/web/admin-skeleton-config.ts`
+- `apps/web/admin-Production-ready (실구현)-config.ts`
 - `apps/web/app/admin/page.tsx`
 - `apps/web/app/admin/audit-logs/page.tsx`
 

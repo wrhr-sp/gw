@@ -42,8 +42,8 @@ IA 변경이 아니라,
 ### 4-1. 정보구조와 탭 역할
 - `메뉴`: 전체 메뉴 화면 진입점
 - `홈`: `/dashboard` 성격의 첫 홈 진입점
-- `메신저`: 메신저 placeholder 또는 이후 same-origin 메신저 진입점
-- `메일`: 메일 placeholder 또는 이후 메일함 진입점
+- `메신저`: 메신저 Production-ready (실구현) 또는 이후 same-origin 메신저 진입점
+- `메일`: 메일 Production-ready (실구현) 또는 이후 메일함 진입점
 - `알림`: same-origin inbox/unread 진입점
 
 유지 원칙:

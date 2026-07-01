@@ -4,14 +4,14 @@
 이번 Phase 29는
 Phase 25 공통 업무 엔진 위에,
 계약 검토 요청·계약 갱신일·분쟁/클레임/보험/사고 후속 흐름을
-`legal` 모듈 skeleton 으로 올리는 단계입니다.
+`legal` 모듈 Production-ready (실구현) 으로 올리는 단계입니다.
 
 ## 1. 지금 상태를 쉬운 말로 정리하면
 
 이미 있는 기반:
 
 - 공통 `work item` 엔진이 이미 있다.
-- `legal` 모듈 placeholder 자리도 이미 있다.
+- `legal` 모듈 Production-ready (실구현) 자리도 이미 있다.
 - `/management`, `/work-items/legal`, `/api/work-items?module=legal`, `/api/work-items/:id/reviews` 같은 공통 진입점이 있다.
 - 현재 대표 fixture 는 `work_item_legal_contract_review`(company scope 계약 검토), `work_item_legal_contract_renewal`(branch scope 갱신 검토), `work_item_legal_dispute_intake`(company scope 분쟁/클레임 사실확인) 3건이다.
 - 모바일 하단 탭 5개 유지와 `홈`/`메뉴`/PC sidebar 확장 원칙도 있다.
@@ -21,7 +21,7 @@ Phase 25 공통 업무 엔진 위에,
 - 법무 검토 요청을 어떤 category 로 나눌지
 - 계약 분류/갱신일/분쟁 후속을 어떤 metadata 로 설명할지
 - 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 를 어디서 갈라야 하는지
-- 실제 계약 원문/외부 자문 없이 어디까지 preview/dev-safe skeleton 으로 보여 줄지
+- 실제 계약 원문/외부 자문 없이 어디까지 preview/dev-safe Production-ready (실구현) 으로 보여 줄지
 
 아직 안 여는 것:
 
@@ -41,7 +41,7 @@ Phase 25 공통 업무 엔진 위에,
 
 이번 단계에서 먼저 보는 것은
 별도 법무 솔루션이 아니라
-기존 `work item` 엔진 위에 올라가는 `legal` skeleton 입니다.
+기존 `work item` 엔진 위에 올라가는 `legal` Production-ready (실구현) 입니다.
 
 핵심 category 초안:
 
@@ -90,7 +90,7 @@ legal 쪽에서 추가로 필요한 것은
 - 법무 업무 진행 단계와 업무 처리 상태를 한 필드에 섞으면 더 복잡해진다.
 - 그래서 "업무는 어디까지 갔는가"와 "법무 검토/갱신/분쟁은 어떤 단계인가"를 나눠 읽게 한다.
 
-### 3) legal skeleton 은 검토·계약·갱신·분쟁·기록 5묶음으로 본다.
+### 3) legal Production-ready (실구현) 은 검토·계약·갱신·분쟁·기록 5묶음으로 본다.
 
 이번 단계에서 같이 보는 구조는 아래입니다.
 
@@ -99,7 +99,7 @@ legal 쪽에서 추가로 필요한 것은
 2. 계약 분류
    - 위탁운영/임대차/용역/협력사/개인정보처리위탁 중 무엇인지
 3. 갱신/만료
-   - 언제 갱신 판단이 필요한지, 어떤 알림 skeleton 이 필요한지
+   - 언제 갱신 판단이 필요한지, 어떤 알림 Production-ready (실구현) 이 필요한지
 4. 분쟁/클레임/보험/사고 후속
    - 어떤 사건 유형인지, 현재 어떤 준비 단계인지
 5. 기록/audit
@@ -227,7 +227,7 @@ legal 쪽에서 추가로 필요한 것은
 
 1. 기존 `work item` / `legal` 모듈 기초를 다시 확인한다.
 2. 법무 이슈 유형을 새 상태군이 아니라 `category` + 보조 metadata 로 정리한다.
-3. 검토/계약/갱신/분쟁/기록 구조를 metadata 중심 skeleton 으로 설계한다.
+3. 검토/계약/갱신/분쟁/기록 구조를 metadata 중심 Production-ready (실구현) 으로 설계한다.
 4. 본사 법무/운영 담당 / 지점 관리자 / 감사 visibility 차이를 API/UI copy 에 같이 반영한다.
 5. `/work-items/legal` 중심으로 legal entry 를 우선 정리한다.
 6. 실제 계약 원문 저장, 외부 자문 연동, production data 비사용이 문서와 구현에서 흔들리지 않는지 마지막에 다시 본다.
@@ -251,7 +251,7 @@ legal 쪽에서 추가로 필요한 것은
 - 승인 게이트 문구가 실제 외부 자문 완료처럼 바뀌지 않았는지 확인한다.
 
 ### docs
-- 계약 검토 skeleton 과 실제 법률 자문 시스템을 같은 말로 쓰지 않는다.
+- 계약 검토 Production-ready (실구현) 과 실제 법률 자문 시스템을 같은 말로 쓰지 않는다.
 - 보완 요청/승인 대기와 실제 대외 발송 완료를 같은 단계처럼 쓰지 않는다.
 - 지점 요청용 흐름과 HQ 법무 운영 흐름을 쉬운 한국어로 분리한다.
 
@@ -263,8 +263,8 @@ legal 쪽에서 추가로 필요한 것은
 5. 가능하면 `/work-items/legal` local preview smoke
 
 ## 8. 주의할 점
-- 계약 갱신일은 실제 자동 알림 발송 완료가 아니라 skeleton 마감 안내다.
+- 계약 갱신일은 실제 자동 알림 발송 완료가 아니라 Production-ready (실구현) 마감 안내다.
 - 분쟁/클레임/보험 상태는 실제 기관 제출 결과가 아니라 내부 follow-up 단계다.
 - 외부 변호사/보험사 전달 후보와 실제 외부 전송 완료를 같은 뜻으로 쓰지 않는다.
-- 현재 legal placeholder 3건 존재를 법무 전체 구현 완료처럼 과장하지 않는다.
+- 현재 legal Production-ready (실구현) 3건 존재를 법무 전체 구현 완료처럼 과장하지 않는다.
 - 지점 관련 계약 안내와 회사 전체 민감 계약 자료를 같은 열람 범위로 섞지 않는다.

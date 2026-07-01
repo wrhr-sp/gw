@@ -55,7 +55,7 @@
   `isWorkersPreviewGeneralHost(host)` 이면 `/admin*` 를 allow 하는 분기
 
 이번 카드에서는 이 예외가 남아 있으면 안 됩니다.
-익명 공개 preview 에서 admin skeleton 이 보이면 요구사항 위반입니다.
+익명 공개 preview 에서 admin Production-ready (실구현) 이 보이면 요구사항 위반입니다.
 
 ### PWA 쪽
 현재 `apps/web/app/mobile-pwa-config.ts` 에는

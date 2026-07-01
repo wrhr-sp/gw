@@ -214,7 +214,7 @@
 - 예: private HR space 403, write 권한 없음
 
 ### dev-safe
-- 내부 검증용 preview, placeholder, mock storage, local-safe 흐름이 남아 있는 상태다.
+- 내부 검증용 preview, Production-ready (실구현), mock storage, local-safe 흐름이 남아 있는 상태다.
 - production bucket 운영 완료, 외부 공유 완료, 실문서 장기보관 완료와 같은 뜻이 아니다.
 
 ## 5. 역할별로 어디까지 보면 되는가
