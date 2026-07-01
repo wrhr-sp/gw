@@ -4570,6 +4570,15 @@ li {
   padding: 6px;
 }
 
+.mail-address-book-backdrop {
+  position: fixed;
+  z-index: 79;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.16);
+  cursor: default;
+}
+
 .mail-address-book-popover {
   position: fixed;
   z-index: 80;
@@ -4580,7 +4589,8 @@ li {
   width: min(860px, calc(100vw - 64px));
   max-height: min(620px, calc(100vh - 150px));
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
+  outline: 1px solid var(--surface);
   border-radius: var(--radius-md);
   background: var(--surface);
 }
@@ -4591,7 +4601,8 @@ li {
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-subtle);
 }
 
 .mail-address-book-popover__header > strong {
@@ -4749,6 +4760,13 @@ li {
   font-size: var(--font-size-xs);
   padding: 3px 6px;
   white-space: nowrap;
+}
+
+.mail-address-book-table__row button[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-weight: var(--font-weight-semibold);
 }
 
 .mail-recipient-suggestions > span {
