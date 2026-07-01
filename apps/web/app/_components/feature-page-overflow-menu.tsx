@@ -44,7 +44,11 @@ export function FeaturePageOverflowMenu({ label }: FeaturePageOverflowMenuProps)
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <span aria-hidden="true">⋮</span>
+        <span aria-hidden="true" className="feature-page-overflow-menu__dots">
+          <span className="feature-page-overflow-menu__dot" />
+          <span className="feature-page-overflow-menu__dot" />
+          <span className="feature-page-overflow-menu__dot" />
+        </span>
       </button>
       <div
         className="feature-page-overflow-menu__popover"

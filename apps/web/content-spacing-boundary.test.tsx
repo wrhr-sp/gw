@@ -73,9 +73,18 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-page-title-menu-button-border: 0;");
     expect(globalCss).toContain("--feature-page-title-menu-button-radius: 0;");
     expect(globalCss).toContain("--feature-page-title-menu-button-bg: transparent;");
+    expect(globalCss).toContain("--feature-page-title-menu-button-color: var(--text);");
+    expect(globalCss).toContain("--feature-page-title-menu-button-icon-size: 18px;");
+    expect(globalCss).toContain("--feature-page-title-menu-button-dot-size: 4px;");
+    expect(globalCss).toContain("--feature-page-title-menu-button-dot-gap: 3px;");
     expect(globalCss).toContain("--feature-page-title-menu-popover-min-width: 132px;");
     expect(globalCss).toContain(".feature-page-overflow-menu__button {");
     expect(globalCss).toContain("width: var(--feature-page-title-menu-button-size);");
+    expect(globalCss).toContain(".feature-page-overflow-menu__dots {");
+    expect(globalCss).toContain("gap: var(--feature-page-title-menu-button-dot-gap);");
+    expect(globalCss).toContain(".feature-page-overflow-menu__dot {");
+    expect(globalCss).toContain("width: var(--feature-page-title-menu-button-dot-size);");
+    expect(globalCss).toContain("background: currentColor;");
     expect(globalCss).toContain(".feature-page-overflow-menu__popover {");
     expect(globalCss).toContain("top: calc(100% + var(--feature-page-title-menu-popover-offset));");
     expect(globalCss).toContain(".feature-page-overflow-menu__item {");

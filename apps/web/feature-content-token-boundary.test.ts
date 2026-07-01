@@ -5,6 +5,10 @@ describe("feature content area common tokens", () => {
   it("routes feature sublists, child markers, write buttons, dividers, settings icon, and count badges through common tokens", () => {
     const globalCss = readFileSync(new URL("./app/globals.css", import.meta.url), "utf8");
     const mailClient = readFileSync(new URL("./app/mail/mail-client.tsx", import.meta.url), "utf8");
+    const featureMenuSource = readFileSync(
+      new URL("./app/_components/feature-page-overflow-menu.tsx", import.meta.url),
+      "utf8",
+    );
 
     expect(globalCss).toContain("--feature-page-sublist-font-family: var(--font-family-sans);");
     expect(globalCss).toContain("--feature-page-sublist-font-size: inherit;");
@@ -73,6 +77,9 @@ describe("feature content area common tokens", () => {
     expect(globalCss).not.toContain(".messenger-unread-badge {\n  min-width: 20px;");
 
     expect(mailClient).toContain('<FeaturePageOverflowMenu label="메일" />');
+    expect(featureMenuSource).toContain('className="feature-page-overflow-menu__dots"');
+    expect(featureMenuSource).toContain('className="feature-page-overflow-menu__dot"');
+    expect(featureMenuSource).not.toContain('>⋮</span>');
     expect(mailClient).toContain("group: \"external\"");
     expect(mailClient).toContain("group: \"trash\"");
     expect(mailClient).not.toContain('<span aria-hidden="true">⚙</span>');
