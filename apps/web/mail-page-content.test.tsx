@@ -54,6 +54,12 @@ describe("mail page content", () => {
     expect(source).toContain("이름, 이메일, 부서명을 입력하세요.");
     expect(source).toContain("recipientQuery.trim() ? recipients.filter");
     expect(source).not.toContain('onFocus={() => setActiveRecipientPopup("to")}');
+    expect(source).toContain("주소록 선택 팝업");
+    expect(source).toContain("mail-address-book-popover");
+    expect(source).toContain("개인 주소록 준비중");
+    expect(source).toContain("받는사람</button>");
+    expect(source).toContain("참조</button>");
+    expect(source).toContain("applyAddressBookSelection");
     expect(source).toContain("role=\"listbox\"");
     expect(source).toContain("isRecipientPopupOpen ?");
     expect(source).toContain("onRemoveAll={() => void removeAllAttachments()}");
@@ -82,6 +88,9 @@ describe("mail page content", () => {
     expect(globalCss).toContain("position: absolute;");
     expect(globalCss).toContain(".mail-recipient-input-line");
     expect(globalCss).toContain(".mail-address-book-button");
+    expect(globalCss).toContain(".mail-address-book-popover");
+    expect(globalCss).toContain("grid-template-columns: minmax(110px, 0.6fr) minmax(280px, 1.8fr) minmax(180px, 1fr);");
+    expect(globalCss).toContain("white-space: nowrap;");
     expect(globalCss).toContain(".mail-recipient-suggestion-section");
     expect(globalCss).toContain(".feature-file-box__remove-all");
     expect(globalCss).toContain(".mail-document-picker");
