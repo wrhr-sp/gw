@@ -687,6 +687,17 @@
   --feature-page-count-badge-padding-inline: var(--board-tree-unread-badge-padding-inline);
   --feature-page-count-badge-radius: var(--board-tree-unread-badge-radius);
   --feature-page-count-badge-line-height: var(--line-height-tight);
+  --feature-workspace-tab-badge-bg: var(--feature-page-count-badge-bg);
+  --feature-workspace-tab-badge-color: var(--feature-page-count-badge-color);
+  --feature-workspace-tab-badge-height: var(--feature-page-count-badge-height);
+  --feature-workspace-tab-badge-min-width: var(--feature-page-count-badge-min-width);
+  --feature-workspace-tab-badge-padding-inline: var(--feature-page-count-badge-padding-inline);
+  --feature-workspace-tab-badge-radius: var(--feature-page-count-badge-radius);
+  --feature-workspace-tab-badge-font-family: var(--feature-page-count-badge-font-family);
+  --feature-workspace-tab-badge-font-size: var(--feature-page-count-badge-font-size);
+  --feature-workspace-tab-badge-font-weight: var(--feature-page-count-badge-font-weight);
+  --feature-workspace-tab-badge-font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
+  --feature-workspace-tab-badge-line-height: var(--feature-page-count-badge-line-height);
   --touch-button-secondary-min-height: 36px;
   --touch-button-secondary-padding: 8px 13px;
   --textarea-field-border-radius: 11px;
@@ -4465,7 +4476,24 @@ li {
   font-weight: var(--feature-workspace-emphasis-font-weight);
 }
 
-.feature-workspace__tab strong,
+.feature-workspace__tab strong {
+  display: inline-grid;
+  justify-self: start;
+  min-width: var(--feature-workspace-tab-badge-min-width);
+  height: var(--feature-workspace-tab-badge-height);
+  place-items: center;
+  border-radius: var(--feature-workspace-tab-badge-radius);
+  background: var(--feature-workspace-tab-badge-bg);
+  color: var(--feature-workspace-tab-badge-color);
+  font-family: var(--feature-workspace-tab-badge-font-family);
+  font-size: var(--feature-workspace-tab-badge-font-size);
+  font-style: normal;
+  font-variation-settings: var(--feature-workspace-tab-badge-font-variation-settings);
+  font-weight: var(--feature-workspace-tab-badge-font-weight);
+  line-height: var(--feature-workspace-tab-badge-line-height);
+  padding: 0 var(--feature-workspace-tab-badge-padding-inline);
+}
+
 .feature-workspace__row em {
   justify-self: start;
   border-radius: var(--radius-pill);
@@ -4870,8 +4898,8 @@ li {
 }
 
 .board-unread-badge {
-  background: var(--danger);
-  color: var(--board-unread-badge-color);
+  background: var(--feature-page-count-badge-bg);
+  color: var(--feature-page-count-badge-color);
 }
 
 .board-workspace__list {
@@ -5425,16 +5453,20 @@ li {
 }
 
 .messenger-unread-badge {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  color: var(--surface);
-  font-size: 11px;
-  font-weight: var(--font-weight-bold);
-  line-height: 20px;
+  display: inline-grid;
+  min-width: var(--feature-page-count-badge-min-width);
+  height: var(--feature-page-count-badge-height);
+  place-items: center;
+  padding: 0 var(--feature-page-count-badge-padding-inline);
+  color: var(--feature-page-count-badge-color);
+  font-family: var(--feature-page-count-badge-font-family);
+  font-size: var(--feature-page-count-badge-font-size);
+  font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
+  font-weight: var(--feature-page-count-badge-font-weight);
+  line-height: var(--feature-page-count-badge-line-height);
   text-align: center;
-  background: var(--primary);
-  border-radius: var(--radius-pill);
+  background: var(--feature-page-count-badge-bg);
+  border-radius: var(--feature-page-count-badge-radius);
 }
 
 .messenger-conversation {

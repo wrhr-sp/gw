@@ -34,6 +34,9 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("--feature-page-count-badge-height: var(--board-tree-unread-badge-height);");
     expect(globalCss).toContain("--feature-page-count-badge-min-width: var(--board-tree-unread-badge-min-width);");
     expect(globalCss).toContain("--feature-page-count-badge-padding-inline: var(--board-tree-unread-badge-padding-inline);");
+    expect(globalCss).toContain("--feature-workspace-tab-badge-bg: var(--feature-page-count-badge-bg);");
+    expect(globalCss).toContain("--feature-workspace-tab-badge-height: var(--feature-page-count-badge-height);");
+    expect(globalCss).toContain("--feature-workspace-tab-badge-padding-inline: var(--feature-page-count-badge-padding-inline);");
 
     expect(globalCss).toContain("font-size: var(--feature-page-sublist-font-size);");
     expect(globalCss).toContain("font-family: var(--feature-page-sublist-font-family);");
@@ -42,6 +45,11 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("grid-template-columns: var(--feature-page-sublist-grid-columns);");
     expect(globalCss).toContain("min-height: var(--feature-page-sublist-row-min-height);");
     expect(globalCss).toContain(".board-unread-badge,\n.mail-folder-list__item strong {");
+    expect(globalCss).toContain(".feature-workspace__tab strong {");
+    expect(globalCss).toContain("min-width: var(--feature-workspace-tab-badge-min-width);");
+    expect(globalCss).toContain("height: var(--feature-workspace-tab-badge-height);");
+    expect(globalCss).toContain("font-size: var(--feature-workspace-tab-badge-font-size);");
+    expect(globalCss).toContain("padding: 0 var(--feature-workspace-tab-badge-padding-inline);");
     expect(globalCss).toContain("height: var(--feature-page-count-badge-height);");
     expect(globalCss).toContain("padding: 0 var(--feature-page-count-badge-padding-inline);");
     expect(globalCss).toContain("content: var(--feature-page-sublist-marker-content);");
@@ -57,6 +65,12 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("width: var(--feature-page-title-settings-button-size);");
     expect(globalCss).toContain("font-size: var(--feature-page-title-settings-button-icon-size);");
     expect(globalCss).toContain("background: var(--feature-page-count-badge-bg);");
+    expect(globalCss).toContain(".board-unread-badge {\n  background: var(--feature-page-count-badge-bg);\n  color: var(--feature-page-count-badge-color);\n}");
+    expect(globalCss).toContain(".messenger-unread-badge {");
+    expect(globalCss).toContain("min-width: var(--feature-page-count-badge-min-width);");
+    expect(globalCss).toContain("font-weight: var(--feature-page-count-badge-font-weight);");
+    expect(globalCss).not.toContain(".board-unread-badge {\n  background: var(--danger);");
+    expect(globalCss).not.toContain(".messenger-unread-badge {\n  min-width: 20px;");
 
     expect(mailClient).toContain('<span aria-hidden="true">⚙</span>');
     expect(mailClient).not.toContain("`ㄴ${folder.label}`");
