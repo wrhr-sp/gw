@@ -129,16 +129,6 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
           ))}
         </div>
 
-        {config.utility?.length ? (
-          <div className="feature-workspace__utility" aria-label="요약 정보">
-            {config.utility.map((item) => (
-              <div key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            ))}
-          </div>
-        ) : null}
       </aside>
 
       <section className="feature-workspace__panel" aria-labelledby={`${activePanel.id}-heading`}>

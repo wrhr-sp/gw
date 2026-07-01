@@ -91,20 +91,6 @@ export function DepartmentWorkspacePage({ koreanName, englishName, roleSummary }
             </div>
             <FeaturePageOverflowMenu label={`${koreanName} 업무포털`} />
           </div>
-          <div className="feature-workspace__utility" aria-label="부서 정보">
-            <div>
-              <span>현재 부서</span>
-              <strong>{koreanName}</strong>
-            </div>
-            <div>
-              <span>영문명</span>
-              <strong>{englishName}</strong>
-            </div>
-            <div>
-              <span>문맥 유지</span>
-              <strong>department={departmentId}</strong>
-            </div>
-          </div>
         </aside>
 
         <section className="feature-workspace__panel" aria-labelledby="department-portal-heading">

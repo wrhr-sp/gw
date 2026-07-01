@@ -103,7 +103,8 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-composer-input-box .messenger-composer-input");
     expect(globalCss).toContain(".messenger-file-input");
     expect(globalCss).toContain(".messenger-attachment-preview");
-    expect(globalCss).toContain(".messenger-attachment-chip");
+    expect(pageSource).toContain("FeatureFileAttachmentBox");
+    expect(globalCss).toContain(".feature-file-box__header");
     expect(globalCss).toContain(".messenger-composer-icon-button");
     expect(globalCss).toContain("border-radius: var(--radius-pill);");
     expect(globalCss).toContain(".messenger-send-button svg");

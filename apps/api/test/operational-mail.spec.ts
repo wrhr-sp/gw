@@ -9,6 +9,7 @@ import {
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
+  mailRecipientListResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 
@@ -69,6 +70,21 @@ describe("operational mail API", () => {
     expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
+  it("requires DB configuration for authenticated mail recipient search", async () => {
+    const loginResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-dev-role": "COMPANY_ADMIN" },
+      body: JSON.stringify({ loginId: "admin", password: "1234" }),
+    });
+    const cookie = loginResponse.headers.get("set-cookie") ?? "";
+
+    const response = await app.request(`${appRoutes.mail.recipients}?q=admin`, { headers: { cookie } });
+
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+  });
+
   it("requires DB configuration for authenticated draft saves", async () => {
     const loginResponse = await app.request(appRoutes.auth.login, {
       method: "POST",
@@ -86,6 +102,16 @@ describe("operational mail API", () => {
     expect(response.status).toBe(503);
     const payload = errorResponseSchema.parse(await response.json());
     expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+  });
+
+  runWhenDbConfigured("finds internal mail recipients through PostgreSQL", async () => {
+    const adminCookie = await login("COMPANY_ADMIN");
+    const response = await app.request(`${appRoutes.mail.recipients}?q=admin`, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(response.status).toBe(200);
+    const payload = mailRecipientListResponseSchema.parse(await response.json());
+    expect(payload.data.source).toBe("postgres");
+    expect(payload.data.items.length).toBeGreaterThan(0);
+    expect(payload.data.items.some((item) => item.userId && item.email)).toBe(true);
   });
 
   runWhenDbConfigured("saves draft mail through PostgreSQL and lists it in drafts", async () => {

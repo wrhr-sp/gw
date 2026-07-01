@@ -78,6 +78,7 @@ import {
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailMessageListResponseSchema,
+  mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageReadResponseSchema,
@@ -210,7 +211,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead } from "./lib/operational-mail";
 import {
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
@@ -5778,6 +5779,30 @@ app.get(appRoutes.payroll.myPayslip, async (context) => {
     },
     error: null,
   });
+});
+
+app.get(appRoutes.mail.recipients, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  try {
+    const items = await listOperationalMailRecipients(context.env, {
+      companyId: authResult.auth.user.companyId,
+      query: context.req.query("q") ?? "",
+    });
+    return jsonSuccess(context, mailRecipientListResponseSchema, {
+      ok: true,
+      data: {
+        items,
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 수신자 검색");
+  }
 });
 
 app.get(appRoutes.mail.messages, async (context) => {

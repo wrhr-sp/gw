@@ -32,7 +32,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("영업관리");
     expect(html).toContain("영업 현황");
     expect(html).toContain("거래처");
-    expect(html).toContain("오늘 상담");
+    expect(html).not.toContain("오늘 상담");
     expect(html).toContain("계약 검토");
     expect(html).not.toContain("공통 업무 허브");
     expect(html).not.toContain('href="/work-items"');

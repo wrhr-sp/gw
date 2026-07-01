@@ -1,6 +1,5 @@
-import type { MailMessage } from "@gw/shared";
+import { type MailMessage, type MailRecipient } from "@gw/shared";
 import { getDbClient, type DatabaseEnv } from "../utils/db";
-
 type MailRow = {
   id: string;
   company_id: string;
@@ -42,6 +41,64 @@ function mapMailMessage(row: MailRow): MailMessage {
     createdAt: toIso(row.created_at) ?? new Date().toISOString(),
     updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
   };
+}
+
+export async function listOperationalMailRecipients(env: DatabaseEnv | undefined, input: { companyId: string; query?: string }) {
+  const sql = getDbClient(env ?? {});
+  const keyword = `%${(input.query ?? "").trim().toLowerCase()}%`;
+  const rows = await sql`
+    select
+      u.id as user_id,
+      e.id as employee_id,
+      coalesce(e.full_name, u.display_name, u.login_id) as display_name,
+      coalesce(u.email, e.email, u.login_id) as email,
+      d.name as department_name,
+      p.name as position_name
+    from users u
+    left join employees e
+      on e.user_id = u.id
+      and e.company_id = u.company_id
+      and e.deleted_at is null
+    left join departments d
+      on d.id = e.department_id
+      and d.company_id = e.company_id
+      and d.deleted_at is null
+    left join positions p
+      on p.id = e.position_id
+      and p.company_id = e.company_id
+      and p.deleted_at is null
+    where u.company_id = ${input.companyId}
+      and u.status = 'active'
+      and u.deleted_at is null
+      and (
+        ${input.query?.trim() ? true : false} = false
+        or lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
+        or lower(coalesce(u.email, e.email, u.login_id)) like ${keyword}
+        or lower(coalesce(d.name, '')) like ${keyword}
+        or lower(coalesce(p.name, '')) like ${keyword}
+      )
+    order by coalesce(d.name, ''), coalesce(e.full_name, u.display_name, u.login_id)
+    limit 20
+  `;
+
+  return rows.map((row) => {
+    const typed = row as {
+      user_id: string;
+      employee_id: string | null;
+      display_name: string;
+      email: string;
+      department_name: string | null;
+      position_name: string | null;
+    };
+    return {
+      userId: typed.user_id,
+      employeeId: typed.employee_id,
+      displayName: typed.display_name,
+      email: typed.email,
+      departmentName: typed.department_name,
+      positionName: typed.position_name,
+    } satisfies MailRecipient;
+  });
 }
 
 export async function listOperationalMailMessages(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; box: MailBox }) {
