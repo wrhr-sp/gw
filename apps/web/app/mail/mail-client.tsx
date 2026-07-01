@@ -107,6 +107,15 @@ function getRecipientLabel(recipient: MailRecipient) {
   return meta ? `${recipient.displayName} <${recipient.email}> · ${meta}` : `${recipient.displayName} <${recipient.email}>`;
 }
 
+const mailRecipientSectionLabels = {
+  internal: "전사 내 계정 메일",
+  history: "발송/수신 이력이 있는 메일",
+} as const;
+
+function getRecipientSearchPrompt(query: string) {
+  return query.trim() ? "검색 결과가 없습니다." : "이름, 이메일, 부서명을 입력하세요.";
+}
+
 export function MailClient() {
   const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
@@ -117,6 +126,7 @@ export function MailClient() {
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
   const [activeRecipientPopup, setActiveRecipientPopup] = useState<"to" | "cc" | null>(null);
+  const [manualRecipientPopupTarget, setManualRecipientPopupTarget] = useState<"to" | "cc" | null>(null);
   const recipientPopupRef = useRef<HTMLDivElement | null>(null);
   const ccPopupRef = useRef<HTMLDivElement | null>(null);
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
@@ -148,10 +158,18 @@ export function MailClient() {
   const currentBox = isMailBox(view) ? view : null;
   const selectedRecipients = recipients.filter((recipient) => recipientUserIds.includes(recipient.userId));
   const selectedCcRecipients = recipients.filter((recipient) => ccUserIds.includes(recipient.userId));
-  const visibleRecipientSuggestions = recipients.filter((recipient) => !recipientUserIds.includes(recipient.userId)).slice(0, 8);
-  const visibleCcSuggestions = recipients.filter((recipient) => !ccUserIds.includes(recipient.userId)).slice(0, 8);
-  const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0);
-  const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0);
+  const visibleRecipientSuggestions = recipientQuery.trim() ? recipients.filter((recipient) => !recipientUserIds.includes(recipient.userId)).slice(0, 8) : [];
+  const visibleCcSuggestions = ccQuery.trim() ? recipients.filter((recipient) => !ccUserIds.includes(recipient.userId)).slice(0, 8) : [];
+  const recipientSuggestionsBySource = {
+    internal: visibleRecipientSuggestions.filter((recipient) => recipient.sourceKind === "internal"),
+    history: visibleRecipientSuggestions.filter((recipient) => recipient.sourceKind === "history"),
+  };
+  const ccSuggestionsBySource = {
+    internal: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "internal"),
+    history: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "history"),
+  };
+  const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0 || manualRecipientPopupTarget === "to");
+  const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0 || manualRecipientPopupTarget === "cc");
   const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
     id: attachment.id,
     fileName: attachment.fileName,
@@ -162,7 +180,12 @@ export function MailClient() {
   }));
 
   async function loadRecipients(query = "") {
-    const response = await fetch(`${appRoutes.mail.recipients}?q=${encodeURIComponent(query)}`, { credentials: "same-origin" });
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setRecipients([]);
+      return;
+    }
+    const response = await fetch(`${appRoutes.mail.recipients}?q=${encodeURIComponent(trimmedQuery)}`, { credentials: "same-origin" });
     const payload = await response.json();
     if (!response.ok) {
       setStatus(payload?.error?.message ?? "수신자 목록을 불러오지 못했습니다.");
@@ -211,7 +234,6 @@ export function MailClient() {
   }
 
   useEffect(() => {
-    void loadRecipients("");
     void loadDocumentFiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -231,6 +253,7 @@ export function MailClient() {
         return;
       }
       setActiveRecipientPopup(null);
+      setManualRecipientPopupTarget(null);
     }
 
     document.addEventListener("pointerdown", handleRecipientPopupPointerDown, true);
@@ -262,6 +285,7 @@ export function MailClient() {
     if (target === "to") setRecipientQuery("");
     else setCcQuery("");
     setActiveRecipientPopup(null);
+    setManualRecipientPopupTarget(null);
   }
 
   function removeRecipient(recipientId: string, target: "to" | "cc") {
@@ -514,6 +538,32 @@ export function MailClient() {
     );
   }
 
+  function renderRecipientSuggestionSections(input: {
+    target: "to" | "cc";
+    query: string;
+    groups: { internal: MailRecipient[]; history: MailRecipient[] };
+  }) {
+    const orderedGroups: Array<keyof typeof mailRecipientSectionLabels> = ["internal", "history"];
+    const hasResults = orderedGroups.some((sourceKind) => input.groups[sourceKind].length > 0);
+
+    if (!hasResults) {
+      return <span>{getRecipientSearchPrompt(input.query)}</span>;
+    }
+
+    return orderedGroups.map((sourceKind) => {
+      const groupItems = input.groups[sourceKind];
+      if (!groupItems.length) return null;
+      return (
+        <section className="mail-recipient-suggestion-section" key={sourceKind} aria-label={mailRecipientSectionLabels[sourceKind]}>
+          <strong>{mailRecipientSectionLabels[sourceKind]}</strong>
+          {groupItems.map((recipient) => (
+            <button key={`${sourceKind}-${recipient.userId}`} type="button" role="option" onClick={() => addRecipient(recipient, input.target)}>{getRecipientLabel(recipient)}</button>
+          ))}
+        </section>
+      );
+    });
+  }
+
   return (
     <div className="feature-workspace mail-workspace">
       <aside className="feature-workspace__nav" aria-label="메일 메뉴">
@@ -583,8 +633,8 @@ export function MailClient() {
               <strong>받는사람</strong>
               <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onFocus={() => setActiveRecipientPopup("to")} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); }} />
-                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("to"); void loadRecipients(recipientQuery); }}>주소록</button>
+                  <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); }} />
+                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("to"); setManualRecipientPopupTarget("to"); void loadRecipients(recipientQuery); }}>주소록</button>
                 </div>
                 {selectedRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 받는사람">
@@ -595,10 +645,7 @@ export function MailClient() {
                 ) : null}
                 {isRecipientPopupOpen ? (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="받는사람 검색 결과">
-                    {visibleRecipientSuggestions.map((recipient) => (
-                      <button key={recipient.userId} type="button" role="option" onClick={() => addRecipient(recipient, "to")}>{getRecipientLabel(recipient)}</button>
-                    ))}
-                    {visibleRecipientSuggestions.length === 0 ? <span>검색 결과가 없습니다.</span> : null}
+                    {renderRecipientSuggestionSections({ target: "to", query: recipientQuery, groups: recipientSuggestionsBySource })}
                   </div>
                 ) : null}
               </div>
@@ -608,8 +655,8 @@ export function MailClient() {
               <strong>참조</strong>
               <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onFocus={() => setActiveRecipientPopup("cc")} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); }} />
-                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("cc"); void loadRecipients(ccQuery); }}>주소록</button>
+                  <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); }} />
+                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("cc"); setManualRecipientPopupTarget("cc"); void loadRecipients(ccQuery); }}>주소록</button>
                 </div>
                 {selectedCcRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 참조">
@@ -620,10 +667,7 @@ export function MailClient() {
                 ) : null}
                 {isCcPopupOpen ? (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="참조 검색 결과">
-                    {visibleCcSuggestions.map((recipient) => (
-                      <button key={recipient.userId} type="button" role="option" onClick={() => addRecipient(recipient, "cc")}>{getRecipientLabel(recipient)}</button>
-                    ))}
-                    {visibleCcSuggestions.length === 0 ? <span>검색 결과가 없습니다.</span> : null}
+                    {renderRecipientSuggestionSections({ target: "cc", query: ccQuery, groups: ccSuggestionsBySource })}
                   </div>
                 ) : null}
               </div>
@@ -631,7 +675,7 @@ export function MailClient() {
 
             <label className="mail-compose-row mail-compose-row--subject">
               <strong>제목</strong>
-              <span className="mail-compose-important"><input checked={importance === "important"} onChange={(event) => setImportance(event.target.checked ? "important" : "normal")} type="checkbox" /> 중요</span>
+              <span className="mail-compose-important">중요 <input checked={importance === "important"} onChange={(event) => setImportance(event.target.checked ? "important" : "normal")} type="checkbox" /></span>
               <input className="field" aria-label="제목" placeholder="제목을 입력하세요" required value={subject} onChange={(event) => setSubject(event.target.value)} />
             </label>
 

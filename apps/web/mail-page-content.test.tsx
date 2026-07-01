@@ -48,11 +48,18 @@ describe("mail page content", () => {
     expect(source).toContain("문서함에서 선택");
     expect(source).toContain("받는사람 이메일 또는 이름");
     expect(source).toContain("mail-address-book-button");
+    expect(source).toContain("manualRecipientPopupTarget");
+    expect(source).toContain("전사 내 계정 메일");
+    expect(source).toContain("발송/수신 이력이 있는 메일");
+    expect(source).toContain("이름, 이메일, 부서명을 입력하세요.");
+    expect(source).toContain("recipientQuery.trim() ? recipients.filter");
+    expect(source).not.toContain('onFocus={() => setActiveRecipientPopup("to")}');
     expect(source).toContain("role=\"listbox\"");
     expect(source).toContain("isRecipientPopupOpen ?");
     expect(source).toContain("onRemoveAll={() => void removeAllAttachments()}");
     expect(source).toContain("appRoutes.mail.attachment");
     expect(source.indexOf('className=\"mail-compose-important\"')).toBeLessThan(source.indexOf('aria-label=\"제목\"'));
+    expect(source).toContain('className="mail-compose-important">중요 <input');
     expect(source).toContain("FeatureFileAttachmentBox");
     expect(source).toContain("appRoutes.mail.recipients");
     expect(source).toContain("appRoutes.documents.files");
@@ -75,6 +82,7 @@ describe("mail page content", () => {
     expect(globalCss).toContain("position: absolute;");
     expect(globalCss).toContain(".mail-recipient-input-line");
     expect(globalCss).toContain(".mail-address-book-button");
+    expect(globalCss).toContain(".mail-recipient-suggestion-section");
     expect(globalCss).toContain(".feature-file-box__remove-all");
     expect(globalCss).toContain(".mail-document-picker");
   });

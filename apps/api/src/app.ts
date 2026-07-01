@@ -5794,6 +5794,7 @@ app.get(appRoutes.mail.recipients, async (context) => {
   try {
     const items = await listOperationalMailRecipients(context.env, {
       companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
       query: context.req.query("q") ?? "",
     });
     return jsonSuccess(context, mailRecipientListResponseSchema, {

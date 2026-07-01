@@ -4576,6 +4576,18 @@ li {
   padding: 7px 8px;
 }
 
+.mail-recipient-suggestion-section {
+  display: grid;
+  gap: 4px;
+}
+
+.mail-recipient-suggestion-section > strong {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 4px 2px 2px;
+}
+
 .mail-recipient-chip-list button,
 .mail-recipient-suggestions button,
 .mail-document-picker__header button,
