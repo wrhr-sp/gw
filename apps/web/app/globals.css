@@ -677,12 +677,12 @@
   --feature-page-title-settings-button-hover-border-color: var(--primary-soft-strong);
   --feature-page-title-settings-button-hover-color: var(--primary-hover);
   --feature-page-title-menu-button-size: var(--feature-page-title-settings-button-size);
-  --feature-page-title-menu-button-border: var(--feature-page-title-settings-button-border);
-  --feature-page-title-menu-button-radius: var(--feature-page-title-settings-button-radius);
-  --feature-page-title-menu-button-bg: var(--feature-page-title-settings-button-bg);
+  --feature-page-title-menu-button-border: 0;
+  --feature-page-title-menu-button-radius: 0;
+  --feature-page-title-menu-button-bg: transparent;
   --feature-page-title-menu-button-color: var(--feature-page-title-settings-button-color);
   --feature-page-title-menu-button-icon-size: var(--feature-page-title-settings-button-icon-size);
-  --feature-page-title-menu-button-hover-border-color: var(--feature-page-title-settings-button-hover-border-color);
+  --feature-page-title-menu-button-hover-border-color: transparent;
   --feature-page-title-menu-button-hover-color: var(--feature-page-title-settings-button-hover-color);
   --feature-page-title-menu-popover-min-width: 132px;
   --feature-page-title-menu-popover-gap: 2px;

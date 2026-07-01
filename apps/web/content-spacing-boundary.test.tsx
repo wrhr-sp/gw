@@ -70,6 +70,9 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-workspace-badge-padding: 3px 8px;");
     expect(globalCss).toContain("--feature-workspace-badge-font-size: var(--font-size-sm);");
     expect(globalCss).toContain("--feature-page-title-menu-button-size: var(--feature-page-title-settings-button-size);");
+    expect(globalCss).toContain("--feature-page-title-menu-button-border: 0;");
+    expect(globalCss).toContain("--feature-page-title-menu-button-radius: 0;");
+    expect(globalCss).toContain("--feature-page-title-menu-button-bg: transparent;");
     expect(globalCss).toContain("--feature-page-title-menu-popover-min-width: 132px;");
     expect(globalCss).toContain(".feature-page-overflow-menu__button {");
     expect(globalCss).toContain("width: var(--feature-page-title-menu-button-size);");
