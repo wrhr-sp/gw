@@ -111,7 +111,16 @@ describe("operational mail API", () => {
     const payload = mailRecipientListResponseSchema.parse(await response.json());
     expect(payload.data.source).toBe("postgres");
     expect(payload.data.items.length).toBeGreaterThan(0);
-    expect(payload.data.items.some((item) => item.userId && item.email)).toBe(true);
+    expect(payload.data.items.some((item) => item.userId && item.email && item.sourceKind === "internal")).toBe(true);
+  });
+
+  runWhenDbConfigured("does not return mail recipients before a search keyword is entered", async () => {
+    const adminCookie = await login("COMPANY_ADMIN");
+    const response = await app.request(appRoutes.mail.recipients, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(response.status).toBe(200);
+    const payload = mailRecipientListResponseSchema.parse(await response.json());
+    expect(payload.data.source).toBe("postgres");
+    expect(payload.data.items).toEqual([]);
   });
 
   runWhenDbConfigured("saves draft mail through PostgreSQL and lists it in drafts", async () => {

@@ -146,6 +146,8 @@ export const errorResponseSchema = z.object({
 
 export const mailBoxSchema = z.enum(["inbox", "sent", "drafts"]);
 
+export const mailRecipientSourceKindSchema = z.enum(["internal", "history"]);
+
 export const mailRecipientSchema = z.object({
   userId: z.string(),
   employeeId: z.string().nullable(),
@@ -153,6 +155,7 @@ export const mailRecipientSchema = z.object({
   email: z.string(),
   departmentName: z.string().nullable(),
   positionName: z.string().nullable(),
+  sourceKind: mailRecipientSourceKindSchema,
 });
 
 export const mailRecipientListResponseSchema = successResponseSchema(

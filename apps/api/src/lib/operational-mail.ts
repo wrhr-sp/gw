@@ -43,41 +43,99 @@ function mapMailMessage(row: MailRow): MailMessage {
   };
 }
 
-export async function listOperationalMailRecipients(env: DatabaseEnv | undefined, input: { companyId: string; query?: string }) {
+export async function listOperationalMailRecipients(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; query?: string }) {
   const sql = getDbClient(env ?? {});
-  const keyword = `%${(input.query ?? "").trim().toLowerCase()}%`;
+  const trimmedQuery = (input.query ?? "").trim().toLowerCase();
+  if (!trimmedQuery) {
+    return [];
+  }
+  const keyword = `%${trimmedQuery}%`;
   const rows = await sql`
-    select
-      u.id as user_id,
-      e.id as employee_id,
-      coalesce(e.full_name, u.display_name, u.login_id) as display_name,
-      coalesce(u.email, u.login_id) as email,
-      d.name as department_name,
-      p.name as position_name
-    from users u
-    left join employees e
-      on e.user_id = u.id
-      and e.company_id = u.company_id
-      and e.deleted_at is null
-    left join departments d
-      on d.id = e.department_id
-      and d.company_id = e.company_id
-      and d.deleted_at is null
-    left join positions p
-      on p.id = e.position_id
-      and p.company_id = e.company_id
-      and p.deleted_at is null
-    where u.company_id = ${input.companyId}
-      and u.status = 'active'
-      and u.deleted_at is null
-      and (
-        ${input.query?.trim() ? true : false} = false
-        or lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
-        or lower(coalesce(u.email, u.login_id)) like ${keyword}
-        or lower(coalesce(d.name, '')) like ${keyword}
-        or lower(coalesce(p.name, '')) like ${keyword}
+    with internal_recipients as (
+      select
+        u.id as user_id,
+        e.id as employee_id,
+        coalesce(e.full_name, u.display_name, u.login_id) as display_name,
+        coalesce(u.email, u.login_id) as email,
+        d.name as department_name,
+        p.name as position_name,
+        'internal' as source_kind,
+        1 as source_rank,
+        null::timestamptz as last_used_at
+      from users u
+      left join employees e
+        on e.user_id = u.id
+        and e.company_id = u.company_id
+        and e.deleted_at is null
+      left join departments d
+        on d.id = e.department_id
+        and d.company_id = e.company_id
+        and d.deleted_at is null
+      left join positions p
+        on p.id = e.position_id
+        and p.company_id = e.company_id
+        and p.deleted_at is null
+      where u.company_id = ${input.companyId}
+        and u.status = 'active'
+        and u.deleted_at is null
+        and (
+          lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
+          or lower(coalesce(u.email, u.login_id)) like ${keyword}
+          or lower(coalesce(d.name, '')) like ${keyword}
+          or lower(coalesce(p.name, '')) like ${keyword}
+        )
+      limit 20
+    ),
+    history_recipients as (
+      select distinct on (counterparty.id)
+        counterparty.id as user_id,
+        e.id as employee_id,
+        coalesce(e.full_name, counterparty.display_name, counterparty.login_id) as display_name,
+        coalesce(counterparty.email, counterparty.login_id) as email,
+        d.name as department_name,
+        p.name as position_name,
+        'history' as source_kind,
+        2 as source_rank,
+        max(coalesce(m.sent_at, m.updated_at)) over (partition by counterparty.id) as last_used_at
+      from mail_messages m
+      join users counterparty
+        on counterparty.id = case when m.sender_user_id = ${input.userId} then m.recipient_user_id else m.sender_user_id end
+        and counterparty.company_id = m.company_id
+        and counterparty.status = 'active'
+        and counterparty.deleted_at is null
+      left join employees e
+        on e.user_id = counterparty.id
+        and e.company_id = counterparty.company_id
+        and e.deleted_at is null
+      left join departments d
+        on d.id = e.department_id
+        and d.company_id = e.company_id
+        and d.deleted_at is null
+      left join positions p
+        on p.id = e.position_id
+        and p.company_id = e.company_id
+        and p.deleted_at is null
+      where m.company_id = ${input.companyId}
+        and m.deleted_at is null
+        and m.status = 'sent'
+        and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
+        and (
+          lower(coalesce(e.full_name, counterparty.display_name, counterparty.login_id)) like ${keyword}
+          or lower(coalesce(counterparty.email, counterparty.login_id)) like ${keyword}
+          or lower(coalesce(d.name, '')) like ${keyword}
+          or lower(coalesce(p.name, '')) like ${keyword}
+        )
+    ),
+    combined as (
+      select * from internal_recipients
+      union all
+      select * from history_recipients h
+      where not exists (
+        select 1 from internal_recipients i where lower(i.email) = lower(h.email)
       )
-    order by coalesce(d.name, ''), coalesce(e.full_name, u.display_name, u.login_id)
+    )
+    select * from combined
+    order by source_rank, coalesce(last_used_at, now()) desc, coalesce(department_name, ''), display_name
     limit 20
   `;
 
@@ -89,6 +147,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
       email: string;
       department_name: string | null;
       position_name: string | null;
+      source_kind: "internal" | "history";
     };
     return {
       userId: typed.user_id,
@@ -97,6 +156,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
       email: typed.email,
       departmentName: typed.department_name,
       positionName: typed.position_name,
+      sourceKind: typed.source_kind,
     } satisfies MailRecipient;
   });
 }
