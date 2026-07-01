@@ -125,7 +125,7 @@ export function MailClient() {
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
   const [addressBookQuery, setAddressBookQuery] = useState("");
-  const [addressBookSourceFilter, setAddressBookSourceFilter] = useState<"all" | "internal" | "history">("all");
+  const [addressBookSourceFilter, setAddressBookSourceFilter] = useState<"all" | "internal" | "history" | "personal">("all");
   const [recipientLookup, setRecipientLookup] = useState<Record<string, MailRecipient>>({});
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
@@ -178,7 +178,9 @@ export function MailClient() {
   };
   const addressBookFilteredRecipients = addressBookSourceFilter === "all"
     ? addressBookRecipients
-    : addressBookRecipients.filter((recipient) => recipient.sourceKind === addressBookSourceFilter);
+    : addressBookSourceFilter === "personal"
+      ? []
+      : addressBookRecipients.filter((recipient) => recipient.sourceKind === addressBookSourceFilter);
   const addressBookSuggestionsBySource = {
     internal: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "internal"),
     history: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "history"),
@@ -661,18 +663,13 @@ export function MailClient() {
           <span>{input.target === "to" ? "기본 추가 대상: 받는사람" : "기본 추가 대상: 참조"}</span>
           <button type="button" aria-label="주소록 닫기" onClick={closeRecipientPopup}>×</button>
         </div>
-        <div className="mail-address-book-popover__tabs" aria-label="주소록 구분">
-          <button aria-pressed={addressBookSourceFilter === "all"} type="button" onClick={() => setAddressBookSourceFilter("all")}>전체 주소록</button>
-          <button aria-pressed={addressBookSourceFilter === "internal"} type="button" onClick={() => setAddressBookSourceFilter("internal")}>전사 주소록</button>
-          <button aria-pressed={addressBookSourceFilter === "history"} type="button" onClick={() => setAddressBookSourceFilter("history")}>최근/이력</button>
-          <button aria-disabled="true" disabled type="button">개인 주소록 준비중</button>
-        </div>
         <div className="mail-address-book-popover__body">
           <nav className="mail-address-book-popover__groups" aria-label="주소록 그룹">
             <strong>주소록 그룹</strong>
             <button aria-pressed={addressBookSourceFilter === "all"} type="button" onClick={() => setAddressBookSourceFilter("all")}>전체 주소록</button>
             <button aria-pressed={addressBookSourceFilter === "internal"} type="button" onClick={() => setAddressBookSourceFilter("internal")}>전사 계정</button>
             <button aria-pressed={addressBookSourceFilter === "history"} type="button" onClick={() => setAddressBookSourceFilter("history")}>발송/수신 이력</button>
+            <button aria-pressed={addressBookSourceFilter === "personal"} type="button" onClick={() => setAddressBookSourceFilter("personal")}>개인 주소록</button>
           </nav>
           <section className="mail-address-book-popover__list" aria-label="주소 목록">
             <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={addressBookQuery} onChange={(event) => { setAddressBookQuery(event.target.value); void loadAddressBookRecipients(event.target.value); }} />
@@ -763,7 +760,7 @@ export function MailClient() {
         {view === "compose" ? (
           <form className="mail-compose-form" onSubmit={sendMessage}>
             <div className="mail-compose-toolbar" aria-label="메일 작성 작업">
-              <button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" disabled={isSubmitting} type="submit">
+              <button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary mail-compose-send-button" disabled={isSubmitting} type="submit">
                 {isSubmitting ? "처리 중" : "보내기"}
               </button>
               <button className="mail-compose-toolbar-button" disabled type="button" title="예약 발송 API는 일정 엔진 확정 뒤 연결합니다.">예약발송</button>

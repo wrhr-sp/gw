@@ -4472,6 +4472,18 @@ li {
   color: white;
 }
 
+.mail-compose-send-button {
+  border-color: var(--primary);
+  background: transparent;
+  color: var(--primary-hover);
+}
+
+.mail-compose-send-button:hover,
+.mail-compose-send-button:focus-visible {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+}
+
 .mail-compose-form {
   display: grid;
   gap: var(--space-md);
@@ -4624,37 +4636,6 @@ li {
   font: inherit;
   font-size: var(--font-size-lg);
   line-height: 1;
-}
-
-.mail-address-book-popover__tabs {
-  display: flex;
-  gap: 6px;
-  padding: 8px var(--space-md);
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-subtle);
-}
-
-.mail-address-book-popover__tabs button {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--font-size-xs);
-  padding: 4px 8px;
-}
-
-.mail-address-book-popover__tabs button[aria-pressed="true"] {
-  border-color: var(--primary);
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-  font-weight: var(--font-weight-semibold);
-}
-
-.mail-address-book-popover__tabs button[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .mail-address-book-popover__body {
