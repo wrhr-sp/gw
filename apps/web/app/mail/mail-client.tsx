@@ -645,7 +645,9 @@ export function MailClient() {
     const orderedGroups: Array<keyof typeof mailRecipientSectionLabels> = ["internal", "history"];
     const hasResults = orderedGroups.some((sourceKind) => input.groups[sourceKind].length > 0);
     return (
-      <section className="mail-address-book-popover" role="dialog" aria-label="주소록 선택 팝업">
+      <>
+        <button className="mail-address-book-backdrop" type="button" aria-label="주소록 바깥 영역 닫기" onClick={closeRecipientPopup} />
+        <section className="mail-address-book-popover" role="dialog" aria-modal="true" aria-label="주소록 선택 팝업">
         <div className="mail-address-book-popover__header">
           <strong>주소록</strong>
           <span>{input.target === "to" ? "기본 추가 대상: 받는사람" : "기본 추가 대상: 참조"}</span>
@@ -677,8 +679,8 @@ export function MailClient() {
                         <span>{recipient.positionName ?? "-"}</span>
                         <span>{recipient.departmentName ?? "-"}</span>
                         <span>{recipient.email}</span>
-                        <button type="button" onClick={() => addAddressBookRecipient(recipient, "to")}>받는사람</button>
-                        <button type="button" onClick={() => addAddressBookRecipient(recipient, "cc")}>참조</button>
+                        <button type="button" aria-pressed={addressBookRecipientUserIds.includes(recipient.userId)} onClick={() => addAddressBookRecipient(recipient, "to")}>받는사람</button>
+                        <button type="button" aria-pressed={addressBookCcUserIds.includes(recipient.userId)} onClick={() => addAddressBookRecipient(recipient, "cc")}>참조</button>
                       </div>
                     ))}
                   </section>
@@ -705,7 +707,8 @@ export function MailClient() {
           <button type="button" className="mail-compose-toolbar-button" onClick={closeRecipientPopup}>취소</button>
           <button type="button" className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" onClick={applyAddressBookSelection}>확인</button>
         </div>
-      </section>
+        </section>
+      </>
     );
   }
 
