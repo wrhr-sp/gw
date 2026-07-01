@@ -59,7 +59,8 @@ describe("mail page content", () => {
     expect(source).toContain("개인 주소록 준비중");
     expect(source).toContain("받는사람</button>");
     expect(source).toContain("참조</button>");
-    expect(source).toContain("applyAddressBookSelection");
+    expect(source).toContain("loadAddressBookRecipients(\"\")");
+    expect(source).toContain("주소록에 표시할 주소가 없습니다.");
     expect(source).toContain("role=\"listbox\"");
     expect(source).toContain("isRecipientPopupOpen ?");
     expect(source).toContain("onRemoveAll={() => void removeAllAttachments()}");
@@ -89,6 +90,9 @@ describe("mail page content", () => {
     expect(globalCss).toContain(".mail-recipient-input-line");
     expect(globalCss).toContain(".mail-address-book-button");
     expect(globalCss).toContain(".mail-address-book-popover");
+    expect(globalCss).toContain("position: fixed;");
+    expect(globalCss).toContain("left: 50%;");
+    expect(globalCss).toContain("transform: translateX(-50%);");
     expect(globalCss).toContain("grid-template-columns: minmax(110px, 0.6fr) minmax(280px, 1.8fr) minmax(180px, 1fr);");
     expect(globalCss).toContain("white-space: nowrap;");
     expect(globalCss).toContain(".mail-recipient-suggestion-section");

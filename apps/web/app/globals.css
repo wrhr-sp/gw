@@ -4571,13 +4571,14 @@ li {
 }
 
 .mail-address-book-popover {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed;
+  z-index: 80;
+  top: min(96px, 12vh);
+  left: 50%;
+  transform: translateX(-50%);
   display: grid;
-  width: min(820px, calc(100vw - 96px));
-  max-height: min(560px, calc(100vh - 190px));
+  width: min(860px, calc(100vw - 64px));
+  max-height: min(620px, calc(100vh - 150px));
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
