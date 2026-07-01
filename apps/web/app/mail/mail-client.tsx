@@ -123,6 +123,8 @@ export function MailClient() {
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
+  const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
+  const [addressBookQuery, setAddressBookQuery] = useState("");
   const [recipientLookup, setRecipientLookup] = useState<Record<string, MailRecipient>>({});
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
@@ -173,6 +175,10 @@ export function MailClient() {
     internal: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "internal"),
     history: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "history"),
   };
+  const addressBookSuggestionsBySource = {
+    internal: addressBookRecipients.filter((recipient) => recipient.sourceKind === "internal"),
+    history: addressBookRecipients.filter((recipient) => recipient.sourceKind === "history"),
+  };
   const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0 || manualRecipientPopupTarget === "to");
   const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0 || manualRecipientPopupTarget === "cc");
   const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
@@ -198,6 +204,23 @@ export function MailClient() {
     }
     const parsed = mailRecipientListResponseSchema.parse(payload);
     setRecipients(parsed.data.items);
+    setRecipientLookup((current) => ({
+      ...current,
+      ...Object.fromEntries(parsed.data.items.map((recipient) => [recipient.userId, recipient])),
+    }));
+  }
+
+  async function loadAddressBookRecipients(query = "") {
+    const trimmedQuery = query.trim();
+    const path = trimmedQuery ? `${appRoutes.mail.recipients}?q=${encodeURIComponent(trimmedQuery)}` : appRoutes.mail.recipients;
+    const response = await fetch(path, { credentials: "same-origin" });
+    const payload = await response.json();
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "주소록을 불러오지 못했습니다.");
+      return;
+    }
+    const parsed = mailRecipientListResponseSchema.parse(payload);
+    setAddressBookRecipients(parsed.data.items);
     setRecipientLookup((current) => ({
       ...current,
       ...Object.fromEntries(parsed.data.items.map((recipient) => [recipient.userId, recipient])),
@@ -307,9 +330,10 @@ export function MailClient() {
   function openAddressBook(target: "to" | "cc") {
     setAddressBookRecipientUserIds(recipientUserIds);
     setAddressBookCcUserIds(ccUserIds);
+    setAddressBookQuery("");
     setActiveRecipientPopup(target);
     setManualRecipientPopupTarget(target);
-    void loadRecipients(target === "to" ? recipientQuery : ccQuery);
+    void loadAddressBookRecipients("");
   }
 
   function applyAddressBookSelection() {
@@ -616,8 +640,6 @@ export function MailClient() {
 
   function renderAddressBookPopover(input: {
     target: "to" | "cc";
-    query: string;
-    setQuery: (value: string) => void;
     groups: { internal: MailRecipient[]; history: MailRecipient[] };
   }) {
     const orderedGroups: Array<keyof typeof mailRecipientSectionLabels> = ["internal", "history"];
@@ -641,7 +663,7 @@ export function MailClient() {
             <span>발송/수신 이력</span>
           </nav>
           <section className="mail-address-book-popover__list" aria-label="주소 목록">
-            <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={input.query} onChange={(event) => { input.setQuery(event.target.value); void loadRecipients(event.target.value); }} />
+            <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={addressBookQuery} onChange={(event) => { setAddressBookQuery(event.target.value); void loadAddressBookRecipients(event.target.value); }} />
             <div className="mail-address-book-table" role="listbox" aria-label="주소록 검색 결과">
               {hasResults ? orderedGroups.map((sourceKind) => {
                 const groupItems = input.groups[sourceKind];
@@ -661,7 +683,7 @@ export function MailClient() {
                     ))}
                   </section>
                 );
-              }) : <span className="mail-address-book-table__empty">{getRecipientSearchPrompt(input.query)}</span>}
+              }) : <span className="mail-address-book-table__empty">{addressBookQuery.trim() ? "검색 결과가 없습니다." : "주소록에 표시할 주소가 없습니다."}</span>}
             </div>
           </section>
           <aside className="mail-address-book-popover__selected" aria-label="선택한 주소">
@@ -767,7 +789,7 @@ export function MailClient() {
                   </div>
                 ) : null}
                 {isRecipientPopupOpen ? manualRecipientPopupTarget === "to" ? (
-                  renderAddressBookPopover({ target: "to", query: recipientQuery, setQuery: setRecipientQuery, groups: recipientSuggestionsBySource })
+                  renderAddressBookPopover({ target: "to", groups: addressBookSuggestionsBySource })
                 ) : (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="받는사람 검색 결과">
                     {renderRecipientSuggestionSections({ target: "to", query: recipientQuery, groups: recipientSuggestionsBySource })}
@@ -791,7 +813,7 @@ export function MailClient() {
                   </div>
                 ) : null}
                 {isCcPopupOpen ? manualRecipientPopupTarget === "cc" ? (
-                  renderAddressBookPopover({ target: "cc", query: ccQuery, setQuery: setCcQuery, groups: ccSuggestionsBySource })
+                  renderAddressBookPopover({ target: "cc", groups: addressBookSuggestionsBySource })
                 ) : (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="참조 검색 결과">
                     {renderRecipientSuggestionSections({ target: "cc", query: ccQuery, groups: ccSuggestionsBySource })}

@@ -46,9 +46,7 @@ function mapMailMessage(row: MailRow): MailMessage {
 export async function listOperationalMailRecipients(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; query?: string }) {
   const sql = getDbClient(env ?? {});
   const trimmedQuery = (input.query ?? "").trim().toLowerCase();
-  if (!trimmedQuery) {
-    return [];
-  }
+  const hasKeyword = trimmedQuery.length > 0;
   const keyword = `%${trimmedQuery}%`;
   const rows = await sql`
     with internal_recipients as (
@@ -79,7 +77,8 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
         and u.status = 'active'
         and u.deleted_at is null
         and (
-          lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
+          ${!hasKeyword}
+          or lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
           or lower(coalesce(u.email, u.login_id)) like ${keyword}
           or lower(coalesce(d.name, '')) like ${keyword}
           or lower(coalesce(p.name, '')) like ${keyword}
@@ -120,7 +119,8 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
         and m.status = 'sent'
         and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
         and (
-          lower(coalesce(e.full_name, counterparty.display_name, counterparty.login_id)) like ${keyword}
+          ${!hasKeyword}
+          or lower(coalesce(e.full_name, counterparty.display_name, counterparty.login_id)) like ${keyword}
           or lower(coalesce(counterparty.email, counterparty.login_id)) like ${keyword}
           or lower(coalesce(d.name, '')) like ${keyword}
           or lower(coalesce(p.name, '')) like ${keyword}
