@@ -59,11 +59,13 @@ describe("mail page content", () => {
     expect(source).not.toContain('onFocus={() => setActiveRecipientPopup("to")}');
     expect(source).toContain("주소록 선택 팝업");
     expect(source).toContain("mail-address-book-popover");
-    expect(source).toContain("개인 주소록 준비중");
+    expect(source).toContain(">개인 주소록</button>");
+    expect(source).not.toContain("mail-address-book-popover__tabs");
+    expect(source).not.toContain("개인 주소록 준비중");
     expect(source).toContain("setAddressBookSourceFilter");
     expect(source).toContain('aria-pressed={addressBookSourceFilter === "internal"}');
     expect(source).toContain('aria-pressed={addressBookSourceFilter === "history"}');
-    expect(source).toContain('disabled type="button">개인 주소록 준비중');
+    expect(source).toContain('aria-pressed={addressBookSourceFilter === "personal"}');
     expect(source).toContain("받는사람</button>");
     expect(source).toContain("참조</button>");
     expect(source).toContain("loadAddressBookRecipients(\"\")");
@@ -91,6 +93,10 @@ describe("mail page content", () => {
     expect(source).toContain("trashFolders.map((folder) => renderFolderButton(folder, true, true))");
     expect(source).not.toContain('aria-label="외부메일함"');
     expect(source).not.toContain('aria-label="휴지통"');
+    expect(source).toContain('mail-compose-toolbar-button mail-compose-toolbar-button--primary mail-compose-send-button');
+    expect(globalCss).toContain(".mail-compose-send-button");
+    expect(globalCss).toContain("background: transparent;");
+    expect(globalCss).toContain("color: var(--primary-hover);");
     expect(globalCss).toContain(".board-write-button,");
     expect(globalCss).toContain("background: var(--feature-page-write-button-background)");
     expect(globalCss).toContain("--feature-page-write-button-background: var(--board-write-button-background);");
@@ -115,7 +121,7 @@ describe("mail page content", () => {
     expect(globalCss).toContain("outline: 1px solid var(--surface);");
     expect(globalCss).toContain(".mail-address-book-table__row button[aria-pressed=\"true\"]");
     expect(globalCss).toContain("background: var(--primary-soft);");
-    expect(globalCss).toContain(".mail-address-book-popover__tabs button[aria-pressed=\"true\"]");
+    expect(globalCss).not.toContain(".mail-address-book-popover__tabs button[aria-pressed=\"true\"]");
     expect(globalCss).toContain(".mail-address-book-popover__groups button[aria-pressed=\"true\"]");
     expect(globalCss).toContain("cursor: not-allowed;");
     expect(globalCss).toContain("grid-template-columns: minmax(110px, 0.6fr) minmax(280px, 1.8fr) minmax(180px, 1fr);");
