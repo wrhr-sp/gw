@@ -57,6 +57,7 @@ export const appRoutes = {
   },
   mail: {
     messages: "/api/mail/messages",
+    recipients: "/api/mail/recipients",
     send: "/api/mail/messages/send",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
@@ -143,6 +144,23 @@ export const errorResponseSchema = z.object({
 });
 
 export const mailBoxSchema = z.enum(["inbox", "sent", "drafts"]);
+
+export const mailRecipientSchema = z.object({
+  userId: z.string(),
+  employeeId: z.string().nullable(),
+  displayName: z.string(),
+  email: z.string(),
+  departmentName: z.string().nullable(),
+  positionName: z.string().nullable(),
+});
+
+export const mailRecipientListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(mailRecipientSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
 export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived"]);
 export const mailImportanceSchema = z.enum(["normal", "important"]);
 
@@ -2375,6 +2393,8 @@ export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateList
 export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
 export type MailBox = z.infer<typeof mailBoxSchema>;
+export type MailRecipient = z.infer<typeof mailRecipientSchema>;
+export type MailRecipientListResponse = z.infer<typeof mailRecipientListResponseSchema>;
 export type MailMessage = z.infer<typeof mailMessageSchema>;
 export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;

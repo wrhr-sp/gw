@@ -3,29 +3,39 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Editor } from "@tinymce/tinymce-react";
 import { boardTinymceInit } from "../_components/board-rich-editor-config";
+import { FeatureFileAttachmentBox, type FeatureFileAttachmentItem } from "../_components/feature-file-attachment-box";
 import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import {
   appRoutes,
+  documentFileDownloadInitResponseSchema,
+  documentFileListResponseSchema,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
+  mailRecipientListResponseSchema,
+  type DocumentFile,
   type MailAttachment,
   type MailBox,
   type MailMessage,
+  type MailRecipient,
 } from "@gw/shared";
 
-const recipientOptions = [
-  { id: "user_hr_admin", label: "인사 담당자" },
-  { id: "user_manager", label: "운영 매니저" },
-  { id: "user_employee", label: "일반 구성원" },
-  { id: "user_company_admin", label: "총괄관리계정" },
-];
+type MailPendingAttachment = {
+  id: string;
+  fileName: string;
+  sizeLabel: string;
+  status: FeatureFileAttachmentItem["status"];
+  sourceLabel: string;
+  file?: File;
+  documentFile?: DocumentFile;
+  uploadedAttachmentId?: string;
+};
 
 const boxLabels: Record<MailBox, string> = {
-  inbox: "받은 메일함",
+  inbox: "받은메일함",
   sent: "보낸메일함",
   drafts: "임시보관함",
 };
@@ -42,7 +52,7 @@ type MailFolderConfig = {
 
 const defaultMailFolders: readonly MailFolderConfig[] = [
   { id: "favorites", label: "즐겨찾기", group: "standalone" },
-  { id: "inbox", label: "받은 메일함", group: "mailbox", box: "inbox" },
+  { id: "inbox", label: "받은메일함", group: "mailbox", box: "inbox" },
   { id: "sent", label: "보낸메일함", group: "mailbox", box: "sent" },
   { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
   { id: "scheduled", label: "예약메일함", group: "mailbox" },
@@ -85,18 +95,34 @@ function moveFolder(folderIds: MailFolderId[], folderId: MailFolderId, direction
   return next;
 }
 
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)}MB`;
+  if (size >= 1024) return `${Math.ceil(size / 1024)}KB`;
+  return `${size}B`;
+}
+
+function getRecipientLabel(recipient: MailRecipient) {
+  const meta = [recipient.departmentName, recipient.positionName].filter(Boolean).join(" · ");
+  return meta ? `${recipient.displayName} <${recipient.email}> · ${meta}` : `${recipient.displayName} <${recipient.email}>`;
+}
+
 export function MailClient() {
   const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
-  const [recipientUserIds, setRecipientUserIds] = useState<string[]>(["user_hr_admin"]);
+  const [recipients, setRecipients] = useState<MailRecipient[]>([]);
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [ccQuery, setCcQuery] = useState("");
+  const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("<p></p>");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<MailPendingAttachment[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>([]);
+  const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
@@ -116,6 +142,40 @@ export function MailClient() {
   const trashFolders = visibleFolders.filter((folder) => folder.group === "trash");
   const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
   const currentBox = isMailBox(view) ? view : null;
+  const selectedRecipients = recipients.filter((recipient) => recipientUserIds.includes(recipient.userId));
+  const selectedCcRecipients = recipients.filter((recipient) => ccUserIds.includes(recipient.userId));
+  const visibleRecipientSuggestions = recipients.filter((recipient) => !recipientUserIds.includes(recipient.userId)).slice(0, 8);
+  const visibleCcSuggestions = recipients.filter((recipient) => !ccUserIds.includes(recipient.userId)).slice(0, 8);
+  const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
+    id: attachment.id,
+    fileName: attachment.fileName,
+    status: attachment.status,
+    sizeLabel: attachment.sizeLabel,
+    sourceLabel: attachment.sourceLabel,
+    canDownload: Boolean(attachment.uploadedAttachmentId || attachment.documentFile),
+  }));
+
+  async function loadRecipients(query = "") {
+    const response = await fetch(`${appRoutes.mail.recipients}?q=${encodeURIComponent(query)}`, { credentials: "same-origin" });
+    const payload = await response.json();
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "수신자 목록을 불러오지 못했습니다.");
+      return;
+    }
+    const parsed = mailRecipientListResponseSchema.parse(payload);
+    setRecipients(parsed.data.items);
+  }
+
+  async function loadDocumentFiles() {
+    const response = await fetch(appRoutes.documents.files, { credentials: "same-origin" });
+    const payload = await response.json();
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "문서함을 불러오지 못했습니다.");
+      return;
+    }
+    const parsed = documentFileListResponseSchema.parse(payload);
+    setDocumentFiles(parsed.data.items);
+  }
 
   async function loadAttachments(messages: MailMessage[]) {
     const entries = await Promise.all(messages.map(async (message) => {
@@ -145,6 +205,19 @@ export function MailClient() {
   }
 
   useEffect(() => {
+    void loadRecipients("");
+    void loadDocumentFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (view === "compose") {
+      void loadRecipients(recipientQuery || ccQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientQuery, ccQuery, view]);
+
+  useEffect(() => {
     if (isMailBox(view)) {
       void loadMessages(view);
       return;
@@ -163,23 +236,71 @@ export function MailClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  function toggleRecipient(recipientId: string) {
-    setRecipientUserIds((current) => {
-      if (current.includes(recipientId)) {
-        const next = current.filter((id) => id !== recipientId);
-        return next.length ? next : current;
-      }
-      return [...current, recipientId];
-    });
+  function addRecipient(recipient: MailRecipient, target: "to" | "cc") {
+    const setter = target === "to" ? setRecipientUserIds : setCcUserIds;
+    setter((current) => current.includes(recipient.userId) ? current : [...current, recipient.userId]);
+    if (target === "to") setRecipientQuery("");
+    else setCcQuery("");
   }
 
-  function toggleCcRecipient(recipientId: string) {
-    setCcUserIds((current) => {
-      if (current.includes(recipientId)) {
-        return current.filter((id) => id !== recipientId);
+  function removeRecipient(recipientId: string, target: "to" | "cc") {
+    const setter = target === "to" ? setRecipientUserIds : setCcUserIds;
+    setter((current) => current.filter((id) => id !== recipientId));
+  }
+
+  function handlePcFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.currentTarget.files ?? []);
+    if (files.length) {
+      setPendingAttachments((current) => [
+        ...current,
+        ...files.map((file, index) => ({
+          id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
+          fileName: file.name,
+          sizeLabel: formatFileSize(file.size),
+          status: "대기" as const,
+          sourceLabel: "내 PC 파일첨부",
+          file,
+        })),
+      ]);
+    }
+    event.currentTarget.value = "";
+  }
+
+  function addDocumentAttachment(documentFile: DocumentFile) {
+    setPendingAttachments((current) => current.some((attachment) => attachment.id === `document-${documentFile.id}`) ? current : [
+      ...current,
+      {
+        id: `document-${documentFile.id}`,
+        fileName: documentFile.fileName,
+        sizeLabel: formatFileSize(documentFile.fileSize),
+        status: documentFile.storageStatus === "ready" ? "업로드 완료" : "대기",
+        sourceLabel: "문서함에서 선택",
+        documentFile,
+      },
+    ]);
+    setIsDocumentPickerOpen(false);
+  }
+
+  function removeAttachment(attachmentId: string) {
+    setPendingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+  }
+
+  async function downloadAttachment(attachment: FeatureFileAttachmentItem) {
+    const pending = pendingAttachments.find((item) => item.id === attachment.id);
+    if (pending?.uploadedAttachmentId) {
+      window.location.href = appRoutes.mail.downloadAttachment(pending.uploadedAttachmentId);
+      return;
+    }
+    if (pending?.documentFile) {
+      const response = await fetch(appRoutes.documents.downloadInit(pending.documentFile.id), { method: "POST", credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setStatus(payload?.error?.message ?? "문서 다운로드 준비에 실패했습니다.");
+        return;
       }
-      return [...current, recipientId];
-    });
+      documentFileDownloadInitResponseSchema.parse(payload);
+      setStatus(`${pending.documentFile.fileName} 다운로드가 준비됐습니다.`);
+    }
   }
 
   function toggleFolderVisibility(folderId: MailFolderId) {
@@ -252,25 +373,32 @@ export function MailClient() {
       }
       const parsed = mailMessageSendResponseSchema.parse(payload);
       const sentMessages = parsed.data.messages ?? [parsed.data.message];
-      if (attachmentFile) {
+      const pcAttachments = pendingAttachments.filter((attachment) => attachment.file);
+      if (pcAttachments.length) {
         for (const message of sentMessages) {
-          const formData = new FormData();
-          formData.append("file", attachmentFile);
-          const attachmentResponse = await fetch(appRoutes.mail.attachments(message.id), {
-            method: "POST",
-            credentials: "same-origin",
-            body: formData,
-          });
-          const attachmentPayload = await attachmentResponse.json();
-          if (!attachmentResponse.ok) {
-            setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 일부 첨부 업로드에 실패했습니다.");
-            return;
+          for (const attachment of pcAttachments) {
+            if (!attachment.file) continue;
+            setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "업로드 중" } : item));
+            const formData = new FormData();
+            formData.append("file", attachment.file);
+            const attachmentResponse = await fetch(appRoutes.mail.attachments(message.id), {
+              method: "POST",
+              credentials: "same-origin",
+              body: formData,
+            });
+            const attachmentPayload = await attachmentResponse.json();
+            if (!attachmentResponse.ok) {
+              setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "실패" } : item));
+              setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 일부 첨부 업로드에 실패했습니다.");
+              return;
+            }
+            const uploaded = mailAttachmentUploadResponseSchema.parse(attachmentPayload);
+            setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "업로드 완료", uploadedAttachmentId: uploaded.data.attachment.id } : item));
           }
-          mailAttachmentUploadResponseSchema.parse(attachmentPayload);
         }
       }
-      setAttachmentFile(null);
-      setStatus(`메일 ${sentMessages.length}건과 첨부가 DB/R2에 저장되고 보낸 메일함에 반영됐습니다.`);
+      setPendingAttachments([]);
+      setStatus(`메일 ${sentMessages.length}건이 보낸메일함에 반영됐습니다.`);
       setView("sent");
       await loadMessages("sent");
     } finally {
@@ -336,7 +464,7 @@ export function MailClient() {
           ))}
         </div>
         <div className="mail-folder-editor__actions">
-          <button type="button" className="touch-button feature-workspace__action feature-workspace__action--secondary" onClick={resetFolderSettings}>기본값</button>
+          <button type="button" className="mail-compose-toolbar-button" onClick={resetFolderSettings}>기본값</button>
           <button type="button" className="touch-button feature-workspace__action feature-workspace__action--primary" onClick={() => setIsFolderEditorOpen(false)}>적용</button>
         </div>
       </section>
@@ -385,11 +513,6 @@ export function MailClient() {
           ) : null}
         </div>
         {renderFolderEditor()}
-        <div className="feature-workspace__utility" aria-label="요약 정보">
-          <div><span>읽지 않음</span><strong>{counts.unread}건</strong></div>
-          <div><span>받은 메일</span><strong>{counts.inbox}건</strong></div>
-          <div><span>보낸 메일</span><strong>{counts.sent}건</strong></div>
-        </div>
       </aside>
 
       <section className="feature-workspace__panel" aria-labelledby="mail-panel-heading">
@@ -403,40 +526,52 @@ export function MailClient() {
         {view === "compose" ? (
           <form className="mail-compose-form" onSubmit={sendMessage}>
             <div className="mail-compose-toolbar" aria-label="메일 작성 작업">
-              <button className="touch-button feature-workspace__action feature-workspace__action--primary" disabled={isSubmitting} type="submit">
+              <button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" disabled={isSubmitting} type="submit">
                 {isSubmitting ? "처리 중" : "보내기"}
               </button>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="예약 발송 API는 일정 엔진 확정 뒤 연결합니다.">예약발송</button>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled={isSubmitting} type="button" onClick={() => void saveDraft()}>임시저장</button>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={applyTemplate}>템플릿</button>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={writeToMyself}>내게쓰기</button>
+              <button className="mail-compose-toolbar-button" disabled type="button" title="예약 발송 API는 일정 엔진 확정 뒤 연결합니다.">예약발송</button>
+              <button className="mail-compose-toolbar-button" disabled={isSubmitting} type="button" onClick={() => void saveDraft()}>임시저장</button>
+              <button className="mail-compose-toolbar-button" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
+              <button className="mail-compose-toolbar-button" type="button" onClick={applyTemplate}>템플릿</button>
+              <button className="mail-compose-toolbar-button" type="button" onClick={writeToMyself}>내게쓰기</button>
             </div>
 
             <div className="mail-compose-row mail-compose-row--recipients">
-              <strong>받는 사람</strong>
-              <div className="mail-compose-recipient-grid" role="group" aria-label="받는 사람 선택">
-                {recipientOptions.map((option) => (
-                  <label key={option.id}>
-                    <input checked={recipientUserIds.includes(option.id)} onChange={() => toggleRecipient(option.id)} type="checkbox" />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+              <strong>받는사람</strong>
+              <div className="mail-recipient-combobox" aria-label="받는사람 입력">
+                <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onChange={(event) => setRecipientQuery(event.target.value)} />
+                {selectedRecipients.length ? (
+                  <div className="mail-recipient-chip-list" aria-label="선택된 받는사람">
+                    {selectedRecipients.map((recipient) => (
+                      <button key={recipient.userId} type="button" onClick={() => removeRecipient(recipient.userId, "to")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mail-recipient-suggestions" aria-label="받는사람 검색 결과">
+                  {visibleRecipientSuggestions.map((recipient) => (
+                    <button key={recipient.userId} type="button" onClick={() => addRecipient(recipient, "to")}>{getRecipientLabel(recipient)}</button>
+                  ))}
+                </div>
               </div>
-              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="조직 주소록 검색 API 확정 후 연결합니다.">주소록</button>
             </div>
 
             <div className="mail-compose-row mail-compose-row--recipients">
               <strong>참조</strong>
-              <div className="mail-compose-recipient-grid" role="group" aria-label="참조 선택">
-                {recipientOptions.map((option) => (
-                  <label key={option.id}>
-                    <input checked={ccUserIds.includes(option.id)} onChange={() => toggleCcRecipient(option.id)} type="checkbox" />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+              <div className="mail-recipient-combobox" aria-label="참조 입력">
+                <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onChange={(event) => setCcQuery(event.target.value)} />
+                {selectedCcRecipients.length ? (
+                  <div className="mail-recipient-chip-list" aria-label="선택된 참조">
+                    {selectedCcRecipients.map((recipient) => (
+                      <button key={recipient.userId} type="button" onClick={() => removeRecipient(recipient.userId, "cc")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mail-recipient-suggestions" aria-label="참조 검색 결과">
+                  {visibleCcSuggestions.map((recipient) => (
+                    <button key={recipient.userId} type="button" onClick={() => addRecipient(recipient, "cc")}>{getRecipientLabel(recipient)}</button>
+                  ))}
+                </div>
               </div>
-              <span className="mail-compose-row__hint">참조 선택자는 현재 내부 메일 수신자에 포함되어 저장·발송됩니다.</span>
             </div>
 
             <label className="mail-compose-row mail-compose-row--subject">
@@ -449,18 +584,14 @@ export function MailClient() {
               <div className="mail-compose-attachments__header">
                 <strong>파일첨부</strong>
                 <div className="mail-compose-attachment-actions">
-                  <label className="touch-button feature-workspace__action feature-workspace__action--secondary">
-                    <input className="mail-compose-file-input" aria-label="내 PC 파일첨부" type="file" onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)} />
-                    내 PC
+                  <label className="mail-compose-attachment-button">
+                    <input className="mail-compose-file-input" aria-label="내 PC 파일첨부" type="file" multiple onChange={handlePcFileChange} />
+                    내 PC 파일첨부
                   </label>
-                  <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="개인 자료실 API 확정 후 연결합니다.">개인 자료실</button>
+                  <button className="mail-compose-attachment-button" type="button" onClick={() => setIsDocumentPickerOpen(true)}>문서함에서 선택</button>
                 </div>
-                <span>일반 {attachmentFile ? `${Math.ceil(attachmentFile.size / 1024)}KB` : "0KB"}/10MB · 대용량 0KB/2GB</span>
               </div>
-              <div className="mail-compose-dropzone">
-                {attachmentFile ? <strong>선택한 첨부: {attachmentFile.name}</strong> : <strong>파일을 이곳에 끌어오거나 내 PC에서 선택하세요</strong>}
-                <span>실제 첨부 업로드는 보내기 후 메일 첨부 API와 R2 저장소로 연결됩니다.</span>
-              </div>
+              <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onDownload={(attachment) => void downloadAttachment(attachment)} />
             </section>
 
             <div className="board-tinymce-field mail-compose-editor">
@@ -479,6 +610,24 @@ export function MailClient() {
               <section className="mail-compose-preview" aria-label="메일 미리보기">
                 <strong>{subject || "(제목 없음)"}</strong>
                 <div dangerouslySetInnerHTML={{ __html: body }} />
+              </section>
+            ) : null}
+
+            {isDocumentPickerOpen ? (
+              <section className="mail-document-picker" aria-label="문서함에서 선택 팝업">
+                <div className="mail-document-picker__header">
+                  <strong>문서함에서 선택</strong>
+                  <button type="button" aria-label="문서함 선택 닫기" onClick={() => setIsDocumentPickerOpen(false)}>×</button>
+                </div>
+                <div className="mail-document-picker__list" aria-label="문서함 선택 목록">
+                  {documentFiles.map((file) => (
+                    <button key={file.id} type="button" onClick={() => addDocumentAttachment(file)}>
+                      <span><strong>{file.fileName}</strong><small>{file.versionLabel} · {formatFileSize(file.fileSize)} · {file.storageStatus}</small></span>
+                      <span>{file.storageStatus === "ready" ? "선택" : "대기"}</span>
+                    </button>
+                  ))}
+                  {documentFiles.length === 0 ? <span>선택할 문서가 없습니다.</span> : null}
+                </div>
               </section>
             ) : null}
           </form>
@@ -504,7 +653,7 @@ export function MailClient() {
                   ) : null}
                 </div>
                 {currentBox === "inbox" && !message.readAt ? (
-                  <button className="touch-button feature-workspace__action feature-workspace__action--secondary" onClick={() => void markRead(message.id)} type="button">읽음</button>
+                  <button className="mail-compose-toolbar-button" onClick={() => void markRead(message.id)} type="button">읽음</button>
                 ) : <em>{message.importance === "important" ? "중요" : message.readAt ? "읽음" : "발송"}</em>}
               </article>
             ))}

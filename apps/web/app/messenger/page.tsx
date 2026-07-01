@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import { FeatureFileAttachmentBox, type FeatureFileAttachmentItem } from "../_components/feature-file-attachment-box";
 import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import { PageShell, Pill } from "../_components/page-shell";
 
@@ -199,6 +200,14 @@ export default function MessengerPage() {
     () => messengerEmojiGroups.find((group) => group.category === activeEmojiCategory)?.emojis ?? messengerEmojiGroups[0].emojis,
     [activeEmojiCategory],
   );
+  const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
+    id: attachment.id,
+    fileName: attachment.name,
+    status: "대기",
+    sizeLabel: attachment.sizeLabel,
+    sourceLabel: attachment.source === "pc" ? "내 PC 파일첨부" : "문서함에서 선택",
+    canDownload: attachment.source === "document",
+  }));
 
   function toggleContact(contactId: string) {
     setSelectedContactIds((current) =>
@@ -419,19 +428,7 @@ export default function MessengerPage() {
               {pendingAttachments.length ? (
                 <div className="messenger-attachment-preview" aria-label="첨부 대기 목록">
                   <strong>첨부됨</strong>
-                  <div className="messenger-attachment-chip-list">
-                    {pendingAttachments.map((attachment) => (
-                      <span key={attachment.id} className="messenger-attachment-chip">
-                        <span>
-                          {attachment.name}
-                          <small>{attachment.source === "pc" ? "내 PC" : "문서함"} · {attachment.sizeLabel}</small>
-                        </span>
-                        <button type="button" aria-label={`${attachment.name} 첨부 삭제`} onClick={() => removeAttachment(attachment.id)}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
+                  <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onDownload={() => setPreviewMessage("문서함 파일 다운로드 준비가 완료됐습니다.")} />
                 </div>
               ) : null}
               <div className="messenger-composer-input-box" aria-label="메시지 입력 도구 묶음">

@@ -243,8 +243,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
     const html = renderToStaticMarkup(<AttendancePage />);
 
     expect(html).toContain("오늘 근태");
-    expect(html).toContain("허용 방식");
-    expect(html).toContain("태그 · PC");
+    expect(html).not.toContain("허용 방식");
+    expect(html).not.toContain("태그 · PC");
     expect(html).toContain("퇴근 등록");
     expect(html).not.toContain("모바일 출근 등록");
     expect(html).not.toContain("PC 출근 등록");
