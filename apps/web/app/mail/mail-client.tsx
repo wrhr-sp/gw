@@ -123,6 +123,7 @@ export function MailClient() {
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
+  const [recipientLookup, setRecipientLookup] = useState<Record<string, MailRecipient>>({});
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
   const [activeRecipientPopup, setActiveRecipientPopup] = useState<"to" | "cc" | null>(null);
@@ -131,6 +132,8 @@ export function MailClient() {
   const ccPopupRef = useRef<HTMLDivElement | null>(null);
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
+  const [addressBookRecipientUserIds, setAddressBookRecipientUserIds] = useState<string[]>([]);
+  const [addressBookCcUserIds, setAddressBookCcUserIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("<p></p>");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
@@ -156,8 +159,10 @@ export function MailClient() {
   const trashFolders = visibleFolders.filter((folder) => folder.group === "trash");
   const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
   const currentBox = isMailBox(view) ? view : null;
-  const selectedRecipients = recipients.filter((recipient) => recipientUserIds.includes(recipient.userId));
-  const selectedCcRecipients = recipients.filter((recipient) => ccUserIds.includes(recipient.userId));
+  const selectedRecipients = recipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
+  const selectedCcRecipients = ccUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
+  const addressBookSelectedRecipients = addressBookRecipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
+  const addressBookSelectedCcRecipients = addressBookCcUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
   const visibleRecipientSuggestions = recipientQuery.trim() ? recipients.filter((recipient) => !recipientUserIds.includes(recipient.userId)).slice(0, 8) : [];
   const visibleCcSuggestions = ccQuery.trim() ? recipients.filter((recipient) => !ccUserIds.includes(recipient.userId)).slice(0, 8) : [];
   const recipientSuggestionsBySource = {
@@ -193,6 +198,10 @@ export function MailClient() {
     }
     const parsed = mailRecipientListResponseSchema.parse(payload);
     setRecipients(parsed.data.items);
+    setRecipientLookup((current) => ({
+      ...current,
+      ...Object.fromEntries(parsed.data.items.map((recipient) => [recipient.userId, recipient])),
+    }));
   }
 
   async function loadDocumentFiles() {
@@ -261,6 +270,17 @@ export function MailClient() {
   }, []);
 
   useEffect(() => {
+    function handleRecipientPopupKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeRecipientPopup();
+      }
+    }
+
+    document.addEventListener("keydown", handleRecipientPopupKeyDown);
+    return () => document.removeEventListener("keydown", handleRecipientPopupKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (isMailBox(view)) {
       void loadMessages(view);
       return;
@@ -279,13 +299,43 @@ export function MailClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
+  function closeRecipientPopup() {
+    setActiveRecipientPopup(null);
+    setManualRecipientPopupTarget(null);
+  }
+
+  function openAddressBook(target: "to" | "cc") {
+    setAddressBookRecipientUserIds(recipientUserIds);
+    setAddressBookCcUserIds(ccUserIds);
+    setActiveRecipientPopup(target);
+    setManualRecipientPopupTarget(target);
+    void loadRecipients(target === "to" ? recipientQuery : ccQuery);
+  }
+
+  function applyAddressBookSelection() {
+    setRecipientUserIds(addressBookRecipientUserIds);
+    setCcUserIds(addressBookCcUserIds);
+    closeRecipientPopup();
+  }
+
+  function addAddressBookRecipient(recipient: MailRecipient, target: "to" | "cc") {
+    setRecipientLookup((current) => ({ ...current, [recipient.userId]: recipient }));
+    const setter = target === "to" ? setAddressBookRecipientUserIds : setAddressBookCcUserIds;
+    setter((current) => current.includes(recipient.userId) ? current : [...current, recipient.userId]);
+  }
+
+  function removeAddressBookRecipient(recipientId: string, target: "to" | "cc") {
+    const setter = target === "to" ? setAddressBookRecipientUserIds : setAddressBookCcUserIds;
+    setter((current) => current.filter((id) => id !== recipientId));
+  }
+
   function addRecipient(recipient: MailRecipient, target: "to" | "cc") {
+    setRecipientLookup((current) => ({ ...current, [recipient.userId]: recipient }));
     const setter = target === "to" ? setRecipientUserIds : setCcUserIds;
     setter((current) => current.includes(recipient.userId) ? current : [...current, recipient.userId]);
     if (target === "to") setRecipientQuery("");
     else setCcQuery("");
-    setActiveRecipientPopup(null);
-    setManualRecipientPopupTarget(null);
+    closeRecipientPopup();
   }
 
   function removeRecipient(recipientId: string, target: "to" | "cc") {
@@ -564,6 +614,79 @@ export function MailClient() {
     });
   }
 
+  function renderAddressBookPopover(input: {
+    target: "to" | "cc";
+    query: string;
+    setQuery: (value: string) => void;
+    groups: { internal: MailRecipient[]; history: MailRecipient[] };
+  }) {
+    const orderedGroups: Array<keyof typeof mailRecipientSectionLabels> = ["internal", "history"];
+    const hasResults = orderedGroups.some((sourceKind) => input.groups[sourceKind].length > 0);
+    return (
+      <section className="mail-address-book-popover" role="dialog" aria-label="주소록 선택 팝업">
+        <div className="mail-address-book-popover__header">
+          <strong>주소록</strong>
+          <span>{input.target === "to" ? "기본 추가 대상: 받는사람" : "기본 추가 대상: 참조"}</span>
+          <button type="button" aria-label="주소록 닫기" onClick={closeRecipientPopup}>×</button>
+        </div>
+        <div className="mail-address-book-popover__tabs" aria-label="주소록 구분">
+          <span aria-current="page">전사 주소록</span>
+          <span>최근/이력</span>
+          <span aria-disabled="true">개인 주소록 준비중</span>
+        </div>
+        <div className="mail-address-book-popover__body">
+          <nav className="mail-address-book-popover__groups" aria-label="주소록 그룹">
+            <strong>전체 주소록</strong>
+            <span>전사 계정</span>
+            <span>발송/수신 이력</span>
+          </nav>
+          <section className="mail-address-book-popover__list" aria-label="주소 목록">
+            <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={input.query} onChange={(event) => { input.setQuery(event.target.value); void loadRecipients(event.target.value); }} />
+            <div className="mail-address-book-table" role="listbox" aria-label="주소록 검색 결과">
+              {hasResults ? orderedGroups.map((sourceKind) => {
+                const groupItems = input.groups[sourceKind];
+                if (!groupItems.length) return null;
+                return (
+                  <section className="mail-address-book-table__section" key={sourceKind} aria-label={mailRecipientSectionLabels[sourceKind]}>
+                    <strong>{mailRecipientSectionLabels[sourceKind]}</strong>
+                    {groupItems.map((recipient) => (
+                      <div className="mail-address-book-table__row" key={`${sourceKind}-${recipient.userId}`} role="option" aria-selected={addressBookRecipientUserIds.includes(recipient.userId) || addressBookCcUserIds.includes(recipient.userId)}>
+                        <span>{recipient.displayName}</span>
+                        <span>{recipient.positionName ?? "-"}</span>
+                        <span>{recipient.departmentName ?? "-"}</span>
+                        <span>{recipient.email}</span>
+                        <button type="button" onClick={() => addAddressBookRecipient(recipient, "to")}>받는사람</button>
+                        <button type="button" onClick={() => addAddressBookRecipient(recipient, "cc")}>참조</button>
+                      </div>
+                    ))}
+                  </section>
+                );
+              }) : <span className="mail-address-book-table__empty">{getRecipientSearchPrompt(input.query)}</span>}
+            </div>
+          </section>
+          <aside className="mail-address-book-popover__selected" aria-label="선택한 주소">
+            <section>
+              <strong>받는사람</strong>
+              {addressBookSelectedRecipients.length ? addressBookSelectedRecipients.map((recipient) => (
+                <button key={recipient.userId} type="button" onClick={() => removeAddressBookRecipient(recipient.userId, "to")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+              )) : <span>선택된 주소가 없습니다.</span>}
+            </section>
+            <section>
+              <strong>참조</strong>
+              {addressBookSelectedCcRecipients.length ? addressBookSelectedCcRecipients.map((recipient) => (
+                <button key={recipient.userId} type="button" onClick={() => removeAddressBookRecipient(recipient.userId, "cc")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+              )) : <span>선택된 주소가 없습니다.</span>}
+            </section>
+          </aside>
+        </div>
+        <div className="mail-address-book-popover__footer">
+          <button type="button" className="mail-compose-toolbar-button" onClick={closeRecipientPopup}>취소</button>
+          <button type="button" className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" onClick={applyAddressBookSelection}>확인</button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="feature-workspace mail-workspace">
       <aside className="feature-workspace__nav" aria-label="메일 메뉴">
@@ -634,7 +757,7 @@ export function MailClient() {
               <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
                 <div className="mail-recipient-input-line">
                   <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); }} />
-                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("to"); setManualRecipientPopupTarget("to"); void loadRecipients(recipientQuery); }}>주소록</button>
+                  <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("to")}>주소록</button>
                 </div>
                 {selectedRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 받는사람">
@@ -643,7 +766,9 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
-                {isRecipientPopupOpen ? (
+                {isRecipientPopupOpen ? manualRecipientPopupTarget === "to" ? (
+                  renderAddressBookPopover({ target: "to", query: recipientQuery, setQuery: setRecipientQuery, groups: recipientSuggestionsBySource })
+                ) : (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="받는사람 검색 결과">
                     {renderRecipientSuggestionSections({ target: "to", query: recipientQuery, groups: recipientSuggestionsBySource })}
                   </div>
@@ -656,7 +781,7 @@ export function MailClient() {
               <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
                 <div className="mail-recipient-input-line">
                   <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); }} />
-                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("cc"); setManualRecipientPopupTarget("cc"); void loadRecipients(ccQuery); }}>주소록</button>
+                  <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("cc")}>주소록</button>
                 </div>
                 {selectedCcRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 참조">
@@ -665,7 +790,9 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
-                {isCcPopupOpen ? (
+                {isCcPopupOpen ? manualRecipientPopupTarget === "cc" ? (
+                  renderAddressBookPopover({ target: "cc", query: ccQuery, setQuery: setCcQuery, groups: ccSuggestionsBySource })
+                ) : (
                   <div className="mail-recipient-suggestions" role="listbox" aria-label="참조 검색 결과">
                     {renderRecipientSuggestionSections({ target: "cc", query: ccQuery, groups: ccSuggestionsBySource })}
                   </div>

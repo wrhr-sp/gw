@@ -4570,6 +4570,186 @@ li {
   padding: 6px;
 }
 
+.mail-address-book-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  width: min(820px, calc(100vw - 96px));
+  max-height: min(560px, calc(100vh - 190px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.mail-address-book-popover__header,
+.mail-address-book-popover__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--line);
+}
+
+.mail-address-book-popover__header > strong {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mail-address-book-popover__header > span {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.mail-address-book-popover__header > button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.mail-address-book-popover__tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px var(--space-md);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-subtle);
+}
+
+.mail-address-book-popover__tabs span {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  padding: 4px 8px;
+}
+
+.mail-address-book-popover__tabs span[aria-current="page"] {
+  color: var(--text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mail-address-book-popover__tabs span[aria-disabled="true"] {
+  opacity: 0.55;
+}
+
+.mail-address-book-popover__body {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.6fr) minmax(280px, 1.8fr) minmax(180px, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mail-address-book-popover__groups,
+.mail-address-book-popover__list,
+.mail-address-book-popover__selected {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  padding: var(--space-sm);
+}
+
+.mail-address-book-popover__groups,
+.mail-address-book-popover__list {
+  border-right: 1px solid var(--line-soft);
+}
+
+.mail-address-book-popover__groups strong,
+.mail-address-book-popover__groups span,
+.mail-address-book-popover__selected strong,
+.mail-address-book-popover__selected span {
+  font-size: var(--font-size-sm);
+}
+
+.mail-address-book-popover__groups span,
+.mail-address-book-popover__selected span {
+  color: var(--text-muted);
+}
+
+.mail-address-book-popover__selected section {
+  display: grid;
+  gap: 5px;
+}
+
+.mail-address-book-popover__selected button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.mail-address-book-popover__footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+.mail-address-book-table {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.mail-address-book-table__section {
+  display: grid;
+  gap: 4px;
+}
+
+.mail-address-book-table__section > strong,
+.mail-address-book-table__empty {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  padding: 4px 2px;
+}
+
+.mail-address-book-table__row {
+  display: grid;
+  grid-template-columns: minmax(66px, 0.8fr) minmax(48px, 0.6fr) minmax(70px, 0.8fr) minmax(120px, 1.2fr) auto auto;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  font-size: var(--font-size-xs);
+}
+
+.mail-address-book-table__row[aria-selected="true"] {
+  background: var(--surface-subtle);
+}
+
+.mail-address-book-table__row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-address-book-table__row button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
 .mail-recipient-suggestions > span {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
@@ -4647,7 +4827,10 @@ li {
 .mail-compose-important {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 5px;
+  min-width: max-content;
+  white-space: nowrap;
 }
 
 .mail-compose-row--subject input.field {
