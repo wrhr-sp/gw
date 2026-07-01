@@ -58,6 +58,7 @@ export const appRoutes = {
   mail: {
     messages: "/api/mail/messages",
     send: "/api/mail/messages/send",
+    saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
@@ -187,10 +188,29 @@ export const mailMessageSendRequestSchema = z.object({
   path: ["recipientUserIds"],
 });
 
+export const mailMessageDraftSaveRequestSchema = z.object({
+  recipientUserId: z.string().min(1).optional(),
+  recipientUserIds: z.array(z.string().min(1)).max(20).optional(),
+  subject: z.string().max(200).optional(),
+  body: z.string().max(10000).optional(),
+  importance: mailImportanceSchema.default("normal"),
+});
+
 export const mailMessageSendResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
     messages: z.array(mailMessageSchema).min(1).optional(),
+    audit: z.object({
+      candidate: z.literal(true),
+      action: z.string(),
+    }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageDraftSaveResponseSchema = successResponseSchema(
+  z.object({
+    message: mailMessageSchema,
     audit: z.object({
       candidate: z.literal(true),
       action: z.string(),
@@ -2359,6 +2379,8 @@ export type MailMessage = z.infer<typeof mailMessageSchema>;
 export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
+export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
+export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
 export type MailAttachment = z.infer<typeof mailAttachmentSchema>;
 export type MailAttachmentListResponse = z.infer<typeof mailAttachmentListResponseSchema>;

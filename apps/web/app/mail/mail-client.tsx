@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { Editor } from "@tinymce/tinymce-react";
+import { boardTinymceInit } from "../_components/board-rich-editor-config";
 import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import {
   appRoutes,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
+  mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
@@ -89,10 +92,12 @@ export function MailClient() {
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>(["user_hr_admin"]);
-  const [subject, setSubject] = useState("근태 정정 확인 요청");
-  const [body, setBody] = useState("확인 필요한 내용을 입력하세요.");
+  const [ccUserIds, setCcUserIds] = useState<string[]>([]);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("<p></p>");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
   const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
@@ -145,7 +150,7 @@ export function MailClient() {
       return;
     }
     if (view === "compose") {
-      setStatus("메일 작성 화면입니다.");
+      setStatus("수신자, 제목, 본문을 입력한 뒤 실제 메일 API로 저장·발송합니다.");
       return;
     }
     if (view === "security") {
@@ -168,6 +173,15 @@ export function MailClient() {
     });
   }
 
+  function toggleCcRecipient(recipientId: string) {
+    setCcUserIds((current) => {
+      if (current.includes(recipientId)) {
+        return current.filter((id) => id !== recipientId);
+      }
+      return [...current, recipientId];
+    });
+  }
+
   function toggleFolderVisibility(folderId: MailFolderId) {
     setVisibleFolderIds((current) => {
       if (current.includes(folderId)) {
@@ -184,6 +198,42 @@ export function MailClient() {
     setStatus("메일 목록 기본값을 다시 적용했습니다.");
   }
 
+  function applyTemplate() {
+    setSubject((current) => current || "업무 공유드립니다");
+    setBody("<p>안녕하세요.</p><p>아래 내용 확인 부탁드립니다.</p><p>감사합니다.</p>");
+    setStatus("업무용 기본 템플릿을 본문에 적용했습니다.");
+  }
+
+  function writeToMyself() {
+    setRecipientUserIds(["user_company_admin"]);
+    setCcUserIds([]);
+    setStatus("내게쓰기 수신자를 총괄관리계정으로 지정했습니다.");
+  }
+
+  async function saveDraft() {
+    setIsSubmitting(true);
+    setStatus("임시보관함에 저장 중입니다.");
+    try {
+      const response = await fetch(appRoutes.mail.saveDraft, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ recipientUserIds: Array.from(new Set([...recipientUserIds, ...ccUserIds])), subject, body, importance }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setStatus(payload?.error?.message ?? "임시저장에 실패했습니다.");
+        return;
+      }
+      const parsed = mailMessageDraftSaveResponseSchema.parse(payload);
+      setStatus(`임시보관함에 저장했습니다. (${parsed.data.message.subject})`);
+      setView("drafts");
+      await loadMessages("drafts");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
@@ -193,7 +243,7 @@ export function MailClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds, subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds: Array.from(new Set([...recipientUserIds, ...ccUserIds])), subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -201,7 +251,7 @@ export function MailClient() {
         return;
       }
       const parsed = mailMessageSendResponseSchema.parse(payload);
-      const sentMessages = [parsed.data.message];
+      const sentMessages = parsed.data.messages ?? [parsed.data.message];
       if (attachmentFile) {
         for (const message of sentMessages) {
           const formData = new FormData();
@@ -351,45 +401,86 @@ export function MailClient() {
         <p className="feature-workspace__panel-status" role="status">{status}</p>
 
         {view === "compose" ? (
-          <form className="feature-workspace__form" onSubmit={sendMessage}>
-            <fieldset className="feature-workspace__field-group">
-              <legend>받는 사람</legend>
-              {recipientOptions.map((option) => (
-                <label key={option.id}>
-                  <input
-                    checked={recipientUserIds.includes(option.id)}
-                    onChange={() => toggleRecipient(option.id)}
-                    type="checkbox"
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </fieldset>
-            <label>
-              <span>중요도</span>
-              <select aria-label="중요도" value={importance} onChange={(event) => setImportance(event.target.value as "normal" | "important")}>
-                <option value="normal">일반</option>
-                <option value="important">중요</option>
-              </select>
-            </label>
-            <label>
-              <span>제목</span>
-              <input aria-label="제목" value={subject} onChange={(event) => setSubject(event.target.value)} />
-            </label>
-            <label>
-              <span>본문</span>
-              <textarea aria-label="본문" rows={6} value={body} onChange={(event) => setBody(event.target.value)} />
-            </label>
-            <label>
-              <span>첨부파일</span>
-              <input aria-label="첨부파일" type="file" onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)} />
-            </label>
-            {attachmentFile ? <p>선택한 첨부: {attachmentFile.name}</p> : null}
-            <div className="feature-workspace__actions">
+          <form className="mail-compose-form" onSubmit={sendMessage}>
+            <div className="mail-compose-toolbar" aria-label="메일 작성 작업">
               <button className="touch-button feature-workspace__action feature-workspace__action--primary" disabled={isSubmitting} type="submit">
-                보내기
+                {isSubmitting ? "처리 중" : "보내기"}
               </button>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="예약 발송 API는 일정 엔진 확정 뒤 연결합니다.">예약발송</button>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled={isSubmitting} type="button" onClick={() => void saveDraft()}>임시저장</button>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={applyTemplate}>템플릿</button>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" type="button" onClick={writeToMyself}>내게쓰기</button>
             </div>
+
+            <div className="mail-compose-row mail-compose-row--recipients">
+              <strong>받는 사람</strong>
+              <div className="mail-compose-recipient-grid" role="group" aria-label="받는 사람 선택">
+                {recipientOptions.map((option) => (
+                  <label key={option.id}>
+                    <input checked={recipientUserIds.includes(option.id)} onChange={() => toggleRecipient(option.id)} type="checkbox" />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="조직 주소록 검색 API 확정 후 연결합니다.">주소록</button>
+            </div>
+
+            <div className="mail-compose-row mail-compose-row--recipients">
+              <strong>참조</strong>
+              <div className="mail-compose-recipient-grid" role="group" aria-label="참조 선택">
+                {recipientOptions.map((option) => (
+                  <label key={option.id}>
+                    <input checked={ccUserIds.includes(option.id)} onChange={() => toggleCcRecipient(option.id)} type="checkbox" />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="mail-compose-row__hint">참조 선택자는 현재 내부 메일 수신자에 포함되어 저장·발송됩니다.</span>
+            </div>
+
+            <label className="mail-compose-row mail-compose-row--subject">
+              <strong>제목</strong>
+              <input className="field" aria-label="제목" placeholder="제목을 입력하세요" required value={subject} onChange={(event) => setSubject(event.target.value)} />
+              <span className="mail-compose-important"><input checked={importance === "important"} onChange={(event) => setImportance(event.target.checked ? "important" : "normal")} type="checkbox" /> 중요</span>
+            </label>
+
+            <section className="mail-compose-attachments" aria-label="파일첨부">
+              <div className="mail-compose-attachments__header">
+                <strong>파일첨부</strong>
+                <div className="mail-compose-attachment-actions">
+                  <label className="touch-button feature-workspace__action feature-workspace__action--secondary">
+                    <input className="mail-compose-file-input" aria-label="내 PC 파일첨부" type="file" onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)} />
+                    내 PC
+                  </label>
+                  <button className="touch-button feature-workspace__action feature-workspace__action--secondary" disabled type="button" title="개인 자료실 API 확정 후 연결합니다.">개인 자료실</button>
+                </div>
+                <span>일반 {attachmentFile ? `${Math.ceil(attachmentFile.size / 1024)}KB` : "0KB"}/10MB · 대용량 0KB/2GB</span>
+              </div>
+              <div className="mail-compose-dropzone">
+                {attachmentFile ? <strong>선택한 첨부: {attachmentFile.name}</strong> : <strong>파일을 이곳에 끌어오거나 내 PC에서 선택하세요</strong>}
+                <span>실제 첨부 업로드는 보내기 후 메일 첨부 API와 R2 저장소로 연결됩니다.</span>
+              </div>
+            </section>
+
+            <div className="board-tinymce-field mail-compose-editor">
+              <strong>본문</strong>
+              <Editor
+                apiKey="no-api-key"
+                tinymceScriptSrc="/tinymce/tinymce.min.js"
+                licenseKey="gpl"
+                value={body}
+                onEditorChange={(value) => setBody(value)}
+                init={boardTinymceInit}
+              />
+            </div>
+
+            {isPreviewOpen ? (
+              <section className="mail-compose-preview" aria-label="메일 미리보기">
+                <strong>{subject || "(제목 없음)"}</strong>
+                <div dangerouslySetInnerHTML={{ __html: body }} />
+              </section>
+            ) : null}
           </form>
         ) : currentBox ? (
           <div className="feature-workspace__rows">

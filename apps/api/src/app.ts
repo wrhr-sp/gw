@@ -78,6 +78,8 @@ import {
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailMessageListResponseSchema,
+  mailMessageDraftSaveRequestSchema,
+  mailMessageDraftSaveResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendRequestSchema,
   mailMessageSendResponseSchema,
@@ -208,7 +210,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailMessages, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, markOperationalMailMessageRead } from "./lib/operational-mail";
 import {
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
@@ -5810,6 +5812,59 @@ app.get(appRoutes.mail.messages, async (context) => {
     });
   } catch {
     return jsonDatabaseRequired(context, "메일 목록 조회");
+  }
+});
+
+app.post(appRoutes.mail.saveDraft, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageDraftSaveRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "임시저장 요청 형식이 올바르지 않습니다.", 400, {
+      issues: parsed.error.issues,
+    });
+  }
+
+  try {
+    const recipientUserIds = Array.from(new Set([
+      ...(parsed.data.recipientUserIds ?? []),
+      ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
+    ]));
+    const draft = await createOperationalMailDraft(context.env, {
+      id: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      recipientUserId: recipientUserIds[0] ?? null,
+      subject: parsed.data.subject?.trim() || "(제목 없음)",
+      body: parsed.data.body?.trim() || "<p></p>",
+      importance: parsed.data.importance,
+    });
+
+    if (!draft) {
+      return jsonError(context, "FORBIDDEN", "임시저장할 수 없는 수신자입니다.", 403, {
+        recipientUserIds,
+        route: context.req.path,
+      });
+    }
+
+    return jsonSuccess(context, mailMessageDraftSaveResponseSchema, {
+      ok: true,
+      data: {
+        message: draft,
+        audit: {
+          candidate: true,
+          action: "mail.message.draft.save",
+        },
+        source: "postgres",
+      },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메일 임시저장");
   }
 });
 
