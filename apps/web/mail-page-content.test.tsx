@@ -57,6 +57,10 @@ describe("mail page content", () => {
     expect(source).toContain("주소록 선택 팝업");
     expect(source).toContain("mail-address-book-popover");
     expect(source).toContain("개인 주소록 준비중");
+    expect(source).toContain("setAddressBookSourceFilter");
+    expect(source).toContain('aria-pressed={addressBookSourceFilter === "internal"}');
+    expect(source).toContain('aria-pressed={addressBookSourceFilter === "history"}');
+    expect(source).toContain('disabled type="button">개인 주소록 준비중');
     expect(source).toContain("받는사람</button>");
     expect(source).toContain("참조</button>");
     expect(source).toContain("loadAddressBookRecipients(\"\")");
@@ -102,6 +106,9 @@ describe("mail page content", () => {
     expect(globalCss).toContain("outline: 1px solid var(--surface);");
     expect(globalCss).toContain(".mail-address-book-table__row button[aria-pressed=\"true\"]");
     expect(globalCss).toContain("background: var(--primary-soft);");
+    expect(globalCss).toContain(".mail-address-book-popover__tabs button[aria-pressed=\"true\"]");
+    expect(globalCss).toContain(".mail-address-book-popover__groups button[aria-pressed=\"true\"]");
+    expect(globalCss).toContain("cursor: not-allowed;");
     expect(globalCss).toContain("grid-template-columns: minmax(110px, 0.6fr) minmax(280px, 1.8fr) minmax(180px, 1fr);");
     expect(globalCss).toContain("white-space: nowrap;");
     expect(globalCss).toContain(".mail-recipient-suggestion-section");

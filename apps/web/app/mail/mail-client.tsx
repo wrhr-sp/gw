@@ -125,6 +125,7 @@ export function MailClient() {
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
   const [addressBookQuery, setAddressBookQuery] = useState("");
+  const [addressBookSourceFilter, setAddressBookSourceFilter] = useState<"all" | "internal" | "history">("all");
   const [recipientLookup, setRecipientLookup] = useState<Record<string, MailRecipient>>({});
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
@@ -175,9 +176,12 @@ export function MailClient() {
     internal: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "internal"),
     history: visibleCcSuggestions.filter((recipient) => recipient.sourceKind === "history"),
   };
+  const addressBookFilteredRecipients = addressBookSourceFilter === "all"
+    ? addressBookRecipients
+    : addressBookRecipients.filter((recipient) => recipient.sourceKind === addressBookSourceFilter);
   const addressBookSuggestionsBySource = {
-    internal: addressBookRecipients.filter((recipient) => recipient.sourceKind === "internal"),
-    history: addressBookRecipients.filter((recipient) => recipient.sourceKind === "history"),
+    internal: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "internal"),
+    history: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "history"),
   };
   const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0 || manualRecipientPopupTarget === "to");
   const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0 || manualRecipientPopupTarget === "cc");
@@ -331,6 +335,7 @@ export function MailClient() {
     setAddressBookRecipientUserIds(recipientUserIds);
     setAddressBookCcUserIds(ccUserIds);
     setAddressBookQuery("");
+    setAddressBookSourceFilter("all");
     setActiveRecipientPopup(target);
     setManualRecipientPopupTarget(target);
     void loadAddressBookRecipients("");
@@ -654,15 +659,17 @@ export function MailClient() {
           <button type="button" aria-label="주소록 닫기" onClick={closeRecipientPopup}>×</button>
         </div>
         <div className="mail-address-book-popover__tabs" aria-label="주소록 구분">
-          <span aria-current="page">전사 주소록</span>
-          <span>최근/이력</span>
-          <span aria-disabled="true">개인 주소록 준비중</span>
+          <button aria-pressed={addressBookSourceFilter === "all"} type="button" onClick={() => setAddressBookSourceFilter("all")}>전체 주소록</button>
+          <button aria-pressed={addressBookSourceFilter === "internal"} type="button" onClick={() => setAddressBookSourceFilter("internal")}>전사 주소록</button>
+          <button aria-pressed={addressBookSourceFilter === "history"} type="button" onClick={() => setAddressBookSourceFilter("history")}>최근/이력</button>
+          <button aria-disabled="true" disabled type="button">개인 주소록 준비중</button>
         </div>
         <div className="mail-address-book-popover__body">
           <nav className="mail-address-book-popover__groups" aria-label="주소록 그룹">
-            <strong>전체 주소록</strong>
-            <span>전사 계정</span>
-            <span>발송/수신 이력</span>
+            <strong>주소록 그룹</strong>
+            <button aria-pressed={addressBookSourceFilter === "all"} type="button" onClick={() => setAddressBookSourceFilter("all")}>전체 주소록</button>
+            <button aria-pressed={addressBookSourceFilter === "internal"} type="button" onClick={() => setAddressBookSourceFilter("internal")}>전사 계정</button>
+            <button aria-pressed={addressBookSourceFilter === "history"} type="button" onClick={() => setAddressBookSourceFilter("history")}>발송/수신 이력</button>
           </nav>
           <section className="mail-address-book-popover__list" aria-label="주소 목록">
             <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={addressBookQuery} onChange={(event) => { setAddressBookQuery(event.target.value); void loadAddressBookRecipients(event.target.value); }} />
