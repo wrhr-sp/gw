@@ -6359,6 +6359,24 @@ li {
   border-radius: var(--radius-md);
 }
 
+.messenger-popover-menu.messenger-conversation-menu {
+  top: calc(100% + 6px);
+  right: 0;
+  bottom: auto;
+  width: 128px;
+  box-sizing: border-box;
+  align-items: stretch;
+  padding: 6px;
+}
+
+.messenger-popover-menu.messenger-conversation-menu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
 .messenger-attachment-menu {
   left: 0;
   width: 180px;
