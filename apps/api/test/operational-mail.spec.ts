@@ -5,6 +5,7 @@ import {
   errorResponseSchema,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
+  mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
@@ -66,6 +67,53 @@ describe("operational mail API", () => {
     expect(response.status).toBe(503);
     const payload = errorResponseSchema.parse(await response.json());
     expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+  });
+
+  it("requires DB configuration for authenticated draft saves", async () => {
+    const loginResponse = await app.request(appRoutes.auth.login, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-dev-role": "COMPANY_ADMIN" },
+      body: JSON.stringify({ loginId: "admin", password: "1234" }),
+    });
+    const cookie = loginResponse.headers.get("set-cookie") ?? "";
+
+    const response = await app.request(appRoutes.mail.saveDraft, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ subject: "", body: "", recipientUserIds: [] }),
+    });
+
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+  });
+
+  runWhenDbConfigured("saves draft mail through PostgreSQL and lists it in drafts", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 임시저장 DB smoke ${Date.now()}`;
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const draftResponse = await app.request(
+      appRoutes.mail.saveDraft,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserIds: ["user_hr_admin"], subject, body: "임시저장 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(draftResponse.status).toBe(201);
+    const draftPayload = mailMessageDraftSaveResponseSchema.parse(await draftResponse.json());
+    expect(draftPayload.data.message.status).toBe("draft");
+    expect(draftPayload.data.source).toBe("postgres");
+
+    const draftsResponse = await app.request(`${appRoutes.mail.messages}?box=drafts`, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(draftsResponse.status).toBe(200);
+    const draftsPayload = mailMessageListResponseSchema.parse(await draftsResponse.json());
+    expect(draftsPayload.data.items.some((item) => item.id === draftPayload.data.message.id)).toBe(true);
+
+    await sql`delete from mail_messages where id = ${draftPayload.data.message.id}`;
   });
 
   runWhenDbConfigured("sends, lists, and marks internal mail through PostgreSQL", async () => {

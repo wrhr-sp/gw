@@ -241,6 +241,10 @@ describe("shared contracts", () => {
     expect(appRoutes.approvals.reject("approval_document_demo")).toBe("/api/approvals/documents/approval_document_demo/reject");
     expect(appRoutes.approvals.referenceCandidates).toBe("/api/approvals/references/candidates");
     expect(appRoutes.approvals.agreementCandidates).toBe("/api/approvals/agreements/candidates");
+    expect(appRoutes.mail.messages).toBe("/api/mail/messages");
+    expect(appRoutes.mail.send).toBe("/api/mail/messages/send");
+    expect(appRoutes.mail.saveDraft).toBe("/api/mail/messages/draft");
+    expect(appRoutes.mail.markRead("mail_demo")).toBe("/api/mail/messages/mail_demo/read");
     expect(appRoutes.boards.notices).toBe("/api/notices");
     expect(appRoutes.boards.boards).toBe("/api/boards");
     expect(appRoutes.boards.posts("board_general")).toBe("/api/boards/board_general/posts");

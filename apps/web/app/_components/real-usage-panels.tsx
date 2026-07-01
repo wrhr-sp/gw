@@ -19,6 +19,7 @@ import {
   leaveTypeCodeLabels,
 } from "../../admin-skeleton-config";
 import { getPostLoginRoute } from "../../dev-safe-auth";
+import { boardTinymceInit } from "./board-rich-editor-config";
 import { Pill } from "./page-shell";
 
 type ApiEnvelope<T> = {
@@ -1388,56 +1389,6 @@ function getBoardCategory(board: Record<string, any> | null | undefined): Exclud
   return board?.visibility === "department" || board?.boardType === "department" ? "department" : "company";
 }
 
-// 게시판 본문 글꼴은 한글 후보를 먼저, 영문 후보를 나중에 나열한다.
-// 시스템 글꼴은 파일을 번들링하지 않고 family name만 참조해 라이선스 재배포 위험을 피한다.
-const boardTinymceFontFamilyFormats = [
-  "기본 글꼴=Pretendard Variable,Pretendard,'Malgun Gothic','맑은 고딕',sans-serif",
-  "프리텐다드=Pretendard Variable,Pretendard,sans-serif",
-  "본고딕=Noto Sans KR,Noto Sans CJK KR,Source Han Sans KR,sans-serif",
-  "Source Han Sans KR=Source Han Sans KR,Noto Sans CJK KR,Noto Sans KR,sans-serif",
-  "수트=SUIT,sans-serif",
-  "스포카 한 산스=Spoqa Han Sans Neo,Spoqa Han Sans,sans-serif",
-  "나눔고딕=Nanum Gothic,NanumGothic,sans-serif",
-  "나눔스퀘어=NanumSquare,Nanum Square,sans-serif",
-  "맑은 고딕='Malgun Gothic','맑은 고딕',sans-serif",
-  "맑은 고딕 Light='Malgun Gothic Semilight','맑은 고딕 Semilight','Malgun Gothic','맑은 고딕',sans-serif",
-  "돋움=Dotum,'돋움',sans-serif",
-  "돋움체=DotumChe,'돋움체',monospace",
-  "굴림=Gulim,'굴림',sans-serif",
-  "굴림체=GulimChe,'굴림체',monospace",
-  "바탕=Batang,'바탕',serif",
-  "바탕체=BatangChe,'바탕체',monospace",
-  "궁서=Gungsuh,'궁서',serif",
-  "궁서체=GungsuhChe,'궁서체',monospace",
-  "Arial=Arial,Helvetica,sans-serif",
-  "Arial Black=Arial Black,Arial,sans-serif",
-  "Calibri=Calibri,Arial,sans-serif",
-  "Cambria=Cambria,Georgia,serif",
-  "Georgia=Georgia,serif",
-  "Times New Roman=Times New Roman,Times,serif",
-  "Verdana=Verdana,Geneva,sans-serif",
-  "Tahoma=Tahoma,Geneva,sans-serif",
-  "Trebuchet MS=Trebuchet MS,Helvetica,sans-serif",
-  "Courier New=Courier New,Courier,monospace",
-  "Lucida Console=Lucida Console,Monaco,monospace",
-  "Inter=Inter,Arial,sans-serif",
-  "Roboto=Roboto,Arial,sans-serif",
-  "Open Sans=Open Sans,Arial,sans-serif",
-  "Lato=Lato,Arial,sans-serif",
-  "Montserrat=Montserrat,Arial,sans-serif",
-  "Merriweather=Merriweather,Georgia,serif",
-  "Source Sans 3=Source Sans 3,Source Sans Pro,Arial,sans-serif",
-  "Source Serif 4=Source Serif 4,Source Serif Pro,Georgia,serif",
-  "IBM Plex Sans=IBM Plex Sans,Arial,sans-serif",
-  "IBM Plex Serif=IBM Plex Serif,Georgia,serif",
-  "Fira Sans=Fira Sans,Arial,sans-serif",
-  "Fira Code=Fira Code,Courier New,monospace",
-].join("; ");
-
-const boardTinymceFontSizeFormats = "8pt 9pt 10pt 11pt 12pt 14pt 16pt 18pt 24pt 36pt";
-
-const boardTinymceContentStyle = "body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 10pt; }";
-
 export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }: { boardId: string | null; intent?: "write" | "list"; onOpenPost?: (postId: string) => void }) {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
@@ -1651,19 +1602,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                 licenseKey="gpl"
                 value={bodyHtml}
                 onEditorChange={(value) => setBodyHtml(value)}
-                init={{
-                  height: 550,
-                  min_height: 550,
-                  menubar: false,
-                  plugins: "lists link table code autoresize",
-                  toolbar: "undo redo | blocks fontfamily fontsize | bold italic underline forecolor backcolor | alignleft aligncenter alignright | bullist numlist | link table | code",
-                  font_family_formats: boardTinymceFontFamilyFormats,
-                  font_size_formats: boardTinymceFontSizeFormats,
-                  elementpath: false,
-                  branding: false,
-                  promotion: false,
-                  content_style: boardTinymceContentStyle,
-                }}
+                init={boardTinymceInit}
               />
             </div>
             <div className="board-write-choice-row" role="group" aria-label="공개설정">

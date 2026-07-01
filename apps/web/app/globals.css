@@ -4374,6 +4374,108 @@ li {
   min-width: 7em;
 }
 
+.mail-compose-form {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.mail-compose-toolbar,
+.mail-compose-row,
+.mail-compose-attachments__header,
+.mail-compose-attachment-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.mail-compose-toolbar {
+  flex-wrap: wrap;
+  padding-bottom: var(--space-sm);
+  border-bottom: var(--feature-workspace-row-divider);
+}
+
+.mail-compose-row {
+  min-height: 44px;
+  padding: 8px 0;
+  border-bottom: var(--feature-workspace-row-divider);
+}
+
+.mail-compose-row > strong,
+.mail-compose-attachments__header > strong,
+.mail-compose-editor > strong {
+  flex: 0 0 86px;
+  color: var(--text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mail-compose-row--recipients {
+  align-items: flex-start;
+}
+
+.mail-compose-recipient-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.mail-compose-recipient-grid label,
+.mail-compose-important {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mail-compose-row--subject input.field {
+  flex: 1 1 auto;
+}
+
+.mail-compose-row__hint,
+.mail-compose-attachments__header > span,
+.mail-compose-dropzone span {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.mail-compose-attachments {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--feature-workspace-row-divider);
+}
+
+.mail-compose-attachments__header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.mail-compose-file-input {
+  display: none;
+}
+
+.mail-compose-dropzone,
+.mail-compose-preview {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-md);
+  background: var(--surface-subtle);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
+.mail-compose-preview {
+  border-style: solid;
+}
+
+.mail-compose-editor {
+  gap: var(--board-tinymce-field-gap);
+}
+
+.mail-compose-editor > strong {
+  transform: none;
+}
+
 .mail-folder-list,
 .mail-folder-list__children,
 .mail-folder-editor__list {

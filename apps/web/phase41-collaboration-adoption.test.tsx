@@ -15,6 +15,7 @@ import { canReviewApprovalDocument } from "./app/_components/real-usage-panels";
 describe("Phase 41 collaboration adoption fit-gap", () => {
   it("keeps board write title as plain page-title sized text without a pill/card wrapper", () => {
     const panelSource = readFileSync("app/_components/real-usage-panels.tsx", "utf8");
+    const boardEditorConfig = readFileSync("app/_components/board-rich-editor-config.ts", "utf8");
     const globalCss = readFileSync("app/globals.css", "utf8");
 
     expect(panelSource).toContain('className="board-write-heading"');
@@ -44,8 +45,8 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(panelSource).toContain("handleNoticePeriodRangeOpen");
     expect(panelSource).toContain('setNoticePeriodPreset("custom")');
     expect(panelSource).toContain("board-write-period-calendar");
-    expect(panelSource).toContain("height: 550");
-    expect(panelSource).toContain("min_height: 550");
+    expect(boardEditorConfig).toContain("height: 550");
+    expect(boardEditorConfig).toContain("min_height: 550");
     expect(panelSource).toContain("<div className=\"board-write-line board-write-line--board\">");
     expect(panelSource).toContain("<div className=\"board-write-line board-write-line--title\">");
     expect(panelSource).toContain("<div className=\"board-tinymce-field\">");
