@@ -456,7 +456,7 @@ export default function MessengerPage() {
                   <div className="messenger-conversation-actions" onClick={(event) => event.stopPropagation()}>
                     <div className="messenger-conversation-menu-wrap">
                       <button
-                        className="messenger-dialog-close messenger-conversation-menu-button"
+                        className="messenger-conversation-menu-button"
                         type="button"
                         aria-label="채팅방 메뉴 열기"
                         aria-expanded={isConversationMenuOpen}

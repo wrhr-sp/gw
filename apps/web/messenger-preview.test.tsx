@@ -105,6 +105,10 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-popover-menu.messenger-conversation-menu");
     expect(globalCss).toContain("bottom: auto;");
     expect(globalCss).toContain("box-sizing: border-box;");
+    expect(globalCss).toContain(".messenger-conversation-menu-button {");
+    expect(globalCss).toContain("background: transparent;");
+    expect(globalCss).toContain("border: 1px solid transparent;");
+    expect(globalCss).toContain("border-radius: 0;");
     expect(globalCss).toContain(".messenger-conversation-menu__leave");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");

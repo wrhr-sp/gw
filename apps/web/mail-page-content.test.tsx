@@ -23,12 +23,15 @@ describe("mail page content", () => {
     expect(html).toContain("임시보관함");
     expect(html).toContain("예약메일함");
     expect(html).toContain("스팸메일함");
-    expect(html).toContain('aria-label="외부메일함"');
-    expect(html).toContain('aria-label="휴지통"');
+    expect(html).toContain("외부메일함");
+    expect(html).toContain("휴지통");
+    expect(html).toContain("mail-folder-list__item--child-flat");
+    expect(html).not.toContain('aria-label="외부메일함"');
+    expect(html).not.toContain('aria-label="휴지통"');
     expect(html).not.toContain("ㄴ받은메일함");
     expect(html).not.toContain("받은 메일함");
     expect(html).not.toContain('aria-label="요약 정보"');
-    expect(html.indexOf('aria-label="외부메일함"')).toBeLessThan(html.indexOf('aria-label="휴지통"'));
+    expect(html.indexOf(">외부메일함<")).toBeLessThan(html.indexOf(">휴지통<"));
   });
 
   it("uses the board write button token for the mail compose button", () => {
@@ -83,7 +86,11 @@ describe("mail page content", () => {
     expect(source).not.toContain("메일 작성화면입니다.");
     expect(source).not.toContain("<textarea aria-label=\"본문\"");
     expect(source).not.toContain("실제 첨부 업로드");
-    expect(source).not.toContain("개인 자료실");
+    expect(source).toContain("mail-folder-list__item--child-flat");
+    expect(source).toContain("externalFolders.map((folder) => renderFolderButton(folder, true, true))");
+    expect(source).toContain("trashFolders.map((folder) => renderFolderButton(folder, true, true))");
+    expect(source).not.toContain('aria-label="외부메일함"');
+    expect(source).not.toContain('aria-label="휴지통"');
     expect(globalCss).toContain(".board-write-button,");
     expect(globalCss).toContain("background: var(--feature-page-write-button-background)");
     expect(globalCss).toContain("--feature-page-write-button-background: var(--board-write-button-background);");
@@ -96,6 +103,8 @@ describe("mail page content", () => {
     expect(globalCss).toContain("position: absolute;");
     expect(globalCss).toContain(".mail-recipient-input-line");
     expect(globalCss).toContain(".mail-address-book-button");
+    expect(globalCss).toContain(".mail-folder-list__item--child-flat span::before");
+    expect(globalCss).toContain("content: none;");
     expect(globalCss).toContain(".mail-address-book-popover");
     expect(globalCss).toContain("position: fixed;");
     expect(globalCss).toContain("left: 50%;");
