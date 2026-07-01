@@ -65,6 +65,9 @@ export const appRoutes = {
     attachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
   },
+  messenger: {
+    leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
+  },
   approvals: {
     forms: "/api/approvals/forms",
     lines: "/api/approvals/lines",
@@ -244,6 +247,15 @@ export const mailMessageDraftSaveResponseSchema = successResponseSchema(
 export const mailMessageReadResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerThreadLeaveResponseSchema = successResponseSchema(
+  z.object({
+    threadId: z.string(),
+    left: z.literal(true),
+    leftAt: z.string().datetime(),
     source: z.literal("postgres"),
   }),
 );

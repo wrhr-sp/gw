@@ -95,6 +95,7 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  messengerThreadLeaveResponseSchema,
   secondaryPasswordStatusResponseSchema,
   secondaryPasswordUpdateRequestSchema,
   secondaryPasswordUpdateResponseSchema,
@@ -214,6 +215,7 @@ import {
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead } from "./lib/operational-mail";
+import { leaveOperationalMessengerThread } from "./lib/operational-messenger";
 import {
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
@@ -5783,6 +5785,42 @@ app.get(appRoutes.payroll.myPayslip, async (context) => {
     },
     error: null,
   });
+});
+
+app.post("/api/messenger/threads/:threadId/leave", async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const threadId = context.req.param("threadId")?.trim();
+  if (!threadId || threadId.length > 120) {
+    return jsonError(context, "VALIDATION_ERROR", "채팅방 식별자가 올바르지 않습니다.", 400, {
+      route: context.req.path,
+    });
+  }
+
+  try {
+    const result = await leaveOperationalMessengerThread(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      threadId,
+    });
+    if (!result) {
+      return jsonError(context, "FORBIDDEN", "나갈 수 없는 채팅방입니다.", 403, {
+        threadId,
+        route: context.req.path,
+      });
+    }
+
+    return jsonSuccess(context, messengerThreadLeaveResponseSchema, {
+      ok: true,
+      data: result,
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저방 나가기");
+  }
 });
 
 app.get(appRoutes.mail.recipients, async (context) => {

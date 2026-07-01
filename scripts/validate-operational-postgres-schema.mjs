@@ -44,6 +44,9 @@ const requiredTables = [
   'payroll_runs',
   'compliance_alerts',
   'notifications',
+  'mail_messages',
+  'mail_attachments',
+  'messenger_thread_members',
   'audit_logs',
 ];
 
