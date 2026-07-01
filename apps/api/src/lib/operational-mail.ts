@@ -51,7 +51,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
       u.id as user_id,
       e.id as employee_id,
       coalesce(e.full_name, u.display_name, u.login_id) as display_name,
-      coalesce(u.email, e.email, u.login_id) as email,
+      coalesce(u.email, u.login_id) as email,
       d.name as department_name,
       p.name as position_name
     from users u
@@ -73,7 +73,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
       and (
         ${input.query?.trim() ? true : false} = false
         or lower(coalesce(e.full_name, u.display_name, u.login_id)) like ${keyword}
-        or lower(coalesce(u.email, e.email, u.login_id)) like ${keyword}
+        or lower(coalesce(u.email, u.login_id)) like ${keyword}
         or lower(coalesce(d.name, '')) like ${keyword}
         or lower(coalesce(p.name, '')) like ${keyword}
       )

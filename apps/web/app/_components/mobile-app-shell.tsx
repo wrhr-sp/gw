@@ -2080,7 +2080,15 @@ export function MobileAppShell({
       }
 
       event.preventDefault();
-      router.push(anchor.dataset.route as never);
+      const targetRoute = anchor.dataset.route;
+      if (!targetRoute) {
+        return;
+      }
+      const targetPath = normalizeAppPathname(targetRoute.split("?")[0] || targetRoute);
+      if (!sidebarCollapsed && targetPath !== normalizeAppPathname(pathname)) {
+        setSidebarCollapsed(true);
+      }
+      router.push(targetRoute as never);
     };
 
     const handleStatusHiddenLinkKeydown = (event: KeyboardEvent) => {
@@ -2094,7 +2102,15 @@ export function MobileAppShell({
       }
 
       event.preventDefault();
-      router.push(anchor.dataset.route as never);
+      const targetRoute = anchor.dataset.route;
+      if (!targetRoute) {
+        return;
+      }
+      const targetPath = normalizeAppPathname(targetRoute.split("?")[0] || targetRoute);
+      if (!sidebarCollapsed && targetPath !== normalizeAppPathname(pathname)) {
+        setSidebarCollapsed(true);
+      }
+      router.push(targetRoute as never);
     };
 
     document.addEventListener("click", handleStatusHiddenLinkClick, true);
@@ -2105,7 +2121,7 @@ export function MobileAppShell({
       document.removeEventListener("click", handleStatusHiddenLinkClick, true);
       document.removeEventListener("keydown", handleStatusHiddenLinkKeydown, true);
     };
-  }, [router]);
+  }, [pathname, router, sidebarCollapsed]);
 
   useEffect(() => {
     return () => {
@@ -3410,7 +3426,16 @@ export function MobileAppShell({
     );
   }
 
+  function collapseSidebarForDifferentScreen(href: string) {
+    const currentPath = normalizeAppPathname(pathname);
+    const targetPath = normalizeAppPathname(href.split("?")[0] || href);
+    if (!sidebarCollapsed && targetPath !== currentPath) {
+      setSidebarCollapsed(true);
+    }
+  }
+
   function navigateTo(href: string) {
+    collapseSidebarForDifferentScreen(href);
     router.push(href as never);
   }
 
