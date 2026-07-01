@@ -5008,6 +5008,10 @@ li {
   padding-top: var(--feature-page-sublist-marker-padding-top);
 }
 
+.mail-folder-list__item--child-flat span::before {
+  content: none;
+}
+
 .mail-folder-list__item[aria-selected="true"] span,
 .mail-folder-list__item:hover span,
 .mail-folder-list__item:focus-visible span {
@@ -6004,15 +6008,32 @@ li {
   position: relative;
 }
 
-.messenger-conversation-close,
-.messenger-conversation-menu-button {
+.messenger-conversation-close {
   flex: 0 0 auto;
 }
 
+.messenger-conversation-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-subtle);
+  font: inherit;
+  font-size: 21px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.messenger-conversation-menu-button:hover,
 .messenger-conversation-menu-button[aria-expanded="true"] {
   color: var(--primary-hover);
-  background: var(--primary-soft);
-  border-color: var(--primary-soft-strong);
+  background: transparent;
+  border-color: transparent;
 }
 
 .messenger-conversation-menu {

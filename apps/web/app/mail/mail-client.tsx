@@ -564,13 +564,16 @@ export function MailClient() {
     await loadMessages("inbox");
   }
 
-  function renderFolderButton(folder: MailFolderConfig, nested = false) {
+  function renderFolderButton(folder: MailFolderConfig, nested = false, hideNestedMarker = false) {
     const selected = view === folder.id;
     const badge = getFolderBadge(folder, counts);
+    const className = nested
+      ? `mail-folder-list__item mail-folder-list__item--child${hideNestedMarker ? " mail-folder-list__item--child-flat" : ""}`
+      : "mail-folder-list__item";
     return (
       <button
         aria-selected={selected}
-        className={nested ? "mail-folder-list__item mail-folder-list__item--child" : "mail-folder-list__item"}
+        className={className}
         key={folder.id}
         onClick={() => setView(folder.id)}
         role="treeitem"
@@ -743,22 +746,8 @@ export function MailClient() {
               </div>
             </section>
           ) : null}
-          {externalFolders.length ? (
-            <section className="mail-folder-list__group" aria-label="외부메일함">
-              <strong className="mail-folder-list__group-title">외부메일함</strong>
-              <div className="mail-folder-list__children">
-                {externalFolders.map((folder) => renderFolderButton(folder, true))}
-              </div>
-            </section>
-          ) : null}
-          {trashFolders.length ? (
-            <section className="mail-folder-list__group" aria-label="휴지통">
-              <strong className="mail-folder-list__group-title">휴지통</strong>
-              <div className="mail-folder-list__children">
-                {trashFolders.map((folder) => renderFolderButton(folder, true))}
-              </div>
-            </section>
-          ) : null}
+          {externalFolders.map((folder) => renderFolderButton(folder, true, true))}
+          {trashFolders.map((folder) => renderFolderButton(folder, true, true))}
         </div>
         {renderFolderEditor()}
       </aside>
