@@ -1563,6 +1563,7 @@ export function MobileAppShell({
   const appRefreshOverlayTimerRef = useRef<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const departmentPortalRef = useRef<HTMLDivElement | null>(null);
+  const desktopSidebarRef = useRef<HTMLElement | null>(null);
   const isLoginRoute = pathname === "/login";
   const isRefreshRoute = pathname === "/refresh";
   void installGuideSteps;
@@ -2122,6 +2123,22 @@ export function MobileAppShell({
       document.removeEventListener("keydown", handleStatusHiddenLinkKeydown, true);
     };
   }, [pathname, router, sidebarCollapsed]);
+
+  useEffect(() => {
+    function handleDesktopSidebarOutsidePointerDown(event: PointerEvent) {
+      if (sidebarCollapsed) {
+        return;
+      }
+      const target = event.target as Node | null;
+      if (!target || desktopSidebarRef.current?.contains(target)) {
+        return;
+      }
+      setSidebarCollapsed(true);
+    }
+
+    document.addEventListener("pointerdown", handleDesktopSidebarOutsidePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handleDesktopSidebarOutsidePointerDown, true);
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     return () => {
@@ -3508,6 +3525,7 @@ export function MobileAppShell({
   return (
     <div className={suppressTopbarTooltips ? "app-shell app-shell--responsive app-shell--suppress-topbar-tooltips" : "app-shell app-shell--responsive"}>
       <aside
+        ref={desktopSidebarRef}
         className={sidebarCollapsed ? "desktop-sidebar desktop-sidebar--collapsed" : "desktop-sidebar"}
         aria-label="PC 기본 탐색"
       >

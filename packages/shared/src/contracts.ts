@@ -62,6 +62,7 @@ export const appRoutes = {
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
+    attachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
   },
   approvals: {
@@ -267,6 +268,17 @@ export const mailAttachmentListResponseSchema = successResponseSchema(
 export const mailAttachmentUploadResponseSchema = successResponseSchema(
   z.object({
     attachment: mailAttachmentSchema,
+    audit: z.object({
+      candidate: z.literal(true),
+      action: z.string(),
+    }),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const mailAttachmentDeleteResponseSchema = successResponseSchema(
+  z.object({
+    attachmentId: z.string(),
     audit: z.object({
       candidate: z.literal(true),
       action: z.string(),
@@ -2405,6 +2417,7 @@ export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSche
 export type MailAttachment = z.infer<typeof mailAttachmentSchema>;
 export type MailAttachmentListResponse = z.infer<typeof mailAttachmentListResponseSchema>;
 export type MailAttachmentUploadResponse = z.infer<typeof mailAttachmentUploadResponseSchema>;
+export type MailAttachmentDeleteResponse = z.infer<typeof mailAttachmentDeleteResponseSchema>;
 export type Board = z.infer<typeof boardSchema>;
 export type BoardPost = z.infer<typeof boardPostSchema>;
 export type BoardComment = z.infer<typeof boardCommentSchema>;

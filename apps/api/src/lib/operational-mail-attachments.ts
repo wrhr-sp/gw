@@ -111,6 +111,24 @@ export async function createOperationalMailAttachment(env: DatabaseEnv | undefin
   return row ? toAttachment(row) : null;
 }
 
+export async function deleteOperationalMailAttachment(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; attachmentId: string }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    update mail_attachments a
+    set deleted_at = now()
+    from mail_messages m
+    where a.id = ${input.attachmentId}
+      and a.company_id = ${input.companyId}
+      and a.deleted_at is null
+      and m.id = a.message_id
+      and m.company_id = a.company_id
+      and m.deleted_at is null
+      and m.sender_user_id = ${input.userId}
+    returning a.id
+  `;
+  return rows.length > 0;
+}
+
 export async function findOperationalMailAttachmentForAccess(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; attachmentId: string }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`

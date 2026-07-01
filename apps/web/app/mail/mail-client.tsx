@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Editor } from "@tinymce/tinymce-react";
 import { boardTinymceInit } from "../_components/board-rich-editor-config";
 import { FeatureFileAttachmentBox, type FeatureFileAttachmentItem } from "../_components/feature-file-attachment-box";
@@ -10,6 +10,7 @@ import {
   documentFileDownloadInitResponseSchema,
   documentFileListResponseSchema,
   mailAttachmentListResponseSchema,
+  mailAttachmentDeleteResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
@@ -115,6 +116,9 @@ export function MailClient() {
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [recipientQuery, setRecipientQuery] = useState("");
   const [ccQuery, setCcQuery] = useState("");
+  const [activeRecipientPopup, setActiveRecipientPopup] = useState<"to" | "cc" | null>(null);
+  const recipientPopupRef = useRef<HTMLDivElement | null>(null);
+  const ccPopupRef = useRef<HTMLDivElement | null>(null);
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
@@ -146,6 +150,8 @@ export function MailClient() {
   const selectedCcRecipients = recipients.filter((recipient) => ccUserIds.includes(recipient.userId));
   const visibleRecipientSuggestions = recipients.filter((recipient) => !recipientUserIds.includes(recipient.userId)).slice(0, 8);
   const visibleCcSuggestions = recipients.filter((recipient) => !ccUserIds.includes(recipient.userId)).slice(0, 8);
+  const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0);
+  const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0);
   const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
     id: attachment.id,
     fileName: attachment.fileName,
@@ -218,6 +224,20 @@ export function MailClient() {
   }, [recipientQuery, ccQuery, view]);
 
   useEffect(() => {
+    function handleRecipientPopupPointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (recipientPopupRef.current?.contains(target) || ccPopupRef.current?.contains(target)) {
+        return;
+      }
+      setActiveRecipientPopup(null);
+    }
+
+    document.addEventListener("pointerdown", handleRecipientPopupPointerDown, true);
+    return () => document.removeEventListener("pointerdown", handleRecipientPopupPointerDown, true);
+  }, []);
+
+  useEffect(() => {
     if (isMailBox(view)) {
       void loadMessages(view);
       return;
@@ -241,6 +261,7 @@ export function MailClient() {
     setter((current) => current.includes(recipient.userId) ? current : [...current, recipient.userId]);
     if (target === "to") setRecipientQuery("");
     else setCcQuery("");
+    setActiveRecipientPopup(null);
   }
 
   function removeRecipient(recipientId: string, target: "to" | "cc") {
@@ -283,6 +304,28 @@ export function MailClient() {
 
   function removeAttachment(attachmentId: string) {
     setPendingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+  }
+
+  async function removeAllAttachments() {
+    try {
+      const uploadedAttachments = pendingAttachments.filter((attachment) => attachment.uploadedAttachmentId);
+      if (uploadedAttachments.length) {
+        const responses = await Promise.all(uploadedAttachments.map(async (attachment) => {
+          if (!attachment.uploadedAttachmentId) return null;
+          const response = await fetch(appRoutes.mail.attachment(attachment.uploadedAttachmentId), { method: "DELETE", credentials: "same-origin" });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload?.error?.message ?? "첨부 전체삭제에 실패했습니다.");
+          }
+          return mailAttachmentDeleteResponseSchema.parse(payload);
+        }));
+        void responses;
+      }
+      setPendingAttachments([]);
+      setStatus("첨부파일을 전체삭제했습니다.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "첨부 전체삭제에 실패했습니다.");
+    }
   }
 
   async function downloadAttachment(attachment: FeatureFileAttachmentItem) {
@@ -538,8 +581,11 @@ export function MailClient() {
 
             <div className="mail-compose-row mail-compose-row--recipients">
               <strong>받는사람</strong>
-              <div className="mail-recipient-combobox" aria-label="받는사람 입력">
-                <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onChange={(event) => setRecipientQuery(event.target.value)} />
+              <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
+                <div className="mail-recipient-input-line">
+                  <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onFocus={() => setActiveRecipientPopup("to")} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); }} />
+                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("to"); void loadRecipients(recipientQuery); }}>주소록</button>
+                </div>
                 {selectedRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 받는사람">
                     {selectedRecipients.map((recipient) => (
@@ -547,18 +593,24 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
-                <div className="mail-recipient-suggestions" aria-label="받는사람 검색 결과">
-                  {visibleRecipientSuggestions.map((recipient) => (
-                    <button key={recipient.userId} type="button" onClick={() => addRecipient(recipient, "to")}>{getRecipientLabel(recipient)}</button>
-                  ))}
-                </div>
+                {isRecipientPopupOpen ? (
+                  <div className="mail-recipient-suggestions" role="listbox" aria-label="받는사람 검색 결과">
+                    {visibleRecipientSuggestions.map((recipient) => (
+                      <button key={recipient.userId} type="button" role="option" onClick={() => addRecipient(recipient, "to")}>{getRecipientLabel(recipient)}</button>
+                    ))}
+                    {visibleRecipientSuggestions.length === 0 ? <span>검색 결과가 없습니다.</span> : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
             <div className="mail-compose-row mail-compose-row--recipients">
               <strong>참조</strong>
-              <div className="mail-recipient-combobox" aria-label="참조 입력">
-                <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onChange={(event) => setCcQuery(event.target.value)} />
+              <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
+                <div className="mail-recipient-input-line">
+                  <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onFocus={() => setActiveRecipientPopup("cc")} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); }} />
+                  <button className="mail-address-book-button" type="button" onClick={() => { setActiveRecipientPopup("cc"); void loadRecipients(ccQuery); }}>주소록</button>
+                </div>
                 {selectedCcRecipients.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 참조">
                     {selectedCcRecipients.map((recipient) => (
@@ -566,18 +618,21 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
-                <div className="mail-recipient-suggestions" aria-label="참조 검색 결과">
-                  {visibleCcSuggestions.map((recipient) => (
-                    <button key={recipient.userId} type="button" onClick={() => addRecipient(recipient, "cc")}>{getRecipientLabel(recipient)}</button>
-                  ))}
-                </div>
+                {isCcPopupOpen ? (
+                  <div className="mail-recipient-suggestions" role="listbox" aria-label="참조 검색 결과">
+                    {visibleCcSuggestions.map((recipient) => (
+                      <button key={recipient.userId} type="button" role="option" onClick={() => addRecipient(recipient, "cc")}>{getRecipientLabel(recipient)}</button>
+                    ))}
+                    {visibleCcSuggestions.length === 0 ? <span>검색 결과가 없습니다.</span> : null}
+                  </div>
+                ) : null}
               </div>
             </div>
 
             <label className="mail-compose-row mail-compose-row--subject">
               <strong>제목</strong>
-              <input className="field" aria-label="제목" placeholder="제목을 입력하세요" required value={subject} onChange={(event) => setSubject(event.target.value)} />
               <span className="mail-compose-important"><input checked={importance === "important"} onChange={(event) => setImportance(event.target.checked ? "important" : "normal")} type="checkbox" /> 중요</span>
+              <input className="field" aria-label="제목" placeholder="제목을 입력하세요" required value={subject} onChange={(event) => setSubject(event.target.value)} />
             </label>
 
             <section className="mail-compose-attachments" aria-label="파일첨부">
@@ -591,7 +646,7 @@ export function MailClient() {
                   <button className="mail-compose-attachment-button" type="button" onClick={() => setIsDocumentPickerOpen(true)}>문서함에서 선택</button>
                 </div>
               </div>
-              <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onDownload={(attachment) => void downloadAttachment(attachment)} />
+              <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onRemoveAll={() => void removeAllAttachments()} onDownload={(attachment) => void downloadAttachment(attachment)} />
             </section>
 
             <div className="board-tinymce-field mail-compose-editor">

@@ -7,6 +7,7 @@ type R2BucketBinding = {
     httpEtag: string;
     writeHttpMetadata: (headers: Headers) => void;
   } | null>;
+  delete?: (key: string) => Promise<unknown>;
 };
 import {
   adminAuditLogListResponseSchema,
@@ -75,6 +76,7 @@ import {
   leaveRequestListResponseSchema,
   leaveTypeListResponseSchema,
   mailBoxSchema,
+  mailAttachmentDeleteResponseSchema,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailMessageListResponseSchema,
@@ -216,6 +218,7 @@ import {
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
   createOperationalMailAttachment,
+  deleteOperationalMailAttachment,
   findOperationalMailAttachmentForAccess,
   listOperationalMailAttachments,
 } from "./lib/operational-mail-attachments";
@@ -292,6 +295,7 @@ const WORK_ITEM_REVIEWS_ROUTE = "/api/work-items/:id/reviews";
 const PAYROLL_PERIOD_DETAIL_ROUTE = "/api/payroll/periods/:id";
 const MAIL_MESSAGE_READ_ROUTE = "/api/mail/messages/:id/read";
 const MAIL_MESSAGE_ATTACHMENTS_ROUTE = "/api/mail/messages/:id/attachments";
+const MAIL_ATTACHMENT_ROUTE = "/api/mail/attachments/:id";
 const MAIL_ATTACHMENT_DOWNLOAD_ROUTE = "/api/mail/attachments/:id/download";
 
 function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
@@ -6087,6 +6091,62 @@ app.post(MAIL_MESSAGE_ATTACHMENTS_ROUTE, async (context) => {
     }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메일 첨부 저장");
+  }
+});
+
+app.delete(MAIL_ATTACHMENT_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const bucket = context.env.FILES_BUCKET as R2BucketBinding | undefined;
+  if (!bucket) {
+    return jsonError(context, "NOT_IMPLEMENTED", "FILES_BUCKET R2 binding이 필요합니다.", 501, { route: context.req.path });
+  }
+
+  const attachmentId = context.req.param("id");
+  let result: Awaited<ReturnType<typeof findOperationalMailAttachmentForAccess>>;
+  try {
+    result = await findOperationalMailAttachmentForAccess(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      attachmentId,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 삭제 권한 확인");
+  }
+
+  if (!result) {
+    return jsonError(context, "FORBIDDEN", "삭제할 수 없는 메일 첨부입니다.", 403, { route: context.req.path });
+  }
+
+  try {
+    const deleted = await deleteOperationalMailAttachment(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      attachmentId,
+    });
+    if (!deleted) {
+      return jsonError(context, "FORBIDDEN", "보낸 사람이 아니면 첨부를 삭제할 수 없습니다.", 403, { route: context.req.path });
+    }
+    if (bucket.delete) {
+      await bucket.delete(result.objectKey);
+    }
+    return jsonSuccess(context, mailAttachmentDeleteResponseSchema, {
+      ok: true,
+      data: {
+        attachmentId,
+        audit: {
+          candidate: true,
+          action: "mail.attachment.delete",
+        },
+        source: "postgres-r2",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 첨부 삭제");
   }
 });
 
