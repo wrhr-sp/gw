@@ -35,6 +35,15 @@ describe("messenger preview page", () => {
     expect(html).not.toContain("메시지 보내기");
     expect(html).not.toContain("채팅방 닫기");
     expect(pageSource).toContain("closeActiveThread");
+    expect(pageSource).toContain("handleLeaveActiveThread");
+    expect(pageSource).toContain("appRoutes.messenger.leaveThread");
+    expect(pageSource).toContain("messengerThreadLeaveResponseSchema");
+    expect(pageSource).toContain("handleComposerKeyDown");
+    expect(pageSource).toContain('event.key !== "Enter" || event.shiftKey');
+    expect(pageSource).toContain("채팅방 메뉴 열기");
+    expect(pageSource).toContain("채팅방 메뉴");
+    expect(pageSource).toContain("설정");
+    expect(pageSource).toContain("나가기");
     expect(pageSource).toContain("채팅방 닫기");
     expect(pageSource).toContain("첨부 메뉴 열기");
     expect(pageSource).toContain("메시지 입력 도구 묶음");
@@ -91,6 +100,9 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-document-panel");
     expect(globalCss).toContain(".messenger-dialog-close");
     expect(globalCss).toContain(".messenger-conversation-close");
+    expect(globalCss).toContain(".messenger-conversation-actions");
+    expect(globalCss).toContain(".messenger-conversation-menu");
+    expect(globalCss).toContain(".messenger-conversation-menu__leave");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
@@ -101,6 +113,8 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain(".messenger-composer-input-box > * + *");
     expect(globalCss).toContain("border-left: 0;");
     expect(globalCss).toContain(".messenger-composer-input-box .messenger-composer-input");
+    expect(globalCss).toContain("resize: none;");
+    expect(globalCss).toContain("max-height: 96px;");
     expect(globalCss).toContain(".messenger-file-input");
     expect(globalCss).toContain(".messenger-attachment-preview");
     expect(pageSource).toContain("FeatureFileAttachmentBox");

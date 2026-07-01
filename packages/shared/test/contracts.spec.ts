@@ -249,6 +249,7 @@ describe("shared contracts", () => {
     expect(appRoutes.mail.attachments("mail_demo")).toBe("/api/mail/messages/mail_demo/attachments");
     expect(appRoutes.mail.attachment("att_demo")).toBe("/api/mail/attachments/att_demo");
     expect(appRoutes.mail.downloadAttachment("att_demo")).toBe("/api/mail/attachments/att_demo/download");
+    expect(appRoutes.messenger.leaveThread("thread_demo")).toBe("/api/messenger/threads/thread_demo/leave");
     expect(appRoutes.boards.notices).toBe("/api/notices");
     expect(appRoutes.boards.boards).toBe("/api/boards");
     expect(appRoutes.boards.posts("board_general")).toBe("/api/boards/board_general/posts");

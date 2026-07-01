@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import { appRoutes, messengerThreadLeaveResponseSchema } from "@gw/shared";
+
 import { FeatureFileAttachmentBox, type FeatureFileAttachmentItem } from "../_components/feature-file-attachment-box";
 import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import { PageShell, Pill } from "../_components/page-shell";
@@ -140,6 +142,8 @@ function formatMessengerFileSize(size: number) {
 export default function MessengerPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [leftThreadIds, setLeftThreadIds] = useState<string[]>([]);
+  const [isConversationMenuOpen, setIsConversationMenuOpen] = useState(false);
   const [threadSearch, setThreadSearch] = useState("");
   const [recipientSearch, setRecipientSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
@@ -159,14 +163,15 @@ export default function MessengerPage() {
 
   const filteredThreads = useMemo(() => {
     const keyword = threadSearch.trim().toLowerCase();
+    const availableThreads = messengerThreads.filter((thread) => !leftThreadIds.includes(thread.id));
     if (!keyword) {
-      return messengerThreads;
+      return availableThreads;
     }
 
-    return messengerThreads.filter((thread) =>
+    return availableThreads.filter((thread) =>
       [thread.title, thread.subtitle, thread.lastMessage, thread.kind].some((value) => value.toLowerCase().includes(keyword)),
     );
-  }, [threadSearch]);
+  }, [leftThreadIds, threadSearch]);
 
   const filteredOrganizationGroups = useMemo(() => {
     const keyword = recipientSearch.trim().toLowerCase();
@@ -229,8 +234,52 @@ export default function MessengerPage() {
 
   function handleSendPreview() {
     const attachmentNames = pendingAttachments.map((attachment) => attachment.name).join(", ");
-    const messageText = messageDraft.trim() || "빈 메시지는 전송하지 않고 preview 안내만 유지합니다.";
-    setPreviewMessage(attachmentNames ? `${messageText}\n첨부: ${attachmentNames}` : messageText);
+    const messageText = messageDraft.trim();
+    if (!messageText && !attachmentNames) {
+      return;
+    }
+    setPreviewMessage(attachmentNames ? `${messageText || "첨부 메시지"}\n첨부: ${attachmentNames}` : messageText);
+    setMessageDraft("");
+  }
+
+  function handleComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    handleSendPreview();
+  }
+
+  async function handleLeaveActiveThread() {
+    if (!activeThread) {
+      return;
+    }
+
+    try {
+      const response = await fetch(appRoutes.messenger.leaveThread(activeThread.id), {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setPreviewMessage(payload?.error?.message ?? "채팅방 나가기를 처리하지 못했습니다.");
+        setIsConversationMenuOpen(false);
+        return;
+      }
+      const parsed = messengerThreadLeaveResponseSchema.parse(payload);
+      setLeftThreadIds((current) => current.includes(parsed.data.threadId) ? current : [...current, parsed.data.threadId]);
+      setActiveThreadId(null);
+      setPendingAttachments([]);
+      setMessageDraft("");
+      setPreviewMessage("회의자료 확인했습니다.");
+      setIsAttachmentMenuOpen(false);
+      setIsEmojiMenuOpen(false);
+      setIsDocumentPickerOpen(false);
+      setIsConversationMenuOpen(false);
+    } catch {
+      setPreviewMessage("채팅방 나가기 요청 중 오류가 발생했습니다.");
+      setIsConversationMenuOpen(false);
+    }
   }
 
   function handleTitleClick() {
@@ -244,6 +293,7 @@ export default function MessengerPage() {
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
     setIsDocumentPickerOpen(false);
+    setIsConversationMenuOpen(false);
   }
 
   function closeActiveThread() {
@@ -254,6 +304,7 @@ export default function MessengerPage() {
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
     setIsDocumentPickerOpen(false);
+    setIsConversationMenuOpen(false);
   }
 
   function toggleAttachmentMenu() {
@@ -310,7 +361,7 @@ export default function MessengerPage() {
   }
 
   useEffect(() => {
-    if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen && !isDocumentPickerOpen) {
+    if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen && !isDocumentPickerOpen && !isConversationMenuOpen) {
       return;
     }
 
@@ -320,12 +371,13 @@ export default function MessengerPage() {
         setIsAttachmentMenuOpen(false);
         setIsEmojiMenuOpen(false);
         setIsDocumentPickerOpen(false);
+        setIsConversationMenuOpen(false);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen, isDocumentPickerOpen]);
+  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen, isDocumentPickerOpen, isConversationMenuOpen]);
 
   return (
     <PageShell
@@ -343,6 +395,7 @@ export default function MessengerPage() {
             setIsAttachmentMenuOpen(false);
             setIsEmojiMenuOpen(false);
             setIsDocumentPickerOpen(false);
+            setIsConversationMenuOpen(false);
           }}
         >
           <aside className="messenger-sidebar" aria-label="대화목록">
@@ -400,9 +453,26 @@ export default function MessengerPage() {
                     <h2>채팅방</h2>
                     <p>{activeThread.title} · {activeThread.subtitle}</p>
                   </div>
-                  <button className="messenger-dialog-close messenger-conversation-close" type="button" aria-label="채팅방 닫기" onClick={closeActiveThread}>
-                    ×
-                  </button>
+                  <div className="messenger-conversation-actions" onClick={(event) => event.stopPropagation()}>
+                    <div className="messenger-conversation-menu-wrap">
+                      <button
+                        className="messenger-dialog-close messenger-conversation-menu-button"
+                        type="button"
+                        aria-label="채팅방 메뉴 열기"
+                        aria-expanded={isConversationMenuOpen}
+                        onClick={() => setIsConversationMenuOpen((current) => !current)}
+                      >
+                        ☰
+                      </button>
+                      <div className="messenger-popover-menu messenger-conversation-menu" hidden={!isConversationMenuOpen} role="menu" aria-label="채팅방 메뉴">
+                        <button type="button" role="menuitem" onClick={() => setPreviewMessage("채팅방 설정은 준비 중입니다.")}>설정</button>
+                        <button type="button" role="menuitem" className="messenger-conversation-menu__leave" onClick={() => void handleLeaveActiveThread()}>나가기</button>
+                      </div>
+                    </div>
+                    <button className="messenger-dialog-close messenger-conversation-close" type="button" aria-label="채팅방 닫기" onClick={closeActiveThread}>
+                      ×
+                    </button>
+                  </div>
                 </header>
                 <div className="messenger-message-list" aria-label="메시지 목록 preview">
                   <article className="messenger-message messenger-message--other">
@@ -450,7 +520,14 @@ export default function MessengerPage() {
                     <button type="button" role="menuitem" onClick={openDocumentPicker}>문서함에서 선택</button>
                   </div>
                 </div>
-                <input className="field messenger-composer-input" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="메시지를 입력하세요" />
+                <textarea
+                  className="field messenger-composer-input"
+                  value={messageDraft}
+                  onChange={(event) => setMessageDraft(event.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder="메시지를 입력하세요"
+                  rows={1}
+                />
                 <div className="messenger-emoji-wrap">
                   <button
                     className="messenger-composer-icon-button"
