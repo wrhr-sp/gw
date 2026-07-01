@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import { PageShell, Pill } from "../_components/page-shell";
 
 type MessengerContact = {
@@ -342,13 +343,16 @@ export default function MessengerPage() {
                   메신저
                 </button>
               </h1>
-              <button
-                className="touch-button--secondary messenger-new-button"
-                type="button"
-                onClick={() => setIsRecipientPanelOpen(true)}
-              >
-                새 메시지
-              </button>
+              <div className="messenger-sidebar__header-actions">
+                <FeaturePageOverflowMenu label="메신저" />
+                <button
+                  className="touch-button--secondary messenger-new-button"
+                  type="button"
+                  onClick={() => setIsRecipientPanelOpen(true)}
+                >
+                  새 메시지
+                </button>
+              </div>
             </div>
             <label className="messenger-search">
               <span>채팅 검색</span>

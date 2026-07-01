@@ -69,6 +69,14 @@ describe("feature page content spacing baseline", () => {
     expect(globalCss).toContain("--feature-workspace-row-divider: 1px solid rgba(148, 163, 184, 0.22);");
     expect(globalCss).toContain("--feature-workspace-badge-padding: 3px 8px;");
     expect(globalCss).toContain("--feature-workspace-badge-font-size: var(--font-size-sm);");
+    expect(globalCss).toContain("--feature-page-title-menu-button-size: var(--feature-page-title-settings-button-size);");
+    expect(globalCss).toContain("--feature-page-title-menu-popover-min-width: 132px;");
+    expect(globalCss).toContain(".feature-page-overflow-menu__button {");
+    expect(globalCss).toContain("width: var(--feature-page-title-menu-button-size);");
+    expect(globalCss).toContain(".feature-page-overflow-menu__popover {");
+    expect(globalCss).toContain("top: calc(100% + var(--feature-page-title-menu-popover-offset));");
+    expect(globalCss).toContain(".feature-page-overflow-menu__item {");
+    expect(globalCss).not.toContain(".mail-folder-settings-button {");
     expect(globalCss).toContain("--two-column-content-height: 100%;");
     expect(globalCss).toContain("--two-column-content-overflow: hidden;");
     expect(globalCss).toContain("--two-column-content-column-height: 100%;");
@@ -256,6 +264,9 @@ describe("feature page content spacing baseline", () => {
     expect(shellHtml).not.toContain("문서 보관, 업로드, 열람 권한");
     expect(shellHtml).not.toContain("전사, 부서, 인사 전용처럼");
     expect(workspaceHtml).toContain("문서함");
+    expect(workspaceHtml).toContain('aria-label="문서함 더보기 메뉴 열기"');
+    expect(workspaceHtml).toContain("가이드");
+    expect(workspaceHtml).toContain("통합설정");
     expect(workspaceHtml).toContain("문서함 목록");
     expect(workspaceHtml).toContain("전사 문서함");
     expect(workspaceHtml).not.toContain("문서 보관, 업로드, 열람 권한");

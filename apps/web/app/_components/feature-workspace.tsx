@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 
+import { FeaturePageOverflowMenu } from "./feature-page-overflow-menu";
+
 export type FeatureWorkspaceTab = {
   id: string;
   label: string;
@@ -107,6 +109,7 @@ export function FeatureWorkspace({ config }: { config: FeatureWorkspaceConfig })
               {config.title}
             </button>
           </h1>
+          <FeaturePageOverflowMenu label={config.title} />
         </div>
 
         <div className="feature-workspace__tab-list" role="tablist" aria-label={`${config.title} 화면 선택`}>

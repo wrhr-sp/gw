@@ -676,6 +676,25 @@
   --feature-page-title-settings-button-icon-size: 16px;
   --feature-page-title-settings-button-hover-border-color: var(--primary-soft-strong);
   --feature-page-title-settings-button-hover-color: var(--primary-hover);
+  --feature-page-title-menu-button-size: var(--feature-page-title-settings-button-size);
+  --feature-page-title-menu-button-border: var(--feature-page-title-settings-button-border);
+  --feature-page-title-menu-button-radius: var(--feature-page-title-settings-button-radius);
+  --feature-page-title-menu-button-bg: var(--feature-page-title-settings-button-bg);
+  --feature-page-title-menu-button-color: var(--feature-page-title-settings-button-color);
+  --feature-page-title-menu-button-icon-size: var(--feature-page-title-settings-button-icon-size);
+  --feature-page-title-menu-button-hover-border-color: var(--feature-page-title-settings-button-hover-border-color);
+  --feature-page-title-menu-button-hover-color: var(--feature-page-title-settings-button-hover-color);
+  --feature-page-title-menu-popover-min-width: 132px;
+  --feature-page-title-menu-popover-gap: 2px;
+  --feature-page-title-menu-popover-padding: 6px;
+  --feature-page-title-menu-popover-offset: 6px;
+  --feature-page-title-menu-popover-bg: var(--surface);
+  --feature-page-title-menu-popover-border: var(--feature-workspace-control-border);
+  --feature-page-title-menu-popover-radius: 12px;
+  --feature-page-title-menu-popover-shadow: var(--shadow);
+  --feature-page-title-menu-item-padding: 8px 10px;
+  --feature-page-title-menu-item-radius: 9px;
+  --feature-page-title-menu-item-hover-bg: var(--primary-soft);
   --feature-page-count-badge-bg: var(--primary-soft);
   --feature-page-count-badge-color: var(--primary-hover);
   --feature-page-count-badge-font-family: var(--feature-page-sublist-font-family);
@@ -4265,32 +4284,78 @@ li {
   align-items: center;
 }
 
-.mail-folder-settings-button {
+.feature-page-overflow-menu {
+  position: relative;
   display: inline-grid;
-  width: var(--feature-page-title-settings-button-size);
-  height: var(--feature-page-title-settings-button-size);
+  justify-items: end;
+  flex: 0 0 auto;
+}
+
+.feature-page-overflow-menu__button {
+  display: inline-grid;
+  width: var(--feature-page-title-menu-button-size);
+  height: var(--feature-page-title-menu-button-size);
   place-items: center;
-  border: var(--feature-page-title-settings-button-border);
-  border-radius: var(--feature-page-title-settings-button-radius);
-  background: var(--feature-page-title-settings-button-bg);
-  color: var(--feature-page-title-settings-button-color);
+  border: var(--feature-page-title-menu-button-border);
+  border-radius: var(--feature-page-title-menu-button-radius);
+  background: var(--feature-page-title-menu-button-bg);
+  color: var(--feature-page-title-menu-button-color);
   cursor: pointer;
   font: inherit;
-  font-size: var(--feature-page-title-settings-button-icon-size);
+  font-size: var(--feature-page-title-menu-button-icon-size);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   padding: 0;
 }
 
-.mail-folder-settings-button:hover,
-.mail-folder-settings-button:focus-visible,
-.mail-folder-settings-button[aria-expanded="true"] {
-  border-color: var(--feature-page-title-settings-button-hover-border-color);
-  color: var(--feature-page-title-settings-button-hover-color);
+.feature-page-overflow-menu__button:hover,
+.feature-page-overflow-menu__button:focus-visible,
+.feature-page-overflow-menu__button[aria-expanded="true"] {
+  border-color: var(--feature-page-title-menu-button-hover-border-color);
+  color: var(--feature-page-title-menu-button-hover-color);
+}
+
+.feature-page-overflow-menu__popover {
+  position: absolute;
+  top: calc(100% + var(--feature-page-title-menu-popover-offset));
+  right: 0;
+  z-index: 45;
+  display: grid;
+  min-width: var(--feature-page-title-menu-popover-min-width);
+  gap: var(--feature-page-title-menu-popover-gap);
+  border: var(--feature-page-title-menu-popover-border);
+  border-radius: var(--feature-page-title-menu-popover-radius);
+  background: var(--feature-page-title-menu-popover-bg);
+  box-shadow: var(--shadow);
+  padding: var(--feature-page-title-menu-popover-padding);
+}
+
+.feature-page-overflow-menu__popover[hidden] {
+  display: none;
+}
+
+.feature-page-overflow-menu__item {
+  width: 100%;
+  border: 0;
+  border-radius: var(--feature-page-title-menu-item-radius);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--feature-page-title-menu-item-padding);
+  text-align: left;
+}
+
+.feature-page-overflow-menu__item:hover,
+.feature-page-overflow-menu__item:focus-visible {
+  background: var(--feature-page-title-menu-item-hover-bg);
+  color: var(--primary-hover);
+  outline: none;
 }
 
 .mail-write-button {
-  width: auto;
   min-width: 7em;
 }
 
@@ -4311,7 +4376,8 @@ li {
 }
 
 .mail-folder-list__group + .mail-folder-list__item,
-.mail-folder-list__item + .mail-folder-list__group {
+.mail-folder-list__item + .mail-folder-list__group,
+.mail-folder-list__group + .mail-folder-list__group {
   border-top: var(--feature-page-list-parent-divider);
   margin-top: var(--feature-page-list-parent-divider-margin-top);
   padding-top: var(--feature-page-list-parent-divider-padding-top);
@@ -5284,6 +5350,13 @@ li {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-md);
+}
+
+.messenger-sidebar__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 0 0 auto;
 }
 
 .messenger-sidebar__header h2,
