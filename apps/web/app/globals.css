@@ -680,8 +680,10 @@
   --feature-page-title-menu-button-border: 0;
   --feature-page-title-menu-button-radius: 0;
   --feature-page-title-menu-button-bg: transparent;
-  --feature-page-title-menu-button-color: var(--feature-page-title-settings-button-color);
-  --feature-page-title-menu-button-icon-size: var(--feature-page-title-settings-button-icon-size);
+  --feature-page-title-menu-button-color: var(--text);
+  --feature-page-title-menu-button-icon-size: 18px;
+  --feature-page-title-menu-button-dot-size: 4px;
+  --feature-page-title-menu-button-dot-gap: 3px;
   --feature-page-title-menu-button-hover-border-color: transparent;
   --feature-page-title-menu-button-hover-color: var(--feature-page-title-settings-button-hover-color);
   --feature-page-title-menu-popover-min-width: 132px;
@@ -4306,6 +4308,19 @@ li {
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   padding: 0;
+}
+
+.feature-page-overflow-menu__dots {
+  display: grid;
+  gap: var(--feature-page-title-menu-button-dot-gap);
+  place-items: center;
+}
+
+.feature-page-overflow-menu__dot {
+  width: var(--feature-page-title-menu-button-dot-size);
+  height: var(--feature-page-title-menu-button-dot-size);
+  background: currentColor;
+  border-radius: var(--radius-pill);
 }
 
 .feature-page-overflow-menu__button:hover,
