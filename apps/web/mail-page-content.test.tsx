@@ -6,23 +6,27 @@ import { describe, expect, it } from "vitest";
 import MailPage from "./app/mail/page";
 
 describe("mail page content", () => {
-  it("renders the default mail folder tree and scoped mail list settings", () => {
+  it("renders the default mail folder tree and common feature page menu", () => {
     const html = renderToStaticMarkup(<MailPage />);
 
     expect(html).toContain("메일");
-    expect(html).toContain('aria-label="메일 목록 편집"');
+    expect(html).toContain('aria-label="메일 더보기 메뉴 열기"');
+    expect(html).toContain("가이드");
+    expect(html).toContain("통합설정");
+    expect(html).not.toContain('aria-label="메일 목록 편집"');
     expect(html).not.toContain(">설정</button>");
     expect(html).toContain('aria-label="메일함 목록"');
     expect(html).toContain("즐겨찾기");
-    expect(html).toContain("메일함");
+    expect(html).toContain('aria-label="메일함"');
     expect(html).toContain("받은 메일함");
     expect(html).toContain("보낸메일함");
     expect(html).toContain("임시보관함");
     expect(html).toContain("예약메일함");
     expect(html).toContain("스팸메일함");
-    expect(html).toContain("휴지통");
+    expect(html).toContain('aria-label="외부메일함"');
+    expect(html).toContain('aria-label="휴지통"');
     expect(html).not.toContain("ㄴ받은 메일함");
-    expect(html).toContain("외부메일함");
+    expect(html.indexOf('aria-label="외부메일함"')).toBeLessThan(html.indexOf('aria-label="휴지통"'));
   });
 
   it("uses the board write button token for the mail compose button", () => {

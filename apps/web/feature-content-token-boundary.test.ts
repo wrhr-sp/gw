@@ -62,8 +62,8 @@ describe("feature content area common tokens", () => {
     expect(globalCss).toContain("padding: var(--feature-page-sublist-padding-block) 0;");
     expect(globalCss).toContain("border: var(--feature-page-write-button-border);");
     expect(globalCss).toContain("border-top: var(--feature-page-list-parent-divider);");
-    expect(globalCss).toContain("width: var(--feature-page-title-settings-button-size);");
-    expect(globalCss).toContain("font-size: var(--feature-page-title-settings-button-icon-size);");
+    expect(globalCss).toContain("width: var(--feature-page-title-menu-button-size);");
+    expect(globalCss).toContain("font-size: var(--feature-page-title-menu-button-icon-size);");
     expect(globalCss).toContain("background: var(--feature-page-count-badge-bg);");
     expect(globalCss).toContain(".board-unread-badge {\n  background: var(--feature-page-count-badge-bg);\n  color: var(--feature-page-count-badge-color);\n}");
     expect(globalCss).toContain(".messenger-unread-badge {");
@@ -72,7 +72,10 @@ describe("feature content area common tokens", () => {
     expect(globalCss).not.toContain(".board-unread-badge {\n  background: var(--danger);");
     expect(globalCss).not.toContain(".messenger-unread-badge {\n  min-width: 20px;");
 
-    expect(mailClient).toContain('<span aria-hidden="true">⚙</span>');
+    expect(mailClient).toContain('<FeaturePageOverflowMenu label="메일" />');
+    expect(mailClient).toContain("group: \"external\"");
+    expect(mailClient).toContain("group: \"trash\"");
+    expect(mailClient).not.toContain('<span aria-hidden="true">⚙</span>');
     expect(mailClient).not.toContain("`ㄴ${folder.label}`");
   });
 });

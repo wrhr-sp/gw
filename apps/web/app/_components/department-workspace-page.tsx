@@ -1,5 +1,6 @@
 import React from "react";
 
+import { FeaturePageOverflowMenu } from "./feature-page-overflow-menu";
 import { PageShell, Pill, SurfaceSection } from "./page-shell";
 
 type DepartmentWorkspacePageProps = {
@@ -84,8 +85,11 @@ export function DepartmentWorkspacePage({ koreanName, englishName, roleSummary }
       <div className="feature-workspace" aria-label={`${koreanName} 업무포털 진입 화면`}>
         <aside className="feature-workspace__nav" aria-label={`${koreanName} 업무포털 요약`}>
           <div className="feature-workspace__nav-header">
-            <h1>{koreanName} / {englishName}</h1>
-            <p><strong>{koreanName} 업무포털</strong> · {roleSummary}</p>
+            <div>
+              <h1>{koreanName} / {englishName}</h1>
+              <p><strong>{koreanName} 업무포털</strong> · {roleSummary}</p>
+            </div>
+            <FeaturePageOverflowMenu label={`${koreanName} 업무포털`} />
           </div>
           <div className="feature-workspace__utility" aria-label="부서 정보">
             <div>

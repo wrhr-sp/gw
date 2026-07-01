@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 
+import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import { PageShell, Pill } from "../_components/page-shell";
 import { BoardDetailLiveSection, BoardsLiveSection, PostDetailLiveSection } from "../_components/real-usage-panels";
 
@@ -172,6 +173,7 @@ export default function BoardsPage() {
             <h1>
               <button className="page-shell__title-link page-shell__title-button" onClick={resetBoardHome} type="button">게시판</button>
             </h1>
+            <FeaturePageOverflowMenu label="게시판" />
           </div>
           <button className="board-write-button" onClick={openWrite} type="button">글쓰기</button>
           <BoardSection title="전사게시판" boards={companyBoards} selectedBoardId={activeNavBoardId} isHomeActive={view.kind === "companyHome"} onOpenHome={() => setView({ kind: "companyHome" })} onSelectBoard={(boardId) => openBoard(boardId)} />

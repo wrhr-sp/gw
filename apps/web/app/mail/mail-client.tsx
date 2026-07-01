@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
 import {
   appRoutes,
   mailAttachmentListResponseSchema,
@@ -32,7 +33,7 @@ type MailView = MailFolderId | "compose" | "security";
 type MailFolderConfig = {
   id: MailFolderId;
   label: string;
-  group: "standalone" | "mailbox";
+  group: "standalone" | "mailbox" | "external" | "trash";
   box?: MailBox;
 };
 
@@ -43,8 +44,8 @@ const defaultMailFolders: readonly MailFolderConfig[] = [
   { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
   { id: "scheduled", label: "예약메일함", group: "mailbox" },
   { id: "spam", label: "스팸메일함", group: "mailbox" },
-  { id: "trash", label: "휴지통", group: "mailbox" },
-  { id: "external", label: "외부메일함", group: "standalone" },
+  { id: "external", label: "외부메일함", group: "external" },
+  { id: "trash", label: "휴지통", group: "trash" },
 ];
 
 const defaultVisibleFolderIds = defaultMailFolders.map((folder) => folder.id);
@@ -104,9 +105,10 @@ export function MailClient() {
     [folderOrder],
   );
   const visibleFolders = orderedFolders.filter((folder) => visibleFolderIds.includes(folder.id));
-  const standaloneBeforeMailbox = visibleFolders.filter((folder) => folder.group === "standalone" && folder.id !== "external");
+  const standaloneBeforeMailbox = visibleFolders.filter((folder) => folder.group === "standalone");
   const mailboxFolders = visibleFolders.filter((folder) => folder.group === "mailbox");
-  const externalFolders = visibleFolders.filter((folder) => folder.id === "external");
+  const externalFolders = visibleFolders.filter((folder) => folder.group === "external");
+  const trashFolders = visibleFolders.filter((folder) => folder.group === "trash");
   const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
   const currentBox = isMailBox(view) ? view : null;
 
@@ -300,16 +302,11 @@ export function MailClient() {
               메일
             </button>
           </h1>
-          <button
-            type="button"
-            className="mail-folder-settings-button"
-            aria-expanded={isFolderEditorOpen}
-            aria-label="메일 목록 편집"
-            onClick={() => setIsFolderEditorOpen((value) => !value)}
-          >
-            <span aria-hidden="true">⚙</span>
-          </button>
+          <FeaturePageOverflowMenu label="메일" />
         </div>
+        {view !== "compose" ? (
+          <button className="board-write-button mail-write-button" type="button" onClick={() => setView("compose")}>메일쓰기</button>
+        ) : null}
         <div className="mail-folder-list" role="tree" aria-label="메일함 목록">
           {standaloneBeforeMailbox.map((folder) => renderFolderButton(folder))}
           {mailboxFolders.length ? (
@@ -320,7 +317,22 @@ export function MailClient() {
               </div>
             </section>
           ) : null}
-          {externalFolders.map((folder) => renderFolderButton(folder))}
+          {externalFolders.length ? (
+            <section className="mail-folder-list__group" aria-label="외부메일함">
+              <strong className="mail-folder-list__group-title">외부메일함</strong>
+              <div className="mail-folder-list__children">
+                {externalFolders.map((folder) => renderFolderButton(folder, true))}
+              </div>
+            </section>
+          ) : null}
+          {trashFolders.length ? (
+            <section className="mail-folder-list__group" aria-label="휴지통">
+              <strong className="mail-folder-list__group-title">휴지통</strong>
+              <div className="mail-folder-list__children">
+                {trashFolders.map((folder) => renderFolderButton(folder, true))}
+              </div>
+            </section>
+          ) : null}
         </div>
         {renderFolderEditor()}
         <div className="feature-workspace__utility" aria-label="요약 정보">
@@ -335,9 +347,6 @@ export function MailClient() {
           <div>
             <h2 id="mail-panel-heading">{view === "compose" ? "메일 작성" : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
           </div>
-          {view !== "compose" ? (
-            <button className="board-write-button mail-write-button" type="button" onClick={() => setView("compose")}>메일쓰기</button>
-          ) : null}
         </div>
         <p className="feature-workspace__panel-status" role="status">{status}</p>
 
