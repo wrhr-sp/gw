@@ -433,6 +433,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('if (!sidebarCollapsed && targetPath !== currentPath)');
     expect(shellSource).toContain('setSidebarCollapsed(true);');
     expect(shellSource).toContain('}, [pathname, router, sidebarCollapsed]);');
+    expect(shellSource).toContain('function handleDesktopSidebarOutsidePointerDown(event: PointerEvent)');
+    expect(shellSource).toContain('desktopSidebarRef.current?.contains(target)');
+    expect(shellSource).toContain('document.addEventListener("pointerdown", handleDesktopSidebarOutsidePointerDown, true)');
+    expect(shellSource).toContain('ref={desktopSidebarRef}');
     expect(shellSource).not.toContain("desktop-sidebar--scrolling");
     expect(shellSource).toContain("const SIDEBAR_CUSTOM_MENU_LIMIT = 10");
     expect(shellSource).toContain("function renderSidebarSettingsModal()");

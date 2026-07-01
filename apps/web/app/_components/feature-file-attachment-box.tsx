@@ -18,6 +18,7 @@ type FeatureFileAttachmentBoxProps = {
   items: FeatureFileAttachmentItem[];
   emptyLabel?: string;
   onRemove: (attachmentId: string) => void;
+  onRemoveAll?: () => void;
   onDownload?: (attachment: FeatureFileAttachmentItem) => void;
 };
 
@@ -25,12 +26,13 @@ export function FeatureFileAttachmentBox({
   items,
   emptyLabel = "첨부된 파일이 없습니다.",
   onRemove,
+  onRemoveAll,
   onDownload,
 }: FeatureFileAttachmentBoxProps) {
   return (
     <div className="feature-file-box" aria-label="첨부파일 목록">
-      <div className="feature-file-box__header" aria-hidden="true">
-        <span>X</span>
+      <div className="feature-file-box__header">
+        <button className="feature-file-box__remove-all" type="button" disabled={!items.length || !onRemoveAll} onClick={onRemoveAll} aria-label="첨부파일 전체삭제">X</button>
         <span>파일명</span>
         <span>업로드 상태</span>
         <span>용량</span>
