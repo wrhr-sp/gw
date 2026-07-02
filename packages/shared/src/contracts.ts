@@ -1338,7 +1338,7 @@ export const attendancePolicyScopeSummarySchema = attendancePolicyAssignmentSche
 export const attendancePolicyPreviewSchema = z.object({
   priorityOrder: z.array(attendancePolicyLevelSchema).length(4),
   scopeSummaries: z.array(attendancePolicyScopeSummarySchema),
-  sampleEmployees: z.array(effectiveAttendancePolicySchema),
+  policySubjectSummaries: z.array(effectiveAttendancePolicySchema),
   duplicateWarnings: z.array(z.string()),
 });
 

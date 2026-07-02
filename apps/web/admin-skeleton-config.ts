@@ -19,7 +19,7 @@ export type AdminHubCard = {
   guardrail: string;
 };
 
-export interface AdminPolicySampleEmployee {
+export interface AdminPolicySubjectSummary {
   employeeId: string;
   name: string;
   summary: string;
@@ -36,7 +36,7 @@ export interface AdminPolicySection {
   priorityDescription?: string;
   appliedEmployeeCount?: number;
   duplicateWarnings?: ReadonlyArray<string>;
-  sampleEmployees?: ReadonlyArray<AdminPolicySampleEmployee>;
+  policySubjectSummaries?: ReadonlyArray<AdminPolicySubjectSummary>;
 }
 
 export interface AdminUserQueueItem {
@@ -87,7 +87,7 @@ export const adminHubCards: readonly AdminHubCard[] = [
   {
     href: "/admin/users",
     title: "사용자 / 권한",
-    description: "사용자-직원 연결 상태, 역할 diff, 상태 변경 preview를 먼저 검토하는 운영 영역",
+    description: "사용자-직원 연결 상태, 역할 diff, 상태 변경 검토를 먼저 검토하는 운영 영역",
     primaryAudience: "회사 관리자 · HR 관리자",
     firstReviewPoint: "연결 누락, 고위험 권한, 비활성화 후보를 먼저 확인",
     guardrail: "실제 저장 없이 audit candidate 와 변경 사유 입력 흐름만 유지",
@@ -98,7 +98,7 @@ export const adminHubCards: readonly AdminHubCard[] = [
     description: "근태·휴가·결재·문서·게시판 정책을 current/candidate 기준으로 비교하는 영역",
     primaryAudience: "회사 관리자 · 운영 리드",
     firstReviewPoint: "domain 카드별로 before/after diff 와 capability 확인",
-    guardrail: "production 저장 대신 masked preview 와 승인 게이트만 고정",
+    guardrail: "production 저장 대신 마스킹된 검토 정보와 승인 게이트만 고정",
   },
   {
     href: "/admin/audit-logs",
@@ -125,12 +125,12 @@ export function getVisibleAdminHubCards(
   });
 }
 
-export const adminHubBadges = ["operations-first", "dev-safe", "approval-gated"] as const;
+export const adminHubBadges = ["operations-first", "approval-gated", "audit-ready"] as const;
 
 export const adminHubPriorityChecks = [
   "고위험 권한이 일반 사용자 기본 화면에 섞여 보이지 않는지 확인",
   "사용자-정책-감사 흐름이 같은 회사 경계를 유지하는지 확인",
-  "저장 실행 대신 candidate/diff/audit preview 로 끝나는지 확인",
+  "저장 실행 대신 candidate/diff/audit 검토로 끝나는지 확인",
 ] as const;
 
 export const adminRoleEntryRules = [
@@ -143,7 +143,7 @@ export const adminRoleEntryRules = [
 export const adminApprovalGateNotes = [
   "실제 운영 사용자/권한 변경은 이번 범위에서 실행하지 않습니다.",
   "production 정책 저장·외부 연동·다운로드 반출은 별도 승인 없이는 진행하지 않습니다.",
-  "변경 사유, capability 확인, 감사 preview 가 보일 때만 다음 단계로 넘깁니다.",
+  "변경 사유, capability 확인, 감사 검토 정보가 보일 때만 다음 단계로 넘깁니다.",
 ] as const;
 
 export const adminUserHighlights = [
@@ -156,8 +156,8 @@ export const adminUserReviewFields = [
   "사용자-직원 연결 상태",
   "현재 역할 / 후보 역할 before-after",
   "고위험 권한 노출 위치",
-  "상태 변경 preview",
-  "감사 이벤트 preview",
+  "상태 변경 검토",
+  "감사 이벤트 검토",
 ] as const;
 
 export const adminUserQueues: readonly AdminUserQueueItem[] = [
@@ -174,7 +174,7 @@ export const adminUserQueues: readonly AdminUserQueueItem[] = [
     nextAction: "before/after diff 확인 → 승인 게이트 보류",
   },
   {
-    title: "상태 변경 preview",
+    title: "상태 변경 검토",
     summary: "활성/휴직/비활성 전환 후보를 실제 저장 없이 미리 비교합니다.",
     owner: "회사 관리자 · HR 관리자",
     nextAction: "영향 범위 확인 → 변경 사유 placeholder 작성",
@@ -218,7 +218,7 @@ export const companySettingsGroups: readonly CompanySettingsGroupPreview[] = [
   {
     id: "admin_operations",
     title: "운영 / 감사 / 예외 처리",
-    summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+    summary: "정책 변경 사유, 승인 gate, 감사 검토 를 관리자 운영 문맥으로 연결합니다.",
     owner: "audit admin",
     linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
   },
@@ -240,7 +240,7 @@ export const companySettingsPolicyAxes: readonly CompanySettingsPolicyAxisPrevie
   {
     id: "employee_policy_visibility",
     title: "직원 노출 규칙",
-    summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+    summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 검토 는 별도로 유지합니다.",
     priority: "employee-safe snapshot first",
   },
 ] as const;
@@ -262,7 +262,7 @@ export const companySettingsApprovalGates: readonly CompanySettingsApprovalGateP
     id: "approval_delivery",
     title: "결재 알림/발송",
     status: "approval_required",
-    summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
+    summary: "외부 발송 없이 내부 검토 와 승인 gate 설명만 제공합니다.",
   },
   {
     id: "company_scope_ready",
@@ -274,7 +274,7 @@ export const companySettingsApprovalGates: readonly CompanySettingsApprovalGateP
 
 export const companySettingsEmployeeVisibilityRules = [
   "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
-  "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+  "관리자 검토 와 audit candidate 는 관리자 화면에만 유지합니다.",
   "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
 ] as const;
 
@@ -339,7 +339,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "회사 기본 정보, 조직 경계, 운영 owner 설명이 화면별로 흩어져 있는 상태를 먼저 요약합니다.",
     candidateState: "company settings model pass 1 로 조직/정책/운영 화면이 같은 회사 scope 설명을 공유하도록 정리합니다.",
     capability: "company.read",
-    auditPreview: "회사 scope 설명 변경 후보, owner, linked route 확인용 preview",
+    auditPreview: "회사 scope 설명 변경 후보, owner, linked route 확인용 검토",
     maskingNote: "실제 저장 설정값, 외부 연동 키, 고객사 민감 정보는 화면에 노출하지 않습니다.",
   },
   {
@@ -349,13 +349,13 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
       .join(", ")}`,
     candidateState: `candidate 허용 방식: ${companyAttendanceRegistrationPolicy.candidateAllowedAttendanceRegistrationMethods
       .map((method) => attendanceRegistrationMethodLabels[method])
-      .join(", ")} · 태그 단말 연동 예정 skeleton`,
+      .join(", ")} · 태그 단말 연동 승인 대기`,
     capability: "attendance.manage",
-    auditPreview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 preview",
+    auditPreview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 검토",
     maskingNote: "실장비 식별값, GPS, 외부 단말 연동 정보는 이번 화면에 노출하지 않습니다.",
     priorityDescription: "우선순위: 회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할",
     appliedEmployeeCount: adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount ?? 0,
-    sampleEmployees: adminPolicyPreview.sampleEmployees.slice(0, 3).map((item) => ({
+    policySubjectSummaries: adminPolicyPreview.policySubjectSummaries.slice(0, 3).map((item) => ({
       employeeId: item.employeeId,
       name:
         Object.values(demoAttendancePolicySubjects).find((subject) => subject.employeeId === item.employeeId)?.fullName ?? item.employeeId,
@@ -377,7 +377,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "공지 visibility, moderation, 읽음 확인 기준을 게시판별로 다시 점검합니다.",
     candidateState: "게시판 공개 범위와 읽음 확인 운영 규칙을 card 형식으로 정리한 변경안입니다.",
     capability: "board.manage",
-    auditPreview: "게시판 visibility diff, moderation reason, read-receipt preview",
+    auditPreview: "게시판 visibility diff, moderation reason, read-receipt 검토",
     maskingNote: "일반 작성자 세부 이력이나 외부 공유 링크는 이번 화면에 붙이지 않습니다.",
   },
   {
@@ -385,7 +385,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "예외 승인, 대기 기준, 알림 없이도 검토 가능한 운영 규칙을 먼저 요약합니다.",
     candidateState: "before/after diff 와 승인자 확인 포인트를 한 장의 카드로 보는 변경안입니다.",
     capability: "attendance.manage / leave.manage / approval.manage",
-    auditPreview: "정책 category, 변경 사유, company boundary 확인용 preview",
+    auditPreview: "정책 category, 변경 사유, company boundary 확인용 검토",
     maskingNote: "실데이터 반영값과 급여 연동 정보는 제외하고 candidate 응답만 유지합니다.",
   },
 ] as const;
@@ -394,7 +394,7 @@ export const adminPolicyReviewChecklist = [
   "현재 운영 기준 확인",
   "candidate 변경안 비교",
   "필요 capability 확인",
-  "감사 preview 와 company boundary 유지",
+  "감사 검토 와 company boundary 유지",
 ] as const;
 
 export const adminAuditLogPreviewFilters = ["actor", "action", "target", "time", "category"] as const;
@@ -407,7 +407,7 @@ export const adminAuditTimelineItems: readonly AdminAuditTimelineItem[] = [
   },
   {
     title: "정책 candidate 변경 이벤트",
-    summary: "저장 전 정책 변경안과 변경 사유 preview 를 category 기준으로 묶어 봅니다.",
+    summary: "저장 전 정책 변경안과 변경 사유 검토 를 category 기준으로 묶어 봅니다.",
     source: "api-admin",
   },
   {

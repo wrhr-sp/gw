@@ -635,7 +635,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(leavePolicy?.leavePolicySummary?.allowedLeaveTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
     expect(attendancePolicy?.attendancePolicyPreview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
     expect(attendancePolicy?.attendancePolicyPreview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
-    expect(attendancePolicy?.attendancePolicyPreview?.sampleEmployees.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
+    expect(attendancePolicy?.attendancePolicyPreview?.policySubjectSummaries.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
     expect(attendancePolicy?.attendancePolicyPreview?.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
