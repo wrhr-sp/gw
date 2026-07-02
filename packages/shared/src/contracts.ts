@@ -1655,9 +1655,7 @@ export const leaveRequestCreateRequestSchema = z.object({
 
 const leaveMutationResponseDataSchema = z.object({
   request: leaveRequestSchema,
-  policyContext: operationalBridgeSummarySchema,
   audit: auditCandidateSchema,
-  placeholder: z.literal(true),
 });
 
 export const leaveRequestCreateResponseSchema = successResponseSchema(leaveMutationResponseDataSchema);

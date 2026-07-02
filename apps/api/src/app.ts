@@ -4260,12 +4260,10 @@ app.post(appRoutes.leave.requests, async (context) => {
       ok: true,
       data: {
         request,
-        policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,
           action: "leave.request.create",
         },
-        placeholder: true,
       },
       error: null,
     },
@@ -4791,12 +4789,10 @@ async function handleLeaveReview(context: Context, approvalStatus: LeaveRequest[
       ok: true,
       data: {
         request: updatedRequest,
-        policyContext: buildLeavePolicyContext(authResult.auth),
         audit: {
           candidate: true,
           action,
         },
-        placeholder: true,
       },
       error: null,
     },
