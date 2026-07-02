@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockedSessionToken = { value: "dev-placeholder-session_COMPANY_ADMIN" };
+const mockedSessionToken = { value: "dev-session_COMPANY_ADMIN" };
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -20,7 +20,7 @@ import { workItemGuardrails, workItemHubHighlights } from "./app/work-items/work
 
 describe("Phase 37 internal operational storage boundaries", () => {
   beforeEach(() => {
-    mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
+    mockedSessionToken.value = "dev-session_COMPANY_ADMIN";
   });
 
   it("keeps documents focused on internal document storage instead of public sharing", () => {

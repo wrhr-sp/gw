@@ -7,7 +7,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/tax",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({ action: "redirect", location: "/forbidden" });
 
@@ -15,7 +15,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/labor",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({ action: "redirect", location: "/forbidden" });
 
@@ -23,7 +23,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/branch",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({ action: "redirect", location: "/forbidden" });
 
@@ -31,7 +31,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/tax",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "allow" });
 
@@ -39,7 +39,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/labor",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "redirect", location: "/forbidden" });
 
@@ -47,7 +47,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/labor",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
 
@@ -55,7 +55,7 @@ describe("phase35 route guard review checks", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/branch",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({ action: "redirect", location: "/forbidden" });
   });

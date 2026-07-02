@@ -15,11 +15,11 @@ export function extractViewerRoleCodeFromSessionToken(sessionToken?: string | nu
     }
   }
 
-  if (!sessionToken?.startsWith("dev-placeholder-session_")) {
+  if (!sessionToken?.startsWith("dev-session_")) {
     return null;
   }
 
-  const candidate = sessionToken.slice("dev-placeholder-session_".length);
+  const candidate = sessionToken.slice("dev-session_".length);
   return knownRoleCodes.includes(candidate as RoleCode) ? (candidate as RoleCode) : null;
 }
 

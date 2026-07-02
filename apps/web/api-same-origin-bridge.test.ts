@@ -142,7 +142,7 @@ describe("Phase 55 same-origin API bridge", () => {
     expect(loginResponse.status).toBe(200);
     const loginPayload = authLoginResponseSchema.parse(await loginResponse.json());
     expect(loginPayload.data.user.roleCodes).toContain("AUDITOR");
-    expect(loginResponse.headers.get("set-cookie")).toContain("dev-placeholder-session_AUDITOR");
+    expect(loginResponse.headers.get("set-cookie")).toContain("dev-session_AUDITOR");
   });
 
   it("requires PostgreSQL before forwarding admin users through the same-origin route", async () => {

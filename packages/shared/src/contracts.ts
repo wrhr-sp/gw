@@ -856,7 +856,6 @@ export const sessionSchema = z.object({
   id: z.string(),
   status: z.enum(["authenticated", "signed_out"]),
   expiresAt: z.string().datetime(),
-  placeholder: z.boolean(),
 });
 
 export const sessionUserSchema = z.object({

@@ -59,7 +59,7 @@ describe("middleware host boundary", () => {
     expect(anonymousRootResponse.status).toBe(307);
     expect(getLocationPath(anonymousRootResponse)).toBe("/login");
 
-    const rememberedRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev", "dev-placeholder-session_COMPANY_ADMIN"));
+    const rememberedRootResponse = middleware(createRequest("/", "gw-web.preview-account.workers.dev", "dev-session_COMPANY_ADMIN"));
     expect(rememberedRootResponse.status).toBe(307);
     expect(getLocationPath(rememberedRootResponse)).toBe("/home");
 
@@ -83,42 +83,42 @@ describe("middleware host boundary", () => {
     expect(anonymousUatResponse.status).toBe(307);
     expect(getLocationPath(anonymousUatResponse)).toBe("/login");
 
-    const employeeDashboardResponse = middleware(createRequest("/home", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
+    const employeeDashboardResponse = middleware(createRequest("/home", "gw-web.preview-account.workers.dev", "dev-session_EMPLOYEE"));
     expect(employeeDashboardResponse.headers.get("location")).toBeNull();
 
-    const employeeUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"));
+    const employeeUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-session_EMPLOYEE"));
     expect(employeeUatResponse.status).toBe(307);
     expect(getLocationPath(employeeUatResponse)).toBe("/forbidden");
 
     const employeeResponse = middleware(
-      createRequest("/work-items/legal", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"),
+      createRequest("/work-items/legal", "gw-web.preview-account.workers.dev", "dev-session_EMPLOYEE"),
     );
     expect(employeeResponse.status).toBe(307);
     expect(getLocationPath(employeeResponse)).toBe("/forbidden");
 
     const employeeBranchResponse = middleware(
-      createRequest("/work-items/branch", "gw-web.preview-account.workers.dev", "dev-placeholder-session_EMPLOYEE"),
+      createRequest("/work-items/branch", "gw-web.preview-account.workers.dev", "dev-session_EMPLOYEE"),
     );
     expect(employeeBranchResponse.status).toBe(307);
     expect(getLocationPath(employeeBranchResponse)).toBe("/forbidden");
 
     const managerResponse = middleware(
-      createRequest("/management", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
+      createRequest("/management", "gw-web.preview-account.workers.dev", "dev-session_MANAGER"),
     );
     expect(managerResponse.headers.get("location")).toBeNull();
 
-    const managerUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"));
+    const managerUatResponse = middleware(createRequest("/uat", "gw-web.preview-account.workers.dev", "dev-session_MANAGER"));
     expect(managerUatResponse.headers.get("location")).toBeNull();
   });
 
   it("rewrites encoded space routes to worker-safe route segments after auth allow", () => {
     const strategyResponse = middleware(
-      createRequest("/Strategic%20Planning", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
+      createRequest("/Strategic%20Planning", "gw-web.preview-account.workers.dev", "dev-session_MANAGER"),
     );
     expect(strategyResponse.headers.get("x-middleware-rewrite")).toContain("/strategic-planning");
 
     const placeResponse = middleware(
-      createRequest("/Place%20of%20business/seoul", "gw-web.preview-account.workers.dev", "dev-placeholder-session_MANAGER"),
+      createRequest("/Place%20of%20business/seoul", "gw-web.preview-account.workers.dev", "dev-session_MANAGER"),
     );
     expect(placeResponse.headers.get("x-middleware-rewrite")).toContain("/place-of-business/seoul");
   });

@@ -82,8 +82,8 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   return { response, cookie };
 }
 
-describe("Phase 2 auth/org skeleton", () => {
-  it("logs in with placeholder auth and returns shared contract", async () => {
+describe("Phase 2 auth/org contract", () => {
+  it("logs in with UAT auth and returns shared contract", async () => {
     const { response } = await loginAndGetCookie();
 
     expect(response.status).toBe(200);
@@ -92,7 +92,7 @@ describe("Phase 2 auth/org skeleton", () => {
 
     const payload = authLoginResponseSchema.parse(await response.json());
 
-    expect(payload.data.session.placeholder).toBe(true);
+    expect(payload.data.session.status).toBe("authenticated");
     expect(payload.data.user.roleCodes).toContain("COMPANY_ADMIN");
   });
 
