@@ -5,6 +5,7 @@ import { getViewerAccessForRoleCode, hasHomeShortcutRouteAccess } from "@gw/shar
 import { extractViewerRoleCodeFromSessionToken } from "../../admin-page-access";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import { getVisibleDashboardManagementCards } from "../dashboard/dashboard-config";
+import { ManagementLiveSection } from "./management-live-section";
 
 const managementStatusGuideCards = [
   {
@@ -153,6 +154,10 @@ export default async function ManagementPage() {
         </div>
       }
     >
+      <SurfaceSection title="실제 운영 기준선" description="현재 세션, 역할, 서비스 상태를 same-origin API 로 먼저 확인합니다.">
+        <ManagementLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="경영업무에서 바로 여는 화면" description="이번 단계는 전체 완성보다, 민감한 업무와 branch scope 운영 레인을 홈과 분리하고 역할별 허용 카드만 보이게 맞추는 데 집중합니다.">
         <div className="grid-auto-compact">
           {managementCards.map((card) => (
