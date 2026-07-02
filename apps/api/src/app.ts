@@ -1003,7 +1003,6 @@ const documentSpaces: DocumentSpace[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "document_space_hr_private",
@@ -1017,7 +1016,6 @@ const documentSpaces: DocumentSpace[] = [
     createdBy: "user_hr_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -1039,7 +1037,6 @@ const documentFiles: DocumentFile[] = [
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "document_file_hr_private",
@@ -1058,7 +1055,6 @@ const documentFiles: DocumentFile[] = [
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -2681,39 +2677,37 @@ async function listBoardCommentsForAuth(context: AppContext, auth: SessionContex
 
 async function listDocumentSpacesForAuth(context: AppContext, auth: SessionContext) {
   const dbSpaces = await listOperationalDocumentSpaces(context.env, auth.user.companyId);
-  return mergeById(
-    documentSpaces.filter((space) => canAccessDocumentSpace(auth, space)),
-    dbSpaces?.filter((space) => canAccessDocumentSpace(auth, space)),
-  );
+  return dbSpaces?.filter((space) => canAccessDocumentSpace(auth, space)) ?? null;
 }
 
 async function findAccessibleDocumentSpaceForAuth(context: AppContext, auth: SessionContext, spaceId: string) {
   const spaces = await listDocumentSpacesForAuth(context, auth);
-  return spaces.find((space) => space.id === spaceId) ?? null;
+  return spaces?.find((space) => space.id === spaceId) ?? null;
 }
 
 async function listDocumentFilesForAuth(context: AppContext, auth: SessionContext, spaceId?: string | null) {
-  const fallbackItems = listDocumentFiles(auth, spaceId);
-  if (spaceId && fallbackItems === null) {
+  const dbItems = await listOperationalDocumentFiles(context.env, auth.user.companyId, spaceId ?? undefined);
+  if (!dbItems) {
     return null;
   }
 
-  const dbItems = await listOperationalDocumentFiles(context.env, auth.user.companyId, spaceId ?? undefined);
-  const accessibleSpaceIds = new Set((await listDocumentSpacesForAuth(context, auth)).map((space) => space.id));
-  const merged = mergeById(fallbackItems ?? [], dbItems).filter(
-    (file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId),
-  );
-  return merged;
+  const accessibleSpaces = await listDocumentSpacesForAuth(context, auth);
+  if (!accessibleSpaces) {
+    return null;
+  }
+
+  const accessibleSpaceIds = new Set(accessibleSpaces.map((space) => space.id));
+  return dbItems.filter((file) => file.companyId === auth.user.companyId && accessibleSpaceIds.has(file.spaceId));
 }
 
 async function findAccessibleDocumentFileForAuth(context: AppContext, auth: SessionContext, fileId: string) {
   const dbFile = await findOperationalDocumentFile(context.env, auth.user.companyId, fileId);
-  if (dbFile) {
-    const space = await findAccessibleDocumentSpaceForAuth(context, auth, dbFile.spaceId);
-    return space ? dbFile : null;
+  if (!dbFile) {
+    return null;
   }
 
-  return findAccessibleDocumentFile(auth, fileId);
+  const space = await findAccessibleDocumentSpaceForAuth(context, auth, dbFile.spaceId);
+  return space ? dbFile : null;
 }
 
 async function canCreateReadReceiptForAuth(context: AppContext, auth: SessionContext, targetType: "post" | "document_file", targetId: string) {
@@ -5180,11 +5174,15 @@ app.get(appRoutes.documents.spaces, async (context) => {
     return authResult.response;
   }
 
+  const spaces = await listDocumentSpacesForAuth(context, authResult.auth);
+  if (!spaces) {
+    return jsonDatabaseRequired(context, "문서함 목록 조회");
+  }
+
   return jsonSuccess(context, documentSpaceListResponseSchema, {
     ok: true,
     data: {
-      items: await listDocumentSpacesForAuth(context, authResult.auth),
-      placeholder: true,
+      items: spaces,
     },
     error: null,
   });
@@ -5216,7 +5214,6 @@ app.post(appRoutes.documents.spaces, async (context) => {
     createdBy: authResult.auth.user.id,
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
   const space = await createOperationalDocumentSpace(context.env, spaceInput);
   if (!space) {
@@ -5231,8 +5228,7 @@ app.post(appRoutes.documents.spaces, async (context) => {
         candidate: true,
         action: "document.space.create",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   }, 201);
 });
@@ -5245,18 +5241,14 @@ app.get(appRoutes.documents.files, async (context) => {
 
   const spaceId = context.req.query("spaceId");
   const items = await listDocumentFilesForAuth(context, authResult.auth, spaceId);
-  if (spaceId && items === null) {
-    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
-      spaceId,
-      route: context.req.path,
-    });
+  if (!items) {
+    return jsonDatabaseRequired(context, "문서 파일 목록 조회");
   }
 
   return jsonSuccess(context, documentFileListResponseSchema, {
     ok: true,
     data: {
-      items: items ?? [],
-      placeholder: true,
+      items,
     },
     error: null,
   });
@@ -5302,7 +5294,6 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
   const file = await createOperationalDocumentFile(context.env, {
     ...fileInput,
@@ -5320,8 +5311,7 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
         candidate: true,
         action: "document.file.metadata.create",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   }, 201);
 });
@@ -5340,14 +5330,6 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     });
   }
 
-  const space = await findAccessibleDocumentSpaceForAuth(context, authResult.auth, parsed.data.spaceId);
-  if (!space) {
-    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
-      spaceId: parsed.data.spaceId,
-      route: context.req.path,
-    });
-  }
-
   const policy = ensureDocumentUploadPolicy({
     contentType: parsed.data.contentType,
     fileSize: parsed.data.fileSize,
@@ -5362,6 +5344,18 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     return jsonError(context, "VALIDATION_ERROR", "허용된 문서 크기를 초과했습니다.", 400, {
       fileSize: parsed.data.fileSize,
       maxFileSizeBytes: DEFAULT_MAX_DOCUMENT_FILE_SIZE_BYTES,
+    });
+  }
+
+  const spaces = await listDocumentSpacesForAuth(context, authResult.auth);
+  if (!spaces) {
+    return jsonDatabaseRequired(context, "문서 업로드 초기화");
+  }
+  const space = spaces.find((candidate) => candidate.id === parsed.data.spaceId) ?? null;
+  if (!space) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서함입니다.", 403, {
+      spaceId: parsed.data.spaceId,
+      route: context.req.path,
     });
   }
 
@@ -5383,7 +5377,6 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     status: "active",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
 
   const action = await documentStorageAdapter.prepareUpload({
@@ -5414,8 +5407,7 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
         candidate: true,
         action: "document.file.upload_init",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   }, 201);
 });
@@ -5471,8 +5463,7 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
         candidate: true,
         action: "document.file.upload_complete",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   });
 });
@@ -5510,8 +5501,7 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
         candidate: true,
         action: "document.file.download_init",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   });
 });
@@ -5559,8 +5549,7 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
         candidate: true,
         action: "document.file.delete",
       },
-      placeholder: true,
-    },
+      },
     error: null,
   });
 });
