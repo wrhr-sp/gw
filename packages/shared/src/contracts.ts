@@ -1787,7 +1787,6 @@ export const approvalFormCreateResponseSchema = successResponseSchema(
   z.object({
     form: approvalFormSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1813,7 +1812,6 @@ export const approvalLineCreateResponseSchema = successResponseSchema(
   z.object({
     line: approvalLineSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
