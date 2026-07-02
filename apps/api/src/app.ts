@@ -604,9 +604,9 @@ const adminPolicies = [
   {
     category: "company",
     companyId: COMPANY_ID,
-    summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델 placeholder",
+    summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["회사 기본 설정을 정책 시작점으로 고정", "저장 없이 preview/dev-safe 범위만 연결"],
+    policyChecks: ["회사 기본 설정을 정책 시작점으로 고정", "승인된 운영 범위만 연결"],
     capability: "company.read",
     reasonRequired: true as const,
     diffPreview: {
@@ -617,9 +617,9 @@ const adminPolicies = [
   {
     category: "attendance",
     companyId: COMPANY_ID,
-    summary: "근태 정정 승인 조건과 출퇴근 허용 방식 placeholder",
+    summary: "근태 정정 승인 조건과 출퇴근 허용 방식",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["현재 허용 방식: mobile, pc", "태그 단말은 skeleton 안내만 제공"],
+    policyChecks: ["현재 허용 방식: mobile, pc", "태그 단말은 장비 연동 승인 전 보류"],
     capability: "attendance.manage",
     reasonRequired: true as const,
     diffPreview: {
@@ -632,9 +632,9 @@ const adminPolicies = [
   {
     category: "leave",
     companyId: COMPANY_ID,
-    summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙 placeholder",
+    summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["직원 화면에는 회사가 허용한 유형만 노출", "승인 대기열은 승인 권한 보유자에게만 노출"],
+    policyChecks: ["직원 화면에는 회사가 허용한 유형만 노출", "승인 대기열은 승인 권한 보유자에게만 노출"],
     capability: "leave.approve",
     reasonRequired: true as const,
     diffPreview: {
@@ -646,22 +646,22 @@ const adminPolicies = [
   {
     category: "approval",
     companyId: COMPANY_ID,
-    summary: "전자결재 승인 gate / 기본 결재선 / 자기결재 방지 placeholder",
+    summary: "전자결재 승인 gate / 기본 결재선 / 자기결재 방지",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["팀장 결재선 skeleton", "self-approval guard 유지"],
+    policyChecks: ["팀장 결재선 검토", "self-approval guard 유지"],
     capability: "approval.line.manage",
     reasonRequired: true as const,
     diffPreview: {
       before: "휴가/지출 결재선 기준이 결재 화면 설명에만 존재",
-      after: "회사 설정 approval gate 와 결재선 skeleton 을 같은 기준으로 연결",
+      after: "회사 설정 approval gate 와 결재선을 같은 기준으로 연결",
     },
   },
   {
     category: "document",
     companyId: COMPANY_ID,
-    summary: "문서 visibility / allowlist / retention placeholder",
+    summary: "문서 visibility / allowlist / retention",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["R2 metadata 중심 추적", "storageKey 원문 비노출"],
+    policyChecks: ["R2 metadata 중심 추적", "storageKey 원문 비노출"],
     capability: "document.space.manage",
     reasonRequired: true as const,
     diffPreview: {
@@ -672,9 +672,9 @@ const adminPolicies = [
   {
     category: "board",
     companyId: COMPANY_ID,
-    summary: "게시판 visibility / notice / moderation placeholder",
+    summary: "게시판 visibility / notice / moderation",
     lastReviewedAt: PLACEHOLDER_NOW,
-    placeholders: ["board.manage 필요", "일반 사용자 작성 흐름과 분리"],
+    policyChecks: ["board.manage 필요", "일반 사용자 작성 흐름과 분리"],
     capability: "board.manage",
     reasonRequired: true as const,
     diffPreview: {
@@ -2028,7 +2028,7 @@ function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모
         id: "attendance_tag_device",
         title: "태그 단말 연동",
         status: "approval_required" as const,
-        summary: "태그 단말은 skeleton 안내만 제공하고 실제 장비 연동은 보류합니다.",
+        summary: "태그 단말 실제 장비 연동은 별도 승인 전까지 보류합니다.",
       },
       {
         id: "leave_payroll_sync",
@@ -2040,16 +2040,15 @@ function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모
         id: "approval_delivery",
         title: "결재 알림/발송",
         status: "approval_required" as const,
-        summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
+        summary: "외부 발송 없이 내부 승인 gate 설명만 제공합니다.",
       },
       {
-        id: "company_scope_preview",
-        title: "회사 scope preview",
-        status: "preview_ready" as const,
-        summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+        id: "company_scope_ready",
+        title: "회사 scope 확인",
+        status: "ready" as const,
+        summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결을 확인합니다.",
       },
     ],
-    placeholder: true as const,
   };
 }
 
@@ -2073,7 +2072,6 @@ function buildLeavePolicySummary(approvalQueueVisibleToCurrentUser: boolean) {
     managerMessage: approvalQueueVisibleToCurrentUser
       ? "현재 세션은 승인 대기열과 운영 예외 설명을 함께 볼 수 있습니다."
       : "승인 권한이 없으면 본인 신청 기록과 허용 유형만 확인합니다.",
-    placeholder: true as const,
   };
 }
 
@@ -3669,7 +3667,6 @@ app.get(appRoutes.admin.users, async (context) => {
           candidate: true,
           action: "admin.user.list.viewed",
         },
-        placeholder: true,
       },
       error: null,
     },
@@ -3757,7 +3754,6 @@ app.get(appRoutes.admin.policies, (context) => {
           candidate: true,
           action: "admin.policy.list.viewed",
         },
-        placeholder: true,
       },
       error: null,
     },
@@ -3801,9 +3797,9 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
         policy: {
           category: "document",
           companyId: parsed.data.companyId,
-          summary: `문서 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 placeholder`,
+          summary: `문서 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 정책 변경 요청`,
           lastReviewedAt: PLACEHOLDER_NOW,
-          placeholders: [
+          policyChecks: [
             `허용 확장자: ${parsed.data.allowedFileExtensions.join(", ")}`,
             `최대 파일 크기: ${parsed.data.maxFileSizeBytes} bytes`,
             "R2 metadata 중심 추적",
@@ -3821,7 +3817,6 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
         },
         maskedFields: ["storageKey", "bucket 이름", "signed URL 전문", "public URL", "secret"],
         requiresReview: true,
-        placeholder: true,
       },
       error: null,
     },
@@ -3867,7 +3862,7 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
           companyId: parsed.data.companyId,
           summary: `게시판 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 candidate`,
           lastReviewedAt: PLACEHOLDER_NOW,
-          placeholders: [
+          policyChecks: [
             `익명 댓글 허용: ${parsed.data.allowAnonymousComments ? "yes" : "no"}`,
             `읽음 확인 강제: ${parsed.data.requireReadReceipt ? "yes" : "no"}`,
             "일반 작성 흐름과 운영 정책 UI 분리",
@@ -3885,7 +3880,6 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
         },
         maskedFields: ["secret", "internal moderation rule raw text"],
         requiresReview: true,
-        placeholder: true,
       },
       error: null,
     },
@@ -3937,7 +3931,6 @@ app.get(appRoutes.admin.auditLogs, async (context) => {
         filterOptions: buildAdminAuditFilterOptions(sourceItems),
         detailPreview: buildAdminAuditDetailPreview(),
         operationalTrail: buildOperationalBridgeSummary(),
-        placeholder: true,
       },
       error: null,
     },

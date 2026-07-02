@@ -1011,7 +1011,7 @@ export const companyPolicyAxisSchema = z.object({
   priority: z.string(),
 });
 
-export const companyApprovalGateStatusSchema = z.enum(["preview_ready", "approval_required"]);
+export const companyApprovalGateStatusSchema = z.enum(["ready", "approval_required"]);
 
 export const companyApprovalGateSchema = z.object({
   id: z.string(),
@@ -1028,7 +1028,6 @@ export const companySettingsModelSchema = z.object({
   policyAxes: z.array(companyPolicyAxisSchema).min(3),
   employeeVisibilityRules: z.array(z.string()).min(3),
   approvalGates: z.array(companyApprovalGateSchema).min(4),
-  placeholder: z.literal(true),
 });
 
 export const companySchema = z.object({
@@ -1237,7 +1236,6 @@ export const leavePolicySummarySchema = z.object({
   approvalQueueVisibleToCurrentUser: z.boolean(),
   employeeMessage: z.string(),
   managerMessage: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const createInviteResponseSchema = successResponseSchema(
@@ -1249,7 +1247,6 @@ export const createInviteResponseSchema = successResponseSchema(
     departmentId: z.string().nullable(),
     status: z.enum(["pending_delivery", "accepted", "expired", "cancelled"]),
     expiresAt: z.string().datetime(),
-    placeholder: z.literal(true),
     audit: auditCandidateSchema,
   }),
 );
@@ -1281,7 +1278,6 @@ export const adminUserSummarySchema = z.object({
   highRiskPermissions: z.array(permissionCodeSchema),
   statusChangePreview: adminUserStatusChangePreviewSchema,
   roleChangePreview: adminUserRoleChangePreviewSchema,
-  placeholder: z.literal(true),
 });
 
 export const adminUsersListResponseSchema = successResponseSchema(
@@ -1290,7 +1286,6 @@ export const adminUsersListResponseSchema = successResponseSchema(
     linkedScreens: z.array(operationalBridgeItemSchema).min(1),
     companySettingsModel: companySettingsModelSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1352,7 +1347,7 @@ export const adminPolicySummarySchema = z.object({
   companyId: z.string(),
   summary: z.string(),
   lastReviewedAt: z.string().datetime(),
-  placeholders: z.array(z.string()).min(1),
+  policyChecks: z.array(z.string()).min(1),
   capability: permissionCodeSchema,
   reasonRequired: z.literal(true),
   diffPreview: z.object({
@@ -1370,7 +1365,6 @@ export const adminPoliciesListResponseSchema = successResponseSchema(
     bridgeSummary: operationalBridgeSummarySchema,
     companySettingsModel: companySettingsModelSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1400,12 +1394,11 @@ export const adminPolicyUpdateResponseSchema = successResponseSchema(
     audit: auditCandidateSchema,
     maskedFields: z.array(z.string()).min(1),
     requiresReview: z.literal(true),
-    placeholder: z.literal(true),
   }),
 );
 
 export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "board", "audit"]);
-export const adminAuditSourceSchema = z.enum(["web-admin", "api-admin", "system-placeholder"]);
+export const adminAuditSourceSchema = z.enum(["web-admin", "api-admin", "system"]);
 export const adminAuditStorageStatusSchema = z.enum(["pending", "linked", "failed", "deleted"]);
 export const adminAuditMetadataSchema = z.object({
   category: adminAuditCategorySchema,
@@ -1481,7 +1474,6 @@ export const adminAuditLogListResponseSchema = successResponseSchema(
     filterOptions: adminAuditLogFilterOptionsSchema,
     detailPreview: adminAuditLogDetailPreviewSchema,
     operationalTrail: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 

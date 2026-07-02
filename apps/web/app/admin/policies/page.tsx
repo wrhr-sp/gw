@@ -211,7 +211,7 @@ export default function AdminPoliciesPage() {
         <div className="grid-auto-compact">
           {companySettingsApprovalGates.map((gate) => (
             <article key={gate.id} className="info-card">
-              <Pill tone={gate.status === "preview_ready" ? "accent" : "warning"}>{gate.status}</Pill>
+              <Pill tone={gate.status === "ready" ? "accent" : "warning"}>{gate.status}</Pill>
               <h3>{gate.title}</h3>
               <p>{gate.summary}</p>
             </article>
