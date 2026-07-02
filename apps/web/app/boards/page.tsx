@@ -67,12 +67,6 @@ const postStatusLabels: Record<BoardPost["status"], string> = {
   archived: "보관됨",
 };
 
-const initialBoardNavigationLabels = {
-  company: ["전사 공지", "자유 게시판", "자료 공유"],
-  department: ["인사팀 게시판"],
-  private: [],
-} as const;
-
 const boardEditorInit = {
   ...boardTinymceInit,
   height: 1520,
@@ -265,29 +259,22 @@ function getLatestPost(posts: BoardPost[]) {
 function BoardScopeSection({
   title,
   boards,
-  initialLabels,
   selectedBoardId,
   onSelectBoard,
 }: {
   title: string;
   boards: Board[];
-  initialLabels: readonly string[];
   selectedBoardId: string | null;
   onSelectBoard: (boardId: string) => void;
 }) {
-  if (boards.length === 0 && initialLabels.length === 0) {
-    return null;
-  }
-
   return (
     <section className={title === "부서게시판" ? "board-tree-section board-tree-section--department" : "board-tree-section"}>
       <div className="board-tree-section__header">
         <strong>{title}</strong>
       </div>
       <div className="board-tree-section__items">
-        {boards.length === 0 ? initialLabels.map((label) => (
+        {boards.length === 0 ? (
           <button
-            key={label}
             aria-disabled="true"
             className="board-tree-link"
             type="button"
@@ -296,10 +283,11 @@ function BoardScopeSection({
               ㄴ
             </span>
             <span className="board-tree-link__copy">
-              <strong>{label}</strong>
+              <strong>표시할 게시판 없음</strong>
+              <small>실제 게시판 API 결과를 기다리거나 빈 상태로 표시합니다.</small>
             </span>
           </button>
-        )) : boards.map((board) => (
+        ) : boards.map((board) => (
           <button
             key={board.id}
             aria-current={board.id === selectedBoardId ? "page" : undefined}
@@ -631,21 +619,18 @@ export default function BoardsPage() {
           <BoardScopeSection
             title="전사게시판"
             boards={groupedBoards.company}
-            initialLabels={initialBoardNavigationLabels.company}
             selectedBoardId={isWriting ? null : selectedBoard?.id ?? null}
             onSelectBoard={handleSelectBoard}
           />
           <BoardScopeSection
             title="부서게시판"
             boards={groupedBoards.department}
-            initialLabels={initialBoardNavigationLabels.department}
             selectedBoardId={isWriting ? null : selectedBoard?.id ?? null}
             onSelectBoard={handleSelectBoard}
           />
           <BoardScopeSection
             title="비공개게시판"
             boards={groupedBoards.private}
-            initialLabels={initialBoardNavigationLabels.private}
             selectedBoardId={isWriting ? null : selectedBoard?.id ?? null}
             onSelectBoard={handleSelectBoard}
           />

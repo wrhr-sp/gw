@@ -150,10 +150,10 @@ describe("Phase 41 collaboration adoption fit-gap", () => {
     expect(boardListHtml).not.toContain("/boards?tab=admin#board-admin-settings");
     expect(boardListHtml).not.toContain("하위 게시판 만들기");
     expect(boardListHtml).not.toContain("일반 사용자는 전사게시판과 자기 부서 게시판만 봅니다");
-    expect(boardListHtml).toContain("전사 공지");
-    expect(boardListHtml).toContain("인사팀 게시판");
-    expect(boardListHtml).toContain("자유 게시판");
-    expect(boardListHtml).toContain("자료 공유");
+    expect(boardListHtml).toContain("표시할 게시판 없음");
+    expect(boardListHtml).toContain("실제 게시판 API 결과를 기다리거나 빈 상태로 표시합니다.");
+    expect(boardListHtml).not.toContain("인사팀 게시판");
+    expect(boardListHtml).not.toContain("자료 공유");
     expect(boardListHtml).toContain("board-tree-link__branch");
     expect(boardListHtml).toContain("board-tree-section--department");
     expect(boardListHtml).not.toContain("새 글 없음");
