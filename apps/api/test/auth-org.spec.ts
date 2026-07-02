@@ -831,7 +831,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(correctionPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns leave types, balances, and requests for request-capable roles", async () => {
+  it("requires the operational DB for leave types, balances, and requests", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const [typesResponse, balancesResponse, requestsResponse] = await Promise.all([
@@ -840,26 +840,13 @@ describe("Phase 3 attendance/leave skeleton", () => {
       app.request(appRoutes.leave.requests, { headers: { cookie } }),
     ]);
 
-    expect(typesResponse.status).toBe(200);
-    expect(balancesResponse.status).toBe(200);
-    expect(requestsResponse.status).toBe(200);
+    expect(typesResponse.status).toBe(503);
+    expect(balancesResponse.status).toBe(503);
+    expect(requestsResponse.status).toBe(503);
 
-    const typesPayload = leaveTypeListResponseSchema.parse(await typesResponse.json());
-    const balancesPayload = leaveBalanceListResponseSchema.parse(await balancesResponse.json());
-    const requestsPayload = leaveRequestListResponseSchema.parse(await requestsResponse.json());
-
-    expect(typesPayload.data.items.some((item) => item.code === "annual")).toBe(true);
-    expect(typesPayload.data.leavePolicySummary.allowedLeaveTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
-    expect(typesPayload.data.companySettingsModel.policyAxes).toHaveLength(3);
-    expect(balancesPayload.data.items[0]?.remainingDays).toBeGreaterThanOrEqual(0);
-    expect(balancesPayload.data.leavePolicySummary.approvalQueueVisibleToCurrentUser).toBe(false);
-    expect(Array.isArray(requestsPayload.data.items)).toBe(true);
-    expect(requestsPayload.data.items).toHaveLength(1);
-    expect(requestsPayload.data.items[0]?.id).toBe("leave_request_demo");
-    expect(requestsPayload.data.companySettingsModel.approvalGates.some((gate) => gate.id === "leave_payroll_sync")).toBe(true);
-    expect(typesPayload.data.policyContext.blockedReasons.some((item) => item.category === "policy")).toBe(true);
-    expect(balancesPayload.data.policyContext.currentState).toContain("휴가 정책");
-    expect(requestsPayload.data.policyContext.sourceLabel).toContain("/leave");
+    expect(errorResponseSchema.parse(await typesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    expect(errorResponseSchema.parse(await balancesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    expect(errorResponseSchema.parse(await requestsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("creates placeholder leave requests and blocks approval for non-approvers", async () => {
@@ -956,7 +943,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(payload.error.details?.requestId).toBe("leave_request_demo");
   });
 
-  it("allows approvers to approve and reject subordinate placeholder leave requests", async () => {
+  it("requires operational DB rows before approvers can review subordinate leave requests", async () => {
     const { cookie } = await loginAndGetCookie("HR_ADMIN");
 
     const requestsResponse = await app.request(appRoutes.leave.requests, {
@@ -965,12 +952,8 @@ describe("Phase 3 attendance/leave skeleton", () => {
       },
     });
 
-    expect(requestsResponse.status).toBe(200);
-    const requestsPayload = leaveRequestListResponseSchema.parse(await requestsResponse.json());
-    expect(requestsPayload.data.items.map((item) => item.id)).toEqual([
-      "leave_request_demo",
-      "leave_request_team_pending",
-    ]);
+    expect(requestsResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await requestsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const approveResponse = await app.request(appRoutes.leave.approve("leave_request_team_pending"), {
       method: "POST",
@@ -983,9 +966,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(approveResponse.status).toBe(503);
+    expect(approveResponse.status).toBe(403);
     const approvePayload = errorResponseSchema.parse(await approveResponse.json());
-    expect(approvePayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(approvePayload.error.code).toBe("FORBIDDEN");
 
     const rejectResponse = await app.request(appRoutes.leave.reject("leave_request_team_pending"), {
       method: "POST",
@@ -998,9 +981,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       }),
     });
 
-    expect(rejectResponse.status).toBe(503);
+    expect(rejectResponse.status).toBe(403);
     const rejectPayload = errorResponseSchema.parse(await rejectResponse.json());
-    expect(rejectPayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(rejectPayload.error.code).toBe("FORBIDDEN");
   });
 });
 

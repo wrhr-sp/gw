@@ -347,14 +347,13 @@ export function pickLeaveApprovalRequest(session: SessionPayload | null, request
 
 export function canShowLeaveApprovalActions(
   session: SessionPayload | null,
-  policySummary: LeaveBalanceListResponse["data"]["leavePolicySummary"] | LeaveRequestListResponse["data"]["leavePolicySummary"] | null | undefined,
   approvalRequest: LeaveRequest | null,
 ) {
-  if (!session || !approvalRequest || !policySummary) {
+  if (!session || !approvalRequest) {
     return false;
   }
 
-  return hasSessionPermission(session, "leave.approve") && policySummary.approvalQueueVisibleToCurrentUser;
+  return hasSessionPermission(session, "leave.approve");
 }
 
 type ApprovalDetailLike = {
@@ -760,8 +759,8 @@ export function LeaveLiveSection() {
   const requests = useApiQuery<LeaveRequestListResponse["data"]>(appRoutes.leave.requests, refreshSeed);
   const canRequestLeave = hasSessionPermission(session.data ?? null, "leave.request");
   const approvalRequest = pickLeaveApprovalRequest(session.data ?? null, requests.data?.items);
-  const showApprovalActions = canShowLeaveApprovalActions(session.data ?? null, requests.data?.leavePolicySummary ?? balances.data?.leavePolicySummary, approvalRequest);
-  const selectedLeaveType = types.data?.items.find((item) => item.code === balances.data?.leavePolicySummary.allowedLeaveTypeCodes[0]) ?? types.data?.items[0] ?? null;
+  const showApprovalActions = canShowLeaveApprovalActions(session.data ?? null, approvalRequest);
+  const selectedLeaveType = types.data?.items[0] ?? null;
 
   async function runAction(url: string, title: string, body: Record<string, unknown>) {
     setPending(true);
@@ -800,7 +799,7 @@ export function LeaveLiveSection() {
             <>
               <h3>{balances.data.items.length}개 휴가 유형</h3>
               <p className="card-note">
-                허용 유형: {balances.data.leavePolicySummary.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels] ?? code).join(", ")}
+                허용 유형: {types.data?.items.map((item) => leaveTypeCodeLabels[item.code as keyof typeof leaveTypeCodeLabels] ?? item.name).join(", ") || "운영 DB 휴가 유형을 불러오는 중입니다."}
               </p>
               <p className="card-note">
                 {session.data
