@@ -2,7 +2,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { appRoutes } from "@gw/shared";
 import { app as apiApp } from "../api/src/app";
 
-const DEV_PLACEHOLDER_SESSION_PREFIX = "dev-placeholder-session_";
+const DEV_PLACEHOLDER_SESSION_PREFIX = "dev-session_";
 
 function decodeCookieValue(rawValue: string) {
   try {

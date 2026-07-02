@@ -269,7 +269,7 @@ import {
 type AppBindings = DocumentStorageEnv & PostgresEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
 
-const DEV_SESSION_PREFIX = "dev-placeholder-session_";
+const DEV_SESSION_PREFIX = "dev-session_";
 const OPERATIONAL_SESSION_PREFIX = "op-session_";
 const DEV_SESSION_MAX_AGE_SECONDS = 60 * 60;
 const REMEMBERED_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -1116,7 +1116,6 @@ function buildSession(roleCode: RoleCode): Session {
     id: `${DEV_SESSION_PREFIX}${roleCode}`,
     status: "authenticated",
     expiresAt: SESSION_EXPIRY,
-    placeholder: true,
   };
 }
 
@@ -1147,7 +1146,6 @@ function buildOperationalSession(user: SessionUser): Session {
     id: encodeOperationalSessionUser(user),
     status: "authenticated",
     expiresAt: SESSION_EXPIRY,
-    placeholder: false,
   };
 }
 
@@ -1240,8 +1238,7 @@ function requireSession(context: Context): SessionContext | null {
           id: sessionToken,
           status: "authenticated",
           expiresAt: SESSION_EXPIRY,
-          placeholder: false,
-        },
+              },
         user: operationalUser,
       };
     }
@@ -2321,8 +2318,7 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
           createdBy: auth.user.id,
           createdAt: PLACEHOLDER_NOW,
           updatedAt: PLACEHOLDER_NOW,
-          placeholder: true,
-        },
+              },
       };
     }
   }
@@ -2350,8 +2346,7 @@ function listBoardComments(auth: SessionContext, postId: string) {
         createdBy: auth.user.id,
         createdAt: PLACEHOLDER_NOW,
         updatedAt: PLACEHOLDER_NOW,
-        placeholder: true,
-      },
+          },
     ];
   }
 

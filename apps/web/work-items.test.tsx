@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockedSessionToken = { value: "dev-placeholder-session_COMPANY_ADMIN" };
+const mockedSessionToken = { value: "dev-session_COMPANY_ADMIN" };
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -23,7 +23,7 @@ import SalesPage from "./app/sales/page";
 
 describe("Phase 25 work-items web entrypoints", () => {
   beforeEach(() => {
-    mockedSessionToken.value = "dev-placeholder-session_COMPANY_ADMIN";
+    mockedSessionToken.value = "dev-session_COMPANY_ADMIN";
   });
 
   it("renders the sales page as the general portal replacement for the removed shared work-items hub", () => {
@@ -167,7 +167,7 @@ describe("Phase 25 work-items web entrypoints", () => {
   });
 
   it("filters management-page cards to only what a manager can actually open", async () => {
-    mockedSessionToken.value = "dev-placeholder-session_MANAGER";
+    mockedSessionToken.value = "dev-session_MANAGER";
 
     const html = renderToStaticMarkup(await ManagementPage());
 
@@ -183,7 +183,7 @@ describe("Phase 25 work-items web entrypoints", () => {
   });
 
   it("keeps HR_ADMIN on admin/users flow instead of the management lane", async () => {
-    mockedSessionToken.value = "dev-placeholder-session_HR_ADMIN";
+    mockedSessionToken.value = "dev-session_HR_ADMIN";
 
     const html = renderToStaticMarkup(await ManagementPage());
 

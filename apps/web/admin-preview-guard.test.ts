@@ -71,14 +71,14 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/users",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
@@ -92,7 +92,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "example.com",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
@@ -105,35 +105,35 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/management",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/home",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/payroll/me",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({ action: "allow" });
     expect(
@@ -147,42 +147,42 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/work-items/legal",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/work-items/branch",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_MANAGER",
+        sessionToken: "dev-session_MANAGER",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/management",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
@@ -192,7 +192,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({
       action: "redirect",
@@ -202,7 +202,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/legal",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({
       action: "redirect",
@@ -212,7 +212,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/work-items/branch",
         host: "localhost:3000",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
@@ -225,21 +225,21 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-admin.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/users",
         host: "admin.localhost:3000",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/admin/audit-logs",
         host: "admin.localhost:3000",
-        sessionToken: "dev-placeholder-session_HR_ADMIN",
+        sessionToken: "dev-session_HR_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
@@ -249,7 +249,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin/audit-logs",
         host: "gw-admin.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({ action: "allow" });
   });
@@ -259,14 +259,14 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin/audit-logs",
         host: "gw-admin.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/management",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({
       action: "redirect",
@@ -276,7 +276,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-admin.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({
       action: "redirect",
@@ -286,14 +286,14 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/uat",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({ action: "allow" });
     expect(
       getAdminRouteGuardResult({
         pathname: "/work-items/legal",
         host: "gw-web.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_AUDITOR",
+        sessionToken: "dev-session_AUDITOR",
       }),
     ).toEqual({
       action: "redirect",
@@ -306,7 +306,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-admin.preview-account.workers.dev",
-        sessionToken: "dev-placeholder-session_EMPLOYEE",
+        sessionToken: "dev-session_EMPLOYEE",
       }),
     ).toEqual({
       action: "redirect",
@@ -348,7 +348,7 @@ describe("admin preview guard", () => {
       getAdminRouteGuardResult({
         pathname: "/admin",
         host: "admin.attacker.example",
-        sessionToken: "dev-placeholder-session_COMPANY_ADMIN",
+        sessionToken: "dev-session_COMPANY_ADMIN",
       }),
     ).toEqual({
       action: "redirect",
