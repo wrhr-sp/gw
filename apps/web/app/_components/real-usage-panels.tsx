@@ -667,7 +667,7 @@ export function AttendanceLiveSection() {
           {data ? (
             <>
               <h3>{data.items[0]?.status ?? "-"}</h3>
-              <p>{data.policyContext.currentState}</p>
+              <p>실제 근태 기록을 DB 기준으로 조회합니다.</p>
               <p className="card-note">
                 {session.data
                   ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 본인 기록을 확인합니다.`
