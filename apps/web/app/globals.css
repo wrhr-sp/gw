@@ -1461,6 +1461,14 @@ li {
   margin-top: var(--space-md);
 }
 
+.stack-top-md {
+  margin-top: var(--space-md);
+}
+
+.stack-top-sm {
+  margin-top: var(--space-sm);
+}
+
 .surface-card--muted {
   background: var(--surface-subtle);
 }
