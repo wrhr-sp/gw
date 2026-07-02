@@ -25,22 +25,7 @@ type MeData = {
   preferences: UserPreferencesResponse["data"] | null;
 };
 
-const seedMe: MeData = {
-  me: {
-    session: { id: "session_preview", status: "authenticated", expiresAt: "2026-12-31T23:59:59.000Z", placeholder: true },
-    user: {
-      id: "admin",
-      companyId: "company_demo",
-      employeeId: "employee_admin",
-      email: "admin@example.com",
-      fullName: "관리자 테스트",
-      roleCodes: ["EMPLOYEE"],
-      permissions: ["employee.read", "company.read"],
-    },
-  },
-  secondary: { hasSecondaryPassword: true, persistence: "memory-fallback", updatedAt: null },
-  preferences: { preferences: {}, persistence: "memory-fallback", updatedAt: null },
-};
+type MeState = MeData | null;
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -81,12 +66,12 @@ const permissionLabel = (count: number) => `${count}개`;
 
 export default function MePage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<MeData>(seedMe);
+  const [data, setData] = useState<MeState>(null);
   const [toast, setToast] = useState<ToastState>(null);
 
-  const user = data.me.user;
-  const session = data.me.session;
-  const preferenceKeys = useMemo(() => Object.keys(data.preferences?.preferences ?? {}), [data.preferences]);
+  const user = data?.me.user ?? null;
+  const session = data?.me.session ?? null;
+  const preferenceKeys = useMemo(() => Object.keys(data?.preferences?.preferences ?? {}), [data?.preferences]);
 
   async function reloadMe() {
     setLoadState("loading");
@@ -130,23 +115,24 @@ export default function MePage() {
           {toast ? <article className="info-card"><Pill tone={toast.tone}>확인</Pill><h3>{toast.title}</h3><p>{toast.body}</p></article> : null}
 
           <div className="feature-workspace__status-grid">
-            <article className="feature-workspace__status feature-workspace__status--accent"><span>로그인 상태</span><strong>{loadState === "error" ? "확인 필요" : "정상"}</strong><p>{`세션 만료 ${session.expiresAt.slice(0, 10)}`}</p></article>
-            <article className="feature-workspace__status"><span>내 역할</span><strong>{roleLabel(user.roleCodes)}</strong><p>{user.employeeId}</p></article>
+            <article className="feature-workspace__status feature-workspace__status--accent"><span>로그인 상태</span><strong>{loadState === "error" ? "확인 필요" : session ? "정상" : "조회 전"}</strong><p>{session ? `세션 만료 ${session.expiresAt.slice(0, 10)}` : "세션 API 응답을 기다립니다."}</p></article>
+            <article className="feature-workspace__status"><span>내 역할</span><strong>{user ? roleLabel(user.roleCodes) : "조회 전"}</strong><p>{user?.employeeId ?? "사용자 API 응답 대기"}</p></article>
             <article className="feature-workspace__status"><span>확인 필요</span><strong>0건</strong><p>{`개인 설정 ${preferenceKeys.length}개`}</p></article>
           </div>
 
           <div className="feature-workspace__rows" aria-label="내 기본 정보">
             {loadState === "loading" ? <article className="feature-workspace__row"><div><strong>불러오는 중</strong><span>내 정보 조회</span></div><em>대기</em></article> : null}
-            <article className="feature-workspace__row"><div><strong>기본 정보</strong><span>{`${user.fullName} · ${user.email}`}</span><p>{`회사 ${user.companyId} · 직원 ${user.employeeId}`}</p></div><em>확인</em></article>
-            <article className="feature-workspace__row"><div><strong>연락처</strong><span>{user.email}</span><p>휴대전화 등 민감 정보는 권한과 저장 정책이 확정된 뒤 연결합니다.</p></div><em>확인</em></article>
-            <article className="feature-workspace__row"><div><strong>근무 정보</strong><span>{roleLabel(user.roleCodes)}</span><p>소속/직책 상세는 /employees 와 /org 조회 결과로 연결합니다.</p></div><em>확인</em></article>
+            {!user ? <article className="feature-workspace__row"><div><strong>표시할 내 정보 없음</strong><span>현재 세션 API 응답을 기다리거나 명시 오류를 표시합니다.</span><p>샘플 계정으로 채우지 않고 실제 /api/me 결과만 반영합니다.</p></div><em>empty</em></article> : null}
+            {user ? <article className="feature-workspace__row"><div><strong>기본 정보</strong><span>{`${user.fullName} · ${user.email}`}</span><p>{`회사 ${user.companyId} · 직원 ${user.employeeId}`}</p></div><em>확인</em></article> : null}
+            {user ? <article className="feature-workspace__row"><div><strong>연락처</strong><span>{user.email}</span><p>휴대전화 등 민감 정보는 권한과 저장 정책이 확정된 뒤 연결합니다.</p></div><em>확인</em></article> : null}
+            {user ? <article className="feature-workspace__row"><div><strong>근무 정보</strong><span>{roleLabel(user.roleCodes)}</span><p>소속/직책 상세는 /employees 와 /org 조회 결과로 연결합니다.</p></div><em>확인</em></article> : null}
             <article className="feature-workspace__row"><div><strong>내 급여명세서</strong><span>/payroll/me</span></div><em>이동</em></article>
             <article className="feature-workspace__row"><div><strong>직원 조회</strong><span>/employees</span></div><em>이동</em></article>
           </div>
 
           <div className="feature-workspace__rows" aria-label="보안과 권한">
-            <article className="feature-workspace__row"><div><strong>보안</strong><span>{`2차 비밀번호 ${data.secondary?.hasSecondaryPassword ? "설정됨" : "미설정"}`}</span><p>{`저장 상태 ${data.secondary?.persistence ?? "확인 필요"}`}</p></div><em>점검</em></article>
-            <article className="feature-workspace__row"><div><strong>권한</strong><span>{permissionLabel(user.permissions.length)}</span><p>{user.permissions.slice(0, 4).join(" · ")}</p><div className="feature-workspace__row-actions" aria-label="권한 요청"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">권한 요청</button></div></div><em>역할</em></article>
+            <article className="feature-workspace__row"><div><strong>보안</strong><span>{`2차 비밀번호 ${data?.secondary?.hasSecondaryPassword ? "설정됨" : "미설정 또는 조회 전"}`}</span><p>{`저장 상태 ${data?.secondary?.persistence ?? "확인 필요"}`}</p></div><em>점검</em></article>
+            <article className="feature-workspace__row"><div><strong>권한</strong><span>{permissionLabel(user?.permissions.length ?? 0)}</span><p>{user ? user.permissions.slice(0, 4).join(" · ") : "권한 API 응답을 기다립니다."}</p><div className="feature-workspace__row-actions" aria-label="권한 요청"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">권한 요청</button></div></div><em>역할</em></article>
             <article className="feature-workspace__row"><div><strong>연결 업무</strong><span>/attendance · /leave · /payroll/me · /org</span><p>내 정보에서 이어서 확인할 개인 업무를 바로 엽니다.</p></div><em>바로가기</em></article>
           </div>
         </section>
