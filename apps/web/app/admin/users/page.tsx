@@ -81,9 +81,8 @@ function getFallbackPreview(): Pick<AdminUsersListResponse["data"], "items" | "l
         { id: "attendance_tag_device", title: "태그 단말 연동", status: "approval_required", summary: "fallback 상태" },
         { id: "leave_payroll_sync", title: "휴가-급여 반영", status: "approval_required", summary: "fallback 상태" },
         { id: "approval_delivery", title: "결재 알림/발송", status: "approval_required", summary: "fallback 상태" },
-        { id: "company_scope_preview", title: "회사 scope preview", status: "preview_ready", summary: "fallback 상태" },
+        { id: "company_scope_ready", title: "회사 scope 확인", status: "ready", summary: "기본 상태" },
       ],
-      placeholder: true,
     },
     audit: {
       candidate: true,

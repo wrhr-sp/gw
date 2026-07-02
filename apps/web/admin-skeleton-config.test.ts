@@ -158,7 +158,7 @@ describe("Phase 13 admin skeleton config", () => {
   });
 
   it("exposes company settings and leave policy summaries for phase 21 previews", () => {
-    expect(companySettingsApprovalGates.some((gate) => gate.status === "preview_ready")).toBe(true);
+    expect(companySettingsApprovalGates.some((gate) => gate.status === "ready")).toBe(true);
     expect(companySettingsApprovalGates.some((gate) => gate.id === "leave_payroll_sync")).toBe(true);
     expect(leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels])).toEqual([
       "연차",

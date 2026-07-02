@@ -23,7 +23,7 @@ function resolveAdminScope(roleCodes: RoleCode[]): AdminScope {
 }
 
 function parseAdminAuditSource(value: unknown): AdminAuditSource {
-  return value === "web-admin" || value === "api-admin" || value === "system-placeholder" ? value : "api-admin";
+  return value === "web-admin" || value === "api-admin" || value === "system" ? value : "api-admin";
 }
 
 function parseAdminAuditTargetType(value: string): AdminAuditTargetType {
@@ -269,7 +269,6 @@ export async function listOperationalAdminUsers(
         nextRoleCodes: parsedRoleCodes,
         auditCandidate: true,
       },
-      placeholder: true,
     } satisfies AdminUserSummary;
   });
 }

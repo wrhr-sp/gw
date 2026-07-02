@@ -186,10 +186,10 @@ const sampleCompanySettingsModel = {
       summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
     },
     {
-      id: "company_scope_preview",
-      title: "회사 scope preview",
-      status: "preview_ready",
-      summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+      id: "company_scope_ready",
+      title: "회사 scope 확인",
+      status: "ready",
+      summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결을 확인합니다.",
     },
   ],
   placeholder: true,
@@ -1679,7 +1679,7 @@ describe("shared contracts", () => {
             companyId: "company_demo",
             summary: "문서 보관 정책 placeholder",
             lastReviewedAt: "2026-06-10T09:00:00.000Z",
-            placeholders: ["R2 metadata only"],
+            policyChecks: ["R2 metadata only"],
             capability: "document.space.manage",
             reasonRequired: true,
             diffPreview: {
@@ -1779,7 +1779,7 @@ describe("shared contracts", () => {
             companyId: "company_demo",
             summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델 placeholder",
             lastReviewedAt: "2026-06-10T09:00:00.000Z",
-            placeholders: ["회사 기본 설정을 정책 시작점으로 고정"],
+            policyChecks: ["회사 기본 설정을 정책 시작점으로 고정"],
             capability: "company.read",
             reasonRequired: true,
             diffPreview: {
@@ -1792,7 +1792,7 @@ describe("shared contracts", () => {
             companyId: "company_demo",
             summary: "출퇴근 허용 방식 정책 placeholder",
             lastReviewedAt: "2026-06-10T09:00:00.000Z",
-            placeholders: ["태그 단말은 skeleton 안내만 제공"],
+            policyChecks: ["태그 단말은 장비 연동 승인 전 보류"],
             capability: "attendance.manage",
             reasonRequired: true,
             diffPreview: {
@@ -1810,7 +1810,7 @@ describe("shared contracts", () => {
             companyId: "company_demo",
             summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙 placeholder",
             lastReviewedAt: "2026-06-10T09:00:00.000Z",
-            placeholders: ["직원 화면에는 회사가 허용한 유형만 노출"],
+            policyChecks: ["직원 화면에는 회사가 허용한 유형만 노출"],
             capability: "leave.approve",
             reasonRequired: true,
             diffPreview: {

@@ -70,7 +70,7 @@ export interface CompanySettingsPolicyAxisPreview {
 export interface CompanySettingsApprovalGatePreview {
   id: string;
   title: string;
-  status: "preview_ready" | "approval_required";
+  status: "ready" | "approval_required";
   summary: string;
 }
 
@@ -265,10 +265,10 @@ export const companySettingsApprovalGates: readonly CompanySettingsApprovalGateP
     summary: "외부 발송 없이 내부 preview 와 승인 gate 설명만 제공합니다.",
   },
   {
-    id: "company_scope_preview",
-    title: "회사 scope preview",
-    status: "preview_ready",
-    summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결은 preview 상태로 확인 가능합니다.",
+    id: "company_scope_ready",
+    title: "회사 scope 확인",
+    status: "ready",
+    summary: "회사 기본 설정 기준으로 조직/정책/운영 화면 연결을 확인합니다.",
   },
 ] as const;
 
@@ -413,7 +413,7 @@ export const adminAuditTimelineItems: readonly AdminAuditTimelineItem[] = [
   {
     title: "감사 화면 조회 이벤트",
     summary: "감사 전용 사용자의 조회 이력도 회사 경계 안에서 함께 남깁니다.",
-    source: "system-placeholder",
+    source: "system",
   },
 ] as const;
 
