@@ -1220,29 +1220,26 @@ describe("Phase 4 approvals skeleton", () => {
 });
 
 describe("Phase 5 boards/documents skeleton", () => {
-  it("lists notices and boards and lets employees create posts, comments, and read receipts in accessible boards", async () => {
+  it("requires the operational DB for notices, boards, and board posts", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const noticesResponse = await app.request(appRoutes.boards.notices, {
       headers: { cookie },
     });
-    expect(noticesResponse.status).toBe(200);
-    const noticesPayload = noticeListResponseSchema.parse(await noticesResponse.json());
-    expect(noticesPayload.data.items.every((item) => item.boardType === "notice")).toBe(true);
+    expect(noticesResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await noticesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const boardsResponse = await app.request(appRoutes.boards.boards, {
       headers: { cookie },
     });
-    expect(boardsResponse.status).toBe(200);
-    const boardsPayload = boardsListResponseSchema.parse(await boardsResponse.json());
-    expect(boardsPayload.data.items.map((item) => item.id)).toContain("board_general");
+    expect(boardsResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await boardsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const postsResponse = await app.request(appRoutes.boards.posts("board_general"), {
       headers: { cookie },
     });
-    expect(postsResponse.status).toBe(200);
-    const postsPayload = boardPostListResponseSchema.parse(await postsResponse.json());
-    expect(postsPayload.data.board.id).toBe("board_general");
+    expect(postsResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await postsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const createPostResponse = await app.request(appRoutes.boards.posts("board_general"), {
       method: "POST",
@@ -1315,7 +1312,7 @@ describe("Phase 5 boards/documents skeleton", () => {
     expect(privateFilesPayload.error.details?.spaceId).toBe("document_space_hr_private");
   });
 
-  it("blocks employees from writing posts into notice-only boards", async () => {
+  it("requires the operational DB before checking notice-only board post writes", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const response = await app.request(appRoutes.boards.posts("board_notice"), {
@@ -1331,10 +1328,9 @@ describe("Phase 5 boards/documents skeleton", () => {
       }),
     });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(503);
     const payload = errorResponseSchema.parse(await response.json());
-    expect(payload.error.code).toBe("FORBIDDEN");
-    expect(payload.error.details?.boardId).toBe("board_notice");
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("forbids forged board_post detail lookups even when the board prefix is accessible", async () => {

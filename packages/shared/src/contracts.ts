@@ -1908,7 +1908,6 @@ export const boardSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const boardPostSchema = z.object({
@@ -1939,7 +1938,6 @@ export const boardPostSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const boardCommentSchema = z.object({
@@ -1954,20 +1952,17 @@ export const boardCommentSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const noticeListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(boardSchema),
-    placeholder: z.literal(true),
   }),
 );
 
 export const boardsListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(boardSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1983,7 +1978,6 @@ export const boardResponseSchema = successResponseSchema(
   z.object({
     board: boardSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2011,7 +2005,6 @@ export const boardPostListResponseSchema = successResponseSchema(
   z.object({
     board: boardSchema,
     items: z.array(boardPostSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2020,7 +2013,6 @@ export const boardPostCreateResponseSchema = successResponseSchema(
     board: boardSchema,
     post: boardPostSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2028,7 +2020,6 @@ export const boardPostDetailResponseSchema = successResponseSchema(
   z.object({
     board: boardSchema,
     post: boardPostSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2041,7 +2032,6 @@ export const boardCommentListResponseSchema = successResponseSchema(
   z.object({
     post: boardPostSchema,
     items: z.array(boardCommentSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2049,7 +2039,6 @@ export const boardCommentCreateResponseSchema = successResponseSchema(
   z.object({
     comment: boardCommentSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 

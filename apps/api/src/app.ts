@@ -869,7 +869,6 @@ const boards: Board[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_department_notice",
@@ -883,7 +882,6 @@ const boards: Board[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_general",
@@ -897,7 +895,6 @@ const boards: Board[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_data_share",
@@ -911,7 +908,6 @@ const boards: Board[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -930,7 +926,6 @@ const boardPosts: BoardPost[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_post_demo",
@@ -946,7 +941,6 @@ const boardPosts: BoardPost[] = [
     createdBy: "user_employee",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_post_department_notice_1",
@@ -962,7 +956,6 @@ const boardPosts: BoardPost[] = [
     createdBy: "user_company_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "board_post_data_share_1",
@@ -978,7 +971,6 @@ const boardPosts: BoardPost[] = [
     createdBy: "user_manager",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -995,7 +987,6 @@ const boardComments: BoardComment[] = [
     createdBy: "user_manager",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -2659,37 +2650,33 @@ async function buildApprovalDocumentDetailForAuth(context: AppContext, auth: Ses
 
 async function listBoardsForAuth(context: AppContext, auth: SessionContext) {
   const dbBoards = await listOperationalBoards(context.env, auth.user.companyId);
-  return mergeById(boards.filter((board) => canAccessBoard(auth, board)), dbBoards?.filter((board) => canAccessBoard(auth, board)));
+  return dbBoards?.filter((board) => canAccessBoard(auth, board)) ?? null;
 }
 
 async function findAccessibleBoardForAuth(context: AppContext, auth: SessionContext, boardId: string) {
   const availableBoards = await listBoardsForAuth(context, auth);
-  return availableBoards.find((board) => board.id === boardId) ?? null;
+  return availableBoards?.find((board) => board.id === boardId) ?? null;
 }
 
 async function listBoardPostsForAuth(context: AppContext, auth: SessionContext, boardId: string) {
-  const dbPosts = await listOperationalBoardPosts(context.env, auth.user.companyId, boardId);
-  return mergeById(listBoardPosts(auth, boardId), dbPosts);
+  return listOperationalBoardPosts(context.env, auth.user.companyId, boardId);
 }
 
 async function findAccessiblePostForAuth(context: AppContext, auth: SessionContext, postId: string) {
   const dbPost = await findOperationalBoardPost(context.env, auth.user.companyId, postId);
-  if (dbPost) {
-    const board = await findAccessibleBoardForAuth(context, auth, dbPost.boardId);
-    if (!board) {
-      return null;
-    }
-
-    return { board, post: dbPost };
+  if (!dbPost) {
+    return null;
   }
 
-  return findAccessiblePost(auth, postId);
+  const board = await findAccessibleBoardForAuth(context, auth, dbPost.boardId);
+  if (!board) {
+    return null;
+  }
+  return { board, post: dbPost };
 }
 
 async function listBoardCommentsForAuth(context: AppContext, auth: SessionContext, postId: string) {
-  const dbComments = await listOperationalBoardComments(context.env, auth.user.companyId, postId);
-  const fallbackComments = listBoardComments(auth, postId) as unknown as BoardComment[];
-  return mergeById<BoardComment>(fallbackComments, dbComments);
+  return listOperationalBoardComments(context.env, auth.user.companyId, postId);
 }
 
 async function listDocumentSpacesForAuth(context: AppContext, auth: SessionContext) {
@@ -4889,11 +4876,15 @@ app.get(appRoutes.boards.notices, async (context) => {
     return authResult.response;
   }
 
+  const availableBoards = await listBoardsForAuth(context, authResult.auth);
+  if (!availableBoards) {
+    return jsonDatabaseRequired(context, "공지 게시판 목록 조회");
+  }
+
   return jsonSuccess(context, noticeListResponseSchema, {
     ok: true,
     data: {
-      items: (await listBoardsForAuth(context, authResult.auth)).filter((board) => board.boardType === "notice"),
-      placeholder: true,
+      items: availableBoards.filter((board) => board.boardType === "notice"),
     },
     error: null,
   });
@@ -4905,11 +4896,15 @@ app.get(appRoutes.boards.boards, async (context) => {
     return authResult.response;
   }
 
+  const availableBoards = await listBoardsForAuth(context, authResult.auth);
+  if (!availableBoards) {
+    return jsonDatabaseRequired(context, "게시판 목록 조회");
+  }
+
   return jsonSuccess(context, boardsListResponseSchema, {
     ok: true,
     data: {
-      items: (await listBoardsForAuth(context, authResult.auth)).filter((board) => board.boardType !== "notice"),
-      placeholder: true,
+      items: availableBoards.filter((board) => board.boardType !== "notice"),
     },
     error: null,
   });
@@ -4941,7 +4936,6 @@ app.post(appRoutes.boards.boards, async (context) => {
     createdBy: authResult.auth.user.id,
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
   const board = await createOperationalBoard(context.env, boardInput);
   if (!board) {
@@ -4956,7 +4950,6 @@ app.post(appRoutes.boards.boards, async (context) => {
         candidate: true,
         action: "board.create",
       },
-      placeholder: true,
     },
     error: null,
   }, 201);
@@ -4969,7 +4962,11 @@ app.get("/api/boards/:id/posts", async (context) => {
   }
 
   const boardId = context.req.param("id");
-  const board = boardId ? await findAccessibleBoardForAuth(context, authResult.auth, boardId) : null;
+  const availableBoards = await listBoardsForAuth(context, authResult.auth);
+  if (!availableBoards) {
+    return jsonDatabaseRequired(context, "게시글 목록 조회");
+  }
+  const board = boardId ? availableBoards.find((candidate) => candidate.id === boardId) ?? null : null;
   if (!board) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
       boardId,
@@ -4977,12 +4974,16 @@ app.get("/api/boards/:id/posts", async (context) => {
     });
   }
 
+  const posts = await listBoardPostsForAuth(context, authResult.auth, board.id);
+  if (!posts) {
+    return jsonDatabaseRequired(context, "게시글 목록 조회");
+  }
+
   return jsonSuccess(context, boardPostListResponseSchema, {
     ok: true,
     data: {
       board,
-      items: await listBoardPostsForAuth(context, authResult.auth, board.id),
-      placeholder: true,
+      items: posts,
     },
     error: null,
   });
@@ -4995,7 +4996,11 @@ app.post("/api/boards/:id/posts", async (context) => {
   }
 
   const boardId = context.req.param("id");
-  const board = boardId ? await findAccessibleBoardForAuth(context, authResult.auth, boardId) : null;
+  const availableBoards = await listBoardsForAuth(context, authResult.auth);
+  if (!availableBoards) {
+    return jsonDatabaseRequired(context, "게시글 작성");
+  }
+  const board = boardId ? availableBoards.find((candidate) => candidate.id === boardId) ?? null : null;
   if (!board) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 게시판입니다.", 403, {
       boardId,
@@ -5038,7 +5043,6 @@ app.post("/api/boards/:id/posts", async (context) => {
     createdBy: authResult.auth.user.id,
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
 
   const post = await createOperationalBoardPost(context.env, postInput);
@@ -5055,7 +5059,6 @@ app.post("/api/boards/:id/posts", async (context) => {
         candidate: true,
         action: "board.post.create",
       },
-      placeholder: true,
     },
     error: null,
   }, 201);
@@ -5081,7 +5084,6 @@ app.get("/api/posts/:id", async (context) => {
     data: {
       board: postBundle.board,
       post: postBundle.post,
-      placeholder: true,
     },
     error: null,
   });
@@ -5102,12 +5104,16 @@ app.get("/api/posts/:id/comments", async (context) => {
     });
   }
 
+  const comments = await listBoardCommentsForAuth(context, authResult.auth, postBundle.post.id);
+  if (!comments) {
+    return jsonDatabaseRequired(context, "게시글 댓글 목록 조회");
+  }
+
   return jsonSuccess(context, boardCommentListResponseSchema, {
     ok: true,
     data: {
       post: postBundle.post,
-      items: await listBoardCommentsForAuth(context, authResult.auth, postBundle.post.id),
-      placeholder: true,
+      items: comments,
     },
     error: null,
   });
@@ -5148,7 +5154,6 @@ app.post("/api/posts/:id/comments", async (context) => {
     createdBy: authResult.auth.user.id,
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   };
 
   const comment = await createOperationalBoardComment(context.env, commentInput);
@@ -5164,7 +5169,6 @@ app.post("/api/posts/:id/comments", async (context) => {
         candidate: true,
         action: "board.comment.create",
       },
-      placeholder: true,
     },
     error: null,
   }, 201);

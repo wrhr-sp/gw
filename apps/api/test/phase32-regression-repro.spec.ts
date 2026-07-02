@@ -37,7 +37,9 @@ describe("phase32 production DB guard", () => {
     const list = await app.request(appRoutes.boards.posts("board_general"), {
       headers: { cookie },
     });
-    expect(list.status).toBe(200);
+    expect(list.status).toBe(503);
+    const listPayload = (await list.json()) as { error: { code: string } };
+    expect(listPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("does not append comments to in-memory fallback storage when PostgreSQL is not configured", async () => {
