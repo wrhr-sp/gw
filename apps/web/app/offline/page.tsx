@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { getTrustedHostFromHeaders } from "../../admin-host";
 import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 import { adminOfflineGuidance, offlineGuidance, offlineTaskGuides } from "../mobile-pwa-config";
+import { OfflineReconnectCheck } from "./offline-reconnect-check";
 
 async function getRequestHost() {
   const requestHeaders = await headers();
@@ -40,6 +41,12 @@ export default async function OfflinePage() {
       description="연결이 불안정할 때도 내부 업무 링크를 열어 두지 않습니다. 연결이 돌아오면 로그인 화면으로 다시 시작해 주세요."
       actions={<Pill tone="warning">로그인 재시도만 안내</Pill>}
     >
+      <SurfaceSection title="연결 상태 확인" description="연결이 돌아왔는지 실제 헬스체크로만 확인하고 업무 성공 상태로 바꾸지 않습니다.">
+        <div className="feature-workspace__rows">
+          <OfflineReconnectCheck />
+        </div>
+      </SurfaceSection>
+
       <SurfaceSection title="지금 가능한 일" description="오프라인 상태에서도 성공처럼 보이지 않는 범위만 남깁니다.">
         <ul className="summary-list">
           {guidance.availableNow.map((item) => (
