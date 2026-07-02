@@ -988,7 +988,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
 });
 
 describe("Phase 4 approvals skeleton", () => {
-  it("lists approval forms and lines for document writers", async () => {
+  it("requires the operational DB for approval forms and lines", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const [formsResponse, linesResponse] = await Promise.all([
@@ -996,14 +996,11 @@ describe("Phase 4 approvals skeleton", () => {
       app.request(appRoutes.approvals.lines, { headers: { cookie } }),
     ]);
 
-    expect(formsResponse.status).toBe(200);
-    expect(linesResponse.status).toBe(200);
+    expect(formsResponse.status).toBe(503);
+    expect(linesResponse.status).toBe(503);
 
-    const formsPayload = approvalFormListResponseSchema.parse(await formsResponse.json());
-    const linesPayload = approvalLineListResponseSchema.parse(await linesResponse.json());
-
-    expect(formsPayload.data.items[0]?.companyId).toBe("company_demo");
-    expect(linesPayload.data.items[0]?.steps[0]?.approverEmployeeId).toBe("employee_manager");
+    expect(errorResponseSchema.parse(await formsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    expect(errorResponseSchema.parse(await linesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks non-managers from creating approval forms and lines", async () => {

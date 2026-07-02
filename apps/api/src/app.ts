@@ -684,97 +684,6 @@ const adminPolicies = [
   },
 ] as const;
 
-const approvalForms = [
-  {
-    id: "approval_form_leave",
-    companyId: COMPANY_ID,
-    code: "leave_request",
-    title: "연차 신청서",
-    category: "leave",
-    fieldSummary: "연차 사유와 기간 입력 placeholder",
-    status: "active" as const,
-    placeholder: true as const,
-    createdBy: "user_hr_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
-  },
-  {
-    id: "approval_form_expense",
-    companyId: COMPANY_ID,
-    code: "expense_request",
-    title: "지출 결의서",
-    category: "expense",
-    fieldSummary: "금액/사유/예산 항목 입력 placeholder",
-    status: "active" as const,
-    placeholder: true as const,
-    createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
-  },
-];
-
-const approvalLines: ApprovalLine[] = [
-  {
-    id: "approval_line_team_manager",
-    companyId: COMPANY_ID,
-    title: "기본 팀장 결재선",
-    description: "팀장 승인 1단계 placeholder",
-    status: "active",
-    placeholder: true,
-    createdBy: "user_hr_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
-    steps: [
-      {
-        id: "approval_step_template_team_manager",
-        documentId: null,
-        lineId: "approval_line_team_manager",
-        stepOrder: 1,
-        approverEmployeeId: "employee_manager",
-        stepType: "approve",
-        decisionStatus: "pending",
-        decidedAt: null,
-        decisionComment: null,
-      },
-    ],
-  },
-  {
-    id: "approval_line_manager_hr",
-    companyId: COMPANY_ID,
-    title: "팀장 후 HR 결재선",
-    description: "팀장 승인 후 HR 승인 2단계 placeholder",
-    status: "active",
-    placeholder: true,
-    createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
-    steps: [
-      {
-        id: "approval_step_template_manager_hr_1",
-        documentId: null,
-        lineId: "approval_line_manager_hr",
-        stepOrder: 1,
-        approverEmployeeId: "employee_manager",
-        stepType: "approve",
-        decisionStatus: "pending",
-        decidedAt: null,
-        decisionComment: null,
-      },
-      {
-        id: "approval_step_template_manager_hr_2",
-        documentId: null,
-        lineId: "approval_line_manager_hr",
-        stepOrder: 2,
-        approverEmployeeId: "employee_staff",
-        stepType: "approve",
-        decisionStatus: "pending",
-        decidedAt: null,
-        decisionComment: null,
-      },
-    ],
-  },
-];
-
 const approvalDocuments: ApprovalDocument[] = [
   {
     id: "approval_document_demo",
@@ -2643,13 +2552,11 @@ async function findReviewableLeaveRequestForAuth(context: AppContext, auth: Sess
 }
 
 async function listApprovalFormsForAuth(context: AppContext, auth: SessionContext) {
-  const dbItems = await listOperationalApprovalForms(context.env, auth.user.companyId);
-  return mergeById(approvalForms.filter((form) => form.companyId === auth.user.companyId), dbItems);
+  return listOperationalApprovalForms(context.env, auth.user.companyId);
 }
 
 async function listApprovalLinesForAuth(context: AppContext, auth: SessionContext) {
-  const dbItems = await listOperationalApprovalLines(context.env, auth.user.companyId);
-  return mergeById(approvalLines.filter((line) => line.companyId === auth.user.companyId), dbItems);
+  return listOperationalApprovalLines(context.env, auth.user.companyId);
 }
 
 async function listApprovalStepsForDocumentForAuth(context: AppContext, auth: SessionContext, documentId: string) {
@@ -4372,14 +4279,18 @@ app.get(appRoutes.approvals.forms, async (context) => {
     return authResult.response;
   }
 
+  const items = await listApprovalFormsForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "전자결재 양식 목록 조회");
+  }
+
   return jsonSuccess(
     context,
     approvalFormListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listApprovalFormsForAuth(context, authResult.auth),
-        placeholder: true,
+        items,
       },
       error: null,
     },
@@ -4441,14 +4352,18 @@ app.get(appRoutes.approvals.lines, async (context) => {
     return authResult.response;
   }
 
+  const items = await listApprovalLinesForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "전자결재 결재선 목록 조회");
+  }
+
   return jsonSuccess(
     context,
     approvalLineListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listApprovalLinesForAuth(context, authResult.auth),
-        placeholder: true,
+        items,
       },
       error: null,
     },

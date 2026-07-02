@@ -127,7 +127,6 @@ function mapApprovalForm(row: DbRow): ApprovalForm {
     category: row.category,
     fieldSummary: row.field_summary,
     status: row.status,
-    placeholder: true,
     createdBy: row.created_by ?? "system",
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
@@ -155,7 +154,6 @@ function mapApprovalLine(row: DbRow, steps: ApprovalStep[]): ApprovalLine {
     title: row.title,
     description: row.description,
     status: row.status,
-    placeholder: true,
     createdBy: row.created_by ?? "system",
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
@@ -431,6 +429,7 @@ export async function listOperationalApprovalLines(env: PostgresEnv | undefined,
     order by updated_at desc, title asc
   `,
   ] as unknown as TemplateStringsArray, companyId);
+  if (!rows) return null;
   const stepRows = await listApprovalLineTemplateSteps(env, companyId);
   const stepMap = new Map<string, ApprovalStep[]>();
   for (const row of stepRows ?? []) {
