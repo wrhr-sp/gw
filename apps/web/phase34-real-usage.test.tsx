@@ -18,7 +18,7 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("근무 상태");
     expect(html).toContain("권한 요청");
     expect(html).toContain("employee.read 기준의 조회 화면이며 계정 생성·권한 변경은 관리자 화면에서만 처리합니다.");
-    expect(html).toContain("프로필 보기");
+    expect(html).toContain("조회 가능한 직원이 없으면");
     const employeesSource = readFileSync(new URL("./app/employees/page.tsx", import.meta.url), "utf8");
     expect(employeesSource).toContain("검색 초기화");
     expect(html).not.toContain("권한 저장");

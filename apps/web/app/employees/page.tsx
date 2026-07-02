@@ -27,20 +27,7 @@ const statusLabels: Record<Employee["employmentStatus"], string> = {
   offboarded: "퇴사",
 };
 
-const seedRows: EmployeeWithSummary[] = [
-  {
-    employee: { id: "seed-yun", companyId: "company_demo", departmentId: "department_strategy", email: "yun@example.com", fullName: "윤서진", employmentStatus: "active" },
-    summary: { employeeId: "seed-yun", departmentName: "전략기획팀", roleSummary: "팀장", statusLabel: "재직", statusTone: "positive", primaryNote: "전략기획 업무 담당" },
-  },
-  {
-    employee: { id: "seed-jung", companyId: "company_demo", departmentId: "department_hr", email: "jung@example.com", fullName: "정하늘", employmentStatus: "active" },
-    summary: { employeeId: "seed-jung", departmentName: "인사운영팀", roleSummary: "팀장", statusLabel: "재직", statusTone: "positive", primaryNote: "근태·휴가 승인 담당자입니다." },
-  },
-  {
-    employee: { id: "seed-kim", companyId: "company_demo", departmentId: "department_hr", email: "kim@example.com", fullName: "김민수", employmentStatus: "on_leave" },
-    summary: { employeeId: "seed-kim", departmentName: "인사운영팀", roleSummary: "과장", statusLabel: "휴가", statusTone: "caution", primaryNote: "대체 연락 필요" },
-  },
-];
+const initialRows: EmployeeWithSummary[] = [];
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -81,7 +68,7 @@ function EmployeeRow({ row }: { row: EmployeeWithSummary }) {
 
 export default function EmployeesPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [rows, setRows] = useState<EmployeeWithSummary[]>(seedRows);
+  const [rows, setRows] = useState<EmployeeWithSummary[]>(initialRows);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState<ToastState>(null);
 
