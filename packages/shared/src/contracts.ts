@@ -907,7 +907,7 @@ export const meResponseSchema = successResponseSchema(
 export const secondaryPasswordStatusResponseSchema = successResponseSchema(
   z.object({
     hasSecondaryPassword: z.boolean(),
-    persistence: z.enum(["preview-db", "memory-fallback"]),
+    persistence: z.literal("preview-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
@@ -944,7 +944,7 @@ export const userPreferencesSchema = z.record(z.string(), z.unknown());
 export const userPreferencesResponseSchema = successResponseSchema(
   z.object({
     preferences: userPreferencesSchema,
-    persistence: z.enum(["preview-db", "memory-fallback"]),
+    persistence: z.literal("preview-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
@@ -971,7 +971,7 @@ export const adminPermissionStateSchema = z.record(
 export const adminPermissionSettingsResponseSchema = successResponseSchema(
   z.object({
     settings: adminPermissionStateSchema,
-    persistence: z.enum(["preview-db", "fallback"]),
+    persistence: z.literal("preview-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
