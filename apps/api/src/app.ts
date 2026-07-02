@@ -278,10 +278,10 @@ const DEV_SAFE_LOGIN_EMAIL = "admin@example.com";
 const DEV_SAFE_LOGIN_PASSWORD = "1234";
 const COMPANY_ID = "company_demo";
 const SESSION_EXPIRY = "2099-01-01T00:00:00.000Z";
-const PLACEHOLDER_NOW = "2026-06-10T09:00:00.000Z";
-const PLACEHOLDER_CHECK_OUT = "2026-06-10T18:00:00.000Z";
-const PLACEHOLDER_REVIEWED_AT = "2026-06-10T10:00:00.000Z";
-const PLACEHOLDER_WORK_DATE = "2026-06-10";
+const UAT_FIXED_NOW = "2026-06-10T09:00:00.000Z";
+const UAT_FIXED_CHECK_OUT = "2026-06-10T18:00:00.000Z";
+const UAT_FIXED_REVIEWED_AT = "2026-06-10T10:00:00.000Z";
+const UAT_FIXED_WORK_DATE = "2026-06-10";
 const LEAVE_REQUEST_APPROVE_ROUTE = "/api/leave/requests/:id/approve";
 const LEAVE_REQUEST_REJECT_ROUTE = "/api/leave/requests/:id/reject";
 const APPROVAL_DOCUMENT_DETAIL_ROUTE = "/api/approvals/documents/:id";
@@ -605,7 +605,7 @@ const adminPolicies = [
     category: "company",
     companyId: COMPANY_ID,
     summary: "회사 기본 설정 / 조직 scope / 운영 owner 1차 모델",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["회사 기본 설정을 정책 시작점으로 고정", "승인된 운영 범위만 연결"],
     capability: "company.read",
     reasonRequired: true as const,
@@ -618,7 +618,7 @@ const adminPolicies = [
     category: "attendance",
     companyId: COMPANY_ID,
     summary: "근태 정정 승인 조건과 출퇴근 허용 방식",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["현재 허용 방식: mobile, pc", "태그 단말은 장비 연동 승인 전 보류"],
     capability: "attendance.manage",
     reasonRequired: true as const,
@@ -633,7 +633,7 @@ const adminPolicies = [
     category: "leave",
     companyId: COMPANY_ID,
     summary: "휴가 허용 유형 / 승인 필요 여부 / 직원 노출 규칙",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["직원 화면에는 회사가 허용한 유형만 노출", "승인 대기열은 승인 권한 보유자에게만 노출"],
     capability: "leave.approve",
     reasonRequired: true as const,
@@ -647,7 +647,7 @@ const adminPolicies = [
     category: "approval",
     companyId: COMPANY_ID,
     summary: "전자결재 승인 gate / 기본 결재선 / 자기결재 방지",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["팀장 결재선 검토", "self-approval guard 유지"],
     capability: "approval.line.manage",
     reasonRequired: true as const,
@@ -660,7 +660,7 @@ const adminPolicies = [
     category: "document",
     companyId: COMPANY_ID,
     summary: "문서 visibility / allowlist / retention",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["R2 metadata 중심 추적", "storageKey 원문 비노출"],
     capability: "document.space.manage",
     reasonRequired: true as const,
@@ -673,7 +673,7 @@ const adminPolicies = [
     category: "board",
     companyId: COMPANY_ID,
     summary: "게시판 visibility / notice / moderation",
-    lastReviewedAt: PLACEHOLDER_NOW,
+    lastReviewedAt: UAT_FIXED_NOW,
     policyChecks: ["board.manage 필요", "일반 사용자 작성 흐름과 분리"],
     capability: "board.manage",
     reasonRequired: true as const,
@@ -692,14 +692,14 @@ const approvalDocuments: ApprovalDocument[] = [
     lineId: "approval_line_team_manager",
     drafterEmployeeId: "employee_employee",
     title: "6월 연차 신청",
-    summary: "6월 20일 연차 사용 placeholder",
+    summary: "6월 20일 연차 사용",
     documentNumber: "APR-2026-0001",
     status: "pending_approval",
-    submittedAt: PLACEHOLDER_NOW,
+    submittedAt: UAT_FIXED_NOW,
     completedAt: null,
     createdBy: "user_employee",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "approval_document_multistep",
@@ -708,14 +708,14 @@ const approvalDocuments: ApprovalDocument[] = [
     lineId: "approval_line_manager_hr",
     drafterEmployeeId: "employee_employee",
     title: "다단계 지출 결의서",
-    summary: "팀장 승인 후 HR 최종 승인 placeholder",
+    summary: "팀장 승인 후 HR 최종 승인",
     documentNumber: "APR-2026-0004",
     status: "pending_approval",
-    submittedAt: PLACEHOLDER_NOW,
+    submittedAt: UAT_FIXED_NOW,
     completedAt: null,
     createdBy: "user_employee",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "approval_document_team_pending",
@@ -724,14 +724,14 @@ const approvalDocuments: ApprovalDocument[] = [
     lineId: "approval_line_team_manager",
     drafterEmployeeId: "employee_manager",
     title: "운영 장비 구매 승인",
-    summary: "키보드 교체 placeholder",
+    summary: "키보드 교체",
     documentNumber: "APR-2026-0002",
     status: "pending_approval",
-    submittedAt: PLACEHOLDER_NOW,
+    submittedAt: UAT_FIXED_NOW,
     completedAt: null,
     createdBy: "user_manager",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "approval_document_manager_self",
@@ -740,14 +740,14 @@ const approvalDocuments: ApprovalDocument[] = [
     lineId: "approval_line_team_manager",
     drafterEmployeeId: "employee_manager",
     title: "팀 운영비 정산",
-    summary: "매니저 본인 기안 self-approval guardrail placeholder",
+    summary: "매니저 본인 기안 self-approval guardrail",
     documentNumber: "APR-2026-0003",
     status: "pending_approval",
-    submittedAt: PLACEHOLDER_NOW,
+    submittedAt: UAT_FIXED_NOW,
     completedAt: null,
     createdBy: "user_manager",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -841,8 +841,8 @@ const approvalComments: ApprovalComment[] = [
     authorEmployeeId: "employee_employee",
     body: "오전 업무 인수인계 후 연차를 사용하려고 합니다.",
     createdBy: "user_employee",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "approval_comment_team_pending_reviewer",
@@ -851,8 +851,8 @@ const approvalComments: ApprovalComment[] = [
     authorEmployeeId: "employee_staff",
     body: "예산 범위와 대체 장비 재고를 검토 중입니다.",
     createdBy: "user_hr_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -867,8 +867,8 @@ const boards: Board[] = [
     isNoticeOnly: true,
     status: "active",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_department_notice",
@@ -880,8 +880,8 @@ const boards: Board[] = [
     isNoticeOnly: true,
     status: "active",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_general",
@@ -893,8 +893,8 @@ const boards: Board[] = [
     isNoticeOnly: false,
     status: "active",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_data_share",
@@ -906,8 +906,8 @@ const boards: Board[] = [
     isNoticeOnly: false,
     status: "active",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -920,12 +920,12 @@ const boardPosts: BoardPost[] = [
     title: "근태 운영 안내",
     bodyPreview: "6월 근태 마감 일정을 확인해주세요.",
     isNotice: true,
-    publishedAt: PLACEHOLDER_NOW,
+    publishedAt: UAT_FIXED_NOW,
     pinnedUntil: null,
     status: "published",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_post_demo",
@@ -935,12 +935,12 @@ const boardPosts: BoardPost[] = [
     title: "점심 메뉴 추천",
     bodyPreview: "오늘 뭐 드실래요?",
     isNotice: false,
-    publishedAt: PLACEHOLDER_NOW,
+    publishedAt: UAT_FIXED_NOW,
     pinnedUntil: null,
     status: "published",
     createdBy: "user_employee",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_post_department_notice_1",
@@ -950,12 +950,12 @@ const boardPosts: BoardPost[] = [
     title: "인사팀 공지",
     bodyPreview: "부서별 안내와 확인 사항을 이 게시판에서 공유합니다.",
     isNotice: true,
-    publishedAt: PLACEHOLDER_NOW,
+    publishedAt: UAT_FIXED_NOW,
     pinnedUntil: null,
     status: "published",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "board_post_data_share_1",
@@ -965,12 +965,12 @@ const boardPosts: BoardPost[] = [
     title: "업무 양식 모음",
     bodyPreview: "자주 쓰는 신청서와 안내 자료를 모아 둡니다.",
     isNotice: false,
-    publishedAt: PLACEHOLDER_NOW,
+    publishedAt: UAT_FIXED_NOW,
     pinnedUntil: null,
     status: "published",
     createdBy: "user_manager",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -985,8 +985,8 @@ const boardComments: BoardComment[] = [
     deletedAt: null,
     status: "active",
     createdBy: "user_manager",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -1001,8 +1001,8 @@ const documentSpaces: DocumentSpace[] = [
     isPublicWithinCompany: true,
     status: "active",
     createdBy: "user_company_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "document_space_hr_private",
@@ -1014,8 +1014,8 @@ const documentSpaces: DocumentSpace[] = [
     isPublicWithinCompany: false,
     status: "active",
     createdBy: "user_hr_admin",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -1035,8 +1035,8 @@ const documentFiles: DocumentFile[] = [
     storageStatus: "ready",
     checksumSha256: null,
     status: "active",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
   {
     id: "document_file_hr_private",
@@ -1053,8 +1053,8 @@ const documentFiles: DocumentFile[] = [
     storageStatus: "ready",
     checksumSha256: null,
     status: "active",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   },
 ];
 
@@ -1700,18 +1700,18 @@ function buildAttendanceRecord(
     companyId: COMPANY_ID,
     employeeId,
     status,
-    workDate: PLACEHOLDER_WORK_DATE,
-    checkInAt: PLACEHOLDER_NOW,
-    checkOutAt: status === "checked_out" ? PLACEHOLDER_CHECK_OUT : null,
+    workDate: UAT_FIXED_WORK_DATE,
+    checkInAt: UAT_FIXED_NOW,
+    checkOutAt: status === "checked_out" ? UAT_FIXED_CHECK_OUT : null,
     source: attendanceMethodToSource[attendanceRegistrationMethod],
     note:
       attendanceRegistrationMethod === "tag"
         ? "태그 단말 승인 대기"
         : status === "checked_in"
-          ? `placeholder check-in (${attendanceRegistrationMethod})`
-          : `placeholder day (${attendanceRegistrationMethod})`,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: status === "checked_out" ? PLACEHOLDER_CHECK_OUT : PLACEHOLDER_NOW,
+          ? `fixed check-in (${attendanceRegistrationMethod})`
+          : `fixed day (${attendanceRegistrationMethod})`,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: status === "checked_out" ? UAT_FIXED_CHECK_OUT : UAT_FIXED_NOW,
   };
 }
 
@@ -2301,12 +2301,12 @@ function findAccessiblePost(auth: SessionContext, postId: string) {
           title: board.isNoticeOnly ? "등록한 공지" : "등록한 게시글",
           bodyPreview: board.isNoticeOnly ? "등록 버튼으로 작성한 공지입니다." : "등록 버튼으로 작성한 게시글입니다.",
           isNotice: board.isNoticeOnly,
-          publishedAt: PLACEHOLDER_NOW,
+          publishedAt: UAT_FIXED_NOW,
           pinnedUntil: null,
           status: "published",
           createdBy: auth.user.id,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
+          createdAt: UAT_FIXED_NOW,
+          updatedAt: UAT_FIXED_NOW,
               },
       };
     }
@@ -2333,8 +2333,8 @@ function listBoardComments(auth: SessionContext, postId: string) {
         deletedAt: null,
         status: "active",
         createdBy: auth.user.id,
-        createdAt: PLACEHOLDER_NOW,
-        updatedAt: PLACEHOLDER_NOW,
+        createdAt: UAT_FIXED_NOW,
+        updatedAt: UAT_FIXED_NOW,
           },
     ];
   }
@@ -2423,10 +2423,10 @@ function canCreateReadReceipt(auth: SessionContext, targetType: "post" | "docume
   return findAccessibleDocumentFile(auth, targetId) !== null;
 }
 
-function mergeById<T extends { id: string }>(fallbackItems: T[], dbItems: T[] | null | undefined) {
+function mergeById<T extends { id: string }>(baselineItems: T[], dbItems: T[] | null | undefined) {
   const merged = new Map<string, T>();
 
-  for (const item of fallbackItems) {
+  for (const item of baselineItems) {
     merged.set(item.id, item);
   }
 
@@ -3109,7 +3109,7 @@ app.post(appRoutes.auth.login, async (context) => {
     data: {
       session,
       user: buildUser(roleCode, resolveSessionEmail(parsed.data.loginId, parsed.data.email)),
-      nextStep: "운영 DB 연결값이 없거나 DB 인증이 실패하면 dev/test/UAT 전용 fallback 으로만 동작합니다.",
+      nextStep: "운영 DB 연결값이 없거나 DB 인증이 실패하면 dev/test/UAT 전용 인증 경로로만 동작합니다.",
     },
     error: null,
   };
@@ -3782,7 +3782,7 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
           category: "document",
           companyId: parsed.data.companyId,
           summary: `문서 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 정책 변경 요청`,
-          lastReviewedAt: PLACEHOLDER_NOW,
+          lastReviewedAt: UAT_FIXED_NOW,
           policyChecks: [
             `허용 확장자: ${parsed.data.allowedFileExtensions.join(", ")}`,
             `최대 파일 크기: ${parsed.data.maxFileSizeBytes} bytes`,
@@ -3845,7 +3845,7 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
           category: "board",
           companyId: parsed.data.companyId,
           summary: `게시판 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 candidate`,
-          lastReviewedAt: PLACEHOLDER_NOW,
+          lastReviewedAt: UAT_FIXED_NOW,
           policyChecks: [
             `익명 댓글 허용: ${parsed.data.allowAnonymousComments ? "yes" : "no"}`,
             `읽음 확인 강제: ${parsed.data.requireReadReceipt ? "yes" : "no"}`,
@@ -4898,8 +4898,8 @@ app.post(appRoutes.boards.boards, async (context) => {
     isNoticeOnly: parsed.data.isNoticeOnly,
     status: "active",
     createdBy: authResult.auth.user.id,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
   const board = await createOperationalBoard(context.env, boardInput);
   if (!board) {
@@ -5001,12 +5001,12 @@ app.post("/api/boards/:id/posts", async (context) => {
     noticePeriod: parsed.data.noticePeriod ?? null,
     accessPolicy: parsed.data.accessPolicy ?? { scope: "board-default" },
     isNotice: parsed.data.isNotice,
-    publishedAt: PLACEHOLDER_NOW,
+    publishedAt: UAT_FIXED_NOW,
     pinnedUntil: null,
     status: "published",
     createdBy: authResult.auth.user.id,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
 
   const post = await createOperationalBoardPost(context.env, postInput);
@@ -5116,8 +5116,8 @@ app.post("/api/posts/:id/comments", async (context) => {
     deletedAt: null,
     status: "active",
     createdBy: authResult.auth.user.id,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
 
   const comment = await createOperationalBoardComment(context.env, commentInput);
@@ -5182,8 +5182,8 @@ app.post(appRoutes.documents.spaces, async (context) => {
     isPublicWithinCompany: parsed.data.isPublicWithinCompany,
     status: "active",
     createdBy: authResult.auth.user.id,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
   const space = await createOperationalDocumentSpace(context.env, spaceInput);
   if (!space) {
@@ -5262,8 +5262,8 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
     storageStatus: "pending",
     checksumSha256: null,
     status: "active",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
   const file = await createOperationalDocumentFile(context.env, {
     ...fileInput,
@@ -5345,8 +5345,8 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
     storageStatus: "pending",
     checksumSha256: null,
     status: "active",
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   };
 
   const action = await documentStorageAdapter.prepareUpload({
@@ -5418,7 +5418,7 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
     fileId: file.id,
     versionId: file.versionId,
     checksumSha256: parsed.data.checksumSha256 ?? null,
-    updatedAt: PLACEHOLDER_NOW,
+    updatedAt: UAT_FIXED_NOW,
   });
   if (!completedFile) {
     return jsonDatabaseRequired(context, "문서 업로드 완료");
@@ -5504,7 +5504,7 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
     companyId: file.companyId,
     fileId: file.id,
     versionId: file.versionId,
-    updatedAt: PLACEHOLDER_NOW,
+    updatedAt: UAT_FIXED_NOW,
   });
   if (!archivedFile) {
     return jsonDatabaseRequired(context, "문서 파일 삭제");
@@ -6263,9 +6263,9 @@ app.post(appRoutes.readReceipts, async (context) => {
     targetId: parsed.data.targetId,
     employeeId: authResult.auth.user.employeeId,
     userId: authResult.auth.user.id,
-    readAt: PLACEHOLDER_NOW,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
+    readAt: UAT_FIXED_NOW,
+    createdAt: UAT_FIXED_NOW,
+    updatedAt: UAT_FIXED_NOW,
   });
   if (!receipt) {
     return jsonDatabaseRequired(context, "읽음 확인 저장");
