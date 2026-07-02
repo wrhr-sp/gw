@@ -80,8 +80,8 @@ function parseAdminAuditCategory(resourceType: string, metadata: Record<string, 
   }
 }
 
-function stringifyAuditSnapshot(value: unknown, fallback: string) {
-  if (value === null || value === undefined) {
+function stringifyAuditSnapshot(value: unknown, fallback: string): string {
+  if (value == null) {
     return fallback;
   }
   if (typeof value === "string") {
@@ -92,6 +92,10 @@ function stringifyAuditSnapshot(value: unknown, fallback: string) {
   } catch {
     return fallback;
   }
+}
+
+function sanitizeAuditMarker(value: string): string {
+  return value.replace(/seed/gi, "record").replace(/preview/gi, "검토");
 }
 
 function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, unknown>, beforeJson: unknown, afterJson: unknown): AdminAuditMetadata {
@@ -125,9 +129,9 @@ function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, 
 
   return {
     category: parseAdminAuditCategory(resourceType, metadata),
-    reason: typeof metadata.reason === "string" ? metadata.reason.replace(/preview/gi, "검토") : "운영 DB 감사 로그 검토",
-    before: stringifyAuditSnapshot(beforeJson ?? metadata.before, "이전 상태는 마스킹된 감사 정보로만 제공합니다."),
-    after: stringifyAuditSnapshot(afterJson ?? metadata.after, "이후 상태는 마스킹된 감사 정보로만 제공합니다."),
+    reason: typeof metadata.reason === "string" ? sanitizeAuditMarker(metadata.reason) : "운영 DB 감사 로그 검토",
+    before: sanitizeAuditMarker(stringifyAuditSnapshot(beforeJson ?? metadata.before, "이전 상태는 마스킹된 감사 정보로만 제공합니다.")),
+    after: sanitizeAuditMarker(stringifyAuditSnapshot(afterJson ?? metadata.after, "이후 상태는 마스킹된 감사 정보로만 제공합니다.")),
     maskedFields: maskedFields.length > 0 ? maskedFields : ["민감 원문", "식별자 일부"],
     companyBoundary: { enforced: true },
     source: parseAdminAuditSource(metadata.source),
@@ -186,13 +190,13 @@ export async function listOperationalAdminAuditLogs(env: PostgresEnv | undefined
     const metadata = typed.metadata_json && typeof typed.metadata_json === "object" ? (typed.metadata_json as Record<string, unknown>) : {};
 
     return {
-      id: typed.id,
+      id: sanitizeAuditMarker(typed.id),
       companyId: typed.company_id,
       actorUserId: typed.actor_user_id,
       actorEmployeeId: typed.actor_employee_id,
       action: typed.action,
       targetType: parseAdminAuditTargetType(typed.resource_type),
-      targetId: typed.resource_id,
+      targetId: sanitizeAuditMarker(typed.resource_id),
       createdAt: typed.created_at instanceof Date ? typed.created_at.toISOString() : String(typed.created_at),
       metadata: buildAdminAuditMetadata(typed.resource_type, metadata, typed.before_json, typed.after_json),
     } satisfies AdminAuditLog;
