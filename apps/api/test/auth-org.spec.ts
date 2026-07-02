@@ -1099,7 +1099,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(createCommentPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("separates my drafts and approval inbox scopes", async () => {
+  it("requires the operational DB for approval document and inbox lists", async () => {
     const employee = await loginAndGetCookie("EMPLOYEE");
     const approver = await loginAndGetCookie("HR_ADMIN");
 
@@ -1108,21 +1108,16 @@ describe("Phase 4 approvals skeleton", () => {
         cookie: employee.cookie,
       },
     });
-    expect(employeeDocumentsResponse.status).toBe(200);
-    const employeeDocumentsPayload = approvalDocumentListResponseSchema.parse(await employeeDocumentsResponse.json());
-    expect(employeeDocumentsPayload.data.items.map((item) => item.id)).toContain("approval_document_demo");
-    expect(employeeDocumentsPayload.data.items.map((item) => item.id)).not.toContain("approval_document_team_pending");
-    expect(employeeDocumentsPayload.data.operationalContext.sourceLabel).toContain("/approvals");
+    expect(employeeDocumentsResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await employeeDocumentsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const approverInboxResponse = await app.request(appRoutes.approvals.inbox, {
       headers: {
         cookie: approver.cookie,
       },
     });
-    expect(approverInboxResponse.status).toBe(200);
-    const approverInboxPayload = approvalInboxResponseSchema.parse(await approverInboxResponse.json());
-    expect(approverInboxPayload.data.items.map((item) => item.id)).toContain("approval_document_team_pending");
-    expect(approverInboxPayload.data.operationalContext.blockedReasons.some((item) => item.category === "permission")).toBe(true);
+    expect(approverInboxResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await approverInboxResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const employeeInboxResponse = await app.request(appRoutes.approvals.inbox, {
       headers: {
@@ -1183,9 +1178,9 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(approveResponse.status).toBe(503);
+    expect(approveResponse.status).toBe(403);
     const approvePayload = errorResponseSchema.parse(await approveResponse.json());
-    expect(approvePayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(approvePayload.error.code).toBe("FORBIDDEN");
 
     const rejectResponse = await app.request(appRoutes.approvals.reject("approval_document_team_pending"), {
       method: "POST",
@@ -1198,9 +1193,9 @@ describe("Phase 4 approvals skeleton", () => {
       }),
     });
 
-    expect(rejectResponse.status).toBe(503);
+    expect(rejectResponse.status).toBe(403);
     const rejectPayload = errorResponseSchema.parse(await rejectResponse.json());
-    expect(rejectPayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(rejectPayload.error.code).toBe("FORBIDDEN");
   });
 
   it("forbids unknown approval document ids", async () => {

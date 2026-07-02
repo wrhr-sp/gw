@@ -1724,7 +1724,6 @@ export const approvalDocumentSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const approvalReferenceSchema = z.object({
@@ -1831,8 +1830,6 @@ export const approvalDocumentCreateRequestSchema = z.object({
 export const approvalDocumentListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalDocumentSchema),
-    operationalContext: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1860,8 +1857,6 @@ export const approvalDocumentDetailResponseSchema = successResponseSchema(
 export const approvalInboxResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalDocumentSchema),
-    operationalContext: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 

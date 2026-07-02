@@ -892,9 +892,9 @@ export function ApprovalsLiveSection() {
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [pending, setPending] = useState(false);
   const [title, setTitle] = useState("6월 연차 신청");
-  const [summary, setSummary] = useState("6월 20일 연차 사용 placeholder");
+  const [summary, setSummary] = useState("6월 20일 연차 사용 요청");
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
-  const documents = useApiQuery<{ items: Array<Record<string, any>>; operationalContext: Record<string, any> }>(appRoutes.approvals.documents, refreshSeed);
+  const documents = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.documents, refreshSeed);
   const inbox = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.inbox, refreshSeed);
   const forms = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.forms, refreshSeed);
   const lines = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.lines, refreshSeed);
@@ -940,7 +940,7 @@ export function ApprovalsLiveSection() {
           {documents.data ? (
             <>
               <h3>내 문서 {documents.data.items.length}건 · 승인함 {inbox.data?.items.length ?? 0}건</h3>
-              <p>{documents.data.operationalContext.currentState}</p>
+              <p>운영 DB에 저장된 전자결재 문서와 현재 세션의 승인함을 조회합니다.</p>
               <p className="card-note">
                 {session.data
                   ? `${session.data.user.fullName} · ${session.data.user.roleCodes.join(", ")} 세션으로 조회 중입니다.`
@@ -976,7 +976,7 @@ export function ApprovalsLiveSection() {
               }
               type="button"
             >
-              기안 preview 생성
+              기안 생성
             </button>
             <button
               className="touch-button--secondary"

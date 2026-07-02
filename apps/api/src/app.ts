@@ -700,7 +700,6 @@ const approvalDocuments: ApprovalDocument[] = [
     createdBy: "user_employee",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "approval_document_multistep",
@@ -717,7 +716,6 @@ const approvalDocuments: ApprovalDocument[] = [
     createdBy: "user_employee",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "approval_document_team_pending",
@@ -734,7 +732,6 @@ const approvalDocuments: ApprovalDocument[] = [
     createdBy: "user_manager",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "approval_document_manager_self",
@@ -751,7 +748,6 @@ const approvalDocuments: ApprovalDocument[] = [
     createdBy: "user_manager",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
@@ -2248,7 +2244,7 @@ function buildApprovalCandidates(type: ApprovalCandidate["type"]): ApprovalCandi
 
 async function findReviewableApprovalDocumentForAuth(context: AppContext, auth: SessionContext, documentId: string) {
   const documents = await listApprovalInboxDocumentsForAuth(context, auth);
-  return documents.find((document) => document.id === documentId && document.createdBy !== auth.user.id) ?? null;
+  return documents?.find((document) => document.id === documentId && document.createdBy !== auth.user.id) ?? null;
 }
 
 function findBoardById(boardId: string) {
@@ -2566,9 +2562,13 @@ async function listApprovalStepsForDocumentForAuth(context: AppContext, auth: Se
 
 async function listApprovalDocumentsForUserForAuth(context: AppContext, auth: SessionContext) {
   const dbItems = await listOperationalApprovalDocuments(context.env, auth.user.companyId);
+  if (!dbItems) {
+    return null;
+  }
+
   const accessibleDbItems: ApprovalDocument[] = [];
 
-  for (const document of dbItems ?? []) {
+  for (const document of dbItems) {
     if (canAccessApprovalDocument(auth, document)) {
       accessibleDbItems.push(document);
       continue;
@@ -2587,11 +2587,15 @@ async function listApprovalDocumentsForUserForAuth(context: AppContext, auth: Se
     }
   }
 
-  return mergeById(listApprovalDocumentsForUser(auth), accessibleDbItems);
+  return accessibleDbItems;
 }
 
 async function listApprovalInboxDocumentsForAuth(context: AppContext, auth: SessionContext) {
   const documents = await listApprovalDocumentsForUserForAuth(context, auth);
+  if (!documents) {
+    return null;
+  }
+
   const inboxFlags = new Map<string, boolean>();
 
   await Promise.all(
@@ -4427,15 +4431,18 @@ app.get(appRoutes.approvals.documents, async (context) => {
     return authResult.response;
   }
 
+  const items = await listApprovalDocumentsForUserForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "전자결재 문서 목록 조회");
+  }
+
   return jsonSuccess(
     context,
     approvalDocumentListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listApprovalDocumentsForUserForAuth(context, authResult.auth),
-        operationalContext: buildApprovalOperationalContext(authResult.auth),
-        placeholder: true,
+        items,
       },
       error: null,
     },
@@ -4588,15 +4595,18 @@ app.get(appRoutes.approvals.inbox, async (context) => {
     return authResult.response;
   }
 
+  const items = await listApprovalInboxDocumentsForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "전자결재 승인함 조회");
+  }
+
   return jsonSuccess(
     context,
     approvalInboxResponseSchema,
     {
       ok: true,
       data: {
-        items: await listApprovalInboxDocumentsForAuth(context, authResult.auth),
-        operationalContext: buildApprovalOperationalContext(authResult.auth),
-        placeholder: true,
+        items,
       },
       error: null,
     },
