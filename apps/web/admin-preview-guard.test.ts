@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { getAdminRouteGuardResult } from "./admin-preview-guard";
 
+function buildOperationalSessionToken(roleCode: string) {
+  const payload = encodeURIComponent(JSON.stringify({ roleCodes: [roleCode] }));
+  return `op-session_${Buffer.from(payload, "utf8").toString("base64url")}`;
+}
+
 describe("admin preview guard", () => {
   it("redirects anonymous general-host admin and management routes to login", () => {
     expect(getAdminRouteGuardResult({ pathname: "/admin", host: "gw-web.preview.workers.dev" })).toEqual({
@@ -129,6 +134,13 @@ describe("admin preview guard", () => {
         pathname: "/payroll/me",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-placeholder-session_EMPLOYEE",
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
+        pathname: "/attendance",
+        host: "gw-web.preview-account.workers.dev",
+        sessionToken: buildOperationalSessionToken("COMPANY_ADMIN"),
       }),
     ).toEqual({ action: "allow" });
     expect(
