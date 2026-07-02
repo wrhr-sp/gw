@@ -3151,7 +3151,6 @@ app.post(appRoutes.auth.logout, (context) => {
       data: {
         session: {
           status: "signed_out",
-          placeholder: true,
         },
       },
       error: null,

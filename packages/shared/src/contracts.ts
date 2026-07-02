@@ -894,7 +894,6 @@ export const authLogoutResponseSchema = successResponseSchema(
   z.object({
     session: z.object({
       status: z.literal("signed_out"),
-      placeholder: z.literal(true),
     }),
   }),
 );
