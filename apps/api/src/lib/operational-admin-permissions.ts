@@ -50,7 +50,7 @@ function buildStateFromRolePermissions(rolePermissionCodes: Map<RoleCode, Set<Pe
 export async function listOperationalAdminPermissionSettings(
   env: PostgresEnv | undefined,
   companyId: string,
-  fallbackForRole: (roleCode: RoleCode) => Permission["code"][],
+  baselinePermissionCodesForRole: (roleCode: RoleCode) => Permission["code"][],
 ) {
   const sql = createOperationalSql(env);
   if (!sql) return null;
@@ -71,7 +71,7 @@ export async function listOperationalAdminPermissionSettings(
     let updatedAt: string | null = null;
     for (const userId of allAdminPermissionUsers) {
       const roleCode = adminPermissionRoleByUser[userId];
-      rolePermissionCodes.set(roleCode, new Set(fallbackForRole(roleCode)));
+      rolePermissionCodes.set(roleCode, new Set(baselinePermissionCodesForRole(roleCode)));
     }
     for (const row of rows as Array<{ role_code: string; permission_code: string | null; updated_at: string | Date | null }>) {
       const roleCode = row.role_code as RoleCode;
