@@ -1876,7 +1876,6 @@ export const approvalCommentCreateResponseSchema = successResponseSchema(
 export const approvalCandidateListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalCandidateSchema),
-    placeholder: z.literal(true),
   }),
 );
 

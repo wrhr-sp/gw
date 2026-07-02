@@ -1128,7 +1128,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(employeeInboxPayload.error.details?.requiredPermission).toBe("approval.document.approve");
   });
 
-  it("lists reference and agreement candidates inside the same company", async () => {
+  it("requires the operational DB for reference and agreement candidates", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const [referenceResponse, agreementResponse] = await Promise.all([
@@ -1136,15 +1136,10 @@ describe("Phase 4 approvals skeleton", () => {
       app.request(appRoutes.approvals.agreementCandidates, { headers: { cookie } }),
     ]);
 
-    expect(referenceResponse.status).toBe(200);
-    expect(agreementResponse.status).toBe(200);
-
-    const referencePayload = approvalCandidateListResponseSchema.parse(await referenceResponse.json());
-    const agreementPayload = approvalCandidateListResponseSchema.parse(await agreementResponse.json());
-
-    expect(referencePayload.data.items.every((item) => item.companyId === "company_demo")).toBe(true);
-    expect(referencePayload.data.items.every((item) => item.type === "reference")).toBe(true);
-    expect(agreementPayload.data.items.every((item) => item.type === "agreement")).toBe(true);
+    expect(referenceResponse.status).toBe(503);
+    expect(agreementResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await referenceResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    expect(errorResponseSchema.parse(await agreementResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("blocks self-approval, allows the current approver review once, and forbids replay on the same document", async () => {
