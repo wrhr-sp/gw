@@ -501,7 +501,7 @@ describe("shared contracts", () => {
     });
   });
 
-  it("parses home shortcut placeholder payloads", () => {
+  it("parses home shortcut DB payloads", () => {
     expect(
       listHomeShortcutsResponseSchema.parse({
         ok: true,
@@ -519,7 +519,6 @@ describe("shared contracts", () => {
             },
           ],
           notices: ["운영 DB 기준 홈 바로가기를 조회했습니다."],
-          placeholder: true,
         },
         error: null,
       }).data.items[0]?.href,

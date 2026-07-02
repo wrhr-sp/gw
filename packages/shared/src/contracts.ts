@@ -1207,7 +1207,6 @@ export const listHomeShortcutsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(homeShortcutSchema),
     notices: z.array(z.string()).min(1),
-    placeholder: z.literal(true),
   }),
 );
 
