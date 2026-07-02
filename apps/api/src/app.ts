@@ -6311,7 +6311,6 @@ app.post(appRoutes.readReceipts, async (context) => {
         candidate: true,
         action: "read_receipt.create",
       },
-      placeholder: true,
     },
     error: null,
   }, 201);
