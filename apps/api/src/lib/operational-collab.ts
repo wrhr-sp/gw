@@ -102,7 +102,6 @@ function mapBoard(row: BoardRow): Board {
     createdBy: row.created_by ?? "system",
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
-    placeholder: true,
   };
 }
 
@@ -121,7 +120,6 @@ function mapBoardPost(row: BoardPostRow): BoardPost {
     createdBy: row.author_user_id,
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
-    placeholder: true,
   };
 }
 
@@ -138,7 +136,6 @@ function mapBoardComment(row: BoardCommentRow): BoardComment {
     createdBy: row.author_user_id,
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
-    placeholder: true,
   };
 }
 
