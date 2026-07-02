@@ -2490,7 +2490,7 @@ async function listAttendanceRecordsForEmployee(
   filters?: { workDateFrom?: string; workDateTo?: string },
 ) {
   const dbItems = await listOperationalAttendanceRecords(context.env, auth.user.companyId, employeeId, filters);
-  return mergeById(buildAttendanceRecordsForEmployee(employeeId), dbItems);
+  return dbItems ?? undefined;
 }
 
 async function listLeaveTypesForAuth(context: AppContext, auth: SessionContext) {
@@ -3987,7 +3987,6 @@ app.post(appRoutes.attendance.checkIn, async (context) => {
           candidate: true,
           action: "attendance.check_in",
         },
-        placeholder: true,
       },
       error: null,
     },
@@ -4035,7 +4034,6 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
           candidate: true,
           action: "attendance.check_out",
         },
-        placeholder: true,
       },
       error: null,
     },
@@ -4062,6 +4060,10 @@ app.get(appRoutes.attendance.records, async (context) => {
 
   const workDateFrom = context.req.query("workDateFrom") ?? undefined;
   const workDateTo = context.req.query("workDateTo") ?? undefined;
+  const items = await listAttendanceRecordsForEmployee(context, authResult.auth, employeeId, { workDateFrom, workDateTo });
+  if (!items) {
+    return jsonDatabaseRequired(context, "근태 기록 조회");
+  }
 
   return jsonSuccess(
     context,
@@ -4069,14 +4071,13 @@ app.get(appRoutes.attendance.records, async (context) => {
     {
       ok: true,
       data: {
-        items: await listAttendanceRecordsForEmployee(context, authResult.auth, employeeId, { workDateFrom, workDateTo }),
+        items,
         filters: {
           employeeId: requestedEmployeeId,
           workDateFrom,
           workDateTo,
         },
         policyContext: buildAttendancePolicyContext(employeeId),
-        placeholder: true,
       },
       error: null,
     },
@@ -4125,7 +4126,6 @@ app.post(appRoutes.attendance.corrections, async (context) => {
           candidate: true,
           action: "attendance.correction.request",
         },
-        placeholder: true,
       },
       error: null,
     },
