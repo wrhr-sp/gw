@@ -653,11 +653,11 @@ describe("shared contracts", () => {
       data: {
         items: [
           {
-            id: "notification_admin_seed_1",
+            id: "notification_admin_operational_ready",
             companyId: "company_demo",
             userId: "user_company_admin",
-            title: "운영 DB seed 완료",
-            body: "초기 운영 데이터와 관리자 shortcut, 감사 preview 를 확인하세요.",
+            title: "운영 알림 수신함 준비",
+            body: "관리자 바로가기와 감사 로그를 같은 화면 흐름에서 확인할 수 있습니다.",
             notificationType: "system",
             status: "unread",
             readAt: null,
