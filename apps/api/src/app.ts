@@ -2228,9 +2228,9 @@ function buildApprovalDocumentDetail(document: ApprovalDocument) {
   };
 }
 
-function buildApprovalCandidates(type: ApprovalCandidate["type"]): ApprovalCandidate[] {
-  return employees
-    .filter((employee) => employee.companyId === COMPANY_ID && employee.employmentStatus !== "offboarded")
+function buildApprovalCandidates(directory: OperationalEmployeeDirectory, type: ApprovalCandidate["type"]): ApprovalCandidate[] {
+  return directory.employees
+    .filter((employee) => employee.employmentStatus !== "offboarded")
     .map((employee) => ({
       employeeId: employee.id,
       companyId: employee.companyId,
@@ -4678,10 +4678,15 @@ app.get(appRoutes.approvals.inbox, async (context) => {
   );
 });
 
-app.get(appRoutes.approvals.referenceCandidates, (context) => {
+app.get(appRoutes.approvals.referenceCandidates, async (context) => {
   const authResult = requirePermission(context, "approval.document.write");
   if (authResult.response) {
     return authResult.response;
+  }
+
+  const directory = await listOperationalEmployeeDirectory(context.env, authResult.auth.user.companyId);
+  if (!directory) {
+    return jsonDatabaseRequired(context, "전자결재 참조 후보 조회");
   }
 
   return jsonSuccess(
@@ -4690,8 +4695,7 @@ app.get(appRoutes.approvals.referenceCandidates, (context) => {
     {
       ok: true,
       data: {
-        items: buildApprovalCandidates("reference"),
-        placeholder: true,
+        items: buildApprovalCandidates(directory, "reference"),
       },
       error: null,
     },
@@ -4699,10 +4703,15 @@ app.get(appRoutes.approvals.referenceCandidates, (context) => {
   );
 });
 
-app.get(appRoutes.approvals.agreementCandidates, (context) => {
+app.get(appRoutes.approvals.agreementCandidates, async (context) => {
   const authResult = requirePermission(context, "approval.document.write");
   if (authResult.response) {
     return authResult.response;
+  }
+
+  const directory = await listOperationalEmployeeDirectory(context.env, authResult.auth.user.companyId);
+  if (!directory) {
+    return jsonDatabaseRequired(context, "전자결재 합의 후보 조회");
   }
 
   return jsonSuccess(
@@ -4711,8 +4720,7 @@ app.get(appRoutes.approvals.agreementCandidates, (context) => {
     {
       ok: true,
       data: {
-        items: buildApprovalCandidates("agreement"),
-        placeholder: true,
+        items: buildApprovalCandidates(directory, "agreement"),
       },
       error: null,
     },
