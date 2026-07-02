@@ -1887,9 +1887,7 @@ export const approvalActionRequestSchema = z.object({
 export const approvalActionResponseSchema = successResponseSchema(
   z.object({
     document: approvalDocumentSchema,
-    operationalContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 

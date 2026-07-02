@@ -4797,12 +4797,10 @@ async function handleApprovalReview(
       ok: true,
       data: {
         document: responseDocument,
-        operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
           action,
         },
-        placeholder: true,
       },
       error: null,
     },
