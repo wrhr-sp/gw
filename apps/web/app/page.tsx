@@ -86,11 +86,11 @@ export default function HomePage() {
     >
       <section className="hero-card">
         <p className="brand-link__eyebrow">real-usable MVP pass 1</p>
-        <h2 style={{ margin: "8px 0 12px" }}>한 번에 눌러 볼 수 있는 업무 흐름과 관리자 경계를 같이 보여 줍니다.</h2>
-        <p style={{ margin: 0, lineHeight: 1.7 }}>
+        <h2 className="home-hero__title">한 번에 눌러 볼 수 있는 업무 흐름과 관리자 경계를 같이 보여 줍니다.</h2>
+        <p className="home-hero__copy">
           이번 단계는 실제 저장이나 외부 연동을 여는 작업이 아니라, 사내 검토자가 제품의 핵심 흐름을 이해하고 역할별 진입 경계와 승인 게이트를 확인할 수 있게 묶는 단계입니다.
         </p>
-        <div className="pill-row" style={{ marginTop: 16 }}>
+        <div className="pill-row home-hero__pills">
           <Pill tone="accent">dev-safe skeleton</Pill>
           <Pill tone="accent">general flow + admin boundary</Pill>
           <Pill tone="warning">실제 저장/권한 변경 제외</Pill>
