@@ -1875,7 +1875,7 @@ function buildApprovalOperationalContext(auth: SessionContext) {
         source: "/api/approvals/inbox",
         title: "권한 부족",
         description: hasPermission(auth.user, "approval.document.approve")
-          ? "현재 세션은 승인함 조회와 처리 placeholder 를 열 수 있습니다."
+          ? "현재 세션은 승인함 조회와 처리 권한을 사용할 수 있습니다."
           : "approval.document.approve 권한이 없으면 승인함 대신 내 문서함 중심으로 제한됩니다.",
       },
       {
@@ -2196,17 +2196,6 @@ function buildApprovalDocumentHistory(
   }
 
   return history.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-}
-
-function buildApprovalDocumentDetail(document: ApprovalDocument) {
-  return {
-    document,
-    steps: approvalSteps.filter((step) => step.documentId === document.id),
-    references: approvalReferences.filter((reference) => reference.documentId === document.id),
-    comments: listApprovalComments(document.id),
-    history: buildApprovalDocumentHistory(document),
-    placeholder: true as const,
-  };
 }
 
 function buildApprovalCandidates(directory: OperationalEmployeeDirectory, type: ApprovalCandidate["type"]): ApprovalCandidate[] {
