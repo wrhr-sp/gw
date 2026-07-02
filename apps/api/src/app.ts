@@ -4490,12 +4490,10 @@ app.post(appRoutes.approvals.documents, async (context) => {
       ok: true,
       data: {
         document,
-        operationalContext: buildApprovalOperationalContext(authResult.auth),
         audit: {
           candidate: true,
           action: "approval.document.create",
         },
-        placeholder: true,
       },
       error: null,
     },

@@ -1836,9 +1836,7 @@ export const approvalDocumentListResponseSchema = successResponseSchema(
 export const approvalDocumentCreateResponseSchema = successResponseSchema(
   z.object({
     document: approvalDocumentSchema,
-    operationalContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
