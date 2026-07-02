@@ -569,7 +569,6 @@ export const workItemAccessSchema = z.object({
   capabilities: z.array(workItemCapabilitySchema).min(1),
   branchAccessNote: z.string(),
   roleAccessNote: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const workItemHrParticipantSchema = z.object({
@@ -789,7 +788,6 @@ export const workItemSchema = z.object({
   legalContext: workItemLegalContextSchema.nullable().optional(),
   tags: z.array(z.string()),
   auditSummary: z.string(),
-  placeholder: z.literal(true),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   closedAt: z.string().datetime().nullable(),
@@ -803,7 +801,6 @@ export const workItemDocumentSchema = z.object({
   visibility: z.enum(["branch", "company", "restricted"]),
   containsSensitiveData: z.boolean(),
   accessNote: z.string(),
-  placeholder: z.literal(true),
   updatedAt: z.string().datetime(),
 });
 
@@ -817,7 +814,6 @@ export const workItemAttachmentSchema = z.object({
   sensitivityLabel: z.enum(["general", "internal", "restricted"]),
   storageExposure: z.literal("metadata_only"),
   previewAvailable: z.literal(false),
-  placeholder: z.literal(true),
 });
 
 export const workItemReviewSchema = z.object({
@@ -827,7 +823,6 @@ export const workItemReviewSchema = z.object({
   decision: z.enum(["approved", "changes_requested", "rejected", "noted"]),
   summary: z.string(),
   reviewedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const workItemDeadlineSchema = z.object({
@@ -838,7 +833,6 @@ export const workItemDeadlineSchema = z.object({
   status: z.enum(["scheduled", "upcoming", "due_today", "overdue", "done"]),
   ownerScope: z.string(),
   escalationNote: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const workItemAuditLogSchema = z.object({
@@ -848,7 +842,6 @@ export const workItemAuditLogSchema = z.object({
   actorRoleCode: roleCodeSchema,
   summary: z.string(),
   happenedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const healthPayloadSchema = z.object({

@@ -314,7 +314,6 @@ function mapWorkItem(row: DbRow): WorkItem {
       capabilities: parseWorkItemCapabilities(access.capabilities),
       branchAccessNote: toStringValue(access.branchAccessNote),
       roleAccessNote: toStringValue(access.roleAccessNote),
-      placeholder: true,
     },
     hrContext: row.hr_context_json ? (row.hr_context_json as WorkItem["hrContext"]) : null,
     laborContext: row.labor_context_json ? (row.labor_context_json as WorkItem["laborContext"]) : null,
@@ -322,7 +321,6 @@ function mapWorkItem(row: DbRow): WorkItem {
     legalContext: row.legal_context_json ? (row.legal_context_json as WorkItem["legalContext"]) : null,
     tags: toStringArray(row.tags_json),
     auditSummary: toStringValue(row.audit_summary),
-    placeholder: true,
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
     closedAt: row.closed_at ? toIsoString(row.closed_at, new Date(0).toISOString()) : null,
@@ -339,7 +337,6 @@ function mapWorkItemDocument(row: DbRow): WorkItemDocument {
     visibility: workItemDocumentVisibilities.has(row.visibility as WorkItemDocument["visibility"]) ? (row.visibility as WorkItemDocument["visibility"]) : "company",
     containsSensitiveData: toBoolean(row.contains_sensitive_data),
     accessNote: toStringValue(row.access_note),
-    placeholder: true,
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
   };
 }
@@ -357,7 +354,6 @@ function mapWorkItemAttachment(row: DbRow): WorkItemAttachment {
       : "general",
     storageExposure: "metadata_only",
     previewAvailable: false,
-    placeholder: true,
   };
 }
 
@@ -369,7 +365,6 @@ function mapWorkItemReview(row: DbRow): WorkItemReview {
     decision: workItemReviewDecisions.has(row.decision as WorkItemReview["decision"]) ? (row.decision as WorkItemReview["decision"]) : "noted",
     summary: toStringValue(row.summary),
     reviewedAt: toIsoString(row.reviewed_at, new Date(0).toISOString()),
-    placeholder: true,
   };
 }
 
@@ -382,7 +377,6 @@ function mapWorkItemDeadline(row: DbRow): WorkItemDeadline {
     status: workItemDeadlineStatuses.has(row.status as WorkItemDeadline["status"]) ? (row.status as WorkItemDeadline["status"]) : "scheduled",
     ownerScope: toStringValue(row.owner_scope),
     escalationNote: toStringValue(row.escalation_note),
-    placeholder: true,
   };
 }
 
@@ -394,7 +388,6 @@ function mapWorkItemAuditLog(row: DbRow): WorkItemAuditLog {
     actorRoleCode: roleCodes.has(row.actor_role_code as RoleCode) ? (row.actor_role_code as RoleCode) : "EMPLOYEE",
     summary: toStringValue(row.summary),
     happenedAt: toIsoString(row.happened_at, new Date(0).toISOString()),
-    placeholder: true,
   };
 }
 
