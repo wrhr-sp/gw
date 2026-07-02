@@ -26,7 +26,7 @@ describe("attendance registration policy pass 2 shared config", () => {
         policyTargetLabel: "운영팀",
         allowedAttendanceRegistrationMethods: ["pc"],
         candidateAllowedAttendanceRegistrationMethods: ["tag"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       }),
     );
 

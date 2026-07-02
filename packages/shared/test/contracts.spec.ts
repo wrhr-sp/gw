@@ -96,7 +96,7 @@ const sampleOperationalBridge = {
   currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
   sourceLabel: "/admin/policies · /admin/users · /admin/audit-logs",
   auditTrailHint: "운영 예외와 차단 이유는 감사 preview 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
-  placeholderNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
+  operationalNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
   blockedReasons: [
     {
       category: "permission",
@@ -1802,7 +1802,7 @@ describe("shared contracts", () => {
             attendanceRegistrationPolicy: {
               allowedAttendanceRegistrationMethods: ["mobile", "pc"],
               candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-              tagDeviceStatus: "skeleton_only",
+              tagDeviceStatus: "approval_required",
             },
           },
           {
@@ -1837,7 +1837,7 @@ describe("shared contracts", () => {
   });
 
   it("accepts all supported tag device status values in attendance policy payload", () => {
-    const statuses = ["not_configured", "skeleton_only", "ready_for_device"] as const;
+    const statuses = ["not_configured", "approval_required", "ready_for_device"] as const;
 
     for (const status of statuses) {
       const request = attendanceRegistrationPolicySchema.safeParse({
@@ -1855,27 +1855,27 @@ describe("shared contracts", () => {
       {
         allowedAttendanceRegistrationMethods: ["mobile"],
         candidateAllowedAttendanceRegistrationMethods: ["mobile"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
       {
         allowedAttendanceRegistrationMethods: ["pc"],
         candidateAllowedAttendanceRegistrationMethods: ["pc"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
       {
         allowedAttendanceRegistrationMethods: ["tag"],
         candidateAllowedAttendanceRegistrationMethods: ["tag"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
       {
         allowedAttendanceRegistrationMethods: ["mobile", "pc"],
         candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
       {
         allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
         candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
     ] as const;
 
@@ -1888,7 +1888,7 @@ describe("shared contracts", () => {
     const request = attendanceRegistrationPolicySchema.safeParse({
       allowedAttendanceRegistrationMethods: [],
       candidateAllowedAttendanceRegistrationMethods: ["mobile"],
-      tagDeviceStatus: "skeleton_only",
+      tagDeviceStatus: "approval_required",
     });
 
     expect(request.success).toBe(false);
@@ -1905,7 +1905,7 @@ describe("shared contracts", () => {
       attendanceRegistrationPolicy: {
         allowedAttendanceRegistrationMethods: ["mobile"],
         candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-        tagDeviceStatus: "skeleton_only",
+        tagDeviceStatus: "approval_required",
       },
     });
 

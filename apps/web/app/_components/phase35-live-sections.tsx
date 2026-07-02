@@ -363,8 +363,8 @@ export function ManagementCompliancePreviewSection() {
   return (
     <div className="grid-auto-compact">
       <article className="info-card">
-        <Pill tone="accent">컴플라이언스 / 감사 preview</Pill>
-        <QueryState query={auditLogs} emptyMessage="감사 로그 preview 응답이 없습니다." />
+        <Pill tone="accent">컴플라이언스 / 감사</Pill>
+        <QueryState query={auditLogs} emptyMessage="감사 로그 응답이 없습니다." />
         {auditLogs.data ? (
           <>
             <h3>{auditLogs.data.items.length}건</h3>
@@ -384,7 +384,7 @@ export function ManagementCompliancePreviewSection() {
         ) : auditLogs.data ? (
           <>
             <h3>{auditLogs.data.filterOptions.categories.join(", ")}</h3>
-            <p>{auditLogs.data.operationalTrail.placeholderNote}</p>
+            <p>{auditLogs.data.operationalTrail.operationalNote}</p>
             <p className="card-note">read-only 추적이며 전용 compliance 조치 엔진 완료를 뜻하지 않습니다.</p>
           </>
         ) : (

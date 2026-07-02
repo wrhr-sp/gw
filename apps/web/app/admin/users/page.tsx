@@ -12,7 +12,7 @@ function getFallbackPreview(): Pick<AdminUsersListResponse["data"], "items" | "l
     items: [],
     linkedScreens: [
       {
-        category: "placeholder",
+        category: "implementation",
         source: "/admin/users",
         title: "계정관리 preview 를 다시 확인해 주세요",
         description: "세션 또는 권한 문제로 실제 preview 를 불러오지 못해 fallback 안내만 표시합니다.",
