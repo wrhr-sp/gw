@@ -173,7 +173,7 @@ type AdminAuditPayload = {
     targetTypes: string[];
     categories: string[];
   };
-  detailPreview: {
+  detailSummary: {
     actorLabel: string;
     targetLabel: string;
     reasonRequired: true;
@@ -566,8 +566,8 @@ export function AuditLogsLiveSection() {
           {auditLogs.data ? (
             <>
               <h3>{auditLogs.data.items.length}건</h3>
-              <p>{auditLogs.data.detailPreview.actorLabel} · {auditLogs.data.detailPreview.targetLabel}</p>
-              <p className="card-note">reason required: {auditLogs.data.detailPreview.reasonRequired ? "yes" : "no"}</p>
+              <p>{auditLogs.data.detailSummary.actorLabel} · {auditLogs.data.detailSummary.targetLabel}</p>
+              <p className="card-note">reason required: {auditLogs.data.detailSummary.reasonRequired ? "yes" : "no"}</p>
             </>
           ) : null}
         </article>

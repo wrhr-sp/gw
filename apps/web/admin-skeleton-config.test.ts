@@ -3,11 +3,11 @@ import type { AttendanceRegistrationPolicy } from "@gw/shared";
 import {
   adminApprovalGateNotes,
   adminAuditBoundaryNotes,
-  adminAuditLogPreviewFilters,
+  adminAuditLogReviewFilters,
   adminAuditNotes,
   adminHubCards,
   adminHubPriorityChecks,
-  adminPolicyPreview,
+  adminPolicyReview,
   adminPolicyReviewChecklist,
   adminPolicySections,
   adminRoleEntryRules,
@@ -17,7 +17,7 @@ import {
   companySettingsGroups,
   companySettingsPolicyAxes,
   getAttendancePagePolicyView,
-  leavePolicySummaryPreview,
+  leavePolicySummaryReview,
   leaveTypeCodeLabels,
 } from "./admin-skeleton-config";
 
@@ -143,29 +143,29 @@ describe("Phase 13 admin operations config", () => {
     }
   });
 
-  it("builds admin preview with priority order, policy subjects, and duplicate warnings", () => {
-    expect(adminPolicyPreview.priorityOrder).toEqual(["company_default", "workplace", "department", "job_type"]);
-    expect(adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
-    expect(adminPolicyPreview.policySubjectSummaries.some((item) => item.summary.includes("부산 물류센터 > 현장직"))).toBe(true);
-    expect(adminPolicyPreview.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
+  it("builds admin review with priority order, policy subjects, and duplicate warnings", () => {
+    expect(adminPolicyReview.priorityOrder).toEqual(["company_default", "workplace", "department", "job_type"]);
+    expect(adminPolicyReview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
+    expect(adminPolicyReview.policySubjectSummaries.some((item) => item.summary.includes("부산 물류센터 > 현장직"))).toBe(true);
+    expect(adminPolicyReview.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
   it("keeps audit filters and boundaries in masked read-only scope", () => {
-    expect(adminAuditLogPreviewFilters).toEqual(["actor", "action", "target", "time", "category"]);
+    expect(adminAuditLogReviewFilters).toEqual(["actor", "action", "target", "time", "category"]);
     expect(adminPolicyReviewChecklist).toContain("감사 검토 와 company boundary 유지");
     expect(adminAuditNotes[0]).toContain("비밀값");
     expect(adminAuditBoundaryNotes).toContain("export/download 없이 화면 조회와 review 메모 기준만 고정합니다.");
   });
 
-  it("exposes company settings and leave policy summaries for phase 21 previews", () => {
+  it("exposes company settings and leave policy summaries for phase 21 reviews", () => {
     expect(companySettingsApprovalGates.some((gate) => gate.status === "ready")).toBe(true);
     expect(companySettingsApprovalGates.some((gate) => gate.id === "leave_payroll_sync")).toBe(true);
-    expect(leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels])).toEqual([
+    expect(leavePolicySummaryReview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels])).toEqual([
       "연차",
       "반차(오전)",
       "병가",
     ]);
-    expect(leavePolicySummaryPreview.approvalRequiredTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
-    expect(leavePolicySummaryPreview.approvalQueueVisibleToApprover).toBe(true);
+    expect(leavePolicySummaryReview.approvalRequiredTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
+    expect(leavePolicySummaryReview.approvalQueueVisibleToApprover).toBe(true);
   });
 });

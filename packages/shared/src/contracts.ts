@@ -1334,7 +1334,7 @@ export const attendancePolicyScopeSummarySchema = attendancePolicyAssignmentSche
   appliedEmployeeCount: z.number().int().min(0),
 });
 
-export const attendancePolicyPreviewSchema = z.object({
+export const attendancePolicyReviewSchema = z.object({
   priorityOrder: z.array(attendancePolicyLevelSchema).length(4),
   scopeSummaries: z.array(attendancePolicyScopeSummarySchema),
   policySubjectSummaries: z.array(effectiveAttendancePolicySchema),
@@ -1349,12 +1349,12 @@ export const adminPolicySummarySchema = z.object({
   policyChecks: z.array(z.string()).min(1),
   capability: permissionCodeSchema,
   reasonRequired: z.literal(true),
-  diffPreview: z.object({
+  diffSummary: z.object({
     before: z.string(),
     after: z.string(),
   }),
   attendanceRegistrationPolicy: attendanceRegistrationPolicySchema.optional(),
-  attendancePolicyPreview: attendancePolicyPreviewSchema.optional(),
+  attendancePolicyReview: attendancePolicyReviewSchema.optional(),
   leavePolicySummary: leavePolicySummarySchema.optional(),
 });
 
@@ -1460,7 +1460,7 @@ export const adminAuditLogFilterOptionsSchema = z.object({
   categories: z.array(adminAuditCategorySchema).min(1),
 });
 
-export const adminAuditLogDetailPreviewSchema = z.object({
+export const adminAuditLogDetailSummarySchema = z.object({
   actorLabel: z.string(),
   targetLabel: z.string(),
   reasonRequired: z.literal(true),
@@ -1471,7 +1471,7 @@ export const adminAuditLogListResponseSchema = successResponseSchema(
     items: z.array(adminAuditLogSchema),
     filters: adminAuditLogFiltersSchema,
     filterOptions: adminAuditLogFilterOptionsSchema,
-    detailPreview: adminAuditLogDetailPreviewSchema,
+    detailSummary: adminAuditLogDetailSummarySchema,
     operationalTrail: operationalBridgeSummarySchema,
   }),
 );
@@ -2264,7 +2264,7 @@ export type AttendancePolicyRule = z.infer<typeof attendancePolicyRuleSchema>;
 export type AttendancePolicyAssignment = z.infer<typeof attendancePolicyAssignmentSchema>;
 export type EffectiveAttendancePolicy = z.infer<typeof effectiveAttendancePolicySchema>;
 export type AttendancePolicyScopeSummary = z.infer<typeof attendancePolicyScopeSummarySchema>;
-export type AttendancePolicyPreview = z.infer<typeof attendancePolicyPreviewSchema>;
+export type AttendancePolicyReview = z.infer<typeof attendancePolicyReviewSchema>;
 export type AdminPolicySummary = z.infer<typeof adminPolicySummarySchema>;
 export type AdminPoliciesListResponse = z.infer<typeof adminPoliciesListResponseSchema>;
 export type AdminPolicyDocumentUpdateRequest = z.infer<typeof adminPolicyDocumentUpdateRequestSchema>;

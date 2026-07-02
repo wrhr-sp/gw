@@ -61,7 +61,7 @@ export function AdminPoliciesLiveSection() {
         <div>
           <strong>정책 API 상태</strong>
           <span>{loadState === "loading" ? "조회 중" : data.summary}</span>
-          <p>{errorMessage ?? "저장 전 current/candidate/capability/audit preview 를 실제 응답 기준으로 확인합니다."}</p>
+          <p>{errorMessage ?? "저장 전 current/candidate/capability/audit review 를 실제 응답 기준으로 확인합니다."}</p>
         </div>
         <em>{loadState === "error" ? "오류" : "조회"}</em>
       </article>
@@ -70,7 +70,7 @@ export function AdminPoliciesLiveSection() {
           <div>
             <strong>{item.category}</strong>
             <span>{item.summary}</span>
-            <p>{`${item.diffPreview.before} → ${item.diffPreview.after}`}</p>
+            <p>{`${item.diffSummary.before} → ${item.diffSummary.after}`}</p>
             <div className="pill-row">
               <Pill>{item.capability}</Pill>
               <Pill tone="warning">reason required</Pill>

@@ -1,7 +1,7 @@
 import type {
   AttendancePolicyAssignment,
   AttendancePolicyLevel,
-  AttendancePolicyPreview,
+  AttendancePolicyReview,
   AttendancePolicyRule,
   AttendanceRegistrationMethod,
   AttendanceRegistrationPolicy,
@@ -125,13 +125,13 @@ export function resolveEffectiveAttendancePolicy({
   };
 }
 
-export function buildAttendancePolicyPreview({
+export function buildAttendancePolicyReview({
   assignments,
   subjects,
 }: {
   assignments: AttendancePolicyAssignment[];
   subjects: AttendancePolicySubject[];
-}): AttendancePolicyPreview {
+}): AttendancePolicyReview {
   const activeAssignments = assignments.filter((assignment) => assignment.active);
   const grouped = new Map<string, AttendancePolicyAssignment[]>();
 

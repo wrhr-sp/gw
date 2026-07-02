@@ -6,7 +6,7 @@ import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import {
   adminAuditBoundaryNotes,
   adminAuditDetailFields,
-  adminAuditLogPreviewFilters,
+  adminAuditLogReviewFilters,
   adminAuditNotes,
   adminAuditTimelineItems,
 } from "../../../admin-skeleton-config";
@@ -35,8 +35,8 @@ const auditGuardRows = auditGuardRoles.map((roleCode) => {
   };
 });
 
-const storagePreviewNotes = [
-  "before/after 는 raw 원문이 아니라 masked preview 로만 확인합니다.",
+const storageReviewNotes = [
+  "before/after 는 raw 원문이 아니라 masked review 로만 확인합니다.",
   "storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.",
   "raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.",
 ] as const;
@@ -49,7 +49,7 @@ const approvalGateNotes = [
 
 const opsBaselineNotes = [
   "/api/health 는 service / status / version 을 확인하는 최소 liveness 기준입니다.",
-  "preview smoke 와 build/release gate 는 경로가 열리는지 확인하는 운영 최소 근거입니다.",
+  "review smoke 와 build/release gate 는 경로가 열리는지 확인하는 운영 최소 근거입니다.",
   "RUNBOOK.md 와 DEPLOYMENT.md 는 장애 대응·배포 확인 순서를 설명하는 문서이며, 전용 관제 dashboard 를 대신한다고 쓰지 않습니다.",
   "backup/restore/incident 대응은 아직 수동 절차와 승인 게이트 중심입니다.",
 ] as const;
@@ -98,7 +98,7 @@ export default function AdminAuditLogsPage() {
 
       <SurfaceSection title="조회 필터" description="누가, 무엇을, 어디에 대해, 언제 확인했는지 같은 질문을 빠르게 좁히는 기본 필터입니다.">
         <div className="grid-auto-compact">
-          {adminAuditLogPreviewFilters.map((item) => (
+          {adminAuditLogReviewFilters.map((item) => (
             <article key={item} className="info-card">
               <Pill>{item}</Pill>
               <p>{item} 기준으로 최근 이벤트를 다시 정렬합니다.</p>
@@ -135,9 +135,9 @@ export default function AdminAuditLogsPage() {
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection title="storage preview 경계" description="storage 흔적이 보이더라도 참조 요약만 보여 주고 raw 저장소 정보는 숨깁니다.">
+      <SurfaceSection title="storage review 경계" description="storage 흔적이 보이더라도 참조 요약만 보여 주고 raw 저장소 정보는 숨깁니다.">
         <ul className="summary-list">
-          {storagePreviewNotes.map((item) => (
+          {storageReviewNotes.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
