@@ -34,9 +34,9 @@ describe("Phase 34 real-usage entrypoints", () => {
     expect(html).toContain("부서 상세");
     expect(html).toContain("구성원");
     expect(html).toContain("접근 범위");
-    expect(html).toContain("서울지점");
+    expect(html).toContain("표시할 조직 없음");
     expect(html).toContain("조직 조회는 read-only이며 역할·정책 변경은 관리자 영역으로 분리합니다.");
-    expect(html).toContain("부서 펼치기");
+    expect(html).toContain("범위 확인");
     const orgSource = readFileSync(new URL("./app/org/page.tsx", import.meta.url), "utf8");
     expect(orgSource).toContain("범위 확인");
     expect(html).not.toContain("역할 생성");
