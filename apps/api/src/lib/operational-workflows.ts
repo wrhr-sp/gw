@@ -79,7 +79,6 @@ function mapLeaveType(row: DbRow): LeaveType {
     name: row.name,
     unit: row.unit,
     status: row.status,
-    placeholder: true,
   } as LeaveType;
 }
 
@@ -94,7 +93,6 @@ function mapLeaveBalance(row: DbRow): LeaveBalance {
     usedDays: toNumber(row.used_days),
     reservedDays: toNumber(row.reserved_days),
     remainingDays: toNumber(row.remaining_days),
-    placeholder: true,
   } as LeaveBalance;
 }
 

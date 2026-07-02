@@ -88,21 +88,7 @@ describe("Phase 53 leave/attendance live usage panel guardrails", () => {
     ];
 
     expect(pickLeaveApprovalRequest(session, requests)?.id).toBe("team_pending");
-    expect(
-      canShowLeaveApprovalActions(
-        session,
-        {
-          effectiveScopeLabel: "회사 기본",
-          allowedLeaveTypeCodes: ["annual"],
-          approvalRequiredTypeCodes: ["annual"],
-          approvalQueueVisibleToCurrentUser: true,
-          employeeMessage: "직원",
-          managerMessage: "관리자",
-          placeholder: true,
-        },
-        pickLeaveApprovalRequest(session, requests),
-      ),
-    ).toBe(true);
+    expect(canShowLeaveApprovalActions(session, pickLeaveApprovalRequest(session, requests))).toBe(true);
     expect(
       canShowLeaveApprovalActions(
         {
@@ -111,15 +97,6 @@ describe("Phase 53 leave/attendance live usage panel guardrails", () => {
             ...session.user,
             permissions: ["leave.request"],
           },
-        },
-        {
-          effectiveScopeLabel: "회사 기본",
-          allowedLeaveTypeCodes: ["annual"],
-          approvalRequiredTypeCodes: ["annual"],
-          approvalQueueVisibleToCurrentUser: true,
-          employeeMessage: "직원",
-          managerMessage: "관리자",
-          placeholder: true,
         },
         pickLeaveApprovalRequest(session, requests),
       ),

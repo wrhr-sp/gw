@@ -1593,7 +1593,6 @@ export const leaveTypeSchema = z.object({
   name: z.string(),
   unit: leaveUnitSchema,
   status: leaveTypeStatusSchema,
-  placeholder: z.literal(true),
 });
 
 export const leaveBalanceSchema = z.object({
@@ -1606,7 +1605,6 @@ export const leaveBalanceSchema = z.object({
   usedDays: z.number(),
   reservedDays: z.number(),
   remainingDays: z.number(),
-  placeholder: z.literal(true),
 });
 
 export const leaveRequestSchema = z.object({
@@ -1631,30 +1629,18 @@ export const leaveRequestSchema = z.object({
 export const leaveTypeListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveTypeSchema),
-    policyContext: operationalBridgeSummarySchema,
-    leavePolicySummary: leavePolicySummarySchema,
-    companySettingsModel: companySettingsModelSchema,
-    placeholder: z.literal(true),
   }),
 );
 
 export const leaveBalanceListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveBalanceSchema),
-    policyContext: operationalBridgeSummarySchema,
-    leavePolicySummary: leavePolicySummarySchema,
-    companySettingsModel: companySettingsModelSchema,
-    placeholder: z.literal(true),
   }),
 );
 
 export const leaveRequestListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(leaveRequestSchema),
-    policyContext: operationalBridgeSummarySchema,
-    leavePolicySummary: leavePolicySummarySchema,
-    companySettingsModel: companySettingsModelSchema,
-    placeholder: z.literal(true),
   }),
 );
 

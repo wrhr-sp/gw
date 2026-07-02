@@ -684,12 +684,6 @@ const adminPolicies = [
   },
 ] as const;
 
-const leaveTypes: LeaveType[] = [
-  { id: "leave_type_annual", companyId: COMPANY_ID, code: "annual", name: "연차", unit: "day", status: "active", placeholder: true },
-  { id: "leave_type_half_day_am", companyId: COMPANY_ID, code: "half_day_am", name: "반차(오전)", unit: "half_day", status: "active", placeholder: true },
-  { id: "leave_type_sick", companyId: COMPANY_ID, code: "sick", name: "병가", unit: "day", status: "active", placeholder: true },
-];
-
 const approvalForms = [
   {
     id: "approval_form_leave",
@@ -2194,96 +2188,6 @@ function buildLeavePolicySummary(approvalQueueVisibleToCurrentUser: boolean) {
   };
 }
 
-function buildLeaveBalances(employeeId: string): LeaveBalance[] {
-  return [
-    {
-      id: "leave_balance_annual",
-      companyId: COMPANY_ID,
-      employeeId,
-      leaveTypeId: "leave_type_annual",
-      asOfDate: "2026-06-01",
-      openingDays: 15,
-      usedDays: 3,
-      reservedDays: 1,
-      remainingDays: 11,
-      placeholder: true,
-    },
-    {
-      id: "leave_balance_sick",
-      companyId: COMPANY_ID,
-      employeeId,
-      leaveTypeId: "leave_type_sick",
-      asOfDate: "2026-06-01",
-      openingDays: 10,
-      usedDays: 0,
-      reservedDays: 0,
-      remainingDays: 10,
-      placeholder: true,
-    },
-  ];
-}
-
-function buildLeaveRequests(auth: SessionContext): LeaveRequest[] {
-  const selfOwnedRequest: LeaveRequest = {
-    id: "leave_request_demo",
-    companyId: COMPANY_ID,
-    employeeId: auth.user.employeeId,
-    leaveTypeId: "leave_type_annual",
-    status: "pending_approval",
-    approvalStatus: "pending",
-    startDate: "2026-06-20",
-    endDate: "2026-06-20",
-    unit: "day",
-    days: 1,
-    reason: "가족 행사",
-    requestedBy: auth.user.id,
-    reviewedBy: null,
-    reviewedAt: null,
-    createdAt: PLACEHOLDER_NOW,
-    updatedAt: PLACEHOLDER_NOW,
-  };
-
-  const approverReviewableRequests: LeaveRequest[] = hasPermission(auth.user, "leave.approve")
-    ? [
-        {
-          id: "leave_request_team_pending",
-          companyId: COMPANY_ID,
-          employeeId: "employee_employee",
-          leaveTypeId: "leave_type_half_day_am",
-          status: "pending_approval",
-          approvalStatus: "pending",
-          startDate: "2026-06-21",
-          endDate: "2026-06-21",
-          unit: "half_day",
-          days: 0.5,
-          reason: "병원 방문",
-          requestedBy: "user_employee",
-          reviewedBy: null,
-          reviewedAt: null,
-          createdAt: PLACEHOLDER_NOW,
-          updatedAt: PLACEHOLDER_NOW,
-        },
-      ]
-    : [];
-
-  return [
-    selfOwnedRequest,
-    ...approverReviewableRequests,
-  ];
-}
-
-function findReviewableLeaveRequest(auth: SessionContext, leaveRequestId: string) {
-  return (
-    buildLeaveRequests(auth).find(
-      (request) =>
-        request.id === leaveRequestId &&
-        request.companyId === auth.user.companyId &&
-        request.requestedBy !== auth.user.id &&
-        request.employeeId !== auth.user.employeeId,
-    ) ?? null
-  );
-}
-
 function canAccessApprovalDocument(auth: SessionContext, document: ApprovalDocument) {
   if (document.companyId !== auth.user.companyId) {
     return false;
@@ -2700,18 +2604,20 @@ async function listAttendanceRecordsForEmployee(
 }
 
 async function listLeaveTypesForAuth(context: AppContext, auth: SessionContext) {
-  const dbItems = await listOperationalLeaveTypes(context.env, auth.user.companyId);
-  return mergeById(leaveTypes.filter((item) => item.companyId === auth.user.companyId), dbItems);
+  return listOperationalLeaveTypes(context.env, auth.user.companyId);
 }
 
 async function listLeaveBalancesForAuth(context: AppContext, auth: SessionContext, employeeId: string) {
-  const dbItems = await listOperationalLeaveBalances(context.env, auth.user.companyId, employeeId);
-  return mergeById(buildLeaveBalances(employeeId), dbItems);
+  return listOperationalLeaveBalances(context.env, auth.user.companyId, employeeId);
 }
 
 async function listLeaveRequestsForAuth(context: AppContext, auth: SessionContext) {
   const dbItems = await listOperationalLeaveRequests(context.env, auth.user.companyId);
-  const accessibleDbItems = (dbItems ?? []).filter((request) => {
+  if (!dbItems) {
+    return null;
+  }
+
+  return dbItems.filter((request) => {
     if (request.companyId !== auth.user.companyId) {
       return false;
     }
@@ -2722,13 +2628,11 @@ async function listLeaveRequestsForAuth(context: AppContext, auth: SessionContex
 
     return hasPermission(auth.user, "leave.approve");
   });
-
-  return mergeById(buildLeaveRequests(auth), accessibleDbItems);
 }
 
 async function findReviewableLeaveRequestForAuth(context: AppContext, auth: SessionContext, leaveRequestId: string) {
   return (
-    (await listLeaveRequestsForAuth(context, auth)).find(
+    (await listLeaveRequestsForAuth(context, auth))?.find(
       (request) =>
         request.id === leaveRequestId &&
         request.companyId === auth.user.companyId &&
@@ -4342,17 +4246,18 @@ app.get(appRoutes.leave.types, async (context) => {
     return authResult.response;
   }
 
+  const items = await listLeaveTypesForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "휴가 유형 조회");
+  }
+
   return jsonSuccess(
     context,
     leaveTypeListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listLeaveTypesForAuth(context, authResult.auth),
-        policyContext: buildLeavePolicyContext(authResult.auth),
-        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
-        companySettingsModel: buildCompanySettingsModel(),
-        placeholder: true,
+        items,
       },
       error: null,
     },
@@ -4366,17 +4271,18 @@ app.get(appRoutes.leave.balances, async (context) => {
     return authResult.response;
   }
 
+  const items = await listLeaveBalancesForAuth(context, authResult.auth, authResult.auth.user.employeeId);
+  if (!items) {
+    return jsonDatabaseRequired(context, "휴가 잔여 조회");
+  }
+
   return jsonSuccess(
     context,
     leaveBalanceListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listLeaveBalancesForAuth(context, authResult.auth, authResult.auth.user.employeeId),
-        policyContext: buildLeavePolicyContext(authResult.auth),
-        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
-        companySettingsModel: buildCompanySettingsModel(),
-        placeholder: true,
+        items,
       },
       error: null,
     },
@@ -4390,17 +4296,18 @@ app.get(appRoutes.leave.requests, async (context) => {
     return authResult.response;
   }
 
+  const items = await listLeaveRequestsForAuth(context, authResult.auth);
+  if (!items) {
+    return jsonDatabaseRequired(context, "휴가 신청 목록 조회");
+  }
+
   return jsonSuccess(
     context,
     leaveRequestListResponseSchema,
     {
       ok: true,
       data: {
-        items: await listLeaveRequestsForAuth(context, authResult.auth),
-        policyContext: buildLeavePolicyContext(authResult.auth),
-        leavePolicySummary: buildLeavePolicySummary(hasPermission(authResult.auth.user, "leave.approve")),
-        companySettingsModel: buildCompanySettingsModel(),
-        placeholder: true,
+        items,
       },
       error: null,
     },
