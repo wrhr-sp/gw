@@ -65,7 +65,7 @@ export default function AdminPoliciesPage() {
             </article>
           ))}
         </div>
-        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <div className="grid-auto-compact stack-top-md">
           {companySettingsPolicyAxes.map((axis) => (
             <article key={axis.id} className="info-card">
               <Pill tone="accent">정책 축</Pill>
@@ -103,7 +103,7 @@ export default function AdminPoliciesPage() {
               </article>
             </div>
             {section.priorityDescription || typeof section.appliedEmployeeCount === "number" ? (
-              <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+              <div className="grid-auto-compact stack-top-md">
                 {section.priorityDescription ? (
                   <article className="info-card">
                     <Pill>우선순위</Pill>
@@ -119,7 +119,7 @@ export default function AdminPoliciesPage() {
               </div>
             ) : null}
             {section.sampleEmployees?.length ? (
-              <div style={{ marginTop: 16 }}>
+              <div className="stack-top-md">
                 <p className="meta-copy">샘플 직원 미리보기</p>
                 <ul className="summary-list">
                   {section.sampleEmployees.map((employee) => (
@@ -131,13 +131,13 @@ export default function AdminPoliciesPage() {
               </div>
             ) : null}
             {section.duplicateWarnings?.length ? (
-              <ul className="summary-list" style={{ marginTop: 16 }}>
+              <ul className="summary-list stack-top-md">
                 {section.duplicateWarnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
             ) : null}
-            <p className="card-note" style={{ marginTop: 16 }}>
+            <p className="card-note stack-top-md">
               비노출 기준: {section.maskingNote}
             </p>
           </SurfaceSection>
@@ -176,7 +176,7 @@ export default function AdminPoliciesPage() {
           ))}
         </div>
         {adminPolicyPreview.duplicateWarnings.length ? (
-          <ul className="summary-list" style={{ marginTop: 16 }}>
+          <ul className="summary-list stack-top-md">
             {adminPolicyPreview.duplicateWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -200,7 +200,7 @@ export default function AdminPoliciesPage() {
             <p className="card-note">승인 대기열 노출: {leavePolicySummaryPreview.approvalQueueVisibleToApprover ? "승인자에게만 노출" : "비노출"}</p>
           </article>
         </div>
-        <ul className="summary-list" style={{ marginTop: 16 }}>
+        <ul className="summary-list stack-top-md">
           {companySettingsEmployeeVisibilityRules.map((rule) => (
             <li key={rule}>{rule}</li>
           ))}
@@ -244,3 +244,4 @@ export default function AdminPoliciesPage() {
     </PageShell>
   );
 }
+
