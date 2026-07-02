@@ -150,7 +150,7 @@ export function buildAttendancePolicyPreview({
       ...assignment,
       appliedEmployeeCount: subjects.filter((subject) => matchesAttendancePolicyTarget(assignment, subject)).length,
     })),
-    sampleEmployees: subjects.map((subject) => resolveEffectiveAttendancePolicy({ assignments, subject })),
+    policySubjectSummaries: subjects.map((subject) => resolveEffectiveAttendancePolicy({ assignments, subject })),
     duplicateWarnings,
   };
 }

@@ -118,11 +118,11 @@ export default function AdminPoliciesPage() {
                 ) : null}
               </div>
             ) : null}
-            {section.sampleEmployees?.length ? (
+            {section.policySubjectSummaries?.length ? (
               <div className="stack-top-md">
-                <p className="meta-copy">샘플 직원 미리보기</p>
+                <p className="meta-copy">대상 직원 적용 현황</p>
                 <ul className="summary-list">
-                  {section.sampleEmployees.map((employee) => (
+                  {section.policySubjectSummaries.map((employee) => (
                     <li key={employee.employeeId}>
                       {employee.name}: {employee.summary} · 허용 방식 {employee.allowedMethodsLabel}
                     </li>
@@ -163,11 +163,11 @@ export default function AdminPoliciesPage() {
       </SurfaceSection>
 
       <SurfaceSection
-        title="샘플 직원 미리보기와 중복 경고"
+        title="대상 직원 적용 현황와 중복 경고"
         description="같은 정책이라도 소속별로 무엇이 적용되는지와 중복 경고를 함께 확인합니다."
       >
         <div className="grid-auto-compact">
-          {adminPolicyPreview.sampleEmployees.map((employee) => (
+          {adminPolicyPreview.policySubjectSummaries.map((employee) => (
             <article key={employee.employeeId} className="info-card">
               <Pill>{employee.employeeId}</Pill>
               <p>{employee.summary}</p>

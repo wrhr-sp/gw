@@ -53,14 +53,14 @@ describe("attendance registration policy pass 2 shared config", () => {
     expect(result.effectiveAttendanceRegistrationMethods).not.toEqual(["mobile", "tag"]);
   });
 
-  it("builds admin preview data with sample employees, target counts, and duplicate warnings", () => {
+  it("builds admin preview data with policy subjects, target counts, and duplicate warnings", () => {
     const preview = buildAttendancePolicyPreview({
       assignments: demoAttendancePolicyAssignments,
       subjects: Object.values(demoAttendancePolicySubjects),
     });
 
     expect(preview.priorityOrder).toEqual(["company_default", "workplace", "department", "job_type"]);
-    expect(preview.sampleEmployees).toHaveLength(4);
+    expect(preview.policySubjectSummaries).toHaveLength(4);
     expect(preview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
     expect(preview.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });

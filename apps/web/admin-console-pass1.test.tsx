@@ -232,10 +232,10 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("근태 / 출퇴근 등록 방식 정책");
     expect(html).toContain("현재 허용 방식");
     expect(html).toContain("candidate 허용 방식");
-    expect(html).toContain("태그 단말 연동 예정 skeleton");
+    expect(html).toContain("태그 단말 연동 승인 대기");
     expect(html).toContain("우선순위: 회사 기본 &lt; 근무지/지점 &lt; 부서/팀 &lt; 직무/역할");
     expect(html).toContain("예상 적용 인원 2명");
-    expect(html).toContain("샘플 직원 미리보기");
+    expect(html).toContain("대상 직원 적용 현황");
     expect(html).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 

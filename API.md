@@ -566,11 +566,11 @@ guardrail:
 
 대표 성공 응답:
 - `items[]`: `category`, `summary`, `lastReviewedAt`, `reasonRequired`, `diffPreview`
-- 출퇴근 정책 카드에는 `priorityOrder`, `scopeSummaries`, `sampleEmployees`, `duplicateWarnings` 같은 preview 정보가 함께 포함될 수 있음
+출퇴근 정책 카드에는 `priorityOrder`, `scopeSummaries`, `policySubjectSummaries`, `duplicateWarnings` 같은 정책 적용 정보가 함께 포함될 수 있음
 
 guardrail:
 - 운영 정책 preview 는 마스킹/후보 수준으로만 노출한다.
-- 적용 인원/샘플 직원 정보는 설명용 preview 이며 실제 조직 데이터 일괄 반영이나 개인별 override 저장처럼 동작하면 안 된다.
+- 적용 인원/대상 직원 정보는 정책 검토용이며 실제 조직 데이터 일괄 반영이나 개인별 override 저장처럼 동작하면 안 된다.
 - GPS/위치정보, 실제 태그 단말, 외부 HR 연동 상태를 이미 연결된 것처럼 응답하지 않는다.
 
 ### `GET /api/admin/policies/documents`

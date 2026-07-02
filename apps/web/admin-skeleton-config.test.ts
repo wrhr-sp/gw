@@ -21,10 +21,10 @@ import {
   leaveTypeCodeLabels,
 } from "./admin-skeleton-config";
 
-describe("Phase 13 admin skeleton config", () => {
+describe("Phase 13 admin operations config", () => {
   it("keeps the admin hub focused on users, policies, and audit logs", () => {
     expect(adminHubCards.map((card) => card.href)).toEqual(["/admin/users", "/admin/policies", "/admin/audit-logs"]);
-    expect(adminHubPriorityChecks).toContain("저장 실행 대신 candidate/diff/audit preview 로 끝나는지 확인");
+    expect(adminHubPriorityChecks).toContain("저장 실행 대신 candidate/diff/audit 검토로 끝나는지 확인");
   });
 
   it("describes policy cards in current-candidate-capability format without raw storage internals", () => {
@@ -46,13 +46,13 @@ describe("Phase 13 admin skeleton config", () => {
     expect(adminPolicySections.every((section) => section.maskingNote.includes("노출하지 않습니다") || section.maskingNote.includes("붙이지 않습니다") || section.maskingNote.includes("제외"))).toBe(true);
   });
 
-  it("keeps user queues, entry rules, and approval gates in operations-first placeholder scope", () => {
+  it("keeps user queues, entry rules, and approval gates in operations-first approval-gated scope", () => {
     expect(adminUserQueues.map((item) => item.title)).toContain("연결 검토 우선순위");
     expect(adminRoleEntryRules).toContain("일반 로그인 사용자: 관리자 CTA 미노출 + `/forbidden` 차단 유지");
     expect(adminApprovalGateNotes).toContain("실제 운영 사용자/권한 변경은 이번 범위에서 실행하지 않습니다.");
   });
 
-  it("maps effective attendance policy to employee CTA, policy summary, and tag skeleton view", () => {
+  it("maps effective attendance policy to employee CTA, policy summary, and tag approval view", () => {
     const cases: Array<{
       name: string;
       policy: AttendanceRegistrationPolicy;
@@ -143,16 +143,16 @@ describe("Phase 13 admin skeleton config", () => {
     }
   });
 
-  it("builds admin preview with priority order, sample employees, and duplicate warnings", () => {
+  it("builds admin preview with priority order, policy subjects, and duplicate warnings", () => {
     expect(adminPolicyPreview.priorityOrder).toEqual(["company_default", "workplace", "department", "job_type"]);
     expect(adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
-    expect(adminPolicyPreview.sampleEmployees.some((item) => item.summary.includes("부산 물류센터 > 현장직"))).toBe(true);
+    expect(adminPolicyPreview.policySubjectSummaries.some((item) => item.summary.includes("부산 물류센터 > 현장직"))).toBe(true);
     expect(adminPolicyPreview.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
   it("keeps audit filters and boundaries in masked read-only scope", () => {
     expect(adminAuditLogPreviewFilters).toEqual(["actor", "action", "target", "time", "category"]);
-    expect(adminPolicyReviewChecklist).toContain("감사 preview 와 company boundary 유지");
+    expect(adminPolicyReviewChecklist).toContain("감사 검토 와 company boundary 유지");
     expect(adminAuditNotes[0]).toContain("비밀값");
     expect(adminAuditBoundaryNotes).toContain("export/download 없이 화면 조회와 review 메모 기준만 고정합니다.");
   });
