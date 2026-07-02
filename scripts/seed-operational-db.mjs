@@ -235,17 +235,20 @@ values
   ('shortcut_audit_logs_company_admin', 'company_demo', 'user_company_admin', 'audit_logs', '감사 로그', '/admin/audit-logs', 'history', false, 120, 'active', ${sqlString(now)}, ${sqlString(now)})
 on conflict (id) do update set label = excluded.label, href = excluded.href, icon = excluded.icon, is_fixed = excluded.is_fixed, sort_order = excluded.sort_order, status = excluded.status, updated_at = excluded.updated_at;
 
+delete from notifications
+where id in ('notification_admin_seed_1', 'notification_admin_seed_2', 'notification_hr_seed_1');
+
 insert into notifications (id, company_id, user_id, title, body, notification_type, read_at, created_at)
 values
-  ('notification_admin_seed_1', 'company_demo', 'user_company_admin', '운영 DB seed 완료', '초기 운영 데이터와 관리자 shortcut, 감사 preview 를 확인하세요.', 'system', null, ${sqlString(now)}),
-  ('notification_admin_seed_2', 'company_demo', 'user_company_admin', '감사 로그 재확인 필요', '관리자 권한 변경 preview 는 /admin/audit-logs 에서 마스킹된 상태로 확인합니다.', 'audit', ${sqlString(now)}, ${sqlString(now)}),
-  ('notification_hr_seed_1', 'company_demo', 'user_hr_admin', '인사 검토 대기', '직원 디렉터리와 부서 구조는 읽기 전용 preview 로 유지됩니다.', 'hr', null, ${sqlString(now)})
+  ('notification_admin_operational_ready', 'company_demo', 'user_company_admin', '운영 알림 수신함 준비', '관리자 바로가기와 감사 로그를 같은 화면 흐름에서 확인할 수 있습니다.', 'system', null, ${sqlString(now)}),
+  ('notification_admin_audit_review', 'company_demo', 'user_company_admin', '감사 로그 재확인 필요', '관리자 권한 변경 이력은 /admin/audit-logs 에서 마스킹된 상태로 확인합니다.', 'audit', ${sqlString(now)}, ${sqlString(now)}),
+  ('notification_hr_directory_review', 'company_demo', 'user_hr_admin', '인사 검토 대기', '직원 디렉터리와 부서 구조를 운영 DB 기준으로 확인할 수 있습니다.', 'hr', null, ${sqlString(now)})
 on conflict (id) do update set title = excluded.title, body = excluded.body, notification_type = excluded.notification_type, read_at = excluded.read_at;
 
 insert into audit_logs (id, company_id, branch_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
 values
   ('audit_initial_seed_admin', 'company_demo', 'branch_hq', 'user_company_admin', 'db.initial_seed.admin', 'user', 'user_company_admin', null, null, '{"reason":"초기 관리자 seed 완료","category":"user","maskedFields":["mustChangePassword"],"source":"api-admin"}'::jsonb, ${sqlString(now)}),
-  ('audit_admin_notification_review', 'company_demo', 'branch_hq', 'user_company_admin', 'admin.notification.list.viewed', 'audit_log', 'notification_admin_seed_1', null, null, '{"reason":"알림 inbox preview 점검","category":"audit","maskedFields":["notification body 일부"],"source":"web-admin"}'::jsonb, ${sqlString(now)}),
+  ('audit_admin_notification_review', 'company_demo', 'branch_hq', 'user_company_admin', 'admin.notification.list.viewed', 'audit_log', 'notification_admin_operational_ready', null, null, '{"reason":"알림 inbox 운영 점검","category":"audit","maskedFields":["notification body 일부"],"source":"web-admin"}'::jsonb, ${sqlString(now)}),
   ('audit_policy_document_scope_seed', 'company_demo', 'branch_hq', 'user_hr_admin', 'admin.policy.document.updated', 'document_policy', 'policy_documents_default', '{"visibility":"team"}'::jsonb, '{"visibility":"company"}'::jsonb, '{"reason":"문서 정책 preview seed","category":"policy","maskedFields":["storage reference","download link"],"source":"api-admin"}'::jsonb, ${sqlString(now)})
 on conflict (id) do update set action = excluded.action, resource_type = excluded.resource_type, resource_id = excluded.resource_id, before_json = excluded.before_json, after_json = excluded.after_json, metadata_json = excluded.metadata_json;
 

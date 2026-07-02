@@ -144,7 +144,7 @@ describe("operational DB-backed auth", () => {
     expect(notificationsResponse.status).toBe(200);
     const notificationsPayload = listNotificationsResponseSchema.parse(await notificationsResponse.json());
     expect(notificationsPayload.data.unreadCount).toBeGreaterThanOrEqual(1);
-    expect(notificationsPayload.data.items.some((item) => item.id === "notification_admin_seed_1")).toBe(true);
+    expect(notificationsPayload.data.items.some((item) => item.id === "notification_admin_operational_ready")).toBe(true);
 
     const auditLogsResponse = await app.request(appRoutes.admin.auditLogs, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
     expect(auditLogsResponse.status).toBe(200);
