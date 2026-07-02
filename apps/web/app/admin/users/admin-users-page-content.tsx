@@ -266,7 +266,7 @@ export function AdminUsersPageContent({
           <p>{preview.companySettingsModel.policyStartPoint}</p>
           <p className="card-note">audit candidate: {preview.audit.action}</p>
         </article>
-        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <div className="grid-auto-compact stack-top-md">
           {shortcutSourceRules.map((item) => (
             <article key={item.title} className="info-card">
               <Pill>source</Pill>
@@ -276,7 +276,7 @@ export function AdminUsersPageContent({
             </article>
           ))}
         </div>
-        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <div className="grid-auto-compact stack-top-md">
           {preview.companySettingsModel.policyAxes.map((axis) => (
             <article key={axis.id} className="info-card">
               <Pill tone="accent">정책 축</Pill>
@@ -298,7 +298,7 @@ export function AdminUsersPageContent({
           <p>{preview.companySettingsModel.policyStartPoint}</p>
           <p className="card-note">audit candidate: {preview.audit.action}</p>
         </article>
-        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <div className="grid-auto-compact stack-top-md">
           {preview.companySettingsModel.groups.map((group) => (
             <article key={group.id} className="info-card">
               <Pill>{group.owner}</Pill>
@@ -308,7 +308,7 @@ export function AdminUsersPageContent({
             </article>
           ))}
         </div>
-        <div className="grid-auto-compact" style={{ marginTop: 16 }}>
+        <div className="grid-auto-compact stack-top-md">
           {preview.companySettingsModel.policyAxes.map((axis) => (
             <article key={axis.id} className="info-card">
               <Pill tone="accent">정책 축</Pill>
@@ -318,7 +318,7 @@ export function AdminUsersPageContent({
             </article>
           ))}
         </div>
-        <ul className="summary-list" style={{ marginTop: 16 }}>
+        <ul className="summary-list stack-top-md">
           {preview.companySettingsModel.employeeVisibilityRules.map((rule) => (
             <li key={rule}>{rule}</li>
           ))}
@@ -512,3 +512,4 @@ export function AdminUsersPageContent({
     </PageShell>
   );
 }
+
