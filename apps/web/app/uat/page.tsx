@@ -13,6 +13,7 @@ import {
   roleScenarioCards,
   uatAccessCard,
 } from "./uat-package-config";
+import { UatLiveSection } from "./uat-live-section";
 
 export default function UatPage() {
   return (
@@ -29,6 +30,10 @@ export default function UatPage() {
         </div>
       }
     >
+      <SurfaceSection title="실환경 기준선" description="리허설 시작 전에 현재 세션과 서비스 상태를 same-origin API 로 먼저 확인합니다.">
+        <UatLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection title="접속 정보" description="리허설 시작 전에 모두가 같은 정보를 보고 시작합니다.">
         <div className="grid-auto-compact">
           <article className="info-card">
