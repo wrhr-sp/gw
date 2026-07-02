@@ -843,7 +843,6 @@ const approvalComments: ApprovalComment[] = [
     createdBy: "user_employee",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
   {
     id: "approval_comment_team_pending_reviewer",
@@ -854,7 +853,6 @@ const approvalComments: ApprovalComment[] = [
     createdBy: "user_hr_admin",
     createdAt: PLACEHOLDER_NOW,
     updatedAt: PLACEHOLDER_NOW,
-    placeholder: true,
   },
 ];
 
