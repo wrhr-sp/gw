@@ -1743,7 +1743,6 @@ export const approvalCommentSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const approvalHistoryEventTypeSchema = z.enum([
