@@ -1860,7 +1860,6 @@ export const approvalCommentListResponseSchema = successResponseSchema(
   z.object({
     document: approvalDocumentSchema,
     items: z.array(approvalCommentSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1872,7 +1871,6 @@ export const approvalCommentCreateResponseSchema = successResponseSchema(
   z.object({
     comment: approvalCommentSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 

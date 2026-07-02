@@ -4563,8 +4563,31 @@ app.get(appRoutes.approvals.comments(":id"), async (context) => {
   }
 
   const documentId = context.req.param("id");
-  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
+  const documents = await listOperationalApprovalDocuments(context.env, authResult.auth.user.companyId);
+  if (!documents) {
+    return jsonDatabaseRequired(context, "전자결재 의견 목록 조회");
+  }
+
+  const document = documentId ? documents.find((item) => item.id === documentId) : null;
   if (!document) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 목록입니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  const detail = await buildApprovalDocumentDetailForAuth(context, authResult.auth, document);
+  if (!detail) {
+    return jsonDatabaseRequired(context, "전자결재 의견 목록 조회");
+  }
+
+  const canAccessFromOperationalRelations =
+    canAccessApprovalDocument(authResult.auth, document) ||
+    detail.steps.some((step) => step.approverEmployeeId === authResult.auth.user.employeeId) ||
+    detail.references.some((reference) => reference.employeeId === authResult.auth.user.employeeId);
+
+  if (!canAccessFromOperationalRelations) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 목록입니다.", 403, {
       documentId,
       companyId: authResult.auth.user.companyId,
@@ -4576,8 +4599,7 @@ app.get(appRoutes.approvals.comments(":id"), async (context) => {
     ok: true,
     data: {
       document,
-      items: listApprovalComments(document.id),
-      placeholder: true,
+      items: detail.comments,
     },
     error: null,
   });
@@ -4590,8 +4612,31 @@ app.post(appRoutes.approvals.comments(":id"), async (context) => {
   }
 
   const documentId = context.req.param("id");
-  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
+  const documents = await listOperationalApprovalDocuments(context.env, authResult.auth.user.companyId);
+  if (!documents) {
+    return jsonDatabaseRequired(context, "전자결재 의견 저장");
+  }
+
+  const document = documentId ? documents.find((item) => item.id === documentId) : null;
   if (!document) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 작성입니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  const detail = await buildApprovalDocumentDetailForAuth(context, authResult.auth, document);
+  if (!detail) {
+    return jsonDatabaseRequired(context, "전자결재 의견 저장");
+  }
+
+  const canAccessFromOperationalRelations =
+    canAccessApprovalDocument(authResult.auth, document) ||
+    detail.steps.some((step) => step.approverEmployeeId === authResult.auth.user.employeeId) ||
+    detail.references.some((reference) => reference.employeeId === authResult.auth.user.employeeId);
+
+  if (!canAccessFromOperationalRelations) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 의견 작성입니다.", 403, {
       documentId,
       companyId: authResult.auth.user.companyId,

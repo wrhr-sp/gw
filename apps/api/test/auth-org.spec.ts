@@ -1071,7 +1071,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(createPayload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("lists and creates approval comments for accessible participants", async () => {
+  it("requires the operational DB for approval comments", async () => {
     const drafter = await loginAndGetCookie("EMPLOYEE");
     const approver = await loginAndGetCookie("MANAGER");
 
@@ -1080,9 +1080,8 @@ describe("Phase 4 approvals skeleton", () => {
         cookie: drafter.cookie,
       },
     });
-    expect(commentsResponse.status).toBe(200);
-    const commentsPayload = approvalCommentListResponseSchema.parse(await commentsResponse.json());
-    expect(commentsPayload.data.items.map((item) => item.id)).toContain("approval_comment_demo_drafter");
+    expect(commentsResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await commentsResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const createCommentResponse = await app.request(appRoutes.approvals.comments("approval_document_demo"), {
       method: "POST",
