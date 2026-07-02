@@ -2059,7 +2059,6 @@ export const documentSpaceSchema = z.object({
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const documentFileSchema = z.object({
@@ -2079,7 +2078,6 @@ export const documentFileSchema = z.object({
   status: documentStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-  placeholder: z.literal(true),
 });
 
 export const documentFileUploadInitRequestSchema = z.object({
@@ -2106,7 +2104,6 @@ export const documentFileUploadInitResponseSchema = successResponseSchema(
     file: documentFileSchema,
     action: documentFileActionSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2119,7 +2116,6 @@ export const documentFileUploadCompleteResponseSchema = successResponseSchema(
   z.object({
     file: documentFileSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2128,7 +2124,6 @@ export const documentFileDownloadInitResponseSchema = successResponseSchema(
     file: documentFileSchema,
     action: documentFileActionSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2136,14 +2131,12 @@ export const documentFileDeleteResponseSchema = successResponseSchema(
   z.object({
     file: documentFileSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
 export const documentSpaceListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(documentSpaceSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2158,14 +2151,12 @@ export const documentSpaceResponseSchema = successResponseSchema(
   z.object({
     space: documentSpaceSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
 export const documentFileListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(documentFileSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2182,7 +2173,6 @@ export const documentFileMetadataCreateResponseSchema = successResponseSchema(
   z.object({
     file: documentFileSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 

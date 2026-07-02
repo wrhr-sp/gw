@@ -1299,17 +1299,14 @@ describe("Phase 5 boards/documents skeleton", () => {
     const listSpacesResponse = await app.request(appRoutes.documents.spaces, {
       headers: { cookie },
     });
-    expect(listSpacesResponse.status).toBe(200);
-    const listSpacesPayload = documentSpaceListResponseSchema.parse(await listSpacesResponse.json());
-    expect(listSpacesPayload.data.items.map((item) => item.id)).toContain("document_space_public");
-    expect(listSpacesPayload.data.items.map((item) => item.id)).not.toContain("document_space_hr_private");
+    expect(listSpacesResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await listSpacesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const privateFilesResponse = await app.request(`${appRoutes.documents.files}?spaceId=document_space_hr_private`, {
       headers: { cookie },
     });
-    expect(privateFilesResponse.status).toBe(403);
-    const privateFilesPayload = errorResponseSchema.parse(await privateFilesResponse.json());
-    expect(privateFilesPayload.error.details?.spaceId).toBe("document_space_hr_private");
+    expect(privateFilesResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await privateFilesResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("requires the operational DB before checking notice-only board post writes", async () => {
