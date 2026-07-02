@@ -1,80 +1,124 @@
-import React from "react";
+"use client";
 
-import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../_components/feature-workspace";
-import { PageShell } from "../_components/page-shell";
+import React, { useEffect, useMemo, useState } from "react";
 
-const branchesConfig: FeatureWorkspaceConfig = {
-  title: "지점관리",
-  eyebrow: "지점별 운영 상태, 담당자, 근태 이슈, 처리 요청을 확인합니다.",
-  tabs: [
-    { id: "overview", label: "지점 현황", badge: "8" },
-    { id: "staffing", label: "인력/근태", badge: "확인" },
-    { id: "requests", label: "요청 처리", badge: "6" },
-    { id: "settings", label: "운영 기준", badge: "정책" },
-  ],
-  utility: [
-    { label: "운영 지점", value: "8곳" },
-    { label: "오늘 출근", value: "94%" },
-    { label: "확인 필요", value: "1곳" },
-  ],
-  panels: [
-    {
-      id: "overview",
-      heading: "지점 현황",
-      summary: "지역, 담당자, 운영 상태를 지점 단위로 봅니다.",
-      rows: [
-        { title: "강남지점", meta: "서울 · 담당 김지윤 · 직원 28명", status: "정상" },
-        { title: "부산지점", meta: "부산 · 담당 박민재 · 직원 19명", status: "근태 확인" },
-        { title: "대전지점", meta: "대전 · 담당 이서연 · 직원 14명", status: "정상" },
-        { title: "광주지점", meta: "광주 · 담당 최현우 · 직원 12명", status: "정상" },
-      ],
-      statusCards: [
-        { label: "정상 운영", value: "7곳", tone: "accent" },
-        { label: "확인 필요", value: "1곳", tone: "warning" },
-        { label: "미처리 요청", value: "6건" },
-      ],
-    },
-    {
-      id: "staffing",
-      heading: "인력/근태",
-      summary: "지점별 출근율, 지각, 미출근, 대체근무 필요 여부를 확인합니다.",
-      rows: [
-        { title: "부산지점", meta: "지각 2명 · 미출근 1명", status: "확인" },
-        { title: "강남지점", meta: "정상 출근 27명 · 휴가 1명", status: "정상" },
-        { title: "대전지점", meta: "정정 요청 1건", status: "처리중" },
-      ],
-      actions: [{ label: "근태 확인", tone: "primary" }, { label: "지점장에게 요청" }],
-    },
-    {
-      id: "requests",
-      heading: "요청 처리",
-      summary: "근태 정정, 휴가 확인, 담당자 확인 요청을 한 줄씩 처리합니다.",
-      rows: [
-        { title: "근태 정정", meta: "부산지점 · 3건", status: "대기" },
-        { title: "휴가 확인", meta: "강남지점 · 2건", status: "승인" },
-        { title: "담당자 확인", meta: "광주지점 · 1건", status: "보완" },
-      ],
-      actions: [{ label: "선택 승인", tone: "primary" }, { label: "보완 요청" }],
-    },
-    {
-      id: "settings",
-      heading: "운영 기준",
-      summary: "지점 기본 정보, 담당자, 운영 상태 변경 전 확인할 기준입니다.",
-      formFields: [
-        { label: "지점명", value: "부산지점" },
-        { label: "담당자", value: "박민재" },
-        { label: "운영 상태", value: "근태 확인 필요", type: "select" },
-      ],
-      actions: [{ label: "변경 요청", tone: "primary" }],
-      notes: ["지점 추가·비활성화는 관리자 승인 후 처리합니다.", "기존 지점관리포털 경로와 일반(공통)업무 경로를 분리합니다."],
-    },
-  ],
-};
+import {
+  appRoutes,
+  errorResponseSchema,
+  listBranchesResponseSchema,
+  type BranchSummary,
+} from "@gw/shared";
+
+import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
+import { PageShell, Pill } from "../_components/page-shell";
+
+type LoadState = "idle" | "loading" | "ready" | "error";
+type ToastState = { tone: "accent" | "warning"; title: string; body: string } | null;
+
+const seedBranches: BranchSummary[] = [
+  { id: "branch_gangnam", companyId: "company_demo", code: "GN", name: "강남지점", branchType: "branch", status: "active" },
+  { id: "branch_busan", companyId: "company_demo", code: "BS", name: "부산지점", branchType: "branch", status: "active" },
+  { id: "branch_daejeon", companyId: "company_demo", code: "DJ", name: "대전지점", branchType: "branch", status: "active" },
+  { id: "branch_gwangju", companyId: "company_demo", code: "GJ", name: "광주지점", branchType: "branch", status: "active" },
+];
+
+async function readErrorMessage(response: Response) {
+  const payload = await response.json().catch(() => null);
+  const parsed = errorResponseSchema.safeParse(payload);
+  if (parsed.success) return parsed.data.error.message;
+  return `${response.status} ${response.statusText}`;
+}
+
+async function fetchBranches(): Promise<BranchSummary[]> {
+  const response = await fetch(appRoutes.org.branches, { credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) throw new Error(await readErrorMessage(response));
+  const parsed = listBranchesResponseSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error("지점 목록 응답 형식이 계약과 맞지 않습니다.");
+  return parsed.data.data.items;
+}
 
 export default function BranchesPage() {
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [branches, setBranches] = useState<BranchSummary[]>(seedBranches);
+  const [toast, setToast] = useState<ToastState>(null);
+
+  const activeBranches = useMemo(() => branches.filter((branch) => branch.status === "active"), [branches]);
+  const inactiveBranches = useMemo(() => branches.filter((branch) => branch.status !== "active"), [branches]);
+  const selectedBranch = activeBranches[0] ?? branches[0] ?? null;
+
+  async function reloadBranches() {
+    setLoadState("loading");
+    setToast(null);
+    try {
+      setBranches(await fetchBranches());
+      setLoadState("ready");
+    } catch (error) {
+      setLoadState("error");
+      setToast({ tone: "warning", title: "지점 정보를 불러오지 못했습니다.", body: error instanceof Error ? error.message : "알 수 없는 오류입니다." });
+    }
+  }
+
+  useEffect(() => { void reloadBranches(); }, []);
+
   return (
     <PageShell title="지점관리" titlePlacement="content" titleHref={null}>
-      <FeatureWorkspace config={branchesConfig} />
+      <div className="feature-workspace">
+        <aside className="feature-workspace__nav" aria-label="지점관리 메뉴">
+          <div className="feature-workspace__nav-header">
+            <h1><button className="page-shell__title-link page-shell__title-button" onClick={() => void reloadBranches()} type="button">지점관리</button></h1>
+            <FeaturePageOverflowMenu label="지점관리" />
+          </div>
+          <div className="feature-workspace__tab-list" role="tablist" aria-label="지점관리 상태">
+            <button aria-selected="true" className="feature-workspace__tab" role="tab" type="button"><span>지점 현황</span><strong>{branches.length}</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>인력/근태</span><strong>확인</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>요청 처리</span><strong>읽기</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>운영 기준</span><strong>정책</strong></button>
+          </div>
+        </aside>
+
+        <section className="feature-workspace__panel" aria-labelledby="branches-panel-heading">
+          <div className="feature-workspace__panel-header">
+            <div>
+              <h2 id="branches-panel-heading">지점 현황</h2>
+              <p>지역, 담당자, 운영 상태를 실제 지점 API 기준으로 봅니다.</p>
+            </div>
+            <p className="feature-workspace__permission-hint">지점 추가·비활성화는 관리자 승인 후 처리합니다.</p>
+          </div>
+
+          {toast ? <article className="info-card"><Pill tone={toast.tone}>확인</Pill><h3>{toast.title}</h3><p>{toast.body}</p></article> : null}
+
+          <div className="feature-workspace__status-grid">
+            <article className="feature-workspace__status feature-workspace__status--accent"><span>운영 지점</span><strong>{activeBranches.length}곳</strong><p>현재 활성 지점</p></article>
+            <article className="feature-workspace__status"><span>오늘 출근</span><strong>확인</strong><p>근태 상세 API 연결 전 지점 단위 확인</p></article>
+            <article className="feature-workspace__status feature-workspace__status--warning"><span>확인 필요</span><strong>{inactiveBranches.length}곳</strong><p>비활성 또는 운영 확인 대상</p></article>
+          </div>
+
+          <div className="feature-workspace__rows" aria-label="지점 현황">
+            {loadState === "loading" && branches.length === 0 ? <article className="feature-workspace__row"><div><strong>불러오는 중</strong><span>지점 목록 조회</span></div><em>대기</em></article> : null}
+            {branches.length === 0 && loadState !== "loading" ? <article className="feature-workspace__row"><div><strong>표시할 지점이 없으면</strong><span>회사 또는 지점 접근 범위를 먼저 확인합니다.</span></div><em>범위 확인</em></article> : null}
+            {branches.map((branch) => (
+              <article className="feature-workspace__row" key={branch.id}>
+                <div>
+                  <strong>{branch.name}</strong>
+                  <span>{`${branch.code} · ${branch.branchType} · ${branch.companyId}`}</span>
+                  <p>기존 지점관리포털 경로와 일반(공통)업무 경로를 분리합니다.</p>
+                  <div className="feature-workspace__row-actions" aria-label={`${branch.id} 지점 조회`}>
+                    <a className="feature-workspace__row-action feature-workspace__row-action--secondary" href={`/Place of business/${branch.id}`}>지점 보기</a>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">담당자 확인</button>
+                  </div>
+                </div>
+                <em>{branch.status === "active" ? "정상" : "확인"}</em>
+              </article>
+            ))}
+          </div>
+
+          <div className="feature-workspace__rows" aria-label="지점 운영 기준">
+            <article className="feature-workspace__row"><div><strong>인력/근태</strong><span>지점별 출근율, 지각, 미출근, 대체근무 필요 여부를 확인합니다.</span><p>상세 근태 변경은 /attendance 실 API 흐름에서만 처리합니다.</p></div><em>확인</em></article>
+            <article className="feature-workspace__row"><div><strong>요청 처리</strong><span>근태 정정, 휴가 확인, 담당자 확인 요청을 읽기 기준으로 확인합니다.</span><p>선택 승인/보완 요청은 별도 승인 mutation 범위에서 연결합니다.</p></div><em>읽기</em></article>
+            <article className="feature-workspace__row"><div><strong>운영 기준</strong><span>{selectedBranch ? `${selectedBranch.name} · ${selectedBranch.code}` : "지점 선택"}</span><p>지점 기본 정보, 담당자, 운영 상태 변경 전 확인할 기준입니다.</p><div className="feature-workspace__row-actions" aria-label="지점 변경 요청"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">변경 요청</button></div></div><em>정책</em></article>
+          </div>
+        </section>
+      </div>
     </PageShell>
   );
 }
