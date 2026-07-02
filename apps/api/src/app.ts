@@ -3982,7 +3982,6 @@ app.post(appRoutes.attendance.checkIn, async (context) => {
       ok: true,
       data: {
         record,
-        policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
           action: "attendance.check_in",
@@ -4029,7 +4028,6 @@ app.post(appRoutes.attendance.checkOut, async (context) => {
       ok: true,
       data: {
         record,
-        policyContext: buildAttendancePolicyContext(authResult.auth.user.employeeId),
         audit: {
           candidate: true,
           action: "attendance.check_out",
@@ -4077,7 +4075,6 @@ app.get(appRoutes.attendance.records, async (context) => {
           workDateFrom,
           workDateTo,
         },
-        policyContext: buildAttendancePolicyContext(employeeId),
       },
       error: null,
     },
