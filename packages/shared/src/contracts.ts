@@ -1847,8 +1847,6 @@ export const approvalDocumentDetailResponseSchema = successResponseSchema(
     references: z.array(approvalReferenceSchema),
     comments: z.array(approvalCommentSchema),
     history: z.array(approvalHistoryItemSchema),
-    operationalContext: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 

@@ -2640,19 +2640,22 @@ async function findAccessibleApprovalDocumentForAuth(context: AppContext, auth: 
 
 async function buildApprovalDocumentDetailForAuth(context: AppContext, auth: SessionContext, document: ApprovalDocument) {
   const [steps, dbReferences] = await Promise.all([
-    listApprovalStepsForDocumentForAuth(context, auth, document.id),
+    listOperationalApprovalSteps(context.env, auth.user.companyId, document.id),
     listOperationalApprovalReferences(context.env, auth.user.companyId, document.id),
   ]);
-  const references = mergeById(approvalReferences.filter((reference) => reference.documentId === document.id), dbReferences);
-  const comments = listApprovalComments(document.id);
+
+  if (!steps || !dbReferences) {
+    return null;
+  }
+
+  const comments: ApprovalComment[] = [];
 
   return {
     document,
     steps,
-    references,
+    references: dbReferences,
     comments,
     history: buildApprovalDocumentHistory(document, steps, comments),
-    placeholder: true as const,
   };
 }
 
@@ -4508,9 +4511,32 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, async (context) => {
   }
 
   const documentId = context.req.param("id");
-  const document = documentId ? await findAccessibleApprovalDocumentForAuth(context, authResult.auth, documentId) : null;
+  const documents = await listOperationalApprovalDocuments(context.env, authResult.auth.user.companyId);
+  if (!documents) {
+    return jsonDatabaseRequired(context, "전자결재 문서 상세 조회");
+  }
+
+  const document = documentId ? documents.find((item) => item.id === documentId) : null;
 
   if (!document) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 문서를 조회할 수 없습니다.", 403, {
+      documentId,
+      companyId: authResult.auth.user.companyId,
+      route: context.req.path,
+    });
+  }
+
+  const detail = await buildApprovalDocumentDetailForAuth(context, authResult.auth, document);
+  if (!detail) {
+    return jsonDatabaseRequired(context, "전자결재 문서 상세 조회");
+  }
+
+  const canAccessFromOperationalRelations =
+    canAccessApprovalDocument(authResult.auth, document) ||
+    detail.steps.some((step) => step.approverEmployeeId === authResult.auth.user.employeeId) ||
+    detail.references.some((reference) => reference.employeeId === authResult.auth.user.employeeId);
+
+  if (!canAccessFromOperationalRelations) {
     return jsonError(context, "FORBIDDEN", "허용되지 않은 전자결재 문서를 조회할 수 없습니다.", 403, {
       documentId,
       companyId: authResult.auth.user.companyId,
@@ -4523,10 +4549,7 @@ app.get(APPROVAL_DOCUMENT_DETAIL_ROUTE, async (context) => {
     approvalDocumentDetailResponseSchema,
     {
       ok: true,
-      data: {
-        ...(await buildApprovalDocumentDetailForAuth(context, authResult.auth, document)),
-        operationalContext: buildApprovalOperationalContext(authResult.auth),
-      },
+      data: detail,
       error: null,
     },
     200,

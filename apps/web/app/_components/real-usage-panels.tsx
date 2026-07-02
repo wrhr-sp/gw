@@ -1035,7 +1035,6 @@ export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: 
     references: Array<Record<string, any>>;
     comments: Array<Record<string, any>>;
     history: Array<Record<string, any>>;
-    operationalContext: Record<string, any>;
   }>(appRoutes.approvals.detail(documentId), refreshSeed);
   const comments = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.approvals.comments(documentId), refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
@@ -1074,7 +1073,7 @@ export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: 
             <>
               <h3>{detail.data.document.title}</h3>
               <p>{detail.data.document.documentNumber} · {detail.data.document.status}</p>
-              <p className="card-note">{detail.data.operationalContext.currentState}</p>
+              <p className="card-note">운영 DB에 저장된 승인선, 참조자, 이력 정보를 조회합니다.</p>
             </>
           ) : null}
         </article>

@@ -1198,7 +1198,7 @@ describe("Phase 4 approvals skeleton", () => {
     expect(rejectPayload.error.code).toBe("FORBIDDEN");
   });
 
-  it("forbids unknown approval document ids", async () => {
+  it("requires the operational DB before approval document detail lookup", async () => {
     const { cookie } = await loginAndGetCookie("HR_ADMIN");
 
     const detailResponse = await app.request(appRoutes.approvals.detail("foreign_approval_document"), {
@@ -1206,9 +1206,8 @@ describe("Phase 4 approvals skeleton", () => {
         cookie,
       },
     });
-    expect(detailResponse.status).toBe(403);
-    const detailPayload = errorResponseSchema.parse(await detailResponse.json());
-    expect(detailPayload.error.details?.documentId).toBe("foreign_approval_document");
+    expect(detailResponse.status).toBe(503);
+    expect(errorResponseSchema.parse(await detailResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
 
     const approveResponse = await app.request(appRoutes.approvals.approve("foreign_approval_document"), {
       method: "POST",
@@ -1217,7 +1216,7 @@ describe("Phase 4 approvals skeleton", () => {
         cookie,
       },
       body: JSON.stringify({
-        reason: "존재하지 않는 문서",
+        reason: "권한 없는 문서 승인 차단",
       }),
     });
     expect(approveResponse.status).toBe(403);
