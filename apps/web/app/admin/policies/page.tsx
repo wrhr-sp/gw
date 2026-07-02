@@ -3,6 +3,7 @@ import React from "react";
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminPolicyPreview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../../admin-skeleton-config";
+import { AdminPoliciesLiveSection } from "./admin-policies-live-section";
 
 export default function AdminPoliciesPage() {
   return (
@@ -14,6 +15,13 @@ export default function AdminPoliciesPage() {
       description="근태·휴가·결재·문서·게시판 정책을 실제 저장 전에 current/candidate/capability 형식으로 비교하는 화면입니다."
       actions={<Pill tone="warning">candidate only</Pill>}
     >
+      <SurfaceSection
+        title="실제 정책 API 확인"
+        description="관리자 정책 목록을 same-origin API 로 조회하고 current/candidate/capability/audit preview 계약을 먼저 검증합니다."
+      >
+        <AdminPoliciesLiveSection />
+      </SurfaceSection>
+
       <SurfaceSection
         title="협업 화면과 운영 정책 화면의 경계"
         description="`/boards`, `/documents` 는 일반 협업/보관 흐름이고, 이 화면은 저장 전 운영 정책 candidate 검토용입니다."
