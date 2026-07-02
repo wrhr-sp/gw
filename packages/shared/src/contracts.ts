@@ -1169,7 +1169,6 @@ export const listEmployeesResponseSchema = successResponseSchema(
     filters: employeeDirectoryFiltersSchema,
     filterOptions: employeeDirectoryFilterOptionsSchema,
     notices: z.array(z.string()).min(1),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1178,7 +1177,6 @@ export const listDepartmentsResponseSchema = successResponseSchema(
     items: z.array(departmentSchema),
     summary: orgDirectorySectionSummarySchema,
     notices: z.array(z.string()).min(1),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1187,7 +1185,6 @@ export const listRolesResponseSchema = successResponseSchema(
     items: z.array(roleSchema),
     summary: orgDirectorySectionSummarySchema,
     notices: z.array(z.string()).min(1),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1203,7 +1200,6 @@ export const listBranchesResponseSchema = successResponseSchema(
     scope: branchViewerScopeSchema,
     summary: orgDirectorySectionSummarySchema,
     notices: z.array(z.string()).min(1),
-    placeholder: z.literal(true),
   }),
 );
 
