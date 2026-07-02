@@ -53,15 +53,15 @@ const payrollPeriodStatuses = new Set<PayrollPeriod["status"]>(["draft", "collec
 const payrollLineItemClassifications = new Set<PayrollLineItem["classification"]>([
   "earning",
   "deduction",
-  "tax_placeholder",
-  "insurance_placeholder",
+  "tax_estimate",
+  "insurance_estimate",
 ]);
 const payrollLineItemSources = new Set<PayrollLineItem["source"]>([
   "manual",
   "attendance",
   "policy",
-  "tax_placeholder",
-  "insurance_placeholder",
+  "tax_estimate",
+  "insurance_estimate",
 ]);
 const payrollReviewScopes = new Set<PayrollReviewStep["scope"]>([
   "headquarters_payroll",
@@ -188,7 +188,6 @@ function mapPayrollProfile(row: DbRow): PayrollProfile {
     effectiveFrom: toDateOnly(row.effective_from, "1970-01-01"),
     effectiveTo: row.effective_to ? toDateOnly(row.effective_to, "1970-01-01") : null,
     scopeNote: toStringValue(row.scope_note),
-    placeholder: true,
   };
 }
 
@@ -204,7 +203,6 @@ function mapPayrollPeriod(row: DbRow): PayrollPeriod {
     status: payrollPeriodStatuses.has(row.status as PayrollPeriod["status"]) ? (row.status as PayrollPeriod["status"]) : "draft",
     sourceSummary: toStringValue(row.source_summary),
     lockedFieldsNote: toStringValue(row.locked_fields_note),
-    placeholder: true,
   };
 }
 
@@ -223,7 +221,6 @@ function mapPayrollInputSnapshot(row: DbRow): PayrollInputSnapshot {
     latenessCount: Math.max(0, Math.trunc(toNumber(row.lateness_count))),
     earlyLeaveCount: Math.max(0, Math.trunc(toNumber(row.early_leave_count))),
     sourceNote: toStringValue(row.source_note),
-    placeholder: true,
   };
 }
 
@@ -242,25 +239,33 @@ function mapPayrollDraft(row: DbRow): PayrollDraft {
     netPayPreview: toNumber(row.net_pay_preview),
     reviewNote: toStringValue(row.review_note),
     approvalGate: toStringValue(row.approval_gate),
-    placeholder: true,
   };
 }
 
 function mapPayrollLineItem(row: DbRow): PayrollLineItem {
+  const rawClassification = row.classification === "tax_placeholder"
+    ? "tax_estimate"
+    : row.classification === "insurance_placeholder"
+      ? "insurance_estimate"
+      : row.classification;
+  const rawSource = row.source === "tax_placeholder"
+    ? "tax_estimate"
+    : row.source === "insurance_placeholder"
+      ? "insurance_estimate"
+      : row.source;
   return {
     id: toStringValue(row.id),
     code: toStringValue(row.code),
     label: toStringValue(row.label),
-    classification: payrollLineItemClassifications.has(row.classification as PayrollLineItem["classification"])
-      ? (row.classification as PayrollLineItem["classification"])
+    classification: payrollLineItemClassifications.has(rawClassification as PayrollLineItem["classification"])
+      ? (rawClassification as PayrollLineItem["classification"])
       : "earning",
-    source: payrollLineItemSources.has(row.source as PayrollLineItem["source"]) ? (row.source as PayrollLineItem["source"]) : "manual",
+    source: payrollLineItemSources.has(rawSource as PayrollLineItem["source"]) ? (rawSource as PayrollLineItem["source"]) : "manual",
     quantity: row.quantity === null || row.quantity === undefined ? null : toNumber(row.quantity),
     unitAmount: row.unit_amount === null || row.unit_amount === undefined ? null : toNumber(row.unit_amount),
     premiumRate: row.premium_rate === null || row.premium_rate === undefined ? null : toNumber(row.premium_rate),
     amount: toNumber(row.amount),
     note: toStringValue(row.note),
-    placeholder: true,
   };
 }
 
@@ -271,7 +276,6 @@ function mapPayrollReviewStep(row: DbRow): PayrollReviewStep {
     scope: payrollReviewScopes.has(row.scope as PayrollReviewStep["scope"]) ? (row.scope as PayrollReviewStep["scope"]) : "employee",
     status: payrollReviewStatuses.has(row.status as PayrollReviewStep["status"]) ? (row.status as PayrollReviewStep["status"]) : "pending",
     note: toStringValue(row.note),
-    placeholder: true,
   };
 }
 

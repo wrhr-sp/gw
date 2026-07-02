@@ -318,10 +318,10 @@ const permissionCatalog: Permission[] = [
   { code: "attendance.manage", description: "근태 정정 검토와 관리자 조회 확장을 위한 권한 골격이다." },
   { code: "leave.request", description: "휴가 유형/잔여 조회와 휴가 신청 placeholder 흐름을 사용한다." },
   { code: "leave.approve", description: "휴가 승인/반려 placeholder 흐름을 처리한다." },
-  { code: "payroll.read", description: "급여 프로필, 지급 예정 기간, 역할별 payroll skeleton 읽기 흐름을 조회한다." },
-  { code: "payroll.manage", description: "본사 급여 담당자가 급여 기준 정보와 수집 상태 skeleton 을 관리하는 흐름을 다룬다." },
-  { code: "payroll.review", description: "급여 기간 확정 전 검토/승인 게이트 placeholder 흐름을 확인한다." },
-  { code: "payroll.payslip.read_self", description: "구성원이 자신의 급여명세서 초안과 정정 안내 skeleton 을 조회한다." },
+  { code: "payroll.read", description: "급여 프로필, 지급 예정 기간, 역할별 급여 읽기 흐름을 조회한다." },
+  { code: "payroll.manage", description: "본사 급여 담당자가 급여 기준 정보와 수집 상태를 관리하는 흐름을 다룬다." },
+  { code: "payroll.review", description: "급여 기간 확정 전 검토/승인 게이트 흐름을 확인한다." },
+  { code: "payroll.payslip.read_self", description: "구성원이 자신의 급여명세서 초안과 정정 안내를 조회한다." },
   { code: "approval.form.manage", description: "전자결재 양식 placeholder 정의를 관리한다." },
   { code: "approval.line.manage", description: "전자결재 결재선 placeholder 정의를 관리한다." },
   { code: "approval.document.read", description: "전자결재 문서함과 상세 placeholder 조회를 사용한다." },
@@ -1660,7 +1660,6 @@ async function buildPayrollOverviewPayload(context: AppContext, auth: SessionCon
     periods,
     collectionSteps,
     roleGuidance: payrollRoleGuidance,
-    placeholder: true as const,
   };
 }
 
@@ -5611,7 +5610,6 @@ app.get(PAYROLL_PERIOD_DETAIL_ROUTE, async (context) => {
       lineItems,
       reviewSteps,
       roleGuidance: payrollRoleGuidance,
-      placeholder: true,
     },
     error: null,
   });
@@ -5658,9 +5656,8 @@ app.get(appRoutes.payroll.myPayslip, async (context) => {
       period,
       payslip: draft,
       lineItems,
-      employeeMessage: "급여명세서 초안은 본사 검토 완료 전까지 preview 상태로만 표시됩니다.",
+      employeeMessage: "급여명세서 초안은 본사 검토 완료 전까지 확정 전 상태로 표시됩니다.",
       correctionRequestGuide: "정정이 필요하면 급여 확정 전 /attendance 정정, /leave 잔여, 지점 제출 메모를 먼저 확인한 뒤 인사/급여 담당에게 알립니다.",
-      placeholder: true,
     },
     error: null,
   });

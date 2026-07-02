@@ -425,8 +425,8 @@ export const workItemLegalReviewResponsibilitySchema = z.enum(["intake", "assign
 
 export const payrollPayTypeSchema = z.enum(["monthly", "hourly", "daily", "annual", "inclusive"]);
 export const payrollPeriodStatusSchema = z.enum(["draft", "collecting", "reviewing", "confirmed", "closed"]);
-export const payrollLineItemClassificationSchema = z.enum(["earning", "deduction", "tax_placeholder", "insurance_placeholder"]);
-export const payrollLineItemSourceSchema = z.enum(["manual", "attendance", "policy", "tax_placeholder", "insurance_placeholder"]);
+export const payrollLineItemClassificationSchema = z.enum(["earning", "deduction", "tax_estimate", "insurance_estimate"]);
+export const payrollLineItemSourceSchema = z.enum(["manual", "attendance", "policy", "tax_estimate", "insurance_estimate"]);
 export const payrollReviewScopeSchema = z.enum(["headquarters_payroll", "branch_manager", "employee", "auditor"]);
 export const payrollReviewStatusSchema = z.enum(["pending", "submitted", "reviewing", "changes_requested", "confirmed"]);
 
@@ -448,7 +448,6 @@ export const payrollProfileSchema = z.object({
   effectiveFrom: isoDateSchema,
   effectiveTo: isoDateSchema.nullable(),
   scopeNote: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollPeriodSchema = z.object({
@@ -462,7 +461,6 @@ export const payrollPeriodSchema = z.object({
   status: payrollPeriodStatusSchema,
   sourceSummary: z.string(),
   lockedFieldsNote: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollInputSnapshotSchema = z.object({
@@ -479,7 +477,6 @@ export const payrollInputSnapshotSchema = z.object({
   latenessCount: z.number().int().nonnegative(),
   earlyLeaveCount: z.number().int().nonnegative(),
   sourceNote: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollLineItemSchema = z.object({
@@ -493,7 +490,6 @@ export const payrollLineItemSchema = z.object({
   premiumRate: z.number().nonnegative().nullable(),
   amount: z.number(),
   note: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollReviewStepSchema = z.object({
@@ -502,7 +498,6 @@ export const payrollReviewStepSchema = z.object({
   scope: payrollReviewScopeSchema,
   status: payrollReviewStatusSchema,
   note: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollDraftSchema = z.object({
@@ -519,7 +514,6 @@ export const payrollDraftSchema = z.object({
   netPayPreview: z.number().nonnegative(),
   reviewNote: z.string(),
   approvalGate: z.string(),
-  placeholder: z.literal(true),
 });
 
 export const payrollRoleGuidanceSchema = z.object({
@@ -536,7 +530,6 @@ export const payrollOverviewResponseSchema = successResponseSchema(
     periods: z.array(payrollPeriodSchema),
     collectionSteps: z.array(payrollReviewStepSchema),
     roleGuidance: payrollRoleGuidanceSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -548,7 +541,6 @@ export const payrollPeriodDetailResponseSchema = successResponseSchema(
     lineItems: z.array(payrollLineItemSchema),
     reviewSteps: z.array(payrollReviewStepSchema),
     roleGuidance: payrollRoleGuidanceSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -559,7 +551,6 @@ export const payrollMyPayslipResponseSchema = successResponseSchema(
     lineItems: z.array(payrollLineItemSchema),
     employeeMessage: z.string(),
     correctionRequestGuide: z.string(),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -2209,7 +2200,6 @@ export const workItemDeadlinesResponseSchema = successResponseSchema(
 export const payrollProfileListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(payrollProfileSchema),
-    placeholder: z.literal(true),
   }),
 );
 
