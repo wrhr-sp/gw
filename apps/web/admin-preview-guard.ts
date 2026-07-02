@@ -1,8 +1,8 @@
-import { getSensitiveWorkbenchRouteKind, getViewerAccessForRoleCode, hasAdminRouteAccess, hasSensitiveWorkbenchRouteAccess, knownRoleCodes, type RoleCode } from "@gw/shared";
+import { getSensitiveWorkbenchRouteKind, getViewerAccessForRoleCode, hasAdminRouteAccess, hasSensitiveWorkbenchRouteAccess, type RoleCode } from "@gw/shared";
 
 import { getAdminHostInfo, getAdminHostRedirectHost, isWorkersPreviewGeneralHost } from "./admin-host";
+import { extractViewerRoleCodeFromSessionToken } from "./admin-page-access";
 
-const DEV_SESSION_PREFIX = "dev-placeholder-session_";
 const adminRoutePrefixes = ["/admin"];
 const adminHostAllowedRoutePrefixes = ["/admin", "/login", "/forbidden", "/manifest.webmanifest"];
 const publicRoutePrefixes = ["/login", "/forbidden", "/manifest.webmanifest"] as const;
@@ -25,7 +25,6 @@ const authenticatedWorkbenchRoutePrefixes = [
   "/posts",
   "/offline",
 ] as const;
-const knownRoleCodeSet = new Set<string>(knownRoleCodes);
 
 type RouteGuardRole = RoleCode;
 
@@ -47,18 +46,9 @@ function isMatchingRoute(pathname: string, prefixes: readonly string[]) {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-function extractRoleCodeFromSessionToken(sessionToken?: string | null): RouteGuardRole | null {
-  if (!sessionToken || !sessionToken.startsWith(DEV_SESSION_PREFIX)) {
-    return null;
-  }
-
-  const candidate = sessionToken.slice(DEV_SESSION_PREFIX.length);
-  return knownRoleCodeSet.has(candidate) ? (candidate as RouteGuardRole) : null;
-}
-
 export function getAdminRouteGuardResult({ pathname, host, sessionToken }: AdminRouteGuardInput): GuardResult {
   const hostInfo = getAdminHostInfo(host);
-  const roleCode = extractRoleCodeFromSessionToken(sessionToken);
+  const roleCode = extractViewerRoleCodeFromSessionToken(sessionToken);
   const hasSessionToken = Boolean(sessionToken);
 
   if (hostInfo.isAdminHost && pathname === "/") {
