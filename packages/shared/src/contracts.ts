@@ -2242,7 +2242,6 @@ export const readReceiptCreateResponseSchema = successResponseSchema(
   z.object({
     receipt: readReceiptSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
