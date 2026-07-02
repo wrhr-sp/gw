@@ -3586,7 +3586,6 @@ app.get(appRoutes.home.shortcuts, async (context) => {
           "운영 DB 기준 홈 바로가기를 조회했습니다.",
           "회사 공통 고정 항목과 사용자별 커스텀 항목을 함께 정렬해 제공합니다.",
         ],
-        placeholder: true,
       },
       error: null,
     },
