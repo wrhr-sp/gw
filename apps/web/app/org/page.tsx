@@ -26,27 +26,7 @@ const orgConfig = {
   emptyActionLabel: "범위 확인",
 };
 
-const seedData: OrgData = {
-  departments: [
-    { id: "department_hq", companyId: "company_demo", parentDepartmentId: null, code: "hq", name: "본사", status: "active" },
-    { id: "department_hr", companyId: "company_demo", parentDepartmentId: "department_hq", code: "hr", name: "인사운영팀", status: "active" },
-    { id: "department_strategy", companyId: "company_demo", parentDepartmentId: "department_hq", code: "strategy", name: "전략기획팀", status: "active" },
-  ],
-  branches: [
-    { id: "branch_seoul", companyId: "company_demo", code: "seoul", name: "서울지점", branchType: "branch", status: "active" },
-    { id: "branch_busan", companyId: "company_demo", code: "busan", name: "부산지점", branchType: "branch", status: "active" },
-  ],
-  employees: [
-    { id: "seed-jung", companyId: "company_demo", departmentId: "department_hr", email: "jung@example.com", fullName: "정하늘", employmentStatus: "active" },
-    { id: "seed-kim", companyId: "company_demo", departmentId: "department_hr", email: "kim@example.com", fullName: "김민수", employmentStatus: "on_leave" },
-    { id: "seed-lee", companyId: "company_demo", departmentId: "department_hr", email: "lee@example.com", fullName: "이서연", employmentStatus: "active" },
-  ],
-  summaries: [
-    { employeeId: "seed-jung", departmentName: "인사운영팀", roleSummary: "팀장 · 휴가 승인", statusLabel: "재직", statusTone: "positive", primaryNote: "근태·휴가 승인 담당" },
-    { employeeId: "seed-kim", departmentName: "인사운영팀", roleSummary: "과장 · 노무", statusLabel: "휴가", statusTone: "caution", primaryNote: "대체 연락 필요" },
-    { employeeId: "seed-lee", departmentName: "인사운영팀", roleSummary: "대리 · 채용", statusLabel: "재직", statusTone: "positive", primaryNote: "채용 운영 담당" },
-  ],
-};
+const initialData: OrgData = { departments: [], branches: [], employees: [], summaries: [] };
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -89,7 +69,7 @@ const noteLabel = (employee: Employee, summaries: EmployeeDirectorySummary[]) =>
 
 export default function OrgPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<OrgData>(seedData);
+  const [data, setData] = useState<OrgData>(initialData);
   const [toast, setToast] = useState<ToastState>(null);
 
   const activeDepartments = useMemo(() => data.departments.filter((department) => department.status === "active"), [data.departments]);
@@ -150,6 +130,7 @@ export default function OrgPage() {
 
           <div className="feature-workspace__rows" aria-label="조직 트리">
             {loadState === "loading" && activeDepartments.length === 0 ? <article className="feature-workspace__row"><div><strong>불러오는 중</strong><span>조직 트리 조회</span></div><em>대기</em></article> : null}
+            {loadState !== "loading" && activeDepartments.length === 0 && activeBranches.length === 0 ? <article className="feature-workspace__row"><div><strong>표시할 조직 없음</strong><span>현재 조직 API에서 조회 가능한 부서나 지점이 없습니다.</span><div className="feature-workspace__row-actions" aria-label="조직 범위 확인"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">{orgConfig.emptyActionLabel}</button></div></div><em>empty</em></article> : null}
             {activeDepartments.map((department) => (
               <article className="feature-workspace__row" key={department.id}>
                 <div><strong>{department.parentDepartmentId ? department.name : "본사"}</strong><span>{department.parentDepartmentId ? `${department.name} · ${department.code}` : activeDepartments.filter((item) => item.parentDepartmentId === department.id).map((item) => item.name).join(" · ") || department.name}</span><div className="feature-workspace__row-actions" aria-label={`${department.id} 부서 조회`}><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">부서 펼치기</button><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">구성원 보기</button></div></div><em>{department.status === "active" ? "펼침" : "중지"}</em>
@@ -159,7 +140,7 @@ export default function OrgPage() {
           </div>
 
           <div className="feature-workspace__rows" aria-label="부서 상세와 구성원">
-            <article className="feature-workspace__row"><div><strong>{selectedDepartment?.name ?? "인사운영팀"}</strong><span>근태 · 휴가 · 조직 정보 관리</span><p>선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다.</p></div><em>운영중</em></article>
+            <article className="feature-workspace__row"><div><strong>{selectedDepartment?.name ?? "선택된 부서 없음"}</strong><span>{selectedDepartment ? "근태 · 휴가 · 조직 정보 관리" : "조직 API 조회 결과를 기다립니다."}</span><p>{selectedDepartment ? "선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다." : "부서가 없으면 샘플 부서로 채우지 않고 빈 상태를 유지합니다."}</p></div><em>{selectedDepartment ? "운영중" : "empty"}</em></article>
             {selectedEmployees.map((employee) => <article className="feature-workspace__row" key={employee.id}><div><strong>{employee.fullName}</strong><span>{roleLabel(employee, data.summaries)}</span><p>{noteLabel(employee, data.summaries)}</p></div><em>{statusLabel(employee, data.summaries)}</em></article>)}
             <article className="feature-workspace__row"><div><strong>접근 범위</strong><span>일반 직원은 필요한 연락·소속 정보만 보고, 민감 정보와 관리자 설정은 분리합니다.</span><p>표시할 조직이 없으면 회사 또는 지점 범위를 먼저 확인하고 조직 운영 변경은 관리자 화면에서 진행합니다.</p><div className="feature-workspace__row-actions" aria-label="조직 범위 확인"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">{orgConfig.emptyActionLabel}</button></div></div><em>권한</em></article>
           </div>
