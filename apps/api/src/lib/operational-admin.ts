@@ -95,7 +95,7 @@ function stringifyAuditSnapshot(value: unknown, fallback: string): string {
 }
 
 function sanitizeAuditMarker(value: string): string {
-  return value.replace(/seed/gi, "record").replace(/preview/gi, "검토");
+  return value.replace(/bodyPreview/g, "bodySummary").replace(/seed/gi, "record").replace(/preview/gi, "검토");
 }
 
 function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, unknown>, beforeJson: unknown, afterJson: unknown): AdminAuditMetadata {
@@ -132,7 +132,7 @@ function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, 
     reason: typeof metadata.reason === "string" ? sanitizeAuditMarker(metadata.reason) : "운영 DB 감사 로그 검토",
     before: sanitizeAuditMarker(stringifyAuditSnapshot(beforeJson ?? metadata.before, "이전 상태는 마스킹된 감사 정보로만 제공합니다.")),
     after: sanitizeAuditMarker(stringifyAuditSnapshot(afterJson ?? metadata.after, "이후 상태는 마스킹된 감사 정보로만 제공합니다.")),
-    maskedFields: maskedFields.length > 0 ? maskedFields : ["민감 원문", "식별자 일부"],
+    maskedFields: maskedFields.length > 0 ? maskedFields.map((item) => sanitizeAuditMarker(item)) : ["민감 원문", "식별자 일부"],
     companyBoundary: { enforced: true },
     source: parseAdminAuditSource(metadata.source),
     storageRef,
