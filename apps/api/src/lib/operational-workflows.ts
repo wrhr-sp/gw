@@ -177,7 +177,6 @@ function mapApprovalDocument(row: DbRow): ApprovalDocument {
     createdBy: row.created_by,
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),
     updatedAt: toIsoString(row.updated_at, new Date(0).toISOString()),
-    placeholder: true,
   } as ApprovalDocument;
 }
 

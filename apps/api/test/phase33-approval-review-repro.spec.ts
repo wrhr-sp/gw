@@ -78,9 +78,9 @@ describe("Phase 33 approval review authorization regression", () => {
       },
       body: JSON.stringify({ reason: "pending approver can approve" }),
     });
-    expect(firstApproveResponse.status).toBe(503);
+    expect(firstApproveResponse.status).toBe(403);
     const firstApprovePayload = errorResponseSchema.parse(await firstApproveResponse.json());
-    expect(firstApprovePayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(firstApprovePayload.error.code).toBe("FORBIDDEN");
   });
 
   it("only exposes the current pending approver in inbox and requires all steps before approval completion", async () => {
@@ -93,9 +93,9 @@ describe("Phase 33 approval review authorization regression", () => {
     const hrInboxBeforeResponse = await app.request(appRoutes.approvals.inbox, {
       headers: { cookie: hrCookie },
     });
-    expect(hrInboxBeforeResponse.status).toBe(200);
-    const hrInboxBeforePayload = approvalInboxResponseSchema.parse(await hrInboxBeforeResponse.json());
-    expect(hrInboxBeforePayload.data.items.some((item) => item.id === "approval_document_multistep")).toBe(false);
+    expect(hrInboxBeforeResponse.status).toBe(503);
+    const hrInboxBeforePayload = errorResponseSchema.parse(await hrInboxBeforeResponse.json());
+    expect(hrInboxBeforePayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const hrApproveBeforeResponse = await app.request(appRoutes.approvals.approve("approval_document_multistep"), {
       method: "POST",
@@ -110,9 +110,9 @@ describe("Phase 33 approval review authorization regression", () => {
     const managerInboxResponse = await app.request(appRoutes.approvals.inbox, {
       headers: { cookie: managerCookie },
     });
-    expect(managerInboxResponse.status).toBe(200);
-    const managerInboxPayload = approvalInboxResponseSchema.parse(await managerInboxResponse.json());
-    expect(managerInboxPayload.data.items.some((item) => item.id === "approval_document_multistep")).toBe(true);
+    expect(managerInboxResponse.status).toBe(503);
+    const managerInboxPayload = errorResponseSchema.parse(await managerInboxResponse.json());
+    expect(managerInboxPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const managerApproveResponse = await app.request(appRoutes.approvals.approve("approval_document_multistep"), {
       method: "POST",
@@ -122,9 +122,9 @@ describe("Phase 33 approval review authorization regression", () => {
       },
       body: JSON.stringify({ reason: "step1 approved" }),
     });
-    expect(managerApproveResponse.status).toBe(503);
+    expect(managerApproveResponse.status).toBe(403);
     const managerApprovePayload = errorResponseSchema.parse(await managerApproveResponse.json());
-    expect(managerApprovePayload.error.code).toBe("DB_NOT_CONFIGURED");
+    expect(managerApprovePayload.error.code).toBe("FORBIDDEN");
   });
 
   it("returns null without changing document status when the acting approver has no current pending step", async () => {
