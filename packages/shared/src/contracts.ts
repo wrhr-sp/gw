@@ -1527,7 +1527,6 @@ export const attendanceActionResponseSchema = successResponseSchema(
     record: attendanceRecordSchema,
     policyContext: operationalBridgeSummarySchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1542,7 +1541,6 @@ export const attendanceListRecordsResponseSchema = successResponseSchema(
     items: z.array(attendanceRecordSchema),
     filters: attendanceListFiltersSchema,
     policyContext: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1577,7 +1575,6 @@ export const attendanceCorrectionResponseSchema = successResponseSchema(
   z.object({
     request: attendanceCorrectionSchema,
     audit: auditCandidateSchema,
-    placeholder: z.literal(true),
   }),
 );
 

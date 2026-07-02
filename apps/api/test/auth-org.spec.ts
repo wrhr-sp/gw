@@ -797,7 +797,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(invalidPayload.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("lists employee attendance records and accepts correction requests", async () => {
+  it("requires the operational DB for attendance records and corrections", async () => {
     const { cookie } = await loginAndGetCookie("EMPLOYEE");
 
     const recordsResponse = await app.request(`${appRoutes.attendance.records}?workDateFrom=2026-06-01&workDateTo=2026-06-30`, {
@@ -806,11 +806,9 @@ describe("Phase 3 attendance/leave skeleton", () => {
       },
     });
 
-    expect(recordsResponse.status).toBe(200);
-    const recordsPayload = attendanceListRecordsResponseSchema.parse(await recordsResponse.json());
-    expect(recordsPayload.data.items.length).toBeGreaterThan(0);
-    expect(recordsPayload.data.filters.workDateFrom).toBe("2026-06-01");
-    expect(recordsPayload.data.policyContext.currentState).toContain("현재 적용 정책");
+    expect(recordsResponse.status).toBe(503);
+    const recordsPayload = errorResponseSchema.parse(await recordsResponse.json());
+    expect(recordsPayload.error.code).toBe("DB_NOT_CONFIGURED");
 
     const correctionResponse = await app.request(appRoutes.attendance.corrections, {
       method: "POST",
@@ -819,7 +817,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         cookie,
       },
       body: JSON.stringify({
-        attendanceRecordId: recordsPayload.data.items[0]?.id ?? "attendance_record_today",
+        attendanceRecordId: "attendance_record_today",
         reason: "퇴근 시간이 누락되었습니다.",
         requestedCheckOutAt: "2026-06-10T18:10:00.000Z",
         note: "QR 체크아웃 누락",
