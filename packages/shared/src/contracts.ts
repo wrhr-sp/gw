@@ -1244,8 +1244,6 @@ export const listNotificationsResponseSchema = successResponseSchema(
     items: z.array(notificationSchema),
     unreadCount: z.number().int().nonnegative(),
     notices: z.array(z.string()).min(1),
-    operationalContext: operationalBridgeSummarySchema,
-    placeholder: z.literal(true),
   }),
 );
 

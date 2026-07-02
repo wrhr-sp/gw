@@ -74,19 +74,6 @@ type NotificationPayload = {
   }>;
   unreadCount: number;
   notices: string[];
-  operationalContext: {
-    currentState: string;
-    sourceLabel: string;
-    auditTrailHint: string;
-    placeholderNote: string;
-    blockedReasons: Array<{
-      category: string;
-      source: string;
-      title: string;
-      description: string;
-    }>;
-  };
-  placeholder: true;
 };
 
 type WorkItemListPayload = {
@@ -518,18 +505,18 @@ export function NotificationsLiveSection() {
           {notifications.data ? (
             <>
               <h3>미읽음 {notifications.data.unreadCount}건</h3>
-              <p>{notifications.data.operationalContext.currentState}</p>
-              <p className="card-note">source: {notifications.data.operationalContext.sourceLabel}</p>
+              <p>{notifications.data.notices[0]}</p>
+              <p className="card-note">same-origin 알림 API 응답 기준</p>
             </>
           ) : null}
         </article>
         <article className="info-card">
-          <Pill>placeholder honesty</Pill>
+          <Pill>발송 가드레일</Pill>
           {notifications.data ? (
             <>
               <h3>외부 발송 없음</h3>
-              <p>{notifications.data.operationalContext.placeholderNote}</p>
-              <p className="card-note">audit hint: {notifications.data.operationalContext.auditTrailHint}</p>
+              <p>{notifications.data.notices[1] ?? "외부 푸시/메일/메신저 전송은 별도 승인 후 진행합니다."}</p>
+              <p className="card-note">읽음/미읽음 상태와 업무 이동 CTA 만 API로 조회합니다.</p>
             </>
           ) : (
             <QueryState loading={notifications.loading} error={notifications.error} emptyMessage="알림 가드레일은 로그인 후 표시됩니다." />
@@ -559,9 +546,6 @@ export function NotificationsLiveSection() {
           <ul className="summary-list">
             {notifications.data.notices.map((notice) => (
               <li key={notice}>{notice}</li>
-            ))}
-            {notifications.data.operationalContext.blockedReasons.map((reason) => (
-              <li key={`${reason.category}-${reason.source}`}>{reason.title} — {reason.description}</li>
             ))}
           </ul>
         </article>

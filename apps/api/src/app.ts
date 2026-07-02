@@ -3812,8 +3812,6 @@ app.get(appRoutes.notifications, async (context) => {
           "알림 inbox 는 same-origin preview 이며 실제 외부 발송 상태를 뜻하지 않습니다.",
           "읽음/미읽음과 업무 이동 CTA 만 확인하고 푸시/메일/메신저 전송은 별도 승인 게이트로 남깁니다.",
         ],
-        operationalContext: buildOperationalBridgeSummary(),
-        placeholder: true,
       },
       error: null,
     },
