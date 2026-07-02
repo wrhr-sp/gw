@@ -1,77 +1,170 @@
-import React from "react";
+"use client";
 
-import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../_components/feature-workspace";
-import { PageShell } from "../_components/page-shell";
+import React, { useEffect, useMemo, useState } from "react";
 
-const orgConfig: FeatureWorkspaceConfig = {
+import {
+  appRoutes,
+  errorResponseSchema,
+  listBranchesResponseSchema,
+  listDepartmentsResponseSchema,
+  listEmployeesResponseSchema,
+  type BranchSummary,
+  type Department,
+  type Employee,
+  type EmployeeDirectorySummary,
+} from "@gw/shared";
+
+import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
+import { PageShell, Pill } from "../_components/page-shell";
+
+type LoadState = "idle" | "loading" | "ready" | "error";
+type ToastState = { tone: "accent" | "warning"; title: string; body: string } | null;
+type OrgData = { departments: Department[]; branches: BranchSummary[]; employees: Employee[]; summaries: EmployeeDirectorySummary[] };
+
+const orgConfig = {
   title: "조직도",
-  eyebrow: "부서 구조, 직원 배치, 담당자를 한 화면에서 찾습니다.",
-  tabs: [
-    { id: "tree", label: "조직 트리", badge: "부서" },
-    { id: "department", label: "부서 상세", badge: "인원" },
-    { id: "member", label: "구성원", badge: "목록" },
-    { id: "scope", label: "접근 범위", badge: "권한" },
+  emptyActionLabel: "범위 확인",
+};
+
+const seedData: OrgData = {
+  departments: [
+    { id: "department_hq", companyId: "company_demo", parentDepartmentId: null, code: "hq", name: "본사", status: "active" },
+    { id: "department_hr", companyId: "company_demo", parentDepartmentId: "department_hq", code: "hr", name: "인사운영팀", status: "active" },
+    { id: "department_strategy", companyId: "company_demo", parentDepartmentId: "department_hq", code: "strategy", name: "전략기획팀", status: "active" },
   ],
-  utility: [
-    { label: "본사", value: "3개 팀" },
-    { label: "지점", value: "2곳" },
-    { label: "전체 인원", value: "42명" },
+  branches: [
+    { id: "branch_seoul", companyId: "company_demo", code: "seoul", name: "서울지점", branchType: "branch", status: "active" },
+    { id: "branch_busan", companyId: "company_demo", code: "busan", name: "부산지점", branchType: "branch", status: "active" },
   ],
-  panels: [
-    {
-      id: "tree",
-      heading: "조직 트리",
-      summary: "본사, 지점, 팀 단위로 펼쳐 보며 담당 부서를 빠르게 찾습니다.",
-      permissionHint: "조직 조회는 read-only이며 역할·정책 변경은 관리자 영역으로 분리합니다.",
-      rows: [
-        { title: "본사", meta: "전략기획팀 · 인사운영팀 · 제품개발팀", status: "펼침", actions: [{ label: "부서 펼치기", tone: "primary" }, { label: "구성원 보기" }] },
-        { title: "서울지점", meta: "운영 · 고객지원", status: "확인", actions: [{ label: "지점 보기" }, { label: "담당자 확인" }] },
-        { title: "부산지점", meta: "운영 · 시설", status: "확인" },
-      ],
-    },
-    {
-      id: "department",
-      heading: "부서 상세",
-      summary: "선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다.",
-      statusCards: [
-        { label: "부서장", value: "정하늘", tone: "accent" },
-        { label: "인원", value: "8명" },
-        { label: "상태", value: "운영중" },
-      ],
-      rows: [
-        { title: "인사운영팀", meta: "근태 · 휴가 · 조직 정보 관리", status: "본사" },
-        { title: "주요 연결", meta: "근태, 휴가, 직원, 권한 요청", status: "사용" },
-      ],
-    },
-    {
-      id: "member",
-      heading: "구성원",
-      summary: "부서 안의 직원, 직책, 현재 상태를 목록으로 확인합니다.",
-      rows: [
-        { title: "정하늘", meta: "팀장 · 휴가 승인", status: "재직" },
-        { title: "김민수", meta: "과장 · 노무", status: "휴가" },
-        { title: "이서연", meta: "대리 · 채용", status: "재직" },
-      ],
-      actions: [{ label: "직원 목록으로 보기", tone: "primary" }, { label: "메신저 보내기" }],
-    },
-    {
-      id: "scope",
-      heading: "접근 범위",
-      summary: "일반 직원은 필요한 연락·소속 정보만 보고, 민감 정보와 관리자 설정은 분리합니다.",
-      rows: [
-        { title: "일반 직원", meta: "부서, 직책, 근무 상태", status: "허용" },
-        { title: "팀장", meta: "팀원 근태·휴가 상태", status: "부분 허용" },
-        { title: "관리자", meta: "조직 변경과 권한 설정", status: "별도 관리" },
-      ],
-      emptyState: { title: "표시할 조직이 없으면", body: "회사 또는 지점 범위를 먼저 확인하고 조직 운영 변경은 관리자 화면에서 진행합니다.", actionLabel: "범위 확인" },
-    },
+  employees: [
+    { id: "seed-jung", companyId: "company_demo", departmentId: "department_hr", email: "jung@example.com", fullName: "정하늘", employmentStatus: "active" },
+    { id: "seed-kim", companyId: "company_demo", departmentId: "department_hr", email: "kim@example.com", fullName: "김민수", employmentStatus: "on_leave" },
+    { id: "seed-lee", companyId: "company_demo", departmentId: "department_hr", email: "lee@example.com", fullName: "이서연", employmentStatus: "active" },
+  ],
+  summaries: [
+    { employeeId: "seed-jung", departmentName: "인사운영팀", roleSummary: "팀장 · 휴가 승인", statusLabel: "재직", statusTone: "positive", primaryNote: "근태·휴가 승인 담당" },
+    { employeeId: "seed-kim", departmentName: "인사운영팀", roleSummary: "과장 · 노무", statusLabel: "휴가", statusTone: "caution", primaryNote: "대체 연락 필요" },
+    { employeeId: "seed-lee", departmentName: "인사운영팀", roleSummary: "대리 · 채용", statusLabel: "재직", statusTone: "positive", primaryNote: "채용 운영 담당" },
   ],
 };
 
+async function readErrorMessage(response: Response) {
+  const payload = await response.json().catch(() => null);
+  const parsed = errorResponseSchema.safeParse(payload);
+  if (parsed.success) return parsed.data.error.message;
+  return `${response.status} ${response.statusText}`;
+}
+
+async function fetchJson<T>(route: string, parse: (payload: unknown) => T) {
+  const response = await fetch(route, { credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) throw new Error(await readErrorMessage(response));
+  return parse(await response.json());
+}
+
+async function fetchOrgData(): Promise<OrgData> {
+  const orgRoutes = appRoutes.org;
+  const [departmentsResult, branchesResult, employeesResult] = await Promise.all([
+    fetchJson(orgRoutes.departments, (payload) => {
+      const parsed = listDepartmentsResponseSchema.safeParse(payload);
+      if (!parsed.success) throw new Error("부서 응답 형식이 계약과 맞지 않습니다.");
+      return parsed.data.data.items;
+    }),
+    fetchJson(orgRoutes.branches, (payload) => {
+      const parsed = listBranchesResponseSchema.safeParse(payload);
+      if (!parsed.success) throw new Error("지점 응답 형식이 계약과 맞지 않습니다.");
+      return parsed.data.data.items;
+    }),
+    fetchJson(orgRoutes.employees, (payload) => {
+      const parsed = listEmployeesResponseSchema.safeParse(payload);
+      if (!parsed.success) throw new Error("구성원 응답 형식이 계약과 맞지 않습니다.");
+      return { employees: parsed.data.data.items, summaries: parsed.data.data.summaries };
+    }),
+  ]);
+  return { departments: departmentsResult, branches: branchesResult, employees: employeesResult.employees, summaries: employeesResult.summaries };
+}
+
+const statusLabel = (employee: Employee, summaries: EmployeeDirectorySummary[]) => summaries.find((item) => item.employeeId === employee.id)?.statusLabel ?? (employee.employmentStatus === "on_leave" ? "휴가" : employee.employmentStatus === "offboarded" ? "퇴사" : "재직");
+const roleLabel = (employee: Employee, summaries: EmployeeDirectorySummary[]) => summaries.find((item) => item.employeeId === employee.id)?.roleSummary ?? "구성원";
+const noteLabel = (employee: Employee, summaries: EmployeeDirectorySummary[]) => summaries.find((item) => item.employeeId === employee.id)?.primaryNote ?? employee.email;
+
 export default function OrgPage() {
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [data, setData] = useState<OrgData>(seedData);
+  const [toast, setToast] = useState<ToastState>(null);
+
+  const activeDepartments = useMemo(() => data.departments.filter((department) => department.status === "active"), [data.departments]);
+  const activeBranches = useMemo(() => data.branches.filter((branch) => branch.status === "active"), [data.branches]);
+  const selectedDepartment = activeDepartments.find((department) => department.name.includes("인사")) ?? activeDepartments[0] ?? null;
+  const selectedEmployees = useMemo(() => {
+    if (!selectedDepartment) return data.employees;
+    const scoped = data.employees.filter((employee) => employee.departmentId === selectedDepartment.id);
+    return scoped.length > 0 ? scoped : data.employees;
+  }, [data.employees, selectedDepartment]);
+
+  async function reloadOrg() {
+    setLoadState("loading");
+    setToast(null);
+    try {
+      setData(await fetchOrgData());
+      setLoadState("ready");
+    } catch (error) {
+      setLoadState("error");
+      setToast({ tone: "warning", title: "조직 정보를 불러오지 못했습니다.", body: error instanceof Error ? error.message : "알 수 없는 오류입니다." });
+    }
+  }
+
+  useEffect(() => { void reloadOrg(); }, []);
+
   return (
     <PageShell title="조직도" titlePlacement="content" titleHref={null}>
-      <FeatureWorkspace config={orgConfig} />
+      <div className="feature-workspace">
+        <aside className="feature-workspace__nav" aria-label="조직도 메뉴">
+          <div className="feature-workspace__nav-header">
+            <h1><button className="page-shell__title-link page-shell__title-button" onClick={() => void reloadOrg()} type="button">{orgConfig.title}</button></h1>
+            <FeaturePageOverflowMenu label="조직도" />
+          </div>
+          <div className="feature-workspace__tab-list" role="tablist" aria-label="조직도 상태">
+            <button aria-selected="true" className="feature-workspace__tab" role="tab" type="button"><span>조직 트리</span><strong>부서</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>부서 상세</span><strong>인원</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>구성원</span><strong>목록</strong></button>
+            <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>접근 범위</span><strong>권한</strong></button>
+          </div>
+        </aside>
+
+        <section className="feature-workspace__panel" aria-labelledby="org-panel-heading">
+          <div className="feature-workspace__panel-header">
+            <div>
+              <h2 id="org-panel-heading">조직 트리</h2>
+              <p>본사, 지점, 팀 단위를 실제 조직 API 기준으로 조회합니다.</p>
+            </div>
+            <p className="feature-workspace__permission-hint">조직 조회는 read-only이며 역할·정책 변경은 관리자 영역으로 분리합니다.</p>
+          </div>
+
+          {toast ? <article className="info-card"><Pill tone={toast.tone}>확인</Pill><h3>{toast.title}</h3><p>{toast.body}</p></article> : null}
+
+          <div className="feature-workspace__status-grid">
+            <article className="feature-workspace__status feature-workspace__status--accent"><span>본사</span><strong>{activeDepartments.length}개 팀</strong><p>조회 가능한 활성 부서</p></article>
+            <article className="feature-workspace__status"><span>지점</span><strong>{activeBranches.length}곳</strong><p>현재 세션의 지점 범위</p></article>
+            <article className="feature-workspace__status"><span>전체 인원</span><strong>{data.employees.length}명</strong><p>직원 API 조회 결과</p></article>
+          </div>
+
+          <div className="feature-workspace__rows" aria-label="조직 트리">
+            {loadState === "loading" && activeDepartments.length === 0 ? <article className="feature-workspace__row"><div><strong>불러오는 중</strong><span>조직 트리 조회</span></div><em>대기</em></article> : null}
+            {activeDepartments.map((department) => (
+              <article className="feature-workspace__row" key={department.id}>
+                <div><strong>{department.parentDepartmentId ? department.name : "본사"}</strong><span>{department.parentDepartmentId ? `${department.name} · ${department.code}` : activeDepartments.filter((item) => item.parentDepartmentId === department.id).map((item) => item.name).join(" · ") || department.name}</span><div className="feature-workspace__row-actions" aria-label={`${department.id} 부서 조회`}><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">부서 펼치기</button><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">구성원 보기</button></div></div><em>{department.status === "active" ? "펼침" : "중지"}</em>
+              </article>
+            ))}
+            {activeBranches.map((branch) => <article className="feature-workspace__row" key={branch.id}><div><strong>{branch.name}</strong><span>{branch.branchType} · {branch.code}</span></div><em>확인</em></article>)}
+          </div>
+
+          <div className="feature-workspace__rows" aria-label="부서 상세와 구성원">
+            <article className="feature-workspace__row"><div><strong>{selectedDepartment?.name ?? "인사운영팀"}</strong><span>근태 · 휴가 · 조직 정보 관리</span><p>선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다.</p></div><em>운영중</em></article>
+            {selectedEmployees.map((employee) => <article className="feature-workspace__row" key={employee.id}><div><strong>{employee.fullName}</strong><span>{roleLabel(employee, data.summaries)}</span><p>{noteLabel(employee, data.summaries)}</p></div><em>{statusLabel(employee, data.summaries)}</em></article>)}
+            <article className="feature-workspace__row"><div><strong>접근 범위</strong><span>일반 직원은 필요한 연락·소속 정보만 보고, 민감 정보와 관리자 설정은 분리합니다.</span><p>표시할 조직이 없으면 회사 또는 지점 범위를 먼저 확인하고 조직 운영 변경은 관리자 화면에서 진행합니다.</p><div className="feature-workspace__row-actions" aria-label="조직 범위 확인"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">{orgConfig.emptyActionLabel}</button></div></div><em>권한</em></article>
+          </div>
+        </section>
+      </div>
     </PageShell>
   );
 }
