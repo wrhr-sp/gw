@@ -181,7 +181,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("복구 경로: /admin · /admin/users · /admin/policies · /admin/audit-logs · /offline");
   });
 
-  it("separates offline retry guidance from generic preview errors on the admin users page", async () => {
+  it("separates offline retry guidance from generic review errors on the admin users page", async () => {
     const loginResponse = await app.request(appRoutes.auth.login, {
       method: "POST",
       headers: {
@@ -227,7 +227,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("현재 운영 기준");
     expect(html).toContain("candidate 변경안");
     expect(html).toContain("필요 capability");
-    expect(html).toContain("감사 preview");
+    expect(html).toContain("감사 review");
     expect(html).toContain("문서 / 첨부 정책");
     expect(html).toContain("근태 / 출퇴근 등록 방식 정책");
     expect(html).toContain("현재 허용 방식");

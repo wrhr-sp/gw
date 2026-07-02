@@ -565,7 +565,7 @@ guardrail:
 - 출퇴근 정책 2차에서는 회사 기본, 근무지/지점, 부서/팀, 직무/역할 기준 preview 를 같은 카드에서 비교
 
 대표 성공 응답:
-- `items[]`: `category`, `summary`, `lastReviewedAt`, `reasonRequired`, `diffPreview`
+- `items[]`: `category`, `summary`, `lastReviewedAt`, `reasonRequired`, `diffSummary`
 출퇴근 정책 카드에는 `priorityOrder`, `scopeSummaries`, `policySubjectSummaries`, `duplicateWarnings` 같은 정책 적용 정보가 함께 포함될 수 있음
 
 guardrail:
@@ -615,7 +615,7 @@ guardrail:
 - `items[]`: masked metadata 포함 감사 로그
 - `filters`
 - `filterOptions`
-- `detailPreview`
+- `detailSummary`
 
 대표 오류:
 - 403 `FORBIDDEN`: 감사 권한 없음

@@ -8,7 +8,7 @@
 
 직전까지는 아래가 각각 따로 읽혔다.
 
-- `/admin/audit-logs` 의 masked 감사 preview
+- `/admin/audit-logs` 의 masked 감사 검토
 - route/API guard 와 company+branch scope 회귀 테스트
 - `/api/health`, preview smoke, release gate, operator runbook
 - backup/restore/rollback/incident 관련 수동 문서 조각

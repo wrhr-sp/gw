@@ -321,7 +321,7 @@ pnpm --filter @gw/mobile typecheck
 1. `/dashboard` — 관리자 CTA 또는 감사 CTA 가 어디에 보이는지 확인한다.
 2. `/admin` — 오늘 먼저 볼 운영 체크포인트와 승인 게이트가 먼저 읽히는지 본다.
 3. `/admin/users` — `/employees` 와 다른 운영 변경 후보 검토 화면으로 읽히는지 본다.
-4. `/admin/policies` — current/candidate/capability/audit preview 구조가 유지되는지 본다.
+4. `/admin/policies` — current/candidate/capability/audit review 구조가 유지되는지 본다.
 5. `/admin/audit-logs` — read-only 감사 추적, masked/company boundary/source 의미가 흔들리지 않는지 본다.
 
 최근 Phase 23 재검증 기준 명령:
@@ -384,7 +384,7 @@ pnpm --filter @gw/mobile typecheck
 이번 재검증에서 문서에 다시 고정할 것:
 - 8790 포트에 기존 workerd listener 가 떠 있으면 같은 build 산출물 기준 8791 같은 빈 포트로 옮겨 smoke 해도 된다. 다만 live 확인과 혼동하지 않게 포트 변경 이유를 같이 남긴다.
 - `/documents`, `/management`, `/payroll`, `/work-items/tax`, `/work-items/labor`, `/work-items/legal`, `/admin/audit-logs` 는 local preview smoke 기준 다시 200 이어야 한다.
-- raw `storageKey`, bucket, signed URL/public URL 비노출과 masked audit preview 경계는 `apps/api/test/auth-org.spec.ts` 근거와 같은 뜻으로 유지돼야 한다.
+- raw `storageKey`, bucket, signed URL/public URL 비노출과 masked audit review 경계는 `apps/api/test/auth-org.spec.ts` 근거와 같은 뜻으로 유지돼야 한다.
 
 문서/코드 대조를 끝낸 뒤 대장이 짧게 다시 볼 질문:
 
@@ -1223,7 +1223,7 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 ## 2026-06-12 Phase 15 운영 데이터·정책·감사 로그 연결 1차 검증 계획
 
 목표:
-- 관리자 정책/권한/감사 preview 가 일반 업무 화면과 API 허용 결과에 왜 그렇게 이어지는지 같은 뜻으로 검증한다.
+- 관리자 정책/권한/감사 검토 가 일반 업무 화면과 API 허용 결과에 왜 그렇게 이어지는지 같은 뜻으로 검증한다.
 - blocked/empty/error 상태를 권한 부족, 회사 scope, 정책 미허용, placeholder 제한 4축으로 구분해 확인한다.
 - `/attendance` 뿐 아니라 `/leave` 도 운영 정책 연결 보강 대상으로 포함한다.
 
@@ -1288,7 +1288,7 @@ scheduled 복구 카드 정리에서 우선 확인할 최신 근거 메모:
 2. `/attendance` 에서 허용 방식, `effective policy`, offline 재시도 안내가 같이 보이는지 본다.
 3. `/leave` 에서 권한 부족/회사 scope/정책상 미허용/placeholder 제한 4축 메모가 살아 있는지 본다.
 4. `/employees` 와 `/admin/users` 를 비교해 일반 조회와 운영 검토가 서로 다른 책임으로 읽히는지 본다.
-5. `/admin/policies` 와 `/admin/audit-logs` 에서 candidate/reason/audit preview 가 read-only 운영 검토 톤으로 유지되는지 본다.
+5. `/admin/policies` 와 `/admin/audit-logs` 에서 candidate/reason/audit review 가 read-only 운영 검토 톤으로 유지되는지 본다.
 
 ## 6. PR 전 확인
 

@@ -91,7 +91,7 @@
 - before/after diff
 - 필요한 capability
 - 변경 사유 Production-ready (실구현)
-- 감사 preview
+- 감사 검토
 - 비노출/마스킹 주의사항
 
 ### 5) `/admin/audit-logs` 는 조회와 비노출 원칙을 먼저 굳힌다.

@@ -2,7 +2,7 @@ import React from "react";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
-import { adminPolicyPreview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryPreview, leaveTypeCodeLabels } from "../../../admin-skeleton-config";
+import { adminPolicyReview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryReview, leaveTypeCodeLabels } from "../../../admin-skeleton-config";
 import { AdminPoliciesLiveSection } from "./admin-policies-live-section";
 
 export default function AdminPoliciesPage() {
@@ -17,7 +17,7 @@ export default function AdminPoliciesPage() {
     >
       <SurfaceSection
         title="실제 정책 API 확인"
-        description="관리자 정책 목록을 same-origin API 로 조회하고 current/candidate/capability/audit preview 계약을 먼저 검증합니다."
+        description="관리자 정책 목록을 same-origin API 로 조회하고 current/candidate/capability/audit review 계약을 먼저 검증합니다."
       >
         <AdminPoliciesLiveSection />
       </SurfaceSection>
@@ -35,14 +35,14 @@ export default function AdminPoliciesPage() {
           <article className="info-card">
             <Pill tone="warning">운영 정책</Pill>
             <h3>/admin/policies</h3>
-            <p>visibility, retention, capability, 감사 preview 를 같은 형식으로 비교합니다.</p>
+            <p>visibility, retention, capability, 감사 review 를 같은 형식으로 비교합니다.</p>
           </article>
         </div>
       </SurfaceSection>
 
       <SurfaceSection
         title="정책 카드 공통 형식"
-        description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 preview 를 같은 순서로 보여 줍니다."
+        description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 review 를 같은 순서로 보여 줍니다."
       >
         <ul className="summary-list">
           {adminPolicyReviewChecklist.map((item) => (
@@ -98,8 +98,8 @@ export default function AdminPoliciesPage() {
                 <p>{section.capability}</p>
               </article>
               <article className="info-card">
-                <Pill>감사 preview</Pill>
-                <p>{section.auditPreview}</p>
+                <Pill>감사 review</Pill>
+                <p>{section.auditReview}</p>
               </article>
             </div>
             {section.priorityDescription || typeof section.appliedEmployeeCount === "number" ? (
@@ -149,7 +149,7 @@ export default function AdminPoliciesPage() {
         description="근태 등록 방식 정책은 회사 기본 → 근무지/지점 → 부서/팀 → 직무/역할 순서로 비교합니다."
       >
         <div className="grid-auto-compact">
-          {adminPolicyPreview.scopeSummaries.map((item) => (
+          {adminPolicyReview.scopeSummaries.map((item) => (
             <article key={item.id} className="info-card">
               <Pill tone="accent">{item.policyTargetLabel}</Pill>
               <p>우선순위: {item.priorityRank}</p>
@@ -167,7 +167,7 @@ export default function AdminPoliciesPage() {
         description="같은 정책이라도 소속별로 무엇이 적용되는지와 중복 경고를 함께 확인합니다."
       >
         <div className="grid-auto-compact">
-          {adminPolicyPreview.policySubjectSummaries.map((employee) => (
+          {adminPolicyReview.policySubjectSummaries.map((employee) => (
             <article key={employee.employeeId} className="info-card">
               <Pill>{employee.employeeId}</Pill>
               <p>{employee.summary}</p>
@@ -175,9 +175,9 @@ export default function AdminPoliciesPage() {
             </article>
           ))}
         </div>
-        {adminPolicyPreview.duplicateWarnings.length ? (
+        {adminPolicyReview.duplicateWarnings.length ? (
           <ul className="summary-list stack-top-md">
-            {adminPolicyPreview.duplicateWarnings.map((warning) => (
+            {adminPolicyReview.duplicateWarnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
           </ul>
@@ -191,13 +191,13 @@ export default function AdminPoliciesPage() {
         <div className="grid-auto-compact">
           <article className="info-card">
             <Pill tone="accent">허용 휴가 유형</Pill>
-            <p>{leavePolicySummaryPreview.effectiveScopeLabel}</p>
-            <p>{leavePolicySummaryPreview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
+            <p>{leavePolicySummaryReview.effectiveScopeLabel}</p>
+            <p>{leavePolicySummaryReview.allowedLeaveTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
           </article>
           <article className="info-card">
             <Pill>승인 필요 유형</Pill>
-            <p>{leavePolicySummaryPreview.approvalRequiredTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
-            <p className="card-note">승인 대기열 노출: {leavePolicySummaryPreview.approvalQueueVisibleToApprover ? "승인자에게만 노출" : "비노출"}</p>
+            <p>{leavePolicySummaryReview.approvalRequiredTypeCodes.map((code) => leaveTypeCodeLabels[code as keyof typeof leaveTypeCodeLabels]).join(", ")}</p>
+            <p className="card-note">승인 대기열 노출: {leavePolicySummaryReview.approvalQueueVisibleToApprover ? "승인자에게만 노출" : "비노출"}</p>
           </article>
         </div>
         <ul className="summary-list stack-top-md">
@@ -223,9 +223,9 @@ export default function AdminPoliciesPage() {
         title="Phase 16 운영자 검토 체크"
         description="관리자 정책 화면은 게시판/문서 정책 candidate 와 일반 협업 화면의 설명이 같은 방향을 가리키는지 확인하는 운영자용 체크포인트입니다."
         confirmItems={[
-          "current/candidate/capability/audit preview 형식이 문서·게시판 정책에도 같은 방식으로 보인다.",
+          "current/candidate/capability/audit review 형식이 문서·게시판 정책에도 같은 방식으로 보인다.",
           "일반 협업 route 의 제한 설명과 관리자 정책 candidate 가 서로 모순되지 않는다.",
-          "운영자는 이 화면을 보고도 아직 저장 전 preview 임을 이해할 수 있다.",
+          "운영자는 이 화면을 보고도 아직 저장 전 review 임을 이해할 수 있다.",
         ]}
         blockedItems={[
           "정책 실제 저장, production 적용, 운영 권한 재배포는 이번 단계에서 실행하지 않는다.",
@@ -233,7 +233,7 @@ export default function AdminPoliciesPage() {
         nextRoutes={[
           { href: "/boards", label: "/boards", description: "공지/게시판 운영 후보와 일반 화면 문구 비교" },
           { href: "/documents", label: "/documents", description: "문서 공간·첨부 metadata 경계와 정책 설명 비교" },
-          { href: "/admin/audit-logs", label: "/admin/audit-logs", description: "감사 preview 가 read-only 추적 톤을 유지하는지 확인" },
+          { href: "/admin/audit-logs", label: "/admin/audit-logs", description: "감사 review 가 read-only 추적 톤을 유지하는지 확인" },
         ]}
         approvalGates={[
           "production 정책 저장",

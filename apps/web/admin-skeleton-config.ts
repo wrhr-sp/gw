@@ -1,5 +1,5 @@
 import {
-  buildAttendancePolicyPreview,
+  buildAttendancePolicyReview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
   getAdminNavigationAccess,
@@ -31,7 +31,7 @@ export interface AdminPolicySection {
   currentState: string;
   candidateState: string;
   capability: string;
-  auditPreview: string;
+  auditReview: string;
   maskingNote: string;
   priorityDescription?: string;
   appliedEmployeeCount?: number;
@@ -52,7 +52,7 @@ export interface AdminAuditTimelineItem {
   source: string;
 }
 
-export interface CompanySettingsGroupPreview {
+export interface CompanySettingsGroupReview {
   id: "company_profile" | "organization_people_access" | "attendance_leave_work_policies" | "admin_operations";
   title: string;
   summary: string;
@@ -60,21 +60,21 @@ export interface CompanySettingsGroupPreview {
   linkedRoutes: readonly string[];
 }
 
-export interface CompanySettingsPolicyAxisPreview {
+export interface CompanySettingsPolicyAxisReview {
   id: "attendance_registration" | "leave_work_policy" | "employee_policy_visibility";
   title: string;
   summary: string;
   priority: string;
 }
 
-export interface CompanySettingsApprovalGatePreview {
+export interface CompanySettingsApprovalGateReview {
   id: string;
   title: string;
   status: "ready" | "approval_required";
   summary: string;
 }
 
-export interface LeavePolicySummaryPreview {
+export interface LeavePolicySummaryReview {
   effectiveScopeLabel: string;
   allowedLeaveTypeCodes: readonly string[];
   approvalRequiredTypeCodes: readonly string[];
@@ -193,7 +193,7 @@ export const leaveTypeCodeLabels = {
   sick: "병가",
 } as const;
 
-export const companySettingsGroups: readonly CompanySettingsGroupPreview[] = [
+export const companySettingsGroups: readonly CompanySettingsGroupReview[] = [
   {
     id: "company_profile",
     title: "회사 기본 설정",
@@ -224,7 +224,7 @@ export const companySettingsGroups: readonly CompanySettingsGroupPreview[] = [
   },
 ] as const;
 
-export const companySettingsPolicyAxes: readonly CompanySettingsPolicyAxisPreview[] = [
+export const companySettingsPolicyAxes: readonly CompanySettingsPolicyAxisReview[] = [
   {
     id: "attendance_registration",
     title: "출퇴근 허용 방식",
@@ -245,7 +245,7 @@ export const companySettingsPolicyAxes: readonly CompanySettingsPolicyAxisPrevie
   },
 ] as const;
 
-export const companySettingsApprovalGates: readonly CompanySettingsApprovalGatePreview[] = [
+export const companySettingsApprovalGates: readonly CompanySettingsApprovalGateReview[] = [
   {
     id: "attendance_tag_device",
     title: "태그 단말 연동",
@@ -278,7 +278,7 @@ export const companySettingsEmployeeVisibilityRules = [
   "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
 ] as const;
 
-export const leavePolicySummaryPreview: LeavePolicySummaryPreview = {
+export const leavePolicySummaryReview: LeavePolicySummaryReview = {
   effectiveScopeLabel: "회사 기본 설정에서 허용한 휴가 유형과 승인 규칙만 직원 화면에 노출합니다.",
   allowedLeaveTypeCodes: ["annual", "half_day_am", "sick"],
   approvalRequiredTypeCodes: ["annual", "half_day_am", "sick"],
@@ -287,7 +287,7 @@ export const leavePolicySummaryPreview: LeavePolicySummaryPreview = {
   managerMessage: "승인자는 승인 대기열과 운영 예외 설명을 함께 보되 실제 차감/급여 연동은 열지 않습니다.",
 };
 
-export const adminPolicyPreview = buildAttendancePolicyPreview({
+export const adminPolicyReview = buildAttendancePolicyReview({
   assignments: demoAttendancePolicyAssignments,
   subjects: Object.values(demoAttendancePolicySubjects),
 });
@@ -339,7 +339,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "회사 기본 정보, 조직 경계, 운영 owner 설명이 화면별로 흩어져 있는 상태를 먼저 요약합니다.",
     candidateState: "company settings model pass 1 로 조직/정책/운영 화면이 같은 회사 scope 설명을 공유하도록 정리합니다.",
     capability: "company.read",
-    auditPreview: "회사 scope 설명 변경 후보, owner, linked route 확인용 검토",
+    auditReview: "회사 scope 설명 변경 후보, owner, linked route 확인용 검토",
     maskingNote: "실제 저장 설정값, 외부 연동 키, 고객사 민감 정보는 화면에 노출하지 않습니다.",
   },
   {
@@ -351,25 +351,25 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
       .map((method) => attendanceRegistrationMethodLabels[method])
       .join(", ")} · 태그 단말 연동 승인 대기`,
     capability: "attendance.manage",
-    auditPreview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 검토",
+    auditReview: "출퇴근 등록 방식 diff, 변경 사유, 회사 경계 검토",
     maskingNote: "실장비 식별값, GPS, 외부 단말 연동 정보는 이번 화면에 노출하지 않습니다.",
     priorityDescription: "우선순위: 회사 기본 < 근무지/지점 < 부서/팀 < 직무/역할",
-    appliedEmployeeCount: adminPolicyPreview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount ?? 0,
-    policySubjectSummaries: adminPolicyPreview.policySubjectSummaries.slice(0, 3).map((item) => ({
+    appliedEmployeeCount: adminPolicyReview.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount ?? 0,
+    policySubjectSummaries: adminPolicyReview.policySubjectSummaries.slice(0, 3).map((item) => ({
       employeeId: item.employeeId,
       name:
         Object.values(demoAttendancePolicySubjects).find((subject) => subject.employeeId === item.employeeId)?.fullName ?? item.employeeId,
       summary: item.summary.replace("현재 적용 정책: ", ""),
       allowedMethodsLabel: item.effectiveAttendanceRegistrationMethods.map((method) => attendanceRegistrationMethodLabels[method]).join(", "),
     })),
-    duplicateWarnings: adminPolicyPreview.duplicateWarnings,
+    duplicateWarnings: adminPolicyReview.duplicateWarnings,
   },
   {
     title: "문서 / 첨부 정책",
     currentState: "문서 공간 visibility 와 보관 기준을 팀별로 다르게 운영 중인 상태를 요약합니다.",
     candidateState: "허용 확장자·보관 기간·공유 범위를 공통 규칙으로 맞추는 candidate 변경안입니다.",
     capability: "document.space.manage",
-    auditPreview: "문서 정책 변경 후보, 변경 사유, masked download context",
+    auditReview: "문서 정책 변경 후보, 변경 사유, masked download context",
     maskingNote: "원시 저장 참조와 직접 다운로드 정보는 화면에 노출하지 않습니다.",
   },
   {
@@ -377,7 +377,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "공지 visibility, moderation, 읽음 확인 기준을 게시판별로 다시 점검합니다.",
     candidateState: "게시판 공개 범위와 읽음 확인 운영 규칙을 card 형식으로 정리한 변경안입니다.",
     capability: "board.manage",
-    auditPreview: "게시판 visibility diff, moderation reason, read-receipt 검토",
+    auditReview: "게시판 visibility diff, moderation reason, read-receipt 검토",
     maskingNote: "일반 작성자 세부 이력이나 외부 공유 링크는 이번 화면에 붙이지 않습니다.",
   },
   {
@@ -385,7 +385,7 @@ export const adminPolicySections: readonly AdminPolicySection[] = [
     currentState: "예외 승인, 대기 기준, 알림 없이도 검토 가능한 운영 규칙을 먼저 요약합니다.",
     candidateState: "before/after diff 와 승인자 확인 포인트를 한 장의 카드로 보는 변경안입니다.",
     capability: "attendance.manage / leave.manage / approval.manage",
-    auditPreview: "정책 category, 변경 사유, company boundary 확인용 검토",
+    auditReview: "정책 category, 변경 사유, company boundary 확인용 검토",
     maskingNote: "실데이터 반영값과 급여 연동 정보는 제외하고 candidate 응답만 유지합니다.",
   },
 ] as const;
@@ -397,7 +397,7 @@ export const adminPolicyReviewChecklist = [
   "감사 검토 와 company boundary 유지",
 ] as const;
 
-export const adminAuditLogPreviewFilters = ["actor", "action", "target", "time", "category"] as const;
+export const adminAuditLogReviewFilters = ["actor", "action", "target", "time", "category"] as const;
 
 export const adminAuditTimelineItems: readonly AdminAuditTimelineItem[] = [
   {

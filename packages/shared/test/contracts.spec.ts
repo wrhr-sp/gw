@@ -95,7 +95,7 @@ import {
 const sampleOperationalBridge = {
   currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
   sourceLabel: "/admin/policies · /admin/users · /admin/audit-logs",
-  auditTrailHint: "운영 예외와 차단 이유는 감사 preview 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
+  auditTrailHint: "운영 예외와 차단 이유는 감사 검토 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
   operationalNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
   blockedReasons: [
     {
@@ -136,7 +136,7 @@ const sampleCompanySettingsModel = {
     {
       id: "admin_operations",
       title: "운영 / 감사 / 예외 처리",
-      summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+      summary: "정책 변경 사유, 승인 gate, 감사 검토 를 관리자 운영 문맥으로 연결합니다.",
       owner: "audit admin",
       linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
     },
@@ -157,13 +157,13 @@ const sampleCompanySettingsModel = {
     {
       id: "employee_policy_visibility",
       title: "직원 노출 규칙",
-      summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+      summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 검토 는 별도로 유지합니다.",
       priority: "employee-safe snapshot first",
     },
   ],
   employeeVisibilityRules: [
     "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
-    "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+    "관리자 검토 와 audit candidate 는 관리자 화면에만 유지합니다.",
     "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
   ],
   approvalGates: [
@@ -1661,7 +1661,7 @@ describe("shared contracts", () => {
             policyChecks: ["R2 metadata only"],
             capability: "document.space.manage",
             reasonRequired: true,
-            diffPreview: {
+            diffSummary: {
               before: "visibility=team",
               after: "visibility=company",
             },
@@ -1719,7 +1719,7 @@ describe("shared contracts", () => {
             targetTypes: ["document_policy"],
             categories: ["policy"],
           },
-          detailPreview: {
+          detailSummary: {
             actorLabel: "관리자 테스트",
             targetLabel: "문서 정책 기본값",
             reasonRequired: true,
@@ -1761,7 +1761,7 @@ describe("shared contracts", () => {
             policyChecks: ["회사 기본 설정을 정책 시작점으로 고정"],
             capability: "company.read",
             reasonRequired: true,
-            diffPreview: {
+            diffSummary: {
               before: "회사 기본 정보와 정책 기준점이 화면별로 분산",
               after: "company settings model pass 1 으로 회사 scope 를 같은 말로 정리",
             },
@@ -1774,7 +1774,7 @@ describe("shared contracts", () => {
             policyChecks: ["태그 단말은 장비 연동 승인 전 보류"],
             capability: "attendance.manage",
             reasonRequired: true,
-            diffPreview: {
+            diffSummary: {
               before: "mobile, pc",
               after: "mobile, tag",
             },
@@ -1792,7 +1792,7 @@ describe("shared contracts", () => {
             policyChecks: ["직원 화면에는 회사가 허용한 유형만 노출"],
             capability: "leave.approve",
             reasonRequired: true,
-            diffPreview: {
+            diffSummary: {
               before: "휴가 유형, 승인 조건, 직원 노출 규칙이 화면별 설명에 분산",
               after: "leave policy summary 로 허용 유형과 승인 조건을 한 번에 확인",
             },

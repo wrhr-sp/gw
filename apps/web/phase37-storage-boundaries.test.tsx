@@ -38,10 +38,10 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(html).not.toContain("Phase");
   });
 
-  it("keeps audit logs on masked preview and storageRef summary only", () => {
+  it("keeps audit logs on masked review and storageRef summary only", () => {
     const html = renderToStaticMarkup(<AuditLogsPage />);
 
-    expect(html).toContain("storage preview 경계");
+    expect(html).toContain("storage review 경계");
     expect(html).toContain("storageRef 는 fileId / spaceId / versionId / storageStatus 수준의 참조 요약입니다.");
     expect(html).toContain("감사 export/download/external sink 는 이번 단계 완료 기준이 아닙니다.");
     expect(html).toContain("raw storageKey / bucket / signed URL / public URL 전문은 감사 응답과 화면에 노출하지 않습니다.");

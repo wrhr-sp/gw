@@ -410,7 +410,7 @@ describe("Phase 2 auth/org contract", () => {
     const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
     expect(payload.data.audit.action).toBe("admin.policy.document.updated");
     expect(payload.data.policy.reasonRequired).toBe(true);
-    expect(payload.data.policy.diffPreview.after).toContain("visibility=company");
+    expect(payload.data.policy.diffSummary.after).toContain("visibility=company");
     expect(payload.data.maskedFields).toContain("storageKey");
     expect(JSON.stringify(payload)).not.toContain("companies/company_demo/");
     expect(JSON.stringify(payload)).not.toContain("signedUrl");
@@ -633,10 +633,10 @@ describe("Phase 3 attendance/leave skeleton", () => {
     expect(payload.data.companySettingsModel.groups).toHaveLength(4);
     expect(companyPolicy?.capability).toBe("company.read");
     expect(leavePolicy?.leavePolicySummary?.allowedLeaveTypeCodes).toEqual(["annual", "half_day_am", "sick"]);
-    expect(attendancePolicy?.attendancePolicyPreview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
-    expect(attendancePolicy?.attendancePolicyPreview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
-    expect(attendancePolicy?.attendancePolicyPreview?.policySubjectSummaries.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
-    expect(attendancePolicy?.attendancePolicyPreview?.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
+    expect(attendancePolicy?.attendancePolicyReview?.priorityOrder).toEqual(attendancePolicyLevelSchema.options);
+    expect(attendancePolicy?.attendancePolicyReview?.scopeSummaries.find((item) => item.policyTargetId === "department_ops")?.appliedEmployeeCount).toBe(2);
+    expect(attendancePolicy?.attendancePolicyReview?.policySubjectSummaries.find((item) => item.employeeId === demoAttendancePolicySubjects.employee.employeeId)?.effectiveAttendanceRegistrationMethods).toEqual(["tag"]);
+    expect(attendancePolicy?.attendancePolicyReview?.duplicateWarnings).toContain("동일 target 활성 정책 중복: 근무지/지점 · 원격 실험실");
   });
 
   it("applies effective policy by employee scope before validating attendance methods", async () => {

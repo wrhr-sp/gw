@@ -126,7 +126,7 @@ import {
   type ApprovalLine,
   type ApprovalReference,
   type ApprovalStep,
-  type AttendancePolicyPreview,
+  type AttendancePolicyReview,
   type AttendanceRecord,
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
@@ -159,7 +159,7 @@ import {
   type WorkItemDeadline,
   type WorkItemDocument,
   type WorkItemReview,
-  buildAttendancePolicyPreview,
+  buildAttendancePolicyReview,
   demoAttendancePolicyAssignments,
   demoAttendancePolicySubjects,
   filterHomeShortcutsForViewer,
@@ -578,7 +578,7 @@ export const companyAttendanceRegistrationPolicy: AttendanceRegistrationPolicy =
   tagDeviceStatus: companyDefaultAttendancePolicyAssignment.tagDeviceStatus,
 };
 
-const attendancePolicyPreview: AttendancePolicyPreview = buildAttendancePolicyPreview({
+const attendancePolicyReview: AttendancePolicyReview = buildAttendancePolicyReview({
   assignments: demoAttendancePolicyAssignments,
   subjects: Object.values(demoAttendancePolicySubjects),
 });
@@ -609,7 +609,7 @@ const adminPolicies = [
     policyChecks: ["회사 기본 설정을 정책 시작점으로 고정", "승인된 운영 범위만 연결"],
     capability: "company.read",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "회사 기본 정보와 정책 기준점이 화면별로 분산",
       after: "company settings model pass 1 으로 회사 scope 를 같은 말로 정리",
     },
@@ -622,12 +622,12 @@ const adminPolicies = [
     policyChecks: ["현재 허용 방식: mobile, pc", "태그 단말은 장비 연동 승인 전 보류"],
     capability: "attendance.manage",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "mobile, pc",
       after: "mobile, tag",
     },
     attendanceRegistrationPolicy: companyAttendanceRegistrationPolicy,
-    attendancePolicyPreview: attendancePolicyPreview,
+    attendancePolicyReview: attendancePolicyReview,
   },
   {
     category: "leave",
@@ -637,7 +637,7 @@ const adminPolicies = [
     policyChecks: ["직원 화면에는 회사가 허용한 유형만 노출", "승인 대기열은 승인 권한 보유자에게만 노출"],
     capability: "leave.approve",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "휴가 유형, 승인 조건, 직원 노출 규칙이 화면별 설명에 분산",
       after: "leave policy summary 로 허용 유형과 승인 조건을 한 번에 확인",
     },
@@ -651,7 +651,7 @@ const adminPolicies = [
     policyChecks: ["팀장 결재선 검토", "self-approval guard 유지"],
     capability: "approval.line.manage",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "휴가/지출 결재선 기준이 결재 화면 설명에만 존재",
       after: "회사 설정 approval gate 와 결재선을 같은 기준으로 연결",
     },
@@ -664,7 +664,7 @@ const adminPolicies = [
     policyChecks: ["R2 metadata 중심 추적", "storageKey 원문 비노출"],
     capability: "document.space.manage",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "visibility=team, retention=180",
       after: "visibility=company, retention=365",
     },
@@ -677,7 +677,7 @@ const adminPolicies = [
     policyChecks: ["board.manage 필요", "일반 사용자 작성 흐름과 분리"],
     capability: "board.manage",
     reasonRequired: true as const,
-    diffPreview: {
+    diffSummary: {
       before: "notice_read_receipt=optional",
       after: "notice_read_receipt=required",
     },
@@ -1682,7 +1682,7 @@ function buildAdminAuditFilterOptions(items: readonly AdminAuditLog[]) {
   };
 }
 
-function buildAdminAuditDetailPreview() {
+function buildAdminAuditDetailSummary() {
   return {
     actorLabel: "관리자 표시 이름",
     targetLabel: "정책/사용자 대상 표시 이름",
@@ -1990,7 +1990,7 @@ function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모
       {
         id: "admin_operations" as const,
         title: "운영 / 감사 / 예외 처리",
-        summary: "정책 변경 사유, 승인 gate, 감사 preview 를 관리자 운영 문맥으로 연결합니다.",
+        summary: "정책 변경 사유, 승인 gate, 감사 검토 를 관리자 운영 문맥으로 연결합니다.",
         owner: "audit admin",
         linkedRoutes: ["/admin/policies", "/admin/audit-logs"],
       },
@@ -2011,13 +2011,13 @@ function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모
       {
         id: "employee_policy_visibility" as const,
         title: "직원 노출 규칙",
-        summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 preview 는 별도로 유지합니다.",
+        summary: "직원 화면은 허용된 정책 결과만 보여주고 관리자 검토 는 별도로 유지합니다.",
         priority: "employee-safe snapshot first",
       },
     ],
     employeeVisibilityRules: [
       "직원 화면에는 회사가 허용한 출퇴근 방식과 휴가 유형만 노출합니다.",
-      "관리자 preview 와 audit candidate 는 관리자 화면에만 유지합니다.",
+      "관리자 검토 와 audit candidate 는 관리자 화면에만 유지합니다.",
       "회사 scope 를 벗어난 사용자/결재/감사 정보는 일반 화면에 노출하지 않습니다.",
     ],
     approvalGates: [
@@ -3790,7 +3790,7 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
           ],
           capability: "document.space.manage",
           reasonRequired: true,
-          diffPreview: {
+          diffSummary: {
             before: "visibility=team, retention=180",
             after: `visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}`,
           },
@@ -3853,7 +3853,7 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
           ],
           capability: "board.manage",
           reasonRequired: true,
-          diffPreview: {
+          diffSummary: {
             before: "notice_read_receipt=optional",
             after: `notice_read_receipt=${parsed.data.requireReadReceipt ? "required" : "optional"}`,
           },
@@ -3913,7 +3913,7 @@ app.get(appRoutes.admin.auditLogs, async (context) => {
         items,
         filters,
         filterOptions: buildAdminAuditFilterOptions(sourceItems),
-        detailPreview: buildAdminAuditDetailPreview(),
+        detailSummary: buildAdminAuditDetailSummary(),
         operationalTrail: buildOperationalBridgeSummary(),
       },
       error: null,
