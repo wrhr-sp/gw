@@ -1204,7 +1204,7 @@ export const auditCandidateSchema = z.object({
   action: z.string(),
 });
 
-export const operationalBlockReasonCategorySchema = z.enum(["permission", "company_scope", "policy", "placeholder"]);
+export const operationalBlockReasonCategorySchema = z.enum(["permission", "company_scope", "policy", "implementation"]);
 
 export const operationalBridgeItemSchema = z.object({
   category: operationalBlockReasonCategorySchema,
@@ -1217,7 +1217,7 @@ export const operationalBridgeSummarySchema = z.object({
   currentState: z.string(),
   sourceLabel: z.string(),
   auditTrailHint: z.string(),
-  placeholderNote: z.string(),
+  operationalNote: z.string(),
   blockedReasons: z.array(operationalBridgeItemSchema).min(1),
 });
 
@@ -1292,7 +1292,7 @@ export const adminUsersListResponseSchema = successResponseSchema(
 export const adminPolicyCategorySchema = z.enum(["company", "attendance", "leave", "approval", "document", "board"]);
 export const adminPolicyVisibilitySchema = z.enum(["private", "team", "company"]);
 export const attendanceRegistrationMethodSchema = z.enum(["mobile", "pc", "tag"]);
-export const attendanceRegistrationTagDeviceStatusSchema = z.enum(["not_configured", "skeleton_only", "ready_for_device"]);
+export const attendanceRegistrationTagDeviceStatusSchema = z.enum(["not_configured", "approval_required", "ready_for_device"]);
 
 export const allowedAttendanceRegistrationMethodsSchema = z
   .array(attendanceRegistrationMethodSchema)

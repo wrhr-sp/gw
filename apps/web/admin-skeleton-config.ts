@@ -250,7 +250,7 @@ export const companySettingsApprovalGates: readonly CompanySettingsApprovalGateP
     id: "attendance_tag_device",
     title: "태그 단말 연동",
     status: "approval_required",
-    summary: "태그 단말은 skeleton 안내만 제공하고 실제 장비 연동은 보류합니다.",
+    summary: "태그 단말 실제 장비 연동은 별도 승인 전까지 보류합니다.",
   },
   {
     id: "leave_payroll_sync",

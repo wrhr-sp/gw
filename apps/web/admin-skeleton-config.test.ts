@@ -36,7 +36,7 @@ describe("Phase 13 admin skeleton config", () => {
     expect(adminPolicySections.some((section) => section.title === "근태 / 출퇴근 등록 방식 정책")).toBe(true);
     expect(companyAttendanceRegistrationPolicy.allowedAttendanceRegistrationMethods).toEqual(["mobile", "pc"]);
     expect(companyAttendanceRegistrationPolicy.candidateAllowedAttendanceRegistrationMethods).toEqual(["mobile", "tag"]);
-    expect(companyAttendanceRegistrationPolicy.tagDeviceStatus).toBe("skeleton_only");
+    expect(companyAttendanceRegistrationPolicy.tagDeviceStatus).toBe("approval_required");
     expect(companySettingsGroups).toHaveLength(4);
     expect(companySettingsPolicyAxes.map((axis) => axis.id)).toEqual([
       "attendance_registration",
@@ -64,7 +64,7 @@ describe("Phase 13 admin skeleton config", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         expectedAllowedLabels: ["모바일"],
         expectTagSkeleton: false,
@@ -74,7 +74,7 @@ describe("Phase 13 admin skeleton config", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["pc"],
           candidateAllowedAttendanceRegistrationMethods: ["pc"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         expectedAllowedLabels: ["PC"],
         expectTagSkeleton: false,
@@ -84,7 +84,7 @@ describe("Phase 13 admin skeleton config", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["tag"],
           candidateAllowedAttendanceRegistrationMethods: ["tag"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         expectedAllowedLabels: ["태그"],
         expectTagSkeleton: true,
@@ -94,7 +94,7 @@ describe("Phase 13 admin skeleton config", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile", "pc"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         expectedAllowedLabels: ["모바일", "PC"],
         expectTagSkeleton: false,
@@ -104,7 +104,7 @@ describe("Phase 13 admin skeleton config", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         expectedAllowedLabels: ["모바일", "PC", "태그"],
         expectTagSkeleton: true,

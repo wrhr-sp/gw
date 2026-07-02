@@ -335,9 +335,9 @@ const permissionCatalog: Permission[] = [
   { code: "document.space.manage", description: "문서함 생성과 관리 placeholder 흐름을 처리한다." },
   { code: "document.file.read", description: "문서 메타데이터 목록과 다운로드 후보를 조회한다." },
   { code: "document.file.write", description: "문서 업로드 메타데이터 placeholder 생성을 처리한다." },
-  { code: "work_item.read", description: "공통 업무 카드와 회사/지점 scope placeholder 목록을 조회한다." },
-  { code: "work_item.manage", description: "공통 업무 카드의 담당자/상태/권한 skeleton 관리 흐름을 다룬다." },
-  { code: "work_item.review", description: "공통 업무 검토 의견과 승인 대기 placeholder 흐름을 확인한다." },
+  { code: "work_item.read", description: "공통 업무 카드와 회사/지점 scope 목록을 조회한다." },
+  { code: "work_item.manage", description: "공통 업무 카드의 담당자/상태/권한 관리 흐름을 다룬다." },
+  { code: "work_item.review", description: "공통 업무 검토 의견과 승인 대기 흐름을 확인한다." },
   { code: "work_item.deadline.read", description: "공통 업무 마감 캘린더와 임박 상태 placeholder 를 조회한다." },
   { code: "work_item.audit.read", description: "공통 업무 감사 로그 placeholder 를 읽기 전용으로 조회한다." },
   { code: "work_item.grievance.read_restricted", description: "grievance_restricted 고충 카드와 민감 첨부 metadata 를 본사 HR/감사 한정으로 조회한다." },
@@ -1709,7 +1709,7 @@ function buildAttendanceRecord(
     source: attendanceMethodToSource[attendanceRegistrationMethod],
     note:
       attendanceRegistrationMethod === "tag"
-        ? "태그 단말 skeleton placeholder"
+        ? "태그 단말 승인 대기"
         : status === "checked_in"
           ? `placeholder check-in (${attendanceRegistrationMethod})`
           : `placeholder day (${attendanceRegistrationMethod})`,
@@ -1730,7 +1730,7 @@ function buildAttendanceRecordsForEmployee(employeeId: string): AttendanceRecord
       checkInAt: "2026-06-09T09:05:00.000Z",
       checkOutAt: null,
       source: "web",
-      note: "퇴근 누락 placeholder",
+      note: "퇴근 누락 확인 필요",
       createdAt: "2026-06-09T09:05:00.000Z",
       updatedAt: "2026-06-09T18:01:00.000Z",
     },
@@ -1810,8 +1810,8 @@ function buildAttendancePolicyContext(employeeId: string) {
   return {
     currentState: `현재 적용 정책: ${effectivePolicy.effectivePolicySource.policyTargetLabel}`,
     sourceLabel: `${effectivePolicy.effectivePolicySource.policyLevel} · 우선순위 ${effectivePolicy.effectivePolicySource.priorityRank}`,
-    auditTrailHint: "관리자 정책 변경 후보와 감사 preview 는 /admin/policies, /admin/audit-logs 에서 같은 회사 경계로 이어집니다.",
-    placeholderNote: "실제 근태 저장/단말 연동은 아직 열지 않았고 dev-safe placeholder 기준만 고정했습니다.",
+    auditTrailHint: "관리자 정책 변경 후보와 감사 기록은 /admin/policies, /admin/audit-logs 에서 같은 회사 경계로 이어집니다.",
+    operationalNote: "실제 근태 저장/단말 연동은 별도 승인 전까지 열지 않고 정책 기준만 고정했습니다.",
     blockedReasons: [
       {
         category: "policy" as const,
@@ -1826,9 +1826,9 @@ function buildAttendancePolicyContext(employeeId: string) {
         description: "attendance.manage 가 있어도 같은 회사 employeeId 만 조회 대상으로 허용합니다.",
       },
       {
-        category: "placeholder" as const,
-        source: "dev-safe",
-        title: "placeholder 제한",
+        category: "implementation" as const,
+        source: "approval-gate",
+        title: "구현 제한",
         description: "성공처럼 보이는 버튼만 두지 않고, 실제 저장/외부 단말 반영은 아직 실행하지 않습니다.",
       },
     ],
@@ -1837,10 +1837,10 @@ function buildAttendancePolicyContext(employeeId: string) {
 
 function buildLeavePolicyContext(auth: SessionContext) {
   return {
-    currentState: "현재 휴가 정책은 근태 정책과 같은 운영 언어로 읽히는 placeholder snapshot 입니다.",
+    currentState: "현재 휴가 정책은 근태 정책과 같은 운영 언어로 읽히는 정책 스냅샷입니다.",
     sourceLabel: "/admin/policies ↔ /leave ↔ /api/leave/*",
-    auditTrailHint: "휴가 신청/승인 candidate 와 운영 예외 사유는 감사 preview 와 같은 방향으로 남깁니다.",
-    placeholderNote: "잔여/신청/승인은 실제 급여 반영이나 실데이터 저장 없이 읽기/검토 skeleton 만 제공합니다.",
+    auditTrailHint: "휴가 신청/승인 후보와 운영 예외 사유는 감사 기록과 같은 방향으로 남깁니다.",
+    operationalNote: "잔여/신청/승인은 급여 반영 승인 전까지 읽기/검토 기준으로 제공합니다.",
     blockedReasons: [
       {
         category: "permission" as const,
@@ -1857,10 +1857,10 @@ function buildLeavePolicyContext(auth: SessionContext) {
         description: "휴가 유형, 승인 필요 여부, 대체 근무자 검토 같은 운영 기준을 일반 사용자 화면에도 같은 말로 연결합니다.",
       },
       {
-        category: "placeholder" as const,
-        source: "dev-safe",
-        title: "placeholder 제한",
-        description: "실제 차감/급여 연동/증빙 저장은 열지 않고 snapshot 과 audit candidate 만 반환합니다.",
+        category: "implementation" as const,
+        source: "approval-gate",
+        title: "구현 제한",
+        description: "실제 차감/급여 연동/증빙 저장은 별도 승인 전까지 열지 않고 정책 기준과 감사 후보만 반환합니다.",
       },
     ],
   };
@@ -1868,10 +1868,10 @@ function buildLeavePolicyContext(auth: SessionContext) {
 
 function buildApprovalOperationalContext(auth: SessionContext) {
   return {
-    currentState: "전자결재는 팀장 승인 권한과 운영 관리자 권한을 분리한 read-first placeholder 입니다.",
+    currentState: "전자결재는 팀장 승인 권한과 운영 관리자 권한을 분리한 읽기 우선 기준입니다.",
     sourceLabel: "/approvals ↔ /admin/users ↔ /admin/audit-logs",
-    auditTrailHint: "승인/반려/자기결재 방지와 회사 경계 설명은 감사 preview 와 같은 방향으로 이어집니다.",
-    placeholderNote: "실제 저장/발송 없이 권한, 회사 scope, self-approval guardrail 만 먼저 검증합니다.",
+    auditTrailHint: "승인/반려/자기결재 방지와 회사 경계 설명은 감사 기록과 같은 방향으로 이어집니다.",
+    operationalNote: "실제 저장/발송은 별도 승인 전까지 열지 않고 권한, 회사 scope, self-approval guardrail 을 검증합니다.",
     blockedReasons: [
       {
         category: "permission" as const,
@@ -1888,10 +1888,10 @@ function buildApprovalOperationalContext(auth: SessionContext) {
         description: "같은 회사 문서이면서 기안자/승인자/참조자에게만 상세를 허용합니다.",
       },
       {
-        category: "placeholder" as const,
-        source: "dev-safe",
-        title: "placeholder 제한",
-        description: "실제 결재선 저장, 외부 알림, 최종 발송은 아직 열지 않고 review candidate 만 유지합니다.",
+        category: "implementation" as const,
+        source: "approval-gate",
+        title: "구현 제한",
+        description: "실제 결재선 저장, 외부 알림, 최종 발송은 별도 승인 전까지 열지 않고 검토 후보만 유지합니다.",
       },
     ],
   };
@@ -1918,9 +1918,9 @@ function buildAdminUsersLinkedScreens() {
       description: "결재 승인 권한과 운영 관리자 권한을 같은 것으로 취급하지 않도록 approvals 설명과 맞춥니다.",
     },
     {
-      category: "placeholder" as const,
-      source: "dev-safe",
-      title: "저장 전 preview",
+      category: "implementation" as const,
+      source: "approval-gate",
+      title: "저장 전 검토",
       description: "실제 역할 부여/회수 없이 diff, 사유, audit candidate 만 보여 줍니다.",
     },
   ];
@@ -1930,8 +1930,8 @@ function buildOperationalBridgeSummary() {
   return {
     currentState: "운영 정책/권한/감사 기준을 일반 업무 화면과 API 결과에 같은 뜻으로 연결하는 1차 bridge 입니다.",
     sourceLabel: "/admin/policies · /admin/users · /admin/audit-logs",
-    auditTrailHint: "운영 예외와 차단 이유는 감사 preview 에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
-    placeholderNote: "실제 저장, 실데이터 변경, 외부 연동 없이 preview/dev-safe skeleton 범위에서만 연결합니다.",
+    auditTrailHint: "운영 예외와 차단 이유는 감사 기록에 남기되 raw 감사 원문은 관리자 전용으로 유지합니다.",
+    operationalNote: "실제 저장, 실데이터 변경, 외부 연동은 별도 승인 전까지 열지 않고 관리자 기준으로 연결합니다.",
     blockedReasons: [
       {
         category: "permission" as const,
@@ -1952,17 +1952,17 @@ function buildOperationalBridgeSummary() {
         description: "근태/휴가 허용 결과와 운영 정책 화면의 설명 문구를 같은 방향으로 맞춥니다.",
       },
       {
-        category: "placeholder" as const,
-        source: "dev-safe",
-        title: "placeholder 제한",
-        description: "실제 저장·외부 연동은 열지 않고 why/where 설명만 먼저 고정합니다.",
+        category: "implementation" as const,
+        source: "approval-gate",
+        title: "구현 제한",
+        description: "실제 저장·외부 연동은 별도 승인 전까지 열지 않고 why/where 설명을 고정합니다.",
       },
     ],
   };
 }
 
 function buildCompanySettingsModel(companyId = COMPANY_ID, companyName = "데모 주식회사", branchNames: string[] = []) {
-  const branchSummary = branchNames.length > 0 ? `${branchNames.join(", ")} 지점 기준 조직/정책 연결을 함께 확인합니다.` : "지점 기준 연결은 운영 DB branch seed가 있으면 함께 반영합니다.";
+  const branchSummary = branchNames.length > 0 ? `${branchNames.join(", ")} 지점 기준 조직/정책 연결을 함께 확인합니다.` : "지점 기준 연결은 운영 DB branch 기준 데이터가 있으면 함께 반영합니다.";
 
   return {
     companyId,

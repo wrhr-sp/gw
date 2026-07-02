@@ -461,7 +461,7 @@ describe("Phase 2 auth/org skeleton", () => {
         attendanceRegistrationPolicy: {
           allowedAttendanceRegistrationMethods: ["mobile"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
       }),
     });
@@ -705,7 +705,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         allowed: ["mobile"],
         blocked: ["pc", "tag"],
@@ -715,7 +715,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["pc"],
           candidateAllowedAttendanceRegistrationMethods: ["pc"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         allowed: ["pc"],
         blocked: ["mobile", "tag"],
@@ -725,7 +725,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["tag"],
           candidateAllowedAttendanceRegistrationMethods: ["tag"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         allowed: ["tag"],
         blocked: ["mobile", "pc"],
@@ -735,7 +735,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile", "pc"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         allowed: ["mobile", "pc"],
         blocked: ["tag"],
@@ -745,7 +745,7 @@ describe("Phase 3 attendance/leave skeleton", () => {
         policy: {
           allowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
           candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc", "tag"],
-          tagDeviceStatus: "skeleton_only",
+          tagDeviceStatus: "approval_required",
         },
         allowed: ["mobile", "pc", "tag"],
         blocked: [],

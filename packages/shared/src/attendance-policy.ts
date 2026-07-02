@@ -207,7 +207,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "회사 기본",
     allowedAttendanceRegistrationMethods: ["mobile", "pc"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_workplace_seoul_hq",
@@ -217,7 +217,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "서울 본사",
     allowedAttendanceRegistrationMethods: ["mobile", "pc"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_workplace_busan_logistics",
@@ -227,7 +227,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "부산 물류센터",
     allowedAttendanceRegistrationMethods: ["mobile"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "tag"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_department_ops",
@@ -237,7 +237,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "운영팀",
     allowedAttendanceRegistrationMethods: ["pc"],
     candidateAllowedAttendanceRegistrationMethods: ["pc", "tag"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_department_hr",
@@ -247,7 +247,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "인사팀",
     allowedAttendanceRegistrationMethods: ["mobile", "pc"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_job_type_field_worker",
@@ -257,7 +257,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "현장직",
     allowedAttendanceRegistrationMethods: ["tag"],
     candidateAllowedAttendanceRegistrationMethods: ["tag"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_job_type_office_manager",
@@ -267,7 +267,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "사무직 매니저",
     allowedAttendanceRegistrationMethods: ["mobile", "pc"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_job_type_hr_specialist",
@@ -277,7 +277,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "HR 담당",
     allowedAttendanceRegistrationMethods: ["mobile"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile", "pc"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_workplace_remote_lab_primary",
@@ -287,7 +287,7 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "원격 실험실",
     allowedAttendanceRegistrationMethods: ["pc"],
     candidateAllowedAttendanceRegistrationMethods: ["pc"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
   createAttendancePolicyAssignment({
     id: "policy_workplace_remote_lab_secondary",
@@ -297,6 +297,6 @@ export const demoAttendancePolicyAssignments: AttendancePolicyAssignment[] = [
     policyTargetLabel: "원격 실험실",
     allowedAttendanceRegistrationMethods: ["mobile"],
     candidateAllowedAttendanceRegistrationMethods: ["mobile"],
-    tagDeviceStatus: "skeleton_only",
+    tagDeviceStatus: "approval_required",
   }),
 ];

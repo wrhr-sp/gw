@@ -125,9 +125,9 @@ function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, 
 
   return {
     category: parseAdminAuditCategory(resourceType, metadata),
-    reason: typeof metadata.reason === "string" ? metadata.reason : "운영 DB 감사 로그 preview",
-    before: stringifyAuditSnapshot(beforeJson ?? metadata.before, "이전 상태는 마스킹된 preview 로만 제공합니다."),
-    after: stringifyAuditSnapshot(afterJson ?? metadata.after, "이후 상태는 마스킹된 preview 로만 제공합니다."),
+    reason: typeof metadata.reason === "string" ? metadata.reason.replace(/preview/gi, "검토") : "운영 DB 감사 로그 검토",
+    before: stringifyAuditSnapshot(beforeJson ?? metadata.before, "이전 상태는 마스킹된 감사 정보로만 제공합니다."),
+    after: stringifyAuditSnapshot(afterJson ?? metadata.after, "이후 상태는 마스킹된 감사 정보로만 제공합니다."),
     maskedFields: maskedFields.length > 0 ? maskedFields : ["민감 원문", "식별자 일부"],
     companyBoundary: { enforced: true },
     source: parseAdminAuditSource(metadata.source),
