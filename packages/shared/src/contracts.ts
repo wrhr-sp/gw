@@ -1682,7 +1682,6 @@ export const approvalFormSchema = z.object({
   category: z.string(),
   fieldSummary: z.string(),
   status: approvalFormStatusSchema,
-  placeholder: z.literal(true),
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -1706,7 +1705,6 @@ export const approvalLineSchema = z.object({
   title: z.string(),
   description: z.string(),
   status: approvalFormStatusSchema,
-  placeholder: z.literal(true),
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -1780,7 +1778,6 @@ export const approvalCandidateSchema = z.object({
 export const approvalFormListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalFormSchema),
-    placeholder: z.literal(true),
   }),
 );
 
@@ -1813,7 +1810,6 @@ export const approvalLineCreateRequestSchema = z.object({
 export const approvalLineListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(approvalLineSchema),
-    placeholder: z.literal(true),
   }),
 );
 
