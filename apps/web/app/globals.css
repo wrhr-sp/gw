@@ -1448,6 +1448,19 @@ li {
   color: var(--hero-card-text-color);
 }
 
+.home-hero__title {
+  margin: var(--space-xs) 0 var(--space-sm);
+}
+
+.home-hero__copy {
+  margin: 0;
+  line-height: var(--line-height-comfortable);
+}
+
+.home-hero__pills {
+  margin-top: var(--space-md);
+}
+
 .surface-card--muted {
   background: var(--surface-subtle);
 }
