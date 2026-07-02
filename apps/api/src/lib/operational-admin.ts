@@ -194,7 +194,7 @@ export async function listOperationalAdminAuditLogs(env: PostgresEnv | undefined
       companyId: typed.company_id,
       actorUserId: typed.actor_user_id,
       actorEmployeeId: typed.actor_employee_id,
-      action: typed.action,
+      action: sanitizeAuditMarker(typed.action),
       targetType: parseAdminAuditTargetType(typed.resource_type),
       targetId: sanitizeAuditMarker(typed.resource_id),
       createdAt: typed.created_at instanceof Date ? typed.created_at.toISOString() : String(typed.created_at),
