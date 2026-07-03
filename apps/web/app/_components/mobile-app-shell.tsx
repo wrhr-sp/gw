@@ -84,6 +84,39 @@ const departmentPortalItems = [
 
 const departmentPortalAdminItem = { label: "그룹웨어 관리자 페이지", href: "/admin" } as const;
 
+type DepartmentPortalId = (typeof departmentPortalItems)[number]["id"];
+type DepartmentPortalAccessKind = "primary" | "concurrent" | "denied";
+
+const departmentPortalAccessByRole: Record<RoleCode, { primary: DepartmentPortalId[]; concurrent: DepartmentPortalId[] }> = {
+  SUPER_ADMIN: { primary: ["ceo"], concurrent: ["strategy", "support", "sales-admin", "ads", "operations"] },
+  COMPANY_ADMIN: { primary: ["ceo"], concurrent: ["strategy", "support", "sales-admin", "ads", "operations"] },
+  HR_ADMIN: { primary: ["support"], concurrent: [] },
+  MANAGER: { primary: ["operations"], concurrent: [] },
+  EMPLOYEE: { primary: ["operations"], concurrent: [] },
+  AUDITOR: { primary: ["strategy"], concurrent: [] },
+};
+
+function getDepartmentPortalAccessKind(roleCode: RoleCode | null, departmentId: DepartmentPortalId): DepartmentPortalAccessKind {
+  if (!roleCode) {
+    return "denied";
+  }
+
+  const access = departmentPortalAccessByRole[roleCode];
+  if (access.primary.includes(departmentId)) {
+    return "primary";
+  }
+  if (access.concurrent.includes(departmentId)) {
+    return "concurrent";
+  }
+  return "denied";
+}
+
+function getDepartmentPortalAccessLabel(kind: DepartmentPortalAccessKind) {
+  if (kind === "primary") return "내 부서";
+  if (kind === "concurrent") return "겸직";
+  return "권한 없음";
+}
+
 const branchPortalItems = [
   { id: "gangnam", name: "강남지점", region: "서울", manager: "김지윤", access: "전체 운영관리" },
   { id: "seoul", name: "서울지점", region: "서울", manager: "정하린", access: "전체 운영관리" },
@@ -3474,6 +3507,19 @@ export function MobileAppShell({
     setIsDepartmentPortalOpen(false);
   }
 
+  function handleDepartmentPortalSelect(department: (typeof departmentPortalItems)[number]) {
+    const accessKind = getDepartmentPortalAccessKind(currentRoleCode, department.id);
+    if (accessKind === "denied") {
+      showPermissionDeniedNotice();
+      return;
+    }
+
+    closeDepartmentPortalMenu();
+    if (typeof window !== "undefined") {
+      window.open(department.href, "_blank", "noreferrer");
+    }
+  }
+
   function handleNavItemClick(item: NavItem) {
     if (item.permissionDenied) {
       showPermissionDeniedNotice();
@@ -3644,11 +3690,24 @@ export function MobileAppShell({
                     </button>
                     {isDepartmentPortalOpen ? (
                       <div className="department-portal-popover" role="menu" aria-label="부서업무포털 선택">
-                        {departmentPortalItems.map((department) => (
-                          <a key={department.label} className="department-portal-popover__item" href={department.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true" onClick={closeDepartmentPortalMenu}>
-                            {department.label}
-                          </a>
-                        ))}
+                        {departmentPortalItems.map((department) => {
+                          const accessKind = getDepartmentPortalAccessKind(currentRoleCode, department.id);
+                          const accessLabel = getDepartmentPortalAccessLabel(accessKind);
+                          return (
+                            <button
+                              key={department.label}
+                              className={accessKind === "denied" ? "department-portal-popover__item department-portal-popover__item--denied" : "department-portal-popover__item"}
+                              type="button"
+                              role="menuitem"
+                              data-route={department.href}
+                              data-access-kind={accessKind}
+                              onClick={() => handleDepartmentPortalSelect(department)}
+                            >
+                              <span>{department.label}</span>
+                              <small>{accessLabel}</small>
+                            </button>
+                          );
+                        })}
                         <a className="department-portal-popover__item department-portal-popover__item--admin" href={departmentPortalAdminItem.href} target="_blank" rel="noreferrer" role="menuitem" data-allow-url-status="true" onClick={closeDepartmentPortalMenu}>
                           {departmentPortalAdminItem.label}
                         </a>
