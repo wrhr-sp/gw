@@ -15,7 +15,7 @@ export type NativeSessionSnapshot = {
   employeeId?: string;
   roleCodes: readonly RoleCode[];
   permissions: readonly PermissionCode[];
-  source: "placeholder" | "approved-origin";
+  source: "local-verification" | "approved-origin";
 };
 
 export interface NativeSessionStore {
@@ -38,9 +38,9 @@ export const nativeSessionGuardrails = {
   ],
 } as const;
 
-export function createPlaceholderNativeSessionSnapshot(roleCodes: readonly RoleCode[] = ["EMPLOYEE"]) {
+export function createLocalVerificationNativeSessionSnapshot(roleCodes: readonly RoleCode[] = ["EMPLOYEE"]) {
   return {
-    sessionId: "mobile_placeholder_session",
+    sessionId: "mobile_local_verification_session",
     status: "authenticated" as const,
     expiresAt: "2099-01-01T00:00:00.000Z",
     companyId: "company_demo",
@@ -53,7 +53,7 @@ export function createPlaceholderNativeSessionSnapshot(roleCodes: readonly RoleC
       "board.notice.read",
       "document.space.read",
     ] as const,
-    source: "placeholder" as const,
+    source: "local-verification" as const,
   };
 }
 

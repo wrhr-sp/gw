@@ -55,7 +55,7 @@ export const nativeMobileMonorepoPlan = {
     "route contract",
     "role/scope/capability contract",
     "API schema/type contract",
-    "placeholder/mock data shape",
+    "readiness data shape",
   ],
   keepMobileOnly: [
     "navigation shell",
@@ -191,10 +191,10 @@ export const nativeMobileUiStateGuidance: Record<NativeMobileUiState, NativeMobi
     blockedActions: [],
   },
   offline: {
-    title: "오프라인 또는 dev-safe 전용",
+    title: "오프라인 또는 로컬 검증 전용",
     tone: "warning",
-    summary: "네트워크가 없거나 mock/dev-safe 경로만 허용되어 서버 반영형 작업은 성공처럼 보이면 안 됩니다.",
-    allowedActions: ["읽기 중심 placeholder 탐색", "상태 안내 확인", "재시도 준비"],
+    summary: "네트워크가 없거나 명시적 로컬 검증 경로만 허용되어 서버 반영형 작업은 성공처럼 보이면 안 됩니다.",
+    allowedActions: ["읽기 중심 상태 확인", "상태 안내 확인", "재시도 준비"],
     blockedActions: ["출퇴근 등록", "휴가 신청 저장", "승인/반려", "실파일 업로드"],
   },
   error: {
@@ -215,7 +215,7 @@ export const nativeMobileUiStateGuidance: Record<NativeMobileUiState, NativeMobi
     title: "권한 또는 범위 제한",
     tone: "warning",
     summary: "로그인은 되었지만 role/scope/capability 기준상 현재 업무를 열 수 없는 상태입니다.",
-    allowedActions: ["허용된 화면으로 이동", "권한 설명 확인", "Web fallback 또는 관리자 문의"],
+    allowedActions: ["허용된 화면으로 이동", "권한 설명 확인", "웹 화면 또는 관리자 문의"],
     blockedActions: ["숨겨진 우회 CTA", "관리자 정책 변경 화면 직접 노출"],
   },
 } as const;
@@ -225,7 +225,7 @@ export const nativeMobileCoreWorkflow = [
     order: 1,
     screenId: "login",
     label: "로그인",
-    goal: "세션 bridge 전제와 placeholder 인증 범위를 설명한 뒤 signed-in 흐름으로 진입한다.",
+    goal: "세션 bridge 전제와 인증 범위를 설명한 뒤 signed-in 흐름으로 진입한다.",
   },
   {
     order: 2,
@@ -278,7 +278,7 @@ export const nativeMobilePwaNativeDifferences = {
   ],
   native: [
     "navigation shell 과 secure storage bridge 중심",
-    "runtime base URL resolver 로 승인된 origin 또는 dev-safe mock 만 선택",
+    "runtime base URL resolver 로 승인된 origin 또는 로컬 검증 origin 만 선택",
     "실기기 권한, push, store build 는 별도 승인 게이트로 유지",
   ],
 } as const;
@@ -297,19 +297,19 @@ export const nativeMobileBaseUrlPolicy = {
   principle: "same-origin API contract is preserved via runtime origin injection",
   production: {
     source: "approved-origin-only",
-    notes: "운영 앱은 승인된 운영 origin 을 런타임 설정으로만 주입하고 preview/dev-safe URL 을 코드 기본값으로 두지 않는다.",
+    notes: "운영 앱은 승인된 운영 origin 을 런타임 설정으로만 주입하고 비운영 URL 을 코드 기본값으로 두지 않는다.",
   },
-  preview: {
-    source: "explicit-preview-or-dev-origin",
-    notes: "preview/dev-safe 검증은 명시적 환경값 또는 mock adapter 를 통과할 때만 허용한다.",
+  uat: {
+    source: "explicit-uat-or-dev-origin",
+    notes: "UAT/내부 검증은 명시적 환경값 또는 개발 origin 을 통과할 때만 허용한다."
   },
   development: {
-    source: "dev-origin-or-mock-adapter",
-    notes: "로컬 개발은 명시적 dev origin 이나 mock adapter 로만 API 를 연다.",
+    source: "dev-origin",
+    notes: "로컬 개발은 명시적 dev origin 으로만 API 를 연다.",
   },
   disallowedDefaults: [
-    "hard-coded preview URL as default",
-    "implicit localhost fallback in production",
+    "hard-coded non-production URL as default",
+    "implicit localhost default in production",
     "raw absolute API URL spread across screens",
   ],
 } as const;
@@ -352,12 +352,12 @@ export const nativeMobileInternalPilotLanes = [
   {
     id: "android-internal-pilot-prep",
     label: "Android 내부 배포 준비 레인",
-    goal: "Android internal test 또는 Expo preview/dev build 후보 절차와 설치 안내 초안을 실제 배포 실행 없이 분리해 정리한다.",
+    goal: "Android internal test 또는 Expo 내부 검증 build 후보 절차와 설치 안내 초안을 실제 배포 실행 없이 분리해 정리한다.",
     includes: [
-      "Android internal test 와 Expo preview/dev build 중 후보 절차 선택 메모",
+      "Android internal test 와 Expo 내부 검증 build 중 후보 절차 선택 메모",
       "사내 설치 안내 초안",
       "signing/패키징/배포 담당자 메모",
-      "approved origin 또는 dev-safe base URL 입력 방식 메모",
+      "approved origin 또는 내부 검증 base URL 입력 방식 메모",
     ],
     approvalRequired: true,
   },
@@ -382,7 +382,7 @@ export const nativeMobileInternalPilotSmokeChecklist = [
     label: "설치 또는 설치 후보 안내",
     verify: [
       "어느 배포 경로를 가정하는지 이해할 수 있어야 함",
-      "실제 스토어 배포가 아니라 preview/dev-safe 후보 절차라는 점이 보여야 함",
+      "실제 스토어 배포가 아니라 내부 검증 후보 절차라는 점이 보여야 함",
     ],
     blockedBy: ["Play Console/TestFlight/EAS 승인", "실기기 배포 계정/권한"],
   },
@@ -449,7 +449,7 @@ export const nativeMobileStoreSubmissionChecklist = {
   ],
   android: [
     "Google Play Console 권한과 담당자 확인",
-    "internal test 또는 Expo preview/dev build 후보 선택",
+    "internal test 또는 Expo 내부 검증 build 후보 선택",
     "package name / signing key / 배포 경로 메모",
     "사내 설치 안내 초안 준비",
   ],
@@ -472,7 +472,7 @@ export const nativeMobileRoleScopeNotes: Record<string, { roleCodes: readonly Ro
   },
   adminExcluded: {
     roleCodes: managerApprovalRoleCodes,
-    notes: "`/admin/*` 는 관리자 권한이 있어도 모바일 기본 탭에 자동 포함하지 않고 Web fallback 또는 후속 범위로 남긴다.",
+    notes: "`/admin/*` 는 관리자 권한이 있어도 모바일 기본 탭에 자동 포함하지 않고 웹 관리자 화면 또는 후속 범위로 남긴다.",
   },
 } as const;
 
