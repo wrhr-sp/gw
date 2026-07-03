@@ -10,7 +10,7 @@ type PageProps = {
 type BoardPreset = {
   title: string;
   summary: string;
-  samplePostId: string | null;
+  representativePostId: string | null;
   cards: Array<{ title: string; body: string }>;
   usageSteps: string[];
   policyNotes: string[];
@@ -21,7 +21,7 @@ const boardPresets: Record<string, BoardPreset> = {
   board_notice: {
     title: "전사 공지",
     summary: "회사에서 꼭 확인해야 하는 공지를 모아 보고, 등록 권한이 있으면 새 공지를 올립니다.",
-    samplePostId: "board_post_notice_1",
+    representativePostId: "board_post_notice_1",
     cards: [
       { title: "공지 목록", body: "중요 공지는 목록 위쪽에서 먼저 확인합니다." },
       { title: "공지 등록", body: "등록 버튼을 눌러 제목과 본문을 작성합니다." },
@@ -33,7 +33,7 @@ const boardPresets: Record<string, BoardPreset> = {
   board_department_notice: {
     title: "부서별 공지",
     summary: "부서나 지점 단위 안내를 따로 올리고 확인하는 게시판입니다.",
-    samplePostId: "board_post_department_notice_1",
+    representativePostId: "board_post_department_notice_1",
     cards: [
       { title: "부서 안내", body: "인사팀, 운영팀, 지점별 안내를 구분해서 확인합니다." },
       { title: "부서 공지 등록", body: "등록 버튼으로 부서별 공지 제목과 본문을 작성합니다." },
@@ -45,7 +45,7 @@ const boardPresets: Record<string, BoardPreset> = {
   board_general: {
     title: "자유 게시판",
     summary: "직원들이 글을 올리고 댓글로 의견을 주고받는 사내 소통 공간입니다.",
-    samplePostId: "board_post_demo",
+    representativePostId: "board_post_demo",
     cards: [
       { title: "최신 글", body: "최근 올라온 글을 먼저 확인합니다." },
       { title: "게시글 등록", body: "등록 버튼을 눌러 제목과 본문을 입력합니다." },
@@ -57,7 +57,7 @@ const boardPresets: Record<string, BoardPreset> = {
   board_data_share: {
     title: "자료 공유",
     summary: "업무 양식, 안내 자료, 참고 링크를 모아 직원들이 빠르게 찾는 게시판입니다.",
-    samplePostId: "board_post_data_share_1",
+    representativePostId: "board_post_data_share_1",
     cards: [
       { title: "자료 목록", body: "자주 쓰는 양식과 참고 자료를 목록에서 확인합니다." },
       { title: "자료 글 등록", body: "등록 버튼으로 자료 제목과 설명을 작성합니다." },
@@ -73,7 +73,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
   const preset = boardPresets[boardId] ?? {
     title: "접근할 수 없는 게시판",
     summary: "등록되지 않았거나 접근 권한이 없는 게시판입니다. 게시판 목록에서 다시 선택해 주세요.",
-    samplePostId: null,
+    representativePostId: null,
     cards: [
       { title: "게시판 확인", body: "요청한 게시판이 회사에서 사용하는 게시판인지 확인합니다." },
       { title: "접근 제한", body: "권한이 없으면 글쓰기와 상세 이동을 보여 주지 않습니다." },
@@ -129,7 +129,7 @@ export default async function BoardDetailPage({ params }: PageProps) {
       <SurfaceSection title="이동" description={preset.invalidRoute ? "접근 가능한 화면으로 돌아갑니다." : "게시글 상세나 다른 게시판으로 이어서 이동합니다."}>
         <div className="link-row">
           <a href="/boards">게시판 목록</a>
-          {preset.samplePostId ? <a href={`/posts/${preset.samplePostId}`}>대표 글 보기</a> : null}
+          {preset.representativePostId ? <a href={`/posts/${preset.representativePostId}`}>대표 글 보기</a> : null}
           <a href="/home">홈으로</a>
         </div>
       </SurfaceSection>
