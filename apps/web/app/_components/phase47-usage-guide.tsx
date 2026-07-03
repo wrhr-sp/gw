@@ -37,8 +37,8 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
       title: roleCode === "MANAGER" ? "지점 관리자 확인 순서" : "운영 관리자 확인 순서",
       detail:
         roleCode === "MANAGER"
-          ? "공통 landing 뒤 branch scope 레인과 company scope 문맥을 구분해 확인하고, 읽기 조회와 운영 검토를 같은 책임처럼 섞지 않습니다."
-          : "일반 홈과 운영 허브를 섞지 않고, 계정관리/정책 preview 와 민감 내부관리 화면을 별도 허브에서 이어 봅니다.",
+          ? "공통 랜딩 뒤 지점 범위 레인과 회사 범위 문맥을 구분해 확인하고, 읽기 조회와 운영 검토를 같은 책임처럼 섞지 않습니다."
+          : "일반 홈과 운영 허브를 섞지 않고, 계정관리/정책 검토와 민감 내부관리 화면을 별도 허브에서 이어 봅니다.",
       routes:
         roleCode === "MANAGER"
           ? ["/login", "/home", "/work-items/branch", "/employees", "/org", "/management"]
@@ -84,15 +84,15 @@ export const phase47StatusGuideCards: readonly StatusGuideCard[] = [
     detail: "오프라인에서는 상태 변경 성공처럼 보이지 않게 막고, 가능한 일/막히는 일/재시도 절차를 먼저 안내합니다.",
   },
   {
-    title: "dev-safe / preview",
+    title: "내부 검증",
     summary: "실운영 저장 전 검토용 상태입니다.",
-    detail: "dev/test/UAT 전용 검토 계정과 preview 데이터는 실운영 기본 계정이나 실제 외부 연동 완료로 설명하지 않습니다.",
+    detail: "내부 검증용 계정과 검증 데이터는 실운영 기본 계정이나 실제 외부 연동 완료로 설명하지 않습니다.",
   },
 ] as const;
 
 export function Phase47StatusGuideSection({
   title = "상태 안내 기준선",
-  description = "loading, empty, error, forbidden, offline, dev-safe 를 같은 장애처럼 읽지 않도록 이번 Phase 기준 문장을 한 번에 고정합니다.",
+  description = "loading, empty, error, forbidden, offline, 내부 검증을 같은 장애처럼 읽지 않도록 이번 Phase 기준 문장을 한 번에 고정합니다.",
 }: {
   title?: string;
   description?: string;

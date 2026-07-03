@@ -35,7 +35,7 @@ const managementStatusGuideCards = [
   },
   {
     title: "참고용 요약 데이터",
-    summary: "현재 화면에서 먼저 읽는 dev-safe 안내 상태입니다.",
+    summary: "현재 화면에서 먼저 읽는 검증 안내 상태입니다.",
     detail: "실제 저장 완료, 외부 연동 완료, 운영 반영 완료로 설명하지 않습니다.",
   },
 ] as const;

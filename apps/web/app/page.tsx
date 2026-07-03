@@ -16,7 +16,7 @@ const primaryFlows = [
     title:
       "/home 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
     body:
-      "운영 관리자는 회사 전체 운영·정책·감사 preview 를 보는 company scope 레인으로, 지점 관리자는 자기 지점 업무·직원·조직 확인 뒤 /management 문맥만 참고하는 branch scope 레인으로 분리해 안내합니다.",
+      "운영 관리자는 회사 전체 운영·정책·감사 검토를 보는 회사 범위 레인으로, 지점 관리자는 자기 지점 업무·직원·조직 확인 뒤 /management 문맥만 참고하는 지점 범위 레인으로 분리해 안내합니다.",
   },
 ] as const;
 
@@ -42,14 +42,14 @@ const roleEntryCards = [
   {
     role: "운영 관리자",
     firstRoute: "/home",
-    summary: "로그인 직후 공통 홈에서 시작한 뒤 company scope 운영 CTA 로 /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
-    note: "운영 관리자는 회사 공통 운영 권한을 검토하고, branch scope 업무 레인과 같은 권한처럼 설명하지 않습니다.",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 회사 범위 운영 CTA 로 /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
+    note: "운영 관리자는 회사 공통 운영 권한을 검토하고, 지점 범위 업무 레인과 같은 권한처럼 설명하지 않습니다.",
   },
   {
     role: "지점 관리자",
     firstRoute: "/home",
-    summary: "공통 홈 뒤 `/work-items/branch → /employees → /org → /management` 순서의 branch scope 운영 레인으로 이어집니다.",
-    note: "`/employees`, `/org` 는 읽기 확인용이고 `/management` 는 회사 공통 운영 authority 가 아니라 연결 문맥으로만 소개합니다.",
+    summary: "공통 홈 뒤 `/work-items/branch → /employees → /org → /management` 순서의 지점 범위 운영 레인으로 이어집니다.",
+    note: "`/employees`, `/org` 는 읽기 확인용이고 `/management` 는 회사 공통 운영 권한 가 아니라 연결 문맥으로만 소개합니다.",
   },
   {
     role: "감사 전용 사용자",
@@ -91,13 +91,13 @@ export default function HomePage() {
           이번 단계는 실제 저장이나 외부 연동을 여는 작업이 아니라, 사내 검토자가 제품의 핵심 흐름을 이해하고 역할별 진입 경계와 승인 게이트를 확인할 수 있게 묶는 단계입니다.
         </p>
         <div className="pill-row home-hero__pills">
-          <Pill tone="accent">dev-safe skeleton</Pill>
-          <Pill tone="accent">general flow + admin boundary</Pill>
+          <Pill tone="accent">내부 검증 흐름</Pill>
+          <Pill tone="accent">일반 업무 + 관리자 경계</Pill>
           <Pill tone="warning">실제 저장/권한 변경 제외</Pill>
         </div>
       </section>
 
-      <SurfaceSection title="현재 로그인 상태" description="이미 로그인했다면 이 화면에서 바로 세션과 권한을 다시 확인하고 다음 route 로 이동할 수 있습니다.">
+      <SurfaceSection title="현재 로그인 상태" description="이미 로그인했다면 이 화면에서 바로 세션과 권한을 다시 확인하고 다음 경로로 이동할 수 있습니다.">
         <SessionSummaryPanel />
       </SurfaceSection>
 
@@ -141,7 +141,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="핵심 route 바로가기" description="이번 1차 smoke 의 중심이 되는 직원 하루 업무 route 를 같은 순서로 먼저 노출합니다.">
+      <SurfaceSection title="핵심 경로 바로가기" description="이번 1차 smoke 의 중심이 되는 직원 하루 업무 경로 를 같은 순서로 먼저 노출합니다.">
         <div className="grid-auto">
           {mobilePrimaryNav.map((item) => (
             <article key={item.href} className="route-card">
@@ -168,7 +168,7 @@ export default function HomePage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection title="설치/preview 안내" description="실배포 전에도 유지할 수 있는 상대 경로 manifest 와 preview 안내를 함께 남깁니다.">
+      <SurfaceSection title="설치/검증 안내" description="실배포 전에도 유지할 수 있는 상대 경로 manifest 와 검증 안내를 함께 남깁니다.">
         <ol className="number-list">
           {installGuideSteps.map((step) => (
             <li key={step}>{step}</li>
@@ -176,7 +176,7 @@ export default function HomePage() {
         </ol>
       </SurfaceSection>
 
-      <SurfaceSection title="검토 체크포인트" description="live preview 에서 눌러 볼 때 특히 확인할 항목입니다.">
+      <SurfaceSection title="검토 체크포인트" description="live 환경에서 눌러 볼 때 특히 확인할 항목입니다.">
         <ul className="bullet-list">
           <li>일반 사용자 기준 관리자 CTA 가 기본 흐름에 섞여 보이지 않는지 확인</li>
           <li>/attendance 의 정책 안내와 /admin/policies 의 설명 방향이 같은지 확인</li>

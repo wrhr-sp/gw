@@ -158,7 +158,7 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain("기록 체크포인트");
     expect(html).toContain("컴플라이언스 / 감사 확인");
     expect(html).toContain("일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.");
-    expect(html).toContain("dev-safe 안내 상태");
+    expect(html).toContain("검증 안내 상태");
     expect(html).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
   });
 
