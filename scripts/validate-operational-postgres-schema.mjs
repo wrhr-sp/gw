@@ -51,6 +51,8 @@ const requiredTables = [
   'file_access_logs',
   'permission_change_logs',
   'document_file_download_tickets',
+  'electronic_contracts',
+  'electronic_contract_parties',
   'audit_logs',
 ];
 

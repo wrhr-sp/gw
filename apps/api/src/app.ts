@@ -66,6 +66,12 @@ import {
   documentSpaceCreateRequestSchema,
   documentSpaceListResponseSchema,
   documentSpaceResponseSchema,
+  electronicContractCreateRequestSchema,
+  electronicContractCreateResponseSchema,
+  electronicContractDetailResponseSchema,
+  electronicContractListResponseSchema,
+  electronicContractStatusUpdateRequestSchema,
+  electronicContractStatusUpdateResponseSchema,
   errorResponseSchema,
   healthResponseSchema,
   leaveActionRequestSchema,
@@ -137,6 +143,7 @@ import {
   type BranchSummary,
   type DocumentFile,
   type DocumentSpace,
+  type ElectronicContractStatus,
   type Employee,
   type ErrorCode,
   type LeaveBalance,
@@ -208,6 +215,12 @@ import {
   markOperationalDocumentFileUploaded,
   upsertOperationalReadReceipt,
 } from "./lib/operational-collab";
+import {
+  createOperationalElectronicContract,
+  findOperationalElectronicContract,
+  listOperationalElectronicContracts,
+  updateOperationalElectronicContractStatus,
+} from "./lib/operational-electronic-contracts";
 import {
   findOperationalEmployeeBranchId,
   listOperationalBranches,
@@ -297,6 +310,9 @@ const DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE = "/api/documents/files/:fileId/upload
 const DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE = "/api/documents/files/:fileId/download-init";
 const DOCUMENT_FILE_DOWNLOAD_ROUTE = "/api/documents/files/:fileId/download";
 const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
+const ELECTRONIC_CONTRACTS_ROUTE = "/api/electronic-contracts";
+const ELECTRONIC_CONTRACT_DETAIL_ROUTE = "/api/electronic-contracts/:contractId";
+const ELECTRONIC_CONTRACT_STATUS_ROUTE = "/api/electronic-contracts/:contractId/status";
 const WORK_ITEM_DETAIL_ROUTE = "/api/work-items/:id";
 const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
@@ -6378,6 +6394,159 @@ app.get(appRoutes.workItems.list, async (context) => {
     ok: true,
     data: {
       items,
+    },
+    error: null,
+  });
+});
+
+app.get(ELECTRONIC_CONTRACTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "approval.document.read");
+  if (authResult.response) return authResult.response;
+
+  const status = context.req.query("status") as ElectronicContractStatus | undefined;
+  const result = await listOperationalElectronicContracts(context.env, authResult.auth.user.companyId, status);
+  if (!result) return jsonDatabaseRequired(context, "전자계약 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "electronic_contract",
+    resourceId: "electronic_contract_list",
+    accessType: "read",
+    purpose: "전자계약 목록 조회 감사 기록",
+    legalBasis: "업무상 계약 관리 권한",
+    metadata: { source: "electronic-contracts-api", itemCount: result.items.length },
+  });
+
+  return jsonSuccess(context, electronicContractListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.get(ELECTRONIC_CONTRACT_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "approval.document.read");
+  if (authResult.response) return authResult.response;
+
+  const contractId = context.req.param("contractId");
+  const result = await findOperationalElectronicContract(context.env, authResult.auth.user.companyId, contractId);
+  if (!result) return jsonDatabaseRequired(context, "전자계약 상세 조회");
+  if (!result.contract) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자계약입니다.", 403, { contractId, route: context.req.path });
+  }
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.contract.ownerUserId,
+    resourceType: "electronic_contract",
+    resourceId: result.contract.id,
+    accessType: "read",
+    purpose: "전자계약 상세 조회 감사 기록",
+    legalBasis: "업무상 계약 관리 권한",
+    metadata: { source: "electronic-contracts-api", status: result.contract.status, partyCount: result.parties.length },
+  });
+
+  return jsonSuccess(context, electronicContractDetailResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ELECTRONIC_CONTRACTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "approval.document.write");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = electronicContractCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "전자계약 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  }
+
+  if (parsed.data.fileId) {
+    const file = await findOperationalDocumentFile(context.env, authResult.auth.user.companyId, parsed.data.fileId);
+    if (!file || file.storageStatus !== "ready") {
+      return jsonError(context, "FORBIDDEN", "전자계약에 연결할 수 없는 문서 파일입니다.", 403, {
+        fileId: parsed.data.fileId,
+        route: context.req.path,
+      });
+    }
+  }
+
+  const created = await createOperationalElectronicContract(context.env, {
+    id: `electronic_contract_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    ownerUserId: authResult.auth.user.id,
+    ownerEmployeeId: authResult.auth.user.employeeId,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.contract) return jsonDatabaseRequired(context, "전자계약 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "electronic_contract",
+    resourceId: created.contract.id,
+    accessType: "create",
+    purpose: "전자계약 생성 감사 기록",
+    legalBasis: "업무상 계약 작성 권한",
+    metadata: { source: "electronic-contracts-api", contractType: created.contract.contractType, fileId: created.contract.fileId },
+  });
+
+  return jsonSuccess(
+    context,
+    electronicContractCreateResponseSchema,
+    {
+      ok: true,
+      data: {
+        ...created,
+        audit: { candidate: auditRecorded, action: "electronic_contract.create" },
+      },
+      error: null,
+    },
+    201,
+  );
+});
+
+app.patch(ELECTRONIC_CONTRACT_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "approval.document.write");
+  if (authResult.response) return authResult.response;
+
+  const contractId = context.req.param("contractId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = electronicContractStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "전자계약 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  }
+
+  const existing = await findOperationalElectronicContract(context.env, authResult.auth.user.companyId, contractId);
+  if (!existing) return jsonDatabaseRequired(context, "전자계약 상태 변경");
+  if (!existing.contract) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 전자계약입니다.", 403, { contractId, route: context.req.path });
+  }
+
+  const updated = await updateOperationalElectronicContractStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    contractId,
+    status: parsed.data.status,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.contract) return jsonDatabaseRequired(context, "전자계약 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.contract.ownerUserId,
+    resourceType: "electronic_contract",
+    resourceId: updated.contract.id,
+    accessType: "update",
+    purpose: "전자계약 상태 변경 감사 기록",
+    legalBasis: "업무상 계약 관리 권한",
+    metadata: { source: "electronic-contracts-api", beforeStatus: existing.contract.status, afterStatus: updated.contract.status, reason: parsed.data.reason },
+  });
+
+  return jsonSuccess(context, electronicContractStatusUpdateResponseSchema, {
+    ok: true,
+    data: {
+      ...updated,
+      audit: { candidate: auditRecorded, action: "electronic_contract.status.update" },
     },
     error: null,
   });
