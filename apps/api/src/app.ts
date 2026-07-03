@@ -2440,6 +2440,15 @@ function buildDocumentDownloadUrl(fileId: string, token: string) {
   return `${appRoutes.documents.downloadFile(fileId)}?token=${encodeURIComponent(token)}`;
 }
 
+function buildExpectedDocumentUploadToken(file: DocumentFile) {
+  return `upload_token_${file.id}_${file.versionId}`;
+}
+
+function isValidDocumentUploadToken(file: DocumentFile, token: string) {
+  const pendingUpload = documentUploadTokens.get(token);
+  return (pendingUpload?.fileId === file.id && pendingUpload.versionId === file.versionId) || token === buildExpectedDocumentUploadToken(file);
+}
+
 function expiresInMinutes(minutes: number) {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
@@ -5475,8 +5484,7 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
     });
   }
 
-  const pendingUpload = documentUploadTokens.get(parsed.data.uploadToken);
-  if (!pendingUpload || pendingUpload.fileId !== file.id || pendingUpload.versionId !== file.versionId) {
+  if (!isValidDocumentUploadToken(file, parsed.data.uploadToken)) {
     return jsonError(context, "FORBIDDEN", "유효하지 않은 업로드 토큰입니다.", 403, {
       fileId,
       route: context.req.path,
