@@ -62,7 +62,7 @@ export function Phase16PilotPanel({
 
       {nextRoutes.length ? (
         <div style={{ marginTop: 16 }}>
-          <p className="meta-copy">live URL/preview 에서 이어서 눌러 볼 route</p>
+          <p className="meta-copy">운영 URL에서 이어서 눌러 볼 route</p>
           <ul className="summary-list">
             {nextRoutes.map((route) => (
               <li key={`${route.href}-${route.label}`}>
