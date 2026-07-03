@@ -516,7 +516,6 @@
   --touch-button-padding: 12px 18px;
   --touch-button-border: 1px solid transparent;
   --touch-button-color: #fff;
-  --placeholder-action-flex: 1 1 220px;
   --topbar-profile-settings-transition: scrollbar-color 180ms ease;
   --topbar-profile-settings-width: 8px;
   --topbar-profile-settings-height: 8px;
@@ -1833,18 +1832,12 @@ li {
   cursor: var(--state-disabled-cursor);
 }
 
-.placeholder-action {
+.empty-state__action-group {
   display: grid;
   gap: var(--empty-state-action-gap);
-  flex: var(--placeholder-action-flex);
 }
 
-.placeholder-action__button {
-  width: 100%;
-  font: inherit;
-}
-
-.placeholder-action__hint {
+.empty-state__action-copy {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--empty-state-copy-size);
