@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import HomePage from "./app/page";
 import LoginPage from "./app/login/page";
-import { getPostLoginRoute } from "./dev-safe-auth";
+import { getPostLoginRoute } from "./uat-auth";
 
 describe("Phase 14 home/login flow", () => {
   it("turns the home page into a flow overview for general work and admin review", () => {
