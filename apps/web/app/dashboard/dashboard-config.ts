@@ -154,7 +154,7 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
     role: "운영 관리자",
     firstRoute: "/home",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 권한 기반 운영 CTA 로 경영업무 허브에 진입합니다.",
-    detail: "공통 landing 다음 레인은 /management 이며, 계정관리 preview·정책 preview·감사 read-only·민감 모듈 검토를 같은 홈처럼 섞지 않습니다.",
+    detail: "공통 landing 다음 레인은 /management 이며, 계정관리 검토·정책 검토·감사 read-only·민감 모듈 검토를 같은 홈처럼 섞지 않습니다.",
   },
   {
     role: "지점 관리자",
@@ -214,7 +214,7 @@ export const dashboardManagementCards: DashboardManagementCard[] = [
   {
     href: "/payroll",
     title: "급여 내부관리",
-    body: "급여 프로필, 기간 상태, self-only 명세서 preview 연결은 경영업무 허브 아래에서만 읽습니다.",
+    body: "급여 프로필, 기간 상태, self-only 명세서 검토 연결은 경영업무 허브 아래에서만 읽습니다.",
     roleScope: "본사 관리자 / 인사 관리자 / 지점 관리자",
     allowedRoleCodes: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
   },
@@ -261,7 +261,7 @@ export const dashboardApiLinks = [
   { href: "/api/leave/balances", label: "휴가 잔여", description: "잔여 snapshot" },
   { href: "/api/leave/requests", label: "휴가 신청", description: "승인 대기/처리 결과 후보" },
   { href: "/api/payroll", label: "급여 개요", description: "급여 프로필/기간/역할별 공개 범위 요약" },
-  { href: "/api/payroll/me/payslip", label: "내 급여명세서 초안", description: "구성원 본인용 명세서 preview" },
+  { href: "/api/payroll/me/payslip", label: "내 급여명세서 초안", description: "구성원 본인용 명세서 검토" },
   { href: "/api/approvals/inbox", label: "승인함", description: "내 승인 대기와 병목 후보" },
   { href: "/api/notices", label: "공지", description: "읽기 중심 공지 진입점" },
   { href: "/api/documents/spaces", label: "문서 공간", description: "문서함 시작점" },
@@ -291,7 +291,7 @@ export function getDashboardAdminShortcut(
     return {
       href: "/admin",
       title: "관리자 허브 바로가기",
-      body: "권한 있는 운영 사용자만 정책/권한/감사 preview를 이어서 확인합니다.",
+      body: "권한 있는 운영 사용자만 정책/권한/감사 검토를 이어서 확인합니다.",
     } as const;
   }
 
