@@ -131,7 +131,7 @@ describe("mobile/PWA config", () => {
       "#drive",
       "/payroll/me",
       "#expense",
-      "#vehicle-log",
+      "/vehicle-operation",
     ]);
     expect(mobileMenuSections.flatMap((section) => section.items).filter((item) => item.disabled).map((item) => item.label)).toEqual([
       "익명게시판",
@@ -144,7 +144,6 @@ describe("mobile/PWA config", () => {
       "자료실",
       "드라이브",
       "경비",
-      "차량운행일지",
     ]);
   });
 
