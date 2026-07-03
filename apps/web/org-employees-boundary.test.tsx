@@ -56,7 +56,7 @@ describe("org/employees/admin boundaries", () => {
 
     expect(html).toContain("Phase 55 관리자 계정·권한·조직 실사용화");
     expect(html).toContain("역할 후보");
-    expect(html).toContain("상태 변경 diff");
+    expect(html).toContain("상태 변경 차이");
     expect(html).toContain("감사 후보");
   });
 });
