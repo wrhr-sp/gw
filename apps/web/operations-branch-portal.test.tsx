@@ -75,6 +75,7 @@ describe("operations branch portal", () => {
     expect(shellSource).not.toContain("filteredBranchPortalItems");
     expect(shellSource).toContain('href={branchPortalHomeHref}');
     expect(shellSource).toContain('aria-label={`${branchPortalLabel} 새 탭에서 보기`}');
-    expect(shellSource).toContain('href={department.href} target="_blank" rel="noreferrer"');
+    expect(shellSource).toContain('data-route={department.href}');
+    expect(shellSource).toContain('data-access-kind={accessKind}');
   });
 });

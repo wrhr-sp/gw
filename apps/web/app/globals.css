@@ -571,6 +571,7 @@
   --department-portal-popover-bg: var(--surface);
   --department-portal-popover-item-padding: 10px 12px;
   --department-portal-popover-item-radius: 12px;
+  --department-portal-popover-badge-padding: 3px var(--space-xs);
   --app-shell-responsive-height: 100dvh;
   --app-shell-responsive-min-height: 100dvh;
   --app-shell-main-height: calc(100dvh - var(--desktop-topbar-height));
@@ -2568,7 +2569,10 @@ li {
 }
 
 .department-portal-popover__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   border: 0;
   border-radius: var(--department-portal-popover-item-radius);
   background: transparent;
@@ -2580,6 +2584,26 @@ li {
   padding: var(--department-portal-popover-item-padding);
   text-align: left;
   text-decoration: none;
+}
+
+.department-portal-popover__item small {
+  flex: 0 0 auto;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  padding: var(--department-portal-popover-badge-padding);
+}
+
+.department-portal-popover__item--denied {
+  color: var(--text-muted);
+}
+
+.department-portal-popover__item--denied small {
+  background: var(--danger-soft);
+  color: var(--danger-hover);
 }
 
 .department-portal-popover__item:hover,
