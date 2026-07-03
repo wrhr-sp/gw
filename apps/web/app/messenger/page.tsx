@@ -63,7 +63,7 @@ const messengerThreads: readonly MessengerThread[] = [
     id: "thread-dev-room",
     title: "개발팀 업무방",
     subtitle: "개발팀 · 그룹",
-    lastMessage: "메신저 1차 UI preview 범위만 먼저 확인합니다.",
+    lastMessage: "메신저 1차 UI 검토 범위만 먼저 확인합니다.",
     time: "어제",
     unread: 0,
     kind: "그룹",
@@ -156,7 +156,7 @@ export default function MessengerPage() {
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
   const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
   const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
-  const [previewMessage, setPreviewMessage] = useState("회의자료 확인했습니다.");
+  const [displayMessage, setDisplayMessage] = useState("회의자료 확인했습니다.");
 
   const activeThread = messengerThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const selectedContacts = allContacts.filter((contact) => selectedContactIds.includes(contact.id));
@@ -228,7 +228,7 @@ export default function MessengerPage() {
 
   function handleStartConversation() {
     const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
-    setPreviewMessage(names ? `${names}에게 보낼 새 대화 preview가 준비됐습니다.` : "대상자를 선택하면 대화 시작 preview가 표시됩니다.");
+    setDisplayMessage(names ? `${names}에게 보낼 새 대화 검토 내용이 준비됐습니다.` : "대상자를 선택하면 대화 시작 검토 내용이 표시됩니다.");
     setIsRecipientPanelOpen(false);
   }
 
@@ -238,7 +238,7 @@ export default function MessengerPage() {
     if (!messageText && !attachmentNames) {
       return;
     }
-    setPreviewMessage(attachmentNames ? `${messageText || "첨부 메시지"}\n첨부: ${attachmentNames}` : messageText);
+    setDisplayMessage(attachmentNames ? `${messageText || "첨부 메시지"}\n첨부: ${attachmentNames}` : messageText);
     setMessageDraft("");
   }
 
@@ -262,7 +262,7 @@ export default function MessengerPage() {
       });
       const payload = await response.json();
       if (!response.ok) {
-        setPreviewMessage(payload?.error?.message ?? "채팅방 나가기를 처리하지 못했습니다.");
+        setDisplayMessage(payload?.error?.message ?? "채팅방 나가기를 처리하지 못했습니다.");
         setIsConversationMenuOpen(false);
         return;
       }
@@ -271,13 +271,13 @@ export default function MessengerPage() {
       setActiveThreadId(null);
       setPendingAttachments([]);
       setMessageDraft("");
-      setPreviewMessage("회의자료 확인했습니다.");
+      setDisplayMessage("회의자료 확인했습니다.");
       setIsAttachmentMenuOpen(false);
       setIsEmojiMenuOpen(false);
       setIsDocumentPickerOpen(false);
       setIsConversationMenuOpen(false);
     } catch {
-      setPreviewMessage("채팅방 나가기 요청 중 오류가 발생했습니다.");
+      setDisplayMessage("채팅방 나가기 요청 중 오류가 발생했습니다.");
       setIsConversationMenuOpen(false);
     }
   }
@@ -288,7 +288,7 @@ export default function MessengerPage() {
     setRecipientSearch("");
     setPendingAttachments([]);
     setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
-    setPreviewMessage("회의자료 확인했습니다.");
+    setDisplayMessage("회의자료 확인했습니다.");
     setIsRecipientPanelOpen(false);
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
@@ -300,7 +300,7 @@ export default function MessengerPage() {
     setActiveThreadId(null);
     setPendingAttachments([]);
     setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
-    setPreviewMessage("회의자료 확인했습니다.");
+    setDisplayMessage("회의자료 확인했습니다.");
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
     setIsDocumentPickerOpen(false);
@@ -390,7 +390,7 @@ export default function MessengerPage() {
       <section className="surface-card messenger-surface">
         <div
           className="messenger-shell"
-          aria-label="메신저 preview"
+          aria-label="메신저 검토 화면"
           onClick={() => {
             setIsAttachmentMenuOpen(false);
             setIsEmojiMenuOpen(false);
@@ -465,7 +465,7 @@ export default function MessengerPage() {
                         ☰
                       </button>
                       <div className="messenger-popover-menu messenger-conversation-menu" hidden={!isConversationMenuOpen} role="menu" aria-label="채팅방 메뉴">
-                        <button type="button" role="menuitem" onClick={() => setPreviewMessage("채팅방 설정은 준비 중입니다.")}>설정</button>
+                        <button type="button" role="menuitem" onClick={() => setDisplayMessage("채팅방 설정은 준비 중입니다.")}>설정</button>
                         <button type="button" role="menuitem" className="messenger-conversation-menu__leave" onClick={() => void handleLeaveActiveThread()}>나가기</button>
                       </div>
                     </div>
@@ -474,7 +474,7 @@ export default function MessengerPage() {
                     </button>
                   </div>
                 </header>
-                <div className="messenger-message-list" aria-label="메시지 목록 preview">
+                <div className="messenger-message-list" aria-label="메시지 목록 검토 화면">
                   <article className="messenger-message messenger-message--other">
                     <strong>김민수 과장</strong>
                     <p>오늘 회의자료 확인 부탁드립니다.</p>
@@ -482,11 +482,11 @@ export default function MessengerPage() {
                   </article>
                   <article className="messenger-message messenger-message--mine">
                     <strong>나</strong>
-                    <p>{previewMessage}</p>
-                    <small>오전 10:24 · 화면 preview</small>
+                    <p>{displayMessage}</p>
+                    <small>오전 10:24 · 화면 검토</small>
                   </article>
                 </div>
-                <div className="messenger-composer" aria-label="메시지 입력 preview">
+                <div className="messenger-composer" aria-label="메시지 입력 검토 화면">
               <input
                 ref={fileInputRef}
                 className="messenger-file-input"
@@ -496,9 +496,9 @@ export default function MessengerPage() {
                 onChange={handlePcFileChange}
               />
               {pendingAttachments.length ? (
-                <div className="messenger-attachment-preview" aria-label="첨부 대기 목록">
+                <div className="messenger-attachment-review" aria-label="첨부 대기 목록">
                   <strong>첨부됨</strong>
-                  <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onDownload={() => setPreviewMessage("문서함 파일 다운로드 준비가 완료됐습니다.")} />
+                  <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onDownload={() => setDisplayMessage("문서함 파일 다운로드 준비가 완료됐습니다.")} />
                 </div>
               ) : null}
               <div className="messenger-composer-input-box" aria-label="메시지 입력 도구 묶음">
@@ -515,7 +515,7 @@ export default function MessengerPage() {
                   >
                     +
                   </button>
-                  <div className="messenger-popover-menu messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 preview" onClick={(event) => event.stopPropagation()}>
+                  <div className="messenger-popover-menu messenger-attachment-menu" hidden={!isAttachmentMenuOpen} role="menu" aria-label="첨부 메뉴 검토 화면" onClick={(event) => event.stopPropagation()}>
                     <button type="button" role="menuitem" onClick={openPcFilePicker}>내 PC 파일첨부</button>
                     <button type="button" role="menuitem" onClick={openDocumentPicker}>문서함에서 선택</button>
                   </div>
