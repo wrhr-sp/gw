@@ -33,7 +33,6 @@ type SessionPayload = {
     id: string;
     status: string;
     expiresAt: string;
-    placeholder?: boolean;
   };
   user: {
     id: string;
@@ -65,7 +64,7 @@ type DocumentFileSummary = {
   fileSize: number;
   versionLabel: string;
   isPublicWithinCompany: boolean;
-  storageProvider: "mock" | "r2";
+  storageProvider: "r2";
   storageStatus: "pending" | "ready" | "deleted" | "failed";
   checksumSha256: string | null;
   status: "active" | "archived";
@@ -77,7 +76,7 @@ type DocumentActionEnvelope = {
   file: DocumentFileSummary;
   action?: {
     kind: string;
-    provider: "mock" | "r2";
+    provider: "r2";
     expiresAt: string;
     uploadToken?: string;
     downloadToken?: string;
@@ -470,8 +469,8 @@ export function LoginRealUsagePanel() {
       <form className="info-card" onSubmit={handleSubmit}>
         <Pill tone="accent">실사용 테스트 로그인</Pill>
         <h3>admin / 1234 기본 계정</h3>
-        <p className="card-note">입력값은 admin / 1234 기준으로 고정하고, 역할 차이만 dev-safe 세션 계약으로 바꿔 확인합니다.</p>
-        <label className="form-placeholder" style={{ marginTop: 12 }}>
+        <p className="card-note">입력값은 admin / 1234 기준으로 고정하고, 역할 차이만 내부 검증 세션 계약으로 바꿔 확인합니다.</p>
+        <label className="form-field-stack" style={{ marginTop: 12 }}>
           <strong>테스트 사용자</strong>
           <select className="field" value={username} onChange={(event) => setUsername(event.target.value)}>
             {loginAccountPresets.map((preset) => (
@@ -481,11 +480,11 @@ export function LoginRealUsagePanel() {
             ))}
           </select>
         </label>
-        <label className="form-placeholder" style={{ marginTop: 12 }}>
+        <label className="form-field-stack" style={{ marginTop: 12 }}>
           <strong>비밀번호</strong>
           <input className="field" value={password} onChange={(event) => setPassword(event.target.value)} />
         </label>
-        <label className="form-placeholder" style={{ marginTop: 12 }}>
+        <label className="form-field-stack" style={{ marginTop: 12 }}>
           <strong>역할 시뮬레이션</strong>
           <select className="field" value={roleCode} onChange={(event) => setRoleCode(event.target.value as LoginRoleCode)}>
             {Object.keys(roleLandingLabels).map((value) => (
@@ -566,14 +565,14 @@ export function AdminUsersLiveSection() {
       });
       setResult({
         tone: "accent",
-        title: "계정 초대 preview 생성",
+        title: "계정 초대 검증 생성",
         body: `${payload.data.email} · ${payload.data.roleCode} · ${payload.data.status} (${payload.data.audit.action})`,
       });
       setRefreshSeed((value) => value + 1);
     } catch (mutationError) {
       setResult({
         tone: "warning",
-        title: "계정 초대 preview 실패",
+        title: "계정 초대 검증 실패",
         body: mutationError instanceof Error ? mutationError.message : String(mutationError),
       });
     } finally {
@@ -596,10 +595,10 @@ export function AdminUsersLiveSection() {
         </article>
         <article className="info-card">
           <Pill>계정 생성 관리</Pill>
-          <h3>초대 preview</h3>
+          <h3>초대 검증</h3>
           <p>신규 사용자 계정 생성은 실제 메일 발송 대신 pending_delivery 상태로 검증합니다.</p>
           <button className="touch-button" disabled={pending} onClick={handleInviteCreate} style={{ marginTop: 12 }} type="button">
-            {pending ? "초대 preview 생성 중" : "신규 매니저 초대 preview 생성"}
+            {pending ? "초대 검증 생성 중" : "신규 매니저 초대 검증 생성"}
           </button>
         </article>
       </div>
@@ -712,7 +711,7 @@ export function AttendanceLiveSection() {
             style={{ marginTop: 12 }}
             type="button"
           >
-            정정 요청 preview
+            정정 요청 생성
           </button>
           <p className="card-note" style={{ marginTop: 12 }}>
             {!canUseAttendance
@@ -728,7 +727,7 @@ export function AttendanceLiveSection() {
           <p>예외 검토와 정책 source 비교는 승인자/운영자 레인에서 확인합니다.</p>
           <ul className="summary-list" style={{ marginTop: 12 }}>
             <li><a href={appRoutes.attendance.records}>{appRoutes.attendance.records}</a> — 본인 최근 기록과 현재 상태</li>
-            <li><a href={appRoutes.attendance.corrections}>{appRoutes.attendance.corrections}</a> — 본인 정정 요청 생성 preview</li>
+            <li><a href={appRoutes.attendance.corrections}>{appRoutes.attendance.corrections}</a> — 본인 정정 요청 생성</li>
             <li><a href="/admin/policies">/admin/policies</a> — 허용 방식과 운영 기준 source 비교</li>
           </ul>
         </article>
@@ -828,13 +827,13 @@ export function LeaveLiveSection() {
             }
             type="button"
           >
-            휴가 신청 preview
+            휴가 신청 생성
           </button>
           <p className="card-note" style={{ marginTop: 12 }}>
             {!canRequestLeave
               ? "leave.request 권한이 없으면 신청 버튼 대신 차단 안내만 확인합니다."
               : selectedLeaveType
-                ? `${selectedLeaveType.name} 유형으로 dev-safe 신청 preview 를 생성합니다. 실차감/급여 반영은 이번 단계 범위 밖입니다.`
+                ? `${selectedLeaveType.name} 유형으로 내부 검증 신청을 생성합니다. 실차감/급여 반영은 이번 단계 범위 밖입니다.`
                 : "허용된 휴가 유형을 먼저 불러온 뒤 신청 흐름을 시작하세요."}
           </p>
         </article>
@@ -952,11 +951,11 @@ export function ApprovalsLiveSection() {
         </article>
         <article className="info-card">
           <Pill>기안 / 승인 / 반려</Pill>
-          <label className="form-placeholder" style={{ marginTop: 12 }}>
+          <label className="form-field-stack" style={{ marginTop: 12 }}>
             <strong>제목</strong>
             <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
           </label>
-          <label className="form-placeholder" style={{ marginTop: 12 }}>
+          <label className="form-field-stack" style={{ marginTop: 12 }}>
             <strong>요약</strong>
             <textarea className="field" onChange={(event) => setSummary(event.target.value)} rows={3} value={summary} />
           </label>
@@ -1079,7 +1078,7 @@ export function ApprovalDocumentDetailLiveSection({ documentId }: { documentId: 
         </article>
         <article className="info-card">
           <Pill>상세에서 바로 실행</Pill>
-          <label className="form-placeholder" style={{ marginTop: 12 }}>
+          <label className="form-field-stack" style={{ marginTop: 12 }}>
             <strong>의견 / 댓글</strong>
             <textarea className="field" onChange={(event) => setCommentBody(event.target.value)} rows={3} value={commentBody} />
           </label>
@@ -1415,7 +1414,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
   const effectiveBoardId = selectedBoard?.id ?? selectedBoardId;
   const posts = useApiQuery<{ board: Record<string, any>; items: Array<Record<string, any>> }>(effectiveBoardId ? appRoutes.boards.posts(effectiveBoardId) : null, refreshSeed);
   const session = useApiQuery<SessionPayload>("/api/session", refreshSeed);
-  const samplePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(effectiveBoardId);
+  const representativePostId = posts.data?.items[0]?.id ?? getDefaultBoardPostId(effectiveBoardId);
   const canShowBoardFlow = Boolean(posts.data || selectedBoard);
   const boardSettings = readBoardWriteSettings(selectedBoard ?? posts.data?.board);
   const prefixOptions = boardSettings.prefixOptions ?? [];
@@ -1665,7 +1664,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
               <>
                 <h3>{posts.data.board.name}</h3>
                 <p>{posts.data.board.visibility} · {posts.data.board.isNoticeOnly ? "공지 중심" : "게시글 작성 가능"}</p>
-                <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${samplePostId}`} onClick={onOpenPost ? () => onOpenPost(samplePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
+                <p className="card-note">게시글 {posts.data.items.length}건 · <InlineNavigationLink href={`/posts/${representativePostId}`} onClick={onOpenPost ? () => onOpenPost(representativePostId) : undefined}>대표 글 보기</InlineNavigationLink></p>
                 <p className="card-note">{formatBoardWriterGuide(effectiveBoardId, session.data ?? null)}</p>
               </>
             ) : null}
@@ -1810,7 +1809,7 @@ export function PostDetailLiveSection({ postId }: { postId: string }) {
         {canShowPostActions ? (
           <article className="info-card">
             <Pill>댓글과 읽음 확인</Pill>
-            <label className="form-placeholder" style={{ marginTop: 12 }}>
+            <label className="form-field-stack" style={{ marginTop: 12 }}>
               <strong>댓글 본문</strong>
               <input className="field" onChange={(event) => setCommentBody(event.target.value)} value={commentBody} />
             </label>
@@ -1965,7 +1964,7 @@ export function DocumentsLiveSection() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           spaceId: activeSpaceId,
-          fileName: "phase-54-documents-preview.pdf",
+          fileName: "documents-verification.pdf",
           contentType: "application/pdf",
           fileSize: 64000,
           versionLabel: "draft-1",
@@ -2296,7 +2295,7 @@ export function DocumentsLiveSection() {
           ) : (
             <>
               <h3>선택된 문서가 없습니다.</h3>
-              <p>목록에서 파일을 선택하거나 metadata preview 생성으로 상세 흐름을 시작하세요.</p>
+              <p>목록에서 파일을 선택하거나 metadata 생성으로 상세 흐름을 시작하세요.</p>
             </>
           )}
         </article>
@@ -2307,7 +2306,7 @@ export function DocumentsLiveSection() {
           <Pill tone="accent">실행 액션</Pill>
           <div className="action-row" style={{ marginTop: 8 }}>
             <button className="touch-button" disabled={pending || !canWrite} onClick={handleMetadataCreate} type="button">
-              metadata preview 생성
+              metadata 생성
             </button>
             <button className="touch-button" disabled={pending || !canWrite} onClick={handleUploadInit} type="button">
               upload-init
@@ -2356,7 +2355,7 @@ export function DocumentsLiveSection() {
           ) : (
             <>
               <h3>액션 대기</h3>
-              <p>upload-init 또는 download-init 을 실행하면 최근 토큰/preview 요약이 여기 보입니다.</p>
+              <p>upload-init 또는 download-init 을 실행하면 최근 토큰/요약이 여기 보입니다.</p>
             </>
           )}
         </article>

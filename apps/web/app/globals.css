@@ -1952,7 +1952,7 @@ li {
   gap: var(--record-card-gap);
 }
 
-.form-placeholder {
+.form-field-stack {
   display: grid;
   gap: var(--empty-state-gap);
 }

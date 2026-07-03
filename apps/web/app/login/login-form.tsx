@@ -64,7 +64,7 @@ export function LoginForm() {
 
   return (
     <form
-      className="form-placeholder"
+      className="form-field-stack"
       onSubmit={async (event) => {
         event.preventDefault();
         setPending(true);

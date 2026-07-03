@@ -13,7 +13,7 @@ function makeFile(overrides: Partial<Parameters<typeof getSelectedDocumentFile>[
     fileSize: 2048,
     versionLabel: "v1",
     isPublicWithinCompany: true,
-    storageProvider: "mock" as const,
+    storageProvider: "r2" as const,
     storageStatus: "ready" as const,
     checksumSha256: null,
     status: "active" as const,
