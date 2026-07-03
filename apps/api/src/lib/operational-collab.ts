@@ -76,9 +76,9 @@ type DocumentFileRow = {
   file_deleted_at: string | Date | null;
 };
 
-function toIsoString(value: string | Date | null | undefined, fallback: string) {
+function toIsoString(value: string | Date | null | undefined, defaultValue: string) {
   if (!value) {
-    return fallback;
+    return defaultValue;
   }
 
   if (value instanceof Date) {
@@ -86,7 +86,7 @@ function toIsoString(value: string | Date | null | undefined, fallback: string) 
   }
 
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+  return Number.isNaN(parsed.getTime()) ? defaultValue : parsed.toISOString();
 }
 
 function mapBoard(row: BoardRow): Board {

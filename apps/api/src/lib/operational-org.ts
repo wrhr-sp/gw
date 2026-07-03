@@ -315,14 +315,14 @@ export async function listOperationalRoles(
 
 export async function listOperationalPermissions(
   env: PostgresEnv | undefined,
-  fallbackCatalog: readonly Permission[],
+  defaultCatalog: readonly Permission[],
 ) {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
   }
 
-  const fallbackDescriptionByCode = new Map(fallbackCatalog.map((permission) => [permission.code, permission.description]));
+  const defaultDescriptionByCode = new Map(defaultCatalog.map((permission) => [permission.code, permission.description]));
   const rows = await sql`
     select code, name
     from permissions
@@ -332,7 +332,7 @@ export async function listOperationalPermissions(
   const items = rows
     .map((row) => {
       const typed = row as { code: string; name: string };
-      const description = fallbackDescriptionByCode.get(typed.code as Permission["code"]);
+      const description = defaultDescriptionByCode.get(typed.code as Permission["code"]);
       if (!description) {
         return null;
       }
@@ -344,7 +344,7 @@ export async function listOperationalPermissions(
     })
     .filter((item): item is Permission => item !== null);
 
-  return items.length > 0 ? items : [...fallbackCatalog];
+  return items.length > 0 ? items : [...defaultCatalog];
 }
 
 export async function listOperationalHomeShortcuts(
