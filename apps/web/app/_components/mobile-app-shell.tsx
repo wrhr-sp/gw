@@ -1232,6 +1232,7 @@ const sidebarBasicHrefs = [
   "/documents",
   "/me",
   "/payroll/me",
+  "/vehicle-operation",
   "/work-items/hr",
 ] as const;
 

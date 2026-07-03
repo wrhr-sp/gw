@@ -256,7 +256,7 @@ const plannedNavItems = {
   training: { href: "#employee-training", label: "직장인교육", shortLabel: "교육", summary: "직장인교육 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   employmentContract: { href: "#employment-contract", label: "고용전자계약", shortLabel: "전자계약", summary: "고용 전자계약 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
   expense: { href: "#expense", label: "경비", shortLabel: "경비", summary: "경비 신청·정산 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
-  vehicleLog: { href: "#vehicle-log", label: "차량운행일지", shortLabel: "차량일지", summary: "차량 운행일지 화면은 후속 작업에서 연결합니다.", disabled: true, badge: "준비중" },
+  vehicleLog: { href: "/vehicle-operation", label: "차량운행일지", shortLabel: "차량일지", summary: "차량 운행 기록을 저장하고 제출합니다." },
 } satisfies Record<string, NavItem>;
 
 export const mobileBottomTabs: NavItem[] = [
