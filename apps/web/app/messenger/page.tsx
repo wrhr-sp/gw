@@ -525,7 +525,7 @@ export default function MessengerPage() {
                   value={messageDraft}
                   onChange={(event) => setMessageDraft(event.target.value)}
                   onKeyDown={handleComposerKeyDown}
-                  placeholder="메시지를 입력하세요"
+                  aria-label="메시지 입력"
                   rows={1}
                 />
                 <div className="messenger-emoji-wrap">

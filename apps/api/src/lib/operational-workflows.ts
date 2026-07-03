@@ -16,24 +16,24 @@ import { createOperationalSql, type PostgresEnv } from "./postgres";
 type DbRow = Record<string, any>;
 type TimestampValue = string | Date | null | undefined;
 
-function toIsoString(value: TimestampValue, fallback: string) {
-  if (!value) return fallback;
+function toIsoString(value: TimestampValue, defaultValue: string) {
+  if (!value) return defaultValue;
   if (value instanceof Date) return value.toISOString();
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+  return Number.isNaN(parsed.getTime()) ? defaultValue : parsed.toISOString();
 }
 
-function toDateOnly(value: string | Date | null | undefined, fallback: string) {
-  if (!value) return fallback;
+function toDateOnly(value: string | Date | null | undefined, defaultValue: string) {
+  if (!value) return defaultValue;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString().slice(0, 10);
+  return Number.isNaN(parsed.getTime()) ? defaultValue : parsed.toISOString().slice(0, 10);
 }
 
-function toNumber(value: number | string | null | undefined, fallback = 0) {
+function toNumber(value: number | string | null | undefined, defaultValue = 0) {
   const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
 function mapAttendanceRecord(row: DbRow): AttendanceRecord {

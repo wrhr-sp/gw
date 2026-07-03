@@ -80,9 +80,9 @@ function parseAdminAuditCategory(resourceType: string, metadata: Record<string, 
   }
 }
 
-function stringifyAuditSnapshot(value: unknown, fallback: string): string {
+function stringifyAuditSnapshot(value: unknown, defaultValue: string): string {
   if (value == null) {
-    return fallback;
+    return defaultValue;
   }
   if (typeof value === "string") {
     return value;
@@ -90,7 +90,7 @@ function stringifyAuditSnapshot(value: unknown, fallback: string): string {
   try {
     return JSON.stringify(value);
   } catch {
-    return fallback;
+    return defaultValue;
   }
 }
 
