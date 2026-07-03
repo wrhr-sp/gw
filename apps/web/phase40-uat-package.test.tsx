@@ -29,7 +29,7 @@ describe("Phase 40 internal adoption rehearsal package", () => {
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
     expect(html).toContain("/admin/audit-logs → /api/health");
     expect(html).toContain("Phase 45 최종 검증 / 릴리즈 묶음");
-    expect(html).toContain("live 직접 클릭 근거와 local preview/build/release gate 근거를 섞지 않고 분리해서 기록한다.");
+    expect(html).toContain("live 직접 클릭 근거와 local build/release gate 근거를 섞지 않고 분리해서 기록한다.");
     expect(html).toContain("최종 보고 체크리스트");
     expect(html).toContain("release gate 성공, focused test/web build, rollback 확인 포인트");
     expect(html).toContain("실제 급여 지급, 은행 이체, 실세액 확정");

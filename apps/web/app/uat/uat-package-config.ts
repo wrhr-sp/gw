@@ -54,13 +54,13 @@ export const roleScenarioCards = [
     journey: ["/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     actions: [
       "경영업무 허브에서 민감 모듈이 일반 홈과 분리돼 보이는지 확인한다.",
-      "계정관리 preview, 정책 preview, 감사 read-only, 최소 liveness 를 같은 관리자 묶음처럼 뭉개지 않는지 본다.",
+      "계정관리 검토, 정책 검토, 감사 read-only, 최소 liveness 를 같은 관리자 묶음처럼 뭉개지 않는지 본다.",
       "급여·세무·노무·법무·감사 레인이 metadata/review/read-only 언어로 분리돼 있는지 확인한다.",
     ],
     happyPath: [
       "`/management` 가 일반 직원 홈의 연장선이 아니라 운영 허브로 읽힌다.",
-      "계정관리/정책 preview 와 급여·세무·노무·법무 레인이 각각 다른 책임으로 읽힌다.",
-      "preview/skeleton 과 실운영/실지급/실신고가 같은 뜻으로 보이지 않는다.",
+      "계정관리/정책 검토와 급여·세무·노무·법무 레인이 각각 다른 책임으로 읽힌다.",
+      "검토/기본 구조가 실운영/실지급/실신고가 같은 뜻으로 보이지 않는다.",
       "company scope, restricted, read-only, 최소 liveness 경계가 문구와 route 에서 함께 유지된다.",
     ],
     statusChecks: [
@@ -77,7 +77,7 @@ export const roleScenarioCards = [
     journey: ["/work-items/branch", "/employees", "/org", "/management"],
     actions: [
       "branch scope 업무 목록·상세·문서·마감 흐름이 회사 전체 운영 권한처럼 보이지 않는지 확인한다.",
-      "`/employees`, `/org` 읽기 확인과 운영 변경 preview 를 같은 책임처럼 섞지 않는지 본다.",
+      "`/employees`, `/org` 읽기 확인과 운영 변경 검토를 같은 책임처럼 섞지 않는지 본다.",
       "`/management` 문맥을 보더라도 branch scope 와 company scope 설명이 흐려지지 않는지 확인한다.",
     ],
     happyPath: [
@@ -97,17 +97,17 @@ export const roleScenarioCards = [
     startRoute: "/login → /admin/audit-logs",
     journey: ["/admin/audit-logs", "/api/health"],
     actions: [
-      "감사 로그 조회가 read-only / masked preview 기준을 유지하는지 먼저 확인한다.",
+      "감사 로그 조회가 read-only / 마스킹 검토 기준을 유지하는지 먼저 확인한다.",
       "`audit.read` 없는 역할이 같은 route/API 를 보지 못하는지 함께 본다.",
       "`/api/health` 는 최소 liveness 기준으로만 읽고 full monitoring 처럼 과장하지 않는다.",
     ],
     happyPath: [
       "감사 레인이 운영 변경 저장 레인과 섞이지 않는다.",
-      "`/admin/audit-logs` 는 masked preview 와 company boundary 를 유지한다.",
+      "`/admin/audit-logs` 는 마스킹 검토와 company boundary 를 유지한다.",
       "감사 결과와 운영 최소 기준선(`/api/health`) 설명이 같은 관리자 묶음처럼 뭉개지지 않는다.",
     ],
     statusChecks: [
-      "forbidden: 감사 권한 없는 역할이 audit preview 를 보면 blocker 다.",
+      "forbidden: 감사 권한 없는 역할이 감사 검토를 보면 blocker 다.",
       "empty: 조회 가능한 로그가 없을 때 정상 empty 로 보이면 된다.",
       "error: route/API 실패는 empty 나 권한 부족과 분리해 적는다.",
       "loading: 감사 응답 대기와 완료 상태를 같은 뜻처럼 보여 주면 안 된다.",
@@ -132,7 +132,7 @@ export const issueSeverityCards = [
     examples: [
       "forbidden/error/empty/offline 이 같은 뜻처럼 보임",
       "운영/감사 레인이 일반 직원 흐름과 섞여 보임",
-      "preview 와 실운영을 같은 말로 안내함",
+      "검토 화면과 실운영을 같은 말로 안내함",
     ],
   },
   {
@@ -199,8 +199,8 @@ export const finalReportChecklist = [
   "live URL",
   "테스트 계정(admin / 1234, dev/test/UAT 전용)",
   "역할별 추천 시나리오와 확인 route",
-  "live 직접 확인 route 와 local preview/release gate 대체 근거를 구분한 설명",
-  "현재 가능한 것 / 막히는 것 / skeleton 잔여",
+  "live 직접 확인 경로와 local build/release gate 대체 근거를 구분한 설명",
+  "현재 가능한 것 / 막히는 것 / 기본 구조 잔여",
   "남은 blocker/major/minor 요약",
   "release gate 성공, focused test/web build, rollback 확인 포인트",
   "별도 승인 게이트 목록",
@@ -208,8 +208,8 @@ export const finalReportChecklist = [
 
 export const releaseReadinessChecklist = [
   "직원 레인(`/home` 중심)과 경영업무(`/management`)·감사(`/admin/audit-logs`) 레인을 같은 홈처럼 설명하지 않는다.",
-  "`/payroll` preview, `/payroll/me` self-only, `work-items` branch/company/restricted, 감사 read-only 경계를 final report 와 화면 문구에서 같은 뜻으로 유지한다.",
-  "live 직접 클릭 근거와 local preview/build/release gate 근거를 섞지 않고 분리해서 기록한다.",
+  "`/payroll` 검토, `/payroll/me` self-only, `work-items` branch/company/restricted, 감사 read-only 경계를 final report 와 화면 문구에서 같은 뜻으로 유지한다.",
+  "live 직접 클릭 근거와 local build/release gate 근거를 섞지 않고 분리해서 기록한다.",
   "rollback 설명은 되돌리기 실행보다 현재 release 성공 근거와 남은 approval gate 를 먼저 적는다.",
 ] as const;
 
