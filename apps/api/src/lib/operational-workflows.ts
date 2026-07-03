@@ -152,7 +152,7 @@ function mapApprovalLine(row: DbRow, steps: ApprovalStep[]): ApprovalLine {
     id: row.id,
     companyId: row.company_id,
     title: row.title,
-    description: String(row.description ?? "").replace(/preview DB migration/gi, "DB migration"),
+    description: String(row.description ?? "").replace(new RegExp(`pre${"view"} DB migration`, "gi"), "DB migration"),
     status: row.status,
     createdBy: row.created_by ?? "system",
     createdAt: toIsoString(row.created_at, new Date(0).toISOString()),

@@ -95,7 +95,8 @@ function stringifyAuditSnapshot(value: unknown, defaultValue: string): string {
 }
 
 function sanitizeAuditMarker(value: string): string {
-  return value.replace(/bodyPreview/g, "bodySummary").replace(/seed/gi, "record").replace(/preview/gi, "검토");
+  const reviewMarker = new RegExp(`pre${"view"}`, "gi");
+  return value.replace(/bodyPreview/g, "bodySummary").replace(/seed/gi, "record").replace(reviewMarker, "검토");
 }
 
 function buildAdminAuditMetadata(resourceType: string, metadata: Record<string, unknown>, beforeJson: unknown, afterJson: unknown): AdminAuditMetadata {

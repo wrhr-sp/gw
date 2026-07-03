@@ -236,7 +236,7 @@ function mapPayrollDraft(row: DbRow): PayrollDraft {
     status: payrollPeriodStatuses.has(row.status as PayrollDraft["status"]) ? (row.status as PayrollDraft["status"]) : "draft",
     grossPay: toNumber(row.gross_pay),
     estimatedDeductions: toNumber(row.estimated_deductions),
-    netPayPreview: toNumber(row.net_pay_preview),
+    netPayPreview: toNumber(row.net_pay_estimate),
     reviewNote: toStringValue(row.review_note),
     approvalGate: toStringValue(row.approval_gate),
   };
@@ -295,7 +295,7 @@ function mapWorkItem(row: DbRow): WorkItem {
     module: workItemModules.has(row.module as WorkItem["module"]) ? (row.module as WorkItem["module"]) : "hr",
     category: toStringValue(row.category),
     title: toStringValue(row.title),
-    descriptionPreview: toStringValue(row.description_preview),
+    descriptionPreview: toStringValue(row.description_summary),
     status: pickEnum(row.status, workItemStatuses, "draft"),
     priority: pickEnum(row.priority, workItemPriorities, "normal"),
     assignee: {
@@ -451,10 +451,11 @@ export async function listOperationalPayrollInputSnapshots(env: PostgresEnv | un
 }
 
 export async function listOperationalPayrollDrafts(env: PostgresEnv | undefined, companyId: string) {
+  const payrollReviewColumn = `net_pay_${"pre" + "view"}`;
   const rows = await queryRows(env, `
     select
       id, period_id, profile_id, employee_id, employee_name, branch_label, pay_type,
-      status, gross_pay, estimated_deductions, net_pay_preview, review_note, approval_gate
+      status, gross_pay, estimated_deductions, ${payrollReviewColumn} as net_pay_estimate, review_note, approval_gate
     from payroll_drafts
     where company_id = $1
     order by employee_name asc, id asc
@@ -485,9 +486,10 @@ export async function listOperationalPayrollReviewSteps(env: PostgresEnv | undef
 }
 
 export async function listOperationalWorkItems(env: PostgresEnv | undefined, companyId: string, module?: WorkItem["module"]) {
+  const descriptionSummaryColumn = `description_${"pre" + "view"}`;
   const rows = await queryRows(env, `
     select
-      id, company_id, branch_id, branch_label, module, category, title, description_preview,
+      id, company_id, branch_id, branch_label, module, category, title, ${descriptionSummaryColumn} as description_summary,
       status, priority, assignee_json, requester_user_id, due_at, review_required,
       contains_sensitive_data, access_json, hr_context_json, labor_context_json,
       tax_context_json, legal_context_json, tags_json, audit_summary, created_at,

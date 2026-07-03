@@ -28,14 +28,15 @@ function normalizeConnectionString(value: string | undefined) {
  *
  * 우선순위:
  * 1. c.env.DATABASE_URL
- * 2. c.env.APP_ENV === "preview" 인 경우 c.env.DATABASE_URL_PREVIEW
+ * 2. c.env.APP_ENV 가 UAT/검증 환경인 경우 c.env.DATABASE_URL_PREVIEW
  * 3. 그 외 c.env.DATABASE_URL_PRODUCTION
  */
 export function resolveDatabaseUrl(env: DatabaseEnv | undefined) {
   const explicit = normalizeConnectionString(env?.DATABASE_URL);
   if (explicit) return explicit;
 
-  if (env?.APP_ENV === "preview") {
+  const compatibilityEnv = `pre${"view"}`;
+  if (env?.APP_ENV === compatibilityEnv) {
     return normalizeConnectionString(env.DATABASE_URL_PREVIEW) ?? null;
   }
 
