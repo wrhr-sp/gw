@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import MessengerPage from "./app/messenger/page";
 
-describe("messenger preview page", () => {
+describe("messenger page", () => {
   it("renders the board-like content title with conversation list and chat room columns plus a hidden new-message org popup", () => {
     const globalCss = readFileSync(new URL("./app/globals.css", import.meta.url), "utf8");
     const pageSource = readFileSync(new URL("./app/messenger/page.tsx", import.meta.url), "utf8");
@@ -29,8 +29,8 @@ describe("messenger preview page", () => {
     expect(html).toContain("대화 시작");
     expect(html).toContain("새 메시지 팝업 닫기");
     expect(html).toContain("aria-expanded=\"true\"");
-    expect(html).not.toContain("메시지 입력 preview");
-    expect(html).not.toContain("메시지 목록 preview");
+    expect(html).not.toContain("메시지 입력 검토 화면");
+    expect(html).not.toContain("메시지 목록 검토 화면");
     expect(html).not.toContain("첨부 메뉴 열기");
     expect(html).not.toContain("메시지 보내기");
     expect(html).not.toContain("채팅방 닫기");
@@ -123,7 +123,7 @@ describe("messenger preview page", () => {
     expect(globalCss).toContain("resize: none;");
     expect(globalCss).toContain("max-height: 96px;");
     expect(globalCss).toContain(".messenger-file-input");
-    expect(globalCss).toContain(".messenger-attachment-preview");
+    expect(globalCss).toContain(".messenger-attachment-review");
     expect(pageSource).toContain("FeatureFileAttachmentBox");
     expect(globalCss).toContain(".feature-file-box__header");
     expect(globalCss).toContain(".messenger-composer-icon-button");
