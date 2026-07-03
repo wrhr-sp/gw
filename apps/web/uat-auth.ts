@@ -1,10 +1,10 @@
 import type { RoleCode } from "@gw/shared";
 
-export const devSafeLoginId = "admin";
-export const devSafeLoginPassword = "1234";
-export const devSafeLoginEmail = "admin@example.com";
+export const uatLoginId = "admin";
+export const uatLoginPassword = "1234";
+export const uatLoginEmail = "admin@example.com";
 
-export const devSafeRoleOptions: { value: RoleCode; label: string; description: string; landingRoute: string }[] = [
+export const uatRoleOptions: { value: RoleCode; label: string; description: string; landingRoute: string }[] = [
   {
     value: "COMPANY_ADMIN",
     label: "경영관리자 UAT",
@@ -37,7 +37,7 @@ export const devSafeRoleOptions: { value: RoleCode; label: string; description: 
   },
 ];
 
-const landingRouteByRole = new Map(devSafeRoleOptions.map((item) => [item.value, item.landingRoute]));
+const landingRouteByRole = new Map(uatRoleOptions.map((item) => [item.value, item.landingRoute]));
 
 export function getPostLoginRoute(roleCode: RoleCode) {
   return landingRouteByRole.get(roleCode) ?? "/home";

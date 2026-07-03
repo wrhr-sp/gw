@@ -4,7 +4,7 @@ import { appRoutes, errorResponseSchema, meResponseSchema, type RoleCode } from 
 import * as React from "react";
 import { useEffect, useState } from "react";
 
-import { getPostLoginRoute } from "../../dev-safe-auth";
+import { getPostLoginRoute } from "../../uat-auth";
 
 const SAVED_LOGIN_ID_KEY = "gw_saved_login_id";
 const defaultRoleCode: RoleCode = "COMPANY_ADMIN";
