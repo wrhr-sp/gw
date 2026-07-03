@@ -211,7 +211,7 @@ export function PayrollOverviewLiveSection() {
             <Pill>line items</Pill>
             <h3>{periodDetail.data.lineItems.length}개 항목</h3>
             <p>{periodDetail.data.lineItems[0]?.label ?? "항목 없음"}</p>
-            <p className="card-note">{periodDetail.data.lineItems[0] ? formatCurrency(periodDetail.data.lineItems[0].amount) : "preview only"}</p>
+            <p className="card-note">{periodDetail.data.lineItems[0] ? formatCurrency(periodDetail.data.lineItems[0].amount) : "산출 항목 없음"}</p>
           </article>
         </div>
       ) : null}
@@ -231,7 +231,7 @@ export function PayrollPayslipLiveSection() {
           {payslip.data ? (
             <>
               <h3>{payslip.data.period.title}</h3>
-              <p>{formatCurrency(payslip.data.payslip.netPayPreview)} preview</p>
+              <p>{formatCurrency(payslip.data.payslip.netPayPreview)} 예상</p>
               <p className="card-note">{payslip.data.employeeMessage}</p>
             </>
           ) : null}

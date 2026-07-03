@@ -390,30 +390,30 @@
   --sidebar-settings-card-title-margin-bottom: 12px;
   --sidebar-settings-count-bg: rgba(37, 99, 235, 0.1);
   --sidebar-settings-count-padding: 5px 10px;
-  --sidebar-settings-preview-border: 1px solid rgba(148, 163, 184, 0.2);
-  --sidebar-settings-preview-radius: 22px;
-  --sidebar-settings-preview-bg: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
-  --sidebar-settings-preview-padding: 10px;
-  --sidebar-settings-preview-list-gap: clamp(3px, 0.55dvh, 5px);
-  --sidebar-settings-preview-divider-width: 54px;
-  --sidebar-settings-preview-row-width: 128px;
-  --sidebar-settings-preview-row-columns: minmax(0, 76px) auto;
-  --sidebar-settings-preview-row-gap: 5px;
+  --sidebar-settings-arrangement-border: 1px solid rgba(148, 163, 184, 0.2);
+  --sidebar-settings-arrangement-radius: 22px;
+  --sidebar-settings-arrangement-bg: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
+  --sidebar-settings-arrangement-padding: 10px;
+  --sidebar-settings-arrangement-list-gap: clamp(3px, 0.55dvh, 5px);
+  --sidebar-settings-arrangement-divider-width: 54px;
+  --sidebar-settings-arrangement-row-width: 128px;
+  --sidebar-settings-arrangement-row-columns: minmax(0, 76px) auto;
+  --sidebar-settings-arrangement-row-gap: 5px;
   --sidebar-settings-drop-indicator-inset: -4px;
   --sidebar-settings-drop-indicator-height: 3px;
   --sidebar-settings-drop-indicator-bg: linear-gradient(90deg, var(--primary), #60a5fa);
-  --sidebar-settings-preview-button-width: 76px;
-  --sidebar-settings-preview-button-min-height: clamp(34px, 5.1dvh, 42px);
-  --sidebar-settings-preview-button-gap: 2px;
-  --sidebar-settings-preview-button-radius: 12px;
-  --sidebar-settings-preview-button-bg: var(--surface);
-  --sidebar-settings-preview-active-text-color: var(--surface);
-  --sidebar-settings-preview-icon-size: clamp(14px, 1.4vw, 17px);
-  --sidebar-settings-preview-actions-gap: 3px;
-  --sidebar-settings-preview-action-size: clamp(20px, 1.9vw, 24px);
-  --sidebar-settings-preview-action-border: 1px solid rgba(148, 163, 184, 0.32);
-  --sidebar-settings-preview-action-radius: 8px;
-  --sidebar-settings-preview-action-bg: var(--surface);
+  --sidebar-settings-arrangement-button-width: 76px;
+  --sidebar-settings-arrangement-button-min-height: clamp(34px, 5.1dvh, 42px);
+  --sidebar-settings-arrangement-button-gap: 2px;
+  --sidebar-settings-arrangement-button-radius: 12px;
+  --sidebar-settings-arrangement-button-bg: var(--surface);
+  --sidebar-settings-arrangement-active-text-color: var(--surface);
+  --sidebar-settings-arrangement-icon-size: clamp(14px, 1.4vw, 17px);
+  --sidebar-settings-arrangement-actions-gap: 3px;
+  --sidebar-settings-arrangement-action-size: clamp(20px, 1.9vw, 24px);
+  --sidebar-settings-arrangement-action-border: 1px solid rgba(148, 163, 184, 0.32);
+  --sidebar-settings-arrangement-action-radius: 8px;
+  --sidebar-settings-arrangement-action-bg: var(--surface);
   --sidebar-settings-menu-list-gap: 14px;
   --sidebar-settings-menu-list-padding-right: 6px;
   --sidebar-settings-menu-section-gap: 8px;
@@ -3866,7 +3866,7 @@ li {
   padding: var(--sidebar-settings-body-padding);
 }
 
-.sidebar-settings-preview-card,
+.sidebar-settings-arrangement-card,
 .sidebar-settings-list-card {
   min-height: 0;
   border: var(--sidebar-settings-menu-item-border);
@@ -3875,7 +3875,7 @@ li {
   padding: var(--sidebar-settings-card-padding);
 }
 
-.sidebar-settings-preview-card,
+.sidebar-settings-arrangement-card,
 .sidebar-settings-list-card {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -3909,40 +3909,40 @@ li {
   white-space: nowrap;
 }
 
-.sidebar-settings-preview-shell {
+.sidebar-settings-arrangement-shell {
   min-height: 0;
   display: grid;
   place-items: center;
-  border: var(--sidebar-settings-preview-border);
-  border-radius: var(--sidebar-settings-preview-radius);
-  background: var(--sidebar-settings-preview-bg);
-  padding: var(--sidebar-settings-preview-padding);
+  border: var(--sidebar-settings-arrangement-border);
+  border-radius: var(--sidebar-settings-arrangement-radius);
+  background: var(--sidebar-settings-arrangement-bg);
+  padding: var(--sidebar-settings-arrangement-padding);
 }
 
-.sidebar-settings-preview-list {
+.sidebar-settings-arrangement-list {
   display: grid;
   align-content: center;
   justify-content: center;
-  gap: var(--sidebar-settings-preview-list-gap);
+  gap: var(--sidebar-settings-arrangement-list-gap);
   min-height: 0;
   overflow: hidden;
 }
 
-.sidebar-settings-preview-row {
+.sidebar-settings-arrangement-row {
   position: relative;
   display: grid;
-  width: var(--sidebar-settings-preview-row-width);
-  grid-template-columns: var(--sidebar-settings-preview-row-columns);
+  width: var(--sidebar-settings-arrangement-row-width);
+  grid-template-columns: var(--sidebar-settings-arrangement-row-columns);
   align-items: center;
   justify-content: start;
-  gap: var(--sidebar-settings-preview-row-gap);
+  gap: var(--sidebar-settings-arrangement-row-gap);
 }
 
-.sidebar-settings-preview-row--dragging .sidebar-settings-preview-button {
+.sidebar-settings-arrangement-row--dragging .sidebar-settings-arrangement-button {
   cursor: grabbing;
 }
 
-.sidebar-settings-preview-row--drop-target::before {
+.sidebar-settings-arrangement-row--drop-target::before {
   position: absolute;
   right: var(--sidebar-settings-drop-indicator-inset);
   left: var(--sidebar-settings-drop-indicator-inset);
@@ -3954,14 +3954,14 @@ li {
   content: "";
 }
 
-.sidebar-settings-preview-button {
-  width: var(--sidebar-settings-preview-button-width);
-  min-height: var(--sidebar-settings-preview-button-min-height);
+.sidebar-settings-arrangement-button {
+  width: var(--sidebar-settings-arrangement-button-width);
+  min-height: var(--sidebar-settings-arrangement-button-min-height);
   display: grid;
   place-items: center;
-  gap: var(--sidebar-settings-preview-button-gap);
-  border-radius: var(--sidebar-settings-preview-button-radius);
-  background: var(--sidebar-settings-preview-button-bg);
+  gap: var(--sidebar-settings-arrangement-button-gap);
+  border-radius: var(--sidebar-settings-arrangement-button-radius);
+  background: var(--sidebar-settings-arrangement-button-bg);
   color: var(--text-subtle);
   cursor: grab;
   font-size: var(--font-size-2xs);
@@ -3971,30 +3971,30 @@ li {
   box-shadow: var(--shadow);
 }
 
-.sidebar-settings-preview-icon {
-  width: var(--sidebar-settings-preview-icon-size);
-  height: var(--sidebar-settings-preview-icon-size);
+.sidebar-settings-arrangement-icon {
+  width: var(--sidebar-settings-arrangement-icon-size);
+  height: var(--sidebar-settings-arrangement-icon-size);
   transform: scale(var(--icon-scale, 1));
   transform-origin: center;
 }
 
-.sidebar-settings-preview-button--active {
+.sidebar-settings-arrangement-button--active {
   background: var(--primary);
-  color: var(--sidebar-settings-preview-active-text-color);
+  color: var(--sidebar-settings-arrangement-active-text-color);
 }
 
-.sidebar-settings-preview-actions {
+.sidebar-settings-arrangement-actions {
   position: static;
   display: inline-flex;
-  gap: var(--sidebar-settings-preview-actions-gap);
+  gap: var(--sidebar-settings-arrangement-actions-gap);
 }
 
-.sidebar-settings-preview-actions button {
-  width: var(--sidebar-settings-preview-action-size);
-  height: var(--sidebar-settings-preview-action-size);
-  border: var(--sidebar-settings-preview-action-border);
-  border-radius: var(--sidebar-settings-preview-action-radius);
-  background: var(--sidebar-settings-preview-action-bg);
+.sidebar-settings-arrangement-actions button {
+  width: var(--sidebar-settings-arrangement-action-size);
+  height: var(--sidebar-settings-arrangement-action-size);
+  border: var(--sidebar-settings-arrangement-action-border);
+  border-radius: var(--sidebar-settings-arrangement-action-radius);
+  background: var(--sidebar-settings-arrangement-action-bg);
   color: var(--primary-hover);
   cursor: pointer;
   font: inherit;
@@ -4003,7 +4003,7 @@ li {
   line-height: var(--line-height-tight);
 }
 
-.sidebar-settings-preview-actions button:disabled {
+.sidebar-settings-arrangement-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.38;
 }
@@ -5733,7 +5733,7 @@ li {
     padding: var(--sidebar-settings-compact-body-padding);
   }
 
-  .sidebar-settings-preview-card,
+  .sidebar-settings-arrangement-card,
   .sidebar-settings-list-card {
     border-radius: var(--sidebar-settings-compact-card-radius);
     padding: var(--sidebar-settings-compact-card-padding);

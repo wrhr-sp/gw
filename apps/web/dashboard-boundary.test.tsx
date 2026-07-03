@@ -145,7 +145,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(getDashboardAdminShortcut(["AUDITOR"], ["audit.read"])).toEqual({
       href: "/admin/audit-logs",
       title: "감사 로그 바로가기",
-      body: "감사 권한 사용자는 조회 가능한 감사 로그 preview 로 바로 이동합니다.",
+      body: "감사 권한 사용자는 조회 가능한 감사 로그 화면으로 바로 이동합니다.",
     });
   });
 

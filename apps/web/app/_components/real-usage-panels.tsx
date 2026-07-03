@@ -1327,7 +1327,7 @@ export function BoardsLiveSection({ onOpenPost, scope = "all" }: BoardInlineNavi
                 type="button"
               >
                 <strong className="board-post-row__title">{post.title}</strong>
-                <p className="board-post-row__preview">{post.bodyPreview}</p>
+                <p className="board-post-row__summary">{post.bodyPreview}</p>
                 <span className="board-post-row__meta">
                   <span className="board-post-row__avatar" aria-hidden="true">{author.initials}</span>
                   <span>{author.name}{author.position ? ` ${author.position}` : ""}</span>
@@ -1589,7 +1589,7 @@ export function BoardDetailLiveSection({ boardId, intent = "list", onOpenPost }:
                   <option key={prefix} value={prefix}>{prefix}</option>
                 ))}
               </select>
-              <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목 입력" value={title} />
+              <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
             </div>
             <div className="board-tinymce-field">
               <strong>본문</strong>

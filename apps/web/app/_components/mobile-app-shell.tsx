@@ -114,11 +114,11 @@ function getDepartmentByCurrentRoute(pathname: string, departmentId: string | nu
   return null;
 }
 
-function getCurrentPortalHomeHref(pathname: string, departmentId: string | null, fallbackHomeHref: string) {
+function getCurrentPortalHomeHref(pathname: string, departmentId: string | null, defaultHomeHref: string) {
   const normalizedPathname = normalizeAppPathname(pathname);
 
   if (normalizedPathname === "/admin" || normalizedPathname.startsWith("/admin/")) {
-    return fallbackHomeHref;
+    return defaultHomeHref;
   }
 
   if (normalizedPathname === "/Place of business" || normalizedPathname.startsWith("/Place of business/")) {
@@ -134,7 +134,7 @@ function getCurrentPortalHomeHref(pathname: string, departmentId: string | null,
     return matchedDepartment.href;
   }
 
-  return fallbackHomeHref;
+  return defaultHomeHref;
 }
 
 function getCurrentLocationLabel(pathname: string, departmentId: string | null, adminLabel: string) {
@@ -519,12 +519,12 @@ export function formatUnreadBadge(unreadCount: number | null) {
 }
 
 
-async function readApiErrorMessage(response: Response, fallback: string) {
+async function readApiErrorMessage(response: Response, defaultMessage: string) {
   try {
     const payload = (await response.json()) as { error?: { message?: string; details?: { field?: string } } };
-    return payload.error?.message || fallback;
+    return payload.error?.message || defaultMessage;
   } catch {
-    return fallback;
+    return defaultMessage;
   }
 }
 
@@ -559,8 +559,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function pickString(value: unknown, fallback: string) {
-  return typeof value === "string" && value.trim() ? value : fallback;
+function pickString(value: unknown, defaultValue: string) {
+  return typeof value === "string" && value.trim() ? value : defaultValue;
 }
 
 function pickBooleanRecord<T extends string>(value: unknown, defaults: Record<T, boolean>, keys: readonly T[]) {
@@ -593,13 +593,13 @@ const sidebarPortalKeys: readonly SidebarPortalKey[] = ["general", "management",
 
 function normalizeAdminPermissionSettings(value: unknown): AdminPermissionState {
   const source = isRecord(value) ? value : {};
-  const fallback = createDefaultAdminPermissionState();
+  const defaultPermissions = createDefaultAdminPermissionState();
   const next = createDefaultAdminPermissionState();
   adminPermissionUsers.forEach((user) => {
     const userSource = (isRecord(source[user.id]) ? source[user.id] : {}) as Record<string, unknown>;
     adminFeaturePermissions.forEach((permission) => {
       const rawPermissionValue = userSource[permission.key];
-      next[user.id][permission.key] = typeof rawPermissionValue === "boolean" ? rawPermissionValue : fallback[user.id][permission.key];
+      next[user.id][permission.key] = typeof rawPermissionValue === "boolean" ? rawPermissionValue : defaultPermissions[user.id][permission.key];
     });
   });
   return next;
@@ -628,16 +628,16 @@ function normalizeSidebarGroupDividerSettings(value: unknown): Record<SidebarPor
   ) as Record<SidebarPortalKey, boolean>;
 }
 
-function readJsonStorageValue<T>(key: string, fallback: T): T {
+function readJsonStorageValue<T>(key: string, defaultValue: T): T {
   if (typeof window === "undefined") {
-    return fallback;
+    return defaultValue;
   }
 
   try {
     const rawValue = window.sessionStorage.getItem(key);
-    return rawValue ? (JSON.parse(rawValue) as T) : fallback;
+    return rawValue ? (JSON.parse(rawValue) as T) : defaultValue;
   } catch {
-    return fallback;
+    return defaultValue;
   }
 }
 
@@ -2758,7 +2758,7 @@ export function MobileAppShell({
           await saveAdminPermissionSettingsToPreviewDb(adminPermissionSettings);
         }
       } catch {
-        // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
+        // 검증 DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
       }
       savedGeneralSettingsRef.current = { ...generalSettings };
       savedAdminPermissionSettingsRef.current = createDefaultAdminPermissionState();
@@ -2785,7 +2785,7 @@ export function MobileAppShell({
           secondaryPasswordFeatureSettings,
         });
       } catch {
-        // preview DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
+        // 검증 DB 저장이 일시 실패해도 화면 상태는 유지하고 다음 저장에서 재시도한다.
       }
       savedGeneralSettingsRef.current = { ...generalSettings };
       savedNotificationPreferencesRef.current = { ...notificationPreferences };
@@ -2840,14 +2840,14 @@ export function MobileAppShell({
     setSidebarDraftSelections(nextSelection);
   }
 
-  function handleSidebarPreviewDragStart(event: React.DragEvent<HTMLDivElement>, href: string) {
+  function handleSidebarArrangementDragStart(event: React.DragEvent<HTMLDivElement>, href: string) {
     setSidebarDraggingHref(href);
     setSidebarDragOverHref(null);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", href);
   }
 
-  function handleSidebarPreviewDragOver(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
+  function handleSidebarArrangementDragOver(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (sidebarDraggingHref && sidebarDraggingHref !== targetHref) {
@@ -2855,7 +2855,7 @@ export function MobileAppShell({
     }
   }
 
-  function handleSidebarPreviewDrop(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
+  function handleSidebarArrangementDrop(event: React.DragEvent<HTMLDivElement>, targetHref: string) {
     event.preventDefault();
     const sourceHref = sidebarDraggingHref ?? event.dataTransfer.getData("text/plain");
     if (sourceHref) reorderSidebarCustomItem(sourceHref, targetHref);
@@ -2943,12 +2943,12 @@ export function MobileAppShell({
           </header>
 
           <div className="sidebar-settings-modal__body">
-            <section className="sidebar-settings-preview-card" aria-label="접힌 사이드바 미리보기">
+            <section className="sidebar-settings-arrangement-card" aria-label="접힌 사이드바 배치 확인">
               <div className="sidebar-settings-card-title">
-                <strong>미리보기</strong>
+                <strong>배치 확인</strong>
               </div>
-              <div className="sidebar-settings-preview-shell">
-                <div className="sidebar-settings-preview-list">
+              <div className="sidebar-settings-arrangement-shell">
+                <div className="sidebar-settings-arrangement-list">
                   {selectedItems.map((item, itemIndex) => {
                     const selectedIndex = draftSelectedHrefs.indexOf(item.href);
                     const iconName = getFeatureIconName(item.href, item.label);
@@ -2956,28 +2956,28 @@ export function MobileAppShell({
                     const insertDivider = draftDividerVisible && previousItem && getSidebarItemGroup(sidebarPortalKey, previousItem.href) !== getSidebarItemGroup(sidebarPortalKey, item.href);
                     return (
                       <React.Fragment key={item.href}>
-                        {insertDivider ? <div className="sidebar-settings-preview-divider" aria-hidden="true" /> : null}
+                        {insertDivider ? <div className="sidebar-settings-arrangement-divider" aria-hidden="true" /> : null}
                       <div
                         className={[
-                          "sidebar-settings-preview-row",
-                          sidebarDraggingHref === item.href ? "sidebar-settings-preview-row--dragging" : "",
-                          sidebarDraggingHref && sidebarDragOverHref === item.href ? "sidebar-settings-preview-row--drop-target" : "",
+                          "sidebar-settings-arrangement-row",
+                          sidebarDraggingHref === item.href ? "sidebar-settings-arrangement-row--dragging" : "",
+                          sidebarDraggingHref && sidebarDragOverHref === item.href ? "sidebar-settings-arrangement-row--drop-target" : "",
                         ].filter(Boolean).join(" ")}
-                        onDragOver={(event) => handleSidebarPreviewDragOver(event, item.href)}
+                        onDragOver={(event) => handleSidebarArrangementDragOver(event, item.href)}
                         onDragLeave={() => { if (sidebarDragOverHref === item.href) setSidebarDragOverHref(null); }}
-                        onDrop={(event) => handleSidebarPreviewDrop(event, item.href)}
+                        onDrop={(event) => handleSidebarArrangementDrop(event, item.href)}
                       >
                         <div
-                          className="sidebar-settings-preview-button"
+                          className="sidebar-settings-arrangement-button"
                           draggable
                           title="드래그해서 순서를 바꿀 수 있습니다."
-                          onDragStart={(event) => handleSidebarPreviewDragStart(event, item.href)}
+                          onDragStart={(event) => handleSidebarArrangementDragStart(event, item.href)}
                           onDragEnd={() => { setSidebarDraggingHref(null); setSidebarDragOverHref(null); }}
                         >
-                          {iconName ? <FeatureIcon className="sidebar-settings-preview-icon" name={iconName} title={item.label} /> : null}
+                          {iconName ? <FeatureIcon className="sidebar-settings-arrangement-icon" name={iconName} title={item.label} /> : null}
                           <span>{item.shortLabel}</span>
                         </div>
-                        <div className="sidebar-settings-preview-actions" aria-label={`${item.label} 순서 조정`}>
+                        <div className="sidebar-settings-arrangement-actions" aria-label={`${item.label} 순서 조정`}>
                           <button type="button" disabled={selectedIndex <= 0} onClick={() => moveSidebarCustomItem(item.href, -1)}>↑</button>
                           <button type="button" disabled={selectedIndex < 0 || selectedIndex >= draftSelectedHrefs.length - 1} onClick={() => moveSidebarCustomItem(item.href, 1)}>↓</button>
                         </div>
