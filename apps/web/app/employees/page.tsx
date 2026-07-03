@@ -130,7 +130,7 @@ export default function EmployeesPage() {
           </div>
 
           <form className="feature-workspace__form" onSubmit={(event) => event.preventDefault()}>
-            <label><span>검색</span><input aria-label="직원 검색" onChange={(event) => setSearch(event.target.value)} placeholder="이름 또는 부서" value={search} /></label>
+            <label><span>검색</span><input aria-label="직원 검색" onChange={(event) => setSearch(event.target.value)} value={search} /></label>
             <label><span>부서</span><select aria-label="부서 선택" disabled><option>전체 부서</option></select></label>
           </form>
 

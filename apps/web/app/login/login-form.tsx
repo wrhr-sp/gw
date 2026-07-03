@@ -114,7 +114,7 @@ export function LoginForm() {
             value={loginId}
             onChange={(event) => setLoginId(event.target.value)}
             autoComplete="username"
-            placeholder="아이디"
+           
             required
           />
         </label>
@@ -127,7 +127,7 @@ export function LoginForm() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
-            placeholder="비밀번호"
+           
             required
           />
         </label>

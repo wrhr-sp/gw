@@ -18,7 +18,7 @@ describe("messenger page", () => {
     expect(html).toContain('aria-label="메신저 더보기 메뉴 열기"');
     expect(html).toContain("가이드");
     expect(html).toContain("통합설정");
-    expect(html).toContain("이름, 부서, 메시지 검색");
+    expect(html).toContain('aria-label="대화목록"');
     expect(html).toContain("채팅방 선택 안내");
     expect(html).toContain("채팅방을 선택하세요");
     expect(html).toContain("왼쪽 대화목록에서 대화를 선택하면 내용이 표시됩니다.");

@@ -672,7 +672,7 @@ export function MailClient() {
             <button aria-pressed={addressBookSourceFilter === "personal"} type="button" onClick={() => setAddressBookSourceFilter("personal")}>개인 주소록</button>
           </nav>
           <section className="mail-address-book-popover__list" aria-label="주소 목록">
-            <input className="field" aria-label="주소록 검색" placeholder="이름, 이메일, 부서 검색" value={addressBookQuery} onChange={(event) => { setAddressBookQuery(event.target.value); void loadAddressBookRecipients(event.target.value); }} />
+            <input className="field" aria-label="주소록 검색" value={addressBookQuery} onChange={(event) => { setAddressBookQuery(event.target.value); void loadAddressBookRecipients(event.target.value); }} />
             <div className="mail-address-book-table" role="listbox" aria-label="주소록 검색 결과">
               {hasResults ? orderedGroups.map((sourceKind) => {
                 const groupItems = input.groups[sourceKind];
@@ -774,7 +774,7 @@ export function MailClient() {
               <strong>받는사람</strong>
               <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="받는사람 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); }} />
+                  <input className="field" aria-label="받는사람 이메일 또는 이름" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); }} />
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("to")}>주소록</button>
                 </div>
                 {selectedRecipients.length ? (
@@ -798,7 +798,7 @@ export function MailClient() {
               <strong>참조</strong>
               <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="참조 이메일 또는 이름" placeholder="이름, 이메일, 부서 검색" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); }} />
+                  <input className="field" aria-label="참조 이메일 또는 이름" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); }} />
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("cc")}>주소록</button>
                 </div>
                 {selectedCcRecipients.length ? (
@@ -821,7 +821,7 @@ export function MailClient() {
             <label className="mail-compose-row mail-compose-row--subject">
               <strong>제목</strong>
               <span className="mail-compose-important">중요 <input checked={importance === "important"} onChange={(event) => setImportance(event.target.checked ? "important" : "normal")} type="checkbox" /></span>
-              <input className="field" aria-label="제목" placeholder="제목을 입력하세요" required value={subject} onChange={(event) => setSubject(event.target.value)} />
+              <input className="field" aria-label="제목" required value={subject} onChange={(event) => setSubject(event.target.value)} />
             </label>
 
             <section className="mail-compose-attachments" aria-label="파일첨부">
@@ -851,7 +851,7 @@ export function MailClient() {
             </div>
 
             {isPreviewOpen ? (
-              <section className="mail-compose-preview" aria-label="메일 미리보기">
+              <section className="mail-compose-review" aria-label="메일 미리보기">
                 <strong>{subject || "(제목 없음)"}</strong>
                 <div dangerouslySetInnerHTML={{ __html: body }} />
               </section>

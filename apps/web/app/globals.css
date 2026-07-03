@@ -1361,7 +1361,7 @@ article h4 {
 
 .surface-card__header h2,
 .board-section-title h2,
-.board-detail-preview h2,
+.board-detail-review h2,
 .feature-workspace__panel-header h2 {
   font-size: var(--feature-page-content-title-font-size);
   font-weight: var(--feature-page-content-title-font-weight);
@@ -1372,7 +1372,7 @@ article h4 {
 .surface-card__header p,
 .board-workspace__nav-header p,
 .board-section-title p,
-.board-detail-preview p,
+.board-detail-review p,
 .feature-workspace__nav-header p,
 .feature-workspace__panel-header p {
   margin: var(--feature-page-description-margin);
@@ -4897,7 +4897,7 @@ li {
 }
 
 .mail-compose-dropzone,
-.mail-compose-preview {
+.mail-compose-review {
   display: grid;
   gap: 6px;
   padding: var(--space-md);
@@ -4906,7 +4906,7 @@ li {
   border-radius: var(--radius-md);
 }
 
-.mail-compose-preview {
+.mail-compose-review {
   border-style: solid;
 }
 
@@ -5325,14 +5325,14 @@ li {
 
 .board-workspace__nav-header h1,
 .board-section-title h2,
-.board-detail-preview h2 {
+.board-detail-review h2 {
   margin: 0;
   color: var(--text);
 }
 
 .board-workspace__nav-header p,
 .board-section-title p,
-.board-detail-preview p,
+.board-detail-review p,
 .board-user-scope-card p,
 .board-post-row p {
   margin: var(--feature-page-description-margin);
@@ -5382,7 +5382,7 @@ li {
 }
 
 .board-user-scope-card,
-.board-detail-preview {
+.board-detail-review {
   display: grid;
   gap: var(--board-user-scope-card-gap);
   border-radius: var(--board-user-scope-card-border-radius);
@@ -5611,7 +5611,7 @@ li {
   line-height: var(--line-height-snug);
 }
 
-.board-post-row__preview {
+.board-post-row__summary {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
