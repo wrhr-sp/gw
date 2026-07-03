@@ -11,7 +11,7 @@ import {
   adminRoleEntryRules,
   adminUserHighlights,
   type AdminHubCard,
-} from "./admin-skeleton-config";
+} from "./admin-config";
 
 const adminApiLinks = [
   { href: appRoutes.admin.users, label: "사용자 / 권한 API" },
