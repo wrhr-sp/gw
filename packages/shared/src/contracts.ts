@@ -94,6 +94,7 @@ export const appRoutes = {
     uploadInit: "/api/documents/files/upload-init",
     uploadComplete: (fileId: string) => `/api/documents/files/${fileId}/upload-complete`,
     downloadInit: (fileId: string) => `/api/documents/files/${fileId}/download-init`,
+    downloadFile: (fileId: string) => `/api/documents/files/${fileId}/download`,
     deleteFile: (fileId: string) => `/api/documents/files/${fileId}`,
   },
   workItems: {
@@ -2062,6 +2063,7 @@ export const documentFileActionSchema = z.object({
   expiresAt: z.string().datetime(),
   uploadToken: z.string().min(1).optional(),
   downloadToken: z.string().min(1).optional(),
+  downloadUrl: z.string().min(1).optional(),
   objectKeyPreview: z.string().min(1),
   message: z.string().min(1),
 });
@@ -2077,6 +2079,7 @@ export const documentFileUploadInitResponseSchema = successResponseSchema(
 export const documentFileUploadCompleteRequestSchema = z.object({
   uploadToken: z.string().min(1),
   checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  contentBase64: z.string().min(1).optional(),
 });
 
 export const documentFileUploadCompleteResponseSchema = successResponseSchema(

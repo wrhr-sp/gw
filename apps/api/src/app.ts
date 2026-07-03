@@ -176,6 +176,11 @@ import {
   type DocumentStorageEnv,
 } from "./lib/document-storage";
 import { recordOperationalFileAccessEvent, recordOperationalPrivacyAccessEvent } from "./lib/operational-audit-events";
+import {
+  createOperationalDocumentDownloadTicket,
+  consumeOperationalDocumentDownloadTicket,
+  DOCUMENT_DOWNLOAD_TICKET_TTL_MINUTES,
+} from "./lib/operational-document-download-tickets";
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { getDbClient } from "./utils/db";
 import {
@@ -290,6 +295,7 @@ const APPROVAL_DOCUMENT_APPROVE_ROUTE = "/api/approvals/documents/:id/approve";
 const APPROVAL_DOCUMENT_REJECT_ROUTE = "/api/approvals/documents/:id/reject";
 const DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE = "/api/documents/files/:fileId/upload-complete";
 const DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE = "/api/documents/files/:fileId/download-init";
+const DOCUMENT_FILE_DOWNLOAD_ROUTE = "/api/documents/files/:fileId/download";
 const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
 const WORK_ITEM_DETAIL_ROUTE = "/api/work-items/:id";
 const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
@@ -2414,6 +2420,28 @@ function removeDocumentUploadTokensForFile(fileId: string) {
       documentUploadTokens.delete(token);
     }
   }
+}
+
+function decodeBase64ToArrayBuffer(value: string) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
+}
+
+async function sha256Hex(value: ArrayBuffer) {
+  const digest = await crypto.subtle.digest("SHA-256", value);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function buildDocumentDownloadUrl(fileId: string, token: string) {
+  return `${appRoutes.documents.downloadFile(fileId)}?token=${encodeURIComponent(token)}`;
+}
+
+function expiresInMinutes(minutes: number) {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
 
 function canCreateReadReceipt(auth: SessionContext, targetType: "post" | "document_file", targetId: string) {
@@ -5455,11 +5483,44 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
     });
   }
 
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
+  let computedChecksum = parsed.data.checksumSha256 ?? null;
+  if (parsed.data.contentBase64) {
+    const fileBody = decodeBase64ToArrayBuffer(parsed.data.contentBase64);
+    if (fileBody.byteLength !== file.fileSize) {
+      return jsonError(context, "VALIDATION_ERROR", "업로드 파일 크기가 메타데이터와 일치하지 않습니다.", 400, {
+        fileId,
+        expectedFileSize: file.fileSize,
+        actualFileSize: fileBody.byteLength,
+      });
+    }
+    const bodyChecksum = await sha256Hex(fileBody);
+    if (parsed.data.checksumSha256 && parsed.data.checksumSha256.toLowerCase() !== bodyChecksum) {
+      return jsonError(context, "VALIDATION_ERROR", "업로드 파일 해시가 일치하지 않습니다.", 400, {
+        fileId,
+        checksumSha256: parsed.data.checksumSha256,
+      });
+    }
+    await documentStorageAdapter.putObject(
+      {
+        companyId: file.companyId,
+        spaceId: file.spaceId,
+        fileId: file.id,
+        versionId: file.versionId,
+        fileName: file.fileName,
+        contentType: file.contentType,
+        fileSize: file.fileSize,
+      },
+      fileBody,
+    );
+    computedChecksum = bodyChecksum;
+  }
+
   const completedFile = await markOperationalDocumentFileUploaded(context.env, {
     companyId: file.companyId,
     fileId: file.id,
     versionId: file.versionId,
-    checksumSha256: parsed.data.checksumSha256 ?? null,
+    checksumSha256: computedChecksum,
     updatedAt: UAT_FIXED_NOW,
   });
   if (!completedFile) {
@@ -5523,6 +5584,26 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
     versionId: file.versionId,
     fileName: file.fileName,
   });
+  const downloadToken = action.downloadToken ?? `download_token_${file.id}_${crypto.randomUUID()}`;
+  const expiresAt = expiresInMinutes(DOCUMENT_DOWNLOAD_TICKET_TTL_MINUTES);
+  const ticket = await createOperationalDocumentDownloadTicket(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    file,
+    token: downloadToken,
+    objectKey: action.objectKeyPreview,
+    expiresAt,
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!ticket) {
+    return jsonDatabaseRequired(context, "문서 다운로드 티켓 생성");
+  }
+  const downloadAction = {
+    ...action,
+    downloadToken,
+    downloadUrl: buildDocumentDownloadUrl(file.id, downloadToken),
+    expiresAt: ticket.expiresAt,
+  };
   const fileAuditRecorded = await recordOperationalFileAccessEvent(context.env, {
     companyId: file.companyId,
     actorUserId: authResult.auth.user.id,
@@ -5565,7 +5646,7 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
     ok: true,
     data: {
       file,
-      action,
+      action: downloadAction,
       audit: {
         candidate: true,
         action: "document.file.download_init",
@@ -5573,6 +5654,81 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
       },
     error: null,
   });
+});
+
+app.get(DOCUMENT_FILE_DOWNLOAD_ROUTE, async (context) => {
+  const documentStorageAdapter = getDocumentStorageAdapter(context);
+  const authResult = requirePermission(context, "document.file.read");
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const fileId = context.req.param("fileId");
+  const token = context.req.query("token");
+  if (!token) {
+    return jsonError(context, "VALIDATION_ERROR", "문서 다운로드 토큰이 필요합니다.", 400, { fileId, route: context.req.path });
+  }
+
+  const file = await findAccessibleDocumentFileForAuth(context, authResult.auth, fileId);
+  if (!file) {
+    return jsonError(context, "FORBIDDEN", "허용되지 않은 문서 파일입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  const ticket = await consumeOperationalDocumentDownloadTicket(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: file.id,
+    token,
+    usedAt: new Date().toISOString(),
+  });
+  if (ticket === undefined) {
+    return jsonDatabaseRequired(context, "문서 다운로드 티켓 확인");
+  }
+  if (!ticket) {
+    return jsonError(context, "FORBIDDEN", "만료되었거나 이미 사용한 문서 다운로드 토큰입니다.", 403, {
+      fileId,
+      route: context.req.path,
+    });
+  }
+
+  const object = await documentStorageAdapter.getObject({
+    companyId: file.companyId,
+    spaceId: file.spaceId,
+    fileId: file.id,
+    versionId: file.versionId,
+    fileName: file.fileName,
+  });
+  if (!object) {
+    await recordOperationalFileAccessEvent(context.env, {
+      companyId: file.companyId,
+      actorUserId: authResult.auth.user.id,
+      fileId: file.id,
+      versionId: file.versionId,
+      action: "document.file.download_init",
+      outcome: "failed",
+      storageProvider: file.storageProvider,
+      checksumSha256: file.checksumSha256,
+      metadata: { source: "documents-api", reason: "R2 object not found", ticketId: ticket.id },
+    });
+    return jsonError(context, "NOT_IMPLEMENTED", "R2에서 문서 파일을 찾을 수 없습니다.", 501, { fileId, route: context.req.path });
+  }
+
+  await recordOperationalFileAccessEvent(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: file.id,
+    versionId: file.versionId,
+    action: "document.file.download_init",
+    outcome: "allowed",
+    storageProvider: file.storageProvider,
+    checksumSha256: file.checksumSha256,
+    metadata: { source: "documents-api", served: true, ticketId: ticket.id },
+  });
+
+  return new Response(object.body, { headers: object.headers });
 });
 
 app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {

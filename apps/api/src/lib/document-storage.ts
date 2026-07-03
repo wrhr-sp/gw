@@ -24,9 +24,13 @@ const MIME_ALIAS: Record<string, (typeof DEFAULT_ALLOWED_DOCUMENT_MIME_TYPES)[nu
 
 export type DocumentStorageBucketBinding = {
   head?: (...args: unknown[]) => unknown;
-  get?: (...args: unknown[]) => unknown;
-  put?: (...args: unknown[]) => unknown;
-  delete?: (...args: unknown[]) => unknown;
+  get?: (key: string) => Promise<{
+    body: BodyInit | null;
+    httpEtag: string;
+    writeHttpMetadata: (headers: Headers) => void;
+  } | null>;
+  put?: (key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType: string } }) => Promise<unknown>;
+  delete?: (key: string) => Promise<unknown>;
 };
 
 export type DocumentStorageEnv = {
@@ -74,6 +78,8 @@ export interface DocumentStorageAdapter {
   readonly provider: DocumentStorageProvider;
   prepareUpload(input: PrepareUploadInput): Promise<PrepareUploadResult>;
   prepareDownload(input: PrepareDownloadInput): Promise<PrepareDownloadResult>;
+  putObject(input: PrepareUploadInput, body: ArrayBuffer): Promise<string>;
+  getObject(input: PrepareDownloadInput): Promise<{ body: BodyInit; headers: Headers; etag: string } | null>;
   deleteObject(input: DeleteStoredObjectInput): Promise<void>;
 }
 

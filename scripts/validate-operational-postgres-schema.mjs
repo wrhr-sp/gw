@@ -50,6 +50,7 @@ const requiredTables = [
   'privacy_access_logs',
   'file_access_logs',
   'permission_change_logs',
+  'document_file_download_tickets',
   'audit_logs',
 ];
 

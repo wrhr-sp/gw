@@ -149,7 +149,7 @@ describe("operational DB-backed auth", () => {
     const auditLogsResponse = await app.request(appRoutes.admin.auditLogs, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
     expect(auditLogsResponse.status).toBe(200);
     const auditLogsPayload = adminAuditLogListResponseSchema.parse(await auditLogsResponse.json());
-    expect(auditLogsPayload.data.items.some((item) => item.id === "audit_initial_seed_admin")).toBe(true);
+    expect(auditLogsPayload.data.items.some((item) => item.id === "audit_initial_seed_admin" || item.id === "audit_initial_record_admin")).toBe(true);
     expect(auditLogsPayload.data.filterOptions.actorUserIds).toEqual(expect.arrayContaining(["user_company_admin"]));
 
     const shortcutsResponse = await app.request("/api/home/shortcuts", { headers: { cookie } }, { DATABASE_URL: databaseUrl });
