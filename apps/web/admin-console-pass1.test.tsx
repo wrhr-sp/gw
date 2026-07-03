@@ -31,7 +31,7 @@ function buildAdminUsersPreviewFixture(): any {
       {
         source: "/api/admin/users",
         category: "계정관리",
-        title: "계정관리 preview",
+        title: "계정관리 검증",
         description: "DB 연결 후 운영자 read model을 확인합니다.",
       },
     ],
@@ -97,20 +97,20 @@ describe("Phase 55 admin account/rbac live usage", () => {
       throw new Error("expected login response to include set-cookie header");
     }
 
-    const previewResponse = await app.request(appRoutes.admin.users, {
+    const 검증Response = await app.request(appRoutes.admin.users, {
       headers: {
         cookie,
       },
     });
-    expect(previewResponse.status).toBe(503);
-    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
-    const preview = buildAdminUsersPreviewFixture();
+    expect(검증Response.status).toBe(503);
+    expect(errorResponseSchema.parse(await 검증Response.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const 검증 = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
-        preview={preview}
-        actionMessage="권한 diff preview 완료: 관리자 테스트 → HR_ADMIN (실저장 없음)"
+        adminUsers={검증}
+        actionMessage="권한 변경점 검증 완료: 관리자 테스트 → HR_ADMIN (실저장 없음)"
         actionType="role"
-        focusMessage="권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다."
+        focusMessage="권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다."
       />,
     );
 
@@ -121,21 +121,21 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("HR_ADMIN");
     expect(html).toContain("MANAGER");
     expect(html).toContain("COMPANY_ADMIN");
-    expect(html).toContain("운영자 설정 read model");
+    expect(html).toContain("운영자 설정 조회 모델");
     expect(html).toContain("정책 시작점");
-    expect(html).toContain("회사 공통 고정 바로가기 source");
-    expect(html).toContain("권한 기반 사용자 전용 바로가기 source");
+    expect(html).toContain("회사 공통 고정 바로가기 출처");
+    expect(html).toContain("권한 기반 사용자 전용 바로가기 출처");
     expect(html).toContain("일반 조회와 운영 검토 책임 분리");
-    expect(html).toContain("사용자 생성 dev-safe 흐름");
+    expect(html).toContain("사용자 생성 내부 검증 흐름");
     expect(html).toContain("역할 / 업무권한 지정");
     expect(html).toContain("활성 / 비활성 전환");
     expect(html).toContain("비밀번호 초기화 / 변경");
-    expect(html).toContain("방금 실행한 preview 다음 확인");
-    expect(html).toContain("권한 diff preview 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
-    expect(html).toContain("/home 공통 landing 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
+    expect(html).toContain("방금 실행한 검증 다음 확인");
+    expect(html).toContain("권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
+    expect(html).toContain("/home 공통 랜딩 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
-    expect(html).toContain("/employees · /org 는 read-only 확인용이며 /admin/users · /admin/policies preview 는 기본 진입 차단");
-    expect(html).toContain("forbidden / empty / error / offline / loading / dev-safe 경계");
+    expect(html).toContain("/employees · /org 는 읽기 전용 확인용이며 /admin/users · /admin/policies 검증은 기본 진입 차단");
+    expect(html).toContain("forbidden / empty / error / offline / loading / 내부 검증 경계");
     expect(html).toContain("실저장 없음");
   });
 
@@ -156,19 +156,19 @@ describe("Phase 55 admin account/rbac live usage", () => {
       throw new Error("expected login response to include set-cookie header");
     }
 
-    const previewResponse = await app.request(appRoutes.admin.users, {
+    const 검증Response = await app.request(appRoutes.admin.users, {
       headers: {
         cookie,
       },
     });
-    expect(previewResponse.status).toBe(503);
-    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
-    const preview = buildAdminUsersPreviewFixture();
+    expect(검증Response.status).toBe(503);
+    expect(errorResponseSchema.parse(await 검증Response.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const 검증 = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
-        preview={preview}
+        adminUsers={검증}
         loadErrorKind="offline"
-        loadError="계정관리 preview 재조회가 중단되었습니다: network timeout"
+        loadError="계정관리 검증 재조회가 중단되었습니다: network timeout"
       />,
     );
 
@@ -198,25 +198,25 @@ describe("Phase 55 admin account/rbac live usage", () => {
       throw new Error("expected login response to include set-cookie header");
     }
 
-    const previewResponse = await app.request(appRoutes.admin.users, {
+    const 검증Response = await app.request(appRoutes.admin.users, {
       headers: {
         cookie,
       },
     });
-    expect(previewResponse.status).toBe(503);
-    expect(errorResponseSchema.parse(await previewResponse.json()).error.code).toBe("DB_NOT_CONFIGURED");
-    const preview = buildAdminUsersPreviewFixture();
+    expect(검증Response.status).toBe(503);
+    expect(errorResponseSchema.parse(await 검증Response.json()).error.code).toBe("DB_NOT_CONFIGURED");
+    const 검증 = buildAdminUsersPreviewFixture();
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
-        preview={preview}
+        adminUsers={검증}
         loadErrorKind="offline"
-        loadError="네트워크 연결이 끊겨 계정관리 preview 를 다시 불러오지 못했습니다."
+        loadError="네트워크 연결이 끊겨 계정관리 검증을 다시 불러오지 못했습니다."
       />,
     );
 
     expect(html).toContain("offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다");
-    expect(html).toContain("네트워크 연결이 끊겨 계정관리 preview 를 다시 불러오지 못했습니다.");
-    expect(html).toContain("네트워크가 불안정하거나 연결이 끊겨 preview 를 다시 시도해야 하는 상태입니다.");
+    expect(html).toContain("네트워크 연결이 끊겨 계정관리 검증을 다시 불러오지 못했습니다.");
+    expect(html).toContain("네트워크가 불안정하거나 연결이 끊겨 검증을 다시 시도해야 하는 상태입니다.");
   });
 
   it("keeps policy review cards in a consistent current-candidate-capability format", () => {

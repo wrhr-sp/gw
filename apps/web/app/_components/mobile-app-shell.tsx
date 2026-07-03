@@ -1219,7 +1219,7 @@ const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = 
   operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
   branch: ["/work-items/branch", "/sales", "/employees"],
   management: ["/management", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal"],
-  admin: ["/admin", "/admin/users", "/admin/policies", "/admin/audit-logs", "/admin/users/dev-safe-action"],
+  admin: ["/admin", "/admin/users", "/admin/policies", "/admin/audit-logs", "/admin/users/verification-action"],
 };
 
 const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = Object.fromEntries(
