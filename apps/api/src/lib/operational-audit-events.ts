@@ -15,7 +15,7 @@ type OperationalAuditEventInput = {
   action: string;
   resourceType: string;
   resourceId: string;
-  category: "user" | "permission" | "policy" | "document_space" | "document_file" | "electronic_contract" | "board" | "audit";
+  category: "user" | "permission" | "policy" | "document_space" | "document_file" | "electronic_contract" | "vehicle_operation_log" | "board" | "audit";
   reason: string;
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
