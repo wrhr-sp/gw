@@ -10,7 +10,7 @@ export default function ForbiddenPage() {
       backHref="/home"
       backLabel="대시보드로"
       title="접근 권한이 없습니다"
-      description="이 preview 에서는 로그인 여부만이 아니라 역할 경계도 함께 확인합니다. 일반 사용자와 감사 전용 사용자는 허용된 운영 경로만 열리고, 나머지 관리자 화면은 이 안내 페이지로 막습니다."
+      description="이 화면에서는 로그인 여부만이 아니라 역할 경계도 함께 확인합니다. 일반 사용자와 감사 전용 사용자는 허용된 운영 경로만 열리고, 나머지 관리자 화면은 이 안내 페이지로 막습니다."
     >
       <SurfaceSection title="현재 권한 확인" description="차단 안내도 실제 세션 권한을 먼저 확인하고, 허용되지 않은 경로는 계속 막습니다.">
         <ForbiddenAccessPanel />
