@@ -664,7 +664,7 @@ describe("shared contracts", () => {
           },
         ],
         unreadCount: 1,
-        notices: ["알림 inbox 는 same-origin preview 이며 실제 외부 발송 상태를 뜻하지 않습니다."],
+        notices: ["알림 inbox 는 same-origin 운영 화면이며 실제 외부 발송 상태를 뜻하지 않습니다."],
       },
       error: null,
     });

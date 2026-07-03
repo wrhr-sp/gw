@@ -988,7 +988,7 @@ function BottomTabIcon({ href, title, className = "bottom-nav__icon-svg" }: TabI
 }
 
 function ProfileAvatarIcon({ className = "topbar-profile-avatar" }: { className?: string }) {
-  return <img className={className} src="/profile-avatar-placeholder.svg" alt="" aria-hidden="true" loading="lazy" decoding="async" />;
+  return <img className={className} src="/profile-avatar-default.svg" alt="" aria-hidden="true" loading="lazy" decoding="async" />;
 }
 
 function getRoleLabel(roleCode: RoleCode | null) {

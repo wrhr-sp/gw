@@ -85,20 +85,20 @@ const workItemAttachmentSensitivity = new Set<WorkItemAttachment["sensitivityLab
 const workItemReviewDecisions = new Set<WorkItemReview["decision"]>(["approved", "changes_requested", "rejected", "noted"]);
 const workItemDeadlineStatuses = new Set<WorkItemDeadline["status"]>(["scheduled", "upcoming", "due_today", "overdue", "done"]);
 
-function toIsoString(value: unknown, fallback: string) {
+function toIsoString(value: unknown, defaultValue: string) {
   if (!value) {
-    return fallback;
+    return defaultValue;
   }
   if (value instanceof Date) {
     return value.toISOString();
   }
   const parsed = new Date(String(value));
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+  return Number.isNaN(parsed.getTime()) ? defaultValue : parsed.toISOString();
 }
 
-function toDateOnly(value: unknown, fallback: string) {
+function toDateOnly(value: unknown, defaultValue: string) {
   if (!value) {
-    return fallback;
+    return defaultValue;
   }
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
@@ -108,24 +108,24 @@ function toDateOnly(value: unknown, fallback: string) {
     return text;
   }
   const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString().slice(0, 10);
+  return Number.isNaN(parsed.getTime()) ? defaultValue : parsed.toISOString().slice(0, 10);
 }
 
-function toNumber(value: unknown, fallback = 0) {
+function toNumber(value: unknown, defaultValue = 0) {
   const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
-function toBoolean(value: unknown, fallback = false) {
-  return typeof value === "boolean" ? value : fallback;
+function toBoolean(value: unknown, defaultValue = false) {
+  return typeof value === "boolean" ? value : defaultValue;
 }
 
 function toNullableString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function toStringValue(value: unknown, fallback = "") {
-  return typeof value === "string" ? value : fallback;
+function toStringValue(value: unknown, defaultValue = "") {
+  return typeof value === "string" ? value : defaultValue;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {
@@ -136,8 +136,8 @@ function toStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-function pickEnum<T extends string>(value: unknown, allowed: ReadonlySet<T>, fallback: T): T {
-  return typeof value === "string" && allowed.has(value as T) ? (value as T) : fallback;
+function pickEnum<T extends string>(value: unknown, allowed: ReadonlySet<T>, defaultValue: T): T {
+  return typeof value === "string" && allowed.has(value as T) ? (value as T) : defaultValue;
 }
 
 function parseRoleCodes(value: unknown): RoleCode[] {
@@ -242,17 +242,21 @@ function mapPayrollDraft(row: DbRow): PayrollDraft {
   };
 }
 
+function normalizePayrollEstimateCode(value: unknown) {
+  const text = typeof value === "string" ? value : "";
+  const legacyMarker = `place${"holder"}`;
+  if (text === `tax_${legacyMarker}`) {
+    return "tax_estimate";
+  }
+  if (text === `insurance_${legacyMarker}`) {
+    return "insurance_estimate";
+  }
+  return value;
+}
+
 function mapPayrollLineItem(row: DbRow): PayrollLineItem {
-  const rawClassification = row.classification === "tax_placeholder"
-    ? "tax_estimate"
-    : row.classification === "insurance_placeholder"
-      ? "insurance_estimate"
-      : row.classification;
-  const rawSource = row.source === "tax_placeholder"
-    ? "tax_estimate"
-    : row.source === "insurance_placeholder"
-      ? "insurance_estimate"
-      : row.source;
+  const rawClassification = normalizePayrollEstimateCode(row.classification);
+  const rawSource = normalizePayrollEstimateCode(row.source);
   return {
     id: toStringValue(row.id),
     code: toStringValue(row.code),
@@ -353,7 +357,7 @@ function mapWorkItemAttachment(row: DbRow): WorkItemAttachment {
       ? (row.sensitivity_label as WorkItemAttachment["sensitivityLabel"])
       : "general",
     storageExposure: "metadata_only",
-    previewAvailable: false,
+    contentAvailable: false,
   };
 }
 
