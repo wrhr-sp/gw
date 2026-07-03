@@ -47,6 +47,9 @@ const requiredTables = [
   'mail_messages',
   'mail_attachments',
   'messenger_thread_members',
+  'privacy_access_logs',
+  'file_access_logs',
+  'permission_change_logs',
   'audit_logs',
 ];
 

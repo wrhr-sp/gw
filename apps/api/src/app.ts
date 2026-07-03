@@ -175,6 +175,7 @@ import {
   ensureDocumentUploadPolicy,
   type DocumentStorageEnv,
 } from "./lib/document-storage";
+import { recordOperationalFileAccessEvent, recordOperationalPrivacyAccessEvent } from "./lib/operational-audit-events";
 import { checkOperationalDb, type PostgresEnv } from "./lib/postgres";
 import { getDbClient } from "./utils/db";
 import {
@@ -5272,6 +5273,26 @@ app.post(appRoutes.documents.fileMetadata, async (context) => {
   if (!file) {
     return jsonDatabaseRequired(context, "문서 메타데이터 생성");
   }
+  const auditRecorded = await recordOperationalFileAccessEvent(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: file.id,
+    versionId: file.versionId,
+    action: "document.file.metadata.create",
+    outcome: "allowed",
+    storageProvider: file.storageProvider,
+    checksumSha256: file.checksumSha256,
+    metadata: {
+      spaceId: file.spaceId,
+      contentType: file.contentType,
+      fileSize: file.fileSize,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!auditRecorded) {
+    return jsonDatabaseRequired(context, "문서 메타데이터 감사 로그 기록");
+  }
 
   return jsonSuccess(context, documentFileMetadataCreateResponseSchema, {
     ok: true,
@@ -5366,6 +5387,27 @@ app.post(appRoutes.documents.uploadInit, async (context) => {
   if (!file) {
     return jsonDatabaseRequired(context, "문서 업로드 초기화");
   }
+  const auditRecorded = await recordOperationalFileAccessEvent(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: file.id,
+    versionId: file.versionId,
+    action: "document.file.upload_init",
+    outcome: "allowed",
+    storageProvider: file.storageProvider,
+    objectKey: action.objectKeyPreview,
+    checksumSha256: file.checksumSha256,
+    metadata: {
+      spaceId: file.spaceId,
+      contentType: file.contentType,
+      fileSize: file.fileSize,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!auditRecorded) {
+    return jsonDatabaseRequired(context, "문서 업로드 초기화 감사 로그 기록");
+  }
   documentUploadTokens.set(action.uploadToken, { fileId: file.id, versionId: file.versionId });
 
   return jsonSuccess(context, documentFileUploadInitResponseSchema, {
@@ -5423,6 +5465,26 @@ app.post(DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE, async (context) => {
   if (!completedFile) {
     return jsonDatabaseRequired(context, "문서 업로드 완료");
   }
+  const auditRecorded = await recordOperationalFileAccessEvent(context.env, {
+    companyId: completedFile.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: completedFile.id,
+    versionId: completedFile.versionId,
+    action: "document.file.upload_complete",
+    outcome: "allowed",
+    storageProvider: completedFile.storageProvider,
+    checksumSha256: completedFile.checksumSha256,
+    metadata: {
+      spaceId: completedFile.spaceId,
+      contentType: completedFile.contentType,
+      fileSize: completedFile.fileSize,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!auditRecorded) {
+    return jsonDatabaseRequired(context, "문서 업로드 완료 감사 로그 기록");
+  }
   documentUploadTokens.delete(parsed.data.uploadToken);
 
   return jsonSuccess(context, documentFileUploadCompleteResponseSchema, {
@@ -5461,6 +5523,43 @@ app.post(DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE, async (context) => {
     versionId: file.versionId,
     fileName: file.fileName,
   });
+  const fileAuditRecorded = await recordOperationalFileAccessEvent(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: file.id,
+    versionId: file.versionId,
+    action: "document.file.download_init",
+    outcome: "allowed",
+    storageProvider: file.storageProvider,
+    objectKey: action.objectKeyPreview,
+    checksumSha256: file.checksumSha256,
+    metadata: {
+      spaceId: file.spaceId,
+      contentType: file.contentType,
+      fileSize: file.fileSize,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  const privacyRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: file.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "document_file",
+    resourceId: file.id,
+    accessType: "download",
+    purpose: "문서 파일 다운로드 초기화",
+    legalBasis: "업무 수행 권한 기반 문서 접근",
+    metadata: {
+      spaceId: file.spaceId,
+      contentType: file.contentType,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!fileAuditRecorded || !privacyRecorded) {
+    return jsonDatabaseRequired(context, "문서 다운로드 감사 로그 기록");
+  }
 
   return jsonSuccess(context, documentFileDownloadInitResponseSchema, {
     ok: true,
@@ -5508,6 +5607,26 @@ app.delete(DOCUMENT_FILE_DELETE_ROUTE, async (context) => {
   });
   if (!archivedFile) {
     return jsonDatabaseRequired(context, "문서 파일 삭제");
+  }
+  const auditRecorded = await recordOperationalFileAccessEvent(context.env, {
+    companyId: archivedFile.companyId,
+    actorUserId: authResult.auth.user.id,
+    fileId: archivedFile.id,
+    versionId: archivedFile.versionId,
+    action: "document.file.delete",
+    outcome: "allowed",
+    storageProvider: archivedFile.storageProvider,
+    checksumSha256: archivedFile.checksumSha256,
+    metadata: {
+      spaceId: archivedFile.spaceId,
+      contentType: archivedFile.contentType,
+      fileSize: archivedFile.fileSize,
+      source: "documents-api",
+    },
+    createdAt: UAT_FIXED_NOW,
+  });
+  if (!auditRecorded) {
+    return jsonDatabaseRequired(context, "문서 파일 삭제 감사 로그 기록");
   }
   removeDocumentUploadTokensForFile(file.id);
 
