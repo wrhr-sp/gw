@@ -418,7 +418,7 @@ export default function MessengerPage() {
             </div>
             <label className="messenger-search">
               <span>채팅 검색</span>
-              <input className="field" value={threadSearch} onChange={(event) => setThreadSearch(event.target.value)} placeholder="이름, 부서, 메시지 검색" />
+              <input className="field" value={threadSearch} onChange={(event) => setThreadSearch(event.target.value)} />
             </label>
             <div className="messenger-thread-list">
               {filteredThreads.map((thread) => (
@@ -597,7 +597,7 @@ export default function MessengerPage() {
               </button>
             </div>
             <label className="messenger-search">
-              <input className="field" aria-label="새 메시지 받을 사람 검색" value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="이름, 부서, 직급 검색" />
+              <input className="field" aria-label="새 메시지 받을 사람 검색" value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} />
             </label>
             <div className="messenger-recipient-tabs" aria-label="대상 선택 방식">
               <button type="button" aria-current="page">최근</button>

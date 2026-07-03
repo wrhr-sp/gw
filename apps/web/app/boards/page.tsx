@@ -340,7 +340,7 @@ function BoardListRow({
         <span>{board.isNoticeOnly ? "공지 전용" : "글 작성 가능"}</span>
       </span>
       <strong className="board-post-row__title">{board.name}</strong>
-      <p className="board-post-row__preview">
+      <p className="board-post-row__summary">
         {latestPost ? latestPost.title : postState?.error ? postState.error : "게시글 없음"}
       </p>
       <span className="board-post-row__meta">
@@ -363,7 +363,7 @@ function PostRow({ post }: { post: BoardPost }) {
         <span>{formatDateTime(post.publishedAt ?? post.createdAt)}</span>
       </span>
       <strong className="board-post-row__title">{post.title}</strong>
-      <p className="board-post-row__preview">{post.bodyPreview}</p>
+      <p className="board-post-row__summary">{post.bodyPreview}</p>
     </article>
   );
 }
@@ -490,7 +490,7 @@ function BoardWriteForm({
             <option key={prefix} value={prefix}>{prefix}</option>
           ))}
         </select>
-        <input className="field" onChange={(event) => setTitle(event.target.value)} placeholder="제목 입력" value={title} />
+        <input className="field" onChange={(event) => setTitle(event.target.value)} value={title} />
       </div>
       <div className="board-tinymce-field">
         <strong>본문</strong>
@@ -684,7 +684,7 @@ export default function BoardsPage() {
               )}
 
               {createdPost ? (
-                <section className="board-detail-preview" aria-label="등록한 게시글">
+                <section className="board-detail-review" aria-label="등록한 게시글">
                   <Pill tone="accent">등록 완료</Pill>
                   <h2>{createdPost.title}</h2>
                   <p>{createdPost.bodyPreview}</p>
@@ -695,7 +695,7 @@ export default function BoardsPage() {
               ) : null}
 
               {selectedBoard ? (
-                <section className="board-detail-preview" aria-label="선택한 게시판 게시글">
+                <section className="board-detail-review" aria-label="선택한 게시판 게시글">
                   <Pill tone="accent">{boardVisibilityLabels[selectedBoard.visibility]}</Pill>
                   <h2>{selectedBoard.name}</h2>
                   <p>
