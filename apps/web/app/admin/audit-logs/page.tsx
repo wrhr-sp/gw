@@ -9,7 +9,7 @@ import {
   adminAuditLogReviewFilters,
   adminAuditNotes,
   adminAuditTimelineItems,
-} from "../../../admin-skeleton-config";
+} from "../../../admin-config";
 
 const auditGuardRoles = ["AUDITOR", "HR_ADMIN", "COMPANY_ADMIN", "MANAGER", "EMPLOYEE"] as const satisfies readonly RoleCode[];
 

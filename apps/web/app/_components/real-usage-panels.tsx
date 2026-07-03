@@ -17,7 +17,7 @@ import {
   employeeAttendanceEffectivePolicy,
   getAttendancePagePolicyView,
   leaveTypeCodeLabels,
-} from "../../admin-skeleton-config";
+} from "../../admin-config";
 import { getPostLoginRoute } from "../../uat-auth";
 import { boardTinymceInit } from "./board-rich-editor-config";
 import { Pill } from "./page-shell";

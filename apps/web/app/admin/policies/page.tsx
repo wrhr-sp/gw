@@ -2,7 +2,7 @@ import React from "react";
 
 import { Phase16PilotPanel } from "../../_components/phase-16-pilot";
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
-import { adminPolicyReview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryReview, leaveTypeCodeLabels } from "../../../admin-skeleton-config";
+import { adminPolicyReview, adminPolicyReviewChecklist, adminPolicySections, attendanceRegistrationMethodLabels, companySettingsApprovalGates, companySettingsEmployeeVisibilityRules, companySettingsGroups, companySettingsPolicyAxes, leavePolicySummaryReview, leaveTypeCodeLabels } from "../../../admin-config";
 import { AdminPoliciesLiveSection } from "./admin-policies-live-section";
 
 export default function AdminPoliciesPage() {

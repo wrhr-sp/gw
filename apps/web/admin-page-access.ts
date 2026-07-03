@@ -1,6 +1,6 @@
 import { getViewerAccessForRoleCode, knownRoleCodes, type Permission, type RoleCode, type ViewerAccess } from "@gw/shared";
 
-import { getVisibleAdminHubCards, type AdminHubCard } from "./admin-skeleton-config";
+import { getVisibleAdminHubCards, type AdminHubCard } from "./admin-config";
 
 export function extractViewerRoleCodeFromSessionToken(sessionToken?: string | null): RoleCode | null {
   if (sessionToken?.startsWith("op-session_")) {

@@ -19,7 +19,7 @@ import {
   getAttendancePagePolicyView,
   leavePolicySummaryReview,
   leaveTypeCodeLabels,
-} from "./admin-skeleton-config";
+} from "./admin-config";
 
 describe("Phase 13 admin operations config", () => {
   it("keeps the admin hub focused on users, policies, and audit logs", () => {
