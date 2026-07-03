@@ -369,7 +369,7 @@ export function AdminUsersPageContent({
 
       <SurfaceSection title="사용자 생성 dev-safe 흐름" description="실제 저장 없이 어떤 정보를 받아 어떤 계정이 생길지 preview 메시지로만 확인합니다.">
         <p className="meta-copy">실저장 없음 · 실제 초대/계정 생성/외부 발송 없이 preview 문구만 남깁니다.</p>
-        <form className="form-placeholder" method="post" action="/admin/users/dev-safe-action">
+        <form className="form-field-stack" method="post" action="/admin/users/dev-safe-action">
           <input type="hidden" name="actionType" value="create" />
           <div className="field-grid">
             <label>
@@ -395,7 +395,7 @@ export function AdminUsersPageContent({
 
       <SurfaceSection title="역할 / 업무권한 지정" description="역할과 capability 를 한 번에 바꿨을 때 어떤 경로가 열리는지 preview 로만 확인합니다.">
         <p className="meta-copy">실저장 없음 · 역할 후보, capability diff, 열리는 route 범위만 검토합니다.</p>
-        <form className="form-placeholder" method="post" action="/admin/users/dev-safe-action">
+        <form className="form-field-stack" method="post" action="/admin/users/dev-safe-action">
           <input type="hidden" name="actionType" value="role" />
           <div className="field-grid">
             <label>
@@ -422,7 +422,7 @@ export function AdminUsersPageContent({
 
       <SurfaceSection title="활성 / 비활성 전환" description="비활성화나 휴직 전환도 실제 저장 대신 영향 범위만 먼저 안내합니다.">
         <p className="meta-copy">실저장 없음 · 상태 변경 diff 와 영향 범위만 먼저 보여 줍니다.</p>
-        <form className="form-placeholder" method="post" action="/admin/users/dev-safe-action">
+        <form className="form-field-stack" method="post" action="/admin/users/dev-safe-action">
           <input type="hidden" name="actionType" value="status" />
           <div className="field-grid">
             <label>
@@ -444,7 +444,7 @@ export function AdminUsersPageContent({
 
       <SurfaceSection title="비밀번호 초기화 / 변경" description="production 비밀번호 정책은 열지 않고, dev/test/UAT 범위에서 초기화/변경 시 어떤 안내가 나가는지만 preview 합니다.">
         <p className="meta-copy">실저장 없음 · 임시 비밀번호 안내와 감사 후보 메시지만 preview 합니다.</p>
-        <form className="form-placeholder" method="post" action="/admin/users/dev-safe-action">
+        <form className="form-field-stack" method="post" action="/admin/users/dev-safe-action">
           <input type="hidden" name="actionType" value="password" />
           <div className="field-grid">
             <label>
