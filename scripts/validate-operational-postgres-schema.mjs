@@ -53,6 +53,8 @@ const requiredTables = [
   'document_file_download_tickets',
   'electronic_contracts',
   'electronic_contract_parties',
+  'fleet_vehicles',
+  'vehicle_operation_logs',
   'audit_logs',
 ];
 

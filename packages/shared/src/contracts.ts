@@ -103,6 +103,15 @@ export const appRoutes = {
     detail: (contractId: string) => `/api/electronic-contracts/${contractId}`,
     updateStatus: (contractId: string) => `/api/electronic-contracts/${contractId}/status`,
   },
+  vehicleOperationLogs: {
+    vehicles: "/api/vehicle-operation/vehicles",
+    logs: "/api/vehicle-operation/logs",
+    create: "/api/vehicle-operation/logs",
+    detail: (logId: string) => `/api/vehicle-operation/logs/${logId}`,
+    update: (logId: string) => `/api/vehicle-operation/logs/${logId}`,
+    submit: (logId: string) => `/api/vehicle-operation/logs/${logId}/submit`,
+    cancel: (logId: string) => `/api/vehicle-operation/logs/${logId}/cancel`,
+  },
   workItems: {
     list: "/api/work-items",
     detail: (workItemId: string) => `/api/work-items/${workItemId}`,
@@ -1403,7 +1412,7 @@ export const adminPolicyUpdateResponseSchema = successResponseSchema(
   }),
 );
 
-export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "electronic_contract", "board", "audit"]);
+export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "electronic_contract", "vehicle_operation_log", "board", "audit"]);
 export const adminAuditSourceSchema = z.enum(["web-admin", "api-admin", "system"]);
 export const adminAuditStorageStatusSchema = z.enum(["pending", "linked", "failed", "deleted"]);
 export const adminAuditMetadataSchema = z.object({
@@ -2246,6 +2255,108 @@ export const electronicContractStatusUpdateResponseSchema = successResponseSchem
   }),
 );
 
+export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
+export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
+export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
+
+export const vehicleSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  vehicleNumber: z.string(),
+  displayName: z.string(),
+  fuelType: vehicleFuelTypeSchema,
+  defaultDriverEmployeeId: z.string().nullable(),
+  defaultDriverName: z.string().nullable(),
+  odometerKm: z.number().nonnegative().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const vehicleOperationLogSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  vehicleId: z.string(),
+  vehicleNumber: z.string(),
+  vehicleDisplayName: z.string(),
+  driverUserId: z.string(),
+  driverEmployeeId: z.string(),
+  driverName: z.string(),
+  operationDate: isoDateSchema,
+  purpose: vehicleOperationPurposeSchema,
+  purposeDetail: z.string().nullable(),
+  departurePlace: z.string(),
+  arrivalPlace: z.string(),
+  startedAt: z.string().datetime().nullable(),
+  endedAt: z.string().datetime().nullable(),
+  startOdometerKm: z.number().nonnegative().nullable(),
+  endOdometerKm: z.number().nonnegative().nullable(),
+  distanceKm: z.number().nonnegative(),
+  fuelCost: z.number().nonnegative(),
+  tollCost: z.number().nonnegative(),
+  parkingCost: z.number().nonnegative(),
+  otherCost: z.number().nonnegative(),
+  memo: z.string().nullable(),
+  status: vehicleOperationLogStatusSchema,
+  submittedAt: z.string().datetime().nullable(),
+  approvedAt: z.string().datetime().nullable(),
+  approvedByUserId: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const vehicleOperationLogCreateRequestSchema = z.object({
+  vehicleId: z.string().min(1),
+  operationDate: isoDateSchema,
+  purpose: vehicleOperationPurposeSchema,
+  purposeDetail: z.string().max(500).optional(),
+  departurePlace: z.string().min(1),
+  arrivalPlace: z.string().min(1),
+  startedAt: z.string().datetime().optional(),
+  endedAt: z.string().datetime().optional(),
+  startOdometerKm: z.number().nonnegative().optional(),
+  endOdometerKm: z.number().nonnegative().optional(),
+  distanceKm: z.number().nonnegative(),
+  fuelCost: z.number().nonnegative().default(0),
+  tollCost: z.number().nonnegative().default(0),
+  parkingCost: z.number().nonnegative().default(0),
+  otherCost: z.number().nonnegative().default(0),
+  memo: z.string().max(2000).optional(),
+});
+
+export const vehicleOperationLogUpdateRequestSchema = vehicleOperationLogCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const vehicleListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(vehicleSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const vehicleOperationLogListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(vehicleOperationLogSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const vehicleOperationLogDetailResponseSchema = successResponseSchema(
+  z.object({
+    log: vehicleOperationLogSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
+export const vehicleOperationLogMutationResponseSchema = successResponseSchema(
+  z.object({
+    log: vehicleOperationLogSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
 export const workItemListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(workItemSchema),
@@ -2480,6 +2591,17 @@ export type ElectronicContractListResponse = z.infer<typeof electronicContractLi
 export type ElectronicContractDetailResponse = z.infer<typeof electronicContractDetailResponseSchema>;
 export type ElectronicContractCreateResponse = z.infer<typeof electronicContractCreateResponseSchema>;
 export type ElectronicContractStatusUpdateResponse = z.infer<typeof electronicContractStatusUpdateResponseSchema>;
+export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
+export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
+export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
+export type Vehicle = z.infer<typeof vehicleSchema>;
+export type VehicleOperationLog = z.infer<typeof vehicleOperationLogSchema>;
+export type VehicleOperationLogCreateRequest = z.infer<typeof vehicleOperationLogCreateRequestSchema>;
+export type VehicleOperationLogUpdateRequest = z.infer<typeof vehicleOperationLogUpdateRequestSchema>;
+export type VehicleListResponse = z.infer<typeof vehicleListResponseSchema>;
+export type VehicleOperationLogListResponse = z.infer<typeof vehicleOperationLogListResponseSchema>;
+export type VehicleOperationLogDetailResponse = z.infer<typeof vehicleOperationLogDetailResponseSchema>;
+export type VehicleOperationLogMutationResponse = z.infer<typeof vehicleOperationLogMutationResponseSchema>;
 export type WorkItemModule = z.infer<typeof workItemModuleSchema>;
 export type WorkItemStatus = z.infer<typeof workItemStatusSchema>;
 export type WorkItemPriority = z.infer<typeof workItemPrioritySchema>;

@@ -73,6 +73,12 @@ import {
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
   errorResponseSchema,
+  vehicleListResponseSchema,
+  vehicleOperationLogCreateRequestSchema,
+  vehicleOperationLogDetailResponseSchema,
+  vehicleOperationLogListResponseSchema,
+  vehicleOperationLogMutationResponseSchema,
+  vehicleOperationLogUpdateRequestSchema,
   healthResponseSchema,
   leaveActionRequestSchema,
   leaveActionResponseSchema,
@@ -145,6 +151,7 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type VehicleOperationLogStatus,
   type ErrorCode,
   type LeaveBalance,
   type LeaveRequest,
@@ -221,6 +228,14 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalVehicleLog,
+  findOperationalVehicleLog,
+  listOperationalVehicleLogs,
+  listOperationalVehicles,
+  transitionOperationalVehicleLog,
+  updateOperationalVehicleLog,
+} from "./lib/operational-vehicle-operation-logs";
 import {
   findOperationalEmployeeBranchId,
   listOperationalBranches,
@@ -313,6 +328,11 @@ const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
 const ELECTRONIC_CONTRACTS_ROUTE = "/api/electronic-contracts";
 const ELECTRONIC_CONTRACT_DETAIL_ROUTE = "/api/electronic-contracts/:contractId";
 const ELECTRONIC_CONTRACT_STATUS_ROUTE = "/api/electronic-contracts/:contractId/status";
+const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
+const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
+const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
+const VEHICLE_OPERATION_LOG_SUBMIT_ROUTE = "/api/vehicle-operation/logs/:logId/submit";
+const VEHICLE_OPERATION_LOG_CANCEL_ROUTE = "/api/vehicle-operation/logs/:logId/cancel";
 const WORK_ITEM_DETAIL_ROUTE = "/api/work-items/:id";
 const WORK_ITEM_DOCUMENTS_ROUTE = "/api/work-items/:id/documents";
 const WORK_ITEM_ATTACHMENTS_ROUTE = "/api/work-items/:id/attachments";
@@ -6548,6 +6568,201 @@ app.patch(ELECTRONIC_CONTRACT_STATUS_ROUTE, async (context) => {
       ...updated,
       audit: { candidate: auditRecorded, action: "electronic_contract.status.update" },
     },
+    error: null,
+  });
+});
+
+app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const result = await listOperationalVehicles(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "차량 목록 조회");
+
+  return jsonSuccess(context, vehicleListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.get(VEHICLE_OPERATION_LOGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const status = context.req.query("status") as VehicleOperationLogStatus | undefined;
+  const result = await listOperationalVehicleLogs(context.env, authResult.auth.user.companyId, status);
+  if (!result) return jsonDatabaseRequired(context, "차량운행일지 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "vehicle_operation_log",
+    resourceId: "vehicle_operation_log_list",
+    accessType: "read",
+    purpose: "차량운행일지 목록 조회 감사 기록",
+    legalBasis: "업무상 차량운행 관리 권한",
+    metadata: { source: "vehicle-operation-api", itemCount: result.items.length },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.get(VEHICLE_OPERATION_LOG_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const logId = context.req.param("logId");
+  const result = await findOperationalVehicleLog(context.env, authResult.auth.user.companyId, logId);
+  if (!result) return jsonDatabaseRequired(context, "차량운행일지 상세 조회");
+  if (!result.log) return jsonError(context, "FORBIDDEN", "허용되지 않은 차량운행일지입니다.", 403, { logId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.log.driverUserId,
+    resourceType: "vehicle_operation_log",
+    resourceId: result.log.id,
+    accessType: "read",
+    purpose: "차량운행일지 상세 조회 감사 기록",
+    legalBasis: "업무상 차량운행 관리 권한",
+    metadata: { source: "vehicle-operation-api", status: result.log.status, vehicleId: result.log.vehicleId },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogDetailResponseSchema, { ok: true, data: { log: result.log, source: result.source }, error: null });
+});
+
+app.post(VEHICLE_OPERATION_LOGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = vehicleOperationLogCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "차량운행일지 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const created = await createOperationalVehicleLog(context.env, {
+    id: `vehicle_operation_log_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    driverUserId: authResult.auth.user.id,
+    driverEmployeeId: authResult.auth.user.employeeId,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created) return jsonDatabaseRequired(context, "차량운행일지 생성");
+  if (!created.log) return jsonError(context, "FORBIDDEN", "차량운행일지에 연결할 수 없는 차량입니다.", 403, { vehicleId: parsed.data.vehicleId, route: context.req.path });
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "vehicle_operation_log",
+    resourceId: created.log.id,
+    accessType: "create",
+    purpose: "차량운행일지 생성 감사 기록",
+    legalBasis: "업무상 차량운행 기록 작성 권한",
+    metadata: { source: "vehicle-operation-api", vehicleId: created.log.vehicleId, operationDate: created.log.operationDate },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogMutationResponseSchema, {
+    ok: true,
+    data: { log: created.log, source: created.source, audit: { candidate: auditRecorded, action: "vehicle_operation_log.create" } },
+    error: null,
+  }, 201);
+});
+
+app.patch(VEHICLE_OPERATION_LOG_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const logId = context.req.param("logId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = vehicleOperationLogUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "차량운행일지 수정값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalVehicleLog(context.env, authResult.auth.user.companyId, logId);
+  if (!before) return jsonDatabaseRequired(context, "차량운행일지 수정");
+  if (!before.log) return jsonError(context, "FORBIDDEN", "허용되지 않은 차량운행일지입니다.", 403, { logId, route: context.req.path });
+
+  const updated = await updateOperationalVehicleLog(context.env, { companyId: authResult.auth.user.companyId, logId, data: parsed.data, updatedAt: new Date().toISOString() });
+  if (!updated) return jsonDatabaseRequired(context, "차량운행일지 수정");
+  if (!updated.log) return jsonError(context, "VALIDATION_ERROR", "작성중 상태의 유효한 차량운행일지만 수정할 수 있습니다.", 400, { logId, route: context.req.path });
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.log.driverUserId,
+    resourceType: "vehicle_operation_log",
+    resourceId: updated.log.id,
+    accessType: "update",
+    purpose: "차량운행일지 수정 감사 기록",
+    legalBasis: "업무상 차량운행 기록 관리 권한",
+    metadata: { source: "vehicle-operation-api", reason: parsed.data.reason, beforeStatus: before.log.status, afterStatus: updated.log.status },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogMutationResponseSchema, {
+    ok: true,
+    data: { log: updated.log, source: updated.source, audit: { candidate: auditRecorded, action: "vehicle_operation_log.update" } },
+    error: null,
+  });
+});
+
+app.post(VEHICLE_OPERATION_LOG_SUBMIT_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const logId = context.req.param("logId");
+  const before = await findOperationalVehicleLog(context.env, authResult.auth.user.companyId, logId);
+  if (!before) return jsonDatabaseRequired(context, "차량운행일지 제출");
+  if (!before.log) return jsonError(context, "FORBIDDEN", "허용되지 않은 차량운행일지입니다.", 403, { logId, route: context.req.path });
+
+  const submitted = await transitionOperationalVehicleLog(context.env, { companyId: authResult.auth.user.companyId, logId, status: "submitted", actorUserId: authResult.auth.user.id, updatedAt: new Date().toISOString() });
+  if (!submitted) return jsonDatabaseRequired(context, "차량운행일지 제출");
+  if (!submitted.log || submitted.log.status !== "submitted") return jsonError(context, "VALIDATION_ERROR", "작성중 차량운행일지만 제출할 수 있습니다.", 400, { logId, route: context.req.path });
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: submitted.log.driverUserId,
+    resourceType: "vehicle_operation_log",
+    resourceId: submitted.log.id,
+    accessType: "update",
+    purpose: "차량운행일지 제출 감사 기록",
+    legalBasis: "업무상 차량운행 기록 제출 권한",
+    metadata: { source: "vehicle-operation-api", beforeStatus: before.log.status, afterStatus: submitted.log.status },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogMutationResponseSchema, {
+    ok: true,
+    data: { log: submitted.log, source: submitted.source, audit: { candidate: auditRecorded, action: "vehicle_operation_log.submit" } },
+    error: null,
+  });
+});
+
+app.post(VEHICLE_OPERATION_LOG_CANCEL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const logId = context.req.param("logId");
+  const before = await findOperationalVehicleLog(context.env, authResult.auth.user.companyId, logId);
+  if (!before) return jsonDatabaseRequired(context, "차량운행일지 취소");
+  if (!before.log) return jsonError(context, "FORBIDDEN", "허용되지 않은 차량운행일지입니다.", 403, { logId, route: context.req.path });
+
+  const cancelled = await transitionOperationalVehicleLog(context.env, { companyId: authResult.auth.user.companyId, logId, status: "cancelled", actorUserId: authResult.auth.user.id, updatedAt: new Date().toISOString() });
+  if (!cancelled) return jsonDatabaseRequired(context, "차량운행일지 취소");
+  if (!cancelled.log || cancelled.log.status !== "cancelled") return jsonError(context, "VALIDATION_ERROR", "작성중 또는 제출된 차량운행일지만 취소할 수 있습니다.", 400, { logId, route: context.req.path });
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: cancelled.log.driverUserId,
+    resourceType: "vehicle_operation_log",
+    resourceId: cancelled.log.id,
+    accessType: "update",
+    purpose: "차량운행일지 취소 감사 기록",
+    legalBasis: "업무상 차량운행 기록 관리 권한",
+    metadata: { source: "vehicle-operation-api", beforeStatus: before.log.status, afterStatus: cancelled.log.status },
+  });
+
+  return jsonSuccess(context, vehicleOperationLogMutationResponseSchema, {
+    ok: true,
+    data: { log: cancelled.log, source: cancelled.source, audit: { candidate: auditRecorded, action: "vehicle_operation_log.cancel" } },
     error: null,
   });
 });
