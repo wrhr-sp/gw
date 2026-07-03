@@ -163,7 +163,7 @@ describe("mobile app shell admin boundary", () => {
     expect(generalHtml).toContain('aria-label="내 정보"');
     expect(generalHtml).toContain('data-tooltip="내정보"');
     expect(generalHtml).toContain("topbar-profile-avatar");
-    expect(generalHtml).toContain('src="/profile-avatar-placeholder.svg"');
+    expect(generalHtml).toContain('src="/profile-avatar-default.svg"');
     expect(generalHtml).not.toContain("topbar-profile-avatar__icon");
     expect(generalHtml).toContain('class="desktop-sidebar__collapsed-stack"');
     expect(generalHtml).toContain('desktop-sidebar__collapsed-custom-list--loading');

@@ -37,14 +37,14 @@ type EmployeeDirectoryPayload = {
     roleCodes: string[];
   };
   notices: string[];
-  placeholder: true;
+  setupRequired: true;
 };
 
 type OrgSectionPayload = {
   items: Array<Record<string, unknown>>;
   summary?: { title: string; description: string; count: number };
   notices?: string[];
-  placeholder?: true;
+  setupRequired?: true;
 };
 
 type BranchPayload = {
@@ -59,7 +59,7 @@ type BranchPayload = {
   scope: "hq_admin" | "branch_manager" | "employee";
   summary: { title: string; description: string; count: number };
   notices: string[];
-  placeholder: true;
+  setupRequired: true;
 };
 
 type NotificationPayload = {
@@ -182,7 +182,7 @@ type AdminAuditPayload = {
     currentState: string;
     sourceLabel: string;
     auditTrailHint: string;
-    placeholderNote: string;
+    setupNote?: string;
     blockedReasons: Array<{
       category: string;
       source: string;
@@ -190,7 +190,7 @@ type AdminAuditPayload = {
       description: string;
     }>;
   };
-  placeholder: true;
+  setupRequired: true;
 };
 
 async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<ApiEnvelope<T>> {
@@ -609,7 +609,7 @@ export function AuditLogsLiveSection() {
           <Pill>운영 경계</Pill>
           <ul className="summary-list">
             <li>{auditLogs.data.operationalTrail.auditTrailHint}</li>
-            <li>{auditLogs.data.operationalTrail.placeholderNote}</li>
+            <li>{auditLogs.data.operationalTrail.setupNote ?? auditLogs.data.operationalTrail.auditTrailHint}</li>
             {auditLogs.data.operationalTrail.blockedReasons.map((reason) => (
               <li key={`${reason.category}-${reason.source}`}>{reason.title} — {reason.description}</li>
             ))}

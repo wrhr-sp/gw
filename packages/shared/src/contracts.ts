@@ -813,7 +813,7 @@ export const workItemAttachmentSchema = z.object({
   uploadedAt: z.string().datetime(),
   sensitivityLabel: z.enum(["general", "internal", "restricted"]),
   storageExposure: z.literal("metadata_only"),
-  previewAvailable: z.literal(false),
+  contentAvailable: z.literal(false),
 });
 
 export const workItemReviewSchema = z.object({
@@ -907,7 +907,7 @@ export const meResponseSchema = successResponseSchema(
 export const secondaryPasswordStatusResponseSchema = successResponseSchema(
   z.object({
     hasSecondaryPassword: z.boolean(),
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
@@ -921,7 +921,7 @@ export const secondaryPasswordUpdateRequestSchema = z.object({
 export const secondaryPasswordUpdateResponseSchema = successResponseSchema(
   z.object({
     hasSecondaryPassword: z.literal(true),
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime(),
   }),
 );
@@ -933,7 +933,7 @@ export const secondaryPasswordVerifyRequestSchema = z.object({
 export const secondaryPasswordVerifyResponseSchema = successResponseSchema(
   z.object({
     verified: z.literal(true),
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
   }),
 );
 
@@ -944,7 +944,7 @@ export const userPreferencesSchema = z.record(z.string(), z.unknown());
 export const userPreferencesResponseSchema = successResponseSchema(
   z.object({
     preferences: userPreferencesSchema,
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
@@ -956,7 +956,7 @@ export const userPreferencesUpdateRequestSchema = z.object({
 export const userPreferencesUpdateResponseSchema = successResponseSchema(
   z.object({
     preferences: userPreferencesSchema,
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime(),
   }),
 );
@@ -971,7 +971,7 @@ export const adminPermissionStateSchema = z.record(
 export const adminPermissionSettingsResponseSchema = successResponseSchema(
   z.object({
     settings: adminPermissionStateSchema,
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime().nullable(),
   }),
 );
@@ -983,7 +983,7 @@ export const adminPermissionSettingsUpdateRequestSchema = z.object({
 export const adminPermissionSettingsUpdateResponseSchema = successResponseSchema(
   z.object({
     settings: adminPermissionStateSchema,
-    persistence: z.literal("preview-db"),
+    persistence: z.literal("operational-db"),
     updatedAt: z.string().datetime(),
   }),
 );

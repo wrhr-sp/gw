@@ -3181,7 +3181,7 @@ app.get(appRoutes.security.secondaryPassword, async (context) => {
       ok: true,
       data: {
         hasSecondaryPassword: status.hasSecondaryPassword,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: status.updatedAt,
       },
       error: null,
@@ -3229,7 +3229,7 @@ app.post(appRoutes.security.secondaryPassword, async (context) => {
       ok: true,
       data: {
         hasSecondaryPassword: true,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: saved.updatedAt,
       },
       error: null,
@@ -3269,7 +3269,7 @@ app.post(appRoutes.security.verifySecondaryPassword, async (context) => {
       ok: true,
       data: {
         verified: true,
-        persistence: "preview-db",
+        persistence: "operational-db",
       },
       error: null,
     },
@@ -3296,7 +3296,7 @@ app.get(appRoutes.user.preferences, async (context) => {
       ok: true,
       data: {
         preferences: result.preferences,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: result.updatedAt,
       },
       error: null,
@@ -3329,7 +3329,7 @@ app.put(appRoutes.user.preferences, async (context) => {
       ok: true,
       data: {
         preferences: result.preferences,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: result.updatedAt,
       },
       error: null,
@@ -3586,7 +3586,7 @@ app.get(appRoutes.notifications, async (context) => {
         items,
         unreadCount: items.filter((item) => item.status === "unread").length,
         notices: [
-          "알림 inbox 는 same-origin preview 이며 실제 외부 발송 상태를 뜻하지 않습니다.",
+          "알림 inbox 는 same-origin 운영 화면이며 실제 외부 발송 상태를 뜻하지 않습니다.",
           "읽음/미읽음과 업무 이동 CTA 만 확인하고 푸시/메일/메신저 전송은 별도 승인 게이트로 남깁니다.",
         ],
       },
@@ -3677,7 +3677,7 @@ app.get(appRoutes.admin.permissions, async (context) => {
       ok: true,
       data: {
         settings: result.settings,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: result.updatedAt,
       },
       error: null,
@@ -3710,7 +3710,7 @@ app.put(appRoutes.admin.permissions, async (context) => {
       ok: true,
       data: {
         settings: result.settings,
-        persistence: "preview-db",
+        persistence: "operational-db",
         updatedAt: result.updatedAt,
       },
       error: null,
