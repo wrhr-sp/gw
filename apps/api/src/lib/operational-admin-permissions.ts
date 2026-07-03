@@ -1,4 +1,5 @@
 import type { AdminFeaturePermissionKey, AdminPermissionState, AdminPermissionUserId, Permission, RoleCode } from "@gw/shared";
+import { recordOperationalPermissionChangeEvent } from "./operational-audit-events";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 export const adminPermissionRoleByUser: Record<AdminPermissionUserId, RoleCode> = {
@@ -148,9 +149,30 @@ export async function saveOperationalAdminPermissionSettings(
 
     await sql`
       insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, metadata_json, created_at)
-      values (${`audit_admin_permissions_${Date.now()}`}, ${companyId}, ${actorUserId}, 'admin.permissions.update', 'role_permissions', ${companyId}, ${JSON.stringify({ source: "integrated-settings", changedRoles: allAdminPermissionUsers.map((userId) => adminPermissionRoleByUser[userId]) })}::jsonb, ${now})
+      values (${`audit_admin_permissions_${Date.now()}`}, ${companyId}, ${actorUserId}, 'admin.permissions.update', 'role_permissions', ${companyId}, ${JSON.stringify({ source: "integrated-settings", category: "permission", reason: "통합설정 권한 범위 변경", changedRoles: allAdminPermissionUsers.map((userId) => adminPermissionRoleByUser[userId]) })}::jsonb, ${now})
     `;
     await sql`commit`;
+
+    for (const userId of allAdminPermissionUsers) {
+      const roleCode = adminPermissionRoleByUser[userId];
+      for (const featureKey of allAdminFeaturePermissions) {
+        const recorded = await recordOperationalPermissionChangeEvent(env, {
+          companyId,
+          actorUserId,
+          targetRoleCode: roleCode,
+          targetFeatureKey: featureKey,
+          permissionCodes: adminFeaturePermissionCodes[featureKey],
+          enabled: settings[userId][featureKey],
+          reason: "통합설정 권한 범위 변경",
+          metadata: {
+            source: "integrated-settings",
+            permissionUserId: userId,
+          },
+          createdAt: now,
+        });
+        if (!recorded) return null;
+      }
+    }
 
     const saved = await listOperationalAdminPermissionSettings(env, companyId, () => []);
     return {
