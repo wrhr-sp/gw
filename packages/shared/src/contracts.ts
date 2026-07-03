@@ -97,6 +97,12 @@ export const appRoutes = {
     downloadFile: (fileId: string) => `/api/documents/files/${fileId}/download`,
     deleteFile: (fileId: string) => `/api/documents/files/${fileId}`,
   },
+  electronicContracts: {
+    list: "/api/electronic-contracts",
+    create: "/api/electronic-contracts",
+    detail: (contractId: string) => `/api/electronic-contracts/${contractId}`,
+    updateStatus: (contractId: string) => `/api/electronic-contracts/${contractId}/status`,
+  },
   workItems: {
     list: "/api/work-items",
     detail: (workItemId: string) => `/api/work-items/${workItemId}`,
@@ -1397,7 +1403,7 @@ export const adminPolicyUpdateResponseSchema = successResponseSchema(
   }),
 );
 
-export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "board", "audit"]);
+export const adminAuditCategorySchema = z.enum(["user", "permission", "policy", "document_space", "document_file", "electronic_contract", "board", "audit"]);
 export const adminAuditSourceSchema = z.enum(["web-admin", "api-admin", "system"]);
 export const adminAuditStorageStatusSchema = z.enum(["pending", "linked", "failed", "deleted"]);
 export const adminAuditMetadataSchema = z.object({
@@ -2146,6 +2152,100 @@ export const documentFileMetadataCreateResponseSchema = successResponseSchema(
   }),
 );
 
+export const electronicContractStatusSchema = z.enum(["draft", "review_requested", "signature_requested", "signed", "rejected", "cancelled", "expired"]);
+export const electronicContractPartyRoleSchema = z.enum(["owner", "reviewer", "signer", "observer"]);
+export const electronicContractPartyStatusSchema = z.enum(["pending", "requested", "signed", "rejected", "cancelled"]);
+
+export const electronicContractPartySchema = z.object({
+  id: z.string(),
+  contractId: z.string(),
+  companyId: z.string(),
+  employeeId: z.string().nullable(),
+  name: z.string(),
+  email: z.string().email().nullable(),
+  role: electronicContractPartyRoleSchema,
+  signingOrder: z.number().int().positive(),
+  status: electronicContractPartyStatusSchema,
+  signedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const electronicContractSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  title: z.string(),
+  summary: z.string().nullable(),
+  contractType: z.string(),
+  status: electronicContractStatusSchema,
+  ownerUserId: z.string(),
+  ownerEmployeeId: z.string(),
+  fileId: z.string().nullable(),
+  fileName: z.string().nullable(),
+  effectiveFrom: z.string().datetime().nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  externalProvider: z.string().nullable(),
+  externalContractId: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const electronicContractPartyCreateSchema = z.object({
+  employeeId: z.string().min(1).optional(),
+  name: z.string().min(1),
+  email: z.string().email().optional(),
+  role: electronicContractPartyRoleSchema.default("signer"),
+  signingOrder: z.number().int().positive().default(1),
+});
+
+export const electronicContractCreateRequestSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().max(1000).optional(),
+  contractType: z.string().min(1),
+  fileId: z.string().min(1).optional(),
+  effectiveFrom: z.string().datetime().optional(),
+  expiresAt: z.string().datetime().optional(),
+  parties: z.array(electronicContractPartyCreateSchema).min(1),
+});
+
+export const electronicContractStatusUpdateRequestSchema = z.object({
+  status: electronicContractStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const electronicContractListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(electronicContractSchema),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const electronicContractDetailResponseSchema = successResponseSchema(
+  z.object({
+    contract: electronicContractSchema,
+    parties: z.array(electronicContractPartySchema),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const electronicContractCreateResponseSchema = successResponseSchema(
+  z.object({
+    contract: electronicContractSchema,
+    parties: z.array(electronicContractPartySchema),
+    audit: auditCandidateSchema,
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const electronicContractStatusUpdateResponseSchema = successResponseSchema(
+  z.object({
+    contract: electronicContractSchema,
+    parties: z.array(electronicContractPartySchema),
+    audit: auditCandidateSchema,
+    source: z.literal("postgres-r2"),
+  }),
+);
+
 export const workItemListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(workItemSchema),
@@ -2369,6 +2469,17 @@ export type DocumentFileUploadCompleteRequest = z.infer<typeof documentFileUploa
 export type DocumentFileUploadCompleteResponse = z.infer<typeof documentFileUploadCompleteResponseSchema>;
 export type DocumentFileDownloadInitResponse = z.infer<typeof documentFileDownloadInitResponseSchema>;
 export type DocumentFileDeleteResponse = z.infer<typeof documentFileDeleteResponseSchema>;
+export type ElectronicContractStatus = z.infer<typeof electronicContractStatusSchema>;
+export type ElectronicContractPartyRole = z.infer<typeof electronicContractPartyRoleSchema>;
+export type ElectronicContractPartyStatus = z.infer<typeof electronicContractPartyStatusSchema>;
+export type ElectronicContractParty = z.infer<typeof electronicContractPartySchema>;
+export type ElectronicContract = z.infer<typeof electronicContractSchema>;
+export type ElectronicContractCreateRequest = z.infer<typeof electronicContractCreateRequestSchema>;
+export type ElectronicContractStatusUpdateRequest = z.infer<typeof electronicContractStatusUpdateRequestSchema>;
+export type ElectronicContractListResponse = z.infer<typeof electronicContractListResponseSchema>;
+export type ElectronicContractDetailResponse = z.infer<typeof electronicContractDetailResponseSchema>;
+export type ElectronicContractCreateResponse = z.infer<typeof electronicContractCreateResponseSchema>;
+export type ElectronicContractStatusUpdateResponse = z.infer<typeof electronicContractStatusUpdateResponseSchema>;
 export type WorkItemModule = z.infer<typeof workItemModuleSchema>;
 export type WorkItemStatus = z.infer<typeof workItemStatusSchema>;
 export type WorkItemPriority = z.infer<typeof workItemPrioritySchema>;
