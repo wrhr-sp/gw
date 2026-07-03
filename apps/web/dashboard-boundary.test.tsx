@@ -133,13 +133,13 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(getDashboardAdminShortcut(["COMPANY_ADMIN"], ["audit.read"])).toEqual({
       href: "/admin",
       title: "관리자 허브 바로가기",
-      body: "권한 있는 운영 사용자만 정책/권한/감사 preview를 이어서 확인합니다.",
+      body: "권한 있는 운영 사용자만 정책/권한/감사 검토를 이어서 확인합니다.",
     });
 
     expect(getDashboardAdminShortcut(["HR_ADMIN"])).toEqual({
       href: "/admin",
       title: "관리자 허브 바로가기",
-      body: "권한 있는 운영 사용자만 정책/권한/감사 preview를 이어서 확인합니다.",
+      body: "권한 있는 운영 사용자만 정책/권한/감사 검토를 이어서 확인합니다.",
     });
 
     expect(getDashboardAdminShortcut(["AUDITOR"], ["audit.read"])).toEqual({
