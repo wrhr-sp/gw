@@ -26,9 +26,9 @@ describe("Phase 14 home/login flow", () => {
     expect(html).toContain("/admin/audit-logs");
     expect(html).toContain("/api/health");
     expect(html).toContain("/work-items/branch");
-    expect(html).toContain("company scope 레인");
-    expect(html).toContain("branch scope 레인");
-    expect(html).toContain("핵심 route 바로가기");
+    expect(html).toContain("회사 범위 레인");
+    expect(html).toContain("지점 범위 레인");
+    expect(html).toContain("핵심 경로 바로가기");
     expect(html).toContain("/me");
     expect(html).toContain("실제 저장/권한 변경 제외");
     expect(html).toContain("HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.");

@@ -57,7 +57,7 @@ describe("Phase 37 internal operational storage boundaries", () => {
     expect(managementHtml).toContain("/api/health 에서 최소 liveness 기준만 기록");
     expect(managementHtml).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
     expect(managementHtml).toContain("연결 체크");
-    expect(managementHtml).toContain("dev-safe 안내 상태");
+    expect(managementHtml).toContain("검증 안내 상태");
     expect(managementHtml).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
   
     expect(payrollHtml).toContain("feature-workspace");
