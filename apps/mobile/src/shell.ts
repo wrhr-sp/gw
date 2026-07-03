@@ -64,9 +64,9 @@ export const mobileTabs: readonly MobileTabDescriptor[] = [
   },
 ] as const;
 
-export const mobileScreenPlaceholders = nativeMobilePrimaryRouteMappings.map((item) => ({
+export const mobileScreenReadinessItems = nativeMobilePrimaryRouteMappings.map((item) => ({
   ...item,
-  skeletonState: item.id === "login" ? "unauthenticated-entry" : "signed-in-placeholder",
+  readinessState: item.id === "login" ? "unauthenticated-entry" : "signed-in-ready-outline",
   primaryAction:
     item.id === "attendance"
       ? "출근/퇴근 CTA"
@@ -82,13 +82,13 @@ export const mobileScreenPlaceholders = nativeMobilePrimaryRouteMappings.map((it
                 ? "오늘 할 일 보기"
                 : "로그인 시작",
 })) as readonly (NativeMobilePrimaryRouteMapping & {
-  skeletonState: string;
+  readinessState: string;
   primaryAction: string;
 })[];
 
 export const mobileShellDescriptor = {
-  name: "GW Mobile Readiness Skeleton",
-  eyebrow: "Phase 20 Pre-Operations Readiness Alignment",
+  name: "GW Mobile Readiness",
+  eyebrow: "Pre-Operations Readiness Alignment",
   appRoutePrefix: "apps/mobile",
   navigationStyle: "same product flow, different native shell",
   apiPolicyLabel: nativeMobileBaseUrlPolicy.principle,
@@ -96,7 +96,7 @@ export const mobileShellDescriptor = {
   internalPilotLanes: nativeMobileInternalPilotLanes,
   internalPilotSmokeChecklist: nativeMobileInternalPilotSmokeChecklist,
   firstLaunchChecks: [
-    "런타임 base URL resolver 가 승인된 origin 또는 dev-safe mock 경로만 선택하는지 확인",
+    "런타임 base URL resolver 가 승인된 origin 또는 명시적 내부 검증 origin 만 선택하는지 확인",
     "secure storage bridge 없이는 세션 snapshot 을 저장하지 않도록 막기",
     "기본 탭에 /admin/* 또는 스토어 제출 CTA 를 넣지 않기",
     "모바일 설명이 전체 운영 readiness 완료처럼 과장되지 않는지 확인",

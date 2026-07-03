@@ -2,8 +2,8 @@ import { mobileShellDescriptor, mobileTabs } from "./src/index";
 
 const config = {
   expo: {
-    name: "GW Mobile Readiness Skeleton",
-    slug: "gw-mobile-skeleton",
+    name: "GW Mobile Readiness",
+    slug: "gw-mobile-readiness",
     scheme: "gwmobile",
     version: "0.1.0",
     orientation: "portrait",

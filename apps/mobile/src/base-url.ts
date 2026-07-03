@@ -1,27 +1,19 @@
 import { nativeMobileBaseUrlPolicy } from "@gw/shared";
 
-export type NativeMobileRuntimeMode = "production" | "preview" | "development" | "test";
+export type NativeMobileRuntimeMode = "production" | "uat" | "development" | "test";
 
 export type NativeMobileRuntimeConfig = {
   mode: NativeMobileRuntimeMode;
   approvedOrigin?: string;
   devOrigin?: string;
-  allowMock?: boolean;
 };
 
-export type NativeMobileApiTarget =
-  | {
-      kind: "origin";
-      baseUrl: string;
-      mode: NativeMobileRuntimeMode;
-      source: "approved-origin" | "dev-origin";
-    }
-  | {
-      kind: "mock";
-      baseUrl: "mock://gw-mobile";
-      mode: NativeMobileRuntimeMode;
-      source: "mock-adapter";
-    };
+export type NativeMobileApiTarget = {
+  kind: "origin";
+  baseUrl: string;
+  mode: NativeMobileRuntimeMode;
+  source: "approved-origin" | "dev-origin";
+};
 
 function normalizeOrigin(origin: string) {
   const url = new URL(origin);
@@ -45,7 +37,7 @@ function pickOrigin(config: NativeMobileRuntimeConfig) {
     };
   }
 
-  if (config.mode === "preview") {
+  if (config.mode === "uat") {
     if (config.approvedOrigin) {
       return {
         source: "approved-origin" as const,
@@ -91,14 +83,6 @@ export function resolveNativeMobileApiTarget(config: NativeMobileRuntimeConfig):
     };
   }
 
-  if (config.allowMock) {
-    return {
-      kind: "mock",
-      mode: config.mode,
-      source: "mock-adapter",
-      baseUrl: "mock://gw-mobile",
-    };
-  }
 
   throw new Error(
     `API target 을 결정할 수 없습니다. 정책: ${nativeMobileBaseUrlPolicy.principle}. mode=${config.mode}`,

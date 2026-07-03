@@ -21,7 +21,7 @@ const screenSpecificSections: Record<NativeMobilePrimaryScreenId, readonly strin
   attendance: ["출근/퇴근 CTA", "최근 기록", "정정 요청 진입", "오프라인 honesty 안내"],
   leave: ["잔여 요약", "신청 카드", "승인 대기 요약", "정책 source 메모"],
   approvals: ["내 문서", "승인 대기", "큰 승인/반려 CTA", "모바일 상세 drill-down"],
-  collaboration: ["공지 목록", "게시판/문서 묶음 진입", "읽기 중심 placeholder", "파일 업로드 승인 게이트"],
+  collaboration: ["공지 목록", "게시판/문서 묶음 진입", "읽기 중심 상태 확인", "파일 업로드 승인 게이트"],
   me: ["내 세션 요약", "내 역할/권한", "보안 설정 안내", "로그아웃/세션 clear"],
 };
 

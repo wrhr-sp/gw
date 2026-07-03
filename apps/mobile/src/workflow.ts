@@ -11,7 +11,7 @@ import {
 
 import { resolveNativeMobileApiTarget, type NativeMobileRuntimeConfig } from "./base-url";
 import {
-  createPlaceholderNativeSessionSnapshot,
+  createLocalVerificationNativeSessionSnapshot,
   describeSessionScopedFeatures,
   type NativeSessionSnapshot,
 } from "./session-bridge";
@@ -33,7 +33,7 @@ export type NativeMobileScreenStateDescriptor = {
   blockedActions: readonly string[];
 };
 
-export type NativeMobileWorkflowPreview = {
+export type NativeMobileWorkflowPlan = {
   runtime: ReturnType<typeof resolveNativeMobileApiTarget>;
   session: NativeSessionSnapshot;
   firstActionScreenId: Exclude<NativeMobilePrimaryScreenId, "login">;
@@ -85,11 +85,11 @@ function pickFirstActionScreenId(session: NativeSessionSnapshot): Exclude<Native
   return hasManagerLane ? "approvals" : "attendance";
 }
 
-export function buildNativeMobileWorkflowPreview(options: {
+export function buildNativeMobileWorkflowPlan(options: {
   runtimeConfig: NativeMobileRuntimeConfig;
   session?: NativeSessionSnapshot;
-}) : NativeMobileWorkflowPreview {
-  const session = options.session ?? createPlaceholderNativeSessionSnapshot();
+}): NativeMobileWorkflowPlan {
+  const session = options.session ?? createLocalVerificationNativeSessionSnapshot();
 
   return {
     runtime: resolveNativeMobileApiTarget(options.runtimeConfig),
