@@ -72,6 +72,11 @@ import {
   electronicContractListResponseSchema,
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
+  erpExpenseRequestCreateRequestSchema,
+  erpExpenseRequestListResponseSchema,
+  erpExpenseRequestMutationResponseSchema,
+  erpExpenseRequestStatusUpdateRequestSchema,
+  erpExpenseRequestUpdateRequestSchema,
   erpVendorCreateRequestSchema,
   erpVendorListResponseSchema,
   erpVendorMutationResponseSchema,
@@ -156,6 +161,7 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type ErpExpenseStatus,
   type ErpVendorStatus,
   type VehicleOperationLogStatus,
   type ErrorCode,
@@ -234,6 +240,13 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalErpExpense,
+  findOperationalErpExpense,
+  listOperationalErpExpenses,
+  updateOperationalErpExpense,
+  updateOperationalErpExpenseStatus,
+} from "./lib/operational-erp-expenses";
 import {
   createOperationalErpVendor,
   findOperationalErpVendor,
@@ -344,6 +357,9 @@ const ELECTRONIC_CONTRACT_STATUS_ROUTE = "/api/electronic-contracts/:contractId/
 const ERP_VENDORS_ROUTE = "/api/erp/vendors";
 const ERP_VENDOR_DETAIL_ROUTE = "/api/erp/vendors/:vendorId";
 const ERP_VENDOR_STATUS_ROUTE = "/api/erp/vendors/:vendorId/status";
+const ERP_EXPENSES_ROUTE = "/api/erp/expenses";
+const ERP_EXPENSE_DETAIL_ROUTE = "/api/erp/expenses/:expenseId";
+const ERP_EXPENSE_STATUS_ROUTE = "/api/erp/expenses/:expenseId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -6740,6 +6756,170 @@ app.patch(ERP_VENDOR_STATUS_ROUTE, async (context) => {
   });
 
   return jsonSuccess(context, erpVendorMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_vendor.status.update" } }, error: null });
+});
+
+
+app.get(ERP_EXPENSES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const status = context.req.query("status") as ErpExpenseStatus | undefined;
+  const result = await listOperationalErpExpenses(context.env, authResult.auth.user.companyId, status);
+  if (!result) return jsonDatabaseRequired(context, "ERP 지출결의 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_expense_request",
+    resourceId: "erp_expense_request_list",
+    accessType: "read",
+    purpose: "ERP 지출결의 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
+    metadata: { source: "erp-expenses-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpExpenseRequestListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_EXPENSES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpExpenseRequestCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "지출결의 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  if (parsed.data.vendorId) {
+    const vendor = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, parsed.data.vendorId);
+    if (!vendor) return jsonDatabaseRequired(context, "ERP 지출결의 거래처 확인");
+    if (!vendor.vendor) return jsonError(context, "FORBIDDEN", "지출결의에 연결할 수 없는 거래처입니다.", 403, { vendorId: parsed.data.vendorId, route: context.req.path });
+  }
+
+  if (parsed.data.evidenceFileId) {
+    const file = await findOperationalDocumentFile(context.env, authResult.auth.user.companyId, parsed.data.evidenceFileId);
+    if (!file || file.storageStatus !== "ready") return jsonError(context, "FORBIDDEN", "지출결의에 연결할 수 없는 증빙 파일입니다.", 403, { fileId: parsed.data.evidenceFileId, route: context.req.path });
+  }
+
+  const created = await createOperationalErpExpense(context.env, {
+    id: `erp_expense_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    requestedByUserId: authResult.auth.user.id,
+    requestedByEmployeeId: authResult.auth.user.employeeId,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.expense) return jsonDatabaseRequired(context, "ERP 지출결의 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_expense_request",
+    resourceId: created.expense.id,
+    accessType: "create",
+    purpose: "ERP 지출결의 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-expenses-api", status: created.expense.status, syncStatus: created.expense.syncStatus, evidenceFileId: created.expense.evidenceFileId },
+  });
+
+  return jsonSuccess(context, erpExpenseRequestMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_expense.create" } }, error: null }, 201);
+});
+
+app.get(ERP_EXPENSE_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const expenseId = context.req.param("expenseId");
+  const result = await findOperationalErpExpense(context.env, authResult.auth.user.companyId, expenseId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 지출결의 상세 조회");
+  if (!result.expense) return jsonError(context, "FORBIDDEN", "허용되지 않은 지출결의입니다.", 403, { expenseId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.expense.requestedByUserId,
+    resourceType: "erp_expense_request",
+    resourceId: result.expense.id,
+    accessType: "read",
+    purpose: "ERP 지출결의 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
+    metadata: { source: "erp-expenses-api", status: result.expense.status, syncStatus: result.expense.syncStatus },
+  });
+
+  return jsonSuccess(context, erpExpenseRequestMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_expense.read" } }, error: null });
+});
+
+app.patch(ERP_EXPENSE_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const expenseId = context.req.param("expenseId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpExpenseRequestUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "지출결의 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpExpense(context.env, authResult.auth.user.companyId, expenseId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 지출결의 수정");
+  if (!before.expense) return jsonError(context, "FORBIDDEN", "허용되지 않은 지출결의입니다.", 403, { expenseId, route: context.req.path });
+
+  const updated = await updateOperationalErpExpense(context.env, {
+    companyId: authResult.auth.user.companyId,
+    expenseId,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.expense) return jsonDatabaseRequired(context, "ERP 지출결의 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.expense.requestedByUserId,
+    resourceType: "erp_expense_request",
+    resourceId: updated.expense.id,
+    accessType: "update",
+    purpose: "ERP 지출결의 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-expenses-api", reason: parsed.data.reason, beforeStatus: before.expense.status, afterStatus: updated.expense.status },
+  });
+
+  return jsonSuccess(context, erpExpenseRequestMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_expense.update" } }, error: null });
+});
+
+app.patch(ERP_EXPENSE_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const expenseId = context.req.param("expenseId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpExpenseRequestStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "지출결의 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpExpense(context.env, authResult.auth.user.companyId, expenseId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 지출결의 상태 변경");
+  if (!before.expense) return jsonError(context, "FORBIDDEN", "허용되지 않은 지출결의입니다.", 403, { expenseId, route: context.req.path });
+
+  const updated = await updateOperationalErpExpenseStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    expenseId,
+    status: parsed.data.status as ErpExpenseStatus,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.expense) return jsonDatabaseRequired(context, "ERP 지출결의 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.expense.requestedByUserId,
+    resourceType: "erp_expense_request",
+    resourceId: updated.expense.id,
+    accessType: "update",
+    purpose: "ERP 지출결의 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-expenses-api", reason: parsed.data.reason, beforeStatus: before.expense.status, afterStatus: updated.expense.status },
+  });
+
+  return jsonSuccess(context, erpExpenseRequestMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_expense.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {
