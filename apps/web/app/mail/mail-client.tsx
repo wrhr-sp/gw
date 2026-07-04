@@ -140,6 +140,17 @@ const composeModeLabel: Record<MailComposeMode, string> = {
   forward: "전달 작성",
 };
 
+function parseIdList(value: string) {
+  return Array.from(new Set(value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)));
+}
+
+function formatGrantCount(userIds?: string[], departmentIds?: string[]) {
+  const users = userIds?.length ?? 0;
+  const departments = departmentIds?.length ?? 0;
+  if (!users && !departments) return "권한 지정 없음";
+  return `사용자 ${users}명 · 부서 ${departments}개`;
+}
+
 const mailRecipientSectionLabels = {
   internal: "전사 내 계정 메일",
   history: "발송/수신 이력이 있는 메일",
@@ -198,8 +209,8 @@ export function MailClient() {
   const [mailAccounts, setMailAccounts] = useState<MailAccount[]>([]);
   const [mailAliases, setMailAliases] = useState<MailAccountAlias[]>([]);
   const [selectedSenderValue, setSelectedSenderValue] = useState("");
-  const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false });
-  const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false });
+  const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
+  const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
   const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
   const [visibleFolderIds, setVisibleFolderIds] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
 
@@ -315,6 +326,13 @@ export function MailClient() {
     setMailAccounts(parsed.data.accounts);
     setMailAliases(parsed.data.aliases);
     setAliasForm((current) => current.mailAccountId || !parsed.data.accounts[0] ? current : { ...current, mailAccountId: parsed.data.accounts[0].id });
+    setSelectedSenderValue((current) => {
+      if (current) return current;
+      const defaultAlias = parsed.data.aliases.find((alias) => alias.isActive && alias.isDefault);
+      if (defaultAlias) return `alias:${defaultAlias.id}`;
+      const defaultAccount = parsed.data.accounts.find((account) => account.isActive && account.isDefault) ?? parsed.data.accounts.find((account) => account.isActive);
+      return defaultAccount ? `account:${defaultAccount.id}` : "";
+    });
     setStatus(`메일 통합설정 ${parsed.data.accounts.length}개 계정, ${parsed.data.aliases.length}개 별칭을 불러왔습니다.`);
   }
 
@@ -819,7 +837,15 @@ export function MailClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: recipientIds, draftMessageId: composeDraftMessageId ?? undefined, subject, body, importance }),
+        body: JSON.stringify({
+          recipientUserIds: recipientIds,
+          senderMailAccountId: selectedSenderOption?.accountId || undefined,
+          senderMailAliasId: selectedSenderOption?.aliasId || undefined,
+          draftMessageId: composeDraftMessageId ?? undefined,
+          subject,
+          body,
+          importance,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -914,6 +940,8 @@ export function MailClient() {
         providerKind: accountForm.providerKind,
         providerName: accountForm.providerName || accountForm.providerKind,
         isDefault: accountForm.isDefault,
+        allowedSenderUserIds: parseIdList(accountForm.allowedSenderUserIdsText),
+        allowedSenderDepartmentIds: parseIdList(accountForm.allowedSenderDepartmentIdsText),
       }),
     });
     const payload = await response.json();
@@ -921,7 +949,7 @@ export function MailClient() {
       setStatus(payload?.error?.message ?? "메일 계정을 등록하지 못했습니다.");
       return;
     }
-    setAccountForm({ accountType: "personal", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured", providerName: "unconfigured", isDefault: false });
+    setAccountForm({ accountType: "personal", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured", providerName: "unconfigured", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
     await loadMailSettings();
   }
 
@@ -939,7 +967,7 @@ export function MailClient() {
       setStatus(payload?.error?.message ?? "별칭계정을 등록하지 못했습니다.");
       return;
     }
-    setAliasForm((current) => ({ mailAccountId: current.mailAccountId, aliasEmail: "", displayName: "", isDefault: false }));
+    setAliasForm((current) => ({ mailAccountId: current.mailAccountId, aliasEmail: "", displayName: "", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" }));
     await loadMailSettings();
   }
 
@@ -1164,6 +1192,12 @@ export function MailClient() {
               </select>
             </label>
             <label className="mail-settings-checkbox"><input type="checkbox" checked={accountForm.isDefault} onChange={(event) => setAccountForm((current) => ({ ...current, isDefault: event.target.checked }))} /> 기본 발신으로 사용</label>
+            <label>발신 허용 사용자 ID
+              <input className="field" value={accountForm.allowedSenderUserIdsText} onChange={(event) => setAccountForm((current) => ({ ...current, allowedSenderUserIdsText: event.target.value }))} />
+            </label>
+            <label>발신 허용 부서 ID
+              <input className="field" value={accountForm.allowedSenderDepartmentIdsText} onChange={(event) => setAccountForm((current) => ({ ...current, allowedSenderDepartmentIdsText: event.target.value }))} />
+            </label>
             <div className="mail-settings-actions"><button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" type="submit">등록</button></div>
           </form>
 
@@ -1182,6 +1216,12 @@ export function MailClient() {
               <input className="field" required value={aliasForm.displayName} onChange={(event) => setAliasForm((current) => ({ ...current, displayName: event.target.value }))} />
             </label>
             <label className="mail-settings-checkbox"><input type="checkbox" checked={aliasForm.isDefault} onChange={(event) => setAliasForm((current) => ({ ...current, isDefault: event.target.checked }))} /> 이 계정의 기본 별칭</label>
+            <label>별칭 발신 허용 사용자 ID
+              <input className="field" value={aliasForm.allowedSenderUserIdsText} onChange={(event) => setAliasForm((current) => ({ ...current, allowedSenderUserIdsText: event.target.value }))} />
+            </label>
+            <label>별칭 발신 허용 부서 ID
+              <input className="field" value={aliasForm.allowedSenderDepartmentIdsText} onChange={(event) => setAliasForm((current) => ({ ...current, allowedSenderDepartmentIdsText: event.target.value }))} />
+            </label>
             <div className="mail-settings-actions"><button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" type="submit">별칭 등록</button></div>
           </form>
         </div>
@@ -1190,7 +1230,7 @@ export function MailClient() {
           <strong>등록된 메일 계정</strong>
           {mailAccounts.length ? mailAccounts.map((account) => (
             <article className="mail-settings-row" key={account.id}>
-              <div><strong>{account.displayName}</strong><span>{account.email} · {account.accountType === "virtual" ? "가상메일" : "내 메일"} · {account.providerKind === "unconfigured" ? "발송연동 미연결" : account.providerKind.toUpperCase()}</span></div>
+              <div><strong>{account.displayName}</strong><span>{account.email} · {account.accountType === "virtual" ? "가상메일" : "내 메일"} · {account.providerKind === "unconfigured" ? "발송연동 미연결" : account.providerKind.toUpperCase()} · {formatGrantCount(account.allowedSenderUserIds, account.allowedSenderDepartmentIds)}</span></div>
               <em>{account.isDefault ? "기본" : account.isActive ? "활성" : "비활성"}</em>
               <button className="mail-compose-toolbar-button" type="button" onClick={() => void deleteMailAccount(account.id)}>삭제</button>
             </article>
@@ -1203,7 +1243,7 @@ export function MailClient() {
             const account = mailAccounts.find((item) => item.id === alias.mailAccountId);
             return (
               <article className="mail-settings-row" key={alias.id}>
-                <div><strong>{alias.displayName}</strong><span>{alias.aliasEmail} → {account?.email ?? "연결 계정"}</span></div>
+                <div><strong>{alias.displayName}</strong><span>{alias.aliasEmail} → {account?.email ?? "연결 계정"} · {formatGrantCount(alias.allowedSenderUserIds, alias.allowedSenderDepartmentIds)}</span></div>
                 <em>{alias.isDefault ? "기본" : alias.isActive ? "활성" : "비활성"}</em>
                 <button className="mail-compose-toolbar-button" type="button" onClick={() => void deleteMailAlias(alias.id)}>삭제</button>
               </article>

@@ -367,17 +367,21 @@ export async function createOperationalMailMessages(env: DatabaseEnv | undefined
   return messages;
 }
 
-export async function createOperationalMailDraft(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string | null; subject: string; body: string; importance: MailMessage["importance"] }) {
+export async function createOperationalMailDraft(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string | null; subject: string; body: string; importance: MailMessage["importance"]; senderMailAccountId?: string | null; senderMailAliasId?: string | null; senderEmail?: string | null; senderDisplayName?: string | null }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`
     insert into mail_messages (
-      id, company_id, sender_user_id, recipient_user_id, subject, body, status, importance, sent_at, created_at, updated_at
+      id, company_id, sender_user_id, recipient_user_id, sender_mail_account_id, sender_mail_alias_id, sender_email, sender_display_name, subject, body, status, importance, sent_at, created_at, updated_at
     )
     select
       ${input.id},
       ${input.companyId},
       ${input.senderUserId},
       recipient.id,
+      ${input.senderMailAccountId ?? null},
+      ${input.senderMailAliasId ?? null},
+      ${input.senderEmail ?? null},
+      ${input.senderDisplayName ?? null},
       ${input.subject},
       ${input.body},
       'draft',
@@ -417,12 +421,16 @@ export async function createOperationalMailDraft(env: DatabaseEnv | undefined, i
   return row ? mapMailMessage(row) : null;
 }
 
-export async function updateOperationalMailDraft(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string | null; subject: string; body: string; importance: MailMessage["importance"] }) {
+export async function updateOperationalMailDraft(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string | null; subject: string; body: string; importance: MailMessage["importance"]; senderMailAccountId?: string | null; senderMailAliasId?: string | null; senderEmail?: string | null; senderDisplayName?: string | null }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`
     update mail_messages
     set
       recipient_user_id = ${input.recipientUserId},
+      sender_mail_account_id = ${input.senderMailAccountId ?? null},
+      sender_mail_alias_id = ${input.senderMailAliasId ?? null},
+      sender_email = ${input.senderEmail ?? null},
+      sender_display_name = ${input.senderDisplayName ?? null},
       subject = ${input.subject},
       body = ${input.body},
       importance = ${input.importance},
