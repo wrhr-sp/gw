@@ -72,6 +72,11 @@ import {
   electronicContractListResponseSchema,
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
+  erpEvidenceCreateRequestSchema,
+  erpEvidenceListResponseSchema,
+  erpEvidenceMutationResponseSchema,
+  erpEvidenceStatusUpdateRequestSchema,
+  erpEvidenceUpdateRequestSchema,
   erpExpenseRequestCreateRequestSchema,
   erpExpenseRequestListResponseSchema,
   erpExpenseRequestMutationResponseSchema,
@@ -161,6 +166,7 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type ErpEvidenceStatus,
   type ErpExpenseStatus,
   type ErpVendorStatus,
   type VehicleOperationLogStatus,
@@ -240,6 +246,13 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalErpEvidence,
+  findOperationalErpEvidence,
+  listOperationalErpEvidence,
+  updateOperationalErpEvidence,
+  updateOperationalErpEvidenceStatus,
+} from "./lib/operational-erp-evidence";
 import {
   createOperationalErpExpense,
   findOperationalErpExpense,
@@ -360,6 +373,9 @@ const ERP_VENDOR_STATUS_ROUTE = "/api/erp/vendors/:vendorId/status";
 const ERP_EXPENSES_ROUTE = "/api/erp/expenses";
 const ERP_EXPENSE_DETAIL_ROUTE = "/api/erp/expenses/:expenseId";
 const ERP_EXPENSE_STATUS_ROUTE = "/api/erp/expenses/:expenseId/status";
+const ERP_EVIDENCE_ROUTE = "/api/erp/evidence";
+const ERP_EVIDENCE_DETAIL_ROUTE = "/api/erp/evidence/:evidenceId";
+const ERP_EVIDENCE_STATUS_ROUTE = "/api/erp/evidence/:evidenceId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -6920,6 +6936,177 @@ app.patch(ERP_EXPENSE_STATUS_ROUTE, async (context) => {
   });
 
   return jsonSuccess(context, erpExpenseRequestMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_expense.status.update" } }, error: null });
+});
+
+
+app.get(ERP_EVIDENCE_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const status = context.req.query("status") as ErpEvidenceStatus | undefined;
+  const result = await listOperationalErpEvidence(context.env, authResult.auth.user.companyId, status);
+  if (!result) return jsonDatabaseRequired(context, "ERP 증빙 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_evidence",
+    resourceId: "erp_evidence_list",
+    accessType: "read",
+    purpose: "ERP 증빙 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 증빙 접근",
+    metadata: { source: "erp-evidence-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpEvidenceListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_EVIDENCE_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpEvidenceCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "증빙 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const file = await findOperationalDocumentFile(context.env, authResult.auth.user.companyId, parsed.data.fileId);
+  if (!file) return jsonDatabaseRequired(context, "ERP 증빙 파일 확인");
+  if (file.storageStatus !== "ready") return jsonError(context, "FORBIDDEN", "증빙에 연결할 수 없는 문서 파일입니다.", 403, { fileId: parsed.data.fileId, route: context.req.path });
+
+  if (parsed.data.vendorId) {
+    const vendor = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, parsed.data.vendorId);
+    if (!vendor) return jsonDatabaseRequired(context, "ERP 증빙 거래처 확인");
+    if (!vendor.vendor) return jsonError(context, "FORBIDDEN", "증빙에 연결할 수 없는 거래처입니다.", 403, { vendorId: parsed.data.vendorId, route: context.req.path });
+  }
+
+  if (parsed.data.expenseId) {
+    const expense = await findOperationalErpExpense(context.env, authResult.auth.user.companyId, parsed.data.expenseId);
+    if (!expense) return jsonDatabaseRequired(context, "ERP 증빙 지출결의 확인");
+    if (!expense.expense) return jsonError(context, "FORBIDDEN", "증빙에 연결할 수 없는 지출결의입니다.", 403, { expenseId: parsed.data.expenseId, route: context.req.path });
+  }
+
+  const created = await createOperationalErpEvidence(context.env, {
+    id: `erp_evidence_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.evidence) return jsonDatabaseRequired(context, "ERP 증빙 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_evidence",
+    resourceId: created.evidence.id,
+    accessType: "create",
+    purpose: "ERP 증빙 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 증빙 처리",
+    metadata: { source: "erp-evidence-api", evidenceType: created.evidence.evidenceType, fileId: created.evidence.fileId, expenseId: created.evidence.expenseId },
+  });
+
+  return jsonSuccess(context, erpEvidenceMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_evidence.create" } }, error: null }, 201);
+});
+
+app.get(ERP_EVIDENCE_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const evidenceId = context.req.param("evidenceId");
+  const result = await findOperationalErpEvidence(context.env, authResult.auth.user.companyId, evidenceId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 증빙 상세 조회");
+  if (!result.evidence) return jsonError(context, "FORBIDDEN", "허용되지 않은 증빙입니다.", 403, { evidenceId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.evidence.createdByUserId,
+    resourceType: "erp_evidence",
+    resourceId: result.evidence.id,
+    accessType: "read",
+    purpose: "ERP 증빙 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 증빙 접근",
+    metadata: { source: "erp-evidence-api", status: result.evidence.status, syncStatus: result.evidence.syncStatus },
+  });
+
+  return jsonSuccess(context, erpEvidenceMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_evidence.read" } }, error: null });
+});
+
+app.patch(ERP_EVIDENCE_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const evidenceId = context.req.param("evidenceId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpEvidenceUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "증빙 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpEvidence(context.env, authResult.auth.user.companyId, evidenceId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 증빙 수정");
+  if (!before.evidence) return jsonError(context, "FORBIDDEN", "허용되지 않은 증빙입니다.", 403, { evidenceId, route: context.req.path });
+
+  const updated = await updateOperationalErpEvidence(context.env, {
+    companyId: authResult.auth.user.companyId,
+    evidenceId,
+    actorUserId: authResult.auth.user.id,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.evidence) return jsonDatabaseRequired(context, "ERP 증빙 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.evidence.createdByUserId,
+    resourceType: "erp_evidence",
+    resourceId: updated.evidence.id,
+    accessType: "update",
+    purpose: "ERP 증빙 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 증빙 처리",
+    metadata: { source: "erp-evidence-api", reason: parsed.data.reason, beforeStatus: before.evidence.status, afterStatus: updated.evidence.status },
+  });
+
+  return jsonSuccess(context, erpEvidenceMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_evidence.update" } }, error: null });
+});
+
+app.patch(ERP_EVIDENCE_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const evidenceId = context.req.param("evidenceId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpEvidenceStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "증빙 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpEvidence(context.env, authResult.auth.user.companyId, evidenceId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 증빙 상태 변경");
+  if (!before.evidence) return jsonError(context, "FORBIDDEN", "허용되지 않은 증빙입니다.", 403, { evidenceId, route: context.req.path });
+
+  const updated = await updateOperationalErpEvidenceStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    evidenceId,
+    actorUserId: authResult.auth.user.id,
+    status: parsed.data.status as ErpEvidenceStatus,
+    reason: parsed.data.reason,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.evidence) return jsonDatabaseRequired(context, "ERP 증빙 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.evidence.createdByUserId,
+    resourceType: "erp_evidence",
+    resourceId: updated.evidence.id,
+    accessType: "update",
+    purpose: "ERP 증빙 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 증빙 처리",
+    metadata: { source: "erp-evidence-api", reason: parsed.data.reason, beforeStatus: before.evidence.status, afterStatus: updated.evidence.status },
+  });
+
+  return jsonSuccess(context, erpEvidenceMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_evidence.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {

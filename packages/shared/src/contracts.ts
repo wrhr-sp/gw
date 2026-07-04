@@ -110,6 +110,9 @@ export const appRoutes = {
     expenses: "/api/erp/expenses",
     expenseDetail: (expenseId: string) => `/api/erp/expenses/${expenseId}`,
     expenseStatus: (expenseId: string) => `/api/erp/expenses/${expenseId}/status`,
+    evidence: "/api/erp/evidence",
+    evidenceDetail: (evidenceId: string) => `/api/erp/evidence/${evidenceId}`,
+    evidenceStatus: (evidenceId: string) => `/api/erp/evidence/${evidenceId}/status`,
   },
   vehicleOperationLogs: {
     vehicles: "/api/vehicle-operation/vehicles",
@@ -2406,6 +2409,74 @@ export const erpExpenseRequestMutationResponseSchema = successResponseSchema(
   }),
 );
 
+export const erpEvidenceTypeSchema = z.enum(["receipt", "tax_invoice", "transaction_statement", "contract", "business_registration", "other"]);
+export const erpEvidenceStatusSchema = z.enum(["draft", "submitted", "accepted", "rework_requested", "archived"]);
+
+export const erpEvidenceSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  expenseId: z.string().nullable(),
+  expenseTitle: z.string().nullable(),
+  vendorId: z.string().nullable(),
+  vendorName: z.string().nullable(),
+  fileId: z.string(),
+  fileName: z.string().nullable(),
+  evidenceType: erpEvidenceTypeSchema,
+  title: z.string(),
+  issuedAt: isoDateSchema.nullable(),
+  supplyAmount: z.number().nonnegative().nullable(),
+  taxAmount: z.number().nonnegative().nullable(),
+  totalAmount: z.number().nonnegative().nullable(),
+  status: erpEvidenceStatusSchema,
+  reworkReason: z.string().nullable(),
+  memo: z.string().nullable(),
+  syncStatus: erpVendorSyncStatusSchema,
+  externalProvider: z.literal("kyungrinara").nullable(),
+  externalReferenceId: z.string().nullable(),
+  lastSyncedAt: z.string().datetime().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpEvidenceCreateRequestSchema = z.object({
+  expenseId: z.string().min(1).optional(),
+  vendorId: z.string().min(1).optional(),
+  fileId: z.string().min(1),
+  evidenceType: erpEvidenceTypeSchema,
+  title: z.string().min(1).max(200),
+  issuedAt: isoDateSchema.optional(),
+  supplyAmount: z.number().nonnegative().optional(),
+  taxAmount: z.number().nonnegative().optional(),
+  totalAmount: z.number().nonnegative().optional(),
+  memo: z.string().max(1000).optional(),
+});
+
+export const erpEvidenceUpdateRequestSchema = erpEvidenceCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const erpEvidenceStatusUpdateRequestSchema = z.object({
+  status: erpEvidenceStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const erpEvidenceListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(erpEvidenceSchema),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const erpEvidenceMutationResponseSchema = successResponseSchema(
+  z.object({
+    evidence: erpEvidenceSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres-r2"),
+  }),
+);
+
 export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
 export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
@@ -2759,6 +2830,14 @@ export type ErpExpenseRequestUpdateRequest = z.infer<typeof erpExpenseRequestUpd
 export type ErpExpenseRequestStatusUpdateRequest = z.infer<typeof erpExpenseRequestStatusUpdateRequestSchema>;
 export type ErpExpenseRequestListResponse = z.infer<typeof erpExpenseRequestListResponseSchema>;
 export type ErpExpenseRequestMutationResponse = z.infer<typeof erpExpenseRequestMutationResponseSchema>;
+export type ErpEvidenceType = z.infer<typeof erpEvidenceTypeSchema>;
+export type ErpEvidenceStatus = z.infer<typeof erpEvidenceStatusSchema>;
+export type ErpEvidence = z.infer<typeof erpEvidenceSchema>;
+export type ErpEvidenceCreateRequest = z.infer<typeof erpEvidenceCreateRequestSchema>;
+export type ErpEvidenceUpdateRequest = z.infer<typeof erpEvidenceUpdateRequestSchema>;
+export type ErpEvidenceStatusUpdateRequest = z.infer<typeof erpEvidenceStatusUpdateRequestSchema>;
+export type ErpEvidenceListResponse = z.infer<typeof erpEvidenceListResponseSchema>;
+export type ErpEvidenceMutationResponse = z.infer<typeof erpEvidenceMutationResponseSchema>;
 export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
 export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
 export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
