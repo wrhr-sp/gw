@@ -119,6 +119,10 @@ export const appRoutes = {
     paymentRecords: "/api/erp/payment-records",
     paymentRecordDetail: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}`,
     paymentRecordStatus: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}/status`,
+    accountSubjects: "/api/erp/account-subjects",
+    journalEntries: "/api/erp/journal-entries",
+    journalEntryDetail: (journalEntryId: string) => `/api/erp/journal-entries/${journalEntryId}`,
+    journalEntryStatus: (journalEntryId: string) => `/api/erp/journal-entries/${journalEntryId}/status`,
     accountingMappings: "/api/erp/accounting-mappings",
     accountingMappingDetail: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}`,
     accountingMappingStatus: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}/status`,
@@ -2636,6 +2640,94 @@ export const erpPaymentRecordMutationResponseSchema = successResponseSchema(
   }),
 );
 
+export const erpAccountSubjectTypeSchema = z.enum(["asset", "liability", "equity", "revenue", "expense"]);
+export const erpAccountSubjectStatusSchema = z.enum(["active", "inactive", "archived"]);
+
+export const erpAccountSubjectSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  code: z.string(),
+  name: z.string(),
+  type: erpAccountSubjectTypeSchema,
+  parentId: z.string().nullable(),
+  status: erpAccountSubjectStatusSchema,
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpAccountSubjectCreateRequestSchema = z.object({
+  code: z.string().min(1).max(60),
+  name: z.string().min(1).max(160),
+  type: erpAccountSubjectTypeSchema,
+  parentId: z.string().max(160).optional(),
+  memo: z.string().max(1000).optional(),
+});
+
+export const erpJournalEntryStatusSchema = z.enum(["draft", "posted", "reversed", "cancelled"]);
+export const erpJournalEntryLineSchema = z.object({
+  id: z.string(),
+  accountSubjectId: z.string(),
+  accountCode: z.string().nullable(),
+  accountName: z.string().nullable(),
+  debitAmount: z.number().nonnegative(),
+  creditAmount: z.number().nonnegative(),
+  memo: z.string().nullable(),
+});
+
+export const erpJournalEntrySchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  entryNumber: z.string(),
+  entryDate: z.string(),
+  title: z.string(),
+  status: erpJournalEntryStatusSchema,
+  sourceType: z.enum(["manual", "expense", "billing", "payment", "closing"]),
+  sourceId: z.string().nullable(),
+  totalDebitAmount: z.number().nonnegative(),
+  totalCreditAmount: z.number().nonnegative(),
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  lines: z.array(erpJournalEntryLineSchema),
+});
+
+export const erpJournalEntryCreateRequestSchema = z.object({
+  entryDate: z.string().min(10).max(10),
+  title: z.string().min(1).max(200),
+  sourceType: z.enum(["manual", "expense", "billing", "payment", "closing"]).default("manual"),
+  sourceId: z.string().max(160).optional(),
+  memo: z.string().max(1000).optional(),
+  lines: z.array(z.object({
+    accountSubjectId: z.string().min(1),
+    debitAmount: z.number().nonnegative().default(0),
+    creditAmount: z.number().nonnegative().default(0),
+    memo: z.string().max(1000).optional(),
+  })).min(2),
+});
+
+export const erpJournalEntryStatusUpdateRequestSchema = z.object({
+  status: erpJournalEntryStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const erpAccountSubjectListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpAccountSubjectSchema), source: z.literal("postgres") }),
+);
+export const erpAccountSubjectMutationResponseSchema = successResponseSchema(
+  z.object({ accountSubject: erpAccountSubjectSchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
+);
+export const erpJournalEntryListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpJournalEntrySchema), source: z.literal("postgres") }),
+);
+export const erpJournalEntryMutationResponseSchema = successResponseSchema(
+  z.object({ journalEntry: erpJournalEntrySchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
+);
+
 export const erpAccountingMappingTypeSchema = z.enum([
   "expense_category",
   "revenue_category",
@@ -3155,6 +3247,18 @@ export type ErpPaymentRecordUpdateRequest = z.infer<typeof erpPaymentRecordUpdat
 export type ErpPaymentRecordStatusUpdateRequest = z.infer<typeof erpPaymentRecordStatusUpdateRequestSchema>;
 export type ErpPaymentRecordListResponse = z.infer<typeof erpPaymentRecordListResponseSchema>;
 export type ErpPaymentRecordMutationResponse = z.infer<typeof erpPaymentRecordMutationResponseSchema>;
+export type ErpAccountSubjectType = z.infer<typeof erpAccountSubjectTypeSchema>;
+export type ErpAccountSubjectStatus = z.infer<typeof erpAccountSubjectStatusSchema>;
+export type ErpAccountSubject = z.infer<typeof erpAccountSubjectSchema>;
+export type ErpAccountSubjectCreateRequest = z.infer<typeof erpAccountSubjectCreateRequestSchema>;
+export type ErpAccountSubjectListResponse = z.infer<typeof erpAccountSubjectListResponseSchema>;
+export type ErpAccountSubjectMutationResponse = z.infer<typeof erpAccountSubjectMutationResponseSchema>;
+export type ErpJournalEntryStatus = z.infer<typeof erpJournalEntryStatusSchema>;
+export type ErpJournalEntry = z.infer<typeof erpJournalEntrySchema>;
+export type ErpJournalEntryCreateRequest = z.infer<typeof erpJournalEntryCreateRequestSchema>;
+export type ErpJournalEntryStatusUpdateRequest = z.infer<typeof erpJournalEntryStatusUpdateRequestSchema>;
+export type ErpJournalEntryListResponse = z.infer<typeof erpJournalEntryListResponseSchema>;
+export type ErpJournalEntryMutationResponse = z.infer<typeof erpJournalEntryMutationResponseSchema>;
 export type ErpAccountingMappingType = z.infer<typeof erpAccountingMappingTypeSchema>;
 export type ErpAccountingMappingStatus = z.infer<typeof erpAccountingMappingStatusSchema>;
 export type ErpAccountingMappingRecordStatus = z.infer<typeof erpAccountingMappingRecordStatusSchema>;
