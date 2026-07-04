@@ -43,6 +43,7 @@ const boxLabels: Record<MailBox, string> = {
 
 type MailFolderId = "favorites" | "inbox" | "sent" | "drafts" | "scheduled" | "spam" | "trash" | "external";
 type MailView = MailFolderId | "compose" | "security";
+type MailComposeMode = "new" | "reply" | "replyAll" | "forward";
 
 type MailFolderConfig = {
   id: MailFolderId;
@@ -107,6 +108,30 @@ function getRecipientLabel(recipient: MailRecipient) {
   return meta ? `${recipient.displayName} <${recipient.email}> · ${meta}` : `${recipient.displayName} <${recipient.email}>`;
 }
 
+function stripHtml(value: string) {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function ensureReplySubject(subject: string) {
+  return subject.trim().toLowerCase().startsWith("re:") ? subject : `Re: ${subject}`;
+}
+
+function ensureForwardSubject(subject: string) {
+  return subject.trim().toLowerCase().startsWith("fw:") ? subject : `Fw: ${subject}`;
+}
+
+function quotedMailBody(message: MailMessage) {
+  const summary = stripHtml(message.body);
+  return `<p></p><blockquote><p><strong>원문</strong> · ${message.senderName}</p><p>${summary || "본문 없음"}</p></blockquote>`;
+}
+
+const composeModeLabel: Record<MailComposeMode, string> = {
+  new: "메일 작성",
+  reply: "답장 작성",
+  replyAll: "전체답장 작성",
+  forward: "전달 작성",
+};
+
 const mailRecipientSectionLabels = {
   internal: "전사 내 계정 메일",
   history: "발송/수신 이력이 있는 메일",
@@ -119,6 +144,9 @@ function getRecipientSearchPrompt(query: string) {
 export function MailClient() {
   const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [composeMode, setComposeMode] = useState<MailComposeMode>("new");
+  const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
@@ -162,6 +190,8 @@ export function MailClient() {
   const trashFolders = visibleFolders.filter((folder) => folder.group === "trash");
   const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
   const currentBox = isMailBox(view) ? view : null;
+  const selectedMessage = items.find((message) => message.id === selectedMessageId) ?? items[0] ?? null;
+  const selectedMessageAttachments = selectedMessage ? attachmentsByMessageId[selectedMessage.id] ?? [] : [];
   const selectedRecipients = recipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
   const selectedCcRecipients = ccUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
   const addressBookSelectedRecipients = addressBookRecipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
@@ -266,6 +296,7 @@ export function MailClient() {
     }
     const parsed = mailMessageListResponseSchema.parse(payload);
     setItems(parsed.data.items);
+    setSelectedMessageId((current) => parsed.data.items.some((message) => message.id === current) ? current : parsed.data.items[0]?.id ?? null);
     setCounts(parsed.data.counts);
     await loadAttachments(parsed.data.items);
     setStatus(`${boxLabels[nextBox]} ${parsed.data.items.length}건을 불러왔습니다.`);
@@ -331,6 +362,51 @@ export function MailClient() {
   function closeRecipientPopup() {
     setActiveRecipientPopup(null);
     setManualRecipientPopupTarget(null);
+  }
+
+  function openNewCompose() {
+    setComposeMode("new");
+    setComposeSourceMessageId(null);
+    setRecipientUserIds([]);
+    setCcUserIds([]);
+    setRecipientQuery("");
+    setCcQuery("");
+    setSubject("");
+    setBody("<p></p>");
+    setPendingAttachments([]);
+    setView("compose");
+  }
+
+  function openComposeFromMessage(mode: Exclude<MailComposeMode, "new">, message: MailMessage) {
+    setComposeMode(mode);
+    setComposeSourceMessageId(message.id);
+    setPendingAttachments([]);
+    setCcUserIds([]);
+    setCcQuery("");
+    setRecipientQuery("");
+    setRecipientUserIds(mode === "forward" || !message.senderUserId ? [] : [message.senderUserId]);
+    setRecipientLookup((current) => ({
+      ...current,
+      ...(message.senderUserId ? { [message.senderUserId]: { userId: message.senderUserId, employeeId: null, displayName: message.senderName, email: message.senderName, departmentName: null, positionName: null, sourceKind: "history" as const } } : {}),
+    }));
+    setSubject(mode === "forward" ? ensureForwardSubject(message.subject) : ensureReplySubject(message.subject));
+    setBody(quotedMailBody(message));
+    setView("compose");
+    setStatus(`${composeModeLabel[mode]} 화면을 열었습니다. Enter 입력은 줄바꿈/선택에만 쓰고 발송은 보내기 버튼으로 실행합니다.`);
+  }
+
+  function handleComposeKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest(".tox") || target.tagName === "TEXTAREA") {
+      return;
+    }
+    if (target.tagName === "INPUT" || target.tagName === "BUTTON") {
+      event.preventDefault();
+    }
   }
 
   function openAddressBook(target: "to" | "cc") {
@@ -731,7 +807,7 @@ export function MailClient() {
           <FeaturePageOverflowMenu label="메일" />
         </div>
         {view !== "compose" ? (
-          <button className="board-write-button mail-write-button" type="button" onClick={() => setView("compose")}>메일쓰기</button>
+          <button className="board-write-button mail-write-button" type="button" onClick={openNewCompose}>메일쓰기</button>
         ) : null}
         <div className="mail-folder-list" role="tree" aria-label="메일함 목록">
           {standaloneBeforeMailbox.map((folder) => renderFolderButton(folder))}
@@ -752,13 +828,13 @@ export function MailClient() {
       <section className="feature-workspace__panel" aria-labelledby="mail-panel-heading">
         <div className="feature-workspace__panel-header">
           <div>
-            <h2 id="mail-panel-heading">{view === "compose" ? "메일 작성" : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
+            <h2 id="mail-panel-heading">{view === "compose" ? composeModeLabel[composeMode] : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
           </div>
         </div>
         <p className="feature-workspace__panel-status" role="status">{status}</p>
 
         {view === "compose" ? (
-          <form className="mail-compose-form" onSubmit={sendMessage}>
+          <form className="mail-compose-form" onSubmit={sendMessage} onKeyDown={handleComposeKeyDown} data-compose-mode={composeMode} data-source-message-id={composeSourceMessageId ?? undefined}>
             <div className="mail-compose-toolbar" aria-label="메일 작성 작업">
               <button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary mail-compose-send-button" disabled={isSubmitting} type="submit">
                 {isSubmitting ? "처리 중" : "보내기"}
@@ -876,18 +952,46 @@ export function MailClient() {
             ) : null}
           </form>
         ) : currentBox ? (
-          <div className="feature-workspace__rows">
-            {items.length === 0 ? (
-              <article className="feature-workspace__row"><div><strong>표시할 메일이 없습니다.</strong><span>DB 조회 결과</span></div><em>비어 있음</em></article>
-            ) : items.map((message) => (
-              <article className="feature-workspace__row" key={message.id}>
-                <div>
-                  <strong>{message.subject}</strong>
-                  <span>{formatMeta(message, currentBox)}</span>
-                  <p>{message.body}</p>
-                  {attachmentsByMessageId[message.id]?.length ? (
-                    <ul className="feature-workspace__notes">
-                      {attachmentsByMessageId[message.id].map((attachment) => (
+          <div className="mail-detail-layout">
+            <div className="feature-workspace__rows mail-detail-layout__list" aria-label={`${boxLabels[currentBox]} 목록`}>
+              {items.length === 0 ? (
+                <article className="feature-workspace__row"><div><strong>표시할 메일이 없습니다.</strong><span>DB 조회 결과</span></div><em>비어 있음</em></article>
+              ) : items.map((message) => (
+                <article className="feature-workspace__row" key={message.id}>
+                  <button
+                    aria-pressed={selectedMessage?.id === message.id}
+                    className="mail-message-select-button"
+                    type="button"
+                    onClick={() => setSelectedMessageId(message.id)}
+                  >
+                    <strong>{message.subject}</strong>
+                    <span>{formatMeta(message, currentBox)}</span>
+                  </button>
+                  {currentBox === "inbox" && !message.readAt ? (
+                    <button className="mail-compose-toolbar-button" onClick={() => void markRead(message.id)} type="button">읽음</button>
+                  ) : <em>{message.importance === "important" ? "중요" : message.readAt ? "읽음" : "발송"}</em>}
+                </article>
+              ))}
+            </div>
+
+            <section className="mail-detail-panel" aria-label="메일 상세">
+              {selectedMessage ? (
+                <>
+                  <div className="mail-detail-panel__header">
+                    <div>
+                      <strong>{selectedMessage.subject}</strong>
+                      <span>{formatMeta(selectedMessage, currentBox)}</span>
+                    </div>
+                    <div className="mail-detail-panel__actions" aria-label="메일 상세 작업">
+                      {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("reply", selectedMessage)}>답장</button> : null}
+                      {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
+                      <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("forward", selectedMessage)}>전달</button>
+                    </div>
+                  </div>
+                  <div className="mail-detail-panel__body" dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />
+                  {selectedMessageAttachments.length ? (
+                    <ul className="feature-workspace__notes" aria-label="메일 첨부파일">
+                      {selectedMessageAttachments.map((attachment) => (
                         <li key={attachment.id}>
                           <a href={appRoutes.mail.downloadAttachment(attachment.id)}>{attachment.fileName}</a>
                           <span> · {Math.ceil(attachment.fileSize / 1024)}KB</span>
@@ -895,12 +999,11 @@ export function MailClient() {
                       ))}
                     </ul>
                   ) : null}
-                </div>
-                {currentBox === "inbox" && !message.readAt ? (
-                  <button className="mail-compose-toolbar-button" onClick={() => void markRead(message.id)} type="button">읽음</button>
-                ) : <em>{message.importance === "important" ? "중요" : message.readAt ? "읽음" : "발송"}</em>}
-              </article>
-            ))}
+                </>
+              ) : (
+                <article className="feature-workspace__row"><div><strong>선택한 메일이 없습니다.</strong><span>목록에서 메일을 선택하세요.</span></div><em>대기</em></article>
+              )}
+            </section>
           </div>
         ) : (
           <div className="feature-workspace__rows">
