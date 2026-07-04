@@ -4515,6 +4515,16 @@ li {
   background: var(--primary-soft);
 }
 
+.mail-compose-row--sender {
+  grid-template-columns: 96px minmax(220px, 360px) 1fr;
+  align-items: center;
+}
+
+.mail-sender-status {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .mail-integration-settings,
 .mail-settings-card,
 .mail-settings-guide {

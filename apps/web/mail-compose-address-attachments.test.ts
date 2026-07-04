@@ -47,6 +47,10 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("SMTP/API provider는 미연결 상태로 저장");
     expect(mailClient).toContain("appRoutes.mail.accounts");
     expect(mailClient).toContain("appRoutes.mail.aliases");
+    expect(mailClient).toContain("보낸사람 계정");
+    expect(mailClient).toContain("senderMailAccountId: selectedSenderOption?.accountId || undefined");
+    expect(mailClient).toContain("senderMailAliasId: selectedSenderOption?.aliasId || undefined");
+    expect(mailClient).toContain("SMTP/API 연결 전까지 발신주소 선택값만 저장됩니다.");
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });

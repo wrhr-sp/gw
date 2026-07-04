@@ -5,6 +5,10 @@ type MailRow = {
   company_id: string;
   sender_user_id: string;
   sender_name: string;
+  sender_mail_account_id?: string | null;
+  sender_mail_alias_id?: string | null;
+  sender_email?: string | null;
+  sender_display_name?: string | null;
   recipient_user_id: string | null;
   recipient_name: string | null;
   subject: string;
@@ -30,6 +34,10 @@ function mapMailMessage(row: MailRow): MailMessage {
     companyId: row.company_id,
     senderUserId: row.sender_user_id,
     senderName: row.sender_name,
+    senderMailAccountId: row.sender_mail_account_id ?? null,
+    senderMailAliasId: row.sender_mail_alias_id ?? null,
+    senderEmail: row.sender_email ?? null,
+    senderDisplayName: row.sender_display_name ?? null,
     recipientUserId: row.recipient_user_id,
     recipientName: row.recipient_name,
     subject: row.subject,
@@ -170,6 +178,10 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         m.company_id,
         m.sender_user_id,
         coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
+        m.sender_mail_account_id,
+        m.sender_mail_alias_id,
+        m.sender_email,
+        m.sender_display_name,
         m.recipient_user_id,
         coalesce(recipient.display_name, recipient.login_id) as recipient_name,
         m.subject,
@@ -197,6 +209,10 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         m.company_id,
         m.sender_user_id,
         coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
+        m.sender_mail_account_id,
+        m.sender_mail_alias_id,
+        m.sender_email,
+        m.sender_display_name,
         m.recipient_user_id,
         coalesce(recipient.display_name, recipient.login_id) as recipient_name,
         m.subject,
@@ -223,6 +239,10 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         m.company_id,
         m.sender_user_id,
         coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
+        m.sender_mail_account_id,
+        m.sender_mail_alias_id,
+        m.sender_email,
+        m.sender_display_name,
         m.recipient_user_id,
         coalesce(recipient.display_name, recipient.login_id) as recipient_name,
         m.subject,
@@ -269,17 +289,21 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
   };
 }
 
-export async function createOperationalMailMessage(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string; subject: string; body: string; importance: MailMessage["importance"] }) {
+export async function createOperationalMailMessage(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string; subject: string; body: string; importance: MailMessage["importance"]; senderMailAccountId?: string | null; senderMailAliasId?: string | null; senderEmail?: string | null; senderDisplayName?: string | null }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`
     insert into mail_messages (
-      id, company_id, sender_user_id, recipient_user_id, subject, body, status, importance, sent_at, created_at, updated_at
+      id, company_id, sender_user_id, recipient_user_id, sender_mail_account_id, sender_mail_alias_id, sender_email, sender_display_name, subject, body, status, importance, sent_at, created_at, updated_at
     )
     select
       ${input.id},
       ${input.companyId},
       ${input.senderUserId},
       u.id,
+      ${input.senderMailAccountId ?? null},
+      ${input.senderMailAliasId ?? null},
+      ${input.senderEmail ?? null},
+      ${input.senderDisplayName ?? null},
       ${input.subject},
       ${input.body},
       'sent',
@@ -297,6 +321,10 @@ export async function createOperationalMailMessage(env: DatabaseEnv | undefined,
       mail_messages.company_id,
       mail_messages.sender_user_id,
       (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      mail_messages.sender_mail_account_id,
+      mail_messages.sender_mail_alias_id,
+      mail_messages.sender_email,
+      mail_messages.sender_display_name,
       mail_messages.recipient_user_id,
       (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
       mail_messages.subject,
@@ -313,7 +341,7 @@ export async function createOperationalMailMessage(env: DatabaseEnv | undefined,
   return row ? mapMailMessage(row) : null;
 }
 
-export async function createOperationalMailMessages(env: DatabaseEnv | undefined, input: { idPrefix: string; companyId: string; senderUserId: string; recipientUserIds: string[]; subject: string; body: string; importance: MailMessage["importance"] }) {
+export async function createOperationalMailMessages(env: DatabaseEnv | undefined, input: { idPrefix: string; companyId: string; senderUserId: string; recipientUserIds: string[]; subject: string; body: string; importance: MailMessage["importance"]; senderMailAccountId?: string | null; senderMailAliasId?: string | null; senderEmail?: string | null; senderDisplayName?: string | null }) {
   const messages: MailMessage[] = [];
   const uniqueRecipientIds = Array.from(new Set(input.recipientUserIds));
 
@@ -326,6 +354,10 @@ export async function createOperationalMailMessages(env: DatabaseEnv | undefined
       subject: input.subject,
       body: input.body,
       importance: input.importance,
+      senderMailAccountId: input.senderMailAccountId,
+      senderMailAliasId: input.senderMailAliasId,
+      senderEmail: input.senderEmail,
+      senderDisplayName: input.senderDisplayName,
     });
     if (message) {
       messages.push(message);
@@ -365,6 +397,10 @@ export async function createOperationalMailDraft(env: DatabaseEnv | undefined, i
       mail_messages.company_id,
       mail_messages.sender_user_id,
       (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      mail_messages.sender_mail_account_id,
+      mail_messages.sender_mail_alias_id,
+      mail_messages.sender_email,
+      mail_messages.sender_display_name,
       mail_messages.recipient_user_id,
       (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
       mail_messages.subject,
@@ -411,6 +447,10 @@ export async function updateOperationalMailDraft(env: DatabaseEnv | undefined, i
       mail_messages.company_id,
       mail_messages.sender_user_id,
       (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      mail_messages.sender_mail_account_id,
+      mail_messages.sender_mail_alias_id,
+      mail_messages.sender_email,
+      mail_messages.sender_display_name,
       mail_messages.recipient_user_id,
       (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
       mail_messages.subject,

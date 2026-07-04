@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mailAccountAliasCreateRequestSchema, mailAccountCreateRequestSchema } from "../src/contracts";
+import { mailAccountAliasCreateRequestSchema, mailAccountCreateRequestSchema, mailMessageSendRequestSchema } from "../src/contracts";
 
 describe("mail integration setting contracts", () => {
   it("accepts provider-open personal and virtual mail accounts", () => {
@@ -32,6 +32,19 @@ describe("mail integration setting contracts", () => {
     })).toMatchObject({
       mailAccountId: "mail_account_1",
       aliasEmail: "invoice@werehere.co.kr",
+    });
+  });
+
+  it("allows sender account or alias selection on send requests", () => {
+    expect(mailMessageSendRequestSchema.parse({
+      recipientUserIds: ["user_1"],
+      senderMailAccountId: "mail_account_1",
+      senderMailAliasId: "mail_alias_1",
+      subject: "발신 계정 테스트",
+      body: "보낸사람 선택값 저장",
+    })).toMatchObject({
+      senderMailAccountId: "mail_account_1",
+      senderMailAliasId: "mail_alias_1",
     });
   });
 });
