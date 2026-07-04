@@ -55,6 +55,7 @@ const requiredTables = [
   'electronic_contract_parties',
   'fleet_vehicles',
   'vehicle_operation_logs',
+  'erp_vendors',
   'audit_logs',
 ];
 
