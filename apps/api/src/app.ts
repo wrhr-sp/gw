@@ -72,6 +72,11 @@ import {
   electronicContractListResponseSchema,
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
+  erpAccountingMappingCreateRequestSchema,
+  erpAccountingMappingListResponseSchema,
+  erpAccountingMappingMutationResponseSchema,
+  erpAccountingMappingStatusUpdateRequestSchema,
+  erpAccountingMappingUpdateRequestSchema,
   erpBillingCreateRequestSchema,
   erpBillingListResponseSchema,
   erpBillingMutationResponseSchema,
@@ -176,6 +181,9 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type ErpAccountingMappingRecordStatus,
+  type ErpAccountingMappingStatus,
+  type ErpAccountingMappingType,
   type ErpBillingStatus,
   type ErpPaymentMatchStatus,
   type ErpReceivableStatus,
@@ -259,6 +267,13 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalErpAccountingMapping,
+  findOperationalErpAccountingMapping,
+  listOperationalErpAccountingMappings,
+  updateOperationalErpAccountingMapping,
+  updateOperationalErpAccountingMappingStatus,
+} from "./lib/operational-erp-accounting-mappings";
 import {
   createOperationalErpBilling,
   findOperationalErpBilling,
@@ -409,6 +424,9 @@ const ERP_BILLING_STATUS_ROUTE = "/api/erp/billings/:billingId/status";
 const ERP_PAYMENT_RECORDS_ROUTE = "/api/erp/payment-records";
 const ERP_PAYMENT_RECORD_DETAIL_ROUTE = "/api/erp/payment-records/:paymentRecordId";
 const ERP_PAYMENT_RECORD_STATUS_ROUTE = "/api/erp/payment-records/:paymentRecordId/status";
+const ERP_ACCOUNTING_MAPPINGS_ROUTE = "/api/erp/accounting-mappings";
+const ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE = "/api/erp/accounting-mappings/:mappingId";
+const ERP_ACCOUNTING_MAPPING_STATUS_ROUTE = "/api/erp/accounting-mappings/:mappingId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -7473,6 +7491,161 @@ app.patch(ERP_PAYMENT_RECORD_STATUS_ROUTE, async (context) => {
   });
 
   return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_payment_record.status.update" } }, error: null });
+});
+
+
+app.get(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const mappingType = context.req.query("mappingType") as ErpAccountingMappingType | undefined;
+  const result = await listOperationalErpAccountingMappings(context.env, authResult.auth.user.companyId, mappingType);
+  if (!result) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_accounting_mapping",
+    resourceId: "erp_accounting_mapping_list",
+    accessType: "read",
+    purpose: "ERP 회계 코드 매핑 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 회계 코드 접근",
+    metadata: { source: "erp-accounting-mappings-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpAccountingMappingListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpAccountingMappingCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "회계 코드 매핑 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const created = await createOperationalErpAccountingMapping(context.env, {
+    id: `erp_mapping_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.mapping) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_accounting_mapping",
+    resourceId: created.mapping.id,
+    accessType: "create",
+    purpose: "ERP 회계 코드 매핑 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 회계 코드 처리",
+    metadata: { source: "erp-accounting-mappings-api", mappingType: created.mapping.mappingType, mappingStatus: created.mapping.mappingStatus },
+  });
+
+  return jsonSuccess(context, erpAccountingMappingMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_accounting_mapping.create" } }, error: null }, 201);
+});
+
+app.get(ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const mappingId = context.req.param("mappingId");
+  const result = await findOperationalErpAccountingMapping(context.env, authResult.auth.user.companyId, mappingId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 상세 조회");
+  if (!result.mapping) return jsonError(context, "FORBIDDEN", "허용되지 않은 회계 코드 매핑입니다.", 403, { mappingId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.mapping.createdByUserId,
+    resourceType: "erp_accounting_mapping",
+    resourceId: result.mapping.id,
+    accessType: "read",
+    purpose: "ERP 회계 코드 매핑 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 회계 코드 접근",
+    metadata: { source: "erp-accounting-mappings-api", mappingType: result.mapping.mappingType, mappingStatus: result.mapping.mappingStatus },
+  });
+
+  return jsonSuccess(context, erpAccountingMappingMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_accounting_mapping.read" } }, error: null });
+});
+
+app.patch(ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const mappingId = context.req.param("mappingId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpAccountingMappingUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "회계 코드 매핑 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpAccountingMapping(context.env, authResult.auth.user.companyId, mappingId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 수정");
+  if (!before.mapping) return jsonError(context, "FORBIDDEN", "허용되지 않은 회계 코드 매핑입니다.", 403, { mappingId, route: context.req.path });
+
+  const updated = await updateOperationalErpAccountingMapping(context.env, {
+    companyId: authResult.auth.user.companyId,
+    mappingId,
+    actorUserId: authResult.auth.user.id,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.mapping) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.mapping.createdByUserId,
+    resourceType: "erp_accounting_mapping",
+    resourceId: updated.mapping.id,
+    accessType: "update",
+    purpose: "ERP 회계 코드 매핑 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 회계 코드 처리",
+    metadata: { source: "erp-accounting-mappings-api", reason: parsed.data.reason, beforeStatus: before.mapping.mappingStatus, afterStatus: updated.mapping.mappingStatus },
+  });
+
+  return jsonSuccess(context, erpAccountingMappingMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_accounting_mapping.update" } }, error: null });
+});
+
+app.patch(ERP_ACCOUNTING_MAPPING_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const mappingId = context.req.param("mappingId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpAccountingMappingStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "회계 코드 매핑 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpAccountingMapping(context.env, authResult.auth.user.companyId, mappingId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 상태 변경");
+  if (!before.mapping) return jsonError(context, "FORBIDDEN", "허용되지 않은 회계 코드 매핑입니다.", 403, { mappingId, route: context.req.path });
+
+  const updated = await updateOperationalErpAccountingMappingStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    mappingId,
+    actorUserId: authResult.auth.user.id,
+    status: parsed.data.status as ErpAccountingMappingRecordStatus,
+    mappingStatus: parsed.data.mappingStatus as ErpAccountingMappingStatus | undefined,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.mapping) return jsonDatabaseRequired(context, "ERP 회계 코드 매핑 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.mapping.createdByUserId,
+    resourceType: "erp_accounting_mapping",
+    resourceId: updated.mapping.id,
+    accessType: "update",
+    purpose: "ERP 회계 코드 매핑 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 회계 코드 처리",
+    metadata: { source: "erp-accounting-mappings-api", reason: parsed.data.reason, beforeStatus: before.mapping.status, afterStatus: updated.mapping.status },
+  });
+
+  return jsonSuccess(context, erpAccountingMappingMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_accounting_mapping.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {

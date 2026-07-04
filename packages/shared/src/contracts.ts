@@ -119,6 +119,9 @@ export const appRoutes = {
     paymentRecords: "/api/erp/payment-records",
     paymentRecordDetail: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}`,
     paymentRecordStatus: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}/status`,
+    accountingMappings: "/api/erp/accounting-mappings",
+    accountingMappingDetail: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}`,
+    accountingMappingStatus: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}/status`,
   },
   vehicleOperationLogs: {
     vehicles: "/api/vehicle-operation/vehicles",
@@ -2630,6 +2633,72 @@ export const erpPaymentRecordMutationResponseSchema = successResponseSchema(
   }),
 );
 
+export const erpAccountingMappingTypeSchema = z.enum([
+  "expense_category",
+  "revenue_category",
+  "department",
+  "branch",
+  "project",
+  "tax_type",
+  "payment_method",
+  "vendor_type",
+]);
+export const erpAccountingMappingStatusSchema = z.enum(["unmapped", "mapped", "review_required", "disabled"]);
+export const erpAccountingMappingRecordStatusSchema = z.enum(["active", "inactive", "archived"]);
+
+export const erpAccountingMappingSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  mappingType: erpAccountingMappingTypeSchema,
+  internalCode: z.string(),
+  internalName: z.string(),
+  externalProvider: z.literal("kyungrinara").nullable(),
+  externalCode: z.string().nullable(),
+  externalName: z.string().nullable(),
+  mappingStatus: erpAccountingMappingStatusSchema,
+  status: erpAccountingMappingRecordStatusSchema,
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpAccountingMappingCreateRequestSchema = z.object({
+  mappingType: erpAccountingMappingTypeSchema,
+  internalCode: z.string().min(1).max(120),
+  internalName: z.string().min(1).max(200),
+  externalCode: z.string().max(120).optional(),
+  externalName: z.string().max(200).optional(),
+  mappingStatus: erpAccountingMappingStatusSchema.default("unmapped"),
+  memo: z.string().max(1000).optional(),
+});
+
+export const erpAccountingMappingUpdateRequestSchema = erpAccountingMappingCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const erpAccountingMappingStatusUpdateRequestSchema = z.object({
+  status: erpAccountingMappingRecordStatusSchema,
+  mappingStatus: erpAccountingMappingStatusSchema.optional(),
+  reason: z.string().min(1),
+});
+
+export const erpAccountingMappingListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(erpAccountingMappingSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const erpAccountingMappingMutationResponseSchema = successResponseSchema(
+  z.object({
+    mapping: erpAccountingMappingSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
 export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
 export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
@@ -3010,6 +3079,15 @@ export type ErpPaymentRecordUpdateRequest = z.infer<typeof erpPaymentRecordUpdat
 export type ErpPaymentRecordStatusUpdateRequest = z.infer<typeof erpPaymentRecordStatusUpdateRequestSchema>;
 export type ErpPaymentRecordListResponse = z.infer<typeof erpPaymentRecordListResponseSchema>;
 export type ErpPaymentRecordMutationResponse = z.infer<typeof erpPaymentRecordMutationResponseSchema>;
+export type ErpAccountingMappingType = z.infer<typeof erpAccountingMappingTypeSchema>;
+export type ErpAccountingMappingStatus = z.infer<typeof erpAccountingMappingStatusSchema>;
+export type ErpAccountingMappingRecordStatus = z.infer<typeof erpAccountingMappingRecordStatusSchema>;
+export type ErpAccountingMapping = z.infer<typeof erpAccountingMappingSchema>;
+export type ErpAccountingMappingCreateRequest = z.infer<typeof erpAccountingMappingCreateRequestSchema>;
+export type ErpAccountingMappingUpdateRequest = z.infer<typeof erpAccountingMappingUpdateRequestSchema>;
+export type ErpAccountingMappingStatusUpdateRequest = z.infer<typeof erpAccountingMappingStatusUpdateRequestSchema>;
+export type ErpAccountingMappingListResponse = z.infer<typeof erpAccountingMappingListResponseSchema>;
+export type ErpAccountingMappingMutationResponse = z.infer<typeof erpAccountingMappingMutationResponseSchema>;
 export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
 export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
 export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
