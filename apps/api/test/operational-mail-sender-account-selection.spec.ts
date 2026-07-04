@@ -14,7 +14,9 @@ describe("mail sender account selection API wiring", () => {
   });
 
   it("keeps virtual accounts admin-gated and aliases parent-bound", () => {
-    expect(mailSettings).toContain("if (!actor.isAdmin && (row.account_type !== \"personal\" || row.owner_user_id !== actor.userId)) return null;");
+    expect(mailSettings).toContain("row.has_sender_grant");
+    expect(mailSettings).toContain("mail_sender_access_grants");
+    expect(mailSettings).toContain("allowedSenderDepartmentIds");
     expect(mailSettings).toContain("join mail_accounts m on m.id = a.mail_account_id");
   });
 
@@ -22,5 +24,6 @@ describe("mail sender account selection API wiring", () => {
     expect(operationalMail).toContain("sender_mail_account_id");
     expect(operationalMail).toContain("sender_mail_alias_id");
     expect(operationalMail).toContain("sender_display_name");
+    expect(operationalMail).toContain("sender_display_name = ${input.senderDisplayName ?? null}");
   });
 });

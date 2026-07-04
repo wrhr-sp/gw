@@ -8,10 +8,14 @@ describe("mail integration setting contracts", () => {
       email: "Tax@Werehere.co.kr",
       displayName: "세금계산서 수취",
       providerKind: "unconfigured",
+      allowedSenderUserIds: ["user_accounting"],
+      allowedSenderDepartmentIds: ["department_finance"],
     })).toMatchObject({
       accountType: "virtual",
       email: "tax@werehere.co.kr",
       providerKind: "unconfigured",
+      allowedSenderUserIds: ["user_accounting"],
+      allowedSenderDepartmentIds: ["department_finance"],
     });
 
     expect(mailAccountCreateRequestSchema.parse({
@@ -29,9 +33,11 @@ describe("mail integration setting contracts", () => {
       mailAccountId: "mail_account_1",
       aliasEmail: "invoice@werehere.co.kr",
       displayName: "세금계산서 수취 별칭",
+      allowedSenderUserIds: ["user_tax"],
     })).toMatchObject({
       mailAccountId: "mail_account_1",
       aliasEmail: "invoice@werehere.co.kr",
+      allowedSenderUserIds: ["user_tax"],
     });
   });
 

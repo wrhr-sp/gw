@@ -312,6 +312,8 @@ export const mailAccountSchema = z.object({
   providerName: z.string(),
   isDefault: z.boolean(),
   isActive: z.boolean(),
+  allowedSenderUserIds: z.array(z.string()).optional(),
+  allowedSenderDepartmentIds: z.array(z.string()).optional(),
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -325,6 +327,8 @@ export const mailAccountAliasSchema = z.object({
   displayName: z.string(),
   isDefault: z.boolean(),
   isActive: z.boolean(),
+  allowedSenderUserIds: z.array(z.string()).optional(),
+  allowedSenderDepartmentIds: z.array(z.string()).optional(),
   createdBy: z.string(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -339,6 +343,8 @@ export const mailAccountCreateRequestSchema = z.object({
   providerKind: mailProviderKindSchema.default("unconfigured"),
   providerName: z.string().trim().max(80).optional(),
   isDefault: z.boolean().default(false),
+  allowedSenderUserIds: z.array(z.string().min(1)).max(100).optional(),
+  allowedSenderDepartmentIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const mailAccountUpdateRequestSchema = z.object({
@@ -349,6 +355,8 @@ export const mailAccountUpdateRequestSchema = z.object({
   providerName: z.string().trim().max(80).optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  allowedSenderUserIds: z.array(z.string().min(1)).max(100).optional(),
+  allowedSenderDepartmentIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const mailAccountAliasCreateRequestSchema = z.object({
@@ -356,12 +364,16 @@ export const mailAccountAliasCreateRequestSchema = z.object({
   aliasEmail: mailExternalEmailSchema,
   displayName: z.string().trim().min(1).max(100),
   isDefault: z.boolean().default(false),
+  allowedSenderUserIds: z.array(z.string().min(1)).max(100).optional(),
+  allowedSenderDepartmentIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const mailAccountAliasUpdateRequestSchema = z.object({
   displayName: z.string().trim().min(1).max(100).optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  allowedSenderUserIds: z.array(z.string().min(1)).max(100).optional(),
+  allowedSenderDepartmentIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const mailIntegrationSettingsResponseSchema = successResponseSchema(

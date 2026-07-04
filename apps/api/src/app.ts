@@ -6197,6 +6197,7 @@ app.get(appRoutes.mail.accounts, async (context) => {
     const settings = await listOperationalMailIntegrationSettings(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     });
     return jsonSuccess(context, mailIntegrationSettingsResponseSchema, { ok: true, data: { ...settings, source: "postgres" }, error: null });
@@ -6212,6 +6213,7 @@ app.get(appRoutes.mail.aliases, async (context) => {
     const settings = await listOperationalMailIntegrationSettings(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     });
     return jsonSuccess(context, mailIntegrationSettingsResponseSchema, { ok: true, data: { ...settings, source: "postgres" }, error: null });
@@ -6232,6 +6234,7 @@ app.post(appRoutes.mail.accounts, async (context) => {
     const account = await createOperationalMailAccount(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, {
       id: buildGeneratedMailSettingId("account", authResult.auth.user.companyId, authResult.auth.user.id),
@@ -6258,6 +6261,7 @@ app.patch(appRoutes.mail.account(":id"), async (context) => {
     const account = await updateOperationalMailAccount(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, accountId, parsed.data);
     if (!account) return jsonError(context, "FORBIDDEN", "수정할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
@@ -6275,6 +6279,7 @@ app.delete(appRoutes.mail.account(":id"), async (context) => {
     const deleted = await deleteOperationalMailAccount(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, accountId);
     if (!deleted) return jsonError(context, "FORBIDDEN", "삭제할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
@@ -6296,6 +6301,7 @@ app.post(appRoutes.mail.aliases, async (context) => {
     const alias = await createOperationalMailAlias(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, { id: buildGeneratedMailSettingId("alias", authResult.auth.user.companyId, authResult.auth.user.id), ...parsed.data });
     if (!alias) return jsonError(context, "FORBIDDEN", "별칭을 등록할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
@@ -6318,6 +6324,7 @@ app.patch(appRoutes.mail.alias(":id"), async (context) => {
     const alias = await updateOperationalMailAlias(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, aliasId, parsed.data);
     if (!alias) return jsonError(context, "FORBIDDEN", "수정할 수 없는 별칭계정입니다.", 403, { route: context.req.path });
@@ -6335,6 +6342,7 @@ app.delete(appRoutes.mail.alias(":id"), async (context) => {
     const deleted = await deleteOperationalMailAlias(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
+      employeeId: authResult.auth.user.employeeId,
       isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
     }, aliasId);
     if (!deleted) return jsonError(context, "FORBIDDEN", "삭제할 수 없는 별칭계정입니다.", 403, { route: context.req.path });
@@ -6423,6 +6431,20 @@ app.post(appRoutes.mail.saveDraft, async (context) => {
       ...(parsed.data.recipientUserIds ?? []),
       ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
     ]));
+    const senderAccount = parsed.data.senderMailAccountId || parsed.data.senderMailAliasId
+      ? await resolveOperationalMailSenderAccount(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        employeeId: authResult.auth.user.employeeId,
+        isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+      }, {
+        accountId: parsed.data.senderMailAccountId,
+        aliasId: parsed.data.senderMailAliasId,
+      })
+      : null;
+    if ((parsed.data.senderMailAccountId || parsed.data.senderMailAliasId) && !senderAccount) {
+      return jsonError(context, "FORBIDDEN", "선택한 보낸사람 계정을 사용할 수 없습니다.", 403, { route: context.req.path });
+    }
     const draftInput = {
       companyId: authResult.auth.user.companyId,
       senderUserId: authResult.auth.user.id,
@@ -6430,6 +6452,10 @@ app.post(appRoutes.mail.saveDraft, async (context) => {
       subject: parsed.data.subject?.trim() || "(제목 없음)",
       body: parsed.data.body?.trim() || "<p></p>",
       importance: parsed.data.importance,
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
     };
     const draft = parsed.data.draftMessageId
       ? await updateOperationalMailDraft(context.env, { id: parsed.data.draftMessageId, ...draftInput })

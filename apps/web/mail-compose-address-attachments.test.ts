@@ -51,6 +51,10 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("senderMailAccountId: selectedSenderOption?.accountId || undefined");
     expect(mailClient).toContain("senderMailAliasId: selectedSenderOption?.aliasId || undefined");
     expect(mailClient).toContain("SMTP/API 연결 전까지 발신주소 선택값만 저장됩니다.");
+    expect(mailClient).toContain("발신 허용 사용자 ID");
+    expect(mailClient).toContain("발신 허용 부서 ID");
+    expect(mailClient).toContain("formatGrantCount");
+    expect(mailClient).toContain("const defaultAlias = parsed.data.aliases.find((alias) => alias.isActive && alias.isDefault)");
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });
