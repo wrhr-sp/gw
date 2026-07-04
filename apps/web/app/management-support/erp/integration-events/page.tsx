@@ -167,7 +167,7 @@ export default function ErpIntegrationEventsPage() {
 
   return (
     <PageShell title="ERP/경리 · 연동 로그/실패함" titlePlacement="content" titleHref={null}>
-      <div className="feature-workspace" aria-label="ERP 경리나라 연동 로그 실패함">
+      <div className="feature-workspace" aria-label="ERP 외부 연동 로그 실패함">
         <aside className="feature-workspace__nav" aria-label="ERP 경리 메뉴">
           <div className="feature-workspace__nav-header">
             <h1><button className="page-shell__title-link page-shell__title-button" onClick={() => void reloadEvents()} type="button">연동 로그/실패함</button></h1>
@@ -185,7 +185,7 @@ export default function ErpIntegrationEventsPage() {
           <div className="feature-workspace__panel-header">
             <div>
               <h2 id="erp-integration-events-heading">연동 로그 / 실패함</h2>
-              <p>경리나라 실제 API 연결 전, 전송대기·성공·실패·재전송 필요 이력을 내부 DB에 먼저 저장합니다.</p>
+              <p>자체 ERP를 기준으로 외부 시스템 전송대기·성공·실패·재전송 필요 이력을 내부 DB에 저장합니다.</p>
             </div>
             <p className="feature-workspace__permission-hint">접근은 기존 부서업무포털 권한 설정을 따르고 권한 설정 자체는 변경하지 않습니다.</p>
           </div>

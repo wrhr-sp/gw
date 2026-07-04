@@ -19,7 +19,7 @@ type ErpVendorRow = {
   settlement_term: string | null;
   memo: string | null;
   status: ErpVendorStatus;
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_reference_id: string | null;
   sync_status: ErpVendor["syncStatus"];
   last_synced_at: string | Date | null;

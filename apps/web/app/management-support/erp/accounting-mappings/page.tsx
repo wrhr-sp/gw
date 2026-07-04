@@ -165,7 +165,7 @@ export default function ErpAccountingMappingsPage() {
           <div className="feature-workspace__panel-header">
             <div>
               <h2 id="erp-accounting-mappings-heading">회계 코드 매핑</h2>
-              <p>경리나라 실제 코드 연결 전, 우리 내부 비용·매출·부서·지점 코드를 먼저 정리합니다.</p>
+              <p>자체 ERP 기준으로 비용·매출·부서·지점 코드를 정리하고, 필요한 외부 회계 코드는 선택 연결합니다.</p>
             </div>
             <p className="feature-workspace__permission-hint">접근은 기존 부서업무포털 권한 설정을 따르고 권한 설정 자체는 변경하지 않습니다.</p>
           </div>
@@ -183,13 +183,13 @@ export default function ErpAccountingMappingsPage() {
             <article className="feature-workspace__row">
               <div>
                 <strong>매핑 등록</strong>
-                <span>내부 코드와 향후 경리나라 코드 후보를 저장합니다. 실제 전송은 하지 않습니다.</span>
+                <span>내부 코드와 선택 외부 회계 코드 후보를 저장합니다. 실제 전송은 하지 않습니다.</span>
                 <div className="form-grid form-grid--two">
                   <label>매핑 유형<select value={form.mappingType} onChange={(event) => setForm((current) => ({ ...current, mappingType: event.target.value as MappingFormState["mappingType"] }))}><option value="expense_category">비용 항목</option><option value="revenue_category">매출 구분</option><option value="department">부서 코드</option><option value="branch">지점 코드</option><option value="project">프로젝트 코드</option><option value="tax_type">세금 구분</option><option value="payment_method">결제수단</option><option value="vendor_type">거래처 유형</option></select></label>
                   <label>내부 코드<input value={form.internalCode} onChange={(event) => setForm((current) => ({ ...current, internalCode: event.target.value }))} required /></label>
                   <label>내부 이름<input value={form.internalName} onChange={(event) => setForm((current) => ({ ...current, internalName: event.target.value }))} required /></label>
-                  <label>경리나라 코드 후보<input value={form.externalCode} onChange={(event) => setForm((current) => ({ ...current, externalCode: event.target.value }))} /></label>
-                  <label>경리나라 이름 후보<input value={form.externalName} onChange={(event) => setForm((current) => ({ ...current, externalName: event.target.value }))} /></label>
+                  <label>외부 회계 코드 후보<input value={form.externalCode} onChange={(event) => setForm((current) => ({ ...current, externalCode: event.target.value }))} /></label>
+                  <label>외부 회계 이름 후보<input value={form.externalName} onChange={(event) => setForm((current) => ({ ...current, externalName: event.target.value }))} /></label>
                   <label>매핑 상태<select value={form.mappingStatus} onChange={(event) => setForm((current) => ({ ...current, mappingStatus: event.target.value as MappingFormState["mappingStatus"] }))}><option value="unmapped">미매핑</option><option value="mapped">매핑완료</option><option value="review_required">검토필요</option><option value="disabled">비활성</option></select></label>
                   <label>메모<input value={form.memo} onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))} /></label>
                 </div>
@@ -206,10 +206,10 @@ export default function ErpAccountingMappingsPage() {
                 <div>
                   <strong>{mapping.internalName}</strong>
                   <span>{typeLabel(mapping.mappingType)} · {mapping.internalCode} · {mappingStatusLabel(mapping.mappingStatus)}</span>
-                  <p>{mapping.externalCode ? `경리나라 후보 ${mapping.externalCode} · ${mapping.externalName ?? "이름 미입력"}` : "외부 코드 미입력"}</p>
+                  <p>{mapping.externalCode ? `외부 회계 후보 ${mapping.externalCode} · ${mapping.externalName ?? "이름 미입력"}` : "외부 코드 미입력"}</p>
                   <div className="feature-workspace__row-actions" aria-label={`${mapping.internalName} 매핑 선택`}>
                     <button className="feature-workspace__row-action feature-workspace__row-action--secondary" onClick={() => setSelectedMappingId(mapping.id)} type="button">상세 보기</button>
-                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">경리나라 검증</button>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">외부 코드 검증</button>
                   </div>
                 </div>
                 <em>{mapping.status === "active" ? "사용" : "보관"}</em>

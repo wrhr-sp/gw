@@ -16,7 +16,7 @@ type ErpAccountingMappingRow = {
   mapping_type: ErpAccountingMappingType;
   internal_code: string;
   internal_name: string;
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_code: string | null;
   external_name: string | null;
   mapping_status: ErpAccountingMappingStatus;
@@ -123,7 +123,7 @@ export async function createOperationalErpAccountingMapping(
         updated_by_user_id, created_at, updated_at
       ) values (
         ${input.id}, ${input.companyId}, ${input.data.mappingType}, ${input.data.internalCode.trim()},
-        ${input.data.internalName.trim()}, ${blankToNull(input.data.externalCode) ? "kyungrinara" : null},
+        ${input.data.internalName.trim()}, ${blankToNull(input.data.externalCode) ? "external_erp" : null},
         ${blankToNull(input.data.externalCode)}, ${blankToNull(input.data.externalName)}, ${input.data.mappingStatus},
         ${"active"}, ${blankToNull(input.data.memo)}, ${input.actorUserId}, ${input.actorUserId},
         ${input.createdAt}::timestamptz, ${input.createdAt}::timestamptz
@@ -183,7 +183,7 @@ export async function updateOperationalErpAccountingMapping(
       set mapping_type = ${input.data.mappingType ?? existing.mapping.mappingType},
           internal_code = ${input.data.internalCode?.trim() ?? existing.mapping.internalCode},
           internal_name = ${input.data.internalName?.trim() ?? existing.mapping.internalName},
-          external_provider = ${nextExternalCode ? "kyungrinara" : null},
+          external_provider = ${nextExternalCode ? "external_erp" : null},
           external_code = ${nextExternalCode},
           external_name = ${input.data.externalName === undefined ? existing.mapping.externalName : blankToNull(input.data.externalName)},
           mapping_status = ${input.data.mappingStatus ?? existing.mapping.mappingStatus},

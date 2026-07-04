@@ -12,7 +12,7 @@ const ERP_INTEGRATION_EVENT_SOURCE = "postgres" as const;
 type ErpIntegrationEventRow = {
   id: string;
   company_id: string;
-  provider: "kyungrinara";
+  provider: "external_erp" | "kyungrinara";
   direction: ErpIntegrationEvent["direction"];
   resource_type: ErpIntegrationEventResourceType;
   resource_id: string | null;
@@ -124,7 +124,7 @@ export async function createOperationalErpIntegrationEvent(
         failure_message, safe_payload_summary, safe_response_summary, requested_by_user_id,
         created_at, updated_at
       ) values (
-        ${input.id}, ${input.companyId}, ${"kyungrinara"}, ${input.data.direction}, ${input.data.resourceType},
+        ${input.id}, ${input.companyId}, ${"external_erp"}, ${input.data.direction}, ${input.data.resourceType},
         ${blankToNull(input.data.resourceId)}, ${input.data.title.trim()}, ${input.data.status}, ${input.data.maxAttempts},
         ${input.data.nextRetryAt ?? null}::timestamptz, ${blankToNull(input.data.externalReferenceId)},
         ${blankToNull(input.data.externalStatus)}, ${blankToNull(input.data.failureCode)}, ${blankToNull(input.data.failureMessage)},

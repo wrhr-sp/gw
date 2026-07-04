@@ -6704,7 +6704,7 @@ app.get(ERP_VENDORS_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 거래처 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
-    metadata: { source: "erp-vendors-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-vendors-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpVendorListResponseSchema, { ok: true, data: result, error: null });
@@ -6859,7 +6859,7 @@ app.get(ERP_EXPENSES_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 지출결의 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
-    metadata: { source: "erp-expenses-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-expenses-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpExpenseRequestListResponseSchema, { ok: true, data: result, error: null });
@@ -7023,7 +7023,7 @@ app.get(ERP_EVIDENCE_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 증빙 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 증빙 접근",
-    metadata: { source: "erp-evidence-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-evidence-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpEvidenceListResponseSchema, { ok: true, data: result, error: null });
@@ -7194,7 +7194,7 @@ app.get(ERP_BILLINGS_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 매출/청구 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 매출/청구 접근",
-    metadata: { source: "erp-billings-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-billings-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpBillingListResponseSchema, { ok: true, data: result, error: null });
@@ -7360,7 +7360,7 @@ app.get(ERP_PAYMENT_RECORDS_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 입출금/미수금 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 입출금 접근",
-    metadata: { source: "erp-payment-records-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-payment-records-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpPaymentRecordListResponseSchema, { ok: true, data: result, error: null });
@@ -7527,7 +7527,7 @@ app.get(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {
     accessType: "read",
     purpose: "ERP 회계 코드 매핑 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 회계 코드 접근",
-    metadata: { source: "erp-accounting-mappings-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-accounting-mappings-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpAccountingMappingListResponseSchema, { ok: true, data: result, error: null });
@@ -7671,7 +7671,7 @@ app.get(ERP_INTEGRATION_EVENTS_ROUTE, async (context) => {
 
   const status = context.req.query("status") as ErpIntegrationEventStatus | undefined;
   const result = await listOperationalErpIntegrationEvents(context.env, authResult.auth.user.companyId, status);
-  if (!result) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 목록 조회");
+  if (!result) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 목록 조회");
 
   await recordOperationalPrivacyAccessEvent(context.env, {
     companyId: authResult.auth.user.companyId,
@@ -7680,9 +7680,9 @@ app.get(ERP_INTEGRATION_EVENTS_ROUTE, async (context) => {
     resourceType: "erp_integration_event",
     resourceId: "erp_integration_event_list",
     accessType: "read",
-    purpose: "ERP 경리나라 연동 로그 목록 조회 감사 기록",
+    purpose: "ERP 외부 연동 로그 목록 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 연동 로그 접근",
-    metadata: { source: "erp-integration-events-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+    metadata: { source: "erp-integration-events-api", itemCount: result.items.length, externalProvider: "optional-external-erp" },
   });
 
   return jsonSuccess(context, erpIntegrationEventListResponseSchema, { ok: true, data: result, error: null });
@@ -7703,7 +7703,7 @@ app.post(ERP_INTEGRATION_EVENTS_ROUTE, async (context) => {
     createdAt: new Date().toISOString(),
     data: parsed.data,
   });
-  if (!created?.event) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 생성");
+  if (!created?.event) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 생성");
 
   const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
     companyId: authResult.auth.user.companyId,
@@ -7712,7 +7712,7 @@ app.post(ERP_INTEGRATION_EVENTS_ROUTE, async (context) => {
     resourceType: "erp_integration_event",
     resourceId: created.event.id,
     accessType: "create",
-    purpose: "ERP 경리나라 연동 로그 생성 감사 기록",
+    purpose: "ERP 외부 연동 로그 생성 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 연동 로그 처리",
     metadata: { source: "erp-integration-events-api", status: created.event.status, resourceType: created.event.resourceType, provider: created.event.provider },
   });
@@ -7726,7 +7726,7 @@ app.get(ERP_INTEGRATION_EVENT_DETAIL_ROUTE, async (context) => {
 
   const eventId = context.req.param("eventId");
   const result = await findOperationalErpIntegrationEvent(context.env, authResult.auth.user.companyId, eventId);
-  if (!result) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 상세 조회");
+  if (!result) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 상세 조회");
   if (!result.event) return jsonError(context, "FORBIDDEN", "허용되지 않은 연동 로그입니다.", 403, { eventId, route: context.req.path });
 
   await recordOperationalPrivacyAccessEvent(context.env, {
@@ -7736,7 +7736,7 @@ app.get(ERP_INTEGRATION_EVENT_DETAIL_ROUTE, async (context) => {
     resourceType: "erp_integration_event",
     resourceId: result.event.id,
     accessType: "read",
-    purpose: "ERP 경리나라 연동 로그 상세 조회 감사 기록",
+    purpose: "ERP 외부 연동 로그 상세 조회 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 연동 로그 접근",
     metadata: { source: "erp-integration-events-api", status: result.event.status, resourceType: result.event.resourceType },
   });
@@ -7754,11 +7754,11 @@ app.patch(ERP_INTEGRATION_EVENT_DETAIL_ROUTE, async (context) => {
   if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "연동 로그 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
 
   const before = await findOperationalErpIntegrationEvent(context.env, authResult.auth.user.companyId, eventId);
-  if (!before) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 수정");
+  if (!before) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 수정");
   if (!before.event) return jsonError(context, "FORBIDDEN", "허용되지 않은 연동 로그입니다.", 403, { eventId, route: context.req.path });
 
   const updated = await updateOperationalErpIntegrationEvent(context.env, { companyId: authResult.auth.user.companyId, eventId, updatedAt: new Date().toISOString(), data: parsed.data });
-  if (!updated?.event) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 수정");
+  if (!updated?.event) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 수정");
 
   const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
     companyId: authResult.auth.user.companyId,
@@ -7767,7 +7767,7 @@ app.patch(ERP_INTEGRATION_EVENT_DETAIL_ROUTE, async (context) => {
     resourceType: "erp_integration_event",
     resourceId: updated.event.id,
     accessType: "update",
-    purpose: "ERP 경리나라 연동 로그 수정 감사 기록",
+    purpose: "ERP 외부 연동 로그 수정 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 연동 로그 처리",
     metadata: { source: "erp-integration-events-api", reason: parsed.data.reason, beforeStatus: before.event.status, afterStatus: updated.event.status },
   });
@@ -7785,7 +7785,7 @@ app.patch(ERP_INTEGRATION_EVENT_STATUS_ROUTE, async (context) => {
   if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "연동 로그 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
 
   const before = await findOperationalErpIntegrationEvent(context.env, authResult.auth.user.companyId, eventId);
-  if (!before) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 상태 변경");
+  if (!before) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 상태 변경");
   if (!before.event) return jsonError(context, "FORBIDDEN", "허용되지 않은 연동 로그입니다.", 403, { eventId, route: context.req.path });
 
   const updated = await updateOperationalErpIntegrationEventStatus(context.env, {
@@ -7799,7 +7799,7 @@ app.patch(ERP_INTEGRATION_EVENT_STATUS_ROUTE, async (context) => {
     externalStatus: parsed.data.externalStatus,
     nextRetryAt: parsed.data.nextRetryAt,
   });
-  if (!updated?.event) return jsonDatabaseRequired(context, "ERP 경리나라 연동 로그 상태 변경");
+  if (!updated?.event) return jsonDatabaseRequired(context, "ERP 외부 연동 로그 상태 변경");
 
   const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
     companyId: authResult.auth.user.companyId,
@@ -7808,7 +7808,7 @@ app.patch(ERP_INTEGRATION_EVENT_STATUS_ROUTE, async (context) => {
     resourceType: "erp_integration_event",
     resourceId: updated.event.id,
     accessType: "update",
-    purpose: "ERP 경리나라 연동 로그 상태 변경 감사 기록",
+    purpose: "ERP 외부 연동 로그 상태 변경 감사 기록",
     legalBasis: "부서업무포털 권한 기반 경리 연동 로그 처리",
     metadata: { source: "erp-integration-events-api", reason: parsed.data.reason, beforeStatus: before.event.status, afterStatus: updated.event.status },
   });

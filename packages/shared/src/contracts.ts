@@ -2297,7 +2297,7 @@ export const erpVendorSchema = z.object({
   settlementTerm: z.string().nullable(),
   memo: z.string().nullable(),
   status: erpVendorStatusSchema,
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalReferenceId: z.string().nullable(),
   syncStatus: erpVendorSyncStatusSchema,
   lastSyncedAt: z.string().datetime().nullable(),
@@ -2370,7 +2370,7 @@ export const erpExpenseRequestSchema = z.object({
   approvalDocumentId: z.string().nullable(),
   status: erpExpenseStatusSchema,
   syncStatus: erpVendorSyncStatusSchema,
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalReferenceId: z.string().nullable(),
   lastSyncedAt: z.string().datetime().nullable(),
   memo: z.string().nullable(),
@@ -2443,7 +2443,7 @@ export const erpEvidenceSchema = z.object({
   reworkReason: z.string().nullable(),
   memo: z.string().nullable(),
   syncStatus: erpVendorSyncStatusSchema,
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalReferenceId: z.string().nullable(),
   lastSyncedAt: z.string().datetime().nullable(),
   createdByUserId: z.string(),
@@ -2515,7 +2515,7 @@ export const erpBillingSchema = z.object({
   paymentStatus: erpBillingPaymentStatusSchema,
   taxInvoiceStatus: erpBillingTaxInvoiceStatusSchema,
   syncStatus: erpVendorSyncStatusSchema,
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalReferenceId: z.string().nullable(),
   lastSyncedAt: z.string().datetime().nullable(),
   memo: z.string().nullable(),
@@ -2588,7 +2588,7 @@ export const erpPaymentRecordSchema = z.object({
   bankAccountLabel: z.string().nullable(),
   transactionMemo: z.string().nullable(),
   syncStatus: erpVendorSyncStatusSchema,
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalReferenceId: z.string().nullable(),
   lastSyncedAt: z.string().datetime().nullable(),
   createdByUserId: z.string(),
@@ -2655,7 +2655,7 @@ export const erpAccountingMappingSchema = z.object({
   mappingType: erpAccountingMappingTypeSchema,
   internalCode: z.string(),
   internalName: z.string(),
-  externalProvider: z.literal("kyungrinara").nullable(),
+  externalProvider: z.enum(["external_erp", "kyungrinara"]).nullable(),
   externalCode: z.string().nullable(),
   externalName: z.string().nullable(),
   mappingStatus: erpAccountingMappingStatusSchema,
@@ -2702,7 +2702,7 @@ export const erpAccountingMappingMutationResponseSchema = successResponseSchema(
   }),
 );
 
-export const erpIntegrationProviderSchema = z.literal("kyungrinara");
+export const erpIntegrationProviderSchema = z.enum(["external_erp", "kyungrinara"]);
 export const erpIntegrationEventDirectionSchema = z.enum(["outbound", "inbound", "webhook"]);
 export const erpIntegrationEventResourceTypeSchema = z.enum(["vendor", "expense", "evidence", "billing", "payment", "accounting_mapping", "tax_invoice", "other"]);
 export const erpIntegrationEventStatusSchema = z.enum(["queued", "sending", "succeeded", "failed", "retry_required", "cancelled"]);

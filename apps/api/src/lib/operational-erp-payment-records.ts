@@ -26,7 +26,7 @@ type ErpPaymentRecordRow = {
   bank_account_label: string | null;
   transaction_memo: string | null;
   sync_status: ErpPaymentRecord["syncStatus"];
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_reference_id: string | null;
   last_synced_at: string | Date | null;
   created_by_user_id: string;

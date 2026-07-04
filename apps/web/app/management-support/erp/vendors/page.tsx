@@ -175,7 +175,7 @@ export default function ErpVendorsPage() {
           <div className="feature-workspace__panel-header">
             <div>
               <h2 id="erp-vendors-heading">거래처 원장</h2>
-              <p>경리나라 실제 API 연결 전, 우리 내부 DB에 거래처 기준 정보를 먼저 저장합니다.</p>
+              <p>외부 회계 서비스 연결 없이, 자체 ERP 거래처 기준 정보를 내부 DB에 저장합니다.</p>
             </div>
             <p className="feature-workspace__permission-hint">접근은 기존 부서업무포털 권한 설정을 따르고 권한 설정 자체는 변경하지 않습니다.</p>
           </div>
@@ -185,7 +185,7 @@ export default function ErpVendorsPage() {
 
           <div className="feature-workspace__status-grid">
             <article className="feature-workspace__status feature-workspace__status--accent"><span>등록 거래처</span><strong>{vendors.length}건</strong><p>DB 조회 기준</p></article>
-            <article className="feature-workspace__status"><span>경리나라 연동</span><strong>미연동</strong><p>외부 API 호출 없음</p></article>
+            <article className="feature-workspace__status"><span>외부 연동</span><strong>미연동</strong><p>외부 API 호출 없음</p></article>
             <article className="feature-workspace__status feature-workspace__status--warning"><span>확인 필요</span><strong>{pendingSyncCount}건</strong><p>내부 연동 상태값만 표시</p></article>
           </div>
 
@@ -224,7 +224,7 @@ export default function ErpVendorsPage() {
                   <p>{vendor.representativeName ?? "대표자 미입력"} · {vendor.taxInvoiceEmail ?? "세금계산서 이메일 미입력"}</p>
                   <div className="feature-workspace__row-actions" aria-label={`${vendor.name} 거래처 선택`}>
                     <button className="feature-workspace__row-action feature-workspace__row-action--secondary" onClick={() => setSelectedVendorId(vendor.id)} type="button">상세 보기</button>
-                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">경리나라 전송</button>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">외부 전송</button>
                   </div>
                 </div>
                 <em>{vendor.externalProvider ? "연동" : "내부"}</em>

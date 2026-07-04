@@ -266,7 +266,7 @@ export default function ErpEvidencePage() {
                   <p>{item.expenseTitle ?? "지출결의 미연결"} · {item.vendorName ?? "거래처 미연결"} · {amountLabel(item.totalAmount)}</p>
                   <div className="feature-workspace__row-actions" aria-label={`${item.title} 증빙 선택`}>
                     <button className="feature-workspace__row-action feature-workspace__row-action--secondary" onClick={() => setSelectedEvidenceId(item.id)} type="button">상세 보기</button>
-                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">경리나라 전송</button>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">외부 전송</button>
                   </div>
                 </div>
                 <em>{item.syncStatus === "not_connected" ? "내부" : "연동"}</em>
