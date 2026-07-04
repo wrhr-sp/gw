@@ -44,7 +44,7 @@ const departmentWorkLinksById: Record<string, readonly { label: string; href: st
     { label: "HR 내부관리", href: "/work-items/hr", description: "인사·조직 지원 업무를 확인합니다." },
     { label: "급여 내부관리", href: "/payroll", description: "급여 내부관리 업무로 이동합니다." },
     { label: "노무 내부관리", href: "/work-items/labor", description: "노무 관련 내부 업무를 확인합니다." },
-    { label: "ERP/경리", href: "/management-support/erp/billings", description: "경리나라 연동 전 매출·청구·증빙·거래처 원장을 관리합니다." },
+    { label: "ERP/경리", href: "/management-support/erp/payment-records", description: "경리나라 연동 전 입출금·미수금·청구 원장을 관리합니다." },
     { label: "관리자 페이지", href: "/admin", description: "관리자 기능과 정책 설정을 확인합니다." },
   ],
   "sales-admin": [

@@ -59,6 +59,7 @@ const requiredTables = [
   'erp_expense_requests',
   'erp_evidence',
   'erp_billings',
+  'erp_payment_records',
   'audit_logs',
 ];
 

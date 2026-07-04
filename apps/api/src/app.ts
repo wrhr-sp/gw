@@ -77,6 +77,11 @@ import {
   erpBillingMutationResponseSchema,
   erpBillingStatusUpdateRequestSchema,
   erpBillingUpdateRequestSchema,
+  erpPaymentRecordCreateRequestSchema,
+  erpPaymentRecordListResponseSchema,
+  erpPaymentRecordMutationResponseSchema,
+  erpPaymentRecordStatusUpdateRequestSchema,
+  erpPaymentRecordUpdateRequestSchema,
   erpEvidenceCreateRequestSchema,
   erpEvidenceListResponseSchema,
   erpEvidenceMutationResponseSchema,
@@ -172,6 +177,8 @@ import {
   type ElectronicContractStatus,
   type Employee,
   type ErpBillingStatus,
+  type ErpPaymentMatchStatus,
+  type ErpReceivableStatus,
   type ErpEvidenceStatus,
   type ErpExpenseStatus,
   type ErpVendorStatus,
@@ -259,6 +266,13 @@ import {
   updateOperationalErpBilling,
   updateOperationalErpBillingStatus,
 } from "./lib/operational-erp-billings";
+import {
+  createOperationalErpPaymentRecord,
+  findOperationalErpPaymentRecord,
+  listOperationalErpPaymentRecords,
+  updateOperationalErpPaymentRecord,
+  updateOperationalErpPaymentRecordStatus,
+} from "./lib/operational-erp-payment-records";
 import {
   createOperationalErpEvidence,
   findOperationalErpEvidence,
@@ -392,6 +406,9 @@ const ERP_EVIDENCE_STATUS_ROUTE = "/api/erp/evidence/:evidenceId/status";
 const ERP_BILLINGS_ROUTE = "/api/erp/billings";
 const ERP_BILLING_DETAIL_ROUTE = "/api/erp/billings/:billingId";
 const ERP_BILLING_STATUS_ROUTE = "/api/erp/billings/:billingId/status";
+const ERP_PAYMENT_RECORDS_ROUTE = "/api/erp/payment-records";
+const ERP_PAYMENT_RECORD_DETAIL_ROUTE = "/api/erp/payment-records/:paymentRecordId";
+const ERP_PAYMENT_RECORD_STATUS_ROUTE = "/api/erp/payment-records/:paymentRecordId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -7289,6 +7306,173 @@ app.patch(ERP_BILLING_STATUS_ROUTE, async (context) => {
   });
 
   return jsonSuccess(context, erpBillingMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_billing.status.update" } }, error: null });
+});
+
+
+app.get(ERP_PAYMENT_RECORDS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const receivableStatus = context.req.query("receivableStatus") as ErpReceivableStatus | undefined;
+  const result = await listOperationalErpPaymentRecords(context.env, authResult.auth.user.companyId, receivableStatus);
+  if (!result) return jsonDatabaseRequired(context, "ERP 입출금/미수금 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_payment_record",
+    resourceId: "erp_payment_record_list",
+    accessType: "read",
+    purpose: "ERP 입출금/미수금 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 입출금 접근",
+    metadata: { source: "erp-payment-records-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpPaymentRecordListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_PAYMENT_RECORDS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpPaymentRecordCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "입출금/미수금 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  if (parsed.data.vendorId) {
+    const vendor = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, parsed.data.vendorId);
+    if (!vendor) return jsonDatabaseRequired(context, "ERP 입출금 거래처 확인");
+    if (!vendor.vendor) return jsonError(context, "FORBIDDEN", "입출금에 연결할 수 없는 거래처입니다.", 403, { vendorId: parsed.data.vendorId, route: context.req.path });
+  }
+
+  if (parsed.data.billingId) {
+    const billing = await findOperationalErpBilling(context.env, authResult.auth.user.companyId, parsed.data.billingId);
+    if (!billing) return jsonDatabaseRequired(context, "ERP 입출금 청구 확인");
+    if (!billing.billing) return jsonError(context, "FORBIDDEN", "입출금에 연결할 수 없는 청구 건입니다.", 403, { billingId: parsed.data.billingId, route: context.req.path });
+  }
+
+  const created = await createOperationalErpPaymentRecord(context.env, {
+    id: `erp_payment_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.paymentRecord) return jsonDatabaseRequired(context, "ERP 입출금/미수금 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_payment_record",
+    resourceId: created.paymentRecord.id,
+    accessType: "create",
+    purpose: "ERP 입출금/미수금 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 입출금 처리",
+    metadata: { source: "erp-payment-records-api", amount: created.paymentRecord.amount, billingId: created.paymentRecord.billingId, receivableStatus: created.paymentRecord.receivableStatus },
+  });
+
+  return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_payment_record.create" } }, error: null }, 201);
+});
+
+app.get(ERP_PAYMENT_RECORD_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const paymentRecordId = context.req.param("paymentRecordId");
+  const result = await findOperationalErpPaymentRecord(context.env, authResult.auth.user.companyId, paymentRecordId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 입출금/미수금 상세 조회");
+  if (!result.paymentRecord) return jsonError(context, "FORBIDDEN", "허용되지 않은 입출금 기록입니다.", 403, { paymentRecordId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.paymentRecord.createdByUserId,
+    resourceType: "erp_payment_record",
+    resourceId: result.paymentRecord.id,
+    accessType: "read",
+    purpose: "ERP 입출금/미수금 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 입출금 접근",
+    metadata: { source: "erp-payment-records-api", matchStatus: result.paymentRecord.matchStatus, receivableStatus: result.paymentRecord.receivableStatus },
+  });
+
+  return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_payment_record.read" } }, error: null });
+});
+
+app.patch(ERP_PAYMENT_RECORD_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const paymentRecordId = context.req.param("paymentRecordId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpPaymentRecordUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "입출금/미수금 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpPaymentRecord(context.env, authResult.auth.user.companyId, paymentRecordId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 입출금/미수금 수정");
+  if (!before.paymentRecord) return jsonError(context, "FORBIDDEN", "허용되지 않은 입출금 기록입니다.", 403, { paymentRecordId, route: context.req.path });
+
+  const updated = await updateOperationalErpPaymentRecord(context.env, {
+    companyId: authResult.auth.user.companyId,
+    paymentRecordId,
+    actorUserId: authResult.auth.user.id,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.paymentRecord) return jsonDatabaseRequired(context, "ERP 입출금/미수금 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.paymentRecord.createdByUserId,
+    resourceType: "erp_payment_record",
+    resourceId: updated.paymentRecord.id,
+    accessType: "update",
+    purpose: "ERP 입출금/미수금 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 입출금 처리",
+    metadata: { source: "erp-payment-records-api", reason: parsed.data.reason, beforeStatus: before.paymentRecord.receivableStatus, afterStatus: updated.paymentRecord.receivableStatus },
+  });
+
+  return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_payment_record.update" } }, error: null });
+});
+
+app.patch(ERP_PAYMENT_RECORD_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const paymentRecordId = context.req.param("paymentRecordId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpPaymentRecordStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "입출금/미수금 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpPaymentRecord(context.env, authResult.auth.user.companyId, paymentRecordId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 입출금/미수금 상태 변경");
+  if (!before.paymentRecord) return jsonError(context, "FORBIDDEN", "허용되지 않은 입출금 기록입니다.", 403, { paymentRecordId, route: context.req.path });
+
+  const updated = await updateOperationalErpPaymentRecordStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    paymentRecordId,
+    actorUserId: authResult.auth.user.id,
+    matchStatus: parsed.data.matchStatus as ErpPaymentMatchStatus,
+    receivableStatus: parsed.data.receivableStatus as ErpReceivableStatus,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.paymentRecord) return jsonDatabaseRequired(context, "ERP 입출금/미수금 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.paymentRecord.createdByUserId,
+    resourceType: "erp_payment_record",
+    resourceId: updated.paymentRecord.id,
+    accessType: "update",
+    purpose: "ERP 입출금/미수금 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 입출금 처리",
+    metadata: { source: "erp-payment-records-api", reason: parsed.data.reason, beforeStatus: before.paymentRecord.receivableStatus, afterStatus: updated.paymentRecord.receivableStatus },
+  });
+
+  return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_payment_record.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {
