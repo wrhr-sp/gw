@@ -159,6 +159,7 @@ export function MailClient() {
   const [ccQuery, setCcQuery] = useState("");
   const [activeRecipientPopup, setActiveRecipientPopup] = useState<"to" | "cc" | null>(null);
   const [manualRecipientPopupTarget, setManualRecipientPopupTarget] = useState<"to" | "cc" | null>(null);
+  const [activeRecentRecipientPopup, setActiveRecentRecipientPopup] = useState<"to" | "cc" | null>(null);
   const recipientPopupRef = useRef<HTMLDivElement | null>(null);
   const ccPopupRef = useRef<HTMLDivElement | null>(null);
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
@@ -172,6 +173,7 @@ export function MailClient() {
   const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>([]);
   const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isAttachmentDragOver, setIsAttachmentDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
   const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
@@ -215,6 +217,10 @@ export function MailClient() {
     internal: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "internal"),
     history: addressBookFilteredRecipients.filter((recipient) => recipient.sourceKind === "history"),
   };
+  const recentRecipients = addressBookRecipients.filter((recipient) => recipient.sourceKind === "history").slice(0, 8);
+  const visibleRecentRecipientSuggestions = recentRecipients.length ? recentRecipients : addressBookRecipients.slice(0, 8);
+  const isRecentRecipientPopupOpen = activeRecentRecipientPopup === "to";
+  const isRecentCcPopupOpen = activeRecentRecipientPopup === "cc";
   const isRecipientPopupOpen = activeRecipientPopup === "to" && (recipientQuery.trim().length > 0 || visibleRecipientSuggestions.length > 0 || manualRecipientPopupTarget === "to");
   const isCcPopupOpen = activeRecipientPopup === "cc" && (ccQuery.trim().length > 0 || visibleCcSuggestions.length > 0 || manualRecipientPopupTarget === "cc");
   const attachmentItems: FeatureFileAttachmentItem[] = pendingAttachments.map((attachment) => ({
@@ -223,7 +229,7 @@ export function MailClient() {
     status: attachment.status,
     sizeLabel: attachment.sizeLabel,
     sourceLabel: attachment.sourceLabel,
-    canDownload: Boolean(attachment.uploadedAttachmentId || attachment.documentFile),
+    canDownload: Boolean(attachment.file || attachment.uploadedAttachmentId || attachment.documentFile),
   }));
 
   async function loadRecipients(query = "") {
@@ -323,6 +329,7 @@ export function MailClient() {
       }
       setActiveRecipientPopup(null);
       setManualRecipientPopupTarget(null);
+      setActiveRecentRecipientPopup(null);
     }
 
     document.addEventListener("pointerdown", handleRecipientPopupPointerDown, true);
@@ -346,7 +353,7 @@ export function MailClient() {
       return;
     }
     if (view === "compose") {
-      setStatus("수신자, 제목, 본문을 입력한 뒤 실제 메일 API로 저장·발송합니다.");
+      setStatus("");
       return;
     }
     if (view === "security") {
@@ -362,6 +369,7 @@ export function MailClient() {
   function closeRecipientPopup() {
     setActiveRecipientPopup(null);
     setManualRecipientPopupTarget(null);
+    setActiveRecentRecipientPopup(null);
   }
 
   function openNewCompose() {
@@ -414,8 +422,16 @@ export function MailClient() {
     setAddressBookCcUserIds(ccUserIds);
     setAddressBookQuery("");
     setAddressBookSourceFilter("all");
+    setActiveRecentRecipientPopup(null);
     setActiveRecipientPopup(target);
     setManualRecipientPopupTarget(target);
+    void loadAddressBookRecipients("");
+  }
+
+  function openRecentRecipients(target: "to" | "cc") {
+    setActiveRecipientPopup(null);
+    setManualRecipientPopupTarget(null);
+    setActiveRecentRecipientPopup((current) => current === target ? null : target);
     void loadAddressBookRecipients("");
   }
 
@@ -450,22 +466,48 @@ export function MailClient() {
     setter((current) => current.filter((id) => id !== recipientId));
   }
 
+  function addPcFiles(files: File[], sourceLabel = "내 PC 파일첨부") {
+    if (!files.length) return;
+    setPendingAttachments((current) => [
+      ...current,
+      ...files.map((file, index) => ({
+        id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
+        fileName: file.name,
+        sizeLabel: formatFileSize(file.size),
+        status: "대기" as const,
+        sourceLabel,
+        file,
+      })),
+    ]);
+  }
+
   function handlePcFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.currentTarget.files ?? []);
-    if (files.length) {
-      setPendingAttachments((current) => [
-        ...current,
-        ...files.map((file, index) => ({
-          id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
-          fileName: file.name,
-          sizeLabel: formatFileSize(file.size),
-          status: "대기" as const,
-          sourceLabel: "내 PC 파일첨부",
-          file,
-        })),
-      ]);
-    }
+    addPcFiles(Array.from(event.currentTarget.files ?? []));
     event.currentTarget.value = "";
+  }
+
+  function handleAttachmentDragOver(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer.types.includes("Files")) {
+      event.dataTransfer.dropEffect = "copy";
+      setIsAttachmentDragOver(true);
+    }
+  }
+
+  function handleAttachmentDragLeave(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsAttachmentDragOver(false);
+    }
+  }
+
+  function handleAttachmentDrop(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsAttachmentDragOver(false);
+    addPcFiles(Array.from(event.dataTransfer.files ?? []), "드래그앤드롭 파일첨부");
   }
 
   function addDocumentAttachment(documentFile: DocumentFile) {
@@ -511,6 +553,18 @@ export function MailClient() {
 
   async function downloadAttachment(attachment: FeatureFileAttachmentItem) {
     const pending = pendingAttachments.find((item) => item.id === attachment.id);
+    if (pending?.file) {
+      const objectUrl = URL.createObjectURL(pending.file);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = pending.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setStatus(`${pending.fileName} 다운로드를 시작했습니다.`);
+      return;
+    }
     if (pending?.uploadedAttachmentId) {
       window.location.href = appRoutes.mail.downloadAttachment(pending.uploadedAttachmentId);
       return;
@@ -522,8 +576,12 @@ export function MailClient() {
         setStatus(payload?.error?.message ?? "문서 다운로드 준비에 실패했습니다.");
         return;
       }
-      documentFileDownloadInitResponseSchema.parse(payload);
-      setStatus(`${pending.documentFile.fileName} 다운로드가 준비됐습니다.`);
+      const parsed = documentFileDownloadInitResponseSchema.parse(payload);
+      if (parsed.data.action.downloadUrl) {
+        window.location.href = parsed.data.action.downloadUrl;
+        return;
+      }
+      setStatus(`${pending.documentFile.fileName} 다운로드 주소를 받지 못했습니다.`);
     }
   }
 
@@ -555,15 +613,48 @@ export function MailClient() {
     setStatus("내게쓰기 수신자를 총괄관리계정으로 지정했습니다.");
   }
 
+  function findExactRecipientByQuery(query: string) {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return null;
+    return [...recipients, ...addressBookRecipients].find((recipient) => (
+      recipient.email.toLowerCase() === normalized
+      || recipient.displayName.toLowerCase() === normalized
+      || getRecipientLabel(recipient).toLowerCase() === normalized
+    )) ?? null;
+  }
+
+  function buildRecipientUserIdsForSubmit() {
+    const exactToRecipient = findExactRecipientByQuery(recipientQuery);
+    const exactCcRecipient = findExactRecipientByQuery(ccQuery);
+    const unresolvedInputs = [
+      recipientQuery.trim() && !exactToRecipient ? recipientQuery.trim() : "",
+      ccQuery.trim() && !exactCcRecipient ? ccQuery.trim() : "",
+    ].filter(Boolean);
+
+    if (unresolvedInputs.length) {
+      setStatus("외부 이메일 발송은 아직 연결되지 않았습니다. 받는사람/참조는 검색 결과 또는 최근 주소에서 선택해주세요.");
+      return null;
+    }
+
+    return Array.from(new Set([
+      ...recipientUserIds,
+      ...ccUserIds,
+      ...(exactToRecipient ? [exactToRecipient.userId] : []),
+      ...(exactCcRecipient ? [exactCcRecipient.userId] : []),
+    ]));
+  }
+
   async function saveDraft() {
     setIsSubmitting(true);
     setStatus("임시보관함에 저장 중입니다.");
     try {
+      const recipientIds = buildRecipientUserIdsForSubmit();
+      if (!recipientIds) return;
       const response = await fetch(appRoutes.mail.saveDraft, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: Array.from(new Set([...recipientUserIds, ...ccUserIds])), subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds: recipientIds, subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -584,11 +675,16 @@ export function MailClient() {
     setIsSubmitting(true);
     setStatus("메일을 저장하고 발송 처리 중입니다.");
     try {
+      const recipientIds = buildRecipientUserIdsForSubmit();
+      if (!recipientIds || recipientIds.length === 0) {
+        if (recipientIds) setStatus("받는사람을 검색 결과 또는 최근 주소에서 선택해주세요.");
+        return;
+      }
       const response = await fetch(appRoutes.mail.send, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: Array.from(new Set([...recipientUserIds, ...ccUserIds])), subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds: recipientIds, subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -724,6 +820,19 @@ export function MailClient() {
     });
   }
 
+  function renderRecentRecipientPopover(target: "to" | "cc") {
+    return (
+      <div className="mail-recipient-suggestions mail-recipient-suggestions--recent" role="listbox" aria-label={`${target === "to" ? "받는사람" : "참조"} 최근 사용 주소`}>
+        <section className="mail-recipient-suggestion-section" aria-label="최근 사용한 주소">
+          <strong>최근 사용한 주소</strong>
+          {visibleRecentRecipientSuggestions.length ? visibleRecentRecipientSuggestions.map((recipient) => (
+            <button key={`recent-${target}-${recipient.userId}`} type="button" role="option" onClick={() => addRecipient(recipient, target)}>{getRecipientLabel(recipient)}</button>
+          )) : <span>최근 사용한 주소가 없습니다.</span>}
+        </section>
+      </div>
+    );
+  }
+
   function renderAddressBookPopover(input: {
     target: "to" | "cc";
     groups: { internal: MailRecipient[]; history: MailRecipient[] };
@@ -850,7 +959,10 @@ export function MailClient() {
               <strong>받는사람</strong>
               <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="받는사람 이메일 또는 이름" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); }} />
+                  <div className="mail-recipient-input-shell">
+                    <input className="field" aria-label="받는사람 이메일 또는 이름" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
+                    <button className="mail-recipient-recent-button" aria-expanded={isRecentRecipientPopupOpen} aria-label="받는사람 최근 사용 주소" type="button" onClick={() => openRecentRecipients("to")}>∨</button>
+                  </div>
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("to")}>주소록</button>
                 </div>
                 {selectedRecipients.length ? (
@@ -860,6 +972,7 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
+                {isRecentRecipientPopupOpen ? renderRecentRecipientPopover("to") : null}
                 {isRecipientPopupOpen ? manualRecipientPopupTarget === "to" ? (
                   renderAddressBookPopover({ target: "to", groups: addressBookSuggestionsBySource })
                 ) : (
@@ -874,7 +987,10 @@ export function MailClient() {
               <strong>참조</strong>
               <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
                 <div className="mail-recipient-input-line">
-                  <input className="field" aria-label="참조 이메일 또는 이름" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); }} />
+                  <div className="mail-recipient-input-shell">
+                    <input className="field" aria-label="참조 이메일 또는 이름" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
+                    <button className="mail-recipient-recent-button" aria-expanded={isRecentCcPopupOpen} aria-label="참조 최근 사용 주소" type="button" onClick={() => openRecentRecipients("cc")}>∨</button>
+                  </div>
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("cc")}>주소록</button>
                 </div>
                 {selectedCcRecipients.length ? (
@@ -884,6 +1000,7 @@ export function MailClient() {
                     ))}
                   </div>
                 ) : null}
+                {isRecentCcPopupOpen ? renderRecentRecipientPopover("cc") : null}
                 {isCcPopupOpen ? manualRecipientPopupTarget === "cc" ? (
                   renderAddressBookPopover({ target: "cc", groups: addressBookSuggestionsBySource })
                 ) : (
@@ -900,7 +1017,13 @@ export function MailClient() {
               <input className="field" aria-label="제목" required value={subject} onChange={(event) => setSubject(event.target.value)} />
             </label>
 
-            <section className="mail-compose-attachments" aria-label="파일첨부">
+            <section
+              className={`mail-compose-attachments${isAttachmentDragOver ? " mail-compose-attachments--drag-over" : ""}`}
+              aria-label="파일첨부"
+              onDragOver={handleAttachmentDragOver}
+              onDragLeave={handleAttachmentDragLeave}
+              onDrop={handleAttachmentDrop}
+            >
               <div className="mail-compose-attachments__header">
                 <strong>파일첨부</strong>
                 <div className="mail-compose-attachment-actions">
@@ -911,6 +1034,7 @@ export function MailClient() {
                   <button className="mail-compose-attachment-button" type="button" onClick={() => setIsDocumentPickerOpen(true)}>문서함에서 선택</button>
                 </div>
               </div>
+              <span className="mail-compose-attachments__drop-hint">파일을 이 박스에 끌어다 놓아 첨부할 수 있습니다.</span>
               <FeatureFileAttachmentBox items={attachmentItems} onRemove={removeAttachment} onRemoveAll={() => void removeAllAttachments()} onDownload={(attachment) => void downloadAttachment(attachment)} />
             </section>
 
