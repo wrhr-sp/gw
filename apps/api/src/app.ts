@@ -384,6 +384,7 @@ import {
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, normalizeExternalMailRecipients } from "./lib/operational-mail-external-delivery";
 import { leaveOperationalMessengerThread } from "./lib/operational-messenger";
 import {
   archiveOperationalMailDraft,
@@ -6299,6 +6300,33 @@ app.post(appRoutes.mail.send, async (context) => {
       ...(parsed.data.recipientUserIds ?? []),
       ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
     ]));
+    const externalRecipients = normalizeExternalMailRecipients({
+      to: parsed.data.externalToEmails,
+      cc: parsed.data.externalCcEmails,
+    });
+    if (externalRecipients.length) {
+      const provider = getExternalMailProviderConfig(context.env as Record<string, unknown>);
+      if (!provider.configured) {
+        const externalDeliveries = await createBlockedExternalMailDeliveryLogs(context.env, {
+          idPrefix: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+          companyId: authResult.auth.user.companyId,
+          senderUserId: authResult.auth.user.id,
+          recipients: externalRecipients,
+          provider,
+          errorCode: "EXTERNAL_MAIL_NOT_CONFIGURED",
+          errorMessage: "외부메일 SMTP/API 발송 설정이 필요합니다.",
+        });
+        return jsonError(context, "EXTERNAL_MAIL_NOT_CONFIGURED", "외부메일 SMTP/API 발송 설정이 필요합니다.", 501, {
+          externalDeliveries,
+          provider,
+          route: context.req.path,
+        });
+      }
+      return jsonError(context, "NOT_IMPLEMENTED", "외부메일 provider adapter 실제 발송은 SMTP/API secret 등록 뒤 연결합니다.", 501, {
+        provider,
+        route: context.req.path,
+      });
+    }
     const messages = await createOperationalMailMessages(context.env, {
       idPrefix: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
       companyId: authResult.auth.user.companyId,
