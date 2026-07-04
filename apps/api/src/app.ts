@@ -153,6 +153,8 @@ import {
   mailAccountMutationResponseSchema,
   mailAccountUpdateRequestSchema,
   mailIntegrationSettingsResponseSchema,
+  mailProviderSettingsResponseSchema,
+  mailProviderSettingsUpdateRequestSchema,
   mailMessageListResponseSchema,
   mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
@@ -393,7 +395,7 @@ import {
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
-import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, normalizeExternalMailRecipients } from "./lib/operational-mail-external-delivery";
+import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
 import {
   createOperationalMailAccount,
   createOperationalMailAlias,
@@ -6189,6 +6191,40 @@ function isMailSettingsAdmin(roleCode: RoleCode) {
 function buildGeneratedMailSettingId(kind: "account" | "alias", companyId: string, userId: string) {
   return `mail_${kind}_${companyId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
+
+app.get(appRoutes.mail.providerSettings, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const settings = await getOperationalMailProviderSettings(context.env, authResult.auth.user.companyId);
+    return jsonSuccess(context, mailProviderSettingsResponseSchema, { ok: true, data: { settings, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 provider 설정 조회");
+  }
+});
+
+app.patch(appRoutes.mail.providerSettings, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  if (!isMailSettingsAdmin(authResult.auth.roleCode)) {
+    return jsonError(context, "FORBIDDEN", "메일 provider 설정은 관리자 권한이 필요합니다.", 403, { route: context.req.path });
+  }
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailProviderSettingsUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 provider 설정 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const settings = await updateOperationalMailProviderSettings(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      settings: parsed.data,
+    });
+    return jsonSuccess(context, mailProviderSettingsResponseSchema, { ok: true, data: { settings, audit: { candidate: true, action: "mail.provider_settings.update" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 provider 설정 저장");
+  }
+});
 
 app.get(appRoutes.mail.accounts, async (context) => {
   const authResult = requireAuth(context);
