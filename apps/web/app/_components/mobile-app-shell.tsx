@@ -1243,11 +1243,19 @@ const branchPortalHomeItem: NavItem = {
   summary: "지점관리포털 홈으로 이동합니다.",
 };
 
+const supportAccountingSidebarItems: readonly NavItem[] = [
+  { href: "/management-support/erp/vendors", label: "거래처 관리", shortLabel: "거래처", summary: "거래처와 정산 기준 정보를 관리합니다." },
+  { href: "/management-support/erp/expenses", label: "지출결의", shortLabel: "지출", summary: "지출결의와 비용 처리 상태를 관리합니다." },
+  { href: "/management-support/erp/evidence", label: "증빙함", shortLabel: "증빙", summary: "증빙 자료와 검토 상태를 관리합니다." },
+  { href: "/management-support/erp/billings", label: "매출/청구", shortLabel: "청구", summary: "매출 청구와 입금 예정 상태를 관리합니다." },
+  { href: "/management-support/erp/payment-records", label: "입출금/미수금", shortLabel: "입출금", summary: "입출금 기록과 미수금 상태를 관리합니다." },
+];
+
 const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = {
   general: sidebarBasicHrefs,
   ceo: ["/management", "/sales", "/Place of business", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin"],
   strategy: ["/management", "/sales", "/Place of business", "/work-items/tax", "/work-items/legal"],
-  support: ["/work-items/hr", "/payroll", "/work-items/labor", "/work-items/tax", "/admin"],
+  support: ["/work-items/hr", "/payroll", "/work-items/labor", "/work-items/tax", "/management-support/erp/vendors", "/management-support/erp/expenses", "/management-support/erp/evidence", "/management-support/erp/billings", "/management-support/erp/payment-records"],
   "sales-admin": ["/sales", "/Place of business", "/work-items/legal"],
   ads: ["/sales", "/management", "/work-items/legal"],
   operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
@@ -1317,6 +1325,7 @@ function buildSidebarSectionsByPortal(sections: readonly NavSection[], portalKey
   const itemsByHref = new Map(baseItems.map((item) => [item.href, item]));
   itemsByHref.set(branchPortalHomeItem.href, branchPortalHomeItem);
   itemsByHref.set(branchPortalWorkItem.href, branchPortalWorkItem);
+  supportAccountingSidebarItems.forEach((item) => itemsByHref.set(item.href, item));
 
   if (departmentSidebarPortalKeys.has(portalKey)) {
     const basicHrefs = sidebarBasicHrefs.filter((href) => !new Set<string>(sidebarPortalSpecificHrefs[portalKey]).has(href));

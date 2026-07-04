@@ -82,6 +82,13 @@ import {
   erpIntegrationEventMutationResponseSchema,
   erpIntegrationEventStatusUpdateRequestSchema,
   erpIntegrationEventUpdateRequestSchema,
+  erpAccountSubjectCreateRequestSchema,
+  erpAccountSubjectListResponseSchema,
+  erpAccountSubjectMutationResponseSchema,
+  erpJournalEntryCreateRequestSchema,
+  erpJournalEntryListResponseSchema,
+  erpJournalEntryMutationResponseSchema,
+  erpJournalEntryStatusUpdateRequestSchema,
   erpBillingCreateRequestSchema,
   erpBillingListResponseSchema,
   erpBillingMutationResponseSchema,
@@ -190,6 +197,7 @@ import {
   type ErpAccountingMappingStatus,
   type ErpAccountingMappingType,
   type ErpIntegrationEventStatus,
+  type ErpJournalEntryStatus,
   type ErpBillingStatus,
   type ErpPaymentMatchStatus,
   type ErpReceivableStatus,
@@ -287,6 +295,14 @@ import {
   updateOperationalErpIntegrationEvent,
   updateOperationalErpIntegrationEventStatus,
 } from "./lib/operational-erp-integration-events";
+import {
+  createOperationalErpAccountSubject,
+  createOperationalErpJournalEntry,
+  findOperationalErpJournalEntry,
+  listOperationalErpAccountSubjects,
+  listOperationalErpJournalEntries,
+  updateOperationalErpJournalEntryStatus,
+} from "./lib/operational-erp-journals";
 import {
   createOperationalErpBilling,
   findOperationalErpBilling,
@@ -437,6 +453,10 @@ const ERP_BILLING_STATUS_ROUTE = "/api/erp/billings/:billingId/status";
 const ERP_PAYMENT_RECORDS_ROUTE = "/api/erp/payment-records";
 const ERP_PAYMENT_RECORD_DETAIL_ROUTE = "/api/erp/payment-records/:paymentRecordId";
 const ERP_PAYMENT_RECORD_STATUS_ROUTE = "/api/erp/payment-records/:paymentRecordId/status";
+const ERP_ACCOUNT_SUBJECTS_ROUTE = "/api/erp/account-subjects";
+const ERP_JOURNAL_ENTRIES_ROUTE = "/api/erp/journal-entries";
+const ERP_JOURNAL_ENTRY_DETAIL_ROUTE = "/api/erp/journal-entries/:journalEntryId";
+const ERP_JOURNAL_ENTRY_STATUS_ROUTE = "/api/erp/journal-entries/:journalEntryId/status";
 const ERP_ACCOUNTING_MAPPINGS_ROUTE = "/api/erp/accounting-mappings";
 const ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE = "/api/erp/accounting-mappings/:mappingId";
 const ERP_ACCOUNTING_MAPPING_STATUS_ROUTE = "/api/erp/accounting-mappings/:mappingId/status";
@@ -7509,6 +7529,77 @@ app.patch(ERP_PAYMENT_RECORD_STATUS_ROUTE, async (context) => {
   return jsonSuccess(context, erpPaymentRecordMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_payment_record.status.update" } }, error: null });
 });
 
+
+
+app.get(ERP_ACCOUNT_SUBJECTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const result = await listOperationalErpAccountSubjects(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "계정과목 목록 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_account_subject", resourceId: "erp_account_subject_list", accessType: "read", purpose: "계정과목 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 접근", metadata: { source: "erp-account-subjects-api", itemCount: result.items.length } });
+  return jsonSuccess(context, erpAccountSubjectListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_ACCOUNT_SUBJECTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpAccountSubjectCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "계정과목 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const created = await createOperationalErpAccountSubject(context.env, { id: `erp_account_${crypto.randomUUID()}`, companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, createdAt: new Date().toISOString(), data: parsed.data });
+  if (!created?.accountSubject) return jsonDatabaseRequired(context, "계정과목 생성");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_account_subject", resourceId: created.accountSubject.id, accessType: "create", purpose: "계정과목 생성 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 처리", metadata: { source: "erp-account-subjects-api", type: created.accountSubject.type } });
+  return jsonSuccess(context, erpAccountSubjectMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_account_subject.create" } }, error: null }, 201);
+});
+
+app.get(ERP_JOURNAL_ENTRIES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const result = await listOperationalErpJournalEntries(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "전표/분개장 목록 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_journal_entry", resourceId: "erp_journal_entry_list", accessType: "read", purpose: "전표/분개장 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 접근", metadata: { source: "erp-journal-entries-api", itemCount: result.items.length } });
+  return jsonSuccess(context, erpJournalEntryListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_JOURNAL_ENTRIES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpJournalEntryCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "전표 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  try {
+    const created = await createOperationalErpJournalEntry(context.env, { id: `erp_journal_${crypto.randomUUID()}`, companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, createdAt: new Date().toISOString(), data: parsed.data });
+    if (!created?.journalEntry) return jsonDatabaseRequired(context, "전표 생성");
+    const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_journal_entry", resourceId: created.journalEntry.id, accessType: "create", purpose: "전표 생성 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 처리", metadata: { source: "erp-journal-entries-api", status: created.journalEntry.status, totalDebitAmount: created.journalEntry.totalDebitAmount } });
+    return jsonSuccess(context, erpJournalEntryMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_journal_entry.create" } }, error: null }, 201);
+  } catch (error) {
+    if (error instanceof Error && error.message === "JOURNAL_NOT_BALANCED") return jsonError(context, "VALIDATION_ERROR", "차변과 대변 합계가 같아야 합니다.", 400);
+    throw error;
+  }
+});
+
+app.get(ERP_JOURNAL_ENTRY_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const journalEntryId = context.req.param("journalEntryId");
+  const result = await findOperationalErpJournalEntry(context.env, authResult.auth.user.companyId, journalEntryId);
+  if (!result) return jsonDatabaseRequired(context, "전표 상세 조회");
+  if (!result.journalEntry) return jsonError(context, "FORBIDDEN", "허용되지 않은 전표입니다.", 403, { journalEntryId, route: context.req.path });
+  return jsonSuccess(context, erpJournalEntryMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_journal_entry.read" } }, error: null });
+});
+
+app.patch(ERP_JOURNAL_ENTRY_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const journalEntryId = context.req.param("journalEntryId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpJournalEntryStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "전표 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const updated = await updateOperationalErpJournalEntryStatus(context.env, { companyId: authResult.auth.user.companyId, journalEntryId, actorUserId: authResult.auth.user.id, status: parsed.data.status as ErpJournalEntryStatus, updatedAt: new Date().toISOString() });
+  if (!updated?.journalEntry) return jsonDatabaseRequired(context, "전표 상태 변경");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: updated.journalEntry.createdByUserId, resourceType: "erp_journal_entry", resourceId: updated.journalEntry.id, accessType: "update", purpose: "전표 상태 변경 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 처리", metadata: { source: "erp-journal-entries-api", reason: parsed.data.reason, status: updated.journalEntry.status } });
+  return jsonSuccess(context, erpJournalEntryMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_journal_entry.status.update" } }, error: null });
+});
 
 app.get(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {
   const authResult = requirePermission(context, "work_item.read");
