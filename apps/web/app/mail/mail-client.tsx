@@ -197,6 +197,7 @@ export function MailClient() {
   const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
   const [mailAccounts, setMailAccounts] = useState<MailAccount[]>([]);
   const [mailAliases, setMailAliases] = useState<MailAccountAlias[]>([]);
+  const [selectedSenderValue, setSelectedSenderValue] = useState("");
   const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false });
   const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false });
   const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
@@ -351,7 +352,7 @@ export function MailClient() {
   }, []);
 
   useEffect(() => {
-    if (view === "settings") {
+    if (view === "settings" || view === "compose") {
       void loadMailSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -756,6 +757,28 @@ export function MailClient() {
     )) ?? null;
   }
 
+  const senderAccountOptions = mailAccounts
+    .filter((account) => account.isActive)
+    .map((account) => ({
+      value: `account:${account.id}`,
+      label: `${account.displayName} <${account.email}>${account.accountType === "virtual" ? " · 가상메일" : " · 내 메일"}`,
+      accountId: account.id,
+      aliasId: "",
+    }));
+  const senderAliasOptions = mailAliases
+    .filter((alias) => alias.isActive)
+    .map((alias) => {
+      const parent = mailAccounts.find((account) => account.id === alias.mailAccountId);
+      return {
+        value: `alias:${alias.id}`,
+        label: `${alias.displayName} <${alias.aliasEmail}> · 별칭${parent ? ` (${parent.displayName})` : ""}`,
+        accountId: alias.mailAccountId,
+        aliasId: alias.id,
+      };
+    });
+  const senderOptions = [...senderAccountOptions, ...senderAliasOptions];
+  const selectedSenderOption = senderOptions.find((option) => option.value === selectedSenderValue);
+
   function buildRecipientUserIdsForSubmit() {
     const exactToRecipient = findExactRecipientByQuery(recipientQuery);
     const exactCcRecipient = findExactRecipientByQuery(ccQuery);
@@ -839,6 +862,8 @@ export function MailClient() {
           recipientUserIds: recipientIds,
           externalToEmails: externalRecipientEmails.map((recipient) => recipient.email),
           externalCcEmails: externalCcEmails.map((recipient) => recipient.email),
+          senderMailAccountId: selectedSenderOption?.accountId || undefined,
+          senderMailAliasId: selectedSenderOption?.aliasId || undefined,
           sourceDraftMessageId: composeDraftMessageId ?? undefined,
           subject,
           body,
@@ -1241,6 +1266,15 @@ export function MailClient() {
               <button className="mail-compose-toolbar-button" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={applyTemplate}>템플릿</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={writeToMyself}>내게쓰기</button>
+            </div>
+
+            <div className="mail-compose-row mail-compose-row--sender">
+              <strong>보낸사람</strong>
+              <select className="field" aria-label="보낸사람 계정" value={selectedSenderValue} onChange={(event) => setSelectedSenderValue(event.target.value)}>
+                <option value="">기본 사용자 계정</option>
+                {senderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <span className="mail-sender-status">{selectedSenderOption ? "SMTP/API 연결 전까지 발신주소 선택값만 저장됩니다." : "통합설정에 등록한 내 메일·가상메일·별칭을 선택할 수 있습니다."}</span>
             </div>
 
             <div className="mail-compose-row mail-compose-row--recipients">

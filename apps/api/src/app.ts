@@ -400,6 +400,7 @@ import {
   deleteOperationalMailAccount,
   deleteOperationalMailAlias,
   listOperationalMailIntegrationSettings,
+  resolveOperationalMailSenderAccount,
   updateOperationalMailAccount,
   updateOperationalMailAlias,
 } from "./lib/operational-mail-settings";
@@ -6480,6 +6481,19 @@ app.post(appRoutes.mail.send, async (context) => {
       ...(parsed.data.recipientUserIds ?? []),
       ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
     ]));
+    const senderAccount = parsed.data.senderMailAccountId || parsed.data.senderMailAliasId
+      ? await resolveOperationalMailSenderAccount(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+      }, {
+        accountId: parsed.data.senderMailAccountId,
+        aliasId: parsed.data.senderMailAliasId,
+      })
+      : null;
+    if ((parsed.data.senderMailAccountId || parsed.data.senderMailAliasId) && !senderAccount) {
+      return jsonError(context, "FORBIDDEN", "선택한 보낸사람 계정을 사용할 수 없습니다.", 403, { route: context.req.path });
+    }
     const externalRecipients = normalizeExternalMailRecipients({
       to: parsed.data.externalToEmails,
       cc: parsed.data.externalCcEmails,
@@ -6515,6 +6529,10 @@ app.post(appRoutes.mail.send, async (context) => {
       subject: parsed.data.subject,
       body: parsed.data.body,
       importance: parsed.data.importance,
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
     });
 
     if (messages.length !== recipientUserIds.length) {

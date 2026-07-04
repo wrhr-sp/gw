@@ -82,6 +82,53 @@ function mapAlias(row: MailAliasRow): MailAccountAlias {
   };
 }
 
+export async function resolveOperationalMailSenderAccount(env: DatabaseEnv | undefined, actor: MailSettingsActor, input: { accountId?: string | null; aliasId?: string | null }) {
+  if (!input.accountId && !input.aliasId) return null;
+  const sql = getDbClient(env ?? {});
+  const rows = input.aliasId
+    ? await sql`
+      select
+        m.id as account_id,
+        a.id as alias_id,
+        a.alias_email as sender_email,
+        a.display_name as sender_display_name,
+        m.account_type,
+        m.owner_user_id
+      from mail_account_aliases a
+      join mail_accounts m on m.id = a.mail_account_id and m.company_id = a.company_id and m.deleted_at is null
+      where a.id = ${input.aliasId}
+        and a.company_id = ${actor.companyId}
+        and a.deleted_at is null
+        and a.is_active = true
+      limit 1
+    `
+    : await sql`
+      select
+        m.id as account_id,
+        null::text as alias_id,
+        m.email as sender_email,
+        m.display_name as sender_display_name,
+        m.account_type,
+        m.owner_user_id
+      from mail_accounts m
+      where m.id = ${input.accountId}
+        and m.company_id = ${actor.companyId}
+        and m.deleted_at is null
+        and m.is_active = true
+      limit 1
+    `;
+  const row = rows[0] as { account_id: string; alias_id: string | null; sender_email: string; sender_display_name: string; account_type: MailAccount["accountType"]; owner_user_id: string | null } | undefined;
+  if (!row) return null;
+  if (!actor.isAdmin && (row.account_type !== "personal" || row.owner_user_id !== actor.userId)) return null;
+  if (input.accountId && row.account_id !== input.accountId) return null;
+  return {
+    accountId: row.account_id,
+    aliasId: row.alias_id,
+    senderEmail: row.sender_email,
+    senderDisplayName: row.sender_display_name,
+  };
+}
+
 export async function listOperationalMailIntegrationSettings(env: DatabaseEnv | undefined, actor: MailSettingsActor) {
   const sql = getDbClient(env ?? {});
   const accountRows = await sql`
