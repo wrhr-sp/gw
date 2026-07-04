@@ -72,6 +72,11 @@ import {
   electronicContractListResponseSchema,
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
+  erpVendorCreateRequestSchema,
+  erpVendorListResponseSchema,
+  erpVendorMutationResponseSchema,
+  erpVendorStatusUpdateRequestSchema,
+  erpVendorUpdateRequestSchema,
   errorResponseSchema,
   vehicleListResponseSchema,
   vehicleOperationLogCreateRequestSchema,
@@ -151,6 +156,7 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type ErpVendorStatus,
   type VehicleOperationLogStatus,
   type ErrorCode,
   type LeaveBalance,
@@ -228,6 +234,13 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalErpVendor,
+  findOperationalErpVendor,
+  listOperationalErpVendors,
+  updateOperationalErpVendor,
+  updateOperationalErpVendorStatus,
+} from "./lib/operational-erp-vendors";
 import {
   createOperationalVehicleLog,
   findOperationalVehicleLog,
@@ -328,6 +341,9 @@ const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
 const ELECTRONIC_CONTRACTS_ROUTE = "/api/electronic-contracts";
 const ELECTRONIC_CONTRACT_DETAIL_ROUTE = "/api/electronic-contracts/:contractId";
 const ELECTRONIC_CONTRACT_STATUS_ROUTE = "/api/electronic-contracts/:contractId/status";
+const ERP_VENDORS_ROUTE = "/api/erp/vendors";
+const ERP_VENDOR_DETAIL_ROUTE = "/api/erp/vendors/:vendorId";
+const ERP_VENDOR_STATUS_ROUTE = "/api/erp/vendors/:vendorId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -6570,6 +6586,160 @@ app.patch(ELECTRONIC_CONTRACT_STATUS_ROUTE, async (context) => {
     },
     error: null,
   });
+});
+
+
+app.get(ERP_VENDORS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const result = await listOperationalErpVendors(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 거래처 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_vendor",
+    resourceId: "erp_vendor_list",
+    accessType: "read",
+    purpose: "ERP 거래처 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
+    metadata: { source: "erp-vendors-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpVendorListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_VENDORS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpVendorCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "거래처 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const created = await createOperationalErpVendor(context.env, {
+    id: `erp_vendor_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created) return jsonDatabaseRequired(context, "ERP 거래처 생성");
+  if (!created.vendor) return jsonError(context, "VALIDATION_ERROR", "이미 등록된 사업자등록번호이거나 거래처를 생성할 수 없습니다.", 400, { route: context.req.path });
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_vendor",
+    resourceId: created.vendor.id,
+    accessType: "create",
+    purpose: "ERP 거래처 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-vendors-api", syncStatus: created.vendor.syncStatus, externalProvider: created.vendor.externalProvider },
+  });
+
+  return jsonSuccess(context, erpVendorMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_vendor.create" } }, error: null }, 201);
+});
+
+app.get(ERP_VENDOR_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const vendorId = context.req.param("vendorId");
+  const result = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, vendorId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 거래처 상세 조회");
+  if (!result.vendor) return jsonError(context, "FORBIDDEN", "허용되지 않은 거래처입니다.", 403, { vendorId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_vendor",
+    resourceId: result.vendor.id,
+    accessType: "read",
+    purpose: "ERP 거래처 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 접근",
+    metadata: { source: "erp-vendors-api", status: result.vendor.status, syncStatus: result.vendor.syncStatus },
+  });
+
+  return jsonSuccess(context, erpVendorMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_vendor.read" } }, error: null });
+});
+
+app.patch(ERP_VENDOR_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const vendorId = context.req.param("vendorId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpVendorUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "거래처 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, vendorId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 거래처 수정");
+  if (!before.vendor) return jsonError(context, "FORBIDDEN", "허용되지 않은 거래처입니다.", 403, { vendorId, route: context.req.path });
+
+  const updated = await updateOperationalErpVendor(context.env, {
+    companyId: authResult.auth.user.companyId,
+    vendorId,
+    actorUserId: authResult.auth.user.id,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.vendor) return jsonDatabaseRequired(context, "ERP 거래처 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_vendor",
+    resourceId: updated.vendor.id,
+    accessType: "update",
+    purpose: "ERP 거래처 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-vendors-api", reason: parsed.data.reason, beforeStatus: before.vendor.status, afterStatus: updated.vendor.status },
+  });
+
+  return jsonSuccess(context, erpVendorMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_vendor.update" } }, error: null });
+});
+
+app.patch(ERP_VENDOR_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const vendorId = context.req.param("vendorId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpVendorStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "거래처 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, vendorId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 거래처 상태 변경");
+  if (!before.vendor) return jsonError(context, "FORBIDDEN", "허용되지 않은 거래처입니다.", 403, { vendorId, route: context.req.path });
+
+  const updated = await updateOperationalErpVendorStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    vendorId,
+    actorUserId: authResult.auth.user.id,
+    status: parsed.data.status as ErpVendorStatus,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.vendor) return jsonDatabaseRequired(context, "ERP 거래처 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_vendor",
+    resourceId: updated.vendor.id,
+    accessType: "update",
+    purpose: "ERP 거래처 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 업무 처리",
+    metadata: { source: "erp-vendors-api", reason: parsed.data.reason, beforeStatus: before.vendor.status, afterStatus: updated.vendor.status },
+  });
+
+  return jsonSuccess(context, erpVendorMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_vendor.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {

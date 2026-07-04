@@ -103,6 +103,11 @@ export const appRoutes = {
     detail: (contractId: string) => `/api/electronic-contracts/${contractId}`,
     updateStatus: (contractId: string) => `/api/electronic-contracts/${contractId}/status`,
   },
+  erp: {
+    vendors: "/api/erp/vendors",
+    vendorDetail: (vendorId: string) => `/api/erp/vendors/${vendorId}`,
+    vendorStatus: (vendorId: string) => `/api/erp/vendors/${vendorId}/status`,
+  },
   vehicleOperationLogs: {
     vehicles: "/api/vehicle-operation/vehicles",
     logs: "/api/vehicle-operation/logs",
@@ -2255,6 +2260,74 @@ export const electronicContractStatusUpdateResponseSchema = successResponseSchem
   }),
 );
 
+export const erpVendorStatusSchema = z.enum(["active", "inactive", "archived"]);
+export const erpVendorSyncStatusSchema = z.enum(["not_connected", "pending", "queued", "synced", "failed"]);
+
+export const erpVendorSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  businessRegistrationNumber: z.string(),
+  name: z.string(),
+  representativeName: z.string().nullable(),
+  address: z.string().nullable(),
+  businessType: z.string().nullable(),
+  businessItem: z.string().nullable(),
+  contactName: z.string().nullable(),
+  contactPhone: z.string().nullable(),
+  contactEmail: z.string().email().nullable(),
+  taxInvoiceEmail: z.string().email().nullable(),
+  settlementTerm: z.string().nullable(),
+  memo: z.string().nullable(),
+  status: erpVendorStatusSchema,
+  externalProvider: z.literal("kyungrinara").nullable(),
+  externalReferenceId: z.string().nullable(),
+  syncStatus: erpVendorSyncStatusSchema,
+  lastSyncedAt: z.string().datetime().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpVendorCreateRequestSchema = z.object({
+  businessRegistrationNumber: z.string().min(1).max(32),
+  name: z.string().min(1).max(200),
+  representativeName: z.string().max(100).optional(),
+  address: z.string().max(500).optional(),
+  businessType: z.string().max(100).optional(),
+  businessItem: z.string().max(100).optional(),
+  contactName: z.string().max(100).optional(),
+  contactPhone: z.string().max(50).optional(),
+  contactEmail: z.string().email().optional(),
+  taxInvoiceEmail: z.string().email().optional(),
+  settlementTerm: z.string().max(200).optional(),
+  memo: z.string().max(1000).optional(),
+});
+
+export const erpVendorUpdateRequestSchema = erpVendorCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const erpVendorStatusUpdateRequestSchema = z.object({
+  status: erpVendorStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const erpVendorListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(erpVendorSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const erpVendorMutationResponseSchema = successResponseSchema(
+  z.object({
+    vendor: erpVendorSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
 export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
 export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
@@ -2591,6 +2664,14 @@ export type ElectronicContractListResponse = z.infer<typeof electronicContractLi
 export type ElectronicContractDetailResponse = z.infer<typeof electronicContractDetailResponseSchema>;
 export type ElectronicContractCreateResponse = z.infer<typeof electronicContractCreateResponseSchema>;
 export type ElectronicContractStatusUpdateResponse = z.infer<typeof electronicContractStatusUpdateResponseSchema>;
+export type ErpVendorStatus = z.infer<typeof erpVendorStatusSchema>;
+export type ErpVendorSyncStatus = z.infer<typeof erpVendorSyncStatusSchema>;
+export type ErpVendor = z.infer<typeof erpVendorSchema>;
+export type ErpVendorCreateRequest = z.infer<typeof erpVendorCreateRequestSchema>;
+export type ErpVendorUpdateRequest = z.infer<typeof erpVendorUpdateRequestSchema>;
+export type ErpVendorStatusUpdateRequest = z.infer<typeof erpVendorStatusUpdateRequestSchema>;
+export type ErpVendorListResponse = z.infer<typeof erpVendorListResponseSchema>;
+export type ErpVendorMutationResponse = z.infer<typeof erpVendorMutationResponseSchema>;
 export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
 export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
 export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
