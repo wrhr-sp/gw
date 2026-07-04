@@ -67,13 +67,17 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   return new Request(targetUrl.toString(), requestInit);
 }
 
-function buildApiBindings() {
+async function buildApiBindings() {
   let cloudflareEnv: Record<string, unknown> = {};
 
   try {
-    cloudflareEnv = getCloudflareContext().env as Record<string, unknown>;
+    cloudflareEnv = (await getCloudflareContext({ async: true })).env as Record<string, unknown>;
   } catch {
-    cloudflareEnv = {};
+    try {
+      cloudflareEnv = getCloudflareContext().env as Record<string, unknown>;
+    } catch {
+      cloudflareEnv = {};
+    }
   }
 
   return {
@@ -85,12 +89,12 @@ function buildApiBindings() {
   };
 }
 
-export function forwardSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname), buildApiBindings());
+export async function forwardSameOriginApiRequest(request: Request, pathname: string) {
+  return apiApp.fetch(buildApiRequest(request, pathname), await buildApiBindings());
 }
 
-export function forwardTrustedSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }), buildApiBindings());
+export async function forwardTrustedSameOriginApiRequest(request: Request, pathname: string) {
+  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }), await buildApiBindings());
 }
 
 export function forwardHealthRequest(request: Request) {
