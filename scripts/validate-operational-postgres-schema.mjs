@@ -65,6 +65,7 @@ const requiredTables = [
   'erp_account_subjects',
   'erp_journal_entries',
   'erp_journal_entry_lines',
+  'erp_closing_periods',
   'audit_logs',
 ];
 

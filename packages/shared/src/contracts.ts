@@ -123,6 +123,10 @@ export const appRoutes = {
     journalEntries: "/api/erp/journal-entries",
     journalEntryDetail: (journalEntryId: string) => `/api/erp/journal-entries/${journalEntryId}`,
     journalEntryStatus: (journalEntryId: string) => `/api/erp/journal-entries/${journalEntryId}/status`,
+    ledgerEntries: "/api/erp/ledger-entries",
+    closingPeriods: "/api/erp/closing-periods",
+    closingPeriodDetail: (periodId: string) => `/api/erp/closing-periods/${periodId}`,
+    closingPeriodStatus: (periodId: string) => `/api/erp/closing-periods/${periodId}/status`,
     accountingMappings: "/api/erp/accounting-mappings",
     accountingMappingDetail: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}`,
     accountingMappingStatus: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}/status`,
@@ -2728,6 +2732,77 @@ export const erpJournalEntryMutationResponseSchema = successResponseSchema(
   z.object({ journalEntry: erpJournalEntrySchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
 );
 
+export const erpLedgerEntrySchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  journalEntryId: z.string(),
+  journalEntryNumber: z.string(),
+  entryDate: z.string(),
+  journalStatus: erpJournalEntryStatusSchema,
+  sourceType: z.enum(["manual", "expense", "billing", "payment", "closing"]),
+  accountSubjectId: z.string(),
+  accountCode: z.string(),
+  accountName: z.string(),
+  accountType: erpAccountSubjectTypeSchema,
+  description: z.string(),
+  counterpartySummary: z.string().nullable(),
+  debitAmount: z.number().nonnegative(),
+  creditAmount: z.number().nonnegative(),
+  runningBalance: z.number(),
+});
+
+export const erpLedgerSummarySchema = z.object({
+  totalDebitAmount: z.number().nonnegative(),
+  totalCreditAmount: z.number().nonnegative(),
+  balance: z.number(),
+  accountCount: z.number().int().nonnegative(),
+  entryCount: z.number().int().nonnegative(),
+  postedEntryCount: z.number().int().nonnegative(),
+});
+
+export const erpLedgerEntryListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpLedgerEntrySchema), summary: erpLedgerSummarySchema, source: z.literal("postgres") }),
+);
+
+export const erpClosingPeriodStatusSchema = z.enum(["open", "locked", "closed"]);
+export const erpClosingPeriodSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  status: erpClosingPeriodStatusSchema,
+  lockedAt: z.string().datetime().nullable(),
+  closedAt: z.string().datetime().nullable(),
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpClosingPeriodCreateRequestSchema = z.object({
+  periodStart: z.string().min(10).max(10),
+  periodEnd: z.string().min(10).max(10),
+  status: erpClosingPeriodStatusSchema.default("locked"),
+  memo: z.string().max(1000).optional(),
+}).refine((value) => value.periodStart <= value.periodEnd, {
+  message: "periodStart must be before or equal to periodEnd",
+  path: ["periodEnd"],
+});
+
+export const erpClosingPeriodStatusUpdateRequestSchema = z.object({
+  status: erpClosingPeriodStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const erpClosingPeriodListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpClosingPeriodSchema), source: z.literal("postgres") }),
+);
+
+export const erpClosingPeriodMutationResponseSchema = successResponseSchema(
+  z.object({ closingPeriod: erpClosingPeriodSchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
+);
+
 export const erpAccountingMappingTypeSchema = z.enum([
   "expense_category",
   "revenue_category",
@@ -3259,6 +3334,15 @@ export type ErpJournalEntryCreateRequest = z.infer<typeof erpJournalEntryCreateR
 export type ErpJournalEntryStatusUpdateRequest = z.infer<typeof erpJournalEntryStatusUpdateRequestSchema>;
 export type ErpJournalEntryListResponse = z.infer<typeof erpJournalEntryListResponseSchema>;
 export type ErpJournalEntryMutationResponse = z.infer<typeof erpJournalEntryMutationResponseSchema>;
+export type ErpLedgerEntry = z.infer<typeof erpLedgerEntrySchema>;
+export type ErpLedgerSummary = z.infer<typeof erpLedgerSummarySchema>;
+export type ErpLedgerEntryListResponse = z.infer<typeof erpLedgerEntryListResponseSchema>;
+export type ErpClosingPeriodStatus = z.infer<typeof erpClosingPeriodStatusSchema>;
+export type ErpClosingPeriod = z.infer<typeof erpClosingPeriodSchema>;
+export type ErpClosingPeriodCreateRequest = z.infer<typeof erpClosingPeriodCreateRequestSchema>;
+export type ErpClosingPeriodStatusUpdateRequest = z.infer<typeof erpClosingPeriodStatusUpdateRequestSchema>;
+export type ErpClosingPeriodListResponse = z.infer<typeof erpClosingPeriodListResponseSchema>;
+export type ErpClosingPeriodMutationResponse = z.infer<typeof erpClosingPeriodMutationResponseSchema>;
 export type ErpAccountingMappingType = z.infer<typeof erpAccountingMappingTypeSchema>;
 export type ErpAccountingMappingStatus = z.infer<typeof erpAccountingMappingStatusSchema>;
 export type ErpAccountingMappingRecordStatus = z.infer<typeof erpAccountingMappingRecordStatusSchema>;
