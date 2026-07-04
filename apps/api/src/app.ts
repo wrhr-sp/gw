@@ -383,15 +383,17 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
 import { leaveOperationalMessengerThread } from "./lib/operational-messenger";
 import {
+  archiveOperationalMailDraft,
   buildMailAttachmentObjectKey,
   canAccessOperationalMailMessage,
   createOperationalMailAttachment,
   deleteOperationalMailAttachment,
   findOperationalMailAttachmentForAccess,
   listOperationalMailAttachments,
+  listOperationalMailAttachmentsForSender,
 } from "./lib/operational-mail-attachments";
 import { getOperationalUserPreferences, saveOperationalUserPreferences } from "./lib/operational-preferences";
 import {
@@ -6239,15 +6241,20 @@ app.post(appRoutes.mail.saveDraft, async (context) => {
       ...(parsed.data.recipientUserIds ?? []),
       ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : []),
     ]));
-    const draft = await createOperationalMailDraft(context.env, {
-      id: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+    const draftInput = {
       companyId: authResult.auth.user.companyId,
       senderUserId: authResult.auth.user.id,
       recipientUserId: recipientUserIds[0] ?? null,
       subject: parsed.data.subject?.trim() || "(제목 없음)",
       body: parsed.data.body?.trim() || "<p></p>",
       importance: parsed.data.importance,
-    });
+    };
+    const draft = parsed.data.draftMessageId
+      ? await updateOperationalMailDraft(context.env, { id: parsed.data.draftMessageId, ...draftInput })
+      : await createOperationalMailDraft(context.env, {
+        id: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+        ...draftInput,
+      });
 
     if (!draft) {
       return jsonError(context, "FORBIDDEN", "임시저장할 수 없는 수신자입니다.", 403, {
@@ -6307,6 +6314,50 @@ app.post(appRoutes.mail.send, async (context) => {
         recipientUserIds,
         deliveredCount: messages.length,
         route: context.req.path,
+      });
+    }
+
+    if (parsed.data.sourceDraftMessageId) {
+      const bucket = context.env.FILES_BUCKET as R2BucketBinding | undefined;
+      if (!bucket) {
+        return jsonError(context, "NOT_IMPLEMENTED", "FILES_BUCKET R2 binding이 필요합니다.", 501, { route: context.req.path });
+      }
+      const draftAttachments = await listOperationalMailAttachmentsForSender(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        messageId: parsed.data.sourceDraftMessageId,
+      });
+      for (const message of messages) {
+        for (const [index, draftAttachment] of draftAttachments.entries()) {
+          const object = await bucket.get(draftAttachment.objectKey);
+          if (!object?.body) {
+            return jsonError(context, "NOT_IMPLEMENTED", "R2에서 첨부 파일을 찾을 수 없습니다.", 501, { route: context.req.path });
+          }
+          const attachmentId = buildGeneratedMailAttachmentId(`${message.id}_${index + 1}`);
+          const objectKey = buildMailAttachmentObjectKey({
+            companyId: authResult.auth.user.companyId,
+            messageId: message.id,
+            attachmentId,
+            fileName: draftAttachment.attachment.fileName,
+          });
+          const copiedBody = object.body instanceof ArrayBuffer ? object.body : await new Response(object.body).arrayBuffer();
+          await bucket.put(objectKey, copiedBody, { httpMetadata: { contentType: draftAttachment.attachment.contentType } });
+          await createOperationalMailAttachment(context.env, {
+            id: attachmentId,
+            companyId: authResult.auth.user.companyId,
+            userId: authResult.auth.user.id,
+            messageId: message.id,
+            fileName: draftAttachment.attachment.fileName,
+            contentType: draftAttachment.attachment.contentType,
+            fileSize: draftAttachment.attachment.fileSize,
+            objectKey,
+          });
+        }
+      }
+      await archiveOperationalMailDraft(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        messageId: parsed.data.sourceDraftMessageId,
       });
     }
 

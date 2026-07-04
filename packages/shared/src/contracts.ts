@@ -254,6 +254,7 @@ export const mailMessageListResponseSchema = successResponseSchema(
 export const mailMessageSendRequestSchema = z.object({
   recipientUserId: z.string().min(1).optional(),
   recipientUserIds: z.array(z.string().min(1)).min(1).max(20).optional(),
+  sourceDraftMessageId: z.string().min(1).optional(),
   subject: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),
   importance: mailImportanceSchema.default("normal"),
@@ -265,6 +266,7 @@ export const mailMessageSendRequestSchema = z.object({
 export const mailMessageDraftSaveRequestSchema = z.object({
   recipientUserId: z.string().min(1).optional(),
   recipientUserIds: z.array(z.string().min(1)).max(20).optional(),
+  draftMessageId: z.string().min(1).optional(),
   subject: z.string().max(200).optional(),
   body: z.string().max(10000).optional(),
   importance: mailImportanceSchema.default("normal"),

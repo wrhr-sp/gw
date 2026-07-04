@@ -381,6 +381,52 @@ export async function createOperationalMailDraft(env: DatabaseEnv | undefined, i
   return row ? mapMailMessage(row) : null;
 }
 
+export async function updateOperationalMailDraft(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string | null; subject: string; body: string; importance: MailMessage["importance"] }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    update mail_messages
+    set
+      recipient_user_id = ${input.recipientUserId},
+      subject = ${input.subject},
+      body = ${input.body},
+      importance = ${input.importance},
+      updated_at = now()
+    where id = ${input.id}
+      and company_id = ${input.companyId}
+      and sender_user_id = ${input.senderUserId}
+      and status = 'draft'
+      and deleted_at is null
+      and (
+        ${input.recipientUserId}::text is null
+        or exists (
+          select 1 from users recipient
+          where recipient.id = ${input.recipientUserId}
+            and recipient.company_id = ${input.companyId}
+            and recipient.status = 'active'
+            and recipient.deleted_at is null
+        )
+      )
+    returning
+      mail_messages.id,
+      mail_messages.company_id,
+      mail_messages.sender_user_id,
+      (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      mail_messages.recipient_user_id,
+      (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
+      mail_messages.subject,
+      mail_messages.body,
+      mail_messages.status,
+      mail_messages.importance,
+      mail_messages.sent_at,
+      mail_messages.read_at,
+      mail_messages.created_at,
+      mail_messages.updated_at
+  `;
+
+  const row = rows[0] as MailRow | undefined;
+  return row ? mapMailMessage(row) : null;
+}
+
 export async function markOperationalMailMessageRead(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`

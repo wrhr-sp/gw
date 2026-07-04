@@ -147,6 +147,7 @@ export function MailClient() {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [composeMode, setComposeMode] = useState<MailComposeMode>("new");
   const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
+  const [composeDraftMessageId, setComposeDraftMessageId] = useState<string | null>(null);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
@@ -375,6 +376,7 @@ export function MailClient() {
   function openNewCompose() {
     setComposeMode("new");
     setComposeSourceMessageId(null);
+    setComposeDraftMessageId(null);
     setRecipientUserIds([]);
     setCcUserIds([]);
     setRecipientQuery("");
@@ -388,6 +390,7 @@ export function MailClient() {
   function openComposeFromMessage(mode: Exclude<MailComposeMode, "new">, message: MailMessage) {
     setComposeMode(mode);
     setComposeSourceMessageId(message.id);
+    setComposeDraftMessageId(null);
     setPendingAttachments([]);
     setCcUserIds([]);
     setCcQuery("");
@@ -466,23 +469,61 @@ export function MailClient() {
     setter((current) => current.filter((id) => id !== recipientId));
   }
 
-  function addPcFiles(files: File[], sourceLabel = "내 PC 파일첨부") {
+  async function ensureComposeDraftMessage() {
+    if (composeDraftMessageId) return composeDraftMessageId;
+    const response = await fetch(appRoutes.mail.saveDraft, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ subject: subject || "(제목 없음)", body: body || "<p></p>", importance }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error?.message ?? "첨부 업로드용 임시 메일을 만들지 못했습니다.");
+    }
+    const parsed = mailMessageDraftSaveResponseSchema.parse(payload);
+    setComposeDraftMessageId(parsed.data.message.id);
+    return parsed.data.message.id;
+  }
+
+  async function addPcFiles(files: File[], sourceLabel = "내 PC 파일첨부") {
     if (!files.length) return;
-    setPendingAttachments((current) => [
-      ...current,
-      ...files.map((file, index) => ({
-        id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
-        fileName: file.name,
-        sizeLabel: formatFileSize(file.size),
-        status: "대기" as const,
-        sourceLabel,
-        file,
-      })),
-    ]);
+    const pendingItems = files.map((file, index) => ({
+      id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
+      fileName: file.name,
+      sizeLabel: formatFileSize(file.size),
+      status: "업로드 중" as const,
+      sourceLabel,
+      file,
+    }));
+    setPendingAttachments((current) => [...current, ...pendingItems]);
+    try {
+      const draftMessageId = await ensureComposeDraftMessage();
+      for (const pending of pendingItems) {
+        const formData = new FormData();
+        formData.append("file", pending.file);
+        const response = await fetch(appRoutes.mail.attachments(draftMessageId), {
+          method: "POST",
+          credentials: "same-origin",
+          body: formData,
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, status: "실패" } : item));
+          setStatus(payload?.error?.message ?? `${pending.fileName} 업로드에 실패했습니다.`);
+          continue;
+        }
+        const uploaded = mailAttachmentUploadResponseSchema.parse(payload);
+        setPendingAttachments((current) => current.map((item) => item.id === pending.id ? { ...item, status: "업로드 완료", uploadedAttachmentId: uploaded.data.attachment.id } : item));
+      }
+    } catch (error) {
+      setPendingAttachments((current) => current.map((item) => pendingItems.some((pending) => pending.id === item.id) ? { ...item, status: "실패" } : item));
+      setStatus(error instanceof Error ? error.message : "첨부 업로드에 실패했습니다.");
+    }
   }
 
   function handlePcFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    addPcFiles(Array.from(event.currentTarget.files ?? []));
+    void addPcFiles(Array.from(event.currentTarget.files ?? []));
     event.currentTarget.value = "";
   }
 
@@ -507,7 +548,7 @@ export function MailClient() {
     event.preventDefault();
     event.stopPropagation();
     setIsAttachmentDragOver(false);
-    addPcFiles(Array.from(event.dataTransfer.files ?? []), "드래그앤드롭 파일첨부");
+    void addPcFiles(Array.from(event.dataTransfer.files ?? []), "드래그앤드롭 파일첨부");
   }
 
   function addDocumentAttachment(documentFile: DocumentFile) {
@@ -553,6 +594,10 @@ export function MailClient() {
 
   async function downloadAttachment(attachment: FeatureFileAttachmentItem) {
     const pending = pendingAttachments.find((item) => item.id === attachment.id);
+    if (pending?.uploadedAttachmentId) {
+      window.location.href = appRoutes.mail.downloadAttachment(pending.uploadedAttachmentId);
+      return;
+    }
     if (pending?.file) {
       const objectUrl = URL.createObjectURL(pending.file);
       const link = document.createElement("a");
@@ -654,7 +699,7 @@ export function MailClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: recipientIds, subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds: recipientIds, draftMessageId: composeDraftMessageId ?? undefined, subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -662,6 +707,7 @@ export function MailClient() {
         return;
       }
       const parsed = mailMessageDraftSaveResponseSchema.parse(payload);
+      setComposeDraftMessageId(parsed.data.message.id);
       setStatus(`임시보관함에 저장했습니다. (${parsed.data.message.subject})`);
       setView("drafts");
       await loadMessages("drafts");
@@ -680,11 +726,19 @@ export function MailClient() {
         if (recipientIds) setStatus("받는사람을 검색 결과 또는 최근 주소에서 선택해주세요.");
         return;
       }
+      if (pendingAttachments.some((attachment) => attachment.status === "업로드 중")) {
+        setStatus("첨부파일 업로드가 끝난 뒤 보낼 수 있습니다.");
+        return;
+      }
+      if (pendingAttachments.some((attachment) => attachment.status === "실패")) {
+        setStatus("실패한 첨부파일을 삭제하거나 다시 첨부해주세요.");
+        return;
+      }
       const response = await fetch(appRoutes.mail.send, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: recipientIds, subject, body, importance }),
+        body: JSON.stringify({ recipientUserIds: recipientIds, sourceDraftMessageId: composeDraftMessageId ?? undefined, subject, body, importance }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -693,31 +747,8 @@ export function MailClient() {
       }
       const parsed = mailMessageSendResponseSchema.parse(payload);
       const sentMessages = parsed.data.messages ?? [parsed.data.message];
-      const pcAttachments = pendingAttachments.filter((attachment) => attachment.file);
-      if (pcAttachments.length) {
-        for (const message of sentMessages) {
-          for (const attachment of pcAttachments) {
-            if (!attachment.file) continue;
-            setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "업로드 중" } : item));
-            const formData = new FormData();
-            formData.append("file", attachment.file);
-            const attachmentResponse = await fetch(appRoutes.mail.attachments(message.id), {
-              method: "POST",
-              credentials: "same-origin",
-              body: formData,
-            });
-            const attachmentPayload = await attachmentResponse.json();
-            if (!attachmentResponse.ok) {
-              setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "실패" } : item));
-              setStatus(attachmentPayload?.error?.message ?? "메일은 발송됐지만 일부 첨부 업로드에 실패했습니다.");
-              return;
-            }
-            const uploaded = mailAttachmentUploadResponseSchema.parse(attachmentPayload);
-            setPendingAttachments((current) => current.map((item) => item.id === attachment.id ? { ...item, status: "업로드 완료", uploadedAttachmentId: uploaded.data.attachment.id } : item));
-          }
-        }
-      }
       setPendingAttachments([]);
+      setComposeDraftMessageId(null);
       setStatus(`메일 ${sentMessages.length}건이 보낸메일함에 반영됐습니다.`);
       setView("sent");
       await loadMessages("sent");
