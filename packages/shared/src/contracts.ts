@@ -59,6 +59,7 @@ export const appRoutes = {
     messages: "/api/mail/messages",
     recipients: "/api/mail/recipients",
     send: "/api/mail/messages/send",
+    deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
@@ -225,6 +226,10 @@ export const mailRecipientListResponseSchema = successResponseSchema(
 
 export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived"]);
 export const mailImportanceSchema = z.enum(["normal", "important"]);
+export const mailDeliveryStatusSchema = z.enum(["draft", "pending", "queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked", "scheduled"]);
+export const mailDeliveryRecipientStatusSchema = z.enum(["queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked"]);
+export const mailEmailTypeSchema = z.enum(["auth", "password_reset", "notification", "announcement", "transactional", "marketing", "system", "manual"]);
+export const mailDeliveryModeSchema = z.enum(["immediate", "scheduled", "test"]);
 
 export const mailMessageSchema = z.object({
   id: z.string(),
@@ -263,7 +268,73 @@ export const mailMessageListResponseSchema = successResponseSchema(
 
 export const mailExternalEmailSchema = z.string().trim().toLowerCase().email().max(254);
 
-export const mailExternalDeliveryLogSchema = z.object({
+export const mailDeliveryRecipientSchema = z.object({
+  id: z.string(),
+  batchId: z.string(),
+  messageId: z.string().nullable(),
+  recipientUserId: z.string().nullable(),
+  recipientEmail: mailExternalEmailSchema,
+  recipientName: z.string().nullable(),
+  recipientType: z.enum(["to", "cc", "bcc"]),
+  status: mailDeliveryRecipientStatusSchema,
+  providerKind: z.enum(["smtp", "api", "unconfigured"]),
+  providerName: z.string(),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  providerMessageId: z.string().nullable(),
+  retryCount: z.number().int().nonnegative(),
+  nextRetryAt: z.string().datetime().nullable(),
+  sentAt: z.string().datetime().nullable(),
+  failedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const mailDeliveryBatchSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  senderUserId: z.string(),
+  senderName: z.string(),
+  senderMailAccountId: z.string().nullable(),
+  senderMailAliasId: z.string().nullable(),
+  senderEmail: mailExternalEmailSchema.nullable(),
+  senderDisplayName: z.string().nullable(),
+  emailType: mailEmailTypeSchema,
+  deliveryMode: mailDeliveryModeSchema,
+  subject: z.string(),
+  status: mailDeliveryStatusSchema,
+  recipientCount: z.number().int().nonnegative(),
+  successCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  blockedCount: z.number().int().nonnegative(),
+  externalRecipientCount: z.number().int().nonnegative(),
+  providerKind: z.enum(["smtp", "api", "unconfigured"]),
+  providerName: z.string(),
+  requestedBy: z.string().nullable(),
+  requestedAt: z.string().datetime(),
+  scheduledAt: z.string().datetime().nullable(),
+  sentAt: z.string().datetime().nullable(),
+  failedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  recipients: z.array(mailDeliveryRecipientSchema),
+});
+
+export const mailDeliveryHistoryResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(mailDeliveryBatchSchema),
+    counts: z.object({
+      total: z.number().int().nonnegative(),
+      sent: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      blocked: z.number().int().nonnegative(),
+      queued: z.number().int().nonnegative(),
+    }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailExternalDeliveryLogSchema = z.object({ 
   id: z.string(),
   companyId: z.string(),
   messageId: z.string().nullable(),
@@ -3520,6 +3591,9 @@ export type MailRecipient = z.infer<typeof mailRecipientSchema>;
 export type MailRecipientListResponse = z.infer<typeof mailRecipientListResponseSchema>;
 export type MailMessage = z.infer<typeof mailMessageSchema>;
 export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSchema>;
+export type MailDeliveryBatch = z.infer<typeof mailDeliveryBatchSchema>;
+export type MailDeliveryRecipient = z.infer<typeof mailDeliveryRecipientSchema>;
+export type MailDeliveryHistoryResponse = z.infer<typeof mailDeliveryHistoryResponseSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;

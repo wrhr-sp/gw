@@ -153,6 +153,7 @@ import {
   mailAccountMutationResponseSchema,
   mailAccountUpdateRequestSchema,
   mailIntegrationSettingsResponseSchema,
+  mailDeliveryHistoryResponseSchema,
   mailProviderSettingsResponseSchema,
   mailProviderSettingsUpdateRequestSchema,
   mailMessageListResponseSchema,
@@ -395,6 +396,7 @@ import {
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
+import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
 import {
   createOperationalMailAccount,
@@ -6448,6 +6450,31 @@ app.get(appRoutes.mail.messages, async (context) => {
   }
 });
 
+app.get(appRoutes.mail.deliveryHistory, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+  try {
+    const result = await listOperationalMailDeliveryHistory(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    });
+    return jsonSuccess(context, mailDeliveryHistoryResponseSchema, {
+      ok: true,
+      data: {
+        items: result.items,
+        counts: result.counts,
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 발송 이력 조회");
+  }
+});
+
 app.post(appRoutes.mail.saveDraft, async (context) => {
   const authResult = requireAuth(context);
   if (authResult.response) {
@@ -6572,6 +6599,32 @@ app.post(appRoutes.mail.send, async (context) => {
           errorCode: "EXTERNAL_MAIL_NOT_CONFIGURED",
           errorMessage: "외부메일 SMTP/API 발송 설정이 필요합니다.",
         });
+        const deliveryBatchId = buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id);
+        await createOperationalMailDeliveryHistory(context.env, {
+          id: deliveryBatchId,
+          companyId: authResult.auth.user.companyId,
+          senderUserId: authResult.auth.user.id,
+          senderMailAccountId: senderAccount?.accountId ?? null,
+          senderMailAliasId: senderAccount?.aliasId ?? null,
+          senderEmail: senderAccount?.senderEmail ?? null,
+          senderDisplayName: senderAccount?.senderDisplayName ?? null,
+          subject: parsed.data.subject,
+          bodySnapshot: parsed.data.body,
+          status: "blocked",
+          providerKind: provider.kind,
+          providerName: provider.name,
+          requestedBy: authResult.auth.user.id,
+          recipients: externalRecipients.map((recipient, index) => ({
+            id: `${deliveryBatchId}_recipient_${index + 1}`,
+            recipientEmail: recipient.email,
+            recipientType: recipient.recipientType,
+            status: "blocked",
+            providerKind: provider.kind,
+            providerName: provider.name,
+            errorCode: "EXTERNAL_MAIL_NOT_CONFIGURED",
+            errorMessage: "외부메일 SMTP/API 발송 설정이 필요합니다.",
+          })),
+        });
         return jsonError(context, "EXTERNAL_MAIL_NOT_CONFIGURED", "외부메일 SMTP/API 발송 설정이 필요합니다.", 501, {
           externalDeliveries,
           provider,
@@ -6604,6 +6657,22 @@ app.post(appRoutes.mail.send, async (context) => {
         route: context.req.path,
       });
     }
+
+    const deliveryBatchId = buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id);
+    await createOperationalMailDeliveryHistory(context.env, {
+      id: deliveryBatchId,
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
+      subject: parsed.data.subject,
+      bodySnapshot: parsed.data.body,
+      status: "sent",
+      requestedBy: authResult.auth.user.id,
+      recipients: buildInternalDeliveryRecipients(messages, deliveryBatchId),
+    });
 
     if (parsed.data.sourceDraftMessageId) {
       const bucket = context.env.FILES_BUCKET as R2BucketBinding | undefined;

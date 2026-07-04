@@ -13,6 +13,7 @@ import {
   mailAttachmentDeleteResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailIntegrationSettingsResponseSchema,
+  mailDeliveryHistoryResponseSchema,
   mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
@@ -24,6 +25,7 @@ import {
   type MailAccountAlias,
   type MailAttachment,
   type MailBox,
+  type MailDeliveryBatch,
   type MailMessage,
   type MailProviderSettings,
   type MailRecipient,
@@ -47,7 +49,7 @@ const boxLabels: Record<MailBox, string> = {
 };
 
 type MailFolderId = "favorites" | "inbox" | "sent" | "drafts" | "scheduled" | "spam" | "trash" | "external";
-type MailView = MailFolderId | "compose" | "security" | "settings";
+type MailView = MailFolderId | "compose" | "security" | "settings" | "deliveryHistory";
 type MailComposeMode = "new" | "reply" | "replyAll" | "forward";
 type MailRecipientTarget = "to" | "cc";
 type MailExternalRecipient = {
@@ -224,6 +226,8 @@ export function MailClient() {
   const [mailAccounts, setMailAccounts] = useState<MailAccount[]>([]);
   const [mailAliases, setMailAliases] = useState<MailAccountAlias[]>([]);
   const [providerSettings, setProviderSettings] = useState<MailProviderSettings | null>(null);
+  const [deliveryHistory, setDeliveryHistory] = useState<MailDeliveryBatch[]>([]);
+  const [deliveryHistoryCounts, setDeliveryHistoryCounts] = useState({ total: 0, sent: 0, failed: 0, blocked: 0, queued: 0 });
   const [selectedSenderValue, setSelectedSenderValue] = useState("");
   const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
   const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
@@ -374,6 +378,21 @@ export function MailClient() {
     setStatus(`메일 통합설정 ${parsed.data.accounts.length}개 계정, ${parsed.data.aliases.length}개 별칭을 불러왔습니다.`);
   }
 
+  async function loadDeliveryHistory() {
+    setStatus("메일 발송 이력을 불러오는 중입니다.");
+    const response = await fetch(appRoutes.mail.deliveryHistory, { credentials: "same-origin" });
+    const payload = await response.json();
+    if (!response.ok) {
+      setDeliveryHistory([]);
+      setStatus(payload?.error?.message ?? "메일 발송 이력을 불러오지 못했습니다.");
+      return;
+    }
+    const parsed = mailDeliveryHistoryResponseSchema.parse(payload);
+    setDeliveryHistory(parsed.data.items);
+    setDeliveryHistoryCounts(parsed.data.counts);
+    setStatus(`메일 발송 이력 ${parsed.data.items.length}건을 불러왔습니다.`);
+  }
+
   async function loadAttachments(messages: MailMessage[]) {
     const entries = await Promise.all(messages.map(async (message) => {
       const response = await fetch(appRoutes.mail.attachments(message.id), { credentials: "same-origin" });
@@ -420,6 +439,13 @@ export function MailClient() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipientQuery, ccQuery, view]);
+
+  useEffect(() => {
+    if (view === "deliveryHistory") {
+      void loadDeliveryHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   useEffect(() => {
     function handleRecipientPopupPointerDown(event: PointerEvent) {
@@ -1227,6 +1253,33 @@ export function MailClient() {
     );
   }
 
+  function renderDeliveryHistory() {
+    return (
+      <section className="mail-delivery-history" aria-label="메일 발송 이력">
+        <div className="mail-settings-guide">
+          <strong>메일 발송 이력</strong>
+          <span>발송 요청 단위와 수신자별 상태를 분리해 저장합니다. 예약·재시도·큐·SMTP/API 실제 발송은 이 구조 위에서 확장합니다.</span>
+          <span>전체 {deliveryHistoryCounts.total}건 · 성공 {deliveryHistoryCounts.sent}건 · 실패 {deliveryHistoryCounts.failed}건 · 차단 {deliveryHistoryCounts.blocked}건 · 대기 {deliveryHistoryCounts.queued}건</span>
+        </div>
+        <div className="feature-workspace__rows" data-mail-delivery-history="batch-recipient-status">
+          {deliveryHistory.length ? deliveryHistory.map((batch) => (
+            <article className="feature-workspace__row" key={batch.id}>
+              <div>
+                <strong>{batch.subject}</strong>
+                <span>{batch.senderDisplayName ?? batch.senderName} · {batch.emailType} · {batch.deliveryMode} · 수신자 {batch.recipientCount}명</span>
+                <span>상태: {batch.status} · 성공 {batch.successCount} · 실패 {batch.failedCount} · 차단 {batch.blockedCount}</span>
+                <span>수신자별 상태: {batch.recipients.map((recipient) => `${recipient.recipientEmail} ${recipient.status}`).join(" / ") || "기록 없음"}</span>
+              </div>
+              <em>{batch.providerKind === "unconfigured" ? "provider 미연결" : batch.providerName}</em>
+            </article>
+          )) : (
+            <article className="feature-workspace__row"><div><strong>발송 이력이 없습니다.</strong><span>메일 발송 후 batch와 수신자별 상태가 여기에 표시됩니다.</span></div><em>비어 있음</em></article>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   function renderMailIntegrationSettings() {
     return (
       <div className="mail-integration-settings" aria-label="메일 통합설정">
@@ -1397,6 +1450,7 @@ export function MailClient() {
           <button className="board-write-button mail-write-button" type="button" onClick={openNewCompose}>메일쓰기</button>
         ) : null}
         <button className="mail-settings-nav-button" aria-pressed={view === "settings"} type="button" onClick={() => setView("settings")}>통합설정</button>
+        <button className="mail-settings-nav-button" aria-pressed={view === "deliveryHistory"} type="button" onClick={() => setView("deliveryHistory")}>발송 이력</button>
         <div className="mail-folder-list" role="tree" aria-label="메일함 목록">
           {standaloneBeforeMailbox.map((folder) => renderFolderButton(folder))}
           {mailboxFolders.length ? (
@@ -1416,13 +1470,15 @@ export function MailClient() {
       <section className="feature-workspace__panel" aria-labelledby="mail-panel-heading">
         <div className="feature-workspace__panel-header">
           <div>
-            <h2 id="mail-panel-heading">{view === "settings" ? "메일 통합설정" : view === "compose" ? composeModeLabel[composeMode] : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
+            <h2 id="mail-panel-heading">{view === "settings" ? "메일 통합설정" : view === "deliveryHistory" ? "메일 발송 이력" : view === "compose" ? composeModeLabel[composeMode] : currentBox ? boxLabels[currentBox] : currentFolder?.label ?? "메일"}</h2>
           </div>
         </div>
         <p className="feature-workspace__panel-status" role="status">{status}</p>
 
         {view === "settings" ? (
           renderMailIntegrationSettings()
+        ) : view === "deliveryHistory" ? (
+          renderDeliveryHistory()
         ) : view === "compose" ? (
           <form className="mail-compose-form" onSubmit={sendMessage} onKeyDown={handleComposeKeyDown} data-compose-mode={composeMode} data-source-message-id={composeSourceMessageId ?? undefined}>
             <div className="mail-compose-toolbar" aria-label="메일 작성 작업">
