@@ -57,6 +57,7 @@ const requiredTables = [
   'vehicle_operation_logs',
   'erp_vendors',
   'erp_expense_requests',
+  'erp_evidence',
   'audit_logs',
 ];
 
