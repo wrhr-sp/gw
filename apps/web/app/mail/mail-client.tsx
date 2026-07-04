@@ -44,6 +44,11 @@ const boxLabels: Record<MailBox, string> = {
 type MailFolderId = "favorites" | "inbox" | "sent" | "drafts" | "scheduled" | "spam" | "trash" | "external";
 type MailView = MailFolderId | "compose" | "security";
 type MailComposeMode = "new" | "reply" | "replyAll" | "forward";
+type MailRecipientTarget = "to" | "cc";
+type MailExternalRecipient = {
+  id: string;
+  email: string;
+};
 
 type MailFolderConfig = {
   id: MailFolderId;
@@ -141,6 +146,14 @@ function getRecipientSearchPrompt(query: string) {
   return query.trim() ? "검색 결과가 없습니다." : "이름, 이메일, 부서명을 입력하세요.";
 }
 
+function normalizeEmailInput(value: string) {
+  return value.trim().replace(/^mailto:/i, "").toLowerCase();
+}
+
+function isValidEmailInput(value: string) {
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value);
+}
+
 export function MailClient() {
   const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
@@ -165,6 +178,8 @@ export function MailClient() {
   const ccPopupRef = useRef<HTMLDivElement | null>(null);
   const [recipientUserIds, setRecipientUserIds] = useState<string[]>([]);
   const [ccUserIds, setCcUserIds] = useState<string[]>([]);
+  const [externalRecipientEmails, setExternalRecipientEmails] = useState<MailExternalRecipient[]>([]);
+  const [externalCcEmails, setExternalCcEmails] = useState<MailExternalRecipient[]>([]);
   const [addressBookRecipientUserIds, setAddressBookRecipientUserIds] = useState<string[]>([]);
   const [addressBookCcUserIds, setAddressBookCcUserIds] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
@@ -379,6 +394,8 @@ export function MailClient() {
     setComposeDraftMessageId(null);
     setRecipientUserIds([]);
     setCcUserIds([]);
+    setExternalRecipientEmails([]);
+    setExternalCcEmails([]);
     setRecipientQuery("");
     setCcQuery("");
     setSubject("");
@@ -393,6 +410,8 @@ export function MailClient() {
     setComposeDraftMessageId(null);
     setPendingAttachments([]);
     setCcUserIds([]);
+    setExternalRecipientEmails([]);
+    setExternalCcEmails([]);
     setCcQuery("");
     setRecipientQuery("");
     setRecipientUserIds(mode === "forward" || !message.senderUserId ? [] : [message.senderUserId]);
@@ -464,9 +483,48 @@ export function MailClient() {
     closeRecipientPopup();
   }
 
-  function removeRecipient(recipientId: string, target: "to" | "cc") {
+  function removeRecipient(recipientId: string, target: MailRecipientTarget) {
     const setter = target === "to" ? setRecipientUserIds : setCcUserIds;
     setter((current) => current.filter((id) => id !== recipientId));
+  }
+
+  function addExternalEmailRecipient(rawEmail: string, target: MailRecipientTarget) {
+    const email = normalizeEmailInput(rawEmail);
+    if (!email) return false;
+    if (!isValidEmailInput(email)) {
+      setStatus("올바른 이메일 주소를 입력해주세요.");
+      return false;
+    }
+    const selectedInternalEmails = [...selectedRecipients, ...selectedCcRecipients].map((recipient) => recipient.email.toLowerCase());
+    const selectedExternalEmails = [...externalRecipientEmails, ...externalCcEmails].map((recipient) => recipient.email);
+    if (selectedInternalEmails.includes(email) || selectedExternalEmails.includes(email)) {
+      setStatus("이미 추가된 이메일입니다.");
+      return false;
+    }
+    const setter = target === "to" ? setExternalRecipientEmails : setExternalCcEmails;
+    setter((current) => [...current, { id: `${target}-${email}`, email }]);
+    if (target === "to") setRecipientQuery("");
+    else setCcQuery("");
+    closeRecipientPopup();
+    setStatus(`${email} 주소를 ${target === "to" ? "받는사람" : "참조"}에 추가했습니다. 외부 이메일 실제 발송은 다음 SMTP/API 연동 단계에서 연결합니다.`);
+    return true;
+  }
+
+  function removeExternalEmailRecipient(email: string, target: MailRecipientTarget) {
+    const setter = target === "to" ? setExternalRecipientEmails : setExternalCcEmails;
+    setter((current) => current.filter((recipient) => recipient.email !== email));
+  }
+
+  function handleRecipientInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>, target: MailRecipientTarget) {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    const query = target === "to" ? recipientQuery : ccQuery;
+    const exactRecipient = findExactRecipientByQuery(query);
+    if (exactRecipient) {
+      addRecipient(exactRecipient, target);
+      return;
+    }
+    addExternalEmailRecipient(query, target);
   }
 
   async function ensureComposeDraftMessage() {
@@ -655,6 +713,8 @@ export function MailClient() {
   function writeToMyself() {
     setRecipientUserIds(["user_company_admin"]);
     setCcUserIds([]);
+    setExternalRecipientEmails([]);
+    setExternalCcEmails([]);
     setStatus("내게쓰기 수신자를 총괄관리계정으로 지정했습니다.");
   }
 
@@ -677,7 +737,12 @@ export function MailClient() {
     ].filter(Boolean);
 
     if (unresolvedInputs.length) {
-      setStatus("외부 이메일 발송은 아직 연결되지 않았습니다. 받는사람/참조는 검색 결과 또는 최근 주소에서 선택해주세요.");
+      setStatus("입력 중인 주소는 Enter로 먼저 등록하거나 검색 결과에서 선택해주세요.");
+      return null;
+    }
+
+    if (externalRecipientEmails.length || externalCcEmails.length) {
+      setStatus("외부 이메일 발송은 아직 연결되지 않았습니다. 다음 SMTP/API 연동 단계 전까지 내부 사용자에게만 발송할 수 있습니다.");
       return null;
     }
 
@@ -991,15 +1056,18 @@ export function MailClient() {
               <div className="mail-recipient-combobox" aria-label="받는사람 입력" ref={recipientPopupRef}>
                 <div className="mail-recipient-input-line">
                   <div className="mail-recipient-input-shell">
-                    <input className="field" aria-label="받는사람 이메일 또는 이름" value={recipientQuery} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
+                    <input className="field" aria-label="받는사람 이메일 또는 이름" value={recipientQuery} onKeyDown={(event) => handleRecipientInputKeyDown(event, "to")} onChange={(event) => { setRecipientQuery(event.target.value); setActiveRecipientPopup("to"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
                     <button className="mail-recipient-recent-button" aria-expanded={isRecentRecipientPopupOpen} aria-label="받는사람 최근 사용 주소" type="button" onClick={() => openRecentRecipients("to")}>∨</button>
                   </div>
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("to")}>주소록</button>
                 </div>
-                {selectedRecipients.length ? (
+                {selectedRecipients.length || externalRecipientEmails.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 받는사람">
                     {selectedRecipients.map((recipient) => (
                       <button key={recipient.userId} type="button" onClick={() => removeRecipient(recipient.userId, "to")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+                    ))}
+                    {externalRecipientEmails.map((recipient) => (
+                      <button key={recipient.id} type="button" onClick={() => removeExternalEmailRecipient(recipient.email, "to")}>{recipient.email} ×</button>
                     ))}
                   </div>
                 ) : null}
@@ -1019,15 +1087,18 @@ export function MailClient() {
               <div className="mail-recipient-combobox" aria-label="참조 입력" ref={ccPopupRef}>
                 <div className="mail-recipient-input-line">
                   <div className="mail-recipient-input-shell">
-                    <input className="field" aria-label="참조 이메일 또는 이름" value={ccQuery} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
+                    <input className="field" aria-label="참조 이메일 또는 이름" value={ccQuery} onKeyDown={(event) => handleRecipientInputKeyDown(event, "cc")} onChange={(event) => { setCcQuery(event.target.value); setActiveRecipientPopup("cc"); setManualRecipientPopupTarget(null); setActiveRecentRecipientPopup(null); }} />
                     <button className="mail-recipient-recent-button" aria-expanded={isRecentCcPopupOpen} aria-label="참조 최근 사용 주소" type="button" onClick={() => openRecentRecipients("cc")}>∨</button>
                   </div>
                   <button className="mail-address-book-button" type="button" onClick={() => openAddressBook("cc")}>주소록</button>
                 </div>
-                {selectedCcRecipients.length ? (
+                {selectedCcRecipients.length || externalCcEmails.length ? (
                   <div className="mail-recipient-chip-list" aria-label="선택된 참조">
                     {selectedCcRecipients.map((recipient) => (
                       <button key={recipient.userId} type="button" onClick={() => removeRecipient(recipient.userId, "cc")}>{recipient.displayName} &lt;{recipient.email}&gt; ×</button>
+                    ))}
+                    {externalCcEmails.map((recipient) => (
+                      <button key={recipient.id} type="button" onClick={() => removeExternalEmailRecipient(recipient.email, "cc")}>{recipient.email} ×</button>
                     ))}
                   </div>
                 ) : null}

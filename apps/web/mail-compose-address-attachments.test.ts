@@ -27,9 +27,13 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-compose-attachments--drag-over");
   });
 
-  it("starts document-file download from the download init URL and explains unsupported external email", () => {
-    expect(mailClient).toContain("parsed.data.action.downloadUrl");
-    expect(mailClient).toContain("window.location.href = parsed.data.action.downloadUrl");
-    expect(mailClient).toContain("외부 이메일 발송은 아직 연결되지 않았습니다");
+  it("registers manually entered external emails with Enter and blocks send until SMTP/API is connected", () => {
+    expect(mailClient).toContain("type MailExternalRecipient");
+    expect(mailClient).toContain("handleRecipientInputKeyDown(event, \"to\")");
+    expect(mailClient).toContain("handleRecipientInputKeyDown(event, \"cc\")");
+    expect(mailClient).toContain("addExternalEmailRecipient(query, target)");
+    expect(mailClient).toContain("올바른 이메일 주소를 입력해주세요.");
+    expect(mailClient).toContain("이미 추가된 이메일입니다.");
+    expect(mailClient).toContain("다음 SMTP/API 연동 단계 전까지 내부 사용자에게만 발송할 수 있습니다.");
   });
 });
