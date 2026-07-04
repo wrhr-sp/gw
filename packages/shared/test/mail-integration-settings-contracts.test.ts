@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mailAccountAliasCreateRequestSchema, mailAccountCreateRequestSchema, mailMessageSendRequestSchema } from "../src/contracts";
+import {
+  mailAccountAliasCreateRequestSchema,
+  mailAccountCreateRequestSchema,
+  mailMessageSendRequestSchema,
+  mailProviderSettingsResponseSchema,
+  mailProviderSettingsUpdateRequestSchema,
+} from "../src/contracts";
 
 describe("mail integration setting contracts", () => {
   it("accepts provider-open personal and virtual mail accounts", () => {
@@ -52,5 +58,47 @@ describe("mail integration setting contracts", () => {
       senderMailAccountId: "mail_account_1",
       senderMailAliasId: "mail_alias_1",
     });
+  });
+
+  it("tracks SMTP/API provider readiness without storing secrets", () => {
+    expect(mailProviderSettingsUpdateRequestSchema.parse({
+      providerKind: "smtp",
+      providerName: "smtp",
+      fromEmail: "Mailer@werehere.co.kr",
+      smtpHost: "smtp.example.com",
+      smtpPort: 587,
+      smtpSecure: true,
+      dnsSpfStatus: "verified",
+      dnsDkimStatus: "pending",
+      dnsDmarcStatus: "not_checked",
+      secretStatus: "not_connected",
+    })).toMatchObject({ providerKind: "smtp", fromEmail: "mailer@werehere.co.kr", secretStatus: "not_connected" });
+
+    expect(mailProviderSettingsResponseSchema.parse({
+      ok: true,
+      data: {
+        settings: {
+          companyId: "company_1",
+          providerKind: "api",
+          providerName: "resend",
+          fromEmail: "mailer@werehere.co.kr",
+          smtpHost: null,
+          smtpPort: null,
+          smtpSecure: true,
+          apiEndpoint: "https://api.example.test/send",
+          dnsSpfStatus: "verified",
+          dnsDkimStatus: "verified",
+          dnsDmarcStatus: "verified",
+          secretStatus: "connected",
+          notes: null,
+          readiness: { hasProvider: true, hasSender: true, hasHostOrEndpoint: true, hasSecret: true, hasDnsAuth: true, canSendExternally: true },
+          updatedBy: "user_1",
+          createdAt: "2026-07-05T00:00:00.000Z",
+          updatedAt: "2026-07-05T00:00:00.000Z",
+        },
+        source: "postgres",
+      },
+      error: null,
+    }).data.settings.readiness.canSendExternally).toBe(true);
   });
 });

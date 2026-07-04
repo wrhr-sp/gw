@@ -55,6 +55,12 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("발신 허용 부서 ID");
     expect(mailClient).toContain("formatGrantCount");
     expect(mailClient).toContain("const defaultAlias = parsed.data.aliases.find((alias) => alias.isActive && alias.isDefault)");
+    expect(mailClient).toContain("SMTP/API provider 준비 상태");
+    expect(mailClient).toContain("appRoutes.mail.providerSettings");
+    expect(mailClient).toContain("mailProviderSettingsResponseSchema");
+    expect(mailClient).toContain("Provider 상태 저장");
+    expect(mailClient).toContain("비밀번호/API key 값은 저장하지 않고");
+    expect(mailClient).toContain("외부 발송 준비도");
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });

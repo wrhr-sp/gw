@@ -13,6 +13,7 @@ import {
   mailAttachmentDeleteResponseSchema,
   mailAttachmentUploadResponseSchema,
   mailIntegrationSettingsResponseSchema,
+  mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageReadResponseSchema,
@@ -24,6 +25,7 @@ import {
   type MailAttachment,
   type MailBox,
   type MailMessage,
+  type MailProviderSettings,
   type MailRecipient,
 } from "@gw/shared";
 
@@ -151,6 +153,19 @@ function formatGrantCount(userIds?: string[], departmentIds?: string[]) {
   return `사용자 ${users}명 · 부서 ${departments}개`;
 }
 
+function providerCheckStatusLabel(status: MailProviderSettings["dnsSpfStatus"]) {
+  if (status === "verified") return "확인됨";
+  if (status === "pending") return "확인 대기";
+  if (status === "failed") return "확인 실패";
+  return "미확인";
+}
+
+function providerSecretStatusLabel(status: MailProviderSettings["secretStatus"]) {
+  if (status === "connected") return "secret 연결됨";
+  if (status === "pending") return "secret 연결 대기";
+  return "secret 미연결";
+}
+
 const mailRecipientSectionLabels = {
   internal: "전사 내 계정 메일",
   history: "발송/수신 이력이 있는 메일",
@@ -208,9 +223,11 @@ export function MailClient() {
   const [isFolderEditorOpen, setIsFolderEditorOpen] = useState(false);
   const [mailAccounts, setMailAccounts] = useState<MailAccount[]>([]);
   const [mailAliases, setMailAliases] = useState<MailAccountAlias[]>([]);
+  const [providerSettings, setProviderSettings] = useState<MailProviderSettings | null>(null);
   const [selectedSenderValue, setSelectedSenderValue] = useState("");
   const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
   const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
+  const [providerForm, setProviderForm] = useState({ providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", fromEmail: "", smtpHost: "", smtpPort: "587", smtpSecure: true, apiEndpoint: "", dnsSpfStatus: "not_checked" as MailProviderSettings["dnsSpfStatus"], dnsDkimStatus: "not_checked" as MailProviderSettings["dnsDkimStatus"], dnsDmarcStatus: "not_checked" as MailProviderSettings["dnsDmarcStatus"], secretStatus: "not_connected" as MailProviderSettings["secretStatus"], notes: "" });
   const [folderOrder, setFolderOrder] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
   const [visibleFolderIds, setVisibleFolderIds] = useState<MailFolderId[]>([...defaultVisibleFolderIds]);
 
@@ -333,6 +350,27 @@ export function MailClient() {
       const defaultAccount = parsed.data.accounts.find((account) => account.isActive && account.isDefault) ?? parsed.data.accounts.find((account) => account.isActive);
       return defaultAccount ? `account:${defaultAccount.id}` : "";
     });
+    const providerResponse = await fetch(appRoutes.mail.providerSettings, { credentials: "same-origin" });
+    const providerPayload = await providerResponse.json();
+    if (providerResponse.ok) {
+      const providerParsed = mailProviderSettingsResponseSchema.parse(providerPayload);
+      const settings = providerParsed.data.settings;
+      setProviderSettings(settings);
+      setProviderForm({
+        providerKind: settings.providerKind,
+        providerName: settings.providerName,
+        fromEmail: settings.fromEmail ?? "",
+        smtpHost: settings.smtpHost ?? "",
+        smtpPort: settings.smtpPort ? String(settings.smtpPort) : "587",
+        smtpSecure: settings.smtpSecure,
+        apiEndpoint: settings.apiEndpoint ?? "",
+        dnsSpfStatus: settings.dnsSpfStatus,
+        dnsDkimStatus: settings.dnsDkimStatus,
+        dnsDmarcStatus: settings.dnsDmarcStatus,
+        secretStatus: settings.secretStatus,
+        notes: settings.notes ?? "",
+      });
+    }
     setStatus(`메일 통합설정 ${parsed.data.accounts.length}개 계정, ${parsed.data.aliases.length}개 별칭을 불러왔습니다.`);
   }
 
@@ -991,6 +1029,38 @@ export function MailClient() {
     await loadMailSettings();
   }
 
+  async function saveProviderSettings(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("메일 provider 설정 상태를 저장하는 중입니다.");
+    const response = await fetch(appRoutes.mail.providerSettings, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        providerKind: providerForm.providerKind,
+        providerName: providerForm.providerName || providerForm.providerKind,
+        fromEmail: providerForm.fromEmail || null,
+        smtpHost: providerForm.providerKind === "smtp" ? providerForm.smtpHost || null : null,
+        smtpPort: providerForm.providerKind === "smtp" && providerForm.smtpPort ? Number(providerForm.smtpPort) : null,
+        smtpSecure: providerForm.smtpSecure,
+        apiEndpoint: providerForm.providerKind === "api" ? providerForm.apiEndpoint || null : null,
+        dnsSpfStatus: providerForm.dnsSpfStatus,
+        dnsDkimStatus: providerForm.dnsDkimStatus,
+        dnsDmarcStatus: providerForm.dnsDmarcStatus,
+        secretStatus: providerForm.secretStatus,
+        notes: providerForm.notes || null,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "메일 provider 설정을 저장하지 못했습니다.");
+      return;
+    }
+    const parsed = mailProviderSettingsResponseSchema.parse(payload);
+    setProviderSettings(parsed.data.settings);
+    setStatus(parsed.data.settings.readiness.canSendExternally ? "메일 provider 설정 준비 상태가 완료로 저장됐습니다." : "메일 provider 준비 상태를 저장했습니다. 실제 secret/DNS/발송은 별도 승인 후 연결합니다.");
+  }
+
   function renderFolderButton(folder: MailFolderConfig, nested = false, hideNestedMarker = false) {
     const selected = view === folder.id;
     const badge = getFolderBadge(folder, counts);
@@ -1165,6 +1235,64 @@ export function MailClient() {
           <span>가상메일은 세금계산서 수취 전용메일처럼 실제 사람이 아니라 업무 목적 주소입니다. 별칭계정은 이미 등록된 내 메일/가상메일에 붙는 다른 이름 주소입니다.</span>
           <span>SMTP/API provider는 미연결 상태로 저장하고, secret과 DNS 인증은 다음 단계에서 별도 연결합니다.</span>
         </section>
+
+        <form className="mail-settings-card mail-settings-card--provider" onSubmit={saveProviderSettings} aria-label="SMTP API provider 준비 상태">
+          <strong>SMTP/API provider 준비 상태</strong>
+          <span>비밀번호/API key 값은 저장하지 않고, 발신 provider 종류와 DNS·secret 연결 상태만 기록합니다.</span>
+          <div className="mail-settings-grid mail-settings-grid--provider">
+            <label>Provider 방식
+              <select className="field" value={providerForm.providerKind} onChange={(event) => setProviderForm((current) => ({ ...current, providerKind: event.target.value as "unconfigured" | "smtp" | "api", providerName: event.target.value }))}>
+                <option value="unconfigured">미연결</option>
+                <option value="smtp">SMTP</option>
+                <option value="api">API</option>
+              </select>
+            </label>
+            <label>Provider 이름
+              <input className="field" value={providerForm.providerName} onChange={(event) => setProviderForm((current) => ({ ...current, providerName: event.target.value }))} />
+            </label>
+            <label>기본 발신 주소
+              <input className="field" type="email" value={providerForm.fromEmail} onChange={(event) => setProviderForm((current) => ({ ...current, fromEmail: event.target.value }))} />
+            </label>
+            <label>SMTP host
+              <input className="field" value={providerForm.smtpHost} onChange={(event) => setProviderForm((current) => ({ ...current, smtpHost: event.target.value }))} />
+            </label>
+            <label>SMTP port
+              <input className="field" inputMode="numeric" value={providerForm.smtpPort} onChange={(event) => setProviderForm((current) => ({ ...current, smtpPort: event.target.value }))} />
+            </label>
+            <label>API endpoint
+              <input className="field" value={providerForm.apiEndpoint} onChange={(event) => setProviderForm((current) => ({ ...current, apiEndpoint: event.target.value }))} />
+            </label>
+            <label>SPF 상태
+              <select className="field" value={providerForm.dnsSpfStatus} onChange={(event) => setProviderForm((current) => ({ ...current, dnsSpfStatus: event.target.value as MailProviderSettings["dnsSpfStatus"] }))}>
+                <option value="not_checked">미확인</option><option value="pending">확인 대기</option><option value="verified">확인됨</option><option value="failed">확인 실패</option>
+              </select>
+            </label>
+            <label>DKIM 상태
+              <select className="field" value={providerForm.dnsDkimStatus} onChange={(event) => setProviderForm((current) => ({ ...current, dnsDkimStatus: event.target.value as MailProviderSettings["dnsDkimStatus"] }))}>
+                <option value="not_checked">미확인</option><option value="pending">확인 대기</option><option value="verified">확인됨</option><option value="failed">확인 실패</option>
+              </select>
+            </label>
+            <label>DMARC 상태
+              <select className="field" value={providerForm.dnsDmarcStatus} onChange={(event) => setProviderForm((current) => ({ ...current, dnsDmarcStatus: event.target.value as MailProviderSettings["dnsDmarcStatus"] }))}>
+                <option value="not_checked">미확인</option><option value="pending">확인 대기</option><option value="verified">확인됨</option><option value="failed">확인 실패</option>
+              </select>
+            </label>
+            <label>Secret 연결 상태
+              <select className="field" value={providerForm.secretStatus} onChange={(event) => setProviderForm((current) => ({ ...current, secretStatus: event.target.value as MailProviderSettings["secretStatus"] }))}>
+                <option value="not_connected">미연결</option><option value="pending">연결 대기</option><option value="connected">연결됨</option>
+              </select>
+            </label>
+            <label className="mail-settings-checkbox"><input type="checkbox" checked={providerForm.smtpSecure} onChange={(event) => setProviderForm((current) => ({ ...current, smtpSecure: event.target.checked }))} /> SMTP 보안 연결 사용</label>
+            <label>운영 메모
+              <textarea className="field" value={providerForm.notes} onChange={(event) => setProviderForm((current) => ({ ...current, notes: event.target.value }))} />
+            </label>
+          </div>
+          <div className="mail-settings-row mail-settings-row--readiness">
+            <div><strong>외부 발송 준비도</strong><span>Provider {providerSettings?.readiness.hasProvider ? "확인" : "미확인"} · 발신주소 {providerSettings?.readiness.hasSender ? "확인" : "미확인"} · 서버/API {providerSettings?.readiness.hasHostOrEndpoint ? "확인" : "미확인"} · {providerSecretStatusLabel(providerSettings?.secretStatus ?? "not_connected")} · DNS SPF {providerCheckStatusLabel(providerSettings?.dnsSpfStatus ?? "not_checked")} / DKIM {providerCheckStatusLabel(providerSettings?.dnsDkimStatus ?? "not_checked")} / DMARC {providerCheckStatusLabel(providerSettings?.dnsDmarcStatus ?? "not_checked")}</span></div>
+            <em>{providerSettings?.readiness.canSendExternally ? "발송 준비 완료" : "실제 발송 미연결"}</em>
+          </div>
+          <div className="mail-settings-actions"><button className="mail-compose-toolbar-button mail-compose-toolbar-button--primary" type="submit">Provider 상태 저장</button></div>
+        </form>
 
         <div className="mail-settings-grid">
           <form className="mail-settings-card" onSubmit={createMailAccount} aria-label="내 메일 또는 가상메일 등록">

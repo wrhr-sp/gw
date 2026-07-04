@@ -68,6 +68,7 @@ export const appRoutes = {
     account: (accountId: string) => `/api/mail/settings/accounts/${accountId}`,
     aliases: "/api/mail/settings/aliases",
     alias: (aliasId: string) => `/api/mail/settings/aliases/${aliasId}`,
+    providerSettings: "/api/mail/settings/provider",
   },
   messenger: {
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
@@ -298,6 +299,58 @@ export const mailMessageSendRequestSchema = z.object({
 
 export const mailProviderKindSchema = z.enum(["smtp", "api", "unconfigured"]);
 export const mailAccountTypeSchema = z.enum(["personal", "virtual"]);
+export const mailProviderCheckStatusSchema = z.enum(["not_checked", "pending", "verified", "failed"]);
+export const mailProviderSecretStatusSchema = z.enum(["not_connected", "pending", "connected"]);
+
+export const mailProviderSettingsSchema = z.object({
+  companyId: z.string(),
+  providerKind: mailProviderKindSchema,
+  providerName: z.string(),
+  fromEmail: mailExternalEmailSchema.nullable(),
+  smtpHost: z.string().nullable(),
+  smtpPort: z.number().int().positive().nullable(),
+  smtpSecure: z.boolean(),
+  apiEndpoint: z.string().nullable(),
+  dnsSpfStatus: mailProviderCheckStatusSchema,
+  dnsDkimStatus: mailProviderCheckStatusSchema,
+  dnsDmarcStatus: mailProviderCheckStatusSchema,
+  secretStatus: mailProviderSecretStatusSchema,
+  notes: z.string().nullable(),
+  readiness: z.object({
+    hasProvider: z.boolean(),
+    hasSender: z.boolean(),
+    hasHostOrEndpoint: z.boolean(),
+    hasSecret: z.boolean(),
+    hasDnsAuth: z.boolean(),
+    canSendExternally: z.boolean(),
+  }),
+  updatedBy: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const mailProviderSettingsUpdateRequestSchema = z.object({
+  providerKind: mailProviderKindSchema,
+  providerName: z.string().trim().max(80).optional(),
+  fromEmail: mailExternalEmailSchema.nullable().optional(),
+  smtpHost: z.string().trim().max(200).nullable().optional(),
+  smtpPort: z.number().int().positive().max(65535).nullable().optional(),
+  smtpSecure: z.boolean().optional(),
+  apiEndpoint: z.string().trim().max(500).nullable().optional(),
+  dnsSpfStatus: mailProviderCheckStatusSchema.optional(),
+  dnsDkimStatus: mailProviderCheckStatusSchema.optional(),
+  dnsDmarcStatus: mailProviderCheckStatusSchema.optional(),
+  secretStatus: mailProviderSecretStatusSchema.optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const mailProviderSettingsResponseSchema = successResponseSchema(
+  z.object({
+    settings: mailProviderSettingsSchema,
+    audit: z.object({ candidate: z.literal(true), action: z.string() }).optional(),
+    source: z.literal("postgres"),
+  }),
+);
 
 export const mailAccountSchema = z.object({
   id: z.string(),
@@ -3472,6 +3525,8 @@ export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSche
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
 export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
+export type MailProviderSettings = z.infer<typeof mailProviderSettingsSchema>;
+export type MailProviderSettingsUpdateRequest = z.infer<typeof mailProviderSettingsUpdateRequestSchema>;
 export type MailAccount = z.infer<typeof mailAccountSchema>;
 export type MailAccountAlias = z.infer<typeof mailAccountAliasSchema>;
 export type MailIntegrationSettingsResponse = z.infer<typeof mailIntegrationSettingsResponseSchema>;
