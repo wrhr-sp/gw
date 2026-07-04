@@ -85,6 +85,11 @@ import {
   erpAccountSubjectCreateRequestSchema,
   erpAccountSubjectListResponseSchema,
   erpAccountSubjectMutationResponseSchema,
+  erpClosingPeriodCreateRequestSchema,
+  erpClosingPeriodListResponseSchema,
+  erpClosingPeriodMutationResponseSchema,
+  erpClosingPeriodStatusUpdateRequestSchema,
+  erpLedgerEntryListResponseSchema,
   erpJournalEntryCreateRequestSchema,
   erpJournalEntryListResponseSchema,
   erpJournalEntryMutationResponseSchema,
@@ -196,6 +201,7 @@ import {
   type ErpAccountingMappingRecordStatus,
   type ErpAccountingMappingStatus,
   type ErpAccountingMappingType,
+  type ErpClosingPeriodStatus,
   type ErpIntegrationEventStatus,
   type ErpJournalEntryStatus,
   type ErpBillingStatus,
@@ -303,6 +309,13 @@ import {
   listOperationalErpJournalEntries,
   updateOperationalErpJournalEntryStatus,
 } from "./lib/operational-erp-journals";
+import {
+  createOperationalErpClosingPeriod,
+  findOperationalErpClosingPeriod,
+  listOperationalErpClosingPeriods,
+  listOperationalErpLedgerEntries,
+  updateOperationalErpClosingPeriodStatus,
+} from "./lib/operational-erp-ledgers";
 import {
   createOperationalErpBilling,
   findOperationalErpBilling,
@@ -457,6 +470,10 @@ const ERP_ACCOUNT_SUBJECTS_ROUTE = "/api/erp/account-subjects";
 const ERP_JOURNAL_ENTRIES_ROUTE = "/api/erp/journal-entries";
 const ERP_JOURNAL_ENTRY_DETAIL_ROUTE = "/api/erp/journal-entries/:journalEntryId";
 const ERP_JOURNAL_ENTRY_STATUS_ROUTE = "/api/erp/journal-entries/:journalEntryId/status";
+const ERP_LEDGER_ENTRIES_ROUTE = "/api/erp/ledger-entries";
+const ERP_CLOSING_PERIODS_ROUTE = "/api/erp/closing-periods";
+const ERP_CLOSING_PERIOD_DETAIL_ROUTE = "/api/erp/closing-periods/:periodId";
+const ERP_CLOSING_PERIOD_STATUS_ROUTE = "/api/erp/closing-periods/:periodId/status";
 const ERP_ACCOUNTING_MAPPINGS_ROUTE = "/api/erp/accounting-mappings";
 const ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE = "/api/erp/accounting-mappings/:mappingId";
 const ERP_ACCOUNTING_MAPPING_STATUS_ROUTE = "/api/erp/accounting-mappings/:mappingId/status";
@@ -7599,6 +7616,66 @@ app.patch(ERP_JOURNAL_ENTRY_STATUS_ROUTE, async (context) => {
   if (!updated?.journalEntry) return jsonDatabaseRequired(context, "전표 상태 변경");
   const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: updated.journalEntry.createdByUserId, resourceType: "erp_journal_entry", resourceId: updated.journalEntry.id, accessType: "update", purpose: "전표 상태 변경 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 처리", metadata: { source: "erp-journal-entries-api", reason: parsed.data.reason, status: updated.journalEntry.status } });
   return jsonSuccess(context, erpJournalEntryMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_journal_entry.status.update" } }, error: null });
+});
+
+app.get(ERP_LEDGER_ENTRIES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const query = context.req.query();
+  const status = query.status as ErpJournalEntryStatus | undefined;
+  const result = await listOperationalErpLedgerEntries(context.env, authResult.auth.user.companyId, {
+    accountSubjectId: query.accountSubjectId,
+    from: query.from,
+    to: query.to,
+    status,
+  });
+  if (!result) return jsonDatabaseRequired(context, "ERP 원장 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_ledger_entry", resourceId: "erp_ledger_entry_list", accessType: "read", purpose: "ERP 원장 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 회계 접근", metadata: { source: "erp-ledger-entries-api", itemCount: result.items.length, entryCount: result.summary.entryCount } });
+  return jsonSuccess(context, erpLedgerEntryListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.get(ERP_CLOSING_PERIODS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const result = await listOperationalErpClosingPeriods(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 마감 기간 목록 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_closing_period", resourceId: "erp_closing_period_list", accessType: "read", purpose: "ERP 마감 기간 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 마감 접근", metadata: { source: "erp-closing-periods-api", itemCount: result.items.length } });
+  return jsonSuccess(context, erpClosingPeriodListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_CLOSING_PERIODS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpClosingPeriodCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "마감 기간 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const created = await createOperationalErpClosingPeriod(context.env, { id: `erp_closing_${crypto.randomUUID()}`, companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, createdAt: new Date().toISOString(), data: parsed.data });
+  if (!created?.closingPeriod) return jsonDatabaseRequired(context, "ERP 마감 기간 생성");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_closing_period", resourceId: created.closingPeriod.id, accessType: "create", purpose: "ERP 마감 기간 생성 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 마감 처리", metadata: { source: "erp-closing-periods-api", status: created.closingPeriod.status, periodStart: created.closingPeriod.periodStart, periodEnd: created.closingPeriod.periodEnd } });
+  return jsonSuccess(context, erpClosingPeriodMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_closing_period.create" } }, error: null }, 201);
+});
+
+app.get(ERP_CLOSING_PERIOD_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const periodId = context.req.param("periodId");
+  const result = await findOperationalErpClosingPeriod(context.env, authResult.auth.user.companyId, periodId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 마감 기간 상세 조회");
+  if (!result.closingPeriod) return jsonError(context, "FORBIDDEN", "허용되지 않은 마감 기간입니다.", 403, { periodId, route: context.req.path });
+  return jsonSuccess(context, erpClosingPeriodMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_closing_period.read" } }, error: null });
+});
+
+app.patch(ERP_CLOSING_PERIOD_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const periodId = context.req.param("periodId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpClosingPeriodStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "마감 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const updated = await updateOperationalErpClosingPeriodStatus(context.env, { companyId: authResult.auth.user.companyId, periodId, actorUserId: authResult.auth.user.id, status: parsed.data.status as ErpClosingPeriodStatus, updatedAt: new Date().toISOString() });
+  if (!updated?.closingPeriod) return jsonDatabaseRequired(context, "ERP 마감 상태 변경");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: updated.closingPeriod.createdByUserId, resourceType: "erp_closing_period", resourceId: updated.closingPeriod.id, accessType: "update", purpose: "ERP 마감 상태 변경 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 마감 처리", metadata: { source: "erp-closing-periods-api", reason: parsed.data.reason, status: updated.closingPeriod.status } });
+  return jsonSuccess(context, erpClosingPeriodMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_closing_period.status.update" } }, error: null });
 });
 
 app.get(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {
