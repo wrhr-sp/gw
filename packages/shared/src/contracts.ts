@@ -116,6 +116,9 @@ export const appRoutes = {
     billings: "/api/erp/billings",
     billingDetail: (billingId: string) => `/api/erp/billings/${billingId}`,
     billingStatus: (billingId: string) => `/api/erp/billings/${billingId}/status`,
+    paymentRecords: "/api/erp/payment-records",
+    paymentRecordDetail: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}`,
+    paymentRecordStatus: (paymentRecordId: string) => `/api/erp/payment-records/${paymentRecordId}/status`,
   },
   vehicleOperationLogs: {
     vehicles: "/api/vehicle-operation/vehicles",
@@ -2557,6 +2560,76 @@ export const erpBillingMutationResponseSchema = successResponseSchema(
   }),
 );
 
+export const erpPaymentDirectionSchema = z.enum(["inbound", "outbound"]);
+export const erpPaymentMethodSchema = z.enum(["bank_transfer", "card", "cash", "virtual_account", "other"]);
+export const erpPaymentMatchStatusSchema = z.enum(["unmatched", "partially_matched", "matched", "overpaid", "cancelled"]);
+export const erpReceivableStatusSchema = z.enum(["not_due", "due", "partial", "paid", "overdue", "write_off", "cancelled"]);
+
+export const erpPaymentRecordSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  billingId: z.string().nullable(),
+  billingTitle: z.string().nullable(),
+  vendorId: z.string().nullable(),
+  vendorName: z.string().nullable(),
+  direction: erpPaymentDirectionSchema,
+  paymentMethod: erpPaymentMethodSchema,
+  amount: z.number().nonnegative(),
+  expectedAt: isoDateSchema.nullable(),
+  occurredAt: isoDateSchema.nullable(),
+  matchStatus: erpPaymentMatchStatusSchema,
+  receivableStatus: erpReceivableStatusSchema,
+  bankAccountLabel: z.string().nullable(),
+  transactionMemo: z.string().nullable(),
+  syncStatus: erpVendorSyncStatusSchema,
+  externalProvider: z.literal("kyungrinara").nullable(),
+  externalReferenceId: z.string().nullable(),
+  lastSyncedAt: z.string().datetime().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpPaymentRecordCreateRequestSchema = z.object({
+  billingId: z.string().min(1).optional(),
+  vendorId: z.string().min(1).optional(),
+  direction: erpPaymentDirectionSchema.default("inbound"),
+  paymentMethod: erpPaymentMethodSchema.default("bank_transfer"),
+  amount: z.number().nonnegative(),
+  expectedAt: isoDateSchema.optional(),
+  occurredAt: isoDateSchema.optional(),
+  matchStatus: erpPaymentMatchStatusSchema.default("unmatched"),
+  receivableStatus: erpReceivableStatusSchema.default("not_due"),
+  bankAccountLabel: z.string().max(120).optional(),
+  transactionMemo: z.string().max(1000).optional(),
+});
+
+export const erpPaymentRecordUpdateRequestSchema = erpPaymentRecordCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const erpPaymentRecordStatusUpdateRequestSchema = z.object({
+  matchStatus: erpPaymentMatchStatusSchema,
+  receivableStatus: erpReceivableStatusSchema,
+  reason: z.string().min(1),
+});
+
+export const erpPaymentRecordListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(erpPaymentRecordSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const erpPaymentRecordMutationResponseSchema = successResponseSchema(
+  z.object({
+    paymentRecord: erpPaymentRecordSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
 export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
 export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
@@ -2927,6 +3000,16 @@ export type ErpBillingUpdateRequest = z.infer<typeof erpBillingUpdateRequestSche
 export type ErpBillingStatusUpdateRequest = z.infer<typeof erpBillingStatusUpdateRequestSchema>;
 export type ErpBillingListResponse = z.infer<typeof erpBillingListResponseSchema>;
 export type ErpBillingMutationResponse = z.infer<typeof erpBillingMutationResponseSchema>;
+export type ErpPaymentDirection = z.infer<typeof erpPaymentDirectionSchema>;
+export type ErpPaymentMethod = z.infer<typeof erpPaymentMethodSchema>;
+export type ErpPaymentMatchStatus = z.infer<typeof erpPaymentMatchStatusSchema>;
+export type ErpReceivableStatus = z.infer<typeof erpReceivableStatusSchema>;
+export type ErpPaymentRecord = z.infer<typeof erpPaymentRecordSchema>;
+export type ErpPaymentRecordCreateRequest = z.infer<typeof erpPaymentRecordCreateRequestSchema>;
+export type ErpPaymentRecordUpdateRequest = z.infer<typeof erpPaymentRecordUpdateRequestSchema>;
+export type ErpPaymentRecordStatusUpdateRequest = z.infer<typeof erpPaymentRecordStatusUpdateRequestSchema>;
+export type ErpPaymentRecordListResponse = z.infer<typeof erpPaymentRecordListResponseSchema>;
+export type ErpPaymentRecordMutationResponse = z.infer<typeof erpPaymentRecordMutationResponseSchema>;
 export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
 export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
 export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
