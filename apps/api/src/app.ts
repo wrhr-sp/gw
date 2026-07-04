@@ -72,6 +72,11 @@ import {
   electronicContractListResponseSchema,
   electronicContractStatusUpdateRequestSchema,
   electronicContractStatusUpdateResponseSchema,
+  erpBillingCreateRequestSchema,
+  erpBillingListResponseSchema,
+  erpBillingMutationResponseSchema,
+  erpBillingStatusUpdateRequestSchema,
+  erpBillingUpdateRequestSchema,
   erpEvidenceCreateRequestSchema,
   erpEvidenceListResponseSchema,
   erpEvidenceMutationResponseSchema,
@@ -166,6 +171,7 @@ import {
   type DocumentSpace,
   type ElectronicContractStatus,
   type Employee,
+  type ErpBillingStatus,
   type ErpEvidenceStatus,
   type ErpExpenseStatus,
   type ErpVendorStatus,
@@ -246,6 +252,13 @@ import {
   listOperationalElectronicContracts,
   updateOperationalElectronicContractStatus,
 } from "./lib/operational-electronic-contracts";
+import {
+  createOperationalErpBilling,
+  findOperationalErpBilling,
+  listOperationalErpBillings,
+  updateOperationalErpBilling,
+  updateOperationalErpBillingStatus,
+} from "./lib/operational-erp-billings";
 import {
   createOperationalErpEvidence,
   findOperationalErpEvidence,
@@ -376,6 +389,9 @@ const ERP_EXPENSE_STATUS_ROUTE = "/api/erp/expenses/:expenseId/status";
 const ERP_EVIDENCE_ROUTE = "/api/erp/evidence";
 const ERP_EVIDENCE_DETAIL_ROUTE = "/api/erp/evidence/:evidenceId";
 const ERP_EVIDENCE_STATUS_ROUTE = "/api/erp/evidence/:evidenceId/status";
+const ERP_BILLINGS_ROUTE = "/api/erp/billings";
+const ERP_BILLING_DETAIL_ROUTE = "/api/erp/billings/:billingId";
+const ERP_BILLING_STATUS_ROUTE = "/api/erp/billings/:billingId/status";
 const VEHICLE_OPERATION_VEHICLES_ROUTE = "/api/vehicle-operation/vehicles";
 const VEHICLE_OPERATION_LOGS_ROUTE = "/api/vehicle-operation/logs";
 const VEHICLE_OPERATION_LOG_DETAIL_ROUTE = "/api/vehicle-operation/logs/:logId";
@@ -7107,6 +7123,172 @@ app.patch(ERP_EVIDENCE_STATUS_ROUTE, async (context) => {
   });
 
   return jsonSuccess(context, erpEvidenceMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_evidence.status.update" } }, error: null });
+});
+
+
+app.get(ERP_BILLINGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const status = context.req.query("status") as ErpBillingStatus | undefined;
+  const result = await listOperationalErpBillings(context.env, authResult.auth.user.companyId, status);
+  if (!result) return jsonDatabaseRequired(context, "ERP 매출/청구 목록 조회");
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_billing",
+    resourceId: "erp_billing_list",
+    accessType: "read",
+    purpose: "ERP 매출/청구 목록 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 매출/청구 접근",
+    metadata: { source: "erp-billings-api", itemCount: result.items.length, externalProvider: "kyungrinara-ready" },
+  });
+
+  return jsonSuccess(context, erpBillingListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_BILLINGS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpBillingCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "매출/청구 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const vendor = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, parsed.data.vendorId);
+  if (!vendor) return jsonDatabaseRequired(context, "ERP 매출/청구 거래처 확인");
+  if (!vendor.vendor) return jsonError(context, "FORBIDDEN", "청구에 연결할 수 없는 거래처입니다.", 403, { vendorId: parsed.data.vendorId, route: context.req.path });
+
+  const created = await createOperationalErpBilling(context.env, {
+    id: `erp_billing_${crypto.randomUUID()}`,
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    createdAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!created?.billing) return jsonDatabaseRequired(context, "ERP 매출/청구 생성");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: authResult.auth.user.id,
+    resourceType: "erp_billing",
+    resourceId: created.billing.id,
+    accessType: "create",
+    purpose: "ERP 매출/청구 생성 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 매출/청구 처리",
+    metadata: { source: "erp-billings-api", status: created.billing.status, totalAmount: created.billing.totalAmount, vendorId: created.billing.vendorId },
+  });
+
+  return jsonSuccess(context, erpBillingMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_billing.create" } }, error: null }, 201);
+});
+
+app.get(ERP_BILLING_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+
+  const billingId = context.req.param("billingId");
+  const result = await findOperationalErpBilling(context.env, authResult.auth.user.companyId, billingId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 매출/청구 상세 조회");
+  if (!result.billing) return jsonError(context, "FORBIDDEN", "허용되지 않은 청구 건입니다.", 403, { billingId, route: context.req.path });
+
+  await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: result.billing.createdByUserId,
+    resourceType: "erp_billing",
+    resourceId: result.billing.id,
+    accessType: "read",
+    purpose: "ERP 매출/청구 상세 조회 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 매출/청구 접근",
+    metadata: { source: "erp-billings-api", status: result.billing.status, syncStatus: result.billing.syncStatus },
+  });
+
+  return jsonSuccess(context, erpBillingMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "erp_billing.read" } }, error: null });
+});
+
+app.patch(ERP_BILLING_DETAIL_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const billingId = context.req.param("billingId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpBillingUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "매출/청구 수정 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpBilling(context.env, authResult.auth.user.companyId, billingId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 매출/청구 수정");
+  if (!before.billing) return jsonError(context, "FORBIDDEN", "허용되지 않은 청구 건입니다.", 403, { billingId, route: context.req.path });
+
+  if (parsed.data.vendorId) {
+    const vendor = await findOperationalErpVendor(context.env, authResult.auth.user.companyId, parsed.data.vendorId);
+    if (!vendor) return jsonDatabaseRequired(context, "ERP 매출/청구 거래처 확인");
+    if (!vendor.vendor) return jsonError(context, "FORBIDDEN", "청구에 연결할 수 없는 거래처입니다.", 403, { vendorId: parsed.data.vendorId, route: context.req.path });
+  }
+
+  const updated = await updateOperationalErpBilling(context.env, {
+    companyId: authResult.auth.user.companyId,
+    billingId,
+    actorUserId: authResult.auth.user.id,
+    updatedAt: new Date().toISOString(),
+    data: parsed.data,
+  });
+  if (!updated?.billing) return jsonDatabaseRequired(context, "ERP 매출/청구 수정");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.billing.createdByUserId,
+    resourceType: "erp_billing",
+    resourceId: updated.billing.id,
+    accessType: "update",
+    purpose: "ERP 매출/청구 수정 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 매출/청구 처리",
+    metadata: { source: "erp-billings-api", reason: parsed.data.reason, beforeStatus: before.billing.status, afterStatus: updated.billing.status },
+  });
+
+  return jsonSuccess(context, erpBillingMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_billing.update" } }, error: null });
+});
+
+app.patch(ERP_BILLING_STATUS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+
+  const billingId = context.req.param("billingId");
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpBillingStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "매출/청구 상태 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+
+  const before = await findOperationalErpBilling(context.env, authResult.auth.user.companyId, billingId);
+  if (!before) return jsonDatabaseRequired(context, "ERP 매출/청구 상태 변경");
+  if (!before.billing) return jsonError(context, "FORBIDDEN", "허용되지 않은 청구 건입니다.", 403, { billingId, route: context.req.path });
+
+  const updated = await updateOperationalErpBillingStatus(context.env, {
+    companyId: authResult.auth.user.companyId,
+    billingId,
+    actorUserId: authResult.auth.user.id,
+    status: parsed.data.status as ErpBillingStatus,
+    paymentStatus: parsed.data.paymentStatus,
+    taxInvoiceStatus: parsed.data.taxInvoiceStatus,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated?.billing) return jsonDatabaseRequired(context, "ERP 매출/청구 상태 변경");
+
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, {
+    companyId: authResult.auth.user.companyId,
+    actorUserId: authResult.auth.user.id,
+    subjectUserId: updated.billing.createdByUserId,
+    resourceType: "erp_billing",
+    resourceId: updated.billing.id,
+    accessType: "update",
+    purpose: "ERP 매출/청구 상태 변경 감사 기록",
+    legalBasis: "부서업무포털 권한 기반 경리 매출/청구 처리",
+    metadata: { source: "erp-billings-api", reason: parsed.data.reason, beforeStatus: before.billing.status, afterStatus: updated.billing.status },
+  });
+
+  return jsonSuccess(context, erpBillingMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_billing.status.update" } }, error: null });
 });
 
 app.get(VEHICLE_OPERATION_VEHICLES_ROUTE, async (context) => {
