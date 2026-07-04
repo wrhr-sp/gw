@@ -122,6 +122,9 @@ export const appRoutes = {
     accountingMappings: "/api/erp/accounting-mappings",
     accountingMappingDetail: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}`,
     accountingMappingStatus: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}/status`,
+    integrationEvents: "/api/erp/integration-events",
+    integrationEventDetail: (eventId: string) => `/api/erp/integration-events/${eventId}`,
+    integrationEventStatus: (eventId: string) => `/api/erp/integration-events/${eventId}/status`,
   },
   vehicleOperationLogs: {
     vehicles: "/api/vehicle-operation/vehicles",
@@ -2699,6 +2702,79 @@ export const erpAccountingMappingMutationResponseSchema = successResponseSchema(
   }),
 );
 
+export const erpIntegrationProviderSchema = z.literal("kyungrinara");
+export const erpIntegrationEventDirectionSchema = z.enum(["outbound", "inbound", "webhook"]);
+export const erpIntegrationEventResourceTypeSchema = z.enum(["vendor", "expense", "evidence", "billing", "payment", "accounting_mapping", "tax_invoice", "other"]);
+export const erpIntegrationEventStatusSchema = z.enum(["queued", "sending", "succeeded", "failed", "retry_required", "cancelled"]);
+
+export const erpIntegrationEventSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  provider: erpIntegrationProviderSchema,
+  direction: erpIntegrationEventDirectionSchema,
+  resourceType: erpIntegrationEventResourceTypeSchema,
+  resourceId: z.string().nullable(),
+  title: z.string(),
+  status: erpIntegrationEventStatusSchema,
+  attemptCount: z.number().int().nonnegative(),
+  maxAttempts: z.number().int().positive(),
+  nextRetryAt: z.string().datetime().nullable(),
+  externalReferenceId: z.string().nullable(),
+  externalStatus: z.string().nullable(),
+  failureCode: z.string().nullable(),
+  failureMessage: z.string().nullable(),
+  safePayloadSummary: z.string().nullable(),
+  safeResponseSummary: z.string().nullable(),
+  requestedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpIntegrationEventCreateRequestSchema = z.object({
+  direction: erpIntegrationEventDirectionSchema.default("outbound"),
+  resourceType: erpIntegrationEventResourceTypeSchema,
+  resourceId: z.string().max(160).optional(),
+  title: z.string().min(1).max(200),
+  status: erpIntegrationEventStatusSchema.default("queued"),
+  maxAttempts: z.number().int().positive().max(10).default(3),
+  nextRetryAt: z.string().datetime().optional(),
+  externalReferenceId: z.string().max(200).optional(),
+  externalStatus: z.string().max(120).optional(),
+  failureCode: z.string().max(120).optional(),
+  failureMessage: z.string().max(1000).optional(),
+  safePayloadSummary: z.string().max(2000).optional(),
+  safeResponseSummary: z.string().max(2000).optional(),
+});
+
+export const erpIntegrationEventUpdateRequestSchema = erpIntegrationEventCreateRequestSchema.partial().extend({
+  reason: z.string().min(1),
+});
+
+export const erpIntegrationEventStatusUpdateRequestSchema = z.object({
+  status: erpIntegrationEventStatusSchema,
+  failureCode: z.string().max(120).optional(),
+  failureMessage: z.string().max(1000).optional(),
+  externalReferenceId: z.string().max(200).optional(),
+  externalStatus: z.string().max(120).optional(),
+  nextRetryAt: z.string().datetime().optional(),
+  reason: z.string().min(1),
+});
+
+export const erpIntegrationEventListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(erpIntegrationEventSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const erpIntegrationEventMutationResponseSchema = successResponseSchema(
+  z.object({
+    event: erpIntegrationEventSchema,
+    audit: auditCandidateSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
 export const vehicleOperationLogStatusSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const vehicleOperationPurposeSchema = z.enum(["sales", "delivery", "commute", "site_visit", "maintenance", "other"]);
 export const vehicleFuelTypeSchema = z.enum(["gasoline", "diesel", "lpg", "electric", "hybrid", "hydrogen", "other"]);
@@ -3088,6 +3164,15 @@ export type ErpAccountingMappingUpdateRequest = z.infer<typeof erpAccountingMapp
 export type ErpAccountingMappingStatusUpdateRequest = z.infer<typeof erpAccountingMappingStatusUpdateRequestSchema>;
 export type ErpAccountingMappingListResponse = z.infer<typeof erpAccountingMappingListResponseSchema>;
 export type ErpAccountingMappingMutationResponse = z.infer<typeof erpAccountingMappingMutationResponseSchema>;
+export type ErpIntegrationEventDirection = z.infer<typeof erpIntegrationEventDirectionSchema>;
+export type ErpIntegrationEventResourceType = z.infer<typeof erpIntegrationEventResourceTypeSchema>;
+export type ErpIntegrationEventStatus = z.infer<typeof erpIntegrationEventStatusSchema>;
+export type ErpIntegrationEvent = z.infer<typeof erpIntegrationEventSchema>;
+export type ErpIntegrationEventCreateRequest = z.infer<typeof erpIntegrationEventCreateRequestSchema>;
+export type ErpIntegrationEventUpdateRequest = z.infer<typeof erpIntegrationEventUpdateRequestSchema>;
+export type ErpIntegrationEventStatusUpdateRequest = z.infer<typeof erpIntegrationEventStatusUpdateRequestSchema>;
+export type ErpIntegrationEventListResponse = z.infer<typeof erpIntegrationEventListResponseSchema>;
+export type ErpIntegrationEventMutationResponse = z.infer<typeof erpIntegrationEventMutationResponseSchema>;
 export type VehicleOperationLogStatus = z.infer<typeof vehicleOperationLogStatusSchema>;
 export type VehicleOperationPurpose = z.infer<typeof vehicleOperationPurposeSchema>;
 export type VehicleFuelType = z.infer<typeof vehicleFuelTypeSchema>;
