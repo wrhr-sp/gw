@@ -22,7 +22,7 @@ type ErpEvidenceRow = {
   rework_reason: string | null;
   memo: string | null;
   sync_status: ErpEvidence["syncStatus"];
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_reference_id: string | null;
   last_synced_at: string | Date | null;
   created_by_user_id: string;

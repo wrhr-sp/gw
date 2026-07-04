@@ -201,7 +201,7 @@ export default function ErpExpensesPage() {
           <div className="feature-workspace__panel-header">
             <div>
               <h2 id="erp-expenses-heading">지출결의 / 비용 처리</h2>
-              <p>경리나라 실제 API 연결 전, 비용·증빙·결재 연결 기준을 우리 내부 DB에 먼저 저장합니다.</p>
+              <p>자체 ERP 기준으로 비용·증빙·결재 연결 정보를 내부 DB에 저장합니다.</p>
             </div>
             <p className="feature-workspace__permission-hint">접근은 기존 부서업무포털 권한 설정을 따르고 권한 설정 자체는 변경하지 않습니다.</p>
           </div>
@@ -212,7 +212,7 @@ export default function ErpExpensesPage() {
           <div className="feature-workspace__status-grid">
             <article className="feature-workspace__status feature-workspace__status--accent"><span>총 지출결의</span><strong>{expenses.length}건</strong><p>DB 조회 기준</p></article>
             <article className="feature-workspace__status"><span>합계</span><strong>{amountLabel(totalAmount)}원</strong><p>공급가액 + 부가세</p></article>
-            <article className="feature-workspace__status feature-workspace__status--warning"><span>경리나라 연동</span><strong>미연동</strong><p>외부 API 호출 없음</p></article>
+            <article className="feature-workspace__status feature-workspace__status--warning"><span>외부 연동</span><strong>미연동</strong><p>외부 API 호출 없음</p></article>
           </div>
 
           <form className="feature-workspace__rows" aria-label="지출결의 등록" onSubmit={handleSubmit}>
@@ -252,7 +252,7 @@ export default function ErpExpensesPage() {
                   <p>{expense.vendorName ?? "거래처 미지정"} · {expense.spentAt} · {amountLabel(expense.totalAmount)}원</p>
                   <div className="feature-workspace__row-actions" aria-label={`${expense.title} 지출결의 선택`}>
                     <button className="feature-workspace__row-action feature-workspace__row-action--secondary" onClick={() => setSelectedExpenseId(expense.id)} type="button">상세 보기</button>
-                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">경리나라 전송</button>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">외부 전송</button>
                   </div>
                 </div>
                 <em>{expense.syncStatus === "not_connected" ? "내부" : "연동"}</em>

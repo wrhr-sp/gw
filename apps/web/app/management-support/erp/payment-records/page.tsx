@@ -210,7 +210,7 @@ export default function ErpPaymentRecordsPage() {
           <div className="feature-workspace__panel-header">
             <div>
               <h2 id="erp-payment-records-heading">입출금 / 미수금 상태</h2>
-              <p>외부 은행·경리나라 연결 전, 청구 건 기준 입금 예정과 실제 입금 매칭 상태를 내부 DB에 먼저 저장합니다.</p>
+              <p>자체 ERP 기준으로 청구 건별 입금 예정과 실제 입금 매칭 상태를 내부 DB에 저장합니다.</p>
             </div>
             <p className="feature-workspace__permission-hint">접근은 기존 부서업무포털 권한 설정을 따르고 권한 설정 자체는 변경하지 않습니다.</p>
           </div>
@@ -258,7 +258,7 @@ export default function ErpPaymentRecordsPage() {
                   <p>예정 {record.expectedAt ?? "미정"} · 실제 {record.occurredAt ?? "미처리"} · {matchLabel(record.matchStatus)}</p>
                   <div className="feature-workspace__row-actions" aria-label={`${record.id} 입출금 기록 선택`}>
                     <button className="feature-workspace__row-action feature-workspace__row-action--secondary" onClick={() => setSelectedPaymentRecordId(record.id)} type="button">상세 보기</button>
-                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">경리나라 동기화</button>
+                    <button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">외부 동기화</button>
                   </div>
                 </div>
                 <em>{record.syncStatus === "not_connected" ? "내부" : "연동"}</em>

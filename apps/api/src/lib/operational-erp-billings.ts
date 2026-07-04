@@ -25,7 +25,7 @@ type ErpBillingRow = {
   payment_status: ErpBilling["paymentStatus"];
   tax_invoice_status: ErpBilling["taxInvoiceStatus"];
   sync_status: ErpBilling["syncStatus"];
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_reference_id: string | null;
   last_synced_at: string | Date | null;
   memo: string | null;

@@ -28,7 +28,7 @@ type ErpExpenseRow = {
   approval_document_id: string | null;
   status: ErpExpenseStatus;
   sync_status: ErpExpenseRequest["syncStatus"];
-  external_provider: "kyungrinara" | null;
+  external_provider: "external_erp" | "kyungrinara" | null;
   external_reference_id: string | null;
   last_synced_at: string | Date | null;
   memo: string | null;
