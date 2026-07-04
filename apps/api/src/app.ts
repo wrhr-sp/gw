@@ -144,6 +144,15 @@ import {
   mailAttachmentDeleteResponseSchema,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
+  mailAccountAliasCreateRequestSchema,
+  mailAccountAliasDeleteResponseSchema,
+  mailAccountAliasMutationResponseSchema,
+  mailAccountAliasUpdateRequestSchema,
+  mailAccountCreateRequestSchema,
+  mailAccountDeleteResponseSchema,
+  mailAccountMutationResponseSchema,
+  mailAccountUpdateRequestSchema,
+  mailIntegrationSettingsResponseSchema,
   mailMessageListResponseSchema,
   mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
@@ -385,6 +394,15 @@ import {
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, normalizeExternalMailRecipients } from "./lib/operational-mail-external-delivery";
+import {
+  createOperationalMailAccount,
+  createOperationalMailAlias,
+  deleteOperationalMailAccount,
+  deleteOperationalMailAlias,
+  listOperationalMailIntegrationSettings,
+  updateOperationalMailAccount,
+  updateOperationalMailAlias,
+} from "./lib/operational-mail-settings";
 import { leaveOperationalMessengerThread } from "./lib/operational-messenger";
 import {
   archiveOperationalMailDraft,
@@ -6160,6 +6178,168 @@ app.post("/api/messenger/threads/:threadId/leave", async (context) => {
     });
   } catch {
     return jsonDatabaseRequired(context, "메신저방 나가기");
+  }
+});
+
+function isMailSettingsAdmin(roleCode: RoleCode) {
+  return roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN" || roleCode === "MANAGER";
+}
+
+function buildGeneratedMailSettingId(kind: "account" | "alias", companyId: string, userId: string) {
+  return `mail_${kind}_${companyId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+app.get(appRoutes.mail.accounts, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const settings = await listOperationalMailIntegrationSettings(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    });
+    return jsonSuccess(context, mailIntegrationSettingsResponseSchema, { ok: true, data: { ...settings, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 통합설정 조회");
+  }
+});
+
+app.get(appRoutes.mail.aliases, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const settings = await listOperationalMailIntegrationSettings(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    });
+    return jsonSuccess(context, mailIntegrationSettingsResponseSchema, { ok: true, data: { ...settings, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 별칭계정 조회");
+  }
+});
+
+app.post(appRoutes.mail.accounts, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailAccountCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 계정 등록 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const account = await createOperationalMailAccount(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, {
+      id: buildGeneratedMailSettingId("account", authResult.auth.user.companyId, authResult.auth.user.id),
+      ...parsed.data,
+      providerName: parsed.data.providerName ?? parsed.data.providerKind,
+    });
+    if (!account) return jsonError(context, "FORBIDDEN", "가상메일은 관리자 권한이 필요합니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountMutationResponseSchema, { ok: true, data: { account, audit: { candidate: true, action: "mail.account.create" }, source: "postgres" }, error: null }, 201);
+  } catch (error) {
+    return jsonError(context, "VALIDATION_ERROR", "이미 등록된 이메일이거나 메일 계정을 저장할 수 없습니다.", 400, { route: context.req.path });
+  }
+});
+
+app.patch(appRoutes.mail.account(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailAccountUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 계정 수정 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const accountId = context.req.param("id") ?? "";
+    const account = await updateOperationalMailAccount(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, accountId, parsed.data);
+    if (!account) return jsonError(context, "FORBIDDEN", "수정할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountMutationResponseSchema, { ok: true, data: { account, audit: { candidate: true, action: "mail.account.update" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 계정 수정");
+  }
+});
+
+app.delete(appRoutes.mail.account(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const accountId = context.req.param("id") ?? "";
+    const deleted = await deleteOperationalMailAccount(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, accountId);
+    if (!deleted) return jsonError(context, "FORBIDDEN", "삭제할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountDeleteResponseSchema, { ok: true, data: { accountId, audit: { candidate: true, action: "mail.account.delete" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 계정 삭제");
+  }
+});
+
+app.post(appRoutes.mail.aliases, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailAccountAliasCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "별칭계정 등록 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const alias = await createOperationalMailAlias(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, { id: buildGeneratedMailSettingId("alias", authResult.auth.user.companyId, authResult.auth.user.id), ...parsed.data });
+    if (!alias) return jsonError(context, "FORBIDDEN", "별칭을 등록할 수 없는 메일 계정입니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountAliasMutationResponseSchema, { ok: true, data: { alias, audit: { candidate: true, action: "mail.alias.create" }, source: "postgres" }, error: null }, 201);
+  } catch {
+    return jsonError(context, "VALIDATION_ERROR", "이미 등록된 별칭 이메일이거나 별칭을 저장할 수 없습니다.", 400, { route: context.req.path });
+  }
+});
+
+app.patch(appRoutes.mail.alias(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailAccountAliasUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "별칭계정 수정 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const aliasId = context.req.param("id") ?? "";
+    const alias = await updateOperationalMailAlias(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, aliasId, parsed.data);
+    if (!alias) return jsonError(context, "FORBIDDEN", "수정할 수 없는 별칭계정입니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountAliasMutationResponseSchema, { ok: true, data: { alias, audit: { candidate: true, action: "mail.alias.update" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "별칭계정 수정");
+  }
+});
+
+app.delete(appRoutes.mail.alias(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const aliasId = context.req.param("id") ?? "";
+    const deleted = await deleteOperationalMailAlias(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+    }, aliasId);
+    if (!deleted) return jsonError(context, "FORBIDDEN", "삭제할 수 없는 별칭계정입니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, mailAccountAliasDeleteResponseSchema, { ok: true, data: { aliasId, audit: { candidate: true, action: "mail.alias.delete" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "별칭계정 삭제");
   }
 });
 

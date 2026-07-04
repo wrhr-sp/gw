@@ -38,4 +38,16 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("externalCcEmails: externalCcEmails.map((recipient) => recipient.email)");
     expect(mailClient).toContain("외부 이메일 실제 발송은 다음 SMTP/API 연동 단계에서 연결합니다.");
   });
+
+  it("renders mail integration settings for personal, virtual, and alias accounts", () => {
+    expect(mailClient).toContain("메일 통합설정");
+    expect(mailClient).toContain("내 메일 · 가상메일 등록");
+    expect(mailClient).toContain("별칭계정 등록");
+    expect(mailClient).toContain("가상메일은 세금계산서 수취 전용메일처럼 실제 사람이 아니라 업무 목적 주소입니다.");
+    expect(mailClient).toContain("SMTP/API provider는 미연결 상태로 저장");
+    expect(mailClient).toContain("appRoutes.mail.accounts");
+    expect(mailClient).toContain("appRoutes.mail.aliases");
+    expect(globalCss).toContain(".mail-integration-settings");
+    expect(globalCss).toContain(".mail-settings-grid");
+  });
 });

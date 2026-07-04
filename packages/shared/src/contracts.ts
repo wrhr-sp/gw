@@ -64,6 +64,10 @@ export const appRoutes = {
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
     attachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
+    accounts: "/api/mail/settings/accounts",
+    account: (accountId: string) => `/api/mail/settings/accounts/${accountId}`,
+    aliases: "/api/mail/settings/aliases",
+    alias: (aliasId: string) => `/api/mail/settings/aliases/${aliasId}`,
   },
   messenger: {
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
@@ -285,6 +289,114 @@ export const mailMessageSendRequestSchema = z.object({
   message: "recipientUserId, recipientUserIds, externalToEmails, or externalCcEmails is required",
   path: ["recipientUserIds"],
 });
+
+export const mailProviderKindSchema = z.enum(["smtp", "api", "unconfigured"]);
+export const mailAccountTypeSchema = z.enum(["personal", "virtual"]);
+
+export const mailAccountSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  ownerUserId: z.string().nullable(),
+  ownerDepartmentId: z.string().nullable(),
+  accountType: mailAccountTypeSchema,
+  email: mailExternalEmailSchema,
+  displayName: z.string(),
+  replyToEmail: mailExternalEmailSchema.nullable(),
+  providerKind: mailProviderKindSchema,
+  providerName: z.string(),
+  isDefault: z.boolean(),
+  isActive: z.boolean(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const mailAccountAliasSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  mailAccountId: z.string(),
+  aliasEmail: mailExternalEmailSchema,
+  displayName: z.string(),
+  isDefault: z.boolean(),
+  isActive: z.boolean(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const mailAccountCreateRequestSchema = z.object({
+  accountType: mailAccountTypeSchema,
+  email: mailExternalEmailSchema,
+  displayName: z.string().trim().min(1).max(100),
+  replyToEmail: mailExternalEmailSchema.optional(),
+  ownerDepartmentId: z.string().min(1).optional(),
+  providerKind: mailProviderKindSchema.default("unconfigured"),
+  providerName: z.string().trim().max(80).optional(),
+  isDefault: z.boolean().default(false),
+});
+
+export const mailAccountUpdateRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(100).optional(),
+  replyToEmail: mailExternalEmailSchema.nullable().optional(),
+  ownerDepartmentId: z.string().min(1).nullable().optional(),
+  providerKind: mailProviderKindSchema.optional(),
+  providerName: z.string().trim().max(80).optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const mailAccountAliasCreateRequestSchema = z.object({
+  mailAccountId: z.string().min(1),
+  aliasEmail: mailExternalEmailSchema,
+  displayName: z.string().trim().min(1).max(100),
+  isDefault: z.boolean().default(false),
+});
+
+export const mailAccountAliasUpdateRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(100).optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const mailIntegrationSettingsResponseSchema = successResponseSchema(
+  z.object({
+    accounts: z.array(mailAccountSchema),
+    aliases: z.array(mailAccountAliasSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailAccountMutationResponseSchema = successResponseSchema(
+  z.object({
+    account: mailAccountSchema,
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailAccountDeleteResponseSchema = successResponseSchema(
+  z.object({
+    accountId: z.string(),
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailAccountAliasMutationResponseSchema = successResponseSchema(
+  z.object({
+    alias: mailAccountAliasSchema,
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailAccountAliasDeleteResponseSchema = successResponseSchema(
+  z.object({
+    aliasId: z.string(),
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
 
 export const mailMessageDraftSaveRequestSchema = z.object({
   recipientUserId: z.string().min(1).optional(),
@@ -3340,6 +3452,9 @@ export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSche
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
 export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
+export type MailAccount = z.infer<typeof mailAccountSchema>;
+export type MailAccountAlias = z.infer<typeof mailAccountAliasSchema>;
+export type MailIntegrationSettingsResponse = z.infer<typeof mailIntegrationSettingsResponseSchema>;
 export type MailExternalDeliveryLog = z.infer<typeof mailExternalDeliveryLogSchema>;
 export type MailAttachment = z.infer<typeof mailAttachmentSchema>;
 export type MailAttachmentListResponse = z.infer<typeof mailAttachmentListResponseSchema>;
