@@ -226,12 +226,31 @@
   --form-control-height: 40px;
   --form-control-radius: var(--radius-md);
   --form-control-padding: 12px 14px;
+  --form-control-border: var(--field-border);
+  --form-control-background: var(--field-background);
+  --form-control-text: var(--text);
+  --form-control-placeholder: var(--text-light);
+  --form-control-focus-border: 1px solid rgba(37, 99, 235, 0.42);
+  --form-control-focus-outline: 3px solid rgba(37, 99, 235, 0.12);
+  --form-control-disabled-bg: rgba(241, 245, 249, 0.72);
+  --form-control-disabled-text: var(--text-light);
   --form-textarea-min-height: 120px;
   --form-grid-gap: var(--space-md);
   --form-grid-min: 180px;
   --form-label-size: var(--font-size-md);
   --form-label-weight: var(--font-weight-semibold);
+  --form-label-color: var(--text);
   --form-helper-size: var(--font-size-sm);
+  --form-helper-color: var(--text-light);
+  --form-action-min-height: 36px;
+  --form-action-padding: 9px 14px;
+  --form-action-radius: var(--radius-md);
+  --form-action-bg: var(--primary);
+  --form-action-text: var(--surface);
+  --form-action-border: 1px solid transparent;
+  --form-action-secondary-bg: transparent;
+  --form-action-secondary-text: var(--primary);
+  --form-action-secondary-border: 1px solid rgba(37, 99, 235, 0.24);
   --state-disabled-opacity: 0.6;
   --state-disabled-cursor: not-allowed;
   --data-card-gap: 10px;
@@ -1965,19 +1984,82 @@ li {
 }
 
 .field,
-.textarea-field {
+.textarea-field,
+.form-control,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) select,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) textarea {
   width: 100%;
   min-height: var(--form-control-height);
-  border: var(--field-border);
+  border: var(--form-control-border);
   border-radius: var(--form-control-radius);
   padding: var(--form-control-padding);
-  background: var(--field-background);
-  color: var(--text-muted);
+  background: var(--form-control-background);
+  color: var(--form-control-text);
+  font: inherit;
 }
 
-.textarea-field {
+.form-control::placeholder,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) input::placeholder,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) textarea::placeholder {
+  color: var(--form-control-placeholder);
+}
+
+.form-control:focus,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) select:focus,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) textarea:focus {
+  border: var(--form-control-focus-border);
+  outline: var(--form-control-focus-outline);
+  outline-offset: 1px;
+}
+
+.form-control:disabled,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) input:disabled,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) select:disabled,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) textarea:disabled {
+  background: var(--form-control-disabled-bg);
+  color: var(--form-control-disabled-text);
+  cursor: var(--state-disabled-cursor);
+}
+
+.textarea-field,
+.form-control--textarea,
+:where(.page-shell, .feature-workspace, .surface-card, .board-workspace, .mail-compose-dialog, .mail-address-dialog, .messenger-page, .operations-page, .admin-users-page) textarea {
   min-height: var(--form-textarea-min-height);
   resize: vertical;
+}
+
+.form-field {
+  display: grid;
+  gap: 6px;
+  color: var(--form-label-color);
+  font-size: var(--form-label-size);
+  font-weight: var(--form-label-weight);
+}
+
+.form-field__helper {
+  color: var(--form-helper-color);
+  font-size: var(--form-helper-size);
+  font-weight: var(--font-weight-regular);
+}
+
+.form-action {
+  min-height: var(--form-action-min-height);
+  border: var(--form-action-border);
+  border-radius: var(--form-action-radius);
+  padding: var(--form-action-padding);
+  background: var(--form-action-bg);
+  color: var(--form-action-text);
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.feature-workspace__row-action--secondary.form-action,
+.form-action--secondary {
+  border: var(--form-action-secondary-border);
+  background: var(--form-action-secondary-bg);
+  color: var(--form-action-secondary-text);
 }
 
 .bottom-nav {
