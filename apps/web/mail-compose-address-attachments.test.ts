@@ -15,12 +15,15 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-recipient-recent-button");
   });
 
-  it("supports drag and drop attachments and pre-send local file download", () => {
+  it("supports drag and drop attachments and immediate pre-send upload", () => {
     expect(mailClient).toContain("handleAttachmentDragOver");
     expect(mailClient).toContain("handleAttachmentDrop");
     expect(mailClient).toContain("드래그앤드롭 파일첨부");
-    expect(mailClient).toContain("URL.createObjectURL(pending.file)");
-    expect(mailClient).toContain("URL.revokeObjectURL(objectUrl)");
+    expect(mailClient).toContain("ensureComposeDraftMessage");
+    expect(mailClient).toContain("status: \"업로드 중\" as const");
+    expect(mailClient).toContain("uploadedAttachmentId: uploaded.data.attachment.id");
+    expect(mailClient).toContain("첨부파일 업로드가 끝난 뒤 보낼 수 있습니다.");
+    expect(mailClient).toContain("sourceDraftMessageId: composeDraftMessageId ?? undefined");
     expect(globalCss).toContain(".mail-compose-attachments--drag-over");
   });
 

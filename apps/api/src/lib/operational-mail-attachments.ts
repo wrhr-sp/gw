@@ -129,6 +129,46 @@ export async function deleteOperationalMailAttachment(env: DatabaseEnv | undefin
   return rows.length > 0;
 }
 
+export async function listOperationalMailAttachmentsForSender(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    select
+      a.id,
+      a.company_id,
+      a.message_id,
+      a.file_name,
+      a.content_type,
+      a.file_size,
+      a.object_key,
+      a.uploaded_by,
+      a.uploaded_at
+    from mail_attachments a
+    join mail_messages m on m.id = a.message_id and m.company_id = a.company_id
+    where a.company_id = ${input.companyId}
+      and a.message_id = ${input.messageId}
+      and a.deleted_at is null
+      and m.deleted_at is null
+      and m.sender_user_id = ${input.userId}
+    order by a.uploaded_at asc
+  `;
+  return (rows as MailAttachmentRow[]).map((row) => ({ attachment: toAttachment(row), objectKey: row.object_key }));
+}
+
+export async function archiveOperationalMailDraft(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    update mail_messages
+    set deleted_at = now(), updated_at = now()
+    where id = ${input.messageId}
+      and company_id = ${input.companyId}
+      and sender_user_id = ${input.userId}
+      and status = 'draft'
+      and deleted_at is null
+    returning id
+  `;
+  return rows.length > 0;
+}
+
 export async function findOperationalMailAttachmentForAccess(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; attachmentId: string }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`

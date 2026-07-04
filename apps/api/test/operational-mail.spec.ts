@@ -271,4 +271,59 @@ describe("operational mail API", () => {
 
     await sql`delete from mail_messages where id = ${messageId}`;
   });
+
+  runWhenDbConfigured("uploads mail attachments before send and links them to the sent message", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const r2 = createFakeR2Bucket();
+    const subject = `메일 즉시첨부 DB smoke ${Date.now()}`;
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const draftResponse = await app.request(
+      appRoutes.mail.saveDraft,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ subject, body: "첨부 즉시 업로드 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(draftResponse.status).toBe(201);
+    const draftPayload = mailMessageDraftSaveResponseSchema.parse(await draftResponse.json());
+
+    const form = new FormData();
+    form.append("file", new File(["pre-send-body"], "pre-send.txt", { type: "text/plain" }));
+    const uploadResponse = await app.request(
+      appRoutes.mail.attachments(draftPayload.data.message.id),
+      { method: "POST", headers: { cookie: adminCookie }, body: form },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(uploadResponse.status).toBe(201);
+    const uploadPayload = mailAttachmentUploadResponseSchema.parse(await uploadResponse.json());
+    expect(r2.objects.has(uploadPayload.data.attachment.objectKeyPreview)).toBe(true);
+
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", sourceDraftMessageId: draftPayload.data.message.id, subject, body: "첨부 연결 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(sendResponse.status).toBe(201);
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+
+    const hrCookie = await login("HR_ADMIN");
+    const listResponse = await app.request(
+      appRoutes.mail.attachments(sendPayload.data.message.id),
+      { headers: { cookie: hrCookie } },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: r2.binding },
+    );
+    expect(listResponse.status).toBe(200);
+    const listPayload = mailAttachmentListResponseSchema.parse(await listResponse.json());
+    expect(listPayload.data.items.map((item) => item.fileName)).toContain("pre-send.txt");
+
+    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+  });
 });
