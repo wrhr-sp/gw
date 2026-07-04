@@ -90,6 +90,12 @@ import {
   erpClosingPeriodMutationResponseSchema,
   erpClosingPeriodStatusUpdateRequestSchema,
   erpLedgerEntryListResponseSchema,
+  erpTaxDocumentCreateRequestSchema,
+  erpTaxDocumentListResponseSchema,
+  erpTaxDocumentMutationResponseSchema,
+  erpTaxReportPackageCreateRequestSchema,
+  erpTaxReportPackageListResponseSchema,
+  erpTaxReportPackageMutationResponseSchema,
   erpJournalEntryCreateRequestSchema,
   erpJournalEntryListResponseSchema,
   erpJournalEntryMutationResponseSchema,
@@ -317,6 +323,12 @@ import {
   updateOperationalErpClosingPeriodStatus,
 } from "./lib/operational-erp-ledgers";
 import {
+  createOperationalErpTaxDocument,
+  createOperationalErpTaxReportPackage,
+  listOperationalErpTaxDocuments,
+  listOperationalErpTaxReportPackages,
+} from "./lib/operational-erp-tax";
+import {
   createOperationalErpBilling,
   findOperationalErpBilling,
   listOperationalErpBillings,
@@ -474,6 +486,8 @@ const ERP_LEDGER_ENTRIES_ROUTE = "/api/erp/ledger-entries";
 const ERP_CLOSING_PERIODS_ROUTE = "/api/erp/closing-periods";
 const ERP_CLOSING_PERIOD_DETAIL_ROUTE = "/api/erp/closing-periods/:periodId";
 const ERP_CLOSING_PERIOD_STATUS_ROUTE = "/api/erp/closing-periods/:periodId/status";
+const ERP_TAX_DOCUMENTS_ROUTE = "/api/erp/tax-documents";
+const ERP_TAX_REPORT_PACKAGES_ROUTE = "/api/erp/tax-report-packages";
 const ERP_ACCOUNTING_MAPPINGS_ROUTE = "/api/erp/accounting-mappings";
 const ERP_ACCOUNTING_MAPPING_DETAIL_ROUTE = "/api/erp/accounting-mappings/:mappingId";
 const ERP_ACCOUNTING_MAPPING_STATUS_ROUTE = "/api/erp/accounting-mappings/:mappingId/status";
@@ -7676,6 +7690,48 @@ app.patch(ERP_CLOSING_PERIOD_STATUS_ROUTE, async (context) => {
   if (!updated?.closingPeriod) return jsonDatabaseRequired(context, "ERP 마감 상태 변경");
   const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: updated.closingPeriod.createdByUserId, resourceType: "erp_closing_period", resourceId: updated.closingPeriod.id, accessType: "update", purpose: "ERP 마감 상태 변경 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 마감 처리", metadata: { source: "erp-closing-periods-api", reason: parsed.data.reason, status: updated.closingPeriod.status } });
   return jsonSuccess(context, erpClosingPeriodMutationResponseSchema, { ok: true, data: { ...updated, audit: { candidate: auditRecorded, action: "erp_closing_period.status.update" } }, error: null });
+});
+
+app.get(ERP_TAX_DOCUMENTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const result = await listOperationalErpTaxDocuments(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 세무자료 목록 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_tax_document", resourceId: "erp_tax_document_list", accessType: "read", purpose: "ERP 세무자료 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 세무자료 접근", metadata: { source: "erp-tax-documents-api", itemCount: result.items.length, providerStatus: "not_connected" } });
+  return jsonSuccess(context, erpTaxDocumentListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_TAX_DOCUMENTS_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpTaxDocumentCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "세무자료 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const created = await createOperationalErpTaxDocument(context.env, { id: `erp_tax_doc_${crypto.randomUUID()}`, companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, createdAt: new Date().toISOString(), data: parsed.data });
+  if (!created?.taxDocument) return jsonDatabaseRequired(context, "ERP 세무자료 생성");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_tax_document", resourceId: created.taxDocument.id, accessType: "create", purpose: "ERP 세무자료 생성 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 세무자료 처리", metadata: { source: "erp-tax-documents-api", documentType: created.taxDocument.documentType, status: created.taxDocument.status, providerStatus: created.taxDocument.providerStatus } });
+  return jsonSuccess(context, erpTaxDocumentMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_tax_document.create" } }, error: null }, 201);
+});
+
+app.get(ERP_TAX_REPORT_PACKAGES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.read");
+  if (authResult.response) return authResult.response;
+  const result = await listOperationalErpTaxReportPackages(context.env, authResult.auth.user.companyId);
+  if (!result) return jsonDatabaseRequired(context, "ERP 세무 신고묶음 목록 조회");
+  await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_tax_report_package", resourceId: "erp_tax_report_package_list", accessType: "read", purpose: "ERP 세무 신고묶음 목록 조회 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 세무 신고자료 접근", metadata: { source: "erp-tax-report-packages-api", itemCount: result.items.length, providerStatus: "not_connected" } });
+  return jsonSuccess(context, erpTaxReportPackageListResponseSchema, { ok: true, data: result, error: null });
+});
+
+app.post(ERP_TAX_REPORT_PACKAGES_ROUTE, async (context) => {
+  const authResult = requirePermission(context, "work_item.manage");
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = erpTaxReportPackageCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "세무 신고묶음 입력값을 확인하세요.", 400, { issues: parsed.error.flatten() });
+  const created = await createOperationalErpTaxReportPackage(context.env, { id: `erp_tax_pkg_${crypto.randomUUID()}`, companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, createdAt: new Date().toISOString(), data: parsed.data });
+  if (!created?.taxReportPackage) return jsonDatabaseRequired(context, "ERP 세무 신고묶음 생성");
+  const auditRecorded = await recordOperationalPrivacyAccessEvent(context.env, { companyId: authResult.auth.user.companyId, actorUserId: authResult.auth.user.id, subjectUserId: authResult.auth.user.id, resourceType: "erp_tax_report_package", resourceId: created.taxReportPackage.id, accessType: "create", purpose: "ERP 세무 신고묶음 생성 감사 기록", legalBasis: "부서업무포털 권한 기반 자체 ERP 세무 신고자료 처리", metadata: { source: "erp-tax-report-packages-api", status: created.taxReportPackage.status, documentCount: created.taxReportPackage.documentCount, providerStatus: created.taxReportPackage.providerStatus } });
+  return jsonSuccess(context, erpTaxReportPackageMutationResponseSchema, { ok: true, data: { ...created, audit: { candidate: auditRecorded, action: "erp_tax_report_package.create" } }, error: null }, 201);
 });
 
 app.get(ERP_ACCOUNTING_MAPPINGS_ROUTE, async (context) => {

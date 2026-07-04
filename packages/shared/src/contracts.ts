@@ -127,6 +127,8 @@ export const appRoutes = {
     closingPeriods: "/api/erp/closing-periods",
     closingPeriodDetail: (periodId: string) => `/api/erp/closing-periods/${periodId}`,
     closingPeriodStatus: (periodId: string) => `/api/erp/closing-periods/${periodId}/status`,
+    taxDocuments: "/api/erp/tax-documents",
+    taxReportPackages: "/api/erp/tax-report-packages",
     accountingMappings: "/api/erp/accounting-mappings",
     accountingMappingDetail: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}`,
     accountingMappingStatus: (mappingId: string) => `/api/erp/accounting-mappings/${mappingId}/status`,
@@ -2803,6 +2805,86 @@ export const erpClosingPeriodMutationResponseSchema = successResponseSchema(
   z.object({ closingPeriod: erpClosingPeriodSchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
 );
 
+export const erpTaxDocumentTypeSchema = z.enum(["sales_tax_invoice", "purchase_tax_invoice", "cash_receipt", "vat_adjustment"]);
+export const erpTaxDocumentStatusSchema = z.enum(["draft", "matched", "review_required", "reported", "archived"]);
+
+export const erpTaxDocumentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  documentType: erpTaxDocumentTypeSchema,
+  issueDate: z.string(),
+  vendorName: z.string(),
+  businessRegistrationNumberHash: z.string().nullable(),
+  supplyAmount: z.number().nonnegative(),
+  taxAmount: z.number().nonnegative(),
+  totalAmount: z.number().nonnegative(),
+  linkedEvidenceId: z.string().nullable(),
+  linkedBillingId: z.string().nullable(),
+  linkedJournalEntryId: z.string().nullable(),
+  status: erpTaxDocumentStatusSchema,
+  providerStatus: z.literal("not_connected"),
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpTaxDocumentCreateRequestSchema = z.object({
+  documentType: erpTaxDocumentTypeSchema,
+  issueDate: z.string().min(10).max(10),
+  vendorName: z.string().min(1).max(200),
+  businessRegistrationNumber: z.string().max(40).optional(),
+  supplyAmount: z.number().nonnegative(),
+  taxAmount: z.number().nonnegative(),
+  linkedEvidenceId: z.string().max(160).optional(),
+  linkedBillingId: z.string().max(160).optional(),
+  linkedJournalEntryId: z.string().max(160).optional(),
+  status: erpTaxDocumentStatusSchema.default("draft"),
+  memo: z.string().max(1000).optional(),
+});
+
+export const erpTaxDocumentListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpTaxDocumentSchema), source: z.literal("postgres") }),
+);
+export const erpTaxDocumentMutationResponseSchema = successResponseSchema(
+  z.object({ taxDocument: erpTaxDocumentSchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
+);
+
+export const erpTaxReportPackageStatusSchema = z.enum(["draft", "locked", "exported"]);
+export const erpTaxReportPackageSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  status: erpTaxReportPackageStatusSchema,
+  salesSupplyAmount: z.number().nonnegative(),
+  salesTaxAmount: z.number().nonnegative(),
+  purchaseSupplyAmount: z.number().nonnegative(),
+  purchaseTaxAmount: z.number().nonnegative(),
+  documentCount: z.number().int().nonnegative(),
+  providerStatus: z.literal("not_connected"),
+  memo: z.string().nullable(),
+  createdByUserId: z.string(),
+  updatedByUserId: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const erpTaxReportPackageCreateRequestSchema = z.object({
+  periodStart: z.string().min(10).max(10),
+  periodEnd: z.string().min(10).max(10),
+  status: erpTaxReportPackageStatusSchema.default("draft"),
+  memo: z.string().max(1000).optional(),
+}).refine((value) => value.periodStart <= value.periodEnd, { message: "periodStart must be before or equal to periodEnd", path: ["periodEnd"] });
+
+export const erpTaxReportPackageListResponseSchema = successResponseSchema(
+  z.object({ items: z.array(erpTaxReportPackageSchema), source: z.literal("postgres") }),
+);
+export const erpTaxReportPackageMutationResponseSchema = successResponseSchema(
+  z.object({ taxReportPackage: erpTaxReportPackageSchema, audit: auditCandidateSchema, source: z.literal("postgres") }),
+);
+
 export const erpAccountingMappingTypeSchema = z.enum([
   "expense_category",
   "revenue_category",
@@ -3343,6 +3425,17 @@ export type ErpClosingPeriodCreateRequest = z.infer<typeof erpClosingPeriodCreat
 export type ErpClosingPeriodStatusUpdateRequest = z.infer<typeof erpClosingPeriodStatusUpdateRequestSchema>;
 export type ErpClosingPeriodListResponse = z.infer<typeof erpClosingPeriodListResponseSchema>;
 export type ErpClosingPeriodMutationResponse = z.infer<typeof erpClosingPeriodMutationResponseSchema>;
+export type ErpTaxDocumentType = z.infer<typeof erpTaxDocumentTypeSchema>;
+export type ErpTaxDocumentStatus = z.infer<typeof erpTaxDocumentStatusSchema>;
+export type ErpTaxDocument = z.infer<typeof erpTaxDocumentSchema>;
+export type ErpTaxDocumentCreateRequest = z.infer<typeof erpTaxDocumentCreateRequestSchema>;
+export type ErpTaxDocumentListResponse = z.infer<typeof erpTaxDocumentListResponseSchema>;
+export type ErpTaxDocumentMutationResponse = z.infer<typeof erpTaxDocumentMutationResponseSchema>;
+export type ErpTaxReportPackageStatus = z.infer<typeof erpTaxReportPackageStatusSchema>;
+export type ErpTaxReportPackage = z.infer<typeof erpTaxReportPackageSchema>;
+export type ErpTaxReportPackageCreateRequest = z.infer<typeof erpTaxReportPackageCreateRequestSchema>;
+export type ErpTaxReportPackageListResponse = z.infer<typeof erpTaxReportPackageListResponseSchema>;
+export type ErpTaxReportPackageMutationResponse = z.infer<typeof erpTaxReportPackageMutationResponseSchema>;
 export type ErpAccountingMappingType = z.infer<typeof erpAccountingMappingTypeSchema>;
 export type ErpAccountingMappingStatus = z.infer<typeof erpAccountingMappingStatusSchema>;
 export type ErpAccountingMappingRecordStatus = z.infer<typeof erpAccountingMappingRecordStatusSchema>;

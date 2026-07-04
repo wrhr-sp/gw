@@ -145,6 +145,7 @@ export default function LedgersPage() {
             <button aria-selected="false" className="feature-workspace__tab" role="tab" type="button"><span>마감</span><strong>{closingPeriods.length}</strong></button>
             <a className="feature-workspace__tab" href="/management-support/erp/journals"><span>전표/분개장</span><strong>이동</strong></a>
             <a className="feature-workspace__tab" href="/management-support/erp/payment-records"><span>입출금/미수금</span><strong>이동</strong></a>
+            <a className="feature-workspace__tab" href="/management-support/erp/taxes"><span>세무/부가세</span><strong>이동</strong></a>
           </div>
         </aside>
         <section className="feature-workspace__panel" aria-labelledby="ledgers-heading">
