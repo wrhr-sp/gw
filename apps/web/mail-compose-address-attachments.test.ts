@@ -34,6 +34,8 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("addExternalEmailRecipient(query, target)");
     expect(mailClient).toContain("올바른 이메일 주소를 입력해주세요.");
     expect(mailClient).toContain("이미 추가된 이메일입니다.");
-    expect(mailClient).toContain("다음 SMTP/API 연동 단계 전까지 내부 사용자에게만 발송할 수 있습니다.");
+    expect(mailClient).toContain("externalToEmails: externalRecipientEmails.map((recipient) => recipient.email)");
+    expect(mailClient).toContain("externalCcEmails: externalCcEmails.map((recipient) => recipient.email)");
+    expect(mailClient).toContain("외부 이메일 실제 발송은 다음 SMTP/API 연동 단계에서 연결합니다.");
   });
 });

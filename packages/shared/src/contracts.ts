@@ -184,6 +184,7 @@ export const errorCodeSchema = z.enum([
   "VALIDATION_ERROR",
   "NOT_IMPLEMENTED",
   "DB_NOT_CONFIGURED",
+  "EXTERNAL_MAIL_NOT_CONFIGURED",
 ]);
 
 export const errorResponseSchema = z.object({
@@ -251,15 +252,37 @@ export const mailMessageListResponseSchema = successResponseSchema(
   }),
 );
 
+export const mailExternalEmailSchema = z.string().trim().toLowerCase().email().max(254);
+
+export const mailExternalDeliveryLogSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  messageId: z.string().nullable(),
+  senderUserId: z.string(),
+  recipientType: z.enum(["to", "cc"]),
+  recipientEmail: mailExternalEmailSchema,
+  providerKind: z.enum(["smtp", "api", "unconfigured"]),
+  providerName: z.string(),
+  status: z.enum(["blocked", "pending", "sent", "failed"]),
+  errorCode: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  providerMessageId: z.string().nullable(),
+  attemptedAt: z.string().datetime(),
+  sentAt: z.string().datetime().nullable(),
+  failedAt: z.string().datetime().nullable(),
+});
+
 export const mailMessageSendRequestSchema = z.object({
   recipientUserId: z.string().min(1).optional(),
   recipientUserIds: z.array(z.string().min(1)).min(1).max(20).optional(),
+  externalToEmails: z.array(mailExternalEmailSchema).max(50).optional(),
+  externalCcEmails: z.array(mailExternalEmailSchema).max(50).optional(),
   sourceDraftMessageId: z.string().min(1).optional(),
   subject: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),
   importance: mailImportanceSchema.default("normal"),
-}).refine((value) => Boolean(value.recipientUserId || value.recipientUserIds?.length), {
-  message: "recipientUserId or recipientUserIds is required",
+}).refine((value) => Boolean(value.recipientUserId || value.recipientUserIds?.length || value.externalToEmails?.length || value.externalCcEmails?.length), {
+  message: "recipientUserId, recipientUserIds, externalToEmails, or externalCcEmails is required",
   path: ["recipientUserIds"],
 });
 
@@ -276,6 +299,7 @@ export const mailMessageSendResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
     messages: z.array(mailMessageSchema).min(1).optional(),
+    externalDeliveries: z.array(mailExternalDeliveryLogSchema).optional(),
     audit: z.object({
       candidate: z.literal(true),
       action: z.string(),
@@ -3316,6 +3340,7 @@ export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSche
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
 export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;
+export type MailExternalDeliveryLog = z.infer<typeof mailExternalDeliveryLogSchema>;
 export type MailAttachment = z.infer<typeof mailAttachmentSchema>;
 export type MailAttachmentListResponse = z.infer<typeof mailAttachmentListResponseSchema>;
 export type MailAttachmentUploadResponse = z.infer<typeof mailAttachmentUploadResponseSchema>;

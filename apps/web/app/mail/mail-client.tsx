@@ -742,8 +742,12 @@ export function MailClient() {
     }
 
     if (externalRecipientEmails.length || externalCcEmails.length) {
-      setStatus("외부 이메일 발송은 아직 연결되지 않았습니다. 다음 SMTP/API 연동 단계 전까지 내부 사용자에게만 발송할 수 있습니다.");
-      return null;
+      return Array.from(new Set([
+        ...recipientUserIds,
+        ...ccUserIds,
+        ...(exactToRecipient ? [exactToRecipient.userId] : []),
+        ...(exactCcRecipient ? [exactCcRecipient.userId] : []),
+      ]));
     }
 
     return Array.from(new Set([
@@ -787,8 +791,8 @@ export function MailClient() {
     setStatus("메일을 저장하고 발송 처리 중입니다.");
     try {
       const recipientIds = buildRecipientUserIdsForSubmit();
-      if (!recipientIds || recipientIds.length === 0) {
-        if (recipientIds) setStatus("받는사람을 검색 결과 또는 최근 주소에서 선택해주세요.");
+      if (!recipientIds || (recipientIds.length === 0 && externalRecipientEmails.length === 0 && externalCcEmails.length === 0)) {
+        if (recipientIds) setStatus("받는사람을 검색 결과 또는 최근 주소에서 선택하거나 이메일 주소를 Enter로 등록해주세요.");
         return;
       }
       if (pendingAttachments.some((attachment) => attachment.status === "업로드 중")) {
@@ -803,7 +807,15 @@ export function MailClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ recipientUserIds: recipientIds, sourceDraftMessageId: composeDraftMessageId ?? undefined, subject, body, importance }),
+        body: JSON.stringify({
+          recipientUserIds: recipientIds,
+          externalToEmails: externalRecipientEmails.map((recipient) => recipient.email),
+          externalCcEmails: externalCcEmails.map((recipient) => recipient.email),
+          sourceDraftMessageId: composeDraftMessageId ?? undefined,
+          subject,
+          body,
+          importance,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) {
