@@ -117,6 +117,14 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-address-book-selected-summary");
   });
 
+  it("supports template required variable helpers", () => {
+    expect(mailClient).toContain("selectedTemplateVariableText");
+    expect(mailClient).toContain("템플릿 변수 도우미");
+    expect(mailClient).toContain("필수 변수 채우기");
+    expect(mailClient).toContain("변수 비우기");
+    expect(globalCss).toContain(".mail-template-helper");
+  });
+
   it("connects mailbox bulk selection actions to the mail API", () => {
     expect(mailClient).toContain("selectedBulkMessageIds");
     expect(mailClient).toContain("appRoutes.mail.bulkAction");

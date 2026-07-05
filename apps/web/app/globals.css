@@ -4525,6 +4525,19 @@ li {
   font-size: var(--font-size-xs);
 }
 
+.mail-template-helper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.mail-compose-row--template .mail-template-helper {
+  flex: 1 1 100%;
+}
+
 .mail-integration-settings,
 .mail-settings-card,
 .mail-settings-guide {
