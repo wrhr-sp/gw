@@ -285,7 +285,14 @@ export function MailClient() {
   const selectedBulkCount = selectedBulkMessageIds.length;
   const isAllVisibleMessagesSelected = visibleMessageIds.length > 0 && visibleMessageIds.every((messageId) => selectedBulkMessageIds.includes(messageId));
   const selectedMessage = items.find((message) => message.id === selectedMessageId) ?? items[0] ?? null;
+  const selectedMessageIndex = selectedMessage ? items.findIndex((message) => message.id === selectedMessage.id) : -1;
+  const previousMessage = selectedMessageIndex > 0 ? items[selectedMessageIndex - 1] : null;
+  const nextMessage = selectedMessageIndex >= 0 && selectedMessageIndex < items.length - 1 ? items[selectedMessageIndex + 1] : null;
   const selectedMessageAttachments = selectedMessage ? attachmentsByMessageId[selectedMessage.id] ?? [] : [];
+  const composeRecipientCount = recipientUserIds.length + externalRecipientEmails.length;
+  const composeCcCount = ccUserIds.length + externalCcEmails.length;
+  const composeAttachmentCount = pendingAttachments.length;
+  const composeBodyTextLength = stripHtml(body).length;
   const selectedRecipients = recipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
   const selectedCcRecipients = ccUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
   const addressBookSelectedRecipients = addressBookRecipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
@@ -1732,6 +1739,13 @@ export function MailClient() {
               <button className="mail-compose-toolbar-button" disabled={isSubmitting} type="button" onClick={() => void sendTemplateTestToMyself()}>내게 테스트 발송</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={writeToMyself}>내게쓰기</button>
             </div>
+            <section className="mail-compose-readiness" aria-label="메일 작성 상태 요약">
+              <span>받는사람 {composeRecipientCount}명</span>
+              <span>참조 {composeCcCount}명</span>
+              <span>첨부 {composeAttachmentCount}개</span>
+              <span>본문 {composeBodyTextLength}자</span>
+              <strong>{composeRecipientCount > 0 && subject.trim() && composeBodyTextLength > 0 ? "전송 준비됨" : "필수 입력 확인"}</strong>
+            </section>
 
             <div className="mail-compose-row mail-compose-row--sender">
               <strong>보낸사람</strong>
@@ -1968,6 +1982,8 @@ export function MailClient() {
                       <span>{formatMeta(selectedMessage, currentBox)}</span>
                     </div>
                     <div className="mail-detail-panel__actions" aria-label="메일 상세 작업">
+                      <button className="mail-compose-toolbar-button" type="button" disabled={!previousMessage} onClick={() => previousMessage ? setSelectedMessageId(previousMessage.id) : undefined}>이전 메일</button>
+                      <button className="mail-compose-toolbar-button" type="button" disabled={!nextMessage} onClick={() => nextMessage ? setSelectedMessageId(nextMessage.id) : undefined}>다음 메일</button>
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("reply", selectedMessage)}>답장</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => selectedMessage.readAt ? void markUnread(selectedMessage.id) : void markRead(selectedMessage.id)}>{selectedMessage.readAt ? "안읽음 처리" : "읽음 처리"}</button> : null}
