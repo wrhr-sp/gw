@@ -64,6 +64,7 @@ export const appRoutes = {
     deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
+    bulkAction: "/api/mail/messages/bulk-action",
     moveMessage: (messageId: string) => `/api/mail/messages/${messageId}/move`,
     favoriteMessage: (messageId: string) => `/api/mail/messages/${messageId}/favorite`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
@@ -304,6 +305,24 @@ export const mailMessageFavoriteResponseSchema = successResponseSchema(
     message: mailMessageSchema,
     isFavorite: z.boolean(),
     audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.favorite") }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageBulkActionSchema = z.enum(["markRead", "markUnread", "favorite", "unfavorite", "spam", "trash", "inbox", "delete"]);
+
+export const mailMessageBulkActionRequestSchema = z.object({
+  messageIds: z.array(z.string().min(1)).min(1).max(50),
+  action: mailMessageBulkActionSchema,
+});
+
+export const mailMessageBulkActionResponseSchema = successResponseSchema(
+  z.object({
+    action: mailMessageBulkActionSchema,
+    requestedCount: z.number().int().nonnegative(),
+    successCount: z.number().int().nonnegative(),
+    messages: z.array(mailMessageSchema.nullable()),
+    audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.bulk_action") }),
     source: z.literal("postgres"),
   }),
 );
@@ -3712,6 +3731,7 @@ export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
 export type MailBox = z.infer<typeof mailBoxSchema>;
 export type MailMessageMoveTarget = z.infer<typeof mailMessageMoveTargetSchema>;
+export type MailMessageBulkAction = z.infer<typeof mailMessageBulkActionSchema>;
 export type MailRecipient = z.infer<typeof mailRecipientSchema>;
 export type MailRecipientListResponse = z.infer<typeof mailRecipientListResponseSchema>;
 export type MailMessage = z.infer<typeof mailMessageSchema>;

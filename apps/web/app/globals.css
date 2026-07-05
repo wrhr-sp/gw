@@ -5394,6 +5394,38 @@ li {
   min-height: 36px;
 }
 
+.mail-bulk-action-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--feature-workspace-actions-gap);
+  border: var(--feature-workspace-row-divider);
+  border-radius: var(--feature-workspace-card-radius);
+  padding: var(--feature-workspace-row-padding-block) var(--feature-workspace-row-padding-inline);
+  background: var(--surface);
+}
+
+.mail-bulk-action-bar__select-all,
+.mail-message-row {
+  display: flex;
+  align-items: center;
+  gap: var(--feature-workspace-actions-gap);
+}
+
+.mail-bulk-action-bar__select-all {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+}
+
+.mail-message-row__checkbox {
+  flex: 0 0 auto;
+}
+
+.mail-message-row .mail-message-select-button {
+  flex: 1 1 auto;
+}
+
 .mail-message-select-button {
   display: grid;
   gap: 4px;

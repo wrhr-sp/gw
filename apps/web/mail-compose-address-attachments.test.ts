@@ -97,4 +97,17 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("검색 초기화");
     expect(globalCss).toContain(".mail-search-filter-bar");
   });
+
+  it("connects mailbox bulk selection actions to the mail API", () => {
+    expect(mailClient).toContain("selectedBulkMessageIds");
+    expect(mailClient).toContain("appRoutes.mail.bulkAction");
+    expect(mailClient).toContain("mailMessageBulkActionResponseSchema");
+    expect(mailClient).toContain("메일 다중 선택 작업");
+    expect(mailClient).toContain("전체 선택");
+    expect(mailClient).toContain("읽음 처리");
+    expect(mailClient).toContain("안읽음 처리");
+    expect(mailClient).toContain("runBulkAction(\"trash\")");
+    expect(mailClient).toContain("mail-message-row__checkbox");
+    expect(globalCss).toContain(".mail-bulk-action-bar");
+  });
 });

@@ -20,6 +20,7 @@ import {
   mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
+  mailMessageBulkActionResponseSchema,
   mailMessageMoveResponseSchema,
   mailMessageFavoriteResponseSchema,
   mailMessageReadResponseSchema,
@@ -210,6 +211,7 @@ export function MailClient() {
   const [view, setView] = useState<MailView>("inbox");
   const [items, setItems] = useState<MailMessage[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [selectedBulkMessageIds, setSelectedBulkMessageIds] = useState<string[]>([]);
   const [composeMode, setComposeMode] = useState<MailComposeMode>("new");
   const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
   const [composeDraftMessageId, setComposeDraftMessageId] = useState<string | null>(null);
@@ -279,6 +281,9 @@ export function MailClient() {
   const trashFolders = visibleFolders.filter((folder) => folder.group === "trash");
   const currentFolder = defaultMailFolders.find((folder) => folder.id === view);
   const currentBox = isMailBox(view) ? view : null;
+  const visibleMessageIds = items.map((message) => message.id);
+  const selectedBulkCount = selectedBulkMessageIds.length;
+  const isAllVisibleMessagesSelected = visibleMessageIds.length > 0 && visibleMessageIds.every((messageId) => selectedBulkMessageIds.includes(messageId));
   const selectedMessage = items.find((message) => message.id === selectedMessageId) ?? items[0] ?? null;
   const selectedMessageAttachments = selectedMessage ? attachmentsByMessageId[selectedMessage.id] ?? [] : [];
   const selectedRecipients = recipientUserIds.map((userId) => recipientLookup[userId]).filter((recipient): recipient is MailRecipient => Boolean(recipient));
@@ -470,6 +475,7 @@ export function MailClient() {
     }
     const parsed = mailMessageListResponseSchema.parse(payload);
     setItems(parsed.data.items);
+    setSelectedBulkMessageIds((current) => current.filter((messageId) => parsed.data.items.some((message) => message.id === messageId)));
     setSelectedMessageId((current) => parsed.data.items.some((message) => message.id === current) ? current : parsed.data.items[0]?.id ?? null);
     setCounts(parsed.data.counts);
     await loadAttachments(parsed.data.items);
@@ -555,6 +561,33 @@ export function MailClient() {
     setActiveRecipientPopup(null);
     setManualRecipientPopupTarget(null);
     setActiveRecentRecipientPopup(null);
+  }
+
+  function toggleBulkMessage(messageId: string) {
+    setSelectedBulkMessageIds((current) => current.includes(messageId) ? current.filter((id) => id !== messageId) : [...current, messageId]);
+  }
+
+  function toggleAllVisibleMessages() {
+    setSelectedBulkMessageIds(isAllVisibleMessagesSelected ? [] : visibleMessageIds);
+  }
+
+  async function runBulkAction(action: "markRead" | "markUnread" | "favorite" | "unfavorite" | "spam" | "trash" | "inbox" | "delete") {
+    if (!currentBox || selectedBulkMessageIds.length === 0) return;
+    const response = await fetch(appRoutes.mail.bulkAction, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ messageIds: selectedBulkMessageIds, action }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "선택한 메일을 처리하지 못했습니다.");
+      return;
+    }
+    const parsed = mailMessageBulkActionResponseSchema.parse(payload);
+    setStatus(`선택 메일 ${parsed.data.successCount}/${parsed.data.requestedCount}건을 처리했습니다.`);
+    setSelectedBulkMessageIds([]);
+    await loadMessages(currentBox);
   }
 
   function openNewCompose() {
@@ -1875,11 +1908,33 @@ export function MailClient() {
               </label>
               <button className="mail-compose-toolbar-button" type="button" onClick={() => { setMailSearchQuery(""); setMailReadFilter("all"); setMailImportanceFilter("all"); setMailHasAttachmentFilter(false); setMailDateFrom(""); setMailDateTo(""); }}>검색 초기화</button>
             </section>
+            <section className="mail-bulk-action-bar" aria-label="메일 다중 선택 작업">
+              <label className="mail-bulk-action-bar__select-all">
+                <input checked={isAllVisibleMessagesSelected} disabled={items.length === 0} type="checkbox" onChange={toggleAllVisibleMessages} />
+                <span>전체 선택</span>
+              </label>
+              <span>선택 {selectedBulkCount}건</span>
+              <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("markRead")}>읽음 처리</button>
+              <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("markUnread")}>안읽음 처리</button>
+              <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("favorite")}>즐겨찾기 추가</button>
+              <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("unfavorite")}>즐겨찾기 해제</button>
+              {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("spam")}>스팸 이동</button> : null}
+              {currentBox !== "trash" ? <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("trash")}>휴지통 이동</button> : null}
+              {currentBox === "spam" || currentBox === "trash" ? <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("inbox")}>받은메일함 복구</button> : null}
+              {currentBox === "trash" ? <button className="mail-compose-toolbar-button" disabled={!selectedBulkCount} type="button" onClick={() => void runBulkAction("delete")}>완전삭제</button> : null}
+            </section>
             <div className="feature-workspace__rows mail-detail-layout__list" aria-label={`${boxLabels[currentBox]} 목록`}>
               {items.length === 0 ? (
                 <article className="feature-workspace__row"><div><strong>표시할 메일이 없습니다.</strong><span>DB 조회 결과</span></div><em>비어 있음</em></article>
               ) : items.map((message) => (
-                <article className="feature-workspace__row" key={message.id}>
+                <article className="feature-workspace__row mail-message-row" key={message.id}>
+                  <input
+                    aria-label={`${message.subject} 선택`}
+                    checked={selectedBulkMessageIds.includes(message.id)}
+                    className="mail-message-row__checkbox"
+                    type="checkbox"
+                    onChange={() => toggleBulkMessage(message.id)}
+                  />
                   <button
                     aria-pressed={selectedMessage?.id === message.id}
                     className="mail-message-select-button"

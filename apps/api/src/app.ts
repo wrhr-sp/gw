@@ -170,6 +170,8 @@ import {
   mailMessageFavoriteRequestSchema,
   mailMessageFavoriteResponseSchema,
   mailRecipientListResponseSchema,
+  mailMessageBulkActionRequestSchema,
+  mailMessageBulkActionResponseSchema,
   mailMessageDraftSaveRequestSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageReadResponseSchema,
@@ -409,7 +411,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, dispatchDueOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, dispatchDueOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, setOperationalMailMessageReadState, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
@@ -6996,6 +6998,63 @@ app.post(appRoutes.mail.send, async (context) => {
     }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메일 발송");
+  }
+});
+
+app.post(appRoutes.mail.bulkAction, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageBulkActionRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 다중 작업 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const messages = [];
+    for (const messageId of Array.from(new Set(parsed.data.messageIds))) {
+      if (parsed.data.action === "markRead" || parsed.data.action === "markUnread") {
+        messages.push(await setOperationalMailMessageReadState(context.env, {
+          companyId: authResult.auth.user.companyId,
+          userId: authResult.auth.user.id,
+          messageId,
+          isRead: parsed.data.action === "markRead",
+        }));
+        continue;
+      }
+      if (parsed.data.action === "favorite" || parsed.data.action === "unfavorite") {
+        messages.push(await setOperationalMailMessageFavorite(context.env, {
+          companyId: authResult.auth.user.companyId,
+          userId: authResult.auth.user.id,
+          messageId,
+          isFavorite: parsed.data.action === "favorite",
+        }));
+        continue;
+      }
+      messages.push(await moveOperationalMailMessage(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        messageId,
+        target: parsed.data.action,
+      }));
+    }
+    const successCount = messages.filter(Boolean).length;
+    if (!successCount) {
+      return jsonError(context, "FORBIDDEN", "선택한 메일을 처리할 수 없습니다.", 403, { route: context.req.path });
+    }
+    return jsonSuccess(context, mailMessageBulkActionResponseSchema, {
+      ok: true,
+      data: {
+        action: parsed.data.action,
+        requestedCount: parsed.data.messageIds.length,
+        successCount,
+        messages,
+        audit: { candidate: true, action: "mail.message.bulk_action" },
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 다중 작업");
   }
 });
 
