@@ -188,6 +188,13 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  messengerMessageCreateRequestSchema,
+  messengerMessageListResponseSchema,
+  messengerMessageMutationResponseSchema,
+  messengerMessageReadResponseSchema,
+  messengerRoomCreateRequestSchema,
+  messengerRoomListResponseSchema,
+  messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
   secondaryPasswordStatusResponseSchema,
   secondaryPasswordUpdateRequestSchema,
@@ -425,7 +432,14 @@ import {
   updateOperationalMailAccount,
   updateOperationalMailAlias,
 } from "./lib/operational-mail-settings";
-import { leaveOperationalMessengerThread } from "./lib/operational-messenger";
+import {
+  createOperationalMessengerRoom,
+  leaveOperationalMessengerThread,
+  listOperationalMessengerMessages,
+  listOperationalMessengerRooms,
+  markOperationalMessengerMessageRead,
+  sendOperationalMessengerMessage,
+} from "./lib/operational-messenger";
 import {
   archiveOperationalMailDraft,
   buildMailAttachmentObjectKey,
@@ -6165,6 +6179,162 @@ app.get(appRoutes.payroll.myPayslip, async (context) => {
     },
     error: null,
   });
+});
+
+
+function buildGeneratedMessengerId(kind: "room" | "message", companyId: string, userId: string) {
+  return `msg_${kind}_${companyId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+app.get(appRoutes.messenger.rooms, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  try {
+    const rooms = await listOperationalMessengerRooms(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+    });
+    return jsonSuccess(context, messengerRoomListResponseSchema, { ok: true, data: { rooms, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 대화방 목록 조회");
+  }
+});
+
+app.post(appRoutes.messenger.rooms, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = messengerRoomCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 생성 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  try {
+    const result = await createOperationalMessengerRoom(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      roomId: buildGeneratedMessengerId("room", authResult.auth.user.companyId, authResult.auth.user.id),
+      roomType: parsed.data.roomType,
+      roomName: parsed.data.roomName,
+      description: parsed.data.description,
+      memberIds: parsed.data.memberIds,
+      isExternal: parsed.data.isExternal,
+    });
+    return jsonSuccess(context, messengerRoomMutationResponseSchema, {
+      ok: true,
+      data: { ...result, audit: { candidate: true, action: "messenger.room.create" }, source: "postgres" },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 대화방 생성");
+  }
+});
+
+app.get(appRoutes.messenger.roomMessages(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) {
+    return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  }
+
+  const limitValue = Number(context.req.query("limit") ?? "50");
+  const beforeValue = context.req.query("beforeSequenceNo");
+  const limit = Number.isFinite(limitValue) ? Math.min(Math.max(Math.floor(limitValue), 1), 100) : 50;
+  const beforeSequenceNo = beforeValue ? Number(beforeValue) : undefined;
+
+  try {
+    const result = await listOperationalMessengerMessages(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      roomId,
+      limit,
+      beforeSequenceNo: Number.isFinite(beforeSequenceNo) ? beforeSequenceNo : undefined,
+    });
+    if (!result) {
+      return jsonError(context, "ROOM_ACCESS_DENIED", "이 대화방에 접근할 권한이 없습니다.", 403, { roomId, route: context.req.path });
+    }
+    return jsonSuccess(context, messengerMessageListResponseSchema, { ok: true, data: { ...result, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 메시지 목록 조회");
+  }
+});
+
+app.post(appRoutes.messenger.roomMessages(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) {
+    return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = messengerMessageCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메신저 메시지 전송 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  if (!parsed.data.body?.trim()) {
+    return jsonError(context, "VALIDATION_ERROR", "메시지 내용을 입력해 주세요.", 400, { route: context.req.path });
+  }
+
+  try {
+    const message = await sendOperationalMessengerMessage(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      roomId,
+      messageId: buildGeneratedMessengerId("message", authResult.auth.user.companyId, authResult.auth.user.id),
+      messageType: parsed.data.messageType,
+      body: parsed.data.body,
+      replyToMessageId: parsed.data.replyToMessageId ?? null,
+    });
+    if (!message) {
+      return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 참여자만 메시지를 보낼 수 있습니다.", 403, { roomId, route: context.req.path });
+    }
+    return jsonSuccess(context, messengerMessageMutationResponseSchema, {
+      ok: true,
+      data: {
+        message,
+        audit: { candidate: true, action: "messenger.message.send" },
+        realtime: { eventType: "message.created", dbSavedBeforeEvent: true },
+        source: "postgres",
+      },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 메시지 전송");
+  }
+});
+
+app.post(appRoutes.messenger.readMessage(":messageId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  const messageId = context.req.param("messageId")?.trim();
+  if (!messageId || messageId.length > 160) {
+    return jsonError(context, "VALIDATION_ERROR", "메신저 메시지 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  }
+
+  try {
+    const result = await markOperationalMessengerMessageRead(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId,
+    });
+    if (!result) {
+      return jsonError(context, "MESSAGE_NOT_FOUND", "읽음 처리할 메시지를 찾을 수 없습니다.", 400, { messageId, route: context.req.path });
+    }
+    return jsonSuccess(context, messengerMessageReadResponseSchema, {
+      ok: true,
+      data: { ...result, audit: { candidate: true, action: "messenger.message.read" }, source: "postgres" },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 메시지 읽음 처리");
+  }
 });
 
 app.post("/api/messenger/threads/:threadId/leave", async (context) => {

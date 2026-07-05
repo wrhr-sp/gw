@@ -37,6 +37,11 @@ describe("messenger page", () => {
     expect(pageSource).toContain("closeActiveThread");
     expect(pageSource).toContain("handleLeaveActiveThread");
     expect(pageSource).toContain("appRoutes.messenger.leaveThread");
+    expect(pageSource).toContain("appRoutes.messenger.rooms");
+    expect(pageSource).toContain("appRoutes.messenger.roomMessages");
+    expect(pageSource).toContain("messengerRoomListResponseSchema");
+    expect(pageSource).toContain("messengerMessageListResponseSchema");
+    expect(pageSource).toContain("messengerMessageMutationResponseSchema");
     expect(pageSource).toContain("messengerThreadLeaveResponseSchema");
     expect(pageSource).toContain("handleComposerKeyDown");
     expect(pageSource).toContain('event.key !== "Enter" || event.shiftKey');

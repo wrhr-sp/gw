@@ -82,6 +82,12 @@ export const appRoutes = {
     testSendTemplate: (templateId: string) => `/api/mail/templates/${templateId}/test-send`,
   },
   messenger: {
+    rooms: "/api/messenger/rooms",
+    room: (roomId: string) => `/api/messenger/rooms/${roomId}`,
+    roomMembers: (roomId: string) => `/api/messenger/rooms/${roomId}/members`,
+    roomMessages: (roomId: string) => `/api/messenger/rooms/${roomId}/messages`,
+    readMessage: (messageId: string) => `/api/messenger/messages/${messageId}/read`,
+    search: "/api/messenger/search",
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
   },
   approvals: {
@@ -201,6 +207,13 @@ export const errorCodeSchema = z.enum([
   "NOT_IMPLEMENTED",
   "DB_NOT_CONFIGURED",
   "EXTERNAL_MAIL_NOT_CONFIGURED",
+  "ROOM_NOT_FOUND",
+  "ROOM_ACCESS_DENIED",
+  "ROOM_MEMBER_NOT_FOUND",
+  "ROOM_INACTIVE",
+  "MESSAGE_NOT_FOUND",
+  "MESSAGE_SEND_FAILED",
+  "MESSAGE_BODY_TOO_LONG",
   "EMAIL_TEMPLATE_NOT_FOUND",
   "EMAIL_TEMPLATE_VARIABLE_MISSING",
 ]);
@@ -722,6 +735,122 @@ export const mailMessageDraftSaveResponseSchema = successResponseSchema(
 export const mailMessageReadResponseSchema = successResponseSchema(
   z.object({
     message: mailMessageSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
+
+export const messengerRoomTypeSchema = z.enum(["direct", "group", "department", "project", "site", "notice", "approval", "system", "bot", "external"]);
+export const messengerRoomStatusSchema = z.enum(["active", "inactive", "archived", "deleted", "locked"]);
+export const messengerMemberRoleSchema = z.enum(["owner", "manager", "member", "readonly", "guest", "bot"]);
+export const messengerMessageTypeSchema = z.enum(["text", "system", "notice", "bot_response", "bot_status", "bot_error"]);
+export const messengerMessageStatusSchema = z.enum(["draft", "sending", "sent", "delivered", "read", "failed", "deleted", "hidden", "blocked", "edited", "pinned"]);
+
+export const messengerRoomSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  roomType: messengerRoomTypeSchema,
+  roomName: z.string(),
+  description: z.string().nullable(),
+  isExternal: z.boolean(),
+  status: messengerRoomStatusSchema,
+  memberCount: z.number().int().nonnegative(),
+  unreadCount: z.number().int().nonnegative(),
+  lastMessageId: z.string().nullable(),
+  lastMessageBody: z.string().nullable(),
+  lastMessageAt: z.string().datetime().nullable(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const messengerRoomMemberSchema = z.object({
+  roomId: z.string(),
+  userId: z.string(),
+  memberRole: messengerMemberRoleSchema,
+  isActive: z.boolean(),
+  joinedAt: z.string().datetime(),
+  leftAt: z.string().datetime().nullable(),
+  lastReadMessageId: z.string().nullable(),
+  lastReadAt: z.string().datetime().nullable(),
+  unreadCount: z.number().int().nonnegative(),
+  muted: z.boolean(),
+});
+
+export const messengerMessageSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  roomId: z.string(),
+  senderId: z.string().nullable(),
+  senderName: z.string().nullable(),
+  messageType: messengerMessageTypeSchema,
+  body: z.string().nullable(),
+  replyToMessageId: z.string().nullable(),
+  sequenceNo: z.number().int().nonnegative(),
+  status: messengerMessageStatusSchema,
+  edited: z.boolean(),
+  deleted: z.boolean(),
+  readCount: z.number().int().nonnegative(),
+  sentAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const messengerRoomCreateRequestSchema = z.object({
+  roomType: messengerRoomTypeSchema.default("group"),
+  roomName: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional(),
+  memberIds: z.array(z.string().trim().min(1).max(120)).max(100).default([]),
+  isExternal: z.boolean().default(false),
+});
+
+export const messengerMessageCreateRequestSchema = z.object({
+  messageType: messengerMessageTypeSchema.default("text"),
+  body: z.string().trim().max(5000).optional(),
+  replyToMessageId: z.string().trim().max(120).nullable().optional(),
+});
+
+export const messengerRoomListResponseSchema = successResponseSchema(
+  z.object({
+    rooms: z.array(messengerRoomSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerRoomMutationResponseSchema = successResponseSchema(
+  z.object({
+    room: messengerRoomSchema,
+    members: z.array(messengerRoomMemberSchema),
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerMessageListResponseSchema = successResponseSchema(
+  z.object({
+    room: messengerRoomSchema,
+    messages: z.array(messengerMessageSchema),
+    hasMore: z.boolean(),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerMessageMutationResponseSchema = successResponseSchema(
+  z.object({
+    message: messengerMessageSchema,
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    realtime: z.object({ eventType: z.literal("message.created"), dbSavedBeforeEvent: z.literal(true) }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerMessageReadResponseSchema = successResponseSchema(
+  z.object({
+    messageId: z.string(),
+    roomId: z.string(),
+    readAt: z.string().datetime(),
+    unreadCount: z.number().int().nonnegative(),
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
     source: z.literal("postgres"),
   }),
 );
