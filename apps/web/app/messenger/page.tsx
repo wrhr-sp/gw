@@ -2,7 +2,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { appRoutes, messengerThreadLeaveResponseSchema } from "@gw/shared";
+import {
+  appRoutes,
+  messengerMessageListResponseSchema,
+  messengerMessageMutationResponseSchema,
+  messengerRoomListResponseSchema,
+  messengerRoomMutationResponseSchema,
+  messengerThreadLeaveResponseSchema,
+} from "@gw/shared";
 
 import { FeatureFileAttachmentBox, type FeatureFileAttachmentItem } from "../_components/feature-file-attachment-box";
 import { FeaturePageOverflowMenu } from "../_components/feature-page-overflow-menu";
@@ -33,6 +40,15 @@ type MessengerAttachment = {
   source: "pc" | "document";
 };
 
+type MessengerMessageView = {
+  id: string;
+  senderName: string;
+  body: string;
+  sentAt: string;
+  mine: boolean;
+  readCount: number;
+};
+
 type MessengerDocumentCategory = "전체" | "최근문서" | "공지/규정" | "인사/근태" | "업무자료" | "양식";
 
 type MessengerDocumentAttachment = MessengerAttachment & {
@@ -48,36 +64,6 @@ type MessengerEmojiGroup = {
   category: MessengerEmojiCategory;
   emojis: readonly string[];
 };
-
-const messengerThreads: readonly MessengerThread[] = [
-  {
-    id: "thread-hr-kim",
-    title: "김민수 과장",
-    subtitle: "경영지원팀 · 1:1",
-    lastMessage: "오늘 회의자료 확인했습니다.",
-    time: "오전 10:24",
-    unread: 2,
-    kind: "1:1",
-  },
-  {
-    id: "thread-dev-room",
-    title: "개발팀 업무방",
-    subtitle: "개발팀 · 그룹",
-    lastMessage: "메신저 1차 UI 검토 범위만 먼저 확인합니다.",
-    time: "어제",
-    unread: 0,
-    kind: "그룹",
-  },
-  {
-    id: "thread-admin-notice",
-    title: "관리 공지 확인방",
-    subtitle: "총괄관리 · 그룹",
-    lastMessage: "실시간 채팅 서버는 후속 승인 범위로 남깁니다.",
-    time: "월요일",
-    unread: 5,
-    kind: "그룹",
-  },
-] as const;
 
 const organizationGroups: readonly { department: string; contacts: readonly MessengerContact[] }[] = [
   {
@@ -127,6 +113,38 @@ const messengerEmojiGroups: readonly MessengerEmojiGroup[] = [
   { category: "기념", emojis: ["🎉", "🎊", "🎁", "🥳", "⭐", "❤️", "✨", "🏆", "☕", "🍀", "🌟", "💐"] },
 ] as const;
 
+function formatMessengerRoomKind(roomType: string): MessengerThread["kind"] {
+  return roomType === "direct" ? "1:1" : "그룹";
+}
+
+function formatMessengerTime(value: string | null) {
+  if (!value) return "대화 전";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "대화 전";
+  return new Intl.DateTimeFormat("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function formatApiRoomToThread(room: {
+  id: string;
+  roomName: string;
+  roomType: string;
+  memberCount: number;
+  unreadCount: number;
+  lastMessageBody: string | null;
+  lastMessageAt: string | null;
+  isExternal: boolean;
+}): MessengerThread {
+  return {
+    id: room.id,
+    title: room.roomName,
+    subtitle: `${room.isExternal ? "외부 포함 · " : ""}${room.memberCount}명`,
+    lastMessage: room.lastMessageBody ?? "저장된 메시지가 아직 없습니다.",
+    time: formatMessengerTime(room.lastMessageAt),
+    unread: room.unreadCount,
+    kind: formatMessengerRoomKind(room.roomType),
+  };
+}
+
 function formatMessengerFileSize(size: number) {
   if (size >= 1024 * 1024) {
     return `${(size / (1024 * 1024)).toFixed(1)}MB`;
@@ -155,15 +173,21 @@ export default function MessengerPage() {
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<MessengerEmojiCategory>("자주사용");
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
   const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
-  const [messageDraft, setMessageDraft] = useState("메신저 1차 UI 확인 메시지입니다.");
-  const [displayMessage, setDisplayMessage] = useState("회의자료 확인했습니다.");
+  const [messageDraft, setMessageDraft] = useState("");
+  const [displayMessage, setDisplayMessage] = useState("");
+  const [apiThreads, setApiThreads] = useState<MessengerThread[]>([]);
+  const [apiMessages, setApiMessages] = useState<MessengerMessageView[]>([]);
+  const [isMessengerLoading, setIsMessengerLoading] = useState(true);
+  const [isMessageLoading, setIsMessageLoading] = useState(false);
+  const [messengerStatusMessage, setMessengerStatusMessage] = useState("대화방을 불러오는 중입니다.");
 
-  const activeThread = messengerThreads.find((thread) => thread.id === activeThreadId) ?? null;
+  const conversationThreads = apiThreads;
+  const activeThread = conversationThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const selectedContacts = allContacts.filter((contact) => selectedContactIds.includes(contact.id));
 
   const filteredThreads = useMemo(() => {
     const keyword = threadSearch.trim().toLowerCase();
-    const availableThreads = messengerThreads.filter((thread) => !leftThreadIds.includes(thread.id));
+    const availableThreads = conversationThreads.filter((thread) => !leftThreadIds.includes(thread.id));
     if (!keyword) {
       return availableThreads;
     }
@@ -171,7 +195,7 @@ export default function MessengerPage() {
     return availableThreads.filter((thread) =>
       [thread.title, thread.subtitle, thread.lastMessage, thread.kind].some((value) => value.toLowerCase().includes(keyword)),
     );
-  }, [leftThreadIds, threadSearch]);
+  }, [conversationThreads, leftThreadIds, threadSearch]);
 
   const filteredOrganizationGroups = useMemo(() => {
     const keyword = recipientSearch.trim().toLowerCase();
@@ -226,20 +250,119 @@ export default function MessengerPage() {
     );
   }
 
-  function handleStartConversation() {
-    const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
-    setDisplayMessage(names ? `${names}에게 보낼 새 대화 검토 내용이 준비됐습니다.` : "대상자를 선택하면 대화 시작 검토 내용이 표시됩니다.");
-    setIsRecipientPanelOpen(false);
+  async function loadMessengerRooms() {
+    setIsMessengerLoading(true);
+    try {
+      const response = await fetch(appRoutes.messenger.rooms, { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setApiThreads([]);
+        setMessengerStatusMessage(payload?.error?.message ?? "대화방 목록을 불러오지 못했습니다.");
+        return;
+      }
+      const parsed = messengerRoomListResponseSchema.parse(payload);
+      setApiThreads(parsed.data.rooms.map(formatApiRoomToThread));
+      setMessengerStatusMessage(parsed.data.rooms.length ? "" : "아직 참여 중인 대화방이 없습니다. 새 메시지로 업무방을 만들어 주세요.");
+    } catch {
+      setApiThreads([]);
+      setMessengerStatusMessage("대화방 목록 요청 중 오류가 발생했습니다.");
+    } finally {
+      setIsMessengerLoading(false);
+    }
   }
 
-  function handleSendPreview() {
+  async function loadMessengerMessages(roomId: string) {
+    setIsMessageLoading(true);
+    try {
+      const response = await fetch(`${appRoutes.messenger.roomMessages(roomId)}?limit=50`, { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setApiMessages([]);
+        setDisplayMessage(payload?.error?.message ?? "메시지 목록을 불러오지 못했습니다.");
+        return;
+      }
+      const parsed = messengerMessageListResponseSchema.parse(payload);
+      setApiMessages(parsed.data.messages.map((message) => ({
+        id: message.id,
+        senderName: message.senderName ?? "알 수 없음",
+        body: message.body ?? "",
+        sentAt: formatMessengerTime(message.sentAt),
+        mine: message.senderId?.includes("user_") ?? false,
+        readCount: message.readCount,
+      })));
+      setDisplayMessage("");
+    } catch {
+      setApiMessages([]);
+      setDisplayMessage("메시지 목록 요청 중 오류가 발생했습니다.");
+    } finally {
+      setIsMessageLoading(false);
+    }
+  }
+
+  async function handleStartConversation() {
+    const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
+    const roomName = names ? names : "새 업무 대화방";
+    try {
+      const response = await fetch(appRoutes.messenger.rooms, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ roomType: selectedContacts.length <= 1 ? "direct" : "group", roomName, memberIds: [], isExternal: false }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setDisplayMessage(payload?.error?.message ?? "대화방을 만들지 못했습니다.");
+        return;
+      }
+      const parsed = messengerRoomMutationResponseSchema.parse(payload);
+      const nextThread = formatApiRoomToThread(parsed.data.room);
+      setApiThreads((current) => [nextThread, ...current.filter((thread) => thread.id !== nextThread.id)]);
+      setActiveThreadId(nextThread.id);
+      setApiMessages([]);
+      setIsRecipientPanelOpen(false);
+      setMessengerStatusMessage("");
+    } catch {
+      setDisplayMessage("대화방 생성 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function handleSendPreview() {
+    if (!activeThread) return;
     const attachmentNames = pendingAttachments.map((attachment) => attachment.name).join(", ");
     const messageText = messageDraft.trim();
-    if (!messageText && !attachmentNames) {
+    const body = attachmentNames ? `${messageText || "첨부 메시지"}
+첨부: ${attachmentNames}` : messageText;
+    if (!body) {
       return;
     }
-    setDisplayMessage(attachmentNames ? `${messageText || "첨부 메시지"}\n첨부: ${attachmentNames}` : messageText);
-    setMessageDraft("");
+    try {
+      const response = await fetch(appRoutes.messenger.roomMessages(activeThread.id), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageType: "text", body }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setDisplayMessage(payload?.error?.message ?? "메시지를 전송하지 못했습니다.");
+        return;
+      }
+      const parsed = messengerMessageMutationResponseSchema.parse(payload);
+      const message = parsed.data.message;
+      setApiMessages((current) => [...current, {
+        id: message.id,
+        senderName: message.senderName ?? "나",
+        body: message.body ?? "",
+        sentAt: formatMessengerTime(message.sentAt),
+        mine: true,
+        readCount: message.readCount,
+      }]);
+      setMessageDraft("");
+      setPendingAttachments([]);
+      void loadMessengerRooms();
+    } catch {
+      setDisplayMessage("메시지 전송 요청 중 오류가 발생했습니다.");
+    }
   }
 
   function handleComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -247,7 +370,7 @@ export default function MessengerPage() {
       return;
     }
     event.preventDefault();
-    handleSendPreview();
+    void handleSendPreview();
   }
 
   async function handleLeaveActiveThread() {
@@ -271,7 +394,7 @@ export default function MessengerPage() {
       setActiveThreadId(null);
       setPendingAttachments([]);
       setMessageDraft("");
-      setDisplayMessage("회의자료 확인했습니다.");
+      setDisplayMessage("");
       setIsAttachmentMenuOpen(false);
       setIsEmojiMenuOpen(false);
       setIsDocumentPickerOpen(false);
@@ -287,8 +410,8 @@ export default function MessengerPage() {
     setThreadSearch("");
     setRecipientSearch("");
     setPendingAttachments([]);
-    setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
-    setDisplayMessage("회의자료 확인했습니다.");
+    setMessageDraft("");
+    setDisplayMessage("");
     setIsRecipientPanelOpen(false);
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
@@ -299,8 +422,8 @@ export default function MessengerPage() {
   function closeActiveThread() {
     setActiveThreadId(null);
     setPendingAttachments([]);
-    setMessageDraft("메신저 1차 UI 확인 메시지입니다.");
-    setDisplayMessage("회의자료 확인했습니다.");
+    setMessageDraft("");
+    setDisplayMessage("");
     setIsAttachmentMenuOpen(false);
     setIsEmojiMenuOpen(false);
     setIsDocumentPickerOpen(false);
@@ -359,6 +482,18 @@ export default function MessengerPage() {
   function removeAttachment(attachmentId: string) {
     setPendingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
   }
+
+  useEffect(() => {
+    void loadMessengerRooms();
+  }, []);
+
+  useEffect(() => {
+    if (activeThreadId) {
+      void loadMessengerMessages(activeThreadId);
+    } else {
+      setApiMessages([]);
+    }
+  }, [activeThreadId]);
 
   useEffect(() => {
     if (!isRecipientPanelOpen && !isAttachmentMenuOpen && !isEmojiMenuOpen && !isDocumentPickerOpen && !isConversationMenuOpen) {
@@ -421,6 +556,8 @@ export default function MessengerPage() {
               <input className="field" value={threadSearch} onChange={(event) => setThreadSearch(event.target.value)} />
             </label>
             <div className="messenger-thread-list">
+              {isMessengerLoading ? <div className="messenger-empty-state messenger-empty-state--inline">대화방을 불러오는 중입니다.</div> : null}
+              {!isMessengerLoading && messengerStatusMessage ? <div className="messenger-empty-state messenger-empty-state--inline">{messengerStatusMessage}</div> : null}
               {filteredThreads.map((thread) => (
                 <button
                   key={thread.id}
@@ -474,17 +611,19 @@ export default function MessengerPage() {
                     </button>
                   </div>
                 </header>
-                <div className="messenger-message-list" aria-label="메시지 목록 검토 화면">
-                  <article className="messenger-message messenger-message--other">
-                    <strong>김민수 과장</strong>
-                    <p>오늘 회의자료 확인 부탁드립니다.</p>
-                    <small>오전 10:21</small>
-                  </article>
-                  <article className="messenger-message messenger-message--mine">
-                    <strong>나</strong>
-                    <p>{displayMessage}</p>
-                    <small>오전 10:24 · 화면 검토</small>
-                  </article>
+                <div className="messenger-message-list" aria-label="메시지 목록">
+                  {isMessageLoading ? <div className="messenger-empty-state messenger-empty-state--inline">메시지를 불러오는 중입니다.</div> : null}
+                  {!isMessageLoading && displayMessage ? <div className="messenger-empty-state messenger-empty-state--inline">{displayMessage}</div> : null}
+                  {!isMessageLoading && !displayMessage && apiMessages.length === 0 ? (
+                    <div className="messenger-empty-state messenger-empty-state--inline">저장된 메시지가 없습니다. 첫 메시지를 보내세요.</div>
+                  ) : null}
+                  {apiMessages.map((message) => (
+                    <article key={message.id} className={message.mine ? "messenger-message messenger-message--mine" : "messenger-message messenger-message--other"}>
+                      <strong>{message.mine ? "나" : message.senderName}</strong>
+                      <p>{message.body}</p>
+                      <small>{message.sentAt} · 읽음 {message.readCount}</small>
+                    </article>
+                  ))}
                 </div>
                 <div className="messenger-composer" aria-label="메시지 입력 검토 화면">
               <input
@@ -564,7 +703,7 @@ export default function MessengerPage() {
                   </div>
                 </div>
               </div>
-              <button className="messenger-send-button" type="button" onClick={handleSendPreview} aria-label="메시지 보내기">
+              <button className="messenger-send-button" type="button" onClick={() => void handleSendPreview()} aria-label="메시지 보내기">
                 <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
                   <path d="M3.7 20.1 21 12 3.7 3.9 3 10.2l10.2 1.8L3 13.8l.7 6.3Z" />
                 </svg>
