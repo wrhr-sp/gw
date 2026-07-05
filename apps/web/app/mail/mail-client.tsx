@@ -289,6 +289,10 @@ export function MailClient() {
   const previousMessage = selectedMessageIndex > 0 ? items[selectedMessageIndex - 1] : null;
   const nextMessage = selectedMessageIndex >= 0 && selectedMessageIndex < items.length - 1 ? items[selectedMessageIndex + 1] : null;
   const selectedMessageAttachments = selectedMessage ? attachmentsByMessageId[selectedMessage.id] ?? [] : [];
+  const selectedTemplate = mailTemplates.find((template) => template.id === selectedTemplateId) ?? null;
+  const selectedTemplateVariableText = selectedTemplate?.requiredVariables.length
+    ? selectedTemplate.requiredVariables.map((variable) => `${variable}=`).join("\n")
+    : "user_name=홍길동\ncompany_name=We’reHere";
   const composeRecipientCount = recipientUserIds.length + externalRecipientEmails.length;
   const composeCcCount = ccUserIds.length + externalCcEmails.length;
   const composeAttachmentCount = pendingAttachments.length;
@@ -1779,6 +1783,11 @@ export function MailClient() {
                 {mailTemplates.filter((template) => template.isActive).map((template) => <option key={template.id} value={template.id}>{template.templateName} · {template.templateCode}</option>)}
               </select>
               <textarea className="field" aria-label="템플릿 변수 입력" value={templateVariablesText} onChange={(event) => setTemplateVariablesText(event.target.value)} />
+              <div className="mail-template-helper" aria-label="템플릿 변수 도우미">
+                <span>{selectedTemplate ? `필수 변수 ${selectedTemplate.requiredVariables.length}개 · ${selectedTemplate.templateName}` : "템플릿을 선택하면 필수 변수를 빠르게 채울 수 있습니다."}</span>
+                <button className="mail-compose-toolbar-button" type="button" onClick={() => setTemplateVariablesText(selectedTemplateVariableText)}>필수 변수 채우기</button>
+                <button className="mail-compose-toolbar-button" type="button" onClick={() => setTemplateVariablesText("")}>변수 비우기</button>
+              </div>
               <span className="mail-sender-status">key=value 줄 단위로 입력합니다. 누락 변수는 발송 전 미리보기 API에서 차단합니다.</span>
             </div>
 
