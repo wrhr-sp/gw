@@ -192,6 +192,8 @@ import {
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
   messengerMessageReadResponseSchema,
+  messengerMessageSearchRequestSchema,
+  messengerMessageSearchResponseSchema,
   messengerRoomCreateRequestSchema,
   messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
@@ -447,6 +449,7 @@ import {
   listOperationalMessengerRooms,
   removeOperationalMessengerRoomMember,
   markOperationalMessengerMessageRead,
+  searchOperationalMessengerMessages,
   sendOperationalMessengerMessage,
 } from "./lib/operational-messenger";
 import {
@@ -6305,6 +6308,57 @@ app.delete(appRoutes.messenger.roomMember(":roomId", ":userId"), async (context)
   }
 });
 
+
+app.get(appRoutes.messenger.search, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const parsed = messengerMessageSearchRequestSchema.safeParse({
+    query: context.req.query("query") ?? "",
+    roomId: context.req.query("roomId") || undefined,
+    limit: context.req.query("limit") ?? "20",
+  });
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 검색어가 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const result = await searchOperationalMessengerMessages(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      query: parsed.data.query,
+      roomId: parsed.data.roomId,
+      limit: parsed.data.limit,
+    });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "참여 중인 대화방만 검색할 수 있습니다.", 403, { route: context.req.path });
+    return jsonSuccess(context, messengerMessageSearchResponseSchema, { ok: true, data: { ...result, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 메시지 검색");
+  }
+});
+
+app.get(appRoutes.messenger.roomSearch(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const parsed = messengerMessageSearchRequestSchema.safeParse({
+    query: context.req.query("query") ?? "",
+    roomId,
+    limit: context.req.query("limit") ?? "20",
+  });
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 검색어가 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const result = await searchOperationalMessengerMessages(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      query: parsed.data.query,
+      roomId,
+      limit: parsed.data.limit,
+    });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "참여 중인 대화방만 검색할 수 있습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerMessageSearchResponseSchema, { ok: true, data: { ...result, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 대화방 메시지 검색");
+  }
+});
+
 app.get(appRoutes.messenger.roomMessages(":roomId"), async (context) => {
   const authResult = requireAuth(context);
   if (authResult.response) return authResult.response;
@@ -6363,6 +6417,7 @@ app.post(appRoutes.messenger.roomMessages(":roomId"), async (context) => {
       messageType: parsed.data.messageType,
       body: parsed.data.body,
       replyToMessageId: parsed.data.replyToMessageId ?? null,
+      mentionUserIds: parsed.data.mentionUserIds,
     });
     if (!message) {
       return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 참여자만 메시지를 보낼 수 있습니다.", 403, { roomId, route: context.req.path });

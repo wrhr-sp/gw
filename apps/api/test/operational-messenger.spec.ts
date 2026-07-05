@@ -5,6 +5,7 @@ import {
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
   messengerMessageReadResponseSchema,
+  messengerMessageSearchResponseSchema,
   messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
   messengerRoomMemberListResponseSchema,
@@ -80,7 +81,7 @@ describe("operational messenger API", () => {
       {
         method: "POST",
         headers: { cookie, "content-type": "application/json" },
-        body: JSON.stringify({ roomType: "group", roomName, memberIds: [], isExternal: false }),
+        body: JSON.stringify({ roomType: "group", roomName, memberIds: ["user_employee"], isExternal: false }),
       },
       { DATABASE_URL: databaseUrl },
     );
@@ -107,6 +108,28 @@ describe("operational messenger API", () => {
     const sentPayload = messengerMessageMutationResponseSchema.parse(await sendResponse.json());
     expect(sentPayload.data.realtime.dbSavedBeforeEvent).toBe(true);
     expect(sentPayload.data.message.body).toContain("DB 저장");
+
+    const mentionResponse = await app.request(
+      appRoutes.messenger.roomMessages(createdRoom.data.room.id),
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ messageType: "text", body: "검색멘션 확인 @user_employee", mentionUserIds: ["user_employee"] }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(mentionResponse.status).toBe(201);
+    const mentionPayload = messengerMessageMutationResponseSchema.parse(await mentionResponse.json());
+    expect(mentionPayload.data.message.mentions.some((mention) => mention.userId === "user_employee")).toBe(true);
+
+    const searchResponse = await app.request(
+      `${appRoutes.messenger.roomSearch(createdRoom.data.room.id)}?query=${encodeURIComponent("검색멘션")}`,
+      { headers: { cookie } },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(searchResponse.status).toBe(200);
+    const searchPayload = messengerMessageSearchResponseSchema.parse(await searchResponse.json());
+    expect(searchPayload.data.messages.some((message) => message.id === mentionPayload.data.message.id)).toBe(true);
 
     const listResponse = await app.request(
       appRoutes.messenger.roomMessages(createdRoom.data.room.id),

@@ -43,6 +43,19 @@ function mapMember(row: Record<string, any>) {
   };
 }
 
+function parseMentions(row: Record<string, any>) {
+  if (Array.isArray(row.mentions)) return row.mentions;
+  if (typeof row.mentions === "string") {
+    try {
+      const parsed = JSON.parse(row.mentions);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function mapMessage(row: Record<string, any>) {
   return {
     id: String(row.id),
@@ -58,6 +71,7 @@ function mapMessage(row: Record<string, any>) {
     edited: Boolean(row.edited),
     deleted: Boolean(row.deleted),
     readCount: Number(row.read_count ?? 0),
+    mentions: parseMentions(row),
     sentAt: toIso(row.sent_at) ?? new Date().toISOString(),
     createdAt: toIso(row.created_at) ?? new Date().toISOString(),
     updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
@@ -336,7 +350,7 @@ export async function listOperationalMessengerMessages(
 
 export async function sendOperationalMessengerMessage(
   env: DatabaseEnv | undefined,
-  input: { companyId: string; userId: string; roomId: string; messageId: string; messageType: MessageType; body?: string; replyToMessageId?: string | null },
+  input: { companyId: string; userId: string; roomId: string; messageId: string; messageType: MessageType; body?: string; replyToMessageId?: string | null; mentionUserIds?: string[] },
 ) {
   const sql = getDbClient(env ?? {});
   const member = await assertActiveMember(sql, input);
@@ -368,6 +382,17 @@ export async function sendOperationalMessengerMessage(
     returning *
   `;
 
+  const mentionUserIds = Array.from(new Set(input.mentionUserIds ?? []));
+  for (const mentionedUserId of mentionUserIds) {
+    const mentionMember = await assertActiveMember(sql, { companyId: input.companyId, roomId: input.roomId, userId: mentionedUserId });
+    if (!mentionMember) continue;
+    await sql`
+      insert into messenger_message_mentions (company_id, room_id, message_id, mentioned_user_id, created_at)
+      values (${input.companyId}, ${input.roomId}, ${input.messageId}, ${mentionedUserId}, now())
+      on conflict (company_id, message_id, mentioned_user_id) do nothing
+    `;
+  }
+
   await sql`
     insert into messenger_message_reads (company_id, message_id, room_id, user_id, read_at, created_at)
     values (${input.companyId}, ${input.messageId}, ${input.roomId}, ${input.userId}, now(), now())
@@ -394,10 +419,86 @@ export async function sendOperationalMessengerMessage(
 
   await sql`
     insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
-    values (${input.companyId}, ${input.userId}, 'MESSENGER_MESSAGE_SEND', 'messenger_message', ${input.messageId}, ${input.roomId}, ${JSON.stringify({ messageType: input.messageType, dbSavedBeforeEvent: true })}, now())
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_MESSAGE_SEND', 'messenger_message', ${input.messageId}, ${input.roomId}, ${JSON.stringify({ messageType: input.messageType, dbSavedBeforeEvent: true, mentionUserIds })}, now())
   `;
 
-  return mapMessage({ ...messageRows[0], sender_name: input.userId, read_count: 1 });
+  return mapMessage({
+    ...messageRows[0],
+    sender_name: input.userId,
+    read_count: 1,
+    mentions: mentionUserIds.map((userId) => ({ userId, displayName: null })),
+  });
+}
+
+export async function searchOperationalMessengerMessages(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; userId: string; query: string; roomId?: string; limit: number },
+) {
+  const sql = getDbClient(env ?? {});
+  const query = input.query.trim();
+  if (!query) return { query, roomId: input.roomId ?? null, messages: [] };
+  if (input.roomId) {
+    const member = await assertActiveMember(sql, { companyId: input.companyId, roomId: input.roomId, userId: input.userId });
+    if (!member) return null;
+  }
+  const likeQuery = `%${query.replace(/%/g, "\%").replace(/_/g, "\_")}%`;
+  const rows = input.roomId
+    ? await sql`
+        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count,
+          coalesce(mentions.mentions, '[]'::json) as mentions
+        from messenger_messages msg
+        join messenger_room_members me
+          on me.company_id = msg.company_id
+         and me.room_id = msg.room_id
+         and me.user_id = ${input.userId}
+         and me.is_active is true
+         and me.left_at is null
+        left join users sender on sender.id = msg.sender_id
+        left join lateral (select count(*)::int as read_count from messenger_message_reads r where r.company_id = msg.company_id and r.message_id = msg.id) reads on true
+        left join lateral (
+          select json_agg(json_build_object('userId', mm.mentioned_user_id, 'displayName', coalesce(u.display_name, u.email))) as mentions
+          from messenger_message_mentions mm
+          left join users u on u.company_id = mm.company_id and u.id = mm.mentioned_user_id
+          where mm.company_id = msg.company_id and mm.message_id = msg.id
+        ) mentions on true
+        where msg.company_id = ${input.companyId}
+          and msg.room_id = ${input.roomId}
+          and msg.deleted is false
+          and msg.status <> 'hidden'
+          and msg.body ilike ${likeQuery}
+        order by msg.sent_at desc
+        limit ${input.limit}
+      `
+    : await sql`
+        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count,
+          coalesce(mentions.mentions, '[]'::json) as mentions
+        from messenger_messages msg
+        join messenger_room_members me
+          on me.company_id = msg.company_id
+         and me.room_id = msg.room_id
+         and me.user_id = ${input.userId}
+         and me.is_active is true
+         and me.left_at is null
+        left join users sender on sender.id = msg.sender_id
+        left join lateral (select count(*)::int as read_count from messenger_message_reads r where r.company_id = msg.company_id and r.message_id = msg.id) reads on true
+        left join lateral (
+          select json_agg(json_build_object('userId', mm.mentioned_user_id, 'displayName', coalesce(u.display_name, u.email))) as mentions
+          from messenger_message_mentions mm
+          left join users u on u.company_id = mm.company_id and u.id = mm.mentioned_user_id
+          where mm.company_id = msg.company_id and mm.message_id = msg.id
+        ) mentions on true
+        where msg.company_id = ${input.companyId}
+          and msg.deleted is false
+          and msg.status <> 'hidden'
+          and msg.body ilike ${likeQuery}
+        order by msg.sent_at desc
+        limit ${input.limit}
+      `;
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_MESSAGE_SEARCH', 'messenger_message', ${input.roomId ?? 'all'}, ${input.roomId ?? null}, ${JSON.stringify({ queryLength: query.length, roomScoped: Boolean(input.roomId) })}, now())
+  `;
+  return { query, roomId: input.roomId ?? null, messages: rows.map(mapMessage) };
 }
 
 export async function markOperationalMessengerMessageRead(

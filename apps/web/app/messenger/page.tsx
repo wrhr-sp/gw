@@ -6,6 +6,7 @@ import {
   appRoutes,
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
+  messengerMessageSearchResponseSchema,
   messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
   messengerRoomMemberListResponseSchema,
@@ -50,6 +51,7 @@ type MessengerMessageView = {
   sentAt: string;
   mine: boolean;
   readCount: number;
+  mentions: { userId: string; displayName: string | null }[];
 };
 
 type MessengerMemberView = {
@@ -174,6 +176,8 @@ export default function MessengerPage() {
   const [leftThreadIds, setLeftThreadIds] = useState<string[]>([]);
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState(false);
   const [threadSearch, setThreadSearch] = useState("");
+  const [messageSearch, setMessageSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<MessengerMessageView[]>([]);
   const [recipientSearch, setRecipientSearch] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
@@ -339,6 +343,7 @@ export default function MessengerPage() {
         sentAt: formatMessengerTime(message.sentAt),
         mine: message.senderId?.includes("user_") ?? false,
         readCount: message.readCount,
+        mentions: message.mentions,
       })));
       setDisplayMessage("");
     } catch {
@@ -374,6 +379,41 @@ export default function MessengerPage() {
     } catch {
       setDisplayMessage("대화방 생성 요청 중 오류가 발생했습니다.");
     }
+  }
+
+  async function handleSearchMessages() {
+    if (!activeThread || !messageSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const params = new URLSearchParams({ query: messageSearch.trim(), limit: "20" });
+      const response = await fetch(`${appRoutes.messenger.roomSearch(activeThread.id)}?${params.toString()}`, { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setSearchResults([]);
+        setDisplayMessage(payload?.error?.message ?? "메시지 검색에 실패했습니다.");
+        return;
+      }
+      const parsed = messengerMessageSearchResponseSchema.parse(payload);
+      setSearchResults(parsed.data.messages.map((message) => ({
+        id: message.id,
+        senderName: message.senderName ?? "알 수 없음",
+        body: message.body ?? "",
+        sentAt: formatMessengerTime(message.sentAt),
+        mine: false,
+        readCount: message.readCount,
+        mentions: message.mentions,
+      })));
+    } catch {
+      setSearchResults([]);
+      setDisplayMessage("메시지 검색 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  function handleInsertMention(userId: string) {
+    const token = `@${userId}`;
+    setMessageDraft((current) => current.includes(token) ? current : `${current}${current && !current.endsWith(" ") ? " " : ""}${token} `);
   }
 
   async function handleInviteMember() {
@@ -430,12 +470,15 @@ export default function MessengerPage() {
     if (!body) {
       return;
     }
+    const mentionUserIds = apiMembers
+      .map((member) => member.userId)
+      .filter((userId) => body.includes(`@${userId}`));
     try {
       const response = await fetch(appRoutes.messenger.roomMessages(activeThread.id), {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messageType: "text", body }),
+        body: JSON.stringify({ messageType: "text", body, mentionUserIds }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -451,6 +494,7 @@ export default function MessengerPage() {
         sentAt: formatMessengerTime(message.sentAt),
         mine: true,
         readCount: message.readCount,
+        mentions: message.mentions,
       }]);
       setMessageDraft("");
       setPendingAttachments([]);
@@ -715,6 +759,20 @@ export default function MessengerPage() {
                     </button>
                   </div>
                 </header>
+                <div className="messenger-message-search" aria-label="채팅방 메시지 검색">
+                  <input className="field" value={messageSearch} onChange={(event) => setMessageSearch(event.target.value)} aria-label="현재 채팅방 메시지 검색어" />
+                  <button className="touch-button--secondary" type="button" onClick={() => void handleSearchMessages()}>검색</button>
+                </div>
+                {searchResults.length ? (
+                  <div className="messenger-search-results" aria-label="메시지 검색 결과">
+                    {searchResults.map((message) => (
+                      <button key={message.id} type="button" className="messenger-search-result" onClick={() => setDisplayMessage(`${message.sentAt} 검색 결과: ${message.body}`)}>
+                        <strong>{message.senderName}</strong>
+                        <span>{message.body}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="messenger-message-list" aria-label="메시지 목록">
                   {isMessageLoading ? <div className="messenger-empty-state messenger-empty-state--inline">메시지를 불러오는 중입니다.</div> : null}
                   {!isMessageLoading && displayMessage ? <div className="messenger-empty-state messenger-empty-state--inline">{displayMessage}</div> : null}
@@ -725,6 +783,7 @@ export default function MessengerPage() {
                     <article key={message.id} className={message.mine ? "messenger-message messenger-message--mine" : "messenger-message messenger-message--other"}>
                       <strong>{message.mine ? "나" : message.senderName}</strong>
                       <p>{message.body}</p>
+                      {message.mentions.length ? <small>멘션 {message.mentions.map((mention) => mention.displayName ?? mention.userId).join(", ")}</small> : null}
                       <small>{message.sentAt} · 읽음 {message.readCount}</small>
                     </article>
                   ))}
@@ -746,9 +805,12 @@ export default function MessengerPage() {
                         <strong>{member.userId}</strong>
                         <small>{member.memberRole} · 읽지 않음 {member.unreadCount}</small>
                       </span>
-                      {member.memberRole !== "owner" && (currentMemberRole === "owner" || currentMemberRole === "manager") ? (
-                        <button type="button" className="touch-button--secondary" onClick={() => void handleRemoveMember(member.userId)}>내보내기</button>
-                      ) : null}
+                      <div className="messenger-member-row__actions">
+                        <button type="button" className="touch-button--secondary" onClick={() => handleInsertMention(member.userId)}>멘션</button>
+                        {member.memberRole !== "owner" && (currentMemberRole === "owner" || currentMemberRole === "manager") ? (
+                          <button type="button" className="touch-button--secondary" onClick={() => void handleRemoveMember(member.userId)}>내보내기</button>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
