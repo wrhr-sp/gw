@@ -28,6 +28,8 @@ export const appRoutes = {
     branches: "/api/branches",
   },
   notifications: "/api/notifications",
+  notificationRead: (notificationId: string) => `/api/notifications/${notificationId}/read`,
+  notificationsReadAll: "/api/notifications/read-all",
   admin: {
     invites: "/api/admin/invites",
     users: "/api/admin/users",
@@ -219,6 +221,7 @@ export const errorCodeSchema = z.enum([
   "MESSAGE_NOT_FOUND",
   "MESSAGE_SEND_FAILED",
   "MESSAGE_BODY_TOO_LONG",
+  "NOTIFICATION_NOT_FOUND",
   "EMAIL_TEMPLATE_NOT_FOUND",
   "EMAIL_TEMPLATE_VARIABLE_MISSING",
 ]);
@@ -1933,6 +1936,23 @@ export const listNotificationsResponseSchema = successResponseSchema(
   z.object({
     items: z.array(notificationSchema),
     unreadCount: z.number().int().nonnegative(),
+    notices: z.array(z.string()).min(1),
+  }),
+);
+
+export const notificationMutationResponseSchema = successResponseSchema(
+  z.object({
+    item: notificationSchema,
+    unreadCount: z.number().int().nonnegative(),
+    notices: z.array(z.string()).min(1),
+  }),
+);
+
+export const notificationsBulkMutationResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(notificationSchema),
+    unreadCount: z.number().int().nonnegative(),
+    updatedCount: z.number().int().nonnegative(),
     notices: z.array(z.string()).min(1),
   }),
 );
@@ -3922,6 +3942,8 @@ export type AdminAuditLog = z.infer<typeof adminAuditLogSchema>;
 export type AdminAuditLogFilters = z.infer<typeof adminAuditLogFiltersSchema>;
 export type AdminAuditLogListResponse = z.infer<typeof adminAuditLogListResponseSchema>;
 export type NotificationListResponse = z.infer<typeof listNotificationsResponseSchema>;
+export type NotificationMutationResponse = z.infer<typeof notificationMutationResponseSchema>;
+export type NotificationsBulkMutationResponse = z.infer<typeof notificationsBulkMutationResponseSchema>;
 export type BranchListResponse = z.infer<typeof listBranchesResponseSchema>;
 export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;
 export type AttendanceActionRequest = z.infer<typeof attendanceActionRequestSchema>;

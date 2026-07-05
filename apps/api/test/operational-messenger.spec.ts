@@ -15,6 +15,8 @@ import {
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
   listNotificationsResponseSchema,
+  notificationMutationResponseSchema,
+  notificationsBulkMutationResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 import { getDbClient } from "../src/utils/db";
@@ -146,7 +148,32 @@ describe("operational messenger API", () => {
     const employeeNotificationsResponse = await app.request(appRoutes.notifications, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
     expect(employeeNotificationsResponse.status).toBe(200);
     const employeeNotifications = listNotificationsResponseSchema.parse(await employeeNotificationsResponse.json());
-    expect(employeeNotifications.data.items.some((item) => item.notificationType === "messenger_mention" && item.title === "메신저 멘션")).toBe(true);
+    const mentionNotification = employeeNotifications.data.items.find((item) => item.notificationType === "messenger_mention" && item.title === "메신저 멘션");
+    expect(mentionNotification).toBeTruthy();
+    expect(mentionNotification?.status).toBe("unread");
+
+    const notificationReadResponse = await app.request(appRoutes.notificationRead(mentionNotification!.id), { method: "POST", headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(notificationReadResponse.status).toBe(200);
+    const notificationReadPayload = notificationMutationResponseSchema.parse(await notificationReadResponse.json());
+    expect(notificationReadPayload.data.item.id).toBe(mentionNotification!.id);
+    expect(notificationReadPayload.data.item.status).toBe("read");
+    expect(notificationReadPayload.data.item.readAt).toBeTruthy();
+
+    const employeeNotificationsAfterReadResponse = await app.request(appRoutes.notifications, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(employeeNotificationsAfterReadResponse.status).toBe(200);
+    const employeeNotificationsAfterRead = listNotificationsResponseSchema.parse(await employeeNotificationsAfterReadResponse.json());
+    expect(employeeNotificationsAfterRead.data.items.find((item) => item.id === mentionNotification!.id)?.status).toBe("read");
+
+    const notificationsReadAllResponse = await app.request(appRoutes.notificationsReadAll, { method: "POST", headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(notificationsReadAllResponse.status).toBe(200);
+    const notificationsReadAllPayload = notificationsBulkMutationResponseSchema.parse(await notificationsReadAllResponse.json());
+    expect(notificationsReadAllPayload.data.items.every((item) => item.status === "read")).toBe(true);
+    expect(notificationsReadAllPayload.data.unreadCount).toBe(0);
+
+    const missingNotificationReadResponse = await app.request(appRoutes.notificationRead("notification_missing_for_employee"), { method: "POST", headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(missingNotificationReadResponse.status).toBe(404);
+    const missingNotificationReadPayload = errorResponseSchema.parse(await missingNotificationReadResponse.json());
+    expect(missingNotificationReadPayload.error.code).toBe("NOTIFICATION_NOT_FOUND");
 
     const employeeRoomsBeforeReadResponse = await app.request(appRoutes.messenger.rooms, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
     expect(employeeRoomsBeforeReadResponse.status).toBe(200);

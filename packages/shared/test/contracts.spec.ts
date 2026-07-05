@@ -63,6 +63,8 @@ import {
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listNotificationsResponseSchema,
+  notificationMutationResponseSchema,
+  notificationsBulkMutationResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   noticeListResponseSchema,
@@ -680,6 +682,33 @@ describe("shared contracts", () => {
       error: null,
     });
     expect(notificationPayload.data.unreadCount).toBe(1);
+
+    const readPayload = notificationMutationResponseSchema.parse({
+      ok: true,
+      data: {
+        item: {
+          ...notificationPayload.data.items[0],
+          status: "read",
+          readAt: "2026-06-16T09:05:00.000Z",
+        },
+        unreadCount: 0,
+        notices: ["알림 읽음 상태를 운영 DB에 저장했습니다."],
+      },
+      error: null,
+    });
+    expect(readPayload.data.item.status).toBe("read");
+
+    const readAllPayload = notificationsBulkMutationResponseSchema.parse({
+      ok: true,
+      data: {
+        items: [readPayload.data.item],
+        unreadCount: 0,
+        updatedCount: 1,
+        notices: ["읽지 않은 알림을 모두 읽음으로 저장했습니다."],
+      },
+      error: null,
+    });
+    expect(readAllPayload.data.updatedCount).toBe(1);
   });
 
   it("allows general directory payloads to omit blocked role filters while keeping valid filter options", () => {

@@ -185,6 +185,8 @@ import {
   listDepartmentsResponseSchema,
   listEmployeesResponseSchema,
   listNotificationsResponseSchema,
+  notificationMutationResponseSchema,
+  notificationsBulkMutationResponseSchema,
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
@@ -428,7 +430,7 @@ import {
   listOperationalRoles,
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
-import { listOperationalNotifications } from "./lib/operational-notifications";
+import { listOperationalNotifications, markAllOperationalNotificationsRead, markOperationalNotificationRead } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, dispatchDueOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, setOperationalMailMessageReadState, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
@@ -536,6 +538,7 @@ const DOCUMENT_FILE_UPLOAD_COMPLETE_ROUTE = "/api/documents/files/:fileId/upload
 const DOCUMENT_FILE_DOWNLOAD_INIT_ROUTE = "/api/documents/files/:fileId/download-init";
 const DOCUMENT_FILE_DOWNLOAD_ROUTE = "/api/documents/files/:fileId/download";
 const DOCUMENT_FILE_DELETE_ROUTE = "/api/documents/files/:fileId";
+const NOTIFICATION_READ_ROUTE = "/api/notifications/:notificationId/read";
 const ELECTRONIC_CONTRACTS_ROUTE = "/api/electronic-contracts";
 const ELECTRONIC_CONTRACT_DETAIL_ROUTE = "/api/electronic-contracts/:contractId";
 const ELECTRONIC_CONTRACT_STATUS_ROUTE = "/api/electronic-contracts/:contractId/status";
@@ -1363,7 +1366,7 @@ function jsonError(
   context: AppContext,
   code: ErrorCode,
   message: string,
-  status: 400 | 401 | 403 | 501,
+  status: 400 | 401 | 403 | 404 | 501,
   details?: Record<string, unknown>,
 ) {
   return context.json(
@@ -3907,6 +3910,71 @@ app.get(appRoutes.notifications, async (context) => {
           "알림 inbox 는 same-origin 운영 화면이며 실제 외부 발송 상태를 뜻하지 않습니다.",
           "읽음/미읽음과 업무 이동 CTA 만 확인하고 푸시/메일/메신저 전송은 별도 승인 게이트로 남깁니다.",
         ],
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(NOTIFICATION_READ_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const notificationId = context.req.param("notificationId");
+  if (!notificationId) {
+    return jsonError(context, "VALIDATION_ERROR", "알림 ID가 필요합니다.", 400);
+  }
+
+  const item = await markOperationalNotificationRead(context.env, authResult.auth.user.companyId, authResult.auth.user.id, notificationId);
+  if (item === null) {
+    return jsonDatabaseRequired(context, "알림 읽음 처리");
+  }
+  if (!item) {
+    return jsonError(context, "NOTIFICATION_NOT_FOUND", "읽음 처리할 알림을 찾을 수 없습니다.", 404);
+  }
+
+  const items = (await listOperationalNotifications(context.env, authResult.auth.user.companyId, authResult.auth.user.id)) ?? [item];
+
+  return jsonSuccess(
+    context,
+    notificationMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        item,
+        unreadCount: items.filter((notification) => notification.status === "unread").length,
+        notices: ["알림 읽음 상태를 운영 DB에 저장했습니다."],
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.notificationsReadAll, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  const result = await markAllOperationalNotificationsRead(context.env, authResult.auth.user.companyId, authResult.auth.user.id);
+  if (!result) {
+    return jsonDatabaseRequired(context, "알림 모두 읽음 처리");
+  }
+
+  return jsonSuccess(
+    context,
+    notificationsBulkMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: result.items,
+        unreadCount: result.items.filter((item) => item.status === "unread").length,
+        updatedCount: result.updatedCount,
+        notices: ["읽지 않은 알림을 모두 읽음으로 저장했습니다."],
       },
       error: null,
     },
