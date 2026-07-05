@@ -547,6 +547,13 @@ describe("operational mail API", () => {
     const markUnreadPayload = mailMessageBulkActionResponseSchema.parse(await markUnreadResponse.json());
     expect(markUnreadPayload.data.messages[0]?.readAt).toBeNull();
 
+    const singleReadResponse = await app.request(appRoutes.mail.markRead(messageIds[0]), { method: "POST", headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(singleReadResponse.status).toBe(200);
+    const singleUnreadResponse = await app.request(appRoutes.mail.markUnread(messageIds[0]), { method: "POST", headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(singleUnreadResponse.status).toBe(200);
+    const singleUnreadPayload = mailMessageReadResponseSchema.parse(await singleUnreadResponse.json());
+    expect(singleUnreadPayload.data.message.readAt).toBeNull();
+
     const favoriteResponse = await app.request(
       appRoutes.mail.bulkAction,
       { method: "POST", headers: { "content-type": "application/json", cookie: adminCookie }, body: JSON.stringify({ messageIds, action: "favorite" }) },

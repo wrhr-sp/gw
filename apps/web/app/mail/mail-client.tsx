@@ -1170,16 +1170,24 @@ export function MailClient() {
     }
   }
 
-  async function markRead(messageId: string) {
-    const response = await fetch(appRoutes.mail.markRead(messageId), { method: "POST", credentials: "same-origin" });
+  async function setReadState(messageId: string, isRead: boolean) {
+    const response = await fetch(isRead ? appRoutes.mail.markRead(messageId) : appRoutes.mail.markUnread(messageId), { method: "POST", credentials: "same-origin" });
     const payload = await response.json();
     if (!response.ok) {
-      setStatus(payload?.error?.message ?? "읽음 처리에 실패했습니다.");
+      setStatus(payload?.error?.message ?? (isRead ? "읽음 처리에 실패했습니다." : "안읽음 처리에 실패했습니다."));
       return;
     }
     mailMessageReadResponseSchema.parse(payload);
-    setStatus("메일을 읽음 처리했습니다.");
-    await loadMessages("inbox");
+    setStatus(isRead ? "메일을 읽음 처리했습니다." : "메일을 안읽음 처리했습니다.");
+    if (currentBox) await loadMessages(currentBox);
+  }
+
+  async function markRead(messageId: string) {
+    await setReadState(messageId, true);
+  }
+
+  async function markUnread(messageId: string) {
+    await setReadState(messageId, false);
   }
 
   async function moveMessage(messageId: string, target: "spam" | "trash" | "inbox" | "archive" | "cancel" | "delete") {
@@ -1944,8 +1952,8 @@ export function MailClient() {
                     <strong>{message.subject}</strong>
                     <span>{formatMeta(message, currentBox)}</span>
                   </button>
-                  {currentBox === "inbox" && !message.readAt ? (
-                    <button className="mail-compose-toolbar-button" onClick={() => void markRead(message.id)} type="button">읽음</button>
+                  {currentBox === "inbox" ? (
+                    message.readAt ? <button className="mail-compose-toolbar-button" onClick={() => void markUnread(message.id)} type="button">안읽음</button> : <button className="mail-compose-toolbar-button" onClick={() => void markRead(message.id)} type="button">읽음</button>
                   ) : <em>{message.importance === "important" ? "중요" : message.readAt ? "읽음" : "발송"}</em>}
                 </article>
               ))}
@@ -1962,6 +1970,7 @@ export function MailClient() {
                     <div className="mail-detail-panel__actions" aria-label="메일 상세 작업">
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("reply", selectedMessage)}>답장</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
+                      {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => selectedMessage.readAt ? void markUnread(selectedMessage.id) : void markRead(selectedMessage.id)}>{selectedMessage.readAt ? "안읽음 처리" : "읽음 처리"}</button> : null}
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("forward", selectedMessage)}>전달</button>
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => toggleFavorite(selectedMessage)}>{selectedMessage.importance === "important" ? "즐겨찾기 해제" : "즐겨찾기 추가"}</button>
                       {currentBox === "scheduled" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "cancel")}>예약취소</button> : null}

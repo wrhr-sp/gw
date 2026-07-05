@@ -7091,6 +7091,42 @@ app.post(MAIL_MESSAGE_READ_ROUTE, async (context) => {
   }
 });
 
+app.post(appRoutes.mail.markUnread(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+
+  try {
+    const messageId = context.req.param("id");
+    if (!messageId) {
+      return jsonError(context, "VALIDATION_ERROR", "메일 ID가 필요합니다.", 400, { route: context.req.path });
+    }
+    const message = await setOperationalMailMessageReadState(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId: String(messageId),
+      isRead: false,
+    });
+
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "안읽음 처리할 수 없는 메일입니다.", 403, {
+        messageId: context.req.param("id"),
+        route: context.req.path,
+      });
+    }
+
+    return jsonSuccess(context, mailMessageReadResponseSchema, {
+      ok: true,
+      data: {
+        message,
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 안읽음 처리");
+  }
+});
+
 app.post(appRoutes.mail.moveMessage(":id"), async (context) => {
   const authResult = requireAuth(context);
   if (authResult.response) return authResult.response;
