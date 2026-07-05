@@ -188,6 +188,10 @@ import {
   listPermissionsResponseSchema,
   listRolesResponseSchema,
   meResponseSchema,
+  messengerAttachmentCreateRequestSchema,
+  messengerAttachmentCreateResponseSchema,
+  messengerAttachmentMutationResponseSchema,
+  messengerAttachmentUploadCompleteRequestSchema,
   messengerMessageCreateRequestSchema,
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
@@ -440,7 +444,10 @@ import {
   updateOperationalMailAlias,
 } from "./lib/operational-mail-settings";
 import {
+  completeOperationalMessengerAttachmentUpload,
+  createOperationalMessengerAttachment,
   createOperationalMessengerRoom,
+  getOperationalMessengerAttachmentForDownload,
   getOperationalMessengerRoomDetail,
   inviteOperationalMessengerRoomMembers,
   leaveOperationalMessengerThread,
@@ -577,6 +584,8 @@ const MAIL_MESSAGE_READ_ROUTE = "/api/mail/messages/:id/read";
 const MAIL_MESSAGE_ATTACHMENTS_ROUTE = "/api/mail/messages/:id/attachments";
 const MAIL_ATTACHMENT_ROUTE = "/api/mail/attachments/:id";
 const MAIL_ATTACHMENT_DOWNLOAD_ROUTE = "/api/mail/attachments/:id/download";
+const MESSENGER_ATTACHMENT_UPLOAD_COMPLETE_ROUTE = "/api/messenger/attachments/:attachmentId/upload-complete";
+const MESSENGER_ATTACHMENT_DOWNLOAD_ROUTE = "/api/messenger/attachments/:attachmentId/download";
 
 function buildSessionCookie(sessionId: string, rememberSession: boolean | undefined) {
   const baseCookie = `gw_session=${encodeURIComponent(sessionId)}; HttpOnly; Path=/; SameSite=Lax`;
@@ -6309,6 +6318,79 @@ app.delete(appRoutes.messenger.roomMember(":roomId", ":userId"), async (context)
 });
 
 
+
+app.post(appRoutes.messenger.roomAttachments(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const body = await context.req.json().catch(() => null);
+  const parsed = messengerAttachmentCreateRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 첨부 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    getDocumentStorageAdapter(context);
+    const attachmentId = `msg_attachment_${authResult.auth.user.companyId}_${authResult.auth.user.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const result = await createOperationalMessengerAttachment(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      roomId,
+      attachmentId,
+      fileName: parsed.data.fileName,
+      contentType: parsed.data.contentType,
+      fileSize: parsed.data.fileSize,
+    });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 참여자만 파일을 첨부할 수 있습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerAttachmentCreateResponseSchema, {
+      ok: true,
+      data: { attachment: result.attachment, upload: { uploadToken: result.uploadToken, expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(), objectKeyPreview: `messenger/${attachmentId}` }, source: "postgres-r2" },
+      error: null,
+    }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 첨부 생성");
+  }
+});
+
+app.post(MESSENGER_ATTACHMENT_UPLOAD_COMPLETE_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const attachmentId = context.req.param("attachmentId")?.trim();
+  if (!attachmentId || attachmentId.length > 180) return jsonError(context, "VALIDATION_ERROR", "메신저 첨부 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const body = await context.req.json().catch(() => null);
+  const parsed = messengerAttachmentUploadCompleteRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 첨부 업로드 완료 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const fileBody = Uint8Array.from(atob(parsed.data.contentBase64), (char) => char.charCodeAt(0)).buffer;
+    const bodyChecksum = await sha256Hex(fileBody);
+    if (parsed.data.checksumSha256 && parsed.data.checksumSha256.toLowerCase() !== bodyChecksum) return jsonError(context, "VALIDATION_ERROR", "업로드 파일 해시가 일치하지 않습니다.", 400, { expected: parsed.data.checksumSha256, actual: bodyChecksum });
+    const storage = getDocumentStorageAdapter(context);
+    const objectKey = await storage.putObject({ companyId: authResult.auth.user.companyId, spaceId: "messenger", fileId: attachmentId, versionId: "v1", fileName: attachmentId, contentType: "application/octet-stream", fileSize: fileBody.byteLength }, fileBody);
+    const attachment = await completeOperationalMessengerAttachmentUpload(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, attachmentId, uploadToken: parsed.data.uploadToken, checksumSha256: bodyChecksum, objectKey });
+    if (!attachment) return jsonError(context, "ROOM_ACCESS_DENIED", "메신저 첨부 업로드 권한이 없습니다.", 403, { attachmentId, route: context.req.path });
+    return jsonSuccess(context, messengerAttachmentMutationResponseSchema, { ok: true, data: { attachment, source: "postgres-r2" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 첨부 업로드 완료");
+  }
+});
+
+app.get(MESSENGER_ATTACHMENT_DOWNLOAD_ROUTE, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const attachmentId = context.req.param("attachmentId")?.trim();
+  if (!attachmentId || attachmentId.length > 180) return jsonError(context, "VALIDATION_ERROR", "메신저 첨부 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  try {
+    const attachment = await getOperationalMessengerAttachmentForDownload(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, attachmentId });
+    if (!attachment) return jsonError(context, "ROOM_ACCESS_DENIED", "첨부파일에 접근할 권한이 없습니다.", 403, { attachmentId, route: context.req.path });
+    const storage = getDocumentStorageAdapter(context);
+    const object = await storage.getObject({ companyId: attachment.companyId, spaceId: "messenger", fileId: attachment.id, versionId: "v1", fileName: attachment.id });
+    if (!object) return jsonError(context, "FORBIDDEN", "첨부파일 원본을 찾을 수 없습니다.", 403, { attachmentId });
+    object.headers.set("content-type", attachment.contentType);
+    object.headers.set("content-disposition", `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
+    return new Response(object.body, { status: 200, headers: object.headers });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 첨부 다운로드");
+  }
+});
+
 app.get(appRoutes.messenger.search, async (context) => {
   const authResult = requireAuth(context);
   if (authResult.response) return authResult.response;
@@ -6418,6 +6500,7 @@ app.post(appRoutes.messenger.roomMessages(":roomId"), async (context) => {
       body: parsed.data.body,
       replyToMessageId: parsed.data.replyToMessageId ?? null,
       mentionUserIds: parsed.data.mentionUserIds,
+      attachmentIds: parsed.data.attachmentIds,
     });
     if (!message) {
       return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 참여자만 메시지를 보낼 수 있습니다.", 403, { roomId, route: context.req.path });

@@ -87,6 +87,9 @@ export const appRoutes = {
     roomMembers: (roomId: string) => `/api/messenger/rooms/${roomId}/members`,
     roomMember: (roomId: string, userId: string) => `/api/messenger/rooms/${roomId}/members/${userId}`,
     roomMessages: (roomId: string) => `/api/messenger/rooms/${roomId}/messages`,
+    roomAttachments: (roomId: string) => `/api/messenger/rooms/${roomId}/attachments`,
+    attachmentComplete: (attachmentId: string) => `/api/messenger/attachments/${attachmentId}/upload-complete`,
+    attachmentDownload: (attachmentId: string) => `/api/messenger/attachments/${attachmentId}/download`,
     readMessage: (messageId: string) => `/api/messenger/messages/${messageId}/read`,
     search: "/api/messenger/search",
     roomSearch: (roomId: string) => `/api/messenger/rooms/${roomId}/search`,
@@ -779,6 +782,49 @@ export const messengerRoomMemberSchema = z.object({
   muted: z.boolean(),
 });
 
+export const messengerAttachmentSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  roomId: z.string(),
+  messageId: z.string().nullable(),
+  fileName: z.string(),
+  contentType: z.string(),
+  fileSize: z.number().int().nonnegative(),
+  storageProvider: z.enum(["r2"]),
+  storageStatus: z.enum(["pending", "uploaded", "deleted"]),
+  checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).nullable(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const messengerAttachmentCreateRequestSchema = z.object({
+  fileName: z.string().trim().min(1).max(240),
+  contentType: z.string().trim().min(1).max(160),
+  fileSize: z.number().int().min(1).max(25 * 1024 * 1024),
+});
+
+export const messengerAttachmentUploadCompleteRequestSchema = z.object({
+  uploadToken: z.string().min(1),
+  checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  contentBase64: z.string().min(1),
+});
+
+export const messengerAttachmentCreateResponseSchema = successResponseSchema(
+  z.object({
+    attachment: messengerAttachmentSchema,
+    upload: z.object({ uploadToken: z.string(), expiresAt: z.string().datetime(), objectKeyPreview: z.string() }),
+    source: z.literal("postgres-r2"),
+  }),
+);
+
+export const messengerAttachmentMutationResponseSchema = successResponseSchema(
+  z.object({
+    attachment: messengerAttachmentSchema,
+    source: z.literal("postgres-r2"),
+  }),
+);
+
 export const messengerMessageSchema = z.object({
   id: z.string(),
   companyId: z.string(),
@@ -794,6 +840,7 @@ export const messengerMessageSchema = z.object({
   deleted: z.boolean(),
   readCount: z.number().int().nonnegative(),
   mentions: z.array(z.object({ userId: z.string(), displayName: z.string().nullable() })).default([]),
+  attachments: z.array(messengerAttachmentSchema).default([]),
   sentAt: z.string().datetime(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -812,6 +859,7 @@ export const messengerMessageCreateRequestSchema = z.object({
   body: z.string().trim().max(5000).optional(),
   replyToMessageId: z.string().trim().max(120).nullable().optional(),
   mentionUserIds: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
+  attachmentIds: z.array(z.string().trim().min(1).max(160)).max(20).default([]),
 });
 
 export const messengerMessageSearchRequestSchema = z.object({

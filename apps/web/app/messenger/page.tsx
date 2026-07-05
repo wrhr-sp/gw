@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   appRoutes,
   messengerMessageListResponseSchema,
+  messengerAttachmentCreateResponseSchema,
+  messengerAttachmentMutationResponseSchema,
   messengerMessageMutationResponseSchema,
   messengerMessageSearchResponseSchema,
   messengerRoomDetailResponseSchema,
@@ -42,6 +44,7 @@ type MessengerAttachment = {
   name: string;
   sizeLabel: string;
   source: "pc" | "document";
+  uploadStatus?: "uploading" | "uploaded" | "failed";
 };
 
 type MessengerMessageView = {
@@ -52,6 +55,7 @@ type MessengerMessageView = {
   mine: boolean;
   readCount: number;
   mentions: { userId: string; displayName: string | null }[];
+  attachments: MessengerAttachment[];
 };
 
 type MessengerMemberView = {
@@ -254,7 +258,7 @@ export default function MessengerPage() {
     status: "대기",
     sizeLabel: attachment.sizeLabel,
     sourceLabel: attachment.source === "pc" ? "내 PC 파일첨부" : "문서함에서 선택",
-    canDownload: attachment.source === "document",
+    canDownload: attachment.uploadStatus === "uploaded" || attachment.source === "document",
   }));
 
   function toggleContact(contactId: string) {
@@ -344,6 +348,7 @@ export default function MessengerPage() {
         mine: message.senderId?.includes("user_") ?? false,
         readCount: message.readCount,
         mentions: message.mentions,
+        attachments: message.attachments.map((attachment) => ({ id: attachment.id, name: attachment.fileName, sizeLabel: formatMessengerFileSize(attachment.fileSize), source: "pc", uploadStatus: attachment.storageStatus === "uploaded" ? "uploaded" : "uploading" })),
       })));
       setDisplayMessage("");
     } catch {
@@ -404,6 +409,7 @@ export default function MessengerPage() {
         mine: false,
         readCount: message.readCount,
         mentions: message.mentions,
+        attachments: message.attachments.map((attachment) => ({ id: attachment.id, name: attachment.fileName, sizeLabel: formatMessengerFileSize(attachment.fileSize), source: "pc", uploadStatus: attachment.storageStatus === "uploaded" ? "uploaded" : "uploading" })),
       })));
     } catch {
       setSearchResults([]);
@@ -478,7 +484,7 @@ export default function MessengerPage() {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messageType: "text", body, mentionUserIds }),
+        body: JSON.stringify({ messageType: "text", body, mentionUserIds, attachmentIds: pendingAttachments.filter((attachment) => attachment.uploadStatus === "uploaded").map((attachment) => attachment.id) }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -495,6 +501,7 @@ export default function MessengerPage() {
         mine: true,
         readCount: message.readCount,
         mentions: message.mentions,
+        attachments: message.attachments.map((attachment) => ({ id: attachment.id, name: attachment.fileName, sizeLabel: formatMessengerFileSize(attachment.fileSize), source: "pc", uploadStatus: attachment.storageStatus === "uploaded" ? "uploaded" : "uploading" })),
       }]);
       setMessageDraft("");
       setPendingAttachments([]);
@@ -595,18 +602,46 @@ export default function MessengerPage() {
     setIsDocumentPickerOpen(true);
   }
 
+  async function uploadMessengerAttachment(file: File) {
+    if (!activeThread) return;
+    const tempId = `pc-${file.name}-${file.size}-${Date.now()}`;
+    setPendingAttachments((current) => [...current, { id: tempId, name: file.name, sizeLabel: formatMessengerFileSize(file.size), source: "pc", uploadStatus: "uploading" }]);
+    try {
+      const initResponse = await fetch(appRoutes.messenger.roomAttachments(activeThread.id), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSize: file.size }),
+      });
+      const initPayload = await initResponse.json();
+      if (!initResponse.ok) throw new Error(initPayload?.error?.message ?? "첨부 업로드 준비 실패");
+      const initParsed = messengerAttachmentCreateResponseSchema.parse(initPayload);
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? "").split(",")[1] ?? "");
+        reader.onerror = () => reject(new Error("파일 읽기 실패"));
+        reader.readAsDataURL(file);
+      });
+      const completeResponse = await fetch(appRoutes.messenger.attachmentComplete(initParsed.data.attachment.id), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ uploadToken: initParsed.data.upload.uploadToken, contentBase64 }),
+      });
+      const completePayload = await completeResponse.json();
+      if (!completeResponse.ok) throw new Error(completePayload?.error?.message ?? "첨부 업로드 완료 실패");
+      const completeParsed = messengerAttachmentMutationResponseSchema.parse(completePayload);
+      setPendingAttachments((current) => current.map((attachment) => attachment.id === tempId ? { id: completeParsed.data.attachment.id, name: completeParsed.data.attachment.fileName, sizeLabel: formatMessengerFileSize(completeParsed.data.attachment.fileSize), source: "pc", uploadStatus: "uploaded" } : attachment));
+    } catch {
+      setPendingAttachments((current) => current.map((attachment) => attachment.id === tempId ? { ...attachment, uploadStatus: "failed" } : attachment));
+      setDisplayMessage("첨부파일 업로드에 실패했습니다.");
+    }
+  }
+
   function handlePcFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.currentTarget.files ?? []);
-    if (files.length > 0) {
-      setPendingAttachments((current) => [
-        ...current,
-        ...files.map((file, index) => ({
-          id: `pc-${file.name}-${file.size}-${Date.now()}-${index}`,
-          name: file.name,
-          sizeLabel: formatMessengerFileSize(file.size),
-          source: "pc" as const,
-        })),
-      ]);
+    for (const file of files) {
+      void uploadMessengerAttachment(file);
     }
     event.currentTarget.value = "";
   }
@@ -784,6 +819,15 @@ export default function MessengerPage() {
                       <strong>{message.mine ? "나" : message.senderName}</strong>
                       <p>{message.body}</p>
                       {message.mentions.length ? <small>멘션 {message.mentions.map((mention) => mention.displayName ?? mention.userId).join(", ")}</small> : null}
+                      {message.attachments.length ? (
+                        <div className="messenger-message-attachments" aria-label="메시지 첨부파일">
+                          {message.attachments.map((attachment) => (
+                            <a key={attachment.id} href={appRoutes.messenger.attachmentDownload(attachment.id)} target="_blank" rel="noreferrer">
+                              {attachment.name} · {attachment.sizeLabel}
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
                       <small>{message.sentAt} · 읽음 {message.readCount}</small>
                     </article>
                   ))}

@@ -6589,6 +6589,24 @@ li {
   color: var(--text-muted);
 }
 
+.messenger-message-attachments {
+  display: grid;
+  gap: var(--space-xs);
+  margin-block-start: var(--space-xs);
+}
+
+.messenger-message-attachments a {
+  display: inline-flex;
+  width: fit-content;
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--primary-soft-strong);
+}
+
+.messenger-message-attachments a:hover {
+  color: var(--primary-hover);
+}
+
 .messenger-new-button {
   white-space: nowrap;
 }
