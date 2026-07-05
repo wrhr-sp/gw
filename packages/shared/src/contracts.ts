@@ -60,6 +60,7 @@ export const appRoutes = {
     recipients: "/api/mail/recipients",
     send: "/api/mail/messages/send",
     schedule: "/api/mail/messages/schedule",
+    dispatchScheduled: "/api/mail/messages/scheduled-dispatch",
     deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
@@ -674,6 +675,15 @@ export const mailMessageSendResponseSchema = successResponseSchema(
       candidate: z.literal(true),
       action: z.string(),
     }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailScheduledDispatchResponseSchema = successResponseSchema(
+  z.object({
+    dispatchedCount: z.number().int().nonnegative(),
+    messages: z.array(mailMessageSchema),
+    audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.scheduled_dispatch") }),
     source: z.literal("postgres"),
   }),
 );
@@ -3715,6 +3725,7 @@ export type MailTemplateTestSendResponse = z.infer<typeof mailTemplateTestSendRe
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageScheduleRequest = z.infer<typeof mailMessageScheduleRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
+export type MailScheduledDispatchResponse = z.infer<typeof mailScheduledDispatchResponseSchema>;
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
 export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;
 export type MailMessageReadResponse = z.infer<typeof mailMessageReadResponseSchema>;

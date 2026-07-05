@@ -176,6 +176,7 @@ import {
   mailMessageScheduleRequestSchema,
   mailMessageSendRequestSchema,
   mailMessageSendResponseSchema,
+  mailScheduledDispatchResponseSchema,
   listBranchesResponseSchema,
   listCompaniesResponseSchema,
   listHomeShortcutsResponseSchema,
@@ -408,7 +409,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, dispatchDueOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
@@ -6775,6 +6776,32 @@ app.post(appRoutes.mail.schedule, async (context) => {
     return jsonSuccess(context, mailMessageSendResponseSchema, { ok: true, data: { message: messages[0], messages, audit: { candidate: true, action: "mail.message.schedule" }, source: "postgres" }, error: null }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메일 예약");
+  }
+});
+
+app.post(appRoutes.mail.dispatchScheduled, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  if (!isMailSettingsAdmin(authResult.auth.roleCode)) {
+    return jsonError(context, "FORBIDDEN", "예약메일 자동 발송 처리는 관리자만 실행할 수 있습니다.", 403, { route: context.req.path });
+  }
+  try {
+    const messages = await dispatchDueOperationalScheduledMailMessages(context.env, {
+      companyId: authResult.auth.user.companyId,
+      limit: 50,
+    });
+    return jsonSuccess(context, mailScheduledDispatchResponseSchema, {
+      ok: true,
+      data: {
+        dispatchedCount: messages.length,
+        messages,
+        audit: { candidate: true, action: "mail.message.scheduled_dispatch" },
+        source: "postgres",
+      },
+      error: null,
+    });
+  } catch {
+    return jsonDatabaseRequired(context, "예약메일 자동 발송");
   }
 });
 
