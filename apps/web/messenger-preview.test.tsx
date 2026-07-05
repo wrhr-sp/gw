@@ -135,6 +135,8 @@ describe("messenger page", () => {
     expect(globalCss).toContain(".messenger-message-attachments");
     expect(globalCss).toContain(".messenger-thread__badges");
     expect(globalCss).toContain(".messenger-mention-badge");
+    expect(globalCss).toContain(".topbar-modal-link-action");
+    expect(globalCss).toContain(".topbar-modal-list-item--notification");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");

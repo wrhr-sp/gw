@@ -11,6 +11,15 @@ type NotificationBadgeState = {
   unreadCount: number;
 };
 
+type TopbarNotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  notificationType: string;
+  status: "unread" | "read";
+  createdAt: string;
+};
+
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
@@ -541,6 +550,20 @@ export function resolveSecondaryPasswordSave(
     nextMode: "change",
     toastMessage: mode === "change" ? "2차 비밀번호가 변경되었습니다." : "2차 비밀번호가 설정되었습니다.",
   };
+}
+
+
+function getTopbarNotificationTag(notificationType: string) {
+  if (notificationType === "messenger_mention") return "멘션";
+  if (notificationType === "messenger_message") return "메신저";
+  if (notificationType.includes("approval")) return "결재";
+  if (notificationType.includes("attendance") || notificationType.includes("leave")) return "근태·휴가";
+  return "알림";
+}
+
+function getTopbarNotificationHref(notificationType: string) {
+  if (notificationType === "messenger_mention" || notificationType === "messenger_message") return "/messenger";
+  return null;
 }
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -1548,6 +1571,7 @@ export function MobileAppShell({
   const [isBottomNavCollapsed, setIsBottomNavCollapsed] = useState(false);
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
+  const [topbarNotifications, setTopbarNotifications] = useState<TopbarNotificationItem[]>([]);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
@@ -2321,6 +2345,7 @@ export function MobileAppShell({
   useEffect(() => {
     if (isLoginRoute) {
       setNotificationBadge(null);
+      setTopbarNotifications([]);
       return;
     }
 
@@ -2332,7 +2357,7 @@ export function MobileAppShell({
           throw new Error(`notifications ${response.status}`);
         }
 
-        return (await response.json()) as { ok?: boolean; data?: { unreadCount?: number } };
+        return (await response.json()) as { ok?: boolean; data?: { unreadCount?: number; items?: TopbarNotificationItem[] } };
       })
       .then((payload) => {
         if (!active || !payload.ok) {
@@ -2342,10 +2367,12 @@ export function MobileAppShell({
         setNotificationBadge({
           unreadCount: typeof payload.data?.unreadCount === "number" ? payload.data.unreadCount : 0,
         });
+        setTopbarNotifications((payload.data?.items ?? []).slice(0, 8));
       })
       .catch(() => {
         if (active) {
           setNotificationBadge(null);
+          setTopbarNotifications([]);
         }
       });
 
@@ -3450,19 +3477,27 @@ export function MobileAppShell({
 
           {activeTopbarModal === "notifications" ? (
             <div className="topbar-modal-list">
-              {[
-                ['결재', '승인 요청과 반려/보완 알림', '전자결재에서 지금 처리해야 하는 알림을 우선 표시합니다.'],
-                ['멘션', '댓글/메신저 멘션', '나를 직접 부른 업무 대화를 놓치지 않게 모읍니다.'],
-                ['근태·휴가', '신청/승인 결과', '근태 정정, 휴가 승인 결과 같은 개인 업무 알림을 표시합니다.'],
-              ].map(([tag, title, body]) => (
-                <article key={title} className="topbar-modal-list-item">
-                  <span>{tag}</span>
+              {topbarNotifications.length ? topbarNotifications.map((item) => {
+                const href = getTopbarNotificationHref(item.notificationType);
+                return (
+                  <article key={item.id} className="topbar-modal-list-item topbar-modal-list-item--notification" data-status={item.status}>
+                    <span>{getTopbarNotificationTag(item.notificationType)}</span>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.body}</p>
+                      {href ? <button type="button" className="topbar-modal-link-action" onClick={() => { closeTopbarModal(); navigateTo(href); }}>메신저로 이동</button> : null}
+                    </div>
+                  </article>
+                );
+              }) : (
+                <article className="topbar-modal-list-item topbar-modal-list-item--empty">
+                  <span>알림</span>
                   <div>
-                    <strong>{title}</strong>
-                    <p>{body}</p>
+                    <strong>새 알림이 없습니다.</strong>
+                    <p>메신저 멘션과 새 메시지가 생기면 이곳에 표시됩니다.</p>
                   </div>
                 </article>
-              ))}
+              )}
               <button type="button" className="topbar-modal-secondary-action">모두 읽음 처리</button>
             </div>
           ) : null}

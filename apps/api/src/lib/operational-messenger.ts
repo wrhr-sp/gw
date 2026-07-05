@@ -1,4 +1,5 @@
 import { getDbClient, type DatabaseEnv } from "../utils/db";
+import { createOperationalNotification } from "./operational-notifications";
 
 type RoomType = "direct" | "group" | "department" | "project" | "site" | "notice" | "approval" | "system" | "bot" | "external";
 type MessageType = "text" | "system" | "notice" | "bot_response" | "bot_status" | "bot_error";
@@ -553,6 +554,29 @@ export async function sendOperationalMessengerMessage(
     where company_id = ${input.companyId}
       and id = ${input.roomId}
   `;
+
+  const recipientRows = await sql`
+    select user_id
+    from messenger_room_members
+    where company_id = ${input.companyId}
+      and room_id = ${input.roomId}
+      and user_id <> ${input.userId}
+      and is_active is true
+      and left_at is null
+  `;
+  const mentionSet = new Set(mentionUserIds);
+  for (const recipient of recipientRows as Array<{ user_id: string }>) {
+    const recipientId = String(recipient.user_id);
+    const mentioned = mentionSet.has(recipientId);
+    await createOperationalNotification(env, {
+      companyId: input.companyId,
+      userId: recipientId,
+      title: mentioned ? "메신저 멘션" : "새 메신저 메시지",
+      body: mentioned ? `${input.roomId} 대화방에서 나를 멘션했습니다.` : `${input.roomId} 대화방에 새 메시지가 도착했습니다.`,
+      notificationType: mentioned ? "messenger_mention" : "messenger_message",
+      notificationId: `notification_${input.companyId}_${recipientId}_${input.messageId}_${mentioned ? "mention" : "message"}`,
+    });
+  }
 
   await sql`
     insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
