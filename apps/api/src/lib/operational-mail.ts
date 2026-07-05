@@ -313,6 +313,7 @@ export async function moveOperationalMailMessage(env: DatabaseEnv | undefined, i
         status,
         importance,
         sent_at,
+        scheduled_at,
         read_at,
         created_at,
         updated_at
@@ -353,6 +354,83 @@ export async function moveOperationalMailMessage(env: DatabaseEnv | undefined, i
       updated_at
   `;
   return (rows[0] as MailRow | undefined) ? mapMailMessage(rows[0] as MailRow) : null;
+}
+
+export async function dispatchDueOperationalScheduledMailMessages(env: DatabaseEnv | undefined, input: { companyId: string; limit?: number; now?: string }) {
+  const sql = getDbClient(env ?? {});
+  const dispatchNow = input.now ?? new Date().toISOString();
+  const rows = await sql`
+    update mail_messages
+    set status = 'sent', sent_at = now(), updated_at = now()
+    where id in (
+      select id
+      from mail_messages
+      where company_id = ${input.companyId}
+        and deleted_at is null
+        and status = 'scheduled'
+        and scheduled_at is not null
+        and scheduled_at <= ${dispatchNow}
+      order by scheduled_at asc, created_at asc
+      limit ${input.limit ?? 50}
+    )
+    returning
+      id,
+      company_id,
+      sender_user_id,
+      (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      sender_mail_account_id,
+      sender_mail_alias_id,
+      sender_email,
+      sender_display_name,
+      recipient_user_id,
+      (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
+      subject,
+      body,
+      status,
+      importance,
+      sent_at,
+      scheduled_at,
+      read_at,
+      created_at,
+      updated_at
+  `;
+  const messages = (rows as MailRow[]).map(mapMailMessage);
+  if (messages.length) {
+    const messageIds = messages.map((message) => message.id);
+    await sql`
+      update mail_delivery_recipients
+      set status = 'sent', sent_at = now(), updated_at = now()
+      where company_id = ${input.companyId}
+        and message_id = any(${messageIds})
+        and status = 'queued'
+    `;
+    await sql`
+      update mail_delivery_batches b
+      set
+        status = 'sent',
+        success_count = recipient_counts.sent_count,
+        failed_count = recipient_counts.failed_count,
+        blocked_count = recipient_counts.blocked_count,
+        sent_at = now(),
+        updated_at = now()
+      from (
+        select batch_id,
+          count(*) filter (where status = 'sent') as sent_count,
+          count(*) filter (where status = 'failed') as failed_count,
+          count(*) filter (where status = 'blocked') as blocked_count,
+          count(*) as total_count
+        from mail_delivery_recipients
+        where company_id = ${input.companyId}
+        group by batch_id
+      ) recipient_counts
+      where b.id = recipient_counts.batch_id
+        and b.company_id = ${input.companyId}
+        and b.delivery_mode = 'scheduled'
+        and b.status = 'scheduled'
+        and recipient_counts.sent_count = recipient_counts.total_count
+    `;
+  }
+  return messages;
 }
 
 export async function setOperationalMailMessageFavorite(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string; isFavorite: boolean }) {

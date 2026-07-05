@@ -12,6 +12,7 @@ import {
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
   mailRecipientListResponseSchema,
+  mailScheduledDispatchResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 
@@ -498,6 +499,45 @@ describe("operational mail API", () => {
     const cancelPayload = mailMessageMoveResponseSchema.parse(await cancelResponse.json());
     expect(cancelPayload.data.action).toBe("cancel");
     expect(cancelPayload.data.message?.status).toBe("archived");
+
+    await cleanupMailMessagesBySubject(subject);
+  });
+
+  runWhenDbConfigured("dispatches due scheduled internal mail through PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 예약 자동발송 DB smoke ${Date.now()}`;
+    await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const scheduleResponse = await app.request(
+      appRoutes.mail.schedule,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "예약 자동발송 검증", importance: "normal", scheduledAt }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(scheduleResponse.status).toBe(201);
+    const schedulePayload = mailMessageSendResponseSchema.parse(await scheduleResponse.json());
+    await sql`update mail_messages set scheduled_at = now() - interval '1 minute' where id = ${schedulePayload.data.message.id}`;
+    await sql`update mail_delivery_batches set scheduled_at = now() - interval '1 minute' where id in (select batch_id from mail_delivery_recipients where message_id = ${schedulePayload.data.message.id})`;
+
+    const dispatchResponse = await app.request(
+      appRoutes.mail.dispatchScheduled,
+      { method: "POST", headers: { cookie: adminCookie } },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(dispatchResponse.status).toBe(200);
+    const dispatchPayload = mailScheduledDispatchResponseSchema.parse(await dispatchResponse.json());
+    expect(dispatchPayload.data.dispatchedCount).toBeGreaterThanOrEqual(1);
+    expect(dispatchPayload.data.messages.some((message) => message.id === schedulePayload.data.message.id && message.status === "sent")).toBe(true);
+
+    const sentResponse = await app.request(`${appRoutes.mail.messages}?box=sent`, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(sentResponse.status).toBe(200);
+    const sentPayload = mailMessageListResponseSchema.parse(await sentResponse.json());
+    expect(sentPayload.data.items.some((item) => item.id === schedulePayload.data.message.id)).toBe(true);
 
     await cleanupMailMessagesBySubject(subject);
   });
