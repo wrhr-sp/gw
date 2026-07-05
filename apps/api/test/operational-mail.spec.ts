@@ -503,6 +503,47 @@ describe("operational mail API", () => {
     await cleanupMailMessagesBySubject(subject);
   });
 
+  runWhenDbConfigured("searches and filters mail list through PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 검색 필터 DB smoke ${Date.now()}`;
+    await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const hrCookie = await login("HR_ADMIN");
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "검색 가능한 본문 smoke", importance: "important" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(sendResponse.status).toBe(201);
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+    const messageId = sendPayload.data.message.id;
+
+    const searchResponse = await app.request(`${appRoutes.mail.messages}?box=inbox&q=${encodeURIComponent(subject)}&importance=important&readState=unread`, { headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(searchResponse.status).toBe(200);
+    const searchPayload = mailMessageListResponseSchema.parse(await searchResponse.json());
+    expect(searchPayload.data.items.some((item) => item.id === messageId)).toBe(true);
+
+    const markReadResponse = await app.request(appRoutes.mail.markRead(messageId), { method: "POST", headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(markReadResponse.status).toBe(200);
+
+    const readResponse = await app.request(`${appRoutes.mail.messages}?box=inbox&q=${encodeURIComponent(subject)}&readState=read`, { headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(readResponse.status).toBe(200);
+    const readPayload = mailMessageListResponseSchema.parse(await readResponse.json());
+    expect(readPayload.data.items.some((item) => item.id === messageId && item.readAt)).toBe(true);
+
+    const noResultResponse = await app.request(`${appRoutes.mail.messages}?box=inbox&q=${encodeURIComponent(`${subject}-없는값`)}`, { headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(noResultResponse.status).toBe(200);
+    const noResultPayload = mailMessageListResponseSchema.parse(await noResultResponse.json());
+    expect(noResultPayload.data.items.some((item) => item.id === messageId)).toBe(false);
+
+    await cleanupMailMessagesBySubject(subject);
+  });
+
   runWhenDbConfigured("dispatches due scheduled internal mail through PostgreSQL", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const subject = `메일 예약 자동발송 DB smoke ${Date.now()}`;

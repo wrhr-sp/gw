@@ -216,6 +216,12 @@ export function MailClient() {
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, favorites: 0, scheduled: 0, spam: 0, trash: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
+  const [mailSearchQuery, setMailSearchQuery] = useState("");
+  const [mailReadFilter, setMailReadFilter] = useState<"all" | "read" | "unread">("all");
+  const [mailImportanceFilter, setMailImportanceFilter] = useState<"all" | "important">("all");
+  const [mailHasAttachmentFilter, setMailHasAttachmentFilter] = useState(false);
+  const [mailDateFrom, setMailDateFrom] = useState("");
+  const [mailDateTo, setMailDateTo] = useState("");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
   const [addressBookQuery, setAddressBookQuery] = useState("");
@@ -446,7 +452,15 @@ export function MailClient() {
 
   async function loadMessages(nextBox: MailBox) {
     setStatus("메일함을 불러오는 중입니다.");
-    const response = await fetch(`${appRoutes.mail.messages}?box=${nextBox}`, { credentials: "same-origin" });
+    const params = new URLSearchParams({ box: nextBox });
+    const trimmedSearch = mailSearchQuery.trim();
+    if (trimmedSearch) params.set("q", trimmedSearch);
+    if (mailReadFilter !== "all") params.set("readState", mailReadFilter);
+    if (mailImportanceFilter === "important") params.set("importance", "important");
+    if (mailHasAttachmentFilter) params.set("hasAttachments", "true");
+    if (mailDateFrom) params.set("dateFrom", mailDateFrom);
+    if (mailDateTo) params.set("dateTo", mailDateTo);
+    const response = await fetch(`${appRoutes.mail.messages}?${params.toString()}`, { credentials: "same-origin" });
     const payload = await response.json();
     if (!response.ok) {
       setItems([]);
@@ -535,7 +549,7 @@ export function MailClient() {
     setAttachmentsByMessageId({});
     setStatus(`${currentFolder?.label ?? "메일함"}은 목록 위치만 준비되어 있습니다. 실제 연동은 별도 설정 후 연결합니다.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  }, [view, mailSearchQuery, mailReadFilter, mailImportanceFilter, mailHasAttachmentFilter, mailDateFrom, mailDateTo]);
 
   function closeRecipientPopup() {
     setActiveRecipientPopup(null);
@@ -1831,6 +1845,36 @@ export function MailClient() {
           </form>
         ) : currentBox ? (
           <div className="mail-detail-layout">
+            <section className="mail-search-filter-bar" aria-label="메일 검색 및 필터">
+              <label>메일 검색
+                <input className="field" aria-label="메일 검색" value={mailSearchQuery} onChange={(event) => setMailSearchQuery(event.target.value)} />
+                <span>제목, 본문, 보낸사람, 받는사람</span>
+              </label>
+              <label>읽음 상태
+                <select className="field" aria-label="읽음 상태 필터" value={mailReadFilter} onChange={(event) => setMailReadFilter(event.target.value as "all" | "read" | "unread")}>
+                  <option value="all">전체</option>
+                  <option value="unread">읽지 않음</option>
+                  <option value="read">읽음</option>
+                </select>
+              </label>
+              <label>중요
+                <select className="field" aria-label="중요 필터" value={mailImportanceFilter} onChange={(event) => setMailImportanceFilter(event.target.value as "all" | "important")}>
+                  <option value="all">전체</option>
+                  <option value="important">중요만</option>
+                </select>
+              </label>
+              <label>시작일
+                <input className="field" aria-label="메일 검색 시작일" type="date" value={mailDateFrom} onChange={(event) => setMailDateFrom(event.target.value)} />
+              </label>
+              <label>종료일
+                <input className="field" aria-label="메일 검색 종료일" type="date" value={mailDateTo} onChange={(event) => setMailDateTo(event.target.value)} />
+              </label>
+              <label className="mail-search-filter-bar__checkbox">
+                <input checked={mailHasAttachmentFilter} type="checkbox" onChange={(event) => setMailHasAttachmentFilter(event.target.checked)} />
+                <span>첨부 있음</span>
+              </label>
+              <button className="mail-compose-toolbar-button" type="button" onClick={() => { setMailSearchQuery(""); setMailReadFilter("all"); setMailImportanceFilter("all"); setMailHasAttachmentFilter(false); setMailDateFrom(""); setMailDateTo(""); }}>검색 초기화</button>
+            </section>
             <div className="feature-workspace__rows mail-detail-layout__list" aria-label={`${boxLabels[currentBox]} 목록`}>
               {items.length === 0 ? (
                 <article className="feature-workspace__row"><div><strong>표시할 메일이 없습니다.</strong><span>DB 조회 결과</span></div><em>비어 있음</em></article>

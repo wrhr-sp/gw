@@ -6591,10 +6591,19 @@ app.get(appRoutes.mail.messages, async (context) => {
   }
 
   try {
+    const readState = context.req.query("readState");
+    const importance = context.req.query("importance");
+    const hasAttachments = context.req.query("hasAttachments") === "true";
     const result = await listOperationalMailMessages(context.env, {
       companyId: authResult.auth.user.companyId,
       userId: authResult.auth.user.id,
       box: boxParse.data,
+      query: context.req.query("q")?.slice(0, 100),
+      readState: readState === "read" || readState === "unread" ? readState : "all",
+      importance: importance === "important" ? "important" : "all",
+      hasAttachments,
+      dateFrom: context.req.query("dateFrom")?.slice(0, 10),
+      dateTo: context.req.query("dateTo")?.slice(0, 10),
     });
 
     return jsonSuccess(context, mailMessageListResponseSchema, {

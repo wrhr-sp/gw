@@ -171,7 +171,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
   });
 }
 
-export async function listOperationalMailMessages(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; box: MailBox }) {
+export async function listOperationalMailMessages(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; box: MailBox; query?: string; readState?: "all" | "read" | "unread"; importance?: "all" | "important"; hasAttachments?: boolean; dateFrom?: string; dateTo?: string }) {
   const sql = getDbClient(env ?? {});
   const baseSelect = sql`
       select
@@ -198,12 +198,26 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       join users sender on sender.id = m.sender_user_id and sender.company_id = m.company_id
       left join users recipient on recipient.id = m.recipient_user_id and recipient.company_id = m.company_id
   `;
+  const normalizedQuery = input.query?.trim().toLowerCase() ?? "";
+  const searchLike = `%${normalizedQuery}%`;
+  const dateFrom = input.dateFrom ? `${input.dateFrom}T00:00:00.000Z` : null;
+  const dateTo = input.dateTo ? `${input.dateTo}T23:59:59.999Z` : null;
+  const filterSql = sql`
+        and (${normalizedQuery.length === 0} or lower(coalesce(m.subject, '')) like ${searchLike} or lower(coalesce(m.body, '')) like ${searchLike} or lower(coalesce(sender.display_name, sender.login_id, '')) like ${searchLike} or lower(coalesce(recipient.display_name, recipient.login_id, '')) like ${searchLike} or lower(coalesce(m.sender_email, '')) like ${searchLike})
+        and (${input.readState !== "unread"} or m.read_at is null)
+        and (${input.readState !== "read"} or m.read_at is not null)
+        and (${input.importance !== "important"} or m.importance = 'important')
+        and (${input.hasAttachments !== true} or exists (select 1 from mail_attachments a where a.company_id = m.company_id and a.message_id = m.id and a.deleted_at is null))
+        and (${dateFrom === null} or coalesce(m.sent_at, m.scheduled_at, m.created_at) >= ${dateFrom})
+        and (${dateTo === null} or coalesce(m.sent_at, m.scheduled_at, m.created_at) <= ${dateTo})
+  `;
   const itemsPromise = input.box === "sent"
     ? sql`${baseSelect}
       where m.company_id = ${input.companyId}
         and m.deleted_at is null
         and m.sender_user_id = ${input.userId}
         and m.status = 'sent'
+        ${filterSql}
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
@@ -213,6 +227,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         and m.deleted_at is null
         and m.sender_user_id = ${input.userId}
         and m.status = 'draft'
+        ${filterSql}
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
@@ -223,6 +238,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
         and m.importance = 'important'
         and m.status in ('sent', 'draft')
+        ${filterSql}
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
@@ -232,6 +248,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         and m.deleted_at is null
         and m.sender_user_id = ${input.userId}
         and m.status = 'scheduled'
+        ${filterSql}
       order by coalesce(m.scheduled_at, m.updated_at) asc
       limit 50
     `
@@ -241,6 +258,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         and m.deleted_at is null
         and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
         and m.status = ${input.box}
+        ${filterSql}
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
@@ -249,6 +267,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         and m.deleted_at is null
         and m.recipient_user_id = ${input.userId}
         and m.status = 'sent'
+        ${filterSql}
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `;
