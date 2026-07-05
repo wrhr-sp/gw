@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   appRoutes,
   errorResponseSchema,
+  messengerAttachmentCreateResponseSchema,
+  messengerAttachmentMutationResponseSchema,
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
   messengerMessageReadResponseSchema,
@@ -18,6 +20,23 @@ import { getDbClient } from "../src/utils/db";
 
 const databaseUrl = process.env.DATABASE_URL_PREVIEW;
 const runWhenDbConfigured = databaseUrl ? it : it.skip;
+
+const fakeBucket = () => {
+  const objects = new Map<string, ArrayBuffer>();
+  return {
+    put: async (key: string, value: ArrayBuffer) => { objects.set(key, value); },
+    get: async (key: string) => {
+      const value = objects.get(key);
+      if (!value) return null;
+      return {
+        body: value,
+        httpEtag: "fake-etag",
+        writeHttpMetadata(headers: Headers) { headers.set("content-type", "text/plain"); },
+      };
+    },
+    delete: async (key: string) => { objects.delete(key); },
+  };
+};
 
 async function login(roleCode: "COMPANY_ADMIN" | "HR_ADMIN" | "EMPLOYEE" = "COMPANY_ADMIN") {
   const response = await app.request(
@@ -131,6 +150,34 @@ describe("operational messenger API", () => {
     const searchPayload = messengerMessageSearchResponseSchema.parse(await searchResponse.json());
     expect(searchPayload.data.messages.some((message) => message.id === mentionPayload.data.message.id)).toBe(true);
 
+    const bucket = fakeBucket();
+    const attachmentInitResponse = await app.request(
+      appRoutes.messenger.roomAttachments(createdRoom.data.room.id),
+      { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ fileName: "messenger-note.txt", contentType: "text/plain", fileSize: 11 }) },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: bucket },
+    );
+    expect(attachmentInitResponse.status).toBe(201);
+    const attachmentInit = messengerAttachmentCreateResponseSchema.parse(await attachmentInitResponse.json());
+    const attachmentCompleteResponse = await app.request(
+      appRoutes.messenger.attachmentComplete(attachmentInit.data.attachment.id),
+      { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ uploadToken: attachmentInit.data.upload.uploadToken, contentBase64: "aGVsbG8gd29ybGQ=" }) },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: bucket },
+    );
+    expect(attachmentCompleteResponse.status).toBe(200);
+    const attachmentComplete = messengerAttachmentMutationResponseSchema.parse(await attachmentCompleteResponse.json());
+    expect(attachmentComplete.data.attachment.storageStatus).toBe("uploaded");
+
+    const attachmentMessageResponse = await app.request(
+      appRoutes.messenger.roomMessages(createdRoom.data.room.id),
+      { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ messageType: "text", body: "첨부 연결 메시지", attachmentIds: [attachmentInit.data.attachment.id] }) },
+      { DATABASE_URL: databaseUrl, FILES_BUCKET: bucket },
+    );
+    expect(attachmentMessageResponse.status).toBe(201);
+
+    const downloadResponse = await app.request(appRoutes.messenger.attachmentDownload(attachmentInit.data.attachment.id), { headers: { cookie } }, { DATABASE_URL: databaseUrl, FILES_BUCKET: bucket });
+    expect(downloadResponse.status).toBe(200);
+    expect(await downloadResponse.text()).toBe("hello world");
+
     const listResponse = await app.request(
       appRoutes.messenger.roomMessages(createdRoom.data.room.id),
       { headers: { cookie } },
@@ -195,7 +242,7 @@ describe("operational messenger API", () => {
 
     const sql = getDbClient({ DATABASE_URL: databaseUrl });
     await sql`delete from messenger_rooms where company_id = ${createdRoom.data.room.companyId} and id = ${createdRoom.data.room.id}`;
-  });
+  }, 15000);
 
   runWhenDbConfigured("leaves a messenger thread through PostgreSQL", async () => {
     const cookie = await login("COMPANY_ADMIN");

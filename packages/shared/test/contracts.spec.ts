@@ -254,6 +254,9 @@ describe("shared contracts", () => {
     expect(appRoutes.messenger.roomMembers("room_demo")).toBe("/api/messenger/rooms/room_demo/members");
     expect(appRoutes.messenger.roomMember("room_demo", "user_demo")).toBe("/api/messenger/rooms/room_demo/members/user_demo");
     expect(appRoutes.messenger.roomMessages("room_demo")).toBe("/api/messenger/rooms/room_demo/messages");
+    expect(appRoutes.messenger.roomAttachments("room_demo")).toBe("/api/messenger/rooms/room_demo/attachments");
+    expect(appRoutes.messenger.attachmentComplete("att_demo")).toBe("/api/messenger/attachments/att_demo/upload-complete");
+    expect(appRoutes.messenger.attachmentDownload("att_demo")).toBe("/api/messenger/attachments/att_demo/download");
     expect(appRoutes.messenger.readMessage("msg_demo")).toBe("/api/messenger/messages/msg_demo/read");
     expect(appRoutes.messenger.search).toBe("/api/messenger/search");
     expect(appRoutes.messenger.roomSearch("room_demo")).toBe("/api/messenger/rooms/room_demo/search");

@@ -43,17 +43,40 @@ function mapMember(row: Record<string, any>) {
   };
 }
 
-function parseMentions(row: Record<string, any>) {
-  if (Array.isArray(row.mentions)) return row.mentions;
-  if (typeof row.mentions === "string") {
+function parseJsonArray(row: Record<string, any>, key: string) {
+  const value = row[key];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
     try {
-      const parsed = JSON.parse(row.mentions);
+      const parsed = JSON.parse(value);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
   }
   return [];
+}
+
+function mapAttachment(row: Record<string, any>) {
+  return {
+    id: String(row.id),
+    companyId: String(row.company_id),
+    roomId: String(row.room_id),
+    messageId: row.message_id == null ? null : String(row.message_id),
+    fileName: String(row.file_name),
+    contentType: String(row.content_type),
+    fileSize: Number(row.file_size ?? 0),
+    storageProvider: "r2" as const,
+    storageStatus: row.storage_status as "pending" | "uploaded" | "deleted",
+    checksumSha256: row.checksum_sha256 == null ? null : String(row.checksum_sha256),
+    createdBy: String(row.created_by),
+    createdAt: toIso(row.created_at) ?? new Date().toISOString(),
+    updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
+  };
+}
+
+function parseMentions(row: Record<string, any>) {
+  return parseJsonArray(row, "mentions");
 }
 
 function mapMessage(row: Record<string, any>) {
@@ -72,6 +95,7 @@ function mapMessage(row: Record<string, any>) {
     deleted: Boolean(row.deleted),
     readCount: Number(row.read_count ?? 0),
     mentions: parseMentions(row),
+    attachments: parseJsonArray(row, "attachments"),
     sentAt: toIso(row.sent_at) ?? new Date().toISOString(),
     createdAt: toIso(row.created_at) ?? new Date().toISOString(),
     updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
@@ -298,6 +322,72 @@ export async function removeOperationalMessengerRoomMember(
   return { roomId: input.roomId, members: [mapMember(targetRows[0])] };
 }
 
+
+export async function createOperationalMessengerAttachment(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; userId: string; roomId: string; attachmentId: string; fileName: string; contentType: string; fileSize: number },
+) {
+  const sql = getDbClient(env ?? {});
+  const member = await assertActiveMember(sql, input);
+  if (!member || !canSendMessage(String(member.member_role))) return null;
+  const uploadToken = `upload_token_${input.attachmentId}_v1`;
+  const rows = await sql`
+    insert into messenger_attachments (company_id, id, room_id, file_name, content_type, file_size, storage_provider, storage_status, upload_token, created_by, created_at, updated_at)
+    values (${input.companyId}, ${input.attachmentId}, ${input.roomId}, ${input.fileName}, ${input.contentType}, ${input.fileSize}, 'r2', 'pending', ${uploadToken}, ${input.userId}, now(), now())
+    returning *
+  `;
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_ATTACHMENT_INIT', 'messenger_attachment', ${input.attachmentId}, ${input.roomId}, ${JSON.stringify({ fileName: input.fileName, fileSize: input.fileSize })}, now())
+  `;
+  return { attachment: mapAttachment(rows[0]), uploadToken };
+}
+
+export async function completeOperationalMessengerAttachmentUpload(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; userId: string; attachmentId: string; uploadToken: string; checksumSha256?: string; objectKey: string },
+) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    select * from messenger_attachments
+    where company_id = ${input.companyId} and id = ${input.attachmentId} and upload_token = ${input.uploadToken} and deleted_at is null
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const member = await assertActiveMember(sql, { companyId: input.companyId, roomId: String(row.room_id), userId: input.userId });
+  if (!member || !canSendMessage(String(member.member_role))) return null;
+  const updated = await sql`
+    update messenger_attachments
+    set storage_status = 'uploaded', object_key = ${input.objectKey}, checksum_sha256 = ${input.checksumSha256 ?? null}, updated_at = now()
+    where company_id = ${input.companyId} and id = ${input.attachmentId}
+    returning *
+  `;
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_ATTACHMENT_UPLOAD_COMPLETE', 'messenger_attachment', ${input.attachmentId}, ${String(row.room_id)}, ${JSON.stringify({ checksumSha256: input.checksumSha256 ?? null })}, now())
+  `;
+  return mapAttachment(updated[0]);
+}
+
+export async function getOperationalMessengerAttachmentForDownload(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; attachmentId: string }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    select * from messenger_attachments
+    where company_id = ${input.companyId} and id = ${input.attachmentId} and storage_status = 'uploaded' and deleted_at is null
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  const member = await assertActiveMember(sql, { companyId: input.companyId, roomId: String(row.room_id), userId: input.userId });
+  if (!member) return null;
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_ATTACHMENT_DOWNLOAD', 'messenger_attachment', ${input.attachmentId}, ${String(row.room_id)}, ${JSON.stringify({ fileName: String(row.file_name) })}, now())
+  `;
+  return mapAttachment(row);
+}
+
 export async function listOperationalMessengerMessages(
   env: DatabaseEnv | undefined,
   input: { companyId: string; userId: string; roomId: string; limit: number; beforeSequenceNo?: number },
@@ -308,9 +398,14 @@ export async function listOperationalMessengerMessages(
 
   const rows = input.beforeSequenceNo
     ? await sql`
-        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count
+        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count, coalesce(attachments.attachments, '[]'::json) as attachments
         from messenger_messages msg
         left join users sender on sender.id = msg.sender_id
+        left join lateral (
+          select json_agg(json_build_object('id', a.id, 'companyId', a.company_id, 'roomId', a.room_id, 'messageId', a.message_id, 'fileName', a.file_name, 'contentType', a.content_type, 'fileSize', a.file_size, 'storageProvider', a.storage_provider, 'storageStatus', a.storage_status, 'checksumSha256', a.checksum_sha256, 'createdBy', a.created_by, 'createdAt', a.created_at, 'updatedAt', a.updated_at)) as attachments
+          from messenger_attachments a
+          where a.company_id = msg.company_id and a.message_id = msg.id and a.deleted_at is null
+        ) attachments on true
         left join lateral (
           select count(*)::int as read_count
           from messenger_message_reads r
@@ -325,9 +420,14 @@ export async function listOperationalMessengerMessages(
         limit ${input.limit + 1}
       `
     : await sql`
-        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count
+        select msg.*, coalesce(sender.display_name, sender.email, msg.sender_id) as sender_name, coalesce(reads.read_count, 0) as read_count, coalesce(attachments.attachments, '[]'::json) as attachments
         from messenger_messages msg
         left join users sender on sender.id = msg.sender_id
+        left join lateral (
+          select json_agg(json_build_object('id', a.id, 'companyId', a.company_id, 'roomId', a.room_id, 'messageId', a.message_id, 'fileName', a.file_name, 'contentType', a.content_type, 'fileSize', a.file_size, 'storageProvider', a.storage_provider, 'storageStatus', a.storage_status, 'checksumSha256', a.checksum_sha256, 'createdBy', a.created_by, 'createdAt', a.created_at, 'updatedAt', a.updated_at)) as attachments
+          from messenger_attachments a
+          where a.company_id = msg.company_id and a.message_id = msg.id and a.deleted_at is null
+        ) attachments on true
         left join lateral (
           select count(*)::int as read_count
           from messenger_message_reads r
@@ -350,7 +450,7 @@ export async function listOperationalMessengerMessages(
 
 export async function sendOperationalMessengerMessage(
   env: DatabaseEnv | undefined,
-  input: { companyId: string; userId: string; roomId: string; messageId: string; messageType: MessageType; body?: string; replyToMessageId?: string | null; mentionUserIds?: string[] },
+  input: { companyId: string; userId: string; roomId: string; messageId: string; messageType: MessageType; body?: string; replyToMessageId?: string | null; mentionUserIds?: string[]; attachmentIds?: string[] },
 ) {
   const sql = getDbClient(env ?? {});
   const member = await assertActiveMember(sql, input);
@@ -454,6 +554,11 @@ export async function searchOperationalMessengerMessages(
          and me.is_active is true
          and me.left_at is null
         left join users sender on sender.id = msg.sender_id
+        left join lateral (
+          select json_agg(json_build_object('id', a.id, 'companyId', a.company_id, 'roomId', a.room_id, 'messageId', a.message_id, 'fileName', a.file_name, 'contentType', a.content_type, 'fileSize', a.file_size, 'storageProvider', a.storage_provider, 'storageStatus', a.storage_status, 'checksumSha256', a.checksum_sha256, 'createdBy', a.created_by, 'createdAt', a.created_at, 'updatedAt', a.updated_at)) as attachments
+          from messenger_attachments a
+          where a.company_id = msg.company_id and a.message_id = msg.id and a.deleted_at is null
+        ) attachments on true
         left join lateral (select count(*)::int as read_count from messenger_message_reads r where r.company_id = msg.company_id and r.message_id = msg.id) reads on true
         left join lateral (
           select json_agg(json_build_object('userId', mm.mentioned_user_id, 'displayName', coalesce(u.display_name, u.email))) as mentions
@@ -480,6 +585,11 @@ export async function searchOperationalMessengerMessages(
          and me.is_active is true
          and me.left_at is null
         left join users sender on sender.id = msg.sender_id
+        left join lateral (
+          select json_agg(json_build_object('id', a.id, 'companyId', a.company_id, 'roomId', a.room_id, 'messageId', a.message_id, 'fileName', a.file_name, 'contentType', a.content_type, 'fileSize', a.file_size, 'storageProvider', a.storage_provider, 'storageStatus', a.storage_status, 'checksumSha256', a.checksum_sha256, 'createdBy', a.created_by, 'createdAt', a.created_at, 'updatedAt', a.updated_at)) as attachments
+          from messenger_attachments a
+          where a.company_id = msg.company_id and a.message_id = msg.id and a.deleted_at is null
+        ) attachments on true
         left join lateral (select count(*)::int as read_count from messenger_message_reads r where r.company_id = msg.company_id and r.message_id = msg.id) reads on true
         left join lateral (
           select json_agg(json_build_object('userId', mm.mentioned_user_id, 'displayName', coalesce(u.display_name, u.email))) as mentions

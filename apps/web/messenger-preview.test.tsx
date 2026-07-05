@@ -47,7 +47,10 @@ describe("messenger page", () => {
     expect(pageSource).toContain("handleRemoveMember");
     expect(pageSource).toContain("messengerMessageListResponseSchema");
     expect(pageSource).toContain("messengerMessageMutationResponseSchema");
+    expect(pageSource).toContain("messengerAttachmentCreateResponseSchema");
+    expect(pageSource).toContain("messengerAttachmentMutationResponseSchema");
     expect(pageSource).toContain("messengerMessageSearchResponseSchema");
+    expect(pageSource).toContain("uploadMessengerAttachment");
     expect(pageSource).toContain("handleSearchMessages");
     expect(pageSource).toContain("handleInsertMention");
     expect(pageSource).toContain("messengerThreadLeaveResponseSchema");
@@ -127,6 +130,7 @@ describe("messenger page", () => {
     expect(globalCss).toContain(".messenger-member-row");
     expect(globalCss).toContain(".messenger-message-search");
     expect(globalCss).toContain(".messenger-search-results");
+    expect(globalCss).toContain(".messenger-message-attachments");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
