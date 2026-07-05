@@ -5359,6 +5359,41 @@ li {
   min-width: 0;
 }
 
+.mail-search-filter-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, 0.75fr)) auto auto;
+  gap: var(--feature-workspace-actions-gap);
+  align-items: end;
+  border: var(--feature-workspace-card-border);
+  border-radius: var(--feature-workspace-card-radius);
+  padding: var(--feature-workspace-row-padding-block) var(--feature-workspace-row-padding-inline);
+  background: var(--surface-elevated);
+}
+
+.mail-search-filter-bar label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.mail-search-filter-bar__checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 6px !important;
+  min-height: 36px;
+}
+
+.mail-search-filter-bar__checkbox span {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+}
+
+.mail-search-filter-bar .mail-compose-toolbar-button {
+  min-height: 36px;
+}
+
 .mail-message-select-button {
   display: grid;
   gap: 4px;
@@ -5417,6 +5452,10 @@ li {
 
 @media (max-width: 900px) {
   .mail-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mail-search-filter-bar {
     grid-template-columns: 1fr;
   }
 

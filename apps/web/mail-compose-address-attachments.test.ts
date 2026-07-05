@@ -84,4 +84,17 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });
+
+  it("connects mailbox search and filters to the mail list API", () => {
+    expect(mailClient).toContain("mailSearchQuery");
+    expect(mailClient).toContain("new URLSearchParams({ box: nextBox })");
+    expect(mailClient).toContain("params.set(\"q\", trimmedSearch)");
+    expect(mailClient).toContain("params.set(\"readState\", mailReadFilter)");
+    expect(mailClient).toContain("params.set(\"importance\", \"important\")");
+    expect(mailClient).toContain("params.set(\"hasAttachments\", \"true\")");
+    expect(mailClient).toContain("메일 검색 및 필터");
+    expect(mailClient).toContain("제목, 본문, 보낸사람, 받는사람");
+    expect(mailClient).toContain("검색 초기화");
+    expect(globalCss).toContain(".mail-search-filter-bar");
+  });
 });
