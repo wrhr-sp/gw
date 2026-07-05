@@ -89,6 +89,7 @@ export const appRoutes = {
     roomMessages: (roomId: string) => `/api/messenger/rooms/${roomId}/messages`,
     readMessage: (messageId: string) => `/api/messenger/messages/${messageId}/read`,
     search: "/api/messenger/search",
+    roomSearch: (roomId: string) => `/api/messenger/rooms/${roomId}/search`,
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
   },
   approvals: {
@@ -792,6 +793,7 @@ export const messengerMessageSchema = z.object({
   edited: z.boolean(),
   deleted: z.boolean(),
   readCount: z.number().int().nonnegative(),
+  mentions: z.array(z.object({ userId: z.string(), displayName: z.string().nullable() })).default([]),
   sentAt: z.string().datetime(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -809,6 +811,13 @@ export const messengerMessageCreateRequestSchema = z.object({
   messageType: messengerMessageTypeSchema.default("text"),
   body: z.string().trim().max(5000).optional(),
   replyToMessageId: z.string().trim().max(120).nullable().optional(),
+  mentionUserIds: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
+});
+
+export const messengerMessageSearchRequestSchema = z.object({
+  query: z.string().trim().min(1).max(120),
+  roomId: z.string().trim().min(1).max(160).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 export const messengerRoomMemberInviteRequestSchema = z.object({
@@ -876,6 +885,15 @@ export const messengerMessageMutationResponseSchema = successResponseSchema(
     message: messengerMessageSchema,
     audit: z.object({ candidate: z.literal(true), action: z.string() }),
     realtime: z.object({ eventType: z.literal("message.created"), dbSavedBeforeEvent: z.literal(true) }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerMessageSearchResponseSchema = successResponseSchema(
+  z.object({
+    query: z.string(),
+    roomId: z.string().nullable(),
+    messages: z.array(messengerMessageSchema),
     source: z.literal("postgres"),
   }),
 );

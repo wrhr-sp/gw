@@ -6514,7 +6514,8 @@ li {
 
 .messenger-member-panel__header,
 .messenger-member-panel__invite,
-.messenger-member-row {
+.messenger-member-row,
+.messenger-message-search {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6541,6 +6542,50 @@ li {
 }
 
 .messenger-member-row small {
+  color: var(--text-muted);
+}
+
+.messenger-member-row__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.messenger-message-search {
+  padding: var(--space-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.messenger-message-search .field {
+  min-width: 0;
+}
+
+.messenger-search-results {
+  display: grid;
+  gap: var(--feature-page-sublist-item-gap);
+  padding: var(--space-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-md);
+}
+
+.messenger-search-result {
+  display: grid;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-sm);
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.messenger-search-result span {
   color: var(--text-muted);
 }
 
