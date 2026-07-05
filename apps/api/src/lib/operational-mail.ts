@@ -21,7 +21,7 @@ type MailRow = {
   updated_at: Date | string;
 };
 
-export type MailBox = "inbox" | "sent" | "drafts" | "spam" | "trash";
+export type MailBox = "favorites" | "inbox" | "sent" | "drafts" | "spam" | "trash";
 
 function toIso(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -213,6 +213,16 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
+      : input.box === "favorites"
+        ? sql`${baseSelect}
+      where m.company_id = ${input.companyId}
+        and m.deleted_at is null
+        and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
+        and m.importance = 'important'
+        and m.status in ('sent', 'draft')
+      order by coalesce(m.sent_at, m.updated_at) desc
+      limit 50
+    `
       : input.box === "spam" || input.box === "trash"
         ? sql`${baseSelect}
       where m.company_id = ${input.companyId}
@@ -239,6 +249,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         count(*) filter (where recipient_user_id = ${input.userId} and status = 'sent' and read_at is null and deleted_at is null) as unread,
         count(*) filter (where sender_user_id = ${input.userId} and status = 'sent' and deleted_at is null) as sent,
         count(*) filter (where sender_user_id = ${input.userId} and status = 'draft' and deleted_at is null) as drafts,
+        count(*) filter (where (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId}) and importance = 'important' and status in ('sent', 'draft') and deleted_at is null) as favorites,
         count(*) filter (where (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId}) and status = 'spam' and deleted_at is null) as spam,
         count(*) filter (where (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId}) and status = 'trash' and deleted_at is null) as trash
       from mail_messages
@@ -254,6 +265,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       unread: Number(countRow.unread ?? 0),
       sent: Number(countRow.sent ?? 0),
       drafts: Number(countRow.drafts ?? 0),
+      favorites: Number(countRow.favorites ?? 0),
       spam: Number(countRow.spam ?? 0),
       trash: Number(countRow.trash ?? 0),
     },
@@ -305,6 +317,39 @@ export async function moveOperationalMailMessage(env: DatabaseEnv | undefined, i
         ${input.target !== "inbox"}
         or status in ('spam', 'trash', 'archived')
       )
+    returning
+      id,
+      company_id,
+      sender_user_id,
+      (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      sender_mail_account_id,
+      sender_mail_alias_id,
+      sender_email,
+      sender_display_name,
+      recipient_user_id,
+      (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
+      subject,
+      body,
+      status,
+      importance,
+      sent_at,
+      read_at,
+      created_at,
+      updated_at
+  `;
+  return (rows[0] as MailRow | undefined) ? mapMailMessage(rows[0] as MailRow) : null;
+}
+
+export async function setOperationalMailMessageFavorite(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string; isFavorite: boolean }) {
+  const sql = getDbClient(env ?? {});
+  const rows = await sql`
+    update mail_messages
+    set importance = ${input.isFavorite ? "important" : "normal"}, updated_at = now()
+    where id = ${input.messageId}
+      and company_id = ${input.companyId}
+      and deleted_at is null
+      and (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId})
+      and status in ('sent', 'draft')
     returning
       id,
       company_id,

@@ -8,6 +8,7 @@ import {
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageMoveResponseSchema,
+  mailMessageFavoriteResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
   mailRecipientListResponseSchema,
@@ -272,6 +273,55 @@ describe("operational mail API", () => {
     expect(deleteResponse.status).toBe(200);
     const deletedRows = await sql`select count(*)::int as count from mail_messages where id = ${messageId} and deleted_at is not null`;
     expect(Number(deletedRows[0]?.count ?? 0)).toBe(1);
+
+    await cleanupMailMessageById(messageId);
+  });
+
+  runWhenDbConfigured("toggles a mail favorite and lists it in favorites", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 즐겨찾기 DB smoke ${Date.now()}`;
+    await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const hrCookie = await login("HR_ADMIN");
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "즐겨찾기 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(sendResponse.status).toBe(201);
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+    const messageId = sendPayload.data.message.id;
+
+    const favoriteResponse = await app.request(
+      appRoutes.mail.favoriteMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ isFavorite: true }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(favoriteResponse.status).toBe(200);
+    const favoritePayload = mailMessageFavoriteResponseSchema.parse(await favoriteResponse.json());
+    expect(favoritePayload.data.isFavorite).toBe(true);
+    expect(favoritePayload.data.message.importance).toBe("important");
+
+    const favoritesResponse = await app.request(`${appRoutes.mail.messages}?box=favorites`, { headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(favoritesResponse.status).toBe(200);
+    const favoritesPayload = mailMessageListResponseSchema.parse(await favoritesResponse.json());
+    expect(favoritesPayload.data.items.some((item) => item.id === messageId)).toBe(true);
+    expect(favoritesPayload.data.counts.favorites).toBeGreaterThan(0);
+
+    const unfavoriteResponse = await app.request(
+      appRoutes.mail.favoriteMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ isFavorite: false }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(unfavoriteResponse.status).toBe(200);
+    const unfavoritePayload = mailMessageFavoriteResponseSchema.parse(await unfavoriteResponse.json());
+    expect(unfavoritePayload.data.isFavorite).toBe(false);
+    expect(unfavoritePayload.data.message.importance).toBe("normal");
 
     await cleanupMailMessageById(messageId);
   });
