@@ -16,6 +16,7 @@ import {
   mailDeliveryHistoryResponseSchema,
   mailTemplateListResponseSchema,
   mailTemplateRenderResponseSchema,
+  mailTemplateTestSendResponseSchema,
   mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
@@ -870,6 +871,39 @@ export function MailClient() {
     setStatus("메일 템플릿 미리보기 결과를 본문에 적용했습니다.");
   }
 
+  async function sendTemplateTestToMyself() {
+    if (!selectedTemplateId) {
+      setStatus("테스트 발송할 메일 템플릿을 선택하세요.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(appRoutes.mail.testSendTemplate(selectedTemplateId), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          variables: parseTemplateVariables(templateVariablesText),
+          senderMailAccountId: selectedSenderOption?.accountId || undefined,
+          senderMailAliasId: selectedSenderOption?.aliasId || undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStatus(payload?.error?.message ?? "템플릿 테스트 메일을 보내지 못했습니다.");
+        return;
+      }
+      const parsed = mailTemplateTestSendResponseSchema.parse(payload);
+      setSubject(parsed.data.rendered.subject);
+      setBody(parsed.data.rendered.body);
+      await loadMessages("inbox");
+      setView("inbox");
+      setStatus(`내게 테스트 메일을 보냈습니다: ${parsed.data.message.subject}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function writeToMyself() {
     setRecipientUserIds(["user_company_admin"]);
     setCcUserIds([]);
@@ -1538,6 +1572,7 @@ export function MailClient() {
               <button className="mail-compose-toolbar-button" disabled={isSubmitting} type="button" onClick={() => void saveDraft()}>임시저장</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={() => void applyTemplate()}>템플릿 적용</button>
+              <button className="mail-compose-toolbar-button" disabled={isSubmitting} type="button" onClick={() => void sendTemplateTestToMyself()}>내게 테스트 발송</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={writeToMyself}>내게쓰기</button>
             </div>
 
