@@ -145,6 +145,7 @@ export async function createOperationalMailDeliveryHistory(env: DatabaseEnv | un
   providerKind?: MailDeliveryBatch["providerKind"];
   providerName?: string;
   requestedBy: string;
+  scheduledAt?: string | null;
   recipients: DeliveryRecipientInput[];
 }) {
   const sql = getDbClient(env ?? {});
@@ -154,9 +155,9 @@ export async function createOperationalMailDeliveryHistory(env: DatabaseEnv | un
   const externalRecipientCount = input.recipients.filter((recipient) => !recipient.recipientUserId).length;
   const batchRows = await sql`
     insert into mail_delivery_batches (
-      id, company_id, sender_user_id, sender_mail_account_id, sender_mail_alias_id, sender_email, sender_display_name, email_type, delivery_mode, subject, body_snapshot, status, recipient_count, success_count, failed_count, blocked_count, external_recipient_count, provider_kind, provider_name, requested_by, requested_at, sent_at, failed_at, created_at, updated_at
+      id, company_id, sender_user_id, sender_mail_account_id, sender_mail_alias_id, sender_email, sender_display_name, email_type, delivery_mode, subject, body_snapshot, status, recipient_count, success_count, failed_count, blocked_count, external_recipient_count, provider_kind, provider_name, requested_by, requested_at, scheduled_at, sent_at, failed_at, created_at, updated_at
     ) values (
-      ${input.id}, ${input.companyId}, ${input.senderUserId}, ${input.senderMailAccountId ?? null}, ${input.senderMailAliasId ?? null}, ${input.senderEmail ?? null}, ${input.senderDisplayName ?? null}, ${input.emailType ?? "manual"}, ${input.deliveryMode ?? "immediate"}, ${input.subject}, ${input.bodySnapshot}, ${input.status}, ${input.recipients.length}, ${successCount}, ${failedCount}, ${blockedCount}, ${externalRecipientCount}, ${input.providerKind ?? "unconfigured"}, ${input.providerName ?? "unconfigured"}, ${input.requestedBy}, now(), ${successCount > 0 ? sql`now()` : null}, ${failedCount > 0 || blockedCount > 0 ? sql`now()` : null}, now(), now()
+      ${input.id}, ${input.companyId}, ${input.senderUserId}, ${input.senderMailAccountId ?? null}, ${input.senderMailAliasId ?? null}, ${input.senderEmail ?? null}, ${input.senderDisplayName ?? null}, ${input.emailType ?? "manual"}, ${input.deliveryMode ?? "immediate"}, ${input.subject}, ${input.bodySnapshot}, ${input.status}, ${input.recipients.length}, ${successCount}, ${failedCount}, ${blockedCount}, ${externalRecipientCount}, ${input.providerKind ?? "unconfigured"}, ${input.providerName ?? "unconfigured"}, ${input.requestedBy}, now(), ${input.scheduledAt ?? null}, ${successCount > 0 ? sql`now()` : null}, ${failedCount > 0 || blockedCount > 0 ? sql`now()` : null}, now(), now()
     )
     returning id, company_id, sender_user_id, (select coalesce(display_name, login_id, '알 수 없음') from users where id = ${input.senderUserId}) as sender_name, sender_mail_account_id, sender_mail_alias_id, sender_email, sender_display_name, email_type, delivery_mode, subject, status, recipient_count, success_count, failed_count, blocked_count, external_recipient_count, provider_kind, provider_name, requested_by, requested_at, scheduled_at, sent_at, failed_at, created_at, updated_at
   `;
@@ -175,7 +176,7 @@ export async function createOperationalMailDeliveryHistory(env: DatabaseEnv | un
   return mapBatch(batchRows[0] as DeliveryBatchRow, recipientRows.map(mapRecipient));
 }
 
-export function buildInternalDeliveryRecipients(messages: MailMessage[], idPrefix: string): DeliveryRecipientInput[] {
+export function buildInternalDeliveryRecipients(messages: MailMessage[], idPrefix: string, options?: { status?: DeliveryRecipientInput["status"]; providerKind?: DeliveryRecipientInput["providerKind"]; providerName?: string }): DeliveryRecipientInput[] {
   return messages.map((message, index) => ({
     id: `${idPrefix}_recipient_${index + 1}`,
     messageId: message.id,
@@ -183,8 +184,10 @@ export function buildInternalDeliveryRecipients(messages: MailMessage[], idPrefi
     recipientEmail: `${message.recipientUserId ?? "unknown"}@internal.local`,
     recipientName: message.recipientName,
     recipientType: "to",
-    status: "sent",
-    sentAt: message.sentAt,
+    status: options?.status ?? "sent",
+    providerKind: options?.providerKind,
+    providerName: options?.providerName,
+    sentAt: options?.status === "queued" ? null : message.sentAt,
   }));
 }
 

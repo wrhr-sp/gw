@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mailDeliveryHistoryResponseSchema } from "../src/contracts";
+import { mailBoxSchema, mailMessageListResponseSchema, mailMessageScheduleRequestSchema, mailDeliveryHistoryResponseSchema } from "../src/contracts";
 
 describe("mail delivery history contracts", () => {
   it("parses batch and per-recipient status history", () => {
@@ -61,5 +61,50 @@ describe("mail delivery history contracts", () => {
       error: null,
     });
     expect(parsed.data.items[0]?.recipients[0]?.status).toBe("sent");
+  });
+
+  it("parses scheduled mail request and scheduled mailbox list", () => {
+    const request = mailMessageScheduleRequestSchema.parse({
+      recipientUserIds: ["user_2"],
+      subject: "예약 안내",
+      body: "<p>예약 본문</p>",
+      importance: "normal",
+      scheduledAt: "2026-07-06T10:00:00.000Z",
+    });
+    expect(request.scheduledAt).toBe("2026-07-06T10:00:00.000Z");
+    expect(mailBoxSchema.parse("scheduled")).toBe("scheduled");
+
+    const parsed = mailMessageListResponseSchema.parse({
+      ok: true,
+      data: {
+        box: "scheduled",
+        items: [{
+          id: "message_scheduled_1",
+          companyId: "company_1",
+          senderUserId: "user_1",
+          senderName: "관리자",
+          senderMailAccountId: null,
+          senderMailAliasId: null,
+          senderEmail: null,
+          senderDisplayName: null,
+          recipientUserId: "user_2",
+          recipientName: "직원",
+          subject: "예약 안내",
+          body: "<p>예약 본문</p>",
+          status: "scheduled",
+          importance: "normal",
+          sentAt: null,
+          scheduledAt: "2026-07-06T10:00:00.000Z",
+          readAt: null,
+          createdAt: "2026-07-05T10:00:00.000Z",
+          updatedAt: "2026-07-05T10:00:00.000Z",
+        }],
+        counts: { inbox: 0, unread: 0, sent: 0, drafts: 0, favorites: 0, scheduled: 1, spam: 0, trash: 0 },
+        source: "postgres",
+      },
+      error: null,
+    });
+    expect(parsed.data.items[0]?.status).toBe("scheduled");
+    expect(parsed.data.counts.scheduled).toBe(1);
   });
 });

@@ -461,4 +461,44 @@ describe("operational mail API", () => {
 
     await cleanupMailMessagesBySubject(subject);
   });
+
+  runWhenDbConfigured("schedules, lists, and cancels internal mail through PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 예약 DB smoke ${Date.now()}`;
+    await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const scheduleResponse = await app.request(
+      appRoutes.mail.schedule,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "예약 저장 조회 검증", importance: "normal", scheduledAt }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(scheduleResponse.status).toBe(201);
+    const schedulePayload = mailMessageSendResponseSchema.parse(await scheduleResponse.json());
+    expect(schedulePayload.data.message.status).toBe("scheduled");
+    expect(schedulePayload.data.message.scheduledAt).toBe(scheduledAt);
+
+    const scheduledResponse = await app.request(`${appRoutes.mail.messages}?box=scheduled`, { headers: { cookie: adminCookie } }, { DATABASE_URL: databaseUrl });
+    expect(scheduledResponse.status).toBe(200);
+    const scheduledPayload = mailMessageListResponseSchema.parse(await scheduledResponse.json());
+    expect(scheduledPayload.data.items.some((item) => item.id === schedulePayload.data.message.id)).toBe(true);
+    expect(scheduledPayload.data.counts.scheduled).toBeGreaterThan(0);
+
+    const cancelResponse = await app.request(
+      appRoutes.mail.moveMessage(schedulePayload.data.message.id),
+      { method: "POST", headers: { "content-type": "application/json", cookie: adminCookie }, body: JSON.stringify({ target: "cancel" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(cancelResponse.status).toBe(200);
+    const cancelPayload = mailMessageMoveResponseSchema.parse(await cancelResponse.json());
+    expect(cancelPayload.data.action).toBe("cancel");
+    expect(cancelPayload.data.message?.status).toBe("archived");
+
+    await cleanupMailMessagesBySubject(subject);
+  });
 });
