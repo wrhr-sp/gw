@@ -36,6 +36,9 @@ type MessengerThread = {
   lastMessage: string;
   time: string;
   unread: number;
+  mentionUnread: number;
+  hasUnreadMentions: boolean;
+  lastReadAt: string | null;
   kind: "1:1" | "그룹";
 };
 
@@ -147,6 +150,9 @@ function formatApiRoomToThread(room: {
   roomType: string;
   memberCount: number;
   unreadCount: number;
+  mentionUnreadCount?: number;
+  hasUnreadMentions?: boolean;
+  lastReadAt?: string | null;
   lastMessageBody: string | null;
   lastMessageAt: string | null;
   isExternal: boolean;
@@ -158,6 +164,9 @@ function formatApiRoomToThread(room: {
     lastMessage: room.lastMessageBody ?? "저장된 메시지가 아직 없습니다.",
     time: formatMessengerTime(room.lastMessageAt),
     unread: room.unreadCount,
+    mentionUnread: room.mentionUnreadCount ?? 0,
+    hasUnreadMentions: Boolean(room.hasUnreadMentions),
+    lastReadAt: room.lastReadAt ?? null,
     kind: formatMessengerRoomKind(room.roomType),
   };
 }
@@ -340,7 +349,8 @@ export default function MessengerPage() {
         return;
       }
       const parsed = messengerMessageListResponseSchema.parse(payload);
-      setApiMessages(parsed.data.messages.map((message) => ({
+      const messages = parsed.data.messages;
+      setApiMessages(messages.map((message) => ({
         id: message.id,
         senderName: message.senderName ?? "알 수 없음",
         body: message.body ?? "",
@@ -350,12 +360,27 @@ export default function MessengerPage() {
         mentions: message.mentions,
         attachments: message.attachments.map((attachment) => ({ id: attachment.id, name: attachment.fileName, sizeLabel: formatMessengerFileSize(attachment.fileSize), source: "pc", uploadStatus: attachment.storageStatus === "uploaded" ? "uploaded" : "uploading" })),
       })));
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage) {
+        void markLatestMessageRead(latestMessage.id, roomId);
+      }
       setDisplayMessage("");
     } catch {
       setApiMessages([]);
       setDisplayMessage("메시지 목록 요청 중 오류가 발생했습니다.");
     } finally {
       setIsMessageLoading(false);
+    }
+  }
+
+
+  async function markLatestMessageRead(messageId: string, roomId: string) {
+    try {
+      const response = await fetch(appRoutes.messenger.readMessage(messageId), { method: "POST", credentials: "same-origin" });
+      if (!response.ok) return;
+      setApiThreads((current) => current.map((thread) => thread.id === roomId ? { ...thread, unread: 0, mentionUnread: 0, hasUnreadMentions: false, lastReadAt: new Date().toISOString() } : thread));
+    } catch {
+      // 읽음 처리 실패는 메시지 조회를 막지 않는다.
     }
   }
 
@@ -755,7 +780,10 @@ export default function MessengerPage() {
                     <span className="messenger-thread__subtitle">{thread.subtitle}</span>
                     <span className="messenger-thread__message">{thread.lastMessage}</span>
                   </span>
-                  {thread.unread ? <span className="messenger-unread-badge">{thread.unread}</span> : null}
+                  <span className="messenger-thread__badges">
+                    {thread.hasUnreadMentions ? <span className="messenger-mention-badge">@{thread.mentionUnread}</span> : null}
+                    {thread.unread ? <span className="messenger-unread-badge">{thread.unread}</span> : null}
+                  </span>
                 </button>
               ))}
             </div>

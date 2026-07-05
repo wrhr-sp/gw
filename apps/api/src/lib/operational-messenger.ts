@@ -19,6 +19,9 @@ function mapRoom(row: Record<string, any>) {
     status: row.status as "active" | "inactive" | "archived" | "deleted" | "locked",
     memberCount: Number(row.member_count ?? 0),
     unreadCount: Number(row.unread_count ?? 0),
+    mentionUnreadCount: Number(row.mention_unread_count ?? 0),
+    hasUnreadMentions: Number(row.mention_unread_count ?? 0) > 0,
+    lastReadAt: toIso(row.last_read_at),
     lastMessageId: row.last_message_id == null ? null : String(row.last_message_id),
     lastMessageBody: row.last_message_body == null ? null : String(row.last_message_body),
     lastMessageAt: toIso(row.last_message_at),
@@ -130,6 +133,8 @@ async function getRoomForMember(sql: ReturnType<typeof getDbClient>, input: { co
       r.*,
       coalesce(member_counts.member_count, 0) as member_count,
       coalesce(me.unread_count, 0) as unread_count,
+      me.last_read_at as last_read_at,
+      coalesce(unread_mentions.mention_unread_count, 0) as mention_unread_count,
       last_message.body as last_message_body
     from messenger_rooms r
     join messenger_room_members me
@@ -146,6 +151,21 @@ async function getRoomForMember(sql: ReturnType<typeof getDbClient>, input: { co
         and m.is_active is true
         and m.left_at is null
     ) member_counts on true
+    left join lateral (
+      select count(*)::int as mention_unread_count
+      from messenger_message_mentions mm
+      join messenger_messages msg
+        on msg.company_id = mm.company_id
+       and msg.id = mm.message_id
+       and msg.room_id = r.id
+      where mm.company_id = r.company_id
+        and mm.room_id = r.id
+        and mm.mentioned_user_id = ${input.userId}
+        and msg.sender_id <> ${input.userId}
+        and msg.deleted is false
+        and msg.status <> 'hidden'
+        and (me.last_read_at is null or msg.sent_at > me.last_read_at)
+    ) unread_mentions on true
     left join messenger_messages last_message
       on last_message.company_id = r.company_id
      and last_message.id = r.last_message_id
@@ -164,6 +184,8 @@ export async function listOperationalMessengerRooms(env: DatabaseEnv | undefined
       r.*,
       coalesce(member_counts.member_count, 0) as member_count,
       coalesce(me.unread_count, 0) as unread_count,
+      me.last_read_at as last_read_at,
+      coalesce(unread_mentions.mention_unread_count, 0) as mention_unread_count,
       last_message.body as last_message_body
     from messenger_rooms r
     join messenger_room_members me
@@ -180,6 +202,21 @@ export async function listOperationalMessengerRooms(env: DatabaseEnv | undefined
         and m.is_active is true
         and m.left_at is null
     ) member_counts on true
+    left join lateral (
+      select count(*)::int as mention_unread_count
+      from messenger_message_mentions mm
+      join messenger_messages msg
+        on msg.company_id = mm.company_id
+       and msg.id = mm.message_id
+       and msg.room_id = r.id
+      where mm.company_id = r.company_id
+        and mm.room_id = r.id
+        and mm.mentioned_user_id = ${input.userId}
+        and msg.sender_id <> ${input.userId}
+        and msg.deleted is false
+        and msg.status <> 'hidden'
+        and (me.last_read_at is null or msg.sent_at > me.last_read_at)
+    ) unread_mentions on true
     left join messenger_messages last_message
       on last_message.company_id = r.company_id
      and last_message.id = r.last_message_id

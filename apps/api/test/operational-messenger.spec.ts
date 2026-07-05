@@ -141,6 +141,25 @@ describe("operational messenger API", () => {
     const mentionPayload = messengerMessageMutationResponseSchema.parse(await mentionResponse.json());
     expect(mentionPayload.data.message.mentions.some((mention) => mention.userId === "user_employee")).toBe(true);
 
+    const employeeCookieForUnread = await login("EMPLOYEE");
+    const employeeRoomsBeforeReadResponse = await app.request(appRoutes.messenger.rooms, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(employeeRoomsBeforeReadResponse.status).toBe(200);
+    const employeeRoomsBeforeRead = messengerRoomListResponseSchema.parse(await employeeRoomsBeforeReadResponse.json());
+    const employeeRoomBeforeRead = employeeRoomsBeforeRead.data.rooms.find((room) => room.id === createdRoom.data.room.id);
+    expect(employeeRoomBeforeRead?.unreadCount).toBeGreaterThanOrEqual(2);
+    expect(employeeRoomBeforeRead?.mentionUnreadCount).toBe(1);
+    expect(employeeRoomBeforeRead?.hasUnreadMentions).toBe(true);
+
+    const employeeReadMentionResponse = await app.request(appRoutes.messenger.readMessage(mentionPayload.data.message.id), { method: "POST", headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(employeeReadMentionResponse.status).toBe(200);
+    const employeeRoomsAfterReadResponse = await app.request(appRoutes.messenger.rooms, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(employeeRoomsAfterReadResponse.status).toBe(200);
+    const employeeRoomsAfterRead = messengerRoomListResponseSchema.parse(await employeeRoomsAfterReadResponse.json());
+    const employeeRoomAfterRead = employeeRoomsAfterRead.data.rooms.find((room) => room.id === createdRoom.data.room.id);
+    expect(employeeRoomAfterRead?.unreadCount).toBe(0);
+    expect(employeeRoomAfterRead?.mentionUnreadCount).toBe(0);
+    expect(employeeRoomAfterRead?.hasUnreadMentions).toBe(false);
+
     const searchResponse = await app.request(
       `${appRoutes.messenger.roomSearch(createdRoom.data.room.id)}?query=${encodeURIComponent("검색멘션")}`,
       { headers: { cookie } },

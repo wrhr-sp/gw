@@ -51,6 +51,8 @@ describe("messenger page", () => {
     expect(pageSource).toContain("messengerAttachmentMutationResponseSchema");
     expect(pageSource).toContain("messengerMessageSearchResponseSchema");
     expect(pageSource).toContain("uploadMessengerAttachment");
+    expect(pageSource).toContain("markLatestMessageRead");
+    expect(pageSource).toContain("messenger-mention-badge");
     expect(pageSource).toContain("handleSearchMessages");
     expect(pageSource).toContain("handleInsertMention");
     expect(pageSource).toContain("messengerThreadLeaveResponseSchema");
@@ -131,6 +133,8 @@ describe("messenger page", () => {
     expect(globalCss).toContain(".messenger-message-search");
     expect(globalCss).toContain(".messenger-search-results");
     expect(globalCss).toContain(".messenger-message-attachments");
+    expect(globalCss).toContain(".messenger-thread__badges");
+    expect(globalCss).toContain(".messenger-mention-badge");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");

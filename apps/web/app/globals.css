@@ -6700,6 +6700,13 @@ li {
   white-space: nowrap;
 }
 
+.messenger-thread__badges {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  align-items: flex-end;
+}
+
 .messenger-unread-badge {
   display: inline-grid;
   min-width: var(--feature-page-count-badge-min-width);
@@ -6714,6 +6721,23 @@ li {
   line-height: var(--feature-page-count-badge-line-height);
   text-align: center;
   background: var(--feature-page-count-badge-bg);
+  border-radius: var(--feature-page-count-badge-radius);
+}
+
+.messenger-mention-badge {
+  display: inline-grid;
+  min-width: var(--feature-page-count-badge-min-width);
+  height: var(--feature-page-count-badge-height);
+  place-items: center;
+  padding: 0 var(--feature-page-count-badge-padding-inline);
+  color: var(--feature-page-count-badge-color);
+  font-family: var(--feature-page-count-badge-font-family);
+  font-size: var(--feature-page-count-badge-font-size);
+  font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
+  font-weight: var(--feature-page-count-badge-font-weight);
+  line-height: var(--feature-page-count-badge-line-height);
+  text-align: center;
+  background: var(--primary);
   border-radius: var(--feature-page-count-badge-radius);
 }
 
