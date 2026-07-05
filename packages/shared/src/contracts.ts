@@ -73,6 +73,7 @@ export const appRoutes = {
     templates: "/api/mail/templates",
     template: (templateId: string) => `/api/mail/templates/${templateId}`,
     renderTemplate: (templateId: string) => `/api/mail/templates/${templateId}/render`,
+    testSendTemplate: (templateId: string) => `/api/mail/templates/${templateId}/test-send`,
   },
   messenger: {
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
@@ -461,6 +462,10 @@ export const mailTemplateUpdateRequestSchema = mailTemplateCreateRequestSchema.p
 export const mailTemplateRenderRequestSchema = z.object({
   variables: mailTemplateVariableMapSchema.default({}),
 });
+export const mailTemplateTestSendRequestSchema = mailTemplateRenderRequestSchema.extend({
+  senderMailAccountId: z.string().min(1).optional(),
+  senderMailAliasId: z.string().min(1).optional(),
+});
 export const mailTemplateRenderResultSchema = z.object({
   templateId: z.string(),
   subject: z.string(),
@@ -479,6 +484,12 @@ export const mailTemplateMutationResponseSchema = successResponseSchema(z.object
 }));
 export const mailTemplateRenderResponseSchema = successResponseSchema(z.object({
   rendered: mailTemplateRenderResultSchema,
+  source: z.literal("postgres"),
+}));
+export const mailTemplateTestSendResponseSchema = successResponseSchema(z.object({
+  rendered: mailTemplateRenderResultSchema,
+  message: mailMessageSchema,
+  audit: z.object({ candidate: z.literal(true), action: z.literal("mail.template.test_send") }),
   source: z.literal("postgres"),
 }));
 
@@ -3655,6 +3666,7 @@ export type MailDeliveryRecipient = z.infer<typeof mailDeliveryRecipientSchema>;
 export type MailDeliveryHistoryResponse = z.infer<typeof mailDeliveryHistoryResponseSchema>;
 export type MailTemplate = z.infer<typeof mailTemplateSchema>;
 export type MailTemplateRenderResult = z.infer<typeof mailTemplateRenderResultSchema>;
+export type MailTemplateTestSendResponse = z.infer<typeof mailTemplateTestSendResponseSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;

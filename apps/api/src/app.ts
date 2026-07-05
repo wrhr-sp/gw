@@ -161,6 +161,8 @@ import {
   mailTemplateMutationResponseSchema,
   mailTemplateRenderRequestSchema,
   mailTemplateRenderResponseSchema,
+  mailTemplateTestSendRequestSchema,
+  mailTemplateTestSendResponseSchema,
   mailTemplateUpdateRequestSchema,
   mailMessageListResponseSchema,
   mailRecipientListResponseSchema,
@@ -6313,6 +6315,72 @@ app.post(appRoutes.mail.renderTemplate(":id"), async (context) => {
     return jsonSuccess(context, mailTemplateRenderResponseSchema, { ok: true, data: { rendered, source: "postgres" }, error: null });
   } catch {
     return jsonDatabaseRequired(context, "메일 템플릿 미리보기");
+  }
+});
+
+app.post(appRoutes.mail.testSendTemplate(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailTemplateTestSendRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 템플릿 테스트 발송 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const template = await getOperationalMailTemplate(context.env, { companyId: authResult.auth.user.companyId, templateId: context.req.param("id") ?? "" });
+    if (!template || !template.isActive) return jsonError(context, "EMAIL_TEMPLATE_NOT_FOUND", "사용 가능한 메일 템플릿을 찾을 수 없습니다.", 400, { route: context.req.path });
+    const rendered = renderOperationalMailTemplate(template, parsed.data.variables);
+    if (rendered.missingVariables.length) {
+      return jsonError(context, "EMAIL_TEMPLATE_VARIABLE_MISSING", "이메일 템플릿에 필요한 변수가 누락되었습니다.", 400, { missingVariables: rendered.missingVariables });
+    }
+    const senderAccount = parsed.data.senderMailAccountId || parsed.data.senderMailAliasId
+      ? await resolveOperationalMailSenderAccount(context.env, {
+        companyId: authResult.auth.user.companyId,
+        userId: authResult.auth.user.id,
+        isAdmin: isMailSettingsAdmin(authResult.auth.roleCode),
+      }, {
+        accountId: parsed.data.senderMailAccountId,
+        aliasId: parsed.data.senderMailAliasId,
+      })
+      : null;
+    if ((parsed.data.senderMailAccountId || parsed.data.senderMailAliasId) && !senderAccount) {
+      return jsonError(context, "FORBIDDEN", "선택한 보낸사람 계정을 사용할 수 없습니다.", 403, { route: context.req.path });
+    }
+    const messages = await createOperationalMailMessages(context.env, {
+      idPrefix: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      recipientUserIds: [authResult.auth.user.id],
+      subject: `[테스트] ${rendered.subject}`.slice(0, 200),
+      body: rendered.body,
+      importance: "normal",
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
+    });
+    const message = messages[0];
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "내게 테스트 메일을 보낼 수 없습니다.", 403, { route: context.req.path });
+    }
+    const deliveryBatchId = buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id);
+    await createOperationalMailDeliveryHistory(context.env, {
+      id: deliveryBatchId,
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
+      subject: message.subject,
+      bodySnapshot: message.body,
+      status: "sent",
+      requestedBy: authResult.auth.user.id,
+      recipients: buildInternalDeliveryRecipients(messages, deliveryBatchId),
+    });
+    return jsonSuccess(context, mailTemplateTestSendResponseSchema, { ok: true, data: { rendered, message, audit: { candidate: true, action: "mail.template.test_send" }, source: "postgres" }, error: null }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메일 템플릿 테스트 발송");
   }
 });
 

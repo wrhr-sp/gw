@@ -64,6 +64,9 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("mailTemplateListResponseSchema");
     expect(mailClient).toContain("appRoutes.mail.templates");
     expect(mailClient).toContain("appRoutes.mail.renderTemplate");
+    expect(mailClient).toContain("appRoutes.mail.testSendTemplate");
+    expect(mailClient).toContain("mailTemplateTestSendResponseSchema");
+    expect(mailClient).toContain("내게 테스트 발송");
     expect(mailClient).toContain("data-mail-template-variable-render");
     expect(mailClient).toContain("누락 변수는 발송 전 미리보기 API에서 차단합니다.");
     expect(globalCss).toContain(".mail-integration-settings");
