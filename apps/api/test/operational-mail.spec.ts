@@ -7,6 +7,7 @@ import {
   mailAttachmentUploadResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
+  mailMessageMoveResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
   mailRecipientListResponseSchema,
@@ -52,6 +53,25 @@ async function login(roleCode: "COMPANY_ADMIN" | "HR_ADMIN" = "COMPANY_ADMIN") {
   );
   expect(response.status).toBe(200);
   return response.headers.get("set-cookie") ?? "";
+}
+
+async function cleanupMailMessagesBySubject(subject: string) {
+  if (!sql) return;
+  const rows = await sql`select id from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+  for (const row of rows as Array<{ id: string }>) {
+    await cleanupMailMessageById(row.id);
+  }
+}
+
+async function cleanupMailMessageById(messageId: string) {
+  if (!sql) return;
+  const batchRows = await sql`select distinct batch_id from mail_delivery_recipients where message_id = ${messageId}`;
+  for (const row of batchRows as Array<{ batch_id: string }>) {
+    await sql`delete from mail_delivery_recipients where batch_id = ${row.batch_id}`;
+    await sql`delete from mail_delivery_batches where id = ${row.batch_id}`;
+  }
+  await sql`delete from mail_attachments where message_id = ${messageId}`;
+  await sql`delete from mail_messages where id = ${messageId}`;
 }
 
 describe("operational mail API", () => {
@@ -127,7 +147,7 @@ describe("operational mail API", () => {
   runWhenDbConfigured("saves draft mail through PostgreSQL and lists it in drafts", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const subject = `메일 임시저장 DB smoke ${Date.now()}`;
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
 
     const adminCookie = await login("COMPANY_ADMIN");
     const draftResponse = await app.request(
@@ -155,7 +175,7 @@ describe("operational mail API", () => {
   runWhenDbConfigured("sends, lists, and marks internal mail through PostgreSQL", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const subject = `메일 DB smoke ${Date.now()}`;
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
 
     const adminCookie = await login("COMPANY_ADMIN");
     const sendResponse = await app.request(
@@ -188,13 +208,78 @@ describe("operational mail API", () => {
     const readPayload = mailMessageReadResponseSchema.parse(await readResponse.json());
     expect(readPayload.data.message.readAt).not.toBeNull();
 
-    await sql`delete from mail_messages where id = ${sendPayload.data.message.id}`;
+    await cleanupMailMessageById(sendPayload.data.message.id);
+  });
+
+  runWhenDbConfigured("moves internal mail to spam, restores it, moves it to trash, and permanently deletes it", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subject = `메일 스팸 휴지통 DB smoke ${Date.now()}`;
+    await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const hrCookie = await login("HR_ADMIN");
+    const sendResponse = await app.request(
+      appRoutes.mail.send,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: adminCookie },
+        body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "스팸 휴지통 이동 검증", importance: "normal" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(sendResponse.status).toBe(201);
+    const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+    const messageId = sendPayload.data.message.id;
+
+    const spamResponse = await app.request(
+      appRoutes.mail.moveMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ target: "spam" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(spamResponse.status).toBe(200);
+    const spamPayload = mailMessageMoveResponseSchema.parse(await spamResponse.json());
+    expect(spamPayload.data.message?.status).toBe("spam");
+
+    const spamListResponse = await app.request(`${appRoutes.mail.messages}?box=spam`, { headers: { cookie: hrCookie } }, { DATABASE_URL: databaseUrl });
+    expect(spamListResponse.status).toBe(200);
+    const spamListPayload = mailMessageListResponseSchema.parse(await spamListResponse.json());
+    expect(spamListPayload.data.items.some((item) => item.id === messageId)).toBe(true);
+    expect(spamListPayload.data.counts.spam).toBeGreaterThan(0);
+
+    const restoreResponse = await app.request(
+      appRoutes.mail.moveMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ target: "inbox" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(restoreResponse.status).toBe(200);
+    const restorePayload = mailMessageMoveResponseSchema.parse(await restoreResponse.json());
+    expect(restorePayload.data.message?.status).toBe("sent");
+
+    const trashResponse = await app.request(
+      appRoutes.mail.moveMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ target: "trash" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(trashResponse.status).toBe(200);
+    const trashPayload = mailMessageMoveResponseSchema.parse(await trashResponse.json());
+    expect(trashPayload.data.message?.status).toBe("trash");
+
+    const deleteResponse = await app.request(
+      appRoutes.mail.moveMessage(messageId),
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ target: "delete" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(deleteResponse.status).toBe(200);
+    const deletedRows = await sql`select count(*)::int as count from mail_messages where id = ${messageId} and deleted_at is not null`;
+    expect(Number(deletedRows[0]?.count ?? 0)).toBe(1);
+
+    await cleanupMailMessageById(messageId);
   });
 
   runWhenDbConfigured("sends one internal mail to multiple recipients through PostgreSQL", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const subject = `메일 다중수신 DB smoke ${Date.now()}`;
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
 
     const adminCookie = await login("COMPANY_ADMIN");
     const sendResponse = await app.request(
@@ -216,14 +301,14 @@ describe("operational mail API", () => {
     const sentPayload = mailMessageListResponseSchema.parse(await sentResponse.json());
     expect(sentPayload.data.items.filter((item) => item.subject === subject)).toHaveLength(2);
 
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
   });
 
   runWhenDbConfigured("uploads, lists, and downloads mail attachments through R2 and PostgreSQL", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const r2 = createFakeR2Bucket();
     const subject = `메일 첨부 DB smoke ${Date.now()}`;
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
 
     const adminCookie = await login("COMPANY_ADMIN");
     const sendResponse = await app.request(
@@ -269,14 +354,14 @@ describe("operational mail API", () => {
     expect(downloadResponse.headers.get("content-type")).toContain("text/plain");
     expect(await downloadResponse.text()).toBe("attachment-body");
 
-    await sql`delete from mail_messages where id = ${messageId}`;
+    await cleanupMailMessageById(messageId);
   });
 
   runWhenDbConfigured("uploads mail attachments before send and links them to the sent message", async () => {
     if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
     const r2 = createFakeR2Bucket();
     const subject = `메일 즉시첨부 DB smoke ${Date.now()}`;
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
 
     const adminCookie = await login("COMPANY_ADMIN");
     const draftResponse = await app.request(
@@ -324,6 +409,6 @@ describe("operational mail API", () => {
     const listPayload = mailAttachmentListResponseSchema.parse(await listResponse.json());
     expect(listPayload.data.items.map((item) => item.fileName)).toContain("pre-send.txt");
 
-    await sql`delete from mail_messages where company_id = 'company_demo' and subject = ${subject}`;
+    await cleanupMailMessagesBySubject(subject);
   });
 });

@@ -20,6 +20,7 @@ import {
   mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
+  mailMessageMoveResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
   mailRecipientListResponseSchema,
@@ -50,6 +51,8 @@ const boxLabels: Record<MailBox, string> = {
   inbox: "받은메일함",
   sent: "보낸메일함",
   drafts: "임시보관함",
+  spam: "스팸메일함",
+  trash: "휴지통",
 };
 
 type MailFolderId = "favorites" | "inbox" | "sent" | "drafts" | "scheduled" | "spam" | "trash" | "external";
@@ -74,15 +77,15 @@ const defaultMailFolders: readonly MailFolderConfig[] = [
   { id: "sent", label: "보낸메일함", group: "mailbox", box: "sent" },
   { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
   { id: "scheduled", label: "예약메일함", group: "mailbox" },
-  { id: "spam", label: "스팸메일함", group: "mailbox" },
+  { id: "spam", label: "스팸메일함", group: "mailbox", box: "spam" },
   { id: "external", label: "외부메일함", group: "external" },
-  { id: "trash", label: "휴지통", group: "trash" },
+  { id: "trash", label: "휴지통", group: "trash", box: "trash" },
 ];
 
 const defaultVisibleFolderIds = defaultMailFolders.map((folder) => folder.id);
 
 function isMailBox(value: MailView): value is MailBox {
-  return value === "inbox" || value === "sent" || value === "drafts";
+  return value === "inbox" || value === "sent" || value === "drafts" || value === "spam" || value === "trash";
 }
 
 function formatMeta(message: MailMessage, box: MailBox) {
@@ -93,10 +96,12 @@ function formatMeta(message: MailMessage, box: MailBox) {
   return `${message.senderName} · ${label}`;
 }
 
-function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number }) {
+function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number; spam: number; trash: number }) {
   if (folder.id === "inbox") return String(counts.inbox);
   if (folder.id === "sent") return String(counts.sent);
   if (folder.id === "drafts") return String(counts.drafts);
+  if (folder.id === "spam") return String(counts.spam);
+  if (folder.id === "trash") return String(counts.trash);
   if (folder.id === "favorites") return "★";
   return "";
 }
@@ -205,7 +210,7 @@ export function MailClient() {
   const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
   const [composeDraftMessageId, setComposeDraftMessageId] = useState<string | null>(null);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
-  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0 });
+  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, spam: 0, trash: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
@@ -1072,6 +1077,26 @@ export function MailClient() {
     await loadMessages("inbox");
   }
 
+  async function moveMessage(messageId: string, target: "spam" | "trash" | "inbox" | "archive" | "delete") {
+    const response = await fetch(appRoutes.mail.moveMessage(messageId), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ target }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "메일함 이동에 실패했습니다.");
+      return;
+    }
+    const parsed = mailMessageMoveResponseSchema.parse(payload);
+    const nextBox = target === "spam" ? "spam" : target === "trash" ? "trash" : target === "delete" ? "trash" : "inbox";
+    setSelectedMessageId(null);
+    await loadMessages(nextBox);
+    setView(nextBox);
+    setStatus(target === "delete" ? "휴지통 메일을 완전 삭제했습니다." : `${boxLabels[nextBox]}으로 이동했습니다: ${parsed.data.message?.subject ?? "메일"}`);
+  }
+
   async function createMailAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("메일 계정을 등록하는 중입니다.");
@@ -1756,6 +1781,10 @@ export function MailClient() {
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("reply", selectedMessage)}>답장</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("forward", selectedMessage)}>전달</button>
+                      {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "spam")}>스팸으로 이동</button> : null}
+                      {currentBox !== "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "trash")}>휴지통으로 이동</button> : null}
+                      {currentBox === "spam" || currentBox === "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "inbox")}>받은메일함으로 복구</button> : null}
+                      {currentBox === "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "delete")}>완전삭제</button> : null}
                     </div>
                   </div>
                   <div className="mail-detail-panel__body" dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />

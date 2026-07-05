@@ -1,4 +1,4 @@
-import { type MailMessage, type MailRecipient } from "@gw/shared";
+import { type MailMessage, type MailMessageMoveTarget, type MailRecipient } from "@gw/shared";
 import { getDbClient, type DatabaseEnv } from "../utils/db";
 type MailRow = {
   id: string;
@@ -21,7 +21,7 @@ type MailRow = {
   updated_at: Date | string;
 };
 
-export type MailBox = "inbox" | "sent" | "drafts";
+export type MailBox = "inbox" | "sent" | "drafts" | "spam" | "trash";
 
 function toIso(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -171,8 +171,7 @@ export async function listOperationalMailRecipients(env: DatabaseEnv | undefined
 
 export async function listOperationalMailMessages(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; box: MailBox }) {
   const sql = getDbClient(env ?? {});
-  const itemsPromise = input.box === "sent"
-    ? sql`
+  const baseSelect = sql`
       select
         m.id,
         m.company_id,
@@ -195,6 +194,9 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       from mail_messages m
       join users sender on sender.id = m.sender_user_id and sender.company_id = m.company_id
       left join users recipient on recipient.id = m.recipient_user_id and recipient.company_id = m.company_id
+  `;
+  const itemsPromise = input.box === "sent"
+    ? sql`${baseSelect}
       where m.company_id = ${input.companyId}
         and m.deleted_at is null
         and m.sender_user_id = ${input.userId}
@@ -203,29 +205,7 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       limit 50
     `
     : input.box === "drafts"
-      ? sql`
-      select
-        m.id,
-        m.company_id,
-        m.sender_user_id,
-        coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
-        m.sender_mail_account_id,
-        m.sender_mail_alias_id,
-        m.sender_email,
-        m.sender_display_name,
-        m.recipient_user_id,
-        coalesce(recipient.display_name, recipient.login_id) as recipient_name,
-        m.subject,
-        m.body,
-        m.status,
-        m.importance,
-        m.sent_at,
-        m.read_at,
-        m.created_at,
-        m.updated_at
-      from mail_messages m
-      join users sender on sender.id = m.sender_user_id and sender.company_id = m.company_id
-      left join users recipient on recipient.id = m.recipient_user_id and recipient.company_id = m.company_id
+      ? sql`${baseSelect}
       where m.company_id = ${input.companyId}
         and m.deleted_at is null
         and m.sender_user_id = ${input.userId}
@@ -233,29 +213,16 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       order by coalesce(m.sent_at, m.updated_at) desc
       limit 50
     `
-      : sql`
-      select
-        m.id,
-        m.company_id,
-        m.sender_user_id,
-        coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
-        m.sender_mail_account_id,
-        m.sender_mail_alias_id,
-        m.sender_email,
-        m.sender_display_name,
-        m.recipient_user_id,
-        coalesce(recipient.display_name, recipient.login_id) as recipient_name,
-        m.subject,
-        m.body,
-        m.status,
-        m.importance,
-        m.sent_at,
-        m.read_at,
-        m.created_at,
-        m.updated_at
-      from mail_messages m
-      join users sender on sender.id = m.sender_user_id and sender.company_id = m.company_id
-      left join users recipient on recipient.id = m.recipient_user_id and recipient.company_id = m.company_id
+      : input.box === "spam" || input.box === "trash"
+        ? sql`${baseSelect}
+      where m.company_id = ${input.companyId}
+        and m.deleted_at is null
+        and (m.sender_user_id = ${input.userId} or m.recipient_user_id = ${input.userId})
+        and m.status = ${input.box}
+      order by coalesce(m.sent_at, m.updated_at) desc
+      limit 50
+    `
+        : sql`${baseSelect}
       where m.company_id = ${input.companyId}
         and m.deleted_at is null
         and m.recipient_user_id = ${input.userId}
@@ -271,7 +238,9 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
         count(*) filter (where recipient_user_id = ${input.userId} and status = 'sent' and deleted_at is null) as inbox,
         count(*) filter (where recipient_user_id = ${input.userId} and status = 'sent' and read_at is null and deleted_at is null) as unread,
         count(*) filter (where sender_user_id = ${input.userId} and status = 'sent' and deleted_at is null) as sent,
-        count(*) filter (where sender_user_id = ${input.userId} and status = 'draft' and deleted_at is null) as drafts
+        count(*) filter (where sender_user_id = ${input.userId} and status = 'draft' and deleted_at is null) as drafts,
+        count(*) filter (where (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId}) and status = 'spam' and deleted_at is null) as spam,
+        count(*) filter (where (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId}) and status = 'trash' and deleted_at is null) as trash
       from mail_messages
       where company_id = ${input.companyId}
     `,
@@ -285,8 +254,78 @@ export async function listOperationalMailMessages(env: DatabaseEnv | undefined, 
       unread: Number(countRow.unread ?? 0),
       sent: Number(countRow.sent ?? 0),
       drafts: Number(countRow.drafts ?? 0),
+      spam: Number(countRow.spam ?? 0),
+      trash: Number(countRow.trash ?? 0),
     },
   };
+}
+
+export async function moveOperationalMailMessage(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string; target: MailMessageMoveTarget }) {
+  const sql = getDbClient(env ?? {});
+  if (input.target === "delete") {
+    const rows = await sql`
+      update mail_messages
+      set deleted_at = now(), updated_at = now()
+      where id = ${input.messageId}
+        and company_id = ${input.companyId}
+        and deleted_at is null
+        and (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId})
+        and status = 'trash'
+      returning
+        id,
+        company_id,
+        sender_user_id,
+        (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+        sender_mail_account_id,
+        sender_mail_alias_id,
+        sender_email,
+        sender_display_name,
+        recipient_user_id,
+        (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
+        subject,
+        body,
+        status,
+        importance,
+        sent_at,
+        read_at,
+        created_at,
+        updated_at
+    `;
+    return (rows[0] as MailRow | undefined) ? mapMailMessage(rows[0] as MailRow) : null;
+  }
+  const nextStatus = input.target === "archive" ? "archived" : input.target === "inbox" ? "sent" : input.target;
+  const rows = await sql`
+    update mail_messages
+    set status = ${nextStatus}, updated_at = now()
+    where id = ${input.messageId}
+      and company_id = ${input.companyId}
+      and deleted_at is null
+      and (sender_user_id = ${input.userId} or recipient_user_id = ${input.userId})
+      and (
+        ${input.target !== "inbox"}
+        or status in ('spam', 'trash', 'archived')
+      )
+    returning
+      id,
+      company_id,
+      sender_user_id,
+      (select coalesce(sender.display_name, sender.login_id, '알 수 없음') from users sender where sender.id = mail_messages.sender_user_id) as sender_name,
+      sender_mail_account_id,
+      sender_mail_alias_id,
+      sender_email,
+      sender_display_name,
+      recipient_user_id,
+      (select coalesce(recipient.display_name, recipient.login_id) from users recipient where recipient.id = mail_messages.recipient_user_id) as recipient_name,
+      subject,
+      body,
+      status,
+      importance,
+      sent_at,
+      read_at,
+      created_at,
+      updated_at
+  `;
+  return (rows[0] as MailRow | undefined) ? mapMailMessage(rows[0] as MailRow) : null;
 }
 
 export async function createOperationalMailMessage(env: DatabaseEnv | undefined, input: { id: string; companyId: string; senderUserId: string; recipientUserId: string; subject: string; body: string; importance: MailMessage["importance"]; senderMailAccountId?: string | null; senderMailAliasId?: string | null; senderEmail?: string | null; senderDisplayName?: string | null }) {
