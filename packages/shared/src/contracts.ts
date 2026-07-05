@@ -70,6 +70,9 @@ export const appRoutes = {
     aliases: "/api/mail/settings/aliases",
     alias: (aliasId: string) => `/api/mail/settings/aliases/${aliasId}`,
     providerSettings: "/api/mail/settings/provider",
+    templates: "/api/mail/templates",
+    template: (templateId: string) => `/api/mail/templates/${templateId}`,
+    renderTemplate: (templateId: string) => `/api/mail/templates/${templateId}/render`,
   },
   messenger: {
     leaveThread: (threadId: string) => `/api/messenger/threads/${threadId}/leave`,
@@ -191,6 +194,8 @@ export const errorCodeSchema = z.enum([
   "NOT_IMPLEMENTED",
   "DB_NOT_CONFIGURED",
   "EXTERNAL_MAIL_NOT_CONFIGURED",
+  "EMAIL_TEMPLATE_NOT_FOUND",
+  "EMAIL_TEMPLATE_VARIABLE_MISSING",
 ]);
 
 export const errorResponseSchema = z.object({
@@ -422,6 +427,60 @@ export const mailProviderSettingsResponseSchema = successResponseSchema(
     source: z.literal("postgres"),
   }),
 );
+
+export const mailBodyTypeSchema = z.enum(["text", "html"]);
+export const mailTemplateVariableMapSchema = z.record(z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/), z.string().max(5000));
+export const mailTemplateSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  templateCode: z.string(),
+  templateName: z.string(),
+  emailType: mailEmailTypeSchema,
+  subjectTemplate: z.string(),
+  bodyTemplate: z.string(),
+  bodyType: mailBodyTypeSchema,
+  requiredVariables: z.array(z.string()),
+  isActive: z.boolean(),
+  createdBy: z.string(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export const mailTemplateCreateRequestSchema = z.object({
+  templateCode: z.string().trim().min(1).max(100).regex(/^[A-Z0-9_:-]+$/),
+  templateName: z.string().trim().min(1).max(200),
+  emailType: mailEmailTypeSchema.default("manual"),
+  subjectTemplate: z.string().trim().min(1).max(500),
+  bodyTemplate: z.string().trim().min(1).max(20000),
+  bodyType: mailBodyTypeSchema.default("html"),
+  requiredVariables: z.array(z.string().trim().min(1).max(80).regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/)).max(50).default([]),
+  isActive: z.boolean().default(true),
+});
+export const mailTemplateUpdateRequestSchema = mailTemplateCreateRequestSchema.partial().extend({
+  changeReason: z.string().trim().max(500).optional(),
+});
+export const mailTemplateRenderRequestSchema = z.object({
+  variables: mailTemplateVariableMapSchema.default({}),
+});
+export const mailTemplateRenderResultSchema = z.object({
+  templateId: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  bodyType: mailBodyTypeSchema,
+  missingVariables: z.array(z.string()),
+});
+export const mailTemplateListResponseSchema = successResponseSchema(z.object({
+  items: z.array(mailTemplateSchema),
+  source: z.literal("postgres"),
+}));
+export const mailTemplateMutationResponseSchema = successResponseSchema(z.object({
+  template: mailTemplateSchema,
+  audit: z.object({ candidate: z.literal(true), action: z.string() }),
+  source: z.literal("postgres"),
+}));
+export const mailTemplateRenderResponseSchema = successResponseSchema(z.object({
+  rendered: mailTemplateRenderResultSchema,
+  source: z.literal("postgres"),
+}));
 
 export const mailAccountSchema = z.object({
   id: z.string(),
@@ -3594,6 +3653,8 @@ export type MailMessageListResponse = z.infer<typeof mailMessageListResponseSche
 export type MailDeliveryBatch = z.infer<typeof mailDeliveryBatchSchema>;
 export type MailDeliveryRecipient = z.infer<typeof mailDeliveryRecipientSchema>;
 export type MailDeliveryHistoryResponse = z.infer<typeof mailDeliveryHistoryResponseSchema>;
+export type MailTemplate = z.infer<typeof mailTemplateSchema>;
+export type MailTemplateRenderResult = z.infer<typeof mailTemplateRenderResultSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
