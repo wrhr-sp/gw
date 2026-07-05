@@ -14,6 +14,8 @@ import {
   mailAttachmentUploadResponseSchema,
   mailIntegrationSettingsResponseSchema,
   mailDeliveryHistoryResponseSchema,
+  mailTemplateListResponseSchema,
+  mailTemplateRenderResponseSchema,
   mailProviderSettingsResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
@@ -29,6 +31,7 @@ import {
   type MailMessage,
   type MailProviderSettings,
   type MailRecipient,
+  type MailTemplate,
 } from "@gw/shared";
 
 type MailPendingAttachment = {
@@ -148,6 +151,14 @@ function parseIdList(value: string) {
   return Array.from(new Set(value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)));
 }
 
+function parseTemplateVariables(value: string) {
+  return Object.fromEntries(value.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    const index = line.indexOf("=");
+    if (index < 0) return [line, ""];
+    return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
+  }).filter(([key]) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)));
+}
+
 function formatGrantCount(userIds?: string[], departmentIds?: string[]) {
   const users = userIds?.length ?? 0;
   const departments = departmentIds?.length ?? 0;
@@ -228,6 +239,9 @@ export function MailClient() {
   const [providerSettings, setProviderSettings] = useState<MailProviderSettings | null>(null);
   const [deliveryHistory, setDeliveryHistory] = useState<MailDeliveryBatch[]>([]);
   const [deliveryHistoryCounts, setDeliveryHistoryCounts] = useState({ total: 0, sent: 0, failed: 0, blocked: 0, queued: 0 });
+  const [mailTemplates, setMailTemplates] = useState<MailTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateVariablesText, setTemplateVariablesText] = useState("user_name=홍길동\ncompany_name=We’reHere");
   const [selectedSenderValue, setSelectedSenderValue] = useState("");
   const [accountForm, setAccountForm] = useState({ accountType: "personal" as "personal" | "virtual", email: "", displayName: "", replyToEmail: "", providerKind: "unconfigured" as "unconfigured" | "smtp" | "api", providerName: "unconfigured", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
   const [aliasForm, setAliasForm] = useState({ mailAccountId: "", aliasEmail: "", displayName: "", isDefault: false, allowedSenderUserIdsText: "", allowedSenderDepartmentIdsText: "" });
@@ -393,6 +407,22 @@ export function MailClient() {
     setStatus(`메일 발송 이력 ${parsed.data.items.length}건을 불러왔습니다.`);
   }
 
+  async function loadMailTemplates() {
+    const response = await fetch(appRoutes.mail.templates, { credentials: "same-origin" });
+    const payload = await response.json();
+    if (!response.ok) {
+      setMailTemplates([]);
+      setStatus(payload?.error?.message ?? "메일 템플릿을 불러오지 못했습니다.");
+      return;
+    }
+    const parsed = mailTemplateListResponseSchema.parse(payload);
+    setMailTemplates(parsed.data.items);
+    setSelectedTemplateId((current) => {
+      if (current) return current;
+      return parsed.data.items.find((template: MailTemplate) => template.isActive)?.id ?? "";
+    });
+  }
+
   async function loadAttachments(messages: MailMessage[]) {
     const entries = await Promise.all(messages.map(async (message) => {
       const response = await fetch(appRoutes.mail.attachments(message.id), { credentials: "same-origin" });
@@ -429,6 +459,9 @@ export function MailClient() {
   useEffect(() => {
     if (view === "settings" || view === "compose") {
       void loadMailSettings();
+    }
+    if (view === "compose") {
+      void loadMailTemplates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
@@ -815,10 +848,26 @@ export function MailClient() {
     setStatus("메일 목록 기본값을 다시 적용했습니다.");
   }
 
-  function applyTemplate() {
-    setSubject((current) => current || "업무 공유드립니다");
-    setBody("<p>안녕하세요.</p><p>아래 내용 확인 부탁드립니다.</p><p>감사합니다.</p>");
-    setStatus("업무용 기본 템플릿을 본문에 적용했습니다.");
+  async function applyTemplate() {
+    if (!selectedTemplateId) {
+      setStatus("적용할 메일 템플릿을 선택하세요.");
+      return;
+    }
+    const response = await fetch(appRoutes.mail.renderTemplate(selectedTemplateId), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ variables: parseTemplateVariables(templateVariablesText) }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "템플릿 변수 검증에 실패했습니다.");
+      return;
+    }
+    const parsed = mailTemplateRenderResponseSchema.parse(payload);
+    setSubject(parsed.data.rendered.subject);
+    setBody(parsed.data.rendered.body);
+    setStatus("메일 템플릿 미리보기 결과를 본문에 적용했습니다.");
   }
 
   function writeToMyself() {
@@ -1488,7 +1537,7 @@ export function MailClient() {
               <button className="mail-compose-toolbar-button" disabled type="button" title="예약 발송 API는 일정 엔진 확정 뒤 연결합니다.">예약발송</button>
               <button className="mail-compose-toolbar-button" disabled={isSubmitting} type="button" onClick={() => void saveDraft()}>임시저장</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={() => setIsPreviewOpen((value) => !value)}>미리보기</button>
-              <button className="mail-compose-toolbar-button" type="button" onClick={applyTemplate}>템플릿</button>
+              <button className="mail-compose-toolbar-button" type="button" onClick={() => void applyTemplate()}>템플릿 적용</button>
               <button className="mail-compose-toolbar-button" type="button" onClick={writeToMyself}>내게쓰기</button>
             </div>
 
@@ -1499,6 +1548,16 @@ export function MailClient() {
                 {senderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
               <span className="mail-sender-status">{selectedSenderOption ? "SMTP/API 연결 전까지 발신주소 선택값만 저장됩니다." : "통합설정에 등록한 내 메일·가상메일·별칭을 선택할 수 있습니다."}</span>
+            </div>
+
+            <div className="mail-compose-row mail-compose-row--template" data-mail-template-variable-render="required-variables">
+              <strong>템플릿</strong>
+              <select className="field" aria-label="메일 템플릿 선택" value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)}>
+                <option value="">템플릿 선택</option>
+                {mailTemplates.filter((template) => template.isActive).map((template) => <option key={template.id} value={template.id}>{template.templateName} · {template.templateCode}</option>)}
+              </select>
+              <textarea className="field" aria-label="템플릿 변수 입력" value={templateVariablesText} onChange={(event) => setTemplateVariablesText(event.target.value)} />
+              <span className="mail-sender-status">key=value 줄 단위로 입력합니다. 누락 변수는 발송 전 미리보기 API에서 차단합니다.</span>
             </div>
 
             <div className="mail-compose-row mail-compose-row--recipients">

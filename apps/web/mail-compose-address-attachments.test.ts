@@ -61,6 +61,11 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("Provider 상태 저장");
     expect(mailClient).toContain("비밀번호/API key 값은 저장하지 않고");
     expect(mailClient).toContain("외부 발송 준비도");
+    expect(mailClient).toContain("mailTemplateListResponseSchema");
+    expect(mailClient).toContain("appRoutes.mail.templates");
+    expect(mailClient).toContain("appRoutes.mail.renderTemplate");
+    expect(mailClient).toContain("data-mail-template-variable-render");
+    expect(mailClient).toContain("누락 변수는 발송 전 미리보기 API에서 차단합니다.");
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });

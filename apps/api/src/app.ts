@@ -156,6 +156,12 @@ import {
   mailDeliveryHistoryResponseSchema,
   mailProviderSettingsResponseSchema,
   mailProviderSettingsUpdateRequestSchema,
+  mailTemplateCreateRequestSchema,
+  mailTemplateListResponseSchema,
+  mailTemplateMutationResponseSchema,
+  mailTemplateRenderRequestSchema,
+  mailTemplateRenderResponseSchema,
+  mailTemplateUpdateRequestSchema,
   mailMessageListResponseSchema,
   mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
@@ -397,6 +403,7 @@ import {
 import { listOperationalNotifications } from "./lib/operational-notifications";
 import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
+import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
 import {
   createOperationalMailAccount,
@@ -6190,7 +6197,7 @@ function isMailSettingsAdmin(roleCode: RoleCode) {
   return roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN" || roleCode === "MANAGER";
 }
 
-function buildGeneratedMailSettingId(kind: "account" | "alias", companyId: string, userId: string) {
+function buildGeneratedMailSettingId(kind: "account" | "alias" | "template", companyId: string, userId: string) {
   return `mail_${kind}_${companyId}_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -6225,6 +6232,87 @@ app.patch(appRoutes.mail.providerSettings, async (context) => {
     return jsonSuccess(context, mailProviderSettingsResponseSchema, { ok: true, data: { settings, audit: { candidate: true, action: "mail.provider_settings.update" }, source: "postgres" }, error: null });
   } catch {
     return jsonDatabaseRequired(context, "메일 provider 설정 저장");
+  }
+});
+
+app.get(appRoutes.mail.templates, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  try {
+    const items = await listOperationalMailTemplates(context.env, { companyId: authResult.auth.user.companyId });
+    return jsonSuccess(context, mailTemplateListResponseSchema, { ok: true, data: { items, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 템플릿 조회");
+  }
+});
+
+app.post(appRoutes.mail.templates, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  if (!isMailSettingsAdmin(authResult.auth.roleCode)) {
+    return jsonError(context, "FORBIDDEN", "메일 템플릿 등록은 관리자 권한이 필요합니다.", 403, { route: context.req.path });
+  }
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailTemplateCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 템플릿 등록 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const template = await createOperationalMailTemplate(context.env, {
+      id: buildGeneratedMailSettingId("template", authResult.auth.user.companyId, authResult.auth.user.id),
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      ...parsed.data,
+    });
+    return jsonSuccess(context, mailTemplateMutationResponseSchema, { ok: true, data: { template, audit: { candidate: true, action: "mail.template.create" }, source: "postgres" }, error: null }, 201);
+  } catch {
+    return jsonError(context, "VALIDATION_ERROR", "이미 등록된 템플릿 코드이거나 템플릿을 저장할 수 없습니다.", 400, { route: context.req.path });
+  }
+});
+
+app.patch(appRoutes.mail.template(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  if (!isMailSettingsAdmin(authResult.auth.roleCode)) {
+    return jsonError(context, "FORBIDDEN", "메일 템플릿 수정은 관리자 권한이 필요합니다.", 403, { route: context.req.path });
+  }
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailTemplateUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 템플릿 수정 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const template = await updateOperationalMailTemplate(context.env, {
+      companyId: authResult.auth.user.companyId,
+      templateId: context.req.param("id") ?? "",
+      userId: authResult.auth.user.id,
+      ...parsed.data,
+    });
+    if (!template) return jsonError(context, "EMAIL_TEMPLATE_NOT_FOUND", "메일 템플릿을 찾을 수 없습니다.", 400, { route: context.req.path });
+    return jsonSuccess(context, mailTemplateMutationResponseSchema, { ok: true, data: { template, audit: { candidate: true, action: "mail.template.update" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 템플릿 수정");
+  }
+});
+
+app.post(appRoutes.mail.renderTemplate(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailTemplateRenderRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 템플릿 미리보기 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  try {
+    const template = await getOperationalMailTemplate(context.env, { companyId: authResult.auth.user.companyId, templateId: context.req.param("id") ?? "" });
+    if (!template || !template.isActive) return jsonError(context, "EMAIL_TEMPLATE_NOT_FOUND", "사용 가능한 메일 템플릿을 찾을 수 없습니다.", 400, { route: context.req.path });
+    const rendered = renderOperationalMailTemplate(template, parsed.data.variables);
+    if (rendered.missingVariables.length) {
+      return jsonError(context, "EMAIL_TEMPLATE_VARIABLE_MISSING", "이메일 템플릿에 필요한 변수가 누락되었습니다.", 400, { missingVariables: rendered.missingVariables });
+    }
+    return jsonSuccess(context, mailTemplateRenderResponseSchema, { ok: true, data: { rendered, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 템플릿 미리보기");
   }
 });
 
