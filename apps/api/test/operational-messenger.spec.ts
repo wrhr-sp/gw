@@ -5,7 +5,10 @@ import {
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
   messengerMessageReadResponseSchema,
+  messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
+  messengerRoomMemberListResponseSchema,
+  messengerRoomMemberMutationResponseSchema,
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
 } from "@gw/shared";
@@ -15,7 +18,7 @@ import { getDbClient } from "../src/utils/db";
 const databaseUrl = process.env.DATABASE_URL_PREVIEW;
 const runWhenDbConfigured = databaseUrl ? it : it.skip;
 
-async function login(roleCode: "COMPANY_ADMIN" | "HR_ADMIN" = "COMPANY_ADMIN") {
+async function login(roleCode: "COMPANY_ADMIN" | "HR_ADMIN" | "EMPLOYEE" = "COMPANY_ADMIN") {
   const response = await app.request(
     appRoutes.auth.login,
     {
@@ -122,6 +125,50 @@ describe("operational messenger API", () => {
     expect(readResponse.status).toBe(200);
     const readPayload = messengerMessageReadResponseSchema.parse(await readResponse.json());
     expect(readPayload.data.messageId).toBe(sentPayload.data.message.id);
+
+    const detailResponse = await app.request(appRoutes.messenger.room(createdRoom.data.room.id), { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(detailResponse.status).toBe(200);
+    const detailPayload = messengerRoomDetailResponseSchema.parse(await detailResponse.json());
+    expect(detailPayload.data.currentMemberRole).toBe("owner");
+
+    const inviteReadonlyResponse = await app.request(
+      appRoutes.messenger.roomMembers(createdRoom.data.room.id),
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({ userIds: ["user_employee"], memberRole: "readonly" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(inviteReadonlyResponse.status).toBe(201);
+    const invitePayload = messengerRoomMemberMutationResponseSchema.parse(await inviteReadonlyResponse.json());
+    expect(invitePayload.data.members[0]?.memberRole).toBe("readonly");
+
+    const membersResponse = await app.request(appRoutes.messenger.roomMembers(createdRoom.data.room.id), { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(membersResponse.status).toBe(200);
+    const membersPayload = messengerRoomMemberListResponseSchema.parse(await membersResponse.json());
+    expect(membersPayload.data.members.some((member) => member.userId === "user_employee" && member.memberRole === "readonly")).toBe(true);
+
+    const employeeCookie = await login("EMPLOYEE");
+    const readonlySendResponse = await app.request(
+      appRoutes.messenger.roomMessages(createdRoom.data.room.id),
+      {
+        method: "POST",
+        headers: { cookie: employeeCookie, "content-type": "application/json" },
+        body: JSON.stringify({ messageType: "text", body: "readonly should not send" }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(readonlySendResponse.status).toBe(403);
+
+    const removeResponse = await app.request(
+      appRoutes.messenger.roomMember(createdRoom.data.room.id, "user_employee"),
+      { method: "DELETE", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ reason: "test cleanup" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(removeResponse.status).toBe(200);
+    const removePayload = messengerRoomMemberMutationResponseSchema.parse(await removeResponse.json());
+    expect(removePayload.data.members[0]?.isActive).toBe(false);
 
     const sql = getDbClient({ DATABASE_URL: databaseUrl });
     await sql`delete from messenger_rooms where company_id = ${createdRoom.data.room.companyId} and id = ${createdRoom.data.room.id}`;

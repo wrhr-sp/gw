@@ -39,7 +39,12 @@ describe("messenger page", () => {
     expect(pageSource).toContain("appRoutes.messenger.leaveThread");
     expect(pageSource).toContain("appRoutes.messenger.rooms");
     expect(pageSource).toContain("appRoutes.messenger.roomMessages");
+    expect(pageSource).toContain("messengerRoomDetailResponseSchema");
     expect(pageSource).toContain("messengerRoomListResponseSchema");
+    expect(pageSource).toContain("messengerRoomMemberListResponseSchema");
+    expect(pageSource).toContain("messengerRoomMemberMutationResponseSchema");
+    expect(pageSource).toContain("handleInviteMember");
+    expect(pageSource).toContain("handleRemoveMember");
     expect(pageSource).toContain("messengerMessageListResponseSchema");
     expect(pageSource).toContain("messengerMessageMutationResponseSchema");
     expect(pageSource).toContain("messengerThreadLeaveResponseSchema");
@@ -115,6 +120,8 @@ describe("messenger page", () => {
     expect(globalCss).toContain("border: 1px solid transparent;");
     expect(globalCss).toContain("border-radius: 0;");
     expect(globalCss).toContain(".messenger-conversation-menu__leave");
+    expect(globalCss).toContain(".messenger-member-panel");
+    expect(globalCss).toContain(".messenger-member-row");
     expect(globalCss).toContain(".messenger-org-group__toggle");
     expect(globalCss).toContain(".messenger-org-group__contacts[hidden]");
     expect(globalCss).toContain(".messenger-thread[aria-current=\"page\"]");
