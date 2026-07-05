@@ -624,7 +624,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('className="app-refresh-overlay"');
     expect(shellSource).toContain('{renderAppRefreshOverlay()}');
     expect(shellSource).toContain('app-shell__body app-shell__body--refresh');
-    expect(shellSource).toContain('topbar-admin-secondary-gate');
+    expect(shellSource).toContain("topbar-modal-secondary-action");
+    expect(shellSource).toContain("getTopbarNotificationHref");
+    expect(shellSource).toContain("messenger_mention");
+    expect(shellSource).toContain("메신저로 이동");
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
     expect(shellSource).not.toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');

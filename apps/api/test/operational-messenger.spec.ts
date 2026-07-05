@@ -14,6 +14,7 @@ import {
   messengerRoomMemberMutationResponseSchema,
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
+  listNotificationsResponseSchema,
 } from "@gw/shared";
 import { app } from "../src/app";
 import { getDbClient } from "../src/utils/db";
@@ -142,6 +143,11 @@ describe("operational messenger API", () => {
     expect(mentionPayload.data.message.mentions.some((mention) => mention.userId === "user_employee")).toBe(true);
 
     const employeeCookieForUnread = await login("EMPLOYEE");
+    const employeeNotificationsResponse = await app.request(appRoutes.notifications, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
+    expect(employeeNotificationsResponse.status).toBe(200);
+    const employeeNotifications = listNotificationsResponseSchema.parse(await employeeNotificationsResponse.json());
+    expect(employeeNotifications.data.items.some((item) => item.notificationType === "messenger_mention" && item.title === "메신저 멘션")).toBe(true);
+
     const employeeRoomsBeforeReadResponse = await app.request(appRoutes.messenger.rooms, { headers: { cookie: employeeCookieForUnread } }, { DATABASE_URL: databaseUrl });
     expect(employeeRoomsBeforeReadResponse.status).toBe(200);
     const employeeRoomsBeforeRead = messengerRoomListResponseSchema.parse(await employeeRoomsBeforeReadResponse.json());

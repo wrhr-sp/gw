@@ -3831,7 +3831,8 @@ li {
 }
 
 .topbar-profile-settings__buttons button,
-.topbar-modal-secondary-action {
+.topbar-modal-secondary-action,
+.topbar-modal-link-action {
   border: var(--topbar-modal-secondary-action-border);
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -3841,6 +3842,16 @@ li {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-heavy);
   padding: var(--topbar-modal-secondary-action-padding);
+}
+
+.topbar-modal-link-action {
+  margin-top: var(--space-xs);
+  padding: 6px 10px;
+}
+
+.topbar-modal-list-item--notification[data-status="unread"] {
+  border-color: var(--primary-soft-strong);
+  background: var(--primary-soft);
 }
 
 .topbar-modal-choice-group,
