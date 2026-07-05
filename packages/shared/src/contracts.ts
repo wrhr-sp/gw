@@ -64,6 +64,7 @@ export const appRoutes = {
     deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
+    markUnread: (messageId: string) => `/api/mail/messages/${messageId}/unread`,
     bulkAction: "/api/mail/messages/bulk-action",
     moveMessage: (messageId: string) => `/api/mail/messages/${messageId}/move`,
     favoriteMessage: (messageId: string) => `/api/mail/messages/${messageId}/favorite`,

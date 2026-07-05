@@ -101,6 +101,8 @@ describe("mail compose address and attachment UX", () => {
   it("connects mailbox bulk selection actions to the mail API", () => {
     expect(mailClient).toContain("selectedBulkMessageIds");
     expect(mailClient).toContain("appRoutes.mail.bulkAction");
+    expect(mailClient).toContain("appRoutes.mail.markUnread(messageId)");
+    expect(mailClient).toContain("async function setReadState(messageId: string, isRead: boolean)");
     expect(mailClient).toContain("mailMessageBulkActionResponseSchema");
     expect(mailClient).toContain("메일 다중 선택 작업");
     expect(mailClient).toContain("전체 선택");
