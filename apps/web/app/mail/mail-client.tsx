@@ -53,6 +53,7 @@ const boxLabels: Record<MailBox, string> = {
   inbox: "받은메일함",
   sent: "보낸메일함",
   drafts: "임시보관함",
+  scheduled: "예약메일함",
   spam: "스팸메일함",
   trash: "휴지통",
 };
@@ -78,7 +79,7 @@ const defaultMailFolders: readonly MailFolderConfig[] = [
   { id: "inbox", label: "받은메일함", group: "mailbox", box: "inbox" },
   { id: "sent", label: "보낸메일함", group: "mailbox", box: "sent" },
   { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
-  { id: "scheduled", label: "예약메일함", group: "mailbox" },
+  { id: "scheduled", label: "예약메일함", group: "mailbox", box: "scheduled" },
   { id: "spam", label: "스팸메일함", group: "mailbox", box: "spam" },
   { id: "external", label: "외부메일함", group: "external" },
   { id: "trash", label: "휴지통", group: "trash", box: "trash" },
@@ -87,7 +88,7 @@ const defaultMailFolders: readonly MailFolderConfig[] = [
 const defaultVisibleFolderIds = defaultMailFolders.map((folder) => folder.id);
 
 function isMailBox(value: MailView): value is MailBox {
-  return value === "favorites" || value === "inbox" || value === "sent" || value === "drafts" || value === "spam" || value === "trash";
+  return value === "favorites" || value === "inbox" || value === "sent" || value === "drafts" || value === "scheduled" || value === "spam" || value === "trash";
 }
 
 function formatMeta(message: MailMessage, box: MailBox) {
@@ -98,11 +99,12 @@ function formatMeta(message: MailMessage, box: MailBox) {
   return `${message.senderName} · ${label}`;
 }
 
-function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number; favorites: number; spam: number; trash: number }) {
+function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number; favorites: number; scheduled: number; spam: number; trash: number }) {
   if (folder.id === "favorites") return String(counts.favorites);
   if (folder.id === "inbox") return String(counts.inbox);
   if (folder.id === "sent") return String(counts.sent);
   if (folder.id === "drafts") return String(counts.drafts);
+  if (folder.id === "scheduled") return String(counts.scheduled);
   if (folder.id === "spam") return String(counts.spam);
   if (folder.id === "trash") return String(counts.trash);
   return "";
@@ -212,7 +214,7 @@ export function MailClient() {
   const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
   const [composeDraftMessageId, setComposeDraftMessageId] = useState<string | null>(null);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
-  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, favorites: 0, spam: 0, trash: 0 });
+  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, favorites: 0, scheduled: 0, spam: 0, trash: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
@@ -235,6 +237,7 @@ export function MailClient() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("<p></p>");
   const [importance, setImportance] = useState<"normal" | "important">("normal");
+  const [scheduledAtInput, setScheduledAtInput] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<MailPendingAttachment[]>([]);
   const [documentFiles, setDocumentFiles] = useState<DocumentFile[]>([]);
   const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
@@ -1067,6 +1070,59 @@ export function MailClient() {
     }
   }
 
+  async function scheduleMessage() {
+    setIsSubmitting(true);
+    setStatus("메일을 예약메일함에 저장 중입니다.");
+    try {
+      const recipientIds = buildRecipientUserIdsForSubmit();
+      if (!recipientIds || (recipientIds.length === 0 && externalRecipientEmails.length === 0 && externalCcEmails.length === 0)) {
+        if (recipientIds) setStatus("받는사람을 검색 결과 또는 최근 주소에서 선택하거나 이메일 주소를 Enter로 등록해주세요.");
+        return;
+      }
+      if (!scheduledAtInput) {
+        setStatus("예약 시간을 선택해주세요.");
+        return;
+      }
+      const scheduledAt = new Date(scheduledAtInput);
+      if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+        setStatus("예약 시간은 현재보다 이후여야 합니다.");
+        return;
+      }
+      const response = await fetch(appRoutes.mail.schedule, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          recipientUserIds: recipientIds,
+          externalToEmails: externalRecipientEmails.map((recipient) => recipient.email),
+          externalCcEmails: externalCcEmails.map((recipient) => recipient.email),
+          senderMailAccountId: selectedSenderOption?.accountId || undefined,
+          senderMailAliasId: selectedSenderOption?.aliasId || undefined,
+          sourceDraftMessageId: composeDraftMessageId ?? undefined,
+          subject,
+          body,
+          importance,
+          scheduledAt: scheduledAt.toISOString(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setStatus(payload?.error?.message ?? "메일 예약에 실패했습니다.");
+        return;
+      }
+      const parsed = mailMessageSendResponseSchema.parse(payload);
+      const scheduledMessages = parsed.data.messages ?? [parsed.data.message];
+      setPendingAttachments([]);
+      setComposeDraftMessageId(null);
+      setScheduledAtInput("");
+      setStatus(`메일 ${scheduledMessages.length}건을 예약메일함에 저장했습니다.`);
+      setView("scheduled");
+      await loadMessages("scheduled");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function markRead(messageId: string) {
     const response = await fetch(appRoutes.mail.markRead(messageId), { method: "POST", credentials: "same-origin" });
     const payload = await response.json();
@@ -1079,7 +1135,7 @@ export function MailClient() {
     await loadMessages("inbox");
   }
 
-  async function moveMessage(messageId: string, target: "spam" | "trash" | "inbox" | "archive" | "delete") {
+  async function moveMessage(messageId: string, target: "spam" | "trash" | "inbox" | "archive" | "cancel" | "delete") {
     const response = await fetch(appRoutes.mail.moveMessage(messageId), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1092,7 +1148,7 @@ export function MailClient() {
       return;
     }
     const parsed = mailMessageMoveResponseSchema.parse(payload);
-    const nextBox = target === "spam" ? "spam" : target === "trash" ? "trash" : target === "delete" ? "trash" : "inbox";
+    const nextBox = target === "spam" ? "spam" : target === "trash" ? "trash" : target === "delete" || target === "cancel" ? "scheduled" : "inbox";
     setSelectedMessageId(null);
     await loadMessages(nextBox);
     setView(nextBox);
@@ -1709,6 +1765,12 @@ export function MailClient() {
               <input className="field" aria-label="제목" required value={subject} onChange={(event) => setSubject(event.target.value)} />
             </label>
 
+            <label className="mail-compose-row mail-compose-row--schedule" data-mail-scheduled-send="internal-ready">
+              <strong>예약시간</strong>
+              <input className="field" aria-label="예약 발송 시간" type="datetime-local" value={scheduledAtInput} onChange={(event) => setScheduledAtInput(event.target.value)} />
+              <span className="mail-sender-status">예약메일함에 저장되며 실제 자동 발송 worker는 SMTP/API 연결 뒤 붙입니다.</span>
+            </label>
+
             <section
               className={`mail-compose-attachments${isAttachmentDragOver ? " mail-compose-attachments--drag-over" : ""}`}
               aria-label="파일첨부"
@@ -1803,6 +1865,7 @@ export function MailClient() {
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("forward", selectedMessage)}>전달</button>
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => toggleFavorite(selectedMessage)}>{selectedMessage.importance === "important" ? "즐겨찾기 해제" : "즐겨찾기 추가"}</button>
+                      {currentBox === "scheduled" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "cancel")}>예약취소</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "spam")}>스팸으로 이동</button> : null}
                       {currentBox !== "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "trash")}>휴지통으로 이동</button> : null}
                       {currentBox === "spam" || currentBox === "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "inbox")}>받은메일함으로 복구</button> : null}

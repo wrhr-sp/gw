@@ -59,6 +59,7 @@ export const appRoutes = {
     messages: "/api/mail/messages",
     recipients: "/api/mail/recipients",
     send: "/api/mail/messages/send",
+    schedule: "/api/mail/messages/schedule",
     deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
@@ -211,7 +212,7 @@ export const errorResponseSchema = z.object({
   }),
 });
 
-export const mailBoxSchema = z.enum(["favorites", "inbox", "sent", "drafts", "spam", "trash"]);
+export const mailBoxSchema = z.enum(["favorites", "inbox", "sent", "drafts", "scheduled", "spam", "trash"]);
 
 export const mailRecipientSourceKindSchema = z.enum(["internal", "history"]);
 
@@ -232,8 +233,8 @@ export const mailRecipientListResponseSchema = successResponseSchema(
   }),
 );
 
-export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived", "spam", "trash"]);
-export const mailMessageMoveTargetSchema = z.enum(["spam", "trash", "inbox", "archive", "delete"]);
+export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived", "scheduled", "spam", "trash"]);
+export const mailMessageMoveTargetSchema = z.enum(["spam", "trash", "inbox", "archive", "cancel", "delete"]);
 export const mailImportanceSchema = z.enum(["normal", "important"]);
 export const mailDeliveryStatusSchema = z.enum(["draft", "pending", "queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked", "scheduled"]);
 export const mailDeliveryRecipientStatusSchema = z.enum(["queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked"]);
@@ -256,6 +257,7 @@ export const mailMessageSchema = z.object({
   status: mailMessageStatusSchema,
   importance: mailImportanceSchema,
   sentAt: z.string().datetime().nullable(),
+  scheduledAt: z.string().datetime().nullable().optional(),
   readAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -271,6 +273,7 @@ export const mailMessageListResponseSchema = successResponseSchema(
       sent: z.number().int().nonnegative(),
       drafts: z.number().int().nonnegative(),
       favorites: z.number().int().nonnegative(),
+      scheduled: z.number().int().nonnegative(),
       spam: z.number().int().nonnegative(),
       trash: z.number().int().nonnegative(),
     }),
@@ -390,7 +393,7 @@ export const mailExternalDeliveryLogSchema = z.object({
   failedAt: z.string().datetime().nullable(),
 });
 
-export const mailMessageSendRequestSchema = z.object({
+const mailMessageRecipientRequestBaseSchema = z.object({
   recipientUserId: z.string().min(1).optional(),
   recipientUserIds: z.array(z.string().min(1)).min(1).max(20).optional(),
   externalToEmails: z.array(mailExternalEmailSchema).max(50).optional(),
@@ -401,6 +404,15 @@ export const mailMessageSendRequestSchema = z.object({
   subject: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),
   importance: mailImportanceSchema.default("normal"),
+});
+
+export const mailMessageSendRequestSchema = mailMessageRecipientRequestBaseSchema.refine((value) => Boolean(value.recipientUserId || value.recipientUserIds?.length || value.externalToEmails?.length || value.externalCcEmails?.length), {
+  message: "recipientUserId, recipientUserIds, externalToEmails, or externalCcEmails is required",
+  path: ["recipientUserIds"],
+});
+
+export const mailMessageScheduleRequestSchema = mailMessageRecipientRequestBaseSchema.extend({
+  scheduledAt: z.string().datetime(),
 }).refine((value) => Boolean(value.recipientUserId || value.recipientUserIds?.length || value.externalToEmails?.length || value.externalCcEmails?.length), {
   message: "recipientUserId, recipientUserIds, externalToEmails, or externalCcEmails is required",
   path: ["recipientUserIds"],
@@ -3701,6 +3713,7 @@ export type MailTemplate = z.infer<typeof mailTemplateSchema>;
 export type MailTemplateRenderResult = z.infer<typeof mailTemplateRenderResultSchema>;
 export type MailTemplateTestSendResponse = z.infer<typeof mailTemplateTestSendResponseSchema>;
 export type MailMessageSendRequest = z.infer<typeof mailMessageSendRequestSchema>;
+export type MailMessageScheduleRequest = z.infer<typeof mailMessageScheduleRequestSchema>;
 export type MailMessageSendResponse = z.infer<typeof mailMessageSendResponseSchema>;
 export type MailMessageDraftSaveRequest = z.infer<typeof mailMessageDraftSaveRequestSchema>;
 export type MailMessageDraftSaveResponse = z.infer<typeof mailMessageDraftSaveResponseSchema>;

@@ -173,6 +173,7 @@ import {
   mailMessageDraftSaveRequestSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageReadResponseSchema,
+  mailMessageScheduleRequestSchema,
   mailMessageSendRequestSchema,
   mailMessageSendResponseSchema,
   listBranchesResponseSchema,
@@ -407,7 +408,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, createOperationalScheduledMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
@@ -6708,6 +6709,72 @@ app.post(appRoutes.mail.saveDraft, async (context) => {
     }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메일 임시저장");
+  }
+});
+
+app.post(appRoutes.mail.schedule, async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageScheduleRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 예약 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  const scheduledAt = new Date(parsed.data.scheduledAt);
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+    return jsonError(context, "VALIDATION_ERROR", "예약 시간은 현재보다 이후여야 합니다.", 400, { scheduledAt: parsed.data.scheduledAt });
+  }
+  const externalRecipients = normalizeExternalMailRecipients({ to: parsed.data.externalToEmails, cc: parsed.data.externalCcEmails });
+  if (externalRecipients.length) {
+    return jsonError(context, "EXTERNAL_MAIL_NOT_CONFIGURED", "외부 이메일 예약발송은 SMTP/API 연결 뒤 사용할 수 있습니다.", 501, { route: context.req.path });
+  }
+  try {
+    const recipientUserIds = Array.from(new Set([...(parsed.data.recipientUserIds ?? []), ...(parsed.data.recipientUserId ? [parsed.data.recipientUserId] : [])]));
+    const senderAccount = parsed.data.senderMailAccountId || parsed.data.senderMailAliasId
+      ? await resolveOperationalMailSenderAccount(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, isAdmin: isMailSettingsAdmin(authResult.auth.roleCode) }, { accountId: parsed.data.senderMailAccountId, aliasId: parsed.data.senderMailAliasId })
+      : null;
+    if ((parsed.data.senderMailAccountId || parsed.data.senderMailAliasId) && !senderAccount) {
+      return jsonError(context, "FORBIDDEN", "선택한 보낸사람 계정을 사용할 수 없습니다.", 403, { route: context.req.path });
+    }
+    const messages = await createOperationalScheduledMailMessages(context.env, {
+      idPrefix: buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id),
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      recipientUserIds,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+      importance: parsed.data.importance,
+      scheduledAt: scheduledAt.toISOString(),
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
+    });
+    if (messages.length !== recipientUserIds.length) {
+      return jsonError(context, "FORBIDDEN", "수신자를 찾을 수 없거나 같은 회사 사용자가 아닙니다.", 403, { recipientUserIds, scheduledCount: messages.length, route: context.req.path });
+    }
+    const deliveryBatchId = buildGeneratedMailMessageId(authResult.auth.user.companyId, authResult.auth.user.id);
+    await createOperationalMailDeliveryHistory(context.env, {
+      id: deliveryBatchId,
+      companyId: authResult.auth.user.companyId,
+      senderUserId: authResult.auth.user.id,
+      senderMailAccountId: senderAccount?.accountId ?? null,
+      senderMailAliasId: senderAccount?.aliasId ?? null,
+      senderEmail: senderAccount?.senderEmail ?? null,
+      senderDisplayName: senderAccount?.senderDisplayName ?? null,
+      subject: parsed.data.subject,
+      bodySnapshot: parsed.data.body,
+      status: "scheduled",
+      deliveryMode: "scheduled",
+      scheduledAt: scheduledAt.toISOString(),
+      providerKind: "unconfigured",
+      providerName: "internal",
+      requestedBy: authResult.auth.user.id,
+      recipients: buildInternalDeliveryRecipients(messages, deliveryBatchId, { status: "queued", providerKind: "unconfigured", providerName: "internal" }),
+    });
+    return jsonSuccess(context, mailMessageSendResponseSchema, { ok: true, data: { message: messages[0], messages, audit: { candidate: true, action: "mail.message.schedule" }, source: "postgres" }, error: null }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메일 예약");
   }
 });
 
