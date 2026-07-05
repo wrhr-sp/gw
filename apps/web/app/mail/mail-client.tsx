@@ -678,6 +678,12 @@ export function MailClient() {
     setter((current) => current.includes(recipient.userId) ? current : [...current, recipient.userId]);
   }
 
+  function addAddressBookGroup(recipientsToAdd: MailRecipient[], target: "to" | "cc") {
+    setRecipientLookup((current) => ({ ...current, ...Object.fromEntries(recipientsToAdd.map((recipient) => [recipient.userId, recipient])) }));
+    const setter = target === "to" ? setAddressBookRecipientUserIds : setAddressBookCcUserIds;
+    setter((current) => Array.from(new Set([...current, ...recipientsToAdd.map((recipient) => recipient.userId)])));
+  }
+
   function removeAddressBookRecipient(recipientId: string, target: "to" | "cc") {
     const setter = target === "to" ? setAddressBookRecipientUserIds : setAddressBookCcUserIds;
     setter((current) => current.filter((id) => id !== recipientId));
@@ -1460,7 +1466,12 @@ export function MailClient() {
                 if (!groupItems.length) return null;
                 return (
                   <section className="mail-address-book-table__section" key={sourceKind} aria-label={mailRecipientSectionLabels[sourceKind]}>
-                    <strong>{mailRecipientSectionLabels[sourceKind]}</strong>
+                    <div className="mail-address-book-table__section-header">
+                      <strong>{mailRecipientSectionLabels[sourceKind]}</strong>
+                      <span>{groupItems.length}명</span>
+                      <button type="button" onClick={() => addAddressBookGroup(groupItems, "to")}>그룹 받는사람 추가</button>
+                      <button type="button" onClick={() => addAddressBookGroup(groupItems, "cc")}>그룹 참조 추가</button>
+                    </div>
                     {groupItems.map((recipient) => (
                       <div className="mail-address-book-table__row" key={`${sourceKind}-${recipient.userId}`} role="option" aria-selected={addressBookRecipientUserIds.includes(recipient.userId) || addressBookCcUserIds.includes(recipient.userId)}>
                         <span>{recipient.displayName}</span>
@@ -1477,6 +1488,11 @@ export function MailClient() {
             </div>
           </section>
           <aside className="mail-address-book-popover__selected" aria-label="선택한 주소">
+            <div className="mail-address-book-selected-summary">
+              <strong>선택 요약</strong>
+              <span>받는사람 {addressBookSelectedRecipients.length}명 · 참조 {addressBookSelectedCcRecipients.length}명</span>
+              <button type="button" onClick={() => { setAddressBookRecipientUserIds([]); setAddressBookCcUserIds([]); }}>선택 비우기</button>
+            </div>
             <section>
               <strong>받는사람</strong>
               {addressBookSelectedRecipients.length ? addressBookSelectedRecipients.map((recipient) => (

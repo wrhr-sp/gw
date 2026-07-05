@@ -107,6 +107,16 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-compose-readiness");
   });
 
+  it("connects address book group selection and selected summary", () => {
+    expect(mailClient).toContain("addAddressBookGroup");
+    expect(mailClient).toContain("그룹 받는사람 추가");
+    expect(mailClient).toContain("그룹 참조 추가");
+    expect(mailClient).toContain("선택 요약");
+    expect(mailClient).toContain("선택 비우기");
+    expect(globalCss).toContain(".mail-address-book-table__section-header");
+    expect(globalCss).toContain(".mail-address-book-selected-summary");
+  });
+
   it("connects mailbox bulk selection actions to the mail API", () => {
     expect(mailClient).toContain("selectedBulkMessageIds");
     expect(mailClient).toContain("appRoutes.mail.bulkAction");
