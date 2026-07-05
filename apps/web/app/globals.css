@@ -5006,6 +5006,30 @@ li {
   padding: 4px 2px;
 }
 
+.mail-address-book-table__section-header,
+.mail-address-book-selected-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  padding: 4px 2px;
+}
+
+.mail-address-book-table__section-header button,
+.mail-address-book-selected-summary button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  padding: 4px 7px;
+}
+
 .mail-address-book-table__row {
   display: grid;
   grid-template-columns: minmax(66px, 0.8fr) minmax(48px, 0.6fr) minmax(70px, 0.8fr) minmax(120px, 1.2fr) auto auto;
