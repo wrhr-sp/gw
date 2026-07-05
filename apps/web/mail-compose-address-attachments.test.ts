@@ -98,6 +98,15 @@ describe("mail compose address and attachment UX", () => {
     expect(globalCss).toContain(".mail-search-filter-bar");
   });
 
+  it("keeps mail detail navigation and compose readiness visible", () => {
+    expect(mailClient).toContain("이전 메일");
+    expect(mailClient).toContain("다음 메일");
+    expect(mailClient).toContain("메일 작성 상태 요약");
+    expect(mailClient).toContain("composeRecipientCount");
+    expect(mailClient).toContain("전송 준비됨");
+    expect(globalCss).toContain(".mail-compose-readiness");
+  });
+
   it("connects mailbox bulk selection actions to the mail API", () => {
     expect(mailClient).toContain("selectedBulkMessageIds");
     expect(mailClient).toContain("appRoutes.mail.bulkAction");

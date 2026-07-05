@@ -4723,6 +4723,24 @@ li {
   border-bottom: var(--feature-workspace-row-divider);
 }
 
+.mail-compose-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border: var(--feature-workspace-row-divider);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.mail-compose-readiness strong {
+  color: var(--text);
+}
+
 .mail-compose-row {
   min-height: 44px;
   padding: 8px 0;
