@@ -63,6 +63,7 @@ export const appRoutes = {
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
     moveMessage: (messageId: string) => `/api/mail/messages/${messageId}/move`,
+    favoriteMessage: (messageId: string) => `/api/mail/messages/${messageId}/favorite`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
     attachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
@@ -210,7 +211,7 @@ export const errorResponseSchema = z.object({
   }),
 });
 
-export const mailBoxSchema = z.enum(["inbox", "sent", "drafts", "spam", "trash"]);
+export const mailBoxSchema = z.enum(["favorites", "inbox", "sent", "drafts", "spam", "trash"]);
 
 export const mailRecipientSourceKindSchema = z.enum(["internal", "history"]);
 
@@ -269,6 +270,7 @@ export const mailMessageListResponseSchema = successResponseSchema(
       unread: z.number().int().nonnegative(),
       sent: z.number().int().nonnegative(),
       drafts: z.number().int().nonnegative(),
+      favorites: z.number().int().nonnegative(),
       spam: z.number().int().nonnegative(),
       trash: z.number().int().nonnegative(),
     }),
@@ -285,6 +287,19 @@ export const mailMessageMoveResponseSchema = successResponseSchema(
     message: mailMessageSchema.nullable(),
     action: mailMessageMoveTargetSchema,
     audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.move") }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageFavoriteRequestSchema = z.object({
+  isFavorite: z.boolean(),
+});
+
+export const mailMessageFavoriteResponseSchema = successResponseSchema(
+  z.object({
+    message: mailMessageSchema,
+    isFavorite: z.boolean(),
+    audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.favorite") }),
     source: z.literal("postgres"),
   }),
 );

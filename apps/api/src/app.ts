@@ -167,6 +167,8 @@ import {
   mailMessageListResponseSchema,
   mailMessageMoveRequestSchema,
   mailMessageMoveResponseSchema,
+  mailMessageFavoriteRequestSchema,
+  mailMessageFavoriteResponseSchema,
   mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
   mailMessageDraftSaveResponseSchema,
@@ -405,7 +407,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, setOperationalMailMessageFavorite, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
@@ -6952,6 +6954,34 @@ app.post(appRoutes.mail.moveMessage(":id"), async (context) => {
     return jsonSuccess(context, mailMessageMoveResponseSchema, { ok: true, data: { message, action: parsed.data.target, audit: { candidate: true, action: "mail.message.move" }, source: "postgres" }, error: null });
   } catch {
     return jsonDatabaseRequired(context, "메일함 이동");
+  }
+});
+
+app.post(appRoutes.mail.favoriteMessage(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageFavoriteRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "즐겨찾기 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  const messageId = context.req.param("id");
+  if (!messageId) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 ID가 필요합니다.", 400, { route: context.req.path });
+  }
+  try {
+    const message = await setOperationalMailMessageFavorite(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId: String(messageId),
+      isFavorite: parsed.data.isFavorite,
+    });
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "이 메일의 즐겨찾기를 변경할 수 없습니다.", 403, { messageId: context.req.param("id"), route: context.req.path });
+    }
+    return jsonSuccess(context, mailMessageFavoriteResponseSchema, { ok: true, data: { message, isFavorite: message.importance === "important", audit: { candidate: true, action: "mail.message.favorite" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일 즐겨찾기 변경");
   }
 });
 

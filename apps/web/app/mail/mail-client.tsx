@@ -21,6 +21,7 @@ import {
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageMoveResponseSchema,
+  mailMessageFavoriteResponseSchema,
   mailMessageReadResponseSchema,
   mailMessageSendResponseSchema,
   mailRecipientListResponseSchema,
@@ -48,6 +49,7 @@ type MailPendingAttachment = {
 };
 
 const boxLabels: Record<MailBox, string> = {
+  favorites: "즐겨찾기",
   inbox: "받은메일함",
   sent: "보낸메일함",
   drafts: "임시보관함",
@@ -72,7 +74,7 @@ type MailFolderConfig = {
 };
 
 const defaultMailFolders: readonly MailFolderConfig[] = [
-  { id: "favorites", label: "즐겨찾기", group: "standalone" },
+  { id: "favorites", label: "즐겨찾기", group: "standalone", box: "favorites" },
   { id: "inbox", label: "받은메일함", group: "mailbox", box: "inbox" },
   { id: "sent", label: "보낸메일함", group: "mailbox", box: "sent" },
   { id: "drafts", label: "임시보관함", group: "mailbox", box: "drafts" },
@@ -85,7 +87,7 @@ const defaultMailFolders: readonly MailFolderConfig[] = [
 const defaultVisibleFolderIds = defaultMailFolders.map((folder) => folder.id);
 
 function isMailBox(value: MailView): value is MailBox {
-  return value === "inbox" || value === "sent" || value === "drafts" || value === "spam" || value === "trash";
+  return value === "favorites" || value === "inbox" || value === "sent" || value === "drafts" || value === "spam" || value === "trash";
 }
 
 function formatMeta(message: MailMessage, box: MailBox) {
@@ -96,13 +98,13 @@ function formatMeta(message: MailMessage, box: MailBox) {
   return `${message.senderName} · ${label}`;
 }
 
-function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number; spam: number; trash: number }) {
+function getFolderBadge(folder: MailFolderConfig, counts: { inbox: number; unread: number; sent: number; drafts: number; favorites: number; spam: number; trash: number }) {
+  if (folder.id === "favorites") return String(counts.favorites);
   if (folder.id === "inbox") return String(counts.inbox);
   if (folder.id === "sent") return String(counts.sent);
   if (folder.id === "drafts") return String(counts.drafts);
   if (folder.id === "spam") return String(counts.spam);
   if (folder.id === "trash") return String(counts.trash);
-  if (folder.id === "favorites") return "★";
   return "";
 }
 
@@ -210,7 +212,7 @@ export function MailClient() {
   const [composeSourceMessageId, setComposeSourceMessageId] = useState<string | null>(null);
   const [composeDraftMessageId, setComposeDraftMessageId] = useState<string | null>(null);
   const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Record<string, MailAttachment[]>>({});
-  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, spam: 0, trash: 0 });
+  const [counts, setCounts] = useState({ inbox: 0, unread: 0, sent: 0, drafts: 0, favorites: 0, spam: 0, trash: 0 });
   const [status, setStatus] = useState("메일함을 불러오는 중입니다.");
   const [recipients, setRecipients] = useState<MailRecipient[]>([]);
   const [addressBookRecipients, setAddressBookRecipients] = useState<MailRecipient[]>([]);
@@ -1097,6 +1099,25 @@ export function MailClient() {
     setStatus(target === "delete" ? "휴지통 메일을 완전 삭제했습니다." : `${boxLabels[nextBox]}으로 이동했습니다: ${parsed.data.message?.subject ?? "메일"}`);
   }
 
+  async function toggleFavorite(message: MailMessage) {
+    const nextFavorite = message.importance !== "important";
+    const response = await fetch(appRoutes.mail.favoriteMessage(message.id), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ isFavorite: nextFavorite }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setStatus(payload?.error?.message ?? "즐겨찾기 변경에 실패했습니다.");
+      return;
+    }
+    const parsed = mailMessageFavoriteResponseSchema.parse(payload);
+    await loadMessages(currentBox ?? "inbox");
+    setSelectedMessageId(parsed.data.message.id);
+    setStatus(parsed.data.isFavorite ? "즐겨찾기에 추가했습니다." : "즐겨찾기에서 해제했습니다.");
+  }
+
   async function createMailAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("메일 계정을 등록하는 중입니다.");
@@ -1781,6 +1802,7 @@ export function MailClient() {
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("reply", selectedMessage)}>답장</button> : null}
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("replyAll", selectedMessage)}>전체답장</button> : null}
                       <button className="mail-compose-toolbar-button" type="button" onClick={() => openComposeFromMessage("forward", selectedMessage)}>전달</button>
+                      <button className="mail-compose-toolbar-button" type="button" onClick={() => toggleFavorite(selectedMessage)}>{selectedMessage.importance === "important" ? "즐겨찾기 해제" : "즐겨찾기 추가"}</button>
                       {currentBox === "inbox" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "spam")}>스팸으로 이동</button> : null}
                       {currentBox !== "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "trash")}>휴지통으로 이동</button> : null}
                       {currentBox === "spam" || currentBox === "trash" ? <button className="mail-compose-toolbar-button" type="button" onClick={() => moveMessage(selectedMessage.id, "inbox")}>받은메일함으로 복구</button> : null}
