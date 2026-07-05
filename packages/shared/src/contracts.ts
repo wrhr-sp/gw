@@ -62,6 +62,7 @@ export const appRoutes = {
     deliveryHistory: "/api/mail/delivery-history",
     saveDraft: "/api/mail/messages/draft",
     markRead: (messageId: string) => `/api/mail/messages/${messageId}/read`,
+    moveMessage: (messageId: string) => `/api/mail/messages/${messageId}/move`,
     attachments: (messageId: string) => `/api/mail/messages/${messageId}/attachments`,
     attachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}`,
     downloadAttachment: (attachmentId: string) => `/api/mail/attachments/${attachmentId}/download`,
@@ -209,7 +210,7 @@ export const errorResponseSchema = z.object({
   }),
 });
 
-export const mailBoxSchema = z.enum(["inbox", "sent", "drafts"]);
+export const mailBoxSchema = z.enum(["inbox", "sent", "drafts", "spam", "trash"]);
 
 export const mailRecipientSourceKindSchema = z.enum(["internal", "history"]);
 
@@ -230,7 +231,8 @@ export const mailRecipientListResponseSchema = successResponseSchema(
   }),
 );
 
-export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived"]);
+export const mailMessageStatusSchema = z.enum(["draft", "sent", "archived", "spam", "trash"]);
+export const mailMessageMoveTargetSchema = z.enum(["spam", "trash", "inbox", "archive", "delete"]);
 export const mailImportanceSchema = z.enum(["normal", "important"]);
 export const mailDeliveryStatusSchema = z.enum(["draft", "pending", "queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked", "scheduled"]);
 export const mailDeliveryRecipientStatusSchema = z.enum(["queued", "sending", "sent", "failed", "retrying", "cancelled", "blocked"]);
@@ -267,7 +269,22 @@ export const mailMessageListResponseSchema = successResponseSchema(
       unread: z.number().int().nonnegative(),
       sent: z.number().int().nonnegative(),
       drafts: z.number().int().nonnegative(),
+      spam: z.number().int().nonnegative(),
+      trash: z.number().int().nonnegative(),
     }),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const mailMessageMoveRequestSchema = z.object({
+  target: mailMessageMoveTargetSchema,
+});
+
+export const mailMessageMoveResponseSchema = successResponseSchema(
+  z.object({
+    message: mailMessageSchema.nullable(),
+    action: mailMessageMoveTargetSchema,
+    audit: z.object({ candidate: z.literal(true), action: z.literal("mail.message.move") }),
     source: z.literal("postgres"),
   }),
 );
@@ -3657,6 +3674,7 @@ export type ApprovalCandidateListResponse = z.infer<typeof approvalCandidateList
 export type ApprovalActionRequest = z.infer<typeof approvalActionRequestSchema>;
 export type ApprovalActionResponse = z.infer<typeof approvalActionResponseSchema>;
 export type MailBox = z.infer<typeof mailBoxSchema>;
+export type MailMessageMoveTarget = z.infer<typeof mailMessageMoveTargetSchema>;
 export type MailRecipient = z.infer<typeof mailRecipientSchema>;
 export type MailRecipientListResponse = z.infer<typeof mailRecipientListResponseSchema>;
 export type MailMessage = z.infer<typeof mailMessageSchema>;

@@ -69,6 +69,13 @@ describe("mail compose address and attachment UX", () => {
     expect(mailClient).toContain("내게 테스트 발송");
     expect(mailClient).toContain("data-mail-template-variable-render");
     expect(mailClient).toContain("누락 변수는 발송 전 미리보기 API에서 차단합니다.");
+    expect(mailClient).toContain("appRoutes.mail.moveMessage(messageId)");
+    expect(mailClient).toContain("스팸으로 이동");
+    expect(mailClient).toContain("휴지통으로 이동");
+    expect(mailClient).toContain("받은메일함으로 복구");
+    expect(mailClient).toContain("완전삭제");
+    expect(mailClient).toContain("spam: \"스팸메일함\"");
+    expect(mailClient).toContain("trash: \"휴지통\"");
     expect(globalCss).toContain(".mail-integration-settings");
     expect(globalCss).toContain(".mail-settings-grid");
   });

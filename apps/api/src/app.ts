@@ -165,6 +165,8 @@ import {
   mailTemplateTestSendResponseSchema,
   mailTemplateUpdateRequestSchema,
   mailMessageListResponseSchema,
+  mailMessageMoveRequestSchema,
+  mailMessageMoveResponseSchema,
   mailRecipientListResponseSchema,
   mailMessageDraftSaveRequestSchema,
   mailMessageDraftSaveResponseSchema,
@@ -403,7 +405,7 @@ import {
   type OperationalEmployeeDirectory,
 } from "./lib/operational-org";
 import { listOperationalNotifications } from "./lib/operational-notifications";
-import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, updateOperationalMailDraft } from "./lib/operational-mail";
+import { createOperationalMailDraft, createOperationalMailMessages, listOperationalMailMessages, listOperationalMailRecipients, markOperationalMailMessageRead, moveOperationalMailMessage, updateOperationalMailDraft } from "./lib/operational-mail";
 import { buildInternalDeliveryRecipients, createOperationalMailDeliveryHistory, listOperationalMailDeliveryHistory } from "./lib/operational-mail-delivery-history";
 import { createOperationalMailTemplate, getOperationalMailTemplate, listOperationalMailTemplates, renderOperationalMailTemplate, updateOperationalMailTemplate } from "./lib/operational-mail-templates";
 import { createBlockedExternalMailDeliveryLogs, getExternalMailProviderConfig, getOperationalMailProviderSettings, normalizeExternalMailRecipients, updateOperationalMailProviderSettings } from "./lib/operational-mail-external-delivery";
@@ -6922,6 +6924,34 @@ app.post(MAIL_MESSAGE_READ_ROUTE, async (context) => {
     });
   } catch {
     return jsonDatabaseRequired(context, "메일 읽음 처리");
+  }
+});
+
+app.post(appRoutes.mail.moveMessage(":id"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const body = await context.req.json().catch(() => null);
+  const parsed = mailMessageMoveRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "메일함 이동 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+  const messageId = context.req.param("id");
+  if (!messageId) {
+    return jsonError(context, "VALIDATION_ERROR", "메일 ID가 필요합니다.", 400, { route: context.req.path });
+  }
+  try {
+    const message = await moveOperationalMailMessage(context.env, {
+      companyId: authResult.auth.user.companyId,
+      userId: authResult.auth.user.id,
+      messageId: String(messageId),
+      target: parsed.data.target,
+    });
+    if (!message) {
+      return jsonError(context, "FORBIDDEN", "이 메일을 이동하거나 삭제할 수 없습니다.", 403, { messageId: context.req.param("id"), route: context.req.path });
+    }
+    return jsonSuccess(context, mailMessageMoveResponseSchema, { ok: true, data: { message, action: parsed.data.target, audit: { candidate: true, action: "mail.message.move" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메일함 이동");
   }
 });
 
