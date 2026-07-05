@@ -5,6 +5,7 @@ import {
   errorResponseSchema,
   mailAttachmentListResponseSchema,
   mailAttachmentUploadResponseSchema,
+  mailMessageBulkActionResponseSchema,
   mailMessageDraftSaveResponseSchema,
   mailMessageListResponseSchema,
   mailMessageMoveResponseSchema,
@@ -501,6 +502,70 @@ describe("operational mail API", () => {
     expect(cancelPayload.data.message?.status).toBe("archived");
 
     await cleanupMailMessagesBySubject(subject);
+  });
+
+  runWhenDbConfigured("runs bulk mailbox actions through PostgreSQL", async () => {
+    if (!sql) throw new Error("DATABASE_URL_PREVIEW is required");
+    const subjectPrefix = `메일 다중작업 DB smoke ${Date.now()}`;
+    const subjects = [`${subjectPrefix} A`, `${subjectPrefix} B`];
+    for (const subject of subjects) await cleanupMailMessagesBySubject(subject);
+
+    const adminCookie = await login("COMPANY_ADMIN");
+    const hrCookie = await login("HR_ADMIN");
+    const messageIds: string[] = [];
+    for (const subject of subjects) {
+      const sendResponse = await app.request(
+        appRoutes.mail.send,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: adminCookie },
+          body: JSON.stringify({ recipientUserId: "user_hr_admin", subject, body: "다중작업 검증", importance: "normal" }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(sendResponse.status).toBe(201);
+      const sendPayload = mailMessageSendResponseSchema.parse(await sendResponse.json());
+      messageIds.push(sendPayload.data.message.id);
+    }
+
+    const markReadResponse = await app.request(
+      appRoutes.mail.bulkAction,
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ messageIds, action: "markRead" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(markReadResponse.status).toBe(200);
+    const markReadPayload = mailMessageBulkActionResponseSchema.parse(await markReadResponse.json());
+    expect(markReadPayload.data.successCount).toBe(2);
+    expect(markReadPayload.data.messages.every((message) => message?.readAt)).toBe(true);
+
+    const markUnreadResponse = await app.request(
+      appRoutes.mail.bulkAction,
+      { method: "POST", headers: { "content-type": "application/json", cookie: hrCookie }, body: JSON.stringify({ messageIds: [messageIds[0]], action: "markUnread" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(markUnreadResponse.status).toBe(200);
+    const markUnreadPayload = mailMessageBulkActionResponseSchema.parse(await markUnreadResponse.json());
+    expect(markUnreadPayload.data.messages[0]?.readAt).toBeNull();
+
+    const favoriteResponse = await app.request(
+      appRoutes.mail.bulkAction,
+      { method: "POST", headers: { "content-type": "application/json", cookie: adminCookie }, body: JSON.stringify({ messageIds, action: "favorite" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(favoriteResponse.status).toBe(200);
+    const favoritePayload = mailMessageBulkActionResponseSchema.parse(await favoriteResponse.json());
+    expect(favoritePayload.data.messages.every((message) => message?.importance === "important")).toBe(true);
+
+    const trashResponse = await app.request(
+      appRoutes.mail.bulkAction,
+      { method: "POST", headers: { "content-type": "application/json", cookie: adminCookie }, body: JSON.stringify({ messageIds, action: "trash" }) },
+      { DATABASE_URL: databaseUrl },
+    );
+    expect(trashResponse.status).toBe(200);
+    const trashPayload = mailMessageBulkActionResponseSchema.parse(await trashResponse.json());
+    expect(trashPayload.data.messages.every((message) => message?.status === "trash")).toBe(true);
+
+    for (const subject of subjects) await cleanupMailMessagesBySubject(subject);
   });
 
   runWhenDbConfigured("searches and filters mail list through PostgreSQL", async () => {

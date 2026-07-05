@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mailBoxSchema, mailMessageListResponseSchema, mailMessageScheduleRequestSchema, mailScheduledDispatchResponseSchema, mailDeliveryHistoryResponseSchema } from "../src/contracts";
+import { mailBoxSchema, mailMessageBulkActionRequestSchema, mailMessageBulkActionResponseSchema, mailMessageListResponseSchema, mailMessageScheduleRequestSchema, mailScheduledDispatchResponseSchema, mailDeliveryHistoryResponseSchema } from "../src/contracts";
 
 describe("mail delivery history contracts", () => {
   it("parses batch and per-recipient status history", () => {
@@ -141,5 +141,23 @@ describe("mail delivery history contracts", () => {
     });
     expect(parsed.data.dispatchedCount).toBe(1);
     expect(parsed.data.messages[0]?.status).toBe("sent");
+  });
+
+  it("parses mailbox bulk action contracts", () => {
+    const request = mailMessageBulkActionRequestSchema.parse({ messageIds: ["message_1", "message_2"], action: "trash" });
+    expect(request.action).toBe("trash");
+    const response = mailMessageBulkActionResponseSchema.parse({
+      ok: true,
+      data: {
+        action: "trash",
+        requestedCount: 2,
+        successCount: 2,
+        messages: [null, null],
+        audit: { candidate: true, action: "mail.message.bulk_action" },
+        source: "postgres",
+      },
+      error: null,
+    });
+    expect(response.data.successCount).toBe(2);
   });
 });

@@ -718,12 +718,12 @@ export async function updateOperationalMailDraft(env: DatabaseEnv | undefined, i
   return row ? mapMailMessage(row) : null;
 }
 
-export async function markOperationalMailMessageRead(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
+export async function setOperationalMailMessageReadState(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string; isRead: boolean }) {
   const sql = getDbClient(env ?? {});
   const rows = await sql`
     with updated as (
       update mail_messages
-      set read_at = coalesce(read_at, now()), updated_at = now()
+      set read_at = case when ${input.isRead} then coalesce(read_at, now()) else null end, updated_at = now()
       where id = ${input.messageId}
         and company_id = ${input.companyId}
         and recipient_user_id = ${input.userId}
@@ -736,6 +736,10 @@ export async function markOperationalMailMessageRead(env: DatabaseEnv | undefine
       updated.company_id,
       updated.sender_user_id,
       coalesce(sender.display_name, sender.login_id, '알 수 없음') as sender_name,
+      updated.sender_mail_account_id,
+      updated.sender_mail_alias_id,
+      updated.sender_email,
+      updated.sender_display_name,
       updated.recipient_user_id,
       coalesce(recipient.display_name, recipient.login_id) as recipient_name,
       updated.subject,
@@ -743,6 +747,7 @@ export async function markOperationalMailMessageRead(env: DatabaseEnv | undefine
       updated.status,
       updated.importance,
       updated.sent_at,
+      updated.scheduled_at,
       updated.read_at,
       updated.created_at,
       updated.updated_at
@@ -753,4 +758,8 @@ export async function markOperationalMailMessageRead(env: DatabaseEnv | undefine
 
   const row = rows[0] as MailRow | undefined;
   return row ? mapMailMessage(row) : null;
+}
+
+export async function markOperationalMailMessageRead(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; messageId: string }) {
+  return setOperationalMailMessageReadState(env, { ...input, isRead: true });
 }
