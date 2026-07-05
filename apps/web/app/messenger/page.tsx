@@ -6,7 +6,10 @@ import {
   appRoutes,
   messengerMessageListResponseSchema,
   messengerMessageMutationResponseSchema,
+  messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
+  messengerRoomMemberListResponseSchema,
+  messengerRoomMemberMutationResponseSchema,
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
 } from "@gw/shared";
@@ -47,6 +50,14 @@ type MessengerMessageView = {
   sentAt: string;
   mine: boolean;
   readCount: number;
+};
+
+type MessengerMemberView = {
+  userId: string;
+  memberRole: string;
+  unreadCount: number;
+  muted: boolean;
+  joinedAt: string;
 };
 
 type MessengerDocumentCategory = "전체" | "최근문서" | "공지/규정" | "인사/근태" | "업무자료" | "양식";
@@ -169,6 +180,7 @@ export default function MessengerPage() {
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
   const [isDocumentPickerOpen, setIsDocumentPickerOpen] = useState(false);
+  const [isMemberPanelOpen, setIsMemberPanelOpen] = useState(false);
   const [activeDocumentCategory, setActiveDocumentCategory] = useState<MessengerDocumentCategory>("전체");
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<MessengerEmojiCategory>("자주사용");
   const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
@@ -177,6 +189,9 @@ export default function MessengerPage() {
   const [displayMessage, setDisplayMessage] = useState("");
   const [apiThreads, setApiThreads] = useState<MessengerThread[]>([]);
   const [apiMessages, setApiMessages] = useState<MessengerMessageView[]>([]);
+  const [apiMembers, setApiMembers] = useState<MessengerMemberView[]>([]);
+  const [currentMemberRole, setCurrentMemberRole] = useState<string>("member");
+  const [inviteUserId, setInviteUserId] = useState("");
   const [isMessengerLoading, setIsMessengerLoading] = useState(true);
   const [isMessageLoading, setIsMessageLoading] = useState(false);
   const [messengerStatusMessage, setMessengerStatusMessage] = useState("대화방을 불러오는 중입니다.");
@@ -271,6 +286,41 @@ export default function MessengerPage() {
     }
   }
 
+  async function loadMessengerMembers(roomId: string) {
+    try {
+      const response = await fetch(appRoutes.messenger.roomMembers(roomId), { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setApiMembers([]);
+        setDisplayMessage(payload?.error?.message ?? "참여자 목록을 불러오지 못했습니다.");
+        return;
+      }
+      const parsed = messengerRoomMemberListResponseSchema.parse(payload);
+      setApiMembers(parsed.data.members.map((member) => ({
+        userId: member.userId,
+        memberRole: member.memberRole,
+        unreadCount: member.unreadCount,
+        muted: member.muted,
+        joinedAt: formatMessengerTime(member.joinedAt),
+      })));
+    } catch {
+      setApiMembers([]);
+      setDisplayMessage("참여자 목록 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function loadMessengerRoomDetail(roomId: string) {
+    try {
+      const response = await fetch(appRoutes.messenger.room(roomId), { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) return;
+      const parsed = messengerRoomDetailResponseSchema.parse(payload);
+      setCurrentMemberRole(parsed.data.currentMemberRole);
+    } catch {
+      setCurrentMemberRole("member");
+    }
+  }
+
   async function loadMessengerMessages(roomId: string) {
     setIsMessageLoading(true);
     try {
@@ -323,6 +373,51 @@ export default function MessengerPage() {
       setMessengerStatusMessage("");
     } catch {
       setDisplayMessage("대화방 생성 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function handleInviteMember() {
+    if (!activeThread || !inviteUserId.trim()) return;
+    try {
+      const response = await fetch(appRoutes.messenger.roomMembers(activeThread.id), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userIds: [inviteUserId.trim()], memberRole: "member" }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setDisplayMessage(payload?.error?.message ?? "참여자를 초대하지 못했습니다.");
+        return;
+      }
+      messengerRoomMemberMutationResponseSchema.parse(payload);
+      setInviteUserId("");
+      await loadMessengerMembers(activeThread.id);
+      await loadMessengerRooms();
+    } catch {
+      setDisplayMessage("참여자 초대 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!activeThread) return;
+    try {
+      const response = await fetch(appRoutes.messenger.roomMember(activeThread.id, userId), {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: "messenger-ui-remove" }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setDisplayMessage(payload?.error?.message ?? "참여자를 내보내지 못했습니다.");
+        return;
+      }
+      messengerRoomMemberMutationResponseSchema.parse(payload);
+      await loadMessengerMembers(activeThread.id);
+      await loadMessengerRooms();
+    } catch {
+      setDisplayMessage("참여자 내보내기 요청 중 오류가 발생했습니다.");
     }
   }
 
@@ -490,8 +585,13 @@ export default function MessengerPage() {
   useEffect(() => {
     if (activeThreadId) {
       void loadMessengerMessages(activeThreadId);
+      void loadMessengerMembers(activeThreadId);
+      void loadMessengerRoomDetail(activeThreadId);
     } else {
       setApiMessages([]);
+      setApiMembers([]);
+      setCurrentMemberRole("member");
+      setIsMemberPanelOpen(false);
     }
   }, [activeThreadId]);
 
@@ -507,12 +607,13 @@ export default function MessengerPage() {
         setIsEmojiMenuOpen(false);
         setIsDocumentPickerOpen(false);
         setIsConversationMenuOpen(false);
+        setIsMemberPanelOpen(false);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen, isDocumentPickerOpen, isConversationMenuOpen]);
+  }, [isRecipientPanelOpen, isAttachmentMenuOpen, isEmojiMenuOpen, isDocumentPickerOpen, isConversationMenuOpen, isMemberPanelOpen]);
 
   return (
     <PageShell
@@ -588,9 +689,12 @@ export default function MessengerPage() {
                   <div>
                     <Pill>{activeThread.kind}</Pill>
                     <h2>채팅방</h2>
-                    <p>{activeThread.title} · {activeThread.subtitle}</p>
+                    <p>{activeThread.title} · {activeThread.subtitle} · 내 권한 {currentMemberRole}</p>
                   </div>
                   <div className="messenger-conversation-actions" onClick={(event) => event.stopPropagation()}>
+                    <button className="touch-button--secondary" type="button" onClick={() => setIsMemberPanelOpen(true)}>
+                      참여자 {apiMembers.length}
+                    </button>
                     <div className="messenger-conversation-menu-wrap">
                       <button
                         className="messenger-conversation-menu-button"
@@ -626,6 +730,29 @@ export default function MessengerPage() {
                   ))}
                 </div>
                 <div className="messenger-composer" aria-label="메시지 입력 검토 화면">
+              <aside className="messenger-member-panel" hidden={!isMemberPanelOpen} aria-label="채팅방 참여자 패널">
+                <div className="messenger-member-panel__header">
+                  <strong>참여자 관리</strong>
+                  <button className="messenger-dialog-close" type="button" aria-label="참여자 패널 닫기" onClick={() => setIsMemberPanelOpen(false)}>×</button>
+                </div>
+                <div className="messenger-member-panel__invite">
+                  <input className="field" value={inviteUserId} onChange={(event) => setInviteUserId(event.target.value)} aria-label="초대할 사용자 ID" />
+                  <button className="touch-button--secondary" type="button" onClick={() => void handleInviteMember()}>초대</button>
+                </div>
+                <div className="messenger-member-list" aria-label="참여자 목록">
+                  {apiMembers.map((member) => (
+                    <div key={member.userId} className="messenger-member-row">
+                      <span>
+                        <strong>{member.userId}</strong>
+                        <small>{member.memberRole} · 읽지 않음 {member.unreadCount}</small>
+                      </span>
+                      {member.memberRole !== "owner" && (currentMemberRole === "owner" || currentMemberRole === "manager") ? (
+                        <button type="button" className="touch-button--secondary" onClick={() => void handleRemoveMember(member.userId)}>내보내기</button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </aside>
               <input
                 ref={fileInputRef}
                 className="messenger-file-input"

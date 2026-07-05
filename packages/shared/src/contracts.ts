@@ -85,6 +85,7 @@ export const appRoutes = {
     rooms: "/api/messenger/rooms",
     room: (roomId: string) => `/api/messenger/rooms/${roomId}`,
     roomMembers: (roomId: string) => `/api/messenger/rooms/${roomId}/members`,
+    roomMember: (roomId: string, userId: string) => `/api/messenger/rooms/${roomId}/members/${userId}`,
     roomMessages: (roomId: string) => `/api/messenger/rooms/${roomId}/messages`,
     readMessage: (messageId: string) => `/api/messenger/messages/${messageId}/read`,
     search: "/api/messenger/search",
@@ -809,6 +810,41 @@ export const messengerMessageCreateRequestSchema = z.object({
   body: z.string().trim().max(5000).optional(),
   replyToMessageId: z.string().trim().max(120).nullable().optional(),
 });
+
+export const messengerRoomMemberInviteRequestSchema = z.object({
+  userIds: z.array(z.string().trim().min(1).max(120)).min(1).max(50),
+  memberRole: messengerMemberRoleSchema.default("member"),
+});
+
+export const messengerRoomMemberRemoveRequestSchema = z.object({
+  reason: z.string().trim().max(300).optional(),
+});
+
+export const messengerRoomDetailResponseSchema = successResponseSchema(
+  z.object({
+    room: messengerRoomSchema,
+    members: z.array(messengerRoomMemberSchema),
+    currentMemberRole: messengerMemberRoleSchema,
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerRoomMemberListResponseSchema = successResponseSchema(
+  z.object({
+    room: messengerRoomSchema,
+    members: z.array(messengerRoomMemberSchema),
+    source: z.literal("postgres"),
+  }),
+);
+
+export const messengerRoomMemberMutationResponseSchema = successResponseSchema(
+  z.object({
+    roomId: z.string(),
+    members: z.array(messengerRoomMemberSchema),
+    audit: z.object({ candidate: z.literal(true), action: z.string() }),
+    source: z.literal("postgres"),
+  }),
+);
 
 export const messengerRoomListResponseSchema = successResponseSchema(
   z.object({

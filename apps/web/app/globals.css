@@ -6498,6 +6498,52 @@ li {
   color: var(--danger) !important;
 }
 
+.messenger-member-panel[hidden] {
+  display: none;
+}
+
+.messenger-member-panel {
+  display: grid;
+  gap: var(--space-sm);
+  margin-block-end: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.messenger-member-panel__header,
+.messenger-member-panel__invite,
+.messenger-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.messenger-member-panel__invite .field {
+  min-width: 0;
+}
+
+.messenger-member-list {
+  display: grid;
+  gap: var(--feature-page-sublist-item-gap);
+}
+
+.messenger-member-row {
+  padding-block: var(--space-xs);
+  border-top: 1px solid var(--line-subtle);
+}
+
+.messenger-member-row span {
+  display: grid;
+  min-width: 0;
+}
+
+.messenger-member-row small {
+  color: var(--text-muted);
+}
+
 .messenger-new-button {
   white-space: nowrap;
 }

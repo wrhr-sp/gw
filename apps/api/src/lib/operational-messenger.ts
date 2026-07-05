@@ -64,6 +64,14 @@ function mapMessage(row: Record<string, any>) {
   };
 }
 
+function canManageMembers(role: string | undefined) {
+  return role === "owner" || role === "manager";
+}
+
+function canSendMessage(role: string | undefined) {
+  return role === "owner" || role === "manager" || role === "member" || role === "guest" || role === "bot";
+}
+
 async function assertActiveMember(sql: ReturnType<typeof getDbClient>, input: { companyId: string; roomId: string; userId: string }) {
   const rows = await sql`
     select member_role
@@ -191,6 +199,91 @@ export async function createOperationalMessengerRoom(
   };
 }
 
+
+export async function getOperationalMessengerRoomDetail(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; roomId: string }) {
+  const sql = getDbClient(env ?? {});
+  const member = await assertActiveMember(sql, input);
+  if (!member) return null;
+  const room = await getRoomForMember(sql, input);
+  if (!room) return null;
+  const members = await sql`
+    select *
+    from messenger_room_members
+    where company_id = ${input.companyId}
+      and room_id = ${input.roomId}
+      and is_active is true
+      and left_at is null
+    order by case member_role when 'owner' then 1 when 'manager' then 2 when 'member' then 3 when 'readonly' then 4 when 'guest' then 5 else 6 end, joined_at asc
+  `;
+  return { room, members: members.map(mapMember), currentMemberRole: String(member.member_role) as "owner" | "manager" | "member" | "readonly" | "guest" | "bot" };
+}
+
+export async function listOperationalMessengerRoomMembers(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; roomId: string }) {
+  const detail = await getOperationalMessengerRoomDetail(env, input);
+  return detail ? { room: detail.room, members: detail.members } : null;
+}
+
+export async function inviteOperationalMessengerRoomMembers(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; actorId: string; roomId: string; userIds: string[]; memberRole: "owner" | "manager" | "member" | "readonly" | "guest" | "bot" },
+) {
+  const sql = getDbClient(env ?? {});
+  const actor = await assertActiveMember(sql, { companyId: input.companyId, roomId: input.roomId, userId: input.actorId });
+  if (!actor || !canManageMembers(String(actor.member_role))) return null;
+  const roomRows = await sql`
+    select status
+    from messenger_rooms
+    where company_id = ${input.companyId} and id = ${input.roomId}
+    limit 1
+  `;
+  if (!roomRows[0] || roomRows[0].status !== "active") return null;
+  const uniqueUserIds = Array.from(new Set(input.userIds)).filter((userId) => userId !== input.actorId);
+  const changed: Record<string, any>[] = [];
+  for (const userId of uniqueUserIds) {
+    const userRows = await sql`select id from users where company_id = ${input.companyId} and id = ${userId} and status = 'active' and deleted_at is null limit 1`;
+    if (!userRows[0]) continue;
+    const rows = await sql`
+      insert into messenger_room_members (company_id, room_id, user_id, member_role, joined_at, is_active, created_at, updated_at)
+      values (${input.companyId}, ${input.roomId}, ${userId}, ${input.memberRole}, now(), true, now(), now())
+      on conflict (company_id, room_id, user_id)
+      do update set member_role = excluded.member_role, is_active = true, left_at = null, updated_at = now()
+      returning *
+    `;
+    if (rows[0]) changed.push(rows[0]);
+  }
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.actorId}, 'MESSENGER_ROOM_MEMBER_INVITE', 'messenger_room', ${input.roomId}, ${input.roomId}, ${JSON.stringify({ userIds: uniqueUserIds, memberRole: input.memberRole })}, now())
+  `;
+  return { roomId: input.roomId, members: changed.map(mapMember) };
+}
+
+export async function removeOperationalMessengerRoomMember(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; actorId: string; roomId: string; userId: string; reason?: string },
+) {
+  const sql = getDbClient(env ?? {});
+  const actor = await assertActiveMember(sql, { companyId: input.companyId, roomId: input.roomId, userId: input.actorId });
+  if (!actor || !canManageMembers(String(actor.member_role))) return null;
+  if (input.userId === input.actorId) return null;
+  const targetRows = await sql`
+    update messenger_room_members
+    set is_active = false, left_at = now(), updated_at = now()
+    where company_id = ${input.companyId}
+      and room_id = ${input.roomId}
+      and user_id = ${input.userId}
+      and is_active is true
+      and left_at is null
+    returning *
+  `;
+  if (!targetRows[0]) return null;
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.actorId}, 'MESSENGER_ROOM_MEMBER_REMOVE', 'messenger_room_member', ${input.userId}, ${input.roomId}, ${JSON.stringify({ removedUserId: input.userId, reason: input.reason ?? null })}, now())
+  `;
+  return { roomId: input.roomId, members: [mapMember(targetRows[0])] };
+}
+
 export async function listOperationalMessengerMessages(
   env: DatabaseEnv | undefined,
   input: { companyId: string; userId: string; roomId: string; limit: number; beforeSequenceNo?: number },
@@ -247,7 +340,7 @@ export async function sendOperationalMessengerMessage(
 ) {
   const sql = getDbClient(env ?? {});
   const member = await assertActiveMember(sql, input);
-  if (!member) return null;
+  if (!member || !canSendMessage(String(member.member_role))) return null;
 
   const roomRows = await sql`
     select status

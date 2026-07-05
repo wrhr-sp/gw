@@ -193,7 +193,12 @@ import {
   messengerMessageMutationResponseSchema,
   messengerMessageReadResponseSchema,
   messengerRoomCreateRequestSchema,
+  messengerRoomDetailResponseSchema,
   messengerRoomListResponseSchema,
+  messengerRoomMemberInviteRequestSchema,
+  messengerRoomMemberListResponseSchema,
+  messengerRoomMemberMutationResponseSchema,
+  messengerRoomMemberRemoveRequestSchema,
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
   secondaryPasswordStatusResponseSchema,
@@ -434,9 +439,13 @@ import {
 } from "./lib/operational-mail-settings";
 import {
   createOperationalMessengerRoom,
+  getOperationalMessengerRoomDetail,
+  inviteOperationalMessengerRoomMembers,
   leaveOperationalMessengerThread,
   listOperationalMessengerMessages,
+  listOperationalMessengerRoomMembers,
   listOperationalMessengerRooms,
+  removeOperationalMessengerRoomMember,
   markOperationalMessengerMessageRead,
   sendOperationalMessengerMessage,
 } from "./lib/operational-messenger";
@@ -6229,6 +6238,70 @@ app.post(appRoutes.messenger.rooms, async (context) => {
     }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메신저 대화방 생성");
+  }
+});
+
+
+app.get(appRoutes.messenger.room(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  try {
+    const result = await getOperationalMessengerRoomDetail(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, roomId });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "이 대화방에 접근할 권한이 없습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerRoomDetailResponseSchema, { ok: true, data: { ...result, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 대화방 상세 조회");
+  }
+});
+
+app.get(appRoutes.messenger.roomMembers(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  try {
+    const result = await listOperationalMessengerRoomMembers(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, roomId });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 참여자만 참여자 목록을 볼 수 있습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerRoomMemberListResponseSchema, { ok: true, data: { ...result, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 참여자 목록 조회");
+  }
+});
+
+app.post(appRoutes.messenger.roomMembers(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const body = await context.req.json().catch(() => null);
+  const parsed = messengerRoomMemberInviteRequestSchema.safeParse(body);
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 참여자 초대 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const result = await inviteOperationalMessengerRoomMembers(context.env, { companyId: authResult.auth.user.companyId, actorId: authResult.auth.user.id, roomId, userIds: parsed.data.userIds, memberRole: parsed.data.memberRole });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 관리자만 참여자를 초대할 수 있습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerRoomMemberMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "messenger.room_member.invite" }, source: "postgres" }, error: null }, 201);
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 참여자 초대");
+  }
+});
+
+app.delete(appRoutes.messenger.roomMember(":roomId", ":userId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  const userId = context.req.param("userId")?.trim();
+  if (!roomId || !userId || roomId.length > 160 || userId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 참여자 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const body = await context.req.json().catch(() => ({}));
+  const parsed = messengerRoomMemberRemoveRequestSchema.safeParse(body ?? {});
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 참여자 내보내기 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const result = await removeOperationalMessengerRoomMember(context.env, { companyId: authResult.auth.user.companyId, actorId: authResult.auth.user.id, roomId, userId, reason: parsed.data.reason });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "대화방 관리자만 다른 참여자를 내보낼 수 있습니다.", 403, { roomId, userId, route: context.req.path });
+    return jsonSuccess(context, messengerRoomMemberMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "messenger.room_member.remove" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 참여자 내보내기");
   }
 });
 
