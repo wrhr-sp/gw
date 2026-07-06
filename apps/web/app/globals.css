@@ -3849,6 +3849,20 @@ li {
   padding: 6px 10px;
 }
 
+.topbar-modal-notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.topbar-modal__error {
+  margin: 0;
+  color: var(--danger-hover);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
 .topbar-modal-list-item--notification[data-status="unread"] {
   border-color: var(--primary-soft-strong);
   background: var(--primary-soft);

@@ -628,6 +628,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain("getTopbarNotificationHref");
     expect(shellSource).toContain("messenger_mention");
     expect(shellSource).toContain("메신저로 이동");
+    expect(shellSource).toContain("handleNotificationRead");
+    expect(shellSource).toContain("handleAllNotificationsRead");
+    expect(shellSource).toContain("읽음 처리");
+    expect(shellSource).toContain("topbar-modal-notification-actions");
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');
     expect(shellSource).not.toContain('settingsTab === "admin" && canUseAdminSettings && !adminSettingsUnlocked');

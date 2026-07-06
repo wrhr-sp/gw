@@ -1572,6 +1572,8 @@ export function MobileAppShell({
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [topbarNotifications, setTopbarNotifications] = useState<TopbarNotificationItem[]>([]);
+  const [notificationActionPendingId, setNotificationActionPendingId] = useState<string | null>(null);
+  const [notificationActionError, setNotificationActionError] = useState<string | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [activeTopbarModal, setActiveTopbarModal] = useState<TopbarActionKey | null>(null);
@@ -2381,7 +2383,82 @@ export function MobileAppShell({
     };
   }, [isLoginRoute]);
 
+  function applyTopbarNotificationPayload(payload: { ok?: boolean; data?: { unreadCount?: number; items?: TopbarNotificationItem[] } }) {
+    if (!payload.ok) {
+      throw new Error("notifications payload failed");
+    }
 
+    setNotificationBadge({
+      unreadCount: typeof payload.data?.unreadCount === "number" ? payload.data.unreadCount : 0,
+    });
+    setTopbarNotifications((payload.data?.items ?? []).slice(0, 8));
+  }
+
+  async function refreshTopbarNotifications() {
+    const response = await fetch(appRoutes.notifications, { credentials: "same-origin" });
+    if (!response.ok) {
+      throw new Error(`notifications ${response.status}`);
+    }
+    const payload = (await response.json()) as { ok?: boolean; data?: { unreadCount?: number; items?: TopbarNotificationItem[] } };
+    applyTopbarNotificationPayload(payload);
+  }
+
+  async function handleNotificationRead(notificationId: string) {
+    setNotificationActionPendingId(notificationId);
+    setNotificationActionError(null);
+    try {
+      const response = await fetch(appRoutes.notificationRead(notificationId), {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error(`notification read ${response.status}`);
+      }
+      const payload = (await response.json()) as { ok?: boolean; data?: { unreadCount?: number; item?: TopbarNotificationItem } };
+      if (!payload.ok || !payload.data?.item) {
+        throw new Error("notification read payload failed");
+      }
+      setNotificationBadge({ unreadCount: typeof payload.data.unreadCount === "number" ? payload.data.unreadCount : 0 });
+      setTopbarNotifications((items) => items.map((item) => (item.id === notificationId ? { ...item, ...payload.data!.item } : item)));
+    } catch (error) {
+      setNotificationActionError(error instanceof Error ? error.message : "알림 읽음 처리에 실패했습니다.");
+    } finally {
+      setNotificationActionPendingId(null);
+    }
+  }
+
+  async function handleNotificationMove(item: TopbarNotificationItem, href: string) {
+    if (item.status === "unread") {
+      await handleNotificationRead(item.id);
+    }
+    closeTopbarModal();
+    navigateTo(href);
+  }
+
+  async function handleAllNotificationsRead() {
+    setNotificationActionPendingId("all");
+    setNotificationActionError(null);
+    try {
+      const response = await fetch(appRoutes.notificationsReadAll, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error(`notifications read-all ${response.status}`);
+      }
+      const payload = (await response.json()) as { ok?: boolean; data?: { unreadCount?: number; items?: TopbarNotificationItem[] } };
+      applyTopbarNotificationPayload(payload);
+    } catch (error) {
+      setNotificationActionError(error instanceof Error ? error.message : "알림 모두 읽음 처리에 실패했습니다.");
+      try {
+        await refreshTopbarNotifications();
+      } catch {
+        // 화면 상태 갱신 실패는 기존 알림 목록을 유지합니다.
+      }
+    } finally {
+      setNotificationActionPendingId(null);
+    }
+  }
 
   function setNotificationPreference(key: NotificationPreferenceKey, enabled: boolean) {
     setNotificationPreferences((value) => {
@@ -3477,15 +3554,24 @@ export function MobileAppShell({
 
           {activeTopbarModal === "notifications" ? (
             <div className="topbar-modal-list">
+              {notificationActionError ? <p className="topbar-modal__error">{notificationActionError}</p> : null}
               {topbarNotifications.length ? topbarNotifications.map((item) => {
                 const href = getTopbarNotificationHref(item.notificationType);
+                const itemPending = notificationActionPendingId === item.id;
                 return (
                   <article key={item.id} className="topbar-modal-list-item topbar-modal-list-item--notification" data-status={item.status}>
                     <span>{getTopbarNotificationTag(item.notificationType)}</span>
                     <div>
                       <strong>{item.title}</strong>
                       <p>{item.body}</p>
-                      {href ? <button type="button" className="topbar-modal-link-action" onClick={() => { closeTopbarModal(); navigateTo(href); }}>메신저로 이동</button> : null}
+                      <div className="topbar-modal-notification-actions">
+                        {item.status === "unread" ? (
+                          <button type="button" className="topbar-modal-link-action" onClick={() => handleNotificationRead(item.id)} disabled={itemPending || notificationActionPendingId === "all"}>
+                            {itemPending ? "처리 중" : "읽음 처리"}
+                          </button>
+                        ) : null}
+                        {href ? <button type="button" className="topbar-modal-link-action" onClick={() => handleNotificationMove(item, href)} disabled={itemPending || notificationActionPendingId === "all"}>메신저로 이동</button> : null}
+                      </div>
                     </div>
                   </article>
                 );
@@ -3498,7 +3584,9 @@ export function MobileAppShell({
                   </div>
                 </article>
               )}
-              <button type="button" className="topbar-modal-secondary-action">모두 읽음 처리</button>
+              <button type="button" className="topbar-modal-secondary-action" onClick={handleAllNotificationsRead} disabled={notificationActionPendingId === "all" || !topbarNotifications.some((item) => item.status === "unread")}>
+                {notificationActionPendingId === "all" ? "처리 중" : "모두 읽음 처리"}
+              </button>
             </div>
           ) : null}
 
