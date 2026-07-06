@@ -28,6 +28,7 @@ const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
 const SIDEBAR_GROUP_DIVIDER_STORAGE_PREFIX = "gw.sidebar.groupDivider";
+const SIDEBAR_SECTION_OPEN_STORAGE_PREFIX = "gw.sidebar.sectionOpen";
 const SECONDARY_PASSWORD_MAX_FAILURES = 5;
 const SECONDARY_PASSWORD_LOCK_MS = 10 * 60 * 1000;
 const SECONDARY_PASSWORD_UNLOCK_MS = 10 * 60 * 1000;
@@ -1540,6 +1541,33 @@ function getSidebarGroupDividerStorageKey(portalKey: SidebarPortalKey) {
   return `${SIDEBAR_GROUP_DIVIDER_STORAGE_PREFIX}.${portalKey}`;
 }
 
+function getSidebarSectionOpenStateKey(portalKey: SidebarPortalKey, sectionTitle: string) {
+  return `${portalKey}:${sectionTitle}`;
+}
+
+function getSidebarSectionOpenStorageKey(portalKey: SidebarPortalKey, sectionTitle: string) {
+  return `${SIDEBAR_SECTION_OPEN_STORAGE_PREFIX}.${portalKey}.${encodeURIComponent(sectionTitle)}`;
+}
+
+function readStoredSidebarSectionOpen(portalKey: SidebarPortalKey, sectionTitle: string) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(getSidebarSectionOpenStorageKey(portalKey, sectionTitle));
+    return raw === null ? null : raw === "true";
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSidebarSectionOpen(portalKey: SidebarPortalKey, sectionTitle: string, open: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(getSidebarSectionOpenStorageKey(portalKey, sectionTitle), String(open));
+  } catch {
+    // localStorage may be unavailable in private or restricted browser modes.
+  }
+}
+
 function readStoredSidebarGroupDividers(): Record<SidebarPortalKey, boolean> {
   if (typeof window === "undefined") return normalizeSidebarGroupDividerSettings(null);
   return Object.fromEntries(sidebarPortalKeys.map((key) => {
@@ -1668,6 +1696,7 @@ export function MobileAppShell({
   const [profileState, setProfileState] = useState<TopbarProfileState>(() => buildFallbackProfile(currentRoleCode));
   const [sidebarCustomSelections, setSidebarCustomSelections] = useState<Record<SidebarPortalKey, string[] | null>>(() => readStoredSidebarCustomSelections());
   const [sidebarGroupDividers, setSidebarGroupDividers] = useState<Record<SidebarPortalKey, boolean>>(() => normalizeSidebarGroupDividerSettings(null));
+  const [sidebarSectionOpenState, setSidebarSectionOpenState] = useState<Record<string, boolean>>({});
   const [isSidebarCustomSelectionLoaded, setIsSidebarCustomSelectionLoaded] = useState(false);
   const [sidebarDraftSelections, setSidebarDraftSelections] = useState<string[] | null>(null);
   const [sidebarDraftDividerVisible, setSidebarDraftDividerVisible] = useState<boolean | null>(null);
@@ -1831,6 +1860,36 @@ export function MobileAppShell({
     return sidebarSelectedHrefs.map((href) => byHref.get(href)).filter((item): item is NavItem => Boolean(item));
   }, [sidebarCustomizationItems, sidebarSelectedHrefs]);
   const sidebarDividerVisible = sidebarGroupDividers[sidebarPortalKey] && shouldShowSidebarGroupDivider(sidebarPortalKey);
+
+  useEffect(() => {
+    setSidebarSectionOpenState((current) => {
+      let changed = false;
+      const next = { ...current };
+      visibleDesktopMenuSections.forEach((section) => {
+        const stateKey = getSidebarSectionOpenStateKey(sidebarPortalKey, section.title);
+        if (typeof next[stateKey] === "boolean") {
+          return;
+        }
+        const storedOpen = readStoredSidebarSectionOpen(sidebarPortalKey, section.title);
+        if (storedOpen !== null) {
+          next[stateKey] = storedOpen;
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [sidebarPortalKey, visibleDesktopMenuSections]);
+
+  function isSidebarSectionOpen(sectionTitle: string) {
+    const stateKey = getSidebarSectionOpenStateKey(sidebarPortalKey, sectionTitle);
+    return sidebarSectionOpenState[stateKey] ?? true;
+  }
+
+  function handleSidebarSectionToggle(sectionTitle: string, open: boolean) {
+    const stateKey = getSidebarSectionOpenStateKey(sidebarPortalKey, sectionTitle);
+    setSidebarSectionOpenState((current) => (current[stateKey] === open ? current : { ...current, [stateKey]: open }));
+    writeStoredSidebarSectionOpen(sidebarPortalKey, sectionTitle, open);
+  }
 
   useEffect(() => {
     setProfileState((value) => ({
@@ -3850,7 +3909,12 @@ export function MobileAppShell({
               {visibleDesktopMenuSections.map((section, sectionIndex) => {
                 const isSupportWorkSection = sidebarPortalKey === "support" && section.title === sidebarPortalWorkSectionTitle.support;
                 return (
-                  <details key={section.title} className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider desktop-sidebar__section-details" : "desktop-sidebar__section desktop-sidebar__section-details"} open>
+                  <details
+                    key={section.title}
+                    className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider desktop-sidebar__section-details" : "desktop-sidebar__section desktop-sidebar__section-details"}
+                    open={isSidebarSectionOpen(section.title)}
+                    onToggle={(event) => handleSidebarSectionToggle(section.title, event.currentTarget.open)}
+                  >
                     <summary className="desktop-sidebar__section-summary">
                       <span>{section.title}</span>
                       {section.description ? <small>{section.description}</small> : null}

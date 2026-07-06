@@ -442,6 +442,16 @@ describe("mobile app shell admin boundary", () => {
     expect(supportSidebarItemsSource).not.toContain('label: "지점매출관리"');
     expect(supportSidebarItemsSource).not.toContain('label: "월 마감 정산"');
     expect(supportSidebarItemsSource).not.toContain('label: "수탁주선지출 내역"');
+    expect(shellSource).toContain('const SIDEBAR_SECTION_OPEN_STORAGE_PREFIX = "gw.sidebar.sectionOpen";');
+    expect(shellSource).toContain('function getSidebarSectionOpenStateKey(portalKey: SidebarPortalKey, sectionTitle: string)');
+    expect(shellSource).toContain('function getSidebarSectionOpenStorageKey(portalKey: SidebarPortalKey, sectionTitle: string)');
+    expect(shellSource).toContain('function readStoredSidebarSectionOpen(portalKey: SidebarPortalKey, sectionTitle: string)');
+    expect(shellSource).toContain('function writeStoredSidebarSectionOpen(portalKey: SidebarPortalKey, sectionTitle: string, open: boolean)');
+    expect(shellSource).toContain('const [sidebarSectionOpenState, setSidebarSectionOpenState] = useState<Record<string, boolean>>({});');
+    expect(shellSource).toContain('open={isSidebarSectionOpen(section.title)}');
+    expect(shellSource).toContain('onToggle={(event) => handleSidebarSectionToggle(section.title, event.currentTarget.open)}');
+    expect(shellSource).toContain('getSidebarSectionOpenStateKey(sidebarPortalKey, section.title)');
+    expect(shellSource).toContain('writeStoredSidebarSectionOpen(sidebarPortalKey, sectionTitle, open)');
     expect(shellSource).toContain('className="desktop-sidebar__section-summary"');
     expect(shellSource).not.toContain('className="desktop-sidebar__group-title"');
     expect(shellSource).not.toContain('className="desktop-sidebar__group-summary"');
