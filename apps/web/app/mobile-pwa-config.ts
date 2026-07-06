@@ -131,9 +131,9 @@ export const adminPwaManifest = {
       url: "/admin",
     },
     {
-      name: "사용자/권한",
-      short_name: "사용자",
-      description: "사용자 상태, 초대, 권한 점검 화면을 바로 엽니다.",
+      name: "사원 계정 관리",
+      short_name: "사원계정",
+      description: "사원 계정 생성, 상태, 초대, 권한 점검 화면을 바로 엽니다.",
       url: "/admin/users",
     },
     {
@@ -388,9 +388,9 @@ export const adminPrimaryNav: NavItem[] = [
   },
   {
     href: "/admin/users",
-    label: "계정 관리",
-    shortLabel: "계정",
-    summary: "계정 생성, 초대, 잠금, 비활성화, 퇴사자 처리, 권한 점검",
+    label: "사원 계정 관리",
+    shortLabel: "사원계정",
+    summary: "사원 계정 생성, 초대, 잠금, 비활성화, 퇴사자 처리, 권한 점검",
   },
   {
     href: "/admin/users/verification-action",
@@ -546,8 +546,8 @@ export const adminRecoveryRouteCards: readonly RecoveryRouteCard[] = [
   },
   {
     href: "/admin/users",
-    label: "사용자/권한",
-    summary: "초대·권한 저장이 아니라 현재 사용자 상태와 안내 문구를 다시 읽습니다.",
+    label: "사원 계정 관리",
+    summary: "초대·권한 저장이 아니라 현재 사원 계정 상태와 안내 문구를 다시 읽습니다.",
   },
   {
     href: "/admin/policies",
