@@ -1,8 +1,6 @@
 import React, { Suspense } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { adminUsersListResponseSchema, appRoutes, type AdminUsersListResponse } from "@gw/shared";
-
-import { app as apiApp } from "../../../../api/src/app";
 
 import { AdminUsersPageContent } from "./admin-users-page-content";
 import { classifyAdminUsersLoadErrorKind } from "./load-error-kind";
@@ -104,10 +102,14 @@ async function loadAdminUsersData(
 
   let response;
   try {
-    response = await apiApp.request(appRoutes.admin.users, {
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost";
+    const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+    response = await fetch(`${protocol}://${host}${appRoutes.admin.users}`, {
       headers: {
         cookie: `gw_session=${encodeURIComponent(sessionToken)}`,
       },
+      cache: "no-store",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
