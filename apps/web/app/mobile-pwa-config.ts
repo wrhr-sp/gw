@@ -382,33 +382,33 @@ export const managementMenuSections: NavSection[] = [
 export const adminPrimaryNav: NavItem[] = [
   {
     href: "/admin",
-    label: "관리자 허브",
-    shortLabel: "허브",
-    summary: "운영 허브와 우선 검토 항목",
+    label: "그룹웨어관리",
+    shortLabel: "관리",
+    summary: "그룹웨어 관리자 업무 허브",
   },
   {
     href: "/admin/users",
     label: "사원 계정 관리",
     shortLabel: "사원계정",
-    summary: "사원 계정 생성, 초대, 잠금, 비활성화, 퇴사자 처리, 권한 점검",
+    summary: "신규입사부터 퇴사까지 계정 생애주기와 상태 관리",
   },
   {
-    href: "/admin/users/verification-action",
-    label: "계정 생성 검증",
-    shortLabel: "생성검증",
-    summary: "실제 저장 전 계정 생성·비밀번호·2FA·감사 후보를 내부 검증합니다.",
+    href: "/admin/users#permission-matrix",
+    label: "권한 관리",
+    shortLabel: "권한",
+    summary: "사용자별 그룹웨어 기능 접근권한과 관리자 권한 범위 확인",
   },
   {
     href: "/admin/policies",
-    label: "역할·정책 관리",
-    shortLabel: "역할정책",
-    summary: "역할, 접근 권한, 운영 정책 current/candidate 비교",
+    label: "운영 정책",
+    shortLabel: "정책",
+    summary: "통합설정에서 분리한 관리자 운영 정책 관리",
   },
   {
     href: "/admin/audit-logs",
-    label: "감사로그·세션",
-    shortLabel: "감사세션",
-    summary: "로그인 이력, 세션, 관리자 변경 이력 읽기 전용 검토",
+    label: "감사로그",
+    shortLabel: "감사",
+    summary: "계정·권한·관리자 업무 변경 이력 읽기 전용 확인",
   },
 ];
 

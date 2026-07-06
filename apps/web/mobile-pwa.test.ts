@@ -151,7 +151,7 @@ describe("mobile/PWA config", () => {
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
       "/admin",
       "/admin/users",
-      "/admin/users/verification-action",
+      "/admin/users#permission-matrix",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
