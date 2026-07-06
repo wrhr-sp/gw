@@ -4068,7 +4068,15 @@ app.post(appRoutes.admin.userStatus(":userId"), async (context) => {
   if (!targetUserId) {
     return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
   }
-  const body = await context.req.json().catch(() => null);
+  const contentType = context.req.header("content-type") ?? "";
+  const isFormRequest = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  const body = isFormRequest
+    ? await context.req.parseBody().then((form) => ({
+        status: form.status,
+        mustChangePassword: form.mustChangePassword === "true",
+        reason: form.reason,
+      }))
+    : await context.req.json().catch(() => null);
   const parsed = adminUserStatusUpdateRequestSchema.safeParse(body);
   if (!parsed.success) {
     return jsonError(context, "VALIDATION_ERROR", "계정 상태 변경 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
@@ -4087,6 +4095,10 @@ app.post(appRoutes.admin.userStatus(":userId"), async (context) => {
   );
   if (!result) {
     return jsonDatabaseRequired(context, "관리자 계정 상태 저장");
+  }
+
+  if (isFormRequest) {
+    return context.redirect(`/admin/users?result=${encodeURIComponent(`${result.user.fullName} 계정 상태 저장 완료`)}`);
   }
 
   return jsonSuccess(
@@ -4124,7 +4136,14 @@ app.post(appRoutes.admin.userRoles(":userId"), async (context) => {
   if (!targetUserId) {
     return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
   }
-  const body = await context.req.json().catch(() => null);
+  const roleContentType = context.req.header("content-type") ?? "";
+  const isRoleFormRequest = roleContentType.includes("application/x-www-form-urlencoded") || roleContentType.includes("multipart/form-data");
+  const body = isRoleFormRequest
+    ? await context.req.parseBody().then((form) => ({
+        roleCodes: [form.roleCode],
+        reason: form.reason,
+      }))
+    : await context.req.json().catch(() => null);
   const parsed = adminUserRolesUpdateRequestSchema.safeParse(body);
   if (!parsed.success) {
     return jsonError(context, "VALIDATION_ERROR", "계정 역할 변경 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
@@ -4142,6 +4161,10 @@ app.post(appRoutes.admin.userRoles(":userId"), async (context) => {
   );
   if (!result) {
     return jsonDatabaseRequired(context, "관리자 계정 역할 저장");
+  }
+
+  if (isRoleFormRequest) {
+    return context.redirect(`/admin/users?result=${encodeURIComponent(`${result.user.fullName} 역할 저장 완료`)}`);
   }
 
   return jsonSuccess(
