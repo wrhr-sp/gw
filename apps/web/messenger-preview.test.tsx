@@ -68,6 +68,13 @@ describe("messenger page", () => {
     expect(pageSource).toContain('event.key !== "Enter" || event.shiftKey');
     expect(pageSource).toContain("채팅방 메뉴 열기");
     expect(pageSource).toContain("채팅방 메뉴");
+    expect(pageSource).toContain("handleToggleRoomNotificationMuted");
+    expect(pageSource).toContain("appRoutes.messenger.roomNotificationSettings");
+    expect(pageSource).toContain("currentMemberMuted");
+    expect(pageSource).toContain("알림 끄기");
+    expect(pageSource).toContain("알림 켜기");
+    expect(pageSource).toContain("알림끔");
+    expect(pageSource).toContain("멘션 알림은 유지됩니다.");
     expect(pageSource).toContain("설정");
     expect(pageSource).toContain("나가기");
     expect(pageSource).toContain("채팅방 닫기");
@@ -143,6 +150,8 @@ describe("messenger page", () => {
     expect(globalCss).toContain(".messenger-message-attachments");
     expect(globalCss).toContain(".messenger-thread__badges");
     expect(globalCss).toContain(".messenger-mention-badge");
+    expect(globalCss).toContain(".messenger-muted-badge");
+    expect(globalCss).toContain("color: var(--muted-foreground);");
     expect(globalCss).toContain(".messenger-message--highlighted");
     expect(globalCss).toContain("outline: 3px solid var(--primary-soft);");
     expect(globalCss).toContain(".topbar-modal-link-action");

@@ -24,6 +24,7 @@ function mapRoom(row: Record<string, any>) {
     unreadCount: Number(row.unread_count ?? 0),
     mentionUnreadCount: Number(row.mention_unread_count ?? 0),
     hasUnreadMentions: Number(row.mention_unread_count ?? 0) > 0,
+    muted: Boolean(row.muted),
     lastReadAt: toIso(row.last_read_at),
     lastMessageId: row.last_message_id == null ? null : String(row.last_message_id),
     lastMessageBody: row.last_message_body == null ? null : String(row.last_message_body),
@@ -100,7 +101,7 @@ function isMessengerNotificationPreferenceEnabled(preferences: Record<string, un
 
 async function shouldCreateMessengerNotification(
   sql: ReturnType<typeof getDbClient>,
-  input: { companyId: string; userId: string; kind: MessengerNotificationKind },
+  input: { companyId: string; userId: string; kind: MessengerNotificationKind; roomMuted?: boolean },
 ) {
   const rows = await sql`
     select preferences
@@ -110,6 +111,7 @@ async function shouldCreateMessengerNotification(
     limit 1
   `;
   const row = rows[0] as { preferences?: unknown } | undefined;
+  if (input.kind === "messenger_message" && input.roomMuted) return false;
   return isMessengerNotificationPreferenceEnabled(normalizePreferenceObject(row?.preferences), input.kind);
 }
 
@@ -146,7 +148,7 @@ function canSendMessage(role: string | undefined) {
 
 async function assertActiveMember(sql: ReturnType<typeof getDbClient>, input: { companyId: string; roomId: string; userId: string }) {
   const rows = await sql`
-    select member_role
+    select member_role, muted
     from messenger_room_members
     where company_id = ${input.companyId}
       and room_id = ${input.roomId}
@@ -164,6 +166,7 @@ async function getRoomForMember(sql: ReturnType<typeof getDbClient>, input: { co
       r.*,
       coalesce(member_counts.member_count, 0) as member_count,
       coalesce(me.unread_count, 0) as unread_count,
+      coalesce(me.muted, false) as muted,
       me.last_read_at as last_read_at,
       coalesce(unread_mentions.mention_unread_count, 0) as mention_unread_count,
       last_message.body as last_message_body
@@ -215,6 +218,7 @@ export async function listOperationalMessengerRooms(env: DatabaseEnv | undefined
       r.*,
       coalesce(member_counts.member_count, 0) as member_count,
       coalesce(me.unread_count, 0) as unread_count,
+      coalesce(me.muted, false) as muted,
       me.last_read_at as last_read_at,
       coalesce(unread_mentions.mention_unread_count, 0) as mention_unread_count,
       last_message.body as last_message_body
@@ -321,7 +325,7 @@ export async function getOperationalMessengerRoomDetail(env: DatabaseEnv | undef
       and left_at is null
     order by case member_role when 'owner' then 1 when 'manager' then 2 when 'member' then 3 when 'readonly' then 4 when 'guest' then 5 else 6 end, joined_at asc
   `;
-  return { room, members: members.map(mapMember), currentMemberRole: String(member.member_role) as "owner" | "manager" | "member" | "readonly" | "guest" | "bot" };
+  return { room, members: members.map(mapMember), currentMemberRole: String(member.member_role) as "owner" | "manager" | "member" | "readonly" | "guest" | "bot", currentMemberMuted: Boolean(member.muted) };
 }
 
 export async function listOperationalMessengerRoomMembers(env: DatabaseEnv | undefined, input: { companyId: string; userId: string; roomId: string }) {
@@ -379,7 +383,6 @@ export async function removeOperationalMessengerRoomMember(
       and room_id = ${input.roomId}
       and user_id = ${input.userId}
       and is_active is true
-      and left_at is null
     returning *
   `;
   if (!targetRows[0]) return null;
@@ -390,6 +393,32 @@ export async function removeOperationalMessengerRoomMember(
   return { roomId: input.roomId, members: [mapMember(targetRows[0])] };
 }
 
+export async function updateOperationalMessengerRoomNotificationSettings(
+  env: DatabaseEnv | undefined,
+  input: { companyId: string; userId: string; roomId: string; muted: boolean },
+) {
+  const sql = getDbClient(env ?? {});
+  const member = await assertActiveMember(sql, input);
+  if (!member) return null;
+
+  const rows = await sql`
+    update messenger_room_members
+    set muted = ${input.muted}, updated_at = now()
+    where company_id = ${input.companyId}
+      and room_id = ${input.roomId}
+      and user_id = ${input.userId}
+      and is_active is true
+      and left_at is null
+    returning *
+  `;
+  if (!rows[0]) return null;
+
+  await sql`
+    insert into messenger_audit_logs (company_id, actor_id, action, target_type, target_id, room_id, after_data, created_at)
+    values (${input.companyId}, ${input.userId}, 'MESSENGER_ROOM_NOTIFICATION_SETTINGS_UPDATE', 'messenger_room_member', ${input.userId}, ${input.roomId}, ${JSON.stringify({ muted: input.muted })}, now())
+  `;
+  return { roomId: input.roomId, members: [mapMember(rows[0])] };
+}
 
 export async function createOperationalMessengerAttachment(
   env: DatabaseEnv | undefined,
@@ -586,7 +615,7 @@ export async function sendOperationalMessengerMessage(
   `;
 
   const recipientRows = await sql`
-    select user_id
+    select user_id, muted
     from messenger_room_members
     where company_id = ${input.companyId}
       and room_id = ${input.roomId}
@@ -595,11 +624,11 @@ export async function sendOperationalMessengerMessage(
       and left_at is null
   `;
   const mentionSet = new Set(mentionUserIds);
-  for (const recipient of recipientRows as Array<{ user_id: string }>) {
+  for (const recipient of recipientRows as Array<{ user_id: string; muted: boolean }>) {
     const recipientId = String(recipient.user_id);
     const mentioned = mentionSet.has(recipientId);
     const notificationType: MessengerNotificationKind = mentioned ? "messenger_mention" : "messenger_message";
-    const preferenceEnabled = await shouldCreateMessengerNotification(sql, { companyId: input.companyId, userId: recipientId, kind: notificationType });
+    const preferenceEnabled = await shouldCreateMessengerNotification(sql, { companyId: input.companyId, userId: recipientId, kind: notificationType, roomMuted: Boolean(recipient.muted) });
     if (!preferenceEnabled) continue;
     await createOperationalNotification(env, {
       companyId: input.companyId,

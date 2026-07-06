@@ -207,6 +207,7 @@ import {
   messengerRoomMemberListResponseSchema,
   messengerRoomMemberMutationResponseSchema,
   messengerRoomMemberRemoveRequestSchema,
+  messengerRoomNotificationSettingsRequestSchema,
   messengerRoomMutationResponseSchema,
   messengerThreadLeaveResponseSchema,
   secondaryPasswordStatusResponseSchema,
@@ -457,6 +458,7 @@ import {
   listOperationalMessengerRoomMembers,
   listOperationalMessengerRooms,
   removeOperationalMessengerRoomMember,
+  updateOperationalMessengerRoomNotificationSettings,
   markOperationalMessengerMessageRead,
   searchOperationalMessengerMessages,
   sendOperationalMessengerMessage,
@@ -6364,6 +6366,24 @@ app.post(appRoutes.messenger.roomMembers(":roomId"), async (context) => {
     return jsonSuccess(context, messengerRoomMemberMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "messenger.room_member.invite" }, source: "postgres" }, error: null }, 201);
   } catch {
     return jsonDatabaseRequired(context, "메신저 참여자 초대");
+  }
+});
+
+
+app.patch(appRoutes.messenger.roomNotificationSettings(":roomId"), async (context) => {
+  const authResult = requireAuth(context);
+  if (authResult.response) return authResult.response;
+  const roomId = context.req.param("roomId")?.trim();
+  if (!roomId || roomId.length > 160) return jsonError(context, "VALIDATION_ERROR", "메신저 대화방 식별자가 올바르지 않습니다.", 400, { route: context.req.path });
+  const body = await context.req.json().catch(() => ({}));
+  const parsed = messengerRoomNotificationSettingsRequestSchema.safeParse(body ?? {});
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "메신저 알림 설정 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  try {
+    const result = await updateOperationalMessengerRoomNotificationSettings(context.env, { companyId: authResult.auth.user.companyId, userId: authResult.auth.user.id, roomId, muted: parsed.data.muted });
+    if (!result) return jsonError(context, "ROOM_ACCESS_DENIED", "참여 중인 대화방의 알림 설정만 변경할 수 있습니다.", 403, { roomId, route: context.req.path });
+    return jsonSuccess(context, messengerRoomMemberMutationResponseSchema, { ok: true, data: { ...result, audit: { candidate: true, action: "messenger.room_notification_settings.update" }, source: "postgres" }, error: null });
+  } catch {
+    return jsonDatabaseRequired(context, "메신저 대화방 알림 설정");
   }
 });
 

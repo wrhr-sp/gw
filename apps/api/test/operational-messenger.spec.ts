@@ -387,6 +387,103 @@ describe("operational messenger API", () => {
     }
   }, 15000);
 
+  runWhenDbConfigured("respects room notification mute for regular messages while keeping mentions", async () => {
+    const cookie = await login("COMPANY_ADMIN");
+    const employeeCookie = await login("EMPLOYEE");
+    const sql = getDbClient({ DATABASE_URL: databaseUrl });
+    const companyId = "company_demo";
+    const userId = "user_employee";
+    const existingPreferencesRows = await sql`select preferences from user_preferences where company_id = ${companyId} and user_id = ${userId} limit 1`;
+    const existingPreferences = existingPreferencesRows[0]?.preferences as Record<string, unknown> | undefined;
+    const hadExistingPreferences = existingPreferencesRows.length > 0;
+    const roomName = `메신저 방별 알림 끄기 검증방 ${Date.now()}`;
+    let roomId: string | null = null;
+    let messageIds: string[] = [];
+
+    try {
+      const enabledPreferences = JSON.stringify({ notificationPreferences: { mail: true, mentions: true } });
+      await sql`
+        insert into user_preferences (id, company_id, user_id, preferences, created_at, updated_at)
+        values (${"preferences_company_demo_user_employee"}, ${companyId}, ${userId}, ${enabledPreferences}::jsonb, now(), now())
+        on conflict (company_id, user_id) do update set
+          preferences = user_preferences.preferences || excluded.preferences,
+          updated_at = excluded.updated_at
+      `;
+
+      const createRoomResponse = await app.request(
+        appRoutes.messenger.rooms,
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({ roomType: "group", roomName, memberIds: [userId], isExternal: false }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(createRoomResponse.status).toBe(201);
+      const createdRoom = messengerRoomMutationResponseSchema.parse(await createRoomResponse.json());
+      roomId = createdRoom.data.room.id;
+      expect(createdRoom.data.room.muted).toBe(false);
+
+      const muteResponse = await app.request(
+        appRoutes.messenger.roomNotificationSettings(roomId),
+        { method: "PATCH", headers: { cookie: employeeCookie, "content-type": "application/json" }, body: JSON.stringify({ muted: true }) },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(muteResponse.status).toBe(200);
+      const mutePayload = messengerRoomMemberMutationResponseSchema.parse(await muteResponse.json());
+      expect(mutePayload.data.members[0]?.userId).toBe(userId);
+      expect(mutePayload.data.members[0]?.muted).toBe(true);
+
+      const employeeRoomDetailResponse = await app.request(appRoutes.messenger.room(roomId), { headers: { cookie: employeeCookie } }, { DATABASE_URL: databaseUrl });
+      expect(employeeRoomDetailResponse.status).toBe(200);
+      const employeeRoomDetail = messengerRoomDetailResponseSchema.parse(await employeeRoomDetailResponse.json());
+      expect(employeeRoomDetail.data.currentMemberMuted).toBe(true);
+      expect(employeeRoomDetail.data.room.muted).toBe(true);
+
+      const regularMessageResponse = await app.request(
+        appRoutes.messenger.roomMessages(roomId),
+        { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ messageType: "text", body: "방별 알림 끄기 일반 메시지 차단 검증" }) },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(regularMessageResponse.status).toBe(201);
+      const regularMessage = messengerMessageMutationResponseSchema.parse(await regularMessageResponse.json()).data.message;
+      messageIds.push(regularMessage.id);
+
+      const mentionMessageResponse = await app.request(
+        appRoutes.messenger.roomMessages(roomId),
+        { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ messageType: "text", body: "방별 알림 끄기 중 멘션 유지 검증 @user_employee", mentionUserIds: [userId] }) },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(mentionMessageResponse.status).toBe(201);
+      const mentionMessage = messengerMessageMutationResponseSchema.parse(await mentionMessageResponse.json()).data.message;
+      messageIds.push(mentionMessage.id);
+
+      const notificationsResponse = await app.request(appRoutes.notifications, { headers: { cookie: employeeCookie } }, { DATABASE_URL: databaseUrl });
+      expect(notificationsResponse.status).toBe(200);
+      const notificationsPayload = listNotificationsResponseSchema.parse(await notificationsResponse.json());
+      expect(notificationsPayload.data.items.some((item) => item.id === `notification_${companyId}_${userId}_${regularMessage.id}_message`)).toBe(false);
+      expect(notificationsPayload.data.items.some((item) => item.id === `notification_${companyId}_${userId}_${mentionMessage.id}_mention`)).toBe(true);
+    } finally {
+      for (const messageId of messageIds) {
+        await sql`delete from notifications where company_id = ${companyId} and user_id = ${userId} and id like ${`%${messageId}%`}`;
+      }
+      if (roomId) {
+        await sql`delete from messenger_rooms where company_id = ${companyId} and id = ${roomId}`;
+      }
+      if (hadExistingPreferences) {
+        await sql`
+          insert into user_preferences (id, company_id, user_id, preferences, created_at, updated_at)
+          values (${"preferences_company_demo_user_employee"}, ${companyId}, ${userId}, ${JSON.stringify(existingPreferences)}::jsonb, now(), now())
+          on conflict (company_id, user_id) do update set
+            preferences = excluded.preferences,
+            updated_at = excluded.updated_at
+        `;
+      } else {
+        await sql`delete from user_preferences where company_id = ${companyId} and user_id = ${userId}`;
+      }
+    }
+  }, 15000);
+
   runWhenDbConfigured("leaves a messenger thread through PostgreSQL", async () => {
     const cookie = await login("COMPANY_ADMIN");
     const threadId = `thread-api-smoke-${Date.now()}`;
