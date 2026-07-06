@@ -1315,13 +1315,13 @@ const supportAccountingSidebarItems: readonly NavItem[] = [
 ];
 
 const supportSidebarItems: readonly NavItem[] = [
-  { href: "/admin/users", label: "인사관리", shortLabel: "인사", summary: "사원정보관리, 인사발령, 휴면계정관리를 기능 화면 안에서 처리합니다." },
-  { href: "/Place of business", label: "지점관리", shortLabel: "지점", summary: "지점정보관리와 지점매출관리 업무를 기능 화면 안에서 처리합니다." },
-  { href: "/payroll", label: "급여관리", shortLabel: "급여", summary: "경영지원팀 급여관리 업무로 이동합니다." },
-  { href: "/management-support/erp/expenses", label: "예산관리", shortLabel: "예산", summary: "경영지원팀 예산관리 업무로 이동합니다." },
-  { href: "/management-support/erp/vendors", label: "거래처관리", shortLabel: "거래처", summary: "거래처와 정산 기준 정보를 관리합니다." },
-  { href: "/management-support/erp/billings", label: "매출입관리", shortLabel: "매출입", summary: "매출, 청구, 입금 예정 상태를 관리합니다." },
-  { href: "/attendance", label: "근태관리", shortLabel: "근태", summary: "경영지원팀 근태관리 업무로 이동합니다." },
+  { href: "/management-support/hr", label: "인사관리", shortLabel: "인사", summary: "사원정보관리, 인사발령, 휴면계정관리를 경영지원팀 업무 안에서 처리합니다." },
+  { href: "/management-support/branches", label: "지점관리", shortLabel: "지점", summary: "지점정보관리와 지점매출관리를 경영지원팀 업무 안에서 처리합니다." },
+  { href: "/management-support/payroll", label: "급여관리", shortLabel: "급여", summary: "경영지원팀 전용 급여관리 업무로 이동합니다." },
+  { href: "/management-support/budget", label: "예산관리", shortLabel: "예산", summary: "경영지원팀 전용 예산관리 업무로 이동합니다." },
+  { href: "/management-support/vendors", label: "거래처관리", shortLabel: "거래처", summary: "경영지원팀 전용 거래처관리 업무로 이동합니다." },
+  { href: "/management-support/sales-purchases", label: "매출입관리", shortLabel: "매출입", summary: "경영지원팀 전용 매출입관리 업무로 이동합니다." },
+  { href: "/management-support/attendance", label: "근태관리", shortLabel: "근태", summary: "경영지원팀 전용 근태관리 업무로 이동합니다." },
 ];
 
 const supportSidebarItemHrefs = supportSidebarItems.map((item) => item.href);
