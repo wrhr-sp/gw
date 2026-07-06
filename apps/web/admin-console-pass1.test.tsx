@@ -70,16 +70,16 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
       "/admin",
       "/admin/users",
-      "/admin/users/verification-action",
+      "/admin/users#permission-matrix",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
     expect(adminPrimaryNav.map((item) => item.label)).toEqual([
-      "관리자 허브",
+      "그룹웨어관리",
       "사원 계정 관리",
-      "계정 생성 검증",
-      "역할·정책 관리",
-      "감사로그·세션",
+      "권한 관리",
+      "운영 정책",
+      "감사로그",
     ]);
     expect(adminPrimaryNav.some((item) => item.href === "/mail" || item.href === "/messenger" || item.href === "/work-items/branch")).toBe(false);
   });
@@ -89,13 +89,14 @@ describe("Phase 55 admin account/rbac live usage", () => {
       <AdminPageContent visibleAdminHubCards={getAdminPageCardsForRole("COMPANY_ADMIN")} />,
     );
 
-    expect(html).toContain("운영 검토 순서");
-    expect(html).toContain("오늘 먼저 볼 운영 체크포인트");
+    expect(html).toContain("그룹웨어관리자");
+    expect(html).toContain("관리자 업무 진입");
+    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("사용자별 권한 관리");
     expect(html).toContain("권한별 진입 경계");
     expect(html).toContain("저장 전 승인 게이트");
-    expect(html).toContain("관리자 허브");
-    expect(html.indexOf("운영 검토 순서")).toBeLessThan(html.indexOf("오늘 먼저 볼 운영 체크포인트"));
-    expect(html.indexOf("오늘 먼저 볼 운영 체크포인트")).toBeLessThan(html.indexOf("권한별 진입 경계"));
+    expect(html.indexOf("관리자 업무 진입")).toBeLessThan(html.indexOf("구현 범위"));
+    expect(html.indexOf("구현 범위")).toBeLessThan(html.indexOf("관리자 페이지 분리 원칙"));
   });
 
   it("shows only the routes each admin viewer is allowed to open from the hub cards", () => {
@@ -143,31 +144,18 @@ describe("Phase 55 admin account/rbac live usage", () => {
     );
 
     expect(html).toContain("사원 계정 관리");
-    expect(html).toContain("관리자 사원 계정/IAM 1차");
-    expect(html).toContain("계정 생성·관리 필수 기준");
-    expect(html).toContain("직원 · 관리자 · 외부 사용자 · 봇/서비스 · 시스템");
-    expect(html).toContain("초대대기 · 활성 · 잠금 · 비활성 · 퇴사처리 · 일시정지");
-    expect(html).toContain("최초 비밀번호 · 2FA · 실패 횟수 · 세션");
-    expect(html).toContain("Phase 55 관리자 온보딩·운영 순서");
-    expect(html).toContain("역할별 시작 레인과 차단 기준");
-    expect(html).toContain("HR_ADMIN");
-    expect(html).toContain("MANAGER");
-    expect(html).toContain("COMPANY_ADMIN");
-    expect(html).toContain("운영자 설정 조회 모델");
-    expect(html).toContain("정책 시작점");
-    expect(html).toContain("회사 공통 고정 바로가기 출처");
-    expect(html).toContain("권한 기반 사용자 전용 바로가기 출처");
-    expect(html).toContain("일반 조회와 운영 검토 책임 분리");
-    expect(html).toContain("사용자 생성 내부 검증 흐름");
-    expect(html).toContain("역할 / 업무권한 지정");
-    expect(html).toContain("활성 / 비활성 전환");
-    expect(html).toContain("비밀번호 초기화 / 변경");
-    expect(html).toContain("방금 실행한 검증 다음 확인");
+    expect(html).toContain("계정 현황");
+    expect(html).toContain("계정 생애주기");
+    expect(html).toContain("신규입사");
+    expect(html).toContain("퇴사 처리");
+    expect(html).toContain("현재 사원 계정 목록");
+    expect(html).toContain("사용자별 기능 세부권한");
+    expect(html).toContain("관리자 설정 이관 기준");
+    expect(html).toContain("비활성 관리자 작업");
     expect(html).toContain("권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
-    expect(html).toContain("/home 공통 랜딩 뒤 HR은 /admin/users, 운영은 /management, 감사는 /admin/audit-logs 로 이어지는지 재확인");
-    expect(html).toContain("/work-items/branch → /employees → /org → /management");
-    expect(html).toContain("/employees · /org 는 읽기 전용 확인용이며 /admin/users · /admin/policies 검증은 기본 진입 차단");
-    expect(html).toContain("forbidden / empty / error / offline / loading / 내부 검증 경계");
+    expect(html).toContain("COMPANY_ADMIN");
+    expect(html).toContain("역할 변경 후보: HR_ADMIN");
+    expect(html).toContain("고위험 권한: audit.read");
     expect(html).toContain("실저장 없음");
   });
 
@@ -207,7 +195,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(classifyAdminUsersLoadErrorKind("network timeout while fetching admin users")).toBe("offline");
     expect(classifyAdminUsersLoadErrorKind("네트워크 연결이 끊겼습니다")).toBe("offline");
     expect(classifyAdminUsersLoadErrorKind("응답 형식을 해석하지 못했습니다")).toBe("error");
-    expect(html).toContain("offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다");
+    expect(html).toContain("네트워크가 불안정해 사원 계정 데이터를 다시 불러와야 합니다");
     expect(html).toContain("관리자 PWA 는 읽기 중심 확인만 일부 도와주며");
     expect(html).toContain("네트워크 연결을 다시 확인하고 `/admin` 에서 새로고침");
     expect(html).toContain("복구 경로: /admin · /admin/users · /admin/policies · /admin/audit-logs · /offline");
@@ -246,9 +234,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
       />,
     );
 
-    expect(html).toContain("offline 상태: 네트워크가 불안정해 계정관리 미리보기를 다시 불러와야 합니다");
+    expect(html).toContain("네트워크가 불안정해 사원 계정 데이터를 다시 불러와야 합니다");
     expect(html).toContain("네트워크 연결이 끊겨 계정관리 검증을 다시 불러오지 못했습니다.");
-    expect(html).toContain("네트워크가 불안정하거나 연결이 끊겨 검증을 다시 시도해야 하는 상태입니다.");
+    expect(html).toContain("관리자 PWA 는 읽기 중심 확인만 일부 도와주며");
   });
 
   it("keeps policy review cards in a consistent current-candidate-capability format", () => {

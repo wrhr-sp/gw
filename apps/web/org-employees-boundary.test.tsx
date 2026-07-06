@@ -54,10 +54,10 @@ describe("org/employees/admin boundaries", () => {
   it("keeps admin users page positioned as a higher-risk review surface", () => {
     const html = renderToStaticMarkup(<AdminUsersPage />);
 
-    expect(html).toContain("관리자 사원 계정/IAM 1차");
-    expect(html).toContain("계정 생성·관리 필수 기준");
-    expect(html).toContain("역할 후보");
-    expect(html).toContain("상태 변경 차이");
-    expect(html).toContain("감사 후보");
+    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("계정 생애주기");
+    expect(html).toContain("사용자별 기능 세부권한");
+    expect(html).toContain("비활성 관리자 작업");
+    expect(html).toContain("감사로그");
   });
 });

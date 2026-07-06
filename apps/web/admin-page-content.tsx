@@ -14,10 +14,43 @@ import {
 } from "./admin-config";
 
 const adminApiLinks = [
-  { href: appRoutes.admin.users, label: "사용자 / 권한 API" },
-  { href: appRoutes.admin.policies, label: "운영 정책 API" },
-  { href: appRoutes.admin.auditLogs, label: "감사 로그 API" },
-  { href: appRoutes.admin.invites, label: "초대 preview API" },
+  { href: appRoutes.admin.users, label: "사원 계정 관리 API" },
+  { href: appRoutes.admin.policies, label: "권한·운영 정책 API" },
+  { href: appRoutes.admin.auditLogs, label: "감사로그 API" },
+] as const;
+
+const adminWorkButtons = [
+  {
+    href: "/admin/users",
+    title: "사원 계정 관리",
+    description: "신규입사, 재직 중 권한 변경, 잠금, 비활성화, 퇴사 처리까지 계정 생애주기를 관리합니다.",
+    firstReviewPoint: "계정 상태, 직원 연결, 역할, 고위험 권한",
+  },
+  {
+    href: "/admin/users#permission-matrix",
+    title: "사용자별 권한 관리",
+    description: "사용자 계정별 그룹웨어 기능 접근권한과 관리자 권한 범위를 한 곳에서 확인합니다.",
+    firstReviewPoint: "기능별 보기·작성·수정·삭제·승인·관리 권한",
+  },
+  {
+    href: "/admin/policies",
+    title: "운영 정책 관리",
+    description: "통합설정에 흩어져 있던 관리자 정책 설정을 관리자 페이지 업무로 분리합니다.",
+    firstReviewPoint: "근태·휴가·문서·게시판 정책과 적용 전 승인 게이트",
+  },
+  {
+    href: "/admin/audit-logs",
+    title: "감사로그",
+    description: "계정 생성, 상태 변경, 권한 변경, 관리자 조회 이력을 읽기 전용으로 추적합니다.",
+    firstReviewPoint: "변경 전/후, 조작자, 대상, 사유, 회사 경계",
+  },
+] as const;
+
+const adminScopeRules = [
+  "관리자 페이지 사이드바에는 관리자 업무 기능만 노출합니다.",
+  "기본업무, 부서업무포털, 지점관리포털의 일반 업무 버튼은 관리자 사이드바에 섞지 않습니다.",
+  "통합설정의 개인 설정은 유지하고, 사용자/권한/운영 정책/감사 기능은 관리자 페이지로 분리합니다.",
+  "저장 기능은 실제 API → DB → 재조회 → 감사로그 흐름이 준비된 경우에만 활성화합니다.",
 ] as const;
 
 export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCards: readonly AdminHubCard[] }) {
@@ -25,9 +58,9 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
     <PageShell
       backHref="/home"
       backLabel="대시보드로"
-      eyebrow="Phase 23 관리자 운영 콘솔 실사용 1차"
-      title="관리자 허브"
-      description="권한 있는 운영자가 어디서 들어와 무엇을 먼저 검토해야 하는지 고정한 operations-first 콘솔입니다. 실제 저장 대신 검토 순서, 감사 preview, 승인 게이트를 먼저 보여 줍니다."
+      eyebrow="관리자 전용"
+      title="그룹웨어관리자"
+      description="관리자 계정이 사원 계정, 기능별 세부권한, 운영 정책, 감사로그를 한 곳에서 확인하고 관리하는 관리자 전용 페이지입니다."
       actions={
         <div className="pill-row">
           {adminHubBadges.map((badge) => (
@@ -39,19 +72,25 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
       }
     >
       <SurfaceSection
-        title="운영 검토 순서"
-        description="이번 단계의 기준 순서는 `/home` → `/admin` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` 입니다."
+        title="관리자 업무 진입"
+        description="사이드바와 허브에서 같은 관리자 업무 버튼을 사용합니다. 일반 직원용 업무 메뉴는 이 영역에 섞지 않습니다."
       >
-        <ul className="summary-list">
-          <li>대시보드에서 권한 기반 운영 CTA 또는 감사 CTA 를 확인합니다.</li>
-          <li>관리자 허브에서 오늘 검토할 사용자·정책·감사 포인트를 먼저 읽습니다.</li>
-          <li>`/employees`, `/boards`, `/documents` 는 일반 조회/협업 화면으로 남기고 저장 전 운영 검토는 `/admin/*` 에서 분리합니다.</li>
-        </ul>
+        <div className="mobile-summary-grid">
+          {adminWorkButtons.map((button) => (
+            <article key={button.href} className="route-card">
+              <Pill tone="accent">관리자 업무</Pill>
+              <h3>{button.title}</h3>
+              <p>{button.description}</p>
+              <p className="card-note">먼저 볼 것: {button.firstReviewPoint}</p>
+              <Link href={button.href}>진입하기 →</Link>
+            </article>
+          ))}
+        </div>
       </SurfaceSection>
 
       <SurfaceSection
-        title="오늘 먼저 볼 운영 체크포인트"
-        description="관리자 허브에 들어오면 저장 버튼보다 먼저 검토할 운영 포인트를 위에서부터 읽습니다."
+        title="구현 범위"
+        description="이번 1차는 관리자 페이지 정보구조와 실제 계정 목록·권한 요약 확인 흐름을 먼저 고정합니다."
       >
         <ul className="summary-list">
           {[...adminHubPriorityChecks, ...adminUserHighlights].map((item) => (
@@ -60,14 +99,19 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="권한별 진입 경계"
-        description="UI 노출 조건과 route/API guard 는 같은 의미를 공유하되 서로 다른 책임으로 유지합니다."
-      >
+      <SurfaceSection title="관리자 페이지 분리 원칙" description="통합설정과 관리자 페이지의 책임을 분리합니다." muted>
+        <ul className="summary-list">
+          {adminScopeRules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ul>
+      </SurfaceSection>
+
+      <SurfaceSection title="권한별 진입 경계" description="일반 사용자와 감사 전용 사용자는 관리자 변경 업무에 들어오지 못해야 합니다.">
         <div className="grid-auto-compact">
           {adminRoleEntryRules.map((rule) => (
             <article key={rule} className="info-card">
-              <Pill tone="warning">entry rule</Pill>
+              <Pill tone="warning">접근 기준</Pill>
               <p>{rule}</p>
             </article>
           ))}
@@ -75,8 +119,8 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
       </SurfaceSection>
 
       <SurfaceSection
-        title="운영 콘솔 묶음"
-        description="사용자, 정책, 감사 로그를 각각 다른 책임으로 분리하고 각 화면의 첫 검토 포인트를 함께 보여 줍니다."
+        title="기존 관리자 화면 연결"
+        description="이미 존재하는 관리자 route를 유지하면서 이름과 책임을 그룹웨어관리자 페이지 기준으로 정리합니다."
       >
         <div className="mobile-summary-grid">
           {visibleAdminHubCards.map((card) => (
@@ -92,11 +136,7 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
         </div>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="저장 전 승인 게이트"
-        description="이번 단계는 실제 저장이 아니라 승인 전 검토 흐름을 고정하는 단계입니다."
-        muted
-      >
+      <SurfaceSection title="저장 전 승인 게이트" description="운영 계정·권한 변경은 실데이터 영향이 있으므로 안전 기준을 유지합니다." muted>
         <ul className="bullet-list">
           {adminApprovalGateNotes.map((item) => (
             <li key={item}>{item}</li>
@@ -104,10 +144,7 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="함께 보는 API 시작점"
-        description="큰 새 백엔드를 만들기보다 기존 admin read-only candidate API 를 화면과 같은 순서로 연결합니다."
-      >
+      <SurfaceSection title="함께 보는 API 시작점" description="화면은 same-origin 관리자 API와 같은 책임을 공유합니다.">
         <ul className="summary-list">
           {adminApiLinks.map((item) => (
             <li key={item.href}>
@@ -117,10 +154,7 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
         </ul>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="정책 카드 공통 형식"
-        description="하위 정책 화면은 모두 current/candidate/capability/audit preview 형식을 공유합니다."
-      >
+      <SurfaceSection title="통합설정에서 관리자 페이지로 옮길 기능" description="개인 설정이 아닌 회사 운영·권한 설정은 관리자 페이지에서 다룹니다.">
         <div className="grid-auto-compact">
           {adminPolicySections.map((section) => (
             <article key={section.title} className="info-card">
