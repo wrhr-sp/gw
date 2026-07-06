@@ -317,7 +317,6 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
-    expect(supportHtml).toContain('data-route="/admin/users#create-account"');
     expect(supportHtml).toContain('data-route="/admin/users"');
     expect(supportHtml).toContain('data-route="/admin/users#permission-matrix"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
@@ -378,6 +377,10 @@ describe("mobile app shell admin boundary", () => {
     expect(branchHtml).not.toContain('data-route="/work-items/tax"');
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
+    const supportSidebarGroupsSource = shellSource.slice(
+      shellSource.indexOf("const supportSidebarGroups"),
+      shellSource.indexOf("const supportSidebarGroupHrefs"),
+    );
     expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
     expect(shellSource).toContain('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"');
     expect(shellSource).not.toContain('id: "common", label: COMMON_WORK_LABEL, englishLabel: "Common Work", href: "/home"');
@@ -389,24 +392,25 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('ceo: ["/management"');
     expect(shellSource).toContain('strategy: ["/management"');
     expect(shellSource).toContain('support: ["/work-items/hr"');
-    expect(shellSource).toContain('const supportSidebarGroups');
-    expect(shellSource).toContain('title: "인사관리"');
-    expect(shellSource).toContain('label: "계정생성"');
-    expect(shellSource).toContain('label: "사원정보관리"');
-    expect(shellSource).toContain('label: "계정권한관리"');
-    expect(shellSource).toContain('label: "관리 정책문서"');
-    expect(shellSource).toContain('label: "인사발령"');
-    expect(shellSource).toContain('label: "휴면계정관리"');
-    expect(shellSource).toContain('title: "지점관리"');
-    expect(shellSource).toContain('label: "지점정보관리"');
-    expect(shellSource).toContain('label: "월 마감 정산"');
-    expect(shellSource).toContain('label: "지점 요청내역"');
-    expect(shellSource).toContain('title: "근태관리"');
-    expect(shellSource).toContain('title: "급여관리"');
-    expect(shellSource).toContain('title: "경비관리"');
-    expect(shellSource).toContain('title: "예산관리"');
-    expect(shellSource).toContain('title: "매출입관리"');
-    expect(shellSource).toContain('title: "거래처관리"');
+    expect(supportSidebarGroupsSource).toContain('const supportSidebarGroups');
+    expect(supportSidebarGroupsSource).toContain('title: "인사관리"');
+    expect(supportSidebarGroupsSource).toContain('label: "사원정보관리"');
+    expect(supportSidebarGroupsSource).toContain('summary: "사원정보 목록과 계정 생성 흐름을 확인합니다."');
+    expect(supportSidebarGroupsSource).toContain('label: "계정권한관리"');
+    expect(supportSidebarGroupsSource).toContain('label: "관리 정책문서"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "계정생성"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "인사발령"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "휴면계정관리"');
+    expect(supportSidebarGroupsSource).toContain('title: "지점관리"');
+    expect(supportSidebarGroupsSource).toContain('label: "지점정보관리"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "월 마감 정산"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "지점 요청내역"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "근태관리"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "급여관리"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "경비관리"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "예산관리"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "매출입관리"');
+    expect(supportSidebarGroupsSource).not.toContain('title: "거래처관리"');
     expect(shellSource).toContain('className="desktop-sidebar__section-summary"');
     expect(shellSource).toContain('className="desktop-sidebar__group-summary"');
     expect(shellSource).toContain('aria-label="경영지원팀 업무 묶음"');
@@ -950,6 +954,16 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain("box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18)");
     expect(globalCss).not.toContain(".desktop-sidebar--collapsed .desktop-sidebar__collapsed-stack");
     expect(globalCss).toContain("--desktop-sidebar-collapsed-link-min-height: 40px;");
+    expect(globalCss).toContain("--desktop-sidebar-collapsed-group-divider-gap: var(--desktop-sidebar-collapsed-custom-list-gap);");
+    expect(globalCss).toContain("--desktop-sidebar-group-divider-margin: var(--desktop-sidebar-collapsed-group-divider-gap) 4px;");
+    expect(globalCss).toContain(".desktop-sidebar__collapsed-group-divider {");
+    expect(globalCss).toContain("margin: var(--desktop-sidebar-group-divider-margin);");
+    expect(globalCss).toContain(".desktop-sidebar__section-summary::after");
+    expect(globalCss).toContain(".desktop-sidebar__group-summary::after");
+    expect(globalCss).toContain('content: "▾";');
+    expect(globalCss).toContain('content: "▴";');
+    expect(globalCss).toContain(".desktop-sidebar__section-details[open] > .desktop-sidebar__section-summary::after");
+    expect(globalCss).toContain(".desktop-sidebar__group[open] > .desktop-sidebar__group-summary::after");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-collapsed-link-min-height);");
     expect(globalCss).toContain("--desktop-sidebar-settings-button-min-height: 27px;");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-settings-button-min-height);");
