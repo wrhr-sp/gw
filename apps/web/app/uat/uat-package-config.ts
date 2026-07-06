@@ -1,5 +1,5 @@
 export const uatAccessCard = {
-  liveUrl: "https://gw-web.wereheresp.workers.dev",
+  liveUrl: "https://gw-web-preview.wereheresp.workers.dev",
   account: "admin / 1234",
   note: "dev/test/UAT 전용 계정이며 production 기본 계정으로 남기지 않습니다.",
 } as const;
@@ -178,7 +178,7 @@ export const facilitatorScript = [
 ] as const;
 
 export const quickStartSteps = [
-  "브라우저에서 live URL 을 연다: https://gw-web.wereheresp.workers.dev",
+  "브라우저에서 검증 URL 을 연다: https://gw-web-preview.wereheresp.workers.dev",
   "`admin / 1234` 로 로그인한다. 이 계정은 dev/test/UAT 전용이다.",
   "직원이라면 `/home` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/sales` → `/me` 순서로 본다.",
   "승인자라면 `/approvals` 를 먼저 보고 팀 병목/대기 상태를 확인한다.",

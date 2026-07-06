@@ -7,7 +7,9 @@
     "build": "../../scripts/gw-web-build-locked.sh next build",
     "build:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build",
     "preview:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && wrangler dev",
-    "deploy:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy:cf": "pnpm deploy:cf:production",
+    "deploy:cf:preview": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy --env preview",
+    "deploy:cf:production": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
     "typecheck": "../../scripts/gw-web-build-locked.sh tsc --noEmit",
     "test": "vitest run"
   },

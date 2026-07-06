@@ -34,7 +34,7 @@ describe("Phase 55 same-origin API bridge", () => {
       APP_ENV: "preview",
     };
 
-    expect(resolveDatabaseBindingsForRequest(new Request("https://gw-web.wereheresp.workers.dev/api/db/health"), env, {})).toMatchObject({
+    expect(resolveDatabaseBindingsForRequest(new Request("https://gw-web-preview.wereheresp.workers.dev/api/db/health"), env, {})).toMatchObject({
       DATABASE_URL: "postgres://preview",
       APP_ENV: "preview",
     });
