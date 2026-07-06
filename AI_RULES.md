@@ -1,8 +1,14 @@
-# ARCHITECTURAL MANDATORY RULE: All Values Must Be Tokenized
+# ARCHITECTURAL MANDATORY RULE: UI Values and Controls Must Be Standardized
 
 - 모든 UI의 색상, 간격(패딩/마진), 테두리 값은 반드시 디자인 토큰(CSS 변수 또는 Tailwind 테마 토큰)으로만 구현한다.
 - 하드코딩된 `#HEX` 색상 코드와 `px` 단위 생 숫자는 완료 기준에서 제외한다.
 - 필요한 값이 없으면 `apps/web/app/globals.css` 또는 Tailwind 테마 설정에 의미 기반 토큰을 먼저 추가하고, 컴포넌트는 토큰 이름만 참조한다.
+- 모든 신규 그룹웨어 화면은 `docs/ux/ui-ux-standardization-backlog.md`의 UI/UX 표준을 기본 규격으로 적용한다.
+- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 설치된 UI 라이브러리의 공식 가이드 규격을 우선하며, 임의 크기·임의 여백·페이지별 개별 스타일을 새로 만들지 않는다.
+- 페이지 상단 검색/필터 영역은 Grid 레이아웃과 공통 grid token/컴포넌트로 균등한 높이와 너비를 유지한다.
+- 액션 버튼 툴바는 부모 컨테이너 안에서 `display: flex`, `align-items: center`, `gap: 8px` 구조를 따른다.
+- 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
+- 좌우 스플릿 뷰는 Grid/Flex 기반으로 만들고, `min-width: 0`, `width: 100%`, 고정 높이/overflow 체인을 확인해 브라우저 크기 변화에도 깨지지 않게 한다.
 
 # 그룹웨어 봇 팀 공통 규칙
 
@@ -37,7 +43,7 @@
 - 사용자 개입·승인·비용·외부 권한·비밀값이 필요한 막힘만 사용자에게 이유와 필요한 선택지를 보고한다.
 - 불확실한 정보는 추측으로 메우지 말고, 확인 가능한 것은 도구로 확인한 뒤 보고한다.
 - 역할 범위를 넘는 정책 결정이나 구조 확정은 독단적으로 내리지 않는다.
-- UI/UX, 기능 배치, 정보구조, 근태/휴가/급여/노무/문서/결재 화면을 설계하거나 구현할 때는 `docs/ux/groupware-benchmark-principles.md`와 `docs/product/groupware-vision-roadmap.md`를 먼저 참고한다.
+- UI/UX, 기능 배치, 정보구조, 근태/휴가/급여/노무/문서/결재 화면을 설계하거나 구현할 때는 `docs/ux/groupware-benchmark-principles.md`, `docs/product/groupware-vision-roadmap.md`, `docs/ux/ui-ux-standardization-backlog.md`를 먼저 참고한다.
 - 벤치마크는 국내 그룹웨어/HR/근태/급여/노무 서비스의 공개 페이지와 공개 도움말에서 추출한 일반 패턴만 사용하며, 화면·문구·로고·색상·레이아웃을 복제하지 않는다.
 
 ## 3-1. 작업범위·기능 독립성 강제 규칙
