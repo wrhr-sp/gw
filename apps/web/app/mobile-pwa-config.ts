@@ -131,7 +131,7 @@ export const adminPwaManifest = {
       url: "/admin",
     },
     {
-      name: "사원 계정 관리",
+      name: "사원정보관리",
       short_name: "사원계정",
       description: "사원 계정 생성, 상태, 초대, 권한 점검 화면을 바로 엽니다.",
       url: "/admin/users",
@@ -388,7 +388,7 @@ export const adminPrimaryNav: NavItem[] = [
   },
   {
     href: "/admin/users",
-    label: "사원 계정 관리",
+    label: "사원정보관리",
     shortLabel: "사원계정",
     summary: "신규입사부터 퇴사까지 계정 생애주기와 상태 관리",
   },
@@ -546,7 +546,7 @@ export const adminRecoveryRouteCards: readonly RecoveryRouteCard[] = [
   },
   {
     href: "/admin/users",
-    label: "사원 계정 관리",
+    label: "사원정보관리",
     summary: "초대·권한 저장이 아니라 현재 사원 계정 상태와 안내 문구를 다시 읽습니다.",
   },
   {

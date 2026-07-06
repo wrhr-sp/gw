@@ -86,7 +86,7 @@ export interface LeavePolicySummaryReview {
 export const adminHubCards: readonly AdminHubCard[] = [
   {
     href: "/admin/users",
-    title: "사원 계정 관리",
+    title: "사원정보관리",
     description: "신규입사부터 퇴사까지 사용자 계정 생애주기와 기능별 권한 요약을 확인하는 관리자 업무 영역",
     primaryAudience: "회사 관리자 · HR 관리자",
     firstReviewPoint: "계정 상태, 직원 연결, 고위험 권한, 퇴사/비활성화 후보",

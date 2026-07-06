@@ -76,7 +76,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     ]);
     expect(adminPrimaryNav.map((item) => item.label)).toEqual([
       "그룹웨어관리",
-      "사원 계정 관리",
+      "사원정보관리",
       "권한 관리",
       "운영 정책",
       "감사로그",
@@ -91,7 +91,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
 
     expect(html).toContain("그룹웨어관리자");
     expect(html).toContain("관리자 기능");
-    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("사원정보관리");
     expect(html).toContain("권한 관리");
     expect(html).toContain("운영 정책");
     expect(html).toContain("감사로그");
@@ -144,11 +144,12 @@ describe("Phase 55 admin account/rbac live usage", () => {
       />,
     );
 
-    expect(html).toContain("사원 계정 관리");
-    expect(html).toContain("계정 현황");
-    expect(html).toContain("사원 계정 목록");
+    expect(html).toContain("사원정보관리");
+    expect(html).toContain("사원정보 현황");
+    expect(html).toContain("사원정보관리 목록");
+    expect(html).toContain("사원정보 · 인사정보 상세");
     expect(html).toContain("기능별 권한");
-    expect(html).toContain("퇴사 처리");
+    expect(html).toContain("퇴사");
     expect(html).toContain("관리자 작업");
     expect(html).toContain("권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
     expect(html).toContain("COMPANY_ADMIN");

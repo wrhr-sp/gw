@@ -7558,3 +7558,248 @@ li {
     grid-template-columns: 1fr;
   }
 }
+
+/* Employee information management layout */
+.employee-management-toolbar,
+.employee-management-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.employee-management-toolbar {
+  margin-bottom: 8px;
+}
+
+.employee-management-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-management-toolbar__search {
+  flex: 1 1 260px;
+}
+
+.employee-management-toolbar input,
+.employee-management-toolbar select,
+.employee-management-actions button,
+.employee-admin-action-card input,
+.employee-admin-action-card select,
+.employee-admin-action-card button,
+.employee-info-field input,
+.employee-info-field select,
+.employee-info-field button,
+.employee-info-dialog__footer button,
+.employee-info-print {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.employee-management-actions {
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.employee-management-actions span {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-management-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.employee-management-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.employee-management-table th,
+.employee-management-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.employee-management-table th {
+  color: var(--text-muted);
+  font-weight: 700;
+  background: var(--surface-subtle);
+}
+
+.employee-management-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.employee-info-drawer-list {
+  display: grid;
+  gap: 12px;
+}
+
+.employee-info-drawer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.employee-info-drawer > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.employee-info-drawer > summary small {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.employee-info-dialog {
+  border-top: 1px solid var(--border-subtle);
+  padding: 16px;
+}
+
+.employee-info-dialog__header,
+.employee-info-dialog__footer,
+.employee-info-tabs,
+.employee-info-subtabs,
+.employee-chip-row,
+.employee-radio-row,
+.employee-split-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.employee-info-dialog__header {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.employee-info-tab {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.employee-info-tab--active {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.employee-info-subtabs {
+  margin-bottom: 16px;
+}
+
+.employee-info-subtab {
+  padding: 0 2px 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.employee-info-subtab--active {
+  border-bottom: 2px solid var(--text);
+  color: var(--text);
+}
+
+.employee-info-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.employee-info-column {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.employee-info-field {
+  display: grid;
+  gap: 6px;
+}
+
+.employee-info-field > span:first-child {
+  color: var(--text);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+}
+
+.employee-info-field b {
+  color: var(--danger);
+}
+
+.employee-info-field input,
+.employee-info-field select {
+  width: 100%;
+  background: var(--surface-subtle);
+}
+
+.employee-split-field input {
+  min-width: 0;
+}
+
+.employee-radio-row,
+.employee-chip-row {
+  min-height: 34px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-info-dialog__footer {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.employee-info-dialog__footer button:last-child {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+.employee-admin-action-card form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.employee-admin-action-card label {
+  display: grid;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 860px) {
+  .employee-info-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-management-actions span {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
