@@ -1323,56 +1323,15 @@ const supportSidebarGroups: readonly SupportSidebarGroup[] = [
   {
     title: "인사관리",
     items: [
-      { href: "/admin/users#create-account", label: "계정생성", shortLabel: "계정생성", summary: "신규 사원 계정 생성 진입점을 확인합니다." },
-      { href: "/admin/users", label: "사원정보관리", shortLabel: "사원정보", summary: "사원정보 목록과 상세 정보를 확인합니다." },
+      { href: "/admin/users", label: "사원정보관리", shortLabel: "사원정보", summary: "사원정보 목록과 계정 생성 흐름을 확인합니다." },
       { href: "/admin/users#permission-matrix", label: "계정권한관리", shortLabel: "계정권한", summary: "계정 상태와 기능별 권한을 확인합니다." },
       { href: "/admin/policies#policy-documents", label: "관리 정책문서", shortLabel: "정책문서", summary: "관리 정책 문서와 운영 정책 검토 기준을 확인합니다." },
-      { href: "#support-hr-appointments", label: "인사발령", shortLabel: "발령", summary: "인사발령 기능은 별도 구현 전까지 비활성 상태로 표시합니다.", disabled: true },
-      { href: "#support-dormant-accounts", label: "휴면계정관리", shortLabel: "휴면계정", summary: "휴면계정 관리 기능은 계정권한관리 이동 후 연결합니다.", disabled: true },
     ],
   },
   {
     title: "지점관리",
     items: [
       { href: "/Place of business", label: "지점정보관리", shortLabel: "지점정보", summary: "지점관리포털의 지점 기본 정보를 확인합니다." },
-      { href: "/management-support/erp/ledgers", label: "월 마감 정산", shortLabel: "월마감", summary: "월마감 원장과 정산 잠금 상태를 확인합니다." },
-      { href: "/work-items/branch", label: "지점 요청내역", shortLabel: "지점요청", summary: "지점 요청과 처리 현황을 확인합니다." },
-    ],
-  },
-  {
-    title: "근태관리",
-    items: [
-      { href: "/attendance", label: "근태 현황", shortLabel: "근태", summary: "경영지원팀 문맥으로 근태 현황을 확인합니다." },
-    ],
-  },
-  {
-    title: "급여관리",
-    items: [
-      { href: "/payroll", label: "급여관리", shortLabel: "급여", summary: "급여 내부관리 업무로 이동합니다." },
-    ],
-  },
-  {
-    title: "경비관리",
-    items: [
-      { href: "/management-support/erp/expenses", label: "경비관리", shortLabel: "경비", summary: "경비와 지출결의 상태를 확인합니다." },
-    ],
-  },
-  {
-    title: "예산관리",
-    items: [
-      { href: "/management", label: "예산관리", shortLabel: "예산", summary: "예산 관리 지표와 경영 현황을 확인합니다." },
-    ],
-  },
-  {
-    title: "매출입관리",
-    items: [
-      { href: "/management-support/erp/billings", label: "매출입관리", shortLabel: "매출입", summary: "매출 청구와 입출금 상태를 확인합니다." },
-    ],
-  },
-  {
-    title: "거래처관리",
-    items: [
-      { href: "/management-support/erp/vendors", label: "거래처관리", shortLabel: "거래처", summary: "거래처와 정산 기준 정보를 확인합니다." },
     ],
   },
 ];
