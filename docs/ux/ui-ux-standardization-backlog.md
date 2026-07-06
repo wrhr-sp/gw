@@ -81,7 +81,10 @@
    - 받는사람/참조 입력 영역
    - 메일함 목록
    - 검색/필터 바
+   - 중앙 일괄 처리 바
    - 메일 상세/답장/전달 액션 툴바
+   - SMTP/API 인증정보 프론트엔드 노출 제거 및 백엔드 환경 변수 격리
+   - 세부 기준: `docs/ux/werehere-mail-layout-security-refactor-backlog.md`
 
 2. 메신저
    - 대화목록/채팅방 스플릿

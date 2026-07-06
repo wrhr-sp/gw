@@ -37,6 +37,14 @@
 - 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
 - 좌우 스플릿 뷰는 Grid/Flex 기반으로 만들고, `min-width: 0`, `width: 100%`, 고정 높이/overflow 체인을 확인해 브라우저 크기 변화에도 깨지지 않게 한다.
 - 기존 코드 리팩토링은 지점관리포털 작업 이후 메일 → 메신저 → 게시판 → 나머지 업무 화면 순서로 기능 단위 PR과 회귀 테스트를 붙여 진행한다.
+- `werehere.co.kr` 메일 화면 리팩토링은 `docs/ux/werehere-mail-layout-security-refactor-backlog.md`를 기준으로 하며, 상단 검색 필터·중앙 일괄 처리 바·우측 메일 상세창 툴바는 설치된 UI 라이브러리의 Flex/Grid 공식 패턴 또는 공통 래퍼로 수평 기준선을 맞춘다.
+
+## 보안·환경변수 분리 강제 규칙
+- SMTP host/user/password/token, 외부 API key/secret, provider access/refresh token, DNS 인증 private key, `.env`/`.secrets` 내용은 프론트엔드 source/bundle/log/문서/보고에 노출하지 않는다.
+- 프론트엔드는 메일 작성 데이터, 수신자, 첨부 id 같은 업무 데이터만 내부 API로 전달하고 UI 렌더링만 담당한다.
+- SMTP/API provider 설정과 인증정보는 백엔드 서버 내부 환경 변수 또는 승인된 secret store에서만 읽는다.
+- provider 미설정 상태에서는 성공처럼 보이는 fallback 응답을 반환하지 말고, 명확한 오류 코드와 발송 로그로 안전 실패해야 한다.
+- 실제 SMTP/API secret 등록, DNS/SPF/DKIM/DMARC 변경, production DB 실데이터 변경, 유료 provider 가입, 실제 외부 메일 발송 검증은 별도 승인 게이트로 둔다.
 
 ## 운영 기능 완료 기준 / no-mock 원칙
 - 완료 기능은 Production-ready (실구현) 기준만 허용한다. 화면 → 실제 API → Service/Repository → DB 저장·조회 → 권한·검증·예외·감사로그 확인 흐름이 이어져야 한다.
