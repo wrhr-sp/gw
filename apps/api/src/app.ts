@@ -15,7 +15,10 @@ import {
   adminPoliciesListResponseSchema,
   adminPolicyDocumentUpdateRequestSchema,
   adminPolicyUpdateResponseSchema,
+  adminUserMutationResponseSchema,
+  adminUserRolesUpdateRequestSchema,
   adminUsersListResponseSchema,
+  adminUserStatusUpdateRequestSchema,
   appRoutes,
   approvalActionRequestSchema,
   approvalActionResponseSchema,
@@ -317,8 +320,9 @@ import {
   sortApprovalSteps,
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
-import { listOperationalAdminAuditLogs, listOperationalAdminUsers } from "./lib/operational-admin";
+import { listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserRoles, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
+import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
 import {
   archiveOperationalDocumentFile,
   createOperationalBoard,
@@ -4046,6 +4050,117 @@ app.get(appRoutes.admin.users, async (context) => {
   );
 });
 
+app.post(appRoutes.admin.userStatus(":userId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const targetUserId = context.req.param("userId");
+  if (!targetUserId) {
+    return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
+  }
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminUserStatusUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "계정 상태 변경 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await updateOperationalAdminUserStatus(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    targetUserId,
+    parsed.data.status,
+    parsed.data.mustChangePassword,
+    parsed.data.reason,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+  if (!result) {
+    return jsonDatabaseRequired(context, "관리자 계정 상태 저장");
+  }
+
+  return jsonSuccess(
+    context,
+    adminUserMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        user: result.user,
+        audit: { candidate: true, action: "admin.user.status.update" },
+        persistence: "operational-db",
+        updatedAt: result.updatedAt,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.admin.userRoles(":userId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "permission.read") || !hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredAllPermissions: ["permission.read", "employee.write"],
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const targetUserId = context.req.param("userId");
+  if (!targetUserId) {
+    return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
+  }
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminUserRolesUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "계정 역할 변경 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await updateOperationalAdminUserRoles(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    targetUserId,
+    parsed.data.roleCodes,
+    parsed.data.reason,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+  if (!result) {
+    return jsonDatabaseRequired(context, "관리자 계정 역할 저장");
+  }
+
+  return jsonSuccess(
+    context,
+    adminUserMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        user: result.user,
+        audit: { candidate: true, action: "admin.user.roles.update" },
+        persistence: "operational-db",
+        updatedAt: result.updatedAt,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
 
 app.get(appRoutes.admin.permissions, async (context) => {
   const authResult = requireAdminRole(context);
@@ -4160,29 +4275,18 @@ app.post(appRoutes.admin.policyDocuments, async (context) => {
     return boundaryError;
   }
 
+  const policy = await saveOperationalDocumentPolicy(context.env, parsed.data.companyId, authResult.auth.user.id, parsed.data);
+  if (!policy) {
+    return jsonDatabaseRequired(context, "문서 정책 저장");
+  }
+
   return jsonSuccess(
     context,
     adminPolicyUpdateResponseSchema,
     {
       ok: true,
       data: {
-        policy: {
-          category: "document",
-          companyId: parsed.data.companyId,
-          summary: `문서 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 정책 변경 요청`,
-          lastReviewedAt: UAT_FIXED_NOW,
-          policyChecks: [
-            `허용 확장자: ${parsed.data.allowedFileExtensions.join(", ")}`,
-            `최대 파일 크기: ${parsed.data.maxFileSizeBytes} bytes`,
-            "R2 metadata 중심 추적",
-          ],
-          capability: "document.space.manage",
-          reasonRequired: true,
-          diffSummary: {
-            before: "visibility=team, retention=180",
-            after: `visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}`,
-          },
-        },
+        policy,
         audit: {
           candidate: true,
           action: "admin.policy.document.updated",
@@ -4223,29 +4327,18 @@ app.post(appRoutes.admin.policyBoards, async (context) => {
     return boundaryError;
   }
 
+  const policy = await saveOperationalBoardPolicy(context.env, parsed.data.companyId, authResult.auth.user.id, parsed.data);
+  if (!policy) {
+    return jsonDatabaseRequired(context, "게시판 정책 저장");
+  }
+
   return jsonSuccess(
     context,
     adminPolicyUpdateResponseSchema,
     {
       ok: true,
       data: {
-        policy: {
-          category: "board",
-          companyId: parsed.data.companyId,
-          summary: `게시판 visibility=${parsed.data.visibility}, retention=${parsed.data.retentionDays}일 candidate`,
-          lastReviewedAt: UAT_FIXED_NOW,
-          policyChecks: [
-            `익명 댓글 허용: ${parsed.data.allowAnonymousComments ? "yes" : "no"}`,
-            `읽음 확인 강제: ${parsed.data.requireReadReceipt ? "yes" : "no"}`,
-            "일반 작성 흐름과 운영 정책 UI 분리",
-          ],
-          capability: "board.manage",
-          reasonRequired: true,
-          diffSummary: {
-            before: "notice_read_receipt=optional",
-            after: `notice_read_receipt=${parsed.data.requireReadReceipt ? "required" : "optional"}`,
-          },
-        },
+        policy,
         audit: {
           candidate: true,
           action: "admin.policy.board.updated",

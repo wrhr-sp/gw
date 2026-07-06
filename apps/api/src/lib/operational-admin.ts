@@ -265,6 +265,17 @@ export async function listOperationalAdminAuditLogs(env: PostgresEnv | undefined
   });
 }
 
+async function getOperationalAdminUserById(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  userId: string,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<AdminUserSummary | null> {
+  const users = await listOperationalAdminUsers(env, companyId, permissionsForRole, highRiskPermissions);
+  return users?.find((user) => user.userId === userId) ?? null;
+}
+
 export async function listOperationalAdminUsers(
   env: PostgresEnv | undefined,
   companyId: string,
@@ -359,4 +370,199 @@ export async function listOperationalAdminUsers(
       },
     } satisfies AdminUserSummary;
   });
+}
+
+export async function updateOperationalAdminUserStatus(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  nextStatus: AdminAccountStatus,
+  mustChangePassword: boolean | undefined,
+  reason: string,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+
+  try {
+    await sql`begin`;
+
+    const beforeRows = await sql`
+      select id, status, must_change_password
+      from users
+      where id = ${targetUserId}
+        and company_id = ${companyId}
+        and deleted_at is null
+      for update
+    `;
+    const before = beforeRows[0] as { id: string; status: string; must_change_password: boolean } | undefined;
+    if (!before) {
+      await sql`rollback`;
+      return null;
+    }
+
+    await sql`
+      update users
+      set status = ${nextStatus},
+          must_change_password = ${mustChangePassword ?? before.must_change_password},
+          updated_at = ${updatedAt}
+      where id = ${targetUserId}
+        and company_id = ${companyId}
+    `;
+
+    if (nextStatus === "offboarded") {
+      await sql`
+        update employees
+        set employment_status = 'offboarded',
+            leave_date = coalesce(leave_date, current_date),
+            updated_at = ${updatedAt}
+        where user_id = ${targetUserId}
+          and company_id = ${companyId}
+          and deleted_at is null
+      `;
+      await sql`
+        update auth_sessions
+        set status = 'revoked',
+            revoked_at = coalesce(revoked_at, ${updatedAt}),
+            updated_at = ${updatedAt}
+        where user_id = ${targetUserId}
+          and company_id = ${companyId}
+          and status = 'active'
+      `;
+    }
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_status_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.status.update',
+        'user',
+        ${targetUserId},
+        ${JSON.stringify({ status: before.status, mustChangePassword: before.must_change_password })}::jsonb,
+        ${JSON.stringify({ status: nextStatus, mustChangePassword: mustChangePassword ?? before.must_change_password })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "user", reason, maskedFields: ["password_hash", "session_token_hash"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalAdminUserRoles(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  nextRoleCodes: RoleCode[],
+  reason: string,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+  const uniqueRoleCodes = [...new Set(nextRoleCodes)];
+
+  try {
+    await sql`begin`;
+
+    const targetRows = await sql`
+      select id from users
+      where id = ${targetUserId}
+        and company_id = ${companyId}
+        and deleted_at is null
+      for update
+    `;
+    if (!targetRows[0]) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const beforeRows = await sql`
+      select coalesce(json_agg(r.code order by r.code) filter (where r.code is not null), '[]'::json) as role_codes
+      from user_roles ur
+      join roles r on r.id = ur.role_id and r.company_id = ur.company_id
+      where ur.company_id = ${companyId}
+        and ur.user_id = ${targetUserId}
+        and ur.status = 'active'
+        and ur.deleted_at is null
+        and r.status = 'active'
+        and r.deleted_at is null
+    `;
+    const beforeRoleCodes = (beforeRows[0] as { role_codes: unknown } | undefined)?.role_codes ?? [];
+
+    await sql`
+      update user_roles
+      set status = 'inactive',
+          updated_at = ${updatedAt},
+          deleted_at = coalesce(deleted_at, ${updatedAt})
+      where company_id = ${companyId}
+        and user_id = ${targetUserId}
+        and status = 'active'
+        and deleted_at is null
+    `;
+
+    for (const roleCode of uniqueRoleCodes) {
+      const roleRows = await sql`
+        select id from roles
+        where code = ${roleCode}
+          and company_id = ${companyId}
+          and status = 'active'
+          and deleted_at is null
+        limit 1
+      `;
+      const roleId = (roleRows[0] as { id: string } | undefined)?.id;
+      if (!roleId) {
+        await sql`rollback`;
+        return null;
+      }
+
+      await sql`
+        insert into user_roles (id, company_id, user_id, role_id, assigned_by, status, created_at, updated_at)
+        values (${`user_role_${targetUserId}_${roleCode}`}, ${companyId}, ${targetUserId}, ${roleId}, ${actorUserId}, 'active', ${updatedAt}, ${updatedAt})
+        on conflict (company_id, user_id, role_id, branch_id) do update
+        set status = 'active', assigned_by = ${actorUserId}, updated_at = ${updatedAt}, deleted_at = null
+      `;
+    }
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_roles_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.roles.update',
+        'role_assignment',
+        ${targetUserId},
+        ${JSON.stringify({ roleCodes: beforeRoleCodes })}::jsonb,
+        ${JSON.stringify({ roleCodes: uniqueRoleCodes })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "permission", reason, maskedFields: ["password_hash", "session_token_hash"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
 }

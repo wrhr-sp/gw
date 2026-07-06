@@ -1,6 +1,8 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
-import type { AdminUsersListResponse } from "@gw/shared";
+import { appRoutes, type AdminAccountStatus, type AdminUsersListResponse, type RoleCode } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
@@ -36,6 +38,105 @@ const statusLabels: Record<string, string> = {
 
 function getStatusLabel(status: string) {
   return statusLabels[status] ?? status;
+}
+
+const statusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
+  { value: "active", label: "활성" },
+  { value: "locked", label: "잠금" },
+  { value: "disabled", label: "비활성" },
+  { value: "offboarded", label: "퇴사 처리" },
+  { value: "suspended", label: "일시정지" },
+];
+
+const roleOptions: RoleCode[] = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "COMPANY_ADMIN", "AUDITOR"];
+
+type AdminUserItem = AdminUsersPreview["items"][number];
+
+async function readMutationError(response: Response) {
+  const defaultMessage = `저장 실패: ${response.status}`;
+  try {
+    const payload = (await response.json()) as { error?: { message?: string; code?: string } };
+    return payload.error?.message ? `${payload.error.message}${payload.error.code ? ` (${payload.error.code})` : ""}` : defaultMessage;
+  } catch {
+    return defaultMessage;
+  }
+}
+
+function AdminUserActionCard({ item }: { item: AdminUserItem }) {
+  const [status, setStatus] = useState<AdminAccountStatus>(item.accountStatus);
+  const [mustChangePassword, setMustChangePassword] = useState(item.mustChangePassword);
+  const [roleCode, setRoleCode] = useState<RoleCode>(item.roleCodes[0] ?? "EMPLOYEE");
+  const [reason, setReason] = useState("관리자페이지 2차 계정관리 검증");
+  const [message, setMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<"status" | "role" | null>(null);
+
+  async function submitStatus() {
+    setSubmitting("status");
+    setMessage(null);
+    const response = await fetch(appRoutes.admin.userStatus(item.userId), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status, mustChangePassword, reason }),
+    });
+    if (!response.ok) {
+      setMessage(await readMutationError(response));
+      setSubmitting(null);
+      return;
+    }
+    window.location.href = `/admin/users?result=${encodeURIComponent(`${item.fullName} 계정 상태 저장 완료`)}`;
+  }
+
+  async function submitRole() {
+    setSubmitting("role");
+    setMessage(null);
+    const response = await fetch(appRoutes.admin.userRoles(item.userId), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ roleCodes: [roleCode], reason }),
+    });
+    if (!response.ok) {
+      setMessage(await readMutationError(response));
+      setSubmitting(null);
+      return;
+    }
+    window.location.href = `/admin/users?result=${encodeURIComponent(`${item.fullName} 역할 저장 완료`)}`;
+  }
+
+  return (
+    <article className="route-card">
+      <h3>{item.fullName}</h3>
+      <p className="card-note">현재 {getStatusLabel(item.accountStatus)} · {item.roleCodes.join(", ")}</p>
+      <label>
+        상태
+        <select value={status} onChange={(event) => setStatus(event.target.value as AdminAccountStatus)}>
+          {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" checked={mustChangePassword} onChange={(event) => setMustChangePassword(event.target.checked)} />
+        다음 로그인 비밀번호 변경 요구
+      </label>
+      <label>
+        역할
+        <select value={roleCode} onChange={(event) => setRoleCode(event.target.value as RoleCode)}>
+          {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>
+      <label>
+        변경 사유
+        <input value={reason} onChange={(event) => setReason(event.target.value)} minLength={1} />
+      </label>
+      <div className="pill-row">
+        <button type="button" onClick={submitStatus} disabled={submitting !== null || reason.trim().length === 0}>
+          {submitting === "status" ? "상태 저장 중" : "상태 저장"}
+        </button>
+        <button type="button" onClick={submitRole} disabled={submitting !== null || reason.trim().length === 0}>
+          {submitting === "role" ? "역할 저장 중" : "역할 저장"}
+        </button>
+      </div>
+      {message ? <p className="card-note" role="alert">{message}</p> : null}
+    </article>
+  );
 }
 
 export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, loadErrorKind, focusMessage }: AdminUsersPageContentProps) {
@@ -132,12 +233,14 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
       </div>
 
       <SurfaceSection title="관리자 작업">
-        <div className="grid-auto-compact">
-          <article className="route-card"><h3>사원 계정 생성</h3><p className="card-note">준비 중</p></article>
-          <article className="route-card"><h3>권한 저장</h3><p className="card-note">준비 중</p></article>
-          <article className="route-card"><h3>퇴사 처리</h3><p className="card-note">준비 중</p></article>
-          <article className="route-card"><h3>감사로그</h3><Link href="/admin/audit-logs">열기</Link></article>
-        </div>
+        {items.length > 0 ? (
+          <div className="grid-auto-compact">
+            {items.map((item) => <AdminUserActionCard key={`action-${item.userId}`} item={item} />)}
+            <article className="route-card"><h3>감사로그</h3><p className="card-note">계정/역할 변경은 저장 뒤 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
+          </div>
+        ) : (
+          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">계정 데이터를 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
+        )}
       </SurfaceSection>
     </PageShell>
   );

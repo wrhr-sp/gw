@@ -138,7 +138,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     const html = renderToStaticMarkup(
       <AdminUsersPageContent
         adminUsers={검증}
-        actionMessage="권한 변경점 검증 완료: 관리자 테스트 → HR_ADMIN (실저장 없음)"
+        actionMessage="권한 변경점 검증 완료: 관리자 테스트 → HR_ADMIN (운영 DB 재조회 대상)"
         actionType="role"
         focusMessage="권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다."
       />,
@@ -153,7 +153,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("권한 변경점 검증 뒤 /management, /admin/users, /admin/audit-logs 접근 결과를 다시 눌러봅니다.");
     expect(html).toContain("COMPANY_ADMIN");
     expect(html).toContain("고위험 권한: audit.read");
-    expect(html).toContain("실저장 없음");
+    expect(html).toContain("운영 DB 재조회 대상");
+    expect(html).toContain("상태 저장");
+    expect(html).toContain("역할 저장");
     expect(html).not.toContain("현재 사원 계정 목록");
     expect(html).not.toContain("관리자 설정 이관 기준");
     expect(html).not.toContain("역할 변경 후보: HR_ADMIN");

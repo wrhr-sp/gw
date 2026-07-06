@@ -387,7 +387,7 @@ describe("Phase 2 auth/org contract", () => {
     expect(payload.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns masked document policy update candidates without raw storage details", async () => {
+  it("requires PostgreSQL for document policy updates instead of returning candidate-only data", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.policyDocuments, {
@@ -406,17 +406,12 @@ describe("Phase 2 auth/org contract", () => {
       }),
     });
 
-    expect(response.status).toBe(200);
-    const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
-    expect(payload.data.audit.action).toBe("admin.policy.document.updated");
-    expect(payload.data.policy.reasonRequired).toBe(true);
-    expect(payload.data.policy.diffSummary.after).toContain("visibility=company");
-    expect(payload.data.maskedFields).toContain("storageKey");
-    expect(JSON.stringify(payload)).not.toContain("companies/company_demo/");
-    expect(JSON.stringify(payload)).not.toContain("signedUrl");
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
-  it("returns board policy candidate summary with review requirement", async () => {
+  it("requires PostgreSQL for board policy updates instead of returning candidate-only data", async () => {
     const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
 
     const response = await app.request(appRoutes.admin.policyBoards, {
@@ -435,11 +430,9 @@ describe("Phase 2 auth/org contract", () => {
       }),
     });
 
-    expect(response.status).toBe(200);
-    const payload = adminPolicyUpdateResponseSchema.parse(await response.json());
-    expect(payload.data.audit.action).toBe("admin.policy.board.updated");
-    expect(payload.data.policy.capability).toBe("board.manage");
-    expect(payload.data.requiresReview).toBe(true);
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
 
   it("rejects attendance registration policy payload on board policy endpoint", async () => {
