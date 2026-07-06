@@ -80,7 +80,7 @@ describe("mobile app shell admin boundary", () => {
     expect(html).toContain('data-route="/admin/users#permission-matrix"');
     expect(html).toContain('data-route="/admin/policies"');
     expect(html).toContain('data-route="/admin/audit-logs"');
-    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("사원정보관리");
     expect(html).toContain("권한 관리");
     expect(html).not.toContain('data-route="/work-items/branch"');
   });

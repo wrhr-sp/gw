@@ -54,8 +54,9 @@ describe("org/employees/admin boundaries", () => {
   it("keeps admin users page positioned as a higher-risk review surface", () => {
     const html = renderToStaticMarkup(<AdminUsersPage />);
 
-    expect(html).toContain("사원 계정 관리");
-    expect(html).toContain("사원 계정 목록");
+    expect(html).toContain("사원정보관리");
+    expect(html).toContain("사원정보관리 목록");
+    expect(html).toContain("사원정보 · 인사정보 상세");
     expect(html).toContain("기능별 권한");
     expect(html).toContain("관리자 작업");
     expect(html).toContain("감사로그");

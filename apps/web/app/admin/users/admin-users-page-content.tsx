@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { appRoutes, type AdminAccountStatus, type AdminUsersListResponse, type RoleCode } from "@gw/shared";
+import { appRoutes, type AdminAccountStatus, type AdminUserSummary, type AdminUsersListResponse, type RoleCode } from "@gw/shared";
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
@@ -27,39 +27,143 @@ const permissionMatrix = [
 
 const statusLabels: Record<string, string> = {
   invited: "초대대기",
-  active: "활성",
+  active: "재직",
   locked: "잠금",
   disabled: "비활성",
-  offboarded: "퇴사처리",
-  suspended: "일시정지",
+  offboarded: "퇴사",
+  suspended: "휴직",
+};
+
+const employmentLabels: Record<string, string> = {
+  active: "재직",
+  on_leave: "휴직",
+  offboarded: "퇴사",
+};
+
+const roleLabels: Record<string, string> = {
+  SUPER_ADMIN: "총괄관리자",
+  COMPANY_ADMIN: "회사관리자",
+  HR_ADMIN: "인사관리자",
+  MANAGER: "관리자",
+  EMPLOYEE: "사원",
+  AUDITOR: "감사담당자",
 };
 
 function getStatusLabel(status: string) {
   return statusLabels[status] ?? status;
 }
 
+function getEmploymentLabel(status: string) {
+  return employmentLabels[status] ?? status;
+}
+
+function getRoleLabel(roleCode: string) {
+  return roleLabels[roleCode] ?? roleCode;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  return value.slice(0, 10);
+}
+
 const statusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
-  { value: "active", label: "활성" },
+  { value: "active", label: "재직" },
   { value: "locked", label: "잠금" },
   { value: "disabled", label: "비활성" },
-  { value: "offboarded", label: "퇴사 처리" },
-  { value: "suspended", label: "일시정지" },
+  { value: "offboarded", label: "퇴사" },
+  { value: "suspended", label: "휴직" },
 ];
 
 const roleOptions: RoleCode[] = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "COMPANY_ADMIN", "AUDITOR"];
 
-type AdminUserItem = AdminUsersPreview["items"][number];
+type AdminUserItem = AdminUserSummary;
 
-function AdminUserActionCard({ item }: { item: AdminUserItem }) {
-  const defaultReason = "관리자페이지 2차 계정관리 검증";
+type FieldProps = {
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
+};
+
+function EmployeeField({ label, children, required }: FieldProps) {
+  return (
+    <label className="employee-info-field">
+      <span>{label}{required ? <b aria-hidden="true"> *</b> : null}</span>
+      {children}
+    </label>
+  );
+}
+
+function EmployeeInfoPanel({ item }: { item: AdminUserItem }) {
+  const primaryRole = item.roleCodes[0] ?? "EMPLOYEE";
 
   return (
-    <article className="route-card">
+    <details className="employee-info-drawer">
+      <summary>
+        <span>사원정보 / 인사정보</span>
+        <small>{item.fullName} 상세</small>
+      </summary>
+      <div className="employee-info-dialog" role="group" aria-label={`${item.fullName} 사원정보 상세`}>
+        <div className="employee-info-dialog__header">
+          <div className="employee-info-tabs" aria-label="사원정보 탭">
+            <span className="employee-info-tab employee-info-tab--active">사원정보</span>
+            <span className="employee-info-tab">인사정보</span>
+          </div>
+          <button type="button" className="employee-info-print" disabled>인사정보 프린트</button>
+        </div>
+        <div className="employee-info-subtabs" aria-label="상세 정보 구분">
+          <span className="employee-info-subtab employee-info-subtab--active">기본</span>
+          <span className="employee-info-subtab">프로필</span>
+        </div>
+        <div className="employee-info-form-grid">
+          <div className="employee-info-column">
+            <EmployeeField label="이름" required><input readOnly value={item.fullName} /></EmployeeField>
+            <EmployeeField label="아이디" required><input readOnly value={item.email.split("@")[0] ?? item.userId} /></EmployeeField>
+            <EmployeeField label="비밀번호" required><button type="button" disabled>비밀번호 변경</button></EmployeeField>
+            <EmployeeField label="간편 비밀번호"><button type="button" disabled>간편 비밀번호 초기화</button></EmployeeField>
+            <EmployeeField label="직원구분" required>
+              <select disabled defaultValue={item.accountType}><option>{item.accountType}</option></select>
+            </EmployeeField>
+            <EmployeeField label="입사일자" required><input readOnly value={formatDate(item.lastLoginAt)} /></EmployeeField>
+            <EmployeeField label="인정입사일자"><input readOnly value={formatDate(item.lastLoginAt)} /></EmployeeField>
+            <EmployeeField label="부서 · 직책"><input readOnly value={`${item.departmentName} · ${getRoleLabel(primaryRole)}`} /></EmployeeField>
+            <EmployeeField label="퇴사일자"><input readOnly value={item.employmentStatus === "offboarded" ? "퇴사 처리됨" : ""} /></EmployeeField>
+          </div>
+          <div className="employee-info-column">
+            <EmployeeField label="직위" required>
+              <select disabled defaultValue={getRoleLabel(primaryRole)}><option>{getRoleLabel(primaryRole)}</option></select>
+            </EmployeeField>
+            <EmployeeField label="직급">
+              <select disabled defaultValue={getRoleLabel(primaryRole)}><option>{getRoleLabel(primaryRole)}</option></select>
+            </EmployeeField>
+            <EmployeeField label="사용자그룹"><span className="employee-chip-row"><span>{item.roleCodes.map(getRoleLabel).join(", ")}</span><button type="button" disabled>+ 추가</button></span></EmployeeField>
+            <EmployeeField label="주민등록번호"><span className="employee-split-field"><input readOnly value="" /><input readOnly value="" aria-label="주민등록번호 뒷자리" /></span></EmployeeField>
+            <EmployeeField label="인식번호(사번/학번)"><input readOnly value={item.employeeId} /></EmployeeField>
+            <EmployeeField label="계정 상태"><span className="employee-radio-row"><span>● {getStatusLabel(item.accountStatus)}</span><span>○ 중지</span><span>○ 휴면</span></span></EmployeeField>
+            <EmployeeField label="언어"><select disabled defaultValue="한국어"><option>한국어</option></select></EmployeeField>
+            <EmployeeField label="외부 이메일"><input readOnly value={item.email} /></EmployeeField>
+            <EmployeeField label="만료일자"><input readOnly value={item.mustChangePassword ? "비밀번호 변경 필요" : ""} /></EmployeeField>
+            <EmployeeField label="고위험 권한"><input readOnly value={`고위험 권한: ${item.highRiskPermissions.length > 0 ? item.highRiskPermissions.join(", ") : "없음"}`} /></EmployeeField>
+          </div>
+        </div>
+        <div className="employee-info-dialog__footer">
+          <button type="button" disabled>취소</button>
+          <button type="button" disabled>저장</button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function AdminUserActionCard({ item }: { item: AdminUserItem }) {
+  const defaultReason = "사원정보관리 계정/권한 변경 검증";
+
+  return (
+    <article className="route-card employee-admin-action-card">
       <h3>{item.fullName}</h3>
-      <p className="card-note">현재 {getStatusLabel(item.accountStatus)} · {item.roleCodes.join(", ")}</p>
+      <p className="card-note">현재 {getStatusLabel(item.accountStatus)} · {item.roleCodes.map(getRoleLabel).join(", ")}</p>
       <form method="post" action={appRoutes.admin.userStatus(item.userId)}>
         <label>
-          상태
+          재직상태
           <select name="status" defaultValue={item.accountStatus}>
             {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
@@ -76,9 +180,9 @@ function AdminUserActionCard({ item }: { item: AdminUserItem }) {
       </form>
       <form method="post" action={appRoutes.admin.userRoles(item.userId)}>
         <label>
-          역할
+          직위/권한
           <select name="roleCode" defaultValue={item.roleCodes[0] ?? "EMPLOYEE"}>
-            {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            {roleOptions.map((option) => <option key={option} value={option}>{getRoleLabel(option)}</option>)}
           </select>
         </label>
         <label>
@@ -99,18 +203,18 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
   const offboardedCount = items.filter((item) => item.accountStatus === "offboarded" || item.employmentStatus === "offboarded").length;
   const adminCount = items.filter((item) => item.roleCodes.some((roleCode) => roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN")).length;
   const highRiskCount = items.filter((item) => item.highRiskPermissions.length > 0).length;
-  const loadErrorTitle = loadErrorKind === "offline" ? "네트워크 재확인 필요" : "사원 계정 조회 실패";
+  const loadErrorTitle = loadErrorKind === "offline" ? "네트워크 재확인 필요" : "사원정보 조회 실패";
 
   return (
     <PageShell
       backHref="/admin"
       backLabel="그룹웨어관리자로"
       eyebrow="관리자"
-      title="사원 계정 관리"
+      title="사원정보관리"
       actions={
         <div className="pill-row">
-          <Pill tone="accent">계정</Pill>
-          <Pill tone="accent">권한</Pill>
+          <Pill tone="accent">사원정보</Pill>
+          <Pill tone="accent">인사정보</Pill>
         </div>
       }
     >
@@ -139,36 +243,98 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         </section>
       ) : null}
 
-      <SurfaceSection title="계정 현황">
-        <div className="grid-auto-compact">
-          <article className="info-card"><Pill tone="accent">전체</Pill><h3>{totalCount}개</h3></article>
-          <article className="info-card"><Pill tone="accent">활성</Pill><h3>{activeCount}개</h3></article>
-          <article className="info-card"><Pill tone="warning">잠금</Pill><h3>{lockedCount}개</h3></article>
-          <article className="info-card"><Pill tone="warning">퇴사</Pill><h3>{offboardedCount}개</h3></article>
-          <article className="info-card"><Pill>관리자</Pill><h3>{adminCount}개</h3></article>
-          <article className="info-card"><Pill tone={highRiskCount > 0 ? "warning" : "accent"}>고위험 권한</Pill><h3>{highRiskCount}개</h3></article>
+      <SurfaceSection title="사원정보관리 목록">
+        <div className="employee-management-toolbar" aria-label="사원정보관리 검색 조건">
+          <label>
+            재직상태
+            <select defaultValue="전체">
+              <option>전체</option>
+              <option>재직</option>
+              <option>휴직</option>
+              <option>퇴사</option>
+            </select>
+          </label>
+          <label className="employee-management-toolbar__search">
+            검색
+            <input aria-label="이름, 부서, 사번 검색" readOnly />
+          </label>
+          <button type="button" disabled>조회</button>
+          <button type="button" disabled>조건추가</button>
         </div>
-      </SurfaceSection>
-
-      <SurfaceSection title="사원 계정 목록">
+        <div className="employee-management-actions" aria-label="사원정보관리 작업">
+          <button type="button" disabled>사원 생성</button>
+          <button type="button" disabled>사원 삭제</button>
+          <button type="button" disabled>정보 수정</button>
+          <span>전체: {totalCount}명</span>
+        </div>
         {items.length > 0 ? (
-          <div className="grid-auto-compact">
-            {items.map((item) => (
-              <article key={item.userId} className="info-card">
-                <Pill tone={item.highRiskPermissions.length > 0 ? "warning" : "accent"}>{item.roleCodes.join(", ")}</Pill>
-                <h3>{item.fullName}</h3>
-                <p>{item.email} · {item.departmentName}</p>
-                <p className="meta-copy">계정: {item.accountType} · {getStatusLabel(item.accountStatus)} · 직원 상태 {item.employmentStatus}</p>
-                <p className="meta-copy">보안: 비밀번호 변경 {item.mustChangePassword ? "필요" : "완료"} · 2FA {item.twoFactorRequired ? "필수" : "미필수"} · 세션 {item.activeSessionCount}개</p>
-                <p className="card-note">고위험 권한: {item.highRiskPermissions.length > 0 ? item.highRiskPermissions.join(", ") : "없음"}</p>
-              </article>
-            ))}
+          <div className="employee-management-table-wrap">
+            <table className="employee-management-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" aria-label="전체 선택" disabled /></th>
+                  <th>이름</th>
+                  <th>ID</th>
+                  <th>직원구분</th>
+                  <th>재직상태</th>
+                  <th>직위</th>
+                  <th>직책</th>
+                  <th>사용자그룹</th>
+                  <th>부서</th>
+                  <th>입사일</th>
+                  <th>재직기간</th>
+                  <th>계정상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => {
+                  const primaryRole = item.roleCodes[0] ?? "EMPLOYEE";
+                  return (
+                    <tr key={item.userId}>
+                      <td><input type="checkbox" aria-label={`${item.fullName} 선택`} disabled /></td>
+                      <td>{item.fullName}</td>
+                      <td>{item.email}</td>
+                      <td>{item.accountType}</td>
+                      <td>{getEmploymentLabel(item.employmentStatus)}</td>
+                      <td>{getRoleLabel(primaryRole)}</td>
+                      <td>{item.roleCodes.includes("MANAGER") ? "팀장" : "-"}</td>
+                      <td>{item.roleCodes.map(getRoleLabel).join(", ") || "-"}</td>
+                      <td>{item.departmentName}</td>
+                      <td>{formatDate(item.lastLoginAt)}</td>
+                      <td>{item.activeSessionCount > 0 ? `${item.activeSessionCount}개 세션` : "-"}</td>
+                      <td>{getStatusLabel(item.accountStatus)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <article className="info-card">
-            <h3>조회된 계정이 없습니다</h3>
+            <h3>조회된 사원정보가 없습니다</h3>
           </article>
         )}
+      </SurfaceSection>
+
+      <SurfaceSection title="사원정보 · 인사정보 상세">
+        {items.length > 0 ? (
+          <div className="employee-info-drawer-list">
+            {items.slice(0, 3).map((item) => <EmployeeInfoPanel key={`detail-${item.userId}`} item={item} />)}
+          </div>
+        ) : (
+          <article className="info-card"><h3>사원정보를 불러온 뒤 상세 폼을 확인할 수 있습니다</h3></article>
+        )}
+      </SurfaceSection>
+
+      <SurfaceSection title="사원정보 현황">
+        <div className="grid-auto-compact">
+          <article className="info-card"><Pill tone="accent">전체</Pill><h3>{totalCount}명</h3></article>
+          <article className="info-card"><Pill tone="accent">재직</Pill><h3>{activeCount}명</h3></article>
+          <article className="info-card"><Pill tone="warning">잠금</Pill><h3>{lockedCount}명</h3></article>
+          <article className="info-card"><Pill tone="warning">퇴사</Pill><h3>{offboardedCount}명</h3></article>
+          <article className="info-card"><Pill>관리자</Pill><h3>{adminCount}명</h3></article>
+          <article className="info-card"><Pill tone={highRiskCount > 0 ? "warning" : "accent"}>고위험 권한</Pill><h3>{highRiskCount}명</h3></article>
+        </div>
       </SurfaceSection>
 
       <div id="permission-matrix">
@@ -188,10 +354,10 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         {items.length > 0 ? (
           <div className="grid-auto-compact">
             {items.map((item) => <AdminUserActionCard key={`action-${item.userId}`} item={item} />)}
-            <article className="route-card"><h3>감사로그</h3><p className="card-note">계정/역할 변경은 저장 뒤 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
+            <article className="route-card"><h3>감사로그</h3><p className="card-note">사원정보/권한 변경은 저장 뒤 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
           </div>
         ) : (
-          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">계정 데이터를 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
+          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">사원정보를 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
         )}
       </SurfaceSection>
     </PageShell>

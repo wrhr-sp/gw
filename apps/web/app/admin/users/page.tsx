@@ -12,7 +12,7 @@ function getUnavailableAdminUsersData(): Pick<AdminUsersListResponse["data"], "i
       {
         category: "implementation",
         source: "/admin/users",
-        title: "계정관리 데이터를 다시 확인해 주세요",
+        title: "사원정보관리 데이터를 다시 확인해 주세요",
         description: "세션 또는 권한 문제로 실제 데이터를 불러오지 못해 조회 실패 안내만 표시합니다.",
       },
     ],
@@ -31,7 +31,7 @@ function getUnavailableAdminUsersData(): Pick<AdminUsersListResponse["data"], "i
         {
           id: "organization_people_access",
           title: "조직 / 사용자 / 권한",
-          summary: "조회 실패 상태에서는 실제 계정관리 조회 모델을 다시 확인해야 합니다.",
+          summary: "조회 실패 상태에서는 실제 사원정보관리 조회 모델을 다시 확인해야 합니다.",
           owner: "hr admin",
           linkedRoutes: ["/employees", "/admin/users"],
         },
@@ -97,7 +97,7 @@ async function loadAdminUsersData(
   loadErrorKind: "error" | "offline" | null;
 }> {
   if (!sessionToken) {
-    return { adminUsers: null, loadError: "세션이 없어 계정관리 데이터를 불러올 수 없습니다.", loadErrorKind: "error" };
+    return { adminUsers: null, loadError: "세션이 없어 사원정보관리 데이터를 불러올 수 없습니다.", loadErrorKind: "error" };
   }
 
   let response;
@@ -115,7 +115,7 @@ async function loadAdminUsersData(
     const message = error instanceof Error ? error.message : String(error);
     return {
       adminUsers: null,
-      loadError: `계정관리 데이터 재조회가 중단되었습니다: ${message}`,
+      loadError: `사원정보관리 데이터 재조회가 중단되었습니다: ${message}`,
       loadErrorKind: classifyAdminUsersLoadErrorKind(message),
     };
   }
@@ -123,7 +123,7 @@ async function loadAdminUsersData(
   if (!response.ok) {
     return {
       adminUsers: null,
-      loadError: `계정관리 데이터 API 응답이 ${response.status} 상태를 반환했습니다.`,
+      loadError: `사원정보관리 데이터 API 응답이 ${response.status} 상태를 반환했습니다.`,
       loadErrorKind: classifyAdminUsersLoadErrorKind(`status ${response.status}`),
     };
   }
@@ -132,7 +132,7 @@ async function loadAdminUsersData(
   if (!parsed.success) {
     return {
       adminUsers: null,
-      loadError: "계정관리 데이터 응답 형식을 해석하지 못했습니다.",
+      loadError: "사원정보관리 데이터 응답 형식을 해석하지 못했습니다.",
       loadErrorKind: "error",
     };
   }
