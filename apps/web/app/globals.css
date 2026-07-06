@@ -635,6 +635,12 @@
   --feature-workspace-field-group-gap: 8px;
   --feature-workspace-field-legend-margin-bottom: 2px;
   --feature-workspace-field-row-gap: 8px;
+  --ui-inline-gap-sm: 8px;
+  --ui-inline-gap-md: 12px;
+  --ui-filter-grid-min-column: 140px;
+  --ui-filter-grid-columns: repeat(auto-fit, minmax(var(--ui-filter-grid-min-column), 1fr));
+  --ui-split-view-height: 100%;
+  --ui-split-view-overflow: hidden;
   --feature-workspace-row-inner-gap: 4px;
   --feature-workspace-list-gap: 10px;
   --feature-workspace-status-grid-gap: 14px;
@@ -4376,9 +4382,9 @@ li {
 .feature-workspace__nav-header,
 .feature-workspace__panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--two-column-content-title-gap);
+  gap: var(--ui-inline-gap-md);
 }
 
 .feature-workspace__nav-header h1,
@@ -5462,20 +5468,24 @@ li {
 .mail-detail-layout {
   display: grid;
   grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
-  gap: var(--feature-workspace-panel-gap);
+  gap: var(--ui-inline-gap-md);
+  height: var(--ui-split-view-height);
   min-height: 0;
+  overflow: var(--ui-split-view-overflow);
 }
 
 .mail-detail-layout__list {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .mail-search-filter-bar {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, 0.75fr)) auto auto;
-  gap: var(--feature-workspace-actions-gap);
-  align-items: end;
+  grid-template-columns: var(--ui-filter-grid-columns);
+  gap: var(--ui-inline-gap-sm);
+  align-items: center;
   border: var(--feature-workspace-card-border);
   border-radius: var(--feature-workspace-card-radius);
   padding: var(--feature-workspace-row-padding-block) var(--feature-workspace-row-padding-inline);
@@ -5485,6 +5495,7 @@ li {
 .mail-search-filter-bar label {
   display: grid;
   gap: 4px;
+  min-width: 0;
   color: var(--text-muted);
   font-size: var(--font-size-xs);
 }
@@ -5563,6 +5574,8 @@ li {
   gap: var(--feature-workspace-list-gap);
   align-content: start;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   border-left: var(--feature-workspace-row-divider);
   padding-left: var(--feature-workspace-row-padding-inline);
 }
@@ -5709,8 +5722,9 @@ li {
 .feature-workspace__row-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: var(--feature-workspace-actions-gap);
+  gap: var(--ui-inline-gap-sm);
 }
 
 .feature-workspace__row-actions {
@@ -5830,9 +5844,9 @@ li {
 .board-workspace__nav-header,
 .board-section-title {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--two-column-content-title-gap);
+  gap: var(--ui-inline-gap-md);
 }
 
 .board-workspace__nav-header h1,
@@ -6388,9 +6402,10 @@ li {
 .messenger-shell {
   display: grid;
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: var(--space-md);
-  height: var(--messenger-surface-height);
+  gap: 0;
+  height: var(--ui-split-view-height);
   min-height: var(--messenger-shell-min-height);
+  overflow: var(--ui-split-view-overflow);
 }
 
 .messenger-sidebar,
@@ -6422,9 +6437,9 @@ li {
 .messenger-recipient-panel__header,
 .messenger-conversation__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-md);
+  gap: var(--ui-inline-gap-md);
 }
 
 .messenger-sidebar__header-actions {
