@@ -46,6 +46,7 @@ describe("mutation APIs require real persistence", () => {
     ["approval document", appRoutes.approvals.documents, { formId: "approval_form_vacation", title: "결재", body: "본문" }],
     ["board post", appRoutes.boards.posts("board_general"), { title: "게시글", bodyPreview: "본문", isNotice: false }],
     ["mail send", appRoutes.mail.send, { toUserIds: ["user_employee"], subject: "메일", body: "본문" }],
+    ["admin user create", appRoutes.admin.userCreate, { fullName: "신규 사용자", email: "new.user@example.com", departmentName: "경영지원팀", branchName: "본사", accountType: "employee", roleCode: "EMPLOYEE", status: "invited", reason: "신규 입사" }],
   ])("does not return fake success for %s when DB is not configured", async (_label, route, body) => {
     const cookie = await loginAndGetCookie();
     const response = await app.request(route, {

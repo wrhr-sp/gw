@@ -33,6 +33,7 @@ export const appRoutes = {
   admin: {
     invites: "/api/admin/invites",
     users: "/api/admin/users",
+    userCreate: "/api/admin/users",
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     permissions: "/api/admin/permissions",
@@ -2051,6 +2052,22 @@ export const adminUserRolesUpdateRequestSchema = z
   })
   .strict();
 
+export const adminUserCreateRequestSchema = z
+  .object({
+    fullName: z.string().trim().min(2).max(100),
+    email: z.email(),
+    departmentName: z.string().trim().min(1).max(100),
+    branchName: z.string().trim().min(1).max(100),
+    positionName: z.string().trim().max(100).optional(),
+    accountType: adminAccountTypeSchema,
+    roleCode: roleCodeSchema,
+    status: adminAccountStatusSchema.default("invited"),
+    reason: z.string().trim().min(1).max(500),
+    mustChangePassword: z.boolean().optional(),
+    mfaRequired: z.boolean().optional(),
+  })
+  .strict();
+
 export const adminUserMutationResponseSchema = successResponseSchema(
   z.object({
     user: adminUserSummarySchema,
@@ -3965,6 +3982,7 @@ export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;
 export type AdminUserRolesUpdateRequest = z.infer<typeof adminUserRolesUpdateRequestSchema>;
+export type AdminUserCreateRequest = z.infer<typeof adminUserCreateRequestSchema>;
 export type AdminUserMutationResponse = z.infer<typeof adminUserMutationResponseSchema>;
 export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;
 export type AdminPolicyVisibility = z.infer<typeof adminPolicyVisibilitySchema>;
