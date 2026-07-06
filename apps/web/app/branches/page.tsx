@@ -15,12 +15,7 @@ import { PageShell, Pill } from "../_components/page-shell";
 type LoadState = "idle" | "loading" | "ready" | "error";
 type ToastState = { tone: "accent" | "warning"; title: string; body: string } | null;
 
-const seedBranches: BranchSummary[] = [
-  { id: "branch_gangnam", companyId: "company_demo", code: "GN", name: "강남지점", branchType: "branch", status: "active" },
-  { id: "branch_busan", companyId: "company_demo", code: "BS", name: "부산지점", branchType: "branch", status: "active" },
-  { id: "branch_daejeon", companyId: "company_demo", code: "DJ", name: "대전지점", branchType: "branch", status: "active" },
-  { id: "branch_gwangju", companyId: "company_demo", code: "GJ", name: "광주지점", branchType: "branch", status: "active" },
-];
+const initialBranches: BranchSummary[] = [];
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -39,7 +34,7 @@ async function fetchBranches(): Promise<BranchSummary[]> {
 
 export default function BranchesPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [branches, setBranches] = useState<BranchSummary[]>(seedBranches);
+  const [branches, setBranches] = useState<BranchSummary[]>(initialBranches);
   const [toast, setToast] = useState<ToastState>(null);
 
   const activeBranches = useMemo(() => branches.filter((branch) => branch.status === "active"), [branches]);

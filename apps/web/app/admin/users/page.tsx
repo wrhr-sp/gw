@@ -19,8 +19,8 @@ function getUnavailableAdminUsersData(): Pick<AdminUsersListResponse["data"], "i
       },
     ],
     companySettingsModel: {
-      companyId: "company_demo",
-      companyName: "데모 주식회사",
+      companyId: "unavailable",
+      companyName: "조회 실패",
       policyStartPoint: "회사 기본 설정과 운영 데이터 연결은 조회 실패 안내만 표시합니다.",
       groups: [
         {

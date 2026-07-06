@@ -10,13 +10,7 @@ import { PageShell, Pill, SurfaceSection } from "../_components/page-shell";
 type LoadState = "idle" | "loading" | "ready" | "error";
 type ToastState = { tone: "accent" | "warning"; title: string; body: string } | null;
 
-const seedBranches: BranchSummary[] = [
-  { id: "gangnam", companyId: "company_demo", code: "GN", name: "강남지점", branchType: "branch", status: "active" },
-  { id: "seoul", companyId: "company_demo", code: "SEL", name: "서울지점", branchType: "branch", status: "active" },
-  { id: "busan", companyId: "company_demo", code: "BS", name: "부산지점", branchType: "branch", status: "active" },
-  { id: "daejeon", companyId: "company_demo", code: "DJ", name: "대전지점", branchType: "branch", status: "active" },
-  { id: "gwangju", companyId: "company_demo", code: "GJ", name: "광주지점", branchType: "branch", status: "active" },
-];
+const initialBranches: BranchSummary[] = [];
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -41,7 +35,7 @@ function branchAccess(branch: BranchSummary) {
 
 export default function PlaceOfBusinessPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [branches, setBranches] = useState<BranchSummary[]>(seedBranches);
+  const [branches, setBranches] = useState<BranchSummary[]>(initialBranches);
   const [toast, setToast] = useState<ToastState>(null);
 
   const activeBranches = useMemo(() => branches.filter((branch) => branch.status === "active"), [branches]);

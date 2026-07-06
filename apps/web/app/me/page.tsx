@@ -122,7 +122,7 @@ export default function MePage() {
 
           <div className="feature-workspace__rows" aria-label="내 기본 정보">
             {loadState === "loading" ? <article className="feature-workspace__row"><div><strong>불러오는 중</strong><span>내 정보 조회</span></div><em>대기</em></article> : null}
-            {!user ? <article className="feature-workspace__row"><div><strong>표시할 내 정보 없음</strong><span>현재 세션 API 응답을 기다리거나 명시 오류를 표시합니다.</span><p>샘플 계정으로 채우지 않고 실제 /api/me 결과만 반영합니다.</p></div><em>empty</em></article> : null}
+            {!user ? <article className="feature-workspace__row"><div><strong>표시할 내 정보 없음</strong><span>현재 세션 API 응답을 기다리거나 명시 오류를 표시합니다.</span><p>실제 /api/me 결과만 반영합니다.</p></div><em>empty</em></article> : null}
             {user ? <article className="feature-workspace__row"><div><strong>기본 정보</strong><span>{`${user.fullName} · ${user.email}`}</span><p>{`회사 ${user.companyId} · 직원 ${user.employeeId}`}</p></div><em>확인</em></article> : null}
             {user ? <article className="feature-workspace__row"><div><strong>연락처</strong><span>{user.email}</span><p>휴대전화 등 민감 정보는 권한과 저장 정책이 확정된 뒤 연결합니다.</p></div><em>확인</em></article> : null}
             {user ? <article className="feature-workspace__row"><div><strong>근무 정보</strong><span>{roleLabel(user.roleCodes)}</span><p>소속/직책 상세는 /employees 와 /org 조회 결과로 연결합니다.</p></div><em>확인</em></article> : null}

@@ -18,14 +18,7 @@ type LoadState = "idle" | "loading" | "ready" | "error";
 type ToastState = { tone: "accent" | "warning"; title: string; body: string } | null;
 type OperationsData = { branches: BranchSummary[]; workItems: WorkItem[] };
 
-const seedData: OperationsData = {
-  branches: [
-    { id: "branch_gangnam", companyId: "company_demo", code: "GN", name: "강남지점", branchType: "branch", status: "active" },
-    { id: "branch_busan", companyId: "company_demo", code: "BS", name: "부산지점", branchType: "branch", status: "active" },
-    { id: "branch_daejeon", companyId: "company_demo", code: "DJ", name: "대전지점", branchType: "branch", status: "active" },
-  ],
-  workItems: [],
-};
+const initialData: OperationsData = { branches: [], workItems: [] };
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -60,7 +53,7 @@ const statusLabel = (status: string) => status === "active" ? "정상" : "확인
 
 export default function OperationsPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<OperationsData>(seedData);
+  const [data, setData] = useState<OperationsData>(initialData);
   const [toast, setToast] = useState<ToastState>(null);
 
   const activeBranches = useMemo(() => data.branches.filter((branch) => branch.status === "active"), [data.branches]);

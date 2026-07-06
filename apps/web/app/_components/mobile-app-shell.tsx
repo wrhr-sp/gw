@@ -138,11 +138,11 @@ function getDepartmentPortalAccessLabel(kind: DepartmentPortalAccessKind) {
 }
 
 const branchPortalItems = [
-  { id: "gangnam", name: "강남지점", region: "서울", manager: "김지윤", access: "전체 운영관리" },
-  { id: "seoul", name: "서울지점", region: "서울", manager: "정하린", access: "전체 운영관리" },
-  { id: "busan", name: "부산지점", region: "부산", manager: "박민재", access: "운영이슈 확인" },
-  { id: "daejeon", name: "대전지점", region: "대전", manager: "이서연", access: "매출보고 확인" },
-  { id: "gwangju", name: "광주지점", region: "광주", manager: "최현우", access: "입금요청 확인" },
+  { id: "gangnam", name: "강남지점", region: "서울", manager: "담당자 미지정", access: "운영관리" },
+  { id: "seoul", name: "서울지점", region: "서울", manager: "담당자 미지정", access: "운영관리" },
+  { id: "busan", name: "부산지점", region: "부산", manager: "담당자 미지정", access: "운영관리" },
+  { id: "daejeon", name: "대전지점", region: "대전", manager: "담당자 미지정", access: "운영관리" },
+  { id: "gwangju", name: "광주지점", region: "광주", manager: "담당자 미지정", access: "운영관리" },
 ] as const;
 
 function normalizeAppPathname(pathname: string) {

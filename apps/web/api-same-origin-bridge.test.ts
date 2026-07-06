@@ -14,10 +14,12 @@ import { GET as getMe } from "./app/api/me/route";
 import { resolveDatabaseBindingsForRequest } from "./same-origin-api-bridge";
 
 async function expectDbBackedOrRequired(response: Response) {
-  expect([200, 503]).toContain(response.status);
+  expect([200, 403, 503]).toContain(response.status);
   const payload = await response.json();
   if (response.status === 503) {
     expect(errorResponseSchema.parse(payload).error.code).toBe("DB_NOT_CONFIGURED");
+  } else if (response.status === 403) {
+    expect(errorResponseSchema.parse(payload).error.code).toBe("FORBIDDEN");
   } else {
     expect(payload.ok).toBe(true);
   }

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import {
   appRoutes,
+  mailRecipientListResponseSchema,
   messengerMessageListResponseSchema,
   messengerAttachmentCreateResponseSchema,
   messengerAttachmentMutationResponseSchema,
@@ -25,9 +26,9 @@ import { PageShell, Pill } from "../_components/page-shell";
 type MessengerContact = {
   id: string;
   name: string;
-  department: string;
-  position: string;
-  status: "온라인" | "회의 중" | "자리 비움";
+  department: string | null;
+  position: string | null;
+  status: "재직";
 };
 
 type MessengerThread = {
@@ -71,14 +72,7 @@ type MessengerMemberView = {
   joinedAt: string;
 };
 
-type MessengerDocumentCategory = "전체" | "최근문서" | "공지/규정" | "인사/근태" | "업무자료" | "양식";
-
-type MessengerDocumentAttachment = MessengerAttachment & {
-  category: Exclude<MessengerDocumentCategory, "전체" | "최근문서">;
-  owner: string;
-  updatedAt: string;
-  isRecent?: boolean;
-};
+type MessengerDocumentCategory = "전체";
 
 type MessengerEmojiCategory = "자주사용" | "표정" | "반응" | "업무" | "상태" | "기념";
 
@@ -87,45 +81,7 @@ type MessengerEmojiGroup = {
   emojis: readonly string[];
 };
 
-const organizationGroups: readonly { department: string; contacts: readonly MessengerContact[] }[] = [
-  {
-    department: "경영지원팀",
-    contacts: [
-      { id: "emp-kim", name: "김민수", department: "경영지원팀", position: "과장", status: "온라인" },
-      { id: "emp-lee", name: "이서연", department: "경영지원팀", position: "대리", status: "자리 비움" },
-    ],
-  },
-  {
-    department: "개발팀",
-    contacts: [
-      { id: "emp-park", name: "박지훈", department: "개발팀", position: "책임", status: "회의 중" },
-      { id: "emp-choi", name: "최유진", department: "개발팀", position: "선임", status: "온라인" },
-    ],
-  },
-  {
-    department: "인사팀",
-    contacts: [
-      { id: "emp-jung", name: "정하늘", department: "인사팀", position: "팀장", status: "온라인" },
-    ],
-  },
-] as const;
-
-const allContacts = organizationGroups.flatMap((group) => group.contacts);
-const messengerDocumentCategories: readonly MessengerDocumentCategory[] = ["전체", "최근문서", "공지/규정", "인사/근태", "업무자료", "양식"] as const;
-const messengerDocumentOptions: readonly MessengerDocumentAttachment[] = [
-  { id: "doc-company-notice", name: "전사 공지문.docx", sizeLabel: "320KB", source: "document", category: "공지/규정", owner: "총괄관리", updatedAt: "오늘", isRecent: true },
-  { id: "doc-privacy-policy", name: "개인정보 처리지침.pdf", sizeLabel: "760KB", source: "document", category: "공지/규정", owner: "경영지원팀", updatedAt: "어제" },
-  { id: "doc-work-rule", name: "복무 규정.pdf", sizeLabel: "1.4MB", source: "document", category: "공지/규정", owner: "인사팀", updatedAt: "06.25" },
-  { id: "doc-attendance-report", name: "근태현황.xlsx", sizeLabel: "840KB", source: "document", category: "인사/근태", owner: "인사팀", updatedAt: "오늘", isRecent: true },
-  { id: "doc-leave-form", name: "휴가 신청 양식.docx", sizeLabel: "220KB", source: "document", category: "인사/근태", owner: "공용양식", updatedAt: "06.24" },
-  { id: "doc-employee-list", name: "직원 명단.xlsx", sizeLabel: "1.1MB", source: "document", category: "인사/근태", owner: "인사팀", updatedAt: "06.21" },
-  { id: "doc-meeting-material", name: "회의자료.pdf", sizeLabel: "1.2MB", source: "document", category: "업무자료", owner: "개발팀", updatedAt: "오늘", isRecent: true },
-  { id: "doc-weekly-report", name: "주간업무보고.docx", sizeLabel: "540KB", source: "document", category: "업무자료", owner: "경영지원팀", updatedAt: "06.26" },
-  { id: "doc-project-checklist", name: "프로젝트 체크리스트.xlsx", sizeLabel: "680KB", source: "document", category: "업무자료", owner: "개발팀", updatedAt: "06.22" },
-  { id: "doc-draft-template", name: "기안서 양식.docx", sizeLabel: "260KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.20" },
-  { id: "doc-expense-template", name: "지출결의서 양식.xlsx", sizeLabel: "310KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.19" },
-  { id: "doc-trip-template", name: "출장신청서.pdf", sizeLabel: "410KB", source: "document", category: "양식", owner: "공용양식", updatedAt: "06.18" },
-] as const;
+const messengerDocumentCategories: readonly MessengerDocumentCategory[] = ["전체"] as const;
 const messengerEmojiGroups: readonly MessengerEmojiGroup[] = [
   { category: "자주사용", emojis: ["😀", "👍", "🙏", "🎉", "✅", "🙌", "📌", "💬"] },
   { category: "표정", emojis: ["😀", "😄", "😊", "🙂", "😅", "😂", "😮", "😢", "😡", "🤔", "😴", "😎"] },
@@ -199,7 +155,8 @@ export default function MessengerPage() {
   const [messageSearch, setMessageSearch] = useState("");
   const [searchResults, setSearchResults] = useState<MessengerMessageView[]>([]);
   const [recipientSearch, setRecipientSearch] = useState("");
-  const [selectedContactIds, setSelectedContactIds] = useState<string[]>(["emp-kim", "emp-lee"]);
+  const [contacts, setContacts] = useState<MessengerContact[]>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [isRecipientPanelOpen, setIsRecipientPanelOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
@@ -207,7 +164,7 @@ export default function MessengerPage() {
   const [isMemberPanelOpen, setIsMemberPanelOpen] = useState(false);
   const [activeDocumentCategory, setActiveDocumentCategory] = useState<MessengerDocumentCategory>("전체");
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<MessengerEmojiCategory>("자주사용");
-  const [expandedDepartments, setExpandedDepartments] = useState<string[]>(() => organizationGroups.map((group) => group.department));
+  const [expandedDepartments, setExpandedDepartments] = useState<string[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
   const [messageDraft, setMessageDraft] = useState("");
   const [displayMessage, setDisplayMessage] = useState("");
@@ -224,7 +181,7 @@ export default function MessengerPage() {
 
   const conversationThreads = apiThreads;
   const activeThread = conversationThreads.find((thread) => thread.id === activeThreadId) ?? null;
-  const selectedContacts = allContacts.filter((contact) => selectedContactIds.includes(contact.id));
+  const selectedContacts = contacts.filter((contact) => selectedContactIds.includes(contact.id));
 
   const filteredThreads = useMemo(() => {
     const keyword = threadSearch.trim().toLowerCase();
@@ -240,30 +197,31 @@ export default function MessengerPage() {
 
   const filteredOrganizationGroups = useMemo(() => {
     const keyword = recipientSearch.trim().toLowerCase();
-    if (!keyword) {
-      return organizationGroups;
-    }
-
-    return organizationGroups
-      .map((group) => ({
-        ...group,
-        contacts: group.contacts.filter((contact) =>
-          [contact.name, contact.department, contact.position, contact.status].some((value) => value.toLowerCase().includes(keyword)),
-        ),
-      }))
+    const contactGroups = contacts.reduce<{ department: string; contacts: MessengerContact[] }[]>((groups, contact) => {
+      const department = contact.department ?? "소속 미지정";
+      const group = groups.find((item) => item.department === department);
+      if (group) {
+        group.contacts.push(contact);
+      } else {
+        groups.push({ department, contacts: [contact] });
+      }
+      return groups;
+    }, []);
+    const visibleGroups = keyword
+      ? contactGroups.map((group) => ({
+          ...group,
+          contacts: group.contacts.filter((contact) =>
+            [contact.name, contact.department ?? "", contact.position ?? "", contact.status].some((value) => value.toLowerCase().includes(keyword)),
+          ),
+        }))
+      : contactGroups;
+    return visibleGroups
       .filter((group) => group.contacts.length > 0);
-  }, [recipientSearch]);
+  }, [contacts, recipientSearch]);
 
   const filteredDocumentOptions = useMemo(() => {
-    if (activeDocumentCategory === "전체") {
-      return messengerDocumentOptions;
-    }
-
-    if (activeDocumentCategory === "최근문서") {
-      return messengerDocumentOptions.filter((documentAttachment) => documentAttachment.isRecent);
-    }
-
-    return messengerDocumentOptions.filter((documentAttachment) => documentAttachment.category === activeDocumentCategory);
+    void activeDocumentCategory;
+    return [] as MessengerAttachment[];
   }, [activeDocumentCategory]);
 
   const activeEmojiOptions = useMemo(
@@ -289,6 +247,31 @@ export default function MessengerPage() {
     setExpandedDepartments((current) =>
       current.includes(department) ? current.filter((item) => item !== department) : [...current, department],
     );
+  }
+
+  async function loadMessengerContacts() {
+    try {
+      const response = await fetch(appRoutes.mail.recipients, { credentials: "same-origin" });
+      const payload = await response.json();
+      if (!response.ok) {
+        setContacts([]);
+        return;
+      }
+      const parsed = mailRecipientListResponseSchema.parse(payload);
+      const nextContacts = parsed.data.items
+        .filter((recipient) => recipient.sourceKind === "internal")
+        .map((recipient) => ({
+          id: recipient.userId,
+          name: recipient.displayName,
+          department: recipient.departmentName,
+          position: recipient.positionName,
+          status: "재직" as const,
+        }));
+      setContacts(nextContacts);
+      setExpandedDepartments(Array.from(new Set(nextContacts.map((contact) => contact.department ?? "소속 미지정"))));
+    } catch {
+      setContacts([]);
+    }
   }
 
   async function loadMessengerRooms() {
@@ -397,14 +380,14 @@ export default function MessengerPage() {
   }
 
   async function handleStartConversation() {
-    const names = selectedContacts.map((contact) => `${contact.name} ${contact.position}`).join(", ");
+    const names = selectedContacts.map((contact) => [contact.name, contact.position].filter(Boolean).join(" ")).join(", ");
     const roomName = names ? names : "새 업무 대화방";
     try {
       const response = await fetch(appRoutes.messenger.rooms, {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ roomType: selectedContacts.length <= 1 ? "direct" : "group", roomName, memberIds: [], isExternal: false }),
+        body: JSON.stringify({ roomType: selectedContacts.length <= 1 ? "direct" : "group", roomName, memberIds: selectedContactIds, isExternal: false }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -664,6 +647,7 @@ export default function MessengerPage() {
   function openDocumentPicker() {
     setIsAttachmentMenuOpen(false);
     setIsDocumentPickerOpen(true);
+    setDisplayMessage("문서함 첨부는 실제 문서 API 연결 후 사용할 수 있습니다. 현재는 내 PC 파일첨부만 지원합니다.");
   }
 
   async function uploadMessengerAttachment(file: File) {
@@ -723,7 +707,14 @@ export default function MessengerPage() {
 
   useEffect(() => {
     void loadMessengerRooms();
+    void loadMessengerContacts();
   }, []);
+
+  useEffect(() => {
+    if (isRecipientPanelOpen) {
+      void loadMessengerContacts();
+    }
+  }, [isRecipientPanelOpen]);
 
   useEffect(() => {
     if (!notificationRoomId || isMessengerLoading) {
@@ -1076,7 +1067,7 @@ export default function MessengerPage() {
               <button type="button">검색결과</button>
             </div>
             <div className="messenger-org-tree" aria-label="조직도 선택 목록">
-              {filteredOrganizationGroups.map((group) => (
+              {filteredOrganizationGroups.length ? filteredOrganizationGroups.map((group) => (
                 <section key={group.department} className="messenger-org-group">
                   <button
                     className="messenger-org-group__toggle"
@@ -1093,20 +1084,25 @@ export default function MessengerPage() {
                         <input checked={selectedContactIds.includes(contact.id)} onChange={() => toggleContact(contact.id)} type="checkbox" />
                         <span>
                           <strong>{contact.name} {contact.position}</strong>
-                          <small>{contact.department} · {contact.status}</small>
+                          <small>{[contact.department, contact.status].filter(Boolean).join(" · ")}</small>
                         </span>
                       </label>
                     ))}
                   </div>
                 </section>
-              ))}
+              )) : (
+                <article className="messenger-empty-state" aria-label="새 메시지 대상 없음">
+                  <strong>표시할 대상이 없습니다.</strong>
+                  <p>실제 사용자 API에서 조회된 구성원만 표시합니다. 검색어를 지우거나 계정/조직 설정을 확인하세요.</p>
+                </article>
+              )}
             </div>
             <div className="messenger-selected-box" aria-label="선택한 사람">
               <strong>선택한 사람</strong>
               <div className="messenger-selected-chips">
                 {selectedContacts.length ? selectedContacts.map((contact) => (
                   <button key={contact.id} type="button" onClick={() => toggleContact(contact.id)}>
-                    {contact.name} {contact.position} ×
+                    {[contact.name, contact.position].filter(Boolean).join(" ")} ×
                   </button>
                 )) : <span>아직 선택한 사람이 없습니다.</span>}
               </div>
@@ -1147,15 +1143,19 @@ export default function MessengerPage() {
               ))}
             </div>
             <div className="messenger-document-list" aria-label={`${activeDocumentCategory} 문서함 선택 목록`}>
-              {filteredDocumentOptions.map((documentAttachment) => (
+              {filteredDocumentOptions.length ? filteredDocumentOptions.map((documentAttachment) => (
                 <button key={documentAttachment.id} type="button" onClick={() => addDocumentAttachment(documentAttachment)}>
                   <span>
                     <strong>{documentAttachment.name}</strong>
-                    <small>{documentAttachment.category} · {documentAttachment.sizeLabel} · {documentAttachment.owner}</small>
+                    <small>{documentAttachment.sizeLabel}</small>
                   </span>
-                  <span aria-hidden="true">{documentAttachment.updatedAt}</span>
                 </button>
-              ))}
+              )) : (
+                <article className="messenger-empty-state" aria-label="문서함 첨부 준비 필요">
+                  <strong>선택 가능한 문서가 없습니다.</strong>
+                  <p>실제 문서 API 연결 전에는 내 PC 파일첨부만 사용할 수 있습니다.</p>
+                </article>
+              )}
             </div>
           </aside>
         </div>

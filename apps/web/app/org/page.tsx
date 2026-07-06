@@ -140,7 +140,7 @@ export default function OrgPage() {
           </div>
 
           <div className="feature-workspace__rows" aria-label="부서 상세와 구성원">
-            <article className="feature-workspace__row"><div><strong>{selectedDepartment?.name ?? "선택된 부서 없음"}</strong><span>{selectedDepartment ? "근태 · 휴가 · 조직 정보 관리" : "조직 API 조회 결과를 기다립니다."}</span><p>{selectedDepartment ? "선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다." : "부서가 없으면 샘플 부서로 채우지 않고 빈 상태를 유지합니다."}</p></div><em>{selectedDepartment ? "운영중" : "empty"}</em></article>
+            <article className="feature-workspace__row"><div><strong>{selectedDepartment?.name ?? "선택된 부서 없음"}</strong><span>{selectedDepartment ? "근태 · 휴가 · 조직 정보 관리" : "조직 API 조회 결과를 기다립니다."}</span><p>{selectedDepartment ? "선택한 부서의 책임자, 구성원, 담당 업무를 보여 줍니다." : "부서가 없으면 빈 상태를 유지합니다."}</p></div><em>{selectedDepartment ? "운영중" : "empty"}</em></article>
             {selectedEmployees.map((employee) => <article className="feature-workspace__row" key={employee.id}><div><strong>{employee.fullName}</strong><span>{roleLabel(employee, data.summaries)}</span><p>{noteLabel(employee, data.summaries)}</p></div><em>{statusLabel(employee, data.summaries)}</em></article>)}
             <article className="feature-workspace__row"><div><strong>접근 범위</strong><span>일반 직원은 필요한 연락·소속 정보만 보고, 민감 정보와 관리자 설정은 분리합니다.</span><p>표시할 조직이 없으면 회사 또는 지점 범위를 먼저 확인하고 조직 운영 변경은 관리자 화면에서 진행합니다.</p><div className="feature-workspace__row-actions" aria-label="조직 범위 확인"><button className="feature-workspace__row-action feature-workspace__row-action--secondary" disabled type="button">{orgConfig.emptyActionLabel}</button></div></div><em>권한</em></article>
           </div>

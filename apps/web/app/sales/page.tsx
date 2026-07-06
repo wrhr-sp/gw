@@ -17,7 +17,7 @@ type ToastState = { tone: "accent" | "warning"; title: string; body: string } | 
 
 type SalesData = { contractItems: WorkItem[]; branchItems: WorkItem[] };
 
-const seedData: SalesData = { contractItems: [], branchItems: [] };
+const initialData: SalesData = { contractItems: [], branchItems: [] };
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -51,7 +51,7 @@ function statusLabel(status: WorkItem["status"]) {
 
 export default function SalesPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<SalesData>(seedData);
+  const [data, setData] = useState<SalesData>(initialData);
   const [toast, setToast] = useState<ToastState>(null);
 
   const activeContracts = useMemo(() => data.contractItems.filter((item) => item.status !== "archived"), [data.contractItems]);
@@ -105,7 +105,7 @@ export default function SalesPage() {
           </div>
 
           <div className="feature-workspace__rows" aria-label="영업 현황">
-            {data.branchItems.length === 0 && data.contractItems.length === 0 ? <article className="feature-workspace__row"><div><strong>표시할 영업 업무 없음</strong><span>현재 same-origin 업무 API에 영업/계약 검토 항목이 없습니다.</span><p>빈 상태는 샘플 고객으로 채우지 않고 실제 조회 결과 그대로 보여 줍니다.</p></div><em>empty</em></article> : null}
+            {data.branchItems.length === 0 && data.contractItems.length === 0 ? <article className="feature-workspace__row"><div><strong>표시할 영업 업무 없음</strong><span>현재 same-origin 업무 API에 영업/계약 검토 항목이 없습니다.</span><p>실제 조회 결과가 없으면 빈 상태 그대로 보여 줍니다.</p></div><em>empty</em></article> : null}
             {data.branchItems.slice(0, 3).map((item) => <article className="feature-workspace__row" key={item.id}><div><strong>{item.title}</strong><span>{item.branchLabel ?? item.category}</span><p>{item.descriptionPreview}</p></div><em>{statusLabel(item.status)}</em></article>)}
             {data.contractItems.slice(0, 3).map((item) => <article className="feature-workspace__row" key={item.id}><div><strong>{item.title}</strong><span>{item.category}</span><p>{item.descriptionPreview}</p></div><em>{statusLabel(item.status)}</em></article>)}
           </div>

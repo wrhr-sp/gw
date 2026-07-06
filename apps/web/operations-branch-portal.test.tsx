@@ -55,7 +55,9 @@ describe("operations branch portal", () => {
     expect(strategyHtml).toContain('href="/boards?department=strategy"');
     expect(strategyHtml).not.toContain("처리 대기");
     expect(placeHtml).toContain("지점관리포털 / Place of business");
-    expect(placeHtml).toContain('/Place of business/seoul');
+    expect(placeHtml).toContain("접근 가능 지점");
+    expect(placeHtml).toContain("0곳");
+    expect(placeHtml).not.toContain('/Place of business/seoul');
     expect(seoulHtml).toContain("서울지점 지점관리");
   });
 
