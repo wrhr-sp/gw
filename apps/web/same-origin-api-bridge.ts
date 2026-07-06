@@ -67,7 +67,49 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   return new Request(targetUrl.toString(), requestInit);
 }
 
-async function buildApiBindings() {
+const previewHostnames = new Set(["gw-web.wereheresp.workers.dev"]);
+const productionHostnames = new Set(["werehere.co.kr", "www.werehere.co.kr"]);
+
+type RuntimeEnvSource = Record<string, unknown> | NodeJS.ProcessEnv;
+
+function readEnvValue(source: RuntimeEnvSource, key: string) {
+  const value = source[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+export function resolveDatabaseBindingsForRequest(request: Request, cloudflareEnv: RuntimeEnvSource = {}, fallbackEnv: RuntimeEnvSource = process.env) {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  const previewUrl = readEnvValue(cloudflareEnv, "DATABASE_URL_PREVIEW") ?? readEnvValue(fallbackEnv, "DATABASE_URL_PREVIEW");
+  const productionUrl = readEnvValue(cloudflareEnv, "DATABASE_URL_PRODUCTION") ?? readEnvValue(fallbackEnv, "DATABASE_URL_PRODUCTION");
+  const legacyUrl = readEnvValue(cloudflareEnv, "DATABASE_URL") ?? readEnvValue(fallbackEnv, "DATABASE_URL");
+
+  if (previewHostnames.has(hostname) || hostname.endsWith(".workers.dev")) {
+    return {
+      DATABASE_URL: previewUrl ?? legacyUrl,
+      DATABASE_URL_PREVIEW: previewUrl,
+      DATABASE_URL_PRODUCTION: productionUrl,
+      APP_ENV: "preview",
+    };
+  }
+
+  if (productionHostnames.has(hostname)) {
+    return {
+      DATABASE_URL: productionUrl,
+      DATABASE_URL_PREVIEW: previewUrl,
+      DATABASE_URL_PRODUCTION: productionUrl,
+      APP_ENV: "production",
+    };
+  }
+
+  return {
+    DATABASE_URL: legacyUrl,
+    DATABASE_URL_PRODUCTION: productionUrl,
+    DATABASE_URL_PREVIEW: previewUrl,
+    APP_ENV: readEnvValue(cloudflareEnv, "APP_ENV") ?? readEnvValue(fallbackEnv, "APP_ENV"),
+  };
+}
+
+async function buildApiBindings(request: Request) {
   let cloudflareEnv: Record<string, unknown> = {};
 
   try {
@@ -81,20 +123,17 @@ async function buildApiBindings() {
   }
 
   return {
-    DATABASE_URL: cloudflareEnv.DATABASE_URL ?? process.env.DATABASE_URL,
-    DATABASE_URL_PRODUCTION: cloudflareEnv.DATABASE_URL_PRODUCTION ?? process.env.DATABASE_URL_PRODUCTION,
-    DATABASE_URL_PREVIEW: cloudflareEnv.DATABASE_URL_PREVIEW ?? process.env.DATABASE_URL_PREVIEW,
-    APP_ENV: cloudflareEnv.APP_ENV ?? process.env.APP_ENV,
+    ...resolveDatabaseBindingsForRequest(request, cloudflareEnv),
     FILES_BUCKET: cloudflareEnv.FILES_BUCKET,
   };
 }
 
 export async function forwardSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname), await buildApiBindings());
+  return apiApp.fetch(buildApiRequest(request, pathname), await buildApiBindings(request));
 }
 
 export async function forwardTrustedSameOriginApiRequest(request: Request, pathname: string) {
-  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }), await buildApiBindings());
+  return apiApp.fetch(buildApiRequest(request, pathname, { trustDevSessionCookie: true }), await buildApiBindings(request));
 }
 
 export function forwardHealthRequest(request: Request) {
