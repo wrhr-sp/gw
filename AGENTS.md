@@ -26,8 +26,17 @@
 - 사실, 가정, 제안을 구분해서 설명한다.
 - 불확실한 정보는 추측으로 메우지 말고, 확인 가능한 것은 도구로 확인한 뒤 설명한다.
 - 역할 범위를 넘는 결정은 독단적으로 확정하지 않는다.
-- UI/UX, 기능 배치, 정보구조, 근태/휴가/급여/노무/문서/결재 화면을 설계하거나 구현할 때는 `docs/ux/groupware-benchmark-principles.md`와 `docs/product/groupware-vision-roadmap.md`를 먼저 참고한다.
+- UI/UX, 기능 배치, 정보구조, 근태/휴가/급여/노무/문서/결재 화면을 설계하거나 구현할 때는 `docs/ux/groupware-benchmark-principles.md`, `docs/product/groupware-vision-roadmap.md`, `docs/ux/ui-ux-standardization-backlog.md`를 먼저 참고한다.
 - 벤치마크는 국내 그룹웨어/HR/근태/급여/노무 서비스의 공개 페이지와 공개 도움말에서 추출한 일반 패턴만 사용하며, 화면·문구·로고·색상·레이아웃을 복제하지 않는다.
+
+## UI/UX 표준화 강제 규칙
+- 앞으로 개발하는 모든 그룹웨어 화면은 `docs/ux/ui-ux-standardization-backlog.md`의 UI/UX 표준을 기본 규격으로 적용한다.
+- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 프로젝트에 설치된 UI 라이브러리의 공식 가이드 규격을 우선한다. 임의 크기, 임의 여백, 페이지별 개별 스타일은 새로 만들지 않는다.
+- 페이지 상단 검색/필터 영역은 Grid 레이아웃으로 구성하고, 필터 박스 높이와 너비가 균등하게 보이도록 공통 grid token 또는 공통 컴포넌트를 사용한다.
+- 목록 상단과 상세창 내부의 액션 버튼 묶음은 부모 툴바 컨테이너 안에서 `display: flex`, `align-items: center`, `gap: 8px` 구조를 따른다.
+- 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
+- 좌우 스플릿 뷰는 Grid/Flex 기반으로 만들고, `min-width: 0`, `width: 100%`, 고정 높이/overflow 체인을 확인해 브라우저 크기 변화에도 깨지지 않게 한다.
+- 기존 코드 리팩토링은 지점관리포털 작업 이후 메일 → 메신저 → 게시판 → 나머지 업무 화면 순서로 기능 단위 PR과 회귀 테스트를 붙여 진행한다.
 
 ## 운영 기능 완료 기준 / no-mock 원칙
 - 완료 기능은 Production-ready (실구현) 기준만 허용한다. 화면 → 실제 API → Service/Repository → DB 저장·조회 → 권한·검증·예외·감사로그 확인 흐름이 이어져야 한다.
