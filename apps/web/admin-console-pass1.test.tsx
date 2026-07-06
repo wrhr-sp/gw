@@ -69,15 +69,11 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(adminMenuSections[0]?.title).toBe("관리자 업무");
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
       "/admin",
-      "/admin/users",
-      "/admin/users#permission-matrix",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
     expect(adminPrimaryNav.map((item) => item.label)).toEqual([
       "그룹웨어관리",
-      "사원정보관리",
-      "권한 관리",
       "운영 정책",
       "감사로그",
     ]);
@@ -91,8 +87,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
 
     expect(html).toContain("그룹웨어관리자");
     expect(html).toContain("관리자 기능");
-    expect(html).toContain("사원정보관리");
-    expect(html).toContain("권한 관리");
+    expect(html).not.toContain("사원정보관리");
+    expect(html).not.toContain("권한 관리");
     expect(html).toContain("운영 정책");
     expect(html).toContain("감사로그");
     expect(html).not.toContain("관리자 업무 진입");
@@ -101,10 +97,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
   });
 
   it("shows only the routes each admin viewer is allowed to open from the hub cards", () => {
-    expect(getAdminPageCardsForRole("HR_ADMIN").map((card) => card.href)).toEqual(["/admin/users", "/admin/policies"]);
+    expect(getAdminPageCardsForRole("HR_ADMIN").map((card) => card.href)).toEqual(["/admin/policies"]);
     expect(getAdminPageCardsForRole("AUDITOR").map((card) => card.href)).toEqual(["/admin/audit-logs"]);
     expect(getAdminPageCardsForRole("COMPANY_ADMIN").map((card) => card.href)).toEqual([
-      "/admin/users",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
@@ -201,7 +196,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("네트워크 재확인 필요");
     expect(html).toContain("관리자 PWA 는 읽기 중심 확인만 일부 도와주며");
     expect(html).toContain("네트워크 연결을 다시 확인하고 `/admin` 에서 새로고침");
-    expect(html).toContain("복구 경로: /admin · /admin/users · /admin/policies · /admin/audit-logs · /offline");
+    expect(html).toContain("복구 경로: /admin · /admin/policies · /admin/audit-logs · /offline");
   });
 
   it("separates offline retry guidance from generic review errors on the admin users page", async () => {

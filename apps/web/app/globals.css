@@ -1222,8 +1222,7 @@ code {
   gap: var(--space-sm);
 }
 
-.desktop-sidebar__section-summary,
-.desktop-sidebar__group-summary {
+.desktop-sidebar__section-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1234,13 +1233,11 @@ code {
   list-style: none;
 }
 
-.desktop-sidebar__section-summary::-webkit-details-marker,
-.desktop-sidebar__group-summary::-webkit-details-marker {
+.desktop-sidebar__section-summary::-webkit-details-marker {
   display: none;
 }
 
-.desktop-sidebar__section-summary::after,
-.desktop-sidebar__group-summary::after {
+.desktop-sidebar__section-summary::after {
   content: "▾";
   flex: 0 0 auto;
   color: var(--text-muted);
@@ -1248,8 +1245,7 @@ code {
   line-height: 1;
 }
 
-.desktop-sidebar__section-details[open] > .desktop-sidebar__section-summary::after,
-.desktop-sidebar__group[open] > .desktop-sidebar__group-summary::after {
+.desktop-sidebar__section-details[open] > .desktop-sidebar__section-summary::after {
   content: "▴";
 }
 
@@ -1263,8 +1259,13 @@ code {
 }
 
 .desktop-sidebar__section-summary span,
-.desktop-sidebar__group-summary {
+.desktop-sidebar__group-title {
   font-weight: var(--font-weight-semibold);
+}
+
+.desktop-sidebar__group-title {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
 }
 
 .desktop-sidebar__section-summary small {

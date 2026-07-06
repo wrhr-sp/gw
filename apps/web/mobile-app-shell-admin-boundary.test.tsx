@@ -76,12 +76,12 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(html).toContain('data-route="/admin"');
-    expect(html).toContain('data-route="/admin/users"');
-    expect(html).toContain('data-route="/admin/users#permission-matrix"');
+    expect(html).not.toContain('data-route="/admin/users"');
+    expect(html).not.toContain('data-route="/admin/users#permission-matrix"');
     expect(html).toContain('data-route="/admin/policies"');
     expect(html).toContain('data-route="/admin/audit-logs"');
-    expect(html).toContain("사원정보관리");
-    expect(html).toContain("권한 관리");
+    expect(html).not.toContain("사원정보관리");
+    expect(html).not.toContain("권한 관리");
     expect(html).not.toContain('data-route="/work-items/branch"');
   });
 
@@ -318,7 +318,8 @@ describe("mobile app shell admin boundary", () => {
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
     expect(supportHtml).toContain('data-route="/admin/users"');
-    expect(supportHtml).toContain('data-route="/admin/users#permission-matrix"');
+    expect(supportHtml).not.toContain('data-route="/admin/users#permission-matrix"');
+    expect(supportHtml).not.toContain('data-route="/admin/policies#policy-documents"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
     expect(supportHtml).toContain('data-route="/work-items/hr?department=support"');
     expect(supportHtml).toContain('data-route="/payroll?department=support"');
@@ -395,9 +396,9 @@ describe("mobile app shell admin boundary", () => {
     expect(supportSidebarGroupsSource).toContain('const supportSidebarGroups');
     expect(supportSidebarGroupsSource).toContain('title: "인사관리"');
     expect(supportSidebarGroupsSource).toContain('label: "사원정보관리"');
-    expect(supportSidebarGroupsSource).toContain('summary: "사원정보 목록과 계정 생성 흐름을 확인합니다."');
-    expect(supportSidebarGroupsSource).toContain('label: "계정권한관리"');
-    expect(supportSidebarGroupsSource).toContain('label: "관리 정책문서"');
+    expect(supportSidebarGroupsSource).toContain('summary: "사원정보 목록과 계정 생성, 계정권한관리, 관리 정책문서를 기능 화면 안에서 확인합니다."');
+    expect(supportSidebarGroupsSource).not.toContain('label: "계정권한관리"');
+    expect(supportSidebarGroupsSource).not.toContain('label: "관리 정책문서"');
     expect(supportSidebarGroupsSource).not.toContain('label: "계정생성"');
     expect(supportSidebarGroupsSource).not.toContain('label: "인사발령"');
     expect(supportSidebarGroupsSource).not.toContain('label: "휴면계정관리"');
@@ -412,7 +413,8 @@ describe("mobile app shell admin boundary", () => {
     expect(supportSidebarGroupsSource).not.toContain('title: "매출입관리"');
     expect(supportSidebarGroupsSource).not.toContain('title: "거래처관리"');
     expect(shellSource).toContain('className="desktop-sidebar__section-summary"');
-    expect(shellSource).toContain('className="desktop-sidebar__group-summary"');
+    expect(shellSource).toContain('className="desktop-sidebar__group-title"');
+    expect(shellSource).not.toContain('className="desktop-sidebar__group-summary"');
     expect(shellSource).toContain('aria-label="경영지원팀 업무 묶음"');
     expect(shellSource).toContain('"sales-admin": ["/sales"');
     expect(shellSource).toContain('ads: ["/sales"');
@@ -959,11 +961,11 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).toContain(".desktop-sidebar__collapsed-group-divider {");
     expect(globalCss).toContain("margin: var(--desktop-sidebar-group-divider-margin);");
     expect(globalCss).toContain(".desktop-sidebar__section-summary::after");
-    expect(globalCss).toContain(".desktop-sidebar__group-summary::after");
+    expect(globalCss).not.toContain(".desktop-sidebar__group-summary::after");
     expect(globalCss).toContain('content: "▾";');
     expect(globalCss).toContain('content: "▴";');
     expect(globalCss).toContain(".desktop-sidebar__section-details[open] > .desktop-sidebar__section-summary::after");
-    expect(globalCss).toContain(".desktop-sidebar__group[open] > .desktop-sidebar__group-summary::after");
+    expect(globalCss).not.toContain(".desktop-sidebar__group[open] > .desktop-sidebar__group-summary::after");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-collapsed-link-min-height);");
     expect(globalCss).toContain("--desktop-sidebar-settings-button-min-height: 27px;");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-settings-button-min-height);");

@@ -5,15 +5,13 @@ import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
 import type { AdminHubCard } from "./admin-config";
 
 const adminWorkButtons = [
-  { href: "/admin/users", title: "사원정보관리", meta: "계정 · 상태 · 역할" },
-  { href: "/admin/users#permission-matrix", title: "권한 관리", meta: "기능별 세부권한" },
   { href: "/admin/policies", title: "운영 정책", meta: "관리자 설정" },
   { href: "/admin/audit-logs", title: "감사로그", meta: "변경 이력" },
 ] as const;
 
 export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCards: readonly AdminHubCard[] }) {
   const visibleHrefs = new Set(visibleAdminHubCards.map((card) => card.href));
-  const visibleButtons = adminWorkButtons.filter((button) => button.href.includes("#") || visibleHrefs.has(button.href as AdminHubCard["href"]));
+  const visibleButtons = adminWorkButtons.filter((button) => visibleHrefs.has(button.href));
 
   return (
     <PageShell
@@ -23,8 +21,6 @@ export function AdminPageContent({ visibleAdminHubCards }: { visibleAdminHubCard
       title="그룹웨어관리자"
       actions={
         <div className="pill-row">
-          <Pill tone="accent">계정</Pill>
-          <Pill tone="accent">권한</Pill>
           <Pill tone="accent">정책</Pill>
           <Pill tone="accent">감사</Pill>
         </div>
