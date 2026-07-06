@@ -12,7 +12,7 @@ type UatLiveData = {
   health: string;
 };
 
-const seedData: UatLiveData = { user: null, health: "확인 전" };
+const initialData: UatLiveData = { user: null, health: "확인 전" };
 
 async function readErrorMessage(response: Response) {
   const payload = await response.json().catch(() => null);
@@ -45,7 +45,7 @@ async function fetchUatLiveData(): Promise<UatLiveData> {
 
 export function UatLiveSection() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<UatLiveData>(seedData);
+  const [data, setData] = useState<UatLiveData>(initialData);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function reloadUat() {

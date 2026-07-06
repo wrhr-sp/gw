@@ -13,7 +13,7 @@ type AdminPoliciesData = {
   summary: string;
 };
 
-const seedData: AdminPoliciesData = {
+const initialData: AdminPoliciesData = {
   items: [],
   summary: "정책 candidate 를 불러오기 전입니다.",
 };
@@ -38,7 +38,7 @@ async function fetchAdminPolicies(): Promise<AdminPoliciesData> {
 
 export function AdminPoliciesLiveSection() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
-  const [data, setData] = useState<AdminPoliciesData>(seedData);
+  const [data, setData] = useState<AdminPoliciesData>(initialData);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function reloadPolicies() {

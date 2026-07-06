@@ -549,35 +549,12 @@ export function AdminUsersLiveSection() {
   const [result, setResult] = useState<{ tone: "accent" | "warning"; title: string; body: string } | null>(null);
   const { data, error, loading } = useApiQuery<{ items: Array<Record<string, any>> }>(appRoutes.admin.users, refreshSeed);
 
-  async function handleInviteCreate() {
-    setPending(true);
-    setResult(null);
-    try {
-      const payload = await fetchJson<{ email: string; roleCode: string; status: string; audit: { action: string } }>(appRoutes.admin.invites, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          companyId: "company_demo",
-          email: "new.user@example.com",
-          roleCode: "MANAGER",
-          departmentId: "department_ops",
-        }),
-      });
-      setResult({
-        tone: "accent",
-        title: "계정 초대 검증 생성",
-        body: `${payload.data.email} · ${payload.data.roleCode} · ${payload.data.status} (${payload.data.audit.action})`,
-      });
-      setRefreshSeed((value) => value + 1);
-    } catch (mutationError) {
-      setResult({
-        tone: "warning",
-        title: "계정 초대 검증 실패",
-        body: mutationError instanceof Error ? mutationError.message : String(mutationError),
-      });
-    } finally {
-      setPending(false);
-    }
+  function handleInviteCreate() {
+    setResult({
+      tone: "warning",
+      title: "초대 생성 준비 필요",
+      body: "계정 초대 생성은 실제 입력 폼과 승인 흐름이 연결된 뒤 사용할 수 있습니다.",
+    });
   }
 
   return (
@@ -596,9 +573,9 @@ export function AdminUsersLiveSection() {
         <article className="info-card">
           <Pill>계정 생성 관리</Pill>
           <h3>초대 검증</h3>
-          <p>신규 사용자 계정 생성은 실제 메일 발송 대신 pending_delivery 상태로 검증합니다.</p>
-          <button className="touch-button" disabled={pending} onClick={handleInviteCreate} style={{ marginTop: 12 }} type="button">
-            {pending ? "초대 검증 생성 중" : "신규 매니저 초대 검증 생성"}
+          <p>신규 사용자 계정 생성은 실제 입력 폼과 승인 흐름이 연결된 뒤 사용할 수 있습니다.</p>
+          <button className="touch-button" disabled onClick={handleInviteCreate} style={{ marginTop: 12 }} type="button">
+            {pending ? "초대 준비 확인 중" : "초대 생성 준비 필요"}
           </button>
         </article>
       </div>
