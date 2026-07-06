@@ -631,6 +631,13 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain("handleNotificationRead");
     expect(shellSource).toContain("handleAllNotificationsRead");
     expect(shellSource).toContain("읽음 처리");
+    expect(shellSource).toContain("topbarNotificationFilters");
+    expect(shellSource).toContain('label: "읽지 않음"');
+    expect(shellSource).toContain('label: "메신저"');
+    expect(shellSource).toContain('label: "멘션"');
+    expect(shellSource).toContain("matchesTopbarNotificationFilter");
+    expect(shellSource).toContain("filteredTopbarNotifications");
+    expect(shellSource).toContain('aria-label="알림 필터"');
     expect(shellSource).toContain("topbar-modal-notification-actions");
     expect(shellSource).toContain('접근권한');
     expect(shellSource).toContain('관리자 권한');

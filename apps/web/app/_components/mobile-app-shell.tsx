@@ -20,6 +20,8 @@ type TopbarNotificationItem = {
   createdAt: string;
 };
 
+type TopbarNotificationFilterKey = "all" | "unread" | "messenger" | "mention";
+
 const BOTTOM_NAV_COLLAPSED_STORAGE_KEY = "gw.mobileBottomNavCollapsed";
 const SIDEBAR_CUSTOM_MENU_LIMIT = 10;
 const SIDEBAR_CUSTOM_STORAGE_PREFIX = "gw.sidebar.custom";
@@ -81,6 +83,13 @@ type TopbarActionKey = "settings" | "notices" | "notifications" | "profile-setti
 
 const brandWordmark = "WE’REHERE";
 const COMMON_WORK_LABEL = "기본업무";
+
+const topbarNotificationFilters: Array<{ key: TopbarNotificationFilterKey; label: string }> = [
+  { key: "all", label: "전체" },
+  { key: "unread", label: "읽지 않음" },
+  { key: "messenger", label: "메신저" },
+  { key: "mention", label: "멘션" },
+];
 
 const departmentPortalItems = [
   { id: "ceo", label: "대표이사실", englishLabel: "CEO", href: "/CEO" },
@@ -564,6 +573,20 @@ function getTopbarNotificationTag(notificationType: string) {
 function getTopbarNotificationHref(notificationType: string) {
   if (notificationType === "messenger_mention" || notificationType === "messenger_message") return "/messenger";
   return null;
+}
+
+function matchesTopbarNotificationFilter(item: TopbarNotificationItem, filter: TopbarNotificationFilterKey) {
+  if (filter === "unread") return item.status === "unread";
+  if (filter === "messenger") return item.notificationType === "messenger_mention" || item.notificationType === "messenger_message";
+  if (filter === "mention") return item.notificationType === "messenger_mention";
+  return true;
+}
+
+function getTopbarNotificationEmptyTitle(filter: TopbarNotificationFilterKey) {
+  if (filter === "unread") return "읽지 않은 알림이 없습니다.";
+  if (filter === "messenger") return "메신저 알림이 없습니다.";
+  if (filter === "mention") return "멘션 알림이 없습니다.";
+  return "새 알림이 없습니다.";
 }
 
 export function formatUnreadBadge(unreadCount: number | null) {
@@ -1572,6 +1595,7 @@ export function MobileAppShell({
   const [isBottomNavPreferenceLoaded, setIsBottomNavPreferenceLoaded] = useState(false);
   const [notificationBadge, setNotificationBadge] = useState<NotificationBadgeState | null>(null);
   const [topbarNotifications, setTopbarNotifications] = useState<TopbarNotificationItem[]>([]);
+  const [topbarNotificationFilter, setTopbarNotificationFilter] = useState<TopbarNotificationFilterKey>("all");
   const [notificationActionPendingId, setNotificationActionPendingId] = useState<string | null>(null);
   const [notificationActionError, setNotificationActionError] = useState<string | null>(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -1628,6 +1652,19 @@ export function MobileAppShell({
   const savedAdminPermissionSettingsRef = useRef<AdminPermissionState>(createDefaultAdminPermissionState());
   const [profileActionPending, setProfileActionPending] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
+  const filteredTopbarNotifications = useMemo(
+    () => topbarNotifications.filter((item) => matchesTopbarNotificationFilter(item, topbarNotificationFilter)),
+    [topbarNotifications, topbarNotificationFilter],
+  );
+  const topbarNotificationFilterCounts = useMemo(
+    () => ({
+      all: topbarNotifications.length,
+      unread: topbarNotifications.filter((item) => item.status === "unread").length,
+      messenger: topbarNotifications.filter((item) => matchesTopbarNotificationFilter(item, "messenger")).length,
+      mention: topbarNotifications.filter((item) => matchesTopbarNotificationFilter(item, "mention")).length,
+    }),
+    [topbarNotifications],
+  );
   const [isAppRefreshOverlayVisible, setIsAppRefreshOverlayVisible] = useState(false);
   const settingsSaveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const permissionNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3554,8 +3591,27 @@ export function MobileAppShell({
 
           {activeTopbarModal === "notifications" ? (
             <div className="topbar-modal-list">
+              <div className="topbar-modal-filter-row" role="tablist" aria-label="알림 필터">
+                {topbarNotificationFilters.map((filter) => {
+                  const active = topbarNotificationFilter === filter.key;
+                  return (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      className="topbar-modal-filter-button"
+                      data-active={active ? "true" : "false"}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setTopbarNotificationFilter(filter.key)}
+                    >
+                      <span>{filter.label}</span>
+                      <strong>{topbarNotificationFilterCounts[filter.key]}</strong>
+                    </button>
+                  );
+                })}
+              </div>
               {notificationActionError ? <p className="topbar-modal__error">{notificationActionError}</p> : null}
-              {topbarNotifications.length ? topbarNotifications.map((item) => {
+              {filteredTopbarNotifications.length ? filteredTopbarNotifications.map((item) => {
                 const href = getTopbarNotificationHref(item.notificationType);
                 const itemPending = notificationActionPendingId === item.id;
                 return (
@@ -3579,8 +3635,8 @@ export function MobileAppShell({
                 <article className="topbar-modal-list-item topbar-modal-list-item--empty">
                   <span>알림</span>
                   <div>
-                    <strong>새 알림이 없습니다.</strong>
-                    <p>메신저 멘션과 새 메시지가 생기면 이곳에 표시됩니다.</p>
+                    <strong>{getTopbarNotificationEmptyTitle(topbarNotificationFilter)}</strong>
+                    <p>필터 조건에 맞는 알림이 생기면 이곳에 표시됩니다.</p>
                   </div>
                 </article>
               )}

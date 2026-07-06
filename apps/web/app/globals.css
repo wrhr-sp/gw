@@ -3849,6 +3849,37 @@ li {
   padding: 6px 10px;
 }
 
+.topbar-modal-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.topbar-modal-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: var(--topbar-modal-secondary-action-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-heavy);
+  padding: var(--topbar-modal-secondary-action-padding);
+}
+
+.topbar-modal-filter-button[data-active="true"] {
+  border-color: var(--primary-soft-strong);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.topbar-modal-filter-button strong {
+  color: inherit;
+  font-size: var(--font-size-xs);
+}
+
 .topbar-modal-notification-actions {
   display: flex;
   flex-wrap: wrap;
