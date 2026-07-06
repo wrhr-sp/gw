@@ -69,6 +69,13 @@ describe("admin preview guard", () => {
   it("allows admin users to stay on the current preview host when no paired admin host is explicitly configured", () => {
     expect(
       getAdminRouteGuardResult({
+        pathname: "/admin/users",
+        host: "gw-web-preview.wereheresp.workers.dev",
+        sessionToken: buildOperationalSessionToken("COMPANY_ADMIN"),
+      }),
+    ).toEqual({ action: "allow" });
+    expect(
+      getAdminRouteGuardResult({
         pathname: "/admin",
         host: "gw-web.preview-account.workers.dev",
         sessionToken: "dev-session_COMPANY_ADMIN",
