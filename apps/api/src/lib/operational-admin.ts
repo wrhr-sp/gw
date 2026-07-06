@@ -1,4 +1,4 @@
-import type { AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -20,6 +20,67 @@ function resolveAdminScope(roleCodes: RoleCode[]): AdminScope {
     return "audit";
   }
   return "company";
+}
+
+function resolveAccountType(roleCodes: RoleCode[], userId: string): AdminAccountType {
+  if (userId.startsWith("system_") || userId.startsWith("sys_")) {
+    return "system";
+  }
+  if (userId.startsWith("bot_") || userId.startsWith("svc_")) {
+    return "bot_service";
+  }
+  if (roleCodes.some((roleCode) => roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN" || roleCode === "AUDITOR")) {
+    return "admin";
+  }
+  return "employee";
+}
+
+function parseAccountStatus(value: unknown): AdminAccountStatus {
+  switch (value) {
+    case "invited":
+    case "active":
+    case "locked":
+    case "disabled":
+    case "offboarded":
+    case "suspended":
+      return value;
+    case "on_leave":
+      return "suspended";
+    case "inactive":
+      return "disabled";
+    default:
+      return "active";
+  }
+}
+
+function resolveNextAccountStatus(currentStatus: AdminAccountStatus): AdminAccountStatus {
+  if (currentStatus === "active") {
+    return "disabled";
+  }
+  if (currentStatus === "invited") {
+    return "active";
+  }
+  return "active";
+}
+
+function parseDateTime(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function parseCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.trunc(parsed) : 0;
+}
+
+function parseBoolean(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 function parseAdminAuditSource(value: unknown): AdminAuditSource {
@@ -221,18 +282,26 @@ export async function listOperationalAdminUsers(
       coalesce(e.id, '') as employee_id,
       u.company_id,
       coalesce(e.full_name, u.display_name) as full_name,
-      u.email,
+      coalesce(u.email, u.login_id || '@local.invalid') as email,
       coalesce(d.name, '미지정') as department_name,
       coalesce(e.employment_status, 'active') as employment_status,
+      coalesce(u.status, 'active') as account_status,
+      coalesce(u.must_change_password, false) as must_change_password,
+      u.last_login_at,
+      coalesce(uss.secondary_password_hash is not null, false) as two_factor_required,
+      0::integer as failed_login_count,
+      count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count,
       coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes
     from users u
     left join employees e on e.user_id = u.id and e.company_id = u.company_id
     left join departments d on d.id = e.department_id and d.company_id = e.company_id
+    left join user_security_settings uss on uss.user_id = u.id and uss.company_id = u.company_id
+    left join auth_sessions s on s.user_id = u.id and s.company_id = u.company_id
     left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
     left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
     where u.company_id = ${companyId}
-      and u.status = 'active'
-    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, e.employment_status
+      and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
+    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash
     order by coalesce(e.full_name, u.display_name), u.email
   `;
 
@@ -245,9 +314,16 @@ export async function listOperationalAdminUsers(
       email: string;
       department_name: string;
       employment_status: "active" | "on_leave" | "offboarded";
+      account_status: unknown;
+      must_change_password: unknown;
+      last_login_at: unknown;
+      two_factor_required: unknown;
+      failed_login_count: unknown;
+      active_session_count: unknown;
       role_codes: unknown;
     };
     const parsedRoleCodes = parseRoleCodes(typed.role_codes);
+    const accountStatus = parseAccountStatus(typed.account_status);
     const permissions = [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
     const highRisk = permissions.filter((permission) => highRiskPermissions.includes(permission));
 
@@ -261,12 +337,19 @@ export async function listOperationalAdminUsers(
       roleCodes: parsedRoleCodes,
       permissions,
       employmentStatus: typed.employment_status,
+      accountType: resolveAccountType(parsedRoleCodes, typed.user_id),
+      accountStatus,
+      mustChangePassword: parseBoolean(typed.must_change_password),
+      twoFactorRequired: parseBoolean(typed.two_factor_required),
+      failedLoginCount: parseCount(typed.failed_login_count),
+      activeSessionCount: parseCount(typed.active_session_count),
+      lastLoginAt: parseDateTime(typed.last_login_at),
       adminScope: resolveAdminScope(parsedRoleCodes),
       employeeLinkStatus: typed.employee_id ? "linked" : "unlinked",
       highRiskPermissions: highRisk,
       statusChangePreview: {
-        currentStatus: typed.employment_status,
-        nextStatus: typed.employment_status === "active" ? "on_leave" : "active",
+        currentStatus: accountStatus,
+        nextStatus: resolveNextAccountStatus(accountStatus),
         reasonRequired: true,
       },
       roleChangePreview: {

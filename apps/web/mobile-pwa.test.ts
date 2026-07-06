@@ -151,10 +151,11 @@ describe("mobile/PWA config", () => {
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
       "/admin",
       "/admin/users",
+      "/admin/users/verification-action",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
-    expect(adminMenuSections.map((section) => section.title)).toEqual(["관리자 운영"]);
+    expect(adminMenuSections.map((section) => section.title)).toEqual(["관리자 업무"]);
 
     expect(getAppShellConfigForHost("admin.localhost:3000")).toMatchObject({
       appName: "GW Admin",
