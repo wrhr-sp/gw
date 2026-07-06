@@ -1,6 +1,8 @@
 import { getDbClient, type DatabaseEnv } from "../utils/db";
 import { createOperationalNotification } from "./operational-notifications";
 
+type MessengerNotificationKind = "messenger_mention" | "messenger_message";
+
 type RoomType = "direct" | "group" | "department" | "project" | "site" | "notice" | "approval" | "system" | "bot" | "external";
 type MessageType = "text" | "system" | "notice" | "bot_response" | "bot_status" | "bot_error";
 
@@ -81,6 +83,34 @@ function mapAttachment(row: Record<string, any>) {
 
 function parseMentions(row: Record<string, any>) {
   return parseJsonArray(row, "mentions");
+}
+
+function normalizePreferenceObject(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function isMessengerNotificationPreferenceEnabled(preferences: Record<string, unknown>, kind: MessengerNotificationKind) {
+  const notificationPreferences = normalizePreferenceObject(preferences.notificationPreferences);
+  if (kind === "messenger_mention") {
+    return notificationPreferences.mentions !== false;
+  }
+  return notificationPreferences.mail !== false;
+}
+
+async function shouldCreateMessengerNotification(
+  sql: ReturnType<typeof getDbClient>,
+  input: { companyId: string; userId: string; kind: MessengerNotificationKind },
+) {
+  const rows = await sql`
+    select preferences
+    from user_preferences
+    where company_id = ${input.companyId}
+      and user_id = ${input.userId}
+    limit 1
+  `;
+  const row = rows[0] as { preferences?: unknown } | undefined;
+  return isMessengerNotificationPreferenceEnabled(normalizePreferenceObject(row?.preferences), input.kind);
 }
 
 function mapMessage(row: Record<string, any>) {
@@ -568,12 +598,15 @@ export async function sendOperationalMessengerMessage(
   for (const recipient of recipientRows as Array<{ user_id: string }>) {
     const recipientId = String(recipient.user_id);
     const mentioned = mentionSet.has(recipientId);
+    const notificationType: MessengerNotificationKind = mentioned ? "messenger_mention" : "messenger_message";
+    const preferenceEnabled = await shouldCreateMessengerNotification(sql, { companyId: input.companyId, userId: recipientId, kind: notificationType });
+    if (!preferenceEnabled) continue;
     await createOperationalNotification(env, {
       companyId: input.companyId,
       userId: recipientId,
       title: mentioned ? "메신저 멘션" : "새 메신저 메시지",
       body: mentioned ? `${input.roomId} 대화방에서 나를 멘션했습니다.` : `${input.roomId} 대화방에 새 메시지가 도착했습니다.`,
-      notificationType: mentioned ? "messenger_mention" : "messenger_message",
+      notificationType,
       notificationId: `notification_${input.companyId}_${recipientId}_${input.messageId}_${mentioned ? "mention" : "message"}`,
     });
   }
