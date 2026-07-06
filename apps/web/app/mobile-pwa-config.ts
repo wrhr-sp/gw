@@ -112,7 +112,7 @@ export const generalPwaManifest = {
 export const adminPwaManifest = {
   name: "GW Admin",
   short_name: "GW Admin",
-  description: "권한, 정책, 감사 로그를 운영하는 관리자용 그룹웨어 Admin PWA 스켈레톤",
+  description: "정책과 감사 로그를 운영하는 관리자용 그룹웨어 Admin PWA 스켈레톤",
   id: "/admin",
   start_url: "/admin",
   scope: "/admin",
@@ -129,12 +129,6 @@ export const adminPwaManifest = {
       short_name: "허브",
       description: "운영 허브와 우선 점검 항목을 바로 엽니다.",
       url: "/admin",
-    },
-    {
-      name: "사원정보관리",
-      short_name: "사원계정",
-      description: "사원 계정 생성, 상태, 초대, 권한 점검 화면을 바로 엽니다.",
-      url: "/admin/users",
     },
     {
       name: "운영 정책",
@@ -387,18 +381,6 @@ export const adminPrimaryNav: NavItem[] = [
     summary: "그룹웨어 관리자 업무 허브",
   },
   {
-    href: "/admin/users",
-    label: "사원정보관리",
-    shortLabel: "사원계정",
-    summary: "신규입사부터 퇴사까지 계정 생애주기와 상태 관리",
-  },
-  {
-    href: "/admin/users#permission-matrix",
-    label: "권한 관리",
-    shortLabel: "권한",
-    summary: "사용자별 그룹웨어 기능 접근권한과 관리자 권한 범위 확인",
-  },
-  {
     href: "/admin/policies",
     label: "운영 정책",
     shortLabel: "정책",
@@ -448,7 +430,7 @@ export const installGuideSteps = [
 ] as const;
 
 export const adminInstallGuideSteps = [
-  "관리자 host 에서는 일반 사용자 홈이 아니라 `/admin` 을 시작점으로 설치되고, 주요 점검 화면은 `/admin/users`, `/admin/policies`, `/admin/audit-logs` 입니다.",
+  "관리자 host 에서는 일반 사용자 홈이 아니라 `/admin` 을 시작점으로 설치되고, 주요 점검 화면은 `/admin/policies`, `/admin/audit-logs` 입니다.",
   "관리자용 설치 후에도 권한 검증과 same-origin /api 정책은 그대로 유지되며, 일반 사용자용 근태/휴가 앱과 목적이 다릅니다.",
   "현재 아이콘은 관리자 전용 기본 자산이지만 any/maskable 경로를 분리해 두었고, 이번 단계에서는 push/background sync/native 패키징은 포함하지 않습니다.",
 ] as const;
@@ -478,20 +460,19 @@ export const offlineGuidance: OfflineGuidance = {
 export const adminOfflineGuidance: OfflineGuidance = {
   bannerTitle: "관리자 작업은 온라인 상태 확인이 우선입니다",
   bannerBody:
-    "관리자 PWA 는 읽기 중심 확인만 일부 도와주며, 사용자/권한/정책/감사 로그 변경은 오프라인에서 성공처럼 보이게 만들지 않습니다.",
+    "관리자 PWA 는 읽기 중심 확인만 일부 도와주며, 정책 변경과 감사 로그 확인은 오프라인에서 성공처럼 보이게 만들지 않습니다.",
   availableNow: [
     "관리자 허브와 최근 열어 둔 운영 요약 다시 읽기",
-    "사용자/권한, 정책, 감사 로그 화면의 현재 안내 문구 확인",
+    "운영 정책과 감사 로그 화면의 현재 안내 문구 확인",
     "오프라인 제약과 재시도 절차 확인",
   ],
   blockedNow: [
-    "사용자 초대, 권한 변경, 비활성화 같은 상태 변경 저장",
     "정책 candidate 저장/적용 및 운영 규칙 배포",
     "감사 로그 최신성 확인이나 근거 공유를 전제로 한 판단",
   ],
   retrySteps: [
     "네트워크 연결을 다시 확인하고 `/admin` 에서 새로고침",
-    "정책/권한 변경 전에는 최신 감사 로그와 사용자 상태를 다시 불러오기",
+    "정책 변경 전에는 최신 감사 로그와 정책 상태를 다시 불러오기",
     "중요 변경은 안정적인 데스크톱 네트워크에서 다시 시도",
   ],
 } as const;
@@ -543,11 +524,6 @@ export const adminRecoveryRouteCards: readonly RecoveryRouteCard[] = [
     href: "/admin",
     label: "관리자 허브",
     summary: "운영 허브와 우선 점검 항목을 다시 확인합니다.",
-  },
-  {
-    href: "/admin/users",
-    label: "사원정보관리",
-    summary: "초대·권한 저장이 아니라 현재 사원 계정 상태와 안내 문구를 다시 읽습니다.",
   },
   {
     href: "/admin/policies",

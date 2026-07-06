@@ -11,7 +11,7 @@ import {
 } from "@gw/shared";
 
 export type AdminHubCard = {
-  href: "/admin/users" | "/admin/policies" | "/admin/audit-logs";
+  href: "/admin/policies" | "/admin/audit-logs";
   title: string;
   description: string;
   primaryAudience: string;
@@ -84,14 +84,6 @@ export interface LeavePolicySummaryReview {
 }
 
 export const adminHubCards: readonly AdminHubCard[] = [
-  {
-    href: "/admin/users",
-    title: "사원정보관리",
-    description: "신규입사부터 퇴사까지 사용자 계정 생애주기와 기능별 권한 요약을 확인하는 관리자 업무 영역",
-    primaryAudience: "회사 관리자 · HR 관리자",
-    firstReviewPoint: "계정 상태, 직원 연결, 고위험 권한, 퇴사/비활성화 후보",
-    guardrail: "실제 저장은 API·DB 재조회·감사로그가 연결된 기능만 활성화",
-  },
   {
     href: "/admin/policies",
     title: "운영 정책",

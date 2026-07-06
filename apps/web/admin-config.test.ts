@@ -22,8 +22,8 @@ import {
 } from "./admin-config";
 
 describe("Phase 13 admin operations config", () => {
-  it("keeps the admin hub focused on users, policies, and audit logs", () => {
-    expect(adminHubCards.map((card) => card.href)).toEqual(["/admin/users", "/admin/policies", "/admin/audit-logs"]);
+  it("keeps the admin hub focused on policies and audit logs", () => {
+    expect(adminHubCards.map((card) => card.href)).toEqual(["/admin/policies", "/admin/audit-logs"]);
     expect(adminHubPriorityChecks).toContain("저장 실행 대신 candidate/diff/audit 검토로 끝나는지 확인");
   });
 

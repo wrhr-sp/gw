@@ -60,7 +60,6 @@ describe("mobile/PWA config", () => {
     expect(adminManifest.display_override).toEqual(["browser"]);
     expect(adminManifest.shortcuts.map((shortcut) => shortcut.url)).toEqual([
       "/admin",
-      "/admin/users",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
@@ -150,8 +149,6 @@ describe("mobile/PWA config", () => {
   it("switches the app shell to admin-focused navigation on admin hosts", () => {
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
       "/admin",
-      "/admin/users",
-      "/admin/users#permission-matrix",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
@@ -191,12 +188,10 @@ describe("mobile/PWA config", () => {
     expect(offlineTaskGuides.find((item) => item.href === "/attendance")?.blocked).toContain("오프라인 성공처럼 처리하지 않습니다");
     expect(offlineTaskGuides.find((item) => item.href === "/admin")?.adminOnly).toBe(true);
 
-    expect(adminOfflineGuidance.blockedNow).toContain("사용자 초대, 권한 변경, 비활성화 같은 상태 변경 저장");
     expect(adminOfflineGuidance.blockedNow).toContain("정책 candidate 저장/적용 및 운영 규칙 배포");
     expect(getOfflineGuidanceForHost("gw-admin.preview-account.workers.dev")).toBe(adminOfflineGuidance);
     expect(adminRecoveryRouteCards.map((item) => item.href)).toEqual([
       "/admin",
-      "/admin/users",
       "/admin/policies",
       "/admin/audit-logs",
       "/offline",
@@ -217,7 +212,7 @@ describe("mobile/PWA config", () => {
       homeHref: "/home",
       showMobileMenuShortcut: true,
     });
-    expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[0]).toContain("/admin/users");
+    expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[0]).toContain("/admin/policies");
     expect(getAppShellConfigForHost("gw-admin.preview-account.workers.dev").installGuideSteps[2]).toContain("기본 자산");
   });
 });
