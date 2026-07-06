@@ -76,7 +76,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     ]);
     expect(adminPrimaryNav.map((item) => item.label)).toEqual([
       "관리자 허브",
-      "계정 관리",
+      "사원 계정 관리",
       "계정 생성 검증",
       "역할·정책 관리",
       "감사로그·세션",
@@ -142,8 +142,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
       />,
     );
 
-    expect(html).toContain("계정 관리");
-    expect(html).toContain("관리자 계정/IAM 1차");
+    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("관리자 사원 계정/IAM 1차");
     expect(html).toContain("계정 생성·관리 필수 기준");
     expect(html).toContain("직원 · 관리자 · 외부 사용자 · 봇/서비스 · 시스템");
     expect(html).toContain("초대대기 · 활성 · 잠금 · 비활성 · 퇴사처리 · 일시정지");

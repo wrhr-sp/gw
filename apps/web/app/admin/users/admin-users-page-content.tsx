@@ -170,9 +170,9 @@ export function AdminUsersPageContent({
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="관리자 계정/IAM 1차"
-      title="계정 관리"
-      description="계정 생성, 조직 연결, 역할·권한, 잠금/비활성화/퇴사자 처리, 2단계 인증과 감사로그 기준을 한 화면에서 검토합니다. 실제 저장 API가 준비되지 않은 동작은 성공처럼 보이지 않고 내부 검증/승인 게이트로 둡니다."
+      eyebrow="관리자 사원 계정/IAM 1차"
+      title="사원 계정 관리"
+      description="사원 계정 생성, 조직 연결, 역할·권한, 잠금/비활성화/퇴사자 처리, 2단계 인증과 감사로그 기준을 한 화면에서 검토합니다. 실제 저장 API가 준비되지 않은 동작은 성공처럼 보이지 않고 내부 검증/승인 게이트로 둡니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">내부 계정 흐름</Pill>
@@ -202,7 +202,7 @@ export function AdminUsersPageContent({
 
       <SurfaceSection
         title="계정 생성·관리 필수 기준"
-        description="관리자 계정관리에서는 계정 유형, 상태, 조직 연결, 보안 상태, 감사 기준을 먼저 확인합니다."
+        description="관리자페이지의 사원 계정 관리 기능에서는 계정 유형, 상태, 조직 연결, 보안 상태, 감사 기준을 먼저 확인합니다."
       >
         <div className="grid-auto-compact">
           <article className="info-card">
@@ -403,7 +403,7 @@ export function AdminUsersPageContent({
       </SurfaceSection>
 
       <SurfaceSection title="사용자 생성 내부 검증 흐름" description="실제 저장 없이 어떤 정보를 받아 어떤 계정이 생길지 검증 메시지로 확인합니다.">
-        <p className="meta-copy">실제 초대 메일 발송 없이 계정 생성 전 검증 상태만 남깁니다.</p>
+        <p className="meta-copy">실제 초대 메일 발송 없이 사원 계정 생성 전 검증 상태만 남깁니다.</p>
         <form className="form-field-stack" method="post" action="/admin/users/verification-action">
           <input type="hidden" name="actionType" value="create" />
           <div className="field-grid">
