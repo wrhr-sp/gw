@@ -12,7 +12,7 @@ import { classifyAdminUsersLoadErrorKind } from "./app/admin/users/load-error-ki
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
-import { ManagementSupportFeaturePage } from "./app/management-support/_components/management-support-feature-page";
+import ManagementSupportHrPage from "./app/management-support/hr/page";
 
 function buildAdminUsersPreviewFixture(): any {
   return {
@@ -160,7 +160,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
   });
 
   it("places employee information management inside management support HR, not admin users", () => {
-    const supportHtml = renderToStaticMarkup(<ManagementSupportFeaturePage slug="hr" />);
+    const supportHtml = renderToStaticMarkup(<ManagementSupportHrPage />);
 
     expect(supportHtml).toContain("인사관리");
     expect(supportHtml).toContain("사원정보관리");
