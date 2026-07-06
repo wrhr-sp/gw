@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { appRoutes, type AdminAccountStatus, type AdminUsersListResponse, type RoleCode } from "@gw/shared";
 
@@ -52,89 +50,43 @@ const roleOptions: RoleCode[] = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "COMPANY_ADM
 
 type AdminUserItem = AdminUsersPreview["items"][number];
 
-async function readMutationError(response: Response) {
-  const defaultMessage = `저장 실패: ${response.status}`;
-  try {
-    const payload = (await response.json()) as { error?: { message?: string; code?: string } };
-    return payload.error?.message ? `${payload.error.message}${payload.error.code ? ` (${payload.error.code})` : ""}` : defaultMessage;
-  } catch {
-    return defaultMessage;
-  }
-}
-
 function AdminUserActionCard({ item }: { item: AdminUserItem }) {
-  const [status, setStatus] = useState<AdminAccountStatus>(item.accountStatus);
-  const [mustChangePassword, setMustChangePassword] = useState(item.mustChangePassword);
-  const [roleCode, setRoleCode] = useState<RoleCode>(item.roleCodes[0] ?? "EMPLOYEE");
-  const [reason, setReason] = useState("관리자페이지 2차 계정관리 검증");
-  const [message, setMessage] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState<"status" | "role" | null>(null);
-
-  async function submitStatus() {
-    setSubmitting("status");
-    setMessage(null);
-    const response = await fetch(appRoutes.admin.userStatus(item.userId), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status, mustChangePassword, reason }),
-    });
-    if (!response.ok) {
-      setMessage(await readMutationError(response));
-      setSubmitting(null);
-      return;
-    }
-    window.location.href = `/admin/users?result=${encodeURIComponent(`${item.fullName} 계정 상태 저장 완료`)}`;
-  }
-
-  async function submitRole() {
-    setSubmitting("role");
-    setMessage(null);
-    const response = await fetch(appRoutes.admin.userRoles(item.userId), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ roleCodes: [roleCode], reason }),
-    });
-    if (!response.ok) {
-      setMessage(await readMutationError(response));
-      setSubmitting(null);
-      return;
-    }
-    window.location.href = `/admin/users?result=${encodeURIComponent(`${item.fullName} 역할 저장 완료`)}`;
-  }
+  const defaultReason = "관리자페이지 2차 계정관리 검증";
 
   return (
     <article className="route-card">
       <h3>{item.fullName}</h3>
       <p className="card-note">현재 {getStatusLabel(item.accountStatus)} · {item.roleCodes.join(", ")}</p>
-      <label>
-        상태
-        <select value={status} onChange={(event) => setStatus(event.target.value as AdminAccountStatus)}>
-          {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
-      <label>
-        <input type="checkbox" checked={mustChangePassword} onChange={(event) => setMustChangePassword(event.target.checked)} />
-        다음 로그인 비밀번호 변경 요구
-      </label>
-      <label>
-        역할
-        <select value={roleCode} onChange={(event) => setRoleCode(event.target.value as RoleCode)}>
-          {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-        </select>
-      </label>
-      <label>
-        변경 사유
-        <input value={reason} onChange={(event) => setReason(event.target.value)} minLength={1} />
-      </label>
-      <div className="pill-row">
-        <button type="button" onClick={submitStatus} disabled={submitting !== null || reason.trim().length === 0}>
-          {submitting === "status" ? "상태 저장 중" : "상태 저장"}
-        </button>
-        <button type="button" onClick={submitRole} disabled={submitting !== null || reason.trim().length === 0}>
-          {submitting === "role" ? "역할 저장 중" : "역할 저장"}
-        </button>
-      </div>
-      {message ? <p className="card-note" role="alert">{message}</p> : null}
+      <form method="post" action={appRoutes.admin.userStatus(item.userId)}>
+        <label>
+          상태
+          <select name="status" defaultValue={item.accountStatus}>
+            {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <input type="checkbox" name="mustChangePassword" value="true" defaultChecked={item.mustChangePassword} />
+          다음 로그인 비밀번호 변경 요구
+        </label>
+        <label>
+          변경 사유
+          <input name="reason" defaultValue={defaultReason} minLength={1} />
+        </label>
+        <button type="submit">상태 저장</button>
+      </form>
+      <form method="post" action={appRoutes.admin.userRoles(item.userId)}>
+        <label>
+          역할
+          <select name="roleCode" defaultValue={item.roleCodes[0] ?? "EMPLOYEE"}>
+            {roleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>
+          변경 사유
+          <input name="reason" defaultValue={defaultReason} minLength={1} />
+        </label>
+        <button type="submit">역할 저장</button>
+      </form>
     </article>
   );
 }
