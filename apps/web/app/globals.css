@@ -1213,6 +1213,39 @@ code {
   line-height: var(--line-height-readable);
 }
 
+.desktop-sidebar__section-details,
+.desktop-sidebar__group-list,
+.desktop-sidebar__group {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.desktop-sidebar__section-summary,
+.desktop-sidebar__group-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--control-height-sm);
+  cursor: pointer;
+  color: var(--text-strong);
+}
+
+.desktop-sidebar__section-summary span,
+.desktop-sidebar__group-summary {
+  font-weight: var(--font-weight-semibold);
+}
+
+.desktop-sidebar__section-summary small {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.desktop-sidebar__links--nested {
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--border-subtle);
+}
+
 .desktop-sidebar__nav,
 .desktop-sidebar__links,
 .desktop-sidebar__collapsed-stack,

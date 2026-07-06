@@ -247,6 +247,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
 
     expect(html).toContain("협업 화면과 운영 정책 화면의 경계");
     expect(html).toContain("/boards · /documents");
+    expect(html).toContain("정책 카드 공통 형식");
+    expect(html).toContain('id="policy-documents"');
     expect(html).toContain("현재 운영 기준");
     expect(html).toContain("candidate 변경안");
     expect(html).toContain("필요 capability");

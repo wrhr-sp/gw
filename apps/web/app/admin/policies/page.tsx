@@ -40,16 +40,18 @@ export default function AdminPoliciesPage() {
         </div>
       </SurfaceSection>
 
-      <SurfaceSection
-        title="정책 카드 공통 형식"
-        description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 review 를 같은 순서로 보여 줍니다."
-      >
-        <ul className="summary-list">
-          {adminPolicyReviewChecklist.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </SurfaceSection>
+      <div id="policy-documents">
+        <SurfaceSection
+          title="정책 카드 공통 형식"
+          description="모든 정책 카드는 현재 운영 기준, candidate 변경안, 필요 capability, 감사 review 를 같은 순서로 보여 줍니다."
+        >
+          <ul className="summary-list">
+            {adminPolicyReviewChecklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </SurfaceSection>
+      </div>
 
       <SurfaceSection
         title="회사 기본 설정 모델 pass 1"
