@@ -318,11 +318,21 @@ describe("mobile app shell admin boundary", () => {
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
     expect(supportHtml).toContain('data-route="/admin/users"');
+    expect(supportHtml).toContain('data-route="/Place of business"');
+    expect(supportHtml).toContain('data-route="/payroll?department=support"');
+    expect(supportHtml).toContain('data-route="/management-support/erp/expenses?department=support"');
+    expect(supportHtml).toContain('data-route="/management-support/erp/vendors?department=support"');
+    expect(supportHtml).toContain('data-route="/management-support/erp/billings?department=support"');
+    expect(supportHtml).toContain('data-route="/attendance?department=support"');
+    expect(supportHtml).not.toContain('data-route="/work-items/hr?department=support"');
+    expect(supportHtml).not.toContain('data-route="/work-items/labor?department=support"');
+    expect(supportHtml).not.toContain('data-route="/work-items/tax?department=support"');
+    expect(supportHtml).not.toContain('data-route="/management-support/erp/evidence?department=support"');
+    expect(supportHtml).not.toContain('data-route="/management-support/erp/payment-records?department=support"');
+    expect(supportHtml).not.toContain('data-route="/management-support/erp/taxes?department=support"');
     expect(supportHtml).not.toContain('data-route="/admin/users#permission-matrix"');
     expect(supportHtml).not.toContain('data-route="/admin/policies#policy-documents"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
-    expect(supportHtml).toContain('data-route="/work-items/hr?department=support"');
-    expect(supportHtml).toContain('data-route="/payroll?department=support"');
     expect(supportHtml).not.toContain('data-route="/sales"');
     expect(supportHtml).not.toContain('data-route="/work-items/legal"');
 
@@ -378,9 +388,9 @@ describe("mobile app shell admin boundary", () => {
     expect(branchHtml).not.toContain('data-route="/work-items/tax"');
 
     const shellSource = readFileSync("app/_components/mobile-app-shell.tsx", "utf8");
-    const supportSidebarGroupsSource = shellSource.slice(
-      shellSource.indexOf("const supportSidebarGroups"),
-      shellSource.indexOf("const supportSidebarGroupHrefs"),
+    const supportSidebarItemsSource = shellSource.slice(
+      shellSource.indexOf("const supportSidebarItems"),
+      shellSource.indexOf("const supportSidebarItemHrefs"),
     );
     expect(shellSource).toContain('id: "ceo", label: "대표이사실"');
     expect(shellSource).toContain('id: "operations", label: "운영사업부", englishLabel: "Operations Management", href: "/Operations Management"');
@@ -392,30 +402,29 @@ describe("mobile app shell admin boundary", () => {
 
     expect(shellSource).toContain('ceo: ["/management"');
     expect(shellSource).toContain('strategy: ["/management"');
-    expect(shellSource).toContain('support: ["/work-items/hr"');
-    expect(supportSidebarGroupsSource).toContain('const supportSidebarGroups');
-    expect(supportSidebarGroupsSource).toContain('title: "인사관리"');
-    expect(supportSidebarGroupsSource).toContain('label: "사원정보관리"');
-    expect(supportSidebarGroupsSource).toContain('summary: "사원정보 목록과 계정 생성, 계정권한관리, 관리 정책문서를 기능 화면 안에서 확인합니다."');
-    expect(supportSidebarGroupsSource).not.toContain('label: "계정권한관리"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "관리 정책문서"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "계정생성"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "인사발령"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "휴면계정관리"');
-    expect(supportSidebarGroupsSource).toContain('title: "지점관리"');
-    expect(supportSidebarGroupsSource).toContain('label: "지점정보관리"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "월 마감 정산"');
-    expect(supportSidebarGroupsSource).not.toContain('label: "지점 요청내역"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "근태관리"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "급여관리"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "경비관리"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "예산관리"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "매출입관리"');
-    expect(supportSidebarGroupsSource).not.toContain('title: "거래처관리"');
+    expect(shellSource).toContain('support: supportSidebarItemHrefs');
+    expect(supportSidebarItemsSource).toContain('const supportSidebarItems');
+    expect(supportSidebarItemsSource).toContain('label: "인사관리"');
+    expect(supportSidebarItemsSource).toContain('label: "지점관리"');
+    expect(supportSidebarItemsSource).toContain('label: "급여관리"');
+    expect(supportSidebarItemsSource).toContain('label: "예산관리"');
+    expect(supportSidebarItemsSource).toContain('label: "거래처관리"');
+    expect(supportSidebarItemsSource).toContain('label: "매출입관리"');
+    expect(supportSidebarItemsSource).toContain('label: "근태관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "사원정보관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "계정권한관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "관리 정책문서"');
+    expect(supportSidebarItemsSource).not.toContain('label: "계정생성"');
+    expect(supportSidebarItemsSource).not.toContain('label: "인사발령"');
+    expect(supportSidebarItemsSource).not.toContain('label: "휴면계정관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "지점정보관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "지점매출관리"');
+    expect(supportSidebarItemsSource).not.toContain('label: "월 마감 정산"');
+    expect(supportSidebarItemsSource).not.toContain('label: "수탁주선지출 내역"');
     expect(shellSource).toContain('className="desktop-sidebar__section-summary"');
-    expect(shellSource).toContain('className="desktop-sidebar__group-title"');
+    expect(shellSource).not.toContain('className="desktop-sidebar__group-title"');
     expect(shellSource).not.toContain('className="desktop-sidebar__group-summary"');
-    expect(shellSource).toContain('aria-label="경영지원팀 업무 묶음"');
+    expect(shellSource).not.toContain('aria-label="경영지원팀 업무 묶음"');
     expect(shellSource).toContain('"sales-admin": ["/sales"');
     expect(shellSource).toContain('ads: ["/sales"');
     expect(shellSource).toContain('operations: ["/Place of business"');
