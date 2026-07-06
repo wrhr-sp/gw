@@ -40,6 +40,7 @@ type MessengerThread = {
   mentionUnread: number;
   hasUnreadMentions: boolean;
   lastReadAt: string | null;
+  muted: boolean;
   kind: "1:1" | "그룹";
 };
 
@@ -154,6 +155,7 @@ function formatApiRoomToThread(room: {
   mentionUnreadCount?: number;
   hasUnreadMentions?: boolean;
   lastReadAt?: string | null;
+  muted?: boolean;
   lastMessageBody: string | null;
   lastMessageAt: string | null;
   isExternal: boolean;
@@ -168,6 +170,7 @@ function formatApiRoomToThread(room: {
     mentionUnread: room.mentionUnreadCount ?? 0,
     hasUnreadMentions: Boolean(room.hasUnreadMentions),
     lastReadAt: room.lastReadAt ?? null,
+    muted: Boolean(room.muted),
     kind: formatMessengerRoomKind(room.roomType),
   };
 }
@@ -213,6 +216,7 @@ export default function MessengerPage() {
   const [apiMessages, setApiMessages] = useState<MessengerMessageView[]>([]);
   const [apiMembers, setApiMembers] = useState<MessengerMemberView[]>([]);
   const [currentMemberRole, setCurrentMemberRole] = useState<string>("member");
+  const [currentMemberMuted, setCurrentMemberMuted] = useState(false);
   const [inviteUserId, setInviteUserId] = useState("");
   const [isMessengerLoading, setIsMessengerLoading] = useState(true);
   const [isMessageLoading, setIsMessageLoading] = useState(false);
@@ -338,8 +342,11 @@ export default function MessengerPage() {
       if (!response.ok) return;
       const parsed = messengerRoomDetailResponseSchema.parse(payload);
       setCurrentMemberRole(parsed.data.currentMemberRole);
+      setCurrentMemberMuted(parsed.data.currentMemberMuted);
+      setApiThreads((current) => current.map((thread) => thread.id === roomId ? { ...thread, muted: parsed.data.currentMemberMuted } : thread));
     } catch {
       setCurrentMemberRole("member");
+      setCurrentMemberMuted(false);
     }
   }
 
@@ -494,6 +501,33 @@ export default function MessengerPage() {
       await loadMessengerRooms();
     } catch {
       setDisplayMessage("참여자 내보내기 요청 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function handleToggleRoomNotificationMuted() {
+    if (!activeThread) return;
+    const nextMuted = !currentMemberMuted;
+    try {
+      const response = await fetch(appRoutes.messenger.roomNotificationSettings(activeThread.id), {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ muted: nextMuted }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setDisplayMessage(payload?.error?.message ?? "대화방 알림 설정을 변경하지 못했습니다.");
+        return;
+      }
+      const parsed = messengerRoomMemberMutationResponseSchema.parse(payload);
+      const member = parsed.data.members[0];
+      setCurrentMemberMuted(member?.muted ?? nextMuted);
+      setApiMembers((current) => current.map((item) => item.userId === member?.userId ? { ...item, muted: member.muted } : item));
+      setApiThreads((current) => current.map((thread) => thread.id === activeThread.id ? { ...thread, muted: member?.muted ?? nextMuted } : thread));
+      setDisplayMessage(nextMuted ? "이 대화방의 일반 메시지 알림을 끕니다. 멘션 알림은 유지됩니다." : "이 대화방의 일반 메시지 알림을 다시 받습니다.");
+      setIsConversationMenuOpen(false);
+    } catch {
+      setDisplayMessage("대화방 알림 설정 요청 중 오류가 발생했습니다.");
     }
   }
 
@@ -812,6 +846,7 @@ export default function MessengerPage() {
                     <span className="messenger-thread__message">{thread.lastMessage}</span>
                   </span>
                   <span className="messenger-thread__badges">
+                    {thread.muted ? <span className="messenger-muted-badge">알림끔</span> : null}
                     {thread.hasUnreadMentions ? <span className="messenger-mention-badge">@{thread.mentionUnread}</span> : null}
                     {thread.unread ? <span className="messenger-unread-badge">{thread.unread}</span> : null}
                   </span>
@@ -844,6 +879,7 @@ export default function MessengerPage() {
                         ☰
                       </button>
                       <div className="messenger-popover-menu messenger-conversation-menu" hidden={!isConversationMenuOpen} role="menu" aria-label="채팅방 메뉴">
+                        <button type="button" role="menuitem" onClick={() => void handleToggleRoomNotificationMuted()}>{currentMemberMuted ? "알림 켜기" : "알림 끄기"}</button>
                         <button type="button" role="menuitem" onClick={() => setDisplayMessage("채팅방 설정은 준비 중입니다.")}>설정</button>
                         <button type="button" role="menuitem" className="messenger-conversation-menu__leave" onClick={() => void handleLeaveActiveThread()}>나가기</button>
                       </div>

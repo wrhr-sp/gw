@@ -6797,6 +6797,23 @@ li {
   border-radius: var(--feature-page-count-badge-radius);
 }
 
+.messenger-muted-badge {
+  display: inline-grid;
+  min-width: var(--feature-page-count-badge-min-width);
+  height: var(--feature-page-count-badge-height);
+  place-items: center;
+  padding: 0 var(--feature-page-count-badge-padding-inline);
+  color: var(--muted-foreground);
+  font-family: var(--feature-page-count-badge-font-family);
+  font-size: var(--feature-page-count-badge-font-size);
+  font-variation-settings: var(--feature-page-count-badge-font-variation-settings);
+  font-weight: var(--feature-page-count-badge-font-weight);
+  line-height: var(--feature-page-count-badge-line-height);
+  text-align: center;
+  background: var(--muted);
+  border-radius: var(--feature-page-count-badge-radius);
+}
+
 .messenger-conversation {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;

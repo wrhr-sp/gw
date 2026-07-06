@@ -88,6 +88,7 @@ export const appRoutes = {
     room: (roomId: string) => `/api/messenger/rooms/${roomId}`,
     roomMembers: (roomId: string) => `/api/messenger/rooms/${roomId}/members`,
     roomMember: (roomId: string, userId: string) => `/api/messenger/rooms/${roomId}/members/${userId}`,
+    roomNotificationSettings: (roomId: string) => `/api/messenger/rooms/${roomId}/notification-settings`,
     roomMessages: (roomId: string) => `/api/messenger/rooms/${roomId}/messages`,
     roomAttachments: (roomId: string) => `/api/messenger/rooms/${roomId}/attachments`,
     attachmentComplete: (attachmentId: string) => `/api/messenger/attachments/${attachmentId}/upload-complete`,
@@ -766,6 +767,7 @@ export const messengerRoomSchema = z.object({
   unreadCount: z.number().int().nonnegative(),
   mentionUnreadCount: z.number().int().nonnegative().default(0),
   hasUnreadMentions: z.boolean().default(false),
+  muted: z.boolean().default(false),
   lastReadAt: z.string().datetime().nullable().default(null),
   lastMessageId: z.string().nullable(),
   lastMessageBody: z.string().nullable(),
@@ -883,11 +885,16 @@ export const messengerRoomMemberRemoveRequestSchema = z.object({
   reason: z.string().trim().max(300).optional(),
 });
 
+export const messengerRoomNotificationSettingsRequestSchema = z.object({
+  muted: z.boolean(),
+});
+
 export const messengerRoomDetailResponseSchema = successResponseSchema(
   z.object({
     room: messengerRoomSchema,
     members: z.array(messengerRoomMemberSchema),
     currentMemberRole: messengerMemberRoleSchema,
+    currentMemberMuted: z.boolean().default(false),
     source: z.literal("postgres"),
   }),
 );
