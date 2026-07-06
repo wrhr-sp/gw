@@ -7,6 +7,7 @@ import { AdminPageContent } from "./admin-page-content";
 import { getAdminPageCardsForRole } from "./admin-page-access";
 import { app } from "../api/src/app";
 import { AdminUsersPageContent } from "./app/admin/users/admin-users-page-content";
+import { adminMenuSections, adminPrimaryNav } from "./app/mobile-pwa-config";
 import { classifyAdminUsersLoadErrorKind } from "./app/admin/users/load-error-kind";
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
@@ -23,8 +24,15 @@ function buildAdminUsersPreviewFixture(): any {
         roleCodes: ["COMPANY_ADMIN"],
         highRiskPermissions: ["audit.read"],
         employmentStatus: "active",
-        roleChangePreview: { nextRoleCodes: ["HR_ADMIN"] },
-        statusChangePreview: { nextStatus: "offboarded" },
+        accountType: "admin",
+        accountStatus: "active",
+        mustChangePassword: true,
+        twoFactorRequired: true,
+        failedLoginCount: 0,
+        activeSessionCount: 1,
+        lastLoginAt: "2026-07-06T00:00:00.000Z",
+        roleChangePreview: { currentRoleCodes: ["COMPANY_ADMIN"], nextRoleCodes: ["HR_ADMIN"], auditCandidate: true },
+        statusChangePreview: { currentStatus: "active", nextStatus: "offboarded", reasonRequired: true },
       },
     ],
     linkedScreens: [
@@ -56,6 +64,26 @@ function buildAdminUsersPreviewFixture(): any {
 }
 
 describe("Phase 55 admin account/rbac live usage", () => {
+  it("keeps the admin sidebar scoped to administrator work only", () => {
+    expect(adminMenuSections).toHaveLength(1);
+    expect(adminMenuSections[0]?.title).toBe("관리자 업무");
+    expect(adminPrimaryNav.map((item) => item.href)).toEqual([
+      "/admin",
+      "/admin/users",
+      "/admin/users/verification-action",
+      "/admin/policies",
+      "/admin/audit-logs",
+    ]);
+    expect(adminPrimaryNav.map((item) => item.label)).toEqual([
+      "관리자 허브",
+      "계정 관리",
+      "계정 생성 검증",
+      "역할·정책 관리",
+      "감사로그·세션",
+    ]);
+    expect(adminPrimaryNav.some((item) => item.href === "/mail" || item.href === "/messenger" || item.href === "/work-items/branch")).toBe(false);
+  });
+
   it("turns the admin hub into an operations-first console", () => {
     const html = renderToStaticMarkup(
       <AdminPageContent visibleAdminHubCards={getAdminPageCardsForRole("COMPANY_ADMIN")} />,
@@ -114,8 +142,12 @@ describe("Phase 55 admin account/rbac live usage", () => {
       />,
     );
 
-    expect(html).toContain("현재 검토 중인 사용자");
-    expect(html).toContain("Phase 55 관리자 계정·권한·조직 실사용화");
+    expect(html).toContain("계정 관리");
+    expect(html).toContain("관리자 계정/IAM 1차");
+    expect(html).toContain("계정 생성·관리 필수 기준");
+    expect(html).toContain("직원 · 관리자 · 외부 사용자 · 봇/서비스 · 시스템");
+    expect(html).toContain("초대대기 · 활성 · 잠금 · 비활성 · 퇴사처리 · 일시정지");
+    expect(html).toContain("최초 비밀번호 · 2FA · 실패 횟수 · 세션");
     expect(html).toContain("Phase 55 관리자 온보딩·운영 순서");
     expect(html).toContain("역할별 시작 레인과 차단 기준");
     expect(html).toContain("HR_ADMIN");

@@ -1987,10 +1987,12 @@ export const createInviteResponseSchema = successResponseSchema(
 );
 
 export const adminScopeSchema = z.enum(["global", "company", "audit"]);
+export const adminAccountTypeSchema = z.enum(["employee", "admin", "external", "bot_service", "system"]);
+export const adminAccountStatusSchema = z.enum(["invited", "active", "locked", "disabled", "offboarded", "suspended"]);
 export const adminEmployeeLinkStatusSchema = z.enum(["linked", "unlinked", "review_required"]);
 export const adminUserStatusChangePreviewSchema = z.object({
-  currentStatus: employeeSchema.shape.employmentStatus,
-  nextStatus: employeeSchema.shape.employmentStatus,
+  currentStatus: adminAccountStatusSchema,
+  nextStatus: adminAccountStatusSchema,
   reasonRequired: z.literal(true),
 });
 export const adminUserRoleChangePreviewSchema = z.object({
@@ -2008,6 +2010,13 @@ export const adminUserSummarySchema = z.object({
   roleCodes: z.array(roleCodeSchema).min(1),
   permissions: z.array(permissionCodeSchema),
   employmentStatus: employeeSchema.shape.employmentStatus,
+  accountType: adminAccountTypeSchema,
+  accountStatus: adminAccountStatusSchema,
+  mustChangePassword: z.boolean(),
+  twoFactorRequired: z.boolean(),
+  failedLoginCount: z.number().int().min(0),
+  activeSessionCount: z.number().int().min(0),
+  lastLoginAt: z.string().datetime().nullable(),
   adminScope: adminScopeSchema,
   employeeLinkStatus: adminEmployeeLinkStatusSchema,
   highRiskPermissions: z.array(permissionCodeSchema),
@@ -3923,6 +3932,8 @@ export type OrgDirectorySectionSummary = z.infer<typeof orgDirectorySectionSumma
 export type CreateInviteRequest = z.infer<typeof createInviteRequestSchema>;
 export type CreateInviteResponse = z.infer<typeof createInviteResponseSchema>;
 export type AdminScope = z.infer<typeof adminScopeSchema>;
+export type AdminAccountType = z.infer<typeof adminAccountTypeSchema>;
+export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;

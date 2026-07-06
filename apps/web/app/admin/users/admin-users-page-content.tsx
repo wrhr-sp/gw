@@ -170,9 +170,9 @@ export function AdminUsersPageContent({
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="Phase 55 관리자 계정·권한·조직 실사용화"
-      title="계정관리 / 사용자·권한"
-      description="사용자 생성, 역할/업무권한 지정, 활성/비활성, 비밀번호 초기화·변경을 내부 검증으로 눌러보고, 실제 저장은 열지 않는 계정관리 화면입니다."
+      eyebrow="관리자 계정/IAM 1차"
+      title="계정 관리"
+      description="계정 생성, 조직 연결, 역할·권한, 잠금/비활성화/퇴사자 처리, 2단계 인증과 감사로그 기준을 한 화면에서 검토합니다. 실제 저장 API가 준비되지 않은 동작은 성공처럼 보이지 않고 내부 검증/승인 게이트로 둡니다."
       actions={
         <div className="pill-row">
           <Pill tone="accent">내부 계정 흐름</Pill>
@@ -199,6 +199,34 @@ export function AdminUsersPageContent({
           ) : null}
         </SurfaceSection>
       ) : null}
+
+      <SurfaceSection
+        title="계정 생성·관리 필수 기준"
+        description="관리자 계정관리에서는 계정 유형, 상태, 조직 연결, 보안 상태, 감사 기준을 먼저 확인합니다."
+      >
+        <div className="grid-auto-compact">
+          <article className="info-card">
+            <Pill tone="accent">계정 유형</Pill>
+            <h3>직원 · 관리자 · 외부 사용자 · 봇/서비스 · 시스템</h3>
+            <p>업무용 사람 계정과 자동화 계정을 같은 권한 흐름으로 섞지 않고 유형별로 구분합니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill tone="warning">계정 상태</Pill>
+            <h3>초대대기 · 활성 · 잠금 · 비활성 · 퇴사처리 · 일시정지</h3>
+            <p>상태 변경은 사유와 감사로그 후보가 있어야 하며, 준비되지 않은 저장은 성공처럼 보이지 않습니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>보안 상태</Pill>
+            <h3>최초 비밀번호 · 2FA · 실패 횟수 · 세션</h3>
+            <p>비밀번호/토큰 원문은 저장·출력하지 않고 hash/digest와 상태값만 다룹니다.</p>
+          </article>
+          <article className="info-card">
+            <Pill>조직·권한 연결</Pill>
+            <h3>회사 · 부서 · 지점 · 직책/직급 · 역할</h3>
+            <p>기본 직원 접근과 관리자/담당자 권한을 분리하고 고위험 권한은 별도 검토합니다.</p>
+          </article>
+        </div>
+      </SurfaceSection>
 
       <SurfaceSection
         title="forbidden / empty / error / offline / loading / 내부 검증 경계"
@@ -353,9 +381,15 @@ export function AdminUsersPageContent({
                 <Pill tone={item.highRiskPermissions.length > 0 ? "warning" : "accent"}>{item.roleCodes.join(", ")}</Pill>
                 <h3>{item.fullName}</h3>
                 <p>{item.email} · {item.departmentName}</p>
+                <p className="meta-copy">
+                  계정 유형/상태: {item.accountType} · {item.accountStatus} · 직원 상태 {item.employmentStatus}
+                </p>
+                <p className="meta-copy">
+                  보안 상태: 최초 비밀번호 변경 {item.mustChangePassword ? "필요" : "완료"} · 2FA {item.twoFactorRequired ? "필수" : "미필수"} · 활성 세션 {item.activeSessionCount}개 · 실패 {item.failedLoginCount}회
+                </p>
                 <p className="meta-copy">역할 후보: {item.roleChangePreview.nextRoleCodes.join(", ") || "유지"}</p>
                 <p className="card-note">
-                  상태 변경점: {item.employmentStatus} → {item.statusChangePreview.nextStatus} · 감사 후보: {item.highRiskPermissions.length > 0 ? item.highRiskPermissions.join(", ") : "없음"}
+                  상태 변경점: {item.accountStatus} → {item.statusChangePreview.nextStatus} · 마지막 로그인: {item.lastLoginAt ?? "기록 없음"} · 감사 후보: {item.highRiskPermissions.length > 0 ? item.highRiskPermissions.join(", ") : "없음"}
                 </p>
               </article>
             ))}
@@ -388,6 +422,30 @@ export function AdminUsersPageContent({
             <label>
               <span className="meta-copy">초기 역할</span>
               <input className="field" name="roleCode" defaultValue="EMPLOYEE" />
+            </label>
+            <label>
+              <span className="meta-copy">계정 유형</span>
+              <select className="field" name="accountType" defaultValue="employee">
+                <option value="employee">직원</option>
+                <option value="admin">관리자</option>
+                <option value="external">외부 사용자</option>
+                <option value="bot_service">봇/서비스 계정</option>
+                <option value="system">시스템 계정</option>
+              </select>
+            </label>
+            <label>
+              <span className="meta-copy">최초 비밀번호 변경</span>
+              <select className="field" name="mustChangePassword" defaultValue="required">
+                <option value="required">필수</option>
+                <option value="not_required">미필수</option>
+              </select>
+            </label>
+            <label>
+              <span className="meta-copy">2단계 인증</span>
+              <select className="field" name="twoFactorRequired" defaultValue="required">
+                <option value="required">필수</option>
+                <option value="not_required">미필수</option>
+              </select>
             </label>
           </div>
           <button type="submit" className="touch-button">생성 검증 보기</button>
