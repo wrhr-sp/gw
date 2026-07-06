@@ -1314,11 +1314,74 @@ const supportAccountingSidebarItems: readonly NavItem[] = [
   { href: "/management-support/erp/taxes", label: "세무/부가세", shortLabel: "세무", summary: "세무자료와 부가세 신고 준비 묶음을 관리합니다." },
 ];
 
+type SupportSidebarGroup = {
+  title: string;
+  items: readonly NavItem[];
+};
+
+const supportSidebarGroups: readonly SupportSidebarGroup[] = [
+  {
+    title: "인사관리",
+    items: [
+      { href: "/admin/users", label: "사원정보관리", shortLabel: "사원정보", summary: "사원정보 목록과 상세 정보를 확인합니다." },
+      { href: "/admin/users#permission-matrix", label: "계정권한관리", shortLabel: "계정권한", summary: "계정 상태와 기능별 권한을 확인합니다." },
+      { href: "#support-hr-appointments", label: "인사발령", shortLabel: "발령", summary: "인사발령 기능은 별도 구현 전까지 비활성 상태로 표시합니다.", disabled: true },
+      { href: "#support-dormant-accounts", label: "휴면계정관리", shortLabel: "휴면계정", summary: "휴면계정 관리 기능은 계정권한관리 이동 후 연결합니다.", disabled: true },
+    ],
+  },
+  {
+    title: "지점관리",
+    items: [
+      { href: "/Place of business", label: "지점정보관리", shortLabel: "지점정보", summary: "지점관리포털의 지점 기본 정보를 확인합니다." },
+      { href: "/management-support/erp/ledgers", label: "월 마감 정산", shortLabel: "월마감", summary: "월마감 원장과 정산 잠금 상태를 확인합니다." },
+      { href: "/work-items/branch", label: "지점 요청내역", shortLabel: "지점요청", summary: "지점 요청과 처리 현황을 확인합니다." },
+    ],
+  },
+  {
+    title: "근태관리",
+    items: [
+      { href: "/attendance", label: "근태 현황", shortLabel: "근태", summary: "경영지원팀 문맥으로 근태 현황을 확인합니다." },
+    ],
+  },
+  {
+    title: "급여관리",
+    items: [
+      { href: "/payroll", label: "급여관리", shortLabel: "급여", summary: "급여 내부관리 업무로 이동합니다." },
+    ],
+  },
+  {
+    title: "경비관리",
+    items: [
+      { href: "/management-support/erp/expenses", label: "경비관리", shortLabel: "경비", summary: "경비와 지출결의 상태를 확인합니다." },
+    ],
+  },
+  {
+    title: "예산관리",
+    items: [
+      { href: "/management", label: "예산관리", shortLabel: "예산", summary: "예산 관리 지표와 경영 현황을 확인합니다." },
+    ],
+  },
+  {
+    title: "매출입관리",
+    items: [
+      { href: "/management-support/erp/billings", label: "매출입관리", shortLabel: "매출입", summary: "매출 청구와 입출금 상태를 확인합니다." },
+    ],
+  },
+  {
+    title: "거래처관리",
+    items: [
+      { href: "/management-support/erp/vendors", label: "거래처관리", shortLabel: "거래처", summary: "거래처와 정산 기준 정보를 확인합니다." },
+    ],
+  },
+];
+
+const supportSidebarGroupHrefs = supportSidebarGroups.flatMap((group) => group.items.map((item) => item.href));
+
 const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = {
   general: sidebarBasicHrefs,
   ceo: ["/management", "/sales", "/Place of business", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin"],
   strategy: ["/management", "/sales", "/Place of business", "/work-items/tax", "/work-items/legal"],
-  support: ["/work-items/hr", "/payroll", "/work-items/labor", "/work-items/tax", "/management-support/erp/vendors", "/management-support/erp/expenses", "/management-support/erp/evidence", "/management-support/erp/billings", "/management-support/erp/payment-records", "/management-support/erp/ledgers", "/management-support/erp/taxes"],
+  support: ["/work-items/hr", "/payroll", "/work-items/labor", "/work-items/tax", ...supportSidebarGroupHrefs, "/management-support/erp/evidence", "/management-support/erp/payment-records", "/management-support/erp/taxes"],
   "sales-admin": ["/sales", "/Place of business", "/work-items/legal"],
   ads: ["/sales", "/management", "/work-items/legal"],
   operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
@@ -1389,6 +1452,7 @@ function buildSidebarSectionsByPortal(sections: readonly NavSection[], portalKey
   itemsByHref.set(branchPortalHomeItem.href, branchPortalHomeItem);
   itemsByHref.set(branchPortalWorkItem.href, branchPortalWorkItem);
   supportAccountingSidebarItems.forEach((item) => itemsByHref.set(item.href, item));
+  supportSidebarGroups.forEach((group) => group.items.forEach((item) => itemsByHref.set(item.href, item)));
   if (portalKey === "admin") {
     adminPrimaryNav.forEach((item) => itemsByHref.set(item.href, item));
   }
@@ -3834,24 +3898,74 @@ export function MobileAppShell({
                   </button>
                 </div>
               ) : null}
-              {visibleDesktopMenuSections.map((section, sectionIndex) => (
-                <section key={section.title} className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider" : "desktop-sidebar__section"}>
-                  <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
-                  <div className="desktop-sidebar__links">
-                    {section.items.map((item) => {
-                      const active = matchesPath(pathname, item.href);
-                      const iconName = getFeatureIconName(item.href, item.label);
-                      return (
-                        <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
-                          {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
-                          <span>{item.label}</span>
-                          {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
+              {visibleDesktopMenuSections.map((section, sectionIndex) => {
+                if (sidebarPortalKey === "support") {
+                  const isSupportWorkSection = section.title === sidebarPortalWorkSectionTitle.support;
+                  return (
+                    <details key={section.title} className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider desktop-sidebar__section-details" : "desktop-sidebar__section desktop-sidebar__section-details"} open>
+                      <summary className="desktop-sidebar__section-summary">
+                        <span>{section.title}</span>
+                        {section.description ? <small>{section.description}</small> : null}
+                      </summary>
+                      {isSupportWorkSection ? (
+                        <div className="desktop-sidebar__group-list" aria-label="경영지원팀 업무 묶음">
+                          {supportSidebarGroups.map((group) => (
+                            <details key={group.title} className="desktop-sidebar__group" open>
+                              <summary className="desktop-sidebar__group-summary">{group.title}</summary>
+                              <div className="desktop-sidebar__links desktop-sidebar__links--nested">
+                                {group.items.map((item) => {
+                                  const active = matchesPath(pathname, item.href);
+                                  const iconName = getFeatureIconName(item.href, item.label);
+                                  return (
+                                    <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
+                                      {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                                      <span>{item.label}</span>
+                                      {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </details>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="desktop-sidebar__links">
+                          {section.items.map((item) => {
+                            const active = matchesPath(pathname, item.href);
+                            const iconName = getFeatureIconName(item.href, item.label);
+                            return (
+                              <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
+                                {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                                <span>{item.label}</span>
+                                {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </details>
+                  );
+                }
+
+                return (
+                  <section key={section.title} className={sidebarDividerVisible && sectionIndex > 0 ? "desktop-sidebar__section desktop-sidebar__section--group-divider" : "desktop-sidebar__section"}>
+                    <div className="desktop-sidebar__section-copy"><strong>{section.title}</strong><p>{section.description}</p></div>
+                    <div className="desktop-sidebar__links">
+                      {section.items.map((item) => {
+                        const active = matchesPath(pathname, item.href);
+                        const iconName = getFeatureIconName(item.href, item.label);
+                        return (
+                          <button key={item.href} type="button" className={item.disabled ? "desktop-sidebar__link desktop-sidebar__link--disabled" : item.permissionDenied ? "desktop-sidebar__link desktop-sidebar__link--permission-denied" : active ? "desktop-sidebar__link desktop-sidebar__link--active" : "desktop-sidebar__link"} aria-current={active && !item.disabled && !item.permissionDenied ? "page" : undefined} aria-disabled={item.disabled ? true : undefined} aria-label={item.badge ? `${item.label} ${item.badge}` : item.label} data-route={getDepartmentScopedNavHref(item)} disabled={item.disabled} onClick={() => handleNavItemClick(item)}>
+                            {iconName ? <FeatureIcon className="desktop-sidebar__icon" name={iconName} title={item.label} /> : null}
+                            <span>{item.label}</span>
+                            {item.badge ? <em className="desktop-sidebar__link-badge">{item.badge}</em> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
             </>
           )}
         </nav>
