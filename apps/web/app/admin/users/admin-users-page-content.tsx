@@ -102,34 +102,6 @@ const accountCreationValidationChecks = [
   "감사 후보: 계정 생성 요청자, 사유, 생성 전 검증 결과",
 ] as const;
 
-const employeeManagementFeatureOrder = [
-  { label: "사원 목록", summary: "검색·필터·정렬과 사원 선택의 시작점" },
-  { label: "사원 등록 / 계정 생성", summary: "운영 DB에 사원과 계정을 함께 저장" },
-  { label: "사원 기본정보", summary: "이름, 이메일, 사번, 입사일, 재직 상태" },
-  { label: "조직 / 지점 / 직무", summary: "회사, 부서, 지점, 직책·직급, 발령 이력" },
-  { label: "계정 / 역할 / 권한", summary: "계정 유형, 역할, 고위험 권한, 권한 변경 사유" },
-  { label: "보안 설정", summary: "비밀번호 변경, 2단계 인증, 로그인 실패, 세션" },
-  { label: "근무 / 재직 상태", summary: "휴직, 잠금, 비활성, 퇴사와 권한 회수 후보" },
-  { label: "인사 서류 / 계약", summary: "근로계약서, 동의서, 증명서, 인사 발령 문서 연결" },
-  { label: "근태 / 휴가 연결", summary: "해당 사원의 근태·휴가 요약과 관련 화면 연결" },
-  { label: "급여 연결", summary: "급여 대상 여부와 급여 화면 연결, 민감정보는 별도 보안" },
-  { label: "업무 접근 / 포털 접근", summary: "기본업무, 부서업무포털, 지점관리포털, 관리자 접근" },
-  { label: "감사로그 / 변경이력", summary: "생성, 수정, 권한, 상태, 보안 변경 이력" },
-] as const;
-
-const employeeDetailTabs = [
-  "기본정보",
-  "조직/직무",
-  "계정/권한",
-  "보안",
-  "재직상태",
-  "서류/계약",
-  "근태/휴가",
-  "급여",
-  "접근권한",
-  "변경이력",
-] as const;
-
 type AdminUserItem = AdminUserSummary;
 
 type FieldProps = {
@@ -144,21 +116,6 @@ function EmployeeField({ label, children, required }: FieldProps) {
       <span>{label}{required ? <b aria-hidden="true"> *</b> : null}</span>
       {children}
     </label>
-  );
-}
-
-function EmployeeManagementOrderPanel() {
-  return (
-    <SurfaceSection title="사원정보관리 구성 순서">
-      <ol className="summary-list" aria-label="사원정보관리 기능 항목 순서">
-        {employeeManagementFeatureOrder.map((item, index) => (
-          <li key={item.label}>
-            <strong>{String(index + 1).padStart(2, "0")}. {item.label}</strong>
-            <span> — {item.summary}</span>
-          </li>
-        ))}
-      </ol>
-    </SurfaceSection>
   );
 }
 
@@ -179,10 +136,9 @@ function EmployeeInfoPanel({ item }: { item: AdminUserItem }) {
           </div>
           <button type="button" className="employee-info-print" disabled>인사정보 프린트</button>
         </div>
-        <div className="employee-info-subtabs" aria-label="상세 정보 구분">
-          {employeeDetailTabs.map((tab, index) => (
-            <span key={tab} className={index === 0 ? "employee-info-subtab employee-info-subtab--active" : "employee-info-subtab"}>{tab}</span>
-          ))}
+        <div className="employee-info-subtabs" aria-label="계정 상세 구분">
+          <span className="employee-info-subtab employee-info-subtab--active">계정</span>
+          <span className="employee-info-subtab">권한</span>
         </div>
         <div className="employee-info-form-grid">
           <div className="employee-info-column">
@@ -334,18 +290,18 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
   const offboardedCount = items.filter((item) => item.accountStatus === "offboarded" || item.employmentStatus === "offboarded").length;
   const adminCount = items.filter((item) => item.roleCodes.some((roleCode) => roleCode === "SUPER_ADMIN" || roleCode === "COMPANY_ADMIN" || roleCode === "HR_ADMIN")).length;
   const highRiskCount = items.filter((item) => item.highRiskPermissions.length > 0).length;
-  const loadErrorTitle = loadErrorKind === "offline" ? "네트워크 재확인 필요" : "사원정보 조회 실패";
+  const loadErrorTitle = loadErrorKind === "offline" ? "네트워크 재확인 필요" : "계정관리 조회 실패";
 
   return (
     <PageShell
       backHref="/admin"
       backLabel="그룹웨어관리자로"
       eyebrow="관리자"
-      title="사원정보관리"
+      title="사원 계정 관리"
       actions={
         <div className="pill-row">
-          <Pill tone="accent">사원정보</Pill>
-          <Pill tone="accent">인사정보</Pill>
+          <Pill tone="accent">계정</Pill>
+          <Pill tone="accent">권한</Pill>
         </div>
       }
     >
@@ -374,10 +330,8 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         </section>
       ) : null}
 
-      <EmployeeManagementOrderPanel />
-
-      <SurfaceSection title="사원정보관리 목록">
-        <div className="employee-management-toolbar" aria-label="사원정보관리 검색 조건">
+      <SurfaceSection title="계정관리 목록">
+        <div className="employee-management-toolbar" aria-label="계정관리 검색 조건">
           <label>
             재직상태
             <select defaultValue="전체">
@@ -394,9 +348,9 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
           <button type="button" disabled>조회</button>
           <button type="button" disabled>조건추가</button>
         </div>
-        <div className="employee-management-actions" aria-label="사원정보관리 작업">
-          <button type="button" disabled>사원 생성</button>
-          <button type="button" disabled>사원 삭제</button>
+        <div className="employee-management-actions" aria-label="계정관리 작업">
+          <button type="button" disabled>계정 생성</button>
+          <button type="button" disabled>계정 삭제</button>
           <button type="button" disabled>정보 수정</button>
           <span>전체: {totalCount}명</span>
         </div>
@@ -444,24 +398,24 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
           </div>
         ) : (
           <article className="info-card">
-            <h3>조회된 사원정보가 없습니다</h3>
+            <h3>조회된 계정이 없습니다</h3>
           </article>
         )}
       </SurfaceSection>
 
       <AccountCreationPanel existingUsers={items} />
 
-      <SurfaceSection title="사원정보 · 인사정보 상세">
+      <SurfaceSection title="계정 · 권한 상세">
         {items.length > 0 ? (
           <div className="employee-info-drawer-list">
             {items.slice(0, 3).map((item) => <EmployeeInfoPanel key={`detail-${item.userId}`} item={item} />)}
           </div>
         ) : (
-          <article className="info-card"><h3>사원정보를 불러온 뒤 상세 폼을 확인할 수 있습니다</h3></article>
+          <article className="info-card"><h3>계정을 불러온 뒤 상세 폼을 확인할 수 있습니다</h3></article>
         )}
       </SurfaceSection>
 
-      <SurfaceSection title="사원정보 현황">
+      <SurfaceSection title="계정 현황">
         <div className="grid-auto-compact">
           <article className="info-card"><Pill tone="accent">전체</Pill><h3>{totalCount}명</h3></article>
           <article className="info-card"><Pill tone="accent">재직</Pill><h3>{activeCount}명</h3></article>
@@ -489,10 +443,10 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         {items.length > 0 ? (
           <div className="grid-auto-compact">
             {items.map((item) => <AdminUserActionCard key={`action-${item.userId}`} item={item} />)}
-            <article className="route-card"><h3>감사로그</h3><p className="card-note">사원정보/권한 변경은 저장 뒤 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
+            <article className="route-card"><h3>감사로그</h3><p className="card-note">계정/권한 변경은 저장 뒤 관리자 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
           </div>
         ) : (
-          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">사원정보를 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
+          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">계정을 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
         )}
       </SurfaceSection>
     </PageShell>

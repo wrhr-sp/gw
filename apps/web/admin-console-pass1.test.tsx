@@ -12,6 +12,7 @@ import { classifyAdminUsersLoadErrorKind } from "./app/admin/users/load-error-ki
 import AdminPoliciesPage from "./app/admin/policies/page";
 import AdminAuditLogsPage from "./app/admin/audit-logs/page";
 import AttendancePage from "./app/attendance/page";
+import { ManagementSupportFeaturePage } from "./app/management-support/_components/management-support-feature-page";
 
 function buildAdminUsersPreviewFixture(): any {
   return {
@@ -139,10 +140,10 @@ describe("Phase 55 admin account/rbac live usage", () => {
       />,
     );
 
-    expect(html).toContain("사원정보관리");
-    expect(html).toContain("사원정보 현황");
-    expect(html).toContain("사원정보관리 목록");
-    expect(html).toContain("사원정보 · 인사정보 상세");
+    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("계정 현황");
+    expect(html).toContain("계정관리 목록");
+    expect(html).toContain("계정 · 권한 상세");
     expect(html).toContain("기능별 권한");
     expect(html).toContain("퇴사");
     expect(html).toContain("관리자 작업");
@@ -155,6 +156,27 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).not.toContain("현재 사원 계정 목록");
     expect(html).not.toContain("관리자 설정 이관 기준");
     expect(html).not.toContain("역할 변경 후보: HR_ADMIN");
+    expect(html).not.toContain("사원정보관리 구성 순서");
+  });
+
+  it("places employee information management inside management support HR, not admin users", () => {
+    const supportHtml = renderToStaticMarkup(<ManagementSupportFeaturePage slug="hr" />);
+
+    expect(supportHtml).toContain("인사관리");
+    expect(supportHtml).toContain("사원정보관리");
+    expect(supportHtml).toContain("사원 목록");
+    expect(supportHtml).toContain("사원 등록 / 계정 생성");
+    expect(supportHtml).toContain("사원 기본정보");
+    expect(supportHtml).toContain("조직 / 지점 / 직무");
+    expect(supportHtml).toContain("계정 / 역할 / 권한");
+    expect(supportHtml).toContain("보안 설정");
+    expect(supportHtml).toContain("근무 / 재직 상태");
+    expect(supportHtml).toContain("인사 서류 / 계약");
+    expect(supportHtml).toContain("근태 / 휴가 연결");
+    expect(supportHtml).toContain("급여 연결");
+    expect(supportHtml).toContain("업무 접근 / 포털 접근");
+    expect(supportHtml).toContain("감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.");
+    expect(supportHtml).not.toContain("감사로그 / 변경이력");
   });
 
   it("separates offline recovery copy from generic errors on the admin users page", async () => {
