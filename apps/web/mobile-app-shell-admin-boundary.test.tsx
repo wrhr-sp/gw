@@ -627,6 +627,8 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain("topbar-modal-secondary-action");
     expect(shellSource).toContain("getTopbarNotificationHref");
     expect(shellSource).toContain("messenger_mention");
+    expect(shellSource).toContain("new URLSearchParams({ roomId, messageId })");
+    expect(shellSource).toContain("notificationPrefix");
     expect(shellSource).toContain("메신저로 이동");
     expect(shellSource).toContain("handleNotificationRead");
     expect(shellSource).toContain("handleAllNotificationsRead");
