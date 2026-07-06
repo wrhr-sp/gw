@@ -102,6 +102,34 @@ const accountCreationValidationChecks = [
   "감사 후보: 계정 생성 요청자, 사유, 생성 전 검증 결과",
 ] as const;
 
+const employeeManagementFeatureOrder = [
+  { label: "사원 목록", summary: "검색·필터·정렬과 사원 선택의 시작점" },
+  { label: "사원 등록 / 계정 생성", summary: "운영 DB에 사원과 계정을 함께 저장" },
+  { label: "사원 기본정보", summary: "이름, 이메일, 사번, 입사일, 재직 상태" },
+  { label: "조직 / 지점 / 직무", summary: "회사, 부서, 지점, 직책·직급, 발령 이력" },
+  { label: "계정 / 역할 / 권한", summary: "계정 유형, 역할, 고위험 권한, 권한 변경 사유" },
+  { label: "보안 설정", summary: "비밀번호 변경, 2단계 인증, 로그인 실패, 세션" },
+  { label: "근무 / 재직 상태", summary: "휴직, 잠금, 비활성, 퇴사와 권한 회수 후보" },
+  { label: "인사 서류 / 계약", summary: "근로계약서, 동의서, 증명서, 인사 발령 문서 연결" },
+  { label: "근태 / 휴가 연결", summary: "해당 사원의 근태·휴가 요약과 관련 화면 연결" },
+  { label: "급여 연결", summary: "급여 대상 여부와 급여 화면 연결, 민감정보는 별도 보안" },
+  { label: "업무 접근 / 포털 접근", summary: "기본업무, 부서업무포털, 지점관리포털, 관리자 접근" },
+  { label: "감사로그 / 변경이력", summary: "생성, 수정, 권한, 상태, 보안 변경 이력" },
+] as const;
+
+const employeeDetailTabs = [
+  "기본정보",
+  "조직/직무",
+  "계정/권한",
+  "보안",
+  "재직상태",
+  "서류/계약",
+  "근태/휴가",
+  "급여",
+  "접근권한",
+  "변경이력",
+] as const;
+
 type AdminUserItem = AdminUserSummary;
 
 type FieldProps = {
@@ -116,6 +144,21 @@ function EmployeeField({ label, children, required }: FieldProps) {
       <span>{label}{required ? <b aria-hidden="true"> *</b> : null}</span>
       {children}
     </label>
+  );
+}
+
+function EmployeeManagementOrderPanel() {
+  return (
+    <SurfaceSection title="사원정보관리 구성 순서">
+      <ol className="summary-list" aria-label="사원정보관리 기능 항목 순서">
+        {employeeManagementFeatureOrder.map((item, index) => (
+          <li key={item.label}>
+            <strong>{String(index + 1).padStart(2, "0")}. {item.label}</strong>
+            <span> — {item.summary}</span>
+          </li>
+        ))}
+      </ol>
+    </SurfaceSection>
   );
 }
 
@@ -137,8 +180,9 @@ function EmployeeInfoPanel({ item }: { item: AdminUserItem }) {
           <button type="button" className="employee-info-print" disabled>인사정보 프린트</button>
         </div>
         <div className="employee-info-subtabs" aria-label="상세 정보 구분">
-          <span className="employee-info-subtab employee-info-subtab--active">기본</span>
-          <span className="employee-info-subtab">프로필</span>
+          {employeeDetailTabs.map((tab, index) => (
+            <span key={tab} className={index === 0 ? "employee-info-subtab employee-info-subtab--active" : "employee-info-subtab"}>{tab}</span>
+          ))}
         </div>
         <div className="employee-info-form-grid">
           <div className="employee-info-column">
@@ -330,7 +374,7 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         </section>
       ) : null}
 
-      <AccountCreationPanel existingUsers={items} />
+      <EmployeeManagementOrderPanel />
 
       <SurfaceSection title="사원정보관리 목록">
         <div className="employee-management-toolbar" aria-label="사원정보관리 검색 조건">
@@ -404,6 +448,8 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
           </article>
         )}
       </SurfaceSection>
+
+      <AccountCreationPanel existingUsers={items} />
 
       <SurfaceSection title="사원정보 · 인사정보 상세">
         {items.length > 0 ? (
