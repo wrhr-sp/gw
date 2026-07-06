@@ -83,7 +83,11 @@ export function getAdminHostInfo(rawHost?: string | null): HostClassification {
 
 export function isWorkersPreviewGeneralHost(rawHost?: string | null) {
   const { hostname, isAdminHost } = getAdminHostInfo(rawHost);
-  return !isAdminHost && hostname.startsWith("gw-web.") && hostname.endsWith(".workers.dev");
+  return (
+    !isAdminHost &&
+    ((hostname.startsWith("gw-web.") && hostname.endsWith(".workers.dev")) ||
+      (hostname.startsWith("gw-web-preview.") && hostname.endsWith(".workers.dev")))
+  );
 }
 
 export function getAdminHostRedirectHost(rawHost?: string | null) {
