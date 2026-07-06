@@ -58,11 +58,12 @@ describe("org/employees/admin boundaries", () => {
     expect(html).toContain("사원정보관리 구성 순서");
     expect(html).toContain("01. 사원 목록");
     expect(html).toContain("02. 사원 등록 / 계정 생성");
-    expect(html).toContain("12. 감사로그 / 변경이력");
+    expect(html).toContain("11. 업무 접근 / 포털 접근");
     expect(html).toContain("사원 기본정보");
     expect(html).toContain("조직 / 지점 / 직무");
     expect(html).toContain("계정 / 역할 / 권한");
-    expect(html).toContain("변경이력");
+    expect(html).not.toContain("12. 감사로그 / 변경이력");
+    expect(html).not.toContain("employee-info-subtab\">변경이력");
     expect(html).toContain("계정생성 1차 검증");
     expect(html).toContain("계정 생성 저장");
     expect(html).toContain("계정 생성은 운영 DB에 저장하고 다시 조회합니다");

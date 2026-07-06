@@ -114,7 +114,6 @@ const employeeManagementFeatureOrder = [
   { label: "근태 / 휴가 연결", summary: "해당 사원의 근태·휴가 요약과 관련 화면 연결" },
   { label: "급여 연결", summary: "급여 대상 여부와 급여 화면 연결, 민감정보는 별도 보안" },
   { label: "업무 접근 / 포털 접근", summary: "기본업무, 부서업무포털, 지점관리포털, 관리자 접근" },
-  { label: "감사로그 / 변경이력", summary: "생성, 수정, 권한, 상태, 보안 변경 이력" },
 ] as const;
 
 const employeeDetailTabs = [
@@ -127,7 +126,6 @@ const employeeDetailTabs = [
   "근태/휴가",
   "급여",
   "접근권한",
-  "변경이력",
 ] as const;
 
 type AdminUserItem = AdminUserSummary;
