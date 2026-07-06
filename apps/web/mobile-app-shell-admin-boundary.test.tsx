@@ -55,6 +55,36 @@ describe("mobile app shell admin boundary", () => {
     expect(html).not.toContain('class="ghost-link app-topbar__mobile-only"');
   });
 
+  it("renders admin sidebar buttons on shared preview admin routes", () => {
+    mockedPathname = "/admin";
+    mockedSearchParams = new URLSearchParams();
+    const html = renderToStaticMarkup(
+      <MobileAppShell
+        appName="We'reHere"
+        appEyebrow="기본업무"
+        homeHref="/"
+        navItems={mobileBottomTabs}
+        bottomTabs={mobileBottomTabs}
+        menuSections={mobileMenuSections}
+        installGuideSteps={installGuideSteps}
+        offlineGuidance={offlineGuidance}
+        showMobileMenuShortcut={true}
+        currentRoleCode="COMPANY_ADMIN"
+      >
+        <main>admin content on shared preview host</main>
+      </MobileAppShell>,
+    );
+
+    expect(html).toContain('data-route="/admin"');
+    expect(html).toContain('data-route="/admin/users"');
+    expect(html).toContain('data-route="/admin/users#permission-matrix"');
+    expect(html).toContain('data-route="/admin/policies"');
+    expect(html).toContain('data-route="/admin/audit-logs"');
+    expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("권한 관리");
+    expect(html).not.toContain('data-route="/work-items/branch"');
+  });
+
   it("keeps the general /menu shortcut on the shared web host topbar", () => {
     const html = renderToStaticMarkup(
       <MobileAppShell
@@ -83,6 +113,8 @@ describe("mobile app shell admin boundary", () => {
   });
 
   it("keeps selected feature icons and leaves branch portal without a menu icon", () => {
+    mockedPathname = "/offline";
+    mockedSearchParams = new URLSearchParams();
     const html = renderToStaticMarkup(
       <MobileAppShell
         appName="We'reHere"
