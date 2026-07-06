@@ -25,6 +25,15 @@ pnpm --filter @gw/web deploy:cf
 https://gw-web.wereheresp.workers.dev
 ```
 
+## Preview / production 도메인 정책
+
+- `https://gw-web.wereheresp.workers.dev` 는 preview/UAT 정책 적용 도메인이다.
+- `https://werehere.co.kr` 는 production 정책 적용 도메인이다.
+- Worker 런타임은 요청 Host 기준으로 DB secret을 분리한다.
+  - `*.workers.dev` / `gw-web.wereheresp.workers.dev` → `DATABASE_URL_PREVIEW`
+  - `werehere.co.kr` / `www.werehere.co.kr` → `DATABASE_URL_PRODUCTION`
+- production custom domain은 preview `DATABASE_URL`로 fallback하지 않아야 한다. production secret이 없으면 명시적으로 DB 미설정 오류가 나야 한다.
+
 운영 기준선 메모:
 
 - 현재 공개 확인 기준은 live URL + `/api/health` + preview smoke + release-gate 기록이다.

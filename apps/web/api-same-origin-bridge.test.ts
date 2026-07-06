@@ -11,6 +11,7 @@ import { POST as postLogin } from "./app/api/auth/login/route";
 import { POST as postLogout } from "./app/api/auth/logout/route";
 import { GET as getHealth } from "./app/api/health/route";
 import { GET as getMe } from "./app/api/me/route";
+import { resolveDatabaseBindingsForRequest } from "./same-origin-api-bridge";
 
 async function expectDbBackedOrRequired(response: Response) {
   expect([200, 503]).toContain(response.status);
@@ -23,6 +24,37 @@ async function expectDbBackedOrRequired(response: Response) {
 }
 
 describe("Phase 55 same-origin API bridge", () => {
+  it("keeps workers.dev on preview DB and custom domain on production DB", () => {
+    const env = {
+      DATABASE_URL: "postgres://legacy-preview",
+      DATABASE_URL_PREVIEW: "postgres://preview",
+      DATABASE_URL_PRODUCTION: "postgres://production",
+      APP_ENV: "preview",
+    };
+
+    expect(resolveDatabaseBindingsForRequest(new Request("https://gw-web.wereheresp.workers.dev/api/db/health"), env, {})).toMatchObject({
+      DATABASE_URL: "postgres://preview",
+      APP_ENV: "preview",
+    });
+    expect(resolveDatabaseBindingsForRequest(new Request("https://werehere.co.kr/api/db/health"), env, {})).toMatchObject({
+      DATABASE_URL: "postgres://production",
+      APP_ENV: "production",
+    });
+  });
+
+  it("does not fall back to preview DATABASE_URL for the production custom domain", () => {
+    const env = {
+      DATABASE_URL: "postgres://legacy-preview",
+      DATABASE_URL_PREVIEW: "postgres://preview",
+      APP_ENV: "preview",
+    };
+
+    expect(resolveDatabaseBindingsForRequest(new Request("https://werehere.co.kr/api/db/health"), env, {})).toMatchObject({
+      DATABASE_URL: undefined,
+      APP_ENV: "production",
+    });
+  });
+
   it("returns the shared health contract from the web same-origin route", async () => {
     const response = await getHealth(new Request("http://localhost/api/health"));
 
