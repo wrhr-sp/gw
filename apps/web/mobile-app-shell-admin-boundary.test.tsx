@@ -950,6 +950,16 @@ describe("mobile app shell admin boundary", () => {
     expect(globalCss).not.toContain("box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18)");
     expect(globalCss).not.toContain(".desktop-sidebar--collapsed .desktop-sidebar__collapsed-stack");
     expect(globalCss).toContain("--desktop-sidebar-collapsed-link-min-height: 40px;");
+    expect(globalCss).toContain("--desktop-sidebar-collapsed-group-divider-gap: var(--desktop-sidebar-collapsed-custom-list-gap);");
+    expect(globalCss).toContain("--desktop-sidebar-group-divider-margin: var(--desktop-sidebar-collapsed-group-divider-gap) 4px;");
+    expect(globalCss).toContain(".desktop-sidebar__collapsed-group-divider {");
+    expect(globalCss).toContain("margin: var(--desktop-sidebar-group-divider-margin);");
+    expect(globalCss).toContain(".desktop-sidebar__section-summary::after");
+    expect(globalCss).toContain(".desktop-sidebar__group-summary::after");
+    expect(globalCss).toContain('content: "▾";');
+    expect(globalCss).toContain('content: "▴";');
+    expect(globalCss).toContain(".desktop-sidebar__section-details[open] > .desktop-sidebar__section-summary::after");
+    expect(globalCss).toContain(".desktop-sidebar__group[open] > .desktop-sidebar__group-summary::after");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-collapsed-link-min-height);");
     expect(globalCss).toContain("--desktop-sidebar-settings-button-min-height: 27px;");
     expect(globalCss).toContain("min-height: var(--desktop-sidebar-settings-button-min-height);");
