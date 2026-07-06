@@ -95,7 +95,7 @@ function buildEmployeeDetailSections(selected: AdminUserSummary | null): Employe
       title,
       meta: "선택 사원 조회 후 표시",
       body: "운영 DB 조회 결과에서 사원을 선택하면 실제 API 값 또는 연결 필요 상태를 표시합니다.",
-      status: "대기",
+      status: "미구성 대기",
     }));
   }
 
