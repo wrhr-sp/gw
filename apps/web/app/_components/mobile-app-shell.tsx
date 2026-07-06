@@ -1323,8 +1323,10 @@ const supportSidebarGroups: readonly SupportSidebarGroup[] = [
   {
     title: "인사관리",
     items: [
+      { href: "/admin/users#create-account", label: "계정생성", shortLabel: "계정생성", summary: "신규 사원 계정 생성 진입점을 확인합니다." },
       { href: "/admin/users", label: "사원정보관리", shortLabel: "사원정보", summary: "사원정보 목록과 상세 정보를 확인합니다." },
       { href: "/admin/users#permission-matrix", label: "계정권한관리", shortLabel: "계정권한", summary: "계정 상태와 기능별 권한을 확인합니다." },
+      { href: "/admin/policies#policy-documents", label: "관리 정책문서", shortLabel: "정책문서", summary: "관리 정책 문서와 운영 정책 검토 기준을 확인합니다." },
       { href: "#support-hr-appointments", label: "인사발령", shortLabel: "발령", summary: "인사발령 기능은 별도 구현 전까지 비활성 상태로 표시합니다.", disabled: true },
       { href: "#support-dormant-accounts", label: "휴면계정관리", shortLabel: "휴면계정", summary: "휴면계정 관리 기능은 계정권한관리 이동 후 연결합니다.", disabled: true },
     ],

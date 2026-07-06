@@ -317,9 +317,9 @@ describe("mobile app shell admin boundary", () => {
     );
     expect(supportHtml).toContain('aria-label="경영지원팀 사이드바 편집"');
     expect(supportHtml).toContain('data-route="/Management Support"');
+    expect(supportHtml).toContain('data-route="/admin/users#create-account"');
     expect(supportHtml).toContain('data-route="/admin/users"');
     expect(supportHtml).toContain('data-route="/admin/users#permission-matrix"');
-    expect(supportHtml).toContain('data-route="/Place of business"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
     expect(supportHtml).toContain('data-route="/work-items/hr?department=support"');
     expect(supportHtml).toContain('data-route="/payroll?department=support"');
@@ -391,8 +391,10 @@ describe("mobile app shell admin boundary", () => {
     expect(shellSource).toContain('support: ["/work-items/hr"');
     expect(shellSource).toContain('const supportSidebarGroups');
     expect(shellSource).toContain('title: "인사관리"');
+    expect(shellSource).toContain('label: "계정생성"');
     expect(shellSource).toContain('label: "사원정보관리"');
     expect(shellSource).toContain('label: "계정권한관리"');
+    expect(shellSource).toContain('label: "관리 정책문서"');
     expect(shellSource).toContain('label: "인사발령"');
     expect(shellSource).toContain('label: "휴면계정관리"');
     expect(shellSource).toContain('title: "지점관리"');
