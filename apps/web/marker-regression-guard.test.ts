@@ -38,6 +38,10 @@ function isAllowedFrameworkFallback(relativePath: string, line: string) {
   return relativePath === "apps/web/app/admin/users/page.tsx" && line.includes("<Suspense fallback=");
 }
 
+function isAllowedDeploymentPreviewUrl(relativePath: string, line: string) {
+  return relativePath === "apps/web/app/uat/uat-package-config.ts" && line.includes("gw-web-preview.wereheresp.workers.dev");
+}
+
 describe("marker regression guard", () => {
   it("keeps production source free of residue markers", () => {
     const violations: string[] = [];
@@ -49,7 +53,7 @@ describe("marker regression guard", () => {
 
         lines.forEach((line, index) => {
           blockedMarkers.forEach((marker) => {
-            if (line.includes(marker)) {
+            if (line.includes(marker) && !isAllowedDeploymentPreviewUrl(relativePath, line)) {
               violations.push(`${relativePath}:${index + 1} contains ${marker}`);
             }
           });

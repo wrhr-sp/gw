@@ -67,7 +67,7 @@ function buildApiRequest(request: Request, pathname: string, options?: { trustDe
   return new Request(targetUrl.toString(), requestInit);
 }
 
-const previewHostnames = new Set(["gw-web.wereheresp.workers.dev"]);
+const previewHostnames = new Set(["gw-web-preview.wereheresp.workers.dev", "gw-web.wereheresp.workers.dev"]);
 const productionHostnames = new Set(["werehere.co.kr", "www.werehere.co.kr"]);
 
 type RuntimeEnvSource = Record<string, unknown> | NodeJS.ProcessEnv;

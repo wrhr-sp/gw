@@ -9,7 +9,7 @@ describe("Phase 40 internal adoption rehearsal package", () => {
     const html = renderToStaticMarkup(<UatPage />);
 
     expect(html).toContain("내부 도입 리허설 / UAT 패키지");
-    expect(html).toContain("https://gw-web.wereheresp.workers.dev");
+    expect(html).toContain("https://gw-web-preview.wereheresp.workers.dev");
     expect(html).toContain("admin / 1234");
     expect(html).not.toContain("운영자/감사 담당자가 같은 live 환경");
     expect(html).toContain("역할별 시나리오 카드");
