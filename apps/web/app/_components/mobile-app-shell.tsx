@@ -13,6 +13,8 @@ type NotificationBadgeState = {
 
 type TopbarNotificationItem = {
   id: string;
+  companyId: string;
+  userId: string;
   title: string;
   body: string;
   notificationType: string;
@@ -570,9 +572,22 @@ function getTopbarNotificationTag(notificationType: string) {
   return "알림";
 }
 
-function getTopbarNotificationHref(notificationType: string) {
-  if (notificationType === "messenger_mention" || notificationType === "messenger_message") return "/messenger";
-  return null;
+function getTopbarNotificationHref(item: TopbarNotificationItem) {
+  if (item.notificationType !== "messenger_mention" && item.notificationType !== "messenger_message") return null;
+
+  const roomId = item.body.match(/^(\S+) 대화방/)?.[1];
+  const notificationPrefix = `notification_${item.companyId}_${item.userId}_`;
+  const messageId = item.id.startsWith(notificationPrefix)
+    ? item.id.slice(notificationPrefix.length).replace(/_(mention|message)$/, "")
+    : null;
+  if (roomId && messageId) {
+    const params = new URLSearchParams({ roomId, messageId });
+    return `/messenger?${params.toString()}`;
+  }
+  if (roomId) {
+    return `/messenger?${new URLSearchParams({ roomId }).toString()}`;
+  }
+  return "/messenger";
 }
 
 function matchesTopbarNotificationFilter(item: TopbarNotificationItem, filter: TopbarNotificationFilterKey) {
@@ -3612,7 +3627,7 @@ export function MobileAppShell({
               </div>
               {notificationActionError ? <p className="topbar-modal__error">{notificationActionError}</p> : null}
               {filteredTopbarNotifications.length ? filteredTopbarNotifications.map((item) => {
-                const href = getTopbarNotificationHref(item.notificationType);
+                const href = getTopbarNotificationHref(item);
                 const itemPending = notificationActionPendingId === item.id;
                 return (
                   <article key={item.id} className="topbar-modal-list-item topbar-modal-list-item--notification" data-status={item.status}>

@@ -52,6 +52,14 @@ describe("messenger page", () => {
     expect(pageSource).toContain("messengerMessageSearchResponseSchema");
     expect(pageSource).toContain("uploadMessengerAttachment");
     expect(pageSource).toContain("markLatestMessageRead");
+    expect(pageSource).toContain("useSearchParams");
+    expect(pageSource).toContain('searchParams?.get("roomId")');
+    expect(pageSource).toContain('searchParams?.get("messageId")');
+    expect(pageSource).toContain("highlightedMessageId");
+    expect(pageSource).toContain("data-message-id={message.id}");
+    expect(pageSource).toContain("messenger-message--highlighted");
+    expect(pageSource).toContain("scrollIntoView({ block: \"center\" })");
+    expect(pageSource).toContain("알림에서 이동한 메시지를 표시합니다.");
     expect(pageSource).toContain("messenger-mention-badge");
     expect(pageSource).toContain("handleSearchMessages");
     expect(pageSource).toContain("handleInsertMention");
@@ -135,6 +143,8 @@ describe("messenger page", () => {
     expect(globalCss).toContain(".messenger-message-attachments");
     expect(globalCss).toContain(".messenger-thread__badges");
     expect(globalCss).toContain(".messenger-mention-badge");
+    expect(globalCss).toContain(".messenger-message--highlighted");
+    expect(globalCss).toContain("outline: 3px solid var(--primary-soft);");
     expect(globalCss).toContain(".topbar-modal-link-action");
     expect(globalCss).toContain(".topbar-modal-filter-row");
     expect(globalCss).toContain(".topbar-modal-filter-button[data-active=\"true\"]");

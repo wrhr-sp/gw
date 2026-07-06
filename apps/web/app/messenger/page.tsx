@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   appRoutes,
@@ -185,6 +186,9 @@ function formatMessengerFileSize(size: number) {
 
 export default function MessengerPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const searchParams = useSearchParams();
+  const notificationRoomId = searchParams?.get("roomId") ?? null;
+  const notificationMessageId = searchParams?.get("messageId") ?? null;
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [leftThreadIds, setLeftThreadIds] = useState<string[]>([]);
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState(false);
@@ -204,6 +208,7 @@ export default function MessengerPage() {
   const [pendingAttachments, setPendingAttachments] = useState<MessengerAttachment[]>([]);
   const [messageDraft, setMessageDraft] = useState("");
   const [displayMessage, setDisplayMessage] = useState("");
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [apiThreads, setApiThreads] = useState<MessengerThread[]>([]);
   const [apiMessages, setApiMessages] = useState<MessengerMessageView[]>([]);
   const [apiMembers, setApiMembers] = useState<MessengerMemberView[]>([]);
@@ -687,6 +692,32 @@ export default function MessengerPage() {
   }, []);
 
   useEffect(() => {
+    if (!notificationRoomId || isMessengerLoading) {
+      return;
+    }
+    const targetThread = conversationThreads.find((thread) => thread.id === notificationRoomId);
+    if (!targetThread) {
+      setDisplayMessage("알림이 가리키는 대화방을 찾을 수 없습니다.");
+      return;
+    }
+    setActiveThreadId(targetThread.id);
+    setHighlightedMessageId(notificationMessageId);
+    setDisplayMessage(notificationMessageId ? "알림에서 이동한 메시지를 표시합니다." : "알림에서 이동한 대화방입니다.");
+  }, [conversationThreads, isMessengerLoading, notificationRoomId, notificationMessageId]);
+
+  useEffect(() => {
+    if (!highlightedMessageId || isMessageLoading) {
+      return;
+    }
+    const targetMessage = apiMessages.find((message) => message.id === highlightedMessageId);
+    if (!targetMessage) {
+      return;
+    }
+    const element = document.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(highlightedMessageId)}"]`);
+    element?.scrollIntoView({ block: "center" });
+  }, [apiMessages, highlightedMessageId, isMessageLoading]);
+
+  useEffect(() => {
     if (activeThreadId) {
       void loadMessengerMessages(activeThreadId);
       void loadMessengerMembers(activeThreadId);
@@ -843,7 +874,11 @@ export default function MessengerPage() {
                     <div className="messenger-empty-state messenger-empty-state--inline">저장된 메시지가 없습니다. 첫 메시지를 보내세요.</div>
                   ) : null}
                   {apiMessages.map((message) => (
-                    <article key={message.id} className={message.mine ? "messenger-message messenger-message--mine" : "messenger-message messenger-message--other"}>
+                    <article
+                      key={message.id}
+                      data-message-id={message.id}
+                      className={`${message.mine ? "messenger-message messenger-message--mine" : "messenger-message messenger-message--other"}${message.id === highlightedMessageId ? " messenger-message--highlighted" : ""}`}
+                    >
                       <strong>{message.mine ? "나" : message.senderName}</strong>
                       <p>{message.body}</p>
                       {message.mentions.length ? <small>멘션 {message.mentions.map((mention) => mention.displayName ?? mention.userId).join(", ")}</small> : null}

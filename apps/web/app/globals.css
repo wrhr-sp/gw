@@ -7138,6 +7138,12 @@ li {
   border-color: var(--primary-soft-strong);
 }
 
+.messenger-message--highlighted {
+  border-color: var(--primary);
+  outline: 3px solid var(--primary-soft);
+  outline-offset: 0;
+}
+
 .messenger-message p {
   margin: 0;
   white-space: pre-line;
