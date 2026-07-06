@@ -80,7 +80,7 @@ const accountTypeOptions = [
   { value: "employee", label: "직원" },
   { value: "admin", label: "관리자" },
   { value: "external", label: "외부 사용자" },
-  { value: "service", label: "봇/서비스 계정" },
+  { value: "bot_service", label: "봇/서비스 계정" },
   { value: "system", label: "시스템 계정" },
 ] as const;
 
@@ -227,7 +227,7 @@ function AccountCreationPanel({ existingUsers }: { existingUsers: readonly Admin
   return (
     <SurfaceSection title="계정생성 1차 검증">
       <div className="employee-management-toolbar" aria-label="계정생성 입력 조건">
-        <form method="post" action="/admin/users/verification-action" className="employee-info-form-grid">
+        <form method="post" action={appRoutes.admin.userCreate} className="employee-info-form-grid">
           <input type="hidden" name="actionType" value="create" />
           <div className="employee-info-column">
             <EmployeeField label="이름" required><input name="fullName" aria-label="계정생성 이름" minLength={2} required /></EmployeeField>
@@ -256,16 +256,15 @@ function AccountCreationPanel({ existingUsers }: { existingUsers: readonly Admin
             <EmployeeField label="보안 설정"><span className="employee-radio-row"><label><input type="checkbox" name="mustChangePassword" value="true" defaultChecked /> 최초 로그인 비밀번호 변경</label><label><input type="checkbox" name="mfaRequired" value="true" /> 2단계 인증 필요</label></span></EmployeeField>
           </div>
           <div className="employee-info-dialog__footer">
-            <button type="submit">생성 전 검증</button>
-            <button type="button" disabled aria-disabled="true">계정 생성 저장</button>
+            <button type="submit">계정 생성 저장</button>
           </div>
         </form>
       </div>
       <div className="grid-auto-compact">
         <article className="info-card">
-          <Pill tone="warning">저장 차단</Pill>
-          <h3>실제 계정 생성 저장은 아직 열지 않습니다</h3>
-          <p>현재 버튼은 입력값·중복 후보·권한 위험도·감사 후보를 검증하는 단계입니다. 저장 API/DB/audit 재조회가 연결되기 전에는 생성 완료로 보이지 않게 막습니다.</p>
+          <Pill tone="accent">DB 저장</Pill>
+          <h3>계정 생성은 운영 DB에 저장하고 다시 조회합니다</h3>
+          <p>저장 시 users, employees, user_roles, audit_logs를 한 트랜잭션으로 연결합니다. DB 또는 schema가 준비되지 않으면 성공처럼 보이지 않고 명확한 오류로 실패합니다.</p>
         </article>
         <article className="info-card">
           <Pill>중복 후보 기준</Pill>

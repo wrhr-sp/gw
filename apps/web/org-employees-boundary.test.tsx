@@ -56,9 +56,9 @@ describe("org/employees/admin boundaries", () => {
 
     expect(html).toContain("사원정보관리");
     expect(html).toContain("계정생성 1차 검증");
-    expect(html).toContain("생성 전 검증");
     expect(html).toContain("계정 생성 저장");
-    expect(html).toContain("실제 계정 생성 저장은 아직 열지 않습니다");
+    expect(html).toContain("계정 생성은 운영 DB에 저장하고 다시 조회합니다");
+    expect(html).toContain("users, employees, user_roles, audit_logs");
     expect(html).toContain("필수값: 이름, 로그인 ID/이메일, 부서, 지점, 초기 역할");
     expect(html).toContain("감사 후보: 계정 생성 요청자, 사유, 생성 전 검증 결과");
     expect(html).toContain("사원정보관리 목록");

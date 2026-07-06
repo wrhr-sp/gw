@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -370,6 +370,141 @@ export async function listOperationalAdminUsers(
       },
     } satisfies AdminUserSummary;
   });
+}
+
+export async function createOperationalAdminUser(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  input: AdminUserCreateRequest,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const loginId = normalizedEmail.split("@")[0] || normalizedEmail;
+  const userId = `user_${crypto.randomUUID()}`;
+  const employeeId = `employee_${crypto.randomUUID()}`;
+  const employeeNumber = `EMP-${Date.now().toString(36).toUpperCase()}`;
+  const passwordHash = `pending_invite_${crypto.randomUUID()}`;
+  const positionName = input.positionName?.trim() || null;
+
+  try {
+    await sql`begin`;
+
+    const duplicateRows = await sql`
+      select id from users
+      where company_id = ${companyId}
+        and deleted_at is null
+        and (lower(login_id) = ${loginId.toLowerCase()} or lower(email) = ${normalizedEmail})
+      limit 1
+    `;
+    if (duplicateRows[0]) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const branchRows = await sql`
+      select id from branches
+      where company_id = ${companyId}
+        and deleted_at is null
+        and status = 'active'
+        and name = ${input.branchName.trim()}
+      order by id
+      limit 1
+    `;
+    const branchId = (branchRows[0] as { id: string } | undefined)?.id;
+    if (!branchId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const departmentRows = await sql`
+      select id from departments
+      where company_id = ${companyId}
+        and deleted_at is null
+        and status = 'active'
+        and name = ${input.departmentName.trim()}
+      order by id
+      limit 1
+    `;
+    const departmentId = (departmentRows[0] as { id: string } | undefined)?.id;
+    if (!departmentId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    let positionId: string | null = null;
+    if (positionName) {
+      const positionRows = await sql`
+        select id from positions
+        where company_id = ${companyId}
+          and deleted_at is null
+          and status = 'active'
+          and name = ${positionName}
+        order by id
+        limit 1
+      `;
+      positionId = (positionRows[0] as { id: string } | undefined)?.id ?? null;
+    }
+
+    const roleRows = await sql`
+      select id from roles
+      where code = ${input.roleCode}
+        and company_id = ${companyId}
+        and status = 'active'
+        and deleted_at is null
+      limit 1
+    `;
+    const roleId = (roleRows[0] as { id: string } | undefined)?.id;
+    if (!roleId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    await sql`
+      insert into users (id, company_id, login_id, email, password_hash, display_name, status, must_change_password, created_at, updated_at)
+      values (${userId}, ${companyId}, ${loginId}, ${normalizedEmail}, ${passwordHash}, ${input.fullName.trim()}, ${input.status}, ${input.mustChangePassword ?? true}, ${updatedAt}, ${updatedAt})
+    `;
+
+    await sql`
+      insert into employees (id, company_id, branch_id, user_id, department_id, position_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
+      values (${employeeId}, ${companyId}, ${branchId}, ${userId}, ${departmentId}, ${positionId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, current_date, ${updatedAt}, ${updatedAt})
+    `;
+
+    await sql`
+      insert into user_roles (id, company_id, user_id, role_id, assigned_by, status, created_at, updated_at)
+      values (${`user_role_${userId}_${input.roleCode}`}, ${companyId}, ${userId}, ${roleId}, ${actorUserId}, 'active', ${updatedAt}, ${updatedAt})
+    `;
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_create_${userId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.create',
+        'user',
+        ${userId},
+        ${JSON.stringify({ status: "not_created" })}::jsonb,
+        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, branchLinked: Boolean(branchId), departmentLinked: Boolean(departmentId), positionLinked: Boolean(positionId) })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "invite_token"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, userId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
 }
 
 export async function updateOperationalAdminUserStatus(

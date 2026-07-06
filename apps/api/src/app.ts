@@ -16,6 +16,7 @@ import {
   adminPolicyDocumentUpdateRequestSchema,
   adminPolicyUpdateResponseSchema,
   adminUserMutationResponseSchema,
+  adminUserCreateRequestSchema,
   adminUserRolesUpdateRequestSchema,
   adminUsersListResponseSchema,
   adminUserStatusUpdateRequestSchema,
@@ -320,7 +321,7 @@ import {
   sortApprovalSteps,
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
-import { listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserRoles, updateOperationalAdminUserStatus } from "./lib/operational-admin";
+import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserRoles, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
 import {
@@ -4004,6 +4005,78 @@ app.post(appRoutes.admin.invites, async (context) => {
   }
 
   return jsonDatabaseRequired(context, "관리자 초대 저장");
+});
+
+app.post(appRoutes.admin.userCreate, async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const contentType = context.req.header("content-type") ?? "";
+  const isFormRequest = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  const body = isFormRequest
+    ? await context.req.parseBody().then((form) => ({
+        fullName: form.fullName,
+        email: form.email,
+        departmentName: form.departmentName,
+        branchName: form.branchName,
+        positionName: form.positionName,
+        accountType: form.accountType,
+        roleCode: form.roleCode,
+        status: form.status ?? form.nextStatus,
+        reason: form.reason,
+        mustChangePassword: form.mustChangePassword === "true",
+        mfaRequired: form.mfaRequired === "true",
+      }))
+    : await context.req.json().catch(() => null);
+  const parsed = adminUserCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "계정 생성 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await createOperationalAdminUser(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    parsed.data,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+  if (!result) {
+    return jsonDatabaseRequired(context, "관리자 계정 생성 저장");
+  }
+
+  if (isFormRequest) {
+    return context.redirect(`/admin/users?result=${encodeURIComponent(`${result.user.fullName} 계정 생성 저장 완료`)}&actionType=create`);
+  }
+
+  return jsonSuccess(
+    context,
+    adminUserMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        user: result.user,
+        audit: {
+          candidate: true,
+          action: "admin.user.create",
+        },
+        persistence: "operational-db",
+        updatedAt: result.updatedAt,
+      },
+      error: null,
+    },
+    201,
+  );
 });
 
 app.get(appRoutes.admin.users, async (context) => {
