@@ -28,7 +28,7 @@
     {
       "name": "전자결재",
       "short_name": "결재",
-      "description": "내 승인함과 승인 대기 흐름을 빠르게 엽니다.",
+      "description": "내 승인함과 승인 대기 상태를 빠르게 엽니다.",
       "url": "/approvals"
     }
   ],

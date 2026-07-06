@@ -83,7 +83,7 @@ export const generalPwaManifest = {
     {
       name: "전자결재",
       short_name: "결재",
-      description: "내 승인함과 승인 대기 흐름을 빠르게 엽니다.",
+      description: "내 승인함과 승인 대기 상태를 빠르게 엽니다.",
       url: "/approvals",
     },
   ],
@@ -210,13 +210,13 @@ export const mobilePrimaryNav: NavItem[] = [
     href: "/documents",
     label: "전사 문서함",
     shortLabel: "전사문서",
-    summary: "문서 공간과 보관 흐름 확인",
+    summary: "문서 공간과 보관 상태 확인",
   },
   {
     href: "/sales",
     label: "영업관리",
     shortLabel: "영업",
-    summary: "상담, 거래, 후속 연락 흐름 확인",
+    summary: "상담, 거래, 후속 연락 상태 확인",
   },
   {
     href: "/me",
@@ -600,7 +600,7 @@ export const offlineTaskGuides: readonly OfflineTaskGuide[] = [
     label: "문서 / 파일",
     available: "문서 공간 구조와 보관 규칙 안내는 읽을 수 있습니다.",
     blocked: "metadata 생성, 업로드, 승인 연계 저장은 온라인 상태에서만 이어집니다.",
-    retryHint: "연결이 돌아오면 `/documents` 에서 실제 업로드/보관 흐름을 다시 시도합니다.",
+    retryHint: "연결이 돌아오면 `/documents` 에서 실제 업로드/보관 작업을 다시 시도합니다.",
   },
   {
     href: "/admin",
