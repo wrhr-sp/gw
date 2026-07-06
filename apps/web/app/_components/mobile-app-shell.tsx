@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
-import { type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
+import { adminPrimaryNav, type NavItem, type NavSection, type OfflineGuidance } from "../mobile-pwa-config";
 
 type NotificationBadgeState = {
   unreadCount: number;
@@ -1324,7 +1324,7 @@ const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = 
   operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
   branch: ["/work-items/branch", "/sales", "/employees"],
   management: ["/management", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal"],
-  admin: ["/admin", "/admin/users", "/admin/policies", "/admin/audit-logs", "/admin/users/verification-action"],
+  admin: ["/admin", "/admin/users", "/admin/users#permission-matrix", "/admin/policies", "/admin/audit-logs"],
 };
 
 const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = Object.fromEntries(
@@ -1389,6 +1389,9 @@ function buildSidebarSectionsByPortal(sections: readonly NavSection[], portalKey
   itemsByHref.set(branchPortalHomeItem.href, branchPortalHomeItem);
   itemsByHref.set(branchPortalWorkItem.href, branchPortalWorkItem);
   supportAccountingSidebarItems.forEach((item) => itemsByHref.set(item.href, item));
+  if (portalKey === "admin") {
+    adminPrimaryNav.forEach((item) => itemsByHref.set(item.href, item));
+  }
 
   if (departmentSidebarPortalKeys.has(portalKey)) {
     const basicHrefs = sidebarBasicHrefs.filter((href) => !new Set<string>(sidebarPortalSpecificHrefs[portalKey]).has(href));

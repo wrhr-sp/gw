@@ -55,9 +55,9 @@ describe("org/employees/admin boundaries", () => {
     const html = renderToStaticMarkup(<AdminUsersPage />);
 
     expect(html).toContain("사원 계정 관리");
-    expect(html).toContain("계정 생애주기");
-    expect(html).toContain("사용자별 기능 세부권한");
-    expect(html).toContain("비활성 관리자 작업");
+    expect(html).toContain("사원 계정 목록");
+    expect(html).toContain("기능별 권한");
+    expect(html).toContain("관리자 작업");
     expect(html).toContain("감사로그");
   });
 });
