@@ -222,6 +222,118 @@ describe("operational DB-backed auth", () => {
     }
   });
 
+  runWhenDbConfigured("updates and re-reads an employee account status through admin users API", async () => {
+    const cookie = await login();
+    const targetUserId = "user_hr_admin";
+
+    const beforeResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(beforeResponse.status).toBe(200);
+    const beforePayload = adminUsersListResponseSchema.parse(await beforeResponse.json());
+    const beforeUser = beforePayload.data.items.find((item) => item.userId === targetUserId);
+    expect(beforeUser).toBeDefined();
+    if (!beforeUser) return;
+
+    const nextMustChangePassword = !beforeUser.mustChangePassword;
+
+    try {
+      const updateResponse = await app.request(
+        appRoutes.admin.userStatus(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            status: beforeUser.accountStatus,
+            mustChangePassword: nextMustChangePassword,
+            reason: "사원 계정상태 저장 테스트",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(updateResponse.status).toBe(200);
+      const updatePayload = adminUserMutationResponseSchema.parse(await updateResponse.json());
+      expect(updatePayload.data.persistence).toBe("operational-db");
+      expect(updatePayload.data.audit.action).toBe("admin.user.status.update");
+      expect(updatePayload.data.user.accountStatus).toBe(beforeUser.accountStatus);
+      expect(updatePayload.data.user.mustChangePassword).toBe(nextMustChangePassword);
+
+      const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+      expect(rereadResponse.status).toBe(200);
+      const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+      const rereadUser = rereadPayload.data.items.find((item) => item.userId === targetUserId);
+      expect(rereadUser?.accountStatus).toBe(beforeUser.accountStatus);
+      expect(rereadUser?.mustChangePassword).toBe(nextMustChangePassword);
+    } finally {
+      await app.request(
+        appRoutes.admin.userStatus(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            status: beforeUser.accountStatus,
+            mustChangePassword: beforeUser.mustChangePassword,
+            reason: "사원 계정상태 저장 테스트 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+    }
+  });
+
+  runWhenDbConfigured("updates and re-reads employee roles through admin users API", async () => {
+    const cookie = await login();
+    const targetUserId = "user_hr_admin";
+
+    const beforeResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(beforeResponse.status).toBe(200);
+    const beforePayload = adminUsersListResponseSchema.parse(await beforeResponse.json());
+    const beforeUser = beforePayload.data.items.find((item) => item.userId === targetUserId);
+    expect(beforeUser).toBeDefined();
+    if (!beforeUser) return;
+
+    const roleToToggle = beforeUser.roleCodes.includes("AUDITOR") ? "EMPLOYEE" : "AUDITOR";
+    const nextRoleCodes = Array.from(new Set([...beforeUser.roleCodes, roleToToggle]));
+
+    try {
+      const updateResponse = await app.request(
+        appRoutes.admin.userRoles(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            roleCodes: nextRoleCodes,
+            reason: "사원 역할 권한 저장 테스트",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(updateResponse.status).toBe(200);
+      const updatePayload = adminUserMutationResponseSchema.parse(await updateResponse.json());
+      expect(updatePayload.data.persistence).toBe("operational-db");
+      expect(updatePayload.data.audit.action).toBe("admin.user.roles.update");
+      expect(updatePayload.data.user.roleCodes).toEqual(expect.arrayContaining(nextRoleCodes));
+      expect(updatePayload.data.user.permissions.length).toBeGreaterThan(0);
+
+      const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+      expect(rereadResponse.status).toBe(200);
+      const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+      const rereadUser = rereadPayload.data.items.find((item) => item.userId === targetUserId);
+      expect(rereadUser?.roleCodes).toEqual(expect.arrayContaining(nextRoleCodes));
+    } finally {
+      await app.request(
+        appRoutes.admin.userRoles(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            roleCodes: beforeUser.roleCodes,
+            reason: "사원 역할 권한 저장 테스트 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+    }
+  });
+
   runWhenDbConfigured("lists org employees, departments, roles, permissions, companies, and home shortcuts from the preview PostgreSQL seed", async () => {
     const cookie = await login();
 
