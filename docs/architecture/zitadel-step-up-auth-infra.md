@@ -1,6 +1,6 @@
 # ZITADEL 로컬 인증 인프라
 
-이 문서는 기존 자체 SSO를 ZITADEL 기반 하이브리드 인증으로 전환하기 위한 로컬 개발 실행 기준입니다.
+이 문서는 기존 자체 SSO를 ZITADEL 기반 하이브리드 인증으로 전환하기 위한 로컬 개발 실행 기준입니다. 운영 정책 기준은 `docs/architecture/zitadel-operational-auth-policy.md`를 함께 봅니다.
 
 ## 실행 명령
 
@@ -46,19 +46,39 @@ docker compose down -v
 
 ## 사용자 유형 metadata
 
-ZITADEL user metadata key는 `gw.user_type`을 기본 후보로 둡니다.
+ZITADEL user metadata key는 `gw.user_type`을 사용합니다.
+
+화면 표시명과 내부 저장값은 분리합니다.
+
+- `INTERNAL_STAFF`: 사내임직원
+- `ROOM_OPERATIONS`: 객실관리직
+- `BRANCH_OWNER`: 지점대표
+- `PARTNER_EMPLOYEE`: 거래처임직원
+
+회원가입 신청만으로 권한을 부여하지 않고, 관리자 승인 후 사용자 유형별 기본권한 템플릿을 자동 적용합니다.
+
+## 승인 상태 metadata
+
+ZITADEL registration status metadata key는 `gw.registration_status`를 사용합니다.
 
 허용값:
 
-- `사내임원`
-- `지점근무자`
-- `지점대표`
-- `거래처임직원`
+- `PENDING`
+- `APPROVED`
+- `REJECTED`
+- `SUSPENDED`
+
+로그인은 `APPROVED` 상태만 허용합니다.
+
+## production endpoint 기준
+
+production ZITADEL endpoint는 이 문서에서 확정하지 않습니다. 실제 production endpoint, DNS, TLS, custom domain은 대장과 별도 승인 하에 같이 진행합니다.
 
 ## 별도 승인 게이트
 
 아래는 이 로컬 구조 작업에 포함하지 않습니다.
 
+- production endpoint 확정
 - production DB 실데이터 migration
 - 실제 운영 secret 입력/교체/출력
 - DNS/custom domain 변경
