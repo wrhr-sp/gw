@@ -37,6 +37,7 @@ export const appRoutes = {
     userProfile: (userId: string) => `/api/admin/users/${userId}/profile`,
     userOrganization: (userId: string) => `/api/admin/users/${userId}/organization`,
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
+    userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     permissions: "/api/admin/permissions",
     policies: "/api/admin/policies",
@@ -2051,6 +2052,16 @@ export const adminUserStatusUpdateRequestSchema = z
   })
   .strict();
 
+export const adminUserSecurityUpdateRequestSchema = z
+  .object({
+    twoFactorRequired: z.boolean(),
+    mustChangePassword: z.boolean(),
+    resetFailedLoginCount: z.boolean().default(false),
+    revokeActiveSessions: z.boolean().default(false),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
 export const adminUserRolesUpdateRequestSchema = z
   .object({
     roleCodes: z.array(roleCodeSchema).min(1),
@@ -4007,6 +4018,7 @@ export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;
+export type AdminUserSecurityUpdateRequest = z.infer<typeof adminUserSecurityUpdateRequestSchema>;
 export type AdminUserRolesUpdateRequest = z.infer<typeof adminUserRolesUpdateRequestSchema>;
 export type AdminUserProfileUpdateRequest = z.infer<typeof adminUserProfileUpdateRequestSchema>;
 export type AdminUserOrganizationUpdateRequest = z.infer<typeof adminUserOrganizationUpdateRequestSchema>;

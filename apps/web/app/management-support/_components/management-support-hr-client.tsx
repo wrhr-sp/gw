@@ -7,6 +7,7 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserRolesUpdateRequestSchema,
+  adminUserSecurityUpdateRequestSchema,
   adminUserStatusUpdateRequestSchema,
   adminUsersListResponseSchema,
   appRoutes,
@@ -14,6 +15,7 @@ import {
   type AdminUserOrganizationUpdateRequest,
   type AdminUserProfileUpdateRequest,
   type AdminUserRolesUpdateRequest,
+  type AdminUserSecurityUpdateRequest,
   type AdminUserSummary,
   type AdminUserStatusUpdateRequest,
   type RoleCode,
@@ -199,6 +201,13 @@ export function ManagementSupportHrClient() {
     roleCodes: ["EMPLOYEE"],
     reason: "사원 역할/권한 수정",
   });
+  const [securityForm, setSecurityForm] = useState<AdminUserSecurityUpdateRequest>({
+    twoFactorRequired: false,
+    mustChangePassword: false,
+    resetFailedLoginCount: false,
+    revokeActiveSessions: false,
+    reason: "사원 보안 설정 수정",
+  });
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
   const [organizationSaveState, setOrganizationSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -207,6 +216,8 @@ export function ManagementSupportHrClient() {
   const [accountSaveMessage, setAccountSaveMessage] = useState<string | null>(null);
   const [rolesSaveState, setRolesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [rolesSaveMessage, setRolesSaveMessage] = useState<string | null>(null);
+  const [securitySaveState, setSecuritySaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [securitySaveMessage, setSecuritySaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -283,7 +294,16 @@ export function ManagementSupportHrClient() {
     });
     setRolesSaveState("idle");
     setRolesSaveMessage(null);
-  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate, selected?.accountStatus, selected?.mustChangePassword, selected?.roleCodes]);
+    setSecurityForm({
+      twoFactorRequired: selected.twoFactorRequired,
+      mustChangePassword: selected.mustChangePassword,
+      resetFailedLoginCount: false,
+      revokeActiveSessions: false,
+      reason: "사원 보안 설정 수정",
+    });
+    setSecuritySaveState("idle");
+    setSecuritySaveMessage(null);
+  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate, selected?.accountStatus, selected?.mustChangePassword, selected?.roleCodes, selected?.twoFactorRequired]);
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -462,6 +482,52 @@ export function ManagementSupportHrClient() {
     } catch (error) {
       setRolesSaveState("error");
       setRolesSaveMessage(error instanceof Error ? error.message : "사원 역할/권한을 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleSecuritySave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+
+    const parsedRequest = adminUserSecurityUpdateRequestSchema.safeParse(securityForm);
+    if (!parsedRequest.success) {
+      setSecuritySaveState("error");
+      setSecuritySaveMessage("보안 설정과 변경 사유를 확인해 주세요.");
+      return;
+    }
+
+    setSecuritySaveState("saving");
+    setSecuritySaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userSecurity(selected.userId), {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 보안 설정을 저장하지 못했습니다.");
+      }
+
+      const updatedUser = parsedResponse.data.data.user;
+      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
+      setSelectedUserId(updatedUser.userId);
+      setSecurityForm((current) => ({ ...current, resetFailedLoginCount: false, revokeActiveSessions: false }));
+      setSecuritySaveState("saved");
+      setSecuritySaveMessage(`${updatedUser.fullName} 보안 설정을 저장했습니다.`);
+    } catch (error) {
+      setSecuritySaveState("error");
+      setSecuritySaveMessage(error instanceof Error ? error.message : "사원 보안 설정을 저장하지 못했습니다.");
     }
   }
 
@@ -822,6 +888,80 @@ export function ManagementSupportHrClient() {
           {rolesSaveMessage ? (
             <p className="feature-workspace__save-message" role={rolesSaveState === "error" ? "alert" : "status"}>
               {rolesSaveMessage}
+            </p>
+          ) : null}
+        </form>
+
+        <form className="feature-workspace__form" onSubmit={handleSecuritySave} aria-label="사원 보안 설정 수정">
+          <label>
+            <span>2단계 인증</span>
+            <select
+              aria-label="사원 2단계 인증 요구"
+              disabled={!selected || securitySaveState === "saving"}
+              onChange={(event) => setSecurityForm((current) => ({ ...current, twoFactorRequired: event.target.value === "true" }))}
+              value={securityForm.twoFactorRequired ? "true" : "false"}
+            >
+              <option value="false">요구 안 함</option>
+              <option value="true">요구</option>
+            </select>
+          </label>
+          <label>
+            <span>비밀번호 변경</span>
+            <select
+              aria-label="보안 설정 비밀번호 변경 요구"
+              disabled={!selected || securitySaveState === "saving"}
+              onChange={(event) => setSecurityForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+              value={securityForm.mustChangePassword ? "true" : "false"}
+            >
+              <option value="false">요구 안 함</option>
+              <option value="true">요구</option>
+            </select>
+          </label>
+          <label>
+            <span>로그인 실패</span>
+            <select
+              aria-label="로그인 실패 횟수 초기화"
+              disabled={!selected || securitySaveState === "saving"}
+              onChange={(event) => setSecurityForm((current) => ({ ...current, resetFailedLoginCount: event.target.value === "true" }))}
+              value={securityForm.resetFailedLoginCount ? "true" : "false"}
+            >
+              <option value="false">유지</option>
+              <option value="true">초기화</option>
+            </select>
+          </label>
+          <label>
+            <span>활성 세션</span>
+            <select
+              aria-label="활성 세션 종료"
+              disabled={!selected || securitySaveState === "saving"}
+              onChange={(event) => setSecurityForm((current) => ({ ...current, revokeActiveSessions: event.target.value === "true" }))}
+              value={securityForm.revokeActiveSessions ? "true" : "false"}
+            >
+              <option value="false">유지</option>
+              <option value="true">종료</option>
+            </select>
+          </label>
+          <label>
+            <span>현재 보안 상태</span>
+            <input aria-label="현재 보안 상태" readOnly value={selected ? `실패 ${selected.failedLoginCount}회 · 세션 ${selected.activeSessionCount}개 · 최근 로그인 ${formatDate(selected.lastLoginAt)}` : ""} />
+          </label>
+          <label>
+            <span>변경 사유</span>
+            <input
+              aria-label="사원 보안 설정 변경 사유"
+              disabled={!selected || securitySaveState === "saving"}
+              onChange={(event) => setSecurityForm((current) => ({ ...current, reason: event.target.value }))}
+              value={securityForm.reason}
+            />
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={!selected || securitySaveState === "saving"} type="submit">
+              {securitySaveState === "saving" ? "저장 중" : "보안 설정 저장"}
+            </button>
+          </div>
+          {securitySaveMessage ? (
+            <p className="feature-workspace__save-message" role={securitySaveState === "error" ? "alert" : "status"}>
+              {securitySaveMessage}
             </p>
           ) : null}
         </form>
