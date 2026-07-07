@@ -63,40 +63,11 @@ function parsePermissionCodes(value: unknown): Permission["code"][] {
     .map((result) => result.data);
 }
 
-type OperationalUserRow = {
-  user_id: string;
-  company_id: string;
-  employee_id: string;
-  email: string;
-  full_name: string;
-  password_hash?: string | null;
-  role_codes: unknown;
-  permission_codes: unknown;
-};
-
-function mapOperationalLoginRow(
-  row: OperationalUserRow,
+export async function authenticateOperationalUser(
+  env: PostgresEnv | undefined,
+  input: OperationalLoginInput,
   permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
-): Exclude<OperationalLoginResult, null> {
-  const parsedRoleCodes = parseRoleCodes(row.role_codes);
-  const dbPermissionCodes = parsePermissionCodes(row.permission_codes);
-  const permissions = dbPermissionCodes.length > 0 ? dbPermissionCodes : [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
-
-  return {
-    primaryRoleCode: parsedRoleCodes[0] ?? "EMPLOYEE",
-    user: {
-      id: row.user_id,
-      companyId: row.company_id,
-      employeeId: row.employee_id || row.user_id,
-      email: row.email,
-      fullName: row.full_name,
-      roleCodes: parsedRoleCodes,
-      permissions,
-    },
-  };
-}
-
-async function findOperationalUserRow(env: PostgresEnv | undefined, input: Pick<OperationalLoginInput, "loginId" | "email">) {
+): Promise<OperationalLoginResult> {
   const sql = createOperationalSql(env);
   if (!sql) {
     return null;
@@ -133,27 +104,37 @@ async function findOperationalUserRow(env: PostgresEnv | undefined, input: Pick<
     limit 1
   `;
 
-  return (rows[0] as OperationalUserRow | undefined) ?? null;
-}
+  const row = rows[0] as
+    | {
+        user_id: string;
+        company_id: string;
+        employee_id: string;
+        email: string;
+        full_name: string;
+        password_hash: string;
+        role_codes: unknown;
+        permission_codes: unknown;
+      }
+    | undefined;
 
-export async function authenticateOperationalUser(
-  env: PostgresEnv | undefined,
-  input: OperationalLoginInput,
-  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
-): Promise<OperationalLoginResult> {
-  const row = await findOperationalUserRow(env, input);
   if (!row || !(await verifyPassword(input.password, row.password_hash))) {
     return null;
   }
 
-  return mapOperationalLoginRow(row, permissionsForRole);
-}
+  const parsedRoleCodes = parseRoleCodes(row.role_codes);
+  const dbPermissionCodes = parsePermissionCodes(row.permission_codes);
+  const permissions = dbPermissionCodes.length > 0 ? dbPermissionCodes : [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
 
-export async function resolveOperationalUserAfterExternalAuth(
-  env: PostgresEnv | undefined,
-  input: Pick<OperationalLoginInput, "loginId" | "email">,
-  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
-): Promise<OperationalLoginResult> {
-  const row = await findOperationalUserRow(env, input);
-  return row ? mapOperationalLoginRow(row, permissionsForRole) : null;
+  return {
+    primaryRoleCode: parsedRoleCodes[0] ?? "EMPLOYEE",
+    user: {
+      id: row.user_id,
+      companyId: row.company_id,
+      employeeId: row.employee_id || row.user_id,
+      email: row.email,
+      fullName: row.full_name,
+      roleCodes: parsedRoleCodes,
+      permissions,
+    },
+  };
 }
