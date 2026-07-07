@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { MobileAppShell } from "./app/_components/mobile-app-shell";
+import LoginPage from "./app/login/page";
 
 describe("mobile app shell login boundary", () => {
   beforeEach(() => {
@@ -59,5 +60,21 @@ describe("mobile app shell login boundary", () => {
     expect(globalCss).toContain("--login-page-shell-padding: clamp(150px, 20dvh, 230px) 0 16px;");
     expect(globalCss).toContain("padding: var(--login-page-shell-padding)");
     expect(globalCss).toContain(".login-card .field-grid");
+  });
+
+  it("renders the registration request form on the anonymous login page", () => {
+    const html = renderToStaticMarkup(<LoginPage />);
+
+    expect(html).toContain("We&#x27;reHere Login");
+    expect(html).toContain("회원가입 신청");
+    expect(html).toContain("회사 ID");
+    expect(html).toContain("로그인 ID");
+    expect(html).toContain("사용자 유형");
+    expect(html).toContain("사내임직원");
+    expect(html).toContain("객실관리직");
+    expect(html).toContain("지점대표");
+    expect(html).toContain("거래처임직원");
+    expect(html).not.toContain("운영 DB");
+    expect(html).not.toContain("ZITADEL");
   });
 });

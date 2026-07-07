@@ -4,6 +4,7 @@ import { appRoutes, type AdminAccountStatus, type AdminUserSummary, type AdminUs
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
+import { AdminRegistrationRequestsPanel } from "./admin-registration-requests-panel";
 
 type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit">;
 
@@ -404,6 +405,10 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
       </SurfaceSection>
 
       <AccountCreationPanel existingUsers={items} />
+
+      <SurfaceSection title="회원가입 승인">
+        <AdminRegistrationRequestsPanel />
+      </SurfaceSection>
 
       <SurfaceSection title="계정 · 권한 상세">
         {items.length > 0 ? (
