@@ -5822,7 +5822,8 @@ li {
   cursor: pointer;
 }
 
-.feature-workspace__permission-hint {
+.feature-workspace__permission-hint,
+.feature-workspace__save-message {
   max-width: 280px;
   text-align: right;
 }

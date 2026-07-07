@@ -14,17 +14,17 @@ import {
 } from "@gw/shared";
 
 const employeeInformationOrder = [
-  { title: "사원 목록", meta: "01", status: "검색·필터·정렬" },
-  { title: "사원 등록 / 계정 생성", meta: "02", status: "운영 DB 저장 연결" },
-  { title: "사원 기본정보", meta: "03", status: "인사 실무 정보" },
-  { title: "조직 / 지점 / 직무", meta: "04", status: "소속·직책·직급" },
-  { title: "계정 / 역할 / 권한", meta: "05", status: "관리자페이지 계정관리와 연결" },
-  { title: "보안 설정", meta: "06", status: "비밀번호·2단계 인증" },
-  { title: "근무 / 재직 상태", meta: "07", status: "휴직·퇴사·비활성" },
-  { title: "인사 서류 / 계약", meta: "08", status: "문서·계약 연결" },
-  { title: "근태 / 휴가 연결", meta: "09", status: "요약·연결" },
-  { title: "급여 연결", meta: "10", status: "요약·연결" },
-  { title: "업무 접근 / 포털 접근", meta: "11", status: "포털 접근 확인" },
+  "사원 목록",
+  "사원 등록 / 계정 생성",
+  "사원 기본정보",
+  "조직 / 지점 / 직무",
+  "계정 / 역할 / 권한",
+  "보안 설정",
+  "근무 / 재직 상태",
+  "인사 서류 / 계약",
+  "근태 / 휴가 연결",
+  "급여 연결",
+  "업무 접근 / 포털 접근",
 ] as const;
 
 const roleLabels: Record<RoleCode, string> = {
@@ -62,8 +62,8 @@ function formatDate(value: string | null) {
 
 const employeeLinkStatusLabels: Record<AdminUserSummary["employeeLinkStatus"], string> = {
   linked: "사원 연결됨",
-  unlinked: "사원 연결 필요",
-  review_required: "연결 검토 필요",
+  unlinked: "미연결",
+  review_required: "검토",
 };
 
 const adminScopeLabels: Record<AdminUserSummary["adminScope"], string> = {
@@ -72,34 +72,16 @@ const adminScopeLabels: Record<AdminUserSummary["adminScope"], string> = {
   audit: "감사 관리 범위",
 };
 
-const detailSectionBlueprint = [
-  "기본정보",
-  "조직 / 지점 / 직무",
-  "계정 / 역할 / 권한",
-  "보안 설정",
-  "근무 / 재직 상태",
-  "인사 서류 / 계약",
-  "근태 / 휴가 연결",
-  "급여 연결",
-  "업무 접근 / 포털 접근",
-] as const;
-
 type EmployeeDetailSection = {
   title: string;
-  meta: string;
-  body: string;
-  status: string;
-  actionLabel?: string;
+  meta?: string;
+  body?: string;
+  status?: string;
 };
 
 function buildEmployeeDetailSections(selected: AdminUserSummary | null): EmployeeDetailSection[] {
   if (!selected) {
-    return detailSectionBlueprint.map((title) => ({
-      title,
-      meta: "선택 사원 조회 후 표시",
-      body: "운영 DB 조회 결과에서 사원을 선택하면 실제 API 값 또는 연결 필요 상태를 표시합니다.",
-      status: "미구성 대기",
-    }));
+    return [];
   }
 
   return [
@@ -107,81 +89,42 @@ function buildEmployeeDetailSections(selected: AdminUserSummary | null): Employe
       title: "기본정보",
       meta: `${selected.fullName} · ${selected.email}`,
       body: `${selected.departmentName} · ${employmentStatusLabels[selected.employmentStatus]}`,
-      status: "운영 DB 조회",
-      actionLabel: "기본정보 수정",
     },
     {
       title: "조직 / 지점 / 직무",
       meta: `부서: ${selected.departmentName}`,
-      body: "지점, 직책, 직급, 사번, 입사일은 사원정보관리 전용 read API 연결 필요 상태입니다.",
-      status: "부분 연결",
-      actionLabel: "조직/직무 변경",
     },
     {
       title: "계정 / 역할 / 권한",
       meta: roleText(selected.roleCodes),
       body: `고위험 권한: ${selected.highRiskPermissions.length > 0 ? selected.highRiskPermissions.join(", ") : "없음"}`,
       status: accountStatusLabels[selected.accountStatus],
-      actionLabel: "계정/권한 변경",
     },
     {
       title: "보안 설정",
       meta: selected.mustChangePassword ? "최초 로그인 비밀번호 변경 필요" : "비밀번호 변경 요구 없음",
       body: `${selected.twoFactorRequired ? "2단계 인증 필요" : "2단계 인증 미요구"} · 실패 ${selected.failedLoginCount}회 · 세션 ${selected.activeSessionCount}개`,
       status: "계정 보안",
-      actionLabel: "보안 설정 변경",
     },
     {
       title: "근무 / 재직 상태",
       meta: employmentStatusLabels[selected.employmentStatus],
       body: `계정 상태: ${accountStatusLabels[selected.accountStatus]} · 최근 로그인: ${formatDate(selected.lastLoginAt)}`,
-      status: "운영 DB 조회",
-      actionLabel: "재직상태 변경",
     },
     {
       title: "인사 서류 / 계약",
-      meta: "연결 필요",
-      body: "근로계약서, 동의서, 증명서, 인사 발령 문서 조회 API가 아직 연결되지 않았습니다.",
-      status: "미구성",
-      actionLabel: "서류 등록",
     },
     {
       title: "근태 / 휴가 연결",
-      meta: "연결 필요",
-      body: "해당 사원의 근태·휴가 요약 read API가 아직 연결되지 않았습니다.",
-      status: "미구성",
-      actionLabel: "근태/휴가 열기",
     },
     {
       title: "급여 연결",
-      meta: "연결 필요",
-      body: "급여 대상 여부와 급여 요약은 민감정보 분리 후 별도 read API로 연결해야 합니다.",
-      status: "미구성",
-      actionLabel: "급여 연결 확인",
     },
     {
       title: "업무 접근 / 포털 접근",
       meta: `${adminScopeLabels[selected.adminScope]} · ${employeeLinkStatusLabels[selected.employeeLinkStatus]}`,
-      body: "기본업무, 부서업무포털, 지점관리포털 접근 상세는 포털 접근 read API 연결 필요 상태입니다.",
-      status: "부분 연결",
-      actionLabel: "포털 접근 확인",
     },
   ];
-}
-
-function DisabledDetailAction({ label }: { label: string }) {
-  return (
-    <button
-      aria-disabled="true"
-      aria-label={`${label} — 실제 저장 API 연결 전까지 비활성 상태입니다.`}
-      className="feature-workspace__row-action feature-workspace__row-action--secondary"
-      disabled
-      title="실제 저장 API 연결 전까지 비활성 상태입니다."
-      type="button"
-    >
-      {label}
-    </button>
-  );
 }
 
 function EmployeeDetailSections({ selected }: { selected: AdminUserSummary | null }) {
@@ -193,27 +136,19 @@ function EmployeeDetailSections({ selected }: { selected: AdminUserSummary | nul
         <article className="feature-workspace__row" key={section.title}>
           <div>
             <strong>{section.title}</strong>
-            <span>{section.meta}</span>
-            <p>{section.body}</p>
-            {section.actionLabel ? (
-              <div className="feature-workspace__row-actions" aria-label={`${section.title} 작업`}>
-                <DisabledDetailAction label={section.actionLabel} />
-              </div>
-            ) : null}
+            {section.meta ? <span>{section.meta}</span> : null}
+            {section.body ? <p>{section.body}</p> : null}
           </div>
-          <em>{section.status}</em>
+          {section.status ? <em>{section.status}</em> : null}
         </article>
       ))}
       <article className="feature-workspace__row">
         <div>
-          <strong>감사로그 연결</strong>
-          <span>관리자페이지 감사로그에서 확인</span>
-          <p>사원정보관리 상세 탭에는 변경이력을 두지 않습니다.</p>
+          <strong>감사로그</strong>
           <div className="feature-workspace__row-actions" aria-label="감사로그 이동">
-            <Link className="feature-workspace__row-action feature-workspace__row-action--secondary" href="/admin/audit-logs">감사로그 열기</Link>
+            <Link className="feature-workspace__row-action feature-workspace__row-action--secondary" href="/admin/audit-logs">열기</Link>
           </div>
         </div>
-        <em>관리자페이지</em>
       </article>
     </div>
   );
@@ -259,7 +194,7 @@ export function ManagementSupportHrClient() {
 
         const parsed = adminUsersListResponseSchema.safeParse(payload);
         if (!parsed.success) {
-          throw new Error("사원정보 응답 형식을 확인하지 못했습니다.");
+          throw new Error("사원정보를 불러오지 못했습니다.");
         }
 
         setItems(parsed.data.data.items);
@@ -326,14 +261,14 @@ export function ManagementSupportHrClient() {
 
       const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
       if (!parsedResponse.success) {
-        throw new Error("사원 기본정보 저장 응답 형식을 확인하지 못했습니다.");
+        throw new Error("사원 기본정보를 저장하지 못했습니다.");
       }
 
       const updatedUser = parsedResponse.data.data.user;
       setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
       setSelectedUserId(updatedUser.userId);
       setProfileSaveState("saved");
-      setProfileSaveMessage(`${updatedUser.fullName} 기본정보를 운영 DB에 저장하고 재조회했습니다.`);
+      setProfileSaveMessage(`${updatedUser.fullName} 기본정보를 저장했습니다.`);
     } catch (error) {
       setProfileSaveState("error");
       setProfileSaveMessage(error instanceof Error ? error.message : "사원 기본정보를 저장하지 못했습니다.");
@@ -368,16 +303,12 @@ export function ManagementSupportHrClient() {
           <div>
             <h2 id="support-employee-info-heading">사원정보관리</h2>
           </div>
-          <p className="feature-workspace__permission-hint">
-            사원정보관리 본기능은 경영지원팀 인사관리에서 다루고, 감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.
-          </p>
         </div>
 
         <div className="feature-workspace__status-grid" aria-label="사원정보관리 현황">
           <article className="feature-workspace__status feature-workspace__status--accent">
             <span>전체</span>
             <strong>{items.length}명</strong>
-            <p>{loadState === "loading" ? "운영 DB 조회 중" : "운영 DB 조회 기준"}</p>
           </article>
           <article className="feature-workspace__status feature-workspace__status--accent">
             <span>재직</span>
@@ -460,18 +391,16 @@ export function ManagementSupportHrClient() {
         {items.length === 0 && loadState !== "loading" ? (
           <aside className="feature-workspace__empty-state" aria-label="사원정보관리 빈 상태">
             <strong>조회된 사원이 없습니다</strong>
-            <p>운영 DB 조회 결과가 비어 있거나 현재 계정에 읽기 권한이 없습니다.</p>
           </aside>
         ) : null}
 
         <div className="feature-workspace__rows" aria-label="사원정보관리 기능 항목 순서">
-          {employeeInformationOrder.map((row) => (
-            <article className="feature-workspace__row" key={row.title}>
+          {employeeInformationOrder.map((title, index) => (
+            <article className="feature-workspace__row" key={title}>
               <div>
-                <strong>{row.title}</strong>
-                <span>{row.meta}</span>
+                <strong>{title}</strong>
+                <span>{String(index + 1).padStart(2, "0")}</span>
               </div>
-              <em>{row.status}</em>
             </article>
           ))}
         </div>
@@ -529,7 +458,7 @@ export function ManagementSupportHrClient() {
             </button>
           </div>
           {profileSaveMessage ? (
-            <p className="feature-workspace__permission-hint" role={profileSaveState === "error" ? "alert" : "status"}>
+            <p className="feature-workspace__save-message" role={profileSaveState === "error" ? "alert" : "status"}>
               {profileSaveMessage}
             </p>
           ) : null}
