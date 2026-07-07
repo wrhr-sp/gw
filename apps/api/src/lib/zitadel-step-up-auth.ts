@@ -152,6 +152,40 @@ export async function requestRegistration(
   };
 }
 
+export async function createApprovedHumanUser(
+  env: ZitadelStepUpEnv,
+  input: ZitadelRegistrationInput,
+): Promise<ZitadelRegistrationResult> {
+  const userType = assertGroupwareZitadelUserType(input.userType);
+  const orgId = input.orgId ?? requireValue(env.ZITADEL_ORG_ID, "ZITADEL_ORG_ID");
+  const { user } = createZitadelClients(env);
+  const profile = splitDisplayName(input.displayName);
+
+  const response = await user.addHumanUser({
+    username: input.loginName.trim(),
+    organization: { orgId },
+    profile,
+    email: {
+      email: input.email.trim(),
+      isVerified: false,
+    },
+    metadata: [
+      metadataEntry(groupwareZitadelMetadataKeys.userType, userType),
+      metadataEntry(groupwareZitadelMetadataKeys.registrationStatus, "APPROVED"),
+    ] as unknown as Parameters<UserServiceClient["addHumanUser"]>[0]["metadata"],
+    password: {
+      password: input.initialPassword,
+      changeRequired: true,
+    },
+  });
+
+  return {
+    userId: response.userId,
+    registrationStatus: "APPROVED",
+    userType,
+  };
+}
+
 export async function approveRegistration(env: ZitadelStepUpEnv, userId: string): Promise<ZitadelApprovalResult> {
   const { user } = createZitadelClients(env);
   const normalizedUserId = userId.trim();

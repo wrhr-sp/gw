@@ -4,7 +4,6 @@ import { appRoutes, type AdminAccountStatus, type AdminUserSummary, type AdminUs
 
 import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
 import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
-import { AdminRegistrationRequestsPanel } from "./admin-registration-requests-panel";
 
 type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit">;
 
@@ -76,32 +75,6 @@ const statusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
 ];
 
 const roleOptions: RoleCode[] = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "COMPANY_ADMIN", "AUDITOR"];
-
-const accountTypeOptions = [
-  { value: "employee", label: "직원" },
-  { value: "admin", label: "관리자" },
-  { value: "external", label: "외부 사용자" },
-  { value: "bot_service", label: "봇/서비스 계정" },
-  { value: "system", label: "시스템 계정" },
-] as const;
-
-const accountCreationStatusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
-  { value: "invited", label: "초대대기" },
-  { value: "active", label: "활성" },
-  { value: "locked", label: "잠금" },
-  { value: "disabled", label: "비활성" },
-  { value: "offboarded", label: "퇴사처리" },
-  { value: "suspended", label: "일시정지" },
-];
-
-const accountCreationValidationChecks = [
-  "필수값: 이름, 로그인 ID/이메일, 부서, 지점, 초기 역할",
-  "중복 후보: 같은 이메일·로그인 ID·사번 존재 여부",
-  "권한 위험도: HR_ADMIN, COMPANY_ADMIN, AUDITOR 같은 관리자 권한 부여 여부",
-  "조직 연결: 회사 scope, 부서, 지점, 직책/직급 연결 상태",
-  "보안 상태: 최초 비밀번호 변경 필요, 2단계 인증 필요 여부",
-  "감사 후보: 계정 생성 요청자, 사유, 생성 전 검증 결과",
-] as const;
 
 type AdminUserItem = AdminUserSummary;
 
@@ -219,67 +192,6 @@ function AdminUserActionCard({ item }: { item: AdminUserItem }) {
         <button type="submit">역할 저장</button>
       </form>
     </article>
-  );
-}
-
-function AccountCreationPanel({ existingUsers }: { existingUsers: readonly AdminUserItem[] }) {
-  const existingEmailExamples = existingUsers.slice(0, 3).map((item) => item.email).join(" · ") || "현재 조회된 계정 없음";
-
-  return (
-    <SurfaceSection title="계정생성 1차 검증">
-      <div className="employee-management-toolbar" aria-label="계정생성 입력 조건">
-        <form method="post" action={appRoutes.admin.userCreate} className="employee-info-form-grid">
-          <input type="hidden" name="actionType" value="create" />
-          <div className="employee-info-column">
-            <EmployeeField label="이름" required><input name="fullName" aria-label="계정생성 이름" minLength={2} required /></EmployeeField>
-            <EmployeeField label="로그인 ID / 이메일" required><input name="email" type="email" aria-label="계정생성 로그인 ID 또는 이메일" required /></EmployeeField>
-            <EmployeeField label="부서" required><input name="departmentName" aria-label="계정생성 부서" required /></EmployeeField>
-            <EmployeeField label="지점" required><input name="branchName" aria-label="계정생성 지점" required /></EmployeeField>
-            <EmployeeField label="직책/직급"><input name="positionName" aria-label="계정생성 직책 또는 직급" /></EmployeeField>
-          </div>
-          <div className="employee-info-column">
-            <EmployeeField label="계정 유형" required>
-              <select name="accountType" defaultValue="employee" required>
-                {accountTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </EmployeeField>
-            <EmployeeField label="초기 역할" required>
-              <select name="roleCode" defaultValue="EMPLOYEE" required>
-                {roleOptions.map((option) => <option key={option} value={option}>{getRoleLabel(option)}</option>)}
-              </select>
-            </EmployeeField>
-            <EmployeeField label="초기 상태" required>
-              <select name="nextStatus" defaultValue="invited" required>
-                {accountCreationStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </EmployeeField>
-            <EmployeeField label="생성 사유" required><input name="reason" defaultValue="신규 입사/계정 생성 전 검증" minLength={1} required /></EmployeeField>
-            <EmployeeField label="보안 설정"><span className="employee-radio-row"><label><input type="checkbox" name="mustChangePassword" value="true" defaultChecked /> 최초 로그인 비밀번호 변경</label><label><input type="checkbox" name="mfaRequired" value="true" /> 2단계 인증 필요</label></span></EmployeeField>
-          </div>
-          <div className="employee-info-dialog__footer">
-            <button type="submit">계정 생성 저장</button>
-          </div>
-        </form>
-      </div>
-      <div className="grid-auto-compact">
-        <article className="info-card">
-          <Pill tone="accent">DB 저장</Pill>
-          <h3>계정 생성은 운영 DB에 저장하고 다시 조회합니다</h3>
-          <p>저장 시 users, employees, user_roles, audit_logs를 한 트랜잭션으로 연결합니다. DB 또는 schema가 준비되지 않으면 성공처럼 보이지 않고 명확한 오류로 실패합니다.</p>
-        </article>
-        <article className="info-card">
-          <Pill>중복 후보 기준</Pill>
-          <h3>{existingEmailExamples}</h3>
-          <p>동일 이메일·로그인 ID·사번 후보는 실제 목록 조회 결과와 비교해야 합니다.</p>
-        </article>
-        <article className="info-card">
-          <Pill tone="accent">확인 항목</Pill>
-          <ul className="summary-list">
-            {accountCreationValidationChecks.map((check) => <li key={check}>{check}</li>)}
-          </ul>
-        </article>
-      </div>
-    </SurfaceSection>
   );
 }
 
@@ -404,11 +316,6 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         )}
       </SurfaceSection>
 
-      <AccountCreationPanel existingUsers={items} />
-
-      <SurfaceSection title="회원가입 승인">
-        <AdminRegistrationRequestsPanel />
-      </SurfaceSection>
 
       <SurfaceSection title="계정 · 권한 상세">
         {items.length > 0 ? (

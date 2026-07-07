@@ -2163,6 +2163,7 @@ export const adminUserCreateRequestSchema = z
   .object({
     fullName: z.string().trim().min(2).max(100),
     email: z.email(),
+    initialPassword: z.string().min(8).max(200),
     departmentName: z.string().trim().min(1).max(100),
     branchName: z.string().trim().min(1).max(100),
     positionName: z.string().trim().max(100).optional(),

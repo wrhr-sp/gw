@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  adminUserCreateRequestSchema,
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
@@ -12,6 +13,9 @@ import {
   adminUsersListResponseSchema,
   appRoutes,
   errorResponseSchema,
+  type AdminAccountStatus,
+  type AdminAccountType,
+  type AdminUserCreateRequest,
   type AdminUserOrganizationUpdateRequest,
   type AdminUserProfileUpdateRequest,
   type AdminUserRolesUpdateRequest,
@@ -45,6 +49,30 @@ const roleLabels: Record<RoleCode, string> = {
 };
 
 const roleOptions = Object.entries(roleLabels) as Array<[RoleCode, string]>;
+
+const internalEmployeeAccountTypeOptions: Array<{ value: AdminAccountType; label: string }> = [
+  { value: "employee", label: "사내임직원" },
+];
+
+const createAccountStatusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
+  { value: "invited", label: "초대대기" },
+  { value: "active", label: "활성" },
+];
+
+const emptyCreateForm: AdminUserCreateRequest = {
+  fullName: "",
+  email: "",
+  initialPassword: "",
+  departmentName: "",
+  branchName: "",
+  positionName: "",
+  accountType: "employee",
+  roleCode: "EMPLOYEE",
+  status: "invited",
+  reason: "사내임직원 등록 및 계정 생성",
+  mustChangePassword: true,
+  mfaRequired: false,
+};
 
 const accountStatusLabels: Record<AdminUserSummary["accountStatus"], string> = {
   invited: "초대대기",
@@ -208,6 +236,9 @@ export function ManagementSupportHrClient() {
     revokeActiveSessions: false,
     reason: "사원 보안 설정 수정",
   });
+  const [createForm, setCreateForm] = useState<AdminUserCreateRequest>(emptyCreateForm);
+  const [createSaveState, setCreateSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [createSaveMessage, setCreateSaveMessage] = useState<string | null>(null);
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
   const [organizationSaveState, setOrganizationSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -304,6 +335,53 @@ export function ManagementSupportHrClient() {
     setSecuritySaveState("idle");
     setSecuritySaveMessage(null);
   }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate, selected?.accountStatus, selected?.mustChangePassword, selected?.roleCodes, selected?.twoFactorRequired]);
+
+  async function handleCreateSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const parsedRequest = adminUserCreateRequestSchema.safeParse({
+      ...createForm,
+      accountType: "employee",
+      positionName: createForm.positionName?.trim() ? createForm.positionName : undefined,
+    });
+    if (!parsedRequest.success) {
+      setCreateSaveState("error");
+      setCreateSaveMessage("이름, 이메일, 초기 비밀번호, 부서, 지점, 역할, 생성 사유를 확인해 주세요.");
+      return;
+    }
+
+    setCreateSaveState("saving");
+    setCreateSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userCreate, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사내임직원 계정을 생성하지 못했습니다.");
+      }
+
+      const createdUser = parsedResponse.data.data.user;
+      setItems((current) => [createdUser, ...current.filter((item) => item.userId !== createdUser.userId)]);
+      setSelectedUserId(createdUser.userId);
+      setCreateForm(emptyCreateForm);
+      setCreateSaveState("saved");
+      setCreateSaveMessage(`${createdUser.fullName} 사내임직원 계정을 생성했습니다.`);
+    } catch (error) {
+      setCreateSaveState("error");
+      setCreateSaveMessage(error instanceof Error ? error.message : "사내임직원 계정을 생성하지 못했습니다.");
+    }
+  }
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -586,6 +664,151 @@ export function ManagementSupportHrClient() {
             <p>{errorMessage}</p>
           </aside>
         ) : null}
+
+        <form className="feature-workspace__form" onSubmit={handleCreateSave} aria-label="사내임직원 등록 및 계정 생성">
+          <label>
+            <span>이름</span>
+            <input
+              aria-label="사내임직원 이름"
+              disabled={createSaveState === "saving"}
+              minLength={2}
+              onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
+              required
+              value={createForm.fullName}
+            />
+          </label>
+          <label>
+            <span>로그인 ID / 이메일</span>
+            <input
+              aria-label="사내임직원 로그인 ID 또는 이메일"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+              required
+              type="email"
+              value={createForm.email}
+            />
+          </label>
+          <label>
+            <span>초기 비밀번호</span>
+            <input
+              aria-label="사내임직원 초기 비밀번호"
+              disabled={createSaveState === "saving"}
+              minLength={8}
+              onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
+              required
+              type="password"
+              value={createForm.initialPassword}
+            />
+          </label>
+          <label>
+            <span>부서</span>
+            <input
+              aria-label="사내임직원 부서"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, departmentName: event.target.value }))}
+              required
+              value={createForm.departmentName}
+            />
+          </label>
+          <label>
+            <span>지점</span>
+            <input
+              aria-label="사내임직원 지점"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, branchName: event.target.value }))}
+              required
+              value={createForm.branchName}
+            />
+          </label>
+          <label>
+            <span>직책/직급</span>
+            <input
+              aria-label="사내임직원 직책 또는 직급"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, positionName: event.target.value }))}
+              value={createForm.positionName ?? ""}
+            />
+          </label>
+          <label>
+            <span>계정 유형</span>
+            <select aria-label="사내임직원 계정 유형" disabled value={createForm.accountType}>
+              {internalEmployeeAccountTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>초기 역할</span>
+            <select
+              aria-label="사내임직원 초기 역할"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, roleCode: event.target.value as RoleCode }))}
+              value={createForm.roleCode}
+            >
+              {roleOptions.map(([roleCode, label]) => (
+                <option key={roleCode} value={roleCode}>{label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>초기 상태</span>
+            <select
+              aria-label="사내임직원 초기 상태"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
+              value={createForm.status}
+            >
+              {createAccountStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>생성 사유</span>
+            <input
+              aria-label="사내임직원 계정 생성 사유"
+              disabled={createSaveState === "saving"}
+              minLength={1}
+              onChange={(event) => setCreateForm((current) => ({ ...current, reason: event.target.value }))}
+              required
+              value={createForm.reason}
+            />
+          </label>
+          <label>
+            <span>비밀번호 변경</span>
+            <select
+              aria-label="사내임직원 최초 로그인 비밀번호 변경 요구"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+              value={createForm.mustChangePassword ? "true" : "false"}
+            >
+              <option value="true">요구</option>
+              <option value="false">요구 안 함</option>
+            </select>
+          </label>
+          <label>
+            <span>2단계 인증</span>
+            <select
+              aria-label="사내임직원 2단계 인증 요구"
+              disabled={createSaveState === "saving"}
+              onChange={(event) => setCreateForm((current) => ({ ...current, mfaRequired: event.target.value === "true" }))}
+              value={createForm.mfaRequired ? "true" : "false"}
+            >
+              <option value="false">요구 안 함</option>
+              <option value="true">요구</option>
+            </select>
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={createSaveState === "saving"} type="submit">
+              {createSaveState === "saving" ? "생성 중" : "사내임직원 계정 생성"}
+            </button>
+          </div>
+          {createSaveMessage ? (
+            <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
+              {createSaveMessage}
+            </p>
+          ) : null}
+        </form>
 
         <form className="feature-workspace__form" onSubmit={(event) => event.preventDefault()}>
           <label>

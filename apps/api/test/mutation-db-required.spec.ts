@@ -18,7 +18,7 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   return cookie;
 }
 
-const allowedNonSuccessCodes = new Set(["DB_NOT_CONFIGURED", "EXTERNAL_AUTH_NOT_CONFIGURED", "VALIDATION_ERROR", "FORBIDDEN", "NOT_FOUND", "USER_NOT_FOUND"]);
+const allowedNonSuccessCodes = new Set(["DB_NOT_CONFIGURED", "EXTERNAL_AUTH_NOT_CONFIGURED", "VALIDATION_ERROR", "FORBIDDEN", "NOT_FOUND", "NOT_IMPLEMENTED", "USER_NOT_FOUND"]);
 
 async function expectNoFakeSuccess(response: Response) {
   const payload = (await response.json()) as {
@@ -47,7 +47,7 @@ describe("mutation APIs require real persistence", () => {
     ["board post", appRoutes.boards.posts("board_general"), { title: "게시글", bodyPreview: "본문", isNotice: false }],
     ["mail send", appRoutes.mail.send, { toUserIds: ["user_employee"], subject: "메일", body: "본문" }],
     ["auth registration request", appRoutes.auth.registrationRequests, { companyId: "company_demo", loginName: "new.user", email: "new.user@example.com", displayName: "신규 사용자", initialPassword: "ChangeMe1234!", userType: "INTERNAL_STAFF" }],
-    ["admin user create", appRoutes.admin.userCreate, { fullName: "신규 사용자", email: "new.user@example.com", departmentName: "경영지원팀", branchName: "본사", accountType: "employee", roleCode: "EMPLOYEE", status: "invited", reason: "신규 입사" }],
+    ["admin user create", appRoutes.admin.userCreate, { fullName: "신규 사용자", email: "new.user@example.com", initialPassword: "ChangeMe1234!", departmentName: "경영지원팀", branchName: "본사", accountType: "employee", roleCode: "EMPLOYEE", status: "invited", reason: "신규 입사" }],
   ])("does not return fake success for %s when DB is not configured", async (_label, route, body) => {
     const cookie = await loginAndGetCookie();
     const response = await app.request(route, {
