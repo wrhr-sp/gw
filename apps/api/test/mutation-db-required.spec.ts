@@ -18,7 +18,7 @@ async function loginAndGetCookie(role = "COMPANY_ADMIN") {
   return cookie;
 }
 
-const allowedNonSuccessCodes = new Set(["DB_NOT_CONFIGURED", "VALIDATION_ERROR", "FORBIDDEN", "NOT_FOUND"]);
+const allowedNonSuccessCodes = new Set(["DB_NOT_CONFIGURED", "EXTERNAL_AUTH_NOT_CONFIGURED", "VALIDATION_ERROR", "FORBIDDEN", "NOT_FOUND", "USER_NOT_FOUND"]);
 
 async function expectNoFakeSuccess(response: Response) {
   const payload = (await response.json()) as {
@@ -46,6 +46,7 @@ describe("mutation APIs require real persistence", () => {
     ["approval document", appRoutes.approvals.documents, { formId: "approval_form_vacation", title: "결재", body: "본문" }],
     ["board post", appRoutes.boards.posts("board_general"), { title: "게시글", bodyPreview: "본문", isNotice: false }],
     ["mail send", appRoutes.mail.send, { toUserIds: ["user_employee"], subject: "메일", body: "본문" }],
+    ["auth registration request", appRoutes.auth.registrationRequests, { companyId: "company_demo", loginName: "new.user", email: "new.user@example.com", displayName: "신규 사용자", initialPassword: "ChangeMe1234!", userType: "INTERNAL_STAFF" }],
     ["admin user create", appRoutes.admin.userCreate, { fullName: "신규 사용자", email: "new.user@example.com", departmentName: "경영지원팀", branchName: "본사", accountType: "employee", roleCode: "EMPLOYEE", status: "invited", reason: "신규 입사" }],
   ])("does not return fake success for %s when DB is not configured", async (_label, route, body) => {
     const cookie = await loginAndGetCookie();
@@ -64,12 +65,23 @@ describe("mutation APIs require real persistence", () => {
     ["approval approve", appRoutes.approvals.approve("approval_document_missing")],
     ["approval reject", appRoutes.approvals.reject("approval_document_missing")],
     ["mail mark read", appRoutes.mail.markRead("mail_message_missing")],
+    ["admin registration approve", appRoutes.admin.registrationRequestApprove("zitadel_reg_missing")],
   ])("does not return fake success for %s when DB is not configured", async (_label, route) => {
     const cookie = await loginAndGetCookie();
     const response = await app.request(route, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
       body: JSON.stringify({ reason: "검토" }),
+    });
+
+    await expectNoFakeSuccess(response);
+  });
+
+  it("does not return fake success for admin registration request list when DB is not configured", async () => {
+    const cookie = await loginAndGetCookie();
+    const response = await app.request(appRoutes.admin.registrationRequests, {
+      method: "GET",
+      headers: { cookie },
     });
 
     await expectNoFakeSuccess(response);
