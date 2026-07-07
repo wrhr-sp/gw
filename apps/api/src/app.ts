@@ -11,6 +11,9 @@ type R2BucketBinding = {
 };
 import {
   adminAuditLogListResponseSchema,
+  adminRegistrationRequestApproveRequestSchema,
+  adminRegistrationRequestApproveResponseSchema,
+  adminRegistrationRequestsListResponseSchema,
   adminPolicyBoardUpdateRequestSchema,
   adminPoliciesListResponseSchema,
   adminPolicyDocumentUpdateRequestSchema,
@@ -46,6 +49,8 @@ import {
   attendanceCorrectionRequestSchema,
   attendanceCorrectionResponseSchema,
   attendanceListRecordsResponseSchema,
+  authRegistrationRequestCreateRequestSchema,
+  authRegistrationRequestCreateResponseSchema,
   authLoginRequestSchema,
   authLoginResponseSchema,
   authLogoutResponseSchema,
@@ -325,6 +330,12 @@ import {
 } from "./lib/approval-steps";
 import { authenticateOperationalUser, resolveOperationalUserAfterExternalAuth } from "./lib/operational-auth";
 import { verifyZitadelPasswordLogin, type ZitadelStepUpEnv } from "./lib/zitadel-step-up-auth";
+import {
+  approveZitadelRegistrationRequest,
+  createZitadelRegistrationRequest,
+  listZitadelRegistrationRequests,
+  type RegistrationServiceResult,
+} from "./lib/zitadel-registration-requests";
 import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
@@ -1377,7 +1388,7 @@ function jsonError(
   context: AppContext,
   code: ErrorCode,
   message: string,
-  status: 400 | 401 | 403 | 404 | 501,
+  status: 400 | 401 | 403 | 404 | 409 | 501 | 503,
   details?: Record<string, unknown>,
 ) {
   return context.json(
@@ -1406,6 +1417,22 @@ function jsonDatabaseRequired(context: AppContext, action: string) {
     },
     503,
   );
+}
+
+function jsonRegistrationServiceError(context: AppContext, result: Extract<RegistrationServiceResult<unknown>, { ok: false }>) {
+  if (result.error === "DB_NOT_CONFIGURED") {
+    return jsonError(context, "DB_NOT_CONFIGURED", result.message, 503);
+  }
+  if (result.error === "EXTERNAL_AUTH_NOT_CONFIGURED") {
+    return jsonError(context, "EXTERNAL_AUTH_NOT_CONFIGURED", result.message, 503);
+  }
+  if (result.error === "NOT_FOUND") {
+    return jsonError(context, "USER_NOT_FOUND", result.message, 404);
+  }
+  if (result.error === "CONFLICT") {
+    return jsonError(context, "VALIDATION_ERROR", result.message, 409);
+  }
+  return jsonError(context, "VALIDATION_ERROR", result.message, 400);
 }
 
 function resolveRoleCode(rawRole: string | undefined): RoleCode {
@@ -3369,6 +3396,34 @@ app.get("/api/v1/files/download/:key", async (context) => {
   return new Response(object.body, { headers });
 });
 
+app.post(appRoutes.auth.registrationRequests, async (context) => {
+  const body = await context.req.json().catch(() => null);
+  const parsed = authRegistrationRequestCreateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "회원가입 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await createZitadelRegistrationRequest(context.env, parsed.data);
+  if (!result.ok) {
+    return jsonRegistrationServiceError(context, result);
+  }
+
+  return jsonSuccess(
+    context,
+    authRegistrationRequestCreateResponseSchema,
+    {
+      ok: true,
+      data: {
+        request: result.value,
+        persistence: "operational-db",
+        nextStep: "ADMIN_APPROVAL_REQUIRED",
+      },
+      error: null,
+    },
+    201,
+  );
+});
+
 app.post(appRoutes.auth.login, async (context) => {
   const body = await context.req.json().catch(() => null);
   const parsed = authLoginRequestSchema.safeParse(body);
@@ -4036,6 +4091,95 @@ app.post(appRoutes.notificationsReadAll, async (context) => {
         unreadCount: result.items.filter((item) => item.status === "unread").length,
         updatedCount: result.updatedCount,
         notices: ["읽지 않은 알림을 모두 읽음으로 저장했습니다."],
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.admin.registrationRequests, async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const result = await listZitadelRegistrationRequests(context.env, authResult.auth.user.companyId);
+  if (!result.ok) {
+    return jsonRegistrationServiceError(context, result);
+  }
+
+  return jsonSuccess(
+    context,
+    adminRegistrationRequestsListResponseSchema,
+    {
+      ok: true,
+      data: {
+        items: result.value,
+        persistence: "operational-db",
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.admin.registrationRequestApprove(":requestId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const requestId = context.req.param("requestId");
+  if (!requestId) {
+    return jsonError(context, "VALIDATION_ERROR", "회원가입 요청 ID가 필요합니다.", 400);
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminRegistrationRequestApproveRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "회원가입 승인 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await approveZitadelRegistrationRequest(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    requestId,
+    parsed.data,
+  );
+  if (!result.ok) {
+    return jsonRegistrationServiceError(context, result);
+  }
+
+  return jsonSuccess(
+    context,
+    adminRegistrationRequestApproveResponseSchema,
+    {
+      ok: true,
+      data: {
+        request: result.value.request,
+        localUserId: result.value.localUserId,
+        localEmployeeId: result.value.localEmployeeId,
+        assignedRoleCode: result.value.assignedRoleCode,
+        persistence: "operational-db",
+        updatedAt: result.value.updatedAt,
       },
       error: null,
     },

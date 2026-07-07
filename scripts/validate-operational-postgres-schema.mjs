@@ -69,6 +69,7 @@ const requiredTables = [
   'erp_tax_documents',
   'erp_tax_report_packages',
   'audit_logs',
+  'zitadel_registration_requests',
 ];
 
 const requiredFragments = [
@@ -80,6 +81,8 @@ const requiredFragments = [
   'unique (company_id, login_id)',
   'unique (company_id, user_id)',
   'unique (bucket, object_key)',
+  'external_auth_provider',
+  'idx_zitadel_registration_requests_company_status',
 ];
 
 const missing = [];

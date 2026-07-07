@@ -7,6 +7,7 @@ export const appRoutes = {
   auth: {
     login: "/api/auth/login",
     logout: "/api/auth/logout",
+    registrationRequests: "/api/auth/registration-requests",
   },
   me: "/api/me",
   security: {
@@ -39,6 +40,8 @@ export const appRoutes = {
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
     userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
+    registrationRequests: "/api/admin/registration-requests",
+    registrationRequestApprove: (requestId: string) => `/api/admin/registration-requests/${requestId}/approve`,
     permissions: "/api/admin/permissions",
     policies: "/api/admin/policies",
     policyDocuments: "/api/admin/policies/documents",
@@ -220,6 +223,7 @@ export const errorCodeSchema = z.enum([
   "VALIDATION_ERROR",
   "NOT_IMPLEMENTED",
   "DB_NOT_CONFIGURED",
+  "EXTERNAL_AUTH_NOT_CONFIGURED",
   "EXTERNAL_MAIL_NOT_CONFIGURED",
   "ROOM_NOT_FOUND",
   "ROOM_ACCESS_DENIED",
@@ -1612,6 +1616,72 @@ export const authLoginResponseSchema = successResponseSchema(
     session: sessionSchema,
     user: sessionUserSchema,
     nextStep: z.string(),
+  }),
+);
+
+export const zitadelRegistrationUserTypeSchema = z.enum(["INTERNAL_STAFF", "ROOM_OPERATIONS", "BRANCH_OWNER", "PARTNER_EMPLOYEE"]);
+export const zitadelRegistrationStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED", "SUSPENDED"]);
+
+export const authRegistrationRequestCreateRequestSchema = z
+  .object({
+    companyId: z.string().trim().min(1),
+    loginName: z.string().trim().min(1).max(100),
+    email: z.email(),
+    displayName: z.string().trim().min(2).max(100),
+    initialPassword: z.string().min(8).max(200),
+    userType: zitadelRegistrationUserTypeSchema,
+  })
+  .strict();
+
+export const authRegistrationRequestSchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  zitadelUserId: z.string(),
+  loginName: z.string(),
+  email: z.email(),
+  displayName: z.string(),
+  userType: zitadelRegistrationUserTypeSchema,
+  registrationStatus: zitadelRegistrationStatusSchema,
+  requestedAt: z.string().datetime(),
+  reviewedBy: z.string().nullable(),
+  reviewedAt: z.string().datetime().nullable(),
+  localUserId: z.string().nullable(),
+  localEmployeeId: z.string().nullable(),
+});
+
+export const authRegistrationRequestCreateResponseSchema = successResponseSchema(
+  z.object({
+    request: authRegistrationRequestSchema,
+    persistence: z.literal("operational-db"),
+    nextStep: z.literal("ADMIN_APPROVAL_REQUIRED"),
+  }),
+);
+
+export const adminRegistrationRequestsListResponseSchema = successResponseSchema(
+  z.object({
+    items: z.array(authRegistrationRequestSchema),
+    persistence: z.literal("operational-db"),
+  }),
+);
+
+export const adminRegistrationRequestApproveRequestSchema = z
+  .object({
+    roleCode: roleCodeSchema.optional(),
+    departmentName: z.string().trim().min(1).max(100).optional(),
+    branchName: z.string().trim().min(1).max(100).optional(),
+    positionName: z.string().trim().max(100).optional(),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+export const adminRegistrationRequestApproveResponseSchema = successResponseSchema(
+  z.object({
+    request: authRegistrationRequestSchema,
+    localUserId: z.string(),
+    localEmployeeId: z.string().nullable(),
+    assignedRoleCode: roleCodeSchema,
+    persistence: z.literal("operational-db"),
+    updatedAt: z.string().datetime(),
   }),
 );
 
@@ -4310,3 +4380,9 @@ export type ReadReceipt = z.infer<typeof readReceiptSchema>;
 export type ReadReceiptCreateRequest = z.infer<typeof readReceiptCreateRequestSchema>;
 export type ReadReceiptCreateResponse = z.infer<typeof readReceiptCreateResponseSchema>;
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
+
+export type ZitadelRegistrationUserType = z.infer<typeof zitadelRegistrationUserTypeSchema>;
+export type ZitadelRegistrationStatus = z.infer<typeof zitadelRegistrationStatusSchema>;
+export type AuthRegistrationRequestCreateRequest = z.infer<typeof authRegistrationRequestCreateRequestSchema>;
+export type AdminRegistrationRequestApproveRequest = z.infer<typeof adminRegistrationRequestApproveRequestSchema>;
+export type AuthRegistrationRequest = z.infer<typeof authRegistrationRequestSchema>;
