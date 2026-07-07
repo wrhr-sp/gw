@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserProfileUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -72,6 +72,22 @@ function parseDateTime(value: unknown): string | null {
   }
   const parsed = new Date(String(value));
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function parseDateOnly(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value);
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
+  if (match) {
+    return match[0];
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
 
 function parseCount(value: unknown): number {
@@ -295,6 +311,10 @@ export async function listOperationalAdminUsers(
       coalesce(e.full_name, u.display_name) as full_name,
       coalesce(u.email, u.login_id || '@local.invalid') as email,
       coalesce(d.name, '미지정') as department_name,
+      coalesce(b.name, '미지정') as branch_name,
+      p.name as position_name,
+      coalesce(e.employee_number, '') as employee_number,
+      e.hire_date,
       coalesce(e.employment_status, 'active') as employment_status,
       coalesce(u.status, 'active') as account_status,
       coalesce(u.must_change_password, false) as must_change_password,
@@ -306,13 +326,15 @@ export async function listOperationalAdminUsers(
     from users u
     left join employees e on e.user_id = u.id and e.company_id = u.company_id
     left join departments d on d.id = e.department_id and d.company_id = e.company_id
+    left join branches b on b.id = e.branch_id and b.company_id = e.company_id
+    left join positions p on p.id = e.position_id and p.company_id = e.company_id
     left join user_security_settings uss on uss.user_id = u.id and uss.company_id = u.company_id
     left join auth_sessions s on s.user_id = u.id and s.company_id = u.company_id
     left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
     left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
     where u.company_id = ${companyId}
       and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
-    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash
+    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash
     order by coalesce(e.full_name, u.display_name), u.email
   `;
 
@@ -324,6 +346,10 @@ export async function listOperationalAdminUsers(
       full_name: string;
       email: string;
       department_name: string;
+      branch_name: string;
+      position_name: string | null;
+      employee_number: string;
+      hire_date: unknown;
       employment_status: "active" | "on_leave" | "offboarded";
       account_status: unknown;
       must_change_password: unknown;
@@ -345,6 +371,10 @@ export async function listOperationalAdminUsers(
       fullName: typed.full_name,
       email: typed.email,
       departmentName: typed.department_name,
+      branchName: typed.branch_name,
+      positionName: typed.position_name,
+      employeeNumber: typed.employee_number || "-",
+      hireDate: parseDateOnly(typed.hire_date),
       roleCodes: parsedRoleCodes,
       permissions,
       employmentStatus: typed.employment_status,
@@ -691,6 +721,161 @@ export async function updateOperationalAdminUserProfile(
         ${JSON.stringify({ fullName: before.full_name ?? before.display_name, email: before.email, employmentStatus: before.employment_status })}::jsonb,
         ${JSON.stringify({ fullName, email: normalizedEmail, employmentStatus: input.employmentStatus })}::jsonb,
         ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "email"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalAdminUserOrganization(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  input: AdminUserOrganizationUpdateRequest,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+  const departmentName = input.departmentName.trim();
+  const branchName = input.branchName.trim();
+  const positionName = input.positionName?.trim() || null;
+  const employeeNumber = input.employeeNumber.trim();
+
+  try {
+    await sql`begin`;
+
+    const beforeRows = await sql`
+      select
+        e.id as employee_id,
+        e.employee_number,
+        e.hire_date,
+        d.name as department_name,
+        b.name as branch_name,
+        p.name as position_name
+      from users u
+      inner join employees e on e.user_id = u.id and e.company_id = u.company_id and e.deleted_at is null
+      left join departments d on d.id = e.department_id and d.company_id = e.company_id
+      left join branches b on b.id = e.branch_id and b.company_id = e.company_id
+      left join positions p on p.id = e.position_id and p.company_id = e.company_id
+      where u.id = ${targetUserId}
+        and u.company_id = ${companyId}
+        and u.deleted_at is null
+      for update of e
+    `;
+    const before = beforeRows[0] as
+      | {
+          employee_id: string;
+          employee_number: string | null;
+          hire_date: unknown;
+          department_name: string | null;
+          branch_name: string | null;
+          position_name: string | null;
+        }
+      | undefined;
+    if (!before?.employee_id) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const duplicateEmployeeRows = await sql`
+      select id from employees
+      where company_id = ${companyId}
+        and id <> ${before.employee_id}
+        and deleted_at is null
+        and employee_number = ${employeeNumber}
+      limit 1
+    `;
+    if (duplicateEmployeeRows[0]) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const branchRows = await sql`
+      select id from branches
+      where company_id = ${companyId}
+        and deleted_at is null
+        and status = 'active'
+        and name = ${branchName}
+      order by id
+      limit 1
+    `;
+    const branchId = (branchRows[0] as { id: string } | undefined)?.id;
+    if (!branchId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const departmentRows = await sql`
+      select id from departments
+      where company_id = ${companyId}
+        and deleted_at is null
+        and status = 'active'
+        and name = ${departmentName}
+      order by id
+      limit 1
+    `;
+    const departmentId = (departmentRows[0] as { id: string } | undefined)?.id;
+    if (!departmentId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    let positionId: string | null = null;
+    if (positionName) {
+      const positionRows = await sql`
+        select id from positions
+        where company_id = ${companyId}
+          and deleted_at is null
+          and status = 'active'
+          and name = ${positionName}
+        order by id
+        limit 1
+      `;
+      positionId = (positionRows[0] as { id: string } | undefined)?.id ?? null;
+      if (!positionId) {
+        await sql`rollback`;
+        return null;
+      }
+    }
+
+    await sql`
+      update employees
+      set branch_id = ${branchId},
+          department_id = ${departmentId},
+          position_id = ${positionId},
+          employee_number = ${employeeNumber},
+          hire_date = ${input.hireDate},
+          updated_at = ${updatedAt}
+      where id = ${before.employee_id}
+        and company_id = ${companyId}
+        and user_id = ${targetUserId}
+    `;
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_org_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.organization.update',
+        'employee',
+        ${before.employee_id},
+        ${JSON.stringify({ departmentName: before.department_name, branchName: before.branch_name, positionName: before.position_name, employeeNumber: before.employee_number, hireDate: parseDateOnly(before.hire_date) })}::jsonb,
+        ${JSON.stringify({ departmentName, branchName, positionName, employeeNumber, hireDate: input.hireDate })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "employee", reason: input.reason, maskedFields: [] })}::jsonb,
         ${updatedAt}
       )
     `;
