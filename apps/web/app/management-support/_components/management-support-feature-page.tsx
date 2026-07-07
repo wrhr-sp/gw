@@ -3,62 +3,9 @@ import React from "react";
 import { FeatureWorkspace, type FeatureWorkspaceConfig } from "../../_components/feature-workspace";
 import { PageShell } from "../../_components/page-shell";
 
-type ManagementSupportFeatureSlug = "hr" | "branches" | "payroll" | "budget" | "vendors" | "sales-purchases" | "attendance";
+type ManagementSupportFeatureSlug = "branches" | "payroll" | "budget" | "vendors" | "sales-purchases" | "attendance";
 
 const featureConfigs: Record<ManagementSupportFeatureSlug, FeatureWorkspaceConfig> = {
-  hr: {
-    title: "인사관리",
-    eyebrow: "경영지원팀 전용 인사 업무",
-    tabs: [
-      { id: "employees", label: "사원정보관리" },
-      { id: "appointments", label: "인사발령" },
-      { id: "dormant", label: "휴면계정관리" },
-    ],
-    utility: [
-      { label: "포털", value: "경영지원팀" },
-      { label: "업무 구분", value: "부서업무" },
-      { label: "route", value: "/management-support/hr" },
-    ],
-    panels: [
-      {
-        id: "employees",
-        heading: "사원정보관리",
-        summary: "신규 입사부터 퇴사까지의 사원 생애주기를 경영지원팀 업무 기준으로 관리합니다. 변경이력과 감사로그는 관리자페이지 감사로그에서 확인합니다.",
-        rows: [
-          { title: "사원 목록", meta: "01", status: "검색·필터·정렬" },
-          { title: "사원 등록 / 계정 생성", meta: "02", status: "운영 DB 저장 연결" },
-          { title: "사원 기본정보", meta: "03", status: "인사 실무 정보" },
-          { title: "조직 / 지점 / 직무", meta: "04", status: "소속·직책·직급" },
-          { title: "계정 / 역할 / 권한", meta: "05", status: "관리자페이지 계정관리와 연결" },
-          { title: "보안 설정", meta: "06", status: "비밀번호·2단계 인증" },
-          { title: "근무 / 재직 상태", meta: "07", status: "휴직·퇴사·비활성" },
-          { title: "인사 서류 / 계약", meta: "08", status: "문서·계약 연결" },
-          { title: "근태 / 휴가 연결", meta: "09", status: "요약·연결" },
-          { title: "급여 연결", meta: "10", status: "요약·연결" },
-          { title: "업무 접근 / 포털 접근", meta: "11", status: "포털 접근 확인" },
-        ],
-        permissionHint: "사원정보관리 본기능은 관리자페이지가 아니라 경영지원팀 인사관리 안에서 다룹니다. 감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.",
-      },
-      {
-        id: "appointments",
-        heading: "인사발령",
-        summary: "인사발령 요청, 검토, 전자결재 연결 흐름을 경영지원팀 업무로 분리합니다.",
-        rows: [
-          { title: "발령 요청", meta: "소항목", status: "경영지원팀 업무" },
-          { title: "승인 흐름", meta: "소항목", status: "전자결재 연결 대상" },
-        ],
-      },
-      {
-        id: "dormant",
-        heading: "휴면계정관리",
-        summary: "휴면 계정 확인과 후속 조치를 경영지원팀 인사관리 안에서 다룹니다.",
-        rows: [
-          { title: "휴면 대상 확인", meta: "소항목", status: "경영지원팀 업무" },
-          { title: "후속 조치", meta: "소항목", status: "경영지원팀 업무" },
-        ],
-      },
-    ],
-  },
   branches: {
     title: "지점관리",
     eyebrow: "경영지원팀 전용 지점 업무",
