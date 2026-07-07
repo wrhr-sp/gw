@@ -303,40 +303,46 @@ export async function listOperationalAdminUsers(
     return null;
   }
 
-  const rows = await sql`
-    select
-      u.id as user_id,
-      coalesce(e.id, '') as employee_id,
-      u.company_id,
-      coalesce(e.full_name, u.display_name) as full_name,
-      coalesce(u.email, u.login_id || '@local.invalid') as email,
-      coalesce(d.name, '미지정') as department_name,
-      coalesce(b.name, '미지정') as branch_name,
-      p.name as position_name,
-      coalesce(e.employee_number, '') as employee_number,
-      e.hire_date,
-      coalesce(e.employment_status, 'active') as employment_status,
-      coalesce(u.status, 'active') as account_status,
-      coalesce(u.must_change_password, false) as must_change_password,
-      u.last_login_at,
-      coalesce(uss.two_factor_required, uss.secondary_password_hash is not null, false) as two_factor_required,
-      coalesce(uss.failed_login_count, 0)::integer as failed_login_count,
-      count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count,
-      coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes
-    from users u
-    left join employees e on e.user_id = u.id and e.company_id = u.company_id
-    left join departments d on d.id = e.department_id and d.company_id = e.company_id
-    left join branches b on b.id = e.branch_id and b.company_id = e.company_id
-    left join positions p on p.id = e.position_id and p.company_id = e.company_id
-    left join user_security_settings uss on uss.user_id = u.id and uss.company_id = u.company_id
-    left join auth_sessions s on s.user_id = u.id and s.company_id = u.company_id
-    left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
-    left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
-    where u.company_id = ${companyId}
-      and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
-    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
-    order by coalesce(e.full_name, u.display_name), u.email
-  `;
+  let rows;
+  try {
+    rows = await sql`
+      select
+        u.id as user_id,
+        coalesce(e.id, '') as employee_id,
+        u.company_id,
+        coalesce(e.full_name, u.display_name) as full_name,
+        coalesce(u.email, u.login_id || '@local.invalid') as email,
+        coalesce(d.name, '미지정') as department_name,
+        coalesce(b.name, '미지정') as branch_name,
+        p.name as position_name,
+        coalesce(e.employee_number, '') as employee_number,
+        e.hire_date,
+        coalesce(e.employment_status, 'active') as employment_status,
+        coalesce(u.status, 'active') as account_status,
+        coalesce(u.must_change_password, false) as must_change_password,
+        u.last_login_at,
+        coalesce(uss.two_factor_required, uss.secondary_password_hash is not null, false) as two_factor_required,
+        coalesce(uss.failed_login_count, 0)::integer as failed_login_count,
+        count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count,
+        coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes
+      from users u
+      left join employees e on e.user_id = u.id and e.company_id = u.company_id
+      left join departments d on d.id = e.department_id and d.company_id = e.company_id
+      left join branches b on b.id = e.branch_id and b.company_id = e.company_id
+      left join positions p on p.id = e.position_id and p.company_id = e.company_id
+      left join user_security_settings uss on uss.user_id = u.id and uss.company_id = u.company_id
+      left join auth_sessions s on s.user_id = u.id and s.company_id = u.company_id
+      left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
+      left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
+      where u.company_id = ${companyId}
+        and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
+      group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
+      order by coalesce(e.full_name, u.display_name), u.email
+    `;
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
 
   return rows.map((row) => {
     const typed = row as {
