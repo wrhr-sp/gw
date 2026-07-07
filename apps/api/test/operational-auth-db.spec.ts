@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { describe, expect, it } from "vitest";
 import {
   adminAuditLogListResponseSchema,
+  adminUserMutationResponseSchema,
   adminUsersListResponseSchema,
   appRoutes,
   authLoginResponseSchema,
@@ -95,6 +96,63 @@ describe("operational DB-backed auth", () => {
     expect(payload.data.items.length).toBeGreaterThanOrEqual(4);
     expect(payload.data.items.some((item) => item.userId === "user_company_admin" && item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
     expect(payload.data.items.some((item) => item.userId === "user_hr_admin" && item.roleCodes.includes("HR_ADMIN"))).toBe(true);
+  });
+
+  runWhenDbConfigured("updates and re-reads an employee basic profile through admin users API", async () => {
+    const cookie = await login();
+    const targetUserId = "user_hr_admin";
+
+    const beforeResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(beforeResponse.status).toBe(200);
+    const beforePayload = adminUsersListResponseSchema.parse(await beforeResponse.json());
+    const beforeUser = beforePayload.data.items.find((item) => item.userId === targetUserId);
+    expect(beforeUser).toBeDefined();
+    if (!beforeUser) return;
+
+    const nextName = beforeUser.fullName.endsWith(" 수정검증") ? beforeUser.fullName.replace(/ 수정검증$/, "") : `${beforeUser.fullName} 수정검증`;
+    const nextStatus = beforeUser.employmentStatus === "active" ? "on_leave" : "active";
+
+    try {
+      const updateResponse = await app.request(
+        appRoutes.admin.userProfile(targetUserId),
+        {
+          method: "PATCH",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            fullName: nextName,
+            email: beforeUser.email,
+            employmentStatus: nextStatus,
+            reason: "사원 기본정보 저장 테스트",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(updateResponse.status).toBe(200);
+      const updatePayload = adminUserMutationResponseSchema.parse(await updateResponse.json());
+      expect(updatePayload.data.persistence).toBe("operational-db");
+      expect(updatePayload.data.user.fullName).toBe(nextName);
+      expect(updatePayload.data.user.employmentStatus).toBe(nextStatus);
+
+      const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+      expect(rereadResponse.status).toBe(200);
+      const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+      expect(rereadPayload.data.items.find((item) => item.userId === targetUserId)?.fullName).toBe(nextName);
+    } finally {
+      await app.request(
+        appRoutes.admin.userProfile(targetUserId),
+        {
+          method: "PATCH",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            fullName: beforeUser.fullName,
+            email: beforeUser.email,
+            employmentStatus: beforeUser.employmentStatus,
+            reason: "사원 기본정보 저장 테스트 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+    }
   });
 
   runWhenDbConfigured("lists org employees, departments, roles, permissions, companies, and home shortcuts from the preview PostgreSQL seed", async () => {
