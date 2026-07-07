@@ -20,6 +20,7 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserRolesUpdateRequestSchema,
+  adminUserSecurityUpdateRequestSchema,
   adminUsersListResponseSchema,
   adminUserStatusUpdateRequestSchema,
   appRoutes,
@@ -323,7 +324,7 @@ import {
   sortApprovalSteps,
 } from "./lib/approval-steps";
 import { authenticateOperationalUser } from "./lib/operational-auth";
-import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserStatus } from "./lib/operational-admin";
+import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
 import {
@@ -4294,6 +4295,61 @@ app.post(appRoutes.admin.userStatus(":userId"), async (context) => {
       data: {
         user: result.user,
         audit: { candidate: true, action: "admin.user.status.update" },
+        persistence: "operational-db",
+        updatedAt: result.updatedAt,
+      },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.post(appRoutes.admin.userSecurity(":userId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) {
+    return authResult.response;
+  }
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const targetUserId = context.req.param("userId");
+  if (!targetUserId) {
+    return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminUserSecurityUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "보안 설정 저장 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await updateOperationalAdminUserSecurity(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    targetUserId,
+    parsed.data,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+  if (!result) {
+    return jsonDatabaseRequired(context, "사원 보안 설정 저장");
+  }
+
+  return jsonSuccess(
+    context,
+    adminUserMutationResponseSchema,
+    {
+      ok: true,
+      data: {
+        user: result.user,
+        audit: { candidate: true, action: "admin.user.security.update" },
         persistence: "operational-db",
         updatedAt: result.updatedAt,
       },

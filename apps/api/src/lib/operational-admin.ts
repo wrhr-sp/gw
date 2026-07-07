@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -319,8 +319,8 @@ export async function listOperationalAdminUsers(
       coalesce(u.status, 'active') as account_status,
       coalesce(u.must_change_password, false) as must_change_password,
       u.last_login_at,
-      coalesce(uss.secondary_password_hash is not null, false) as two_factor_required,
-      0::integer as failed_login_count,
+      coalesce(uss.two_factor_required, uss.secondary_password_hash is not null, false) as two_factor_required,
+      coalesce(uss.failed_login_count, 0)::integer as failed_login_count,
       count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count,
       coalesce(json_agg(distinct r.code) filter (where r.code is not null), '[]'::json) as role_codes
     from users u
@@ -334,7 +334,7 @@ export async function listOperationalAdminUsers(
     left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
     where u.company_id = ${companyId}
       and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
-    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash
+    group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
     order by coalesce(e.full_name, u.display_name), u.email
   `;
 
@@ -612,6 +612,109 @@ export async function updateOperationalAdminUserStatus(
         ${JSON.stringify({ status: before.status, mustChangePassword: before.must_change_password })}::jsonb,
         ${JSON.stringify({ status: nextStatus, mustChangePassword: mustChangePassword ?? before.must_change_password })}::jsonb,
         ${JSON.stringify({ source: "web-admin", category: "user", reason, maskedFields: ["password_hash", "session_token_hash"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalAdminUserSecurity(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  input: AdminUserSecurityUpdateRequest,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+
+  try {
+    await sql`begin`;
+
+    const beforeRows = await sql`
+      select
+        u.id,
+        u.must_change_password,
+        coalesce(uss.two_factor_required, uss.secondary_password_hash is not null, false) as two_factor_required,
+        coalesce(uss.failed_login_count, 0)::integer as failed_login_count,
+        count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count
+      from users u
+      left join user_security_settings uss on uss.company_id = u.company_id and uss.user_id = u.id
+      left join auth_sessions s on s.company_id = u.company_id and s.user_id = u.id
+      where u.id = ${targetUserId}
+        and u.company_id = ${companyId}
+        and u.deleted_at is null
+      group by u.id, u.must_change_password, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
+      for update of u
+    `;
+    const before = beforeRows[0] as
+      | {
+          id: string;
+          must_change_password: boolean;
+          two_factor_required: unknown;
+          failed_login_count: unknown;
+          active_session_count: unknown;
+        }
+      | undefined;
+    if (!before) {
+      await sql`rollback`;
+      return null;
+    }
+
+    await sql`
+      update users
+      set must_change_password = ${input.mustChangePassword},
+          updated_at = ${updatedAt}
+      where id = ${targetUserId}
+        and company_id = ${companyId}
+    `;
+
+    await sql`
+      insert into user_security_settings (id, company_id, user_id, two_factor_required, failed_login_count, created_at, updated_at)
+      values (${`security_${companyId}_${targetUserId}`}, ${companyId}, ${targetUserId}, ${input.twoFactorRequired}, ${input.resetFailedLoginCount ? 0 : parseCount(before.failed_login_count)}, ${updatedAt}, ${updatedAt})
+      on conflict (company_id, user_id) do update set
+        two_factor_required = excluded.two_factor_required,
+        failed_login_count = excluded.failed_login_count,
+        updated_at = excluded.updated_at
+    `;
+
+    if (input.revokeActiveSessions) {
+      await sql`
+        update auth_sessions
+        set status = 'revoked',
+            revoked_at = coalesce(revoked_at, ${updatedAt}),
+            updated_at = ${updatedAt}
+        where user_id = ${targetUserId}
+          and company_id = ${companyId}
+          and status = 'active'
+      `;
+    }
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_security_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.security.update',
+        'user',
+        ${targetUserId},
+        ${JSON.stringify({ mustChangePassword: before.must_change_password, twoFactorRequired: parseBoolean(before.two_factor_required), failedLoginCount: parseCount(before.failed_login_count), activeSessionCount: parseCount(before.active_session_count) })}::jsonb,
+        ${JSON.stringify({ mustChangePassword: input.mustChangePassword, twoFactorRequired: input.twoFactorRequired, resetFailedLoginCount: input.resetFailedLoginCount, revokedActiveSessions: input.revokeActiveSessions })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "secondary_password_hash", "session_token_hash"] })}::jsonb,
         ${updatedAt}
       )
     `;

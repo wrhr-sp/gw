@@ -109,4 +109,24 @@ describe("phase34 degraded DB route fallback", () => {
     const payload = errorResponseSchema.parse(await response.json());
     expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
   });
+
+  it("returns DB_NOT_CONFIGURED for admin user security mutation instead of in-memory fallback", async () => {
+    const { cookie } = await loginAndGetCookie("COMPANY_ADMIN");
+
+    const response = await app.request(appRoutes.admin.userSecurity("employee_admin"), {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify({
+        twoFactorRequired: true,
+        mustChangePassword: true,
+        resetFailedLoginCount: true,
+        revokeActiveSessions: true,
+        reason: "degraded route regression",
+      }),
+    });
+
+    expect(response.status).toBe(503);
+    const payload = errorResponseSchema.parse(await response.json());
+    expect(payload.error.code).toBe("DB_NOT_CONFIGURED");
+  });
 });

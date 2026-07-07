@@ -184,6 +184,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(supportHtml).toContain("계정상태 저장");
     expect(supportHtml).toContain("역할/권한 저장");
     expect(supportHtml).toContain("권한 요약");
+    expect(supportHtml).toContain("보안 설정 저장");
+    expect(supportHtml).toContain("2단계 인증");
+    expect(supportHtml).toContain("활성 세션");
     expect(supportHtml).toContain("총괄관리자");
     expect(supportHtml).toContain("감사로그");
     expect(supportHtml).not.toContain("감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.");
