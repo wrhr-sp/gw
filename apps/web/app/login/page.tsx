@@ -1,7 +1,6 @@
 import React from "react";
 
 import { LoginForm } from "./login-form";
-import { RegistrationRequestForm } from "./registration-request-form";
 
 export default function LoginPage() {
   return (
@@ -11,7 +10,6 @@ export default function LoginPage() {
           <h1>We'reHere Login</h1>
         </div>
         <LoginForm />
-        <RegistrationRequestForm />
       </section>
     </main>
   );

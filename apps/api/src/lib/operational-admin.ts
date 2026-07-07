@@ -1,5 +1,6 @@
 import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
+import { createApprovedHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
 
@@ -409,7 +410,7 @@ export async function listOperationalAdminUsers(
 }
 
 export async function createOperationalAdminUser(
-  env: PostgresEnv | undefined,
+  env: (PostgresEnv & ZitadelStepUpEnv) | undefined,
   companyId: string,
   actorUserId: string,
   input: AdminUserCreateRequest,
@@ -417,15 +418,12 @@ export async function createOperationalAdminUser(
   highRiskPermissions: readonly Permission["code"][],
 ): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
   const sql = createOperationalSql(env);
-  if (!sql) return null;
+  if (!sql || !env) return null;
 
   const updatedAt = new Date().toISOString();
   const normalizedEmail = input.email.trim().toLowerCase();
   const loginId = normalizedEmail.split("@")[0] || normalizedEmail;
-  const userId = `user_${crypto.randomUUID()}`;
-  const employeeId = `employee_${crypto.randomUUID()}`;
   const employeeNumber = `EMP-${Date.now().toString(36).toUpperCase()}`;
-  const passwordHash = `pending_invite_${crypto.randomUUID()}`;
   const positionName = input.positionName?.trim() || null;
 
   try {
@@ -501,9 +499,21 @@ export async function createOperationalAdminUser(
       return null;
     }
 
+    const zitadel = await createApprovedHumanUser(env, {
+      loginName: loginId,
+      email: normalizedEmail,
+      displayName: input.fullName.trim(),
+      initialPassword: input.initialPassword,
+      userType: "INTERNAL_STAFF",
+    });
+    const safeZitadelUserId = zitadel.userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const userId = `user_zitadel_${safeZitadelUserId}`;
+    const employeeId = `employee_zitadel_${safeZitadelUserId}`;
+    const passwordHash = `external_auth_zitadel_${crypto.randomUUID()}`;
+
     await sql`
-      insert into users (id, company_id, login_id, email, password_hash, display_name, status, must_change_password, created_at, updated_at)
-      values (${userId}, ${companyId}, ${loginId}, ${normalizedEmail}, ${passwordHash}, ${input.fullName.trim()}, ${input.status}, ${input.mustChangePassword ?? true}, ${updatedAt}, ${updatedAt})
+      insert into users (id, company_id, login_id, email, password_hash, display_name, status, must_change_password, external_auth_provider, external_auth_user_id, user_type, created_at, updated_at)
+      values (${userId}, ${companyId}, ${loginId}, ${normalizedEmail}, ${passwordHash}, ${input.fullName.trim()}, ${input.status}, ${input.mustChangePassword ?? true}, 'zitadel', ${zitadel.userId}, 'INTERNAL_STAFF', ${updatedAt}, ${updatedAt})
     `;
 
     await sql`

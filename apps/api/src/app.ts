@@ -3397,31 +3397,7 @@ app.get("/api/v1/files/download/:key", async (context) => {
 });
 
 app.post(appRoutes.auth.registrationRequests, async (context) => {
-  const body = await context.req.json().catch(() => null);
-  const parsed = authRegistrationRequestCreateRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "회원가입 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
-  }
-
-  const result = await createZitadelRegistrationRequest(context.env, parsed.data);
-  if (!result.ok) {
-    return jsonRegistrationServiceError(context, result);
-  }
-
-  return jsonSuccess(
-    context,
-    authRegistrationRequestCreateResponseSchema,
-    {
-      ok: true,
-      data: {
-        request: result.value,
-        persistence: "operational-db",
-        nextStep: "ADMIN_APPROVAL_REQUIRED",
-      },
-      error: null,
-    },
-    201,
-  );
+  return jsonError(context, "NOT_IMPLEMENTED", "회원가입 신청은 사용하지 않습니다. 사내임직원 계정은 사원정보관리에서 생성합니다.", 501);
 });
 
 app.post(appRoutes.auth.login, async (context) => {
@@ -4099,92 +4075,11 @@ app.post(appRoutes.notificationsReadAll, async (context) => {
 });
 
 app.get(appRoutes.admin.registrationRequests, async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  if (!hasPermission(authResult.auth.user, "employee.write")) {
-    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
-      requiredPermission: "employee.write",
-      roleCodes: authResult.auth.user.roleCodes,
-      route: context.req.path,
-    });
-  }
-
-  const result = await listZitadelRegistrationRequests(context.env, authResult.auth.user.companyId);
-  if (!result.ok) {
-    return jsonRegistrationServiceError(context, result);
-  }
-
-  return jsonSuccess(
-    context,
-    adminRegistrationRequestsListResponseSchema,
-    {
-      ok: true,
-      data: {
-        items: result.value,
-        persistence: "operational-db",
-      },
-      error: null,
-    },
-    200,
-  );
+  return jsonError(context, "NOT_IMPLEMENTED", "회원가입 승인 목록은 사용하지 않습니다. 사내임직원 계정은 사원정보관리에서 생성합니다.", 501);
 });
 
 app.post(appRoutes.admin.registrationRequestApprove(":requestId"), async (context) => {
-  const authResult = requireAdminRole(context);
-  if (authResult.response) {
-    return authResult.response;
-  }
-
-  if (!hasPermission(authResult.auth.user, "employee.write")) {
-    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
-      requiredPermission: "employee.write",
-      roleCodes: authResult.auth.user.roleCodes,
-      route: context.req.path,
-    });
-  }
-
-  const requestId = context.req.param("requestId");
-  if (!requestId) {
-    return jsonError(context, "VALIDATION_ERROR", "회원가입 요청 ID가 필요합니다.", 400);
-  }
-
-  const body = await context.req.json().catch(() => null);
-  const parsed = adminRegistrationRequestApproveRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return jsonError(context, "VALIDATION_ERROR", "회원가입 승인 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
-  }
-
-  const result = await approveZitadelRegistrationRequest(
-    context.env,
-    authResult.auth.user.companyId,
-    authResult.auth.user.id,
-    requestId,
-    parsed.data,
-  );
-  if (!result.ok) {
-    return jsonRegistrationServiceError(context, result);
-  }
-
-  return jsonSuccess(
-    context,
-    adminRegistrationRequestApproveResponseSchema,
-    {
-      ok: true,
-      data: {
-        request: result.value.request,
-        localUserId: result.value.localUserId,
-        localEmployeeId: result.value.localEmployeeId,
-        assignedRoleCode: result.value.assignedRoleCode,
-        persistence: "operational-db",
-        updatedAt: result.value.updatedAt,
-      },
-      error: null,
-    },
-    200,
-  );
+  return jsonError(context, "NOT_IMPLEMENTED", "회원가입 승인 처리는 사용하지 않습니다. 사내임직원 계정은 사원정보관리에서 생성합니다.", 501);
 });
 
 app.post(appRoutes.admin.invites, async (context) => {
@@ -4225,6 +4120,7 @@ app.post(appRoutes.admin.userCreate, async (context) => {
     ? await context.req.parseBody().then((form) => ({
         fullName: form.fullName,
         email: form.email,
+        initialPassword: form.initialPassword,
         departmentName: form.departmentName,
         branchName: form.branchName,
         positionName: form.positionName,
@@ -4239,6 +4135,16 @@ app.post(appRoutes.admin.userCreate, async (context) => {
   const parsed = adminUserCreateRequestSchema.safeParse(body);
   if (!parsed.success) {
     return jsonError(context, "VALIDATION_ERROR", "계정 생성 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const createRuntimeEnv = (context.env ?? {}) as typeof context.env & {
+    ZITADEL_API_ENDPOINT?: string;
+    ZITADEL_ORG_ID?: string;
+    ZITADEL_SERVICE_ACCOUNT_JSON?: string;
+    ZITADEL_ACCESS_TOKEN?: string;
+  };
+  if (!createRuntimeEnv.ZITADEL_API_ENDPOINT || !createRuntimeEnv.ZITADEL_ORG_ID || (!createRuntimeEnv.ZITADEL_SERVICE_ACCOUNT_JSON && !createRuntimeEnv.ZITADEL_ACCESS_TOKEN)) {
+    return jsonError(context, "EXTERNAL_AUTH_NOT_CONFIGURED", "ZITADEL 사용자 생성 설정이 필요합니다.", 503);
   }
 
   const result = await createOperationalAdminUser(

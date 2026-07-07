@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import AdminUsersPage from "./app/admin/users/page";
 import EmployeesPage from "./app/employees/page";
+import ManagementSupportHrPage from "./app/management-support/hr/page";
 import MePage from "./app/me/page";
 import OrgPage from "./app/org/page";
 
@@ -61,18 +62,27 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("12. 감사로그 / 변경이력");
     expect(html).not.toContain("조직 / 지점 / 직무");
     expect(html).not.toContain("변경이력");
-    expect(html).toContain("계정생성 1차 검증");
-    expect(html).toContain("계정 생성 저장");
-    expect(html).toContain("계정 생성은 운영 DB에 저장하고 다시 조회합니다");
-    expect(html).toContain("users, employees, user_roles, audit_logs");
-    expect(html).toContain("필수값: 이름, 로그인 ID/이메일, 부서, 지점, 초기 역할");
-    expect(html).toContain("감사 후보: 계정 생성 요청자, 사유, 생성 전 검증 결과");
+    expect(html).not.toContain("계정생성 1차 검증");
+    expect(html).not.toContain("계정 생성 저장");
     expect(html).toContain("계정관리 목록");
     expect(html).toContain("계정 · 권한 상세");
     expect(html).toContain("기능별 권한");
     expect(html).toContain("관리자 작업");
     expect(html).toContain("감사로그");
-    expect(html.indexOf("계정생성 1차 검증")).toBeGreaterThan(html.indexOf("계정관리 목록"));
-    expect(html.indexOf("계정 · 권한 상세")).toBeGreaterThan(html.indexOf("계정생성 1차 검증"));
+    expect(html.indexOf("계정 · 권한 상세")).toBeGreaterThan(html.indexOf("계정관리 목록"));
+  });
+
+  it("creates internal employee accounts inside management support employee management", () => {
+    const html = renderToStaticMarkup(<ManagementSupportHrPage />);
+
+    expect(html).toContain("사원정보관리");
+    expect(html).toContain("사내임직원 등록 및 계정 생성");
+    expect(html).toContain("사내임직원 계정 생성");
+    expect(html).toContain("사내임직원 로그인 ID 또는 이메일");
+    expect(html).toContain("사내임직원 초기 역할");
+    expect(html).toContain("사내임직원");
+    expect(html).not.toContain("회원가입 신청");
+    expect(html).not.toContain("회원가입 승인");
+    expect(html).not.toContain("승인대기");
   });
 });
