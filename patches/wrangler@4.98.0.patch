@@ -1,0 +1,22 @@
+diff --git a/wrangler-dist/cli.js b/wrangler-dist/cli.js
+index aa52fc0858fc19770216cbe891bca581af27250b..83aeecc1355b55e9f8c7e9783263f1a6a1a85840 100644
+--- a/wrangler-dist/cli.js
++++ b/wrangler-dist/cli.js
+@@ -80329,7 +80329,7 @@ var require_mappingTable = __commonJS({
+ var require_tr46 = __commonJS({
+   "../../node_modules/.pnpm/tr46@0.0.3/node_modules/tr46/index.js"(exports, module2) {
+     init_import_meta_url();
+-    var punycode = __require("punycode");
++    var punycode = __require("punycode/");
+     var mappingTable = require_mappingTable();
+     var PROCESSING_OPTIONS = {
+       TRANSITIONAL: 0,
+@@ -80496,7 +80496,7 @@ var require_tr46 = __commonJS({
+ var require_url_state_machine = __commonJS({
+   "../../node_modules/.pnpm/whatwg-url@5.0.0/node_modules/whatwg-url/lib/url-state-machine.js"(exports, module2) {
+     init_import_meta_url();
+-    var punycode = __require("punycode");
++    var punycode = __require("punycode/");
+     var tr46 = require_tr46();
+     var specialSchemes = {
+       ftp: 21,
