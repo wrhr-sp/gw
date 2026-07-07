@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserProfileUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
@@ -582,6 +582,115 @@ export async function updateOperationalAdminUserStatus(
         ${JSON.stringify({ status: before.status, mustChangePassword: before.must_change_password })}::jsonb,
         ${JSON.stringify({ status: nextStatus, mustChangePassword: mustChangePassword ?? before.must_change_password })}::jsonb,
         ${JSON.stringify({ source: "web-admin", category: "user", reason, maskedFields: ["password_hash", "session_token_hash"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
+
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalAdminUserProfile(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  input: AdminUserProfileUpdateRequest,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const fullName = input.fullName.trim();
+
+  try {
+    await sql`begin`;
+
+    const beforeRows = await sql`
+      select
+        u.id as user_id,
+        u.email,
+        u.display_name,
+        e.id as employee_id,
+        e.full_name,
+        e.employment_status
+      from users u
+      left join employees e on e.user_id = u.id and e.company_id = u.company_id and e.deleted_at is null
+      where u.id = ${targetUserId}
+        and u.company_id = ${companyId}
+        and u.deleted_at is null
+      for update of u
+    `;
+    const before = beforeRows[0] as
+      | {
+          user_id: string;
+          email: string | null;
+          display_name: string | null;
+          employee_id: string | null;
+          full_name: string | null;
+          employment_status: string | null;
+        }
+      | undefined;
+    if (!before?.employee_id) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const duplicateRows = await sql`
+      select id from users
+      where company_id = ${companyId}
+        and id <> ${targetUserId}
+        and deleted_at is null
+        and lower(email) = ${normalizedEmail}
+      limit 1
+    `;
+    if (duplicateRows[0]) {
+      await sql`rollback`;
+      return null;
+    }
+
+    await sql`
+      update users
+      set email = ${normalizedEmail},
+          display_name = ${fullName},
+          updated_at = ${updatedAt}
+      where id = ${targetUserId}
+        and company_id = ${companyId}
+    `;
+
+    await sql`
+      update employees
+      set full_name = ${fullName},
+          employment_status = ${input.employmentStatus},
+          leave_date = case when ${input.employmentStatus} = 'offboarded' then coalesce(leave_date, current_date) else leave_date end,
+          updated_at = ${updatedAt}
+      where id = ${before.employee_id}
+        and company_id = ${companyId}
+        and user_id = ${targetUserId}
+    `;
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_profile_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.profile.update',
+        'user',
+        ${targetUserId},
+        ${JSON.stringify({ fullName: before.full_name ?? before.display_name, email: before.email, employmentStatus: before.employment_status })}::jsonb,
+        ${JSON.stringify({ fullName, email: normalizedEmail, employmentStatus: input.employmentStatus })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "email"] })}::jsonb,
         ${updatedAt}
       )
     `;

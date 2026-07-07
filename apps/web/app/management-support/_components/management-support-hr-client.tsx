@@ -3,9 +3,12 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  adminUserMutationResponseSchema,
+  adminUserProfileUpdateRequestSchema,
   adminUsersListResponseSchema,
   appRoutes,
   errorResponseSchema,
+  type AdminUserProfileUpdateRequest,
   type AdminUserSummary,
   type RoleCode,
 } from "@gw/shared";
@@ -229,6 +232,14 @@ export function ManagementSupportHrClient() {
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<AdminUserProfileUpdateRequest>({
+    fullName: "",
+    email: "",
+    employmentStatus: "active",
+    reason: "사원 기본정보 수정",
+  });
+  const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -268,6 +279,66 @@ export function ManagementSupportHrClient() {
     () => items.find((item) => item.userId === selectedUserId) ?? items[0] ?? null,
     [items, selectedUserId],
   );
+
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+
+    setProfileForm({
+      fullName: selected.fullName,
+      email: selected.email,
+      employmentStatus: selected.employmentStatus,
+      reason: "사원 기본정보 수정",
+    });
+    setProfileSaveState("idle");
+    setProfileSaveMessage(null);
+  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus]);
+
+  async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+
+    const parsedRequest = adminUserProfileUpdateRequestSchema.safeParse(profileForm);
+    if (!parsedRequest.success) {
+      setProfileSaveState("error");
+      setProfileSaveMessage("이름, 이메일, 재직상태, 변경 사유를 확인해 주세요.");
+      return;
+    }
+
+    setProfileSaveState("saving");
+    setProfileSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userProfile(selected.userId), {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 기본정보 저장 응답 형식을 확인하지 못했습니다.");
+      }
+
+      const updatedUser = parsedResponse.data.data.user;
+      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
+      setSelectedUserId(updatedUser.userId);
+      setProfileSaveState("saved");
+      setProfileSaveMessage(`${updatedUser.fullName} 기본정보를 운영 DB에 저장하고 재조회했습니다.`);
+    } catch (error) {
+      setProfileSaveState("error");
+      setProfileSaveMessage(error instanceof Error ? error.message : "사원 기본정보를 저장하지 못했습니다.");
+    }
+  }
 
   const activeCount = items.filter((item) => item.employmentStatus === "active").length;
   const lockedCount = items.filter((item) => item.accountStatus === "locked").length;
@@ -404,6 +475,65 @@ export function ManagementSupportHrClient() {
             </article>
           ))}
         </div>
+
+        <form className="feature-workspace__form" onSubmit={handleProfileSave} aria-label="사원 기본정보 수정">
+          <label>
+            <span>이름</span>
+            <input
+              aria-label="사원 이름"
+              disabled={!selected || profileSaveState === "saving"}
+              onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))}
+              value={profileForm.fullName}
+            />
+          </label>
+          <label>
+            <span>이메일</span>
+            <input
+              aria-label="사원 이메일"
+              disabled={!selected || profileSaveState === "saving"}
+              onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+              type="email"
+              value={profileForm.email}
+            />
+          </label>
+          <label>
+            <span>재직상태</span>
+            <select
+              aria-label="사원 재직상태"
+              disabled={!selected || profileSaveState === "saving"}
+              onChange={(event) =>
+                setProfileForm((current) => ({
+                  ...current,
+                  employmentStatus: event.target.value as AdminUserProfileUpdateRequest["employmentStatus"],
+                }))
+              }
+              value={profileForm.employmentStatus}
+            >
+              <option value="active">재직</option>
+              <option value="on_leave">휴직</option>
+              <option value="offboarded">퇴사</option>
+            </select>
+          </label>
+          <label>
+            <span>변경 사유</span>
+            <input
+              aria-label="사원 기본정보 변경 사유"
+              disabled={!selected || profileSaveState === "saving"}
+              onChange={(event) => setProfileForm((current) => ({ ...current, reason: event.target.value }))}
+              value={profileForm.reason}
+            />
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={!selected || profileSaveState === "saving"} type="submit">
+              {profileSaveState === "saving" ? "저장 중" : "기본정보 저장"}
+            </button>
+          </div>
+          {profileSaveMessage ? (
+            <p className="feature-workspace__permission-hint" role={profileSaveState === "error" ? "alert" : "status"}>
+              {profileSaveMessage}
+            </p>
+          ) : null}
+        </form>
 
         <EmployeeDetailSections selected={selected} />
       </section>
