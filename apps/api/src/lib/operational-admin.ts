@@ -80,7 +80,10 @@ function parseDateOnly(value: unknown): string | null {
     return null;
   }
   if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
   const raw = String(value);
   const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
@@ -88,7 +91,13 @@ function parseDateOnly(value: unknown): string | null {
     return match[0];
   }
   const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function parseCount(value: unknown): number {

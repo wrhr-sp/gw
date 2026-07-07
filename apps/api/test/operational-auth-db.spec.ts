@@ -155,6 +155,73 @@ describe("operational DB-backed auth", () => {
     }
   });
 
+  runWhenDbConfigured("updates and re-reads an employee organization profile through admin users API", async () => {
+    const cookie = await login();
+    const targetUserId = "user_hr_admin";
+
+    const beforeResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(beforeResponse.status).toBe(200);
+    const beforePayload = adminUsersListResponseSchema.parse(await beforeResponse.json());
+    const beforeUser = beforePayload.data.items.find((item) => item.userId === targetUserId);
+    expect(beforeUser).toBeDefined();
+    expect(beforeUser?.hireDate).toBeTruthy();
+    if (!beforeUser?.hireDate) return;
+
+    const nextEmployeeNumber = beforeUser.employeeNumber.endsWith("-SMOKE")
+      ? beforeUser.employeeNumber.replace(/-SMOKE$/, "")
+      : `${beforeUser.employeeNumber}-SMOKE`;
+    const nextHireDate = beforeUser.hireDate === "2026-01-01" ? "2026-01-02" : "2026-01-01";
+
+    try {
+      const updateResponse = await app.request(
+        appRoutes.admin.userOrganization(targetUserId),
+        {
+          method: "PATCH",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            departmentName: beforeUser.departmentName,
+            branchName: beforeUser.branchName,
+            positionName: beforeUser.positionName ?? "",
+            employeeNumber: nextEmployeeNumber,
+            hireDate: nextHireDate,
+            reason: "사원 조직정보 저장 테스트",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(updateResponse.status).toBe(200);
+      const updatePayload = adminUserMutationResponseSchema.parse(await updateResponse.json());
+      expect(updatePayload.data.persistence).toBe("operational-db");
+      expect(updatePayload.data.audit.action).toBe("admin.user.organization.update");
+      expect(updatePayload.data.user.employeeNumber).toBe(nextEmployeeNumber);
+      expect(updatePayload.data.user.hireDate).toBe(nextHireDate);
+
+      const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+      expect(rereadResponse.status).toBe(200);
+      const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+      const rereadUser = rereadPayload.data.items.find((item) => item.userId === targetUserId);
+      expect(rereadUser?.employeeNumber).toBe(nextEmployeeNumber);
+      expect(rereadUser?.hireDate).toBe(nextHireDate);
+    } finally {
+      await app.request(
+        appRoutes.admin.userOrganization(targetUserId),
+        {
+          method: "PATCH",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            departmentName: beforeUser.departmentName,
+            branchName: beforeUser.branchName,
+            positionName: beforeUser.positionName ?? "",
+            employeeNumber: beforeUser.employeeNumber,
+            hireDate: beforeUser.hireDate,
+            reason: "사원 조직정보 저장 테스트 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+    }
+  });
+
   runWhenDbConfigured("lists org employees, departments, roles, permissions, companies, and home shortcuts from the preview PostgreSQL seed", async () => {
     const cookie = await login();
 
