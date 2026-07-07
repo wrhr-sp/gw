@@ -186,6 +186,21 @@ export async function createApprovedHumanUser(
   };
 }
 
+export async function deactivateHumanUser(env: ZitadelStepUpEnv, userId: string): Promise<ZitadelApprovalResult> {
+  const { user } = createZitadelClients(env);
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    throw new Error("userId is required for ZITADEL user deactivation");
+  }
+
+  await user.deactivateUser({ userId: normalizedUserId });
+
+  return {
+    userId: normalizedUserId,
+    registrationStatus: "SUSPENDED",
+  };
+}
+
 export async function approveRegistration(env: ZitadelStepUpEnv, userId: string): Promise<ZitadelApprovalResult> {
   const { user } = createZitadelClients(env);
   const normalizedUserId = userId.trim();
