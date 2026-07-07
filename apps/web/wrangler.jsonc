@@ -26,6 +26,9 @@
   "env": {
     "preview": {
       "name": "gw-web-preview",
+      "vars": {
+        "APP_ENV": "preview"
+      },
       "images": {
         "binding": "IMAGES"
       },
@@ -44,6 +47,9 @@
     },
     "production": {
       "name": "gw-web",
+      "vars": {
+        "APP_ENV": "production"
+      },
       "images": {
         "binding": "IMAGES"
       },
