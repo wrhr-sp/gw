@@ -98,6 +98,46 @@ describe("operational DB-backed auth", () => {
     expect(payload.data.items.some((item) => item.userId === "user_hr_admin" && item.roleCodes.includes("HR_ADMIN"))).toBe(true);
   });
 
+  runWhenDbConfigured("fails safely without creating an employee when ZITADEL create settings are missing", async () => {
+    const cookie = await login();
+    const unique = `smoke-${Date.now()}`;
+    const email = `${unique}@example.invalid`;
+
+    const response = await app.request(
+      appRoutes.admin.userCreate,
+      {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: "생성검증 사용자",
+          email,
+          initialPassword: "ChangeMe1234!",
+          departmentName: "경영지원팀",
+          branchName: "본사",
+          positionName: "",
+          accountType: "employee",
+          roleCode: "EMPLOYEE",
+          status: "invited",
+          reason: "사내임직원 계정 생성 안전 실패 테스트",
+          mustChangePassword: true,
+          mfaRequired: false,
+        }),
+      },
+      { DATABASE_URL: databaseUrl },
+    );
+
+    expect(response.status).toBe(503);
+    const payload = await response.json() as { ok: boolean; data: unknown; error?: { code?: string } };
+    expect(payload.ok).toBe(false);
+    expect(payload.data).toBeNull();
+    expect(payload.error?.code).toBe("EXTERNAL_AUTH_NOT_CONFIGURED");
+
+    const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(rereadResponse.status).toBe(200);
+    const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+    expect(rereadPayload.data.items.some((item) => item.email === email)).toBe(false);
+  });
+
   runWhenDbConfigured("updates and re-reads an employee basic profile through admin users API", async () => {
     const cookie = await login();
     const targetUserId = "user_hr_admin";
