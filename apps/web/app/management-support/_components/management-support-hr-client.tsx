@@ -6,12 +6,16 @@ import {
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
+  adminUserRolesUpdateRequestSchema,
+  adminUserStatusUpdateRequestSchema,
   adminUsersListResponseSchema,
   appRoutes,
   errorResponseSchema,
   type AdminUserOrganizationUpdateRequest,
   type AdminUserProfileUpdateRequest,
+  type AdminUserRolesUpdateRequest,
   type AdminUserSummary,
+  type AdminUserStatusUpdateRequest,
   type RoleCode,
 } from "@gw/shared";
 
@@ -37,6 +41,8 @@ const roleLabels: Record<RoleCode, string> = {
   EMPLOYEE: "사원",
   AUDITOR: "감사담당자",
 };
+
+const roleOptions = Object.entries(roleLabels) as Array<[RoleCode, string]>;
 
 const accountStatusLabels: Record<AdminUserSummary["accountStatus"], string> = {
   invited: "초대대기",
@@ -184,10 +190,23 @@ export function ManagementSupportHrClient() {
     hireDate: "",
     reason: "사원 조직정보 수정",
   });
+  const [accountForm, setAccountForm] = useState<AdminUserStatusUpdateRequest>({
+    status: "active",
+    mustChangePassword: false,
+    reason: "사원 계정상태 수정",
+  });
+  const [rolesForm, setRolesForm] = useState<AdminUserRolesUpdateRequest>({
+    roleCodes: ["EMPLOYEE"],
+    reason: "사원 역할/권한 수정",
+  });
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
   const [organizationSaveState, setOrganizationSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [organizationSaveMessage, setOrganizationSaveMessage] = useState<string | null>(null);
+  const [accountSaveState, setAccountSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [accountSaveMessage, setAccountSaveMessage] = useState<string | null>(null);
+  const [rolesSaveState, setRolesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [rolesSaveMessage, setRolesSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -251,7 +270,20 @@ export function ManagementSupportHrClient() {
     });
     setOrganizationSaveState("idle");
     setOrganizationSaveMessage(null);
-  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate]);
+    setAccountForm({
+      status: selected.accountStatus,
+      mustChangePassword: selected.mustChangePassword,
+      reason: "사원 계정상태 수정",
+    });
+    setAccountSaveState("idle");
+    setAccountSaveMessage(null);
+    setRolesForm({
+      roleCodes: selected.roleCodes,
+      reason: "사원 역할/권한 수정",
+    });
+    setRolesSaveState("idle");
+    setRolesSaveMessage(null);
+  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate, selected?.accountStatus, selected?.mustChangePassword, selected?.roleCodes]);
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -340,6 +372,96 @@ export function ManagementSupportHrClient() {
     } catch (error) {
       setOrganizationSaveState("error");
       setOrganizationSaveMessage(error instanceof Error ? error.message : "사원 조직정보를 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleAccountSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+
+    const parsedRequest = adminUserStatusUpdateRequestSchema.safeParse(accountForm);
+    if (!parsedRequest.success) {
+      setAccountSaveState("error");
+      setAccountSaveMessage("계정상태와 변경 사유를 확인해 주세요.");
+      return;
+    }
+
+    setAccountSaveState("saving");
+    setAccountSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userStatus(selected.userId), {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 계정상태를 저장하지 못했습니다.");
+      }
+
+      const updatedUser = parsedResponse.data.data.user;
+      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
+      setSelectedUserId(updatedUser.userId);
+      setAccountSaveState("saved");
+      setAccountSaveMessage(`${updatedUser.fullName} 계정상태를 저장했습니다.`);
+    } catch (error) {
+      setAccountSaveState("error");
+      setAccountSaveMessage(error instanceof Error ? error.message : "사원 계정상태를 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleRolesSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+
+    const parsedRequest = adminUserRolesUpdateRequestSchema.safeParse(rolesForm);
+    if (!parsedRequest.success) {
+      setRolesSaveState("error");
+      setRolesSaveMessage("역할과 변경 사유를 확인해 주세요.");
+      return;
+    }
+
+    setRolesSaveState("saving");
+    setRolesSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userRoles(selected.userId), {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 역할/권한을 저장하지 못했습니다.");
+      }
+
+      const updatedUser = parsedResponse.data.data.user;
+      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
+      setSelectedUserId(updatedUser.userId);
+      setRolesSaveState("saved");
+      setRolesSaveMessage(`${updatedUser.fullName} 역할/권한을 저장했습니다.`);
+    } catch (error) {
+      setRolesSaveState("error");
+      setRolesSaveMessage(error instanceof Error ? error.message : "사원 역할/권한을 저장하지 못했습니다.");
     }
   }
 
@@ -598,6 +720,108 @@ export function ManagementSupportHrClient() {
           {organizationSaveMessage ? (
             <p className="feature-workspace__save-message" role={organizationSaveState === "error" ? "alert" : "status"}>
               {organizationSaveMessage}
+            </p>
+          ) : null}
+        </form>
+
+        <form className="feature-workspace__form" onSubmit={handleAccountSave} aria-label="사원 계정상태 수정">
+          <label>
+            <span>계정상태</span>
+            <select
+              aria-label="사원 계정상태"
+              disabled={!selected || accountSaveState === "saving"}
+              onChange={(event) =>
+                setAccountForm((current) => ({
+                  ...current,
+                  status: event.target.value as AdminUserStatusUpdateRequest["status"],
+                }))
+              }
+              value={accountForm.status}
+            >
+              <option value="invited">초대대기</option>
+              <option value="active">활성</option>
+              <option value="locked">잠금</option>
+              <option value="disabled">비활성</option>
+              <option value="offboarded">퇴사처리</option>
+              <option value="suspended">일시정지</option>
+            </select>
+          </label>
+          <label>
+            <span>비밀번호 변경</span>
+            <select
+              aria-label="최초 로그인 비밀번호 변경 요구"
+              disabled={!selected || accountSaveState === "saving"}
+              onChange={(event) => setAccountForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+              value={accountForm.mustChangePassword ? "true" : "false"}
+            >
+              <option value="false">요구 안 함</option>
+              <option value="true">요구</option>
+            </select>
+          </label>
+          <label>
+            <span>변경 사유</span>
+            <input
+              aria-label="사원 계정상태 변경 사유"
+              disabled={!selected || accountSaveState === "saving"}
+              onChange={(event) => setAccountForm((current) => ({ ...current, reason: event.target.value }))}
+              value={accountForm.reason}
+            />
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={!selected || accountSaveState === "saving"} type="submit">
+              {accountSaveState === "saving" ? "저장 중" : "계정상태 저장"}
+            </button>
+          </div>
+          {accountSaveMessage ? (
+            <p className="feature-workspace__save-message" role={accountSaveState === "error" ? "alert" : "status"}>
+              {accountSaveMessage}
+            </p>
+          ) : null}
+        </form>
+
+        <form className="feature-workspace__form" onSubmit={handleRolesSave} aria-label="사원 역할 권한 수정">
+          {roleOptions.map(([roleCode, label]) => (
+            <label key={roleCode}>
+              <span>{label}</span>
+              <select
+                aria-label={`${label} 역할 선택`}
+                disabled={!selected || rolesSaveState === "saving"}
+                onChange={(event) =>
+                  setRolesForm((current) => {
+                    const nextRoleCodes = event.target.value === "true"
+                      ? [...new Set([...current.roleCodes, roleCode])]
+                      : current.roleCodes.filter((currentRoleCode) => currentRoleCode !== roleCode);
+                    return { ...current, roleCodes: nextRoleCodes.length > 0 ? nextRoleCodes : current.roleCodes };
+                  })
+                }
+                value={rolesForm.roleCodes.includes(roleCode) ? "true" : "false"}
+              >
+                <option value="false">제외</option>
+                <option value="true">포함</option>
+              </select>
+            </label>
+          ))}
+          <label>
+            <span>권한 요약</span>
+            <input aria-label="사원 권한 요약" readOnly value={selected ? `${selected.permissions.length}개 권한 · 고위험 ${selected.highRiskPermissions.length}개` : ""} />
+          </label>
+          <label>
+            <span>변경 사유</span>
+            <input
+              aria-label="사원 역할 권한 변경 사유"
+              disabled={!selected || rolesSaveState === "saving"}
+              onChange={(event) => setRolesForm((current) => ({ ...current, reason: event.target.value }))}
+              value={rolesForm.reason}
+            />
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={!selected || rolesSaveState === "saving"} type="submit">
+              {rolesSaveState === "saving" ? "저장 중" : "역할/권한 저장"}
+            </button>
+          </div>
+          {rolesSaveMessage ? (
+            <p className="feature-workspace__save-message" role={rolesSaveState === "error" ? "alert" : "status"}>
+              {rolesSaveMessage}
             </p>
           ) : null}
         </form>

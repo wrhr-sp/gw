@@ -963,7 +963,7 @@ export async function updateOperationalAdminUserRoles(
 
       await sql`
         insert into user_roles (id, company_id, user_id, role_id, assigned_by, status, created_at, updated_at)
-        values (${`user_role_${targetUserId}_${roleCode}`}, ${companyId}, ${targetUserId}, ${roleId}, ${actorUserId}, 'active', ${updatedAt}, ${updatedAt})
+        values (${`user_role_${targetUserId}_${roleCode}_${Date.now()}`}, ${companyId}, ${targetUserId}, ${roleId}, ${actorUserId}, 'active', ${updatedAt}, ${updatedAt})
         on conflict (company_id, user_id, role_id, branch_id) do update
         set status = 'active', assigned_by = ${actorUserId}, updated_at = ${updatedAt}, deleted_at = null
       `;
