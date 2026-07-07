@@ -4,9 +4,19 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  asn1@0.2.6: d68f20079d7b9497d41f44df40bebf0a8f31c7c2de545fc885d41273653d8429
+  tr46@0.0.3: a30a63e5eaa7875a4152f5a816e31ecd693cb097298916a275cf193267cbbfd5
+  whatwg-url@5.0.0: d3c34002a8c3a046735554ca0e151137b2b4d443668f131ed6e883c0128a6d3f
+  wrangler@4.98.0: 691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8
+
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      punycode:
+        specifier: ^2.3.1
+        version: 2.3.1
 
   apps/api:
     dependencies:
@@ -37,7 +47,7 @@ importers:
         version: 3.2.6(@types/node@24.13.1)(terser@5.16.9)(yaml@2.9.0)
       wrangler:
         specifier: ^4.20.3
-        version: 4.98.0(@cloudflare/workers-types@4.20260608.1)
+        version: 4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1)
 
   apps/mobile:
     dependencies:
@@ -75,7 +85,7 @@ importers:
     devDependencies:
       '@opennextjs/cloudflare':
         specifier: ^1.19.11
-        version: 1.19.11(next@15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(wrangler@4.98.0(@cloudflare/workers-types@4.20260608.1))
+        version: 1.19.11(next@15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(wrangler@4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1))
       '@types/node':
         specifier: ^24.3.0
         version: 24.13.1
@@ -93,7 +103,7 @@ importers:
         version: 3.2.6(@types/node@24.13.1)(terser@5.16.9)(yaml@2.9.0)
       wrangler:
         specifier: ^4.98.0
-        version: 4.98.0(@cloudflare/workers-types@4.20260608.1)
+        version: 4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1)
 
   packages/shared:
     dependencies:
@@ -2341,6 +2351,10 @@ packages:
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
 
+  punycode@2.3.1:
+    resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
+    engines: {node: '>=6'}
+
   qs@6.15.2:
     resolution: {integrity: sha512-Rzq0KEyX/w/tEybncDgdkZrJgVUsUMk3xjh3t5bv3S1HTAtg+uOYt72+ZfwiQwKdysThkTBdL/rTi6HDmX9Ddw==}
     engines: {node: '>=0.6'}
@@ -3844,7 +3858,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opennextjs/cloudflare@1.19.11(next@15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(wrangler@4.98.0(@cloudflare/workers-types@4.20260608.1))':
+  '@opennextjs/cloudflare@1.19.11(next@15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(wrangler@4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@dotenvx/dotenvx': 1.31.0
@@ -3856,7 +3870,7 @@ snapshots:
       glob: 12.0.0
       next: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       ts-tqdm: 0.8.6
-      wrangler: 4.98.0(@cloudflare/workers-types@4.20260608.1)
+      wrangler: 4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1)
       yargs: 18.0.0
     transitivePeerDependencies:
       - encoding
@@ -4298,7 +4312,7 @@ snapshots:
 
   array-timsort@1.0.3: {}
 
-  asn1@0.2.6:
+  asn1@0.2.6(patch_hash=d68f20079d7b9497d41f44df40bebf0a8f31c7c2de545fc885d41273653d8429):
     dependencies:
       safer-buffer: 2.1.2
 
@@ -4934,11 +4948,11 @@ snapshots:
 
   node-fetch@2.7.0:
     dependencies:
-      whatwg-url: 5.0.0
+      whatwg-url: 5.0.0(patch_hash=d3c34002a8c3a046735554ca0e151137b2b4d443668f131ed6e883c0128a6d3f)
 
   node-rsa@1.1.1:
     dependencies:
-      asn1: 0.2.6
+      asn1: 0.2.6(patch_hash=d68f20079d7b9497d41f44df40bebf0a8f31c7c2de545fc885d41273653d8429)
 
   npm-run-path@4.0.1:
     dependencies:
@@ -5060,6 +5074,8 @@ snapshots:
       ipaddr.js: 1.9.1
 
   proxy-from-env@1.1.0: {}
+
+  punycode@2.3.1: {}
 
   qs@6.15.2:
     dependencies:
@@ -5306,7 +5322,7 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  tr46@0.0.3: {}
+  tr46@0.0.3(patch_hash=a30a63e5eaa7875a4152f5a816e31ecd693cb097298916a275cf193267cbbfd5): {}
 
   ts-error@1.0.6: {}
 
@@ -5418,9 +5434,9 @@ snapshots:
 
   webidl-conversions@3.0.1: {}
 
-  whatwg-url@5.0.0:
+  whatwg-url@5.0.0(patch_hash=d3c34002a8c3a046735554ca0e151137b2b4d443668f131ed6e883c0128a6d3f):
     dependencies:
-      tr46: 0.0.3
+      tr46: 0.0.3(patch_hash=a30a63e5eaa7875a4152f5a816e31ecd693cb097298916a275cf193267cbbfd5)
       webidl-conversions: 3.0.1
 
   which@2.0.2:
@@ -5444,7 +5460,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260603.1
       '@cloudflare/workerd-windows-64': 1.20260603.1
 
-  wrangler@4.98.0(@cloudflare/workers-types@4.20260608.1):
+  wrangler@4.98.0(patch_hash=691d70878cd7feb24c72db545e5ae0e5f0683c044c2db50d52013e063107f6a8)(@cloudflare/workers-types@4.20260608.1):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260603.1)

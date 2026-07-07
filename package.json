@@ -11,5 +11,8 @@
     "db:pg:check": "node scripts/validate-operational-postgres-schema.mjs",
     "db:pg:seed:preview": "node scripts/seed-operational-db.mjs preview",
     "db:pg:seed:production": "node scripts/seed-operational-db.mjs production"
+  },
+  "devDependencies": {
+    "punycode": "^2.3.1"
   }
 }
