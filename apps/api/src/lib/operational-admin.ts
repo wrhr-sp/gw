@@ -1,6 +1,6 @@
 import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
-import { createApprovedHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
+import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
 
@@ -434,6 +434,7 @@ export async function createOperationalAdminUser(
   const loginId = normalizedEmail.split("@")[0] || normalizedEmail;
   const employeeNumber = `EMP-${Date.now().toString(36).toUpperCase()}`;
   const positionName = input.positionName?.trim() || null;
+  let createdZitadelUserId: string | null = null;
 
   try {
     await sql`begin`;
@@ -515,6 +516,7 @@ export async function createOperationalAdminUser(
       initialPassword: input.initialPassword,
       userType: "INTERNAL_STAFF",
     });
+    createdZitadelUserId = zitadel.userId;
     const safeZitadelUserId = zitadel.userId.replace(/[^a-zA-Z0-9_-]/g, "_");
     const userId = `user_zitadel_${safeZitadelUserId}`;
     const employeeId = `employee_zitadel_${safeZitadelUserId}`;
@@ -557,6 +559,14 @@ export async function createOperationalAdminUser(
     return user ? { user, updatedAt } : null;
   } catch (error) {
     await sql`rollback`.catch(() => undefined);
+    if (createdZitadelUserId) {
+      await deactivateHumanUser(env, createdZitadelUserId).catch((cleanupError) => {
+        console.error("ZITADEL user cleanup failed after groupware account creation rollback", {
+          externalUserCreated: true,
+          reason: cleanupError instanceof Error ? cleanupError.message : "unknown",
+        });
+      });
+    }
     if (isOperationalSchemaDriftError(error)) return null;
     throw error;
   }
