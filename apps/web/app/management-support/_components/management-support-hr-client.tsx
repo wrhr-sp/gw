@@ -4,10 +4,12 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   adminUserMutationResponseSchema,
+  adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUsersListResponseSchema,
   appRoutes,
   errorResponseSchema,
+  type AdminUserOrganizationUpdateRequest,
   type AdminUserProfileUpdateRequest,
   type AdminUserSummary,
   type RoleCode,
@@ -88,11 +90,12 @@ function buildEmployeeDetailSections(selected: AdminUserSummary | null): Employe
     {
       title: "기본정보",
       meta: `${selected.fullName} · ${selected.email}`,
-      body: `${selected.departmentName} · ${employmentStatusLabels[selected.employmentStatus]}`,
+      body: `${selected.departmentName} · ${selected.branchName}`,
     },
     {
       title: "조직 / 지점 / 직무",
-      meta: `부서: ${selected.departmentName}`,
+      meta: `${selected.departmentName} · ${selected.branchName}`,
+      body: `${selected.positionName ?? "직책/직급 미지정"} · ${selected.employeeNumber} · ${selected.hireDate ?? "입사일 미지정"}`,
     },
     {
       title: "계정 / 역할 / 권한",
@@ -173,8 +176,18 @@ export function ManagementSupportHrClient() {
     employmentStatus: "active",
     reason: "사원 기본정보 수정",
   });
+  const [organizationForm, setOrganizationForm] = useState<AdminUserOrganizationUpdateRequest>({
+    departmentName: "",
+    branchName: "",
+    positionName: "",
+    employeeNumber: "",
+    hireDate: "",
+    reason: "사원 조직정보 수정",
+  });
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
+  const [organizationSaveState, setOrganizationSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [organizationSaveMessage, setOrganizationSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -228,7 +241,17 @@ export function ManagementSupportHrClient() {
     });
     setProfileSaveState("idle");
     setProfileSaveMessage(null);
-  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus]);
+    setOrganizationForm({
+      departmentName: selected.departmentName,
+      branchName: selected.branchName,
+      positionName: selected.positionName ?? "",
+      employeeNumber: selected.employeeNumber,
+      hireDate: selected.hireDate ?? "",
+      reason: "사원 조직정보 수정",
+    });
+    setOrganizationSaveState("idle");
+    setOrganizationSaveMessage(null);
+  }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate]);
 
   async function handleProfileSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -272,6 +295,51 @@ export function ManagementSupportHrClient() {
     } catch (error) {
       setProfileSaveState("error");
       setProfileSaveMessage(error instanceof Error ? error.message : "사원 기본정보를 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleOrganizationSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+
+    const parsedRequest = adminUserOrganizationUpdateRequestSchema.safeParse(organizationForm);
+    if (!parsedRequest.success) {
+      setOrganizationSaveState("error");
+      setOrganizationSaveMessage("부서, 지점, 사번, 입사일, 변경 사유를 확인해 주세요.");
+      return;
+    }
+
+    setOrganizationSaveState("saving");
+    setOrganizationSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userOrganization(selected.userId), {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 조직정보를 저장하지 못했습니다.");
+      }
+
+      const updatedUser = parsedResponse.data.data.user;
+      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
+      setSelectedUserId(updatedUser.userId);
+      setOrganizationSaveState("saved");
+      setOrganizationSaveMessage(`${updatedUser.fullName} 조직정보를 저장했습니다.`);
+    } catch (error) {
+      setOrganizationSaveState("error");
+      setOrganizationSaveMessage(error instanceof Error ? error.message : "사원 조직정보를 저장하지 못했습니다.");
     }
   }
 
@@ -362,6 +430,7 @@ export function ManagementSupportHrClient() {
                 <th>이름</th>
                 <th>이메일</th>
                 <th>부서</th>
+                <th>지점</th>
                 <th>재직상태</th>
                 <th>계정상태</th>
                 <th>역할</th>
@@ -378,6 +447,7 @@ export function ManagementSupportHrClient() {
                   </td>
                   <td>{item.email}</td>
                   <td>{item.departmentName}</td>
+                  <td>{item.branchName}</td>
                   <td>{employmentStatusLabels[item.employmentStatus]}</td>
                   <td>{accountStatusLabels[item.accountStatus]}</td>
                   <td>{roleText(item.roleCodes)}</td>
@@ -460,6 +530,74 @@ export function ManagementSupportHrClient() {
           {profileSaveMessage ? (
             <p className="feature-workspace__save-message" role={profileSaveState === "error" ? "alert" : "status"}>
               {profileSaveMessage}
+            </p>
+          ) : null}
+        </form>
+
+        <form className="feature-workspace__form" onSubmit={handleOrganizationSave} aria-label="사원 조직정보 수정">
+          <label>
+            <span>부서</span>
+            <input
+              aria-label="사원 부서"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, departmentName: event.target.value }))}
+              value={organizationForm.departmentName}
+            />
+          </label>
+          <label>
+            <span>지점</span>
+            <input
+              aria-label="사원 지점"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, branchName: event.target.value }))}
+              value={organizationForm.branchName}
+            />
+          </label>
+          <label>
+            <span>직책/직급</span>
+            <input
+              aria-label="사원 직책 또는 직급"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, positionName: event.target.value }))}
+              value={organizationForm.positionName ?? ""}
+            />
+          </label>
+          <label>
+            <span>사번</span>
+            <input
+              aria-label="사원 사번"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, employeeNumber: event.target.value }))}
+              value={organizationForm.employeeNumber}
+            />
+          </label>
+          <label>
+            <span>입사일</span>
+            <input
+              aria-label="사원 입사일"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, hireDate: event.target.value }))}
+              type="date"
+              value={organizationForm.hireDate}
+            />
+          </label>
+          <label>
+            <span>변경 사유</span>
+            <input
+              aria-label="사원 조직정보 변경 사유"
+              disabled={!selected || organizationSaveState === "saving"}
+              onChange={(event) => setOrganizationForm((current) => ({ ...current, reason: event.target.value }))}
+              value={organizationForm.reason}
+            />
+          </label>
+          <div className="feature-workspace__actions">
+            <button className="touch-button feature-workspace__action" disabled={!selected || organizationSaveState === "saving"} type="submit">
+              {organizationSaveState === "saving" ? "저장 중" : "조직정보 저장"}
+            </button>
+          </div>
+          {organizationSaveMessage ? (
+            <p className="feature-workspace__save-message" role={organizationSaveState === "error" ? "alert" : "status"}>
+              {organizationSaveMessage}
             </p>
           ) : null}
         </form>

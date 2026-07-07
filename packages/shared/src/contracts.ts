@@ -35,6 +35,7 @@ export const appRoutes = {
     users: "/api/admin/users",
     userCreate: "/api/admin/users",
     userProfile: (userId: string) => `/api/admin/users/${userId}/profile`,
+    userOrganization: (userId: string) => `/api/admin/users/${userId}/organization`,
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     permissions: "/api/admin/permissions",
@@ -2012,6 +2013,10 @@ export const adminUserSummarySchema = z.object({
   fullName: z.string(),
   email: z.email(),
   departmentName: z.string(),
+  branchName: z.string(),
+  positionName: z.string().nullable(),
+  employeeNumber: z.string(),
+  hireDate: isoDateSchema.nullable(),
   roleCodes: z.array(roleCodeSchema).min(1),
   permissions: z.array(permissionCodeSchema),
   employmentStatus: employeeSchema.shape.employmentStatus,
@@ -2058,6 +2063,17 @@ export const adminUserProfileUpdateRequestSchema = z
     fullName: z.string().trim().min(2).max(100),
     email: z.email(),
     employmentStatus: employeeSchema.shape.employmentStatus,
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+export const adminUserOrganizationUpdateRequestSchema = z
+  .object({
+    departmentName: z.string().trim().min(1).max(100),
+    branchName: z.string().trim().min(1).max(100),
+    positionName: z.string().trim().max(100).optional(),
+    employeeNumber: z.string().trim().min(1).max(100),
+    hireDate: isoDateSchema,
     reason: z.string().trim().min(1).max(500),
   })
   .strict();
@@ -3993,6 +4009,7 @@ export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;
 export type AdminUserRolesUpdateRequest = z.infer<typeof adminUserRolesUpdateRequestSchema>;
 export type AdminUserProfileUpdateRequest = z.infer<typeof adminUserProfileUpdateRequestSchema>;
+export type AdminUserOrganizationUpdateRequest = z.infer<typeof adminUserOrganizationUpdateRequestSchema>;
 export type AdminUserCreateRequest = z.infer<typeof adminUserCreateRequestSchema>;
 export type AdminUserMutationResponse = z.infer<typeof adminUserMutationResponseSchema>;
 export type AdminPolicyCategory = z.infer<typeof adminPolicyCategorySchema>;

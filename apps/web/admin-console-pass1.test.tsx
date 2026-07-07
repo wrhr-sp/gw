@@ -175,6 +175,12 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(supportHtml).toContain("근태 / 휴가 연결");
     expect(supportHtml).toContain("급여 연결");
     expect(supportHtml).toContain("업무 접근 / 포털 접근");
+    expect(supportHtml).toContain("부서");
+    expect(supportHtml).toContain("지점");
+    expect(supportHtml).toContain("직책/직급");
+    expect(supportHtml).toContain("사번");
+    expect(supportHtml).toContain("입사일");
+    expect(supportHtml).toContain("조직정보 저장");
     expect(supportHtml).toContain("감사로그");
     expect(supportHtml).not.toContain("감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.");
     expect(supportHtml).not.toContain("감사로그 / 변경이력");
