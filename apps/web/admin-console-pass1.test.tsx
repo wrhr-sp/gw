@@ -143,6 +143,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("사원 계정 관리");
     expect(html).toContain("계정 현황");
     expect(html).toContain("계정관리 목록");
+    expect(html).toContain("회원가입 승인");
+    expect(html).toContain("승인대기: 0건");
     expect(html).toContain("계정 · 권한 상세");
     expect(html).toContain("기능별 권한");
     expect(html).toContain("퇴사");
