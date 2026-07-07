@@ -323,7 +323,8 @@ import {
   isCurrentPendingApprovalStepForEmployee,
   sortApprovalSteps,
 } from "./lib/approval-steps";
-import { authenticateOperationalUser } from "./lib/operational-auth";
+import { authenticateOperationalUser, resolveOperationalUserAfterExternalAuth } from "./lib/operational-auth";
+import { verifyZitadelPasswordLogin, type ZitadelStepUpEnv } from "./lib/zitadel-step-up-auth";
 import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
@@ -523,7 +524,7 @@ import {
   upsertOperationalAttendanceRecord,
 } from "./lib/operational-workflows";
 
-type AppBindings = DocumentStorageEnv & PostgresEnv;
+type AppBindings = DocumentStorageEnv & PostgresEnv & ZitadelStepUpEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-session_";
@@ -3400,6 +3401,56 @@ app.post(appRoutes.auth.login, async (context) => {
     );
 
     return jsonSuccess(context, authLoginResponseSchema, payload, 200);
+  }
+
+  const runtimeEnv = context.env;
+  const zitadelLoginName = parsed.data.loginId ?? parsed.data.email;
+  const zitadelConfigured = Boolean(
+    zitadelLoginName
+      && runtimeEnv?.ZITADEL_API_ENDPOINT
+      && (runtimeEnv.ZITADEL_SERVICE_ACCOUNT_JSON || runtimeEnv.ZITADEL_ACCESS_TOKEN),
+  );
+
+  if (zitadelConfigured && zitadelLoginName && runtimeEnv) {
+    try {
+      await verifyZitadelPasswordLogin(context.env, {
+        loginName: zitadelLoginName,
+        password: parsed.data.password,
+      });
+
+      const mappedUser = await resolveOperationalUserAfterExternalAuth(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
+      if (!mappedUser) {
+        return jsonError(context, "FORBIDDEN", "ZITADEL 인증은 통과했지만 그룹웨어 사용자/권한 매핑이 없습니다.", 403, {
+          identityProvider: "zitadel",
+          mappingRequired: true,
+        });
+      }
+
+      const session = buildOperationalSession(mappedUser.user);
+      const payload = {
+        ok: true,
+        data: {
+          session,
+          user: mappedUser.user,
+          nextStep: "ZITADEL 인증으로 로그인했습니다. 관리자/전자결재 등 민감 구역은 TOTP 스텝업 인증을 추가로 확인합니다.",
+        },
+        error: null,
+      };
+
+      context.header(
+        "Set-Cookie",
+        buildSessionCookie(session.id, parsed.data.rememberSession),
+      );
+
+      return jsonSuccess(context, authLoginResponseSchema, payload, 200);
+    } catch {
+      // ZITADEL 설정이 켜져 있어도 인증 실패 시 자체 password hash 검증으로 성공시키지 않습니다.
+      if (!isDevSafeLoginCredential(parsed.data.loginId, parsed.data.email, parsed.data.password)) {
+        return jsonError(context, "FORBIDDEN", "ZITADEL 인증에 실패했습니다.", 403, {
+          identityProvider: "zitadel",
+        });
+      }
+    }
   }
 
   const operationalLogin = await authenticateOperationalUser(context.env, parsed.data, (roleCode) => [...rolePermissions[roleCode]]);
