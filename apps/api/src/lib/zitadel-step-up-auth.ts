@@ -6,10 +6,14 @@ import { createSessionClient, createUserClient } from "@zitadel/node/dist/api/cl
 import { ServiceAccount } from "@zitadel/node/dist/credentials/service-account.js";
 import type { SessionServiceClient } from "@zitadel/node/dist/api/generated/zitadel/session/v2beta/session_service.js";
 import type { UserServiceClient } from "@zitadel/node/dist/api/generated/zitadel/user/v2beta/user_service.js";
+import {
+  assertGroupwareZitadelUserType,
+  groupwareZitadelMetadataKeys,
+  type GroupwareZitadelRegistrationStatus,
+  type GroupwareZitadelUserType,
+} from "./zitadel-auth-policy";
 
-export const groupwareZitadelUserTypes = ["사내임원", "지점근무자", "지점대표", "거래처임직원"] as const;
-
-export type GroupwareZitadelUserType = (typeof groupwareZitadelUserTypes)[number];
+export { groupwareZitadelUserTypeOptions, groupwareZitadelUserTypes } from "./zitadel-auth-policy";
 
 export type ZitadelStepUpEnv = {
   ZITADEL_API_ENDPOINT?: string;
@@ -29,13 +33,13 @@ export type ZitadelRegistrationInput = {
 
 export type ZitadelRegistrationResult = {
   userId: string;
-  registrationStatus: "pending_approval";
+  registrationStatus: GroupwareZitadelRegistrationStatus;
   userType: GroupwareZitadelUserType;
 };
 
 export type ZitadelApprovalResult = {
   userId: string;
-  registrationStatus: "approved";
+  registrationStatus: GroupwareZitadelRegistrationStatus;
 };
 
 export type ZitadelStepUpInput = {
@@ -65,23 +69,11 @@ type ZitadelClients = {
   session: SessionServiceClient;
 };
 
-const metadataKeys = {
-  userType: "gw.user_type",
-  registrationStatus: "gw.registration_status",
-} as const;
-
 function requireValue(value: string | undefined, name: keyof ZitadelStepUpEnv) {
   if (!value?.trim()) {
     throw new Error(`${name} is required for ZITADEL integration`);
   }
   return value.trim();
-}
-
-function assertGroupwareZitadelUserType(value: string): GroupwareZitadelUserType {
-  if (groupwareZitadelUserTypes.includes(value as GroupwareZitadelUserType)) {
-    return value as GroupwareZitadelUserType;
-  }
-  throw new Error(`Unsupported ZITADEL user type: ${value}`);
 }
 
 function splitDisplayName(displayName: string) {
@@ -142,8 +134,8 @@ export async function requestRegistration(
       isVerified: false,
     },
     metadata: [
-      metadataEntry(metadataKeys.userType, userType),
-      metadataEntry(metadataKeys.registrationStatus, "pending_approval"),
+      metadataEntry(groupwareZitadelMetadataKeys.userType, userType),
+      metadataEntry(groupwareZitadelMetadataKeys.registrationStatus, "PENDING"),
     ] as unknown as Parameters<UserServiceClient["addHumanUser"]>[0]["metadata"],
     password: {
       password: input.initialPassword,
@@ -155,7 +147,7 @@ export async function requestRegistration(
 
   return {
     userId: response.userId,
-    registrationStatus: "pending_approval",
+    registrationStatus: "PENDING",
     userType,
   };
 }
@@ -171,7 +163,7 @@ export async function approveRegistration(env: ZitadelStepUpEnv, userId: string)
 
   return {
     userId: normalizedUserId,
-    registrationStatus: "approved",
+    registrationStatus: "APPROVED",
   };
 }
 
