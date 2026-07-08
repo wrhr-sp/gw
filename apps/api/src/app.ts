@@ -22,6 +22,7 @@ import {
   adminUserCreateRequestSchema,
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
+  adminUserReferenceMastersResponseSchema,
   adminUserRolesUpdateRequestSchema,
   adminUserSecurityUpdateRequestSchema,
   adminUsersListResponseSchema,
@@ -337,7 +338,7 @@ import {
   listZitadelRegistrationRequests,
   type RegistrationServiceResult,
 } from "./lib/zitadel-registration-requests";
-import { createOperationalAdminUser, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
+import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
 import {
@@ -4099,6 +4100,33 @@ app.post(appRoutes.admin.invites, async (context) => {
   }
 
   return jsonDatabaseRequired(context, "관리자 초대 저장");
+});
+
+app.get(appRoutes.admin.employeeReferenceMasters, async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+
+  const masters = await getOperationalEmployeeReferenceMasters(context.env, authResult.auth.user.companyId);
+  if (!masters) {
+    return jsonError(context, "DB_NOT_CONFIGURED", "사원 기준정보 마스터를 조회할 수 없습니다.", 503, {
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  return jsonSuccess(
+    context,
+    adminUserReferenceMastersResponseSchema,
+    {
+      ok: true,
+      data: {
+        ...masters,
+        audit: { candidate: true, action: "admin.employee_reference_masters.list.viewed" },
+      },
+      error: null,
+    },
+    200,
+  );
 });
 
 app.post(appRoutes.admin.userCreate, async (context) => {
