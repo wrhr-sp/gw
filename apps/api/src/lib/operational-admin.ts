@@ -4,13 +4,13 @@ import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } f
 
 const roleCodes = new Set<RoleCode>(["SUPER_ADMIN", "COMPANY_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE", "AUDITOR"]);
 
-function parseRoleCodes(value: unknown): RoleCode[] {
+function parseRoleCodes(value: unknown, defaultEmployeeRole = true): RoleCode[] {
   if (!Array.isArray(value)) {
-    return ["EMPLOYEE"];
+    return defaultEmployeeRole ? ["EMPLOYEE"] : [];
   }
 
   const parsed = value.filter((item): item is RoleCode => typeof item === "string" && roleCodes.has(item as RoleCode));
-  return parsed.length > 0 ? parsed : ["EMPLOYEE"];
+  return parsed.length > 0 ? parsed : defaultEmployeeRole ? ["EMPLOYEE"] : [];
 }
 
 function resolveAdminScope(roleCodes: RoleCode[]): AdminScope {
@@ -375,8 +375,8 @@ export async function listOperationalAdminUsers(
       active_session_count: unknown;
       role_codes: unknown;
     };
-    const parsedRoleCodes = parseRoleCodes(typed.role_codes);
     const accountStatus = parseAccountStatus(typed.account_status);
+    const parsedRoleCodes = parseRoleCodes(typed.role_codes, accountStatus !== "disabled" && accountStatus !== "offboarded");
     const permissions = [...new Set(parsedRoleCodes.flatMap((roleCode) => permissionsForRole(roleCode)))];
     const highRisk = permissions.filter((permission) => highRiskPermissions.includes(permission));
 
@@ -622,6 +622,19 @@ export async function updateOperationalAdminUserStatus(
             updated_at = ${updatedAt}
         where user_id = ${targetUserId}
           and company_id = ${companyId}
+          and deleted_at is null
+      `;
+    }
+
+    if (nextStatus === "disabled" || nextStatus === "offboarded") {
+      await sql`
+        update user_roles
+        set status = 'inactive',
+            updated_at = ${updatedAt},
+            deleted_at = coalesce(deleted_at, ${updatedAt})
+        where user_id = ${targetUserId}
+          and company_id = ${companyId}
+          and status = 'active'
           and deleted_at is null
       `;
       await sql`

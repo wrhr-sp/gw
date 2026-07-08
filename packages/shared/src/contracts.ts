@@ -2073,8 +2073,8 @@ export const adminUserStatusChangePreviewSchema = z.object({
   reasonRequired: z.literal(true),
 });
 export const adminUserRoleChangePreviewSchema = z.object({
-  currentRoleCodes: z.array(roleCodeSchema).min(1),
-  nextRoleCodes: z.array(roleCodeSchema).min(1),
+  currentRoleCodes: z.array(roleCodeSchema),
+  nextRoleCodes: z.array(roleCodeSchema),
   auditCandidate: z.literal(true),
 });
 export const adminUserSummarySchema = z.object({
@@ -2088,7 +2088,7 @@ export const adminUserSummarySchema = z.object({
   positionName: z.string().nullable(),
   employeeNumber: z.string(),
   hireDate: isoDateSchema.nullable(),
-  roleCodes: z.array(roleCodeSchema).min(1),
+  roleCodes: z.array(roleCodeSchema),
   permissions: z.array(permissionCodeSchema),
   employmentStatus: employeeSchema.shape.employmentStatus,
   accountType: adminAccountTypeSchema,
