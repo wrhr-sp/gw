@@ -767,7 +767,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const offboardedCount = summary.offboarded;
 
   return (
-    <div className="feature-workspace">
+    <div className="feature-workspace feature-workspace--hr">
       <aside className="feature-workspace__nav" aria-label="인사관리 메뉴">
         <div className="feature-workspace__nav-header">
           <h1>인사관리</h1>
@@ -862,6 +862,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>이름</span>
                   <input
                     aria-label="사내임직원 이름"
+                    data-hr-input-size="medium"
                     disabled={createSaveState === "saving"}
                     minLength={2}
                     onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
@@ -873,6 +874,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>로그인 ID / 이메일</span>
                   <input
                     aria-label="사내임직원 로그인 ID 또는 이메일"
+                    data-hr-input-size="full"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
                     required
@@ -884,6 +886,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>초기 비밀번호</span>
                   <input
                     aria-label="사내임직원 초기 비밀번호"
+                    data-hr-input-size="full"
                     disabled={createSaveState === "saving"}
                     minLength={8}
                     onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
@@ -896,6 +899,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>부서</span>
                   <input
                     aria-label="사내임직원 부서"
+                    data-hr-input-size="medium"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, departmentName: event.target.value }))}
                     required
@@ -906,6 +910,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>지점</span>
                   <input
                     aria-label="사내임직원 지점"
+                    data-hr-input-size="medium"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, branchName: event.target.value }))}
                     required
@@ -916,6 +921,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>직책/직급</span>
                   <input
                     aria-label="사내임직원 직책 또는 직급"
+                    data-hr-input-size="medium"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, positionName: event.target.value }))}
                     value={createForm.positionName ?? ""}
@@ -923,7 +929,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 </label>
                 <label>
                   <span>계정 유형</span>
-                  <select aria-label="사내임직원 계정 유형" disabled value={createForm.accountType}>
+                  <select aria-label="사내임직원 계정 유형"
+                    data-hr-input-size="short" disabled value={createForm.accountType}>
                     {internalEmployeeAccountTypeOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
@@ -933,6 +940,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>초기 역할</span>
                   <select
                     aria-label="사내임직원 초기 역할"
+                    data-hr-input-size="medium"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, roleCode: event.target.value as RoleCode }))}
                     value={createForm.roleCode}
@@ -946,6 +954,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>초기 상태</span>
                   <select
                     aria-label="사내임직원 초기 상태"
+                    data-hr-input-size="short"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
                     value={createForm.status}
@@ -959,6 +968,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>생성 사유</span>
                   <input
                     aria-label="사내임직원 계정 생성 사유"
+                    data-hr-input-size="full"
                     disabled={createSaveState === "saving"}
                     minLength={1}
                     onChange={(event) => setCreateForm((current) => ({ ...current, reason: event.target.value }))}
@@ -970,6 +980,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>비밀번호 변경</span>
                   <select
                     aria-label="사내임직원 최초 로그인 비밀번호 변경 요구"
+                    data-hr-input-size="short"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
                     value={createForm.mustChangePassword ? "true" : "false"}
@@ -982,6 +993,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>2단계 인증</span>
                   <select
                     aria-label="사내임직원 2단계 인증 요구"
+                    data-hr-input-size="short"
                     disabled={createSaveState === "saving"}
                     onChange={(event) => setCreateForm((current) => ({ ...current, mfaRequired: event.target.value === "true" }))}
                     value={createForm.mfaRequired ? "true" : "false"}
@@ -1092,6 +1104,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>이름</span>
                 <input
                   aria-label="사원 이름"
+                    data-hr-input-size="medium"
                   disabled={!selected || profileSaveState === "saving"}
                   onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))}
                   value={profileForm.fullName}
@@ -1101,6 +1114,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>이메일</span>
                 <input
                   aria-label="사원 이메일"
+                    data-hr-input-size="full"
                   disabled={!selected || profileSaveState === "saving"}
                   onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
                   type="email"
@@ -1111,6 +1125,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>재직상태</span>
                 <select
                   aria-label="사원 재직상태"
+                    data-hr-input-size="short"
                   disabled={!selected || profileSaveState === "saving"}
                   onChange={(event) =>
                     setProfileForm((current) => ({
@@ -1129,6 +1144,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>변경 사유</span>
                 <input
                   aria-label="사원 기본정보 변경 사유"
+                    data-hr-input-size="full"
                   disabled={!selected || profileSaveState === "saving"}
                   onChange={(event) => setProfileForm((current) => ({ ...current, reason: event.target.value }))}
                   value={profileForm.reason}
@@ -1160,6 +1176,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>부서</span>
                 <input
                   aria-label="사원 부서"
+                    data-hr-input-size="medium"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, departmentName: event.target.value }))}
                   value={organizationForm.departmentName}
@@ -1169,6 +1186,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>지점</span>
                 <input
                   aria-label="사원 지점"
+                    data-hr-input-size="medium"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, branchName: event.target.value }))}
                   value={organizationForm.branchName}
@@ -1178,6 +1196,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>직책/직급</span>
                 <input
                   aria-label="사원 직책 또는 직급"
+                    data-hr-input-size="medium"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, positionName: event.target.value }))}
                   value={organizationForm.positionName ?? ""}
@@ -1187,6 +1206,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>사번</span>
                 <input
                   aria-label="사원 사번"
+                    data-hr-input-size="short"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, employeeNumber: event.target.value }))}
                   value={organizationForm.employeeNumber}
@@ -1196,6 +1216,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>입사일</span>
                 <input
                   aria-label="사원 입사일"
+                    data-hr-input-size="short"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, hireDate: event.target.value }))}
                   type="date"
@@ -1206,6 +1227,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>변경 사유</span>
                 <input
                   aria-label="사원 조직정보 변경 사유"
+                    data-hr-input-size="full"
                   disabled={!selected || organizationSaveState === "saving"}
                   onChange={(event) => setOrganizationForm((current) => ({ ...current, reason: event.target.value }))}
                   value={organizationForm.reason}
@@ -1236,6 +1258,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>계정상태</span>
                 <select
                   aria-label="사원 계정상태"
+                    data-hr-input-size="short"
                   disabled={!selected || accountSaveState === "saving"}
                   onChange={(event) =>
                     setAccountForm((current) => ({
@@ -1257,6 +1280,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>비밀번호 변경</span>
                 <select
                   aria-label="최초 로그인 비밀번호 변경 요구"
+                    data-hr-input-size="short"
                   disabled={!selected || accountSaveState === "saving"}
                   onChange={(event) => setAccountForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
                   value={accountForm.mustChangePassword ? "true" : "false"}
@@ -1269,6 +1293,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>변경 사유</span>
                 <input
                   aria-label="사원 계정상태 변경 사유"
+                    data-hr-input-size="full"
                   disabled={!selected || accountSaveState === "saving"}
                   onChange={(event) => setAccountForm((current) => ({ ...current, reason: event.target.value }))}
                   value={accountForm.reason}
@@ -1292,6 +1317,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <span>{label}</span>
                   <select
                     aria-label={`${label} 역할 선택`}
+                    data-hr-input-size="short"
                     disabled={!selected || rolesSaveState === "saving"}
                     onChange={(event) =>
                       setRolesForm((current) => {
@@ -1310,12 +1336,14 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               ))}
               <label>
                 <span>권한 요약</span>
-                <input aria-label="사원 권한 요약" readOnly value={selected ? `${selected.permissions.length}개 권한 · 고위험 ${selected.highRiskPermissions.length}개` : ""} />
+                <input aria-label="사원 권한 요약"
+                    data-hr-input-size="full" readOnly value={selected ? `${selected.permissions.length}개 권한 · 고위험 ${selected.highRiskPermissions.length}개` : ""} />
               </label>
               <label>
                 <span>변경 사유</span>
                 <input
                   aria-label="사원 역할 권한 변경 사유"
+                    data-hr-input-size="full"
                   disabled={!selected || rolesSaveState === "saving"}
                   onChange={(event) => setRolesForm((current) => ({ ...current, reason: event.target.value }))}
                   value={rolesForm.reason}
@@ -1348,6 +1376,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>2단계 인증</span>
                 <select
                   aria-label="사원 2단계 인증 요구"
+                    data-hr-input-size="short"
                   disabled={!selected || securitySaveState === "saving"}
                   onChange={(event) => setSecurityForm((current) => ({ ...current, twoFactorRequired: event.target.value === "true" }))}
                   value={securityForm.twoFactorRequired ? "true" : "false"}
@@ -1360,6 +1389,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>비밀번호 변경</span>
                 <select
                   aria-label="보안 설정 비밀번호 변경 요구"
+                    data-hr-input-size="short"
                   disabled={!selected || securitySaveState === "saving"}
                   onChange={(event) => setSecurityForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
                   value={securityForm.mustChangePassword ? "true" : "false"}
@@ -1400,6 +1430,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <span>변경 사유</span>
                 <input
                   aria-label="사원 보안 설정 변경 사유"
+                    data-hr-input-size="full"
                   disabled={!selected || securitySaveState === "saving"}
                   onChange={(event) => setSecurityForm((current) => ({ ...current, reason: event.target.value }))}
                   value={securityForm.reason}

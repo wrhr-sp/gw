@@ -646,6 +646,20 @@
   --feature-workspace-control-bg: rgba(255, 255, 255, 0.76);
   --feature-workspace-control-padding: 10px 12px;
   --feature-workspace-form-label-gap: 6px;
+  --hr-input-height: 36px;
+  --hr-input-filter-height: 32px;
+  --hr-input-border: 1px solid #e2e8f0;
+  --hr-input-radius: 6px;
+  --hr-input-bg: transparent;
+  --hr-input-padding: 4px 12px;
+  --hr-input-placeholder-color: #64748b;
+  --hr-input-focus-border: 1px solid rgba(37, 99, 235, 0.42);
+  --hr-input-focus-outline: 3px solid rgba(37, 99, 235, 0.14);
+  --hr-input-shadow: var(--shadow);
+  --hr-input-width-short: 160px;
+  --hr-input-width-medium: 260px;
+  --hr-input-width-long: 360px;
+  --hr-input-width-full: 100%;
   --feature-workspace-field-group-gap: 8px;
   --feature-workspace-field-legend-margin-bottom: 2px;
   --feature-workspace-field-row-gap: 8px;
@@ -5815,6 +5829,65 @@ li {
   color: var(--text);
   font: inherit;
   padding: var(--feature-workspace-control-padding);
+}
+
+.feature-workspace--hr .feature-workspace__form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+.feature-workspace--hr .feature-workspace__form select,
+.feature-workspace--hr .feature-workspace__form textarea {
+  width: min(100%, var(--hr-input-width-medium));
+  min-width: 0;
+  min-height: var(--hr-input-height);
+  border: var(--hr-input-border);
+  border-radius: var(--hr-input-radius);
+  background: var(--hr-input-bg);
+  padding: var(--hr-input-padding);
+  box-shadow: var(--shadow);
+  outline: none;
+  font: revert;
+  font-family: revert;
+  font-size: revert;
+  font-weight: revert;
+}
+
+.feature-workspace--hr .feature-workspace__form textarea {
+  min-height: calc(var(--hr-input-height) * 2);
+  resize: vertical;
+}
+
+.feature-workspace--hr .feature-workspace__form [data-hr-input-size="short"] {
+  width: min(100%, var(--hr-input-width-short));
+}
+
+.feature-workspace--hr .feature-workspace__form [data-hr-input-size="medium"] {
+  width: min(100%, var(--hr-input-width-medium));
+}
+
+.feature-workspace--hr .feature-workspace__form [data-hr-input-size="long"] {
+  width: min(100%, var(--hr-input-width-long));
+}
+
+.feature-workspace--hr .feature-workspace__form [data-hr-input-size="full"] {
+  width: var(--hr-input-width-full);
+}
+
+.feature-workspace--hr .feature-workspace__form input::placeholder,
+.feature-workspace--hr .feature-workspace__form textarea::placeholder {
+  color: var(--hr-input-placeholder-color);
+  opacity: 1;
+}
+
+.feature-workspace--hr .feature-workspace__form input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]):focus,
+.feature-workspace--hr .feature-workspace__form select:focus,
+.feature-workspace--hr .feature-workspace__form textarea:focus {
+  border: var(--hr-input-focus-border);
+  outline: var(--hr-input-focus-outline);
+}
+
+.feature-workspace--hr .feature-workspace__form input:disabled,
+.feature-workspace--hr .feature-workspace__form select:disabled,
+.feature-workspace--hr .feature-workspace__form textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .feature-workspace__actions,
