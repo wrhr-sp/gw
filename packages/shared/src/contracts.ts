@@ -2134,6 +2134,7 @@ export const adminUserReferenceMasterOptionSchema = z.object({
 export const adminUserReferenceMastersResponseSchema = successResponseSchema(
   z.object({
     groups: z.array(adminUserReferenceMasterOptionSchema),
+    branches: z.array(adminUserReferenceMasterOptionSchema),
     departments: z.array(adminUserReferenceMasterOptionSchema),
     jobTitles: z.array(adminUserReferenceMasterOptionSchema),
     jobPositions: z.array(adminUserReferenceMasterOptionSchema),
@@ -2193,6 +2194,7 @@ export const adminUserCreateRequestSchema = z
     email: z.email(),
     loginLocalPart: z.string().trim().min(1).max(64).regex(/^[a-zA-Z0-9._-]+$/).optional(),
     groupId: z.string().trim().min(1).optional(),
+    branchId: z.string().trim().min(1).optional(),
     departmentId: z.string().trim().min(1).optional(),
     jobTitleId: z.string().trim().min(1).optional(),
     jobPositionId: z.string().trim().min(1).optional(),

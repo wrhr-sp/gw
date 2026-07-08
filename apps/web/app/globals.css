@@ -5942,6 +5942,35 @@ li {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.employee-create-assignment-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding-block: var(--space-xs);
+}
+
+.employee-create-assignment-tabs__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hr-input-filter-height);
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.employee-create-section-divider {
+  width: 100%;
+  height: 1px;
+  margin-block: var(--space-sm);
+  background: var(--border-subtle);
+}
+
 .employee-create-email-field,
 .employee-create-resident-field,
 .employee-create-sensitive-field,

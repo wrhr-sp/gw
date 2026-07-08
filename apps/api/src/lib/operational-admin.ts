@@ -432,6 +432,7 @@ function mapReferenceMasterRows(rows: unknown[]): AdminUserReferenceMasterOption
 
 export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | undefined, companyId: string): Promise<{
   groups: AdminUserReferenceMasterOption[];
+  branches: AdminUserReferenceMasterOption[];
   departments: AdminUserReferenceMasterOption[];
   jobTitles: AdminUserReferenceMasterOption[];
   jobPositions: AdminUserReferenceMasterOption[];
@@ -441,7 +442,7 @@ export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | 
   if (!sql) return null;
 
   try {
-    const [groups, departments, jobTitles, jobPositions, jobGrades] = await Promise.all([
+    const [groups, branches, departments, jobTitles, jobPositions, jobGrades] = await Promise.all([
       sql`
         select id, code, name, sort_order
         from employee_groups
@@ -449,6 +450,14 @@ export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | 
           and is_active = true
           and deleted_at is null
         order by sort_order, name, code
+      `,
+      sql`
+        select id, code, name, 0::integer as sort_order
+        from branches
+        where company_id = ${companyId}
+          and status = 'active'
+          and deleted_at is null
+        order by name, code
       `,
       sql`
         select id, code, name, 0::integer as sort_order
@@ -486,6 +495,7 @@ export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | 
 
     return {
       groups: mapReferenceMasterRows(groups),
+      branches: mapReferenceMasterRows(branches),
       departments: mapReferenceMasterRows(departments),
       jobTitles: mapReferenceMasterRows(jobTitles),
       jobPositions: mapReferenceMasterRows(jobPositions),
@@ -533,15 +543,20 @@ export async function createOperationalAdminUser(
     }
 
     const branchRows = await sql`
-      select id from branches
+      select id, name from branches
       where company_id = ${companyId}
         and deleted_at is null
         and status = 'active'
-        and name = ${input.branchName.trim()}
+        and ${input.branchId ? sql`id = ${input.branchId}` : sql`name = ${input.branchName.trim()}`}
       order by id
       limit 1
     `;
-    const branchId = (branchRows[0] as { id: string } | undefined)?.id;
+    const branch = branchRows[0] as { id: string; name: string } | undefined;
+    const branchId = branch?.id;
+    if (!branchId) {
+      await sql`rollback`;
+      return null;
+    }
 
     const groupRows = input.groupId
       ? await sql`
