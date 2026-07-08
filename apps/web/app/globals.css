@@ -66,6 +66,11 @@
   --layer-popover-width: 292px;
   --layer-modal-width-sm: 360px;
   --layer-modal-inset: 10px;
+  --employee-detail-panel-width: min(520px, calc(100vw - var(--layer-modal-inset) - var(--layer-modal-inset)));
+  --employee-detail-panel-top: calc(var(--desktop-topbar-height) + var(--layer-modal-inset));
+  --employee-detail-panel-translate-y: calc(var(--layer-modal-inset) * -1);
+  --employee-detail-panel-animation-duration: 180ms;
+  --employee-detail-panel-animation-easing: ease-out;
   --layer-toast-top: 88px;
   --layer-toast-max-width: 420px;
   --radius-sm: 12px;
@@ -5805,6 +5810,71 @@ li {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.employee-detail-panel {
+  position: fixed;
+  top: var(--employee-detail-panel-top);
+  right: var(--layer-modal-inset);
+  bottom: var(--layer-modal-inset);
+  z-index: var(--z-modal);
+  display: flex;
+  width: var(--employee-detail-panel-width);
+  max-width: var(--employee-detail-panel-width);
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--topbar-modal-border);
+  border-radius: var(--layer-radius-modal);
+  background: var(--layer-surface-bg);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  padding: var(--layer-padding-modal);
+  backdrop-filter: var(--layer-surface-blur);
+  animation: employee-detail-panel-enter var(--employee-detail-panel-animation-duration) var(--employee-detail-panel-animation-easing);
+}
+
+.employee-detail-panel__header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap-md);
+  border-bottom: var(--feature-workspace-row-divider);
+  padding-bottom: var(--feature-workspace-row-padding-block);
+}
+
+.employee-detail-panel__header strong,
+.employee-detail-panel__header span {
+  display: block;
+}
+
+.employee-detail-panel__header span {
+  margin-top: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-detail-panel__body {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--feature-workspace-list-gap);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: var(--feature-workspace-row-padding-block);
+  padding-right: var(--topbar-modal-scroll-padding-right);
+}
+
+@keyframes employee-detail-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--employee-detail-panel-translate-y));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .feature-workspace__row-actions {
   justify-content: flex-start;
   margin-top: 6px;
@@ -5892,6 +5962,12 @@ li {
 
   .feature-workspace__status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .employee-detail-panel {
+    left: var(--layer-modal-inset);
+    width: auto;
+    max-width: none;
   }
 }
 
