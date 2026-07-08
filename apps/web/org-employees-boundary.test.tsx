@@ -93,6 +93,13 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("employee-detail-panel");
     expect(clientSource).toContain("setIsDetailPanelOpen(true)");
     expect(clientSource).toContain("employeeDetailPanelTabs");
+    expect(clientSource).toContain("@tanstack/react-table");
+    expect(clientSource).toContain("useReactTable");
+    expect(clientSource).toContain("getCoreRowModel");
+    expect(clientSource).toContain("data-table-engine=\"tanstack\"");
+    expect(clientSource).toContain("employeeTable.getHeaderGroups()");
+    expect(clientSource).toContain("employeeTable.getRowModel().rows");
+    expect(clientSource).not.toContain("{items.map((item) => (");
     expect(clientSource).toContain("기본정보");
     expect(clientSource).toContain("조직정보");
     expect(clientSource).toContain("계정·권한");

@@ -3,6 +3,12 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+} from "@tanstack/react-table";
+import {
   adminUserCreateRequestSchema,
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
@@ -676,6 +682,70 @@ export function ManagementSupportHrClient() {
     }
   }
 
+  const employeeTableColumns = useMemo<ColumnDef<AdminUserSummary>[]>(
+    () => [
+      {
+        accessorKey: "fullName",
+        header: "이름",
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <button
+              className="page-shell__title-link page-shell__title-button"
+              onClick={() => {
+                setSelectedUserId(item.userId);
+                setActiveDetailPanelTab("profile");
+                setIsDetailPanelOpen(true);
+              }}
+              type="button"
+            >
+              {item.fullName}
+            </button>
+          );
+        },
+      },
+      {
+        accessorKey: "email",
+        header: "이메일",
+      },
+      {
+        accessorKey: "departmentName",
+        header: "부서",
+      },
+      {
+        accessorKey: "branchName",
+        header: "지점",
+      },
+      {
+        accessorKey: "employmentStatus",
+        header: "재직상태",
+        cell: ({ row }) => employmentStatusLabels[row.original.employmentStatus],
+      },
+      {
+        accessorKey: "accountStatus",
+        header: "계정상태",
+        cell: ({ row }) => accountStatusLabels[row.original.accountStatus],
+      },
+      {
+        id: "roles",
+        header: "역할",
+        cell: ({ row }) => roleText(row.original.roleCodes),
+      },
+      {
+        accessorKey: "lastLoginAt",
+        header: "최근 로그인",
+        cell: ({ row }) => formatDate(row.original.lastLoginAt),
+      },
+    ],
+    [],
+  );
+
+  const employeeTable = useReactTable({
+    columns: employeeTableColumns,
+    data: items,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   const totalCount = summary.total;
   const activeCount = summary.active;
   const lockedCount = summary.locked;
@@ -938,43 +1008,25 @@ export function ManagementSupportHrClient() {
           </div>
         ) : null}
 
-        <div className="employee-management-table-wrap" aria-label="사원 목록">
+        <div className="employee-management-table-wrap" aria-label="사원 목록" data-table-engine="tanstack">
           <table className="employee-management-table">
             <thead>
-              <tr>
-                <th>이름</th>
-                <th>이메일</th>
-                <th>부서</th>
-                <th>지점</th>
-                <th>재직상태</th>
-                <th>계정상태</th>
-                <th>역할</th>
-                <th>최근 로그인</th>
-              </tr>
+              {employeeTable.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th key={header.id} scope="col">
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.userId}>
-                  <td>
-                    <button
-                      className="page-shell__title-link page-shell__title-button"
-                      onClick={() => {
-                        setSelectedUserId(item.userId);
-                        setActiveDetailPanelTab("profile");
-                        setIsDetailPanelOpen(true);
-                      }}
-                      type="button"
-                    >
-                      {item.fullName}
-                    </button>
-                  </td>
-                  <td>{item.email}</td>
-                  <td>{item.departmentName}</td>
-                  <td>{item.branchName}</td>
-                  <td>{employmentStatusLabels[item.employmentStatus]}</td>
-                  <td>{accountStatusLabels[item.accountStatus]}</td>
-                  <td>{roleText(item.roleCodes)}</td>
-                  <td>{formatDate(item.lastLoginAt)}</td>
+              {employeeTable.getRowModel().rows.map((row) => (
+                <tr key={row.id} data-selected={row.original.userId === selected?.userId ? "true" : undefined}>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                  ))}
                 </tr>
               ))}
             </tbody>

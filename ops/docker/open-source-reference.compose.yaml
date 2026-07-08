@@ -1,0 +1,41 @@
+# 그룹웨어 오픈소스 운영보조 참고용 Docker Compose
+#
+# 목적:
+# - Appsmith/NocoDB를 그룹웨어 본체와 분리된 로컬 참고 도구로만 실행한다.
+# - 그룹웨어 production/custom domain/실DB/secret/개인정보와 연결하지 않는다.
+# - UX/운영보조 흐름 검토 후 필요한 패턴만 그룹웨어 구조로 재작성한다.
+#
+# 실행 예시:
+#   docker compose -f ops/docker/open-source-reference.compose.yaml --profile appsmith up -d
+#   docker compose -f ops/docker/open-source-reference.compose.yaml --profile nocodb up -d
+#
+# 종료 예시:
+#   docker compose -f ops/docker/open-source-reference.compose.yaml --profile appsmith down
+#   docker compose -f ops/docker/open-source-reference.compose.yaml --profile nocodb down
+
+services:
+  appsmith-reference:
+    image: appsmith/appsmith-ce:latest
+    container_name: gw-appsmith-reference
+    profiles:
+      - appsmith
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - gw-appsmith-reference-data:/appsmith-stacks
+    restart: unless-stopped
+
+  nocodb-reference:
+    image: nocodb/nocodb:latest
+    container_name: gw-nocodb-reference
+    profiles:
+      - nocodb
+    ports:
+      - "127.0.0.1:18081:8080"
+    volumes:
+      - gw-nocodb-reference-data:/usr/app/data
+    restart: unless-stopped
+
+volumes:
+  gw-appsmith-reference-data:
+  gw-nocodb-reference-data:
