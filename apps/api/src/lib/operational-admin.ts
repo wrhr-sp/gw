@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
@@ -418,6 +418,85 @@ export async function listOperationalAdminUsers(
   });
 }
 
+function mapReferenceMasterRows(rows: unknown[]): AdminUserReferenceMasterOption[] {
+  return rows.map((row) => {
+    const typed = row as { id: string; code: string; name: string; sort_order: unknown };
+    return {
+      id: typed.id,
+      code: typed.code,
+      name: typed.name,
+      sortOrder: Number(typed.sort_order ?? 0),
+    };
+  });
+}
+
+export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | undefined, companyId: string): Promise<{
+  groups: AdminUserReferenceMasterOption[];
+  departments: AdminUserReferenceMasterOption[];
+  jobTitles: AdminUserReferenceMasterOption[];
+  jobPositions: AdminUserReferenceMasterOption[];
+  jobGrades: AdminUserReferenceMasterOption[];
+} | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  try {
+    const [groups, departments, jobTitles, jobPositions, jobGrades] = await Promise.all([
+      sql`
+        select id, code, name, sort_order
+        from employee_groups
+        where company_id = ${companyId}
+          and is_active = true
+          and deleted_at is null
+        order by sort_order, name, code
+      `,
+      sql`
+        select id, code, name, 0::integer as sort_order
+        from departments
+        where company_id = ${companyId}
+          and status = 'active'
+          and deleted_at is null
+        order by name, code
+      `,
+      sql`
+        select id, code, name, sort_order
+        from employee_job_titles
+        where company_id = ${companyId}
+          and is_active = true
+          and deleted_at is null
+        order by sort_order, name, code
+      `,
+      sql`
+        select id, code, name, sort_order
+        from employee_job_positions
+        where company_id = ${companyId}
+          and is_active = true
+          and deleted_at is null
+        order by sort_order, name, code
+      `,
+      sql`
+        select id, code, name, sort_order
+        from employee_job_grades
+        where company_id = ${companyId}
+          and is_active = true
+          and deleted_at is null
+        order by sort_order, name, code
+      `,
+    ]);
+
+    return {
+      groups: mapReferenceMasterRows(groups),
+      departments: mapReferenceMasterRows(departments),
+      jobTitles: mapReferenceMasterRows(jobTitles),
+      jobPositions: mapReferenceMasterRows(jobPositions),
+      jobGrades: mapReferenceMasterRows(jobGrades),
+    };
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
 export async function createOperationalAdminUser(
   env: (PostgresEnv & ZitadelStepUpEnv) | undefined,
   companyId: string,
@@ -463,21 +542,34 @@ export async function createOperationalAdminUser(
       limit 1
     `;
     const branchId = (branchRows[0] as { id: string } | undefined)?.id;
-    if (!branchId) {
+
+    const groupRows = input.groupId
+      ? await sql`
+        select id, name from employee_groups
+        where company_id = ${companyId}
+          and id = ${input.groupId}
+          and is_active = true
+          and deleted_at is null
+        limit 1
+      `
+      : [];
+    const groupId = (groupRows[0] as { id: string; name: string } | undefined)?.id ?? null;
+    if (input.groupId && !groupId) {
       await sql`rollback`;
       return null;
     }
 
     const departmentRows = await sql`
-      select id from departments
+      select id, name from departments
       where company_id = ${companyId}
         and deleted_at is null
         and status = 'active'
-        and name = ${input.departmentName.trim()}
+        and ${input.departmentId ? sql`id = ${input.departmentId}` : sql`name = ${input.departmentName.trim()}`}
       order by id
       limit 1
     `;
-    const departmentId = (departmentRows[0] as { id: string } | undefined)?.id;
+    const department = departmentRows[0] as { id: string; name: string } | undefined;
+    const departmentId = department?.id;
     if (!departmentId) {
       await sql`rollback`;
       return null;
@@ -495,6 +587,54 @@ export async function createOperationalAdminUser(
         limit 1
       `;
       positionId = (positionRows[0] as { id: string } | undefined)?.id ?? null;
+    }
+
+    const jobTitleRows = input.jobTitleId
+      ? await sql`
+        select id, name from employee_job_titles
+        where company_id = ${companyId}
+          and id = ${input.jobTitleId}
+          and is_active = true
+          and deleted_at is null
+        limit 1
+      `
+      : [];
+    const jobTitleId = (jobTitleRows[0] as { id: string; name: string } | undefined)?.id ?? null;
+    if (input.jobTitleId && !jobTitleId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const jobPositionRows = input.jobPositionId
+      ? await sql`
+        select id, name from employee_job_positions
+        where company_id = ${companyId}
+          and id = ${input.jobPositionId}
+          and is_active = true
+          and deleted_at is null
+        limit 1
+      `
+      : [];
+    const jobPositionId = (jobPositionRows[0] as { id: string; name: string } | undefined)?.id ?? null;
+    if (input.jobPositionId && !jobPositionId) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const jobGradeRows = input.jobGradeId
+      ? await sql`
+        select id, name from employee_job_grades
+        where company_id = ${companyId}
+          and id = ${input.jobGradeId}
+          and is_active = true
+          and deleted_at is null
+        limit 1
+      `
+      : [];
+    const jobGradeId = (jobGradeRows[0] as { id: string; name: string } | undefined)?.id ?? null;
+    if (input.jobGradeId && !jobGradeId) {
+      await sql`rollback`;
+      return null;
     }
 
     const roleRows = await sql`
@@ -530,8 +670,8 @@ export async function createOperationalAdminUser(
     `;
 
     await sql`
-      insert into employees (id, company_id, branch_id, user_id, department_id, position_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
-      values (${employeeId}, ${companyId}, ${branchId}, ${userId}, ${departmentId}, ${positionId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${updatedAt}, ${updatedAt})
+      insert into employees (id, company_id, branch_id, group_id, user_id, department_id, position_id, job_title_id, job_position_id, job_grade_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
+      values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${updatedAt}, ${updatedAt})
     `;
 
     await sql`
@@ -549,7 +689,7 @@ export async function createOperationalAdminUser(
         'user',
         ${userId},
         ${JSON.stringify({ status: "not_created" })}::jsonb,
-        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, branchLinked: Boolean(branchId), departmentLinked: Boolean(departmentId), positionLinked: Boolean(positionId) })}::jsonb,
+        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, groupLinked: Boolean(groupId), departmentLinked: Boolean(departmentId), jobTitleLinked: Boolean(jobTitleId), jobPositionLinked: Boolean(jobPositionId), jobGradeLinked: Boolean(jobGradeId) })}::jsonb,
         ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "invite_token"] })}::jsonb,
         ${updatedAt}
       )

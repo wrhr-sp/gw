@@ -40,6 +40,7 @@ export const appRoutes = {
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
     userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
+    employeeReferenceMasters: "/api/admin/employee-reference-masters",
     registrationRequests: "/api/admin/registration-requests",
     registrationRequestApprove: (requestId: string) => `/api/admin/registration-requests/${requestId}/approve`,
     permissions: "/api/admin/permissions",
@@ -2123,6 +2124,24 @@ export const adminUsersListResponseSchema = successResponseSchema(
   }),
 );
 
+export const adminUserReferenceMasterOptionSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int().min(0),
+});
+
+export const adminUserReferenceMastersResponseSchema = successResponseSchema(
+  z.object({
+    groups: z.array(adminUserReferenceMasterOptionSchema),
+    departments: z.array(adminUserReferenceMasterOptionSchema),
+    jobTitles: z.array(adminUserReferenceMasterOptionSchema),
+    jobPositions: z.array(adminUserReferenceMasterOptionSchema),
+    jobGrades: z.array(adminUserReferenceMasterOptionSchema),
+    audit: auditCandidateSchema,
+  }),
+);
+
 export const adminUserStatusUpdateRequestSchema = z
   .object({
     status: adminAccountStatusSchema,
@@ -2173,6 +2192,11 @@ export const adminUserCreateRequestSchema = z
     fullName: z.string().trim().min(2).max(100),
     email: z.email(),
     loginLocalPart: z.string().trim().min(1).max(64).regex(/^[a-zA-Z0-9._-]+$/).optional(),
+    groupId: z.string().trim().min(1).optional(),
+    departmentId: z.string().trim().min(1).optional(),
+    jobTitleId: z.string().trim().min(1).optional(),
+    jobPositionId: z.string().trim().min(1).optional(),
+    jobGradeId: z.string().trim().min(1).optional(),
     initialPassword: z.string().min(8).max(200),
     hireDate: isoDateSchema.optional(),
     departmentName: z.string().trim().min(1).max(100),
@@ -4098,6 +4122,8 @@ export type AdminScope = z.infer<typeof adminScopeSchema>;
 export type AdminAccountType = z.infer<typeof adminAccountTypeSchema>;
 export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+export type AdminUserReferenceMasterOption = z.infer<typeof adminUserReferenceMasterOptionSchema>;
+export type AdminUserReferenceMastersResponse = z.infer<typeof adminUserReferenceMastersResponseSchema>;
 export type AdminUsersSummaryCounts = z.infer<typeof adminUsersSummaryCountsSchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;
