@@ -33,12 +33,39 @@ export function StatusBadge({ tone = "neutral", children }: { tone?: StatusTone;
   return <span className={statusColorTokens[tone].className}>{children}</span>;
 }
 
-export function ConfirmDialog({ title, children, actions }: { title: string; children: ReactNode; actions: ReactNode }) {
+export function ConfirmDialog({
+  title,
+  children,
+  actions,
+  className,
+  closeButton,
+  titleId,
+}: {
+  title: string;
+  children: ReactNode;
+  actions: ReactNode;
+  className?: string;
+  closeButton?: ReactNode;
+  titleId?: string;
+}) {
+  const dialogClassName = ["ui-confirm-dialog", "topbar-modal", className].filter(Boolean).join(" ");
+
   return (
-    <section className="ui-confirm-dialog" role="dialog" aria-modal="true" aria-label={title}>
-      <h2>{title}</h2>
-      <div>{children}</div>
-      <ActionButtonGroup>{actions}</ActionButtonGroup>
+    <section
+      className={dialogClassName}
+      role="dialog"
+      aria-modal="true"
+      aria-label={titleId ? undefined : title}
+      aria-labelledby={titleId}
+    >
+      <div className="topbar-modal__header ui-confirm-dialog__header">
+        <div>
+          <h2 id={titleId}>{title}</h2>
+        </div>
+        {closeButton}
+      </div>
+      <div className="topbar-modal__grid ui-confirm-dialog__body">{children}</div>
+      <ActionButtonGroup label={`${title} 작업`}>{actions}</ActionButtonGroup>
     </section>
   );
 }

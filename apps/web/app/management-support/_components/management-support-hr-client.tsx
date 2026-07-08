@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-table";
 import {
   ActionButtonGroup,
+  ConfirmDialog,
   DataTable,
   EmptyState,
   SummaryCard,
@@ -697,8 +698,8 @@ export function ManagementSupportHrClient() {
         cell: ({ row }) => {
           const item = row.original;
           return (
-            <StandardButton
-              intent="ghost"
+            <button
+              className="page-shell__title-link page-shell__title-button"
               onClick={() => {
                 setSelectedUserId(item.userId);
                 setActiveDetailPanelTab("profile");
@@ -707,7 +708,7 @@ export function ManagementSupportHrClient() {
               type="button"
             >
               {item.fullName}
-            </StandardButton>
+            </button>
           );
         },
       },
@@ -829,173 +830,187 @@ export function ManagementSupportHrClient() {
 
         {isCreateDialogOpen ? (
           <div className="topbar-modal-backdrop" role="presentation">
-            <section
-              aria-labelledby="employee-create-dialog-heading"
-              aria-modal="true"
-              className="topbar-modal feature-workspace__create-dialog"
-              role="dialog"
-            >
-              <div className="topbar-modal__header">
-                <div>
-                  <h2 id="employee-create-dialog-heading">사내임직원 등록</h2>
-                </div>
-                <button
+            <ConfirmDialog
+              title="사내임직원 등록"
+              titleId="employee-create-dialog-heading"
+              className="feature-workspace__create-dialog"
+              closeButton={(
+                <StandardButton
                   aria-label="사내임직원 등록 팝업 닫기"
-                  className="topbar-modal__close"
                   disabled={createSaveState === "saving"}
+                  intent="ghost"
                   onClick={() => setIsCreateDialogOpen(false)}
                   type="button"
                 >
                   ×
-                </button>
-              </div>
-              <div className="topbar-modal__grid feature-workspace__create-dialog-grid">
-                <form id="employee-create-form" className="feature-workspace__form" onSubmit={handleCreateSave} aria-label="사내임직원 등록 및 계정 생성">
-                  <label>
-                    <span>이름</span>
-                    <input
-                      aria-label="사내임직원 이름"
-                      disabled={createSaveState === "saving"}
-                      minLength={2}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
-                      required
-                      value={createForm.fullName}
-                    />
-                  </label>
-                  <label>
-                    <span>로그인 ID / 이메일</span>
-                    <input
-                      aria-label="사내임직원 로그인 ID 또는 이메일"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
-                      required
-                      type="email"
-                      value={createForm.email}
-                    />
-                  </label>
-                  <label>
-                    <span>초기 비밀번호</span>
-                    <input
-                      aria-label="사내임직원 초기 비밀번호"
-                      disabled={createSaveState === "saving"}
-                      minLength={8}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
-                      required
-                      type="password"
-                      value={createForm.initialPassword}
-                    />
-                  </label>
-                  <label>
-                    <span>부서</span>
-                    <input
-                      aria-label="사내임직원 부서"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, departmentName: event.target.value }))}
-                      required
-                      value={createForm.departmentName}
-                    />
-                  </label>
-                  <label>
-                    <span>지점</span>
-                    <input
-                      aria-label="사내임직원 지점"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, branchName: event.target.value }))}
-                      required
-                      value={createForm.branchName}
-                    />
-                  </label>
-                  <label>
-                    <span>직책/직급</span>
-                    <input
-                      aria-label="사내임직원 직책 또는 직급"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, positionName: event.target.value }))}
-                      value={createForm.positionName ?? ""}
-                    />
-                  </label>
-                  <label>
-                    <span>계정 유형</span>
-                    <select aria-label="사내임직원 계정 유형" disabled value={createForm.accountType}>
-                      {internalEmployeeAccountTypeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>초기 역할</span>
-                    <select
-                      aria-label="사내임직원 초기 역할"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, roleCode: event.target.value as RoleCode }))}
-                      value={createForm.roleCode}
-                    >
-                      {roleOptions.map(([roleCode, label]) => (
-                        <option key={roleCode} value={roleCode}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>초기 상태</span>
-                    <select
-                      aria-label="사내임직원 초기 상태"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
-                      value={createForm.status}
-                    >
-                      {createAccountStatusOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>생성 사유</span>
-                    <input
-                      aria-label="사내임직원 계정 생성 사유"
-                      disabled={createSaveState === "saving"}
-                      minLength={1}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, reason: event.target.value }))}
-                      required
-                      value={createForm.reason}
-                    />
-                  </label>
-                  <label>
-                    <span>비밀번호 변경</span>
-                    <select
-                      aria-label="사내임직원 최초 로그인 비밀번호 변경 요구"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
-                      value={createForm.mustChangePassword ? "true" : "false"}
-                    >
-                      <option value="true">요구</option>
-                      <option value="false">요구 안 함</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>2단계 인증</span>
-                    <select
-                      aria-label="사내임직원 2단계 인증 요구"
-                      disabled={createSaveState === "saving"}
-                      onChange={(event) => setCreateForm((current) => ({ ...current, mfaRequired: event.target.value === "true" }))}
-                      value={createForm.mfaRequired ? "true" : "false"}
-                    >
-                      <option value="false">요구 안 함</option>
-                      <option value="true">요구</option>
-                    </select>
-                  </label>
-                  <ActionButtonGroup>
-                    <StandardButton intent="primary" disabled={createSaveState === "saving"} type="submit">
-                      {createSaveState === "saving" ? "생성 중" : "사내임직원 계정 생성"}
-                    </StandardButton>
-                  </ActionButtonGroup>
-                  {createSaveMessage ? (
-                    <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
-                      {createSaveMessage}
-                    </p>
-                  ) : null}
-                </form>
-              </div>
-            </section>
+                </StandardButton>
+              )}
+              actions={(
+                <>
+                  <StandardButton
+                    disabled={createSaveState === "saving"}
+                    intent="ghost"
+                    onClick={() => setIsCreateDialogOpen(false)}
+                    type="button"
+                  >
+                    닫기
+                  </StandardButton>
+                  <StandardButton
+                    disabled={createSaveState === "saving"}
+                    form="employee-create-form"
+                    intent="primary"
+                    type="submit"
+                  >
+                    {createSaveState === "saving" ? "생성 중" : "사내임직원 계정 생성"}
+                  </StandardButton>
+                </>
+              )}
+            >
+              <form
+                id="employee-create-form"
+                className="feature-workspace__form feature-workspace__create-dialog-grid"
+                onSubmit={handleCreateSave}
+                aria-label="사내임직원 등록 및 계정 생성"
+              >
+                <label>
+                  <span>이름</span>
+                  <input
+                    aria-label="사내임직원 이름"
+                    disabled={createSaveState === "saving"}
+                    minLength={2}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
+                    required
+                    value={createForm.fullName}
+                  />
+                </label>
+                <label>
+                  <span>로그인 ID / 이메일</span>
+                  <input
+                    aria-label="사내임직원 로그인 ID 또는 이메일"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+                    required
+                    type="email"
+                    value={createForm.email}
+                  />
+                </label>
+                <label>
+                  <span>초기 비밀번호</span>
+                  <input
+                    aria-label="사내임직원 초기 비밀번호"
+                    disabled={createSaveState === "saving"}
+                    minLength={8}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
+                    required
+                    type="password"
+                    value={createForm.initialPassword}
+                  />
+                </label>
+                <label>
+                  <span>부서</span>
+                  <input
+                    aria-label="사내임직원 부서"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, departmentName: event.target.value }))}
+                    required
+                    value={createForm.departmentName}
+                  />
+                </label>
+                <label>
+                  <span>지점</span>
+                  <input
+                    aria-label="사내임직원 지점"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, branchName: event.target.value }))}
+                    required
+                    value={createForm.branchName}
+                  />
+                </label>
+                <label>
+                  <span>직책/직급</span>
+                  <input
+                    aria-label="사내임직원 직책 또는 직급"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, positionName: event.target.value }))}
+                    value={createForm.positionName ?? ""}
+                  />
+                </label>
+                <label>
+                  <span>계정 유형</span>
+                  <select aria-label="사내임직원 계정 유형" disabled value={createForm.accountType}>
+                    {internalEmployeeAccountTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>초기 역할</span>
+                  <select
+                    aria-label="사내임직원 초기 역할"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, roleCode: event.target.value as RoleCode }))}
+                    value={createForm.roleCode}
+                  >
+                    {roleOptions.map(([roleCode, label]) => (
+                      <option key={roleCode} value={roleCode}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>초기 상태</span>
+                  <select
+                    aria-label="사내임직원 초기 상태"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
+                    value={createForm.status}
+                  >
+                    {createAccountStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>생성 사유</span>
+                  <input
+                    aria-label="사내임직원 계정 생성 사유"
+                    disabled={createSaveState === "saving"}
+                    minLength={1}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, reason: event.target.value }))}
+                    required
+                    value={createForm.reason}
+                  />
+                </label>
+                <label>
+                  <span>비밀번호 변경</span>
+                  <select
+                    aria-label="사내임직원 최초 로그인 비밀번호 변경 요구"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+                    value={createForm.mustChangePassword ? "true" : "false"}
+                  >
+                    <option value="true">요구</option>
+                    <option value="false">요구 안 함</option>
+                  </select>
+                </label>
+                <label>
+                  <span>2단계 인증</span>
+                  <select
+                    aria-label="사내임직원 2단계 인증 요구"
+                    disabled={createSaveState === "saving"}
+                    onChange={(event) => setCreateForm((current) => ({ ...current, mfaRequired: event.target.value === "true" }))}
+                    value={createForm.mfaRequired ? "true" : "false"}
+                  >
+                    <option value="false">요구 안 함</option>
+                    <option value="true">요구</option>
+                  </select>
+                </label>
+                {createSaveMessage ? (
+                  <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
+                    {createSaveMessage}
+                  </p>
+                ) : null}
+              </form>
+            </ConfirmDialog>
           </div>
         ) : null}
 
