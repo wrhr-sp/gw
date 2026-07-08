@@ -16,7 +16,7 @@ function buildFormRequest(fields: Record<string, string>) {
 }
 
 describe("admin users verification action route", () => {
-  it("uses a 303 redirect so POST verification lands back on GET /admin/users", async () => {
+  it("uses a 303 redirect so POST verification lands back on GET /management-support/hr", async () => {
     const response = await POST(
       buildFormRequest({
         actionType: "create",
@@ -32,7 +32,7 @@ describe("admin users verification action route", () => {
     expect(location).toBeTruthy();
 
     const redirectUrl = new URL(location ?? "", "http://localhost");
-    expect(redirectUrl.pathname).toBe("/admin/users");
+    expect(redirectUrl.pathname).toBe("/management-support/hr");
     expect(redirectUrl.searchParams.get("result")).toContain("사용자 생성 검증 완료");
     expect(redirectUrl.searchParams.get("actionType")).toBe("create");
     expect(redirectUrl.searchParams.get("focus")).toContain("게시판/문서/근태 같은 일반 업무 접근 결과");

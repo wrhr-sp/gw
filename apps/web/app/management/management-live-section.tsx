@@ -83,7 +83,7 @@ export function ManagementLiveSection() {
       <article className="feature-workspace__row">
         <div>
           <strong>운영 레인 이동</strong>
-          <span>/management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</span>
+          <span>/management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health</span>
           <p>역할별 허용 범위 안에서만 민감 운영 레인을 이어 봅니다.</p>
           <div className="pill-row">
             <Pill tone="warning">role guard</Pill>

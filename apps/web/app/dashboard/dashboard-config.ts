@@ -148,7 +148,7 @@ export const dashboardRoleJourneyCards: DashboardRoleJourneyCard[] = [
     role: "인사 관리자",
     firstRoute: "/home",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인에 진입합니다.",
-    detail: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열",
+    detail: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /management-support/hr 계열",
   },
   {
     role: "운영 관리자",

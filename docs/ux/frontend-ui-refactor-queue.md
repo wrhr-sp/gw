@@ -37,17 +37,16 @@
 
 ## P0: 기준 샘플/고위험 화면
 
-기준 샘플/고위험 화면. 계정관리와 사원정보관리처럼 권한·계정·저장 흐름이 있는 화면을 먼저 표준화한다.
+기준 샘플/고위험 화면. 사원정보관리처럼 권한·계정·저장 흐름이 있는 화면을 먼저 표준화한다. 계정관리 기능은 관리자페이지 `/admin/users`가 아니라 경영지원팀 포털의 `/management-support/hr` 사원정보관리 안에서 처리한다.
 
-1. `/admin` — `apps/web/app/admin/page.tsx` — 현재 `legacy-custom` — 목록/상세/작성 패턴 점검
-2. `/admin/users` — `apps/web/app/admin/users/page.tsx` — 현재 `legacy-custom` — 목록/상세/작성 패턴 점검
-3. `/management-support/hr` — `apps/web/app/management-support/hr/page.tsx` — 현재 `legacy-shell` — 목록/상세/작성 패턴 점검
+1. `/management-support/hr` — `apps/web/app/management-support/hr/page.tsx` — 현재 `legacy-shell` — 목록/상세/작성 패턴 점검
+2. `/admin` — `apps/web/app/admin/page.tsx` — 현재 `legacy-custom` — 관리자 허브/운영정책/감사 진입 패턴 점검
 
 ### P0 권장 순서
 
-1. `/admin/users` 계정관리 기준 샘플 완성
-2. `/admin` 관리자 허브의 메뉴/요약 구조를 기준 샘플과 정렬
-3. `/management-support/hr` 사원정보관리의 기존 TanStack Table·상세패널·탭 구조를 공통 컴포넌트로 승격
+1. `/management-support/hr` 사원정보관리의 TanStack Table·등록 팝업·상세패널·탭 구조를 공통 컴포넌트로 승격
+2. `/admin` 관리자 허브의 메뉴/요약 구조를 관리자 업무 전용 IA로 정렬
+3. `/admin/users`는 계정관리 화면으로 사용하지 않고 `/management-support/hr`로 이관/리다이렉트 유지
 
 ## P1: 업무 확장 핵심 화면
 
@@ -143,14 +142,15 @@
 
 ## 첫 구현 PR 후보
 
-다음 구현 PR은 `P0-1 /admin/users 계정관리 기준 샘플 완성`으로 둔다.
+다음 구현 PR은 `P0-1 /management-support/hr 경영지원팀 사원정보관리 기준 샘플 완성`으로 둔다.
 
 완료 기준은 다음과 같다.
 
 - 목록: `PageHeader → FilterBar → DataTable → Pagination`
 - 상세: `PageHeader → SummaryCard → DetailSection → AttachmentPanel → AuditLogPanel`
 - 작성/생성: `PageHeader → FormSection → ActionButtonGroup → ConfirmDialog`
-- 계정 생성 Wizard, 계정 수정, 상태 변경, 권한 템플릿, 접근범위, 로그인 보안, 감사로그를 계정관리 화면 안에서 표준 패턴으로 재배치
+- 사원 등록, 계정 수정, 상태 변경, 권한 템플릿, 접근범위, 로그인 보안, 감사로그를 경영지원팀 사원정보관리 화면 안에서 표준 패턴으로 재배치
+- `/admin/users` 관리자페이지 계정관리 UI는 폐기하고 `/management-support/hr`로 이관/리다이렉트 유지
 - 기존 관리자 API, 권한, 감사로그, 저장/재조회 흐름 유지
 - `/login` 회원가입 신청/승인 흐름은 되살리지 않음
 - frontend에서 ZITADEL 직접 호출 금지 유지

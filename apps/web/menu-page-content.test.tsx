@@ -33,7 +33,7 @@ const privilegedShortcuts: HomeShortcut[] = [
     id: "shortcut_admin_users",
     code: "admin_users",
     label: "관리자 사용자",
-    href: "/admin/users",
+    href: "/management-support/hr",
     icon: "shield",
     isFixed: false,
     sortOrder: 110,
@@ -87,7 +87,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
     expect(html).toContain("메뉴 검토 포인트");
     expect(html).toContain("막힐 때 다시 가는 복구 경로");
     expect(html).toContain("현재 세션은 일반 업무 메뉴만 확인하고 경영업무 분리 메뉴는 보지 않습니다.");
-    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/management-support/hr"');
     expect(html).not.toContain('href="/work-items/branch"');
     expect(html).toContain("dev-safe 안내 상태");
     expect(html).not.toMatch(/Phase |Skeleton|UAT|placeholder|skeleton/);
@@ -102,7 +102,7 @@ describe("Phase 57 home/menu IA entrypoints", () => {
       />,
     );
 
-    expect(html).toContain('href="/admin/users"');
+    expect(html).toContain('href="/management-support/hr"');
     expect(html).toContain('href="/management"');
     expect(html).toContain("경영업무");
     expect(html).toContain("관리자 계정·정책 확인 순서");

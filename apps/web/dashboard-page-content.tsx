@@ -120,7 +120,7 @@ export function DashboardPageContent({
           <article className="info-card">
             <Pill>분리 원칙</Pill>
             <h3>/home 는 홈, /menu 는 탐색, 운영 허브는 별도 레인</h3>
-            <p>/management, /admin/users, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인이며, `/menu` 도 전체 탐색 화면으로만 읽혀야 합니다.</p>
+            <p>/management, /management-support/hr, /admin/policies 는 직원 기본 홈의 다음 단계가 아니라 권한 있는 운영 사용자 레인이며, `/menu` 도 전체 탐색 화면으로만 읽혀야 합니다.</p>
           </article>
           <article className="info-card">
             <Pill tone="warning">확인 포인트</Pill>
@@ -188,7 +188,7 @@ export function DashboardPageContent({
             <article className="info-card">
               <h3>관리자 계정·정책 확인 순서</h3>
               <p>일반 홈과 운영 허브를 섞지 않고 계정관리, 정책, 감사, 내부관리 화면을 별도 레인으로 이어 봅니다.</p>
-              <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
+              <p className="card-note">/login → /home → /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health</p>
             </article>
           ) : null}
           {viewerRoleCode === "AUDITOR" ? (
@@ -230,12 +230,12 @@ export function DashboardPageContent({
 
       <SurfaceSection
         title="관리자 운영 검토 레인"
-        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/admin/users` → `/admin/policies` → `/admin/audit-logs` → `/api/health` 순서로 운영 기준선을 먼저 검토합니다."
+        description="운영자는 일반 직원 흐름과 섞지 않고 `/management` → `/management-support/hr` → `/admin/policies` → `/admin/audit-logs` → `/api/health` 순서로 운영 기준선을 먼저 검토합니다."
       >
         <ul className="summary-list">
           <li>`/home` 에서 일반 직원 홈과 운영 레인이 분리되어 보이는지 확인</li>
           <li>`/management` 에서 운영 허브가 일반 홈의 연장이 아니라는 안내 확인</li>
-          <li>`/admin/users` 에서 계정 생성·권한 diff·비밀번호 초기화가 참고용 안내로 읽히는지 확인</li>
+          <li>`/management-support/hr` 에서 계정 생성·권한 diff·비밀번호 초기화가 참고용 안내로 읽히는지 확인</li>
           <li>`/admin/policies` 에서 current/candidate/capability/audit 안내 형식이 실제 저장 완료처럼 보이지 않는지 확인</li>
           <li>`/admin/audit-logs` 에서 masked/company boundary 기준으로 read-only 감사 추적 확인</li>
           <li>`/api/health` 를 full monitoring 이 아닌 최소 liveness 기준으로 기록</li>

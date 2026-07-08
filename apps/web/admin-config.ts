@@ -198,7 +198,7 @@ export const companySettingsGroups: readonly CompanySettingsGroupReview[] = [
     title: "조직 / 사용자 / 권한",
     summary: "부서 구조, 관리자 사용자, 직원 디렉터리를 같은 회사 경계로 연결합니다.",
     owner: "hr admin",
-    linkedRoutes: ["/employees", "/admin/users"],
+    linkedRoutes: ["/employees", "/management-support/hr"],
   },
   {
     id: "attendance_leave_work_policies",

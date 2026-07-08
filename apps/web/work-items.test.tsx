@@ -146,14 +146,14 @@ describe("Phase 25 work-items web entrypoints", () => {
 
     expect(html).toContain("경영업무");
     expect(html).toContain("역할별 운영 레인");
-    expect(html).toContain("/home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health");
+    expect(html).toContain("/home → /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health");
     expect(html).toContain("경영업무에서 바로 여는 화면");
     expect(html).toContain("계정관리 → 조직조회 → 경영업무 브리지");
-    expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고");
+    expect(html).toContain("HR_ADMIN 시작점은 /management 가 아니라 /management-support/hr 이고");
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("추천 확인 순서");
     expect(html).not.toContain("아래 route 순서로 일반 직원 레인과 관리자 레인이 섞이지 않는지 확인합니다.");
-    expect(html).toContain("/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
+    expect(html).toContain("/management-support/hr 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인");
     expect(html).toContain("/work-items/branch 에서 branch scope 업무 목록 → 상세 → 문서 → 마감 흐름과 company scope 경계 확인");
     expect(html).toContain("기록 체크포인트");
     expect(html).toContain("컴플라이언스 / 감사 확인");
@@ -177,17 +177,17 @@ describe("Phase 25 work-items web entrypoints", () => {
     expect(html).toContain('href="/work-items/tax"');
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain('href="/work-items/branch"');
-    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/management-support/hr"');
     expect(html).not.toContain('href="/work-items/labor"');
     expect(html).not.toContain('href="/admin/audit-logs"');
   });
 
-  it("keeps HR_ADMIN on admin/users flow instead of the management lane", async () => {
+  it("keeps HR_ADMIN directed to the management-support HR flow instead of the management lane", async () => {
     mockedSessionToken.value = "dev-session_HR_ADMIN";
 
     const html = renderToStaticMarkup(await ManagementPage());
 
-    expect(html).toContain('href="/admin/users"');
+    expect(html).toContain("/management-support/hr");
     expect(html).toContain('href="/attendance"');
     expect(html).not.toContain('href="/management"');
     expect(html).not.toContain('href="/payroll"');

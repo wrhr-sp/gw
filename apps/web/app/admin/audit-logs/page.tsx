@@ -15,7 +15,7 @@ const auditGuardRoles = ["AUDITOR", "HR_ADMIN", "COMPANY_ADMIN", "MANAGER", "EMP
 
 const roleLandingRouteLabels: Record<(typeof auditGuardRoles)[number], string> = {
   AUDITOR: "/admin/audit-logs",
-  HR_ADMIN: "/home → /admin/users",
+  HR_ADMIN: "/home → /management-support/hr",
   COMPANY_ADMIN: "/home → /management 또는 /admin",
   MANAGER: "/home → /management",
   EMPLOYEE: "/home",
@@ -29,7 +29,7 @@ const auditGuardRows = auditGuardRoles.map((roleCode) => {
     roleCode,
     landingRoute: roleLandingRouteLabels[roleCode],
     auditRoute: guardStatusLabel(hasAdminRouteAccess("/admin/audit-logs", viewer), "허용", "차단"),
-    adminUsersRoute: guardStatusLabel(hasAdminRouteAccess("/admin/users", viewer), "허용", "차단"),
+    adminUsersRoute: guardStatusLabel(hasAdminRouteAccess("/management-support/hr", viewer), "허용", "차단"),
     managementRoute: guardStatusLabel(hasSensitiveWorkbenchRouteAccess("/management", viewer), "허용", "차단"),
     healthRoute: "허용",
   };
@@ -87,7 +87,7 @@ export default function AdminAuditLogsPage() {
               <h3>{item.landingRoute}</h3>
               <ul className="summary-list">
                 <li>/admin/audit-logs: {item.auditRoute}</li>
-                <li>/admin/users: {item.adminUsersRoute}</li>
+                <li>/management-support/hr: {item.adminUsersRoute}</li>
                 <li>/management: {item.managementRoute}</li>
                 <li>/api/health: {item.healthRoute}</li>
               </ul>
