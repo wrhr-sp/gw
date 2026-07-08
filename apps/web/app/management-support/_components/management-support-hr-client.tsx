@@ -62,6 +62,8 @@ const roleLabels: Record<RoleCode, string> = {
   AUDITOR: "감사담당자",
 };
 
+const WEREHERE_EMAIL_DOMAIN = "werehere.co.kr";
+
 const roleOptions = Object.entries(roleLabels) as Array<[RoleCode, string]>;
 
 const internalEmployeeAccountTypeOptions: Array<{ value: AdminAccountType; label: string }> = [
@@ -69,9 +71,17 @@ const internalEmployeeAccountTypeOptions: Array<{ value: AdminAccountType; label
 ];
 
 const createAccountStatusOptions: Array<{ value: AdminAccountStatus; label: string }> = [
-  { value: "invited", label: "초대대기" },
-  { value: "active", label: "활성" },
+  { value: "active", label: "정상" },
+  { value: "disabled", label: "중지" },
+  { value: "locked", label: "휴면" },
 ];
+
+const employmentCategoryOptions = ["정규직", "계약직", "수습", "인턴"] as const;
+const defaultGroupOptions = ["본사"] as const;
+const defaultDepartmentOptions = ["경영지원팀"] as const;
+const defaultPositionOptions = ["사원"] as const;
+const defaultJobPositionOptions = ["팀원", "파트장", "팀장"] as const;
+const defaultJobGradeOptions = ["사원", "주임", "대리", "과장", "차장", "부장"] as const;
 
 type EmployeeDetailPanelTab = "profile" | "organization" | "account" | "security";
 
@@ -82,16 +92,47 @@ const employeeDetailPanelTabs: Array<{ id: EmployeeDetailPanelTab; label: string
   { id: "security", label: "보안" },
 ];
 
-const emptyCreateForm: AdminUserCreateRequest = {
+type EmployeeCreatePanelForm = AdminUserCreateRequest & {
+  loginLocalPart: string;
+  confirmPassword: string;
+  residentRegistrationFront: string;
+  residentRegistrationBack: string;
+  hireDate: string;
+  recognizedHireDate: string;
+  employeeNumber: string;
+  employmentCategory: string;
+  groupNames: string[];
+  departmentNames: string[];
+  positionNames: string[];
+  jobPositionNames: string[];
+  jobGradeNames: string[];
+  profileImageName: string;
+};
+
+const emptyCreateForm: EmployeeCreatePanelForm = {
   fullName: "",
   email: "",
+  loginLocalPart: "",
   initialPassword: "",
+  confirmPassword: "",
+  residentRegistrationFront: "",
+  residentRegistrationBack: "",
+  hireDate: "",
+  recognizedHireDate: "",
+  employeeNumber: "자동생성",
+  employmentCategory: "정규직",
+  groupNames: [],
+  departmentNames: [],
+  positionNames: [],
+  jobPositionNames: [],
+  jobGradeNames: [],
+  profileImageName: "",
   departmentName: "",
   branchName: "",
   positionName: "",
   accountType: "employee",
   roleCode: "EMPLOYEE",
-  status: "invited",
+  status: "active",
   reason: "사내임직원 등록 및 계정 생성",
   mustChangePassword: true,
   mfaRequired: false,
@@ -128,6 +169,31 @@ function formatDate(value: string | null) {
   return value ? value.slice(0, 10) : "-";
 }
 
+function uniqueNonEmpty(values: Array<string | null | undefined>, defaultValues: readonly string[]) {
+  const items = values.map((value) => value?.trim()).filter((value): value is string => Boolean(value));
+  return [...new Set(items)].length > 0 ? [...new Set(items)] : [...defaultValues];
+}
+
+function selectedMultiValue(values: string[], defaultValue: string) {
+  return values[0] ?? defaultValue;
+}
+
+function SensitiveVisibilityIcon({ visible }: { visible: boolean }) {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16">
+      <path
+        d="M2.75 12s3.35-5.75 9.25-5.75S21.25 12 21.25 12 17.9 17.75 12 17.75 2.75 12 2.75 12Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="2.35" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      {!visible ? <path d="M4.5 19.5 19.5 4.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" /> : null}
+    </svg>
+  );
+}
 
 const employeeLinkStatusLabels: Record<AdminUserSummary["employeeLinkStatus"], string> = {
   linked: "사원 연결됨",
@@ -275,8 +341,11 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     revokeActiveSessions: false,
     reason: "사원 보안 설정 수정",
   });
-  const [createForm, setCreateForm] = useState<AdminUserCreateRequest>(emptyCreateForm);
+  const [createForm, setCreateForm] = useState<EmployeeCreatePanelForm>(emptyCreateForm);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [showResidentBack, setShowResidentBack] = useState(false);
+  const [showInitialPassword, setShowInitialPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [createSaveState, setCreateSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [createSaveMessage, setCreateSaveMessage] = useState<string | null>(null);
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -337,6 +406,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     () => items.find((item) => item.userId === selectedUserId) ?? items[0] ?? null,
     [items, selectedUserId],
   );
+  const createGroupOptions = useMemo(() => uniqueNonEmpty(items.map((item) => item.branchName), defaultGroupOptions), [items]);
+  const createDepartmentOptions = useMemo(() => uniqueNonEmpty(items.map((item) => item.departmentName), defaultDepartmentOptions), [items]);
+  const createPositionOptions = useMemo(() => uniqueNonEmpty(items.map((item) => item.positionName), defaultPositionOptions), [items]);
 
   useEffect(() => {
     if (!selected) {
@@ -390,14 +462,34 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   async function handleCreateSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const parsedRequest = adminUserCreateRequestSchema.safeParse({
-      ...createForm,
+    const emailLocalPart = createForm.loginLocalPart.trim().toLowerCase();
+    if (createForm.initialPassword !== createForm.confirmPassword) {
+      setCreateSaveState("error");
+      setCreateSaveMessage("비밀번호와 비밀번호 재입력이 일치하지 않습니다.");
+      return;
+    }
+
+    const createRequest: AdminUserCreateRequest = {
+      fullName: createForm.fullName,
+      email: `${emailLocalPart}@${WEREHERE_EMAIL_DOMAIN}`,
+      loginLocalPart: emailLocalPart,
+      initialPassword: createForm.initialPassword,
+      hireDate: createForm.hireDate || undefined,
+      departmentName: selectedMultiValue(createForm.departmentNames, createForm.departmentName || createDepartmentOptions[0] || "경영지원팀"),
+      branchName: selectedMultiValue(createForm.groupNames, createForm.branchName || createGroupOptions[0] || "본사"),
+      positionName: selectedMultiValue(createForm.positionNames, createForm.positionName || createPositionOptions[0] || "사원"),
       accountType: "employee",
-      positionName: createForm.positionName?.trim() ? createForm.positionName : undefined,
-    });
+      roleCode: createForm.roleCode,
+      status: createForm.status,
+      reason: createForm.reason,
+      mustChangePassword: createForm.mustChangePassword,
+      mfaRequired: createForm.mfaRequired,
+    };
+
+    const parsedRequest = adminUserCreateRequestSchema.safeParse(createRequest);
     if (!parsedRequest.success) {
       setCreateSaveState("error");
-      setCreateSaveMessage("이름, 이메일, 초기 비밀번호, 부서, 지점, 역할, 생성 사유를 확인해 주세요.");
+      setCreateSaveMessage("이름, 아이디, 비밀번호, 입사일자, 그룹, 부서, 직책, 직위, 직급, 계정상태를 확인해 주세요.");
       return;
     }
 
@@ -858,150 +950,296 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 onSubmit={handleCreateSave}
                 aria-label="사내임직원 등록 및 계정 생성"
               >
-                <label>
-                  <span>이름</span>
-                  <input
-                    aria-label="사내임직원 이름"
-                    data-hr-input-size="medium"
-                    disabled={createSaveState === "saving"}
-                    minLength={2}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
-                    required
-                    value={createForm.fullName}
-                  />
-                </label>
-                <label>
-                  <span>로그인 ID / 이메일</span>
-                  <input
-                    aria-label="사내임직원 로그인 ID 또는 이메일"
-                    data-hr-input-size="full"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
-                    required
-                    type="email"
-                    value={createForm.email}
-                  />
-                </label>
-                <label>
-                  <span>초기 비밀번호</span>
-                  <input
-                    aria-label="사내임직원 초기 비밀번호"
-                    data-hr-input-size="full"
-                    disabled={createSaveState === "saving"}
-                    minLength={8}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
-                    required
-                    type="password"
-                    value={createForm.initialPassword}
-                  />
-                </label>
-                <label>
-                  <span>부서</span>
-                  <input
-                    aria-label="사내임직원 부서"
-                    data-hr-input-size="medium"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, departmentName: event.target.value }))}
-                    required
-                    value={createForm.departmentName}
-                  />
-                </label>
-                <label>
-                  <span>지점</span>
-                  <input
-                    aria-label="사내임직원 지점"
-                    data-hr-input-size="medium"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, branchName: event.target.value }))}
-                    required
-                    value={createForm.branchName}
-                  />
-                </label>
-                <label>
-                  <span>직책/직급</span>
-                  <input
-                    aria-label="사내임직원 직책 또는 직급"
-                    data-hr-input-size="medium"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, positionName: event.target.value }))}
-                    value={createForm.positionName ?? ""}
-                  />
-                </label>
-                <label>
-                  <span>계정 유형</span>
-                  <select aria-label="사내임직원 계정 유형"
-                    data-hr-input-size="short" disabled value={createForm.accountType}>
-                    {internalEmployeeAccountTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>초기 역할</span>
-                  <select
-                    aria-label="사내임직원 초기 역할"
-                    data-hr-input-size="medium"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, roleCode: event.target.value as RoleCode }))}
-                    value={createForm.roleCode}
-                  >
-                    {roleOptions.map(([roleCode, label]) => (
-                      <option key={roleCode} value={roleCode}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>초기 상태</span>
-                  <select
-                    aria-label="사내임직원 초기 상태"
-                    data-hr-input-size="short"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
-                    value={createForm.status}
-                  >
-                    {createAccountStatusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>생성 사유</span>
-                  <input
-                    aria-label="사내임직원 계정 생성 사유"
-                    data-hr-input-size="full"
-                    disabled={createSaveState === "saving"}
-                    minLength={1}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, reason: event.target.value }))}
-                    required
-                    value={createForm.reason}
-                  />
-                </label>
-                <label>
-                  <span>비밀번호 변경</span>
-                  <select
-                    aria-label="사내임직원 최초 로그인 비밀번호 변경 요구"
-                    data-hr-input-size="short"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
-                    value={createForm.mustChangePassword ? "true" : "false"}
-                  >
-                    <option value="true">요구</option>
-                    <option value="false">요구 안 함</option>
-                  </select>
-                </label>
-                <label>
-                  <span>2단계 인증</span>
-                  <select
-                    aria-label="사내임직원 2단계 인증 요구"
-                    data-hr-input-size="short"
-                    disabled={createSaveState === "saving"}
-                    onChange={(event) => setCreateForm((current) => ({ ...current, mfaRequired: event.target.value === "true" }))}
-                    value={createForm.mfaRequired ? "true" : "false"}
-                  >
-                    <option value="false">요구 안 함</option>
-                    <option value="true">요구</option>
-                  </select>
-                </label>
+                <div className="employee-create-profile-card">
+                  <div className="employee-create-profile-card__avatar" aria-hidden="true">
+                    {createForm.profileImageName ? "✓" : "사진"}
+                  </div>
+                  <label className="employee-create-profile-card__control">
+                    <span>프로필사진 설정</span>
+                    <input
+                      aria-label="사원 프로필사진 설정"
+                      data-hr-input-size="full"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, profileImageName: event.target.files?.[0]?.name ?? "" }))}
+                      type="file"
+                      accept="image/*"
+                    />
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>이름</span>
+                    <input
+                      aria-label="사원 이름"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      minLength={2}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, fullName: event.target.value }))}
+                      required
+                      value={createForm.fullName}
+                    />
+                  </label>
+                  <label>
+                    <span>주민등록번호</span>
+                    <span className="employee-create-resident-field">
+                      <input
+                        aria-label="주민등록번호 앞자리"
+                        data-hr-input-size="short"
+                        disabled={createSaveState === "saving"}
+                        inputMode="numeric"
+                        maxLength={6}
+                        onChange={(event) => setCreateForm((current) => ({ ...current, residentRegistrationFront: event.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                        value={createForm.residentRegistrationFront}
+                      />
+                      <span aria-hidden="true">-</span>
+                      <span className="employee-create-sensitive-field">
+                        <input
+                          aria-label="주민등록번호 뒷자리"
+                          data-hr-input-size="short"
+                          disabled={createSaveState === "saving"}
+                          inputMode="numeric"
+                          maxLength={7}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, residentRegistrationBack: event.target.value.replace(/\D/g, "").slice(0, 7) }))}
+                          type={showResidentBack ? "text" : "password"}
+                          value={createForm.residentRegistrationBack}
+                        />
+                        <button
+                          aria-label={showResidentBack ? "주민등록번호 뒷자리 숨기기" : "주민등록번호 뒷자리 보기"}
+                          className="employee-create-sensitive-field__toggle"
+                          disabled={createSaveState === "saving"}
+                          onClick={() => setShowResidentBack((current) => !current)}
+                          type="button"
+                        >
+                          <SensitiveVisibilityIcon visible={showResidentBack} />
+                        </button>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>입사일자</span>
+                    <input
+                      aria-label="사원 입사일자"
+                      data-hr-input-size="short"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: event.target.value }))}
+                      type="date"
+                      value={createForm.hireDate}
+                    />
+                  </label>
+                  <label>
+                    <span>인정입사일자</span>
+                    <input
+                      aria-label="사원 인정입사일자"
+                      data-hr-input-size="short"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: event.target.value }))}
+                      type="date"
+                      value={createForm.recognizedHireDate}
+                    />
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>아이디</span>
+                    <span className="employee-create-email-field">
+                      <input
+                        aria-label="사원 아이디"
+                        data-hr-input-size="medium"
+                        disabled={createSaveState === "saving"}
+                        onChange={(event) => setCreateForm((current) => ({ ...current, loginLocalPart: event.target.value }))}
+                        pattern="[a-zA-Z0-9._-]+"
+                        required
+                        value={createForm.loginLocalPart}
+                      />
+                      <span aria-hidden="true">@{WEREHERE_EMAIL_DOMAIN}</span>
+                    </span>
+                  </label>
+                  <label>
+                    <span>사원번호</span>
+                    <input
+                      aria-label="사원번호 자동생성"
+                      data-hr-input-size="short"
+                      disabled
+                      value={createForm.employeeNumber}
+                    />
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>비밀번호</span>
+                    <span className="employee-create-sensitive-field">
+                      <input
+                        aria-label="사원 비밀번호"
+                        data-hr-input-size="medium"
+                        disabled={createSaveState === "saving"}
+                        minLength={8}
+                        onChange={(event) => setCreateForm((current) => ({ ...current, initialPassword: event.target.value }))}
+                        required
+                        type={showInitialPassword ? "text" : "password"}
+                        value={createForm.initialPassword}
+                      />
+                      <button
+                        aria-label={showInitialPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                        className="employee-create-sensitive-field__toggle"
+                        disabled={createSaveState === "saving"}
+                        onClick={() => setShowInitialPassword((current) => !current)}
+                        type="button"
+                      >
+                        <SensitiveVisibilityIcon visible={showInitialPassword} />
+                      </button>
+                    </span>
+                  </label>
+                  <label>
+                    <span>비밀번호 재입력</span>
+                    <span className="employee-create-sensitive-field">
+                      <input
+                        aria-label="사원 비밀번호 재입력"
+                        data-hr-input-size="medium"
+                        disabled={createSaveState === "saving"}
+                        minLength={8}
+                        onChange={(event) => setCreateForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+                        required
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={createForm.confirmPassword}
+                      />
+                      <button
+                        aria-label={showConfirmPassword ? "비밀번호 재입력 숨기기" : "비밀번호 재입력 보기"}
+                        className="employee-create-sensitive-field__toggle"
+                        disabled={createSaveState === "saving"}
+                        onClick={() => setShowConfirmPassword((current) => !current)}
+                        type="button"
+                      >
+                        <SensitiveVisibilityIcon visible={showConfirmPassword} />
+                      </button>
+                    </span>
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>채용구분</span>
+                    <select
+                      aria-label="사원 채용구분"
+                      data-hr-input-size="short"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, employmentCategory: event.target.value }))}
+                      value={createForm.employmentCategory}
+                    >
+                      {employmentCategoryOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>그룹</span>
+                    <select
+                      aria-label="사원 그룹"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => {
+                        const values = Array.from(event.target.selectedOptions, (option) => option.value);
+                        setCreateForm((current) => ({ ...current, groupNames: values, branchName: selectedMultiValue(values, current.branchName || createGroupOptions[0] || "본사") }));
+                      }}
+                      multiple
+                      value={createForm.groupNames}
+                    >
+                      {createGroupOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>부서</span>
+                    <select
+                      aria-label="사원 부서"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => {
+                        const values = Array.from(event.target.selectedOptions, (option) => option.value);
+                        setCreateForm((current) => ({ ...current, departmentNames: values, departmentName: selectedMultiValue(values, current.departmentName || createDepartmentOptions[0] || "경영지원팀") }));
+                      }}
+                      multiple
+                      required
+                      value={createForm.departmentNames}
+                    >
+                      {createDepartmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>직책</span>
+                    <select
+                      aria-label="사원 직책"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => {
+                        const values = Array.from(event.target.selectedOptions, (option) => option.value);
+                        setCreateForm((current) => ({ ...current, jobPositionNames: values }));
+                      }}
+                      multiple
+                      value={createForm.jobPositionNames}
+                    >
+                      {defaultJobPositionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>직위</span>
+                    <select
+                      aria-label="사원 직위"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => {
+                        const values = Array.from(event.target.selectedOptions, (option) => option.value);
+                        setCreateForm((current) => ({ ...current, positionNames: values, positionName: selectedMultiValue(values, current.positionName || createPositionOptions[0] || "사원") }));
+                      }}
+                      multiple
+                      value={createForm.positionNames}
+                    >
+                      {createPositionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>직급</span>
+                    <select
+                      aria-label="사원 직급"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => {
+                        const values = Array.from(event.target.selectedOptions, (option) => option.value);
+                        setCreateForm((current) => ({ ...current, jobGradeNames: values }));
+                      }}
+                      multiple
+                      value={createForm.jobGradeNames}
+                    >
+                      {defaultJobGradeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="employee-create-field-row employee-create-field-row--two">
+                  <label>
+                    <span>계정상태</span>
+                    <select
+                      aria-label="사원 계정상태"
+                      data-hr-input-size="short"
+                      disabled={createSaveState === "saving"}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, status: event.target.value as AdminAccountStatus }))}
+                      value={createForm.status}
+                    >
+                      {createAccountStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
                 {createSaveMessage ? (
                   <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
                     {createSaveMessage}

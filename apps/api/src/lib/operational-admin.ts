@@ -430,9 +430,11 @@ export async function createOperationalAdminUser(
   if (!sql || !env) return null;
 
   const updatedAt = new Date().toISOString();
-  const normalizedEmail = input.email.trim().toLowerCase();
-  const loginId = normalizedEmail.split("@")[0] || normalizedEmail;
+  const loginLocalPart = input.loginLocalPart?.trim().toLowerCase();
+  const normalizedEmail = (loginLocalPart ? `${loginLocalPart}@werehere.co.kr` : input.email).trim().toLowerCase();
+  const loginId = loginLocalPart || normalizedEmail.split("@")[0] || normalizedEmail;
   const employeeNumber = `EMP-${Date.now().toString(36).toUpperCase()}`;
+  const hireDate = input.hireDate ?? new Date().toISOString().slice(0, 10);
   const positionName = input.positionName?.trim() || null;
   let createdZitadelUserId: string | null = null;
 
@@ -529,7 +531,7 @@ export async function createOperationalAdminUser(
 
     await sql`
       insert into employees (id, company_id, branch_id, user_id, department_id, position_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
-      values (${employeeId}, ${companyId}, ${branchId}, ${userId}, ${departmentId}, ${positionId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, current_date, ${updatedAt}, ${updatedAt})
+      values (${employeeId}, ${companyId}, ${branchId}, ${userId}, ${departmentId}, ${positionId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${updatedAt}, ${updatedAt})
     `;
 
     await sql`
