@@ -233,12 +233,17 @@ function buildErrorMessage(responseStatus: number, payload: unknown) {
   return `사원정보를 불러오지 못했습니다. (${responseStatus})`;
 }
 
-export function ManagementSupportHrClient() {
-  const [items, setItems] = useState<AdminUserSummary[]>([]);
-  const [summary, setSummary] = useState<AdminUsersSummaryCounts>(emptyAdminUsersSummary);
-  const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+type InitialAdminUsersData = {
+  items: AdminUserSummary[];
+  summary: AdminUsersSummaryCounts;
+};
+
+export function ManagementSupportHrClient({ initialData = null }: { initialData?: InitialAdminUsersData | null }) {
+  const [items, setItems] = useState<AdminUserSummary[]>(() => initialData?.items ?? []);
+  const [summary, setSummary] = useState<AdminUsersSummaryCounts>(() => initialData?.summary ?? emptyAdminUsersSummary);
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">(() => initialData ? "loaded" : "idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(() => initialData?.items[0]?.userId ?? null);
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
   const [activeDetailPanelTab, setActiveDetailPanelTab] = useState<EmployeeDetailPanelTab>("profile");
   const [profileForm, setProfileForm] = useState<AdminUserProfileUpdateRequest>({
@@ -309,11 +314,12 @@ export function ManagementSupportHrClient() {
       throw new Error("사원정보를 불러오지 못했습니다.");
     }
 
-    setItems(parsed.data.data.items);
-    setSummary(parsed.data.data.summary);
-    setSelectedUserId((current) => options?.selectedUserId ?? current ?? parsed.data.data.items[0]?.userId ?? null);
+    const adminUsersData = parsed.data.data as InitialAdminUsersData;
+    setItems(adminUsersData.items);
+    setSummary(adminUsersData.summary);
+    setSelectedUserId((current) => options?.selectedUserId ?? current ?? adminUsersData.items[0]?.userId ?? null);
     setLoadState("loaded");
-    return parsed.data.data;
+    return adminUsersData;
   }
 
   useEffect(() => {
