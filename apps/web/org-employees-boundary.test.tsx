@@ -115,8 +115,7 @@ describe("org/employees/admin boundaries", () => {
   it("styles employee detail as a right-side panel with top entrance motion", async () => {
     const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
 
-    expect(globalCss).toContain("--employee-detail-panel-content-ratio-width: calc(45vw - 9px);");
-    expect(globalCss).toContain("--employee-detail-panel-width: min(504px, var(--employee-detail-panel-content-ratio-width), 100vw);");
+    expect(globalCss).toContain("--employee-detail-panel-width: 45vw;");
     expect(globalCss).toContain("--employee-detail-panel-top: var(--desktop-topbar-height, var(--app-topbar-min-height));");
     expect(globalCss).toContain("--desktop-sidebar-fixed-height: calc(100dvh - var(--desktop-topbar-height));");
     expect(globalCss).toContain(".employee-detail-panel");
