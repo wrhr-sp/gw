@@ -9,6 +9,13 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table";
 import {
+  ActionButtonGroup,
+  DataTable,
+  EmptyState,
+  SummaryCard,
+  StandardButton,
+} from "../../_components/ui-standard";
+import {
   adminUserCreateRequestSchema,
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
@@ -690,8 +697,8 @@ export function ManagementSupportHrClient() {
         cell: ({ row }) => {
           const item = row.original;
           return (
-            <button
-              className="page-shell__title-link page-shell__title-button"
+            <StandardButton
+              intent="ghost"
               onClick={() => {
                 setSelectedUserId(item.userId);
                 setActiveDetailPanelTab("profile");
@@ -700,7 +707,7 @@ export function ManagementSupportHrClient() {
               type="button"
             >
               {item.fullName}
-            </button>
+            </StandardButton>
           );
         },
       },
@@ -779,31 +786,16 @@ export function ManagementSupportHrClient() {
         </div>
 
         <div className="feature-workspace__status-grid feature-workspace__status-grid--employee-summary" aria-label="사원정보관리 현황">
-          <article className="feature-workspace__status feature-workspace__status--accent">
-            <span>전체</span>
-            <strong>{totalCount}명</strong>
-          </article>
-          <article className="feature-workspace__status feature-workspace__status--accent">
-            <span>재직</span>
-            <strong>{activeCount}명</strong>
-          </article>
-          <article className="feature-workspace__status feature-workspace__status--warning">
-            <span>잠금</span>
-            <strong>{lockedCount}명</strong>
-          </article>
-          <article className="feature-workspace__status feature-workspace__status--warning">
-            <span>휴면</span>
-            <strong>{dormantCount}명</strong>
-          </article>
-          <article className="feature-workspace__status feature-workspace__status--warning">
-            <span>퇴사</span>
-            <strong>{offboardedCount}명</strong>
-          </article>
+          <SummaryCard title="전체" value={`${totalCount}명`} tone="info" />
+          <SummaryCard title="재직" value={`${activeCount}명`} tone="success" />
+          <SummaryCard title="잠금" value={`${lockedCount}명`} tone="warning" />
+          <SummaryCard title="휴면" value={`${dormantCount}명`} tone="warning" />
+          <SummaryCard title="퇴사" value={`${offboardedCount}명`} tone="danger" />
         </div>
 
-        <div className="feature-workspace__actions feature-workspace__summary-actions" aria-label="사원정보관리 현황 작업">
-          <button
-            className="touch-button feature-workspace__action feature-workspace__action--primary"
+        <ActionButtonGroup label="사원정보관리 현황 작업">
+          <StandardButton
+            intent="primary"
             disabled={createSaveState === "saving"}
             onClick={() => {
               setCreateSaveState("idle");
@@ -813,27 +805,26 @@ export function ManagementSupportHrClient() {
             type="button"
           >
             등록
-          </button>
-          <button
-            className="touch-button feature-workspace__action feature-workspace__action--danger"
+          </StandardButton>
+          <StandardButton
+            intent="danger"
             disabled={!selected || deleteSaveState === "saving" || selected.accountStatus === "offboarded" || selected.employmentStatus === "offboarded"}
             onClick={handleDeleteSelected}
             type="button"
           >
             {deleteSaveState === "saving" ? "삭제 처리 중" : "삭제"}
-          </button>
+          </StandardButton>
           {deleteSaveMessage ? (
             <p className="feature-workspace__save-message" role={deleteSaveState === "error" ? "alert" : "status"}>
               {deleteSaveMessage}
             </p>
           ) : null}
-        </div>
+        </ActionButtonGroup>
 
         {errorMessage ? (
-          <aside className="feature-workspace__empty-state" role="alert" aria-label="사원정보관리 조회 오류">
-            <strong>사원정보 조회 실패</strong>
-            <p>{errorMessage}</p>
-          </aside>
+          <EmptyState title="사원정보 조회 실패">
+            <p role="alert">{errorMessage}</p>
+          </EmptyState>
         ) : null}
 
         {isCreateDialogOpen ? (
@@ -992,11 +983,11 @@ export function ManagementSupportHrClient() {
                       <option value="true">요구</option>
                     </select>
                   </label>
-                  <div className="feature-workspace__actions">
-                    <button className="touch-button feature-workspace__action" disabled={createSaveState === "saving"} type="submit">
+                  <ActionButtonGroup>
+                    <StandardButton intent="primary" disabled={createSaveState === "saving"} type="submit">
                       {createSaveState === "saving" ? "생성 중" : "사내임직원 계정 생성"}
-                    </button>
-                  </div>
+                    </StandardButton>
+                  </ActionButtonGroup>
                   {createSaveMessage ? (
                     <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
                       {createSaveMessage}
@@ -1008,7 +999,8 @@ export function ManagementSupportHrClient() {
           </div>
         ) : null}
 
-        <div className="employee-management-table-wrap" aria-label="사원 목록" data-table-engine="tanstack">
+        <DataTable label="사원 목록">
+          <div className="employee-management-table-wrap" data-table-engine="tanstack">
           <table className="employee-management-table">
             <thead>
               {employeeTable.getHeaderGroups().map((headerGroup) => (
@@ -1031,12 +1023,11 @@ export function ManagementSupportHrClient() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </DataTable>
 
         {items.length === 0 && loadState !== "loading" ? (
-          <aside className="feature-workspace__empty-state" aria-label="사원정보관리 빈 상태">
-            <strong>조회된 사원이 없습니다</strong>
-          </aside>
+          <EmptyState title="조회된 사원이 없습니다" />
         ) : null}
 
         {isDetailPanelOpen && selected ? (
@@ -1046,29 +1037,30 @@ export function ManagementSupportHrClient() {
                 <strong>{selected.fullName}</strong>
                 <span>{selected.email}</span>
               </div>
-              <button
+              <StandardButton
                 aria-label="사원 상세패널 닫기"
-                className="topbar-modal__close"
+                intent="ghost"
                 onClick={() => setIsDetailPanelOpen(false)}
                 type="button"
               >
                 ×
-              </button>
+              </StandardButton>
             </div>
             <div className="employee-detail-panel__tabs" role="tablist" aria-label="사원 상세패널 입력 항목">
               {employeeDetailPanelTabs.map((tab) => (
-                <button
+                <StandardButton
                   key={tab.id}
                   aria-controls={`employee-detail-panel-${tab.id}`}
                   aria-selected={activeDetailPanelTab === tab.id}
                   className="employee-detail-panel__tab"
                   id={`employee-detail-panel-tab-${tab.id}`}
+                  intent={activeDetailPanelTab === tab.id ? "primary" : "secondary"}
                   onClick={() => setActiveDetailPanelTab(tab.id)}
                   role="tab"
                   type="button"
                 >
                   {tab.label}
-                </button>
+                </StandardButton>
               ))}
             </div>
             <div className="employee-detail-panel__body">
@@ -1127,11 +1119,11 @@ export function ManagementSupportHrClient() {
                   value={profileForm.reason}
                 />
               </label>
-              <div className="feature-workspace__actions">
-                <button className="touch-button feature-workspace__action" disabled={!selected || profileSaveState === "saving"} type="submit">
+              <ActionButtonGroup>
+                <StandardButton intent="primary" disabled={!selected || profileSaveState === "saving"} type="submit">
                   {profileSaveState === "saving" ? "저장 중" : "기본정보 저장"}
-                </button>
-              </div>
+                </StandardButton>
+              </ActionButtonGroup>
               {profileSaveMessage ? (
                 <p className="feature-workspace__save-message" role={profileSaveState === "error" ? "alert" : "status"}>
                   {profileSaveMessage}
@@ -1204,11 +1196,11 @@ export function ManagementSupportHrClient() {
                   value={organizationForm.reason}
                 />
               </label>
-              <div className="feature-workspace__actions">
-                <button className="touch-button feature-workspace__action" disabled={!selected || organizationSaveState === "saving"} type="submit">
+              <ActionButtonGroup>
+                <StandardButton intent="primary" disabled={!selected || organizationSaveState === "saving"} type="submit">
                   {organizationSaveState === "saving" ? "저장 중" : "조직정보 저장"}
-                </button>
-              </div>
+                </StandardButton>
+              </ActionButtonGroup>
               {organizationSaveMessage ? (
                 <p className="feature-workspace__save-message" role={organizationSaveState === "error" ? "alert" : "status"}>
                   {organizationSaveMessage}
@@ -1267,11 +1259,11 @@ export function ManagementSupportHrClient() {
                   value={accountForm.reason}
                 />
               </label>
-              <div className="feature-workspace__actions">
-                <button className="touch-button feature-workspace__action" disabled={!selected || accountSaveState === "saving"} type="submit">
+              <ActionButtonGroup>
+                <StandardButton intent="primary" disabled={!selected || accountSaveState === "saving"} type="submit">
                   {accountSaveState === "saving" ? "저장 중" : "계정상태 저장"}
-                </button>
-              </div>
+                </StandardButton>
+              </ActionButtonGroup>
               {accountSaveMessage ? (
                 <p className="feature-workspace__save-message" role={accountSaveState === "error" ? "alert" : "status"}>
                   {accountSaveMessage}
@@ -1314,11 +1306,11 @@ export function ManagementSupportHrClient() {
                   value={rolesForm.reason}
                 />
               </label>
-              <div className="feature-workspace__actions">
-                <button className="touch-button feature-workspace__action" disabled={!selected || rolesSaveState === "saving"} type="submit">
+              <ActionButtonGroup>
+                <StandardButton intent="primary" disabled={!selected || rolesSaveState === "saving"} type="submit">
                   {rolesSaveState === "saving" ? "저장 중" : "역할/권한 저장"}
-                </button>
-              </div>
+                </StandardButton>
+              </ActionButtonGroup>
               {rolesSaveMessage ? (
                 <p className="feature-workspace__save-message" role={rolesSaveState === "error" ? "alert" : "status"}>
                   {rolesSaveMessage}
@@ -1398,11 +1390,11 @@ export function ManagementSupportHrClient() {
                   value={securityForm.reason}
                 />
               </label>
-              <div className="feature-workspace__actions">
-                <button className="touch-button feature-workspace__action" disabled={!selected || securitySaveState === "saving"} type="submit">
+              <ActionButtonGroup>
+                <StandardButton intent="primary" disabled={!selected || securitySaveState === "saving"} type="submit">
                   {securitySaveState === "saving" ? "저장 중" : "보안 설정 저장"}
-                </button>
-              </div>
+                </StandardButton>
+              </ActionButtonGroup>
               {securitySaveMessage ? (
                 <p className="feature-workspace__save-message" role={securitySaveState === "error" ? "alert" : "status"}>
                   {securitySaveMessage}
