@@ -66,7 +66,7 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("사내임직원 로그인 ID 또는 이메일");
     expect(html).not.toContain("사내임직원 초기 역할");
     expect(html).not.toContain("사내임직원 계정 생성");
-    expect(clientSource).toContain("role=\"dialog\"");
+    expect(clientSource).toContain("<ConfirmDialog");
     expect(clientSource).toContain("employee-create-form");
     expect(clientSource).toContain("setIsCreateDialogOpen(true)");
     expect(clientSource).toContain("employee-detail-panel");
