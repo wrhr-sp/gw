@@ -21,6 +21,7 @@ import {
   type AdminUserRolesUpdateRequest,
   type AdminUserSecurityUpdateRequest,
   type AdminUserSummary,
+  type AdminUsersSummaryCounts,
   type AdminUserStatusUpdateRequest,
   type RoleCode,
 } from "@gw/shared";
@@ -72,6 +73,14 @@ const emptyCreateForm: AdminUserCreateRequest = {
   reason: "사내임직원 등록 및 계정 생성",
   mustChangePassword: true,
   mfaRequired: false,
+};
+
+const emptyAdminUsersSummary: AdminUsersSummaryCounts = {
+  total: 0,
+  active: 0,
+  locked: 0,
+  dormant: 0,
+  offboarded: 0,
 };
 
 const accountStatusLabels: Record<AdminUserSummary["accountStatus"], string> = {
@@ -203,6 +212,7 @@ function buildErrorMessage(responseStatus: number, payload: unknown) {
 
 export function ManagementSupportHrClient() {
   const [items, setItems] = useState<AdminUserSummary[]>([]);
+  const [summary, setSummary] = useState<AdminUsersSummaryCounts>(emptyAdminUsersSummary);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -249,37 +259,45 @@ export function ManagementSupportHrClient() {
   const [rolesSaveMessage, setRolesSaveMessage] = useState<string | null>(null);
   const [securitySaveState, setSecuritySaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [securitySaveMessage, setSecuritySaveMessage] = useState<string | null>(null);
+  const [deleteSaveState, setDeleteSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [deleteSaveMessage, setDeleteSaveMessage] = useState<string | null>(null);
+
+  async function reloadAdminUsers(options?: { signal?: AbortSignal; selectedUserId?: string; silent?: boolean }) {
+    if (!options?.silent) {
+      setLoadState("loading");
+      setErrorMessage(null);
+    }
+
+    const response = await fetch(appRoutes.admin.users, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: options?.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(buildErrorMessage(response.status, payload));
+    }
+
+    const parsed = adminUsersListResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new Error("사원정보를 불러오지 못했습니다.");
+    }
+
+    setItems(parsed.data.data.items);
+    setSummary(parsed.data.data.summary);
+    setSelectedUserId((current) => options?.selectedUserId ?? current ?? parsed.data.data.items[0]?.userId ?? null);
+    setLoadState("loaded");
+    return parsed.data.data;
+  }
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoadState("loading");
-    setErrorMessage(null);
 
-    void fetch(appRoutes.admin.users, {
-      cache: "no-store",
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(buildErrorMessage(response.status, payload));
-        }
-
-        const parsed = adminUsersListResponseSchema.safeParse(payload);
-        if (!parsed.success) {
-          throw new Error("사원정보를 불러오지 못했습니다.");
-        }
-
-        setItems(parsed.data.data.items);
-        setSelectedUserId((current) => current ?? parsed.data.data.items[0]?.userId ?? null);
-        setLoadState("loaded");
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        setLoadState("error");
-        setErrorMessage(error instanceof Error ? error.message : "사원정보를 불러오지 못했습니다.");
-      });
+    void reloadAdminUsers({ signal: controller.signal }).catch((error) => {
+      if (controller.signal.aborted) return;
+      setLoadState("error");
+      setErrorMessage(error instanceof Error ? error.message : "사원정보를 불러오지 못했습니다.");
+    });
 
     return () => controller.abort();
   }, []);
@@ -334,6 +352,8 @@ export function ManagementSupportHrClient() {
     });
     setSecuritySaveState("idle");
     setSecuritySaveMessage(null);
+    setDeleteSaveState("idle");
+    setDeleteSaveMessage(null);
   }, [selected?.userId, selected?.fullName, selected?.email, selected?.employmentStatus, selected?.departmentName, selected?.branchName, selected?.positionName, selected?.employeeNumber, selected?.hireDate, selected?.accountStatus, selected?.mustChangePassword, selected?.roleCodes, selected?.twoFactorRequired]);
 
   async function handleCreateSave(event: React.FormEvent<HTMLFormElement>) {
@@ -372,8 +392,7 @@ export function ManagementSupportHrClient() {
       }
 
       const createdUser = parsedResponse.data.data.user;
-      setItems((current) => [createdUser, ...current.filter((item) => item.userId !== createdUser.userId)]);
-      setSelectedUserId(createdUser.userId);
+      await reloadAdminUsers({ selectedUserId: createdUser.userId, silent: true });
       setCreateForm(emptyCreateForm);
       setCreateSaveState("saved");
       setCreateSaveMessage(`${createdUser.fullName} 사내임직원 계정을 생성했습니다.`);
@@ -418,8 +437,7 @@ export function ManagementSupportHrClient() {
       }
 
       const updatedUser = parsedResponse.data.data.user;
-      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
-      setSelectedUserId(updatedUser.userId);
+      await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setProfileSaveState("saved");
       setProfileSaveMessage(`${updatedUser.fullName} 기본정보를 저장했습니다.`);
     } catch (error) {
@@ -463,8 +481,7 @@ export function ManagementSupportHrClient() {
       }
 
       const updatedUser = parsedResponse.data.data.user;
-      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
-      setSelectedUserId(updatedUser.userId);
+      await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setOrganizationSaveState("saved");
       setOrganizationSaveMessage(`${updatedUser.fullName} 조직정보를 저장했습니다.`);
     } catch (error) {
@@ -508,13 +525,52 @@ export function ManagementSupportHrClient() {
       }
 
       const updatedUser = parsedResponse.data.data.user;
-      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
-      setSelectedUserId(updatedUser.userId);
+      await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setAccountSaveState("saved");
       setAccountSaveMessage(`${updatedUser.fullName} 계정상태를 저장했습니다.`);
     } catch (error) {
       setAccountSaveState("error");
       setAccountSaveMessage(error instanceof Error ? error.message : "사원 계정상태를 저장하지 못했습니다.");
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (!selected) {
+      return;
+    }
+
+    setDeleteSaveState("saving");
+    setDeleteSaveMessage(null);
+
+    try {
+      const response = await fetch(appRoutes.admin.userStatus(selected.userId), {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          status: "offboarded",
+          mustChangePassword: true,
+          reason: "사원정보관리 현황카드 아래 삭제 버튼 처리",
+        } satisfies AdminUserStatusUpdateRequest),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(buildErrorMessage(response.status, payload));
+      }
+
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) {
+        throw new Error("사원 삭제 처리를 저장하지 못했습니다.");
+      }
+
+      const deletedUser = parsedResponse.data.data.user;
+      await reloadAdminUsers({ selectedUserId: deletedUser.userId, silent: true });
+      setDeleteSaveState("saved");
+      setDeleteSaveMessage(`${deletedUser.fullName} 삭제 처리를 저장했습니다.`);
+    } catch (error) {
+      setDeleteSaveState("error");
+      setDeleteSaveMessage(error instanceof Error ? error.message : "사원 삭제 처리를 저장하지 못했습니다.");
     }
   }
 
@@ -553,8 +609,7 @@ export function ManagementSupportHrClient() {
       }
 
       const updatedUser = parsedResponse.data.data.user;
-      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
-      setSelectedUserId(updatedUser.userId);
+      await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setRolesSaveState("saved");
       setRolesSaveMessage(`${updatedUser.fullName} 역할/권한을 저장했습니다.`);
     } catch (error) {
@@ -598,8 +653,7 @@ export function ManagementSupportHrClient() {
       }
 
       const updatedUser = parsedResponse.data.data.user;
-      setItems((current) => current.map((item) => (item.userId === updatedUser.userId ? updatedUser : item)));
-      setSelectedUserId(updatedUser.userId);
+      await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setSecurityForm((current) => ({ ...current, resetFailedLoginCount: false, revokeActiveSessions: false }));
       setSecuritySaveState("saved");
       setSecuritySaveMessage(`${updatedUser.fullName} 보안 설정을 저장했습니다.`);
@@ -609,10 +663,11 @@ export function ManagementSupportHrClient() {
     }
   }
 
-  const activeCount = items.filter((item) => item.employmentStatus === "active").length;
-  const lockedCount = items.filter((item) => item.accountStatus === "locked").length;
-  const dormantCount = items.filter((item) => item.accountStatus === "suspended").length;
-  const offboardedCount = items.filter((item) => item.employmentStatus === "offboarded" || item.accountStatus === "offboarded").length;
+  const totalCount = summary.total;
+  const activeCount = summary.active;
+  const lockedCount = summary.locked;
+  const dormantCount = summary.dormant;
+  const offboardedCount = summary.offboarded;
 
   return (
     <div className="feature-workspace">
@@ -643,7 +698,7 @@ export function ManagementSupportHrClient() {
         <div className="feature-workspace__status-grid feature-workspace__status-grid--employee-summary" aria-label="사원정보관리 현황">
           <article className="feature-workspace__status feature-workspace__status--accent">
             <span>전체</span>
-            <strong>{items.length}명</strong>
+            <strong>{totalCount}명</strong>
           </article>
           <article className="feature-workspace__status feature-workspace__status--accent">
             <span>재직</span>
@@ -663,6 +718,25 @@ export function ManagementSupportHrClient() {
           </article>
         </div>
 
+        <div className="feature-workspace__actions feature-workspace__summary-actions" aria-label="사원정보관리 현황 작업">
+          <button className="touch-button feature-workspace__action feature-workspace__action--primary" disabled={createSaveState === "saving"} form="employee-create-form" type="submit">
+            {createSaveState === "saving" ? "등록 중" : "등록"}
+          </button>
+          <button
+            className="touch-button feature-workspace__action feature-workspace__action--danger"
+            disabled={!selected || deleteSaveState === "saving" || selected.accountStatus === "offboarded" || selected.employmentStatus === "offboarded"}
+            onClick={handleDeleteSelected}
+            type="button"
+          >
+            {deleteSaveState === "saving" ? "삭제 처리 중" : "삭제"}
+          </button>
+          {deleteSaveMessage ? (
+            <p className="feature-workspace__save-message" role={deleteSaveState === "error" ? "alert" : "status"}>
+              {deleteSaveMessage}
+            </p>
+          ) : null}
+        </div>
+
         {errorMessage ? (
           <aside className="feature-workspace__empty-state" role="alert" aria-label="사원정보관리 조회 오류">
             <strong>사원정보 조회 실패</strong>
@@ -670,7 +744,7 @@ export function ManagementSupportHrClient() {
           </aside>
         ) : null}
 
-        <form className="feature-workspace__form" onSubmit={handleCreateSave} aria-label="사내임직원 등록 및 계정 생성">
+        <form id="employee-create-form" className="feature-workspace__form" onSubmit={handleCreateSave} aria-label="사내임직원 등록 및 계정 생성">
           <label>
             <span>이름</span>
             <input

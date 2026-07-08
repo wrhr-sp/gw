@@ -257,6 +257,7 @@ import {
   type AttendanceRegistrationMethod,
   type AttendanceRegistrationPolicy,
   type AdminAuditLog,
+  type AdminUserSummary,
   type Board,
   type BoardComment,
   type BoardPost,
@@ -4183,6 +4184,16 @@ app.post(appRoutes.admin.userCreate, async (context) => {
   );
 });
 
+function buildAdminUsersSummary(items: AdminUserSummary[]) {
+  return {
+    total: items.length,
+    active: items.filter((item) => item.employmentStatus === "active").length,
+    locked: items.filter((item) => item.accountStatus === "locked").length,
+    dormant: items.filter((item) => item.accountStatus === "suspended").length,
+    offboarded: items.filter((item) => item.employmentStatus === "offboarded" || item.accountStatus === "offboarded").length,
+  };
+}
+
 app.get(appRoutes.admin.users, async (context) => {
   const authResult = requireAdminRole(context);
   if (authResult.response) {
@@ -4214,6 +4225,7 @@ app.get(appRoutes.admin.users, async (context) => {
       ok: true,
       data: {
         items: dbAdminUsers,
+        summary: buildAdminUsersSummary(dbAdminUsers),
         linkedScreens: buildAdminUsersLinkedScreens(),
         companySettingsModel: buildCompanySettingsModel(),
         audit: {

@@ -78,6 +78,10 @@ describe("org/employees/admin boundaries", () => {
     expect(html).toContain("사원정보관리");
     expect(html).toContain("사내임직원 등록 및 계정 생성");
     expect(html).toContain("사내임직원 계정 생성");
+    expect(html).toContain("aria-label=\"사원정보관리 현황 작업\"");
+    expect(html).toContain(">등록</button>");
+    expect(html).toContain(">삭제</button>");
+    expect(html).toContain("form=\"employee-create-form\"");
     expect(html).toContain("사내임직원 로그인 ID 또는 이메일");
     expect(html).toContain("사내임직원 초기 역할");
     expect(html).toContain("사내임직원");

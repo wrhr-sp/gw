@@ -2105,9 +2105,18 @@ export const adminUserSummarySchema = z.object({
   roleChangePreview: adminUserRoleChangePreviewSchema,
 });
 
+export const adminUsersSummaryCountsSchema = z.object({
+  total: z.number().int().min(0),
+  active: z.number().int().min(0),
+  locked: z.number().int().min(0),
+  dormant: z.number().int().min(0),
+  offboarded: z.number().int().min(0),
+});
+
 export const adminUsersListResponseSchema = successResponseSchema(
   z.object({
     items: z.array(adminUserSummarySchema),
+    summary: adminUsersSummaryCountsSchema,
     linkedScreens: z.array(operationalBridgeItemSchema).min(1),
     companySettingsModel: companySettingsModelSchema,
     audit: auditCandidateSchema,
@@ -4087,6 +4096,7 @@ export type AdminScope = z.infer<typeof adminScopeSchema>;
 export type AdminAccountType = z.infer<typeof adminAccountTypeSchema>;
 export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+export type AdminUsersSummaryCounts = z.infer<typeof adminUsersSummaryCountsSchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;
 export type AdminUserSecurityUpdateRequest = z.infer<typeof adminUserSecurityUpdateRequestSchema>;

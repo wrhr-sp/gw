@@ -5796,6 +5796,11 @@ li {
   gap: var(--ui-inline-gap-sm);
 }
 
+.feature-workspace__summary-actions {
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
 .feature-workspace__row-actions {
   justify-content: flex-start;
   margin-top: 6px;

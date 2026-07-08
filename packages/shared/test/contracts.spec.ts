@@ -1670,6 +1670,13 @@ describe("shared contracts", () => {
               },
               },
           ],
+          summary: {
+            total: 1,
+            active: 1,
+            locked: 0,
+            dormant: 0,
+            offboarded: 0,
+          },
           linkedScreens: [
             {
               category: "permission",
