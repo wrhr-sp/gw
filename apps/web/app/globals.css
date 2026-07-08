@@ -5908,6 +5908,90 @@ li {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.employee-create-profile-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.employee-create-profile-card__avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: var(--hr-input-border);
+  border-radius: var(--radius-full);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font: revert;
+  font-size: var(--font-size-sm);
+}
+
+.employee-create-profile-card__control {
+  min-width: 0;
+}
+
+.employee-create-field-row {
+  display: grid;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.employee-create-field-row--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.employee-create-email-field,
+.employee-create-resident-field,
+.employee-create-sensitive-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.employee-create-email-field > span,
+.employee-create-resident-field > span[aria-hidden="true"] {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.employee-create-sensitive-field {
+  position: relative;
+  width: fit-content;
+}
+
+.employee-create-sensitive-field input {
+  padding-right: 36px;
+}
+
+.employee-create-sensitive-field__toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.employee-create-sensitive-field__toggle:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.employee-create-sensitive-field__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .employee-detail-panel {
   position: fixed;
   top: var(--employee-detail-panel-top);
