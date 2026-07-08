@@ -82,18 +82,27 @@ describe("org/employees/admin boundaries", () => {
     expect(html).toContain("사내임직원 초기 역할");
     expect(html).toContain("사내임직원");
     expect(html).toContain("feature-workspace__status-grid--employee-summary");
-    expect(html.indexOf("전체")).toBeLessThan(html.indexOf("재직"));
-    expect(html.indexOf("재직")).toBeLessThan(html.indexOf("잠금"));
-    expect(html.indexOf("잠금")).toBeLessThan(html.indexOf("퇴사"));
+    const summaryStart = html.indexOf("aria-label=\"사원정보관리 현황\"");
+    const wholeIndex = html.indexOf("전체", summaryStart);
+    const activeIndex = html.indexOf("재직", summaryStart);
+    const lockedIndex = html.indexOf("잠금", summaryStart);
+    const dormantIndex = html.indexOf("휴면", summaryStart);
+    const offboardedIndex = html.indexOf("퇴사", summaryStart);
+
+    expect(summaryStart).toBeGreaterThanOrEqual(0);
+    expect(wholeIndex).toBeLessThan(activeIndex);
+    expect(activeIndex).toBeLessThan(lockedIndex);
+    expect(lockedIndex).toBeLessThan(dormantIndex);
+    expect(dormantIndex).toBeLessThan(offboardedIndex);
     expect(html).not.toContain("회원가입 신청");
     expect(html).not.toContain("회원가입 승인");
     expect(html).not.toContain("승인대기");
   });
 
-  it("keeps employee management summary status cards on a four-column desktop grid", async () => {
+  it("keeps employee management summary status cards on a five-column desktop grid", async () => {
     const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
 
     expect(globalCss).toContain(".feature-workspace__status-grid--employee-summary");
-    expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
+    expect(globalCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr));");
   });
 });
