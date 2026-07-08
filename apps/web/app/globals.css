@@ -66,9 +66,9 @@
   --layer-popover-width: 292px;
   --layer-modal-width-sm: 360px;
   --layer-modal-inset: 10px;
-  --employee-detail-panel-width: min(520px, calc(100vw - var(--layer-modal-inset)));
-  --employee-detail-panel-top: var(--desktop-topbar-height);
-  --employee-detail-panel-fixed-height: var(--desktop-sidebar-fixed-height);
+  --employee-detail-panel-width: min(520px, 100vw);
+  --employee-detail-panel-top: var(--desktop-topbar-height, var(--app-topbar-min-height));
+  --employee-detail-panel-fixed-height: calc(100dvh - var(--employee-detail-panel-top));
   --employee-detail-panel-height: var(--employee-detail-panel-fixed-height);
   --employee-detail-panel-divider: 1px solid var(--line-strong);
   --employee-detail-panel-translate-y: calc(var(--layer-modal-inset) * -1);
@@ -5840,10 +5840,7 @@ li {
   border-right: 0;
   border-bottom: 0;
   border-left: var(--employee-detail-panel-divider);
-  border-radius: var(--layer-radius-modal);
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+  border-radius: 0;
   background: var(--layer-surface-bg);
   box-shadow: var(--shadow);
   color: var(--text);
@@ -6023,9 +6020,10 @@ li {
   }
 
   .employee-detail-panel {
-    left: var(--layer-modal-inset);
-    width: auto;
-    max-width: none;
+    left: auto;
+    right: 0;
+    width: var(--employee-detail-panel-width);
+    max-width: var(--employee-detail-panel-width);
   }
 }
 

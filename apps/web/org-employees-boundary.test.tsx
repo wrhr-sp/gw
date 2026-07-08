@@ -115,9 +115,11 @@ describe("org/employees/admin boundaries", () => {
   it("styles employee detail as a right-side panel with top entrance motion", async () => {
     const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
 
-    expect(globalCss).toContain("--employee-detail-panel-width");
+    expect(globalCss).toContain("--employee-detail-panel-width: min(520px, 100vw);");
+    expect(globalCss).toContain("--employee-detail-panel-top: var(--desktop-topbar-height, var(--app-topbar-min-height));");
+    expect(globalCss).toContain("--desktop-sidebar-fixed-height: calc(100dvh - var(--desktop-topbar-height));");
     expect(globalCss).toContain(".employee-detail-panel");
-    expect(globalCss).toContain("--employee-detail-panel-fixed-height: var(--desktop-sidebar-fixed-height);");
+    expect(globalCss).toContain("--employee-detail-panel-fixed-height: calc(100dvh - var(--employee-detail-panel-top));");
     expect(globalCss).toContain("--employee-detail-panel-height: var(--employee-detail-panel-fixed-height);");
     expect(globalCss).toContain("--employee-detail-panel-divider: 1px solid var(--line-strong);");
     expect(globalCss).toContain("right: 0;");
@@ -129,6 +131,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("min-height: 0;");
     expect(globalCss).toContain("flex-shrink: 0;");
     expect(globalCss).toContain("border-left: var(--employee-detail-panel-divider);");
+    expect(globalCss).toContain("border-radius: 0;");
+    expect(globalCss).toContain("left: auto;");
+    expect(globalCss).toContain("width: var(--employee-detail-panel-width);");
     expect(globalCss).toContain("height: 100%;");
     expect(globalCss).toContain("max-height: 100%;");
     expect(globalCss).toContain("align-content: start;");
