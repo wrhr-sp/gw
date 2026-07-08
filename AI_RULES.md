@@ -3,8 +3,15 @@
 - 모든 UI의 색상, 간격(패딩/마진), 테두리 값은 반드시 디자인 토큰(CSS 변수 또는 Tailwind 테마 토큰)으로만 구현한다.
 - 하드코딩된 `#HEX` 색상 코드와 `px` 단위 생 숫자는 완료 기준에서 제외한다.
 - 필요한 값이 없으면 `apps/web/app/globals.css` 또는 Tailwind 테마 설정에 의미 기반 토큰을 먼저 추가하고, 컴포넌트는 토큰 이름만 참조한다.
-- 모든 신규 그룹웨어 화면은 `docs/ux/ui-ux-standardization-backlog.md`의 UI/UX 표준을 기본 규격으로 적용한다.
-- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 설치된 UI 라이브러리의 공식 가이드 규격을 우선하며, 임의 크기·임의 여백·페이지별 개별 스타일을 새로 만들지 않는다.
+- 모든 신규 그룹웨어 화면은 `docs/ux/werehere-frontend-ui-standard.md`를 최상위 UI 표준으로 적용한다.
+- 기존 UI 기준과 `docs/ux/werehere-frontend-ui-standard.md`가 충돌하면 `werehere-frontend-ui-standard.md`를 우선한다.
+- 기존 `docs/ux/ui-ux-standardization-backlog.md`는 하위 실행 백로그로만 사용한다.
+- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 설치된 UI 라이브러리의 공식 가이드 규격과 `apps/web/design-system/*` 전역 규칙을 우선하며, 임의 크기·임의 여백·페이지별 개별 스타일을 새로 만들지 않는다.
+- 모든 목록 화면은 `PageHeader → FilterBar → DataTable → Pagination` 패턴을 따른다.
+- 모든 상세 화면은 `PageHeader → SummaryCard → DetailSection → AttachmentPanel → AuditLogPanel` 패턴을 따른다. 결재/승인 상세에는 필요 시 `ApprovalLinePanel`을 추가한다.
+- 모든 작성 화면은 `PageHeader → FormSection → ActionButtonGroup → ConfirmDialog` 패턴을 따른다.
+- 계정관리 화면은 UI 표준의 기준 샘플 화면으로 우선 완성한다.
+- 프론트엔드에서는 ZITADEL API를 직접 호출하지 않고 위아히어 백엔드 API만 호출한다.
 - 페이지 상단 검색/필터 영역은 Grid 레이아웃과 공통 grid token/컴포넌트로 균등한 높이와 너비를 유지한다.
 - 액션 버튼 툴바는 부모 컨테이너 안에서 `display: flex`, `align-items: center`, `gap: 8px` 구조를 따른다.
 - 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
