@@ -89,6 +89,12 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("우편번호 검색");
     expect(clientSource).toContain("사원 상세주소");
     expect(clientSource).toContain("검색된 결과가 없습니다.");
+    expect(clientSource).toContain("addressSearchResponseSchema");
+    expect(clientSource).toContain("handleAddressSearch");
+    expect(clientSource).toContain("applyAddressSearchResult");
+    expect(clientSource).toContain("appRoutes.admin.addressSearch");
+    expect(clientSource).toContain("주소검색 결과 목록");
+    expect(clientSource).toContain("addressSearchResults.map");
     expect(clientSource).toContain("addressPostalCode");
     expect(clientSource).toContain("addressBase");
     expect(clientSource).toContain("addressDetail");
@@ -184,6 +190,8 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-address-field");
     expect(globalCss).toContain(".employee-create-address-dialog");
     expect(globalCss).toContain(".employee-create-address-dialog__tabs");
+    expect(globalCss).toContain(".employee-create-address-dialog__results");
+    expect(globalCss).toContain(".employee-create-address-dialog__result");
     expect(globalCss).toContain(".employee-create-inline-picker");
     expect(globalCss).toContain(".employee-create-inline-picker__item");
     expect(globalCss).not.toContain(".employee-create-assignment-tabs");

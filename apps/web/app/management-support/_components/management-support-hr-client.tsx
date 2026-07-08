@@ -21,6 +21,7 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserReferenceMastersResponseSchema,
+  addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
   adminUserSecurityUpdateRequestSchema,
   adminUserStatusUpdateRequestSchema,
@@ -38,6 +39,7 @@ import {
   type AdminUserSummary,
   type AdminUsersSummaryCounts,
   type AdminUserStatusUpdateRequest,
+  type AddressSearchResult,
   type RoleCode,
 } from "@gw/shared";
 
@@ -357,6 +359,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [createForm, setCreateForm] = useState<EmployeeCreatePanelForm>(emptyCreateForm);
   const [activeCreatePanelTab, setActiveCreatePanelTab] = useState<EmployeeCreatePanelTab>("basic");
   const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
+  const [addressSearchState, setAddressSearchState] = useState<"idle" | "searching" | "loaded" | "error">("idle");
+  const [addressSearchResults, setAddressSearchResults] = useState<AddressSearchResult[]>([]);
+  const [addressSearchMessage, setAddressSearchMessage] = useState<string | null>(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
@@ -937,6 +942,52 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     });
   }
 
+  async function handleAddressSearch() {
+    const keyword = createForm.addressSearchKeyword.trim();
+    if (keyword.length < 2) {
+      setAddressSearchState("error");
+      setAddressSearchResults([]);
+      setAddressSearchMessage("주소 검색어는 2글자 이상 입력해주세요.");
+      return;
+    }
+
+    setAddressSearchState("searching");
+    setAddressSearchMessage(null);
+    const response = await fetch(`${appRoutes.admin.addressSearch}?keyword=${encodeURIComponent(keyword)}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const parsedError = errorResponseSchema.safeParse(payload);
+      setAddressSearchState("error");
+      setAddressSearchResults([]);
+      setAddressSearchMessage(parsedError.success ? parsedError.data.error.message : "주소검색을 실행하지 못했습니다.");
+      return;
+    }
+
+    const parsed = addressSearchResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      setAddressSearchState("error");
+      setAddressSearchResults([]);
+      setAddressSearchMessage("주소검색 결과 형식이 올바르지 않습니다.");
+      return;
+    }
+
+    setAddressSearchState("loaded");
+    setAddressSearchResults(parsed.data.data.results);
+    setAddressSearchMessage(parsed.data.data.results.length ? null : "검색된 결과가 없습니다.");
+  }
+
+  function applyAddressSearchResult(result: AddressSearchResult) {
+    setCreateForm((current) => ({
+      ...current,
+      addressPostalCode: result.postalCode,
+      addressBase: result.roadAddress,
+    }));
+    setIsAddressSearchOpen(false);
+  }
+
   const referencePickerLabels: Record<EmployeeCreateMasterKind, string> = {
     groups: "사용자그룹",
     branches: "지사",
@@ -1435,16 +1486,41 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 <p className="employee-create-address-dialog__guide">도로명, 건물명, 지번을 입력해 주소를 검색합니다.</p>
                 <label className="employee-create-address-dialog__search">
                   <span>검색어</span>
-                  <input
-                    aria-label="주소 검색어"
-                    data-hr-input-size="full"
-                    onChange={(event) => setCreateForm((current) => ({ ...current, addressSearchKeyword: event.target.value }))}
-                    value={createForm.addressSearchKeyword}
-                  />
+                  <span className="employee-create-address-dialog__search-row">
+                    <input
+                      aria-label="주소 검색어"
+                      data-hr-input-size="full"
+                      onChange={(event) => setCreateForm((current) => ({ ...current, addressSearchKeyword: event.target.value }))}
+                      value={createForm.addressSearchKeyword}
+                    />
+                    <StandardButton disabled={addressSearchState === "searching"} intent="primary" onClick={handleAddressSearch} type="button">
+                      {addressSearchState === "searching" ? "검색 중" : "검색"}
+                    </StandardButton>
+                  </span>
                 </label>
-                <div className="employee-create-address-dialog__empty" role="status">
-                  검색된 결과가 없습니다.
-                </div>
+                {addressSearchMessage ? (
+                  <div className="employee-create-address-dialog__empty" role={addressSearchState === "error" ? "alert" : "status"}>
+                    {addressSearchMessage}
+                  </div>
+                ) : null}
+                {addressSearchResults.length > 0 ? (
+                  <div className="employee-create-address-dialog__results" role="list" aria-label="주소검색 결과 목록">
+                    {addressSearchResults.map((result) => (
+                      <button
+                        className="employee-create-address-dialog__result"
+                        key={result.id}
+                        onClick={() => applyAddressSearchResult(result)}
+                        type="button"
+                      >
+                        <span>
+                          <strong>{result.roadAddress}</strong>
+                          {result.jibunAddress ? <small>{result.jibunAddress}</small> : null}
+                        </span>
+                        <em>{result.postalCode}</em>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <label>
                   <span>기본 주소</span>
                   <input

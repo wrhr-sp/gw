@@ -221,6 +221,7 @@ describe("shared contracts", () => {
     expect(appRoutes.org.permissions).toBe("/api/permissions");
     expect(appRoutes.admin.invites).toBe("/api/admin/invites");
     expect(appRoutes.admin.users).toBe("/api/admin/users");
+    expect(appRoutes.admin.addressSearch).toBe("/api/admin/address-search");
     expect(appRoutes.admin.policies).toBe("/api/admin/policies");
     expect(appRoutes.admin.policyDocuments).toBe("/api/admin/policies/documents");
     expect(appRoutes.admin.policyBoards).toBe("/api/admin/policies/boards");

@@ -23,6 +23,7 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserReferenceMastersResponseSchema,
+  addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
   adminUserSecurityUpdateRequestSchema,
   adminUsersListResponseSchema,
@@ -339,6 +340,7 @@ import {
   type RegistrationServiceResult,
 } from "./lib/zitadel-registration-requests";
 import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
+import { searchOperationalAddresses, type AddressSearchEnv } from "./lib/operational-address-search";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
 import {
@@ -537,7 +539,7 @@ import {
   upsertOperationalAttendanceRecord,
 } from "./lib/operational-workflows";
 
-type AppBindings = DocumentStorageEnv & PostgresEnv & ZitadelStepUpEnv;
+type AppBindings = DocumentStorageEnv & PostgresEnv & ZitadelStepUpEnv & AddressSearchEnv;
 type AppContext = Context<{ Bindings: AppBindings }>;
 
 const DEV_SESSION_PREFIX = "dev-session_";
@@ -4123,6 +4125,39 @@ app.get(appRoutes.admin.employeeReferenceMasters, async (context) => {
         ...masters,
         audit: { candidate: true, action: "admin.employee_reference_masters.list.viewed" },
       },
+      error: null,
+    },
+    200,
+  );
+});
+
+app.get(appRoutes.admin.addressSearch, async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const keyword = context.req.query("keyword") ?? "";
+  const result = await searchOperationalAddresses(context.env, keyword);
+  if (!result.ok) {
+    if (result.error === "EXTERNAL_ADDRESS_NOT_CONFIGURED") {
+      return jsonError(context, "EXTERNAL_ADDRESS_NOT_CONFIGURED", result.message, 503, { route: context.req.path });
+    }
+    return jsonError(context, "VALIDATION_ERROR", result.message, 400, { route: context.req.path });
+  }
+
+  return jsonSuccess(
+    context,
+    addressSearchResponseSchema,
+    {
+      ok: true,
+      data: result,
       error: null,
     },
     200,
