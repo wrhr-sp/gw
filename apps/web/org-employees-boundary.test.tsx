@@ -72,20 +72,24 @@ describe("org/employees/admin boundaries", () => {
     expect(html.indexOf("계정 · 권한 상세")).toBeGreaterThan(html.indexOf("계정관리 목록"));
   });
 
-  it("creates internal employee accounts inside management support employee management", () => {
+  it("keeps management support employee management list-first and opens registration as a popup", async () => {
     const html = renderToStaticMarkup(<ManagementSupportHrPage />);
+    const clientSource = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"),
+    );
 
     expect(html).toContain("사원정보관리");
-    expect(html).toContain("사내임직원 등록 및 계정 생성");
-    expect(html).toContain("사내임직원 계정 생성");
     expect(html).toContain("aria-label=\"사원정보관리 현황 작업\"");
-    expect(html).toContain(">등록</button>");
-    expect(html).toContain(">삭제</button>");
-    expect(html).toContain("form=\"employee-create-form\"");
-    expect(html).toContain("사내임직원 로그인 ID 또는 이메일");
-    expect(html).toContain("사내임직원 초기 역할");
-    expect(html).toContain("사내임직원");
+    expect(html).toContain("등록");
+    expect(html).toContain("삭제");
+    expect(html).toContain("aria-label=\"사원 목록\"");
     expect(html).toContain("feature-workspace__status-grid--employee-summary");
+    expect(html).not.toContain("사내임직원 로그인 ID 또는 이메일");
+    expect(html).not.toContain("사내임직원 초기 역할");
+    expect(html).not.toContain("사내임직원 계정 생성");
+    expect(clientSource).toContain("role=\"dialog\"");
+    expect(clientSource).toContain("employee-create-form");
+    expect(clientSource).toContain("setIsCreateDialogOpen(true)");
     const summaryStart = html.indexOf("aria-label=\"사원정보관리 현황\"");
     const wholeIndex = html.indexOf("전체", summaryStart);
     const activeIndex = html.indexOf("재직", summaryStart);
