@@ -685,14 +685,19 @@ export async function updateOperationalAdminUserSecurity(
         u.must_change_password,
         coalesce(uss.two_factor_required, uss.secondary_password_hash is not null, false) as two_factor_required,
         coalesce(uss.failed_login_count, 0)::integer as failed_login_count,
-        count(distinct s.id) filter (where s.status = 'active' and s.expires_at > now()) as active_session_count
+        (
+          select count(*)::integer
+          from auth_sessions s
+          where s.company_id = u.company_id
+            and s.user_id = u.id
+            and s.status = 'active'
+            and s.expires_at > now()
+        ) as active_session_count
       from users u
       left join user_security_settings uss on uss.company_id = u.company_id and uss.user_id = u.id
-      left join auth_sessions s on s.company_id = u.company_id and s.user_id = u.id
       where u.id = ${targetUserId}
         and u.company_id = ${companyId}
         and u.deleted_at is null
-      group by u.id, u.must_change_password, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
       for update of u
     `;
     const before = beforeRows[0] as
