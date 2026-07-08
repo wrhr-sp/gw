@@ -30,8 +30,14 @@
 - 벤치마크는 국내 그룹웨어/HR/근태/급여/노무 서비스의 공개 페이지와 공개 도움말에서 추출한 일반 패턴만 사용하며, 화면·문구·로고·색상·레이아웃을 복제하지 않는다.
 
 ## UI/UX 표준화 강제 규칙
-- 앞으로 개발하는 모든 그룹웨어 화면은 `docs/ux/ui-ux-standardization-backlog.md`의 UI/UX 표준을 기본 규격으로 적용한다.
-- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 프로젝트에 설치된 UI 라이브러리의 공식 가이드 규격을 우선한다. 임의 크기, 임의 여백, 페이지별 개별 스타일은 새로 만들지 않는다.
+- 앞으로 개발하는 모든 그룹웨어 화면은 `docs/ux/werehere-frontend-ui-standard.md`를 최상위 UI 표준으로 적용한다. 기존 UI 기준과 충돌하면 이 지침을 우선한다.
+- 기존 `docs/ux/ui-ux-standardization-backlog.md`는 하위 실행 백로그로만 사용하며, 최상위 기준은 `werehere-frontend-ui-standard.md`다.
+- `Input`, `Select`, `DatePicker`, `Button`, `Table` 계열 컴포넌트는 프로젝트에 설치된 UI 라이브러리의 공식 가이드 규격과 `apps/web/design-system/*` 전역 규칙을 우선한다. 임의 크기, 임의 여백, 페이지별 개별 스타일은 새로 만들지 않는다.
+- 모든 목록 화면은 `PageHeader → FilterBar → DataTable → Pagination` 패턴을 따른다.
+- 모든 상세 화면은 `PageHeader → SummaryCard → DetailSection → AttachmentPanel → AuditLogPanel` 패턴을 따른다. 결재/승인 상세에는 필요 시 `ApprovalLinePanel`을 추가한다.
+- 모든 작성 화면은 `PageHeader → FormSection → ActionButtonGroup → ConfirmDialog` 패턴을 따른다.
+- 계정관리 화면은 UI 표준의 기준 샘플 화면으로 우선 완성하고, 이후 전자결재·업무관리·문서관리·사업장관리·거래처관리·설정·대시보드 화면에 같은 패턴을 재사용한다.
+- 프론트엔드에서는 ZITADEL API를 직접 호출하지 않고 위아히어 백엔드 API만 호출한다.
 - 페이지 상단 검색/필터 영역은 Grid 레이아웃으로 구성하고, 필터 박스 높이와 너비가 균등하게 보이도록 공통 grid token 또는 공통 컴포넌트를 사용한다.
 - 목록 상단과 상세창 내부의 액션 버튼 묶음은 부모 툴바 컨테이너 안에서 `display: flex`, `align-items: center`, `gap: 8px` 구조를 따른다.
 - 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
