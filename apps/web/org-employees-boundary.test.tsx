@@ -92,6 +92,15 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("setIsCreateDialogOpen(true)");
     expect(clientSource).toContain("employee-detail-panel");
     expect(clientSource).toContain("setIsDetailPanelOpen(true)");
+    expect(clientSource).toContain("employeeDetailPanelTabs");
+    expect(clientSource).toContain("기본정보");
+    expect(clientSource).toContain("조직정보");
+    expect(clientSource).toContain("계정·권한");
+    expect(clientSource).toContain("보안");
+    expect(clientSource).toContain("activeDetailPanelTab === \"profile\"");
+    expect(clientSource).toContain("activeDetailPanelTab === \"organization\"");
+    expect(clientSource).toContain("activeDetailPanelTab === \"account\"");
+    expect(clientSource).toContain("activeDetailPanelTab === \"security\"");
     expect(clientSource).toContain("사원 기본정보 수정");
     const summaryStart = html.indexOf("aria-label=\"사원정보관리 현황\"");
     const wholeIndex = html.indexOf("전체", summaryStart);
@@ -124,6 +133,10 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-detail-panel");
     expect(globalCss).toContain("right: var(--layer-modal-inset);");
     expect(globalCss).toContain("animation: employee-detail-panel-enter");
+    expect(globalCss).toContain(".employee-detail-panel__tabs");
+    expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
+    expect(globalCss).toContain("--employee-detail-panel-tab-padding");
+    expect(globalCss).toContain(".employee-detail-panel__tab[aria-selected=\"true\"]");
     expect(globalCss).toContain("@keyframes employee-detail-panel-enter");
     expect(globalCss).toContain("transform: translateY(var(--employee-detail-panel-translate-y));");
   });
