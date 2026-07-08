@@ -216,6 +216,7 @@ export function ManagementSupportHrClient() {
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
   const [profileForm, setProfileForm] = useState<AdminUserProfileUpdateRequest>({
     fullName: "",
     email: "",
@@ -945,7 +946,14 @@ export function ManagementSupportHrClient() {
               {items.map((item) => (
                 <tr key={item.userId}>
                   <td>
-                    <button className="page-shell__title-link page-shell__title-button" onClick={() => setSelectedUserId(item.userId)} type="button">
+                    <button
+                      className="page-shell__title-link page-shell__title-button"
+                      onClick={() => {
+                        setSelectedUserId(item.userId);
+                        setIsDetailPanelOpen(true);
+                      }}
+                      type="button"
+                    >
                       {item.fullName}
                     </button>
                   </td>
@@ -965,6 +973,329 @@ export function ManagementSupportHrClient() {
         {items.length === 0 && loadState !== "loading" ? (
           <aside className="feature-workspace__empty-state" aria-label="사원정보관리 빈 상태">
             <strong>조회된 사원이 없습니다</strong>
+          </aside>
+        ) : null}
+
+        {isDetailPanelOpen && selected ? (
+          <aside className="employee-detail-panel" aria-label={`${selected.fullName} 사원 우측 상세패널`}>
+            <div className="employee-detail-panel__header">
+              <div>
+                <strong>{selected.fullName}</strong>
+                <span>{selected.email}</span>
+              </div>
+              <button
+                aria-label="사원 상세패널 닫기"
+                className="topbar-modal__close"
+                onClick={() => setIsDetailPanelOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="employee-detail-panel__body">
+            <form className="feature-workspace__form" onSubmit={handleProfileSave} aria-label="사원 기본정보 수정">
+              <label>
+                <span>이름</span>
+                <input
+                  aria-label="사원 이름"
+                  disabled={!selected || profileSaveState === "saving"}
+                  onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))}
+                  value={profileForm.fullName}
+                />
+              </label>
+              <label>
+                <span>이메일</span>
+                <input
+                  aria-label="사원 이메일"
+                  disabled={!selected || profileSaveState === "saving"}
+                  onChange={(event) => setProfileForm((current) => ({ ...current, email: event.target.value }))}
+                  type="email"
+                  value={profileForm.email}
+                />
+              </label>
+              <label>
+                <span>재직상태</span>
+                <select
+                  aria-label="사원 재직상태"
+                  disabled={!selected || profileSaveState === "saving"}
+                  onChange={(event) =>
+                    setProfileForm((current) => ({
+                      ...current,
+                      employmentStatus: event.target.value as AdminUserProfileUpdateRequest["employmentStatus"],
+                    }))
+                  }
+                  value={profileForm.employmentStatus}
+                >
+                  <option value="active">재직</option>
+                  <option value="on_leave">휴직</option>
+                  <option value="offboarded">퇴사</option>
+                </select>
+              </label>
+              <label>
+                <span>변경 사유</span>
+                <input
+                  aria-label="사원 기본정보 변경 사유"
+                  disabled={!selected || profileSaveState === "saving"}
+                  onChange={(event) => setProfileForm((current) => ({ ...current, reason: event.target.value }))}
+                  value={profileForm.reason}
+                />
+              </label>
+              <div className="feature-workspace__actions">
+                <button className="touch-button feature-workspace__action" disabled={!selected || profileSaveState === "saving"} type="submit">
+                  {profileSaveState === "saving" ? "저장 중" : "기본정보 저장"}
+                </button>
+              </div>
+              {profileSaveMessage ? (
+                <p className="feature-workspace__save-message" role={profileSaveState === "error" ? "alert" : "status"}>
+                  {profileSaveMessage}
+                </p>
+              ) : null}
+            </form>
+            
+            <form className="feature-workspace__form" onSubmit={handleOrganizationSave} aria-label="사원 조직정보 수정">
+              <label>
+                <span>부서</span>
+                <input
+                  aria-label="사원 부서"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, departmentName: event.target.value }))}
+                  value={organizationForm.departmentName}
+                />
+              </label>
+              <label>
+                <span>지점</span>
+                <input
+                  aria-label="사원 지점"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, branchName: event.target.value }))}
+                  value={organizationForm.branchName}
+                />
+              </label>
+              <label>
+                <span>직책/직급</span>
+                <input
+                  aria-label="사원 직책 또는 직급"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, positionName: event.target.value }))}
+                  value={organizationForm.positionName ?? ""}
+                />
+              </label>
+              <label>
+                <span>사번</span>
+                <input
+                  aria-label="사원 사번"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, employeeNumber: event.target.value }))}
+                  value={organizationForm.employeeNumber}
+                />
+              </label>
+              <label>
+                <span>입사일</span>
+                <input
+                  aria-label="사원 입사일"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, hireDate: event.target.value }))}
+                  type="date"
+                  value={organizationForm.hireDate}
+                />
+              </label>
+              <label>
+                <span>변경 사유</span>
+                <input
+                  aria-label="사원 조직정보 변경 사유"
+                  disabled={!selected || organizationSaveState === "saving"}
+                  onChange={(event) => setOrganizationForm((current) => ({ ...current, reason: event.target.value }))}
+                  value={organizationForm.reason}
+                />
+              </label>
+              <div className="feature-workspace__actions">
+                <button className="touch-button feature-workspace__action" disabled={!selected || organizationSaveState === "saving"} type="submit">
+                  {organizationSaveState === "saving" ? "저장 중" : "조직정보 저장"}
+                </button>
+              </div>
+              {organizationSaveMessage ? (
+                <p className="feature-workspace__save-message" role={organizationSaveState === "error" ? "alert" : "status"}>
+                  {organizationSaveMessage}
+                </p>
+              ) : null}
+            </form>
+            
+            <form className="feature-workspace__form" onSubmit={handleAccountSave} aria-label="사원 계정상태 수정">
+              <label>
+                <span>계정상태</span>
+                <select
+                  aria-label="사원 계정상태"
+                  disabled={!selected || accountSaveState === "saving"}
+                  onChange={(event) =>
+                    setAccountForm((current) => ({
+                      ...current,
+                      status: event.target.value as AdminUserStatusUpdateRequest["status"],
+                    }))
+                  }
+                  value={accountForm.status}
+                >
+                  <option value="invited">초대대기</option>
+                  <option value="active">활성</option>
+                  <option value="locked">잠금</option>
+                  <option value="disabled">비활성</option>
+                  <option value="offboarded">퇴사처리</option>
+                  <option value="suspended">일시정지</option>
+                </select>
+              </label>
+              <label>
+                <span>비밀번호 변경</span>
+                <select
+                  aria-label="최초 로그인 비밀번호 변경 요구"
+                  disabled={!selected || accountSaveState === "saving"}
+                  onChange={(event) => setAccountForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+                  value={accountForm.mustChangePassword ? "true" : "false"}
+                >
+                  <option value="false">요구 안 함</option>
+                  <option value="true">요구</option>
+                </select>
+              </label>
+              <label>
+                <span>변경 사유</span>
+                <input
+                  aria-label="사원 계정상태 변경 사유"
+                  disabled={!selected || accountSaveState === "saving"}
+                  onChange={(event) => setAccountForm((current) => ({ ...current, reason: event.target.value }))}
+                  value={accountForm.reason}
+                />
+              </label>
+              <div className="feature-workspace__actions">
+                <button className="touch-button feature-workspace__action" disabled={!selected || accountSaveState === "saving"} type="submit">
+                  {accountSaveState === "saving" ? "저장 중" : "계정상태 저장"}
+                </button>
+              </div>
+              {accountSaveMessage ? (
+                <p className="feature-workspace__save-message" role={accountSaveState === "error" ? "alert" : "status"}>
+                  {accountSaveMessage}
+                </p>
+              ) : null}
+            </form>
+            
+            <form className="feature-workspace__form" onSubmit={handleRolesSave} aria-label="사원 역할 권한 수정">
+              {roleOptions.map(([roleCode, label]) => (
+                <label key={roleCode}>
+                  <span>{label}</span>
+                  <select
+                    aria-label={`${label} 역할 선택`}
+                    disabled={!selected || rolesSaveState === "saving"}
+                    onChange={(event) =>
+                      setRolesForm((current) => {
+                        const nextRoleCodes = event.target.value === "true"
+                          ? [...new Set([...current.roleCodes, roleCode])]
+                          : current.roleCodes.filter((currentRoleCode) => currentRoleCode !== roleCode);
+                        return { ...current, roleCodes: nextRoleCodes.length > 0 ? nextRoleCodes : current.roleCodes };
+                      })
+                    }
+                    value={rolesForm.roleCodes.includes(roleCode) ? "true" : "false"}
+                  >
+                    <option value="false">제외</option>
+                    <option value="true">포함</option>
+                  </select>
+                </label>
+              ))}
+              <label>
+                <span>권한 요약</span>
+                <input aria-label="사원 권한 요약" readOnly value={selected ? `${selected.permissions.length}개 권한 · 고위험 ${selected.highRiskPermissions.length}개` : ""} />
+              </label>
+              <label>
+                <span>변경 사유</span>
+                <input
+                  aria-label="사원 역할 권한 변경 사유"
+                  disabled={!selected || rolesSaveState === "saving"}
+                  onChange={(event) => setRolesForm((current) => ({ ...current, reason: event.target.value }))}
+                  value={rolesForm.reason}
+                />
+              </label>
+              <div className="feature-workspace__actions">
+                <button className="touch-button feature-workspace__action" disabled={!selected || rolesSaveState === "saving"} type="submit">
+                  {rolesSaveState === "saving" ? "저장 중" : "역할/권한 저장"}
+                </button>
+              </div>
+              {rolesSaveMessage ? (
+                <p className="feature-workspace__save-message" role={rolesSaveState === "error" ? "alert" : "status"}>
+                  {rolesSaveMessage}
+                </p>
+              ) : null}
+            </form>
+            
+            <form className="feature-workspace__form" onSubmit={handleSecuritySave} aria-label="사원 보안 설정 수정">
+              <label>
+                <span>2단계 인증</span>
+                <select
+                  aria-label="사원 2단계 인증 요구"
+                  disabled={!selected || securitySaveState === "saving"}
+                  onChange={(event) => setSecurityForm((current) => ({ ...current, twoFactorRequired: event.target.value === "true" }))}
+                  value={securityForm.twoFactorRequired ? "true" : "false"}
+                >
+                  <option value="false">요구 안 함</option>
+                  <option value="true">요구</option>
+                </select>
+              </label>
+              <label>
+                <span>비밀번호 변경</span>
+                <select
+                  aria-label="보안 설정 비밀번호 변경 요구"
+                  disabled={!selected || securitySaveState === "saving"}
+                  onChange={(event) => setSecurityForm((current) => ({ ...current, mustChangePassword: event.target.value === "true" }))}
+                  value={securityForm.mustChangePassword ? "true" : "false"}
+                >
+                  <option value="false">요구 안 함</option>
+                  <option value="true">요구</option>
+                </select>
+              </label>
+              <label>
+                <span>로그인 실패</span>
+                <select
+                  aria-label="로그인 실패 횟수 초기화"
+                  disabled={!selected || securitySaveState === "saving"}
+                  onChange={(event) => setSecurityForm((current) => ({ ...current, resetFailedLoginCount: event.target.value === "true" }))}
+                  value={securityForm.resetFailedLoginCount ? "true" : "false"}
+                >
+                  <option value="false">유지</option>
+                  <option value="true">초기화</option>
+                </select>
+              </label>
+              <label>
+                <span>활성 세션</span>
+                <select
+                  aria-label="활성 세션 종료"
+                  disabled={!selected || securitySaveState === "saving"}
+                  onChange={(event) => setSecurityForm((current) => ({ ...current, revokeActiveSessions: event.target.value === "true" }))}
+                  value={securityForm.revokeActiveSessions ? "true" : "false"}
+                >
+                  <option value="false">유지</option>
+                  <option value="true">종료</option>
+                </select>
+              </label>
+              <label>
+                <span>현재 보안 상태</span>
+                <input aria-label="현재 보안 상태" readOnly value={selected ? `실패 ${selected.failedLoginCount}회 · 세션 ${selected.activeSessionCount}개 · 최근 로그인 ${formatDate(selected.lastLoginAt)}` : ""} />
+              </label>
+              <label>
+                <span>변경 사유</span>
+                <input
+                  aria-label="사원 보안 설정 변경 사유"
+                  disabled={!selected || securitySaveState === "saving"}
+                  onChange={(event) => setSecurityForm((current) => ({ ...current, reason: event.target.value }))}
+                  value={securityForm.reason}
+                />
+              </label>
+              <div className="feature-workspace__actions">
+                <button className="touch-button feature-workspace__action" disabled={!selected || securitySaveState === "saving"} type="submit">
+                  {securitySaveState === "saving" ? "저장 중" : "보안 설정 저장"}
+                </button>
+              </div>
+              {securitySaveMessage ? (
+                <p className="feature-workspace__save-message" role={securitySaveState === "error" ? "alert" : "status"}>
+                  {securitySaveMessage}
+                </p>
+              ) : null}
+            </form>
+            </div>
           </aside>
         ) : null}
 

@@ -90,6 +90,9 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("role=\"dialog\"");
     expect(clientSource).toContain("employee-create-form");
     expect(clientSource).toContain("setIsCreateDialogOpen(true)");
+    expect(clientSource).toContain("employee-detail-panel");
+    expect(clientSource).toContain("setIsDetailPanelOpen(true)");
+    expect(clientSource).toContain("사원 기본정보 수정");
     const summaryStart = html.indexOf("aria-label=\"사원정보관리 현황\"");
     const wholeIndex = html.indexOf("전체", summaryStart);
     const activeIndex = html.indexOf("재직", summaryStart);
@@ -112,5 +115,16 @@ describe("org/employees/admin boundaries", () => {
 
     expect(globalCss).toContain(".feature-workspace__status-grid--employee-summary");
     expect(globalCss).toContain("grid-template-columns: repeat(5, minmax(0, 1fr));");
+  });
+
+  it("styles employee detail as a right-side panel with top entrance motion", async () => {
+    const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
+
+    expect(globalCss).toContain("--employee-detail-panel-width");
+    expect(globalCss).toContain(".employee-detail-panel");
+    expect(globalCss).toContain("right: var(--layer-modal-inset);");
+    expect(globalCss).toContain("animation: employee-detail-panel-enter");
+    expect(globalCss).toContain("@keyframes employee-detail-panel-enter");
+    expect(globalCss).toContain("transform: translateY(var(--employee-detail-panel-translate-y));");
   });
 });
