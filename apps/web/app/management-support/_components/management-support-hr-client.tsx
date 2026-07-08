@@ -60,6 +60,15 @@ const createAccountStatusOptions: Array<{ value: AdminAccountStatus; label: stri
   { value: "active", label: "활성" },
 ];
 
+type EmployeeDetailPanelTab = "profile" | "organization" | "account" | "security";
+
+const employeeDetailPanelTabs: Array<{ id: EmployeeDetailPanelTab; label: string }> = [
+  { id: "profile", label: "기본정보" },
+  { id: "organization", label: "조직정보" },
+  { id: "account", label: "계정·권한" },
+  { id: "security", label: "보안" },
+];
+
 const emptyCreateForm: AdminUserCreateRequest = {
   fullName: "",
   email: "",
@@ -217,6 +226,7 @@ export function ManagementSupportHrClient() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
+  const [activeDetailPanelTab, setActiveDetailPanelTab] = useState<EmployeeDetailPanelTab>("profile");
   const [profileForm, setProfileForm] = useState<AdminUserProfileUpdateRequest>({
     fullName: "",
     email: "",
@@ -950,6 +960,7 @@ export function ManagementSupportHrClient() {
                       className="page-shell__title-link page-shell__title-button"
                       onClick={() => {
                         setSelectedUserId(item.userId);
+                        setActiveDetailPanelTab("profile");
                         setIsDetailPanelOpen(true);
                       }}
                       type="button"
@@ -992,8 +1003,32 @@ export function ManagementSupportHrClient() {
                 ×
               </button>
             </div>
+            <div className="employee-detail-panel__tabs" role="tablist" aria-label="사원 상세패널 입력 항목">
+              {employeeDetailPanelTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  aria-controls={`employee-detail-panel-${tab.id}`}
+                  aria-selected={activeDetailPanelTab === tab.id}
+                  className="employee-detail-panel__tab"
+                  id={`employee-detail-panel-tab-${tab.id}`}
+                  onClick={() => setActiveDetailPanelTab(tab.id)}
+                  role="tab"
+                  type="button"
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <div className="employee-detail-panel__body">
-            <form className="feature-workspace__form" onSubmit={handleProfileSave} aria-label="사원 기본정보 수정">
+            {activeDetailPanelTab === "profile" ? (
+            <form
+              className="feature-workspace__form"
+              id="employee-detail-panel-profile"
+              onSubmit={handleProfileSave}
+              aria-label="사원 기본정보 수정"
+              aria-labelledby="employee-detail-panel-tab-profile"
+              role="tabpanel"
+            >
               <label>
                 <span>이름</span>
                 <input
@@ -1051,8 +1086,17 @@ export function ManagementSupportHrClient() {
                 </p>
               ) : null}
             </form>
+            ) : null}
             
-            <form className="feature-workspace__form" onSubmit={handleOrganizationSave} aria-label="사원 조직정보 수정">
+            {activeDetailPanelTab === "organization" ? (
+            <form
+              className="feature-workspace__form"
+              id="employee-detail-panel-organization"
+              onSubmit={handleOrganizationSave}
+              aria-label="사원 조직정보 수정"
+              aria-labelledby="employee-detail-panel-tab-organization"
+              role="tabpanel"
+            >
               <label>
                 <span>부서</span>
                 <input
@@ -1119,7 +1163,15 @@ export function ManagementSupportHrClient() {
                 </p>
               ) : null}
             </form>
+            ) : null}
             
+            {activeDetailPanelTab === "account" ? (
+            <div
+              className="employee-detail-panel__tab-panel"
+              id="employee-detail-panel-account"
+              aria-labelledby="employee-detail-panel-tab-account"
+              role="tabpanel"
+            >
             <form className="feature-workspace__form" onSubmit={handleAccountSave} aria-label="사원 계정상태 수정">
               <label>
                 <span>계정상태</span>
@@ -1221,8 +1273,18 @@ export function ManagementSupportHrClient() {
                 </p>
               ) : null}
             </form>
+            </div>
+            ) : null}
             
-            <form className="feature-workspace__form" onSubmit={handleSecuritySave} aria-label="사원 보안 설정 수정">
+            {activeDetailPanelTab === "security" ? (
+            <form
+              className="feature-workspace__form"
+              id="employee-detail-panel-security"
+              onSubmit={handleSecuritySave}
+              aria-label="사원 보안 설정 수정"
+              aria-labelledby="employee-detail-panel-tab-security"
+              role="tabpanel"
+            >
               <label>
                 <span>2단계 인증</span>
                 <select
@@ -1295,6 +1357,7 @@ export function ManagementSupportHrClient() {
                 </p>
               ) : null}
             </form>
+            ) : null}
             </div>
           </aside>
         ) : null}
