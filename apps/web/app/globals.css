@@ -68,7 +68,8 @@
   --layer-modal-inset: 10px;
   --employee-detail-panel-width: min(520px, calc(100vw - var(--layer-modal-inset)));
   --employee-detail-panel-top: var(--desktop-topbar-height);
-  --employee-detail-panel-height: calc(100dvh - var(--employee-detail-panel-top));
+  --employee-detail-panel-fixed-height: var(--desktop-sidebar-fixed-height);
+  --employee-detail-panel-height: var(--employee-detail-panel-fixed-height);
   --employee-detail-panel-divider: 1px solid var(--line-strong);
   --employee-detail-panel-translate-y: calc(var(--layer-modal-inset) * -1);
   --employee-detail-panel-animation-duration: 180ms;
@@ -5824,12 +5825,15 @@ li {
   right: 0;
   bottom: 0;
   z-index: var(--z-modal);
-  display: flex;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: var(--employee-detail-panel-width);
   max-width: var(--employee-detail-panel-width);
   height: var(--employee-detail-panel-height);
   max-height: var(--employee-detail-panel-height);
-  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 0;
+  align-content: start;
   overflow: hidden;
   border: var(--topbar-modal-border);
   border-top: 0;
@@ -5851,6 +5855,7 @@ li {
 .employee-detail-panel__header {
   display: flex;
   flex: 0 0 auto;
+  min-height: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--ui-inline-gap-md);
@@ -5873,6 +5878,7 @@ li {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   flex: 0 0 auto;
+  min-height: 0;
   gap: var(--employee-detail-panel-tabs-gap);
   border-bottom: var(--feature-workspace-row-divider);
   padding-block: var(--employee-detail-panel-tabs-padding-block);
@@ -5903,7 +5909,8 @@ li {
 
 .employee-detail-panel__body {
   display: grid;
-  flex: 1 1 auto;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   align-content: start;
   align-items: start;

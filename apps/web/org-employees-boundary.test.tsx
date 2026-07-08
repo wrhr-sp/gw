@@ -117,13 +117,20 @@ describe("org/employees/admin boundaries", () => {
 
     expect(globalCss).toContain("--employee-detail-panel-width");
     expect(globalCss).toContain(".employee-detail-panel");
-    expect(globalCss).toContain("--employee-detail-panel-height: calc(100dvh - var(--employee-detail-panel-top));");
+    expect(globalCss).toContain("--employee-detail-panel-fixed-height: var(--desktop-sidebar-fixed-height);");
+    expect(globalCss).toContain("--employee-detail-panel-height: var(--employee-detail-panel-fixed-height);");
     expect(globalCss).toContain("--employee-detail-panel-divider: 1px solid var(--line-strong);");
     expect(globalCss).toContain("right: 0;");
     expect(globalCss).toContain("bottom: 0;");
+    expect(globalCss).toContain("display: grid;");
+    expect(globalCss).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
     expect(globalCss).toContain("height: var(--employee-detail-panel-height);");
     expect(globalCss).toContain("max-height: var(--employee-detail-panel-height);");
+    expect(globalCss).toContain("min-height: 0;");
+    expect(globalCss).toContain("flex-shrink: 0;");
     expect(globalCss).toContain("border-left: var(--employee-detail-panel-divider);");
+    expect(globalCss).toContain("height: 100%;");
+    expect(globalCss).toContain("max-height: 100%;");
     expect(globalCss).toContain("align-content: start;");
     expect(globalCss).toContain("animation: employee-detail-panel-enter");
     expect(globalCss).toContain(".employee-detail-panel__tabs");
