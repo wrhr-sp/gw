@@ -94,6 +94,8 @@ describe("operational DB-backed auth", () => {
     expect(response.status).toBe(200);
     const payload = adminUsersListResponseSchema.parse(await response.json());
     expect(payload.data.items.length).toBeGreaterThanOrEqual(4);
+    expect(payload.data.summary.total).toBe(payload.data.items.length);
+    expect(payload.data.summary.dormant).toBe(payload.data.items.filter((item) => item.accountStatus === "suspended").length);
     expect(payload.data.items.some((item) => item.userId === "user_company_admin" && item.roleCodes.includes("COMPANY_ADMIN"))).toBe(true);
     expect(payload.data.items.some((item) => item.userId === "user_hr_admin" && item.roleCodes.includes("HR_ADMIN"))).toBe(true);
   });
