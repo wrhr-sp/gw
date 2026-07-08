@@ -41,6 +41,7 @@ export const appRoutes = {
     userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     employeeReferenceMasters: "/api/admin/employee-reference-masters",
+    addressSearch: "/api/admin/address-search",
     registrationRequests: "/api/admin/registration-requests",
     registrationRequestApprove: (requestId: string) => `/api/admin/registration-requests/${requestId}/approve`,
     permissions: "/api/admin/permissions",
@@ -226,6 +227,7 @@ export const errorCodeSchema = z.enum([
   "DB_NOT_CONFIGURED",
   "EXTERNAL_AUTH_NOT_CONFIGURED",
   "EXTERNAL_MAIL_NOT_CONFIGURED",
+  "EXTERNAL_ADDRESS_NOT_CONFIGURED",
   "ROOM_NOT_FOUND",
   "ROOM_ACCESS_DENIED",
   "ROOM_MEMBER_NOT_FOUND",
@@ -2140,6 +2142,22 @@ export const adminUserReferenceMastersResponseSchema = successResponseSchema(
     jobPositions: z.array(adminUserReferenceMasterOptionSchema),
     jobGrades: z.array(adminUserReferenceMasterOptionSchema),
     audit: auditCandidateSchema,
+  }),
+);
+
+export const addressSearchResultSchema = z.object({
+  id: z.string(),
+  postalCode: z.string(),
+  roadAddress: z.string(),
+  jibunAddress: z.string().nullable(),
+  buildingName: z.string().nullable(),
+});
+
+export const addressSearchResponseSchema = successResponseSchema(
+  z.object({
+    keyword: z.string(),
+    results: z.array(addressSearchResultSchema),
+    provider: z.enum(["juso"]),
   }),
 );
 
@@ -4126,6 +4144,8 @@ export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUserReferenceMasterOption = z.infer<typeof adminUserReferenceMasterOptionSchema>;
 export type AdminUserReferenceMastersResponse = z.infer<typeof adminUserReferenceMastersResponseSchema>;
+export type AddressSearchResult = z.infer<typeof addressSearchResultSchema>;
+export type AddressSearchResponse = z.infer<typeof addressSearchResponseSchema>;
 export type AdminUsersSummaryCounts = z.infer<typeof adminUsersSummaryCountsSchema>;
 export type AdminUsersListResponse = z.infer<typeof adminUsersListResponseSchema>;
 export type AdminUserStatusUpdateRequest = z.infer<typeof adminUserStatusUpdateRequestSchema>;

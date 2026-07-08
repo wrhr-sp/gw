@@ -6059,6 +6059,53 @@ li {
   gap: var(--space-xs);
 }
 
+.employee-create-address-dialog__search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.employee-create-address-dialog__results {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.employee-create-address-dialog__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.employee-create-address-dialog__result:hover,
+.employee-create-address-dialog__result:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--primary-soft);
+}
+
+.employee-create-address-dialog__result span {
+  display: grid;
+  gap: 4px;
+}
+
+.employee-create-address-dialog__result small {
+  color: var(--text-muted);
+}
+
+.employee-create-address-dialog__result em {
+  font-style: normal;
+  color: var(--text-muted);
+}
+
 .employee-create-inline-picker {
   display: inline-flex;
   align-items: center;
