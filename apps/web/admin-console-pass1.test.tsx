@@ -141,9 +141,20 @@ describe("Phase 55 admin account/rbac live usage", () => {
     );
 
     expect(html).toContain("사원 계정 관리");
+    expect(html).toContain("ui-page-header");
+    expect(html).toContain("ui-filter-bar");
+    expect(html).toContain("ui-data-table");
+    expect(html).toContain("ui-pagination");
+    expect(html).toContain("ui-summary-card");
+    expect(html).toContain("ui-detail-section");
+    expect(html).toContain("ui-form-section");
+    expect(html).toContain("ui-action-button-group");
     expect(html).toContain("계정 현황");
     expect(html).toContain("계정관리 목록");
     expect(html).toContain("계정 · 권한 상세");
+    expect(html).toContain("계정 생성 Wizard");
+    expect(html).toContain("접근범위 / 로그인 보안");
+    expect(html).toContain("감사로그");
     expect(html).toContain("기능별 권한");
     expect(html).toContain("퇴사");
     expect(html).toContain("관리자 작업");
