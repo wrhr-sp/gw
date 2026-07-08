@@ -89,12 +89,13 @@ const employeeDetailPanelTabs: Array<{ id: EmployeeDetailPanelTab; label: string
   { id: "security", label: "보안" },
 ];
 
-type EmployeeCreateMasterKind = "groups" | "departments" | "jobTitles" | "jobPositions" | "jobGrades";
+type EmployeeCreateMasterKind = "groups" | "branches" | "departments" | "jobTitles" | "jobPositions" | "jobGrades";
 
 type EmployeeReferenceMasters = Record<EmployeeCreateMasterKind, AdminUserReferenceMasterOption[]>;
 
 const emptyReferenceMasters: EmployeeReferenceMasters = {
   groups: [],
+  branches: [],
   departments: [],
   jobTitles: [],
   jobPositions: [],
@@ -111,11 +112,13 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   employeeNumber: string;
   employmentCategory: string;
   groupIds: string[];
+  branchId: string;
   departmentIds: string[];
   jobTitleIds: string[];
   jobPositionIds: string[];
   jobGradeId: string;
   profileImageName: string;
+  concurrentAssignments: Array<{ id: string; label: string; branchId: string; departmentIds: string[]; jobTitleIds: string[]; jobPositionIds: string[]; jobGradeId: string }>;
 };
 
 const emptyCreateForm: EmployeeCreatePanelForm = {
@@ -131,11 +134,13 @@ const emptyCreateForm: EmployeeCreatePanelForm = {
   employeeNumber: "자동생성",
   employmentCategory: "정규직",
   groupIds: [],
+  branchId: "",
   departmentIds: [],
   jobTitleIds: [],
   jobPositionIds: [],
   jobGradeId: "",
   profileImageName: "",
+  concurrentAssignments: [],
   departmentName: "",
   branchName: "",
   positionName: "",
@@ -421,6 +426,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         if (!parsed.success) throw new Error("사원 기준정보 마스터를 불러오지 못했습니다.");
         setReferenceMasters({
           groups: parsed.data.data.groups,
+          branches: parsed.data.data.branches,
           departments: parsed.data.data.departments,
           jobTitles: parsed.data.data.jobTitles,
           jobPositions: parsed.data.data.jobPositions,
@@ -442,6 +448,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     [items, selectedUserId],
   );
   const groupOptions = referenceMasters.groups;
+  const branchOptions = referenceMasters.branches;
   const departmentOptions = referenceMasters.departments;
   const jobTitleOptions = referenceMasters.jobTitles;
   const jobPositionOptions = referenceMasters.jobPositions;
@@ -513,12 +520,13 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       initialPassword: createForm.initialPassword,
       hireDate: createForm.hireDate || undefined,
       groupId: createForm.groupIds[0] || undefined,
+      branchId: createForm.branchId || undefined,
       departmentId: createForm.departmentIds[0] || undefined,
       jobTitleId: createForm.jobTitleIds[0] || undefined,
       jobPositionId: createForm.jobPositionIds[0] || undefined,
       jobGradeId: createForm.jobGradeId || undefined,
       departmentName: departmentOptions.find((option) => option.id === createForm.departmentIds[0])?.name ?? "선택 필요",
-      branchName: groupOptions.find((option) => option.id === createForm.groupIds[0])?.name ?? "선택 필요",
+      branchName: branchOptions.find((option) => option.id === createForm.branchId)?.name ?? "선택 필요",
       positionName: jobPositionOptions.find((option) => option.id === createForm.jobPositionIds[0])?.name ?? undefined,
       accountType: "employee",
       roleCode: createForm.roleCode,
@@ -920,12 +928,31 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   }
 
   const referencePickerLabels: Record<EmployeeCreateMasterKind, string> = {
-    groups: "그룹",
+    groups: "사용자그룹",
+    branches: "지사",
     departments: "부서",
     jobTitles: "직책",
     jobPositions: "직위",
     jobGrades: "직급",
   };
+
+  function handleAddConcurrentAssignment() {
+    setCreateForm((current) => ({
+      ...current,
+      concurrentAssignments: [
+        ...current.concurrentAssignments,
+        {
+          id: `concurrent-${current.concurrentAssignments.length + 1}`,
+          label: `겸직 ${current.concurrentAssignments.length + 1}`,
+          branchId: current.branchId,
+          departmentIds: [...current.departmentIds],
+          jobTitleIds: [...current.jobTitleIds],
+          jobPositionIds: [...current.jobPositionIds],
+          jobGradeId: current.jobGradeId,
+        },
+      ],
+    }));
+  }
 
   return (
     <div className="feature-workspace feature-workspace--hr">
@@ -1204,52 +1231,103 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     </select>
                   </label>
                   <label>
-                    <span>그룹</span>
-                    <span className="employee-create-reference-field">
-                      <span className="employee-create-reference-field__value" aria-label="사원 그룹 선택값">{getSelectedReferenceNames("groups", createForm.groupIds)}</span>
-                      <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("groups")} type="button">+추가</button>
-                    </span>
+                    <span>지사</span>
+                    <select
+                      aria-label="사원 지사"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving" || branchOptions.length === 0}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, branchId: event.target.value }))}
+                      value={createForm.branchId}
+                    >
+                      <option value="">선택</option>
+                      {branchOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                    </select>
                   </label>
                 </div>
+
+                <div className="employee-create-assignment-tabs" aria-label="사원 기본 겸직 입력 그룹">
+                  <span className="employee-create-assignment-tabs__item" aria-current="true">기본</span>
+                  {createForm.concurrentAssignments.map((assignment) => (
+                    <span className="employee-create-assignment-tabs__item" key={assignment.id}>{assignment.label}</span>
+                  ))}
+                  <button
+                    className="employee-create-reference-field__add"
+                    onClick={handleAddConcurrentAssignment}
+                    type="button"
+                    disabled={createSaveState === "saving"}
+                  >
+                    +추가
+                  </button>
+                </div>
+
+                <div className="employee-create-section-divider" aria-hidden="true" />
 
                 <div className="employee-create-field-row employee-create-field-row--two">
                   <label>
                     <span>부서</span>
-                    <span className="employee-create-reference-field">
-                      <span className="employee-create-reference-field__value" aria-label="사원 부서 선택값">{getSelectedReferenceNames("departments", createForm.departmentIds)}</span>
-                      <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("departments")} type="button">+추가</button>
-                    </span>
+                    <select
+                      aria-label="사원 부서"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving" || departmentOptions.length === 0}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, departmentIds: event.target.value ? [event.target.value] : [] }))}
+                      value={createForm.departmentIds[0] ?? ""}
+                    >
+                      <option value="">선택</option>
+                      {departmentOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                    </select>
                   </label>
                   <label>
                     <span>직책</span>
-                    <span className="employee-create-reference-field">
-                      <span className="employee-create-reference-field__value" aria-label="사원 직책 선택값">{getSelectedReferenceNames("jobTitles", createForm.jobTitleIds)}</span>
-                      <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("jobTitles")} type="button">+추가</button>
-                    </span>
+                    <select
+                      aria-label="사원 직책"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving" || jobTitleOptions.length === 0}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, jobTitleIds: event.target.value ? [event.target.value] : [] }))}
+                      value={createForm.jobTitleIds[0] ?? ""}
+                    >
+                      <option value="">선택</option>
+                      {jobTitleOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                    </select>
                   </label>
                 </div>
 
                 <div className="employee-create-field-row employee-create-field-row--two">
                   <label>
                     <span>직위</span>
-                    <span className="employee-create-reference-field">
-                      <span className="employee-create-reference-field__value" aria-label="사원 직위 선택값">{getSelectedReferenceNames("jobPositions", createForm.jobPositionIds)}</span>
-                      <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("jobPositions")} type="button">+추가</button>
-                    </span>
+                    <select
+                      aria-label="사원 직위"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving" || jobPositionOptions.length === 0}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, jobPositionIds: event.target.value ? [event.target.value] : [] }))}
+                      value={createForm.jobPositionIds[0] ?? ""}
+                    >
+                      <option value="">선택</option>
+                      {jobPositionOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                    </select>
                   </label>
                   <label>
                     <span>직급</span>
+                    <select
+                      aria-label="사원 직급"
+                      data-hr-input-size="medium"
+                      disabled={createSaveState === "saving" || jobGradeOptions.length === 0}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, jobGradeId: event.target.value }))}
+                      value={createForm.jobGradeId}
+                    >
+                      <option value="">선택</option>
+                      {jobGradeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="employee-create-section-divider" aria-hidden="true" />
+
+                <div className="employee-create-field-row">
+                  <label>
+                    <span>사용자그룹</span>
                     <span className="employee-create-reference-field">
-                      <select
-                        aria-label="사원 직급"
-                        data-hr-input-size="medium"
-                        disabled={createSaveState === "saving" || jobGradeOptions.length === 0}
-                        onChange={(event) => setCreateForm((current) => ({ ...current, jobGradeId: event.target.value }))}
-                        value={createForm.jobGradeId}
-                      >
-                        <option value="">선택</option>
-                        {jobGradeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-                      </select>
+                      <span className="employee-create-reference-field__value" aria-label="사원 사용자그룹 선택값">{getSelectedReferenceNames("groups", createForm.groupIds)}</span>
+                      <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("groups")} type="button">+추가</button>
                     </span>
                   </label>
                 </div>
