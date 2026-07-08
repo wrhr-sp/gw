@@ -5801,6 +5801,10 @@ li {
   margin-top: 8px;
 }
 
+.feature-workspace__create-dialog-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .feature-workspace__row-actions {
   justify-content: flex-start;
   margin-top: 6px;

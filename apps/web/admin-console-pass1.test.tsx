@@ -159,36 +159,31 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).not.toContain("사원정보관리 구성 순서");
   });
 
-  it("places employee information management inside management support HR, not admin users", () => {
+  it("places employee information management inside management support HR as a list-first surface", async () => {
     const supportHtml = renderToStaticMarkup(<ManagementSupportHrPage />);
+    const clientSource = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"),
+    );
 
     expect(supportHtml).toContain("인사관리");
     expect(supportHtml).toContain("사원정보관리");
     expect(supportHtml).toContain("사원 목록");
-    expect(supportHtml).toContain("사원 등록 / 계정 생성");
-    expect(supportHtml).toContain("사원 기본정보");
-    expect(supportHtml).toContain("조직 / 지점 / 직무");
-    expect(supportHtml).toContain("계정 / 역할 / 권한");
-    expect(supportHtml).toContain("보안 설정");
-    expect(supportHtml).toContain("근무 / 재직 상태");
-    expect(supportHtml).toContain("인사 서류 / 계약");
-    expect(supportHtml).toContain("근태 / 휴가 연결");
-    expect(supportHtml).toContain("급여 연결");
-    expect(supportHtml).toContain("업무 접근 / 포털 접근");
+    expect(supportHtml).toContain("등록");
+    expect(supportHtml).toContain("삭제");
     expect(supportHtml).toContain("부서");
     expect(supportHtml).toContain("지점");
-    expect(supportHtml).toContain("직책/직급");
-    expect(supportHtml).toContain("사번");
-    expect(supportHtml).toContain("입사일");
-    expect(supportHtml).toContain("조직정보 저장");
-    expect(supportHtml).toContain("계정상태 저장");
-    expect(supportHtml).toContain("역할/권한 저장");
-    expect(supportHtml).toContain("권한 요약");
-    expect(supportHtml).toContain("보안 설정 저장");
-    expect(supportHtml).toContain("2단계 인증");
-    expect(supportHtml).toContain("활성 세션");
-    expect(supportHtml).toContain("총괄관리자");
-    expect(supportHtml).toContain("감사로그");
+    expect(supportHtml).toContain("재직상태");
+    expect(supportHtml).toContain("계정상태");
+    expect(supportHtml).toContain("역할");
+    expect(supportHtml).toContain("최근 로그인");
+    expect(supportHtml).not.toContain("사내임직원 로그인 ID 또는 이메일");
+    expect(supportHtml).not.toContain("사원 등록 / 계정 생성");
+    expect(supportHtml).not.toContain("조직정보 저장");
+    expect(supportHtml).not.toContain("계정상태 저장");
+    expect(supportHtml).not.toContain("역할/권한 저장");
+    expect(supportHtml).not.toContain("보안 설정 저장");
+    expect(clientSource).toContain("role=\"dialog\"");
+    expect(clientSource).toContain("employee-create-form");
     expect(supportHtml).not.toContain("감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.");
     expect(supportHtml).not.toContain("감사로그 / 변경이력");
     expect(supportHtml).not.toContain("운영 DB 조회 결과에서 사원을 선택하면 실제 API 값 또는 연결 필요 상태를 표시합니다.");
