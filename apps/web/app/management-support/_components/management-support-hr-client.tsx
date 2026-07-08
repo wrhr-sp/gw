@@ -639,7 +639,7 @@ export function ManagementSupportHrClient() {
           </div>
         </div>
 
-        <div className="feature-workspace__status-grid" aria-label="사원정보관리 현황">
+        <div className="feature-workspace__status-grid feature-workspace__status-grid--employee-summary" aria-label="사원정보관리 현황">
           <article className="feature-workspace__status feature-workspace__status--accent">
             <span>전체</span>
             <strong>{items.length}명</strong>

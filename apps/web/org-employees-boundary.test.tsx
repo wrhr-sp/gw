@@ -81,8 +81,19 @@ describe("org/employees/admin boundaries", () => {
     expect(html).toContain("사내임직원 로그인 ID 또는 이메일");
     expect(html).toContain("사내임직원 초기 역할");
     expect(html).toContain("사내임직원");
+    expect(html).toContain("feature-workspace__status-grid--employee-summary");
+    expect(html.indexOf("전체")).toBeLessThan(html.indexOf("재직"));
+    expect(html.indexOf("재직")).toBeLessThan(html.indexOf("잠금"));
+    expect(html.indexOf("잠금")).toBeLessThan(html.indexOf("퇴사"));
     expect(html).not.toContain("회원가입 신청");
     expect(html).not.toContain("회원가입 승인");
     expect(html).not.toContain("승인대기");
+  });
+
+  it("keeps employee management summary status cards on a four-column desktop grid", async () => {
+    const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
+
+    expect(globalCss).toContain(".feature-workspace__status-grid--employee-summary");
+    expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
   });
 });
