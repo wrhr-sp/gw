@@ -66,7 +66,8 @@
   --layer-popover-width: 292px;
   --layer-modal-width-sm: 360px;
   --layer-modal-inset: 10px;
-  --employee-detail-panel-width: min(520px, 100vw);
+  --employee-detail-panel-content-ratio-width: calc(45vw - 9px);
+  --employee-detail-panel-width: min(504px, var(--employee-detail-panel-content-ratio-width), 100vw);
   --employee-detail-panel-top: var(--desktop-topbar-height, var(--app-topbar-min-height));
   --employee-detail-panel-fixed-height: calc(100dvh - var(--employee-detail-panel-top));
   --employee-detail-panel-height: var(--employee-detail-panel-fixed-height);
