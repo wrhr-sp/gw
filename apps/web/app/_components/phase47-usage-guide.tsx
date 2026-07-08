@@ -28,7 +28,7 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
     flows.push({
       title: "관리자 계정·정책 확인 순서",
       detail: "일반 홈과 운영 레인을 섞지 않고, 운영 허브 확인 뒤 계정·정책·감사 레인을 같은 문장으로 이어 봅니다.",
-      routes: ["/login", "/home", "/management", "/admin/users", "/admin/policies", "/admin/audit-logs", "/api/health"],
+      routes: ["/login", "/home", "/management", "/management-support/hr", "/admin/policies", "/admin/audit-logs", "/api/health"],
     });
   }
 
@@ -42,7 +42,7 @@ function getPhase47RecommendedFlows(roleCode?: RoleCode | null): readonly Recomm
       routes:
         roleCode === "MANAGER"
           ? ["/login", "/home", "/work-items/branch", "/employees", "/org", "/management"]
-          : ["/login", "/home", "/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
+          : ["/login", "/home", "/management", "/management-support/hr", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     });
   }
 

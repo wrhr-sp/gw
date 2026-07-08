@@ -34,7 +34,7 @@ const userShortcuts: HomeShortcut[] = [
     id: "shortcut_admin_user_admin",
     code: "admin_users",
     label: "관리자 사용자",
-    href: "/admin/users",
+    href: "/management-support/hr",
     icon: "shield",
     isFixed: false,
     sortOrder: 110,
@@ -75,7 +75,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("인사 관리자");
     expect(html).toContain("운영 관리자");
     expect(html).toContain("지점 관리자");
-    expect(html).toContain("/admin/users");
+    expect(html).toContain("/management-support/hr");
     expect(html).not.toContain('href="/management"');
     expect(html).toContain("관리자 운영 검토 레인");
     expect(html).toContain("오늘 상태와 마무리 조회");
@@ -87,7 +87,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html.indexOf("추천 확인 순서")).toBeLessThan(html.indexOf("승인/대기 요약"));
     expect(html.indexOf("승인/대기 요약")).toBeLessThan(html.indexOf("역할별 첫 이동"));
     expect(html).toContain("/management");
-    expect(html).toContain("/admin/users");
+    expect(html).toContain("/management-support/hr");
     expect(html).toContain("/admin/policies");
     expect(html).toContain("/admin/audit-logs");
     expect(html).toContain("/api/health");
@@ -121,7 +121,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).not.toContain("내부 도입 리허설 패키지");
     expect(html).not.toContain('href="/uat"');
     expect(html).not.toContain("admin / 1234");
-    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/management-support/hr"');
     expect(html).not.toContain('href="/admin/policies"');
     expect(html).not.toContain('href="/admin/audit-logs"');
   });
@@ -176,7 +176,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain("감사 확인 순서");
     expect(html).toContain('href="/admin/audit-logs"');
     expect(html).not.toContain("관리자 계정·정책 확인 순서");
-    expect(html).not.toContain('href="/admin/users"');
+    expect(html).not.toContain('href="/management-support/hr"');
     expect(html).not.toContain('href="/admin/policies"');
   });
 
@@ -203,7 +203,7 @@ describe("Phase 57 dashboard home boundary", () => {
     expect(html).toContain('href="/work-items/labor"');
     expect(html).toContain('href="/work-items/legal"');
     expect(html).toContain("관리자 계정·정책 확인 순서");
-    expect(html).toContain('href="/admin/users"');
+    expect(html).toContain('href="/management-support/hr"');
     expect(html).toContain("/admin/policies");
     expect(html).toContain("/api/health");
     expect(html).not.toContain("내부 도입 리허설 패키지");

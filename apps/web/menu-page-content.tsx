@@ -144,8 +144,8 @@ export function MenuPageContent({
           {hasManagementMenuAccess(roleCode) ? (
             <article className="info-card">
               <h3>관리자 계정·정책 확인 순서</h3>
-              <p>모바일 메뉴에서도 일반 업무 뒤에만 경영업무 분리 메뉴를 확인하고, HR_ADMIN 은 첫 관리자 레인을 /admin/users 로 읽습니다.</p>
-              <p className="card-note">/menu → /management → /admin/users → /admin/policies → /admin/audit-logs</p>
+              <p>모바일 메뉴에서도 일반 업무 뒤에만 경영업무 분리 메뉴를 확인하고, HR_ADMIN 은 첫 관리자 레인을 /management-support/hr 로 읽습니다.</p>
+              <p className="card-note">/menu → /management → /management-support/hr → /admin/policies → /admin/audit-logs</p>
             </article>
           ) : null}
         </div>

@@ -14,7 +14,7 @@ const primaryFlows = [
   {
     badge: "관리자 검토 흐름",
     title:
-      "/home 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
+      "/home 관리자 CTA → 운영 관리자: /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
     body:
       "운영 관리자는 회사 전체 운영·정책·감사 검토를 보는 회사 범위 레인으로, 지점 관리자는 자기 지점 업무·직원·조직 확인 뒤 /management 문맥만 참고하는 지점 범위 레인으로 분리해 안내합니다.",
   },
@@ -37,12 +37,12 @@ const roleEntryCards = [
     role: "인사 관리자",
     firstRoute: "/home",
     summary: "로그인 직후 공통 홈에서 시작한 뒤 관리자 CTA 로 사용자/권한 관리 레인으로 이어집니다.",
-    note: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.",
+    note: "HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /management-support/hr 계열입니다.",
   },
   {
     role: "운영 관리자",
     firstRoute: "/home",
-    summary: "로그인 직후 공통 홈에서 시작한 뒤 회사 범위 운영 CTA 로 /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
+    summary: "로그인 직후 공통 홈에서 시작한 뒤 회사 범위 운영 CTA 로 /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health 레인을 확인합니다.",
     note: "운영 관리자는 회사 공통 운영 권한을 검토하고, 지점 범위 업무 레인과 같은 권한처럼 설명하지 않습니다.",
   },
   {
@@ -180,7 +180,7 @@ export default function HomePage() {
         <ul className="bullet-list">
           <li>일반 사용자 기준 관리자 CTA 가 기본 흐름에 섞여 보이지 않는지 확인</li>
           <li>/attendance 의 정책 안내와 /admin/policies 의 설명 방향이 같은지 확인</li>
-          <li>/employees 일반 조회와 /admin/users 운영 검토가 다른 역할로 읽히는지 확인</li>
+          <li>/employees 일반 조회와 /management-support/hr 운영 검토가 다른 역할로 읽히는지 확인</li>
           {mobileReviewChecklist.map((item) => (
             <li key={item}>{item}</li>
           ))}

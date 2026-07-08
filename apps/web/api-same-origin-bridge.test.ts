@@ -196,7 +196,7 @@ describe("Phase 55 same-origin API bridge", () => {
     );
 
     const adminUsersResponse = await getAdminUsers(
-      new Request("http://localhost/api/admin/users", {
+      new Request("http://localhost/api/management-support/hr", {
         headers: {
           cookie: loginResponse.headers.get("set-cookie") ?? "",
         },

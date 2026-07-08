@@ -12,7 +12,7 @@ describe("frontend UI refactor queue", () => {
     expect(queue).toContain("P0: 3개");
     expect(queue).toContain("P1: 58개");
     expect(queue).toContain("P2: 10개");
-    expect(queue).toContain("/admin/users 계정관리 기준 샘플 완성");
+    expect(queue).toContain("/management-support/hr 경영지원팀 사원정보관리 기준 샘플 완성");
     expect(queue).toContain("PageHeader → FilterBar → DataTable → Pagination");
     expect(queue).toContain("PageHeader → SummaryCard → DetailSection → AttachmentPanel → AuditLogPanel");
     expect(queue).toContain("PageHeader → FormSection → ActionButtonGroup → ConfirmDialog");
@@ -24,7 +24,7 @@ describe("frontend UI refactor queue", () => {
     const queue = await fs.readFile("../../docs/ux/frontend-ui-refactor-queue.md", "utf8");
 
     for (const route of [
-      "`/admin/users`",
+      "`/management-support/hr`",
       "`/management-support/hr`",
       "`/approvals`",
       "`/documents`",

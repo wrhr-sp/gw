@@ -10,7 +10,7 @@ export const standardMenuGroups: StandardMenuGroup[] = [
     label: "계정관리",
     items: [
       { id: "account-list", label: "계정 목록" },
-      { id: "account-create-wizard", label: "계정 생성 Wizard" },
+      { id: "employee-registration", label: "사원 등록" },
       { id: "permission-template", label: "권한 템플릿" },
       { id: "access-scope", label: "접근범위" },
       { id: "login-security", label: "로그인 보안" },

@@ -76,8 +76,8 @@ describe("mobile app shell admin boundary", () => {
     );
 
     expect(html).toContain('data-route="/admin"');
-    expect(html).not.toContain('data-route="/admin/users"');
-    expect(html).not.toContain('data-route="/admin/users#permission-matrix"');
+    expect(html).not.toContain('data-route="/management-support/hr"');
+    expect(html).not.toContain('data-route="/management-support/hr#permission-matrix"');
     expect(html).toContain('data-route="/admin/policies"');
     expect(html).toContain('data-route="/admin/audit-logs"');
     expect(html).not.toContain("사원정보관리");
@@ -324,7 +324,7 @@ describe("mobile app shell admin boundary", () => {
     expect(supportHtml).toContain('data-route="/management-support/vendors?department=support"');
     expect(supportHtml).toContain('data-route="/management-support/sales-purchases?department=support"');
     expect(supportHtml).toContain('data-route="/management-support/attendance?department=support"');
-    expect(supportHtml).not.toContain('data-route="/admin/users"');
+    expect(supportHtml).not.toContain('data-route="/management-support/hr"');
     expect(supportHtml).not.toContain('data-route="/Place of business"');
     expect(supportHtml).not.toContain('data-route="/payroll?department=support"');
     expect(supportHtml).not.toContain('data-route="/attendance?department=support"');
@@ -337,7 +337,7 @@ describe("mobile app shell admin boundary", () => {
     expect(supportHtml).not.toContain('data-route="/management-support/erp/evidence?department=support"');
     expect(supportHtml).not.toContain('data-route="/management-support/erp/payment-records?department=support"');
     expect(supportHtml).not.toContain('data-route="/management-support/erp/taxes?department=support"');
-    expect(supportHtml).not.toContain('data-route="/admin/users#permission-matrix"');
+    expect(supportHtml).not.toContain('data-route="/management-support/hr#permission-matrix"');
     expect(supportHtml).not.toContain('data-route="/admin/policies#policy-documents"');
     expect(supportHtml).toContain('data-route="/mail?department=support"');
     expect(supportHtml).not.toContain('data-route="/sales"');

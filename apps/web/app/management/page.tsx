@@ -43,7 +43,7 @@ const managementStatusGuideCards = [
 const baseManagementCards = [
   {
     title: "인사관리 / 계정관리",
-    href: "/admin/users",
+    href: "/management-support/hr",
     summary: "사용자 생성, 역할/업무권한 지정, 활성/비활성, 비밀번호 초기화 안내를 참고용으로 검토합니다.",
     roleScope: "본사 관리자 / 인사관리자",
   },
@@ -69,15 +69,15 @@ const baseManagementCards = [
 
 const managementGuardrails = [
   "일반 직원은 이 허브를 기본 홈에서 직접 보지 않고, 허용 역할만 별도 진입합니다.",
-  "HR_ADMIN 시작점은 /management 가 아니라 /admin/users 이고, 이 허브는 운영 관리자/지점 관리자 중심 레인으로 유지합니다.",
-  "`/admin/users`·`/admin/policies` 안내 화면과 `/employees`·`/org` 읽기 확인을 같은 책임처럼 섞지 않습니다.",
+  "HR_ADMIN 시작점은 /management 가 아니라 /management-support/hr 이고, 이 허브는 운영 관리자/지점 관리자 중심 레인으로 유지합니다.",
+  "`/management-support/hr`·`/admin/policies` 안내 화면과 `/employees`·`/org` 읽기 확인을 같은 책임처럼 섞지 않습니다.",
   "감사 역할은 audit.read 기준으로 감사/추적 레인을 우선 확인하고, 모듈 카드는 역할별 허용 범위만 노출합니다.",
   "실메일/실메신저/SSO/OAuth/외부 기관 계정 연동은 계속 승인 게이트입니다.",
   "급여 지급, 실제 세무 신고, production DB 입력, migration, destructive 작업은 이번 범위가 아닙니다.",
 ] as const;
 
 const onboardingBridgeSteps = [
-  "1) /admin/users 에서 계정 생성·권한 diff 안내 검토",
+  "1) /management-support/hr 에서 계정 생성·권한 diff 안내 검토",
   "2) /employees, /org 에서 소속/부서/지점 read model 재확인",
   "3) 운영 담당자만 /management 로 넘어와 일반 홈과 분리된 운영 허브를 확인",
   "4) /admin/policies → /admin/audit-logs → /api/health 순서로 운영 기준선을 다시 확인",
@@ -87,12 +87,12 @@ const onboardingBridgeSteps = [
 const pilotLaneCards = [
   {
     title: "HR 관리자 첫 검토 레인",
-    route: "/home → /admin/users → /employees → /org → /management",
+    route: "/home → /management-support/hr → /employees → /org → /management",
     summary: "HR_ADMIN 은 공통 홈 뒤 계정관리부터 열고, 조직 read model 을 확인한 뒤 필요할 때만 운영 허브로 넘어갑니다.",
   },
   {
     title: "운영 관리자 레인",
-    route: "/home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health",
+    route: "/home → /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health",
     summary: "운영 허브, 계정·정책 안내, 감사 read-only, 최소 liveness 를 같은 점검 순서로 기록합니다.",
   },
   {
@@ -198,8 +198,8 @@ export default async function ManagementPage() {
         <ol className="number-list">
           <li>/home 에서 홈과 관리자 CTA 가 분리되어 보이는지 확인</li>
           <li>/management 에서 관리자 업무 허브가 일반 홈과 분리되어 보이는지 확인</li>
-          <li>HR_ADMIN 은 /management 보다 /admin/users 를 첫 관리자 레인으로 읽는지 확인</li>
-          <li>/admin/users 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인</li>
+          <li>HR_ADMIN 은 /management 보다 /management-support/hr 를 첫 관리자 레인으로 읽는지 확인</li>
+          <li>/management-support/hr 에서 계정관리 안내와 읽기 조회(`/employees`, `/org`)가 같은 책임처럼 보이지 않는지 확인</li>
           <li>/admin/policies 에서 current/candidate/capability/audit 안내 형식 확인</li>
           <li>/admin/audit-logs 에서 컴플라이언스 / 감사 read-only 경계와 AUDITOR 시작 레인 문구 확인</li>
           <li>/api/health 에서 최소 liveness 기준만 기록</li>
@@ -225,12 +225,12 @@ export default async function ManagementPage() {
           <article className="info-card">
             <h3>관리자 계정·정책 확인 순서</h3>
             <p>일반 홈과 운영 레인을 섞지 않고 운영 허브 확인 뒤 계정, 정책, 감사 레인을 같은 문장으로 이어 봅니다.</p>
-            <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health</p>
+            <p className="card-note">/login → /home → /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health</p>
           </article>
           <article className="info-card">
             <h3>운영 관리자 확인 순서</h3>
             <p>일반 홈과 운영 허브를 섞지 않고 계정관리, 정책, 민감 내부관리 화면을 별도 허브에서 이어 봅니다.</p>
-            <p className="card-note">/login → /home → /management → /admin/users → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health</p>
+            <p className="card-note">/login → /home → /management → /management-support/hr → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health</p>
           </article>
         </div>
       </SurfaceSection>

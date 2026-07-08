@@ -35,7 +35,7 @@ function collectSourceFiles(root: string): string[] {
 }
 
 function isAllowedFrameworkFallback(relativePath: string, line: string) {
-  return relativePath === "apps/web/app/admin/users/page.tsx" && line.includes("<Suspense fallback=");
+  return relativePath === "apps/web/app/management-support/hr/page.tsx" && line.includes("<Suspense fallback=");
 }
 
 function isAllowedDeploymentPreviewUrl(relativePath: string, line: string) {

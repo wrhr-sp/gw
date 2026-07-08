@@ -51,7 +51,7 @@ export const roleScenarioCards = [
   {
     role: "운영 관리자",
     startRoute: "/home → /management",
-    journey: ["/management", "/admin/users", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
+    journey: ["/management", "/management-support/hr", "/admin/policies", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal", "/admin/audit-logs", "/api/health"],
     actions: [
       "경영업무 허브에서 민감 모듈이 일반 홈과 분리돼 보이는지 확인한다.",
       "계정관리 검토, 정책 검토, 감사 read-only, 최소 liveness 를 같은 관리자 묶음처럼 뭉개지 않는지 본다.",
@@ -182,7 +182,7 @@ export const quickStartSteps = [
   "`admin / 1234` 로 로그인한다. 이 계정은 dev/test/UAT 전용이다.",
   "직원이라면 `/home` 에서 `/attendance` → `/leave` → `/approvals` → `/boards` → `/documents` → `/sales` → `/me` 순서로 본다.",
   "승인자라면 `/approvals` 를 먼저 보고 팀 병목/대기 상태를 확인한다.",
-  "운영 관리자라면 `/management` → `/admin/users` → `/admin/policies` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` → `/api/health` 순서로 본다.",
+  "운영 관리자라면 `/management` → `/management-support/hr` → `/admin/policies` → `/payroll` → `/work-items/tax` → `/work-items/labor` → `/work-items/legal` → `/admin/audit-logs` → `/api/health` 순서로 본다.",
   "지점 관리자라면 `/work-items/branch` → `/employees` → `/org` → `/management` 순서로 branch/company scope 차이를 확인한다.",
   "감사 담당자라면 `/admin/audit-logs` → `/api/health` 순서로 read-only 감사와 최소 liveness 를 본다.",
   "문제가 보이면 severity 와 상태 분류를 함께 적고, 승인 필요 항목은 별도 리스트로 뺀다.",

@@ -2,7 +2,6 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import AdminUsersPage from "./app/admin/users/page";
 import EmployeesPage from "./app/employees/page";
 import ManagementSupportHrPage from "./app/management-support/hr/page";
 import MePage from "./app/me/page";
@@ -50,26 +49,6 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("권한 저장");
     expect(html).not.toContain("초대 실행");
     expect(html).not.toContain("dev-safe");
-  });
-
-  it("keeps admin users page positioned as a higher-risk review surface", () => {
-    const html = renderToStaticMarkup(<AdminUsersPage />);
-
-    expect(html).toContain("사원 계정 관리");
-    expect(html).not.toContain("사원정보관리 구성 순서");
-    expect(html).not.toContain("01. 사원 목록");
-    expect(html).not.toContain("02. 사원 등록 / 계정 생성");
-    expect(html).not.toContain("12. 감사로그 / 변경이력");
-    expect(html).not.toContain("조직 / 지점 / 직무");
-    expect(html).not.toContain("변경이력");
-    expect(html).not.toContain("계정생성 1차 검증");
-    expect(html).not.toContain("계정 생성 저장");
-    expect(html).toContain("계정관리 목록");
-    expect(html).toContain("계정 · 권한 상세");
-    expect(html).toContain("기능별 권한");
-    expect(html).toContain("관리자 작업");
-    expect(html).toContain("감사로그");
-    expect(html.indexOf("계정 · 권한 상세")).toBeGreaterThan(html.indexOf("계정관리 목록"));
   });
 
   it("keeps management support employee management list-first and opens registration as a popup", async () => {

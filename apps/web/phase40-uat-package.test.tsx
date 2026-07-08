@@ -25,7 +25,7 @@ describe("Phase 40 internal adoption rehearsal package", () => {
     expect(html).toContain("진행자용 설명 순서");
     expect(html).toContain("참가자용 빠른 시작");
     expect(html).toContain("/documents → /sales → /me");
-    expect(html).toContain("/management → /admin/users → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health");
+    expect(html).toContain("/management → /management-support/hr → /admin/policies → /payroll → /work-items/tax → /work-items/labor → /work-items/legal → /admin/audit-logs → /api/health");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
     expect(html).toContain("/admin/audit-logs → /api/health");
     expect(html).toContain("Phase 45 최종 검증 / 릴리즈 묶음");

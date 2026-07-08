@@ -15,11 +15,11 @@ describe("Phase 14 home/login flow", () => {
     expect(html).toContain("/attendance → /leave → /approvals → /boards·/documents → /me → /org·/employees");
     expect(html).toContain("관리자 검토 흐름");
     expect(html).toContain(
-      "/home 관리자 CTA → 운영 관리자: /management → /admin/users → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
+      "/home 관리자 CTA → 운영 관리자: /management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health · 지점 관리자: /work-items/branch → /employees → /org → /management",
     );
     expect(html).toContain("역할별 첫 진입점");
     expect(html).toContain("인사 관리자");
-    expect(html).toContain("/admin/users");
+    expect(html).toContain("/management-support/hr");
     expect(html).toContain("운영 관리자");
     expect(html).toContain("지점 관리자");
     expect(html).toContain("/management");
@@ -31,8 +31,8 @@ describe("Phase 14 home/login flow", () => {
     expect(html).toContain("핵심 경로 바로가기");
     expect(html).toContain("/me");
     expect(html).toContain("실제 저장/권한 변경 제외");
-    expect(html).toContain("HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /admin/users 계열입니다.");
-    expect(html).toContain("/management → /admin/users → /admin/policies → /admin/audit-logs → /api/health 레인");
+    expect(html).toContain("HR_ADMIN 의 첫 관리자 레인은 /management 가 아니라 /management-support/hr 계열입니다.");
+    expect(html).toContain("/management → /management-support/hr → /admin/policies → /admin/audit-logs → /api/health 레인");
     expect(html).toContain("/work-items/branch → /employees → /org → /management");
   });
 
