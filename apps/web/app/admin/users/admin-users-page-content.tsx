@@ -2,7 +2,19 @@ import React from "react";
 import Link from "next/link";
 import { appRoutes, type AdminAccountStatus, type AdminUserSummary, type AdminUsersListResponse, type RoleCode } from "@gw/shared";
 
-import { PageShell, Pill, SurfaceSection } from "../../_components/page-shell";
+import { PageShell, Pill } from "../../_components/page-shell";
+import {
+  ActionButtonGroup,
+  AuditLogPanel,
+  DataTable,
+  DetailSection,
+  EmptyState,
+  FilterBar,
+  FormSection,
+  PageHeader,
+  StatusBadge,
+  SummaryCard,
+} from "../../_components/ui-standard";
 import { adminOfflineGuidance, adminRecoveryRouteCards } from "../../mobile-pwa-config";
 
 type AdminUsersPreview = Pick<AdminUsersListResponse["data"], "items" | "linkedScreens" | "companySettingsModel" | "audit">;
@@ -206,18 +218,18 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
   const loadErrorTitle = loadErrorKind === "offline" ? "네트워크 재확인 필요" : "계정관리 조회 실패";
 
   return (
-    <PageShell
-      backHref="/admin"
-      backLabel="그룹웨어관리자로"
-      eyebrow="관리자"
-      title="사원 계정 관리"
-      actions={
-        <div className="pill-row">
-          <Pill tone="accent">계정</Pill>
-          <Pill tone="accent">권한</Pill>
-        </div>
-      }
-    >
+    <PageShell backHref="/admin" title="사원 계정 관리" titlePlacement="content">
+      <PageHeader
+        eyebrow="관리자"
+        title="사원 계정 관리"
+        actions={
+          <div className="pill-row" aria-label="계정관리 기준 샘플 상태">
+            <StatusBadge tone="accent">계정</StatusBadge>
+            <StatusBadge tone="accent">권한</StatusBadge>
+          </div>
+        }
+      />
+
       {actionMessage || focusMessage ? (
         <section className="status-banner" role="status">
           {actionMessage ? <span>{actionMessage}</span> : null}
@@ -243,8 +255,19 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
         </section>
       ) : null}
 
-      <SurfaceSection title="계정관리 목록">
-        <div className="employee-management-toolbar" aria-label="계정관리 검색 조건">
+      <DetailSection title="계정 현황">
+        <div className="grid-auto-compact" aria-label="계정관리 요약 카드">
+          <SummaryCard title="전체" value={`${totalCount}명`} tone="accent" />
+          <SummaryCard title="재직" value={`${activeCount}명`} tone="success" />
+          <SummaryCard title="잠금" value={`${lockedCount}명`} tone="warning" />
+          <SummaryCard title="퇴사" value={`${offboardedCount}명`} tone="danger" />
+          <SummaryCard title="관리자" value={`${adminCount}명`} tone="info" />
+          <SummaryCard title="고위험 권한" value={`${highRiskCount}명`} tone={highRiskCount > 0 ? "warning" : "success"} />
+        </div>
+      </DetailSection>
+
+      <DetailSection title="계정관리 목록">
+        <FilterBar label="계정관리 검색 조건">
           <label>
             재직상태
             <select defaultValue="전체">
@@ -260,15 +283,15 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
           </label>
           <button type="button" disabled>조회</button>
           <button type="button" disabled>조건추가</button>
-        </div>
-        <div className="employee-management-actions" aria-label="계정관리 작업">
+        </FilterBar>
+        <ActionButtonGroup>
           <button type="button" disabled>계정 생성</button>
           <button type="button" disabled>계정 삭제</button>
           <button type="button" disabled>정보 수정</button>
           <span>전체: {totalCount}명</span>
-        </div>
+        </ActionButtonGroup>
         {items.length > 0 ? (
-          <div className="employee-management-table-wrap">
+          <DataTable label="계정 목록">
             <table className="employee-management-table">
               <thead>
                 <tr>
@@ -308,38 +331,60 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
                 })}
               </tbody>
             </table>
-          </div>
+          </DataTable>
         ) : (
-          <article className="info-card">
-            <h3>조회된 계정이 없습니다</h3>
-          </article>
+          <EmptyState title="조회된 계정이 없습니다" />
         )}
-      </SurfaceSection>
+        <nav className="ui-pagination" aria-label="계정관리 페이지 이동">
+          <button type="button" disabled>이전</button>
+          <span>1 / 1</span>
+          <button type="button" disabled>다음</button>
+        </nav>
+      </DetailSection>
 
-
-      <SurfaceSection title="계정 · 권한 상세">
+      <DetailSection title="계정 · 권한 상세">
         {items.length > 0 ? (
           <div className="employee-info-drawer-list">
             {items.slice(0, 3).map((item) => <EmployeeInfoPanel key={`detail-${item.userId}`} item={item} />)}
           </div>
         ) : (
-          <article className="info-card"><h3>계정을 불러온 뒤 상세 폼을 확인할 수 있습니다</h3></article>
+          <EmptyState title="계정을 불러온 뒤 상세 폼을 확인할 수 있습니다" />
         )}
-      </SurfaceSection>
+      </DetailSection>
 
-      <SurfaceSection title="계정 현황">
+      <FormSection title="계정 생성 Wizard">
+        <label>
+          계정 유형
+          <select disabled defaultValue="employee"><option value="employee">사내임직원</option></select>
+        </label>
+        <label>
+          생성 방식
+          <select disabled defaultValue="single"><option value="single">단일 계정 생성</option></select>
+        </label>
+        <ActionButtonGroup>
+          <button type="button" disabled>다음</button>
+        </ActionButtonGroup>
+      </FormSection>
+
+      <DetailSection title="관리자 작업">
+        {items.length > 0 ? (
+          <div className="grid-auto-compact">
+            {items.map((item) => <AdminUserActionCard key={`action-${item.userId}`} item={item} />)}
+          </div>
+        ) : (
+          <EmptyState title="계정을 불러온 뒤 상태/역할 저장을 실행할 수 있습니다" />
+        )}
+      </DetailSection>
+
+      <DetailSection title="접근범위 / 로그인 보안">
         <div className="grid-auto-compact">
-          <article className="info-card"><Pill tone="accent">전체</Pill><h3>{totalCount}명</h3></article>
-          <article className="info-card"><Pill tone="accent">재직</Pill><h3>{activeCount}명</h3></article>
-          <article className="info-card"><Pill tone="warning">잠금</Pill><h3>{lockedCount}명</h3></article>
-          <article className="info-card"><Pill tone="warning">퇴사</Pill><h3>{offboardedCount}명</h3></article>
-          <article className="info-card"><Pill>관리자</Pill><h3>{adminCount}명</h3></article>
-          <article className="info-card"><Pill tone={highRiskCount > 0 ? "warning" : "accent"}>고위험 권한</Pill><h3>{highRiskCount}명</h3></article>
+          <article className="info-card"><Pill>접근범위</Pill><h3>{adminCount}개 관리자 범위</h3></article>
+          <article className="info-card"><Pill tone={highRiskCount > 0 ? "warning" : "accent"}>로그인 보안</Pill><h3>고위험 권한 {highRiskCount}명</h3></article>
         </div>
-      </SurfaceSection>
+      </DetailSection>
 
       <div id="permission-matrix">
-        <SurfaceSection title="기능별 권한">
+        <DetailSection title="기능별 권한">
           <div className="grid-auto-compact">
             {permissionMatrix.map((row) => (
               <article key={row.feature} className="info-card">
@@ -348,19 +393,16 @@ export function AdminUsersPageContent({ adminUsers, actionMessage, loadError, lo
               </article>
             ))}
           </div>
-        </SurfaceSection>
+        </DetailSection>
       </div>
 
-      <SurfaceSection title="관리자 작업">
-        {items.length > 0 ? (
-          <div className="grid-auto-compact">
-            {items.map((item) => <AdminUserActionCard key={`action-${item.userId}`} item={item} />)}
-            <article className="route-card"><h3>감사로그</h3><p className="card-note">계정/권한 변경은 저장 뒤 관리자 감사로그에 남습니다.</p><Link href="/admin/audit-logs">열기</Link></article>
-          </div>
-        ) : (
-          <article className="route-card"><h3>관리자 작업</h3><p className="card-note">계정을 불러온 뒤 상태/역할 저장을 실행할 수 있습니다.</p><Link href="/admin/audit-logs">감사로그</Link></article>
-        )}
-      </SurfaceSection>
+      <AuditLogPanel>
+        <article className="route-card">
+          <h3>감사로그</h3>
+          <p className="card-note">계정/권한 변경은 저장 뒤 관리자 감사로그에 남습니다.</p>
+          <Link href="/admin/audit-logs">열기</Link>
+        </article>
+      </AuditLogPanel>
     </PageShell>
   );
 }
