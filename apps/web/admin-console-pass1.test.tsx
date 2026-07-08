@@ -63,7 +63,8 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(supportHtml).toContain("인사관리");
     expect(supportHtml).toContain("사원정보관리");
     expect(supportHtml).toContain("사원 목록");
-    expect(supportHtml).toContain("등록");
+    expect(supportHtml).toContain("+ 사원 생성");
+    expect(supportHtml).not.toContain(">등록<");
     expect(supportHtml).toContain("삭제");
     expect(supportHtml).toContain("부서");
     expect(supportHtml).toContain("지점");
@@ -77,8 +78,9 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(supportHtml).not.toContain("계정상태 저장");
     expect(supportHtml).not.toContain("역할/권한 저장");
     expect(supportHtml).not.toContain("보안 설정 저장");
-    expect(clientSource).toContain("<ConfirmDialog");
+    expect(clientSource).not.toContain("<ConfirmDialog");
     expect(clientSource).toContain("employee-create-form");
+    expect(clientSource).toContain("employee-detail-panel employee-detail-panel--create");
     expect(supportHtml).not.toContain("감사로그/변경이력은 관리자페이지 감사로그에서 확인합니다.");
     expect(supportHtml).not.toContain("감사로그 / 변경이력");
     expect(supportHtml).not.toContain("운영 DB 조회 결과에서 사원을 선택하면 실제 API 값 또는 연결 필요 상태를 표시합니다.");

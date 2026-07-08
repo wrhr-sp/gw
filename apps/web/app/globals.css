@@ -1518,6 +1518,22 @@ li {
   outline: none;
 }
 
+.feature-workspace__plain-action {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: var(--feature-workspace-label-font-weight);
+  padding: 0;
+  cursor: pointer;
+}
+
+.feature-workspace__plain-action:hover,
+.feature-workspace__plain-action:focus-visible {
+  color: var(--primary-hover);
+  outline: none;
+}
+
 .page-shell__content {
   display: grid;
   gap: 0;
@@ -5815,7 +5831,7 @@ li {
   margin-top: 8px;
 }
 
-.feature-workspace__create-dialog-grid {
+.feature-workspace__create-panel-grid {
   grid-template-columns: minmax(0, 1fr);
 }
 

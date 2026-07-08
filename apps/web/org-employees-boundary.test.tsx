@@ -51,7 +51,7 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("dev-safe");
   });
 
-  it("keeps management support employee management list-first and opens registration as a popup", async () => {
+  it("keeps management support employee management list-first and opens creation in the right detail panel", async () => {
     const html = renderToStaticMarkup(await ManagementSupportHrPage());
     const clientSource = await import("node:fs/promises").then((fs) =>
       fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"),
@@ -59,17 +59,20 @@ describe("org/employees/admin boundaries", () => {
 
     expect(html).toContain("사원정보관리");
     expect(html).toContain("aria-label=\"사원정보관리 현황 작업\"");
-    expect(html).toContain("등록");
+    expect(html).toContain("+ 사원 생성");
+    expect(html).not.toContain(">등록<");
     expect(html).toContain("삭제");
     expect(html).toContain("aria-label=\"사원 목록\"");
     expect(html).toContain("feature-workspace__status-grid--employee-summary");
     expect(html).not.toContain("사내임직원 로그인 ID 또는 이메일");
     expect(html).not.toContain("사내임직원 초기 역할");
     expect(html).not.toContain("사내임직원 계정 생성");
-    expect(clientSource).toContain("<ConfirmDialog");
+    expect(clientSource).not.toContain("<ConfirmDialog");
     expect(clientSource).toContain("employee-create-form");
-    expect(clientSource).toContain("setIsCreateDialogOpen(true)");
-    expect(clientSource).toContain("employee-detail-panel");
+    expect(clientSource).toContain("setIsCreatePanelOpen(true)");
+    expect(clientSource).toContain("employee-detail-panel employee-detail-panel--create");
+    expect(clientSource).toContain("feature-workspace__plain-action");
+    expect(clientSource).toContain("setIsDetailPanelOpen(false)");
     expect(clientSource).toContain("setIsDetailPanelOpen(true)");
     expect(clientSource).toContain("employeeDetailPanelTabs");
     expect(clientSource).toContain("@tanstack/react-table");
@@ -118,6 +121,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("--employee-detail-panel-width: 45vw;");
     expect(globalCss).toContain("--employee-detail-panel-top: var(--desktop-topbar-height, var(--app-topbar-min-height));");
     expect(globalCss).toContain("--desktop-sidebar-fixed-height: calc(100dvh - var(--desktop-topbar-height));");
+    expect(globalCss).toContain(".feature-workspace__plain-action");
+    expect(globalCss).toContain("padding: 0;");
+    expect(globalCss).toContain(".feature-workspace__create-panel-grid");
     expect(globalCss).toContain(".employee-detail-panel");
     expect(globalCss).toContain("--employee-detail-panel-fixed-height: calc(100dvh - var(--employee-detail-panel-top));");
     expect(globalCss).toContain("--employee-detail-panel-height: var(--employee-detail-panel-fixed-height);");

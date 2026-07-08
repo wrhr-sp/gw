@@ -10,7 +10,6 @@ import {
 } from "@tanstack/react-table";
 import {
   ActionButtonGroup,
-  ConfirmDialog,
   DataTable,
   EmptyState,
   SummaryCard,
@@ -277,7 +276,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     reason: "사원 보안 설정 수정",
   });
   const [createForm, setCreateForm] = useState<AdminUserCreateRequest>(emptyCreateForm);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [createSaveState, setCreateSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [createSaveMessage, setCreateSaveMessage] = useState<string | null>(null);
   const [profileSaveState, setProfileSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -426,7 +425,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       const createdUser = parsedResponse.data.data.user;
       await reloadAdminUsers({ selectedUserId: createdUser.userId, silent: true });
       setCreateForm(emptyCreateForm);
-      setIsCreateDialogOpen(false);
+      setIsCreatePanelOpen(false);
       setCreateSaveState("saved");
       setCreateSaveMessage(`${createdUser.fullName} 사내임직원 계정을 생성했습니다.`);
     } catch (error) {
@@ -709,6 +708,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               onClick={() => {
                 setSelectedUserId(item.userId);
                 setActiveDetailPanelTab("profile");
+                setIsCreatePanelOpen(false);
                 setIsDetailPanelOpen(true);
               }}
               type="button"
@@ -801,18 +801,19 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         </div>
 
         <ActionButtonGroup label="사원정보관리 현황 작업">
-          <StandardButton
-            intent="primary"
+          <button
+            className="feature-workspace__plain-action"
             disabled={createSaveState === "saving"}
             onClick={() => {
               setCreateSaveState("idle");
               setCreateSaveMessage(null);
-              setIsCreateDialogOpen(true);
+              setIsCreatePanelOpen(true);
+              setIsDetailPanelOpen(false);
             }}
             type="button"
           >
-            등록
-          </StandardButton>
+            + 사원 생성
+          </button>
           <StandardButton
             intent="danger"
             disabled={!selected || deleteSaveState === "saving" || selected.accountStatus === "offboarded" || selected.employmentStatus === "offboarded"}
@@ -834,47 +835,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
           </EmptyState>
         ) : null}
 
-        {isCreateDialogOpen ? (
-          <div className="topbar-modal-backdrop" role="presentation">
-            <ConfirmDialog
-              title="사내임직원 등록"
-              titleId="employee-create-dialog-heading"
-              className="feature-workspace__create-dialog"
-              closeButton={(
-                <StandardButton
-                  aria-label="사내임직원 등록 팝업 닫기"
-                  disabled={createSaveState === "saving"}
-                  intent="ghost"
-                  onClick={() => setIsCreateDialogOpen(false)}
-                  type="button"
-                >
-                  ×
-                </StandardButton>
-              )}
-              actions={(
-                <>
-                  <StandardButton
-                    disabled={createSaveState === "saving"}
-                    intent="ghost"
-                    onClick={() => setIsCreateDialogOpen(false)}
-                    type="button"
-                  >
-                    닫기
-                  </StandardButton>
-                  <StandardButton
-                    disabled={createSaveState === "saving"}
-                    form="employee-create-form"
-                    intent="primary"
-                    type="submit"
-                  >
-                    {createSaveState === "saving" ? "생성 중" : "사내임직원 계정 생성"}
-                  </StandardButton>
-                </>
-              )}
-            >
+        {isCreatePanelOpen ? (
+          <aside className="employee-detail-panel employee-detail-panel--create" aria-label="사원 생성 우측 상세패널">
+            <div className="employee-detail-panel__header">
+              <div>
+                <strong>+ 사원 생성</strong>
+              </div>
+              <StandardButton
+                aria-label="사원 생성 상세패널 닫기"
+                disabled={createSaveState === "saving"}
+                intent="ghost"
+                onClick={() => setIsCreatePanelOpen(false)}
+                type="button"
+              >
+                ×
+              </StandardButton>
+            </div>
+            <div className="employee-detail-panel__body">
               <form
                 id="employee-create-form"
-                className="feature-workspace__form feature-workspace__create-dialog-grid"
+                className="feature-workspace__form feature-workspace__create-panel-grid"
                 onSubmit={handleCreateSave}
                 aria-label="사내임직원 등록 및 계정 생성"
               >
@@ -1015,9 +995,23 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     {createSaveMessage}
                   </p>
                 ) : null}
+
+                <ActionButtonGroup label="사원 생성 작업">
+                  <StandardButton
+                    disabled={createSaveState === "saving"}
+                    intent="ghost"
+                    onClick={() => setIsCreatePanelOpen(false)}
+                    type="button"
+                  >
+                    닫기
+                  </StandardButton>
+                  <StandardButton disabled={createSaveState === "saving"} intent="primary" type="submit">
+                    {createSaveState === "saving" ? "생성 중" : "사원 생성"}
+                  </StandardButton>
+                </ActionButtonGroup>
               </form>
-            </ConfirmDialog>
-          </div>
+            </div>
+          </aside>
         ) : null}
 
         <DataTable label="사원 목록">
