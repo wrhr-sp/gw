@@ -55,7 +55,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
   });
 
   it("places employee information management inside management support HR as a list-first surface", async () => {
-    const supportHtml = renderToStaticMarkup(<ManagementSupportHrPage />);
+    const supportHtml = renderToStaticMarkup(await ManagementSupportHrPage());
     const clientSource = await import("node:fs/promises").then((fs) =>
       fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"),
     );

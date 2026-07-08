@@ -52,7 +52,7 @@ describe("org/employees/admin boundaries", () => {
   });
 
   it("keeps management support employee management list-first and opens registration as a popup", async () => {
-    const html = renderToStaticMarkup(<ManagementSupportHrPage />);
+    const html = renderToStaticMarkup(await ManagementSupportHrPage());
     const clientSource = await import("node:fs/promises").then((fs) =>
       fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"),
     );
