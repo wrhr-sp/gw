@@ -371,6 +371,144 @@ describe("operational DB-backed auth", () => {
     }
   });
 
+  runWhenDbConfigured("offboards an employee by revoking active roles, sessions, and audit logging the status change", async () => {
+    if (!sql) return;
+    const cookie = await login();
+    const targetUserId = "user_employee";
+    const sessionId = `test_offboard_session_${Date.now()}`;
+    const sessionTokenHash = `${sessionId}_hash`;
+
+    const beforeResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+    expect(beforeResponse.status).toBe(200);
+    const beforePayload = adminUsersListResponseSchema.parse(await beforeResponse.json());
+    const beforeUser = beforePayload.data.items.find((item) => item.userId === targetUserId);
+    expect(beforeUser).toBeDefined();
+    if (!beforeUser) return;
+
+    const beforeEmployeeRows = await sql`
+      select employment_status, leave_date
+      from employees
+      where company_id = 'company_demo'
+        and user_id = ${targetUserId}
+        and deleted_at is null
+      limit 1
+    `;
+    const beforeEmployee = beforeEmployeeRows[0] as { employment_status: string; leave_date: Date | string | null } | undefined;
+    expect(beforeEmployee).toBeDefined();
+    if (!beforeEmployee) return;
+
+    await sql`
+      insert into auth_sessions (id, company_id, user_id, session_token_hash, status, expires_at, created_at, updated_at)
+      values (${sessionId}, 'company_demo', ${targetUserId}, ${sessionTokenHash}, 'active', now() + interval '1 hour', now(), now())
+    `;
+
+    try {
+      const updateResponse = await app.request(
+        appRoutes.admin.userStatus(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            status: "offboarded",
+            mustChangePassword: true,
+            reason: "사내임직원 퇴사 권한 회수 저장 테스트",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      expect(updateResponse.status).toBe(200);
+      const updatePayload = adminUserMutationResponseSchema.parse(await updateResponse.json());
+      expect(updatePayload.data.persistence).toBe("operational-db");
+      expect(updatePayload.data.audit.action).toBe("admin.user.status.update");
+      expect(updatePayload.data.user.accountStatus).toBe("offboarded");
+      expect(updatePayload.data.user.employmentStatus).toBe("offboarded");
+      expect(updatePayload.data.user.roleCodes).toEqual([]);
+      expect(updatePayload.data.user.permissions).toEqual([]);
+      expect(updatePayload.data.user.activeSessionCount).toBe(0);
+
+      const rereadResponse = await app.request(appRoutes.admin.users, { headers: { cookie } }, { DATABASE_URL: databaseUrl });
+      expect(rereadResponse.status).toBe(200);
+      const rereadPayload = adminUsersListResponseSchema.parse(await rereadResponse.json());
+      const rereadUser = rereadPayload.data.items.find((item) => item.userId === targetUserId);
+      expect(rereadUser?.accountStatus).toBe("offboarded");
+      expect(rereadUser?.employmentStatus).toBe("offboarded");
+      expect(rereadUser?.roleCodes).toEqual([]);
+      expect(rereadUser?.permissions).toEqual([]);
+      expect(rereadUser?.activeSessionCount).toBe(0);
+
+      const sessionRows = await sql`
+        select status, revoked_at
+        from auth_sessions
+        where id = ${sessionId}
+      `;
+      expect((sessionRows[0] as { status: string; revoked_at: Date | string | null } | undefined)?.status).toBe("revoked");
+      expect((sessionRows[0] as { status: string; revoked_at: Date | string | null } | undefined)?.revoked_at).toBeTruthy();
+
+      const activeRoleRows = await sql`
+        select count(*)::integer as count
+        from user_roles
+        where company_id = 'company_demo'
+          and user_id = ${targetUserId}
+          and status = 'active'
+          and deleted_at is null
+      `;
+      expect(Number((activeRoleRows[0] as { count: number | string } | undefined)?.count ?? 0)).toBe(0);
+
+      const auditRows = await sql`
+        select action, before_json, after_json, metadata_json
+        from audit_logs
+        where company_id = 'company_demo'
+          and resource_id = ${targetUserId}
+          and action = 'admin.user.status.update'
+        order by created_at desc
+        limit 1
+      `;
+      const audit = auditRows[0] as
+        | { action: string; before_json: { status?: string }; after_json: { status?: string }; metadata_json: { reason?: string } }
+        | undefined;
+      expect(audit?.action).toBe("admin.user.status.update");
+      expect(audit?.before_json.status).toBe(beforeUser.accountStatus);
+      expect(audit?.after_json.status).toBe("offboarded");
+      expect(audit?.metadata_json.reason).toBe("사내임직원 퇴사 권한 회수 저장 테스트");
+    } finally {
+      await sql`delete from auth_sessions where id = ${sessionId}`;
+      await sql`
+        update employees
+        set employment_status = ${beforeEmployee.employment_status},
+            leave_date = ${beforeEmployee.leave_date},
+            updated_at = now()
+        where company_id = 'company_demo'
+          and user_id = ${targetUserId}
+          and deleted_at is null
+      `;
+      await app.request(
+        appRoutes.admin.userStatus(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            status: beforeUser.accountStatus,
+            mustChangePassword: beforeUser.mustChangePassword,
+            reason: "사내임직원 퇴사 권한 회수 저장 테스트 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+      await app.request(
+        appRoutes.admin.userRoles(targetUserId),
+        {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            roleCodes: beforeUser.roleCodes,
+            reason: "사내임직원 퇴사 권한 회수 역할 원복",
+          }),
+        },
+        { DATABASE_URL: databaseUrl },
+      );
+    }
+  });
+
   runWhenDbConfigured("updates and re-reads employee security settings through admin users API", async () => {
     const cookie = await login();
     const targetUserId = "user_employee";
