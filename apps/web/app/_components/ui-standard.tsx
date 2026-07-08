@@ -79,8 +79,8 @@ export function FormSection({ title, children }: { title: string; children: Reac
   );
 }
 
-export function ActionButtonGroup({ children }: { children: ReactNode }) {
-  return <div className="ui-action-button-group feature-workspace__actions">{children}</div>;
+export function ActionButtonGroup({ children, label }: { children: ReactNode; label?: string }) {
+  return <div className="ui-action-button-group feature-workspace__actions" aria-label={label}>{children}</div>;
 }
 
 export function StandardButton({ intent = "secondary", children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { intent?: ButtonIntent }) {
