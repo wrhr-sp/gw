@@ -82,7 +82,12 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("appRoutes.admin.employeeReferenceMasters");
     expect(clientSource).toContain("adminUserReferenceMastersResponseSchema");
     expect(clientSource).toContain("employee-create-reference-picker");
+    expect(clientSource).toContain("employee-create-reference-field__value");
     expect(clientSource).toContain("data-selection-mode=\"multiple\"");
+    expect(clientSource).not.toContain("<select aria-label=\"사원 그룹 선택값\"");
+    expect(clientSource).not.toContain("<select aria-label=\"사원 부서 선택값\"");
+    expect(clientSource).not.toContain("<select aria-label=\"사원 직책 선택값\"");
+    expect(clientSource).not.toContain("<select aria-label=\"사원 직위 선택값\"");
     expect(clientSource).toContain("activeReferencePicker !== \"jobGrades\"");
     expect(clientSource).toContain("jobGradeId: option.id");
     expect(clientSource).not.toContain("const defaultGroupOptions");

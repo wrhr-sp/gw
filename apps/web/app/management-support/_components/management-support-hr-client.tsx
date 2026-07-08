@@ -1206,9 +1206,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <label>
                     <span>그룹</span>
                     <span className="employee-create-reference-field">
-                      <select aria-label="사원 그룹 선택값" data-hr-input-size="medium" disabled value={getSelectedReferenceNames("groups", createForm.groupIds)}>
-                        <option>{getSelectedReferenceNames("groups", createForm.groupIds)}</option>
-                      </select>
+                      <span className="employee-create-reference-field__value" aria-label="사원 그룹 선택값">{getSelectedReferenceNames("groups", createForm.groupIds)}</span>
                       <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("groups")} type="button">+추가</button>
                     </span>
                   </label>
@@ -1218,18 +1216,14 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <label>
                     <span>부서</span>
                     <span className="employee-create-reference-field">
-                      <select aria-label="사원 부서 선택값" data-hr-input-size="medium" disabled value={getSelectedReferenceNames("departments", createForm.departmentIds)}>
-                        <option>{getSelectedReferenceNames("departments", createForm.departmentIds)}</option>
-                      </select>
+                      <span className="employee-create-reference-field__value" aria-label="사원 부서 선택값">{getSelectedReferenceNames("departments", createForm.departmentIds)}</span>
                       <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("departments")} type="button">+추가</button>
                     </span>
                   </label>
                   <label>
                     <span>직책</span>
                     <span className="employee-create-reference-field">
-                      <select aria-label="사원 직책 선택값" data-hr-input-size="medium" disabled value={getSelectedReferenceNames("jobTitles", createForm.jobTitleIds)}>
-                        <option>{getSelectedReferenceNames("jobTitles", createForm.jobTitleIds)}</option>
-                      </select>
+                      <span className="employee-create-reference-field__value" aria-label="사원 직책 선택값">{getSelectedReferenceNames("jobTitles", createForm.jobTitleIds)}</span>
                       <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("jobTitles")} type="button">+추가</button>
                     </span>
                   </label>
@@ -1239,9 +1233,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <label>
                     <span>직위</span>
                     <span className="employee-create-reference-field">
-                      <select aria-label="사원 직위 선택값" data-hr-input-size="medium" disabled value={getSelectedReferenceNames("jobPositions", createForm.jobPositionIds)}>
-                        <option>{getSelectedReferenceNames("jobPositions", createForm.jobPositionIds)}</option>
-                      </select>
+                      <span className="employee-create-reference-field__value" aria-label="사원 직위 선택값">{getSelectedReferenceNames("jobPositions", createForm.jobPositionIds)}</span>
                       <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("jobPositions")} type="button">+추가</button>
                     </span>
                   </label>
