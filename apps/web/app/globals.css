@@ -5997,9 +5997,20 @@ li {
   width: 100%;
 }
 
-.employee-create-reference-field select {
+.employee-create-reference-field__value {
+  display: inline-flex;
+  align-items: center;
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .employee-create-reference-field__add {
