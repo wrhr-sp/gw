@@ -611,6 +611,7 @@ export function ManagementSupportHrClient() {
 
   const activeCount = items.filter((item) => item.employmentStatus === "active").length;
   const lockedCount = items.filter((item) => item.accountStatus === "locked").length;
+  const dormantCount = items.filter((item) => item.accountStatus === "suspended").length;
   const offboardedCount = items.filter((item) => item.employmentStatus === "offboarded" || item.accountStatus === "offboarded").length;
 
   return (
@@ -651,6 +652,10 @@ export function ManagementSupportHrClient() {
           <article className="feature-workspace__status feature-workspace__status--warning">
             <span>잠금</span>
             <strong>{lockedCount}명</strong>
+          </article>
+          <article className="feature-workspace__status feature-workspace__status--warning">
+            <span>휴면</span>
+            <strong>{dormantCount}명</strong>
           </article>
           <article className="feature-workspace__status feature-workspace__status--warning">
             <span>퇴사</span>
