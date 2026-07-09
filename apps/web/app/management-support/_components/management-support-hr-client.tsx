@@ -1540,8 +1540,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         ) : null}
 
         {isAddressSearchOpen ? (
-          <div className="employee-create-address-dialog" role="dialog" aria-modal="true" aria-label="주소검색 팝업" onClick={() => setIsAddressSearchOpen(false)}>
-            <div className="employee-create-address-dialog__panel" onClick={(event) => event.stopPropagation()}>
+          <div className="employee-create-address-dialog" role="dialog" aria-modal="true" aria-label="주소검색 팝업">
+            <div className="employee-create-address-dialog__panel">
               <div className="employee-create-address-dialog__header">
                 <h2>주소검색</h2>
               </div>
