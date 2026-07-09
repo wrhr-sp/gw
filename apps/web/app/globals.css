@@ -5942,10 +5942,16 @@ li {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.employee-create-field-row--one {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .feature-workspace--hr {
   --employee-create-address-dialog-width: 520px;
   --employee-create-address-dialog-height: 720px;
   --employee-create-address-result-row-height: 56px;
+  --employee-create-section-offset: var(--space-sm);
+  --employee-create-login-input-width: 140px;
 }
 
 .employee-create-tabs {
@@ -5980,11 +5986,13 @@ li {
   display: grid;
   gap: var(--space-md);
   width: 100%;
+  padding-left: var(--employee-create-section-offset);
+  box-sizing: border-box;
 }
 
 .employee-create-address-field {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.72fr);
   gap: var(--space-xs);
   width: 100%;
 }
@@ -5998,10 +6006,6 @@ li {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-subtle);
-}
-
-.employee-create-address-field input[aria-label="사원 상세주소"] {
-  grid-column: 1 / -1;
 }
 
 .employee-create-address-field input[aria-label="사원 기본주소"],
@@ -6312,6 +6316,10 @@ li {
   white-space: nowrap;
 }
 
+.employee-create-email-field input[aria-label="사원 아이디"] {
+  width: min(100%, var(--employee-create-login-input-width));
+}
+
 .employee-create-sensitive-field {
   position: relative;
   width: fit-content;
@@ -6503,6 +6511,40 @@ li {
 .employee-detail-panel__header strong,
 .employee-detail-panel__header span {
   display: block;
+}
+
+.employee-detail-panel__title {
+  font-size: var(--feature-page-content-title-font-size);
+  font-weight: var(--feature-page-content-title-font-weight);
+  letter-spacing: var(--feature-page-content-title-letter-spacing);
+}
+
+.employee-detail-panel__close {
+  display: inline-grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.employee-detail-panel__close:hover:not(:disabled),
+.employee-detail-panel__close:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.employee-detail-panel__close:disabled {
+  cursor: not-allowed;
+  opacity: var(--state-disabled-opacity);
 }
 
 .employee-detail-panel__header span {
