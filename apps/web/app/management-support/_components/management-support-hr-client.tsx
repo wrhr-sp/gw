@@ -91,6 +91,12 @@ function formatPhoneNumberInput(value: string) {
 }
 
 function formatDateInput(value: string) {
+  const expandedYearMatch = value.match(/^(\d{6,})-(\d{2})-(\d{2})$/);
+  if (expandedYearMatch) {
+    const [, expandedYear, , day] = expandedYearMatch;
+    return `${expandedYear.slice(0, 4)}-${expandedYear.slice(4, 6)}-${day}`;
+  }
+
   const digits = value.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
@@ -1299,11 +1305,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          inputMode="numeric"
-                          maxLength={10}
                           onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: formatDateInput(event.target.value) }))}
                           required
-                          type="text"
+                          type="date"
                           value={createForm.hireDate}
                         />
                       </label>
@@ -1329,10 +1333,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 인정입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          inputMode="numeric"
-                          maxLength={10}
                           onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: formatDateInput(event.target.value) }))}
-                          type="text"
+                          type="date"
                           value={createForm.recognizedHireDate}
                         />
                       </label>
@@ -1654,7 +1656,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   {addressSearchResults.length > 0 ? (
                     <>
                       <div className="employee-create-address-dialog__results" role="list">
-                        {addressSearchResults.slice(0, 10).map((result) => (
+                        {addressSearchResults.slice(0, 5).map((result) => (
                           <button
                             aria-pressed={addressDialogDraft.addressPostalCode === result.postalCode && addressDialogDraft.addressBase === result.roadAddress}
                             className="employee-create-address-dialog__result"
