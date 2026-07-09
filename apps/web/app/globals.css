@@ -5947,11 +5947,12 @@ li {
 }
 
 .feature-workspace--hr {
-  --employee-create-address-dialog-width: 520px;
-  --employee-create-address-dialog-height: 720px;
-  --employee-create-address-result-row-height: 56px;
+  --employee-create-address-dialog-width: 720px;
+  --employee-create-address-dialog-height: 820px;
+  --employee-create-address-result-row-height: 72px;
   --employee-create-section-offset: var(--space-sm);
   --employee-create-login-input-width: 140px;
+  --employee-create-address-input-width: 260px;
 }
 
 .employee-create-tabs {
@@ -5992,7 +5993,8 @@ li {
 
 .employee-create-address-field {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.72fr);
+  grid-template-columns: auto minmax(0, var(--employee-create-address-input-width)) minmax(0, var(--employee-create-address-input-width));
+  justify-content: start;
   gap: var(--space-xs);
   width: 100%;
 }
@@ -6167,7 +6169,7 @@ li {
 
 .employee-create-address-dialog__result-table {
   display: grid;
-  grid-template-rows: auto calc(var(--employee-create-address-result-row-height) * 5) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: calc(var(--employee-create-address-result-row-height) * 5 + var(--hr-input-filter-height) * 2);
   border-top: 1px solid var(--line-strong);
 }
@@ -6195,8 +6197,9 @@ li {
 
 .employee-create-address-dialog__results {
   display: grid;
-  grid-template-rows: repeat(5, minmax(0, var(--employee-create-address-result-row-height)));
+  grid-auto-rows: minmax(var(--employee-create-address-result-row-height), auto);
   min-height: calc(var(--employee-create-address-result-row-height) * 5);
+  overflow-y: auto;
 }
 
 .employee-create-address-dialog__result {
@@ -6220,6 +6223,10 @@ li {
 .employee-create-address-dialog__result span {
   display: grid;
   gap: var(--space-xs);
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .employee-create-address-dialog__result small {
@@ -6545,6 +6552,22 @@ li {
 .employee-detail-panel__close:disabled {
   cursor: not-allowed;
   opacity: var(--state-disabled-opacity);
+}
+
+.employee-create-close-confirm {
+  z-index: calc(var(--z-modal) + 2);
+}
+
+.employee-create-close-confirm__dialog {
+  width: min(420px, calc(100vw - var(--space-2xl)));
+  height: auto;
+  min-height: 0;
+}
+
+.employee-create-close-confirm__dialog .topbar-modal__header h2 {
+  font-size: var(--feature-page-content-title-font-size);
+  font-weight: var(--feature-page-content-title-font-weight);
+  letter-spacing: var(--feature-page-content-title-letter-spacing);
 }
 
 .employee-detail-panel__header span {

@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-table";
 import {
   ActionButtonGroup,
+  ConfirmDialog,
   DataTable,
   EmptyState,
   SummaryCard,
@@ -81,6 +82,20 @@ const createAccountStatusOptions: Array<{ value: AdminAccountStatus; label: stri
 ];
 
 const employmentCategoryOptions = ["정규직", "계약직", "수습", "인턴"] as const;
+
+function formatPhoneNumberInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+function formatDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
 
 type EmployeeDetailPanelTab = "profile" | "organization" | "account" | "security";
 
@@ -374,6 +389,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [addressSearchResults, setAddressSearchResults] = useState<AddressSearchResult[]>([]);
   const [addressSearchMessage, setAddressSearchMessage] = useState<string | null>(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [isCreateCloseConfirmOpen, setIsCreateCloseConfirmOpen] = useState(false);
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activeReferencePicker, setActiveReferencePicker] = useState<EmployeeCreateMasterKind | null>(null);
@@ -1033,6 +1049,19 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     setIsAddressSearchOpen(true);
   }
 
+  function requestCreatePanelClose() {
+    setIsCreateCloseConfirmOpen(true);
+  }
+
+  function cancelCreatePanelClose() {
+    setIsCreateCloseConfirmOpen(false);
+  }
+
+  function confirmCreatePanelClose() {
+    setIsCreateCloseConfirmOpen(false);
+    setIsCreatePanelOpen(false);
+  }
+
   function applyAddressSearchResult(result: AddressSearchResult) {
     setAddressDialogDraft((current) => ({
       ...current,
@@ -1142,7 +1171,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 aria-label="사원 생성 상세패널 닫기"
                 className="employee-detail-panel__close"
                 disabled={createSaveState === "saving"}
-                onClick={() => setIsCreatePanelOpen(false)}
+                onClick={requestCreatePanelClose}
                 type="button"
               >
                 ×
@@ -1270,9 +1299,11 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: event.target.value }))}
+                          inputMode="numeric"
+                          maxLength={10}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: formatDateInput(event.target.value) }))}
                           required
-                          type="date"
+                          type="text"
                           value={createForm.hireDate}
                         />
                       </label>
@@ -1283,7 +1314,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           data-hr-input-size="medium"
                           disabled={createSaveState === "saving"}
                           inputMode="tel"
-                          onChange={(event) => setCreateForm((current) => ({ ...current, contactPhone: event.target.value }))}
+                          maxLength={13}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, contactPhone: formatPhoneNumberInput(event.target.value) }))}
                           required
                           value={createForm.contactPhone}
                         />
@@ -1297,8 +1329,10 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 인정입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: event.target.value }))}
-                          type="date"
+                          inputMode="numeric"
+                          maxLength={10}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: formatDateInput(event.target.value) }))}
+                          type="text"
                           value={createForm.recognizedHireDate}
                         />
                       </label>
@@ -1553,6 +1587,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
           </aside>
         ) : null}
 
+        {isCreateCloseConfirmOpen ? (
+          <div className="topbar-modal-backdrop employee-create-close-confirm" role="presentation">
+            <ConfirmDialog
+              title="사원 생성을 닫을까요?"
+              className="employee-create-close-confirm__dialog"
+              actions={(
+                <>
+                  <StandardButton intent="ghost" onClick={cancelCreatePanelClose} type="button">계속 입력</StandardButton>
+                  <StandardButton intent="danger" onClick={confirmCreatePanelClose} type="button">닫기</StandardButton>
+                </>
+              )}
+              closeButton={(
+                <button aria-label="사원 생성 닫기 확인 팝업 닫기" className="topbar-modal__close" onClick={cancelCreatePanelClose} type="button">×</button>
+              )}
+            >
+              <p>입력 중인 내용은 저장되지 않습니다.</p>
+            </ConfirmDialog>
+          </div>
+        ) : null}
+
         {isAddressSearchOpen ? (
           <div className="employee-create-address-dialog" role="dialog" aria-modal="true" aria-label="주소검색 팝업">
             <div className="employee-create-address-dialog__panel">
@@ -1600,7 +1654,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   {addressSearchResults.length > 0 ? (
                     <>
                       <div className="employee-create-address-dialog__results" role="list">
-                        {addressSearchResults.slice(0, 5).map((result) => (
+                        {addressSearchResults.slice(0, 10).map((result) => (
                           <button
                             aria-pressed={addressDialogDraft.addressPostalCode === result.postalCode && addressDialogDraft.addressBase === result.roadAddress}
                             className="employee-create-address-dialog__result"
