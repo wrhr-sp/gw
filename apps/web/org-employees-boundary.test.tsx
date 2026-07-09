@@ -239,6 +239,7 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".feature-workspace__create-panel-grid");
     expect(globalCss).toContain(".employee-create-profile-card");
     expect(globalCss).toContain(".employee-create-field-row--two");
+    expect(globalCss).toContain("grid-template-columns: repeat(2, max-content);");
     expect(globalCss).toContain(".employee-create-field-row--one");
     expect(globalCss).toContain(".employee-create-tabs");
     expect(globalCss).toContain(".employee-create-tabs__button");
@@ -261,6 +262,7 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("--employee-create-login-input-width: 140px;");
     expect(globalCss).toContain("padding-left: var(--employee-create-section-offset);");
     expect(globalCss).toContain("--employee-create-address-input-width: 260px;");
+    expect(globalCss).toContain("--employee-create-resident-part-width: var(--hr-input-width-short);");
     expect(globalCss).toContain("grid-template-columns: auto minmax(0, var(--employee-create-address-input-width)) minmax(0, var(--employee-create-address-input-width));");
     expect(globalCss).toContain("justify-content: start;");
     expect(globalCss).toContain(".employee-create-email-field input[aria-label=\"사원 아이디\"]");
@@ -276,6 +278,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).not.toContain(".employee-create-section-divider");
     expect(globalCss).toContain(".employee-create-email-field");
     expect(globalCss).toContain(".employee-create-resident-field");
+    expect(globalCss).toContain(".employee-create-resident-field input[aria-label=\"주민등록번호 앞자리\"]");
+    expect(globalCss).toContain(".employee-create-resident-field input[aria-label=\"주민등록번호 뒷자리\"]");
+    expect(globalCss).toContain("width: var(--employee-create-resident-part-width);");
     expect(globalCss).toContain(".employee-create-sensitive-field");
     expect(globalCss).toContain(".employee-create-sensitive-field__toggle");
     expect(globalCss).toContain(".employee-detail-panel__title");
