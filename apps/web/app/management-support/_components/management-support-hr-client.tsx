@@ -1136,17 +1136,17 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
           <aside className="employee-detail-panel employee-detail-panel--create" aria-label="사원 생성 우측 상세패널">
             <div className="employee-detail-panel__header">
               <div>
-                <strong>+ 사원 생성</strong>
+                <strong className="employee-detail-panel__title">사원 생성</strong>
               </div>
-              <StandardButton
+              <button
                 aria-label="사원 생성 상세패널 닫기"
+                className="employee-detail-panel__close"
                 disabled={createSaveState === "saving"}
-                intent="ghost"
                 onClick={() => setIsCreatePanelOpen(false)}
                 type="button"
               >
                 ×
-              </StandardButton>
+              </button>
             </div>
             <div className="employee-detail-panel__body">
               <form
@@ -1231,19 +1231,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                       </label>
                     </div>
 
-                    <div className="employee-create-field-row employee-create-field-row--two">
-                      <label>
-                        <span>연락처*</span>
-                        <input
-                          aria-label="사원 연락처"
-                          data-hr-input-size="medium"
-                          disabled={createSaveState === "saving"}
-                          inputMode="tel"
-                          onChange={(event) => setCreateForm((current) => ({ ...current, contactPhone: event.target.value }))}
-                          required
-                          value={createForm.contactPhone}
-                        />
-                      </label>
+                    <div className="employee-create-field-row employee-create-field-row--one">
                       <label>
                         <span>주소*</span>
                         <span className="employee-create-address-field">
@@ -1289,6 +1277,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                         />
                       </label>
                       <label>
+                        <span>연락처*</span>
+                        <input
+                          aria-label="사원 연락처"
+                          data-hr-input-size="medium"
+                          disabled={createSaveState === "saving"}
+                          inputMode="tel"
+                          onChange={(event) => setCreateForm((current) => ({ ...current, contactPhone: event.target.value }))}
+                          required
+                          value={createForm.contactPhone}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
+                      <label>
                         <span>인정입사일자</span>
                         <input
                           aria-label="사원 인정입사일자"
@@ -1299,9 +1302,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           value={createForm.recognizedHireDate}
                         />
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>채용구분</span>
                         <select
@@ -1522,17 +1522,31 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                 ) : null}
 
                 <ActionButtonGroup label="사원 생성 작업">
-                  <StandardButton
-                    disabled={createSaveState === "saving"}
-                    intent="ghost"
-                    onClick={() => setIsCreatePanelOpen(false)}
-                    type="button"
-                  >
-                    닫기
-                  </StandardButton>
-                  <StandardButton disabled={createSaveState === "saving"} intent="primary" type="submit">
-                    {createSaveState === "saving" ? "생성 중" : "사원 생성"}
-                  </StandardButton>
+                  {activeCreatePanelTab === "basic" ? (
+                    <StandardButton
+                      disabled={createSaveState === "saving"}
+                      intent="primary"
+                      onClick={() => setActiveCreatePanelTab("account")}
+                      type="button"
+                    >
+                      다음
+                    </StandardButton>
+                  ) : null}
+                  {activeCreatePanelTab === "account" ? (
+                    <StandardButton
+                      disabled={createSaveState === "saving"}
+                      intent="primary"
+                      onClick={() => setActiveCreatePanelTab("organization")}
+                      type="button"
+                    >
+                      다음
+                    </StandardButton>
+                  ) : null}
+                  {activeCreatePanelTab === "organization" ? (
+                    <StandardButton disabled={createSaveState === "saving"} intent="primary" type="submit">
+                      {createSaveState === "saving" ? "생성 중" : "사원 생성"}
+                    </StandardButton>
+                  ) : null}
                 </ActionButtonGroup>
               </form>
             </div>
