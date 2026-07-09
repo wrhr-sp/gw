@@ -163,6 +163,16 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("adminUserReferenceMastersResponseSchema");
     expect(clientSource).toContain("employee-create-reference-picker");
     expect(clientSource).toContain("data-selection-mode=\"multiple\"");
+    expect(clientSource).toContain("managerUserIds");
+    expect(clientSource).toContain("isManagerPickerOpen");
+    expect(clientSource).toContain("getSelectedManagerNames");
+    expect(clientSource).toContain("toggleManagerSelection");
+    expect(clientSource).toContain("aria-label=\"사원 담당 선택값\"");
+    expect(clientSource).toContain("aria-label=\"담당 선택 팝업\"");
+    expect(clientSource).toContain("<strong>담당 선택</strong>");
+    expect(clientSource).toContain("ActionButtonGroup label=\"담당 선택 작업\"");
+    expect(clientSource).toContain("items.map((item) => {");
+    expect(clientSource).toContain("createForm.managerUserIds.includes(item.userId)");
     expect(clientSource).toContain("aria-label=\"사원 지사\"");
     expect(clientSource).toContain("aria-label=\"사원 부서\"");
     expect(clientSource).toContain("aria-label=\"사원 직급\"");
@@ -174,6 +184,10 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).not.toContain("concurrentAssignments");
     expect(clientSource).not.toContain("<select aria-label=\"사원 그룹 선택값\"");
     expect(clientSource).toContain("사용자그룹");
+    expect(clientSource).toContain("담당");
+    const createUserGroupIndex = clientSource.indexOf("사용자그룹");
+    const createManagerIndex = clientSource.indexOf("담당", createUserGroupIndex);
+    expect(createUserGroupIndex).toBeLessThan(createManagerIndex);
     expect(clientSource).toContain("employee-create-inline-picker");
     expect(clientSource).toContain("employee-create-inline-picker__item");
     expect(clientSource).toContain("jobGradeId: option.id");
