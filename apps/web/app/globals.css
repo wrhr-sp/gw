@@ -5939,7 +5939,7 @@ li {
 }
 
 .employee-create-field-row--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: var(--employee-create-left-column-width) max-content;
 }
 
 .employee-create-field-row--one {
@@ -5953,6 +5953,7 @@ li {
   --employee-create-section-offset: var(--space-sm);
   --employee-create-login-input-width: 140px;
   --employee-create-address-input-width: 260px;
+  --employee-create-left-column-width: var(--hr-input-width-medium);
 }
 
 .employee-create-tabs {
@@ -6332,6 +6333,10 @@ li {
 
 .employee-create-email-field input[aria-label="사원 아이디"] {
   width: 100%;
+}
+
+.employee-create-resident-field input[aria-label="주민등록번호 앞자리"] {
+  width: min(100%, var(--hr-input-width-short));
 }
 
 .employee-create-sensitive-field {
