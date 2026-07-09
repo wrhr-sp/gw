@@ -160,6 +160,7 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   jobTitleIds: string[];
   jobPositionIds: string[];
   jobGradeId: string;
+  managerUserIds: string[];
   profileImageName: string;
 };
 
@@ -193,6 +194,7 @@ const emptyCreateForm: EmployeeCreatePanelForm = {
   jobTitleIds: [],
   jobPositionIds: [],
   jobGradeId: "",
+  managerUserIds: [],
   profileImageName: "",
   departmentName: "",
   branchName: "",
@@ -412,6 +414,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activeReferencePicker, setActiveReferencePicker] = useState<EmployeeCreateMasterKind | null>(null);
+  const [isManagerPickerOpen, setIsManagerPickerOpen] = useState(false);
   const [showResidentBack, setShowResidentBack] = useState(false);
   const [showInitialPassword, setShowInitialPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -1028,6 +1031,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     });
   }
 
+  function getSelectedManagerNames(selectedIds: string[]) {
+    return selectedIds
+      .map((userId) => items.find((item) => item.userId === userId)?.fullName)
+      .filter((name): name is string => Boolean(name));
+  }
+
+  function toggleManagerSelection(userId: string) {
+    setCreateForm((current) => {
+      const nextManagerUserIds = current.managerUserIds.includes(userId)
+        ? current.managerUserIds.filter((selectedUserId) => selectedUserId !== userId)
+        : [...current.managerUserIds, userId];
+      return { ...current, managerUserIds: nextManagerUserIds };
+    });
+  }
+
   async function handleAddressSearch() {
     const keyword = createForm.addressSearchKeyword.trim();
     if (keyword.length < 2) {
@@ -1587,6 +1605,18 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                         </span>
                       </label>
                     </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--one">
+                      <label>
+                        <span>담당</span>
+                        <span className="employee-create-inline-picker" aria-label="사원 담당 선택값">
+                          {getSelectedManagerNames(createForm.managerUserIds).map((name) => (
+                            <span className="employee-create-inline-picker__item" key={name}>{name}</span>
+                          ))}
+                          <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || loadState === "loading"} onClick={() => setIsManagerPickerOpen(true)} type="button">+추가</button>
+                        </span>
+                      </label>
+                    </div>
                   </section>
                 ) : null}
 
@@ -1803,6 +1833,40 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               </div>
               <ActionButtonGroup label="기준정보 선택 작업">
                 <StandardButton intent="primary" onClick={() => setActiveReferencePicker(null)} type="button">확인</StandardButton>
+              </ActionButtonGroup>
+            </div>
+          </div>
+        ) : null}
+
+        {isManagerPickerOpen ? (
+          <div className="employee-create-reference-picker" role="dialog" aria-modal="true" aria-label="담당 선택 팝업">
+            <div className="employee-create-reference-picker__panel">
+              <div className="employee-create-reference-picker__header">
+                <strong>담당 선택</strong>
+                <button aria-label="담당 선택 팝업 닫기" onClick={() => setIsManagerPickerOpen(false)} type="button">×</button>
+              </div>
+              <div className="employee-create-reference-picker__body">
+                {items.length === 0 ? (
+                  <p className="feature-workspace__save-message" role="status">선택 가능한 사원이 없습니다.</p>
+                ) : null}
+                {items.map((item) => {
+                  const checked = createForm.managerUserIds.includes(item.userId);
+                  return (
+                    <button
+                      key={item.userId}
+                      aria-pressed={checked}
+                      className="employee-create-reference-picker__option"
+                      onClick={() => toggleManagerSelection(item.userId)}
+                      type="button"
+                    >
+                      <span>{checked ? "✓" : "+"}</span>
+                      {item.fullName}
+                    </button>
+                  );
+                })}
+              </div>
+              <ActionButtonGroup label="담당 선택 작업">
+                <StandardButton intent="primary" onClick={() => setIsManagerPickerOpen(false)} type="button">확인</StandardButton>
               </ActionButtonGroup>
             </div>
           </div>
