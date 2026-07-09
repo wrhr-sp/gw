@@ -5953,7 +5953,8 @@ li {
   --employee-create-address-result-row-height: 72px;
   --employee-create-section-offset: var(--space-sm);
   --employee-create-login-input-width: 140px;
-  --employee-create-address-input-width: 260px;
+  --employee-create-address-base-input-width: 400px;
+  --employee-create-address-detail-input-width: 260px;
   --employee-create-left-column-width: var(--hr-input-width-medium);
   --employee-create-two-column-gap: calc(var(--space-md) * 3);
 }
@@ -6040,10 +6041,28 @@ li {
 
 .employee-create-address-field {
   display: grid;
-  grid-template-columns: auto minmax(0, var(--employee-create-address-input-width)) minmax(0, var(--employee-create-address-input-width));
+  grid-template-columns: auto minmax(0, var(--employee-create-address-base-input-width));
   justify-content: start;
-  gap: var(--space-xs);
+  column-gap: 0;
+  row-gap: var(--space-xs);
   width: 100%;
+}
+
+.employee-create-address-field input[aria-label="사원 기본주소"] {
+  width: var(--employee-create-address-base-input-width);
+}
+
+.employee-create-address-field input[aria-label="사원 상세주소"] {
+  grid-column: 2;
+  width: var(--employee-create-address-detail-input-width);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-address-field input[aria-label="사원 기본주소"][data-hr-input-size="full"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]) {
+  width: var(--employee-create-address-base-input-width);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-address-field input[aria-label="사원 상세주소"][data-hr-input-size="full"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]) {
+  width: var(--employee-create-address-detail-input-width);
 }
 
 .employee-create-address-field__search-control {
