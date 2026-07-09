@@ -5992,7 +5992,8 @@ li {
   grid-column: 1 / -1;
 }
 
-.employee-create-address-field input[aria-label="사원 기본주소"] {
+.employee-create-address-field input[aria-label="사원 기본주소"],
+.employee-create-address-dialog__address-line input[aria-label="주소검색 기본 주소"] {
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
