@@ -72,7 +72,7 @@ export async function searchOperationalAddresses(
   const url = new URL(endpoint);
   url.searchParams.set("confmKey", apiKey);
   url.searchParams.set("currentPage", "1");
-  url.searchParams.set("countPerPage", String(options.countPerPage ?? 10));
+  url.searchParams.set("countPerPage", String(options.countPerPage ?? 30));
   url.searchParams.set("keyword", trimmedKeyword);
   url.searchParams.set("resultType", "json");
 
