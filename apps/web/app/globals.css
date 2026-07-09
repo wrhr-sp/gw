@@ -5943,8 +5943,8 @@ li {
 }
 
 .feature-workspace--hr {
-  --employee-create-address-dialog-width: 560px;
-  --employee-create-address-dialog-max-height: 760px;
+  --employee-create-address-dialog-width: 520px;
+  --employee-create-address-dialog-max-height: 720px;
 }
 
 .employee-create-tabs {
@@ -5988,11 +5988,23 @@ li {
   width: 100%;
 }
 
+.employee-create-address-field__search-control {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--hr-input-filter-height);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
 .employee-create-address-field input[aria-label="사원 상세주소"] {
   grid-column: 1 / -1;
 }
 
 .employee-create-address-field input[aria-label="사원 기본주소"],
+.employee-create-address-field input[aria-label="사원 상세주소"],
 .employee-create-address-dialog__address-line input[aria-label="주소검색 기본 주소"] {
   background: var(--surface-subtle);
   color: var(--text-muted);
@@ -6005,7 +6017,7 @@ li {
   gap: var(--space-xs);
   min-height: var(--hr-input-filter-height);
   padding-inline: var(--space-sm);
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-sm);
   background: var(--surface-elevated);
   color: var(--text);
@@ -6041,6 +6053,7 @@ li {
   gap: var(--space-md);
   width: min(var(--employee-create-address-dialog-width), 100%);
   max-height: min(var(--employee-create-address-dialog-max-height), calc(100dvh - var(--space-2xl)));
+  padding: var(--space-lg);
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
@@ -6053,7 +6066,7 @@ li {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-lg) var(--space-lg) 0;
+  padding: 0;
 }
 
 .employee-create-address-dialog__header h2 {
@@ -6062,34 +6075,27 @@ li {
   font-weight: 900;
 }
 
-.employee-create-address-dialog__header button {
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: var(--font-size-xl);
-  line-height: 1;
-  cursor: pointer;
-}
-
 .employee-create-address-dialog__tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-xs);
-  padding-inline: var(--space-lg);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-lg);
 }
 
 .employee-create-address-dialog__tabs button {
-  min-height: var(--hr-input-filter-height);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
+  min-height: var(--space-lg);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
+  font-size: var(--font-size-sm);
   font-weight: 700;
 }
 
 .employee-create-address-dialog__tabs button[aria-selected="true"] {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  border-color: var(--text);
+  color: var(--text);
 }
 
 .employee-create-address-dialog__body {
@@ -6097,7 +6103,7 @@ li {
   gap: var(--space-sm);
   min-height: 0;
   overflow-y: auto;
-  padding-inline: var(--space-lg);
+  padding: 0;
 }
 
 .employee-create-address-dialog__guide,
@@ -6120,21 +6126,40 @@ li {
   margin: 0;
 }
 
-.employee-create-address-dialog__search {
-  display: grid;
-  gap: var(--space-xs);
-}
-
 .employee-create-address-dialog__search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--space-xs);
   align-items: center;
+  min-height: var(--hr-input-filter-height);
+  padding-inline: var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+}
+
+.employee-create-address-dialog__search-row input {
+  border: 0;
+  background: transparent;
+}
+
+.employee-create-address-dialog__search-row button {
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.employee-create-address-dialog__search-row button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .employee-create-address-dialog__result-table {
   display: grid;
-  min-height: calc(var(--hr-input-filter-height) * 5);
+  min-height: calc(var(--hr-input-filter-height) * 6);
   border-top: 1px solid var(--line-strong);
 }
 
@@ -6165,9 +6190,8 @@ li {
 
 .employee-create-address-dialog__result {
   width: 100%;
-  padding: var(--space-sm) var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
   border: 0;
-  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: var(--surface);
   color: var(--text);
@@ -6176,7 +6200,8 @@ li {
 }
 
 .employee-create-address-dialog__result:hover,
-.employee-create-address-dialog__result:focus-visible {
+.employee-create-address-dialog__result:focus-visible,
+.employee-create-address-dialog__result[aria-pressed="true"] {
   background: var(--primary-soft);
 }
 
@@ -6196,10 +6221,33 @@ li {
 
 .employee-create-address-dialog__no-result {
   display: grid;
-  min-height: calc(var(--hr-input-filter-height) * 4);
+  min-height: calc(var(--hr-input-filter-height) * 5);
   place-items: center;
   color: var(--text-muted);
   font-size: var(--font-size-sm);
+}
+
+.employee-create-address-dialog__pagination {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding-block: var(--space-sm);
+}
+
+.employee-create-address-dialog__pagination button {
+  min-width: var(--space-lg);
+  min-height: var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-create-address-dialog__pagination button[aria-current="page"] {
+  border: 1px solid var(--line-strong);
+  color: var(--text);
 }
 
 .employee-create-address-dialog__address-line {
@@ -6207,6 +6255,11 @@ li {
   grid-template-columns: var(--hr-input-width-short) minmax(0, 1fr);
   gap: var(--space-md);
   align-items: center;
+}
+
+.employee-create-address-dialog__address-line input[aria-label="주소검색 상세 주소"]:disabled {
+  background: var(--surface-subtle);
+  color: var(--text-muted);
 }
 
 .employee-create-inline-picker {
