@@ -63,7 +63,7 @@ describe("operational address search", () => {
       },
     ]);
     expect(capturedUrl).toContain("confmKey=test-key");
-    expect(capturedUrl).toContain("countPerPage=30");
+    expect(capturedUrl).toContain("countPerPage=40");
     expect(capturedUrl).toContain(encodeURIComponent("테헤란로"));
   });
 });
