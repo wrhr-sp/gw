@@ -82,6 +82,9 @@ const createAccountStatusOptions: Array<{ value: AdminAccountStatus; label: stri
 ];
 
 const employmentCategoryOptions = ["정규직", "계약직", "수습", "인턴"] as const;
+const addressSearchPageSize = 5;
+const addressSearchMaxResults = 40;
+const strictDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 function formatPhoneNumberInput(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -101,6 +104,15 @@ function formatDateInput(value: string) {
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
+function normalizeStrictDateInput(value: string) {
+  const formatted = formatDateInput(value);
+  return formatted.length > 10 ? formatted.slice(0, 10) : formatted;
+}
+
+function isStrictDateInput(value: string) {
+  return strictDatePattern.test(value);
 }
 
 type EmployeeDetailPanelTab = "profile" | "organization" | "account" | "security";
@@ -393,6 +405,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [addressDialogDraft, setAddressDialogDraft] = useState<AddressDialogDraft>({ addressPostalCode: "", addressBase: "", addressDetail: "" });
   const [addressSearchState, setAddressSearchState] = useState<"idle" | "searching" | "loaded" | "error">("idle");
   const [addressSearchResults, setAddressSearchResults] = useState<AddressSearchResult[]>([]);
+  const [addressSearchPage, setAddressSearchPage] = useState(1);
   const [addressSearchMessage, setAddressSearchMessage] = useState<string | null>(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [isCreateCloseConfirmOpen, setIsCreateCloseConfirmOpen] = useState(false);
@@ -586,6 +599,12 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     if (requiredMissing) {
       setCreateSaveState("error");
       setCreateSaveMessage("필수 입력값을 확인해 주세요. 이름, 주민등록번호, 연락처, 주소, 상세주소, 입사일자, 아이디, 비밀번호, 비밀번호 재입력은 반드시 입력해야 합니다.");
+      return;
+    }
+
+    if (!isStrictDateInput(createForm.hireDate) || (createForm.recognizedHireDate && !isStrictDateInput(createForm.recognizedHireDate))) {
+      setCreateSaveState("error");
+      setCreateSaveMessage("입사일자와 인정입사일자는 YYYY-MM-DD 형식의 연도 4자리 날짜로 입력해 주세요.");
       return;
     }
 
@@ -1014,11 +1033,13 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     if (keyword.length < 2) {
       setAddressSearchState("error");
       setAddressSearchResults([]);
+      setAddressSearchPage(1);
       setAddressSearchMessage("주소 검색어는 2글자 이상 입력해주세요.");
       return;
     }
 
     setAddressSearchState("searching");
+    setAddressSearchPage(1);
     setAddressSearchMessage(null);
     const response = await fetch(`${appRoutes.admin.addressSearch}?keyword=${encodeURIComponent(keyword)}`, {
       cache: "no-store",
@@ -1029,6 +1050,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       const parsedError = errorResponseSchema.safeParse(payload);
       setAddressSearchState("error");
       setAddressSearchResults([]);
+      setAddressSearchPage(1);
       setAddressSearchMessage(parsedError.success ? parsedError.data.error.message : "주소검색을 실행하지 못했습니다.");
       return;
     }
@@ -1037,13 +1059,16 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     if (!parsed.success) {
       setAddressSearchState("error");
       setAddressSearchResults([]);
+      setAddressSearchPage(1);
       setAddressSearchMessage("주소검색 결과 형식이 올바르지 않습니다.");
       return;
     }
 
+    const nextResults = parsed.data.data.results.slice(0, addressSearchMaxResults);
     setAddressSearchState("loaded");
-    setAddressSearchResults(parsed.data.data.results);
-    setAddressSearchMessage(parsed.data.data.results.length ? null : "검색된 결과가 없습니다.");
+    setAddressSearchResults(nextResults);
+    setAddressSearchPage(1);
+    setAddressSearchMessage(nextResults.length ? null : "검색된 결과가 없습니다.");
   }
 
   function openAddressSearchDialog() {
@@ -1095,6 +1120,14 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     jobPositions: "직위",
     jobGrades: "직급",
   };
+
+  const addressSearchPageCount = Math.max(1, Math.ceil(addressSearchResults.length / addressSearchPageSize));
+  const currentAddressSearchPage = Math.min(addressSearchPage, addressSearchPageCount);
+  const pagedAddressSearchResults = addressSearchResults.slice(
+    (currentAddressSearchPage - 1) * addressSearchPageSize,
+    currentAddressSearchPage * addressSearchPageSize,
+  );
+  const addressSearchPageNumbers = Array.from({ length: addressSearchPageCount }, (_, index) => index + 1);
 
 
 
@@ -1305,7 +1338,10 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: formatDateInput(event.target.value) }))}
+                          max="9999-12-31"
+                          min="0001-01-01"
+                          onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: normalizeStrictDateInput(event.target.value) }))}
+                          pattern="\d{4}-\d{2}-\d{2}"
                           required
                           type="date"
                           value={createForm.hireDate}
@@ -1333,7 +1369,10 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           aria-label="사원 인정입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
-                          onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: formatDateInput(event.target.value) }))}
+                          max="9999-12-31"
+                          min="0001-01-01"
+                          onChange={(event) => setCreateForm((current) => ({ ...current, recognizedHireDate: normalizeStrictDateInput(event.target.value) }))}
+                          pattern="\d{4}-\d{2}-\d{2}"
                           type="date"
                           value={createForm.recognizedHireDate}
                         />
@@ -1656,7 +1695,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   {addressSearchResults.length > 0 ? (
                     <>
                       <div className="employee-create-address-dialog__results" role="list">
-                        {addressSearchResults.slice(0, 5).map((result) => (
+                        {pagedAddressSearchResults.map((result) => (
                           <button
                             aria-pressed={addressDialogDraft.addressPostalCode === result.postalCode && addressDialogDraft.addressBase === result.roadAddress}
                             className="employee-create-address-dialog__result"
@@ -1673,11 +1712,20 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                         ))}
                       </div>
                       <div className="employee-create-address-dialog__pagination" aria-label="주소검색 결과 페이지">
-                        <button disabled type="button">«</button>
-                        <button disabled type="button">‹</button>
-                        <button aria-current="page" type="button">1</button>
-                        <button disabled type="button">›</button>
-                        <button disabled type="button">»</button>
+                        <button disabled={currentAddressSearchPage === 1} onClick={() => setAddressSearchPage(1)} type="button">«</button>
+                        <button disabled={currentAddressSearchPage === 1} onClick={() => setAddressSearchPage((current) => Math.max(1, current - 1))} type="button">‹</button>
+                        {addressSearchPageNumbers.map((pageNumber) => (
+                          <button
+                            aria-current={pageNumber === currentAddressSearchPage ? "page" : undefined}
+                            key={pageNumber}
+                            onClick={() => setAddressSearchPage(pageNumber)}
+                            type="button"
+                          >
+                            {pageNumber}
+                          </button>
+                        ))}
+                        <button disabled={currentAddressSearchPage === addressSearchPageCount} onClick={() => setAddressSearchPage((current) => Math.min(addressSearchPageCount, current + 1))} type="button">›</button>
+                        <button disabled={currentAddressSearchPage === addressSearchPageCount} onClick={() => setAddressSearchPage(addressSearchPageCount)} type="button">»</button>
                       </div>
                     </>
                   ) : (
