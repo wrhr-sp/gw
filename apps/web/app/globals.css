@@ -5944,7 +5944,8 @@ li {
 
 .feature-workspace--hr {
   --employee-create-address-dialog-width: 520px;
-  --employee-create-address-dialog-max-height: 720px;
+  --employee-create-address-dialog-height: 720px;
+  --employee-create-address-result-row-height: 56px;
 }
 
 .employee-create-tabs {
@@ -6050,9 +6051,11 @@ li {
 
 .employee-create-address-dialog__panel {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: var(--space-md);
   width: min(var(--employee-create-address-dialog-width), 100%);
-  max-height: min(var(--employee-create-address-dialog-max-height), calc(100dvh - var(--space-2xl)));
+  height: min(var(--employee-create-address-dialog-height), calc(100dvh - var(--space-2xl)));
+  max-height: calc(100dvh - var(--space-2xl));
   padding: var(--space-lg);
   overflow: hidden;
   border: 1px solid var(--line-strong);
@@ -6100,6 +6103,7 @@ li {
 
 .employee-create-address-dialog__body {
   display: grid;
+  grid-template-rows: auto minmax(0, auto) auto auto;
   gap: var(--space-sm);
   min-height: 0;
   overflow-y: auto;
@@ -6159,7 +6163,8 @@ li {
 
 .employee-create-address-dialog__result-table {
   display: grid;
-  min-height: calc(var(--hr-input-filter-height) * 6);
+  grid-template-rows: auto calc(var(--employee-create-address-result-row-height) * 5) auto;
+  min-height: calc(var(--employee-create-address-result-row-height) * 5 + var(--hr-input-filter-height) * 2);
   border-top: 1px solid var(--line-strong);
 }
 
@@ -6186,10 +6191,13 @@ li {
 
 .employee-create-address-dialog__results {
   display: grid;
+  grid-template-rows: repeat(5, minmax(0, var(--employee-create-address-result-row-height)));
+  min-height: calc(var(--employee-create-address-result-row-height) * 5);
 }
 
 .employee-create-address-dialog__result {
   width: 100%;
+  min-height: var(--employee-create-address-result-row-height);
   padding: var(--space-xs) var(--space-md);
   border: 0;
   border-radius: 0;
@@ -6221,7 +6229,7 @@ li {
 
 .employee-create-address-dialog__no-result {
   display: grid;
-  min-height: calc(var(--hr-input-filter-height) * 5);
+  min-height: calc(var(--employee-create-address-result-row-height) * 5);
   place-items: center;
   color: var(--text-muted);
   font-size: var(--font-size-sm);

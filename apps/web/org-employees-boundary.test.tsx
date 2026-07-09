@@ -116,7 +116,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("employee-create-address-dialog__pagination");
     expect(clientSource).toContain("handleAddressDialogKeyDown");
     expect(clientSource).toContain("event.key === \"Escape\"");
-    expect(clientSource).toContain("event.stopPropagation()");
+    expect(clientSource).not.toContain("aria-label=\"주소검색 팝업\" onClick");
+    expect(clientSource).not.toContain("event.stopPropagation()");
     expect(clientSource).toContain("주소검색 상세 주소");
     expect(clientSource).toContain("addressPostalCode");
     expect(clientSource).toContain("addressBase");
@@ -217,6 +218,11 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-address-dialog__search-row");
     expect(globalCss).toContain(".employee-create-address-dialog__pagination");
     expect(globalCss).toContain("background: rgb(166 170 178 / 84%);");
+    expect(globalCss).toContain("--employee-create-address-dialog-height: 720px;");
+    expect(globalCss).toContain("--employee-create-address-result-row-height: 56px;");
+    expect(globalCss).toContain("grid-template-rows: auto auto minmax(0, 1fr) auto;");
+    expect(globalCss).toContain("height: min(var(--employee-create-address-dialog-height), calc(100dvh - var(--space-2xl)));");
+    expect(globalCss).toContain("grid-template-rows: repeat(5, minmax(0, var(--employee-create-address-result-row-height)));");
     expect(globalCss).toContain(".employee-create-address-dialog__address-line input[aria-label=\"주소검색 상세 주소\"]:disabled");
     expect(globalCss).toContain(".employee-create-address-dialog__results");
     expect(globalCss).toContain(".employee-create-address-dialog__result");
