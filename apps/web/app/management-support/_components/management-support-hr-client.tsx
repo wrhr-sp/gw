@@ -469,6 +469,19 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if (!isAddressSearchOpen) return;
+
+    function handleAddressDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsAddressSearchOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleAddressDialogKeyDown);
+    return () => window.removeEventListener("keydown", handleAddressDialogKeyDown);
+  }, [isAddressSearchOpen]);
+
   const selected = useMemo(
     () => items.find((item) => item.userId === selectedUserId) ?? items[0] ?? null,
     [items, selectedUserId],
@@ -1527,8 +1540,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         ) : null}
 
         {isAddressSearchOpen ? (
-          <div className="employee-create-address-dialog" role="dialog" aria-modal="true" aria-label="주소검색 팝업">
-            <div className="employee-create-address-dialog__panel">
+          <div className="employee-create-address-dialog" role="dialog" aria-modal="true" aria-label="주소검색 팝업" onClick={() => setIsAddressSearchOpen(false)}>
+            <div className="employee-create-address-dialog__panel" onClick={(event) => event.stopPropagation()}>
               <div className="employee-create-address-dialog__header">
                 <h2>주소검색</h2>
               </div>
@@ -1573,7 +1586,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   {addressSearchResults.length > 0 ? (
                     <>
                       <div className="employee-create-address-dialog__results" role="list">
-                        {addressSearchResults.map((result) => (
+                        {addressSearchResults.slice(0, 5).map((result) => (
                           <button
                             aria-pressed={addressDialogDraft.addressPostalCode === result.postalCode && addressDialogDraft.addressBase === result.roadAddress}
                             className="employee-create-address-dialog__result"
