@@ -5943,10 +5943,6 @@ li {
   grid-template-columns: var(--employee-create-left-column-width) max-content;
 }
 
-.employee-create-field-row--two > label {
-  width: fit-content;
-}
-
 .employee-create-field-row--one {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -5996,6 +5992,50 @@ li {
   width: 100%;
   padding-left: var(--employee-create-section-offset);
   box-sizing: border-box;
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section [data-hr-input-size="short"] {
+  width: var(--hr-input-width-short);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section [data-hr-input-size="medium"] {
+  width: var(--hr-input-width-medium);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section [data-hr-input-size="long"] {
+  width: var(--hr-input-width-long);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section [data-hr-input-size="full"] {
+  width: var(--hr-input-width-full);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section input[data-hr-input-size="short"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+.feature-workspace--hr .feature-workspace__form .employee-create-section select[data-hr-input-size="short"],
+.feature-workspace--hr .feature-workspace__form .employee-create-section textarea[data-hr-input-size="short"] {
+  width: var(--hr-input-width-short);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section input[data-hr-input-size="medium"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+.feature-workspace--hr .feature-workspace__form .employee-create-section select[data-hr-input-size="medium"],
+.feature-workspace--hr .feature-workspace__form .employee-create-section textarea[data-hr-input-size="medium"] {
+  width: var(--hr-input-width-medium);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section input[data-hr-input-size="long"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+.feature-workspace--hr .feature-workspace__form .employee-create-section select[data-hr-input-size="long"],
+.feature-workspace--hr .feature-workspace__form .employee-create-section textarea[data-hr-input-size="long"] {
+  width: var(--hr-input-width-long);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section input[data-hr-input-size="full"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+.feature-workspace--hr .feature-workspace__form .employee-create-section select[data-hr-input-size="full"],
+.feature-workspace--hr .feature-workspace__form .employee-create-section textarea[data-hr-input-size="full"] {
+  width: var(--hr-input-width-full);
+}
+
+.employee-create-field-row--two > label {
+  min-width: var(--hr-input-width-medium);
 }
 
 .employee-create-address-field {
@@ -6294,7 +6334,7 @@ li {
   flex-wrap: wrap;
   gap: var(--space-xs);
   min-width: 0;
-  width: 100%;
+  width: var(--hr-input-width-medium);
 }
 
 .employee-create-inline-picker__item {
@@ -6334,11 +6374,20 @@ li {
   display: grid;
   grid-template-columns: minmax(0, var(--employee-create-login-input-width)) max-content;
   justify-content: space-between;
-  width: min(100%, var(--hr-input-width-medium));
+  width: var(--hr-input-width-medium);
 }
 
 .employee-create-email-field input[aria-label="사원 아이디"] {
-  width: 100%;
+  width: var(--employee-create-login-input-width);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-email-field input[aria-label="사원 아이디"][data-hr-input-size="medium"]:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]) {
+  width: var(--employee-create-login-input-width);
+}
+
+.employee-create-resident-field {
+  display: grid;
+  grid-template-columns: var(--hr-input-width-short) max-content var(--hr-input-width-short);
 }
 
 .employee-create-resident-field input[aria-label="주민등록번호 앞자리"],
@@ -6352,7 +6401,16 @@ li {
   width: fit-content;
 }
 
+.employee-create-sensitive-field:has(input[data-hr-input-size="short"]) {
+  width: var(--hr-input-width-short);
+}
+
+.employee-create-sensitive-field:has(input[data-hr-input-size="medium"]) {
+  width: var(--hr-input-width-medium);
+}
+
 .employee-create-sensitive-field input {
+  width: 100%;
   padding-right: 36px;
 }
 
@@ -6383,7 +6441,7 @@ li {
 }
 
 .employee-create-reference-field {
-  width: 100%;
+  width: var(--hr-input-width-medium);
 }
 
 .employee-create-reference-field__value {
