@@ -86,6 +86,13 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("maxLength={13}");
     expect(clientSource).toContain("formatDateInput");
     expect(clientSource).toContain("expandedYearMatch");
+    expect(clientSource).toContain("normalizeStrictDateInput");
+    expect(clientSource).toContain("isStrictDateInput");
+    expect(clientSource).toContain("strictDatePattern");
+    expect(clientSource).toContain("max=\"9999-12-31\"");
+    expect(clientSource).toContain("min=\"0001-01-01\"");
+    expect(clientSource).toContain("pattern=\"\\d{4}-\\d{2}-\\d{2}\"");
+    expect(clientSource).toContain("YYYY-MM-DD 형식의 연도 4자리 날짜");
     expect(clientSource).toContain("type=\"date\"");
     expect(clientSource).toContain("사원 외부이메일");
     expect(clientSource).toContain("contactPhone");
@@ -110,7 +117,7 @@ describe("org/employees/admin boundaries", () => {
     const createAddressIndex = clientSource.indexOf("주소*");
     const createHireIndex = clientSource.indexOf("입사일자*");
     const createContactIndex = clientSource.indexOf("연락처*");
-    const createRecognizedHireIndex = clientSource.indexOf("인정입사일자");
+    const createRecognizedHireIndex = clientSource.indexOf("인정입사일자", createContactIndex);
     const createEmploymentCategoryIndex = clientSource.indexOf("채용구분");
     expect(createNameIndex).toBeLessThan(createResidentIndex);
     expect(createResidentIndex).toBeLessThan(createAddressIndex);
@@ -128,7 +135,13 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("applyAddressSearchResult");
     expect(clientSource).toContain("appRoutes.admin.addressSearch");
     expect(clientSource).toContain("주소검색 결과 목록");
-    expect(clientSource).toContain("addressSearchResults.slice(0, 5).map");
+    expect(clientSource).toContain("addressSearchPageSize = 5");
+    expect(clientSource).toContain("addressSearchMaxResults = 40");
+    expect(clientSource).toContain("parsed.data.data.results.slice(0, addressSearchMaxResults)");
+    expect(clientSource).toContain("pagedAddressSearchResults.map");
+    expect(clientSource).toContain("addressSearchPageNumbers.map");
+    expect(clientSource).toContain("setAddressSearchPage(pageNumber)");
+    expect(clientSource).not.toContain("addressSearchResults.slice(0, 5).map");
     expect(clientSource).toContain("AddressDialogDraft");
     expect(clientSource).toContain("addressDialogDraft");
     expect(clientSource).toContain("openAddressSearchDialog");
