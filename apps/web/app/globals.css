@@ -5983,13 +5983,46 @@ li {
 
 .employee-create-address-field {
   display: grid;
-  grid-template-columns: auto minmax(0, var(--hr-input-width-short)) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-xs);
   width: 100%;
 }
 
 .employee-create-address-field input[aria-label="사원 상세주소"] {
   grid-column: 1 / -1;
+}
+
+.employee-create-address-field input[aria-label="사원 기본주소"] {
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.employee-create-address-field__search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: var(--hr-input-filter-height);
+  padding-inline: var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.employee-create-address-field__search:hover:not(:disabled),
+.employee-create-address-field__search:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.employee-create-address-field__search:disabled {
+  cursor: not-allowed;
+  opacity: var(--state-disabled-opacity);
 }
 
 .employee-create-address-dialog {
@@ -6012,6 +6045,29 @@ li {
   border-radius: var(--radius-lg);
   background: var(--surface-elevated);
   box-shadow: var(--shadow);
+}
+
+.employee-create-address-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg) 0;
+}
+
+.employee-create-address-dialog__header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 900;
+}
+
+.employee-create-address-dialog__header button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  cursor: pointer;
 }
 
 .employee-create-address-dialog__tabs {
@@ -6054,6 +6110,15 @@ li {
   font-size: var(--font-size-sm);
 }
 
+.employee-create-address-dialog__guide {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.employee-create-address-dialog__guide p {
+  margin: 0;
+}
+
 .employee-create-address-dialog__search {
   display: grid;
   gap: var(--space-xs);
@@ -6066,20 +6131,43 @@ li {
   align-items: center;
 }
 
+.employee-create-address-dialog__result-table {
+  display: grid;
+  min-height: calc(var(--hr-input-filter-height) * 5);
+  border-top: 1px solid var(--line-strong);
+}
+
+.employee-create-address-dialog__result-head,
+.employee-create-address-dialog__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(var(--hr-input-width-short), auto);
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.employee-create-address-dialog__result-head {
+  padding: var(--space-sm) var(--space-xs);
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.employee-create-address-dialog__result-head span:last-child,
+.employee-create-address-dialog__result em {
+  text-align: center;
+}
+
 .employee-create-address-dialog__results {
   display: grid;
-  gap: var(--space-xs);
 }
 
 .employee-create-address-dialog__result {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-sm);
-  align-items: center;
   width: 100%;
-  padding: var(--space-sm);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-xs);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
   background: var(--surface);
   color: var(--text);
   text-align: left;
@@ -6088,13 +6176,12 @@ li {
 
 .employee-create-address-dialog__result:hover,
 .employee-create-address-dialog__result:focus-visible {
-  border-color: var(--color-primary);
   background: var(--primary-soft);
 }
 
 .employee-create-address-dialog__result span {
   display: grid;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .employee-create-address-dialog__result small {
@@ -6104,6 +6191,21 @@ li {
 .employee-create-address-dialog__result em {
   font-style: normal;
   color: var(--text-muted);
+}
+
+.employee-create-address-dialog__no-result {
+  display: grid;
+  min-height: calc(var(--hr-input-filter-height) * 4);
+  place-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.employee-create-address-dialog__address-line {
+  display: grid;
+  grid-template-columns: var(--hr-input-width-short) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: center;
 }
 
 .employee-create-inline-picker {

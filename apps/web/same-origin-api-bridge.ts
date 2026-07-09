@@ -125,6 +125,9 @@ async function buildApiBindings(request: Request) {
   return {
     ...resolveDatabaseBindingsForRequest(request, cloudflareEnv),
     FILES_BUCKET: cloudflareEnv.FILES_BUCKET,
+    ADDRESS_SEARCH_API_KEY: cloudflareEnv.ADDRESS_SEARCH_API_KEY ?? process.env.ADDRESS_SEARCH_API_KEY,
+    JUSO_API_KEY: cloudflareEnv.JUSO_API_KEY ?? process.env.JUSO_API_KEY,
+    ADDRESS_SEARCH_API_URL: cloudflareEnv.ADDRESS_SEARCH_API_URL ?? process.env.ADDRESS_SEARCH_API_URL,
   };
 }
 
