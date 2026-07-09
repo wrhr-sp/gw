@@ -240,6 +240,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-profile-card");
     expect(globalCss).toContain(".employee-create-field-row--two");
     expect(globalCss).toContain("grid-template-columns: var(--employee-create-left-column-width) max-content;");
+    expect(globalCss).toContain("column-gap: var(--employee-create-two-column-gap);");
+    expect(globalCss).toContain(".employee-create-field-row--two > label");
+    expect(globalCss).toContain("width: fit-content;");
     expect(globalCss).toContain(".employee-create-field-row--one");
     expect(globalCss).toContain(".employee-create-tabs");
     expect(globalCss).toContain(".employee-create-tabs__button");
@@ -263,6 +266,7 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("padding-left: var(--employee-create-section-offset);");
     expect(globalCss).toContain("--employee-create-address-input-width: 260px;");
     expect(globalCss).toContain("--employee-create-left-column-width: var(--hr-input-width-medium);");
+    expect(globalCss).toContain("--employee-create-two-column-gap: calc(var(--space-md) * 3);");
     expect(globalCss).toContain("grid-template-columns: auto minmax(0, var(--employee-create-address-input-width)) minmax(0, var(--employee-create-address-input-width));");
     expect(globalCss).toContain("justify-content: start;");
     expect(globalCss).toContain(".employee-create-email-field input[aria-label=\"사원 아이디\"]");
@@ -279,6 +283,8 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-email-field");
     expect(globalCss).toContain(".employee-create-resident-field");
     expect(globalCss).toContain(".employee-create-resident-field input[aria-label=\"주민등록번호 앞자리\"]");
+    expect(globalCss).toContain(".employee-create-resident-field .employee-create-sensitive-field input[aria-label=\"주민등록번호 뒷자리\"]");
+    expect(globalCss).toContain("width: var(--hr-input-width-short);");
     expect(globalCss).toContain(".employee-create-sensitive-field");
     expect(globalCss).toContain(".employee-create-sensitive-field__toggle");
     expect(globalCss).toContain(".employee-detail-panel__title");

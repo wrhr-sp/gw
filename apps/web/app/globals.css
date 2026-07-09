@@ -5934,12 +5934,17 @@ li {
 
 .employee-create-field-row {
   display: grid;
-  gap: var(--space-md);
+  column-gap: var(--employee-create-two-column-gap);
+  row-gap: var(--space-md);
   align-items: start;
 }
 
 .employee-create-field-row--two {
   grid-template-columns: var(--employee-create-left-column-width) max-content;
+}
+
+.employee-create-field-row--two > label {
+  width: fit-content;
 }
 
 .employee-create-field-row--one {
@@ -5954,6 +5959,7 @@ li {
   --employee-create-login-input-width: 140px;
   --employee-create-address-input-width: 260px;
   --employee-create-left-column-width: var(--hr-input-width-medium);
+  --employee-create-two-column-gap: calc(var(--space-md) * 3);
 }
 
 .employee-create-tabs {
@@ -6335,8 +6341,10 @@ li {
   width: 100%;
 }
 
-.employee-create-resident-field input[aria-label="주민등록번호 앞자리"] {
-  width: min(100%, var(--hr-input-width-short));
+.employee-create-resident-field input[aria-label="주민등록번호 앞자리"],
+.employee-create-resident-field .employee-create-sensitive-field,
+.employee-create-resident-field .employee-create-sensitive-field input[aria-label="주민등록번호 뒷자리"] {
+  width: var(--hr-input-width-short);
 }
 
 .employee-create-sensitive-field {
