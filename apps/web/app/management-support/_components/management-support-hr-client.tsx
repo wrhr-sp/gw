@@ -111,6 +111,8 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   confirmPassword: string;
   residentRegistrationFront: string;
   residentRegistrationBack: string;
+  contactPhone: string;
+  externalEmail: string;
   addressPostalCode: string;
   addressBase: string;
   addressDetail: string;
@@ -136,6 +138,8 @@ const emptyCreateForm: EmployeeCreatePanelForm = {
   confirmPassword: "",
   residentRegistrationFront: "",
   residentRegistrationBack: "",
+  contactPhone: "",
+  externalEmail: "",
   addressPostalCode: "",
   addressBase: "",
   addressDetail: "",
@@ -522,6 +526,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     event.preventDefault();
 
     const emailLocalPart = createForm.loginLocalPart.trim().toLowerCase();
+    const externalEmail = createForm.externalEmail.trim().toLowerCase();
+    const residentRegistrationNumberReady = createForm.residentRegistrationFront.length === 6 && createForm.residentRegistrationBack.length === 7;
+    const requiredMissing = [
+      createForm.fullName.trim(),
+      residentRegistrationNumberReady ? "resident-ready" : "",
+      createForm.contactPhone.trim(),
+      createForm.addressPostalCode.trim(),
+      createForm.addressBase.trim(),
+      createForm.hireDate.trim(),
+      emailLocalPart,
+      createForm.initialPassword,
+      createForm.confirmPassword,
+    ].some((value) => !value);
+
+    if (requiredMissing) {
+      setCreateSaveState("error");
+      setCreateSaveMessage("필수 입력값을 확인해 주세요. 이름, 주민등록번호, 연락처, 주소, 입사일자, 아이디, 비밀번호, 비밀번호 재입력은 반드시 입력해야 합니다.");
+      return;
+    }
+
     if (createForm.initialPassword !== createForm.confirmPassword) {
       setCreateSaveState("error");
       setCreateSaveMessage("비밀번호와 비밀번호 재입력이 일치하지 않습니다.");
@@ -530,7 +554,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
     const createRequest: AdminUserCreateRequest = {
       fullName: createForm.fullName,
-      email: `${emailLocalPart}@${WEREHERE_EMAIL_DOMAIN}`,
+      email: externalEmail || `${emailLocalPart}@${WEREHERE_EMAIL_DOMAIN}`,
       loginLocalPart: emailLocalPart,
       initialPassword: createForm.initialPassword,
       hireDate: createForm.hireDate || undefined,
@@ -554,7 +578,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     const parsedRequest = adminUserCreateRequestSchema.safeParse(createRequest);
     if (!parsedRequest.success) {
       setCreateSaveState("error");
-      setCreateSaveMessage("이름, 아이디, 비밀번호, 입사일자, 그룹, 부서, 직책, 직위, 직급, 계정상태를 확인해 주세요.");
+      setCreateSaveMessage("필수 입력값과 계정정보를 확인해 주세요.");
       return;
     }
 
@@ -1112,26 +1136,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
                 {activeCreatePanelTab === "basic" ? (
                   <section className="employee-create-section" aria-label="사원 생성 기본정보">
-                    <div className="employee-create-profile-card">
-                      <div className="employee-create-profile-card__avatar" aria-hidden="true">
-                        {createForm.profileImageName ? "✓" : "사진"}
-                      </div>
-                      <label className="employee-create-profile-card__control">
-                        <span>프로필사진 설정</span>
-                        <input
-                          aria-label="사원 프로필사진 설정"
-                          data-hr-input-size="full"
-                          disabled={createSaveState === "saving"}
-                          onChange={(event) => setCreateForm((current) => ({ ...current, profileImageName: event.target.files?.[0]?.name ?? "" }))}
-                          type="file"
-                          accept="image/*"
-                        />
-                      </label>
-                    </div>
-
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
-                        <span>이름</span>
+                        <span>이름*</span>
                         <input
                           aria-label="사원 이름"
                           data-hr-input-size="medium"
@@ -1143,7 +1150,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                         />
                       </label>
                       <label>
-                        <span>주민등록번호</span>
+                        <span>주민등록번호*</span>
                         <span className="employee-create-resident-field">
                           <input
                             aria-label="주민등록번호 앞자리"
@@ -1151,7 +1158,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                             disabled={createSaveState === "saving"}
                             inputMode="numeric"
                             maxLength={6}
+                            minLength={6}
                             onChange={(event) => setCreateForm((current) => ({ ...current, residentRegistrationFront: event.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                            required
                             value={createForm.residentRegistrationFront}
                           />
                           <span aria-hidden="true">-</span>
@@ -1162,7 +1171,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                               disabled={createSaveState === "saving"}
                               inputMode="numeric"
                               maxLength={7}
+                              minLength={7}
                               onChange={(event) => setCreateForm((current) => ({ ...current, residentRegistrationBack: event.target.value.replace(/\D/g, "").slice(0, 7) }))}
+                              required
                               type={showResidentBack ? "text" : "password"}
                               value={createForm.residentRegistrationBack}
                             />
@@ -1180,9 +1191,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                       </label>
                     </div>
 
-                    <div className="employee-create-field-row">
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
-                        <span>주소</span>
+                        <span>연락처*</span>
+                        <input
+                          aria-label="사원 연락처"
+                          data-hr-input-size="medium"
+                          disabled={createSaveState === "saving"}
+                          inputMode="tel"
+                          onChange={(event) => setCreateForm((current) => ({ ...current, contactPhone: event.target.value }))}
+                          required
+                          value={createForm.contactPhone}
+                        />
+                      </label>
+                      <label>
+                        <span>주소*</span>
                         <span className="employee-create-address-field">
                           <button
                             className="employee-create-address-field__search"
@@ -1197,7 +1220,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                             aria-label="사원 기본주소"
                             data-hr-input-size="full"
                             readOnly
-                            onChange={(event) => setCreateForm((current) => ({ ...current, addressBase: event.target.value }))}
+                            required
                             value={createForm.addressBase}
                           />
                           <input
@@ -1213,12 +1236,13 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
-                        <span>입사일자</span>
+                        <span>입사일자*</span>
                         <input
                           aria-label="사원 입사일자"
                           data-hr-input-size="short"
                           disabled={createSaveState === "saving"}
                           onChange={(event) => setCreateForm((current) => ({ ...current, hireDate: event.target.value }))}
+                          required
                           type="date"
                           value={createForm.hireDate}
                         />
@@ -1257,7 +1281,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <section className="employee-create-section" aria-label="사원 생성 계정정보">
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
-                        <span>아이디</span>
+                        <span>아이디*</span>
                         <span className="employee-create-email-field">
                           <input
                             aria-label="사원 아이디"
@@ -1284,7 +1308,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
-                        <span>비밀번호</span>
+                        <span>비밀번호*</span>
                         <span className="employee-create-sensitive-field">
                           <input
                             aria-label="사원 비밀번호"
@@ -1308,7 +1332,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                         </span>
                       </label>
                       <label>
-                        <span>비밀번호 재입력</span>
+                        <span>비밀번호 재입력*</span>
                         <span className="employee-create-sensitive-field">
                           <input
                             aria-label="사원 비밀번호 재입력"
@@ -1334,6 +1358,17 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     </div>
 
                     <div className="employee-create-field-row employee-create-field-row--two">
+                      <label>
+                        <span>외부이메일</span>
+                        <input
+                          aria-label="사원 외부이메일"
+                          data-hr-input-size="medium"
+                          disabled={createSaveState === "saving"}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, externalEmail: event.target.value }))}
+                          type="email"
+                          value={createForm.externalEmail}
+                        />
+                      </label>
                       <label>
                         <span>계정상태</span>
                         <select
@@ -1368,9 +1403,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {branchOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>부서</span>
                         <select
@@ -1384,6 +1416,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {departmentOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직급</span>
                         <select
@@ -1397,9 +1432,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobGradeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직위</span>
                         <select
@@ -1413,6 +1445,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobPositionOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직책</span>
                         <select
@@ -1426,9 +1461,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobTitleOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row">
                       <label>
                         <span>사용자그룹</span>
                         <span className="employee-create-inline-picker" aria-label="사원 사용자그룹 선택값">
@@ -1536,7 +1568,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <input
                     aria-label="주소검색 기본 주소"
                     data-hr-input-size="full"
-                    onChange={(event) => setCreateForm((current) => ({ ...current, addressBase: event.target.value }))}
+                    readOnly
                     value={createForm.addressBase}
                   />
                 </label>
