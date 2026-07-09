@@ -130,6 +130,12 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   profileImageName: string;
 };
 
+type AddressDialogDraft = {
+  addressPostalCode: string;
+  addressBase: string;
+  addressDetail: string;
+};
+
 const emptyCreateForm: EmployeeCreatePanelForm = {
   fullName: "",
   email: "",
@@ -363,6 +369,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [createForm, setCreateForm] = useState<EmployeeCreatePanelForm>(emptyCreateForm);
   const [activeCreatePanelTab, setActiveCreatePanelTab] = useState<EmployeeCreatePanelTab>("basic");
   const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
+  const [addressDialogDraft, setAddressDialogDraft] = useState<AddressDialogDraft>({ addressPostalCode: "", addressBase: "", addressDetail: "" });
   const [addressSearchState, setAddressSearchState] = useState<"idle" | "searching" | "loaded" | "error">("idle");
   const [addressSearchResults, setAddressSearchResults] = useState<AddressSearchResult[]>([]);
   const [addressSearchMessage, setAddressSearchMessage] = useState<string | null>(null);
@@ -534,6 +541,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       createForm.contactPhone.trim(),
       createForm.addressPostalCode.trim(),
       createForm.addressBase.trim(),
+      createForm.addressDetail.trim(),
       createForm.hireDate.trim(),
       emailLocalPart,
       createForm.initialPassword,
@@ -542,7 +550,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
     if (requiredMissing) {
       setCreateSaveState("error");
-      setCreateSaveMessage("필수 입력값을 확인해 주세요. 이름, 주민등록번호, 연락처, 주소, 입사일자, 아이디, 비밀번호, 비밀번호 재입력은 반드시 입력해야 합니다.");
+      setCreateSaveMessage("필수 입력값을 확인해 주세요. 이름, 주민등록번호, 연락처, 주소, 상세주소, 입사일자, 아이디, 비밀번호, 비밀번호 재입력은 반드시 입력해야 합니다.");
       return;
     }
 
@@ -1003,13 +1011,32 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     setAddressSearchMessage(parsed.data.data.results.length ? null : "검색된 결과가 없습니다.");
   }
 
+  function openAddressSearchDialog() {
+    setAddressDialogDraft({
+      addressPostalCode: createForm.addressPostalCode,
+      addressBase: createForm.addressBase,
+      addressDetail: createForm.addressDetail,
+    });
+    setIsAddressSearchOpen(true);
+  }
+
   function applyAddressSearchResult(result: AddressSearchResult) {
-    setCreateForm((current) => ({
+    setAddressDialogDraft((current) => ({
       ...current,
       addressPostalCode: result.postalCode,
       addressBase: result.roadAddress,
     }));
-    setAddressSearchMessage("선택한 기본 주소가 입력되었습니다. 상세 주소를 입력한 뒤 주소입력을 눌러주세요.");
+    setAddressSearchMessage(null);
+  }
+
+  function commitAddressDialogDraft() {
+    setCreateForm((current) => ({
+      ...current,
+      addressPostalCode: addressDialogDraft.addressPostalCode,
+      addressBase: addressDialogDraft.addressBase,
+      addressDetail: addressDialogDraft.addressDetail,
+    }));
+    setIsAddressSearchOpen(false);
   }
 
   const referencePickerLabels: Record<EmployeeCreateMasterKind, string> = {
@@ -1207,15 +1234,17 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                       <label>
                         <span>주소*</span>
                         <span className="employee-create-address-field">
-                          <button
-                            className="employee-create-address-field__search"
-                            disabled={createSaveState === "saving"}
-                            onClick={() => setIsAddressSearchOpen(true)}
-                            type="button"
-                          >
-                            <span aria-hidden="true">⌕</span>
-                            <span>{createForm.addressPostalCode || "우편번호 검색"}</span>
-                          </button>
+                          <span className="employee-create-address-field__search-control">
+                            <button
+                              className="employee-create-address-field__search"
+                              disabled={createSaveState === "saving"}
+                              onClick={openAddressSearchDialog}
+                              type="button"
+                            >
+                              <span aria-hidden="true">⌕</span>
+                              <span>{createForm.addressPostalCode || "우편번호 검색"}</span>
+                            </button>
+                          </span>
                           <input
                             aria-label="사원 기본주소"
                             data-hr-input-size="full"
@@ -1226,8 +1255,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           <input
                             aria-label="사원 상세주소"
                             data-hr-input-size="full"
-                            disabled={createSaveState === "saving"}
-                            onChange={(event) => setCreateForm((current) => ({ ...current, addressDetail: event.target.value }))}
+                            readOnly
                             value={createForm.addressDetail}
                           />
                         </span>
@@ -1503,7 +1531,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
             <div className="employee-create-address-dialog__panel">
               <div className="employee-create-address-dialog__header">
                 <h2>주소검색</h2>
-                <button aria-label="주소검색 팝업 닫기" onClick={() => setIsAddressSearchOpen(false)} type="button">×</button>
               </div>
               <div className="employee-create-address-dialog__tabs" aria-label="주소검색 방식">
                 <button aria-selected="true" type="button">도로명주소</button>
@@ -1512,9 +1539,10 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               <div className="employee-create-address-dialog__body">
                 <div className="employee-create-address-dialog__guide">
                   <p>찾으시려는 도로명주소+건물번호/건물명 혹은 지번주소+번지수/건물명을 입력해주세요.</p>
-                  <p>예) 도로명 : 온천북로 43번길 / 지번 : 장대동 178-1, 대처동 현대아파트</p>
+                  <p>예) 도로명 : 봉천로 432번길 / 지번 : 장대동 178-1, 대처동 현대아파트</p>
                   <p>* 단, 도로명 혹은 동(읍/면/리)만 검색하시는 경우 정확한 검색결과가 나오지 않을 수 있습니다.</p>
                   <span className="employee-create-address-dialog__search-row">
+                    <span aria-hidden="true">⌕</span>
                     <input
                       aria-label="주소 검색어"
                       data-hr-input-size="full"
@@ -1527,13 +1555,13 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                       }}
                       value={createForm.addressSearchKeyword}
                     />
-                    <StandardButton disabled={addressSearchState === "searching"} intent="primary" onClick={handleAddressSearch} type="button">
-                      {addressSearchState === "searching" ? "검색 중" : "검색"}
-                    </StandardButton>
+                    <button aria-label="주소 검색 실행" disabled={addressSearchState === "searching"} onClick={handleAddressSearch} type="button">
+                      검색
+                    </button>
                   </span>
                 </div>
-                {addressSearchMessage ? (
-                  <div className="employee-create-address-dialog__empty" role={addressSearchState === "error" ? "alert" : "status"}>
+                {addressSearchMessage && addressSearchState === "error" ? (
+                  <div className="employee-create-address-dialog__empty" role="alert">
                     {addressSearchMessage}
                   </div>
                 ) : null}
@@ -1543,22 +1571,32 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     <span>우편번호</span>
                   </div>
                   {addressSearchResults.length > 0 ? (
-                  <div className="employee-create-address-dialog__results" role="list">
-                    {addressSearchResults.map((result) => (
-                      <button
-                        className="employee-create-address-dialog__result"
-                        key={result.id}
-                        onClick={() => applyAddressSearchResult(result)}
-                        type="button"
-                      >
-                        <span>
-                          <strong>{result.roadAddress}</strong>
-                          {result.jibunAddress ? <small>{result.jibunAddress}</small> : null}
-                        </span>
-                        <em>{result.postalCode}</em>
-                      </button>
-                    ))}
-                  </div>
+                    <>
+                      <div className="employee-create-address-dialog__results" role="list">
+                        {addressSearchResults.map((result) => (
+                          <button
+                            aria-pressed={addressDialogDraft.addressPostalCode === result.postalCode && addressDialogDraft.addressBase === result.roadAddress}
+                            className="employee-create-address-dialog__result"
+                            key={result.id}
+                            onClick={() => applyAddressSearchResult(result)}
+                            type="button"
+                          >
+                            <span>
+                              <strong>{result.roadAddress}</strong>
+                              {result.jibunAddress ? <small>{result.jibunAddress}</small> : null}
+                            </span>
+                            <em>{result.postalCode}</em>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="employee-create-address-dialog__pagination" aria-label="주소검색 결과 페이지">
+                        <button disabled type="button">«</button>
+                        <button disabled type="button">‹</button>
+                        <button aria-current="page" type="button">1</button>
+                        <button disabled type="button">›</button>
+                        <button disabled type="button">»</button>
+                      </div>
+                    </>
                   ) : (
                     <div className="employee-create-address-dialog__no-result" role="status">검색된 결과가 없습니다.</div>
                   )}
@@ -1569,7 +1607,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     aria-label="주소검색 기본 주소"
                     data-hr-input-size="full"
                     readOnly
-                    value={createForm.addressBase}
+                    value={addressDialogDraft.addressBase || "-"}
                   />
                 </label>
                 <label className="employee-create-address-dialog__address-line">
@@ -1577,14 +1615,15 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <input
                     aria-label="주소검색 상세 주소"
                     data-hr-input-size="full"
-                    onChange={(event) => setCreateForm((current) => ({ ...current, addressDetail: event.target.value }))}
-                    value={createForm.addressDetail}
+                    disabled={!addressDialogDraft.addressBase.trim()}
+                    onChange={(event) => setAddressDialogDraft((current) => ({ ...current, addressDetail: event.target.value }))}
+                    value={addressDialogDraft.addressDetail}
                   />
                 </label>
               </div>
               <ActionButtonGroup label="주소 입력 작업">
                 <StandardButton intent="ghost" onClick={() => setIsAddressSearchOpen(false)} type="button">취소</StandardButton>
-                <StandardButton disabled={!createForm.addressBase.trim()} intent="primary" onClick={() => setIsAddressSearchOpen(false)} type="button">주소입력</StandardButton>
+                <StandardButton disabled={!addressDialogDraft.addressBase.trim() || !addressDialogDraft.addressDetail.trim()} intent="primary" onClick={commitAddressDialogDraft} type="button">주소입력</StandardButton>
               </ActionButtonGroup>
             </div>
           </div>

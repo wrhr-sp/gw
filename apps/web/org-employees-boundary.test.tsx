@@ -107,6 +107,14 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("appRoutes.admin.addressSearch");
     expect(clientSource).toContain("주소검색 결과 목록");
     expect(clientSource).toContain("addressSearchResults.map");
+    expect(clientSource).toContain("AddressDialogDraft");
+    expect(clientSource).toContain("addressDialogDraft");
+    expect(clientSource).toContain("openAddressSearchDialog");
+    expect(clientSource).toContain("commitAddressDialogDraft");
+    expect(clientSource).toContain("employee-create-address-field__search-control");
+    expect(clientSource).toContain("aria-label=\"주소 검색 실행\"");
+    expect(clientSource).toContain("employee-create-address-dialog__pagination");
+    expect(clientSource).toContain("주소검색 상세 주소");
     expect(clientSource).toContain("addressPostalCode");
     expect(clientSource).toContain("addressBase");
     expect(clientSource).toContain("addressDetail");
@@ -202,6 +210,10 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-address-field");
     expect(globalCss).toContain(".employee-create-address-dialog");
     expect(globalCss).toContain(".employee-create-address-dialog__tabs");
+    expect(globalCss).toContain(".employee-create-address-field__search-control");
+    expect(globalCss).toContain(".employee-create-address-dialog__search-row");
+    expect(globalCss).toContain(".employee-create-address-dialog__pagination");
+    expect(globalCss).toContain(".employee-create-address-dialog__address-line input[aria-label=\"주소검색 상세 주소\"]:disabled");
     expect(globalCss).toContain(".employee-create-address-dialog__results");
     expect(globalCss).toContain(".employee-create-address-dialog__result");
     expect(globalCss).toContain(".employee-create-inline-picker");
