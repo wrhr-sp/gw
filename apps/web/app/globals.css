@@ -6045,7 +6045,7 @@ li {
   display: grid;
   place-items: center;
   padding: var(--space-xl);
-  background: rgb(15 23 42 / 38%);
+  background: rgb(166 170 178 / 84%);
 }
 
 .employee-create-address-dialog__panel {
@@ -6057,7 +6057,7 @@ li {
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
-  background: var(--surface-elevated);
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 
