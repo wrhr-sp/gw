@@ -85,7 +85,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("formatPhoneNumberInput");
     expect(clientSource).toContain("maxLength={13}");
     expect(clientSource).toContain("formatDateInput");
-    expect(clientSource).toContain("maxLength={10}");
+    expect(clientSource).toContain("expandedYearMatch");
+    expect(clientSource).toContain("type=\"date\"");
     expect(clientSource).toContain("사원 외부이메일");
     expect(clientSource).toContain("contactPhone");
     expect(clientSource).toContain("externalEmail");
@@ -127,7 +128,7 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("applyAddressSearchResult");
     expect(clientSource).toContain("appRoutes.admin.addressSearch");
     expect(clientSource).toContain("주소검색 결과 목록");
-    expect(clientSource).toContain("addressSearchResults.slice(0, 10).map");
+    expect(clientSource).toContain("addressSearchResults.slice(0, 5).map");
     expect(clientSource).toContain("AddressDialogDraft");
     expect(clientSource).toContain("addressDialogDraft");
     expect(clientSource).toContain("openAddressSearchDialog");
@@ -263,6 +264,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("grid-template-columns: auto minmax(0, var(--employee-create-address-input-width)) minmax(0, var(--employee-create-address-input-width));");
     expect(globalCss).toContain("justify-content: start;");
     expect(globalCss).toContain(".employee-create-email-field input[aria-label=\"사원 아이디\"]");
+    expect(globalCss).toContain("grid-template-columns: minmax(0, var(--employee-create-login-input-width)) max-content;");
+    expect(globalCss).toContain("justify-content: space-between;");
+    expect(globalCss).toContain("width: min(100%, var(--hr-input-width-medium));");
     expect(globalCss).toContain(".employee-create-address-dialog__address-line input[aria-label=\"주소검색 상세 주소\"]:disabled");
     expect(globalCss).toContain(".employee-create-address-dialog__results");
     expect(globalCss).toContain(".employee-create-address-dialog__result");

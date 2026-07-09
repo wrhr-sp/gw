@@ -6323,8 +6323,15 @@ li {
   white-space: nowrap;
 }
 
+.employee-create-email-field {
+  display: grid;
+  grid-template-columns: minmax(0, var(--employee-create-login-input-width)) max-content;
+  justify-content: space-between;
+  width: min(100%, var(--hr-input-width-medium));
+}
+
 .employee-create-email-field input[aria-label="사원 아이디"] {
-  width: min(100%, var(--employee-create-login-input-width));
+  width: 100%;
 }
 
 .employee-create-sensitive-field {
