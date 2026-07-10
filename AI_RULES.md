@@ -16,6 +16,8 @@
 - 액션 버튼 툴바는 부모 컨테이너 안에서 `display: flex`, `align-items: center`, `gap: 8px` 구조를 따른다.
 - 콘텐츠 박스, 필터, 폼, 리스트, 버튼 묶음은 8px 단위 격자를 우선하며 기본 간격은 8px, 16px, 24px를 사용한다. `7px`, `13px` 같은 의미 없는 임의 픽셀값은 새 코드에서 금지한다.
 - 좌우 스플릿 뷰는 Grid/Flex 기반으로 만들고, `min-width: 0`, `width: 100%`, 고정 높이/overflow 체인을 확인해 브라우저 크기 변화에도 깨지지 않게 한다.
+- 우측 상세패널은 사원생성패널 기준을 공통 기준으로 삼아, `position: fixed`, `top: var(--employee-detail-panel-top)`, `height: calc(100dvh - top)` 구조로 상단바 바로 밑에서 시작하고 패널 내부 본문만 스크롤한다.
+- 상단바 버튼에서 열리는 팝업/모달/포털 메뉴는 우측 상세패널·일반 모달보다 높은 전용 z-index 토큰을 사용해 항상 최상단에 표시한다.
 - `werehere.co.kr` 메일 화면 리팩토링은 `docs/ux/werehere-mail-layout-security-refactor-backlog.md`를 기준으로 진행하며, 상단 검색 필터·중앙 일괄 처리 바·우측 메일 상세창 툴바는 설치된 UI 라이브러리의 Flex/Grid 공식 패턴 또는 공통 래퍼로 수평 기준선을 맞춘다.
 - 프론트엔드에는 SMTP host/user/password/token, 외부 API key/secret, provider access/refresh token, DNS 인증 private key, `.env`/`.secrets` 내용이 포함되면 안 된다.
 - 프론트엔드는 메일 작성 데이터와 UI 렌더링만 담당하고, SMTP/API provider 설정과 인증정보는 백엔드 서버 내부 환경 변수 또는 승인된 secret store에서만 읽는다.

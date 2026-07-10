@@ -37,8 +37,12 @@ describe("werehere frontend UI standard", () => {
     expect(standard).toContain("React Hook Form");
     expect(standard).toContain("Tremor");
     expect(standard).toContain("프론트엔드에서는 ZITADEL API를 직접 호출하지 않는다");
+    expect(standard).toContain("우측 상세패널은 사원생성패널을 공통 기준으로 삼는다");
+    expect(standard).toContain("상단바 버튼에서 열리는 프로필 팝업, 포털 전환 팝업, 통합설정/공지/알림 모달");
     expect(agents).toContain("docs/ux/werehere-frontend-ui-standard.md");
+    expect(agents).toContain("우측 상세패널은 사원생성패널 기준");
     expect(aiRules).toContain("docs/ux/werehere-frontend-ui-standard.md");
+    expect(aiRules).toContain("상단바 버튼에서 열리는 팝업/모달/포털 메뉴");
     expect(backlog).toContain("계정관리 화면을 기준 샘플로 먼저 완성");
   });
 

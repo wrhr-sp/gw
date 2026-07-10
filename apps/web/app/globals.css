@@ -45,9 +45,11 @@
   --z-popover: 40;
   --z-tooltip: 60;
   --z-desktop-topbar: 70;
+  --z-detail-panel: 65;
   --z-modal: 80;
   --z-modal-priority: 90;
   --z-toast: 95;
+  --z-topbar-popup: 100;
   --z-refresh-overlay: 9999;
   --layer-overlay-bg: rgba(15, 23, 42, 0.32);
   --layer-surface-bg: rgba(255, 255, 255, 0.96);
@@ -2481,7 +2483,7 @@ li {
   position: absolute;
   top: var(--topbar-profile-popover-top);
   right: 0;
-  z-index: var(--z-popover);
+  z-index: var(--z-topbar-popup);
   width: var(--topbar-profile-popover-width);
   border: var(--topbar-profile-popover-border);
   border-radius: var(--layer-radius-popover);
@@ -2755,7 +2757,7 @@ li {
   position: absolute;
   top: var(--department-portal-popover-top);
   right: 0;
-  z-index: var(--z-popover);
+  z-index: var(--z-topbar-popup);
   display: grid;
   width: var(--department-portal-popover-width);
   gap: var(--department-portal-popover-gap);
@@ -3416,7 +3418,7 @@ li {
 .topbar-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  z-index: var(--z-topbar-popup);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -6576,7 +6578,7 @@ li {
   top: var(--employee-detail-panel-top);
   right: 0;
   bottom: 0;
-  z-index: var(--z-modal);
+  z-index: var(--z-detail-panel);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   width: var(--employee-detail-panel-width);
