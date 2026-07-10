@@ -159,8 +159,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("addressDetail");
     expect(clientSource).toContain("loginLocalPart");
     expect(clientSource).toContain("WEREHERE_EMAIL_DOMAIN");
-    expect(clientSource).toContain("appRoutes.admin.employeeReferenceMasters");
-    expect(clientSource).toContain("adminUserReferenceMastersResponseSchema");
+    expect(clientSource).toContain("appRoutes.admin.organizationInfo");
+    expect(clientSource).toContain("employeeOrganizationMastersResponseSchema");
     expect(clientSource).toContain("employee-create-reference-picker");
     expect(clientSource).toContain("data-selection-mode=\"multiple\"");
     expect(clientSource).toContain("departmentDutyIds");
