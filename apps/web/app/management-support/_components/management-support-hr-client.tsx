@@ -21,7 +21,7 @@ import {
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
-  adminUserReferenceMastersResponseSchema,
+  employeeOrganizationMastersResponseSchema,
   departmentDutiesResponseSchema,
   addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
@@ -483,7 +483,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     const controller = new AbortController();
     setReferenceMasterLoadState("loading");
 
-    void fetch(appRoutes.admin.employeeReferenceMasters, {
+    void fetch(appRoutes.admin.organizationInfo, {
       cache: "no-store",
       credentials: "same-origin",
       signal: controller.signal,
@@ -491,15 +491,15 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       .then(async (response) => {
         const payload = await response.json().catch(() => null);
         if (!response.ok) throw new Error(buildErrorMessage(response.status, payload));
-        const parsed = adminUserReferenceMastersResponseSchema.safeParse(payload);
-        if (!parsed.success) throw new Error("사원 기준정보 마스터를 불러오지 못했습니다.");
+        const parsed = employeeOrganizationMastersResponseSchema.safeParse(payload);
+        if (!parsed.success) throw new Error("조직정보 기준값을 불러오지 못했습니다.");
         setReferenceMasters({
-          groups: parsed.data.data.groups,
-          branches: parsed.data.data.branches,
-          departments: parsed.data.data.departments,
-          jobTitles: parsed.data.data.jobTitles,
-          jobPositions: parsed.data.data.jobPositions,
-          jobGrades: parsed.data.data.jobGrades,
+          groups: parsed.data.data.groups.filter((item) => item.isActive),
+          branches: parsed.data.data.branches.filter((item) => item.isActive),
+          departments: parsed.data.data.departments.filter((item) => item.isActive),
+          jobTitles: parsed.data.data.jobTitles.filter((item) => item.isActive),
+          jobPositions: parsed.data.data.jobPositions.filter((item) => item.isActive),
+          jobGrades: parsed.data.data.jobGrades.filter((item) => item.isActive),
         });
         setReferenceMasterLoadState("loaded");
       })
