@@ -46,9 +46,10 @@ describe("Phase 55 admin account/rbac live usage", () => {
   });
 
   it("shows only the routes each admin viewer is allowed to open from the hub cards", () => {
-    expect(getAdminPageCardsForRole("HR_ADMIN").map((card) => card.href)).toEqual(["/admin/policies"]);
+    expect(getAdminPageCardsForRole("HR_ADMIN").map((card) => card.href)).toEqual(["/admin/employee-organization-masters", "/admin/policies"]);
     expect(getAdminPageCardsForRole("AUDITOR").map((card) => card.href)).toEqual(["/admin/audit-logs"]);
     expect(getAdminPageCardsForRole("COMPANY_ADMIN").map((card) => card.href)).toEqual([
+      "/admin/employee-organization-masters",
       "/admin/policies",
       "/admin/audit-logs",
     ]);

@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
@@ -507,6 +507,223 @@ export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | 
   }
 }
 
+
+function mapOrganizationMasterRows(kind: EmployeeOrganizationMasterKind, rows: unknown[]): EmployeeOrganizationMaster[] {
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      sort_order: unknown;
+      parent_id: string | null;
+      branch_id: string | null;
+      is_active: unknown;
+      linked_employee_count: unknown;
+      updated_at: unknown;
+    };
+    return {
+      kind,
+      id: typed.id,
+      code: typed.code,
+      name: typed.name,
+      description: typed.description ?? null,
+      sortOrder: Number(typed.sort_order ?? 0),
+      parentId: typed.parent_id ?? null,
+      branchId: typed.branch_id ?? null,
+      isActive: parseBoolean(typed.is_active),
+      linkedEmployeeCount: parseCount(typed.linked_employee_count),
+      updatedAt: parseDateTime(typed.updated_at),
+    };
+  });
+}
+
+function mapDepartmentDutyRows(rows: unknown[]): DepartmentDuty[] {
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      company_id: string;
+      department_id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      sort_order: unknown;
+      is_active: unknown;
+      linked_employee_count: unknown;
+      updated_at: unknown;
+    };
+    return {
+      id: typed.id,
+      companyId: typed.company_id,
+      departmentId: typed.department_id,
+      code: typed.code,
+      name: typed.name,
+      description: typed.description ?? null,
+      sortOrder: Number(typed.sort_order ?? 0),
+      isActive: parseBoolean(typed.is_active),
+      linkedEmployeeCount: parseCount(typed.linked_employee_count),
+      updatedAt: parseDateTime(typed.updated_at),
+    };
+  });
+}
+
+async function recordAdminReferenceAudit(sql: ReturnType<typeof createOperationalSql>, input: {
+  companyId: string;
+  actorUserId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  before: unknown;
+  after: unknown;
+  reason: string;
+  updatedAt: string;
+}) {
+  if (!sql) return;
+  await sql`
+    insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+    values (
+      ${`audit_${input.action}_${input.resourceId}_${Date.now()}`},
+      ${input.companyId},
+      ${input.actorUserId},
+      ${input.action},
+      ${input.resourceType},
+      ${input.resourceId},
+      ${JSON.stringify(input.before)}::jsonb,
+      ${JSON.stringify(input.after)}::jsonb,
+      ${JSON.stringify({ source: "admin-employee-organization-masters", reason: input.reason })}::jsonb,
+      ${input.updatedAt}
+    )
+  `;
+}
+
+export async function listOperationalEmployeeOrganizationMasters(env: PostgresEnv | undefined, companyId: string): Promise<Record<EmployeeOrganizationMasterKind, EmployeeOrganizationMaster[]> | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  try {
+    const [branches, departments, jobGrades, jobPositions, jobTitles, groups] = await Promise.all([
+      sql`select b.id, b.code, b.name, b.description, b.sort_order, null::text as parent_id, null::text as branch_id, (b.status = 'active') as is_active, count(e.id)::integer as linked_employee_count, b.updated_at from branches b left join employees e on e.branch_id = b.id and e.company_id = b.company_id and e.deleted_at is null where b.company_id = ${companyId} and b.deleted_at is null group by b.id order by b.sort_order, b.name, b.code`,
+      sql`select d.id, d.code, d.name, d.description, d.sort_order, d.parent_department_id as parent_id, d.branch_id, (d.status = 'active') as is_active, count(e.id)::integer as linked_employee_count, d.updated_at from departments d left join employees e on e.department_id = d.id and e.company_id = d.company_id and e.deleted_at is null where d.company_id = ${companyId} and d.deleted_at is null group by d.id order by d.sort_order, d.name, d.code`,
+      sql`select g.id, g.code, g.name, g.description, g.sort_order, null::text as parent_id, null::text as branch_id, g.is_active, count(e.id)::integer as linked_employee_count, g.updated_at from employee_job_grades g left join employees e on e.job_grade_id = g.id and e.company_id = g.company_id and e.deleted_at is null where g.company_id = ${companyId} and g.deleted_at is null group by g.id order by g.sort_order, g.name, g.code`,
+      sql`select p.id, p.code, p.name, p.description, p.sort_order, null::text as parent_id, null::text as branch_id, p.is_active, count(e.id)::integer as linked_employee_count, p.updated_at from employee_job_positions p left join employees e on e.job_position_id = p.id and e.company_id = p.company_id and e.deleted_at is null where p.company_id = ${companyId} and p.deleted_at is null group by p.id order by p.sort_order, p.name, p.code`,
+      sql`select t.id, t.code, t.name, t.description, t.sort_order, null::text as parent_id, null::text as branch_id, t.is_active, count(e.id)::integer as linked_employee_count, t.updated_at from employee_job_titles t left join employees e on e.job_title_id = t.id and e.company_id = t.company_id and e.deleted_at is null where t.company_id = ${companyId} and t.deleted_at is null group by t.id order by t.sort_order, t.name, t.code`,
+      sql`select g.id, g.code, g.name, g.description, g.sort_order, null::text as parent_id, null::text as branch_id, g.is_active, count(e.id)::integer as linked_employee_count, g.updated_at from employee_groups g left join employees e on e.group_id = g.id and e.company_id = g.company_id and e.deleted_at is null where g.company_id = ${companyId} and g.deleted_at is null group by g.id order by g.sort_order, g.name, g.code`,
+    ]);
+    return {
+      branches: mapOrganizationMasterRows("branches", branches),
+      departments: mapOrganizationMasterRows("departments", departments),
+      jobGrades: mapOrganizationMasterRows("jobGrades", jobGrades),
+      jobPositions: mapOrganizationMasterRows("jobPositions", jobPositions),
+      jobTitles: mapOrganizationMasterRows("jobTitles", jobTitles),
+      groups: mapOrganizationMasterRows("groups", groups),
+    };
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+async function readOperationalEmployeeOrganizationMaster(sql: ReturnType<typeof createOperationalSql>, companyId: string, kind: EmployeeOrganizationMasterKind, id: string): Promise<EmployeeOrganizationMaster | null> {
+  if (!sql) return null;
+  const rows = kind === "branches"
+    ? await sql`select b.id, b.code, b.name, b.description, b.sort_order, null::text as parent_id, null::text as branch_id, (b.status = 'active') as is_active, count(e.id)::integer as linked_employee_count, b.updated_at from branches b left join employees e on e.branch_id = b.id and e.company_id = b.company_id and e.deleted_at is null where b.company_id = ${companyId} and b.id = ${id} and b.deleted_at is null group by b.id`
+    : kind === "departments"
+      ? await sql`select d.id, d.code, d.name, d.description, d.sort_order, d.parent_department_id as parent_id, d.branch_id, (d.status = 'active') as is_active, count(e.id)::integer as linked_employee_count, d.updated_at from departments d left join employees e on e.department_id = d.id and e.company_id = d.company_id and e.deleted_at is null where d.company_id = ${companyId} and d.id = ${id} and d.deleted_at is null group by d.id`
+      : kind === "jobGrades"
+        ? await sql`select g.id, g.code, g.name, g.description, g.sort_order, null::text as parent_id, null::text as branch_id, g.is_active, count(e.id)::integer as linked_employee_count, g.updated_at from employee_job_grades g left join employees e on e.job_grade_id = g.id and e.company_id = g.company_id and e.deleted_at is null where g.company_id = ${companyId} and g.id = ${id} and g.deleted_at is null group by g.id`
+        : kind === "jobPositions"
+          ? await sql`select p.id, p.code, p.name, p.description, p.sort_order, null::text as parent_id, null::text as branch_id, p.is_active, count(e.id)::integer as linked_employee_count, p.updated_at from employee_job_positions p left join employees e on e.job_position_id = p.id and e.company_id = p.company_id and e.deleted_at is null where p.company_id = ${companyId} and p.id = ${id} and p.deleted_at is null group by p.id`
+          : kind === "jobTitles"
+            ? await sql`select t.id, t.code, t.name, t.description, t.sort_order, null::text as parent_id, null::text as branch_id, t.is_active, count(e.id)::integer as linked_employee_count, t.updated_at from employee_job_titles t left join employees e on e.job_title_id = t.id and e.company_id = t.company_id and e.deleted_at is null where t.company_id = ${companyId} and t.id = ${id} and t.deleted_at is null group by t.id`
+            : await sql`select g.id, g.code, g.name, g.description, g.sort_order, null::text as parent_id, null::text as branch_id, g.is_active, count(e.id)::integer as linked_employee_count, g.updated_at from employee_groups g left join employees e on e.group_id = g.id and e.company_id = g.company_id and e.deleted_at is null where g.company_id = ${companyId} and g.id = ${id} and g.deleted_at is null group by g.id`;
+  return mapOrganizationMasterRows(kind, rows)[0] ?? null;
+}
+
+export async function upsertOperationalEmployeeOrganizationMaster(env: PostgresEnv | undefined, companyId: string, actorUserId: string, kind: EmployeeOrganizationMasterKind, id: string | null, input: EmployeeOrganizationMasterMutationRequest): Promise<{ item: EmployeeOrganizationMaster; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  const updatedAt = new Date().toISOString();
+  const itemId = id ?? `${kind}_${input.code.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
+  try {
+    await sql`begin`;
+    const before = id ? await readOperationalEmployeeOrganizationMaster(sql, companyId, kind, id) : null;
+    if (kind === "branches") {
+      await sql`insert into branches (id, company_id, code, name, branch_type, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, 'office', ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
+    } else if (kind === "departments") {
+      await sql`insert into departments (id, company_id, branch_id, parent_department_id, code, name, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${input.branchId ?? null}, ${input.parentId ?? null}, ${input.code}, ${input.name}, ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set branch_id = excluded.branch_id, parent_department_id = excluded.parent_department_id, name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
+    } else if (kind === "jobGrades") {
+      await sql`insert into employee_job_grades (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    } else if (kind === "jobPositions") {
+      await sql`insert into employee_job_positions (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    } else if (kind === "jobTitles") {
+      await sql`insert into employee_job_titles (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    } else {
+      await sql`insert into employee_groups (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    }
+    const item = await readOperationalEmployeeOrganizationMaster(sql, companyId, kind, itemId) ?? (await listOperationalEmployeeOrganizationMasters(env, companyId))?.[kind].find((candidate) => candidate.code === input.code);
+    if (!item) { await sql`rollback`; return null; }
+    await recordAdminReferenceAudit(sql, { companyId, actorUserId, action: before ? "admin.employee_organization_master.update" : "admin.employee_organization_master.create", resourceType: kind, resourceId: item.id, before, after: item, reason: input.reason, updatedAt });
+    await sql`commit`;
+    return { item, updatedAt };
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalEmployeeOrganizationMasterStatus(env: PostgresEnv | undefined, companyId: string, actorUserId: string, kind: EmployeeOrganizationMasterKind, id: string, isActive: boolean, reason: string): Promise<{ item: EmployeeOrganizationMaster; updatedAt: string } | null> {
+  const current = await readOperationalEmployeeOrganizationMaster(createOperationalSql(env), companyId, kind, id);
+  if (!current) return null;
+  return upsertOperationalEmployeeOrganizationMaster(env, companyId, actorUserId, kind, id, { code: current.code, name: current.name, description: current.description ?? undefined, sortOrder: current.sortOrder, isActive, parentId: current.parentId ?? undefined, branchId: current.branchId ?? undefined, reason });
+}
+
+export async function listOperationalDepartmentDuties(env: PostgresEnv | undefined, companyId: string, departmentId: string): Promise<DepartmentDuty[] | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  try {
+    const rows = await sql`select d.id, d.company_id, d.department_id, d.code, d.name, d.description, d.sort_order, d.is_active, count(ed.id)::integer as linked_employee_count, d.updated_at from department_duties d left join employee_department_duties ed on ed.department_duty_id = d.id and ed.company_id = d.company_id and ed.deleted_at is null where d.company_id = ${companyId} and d.department_id = ${departmentId} and d.deleted_at is null group by d.id order by d.sort_order, d.name, d.code`;
+    return mapDepartmentDutyRows(rows);
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+async function readOperationalDepartmentDuty(sql: ReturnType<typeof createOperationalSql>, companyId: string, dutyId: string): Promise<DepartmentDuty | null> {
+  if (!sql) return null;
+  const rows = await sql`select d.id, d.company_id, d.department_id, d.code, d.name, d.description, d.sort_order, d.is_active, count(ed.id)::integer as linked_employee_count, d.updated_at from department_duties d left join employee_department_duties ed on ed.department_duty_id = d.id and ed.company_id = d.company_id and ed.deleted_at is null where d.company_id = ${companyId} and d.id = ${dutyId} and d.deleted_at is null group by d.id`;
+  return mapDepartmentDutyRows(rows)[0] ?? null;
+}
+
+export async function upsertOperationalDepartmentDuty(env: PostgresEnv | undefined, companyId: string, actorUserId: string, departmentId: string, dutyId: string | null, input: DepartmentDutyMutationRequest): Promise<{ item: DepartmentDuty; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  const updatedAt = new Date().toISOString();
+  const itemId = dutyId ?? `department_duty_${input.code.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
+  try {
+    await sql`begin`;
+    const department = await sql`select id from departments where company_id = ${companyId} and id = ${departmentId} and deleted_at is null limit 1`;
+    if (!department[0]) { await sql`rollback`; return null; }
+    const before = dutyId ? await readOperationalDepartmentDuty(sql, companyId, dutyId) : null;
+    await sql`insert into department_duties (id, company_id, department_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${departmentId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, department_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    const item = await readOperationalDepartmentDuty(sql, companyId, itemId) ?? (await listOperationalDepartmentDuties(env, companyId, departmentId))?.find((candidate) => candidate.code === input.code);
+    if (!item) { await sql`rollback`; return null; }
+    await recordAdminReferenceAudit(sql, { companyId, actorUserId, action: before ? "admin.department_duty.update" : "admin.department_duty.create", resourceType: "department_duty", resourceId: item.id, before, after: item, reason: input.reason, updatedAt });
+    await sql`commit`;
+    return { item, updatedAt };
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalDepartmentDutyStatus(env: PostgresEnv | undefined, companyId: string, actorUserId: string, departmentId: string, dutyId: string, isActive: boolean, reason: string): Promise<{ item: DepartmentDuty; updatedAt: string } | null> {
+  const current = await readOperationalDepartmentDuty(createOperationalSql(env), companyId, dutyId);
+  if (!current || current.departmentId !== departmentId) return null;
+  return upsertOperationalDepartmentDuty(env, companyId, actorUserId, departmentId, dutyId, { code: current.code, name: current.name, description: current.description ?? undefined, sortOrder: current.sortOrder, isActive, reason });
+}
+
 export async function createOperationalAdminUser(
   env: (PostgresEnv & ZitadelStepUpEnv) | undefined,
   companyId: string,
@@ -659,6 +876,22 @@ export async function createOperationalAdminUser(
       return null;
     }
 
+    const departmentDutyIds = Array.from(new Set(input.departmentDutyIds ?? []));
+    if (departmentDutyIds.length > 0) {
+      const dutyRows = await sql`
+        select id from department_duties
+        where company_id = ${companyId}
+          and department_id = ${departmentId}
+          and is_active = true
+          and deleted_at is null
+          and id = any(${departmentDutyIds})
+      `;
+      if (dutyRows.length !== departmentDutyIds.length) {
+        await sql`rollback`;
+        return null;
+      }
+    }
+
     const roleRows = await sql`
       select id from roles
       where code = ${input.roleCode}
@@ -696,6 +929,19 @@ export async function createOperationalAdminUser(
       values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${recognizedHireDate}, ${contactPhone}, ${externalEmail}, ${addressPostalCode}, ${addressBase}, ${addressDetail}, ${employmentCategory}, ${updatedAt}, ${updatedAt})
     `;
 
+    for (const [index, departmentDutyId] of departmentDutyIds.entries()) {
+      await sql`
+        insert into employee_department_duties (id, company_id, employee_id, department_id, department_duty_id, sort_order, is_primary, is_active, created_at, updated_at)
+        values (${`employee_department_duty_${employeeId}_${departmentDutyId}`}, ${companyId}, ${employeeId}, ${departmentId}, ${departmentDutyId}, ${index + 1}, ${index === 0}, true, ${updatedAt}, ${updatedAt})
+        on conflict (company_id, employee_id, department_duty_id) do update
+        set sort_order = excluded.sort_order,
+            is_primary = excluded.is_primary,
+            is_active = true,
+            updated_at = excluded.updated_at,
+            deleted_at = null
+      `;
+    }
+
     await sql`
       insert into user_roles (id, company_id, user_id, role_id, assigned_by, status, created_at, updated_at)
       values (${`user_role_${userId}_${input.roleCode}`}, ${companyId}, ${userId}, ${roleId}, ${actorUserId}, 'active', ${updatedAt}, ${updatedAt})
@@ -711,7 +957,7 @@ export async function createOperationalAdminUser(
         'user',
         ${userId},
         ${JSON.stringify({ status: "not_created" })}::jsonb,
-        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, groupLinked: Boolean(groupId), departmentLinked: Boolean(departmentId), jobTitleLinked: Boolean(jobTitleId), jobPositionLinked: Boolean(jobPositionId), jobGradeLinked: Boolean(jobGradeId) })}::jsonb,
+        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, groupLinked: Boolean(groupId), departmentLinked: Boolean(departmentId), jobTitleLinked: Boolean(jobTitleId), jobPositionLinked: Boolean(jobPositionId), jobGradeLinked: Boolean(jobGradeId), departmentDutyCount: departmentDutyIds.length })}::jsonb,
         ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "invite_token"] })}::jsonb,
         ${updatedAt}
       )

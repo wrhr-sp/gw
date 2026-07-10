@@ -23,6 +23,15 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserReferenceMastersResponseSchema,
+  employeeOrganizationMasterKindSchema,
+  employeeOrganizationMasterMutationRequestSchema,
+  employeeOrganizationMasterMutationResponseSchema,
+  employeeOrganizationMasterStatusRequestSchema,
+  employeeOrganizationMastersResponseSchema,
+  departmentDutiesResponseSchema,
+  departmentDutyMutationRequestSchema,
+  departmentDutyMutationResponseSchema,
+  departmentDutyStatusRequestSchema,
   addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
   adminUserSecurityUpdateRequestSchema,
@@ -339,7 +348,7 @@ import {
   listZitadelRegistrationRequests,
   type RegistrationServiceResult,
 } from "./lib/zitadel-registration-requests";
-import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus } from "./lib/operational-admin";
+import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, listOperationalDepartmentDuties, listOperationalEmployeeOrganizationMasters, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus, updateOperationalDepartmentDutyStatus, updateOperationalEmployeeOrganizationMasterStatus, upsertOperationalDepartmentDuty, upsertOperationalEmployeeOrganizationMaster } from "./lib/operational-admin";
 import { searchOperationalAddresses, type AddressSearchEnv } from "./lib/operational-address-search";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
@@ -4129,6 +4138,112 @@ app.get(appRoutes.admin.employeeReferenceMasters, async (context) => {
     },
     200,
   );
+});
+
+
+app.get(appRoutes.admin.employeeOrganizationMasters, async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, { requiredPermission: "employee.write", route: context.req.path });
+  }
+  const masters = await listOperationalEmployeeOrganizationMasters(context.env, authResult.auth.user.companyId);
+  if (!masters) return jsonDatabaseRequired(context, "사원 조직정보 기준설정 조회");
+  return jsonSuccess(context, employeeOrganizationMastersResponseSchema, { ok: true, data: { ...masters, audit: { candidate: true, action: "admin.employee_organization_masters.list.viewed" } }, error: null }, 200);
+});
+
+app.post("/api/admin/employee-organization-masters/:kind", async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const kindParsed = employeeOrganizationMasterKindSchema.safeParse(context.req.param("kind"));
+  if (!kindParsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 종류가 올바르지 않습니다.", 400);
+  const parsed = employeeOrganizationMasterMutationRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const result = await upsertOperationalEmployeeOrganizationMaster(context.env, authResult.auth.user.companyId, authResult.auth.user.id, kindParsed.data, null, parsed.data);
+  if (!result) return jsonDatabaseRequired(context, "사원 조직정보 기준 등록");
+  return jsonSuccess(context, employeeOrganizationMasterMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.employee_organization_master.create" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 201);
+});
+
+app.patch(appRoutes.admin.employeeOrganizationMaster(":kind", ":id"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const kindParsed = employeeOrganizationMasterKindSchema.safeParse(context.req.param("kind"));
+  if (!kindParsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 종류가 올바르지 않습니다.", 400);
+  const parsed = employeeOrganizationMasterMutationRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const id = context.req.param("id");
+  if (!id) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 ID가 필요합니다.", 400);
+  const result = await upsertOperationalEmployeeOrganizationMaster(context.env, authResult.auth.user.companyId, authResult.auth.user.id, kindParsed.data, id, parsed.data);
+  if (!result) return jsonDatabaseRequired(context, "사원 조직정보 기준 수정");
+  return jsonSuccess(context, employeeOrganizationMasterMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.employee_organization_master.update" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 200);
+});
+
+app.post(appRoutes.admin.employeeOrganizationMasterStatus(":kind", ":id"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const kindParsed = employeeOrganizationMasterKindSchema.safeParse(context.req.param("kind"));
+  if (!kindParsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 종류가 올바르지 않습니다.", 400);
+  const parsed = employeeOrganizationMasterStatusRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 상태 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const id = context.req.param("id");
+  if (!id) return jsonError(context, "VALIDATION_ERROR", "사원 조직정보 기준 ID가 필요합니다.", 400);
+  const result = await updateOperationalEmployeeOrganizationMasterStatus(context.env, authResult.auth.user.companyId, authResult.auth.user.id, kindParsed.data, id, parsed.data.isActive, parsed.data.reason);
+  if (!result) return jsonDatabaseRequired(context, "사원 조직정보 기준 삭제/사용상태 변경");
+  return jsonSuccess(context, employeeOrganizationMasterMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.employee_organization_master.status" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 200);
+});
+
+app.get(appRoutes.admin.departmentDuties(":departmentId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  const departmentId = context.req.param("departmentId");
+  if (!departmentId) return jsonError(context, "VALIDATION_ERROR", "부서 ID가 필요합니다.", 400);
+  const items = await listOperationalDepartmentDuties(context.env, authResult.auth.user.companyId, departmentId);
+  if (!items) return jsonDatabaseRequired(context, "부서별 담당업무 조회");
+  return jsonSuccess(context, departmentDutiesResponseSchema, { ok: true, data: { departmentId, items, audit: { candidate: true, action: "admin.department_duties.list.viewed" } }, error: null }, 200);
+});
+
+app.post(appRoutes.admin.departmentDuties(":departmentId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const parsed = departmentDutyMutationRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "담당업무 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const departmentId = context.req.param("departmentId");
+  if (!departmentId) return jsonError(context, "VALIDATION_ERROR", "부서 ID가 필요합니다.", 400);
+  const result = await upsertOperationalDepartmentDuty(context.env, authResult.auth.user.companyId, authResult.auth.user.id, departmentId, null, parsed.data);
+  if (!result) return jsonDatabaseRequired(context, "부서별 담당업무 등록");
+  return jsonSuccess(context, departmentDutyMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.department_duty.create" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 201);
+});
+
+app.patch(appRoutes.admin.departmentDuty(":departmentId", ":dutyId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const parsed = departmentDutyMutationRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "담당업무 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const departmentId = context.req.param("departmentId");
+  const dutyId = context.req.param("dutyId");
+  if (!departmentId || !dutyId) return jsonError(context, "VALIDATION_ERROR", "부서 ID와 담당업무 ID가 필요합니다.", 400);
+  const result = await upsertOperationalDepartmentDuty(context.env, authResult.auth.user.companyId, authResult.auth.user.id, departmentId, dutyId, parsed.data);
+  if (!result) return jsonDatabaseRequired(context, "부서별 담당업무 수정");
+  return jsonSuccess(context, departmentDutyMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.department_duty.update" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 200);
+});
+
+app.post(appRoutes.admin.departmentDutyStatus(":departmentId", ":dutyId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403);
+  const parsed = departmentDutyStatusRequestSchema.safeParse(await context.req.json().catch(() => null));
+  if (!parsed.success) return jsonError(context, "VALIDATION_ERROR", "담당업무 상태 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  const departmentId = context.req.param("departmentId");
+  const dutyId = context.req.param("dutyId");
+  if (!departmentId || !dutyId) return jsonError(context, "VALIDATION_ERROR", "부서 ID와 담당업무 ID가 필요합니다.", 400);
+  const result = await updateOperationalDepartmentDutyStatus(context.env, authResult.auth.user.companyId, authResult.auth.user.id, departmentId, dutyId, parsed.data.isActive, parsed.data.reason);
+  if (!result) return jsonDatabaseRequired(context, "부서별 담당업무 삭제/사용상태 변경");
+  return jsonSuccess(context, departmentDutyMutationResponseSchema, { ok: true, data: { item: result.item, audit: { candidate: true, action: "admin.department_duty.status" }, persistence: "operational-db", updatedAt: result.updatedAt }, error: null }, 200);
 });
 
 app.get(appRoutes.admin.addressSearch, async (context) => {

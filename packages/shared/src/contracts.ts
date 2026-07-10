@@ -41,6 +41,12 @@ export const appRoutes = {
     userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     employeeReferenceMasters: "/api/admin/employee-reference-masters",
+    employeeOrganizationMasters: "/api/admin/employee-organization-masters",
+    employeeOrganizationMaster: (kind: string, id: string) => `/api/admin/employee-organization-masters/${kind}/${id}`,
+    employeeOrganizationMasterStatus: (kind: string, id: string) => `/api/admin/employee-organization-masters/${kind}/${id}/status`,
+    departmentDuties: (departmentId: string) => `/api/admin/departments/${departmentId}/duties`,
+    departmentDuty: (departmentId: string, dutyId: string) => `/api/admin/departments/${departmentId}/duties/${dutyId}`,
+    departmentDutyStatus: (departmentId: string, dutyId: string) => `/api/admin/departments/${departmentId}/duties/${dutyId}/status`,
     addressSearch: "/api/admin/address-search",
     registrationRequests: "/api/admin/registration-requests",
     registrationRequestApprove: (requestId: string) => `/api/admin/registration-requests/${requestId}/approve`,
@@ -2145,6 +2151,99 @@ export const adminUserReferenceMastersResponseSchema = successResponseSchema(
   }),
 );
 
+export const employeeOrganizationMasterKindSchema = z.enum(["branches", "departments", "jobGrades", "jobPositions", "jobTitles", "groups"]);
+
+export const employeeOrganizationMasterSchema = adminUserReferenceMasterOptionSchema.extend({
+  kind: employeeOrganizationMasterKindSchema,
+  description: z.string().nullable(),
+  parentId: z.string().nullable(),
+  branchId: z.string().nullable(),
+  isActive: z.boolean(),
+  linkedEmployeeCount: z.number().int().min(0),
+  updatedAt: z.string().datetime().nullable(),
+});
+
+export const departmentDutySchema = z.object({
+  id: z.string(),
+  companyId: z.string(),
+  departmentId: z.string(),
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  sortOrder: z.number().int().min(0),
+  isActive: z.boolean(),
+  linkedEmployeeCount: z.number().int().min(0),
+  updatedAt: z.string().datetime().nullable(),
+});
+
+export const employeeOrganizationMastersResponseSchema = successResponseSchema(
+  z.object({
+    branches: z.array(employeeOrganizationMasterSchema),
+    departments: z.array(employeeOrganizationMasterSchema),
+    jobGrades: z.array(employeeOrganizationMasterSchema),
+    jobPositions: z.array(employeeOrganizationMasterSchema),
+    jobTitles: z.array(employeeOrganizationMasterSchema),
+    groups: z.array(employeeOrganizationMasterSchema),
+    audit: auditCandidateSchema,
+  }),
+);
+
+export const employeeOrganizationMasterMutationRequestSchema = z.object({
+  code: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).optional(),
+  sortOrder: z.coerce.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+  parentId: z.string().trim().min(1).optional(),
+  branchId: z.string().trim().min(1).optional(),
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const employeeOrganizationMasterStatusRequestSchema = z.object({
+  isActive: z.boolean(),
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const employeeOrganizationMasterMutationResponseSchema = successResponseSchema(
+  z.object({
+    item: employeeOrganizationMasterSchema,
+    audit: auditCandidateSchema,
+    persistence: z.literal("operational-db"),
+    updatedAt: z.string().datetime(),
+  }),
+);
+
+export const departmentDutiesResponseSchema = successResponseSchema(
+  z.object({
+    departmentId: z.string(),
+    items: z.array(departmentDutySchema),
+    audit: auditCandidateSchema,
+  }),
+);
+
+export const departmentDutyMutationRequestSchema = z.object({
+  code: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).optional(),
+  sortOrder: z.coerce.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const departmentDutyStatusRequestSchema = z.object({
+  isActive: z.boolean(),
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const departmentDutyMutationResponseSchema = successResponseSchema(
+  z.object({
+    item: departmentDutySchema,
+    audit: auditCandidateSchema,
+    persistence: z.literal("operational-db"),
+    updatedAt: z.string().datetime(),
+  }),
+);
+
 export const addressSearchResultSchema = z.object({
   id: z.string(),
   postalCode: z.string(),
@@ -2217,6 +2316,7 @@ export const adminUserCreateRequestSchema = z
     jobTitleId: z.string().trim().min(1).optional(),
     jobPositionId: z.string().trim().min(1).optional(),
     jobGradeId: z.string().trim().min(1).optional(),
+    departmentDutyIds: z.array(z.string().trim().min(1)).default([]).optional(),
     initialPassword: z.string().min(8).max(200),
     hireDate: isoDateSchema.optional(),
     recognizedHireDate: isoDateSchema.optional(),
@@ -4151,6 +4251,15 @@ export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
 export type AdminUserReferenceMasterOption = z.infer<typeof adminUserReferenceMasterOptionSchema>;
 export type AdminUserReferenceMastersResponse = z.infer<typeof adminUserReferenceMastersResponseSchema>;
+export type EmployeeOrganizationMasterKind = z.infer<typeof employeeOrganizationMasterKindSchema>;
+export type EmployeeOrganizationMaster = z.infer<typeof employeeOrganizationMasterSchema>;
+export type DepartmentDuty = z.infer<typeof departmentDutySchema>;
+export type EmployeeOrganizationMastersResponse = z.infer<typeof employeeOrganizationMastersResponseSchema>;
+export type EmployeeOrganizationMasterMutationRequest = z.infer<typeof employeeOrganizationMasterMutationRequestSchema>;
+export type EmployeeOrganizationMasterMutationResponse = z.infer<typeof employeeOrganizationMasterMutationResponseSchema>;
+export type DepartmentDutiesResponse = z.infer<typeof departmentDutiesResponseSchema>;
+export type DepartmentDutyMutationRequest = z.infer<typeof departmentDutyMutationRequestSchema>;
+export type DepartmentDutyMutationResponse = z.infer<typeof departmentDutyMutationResponseSchema>;
 export type AddressSearchResult = z.infer<typeof addressSearchResultSchema>;
 export type AddressSearchResponse = z.infer<typeof addressSearchResponseSchema>;
 export type AdminUsersSummaryCounts = z.infer<typeof adminUsersSummaryCountsSchema>;

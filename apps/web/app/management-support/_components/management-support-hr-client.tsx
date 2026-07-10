@@ -22,6 +22,7 @@ import {
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserReferenceMastersResponseSchema,
+  departmentDutiesResponseSchema,
   addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
   adminUserSecurityUpdateRequestSchema,
@@ -38,6 +39,7 @@ import {
   type AdminUserRolesUpdateRequest,
   type AdminUserSecurityUpdateRequest,
   type AdminUserSummary,
+  type DepartmentDuty,
   type AdminUsersSummaryCounts,
   type AdminUserStatusUpdateRequest,
   type AddressSearchResult,
@@ -160,6 +162,7 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   jobTitleIds: string[];
   jobPositionIds: string[];
   jobGradeId: string;
+  departmentDutyIds: string[];
   managerUserIds: string[];
   profileImageName: string;
 };
@@ -194,6 +197,7 @@ const emptyCreateForm: EmployeeCreatePanelForm = {
   jobTitleIds: [],
   jobPositionIds: [],
   jobGradeId: "",
+  departmentDutyIds: [],
   managerUserIds: [],
   profileImageName: "",
   departmentName: "",
@@ -412,6 +416,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [isCreateCloseConfirmOpen, setIsCreateCloseConfirmOpen] = useState(false);
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
+  const [departmentDuties, setDepartmentDuties] = useState<DepartmentDuty[]>([]);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activeReferencePicker, setActiveReferencePicker] = useState<EmployeeCreateMasterKind | null>(null);
   const [isManagerPickerOpen, setIsManagerPickerOpen] = useState(false);
@@ -506,6 +511,40 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const departmentId = createForm.departmentIds[0];
+    if (!departmentId) {
+      setDepartmentDuties([]);
+      setCreateForm((current) => current.departmentDutyIds.length ? { ...current, departmentDutyIds: [] } : current);
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetch(appRoutes.admin.departmentDuties(departmentId), {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(buildErrorMessage(response.status, payload));
+        const parsed = departmentDutiesResponseSchema.safeParse(payload);
+        if (!parsed.success) throw new Error("부서별 담당업무를 불러오지 못했습니다.");
+        const activeDuties = parsed.data.data.items.filter((item) => item.isActive);
+        setDepartmentDuties(activeDuties);
+        setCreateForm((current) => ({
+          ...current,
+          departmentDutyIds: current.departmentDutyIds.filter((id) => activeDuties.some((item) => item.id === id)),
+        }));
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setDepartmentDuties([]);
+      });
+
+    return () => controller.abort();
+  }, [createForm.departmentIds[0]]);
 
   useEffect(() => {
     if (!isAddressSearchOpen) return;
@@ -636,6 +675,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       jobTitleId: createForm.jobTitleIds[0] || undefined,
       jobPositionId: createForm.jobPositionIds[0] || undefined,
       jobGradeId: createForm.jobGradeId || undefined,
+      departmentDutyIds: createForm.departmentDutyIds,
       departmentName: departmentOptions.find((option) => option.id === createForm.departmentIds[0])?.name ?? "선택 필요",
       branchName: branchOptions.find((option) => option.id === createForm.branchId)?.name ?? "선택 필요",
       positionName: jobPositionOptions.find((option) => option.id === createForm.jobPositionIds[0])?.name ?? undefined,
@@ -961,6 +1001,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       branchId: branchOptions.find((option) => option.name === item.branchName)?.id ?? "",
       departmentIds: departmentOptions.find((option) => option.name === item.departmentName)?.id ? [departmentOptions.find((option) => option.name === item.departmentName)?.id ?? ""] : [],
       jobPositionIds: item.positionName ? (jobPositionOptions.find((option) => option.name === item.positionName)?.id ? [jobPositionOptions.find((option) => option.name === item.positionName)?.id ?? ""] : []) : [],
+      departmentDutyIds: [],
       roleCode: item.roleCodes[0] ?? "EMPLOYEE",
       status: item.accountStatus,
       mustChangePassword: item.mustChangePassword,
@@ -1060,6 +1101,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         : [...currentValues, optionId];
       return { ...current, [fieldName]: nextValues };
     });
+  }
+
+  function getSelectedDepartmentDutyNames(selectedIds: string[]) {
+    return selectedIds
+      .map((dutyId) => departmentDuties.find((item) => item.id === dutyId)?.name)
+      .filter((name): name is string => Boolean(name));
+  }
+
+  function toggleDepartmentDutySelection(dutyId: string) {
+    setCreateForm((current) => ({
+      ...current,
+      departmentDutyIds: current.departmentDutyIds.includes(dutyId)
+        ? current.departmentDutyIds.filter((selectedDutyId) => selectedDutyId !== dutyId)
+        : [...current.departmentDutyIds, dutyId],
+    }));
   }
 
   function getSelectedManagerNames(selectedIds: string[]) {
@@ -1640,11 +1696,23 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     <div className="employee-create-field-row employee-create-field-row--one">
                       <label>
                         <span>담당</span>
-                        <span className="employee-create-inline-picker" aria-label="사원 담당 선택값">
-                          {getSelectedManagerNames(createForm.managerUserIds).map((name) => (
+                        <span className="employee-create-inline-picker" aria-label="사원 담당업무 선택값">
+                          {getSelectedDepartmentDutyNames(createForm.departmentDutyIds).map((name) => (
                             <span className="employee-create-inline-picker__item" key={name}>{name}</span>
                           ))}
-                          <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || loadState === "loading"} onClick={() => setIsManagerPickerOpen(true)} type="button">+추가</button>
+                          {departmentDuties.map((duty) => (
+                            <button
+                              key={duty.id}
+                              aria-pressed={createForm.departmentDutyIds.includes(duty.id)}
+                              className="employee-create-reference-field__add"
+                              data-selection-mode="multiple"
+                              disabled={createSaveState === "saving"}
+                              onClick={() => toggleDepartmentDutySelection(duty.id)}
+                              type="button"
+                            >
+                              {createForm.departmentDutyIds.includes(duty.id) ? `✓ ${duty.name}` : `+ ${duty.name}`}
+                            </button>
+                          ))}
                         </span>
                       </label>
                     </div>
@@ -2325,11 +2393,23 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     <div className="employee-create-field-row employee-create-field-row--one">
                       <label>
                         <span>담당</span>
-                        <span className="employee-create-inline-picker" aria-label="사원 담당 선택값">
-                          {getSelectedManagerNames(createForm.managerUserIds).map((name) => (
+                        <span className="employee-create-inline-picker" aria-label="사원 담당업무 선택값">
+                          {getSelectedDepartmentDutyNames(createForm.departmentDutyIds).map((name) => (
                             <span className="employee-create-inline-picker__item" key={name}>{name}</span>
                           ))}
-                          <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || loadState === "loading"} onClick={() => setIsManagerPickerOpen(true)} type="button">+추가</button>
+                          {departmentDuties.map((duty) => (
+                            <button
+                              key={duty.id}
+                              aria-pressed={createForm.departmentDutyIds.includes(duty.id)}
+                              className="employee-create-reference-field__add"
+                              data-selection-mode="multiple"
+                              disabled={createSaveState === "saving"}
+                              onClick={() => toggleDepartmentDutySelection(duty.id)}
+                              type="button"
+                            >
+                              {createForm.departmentDutyIds.includes(duty.id) ? `✓ ${duty.name}` : `+ ${duty.name}`}
+                            </button>
+                          ))}
                         </span>
                       </label>
                     </div>
