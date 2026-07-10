@@ -21,6 +21,7 @@ import {
   adminUserMutationResponseSchema,
   adminUserCreateRequestSchema,
   adminUserOrganizationUpdateRequestSchema,
+  adminUserSalaryUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
   adminUserReferenceMastersResponseSchema,
   employeeOrganizationMasterKindSchema,
@@ -28,6 +29,7 @@ import {
   employeeOrganizationMasterMutationResponseSchema,
   employeeOrganizationMasterStatusRequestSchema,
   employeeOrganizationMastersResponseSchema,
+  employeeFixedAllowanceMastersResponseSchema,
   organizationCodePolicyKindSchema,
   organizationCodePoliciesResponseSchema,
   organizationCodePolicyMutationResponseSchema,
@@ -352,7 +354,7 @@ import {
   listZitadelRegistrationRequests,
   type RegistrationServiceResult,
 } from "./lib/zitadel-registration-requests";
-import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, listOperationalDepartmentDuties, listOperationalEmployeeOrganizationMasters, listOperationalOrganizationCodePolicies, updateOperationalAdminUserOrganization, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus, updateOperationalDepartmentDutyStatus, updateOperationalEmployeeOrganizationMasterStatus, upsertOperationalDepartmentDuty, upsertOperationalEmployeeOrganizationMaster, upsertOperationalOrganizationCodePolicy } from "./lib/operational-admin";
+import { createOperationalAdminUser, getOperationalEmployeeReferenceMasters, listOperationalEmployeeFixedAllowanceMasters, listOperationalAdminAuditLogs, listOperationalAdminUsers, listOperationalDepartmentDuties, listOperationalEmployeeOrganizationMasters, listOperationalOrganizationCodePolicies, updateOperationalAdminUserOrganization, updateOperationalAdminUserSalary, updateOperationalAdminUserProfile, updateOperationalAdminUserRoles, updateOperationalAdminUserSecurity, updateOperationalAdminUserStatus, updateOperationalDepartmentDutyStatus, updateOperationalEmployeeOrganizationMasterStatus, upsertOperationalDepartmentDuty, upsertOperationalEmployeeOrganizationMaster, upsertOperationalOrganizationCodePolicy } from "./lib/operational-admin";
 import { searchOperationalAddresses, type AddressSearchEnv } from "./lib/operational-address-search";
 import { listOperationalAdminPermissionSettings, saveOperationalAdminPermissionSettings } from "./lib/operational-admin-permissions";
 import { saveOperationalBoardPolicy, saveOperationalDocumentPolicy } from "./lib/operational-admin-policies";
@@ -4144,6 +4146,17 @@ app.get(appRoutes.admin.employeeReferenceMasters, async (context) => {
   );
 });
 
+app.get(appRoutes.admin.fixedAllowanceMasters, async (context) => {
+  const authResult = requireAdminRole(context);
+  if ("response" in authResult) return authResult.response;
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, { requiredPermission: "employee.write", route: context.req.path });
+  }
+  const items = await listOperationalEmployeeFixedAllowanceMasters(context.env, authResult.auth.user.companyId);
+  if (!items) return jsonDatabaseRequired(context, "고정수당 기준정보 조회");
+  return jsonSuccess(context, employeeFixedAllowanceMastersResponseSchema, { ok: true, data: { items }, error: null }, 200);
+});
+
 
 app.get(appRoutes.admin.organizationInfo, async (context) => {
   const authResult = requireAdminRole(context);
@@ -4560,6 +4573,52 @@ app.patch(appRoutes.admin.userOrganization(":userId"), async (context) => {
     },
     200,
   );
+});
+
+app.patch(appRoutes.admin.userSalary(":userId"), async (context) => {
+  const authResult = requireAdminRole(context);
+  if (authResult.response) return authResult.response;
+
+  if (!hasPermission(authResult.auth.user, "employee.write")) {
+    return jsonError(context, "FORBIDDEN", "필요한 권한이 없습니다.", 403, {
+      requiredPermission: "employee.write",
+      roleCodes: authResult.auth.user.roleCodes,
+      route: context.req.path,
+    });
+  }
+
+  const targetUserId = context.req.param("userId");
+  if (!targetUserId) {
+    return jsonError(context, "VALIDATION_ERROR", "대상 사용자 ID가 필요합니다.", 400);
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const parsed = adminUserSalaryUpdateRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return jsonError(context, "VALIDATION_ERROR", "사원 급여정보 저장 요청 형식이 올바르지 않습니다.", 400, { issues: parsed.error.issues });
+  }
+
+  const result = await updateOperationalAdminUserSalary(
+    context.env,
+    authResult.auth.user.companyId,
+    authResult.auth.user.id,
+    targetUserId,
+    parsed.data,
+    (roleCode) => [...rolePermissions[roleCode]],
+    highRiskPermissionCodes,
+  );
+  if (!result) return jsonDatabaseRequired(context, "사원 급여정보 저장");
+
+  return jsonSuccess(context, adminUserMutationResponseSchema, {
+    ok: true,
+    data: {
+      user: result.user,
+      audit: { candidate: true, action: "admin.user.salary.update" },
+      persistence: "operational-db",
+      updatedAt: result.updatedAt,
+    },
+    error: null,
+  }, 200);
 });
 
 app.post(appRoutes.admin.userStatus(":userId"), async (context) => {

@@ -37,10 +37,12 @@ export const appRoutes = {
     userCreate: "/api/admin/users",
     userProfile: (userId: string) => `/api/admin/users/${userId}/profile`,
     userOrganization: (userId: string) => `/api/admin/users/${userId}/organization`,
+    userSalary: (userId: string) => `/api/admin/users/${userId}/salary`,
     userStatus: (userId: string) => `/api/admin/users/${userId}/status`,
     userSecurity: (userId: string) => `/api/admin/users/${userId}/security`,
     userRoles: (userId: string) => `/api/admin/users/${userId}/roles`,
     employeeReferenceMasters: "/api/admin/employee-reference-masters",
+    fixedAllowanceMasters: "/api/admin/fixed-allowance-masters",
     organizationInfo: "/api/admin/organization-info",
     organizationInfoItem: (kind: string, id: string) => `/api/admin/organization-info/${kind}/${id}`,
     organizationInfoItemStatus: (kind: string, id: string) => `/api/admin/organization-info/${kind}/${id}/status`,
@@ -2119,6 +2121,23 @@ export const employeeSalaryInfoSchema = z.object({
   smeIncomeTaxReductionStartDate: isoDateSchema.optional(),
   smeIncomeTaxReductionEndDate: isoDateSchema.optional(),
 }).strict();
+
+export const adminUserSalaryUpdateRequestSchema = employeeSalaryInfoSchema.extend({
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const employeeFixedAllowanceMasterSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  defaultAmount: z.number().min(0),
+  sortOrder: z.number().int().min(0),
+});
+
+export const employeeFixedAllowanceMastersResponseSchema = successResponseSchema(
+  z.object({ items: z.array(employeeFixedAllowanceMasterSchema) }),
+);
+
 export const adminUserSummarySchema = z.object({
   userId: z.string(),
   employeeId: z.string(),
@@ -4335,6 +4354,8 @@ export type EmployeeClassification = z.infer<typeof employeeClassificationSchema
 export type EmployeeSalaryInfo = z.infer<typeof employeeSalaryInfoSchema>;
 export type EmployeePayType = z.infer<typeof employeePayTypeSchema>;
 export type EmployeeSalaryBank = z.infer<typeof employeeSalaryBankSchema>;
+export type AdminUserSalaryUpdateRequest = z.infer<typeof adminUserSalaryUpdateRequestSchema>;
+export type EmployeeFixedAllowanceMaster = z.infer<typeof employeeFixedAllowanceMasterSchema>;
 export type AdminUserReferenceMasterOption = z.infer<typeof adminUserReferenceMasterOptionSchema>;
 export type AdminUserReferenceMastersResponse = z.infer<typeof adminUserReferenceMastersResponseSchema>;
 export type EmployeeOrganizationMasterKind = z.infer<typeof employeeOrganizationMasterKindSchema>;

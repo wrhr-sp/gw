@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeClassification, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, EmployeeSalaryInfo, OrganizationCodePolicy, OrganizationCodePolicyKind, OrganizationCodePolicyUpdateRequest, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSalaryUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeClassification, EmployeeFixedAllowanceMaster, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, EmployeeSalaryInfo, OrganizationCodePolicy, OrganizationCodePolicyKind, OrganizationCodePolicyUpdateRequest, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
@@ -583,6 +583,37 @@ export async function getOperationalEmployeeReferenceMasters(env: PostgresEnv | 
   }
 }
 
+export async function listOperationalEmployeeFixedAllowanceMasters(
+  env: PostgresEnv | undefined,
+  companyId: string,
+): Promise<EmployeeFixedAllowanceMaster[] | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  try {
+    const rows = await sql`
+      select id, code, name, default_amount, sort_order
+      from employee_fixed_allowance_masters
+      where company_id = ${companyId}
+        and is_active = true
+        and deleted_at is null
+      order by sort_order, name, code
+    `;
+    return rows.map((row) => {
+      const typed = row as { id: string; code: string; name: string; default_amount: unknown; sort_order: unknown };
+      return {
+        id: typed.id,
+        code: typed.code,
+        name: typed.name,
+        defaultAmount: parseMoney(typed.default_amount),
+        sortOrder: parseCount(typed.sort_order),
+      };
+    });
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
 
 function mapOrganizationMasterRows(kind: EmployeeOrganizationMasterKind, rows: unknown[]): EmployeeOrganizationMaster[] {
   return rows.map((row) => {
@@ -964,6 +995,7 @@ export async function createOperationalAdminUser(
   const employmentCategory = input.employmentCategory?.trim() || null;
   const employeeClassification = input.employeeClassification ?? "employee";
   const salaryInfo = input.salaryInfo ?? null;
+  let normalizedFixedAllowances = salaryInfo?.fixedAllowances ?? [];
   const positionName = input.positionName?.trim() || null;
   let createdZitadelUserId: string | null = null;
 
@@ -1108,6 +1140,27 @@ export async function createOperationalAdminUser(
       }
     }
 
+    if (salaryInfo && normalizedFixedAllowances.length > 0) {
+      const allowanceIds = [...new Set(normalizedFixedAllowances.map((item) => item.id))];
+      const allowanceRows = await sql`
+        select id, name
+        from employee_fixed_allowance_masters
+        where company_id = ${companyId}
+          and id = any(${allowanceIds})
+          and is_active = true
+          and deleted_at is null
+      `;
+      if (allowanceRows.length !== allowanceIds.length) {
+        await sql`rollback`;
+        return null;
+      }
+      const amountById = new Map(normalizedFixedAllowances.map((item) => [item.id, item.amount]));
+      normalizedFixedAllowances = allowanceRows.map((row) => {
+        const typed = row as { id: string; name: string };
+        return { id: typed.id, label: typed.name, amount: amountById.get(typed.id) ?? 0 };
+      });
+    }
+
     const roleRows = await sql`
       select id from roles
       where code = ${input.roleCode}
@@ -1160,7 +1213,7 @@ export async function createOperationalAdminUser(
         values (
           ${`payroll_profile_${employeeId}_${Date.now()}`}, ${companyId}, ${employeeId}, ${input.fullName.trim()}, ${branchId}, ${branch?.name ?? input.branchName}, ${salaryInfo.payType},
           ${salaryInfo.monthlySalary}, ${0}, ${0}, ${salaryInfo.annualSalary}, ${0},
-          ${salaryInfo.monthlySalary}, ${JSON.stringify(salaryInfo.fixedAllowances)}::jsonb, ${salaryInfo.salaryBank}, ${salaryInfo.salaryAccountNumber},
+          ${salaryInfo.monthlySalary}, ${JSON.stringify(normalizedFixedAllowances)}::jsonb, ${salaryInfo.salaryBank}, ${salaryInfo.salaryAccountNumber},
           ${salaryInfo.incomeTaxDependentCount}, ${salaryInfo.childTaxCreditCount},
           ${salaryInfo.durunuriEnabled}, ${salaryInfo.durunuriPensionReductionRate}, ${salaryInfo.durunuriEmploymentReductionRate},
           ${salaryInfo.smeIncomeTaxReductionEnabled}, ${salaryInfo.smeIncomeTaxReductionMode}, ${salaryInfo.smeIncomeTaxReductionRate},
@@ -1689,6 +1742,150 @@ export async function updateOperationalAdminUserOrganization(
 
     await sql`commit`;
 
+    const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
+    return user ? { user, updatedAt } : null;
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+export async function updateOperationalAdminUserSalary(
+  env: PostgresEnv | undefined,
+  companyId: string,
+  actorUserId: string,
+  targetUserId: string,
+  input: AdminUserSalaryUpdateRequest,
+  permissionsForRole: (roleCode: RoleCode) => Permission["code"][],
+  highRiskPermissions: readonly Permission["code"][],
+): Promise<{ user: AdminUserSummary; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+
+  const updatedAt = new Date().toISOString();
+  try {
+    await sql`begin`;
+    const employeeRows = await sql`
+      select e.id, e.full_name, e.branch_id, e.hire_date, b.name as branch_name
+      from users u
+      inner join employees e on e.user_id = u.id and e.company_id = u.company_id and e.deleted_at is null
+      left join branches b on b.id = e.branch_id and b.company_id = e.company_id
+      where u.id = ${targetUserId}
+        and u.company_id = ${companyId}
+        and u.deleted_at is null
+      for update of e
+    `;
+    const employee = employeeRows[0] as { id: string; full_name: string; branch_id: string | null; hire_date: unknown; branch_name: string | null } | undefined;
+    if (!employee) {
+      await sql`rollback`;
+      return null;
+    }
+
+    const allowanceIds = [...new Set(input.fixedAllowances.map((item) => item.id))];
+    let normalizedFixedAllowances: EmployeeSalaryInfo["fixedAllowances"] = [];
+    if (allowanceIds.length > 0) {
+      const allowanceRows = await sql`
+        select id, name
+        from employee_fixed_allowance_masters
+        where company_id = ${companyId}
+          and id = any(${allowanceIds})
+          and is_active = true
+          and deleted_at is null
+      `;
+      if (allowanceRows.length !== allowanceIds.length) {
+        await sql`rollback`;
+        return null;
+      }
+      const amountById = new Map(input.fixedAllowances.map((item) => [item.id, item.amount]));
+      normalizedFixedAllowances = allowanceRows.map((row) => {
+        const typed = row as { id: string; name: string };
+        return { id: typed.id, label: typed.name, amount: amountById.get(typed.id) ?? 0 };
+      });
+    }
+
+    const profileRows = await sql`
+      select id, pay_type, annual_salary, monthly_salary, salary_bank,
+             income_tax_dependent_count, child_tax_credit_count,
+             durunuri_enabled, durunuri_pension_reduction_rate, durunuri_employment_reduction_rate,
+             sme_income_tax_reduction_enabled, sme_income_tax_reduction_mode, sme_income_tax_reduction_rate,
+             sme_income_tax_reduction_start_date, sme_income_tax_reduction_end_date,
+             effective_from
+      from payroll_profiles
+      where company_id = ${companyId}
+        and employee_id = ${employee.id}
+        and deleted_at is null
+      order by effective_from desc, created_at desc
+      limit 1
+      for update
+    `;
+    const before = profileRows[0] as Record<string, unknown> | undefined;
+    const effectiveFrom = parseDateOnly(before?.effective_from ?? employee.hire_date) ?? updatedAt.slice(0, 10);
+    const profileId = typeof before?.id === "string" ? before.id : `payroll_profile_${employee.id}_${Date.now()}`;
+
+    await sql`
+      insert into payroll_profiles (
+        id, company_id, employee_id, employee_name, branch_id, branch_label, pay_type,
+        base_pay, hourly_rate, daily_rate, annual_salary, inclusive_allowance,
+        monthly_salary, fixed_allowances_json, salary_bank, salary_account_number,
+        income_tax_dependent_count, child_tax_credit_count,
+        durunuri_enabled, durunuri_pension_reduction_rate, durunuri_employment_reduction_rate,
+        sme_income_tax_reduction_enabled, sme_income_tax_reduction_mode, sme_income_tax_reduction_rate,
+        sme_income_tax_reduction_start_date, sme_income_tax_reduction_end_date,
+        standard_work_hours, pay_day, effective_from, effective_to, scope_note, created_at, updated_at
+      )
+      values (
+        ${profileId}, ${companyId}, ${employee.id}, ${employee.full_name}, ${employee.branch_id}, ${employee.branch_name}, ${input.payType},
+        ${input.monthlySalary}, ${0}, ${0}, ${input.annualSalary}, ${0},
+        ${input.monthlySalary}, ${JSON.stringify(normalizedFixedAllowances)}::jsonb, ${input.salaryBank}, ${input.salaryAccountNumber},
+        ${input.incomeTaxDependentCount}, ${input.childTaxCreditCount},
+        ${input.durunuriEnabled}, ${input.durunuriPensionReductionRate}, ${input.durunuriEmploymentReductionRate},
+        ${input.smeIncomeTaxReductionEnabled}, ${input.smeIncomeTaxReductionMode}, ${input.smeIncomeTaxReductionRate},
+        ${input.smeIncomeTaxReductionStartDate ?? null}, ${input.smeIncomeTaxReductionEndDate ?? null},
+        ${209}, ${25}, ${effectiveFrom}, null, ${"사원정보관리 급여정보"}, ${updatedAt}, ${updatedAt}
+      )
+      on conflict (id) do update set
+        employee_name = excluded.employee_name,
+        branch_id = excluded.branch_id,
+        branch_label = excluded.branch_label,
+        pay_type = excluded.pay_type,
+        base_pay = excluded.base_pay,
+        annual_salary = excluded.annual_salary,
+        monthly_salary = excluded.monthly_salary,
+        fixed_allowances_json = excluded.fixed_allowances_json,
+        salary_bank = excluded.salary_bank,
+        salary_account_number = excluded.salary_account_number,
+        income_tax_dependent_count = excluded.income_tax_dependent_count,
+        child_tax_credit_count = excluded.child_tax_credit_count,
+        durunuri_enabled = excluded.durunuri_enabled,
+        durunuri_pension_reduction_rate = excluded.durunuri_pension_reduction_rate,
+        durunuri_employment_reduction_rate = excluded.durunuri_employment_reduction_rate,
+        sme_income_tax_reduction_enabled = excluded.sme_income_tax_reduction_enabled,
+        sme_income_tax_reduction_mode = excluded.sme_income_tax_reduction_mode,
+        sme_income_tax_reduction_rate = excluded.sme_income_tax_reduction_rate,
+        sme_income_tax_reduction_start_date = excluded.sme_income_tax_reduction_start_date,
+        sme_income_tax_reduction_end_date = excluded.sme_income_tax_reduction_end_date,
+        scope_note = excluded.scope_note,
+        updated_at = excluded.updated_at
+    `;
+
+    await sql`
+      insert into audit_logs (id, company_id, actor_user_id, action, resource_type, resource_id, before_json, after_json, metadata_json, created_at)
+      values (
+        ${`audit_admin_user_salary_${targetUserId}_${Date.now()}`},
+        ${companyId},
+        ${actorUserId},
+        'admin.user.salary.update',
+        'employee',
+        ${employee.id},
+        ${JSON.stringify(before ? { payType: before.pay_type, annualSalary: before.annual_salary, monthlySalary: before.monthly_salary, salaryBank: before.salary_bank, dependentCount: before.income_tax_dependent_count, childCount: before.child_tax_credit_count, durunuriEnabled: before.durunuri_enabled, smeIncomeTaxReductionEnabled: before.sme_income_tax_reduction_enabled } : { status: "not_configured" })}::jsonb,
+        ${JSON.stringify({ payType: input.payType, annualSalary: input.annualSalary, monthlySalary: input.monthlySalary, salaryBank: input.salaryBank, dependentCount: input.incomeTaxDependentCount, childCount: input.childTaxCreditCount, durunuriEnabled: input.durunuriEnabled, smeIncomeTaxReductionEnabled: input.smeIncomeTaxReductionEnabled })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "employee", reason: input.reason, maskedFields: ["salary_account_number"] })}::jsonb,
+        ${updatedAt}
+      )
+    `;
+
+    await sql`commit`;
     const user = await getOperationalAdminUserById(env, companyId, targetUserId, permissionsForRole, highRiskPermissions);
     return user ? { user, updatedAt } : null;
   } catch (error) {
