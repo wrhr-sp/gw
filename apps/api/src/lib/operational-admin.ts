@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, OrganizationCodePolicy, OrganizationCodePolicyKind, OrganizationCodePolicyUpdateRequest, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
@@ -638,29 +638,164 @@ async function readOperationalEmployeeOrganizationMaster(sql: ReturnType<typeof 
   return mapOrganizationMasterRows(kind, rows)[0] ?? null;
 }
 
+
+function formatOrganizationCode(policy: { prefix: string; number_digits: unknown; next_sequence: unknown; format_pattern: string }) {
+  const seq = String(Number(policy.next_sequence ?? 1)).padStart(Number(policy.number_digits ?? 3), "0");
+  return (policy.format_pattern || "{PREFIX}-{SEQ}").replaceAll("{PREFIX}", policy.prefix).replaceAll("{SEQ}", seq);
+}
+
+function mapOrganizationCodePolicyRows(rows: unknown[]): OrganizationCodePolicy[] {
+  return rows.map((row) => {
+    const typed = row as {
+      id: string;
+      company_id: string;
+      target_kind: OrganizationCodePolicyKind;
+      prefix: string;
+      number_digits: unknown;
+      next_sequence: unknown;
+      format_pattern: string;
+      auto_generate_enabled: unknown;
+      manual_edit_allowed: unknown;
+      reuse_retired_code_allowed: unknown;
+      is_active: unknown;
+      updated_at: unknown;
+    };
+    return {
+      id: typed.id,
+      companyId: typed.company_id,
+      kind: typed.target_kind,
+      prefix: typed.prefix,
+      numberDigits: Number(typed.number_digits ?? 3),
+      nextSequence: Number(typed.next_sequence ?? 1),
+      formatPattern: typed.format_pattern || "{PREFIX}-{SEQ}",
+      autoGenerateEnabled: parseBoolean(typed.auto_generate_enabled),
+      manualEditAllowed: parseBoolean(typed.manual_edit_allowed),
+      reuseRetiredCodeAllowed: parseBoolean(typed.reuse_retired_code_allowed),
+      isActive: parseBoolean(typed.is_active),
+      nextCode: formatOrganizationCode(typed),
+      updatedAt: parseDateTime(typed.updated_at),
+    };
+  });
+}
+
+export async function listOperationalOrganizationCodePolicies(env: PostgresEnv | undefined, companyId: string): Promise<OrganizationCodePolicy[] | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  try {
+    const rows = await sql`
+      select id, company_id, target_kind, prefix, number_digits, next_sequence, format_pattern, auto_generate_enabled, manual_edit_allowed, reuse_retired_code_allowed, is_active, updated_at
+      from organization_code_policies
+      where company_id = ${companyId}
+        and deleted_at is null
+      order by case target_kind when 'branches' then 1 when 'departments' then 2 when 'jobGrades' then 3 when 'jobPositions' then 4 when 'jobTitles' then 5 when 'departmentDuties' then 6 when 'groups' then 7 else 99 end
+    `;
+    return mapOrganizationCodePolicyRows(rows);
+  } catch (error) {
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
+async function readOperationalOrganizationCodePolicy(sql: ReturnType<typeof createOperationalSql>, companyId: string, kind: OrganizationCodePolicyKind): Promise<OrganizationCodePolicy | null> {
+  if (!sql) return null;
+  const rows = await sql`
+    select id, company_id, target_kind, prefix, number_digits, next_sequence, format_pattern, auto_generate_enabled, manual_edit_allowed, reuse_retired_code_allowed, is_active, updated_at
+    from organization_code_policies
+    where company_id = ${companyId}
+      and target_kind = ${kind}
+      and deleted_at is null
+    limit 1
+  `;
+  return mapOrganizationCodePolicyRows(rows)[0] ?? null;
+}
+
+async function resolveOrganizationCode(sql: ReturnType<typeof createOperationalSql>, companyId: string, kind: OrganizationCodePolicyKind, inputCode: string | undefined | null): Promise<string | null> {
+  const normalized = inputCode?.trim();
+  const policy = await readOperationalOrganizationCodePolicy(sql, companyId, kind);
+  if (normalized) {
+    if (policy && policy.autoGenerateEnabled && !policy.manualEditAllowed) return null;
+    return normalized;
+  }
+  if (!policy || !policy.autoGenerateEnabled || !policy.isActive) return null;
+  return policy.nextCode;
+}
+
+async function advanceOrganizationCodeSequence(sql: ReturnType<typeof createOperationalSql>, companyId: string, kind: OrganizationCodePolicyKind, usedCode: string | undefined | null) {
+  if (!sql || !usedCode) return;
+  await sql`
+    update organization_code_policies
+    set next_sequence = next_sequence + 1,
+        updated_at = now()
+    where company_id = ${companyId}
+      and target_kind = ${kind}
+      and deleted_at is null
+      and auto_generate_enabled = true
+      and is_active = true
+      and ${usedCode} = replace(replace(format_pattern, '{PREFIX}', prefix), '{SEQ}', lpad(next_sequence::text, number_digits, '0'))
+  `;
+}
+
+export async function upsertOperationalOrganizationCodePolicy(env: PostgresEnv | undefined, companyId: string, actorUserId: string, kind: OrganizationCodePolicyKind, input: OrganizationCodePolicyUpdateRequest): Promise<{ item: OrganizationCodePolicy; updatedAt: string } | null> {
+  const sql = createOperationalSql(env);
+  if (!sql) return null;
+  const updatedAt = new Date().toISOString();
+  const itemId = `organization_code_policy_${companyId}_${kind}`;
+  try {
+    await sql`begin`;
+    const before = await readOperationalOrganizationCodePolicy(sql, companyId, kind);
+    await sql`
+      insert into organization_code_policies (id, company_id, target_kind, prefix, number_digits, next_sequence, format_pattern, auto_generate_enabled, manual_edit_allowed, reuse_retired_code_allowed, is_active, created_at, updated_at)
+      values (${itemId}, ${companyId}, ${kind}, ${input.prefix}, ${input.numberDigits}, ${input.nextSequence}, ${input.formatPattern}, ${input.autoGenerateEnabled}, ${input.manualEditAllowed}, ${input.reuseRetiredCodeAllowed}, ${input.isActive}, ${updatedAt}, ${updatedAt})
+      on conflict (company_id, target_kind) do update
+      set prefix = excluded.prefix,
+          number_digits = excluded.number_digits,
+          next_sequence = excluded.next_sequence,
+          format_pattern = excluded.format_pattern,
+          auto_generate_enabled = excluded.auto_generate_enabled,
+          manual_edit_allowed = excluded.manual_edit_allowed,
+          reuse_retired_code_allowed = excluded.reuse_retired_code_allowed,
+          is_active = excluded.is_active,
+          updated_at = excluded.updated_at,
+          deleted_at = null
+    `;
+    const item = await readOperationalOrganizationCodePolicy(sql, companyId, kind);
+    if (!item) { await sql`rollback`; return null; }
+    await recordAdminReferenceAudit(sql, { companyId, actorUserId, action: before ? "admin.organization_code_policy.update" : "admin.organization_code_policy.create", resourceType: "organization_code_policy", resourceId: item.id, before, after: item, reason: input.reason, updatedAt });
+    await sql`commit`;
+    return { item, updatedAt };
+  } catch (error) {
+    await sql`rollback`.catch(() => undefined);
+    if (isOperationalSchemaDriftError(error)) return null;
+    throw error;
+  }
+}
+
 export async function upsertOperationalEmployeeOrganizationMaster(env: PostgresEnv | undefined, companyId: string, actorUserId: string, kind: EmployeeOrganizationMasterKind, id: string | null, input: EmployeeOrganizationMasterMutationRequest): Promise<{ item: EmployeeOrganizationMaster; updatedAt: string } | null> {
   const sql = createOperationalSql(env);
   if (!sql) return null;
   const updatedAt = new Date().toISOString();
-  const itemId = id ?? `${kind}_${input.code.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
+  const itemId = id ?? `${kind}_${(input.code?.trim() || input.name).trim().toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
   try {
     await sql`begin`;
+    const code = id ? input.code?.trim() : await resolveOrganizationCode(sql, companyId, kind, input.code);
+    if (!code) { await sql`rollback`; return null; }
     const before = id ? await readOperationalEmployeeOrganizationMaster(sql, companyId, kind, id) : null;
     if (kind === "branches") {
-      await sql`insert into branches (id, company_id, code, name, branch_type, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, 'office', ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into branches (id, company_id, code, name, branch_type, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${code}, ${input.name}, 'office', ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
     } else if (kind === "departments") {
-      await sql`insert into departments (id, company_id, branch_id, parent_department_id, code, name, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${input.branchId ?? null}, ${input.parentId ?? null}, ${input.code}, ${input.name}, ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set branch_id = excluded.branch_id, parent_department_id = excluded.parent_department_id, name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into departments (id, company_id, branch_id, parent_department_id, code, name, status, description, sort_order, created_at, updated_at) values (${itemId}, ${companyId}, ${input.branchId ?? null}, ${input.parentId ?? null}, ${code}, ${input.name}, ${input.isActive ? 'active' : 'inactive'}, ${input.description ?? null}, ${input.sortOrder}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set branch_id = excluded.branch_id, parent_department_id = excluded.parent_department_id, name = excluded.name, status = excluded.status, description = excluded.description, sort_order = excluded.sort_order, updated_at = excluded.updated_at, deleted_at = null`;
     } else if (kind === "jobGrades") {
-      await sql`insert into employee_job_grades (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into employee_job_grades (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
     } else if (kind === "jobPositions") {
-      await sql`insert into employee_job_positions (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into employee_job_positions (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
     } else if (kind === "jobTitles") {
-      await sql`insert into employee_job_titles (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into employee_job_titles (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
     } else {
-      await sql`insert into employee_groups (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+      await sql`insert into employee_groups (id, company_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
     }
-    const item = await readOperationalEmployeeOrganizationMaster(sql, companyId, kind, itemId) ?? (await listOperationalEmployeeOrganizationMasters(env, companyId))?.[kind].find((candidate) => candidate.code === input.code);
+    const item = await readOperationalEmployeeOrganizationMaster(sql, companyId, kind, itemId) ?? (await listOperationalEmployeeOrganizationMasters(env, companyId))?.[kind].find((candidate) => candidate.code === code);
     if (!item) { await sql`rollback`; return null; }
+    await advanceOrganizationCodeSequence(sql, companyId, kind, code);
     await recordAdminReferenceAudit(sql, { companyId, actorUserId, action: before ? "admin.employee_organization_master.update" : "admin.employee_organization_master.create", resourceType: kind, resourceId: item.id, before, after: item, reason: input.reason, updatedAt });
     await sql`commit`;
     return { item, updatedAt };
@@ -699,15 +834,18 @@ export async function upsertOperationalDepartmentDuty(env: PostgresEnv | undefin
   const sql = createOperationalSql(env);
   if (!sql) return null;
   const updatedAt = new Date().toISOString();
-  const itemId = dutyId ?? `department_duty_${input.code.trim().toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
+  const itemId = dutyId ?? `department_duty_${(input.code?.trim() || input.name).toLowerCase().replace(/[^a-z0-9가-힣]+/gi, "_")}_${crypto.randomUUID().slice(0, 8)}`;
   try {
     await sql`begin`;
+    const code = dutyId ? input.code?.trim() : await resolveOrganizationCode(sql, companyId, "departmentDuties", input.code);
+    if (!code) { await sql`rollback`; return null; }
     const department = await sql`select id from departments where company_id = ${companyId} and id = ${departmentId} and deleted_at is null limit 1`;
     if (!department[0]) { await sql`rollback`; return null; }
     const before = dutyId ? await readOperationalDepartmentDuty(sql, companyId, dutyId) : null;
-    await sql`insert into department_duties (id, company_id, department_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${departmentId}, ${input.code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, department_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
-    const item = await readOperationalDepartmentDuty(sql, companyId, itemId) ?? (await listOperationalDepartmentDuties(env, companyId, departmentId))?.find((candidate) => candidate.code === input.code);
+    await sql`insert into department_duties (id, company_id, department_id, code, name, description, sort_order, is_active, created_at, updated_at) values (${itemId}, ${companyId}, ${departmentId}, ${code}, ${input.name}, ${input.description ?? null}, ${input.sortOrder}, ${input.isActive}, ${updatedAt}, ${updatedAt}) on conflict (company_id, department_id, code) do update set name = excluded.name, description = excluded.description, sort_order = excluded.sort_order, is_active = excluded.is_active, updated_at = excluded.updated_at, deleted_at = null`;
+    const item = await readOperationalDepartmentDuty(sql, companyId, itemId) ?? (await listOperationalDepartmentDuties(env, companyId, departmentId))?.find((candidate) => candidate.code === code);
     if (!item) { await sql`rollback`; return null; }
+    await advanceOrganizationCodeSequence(sql, companyId, "departmentDuties", code);
     await recordAdminReferenceAudit(sql, { companyId, actorUserId, action: before ? "admin.department_duty.update" : "admin.department_duty.create", resourceType: "department_duty", resourceId: item.id, before, after: item, reason: input.reason, updatedAt });
     await sql`commit`;
     return { item, updatedAt };

@@ -23,8 +23,8 @@ import {
 
 describe("Phase 13 admin operations config", () => {
   it("keeps the admin hub focused on policies and audit logs", () => {
-    expect(adminHubCards.map((card) => card.href)).toEqual(["/admin/employee-organization-masters", "/admin/policies", "/admin/audit-logs"]);
-    expect(adminHubCards.find((card) => card.href === "/admin/employee-organization-masters")?.title).toBe("사원 조직정보 기준설정");
+    expect(adminHubCards.map((card) => card.href)).toEqual(["/admin/organization-info", "/admin/policies", "/admin/audit-logs"]);
+    expect(adminHubCards.find((card) => card.href === "/admin/organization-info")?.title).toBe("조직정보");
     expect(adminHubPriorityChecks).toContain("저장 실행 대신 candidate/diff/audit 검토로 끝나는지 확인");
   });
 
