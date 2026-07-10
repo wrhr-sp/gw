@@ -378,7 +378,7 @@ export const adminPrimaryNav: NavItem[] = [
     href: "/admin/organization-info",
     label: "조직정보",
     shortLabel: "조직",
-    summary: "지사·부서·직급·직위·직책·담당·사용자그룹과 코드정보 관리",
+    summary: "지사·부서·직급·직위·직책·담당·사용자그룹 관리",
   },
   {
     href: "/admin/policies",

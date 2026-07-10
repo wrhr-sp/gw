@@ -87,7 +87,7 @@ export const adminHubCards: readonly AdminHubCard[] = [
   {
     href: "/admin/organization-info",
     title: "조직정보",
-    description: "지사·부서·직급·직위·직책·담당·사용자그룹과 코드정보 정책을 관리하는 관리자 기능",
+    description: "지사·부서·직급·직위·직책·담당·사용자그룹을 관리하는 관리자 기능",
     primaryAudience: "회사 관리자 · HR 관리자",
     firstReviewPoint: "사원생성/상세패널 선택값, 사용중지, 감사로그",
     guardrail: "연결된 사원 이력 보존을 위해 삭제는 soft delete/비활성화 우선",
