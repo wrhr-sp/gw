@@ -178,7 +178,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("aria-label=\"사원 담당업무 선택값\"");
     expect(clientSource).toContain("appRoutes.admin.departmentDuties");
     expect(clientSource).toContain("departmentDuties.map((duty) =>");
-    expect(clientSource).toContain("aria-pressed={createForm.departmentDutyIds.includes(duty.id)}");
+    expect(clientSource).toContain("aria-pressed={checked}");
+    expect(clientSource).toContain("setIsDepartmentDutyPickerOpen(true)");
     expect(clientSource).toContain("aria-label=\"사원 지사\"");
     expect(clientSource).toContain("aria-label=\"사원 부서\"");
     expect(clientSource).toContain("aria-label=\"사원 직급\"");
@@ -247,6 +248,32 @@ describe("org/employees/admin boundaries", () => {
     expect(html).not.toContain("회원가입 신청");
     expect(html).not.toContain("회원가입 승인");
     expect(html).not.toContain("승인대기");
+  });
+
+  it("keeps organization fields in the approved four-row order and renders salary units", async () => {
+    const clientSource = await import("node:fs/promises").then((fs) => fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"));
+    const organizationSections = [...clientSource.matchAll(/aria-label="사원 (?:생성|상세패널) 조직정보">([\s\S]*?)<\/section>/g)];
+    expect(organizationSections).toHaveLength(2);
+
+    const approvedRows = [
+      ["임직원구분", "지사"],
+      ["부서", "직급"],
+      ["직위", "직책"],
+      ["담당", "사용자그룹"],
+    ];
+
+    for (const sectionMatch of organizationSections) {
+      const rows = [...sectionMatch[1].matchAll(/employee-create-field-row--two">([\s\S]*?)<\/div>/g)].map((match) => match[1]);
+      expect(rows).toHaveLength(4);
+      approvedRows.forEach((labels, index) => {
+        for (const label of labels) expect(rows[index]).toContain(`<span>${label}</span>`);
+      });
+    }
+
+    expect(clientSource).toContain('aria-label="담당 선택 팝업"');
+    expect(clientSource).toContain('className="employee-create-unit-field"');
+    expect(clientSource.match(/<span aria-hidden="true">%<\/span>/g)).toHaveLength(3);
+    expect(clientSource.match(/<span aria-hidden="true">원<\/span>/g)).toHaveLength(2);
   });
 
   it("keeps employee management summary status cards on a five-column desktop grid", async () => {

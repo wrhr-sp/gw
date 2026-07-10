@@ -6375,6 +6375,29 @@ li {
   font-weight: 500;
 }
 
+.employee-create-field--duty {
+  order: -1;
+}
+
+.employee-create-unit-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: var(--space-xs);
+  width: var(--hr-input-width-medium);
+}
+
+.feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-unit-field > input {
+  min-width: 0;
+  width: 100%;
+}
+
+.employee-create-unit-field > span[aria-hidden="true"] {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
 .employee-create-email-field,
 .employee-create-resident-field,
 .employee-create-sensitive-field,

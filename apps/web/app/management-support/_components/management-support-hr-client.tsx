@@ -496,6 +496,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [departmentDuties, setDepartmentDuties] = useState<DepartmentDuty[]>([]);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activeReferencePicker, setActiveReferencePicker] = useState<EmployeeCreateMasterKind | null>(null);
+  const [isDepartmentDutyPickerOpen, setIsDepartmentDutyPickerOpen] = useState(false);
   const [isManagerPickerOpen, setIsManagerPickerOpen] = useState(false);
   const [showResidentBack, setShowResidentBack] = useState(false);
   const [showInitialPassword, setShowInitialPassword] = useState(false);
@@ -1479,25 +1480,25 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         </label>
       </div>
       <div className="employee-create-field-row employee-create-field-row--two">
-        <label><span>연봉</span><input aria-label="사원 연봉" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ annualSalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.annualSalary ? createForm.salaryInfo.annualSalary.toLocaleString("ko-KR") : ""} /></label>
-        <label><span>월급여</span><input aria-label="사원 월급여" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ monthlySalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.monthlySalary ? createForm.salaryInfo.monthlySalary.toLocaleString("ko-KR") : ""} /></label>
+        <label><span>연봉</span><span className="employee-create-unit-field"><input aria-label="사원 연봉" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ annualSalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.annualSalary ? createForm.salaryInfo.annualSalary.toLocaleString("ko-KR") : ""} /><span aria-hidden="true">원</span></span></label>
+        <label><span>월급여</span><span className="employee-create-unit-field"><input aria-label="사원 월급여" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ monthlySalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.monthlySalary ? createForm.salaryInfo.monthlySalary.toLocaleString("ko-KR") : ""} /><span aria-hidden="true">원</span></span></label>
       </div>
       <div className="employee-create-field-row employee-create-field-row--two">
         <label><span>급여은행</span><select aria-label="사원 급여은행" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ salaryBank: event.target.value as EmployeeSalaryBank })} value={createForm.salaryInfo.salaryBank}>{employeeSalaryBankOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label><span>급여계좌</span><input aria-label="사원 급여계좌" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ salaryAccountNumber: event.target.value.replace(/[^0-9-]/g, "") })} value={createForm.salaryInfo.salaryAccountNumber} /></label>
       </div>
       <div className="employee-create-field-row employee-create-field-row--two">
-        <label><span>소득공제부양자</span><input aria-label="사원 소득공제부양자" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ incomeTaxDependentCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.incomeTaxDependentCount} /></label>
-        <label><span>공제대상 중 8세 이상 20세 이하 자녀</span><input aria-label="사원 공제대상 자녀" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ childTaxCreditCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.childTaxCreditCount} /></label>
+        <label><span>소득공제부양자</span><span className="employee-create-unit-field"><input aria-label="사원 소득공제부양자" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ incomeTaxDependentCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.incomeTaxDependentCount} /><span aria-hidden="true">명</span></span></label>
+        <label><span>공제대상 중 8세 이상 20세 이하 자녀</span><span className="employee-create-unit-field"><input aria-label="사원 공제대상 자녀" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ childTaxCreditCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.childTaxCreditCount} /><span aria-hidden="true">명</span></span></label>
       </div>
       <div className="employee-create-field-row employee-create-field-row--one">
         <label><span>두루누리 적용여부</span><select aria-label="사원 두루누리 적용여부" data-hr-input-size="short" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ durunuriEnabled: event.target.value === "true" })} value={String(createForm.salaryInfo.durunuriEnabled)}><option value="true">예</option><option value="false">아니오</option></select></label>
       </div>
-      {createForm.salaryInfo.durunuriEnabled ? <div className="employee-create-field-row employee-create-field-row--two"><label><span>두루누리 국민연금감면율</span><input aria-label="사원 두루누리 국민연금감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriPensionReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriPensionReductionRate} /></label><label><span>두루누리 고용보험 감면율</span><input aria-label="사원 두루누리 고용보험 감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriEmploymentReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriEmploymentReductionRate} /></label></div> : null}
+      {createForm.salaryInfo.durunuriEnabled ? <div className="employee-create-field-row employee-create-field-row--two"><label><span>두루누리 국민연금감면율</span><span className="employee-create-unit-field"><input aria-label="사원 두루누리 국민연금감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriPensionReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriPensionReductionRate} /><span aria-hidden="true">%</span></span></label><label><span>두루누리 고용보험 감면율</span><span className="employee-create-unit-field"><input aria-label="사원 두루누리 고용보험 감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriEmploymentReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriEmploymentReductionRate} /><span aria-hidden="true">%</span></span></label></div> : null}
       <div className="employee-create-field-row employee-create-field-row--one">
         <label><span>중소기업취업소득세감면</span><select aria-label="사원 중소기업취업소득세감면" data-hr-input-size="short" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionEnabled: event.target.value === "true" })} value={String(createForm.salaryInfo.smeIncomeTaxReductionEnabled)}><option value="true">예</option><option value="false">아니오</option></select></label>
       </div>
-      {createForm.salaryInfo.smeIncomeTaxReductionEnabled ? <><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업감면적용</span><select aria-label="사원 중소기업감면적용" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionMode: event.target.value as EmployeeSalaryInfo["smeIncomeTaxReductionMode"] })} value={createForm.salaryInfo.smeIncomeTaxReductionMode}><option value="year_end">연말정산</option><option value="payroll">급여정산</option></select></label><label><span>중소기업소득감면율</span><input aria-label="사원 중소기업소득감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.smeIncomeTaxReductionRate} /></label></div><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업소득세감면기간 시작</span><input aria-label="사원 중소기업소득세감면기간 시작" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionStartDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionStartDate ?? ""} /></label><label><span>중소기업소득세감면기간 종료</span><input aria-label="사원 중소기업소득세감면기간 종료" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionEndDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionEndDate ?? ""} /></label></div></> : null}
+      {createForm.salaryInfo.smeIncomeTaxReductionEnabled ? <><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업감면적용</span><select aria-label="사원 중소기업감면적용" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionMode: event.target.value as EmployeeSalaryInfo["smeIncomeTaxReductionMode"] })} value={createForm.salaryInfo.smeIncomeTaxReductionMode}><option value="year_end">연말정산</option><option value="payroll">급여정산</option></select></label><label><span>중소기업소득감면율</span><span className="employee-create-unit-field"><input aria-label="사원 중소기업소득감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.smeIncomeTaxReductionRate} /><span aria-hidden="true">%</span></span></label></div><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업소득세감면기간 시작</span><input aria-label="사원 중소기업소득세감면기간 시작" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionStartDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionStartDate ?? ""} /></label><label><span>중소기업소득세감면기간 종료</span><input aria-label="사원 중소기업소득세감면기간 종료" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionEndDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionEndDate ?? ""} /></label></div></> : null}
     </section>
   ) : null;
 
@@ -1902,6 +1903,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {branchOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>부서</span>
                         <select
@@ -1915,9 +1919,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {departmentOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직급</span>
                         <select
@@ -1931,6 +1932,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobGradeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직위</span>
                         <select
@@ -1944,9 +1948,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobPositionOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직책</span>
                         <select
@@ -1960,6 +1961,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobTitleOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>사용자그룹</span>
                         <span className="employee-create-inline-picker" aria-label="사원 사용자그룹 선택값">
@@ -1969,28 +1973,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("groups")} type="button">+추가</button>
                         </span>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--one">
-                      <label>
+                      <label className="employee-create-field--duty">
                         <span>담당</span>
                         <span className="employee-create-inline-picker" aria-label="사원 담당업무 선택값">
                           {getSelectedDepartmentDutyNames(createForm.departmentDutyIds).map((name) => (
                             <span className="employee-create-inline-picker__item" key={name}>{name}</span>
                           ))}
-                          {departmentDuties.map((duty) => (
-                            <button
-                              key={duty.id}
-                              aria-pressed={createForm.departmentDutyIds.includes(duty.id)}
-                              className="employee-create-reference-field__add"
-                              data-selection-mode="multiple"
-                              disabled={createSaveState === "saving"}
-                              onClick={() => toggleDepartmentDutySelection(duty.id)}
-                              type="button"
-                            >
-                              {createForm.departmentDutyIds.includes(duty.id) ? `✓ ${duty.name}` : `+ ${duty.name}`}
-                            </button>
-                          ))}
+                          <button
+                            className="employee-create-reference-field__add"
+                            data-selection-mode="multiple"
+                            disabled={createSaveState === "saving" || departmentDuties.length === 0}
+                            onClick={() => setIsDepartmentDutyPickerOpen(true)}
+                            type="button"
+                          >
+                            +추가
+                          </button>
                         </span>
                       </label>
                     </div>
@@ -2288,6 +2285,31 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               </div>
               <ActionButtonGroup label="기준정보 선택 작업">
                 <StandardButton intent="primary" onClick={() => setActiveReferencePicker(null)} type="button">확인</StandardButton>
+              </ActionButtonGroup>
+            </div>
+          </div>
+        ) : null}
+
+        {isDepartmentDutyPickerOpen ? (
+          <div className="employee-create-reference-picker" role="dialog" aria-modal="true" aria-label="담당 선택 팝업">
+            <div className="employee-create-reference-picker__panel">
+              <div className="employee-create-reference-picker__header">
+                <strong>담당 선택</strong>
+                <button aria-label="담당 선택 팝업 닫기" onClick={() => setIsDepartmentDutyPickerOpen(false)} type="button">×</button>
+              </div>
+              <div className="employee-create-reference-picker__body">
+                {departmentDuties.length === 0 ? <p className="feature-workspace__save-message" role="status">선택한 부서에 등록된 담당이 없습니다.</p> : null}
+                {departmentDuties.map((duty) => {
+                  const checked = createForm.departmentDutyIds.includes(duty.id);
+                  return (
+                    <button key={duty.id} aria-pressed={checked} className="employee-create-reference-picker__option" onClick={() => toggleDepartmentDutySelection(duty.id)} type="button">
+                      <span>{checked ? "✓" : "+"}</span>{duty.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <ActionButtonGroup label="담당 선택 작업">
+                <StandardButton intent="primary" onClick={() => setIsDepartmentDutyPickerOpen(false)} type="button">확인</StandardButton>
               </ActionButtonGroup>
             </div>
           </div>
@@ -2690,6 +2712,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {branchOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>부서</span>
                         <select
@@ -2703,9 +2728,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {departmentOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직급</span>
                         <select
@@ -2719,6 +2741,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobGradeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직위</span>
                         <select
@@ -2732,9 +2757,6 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobPositionOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>직책</span>
                         <select
@@ -2748,6 +2770,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           {jobTitleOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
                         </select>
                       </label>
+                    </div>
+
+                    <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
                         <span>사용자그룹</span>
                         <span className="employee-create-inline-picker" aria-label="사원 사용자그룹 선택값">
@@ -2757,28 +2782,21 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                           <button className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving" || referenceMasterLoadState === "loading"} onClick={() => setActiveReferencePicker("groups")} type="button">+추가</button>
                         </span>
                       </label>
-                    </div>
-
-                    <div className="employee-create-field-row employee-create-field-row--one">
-                      <label>
+                      <label className="employee-create-field--duty">
                         <span>담당</span>
                         <span className="employee-create-inline-picker" aria-label="사원 담당업무 선택값">
                           {getSelectedDepartmentDutyNames(createForm.departmentDutyIds).map((name) => (
                             <span className="employee-create-inline-picker__item" key={name}>{name}</span>
                           ))}
-                          {departmentDuties.map((duty) => (
-                            <button
-                              key={duty.id}
-                              aria-pressed={createForm.departmentDutyIds.includes(duty.id)}
-                              className="employee-create-reference-field__add"
-                              data-selection-mode="multiple"
-                              disabled={createSaveState === "saving"}
-                              onClick={() => toggleDepartmentDutySelection(duty.id)}
-                              type="button"
-                            >
-                              {createForm.departmentDutyIds.includes(duty.id) ? `✓ ${duty.name}` : `+ ${duty.name}`}
-                            </button>
-                          ))}
+                          <button
+                            className="employee-create-reference-field__add"
+                            data-selection-mode="multiple"
+                            disabled={createSaveState === "saving" || departmentDuties.length === 0}
+                            onClick={() => setIsDepartmentDutyPickerOpen(true)}
+                            type="button"
+                          >
+                            +추가
+                          </button>
                         </span>
                       </label>
                     </div>
