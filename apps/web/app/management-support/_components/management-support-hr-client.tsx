@@ -21,7 +21,9 @@ import {
   adminUserMutationResponseSchema,
   adminUserOrganizationUpdateRequestSchema,
   adminUserProfileUpdateRequestSchema,
+  adminUserSalaryUpdateRequestSchema,
   employeeOrganizationMastersResponseSchema,
+  employeeFixedAllowanceMastersResponseSchema,
   departmentDutiesResponseSchema,
   addressSearchResponseSchema,
   adminUserRolesUpdateRequestSchema,
@@ -41,6 +43,7 @@ import {
   type AdminUserSummary,
   type DepartmentDuty,
   type EmployeeClassification,
+  type EmployeeFixedAllowanceMaster,
   type EmployeeSalaryBank,
   type EmployeeSalaryInfo,
   type EmployeePayType,
@@ -170,13 +173,6 @@ const employeeSalaryBankOptions: Array<{ value: EmployeeSalaryBank; label: strin
   { value: "toss", label: "토스뱅크" },
   { value: "other", label: "기타" },
 ];
-
-const fixedAllowanceOptions = [
-  { id: "meal", label: "식대", amount: 0 },
-  { id: "transport", label: "교통비", amount: 0 },
-  { id: "position", label: "직책수당", amount: 0 },
-  { id: "childcare", label: "보육수당", amount: 0 },
-] satisfies EmployeeSalaryInfo["fixedAllowances"];
 
 const defaultSalaryInfo: EmployeeSalaryInfo = {
   payType: "monthly",
@@ -492,6 +488,11 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [isCreateCloseConfirmOpen, setIsCreateCloseConfirmOpen] = useState(false);
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
+  const [fixedAllowanceMasters, setFixedAllowanceMasters] = useState<EmployeeFixedAllowanceMaster[]>([]);
+  const [fixedAllowanceMasterLoadState, setFixedAllowanceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [isFixedAllowancePickerOpen, setIsFixedAllowancePickerOpen] = useState(false);
+  const [fixedAllowanceDraftId, setFixedAllowanceDraftId] = useState("");
+  const [fixedAllowanceDraftAmount, setFixedAllowanceDraftAmount] = useState(0);
   const [departmentDuties, setDepartmentDuties] = useState<DepartmentDuty[]>([]);
   const [referenceMasterLoadState, setReferenceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [activeReferencePicker, setActiveReferencePicker] = useState<EmployeeCreateMasterKind | null>(null);
@@ -505,6 +506,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [profileSaveMessage, setProfileSaveMessage] = useState<string | null>(null);
   const [organizationSaveState, setOrganizationSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [organizationSaveMessage, setOrganizationSaveMessage] = useState<string | null>(null);
+  const [salarySaveState, setSalarySaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [salarySaveMessage, setSalarySaveMessage] = useState<string | null>(null);
   const [accountSaveState, setAccountSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [accountSaveMessage, setAccountSaveMessage] = useState<string | null>(null);
   const [rolesSaveState, setRolesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -586,6 +589,30 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         setReferenceMasterLoadState("error");
       });
 
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setFixedAllowanceMasterLoadState("loading");
+    void fetch(appRoutes.admin.fixedAllowanceMasters, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(buildErrorMessage(response.status, payload));
+        const parsed = employeeFixedAllowanceMastersResponseSchema.safeParse(payload);
+        if (!parsed.success) throw new Error("고정수당 기준정보를 불러오지 못했습니다.");
+        setFixedAllowanceMasters(parsed.data.data.items);
+        setFixedAllowanceMasterLoadState("loaded");
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setFixedAllowanceMasters([]);
+        setFixedAllowanceMasterLoadState("error");
+      });
     return () => controller.abort();
   }, []);
 
@@ -894,6 +921,44 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     }
   }
 
+  async function handleSalarySave() {
+    if (!selected) return;
+    const parsedRequest = adminUserSalaryUpdateRequestSchema.safeParse({
+      ...createForm.salaryInfo,
+      reason: "사원 상세패널 급여정보 수정",
+    });
+    if (!parsedRequest.success) {
+      setSalarySaveState("error");
+      setSalarySaveMessage("급여정보 입력값을 확인해 주세요.");
+      return;
+    }
+
+    setSalarySaveState("saving");
+    setSalarySaveMessage(null);
+    try {
+      const response = await fetch(appRoutes.admin.userSalary(selected.userId), {
+        method: "PATCH",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsedRequest.data),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(buildErrorMessage(response.status, payload));
+      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+      if (!parsedResponse.success) throw new Error("사원 급여정보를 저장하지 못했습니다.");
+      const updatedUser = parsedResponse.data.data.user;
+      const reloaded = await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
+      const reloadedUser = reloaded.items.find((item) => item.userId === updatedUser.userId) ?? updatedUser;
+      setCreateForm((current) => ({ ...current, salaryInfo: salaryInfoFromSelected(reloadedUser) }));
+      setSalarySaveState("saved");
+      setSalarySaveMessage(`${updatedUser.fullName} 급여정보를 저장했습니다.`);
+    } catch (error) {
+      setSalarySaveState("error");
+      setSalarySaveMessage(error instanceof Error ? error.message : "사원 급여정보를 저장하지 못했습니다.");
+    }
+  }
+
   async function handleAccountSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected) {
@@ -1113,6 +1178,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     setActiveCreatePanelTab("basic");
     setCreateSaveState("idle");
     setCreateSaveMessage(null);
+    setSalarySaveState("idle");
+    setSalarySaveMessage(null);
   }
 
   const employeeTableColumns = useMemo<ColumnDef<AdminUserSummary>[]>(
@@ -1360,17 +1427,34 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     setCreateForm((current) => ({ ...current, salaryInfo: { ...current.salaryInfo, ...patch } }));
   }
 
-  function toggleFixedAllowance(allowance: EmployeeSalaryInfo["fixedAllowances"][number]) {
-    setCreateForm((current) => {
-      const exists = current.salaryInfo.fixedAllowances.some((item) => item.id === allowance.id);
-      return {
-        ...current,
-        salaryInfo: {
-          ...current.salaryInfo,
-          fixedAllowances: exists ? current.salaryInfo.fixedAllowances.filter((item) => item.id !== allowance.id) : [...current.salaryInfo.fixedAllowances, allowance],
-        },
-      };
-    });
+  function openFixedAllowancePicker() {
+    const firstAvailable = fixedAllowanceMasters.find((master) => !createForm.salaryInfo.fixedAllowances.some((item) => item.id === master.id));
+    setFixedAllowanceDraftId(firstAvailable?.id ?? "");
+    setFixedAllowanceDraftAmount(firstAvailable?.defaultAmount ?? 0);
+    setIsFixedAllowancePickerOpen(true);
+  }
+
+  function commitFixedAllowanceDraft() {
+    const master = fixedAllowanceMasters.find((item) => item.id === fixedAllowanceDraftId);
+    if (!master) return;
+    setCreateForm((current) => ({
+      ...current,
+      salaryInfo: {
+        ...current.salaryInfo,
+        fixedAllowances: [
+          ...current.salaryInfo.fixedAllowances.filter((item) => item.id !== master.id),
+          { id: master.id, label: master.name, amount: fixedAllowanceDraftAmount },
+        ],
+      },
+    }));
+    setIsFixedAllowancePickerOpen(false);
+  }
+
+  function removeFixedAllowance(id: string) {
+    setCreateForm((current) => ({
+      ...current,
+      salaryInfo: { ...current.salaryInfo, fixedAllowances: current.salaryInfo.fixedAllowances.filter((item) => item.id !== id) },
+    }));
   }
 
   const salarySection = activeCreatePanelTab === "salary" ? (
@@ -1385,10 +1469,12 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         <label>
           <span>고정수당</span>
           <span className="employee-create-inline-picker" aria-label="사원 고정수당 선택값">
-            {fixedAllowanceOptions.map((allowance) => {
-              const selectedAllowance = createForm.salaryInfo.fixedAllowances.some((item) => item.id === allowance.id);
-              return <button key={allowance.id} aria-pressed={selectedAllowance} className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving"} onClick={() => toggleFixedAllowance(allowance)} type="button">{selectedAllowance ? `✓ ${allowance.label}` : `+ ${allowance.label}`}</button>;
-            })}
+            {createForm.salaryInfo.fixedAllowances.map((allowance) => (
+              <button key={allowance.id} aria-label={`${allowance.label} 고정수당 삭제`} className="employee-create-inline-picker__item" disabled={createSaveState === "saving" || salarySaveState === "saving"} onClick={() => removeFixedAllowance(allowance.id)} type="button">
+                {allowance.label} {allowance.amount.toLocaleString("ko-KR")}원 ×
+              </button>
+            ))}
+            <button className="employee-create-reference-field__add" disabled={createSaveState === "saving" || salarySaveState === "saving" || fixedAllowanceMasterLoadState === "loading"} onClick={openFixedAllowancePicker} type="button">+추가</button>
           </span>
         </label>
       </div>
@@ -1918,6 +2004,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     {createSaveMessage}
                   </p>
                 ) : null}
+                {salarySaveMessage ? (
+                  <p className="feature-workspace__save-message" role={salarySaveState === "error" ? "alert" : "status"}>{salarySaveMessage}</p>
+                ) : null}
 
                 <ActionButtonGroup label="사원 생성 작업">
                   {activeCreatePanelTab === "basic" ? (
@@ -2108,6 +2197,49 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               <ActionButtonGroup label="주소 입력 작업">
                 <StandardButton intent="ghost" onClick={() => setIsAddressSearchOpen(false)} type="button">취소</StandardButton>
                 <StandardButton disabled={!addressDialogDraft.addressBase.trim() || !addressDialogDraft.addressDetail.trim()} intent="primary" onClick={commitAddressDialogDraft} type="button">주소입력</StandardButton>
+              </ActionButtonGroup>
+            </div>
+          </div>
+        ) : null}
+
+        {isFixedAllowancePickerOpen ? (
+          <div className="employee-create-reference-picker" role="dialog" aria-modal="true" aria-label="고정수당 추가 팝업">
+            <div className="employee-create-reference-picker__panel">
+              <div className="employee-create-reference-picker__header">
+                <strong>고정수당 추가</strong>
+                <button aria-label="고정수당 추가 팝업 닫기" onClick={() => setIsFixedAllowancePickerOpen(false)} type="button">×</button>
+              </div>
+              <div className="employee-create-reference-picker__body">
+                {fixedAllowanceMasters.length === 0 ? <p className="feature-workspace__save-message" role="status">등록된 고정수당 기준정보가 없습니다.</p> : (
+                  <>
+                    <label>
+                      <span>수당 항목</span>
+                      <select
+                        aria-label="고정수당 항목"
+                        data-hr-input-size="full"
+                        onChange={(event) => {
+                          const master = fixedAllowanceMasters.find((item) => item.id === event.target.value);
+                          setFixedAllowanceDraftId(event.target.value);
+                          setFixedAllowanceDraftAmount(master?.defaultAmount ?? 0);
+                        }}
+                        value={fixedAllowanceDraftId}
+                      >
+                        <option value="">선택</option>
+                        {fixedAllowanceMasters.filter((master) => !createForm.salaryInfo.fixedAllowances.some((item) => item.id === master.id) || master.id === fixedAllowanceDraftId).map((master) => <option key={master.id} value={master.id}>{master.name}</option>)}
+                      </select>
+                    </label>
+                    {fixedAllowanceDraftId ? (
+                      <label>
+                        <span>금액</span>
+                        <input aria-label="고정수당 금액" data-hr-input-size="full" inputMode="numeric" onChange={(event) => setFixedAllowanceDraftAmount(parseMoneyInput(formatMoneyInput(event.target.value)))} value={fixedAllowanceDraftAmount ? fixedAllowanceDraftAmount.toLocaleString("ko-KR") : ""} />
+                      </label>
+                    ) : null}
+                  </>
+                )}
+              </div>
+              <ActionButtonGroup label="고정수당 추가 작업">
+                <StandardButton intent="ghost" onClick={() => setIsFixedAllowancePickerOpen(false)} type="button">취소</StandardButton>
+                <StandardButton disabled={!fixedAllowanceDraftId} intent="primary" onClick={commitFixedAllowanceDraft} type="button">추가</StandardButton>
               </ActionButtonGroup>
             </div>
           </div>
@@ -2660,6 +2792,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     {createSaveMessage}
                   </p>
                 ) : null}
+                {salarySaveMessage ? (
+                  <p className="feature-workspace__save-message" role={salarySaveState === "error" ? "alert" : "status"}>{salarySaveMessage}</p>
+                ) : null}
 
                 <ActionButtonGroup label="사원 상세패널 입력화면 작업">
                   {activeCreatePanelTab === "basic" ? (
@@ -2683,8 +2818,13 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     </StandardButton>
                   ) : null}
                   {activeCreatePanelTab === "organization" ? (
-                    <StandardButton disabled intent="primary" type="button">
-                      상세패널 입력 확인
+                    <StandardButton disabled={salarySaveState === "saving"} intent="primary" onClick={() => setActiveCreatePanelTab("salary")} type="button">
+                      다음
+                    </StandardButton>
+                  ) : null}
+                  {activeCreatePanelTab === "salary" ? (
+                    <StandardButton disabled={salarySaveState === "saving"} intent="primary" onClick={() => void handleSalarySave()} type="button">
+                      {salarySaveState === "saving" ? "저장 중" : "급여정보 저장"}
                     </StandardButton>
                   ) : null}
                 </ActionButtonGroup>

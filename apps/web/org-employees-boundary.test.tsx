@@ -109,6 +109,14 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("기본정보");
     expect(clientSource).toContain("계정정보");
     expect(clientSource).toContain("조직정보");
+    expect(clientSource).toContain("급여정보");
+    expect(clientSource).toContain("appRoutes.admin.fixedAllowanceMasters");
+    expect(clientSource).toContain("employeeFixedAllowanceMastersResponseSchema");
+    expect(clientSource).toContain("고정수당 추가 팝업");
+    expect(clientSource).toContain("aria-label=\"고정수당 금액\"");
+    expect(clientSource).toContain("appRoutes.admin.userSalary(selected.userId)");
+    expect(clientSource).toContain("급여정보 저장");
+    expect(clientSource).not.toContain("const fixedAllowanceOptions");
     expect(clientSource).toContain("activeCreatePanelTab === \"basic\"");
     expect(clientSource).toContain("activeCreatePanelTab === \"account\"");
     expect(clientSource).toContain("activeCreatePanelTab === \"organization\"");
@@ -257,6 +265,8 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".feature-workspace__plain-action");
     expect(globalCss).toContain("padding: 0;");
     expect(globalCss).toContain(".feature-workspace__create-panel-grid");
+    expect(globalCss).toContain(".employee-create-tabs");
+    expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
     expect(globalCss).toContain(".employee-create-profile-card");
     expect(globalCss).toContain(".employee-create-field-row--two");
     expect(globalCss).toContain("grid-template-columns: var(--employee-create-left-column-width) max-content;");
