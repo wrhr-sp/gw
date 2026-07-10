@@ -40,6 +40,10 @@ import {
   type AdminUserSecurityUpdateRequest,
   type AdminUserSummary,
   type DepartmentDuty,
+  type EmployeeClassification,
+  type EmployeeSalaryBank,
+  type EmployeeSalaryInfo,
+  type EmployeePayType,
   type AdminUsersSummaryCounts,
   type AdminUserStatusUpdateRequest,
   type AddressSearchResult,
@@ -139,7 +143,59 @@ const emptyReferenceMasters: EmployeeReferenceMasters = {
   jobGrades: [],
 };
 
-type EmployeeCreatePanelTab = "basic" | "account" | "organization";
+type EmployeeCreatePanelTab = "basic" | "account" | "organization" | "salary";
+
+const employeeClassificationOptions: Array<{ value: EmployeeClassification; label: string }> = [
+  { value: "employee", label: "직원" },
+  { value: "executive", label: "임원" },
+  { value: "ceo", label: "대표이사" },
+];
+
+const employeePayTypeOptions: Array<{ value: EmployeePayType; label: string }> = [
+  { value: "monthly", label: "월급" },
+  { value: "hourly", label: "시급" },
+  { value: "daily", label: "일급" },
+  { value: "annual", label: "연봉" },
+  { value: "inclusive", label: "포괄임금" },
+];
+
+const employeeSalaryBankOptions: Array<{ value: EmployeeSalaryBank; label: string }> = [
+  { value: "kb", label: "국민은행" },
+  { value: "shinhan", label: "신한은행" },
+  { value: "woori", label: "우리은행" },
+  { value: "hana", label: "하나은행" },
+  { value: "nh", label: "농협은행" },
+  { value: "ibk", label: "기업은행" },
+  { value: "kakao", label: "카카오뱅크" },
+  { value: "toss", label: "토스뱅크" },
+  { value: "other", label: "기타" },
+];
+
+const fixedAllowanceOptions = [
+  { id: "meal", label: "식대", amount: 0 },
+  { id: "transport", label: "교통비", amount: 0 },
+  { id: "position", label: "직책수당", amount: 0 },
+  { id: "childcare", label: "보육수당", amount: 0 },
+] satisfies EmployeeSalaryInfo["fixedAllowances"];
+
+const defaultSalaryInfo: EmployeeSalaryInfo = {
+  payType: "monthly",
+  fixedAllowances: [],
+  annualSalary: 0,
+  monthlySalary: 0,
+  salaryBank: "kb",
+  salaryAccountNumber: "",
+  incomeTaxDependentCount: 1,
+  childTaxCreditCount: 0,
+  durunuriEnabled: false,
+  durunuriPensionReductionRate: 0,
+  durunuriEmploymentReductionRate: 0,
+  smeIncomeTaxReductionEnabled: false,
+  smeIncomeTaxReductionMode: "year_end",
+  smeIncomeTaxReductionRate: 0,
+  smeIncomeTaxReductionStartDate: undefined,
+  smeIncomeTaxReductionEndDate: undefined,
+};
 
 type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   loginLocalPart: string;
@@ -165,6 +221,8 @@ type EmployeeCreatePanelForm = AdminUserCreateRequest & {
   departmentDutyIds: string[];
   managerUserIds: string[];
   profileImageName: string;
+  salaryInfo: EmployeeSalaryInfo;
+  employeeClassification: EmployeeClassification;
 };
 
 type AddressDialogDraft = {
@@ -200,6 +258,8 @@ const emptyCreateForm: EmployeeCreatePanelForm = {
   departmentDutyIds: [],
   managerUserIds: [],
   profileImageName: "",
+  salaryInfo: defaultSalaryInfo,
+  employeeClassification: "employee",
   departmentName: "",
   branchName: "",
   positionName: "",
@@ -240,6 +300,20 @@ function roleText(roleCodes: readonly RoleCode[]) {
 
 function formatDate(value: string | null) {
   return value ? value.slice(0, 10) : "-";
+}
+
+function formatMoneyInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits ? Number(digits).toLocaleString("ko-KR") : "";
+}
+
+function parseMoneyInput(value: string) {
+  const parsed = Number(value.replace(/,/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function salaryInfoFromSelected(selected: AdminUserSummary | null): EmployeeSalaryInfo {
+  return selected?.salaryInfo ? { ...defaultSalaryInfo, ...selected.salaryInfo } : defaultSalaryInfo;
 }
 
 function SensitiveVisibilityIcon({ visible }: { visible: boolean }) {
@@ -679,6 +753,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       jobPositionId: createForm.jobPositionIds[0] || undefined,
       jobGradeId: createForm.jobGradeId || undefined,
       departmentDutyIds: createForm.departmentDutyIds,
+      employeeClassification: createForm.employeeClassification,
+      salaryInfo: createForm.salaryInfo,
       departmentName: departmentOptions.find((option) => option.id === createForm.departmentIds[0])?.name ?? "선택 필요",
       branchName: branchOptions.find((option) => option.id === createForm.branchId)?.name ?? "선택 필요",
       positionName: jobPositionOptions.find((option) => option.id === createForm.jobPositionIds[0])?.name ?? undefined,
@@ -1026,6 +1102,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       departmentIds: departmentOptions.find((option) => option.name === item.departmentName)?.id ? [departmentOptions.find((option) => option.name === item.departmentName)?.id ?? ""] : [],
       jobPositionIds: item.positionName ? (jobPositionOptions.find((option) => option.name === item.positionName)?.id ? [jobPositionOptions.find((option) => option.name === item.positionName)?.id ?? ""] : []) : [],
       departmentDutyIds: [],
+      employeeClassification: item.employeeClassification ?? "employee",
+      salaryInfo: salaryInfoFromSelected(item),
       roleCode: item.roleCodes[0] ?? "EMPLOYEE",
       status: item.accountStatus,
       mustChangePassword: item.mustChangePassword,
@@ -1278,7 +1356,64 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   );
   const addressSearchPageNumbers = Array.from({ length: addressSearchPageCount }, (_, index) => index + 1);
 
+  function updateSalaryInfo(patch: Partial<EmployeeSalaryInfo>) {
+    setCreateForm((current) => ({ ...current, salaryInfo: { ...current.salaryInfo, ...patch } }));
+  }
 
+  function toggleFixedAllowance(allowance: EmployeeSalaryInfo["fixedAllowances"][number]) {
+    setCreateForm((current) => {
+      const exists = current.salaryInfo.fixedAllowances.some((item) => item.id === allowance.id);
+      return {
+        ...current,
+        salaryInfo: {
+          ...current.salaryInfo,
+          fixedAllowances: exists ? current.salaryInfo.fixedAllowances.filter((item) => item.id !== allowance.id) : [...current.salaryInfo.fixedAllowances, allowance],
+        },
+      };
+    });
+  }
+
+  const salarySection = activeCreatePanelTab === "salary" ? (
+    <section className="employee-create-section" aria-label="사원 생성 급여정보">
+      <div className="employee-create-field-row employee-create-field-row--two">
+        <label>
+          <span>급여유형</span>
+          <select aria-label="사원 급여유형" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ payType: event.target.value as EmployeePayType })} value={createForm.salaryInfo.payType}>
+            {employeePayTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>고정수당</span>
+          <span className="employee-create-inline-picker" aria-label="사원 고정수당 선택값">
+            {fixedAllowanceOptions.map((allowance) => {
+              const selectedAllowance = createForm.salaryInfo.fixedAllowances.some((item) => item.id === allowance.id);
+              return <button key={allowance.id} aria-pressed={selectedAllowance} className="employee-create-reference-field__add" data-selection-mode="multiple" disabled={createSaveState === "saving"} onClick={() => toggleFixedAllowance(allowance)} type="button">{selectedAllowance ? `✓ ${allowance.label}` : `+ ${allowance.label}`}</button>;
+            })}
+          </span>
+        </label>
+      </div>
+      <div className="employee-create-field-row employee-create-field-row--two">
+        <label><span>연봉</span><input aria-label="사원 연봉" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ annualSalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.annualSalary ? createForm.salaryInfo.annualSalary.toLocaleString("ko-KR") : ""} /></label>
+        <label><span>월급여</span><input aria-label="사원 월급여" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ monthlySalary: parseMoneyInput(formatMoneyInput(event.target.value)) })} value={createForm.salaryInfo.monthlySalary ? createForm.salaryInfo.monthlySalary.toLocaleString("ko-KR") : ""} /></label>
+      </div>
+      <div className="employee-create-field-row employee-create-field-row--two">
+        <label><span>급여은행</span><select aria-label="사원 급여은행" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ salaryBank: event.target.value as EmployeeSalaryBank })} value={createForm.salaryInfo.salaryBank}>{employeeSalaryBankOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label><span>급여계좌</span><input aria-label="사원 급여계좌" data-hr-input-size="medium" disabled={createSaveState === "saving"} inputMode="numeric" onChange={(event) => updateSalaryInfo({ salaryAccountNumber: event.target.value.replace(/[^0-9-]/g, "") })} value={createForm.salaryInfo.salaryAccountNumber} /></label>
+      </div>
+      <div className="employee-create-field-row employee-create-field-row--two">
+        <label><span>소득공제부양자</span><input aria-label="사원 소득공제부양자" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ incomeTaxDependentCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.incomeTaxDependentCount} /></label>
+        <label><span>공제대상 중 8세 이상 20세 이하 자녀</span><input aria-label="사원 공제대상 자녀" data-hr-input-size="short" disabled={createSaveState === "saving"} min={0} onChange={(event) => updateSalaryInfo({ childTaxCreditCount: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.childTaxCreditCount} /></label>
+      </div>
+      <div className="employee-create-field-row employee-create-field-row--one">
+        <label><span>두루누리 적용여부</span><select aria-label="사원 두루누리 적용여부" data-hr-input-size="short" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ durunuriEnabled: event.target.value === "true" })} value={String(createForm.salaryInfo.durunuriEnabled)}><option value="true">예</option><option value="false">아니오</option></select></label>
+      </div>
+      {createForm.salaryInfo.durunuriEnabled ? <div className="employee-create-field-row employee-create-field-row--two"><label><span>두루누리 국민연금감면율</span><input aria-label="사원 두루누리 국민연금감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriPensionReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriPensionReductionRate} /></label><label><span>두루누리 고용보험 감면율</span><input aria-label="사원 두루누리 고용보험 감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ durunuriEmploymentReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.durunuriEmploymentReductionRate} /></label></div> : null}
+      <div className="employee-create-field-row employee-create-field-row--one">
+        <label><span>중소기업취업소득세감면</span><select aria-label="사원 중소기업취업소득세감면" data-hr-input-size="short" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionEnabled: event.target.value === "true" })} value={String(createForm.salaryInfo.smeIncomeTaxReductionEnabled)}><option value="true">예</option><option value="false">아니오</option></select></label>
+      </div>
+      {createForm.salaryInfo.smeIncomeTaxReductionEnabled ? <><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업감면적용</span><select aria-label="사원 중소기업감면적용" data-hr-input-size="medium" disabled={createSaveState === "saving"} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionMode: event.target.value as EmployeeSalaryInfo["smeIncomeTaxReductionMode"] })} value={createForm.salaryInfo.smeIncomeTaxReductionMode}><option value="year_end">연말정산</option><option value="payroll">급여정산</option></select></label><label><span>중소기업소득감면율</span><input aria-label="사원 중소기업소득감면율" data-hr-input-size="short" disabled={createSaveState === "saving"} max={100} min={0} onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionRate: Number(event.target.value || 0) })} type="number" value={createForm.salaryInfo.smeIncomeTaxReductionRate} /></label></div><div className="employee-create-field-row employee-create-field-row--two"><label><span>중소기업소득세감면기간 시작</span><input aria-label="사원 중소기업소득세감면기간 시작" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionStartDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionStartDate ?? ""} /></label><label><span>중소기업소득세감면기간 종료</span><input aria-label="사원 중소기업소득세감면기간 종료" data-hr-input-size="short" disabled={createSaveState === "saving"} max="9999-12-31" min="0001-01-01" onChange={(event) => updateSalaryInfo({ smeIncomeTaxReductionEndDate: normalizeStrictDateInput(event.target.value) })} type="date" value={createForm.salaryInfo.smeIncomeTaxReductionEndDate ?? ""} /></label></div></> : null}
+    </section>
+  ) : null;
 
   return (
     <div className="feature-workspace feature-workspace--hr">
@@ -1377,6 +1512,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     { id: "basic", label: "기본정보" },
                     { id: "account", label: "계정정보" },
                     { id: "organization", label: "조직정보" },
+                    { id: "salary", label: "급여정보" },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -1656,6 +1792,18 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <section className="employee-create-section" aria-label="사원 생성 조직정보">
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
+                        <span>임직원구분</span>
+                        <select
+                          aria-label="사원 임직원구분"
+                          data-hr-input-size="medium"
+                          disabled={createSaveState === "saving"}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, employeeClassification: event.target.value as EmployeeClassification }))}
+                          value={createForm.employeeClassification}
+                        >
+                          {employeeClassificationOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <label>
                         <span>지사</span>
                         <select
                           aria-label="사원 지사"
@@ -1763,6 +1911,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   </section>
                 ) : null}
 
+                {salarySection}
+
                 {createSaveMessage ? (
                   <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
                     {createSaveMessage}
@@ -1791,6 +1941,16 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     </StandardButton>
                   ) : null}
                   {activeCreatePanelTab === "organization" ? (
+                    <StandardButton
+                      disabled={createSaveState === "saving"}
+                      intent="primary"
+                      onClick={() => setActiveCreatePanelTab("salary")}
+                      type="button"
+                    >
+                      다음
+                    </StandardButton>
+                  ) : null}
+                  {activeCreatePanelTab === "salary" ? (
                     <StandardButton disabled={createSaveState === "saving"} intent="primary" type="submit">
                       {createSaveState === "saving" ? "생성 중" : "사원 생성"}
                     </StandardButton>
@@ -2094,6 +2254,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     { id: "basic", label: "기본정보" },
                     { id: "account", label: "계정정보" },
                     { id: "organization", label: "조직정보" },
+                    { id: "salary", label: "급여정보" },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -2373,6 +2534,18 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                   <section className="employee-create-section" aria-label="사원 생성 조직정보">
                     <div className="employee-create-field-row employee-create-field-row--two">
                       <label>
+                        <span>임직원구분</span>
+                        <select
+                          aria-label="사원 임직원구분"
+                          data-hr-input-size="medium"
+                          disabled={createSaveState === "saving"}
+                          onChange={(event) => setCreateForm((current) => ({ ...current, employeeClassification: event.target.value as EmployeeClassification }))}
+                          value={createForm.employeeClassification}
+                        >
+                          {employeeClassificationOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                      </label>
+                      <label>
                         <span>지사</span>
                         <select
                           aria-label="사원 지사"
@@ -2479,6 +2652,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
                     </div>
                   </section>
                 ) : null}
+
+                {salarySection}
 
                 {createSaveMessage ? (
                   <p className="feature-workspace__save-message" role={createSaveState === "error" ? "alert" : "status"}>
