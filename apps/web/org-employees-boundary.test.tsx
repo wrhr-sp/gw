@@ -391,18 +391,19 @@ describe("org/employees/admin boundaries", () => {
 
     expect(clientSource).toContain("employee-detail-panel employee-detail-panel--admin-page");
     expect(clientSource).toContain("className=\"employee-detail-panel__title\"");
-    expect(clientSource).toContain("코드정보 정책 설정 패널");
     expect(clientSource).toContain("조직정보 등록/수정 패널");
     expect(clientSource).toContain("aria-label=\"조직정보 기능페이지 정보\"");
     expect(clientSource).toContain("aria-expanded={organizationExpanded}");
-    expect(clientSource).toContain("aria-expanded={codeExpanded}");
     expect(clientSource).toContain("+ 추가");
-    expect(clientSource).toContain("+ 코드정보 설정");
     expect(clientSource).toContain("조직정보 목록 전체 선택");
     expect(clientSource).toContain("선택한 조직정보를 삭제 처리할까요?");
     expect(clientSource).toContain("조직정보 목록 체크 삭제 처리");
     expect(clientSource).toContain("form=\"admin-organization-info-form\"");
-    expect(clientSource).toContain("form=\"admin-code-policy-form\"");
+    expect(clientSource).not.toContain("코드정보 정책 설정 패널");
+    expect(clientSource).not.toContain("aria-expanded={codeExpanded}");
+    expect(clientSource).not.toContain("+ 코드정보 설정");
+    expect(clientSource).not.toContain("form=\"admin-code-policy-form\"");
+    expect(pageSource).not.toContain("코드정보");
     expect(pageSource).not.toContain("eyebrow=\"관리자 기능\"");
   });
 });

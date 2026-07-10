@@ -9,27 +9,23 @@ import {
   employeeOrganizationMastersResponseSchema,
   errorResponseSchema,
   organizationCodePoliciesResponseSchema,
-  organizationCodePolicyMutationResponseSchema,
   type DepartmentDuty,
   type EmployeeOrganizationMaster,
   type EmployeeOrganizationMasterKind,
   type EmployeeOrganizationMasterMutationRequest,
   type OrganizationCodePolicy,
   type OrganizationCodePolicyKind,
-  type OrganizationCodePolicyUpdateRequest,
 } from "@gw/shared";
 
 import { ActionButtonGroup, ConfirmDialog, DataTable, EmptyState, StandardButton } from "../../_components/ui-standard";
 
 type OrganizationInfoKind = EmployeeOrganizationMasterKind | "departmentDuties";
-type TopTab = "organization" | "code";
-type PanelMode = "organization" | "code" | null;
+type PanelMode = "organization" | null;
 
 type MastersState = Record<EmployeeOrganizationMasterKind, EmployeeOrganizationMaster[]>;
 
 type Draft = EmployeeOrganizationMasterMutationRequest;
 
-type CodeDraft = OrganizationCodePolicyUpdateRequest;
 const infoTabs: Array<{ kind: OrganizationInfoKind; policyKind: OrganizationCodePolicyKind; label: string }> = [
   { kind: "branches", policyKind: "branches", label: "지사" },
   { kind: "departments", policyKind: "departments", label: "부서" },
@@ -58,18 +54,6 @@ const emptyDraft: Draft = {
   reason: "조직정보 변경",
 };
 
-const emptyCodeDraft: CodeDraft = {
-  prefix: "ORG",
-  numberDigits: 3,
-  nextSequence: 1,
-  formatPattern: "{PREFIX}-{SEQ}",
-  autoGenerateEnabled: true,
-  manualEditAllowed: false,
-  reuseRetiredCodeAllowed: false,
-  isActive: true,
-  reason: "조직정보 코드정보 정책 변경",
-};
-
 function parseError(status: number, payload: unknown) {
   const parsed = errorResponseSchema.safeParse(payload);
   return parsed.success ? `${parsed.data.error.code}: ${parsed.data.error.message}` : `요청을 처리하지 못했습니다. (${status})`;
@@ -87,32 +71,15 @@ function toDraft(item: EmployeeOrganizationMaster | DepartmentDuty | null): Draf
   };
 }
 
-function toCodeDraft(policy: OrganizationCodePolicy | null): CodeDraft {
-  if (!policy) return emptyCodeDraft;
-  return {
-    prefix: policy.prefix,
-    numberDigits: policy.numberDigits,
-    nextSequence: policy.nextSequence,
-    formatPattern: policy.formatPattern,
-    autoGenerateEnabled: policy.autoGenerateEnabled,
-    manualEditAllowed: policy.manualEditAllowed,
-    reuseRetiredCodeAllowed: policy.reuseRetiredCodeAllowed,
-    isActive: policy.isActive,
-    reason: "조직정보 코드정보 정책 변경",
-  };
-}
-
 function selectedRowKey(kind: OrganizationInfoKind, id: string) {
   return `${kind}:${id}`;
 }
 
 export function OrganizationInfoClient() {
-  const [topTab, setTopTab] = useState<TopTab>("organization");
   const [masters, setMasters] = useState<MastersState>({ branches: [], departments: [], jobGrades: [], jobPositions: [], jobTitles: [], groups: [] });
   const [policies, setPolicies] = useState<OrganizationCodePolicy[]>([]);
   const [activeTab, setActiveTab] = useState<OrganizationInfoKind>("branches");
   const [organizationExpanded, setOrganizationExpanded] = useState(true);
-  const [codeExpanded, setCodeExpanded] = useState(true);
   const [selectedMaster, setSelectedMaster] = useState<EmployeeOrganizationMaster | null>(null);
   const [selectedDuty, setSelectedDuty] = useState<DepartmentDuty | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
@@ -120,7 +87,6 @@ export function OrganizationInfoClient() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [duties, setDuties] = useState<DepartmentDuty[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [codeDraft, setCodeDraft] = useState<CodeDraft>(emptyCodeDraft);
   const [panelMode, setPanelMode] = useState<PanelMode>(null);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -156,7 +122,7 @@ export function OrganizationInfoClient() {
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(parseError(response.status, payload));
     const parsed = organizationCodePoliciesResponseSchema.safeParse(payload);
-    if (!parsed.success) throw new Error("코드정보 정책 응답 형식이 올바르지 않습니다.");
+    if (!parsed.success) throw new Error("자동 코드 정책 응답 형식이 올바르지 않습니다.");
     setPolicies(parsed.data.data.items);
   }
 
@@ -188,10 +154,6 @@ export function OrganizationInfoClient() {
     void loadDuties(selectedDepartmentId).catch((error) => setMessage(error instanceof Error ? error.message : "부서별 담당업무를 불러오지 못했습니다."));
   }, [activeTab, selectedDepartmentId]);
 
-  useEffect(() => {
-    setCodeDraft(toCodeDraft(activePolicy));
-  }, [activePolicy]);
-
   function startCreate() {
     setSelectedMaster(null);
     setSelectedDuty(null);
@@ -201,19 +163,11 @@ export function OrganizationInfoClient() {
     setMessage(null);
   }
 
-  function openCodePanel() {
-    setCodeDraft(toCodeDraft(activePolicy));
-    setPanelMode("code");
-    setSaveState("idle");
-    setMessage(null);
-  }
-
   function closePanel() {
     setPanelMode(null);
   }
 
-  function selectTab(kind: OrganizationInfoKind, nextTopTab: TopTab) {
-    setTopTab(nextTopTab);
+  function selectTab(kind: OrganizationInfoKind) {
     setActiveTab(kind);
     setSelectedMaster(null);
     setSelectedDuty(null);
@@ -224,7 +178,6 @@ export function OrganizationInfoClient() {
   }
 
   function selectMaster(item: EmployeeOrganizationMaster) {
-    setTopTab("organization");
     setSelectedMaster(item);
     setSelectedDuty(null);
     setDraft({ ...toDraft(item), parentId: item.parentId ?? undefined, branchId: item.branchId ?? undefined });
@@ -233,7 +186,6 @@ export function OrganizationInfoClient() {
   }
 
   function selectDuty(item: DepartmentDuty) {
-    setTopTab("organization");
     setSelectedDuty(item);
     setSelectedMaster(null);
     setDraft(toDraft(item));
@@ -295,30 +247,6 @@ export function OrganizationInfoClient() {
     } catch (error) {
       setSaveState("error");
       setMessage(error instanceof Error ? error.message : "조직정보를 저장하지 못했습니다.");
-    }
-  }
-
-  async function saveCodePolicy() {
-    setSaveState("saving");
-    setMessage(null);
-    try {
-      const response = await fetch(appRoutes.admin.organizationCodePolicy(activePolicyKind), {
-        method: "PATCH",
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(codeDraft),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(parseError(response.status, payload));
-      const parsed = organizationCodePolicyMutationResponseSchema.safeParse(payload);
-      if (!parsed.success) throw new Error("코드정보 정책 저장 응답 형식이 올바르지 않습니다.");
-      await loadPolicies();
-      setMessage(`${infoTabs.find((tab) => tab.policyKind === activePolicyKind)?.label ?? "조직정보"} 코드정보 정책을 저장했습니다.`);
-      setSaveState("saved");
-    } catch (error) {
-      setSaveState("error");
-      setMessage(error instanceof Error ? error.message : "코드정보 정책을 저장하지 못했습니다.");
     }
   }
 
@@ -387,15 +315,7 @@ export function OrganizationInfoClient() {
             <span>조직정보</span><strong aria-hidden="true">{organizationExpanded ? "⌃" : "⌄"}</strong>
           </button>
           {organizationExpanded ? infoTabs.map((tab) => (
-            <button key={`organization-${tab.kind}`} aria-selected={topTab === "organization" && activeTab === tab.kind} className="feature-workspace__tab" onClick={() => selectTab(tab.kind, "organization")} role="treeitem" type="button">
-              <span>{tab.label}</span>
-            </button>
-          )) : null}
-          <button className="feature-workspace__tab" aria-expanded={codeExpanded} onClick={() => setCodeExpanded((current) => !current)} type="button">
-            <span>코드정보</span><strong aria-hidden="true">{codeExpanded ? "⌃" : "⌄"}</strong>
-          </button>
-          {codeExpanded ? infoTabs.map((tab) => (
-            <button key={`code-${tab.kind}`} aria-selected={topTab === "code" && activeTab === tab.kind} className="feature-workspace__tab" onClick={() => selectTab(tab.kind, "code")} role="treeitem" type="button">
+            <button key={tab.kind} aria-selected={activeTab === tab.kind} className="feature-workspace__tab" onClick={() => selectTab(tab.kind)} role="treeitem" type="button">
               <span>{tab.label}</span>
             </button>
           )) : null}
@@ -405,42 +325,18 @@ export function OrganizationInfoClient() {
       <section className="feature-workspace__panel" aria-label="조직정보 본문">
         <div className="feature-workspace__panel-header">
           <div>
-            <h2>{topTab === "organization" ? `${activeLabel} 조직정보` : `${activeLabel} 코드정보`}</h2>
+            <h2>{`${activeLabel} 조직정보`}</h2>
             {activeTab === "groups" ? <p className="card-note">사용자그룹은 직원들을 특정 기준으로 묶어 시스템 권한·알림·결재·조회 범위를 적용하는 그룹입니다.</p> : null}
           </div>
-          <ActionButtonGroup label={topTab === "organization" ? "조직정보 작업" : "코드정보 작업"}>
-            {topTab === "organization" ? (
-              <>
-                <button className="feature-workspace__plain-action" onClick={startCreate} type="button">+ 추가</button>
-                <StandardButton disabled={selectedVisibleCount === 0 || saveState === "saving"} intent="danger" onClick={() => setIsDeleteConfirmOpen(true)} type="button">삭제</StandardButton>
-              </>
-            ) : (
-              <button className="feature-workspace__plain-action" onClick={openCodePanel} type="button">+ 코드정보 설정</button>
-            )}
+          <ActionButtonGroup label="조직정보 작업">
+            <button className="feature-workspace__plain-action" onClick={startCreate} type="button">+ 추가</button>
+            <StandardButton disabled={selectedVisibleCount === 0 || saveState === "saving"} intent="danger" onClick={() => setIsDeleteConfirmOpen(true)} type="button">삭제</StandardButton>
           </ActionButtonGroup>
         </div>
 
         {message ? <p className="feature-workspace__save-message" role={saveState === "error" || loadState === "error" ? "alert" : "status"}>{message}</p> : null}
 
-        {topTab === "code" ? (
-          <DataTable label={`${activeLabel} 코드정보 정책`}>
-            <div className="employee-management-table-wrap">
-              <table className="employee-management-table">
-                <thead><tr><th scope="col">구분</th><th scope="col">다음 코드</th><th scope="col">자동생성</th><th scope="col">수동수정</th><th scope="col">사용</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td><button className="page-shell__title-link page-shell__title-button" onClick={openCodePanel} type="button">{activeLabel}</button></td>
-                    <td>{activePolicy?.nextCode ?? "-"}</td>
-                    <td>{activePolicy?.autoGenerateEnabled ? "사용" : "미사용"}</td>
-                    <td>{activePolicy?.manualEditAllowed ? "허용" : "제한"}</td>
-                    <td>{activePolicy?.isActive ? "사용" : "중지"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </DataTable>
-        ) : (
-          <>
+        <>
             {activeTab === "departmentDuties" ? (
               <label className="feature-workspace__form">
                 <span>부서 선택</span>
@@ -473,44 +369,16 @@ export function OrganizationInfoClient() {
 
             {visibleItems.length === 0 && loadState !== "loading" ? <EmptyState title="등록된 조직정보가 없습니다" /> : null}
           </>
-        )}
-
-        {panelMode === "code" ? (
-          <aside className="employee-detail-panel employee-detail-panel--admin-page" aria-label="코드정보 정책 설정 패널">
-            <div className="employee-detail-panel__header">
-              <div>
-                <strong className="employee-detail-panel__title">{activeLabel} 코드정보</strong>
-                <span>조직정보 등록 시 적용될 자동 코드 생성 정책입니다.</span>
-              </div>
-              <button aria-label="코드정보 정책 설정 패널 닫기" className="employee-detail-panel__close" disabled={saveState === "saving"} onClick={closePanel} type="button">×</button>
-            </div>
-            <div className="employee-detail-panel__body">
-              <form id="admin-code-policy-form" className="feature-workspace__form" onSubmit={(event) => { event.preventDefault(); void saveCodePolicy(); }}>
-                <label><span>접두어</span><input data-hr-input-size="medium" required value={codeDraft.prefix} onChange={(event) => setCodeDraft((current) => ({ ...current, prefix: event.target.value }))} /></label>
-                <label><span>번호 자릿수</span><input data-hr-input-size="short" inputMode="numeric" value={codeDraft.numberDigits} onChange={(event) => setCodeDraft((current) => ({ ...current, numberDigits: Number(event.target.value || 1) }))} /></label>
-                <label><span>다음 번호</span><input data-hr-input-size="short" inputMode="numeric" value={codeDraft.nextSequence} onChange={(event) => setCodeDraft((current) => ({ ...current, nextSequence: Number(event.target.value || 1) }))} /></label>
-                <label><span>코드 형식</span><input data-hr-input-size="medium" value={codeDraft.formatPattern} onChange={(event) => setCodeDraft((current) => ({ ...current, formatPattern: event.target.value }))} /></label>
-                <label><span>미리보기</span><input data-hr-input-size="medium" readOnly value={activePolicy?.nextCode ?? `${codeDraft.prefix}-${String(codeDraft.nextSequence).padStart(codeDraft.numberDigits, "0")}`} /></label>
-                <label><span>자동생성</span><select data-hr-input-size="short" value={codeDraft.autoGenerateEnabled ? "true" : "false"} onChange={(event) => setCodeDraft((current) => ({ ...current, autoGenerateEnabled: event.target.value === "true" }))}><option value="true">사용</option><option value="false">미사용</option></select></label>
-                <label><span>코드 수동수정</span><select data-hr-input-size="short" value={codeDraft.manualEditAllowed ? "true" : "false"} onChange={(event) => setCodeDraft((current) => ({ ...current, manualEditAllowed: event.target.value === "true" }))}><option value="false">제한</option><option value="true">허용</option></select></label>
-                <label><span>폐기 코드 재사용</span><select data-hr-input-size="short" value={codeDraft.reuseRetiredCodeAllowed ? "true" : "false"} onChange={(event) => setCodeDraft((current) => ({ ...current, reuseRetiredCodeAllowed: event.target.value === "true" }))}><option value="false">불가</option><option value="true">허용</option></select></label>
-                <label><span>정책 사용</span><select data-hr-input-size="short" value={codeDraft.isActive ? "true" : "false"} onChange={(event) => setCodeDraft((current) => ({ ...current, isActive: event.target.value === "true" }))}><option value="true">사용</option><option value="false">중지</option></select></label>
-                <label><span>변경 사유</span><input data-hr-input-size="full" required value={codeDraft.reason} onChange={(event) => setCodeDraft((current) => ({ ...current, reason: event.target.value }))} /></label>
-              </form>
-            </div>
-            <ActionButtonGroup label="코드정보 정책 저장 작업"><StandardButton disabled={saveState === "saving"} form="admin-code-policy-form" intent="primary" type="submit">{saveState === "saving" ? "저장 중" : "저장"}</StandardButton></ActionButtonGroup>
-          </aside>
-        ) : null}
 
         {panelMode === "organization" ? (
           <aside className="employee-detail-panel employee-detail-panel--admin-page" aria-label="조직정보 등록/수정 패널">
             <div className="employee-detail-panel__header">
-              <div><strong className="employee-detail-panel__title">{activeTab === "departmentDuties" ? "담당" : masterKindLabels[activeTab]} {activeTab === "departmentDuties" ? (selectedDuty ? "수정" : "등록") : (selectedMaster ? "수정" : "등록")}</strong><span>신규 등록 시 코드정보 정책에 따라 코드가 자동 생성됩니다.</span></div>
+              <div><strong className="employee-detail-panel__title">{activeTab === "departmentDuties" ? "담당" : masterKindLabels[activeTab]} {activeTab === "departmentDuties" ? (selectedDuty ? "수정" : "등록") : (selectedMaster ? "수정" : "등록")}</strong><span>신규 등록 시 자동 코드 정책에 따라 코드가 생성됩니다.</span></div>
               <button aria-label="조직정보 등록/수정 패널 닫기" className="employee-detail-panel__close" disabled={saveState === "saving"} onClick={closePanel} type="button">×</button>
             </div>
             <div className="employee-detail-panel__body">
               <form id="admin-organization-info-form" className="feature-workspace__form" onSubmit={(event) => { event.preventDefault(); void saveDraft(); }}>
-                <label><span>코드</span><input data-hr-input-size="medium" disabled={codeInputDisabled} aria-label={codeInputDisabled ? "코드정보 정책으로 자동 생성" : "코드 입력"} value={draft.code ?? ""} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} /></label>
+                <label><span>코드</span><input data-hr-input-size="medium" disabled={codeInputDisabled} aria-label={codeInputDisabled ? "자동 코드 정책으로 생성" : "코드 입력"} value={draft.code ?? ""} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} /></label>
                 <label><span>이름</span><input data-hr-input-size="medium" required value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></label>
                 <label><span>설명</span><input data-hr-input-size="full" value={draft.description ?? ""} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
                 <label><span>정렬순서</span><input data-hr-input-size="short" inputMode="numeric" value={draft.sortOrder} onChange={(event) => setDraft((current) => ({ ...current, sortOrder: Number(event.target.value || 0) }))} /></label>

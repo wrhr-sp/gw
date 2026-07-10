@@ -5,7 +5,7 @@ import { PageShell, Pill, SurfaceSection } from "./app/_components/page-shell";
 import type { AdminHubCard } from "./admin-config";
 
 const adminWorkButtons = [
-  { href: "/admin/organization-info", title: "조직정보", meta: "지사·부서·직급·직위·직책·담당·사용자그룹과 코드정보" },
+  { href: "/admin/organization-info", title: "조직정보", meta: "지사·부서·직급·직위·직책·담당·사용자그룹" },
   { href: "/admin/policies", title: "운영정책", meta: "관리자 운영 정책" },
   { href: "/admin/audit-logs", title: "감사로그", meta: "변경 이력" },
 ] as const;
