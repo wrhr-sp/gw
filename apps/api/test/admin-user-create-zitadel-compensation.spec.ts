@@ -47,6 +47,7 @@ describe("admin user create ZITADEL compensation", () => {
       initialPassword: "ChangeMe1234!",
       departmentName: "경영지원팀",
       branchName: "본사",
+      employeeClassification: "employee" as const,
       positionName: "",
       accountType: "employee" as const,
       roleCode: "EMPLOYEE" as const,

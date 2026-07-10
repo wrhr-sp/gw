@@ -2091,6 +2091,34 @@ export const adminUserRoleChangePreviewSchema = z.object({
   nextRoleCodes: z.array(roleCodeSchema),
   auditCandidate: z.literal(true),
 });
+
+export const employeeClassificationSchema = z.enum(["employee", "executive", "ceo"]);
+export const employeePayTypeSchema = z.enum(["monthly", "hourly", "daily", "annual", "inclusive"]);
+export const employeeFixedAllowanceSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(100),
+  amount: z.coerce.number().min(0).default(0),
+});
+export const employeeSalaryBankSchema = z.enum(["kb", "shinhan", "woori", "hana", "nh", "ibk", "kakao", "toss", "other"]);
+export const employeeSmeIncomeTaxReductionModeSchema = z.enum(["year_end", "payroll"]);
+export const employeeSalaryInfoSchema = z.object({
+  payType: employeePayTypeSchema.default("monthly"),
+  fixedAllowances: z.array(employeeFixedAllowanceSchema).default([]),
+  annualSalary: z.coerce.number().min(0).default(0),
+  monthlySalary: z.coerce.number().min(0).default(0),
+  salaryBank: employeeSalaryBankSchema.default("kb"),
+  salaryAccountNumber: z.string().trim().max(80).regex(/^[0-9-]*$/).default(""),
+  incomeTaxDependentCount: z.coerce.number().int().min(0).default(1),
+  childTaxCreditCount: z.coerce.number().int().min(0).default(0),
+  durunuriEnabled: z.boolean().default(false),
+  durunuriPensionReductionRate: z.coerce.number().min(0).max(100).default(0),
+  durunuriEmploymentReductionRate: z.coerce.number().min(0).max(100).default(0),
+  smeIncomeTaxReductionEnabled: z.boolean().default(false),
+  smeIncomeTaxReductionMode: employeeSmeIncomeTaxReductionModeSchema.default("year_end"),
+  smeIncomeTaxReductionRate: z.coerce.number().min(0).max(100).default(0),
+  smeIncomeTaxReductionStartDate: isoDateSchema.optional(),
+  smeIncomeTaxReductionEndDate: isoDateSchema.optional(),
+}).strict();
 export const adminUserSummarySchema = z.object({
   userId: z.string(),
   employeeId: z.string(),
@@ -2102,6 +2130,8 @@ export const adminUserSummarySchema = z.object({
   positionName: z.string().nullable(),
   employeeNumber: z.string(),
   hireDate: isoDateSchema.nullable(),
+  employeeClassification: employeeClassificationSchema.default("employee"),
+  salaryInfo: employeeSalaryInfoSchema.nullable().default(null),
   roleCodes: z.array(roleCodeSchema),
   permissions: z.array(permissionCodeSchema),
   employmentStatus: employeeSchema.shape.employmentStatus,
@@ -2367,6 +2397,8 @@ export const adminUserCreateRequestSchema = z
     jobPositionId: z.string().trim().min(1).optional(),
     jobGradeId: z.string().trim().min(1).optional(),
     departmentDutyIds: z.array(z.string().trim().min(1)).default([]).optional(),
+    employeeClassification: employeeClassificationSchema.default("employee"),
+    salaryInfo: employeeSalaryInfoSchema.optional(),
     initialPassword: z.string().min(8).max(200),
     hireDate: isoDateSchema.optional(),
     recognizedHireDate: isoDateSchema.optional(),
@@ -4299,6 +4331,10 @@ export type AdminScope = z.infer<typeof adminScopeSchema>;
 export type AdminAccountType = z.infer<typeof adminAccountTypeSchema>;
 export type AdminAccountStatus = z.infer<typeof adminAccountStatusSchema>;
 export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+export type EmployeeClassification = z.infer<typeof employeeClassificationSchema>;
+export type EmployeeSalaryInfo = z.infer<typeof employeeSalaryInfoSchema>;
+export type EmployeePayType = z.infer<typeof employeePayTypeSchema>;
+export type EmployeeSalaryBank = z.infer<typeof employeeSalaryBankSchema>;
 export type AdminUserReferenceMasterOption = z.infer<typeof adminUserReferenceMasterOptionSchema>;
 export type AdminUserReferenceMastersResponse = z.infer<typeof adminUserReferenceMastersResponseSchema>;
 export type EmployeeOrganizationMasterKind = z.infer<typeof employeeOrganizationMasterKindSchema>;

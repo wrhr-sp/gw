@@ -1,4 +1,4 @@
-import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, OrganizationCodePolicy, OrganizationCodePolicyKind, OrganizationCodePolicyUpdateRequest, Permission, RoleCode } from "@gw/shared";
+import type { AdminAccountStatus, AdminAccountType, AdminAuditCategory, AdminAuditLog, AdminAuditMetadata, AdminAuditSource, AdminAuditTargetType, AdminScope, AdminUserCreateRequest, AdminUserOrganizationUpdateRequest, AdminUserProfileUpdateRequest, AdminUserReferenceMasterOption, AdminUserSecurityUpdateRequest, AdminUserSummary, DepartmentDuty, DepartmentDutyMutationRequest, EmployeeClassification, EmployeeOrganizationMaster, EmployeeOrganizationMasterKind, EmployeeOrganizationMasterMutationRequest, EmployeeSalaryInfo, OrganizationCodePolicy, OrganizationCodePolicyKind, OrganizationCodePolicyUpdateRequest, Permission, RoleCode } from "@gw/shared";
 import { createOperationalSql, isOperationalSchemaDriftError, type PostgresEnv } from "./postgres";
 import { createApprovedHumanUser, deactivateHumanUser, type ZitadelStepUpEnv } from "./zitadel-step-up-auth";
 
@@ -85,20 +85,51 @@ function parseDateOnly(value: unknown): string | null {
     const day = String(value.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
-  const raw = String(value);
-  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
-  if (match) {
-    return match[0];
-  }
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return String(value).slice(0, 10);
 }
+
+function parseMoney(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseEmployeeClassification(value: unknown): EmployeeClassification {
+  return value === "executive" || value === "ceo" ? value : "employee";
+}
+
+function parseSalaryInfo(row: Record<string, unknown>): EmployeeSalaryInfo | null {
+  if (!row.salary_pay_type) return null;
+  let rawFixedAllowances = row.salary_fixed_allowances_json;
+  if (typeof rawFixedAllowances === "string") {
+    try {
+      rawFixedAllowances = JSON.parse(rawFixedAllowances || "[]");
+    } catch {
+      rawFixedAllowances = [];
+    }
+  }
+  const fixedAllowances = Array.isArray(rawFixedAllowances) ? rawFixedAllowances : [];
+  return {
+    payType: row.salary_pay_type === "hourly" || row.salary_pay_type === "daily" || row.salary_pay_type === "annual" || row.salary_pay_type === "inclusive" ? row.salary_pay_type : "monthly",
+    fixedAllowances: fixedAllowances
+      .filter((item): item is { id?: unknown; label?: unknown; amount?: unknown } => Boolean(item) && typeof item === "object")
+      .map((item) => ({ id: String(item.id ?? crypto.randomUUID()), label: String(item.label ?? "수당"), amount: parseMoney(item.amount) })),
+    annualSalary: parseMoney(row.salary_annual_salary),
+    monthlySalary: parseMoney(row.salary_monthly_salary),
+    salaryBank: row.salary_bank === "shinhan" || row.salary_bank === "woori" || row.salary_bank === "hana" || row.salary_bank === "nh" || row.salary_bank === "ibk" || row.salary_bank === "kakao" || row.salary_bank === "toss" || row.salary_bank === "other" ? row.salary_bank : "kb",
+    salaryAccountNumber: String(row.salary_account_number ?? ""),
+    incomeTaxDependentCount: Number(row.salary_income_tax_dependent_count ?? 1),
+    childTaxCreditCount: Number(row.salary_child_tax_credit_count ?? 0),
+    durunuriEnabled: parseBoolean(row.salary_durunuri_enabled),
+    durunuriPensionReductionRate: parseMoney(row.salary_durunuri_pension_reduction_rate),
+    durunuriEmploymentReductionRate: parseMoney(row.salary_durunuri_employment_reduction_rate),
+    smeIncomeTaxReductionEnabled: parseBoolean(row.salary_sme_income_tax_reduction_enabled),
+    smeIncomeTaxReductionMode: row.salary_sme_income_tax_reduction_mode === "payroll" ? "payroll" : "year_end",
+    smeIncomeTaxReductionRate: parseMoney(row.salary_sme_income_tax_reduction_rate),
+    smeIncomeTaxReductionStartDate: parseDateOnly(row.salary_sme_income_tax_reduction_start_date) ?? undefined,
+    smeIncomeTaxReductionEndDate: parseDateOnly(row.salary_sme_income_tax_reduction_end_date) ?? undefined,
+  };
+}
+
 
 function parseCount(value: unknown): number {
   const parsed = Number(value);
@@ -327,6 +358,23 @@ export async function listOperationalAdminUsers(
         p.name as position_name,
         coalesce(e.employee_number, '') as employee_number,
         e.hire_date,
+        coalesce(e.employee_classification, 'employee') as employee_classification,
+        sp.pay_type as salary_pay_type,
+        sp.fixed_allowances_json as salary_fixed_allowances_json,
+        sp.annual_salary as salary_annual_salary,
+        sp.monthly_salary as salary_monthly_salary,
+        sp.salary_bank,
+        sp.salary_account_number,
+        sp.income_tax_dependent_count as salary_income_tax_dependent_count,
+        sp.child_tax_credit_count as salary_child_tax_credit_count,
+        sp.durunuri_enabled as salary_durunuri_enabled,
+        sp.durunuri_pension_reduction_rate as salary_durunuri_pension_reduction_rate,
+        sp.durunuri_employment_reduction_rate as salary_durunuri_employment_reduction_rate,
+        sp.sme_income_tax_reduction_enabled as salary_sme_income_tax_reduction_enabled,
+        sp.sme_income_tax_reduction_mode as salary_sme_income_tax_reduction_mode,
+        sp.sme_income_tax_reduction_rate as salary_sme_income_tax_reduction_rate,
+        sp.sme_income_tax_reduction_start_date as salary_sme_income_tax_reduction_start_date,
+        sp.sme_income_tax_reduction_end_date as salary_sme_income_tax_reduction_end_date,
         coalesce(e.employment_status, 'active') as employment_status,
         coalesce(u.status, 'active') as account_status,
         coalesce(u.must_change_password, false) as must_change_password,
@@ -340,13 +388,22 @@ export async function listOperationalAdminUsers(
       left join departments d on d.id = e.department_id and d.company_id = e.company_id
       left join branches b on b.id = e.branch_id and b.company_id = e.company_id
       left join positions p on p.id = e.position_id and p.company_id = e.company_id
+      left join lateral (
+        select *
+        from payroll_profiles pp
+        where pp.company_id = e.company_id
+          and pp.employee_id = e.id
+          and pp.deleted_at is null
+        order by pp.effective_from desc nulls last, pp.created_at desc
+        limit 1
+      ) sp on true
       left join user_security_settings uss on uss.user_id = u.id and uss.company_id = u.company_id
       left join auth_sessions s on s.user_id = u.id and s.company_id = u.company_id
       left join user_roles ur on ur.user_id = u.id and ur.company_id = u.company_id and ur.status = 'active'
       left join roles r on r.id = ur.role_id and r.company_id = ur.company_id and r.status = 'active'
       where u.company_id = ${companyId}
         and u.status in ('invited', 'active', 'locked', 'disabled', 'offboarded', 'suspended')
-      group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
+      group by u.id, u.company_id, e.id, e.full_name, u.display_name, u.email, d.name, b.name, p.name, e.employee_number, e.hire_date, e.employee_classification, sp.pay_type, sp.fixed_allowances_json, sp.annual_salary, sp.monthly_salary, sp.salary_bank, sp.salary_account_number, sp.income_tax_dependent_count, sp.child_tax_credit_count, sp.durunuri_enabled, sp.durunuri_pension_reduction_rate, sp.durunuri_employment_reduction_rate, sp.sme_income_tax_reduction_enabled, sp.sme_income_tax_reduction_mode, sp.sme_income_tax_reduction_rate, sp.sme_income_tax_reduction_start_date, sp.sme_income_tax_reduction_end_date, e.employment_status, u.status, u.must_change_password, u.last_login_at, uss.secondary_password_hash, uss.two_factor_required, uss.failed_login_count
       order by coalesce(e.full_name, u.display_name), u.email
     `;
   } catch (error) {
@@ -366,6 +423,23 @@ export async function listOperationalAdminUsers(
       position_name: string | null;
       employee_number: string;
       hire_date: unknown;
+      employee_classification: unknown;
+      salary_pay_type: unknown;
+      salary_fixed_allowances_json: unknown;
+      salary_annual_salary: unknown;
+      salary_monthly_salary: unknown;
+      salary_bank: unknown;
+      salary_account_number: unknown;
+      salary_income_tax_dependent_count: unknown;
+      salary_child_tax_credit_count: unknown;
+      salary_durunuri_enabled: unknown;
+      salary_durunuri_pension_reduction_rate: unknown;
+      salary_durunuri_employment_reduction_rate: unknown;
+      salary_sme_income_tax_reduction_enabled: unknown;
+      salary_sme_income_tax_reduction_mode: unknown;
+      salary_sme_income_tax_reduction_rate: unknown;
+      salary_sme_income_tax_reduction_start_date: unknown;
+      salary_sme_income_tax_reduction_end_date: unknown;
       employment_status: "active" | "on_leave" | "offboarded";
       account_status: unknown;
       must_change_password: unknown;
@@ -391,6 +465,8 @@ export async function listOperationalAdminUsers(
       positionName: typed.position_name,
       employeeNumber: typed.employee_number || "-",
       hireDate: parseDateOnly(typed.hire_date),
+      employeeClassification: parseEmployeeClassification(typed.employee_classification),
+      salaryInfo: parseSalaryInfo(typed as unknown as Record<string, unknown>),
       roleCodes: parsedRoleCodes,
       permissions,
       employmentStatus: typed.employment_status,
@@ -886,6 +962,8 @@ export async function createOperationalAdminUser(
   const addressBase = input.addressBase?.trim() || null;
   const addressDetail = input.addressDetail?.trim() || null;
   const employmentCategory = input.employmentCategory?.trim() || null;
+  const employeeClassification = input.employeeClassification ?? "employee";
+  const salaryInfo = input.salaryInfo ?? null;
   const positionName = input.positionName?.trim() || null;
   let createdZitadelUserId: string | null = null;
 
@@ -1063,9 +1141,34 @@ export async function createOperationalAdminUser(
     `;
 
     await sql`
-      insert into employees (id, company_id, branch_id, group_id, user_id, department_id, position_id, job_title_id, job_position_id, job_grade_id, employee_number, full_name, employment_status, hire_date, recognized_hire_date, contact_phone, external_email, address_postal_code, address_base, address_detail, employment_category, created_at, updated_at)
-      values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${recognizedHireDate}, ${contactPhone}, ${externalEmail}, ${addressPostalCode}, ${addressBase}, ${addressDetail}, ${employmentCategory}, ${updatedAt}, ${updatedAt})
+      insert into employees (id, company_id, branch_id, group_id, user_id, department_id, position_id, job_title_id, job_position_id, job_grade_id, employee_number, full_name, employment_status, hire_date, recognized_hire_date, contact_phone, external_email, address_postal_code, address_base, address_detail, employment_category, employee_classification, created_at, updated_at)
+      values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${recognizedHireDate}, ${contactPhone}, ${externalEmail}, ${addressPostalCode}, ${addressBase}, ${addressDetail}, ${employmentCategory}, ${employeeClassification}, ${updatedAt}, ${updatedAt})
     `;
+
+    if (salaryInfo) {
+      await sql`
+        insert into payroll_profiles (
+          id, company_id, employee_id, employee_name, branch_id, branch_label, pay_type,
+          base_pay, hourly_rate, daily_rate, annual_salary, inclusive_allowance,
+          monthly_salary, fixed_allowances_json, salary_bank, salary_account_number,
+          income_tax_dependent_count, child_tax_credit_count,
+          durunuri_enabled, durunuri_pension_reduction_rate, durunuri_employment_reduction_rate,
+          sme_income_tax_reduction_enabled, sme_income_tax_reduction_mode, sme_income_tax_reduction_rate,
+          sme_income_tax_reduction_start_date, sme_income_tax_reduction_end_date,
+          standard_work_hours, pay_day, effective_from, effective_to, scope_note, created_at, updated_at
+        )
+        values (
+          ${`payroll_profile_${employeeId}_${Date.now()}`}, ${companyId}, ${employeeId}, ${input.fullName.trim()}, ${branchId}, ${branch?.name ?? input.branchName}, ${salaryInfo.payType},
+          ${salaryInfo.monthlySalary}, ${0}, ${0}, ${salaryInfo.annualSalary}, ${0},
+          ${salaryInfo.monthlySalary}, ${JSON.stringify(salaryInfo.fixedAllowances)}::jsonb, ${salaryInfo.salaryBank}, ${salaryInfo.salaryAccountNumber},
+          ${salaryInfo.incomeTaxDependentCount}, ${salaryInfo.childTaxCreditCount},
+          ${salaryInfo.durunuriEnabled}, ${salaryInfo.durunuriPensionReductionRate}, ${salaryInfo.durunuriEmploymentReductionRate},
+          ${salaryInfo.smeIncomeTaxReductionEnabled}, ${salaryInfo.smeIncomeTaxReductionMode}, ${salaryInfo.smeIncomeTaxReductionRate},
+          ${salaryInfo.smeIncomeTaxReductionStartDate ?? null}, ${salaryInfo.smeIncomeTaxReductionEndDate ?? null},
+          ${209}, ${25}, ${hireDate}, null, ${"사원정보관리 급여정보"}, ${updatedAt}, ${updatedAt}
+        )
+      `;
+    }
 
     for (const [index, departmentDutyId] of departmentDutyIds.entries()) {
       await sql`
@@ -1095,8 +1198,8 @@ export async function createOperationalAdminUser(
         'user',
         ${userId},
         ${JSON.stringify({ status: "not_created" })}::jsonb,
-        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, groupLinked: Boolean(groupId), departmentLinked: Boolean(departmentId), jobTitleLinked: Boolean(jobTitleId), jobPositionLinked: Boolean(jobPositionId), jobGradeLinked: Boolean(jobGradeId), departmentDutyCount: departmentDutyIds.length })}::jsonb,
-        ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "invite_token"] })}::jsonb,
+        ${JSON.stringify({ userId, employeeId, email: normalizedEmail, roleCode: input.roleCode, status: input.status, accountType: input.accountType, employeeClassification, groupLinked: Boolean(groupId), departmentLinked: Boolean(departmentId), jobTitleLinked: Boolean(jobTitleId), jobPositionLinked: Boolean(jobPositionId), jobGradeLinked: Boolean(jobGradeId), departmentDutyCount: departmentDutyIds.length, salaryLinked: Boolean(salaryInfo) })}::jsonb,
+        ${JSON.stringify({ source: "web-admin", category: "user", reason: input.reason, maskedFields: ["password_hash", "session_token_hash", "invite_token", "salary_account_number"] })}::jsonb,
         ${updatedAt}
       )
     `;
