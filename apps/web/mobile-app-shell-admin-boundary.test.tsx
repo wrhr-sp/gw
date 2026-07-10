@@ -75,7 +75,7 @@ describe("mobile app shell admin boundary", () => {
       </MobileAppShell>,
     );
 
-    expect(html).toContain('data-route="/admin"');
+    expect(html).toContain('data-route="/admin/organization-info"');
     expect(html).not.toContain('data-route="/management-support/hr"');
     expect(html).not.toContain('data-route="/management-support/hr#permission-matrix"');
     expect(html).toContain('data-route="/admin/policies"');

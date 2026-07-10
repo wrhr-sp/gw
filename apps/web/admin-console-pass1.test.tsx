@@ -17,13 +17,13 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(adminMenuSections).toHaveLength(1);
     expect(adminMenuSections[0]?.title).toBe("관리자 업무");
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
-      "/admin",
+      "/admin/organization-info",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
     expect(adminPrimaryNav.map((item) => item.label)).toEqual([
-      "그룹웨어관리",
-      "운영 정책",
+      "조직정보",
+      "운영정책",
       "감사로그",
     ]);
     expect(adminPrimaryNav.some((item) => item.href === "/mail" || item.href === "/messenger" || item.href === "/work-items/branch")).toBe(false);
@@ -38,7 +38,7 @@ describe("Phase 55 admin account/rbac live usage", () => {
     expect(html).toContain("관리자 기능");
     expect(html).not.toContain("사원정보관리");
     expect(html).not.toContain("권한 관리");
-    expect(html).toContain("운영 정책");
+    expect(html).toContain("운영정책");
     expect(html).toContain("감사로그");
     expect(html).not.toContain("관리자 업무 진입");
     expect(html).not.toContain("구현 범위");
