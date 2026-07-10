@@ -350,10 +350,10 @@ export function OrganizationInfoClient() {
         {message ? <p className="feature-workspace__save-message" role={saveState === "error" || loadState === "error" ? "alert" : "status"}>{message}</p> : null}
 
         {topTab === "code" ? (
-          <aside className="employee-detail-panel" aria-label="코드정보 정책 설정 패널">
+          <aside className="employee-detail-panel employee-detail-panel--admin-page" aria-label="코드정보 정책 설정 패널">
             <div className="employee-detail-panel__header">
               <div>
-                <strong>{infoTabs.find((tab) => tab.kind === activeTab)?.label} 코드정보</strong>
+                <strong className="employee-detail-panel__title">{infoTabs.find((tab) => tab.kind === activeTab)?.label} 코드정보</strong>
                 <span>조직정보 등록 시 적용될 자동 코드 생성 정책입니다.</span>
               </div>
             </div>
@@ -403,8 +403,8 @@ export function OrganizationInfoClient() {
 
             {(activeTab === "departmentDuties" ? duties : activeItems).length === 0 && loadState !== "loading" ? <EmptyState title="등록된 조직정보가 없습니다" /> : null}
 
-            <aside className="employee-detail-panel" aria-label="조직정보 등록/수정 패널">
-              <div className="employee-detail-panel__header"><div><strong>{activeTab === "departmentDuties" ? "담당" : masterKindLabels[activeTab]} {activeTab === "departmentDuties" ? (selectedDuty ? "수정" : "등록") : (selectedMaster ? "수정" : "등록")}</strong><span>신규 등록 시 코드정보 정책에 따라 코드가 자동 생성됩니다.</span></div></div>
+            <aside className="employee-detail-panel employee-detail-panel--admin-page" aria-label="조직정보 등록/수정 패널">
+              <div className="employee-detail-panel__header"><div><strong className="employee-detail-panel__title">{activeTab === "departmentDuties" ? "담당" : masterKindLabels[activeTab]} {activeTab === "departmentDuties" ? (selectedDuty ? "수정" : "등록") : (selectedMaster ? "수정" : "등록")}</strong><span>신규 등록 시 코드정보 정책에 따라 코드가 자동 생성됩니다.</span></div></div>
               <div className="employee-detail-panel__body">
                 <form className="feature-workspace__form" onSubmit={(event) => { event.preventDefault(); void saveDraft(); }}>
                   <label><span>코드</span><input data-hr-input-size="medium" disabled={codeInputDisabled} aria-label={codeInputDisabled ? "코드정보 정책으로 자동 생성" : "코드 입력"} value={draft.code ?? ""} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} /></label>

@@ -349,6 +349,7 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("--employee-detail-panel-fixed-height: calc(100dvh - var(--employee-detail-panel-top));");
     expect(globalCss).toContain("--employee-detail-panel-height: var(--employee-detail-panel-fixed-height);");
     expect(globalCss).toContain("--employee-detail-panel-divider: 1px solid var(--line-strong);");
+    expect(globalCss).toContain("z-index: var(--z-detail-panel);");
     expect(globalCss).toContain("right: 0;");
     expect(globalCss).toContain("bottom: 0;");
     expect(globalCss).toContain("display: grid;");
@@ -371,5 +372,16 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-detail-panel__tab[aria-selected=\"true\"]");
     expect(globalCss).toContain("@keyframes employee-detail-panel-enter");
     expect(globalCss).toContain("transform: translateY(var(--employee-detail-panel-translate-y));");
+  });
+
+  it("applies the employee create right-panel standard to admin organization detail panels", async () => {
+    const clientSource = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/admin/organization-info/organization-info-client.tsx", "utf8"),
+    );
+
+    expect(clientSource).toContain("employee-detail-panel employee-detail-panel--admin-page");
+    expect(clientSource).toContain("className=\"employee-detail-panel__title\"");
+    expect(clientSource).toContain("코드정보 정책 설정 패널");
+    expect(clientSource).toContain("조직정보 등록/수정 패널");
   });
 });
