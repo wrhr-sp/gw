@@ -372,7 +372,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [summary, setSummary] = useState<AdminUsersSummaryCounts>(() => initialData?.summary ?? emptyAdminUsersSummary);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">(() => initialData ? "loaded" : "idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(() => initialData?.items[0]?.userId ?? null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [isEmployeeDeleteConfirmOpen, setIsEmployeeDeleteConfirmOpen] = useState(false);
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
   const [activeDetailPanelTab, setActiveDetailPanelTab] = useState<EmployeeDetailPanelTab>("profile");
   const [profileForm, setProfileForm] = useState<AdminUserProfileUpdateRequest>({
@@ -462,7 +464,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     const adminUsersData = parsed.data.data as InitialAdminUsersData;
     setItems(adminUsersData.items);
     setSummary(adminUsersData.summary);
-    setSelectedUserId((current) => options?.selectedUserId ?? current ?? adminUsersData.items[0]?.userId ?? null);
+    setSelectedUserId((current) => options?.selectedUserId ?? current);
+    setSelectedEmployeeIds((current) => current.filter((userId) => adminUsersData.items.some((item) => item.userId === userId)));
     setLoadState("loaded");
     return adminUsersData;
   }
@@ -560,7 +563,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   }, [isAddressSearchOpen]);
 
   const selected = useMemo(
-    () => items.find((item) => item.userId === selectedUserId) ?? items[0] ?? null,
+    () => items.find((item) => item.userId === selectedUserId) ?? null,
     [items, selectedUserId],
   );
   const groupOptions = referenceMasters.groups;
@@ -859,8 +862,24 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     }
   }
 
+  function toggleEmployeeSelection(userId: string) {
+    setSelectedEmployeeIds((current) => current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]);
+  }
+
+  function toggleAllEmployeeSelection() {
+    const visibleIds = items.map((item) => item.userId);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((userId) => selectedEmployeeIds.includes(userId));
+    if (allSelected) {
+      setSelectedEmployeeIds((current) => current.filter((userId) => !visibleIds.includes(userId)));
+      return;
+    }
+    setSelectedEmployeeIds((current) => Array.from(new Set([...current, ...visibleIds])));
+  }
+
   async function handleDeleteSelected() {
-    if (!selected) {
+    const targets = items.filter((item) => selectedEmployeeIds.includes(item.userId));
+    if (targets.length === 0) {
+      setIsEmployeeDeleteConfirmOpen(false);
       return;
     }
 
@@ -868,31 +887,36 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
     setDeleteSaveMessage(null);
 
     try {
-      const response = await fetch(appRoutes.admin.userStatus(selected.userId), {
-        method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          status: "offboarded",
-          mustChangePassword: true,
-          reason: "사원정보관리 현황카드 아래 삭제 버튼 처리",
-        } satisfies AdminUserStatusUpdateRequest),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(buildErrorMessage(response.status, payload));
+      for (const target of targets) {
+        const response = await fetch(appRoutes.admin.userStatus(target.userId), {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            status: "offboarded",
+            mustChangePassword: true,
+            reason: "사원정보관리 체크 삭제 처리",
+          } satisfies AdminUserStatusUpdateRequest),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(buildErrorMessage(response.status, payload));
+        }
+
+        const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
+        if (!parsedResponse.success) {
+          throw new Error("사원 삭제 처리를 저장하지 못했습니다.");
+        }
       }
 
-      const parsedResponse = adminUserMutationResponseSchema.safeParse(payload);
-      if (!parsedResponse.success) {
-        throw new Error("사원 삭제 처리를 저장하지 못했습니다.");
-      }
-
-      const deletedUser = parsedResponse.data.data.user;
-      await reloadAdminUsers({ selectedUserId: deletedUser.userId, silent: true });
+      await reloadAdminUsers({ silent: true });
+      setSelectedEmployeeIds([]);
+      setSelectedUserId(null);
+      setIsDetailPanelOpen(false);
+      setIsEmployeeDeleteConfirmOpen(false);
       setDeleteSaveState("saved");
-      setDeleteSaveMessage(`${deletedUser.fullName} 삭제 처리를 저장했습니다.`);
+      setDeleteSaveMessage(`${targets.length}명 삭제 처리를 저장했습니다.`);
     } catch (error) {
       setDeleteSaveState("error");
       setDeleteSaveMessage(error instanceof Error ? error.message : "사원 삭제 처리를 저장하지 못했습니다.");
@@ -1016,6 +1040,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const employeeTableColumns = useMemo<ColumnDef<AdminUserSummary>[]>(
     () => [
       {
+        id: "select",
+        header: () => (
+          <input
+            aria-label="사원목록 전체 선택"
+            checked={items.length > 0 && items.every((item) => selectedEmployeeIds.includes(item.userId))}
+            disabled={items.length === 0}
+            onChange={toggleAllEmployeeSelection}
+            type="checkbox"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            aria-label={`${row.original.fullName} 선택`}
+            checked={selectedEmployeeIds.includes(row.original.userId)}
+            onChange={() => toggleEmployeeSelection(row.original.userId)}
+            type="checkbox"
+          />
+        ),
+      },
+      {
         accessorKey: "fullName",
         header: "이름",
         cell: ({ row }) => {
@@ -1069,7 +1113,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
         cell: ({ row }) => formatDate(row.original.lastLoginAt),
       },
     ],
-    [branchOptions, departmentOptions, jobPositionOptions],
+    [branchOptions, departmentOptions, jobPositionOptions, items, selectedEmployeeIds],
   );
 
   const employeeTable = useReactTable({
@@ -1286,8 +1330,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
           </button>
           <StandardButton
             intent="danger"
-            disabled={!selected || deleteSaveState === "saving" || selected.accountStatus === "offboarded" || selected.employmentStatus === "offboarded"}
-            onClick={handleDeleteSelected}
+            disabled={selectedEmployeeIds.length === 0 || deleteSaveState === "saving"}
+            onClick={() => setIsEmployeeDeleteConfirmOpen(true)}
             type="button"
           >
             {deleteSaveState === "saving" ? "삭제 처리 중" : "삭제"}
@@ -1773,6 +1817,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               )}
             >
               <p>입력 중인 내용은 저장되지 않습니다.</p>
+            </ConfirmDialog>
+          </div>
+        ) : null}
+
+        {isEmployeeDeleteConfirmOpen ? (
+          <div className="topbar-modal-backdrop employee-create-close-confirm" role="presentation">
+            <ConfirmDialog
+              title="선택한 사원을 삭제 처리할까요?"
+              className="employee-create-close-confirm__dialog"
+              actions={(
+                <>
+                  <StandardButton intent="ghost" onClick={() => setIsEmployeeDeleteConfirmOpen(false)} type="button">취소</StandardButton>
+                  <StandardButton disabled={deleteSaveState === "saving"} intent="danger" onClick={() => void handleDeleteSelected()} type="button">삭제</StandardButton>
+                </>
+              )}
+              closeButton={(
+                <button aria-label="사원 삭제 확인 팝업 닫기" className="topbar-modal__close" onClick={() => setIsEmployeeDeleteConfirmOpen(false)} type="button">×</button>
+              )}
+            >
+              <p>선택한 {selectedEmployeeIds.length}명을 삭제 처리합니다.</p>
             </ConfirmDialog>
           </div>
         ) : null}
