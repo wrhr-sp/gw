@@ -8,7 +8,6 @@ export default function OrganizationInfoPage() {
     <PageShell
       backHref="/admin"
       backLabel="관리자 허브로"
-      eyebrow="관리자 기능"
       title="조직정보"
       description="지사, 부서, 직급, 직위, 직책, 담당, 사용자그룹을 관리하고 코드정보 정책으로 코드 자동생성 기준을 설정합니다."
       actions={<Pill tone="accent">조직정보</Pill>}

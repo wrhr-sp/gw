@@ -197,6 +197,10 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("중지");
     expect(clientSource).toContain("휴면");
     expect(clientSource).toContain("setIsCreatePanelOpen(true)");
+    expect(clientSource).toContain("selectedEmployeeIds");
+    expect(clientSource).toContain("aria-label=\"사원목록 전체 선택\"");
+    expect(clientSource).toContain("선택한 사원을 삭제 처리할까요?");
+    expect(clientSource).toContain("사원정보관리 체크 삭제 처리");
     expect(clientSource).toContain("employee-detail-panel employee-detail-panel--create");
     expect(clientSource).toContain("employee-detail-panel__title");
     expect(clientSource).toContain("<strong className=\"employee-detail-panel__title\">사원 생성</strong>");
@@ -352,8 +356,12 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("z-index: var(--z-detail-panel);");
     expect(globalCss).toContain("right: 0;");
     expect(globalCss).toContain("bottom: 0;");
+    expect(globalCss).toContain("@media (min-width: 961px) {");
+    expect(globalCss).toContain("top: var(--desktop-topbar-height);");
+    expect(globalCss).toContain("height: var(--desktop-sidebar-fixed-height);");
+    expect(globalCss).toContain("max-height: var(--desktop-sidebar-fixed-height);");
     expect(globalCss).toContain("display: grid;");
-    expect(globalCss).toContain("grid-template-rows: auto auto minmax(0, 1fr);");
+    expect(globalCss).toContain("grid-template-rows: auto auto minmax(0, 1fr) auto;");
     expect(globalCss).toContain("height: var(--employee-detail-panel-height);");
     expect(globalCss).toContain("max-height: var(--employee-detail-panel-height);");
     expect(globalCss).toContain("min-height: 0;");
@@ -375,13 +383,26 @@ describe("org/employees/admin boundaries", () => {
   });
 
   it("applies the employee create right-panel standard to admin organization detail panels", async () => {
-    const clientSource = await import("node:fs/promises").then((fs) =>
+    const fs = await import("node:fs/promises");
+    const [clientSource, pageSource] = await Promise.all([
       fs.readFile("app/admin/organization-info/organization-info-client.tsx", "utf8"),
-    );
+      fs.readFile("app/admin/organization-info/page.tsx", "utf8"),
+    ]);
 
     expect(clientSource).toContain("employee-detail-panel employee-detail-panel--admin-page");
     expect(clientSource).toContain("className=\"employee-detail-panel__title\"");
     expect(clientSource).toContain("코드정보 정책 설정 패널");
     expect(clientSource).toContain("조직정보 등록/수정 패널");
+    expect(clientSource).toContain("aria-label=\"조직정보 기능페이지 정보\"");
+    expect(clientSource).toContain("aria-expanded={organizationExpanded}");
+    expect(clientSource).toContain("aria-expanded={codeExpanded}");
+    expect(clientSource).toContain("+ 추가");
+    expect(clientSource).toContain("+ 코드정보 설정");
+    expect(clientSource).toContain("조직정보 목록 전체 선택");
+    expect(clientSource).toContain("선택한 조직정보를 삭제 처리할까요?");
+    expect(clientSource).toContain("조직정보 목록 체크 삭제 처리");
+    expect(clientSource).toContain("form=\"admin-organization-info-form\"");
+    expect(clientSource).toContain("form=\"admin-code-policy-form\"");
+    expect(pageSource).not.toContain("eyebrow=\"관리자 기능\"");
   });
 });
