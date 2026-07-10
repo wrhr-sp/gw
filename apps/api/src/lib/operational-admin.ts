@@ -524,6 +524,13 @@ export async function createOperationalAdminUser(
   const loginId = loginLocalPart || normalizedEmail.split("@")[0] || normalizedEmail;
   const employeeNumber = `EMP-${Date.now().toString(36).toUpperCase()}`;
   const hireDate = input.hireDate ?? new Date().toISOString().slice(0, 10);
+  const recognizedHireDate = input.recognizedHireDate ?? null;
+  const contactPhone = input.contactPhone?.trim() || null;
+  const externalEmail = input.externalEmail?.trim().toLowerCase() || null;
+  const addressPostalCode = input.addressPostalCode?.trim() || null;
+  const addressBase = input.addressBase?.trim() || null;
+  const addressDetail = input.addressDetail?.trim() || null;
+  const employmentCategory = input.employmentCategory?.trim() || null;
   const positionName = input.positionName?.trim() || null;
   let createdZitadelUserId: string | null = null;
 
@@ -685,8 +692,8 @@ export async function createOperationalAdminUser(
     `;
 
     await sql`
-      insert into employees (id, company_id, branch_id, group_id, user_id, department_id, position_id, job_title_id, job_position_id, job_grade_id, employee_number, full_name, employment_status, hire_date, created_at, updated_at)
-      values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${updatedAt}, ${updatedAt})
+      insert into employees (id, company_id, branch_id, group_id, user_id, department_id, position_id, job_title_id, job_position_id, job_grade_id, employee_number, full_name, employment_status, hire_date, recognized_hire_date, contact_phone, external_email, address_postal_code, address_base, address_detail, employment_category, created_at, updated_at)
+      values (${employeeId}, ${companyId}, ${branchId}, ${groupId}, ${userId}, ${departmentId}, ${positionId}, ${jobTitleId}, ${jobPositionId}, ${jobGradeId}, ${employeeNumber}, ${input.fullName.trim()}, ${input.status === "offboarded" ? "offboarded" : input.status === "suspended" ? "on_leave" : "active"}, ${hireDate}, ${recognizedHireDate}, ${contactPhone}, ${externalEmail}, ${addressPostalCode}, ${addressBase}, ${addressDetail}, ${employmentCategory}, ${updatedAt}, ${updatedAt})
     `;
 
     await sql`
