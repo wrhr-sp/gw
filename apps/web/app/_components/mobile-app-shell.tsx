@@ -1337,7 +1337,7 @@ const sidebarPortalSpecificHrefs: Record<SidebarPortalKey, readonly string[]> = 
   operations: ["/Place of business", "/work-items/branch", "/work-items/labor"],
   branch: ["/work-items/branch", "/sales", "/employees"],
   management: ["/management", "/payroll", "/work-items/tax", "/work-items/labor", "/work-items/legal"],
-  admin: ["/admin", "/admin/policies", "/admin/audit-logs"],
+  admin: ["/admin/organization-info", "/admin/policies", "/admin/audit-logs"],
 };
 
 const sidebarPortalAllowedHrefs: Record<SidebarPortalKey, readonly string[]> = Object.fromEntries(

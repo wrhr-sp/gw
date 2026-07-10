@@ -375,14 +375,14 @@ export const managementMenuSections: NavSection[] = [
 
 export const adminPrimaryNav: NavItem[] = [
   {
-    href: "/admin",
-    label: "그룹웨어관리",
-    shortLabel: "관리",
-    summary: "그룹웨어 관리자 업무 허브",
+    href: "/admin/organization-info",
+    label: "조직정보",
+    shortLabel: "조직",
+    summary: "지사·부서·직급·직위·직책·담당·사용자그룹과 코드정보 관리",
   },
   {
     href: "/admin/policies",
-    label: "운영 정책",
+    label: "운영정책",
     shortLabel: "정책",
     summary: "통합설정에서 분리한 관리자 운영 정책 관리",
   },

@@ -148,7 +148,7 @@ describe("mobile/PWA config", () => {
 
   it("switches the app shell to admin-focused navigation on admin hosts", () => {
     expect(adminPrimaryNav.map((item) => item.href)).toEqual([
-      "/admin",
+      "/admin/organization-info",
       "/admin/policies",
       "/admin/audit-logs",
     ]);
