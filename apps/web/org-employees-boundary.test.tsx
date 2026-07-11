@@ -274,6 +274,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain('className="employee-create-unit-field"');
     expect(clientSource.match(/<span aria-hidden="true">%<\/span>/g)).toHaveLength(3);
     expect(clientSource.match(/<span aria-hidden="true">원<\/span>/g)).toHaveLength(2);
+    expect(clientSource.match(/<span aria-hidden="true">명<\/span>/g)).toHaveLength(2);
+    expect(clientSource.match(/employee-create-unit-field employee-create-unit-field--money/g)).toHaveLength(2);
   });
 
   it("keeps employee management summary status cards on a five-column desktop grid", async () => {
@@ -294,6 +296,9 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".feature-workspace__create-panel-grid");
     expect(globalCss).toContain(".employee-create-tabs");
     expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
+    expect(globalCss).toContain(".employee-create-unit-field--money");
+    expect(globalCss).toContain("width: var(--hr-input-width-short);");
+    expect(globalCss).toContain("gap: 0;");
     expect(globalCss).toContain(".employee-create-profile-card");
     expect(globalCss).toContain(".employee-create-field-row--two");
     expect(globalCss).toContain("grid-template-columns: var(--employee-create-left-column-width) max-content;");
