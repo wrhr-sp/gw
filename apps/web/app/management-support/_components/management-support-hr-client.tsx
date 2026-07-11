@@ -487,6 +487,8 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   const [addressSearchMessage, setAddressSearchMessage] = useState<string | null>(null);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [isCreateCloseConfirmOpen, setIsCreateCloseConfirmOpen] = useState(false);
+  const [isDetailCloseConfirmOpen, setIsDetailCloseConfirmOpen] = useState(false);
+  const [detailPanelInitialFormSnapshot, setDetailPanelInitialFormSnapshot] = useState("");
   const [referenceMasters, setReferenceMasters] = useState<EmployeeReferenceMasters>(emptyReferenceMasters);
   const [fixedAllowanceMasters, setFixedAllowanceMasters] = useState<EmployeeFixedAllowanceMaster[]>([]);
   const [fixedAllowanceMasterLoadState, setFixedAllowanceMasterLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
@@ -1162,7 +1164,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
   function hydrateCreatePanelFromSelected(item: AdminUserSummary) {
     const emailLocalPart = item.email.endsWith(`@${WEREHERE_EMAIL_DOMAIN}`) ? item.email.slice(0, -1 * (`@${WEREHERE_EMAIL_DOMAIN}`).length) : "";
-    setCreateForm({
+    const hydratedForm: EmployeeCreatePanelForm = {
       ...emptyCreateForm,
       fullName: item.fullName,
       email: item.email,
@@ -1181,7 +1183,9 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       mustChangePassword: item.mustChangePassword,
       mfaRequired: item.twoFactorRequired,
       reason: "사원 상세정보 확인",
-    });
+    };
+    setCreateForm(hydratedForm);
+    setDetailPanelInitialFormSnapshot(JSON.stringify(hydratedForm));
     setActiveCreatePanelTab("basic");
     setCreateSaveState("idle");
     setCreateSaveMessage(null);
@@ -1382,6 +1386,10 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
   }
 
   function requestCreatePanelClose() {
+    if (JSON.stringify(createForm) === JSON.stringify(emptyCreateForm)) {
+      setIsCreatePanelOpen(false);
+      return;
+    }
     setIsCreateCloseConfirmOpen(true);
   }
 
@@ -1391,7 +1399,25 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
 
   function confirmCreatePanelClose() {
     setIsCreateCloseConfirmOpen(false);
+    setCreateForm(emptyCreateForm);
     setIsCreatePanelOpen(false);
+  }
+
+  function requestDetailPanelClose() {
+    if (JSON.stringify(createForm) === detailPanelInitialFormSnapshot) {
+      setIsDetailPanelOpen(false);
+      return;
+    }
+    setIsDetailCloseConfirmOpen(true);
+  }
+
+  function cancelDetailPanelClose() {
+    setIsDetailCloseConfirmOpen(false);
+  }
+
+  function confirmDetailPanelClose() {
+    setIsDetailCloseConfirmOpen(false);
+    setIsDetailPanelOpen(false);
   }
 
   function applyAddressSearchResult(result: AddressSearchResult) {
@@ -2073,6 +2099,26 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
           </div>
         ) : null}
 
+        {isDetailCloseConfirmOpen ? (
+          <div className="topbar-modal-backdrop employee-create-close-confirm" role="presentation">
+            <ConfirmDialog
+              title="사원 상세정보를 닫을까요?"
+              className="employee-create-close-confirm__dialog"
+              actions={(
+                <>
+                  <StandardButton intent="ghost" onClick={cancelDetailPanelClose} type="button">계속 입력</StandardButton>
+                  <StandardButton intent="danger" onClick={confirmDetailPanelClose} type="button">닫기</StandardButton>
+                </>
+              )}
+              closeButton={(
+                <button aria-label="사원 상세정보 닫기 확인 팝업 닫기" className="topbar-modal__close" onClick={cancelDetailPanelClose} type="button">×</button>
+              )}
+            >
+              <p>수정한 내용은 저장되지 않습니다.</p>
+            </ConfirmDialog>
+          </div>
+        ) : null}
+
         {isEmployeeDeleteConfirmOpen ? (
           <div className="topbar-modal-backdrop employee-create-close-confirm" role="presentation">
             <ConfirmDialog
@@ -2396,7 +2442,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
               <StandardButton
                 aria-label="사원 상세패널 닫기"
                 intent="ghost"
-                onClick={() => setIsDetailPanelOpen(false)}
+                onClick={requestDetailPanelClose}
                 type="button"
               >
                 ×
