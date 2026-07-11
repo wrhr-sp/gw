@@ -6381,14 +6381,14 @@ li {
 
 .employee-create-unit-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-columns: var(--hr-input-width-short) max-content;
   align-items: center;
   gap: 0;
-  width: var(--hr-input-width-medium);
+  width: max-content;
 }
 
 .employee-create-unit-field--money {
-  width: var(--hr-input-width-short);
+  width: max-content;
 }
 
 .feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-unit-field > input {

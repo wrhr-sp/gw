@@ -297,7 +297,8 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain(".employee-create-tabs");
     expect(globalCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
     expect(globalCss).toContain(".employee-create-unit-field--money");
-    expect(globalCss).toContain("width: var(--hr-input-width-short);");
+    expect(globalCss).toContain("grid-template-columns: var(--hr-input-width-short) max-content;");
+    expect(globalCss).toContain("width: max-content;");
     expect(globalCss).toContain("gap: 0;");
     expect(globalCss).toContain(".employee-create-profile-card");
     expect(globalCss).toContain(".employee-create-field-row--two");
