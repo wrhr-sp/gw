@@ -6383,8 +6383,12 @@ li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 0;
   width: var(--hr-input-width-medium);
+}
+
+.employee-create-unit-field--money {
+  width: var(--hr-input-width-short);
 }
 
 .feature-workspace--hr .feature-workspace__form .employee-create-section .employee-create-unit-field > input {
