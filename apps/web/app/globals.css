@@ -6266,6 +6266,7 @@ li {
 .employee-create-address-dialog__results {
   display: grid;
   grid-auto-rows: minmax(var(--employee-create-address-result-row-height), auto);
+  align-content: start;
   min-height: calc(var(--employee-create-address-result-row-height) * 5);
   overflow-y: auto;
 }

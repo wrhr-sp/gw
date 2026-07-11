@@ -338,6 +338,7 @@ describe("org/employees/admin boundaries", () => {
     expect(globalCss).toContain("grid-template-rows: auto auto minmax(0, 1fr) auto;");
     expect(globalCss).toContain("height: min(var(--employee-create-address-dialog-height), calc(100dvh - var(--space-2xl)));");
     expect(globalCss).toContain("grid-auto-rows: minmax(var(--employee-create-address-result-row-height), auto);");
+    expect(globalCss).toContain("align-content: start;");
     expect(globalCss).toContain("overflow-wrap: anywhere;");
     expect(globalCss).toContain("word-break: keep-all;");
     expect(globalCss).toContain("--employee-create-section-offset: var(--space-sm);");
