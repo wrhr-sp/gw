@@ -243,6 +243,7 @@ export function OrganizationInfoClient() {
         setMessage(`${parsed.data.data.item.name} ${masterKindLabels[activeTab]} 항목을 저장했습니다.`);
       }
       setSaveState("saved");
+      setPanelMode(null);
     } catch (error) {
       setSaveState("error");
       setMessage(error instanceof Error ? error.message : "항목을 저장하지 못했습니다.");

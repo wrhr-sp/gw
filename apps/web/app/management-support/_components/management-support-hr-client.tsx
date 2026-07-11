@@ -872,6 +872,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setProfileSaveState("saved");
       setProfileSaveMessage(`${updatedUser.fullName} 기본정보를 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setProfileSaveState("error");
       setProfileSaveMessage(error instanceof Error ? error.message : "사원 기본정보를 저장하지 못했습니다.");
@@ -916,6 +917,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setOrganizationSaveState("saved");
       setOrganizationSaveMessage(`${updatedUser.fullName} 조직정보를 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setOrganizationSaveState("error");
       setOrganizationSaveMessage(error instanceof Error ? error.message : "사원 조직정보를 저장하지 못했습니다.");
@@ -954,6 +956,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       setCreateForm((current) => ({ ...current, salaryInfo: salaryInfoFromSelected(reloadedUser) }));
       setSalarySaveState("saved");
       setSalarySaveMessage(`${updatedUser.fullName} 급여정보를 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setSalarySaveState("error");
       setSalarySaveMessage(error instanceof Error ? error.message : "사원 급여정보를 저장하지 못했습니다.");
@@ -998,6 +1001,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setAccountSaveState("saved");
       setAccountSaveMessage(`${updatedUser.fullName} 계정상태를 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setAccountSaveState("error");
       setAccountSaveMessage(error instanceof Error ? error.message : "사원 계정상태를 저장하지 못했습니다.");
@@ -1103,6 +1107,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       await reloadAdminUsers({ selectedUserId: updatedUser.userId, silent: true });
       setRolesSaveState("saved");
       setRolesSaveMessage(`${updatedUser.fullName} 역할/권한을 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setRolesSaveState("error");
       setRolesSaveMessage(error instanceof Error ? error.message : "사원 역할/권한을 저장하지 못했습니다.");
@@ -1148,6 +1153,7 @@ export function ManagementSupportHrClient({ initialData = null }: { initialData?
       setSecurityForm((current) => ({ ...current, resetFailedLoginCount: false, revokeActiveSessions: false }));
       setSecuritySaveState("saved");
       setSecuritySaveMessage(`${updatedUser.fullName} 보안 설정을 저장했습니다.`);
+      setIsDetailPanelOpen(false);
     } catch (error) {
       setSecuritySaveState("error");
       setSecuritySaveMessage(error instanceof Error ? error.message : "사원 보안 설정을 저장하지 못했습니다.");
