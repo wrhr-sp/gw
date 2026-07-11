@@ -2244,7 +2244,7 @@ export const employeeOrganizationMastersResponseSchema = successResponseSchema(
 );
 
 export const employeeOrganizationMasterMutationRequestSchema = z.object({
-  code: z.string().trim().min(1).max(80).optional(),
+  code: z.preprocess((value) => typeof value === "string" && value.trim() === "" ? undefined : value, z.string().trim().min(1).max(80).optional()),
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500).optional(),
   sortOrder: z.coerce.number().int().min(0).default(0),
@@ -2277,7 +2277,7 @@ export const departmentDutiesResponseSchema = successResponseSchema(
 );
 
 export const departmentDutyMutationRequestSchema = z.object({
-  code: z.string().trim().min(1).max(80).optional(),
+  code: z.preprocess((value) => typeof value === "string" && value.trim() === "" ? undefined : value, z.string().trim().min(1).max(80).optional()),
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500).optional(),
   sortOrder: z.coerce.number().int().min(0).default(0),
