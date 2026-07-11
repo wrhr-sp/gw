@@ -278,6 +278,17 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource.match(/employee-create-unit-field employee-create-unit-field--money/g)).toHaveLength(2);
   });
 
+  it("closes every employee right detail panel after a successful save", async () => {
+    const clientSource = await import("node:fs/promises").then((fs) => fs.readFile("app/management-support/_components/management-support-hr-client.tsx", "utf8"));
+    const successMessages = ["기본정보를 저장했습니다", "조직정보를 저장했습니다", "급여정보를 저장했습니다", "계정상태를 저장했습니다", "역할/권한을 저장했습니다", "보안 설정을 저장했습니다"];
+    for (const message of successMessages) {
+      const successIndex = clientSource.indexOf(message);
+      expect(successIndex).toBeGreaterThanOrEqual(0);
+      expect(clientSource.slice(successIndex, successIndex + 220)).toContain("setIsDetailPanelOpen(false)");
+    }
+    expect(clientSource).toContain("setIsCreatePanelOpen(false)");
+  });
+
   it("keeps employee management summary status cards on a five-column desktop grid", async () => {
     const globalCss = await import("node:fs/promises").then((fs) => fs.readFile("app/globals.css", "utf8"));
 
@@ -442,6 +453,7 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("선택한 항목을 삭제 처리할까요?");
     expect(clientSource).toContain("목록 체크 삭제 처리");
     expect(clientSource).toContain("form=\"admin-organization-info-form\"");
+    expect(clientSource).toContain('setSaveState("saved");\n      setPanelMode(null);');
     expect(clientSource).not.toContain("조직정보");
     expect(clientSource).not.toContain("organizationExpanded");
     expect(clientSource).not.toContain("aria-expanded");
