@@ -50,6 +50,8 @@ import {
   documentFileMetadataCreateResponseSchema,
   documentSpaceCreateRequestSchema,
   documentSpaceListResponseSchema,
+  departmentDutyMutationRequestSchema,
+  employeeOrganizationMasterMutationRequestSchema,
   errorResponseSchema,
   leaveActionRequestSchema,
   leaveActionResponseSchema,
@@ -206,6 +208,22 @@ const sampleLeavePolicySummary = {
   managerMessage: "현재 세션은 승인 대기열과 운영 예외 설명을 함께 볼 수 있습니다.",
   placeholder: true,
 } as const;
+
+describe("organization information mutation contracts", () => {
+  it("treats an empty auto-generated code field as omitted", () => {
+    const baseRequest = {
+      code: "",
+      name: "신규 기준정보",
+      description: "",
+      sortOrder: 0,
+      isActive: true,
+      reason: "항목 변경",
+    };
+
+    expect(employeeOrganizationMasterMutationRequestSchema.parse(baseRequest).code).toBeUndefined();
+    expect(departmentDutyMutationRequestSchema.parse(baseRequest).code).toBeUndefined();
+  });
+});
 
 describe("shared contracts", () => {
   it("defines Phase 3 attendance/leave route metadata", () => {
