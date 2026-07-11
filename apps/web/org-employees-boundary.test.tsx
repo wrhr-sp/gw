@@ -71,6 +71,10 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("사원 생성을 닫을까요?");
     expect(clientSource).toContain("입력 중인 내용은 저장되지 않습니다.");
     expect(clientSource).toContain("requestCreatePanelClose");
+    expect(clientSource).toContain("JSON.stringify(createForm) === JSON.stringify(emptyCreateForm)");
+    expect(clientSource).toContain("JSON.stringify(createForm) === detailPanelInitialFormSnapshot");
+    expect(clientSource).toContain("requestDetailPanelClose");
+    expect(clientSource).toContain("수정한 내용은 저장되지 않습니다.");
     expect(clientSource).toContain("feature-workspace feature-workspace--hr");
     expect(clientSource).toContain("employee-create-form");
     expect(clientSource).toContain("이름*");
@@ -454,6 +458,8 @@ describe("org/employees/admin boundaries", () => {
     expect(clientSource).toContain("목록 체크 삭제 처리");
     expect(clientSource).toContain("form=\"admin-organization-info-form\"");
     expect(clientSource).toContain('setSaveState("saved");\n      setPanelMode(null);');
+    expect(clientSource).toContain("JSON.stringify(draft) !== panelInitialDraftSnapshot");
+    expect(clientSource).toContain("입력하거나 수정한 내용은 저장되지 않습니다.");
     expect(clientSource).not.toContain("조직정보");
     expect(clientSource).not.toContain("organizationExpanded");
     expect(clientSource).not.toContain("aria-expanded");

@@ -87,6 +87,8 @@ export function OrganizationInfoClient() {
   const [duties, setDuties] = useState<DepartmentDuty[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [panelMode, setPanelMode] = useState<PanelMode>(null);
+  const [panelInitialDraftSnapshot, setPanelInitialDraftSnapshot] = useState(JSON.stringify(emptyDraft));
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -154,15 +156,26 @@ export function OrganizationInfoClient() {
   }, [activeTab, selectedDepartmentId]);
 
   function startCreate() {
+    const nextDraft = { ...emptyDraft, code: activePolicy?.autoGenerateEnabled && !activePolicy.manualEditAllowed ? "" : emptyDraft.code };
     setSelectedMaster(null);
     setSelectedDuty(null);
-    setDraft({ ...emptyDraft, code: activePolicy?.autoGenerateEnabled && !activePolicy.manualEditAllowed ? "" : emptyDraft.code });
+    setDraft(nextDraft);
+    setPanelInitialDraftSnapshot(JSON.stringify(nextDraft));
     setPanelMode("organization");
     setSaveState("idle");
     setMessage(null);
   }
 
   function closePanel() {
+    if (JSON.stringify(draft) !== panelInitialDraftSnapshot) {
+      setIsCloseConfirmOpen(true);
+      return;
+    }
+    setPanelMode(null);
+  }
+
+  function confirmClosePanel() {
+    setIsCloseConfirmOpen(false);
     setPanelMode(null);
   }
 
@@ -177,17 +190,21 @@ export function OrganizationInfoClient() {
   }
 
   function selectMaster(item: EmployeeOrganizationMaster) {
+    const nextDraft = { ...toDraft(item), parentId: item.parentId ?? undefined, branchId: item.branchId ?? undefined };
     setSelectedMaster(item);
     setSelectedDuty(null);
-    setDraft({ ...toDraft(item), parentId: item.parentId ?? undefined, branchId: item.branchId ?? undefined });
+    setDraft(nextDraft);
+    setPanelInitialDraftSnapshot(JSON.stringify(nextDraft));
     setPanelMode("organization");
     setMessage(null);
   }
 
   function selectDuty(item: DepartmentDuty) {
+    const nextDraft = toDraft(item);
     setSelectedDuty(item);
     setSelectedMaster(null);
-    setDraft(toDraft(item));
+    setDraft(nextDraft);
+    setPanelInitialDraftSnapshot(JSON.stringify(nextDraft));
     setPanelMode("organization");
     setMessage(null);
   }
@@ -383,6 +400,24 @@ export function OrganizationInfoClient() {
             </div>
             <ActionButtonGroup label="저장 작업"><StandardButton disabled={saveState === "saving"} form="admin-organization-info-form" intent="primary" type="submit">{saveState === "saving" ? "저장 중" : "저장"}</StandardButton></ActionButtonGroup>
           </aside>
+        ) : null}
+
+        {isCloseConfirmOpen ? (
+          <div className="topbar-modal-backdrop employee-create-close-confirm" role="presentation">
+            <ConfirmDialog
+              title="입력 화면을 닫을까요?"
+              className="employee-create-close-confirm__dialog"
+              actions={(
+                <>
+                  <StandardButton intent="ghost" onClick={() => setIsCloseConfirmOpen(false)} type="button">계속 입력</StandardButton>
+                  <StandardButton intent="danger" onClick={confirmClosePanel} type="button">닫기</StandardButton>
+                </>
+              )}
+              closeButton={<button aria-label="입력 화면 닫기 확인 팝업 닫기" className="topbar-modal__close" onClick={() => setIsCloseConfirmOpen(false)} type="button">×</button>}
+            >
+              <p>입력하거나 수정한 내용은 저장되지 않습니다.</p>
+            </ConfirmDialog>
+          </div>
         ) : null}
 
         {isDeleteConfirmOpen ? (
