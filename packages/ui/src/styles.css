@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: #193B57;
+  --color-accent: #0E8A7A;
+  --color-background: #F4F7FA;
+  --color-surface: #FFFFFF;
+  --color-text: #172033;
+  --color-muted: #667085;
+  --color-border: #DFE5EA;
+  --color-danger: #B42318;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-mobile-card: 12px;
+  --radius-overlay: 12px;
+  --radius-badge: 6px;
+  --font-sans: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+}
+
+:root {
+  color: var(--color-text);
+  background: var(--color-background);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
