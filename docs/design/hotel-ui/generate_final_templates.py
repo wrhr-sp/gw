@@ -1,7 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 
-OUT=Path('/home/wrhrgw/gw-dev-bot/design-previews/hotel-ui/selected-operations-platform/final')
+OUT=Path(__file__).resolve().parent
 OUT.mkdir(parents=True,exist_ok=True)
 FONT='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'; BOLD='/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
 P={'bg':'#F4F7FA','surface':'#FFFFFF','sidebar':'#FFFFFF','primary':'#193B57','accent':'#0E8A7A','text':'#172033','muted':'#667085','line':'#DFE5EA','soft':'#EAF3F5','radius':10}

@@ -55,7 +55,7 @@
 
 ## Preview 완료 게이트
 
-1. migration `0044` 이상 적용.
+1. 새 호텔 제품 migration `0001` 이상 적용.
 2. focused unit/API/permission test 통과.
 3. 전체 `pnpm check` 통과.
 4. Cloudflare Web build 통과.

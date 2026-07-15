@@ -97,12 +97,12 @@
 
 ## 9. 현재 구현사실과 구현격차
 
-- 현재 `GET /api/branches`는 인증·가시범위 기반 읽기 전용이며 응답도 지점 생성·수정 저장이 범위 밖이라고 명시한다.
-- `notifications`, `audit_logs`, `file_access_logs`, `permission_change_logs` 기반은 존재하지만 호텔 도메인 사건 연결은 아직 없다.
-- `packages/shared/src/contracts.ts`에 호텔·객실·점검·매출·운영이슈·문의 계약과 `HOTEL_*` 권한코드가 아직 완결돼 있지 않다.
-- 호텔관리 전용 Web route와 화면은 현재 확인되지 않았다.
-- 신규 migration은 이미 사용 중인 `0043` 다음인 `0044` 이상이어야 한다.
-- 따라서 본 문서는 기존 구현 완료를 주장하지 않으며 신규 full-stack 구현의 기준이다.
+- 2026-07-16 사용자 승인에 따라 기존 그룹웨어와 호텔관리 1차 WIP는 archive branch·tag·Git bundle로 별도 보존했다.
+- 새 호텔관리 제품은 공통 부모가 없는 clean 개발선에서 승인 PRD와 디자인 기준만으로 다시 시작한다.
+- 현재 새 개발선에는 기능코드·API·DB migration이 없으며, 과거 구현 완료를 주장하지 않는다.
+- 계약 정본은 새 `packages/contracts`에 두고 호텔·객실·점검·매출·운영이슈·문의 계약과 권한코드를 처음부터 정의한다.
+- PostgreSQL migration은 새 제품 기준 `0001`부터 시작한다. archive의 `0043`·`0044` 번호를 이어받지 않는다.
+- 기존 `/api/branches`, 알림·감사·파일·권한 구현은 자동 복사하지 않고 현재 기준을 통과한 구조만 참고한다.
 
 ## 10. 상위 API 원칙
 
@@ -121,7 +121,7 @@
 /api/admin/hotel-permissions/*
 ```
 
-실제 경로는 `packages/shared/src/contracts.ts`의 `appRoutes`에 먼저 정의한다. 현재 `/api/branches`는 읽기 전용이므로 저장 API와 호텔 도메인 테이블은 신규 구현이 필요하다.
+실제 경로는 `packages/contracts`의 route·Zod 계약에 먼저 정의한다. `branches` 정본과 호텔 도메인 테이블·저장 API는 새 제품에서 신규 구현한다.
 
 ## 11. 완료 기준
 

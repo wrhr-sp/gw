@@ -5,7 +5,7 @@
 
 ## 공통 API 계약
 
-- 모든 경로는 same-origin `/api/*`이고 `packages/shared/src/contracts.ts`에 Zod 요청·응답 schema와 `appRoutes`를 먼저 정의한다.
+- 모든 경로는 same-origin `/api/*`이고 `packages/contracts`에 Zod 요청·응답 schema와 route 정본을 먼저 정의한다.
 - 모든 변경 요청은 `Idempotency-Key`가 필수다.
 - 변경 가능한 자료는 요청 body의 `version` 또는 `If-Match`로 현재 버전을 전달한다.
 - 목록은 `page`, `pageSize` 기본 20·최대 100, 정렬·필터를 서버에서 처리한다.
