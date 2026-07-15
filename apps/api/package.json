@@ -1,0 +1,18 @@
+{
+  "name": "@werehere/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@werehere/contracts": "workspace:*",
+    "hono": "4.12.3",
+    "zod": "4.1.12"
+  }
+}

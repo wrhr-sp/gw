@@ -18,6 +18,18 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(@types/node@24.3.0)
 
+  apps/api:
+    dependencies:
+      '@werehere/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      hono:
+        specifier: 4.12.3
+        version: 4.12.3
+      zod:
+        specifier: 4.1.12
+        version: 4.1.12
+
   packages/contracts:
     dependencies:
       zod:
@@ -478,6 +490,10 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  hono@4.12.3:
+    resolution: {integrity: sha512-SFsVSjp8sj5UumXOOFlkZOG6XS9SJDKw0TbwFeV+AJ8xlST8kxK5Z/5EYa111UY8732lK2S/xB653ceuaoGwpg==}
+    engines: {node: '>=16.9.0'}
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
@@ -974,6 +990,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  hono@4.12.3: {}
 
   js-tokens@9.0.1: {}
 
