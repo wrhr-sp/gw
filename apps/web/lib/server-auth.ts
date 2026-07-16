@@ -2,7 +2,7 @@ import { authSessionResponseSchema, type AuthenticatedPrincipal } from "@wereher
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-function configuredApiOrigin(): string | null {
+export function configuredApiOrigin(): string | null {
   const configured = process.env.HOTEL_API_ORIGIN?.trim();
   if (!configured) return null;
   try {

@@ -41,6 +41,11 @@ const REQUIRED_COLUMNS = [
   ["auth_login_transactions", "expires_at"],
   ["hotel_profiles", "company_id"],
   ["hotel_profiles", "branch_id"],
+  ["hotel_profiles", "road_address"],
+  ["hotel_profiles", "detail_address"],
+  ["hotel_profiles", "representative_phone"],
+  ["hotel_profiles", "contract_start_date"],
+  ["hotel_profiles", "contract_end_date"],
   ["permission_grants", "subject_type"],
   ["permission_grants", "subject_id"],
   ["audit_events", "company_id"],
@@ -62,9 +67,24 @@ const REQUIRED_CONSTRAINTS = [
   ["auth_sessions", "check ((absolute_expires_at <= (created_at + '24:00:00'::interval)))"],
   ["hotel_profiles", "primary key (company_id, branch_id)"],
   ["hotel_profiles", "foreign key (company_id, branch_id) references branches(company_id, id)"],
+  ["hotel_profiles", "check ((contract_end_date >= contract_start_date))"],
+  ["hotel_profiles", "btrim(road_address) <> ''"],
+  ["hotel_profiles", "representative_phone ~"],
+  ["branches", "branch_code = upper(btrim(branch_code))"],
+  ["branches", "branch_code ~ '^[a-z0-9][a-z0-9_-]*$'::text"],
   ["audit_events", "foreign key (company_id, session_id) references auth_sessions(company_id, id)"],
   ["idempotency_records", "foreign key (company_id, audit_event_id) references audit_events(company_id, id)"],
+  ["idempotency_records", "result_snapshot is not null"],
 ] as const;
+
+const REQUIRED_INDEXES = [{
+  name: "branches_active_hotel_name_unique_idx",
+  fragments: [
+    "create unique index",
+    "on public.branches using btree (company_id, lower(btrim(name)))",
+    "where ((branch_type = 'hotel'::text) and (status = 'active'::text))",
+  ],
+}] as const;
 
 const REQUIRED_TRIGGERS = [
   { name: "audit_events_no_update", table: "audit_events", functionName: "reject_audit_event_change" },
@@ -75,6 +95,11 @@ const REQUIRED_TRIGGERS = [
   { name: "users_no_rekey", table: "users", functionName: "reject_access_subject_delete" },
   { name: "roles_no_rekey", table: "roles", functionName: "reject_access_subject_delete" },
   { name: "user_groups_no_rekey", table: "user_groups", functionName: "reject_access_subject_delete" },
+] as const;
+
+const REQUIRED_RLS_POLICIES = [
+  { policy: "branches_company_isolation", table: "branches" },
+  { policy: "hotel_profiles_company_isolation", table: "hotel_profiles" },
 ] as const;
 
 function normalizeDefinition(value: string) {
@@ -93,17 +118,25 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
 
   try {
     const tableRows = await sql<{ table_name: string }[]>`
-      select table_name
-      from information_schema.tables
-      where table_schema = 'public'
+      select table_record.relname as table_name
+      from pg_class table_record
+      join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+      where table_namespace.nspname = 'public'
+        and table_record.relkind in ('r', 'p')
     `;
     const tables = new Set(tableRows.map((row) => row.table_name));
     if (REQUIRED_TABLES.some((table) => !tables.has(table))) return { status: "SCHEMA_NOT_READY" };
 
     const columnRows = await sql<{ table_name: string; column_name: string }[]>`
-      select table_name, column_name
-      from information_schema.columns
-      where table_schema = 'public'
+      select table_record.relname as table_name,
+             column_record.attname as column_name
+      from pg_attribute column_record
+      join pg_class table_record on table_record.oid = column_record.attrelid
+      join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+      where table_namespace.nspname = 'public'
+        and table_record.relkind in ('r', 'p')
+        and column_record.attnum > 0
+        and not column_record.attisdropped
     `;
     const columns = new Set(columnRows.map((row) => `${row.table_name}.${row.column_name}`));
     if (REQUIRED_COLUMNS.some(([table, column]) => !columns.has(`${table}.${column}`))) {
@@ -111,9 +144,13 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select count(*) = 2 as migration_applied
+      select count(*) = 3 as migration_applied
       from public.schema_migrations
-      where version in ('0001_platform_foundation', '0002_auth_session_runtime')
+      where version in (
+        '0001_platform_foundation',
+        '0002_auth_session_runtime',
+        '0003_hotel_basic_information'
+      )
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
 
@@ -134,6 +171,26 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     )))) {
       return { status: "SCHEMA_NOT_READY" };
     }
+
+    const indexRows = await sql<{ index_name: string; definition: string }[]>`
+      select indexname as index_name, indexdef as definition
+      from pg_indexes
+      where schemaname = 'public'
+    `;
+    if (REQUIRED_INDEXES.some((required) => !indexRows.some((index) => {
+      const definition = normalizeDefinition(index.definition);
+      return index.index_name === required.name
+        && required.fragments.every((fragment) => definition.includes(fragment));
+    }))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const permissionRows = await sql<{ permission_ready: boolean }[]>`
+      select exists (
+        select 1 from permissions where code = 'HOTEL_MANAGE'
+      ) as permission_ready
+    `;
+    if (!permissionRows[0]?.permission_ready) return { status: "SCHEMA_NOT_READY" };
 
     const triggerRows = await sql<{
       trigger_name: string;
@@ -158,6 +215,49 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       && trigger.function_name === required.functionName
       && (trigger.enabled === "O" || trigger.enabled === "A")
     )))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const rlsRows = await sql<{
+      policy_name: string;
+      policy_command: string;
+      row_security: boolean;
+      row_security_forced: boolean;
+      table_name: string;
+      using_expression: string | null;
+      check_expression: string | null;
+    }[]>`
+      select policy_record.polname as policy_name,
+             policy_record.polcmd as policy_command,
+             policy_table.relrowsecurity as row_security,
+             policy_table.relforcerowsecurity as row_security_forced,
+             policy_table.relname as table_name,
+             pg_get_expr(policy_record.polqual, policy_record.polrelid) as using_expression,
+             pg_get_expr(policy_record.polwithcheck, policy_record.polrelid) as check_expression
+      from pg_policy policy_record
+      join pg_class policy_table on policy_table.oid = policy_record.polrelid
+      join pg_namespace policy_namespace on policy_namespace.oid = policy_table.relnamespace
+      where policy_namespace.nspname = 'public'
+    `;
+    if (REQUIRED_RLS_POLICIES.some((required) => !rlsRows.some((policy) => {
+      const usingExpression = normalizeDefinition(policy.using_expression ?? "");
+      const checkExpression = normalizeDefinition(policy.check_expression ?? "");
+      return policy.policy_name === required.policy
+        && policy.table_name === required.table
+        && policy.row_security
+        && policy.row_security_forced
+        && policy.policy_command === "*"
+        && usingExpression.includes("app.company_id")
+        && usingExpression.includes("company_id")
+        && usingExpression.includes("nullif(current_setting('app.company_id'::text, true), ''::text)")
+        && usingExpression.includes("::uuid")
+        && !usingExpression.includes(" or ")
+        && checkExpression.includes("app.company_id")
+        && checkExpression.includes("company_id")
+        && checkExpression.includes("nullif(current_setting('app.company_id'::text, true), ''::text)")
+        && checkExpression.includes("::uuid")
+        && !checkExpression.includes(" or ");
+    }))) {
       return { status: "SCHEMA_NOT_READY" };
     }
 

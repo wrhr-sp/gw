@@ -60,8 +60,9 @@ describe("hotel API bootstrap", () => {
     });
   });
 
-  it("does not expose unimplemented hotel business routes", async () => {
+  it("protects implemented hotel business routes with authentication", async () => {
     const response = await app.request("/api/hotels");
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: { code: "AUTHENTICATION_REQUIRED" } });
   });
 });

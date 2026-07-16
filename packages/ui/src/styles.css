@@ -1,6 +1,7 @@
 @theme inline {
   --color-primary: #193B57;
   --color-accent: #0E8A7A;
+  --color-accent-text: #08766A;
   --color-background: #F4F7FA;
   --color-surface: #FFFFFF;
   --color-text: #172033;
@@ -23,6 +24,9 @@
   --spacing-mobile-nav: 4rem;
   --spacing-mobile-action: 3.25rem;
   --container-login: 28rem;
+  --container-hotel-form: 60rem;
+  --container-hotel-detail: 75rem;
+  --container-hotel-list: 90rem;
   --font-sans: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
 }
 

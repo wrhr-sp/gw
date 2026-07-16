@@ -17,6 +17,14 @@ begin
   ) then
     raise exception 'auth runtime migration version was not recorded';
   end if;
+  if not exists (
+    select 1 from schema_migrations where version = '0003_hotel_basic_information'
+  ) then
+    raise exception 'hotel basic information migration version was not recorded';
+  end if;
+  if not exists (select 1 from permissions where code = 'HOTEL_MANAGE') then
+    raise exception 'HOTEL_MANAGE permission was not seeded';
+  end if;
 
   begin
     insert into auth_login_transactions (
@@ -286,21 +294,34 @@ $$;
 
 insert into branches (id, company_id, branch_type, branch_code, name)
 values (
-  '50000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
   '10000000-0000-0000-0000-000000000001',
   'HOTEL',
   'SEOUL-01',
   '서울호텔'
 );
 
-insert into hotel_profiles (company_id, branch_id)
-values ('10000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001');
+insert into hotel_profiles (
+  company_id, branch_id, road_address, detail_address, representative_phone,
+  contract_start_date, contract_end_date
+)
+values (
+  '10000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
+  '서울특별시 중구 세종대로 1', '', '02-1234-5678', '2026-01-01', '2026-12-31'
+);
 
 do $$
 begin
   begin
-    insert into hotel_profiles (company_id, branch_id)
-    values ('10000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001');
+    insert into hotel_profiles (
+      company_id, branch_id, road_address, detail_address, representative_phone,
+      contract_start_date, contract_end_date
+    ) values (
+      '10000000-0000-0000-0000-000000000002',
+      '50000000-0000-4000-8000-000000000001',
+      '서울특별시 중구 세종대로 1', '', '02-1234-5678', '2026-01-01', '2026-12-31'
+    );
     raise exception 'cross-company hotel profile was accepted';
   exception when foreign_key_violation then
     null;
@@ -310,7 +331,7 @@ begin
     update hotel_profiles
     set version = 0
     where company_id = '10000000-0000-0000-0000-000000000001'
-      and branch_id = '50000000-0000-0000-0000-000000000001';
+      and branch_id = '50000000-0000-4000-8000-000000000001';
     raise exception 'invalid version was accepted';
   exception when check_violation then
     null;
@@ -329,9 +350,9 @@ insert into audit_events (
   'INTERNAL_STAFF',
   '40000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000001',
-  '50000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
   'HOTEL',
-  '50000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
   '{"status":"PREPARING"}',
   'SUCCEEDED',
   '70000000-0000-0000-0000-000000000001'
@@ -527,7 +548,7 @@ $$;
 insert into idempotency_records (
   id, company_id, actor_user_id, idempotency_key, http_method,
   operation_path, request_hash, status, resource_type, resource_id,
-  audit_event_id, completed_at, expires_at
+  audit_event_id, result_snapshot, completed_at, expires_at
 ) values (
   '80000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000001',
@@ -538,11 +559,34 @@ insert into idempotency_records (
   'sha256:request-1',
   'COMPLETED',
   'HOTEL',
-  '50000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
   '60000000-0000-0000-0000-000000000001',
+  '{"id":"50000000-0000-4000-8000-000000000001"}'::jsonb,
   now(),
   now() + interval '24 hours'
 );
+
+do $$
+begin
+  begin
+    insert into idempotency_records (
+      id, company_id, actor_user_id, idempotency_key, http_method,
+      operation_path, request_hash, status, resource_type, resource_id,
+      audit_event_id, completed_at, expires_at
+    ) values (
+      '80000000-0000-0000-0000-000000000098',
+      '10000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      'completed-without-snapshot', 'POST', '/api/hotels', 'sha256:missing-snapshot',
+      'COMPLETED', 'HOTEL', '50000000-0000-4000-8000-000000000001',
+      '60000000-0000-0000-0000-000000000001', now(), now() + interval '24 hours'
+    );
+    raise exception 'incomplete completed idempotency row was accepted';
+  exception when check_violation then
+    null;
+  end;
+end;
+$$;
 
 do $$
 begin

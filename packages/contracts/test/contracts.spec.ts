@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   authRoutes,
   authSessionResponseSchema,
+  createHotelRequestSchema,
+  hotelDetailResponseSchema,
   hotelErrorCodeSchema,
+  hotelErrorResponseSchema,
+  hotelIdempotencyKeySchema,
+  hotelListQuerySchema,
+  hotelListResponseSchema,
   hotelRoutes,
   hotelStatusSchema,
   hotelUserTypeSchema,
@@ -78,5 +84,73 @@ describe("hotel platform contracts", () => {
     expect(hotelRoutes.staffAssignments("hotel_1")).toBe("/api/hotels/hotel_1/staff-assignments");
     expect(hotelRoutes.housekeepingLinks("hotel_1")).toBe("/api/hotels/hotel_1/housekeeping-links");
     expect(hotelRoutes.ownerTransfer("hotel_1")).toBe("/api/hotels/hotel_1/owner-transfer");
+  });
+
+  it("validates the hotel create basic-information contract", () => {
+    const basic = {
+      name: "위아히어 강남호텔",
+      roadAddress: "서울특별시 강남구 테헤란로 1",
+      detailAddress: "10층",
+      representativePhone: "02-1234-5678",
+      contractStartDate: "2026-07-01",
+      contractEndDate: "2027-06-30",
+    };
+    expect(createHotelRequestSchema.parse({ branchCode: " hotel-gn ", ...basic }))
+      .toMatchObject({ ...basic, branchCode: "HOTEL-GN" });
+    expect(createHotelRequestSchema.safeParse({ branchCode: "HOTEL GN", ...basic }).success).toBe(false);
+
+    expect(() => createHotelRequestSchema.parse({
+      branchCode: "HOTEL-GN",
+      ...basic,
+      contractEndDate: "2026-06-30",
+    })).toThrow();
+  });
+
+  it("bounds hotel list queries, idempotency keys, and stable error envelopes", () => {
+    expect(hotelListQuerySchema.parse({ q: "강남", status: "PREPARING", page: "2" }))
+      .toEqual({ q: "강남", status: "PREPARING", page: 2, pageSize: 20 });
+    expect(hotelListQuerySchema.safeParse({ pageSize: 101 }).success).toBe(false);
+    expect(hotelIdempotencyKeySchema.parse("hotel-create-1")).toBe("hotel-create-1");
+    expect(hotelIdempotencyKeySchema.safeParse("contains space").success).toBe(false);
+    expect(hotelErrorResponseSchema.parse({
+      ok: false,
+      data: null,
+      error: {
+        code: "FORBIDDEN",
+        message: "호텔 관리 권한이 없습니다.",
+        fieldErrors: [],
+        retryable: false,
+        retryAfterSeconds: null,
+        traceId: "50000000-0000-4000-8000-000000000001",
+      },
+    }).error.code).toBe("FORBIDDEN");
+  });
+
+  it("publishes list and detail response schemas without placeholder metrics", () => {
+    const hotel = {
+      id: "10000000-0000-4000-8000-000000000001",
+      branchCode: "HOTEL-GN",
+      name: "위아히어 강남호텔",
+      roadAddress: "서울특별시 강남구 테헤란로 1",
+      detailAddress: "10층",
+      representativePhone: "02-1234-5678",
+      contractStartDate: "2026-07-01",
+      contractEndDate: "2027-06-30",
+      status: "PREPARING",
+      version: 1,
+      createdAt: "2026-07-16T00:00:00.000Z",
+      updatedAt: "2026-07-16T00:00:00.000Z",
+    };
+    expect(hotelListResponseSchema.parse({
+      ok: true,
+      data: {
+        capabilities: { canCreate: true },
+        hotels: [hotel],
+        pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+      },
+      error: null,
+    })).toMatchObject({ data: { hotels: [{ name: hotel.name }] } });
+    expect(hotelDetailResponseSchema.parse({ ok: true, data: { hotel }, error: null }))
+      .toMatchObject({ data: { hotel: { version: 1 } } });
   });
 });

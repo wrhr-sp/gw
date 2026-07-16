@@ -79,5 +79,5 @@ jobs:
       - name: PostgreSQL migration and boundary tests
         run: pnpm run test:integration
 
-      - name: Worker authentication runtime smoke
+      - name: Worker authentication and hotel runtime smoke
         run: pnpm --filter @werehere/api test:worker
