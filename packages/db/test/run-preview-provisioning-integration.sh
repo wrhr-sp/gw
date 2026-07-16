@@ -1,33 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TMP_DIR="$(mktemp -d /tmp/werehere-preview-provision.XXXXXX)"
 DATA_DIR="$TMP_DIR/data"
 SOCKET_DIR="$TMP_DIR/socket"
 LOG_FILE="$TMP_DIR/postgres.log"
 RUNTIME_URL_FILE="$TMP_DIR/runtime-url"
-PORT="$((50000 + ($$ % 4000)))"
-PREVIEW_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_preview_ci"
-PRODUCTION_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_production_ci"
 SUBJECT="preview-subject-integration"
 COMPANY_ID="70000000-0000-4000-8000-000000000001"
 
-mkdir -p "$SOCKET_DIR"
 cleanup() {
-  if [[ -d "$DATA_DIR" ]]; then
+  if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
+    psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<'SQL' || true
+drop database if exists werehere_preview_ci with (force);
+drop database if exists werehere_production_ci with (force);
+SQL
+  elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
   fi
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
-"$PG_BIN/initdb" -D "$DATA_DIR" -A trust -U postgres --no-locale >/dev/null
-"$PG_BIN/pg_ctl" -D "$DATA_DIR" -l "$LOG_FILE" \
-  -o "-F -k '$SOCKET_DIR' -p $PORT -c listen_addresses='127.0.0.1'" -w start >/dev/null
-createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_preview_ci
-createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_production_ci
+if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
+  PREVIEW_URL="$(node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_preview_ci"; console.log(u.toString())')"
+  PRODUCTION_URL="$(node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_production_ci"; console.log(u.toString())')"
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<'SQL'
+drop database if exists werehere_preview_ci with (force);
+drop database if exists werehere_production_ci with (force);
+create database werehere_preview_ci;
+create database werehere_production_ci;
+SQL
+else
+  PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
+  PORT="$((50000 + ($$ % 4000)))"
+  PREVIEW_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_preview_ci"
+  PRODUCTION_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_production_ci"
+  mkdir -p "$SOCKET_DIR"
+  "$PG_BIN/initdb" -D "$DATA_DIR" -A trust -U postgres --no-locale >/dev/null
+  "$PG_BIN/pg_ctl" -D "$DATA_DIR" -l "$LOG_FILE" \
+    -o "-F -k '$SOCKET_DIR' -p $PORT -c listen_addresses='127.0.0.1'" -w start >/dev/null
+  createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_preview_ci
+  createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_production_ci
+fi
 
 run_provision() {
   (
