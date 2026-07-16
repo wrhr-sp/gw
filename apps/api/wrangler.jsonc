@@ -1,19 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gw-api",
+  "name": "werehere-hotel-api",
   "main": "src/index.ts",
-  "compatibility_date": "2026-06-09",
+  "compatibility_date": "2026-07-16",
   "compatibility_flags": ["nodejs_compat"],
-  "vars": {
-    "APP_ENV": "local",
-    "API_VERSION": "0.1.0"
-  },
-  "r2_buckets": [
-    {
-      "binding": "FILES_BUCKET",
-      "bucket_name": "gw-files"
-    }
-  ]
-  // D1 / KV / Queues / Durable Objects / Cron remain out of the active local config
-  // until separate approval and local connection details are available.
+  "observability": {
+    "enabled": true
+  }
 }

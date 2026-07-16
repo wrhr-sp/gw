@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title>GW Mobile placeholder icon 512</title>
-  <desc>Phase 6 mobile and PWA placeholder icon for the groupware skeleton.</desc>
-  <rect width="512" height="512" rx="128" fill="#0f172a"/>
-  <rect x="64" y="64" width="384" height="384" rx="96" fill="#1d4ed8"/>
-  <path d="M144 278h64l28 34 54-108 34 74h48" fill="none" stroke="#f8fafc" stroke-linecap="round" stroke-linejoin="round" stroke-width="28"/>
-  <circle cx="184" cy="202" r="26" fill="#f8fafc"/>
-</svg>

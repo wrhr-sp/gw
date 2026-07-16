@@ -1,76 +1,16 @@
-import type { Metadata, Viewport } from "next";
-import { cookies, headers } from "next/headers";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
-
-import { extractViewerAccessFromSessionToken, extractViewerRoleCodeFromSessionToken } from "../admin-page-access";
-import { getTrustedHostFromHeaders } from "../admin-host";
-
-import { getPwaManifestForHost, getManifestHrefForHost, getAppShellConfigForHost } from "./mobile-pwa-config";
-
-import { MobileAppShell } from "./_components/mobile-app-shell";
-import { PwaInstallBootstrap } from "./_components/pwa-install-bootstrap";
-
 import "./globals.css";
 
-async function getRequestHost() {
-  const requestHeaders = await headers();
-  return getTrustedHostFromHeaders(requestHeaders);
-}
+export const metadata: Metadata = {
+  title: "위아히어 호텔 운영",
+  description: "위아히어 호텔 운영 플랫폼",
+};
 
-export async function generateMetadata(): Promise<Metadata> {
-  const host = await getRequestHost();
-  const manifest = getPwaManifestForHost(host);
-  const manifestHref = getManifestHrefForHost(host);
-
-  return {
-    title: manifest.name,
-    description: manifest.description,
-    manifest: manifestHref,
-    applicationName: manifest.short_name,
-    appleWebApp: {
-      capable: true,
-      title: manifest.short_name,
-      statusBarStyle: "default",
-    },
-    icons: {
-      icon: manifest.icons.map((icon) => ({ url: icon.src })),
-      apple: [{ url: manifest.icons[0].src }],
-    },
-  };
-}
-
-export async function generateViewport(): Promise<Viewport> {
-  const host = await getRequestHost();
-  const manifest = getPwaManifestForHost(host);
-
-  return {
-    themeColor: manifest.theme_color,
-    width: "device-width",
-    initialScale: 1,
-    viewportFit: "cover",
-  };
-}
-
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const host = await getRequestHost();
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("gw_session")?.value ?? null;
-  const roleCode = extractViewerRoleCodeFromSessionToken(sessionToken);
-  const viewerAccess = extractViewerAccessFromSessionToken(sessionToken);
-  const manifestHref = getManifestHrefForHost(host);
-  const shellConfig = getAppShellConfigForHost(host, roleCode);
-
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="manifest" href={manifestHref} />
-      </head>
-      <body>
-        <PwaInstallBootstrap />
-        <MobileAppShell {...shellConfig} currentRoleCode={roleCode} currentPermissions={viewerAccess?.permissions ?? null}>
-          {children}
-        </MobileAppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

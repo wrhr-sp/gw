@@ -1,11 +1,8 @@
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import type { NextConfig } from "next";
-
-initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  typedRoutes: true,
+  transpilePackages: ["@werehere/contracts", "@werehere/ui"],
 };
 
 export default nextConfig;

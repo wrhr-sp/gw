@@ -1,18 +1,29 @@
 {
-  "name": "gw",
+  "name": "werehere-hotel-platform",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@11.5.2",
+  "packageManager": "pnpm@10.24.0",
+  "engines": {
+    "node": ">=22.22.0"
+  },
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
-    "check": "pnpm test && pnpm typecheck",
-    "db:pg:check": "node scripts/validate-operational-postgres-schema.mjs",
-    "db:pg:seed:preview": "node scripts/seed-operational-db.mjs preview",
-    "db:pg:seed:production": "node scripts/seed-operational-db.mjs production"
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:boundaries": "node scripts/test-import-boundaries.mjs",
+    "test:integration": "pnpm --filter @werehere/db test:integration",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run test:boundaries"
   },
   "devDependencies": {
-    "punycode": "^2.3.1"
+    "@eslint/eslintrc": "3.3.6",
+    "@eslint/js": "9.39.1",
+    "@types/node": "24.3.0",
+    "eslint": "9.39.1",
+    "eslint-config-next": "15.5.20",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.1",
+    "vitest": "3.2.4"
   }
 }

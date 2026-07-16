@@ -1,35 +1,30 @@
 {
-  "name": "@gw/web",
+  "name": "@werehere/web",
   "private": true,
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "build": "../../scripts/gw-web-build-locked.sh next build",
-    "build:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build",
-    "preview:cf": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && wrangler dev",
-    "deploy:cf": "pnpm deploy:cf:production",
-    "deploy:cf:preview": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy --env preview",
-    "deploy:cf:production": "../../scripts/gw-web-build-locked.sh opennextjs-cloudflare build && opennextjs-cloudflare deploy --env production",
-    "typecheck": "../../scripts/gw-web-build-locked.sh tsc --noEmit",
+    "start": "next start",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@gw/shared": "workspace:*",
-    "@tanstack/react-table": "^8.21.3",
-    "@tinymce/tinymce-react": "^6.3.0",
-    "next": "^15.5.19",
-    "pretendard": "^1.3.9",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "tinymce": "^8.6.0"
+    "@tanstack/react-query": "5.90.2",
+    "@tanstack/react-table": "8.21.3",
+    "@werehere/contracts": "workspace:*",
+    "@werehere/ui": "workspace:*",
+    "lucide-react": "0.468.0",
+    "next": "15.5.20",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-hook-form": "7.65.0",
+    "zod": "4.1.12"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
-    "@types/node": "^24.3.0",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.98.0"
+    "@tailwindcss/postcss": "4.1.14",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "tailwindcss": "4.1.14"
   }
 }
