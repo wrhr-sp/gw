@@ -159,22 +159,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          workers_file="$(mktemp)"
+          trap 'rm -f "$workers_file"' EXIT
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
+            > "$workers_file"
+          if [[ "$(jq -r '.result_info.total_pages // 1' "$workers_file")" -gt 1 ]]; then
+            printf '%s\n' 'Worker list exceeds the safe single-page lookup limit.' >&2
+            exit 1
+          fi
           snapshot() {
             local output_name="$1"
             local worker_name="$2"
-            local snapshot_file
-            snapshot_file="$(mktemp)"
-            if pnpm --filter @werehere/api exec wrangler deployments list \
-              --name "$worker_name" --json > "$snapshot_file" 2>/dev/null; then
-              local version
-              version="$(jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' "$snapshot_file")"
-              printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
-              printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
-            else
+            local count
+            count="$(jq --arg name "$worker_name" '[.result[] | select(.id == $name)] | length' "$workers_file")"
+            if [[ "$count" -eq 0 ]]; then
               printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
               printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
+              return
             fi
+            if [[ "$count" -ne 1 ]]; then
+              printf 'Worker lookup is ambiguous: %s\n' "$worker_name" >&2
+              exit 1
+            fi
+            local snapshot_file
+            local version
+            snapshot_file="$(mktemp)"
+            pnpm --filter @werehere/api exec wrangler deployments list \
+              --name "$worker_name" --json > "$snapshot_file"
+            version="$(jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' "$snapshot_file")"
             rm -f "$snapshot_file"
+            if [[ -z "$version" || "$version" == null ]]; then
+              printf 'Active Worker version was not found: %s\n' "$worker_name" >&2
+              exit 1
+            fi
+            printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
+            printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
           }
           snapshot api werehere-hotel-api-preview
           snapshot web werehere-hotel-web-preview

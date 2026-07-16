@@ -206,6 +206,17 @@ try {
       values (${previewCompanyId}::uuid, 'Werehere Preview', 'ACTIVE')
       on conflict (id) do nothing
     `;
+    const [company] = await sql<{ legal_name: string; status: string }[]>`
+      select legal_name, status
+      from companies
+      where id = ${previewCompanyId}::uuid
+    `;
+    if (
+      company?.legal_name !== "Werehere Preview" ||
+      company.status !== "ACTIVE"
+    ) {
+      fail("Existing Preview company does not match the approved seed");
+    }
     await sql`
       insert into users (id, company_id, user_type, display_name, status)
       values (
@@ -217,6 +228,26 @@ try {
       )
       on conflict (id) do nothing
     `;
+    const [user] = await sql<
+      {
+        company_id: string;
+        display_name: string;
+        status: string;
+        user_type: string;
+      }[]
+    >`
+      select company_id::text, display_name, status, user_type
+      from users
+      where id = ${previewUserId}::uuid
+    `;
+    if (
+      user?.company_id !== previewCompanyId ||
+      user.display_name !== "Preview 관리자" ||
+      user.status !== "ACTIVE" ||
+      user.user_type !== "INTERNAL_STAFF"
+    ) {
+      fail("Existing Preview user does not match the approved seed");
+    }
     await sql`
       insert into auth_identities (id, company_id, user_id, provider, provider_subject)
       values (
@@ -228,13 +259,16 @@ try {
       )
       on conflict (provider, provider_subject) do nothing
     `;
-    const [identity] = await sql<{ id: string; user_id: string }[]>`
-      select id::text, user_id::text
+    const [identity] = await sql<
+      { company_id: string; id: string; user_id: string }[]
+    >`
+      select company_id::text, id::text, user_id::text
       from auth_identities
       where provider = 'ZITADEL' and provider_subject = ${zitadelSubject}
     `;
     if (
-      identity?.id !== previewIdentityId ||
+      identity?.company_id !== previewCompanyId ||
+      identity.id !== previewIdentityId ||
       identity.user_id !== previewUserId
     ) {
       fail("ZITADEL Preview subject is already mapped to another user");
@@ -278,6 +312,9 @@ try {
         reason: string;
         subject_id: string;
         subject_type: string;
+        valid_from: string;
+        valid_until: string | null;
+        version: number;
       }[]
     >`
       select
@@ -288,7 +325,10 @@ try {
         permission_code,
         reason,
         subject_id::text,
-        subject_type
+        subject_type,
+        to_char(valid_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as valid_from,
+        valid_until::text,
+        version
       from permission_grants
       where id = ${previewGrantId}::uuid
     `;
@@ -300,7 +340,10 @@ try {
       grant.permission_code !== "HOTEL_MANAGE" ||
       grant.reason !== "Preview 초기 관리자 권한" ||
       grant.subject_id !== previewUserId ||
-      grant.subject_type !== "USER"
+      grant.subject_type !== "USER" ||
+      grant.valid_from !== "2026-01-01T00:00:00Z" ||
+      grant.valid_until !== null ||
+      grant.version !== 1
     ) {
       fail(
         "Existing Preview permission grant does not match the approved seed",

@@ -62,6 +62,24 @@ run_provision() {
 run_provision >/dev/null
 run_provision >/dev/null
 
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update users set status = 'INACTIVE' where id = '71000000-0000-4000-8000-000000000001'" >/dev/null
+if run_provision >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted Preview user.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update users set status = 'ACTIVE' where id = '71000000-0000-4000-8000-000000000001'" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set valid_until = '2026-06-01T00:00:00Z' where id = '73000000-0000-4000-8000-000000000001'" >/dev/null
+if run_provision >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted Preview permission grant.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set valid_until = null where id = '73000000-0000-4000-8000-000000000001'" >/dev/null
+
 if [[ "$(stat -c '%a' "$RUNTIME_URL_FILE")" != "600" ]]; then
   printf '%s\n' 'runtime URL file permissions are not 600' >&2
   exit 1
