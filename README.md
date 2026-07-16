@@ -7,6 +7,7 @@
 - 호텔관리 초기 MVP PRD: 사용자 승인
 - UI 디자인 시스템: 사용자 승인
 - 기존 그룹웨어 구현: archive branch·tag·Git bundle로 별도 보존
+- 신규 계약·UI·API·Web·PostgreSQL 기반: 구현 및 로컬 검증 진행 중
 - Production 배포: 미진행
 
 ## 제품 원칙
@@ -22,8 +23,9 @@
 
 - [호텔관리 PRD](./docs/product/prd/hotel-management/README.md)
 - [호텔관리 UI 디자인 시스템](./docs/design/hotel-ui/README.md)
+- [호텔관리 플랫폼 기반 아키텍처](./docs/architecture/hotel-platform-foundation.md)
 
-## 예정 구조
+## 현재 구조
 
 ```text
 apps/
@@ -32,14 +34,11 @@ apps/
 packages/
   contracts/    API·도메인 계약
   ui/           위아히어 UI 시스템
-  config/       공통 설정
-db/
-  migrations/   PostgreSQL migration
-  tests/        실제 DB 제약·원자성 테스트
+  db/           PostgreSQL client·migration·실DB 테스트
 docs/
   product/      승인 PRD
   design/       승인 UI 기준
   architecture/ 보안·데이터·배포 설계
 ```
 
-세부 구조는 독립 아키텍처 검토와 bootstrap 테스트를 통과한 뒤 확정합니다.
+`pnpm run check`, `pnpm run build`, `pnpm run test:integration`을 기본 로컬 게이트로 사용합니다.

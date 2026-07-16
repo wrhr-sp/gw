@@ -7,12 +7,18 @@
     ".": "./src/app.ts"
   },
   "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@werehere/contracts": "workspace:*",
+    "@werehere/db": "workspace:*",
     "hono": "4.12.3",
     "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "wrangler": "4.111.0"
   }
 }
