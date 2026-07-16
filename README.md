@@ -46,3 +46,19 @@ docs/
 시각 기준 변경이 의도된 경우에만 실제 PC·모바일 결과를 직접 확인한 뒤 `pnpm run test:visual:update`로 baseline을 갱신합니다.
 
 AppShell component 기준과 실제 route 기준의 경계는 [`apps/web/visual/README.md`](./apps/web/visual/README.md)를 따릅니다.
+
+## 인증 runtime 설정
+
+Web은 `HOTEL_API_ORIGIN`의 인증 API를 같은 origin `/api/auth/*` runtime proxy로 연결합니다. 업무 API는 각 수직 기능 구현 때 계약된 경로만 추가합니다. API는 다음 runtime 설정을 사용합니다.
+
+| 설정 | 용도 | 저장 기준 |
+|---|---|---|
+| `HOTEL_API_ORIGIN` | Web에서 API Worker origin 연결 | 배포 환경변수 |
+| `DATABASE_URL` | PostgreSQL 연결 | secret |
+| `ZITADEL_ISSUER` | 고정 OIDC issuer | 환경변수 |
+| `ZITADEL_CLIENT_ID` | ZITADEL public client 식별자 | 환경변수 |
+| `ZITADEL_REDIRECT_URI` | 고정 same-origin callback URI | 환경변수 |
+| `AUTH_TRANSACTION_ENCRYPTION_KEY` | PKCE verifier AES-256-GCM 암호화 | 32-byte secret의 canonical base64url |
+| `AUTH_SUCCESS_REDIRECT` | 로그인 성공 후 내부 상대경로 | 선택, 기본 `/hotel-operations` |
+
+secret 값은 저장소·문서·명령 출력에 남기지 않습니다. 설정이 없거나 형식이 잘못되면 가짜 로그인 대신 안정 오류코드로 실패합니다.

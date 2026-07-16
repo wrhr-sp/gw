@@ -116,6 +116,26 @@ Domain 미지정
 - 역할·권한·호텔범위는 세션에 복제하지 않고 매 요청 PostgreSQL에서 계산한다.
 - 로그아웃, 계정 비활성화, 배정종료, 소유주 교체 시 세션을 revoke한다.
 
+로그인 시도는 `auth_login_transactions`에 10분 동안만 둔다.
+
+- `state`, OIDC `nonce`, 임시 브라우저 바인딩은 각각 독립 난수이며 DB에는 SHA-256 hash만 저장한다.
+- `__Host-hotel_oauth_browser` 임시 쿠키와 DB의 browser-binding hash가 모두 일치해야 callback을 처리한다.
+- PKCE verifier는 `AUTH_TRANSACTION_ENCRYPTION_KEY`의 AES-256-GCM 암호문·12-byte IV·key version으로만 저장한다.
+- ZITADEL discovery와 authorization endpoint 확인이 성공한 뒤에만 로그인 transaction을 생성한다.
+- 만료시각은 PostgreSQL `now()` 기준 10분으로 계산하고, 새 transaction 생성 시 만료 row를 최대 256개씩 정리한다.
+- PostgreSQL advisory transaction lock 아래 최근 1분 1,000건·활성 10,000건 하드캡을 적용하고 초과 시 `429 AUTH_RATE_LIMITED`로 거부한다. Preview에서는 여기에 edge 사용자별 rate limit을 추가한다.
+- callback은 외부 token endpoint 호출 전에 state와 browser binding이 일치하는 row를 `DELETE ... RETURNING`으로 원자 소비하며, 성공·실패와 관계없이 임시 쿠키를 삭제한다.
+- issuer·authorization/token/JWKS endpoint는 HTTPS만 허용하고 ID token의 RS256 서명, `kid`, `iss`, `aud`, `exp`, `nonce`, `sub`, `auth_time`을 검증한다.
+- 검증된 ZITADEL subject가 기존 `auth_identities`에 없으면 자동가입하지 않는다.
+
+세션은 유휴 8시간·절대 24시간이다. 유효 요청은 5분 단위로 `last_seen_at`과 유휴 만료를 갱신하되 절대 만료는 연장하지 않는다. DB check constraint도 8시간·24시간 상한을 강제한다.
+
+Web은 `HOTEL_API_ORIGIN`의 API Worker를 같은 origin의 `/api/auth/*` runtime proxy로 연결한다. 현재 proxy는 계약된 인증 경로와 HTTP method만 허용하며 업무 API는 각 수직 기능 구현 때 명시적으로 추가한다. API runtime 필수 설정 이름은 `DATABASE_URL`, `ZITADEL_ISSUER`, `ZITADEL_CLIENT_ID`, `ZITADEL_REDIRECT_URI`, `AUTH_TRANSACTION_ENCRYPTION_KEY`다. 값은 저장소·로그·문서에 기록하지 않는다. 필수 설정이 없으면 인증 endpoint는 `AUTH_PROVIDER_NOT_CONFIGURED` 또는 `DB_NOT_CONFIGURED`로 안전 실패한다.
+
+CI는 실제 workerd에서 PostgreSQL readiness, WebCrypto를 거치는 로그인 provider 장애, callback validation, session 거부, logout cookie 삭제를 smoke한다. 실제 ZITADEL credential 기반 end-to-end는 Preview 환경 gate에서 수행한다.
+
+중요 mutation용 재인증은 기존 세션값이나 body PIN으로 대체하지 않는다. 첫 중요 mutation 구현 전에 현재 session·작업·resource에 묶인 짧은 수명의 일회성 재인증 grant를 별도 migration과 transaction으로 완성한다.
+
 ## 7. 요청 권한판정
 
 모든 보호 API는 다음 교집합을 서버에서 확인한다.
@@ -145,6 +165,7 @@ Domain 미지정
 - `users`
 - `auth_identities`
 - `auth_sessions`
+- `auth_login_transactions`
 - `branches`
 - `hotel_profiles`
 - `roles`

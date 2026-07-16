@@ -17,6 +17,11 @@ export type HotelStatus = z.infer<typeof hotelStatusSchema>;
 export const hotelErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
   "AUTHENTICATION_REQUIRED",
+  "AUTH_FLOW_INVALID",
+  "AUTH_RATE_LIMITED",
+  "AUTH_PROVIDER_NOT_CONFIGURED",
+  "AUTH_PROVIDER_UNAVAILABLE",
+  "IDENTITY_NOT_PROVISIONED",
   "FORBIDDEN",
   "RESOURCE_NOT_FOUND",
   "VERSION_CONFLICT",
@@ -28,6 +33,32 @@ export const hotelErrorCodeSchema = z.enum([
   "INTERNAL_ERROR",
 ]);
 export type HotelErrorCode = z.infer<typeof hotelErrorCodeSchema>;
+
+export const authRoutes = {
+  login: "/api/auth/login",
+  callback: "/api/auth/callback",
+  logout: "/api/auth/logout",
+  session: "/api/auth/session",
+} as const;
+
+export const authenticatedPrincipalSchema = z.object({
+  companyId: z.uuid(),
+  identityId: z.uuid(),
+  sessionId: z.uuid(),
+  userId: z.uuid(),
+  userType: hotelUserTypeSchema,
+  displayName: z.string().trim().min(1),
+}).strict();
+export type AuthenticatedPrincipal = z.infer<typeof authenticatedPrincipalSchema>;
+
+export const authSessionResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.object({
+    authenticated: z.literal(true),
+    principal: authenticatedPrincipalSchema,
+  }).strict(),
+  error: z.null(),
+}).strict();
 
 const hotelPath = (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}` as const;
 

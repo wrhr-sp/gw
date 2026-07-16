@@ -4,6 +4,7 @@ set -euo pipefail
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MIGRATION="$ROOT_DIR/packages/db/migrations/0001_platform_foundation.sql"
+AUTH_MIGRATION="$ROOT_DIR/packages/db/migrations/0002_auth_session_runtime.sql"
 TEST_SQL="$ROOT_DIR/packages/db/test/foundation-integration.sql"
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
@@ -16,7 +17,30 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     printf 'Refusing destructive integration test: database name is not test/CI scoped.\n' >&2
     exit 1
   fi
+  cleanup_external_database() {
+    local original_status="$?"
+    local reset_status=0
+    trap - EXIT
+    set +e
+    psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
+      -c "drop schema if exists public cascade; create schema public" >/dev/null 2>&1
+    reset_status="$?"
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$original_status" -ne 0 ]]; then
+      exit "$original_status"
+    fi
+    exit "$reset_status"
+  }
+  trap cleanup_external_database EXIT
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null
   RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$TEST_SQL")"
   if [[ "$RESULT" != *"PLATFORM_FOUNDATION_INTEGRATION_OK"* ]]; then
     printf '%s\n' "$RESULT" >&2
@@ -30,6 +54,11 @@ import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 const ready = await probeDatabaseReadiness(process.env.TEST_READY_URL);
 if (ready.status !== "READY") throw new Error(`expected READY, received ${ready.status}`);
 NODE
+  )
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/auth-repository-integration.ts
   )
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
@@ -101,6 +130,8 @@ createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_test
 createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_blank
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test -f "$AUTH_MIGRATION" >/dev/null
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$TEST_SQL")"
 
@@ -124,6 +155,12 @@ if (ready.status !== "READY") throw new Error(`expected READY, received ${ready.
 if (blank.status !== "SCHEMA_NOT_READY") throw new Error(`expected SCHEMA_NOT_READY, received ${blank.status}`);
 if (missing.status !== "NOT_CONFIGURED") throw new Error(`expected NOT_CONFIGURED, received ${missing.status}`);
 NODE
+)
+
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/auth-repository-integration.ts
 )
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
