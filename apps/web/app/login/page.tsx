@@ -10,7 +10,7 @@ export default function LoginPage() {
             <Building2 size={20} />
           </span>
           <div>
-            <p className="text-sm font-semibold text-accent">We’reHere</p>
+            <p className="text-sm font-semibold text-primary">We’reHere</p>
             <h1 className="text-2xl font-bold text-text" id="login-title">위아히어 호텔 운영</h1>
           </div>
         </div>
@@ -19,7 +19,7 @@ export default function LoginPage() {
           회사에서 발급한 계정으로 안전하게 로그인하세요.
         </p>
 
-        <Button asChild className="w-full">
+        <Button asChild className="h-mobile-action w-full sm:h-10">
           <a href="/api/auth/login">
             <ShieldCheck aria-hidden="true" size={16} />
             ZITADEL로 로그인

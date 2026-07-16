@@ -5,6 +5,9 @@ node_modules/
 .open-next/
 dist/
 coverage/
+.cache/
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Local runtime state
@@ -22,6 +25,7 @@ coverage/
 .wrangler/
 .dev.vars
 .dev.vars.*
+apps/web/playwright/compiled.css
 
 # Editors and OS
 .vscode/

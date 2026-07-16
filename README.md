@@ -41,4 +41,8 @@ docs/
   architecture/ 보안·데이터·배포 설계
 ```
 
-`pnpm run check`, `pnpm run build`, `pnpm run test:integration`을 기본 로컬 게이트로 사용합니다.
+`pnpm run check`, `pnpm run build`, `pnpm run test:integration`, `pnpm run test:visual`을 기본 로컬 게이트로 사용합니다.
+
+시각 기준 변경이 의도된 경우에만 실제 PC·모바일 결과를 직접 확인한 뒤 `pnpm run test:visual:update`로 baseline을 갱신합니다.
+
+AppShell component 기준과 실제 route 기준의 경계는 [`apps/web/visual/README.md`](./apps/web/visual/README.md)를 따릅니다.

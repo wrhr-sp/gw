@@ -7,7 +7,9 @@
     "start": "next start",
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:visual": "tailwindcss -i playwright/styles.css -o playwright/compiled.css && playwright test -c playwright-ct.config.ts",
+    "test:visual:update": "tailwindcss -i playwright/styles.css -o playwright/compiled.css && playwright test -c playwright-ct.config.ts --update-snapshots=all"
   },
   "dependencies": {
     "@tanstack/react-query": "5.90.2",
@@ -22,6 +24,8 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@playwright/experimental-ct-react": "1.61.1",
+    "@tailwindcss/cli": "4.1.14",
     "@tailwindcss/postcss": "4.1.14",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",

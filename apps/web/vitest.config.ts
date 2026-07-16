@@ -1,7 +1,10 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   esbuild: {
     jsx: "automatic",
+  },
+  test: {
+    exclude: [...configDefaults.exclude, "visual/**", "playwright/**"],
   },
 });
