@@ -13,6 +13,8 @@
     "test": "pnpm -r --if-present test",
     "test:boundaries": "node scripts/test-import-boundaries.mjs",
     "test:integration": "pnpm --filter @werehere/db test:integration",
+    "test:visual": "pnpm --filter @werehere/web test:visual",
+    "test:visual:update": "pnpm --filter @werehere/web test:visual:update",
     "check": "pnpm run typecheck && pnpm run test && pnpm run test:boundaries"
   },
   "devDependencies": {

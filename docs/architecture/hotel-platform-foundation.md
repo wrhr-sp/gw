@@ -234,8 +234,8 @@ AppShell
    └─ BottomNavigation 또는 MobileTaskActionBar
 ```
 
-- PC 1024px 이상: 240px sidebar, 표·분할화면 중심.
-- 노트북: 72px 접힌 sidebar, 420px 상세패널.
+- PC 1280px 이상: 240px sidebar, 표·분할화면 중심.
+- 노트북 1024~1279px: 72px 접힌 sidebar, 420px 상세패널.
 - 모바일: 표를 축소하지 않고 카드·단일업무 흐름으로 교체.
 - 목록 filter·sort·page는 URL search parameter가 정본이다.
 - mutation 성공은 응답 Zod parse → ID 상세 재조회 → 목록 invalidate → 재조회 성공 후에만 화면 성공으로 처리한다.
@@ -274,6 +274,7 @@ Canonical route:
 
 - `pnpm install --frozen-lockfile`
 - typecheck·unit test·Web/API build
+- Playwright Chromium에서 Pretendard를 적용한 AppShell 1440px PC·1024px 노트북·390px 모바일 및 로그인 1440px PC·390px 모바일 screenshot 회귀
 - disposable 실제 PostgreSQL migration·constraint·rollback·concurrency test
 - readiness는 `0001` marker뿐 아니라 필수 relation·핵심 column·회사경계 constraint·감사/권한 trigger의 이름·대상·함수·활성상태가 모두 일치할 때만 `READY`
 - 빈 DB, migration 누락, 필수 테이블 삭제, 핵심 제약 유실은 `SCHEMA_NOT_READY`

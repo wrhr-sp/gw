@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - feat/hotel-first-platform
 
 permissions:
   contents: read
@@ -51,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Chromium for visual regression
+        run: pnpm --filter @werehere/web exec playwright install --with-deps chromium
+
       - name: Lint boundaries and source
         run: pnpm run lint
 
@@ -59,6 +61,20 @@ jobs:
 
       - name: Build Web and API Worker
         run: pnpm run build
+
+      - name: Visual regression
+        run: pnpm run test:visual
+
+      - name: Upload visual regression artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-${{ github.run_id }}
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: PostgreSQL migration and boundary tests
         run: pnpm run test:integration
