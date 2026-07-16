@@ -24,6 +24,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@playwright/experimental-ct-react": "1.61.1",
     "@tailwindcss/cli": "4.1.14",
     "@tailwindcss/postcss": "4.1.14",

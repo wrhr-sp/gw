@@ -1,17 +1,27 @@
-import type { HotelErrorCode } from "@werehere/contracts";
+import {
+  createHotelRequestSchema,
+  hotelIdempotencyKeySchema,
+  hotelListQuerySchema,
+  type AuthenticatedPrincipal,
+  type HotelErrorCode,
+} from "@werehere/contracts";
 import { probeDatabaseReadiness, type DatabaseReadiness } from "@werehere/db";
 import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
+import { z } from "zod";
 import { createAuthServiceFromBindings, type AuthBindings } from "./auth/factory";
 import { AuthServiceError, type AuthService } from "./auth/service";
+import { createHotelServiceFromBindings, type HotelBindings } from "./hotels/factory";
+import { HotelServiceError, type HotelService } from "./hotels/service";
 
-type Bindings = AuthBindings;
+type Bindings = AuthBindings & HotelBindings;
 
 type ReadinessProbe = (databaseUrl: string | undefined) => Promise<DatabaseReadiness>;
 
 type CreateAppOptions = {
   authService?: AuthService;
   databaseUrl?: string;
+  hotelService?: HotelService;
   readinessProbe?: ReadinessProbe;
 };
 
@@ -19,6 +29,7 @@ function errorResponse(
   code: HotelErrorCode,
   message: string,
   retryable: boolean,
+  fieldErrors: Array<{ field: string; message: string }> = [],
 ) {
   return {
     ok: false as const,
@@ -26,7 +37,7 @@ function errorResponse(
     error: {
       code,
       message,
-      fieldErrors: [],
+      fieldErrors,
       retryable,
       retryAfterSeconds: retryable ? 5 : null,
       traceId: crypto.randomUUID(),
@@ -48,6 +59,7 @@ const OAUTH_BROWSER_COOKIE_OPTIONS = {
   ...SESSION_COOKIE_OPTIONS,
   maxAge: 10 * 60,
 };
+const HOTEL_ID_SCHEMA = z.uuid();
 
 function readUniqueCookie(
   context: Context<{ Bindings: Bindings }>,
@@ -78,13 +90,37 @@ const AUTH_ERROR_MESSAGES: Partial<Record<HotelErrorCode, string>> = {
 export function createApp(options: CreateAppOptions = {}) {
   const hotelApp = new Hono<{ Bindings: Bindings }>();
   const readinessProbe = options.readinessProbe ?? probeDatabaseReadiness;
-  let configuredAuthService: Promise<AuthService> | undefined = options.authService
-    ? Promise.resolve(options.authService)
-    : undefined;
 
   function getAuthService(bindings: Bindings | undefined) {
-    configuredAuthService ??= createAuthServiceFromBindings(bindings);
-    return configuredAuthService;
+    return options.authService ? Promise.resolve(options.authService) : createAuthServiceFromBindings(bindings);
+  }
+
+  function getHotelService(bindings: Bindings | undefined) {
+    return options.hotelService ?? createHotelServiceFromBindings(bindings);
+  }
+
+  async function withAuthService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: AuthService) => Promise<T>,
+  ): Promise<T> {
+    const service = await getAuthService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.authService) await service.close?.();
+    }
+  }
+
+  async function withHotelService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: HotelService) => Promise<T>,
+  ): Promise<T> {
+    const service = getHotelService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.hotelService) await service.close?.();
+    }
   }
 
   function authFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
@@ -100,6 +136,108 @@ export function createApp(options: CreateAppOptions = {}) {
       AUTH_ERROR_MESSAGES.INTERNAL_ERROR!,
       true,
     ), 500);
+  }
+
+  function hotelFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
+    if (error instanceof HotelServiceError) {
+      return context.json(errorResponse(
+        error.code,
+        error.code === "DB_NOT_CONFIGURED"
+          ? "데이터베이스 연결이 설정되지 않았습니다."
+          : "호텔 요청을 처리할 수 없습니다.",
+        error.retryable,
+      ), error.httpStatus);
+    }
+    const databaseError = error && typeof error === "object" ? error as {
+      code?: unknown;
+      constraint_name?: unknown;
+      hotelStage?: unknown;
+      name?: unknown;
+    } : null;
+    console.error(JSON.stringify({
+      event: "HOTEL_API_FAILURE",
+      errorName: typeof databaseError?.name === "string" ? databaseError.name : "UnknownError",
+      databaseCode: typeof databaseError?.code === "string" ? databaseError.code : null,
+      constraint: typeof databaseError?.constraint_name === "string" ? databaseError.constraint_name : null,
+      stage: typeof databaseError?.hotelStage === "string" ? databaseError.hotelStage : null,
+    }));
+    return context.json(errorResponse(
+      "INTERNAL_ERROR",
+      "호텔 요청을 처리할 수 없습니다.",
+      true,
+    ), 500);
+  }
+
+  async function requestPrincipal(
+    context: Context<{ Bindings: Bindings }>,
+  ): Promise<AuthenticatedPrincipal | null> {
+    const token = readUniqueCookie(context, SESSION_COOKIE_NAME);
+    if (!token) return null;
+    return withAuthService(context.env, (service) => service.resolvePrincipal(token));
+  }
+
+  function validationFailure(
+    context: Context<{ Bindings: Bindings }>,
+    fieldErrors: Array<{ field: string; message: string }>,
+  ) {
+    return context.json(errorResponse(
+      "VALIDATION_ERROR",
+      "입력값을 확인해 주세요.",
+      false,
+      fieldErrors,
+    ), 400);
+  }
+
+  function idempotencyKey(context: Context<{ Bindings: Bindings }>): string | null {
+    const parsed = hotelIdempotencyKeySchema.safeParse(context.req.header("idempotency-key"));
+    return parsed.success ? parsed.data : null;
+  }
+
+  function zodFieldErrors(issues: Array<{ message: string; path: PropertyKey[] }>) {
+    return issues.map((issue) => ({
+      field: issue.path.map(String).join(".") || "body",
+      message: issue.message,
+    }));
+  }
+
+  function mutationFailure(
+    context: Context<{ Bindings: Bindings }>,
+    status: "DUPLICATE" | "FORBIDDEN" | "IDEMPOTENCY_CONFLICT" | "NOT_FOUND" | "VERSION_CONFLICT",
+    duplicateField: "branchCode" | "name" = "name",
+  ) {
+    if (status === "DUPLICATE") {
+      const message = duplicateField === "branchCode"
+        ? "이미 사용 중인 호텔코드입니다."
+        : "이미 사용 중인 호텔명입니다.";
+      return context.json(errorResponse(
+        "VALIDATION_ERROR",
+        message,
+        false,
+        [{ field: duplicateField, message }],
+      ), 409);
+    }
+    if (status === "FORBIDDEN") {
+      return context.json(errorResponse("FORBIDDEN", "호텔 관리 권한이 없습니다.", false), 403);
+    }
+    if (status === "IDEMPOTENCY_CONFLICT") {
+      return context.json(errorResponse(
+        "IDEMPOTENCY_CONFLICT",
+        "같은 요청 키에 다른 요청 내용이 사용되었습니다.",
+        false,
+      ), 409);
+    }
+    if (status === "VERSION_CONFLICT") {
+      return context.json(errorResponse(
+        "VERSION_CONFLICT",
+        "다른 사용자가 먼저 수정했습니다. 최신 정보를 다시 불러와 주세요.",
+        false,
+      ), 409);
+    }
+    return context.json(errorResponse(
+      "RESOURCE_NOT_FOUND",
+      "요청한 호텔을 찾을 수 없습니다.",
+      false,
+    ), 404);
   }
 
   hotelApp.get("/api/health/live", (context) => context.json({
@@ -153,7 +291,7 @@ export function createApp(options: CreateAppOptions = {}) {
     context.header("Cache-Control", "no-store");
     context.header("Referrer-Policy", "no-referrer");
     try {
-      const result = await (await getAuthService(context.env)).beginLogin();
+      const result = await withAuthService(context.env, (service) => service.beginLogin());
       setCookie(context, OAUTH_BROWSER_COOKIE_NAME, result.browserBinding, OAUTH_BROWSER_COOKIE_OPTIONS);
       return context.redirect(result.authorizationUrl, 302);
     } catch (error) {
@@ -179,8 +317,9 @@ export function createApp(options: CreateAppOptions = {}) {
       ), 400);
     }
     try {
-      const result = await (await getAuthService(context.env))
-        .completeLogin(code, state, browserBinding);
+      const result = await withAuthService(context.env, (service) => (
+        service.completeLogin(code, state, browserBinding)
+      ));
       setCookie(context, SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
       return context.redirect(result.redirectTo, 302);
     } catch (error) {
@@ -199,7 +338,7 @@ export function createApp(options: CreateAppOptions = {}) {
       ), 401);
     }
     try {
-      const principal = await (await getAuthService(context.env)).resolvePrincipal(token);
+      const principal = await withAuthService(context.env, (service) => service.resolvePrincipal(token));
       if (!principal) {
         return context.json(errorResponse(
           "AUTHENTICATION_REQUIRED",
@@ -221,13 +360,120 @@ export function createApp(options: CreateAppOptions = {}) {
     context.header("Cache-Control", "no-store");
     const token = readUniqueCookie(context, SESSION_COOKIE_NAME);
     try {
-      if (token) await (await getAuthService(context.env)).logout(token);
+      if (token) await withAuthService(context.env, (service) => service.logout(token));
       setCookie(context, SESSION_COOKIE_NAME, "", { ...SESSION_COOKIE_OPTIONS, maxAge: 0 });
       return context.body(null, 204);
     } catch (error) {
       return authFailure(context, error);
     }
   });
+
+  hotelApp.get("/api/hotels", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) {
+        return context.json(errorResponse(
+          "AUTHENTICATION_REQUIRED",
+          AUTH_ERROR_MESSAGES.AUTHENTICATION_REQUIRED!,
+          false,
+        ), 401);
+      }
+      const query = hotelListQuerySchema.safeParse(context.req.query());
+      if (!query.success) return validationFailure(context, zodFieldErrors(query.error.issues));
+      const result = await withHotelService(context.env, (service) => (
+        service.listHotels(principal, query.data)
+      ));
+      if (result.status === "FORBIDDEN") return mutationFailure(context, "FORBIDDEN");
+      return context.json({
+        ok: true as const,
+        data: {
+          capabilities: result.capabilities,
+          hotels: result.hotels,
+          pagination: result.pagination,
+        },
+        error: null,
+      });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/hotels", async (context) => {
+    context.header("Cache-Control", "no-store");
+    let stage = "PRINCIPAL_RESOLUTION";
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) {
+        return context.json(errorResponse(
+          "AUTHENTICATION_REQUIRED",
+          AUTH_ERROR_MESSAGES.AUTHENTICATION_REQUIRED!,
+          false,
+        ), 401);
+      }
+      stage = "IDEMPOTENCY_HEADER";
+      const key = idempotencyKey(context);
+      if (!key) return validationFailure(context, [{
+        field: "idempotencyKey",
+        message: "Idempotency-Key 헤더가 필요합니다.",
+      }]);
+      stage = "REQUEST_JSON";
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]);
+      }
+      stage = "REQUEST_VALIDATION";
+      const parsed = createHotelRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      stage = "HOTEL_SERVICE";
+      const result = await withHotelService(context.env, (service) => (
+        service.createHotel(principal, parsed.data, key)
+      ));
+      if (result.status === "CREATED" || result.status === "REPLAYED") {
+        return context.json({ ok: true as const, data: { hotel: result.hotel }, error: null },
+          result.status === "CREATED" ? 201 : 200);
+      }
+      return mutationFailure(
+        context,
+        result.status,
+        result.status === "DUPLICATE" ? result.field : "name",
+      );
+    } catch (error) {
+      if (error && typeof error === "object" && !("hotelStage" in error)) {
+        Object.defineProperty(error, "hotelStage", { value: stage });
+      }
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) {
+        return context.json(errorResponse(
+          "AUTHENTICATION_REQUIRED",
+          AUTH_ERROR_MESSAGES.AUTHENTICATION_REQUIRED!,
+          false,
+        ), 401);
+      }
+      const parsedId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!parsedId.success) return mutationFailure(context, "NOT_FOUND");
+      const hotel = await withHotelService(context.env, (service) => (
+        service.getHotel(principal, parsedId.data)
+      ));
+      if (!hotel) return mutationFailure(context, "NOT_FOUND");
+      return context.json({ ok: true as const, data: { hotel }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
 
   hotelApp.notFound((context) => context.json({
     ok: false,

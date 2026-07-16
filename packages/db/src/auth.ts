@@ -36,6 +36,7 @@ export type CreateLoginTransactionResult =
   | { status: "CAPACITY_EXCEEDED" };
 
 export interface AuthRepository {
+  close?(): Promise<void>;
   consumeLoginTransaction(
     stateHash: Uint8Array,
     browserBindingHash: Uint8Array,
@@ -75,6 +76,10 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
   });
 
   return {
+    async close() {
+      await sql.end({ timeout: 1 });
+    },
+
     async createLoginTransaction(input) {
       return sql.begin(async (transaction) => {
         await transaction`select pg_advisory_xact_lock(915202607160001)`;

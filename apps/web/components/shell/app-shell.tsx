@@ -31,7 +31,13 @@ function NavigationLinks({ currentPath, navigation, variant }: NavigationLinksPr
         : `flex min-h-11 flex-col items-center justify-center gap-1 px-1 py-1 text-[11px] font-medium text-muted ${focusClassName}`;
 
     return (
-      <a aria-current={current ? "page" : undefined} className={className} href={item.href} key={item.href}>
+      <a
+        aria-current={current ? "page" : undefined}
+        aria-label={item.label}
+        className={className}
+        href={item.href}
+        key={item.href}
+      >
         <span
           aria-hidden="true"
           className={variant === "desktop"

@@ -42,6 +42,7 @@ export type CompleteLoginResult = {
 
 export interface AuthService {
   beginLogin(): Promise<{ authorizationUrl: string; browserBinding: string }>;
+  close?(): Promise<void>;
   completeLogin(code: string, state: string, browserBinding: string): Promise<CompleteLoginResult>;
   logout(sessionToken: string): Promise<boolean>;
   resolvePrincipal(sessionToken: string): Promise<AuthenticatedPrincipal | null>;
@@ -68,6 +69,10 @@ export function createAuthService(input: {
   const successRedirect = input.successRedirect ?? "/hotel-operations";
 
   return {
+    async close() {
+      await input.repository.close?.();
+    },
+
     async beginLogin() {
       const state = randomBase64Url(32);
       const nonce = randomBase64Url(32);

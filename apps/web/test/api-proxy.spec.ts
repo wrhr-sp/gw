@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hotelErrorResponseSchema } from "@werehere/contracts";
 import { GET, POST } from "../app/api/[...path]/route";
 
 const originalOrigin = process.env.HOTEL_API_ORIGIN;
@@ -17,9 +18,26 @@ describe("same-origin API runtime proxy", () => {
       { params: Promise.resolve({ path: ["auth", "login"] }) },
     );
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({
+    const body = hotelErrorResponseSchema.parse(await response.json());
+    expect(body).toMatchObject({
       ok: false,
       error: { code: "AUTH_PROVIDER_NOT_CONFIGURED" },
+    });
+  });
+
+  it("returns the shared hotel error contract when the hotel API origin is missing", async () => {
+    delete process.env.HOTEL_API_ORIGIN;
+    const response = await GET(
+      new Request("https://hotel.example.test/api/hotels"),
+      { params: Promise.resolve({ path: ["hotels"] }) },
+    );
+    expect(response.status).toBe(503);
+    const body = hotelErrorResponseSchema.parse(await response.json());
+    expect(body.error).toMatchObject({
+      code: "DB_NOT_CONFIGURED",
+      fieldErrors: [],
+      retryAfterSeconds: null,
+      retryable: false,
     });
   });
 
@@ -69,11 +87,27 @@ describe("same-origin API runtime proxy", () => {
     expect(response.status).toBe(503);
   });
 
-  it("does not proxy unapproved API paths or methods", async () => {
+  it("proxies only the approved hotel collection and detail methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    const unapprovedPath = await GET(
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const hotels = await GET(
       new Request("https://hotel.example.test/api/hotels"),
       { params: Promise.resolve({ path: ["hotels"] }) },
+    );
+    expect(hotels.status).toBe(200);
+
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const detail = await GET(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}`),
+      { params: Promise.resolve({ path: ["hotels", hotelId] }) },
+    );
+    expect(detail.status).toBe(200);
+
+    const unapprovedPath = await POST(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/activate`, { method: "POST" }),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "activate"] }) },
     );
     expect(unapprovedPath.status).toBe(404);
 
@@ -83,5 +117,9 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(wrongMethod.status).toBe(405);
     expect(wrongMethod.headers.get("allow")).toBe("GET");
+    expect(hotelErrorResponseSchema.parse(await wrongMethod.json())).toMatchObject({
+      ok: false,
+      error: { code: "RESOURCE_NOT_FOUND", retryable: false },
+    });
   });
 });

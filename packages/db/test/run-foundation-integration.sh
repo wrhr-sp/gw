@@ -5,6 +5,7 @@ PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 MIGRATION="$ROOT_DIR/packages/db/migrations/0001_platform_foundation.sql"
 AUTH_MIGRATION="$ROOT_DIR/packages/db/migrations/0002_auth_session_runtime.sql"
+HOTEL_MIGRATION="$ROOT_DIR/packages/db/migrations/0003_hotel_basic_information.sql"
 TEST_SQL="$ROOT_DIR/packages/db/test/foundation-integration.sql"
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
@@ -33,6 +34,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
     if [[ "$original_status" -ne 0 ]]; then
       exit "$original_status"
     fi
@@ -41,6 +46,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   trap cleanup_external_database EXIT
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_MIGRATION" >/dev/null
   RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$TEST_SQL")"
   if [[ "$RESULT" != *"PLATFORM_FOUNDATION_INTEGRATION_OK"* ]]; then
     printf '%s\n' "$RESULT" >&2
@@ -59,6 +65,14 @@ NODE
     cd "$ROOT_DIR"
     TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx packages/db/test/auth-repository-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/hotel-repository-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx apps/api/test/hotel-api-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/hotel-rls-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
   )
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
@@ -132,6 +146,8 @@ psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$AUTH_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test -f "$HOTEL_MIGRATION" >/dev/null
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$TEST_SQL")"
 
@@ -161,6 +177,14 @@ NODE
   cd "$ROOT_DIR"
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx packages/db/test/auth-repository-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/hotel-repository-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx apps/api/test/hotel-api-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/hotel-rls-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
 )
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
