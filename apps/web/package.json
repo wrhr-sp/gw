@@ -6,6 +6,9 @@
     "dev": "next dev",
     "start": "next start",
     "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "deploy:cloudflare": "opennextjs-cloudflare deploy",
+    "preview:cloudflare": "opennextjs-cloudflare preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:visual": "tailwindcss -i playwright/styles.css -o playwright/compiled.css && playwright test -c playwright-ct.config.ts",
@@ -25,11 +28,13 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
+    "@opennextjs/cloudflare": "1.20.1",
     "@playwright/experimental-ct-react": "1.61.1",
     "@tailwindcss/cli": "4.1.14",
     "@tailwindcss/postcss": "4.1.14",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
-    "tailwindcss": "4.1.14"
+    "tailwindcss": "4.1.14",
+    "wrangler": "4.111.0"
   }
 }

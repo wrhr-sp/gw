@@ -9,7 +9,7 @@ import {
 } from "@werehere/contracts";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { configuredApiOrigin } from "./server-auth";
+import { fetchApi } from "./api-transport";
 
 export type HotelApiFailure = {
   code: HotelErrorCode;
@@ -18,13 +18,11 @@ export type HotelApiFailure = {
 };
 
 async function request(path: string): Promise<Response> {
-  const origin = configuredApiOrigin();
-  if (!origin) return new Response(null, { status: 503 });
   const cookieHeader = (await cookies()).toString();
   const headers = new Headers();
   if (cookieHeader) headers.set("cookie", cookieHeader);
   try {
-    return await fetch(`${origin}${path}`, { cache: "no-store", headers });
+    return await fetchApi(path, { cache: "no-store", headers });
   } catch {
     return new Response(null, { status: 503 });
   }

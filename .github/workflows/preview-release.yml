@@ -1,0 +1,240 @@
+name: hotel-preview-release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: hotel-preview-release
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: preview
+      url: https://werehere-hotel-web-preview.wereheresp.workers.dev
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
+      ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
+      ZITADEL_CLIENT_ID: ${{ vars.ZITADEL_CLIENT_ID }}
+      ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
+      WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
+      RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-runtime-url
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate required Preview configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            CLOUDFLARE_ACCOUNT_ID
+            CLOUDFLARE_API_TOKEN
+            AUTH_TRANSACTION_ENCRYPTION_KEY
+            ZITADEL_ISSUER
+            ZITADEL_CLIENT_ID
+            ZITADEL_REDIRECT_URI
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              printf 'Missing required Preview configuration: %s\n' "$name" >&2
+              exit 1
+            fi
+          done
+          node <<'NODE'
+          const key = process.env.AUTH_TRANSACTION_ENCRYPTION_KEY;
+          const bytes = Buffer.from(key, "base64url");
+          if (!/^[A-Za-z0-9_-]+$/u.test(key)
+            || bytes.byteLength !== 32
+            || bytes.toString("base64url") !== key) {
+            throw new Error("AUTH_TRANSACTION_ENCRYPTION_KEY must be canonical 256-bit base64url");
+          }
+          const expectedRedirect = "https://werehere-hotel-web-preview.wereheresp.workers.dev/api/auth/callback";
+          if (process.env.ZITADEL_REDIRECT_URI !== expectedRedirect) {
+            throw new Error("ZITADEL_REDIRECT_URI does not match the Preview Web callback");
+          }
+          NODE
+          printf '%s\n' 'PREVIEW_CONFIGURATION_PRESENT'
+
+      - name: Provision Neon Preview database and runtime role
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          DATABASE_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RUNTIME_PASSWORD_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: pnpm exec tsx packages/db/scripts/provision-preview.ts
+
+      - name: Create or update Preview Hyperdrive
+        id: hyperdrive
+        shell: bash
+        working-directory: apps/api
+        run: |
+          set -euo pipefail
+          runtime_url="$(<"$RUNTIME_DATABASE_URL_FILE")"
+          printf '::add-mask::%s\n' "$runtime_url"
+          name='werehere-hotel-preview'
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
+          list_url="$api?per_page=100"
+          list_file="$(mktemp)"
+          trap 'rm -f "$list_file"' EXIT
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$list_url" > "$list_file"
+          if [[ "$(jq -r '.result_info.total_pages // 1' "$list_file")" -gt 1 ]]; then
+            printf '%s\n' 'Hyperdrive list exceeds the safe single-page lookup limit.' >&2
+            exit 1
+          fi
+          count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+          if [[ "$count" -gt 1 ]]; then
+            printf '%s\n' 'Multiple Preview Hyperdrive configs have the same name.' >&2
+            exit 1
+          fi
+          id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
+          if [[ -z "$id" ]]; then
+            pnpm exec wrangler hyperdrive create "$name" \
+              --config wrangler.preview.jsonc \
+              --connection-string "$runtime_url" \
+              --sslmode require \
+              --caching-disabled >/dev/null
+          else
+            pnpm exec wrangler hyperdrive update "$id" \
+              --config wrangler.preview.jsonc \
+              --connection-string "$runtime_url" \
+              --sslmode require \
+              --caching-disabled >/dev/null
+          fi
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$list_url" > "$list_file"
+          id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
+          if [[ -z "$id" || "$id" == null ]]; then
+            printf '%s\n' 'Preview Hyperdrive ID was not found after provisioning.' >&2
+            exit 1
+          fi
+          printf 'id=%s\n' "$id" >> "$GITHUB_OUTPUT"
+          printf '%s\n' 'PREVIEW_HYPERDRIVE_READY'
+
+      - name: Render API Preview configuration and secrets
+        env:
+          HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.id }}
+        run: |
+          node scripts/render-api-preview-config.mjs \
+            apps/api/wrangler.preview.jsonc \
+            apps/api/wrangler.preview.generated.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('/tmp/werehere-api-preview-secrets.json').write_text(json.dumps({
+              'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
+          }))
+          os.chmod('/tmp/werehere-api-preview-secrets.json', 0o600)
+          PY
+
+      - name: Snapshot active Worker versions
+        id: worker_snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot() {
+            local output_name="$1"
+            local worker_name="$2"
+            local snapshot_file
+            snapshot_file="$(mktemp)"
+            if pnpm --filter @werehere/api exec wrangler deployments list \
+              --name "$worker_name" --json > "$snapshot_file" 2>/dev/null; then
+              local version
+              version="$(jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' "$snapshot_file")"
+              printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
+              printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
+            else
+              printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
+              printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
+            fi
+            rm -f "$snapshot_file"
+          }
+          snapshot api werehere-hotel-api-preview
+          snapshot web werehere-hotel-web-preview
+
+      - name: Deploy private API Worker
+        id: deploy_api
+        working-directory: apps/api
+        run: >-
+          pnpm exec wrangler deploy
+          --config wrangler.preview.generated.json
+          --secrets-file /tmp/werehere-api-preview-secrets.json
+
+      - name: Build OpenNext Web Worker
+        run: pnpm --filter @werehere/web build:cloudflare
+
+      - name: Deploy public Web Worker
+        id: deploy_web
+        working-directory: apps/web
+        run: pnpm exec wrangler deploy --config wrangler.jsonc
+
+      - name: Verify public Preview path
+        id: preview_smoke
+        run: node scripts/smoke-cloudflare-preview.mjs
+
+      - name: Roll back failed Worker release
+        if: failure()
+        shell: bash
+        env:
+          API_PREVIOUS: ${{ steps.worker_snapshot.outputs.api_previous }}
+          API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
+          API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
+          WEB_PREVIOUS: ${{ steps.worker_snapshot.outputs.web_previous }}
+          WEB_EXISTED: ${{ steps.worker_snapshot.outputs.web_existed }}
+          WEB_DEPLOY_OUTCOME: ${{ steps.deploy_web.outcome }}
+        run: |
+          set +e
+          rollback_worker() {
+            local worker_name="$1"
+            local previous="$2"
+            local existed="$3"
+            local outcome="$4"
+            if [[ "$outcome" == "skipped" || -z "$outcome" ]]; then
+              return
+            fi
+            if [[ "$existed" == "true" && -n "$previous" ]]; then
+              pnpm --filter @werehere/api exec wrangler rollback "$previous" \
+                --name "$worker_name" --yes \
+                --message 'Automated rollback after failed Preview release'
+            elif [[ "$existed" == "false" ]]; then
+              pnpm --filter @werehere/api exec wrangler delete "$worker_name" --force
+            fi
+          }
+          rollback_worker werehere-hotel-web-preview \
+            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME"
+          rollback_worker werehere-hotel-api-preview \
+            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME"
+
+      - name: Remove transient credential files
+        if: always()
+        run: |
+          rm -f "$RUNTIME_DATABASE_URL_FILE"
+          rm -f /tmp/werehere-api-preview-secrets.json
+          rm -f apps/api/wrangler.preview.generated.json

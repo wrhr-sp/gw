@@ -122,4 +122,26 @@ describe("same-origin API runtime proxy", () => {
       error: { code: "RESOURCE_NOT_FOUND", retryable: false },
     });
   });
+
+  it("exposes only the approved API health endpoints", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async (input: string | URL | Request) => {
+      expect(String(input)).toBe("http://127.0.0.1:8787/api/health/ready");
+      return Response.json({ ok: true });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const ready = await GET(
+      new Request("https://hotel.example.test/api/health/ready"),
+      { params: Promise.resolve({ path: ["health", "ready"] }) },
+    );
+    expect(ready.status).toBe(200);
+
+    const unapproved = await GET(
+      new Request("https://hotel.example.test/api/health/internal"),
+      { params: Promise.resolve({ path: ["health", "internal"] }) },
+    );
+    expect(unapproved.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
 });

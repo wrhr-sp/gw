@@ -1,4 +1,5 @@
 import type { HotelErrorCode } from "@werehere/contracts";
+import { ApiTransportNotConfiguredError, fetchApi } from "../../../lib/api-transport";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,8 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["auth/callback", new Set(["GET"])],
   ["auth/session", new Set(["GET"])],
   ["auth/logout", new Set(["POST"])],
+  ["health/live", new Set(["GET"])],
+  ["health/ready", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
 ]);
 
@@ -21,22 +24,6 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   return API_PROXY_METHODS.get(apiPath);
 }
 
-function apiOrigin(): string | null {
-  const configured = process.env.HOTEL_API_ORIGIN?.trim();
-  if (!configured) return null;
-  try {
-    const origin = new URL(configured);
-    const localHttp = origin.protocol === "http:"
-      && (origin.hostname === "127.0.0.1" || origin.hostname === "localhost");
-    if (origin.protocol !== "https:" && !localHttp) return null;
-    if (origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) {
-      return null;
-    }
-    return origin.toString().replace(/\/$/u, "");
-  } catch {
-    return null;
-  }
-}
 
 function failure(
   code: HotelErrorCode,
@@ -83,14 +70,8 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   }
 
   const hotelRequest = apiPath === "hotels" || apiPath.startsWith("hotels/");
-  const origin = apiOrigin();
-  if (!origin) {
-    return hotelRequest
-      ? failure("DB_NOT_CONFIGURED", "호텔 API 연결이 설정되지 않았습니다.", 503, false)
-      : failure("AUTH_PROVIDER_NOT_CONFIGURED", "인증 API 연결이 설정되지 않았습니다.", 503, false);
-  }
-  const upstreamUrl = new URL(`${origin}/api/${path.map(encodeURIComponent).join("/")}`);
-  upstreamUrl.search = new URL(request.url).search;
+  const databaseRequest = hotelRequest || apiPath === "health/ready";
+  const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
 
   const headers = new Headers(request.headers);
   headers.delete("connection");
@@ -108,14 +89,19 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   }
 
   try {
-    const upstream = await fetch(upstreamUrl, init);
+    const upstream = await fetchApi(upstreamPath, init);
     return new Response(upstream.body, {
       headers: upstream.headers,
       status: upstream.status,
       statusText: upstream.statusText,
     });
-  } catch {
-    return hotelRequest
+  } catch (error) {
+    if (error instanceof ApiTransportNotConfiguredError) {
+      return databaseRequest
+        ? failure("DB_NOT_CONFIGURED", "호텔 API 연결이 설정되지 않았습니다.", 503, false)
+        : failure("AUTH_PROVIDER_NOT_CONFIGURED", "인증 API 연결이 설정되지 않았습니다.", 503, false);
+    }
+    return databaseRequest
       ? failure("INTERNAL_ERROR", "호텔 API에 연결할 수 없습니다.", 503, true)
       : failure("AUTH_PROVIDER_UNAVAILABLE", "인증 API에 연결할 수 없습니다.", 503, true);
   }

@@ -13,6 +13,7 @@ import { createAuthServiceFromBindings, type AuthBindings } from "./auth/factory
 import { AuthServiceError, type AuthService } from "./auth/service";
 import { createHotelServiceFromBindings, type HotelBindings } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
+import { resolveDatabaseUrl } from "./database";
 
 type Bindings = AuthBindings & HotelBindings;
 
@@ -250,7 +251,7 @@ export function createApp(options: CreateAppOptions = {}) {
   }));
 
   hotelApp.get("/api/health/ready", async (context) => {
-    const databaseUrl = options.databaseUrl ?? context.env?.DATABASE_URL;
+    const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl(context.env);
     const readiness = await readinessProbe(databaseUrl);
 
     if (readiness.status === "READY") {

@@ -25,6 +25,7 @@ playwright-report/
 .wrangler/
 .dev.vars
 .dev.vars.*
+apps/api/wrangler.preview.generated*.json
 apps/web/playwright/compiled.css
 
 # Editors and OS
