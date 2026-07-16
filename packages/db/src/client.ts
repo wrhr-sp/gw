@@ -57,24 +57,26 @@ const REQUIRED_COLUMNS = [
 
 const REQUIRED_CONSTRAINTS = [
   ["auth_sessions", "foreign key (company_id, identity_id, user_id) references auth_identities(company_id, id, user_id)"],
-  ["auth_sessions", "check ((octet_length(token_hash) = 32))"],
-  ["auth_login_transactions", "check ((octet_length(state_hash) = 32))"],
-  ["auth_login_transactions", "check ((octet_length(browser_binding_hash) = 32))"],
-  ["auth_login_transactions", "check ((octet_length(nonce_hash) = 32))"],
-  ["auth_login_transactions", "check ((octet_length(code_verifier_iv) = 12))"],
-  ["auth_login_transactions", "check ((expires_at > created_at))"],
-  ["auth_sessions", "check ((idle_expires_at <= (last_seen_at + '08:00:00'::interval)))"],
-  ["auth_sessions", "check ((absolute_expires_at <= (created_at + '24:00:00'::interval)))"],
   ["hotel_profiles", "primary key (company_id, branch_id)"],
   ["hotel_profiles", "foreign key (company_id, branch_id) references branches(company_id, id)"],
-  ["hotel_profiles", "check ((contract_end_date >= contract_start_date))"],
-  ["hotel_profiles", "btrim(road_address) <> ''"],
-  ["hotel_profiles", "representative_phone ~"],
-  ["branches", "branch_code = upper(btrim(branch_code))"],
-  ["branches", "branch_code ~ '^[a-z0-9][a-z0-9_-]*$'::text"],
   ["audit_events", "foreign key (company_id, session_id) references auth_sessions(company_id, id)"],
   ["idempotency_records", "foreign key (company_id, audit_event_id) references audit_events(company_id, id)"],
-  ["idempotency_records", "result_snapshot is not null"],
+] as const;
+
+const REQUIRED_CHECK_CONSTRAINTS = [
+  { table: "auth_sessions", name: "auth_sessions_token_hash_check", definition: "check ((octet_length(token_hash) = 32))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_state_hash_check", definition: "check ((octet_length(state_hash) = 32))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_browser_binding_hash_check", definition: "check ((octet_length(browser_binding_hash) = 32))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_nonce_hash_check", definition: "check ((octet_length(nonce_hash) = 32))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_code_verifier_iv_check", definition: "check ((octet_length(code_verifier_iv) = 12))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_check", definition: "check ((expires_at > created_at))" },
+  { table: "auth_sessions", name: "auth_sessions_idle_max_eight_hours", definition: "check ((idle_expires_at <= (last_seen_at + '08:00:00'::interval)))" },
+  { table: "auth_sessions", name: "auth_sessions_absolute_max_twenty_four_hours", definition: "check ((absolute_expires_at <= (created_at + '24:00:00'::interval)))" },
+  { table: "hotel_profiles", name: "hotel_profiles_contract_period", definition: "check ((contract_end_date >= contract_start_date))" },
+  { table: "hotel_profiles", name: "hotel_profiles_road_address_nonempty", definition: "check ((btrim(road_address) <> ''::text))" },
+  { table: "hotel_profiles", name: "hotel_profiles_representative_phone_format", definition: "check ((representative_phone ~ '^[0-9+() -]{8,30}$'::text))" },
+  { table: "branches", name: "branches_branch_code_canonical_check", definition: "check (((branch_code = upper(btrim(branch_code))) and (branch_code ~ '^[a-z0-9][a-z0-9_-]*$'::text)))" },
+  { table: "idempotency_records", name: "idempotency_records_completed_result_check", definition: "check (((status <> 'completed'::text) or ((completed_at is not null) and (resource_type is not null) and (resource_id is not null) and (audit_event_id is not null) and (result_snapshot is not null))))" },
 ] as const;
 
 const REQUIRED_INDEXES = [{
@@ -154,8 +156,15 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
 
-    const constraintRows = await sql<{ table_name: string; definition: string }[]>`
+    const constraintRows = await sql<{
+      constraint_name: string;
+      definition: string;
+      table_name: string;
+      validated: boolean;
+    }[]>`
       select constraint_table.relname as table_name,
+             constraint_record.conname as constraint_name,
+             constraint_record.convalidated as validated,
              pg_get_constraintdef(constraint_record.oid) as definition
       from pg_constraint constraint_record
       join pg_class constraint_table on constraint_table.oid = constraint_record.conrelid
@@ -163,11 +172,21 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       where constraint_namespace.nspname = 'public'
     `;
     const constraints = constraintRows.map((row) => ({
+      name: row.constraint_name,
       table: row.table_name,
+      validated: row.validated,
       definition: normalizeDefinition(row.definition),
     }));
     if (REQUIRED_CONSTRAINTS.some(([table, required]) => !constraints.some((constraint) => (
       constraint.table === table && constraint.definition.includes(required)
+    )))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (REQUIRED_CHECK_CONSTRAINTS.some((required) => !constraints.some((constraint) => (
+      constraint.table === required.table
+      && constraint.name === required.name
+      && constraint.validated
+      && constraint.definition === required.definition
     )))) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -219,8 +238,10 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const rlsRows = await sql<{
+      applies_to_current_role: boolean;
       policy_name: string;
       policy_command: string;
+      policy_permissive: boolean;
       row_security: boolean;
       row_security_forced: boolean;
       table_name: string;
@@ -229,6 +250,15 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }[]>`
       select policy_record.polname as policy_name,
              policy_record.polcmd as policy_command,
+             policy_record.polpermissive as policy_permissive,
+             case
+               when 0::oid = any(policy_record.polroles) then true
+               else exists (
+                 select 1
+                 from unnest(policy_record.polroles) policy_role(role_oid)
+                 where pg_has_role(current_user, policy_role.role_oid, 'member')
+               )
+             end as applies_to_current_role,
              policy_table.relrowsecurity as row_security,
              policy_table.relforcerowsecurity as row_security_forced,
              policy_table.relname as table_name,
@@ -246,6 +276,8 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
         && policy.table_name === required.table
         && policy.row_security
         && policy.row_security_forced
+        && policy.policy_permissive
+        && policy.applies_to_current_role
         && policy.policy_command === "*"
         && usingExpression.includes("app.company_id")
         && usingExpression.includes("company_id")
