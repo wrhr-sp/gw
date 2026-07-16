@@ -96,7 +96,7 @@ export function HotelListView({ query, result }: { query: HotelListQuery; result
               <tbody>
                 {result.hotels.map((hotel) => (
                   <tr className="border-t border-border hover:bg-background/70" key={hotel.id}>
-                    <td className="px-4 py-4 font-mono text-xs text-muted">{hotel.branchCode}</td>
+                    <td className="px-4 py-4 text-xs text-muted">{hotel.branchCode}</td>
                     <td className="px-4 py-4 font-semibold text-text">
                       <a className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" href={`/hotels/${hotel.id}`}>{hotel.name}</a>
                     </td>
@@ -117,7 +117,7 @@ export function HotelListView({ query, result }: { query: HotelListQuery; result
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-text">{hotel.name}</p>
-                      <p className="mt-1 font-mono text-xs text-muted">{hotel.branchCode}</p>
+                      <p className="mt-1 text-xs text-muted">{hotel.branchCode}</p>
                     </div>
                     <StatusBadge tone={hotelStatusPresentation[hotel.status].tone}>{hotelStatusPresentation[hotel.status].label}</StatusBadge>
                   </div>
