@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "bash test/run-foundation-integration.sh"
+    "test:integration": "bash test/run-foundation-integration.sh && bash test/run-preview-provisioning-integration.sh"
   },
   "dependencies": {
     "@werehere/contracts": "workspace:*",

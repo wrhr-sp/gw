@@ -2,11 +2,12 @@ import { createPostgresAuthRepository } from "@werehere/db";
 import { AuthServiceError, createAuthService, type AuthService } from "./service";
 import { importTransactionEncryptionKey } from "./crypto";
 import { createZitadelProvider } from "./zitadel";
+import { resolveDatabaseUrl, type DatabaseBindings } from "../database";
 
-export type AuthBindings = {
+export type AuthBindings = DatabaseBindings & {
   AUTH_SUCCESS_REDIRECT?: string;
   AUTH_TRANSACTION_ENCRYPTION_KEY?: string;
-  DATABASE_URL?: string;
+
   ZITADEL_CLIENT_ID?: string;
   ZITADEL_ISSUER?: string;
   ZITADEL_REDIRECT_URI?: string;
@@ -32,7 +33,7 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
     || successRedirect.includes("\\")) {
     throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
   }
-  const databaseUrl = bindings?.DATABASE_URL?.trim();
+  const databaseUrl = resolveDatabaseUrl(bindings);
   if (!databaseUrl) throw new AuthServiceError("DB_NOT_CONFIGURED", 503, false);
 
   let encryptionKey: CryptoKey;

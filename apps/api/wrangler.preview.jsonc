@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "werehere-hotel-api-preview",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "AUTH_SUCCESS_REDIRECT": "/hotel-operations",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}

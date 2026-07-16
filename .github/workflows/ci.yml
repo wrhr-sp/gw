@@ -60,7 +60,21 @@ jobs:
         run: pnpm run check
 
       - name: Build Web and API Worker
-        run: pnpm run build
+        run: |
+          pnpm run build
+          HYPERDRIVE_ID=00000000000000000000000000000000 \
+            ZITADEL_ISSUER=https://preview.invalid \
+            ZITADEL_CLIENT_ID=preview-client \
+            ZITADEL_REDIRECT_URI=https://preview.invalid/api/auth/callback \
+            WEB_PREVIEW_URL=https://preview.invalid \
+            node scripts/render-api-preview-config.mjs \
+              apps/api/wrangler.preview.jsonc \
+              apps/api/wrangler.preview.generated.json
+          pnpm --filter @werehere/api exec wrangler deploy \
+            --dry-run --config wrangler.preview.generated.json
+          rm -f apps/api/wrangler.preview.generated.json
+          pnpm --filter @werehere/web build:cloudflare
+          pnpm --filter @werehere/web exec wrangler deploy --dry-run --config wrangler.jsonc
 
       - name: Visual regression
         run: pnpm run test:visual
