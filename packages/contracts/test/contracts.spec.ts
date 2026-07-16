@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  authRoutes,
+  authSessionResponseSchema,
   hotelErrorCodeSchema,
   hotelRoutes,
   hotelStatusSchema,
@@ -24,6 +26,11 @@ describe("hotel platform contracts", () => {
     for (const code of [
       "VALIDATION_ERROR",
       "AUTHENTICATION_REQUIRED",
+      "AUTH_FLOW_INVALID",
+      "AUTH_RATE_LIMITED",
+      "AUTH_PROVIDER_NOT_CONFIGURED",
+      "AUTH_PROVIDER_UNAVAILABLE",
+      "IDENTITY_NOT_PROVISIONED",
       "FORBIDDEN",
       "RESOURCE_NOT_FOUND",
       "VERSION_CONFLICT",
@@ -36,6 +43,32 @@ describe("hotel platform contracts", () => {
     ]) {
       expect(hotelErrorCodeSchema.safeParse(code).success).toBe(true);
     }
+  });
+
+  it("defines same-origin auth routes without exposing provider details", () => {
+    expect(authRoutes.login).toBe("/api/auth/login");
+    expect(authRoutes.callback).toBe("/api/auth/callback");
+    expect(authRoutes.logout).toBe("/api/auth/logout");
+    expect(authRoutes.session).toBe("/api/auth/session");
+  });
+
+  it("parses only the approved server-derived principal fields", () => {
+    const response = authSessionResponseSchema.parse({
+      ok: true,
+      data: {
+        authenticated: true,
+        principal: {
+          companyId: "10000000-0000-4000-8000-000000000001",
+          identityId: "30000000-0000-4000-8000-000000000001",
+          sessionId: "40000000-0000-4000-8000-000000000001",
+          userId: "20000000-0000-4000-8000-000000000001",
+          userType: "INTERNAL_STAFF",
+          displayName: "사내 임직원",
+        },
+      },
+      error: null,
+    });
+    expect(response.data.principal.userType).toBe("INTERNAL_STAFF");
   });
 
   it("keeps canonical hotel routes under the same-origin API namespace", () => {

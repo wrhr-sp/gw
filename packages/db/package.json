@@ -12,6 +12,7 @@
     "test:integration": "bash test/run-foundation-integration.sh"
   },
   "dependencies": {
+    "@werehere/contracts": "workspace:*",
     "postgres": "3.4.7"
   }
 }

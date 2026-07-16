@@ -12,6 +12,7 @@ const REQUIRED_TABLES = [
   "users",
   "auth_identities",
   "auth_sessions",
+  "auth_login_transactions",
   "branches",
   "hotel_profiles",
   "roles",
@@ -31,6 +32,13 @@ const REQUIRED_COLUMNS = [
   ["auth_sessions", "user_id"],
   ["auth_sessions", "identity_id"],
   ["auth_sessions", "token_hash"],
+  ["auth_login_transactions", "state_hash"],
+  ["auth_login_transactions", "browser_binding_hash"],
+  ["auth_login_transactions", "nonce_hash"],
+  ["auth_login_transactions", "code_verifier_ciphertext"],
+  ["auth_login_transactions", "code_verifier_iv"],
+  ["auth_login_transactions", "encryption_key_version"],
+  ["auth_login_transactions", "expires_at"],
   ["hotel_profiles", "company_id"],
   ["hotel_profiles", "branch_id"],
   ["permission_grants", "subject_type"],
@@ -45,6 +53,13 @@ const REQUIRED_COLUMNS = [
 const REQUIRED_CONSTRAINTS = [
   ["auth_sessions", "foreign key (company_id, identity_id, user_id) references auth_identities(company_id, id, user_id)"],
   ["auth_sessions", "check ((octet_length(token_hash) = 32))"],
+  ["auth_login_transactions", "check ((octet_length(state_hash) = 32))"],
+  ["auth_login_transactions", "check ((octet_length(browser_binding_hash) = 32))"],
+  ["auth_login_transactions", "check ((octet_length(nonce_hash) = 32))"],
+  ["auth_login_transactions", "check ((octet_length(code_verifier_iv) = 12))"],
+  ["auth_login_transactions", "check ((expires_at > created_at))"],
+  ["auth_sessions", "check ((idle_expires_at <= (last_seen_at + '08:00:00'::interval)))"],
+  ["auth_sessions", "check ((absolute_expires_at <= (created_at + '24:00:00'::interval)))"],
   ["hotel_profiles", "primary key (company_id, branch_id)"],
   ["hotel_profiles", "foreign key (company_id, branch_id) references branches(company_id, id)"],
   ["audit_events", "foreign key (company_id, session_id) references auth_sessions(company_id, id)"],
@@ -96,11 +111,9 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select exists (
-        select 1
-        from public.schema_migrations
-        where version = '0001_platform_foundation'
-      ) as migration_applied
+      select count(*) = 2 as migration_applied
+      from public.schema_migrations
+      where version in ('0001_platform_foundation', '0002_auth_session_runtime')
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
 

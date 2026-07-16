@@ -10,6 +10,73 @@ begin
 end;
 $$;
 
+do $$
+begin
+  if not exists (
+    select 1 from schema_migrations where version = '0002_auth_session_runtime'
+  ) then
+    raise exception 'auth runtime migration version was not recorded';
+  end if;
+
+  begin
+    insert into auth_login_transactions (
+      id, state_hash, browser_binding_hash, nonce_hash,
+      code_verifier_ciphertext, code_verifier_iv, redirect_uri, expires_at
+    ) values (
+      '01000000-0000-0000-0000-000000000001',
+      decode('abcd', 'hex'),
+      decode(repeat('44', 32), 'hex'),
+      decode(repeat('11', 32), 'hex'),
+      decode(repeat('55', 59), 'hex'),
+      decode(repeat('66', 12), 'hex'),
+      'https://hotel.example.test/api/auth/callback',
+      now() + interval '10 minutes'
+    );
+    raise exception 'short OAuth state hash was accepted';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    insert into auth_login_transactions (
+      id, state_hash, browser_binding_hash, nonce_hash,
+      code_verifier_ciphertext, code_verifier_iv, redirect_uri, expires_at
+    ) values (
+      '01000000-0000-0000-0000-000000000002',
+      decode(repeat('22', 32), 'hex'),
+      decode(repeat('44', 32), 'hex'),
+      decode(repeat('33', 32), 'hex'),
+      decode(repeat('55', 59), 'hex'),
+      decode('abcd', 'hex'),
+      'https://hotel.example.test/api/auth/callback',
+      now() + interval '10 minutes'
+    );
+    raise exception 'short PKCE verifier IV was accepted';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    insert into auth_login_transactions (
+      id, state_hash, browser_binding_hash, nonce_hash,
+      code_verifier_ciphertext, code_verifier_iv, redirect_uri, expires_at
+    ) values (
+      '01000000-0000-0000-0000-000000000003',
+      decode(repeat('77', 32), 'hex'),
+      decode(repeat('88', 32), 'hex'),
+      decode(repeat('99', 32), 'hex'),
+      decode(repeat('aa', 59), 'hex'),
+      decode(repeat('bb', 12), 'hex'),
+      'https://hotel.example.test/api/auth/callback',
+      now() + interval '11 minutes'
+    );
+    raise exception 'OAuth transaction longer than 10 minutes was accepted';
+  exception when check_violation then
+    null;
+  end;
+end;
+$$;
+
 insert into companies (id, legal_name) values
   ('10000000-0000-0000-0000-000000000001', '위아히어'),
   ('10000000-0000-0000-0000-000000000002', '다른 법인');
@@ -48,6 +115,15 @@ values (
   '20000000-0000-0000-0000-000000000002',
   'ZITADEL',
   'subject-2'
+);
+
+insert into auth_identities (id, company_id, user_id, provider, provider_subject)
+values (
+  '30000000-0000-0000-0000-000000000003',
+  '10000000-0000-0000-0000-000000000002',
+  '20000000-0000-0000-0000-000000000004',
+  'ZITADEL',
+  'subject-other-company'
 );
 
 insert into auth_sessions (
@@ -114,6 +190,66 @@ begin
     );
     raise exception 'identity belonging to another user was accepted';
   exception when foreign_key_violation then
+    null;
+  end;
+
+  begin
+    insert into auth_sessions (
+      id, company_id, user_id, identity_id, token_hash,
+      idle_expires_at, absolute_expires_at, auth_time, authentication_method
+    ) values (
+      '40000000-0000-0000-0000-000000000005',
+      '10000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000003',
+      decode(repeat('ce', 32), 'hex'),
+      now() + interval '30 minutes',
+      now() + interval '8 hours',
+      now(),
+      'OIDC_PKCE'
+    );
+    raise exception 'cross-company identity session was accepted';
+  exception when foreign_key_violation then
+    null;
+  end;
+
+  begin
+    insert into auth_sessions (
+      id, company_id, user_id, identity_id, token_hash,
+      idle_expires_at, absolute_expires_at, auth_time, authentication_method
+    ) values (
+      '40000000-0000-0000-0000-000000000006',
+      '10000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000001',
+      decode(repeat('cf', 32), 'hex'),
+      now() + interval '8 hours 1 second',
+      now() + interval '24 hours',
+      now(),
+      'OIDC_PKCE'
+    );
+    raise exception 'session idle lifetime above eight hours was accepted';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    insert into auth_sessions (
+      id, company_id, user_id, identity_id, token_hash,
+      idle_expires_at, absolute_expires_at, auth_time, authentication_method
+    ) values (
+      '40000000-0000-0000-0000-000000000007',
+      '10000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000001',
+      decode(repeat('d0', 32), 'hex'),
+      now() + interval '8 hours',
+      now() + interval '24 hours 1 second',
+      now(),
+      'OIDC_PKCE'
+    );
+    raise exception 'session absolute lifetime above twenty-four hours was accepted';
+  exception when check_violation then
     null;
   end;
 

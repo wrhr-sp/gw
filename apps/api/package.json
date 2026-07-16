@@ -10,12 +10,14 @@
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:worker": "bash test/run-worker-auth-smoke.sh"
   },
   "dependencies": {
     "@werehere/contracts": "workspace:*",
     "@werehere/db": "workspace:*",
     "hono": "4.12.3",
+    "jose": "6.2.3",
     "zod": "4.1.12"
   },
   "devDependencies": {
