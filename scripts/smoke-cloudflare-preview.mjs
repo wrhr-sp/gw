@@ -16,8 +16,23 @@ async function fetchExpected(path, expectedStatus, init = {}) {
     try {
       const response = await fetch(`${baseUrl}${path}`, init);
       if (response.status === expectedStatus) return response;
+      let errorCode = "";
+      if (response.headers.get("content-type")?.includes("application/json")) {
+        try {
+          const body = await response.clone().json();
+          const candidate = body?.error?.code;
+          if (
+            typeof candidate === "string" &&
+            /^[A-Z][A-Z0-9_]*$/u.test(candidate)
+          ) {
+            errorCode = candidate;
+          }
+        } catch {
+          // The status remains the diagnostic source when the body is not valid JSON.
+        }
+      }
       lastError = new Error(
-        `${path || "/"} returned ${response.status}, expected ${expectedStatus}`,
+        `${path || "/"} returned ${response.status}, expected ${expectedStatus}${errorCode ? ` (${errorCode})` : ""}`,
       );
       if (!retryableStatus(response.status)) break;
     } catch (error) {
@@ -60,8 +75,9 @@ if (session.body.ok || session.body.error?.code !== "AUTHENTICATION_REQUIRED") {
   throw new Error("anonymous session contract is invalid");
 }
 
-const login = await fetch(`${baseUrl}/api/auth/login`, { redirect: "manual" });
-if (login.status !== 302) throw new Error(`login returned ${login.status}`);
+const login = await fetchExpected("/api/auth/login", 302, {
+  redirect: "manual",
+});
 if (!login.headers.get("location")?.startsWith("https://")) {
   throw new Error("login redirect is not HTTPS");
 }
