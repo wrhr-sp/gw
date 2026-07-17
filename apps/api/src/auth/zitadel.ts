@@ -39,7 +39,7 @@ export function createZitadelProvider(input: {
   const fetcher = input.fetcher ?? fetch;
   const jwksFetcher: typeof fetch = async (request, init) => {
     try {
-      const response = await fetcher(request, init);
+      const response = await fetcher(request, { ...init, redirect: "manual" });
       if (!response.ok) {
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       }
@@ -59,7 +59,7 @@ export function createZitadelProvider(input: {
     discoveryPromise ??= (async () => {
       const response = await fetcher(`${issuer}/.well-known/openid-configuration`, {
         headers: { accept: "application/json" },
-        redirect: "error",
+        redirect: "manual",
       });
       if (!response.ok) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       const metadata = discoverySchema.parse(await response.json());
@@ -115,13 +115,17 @@ export function createZitadelProvider(input: {
             grant_type: "authorization_code",
             redirect_uri: redirectUri,
           }),
-          redirect: "error",
+          redirect: "manual",
         });
       } catch {
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       }
       if (!response.ok) {
-        if (response.status === 429 || response.status >= 500) {
+        if (
+          (response.status >= 300 && response.status < 400) ||
+          response.status === 429 ||
+          response.status >= 500
+        ) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
         }
         throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);

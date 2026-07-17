@@ -38,6 +38,7 @@ function providerFetcher(idToken: string, publicJwk: Record<string, unknown>) {
   return vi.fn<typeof fetch>(async (input, init) => {
     const url = requestUrl(input);
     if (url.endsWith("/.well-known/openid-configuration")) {
+      expect(init?.redirect).toBe("manual");
       return Response.json({
         issuer,
         authorization_endpoint: `${issuer}/oauth/v2/authorize`,
@@ -48,6 +49,7 @@ function providerFetcher(idToken: string, publicJwk: Record<string, unknown>) {
     }
     if (url.endsWith("/oauth/v2/token")) {
       expect(init?.method).toBe("POST");
+      expect(init?.redirect).toBe("manual");
       const body = init?.body;
       expect(body).toBeInstanceOf(URLSearchParams);
       const params = body as URLSearchParams;
@@ -63,6 +65,7 @@ function providerFetcher(idToken: string, publicJwk: Record<string, unknown>) {
       });
     }
     if (url.endsWith("/oauth/v2/keys")) {
+      expect(init?.redirect).toBe("manual");
       return Response.json({ keys: [publicJwk] });
     }
     return new Response(null, { status: 404 });
@@ -96,6 +99,27 @@ describe("ZITADEL provider", () => {
     });
   });
 
+  it("rejects a discovery redirect as provider unavailable", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (_request, init) => {
+      expect(init?.redirect).toBe("manual");
+      return new Response(null, {
+        status: 302,
+        headers: { location: `${issuer}/redirected-discovery` },
+      });
+    });
+    const provider = createZitadelProvider({ clientId, issuer, fetcher });
+    await expect(provider.buildAuthorizationUrl({
+      codeChallenge: "challenge-value",
+      nonce: "nonce-value",
+      redirectUri: "https://hotel.example.test/api/auth/callback",
+      state: "state-value",
+    })).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_UNAVAILABLE",
+      httpStatus: 503,
+      retryable: true,
+    });
+  });
+
   it("verifies the RS256 ID token issuer, audience and JWKS", async () => {
     const signed = await signedIdToken({ nonce: "nonce-value" });
     const provider = createZitadelProvider({
@@ -113,7 +137,7 @@ describe("ZITADEL provider", () => {
     expect(identity.authTime).toBeInstanceOf(Date);
   });
 
-  it.each([429, 503])("maps token endpoint HTTP %i to provider unavailable", async (status) => {
+  it.each([302, 429, 503])("maps token endpoint HTTP %i to provider unavailable", async (status) => {
     const signed = await signedIdToken({ nonce: "nonce-value" });
     const baseFetcher = providerFetcher(signed.token, signed.publicJwk);
     const fetcher = vi.fn<typeof fetch>(async (request, init) => {
@@ -155,12 +179,12 @@ describe("ZITADEL provider", () => {
     });
   });
 
-  it("maps a JWKS HTTP failure to provider unavailable", async () => {
+  it.each([302, 503])("maps JWKS HTTP %i to provider unavailable", async (status) => {
     const signed = await signedIdToken({ nonce: "nonce-value" });
     const baseFetcher = providerFetcher(signed.token, signed.publicJwk);
     const fetcher = vi.fn<typeof fetch>(async (request, init) => {
       if (requestUrl(request).endsWith("/oauth/v2/keys")) {
-        return new Response(null, { status: 503 });
+        return new Response(null, { status });
       }
       return baseFetcher(request, init);
     });
