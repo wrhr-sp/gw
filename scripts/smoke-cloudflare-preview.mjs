@@ -40,7 +40,10 @@ async function json(path, expectedStatus) {
   return { response, body: await response.json() };
 }
 
-await fetchExpected("", 200, { redirect: "manual" });
+const home = await fetchExpected("", 307, { redirect: "manual" });
+if (home.headers.get("location") !== "/hotel-operations") {
+  throw new Error("home redirect destination is invalid");
+}
 
 const live = await json("/api/health/live", 200);
 if (!live.body.ok || live.body.data?.status !== "UP") {
