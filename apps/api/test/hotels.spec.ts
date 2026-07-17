@@ -32,7 +32,9 @@ function authService(active = true): AuthService {
   return {
     beginLogin: vi.fn(),
     completeLogin: vi.fn(),
+    finalizeCustomLogin: vi.fn(),
     logout: vi.fn(async () => true),
+    prepareCustomLogin: vi.fn(),
     resolvePrincipal: vi.fn(async () => active ? principal : null),
   } as AuthService;
 }

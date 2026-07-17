@@ -35,14 +35,47 @@ export type CreateLoginTransactionResult =
   | { status: "CREATED" }
   | { status: "CAPACITY_EXCEEDED" };
 
+export type PrepareCustomLoginResult =
+  | { status: "PREPARED" }
+  | { status: "FLOW_INVALID" }
+  | { status: "RATE_LIMITED" };
+
+export type ReserveCustomLoginValidationResult =
+  | { status: "RESERVED" }
+  | { status: "VALIDATED" }
+  | { status: "FLOW_INVALID" }
+  | { status: "RATE_LIMITED" };
+
+export type ConsumeCustomLoginAttemptResult =
+  | { status: "CONSUMED" }
+  | { status: "FLOW_INVALID" }
+  | { status: "RATE_LIMITED" };
+
 export interface AuthRepository {
   close?(): Promise<void>;
   consumeLoginTransaction(
     stateHash: Uint8Array,
     browserBindingHash: Uint8Array,
   ): Promise<LoginTransaction | null>;
+  consumeCustomLoginAttempt(input: {
+    accountHash: Uint8Array;
+    authRequestHash: Uint8Array;
+    browserBindingHash: Uint8Array;
+    csrfHash: Uint8Array;
+    ipHash: Uint8Array;
+  }): Promise<ConsumeCustomLoginAttemptResult>;
   createLoginTransaction(input: CreateLoginTransactionInput): Promise<CreateLoginTransactionResult>;
   createSession(input: CreateSessionInput): Promise<CreateSessionResult>;
+  prepareCustomLogin(input: {
+    authRequestHash: Uint8Array;
+    browserBindingHash: Uint8Array;
+    csrfHash: Uint8Array;
+    csrfLifetimeSeconds: number;
+  }): Promise<PrepareCustomLoginResult>;
+  reserveCustomLoginValidation(input: {
+    authRequestHash: Uint8Array;
+    browserBindingHash: Uint8Array;
+  }): Promise<ReserveCustomLoginValidationResult>;
   resolvePrincipal(tokenHash: Uint8Array, idleLifetimeSeconds: number): Promise<AuthenticatedPrincipal | null>;
   revokeSession(tokenHash: Uint8Array, reason: string, traceId: string): Promise<boolean>;
 }
@@ -141,6 +174,130 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         nonceHash: row.nonce_hash,
         redirectUri: row.redirect_uri,
       } : null;
+    },
+
+    async prepareCustomLogin(input) {
+      const rows = await sql<{ id: string }[]>`
+        update auth_login_transactions
+        set custom_auth_request_hash = ${input.authRequestHash},
+            custom_csrf_hash = ${input.csrfHash},
+            custom_csrf_expires_at = now() + make_interval(secs => ${input.csrfLifetimeSeconds})
+        where browser_binding_hash = ${input.browserBindingHash}
+          and expires_at > now() + make_interval(secs => ${input.csrfLifetimeSeconds})
+          and custom_attempt_count < 5
+          and (custom_auth_request_hash is null or custom_auth_request_hash = ${input.authRequestHash})
+        returning id
+      `;
+      if (rows[0]) return { status: "PREPARED" } as const;
+      const limited = await sql<{ limited: boolean }[]>`
+        select exists (
+          select 1 from auth_login_transactions
+          where browser_binding_hash = ${input.browserBindingHash}
+            and expires_at > now()
+            and custom_attempt_count >= 5
+        ) as limited
+      `;
+      return limited[0]?.limited
+        ? { status: "RATE_LIMITED" } as const
+        : { status: "FLOW_INVALID" } as const;
+    },
+
+    async reserveCustomLoginValidation(input) {
+      const validated = await sql<{ validated: boolean }[]>`
+        select exists (
+          select 1 from auth_login_transactions
+          where browser_binding_hash = ${input.browserBindingHash}
+            and custom_auth_request_hash = ${input.authRequestHash}
+            and expires_at > now()
+        ) as validated
+      `;
+      if (validated[0]?.validated) return { status: "VALIDATED" } as const;
+
+      const reserved = await sql<{ id: string }[]>`
+        update auth_login_transactions
+        set custom_validation_count = custom_validation_count + 1
+        where browser_binding_hash = ${input.browserBindingHash}
+          and custom_auth_request_hash is null
+          and custom_validation_count < 5
+          and expires_at > now()
+        returning id
+      `;
+      if (reserved[0]) return { status: "RESERVED" } as const;
+
+      const limited = await sql<{ limited: boolean }[]>`
+        select exists (
+          select 1 from auth_login_transactions
+          where browser_binding_hash = ${input.browserBindingHash}
+            and custom_auth_request_hash is null
+            and custom_validation_count >= 5
+            and expires_at > now()
+        ) as limited
+      `;
+      return limited[0]?.limited
+        ? { status: "RATE_LIMITED" } as const
+        : { status: "FLOW_INVALID" } as const;
+    },
+
+    async consumeCustomLoginAttempt(input) {
+      return sql.begin(async (transaction) => {
+        const consumed = await transaction<{ id: string }[]>`
+          update auth_login_transactions
+          set custom_csrf_hash = null,
+              custom_csrf_expires_at = null,
+              custom_attempt_count = custom_attempt_count + 1
+          where browser_binding_hash = ${input.browserBindingHash}
+            and custom_auth_request_hash = ${input.authRequestHash}
+            and custom_csrf_hash = ${input.csrfHash}
+            and custom_csrf_expires_at > now()
+            and expires_at > now()
+            and custom_attempt_count < 5
+          returning id
+        `;
+        if (!consumed[0]) return { status: "FLOW_INVALID" } as const;
+
+        await transaction`
+          delete from auth_credential_rate_limits
+          where (scope, subject_hash) in (
+            select scope, subject_hash
+            from auth_credential_rate_limits
+            where expires_at <= now()
+            order by expires_at
+            limit 256
+            for update skip locked
+          )
+        `;
+        const counts: number[] = [];
+        for (const [scope, subjectHash] of [
+          ["IP", input.ipHash] as const,
+          ["ACCOUNT", input.accountHash] as const,
+        ]) {
+          const rows = await transaction<{ attempt_count: number }[]>`
+            insert into auth_credential_rate_limits (
+              scope, subject_hash, window_started_at, attempt_count, expires_at
+            ) values (
+              ${scope}, ${subjectHash}, now(), 1, now() + interval '15 minutes'
+            )
+            on conflict (scope, subject_hash) do update
+            set window_started_at = case
+                  when auth_credential_rate_limits.expires_at <= now() then now()
+                  else auth_credential_rate_limits.window_started_at
+                end,
+                attempt_count = case
+                  when auth_credential_rate_limits.expires_at <= now() then 1
+                  else auth_credential_rate_limits.attempt_count + 1
+                end,
+                expires_at = case
+                  when auth_credential_rate_limits.expires_at <= now() then now() + interval '15 minutes'
+                  else auth_credential_rate_limits.expires_at
+                end
+            returning attempt_count
+          `;
+          counts.push(rows[0]?.attempt_count ?? 1000);
+        }
+        return counts[0]! > 30 || counts[1]! > 10
+          ? { status: "RATE_LIMITED" } as const
+          : { status: "CONSUMED" } as const;
+      });
     },
 
     async createSession(input) {

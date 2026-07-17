@@ -93,11 +93,24 @@ BRANCH_OWNER
 
 ```text
 Browser
-  → ZITADEL Authorization Code + PKCE
+  → 호텔관리 자체 Login UI
+  → ZITADEL Session/Settings/Auth Request API(BFF 전용)
+  → ZITADEL Authorization Code + PKCE finalize
   → 서버 callback 검증
   → PostgreSQL opaque session 생성
   → __Host-hotel_session 쿠키
 ```
+
+- 브라우저는 ZITADEL credential API를 직접 호출하지 않고 호텔관리 same-origin Login BFF만 사용한다.
+- Login BFF는 `IAM_LOGIN_CLIENT` 전용 service user token으로 auth request의 client ID·redirect URI를 확인한다.
+- ZITADEL custom Login V2 base URL은 `/api/auth/custom-login/start`다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 묶고 5분 이내 single-use CSRF를 발급한다.
+- auth request provider 검증은 PostgreSQL에서 transaction당 최대 5회 예약한 뒤 실행한다. 검증 완료된 동일 auth request 재진입은 provider를 다시 호출하지 않고 CSRF만 교체한다.
+- custom login이 지원하는 Auth Request scope는 기존 앱 계약인 `openid profile`로 제한한다. 별도 `prompt`·`maxAge` 요구 또는 Login Settings의 local-auth·MFA 핵심 필드 누락은 provider 계약 오류로 안전 실패한다.
+- 아이디·비밀번호는 ZITADEL Session API check에만 전달하며 DB·로그·cookie·artifact에 저장하지 않는다.
+- credential POST는 CSRF를 PostgreSQL에서 원자 소비하고 시도 횟수를 예약한 뒤에만 ZITADEL을 호출한다. 같은 CSRF의 병렬·재사용 요청은 provider 호출 전에 거부한다.
+- ZITADEL CreateSession의 user+password check를 한 요청에서 수행해 존재/비존재 계정의 provider 왕복 수 차이를 줄인다.
+- password factor가 확인돼도 MFA 강제 정책이면 callback을 finalize하지 않는다.
+- 최종 인증은 반드시 ZITADEL이 발급한 authorization code를 기존 PKCE callback에서 검증한 뒤 완료한다. Session token을 호텔 session으로 직접 교환하지 않는다.
 
 쿠키 기준:
 
@@ -124,13 +137,14 @@ Domain 미지정
 - ZITADEL discovery와 authorization endpoint 확인이 성공한 뒤에만 로그인 transaction을 생성한다.
 - 만료시각은 PostgreSQL `now()` 기준 10분으로 계산하고, 새 transaction 생성 시 만료 row를 최대 256개씩 정리한다.
 - PostgreSQL advisory transaction lock 아래 최근 1분 1,000건·활성 10,000건 하드캡을 적용하고 초과 시 `429 AUTH_RATE_LIMITED`로 거부한다. Preview에서는 여기에 edge 사용자별 rate limit을 추가한다.
+- custom credential 시도는 auth request당 최대 5회, HMAC 처리한 account identifier당 15분 10회, canonical IP당 15분 30회로 제한한다. HTTP transport는 loginName의 앞뒤 공백만 제거하고 대소문자·Unicode 본문은 provider에 보존한다. account bucket은 별도로 `trim → NFKC → lowercase` 정규화해 변형 우회를 막는다. loginName·IP 원문은 저장하지 않으며 HMAC key는 transaction root secret에서 HKDF domain separation으로 파생한다.
 - callback은 외부 token endpoint 호출 전에 state와 browser binding이 일치하는 row를 `DELETE ... RETURNING`으로 원자 소비하며, 성공·실패와 관계없이 임시 쿠키를 삭제한다.
 - issuer·authorization/token/JWKS endpoint는 HTTPS만 허용하고 ID token의 RS256 서명, `kid`, `iss`, `aud`, `exp`, `nonce`, `sub`, `auth_time`을 검증한다.
 - 검증된 ZITADEL subject가 기존 `auth_identities`에 없으면 자동가입하지 않는다.
 
 세션은 유휴 8시간·절대 24시간이다. 유효 요청은 5분 단위로 `last_seen_at`과 유휴 만료를 갱신하되 절대 만료는 연장하지 않는다. DB check constraint도 8시간·24시간 상한을 강제한다.
 
-Web은 `HOTEL_API_ORIGIN`의 API Worker를 같은 origin의 `/api/auth/*` runtime proxy로 연결한다. 현재 proxy는 계약된 인증 경로와 HTTP method만 허용하며 업무 API는 각 수직 기능 구현 때 명시적으로 추가한다. API runtime 필수 설정 이름은 `DATABASE_URL`, `ZITADEL_ISSUER`, `ZITADEL_CLIENT_ID`, `ZITADEL_REDIRECT_URI`, `AUTH_TRANSACTION_ENCRYPTION_KEY`다. 값은 저장소·로그·문서에 기록하지 않는다. 필수 설정이 없으면 인증 endpoint는 `AUTH_PROVIDER_NOT_CONFIGURED` 또는 `DB_NOT_CONFIGURED`로 안전 실패한다.
+Web은 `HOTEL_API_ORIGIN`의 API Worker를 같은 origin의 `/api/auth/*` runtime proxy로 연결한다. 현재 proxy는 계약된 인증 경로와 HTTP method만 허용하며 업무 API는 각 수직 기능 구현 때 명시적으로 추가한다. API runtime 필수 설정 이름은 `DATABASE_URL`, `ZITADEL_ISSUER`, `ZITADEL_CLIENT_ID`, `ZITADEL_REDIRECT_URI`, `AUTH_TRANSACTION_ENCRYPTION_KEY`, `ZITADEL_SERVICE_USER_TOKEN`다. 값은 저장소·로그·문서에 기록하지 않는다. 필수 설정이 없으면 인증 endpoint는 `AUTH_PROVIDER_NOT_CONFIGURED` 또는 `DB_NOT_CONFIGURED`로 안전 실패한다.
 
 CI는 실제 workerd에서 PostgreSQL readiness, WebCrypto를 거치는 로그인 provider 장애, callback validation, session 거부, logout cookie 삭제를 smoke한다. 실제 ZITADEL credential 기반 end-to-end는 Preview 환경 gate에서 수행한다.
 

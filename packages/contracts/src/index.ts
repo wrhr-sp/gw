@@ -17,7 +17,9 @@ export type HotelStatus = z.infer<typeof hotelStatusSchema>;
 export const hotelErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
   "AUTHENTICATION_REQUIRED",
+  "AUTH_CREDENTIALS_INVALID",
   "AUTH_FLOW_INVALID",
+  "AUTH_MFA_REQUIRED",
   "AUTH_RATE_LIMITED",
   "AUTH_PROVIDER_NOT_CONFIGURED",
   "AUTH_PROVIDER_UNAVAILABLE",
@@ -55,10 +57,20 @@ export type HotelErrorResponse = z.infer<typeof hotelErrorResponseSchema>;
 
 export const authRoutes = {
   login: "/api/auth/login",
+  customLoginStart: "/api/auth/custom-login/start",
+  customLogin: "/api/auth/custom-login",
   callback: "/api/auth/callback",
   logout: "/api/auth/logout",
   session: "/api/auth/session",
 } as const;
+
+export const customLoginRequestSchema = z.object({
+  authRequest: z.string().trim().min(1).max(200),
+  csrf: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
+  loginName: z.string().trim().min(1).max(200),
+  password: z.string().min(1).max(200),
+}).strict();
+export type CustomLoginRequest = z.infer<typeof customLoginRequestSchema>;
 
 export const authenticatedPrincipalSchema = z.object({
   companyId: z.uuid(),

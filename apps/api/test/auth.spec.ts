@@ -23,7 +23,11 @@ function createService(overrides: Partial<AuthService> = {}): AuthService {
       redirectTo: "/hotel-operations",
       sessionToken: "opaque-session-token",
     })),
+    finalizeCustomLogin: vi.fn(async () => ({
+      callbackUrl: "https://hotel.example.test/api/auth/callback?code=code&state=state",
+    })),
     logout: vi.fn(async () => true),
+    prepareCustomLogin: vi.fn(async () => ({ csrf: "c".repeat(43) })),
     resolvePrincipal: vi.fn(async () => principal),
     ...overrides,
   };
@@ -61,6 +65,105 @@ describe("hotel auth API", () => {
       ok: false,
       error: { code: "AUTH_RATE_LIMITED", retryable: true },
     });
+  });
+
+  it("binds a valid auth request to the initiating browser before rendering credentials", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start?authRequest=oidc-request-1",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    const location = new URL(response.headers.get("location")!, "https://hotel.example.test");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("authRequest")).toBe("oidc-request-1");
+    expect(location.searchParams.get("csrf")).toBe("c".repeat(43));
+    expect(service.prepareCustomLogin).toHaveBeenCalledWith("oidc-request-1", "browser-binding-value");
+  });
+
+  it("finalizes a same-origin hotel credential form through the OIDC callback", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: new URLSearchParams({
+        authRequest: "oidc-request-1",
+        csrf: "c".repeat(43),
+        loginName: "  Hotel-Admin  ",
+        password: "password-value",
+      }).toString(),
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "cf-connecting-ip": "203.0.113.10",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toContain("/api/auth/callback?code=");
+    expect(service.finalizeCustomLogin).toHaveBeenCalledWith({
+      authRequest: "oidc-request-1",
+      browserBinding: "browser-binding-value",
+      csrf: "c".repeat(43),
+      ipAddress: "203.0.113.10",
+      loginName: "Hotel-Admin",
+      password: "password-value",
+    });
+  });
+
+  it("rejects a same-origin credential form without the single-use CSRF", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: "authRequest=request&loginName=user&password=password",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(service.finalizeCustomLogin).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-site credential forms before calling ZITADEL", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: "authRequest=request&loginName=user&password=password",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://attacker.example",
+        "sec-fetch-site": "cross-site",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(service.finalizeCustomLogin).not.toHaveBeenCalled();
+  });
+
+  it("returns one generic hotel error for invalid credentials", async () => {
+    const service = createService({
+      finalizeCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: `authRequest=request-1&csrf=${"c".repeat(43)}&loginName=user&password=wrong`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location"))
+      .toBe("/api/auth/custom-login/start?authRequest=request-1&error=invalid-credentials");
   });
 
   it("rejects callback requests without both code and state", async () => {

@@ -183,6 +183,7 @@ try {
     ["0001_platform_foundation", "0001_platform_foundation.sql"],
     ["0002_auth_session_runtime", "0002_auth_session_runtime.sql"],
     ["0003_hotel_basic_information", "0003_hotel_basic_information.sql"],
+    ["0004_custom_login_security", "0004_custom_login_security.sql"],
   ] as const;
 
   for (const [version, fileName] of migrations) {
@@ -383,11 +384,13 @@ try {
     grant usage on schema public to ${runtimeRole};
     grant select on
       companies, users, auth_identities, auth_sessions,
-      auth_login_transactions, schema_migrations, roles, permissions, user_role_memberships,
+      auth_login_transactions, auth_credential_rate_limits,
+      schema_migrations, roles, permissions, user_role_memberships,
       user_groups, user_group_memberships, permission_grants,
       branches, hotel_profiles, idempotency_records
     to ${runtimeRole};
     grant insert, update, delete on auth_login_transactions to ${runtimeRole};
+    grant insert, update, delete on auth_credential_rate_limits to ${runtimeRole};
     grant insert, update on auth_sessions to ${runtimeRole};
     grant insert on audit_events, branches, hotel_profiles to ${runtimeRole};
     grant insert, update, delete on idempotency_records to ${runtimeRole};

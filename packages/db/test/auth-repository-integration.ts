@@ -1,12 +1,44 @@
-import { createPostgresAuthRepository } from "../src/auth";
+import { createPostgresAuthRepository, type AuthRepository } from "../src/auth";
 import postgres from "postgres";
 
 const databaseUrl = process.env.TEST_READY_URL;
 if (!databaseUrl) throw new Error("TEST_READY_URL is required");
 
 const repository = createPostgresAuthRepository(databaseUrl);
+const parallelRepository = createPostgresAuthRepository(databaseUrl);
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 const encode = (hex: string) => Uint8Array.from(Buffer.from(hex, "hex"));
+const randomBytes = (length: number) => crypto.getRandomValues(new Uint8Array(length));
+
+async function createPreparedFlow(
+  targetRepository: AuthRepository,
+  redirectUri: string,
+) {
+  const stateHash = randomBytes(32);
+  const browserBindingHash = randomBytes(32);
+  const authRequestHash = randomBytes(32);
+  const csrfHash = randomBytes(32);
+  const created = await targetRepository.createLoginTransaction({
+    id: crypto.randomUUID(),
+    stateHash,
+    browserBindingHash,
+    nonceHash: randomBytes(32),
+    codeVerifierCiphertext: randomBytes(59),
+    codeVerifierIv: randomBytes(12),
+    encryptionKeyVersion: 1,
+    lifetimeSeconds: 600,
+    redirectUri,
+  });
+  if (created.status !== "CREATED") throw new Error(`parallel flow create failed: ${created.status}`);
+  const prepared = await targetRepository.prepareCustomLogin({
+    authRequestHash,
+    browserBindingHash,
+    csrfHash,
+    csrfLifetimeSeconds: 300,
+  });
+  if (prepared.status !== "PREPARED") throw new Error(`parallel flow prepare failed: ${prepared.status}`);
+  return { authRequestHash, browserBindingHash, csrfHash, stateHash };
+}
 
 try {
   await sql`
@@ -43,6 +75,115 @@ try {
     where expires_at <= now()
   `;
   if (expiredRows[0]?.count !== 0) throw new Error("expired login transaction cleanup did not run");
+
+  const parallelCsrfFlow = await createPreparedFlow(repository, "https://parallel-csrf.example.test/callback");
+  const parallelCsrfInput = {
+    accountHash: randomBytes(32),
+    authRequestHash: parallelCsrfFlow.authRequestHash,
+    browserBindingHash: parallelCsrfFlow.browserBindingHash,
+    csrfHash: parallelCsrfFlow.csrfHash,
+    ipHash: randomBytes(32),
+  };
+  const parallelCsrfResults = await Promise.all([
+    repository.consumeCustomLoginAttempt(parallelCsrfInput),
+    parallelRepository.consumeCustomLoginAttempt(parallelCsrfInput),
+  ]);
+  const parallelCsrfStatuses = parallelCsrfResults.map((result) => result.status).sort();
+  if (parallelCsrfStatuses.join(",") !== "CONSUMED,FLOW_INVALID") {
+    throw new Error(`parallel CSRF consume mismatch: ${parallelCsrfStatuses.join(",")}`);
+  }
+  const parallelCsrfRows = await sql<{ attempt_count: number; csrf_cleared: boolean }[]>`
+    select custom_attempt_count as attempt_count,
+           custom_csrf_hash is null and custom_csrf_expires_at is null as csrf_cleared
+    from auth_login_transactions
+    where state_hash = ${parallelCsrfFlow.stateHash}
+  `;
+  if (parallelCsrfRows[0]?.attempt_count !== 1 || !parallelCsrfRows[0]?.csrf_cleared) {
+    throw new Error("parallel CSRF consume did not commit exactly once");
+  }
+
+  const authRequestHash = encode("13".repeat(32));
+  const csrfHash = encode("14".repeat(32));
+  const validationReservation = await repository.reserveCustomLoginValidation({
+    authRequestHash,
+    browserBindingHash,
+  });
+  if (validationReservation.status !== "RESERVED") {
+    throw new Error(`custom login validation reservation failed: ${validationReservation.status}`);
+  }
+  const prepared = await repository.prepareCustomLogin({
+    authRequestHash,
+    browserBindingHash,
+    csrfHash,
+    csrfLifetimeSeconds: 300,
+  });
+  if (prepared.status !== "PREPARED") throw new Error(`custom login prepare failed: ${prepared.status}`);
+  const cachedValidation = await repository.reserveCustomLoginValidation({
+    authRequestHash,
+    browserBindingHash,
+  });
+  if (cachedValidation.status !== "VALIDATED") {
+    throw new Error(`validated auth request was not cached: ${cachedValidation.status}`);
+  }
+  const wrongAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: encode("15".repeat(32)),
+    authRequestHash,
+    browserBindingHash,
+    csrfHash: encode("99".repeat(32)),
+    ipHash: encode("16".repeat(32)),
+  });
+  if (wrongAttempt.status !== "FLOW_INVALID") throw new Error("wrong CSRF was accepted");
+  const crossRequestAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: encode("15".repeat(32)),
+    authRequestHash: encode("98".repeat(32)),
+    browserBindingHash,
+    csrfHash,
+    ipHash: encode("16".repeat(32)),
+  });
+  if (crossRequestAttempt.status !== "FLOW_INVALID") throw new Error("cross-auth-request CSRF was accepted");
+  const consumedAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: encode("15".repeat(32)),
+    authRequestHash,
+    browserBindingHash,
+    csrfHash,
+    ipHash: encode("16".repeat(32)),
+  });
+  if (consumedAttempt.status !== "CONSUMED") throw new Error("valid custom login attempt was rejected");
+  const replayedAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: encode("15".repeat(32)),
+    authRequestHash,
+    browserBindingHash,
+    csrfHash,
+    ipHash: encode("16".repeat(32)),
+  });
+  if (replayedAttempt.status !== "FLOW_INVALID") throw new Error("custom login CSRF replay was accepted");
+
+  for (let attemptNumber = 2; attemptNumber <= 5; attemptNumber += 1) {
+    const nextCsrfHash = encode(attemptNumber.toString(16).padStart(2, "0").repeat(32));
+    const nextPrepared = await repository.prepareCustomLogin({
+      authRequestHash,
+      browserBindingHash,
+      csrfHash: nextCsrfHash,
+      csrfLifetimeSeconds: 300,
+    });
+    if (nextPrepared.status !== "PREPARED") throw new Error(`attempt ${attemptNumber} was not prepared`);
+    const nextAttempt = await repository.consumeCustomLoginAttempt({
+      accountHash: encode((20 + attemptNumber).toString(16).repeat(32)),
+      authRequestHash,
+      browserBindingHash,
+      csrfHash: nextCsrfHash,
+      ipHash: encode((40 + attemptNumber).toString(16).repeat(32)),
+    });
+    if (nextAttempt.status !== "CONSUMED") throw new Error(`attempt ${attemptNumber} was not consumed`);
+  }
+  const exhausted = await repository.prepareCustomLogin({
+    authRequestHash,
+    browserBindingHash,
+    csrfHash: encode("70".repeat(32)),
+    csrfLifetimeSeconds: 300,
+  });
+  if (exhausted.status !== "RATE_LIMITED") throw new Error("auth request attempt limit was not enforced");
+
   if (await repository.consumeLoginTransaction(stateHash, encode("99".repeat(32)))) {
     throw new Error("wrong browser binding consumed login transaction");
   }
@@ -58,6 +199,196 @@ try {
     where state_hash = ${stateHash}
   `;
   if (consumedRows[0]?.count !== 0) throw new Error("consumed login transaction was retained");
+
+  const validationLimitStateHash = randomBytes(32);
+  const validationLimitBrowserHash = randomBytes(32);
+  const validationLimitAuthHash = randomBytes(32);
+  const validationLimitCreated = await repository.createLoginTransaction({
+    id: crypto.randomUUID(),
+    stateHash: validationLimitStateHash,
+    browserBindingHash: validationLimitBrowserHash,
+    nonceHash: randomBytes(32),
+    codeVerifierCiphertext: randomBytes(59),
+    codeVerifierIv: randomBytes(12),
+    encryptionKeyVersion: 1,
+    lifetimeSeconds: 600,
+    redirectUri: "https://validation-limit.example.test/callback",
+  });
+  if (validationLimitCreated.status !== "CREATED") throw new Error("validation limit flow create failed");
+  for (let validationAttempt = 1; validationAttempt <= 5; validationAttempt += 1) {
+    const reserved = await repository.reserveCustomLoginValidation({
+      authRequestHash: validationLimitAuthHash,
+      browserBindingHash: validationLimitBrowserHash,
+    });
+    if (reserved.status !== "RESERVED") {
+      throw new Error(`validation reservation ${validationAttempt} failed: ${reserved.status}`);
+    }
+  }
+  const validationLimited = await repository.reserveCustomLoginValidation({
+    authRequestHash: validationLimitAuthHash,
+    browserBindingHash: validationLimitBrowserHash,
+  });
+  if (validationLimited.status !== "RATE_LIMITED") {
+    throw new Error(`validation reservation limit failed: ${validationLimited.status}`);
+  }
+  const validationCountRows = await sql<{ validation_count: number }[]>`
+    select custom_validation_count as validation_count
+    from auth_login_transactions
+    where state_hash = ${validationLimitStateHash}
+  `;
+  if (validationCountRows[0]?.validation_count !== 5) {
+    throw new Error("validation reservation count did not commit at five");
+  }
+
+  for (const scope of ["ACCOUNT", "IP"] as const) {
+    const seed = scope === "ACCOUNT" ? "71" : "72";
+    const probeStateHash = encode(seed.repeat(32));
+    const probeBrowserHash = encode((scope === "ACCOUNT" ? "73" : "74").repeat(32));
+    const probeAuthHash = encode((scope === "ACCOUNT" ? "75" : "76").repeat(32));
+    const probeCsrfHash = encode((scope === "ACCOUNT" ? "77" : "78").repeat(32));
+    const accountHash = encode((scope === "ACCOUNT" ? "79" : "7a").repeat(32));
+    const ipHash = encode((scope === "IP" ? "7b" : "7c").repeat(32));
+    const createdProbe = await repository.createLoginTransaction({
+      id: crypto.randomUUID(),
+      stateHash: probeStateHash,
+      browserBindingHash: probeBrowserHash,
+      nonceHash: encode((scope === "ACCOUNT" ? "7d" : "7e").repeat(32)),
+      codeVerifierCiphertext: encode("7f".repeat(59)),
+      codeVerifierIv: encode("80".repeat(12)),
+      encryptionKeyVersion: 1,
+      lifetimeSeconds: 600,
+      redirectUri: `https://rate-${scope.toLowerCase()}.example.test/callback`,
+    });
+    if (createdProbe.status !== "CREATED") throw new Error(`${scope} rate probe transaction failed`);
+    const preparedProbe = await repository.prepareCustomLogin({
+      authRequestHash: probeAuthHash,
+      browserBindingHash: probeBrowserHash,
+      csrfHash: probeCsrfHash,
+      csrfLifetimeSeconds: 300,
+    });
+    if (preparedProbe.status !== "PREPARED") throw new Error(`${scope} rate probe prepare failed`);
+    const subjectHash = scope === "ACCOUNT" ? accountHash : ipHash;
+    const threshold = scope === "ACCOUNT" ? 10 : 30;
+    await sql`
+      insert into auth_credential_rate_limits (
+        scope, subject_hash, window_started_at, attempt_count, expires_at
+      ) values (${scope}, ${subjectHash}, now(), ${threshold}, now() + interval '15 minutes')
+    `;
+    const limitedAttempt = await repository.consumeCustomLoginAttempt({
+      accountHash,
+      authRequestHash: probeAuthHash,
+      browserBindingHash: probeBrowserHash,
+      csrfHash: probeCsrfHash,
+      ipHash,
+    });
+    if (limitedAttempt.status !== "RATE_LIMITED") throw new Error(`${scope} rate limit was not enforced`);
+    const committedLimit = await sql<{ attempt_count: number; csrf_cleared: boolean }[]>`
+      select custom_attempt_count as attempt_count,
+             custom_csrf_hash is null and custom_csrf_expires_at is null as csrf_cleared
+      from auth_login_transactions
+      where state_hash = ${probeStateHash}
+    `;
+    if (committedLimit[0]?.attempt_count !== 1 || !committedLimit[0]?.csrf_cleared) {
+      throw new Error(`${scope} rate-limited attempt did not commit`);
+    }
+    const limitedReplay = await repository.consumeCustomLoginAttempt({
+      accountHash,
+      authRequestHash: probeAuthHash,
+      browserBindingHash: probeBrowserHash,
+      csrfHash: probeCsrfHash,
+      ipHash,
+    });
+    if (limitedReplay.status !== "FLOW_INVALID") throw new Error(`${scope} rate-limited CSRF replay was accepted`);
+    await sql`delete from auth_login_transactions where state_hash = ${probeStateHash}`;
+    await sql`delete from auth_credential_rate_limits where subject_hash in (${accountHash}, ${ipHash})`;
+  }
+
+  for (const { scope, allowed, total } of [
+    { scope: "ACCOUNT" as const, allowed: 10, total: 12 },
+    { scope: "IP" as const, allowed: 30, total: 32 },
+  ]) {
+    const redirectUri = `https://parallel-rate-${scope.toLowerCase()}.example.test/callback`;
+    const sharedHash = randomBytes(32);
+    const flows = await Promise.all(Array.from(
+      { length: total },
+      () => createPreparedFlow(repository, redirectUri),
+    ));
+    const inputs = flows.map((flow) => ({
+      accountHash: scope === "ACCOUNT" ? sharedHash : randomBytes(32),
+      authRequestHash: flow.authRequestHash,
+      browserBindingHash: flow.browserBindingHash,
+      csrfHash: flow.csrfHash,
+      ipHash: scope === "IP" ? sharedHash : randomBytes(32),
+    }));
+    const results = await Promise.all(inputs.map((input) => repository.consumeCustomLoginAttempt(input)));
+    const consumedCount = results.filter((result) => result.status === "CONSUMED").length;
+    const limitedCount = results.filter((result) => result.status === "RATE_LIMITED").length;
+    if (consumedCount !== allowed || limitedCount !== total - allowed) {
+      throw new Error(`${scope} parallel limit mismatch: consumed=${consumedCount} limited=${limitedCount}`);
+    }
+    const replayResults = await Promise.all(inputs
+      .filter((_, index) => results[index]?.status === "RATE_LIMITED")
+      .map((input) => parallelRepository.consumeCustomLoginAttempt(input)));
+    if (replayResults.some((result) => result.status !== "FLOW_INVALID")) {
+      throw new Error(`${scope} parallel rate-limited CSRF replay was accepted`);
+    }
+    const committedRows = await sql<{ committed: number }[]>`
+      select count(*) filter (
+        where custom_attempt_count = 1
+          and custom_csrf_hash is null
+          and custom_csrf_expires_at is null
+      )::int as committed
+      from auth_login_transactions
+      where redirect_uri = ${redirectUri}
+    `;
+    if (committedRows[0]?.committed !== total) {
+      throw new Error(`${scope} parallel attempts did not all commit`);
+    }
+    await sql`delete from auth_login_transactions where redirect_uri = ${redirectUri}`;
+    await sql`delete from auth_credential_rate_limits where scope = ${scope} and subject_hash = ${sharedHash}`;
+  }
+
+  const resetFlow = await createPreparedFlow(repository, "https://rate-reset.example.test/callback");
+  const resetAccountHash = randomBytes(32);
+  await sql`
+    insert into auth_credential_rate_limits (
+      scope, subject_hash, window_started_at, attempt_count, expires_at
+    ) values (
+      'ACCOUNT', ${resetAccountHash}, now() - interval '16 minutes', 10, now() - interval '1 minute'
+    )
+  `;
+  const resetAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: resetAccountHash,
+    authRequestHash: resetFlow.authRequestHash,
+    browserBindingHash: resetFlow.browserBindingHash,
+    csrfHash: resetFlow.csrfHash,
+    ipHash: randomBytes(32),
+  });
+  if (resetAttempt.status !== "CONSUMED") throw new Error("expired account rate window did not reset");
+  const resetRows = await sql<{ attempt_count: number; valid_window: boolean }[]>`
+    select attempt_count,
+           expires_at > now() and expires_at <= window_started_at + interval '15 minutes' as valid_window
+    from auth_credential_rate_limits
+    where scope = 'ACCOUNT' and subject_hash = ${resetAccountHash}
+  `;
+  if (resetRows[0]?.attempt_count !== 1 || !resetRows[0]?.valid_window) {
+    throw new Error("expired account rate bucket reset incorrectly");
+  }
+
+  const plaintextColumns = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name in ('auth_login_transactions', 'auth_credential_rate_limits')
+      and column_name in ('login_name', 'loginname', 'ip', 'ip_address')
+  `;
+  if (plaintextColumns[0]?.count !== 0) throw new Error("credential rate tables expose plaintext identifiers");
+  const invalidHashRows = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from auth_credential_rate_limits
+    where octet_length(subject_hash) <> 32
+  `;
+  if (invalidHashRows[0]?.count !== 0) throw new Error("credential rate table retained a non-HMAC identifier");
 
   await sql`
     insert into auth_login_transactions (
@@ -217,5 +548,9 @@ try {
 
   console.log("AUTH_REPOSITORY_INTEGRATION_OK");
 } finally {
-  await sql.end({ timeout: 1 });
+  await Promise.all([
+    repository.close?.(),
+    parallelRepository.close?.(),
+    sql.end({ timeout: 1 }),
+  ]);
 }

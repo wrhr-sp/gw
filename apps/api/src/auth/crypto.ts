@@ -25,10 +25,7 @@ export function base64UrlDecode(value: string): Uint8Array {
 }
 
 export async function importTransactionEncryptionKey(value: string): Promise<CryptoKey> {
-  const bytes = base64UrlDecode(value);
-  if (bytes.byteLength !== 32 || base64UrlEncode(bytes) !== value) {
-    throw new Error("transaction encryption key must be canonical 256-bit base64url");
-  }
+  const bytes = decodeRootKey(value);
   return crypto.subtle.importKey(
     "raw",
     toArrayBuffer(bytes),
@@ -36,6 +33,40 @@ export async function importTransactionEncryptionKey(value: string): Promise<Cry
     false,
     ["encrypt", "decrypt"],
   );
+}
+
+function decodeRootKey(value: string): Uint8Array {
+  const bytes = base64UrlDecode(value);
+  if (bytes.byteLength !== 32 || base64UrlEncode(bytes) !== value) {
+    throw new Error("transaction encryption key must be canonical 256-bit base64url");
+  }
+  return bytes;
+}
+
+export async function importRateLimitHmacKey(value: string): Promise<CryptoKey> {
+  const rootKey = await crypto.subtle.importKey(
+    "raw",
+    toArrayBuffer(decodeRootKey(value)),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: encoder.encode("werehere-auth-rate-limit-salt-v1"),
+      info: encoder.encode("werehere-auth-rate-limit-hmac-v1"),
+    },
+    rootKey,
+    { name: "HMAC", hash: "SHA-256", length: 256 },
+    false,
+    ["sign"],
+  );
+}
+
+export async function hmacSha256(key: CryptoKey, value: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value)));
 }
 
 export async function encryptText(

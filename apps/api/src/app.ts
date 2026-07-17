@@ -1,4 +1,5 @@
 import {
+  customLoginRequestSchema,
   createHotelRequestSchema,
   hotelIdempotencyKeySchema,
   hotelListQuerySchema,
@@ -77,7 +78,9 @@ function readUniqueCookie(
 }
 
 const AUTH_ERROR_MESSAGES: Partial<Record<HotelErrorCode, string>> = {
+  AUTH_CREDENTIALS_INVALID: "아이디 또는 비밀번호를 확인해 주세요.",
   AUTH_FLOW_INVALID: "로그인 요청을 확인할 수 없습니다. 다시 로그인해 주세요.",
+  AUTH_MFA_REQUIRED: "추가 인증이 필요한 계정입니다.",
   AUTH_RATE_LIMITED: "로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요.",
   AUTH_PROVIDER_NOT_CONFIGURED: "로그인 연결이 설정되지 않았습니다.",
   AUTH_PROVIDER_UNAVAILABLE: "로그인 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
@@ -297,6 +300,105 @@ export function createApp(options: CreateAppOptions = {}) {
       return context.redirect(result.authorizationUrl, 302);
     } catch (error) {
       return authFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/auth/custom-login/start", async (context) => {
+    context.header("Cache-Control", "no-store");
+    context.header("Referrer-Policy", "no-referrer");
+    const requestUrl = new URL(context.req.url);
+    const authRequests = requestUrl.searchParams.getAll("authRequest");
+    const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
+    if (
+      authRequests.length !== 1 || !browserBinding ||
+      !/^[A-Za-z0-9_-]{1,200}$/u.test(authRequests[0]!)
+    ) {
+      return context.redirect("/login?error=invalid-flow", 303);
+    }
+    try {
+      const result = await withAuthService(context.env, (service) => (
+        service.prepareCustomLogin(authRequests[0]!, browserBinding)
+      ));
+      const target = new URL("/login", requestUrl.origin);
+      target.searchParams.set("authRequest", authRequests[0]!);
+      target.searchParams.set("csrf", result.csrf);
+      const error = requestUrl.searchParams.get("error");
+      if (["invalid-credentials", "mfa-required", "rate-limited"].includes(error ?? "")) {
+        target.searchParams.set("error", error!);
+      }
+      return context.redirect(`${target.pathname}${target.search}`, 303);
+    } catch (error) {
+      const reason = error instanceof AuthServiceError && error.code === "AUTH_RATE_LIMITED"
+        ? "rate-limited" : "invalid-flow";
+      return context.redirect(`/login?error=${reason}`, 303);
+    }
+  });
+
+  hotelApp.post("/api/auth/custom-login", async (context) => {
+    context.header("Cache-Control", "no-store");
+    context.header("Referrer-Policy", "no-referrer");
+
+    const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
+    const contentType = context.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+    const fetchSite = context.req.header("sec-fetch-site");
+    const origin = context.req.header("origin");
+    let expectedOrigin: string | undefined;
+    try {
+      expectedOrigin = context.env?.ZITADEL_REDIRECT_URI
+        ? new URL(context.env.ZITADEL_REDIRECT_URI).origin
+        : new URL(context.req.url).origin;
+    } catch {
+      expectedOrigin = undefined;
+    }
+    if (
+      !browserBinding || contentType !== "application/x-www-form-urlencoded" ||
+      fetchSite !== "same-origin" || !origin || origin !== expectedOrigin
+    ) {
+      return context.redirect("/login?error=invalid-flow", 303);
+    }
+
+    let params: URLSearchParams;
+    try {
+      const bytes = await context.req.arrayBuffer();
+      if (bytes.byteLength > 8 * 1024) return context.redirect("/login?error=invalid-flow", 303);
+      params = new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    } catch {
+      return context.redirect("/login?error=invalid-flow", 303);
+    }
+    const allowedFields = new Set(["authRequest", "csrf", "loginName", "password"]);
+    if (
+      [...params.keys()].some((name) => !allowedFields.has(name)) ||
+      [...allowedFields].some((name) => params.getAll(name).length !== 1)
+    ) {
+      return context.redirect("/login?error=invalid-flow", 303);
+    }
+    const parsed = customLoginRequestSchema.safeParse({
+      authRequest: params.get("authRequest"),
+      csrf: params.get("csrf"),
+      loginName: params.get("loginName"),
+      password: params.get("password"),
+    });
+    if (!parsed.success) return context.redirect("/login?error=invalid-flow", 303);
+
+    try {
+      const ipAddressValue = context.req.header("cf-connecting-ip")?.trim();
+      const ipAddress = ipAddressValue && ipAddressValue.length <= 64 ? ipAddressValue : "unknown";
+      const result = await withAuthService(context.env, (service) => service.finalizeCustomLogin({
+        ...parsed.data,
+        browserBinding,
+        ipAddress,
+      }));
+      return context.redirect(result.callbackUrl, 302);
+    } catch (error) {
+      const authRequest = encodeURIComponent(parsed.data.authRequest);
+      const reason = error instanceof AuthServiceError
+        ? error.code === "AUTH_CREDENTIALS_INVALID" ? "invalid-credentials"
+          : error.code === "AUTH_MFA_REQUIRED" ? "mfa-required"
+            : error.code === "AUTH_RATE_LIMITED" ? "rate-limited"
+              : "unavailable"
+        : "unavailable";
+      if (reason === "unavailable") return context.redirect(`/login?error=${reason}`, 303);
+      return context.redirect(`/api/auth/custom-login/start?authRequest=${authRequest}&error=${reason}`, 303);
     }
   });
 

@@ -18,6 +18,25 @@ async function verifyConstraintDamage(name: string, definition: string) {
   }
 }
 
+async function verifySecurityConstraintWeakening(
+  table: string,
+  name: string,
+  damagedDefinition: string,
+  approvedDefinition: string,
+) {
+  await sql.unsafe(`alter table ${table} drop constraint ${name}`);
+  await sql.unsafe(`alter table ${table} add constraint ${name} ${damagedDefinition}`);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`${name} weakened constraint was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`alter table ${table} drop constraint ${name}`);
+    await sql.unsafe(`alter table ${table} add constraint ${name} ${approvedDefinition}`);
+  }
+}
+
 async function verifyBranchCodeConstraintWeakening() {
   const name = "branches_branch_code_canonical_check";
   await sql.unsafe(`alter table branches drop constraint ${name}`);
@@ -89,6 +108,23 @@ async function verifyPolicyWeakening(table: string, name: string) {
       using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
       with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
     `);
+  }
+}
+
+async function verifyAdditionalPermissivePolicy() {
+  const name = "branches_runtime_bypass_damage";
+  await sql.unsafe(`
+    create policy ${name} on branches
+    using (true)
+    with check (true)
+  `);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`additional permissive policy was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`drop policy ${name} on branches`);
   }
 }
 
@@ -184,6 +220,24 @@ try {
     "hotel_profiles_representative_phone_format",
     "check (representative_phone ~ '^[0-9+() -]{8,30}$')",
   );
+  await verifySecurityConstraintWeakening(
+    "auth_login_transactions",
+    "auth_login_transactions_custom_attempt_count_check",
+    "check (custom_attempt_count between 0 and 50)",
+    "check (custom_attempt_count between 0 and 5)",
+  );
+  await verifySecurityConstraintWeakening(
+    "auth_login_transactions",
+    "auth_login_transactions_custom_attempt_count_check",
+    "check ((custom_attempt_count between 0 and 5) or true)",
+    "check (custom_attempt_count between 0 and 5)",
+  );
+  await verifySecurityConstraintWeakening(
+    "auth_credential_rate_limits",
+    "auth_credential_rate_limits_expiry_max_check",
+    "check (expires_at <= window_started_at + interval '1 hour')",
+    "check (expires_at <= window_started_at + interval '15 minutes')",
+  );
   await verifyBranchCodeConstraintWeakening();
   await verifyPhoneConstraintReplacement(
     "check (representative_phone ~ '^[0-9+() -]{8,30}$' or true)",
@@ -196,6 +250,7 @@ try {
   await verifyPolicyDamage("branches", "branches_company_isolation");
   await verifyPolicyDamage("hotel_profiles", "hotel_profiles_company_isolation");
   await verifyPolicyWeakening("branches", "branches_company_isolation");
+  await verifyAdditionalPermissivePolicy();
   await verifyRestrictivePolicy();
   await verifyPolicyRoleRestriction();
   await verifyRlsDisabled("branches");

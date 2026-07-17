@@ -13,6 +13,7 @@ const REQUIRED_TABLES = [
   "auth_identities",
   "auth_sessions",
   "auth_login_transactions",
+  "auth_credential_rate_limits",
   "branches",
   "hotel_profiles",
   "roles",
@@ -39,6 +40,16 @@ const REQUIRED_COLUMNS = [
   ["auth_login_transactions", "code_verifier_iv"],
   ["auth_login_transactions", "encryption_key_version"],
   ["auth_login_transactions", "expires_at"],
+  ["auth_login_transactions", "custom_auth_request_hash"],
+  ["auth_login_transactions", "custom_csrf_hash"],
+  ["auth_login_transactions", "custom_csrf_expires_at"],
+  ["auth_login_transactions", "custom_validation_count"],
+  ["auth_login_transactions", "custom_attempt_count"],
+  ["auth_credential_rate_limits", "scope"],
+  ["auth_credential_rate_limits", "subject_hash"],
+  ["auth_credential_rate_limits", "window_started_at"],
+  ["auth_credential_rate_limits", "attempt_count"],
+  ["auth_credential_rate_limits", "expires_at"],
   ["hotel_profiles", "company_id"],
   ["hotel_profiles", "branch_id"],
   ["hotel_profiles", "road_address"],
@@ -79,12 +90,45 @@ const REQUIRED_CHECK_CONSTRAINTS = [
   { table: "idempotency_records", name: "idempotency_records_completed_result_check", definition: "check (((status <> 'completed'::text) or ((completed_at is not null) and (resource_type is not null) and (resource_id is not null) and (audit_event_id is not null) and (result_snapshot is not null))))" },
 ] as const;
 
+const REQUIRED_SECURITY_CHECK_CONSTRAINTS = [
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_auth_request_hash_check", definition: "check (((custom_auth_request_hash is null) or (octet_length(custom_auth_request_hash) = 32)))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_csrf_hash_check", definition: "check (((custom_csrf_hash is null) or (octet_length(custom_csrf_hash) = 32)))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_validation_count_check", definition: "check (((custom_validation_count >= 0) and (custom_validation_count <= 5)))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_attempt_count_check", definition: "check (((custom_attempt_count >= 0) and (custom_attempt_count <= 5)))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_binding_check", definition: "check ((((custom_auth_request_hash is null) and (custom_csrf_hash is null) and (custom_csrf_expires_at is null) and (custom_attempt_count = 0)) or (custom_auth_request_hash is not null)))" },
+  { table: "auth_login_transactions", name: "auth_login_transactions_custom_csrf_expiry_check", definition: "check ((((custom_csrf_hash is null) and (custom_csrf_expires_at is null)) or ((custom_csrf_hash is not null) and (custom_csrf_expires_at is not null) and (custom_csrf_expires_at <= expires_at))))" },
+  { table: "auth_credential_rate_limits", name: "auth_credential_rate_limits_scope_check", definition: "check ((scope = any (array['ip'::text, 'account'::text])))" },
+  { table: "auth_credential_rate_limits", name: "auth_credential_rate_limits_subject_hash_check", definition: "check ((octet_length(subject_hash) = 32))" },
+  { table: "auth_credential_rate_limits", name: "auth_credential_rate_limits_attempt_count_check", definition: "check (((attempt_count >= 1) and (attempt_count <= 1000)))" },
+  { table: "auth_credential_rate_limits", name: "auth_credential_rate_limits_expiry_after_window_check", definition: "check ((expires_at > window_started_at))" },
+  { table: "auth_credential_rate_limits", name: "auth_credential_rate_limits_expiry_max_check", definition: "check ((expires_at <= (window_started_at + '00:15:00'::interval)))" },
+] as const;
+
 const REQUIRED_INDEXES = [{
   name: "branches_active_hotel_name_unique_idx",
   fragments: [
     "create unique index",
     "on public.branches using btree (company_id, lower(btrim(name)))",
     "where ((branch_type = 'hotel'::text) and (status = 'active'::text))",
+  ],
+}, {
+  name: "auth_login_transactions_browser_binding_unique_idx",
+  fragments: [
+    "create unique index",
+    "on public.auth_login_transactions using btree (browser_binding_hash)",
+  ],
+}, {
+  name: "auth_login_transactions_custom_request_unique_idx",
+  fragments: [
+    "create unique index",
+    "on public.auth_login_transactions using btree (custom_auth_request_hash)",
+    "where (custom_auth_request_hash is not null)",
+  ],
+}, {
+  name: "auth_credential_rate_limits_expiry_idx",
+  fragments: [
+    "create index",
+    "on public.auth_credential_rate_limits using btree (expires_at)",
   ],
 }] as const;
 
@@ -146,12 +190,13 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select count(*) = 3 as migration_applied
+      select count(*) = 4 as migration_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
         '0002_auth_session_runtime',
-        '0003_hotel_basic_information'
+        '0003_hotel_basic_information',
+        '0004_custom_login_security'
       )
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
@@ -183,6 +228,14 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       return { status: "SCHEMA_NOT_READY" };
     }
     if (REQUIRED_CHECK_CONSTRAINTS.some((required) => !constraints.some((constraint) => (
+      constraint.table === required.table
+      && constraint.name === required.name
+      && constraint.validated
+      && constraint.definition === required.definition
+    )))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (REQUIRED_SECURITY_CHECK_CONSTRAINTS.some((required) => !constraints.some((constraint) => (
       constraint.table === required.table
       && constraint.name === required.name
       && constraint.validated
@@ -290,6 +343,17 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
         && checkExpression.includes("::uuid")
         && !checkExpression.includes(" or ");
     }))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    const protectedRlsTables = new Set(REQUIRED_RLS_POLICIES.map((required) => required.table));
+    const approvedRlsPolicies = new Set(
+      REQUIRED_RLS_POLICIES.map((required) => `${required.table}\0${required.policy}`),
+    );
+    if (rlsRows.some((policy) => (
+      policy.applies_to_current_role
+      && protectedRlsTables.has(policy.table_name as (typeof REQUIRED_RLS_POLICIES)[number]["table"])
+      && !approvedRlsPolicies.has(`${policy.table_name}\0${policy.policy_name}`)
+    ))) {
       return { status: "SCHEMA_NOT_READY" };
     }
 

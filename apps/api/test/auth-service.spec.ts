@@ -5,6 +5,7 @@ import {
   createAuthService,
   SESSION_ABSOLUTE_LIFETIME_SECONDS,
   SESSION_IDLE_LIFETIME_SECONDS,
+  type CustomLoginProvider,
   type IdentityProvider,
 } from "../src/auth/service";
 
@@ -23,6 +24,7 @@ async function setup() {
       nonceHash: loginTransaction.nonceHash,
       redirectUri: loginTransaction.redirectUri,
     } : null),
+    consumeCustomLoginAttempt: vi.fn(async () => ({ status: "CONSUMED" as const })),
     createSession: vi.fn(async (input) => ({
       status: "CREATED" as const,
       principal: {
@@ -34,6 +36,8 @@ async function setup() {
         displayName: "사내 임직원",
       },
     })),
+    prepareCustomLogin: vi.fn(async () => ({ status: "PREPARED" as const })),
+    reserveCustomLoginValidation: vi.fn(async () => ({ status: "RESERVED" as const })),
     resolvePrincipal: vi.fn(async () => null),
     revokeSession: vi.fn(async () => true),
   };
@@ -48,18 +52,31 @@ async function setup() {
       subject: "subject-1",
     })),
   };
+  const customLoginProvider: CustomLoginProvider = {
+    validateAuthRequest: vi.fn(async () => undefined),
+    authenticateAndFinalize: vi.fn(async () => ({
+      callbackUrl: "https://hotel.example.test/api/auth/callback?code=code&state=state",
+    })),
+  };
   const encryptionKey = await crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
     false,
     ["encrypt", "decrypt"],
   );
+  const rateLimitKey = await crypto.subtle.generateKey(
+    { name: "HMAC", hash: "SHA-256", length: 256 },
+    false,
+    ["sign"],
+  );
   const service = createAuthService({
+    customLoginProvider,
     encryptionKey,
     provider,
+    rateLimitKey,
     redirectUri: "https://hotel.example.test/api/auth/callback",
     repository,
   });
-  return { provider, repository, service, transaction: () => loginTransaction };
+  return { customLoginProvider, provider, repository, service, transaction: () => loginTransaction };
 }
 
 describe("auth service", () => {
@@ -102,6 +119,82 @@ describe("auth service", () => {
       httpStatus: 429,
       retryable: true,
     });
+  });
+
+  it("consumes the browser-bound single-use CSRF attempt before sending credentials", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    const prepared = await service.prepareCustomLogin("request-1", "browser-binding");
+    expect(prepared.csrf).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(customLoginProvider.validateAuthRequest).toHaveBeenCalledWith("request-1");
+    expect(repository.prepareCustomLogin).toHaveBeenCalledWith(expect.objectContaining({
+      authRequestHash: expect.any(Uint8Array),
+      browserBindingHash: expect.any(Uint8Array),
+      csrfHash: expect.any(Uint8Array),
+    }));
+
+    await service.finalizeCustomLogin({
+      authRequest: "request-1",
+      browserBinding: "browser-binding",
+      csrf: prepared.csrf,
+      ipAddress: "203.0.113.10",
+      loginName: "Hotel-Admin",
+      password: "password-value",
+    });
+    expect(vi.mocked(repository.consumeCustomLoginAttempt).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(customLoginProvider.authenticateAndFinalize).mock.invocationCallOrder[0]!);
+    expect(repository.consumeCustomLoginAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      accountHash: expect.any(Uint8Array),
+      ipHash: expect.any(Uint8Array),
+    }));
+
+    const firstAccountHash = vi.mocked(repository.consumeCustomLoginAttempt).mock.calls[0]?.[0].accountHash;
+    await service.finalizeCustomLogin({
+      authRequest: "request-1",
+      browserBinding: "browser-binding",
+      csrf: prepared.csrf,
+      ipAddress: "203.0.113.10",
+      loginName: "ＨＯＴＥＬ-ＡＤＭＩＮ",
+      password: "password-value",
+    });
+    const variantAccountHash = vi.mocked(repository.consumeCustomLoginAttempt).mock.calls[1]?.[0].accountHash;
+    expect(variantAccountHash).toEqual(firstAccountHash);
+    expect(customLoginProvider.authenticateAndFinalize).toHaveBeenLastCalledWith(expect.objectContaining({
+      loginName: "ＨＯＴＥＬ-ＡＤＭＩＮ",
+    }));
+
+    vi.mocked(repository.consumeCustomLoginAttempt).mockResolvedValueOnce({ status: "FLOW_INVALID" });
+    await expect(service.finalizeCustomLogin({
+      authRequest: "request-1",
+      browserBinding: "browser-binding",
+      csrf: prepared.csrf,
+      ipAddress: "203.0.113.10",
+      loginName: "Hotel-Admin",
+      password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+  });
+
+  it("reissues CSRF without revalidating an already validated auth request", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(repository.reserveCustomLoginValidation)
+      .mockResolvedValueOnce({ status: "RESERVED" })
+      .mockResolvedValueOnce({ status: "VALIDATED" });
+
+    const first = await service.prepareCustomLogin("request-1", "browser-binding");
+    const second = await service.prepareCustomLogin("request-1", "browser-binding");
+
+    expect(first.csrf).not.toBe(second.csrf);
+    expect(customLoginProvider.validateAuthRequest).toHaveBeenCalledTimes(1);
+    expect(repository.prepareCustomLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it("rate limits auth request validation before calling the provider", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(repository.reserveCustomLoginValidation).mockResolvedValue({ status: "RATE_LIMITED" });
+
+    await expect(service.prepareCustomLogin("request-1", "browser-binding"))
+      .rejects.toMatchObject({ code: "AUTH_RATE_LIMITED", httpStatus: 429 });
+    expect(customLoginProvider.validateAuthRequest).not.toHaveBeenCalled();
+    expect(repository.prepareCustomLogin).not.toHaveBeenCalled();
   });
 
   it("creates only a token hash with the approved 8h/24h lifetimes", async () => {

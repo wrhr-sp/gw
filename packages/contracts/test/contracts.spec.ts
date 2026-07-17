@@ -3,6 +3,7 @@ import {
   authRoutes,
   authSessionResponseSchema,
   createHotelRequestSchema,
+  customLoginRequestSchema,
   hotelDetailResponseSchema,
   hotelErrorCodeSchema,
   hotelErrorResponseSchema,
@@ -53,9 +54,30 @@ describe("hotel platform contracts", () => {
 
   it("defines same-origin auth routes without exposing provider details", () => {
     expect(authRoutes.login).toBe("/api/auth/login");
+    expect(authRoutes.customLoginStart).toBe("/api/auth/custom-login/start");
     expect(authRoutes.callback).toBe("/api/auth/callback");
     expect(authRoutes.logout).toBe("/api/auth/logout");
     expect(authRoutes.session).toBe("/api/auth/session");
+  });
+
+  it("requires a single-use CSRF token and provider-compatible credential bounds", () => {
+    expect(customLoginRequestSchema.safeParse({
+      authRequest: "request-1",
+      csrf: "c".repeat(43),
+      loginName: "hotel-admin",
+      password: "password-value",
+    }).success).toBe(true);
+    expect(customLoginRequestSchema.safeParse({
+      authRequest: "request-1",
+      loginName: "hotel-admin",
+      password: "password-value",
+    }).success).toBe(false);
+    expect(customLoginRequestSchema.safeParse({
+      authRequest: "request-1",
+      csrf: "c".repeat(43),
+      loginName: "a".repeat(201),
+      password: "password-value",
+    }).success).toBe(false);
   });
 
   it("parses only the approved server-derived principal fields", () => {

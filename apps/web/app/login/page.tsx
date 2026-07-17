@@ -1,31 +1,33 @@
-import { Button } from "@werehere/ui";
-import { Building2, ShieldCheck } from "lucide-react";
+import { HotelLoginCard } from "../../components/auth/hotel-login-card";
 
-export default function LoginPage() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
-      <section className="w-full max-w-login rounded-overlay border border-border bg-surface p-8" aria-labelledby="login-title">
-        <div className="mb-8 flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-control bg-primary text-white" aria-hidden="true">
-            <Building2 size={20} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-primary">We’reHere</p>
-            <h1 className="text-2xl font-bold text-text" id="login-title">위아히어 호텔 운영</h1>
-          </div>
-        </div>
+const ERROR_MESSAGES: Record<string, string> = {
+  "invalid-credentials": "아이디 또는 비밀번호를 확인해 주세요.",
+  "invalid-flow": "로그인 요청이 만료되었거나 올바르지 않습니다. 다시 시작해 주세요.",
+  "mfa-required": "이 계정은 추가 인증이 필요합니다. 현재 로그인 방식에서는 관리자에게 문의해 주세요.",
+  "rate-limited": "로그인 요청이 많습니다. 잠시 후 다시 시도해 주세요.",
+  unavailable: "로그인 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+};
 
-        <p className="mb-6 text-sm leading-6 text-muted">
-          회사에서 발급한 계정으로 안전하게 로그인하세요.
-        </p>
+function single(value: string | string[] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
 
-        <Button asChild className="h-mobile-action w-full sm:h-10">
-          <a href="/api/auth/login">
-            <ShieldCheck aria-hidden="true" size={16} />
-            ZITADEL로 로그인
-          </a>
-        </Button>
-      </section>
-    </main>
-  );
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const authRequestValue = single(params?.authRequest);
+  const authRequest = authRequestValue && /^[A-Za-z0-9_-]{1,200}$/u.test(authRequestValue)
+    ? authRequestValue
+    : undefined;
+  const csrfValue = single(params?.csrf);
+  const csrf = csrfValue && /^[A-Za-z0-9_-]{43}$/u.test(csrfValue) ? csrfValue : undefined;
+  const error = single(params?.error);
+  return <HotelLoginCard
+    authRequest={authRequest && csrf ? authRequest : undefined}
+    csrf={authRequest && csrf ? csrf : undefined}
+    errorMessage={error ? ERROR_MESSAGES[error] : undefined}
+  />;
 }
