@@ -13,9 +13,11 @@
     "test": "pnpm -r --if-present test",
     "test:boundaries": "node scripts/test-import-boundaries.mjs",
     "test:integration": "pnpm --filter @werehere/db test:integration",
+    "test:mutation-verifier": "node scripts/test-file-mutation-verifier.mjs",
     "test:visual": "pnpm --filter @werehere/web test:visual",
     "test:visual:update": "pnpm --filter @werehere/web test:visual:update",
-    "check": "pnpm run typecheck && pnpm run test && pnpm run test:boundaries"
+    "verify:mutations": "node scripts/verify-file-mutations.mjs",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run test:boundaries && pnpm run test:mutation-verifier"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.6",
