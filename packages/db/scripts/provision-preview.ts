@@ -377,8 +377,7 @@ try {
     );
   }
   await owner.unsafe(`
-    alter role ${runtimeRole}
-      nosuperuser nocreatedb nocreaterole noinherit noreplication nobypassrls;
+    alter role ${runtimeRole} noinherit;
     revoke all privileges on all tables in schema public from ${runtimeRole};
     revoke create on schema public from ${runtimeRole};
     grant usage on schema public to ${runtimeRole};
@@ -415,7 +414,6 @@ try {
            exists (
              select 1 from pg_auth_members membership
              where membership.member = runtime_role.oid
-                or membership.roleid = runtime_role.oid
            ) as has_memberships,
            exists (
              select 1
