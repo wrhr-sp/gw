@@ -3,21 +3,44 @@ if (!baseUrl || !baseUrl.startsWith("https://")) {
   throw new Error("WEB_PREVIEW_URL must be an HTTPS URL");
 }
 
+const retryAttempts = 12;
+const retryDelayMilliseconds = 5_000;
+
+function retryableStatus(status) {
+  return status === 404 || status === 429 || status >= 500;
+}
+
+async function fetchExpected(path, expectedStatus, init = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, init);
+      if (response.status === expectedStatus) return response;
+      lastError = new Error(
+        `${path || "/"} returned ${response.status}, expected ${expectedStatus}`,
+      );
+      if (!retryableStatus(response.status)) break;
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < retryAttempts) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryDelayMilliseconds),
+      );
+    }
+  }
+  throw lastError ?? new Error(`${path || "/"} smoke failed`);
+}
+
 async function json(path, expectedStatus) {
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetchExpected(path, expectedStatus, {
     headers: { accept: "application/json" },
     redirect: "manual",
   });
-  if (response.status !== expectedStatus) {
-    throw new Error(
-      `${path} returned ${response.status}, expected ${expectedStatus}`,
-    );
-  }
   return { response, body: await response.json() };
 }
 
-const home = await fetch(baseUrl, { redirect: "manual" });
-if (home.status !== 200) throw new Error(`home returned ${home.status}`);
+await fetchExpected("", 200, { redirect: "manual" });
 
 const live = await json("/api/health/live", 200);
 if (!live.body.ok || live.body.data?.status !== "UP") {
