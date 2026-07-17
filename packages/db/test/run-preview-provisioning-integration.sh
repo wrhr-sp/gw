@@ -9,12 +9,16 @@ LOG_FILE="$TMP_DIR/postgres.log"
 RUNTIME_URL_FILE="$TMP_DIR/runtime-url"
 SUBJECT="preview-subject-integration"
 COMPANY_ID="70000000-0000-4000-8000-000000000001"
+MIGRATION_OWNER="werehere_preview_migration_owner"
+MIGRATION_PASSWORD="preview-migration-integration-password"
 
 cleanup() {
   if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<'SQL' || true
 drop database if exists werehere_preview_ci with (force);
 drop database if exists werehere_production_ci with (force);
+drop role if exists werehere_preview_runtime;
+drop role if exists werehere_preview_migration_owner;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -24,24 +28,31 @@ SQL
 trap cleanup EXIT
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
-  PREVIEW_URL="$(node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_preview_ci"; console.log(u.toString())')"
+  PREVIEW_URL="$(MIGRATION_OWNER="$MIGRATION_OWNER" MIGRATION_PASSWORD="$MIGRATION_PASSWORD" node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_preview_ci"; u.username = process.env.MIGRATION_OWNER; u.password = process.env.MIGRATION_PASSWORD; console.log(u.toString())')"
+  ADMIN_PREVIEW_URL="$(node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_preview_ci"; console.log(u.toString())')"
   PRODUCTION_URL="$(node -e 'const u = new URL(process.env.TEST_DATABASE_URL); u.pathname = "/werehere_production_ci"; console.log(u.toString())')"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<'SQL'
 drop database if exists werehere_preview_ci with (force);
 drop database if exists werehere_production_ci with (force);
-create database werehere_preview_ci;
+drop role if exists werehere_preview_runtime;
+drop role if exists werehere_preview_migration_owner;
+create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
+create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
 SQL
 else
   PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
   PORT="$((50000 + ($$ % 4000)))"
-  PREVIEW_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_preview_ci"
+  PREVIEW_URL="postgresql://$MIGRATION_OWNER:$MIGRATION_PASSWORD@127.0.0.1:$PORT/werehere_preview_ci"
+  ADMIN_PREVIEW_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_preview_ci"
   PRODUCTION_URL="postgresql://postgres@127.0.0.1:$PORT/werehere_production_ci"
   mkdir -p "$SOCKET_DIR"
   "$PG_BIN/initdb" -D "$DATA_DIR" -A trust -U postgres --no-locale >/dev/null
   "$PG_BIN/pg_ctl" -D "$DATA_DIR" -l "$LOG_FILE" \
     -o "-F -k '$SOCKET_DIR' -p $PORT -c listen_addresses='127.0.0.1'" -w start >/dev/null
-  createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_preview_ci
+  psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+    -d postgres -c "create role $MIGRATION_OWNER login createrole password '$MIGRATION_PASSWORD'" >/dev/null
+  createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres -O "$MIGRATION_OWNER" werehere_preview_ci
   createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_production_ci
 fi
 
@@ -109,7 +120,7 @@ where rolname = 'werehere_preview_runtime'
   and not rolreplication
   and not rolbypassrls;
 select count(*) from pg_auth_members membership
-join pg_roles runtime_role on runtime_role.oid in (membership.member, membership.roleid)
+join pg_roles runtime_role on runtime_role.oid = membership.member
 where runtime_role.rolname = 'werehere_preview_runtime';
 SQL
 )"
@@ -119,7 +130,7 @@ if [[ "$RESULT" != "$EXPECTED" ]]; then
   exit 1
 fi
 
-psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" >/dev/null <<'SQL'
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 insert into companies (id, legal_name, status)
 values ('7f000000-0000-4000-8000-000000000001', 'Other Tenant', 'ACTIVE');
 insert into branches (id, company_id, branch_type, branch_code, name, status)
