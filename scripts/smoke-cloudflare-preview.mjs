@@ -75,6 +75,21 @@ if (session.body.ok || session.body.error?.code !== "AUTHENTICATION_REQUIRED") {
   throw new Error("anonymous session contract is invalid");
 }
 
+const customLoginPage = await fetchExpected(`/login?authRequest=preview-smoke-request&csrf=${"c".repeat(43)}`, 200, {
+  headers: { accept: "text/html" },
+  redirect: "manual",
+});
+const customLoginMarkup = await customLoginPage.text();
+if (
+  !customLoginMarkup.includes("login-name") ||
+  !customLoginMarkup.includes("login-password") ||
+  !customLoginMarkup.includes('name="csrf"') ||
+  !customLoginMarkup.includes("/api/auth/custom-login") ||
+  customLoginMarkup.includes("ZITADEL로 로그인")
+) {
+  throw new Error("hotel custom login page contract is invalid");
+}
+
 const login = await fetchExpected("/api/auth/login", 302, {
   redirect: "manual",
 });

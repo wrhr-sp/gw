@@ -32,6 +32,7 @@ Preview environment secrets:
 
 - `DATABASE_RUNTIME_PASSWORD_PREVIEW`
 - `AUTH_TRANSACTION_ENCRYPTION_KEY`
+- `ZITADEL_SERVICE_USER_TOKEN`: `IAM_LOGIN_CLIENT` 전용 Preview service user PAT
 - `ZITADEL_PREVIEW_SUBJECT`
 
 Preview environment variables:
@@ -41,6 +42,10 @@ Preview environment variables:
 - `ZITADEL_REDIRECT_URI`
 
 값은 로그, 문서, artifact 또는 repository에 저장하지 않는다.
+
+Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을 유지하고 앱별 custom Login V2 base URL을 Preview Web의 `/api/auth/custom-login/start`로 설정한다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 결합하고 single-use CSRF를 발급한 뒤 `/login`으로 이동시킨다. 인스턴스 전체 전환은 하지 않는다. 문제가 생기면 앱별 custom login 설정만 해제해 기존 hosted login으로 rollback한다.
+
+`ZITADEL_SERVICE_USER_TOKEN`은 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
 
 ## DB provisioning
 
@@ -96,7 +101,8 @@ Web 200
 -> /api/health/live 200 UP
 -> /api/health/ready 200 READY
 -> anonymous session 401 AUTHENTICATION_REQUIRED
--> login 302 + browser-binding cookie + no-store
+-> hotel custom credential form 200 + provider 이름 비노출
+-> login start 302 + browser-binding cookie + no-store
 -> invalid callback 400 AUTH_FLOW_INVALID
 ```
 

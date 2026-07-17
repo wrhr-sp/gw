@@ -7,9 +7,18 @@ const testBindings = {
   ZITADEL_CLIENT_ID: "hotel-client",
   ZITADEL_ISSUER: "https://identity.example.test",
   ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback",
+  ZITADEL_SERVICE_USER_TOKEN: "service-token",
 };
 
 describe("auth service factory", () => {
+  it("fails closed when the Login Client service token is missing", async () => {
+    const { ZITADEL_SERVICE_USER_TOKEN: omittedToken, ...withoutToken } = testBindings;
+    void omittedToken;
+    await expect(createAuthServiceFromBindings(withoutToken)).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_NOT_CONFIGURED",
+    });
+  });
+
   it("fails closed when the transaction encryption key is missing", async () => {
     const { AUTH_TRANSACTION_ENCRYPTION_KEY: omittedKey, ...withoutKey } = testBindings;
     void omittedKey;
@@ -18,7 +27,7 @@ describe("auth service factory", () => {
     });
   });
 
-  it("rejects a non-canonical or wrong-length transaction key", async () => {
+  it("rejects a non-canonical or wrong-length transaction and identifier root key", async () => {
     await expect(createAuthServiceFromBindings({
       ...testBindings,
       AUTH_TRANSACTION_ENCRYPTION_KEY: "not-a-256-bit-key",

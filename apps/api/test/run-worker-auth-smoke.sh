@@ -64,11 +64,13 @@ CREATE ROLE $RUNTIME_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$RUNTIME_PASSWOR
 GRANT USAGE ON SCHEMA public TO $RUNTIME_ROLE;
 GRANT SELECT ON
   companies, users, auth_identities, auth_sessions,
-  auth_login_transactions, schema_migrations, roles, permissions, user_role_memberships,
+  auth_login_transactions, auth_credential_rate_limits,
+  schema_migrations, roles, permissions, user_role_memberships,
   user_groups, user_group_memberships, permission_grants,
   branches, hotel_profiles, idempotency_records
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
+GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON auth_sessions TO $RUNTIME_ROLE;
 GRANT INSERT ON audit_events, branches, hotel_profiles TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
@@ -132,6 +134,7 @@ pnpm --filter @werehere/api exec wrangler dev --port "$PORT" \
   --var "ZITADEL_ISSUER:https://127.0.0.1:1" \
   --var "ZITADEL_CLIENT_ID:worker-smoke-client" \
   --var "ZITADEL_REDIRECT_URI:http://127.0.0.1:$PORT/api/auth/callback" \
+  --var "ZITADEL_SERVICE_USER_TOKEN:worker-smoke-service-token" \
   --var "AUTH_TRANSACTION_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" \
   >"$LOG_FILE" 2>&1 &
 WORKER_PID="$!"

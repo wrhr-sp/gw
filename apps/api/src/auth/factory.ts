@@ -1,7 +1,8 @@
 import { createPostgresAuthRepository } from "@werehere/db";
 import { AuthServiceError, createAuthService, type AuthService } from "./service";
-import { importTransactionEncryptionKey } from "./crypto";
+import { importRateLimitHmacKey, importTransactionEncryptionKey } from "./crypto";
 import { createZitadelProvider } from "./zitadel";
+import { createZitadelCustomLoginProvider } from "./zitadel-custom-login";
 import { resolveDatabaseUrl, type DatabaseBindings } from "../database";
 
 export type AuthBindings = DatabaseBindings & {
@@ -11,14 +12,16 @@ export type AuthBindings = DatabaseBindings & {
   ZITADEL_CLIENT_ID?: string;
   ZITADEL_ISSUER?: string;
   ZITADEL_REDIRECT_URI?: string;
+  ZITADEL_SERVICE_USER_TOKEN?: string;
 };
 
 export async function createAuthServiceFromBindings(bindings: AuthBindings | undefined): Promise<AuthService> {
   const issuer = bindings?.ZITADEL_ISSUER?.trim();
   const clientId = bindings?.ZITADEL_CLIENT_ID?.trim();
   const redirectUri = bindings?.ZITADEL_REDIRECT_URI?.trim();
+  const serviceUserToken = bindings?.ZITADEL_SERVICE_USER_TOKEN?.trim();
   const encryptionKeyValue = bindings?.AUTH_TRANSACTION_ENCRYPTION_KEY?.trim();
-  if (!issuer || !clientId || !redirectUri || !encryptionKeyValue) {
+  if (!issuer || !clientId || !redirectUri || !serviceUserToken || !encryptionKeyValue) {
     throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
   }
   const parsedRedirect = new URL(redirectUri);
@@ -37,15 +40,26 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
   if (!databaseUrl) throw new AuthServiceError("DB_NOT_CONFIGURED", 503, false);
 
   let encryptionKey: CryptoKey;
+  let rateLimitKey: CryptoKey;
   try {
-    encryptionKey = await importTransactionEncryptionKey(encryptionKeyValue);
+    [encryptionKey, rateLimitKey] = await Promise.all([
+      importTransactionEncryptionKey(encryptionKeyValue),
+      importRateLimitHmacKey(encryptionKeyValue),
+    ]);
   } catch {
     throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
   }
 
   return createAuthService({
+    customLoginProvider: createZitadelCustomLoginProvider({
+      clientId,
+      issuer,
+      redirectUri: parsedRedirect.toString(),
+      serviceUserToken,
+    }),
     encryptionKey,
     provider: createZitadelProvider({ clientId, issuer }),
+    rateLimitKey,
     redirectUri: parsedRedirect.toString(),
     repository: createPostgresAuthRepository(databaseUrl),
     successRedirect,
