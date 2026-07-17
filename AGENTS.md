@@ -46,6 +46,10 @@
 
 ## 검증
 
+- 파일 수정 전에 저장소 밖 manifest로 `pnpm verify:mutations --capture <manifest> --expect <수정하기로 한 파일> ...`를 실행하고 출력된 seal을 별도로 보존합니다.
+- 수정 직후 `pnpm verify:mutations --baseline <manifest> --seal <capture에서 받은 seal>`을 실행하고 manifest를 삭제합니다.
+- expected file 미변경, 예상 밖 변경, 기존 dirty 비대상 변경 또는 동시 writer가 감지되면 수정 완료로 보고하지 않고 실패 원인을 해결합니다.
+- verifier 성공 후에도 `read_file`, 관련 테스트, `git diff --check`로 내용과 문법을 별도 검증합니다.
 - 변경 전 관련 PRD·계약·구조를 먼저 확인합니다.
 - API·DB·권한·동시성·E2E·접근성 검증을 수행합니다.
 - Production DB·R2·secret·DNS·유료 리소스는 별도 승인 전 건드리지 않습니다.
