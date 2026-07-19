@@ -53,6 +53,29 @@ const callbackResponseSchema = z.object({
   callbackUrl: z.url(),
 }).passthrough();
 
+const mutationResponseSchema = z.object({
+  details: z.object({}).passthrough(),
+}).passthrough();
+
+const providerErrorResponseSchema = z.object({
+  details: z.array(z.object({
+    id: z.string().min(1).max(100).optional(),
+  }).passthrough()).max(10).optional(),
+}).passthrough();
+
+const PASSWORD_POLICY_ERROR_IDS = new Set([
+  "DOMAIN-HuJf6",
+  "DOMAIN-co3Xw",
+  "DOMAIN-VoaRj",
+  "DOMAIN-ZBv4H",
+  "DOMAIN-ZDLwA",
+]);
+const RESET_CODE_ERROR_IDS = new Set([
+  "CODE-QvUQ4P",
+  "CODE-woT0xc",
+  "COMMAND-2M9fs",
+]);
+
 function normalizeIssuer(value: string): string {
   const issuer = new URL(value);
   if (
@@ -180,6 +203,48 @@ export function createZitadelCustomLoginProvider(input: {
 
   return {
     validateAuthRequest,
+    async setPassword({ code, newPassword, userId }) {
+      const response = await request(`${issuer}/v2/users/${safeSegment(userId)}/password`, {
+        body: JSON.stringify({
+          newPassword: { changeRequired: false, password: newPassword },
+          verificationCode: code,
+        }),
+        headers: { ...serviceHeaders, "content-type": "application/json" },
+        method: "POST",
+      });
+      if (response.status === 400) {
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch {
+          throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+        }
+        const parsed = providerErrorResponseSchema.safeParse(body);
+        const errorIds = parsed.success
+          ? new Set((parsed.data.details ?? []).flatMap((detail) => detail.id ? [detail.id] : []))
+          : new Set<string>();
+        if ([...errorIds].some((id) => RESET_CODE_ERROR_IDS.has(id))) {
+          throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+        }
+        if ([...errorIds].some((id) => PASSWORD_POLICY_ERROR_IDS.has(id))) {
+          throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+        }
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }
+      if (response.status === 404) {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }
+      if (!response.ok) throw providerFailure(response.status);
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      }
+      if (!mutationResponseSchema.safeParse(body).success) {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      }
+    },
     async authenticateAndFinalize({ authRequest, loginName, password }) {
       const authRequestId = safeSegment(authRequest);
       await validateAuthRequest(authRequest);

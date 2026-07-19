@@ -47,6 +47,14 @@ Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을
 
 `ZITADEL_SERVICE_USER_TOKEN`은 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
 
+비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다.
+
+```text
+https://werehere-hotel-web-preview.wereheresp.workers.dev/password/set#userID={{.UserID}}&code={{.Code}}&orgID={{.OrgID}}
+```
+
+URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare request URL과 observability metadata에 사용자 ID·일회성 code가 들어가지 않는다. Web client는 기존 reset cookie가 있어도 새 fragment를 먼저 검사하고, 확인 전에는 입력폼을 표시하지 않는다. fragment 처리 시작 전에 비민감 10분 pending marker를 설정하고, 성공한 교환에서만 제거하므로 malformed fragment·API 503·browser network failure 뒤에는 stale reset cookie가 있어도 폼을 다시 활성화하지 않는다. Web proxy도 exchange upstream 실패 응답에서 reset cookie를 즉시 만료한다. fragment를 즉시 `history.replaceState`로 제거한 뒤 same-origin POST body로 `/api/auth/password/exchange`에 한 번만 전달한다. API는 이를 10분 만료 AES-GCM opaque token으로 교환해 `HttpOnly; Secure; SameSite=Strict` host cookie에만 저장한다. Web DOM, hidden input, query string, 애플리케이션 로그, DB, artifact에는 사용자 ID·code·비밀번호를 남기지 않는다. ZITADEL 400은 공식 ErrorDetail ID allowlist로 code 만료·무효와 비밀번호 정책 위반을 분리하며 unknown 400은 terminal invalid로 안전 실패한다. 비밀번호 변경 성공 시 cookie를 만료하고 성공 query 없이 `/login`으로 직접 이동한다. terminal invalid-link에서도 cookie를 즉시 만료하고 입력폼을 숨긴다. Preview 완료 판정은 새 메일의 실제 링크가 JSON API 오류 없이 설정 화면을 열고, 변경 후 새 비밀번호 로그인이 성공할 때만 한다.
+
 ## DB provisioning
 
 `packages/db/scripts/provision-preview.ts`는 다음을 안전 실패 방식으로 수행한다.
@@ -103,6 +111,10 @@ Web 200
 -> anonymous session 401 AUTHENTICATION_REQUIRED
 -> hotel custom credential form 200 + provider 이름 비노출
 -> login start 302 + browser-binding cookie + no-store
+-> password reset page 200 + query credential 없음
+-> fragment exchange POST 204 + encrypted HttpOnly reset cookie + request URL credential 없음
+-> invalid reset은 입력폼 없음 + reset cookie 만료
+-> password 변경 성공은 cookie 만료 + /login 직접 이동
 -> invalid callback 400 AUTH_FLOW_INVALID
 ```
 

@@ -218,6 +218,58 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it("sets a password only with the one-time verification code and never returns it", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ details: { sequence: "1" } }));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+    await expect(provider.setPassword({
+      code: "reset-code",
+      newPassword: "NewPassword-2026!",
+      userId: "subject-1",
+    })).resolves.toBeUndefined();
+
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe("https://identity.example.test/v2/users/subject-1/password");
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      newPassword: { changeRequired: false, password: "NewPassword-2026!" },
+      verificationCode: "reset-code",
+    });
+    expect(fetcher.mock.calls[0]?.[1]?.method).toBe("POST");
+  });
+
+  it("classifies an expired reset code as a terminal invalid flow", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({
+      details: [{ "@type": "type.googleapis.com/zitadel.v1.ErrorDetail", id: "CODE-QvUQ4P" }],
+    }, 400));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.setPassword({
+      code: "expired-code",
+      newPassword: "NewPassword-2026!",
+      userId: "subject-1",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID", httpStatus: 400, retryable: false });
+  });
+
+  it("keeps the retry token only for a known password-policy rejection", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({
+      details: [{ "@type": "type.googleapis.com/zitadel.v1.ErrorDetail", id: "DOMAIN-VoaRj" }],
+    }, 400));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.setPassword({
+      code: "valid-code",
+      newPassword: "password-without-uppercase-2026!",
+      userId: "subject-1",
+    })).rejects.toMatchObject({ code: "AUTH_CREDENTIALS_INVALID", httpStatus: 401, retryable: false });
+  });
+
+  it("fails closed for an unknown provider 400 payload", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({}, 400));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.setPassword({
+      code: "unknown-code",
+      newPassword: "NewPassword-2026!",
+      userId: "subject-1",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID", httpStatus: 400, retryable: false });
+  });
+
   it("logs only safe redirect metadata when the provider redirects an API request", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, {

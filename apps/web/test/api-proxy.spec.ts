@@ -102,6 +102,68 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("allows only the exact password-reset exchange and submit endpoints", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      return String(input).endsWith("/api/auth/password/exchange")
+        ? new Response(null, {
+          headers: { "set-cookie": "__Host-hotel_password_reset=opaque; Path=/; HttpOnly; Secure; SameSite=Strict" },
+          status: 204,
+        })
+        : new Response(null, { status: 303, headers: { location: "/login" } });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const exchange = await POST(
+      new Request("https://hotel.example.test/api/auth/password/exchange", {
+        body: "userID=user-1&code=code-1",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["auth", "password", "exchange"] }) },
+    );
+    expect(exchange.status).toBe(204);
+    expect(exchange.headers.get("set-cookie")).toContain("__Host-hotel_password_reset=opaque");
+    expect(String(upstreamFetch.mock.calls[0]?.[0])).toBe(
+      "http://127.0.0.1:8787/api/auth/password/exchange",
+    );
+    expect(new TextDecoder().decode(upstreamFetch.mock.calls[0]?.[1]?.body as ArrayBuffer))
+      .toBe("userID=user-1&code=code-1");
+
+    const submit = await POST(
+      new Request("https://hotel.example.test/api/auth/password/set", {
+        body: "newPassword=NewPassword-2026!&confirmation=NewPassword-2026!",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["auth", "password", "set"] }) },
+    );
+    expect(submit.status).toBe(303);
+
+    const unapproved = await GET(
+      new Request("https://hotel.example.test/api/auth/custom-login/start/password/other"),
+      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "password", "other"] }) },
+    );
+    expect(unapproved.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("expires a stale reset cookie when the exchange upstream is unavailable", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new Error("upstream unavailable")));
+
+    const response = await POST(
+      new Request("https://hotel.example.test/api/auth/password/exchange", {
+        body: "userID=user-1&code=code-1",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["auth", "password", "exchange"] }) },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
+  });
+
   it("rejects a non-HTTPS non-local API origin", async () => {
     process.env.HOTEL_API_ORIGIN = "http://api.example.test";
     const response = await GET(

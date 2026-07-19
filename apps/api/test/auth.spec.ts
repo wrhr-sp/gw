@@ -1,6 +1,6 @@
 import type { AuthenticatedPrincipal } from "@werehere/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { AuthServiceError, type AuthService } from "../src/auth/service";
+import { AuthServiceError, type PasswordResetAuthService } from "../src/auth/service";
 import { createApp } from "../src/app";
 
 const principal: AuthenticatedPrincipal = {
@@ -12,7 +12,7 @@ const principal: AuthenticatedPrincipal = {
   displayName: "사내 임직원",
 };
 
-function createService(overrides: Partial<AuthService> = {}): AuthService {
+function createService(overrides: Partial<PasswordResetAuthService> = {}): PasswordResetAuthService {
   return {
     beginLogin: vi.fn(async () => ({
       authorizationUrl: "https://identity.example.test/oauth/v2/authorize",
@@ -28,6 +28,8 @@ function createService(overrides: Partial<AuthService> = {}): AuthService {
     })),
     logout: vi.fn(async () => true),
     prepareCustomLogin: vi.fn(async () => ({ csrf: "c".repeat(43) })),
+    preparePasswordReset: vi.fn(async () => ({ token: `iv.${"t".repeat(64)}` })),
+    resetPassword: vi.fn(async () => undefined),
     resolvePrincipal: vi.fn(async () => principal),
     ...overrides,
   };
@@ -95,6 +97,133 @@ describe("hotel auth API", () => {
       { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
     );
     expect(unsupported.status).toBe(404);
+  });
+
+  it("exchanges a fragment-derived same-origin POST body for an HttpOnly token", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request("/api/auth/password/exchange", {
+      body: "userID=subject-1&code=reset-code&orgID=org-1",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(204);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("__Host-hotel_password_reset=");
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(cookie).not.toContain("reset-code");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(service.preparePasswordReset).toHaveBeenCalledWith("subject-1", "reset-code");
+
+    const duplicate = await createApp({ authService: service }).request("/api/auth/password/exchange", {
+      body: "userID=subject-1&userID=subject-2&code=reset-code",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_password_reset=stale.token",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(duplicate.status).toBe(400);
+    expect(duplicate.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
+    expect(service.preparePasswordReset).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets a password only from a same-origin form bound to the encrypted reset cookie", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request("/api/auth/password/set", {
+      body: new URLSearchParams({
+        confirmation: "NewPassword-2026!",
+        newPassword: "NewPassword-2026!",
+      }).toString(),
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login");
+    expect(service.resetPassword).toHaveBeenCalledWith(`iv.${"t".repeat(64)}`, "NewPassword-2026!");
+    expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
+  });
+
+  it("preserves the reset cookie for a known password-policy rejection", async () => {
+    const service = createService({
+      resetPassword: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/password/set", {
+      body: "newPassword=NewPassword-2026!&confirmation=NewPassword-2026!",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.headers.get("location")).toBe("/password/set?error=password-rejected");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("expires the reset cookie when the verification code is terminally invalid", async () => {
+    const service = createService({
+      resetPassword: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/password/set", {
+      body: "newPassword=NewPassword-2026!&confirmation=NewPassword-2026!",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(response.headers.get("location")).toBe("/password/set?error=invalid-link");
+    expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
+  });
+
+  it("rejects mismatched or cross-site password reset forms before calling ZITADEL", async () => {
+    const service = createService();
+    const mismatch = await createApp({ authService: service }).request("/api/auth/password/set", {
+      body: "newPassword=NewPassword-2026!&confirmation=DifferentPassword-2026!",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(mismatch.status).toBe(303);
+    expect(mismatch.headers.get("location")).toBe("/password/set?error=password-mismatch");
+
+    const crossSite = await createApp({ authService: service }).request("/api/auth/password/set", {
+      body: "newPassword=NewPassword-2026!&confirmation=NewPassword-2026!",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://attacker.example",
+        "sec-fetch-site": "cross-site",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+    expect(crossSite.status).toBe(303);
+    expect(crossSite.headers.get("location")).toBe("/password/set?error=invalid-link");
+    expect(service.resetPassword).not.toHaveBeenCalled();
   });
 
   it("shows a generic unavailable error when auth request validation cannot reach the provider", async () => {

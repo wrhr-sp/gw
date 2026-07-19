@@ -1,6 +1,8 @@
 import type { AuthenticatedPrincipal, HotelErrorCode } from "@werehere/contracts";
 import type { AuthRepository } from "@werehere/db";
 import {
+  base64UrlDecode,
+  base64UrlEncode,
   createPkceChallenge,
   decryptText,
   encryptText,
@@ -12,6 +14,9 @@ import {
 } from "./crypto";
 
 const LOGIN_TRANSACTION_LIFETIME_SECONDS = 10 * 60;
+const PASSWORD_RESET_TOKEN_LIFETIME_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_TOKEN_AAD = new TextEncoder().encode("werehere-password-reset-token-v1");
+const PASSWORD_RESET_TOKEN_MAX_LENGTH = 4096;
 export const SESSION_IDLE_LIFETIME_SECONDS = 8 * 60 * 60;
 export const SESSION_ABSOLUTE_LIFETIME_SECONDS = 24 * 60 * 60;
 
@@ -61,6 +66,7 @@ export interface CustomLoginProvider {
     loginName: string;
     password: string;
   }): Promise<{ callbackUrl: string }>;
+  setPassword(input: { code: string; newPassword: string; userId: string }): Promise<void>;
 }
 
 export type CompleteLoginResult = {
@@ -86,6 +92,11 @@ export interface AuthService {
   resolvePrincipal(sessionToken: string): Promise<AuthenticatedPrincipal | null>;
 }
 
+export interface PasswordResetAuthService extends AuthService {
+  preparePasswordReset(userId: string, code: string): Promise<{ token: string }>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
+}
+
 export class AuthServiceError extends Error {
   constructor(
     public readonly code: HotelErrorCode,
@@ -105,7 +116,7 @@ export function createAuthService(input: {
   redirectUri: string;
   repository: AuthRepository;
   successRedirect?: string;
-}): AuthService {
+}): PasswordResetAuthService {
   const successRedirect = input.successRedirect ?? "/hotel-operations";
 
   return {
@@ -282,6 +293,88 @@ export function createAuthService(input: {
       } catch (error) {
         if (error instanceof AuthServiceError) throw error;
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      }
+    },
+
+    async preparePasswordReset(userId, code) {
+      if (
+        !input.customLoginProvider ||
+        !/^[A-Za-z0-9_-]{1,200}$/u.test(userId) ||
+        !/^[A-Za-z0-9_-]{1,200}$/u.test(code)
+      ) {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }
+      const issuedAt = Date.now();
+      const encrypted = await encryptText(
+        input.encryptionKey,
+        JSON.stringify({
+          code,
+          expiresAt: issuedAt + PASSWORD_RESET_TOKEN_LIFETIME_MS,
+          issuedAt,
+          userId,
+          version: 1,
+        }),
+        PASSWORD_RESET_TOKEN_AAD,
+      );
+      return {
+        token: `${base64UrlEncode(encrypted.iv)}.${base64UrlEncode(encrypted.ciphertext)}`,
+      };
+    },
+
+    async resetPassword(token, newPassword) {
+      if (!input.customLoginProvider || newPassword.length < 12 || newPassword.length > 200) {
+        throw new AuthServiceError(
+          input.customLoginProvider ? "AUTH_FLOW_INVALID" : "AUTH_PROVIDER_NOT_CONFIGURED",
+          input.customLoginProvider ? 400 : 503,
+          false,
+        );
+      }
+      try {
+        const parts = token.split(".");
+        if (
+          token.length > PASSWORD_RESET_TOKEN_MAX_LENGTH ||
+          parts.length !== 2 || !parts[0] || !parts[1] ||
+          !/^[A-Za-z0-9_-]+$/u.test(parts[0]) || !/^[A-Za-z0-9_-]+$/u.test(parts[1])
+        ) {
+          throw new Error("invalid token");
+        }
+        const iv = base64UrlDecode(parts[0]);
+        const ciphertext = base64UrlDecode(parts[1]);
+        if (
+          iv.byteLength !== 12 || ciphertext.byteLength < 16 || ciphertext.byteLength > 2048 ||
+          base64UrlEncode(iv) !== parts[0] || base64UrlEncode(ciphertext) !== parts[1]
+        ) {
+          throw new Error("invalid token");
+        }
+        const plaintext = await decryptText(
+          input.encryptionKey,
+          ciphertext,
+          iv,
+          PASSWORD_RESET_TOKEN_AAD,
+        );
+        const payload: unknown = JSON.parse(plaintext);
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("invalid payload");
+        const value = payload as Record<string, unknown>;
+        if (
+          Object.keys(value).sort().join(",") !== "code,expiresAt,issuedAt,userId,version" ||
+          value.version !== 1 ||
+          typeof value.userId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/u.test(value.userId) ||
+          typeof value.code !== "string" || !/^[A-Za-z0-9_-]{1,200}$/u.test(value.code) ||
+          typeof value.issuedAt !== "number" || !Number.isSafeInteger(value.issuedAt) ||
+          typeof value.expiresAt !== "number" || !Number.isSafeInteger(value.expiresAt) ||
+          value.expiresAt - value.issuedAt !== PASSWORD_RESET_TOKEN_LIFETIME_MS ||
+          value.issuedAt > Date.now() + 60_000 || value.expiresAt <= Date.now()
+        ) {
+          throw new Error("invalid payload");
+        }
+        await input.customLoginProvider.setPassword({
+          code: value.code,
+          newPassword,
+          userId: value.userId,
+        });
+      } catch (error) {
+        if (error instanceof AuthServiceError) throw error;
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
       }
     },
 

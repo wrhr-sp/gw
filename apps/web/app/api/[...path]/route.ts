@@ -2,6 +2,7 @@ import type { HotelErrorCode } from "@werehere/contracts";
 import { ApiTransportNotConfiguredError, fetchApi } from "../../../lib/api-transport";
 
 export const dynamic = "force-dynamic";
+const CLEAR_PASSWORD_RESET_COOKIE = "__Host-hotel_password_reset=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -12,6 +13,8 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["auth/custom-login/start", new Set(["GET"])],
   ["auth/custom-login/start/login", new Set(["GET"])],
   ["auth/custom-login", new Set(["POST"])],
+  ["auth/password/exchange", new Set(["POST"])],
+  ["auth/password/set", new Set(["POST"])],
   ["auth/callback", new Set(["GET"])],
   ["auth/session", new Set(["GET"])],
   ["auth/logout", new Set(["POST"])],
@@ -74,6 +77,9 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
 
   const hotelRequest = apiPath === "hotels" || apiPath.startsWith("hotels/");
   const databaseRequest = hotelRequest || apiPath === "health/ready";
+  const exchangeFailureHeaders = apiPath === "auth/password/exchange"
+    ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
+    : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
 
   const headers = new Headers(request.headers);
@@ -102,11 +108,11 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
     if (error instanceof ApiTransportNotConfiguredError) {
       return databaseRequest
         ? failure("DB_NOT_CONFIGURED", "호텔 API 연결이 설정되지 않았습니다.", 503, false)
-        : failure("AUTH_PROVIDER_NOT_CONFIGURED", "인증 API 연결이 설정되지 않았습니다.", 503, false);
+        : failure("AUTH_PROVIDER_NOT_CONFIGURED", "인증 API 연결이 설정되지 않았습니다.", 503, false, exchangeFailureHeaders);
     }
     return databaseRequest
       ? failure("INTERNAL_ERROR", "호텔 API에 연결할 수 없습니다.", 503, true)
-      : failure("AUTH_PROVIDER_UNAVAILABLE", "인증 API에 연결할 수 없습니다.", 503, true);
+      : failure("AUTH_PROVIDER_UNAVAILABLE", "인증 API에 연결할 수 없습니다.", 503, true, exchangeFailureHeaders);
   }
 }
 

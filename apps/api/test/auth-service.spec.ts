@@ -57,6 +57,7 @@ async function setup() {
     authenticateAndFinalize: vi.fn(async () => ({
       callbackUrl: "https://hotel.example.test/api/auth/callback?code=code&state=state",
     })),
+    setPassword: vi.fn(async () => undefined),
   };
   const encryptionKey = await crypto.subtle.generateKey(
     { name: "AES-GCM", length: 256 },
@@ -195,6 +196,45 @@ describe("auth service", () => {
       .rejects.toMatchObject({ code: "AUTH_RATE_LIMITED", httpStatus: 429 });
     expect(customLoginProvider.validateAuthRequest).not.toHaveBeenCalled();
     expect(repository.prepareCustomLogin).not.toHaveBeenCalled();
+  });
+
+  it("exchanges a reset code for an encrypted short-lived cookie token and rejects tampering", async () => {
+    const { customLoginProvider, service } = await setup();
+    const prepared = await service.preparePasswordReset("subject-1", "reset-code-value");
+
+    expect(prepared.token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u);
+    expect(prepared.token).not.toContain("subject-1");
+    expect(prepared.token).not.toContain("reset-code-value");
+
+    await service.resetPassword(prepared.token, "NewPassword-2026!");
+    expect(customLoginProvider.setPassword).toHaveBeenCalledWith({
+      code: "reset-code-value",
+      newPassword: "NewPassword-2026!",
+      userId: "subject-1",
+    });
+
+    const [iv, ciphertext] = prepared.token.split(".") as [string, string];
+    const tamperedCiphertext = `${ciphertext.startsWith("a") ? "b" : "a"}${ciphertext.slice(1)}`;
+    const tampered = `${iv}.${tamperedCiphertext}`;
+    await expect(service.resetPassword(tampered, "AnotherPassword-2026!"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    await expect(service.resetPassword("a".repeat(4097), "AnotherPassword-2026!"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    await expect(service.resetPassword(`${prepared.token}=`, "AnotherPassword-2026!"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    await expect(service.resetPassword(`a.${ciphertext}`, "AnotherPassword-2026!"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+
+    const expiring = await service.preparePasswordReset("subject-1", "second-reset-code");
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.now() + 11 * 60 * 1000);
+      await expect(service.resetPassword(expiring.token, "AnotherPassword-2026!"))
+        .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(customLoginProvider.setPassword).toHaveBeenCalledTimes(1);
   });
 
   it("creates only a token hash with the approved 8h/24h lifetimes", async () => {
