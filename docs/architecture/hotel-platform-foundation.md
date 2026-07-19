@@ -103,7 +103,7 @@ Browser
 
 - 브라우저는 ZITADEL credential API를 직접 호출하지 않고 호텔관리 same-origin Login BFF만 사용한다.
 - Login BFF는 `IAM_LOGIN_CLIENT` 전용 service user token으로 auth request의 client ID·redirect URI를 확인한다.
-- ZITADEL custom Login V2 base URL은 `/api/auth/custom-login/start`다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 묶고 5분 이내 single-use CSRF를 발급한다.
+- ZITADEL custom Login V2 base URL은 `/api/auth/custom-login/start`다. ZITADEL이 자동으로 붙이는 `/login` suffix는 exact alias `/api/auth/custom-login/start/login`에서만 수용한다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 묶고 5분 이내 single-use CSRF를 발급한다.
 - auth request provider 검증은 PostgreSQL에서 transaction당 최대 5회 예약한 뒤 실행한다. 검증 완료된 동일 auth request 재진입은 provider를 다시 호출하지 않고 CSRF만 교체한다.
 - custom login이 지원하는 Auth Request scope는 기존 앱 계약인 `openid profile`로 제한한다. 별도 `prompt`·`maxAge` 요구 또는 Login Settings의 local-auth·MFA 핵심 필드 누락은 provider 계약 오류로 안전 실패한다.
 - 아이디·비밀번호는 ZITADEL Session API check에만 전달하며 DB·로그·cookie·artifact에 저장하지 않는다.

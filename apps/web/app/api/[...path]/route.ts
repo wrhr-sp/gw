@@ -10,6 +10,7 @@ type RouteContext = {
 const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["auth/login", new Set(["GET"])],
   ["auth/custom-login/start", new Set(["GET"])],
+  ["auth/custom-login/start/login", new Set(["GET"])],
   ["auth/custom-login", new Set(["POST"])],
   ["auth/callback", new Set(["GET"])],
   ["auth/session", new Set(["GET"])],

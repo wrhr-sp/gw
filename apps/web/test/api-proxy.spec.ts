@@ -78,6 +78,30 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("allows only the exact Login V2 suffix appended to the custom login base URI", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async (input: string | URL | Request) => {
+      expect(String(input)).toBe(
+        "http://127.0.0.1:8787/api/auth/custom-login/start/login?authRequest=request-1",
+      );
+      return new Response(null, { status: 303, headers: { location: "/login" } });
+    });
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const allowed = await GET(
+      new Request("https://hotel.example.test/api/auth/custom-login/start/login?authRequest=request-1"),
+      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "login"] }) },
+    );
+    expect(allowed.status).toBe(303);
+
+    const unapproved = await GET(
+      new Request("https://hotel.example.test/api/auth/custom-login/start/other?authRequest=request-1"),
+      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "other"] }) },
+    );
+    expect(unapproved.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
   it("rejects a non-HTTPS non-local API origin", async () => {
     process.env.HOTEL_API_ORIGIN = "http://api.example.test";
     const response = await GET(
