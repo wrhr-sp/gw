@@ -108,6 +108,20 @@ export function createZitadelCustomLoginProvider(input: {
     try {
       const response = await fetcher(url, { ...init, redirect: "manual" });
       if (response.status >= 300 && response.status < 400) {
+        let pathname = "invalid";
+        let sameOrigin = false;
+        try {
+          const location = new URL(response.headers.get("location") ?? "", url);
+          pathname = location.pathname;
+          sameOrigin = location.origin === issuer;
+        } catch {
+          // Invalid redirect metadata remains fail-closed.
+        }
+        console.warn("custom_login_provider_redirect_rejected", {
+          pathname,
+          sameOrigin,
+          status: response.status,
+        });
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       }
       return response;

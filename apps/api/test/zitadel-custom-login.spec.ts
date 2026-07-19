@@ -217,4 +217,22 @@ describe("ZITADEL custom login provider", () => {
       .rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it("logs only safe redirect metadata when the provider redirects an API request", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, {
+      status: 302,
+      headers: { location: `${base.issuer}/ui/login?secret=not-logged` },
+    }));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.validateAuthRequest("request-1"))
+      .rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
+    expect(warning).toHaveBeenCalledWith("custom_login_provider_redirect_rejected", {
+      pathname: "/ui/login",
+      sameOrigin: true,
+      status: 302,
+    });
+    expect(warning.mock.calls.flat().join(" ")).not.toContain("secret");
+    warning.mockRestore();
+  });
 });
