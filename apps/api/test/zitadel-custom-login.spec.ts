@@ -205,4 +205,16 @@ describe("ZITADEL custom login provider", () => {
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
+
+  it("classifies malformed auth request responses as provider unavailable", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ authRequest: {
+      id: "request-1",
+      clientId: "hotel-client",
+      redirectUri: base.redirectUri,
+    } }));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.validateAuthRequest("request-1"))
+      .rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
 });

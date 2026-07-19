@@ -328,8 +328,12 @@ export function createApp(options: CreateAppOptions = {}) {
       }
       return context.redirect(`${target.pathname}${target.search}`, 303);
     } catch (error) {
-      const reason = error instanceof AuthServiceError && error.code === "AUTH_RATE_LIMITED"
-        ? "rate-limited" : "invalid-flow";
+      const reason = error instanceof AuthServiceError
+        ? error.code === "AUTH_RATE_LIMITED" ? "rate-limited"
+          : ["AUTH_PROVIDER_NOT_CONFIGURED", "AUTH_PROVIDER_UNAVAILABLE"].includes(error.code)
+            ? "unavailable"
+            : "invalid-flow"
+        : "unavailable";
       return context.redirect(`/login?error=${reason}`, 303);
     }
   };

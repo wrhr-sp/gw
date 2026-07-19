@@ -97,6 +97,20 @@ describe("hotel auth API", () => {
     expect(unsupported.status).toBe(404);
   });
 
+  it("shows a generic unavailable error when auth request validation cannot reach the provider", async () => {
+    const service = createService({
+      prepareCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      }),
+    });
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/login?authRequest=oidc-request-1",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=unavailable");
+  });
+
   it("finalizes a same-origin hotel credential form through the OIDC callback", async () => {
     const service = createService();
     const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
