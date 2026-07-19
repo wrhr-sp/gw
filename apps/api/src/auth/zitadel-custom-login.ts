@@ -134,20 +134,32 @@ export function createZitadelCustomLoginProvider(input: {
     const authResponse = await request(`${issuer}/v2/oidc/auth_requests/${authRequestId}`, {
       headers: serviceHeaders,
     });
-    if (!authResponse.ok) throw providerFailure(authResponse.status);
-    const parsedAuth = authRequestResponseSchema.safeParse(await authResponse.json());
-    const supportedScopes = parsedAuth.success
-      ? [...new Set(parsedAuth.data.authRequest.scope)].sort()
-      : [];
-    if (
-      !parsedAuth.success ||
-      parsedAuth.data.authRequest.id !== authRequest ||
-      parsedAuth.data.authRequest.clientId !== input.clientId ||
-      parsedAuth.data.authRequest.redirectUri !== redirectUri.toString() ||
-      supportedScopes.join(" ") !== "openid profile" ||
-      (parsedAuth.data.authRequest.prompt?.length ?? 0) !== 0 ||
-      parsedAuth.data.authRequest.maxAge !== undefined
-    ) {
+    if (!authResponse.ok) {
+      console.warn("custom_login_auth_request_rejected", { reason: "http", status: authResponse.status });
+      throw providerFailure(authResponse.status);
+    }
+    let authBody: unknown;
+    try {
+      authBody = await authResponse.json();
+    } catch {
+      console.warn("custom_login_auth_request_rejected", { reason: "invalid-json" });
+      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+    }
+    const parsedAuth = authRequestResponseSchema.safeParse(authBody);
+    if (!parsedAuth.success) {
+      console.warn("custom_login_auth_request_rejected", { reason: "schema" });
+      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+    }
+    const supportedScopes = [...new Set(parsedAuth.data.authRequest.scope)].sort();
+    const reason = parsedAuth.data.authRequest.id !== authRequest ? "id"
+      : parsedAuth.data.authRequest.clientId !== input.clientId ? "client"
+      : parsedAuth.data.authRequest.redirectUri !== redirectUri.toString() ? "redirect"
+      : supportedScopes.join(" ") !== "openid profile" ? "scope"
+      : (parsedAuth.data.authRequest.prompt?.length ?? 0) !== 0 ? "prompt"
+      : parsedAuth.data.authRequest.maxAge !== undefined ? "max-age"
+      : null;
+    if (reason) {
+      console.warn("custom_login_auth_request_rejected", { reason });
       throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
     }
   }
