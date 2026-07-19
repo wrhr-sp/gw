@@ -81,6 +81,22 @@ describe("hotel auth API", () => {
     expect(service.prepareCustomLogin).toHaveBeenCalledWith("oidc-request-1", "browser-binding-value");
   });
 
+  it("accepts the Login V2 /login suffix appended to the configured base URI", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/login?authRequest=oidc-request-1",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    expect(service.prepareCustomLogin).toHaveBeenCalledWith("oidc-request-1", "browser-binding-value");
+
+    const unsupported = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/other?authRequest=oidc-request-1",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(unsupported.status).toBe(404);
+  });
+
   it("finalizes a same-origin hotel credential form through the OIDC callback", async () => {
     const service = createService();
     const response = await createApp({ authService: service }).request("/api/auth/custom-login", {

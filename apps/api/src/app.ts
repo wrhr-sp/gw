@@ -303,7 +303,7 @@ export function createApp(options: CreateAppOptions = {}) {
     }
   });
 
-  hotelApp.get("/api/auth/custom-login/start", async (context) => {
+  const startCustomLogin = async (context: Context<{ Bindings: Bindings }>) => {
     context.header("Cache-Control", "no-store");
     context.header("Referrer-Policy", "no-referrer");
     const requestUrl = new URL(context.req.url);
@@ -332,7 +332,9 @@ export function createApp(options: CreateAppOptions = {}) {
         ? "rate-limited" : "invalid-flow";
       return context.redirect(`/login?error=${reason}`, 303);
     }
-  });
+  };
+  hotelApp.get("/api/auth/custom-login/start", startCustomLogin);
+  hotelApp.get("/api/auth/custom-login/start/login", startCustomLogin);
 
   hotelApp.post("/api/auth/custom-login", async (context) => {
     context.header("Cache-Control", "no-store");
