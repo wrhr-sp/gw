@@ -11,7 +11,7 @@ import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { z } from "zod";
 import { createAuthServiceFromBindings, type AuthBindings } from "./auth/factory";
-import { AuthServiceError, type AuthService } from "./auth/service";
+import { AuthServiceError, type AuthService, type PasswordResetAuthService } from "./auth/service";
 import { createHotelServiceFromBindings, type HotelBindings } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
 import { resolveDatabaseUrl } from "./database";
@@ -19,9 +19,11 @@ import { resolveDatabaseUrl } from "./database";
 type Bindings = AuthBindings & HotelBindings;
 
 type ReadinessProbe = (databaseUrl: string | undefined) => Promise<DatabaseReadiness>;
+type InjectedAuthService = AuthService &
+  Partial<Pick<PasswordResetAuthService, "preparePasswordReset" | "resetPassword">>;
 
 type CreateAppOptions = {
-  authService?: AuthService;
+  authService?: InjectedAuthService;
   databaseUrl?: string;
   hotelService?: HotelService;
   readinessProbe?: ReadinessProbe;
@@ -49,6 +51,7 @@ function errorResponse(
 
 const SESSION_COOKIE_NAME = "__Host-hotel_session";
 const OAUTH_BROWSER_COOKIE_NAME = "__Host-hotel_oauth_browser";
+const PASSWORD_RESET_COOKIE_NAME = "__Host-hotel_password_reset";
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   maxAge: 24 * 60 * 60,
@@ -61,6 +64,15 @@ const OAUTH_BROWSER_COOKIE_OPTIONS = {
   ...SESSION_COOKIE_OPTIONS,
   maxAge: 10 * 60,
 };
+const PASSWORD_RESET_COOKIE_OPTIONS = {
+  ...SESSION_COOKIE_OPTIONS,
+  maxAge: 10 * 60,
+  sameSite: "Strict" as const,
+};
+const PASSWORD_RESET_FORM_SCHEMA = z.object({
+  confirmation: z.string().min(12).max(200),
+  newPassword: z.string().min(12).max(200),
+}).strict();
 const HOTEL_ID_SCHEMA = z.uuid();
 
 function readUniqueCookie(
@@ -105,7 +117,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   async function withAuthService<T>(
     bindings: Bindings | undefined,
-    operation: (service: AuthService) => Promise<T>,
+    operation: (service: InjectedAuthService) => Promise<T>,
   ): Promise<T> {
     const service = await getAuthService(bindings);
     try {
@@ -339,6 +351,143 @@ export function createApp(options: CreateAppOptions = {}) {
   };
   hotelApp.get("/api/auth/custom-login/start", startCustomLogin);
   hotelApp.get("/api/auth/custom-login/start/login", startCustomLogin);
+
+  hotelApp.post("/api/auth/password/exchange", async (context) => {
+    context.header("Cache-Control", "no-store");
+    context.header("Referrer-Policy", "no-referrer");
+    const clearResetCookie = () => setCookie(context, PASSWORD_RESET_COOKIE_NAME, "", {
+      ...PASSWORD_RESET_COOKIE_OPTIONS,
+      maxAge: 0,
+    });
+    const contentType = context.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+    const fetchSite = context.req.header("sec-fetch-site");
+    const origin = context.req.header("origin");
+    let expectedOrigin: string | undefined;
+    try {
+      expectedOrigin = context.env?.ZITADEL_REDIRECT_URI
+        ? new URL(context.env.ZITADEL_REDIRECT_URI).origin
+        : new URL(context.req.url).origin;
+    } catch {
+      expectedOrigin = undefined;
+    }
+    if (
+      contentType !== "application/x-www-form-urlencoded" ||
+      fetchSite !== "same-origin" || !origin || origin !== expectedOrigin
+    ) {
+      clearResetCookie();
+      return context.body(null, 400);
+    }
+
+    let params: URLSearchParams;
+    try {
+      const bytes = await context.req.arrayBuffer();
+      if (bytes.byteLength > 8 * 1024) throw new Error("body too large");
+      params = new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    } catch {
+      clearResetCookie();
+      return context.body(null, 400);
+    }
+    const allowedFields = new Set(["code", "orgID", "userID"]);
+    if (
+      [...params.keys()].some((name) => !allowedFields.has(name)) ||
+      params.getAll("userID").length !== 1 ||
+      params.getAll("code").length !== 1 ||
+      params.getAll("orgID").length > 1 ||
+      !params.get("userID") || !params.get("code")
+    ) {
+      clearResetCookie();
+      return context.body(null, 400);
+    }
+    try {
+      const prepared = await withAuthService(context.env, (service) => {
+        const preparePasswordReset = service.preparePasswordReset;
+        if (!preparePasswordReset) {
+          throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+        }
+        return preparePasswordReset(params.get("userID")!, params.get("code")!);
+      });
+      setCookie(context, PASSWORD_RESET_COOKIE_NAME, prepared.token, PASSWORD_RESET_COOKIE_OPTIONS);
+      return context.body(null, 204);
+    } catch {
+      clearResetCookie();
+      return context.body(null, 400);
+    }
+  });
+
+  hotelApp.post("/api/auth/password/set", async (context) => {
+    context.header("Cache-Control", "no-store");
+    context.header("Referrer-Policy", "no-referrer");
+    const clearResetCookie = () => setCookie(context, PASSWORD_RESET_COOKIE_NAME, "", {
+      ...PASSWORD_RESET_COOKIE_OPTIONS,
+      maxAge: 0,
+    });
+    const contentType = context.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+    const fetchSite = context.req.header("sec-fetch-site");
+    const origin = context.req.header("origin");
+    let expectedOrigin: string | undefined;
+    try {
+      expectedOrigin = context.env?.ZITADEL_REDIRECT_URI
+        ? new URL(context.env.ZITADEL_REDIRECT_URI).origin
+        : new URL(context.req.url).origin;
+    } catch {
+      expectedOrigin = undefined;
+    }
+    const resetToken = readUniqueCookie(context, PASSWORD_RESET_COOKIE_NAME);
+    if (
+      !resetToken || contentType !== "application/x-www-form-urlencoded" ||
+      fetchSite !== "same-origin" || !origin || origin !== expectedOrigin
+    ) {
+      clearResetCookie();
+      return context.redirect("/password/set?error=invalid-link", 303);
+    }
+
+    let params: URLSearchParams;
+    try {
+      const bytes = await context.req.arrayBuffer();
+      if (bytes.byteLength > 8 * 1024) throw new Error("body too large");
+      params = new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    } catch {
+      clearResetCookie();
+      return context.redirect("/password/set?error=invalid-link", 303);
+    }
+    const allowedFields = new Set(["confirmation", "newPassword"]);
+    if (
+      [...params.keys()].some((name) => !allowedFields.has(name)) ||
+      [...allowedFields].some((name) => params.getAll(name).length !== 1)
+    ) {
+      clearResetCookie();
+      return context.redirect("/password/set?error=invalid-link", 303);
+    }
+    const parsed = PASSWORD_RESET_FORM_SCHEMA.safeParse({
+      confirmation: params.get("confirmation"),
+      newPassword: params.get("newPassword"),
+    });
+    if (!parsed.success) return context.redirect("/password/set?error=password-policy", 303);
+    if (parsed.data.confirmation !== parsed.data.newPassword) {
+      return context.redirect("/password/set?error=password-mismatch", 303);
+    }
+
+    try {
+      await withAuthService(context.env, (service) => {
+        const resetPassword = service.resetPassword;
+        if (!resetPassword) {
+          throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+        }
+        return resetPassword(resetToken, parsed.data.newPassword);
+      });
+      clearResetCookie();
+      return context.redirect("/login", 303);
+    } catch (error) {
+      if (error instanceof AuthServiceError && error.code === "AUTH_CREDENTIALS_INVALID") {
+        return context.redirect("/password/set?error=password-rejected", 303);
+      }
+      if (error instanceof AuthServiceError && error.code === "AUTH_FLOW_INVALID") {
+        clearResetCookie();
+        return context.redirect("/password/set?error=invalid-link", 303);
+      }
+      return context.redirect("/password/set?error=unavailable", 303);
+    }
+  });
 
   hotelApp.post("/api/auth/custom-login", async (context) => {
     context.header("Cache-Control", "no-store");
