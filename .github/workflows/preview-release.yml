@@ -189,21 +189,29 @@ jobs:
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
             > "$workers_file"
-          if [[ "$(jq -r '.result_info.total_pages // 1' "$workers_file")" -gt 1 ]]; then
-            printf '%s\n' 'Worker list exceeds the safe single-page lookup limit.' >&2
+          if ! jq -e '
+            .success == true
+            and (.result | type) == "array"
+            and (.result_info | type) == "object"
+            and (.result_info.total_pages | type) == "number"
+            and .result_info.total_pages >= 0
+            and .result_info.total_pages <= 1
+            and (.result_info.total_pages | floor) == .result_info.total_pages
+          ' "$workers_file" >/dev/null; then
+            printf '%s\n' 'Worker list response failed safety validation.' >&2
             exit 1
           fi
           snapshot() {
             local output_name="$1"
             local worker_name="$2"
             local count
-            count="$(jq --arg name "$worker_name" '[.result[] | select(.id == $name)] | length' "$workers_file")"
-            if [[ "$count" -eq 0 ]]; then
+            count="$(jq -er --arg name "$worker_name" '[.result[] | select(.id == $name)] | length' "$workers_file")"
+            if [[ "$count" == "0" ]]; then
               printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
               printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
               return
             fi
-            if [[ "$count" -ne 1 ]]; then
+            if [[ "$count" != "1" ]]; then
               printf 'Worker lookup is ambiguous: %s\n' "$worker_name" >&2
               exit 1
             fi
@@ -212,12 +220,25 @@ jobs:
             snapshot_file="$(mktemp)"
             pnpm --filter @werehere/api exec wrangler deployments list \
               --name "$worker_name" --json > "$snapshot_file"
-            version="$(jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' "$snapshot_file")"
-            rm -f "$snapshot_file"
-            if [[ -z "$version" || "$version" == null ]]; then
-              printf 'Active Worker version was not found: %s\n' "$worker_name" >&2
+            if ! version="$(jq -er '
+              if type != "array" or length == 0 then
+                error("Worker deployment history was missing")
+              elif (.[-1].versions | type) != "array"
+                or (.[-1].versions | length) != 1
+                or (.[-1].versions[0].percentage | type) != "number"
+                or .[-1].versions[0].percentage != 100
+                or (.[-1].versions[0].version_id | type) != "string"
+                or (.[-1].versions[0].version_id | length) == 0 then
+                error("Active Worker deployment was not a single 100 percent version")
+              else
+                .[-1].versions[0].version_id
+              end
+            ' "$snapshot_file")"; then
+              rm -f "$snapshot_file"
+              printf 'Active Worker deployment is unsafe to snapshot: %s\n' "$worker_name" >&2
               exit 1
             fi
+            rm -f "$snapshot_file"
             printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
             printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
           }
@@ -227,10 +248,37 @@ jobs:
       - name: Deploy private API Worker
         id: deploy_api
         working-directory: apps/api
-        run: >-
-          pnpm exec wrangler deploy
-          --config wrangler.preview.generated.json
-          --secrets-file /tmp/werehere-api-preview-secrets.json
+        env:
+          DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-api
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec wrangler deploy \
+            --config wrangler.preview.generated.json \
+            --secrets-file /tmp/werehere-api-preview-secrets.json \
+            --strict \
+            --tag "$DEPLOY_TAG"
+          versions_file="$(mktemp)"
+          deployments_file="$(mktemp)"
+          trap 'rm -f "$versions_file" "$deployments_file"' EXIT
+          pnpm exec wrangler versions list --name werehere-hotel-api-preview --json > "$versions_file"
+          deployed_version="$(jq -er --arg tag "$DEPLOY_TAG" '
+            [.[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+            | if ($matches | length) != 1
+                or ($matches[0].id | type) != "string"
+                or ($matches[0].id | length) == 0 then
+                error("Tagged API Worker version was not unique")
+              else $matches[0].id end
+          ' "$versions_file")"
+          printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
+          pnpm exec wrangler deployments list --name werehere-hotel-api-preview --json > "$deployments_file"
+          jq -e --arg version "$deployed_version" '
+            type == "array" and length > 0
+            and (.[-1].versions | type) == "array"
+            and (.[-1].versions | length) == 1
+            and .[-1].versions[0].percentage == 100
+            and .[-1].versions[0].version_id == $version
+          ' "$deployments_file" >/dev/null
 
       - name: Build OpenNext Web Worker
         run: pnpm --filter @werehere/web build:cloudflare
@@ -238,7 +286,33 @@ jobs:
       - name: Deploy public Web Worker
         id: deploy_web
         working-directory: apps/web
-        run: pnpm exec wrangler deploy --config wrangler.jsonc
+        env:
+          DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec wrangler deploy --config wrangler.jsonc --strict --tag "$DEPLOY_TAG"
+          versions_file="$(mktemp)"
+          deployments_file="$(mktemp)"
+          trap 'rm -f "$versions_file" "$deployments_file"' EXIT
+          pnpm exec wrangler versions list --name werehere-hotel-web-preview --json > "$versions_file"
+          deployed_version="$(jq -er --arg tag "$DEPLOY_TAG" '
+            [.[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+            | if ($matches | length) != 1
+                or ($matches[0].id | type) != "string"
+                or ($matches[0].id | length) == 0 then
+                error("Tagged Web Worker version was not unique")
+              else $matches[0].id end
+          ' "$versions_file")"
+          printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
+          pnpm exec wrangler deployments list --name werehere-hotel-web-preview --json > "$deployments_file"
+          jq -e --arg version "$deployed_version" '
+            type == "array" and length > 0
+            and (.[-1].versions | type) == "array"
+            and (.[-1].versions | length) == 1
+            and .[-1].versions[0].percentage == 100
+            and .[-1].versions[0].version_id == $version
+          ' "$deployments_file" >/dev/null
 
       - name: Verify public Preview path
         id: preview_smoke
@@ -253,9 +327,11 @@ jobs:
           API_PREVIOUS: ${{ steps.worker_snapshot.outputs.api_previous }}
           API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
           API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
+          API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
           WEB_PREVIOUS: ${{ steps.worker_snapshot.outputs.web_previous }}
           WEB_EXISTED: ${{ steps.worker_snapshot.outputs.web_existed }}
           WEB_DEPLOY_OUTCOME: ${{ steps.deploy_web.outcome }}
+          WEB_DEPLOYED: ${{ steps.deploy_web.outputs.deployed_version }}
         run: |
           set +e
           active_worker_version() {
@@ -267,8 +343,21 @@ jobs:
               rm -f "$snapshot_file"
               return 1
             fi
-            jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' \
-              "$snapshot_file"
+            if ! jq -er '
+              if type != "array" or length == 0
+                or (.[-1].versions | type) != "array"
+                or (.[-1].versions | length) != 1
+                or .[-1].versions[0].percentage != 100
+                or (.[-1].versions[0].version_id | type) != "string"
+                or (.[-1].versions[0].version_id | length) == 0 then
+                error("Active Worker deployment was not a single 100 percent version")
+              else
+                .[-1].versions[0].version_id
+              end
+            ' "$snapshot_file"; then
+              rm -f "$snapshot_file"
+              return 1
+            fi
             rm -f "$snapshot_file"
           }
           worker_exists() {
@@ -315,8 +404,18 @@ jobs:
             local previous="$2"
             local existed="$3"
             local outcome="$4"
+            local deployed="$5"
             if [[ "$outcome" == "skipped" || -z "$outcome" ]]; then
               return 0
+            fi
+            if [[ -z "$deployed" ]]; then
+              return 1
+            fi
+            local current
+            current="$(active_worker_version "$worker_name")" || return 1
+            if [[ "$current" != "$deployed" ]]; then
+              printf 'Worker changed outside this release; refusing rollback: %s\n' "$worker_name" >&2
+              return 1
             fi
             if [[ "$existed" == "true" && -n "$previous" ]]; then
               if ! pnpm --filter @werehere/api exec wrangler rollback "$previous" \
@@ -342,9 +441,9 @@ jobs:
           }
           rollback_failed=0
           rollback_worker werehere-hotel-web-preview \
-            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" || rollback_failed=1
+            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" "$WEB_DEPLOYED" || rollback_failed=1
           rollback_worker werehere-hotel-api-preview \
-            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" || rollback_failed=1
+            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" "$API_DEPLOYED" || rollback_failed=1
           if [[ "$rollback_failed" -ne 0 ]]; then
             printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED' >&2
             exit 1
