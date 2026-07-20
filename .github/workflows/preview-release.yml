@@ -264,7 +264,7 @@ jobs:
           resolve_tagged_version() {
             local worker_name="$1"
             local tag="$2"
-            local saw_valid_absence=0
+            local valid_absence_count=0
             local attempt
             for attempt in 1 2 3 4 5; do
               local versions_file
@@ -294,7 +294,7 @@ jobs:
                     printf '%s\n' "$resolved"
                     return 0
                   fi
-                  saw_valid_absence=1
+                  valid_absence_count=$((valid_absence_count + 1))
                 else
                   rm -f "$versions_file"
                 fi
@@ -303,7 +303,7 @@ jobs:
               fi
               if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
             done
-            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            if [[ "$valid_absence_count" -eq 5 ]]; then return 1; fi
             return 2
           }
           deployed_version="$(resolve_tagged_version werehere-hotel-api-preview "$DEPLOY_TAG")"
@@ -335,7 +335,7 @@ jobs:
           resolve_tagged_version() {
             local worker_name="$1"
             local tag="$2"
-            local saw_valid_absence=0
+            local valid_absence_count=0
             local attempt
             for attempt in 1 2 3 4 5; do
               local versions_file
@@ -365,7 +365,7 @@ jobs:
                     printf '%s\n' "$resolved"
                     return 0
                   fi
-                  saw_valid_absence=1
+                  valid_absence_count=$((valid_absence_count + 1))
                 else
                   rm -f "$versions_file"
                 fi
@@ -374,7 +374,7 @@ jobs:
               fi
               if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
             done
-            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            if [[ "$valid_absence_count" -eq 5 ]]; then return 1; fi
             return 2
           }
           deployed_version="$(resolve_tagged_version werehere-hotel-web-preview "$DEPLOY_TAG")"
@@ -415,7 +415,7 @@ jobs:
           resolve_tagged_version() {
             local worker_name="$1"
             local tag="$2"
-            local saw_valid_absence=0
+            local valid_absence_count=0
             local attempt
             for attempt in 1 2 3 4 5; do
               local versions_file
@@ -445,7 +445,7 @@ jobs:
                     printf '%s\n' "$resolved"
                     return 0
                   fi
-                  saw_valid_absence=1
+                  valid_absence_count=$((valid_absence_count + 1))
                 else
                   rm -f "$versions_file"
                 fi
@@ -454,7 +454,7 @@ jobs:
               fi
               if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
             done
-            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            if [[ "$valid_absence_count" -eq 5 ]]; then return 1; fi
             return 2
           }
           active_worker_version() {
@@ -543,7 +543,21 @@ jobs:
               if [[ "$resolve_status" -eq 0 ]]; then
                 deployed="$recovered"
               elif [[ "$resolve_status" -eq 1 && "$outcome" == "failure" ]]; then
-                return 0
+                if [[ "$existed" == "true" && -n "$previous" ]]; then
+                  local unchanged_active
+                  unchanged_active="$(active_worker_version "$worker_name")" || return 1
+                  [[ "$unchanged_active" == "$previous" ]]
+                  return
+                fi
+                if [[ "$existed" == "false" ]]; then
+                  if worker_exists "$worker_name"; then
+                    return 1
+                  else
+                    [[ "$?" -eq 1 ]]
+                    return
+                  fi
+                fi
+                return 1
               else
                 return 1
               fi
