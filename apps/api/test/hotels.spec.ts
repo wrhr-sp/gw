@@ -30,6 +30,10 @@ const hotel: HotelBasicInformation = {
 
 function authService(active = true): AuthService {
   return {
+    beginCustomLogin: vi.fn(async () => ({
+      browserBinding: "b".repeat(43),
+      csrf: "c".repeat(43),
+    })),
     beginLogin: vi.fn(),
     completeLogin: vi.fn(),
     finalizeCustomLogin: vi.fn(),

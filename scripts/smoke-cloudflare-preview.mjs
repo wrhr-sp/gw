@@ -75,6 +75,22 @@ if (session.body.ok || session.body.error?.code !== "AUTHENTICATION_REQUIRED") {
   throw new Error("anonymous session contract is invalid");
 }
 
+const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
+const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
+if (!issuer || !consoleClientId) throw new Error("Console Preview configuration is missing");
+const consoleEnvironmentResponse = await fetch(`${issuer}/ui/console/assets/environment.json`, {
+  headers: { accept: "application/json" },
+  redirect: "error",
+});
+if (!consoleEnvironmentResponse.ok) throw new Error("ZITADEL Console environment is unavailable");
+const consoleEnvironment = await consoleEnvironmentResponse.json();
+if (
+  String(consoleEnvironment.issuer ?? "").replace(/\/+$/u, "") !== issuer ||
+  String(consoleEnvironment.clientid ?? "") !== consoleClientId
+) {
+  throw new Error("ZITADEL Console environment does not match Preview configuration");
+}
+
 const customLoginPage = await fetchExpected(`/login?authRequest=preview-smoke-request&csrf=${"c".repeat(43)}`, 200, {
   headers: { accept: "text/html" },
   redirect: "manual",
