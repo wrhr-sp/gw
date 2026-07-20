@@ -19,12 +19,14 @@ jobs:
       - name: Check ZITADEL login API permissions without a real account
         env:
           ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
           ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
         run: |
           node <<'NODE'
           const issuerValue = process.env.ZITADEL_ISSUER?.trim();
+          const subject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
           const token = process.env.ZITADEL_SERVICE_USER_TOKEN?.trim();
-          if (!issuerValue || !token) throw new Error("Preview diagnostic configuration is incomplete");
+          if (!issuerValue || !subject || !token) throw new Error("Preview diagnostic configuration is incomplete");
           const issuer = new URL(issuerValue);
           if (
             issuer.protocol !== "https:" || issuer.username || issuer.password ||
@@ -36,6 +38,27 @@ jobs:
             redirect: "manual",
           });
           console.log(`PREVIEW_LOGIN_SETTINGS_STATUS_${settings.status}`);
+          const user = await fetch(
+            new URL(`/v2/users/${encodeURIComponent(subject)}`, issuer),
+            { headers, redirect: "manual" },
+          );
+          console.log(`PREVIEW_SUBJECT_READ_STATUS_${user.status}`);
+          let organizationSettingsStatus = 0;
+          if (user.status === 200) {
+            const body = await user.json();
+            const organizationId = body?.user?.details?.resourceOwner;
+            if (typeof organizationId !== "string" || !organizationId) {
+              throw new Error("Preview subject organization metadata is invalid");
+            }
+            const organizationSettingsUrl = new URL("/v2/settings/login", issuer);
+            organizationSettingsUrl.searchParams.set("ctx.orgId", organizationId);
+            const organizationSettings = await fetch(organizationSettingsUrl, {
+              headers,
+              redirect: "manual",
+            });
+            organizationSettingsStatus = organizationSettings.status;
+            console.log(`PREVIEW_ORG_LOGIN_SETTINGS_STATUS_${organizationSettings.status}`);
+          }
           const impossibleLoginName = `permission-diagnostic-${crypto.randomUUID()}@invalid.example`;
           const impossiblePassword = crypto.randomUUID() + crypto.randomUUID();
           const session = await fetch(new URL("/v2/sessions", issuer), {
@@ -51,7 +74,9 @@ jobs:
             redirect: "manual",
           });
           console.log(`PREVIEW_SESSION_CREATE_STATUS_${session.status}`);
-          if (settings.status !== 200) throw new Error("Preview login settings permission check failed");
+          if (settings.status !== 200 || user.status !== 200 || organizationSettingsStatus !== 200) {
+            throw new Error("Preview login settings permission check failed");
+          }
           if (![400, 404].includes(session.status)) {
             throw new Error("Preview session write permission check failed");
           }
