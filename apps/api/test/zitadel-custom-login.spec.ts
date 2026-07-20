@@ -58,6 +58,38 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
 
+  it("accepts omitted false booleans in protobuf JSON login settings", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ authRequest: {
+        id: "request-proto-defaults",
+        clientId: "hotel-client",
+        redirectUri: base.redirectUri,
+        scope: ["openid", "profile"],
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true } }))
+      .mockResolvedValueOnce(json({ sessionId: "session-proto-defaults", sessionToken: "token-proto-defaults" }))
+      .mockResolvedValueOnce(json({ session: {
+        id: "session-proto-defaults",
+        expirationDate: "2026-07-17T00:05:00.000Z",
+        factors: {
+          user: { id: "subject-1", organizationId: "org-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+          password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+        },
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true } }))
+      .mockResolvedValueOnce(json({ callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value` }));
+
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "request-proto-defaults",
+      loginName: "hotel-admin",
+      password: "password-value",
+    })).resolves.toEqual({
+      callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value`,
+      clearBrowserBinding: false,
+    });
+  });
+
   it("finalizes only the exact built-in Console client tuple to its fixed callback", async () => {
     const consoleRedirectUri = `${base.issuer}/ui/console/auth/callback`;
     const fetcher = vi.fn<typeof fetch>()
@@ -260,7 +292,7 @@ describe("ZITADEL custom login provider", () => {
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
   });
 
-  it("fails closed when a required login policy field is omitted", async () => {
+  it("fails closed when a login policy field has an invalid type", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
         id: "request-1",
@@ -269,8 +301,7 @@ describe("ZITADEL custom login provider", () => {
         scope: ["openid", "profile"],
       } }))
       .mockResolvedValueOnce(json({ settings: {
-        allowLocalAuthentication: true,
-        forceMfa: false,
+        allowLocalAuthentication: "true",
       } }));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
