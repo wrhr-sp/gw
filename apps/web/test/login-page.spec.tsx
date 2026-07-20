@@ -31,4 +31,27 @@ describe("login page", () => {
     expect(html).not.toContain("ZITADEL");
     expect(html).not.toContain("회원가입");
   });
+
+  it.each([
+    ["not-provisioned", "아직 호텔 운영 서비스에 등록되지 않았습니다"],
+    ["access-denied", "호텔 운영 서비스를 이용할 수 없습니다"],
+  ])("renders the allowlisted %s callback error without redirecting", async (error, message) => {
+    const html = renderToStaticMarkup(await LoginPage({
+      searchParams: Promise.resolve({ error }),
+    }));
+    expect(html).toContain(message);
+    expect(html).toContain("href=\"/api/auth/login\"");
+    expect(html).not.toContain("http-equiv=\"refresh\"");
+  });
+
+  it("ignores unknown or duplicate callback error values", async () => {
+    const unknown = renderToStaticMarkup(await LoginPage({
+      searchParams: Promise.resolve({ error: "provider-secret-sentinel" }),
+    }));
+    const duplicate = renderToStaticMarkup(await LoginPage({
+      searchParams: Promise.resolve({ error: ["unavailable", "invalid-flow"] }),
+    }));
+    expect(unknown).not.toContain("provider-secret-sentinel");
+    expect(duplicate).not.toContain("로그인 서비스에 연결할 수 없습니다");
+  });
 });

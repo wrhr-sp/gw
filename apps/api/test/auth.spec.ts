@@ -434,17 +434,64 @@ describe("hotel auth API", () => {
 
   it("rejects callback requests without both code and state", async () => {
     const response = await createApp({ authService: createService() }).request("/api/auth/callback?code=only-code");
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, error: { code: "AUTH_FLOW_INVALID" } });
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(await response.text()).not.toContain("only-code");
   });
 
   it("rejects a callback that is not bound to the initiating browser", async () => {
     const service = createService();
     const response = await createApp({ authService: service })
       .request("/api/auth/callback?code=code-value&state=state-value");
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
     expect(service.completeLogin).not.toHaveBeenCalled();
     expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+  });
+
+  it.each([
+    ["IDENTITY_NOT_PROVISIONED", 403, false, "not-provisioned"],
+    ["FORBIDDEN", 403, false, "access-denied"],
+    ["AUTH_FLOW_INVALID", 400, false, "invalid-flow"],
+    ["AUTH_RATE_LIMITED", 429, true, "rate-limited"],
+    ["AUTH_PROVIDER_NOT_CONFIGURED", 503, false, "unavailable"],
+    ["AUTH_PROVIDER_UNAVAILABLE", 503, true, "unavailable"],
+  ] as const)("redirects callback %s failures to an allowlisted login error", async (
+    code,
+    status,
+    retryable,
+    expectedError,
+  ) => {
+    const service = createService({
+      completeLogin: vi.fn(async () => {
+        throw new AuthServiceError(code, status, retryable);
+      }),
+    });
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/callback?code=code-value&state=state-value",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`/login?error=${expectedError}`);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+    expect(cookie).not.toContain("__Host-hotel_session=");
+    expect(await response.text()).not.toContain("code-value");
+  });
+
+  it("redirects unexpected callback failures without exposing exception details", async () => {
+    const service = createService({
+      completeLogin: vi.fn(async () => {
+        throw new Error("postgres://sensitive-diagnostic-sentinel");
+      }),
+    });
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/callback?code=code-value&state=state-value",
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=unavailable");
+    expect(await response.text()).not.toContain("sensitive-diagnostic-sentinel");
   });
 
   it("sets only the approved host cookie after a valid callback", async () => {

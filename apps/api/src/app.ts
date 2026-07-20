@@ -161,6 +161,17 @@ export function createApp(options: CreateAppOptions = {}) {
     ), 500);
   }
 
+  function callbackErrorReason(error: unknown) {
+    if (!(error instanceof AuthServiceError)) return "unavailable";
+    switch (error.code) {
+      case "IDENTITY_NOT_PROVISIONED": return "not-provisioned";
+      case "FORBIDDEN": return "access-denied";
+      case "AUTH_FLOW_INVALID": return "invalid-flow";
+      case "AUTH_RATE_LIMITED": return "rate-limited";
+      default: return "unavailable";
+    }
+  }
+
   function hotelFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
     if (error instanceof HotelServiceError) {
       return context.json(errorResponse(
@@ -590,11 +601,7 @@ export function createApp(options: CreateAppOptions = {}) {
       maxAge: 0,
     });
     if (!code || !state || !browserBinding || context.req.query("error")) {
-      return context.json(errorResponse(
-        "AUTH_FLOW_INVALID",
-        AUTH_ERROR_MESSAGES.AUTH_FLOW_INVALID!,
-        false,
-      ), 400);
+      return context.redirect("/login?error=invalid-flow", 303);
     }
     try {
       const result = await withAuthService(context.env, (service) => (
@@ -603,7 +610,7 @@ export function createApp(options: CreateAppOptions = {}) {
       setCookie(context, SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
       return context.redirect(result.redirectTo, 302);
     } catch (error) {
-      return authFailure(context, error);
+      return context.redirect(`/login?error=${callbackErrorReason(error)}`, 303);
     }
   });
 

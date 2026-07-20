@@ -392,76 +392,49 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
     },
 
     async createSession(input) {
-      return sql.begin(async (transaction) => {
-        const identities = await transaction<{
-          company_id: string;
-          company_status: string;
-          display_name: string;
-          identity_id: string;
-          user_id: string;
-          user_status: string;
-          user_type: HotelUserType;
-        }[]>`
-          select identity.company_id,
-                 identity.id as identity_id,
-                 identity.user_id,
-                 app_user.user_type,
-                 app_user.display_name,
-                 app_user.status as user_status,
-                 company.status as company_status
-          from auth_identities identity
-          join users app_user
-            on app_user.company_id = identity.company_id
-           and app_user.id = identity.user_id
-          join companies company on company.id = identity.company_id
-          where identity.provider = 'ZITADEL'
-            and identity.provider_subject = ${input.providerSubject}
-          for share of identity, app_user, company
-        `;
-        const identity = identities[0];
-        if (!identity) return { status: "IDENTITY_NOT_PROVISIONED" } as const;
-        if (identity.user_status !== "ACTIVE" || identity.company_status !== "ACTIVE") {
-          return { status: "PRINCIPAL_INACTIVE" } as const;
-        }
-
-        await transaction`
-          insert into auth_sessions (
-            id, company_id, user_id, identity_id, token_hash,
-            idle_expires_at, absolute_expires_at, auth_time, authentication_method
-          ) values (
-            ${input.sessionId}, ${identity.company_id}, ${identity.user_id},
-            ${identity.identity_id}, ${input.tokenHash},
-            now() + make_interval(secs => ${input.idleLifetimeSeconds}),
-            now() + make_interval(secs => ${input.absoluteLifetimeSeconds}),
-            ${input.authTime}, 'OIDC_PKCE'
-          )
-        `;
-
-        await transaction`
-          insert into audit_events (
-            id, event_code, actor_user_id, actor_type, session_id,
-            company_id, resource_type, resource_id, after_summary,
-            result, trace_id
-          ) values (
-            ${crypto.randomUUID()}, 'AUTH_LOGIN_SUCCEEDED', ${identity.user_id},
-            ${identity.user_type}, ${input.sessionId}, ${identity.company_id},
-            'SESSION', ${input.sessionId}, ${transaction.json({ authenticationMethod: "OIDC_PKCE" })},
-            'SUCCEEDED', ${input.traceId}
-          )
-        `;
-
-        return {
-          status: "CREATED",
-          principal: {
-            companyId: identity.company_id,
-            identityId: identity.identity_id,
-            sessionId: input.sessionId,
-            userId: identity.user_id,
-            userType: identity.user_type,
-            displayName: identity.display_name,
-          },
-        } as const;
-      });
+      const rows = await sql<{
+        company_id: string | null;
+        display_name: string | null;
+        identity_id: string | null;
+        result_status: "CREATED" | "IDENTITY_NOT_PROVISIONED" | "PRINCIPAL_INACTIVE";
+        session_id: string | null;
+        user_id: string | null;
+        user_type: HotelUserType | null;
+      }[]>`
+        select * from public.auth_create_session(
+          ${input.sessionId}::uuid,
+          ${input.tokenHash}::bytea,
+          ${input.providerSubject}::text,
+          ${input.idleLifetimeSeconds}::integer,
+          ${input.absoluteLifetimeSeconds}::integer,
+          ${input.authTime}::timestamptz,
+          ${input.traceId}::uuid
+        )
+      `;
+      const result = rows[0];
+      if (!result || result.result_status === "IDENTITY_NOT_PROVISIONED") {
+        return { status: "IDENTITY_NOT_PROVISIONED" } as const;
+      }
+      if (result.result_status === "PRINCIPAL_INACTIVE") {
+        return { status: "PRINCIPAL_INACTIVE" } as const;
+      }
+      if (
+        !result.company_id || !result.identity_id || !result.session_id ||
+        !result.user_id || !result.user_type || !result.display_name
+      ) {
+        throw new Error("auth session function returned an incomplete principal");
+      }
+      return {
+        status: "CREATED",
+        principal: {
+          companyId: result.company_id,
+          identityId: result.identity_id,
+          sessionId: result.session_id,
+          userId: result.user_id,
+          userType: result.user_type,
+          displayName: result.display_name,
+        },
+      } as const;
     },
 
     async resolvePrincipal(tokenHash, idleLifetimeSeconds) {

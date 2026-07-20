@@ -190,16 +190,38 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select count(*) = 4 as migration_applied
+      select count(*) = 5 as migration_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
         '0002_auth_session_runtime',
         '0003_hotel_basic_information',
-        '0004_custom_login_security'
+        '0004_custom_login_security',
+        '0005_auth_session_definer'
       )
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
+
+    const [authFunction] = await sql<{
+      executable: boolean;
+      safe_search_path: boolean;
+      security_definer: boolean;
+    }[]>`
+      select procedure_record.prosecdef as security_definer,
+             procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
+             has_function_privilege(
+               current_user, procedure_record.oid, 'EXECUTE'
+             ) as executable
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      where procedure_namespace.nspname = 'public'
+        and procedure_record.proname = 'auth_create_session'
+        and pg_get_function_identity_arguments(procedure_record.oid)
+          = 'p_session_id uuid, p_token_hash bytea, p_provider_subject text, p_idle_lifetime_seconds integer, p_absolute_lifetime_seconds integer, p_auth_time timestamp with time zone, p_trace_id uuid'
+    `;
+    if (!authFunction?.security_definer || !authFunction.safe_search_path || !authFunction.executable) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
 
     const constraintRows = await sql<{
       constraint_name: string;
