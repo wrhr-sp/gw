@@ -274,6 +274,68 @@ if [[ "$SESSION_AUDIT" != $'1\n1' ]]; then
   printf '%s\n' 'Runtime auth session and audit read-back was not atomic.' >&2
   exit 1
 fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create function public.preview_reject_auth_login_audit()
+returns trigger
+language plpgsql
+as $function$
+begin
+  if new.event_code = 'AUTH_LOGIN_SUCCEEDED' then
+    raise exception 'preview audit failure probe' using errcode = 'P0001';
+  end if;
+  return new;
+end
+$function$;
+create trigger preview_reject_auth_login_audit
+before insert on audit_events
+for each row execute function public.preview_reject_auth_login_audit();
+SQL
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm --filter @werehere/db exec tsx <<'NODE'
+import postgres from "postgres";
+import { createPostgresAuthRepository } from "./src/auth.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+const providerSubject = process.env.TEST_PROVIDER_SUBJECT;
+if (!databaseUrl || !providerSubject) throw new Error("Preview runtime test configuration is missing");
+const repository = createPostgresAuthRepository(databaseUrl);
+const sessionId = crypto.randomUUID();
+const traceId = crypto.randomUUID();
+try {
+  await repository.createSession({
+    absoluteLifetimeSeconds: 86400,
+    authTime: new Date(),
+    idleLifetimeSeconds: 28800,
+    providerSubject,
+    sessionId,
+    tokenHash: crypto.getRandomValues(new Uint8Array(32)),
+    traceId,
+  });
+  throw new Error("Audit failure unexpectedly created an auth session");
+} catch (error) {
+  if (!(error instanceof postgres.PostgresError) || error.code !== "P0001") throw error;
+} finally {
+  await repository.close?.();
+}
+console.log(`${sessionId} ${traceId}`);
+NODE
+) >"$TMP_DIR/failed-session-id"
+read -r FAILED_SESSION_ID FAILED_TRACE_ID <"$TMP_DIR/failed-session-id"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger preview_reject_auth_login_audit on audit_events;
+drop function public.preview_reject_auth_login_audit();
+SQL
+FAILED_SESSION_AUDIT="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from auth_sessions where id = '$FAILED_SESSION_ID'::uuid;
+select count(*) from audit_events
+where session_id = '$FAILED_SESSION_ID'::uuid
+   or trace_id = '$FAILED_TRACE_ID'::uuid;
+SQL
+)"
+if [[ "$FAILED_SESSION_AUDIT" != $'0\n0' ]]; then
+  printf '%s\n' 'Audit failure did not roll back the auth session transaction.' >&2
+  exit 1
+fi
 VISIBLE="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RUNTIME_URL" <<SQL
 begin;
 select set_config('app.company_id', '$COMPANY_ID', true);
