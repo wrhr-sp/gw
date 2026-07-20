@@ -129,6 +129,6 @@ Web 200
 5. Hyperdrive의 runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
 6. DB 변경 복원이 필요하면 Neon Preview branch/snapshot을 복원하거나 Preview DB를 재생성한다.
 7. Production, DNS, custom domain은 변경하지 않는다.
-8. 인증 세션 definer 전환의 expand 배포에서는 구 Worker rollback 호환을 위해 runtime의 `auth_sessions INSERT`를 임시 유지한다.
-9. 새 Worker 배포와 실제 로그인 smoke 성공 직후 별도 contract 변경으로 직접 `INSERT`를 회수하고 함수 경로만 재검증한다.
-10. contract 적용 뒤에는 직접 INSERT를 사용하는 구 Worker를 rollback 대상으로 사용하지 않는다.
+8. 인증 세션 definer 전환의 contract 적용 후 runtime에는 `auth_sessions UPDATE`만 유지하고 직접 `INSERT`는 허용하지 않는다.
+9. session 생성은 `auth_create_session(...)` 함수만 사용하며, integration에서 직접 `INSERT`의 `42501`, 함수 성공, session·audit read-back을 함께 검증한다.
+10. 직접 INSERT를 사용하는 contract 이전 Worker는 rollback 대상으로 사용하지 않는다.
