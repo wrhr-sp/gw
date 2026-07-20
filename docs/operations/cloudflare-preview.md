@@ -115,7 +115,7 @@ Web 200
 -> fragment exchange POST 204 + encrypted HttpOnly reset cookie + request URL credential 없음
 -> invalid reset은 입력폼 없음 + reset cookie 만료
 -> password 변경 성공은 cookie 만료 + /login 직접 이동
--> invalid callback 400 AUTH_FLOW_INVALID
+-> invalid callback 303 /login?error=invalid-flow + no-store + no-referrer + OAuth cookie 만료
 ```
 
 최종 승인 전 수동 smoke에는 실제 ZITADEL 사용자로 로그인한 뒤 호텔 목록, 등록, 상세 PostgreSQL read-back과 권한·tenant 차단 확인이 포함된다.
@@ -129,3 +129,6 @@ Web 200
 5. Hyperdrive의 runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
 6. DB 변경 복원이 필요하면 Neon Preview branch/snapshot을 복원하거나 Preview DB를 재생성한다.
 7. Production, DNS, custom domain은 변경하지 않는다.
+8. 인증 세션 definer 전환의 expand 배포에서는 구 Worker rollback 호환을 위해 runtime의 `auth_sessions INSERT`를 임시 유지한다.
+9. 새 Worker 배포와 실제 로그인 smoke 성공 직후 별도 contract 변경으로 직접 `INSERT`를 회수하고 함수 경로만 재검증한다.
+10. contract 적용 뒤에는 직접 INSERT를 사용하는 구 Worker를 rollback 대상으로 사용하지 않는다.

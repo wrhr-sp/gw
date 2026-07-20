@@ -3,6 +3,7 @@ import { ApiTransportNotConfiguredError, fetchApi } from "../../../lib/api-trans
 
 export const dynamic = "force-dynamic";
 const CLEAR_PASSWORD_RESET_COOKIE = "__Host-hotel_password_reset=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict";
+const CLEAR_OAUTH_BROWSER_COOKIE = "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -105,6 +106,17 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
       statusText: upstream.statusText,
     });
   } catch (error) {
+    if (apiPath === "auth/callback") {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          "Cache-Control": "no-store",
+          Location: "/login?error=unavailable",
+          "Referrer-Policy": "no-referrer",
+          "Set-Cookie": CLEAR_OAUTH_BROWSER_COOKIE,
+        },
+      });
+    }
     if (error instanceof ApiTransportNotConfiguredError) {
       return databaseRequest
         ? failure("DB_NOT_CONFIGURED", "호텔 API 연결이 설정되지 않았습니다.", 503, false)

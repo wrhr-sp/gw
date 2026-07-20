@@ -65,7 +65,7 @@ export interface CustomLoginProvider {
     authRequest: string;
     loginName: string;
     password: string;
-  }): Promise<{ callbackUrl: string }>;
+  }): Promise<{ callbackUrl: string; clearBrowserBinding?: boolean }>;
   setPassword(input: { code: string; newPassword: string; userId: string }): Promise<void>;
 }
 
@@ -76,6 +76,10 @@ export type CompleteLoginResult = {
 };
 
 export interface AuthService {
+  beginCustomLogin(
+    authRequest: string,
+    ipAddress: string,
+  ): Promise<{ browserBinding: string; csrf: string }>;
   beginLogin(): Promise<{ authorizationUrl: string; browserBinding: string }>;
   close?(): Promise<void>;
   completeLogin(code: string, state: string, browserBinding: string): Promise<CompleteLoginResult>;
@@ -86,7 +90,7 @@ export interface AuthService {
     ipAddress: string;
     loginName: string;
     password: string;
-  }): Promise<{ callbackUrl: string }>;
+  }): Promise<{ callbackUrl: string; clearBrowserBinding?: boolean }>;
   logout(sessionToken: string): Promise<boolean>;
   prepareCustomLogin(authRequest: string, browserBinding: string): Promise<{ csrf: string }>;
   resolvePrincipal(sessionToken: string): Promise<AuthenticatedPrincipal | null>;
@@ -119,30 +123,30 @@ export function createAuthService(input: {
 }): PasswordResetAuthService {
   const successRedirect = input.successRedirect ?? "/hotel-operations";
 
-  return {
-    async close() {
-      await input.repository.close?.();
-    },
-
-    async beginLogin() {
-      const state = randomBase64Url(32);
-      const nonce = randomBase64Url(32);
-      const browserBinding = randomBase64Url(32);
-      const codeVerifier = randomBase64Url(64);
-      const [stateHash, nonceHash, browserBindingHash, codeChallenge] = await Promise.all([
-        sha256(state),
-        sha256(nonce),
-        sha256(browserBinding),
-        createPkceChallenge(codeVerifier),
-      ]);
-      const encryptedVerifier = await encryptText(input.encryptionKey, codeVerifier, stateHash);
-      const authorizationUrl = await input.provider.buildAuthorizationUrl({
+  async function buildLoginTransaction(includeAuthorizationUrl: boolean) {
+    const state = randomBase64Url(32);
+    const nonce = randomBase64Url(32);
+    const browserBinding = randomBase64Url(32);
+    const codeVerifier = randomBase64Url(64);
+    const [stateHash, nonceHash, browserBindingHash, codeChallenge] = await Promise.all([
+      sha256(state),
+      sha256(nonce),
+      sha256(browserBinding),
+      createPkceChallenge(codeVerifier),
+    ]);
+    const encryptedVerifier = await encryptText(input.encryptionKey, codeVerifier, stateHash);
+    const authorizationUrl = includeAuthorizationUrl
+      ? await input.provider.buildAuthorizationUrl({
         codeChallenge,
         nonce,
         redirectUri: input.redirectUri,
         state,
-      });
-      const transactionResult = await input.repository.createLoginTransaction({
+      })
+      : undefined;
+    return {
+      authorizationUrl,
+      browserBinding,
+      transaction: {
         id: crypto.randomUUID(),
         stateHash,
         browserBindingHash,
@@ -152,11 +156,99 @@ export function createAuthService(input: {
         encryptionKeyVersion: 1,
         lifetimeSeconds: LOGIN_TRANSACTION_LIFETIME_SECONDS,
         redirectUri: input.redirectUri,
+      },
+    };
+  }
+
+  async function prepareCustomLoginInternal(
+    authRequest: string,
+    browserBinding: string,
+    providerAlreadyValidated: boolean,
+  ) {
+    if (!input.customLoginProvider || !authRequest.trim() || !browserBinding.trim()) {
+      throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+    }
+    const authRequestHash = await hmacSha256(
+      input.rateLimitKey,
+      `custom-login/auth-request/v1\0${authRequest}`,
+    );
+    const browserBindingHash = await sha256(browserBinding);
+    const reservation = await input.repository.reserveCustomLoginValidation({
+      authRequestHash,
+      browserBindingHash,
+    });
+    if (reservation.status === "RATE_LIMITED") {
+      throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
+    }
+    if (reservation.status === "FLOW_INVALID") {
+      throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+    }
+    if (reservation.status === "RESERVED" && !providerAlreadyValidated) {
+      await input.customLoginProvider.validateAuthRequest(authRequest);
+    }
+    const csrf = randomBase64Url(32);
+    const result = await input.repository.prepareCustomLogin({
+      authRequestHash,
+      browserBindingHash,
+      csrfHash: await sha256(csrf),
+      csrfLifetimeSeconds: 5 * 60,
+    });
+    if (result.status === "RATE_LIMITED") {
+      throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
+    }
+    if (result.status !== "PREPARED") {
+      throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+    }
+    return { csrf };
+  }
+
+  return {
+    async close() {
+      await input.repository.close?.();
+    },
+
+    async beginCustomLogin(authRequest, ipAddress) {
+      if (!input.customLoginProvider || !authRequest.trim()) {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }
+      const start = await input.repository.reserveCustomLoginStart(await hmacSha256(
+        input.rateLimitKey,
+        `custom-login/start-ip/v1\0${canonicalizeIp(ipAddress)}`,
+      ));
+      if (start.status === "RATE_LIMITED") {
+        throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
+      }
+      await input.customLoginProvider.validateAuthRequest(authRequest);
+      const login = await buildLoginTransaction(false);
+      const csrf = randomBase64Url(32);
+      const result = await input.repository.createCustomLoginTransaction({
+        ...login.transaction,
+        authRequestHash: await hmacSha256(
+          input.rateLimitKey,
+          `custom-login/auth-request/v1\0${authRequest}`,
+        ),
+        csrfHash: await sha256(csrf),
+        csrfLifetimeSeconds: 5 * 60,
       });
+      if (result.status === "CAPACITY_EXCEEDED") {
+        throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
+      }
+      if (result.status !== "CREATED") {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }
+      return { browserBinding: login.browserBinding, csrf };
+    },
+
+    async beginLogin() {
+      const login = await buildLoginTransaction(true);
+      const transactionResult = await input.repository.createLoginTransaction(login.transaction);
       if (transactionResult.status === "CAPACITY_EXCEEDED") {
         throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
       }
-      return { authorizationUrl, browserBinding };
+      return {
+        authorizationUrl: login.authorizationUrl!,
+        browserBinding: login.browserBinding,
+      };
     },
 
     async completeLogin(code, state, browserBinding) {
@@ -221,41 +313,7 @@ export function createAuthService(input: {
     },
 
     async prepareCustomLogin(authRequest, browserBinding) {
-      if (!input.customLoginProvider || !authRequest.trim() || !browserBinding.trim()) {
-        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
-      }
-      const authRequestHash = await hmacSha256(
-        input.rateLimitKey,
-        `custom-login/auth-request/v1\0${authRequest}`,
-      );
-      const browserBindingHash = await sha256(browserBinding);
-      const reservation = await input.repository.reserveCustomLoginValidation({
-        authRequestHash,
-        browserBindingHash,
-      });
-      if (reservation.status === "RATE_LIMITED") {
-        throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
-      }
-      if (reservation.status === "FLOW_INVALID") {
-        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
-      }
-      if (reservation.status === "RESERVED") {
-        await input.customLoginProvider.validateAuthRequest(authRequest);
-      }
-      const csrf = randomBase64Url(32);
-      const result = await input.repository.prepareCustomLogin({
-        authRequestHash,
-        browserBindingHash,
-        csrfHash: await sha256(csrf),
-        csrfLifetimeSeconds: 5 * 60,
-      });
-      if (result.status === "RATE_LIMITED") {
-        throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
-      }
-      if (result.status !== "PREPARED") {
-        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
-      }
-      return { csrf };
+      return prepareCustomLoginInternal(authRequest, browserBinding, false);
     },
 
     async finalizeCustomLogin(command) {

@@ -76,6 +76,91 @@ try {
   `;
   if (expiredRows[0]?.count !== 0) throw new Error("expired login transaction cleanup did not run");
 
+  const atomicAuthRequestHash = randomBytes(32);
+  const atomicInput = () => ({
+    id: crypto.randomUUID(),
+    stateHash: randomBytes(32),
+    browserBindingHash: randomBytes(32),
+    nonceHash: randomBytes(32),
+    codeVerifierCiphertext: randomBytes(59),
+    codeVerifierIv: randomBytes(12),
+    encryptionKeyVersion: 1,
+    lifetimeSeconds: 600,
+    redirectUri: "https://hotel.example.test/api/auth/callback",
+    authRequestHash: atomicAuthRequestHash,
+    csrfHash: randomBytes(32),
+    csrfLifetimeSeconds: 300,
+  });
+  const atomicClaimResults = await Promise.all([
+    repository.createCustomLoginTransaction(atomicInput()),
+    parallelRepository.createCustomLoginTransaction(atomicInput()),
+  ]);
+  const atomicClaimStatuses = atomicClaimResults.map((result) => result.status).sort();
+  if (atomicClaimStatuses.join(",") !== "CREATED,REPLAYED") {
+    throw new Error(`atomic custom request claim mismatch: ${atomicClaimStatuses.join(",")}`);
+  }
+  const atomicClaimRows = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from auth_login_transactions
+    where custom_auth_request_hash = ${atomicAuthRequestHash}
+  `;
+  if (atomicClaimRows[0]?.count !== 1) {
+    throw new Error("replayed custom request created more than one transaction");
+  }
+
+  const startIpHash = randomBytes(32);
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    const reservation = await repository.reserveCustomLoginStart(startIpHash);
+    if (reservation.status !== "RESERVED") {
+      throw new Error(`custom login start reservation ${attempt} failed`);
+    }
+  }
+  const limitedStart = await repository.reserveCustomLoginStart(startIpHash);
+  if (limitedStart.status !== "RATE_LIMITED") {
+    throw new Error("custom login start IP limit was not enforced");
+  }
+
+  const saturatedCredentialFlow = await createPreparedFlow(
+    repository,
+    "https://saturated-credential.example.test/callback",
+  );
+  const saturatedCredentialIpHash = randomBytes(32);
+  await sql`
+    insert into auth_credential_rate_limits (
+      scope, subject_hash, window_started_at, attempt_count, expires_at
+    ) values ('IP', ${saturatedCredentialIpHash}, now(), 1000, now() + interval '15 minutes')
+  `;
+  const saturatedCredentialAttempt = await repository.consumeCustomLoginAttempt({
+    accountHash: randomBytes(32),
+    authRequestHash: saturatedCredentialFlow.authRequestHash,
+    browserBindingHash: saturatedCredentialFlow.browserBindingHash,
+    csrfHash: saturatedCredentialFlow.csrfHash,
+    ipHash: saturatedCredentialIpHash,
+  });
+  if (saturatedCredentialAttempt.status !== "RATE_LIMITED") {
+    throw new Error("saturated credential IP bucket did not fail closed");
+  }
+  const saturatedCredentialRows = await sql<{
+    attempt_count: number;
+    csrf_cleared: boolean;
+    ip_attempt_count: number;
+  }[]>`
+    select login_tx.custom_attempt_count as attempt_count,
+           login_tx.custom_csrf_hash is null as csrf_cleared,
+           rate_limit.attempt_count as ip_attempt_count
+    from auth_login_transactions login_tx
+    join auth_credential_rate_limits rate_limit
+      on rate_limit.scope = 'IP' and rate_limit.subject_hash = ${saturatedCredentialIpHash}
+    where login_tx.state_hash = ${saturatedCredentialFlow.stateHash}
+  `;
+  if (
+    saturatedCredentialRows[0]?.attempt_count !== 1 ||
+    !saturatedCredentialRows[0]?.csrf_cleared ||
+    saturatedCredentialRows[0]?.ip_attempt_count !== 1000
+  ) {
+    throw new Error("saturated credential limit did not commit bounded CSRF consumption");
+  }
+
   const parallelCsrfFlow = await createPreparedFlow(repository, "https://parallel-csrf.example.test/callback");
   const parallelCsrfInput = {
     accountHash: randomBytes(32),
@@ -533,6 +618,60 @@ try {
     || countsAfter[0]!.users !== countsBefore[0]!.users) {
     throw new Error("unknown identity changed provisioned account rows");
   }
+
+  for (const invalidInput of [
+    { tokenHash: encode("55".repeat(31)), idleLifetimeSeconds: 28_800, absoluteLifetimeSeconds: 86_400 },
+    { tokenHash: encode("56".repeat(32)), idleLifetimeSeconds: 59, absoluteLifetimeSeconds: 86_400 },
+    { tokenHash: encode("57".repeat(32)), idleLifetimeSeconds: 28_800, absoluteLifetimeSeconds: 86_401 },
+  ]) {
+    let code = "";
+    try {
+      await repository.createSession({
+        ...invalidInput,
+        authTime: new Date(),
+        sessionId: crypto.randomUUID(),
+        traceId: crypto.randomUUID(),
+        providerSubject: "subject-1",
+      });
+    } catch (error) {
+      code = typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : "";
+    }
+    if (code !== "22023") throw new Error("invalid auth session function input was accepted");
+  }
+
+  let releaseStatusUpdate!: () => void;
+  let statusUpdateStarted!: () => void;
+  const statusUpdateStartedPromise = new Promise<void>((resolve) => { statusUpdateStarted = resolve; });
+  const releaseStatusUpdatePromise = new Promise<void>((resolve) => { releaseStatusUpdate = resolve; });
+  const statusUpdate = sql.begin(async (transaction) => {
+    await transaction`update users set status = 'INACTIVE' where id = ${created.principal.userId}`;
+    statusUpdateStarted();
+    await releaseStatusUpdatePromise;
+  });
+  await statusUpdateStartedPromise;
+  const blockedSession = parallelRepository.createSession({
+    absoluteLifetimeSeconds: 86_400,
+    authTime: new Date(),
+    idleLifetimeSeconds: 28_800,
+    sessionId: crypto.randomUUID(),
+    tokenHash: encode("58".repeat(32)),
+    traceId: crypto.randomUUID(),
+    providerSubject: "subject-1",
+  });
+  const lockObservation = await Promise.race([
+    blockedSession.then(() => "completed" as const),
+    new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 100)),
+  ]);
+  if (lockObservation !== "blocked") throw new Error("session creation bypassed the active-state row lock");
+  releaseStatusUpdate();
+  await statusUpdate;
+  const inactiveResult = await blockedSession;
+  if (inactiveResult.status !== "PRINCIPAL_INACTIVE") {
+    throw new Error("session was created after a concurrent user deactivation");
+  }
+  await sql`update users set status = 'ACTIVE' where id = ${created.principal.userId}`;
 
   const auditRows = await sql<{ event_code: string }[]>`
     select event_code from audit_events

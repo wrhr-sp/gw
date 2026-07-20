@@ -76,17 +76,24 @@ const PASSWORD_RESET_FORM_SCHEMA = z.object({
 }).strict();
 const HOTEL_ID_SCHEMA = z.uuid();
 
-function readUniqueCookie(
+function readCookieValues(
   context: Context<{ Bindings: Bindings }>,
   name: string,
-): string | undefined {
+): string[] {
   const cookieHeader = context.req.header("cookie");
-  if (!cookieHeader) return undefined;
-  const values = cookieHeader.split(";").flatMap((part) => {
+  if (!cookieHeader) return [];
+  return cookieHeader.split(";").flatMap((part) => {
     const separator = part.indexOf("=");
     if (separator < 0 || part.slice(0, separator).trim() !== name) return [];
     return [part.slice(separator + 1).trim()];
   });
+}
+
+function readUniqueCookie(
+  context: Context<{ Bindings: Bindings }>,
+  name: string,
+): string | undefined {
+  const values = readCookieValues(context, name);
   return values.length === 1 && values[0] ? values[0] : undefined;
 }
 
@@ -153,6 +160,17 @@ export function createApp(options: CreateAppOptions = {}) {
       AUTH_ERROR_MESSAGES.INTERNAL_ERROR!,
       true,
     ), 500);
+  }
+
+  function callbackErrorReason(error: unknown) {
+    if (!(error instanceof AuthServiceError)) return "unavailable";
+    switch (error.code) {
+      case "IDENTITY_NOT_PROVISIONED": return "not-provisioned";
+      case "FORBIDDEN": return "access-denied";
+      case "AUTH_FLOW_INVALID": return "invalid-flow";
+      case "AUTH_RATE_LIMITED": return "rate-limited";
+      default: return "unavailable";
+    }
   }
 
   function hotelFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
@@ -321,22 +339,32 @@ export function createApp(options: CreateAppOptions = {}) {
     context.header("Referrer-Policy", "no-referrer");
     const requestUrl = new URL(context.req.url);
     const authRequests = requestUrl.searchParams.getAll("authRequest");
-    const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
+    const browserBindings = readCookieValues(context, OAUTH_BROWSER_COOKIE_NAME);
     if (
-      authRequests.length !== 1 || !browserBinding ||
+      authRequests.length !== 1 || browserBindings.length > 1 ||
+      (browserBindings.length === 1 && !browserBindings[0]) ||
       !/^[A-Za-z0-9_-]{1,200}$/u.test(authRequests[0]!)
     ) {
       return context.redirect("/login?error=invalid-flow", 303);
     }
+    const generatedBrowserBinding = browserBindings.length === 0;
     try {
-      const result = await withAuthService(context.env, (service) => (
-        service.prepareCustomLogin(authRequests[0]!, browserBinding)
-      ));
+      const ipAddressValue = context.req.header("cf-connecting-ip")?.trim();
+      const ipAddress = ipAddressValue && ipAddressValue.length <= 64 ? ipAddressValue : "unknown";
+      const result = await withAuthService(context.env, async (service) => {
+        const browserBinding = browserBindings[0];
+        if (!browserBinding) return service.beginCustomLogin(authRequests[0]!, ipAddress);
+        const prepared = await service.prepareCustomLogin(authRequests[0]!, browserBinding);
+        return { ...prepared, browserBinding };
+      });
+      if (generatedBrowserBinding) {
+        setCookie(context, OAUTH_BROWSER_COOKIE_NAME, result.browserBinding, OAUTH_BROWSER_COOKIE_OPTIONS);
+      }
       const target = new URL("/login", requestUrl.origin);
       target.searchParams.set("authRequest", authRequests[0]!);
       target.searchParams.set("csrf", result.csrf);
       const error = requestUrl.searchParams.get("error");
-      if (["invalid-credentials", "mfa-required", "rate-limited"].includes(error ?? "")) {
+      if (["invalid-credentials", "mfa-required", "rate-limited", "unavailable"].includes(error ?? "")) {
         target.searchParams.set("error", error!);
       }
       return context.redirect(`${target.pathname}${target.search}`, 303);
@@ -544,6 +572,12 @@ export function createApp(options: CreateAppOptions = {}) {
         browserBinding,
         ipAddress,
       }));
+      if (result.clearBrowserBinding) {
+        setCookie(context, OAUTH_BROWSER_COOKIE_NAME, "", {
+          ...OAUTH_BROWSER_COOKIE_OPTIONS,
+          maxAge: 0,
+        });
+      }
       return context.redirect(result.callbackUrl, 302);
     } catch (error) {
       const authRequest = encodeURIComponent(parsed.data.authRequest);
@@ -553,7 +587,6 @@ export function createApp(options: CreateAppOptions = {}) {
             : error.code === "AUTH_RATE_LIMITED" ? "rate-limited"
               : "unavailable"
         : "unavailable";
-      if (reason === "unavailable") return context.redirect(`/login?error=${reason}`, 303);
       return context.redirect(`/api/auth/custom-login/start?authRequest=${authRequest}&error=${reason}`, 303);
     }
   });
@@ -561,19 +594,21 @@ export function createApp(options: CreateAppOptions = {}) {
   hotelApp.get("/api/auth/callback", async (context) => {
     context.header("Cache-Control", "no-store");
     context.header("Referrer-Policy", "no-referrer");
-    const code = context.req.query("code");
-    const state = context.req.query("state");
+    const searchParams = new URL(context.req.url).searchParams;
+    const codes = searchParams.getAll("code");
+    const states = searchParams.getAll("state");
+    const code = codes[0];
+    const state = states[0];
     const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
     setCookie(context, OAUTH_BROWSER_COOKIE_NAME, "", {
       ...OAUTH_BROWSER_COOKIE_OPTIONS,
       maxAge: 0,
     });
-    if (!code || !state || !browserBinding || context.req.query("error")) {
-      return context.json(errorResponse(
-        "AUTH_FLOW_INVALID",
-        AUTH_ERROR_MESSAGES.AUTH_FLOW_INVALID!,
-        false,
-      ), 400);
+    if (
+      codes.length !== 1 || states.length !== 1 ||
+      !code || !state || !browserBinding || searchParams.has("error")
+    ) {
+      return context.redirect("/login?error=invalid-flow", 303);
     }
     try {
       const result = await withAuthService(context.env, (service) => (
@@ -582,7 +617,7 @@ export function createApp(options: CreateAppOptions = {}) {
       setCookie(context, SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
       return context.redirect(result.redirectTo, 302);
     } catch (error) {
-      return authFailure(context, error);
+      return context.redirect(`/login?error=${callbackErrorReason(error)}`, 303);
     }
   });
 

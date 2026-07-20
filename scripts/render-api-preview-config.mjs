@@ -16,8 +16,12 @@ const hyperdriveId = required("HYPERDRIVE_ID");
 const issuer = new URL(required("ZITADEL_ISSUER"));
 const redirectUri = new URL(required("ZITADEL_REDIRECT_URI"));
 const webPreviewUrl = new URL(required("WEB_PREVIEW_URL"));
-if (issuer.protocol !== "https:" || redirectUri.protocol !== "https:") {
-  throw new Error("ZITADEL URLs must use HTTPS");
+if (
+  issuer.protocol !== "https:" || issuer.username || issuer.password ||
+  issuer.pathname !== "/" || issuer.search || issuer.hash ||
+  redirectUri.protocol !== "https:"
+) {
+  throw new Error("ZITADEL issuer must be a credential-free HTTPS origin");
 }
 if (
   webPreviewUrl.protocol !== "https:" ||
@@ -36,6 +40,15 @@ const expectedRedirect = new URL(
 if (redirectUri.toString() !== expectedRedirect) {
   throw new Error("ZITADEL_REDIRECT_URI must match the Preview Web callback");
 }
+const clientId = required("ZITADEL_CLIENT_ID");
+const consoleClientId = required("ZITADEL_CONSOLE_CLIENT_ID");
+if (
+  !/^[A-Za-z0-9_-]{1,200}$/u.test(clientId) ||
+  !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId) ||
+  consoleClientId === clientId
+) {
+  throw new Error("ZITADEL_CONSOLE_CLIENT_ID must identify the separate built-in Console client");
+}
 
 const source = await readFile(resolve(inputPath), "utf8");
 const config = JSON.parse(source.replace(/,\s*([}\]])/gu, "$1"));
@@ -43,7 +56,8 @@ config.hyperdrive = [{ binding: "HYPERDRIVE", id: hyperdriveId }];
 config.vars = {
   ...config.vars,
   ZITADEL_ISSUER: issuer.toString().replace(/\/$/u, ""),
-  ZITADEL_CLIENT_ID: required("ZITADEL_CLIENT_ID"),
+  ZITADEL_CLIENT_ID: clientId,
+  ZITADEL_CONSOLE_CLIENT_ID: consoleClientId,
   ZITADEL_REDIRECT_URI: redirectUri.toString(),
 };
 

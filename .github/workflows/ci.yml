@@ -65,6 +65,7 @@ jobs:
           HYPERDRIVE_ID=00000000000000000000000000000000 \
             ZITADEL_ISSUER=https://preview.invalid \
             ZITADEL_CLIENT_ID=preview-client \
+            ZITADEL_CONSOLE_CLIENT_ID=preview-console-client \
             ZITADEL_REDIRECT_URI=https://preview.invalid/api/auth/callback \
             WEB_PREVIEW_URL=https://preview.invalid \
             node scripts/render-api-preview-config.mjs \

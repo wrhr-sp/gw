@@ -13,6 +13,10 @@ async function setup() {
   let loginTransaction: CreateLoginTransactionInput | undefined;
   let nonce = "";
   const repository: AuthRepository = {
+    createCustomLoginTransaction: vi.fn(async (input) => {
+      loginTransaction = input;
+      return { status: "CREATED" as const };
+    }),
     createLoginTransaction: vi.fn(async (input) => {
       loginTransaction = input;
       return { status: "CREATED" as const };
@@ -38,6 +42,7 @@ async function setup() {
     })),
     prepareCustomLogin: vi.fn(async () => ({ status: "PREPARED" as const })),
     reserveCustomLoginValidation: vi.fn(async () => ({ status: "RESERVED" as const })),
+    reserveCustomLoginStart: vi.fn(async () => ({ status: "RESERVED" as const })),
     resolvePrincipal: vi.fn(async () => null),
     revokeSession: vi.fn(async () => true),
   };
@@ -99,6 +104,82 @@ describe("auth service", () => {
       codeChallenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       redirectUri: "https://hotel.example.test/api/auth/callback",
     }));
+  });
+
+  it("binds an external custom auth request to the transaction created for the same browser", async () => {
+    const { repository, service, transaction } = await setup();
+    const login = await service.beginLogin();
+    const prepared = await service.prepareCustomLogin("console-request-1", login.browserBinding);
+
+    expect(prepared.csrf).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    const stored = transaction();
+    const reservation = vi.mocked(repository.reserveCustomLoginValidation).mock.calls[0]?.[0];
+    expect(reservation?.browserBindingHash).toEqual(stored?.browserBindingHash);
+    expect(vi.mocked(repository.createLoginTransaction).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(repository.reserveCustomLoginValidation).mock.invocationCallOrder[0]!);
+  });
+
+  it("validates an external auth request before creating its browser transaction", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    const prepared = await service.beginCustomLogin("console-request-1", "203.0.113.10");
+
+    expect(prepared.browserBinding).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(prepared.csrf).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(vi.mocked(customLoginProvider.validateAuthRequest).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(repository.createCustomLoginTransaction).mock.invocationCallOrder[0]!);
+  });
+
+  it("does not create a transaction for an invalid external auth request", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(customLoginProvider.validateAuthRequest).mockRejectedValue(
+      new AuthServiceError("AUTH_FLOW_INVALID", 400, false),
+    );
+
+    await expect(service.beginCustomLogin("invalid-request", "203.0.113.10")).rejects.toMatchObject({
+      code: "AUTH_FLOW_INVALID",
+    });
+    expect(repository.createLoginTransaction).not.toHaveBeenCalled();
+    expect(repository.createCustomLoginTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a replayed external auth request without creating another transaction", async () => {
+    const { repository, service } = await setup();
+    vi.mocked(repository.createCustomLoginTransaction).mockResolvedValue({ status: "REPLAYED" });
+
+    await expect(service.beginCustomLogin("console-request-1", "203.0.113.10"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    expect(repository.createCustomLoginTransaction).toHaveBeenCalledOnce();
+    expect(repository.createLoginTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rate limits external auth request validation by IP before calling the provider", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(repository.reserveCustomLoginStart).mockResolvedValue({ status: "RATE_LIMITED" });
+
+    await expect(service.beginCustomLogin("console-request-1", "203.0.113.10"))
+      .rejects.toMatchObject({ code: "AUTH_RATE_LIMITED", httpStatus: 429 });
+    expect(customLoginProvider.validateAuthRequest).not.toHaveBeenCalled();
+    expect(repository.createCustomLoginTransaction).not.toHaveBeenCalled();
+  });
+
+  it("uses independent IP buckets for custom login starts and credential attempts", async () => {
+    const { repository, service } = await setup();
+    await service.beginCustomLogin("console-request-1", "203.0.113.10");
+    const startIpHash = vi.mocked(repository.reserveCustomLoginStart).mock.calls[0]?.[0];
+
+    await service.finalizeCustomLogin({
+      authRequest: "console-request-1",
+      browserBinding: "browser-binding",
+      csrf: "csrf-value",
+      ipAddress: "203.0.113.10",
+      loginName: "Hotel-Admin",
+      password: "password-value",
+    });
+    const credentialIpHash = vi.mocked(repository.consumeCustomLoginAttempt).mock.calls[0]?.[0].ipHash;
+
+    expect(startIpHash).toBeInstanceOf(Uint8Array);
+    expect(credentialIpHash).toBeInstanceOf(Uint8Array);
+    expect(startIpHash).not.toEqual(credentialIpHash);
   });
 
   it("does not persist a transaction when provider discovery fails", async () => {

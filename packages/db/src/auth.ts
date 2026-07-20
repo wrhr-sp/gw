@@ -16,6 +16,12 @@ export type CreateLoginTransactionInput = LoginTransaction & {
   stateHash: Uint8Array;
 };
 
+export type CreateCustomLoginTransactionInput = CreateLoginTransactionInput & {
+  authRequestHash: Uint8Array;
+  csrfHash: Uint8Array;
+  csrfLifetimeSeconds: number;
+};
+
 export type CreateSessionInput = {
   absoluteLifetimeSeconds: number;
   authTime: Date;
@@ -34,6 +40,10 @@ export type CreateSessionResult =
 export type CreateLoginTransactionResult =
   | { status: "CREATED" }
   | { status: "CAPACITY_EXCEEDED" };
+
+export type CreateCustomLoginTransactionResult =
+  | CreateLoginTransactionResult
+  | { status: "REPLAYED" };
 
 export type PrepareCustomLoginResult =
   | { status: "PREPARED" }
@@ -64,6 +74,9 @@ export interface AuthRepository {
     csrfHash: Uint8Array;
     ipHash: Uint8Array;
   }): Promise<ConsumeCustomLoginAttemptResult>;
+  createCustomLoginTransaction(
+    input: CreateCustomLoginTransactionInput,
+  ): Promise<CreateCustomLoginTransactionResult>;
   createLoginTransaction(input: CreateLoginTransactionInput): Promise<CreateLoginTransactionResult>;
   createSession(input: CreateSessionInput): Promise<CreateSessionResult>;
   prepareCustomLogin(input: {
@@ -76,6 +89,7 @@ export interface AuthRepository {
     authRequestHash: Uint8Array;
     browserBindingHash: Uint8Array;
   }): Promise<ReserveCustomLoginValidationResult>;
+  reserveCustomLoginStart(ipHash: Uint8Array): Promise<{ status: "RESERVED" | "RATE_LIMITED" }>;
   resolvePrincipal(tokenHash: Uint8Array, idleLifetimeSeconds: number): Promise<AuthenticatedPrincipal | null>;
   revokeSession(tokenHash: Uint8Array, reason: string, traceId: string): Promise<boolean>;
 }
@@ -145,6 +159,56 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
             ${input.id}, ${input.stateHash}, ${input.browserBindingHash}, ${input.nonceHash},
             ${input.codeVerifierCiphertext}, ${input.codeVerifierIv}, ${input.encryptionKeyVersion},
             ${input.redirectUri}, now() + make_interval(secs => ${input.lifetimeSeconds})
+          )
+        `;
+        return { status: "CREATED" } as const;
+      });
+    },
+
+    async createCustomLoginTransaction(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select pg_advisory_xact_lock(915202607160001)`;
+        await transaction`
+          delete from auth_login_transactions
+          where id in (
+            select id
+            from auth_login_transactions
+            where expires_at <= now()
+            order by expires_at
+            limit 256
+            for update skip locked
+          )
+        `;
+        const claimed = await transaction<{ claimed: boolean }[]>`
+          select exists (
+            select 1
+            from auth_login_transactions
+            where custom_auth_request_hash = ${input.authRequestHash}
+              and expires_at > now()
+          ) as claimed
+        `;
+        if (claimed[0]?.claimed) return { status: "REPLAYED" } as const;
+        const capacity = await transaction<{ active_count: number; recent_count: number }[]>`
+          select count(*) filter (where expires_at > now())::int as active_count,
+                 count(*) filter (where created_at > now() - interval '1 minute')::int as recent_count
+          from auth_login_transactions
+        `;
+        if ((capacity[0]?.active_count ?? 0) >= 10000
+          || (capacity[0]?.recent_count ?? 0) >= 1000) {
+          return { status: "CAPACITY_EXCEEDED" } as const;
+        }
+        await transaction`
+          insert into auth_login_transactions (
+            id, state_hash, browser_binding_hash, nonce_hash,
+            code_verifier_ciphertext, code_verifier_iv, encryption_key_version,
+            redirect_uri, expires_at, custom_auth_request_hash,
+            custom_csrf_hash, custom_csrf_expires_at, custom_validation_count
+          ) values (
+            ${input.id}, ${input.stateHash}, ${input.browserBindingHash}, ${input.nonceHash},
+            ${input.codeVerifierCiphertext}, ${input.codeVerifierIv}, ${input.encryptionKeyVersion},
+            ${input.redirectUri}, now() + make_interval(secs => ${input.lifetimeSeconds}),
+            ${input.authRequestHash}, ${input.csrfHash},
+            now() + make_interval(secs => ${input.csrfLifetimeSeconds}), 1
           )
         `;
         return { status: "CREATED" } as const;
@@ -238,6 +302,33 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         : { status: "FLOW_INVALID" } as const;
     },
 
+    async reserveCustomLoginStart(ipHash) {
+      const rows = await sql<{ attempt_count: number }[]>`
+        insert into auth_credential_rate_limits (
+          scope, subject_hash, window_started_at, attempt_count, expires_at
+        ) values (
+          'IP', ${ipHash}, now(), 1, now() + interval '15 minutes'
+        )
+        on conflict (scope, subject_hash) do update
+        set window_started_at = case
+              when auth_credential_rate_limits.expires_at <= now() then now()
+              else auth_credential_rate_limits.window_started_at
+            end,
+            attempt_count = case
+              when auth_credential_rate_limits.expires_at <= now() then 1
+              else least(auth_credential_rate_limits.attempt_count + 1, 1000)
+            end,
+            expires_at = case
+              when auth_credential_rate_limits.expires_at <= now() then now() + interval '15 minutes'
+              else auth_credential_rate_limits.expires_at
+            end
+        returning attempt_count
+      `;
+      return (rows[0]?.attempt_count ?? 1000) > 20
+        ? { status: "RATE_LIMITED" } as const
+        : { status: "RESERVED" } as const;
+    },
+
     async consumeCustomLoginAttempt(input) {
       return sql.begin(async (transaction) => {
         const consumed = await transaction<{ id: string }[]>`
@@ -284,7 +375,7 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
                 end,
                 attempt_count = case
                   when auth_credential_rate_limits.expires_at <= now() then 1
-                  else auth_credential_rate_limits.attempt_count + 1
+                  else least(auth_credential_rate_limits.attempt_count + 1, 1000)
                 end,
                 expires_at = case
                   when auth_credential_rate_limits.expires_at <= now() then now() + interval '15 minutes'
@@ -301,76 +392,62 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
     },
 
     async createSession(input) {
-      return sql.begin(async (transaction) => {
-        const identities = await transaction<{
-          company_id: string;
-          company_status: string;
-          display_name: string;
-          identity_id: string;
-          user_id: string;
-          user_status: string;
-          user_type: HotelUserType;
-        }[]>`
-          select identity.company_id,
-                 identity.id as identity_id,
-                 identity.user_id,
-                 app_user.user_type,
-                 app_user.display_name,
-                 app_user.status as user_status,
-                 company.status as company_status
-          from auth_identities identity
-          join users app_user
-            on app_user.company_id = identity.company_id
-           and app_user.id = identity.user_id
-          join companies company on company.id = identity.company_id
-          where identity.provider = 'ZITADEL'
-            and identity.provider_subject = ${input.providerSubject}
-          for share of identity, app_user, company
-        `;
-        const identity = identities[0];
-        if (!identity) return { status: "IDENTITY_NOT_PROVISIONED" } as const;
-        if (identity.user_status !== "ACTIVE" || identity.company_status !== "ACTIVE") {
-          return { status: "PRINCIPAL_INACTIVE" } as const;
+      const rows = await sql<{
+        company_id: string | null;
+        display_name: string | null;
+        identity_id: string | null;
+        result_status: string;
+        session_id: string | null;
+        user_id: string | null;
+        user_type: HotelUserType | null;
+      }[]>`
+        select * from public.auth_create_session(
+          ${input.sessionId}::uuid,
+          ${input.tokenHash}::bytea,
+          ${input.providerSubject}::text,
+          ${input.idleLifetimeSeconds}::integer,
+          ${input.absoluteLifetimeSeconds}::integer,
+          ${input.authTime}::timestamptz,
+          ${input.traceId}::uuid
+        )
+      `;
+      if (rows.length !== 1) {
+        throw new Error("auth session function returned an unexpected row count");
+      }
+      const result = rows[0]!;
+      if (
+        result.result_status === "IDENTITY_NOT_PROVISIONED" ||
+        result.result_status === "PRINCIPAL_INACTIVE"
+      ) {
+        if (
+          result.company_id !== null || result.identity_id !== null ||
+          result.session_id !== null || result.user_id !== null ||
+          result.user_type !== null || result.display_name !== null
+        ) {
+          throw new Error("auth session denial returned principal data");
         }
-
-        await transaction`
-          insert into auth_sessions (
-            id, company_id, user_id, identity_id, token_hash,
-            idle_expires_at, absolute_expires_at, auth_time, authentication_method
-          ) values (
-            ${input.sessionId}, ${identity.company_id}, ${identity.user_id},
-            ${identity.identity_id}, ${input.tokenHash},
-            now() + make_interval(secs => ${input.idleLifetimeSeconds}),
-            now() + make_interval(secs => ${input.absoluteLifetimeSeconds}),
-            ${input.authTime}, 'OIDC_PKCE'
-          )
-        `;
-
-        await transaction`
-          insert into audit_events (
-            id, event_code, actor_user_id, actor_type, session_id,
-            company_id, resource_type, resource_id, after_summary,
-            result, trace_id
-          ) values (
-            ${crypto.randomUUID()}, 'AUTH_LOGIN_SUCCEEDED', ${identity.user_id},
-            ${identity.user_type}, ${input.sessionId}, ${identity.company_id},
-            'SESSION', ${input.sessionId}, ${transaction.json({ authenticationMethod: "OIDC_PKCE" })},
-            'SUCCEEDED', ${input.traceId}
-          )
-        `;
-
-        return {
-          status: "CREATED",
-          principal: {
-            companyId: identity.company_id,
-            identityId: identity.identity_id,
-            sessionId: input.sessionId,
-            userId: identity.user_id,
-            userType: identity.user_type,
-            displayName: identity.display_name,
-          },
-        } as const;
-      });
+        return { status: result.result_status } as const;
+      }
+      if (result.result_status !== "CREATED") {
+        throw new Error("auth session function returned an unexpected status");
+      }
+      if (
+        !result.company_id || !result.identity_id || !result.session_id ||
+        !result.user_id || !result.user_type || !result.display_name
+      ) {
+        throw new Error("auth session function returned an incomplete principal");
+      }
+      return {
+        status: "CREATED",
+        principal: {
+          companyId: result.company_id,
+          identityId: result.identity_id,
+          sessionId: result.session_id,
+          userId: result.user_id,
+          userType: result.user_type,
+          displayName: result.display_name,
+        },
+      } as const;
     },
 
     async resolvePrincipal(tokenHash, idleLifetimeSeconds) {

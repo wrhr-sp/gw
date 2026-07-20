@@ -10,6 +10,7 @@ export type AuthBindings = DatabaseBindings & {
   AUTH_TRANSACTION_ENCRYPTION_KEY?: string;
 
   ZITADEL_CLIENT_ID?: string;
+  ZITADEL_CONSOLE_CLIENT_ID?: string;
   ZITADEL_ISSUER?: string;
   ZITADEL_REDIRECT_URI?: string;
   ZITADEL_SERVICE_USER_TOKEN?: string;
@@ -18,6 +19,7 @@ export type AuthBindings = DatabaseBindings & {
 export async function createAuthServiceFromBindings(bindings: AuthBindings | undefined): Promise<AuthService> {
   const issuer = bindings?.ZITADEL_ISSUER?.trim();
   const clientId = bindings?.ZITADEL_CLIENT_ID?.trim();
+  const consoleClientId = bindings?.ZITADEL_CONSOLE_CLIENT_ID?.trim();
   const redirectUri = bindings?.ZITADEL_REDIRECT_URI?.trim();
   const serviceUserToken = bindings?.ZITADEL_SERVICE_USER_TOKEN?.trim();
   const encryptionKeyValue = bindings?.AUTH_TRANSACTION_ENCRYPTION_KEY?.trim();
@@ -53,6 +55,7 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
   return createAuthService({
     customLoginProvider: createZitadelCustomLoginProvider({
       clientId,
+      ...(consoleClientId ? { consoleClientId } : {}),
       issuer,
       redirectUri: parsedRedirect.toString(),
       serviceUserToken,

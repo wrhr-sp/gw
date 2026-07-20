@@ -75,6 +75,22 @@ if (session.body.ok || session.body.error?.code !== "AUTHENTICATION_REQUIRED") {
   throw new Error("anonymous session contract is invalid");
 }
 
+const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
+const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
+if (!issuer || !consoleClientId) throw new Error("Console Preview configuration is missing");
+const consoleEnvironmentResponse = await fetch(`${issuer}/ui/console/assets/environment.json`, {
+  headers: { accept: "application/json" },
+  redirect: "error",
+});
+if (!consoleEnvironmentResponse.ok) throw new Error("ZITADEL Console environment is unavailable");
+const consoleEnvironment = await consoleEnvironmentResponse.json();
+if (
+  String(consoleEnvironment.issuer ?? "").replace(/\/+$/u, "") !== issuer ||
+  String(consoleEnvironment.clientid ?? "") !== consoleClientId
+) {
+  throw new Error("ZITADEL Console environment does not match Preview configuration");
+}
+
 const customLoginPage = await fetchExpected(`/login?authRequest=preview-smoke-request&csrf=${"c".repeat(43)}`, 200, {
   headers: { accept: "text/html" },
   redirect: "manual",
@@ -103,12 +119,20 @@ if (login.headers.get("cache-control") !== "no-store") {
   throw new Error("login response must disable caching");
 }
 
-const invalidCallback = await json("/api/auth/callback", 400);
-if (
-  invalidCallback.body.ok ||
-  invalidCallback.body.error?.code !== "AUTH_FLOW_INVALID"
-) {
-  throw new Error("invalid callback contract is invalid");
+const invalidCallback = await fetchExpected("/api/auth/callback", 303, {
+  redirect: "manual",
+});
+if (invalidCallback.headers.get("location") !== "/login?error=invalid-flow") {
+  throw new Error("invalid callback redirect contract is invalid");
+}
+if (invalidCallback.headers.get("referrer-policy") !== "no-referrer") {
+  throw new Error("invalid callback must suppress referrer data");
+}
+if (invalidCallback.headers.get("cache-control") !== "no-store") {
+  throw new Error("invalid callback must disable caching");
+}
+if (!invalidCallback.headers.get("set-cookie")?.includes("__Host-hotel_oauth_browser=")) {
+  throw new Error("invalid callback must expire the browser binding cookie");
 }
 
 console.log("CLOUDFLARE_PREVIEW_PUBLIC_SMOKE_OK");

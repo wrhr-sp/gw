@@ -78,6 +78,21 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("redirects callback transport failures without exposing proxy JSON", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new Error("transport sentinel")));
+    const response = await GET(
+      new Request("https://hotel.example.test/api/auth/callback?code=value&state=state"),
+      { params: Promise.resolve({ path: ["auth", "callback"] }) },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=unavailable");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("set-cookie") ?? "")
+      .toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+    expect(await response.text()).not.toContain("transport sentinel");
+  });
+
   it("allows only the exact Login V2 suffix appended to the custom login base URI", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async (input: string | URL | Request) => {
