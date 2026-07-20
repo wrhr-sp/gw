@@ -1,0 +1,59 @@
+name: Preview session permission diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-session-permission-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: preview
+    timeout-minutes: 5
+    steps:
+      - name: Check ZITADEL login API permissions without a real account
+        env:
+          ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
+          ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
+        run: |
+          node <<'NODE'
+          const issuerValue = process.env.ZITADEL_ISSUER?.trim();
+          const token = process.env.ZITADEL_SERVICE_USER_TOKEN?.trim();
+          if (!issuerValue || !token) throw new Error("Preview diagnostic configuration is incomplete");
+          const issuer = new URL(issuerValue);
+          if (
+            issuer.protocol !== "https:" || issuer.username || issuer.password ||
+            issuer.pathname !== "/" || issuer.search || issuer.hash
+          ) throw new Error("Preview diagnostic issuer is invalid");
+          const headers = { accept: "application/json", authorization: `Bearer ${token}` };
+          const settings = await fetch(new URL("/v2/settings/login", issuer), {
+            headers,
+            redirect: "manual",
+          });
+          console.log(`PREVIEW_LOGIN_SETTINGS_STATUS_${settings.status}`);
+          const impossibleLoginName = `permission-diagnostic-${crypto.randomUUID()}@invalid.example`;
+          const impossiblePassword = crypto.randomUUID() + crypto.randomUUID();
+          const session = await fetch(new URL("/v2/sessions", issuer), {
+            body: JSON.stringify({
+              checks: {
+                user: { loginName: impossibleLoginName },
+                password: { password: impossiblePassword },
+              },
+              lifetime: "300s",
+            }),
+            headers: { ...headers, "content-type": "application/json" },
+            method: "POST",
+            redirect: "manual",
+          });
+          console.log(`PREVIEW_SESSION_CREATE_STATUS_${session.status}`);
+          if (settings.status !== 200) throw new Error("Preview login settings permission check failed");
+          if (![400, 404].includes(session.status)) {
+            throw new Error("Preview session write permission check failed");
+          }
+          console.log("PREVIEW_SESSION_PERMISSION_DIAGNOSTIC_OK");
+          NODE
