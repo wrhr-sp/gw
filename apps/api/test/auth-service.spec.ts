@@ -206,12 +206,18 @@ describe("auth service", () => {
     expect(prepared.token).not.toContain("subject-1");
     expect(prepared.token).not.toContain("reset-code-value");
 
-    await service.resetPassword(prepared.token, "NewPassword-2026!");
+    await service.resetPassword(prepared.token, "Abcd123!");
     expect(customLoginProvider.setPassword).toHaveBeenCalledWith({
       code: "reset-code-value",
-      newPassword: "NewPassword-2026!",
+      newPassword: "Abcd123!",
       userId: "subject-1",
     });
+
+    for (const invalidPassword of ["Abc123!", "1234567!", "Password!", "Password1", "Abcd123 ", "Abcd123한"]) {
+      await expect(service.resetPassword(prepared.token, invalidPassword))
+        .rejects.toMatchObject({ code: "AUTH_CREDENTIALS_INVALID" });
+    }
+    expect(customLoginProvider.setPassword).toHaveBeenCalledTimes(1);
 
     const [iv, ciphertext] = prepared.token.split(".") as [string, string];
     const tamperedCiphertext = `${ciphertext.startsWith("a") ? "b" : "a"}${ciphertext.slice(1)}`;

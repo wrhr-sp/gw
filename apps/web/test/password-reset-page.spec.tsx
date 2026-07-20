@@ -68,4 +68,15 @@ describe("password set page", () => {
     expect(rejected).toContain("재설정 링크를 안전하게 확인하고 있습니다");
     expect(rejected).not.toContain("type=\"password\"");
   });
+
+  it("describes the eight-character letter-number-symbol password policy", async () => {
+    resetCookie.present = false;
+    const html = renderToStaticMarkup(await PasswordSetPage({
+      searchParams: Promise.resolve({ error: "password-policy" }),
+    }));
+    expect(html).toContain("8자 이상");
+    expect(html).toContain("영문");
+    expect(html).toContain("숫자");
+    expect(html).toContain("기호");
+  });
 });

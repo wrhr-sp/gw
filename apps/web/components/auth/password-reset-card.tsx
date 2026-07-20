@@ -6,6 +6,13 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 export type PasswordResetMode = "exchange" | "form" | "invalid";
 const PASSWORD_RESET_EXCHANGE_PENDING_COOKIE = "__Host-hotel_password_reset_exchange_pending";
+const PASSWORD_POLICY_ERROR = "비밀번호는 8자 이상이며 영문, 숫자, 기호를 각각 포함해야 합니다.";
+const PASSWORD_MISMATCH_ERROR = "새 비밀번호와 비밀번호 확인이 일치하지 않습니다.";
+
+function meetsPasswordPolicy(password: string) {
+  return password.length >= 8 && password.length <= 200 &&
+    /[A-Za-z]/u.test(password) && /[0-9]/u.test(password) && /[\p{P}\p{S}]/u.test(password);
+}
 
 function setExchangePendingCookie(pending: boolean) {
   document.cookie = `${PASSWORD_RESET_EXCHANGE_PENDING_COOKIE}=${pending ? "1" : ""}; Max-Age=${pending ? "600" : "0"}; Path=/; SameSite=Strict; Secure`;
@@ -74,8 +81,8 @@ export function PasswordResetCard({
 
   const visibleError = localError ?? errorMessage;
   const visibleMode = mode === "form" && !fragmentChecked ? "exchange" : mode;
-  const mismatch = localError !== null || errorCode === "password-mismatch";
-  const passwordRejected = errorCode === "password-policy" || errorCode === "password-rejected";
+  const mismatch = localError === PASSWORD_MISMATCH_ERROR || errorCode === "password-mismatch";
+  const passwordRejected = localError === PASSWORD_POLICY_ERROR || errorCode === "password-policy" || errorCode === "password-rejected";
 
   useEffect(() => {
     if (
@@ -88,12 +95,16 @@ export function PasswordResetCard({
     const form = event.currentTarget;
     const password = form.elements.namedItem("newPassword");
     const confirmation = form.elements.namedItem("confirmation");
-    if (
-      password instanceof HTMLInputElement && confirmation instanceof HTMLInputElement &&
-      password.value !== confirmation.value
-    ) {
+    if (!(password instanceof HTMLInputElement) || !(confirmation instanceof HTMLInputElement)) return;
+    if (!meetsPasswordPolicy(password.value)) {
       event.preventDefault();
-      setLocalError("새 비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      setLocalError(PASSWORD_POLICY_ERROR);
+      password.focus();
+      return;
+    }
+    if (password.value !== confirmation.value) {
+      event.preventDefault();
+      setLocalError(PASSWORD_MISMATCH_ERROR);
       confirmation.focus();
     }
   }
@@ -127,26 +138,27 @@ export function PasswordResetCard({
           </div>
         ) : (
           <>
-            <p className="mb-6 text-sm leading-6 text-muted">
-              다른 곳에서 사용하지 않는 12자 이상의 새 비밀번호를 입력하세요.
+            <p className="mb-6 text-sm leading-6 text-muted" id="password-policy-description">
+              다른 곳에서 사용하지 않는 8자 이상의 비밀번호를 입력하세요. 영문, 숫자, 기호를 각각 포함해야 합니다.
             </p>
             {visibleError ? (
               <div className="mb-5 rounded-control border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700" id="password-reset-error" ref={errorRef} role="alert" tabIndex={-1}>
                 {visibleError}
               </div>
             ) : null}
-            <form action="/api/auth/password/set" className="space-y-5" method="post" onSubmit={validateConfirmation}>
+            <form action="/api/auth/password/set" className="space-y-5" method="post" noValidate onSubmit={validateConfirmation}>
               <label className="block space-y-2 text-[13px] font-semibold text-text" htmlFor="new-password">
                 새 비밀번호
                 <input
-                  aria-describedby={passwordRejected ? "password-reset-error" : undefined}
+                  aria-describedby={passwordRejected ? "password-policy-description password-reset-error" : "password-policy-description"}
                   aria-invalid={passwordRejected || undefined}
                   autoComplete="new-password"
                   className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-base font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10 sm:text-sm"
                   id="new-password"
                   maxLength={200}
-                  minLength={12}
+                  minLength={8}
                   name="newPassword"
+                  onChange={() => setLocalError(null)}
                   required
                   type="password"
                 />
@@ -160,8 +172,9 @@ export function PasswordResetCard({
                   className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-base font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10 sm:text-sm"
                   id="password-confirmation"
                   maxLength={200}
-                  minLength={12}
+                  minLength={8}
                   name="confirmation"
+                  onChange={() => setLocalError(null)}
                   required
                   type="password"
                 />

@@ -13,6 +13,7 @@ import {
   hotelRoutes,
   hotelStatusSchema,
   hotelUserTypeSchema,
+  passwordPolicySchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
@@ -78,6 +79,16 @@ describe("hotel platform contracts", () => {
       loginName: "a".repeat(201),
       password: "password-value",
     }).success).toBe(false);
+  });
+
+  it("requires at least eight characters with a letter, number, and symbol", () => {
+    expect(passwordPolicySchema.safeParse("Abcd123!").success).toBe(true);
+    expect(passwordPolicySchema.safeParse("Abc123!").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("1234567!").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("Password!").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("Password1").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("Abcd123 ").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("Abcd123한").success).toBe(false);
   });
 
   it("parses only the approved server-derived principal fields", () => {

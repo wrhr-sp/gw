@@ -72,6 +72,13 @@ export const customLoginRequestSchema = z.object({
 }).strict();
 export type CustomLoginRequest = z.infer<typeof customLoginRequestSchema>;
 
+export const passwordPolicySchema = z.string()
+  .min(8, { error: "비밀번호는 8자 이상 입력해 주세요." })
+  .max(200, { error: "비밀번호는 200자 이하로 입력해 주세요." })
+  .regex(/[A-Za-z]/u, { error: "비밀번호에 영문자를 포함해 주세요." })
+  .regex(/[0-9]/u, { error: "비밀번호에 숫자를 포함해 주세요." })
+  .regex(/[\p{P}\p{S}]/u, { error: "비밀번호에 기호를 포함해 주세요." });
+
 export const authenticatedPrincipalSchema = z.object({
   companyId: z.uuid(),
   identityId: z.uuid(),
