@@ -226,6 +226,25 @@ async function verifyAuthFunctionPublicExecuteDamage() {
   }
 }
 
+async function verifyAuthFunctionNamedExecuteDamage() {
+  const damageRole = "werehere_auth_named_acl_damage";
+  await sql.unsafe(`create role ${damageRole} nologin noinherit`);
+  await sql.unsafe(
+    `grant execute on function ${authFunctionSignature} to ${damageRole}`,
+  );
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`named auth function execute was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(
+      `revoke execute on function ${authFunctionSignature} from ${damageRole}`,
+    );
+    await sql.unsafe(`drop role ${damageRole}`);
+  }
+}
+
 async function verifyAuthFunctionBodyDamage(from: string, to: string, label: string) {
   const [functionRecord] = await sql<{ definition: string }[]>`
     select pg_get_functiondef(${authFunctionSignature}::regprocedure) as definition
@@ -263,6 +282,7 @@ async function verifyAuthFunctionOwnerDamage() {
 
 try {
   await verifyAuthFunctionPublicExecuteDamage();
+  await verifyAuthFunctionNamedExecuteDamage();
   await verifyAuthFunctionOwnerDamage();
   await verifyAuthFunctionBodyDamage(
     "if v_principal.user_status <> 'ACTIVE' or v_principal.company_status <> 'ACTIVE' then",

@@ -37,6 +37,14 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_migration_owner;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'werehere_auth_session_definer') then
+    grant werehere_auth_session_definer to werehere_preview_migration_owner
+      with admin true, inherit false, set false;
+  end if;
+end
+$$;
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
 SQL

@@ -146,7 +146,7 @@ begin
 end
 $function$;
 
-grant create on schema public to werehere_auth_session_definer;
+grant usage, create on schema public to werehere_auth_session_definer;
 do $ownership_grant$
 begin
   execute pg_catalog.format(
