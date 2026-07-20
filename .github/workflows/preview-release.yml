@@ -253,23 +253,60 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
           pnpm exec wrangler deploy \
             --config wrangler.preview.generated.json \
             --secrets-file /tmp/werehere-api-preview-secrets.json \
             --strict \
             --tag "$DEPLOY_TAG"
-          versions_file="$(mktemp)"
           deployments_file="$(mktemp)"
-          trap 'rm -f "$versions_file" "$deployments_file"' EXIT
-          pnpm exec wrangler versions list --name werehere-hotel-api-preview --json > "$versions_file"
-          deployed_version="$(jq -er --arg tag "$DEPLOY_TAG" '
-            [.[] | select(.annotations["workers/tag"]? == $tag)] as $matches
-            | if ($matches | length) != 1
-                or ($matches[0].id | type) != "string"
-                or ($matches[0].id | length) == 0 then
-                error("Tagged API Worker version was not unique")
-              else $matches[0].id end
-          ' "$versions_file")"
+          trap 'rm -f "$deployments_file"' EXIT
+          resolve_tagged_version() {
+            local worker_name="$1"
+            local tag="$2"
+            local saw_valid_absence=0
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              local versions_file
+              versions_file="$(mktemp)"
+              if curl --fail --silent --show-error \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/versions?deployable=true" \
+                > "$versions_file"; then
+                local resolved
+                if resolved="$(jq -er --arg tag "$tag" '
+                  if .success != true
+                    or (.result | type) != "object"
+                    or (.result.items | type) != "array" then
+                    error("Worker versions response failed safety validation")
+                  else
+                    [.result.items[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+                    | if ($matches | length) == 0 then ""
+                      elif ($matches | length) != 1
+                        or ($matches[0].id | type) != "string"
+                        or ($matches[0].id | length) == 0 then
+                        error("Tagged Worker version was ambiguous")
+                      else $matches[0].id end
+                  end
+                ' "$versions_file")"; then
+                  rm -f "$versions_file"
+                  if [[ -n "$resolved" ]]; then
+                    printf '%s\n' "$resolved"
+                    return 0
+                  fi
+                  saw_valid_absence=1
+                else
+                  rm -f "$versions_file"
+                fi
+              else
+                rm -f "$versions_file"
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
+            done
+            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            return 2
+          }
+          deployed_version="$(resolve_tagged_version werehere-hotel-api-preview "$DEPLOY_TAG")"
           printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
           pnpm exec wrangler deployments list --name werehere-hotel-api-preview --json > "$deployments_file"
           jq -e --arg version "$deployed_version" '
@@ -291,19 +328,56 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
           pnpm exec wrangler deploy --config wrangler.jsonc --strict --tag "$DEPLOY_TAG"
-          versions_file="$(mktemp)"
           deployments_file="$(mktemp)"
-          trap 'rm -f "$versions_file" "$deployments_file"' EXIT
-          pnpm exec wrangler versions list --name werehere-hotel-web-preview --json > "$versions_file"
-          deployed_version="$(jq -er --arg tag "$DEPLOY_TAG" '
-            [.[] | select(.annotations["workers/tag"]? == $tag)] as $matches
-            | if ($matches | length) != 1
-                or ($matches[0].id | type) != "string"
-                or ($matches[0].id | length) == 0 then
-                error("Tagged Web Worker version was not unique")
-              else $matches[0].id end
-          ' "$versions_file")"
+          trap 'rm -f "$deployments_file"' EXIT
+          resolve_tagged_version() {
+            local worker_name="$1"
+            local tag="$2"
+            local saw_valid_absence=0
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              local versions_file
+              versions_file="$(mktemp)"
+              if curl --fail --silent --show-error \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/versions?deployable=true" \
+                > "$versions_file"; then
+                local resolved
+                if resolved="$(jq -er --arg tag "$tag" '
+                  if .success != true
+                    or (.result | type) != "object"
+                    or (.result.items | type) != "array" then
+                    error("Worker versions response failed safety validation")
+                  else
+                    [.result.items[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+                    | if ($matches | length) == 0 then ""
+                      elif ($matches | length) != 1
+                        or ($matches[0].id | type) != "string"
+                        or ($matches[0].id | length) == 0 then
+                        error("Tagged Worker version was ambiguous")
+                      else $matches[0].id end
+                  end
+                ' "$versions_file")"; then
+                  rm -f "$versions_file"
+                  if [[ -n "$resolved" ]]; then
+                    printf '%s\n' "$resolved"
+                    return 0
+                  fi
+                  saw_valid_absence=1
+                else
+                  rm -f "$versions_file"
+                fi
+              else
+                rm -f "$versions_file"
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
+            done
+            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            return 2
+          }
+          deployed_version="$(resolve_tagged_version werehere-hotel-web-preview "$DEPLOY_TAG")"
           printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
           pnpm exec wrangler deployments list --name werehere-hotel-web-preview --json > "$deployments_file"
           jq -e --arg version "$deployed_version" '
@@ -328,12 +402,61 @@ jobs:
           API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
           API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
           API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
+          API_DEPLOY_ATTEMPTED: ${{ steps.deploy_api.outputs.deploy_attempted }}
+          API_DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-api
           WEB_PREVIOUS: ${{ steps.worker_snapshot.outputs.web_previous }}
           WEB_EXISTED: ${{ steps.worker_snapshot.outputs.web_existed }}
           WEB_DEPLOY_OUTCOME: ${{ steps.deploy_web.outcome }}
           WEB_DEPLOYED: ${{ steps.deploy_web.outputs.deployed_version }}
+          WEB_DEPLOY_ATTEMPTED: ${{ steps.deploy_web.outputs.deploy_attempted }}
+          WEB_DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-web
         run: |
           set +e
+          resolve_tagged_version() {
+            local worker_name="$1"
+            local tag="$2"
+            local saw_valid_absence=0
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              local versions_file
+              versions_file="$(mktemp)"
+              if curl --fail --silent --show-error \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/versions?deployable=true" \
+                > "$versions_file"; then
+                local resolved
+                if resolved="$(jq -er --arg tag "$tag" '
+                  if .success != true
+                    or (.result | type) != "object"
+                    or (.result.items | type) != "array" then
+                    error("Worker versions response failed safety validation")
+                  else
+                    [.result.items[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+                    | if ($matches | length) == 0 then ""
+                      elif ($matches | length) != 1
+                        or ($matches[0].id | type) != "string"
+                        or ($matches[0].id | length) == 0 then
+                        error("Tagged Worker version was ambiguous")
+                      else $matches[0].id end
+                  end
+                ' "$versions_file")"; then
+                  rm -f "$versions_file"
+                  if [[ -n "$resolved" ]]; then
+                    printf '%s\n' "$resolved"
+                    return 0
+                  fi
+                  saw_valid_absence=1
+                else
+                  rm -f "$versions_file"
+                fi
+              else
+                rm -f "$versions_file"
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
+            done
+            if [[ "$saw_valid_absence" -eq 1 ]]; then return 1; fi
+            return 2
+          }
           active_worker_version() {
             local worker_name="$1"
             local snapshot_file
@@ -405,11 +528,25 @@ jobs:
             local existed="$3"
             local outcome="$4"
             local deployed="$5"
+            local attempted="$6"
+            local deploy_tag="$7"
             if [[ "$outcome" == "skipped" || -z "$outcome" ]]; then
               return 0
             fi
-            if [[ -z "$deployed" ]]; then
+            if [[ "$attempted" != "true" ]]; then
               return 1
+            fi
+            if [[ -z "$deployed" ]]; then
+              local recovered
+              recovered="$(resolve_tagged_version "$worker_name" "$deploy_tag")"
+              local resolve_status="$?"
+              if [[ "$resolve_status" -eq 0 ]]; then
+                deployed="$recovered"
+              elif [[ "$resolve_status" -eq 1 && "$outcome" == "failure" ]]; then
+                return 0
+              else
+                return 1
+              fi
             fi
             local current
             current="$(active_worker_version "$worker_name")" || return 1
@@ -418,6 +555,8 @@ jobs:
               return 1
             fi
             if [[ "$existed" == "true" && -n "$previous" ]]; then
+              current="$(active_worker_version "$worker_name")" || return 1
+              [[ "$current" == "$deployed" ]] || return 1
               if ! pnpm --filter @werehere/api exec wrangler rollback "$previous" \
                 --name "$worker_name" --yes \
                 --message 'Automated rollback after failed Preview release'; then
@@ -429,6 +568,8 @@ jobs:
               return
             fi
             if [[ "$existed" == "false" ]]; then
+              current="$(active_worker_version "$worker_name")" || return 1
+              [[ "$current" == "$deployed" ]] || return 1
               pnpm --filter @werehere/api exec wrangler delete "$worker_name" --force || return 1
               if worker_exists "$worker_name"; then
                 return 1
@@ -441,9 +582,11 @@ jobs:
           }
           rollback_failed=0
           rollback_worker werehere-hotel-web-preview \
-            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" "$WEB_DEPLOYED" || rollback_failed=1
+            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" "$WEB_DEPLOYED" \
+            "$WEB_DEPLOY_ATTEMPTED" "$WEB_DEPLOY_TAG" || rollback_failed=1
           rollback_worker werehere-hotel-api-preview \
-            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" "$API_DEPLOYED" || rollback_failed=1
+            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" "$API_DEPLOYED" \
+            "$API_DEPLOY_ATTEMPTED" "$API_DEPLOY_TAG" || rollback_failed=1
           if [[ "$rollback_failed" -ne 0 ]]; then
             printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED' >&2
             exit 1
