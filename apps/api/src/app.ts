@@ -593,14 +593,20 @@ export function createApp(options: CreateAppOptions = {}) {
   hotelApp.get("/api/auth/callback", async (context) => {
     context.header("Cache-Control", "no-store");
     context.header("Referrer-Policy", "no-referrer");
-    const code = context.req.query("code");
-    const state = context.req.query("state");
+    const searchParams = new URL(context.req.url).searchParams;
+    const codes = searchParams.getAll("code");
+    const states = searchParams.getAll("state");
+    const code = codes[0];
+    const state = states[0];
     const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
     setCookie(context, OAUTH_BROWSER_COOKIE_NAME, "", {
       ...OAUTH_BROWSER_COOKIE_OPTIONS,
       maxAge: 0,
     });
-    if (!code || !state || !browserBinding || context.req.query("error")) {
+    if (
+      codes.length !== 1 || states.length !== 1 ||
+      !code || !state || !browserBinding || searchParams.has("error")
+    ) {
       return context.redirect("/login?error=invalid-flow", 303);
     }
     try {

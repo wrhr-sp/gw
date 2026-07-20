@@ -258,26 +258,75 @@ jobs:
           WEB_DEPLOY_OUTCOME: ${{ steps.deploy_web.outcome }}
         run: |
           set +e
+          active_worker_version() {
+            local worker_name="$1"
+            local snapshot_file
+            snapshot_file="$(mktemp)"
+            if ! pnpm --filter @werehere/api exec wrangler deployments list \
+              --name "$worker_name" --json > "$snapshot_file"; then
+              rm -f "$snapshot_file"
+              return 1
+            fi
+            jq -r 'if length == 0 then "" else (.[-1].versions | max_by(.percentage).version_id) end' \
+              "$snapshot_file"
+            rm -f "$snapshot_file"
+          }
+          worker_exists() {
+            local worker_name="$1"
+            local workers_file
+            workers_file="$(mktemp)"
+            if ! curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUD...OKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
+              > "$workers_file"; then
+              rm -f "$workers_file"
+              return 2
+            fi
+            local count
+            count="$(jq --arg name "$worker_name" '[.result[] | select(.id == $name)] | length' "$workers_file")"
+            rm -f "$workers_file"
+            [[ "$count" -gt 0 ]]
+          }
           rollback_worker() {
             local worker_name="$1"
             local previous="$2"
             local existed="$3"
             local outcome="$4"
             if [[ "$outcome" == "skipped" || -z "$outcome" ]]; then
-              return
+              return 0
             fi
             if [[ "$existed" == "true" && -n "$previous" ]]; then
-              pnpm --filter @werehere/api exec wrangler rollback "$previous" \
+              if ! pnpm --filter @werehere/api exec wrangler rollback "$previous" \
                 --name "$worker_name" --yes \
-                --message 'Automated rollback after failed Preview release'
-            elif [[ "$existed" == "false" ]]; then
-              pnpm --filter @werehere/api exec wrangler delete "$worker_name" --force
+                --message 'Automated rollback after failed Preview release'; then
+                return 1
+              fi
+              local active
+              active="$(active_worker_version "$worker_name")" || return 1
+              [[ "$active" == "$previous" ]]
+              return
             fi
+            if [[ "$existed" == "false" ]]; then
+              pnpm --filter @werehere/api exec wrangler delete "$worker_name" --force || return 1
+              if worker_exists "$worker_name"; then
+                return 1
+              else
+                [[ "$?" -eq 1 ]]
+                return
+              fi
+            fi
+            return 1
           }
+          rollback_failed=0
           rollback_worker werehere-hotel-web-preview \
-            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME"
+            "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" || rollback_failed=1
           rollback_worker werehere-hotel-api-preview \
-            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME"
+            "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" || rollback_failed=1
+          if [[ "$rollback_failed" -ne 0 ]]; then
+            printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED' >&2
+            exit 1
+          fi
+          printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFIED'
 
       - name: Remove transient credential files
         if: always()

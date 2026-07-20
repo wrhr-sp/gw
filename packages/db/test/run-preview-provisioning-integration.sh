@@ -126,9 +126,28 @@ where rolname = 'werehere_preview_runtime'
 select count(*) from pg_auth_members membership
 join pg_roles runtime_role on runtime_role.oid = membership.member
 where runtime_role.rolname = 'werehere_preview_runtime';
+select count(*) from pg_roles
+where rolname = 'werehere_auth_session_definer'
+  and not rolcanlogin
+  and not rolinherit
+  and not rolsuper
+  and not rolcreaterole
+  and not rolcreatedb
+  and not rolreplication
+  and not rolbypassrls;
+select count(*)
+from pg_auth_members membership
+join pg_roles definer_role
+  on definer_role.oid = membership.member or definer_role.oid = membership.roleid
+where definer_role.rolname = 'werehere_auth_session_definer'
+  and (
+    membership.member = definer_role.oid
+    or membership.inherit_option
+    or membership.set_option
+  );
 SQL
 )"
-EXPECTED=$'5\n1\n1\n1\n0'
+EXPECTED=$'5\n1\n1\n1\n0\n1\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1

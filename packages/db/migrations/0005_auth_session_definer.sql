@@ -2,6 +2,33 @@ begin;
 
 revoke create on schema public from public;
 
+do $role$
+declare
+  v_role record;
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'werehere_auth_session_definer') then
+    create role werehere_auth_session_definer
+      nologin noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+  end if;
+
+  select * into v_role
+  from pg_catalog.pg_roles
+  where rolname = 'werehere_auth_session_definer';
+  if v_role.rolcanlogin or v_role.rolinherit or v_role.rolsuper or v_role.rolcreatedb
+    or v_role.rolcreaterole or v_role.rolreplication or v_role.rolbypassrls
+    or exists (
+      select 1 from pg_catalog.pg_auth_members membership
+      where membership.member = v_role.oid
+        or (
+          membership.roleid = v_role.oid
+          and (membership.inherit_option or membership.set_option)
+        )
+    ) then
+    raise exception 'unsafe auth session definer role' using errcode = '42501';
+  end if;
+end
+$role$;
+
 create or replace function public.auth_create_session(
   p_session_id uuid,
   p_token_hash bytea,
@@ -119,9 +146,42 @@ begin
 end
 $function$;
 
+grant create on schema public to werehere_auth_session_definer;
+do $ownership_grant$
+begin
+  execute pg_catalog.format(
+    'grant werehere_auth_session_definer to %I with inherit false, set true',
+    current_user
+  );
+end
+$ownership_grant$;
+
+alter function public.auth_create_session(
+  uuid, bytea, text, integer, integer, timestamptz, uuid
+) owner to werehere_auth_session_definer;
+
+set local role werehere_auth_session_definer;
 revoke all on function public.auth_create_session(
   uuid, bytea, text, integer, integer, timestamptz, uuid
 ) from public;
+reset role;
+
+do $ownership_revoke$
+begin
+  execute pg_catalog.format(
+    'revoke werehere_auth_session_definer from %I granted by %I',
+    current_user,
+    current_user
+  );
+end
+$ownership_revoke$;
+revoke create on schema public from werehere_auth_session_definer;
+
+grant usage on schema public to werehere_auth_session_definer;
+grant select, update on public.auth_identities, public.users, public.companies
+  to werehere_auth_session_definer;
+grant select, insert on public.auth_sessions to werehere_auth_session_definer;
+grant insert on public.audit_events to werehere_auth_session_definer;
 
 insert into public.schema_migrations (version)
 values ('0005_auth_session_definer');

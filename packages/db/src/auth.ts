@@ -415,11 +415,18 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         throw new Error("auth session function returned an unexpected row count");
       }
       const result = rows[0]!;
-      if (result.result_status === "IDENTITY_NOT_PROVISIONED") {
-        return { status: "IDENTITY_NOT_PROVISIONED" } as const;
-      }
-      if (result.result_status === "PRINCIPAL_INACTIVE") {
-        return { status: "PRINCIPAL_INACTIVE" } as const;
+      if (
+        result.result_status === "IDENTITY_NOT_PROVISIONED" ||
+        result.result_status === "PRINCIPAL_INACTIVE"
+      ) {
+        if (
+          result.company_id !== null || result.identity_id !== null ||
+          result.session_id !== null || result.user_id !== null ||
+          result.user_type !== null || result.display_name !== null
+        ) {
+          throw new Error("auth session denial returned principal data");
+        }
+        return { status: result.result_status } as const;
       }
       if (result.result_status !== "CREATED") {
         throw new Error("auth session function returned an unexpected status");

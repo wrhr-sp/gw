@@ -119,12 +119,20 @@ if (login.headers.get("cache-control") !== "no-store") {
   throw new Error("login response must disable caching");
 }
 
-const invalidCallback = await json("/api/auth/callback", 400);
-if (
-  invalidCallback.body.ok ||
-  invalidCallback.body.error?.code !== "AUTH_FLOW_INVALID"
-) {
-  throw new Error("invalid callback contract is invalid");
+const invalidCallback = await fetchExpected("/api/auth/callback", 303, {
+  redirect: "manual",
+});
+if (invalidCallback.headers.get("location") !== "/login?error=invalid-flow") {
+  throw new Error("invalid callback redirect contract is invalid");
+}
+if (invalidCallback.headers.get("referrer-policy") !== "no-referrer") {
+  throw new Error("invalid callback must suppress referrer data");
+}
+if (invalidCallback.headers.get("cache-control") !== "no-store") {
+  throw new Error("invalid callback must disable caching");
+}
+if (!invalidCallback.headers.get("set-cookie")?.includes("__Host-hotel_oauth_browser=")) {
+  throw new Error("invalid callback must expire the browser binding cookie");
 }
 
 console.log("CLOUDFLARE_PREVIEW_PUBLIC_SMOKE_OK");

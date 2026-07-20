@@ -450,6 +450,30 @@ describe("hotel auth API", () => {
   });
 
   it.each([
+    ["duplicate code", "code=first&code=second&state=state-value", "second"],
+    ["duplicate state", "code=code-value&state=first&state=second", "second"],
+    [
+      "provider error",
+      "error=access_denied&error_description=provider-sensitive-sentinel",
+      "provider-sensitive-sentinel",
+    ],
+  ])("rejects %s callback parameters before token exchange", async (_label, query, sentinel) => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request(
+      `/api/auth/callback?${query}`,
+      { headers: { cookie: "__Host-hotel_oauth_browser=browser-binding-value" } },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(service.completeLogin).not.toHaveBeenCalled();
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+    expect(cookie).not.toContain("__Host-hotel_session=");
+    expect(response.headers.get("location")).not.toContain(sentinel);
+    expect(await response.text()).not.toContain(sentinel);
+  });
+
+  it.each([
     ["IDENTITY_NOT_PROVISIONED", 403, false, "not-provisioned"],
     ["FORBIDDEN", 403, false, "access-denied"],
     ["AUTH_FLOW_INVALID", 400, false, "invalid-flow"],

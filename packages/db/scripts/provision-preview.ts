@@ -395,10 +395,34 @@ try {
     grant insert, update on auth_sessions to ${runtimeRole};
     grant insert on audit_events, branches, hotel_profiles to ${runtimeRole};
     grant insert, update, delete on idempotency_records to ${runtimeRole};
-    grant execute on function public.auth_create_session(
-      uuid, bytea, text, integer, integer, timestamptz, uuid
-    ) to ${runtimeRole};
   `);
+
+  const [functionGrantCommands] = await owner<{
+    grant_membership: string;
+    revoke_membership: string;
+  }[]>`
+    select format(
+             'grant werehere_auth_session_definer to %I with inherit false, set true',
+             current_user
+           ) as grant_membership,
+           format(
+             'revoke werehere_auth_session_definer from %I granted by %I',
+             current_user,
+             current_user
+           ) as revoke_membership
+  `;
+  if (!functionGrantCommands) fail("Could not build auth function grant commands");
+  await owner.begin(async (sql) => {
+    await sql.unsafe(functionGrantCommands.grant_membership);
+    await sql.unsafe("set local role werehere_auth_session_definer");
+    await sql.unsafe(`
+      grant execute on function public.auth_create_session(
+        uuid, bytea, text, integer, integer, timestamptz, uuid
+      ) to ${runtimeRole}
+    `);
+    await sql.unsafe("reset role");
+    await sql.unsafe(functionGrantCommands.revoke_membership);
+  });
 
   const [authFunctionSafety] = await owner<{
     owner_safe: boolean;
@@ -413,7 +437,24 @@ try {
            has_function_privilege(
              ${runtimeRole}, procedure_record.oid, 'EXECUTE'
            ) as runtime_execute,
-           procedure_record.proowner = current_role_record.oid as owner_safe,
+           (
+             procedure_owner.rolname = 'werehere_auth_session_definer'
+             and not procedure_owner.rolcanlogin
+             and not procedure_owner.rolinherit
+             and not procedure_owner.rolsuper
+             and not procedure_owner.rolcreatedb
+             and not procedure_owner.rolcreaterole
+             and not procedure_owner.rolreplication
+             and not procedure_owner.rolbypassrls
+             and not exists (
+               select 1 from pg_auth_members membership
+               where membership.member = procedure_owner.oid
+                 or (
+                   membership.roleid = procedure_owner.oid
+                   and (membership.inherit_option or membership.set_option)
+                 )
+             )
+           ) as owner_safe,
            exists (
              select 1
              from aclexplode(coalesce(
@@ -433,8 +474,8 @@ try {
            ) as unauthorized_execute
     from pg_proc procedure_record
     join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
-    join pg_roles current_role_record on current_role_record.rolname = current_user
     join pg_roles runtime_role_record on runtime_role_record.rolname = ${runtimeRole}
+    join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
     where procedure_namespace.nspname = 'public'
       and procedure_record.proname = 'auth_create_session'
       and pg_get_function_identity_arguments(procedure_record.oid)

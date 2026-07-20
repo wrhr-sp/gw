@@ -6,12 +6,11 @@ export type DatabaseReadiness =
   | { status: "SCHEMA_NOT_READY" }
   | { status: "UNAVAILABLE" };
 
-const AUTH_CREATE_SESSION_DEFINITION_SHA256 =
-  "0054a297f23f44da0ea497125d22e4f36da3db50b1262fc1c4195e0bbadcae63";
+const AUTH_CREATE_SESSION_PROSRC_SHA256 =
+  "e1ded89f7c5018259c9d96206d1d787cc96a8d58bacc90bde16c1510ea50815c";
 
-async function definitionSha256(value: string) {
-  const normalized = normalizeDefinition(value);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+async function sourceSha256(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -212,12 +211,12 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
 
     const [authFunction] = await sql<{
-      definition: string;
       executable: boolean;
       owner_safe: boolean;
       return_signature_safe: boolean;
       safe_search_path: boolean;
       security_definer: boolean;
+      source: string;
       unauthorized_execute: boolean;
     }[]>`
       select procedure_record.prosecdef as security_definer,
@@ -228,11 +227,25 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
              pg_get_function_result(procedure_record.oid) =
                'TABLE(result_status text, company_id uuid, identity_id uuid, session_id uuid, user_id uuid, user_type text, display_name text)'
                as return_signature_safe,
-             pg_get_functiondef(procedure_record.oid) as definition,
+             procedure_record.prosrc as source,
              (
-               procedure_record.proowner <> current_role_record.oid
-               and not pg_has_role(current_user, procedure_record.proowner, 'MEMBER')
-             ) or current_role_record.rolsuper as owner_safe,
+               procedure_owner.rolname = 'werehere_auth_session_definer'
+               and not procedure_owner.rolcanlogin
+               and not procedure_owner.rolinherit
+               and not procedure_owner.rolsuper
+               and not procedure_owner.rolcreatedb
+               and not procedure_owner.rolcreaterole
+               and not procedure_owner.rolreplication
+               and not procedure_owner.rolbypassrls
+               and not exists (
+                 select 1 from pg_auth_members membership
+                 where membership.member = procedure_owner.oid
+                   or (
+                     membership.roleid = procedure_owner.oid
+                     and (membership.inherit_option or membership.set_option)
+                   )
+               )
+             ) as owner_safe,
              exists (
                select 1
                from aclexplode(coalesce(
@@ -245,6 +258,7 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       from pg_proc procedure_record
       join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
       join pg_roles current_role_record on current_role_record.rolname = current_user
+      join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
       where procedure_namespace.nspname = 'public'
         and procedure_record.proname = 'auth_create_session'
         and pg_get_function_identity_arguments(procedure_record.oid)
@@ -254,7 +268,7 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       !authFunction?.security_definer || !authFunction.safe_search_path ||
       !authFunction.executable || !authFunction.owner_safe ||
       !authFunction.return_signature_safe || authFunction.unauthorized_execute ||
-      await definitionSha256(authFunction.definition) !== AUTH_CREATE_SESSION_DEFINITION_SHA256
+      await sourceSha256(authFunction.source) !== AUTH_CREATE_SESSION_PROSRC_SHA256
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
