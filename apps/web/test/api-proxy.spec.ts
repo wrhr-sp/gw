@@ -87,6 +87,7 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/login?error=unavailable");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     expect(response.headers.get("set-cookie") ?? "")
       .toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
     expect(await response.text()).not.toContain("transport sentinel");

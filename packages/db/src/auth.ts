@@ -396,7 +396,7 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         company_id: string | null;
         display_name: string | null;
         identity_id: string | null;
-        result_status: "CREATED" | "IDENTITY_NOT_PROVISIONED" | "PRINCIPAL_INACTIVE";
+        result_status: string;
         session_id: string | null;
         user_id: string | null;
         user_type: HotelUserType | null;
@@ -411,12 +411,18 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
           ${input.traceId}::uuid
         )
       `;
-      const result = rows[0];
-      if (!result || result.result_status === "IDENTITY_NOT_PROVISIONED") {
+      if (rows.length !== 1) {
+        throw new Error("auth session function returned an unexpected row count");
+      }
+      const result = rows[0]!;
+      if (result.result_status === "IDENTITY_NOT_PROVISIONED") {
         return { status: "IDENTITY_NOT_PROVISIONED" } as const;
       }
       if (result.result_status === "PRINCIPAL_INACTIVE") {
         return { status: "PRINCIPAL_INACTIVE" } as const;
+      }
+      if (result.result_status !== "CREATED") {
+        throw new Error("auth session function returned an unexpected status");
       }
       if (
         !result.company_id || !result.identity_id || !result.session_id ||

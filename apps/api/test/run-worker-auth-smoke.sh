@@ -71,7 +71,7 @@ GRANT SELECT ON
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
-GRANT UPDATE ON auth_sessions TO $RUNTIME_ROLE;
+GRANT INSERT, UPDATE ON auth_sessions TO $RUNTIME_ROLE;
 GRANT INSERT ON audit_events, branches, hotel_profiles TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.auth_create_session(

@@ -392,7 +392,7 @@ try {
     to ${runtimeRole};
     grant insert, update, delete on auth_login_transactions to ${runtimeRole};
     grant insert, update, delete on auth_credential_rate_limits to ${runtimeRole};
-    grant update on auth_sessions to ${runtimeRole};
+    grant insert, update on auth_sessions to ${runtimeRole};
     grant insert on audit_events, branches, hotel_profiles to ${runtimeRole};
     grant insert, update, delete on idempotency_records to ${runtimeRole};
     grant execute on function public.auth_create_session(
@@ -401,16 +401,19 @@ try {
   `);
 
   const [authFunctionSafety] = await owner<{
+    owner_safe: boolean;
     public_execute: boolean;
     runtime_execute: boolean;
     security_definer: boolean;
     safe_search_path: boolean;
+    unauthorized_execute: boolean;
   }[]>`
     select procedure_record.prosecdef as security_definer,
            procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
            has_function_privilege(
              ${runtimeRole}, procedure_record.oid, 'EXECUTE'
            ) as runtime_execute,
+           procedure_record.proowner = current_role_record.oid as owner_safe,
            exists (
              select 1
              from aclexplode(coalesce(
@@ -418,9 +421,20 @@ try {
                acldefault('f', procedure_record.proowner)
              )) acl
              where acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
-           ) as public_execute
+           ) as public_execute,
+           exists (
+             select 1
+             from aclexplode(coalesce(
+               procedure_record.proacl,
+               acldefault('f', procedure_record.proowner)
+             )) acl
+             where acl.privilege_type = 'EXECUTE'
+               and acl.grantee not in (procedure_record.proowner, runtime_role_record.oid)
+           ) as unauthorized_execute
     from pg_proc procedure_record
     join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+    join pg_roles current_role_record on current_role_record.rolname = current_user
+    join pg_roles runtime_role_record on runtime_role_record.rolname = ${runtimeRole}
     where procedure_namespace.nspname = 'public'
       and procedure_record.proname = 'auth_create_session'
       and pg_get_function_identity_arguments(procedure_record.oid)
@@ -429,8 +443,10 @@ try {
   if (
     !authFunctionSafety?.security_definer ||
     !authFunctionSafety.safe_search_path ||
+    !authFunctionSafety.owner_safe ||
     !authFunctionSafety.runtime_execute ||
-    authFunctionSafety.public_execute
+    authFunctionSafety.public_execute ||
+    authFunctionSafety.unauthorized_execute
   ) {
     fail("Preview auth session function safety verification failed");
   }

@@ -211,7 +211,45 @@ async function verifyRlsNotForced(table: string) {
   }
 }
 
+const authFunctionSignature =
+  "public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)";
+
+async function verifyAuthFunctionPublicExecuteDamage() {
+  await sql.unsafe(`grant execute on function ${authFunctionSignature} to public`);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`PUBLIC auth function execute was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`revoke execute on function ${authFunctionSignature} from public`);
+  }
+}
+
+async function verifyAuthFunctionBodyDamage() {
+  const [functionRecord] = await sql<{ definition: string }[]>`
+    select pg_get_functiondef(${authFunctionSignature}::regprocedure) as definition
+  `;
+  if (!functionRecord) throw new Error("auth function definition is missing");
+  const damaged = functionRecord.definition.replace(
+    "if v_principal.user_status <> 'ACTIVE' or v_principal.company_status <> 'ACTIVE' then",
+    "if false then",
+  );
+  if (damaged === functionRecord.definition) throw new Error("auth function damage fixture did not apply");
+  await sql.unsafe(damaged);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`damaged auth function body was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(functionRecord.definition);
+  }
+}
+
 try {
+  await verifyAuthFunctionPublicExecuteDamage();
+  await verifyAuthFunctionBodyDamage();
   await verifyConstraintDamage(
     "hotel_profiles_road_address_nonempty",
     "check (btrim(road_address) <> '')",

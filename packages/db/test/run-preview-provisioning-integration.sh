@@ -179,7 +179,7 @@ select has_table_privilege(current_user, 'public.users', 'UPDATE');
 select has_table_privilege(current_user, 'public.companies', 'UPDATE');
 SQL
 )"
-if [[ "$PRIVILEGES" != $'t\nf\nf\nf\nf' ]]; then
+if [[ "$PRIVILEGES" != $'t\nt\nf\nf\nf' ]]; then
   printf '%s\n' 'Runtime auth function privilege boundary is unsafe.' >&2
   exit 1
 fi

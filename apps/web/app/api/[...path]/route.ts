@@ -112,6 +112,7 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
         headers: {
           "Cache-Control": "no-store",
           Location: "/login?error=unavailable",
+          "Referrer-Policy": "no-referrer",
           "Set-Cookie": CLEAR_OAUTH_BROWSER_COOKIE,
         },
       });
