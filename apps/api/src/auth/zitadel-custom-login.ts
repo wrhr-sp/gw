@@ -104,6 +104,7 @@ function providerFailure(status: number): AuthServiceError {
 
 export function createZitadelCustomLoginProvider(input: {
   clientId: string;
+  consoleClientId?: string;
   fetcher?: typeof fetch;
   issuer: string;
   redirectUri: string;
@@ -122,6 +123,26 @@ export function createZitadelCustomLoginProvider(input: {
   }
   const fetcher = input.fetcher ?? fetch;
   const now = input.now ?? (() => new Date());
+  const consoleClientId = input.consoleClientId?.trim();
+  if (consoleClientId && (
+    !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId) || consoleClientId === input.clientId
+  )) {
+    throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+  }
+  const authRequestTargets = [
+    {
+      clientId: input.clientId,
+      clearBrowserBinding: false,
+      redirectUri: redirectUri.toString(),
+      scopes: "openid profile",
+    },
+    ...(consoleClientId ? [{
+      clientId: consoleClientId,
+      clearBrowserBinding: true,
+      redirectUri: `${issuer}/ui/console/auth/callback`,
+      scopes: "email openid profile",
+    }] : []),
+  ];
   const serviceHeaders = {
     accept: "application/json",
     authorization: `Bearer ${input.serviceUserToken}`,
@@ -166,7 +187,7 @@ export function createZitadelCustomLoginProvider(input: {
     }
   }
 
-  async function validateAuthRequest(authRequest: string): Promise<void> {
+  async function inspectAuthRequest(authRequest: string) {
     const authRequestId = safeSegment(authRequest);
     const authResponse = await request(`${issuer}/v2/oidc/auth_requests/${authRequestId}`, {
       headers: serviceHeaders,
@@ -188,10 +209,14 @@ export function createZitadelCustomLoginProvider(input: {
       throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
     }
     const supportedScopes = [...new Set(parsedAuth.data.authRequest.scope)].sort();
+    const target = authRequestTargets.find((candidate) => (
+      candidate.clientId === parsedAuth.data.authRequest.clientId &&
+      candidate.redirectUri === parsedAuth.data.authRequest.redirectUri &&
+      candidate.scopes === supportedScopes.join(" ")
+    ));
     const reason = parsedAuth.data.authRequest.id !== authRequest ? "id"
-      : parsedAuth.data.authRequest.clientId !== input.clientId ? "client"
-      : parsedAuth.data.authRequest.redirectUri !== redirectUri.toString() ? "redirect"
-      : supportedScopes.join(" ") !== "openid profile" ? "scope"
+      : parsedAuth.data.authRequest.scope.length !== supportedScopes.length ? "duplicate-scope"
+      : !target ? "target"
       : (parsedAuth.data.authRequest.prompt?.length ?? 0) !== 0 ? "prompt"
       : parsedAuth.data.authRequest.maxAge !== undefined ? "max-age"
       : null;
@@ -199,6 +224,11 @@ export function createZitadelCustomLoginProvider(input: {
       console.warn("custom_login_auth_request_rejected", { reason });
       throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
     }
+    return target!;
+  }
+
+  async function validateAuthRequest(authRequest: string): Promise<void> {
+    await inspectAuthRequest(authRequest);
   }
 
   return {
@@ -247,7 +277,7 @@ export function createZitadelCustomLoginProvider(input: {
     },
     async authenticateAndFinalize({ authRequest, loginName, password }) {
       const authRequestId = safeSegment(authRequest);
-      await validateAuthRequest(authRequest);
+      const authRequestTarget = await inspectAuthRequest(authRequest);
 
       const settingsResponse = await request(`${issuer}/v2/settings/login`, { headers: serviceHeaders });
       if (!settingsResponse.ok) throw providerFailure(settingsResponse.status);
@@ -335,16 +365,18 @@ export function createZitadelCustomLoginProvider(input: {
         const callback = callbackResponseSchema.safeParse(await callbackResponse.json());
         if (!callback.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
         const callbackUrl = new URL(callback.data.callbackUrl);
+        const expectedCallbackUrl = new URL(authRequestTarget.redirectUri);
         const callbackKeys = [...callbackUrl.searchParams.keys()];
         if (
-          callbackUrl.origin !== redirectUri.origin ||
-          callbackUrl.pathname !== redirectUri.pathname ||
+          callbackUrl.origin !== expectedCallbackUrl.origin ||
+          callbackUrl.pathname !== expectedCallbackUrl.pathname ||
           callbackUrl.hash ||
           callbackUrl.username ||
           callbackUrl.password ||
           callbackUrl.searchParams.getAll("code").length !== 1 ||
           callbackUrl.searchParams.getAll("state").length !== 1 ||
           callbackUrl.searchParams.getAll("iss").length > 1 ||
+          (callbackUrl.searchParams.has("iss") && callbackUrl.searchParams.get("iss") !== issuer) ||
           !callbackUrl.searchParams.get("code") ||
           !callbackUrl.searchParams.get("state") ||
           callbackKeys.some((key) => !["code", "iss", "state"].includes(key))
@@ -352,7 +384,10 @@ export function createZitadelCustomLoginProvider(input: {
           throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
         }
         finalized = true;
-        return { callbackUrl: callbackUrl.toString() };
+        return {
+          callbackUrl: callbackUrl.toString(),
+          clearBrowserBinding: authRequestTarget.clearBrowserBinding,
+        };
       } finally {
         if (!finalized) await terminate(latest.sessionId, latest.sessionToken);
       }

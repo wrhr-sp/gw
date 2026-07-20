@@ -14,6 +14,10 @@ const principal: AuthenticatedPrincipal = {
 
 function createService(overrides: Partial<PasswordResetAuthService> = {}): PasswordResetAuthService {
   return {
+    beginCustomLogin: vi.fn(async () => ({
+      browserBinding: "b".repeat(43),
+      csrf: "c".repeat(43),
+    })),
     beginLogin: vi.fn(async () => ({
       authorizationUrl: "https://identity.example.test/oauth/v2/authorize",
       browserBinding: "browser-binding-value",
@@ -81,6 +85,62 @@ describe("hotel auth API", () => {
     expect(location.searchParams.get("authRequest")).toBe("oidc-request-1");
     expect(location.searchParams.get("csrf")).toBe("c".repeat(43));
     expect(service.prepareCustomLogin).toHaveBeenCalledWith("oidc-request-1", "browser-binding-value");
+  });
+
+  it("creates a fresh browser binding for a valid external Console auth request", async () => {
+    const generatedBinding = "b".repeat(43);
+    const service = createService({
+      beginCustomLogin: vi.fn(async () => ({
+        browserBinding: generatedBinding,
+        csrf: "c".repeat(43),
+      })),
+    });
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/login?authRequest=console-request-1",
+    );
+    expect(response.status).toBe(303);
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/__Host-hotel_oauth_browser=([A-Za-z0-9_-]{43})(?:;|$)/u);
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).not.toContain("Domain=");
+    const browserBinding = /__Host-hotel_oauth_browser=([A-Za-z0-9_-]{43})/u.exec(cookie)?.[1];
+    expect(browserBinding).toBe(generatedBinding);
+    expect(service.beginCustomLogin).toHaveBeenCalledWith("console-request-1", "unknown");
+    expect(service.beginLogin).not.toHaveBeenCalled();
+    expect(service.prepareCustomLogin).not.toHaveBeenCalled();
+    const location = new URL(response.headers.get("location")!, "https://hotel.example.test");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("authRequest")).toBe("console-request-1");
+  });
+
+  it("rejects duplicate browser bindings instead of replacing an ambiguous cookie", async () => {
+    const service = createService();
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/login?authRequest=console-request-1",
+      { headers: { cookie: "__Host-hotel_oauth_browser=first; __Host-hotel_oauth_browser=second" } },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(service.prepareCustomLogin).not.toHaveBeenCalled();
+  });
+
+  it("does not issue a new browser binding when an external auth request is rejected", async () => {
+    const service = createService({
+      beginCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request(
+      "/api/auth/custom-login/start/login?authRequest=rejected-request",
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(service.beginCustomLogin).toHaveBeenCalledOnce();
+    expect(service.beginLogin).not.toHaveBeenCalled();
   });
 
   it("accepts the Login V2 /login suffix appended to the configured base URI", async () => {
@@ -260,6 +320,7 @@ describe("hotel auth API", () => {
     }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toContain("/api/auth/callback?code=");
+    expect(response.headers.get("set-cookie") ?? "").not.toContain("Max-Age=0");
     expect(service.finalizeCustomLogin).toHaveBeenCalledWith({
       authRequest: "oidc-request-1",
       browserBinding: "browser-binding-value",
@@ -268,6 +329,30 @@ describe("hotel auth API", () => {
       loginName: "Hotel-Admin",
       password: "password-value",
     });
+  });
+
+  it("clears the browser binding before redirecting a completed Console login", async () => {
+    const service = createService({
+      finalizeCustomLogin: vi.fn(async () => ({
+        callbackUrl: "https://identity.example.test/ui/console/auth/callback?code=code&state=state",
+        clearBrowserBinding: true,
+      })),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: `authRequest=request-1&csrf=${"c".repeat(43)}&loginName=user&password=password-value`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toContain("/ui/console/auth/callback?code=");
+    expect(response.headers.get("set-cookie") ?? "")
+      .toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/iu);
   });
 
   it("rejects a same-origin credential form without the single-use CSRF", async () => {
@@ -323,6 +408,28 @@ describe("hotel auth API", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location"))
       .toBe("/api/auth/custom-login/start?authRequest=request-1&error=invalid-credentials");
+  });
+
+  it("preserves the custom login context when the provider is temporarily unavailable", async () => {
+    const service = createService({
+      finalizeCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: `authRequest=request-1&csrf=${"c".repeat(43)}&loginName=user&password=password`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location"))
+      .toBe("/api/auth/custom-login/start?authRequest=request-1&error=unavailable");
   });
 
   it("rejects callback requests without both code and state", async () => {

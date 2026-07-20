@@ -26,6 +26,7 @@ jobs:
       ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
       ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
       ZITADEL_CLIENT_ID: ${{ vars.ZITADEL_CLIENT_ID }}
+      ZITADEL_CONSOLE_CLIENT_ID: ${{ vars.ZITADEL_CONSOLE_CLIENT_ID }}
       ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
       WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
       RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-runtime-url
@@ -48,6 +49,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Chromium for Console smoke
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Validate required Preview configuration
         shell: bash
         run: |
@@ -59,6 +63,7 @@ jobs:
             ZITADEL_SERVICE_USER_TOKEN
             ZITADEL_ISSUER
             ZITADEL_CLIENT_ID
+            ZITADEL_CONSOLE_CLIENT_ID
             ZITADEL_REDIRECT_URI
           )
           for name in "${required[@]}"; do
@@ -91,6 +96,11 @@ jobs:
             throw new Error("ZITADEL_REDIRECT_URI does not match the Preview Web callback");
           }
           NODE
+          HYPERDRIVE_ID=00000000000000000000000000000000 \
+            node scripts/render-api-preview-config.mjs \
+              apps/api/wrangler.preview.jsonc \
+              /tmp/werehere-api-preview-preflight.json
+          rm -f /tmp/werehere-api-preview-preflight.json
           printf '%s\n' 'PREVIEW_CONFIGURATION_PRESENT'
 
       - name: Provision Neon Preview database and runtime role
@@ -232,7 +242,9 @@ jobs:
 
       - name: Verify public Preview path
         id: preview_smoke
-        run: node scripts/smoke-cloudflare-preview.mjs
+        run: |
+          node scripts/smoke-cloudflare-preview.mjs
+          node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Roll back failed Worker release
         if: failure()
@@ -272,4 +284,5 @@ jobs:
         run: |
           rm -f "$RUNTIME_DATABASE_URL_FILE"
           rm -f /tmp/werehere-api-preview-secrets.json
+          rm -f /tmp/werehere-api-preview-preflight.json
           rm -f apps/api/wrangler.preview.generated.json

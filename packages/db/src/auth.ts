@@ -16,6 +16,12 @@ export type CreateLoginTransactionInput = LoginTransaction & {
   stateHash: Uint8Array;
 };
 
+export type CreateCustomLoginTransactionInput = CreateLoginTransactionInput & {
+  authRequestHash: Uint8Array;
+  csrfHash: Uint8Array;
+  csrfLifetimeSeconds: number;
+};
+
 export type CreateSessionInput = {
   absoluteLifetimeSeconds: number;
   authTime: Date;
@@ -34,6 +40,10 @@ export type CreateSessionResult =
 export type CreateLoginTransactionResult =
   | { status: "CREATED" }
   | { status: "CAPACITY_EXCEEDED" };
+
+export type CreateCustomLoginTransactionResult =
+  | CreateLoginTransactionResult
+  | { status: "REPLAYED" };
 
 export type PrepareCustomLoginResult =
   | { status: "PREPARED" }
@@ -64,6 +74,9 @@ export interface AuthRepository {
     csrfHash: Uint8Array;
     ipHash: Uint8Array;
   }): Promise<ConsumeCustomLoginAttemptResult>;
+  createCustomLoginTransaction(
+    input: CreateCustomLoginTransactionInput,
+  ): Promise<CreateCustomLoginTransactionResult>;
   createLoginTransaction(input: CreateLoginTransactionInput): Promise<CreateLoginTransactionResult>;
   createSession(input: CreateSessionInput): Promise<CreateSessionResult>;
   prepareCustomLogin(input: {
@@ -76,6 +89,7 @@ export interface AuthRepository {
     authRequestHash: Uint8Array;
     browserBindingHash: Uint8Array;
   }): Promise<ReserveCustomLoginValidationResult>;
+  reserveCustomLoginStart(ipHash: Uint8Array): Promise<{ status: "RESERVED" | "RATE_LIMITED" }>;
   resolvePrincipal(tokenHash: Uint8Array, idleLifetimeSeconds: number): Promise<AuthenticatedPrincipal | null>;
   revokeSession(tokenHash: Uint8Array, reason: string, traceId: string): Promise<boolean>;
 }
@@ -145,6 +159,56 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
             ${input.id}, ${input.stateHash}, ${input.browserBindingHash}, ${input.nonceHash},
             ${input.codeVerifierCiphertext}, ${input.codeVerifierIv}, ${input.encryptionKeyVersion},
             ${input.redirectUri}, now() + make_interval(secs => ${input.lifetimeSeconds})
+          )
+        `;
+        return { status: "CREATED" } as const;
+      });
+    },
+
+    async createCustomLoginTransaction(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select pg_advisory_xact_lock(915202607160001)`;
+        await transaction`
+          delete from auth_login_transactions
+          where id in (
+            select id
+            from auth_login_transactions
+            where expires_at <= now()
+            order by expires_at
+            limit 256
+            for update skip locked
+          )
+        `;
+        const claimed = await transaction<{ claimed: boolean }[]>`
+          select exists (
+            select 1
+            from auth_login_transactions
+            where custom_auth_request_hash = ${input.authRequestHash}
+              and expires_at > now()
+          ) as claimed
+        `;
+        if (claimed[0]?.claimed) return { status: "REPLAYED" } as const;
+        const capacity = await transaction<{ active_count: number; recent_count: number }[]>`
+          select count(*) filter (where expires_at > now())::int as active_count,
+                 count(*) filter (where created_at > now() - interval '1 minute')::int as recent_count
+          from auth_login_transactions
+        `;
+        if ((capacity[0]?.active_count ?? 0) >= 10000
+          || (capacity[0]?.recent_count ?? 0) >= 1000) {
+          return { status: "CAPACITY_EXCEEDED" } as const;
+        }
+        await transaction`
+          insert into auth_login_transactions (
+            id, state_hash, browser_binding_hash, nonce_hash,
+            code_verifier_ciphertext, code_verifier_iv, encryption_key_version,
+            redirect_uri, expires_at, custom_auth_request_hash,
+            custom_csrf_hash, custom_csrf_expires_at, custom_validation_count
+          ) values (
+            ${input.id}, ${input.stateHash}, ${input.browserBindingHash}, ${input.nonceHash},
+            ${input.codeVerifierCiphertext}, ${input.codeVerifierIv}, ${input.encryptionKeyVersion},
+            ${input.redirectUri}, now() + make_interval(secs => ${input.lifetimeSeconds}),
+            ${input.authRequestHash}, ${input.csrfHash},
+            now() + make_interval(secs => ${input.csrfLifetimeSeconds}), 1
           )
         `;
         return { status: "CREATED" } as const;
@@ -238,6 +302,33 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         : { status: "FLOW_INVALID" } as const;
     },
 
+    async reserveCustomLoginStart(ipHash) {
+      const rows = await sql<{ attempt_count: number }[]>`
+        insert into auth_credential_rate_limits (
+          scope, subject_hash, window_started_at, attempt_count, expires_at
+        ) values (
+          'IP', ${ipHash}, now(), 1, now() + interval '15 minutes'
+        )
+        on conflict (scope, subject_hash) do update
+        set window_started_at = case
+              when auth_credential_rate_limits.expires_at <= now() then now()
+              else auth_credential_rate_limits.window_started_at
+            end,
+            attempt_count = case
+              when auth_credential_rate_limits.expires_at <= now() then 1
+              else least(auth_credential_rate_limits.attempt_count + 1, 1000)
+            end,
+            expires_at = case
+              when auth_credential_rate_limits.expires_at <= now() then now() + interval '15 minutes'
+              else auth_credential_rate_limits.expires_at
+            end
+        returning attempt_count
+      `;
+      return (rows[0]?.attempt_count ?? 1000) > 20
+        ? { status: "RATE_LIMITED" } as const
+        : { status: "RESERVED" } as const;
+    },
+
     async consumeCustomLoginAttempt(input) {
       return sql.begin(async (transaction) => {
         const consumed = await transaction<{ id: string }[]>`
@@ -284,7 +375,7 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
                 end,
                 attempt_count = case
                   when auth_credential_rate_limits.expires_at <= now() then 1
-                  else auth_credential_rate_limits.attempt_count + 1
+                  else least(auth_credential_rate_limits.attempt_count + 1, 1000)
                 end,
                 expires_at = case
                   when auth_credential_rate_limits.expires_at <= now() then now() + interval '15 minutes'

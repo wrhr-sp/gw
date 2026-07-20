@@ -3,6 +3,7 @@ import { createZitadelCustomLoginProvider } from "../src/auth/zitadel-custom-log
 
 const base = {
   clientId: "hotel-client",
+  consoleClientId: "console-client",
   issuer: "https://identity.example.test",
   redirectUri: "https://hotel.example.test/api/auth/callback",
   serviceUserToken: "service-token",
@@ -46,6 +47,7 @@ describe("ZITADEL custom login provider", () => {
     });
 
     expect(result.callbackUrl).toContain("code=authorization-code");
+    expect(result.clearBrowserBinding).toBe(false);
     const createBody = JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body));
     expect(createBody.checks).toEqual({
       user: { loginName: "hotel-admin" },
@@ -54,6 +56,109 @@ describe("ZITADEL custom login provider", () => {
     const callbackBody = JSON.parse(String(fetcher.mock.calls[5]?.[1]?.body));
     expect(callbackBody.session).toEqual({ sessionId: "session-1", sessionToken: "token-password" });
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
+  });
+
+  it("finalizes only the exact built-in Console client tuple to its fixed callback", async () => {
+    const consoleRedirectUri = `${base.issuer}/ui/console/auth/callback`;
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ authRequest: {
+        id: "console-request-1",
+        clientId: "console-client",
+        redirectUri: consoleRedirectUri,
+        scope: ["email", "openid", "profile"],
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
+      .mockResolvedValueOnce(json({ sessionId: "session-console", sessionToken: "token-console" }))
+      .mockResolvedValueOnce(json({ session: {
+        id: "session-console",
+        expirationDate: "2026-07-17T00:05:00.000Z",
+        factors: {
+          user: { id: "subject-1", organizationId: "org-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+          password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+        },
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
+      .mockResolvedValueOnce(json({ callbackUrl: `${consoleRedirectUri}?code=console-code&state=console-state` }));
+
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "console-request-1",
+      loginName: "hotel-admin",
+      password: "password-value",
+    })).resolves.toEqual({
+      callbackUrl: `${consoleRedirectUri}?code=console-code&state=console-state`,
+      clearBrowserBinding: true,
+    });
+  });
+
+  it.each([
+    {
+      label: "Console client with hotel redirect",
+      clientId: "console-client",
+      redirectUri: base.redirectUri,
+      scope: ["email", "openid", "profile"],
+    },
+    {
+      label: "hotel client with Console redirect",
+      clientId: "hotel-client",
+      redirectUri: `${base.issuer}/ui/console/auth/callback`,
+      scope: ["openid", "profile"],
+    },
+    {
+      label: "Console client with hotel scopes",
+      clientId: "console-client",
+      redirectUri: `${base.issuer}/ui/console/auth/callback`,
+      scope: ["openid", "profile"],
+    },
+    {
+      label: "Console client with a duplicate scope",
+      clientId: "console-client",
+      redirectUri: `${base.issuer}/ui/console/auth/callback`,
+      scope: ["email", "openid", "profile", "profile"],
+    },
+  ])("rejects a mixed auth request tuple: $label", async ({ clientId, redirectUri, scope }) => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ authRequest: {
+      id: "request-1",
+      clientId,
+      redirectUri,
+      scope,
+    } }));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.validateAuthRequest("request-1"))
+      .rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("terminates the verified session when a Console request returns the hotel callback", async () => {
+    const consoleRedirectUri = `${base.issuer}/ui/console/auth/callback`;
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ authRequest: {
+        id: "console-request-1",
+        clientId: "console-client",
+        redirectUri: consoleRedirectUri,
+        scope: ["email", "openid", "profile"],
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
+      .mockResolvedValueOnce(json({ sessionId: "session-console", sessionToken: "token-console" }))
+      .mockResolvedValueOnce(json({ session: {
+        id: "session-console",
+        expirationDate: "2026-07-17T00:05:00.000Z",
+        factors: {
+          user: { id: "subject-1", organizationId: "org-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+          password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+        },
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
+      .mockResolvedValueOnce(json({ callbackUrl: `${base.redirectUri}?code=wrong-code&state=wrong-state` }))
+      .mockResolvedValueOnce(json({ details: {} }));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "console-request-1",
+      loginName: "hotel-admin",
+      password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+    expect(fetcher.mock.calls[6]?.[1]?.method).toBe("DELETE");
   });
 
   it("fails closed before credential checks when MFA is mandatory", async () => {
@@ -121,7 +226,16 @@ describe("ZITADEL custom login provider", () => {
     })).rejects.toMatchObject({ code: "AUTH_MFA_REQUIRED" });
   });
 
-  it("rejects duplicate callback parameters", async () => {
+  it.each([
+    {
+      callbackUrl: `${base.redirectUri}?code=code&state=one&state=two`,
+      label: "duplicate callback state",
+    },
+    {
+      callbackUrl: `${base.redirectUri}?code=code&state=state&iss=https%3A%2F%2Fother.example.test`,
+      label: "foreign callback issuer",
+    },
+  ])("rejects $label", async ({ callbackUrl }) => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
         id: "request-1", clientId: "hotel-client", redirectUri: base.redirectUri,
@@ -138,9 +252,7 @@ describe("ZITADEL custom login provider", () => {
         },
       } }))
       .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
-      .mockResolvedValueOnce(json({
-        callbackUrl: `${base.redirectUri}?code=code&state=one&state=two`,
-      }))
+      .mockResolvedValueOnce(json({ callbackUrl }))
       .mockResolvedValueOnce(json({}));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
