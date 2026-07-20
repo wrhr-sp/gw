@@ -46,10 +46,17 @@ jobs:
           let organizationSettingsStatus = 0;
           if (user.status === 200) {
             const body = await user.json();
-            const organizationId = body?.user?.details?.resourceOwner;
+            const previewUser = body?.user;
+            const organizationId = previewUser?.details?.resourceOwner;
             if (typeof organizationId !== "string" || !organizationId) {
               throw new Error("Preview subject organization metadata is invalid");
             }
+            const loginNames = Array.isArray(previewUser?.loginNames) ? previewUser.loginNames : [];
+            console.log(`PREVIEW_SUBJECT_ACTIVE_${previewUser?.state === "USER_STATE_ACTIVE"}`);
+            console.log(`PREVIEW_USERNAME_IS_PREVIEW_ADMIN_${previewUser?.username === "preview-admin"}`);
+            console.log(`PREVIEW_LOGIN_NAMES_INCLUDE_PREVIEW_ADMIN_${loginNames.includes("preview-admin")}`);
+            console.log(`PREVIEW_PASSWORD_IS_SET_${typeof previewUser?.human?.passwordChanged === "string"}`);
+            console.log(`PREVIEW_PASSWORD_CHANGE_REQUIRED_${previewUser?.human?.passwordChangeRequired === true}`);
             const organizationSettingsUrl = new URL("/v2/settings/login", issuer);
             organizationSettingsUrl.searchParams.set("ctx.orgId", organizationId);
             const organizationSettings = await fetch(organizationSettingsUrl, {
