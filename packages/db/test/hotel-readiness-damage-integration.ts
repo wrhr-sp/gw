@@ -211,7 +211,85 @@ async function verifyRlsNotForced(table: string) {
   }
 }
 
+const authFunctionSignature =
+  "public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)";
+
+async function verifyAuthFunctionPublicExecuteDamage() {
+  await sql.unsafe(`grant execute on function ${authFunctionSignature} to public`);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`PUBLIC auth function execute was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`revoke execute on function ${authFunctionSignature} from public`);
+  }
+}
+
+async function verifyAuthFunctionNamedExecuteDamage() {
+  const damageRole = "werehere_auth_named_acl_damage";
+  await sql.unsafe(`create role ${damageRole} nologin noinherit`);
+  await sql.unsafe(
+    `grant execute on function ${authFunctionSignature} to ${damageRole}`,
+  );
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`named auth function execute was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(
+      `revoke execute on function ${authFunctionSignature} from ${damageRole}`,
+    );
+    await sql.unsafe(`drop role ${damageRole}`);
+  }
+}
+
+async function verifyAuthFunctionBodyDamage(from: string, to: string, label: string) {
+  const [functionRecord] = await sql<{ definition: string }[]>`
+    select pg_get_functiondef(${authFunctionSignature}::regprocedure) as definition
+  `;
+  if (!functionRecord) throw new Error("auth function definition is missing");
+  const damaged = functionRecord.definition.replace(from, to);
+  if (damaged === functionRecord.definition) throw new Error("auth function damage fixture did not apply");
+  await sql.unsafe(damaged);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`${label} auth function body damage was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(functionRecord.definition);
+  }
+}
+
+async function verifyAuthFunctionOwnerDamage() {
+  const damageOwner = "werehere_auth_owner_damage";
+  await sql.unsafe(`create role ${damageOwner} nologin noinherit`);
+  await sql.unsafe(`alter function ${authFunctionSignature} owner to ${damageOwner}`);
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`auth function owner damage was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(
+      `alter function ${authFunctionSignature} owner to werehere_auth_session_definer`,
+    );
+    await sql.unsafe(`drop role ${damageOwner}`);
+  }
+}
+
 try {
+  await verifyAuthFunctionPublicExecuteDamage();
+  await verifyAuthFunctionNamedExecuteDamage();
+  await verifyAuthFunctionOwnerDamage();
+  await verifyAuthFunctionBodyDamage(
+    "if v_principal.user_status <> 'ACTIVE' or v_principal.company_status <> 'ACTIVE' then",
+    "if false then",
+    "control-flow",
+  );
+  await verifyAuthFunctionBodyDamage("'ACTIVE'", "'active'", "string-literal");
   await verifyConstraintDamage(
     "hotel_profiles_road_address_nonempty",
     "check (btrim(road_address) <> '')",

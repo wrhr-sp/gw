@@ -619,6 +619,60 @@ try {
     throw new Error("unknown identity changed provisioned account rows");
   }
 
+  for (const invalidInput of [
+    { tokenHash: encode("55".repeat(31)), idleLifetimeSeconds: 28_800, absoluteLifetimeSeconds: 86_400 },
+    { tokenHash: encode("56".repeat(32)), idleLifetimeSeconds: 59, absoluteLifetimeSeconds: 86_400 },
+    { tokenHash: encode("57".repeat(32)), idleLifetimeSeconds: 28_800, absoluteLifetimeSeconds: 86_401 },
+  ]) {
+    let code = "";
+    try {
+      await repository.createSession({
+        ...invalidInput,
+        authTime: new Date(),
+        sessionId: crypto.randomUUID(),
+        traceId: crypto.randomUUID(),
+        providerSubject: "subject-1",
+      });
+    } catch (error) {
+      code = typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : "";
+    }
+    if (code !== "22023") throw new Error("invalid auth session function input was accepted");
+  }
+
+  let releaseStatusUpdate!: () => void;
+  let statusUpdateStarted!: () => void;
+  const statusUpdateStartedPromise = new Promise<void>((resolve) => { statusUpdateStarted = resolve; });
+  const releaseStatusUpdatePromise = new Promise<void>((resolve) => { releaseStatusUpdate = resolve; });
+  const statusUpdate = sql.begin(async (transaction) => {
+    await transaction`update users set status = 'INACTIVE' where id = ${created.principal.userId}`;
+    statusUpdateStarted();
+    await releaseStatusUpdatePromise;
+  });
+  await statusUpdateStartedPromise;
+  const blockedSession = parallelRepository.createSession({
+    absoluteLifetimeSeconds: 86_400,
+    authTime: new Date(),
+    idleLifetimeSeconds: 28_800,
+    sessionId: crypto.randomUUID(),
+    tokenHash: encode("58".repeat(32)),
+    traceId: crypto.randomUUID(),
+    providerSubject: "subject-1",
+  });
+  const lockObservation = await Promise.race([
+    blockedSession.then(() => "completed" as const),
+    new Promise<"blocked">((resolve) => setTimeout(() => resolve("blocked"), 100)),
+  ]);
+  if (lockObservation !== "blocked") throw new Error("session creation bypassed the active-state row lock");
+  releaseStatusUpdate();
+  await statusUpdate;
+  const inactiveResult = await blockedSession;
+  if (inactiveResult.status !== "PRINCIPAL_INACTIVE") {
+    throw new Error("session was created after a concurrent user deactivation");
+  }
+  await sql`update users set status = 'ACTIVE' where id = ${created.principal.userId}`;
+
   const auditRows = await sql<{ event_code: string }[]>`
     select event_code from audit_events
     where session_id = ${created.principal.sessionId}

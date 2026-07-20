@@ -37,6 +37,14 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_migration_owner;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'werehere_auth_session_definer') then
+    grant werehere_auth_session_definer to werehere_preview_migration_owner
+      with admin true, inherit false, set false;
+  end if;
+end
+$$;
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
 SQL
@@ -98,7 +106,11 @@ fi
 
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$PREVIEW_URL" <<SQL
 select count(*) from schema_migrations
-where version in ('0001_platform_foundation', '0002_auth_session_runtime', '0003_hotel_basic_information');
+where version in (
+  '0001_platform_foundation', '0002_auth_session_runtime',
+  '0003_hotel_basic_information', '0004_custom_login_security',
+  '0005_auth_session_definer'
+);
 select count(*) from auth_identities
 where provider = 'ZITADEL' and provider_subject = '$SUBJECT';
 select count(*) from permission_grants
@@ -122,9 +134,28 @@ where rolname = 'werehere_preview_runtime'
 select count(*) from pg_auth_members membership
 join pg_roles runtime_role on runtime_role.oid = membership.member
 where runtime_role.rolname = 'werehere_preview_runtime';
+select count(*) from pg_roles
+where rolname = 'werehere_auth_session_definer'
+  and not rolcanlogin
+  and not rolinherit
+  and not rolsuper
+  and not rolcreaterole
+  and not rolcreatedb
+  and not rolreplication
+  and not rolbypassrls;
+select count(*)
+from pg_auth_members membership
+join pg_roles definer_role
+  on definer_role.oid = membership.member or definer_role.oid = membership.roleid
+where definer_role.rolname = 'werehere_auth_session_definer'
+  and (
+    membership.member = definer_role.oid
+    or membership.inherit_option
+    or membership.set_option
+  );
 SQL
 )"
-EXPECTED=$'3\n1\n1\n1\n0'
+EXPECTED=$'5\n1\n1\n1\n0\n1\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1
@@ -163,6 +194,55 @@ values (
 SQL
 
 RUNTIME_URL="$(<"$RUNTIME_URL_FILE")"
+PRIVILEGES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RUNTIME_URL" <<'SQL'
+select has_function_privilege(
+  current_user,
+  'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)',
+  'EXECUTE'
+);
+select has_table_privilege(current_user, 'public.auth_sessions', 'INSERT');
+select has_table_privilege(current_user, 'public.auth_identities', 'UPDATE');
+select has_table_privilege(current_user, 'public.users', 'UPDATE');
+select has_table_privilege(current_user, 'public.companies', 'UPDATE');
+SQL
+)"
+if [[ "$PRIVILEGES" != $'t\nt\nf\nf\nf' ]]; then
+  printf '%s\n' 'Runtime auth function privilege boundary is unsafe.' >&2
+  exit 1
+fi
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm exec tsx <<'NODE'
+import { createPostgresAuthRepository } from "./packages/db/src/auth.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+const providerSubject = process.env.TEST_PROVIDER_SUBJECT;
+if (!databaseUrl || !providerSubject) throw new Error("Preview runtime test configuration is missing");
+const repository = createPostgresAuthRepository(databaseUrl);
+const sessionId = crypto.randomUUID();
+try {
+  const result = await repository.createSession({
+    absoluteLifetimeSeconds: 86400,
+    authTime: new Date(),
+    idleLifetimeSeconds: 28800,
+    providerSubject,
+    sessionId,
+    tokenHash: crypto.getRandomValues(new Uint8Array(32)),
+    traceId: crypto.randomUUID(),
+  });
+  if (result.status !== "CREATED" || result.principal.sessionId !== sessionId) {
+    throw new Error("Runtime auth session function did not create the expected principal");
+  }
+} finally {
+  await repository.close?.();
+}
+console.log(sessionId);
+NODE
+) >"$TMP_DIR/session-id"
+SESSION_ID="$(<"$TMP_DIR/session-id")"
+if [[ ! "$SESSION_ID" =~ ^[0-9a-f-]{36}$ ]]; then
+  printf '%s\n' 'Runtime auth session integration did not return a session identifier.' >&2
+  exit 1
+fi
 VISIBLE="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RUNTIME_URL" <<SQL
 begin;
 select set_config('app.company_id', '$COMPANY_ID', true);

@@ -6,6 +6,14 @@ export type DatabaseReadiness =
   | { status: "SCHEMA_NOT_READY" }
   | { status: "UNAVAILABLE" };
 
+const AUTH_CREATE_SESSION_PROSRC_SHA256 =
+  "e1ded89f7c5018259c9d96206d1d787cc96a8d58bacc90bde16c1510ea50815c";
+
+async function sourceSha256(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 const REQUIRED_TABLES = [
   "schema_migrations",
   "companies",
@@ -190,16 +198,80 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select count(*) = 4 as migration_applied
+      select count(*) = 5 as migration_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
         '0002_auth_session_runtime',
         '0003_hotel_basic_information',
-        '0004_custom_login_security'
+        '0004_custom_login_security',
+        '0005_auth_session_definer'
       )
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
+
+    const [authFunction] = await sql<{
+      executable: boolean;
+      owner_safe: boolean;
+      return_signature_safe: boolean;
+      safe_search_path: boolean;
+      security_definer: boolean;
+      source: string;
+      unauthorized_execute: boolean;
+    }[]>`
+      select procedure_record.prosecdef as security_definer,
+             procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
+             has_function_privilege(
+               current_user, procedure_record.oid, 'EXECUTE'
+             ) as executable,
+             pg_get_function_result(procedure_record.oid) =
+               'TABLE(result_status text, company_id uuid, identity_id uuid, session_id uuid, user_id uuid, user_type text, display_name text)'
+               as return_signature_safe,
+             procedure_record.prosrc as source,
+             (
+               procedure_owner.rolname = 'werehere_auth_session_definer'
+               and not procedure_owner.rolcanlogin
+               and not procedure_owner.rolinherit
+               and not procedure_owner.rolsuper
+               and not procedure_owner.rolcreatedb
+               and not procedure_owner.rolcreaterole
+               and not procedure_owner.rolreplication
+               and not procedure_owner.rolbypassrls
+               and not exists (
+                 select 1 from pg_auth_members membership
+                 where membership.member = procedure_owner.oid
+                   or (
+                     membership.roleid = procedure_owner.oid
+                     and (membership.inherit_option or membership.set_option)
+                   )
+               )
+             ) as owner_safe,
+             exists (
+               select 1
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee not in (procedure_record.proowner, current_role_record.oid)
+             ) as unauthorized_execute
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      join pg_roles current_role_record on current_role_record.rolname = current_user
+      join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
+      where procedure_namespace.nspname = 'public'
+        and procedure_record.proname = 'auth_create_session'
+        and pg_get_function_identity_arguments(procedure_record.oid)
+          = 'p_session_id uuid, p_token_hash bytea, p_provider_subject text, p_idle_lifetime_seconds integer, p_absolute_lifetime_seconds integer, p_auth_time timestamp with time zone, p_trace_id uuid'
+    `;
+    if (
+      !authFunction?.security_definer || !authFunction.safe_search_path ||
+      !authFunction.executable || !authFunction.owner_safe ||
+      !authFunction.return_signature_safe || authFunction.unauthorized_execute ||
+      await sourceSha256(authFunction.source) !== AUTH_CREATE_SESSION_PROSRC_SHA256
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
 
     const constraintRows = await sql<{
       constraint_name: string;

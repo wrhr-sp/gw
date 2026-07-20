@@ -74,6 +74,9 @@ GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON auth_sessions TO $RUNTIME_ROLE;
 GRANT INSERT ON audit_events, branches, hotel_profiles TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
+GRANT EXECUTE ON FUNCTION public.auth_create_session(
+  uuid, bytea, text, integer, integer, timestamptz, uuid
+) TO $RUNTIME_ROLE;
 SQL
 
 RUNTIME_DATABASE_URL="$(python - "$TEST_DATABASE_URL" "$RUNTIME_ROLE" "$RUNTIME_PASSWORD" <<'PY'
@@ -223,7 +226,7 @@ if ready_database != "READY":
     raise SystemExit(f"Worker PostgreSQL readiness mismatch: {ready_database}")
 if login_status != "503" or load("login.json").get("error", {}).get("code") != "AUTH_PROVIDER_UNAVAILABLE":
     raise SystemExit("Worker login provider failure mismatch")
-if callback_status != "400" or load("callback.json").get("error", {}).get("code") != "AUTH_FLOW_INVALID":
+if callback_status != "303":
     raise SystemExit("Worker callback validation mismatch")
 if session_status != "401" or load("session.json").get("error", {}).get("code") != "AUTHENTICATION_REQUIRED":
     raise SystemExit("Worker session rejection mismatch")
@@ -237,6 +240,7 @@ if hotel_detail_status != "200" or detail.get("branchCode") != "WORKER-HOTEL-1":
 PY
 
 grep -qi '^set-cookie: __Host-hotel_oauth_browser=.*Max-Age=0' "$TMP_DIR/callback.headers"
+grep -qi '^location: /login?error=invalid-flow' "$TMP_DIR/callback.headers"
 grep -qi '^set-cookie: __Host-hotel_session=.*Max-Age=0' "$TMP_DIR/logout.headers"
 
 printf 'WORKER_AUTH_RUNTIME_SMOKE_OK\n'

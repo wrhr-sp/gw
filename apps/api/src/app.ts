@@ -161,6 +161,17 @@ export function createApp(options: CreateAppOptions = {}) {
     ), 500);
   }
 
+  function callbackErrorReason(error: unknown) {
+    if (!(error instanceof AuthServiceError)) return "unavailable";
+    switch (error.code) {
+      case "IDENTITY_NOT_PROVISIONED": return "not-provisioned";
+      case "FORBIDDEN": return "access-denied";
+      case "AUTH_FLOW_INVALID": return "invalid-flow";
+      case "AUTH_RATE_LIMITED": return "rate-limited";
+      default: return "unavailable";
+    }
+  }
+
   function hotelFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
     if (error instanceof HotelServiceError) {
       return context.json(errorResponse(
@@ -582,19 +593,21 @@ export function createApp(options: CreateAppOptions = {}) {
   hotelApp.get("/api/auth/callback", async (context) => {
     context.header("Cache-Control", "no-store");
     context.header("Referrer-Policy", "no-referrer");
-    const code = context.req.query("code");
-    const state = context.req.query("state");
+    const searchParams = new URL(context.req.url).searchParams;
+    const codes = searchParams.getAll("code");
+    const states = searchParams.getAll("state");
+    const code = codes[0];
+    const state = states[0];
     const browserBinding = readUniqueCookie(context, OAUTH_BROWSER_COOKIE_NAME);
     setCookie(context, OAUTH_BROWSER_COOKIE_NAME, "", {
       ...OAUTH_BROWSER_COOKIE_OPTIONS,
       maxAge: 0,
     });
-    if (!code || !state || !browserBinding || context.req.query("error")) {
-      return context.json(errorResponse(
-        "AUTH_FLOW_INVALID",
-        AUTH_ERROR_MESSAGES.AUTH_FLOW_INVALID!,
-        false,
-      ), 400);
+    if (
+      codes.length !== 1 || states.length !== 1 ||
+      !code || !state || !browserBinding || searchParams.has("error")
+    ) {
+      return context.redirect("/login?error=invalid-flow", 303);
     }
     try {
       const result = await withAuthService(context.env, (service) => (
@@ -603,7 +616,7 @@ export function createApp(options: CreateAppOptions = {}) {
       setCookie(context, SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
       return context.redirect(result.redirectTo, 302);
     } catch (error) {
-      return authFailure(context, error);
+      return context.redirect(`/login?error=${callbackErrorReason(error)}`, 303);
     }
   });
 
