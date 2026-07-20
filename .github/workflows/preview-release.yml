@@ -276,16 +276,39 @@ jobs:
             local workers_file
             workers_file="$(mktemp)"
             if ! curl --fail --silent --show-error \
-              -H "Authorization: Bearer $CLOUD...OKEN" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts?per_page=100" \
               > "$workers_file"; then
               rm -f "$workers_file"
               return 2
             fi
             local count
-            count="$(jq --arg name "$worker_name" '[.result[] | select(.id == $name)] | length' "$workers_file")"
+            if ! count="$(jq -er --arg name "$worker_name" '
+              if .success != true then
+                error("Cloudflare API response was not successful")
+              elif (.result | type) != "array" then
+                error("Cloudflare API result was not an array")
+              elif (.result_info | type) != "object"
+                or (.result_info.total_pages | type) != "number"
+                or .result_info.total_pages < 0
+                or .result_info.total_pages > 1
+                or (.result_info.total_pages | floor) != .result_info.total_pages then
+                error("Cloudflare API pagination metadata was unsafe")
+              else
+                [.result[] | select(.id == $name)] | length
+              end
+            ' "$workers_file")"; then
+              rm -f "$workers_file"
+              return 2
+            fi
             rm -f "$workers_file"
-            [[ "$count" -gt 0 ]]
+            if [[ "$count" == "0" ]]; then
+              return 1
+            fi
+            if [[ "$count" =~ ^[1-9][0-9]*$ ]]; then
+              return 0
+            fi
+            return 2
           }
           rollback_worker() {
             local worker_name="$1"
