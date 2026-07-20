@@ -10,7 +10,8 @@ const PASSWORD_POLICY_ERROR = "비밀번호는 8자 이상이며 영문, 숫자,
 const PASSWORD_MISMATCH_ERROR = "새 비밀번호와 비밀번호 확인이 일치하지 않습니다.";
 
 function meetsPasswordPolicy(password: string) {
-  return password.length >= 8 && password.length <= 200 &&
+  const characterLength = [...password].length;
+  return characterLength >= 8 && characterLength <= 200 &&
     /[A-Za-z]/u.test(password) && /[0-9]/u.test(password) && /[\p{P}\p{S}]/u.test(password);
 }
 
@@ -28,6 +29,7 @@ export function PasswordResetCard({
   mode?: PasswordResetMode | undefined;
 }) {
   const [localError, setLocalError] = useState<string | null>(null);
+  const [serverErrorDismissed, setServerErrorDismissed] = useState(false);
   const [fragmentChecked, setFragmentChecked] = useState(mode !== "form");
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -79,17 +81,23 @@ export function PasswordResetCard({
     };
   }, [mode]);
 
-  const visibleError = localError ?? errorMessage;
+  const activeServerError = serverErrorDismissed ? undefined : errorMessage;
+  const visibleError = localError ?? activeServerError;
   const visibleMode = mode === "form" && !fragmentChecked ? "exchange" : mode;
-  const mismatch = localError === PASSWORD_MISMATCH_ERROR || errorCode === "password-mismatch";
-  const passwordRejected = localError === PASSWORD_POLICY_ERROR || errorCode === "password-policy" || errorCode === "password-rejected";
+  const mismatch = localError === PASSWORD_MISMATCH_ERROR || (!serverErrorDismissed && errorCode === "password-mismatch");
+  const passwordRejected = localError === PASSWORD_POLICY_ERROR || (!serverErrorDismissed && (errorCode === "password-policy" || errorCode === "password-rejected"));
 
   useEffect(() => {
     if (
-      (visibleMode === "invalid" && errorMessage) ||
-      (visibleMode === "form" && errorMessage && localError === null)
+      (visibleMode === "invalid" && activeServerError) ||
+      (visibleMode === "form" && activeServerError && localError === null)
     ) errorRef.current?.focus();
-  }, [errorMessage, localError, visibleMode]);
+  }, [activeServerError, localError, visibleMode]);
+
+  function dismissErrors() {
+    setLocalError(null);
+    setServerErrorDismissed(true);
+  }
 
   function validateConfirmation(event: FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
@@ -155,10 +163,10 @@ export function PasswordResetCard({
                   autoComplete="new-password"
                   className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-base font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10 sm:text-sm"
                   id="new-password"
-                  maxLength={200}
+                  maxLength={400}
                   minLength={8}
                   name="newPassword"
-                  onChange={() => setLocalError(null)}
+                  onChange={dismissErrors}
                   required
                   type="password"
                 />
@@ -171,10 +179,10 @@ export function PasswordResetCard({
                   autoComplete="new-password"
                   className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-base font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10 sm:text-sm"
                   id="password-confirmation"
-                  maxLength={200}
+                  maxLength={400}
                   minLength={8}
                   name="confirmation"
-                  onChange={() => setLocalError(null)}
+                  onChange={dismissErrors}
                   required
                   type="password"
                 />
