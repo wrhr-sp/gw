@@ -16,10 +16,10 @@ const authRequestResponseSchema = z.object({
 }).passthrough();
 
 const settingsSchema = z.object({
-  allowLocalAuthentication: z.boolean(),
+  allowLocalAuthentication: z.boolean().default(false),
   allowUsernamePassword: z.boolean().optional(),
-  forceMfa: z.boolean(),
-  forceMfaLocalOnly: z.boolean(),
+  forceMfa: z.boolean().default(false),
+  forceMfaLocalOnly: z.boolean().default(false),
 }).passthrough();
 
 const settingsResponseSchema = z.object({
