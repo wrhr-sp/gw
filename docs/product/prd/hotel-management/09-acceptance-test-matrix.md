@@ -44,6 +44,52 @@
 | `HOT-E2E-023` | 긴급이슈 저장 성공·푸시 실패 | 알림 처리 | 이슈 유지, 인앱 알림·푸시 실패상태 기록 |
 | `HOT-E2E-024` | 감염 또는 금지형식 파일 | 업로드 완료 | 부모자료 연결 금지·검역/차단·운영알림 |
 
+## 비밀번호 정책 수용 시나리오
+
+경계별 실패 원인을 독립적으로 증명하기 위해 다음 fixture를 사용한다. 각 fixture는 신규 설정·재설정·변경 경로에서 각각 별도로 실행하며 한 경로의 결과로 다른 경로를 갈음하지 않는다.
+
+| Fixture | 고정 조건 |
+|---|---|
+| `PW-7` | 정확히 7 Unicode 코드 포인트, ASCII 소문자·숫자·Unicode 구두점/기호 포함, 대문자 없음 |
+| `PW-8` | 정확히 8 Unicode 코드 포인트, ASCII 소문자·숫자·supplementary-plane Unicode 기호 포함, 대문자 없음 |
+| `PW-8-PUNCT` | 정확히 8 Unicode 코드 포인트, ASCII 소문자·숫자·Unicode 구두점 포함, Unicode 기호·대문자 없음 |
+| `PW-NO-LOWER` | 정확히 8 Unicode 코드 포인트, ASCII 대문자·숫자·Unicode 구두점/기호 포함, 소문자 없음 |
+| `PW-NO-NUMBER` | 정확히 8 Unicode 코드 포인트, ASCII 소문자·Unicode 구두점/기호 포함, 숫자·대문자 없음 |
+| `PW-NO-PUNCT-OR-SYMBOL` | 정확히 8 Unicode 코드 포인트, ASCII 소문자·숫자만 포함, Unicode 구두점/기호·대문자 없음 |
+| `PW-200` | 정확히 200 Unicode 코드 포인트, ASCII 소문자·숫자·supplementary-plane Unicode 기호 포함, 대문자 없음 |
+| `PW-201` | 정확히 201 Unicode 코드 포인트, ASCII 소문자·숫자·Unicode 구두점/기호 포함, 대문자 없음 |
+
+| ID | Given | When | Then |
+|---|---|---|---|
+| `HOT-AUTH-PW-001` | `PW-7` | 신규 설정 요청 | 길이 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-002` | `PW-7` | 재설정 요청 | 길이 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-003` | `PW-7` | 변경 요청 | 길이 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-004` | `PW-8` | 신규 설정 요청 | 대문자 없이 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-005` | `PW-8` | 재설정 요청 | 대문자 없이 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-006` | `PW-8` | 변경 요청 | 대문자 없이 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-007` | `PW-NO-LOWER` | 신규 설정 요청 | 소문자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-008` | `PW-NO-LOWER` | 재설정 요청 | 소문자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-009` | `PW-NO-LOWER` | 변경 요청 | 소문자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-010` | `PW-201` | 신규 설정 요청 | 상한 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-011` | `PW-201` | 재설정 요청 | 상한 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-012` | `PW-201` | 변경 요청 | 상한 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-013` | `PW-200` | 신규 설정 요청 | 상한 경계의 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-014` | `PW-200` | 재설정 요청 | 상한 경계의 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-015` | `PW-200` | 변경 요청 | 상한 경계의 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-016` | `PW-NO-NUMBER` | 신규 설정 요청 | 숫자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-017` | `PW-NO-NUMBER` | 재설정 요청 | 숫자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-018` | `PW-NO-NUMBER` | 변경 요청 | 숫자 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-019` | `PW-NO-PUNCT-OR-SYMBOL` | 신규 설정 요청 | 구두점/기호 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-020` | `PW-NO-PUNCT-OR-SYMBOL` | 재설정 요청 | 구두점/기호 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-021` | `PW-NO-PUNCT-OR-SYMBOL` | 변경 요청 | 구두점/기호 정책으로 거부, provider 호출·변경 및 기존 credential 상태 변경 없음 |
+| `HOT-AUTH-PW-022` | 정책 변경 전에 설정된 기존 비밀번호가 있음 | 정책 배포 | 강제 초기화·즉시 만료 없이 유지되고 다음 설정·재설정·변경부터 새 정책 적용 |
+| `HOT-AUTH-PW-023` | 유효한 정책 fixture와 provider 성공 | 비밀번호 작업 완료 | DB·감사·로그·오류·복구 payload에 비밀번호 원문·hash·digest 없음 |
+| `HOT-AUTH-PW-024` | 정책 위반 fixture | 비밀번호 작업 거절 | DB·감사·로그·오류·복구 payload에 비밀번호 원문·hash·digest 없음 |
+| `HOT-AUTH-PW-025` | 유효한 정책 fixture와 provider 안전 실패 | 비밀번호 작업 실패 | DB·감사·로그·오류·복구 payload에 비밀번호 원문·hash·digest 없음 |
+| `HOT-AUTH-PW-026` | `PW-8-PUNCT` | 신규 설정 요청 | Unicode 기호 없이 구두점 분기로 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-027` | `PW-8-PUNCT` | 재설정 요청 | Unicode 기호 없이 구두점 분기로 공통 정책 검증 통과, provider 성공 시에만 완료 |
+| `HOT-AUTH-PW-028` | `PW-8-PUNCT` | 변경 요청 | Unicode 기호 없이 구두점 분기로 공통 정책 검증 통과, provider 성공 시에만 완료 |
+
 ## DB 검증
 
 - 생성 응답 ID로 상세 SELECT/API 재조회.

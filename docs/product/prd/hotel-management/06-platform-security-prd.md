@@ -21,6 +21,16 @@
 - 비밀번호·MFA code·service token은 DB·로그·cookie·artifact에 저장하지 않는다.
 - 업무 프로필·법인·호텔·기능권한·자료: PostgreSQL.
 - 프론트엔드가 ZITADEL API를 직접 호출하지 않는다.
+
+### 비밀번호 정책 — 사용자 확정
+
+- 비밀번호는 Unicode 코드 포인트 기준 8자 이상 200자 이하로 제한한다.
+- ASCII 영문 소문자(`[a-z]`)·ASCII 숫자(`[0-9]`)·Unicode 구두점 또는 기호(`\p{P}` 또는 `\p{S}`)를 각각 1개 이상 포함해야 한다. 영문 대문자는 선택이다.
+- 이 정책은 신규 비밀번호 설정·재설정·변경에 적용한다. 기존 비밀번호를 정책 변경만으로 강제 초기화하거나 즉시 만료시키지 않는다.
+- ZITADEL 조직 effective password complexity policy는 방어 기본선으로 `minLength=8`, `hasUppercase=false`, `hasLowercase=true`, `hasNumber=true`, `hasSymbol=true`를 유지한다. Unicode 문자 클래스와 200 코드 포인트 상한을 포함한 최종 정본은 호텔관리 앱 정책이며 Web·API·provider 호출 직전 service 경계에서 공통 검증한다.
+- 프론트엔드 우회나 직접 API 호출도 서버 검증에서 거부한다. 비밀번호 원문·hash·digest는 DB·감사·오류·로그·복구 payload에 저장하지 않는다.
+- 사용자 안내는 “8자 이상이며 영문 소문자, 숫자, 기호를 포함”으로 통일하고, 정책 거절과 만료·무효 재설정 링크를 구분해 안전하게 안내한다.
+
 - 모든 호텔 API에서 다음을 서버가 함께 확인한다.
 
 ```text
