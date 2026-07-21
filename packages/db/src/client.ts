@@ -10,6 +10,8 @@ const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
   "57926aacd5232ddbf118b6614bf7dc6679d9d9dc2cdb5672ebb3d5026e3f986f";
 const AUTH_CREATE_SESSION_V2_EXPAND_PROSRC_SHA256 =
   "8b1471fab68cd50dbf0905af4a32a9f5d5642eb1d74e1500ec5cb073d4654790";
+const AUTH_RESOLVE_LOGIN_IDENTITY_V1_PROSRC_SHA256 =
+  "79e1b325d46176fd001ca6495f5c92182dbf65d2272fd27123c0379fa01774d7";
 const AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256 =
   "59fcd28ea1349f6be3d64faae5e0f80121a21cf90fcabfd041906ed23e4df6dc";
 const AUTH_REVOKE_SESSION_V2_PROSRC_SHA256 =
@@ -76,6 +78,7 @@ const REQUIRED_TABLES = [
   "outbox_jobs",
   "account_provisioning_attempts",
   "initial_password_change_attempts",
+  "login_id_registry",
   "hotel_staff_assignments",
   "housekeeping_hotel_links",
   "hotel_owner_assignments",
@@ -125,6 +128,8 @@ const REQUIRED_COLUMNS = [
   ["users", "must_change_password"],
   ["account_provisioning_attempts", "target_user_id"],
   ["account_provisioning_attempts", "lease_expires_at"],
+  ["login_id_registry", "login_id"],
+  ["login_id_registry", "target_user_id"],
   ["initial_password_change_attempts", "status"],
   ["initial_password_change_attempts", "lease_expires_at"],
 ] as const;
@@ -348,6 +353,11 @@ const REQUIRED_INDEXES = [
       "create unique index users_login_name_unique_idx on public.users using btree (company_id, lower(btrim(login_name))) where (login_name is not null)",
   },
   {
+    name: "users_login_name_global_unique_idx",
+    definition:
+      "create unique index users_login_name_global_unique_idx on public.users using btree (lower(btrim(login_name))) where (login_name is not null)",
+  },
+  {
     name: "users_email_unique_idx",
     definition:
       "create unique index users_email_unique_idx on public.users using btree (company_id, lower(btrim(email))) where (email is not null)",
@@ -418,6 +428,8 @@ const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "initial_password_change_attempts:INSERT",
   "initial_password_change_attempts:SELECT",
   "initial_password_change_attempts:UPDATE",
+  "login_id_registry:INSERT",
+  "login_id_registry:SELECT",
   "outbox_jobs:INSERT",
   "outbox_jobs:SELECT",
   "outbox_jobs:UPDATE",
@@ -460,6 +472,11 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
 ] as const;
 
 const REQUIRED_TRIGGERS = [
+  {
+    name: "login_id_registry_immutable",
+    table: "login_id_registry",
+    functionName: "prevent_login_id_registry_mutation",
+  },
   {
     name: "audit_events_no_update",
     table: "audit_events",
@@ -538,6 +555,10 @@ const REQUIRED_RLS_POLICIES = [
   {
     policy: "initial_password_change_attempts_company_isolation",
     table: "initial_password_change_attempts",
+  },
+  {
+    policy: "login_id_registry_company_isolation",
+    table: "login_id_registry",
   },
   {
     policy: "hotel_staff_assignments_company_isolation",
@@ -645,10 +666,18 @@ export async function probeDatabaseReadiness(
     const migrationRows = await sql<
       { contract_applied: boolean; expand_applied: boolean }[]
     >`
-      select count(*) filter (where version <> '0008_remove_legacy_company_id_fallback') = 7
-               as expand_applied,
-             bool_or(version = '0008_remove_legacy_company_id_fallback')
-               as contract_applied
+      select count(*) filter (
+               where version not in (
+                 '0008_remove_legacy_company_id_fallback',
+                 '0010_global_login_id_contract'
+               )
+             ) = 8 as expand_applied,
+             count(*) filter (
+               where version in (
+                 '0008_remove_legacy_company_id_fallback',
+                 '0010_global_login_id_contract'
+               )
+             ) = 2 as contract_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -658,7 +687,9 @@ export async function probeDatabaseReadiness(
         '0005_auth_session_definer',
         '0006_account_administration',
         '0007_api_tenant_authority_expand',
-        '0008_remove_legacy_company_id_fallback'
+        '0008_remove_legacy_company_id_fallback',
+        '0009_global_login_id_expand',
+        '0010_global_login_id_contract'
       )
     `;
     const schemaPhase = migrationRows[0]?.contract_applied
@@ -862,6 +893,10 @@ export async function probeDatabaseReadiness(
       join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
       where procedure_namespace.nspname = 'public'
         and (
+          (procedure_record.proname = 'auth_resolve_login_identity_v1'
+            and pg_get_function_identity_arguments(procedure_record.oid)
+              = 'p_login_name text')
+          or
           (procedure_record.proname = 'auth_resolve_principal_v2'
             and pg_get_function_identity_arguments(procedure_record.oid)
               = 'p_token_hash bytea, p_idle_lifetime_seconds integer')
@@ -872,6 +907,10 @@ export async function probeDatabaseReadiness(
         )
     `;
     const expectedAuthSupportDigests = new Map([
+      [
+        "auth_resolve_login_identity_v1",
+        AUTH_RESOLVE_LOGIN_IDENTITY_V1_PROSRC_SHA256,
+      ],
       ["auth_resolve_principal_v2", AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256],
       ["auth_revoke_session_v2", AUTH_REVOKE_SESSION_V2_PROSRC_SHA256],
     ]);
@@ -1485,6 +1524,19 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     }
     if (
+      schemaPhase === "CONTRACT" &&
+      ["users_login_name_format_check", "users_login_name_reserved_check"].some(
+        (requiredName) =>
+          !constraints.some((constraint) =>
+            constraint.table === "users" &&
+            constraint.name === requiredName &&
+            constraint.validated,
+          ),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (
       REQUIRED_SECURITY_CHECK_CONSTRAINTS.some(
         (required) =>
           !constraints.some(
@@ -1525,12 +1577,12 @@ export async function probeDatabaseReadiness(
     if (!permissionRows[0]?.permission_ready)
       return { status: "SCHEMA_NOT_READY" };
 
-    const runtimePrivilegeRows = await sql<
-      { grantable: boolean; label: string; public_grant: boolean }[]
+    const tablePrivilegeRows = await sql<
+      { grantable: boolean; label: string; role_name: string | null }[]
     >`
       select table_record.relname || ':' || upper(acl.privilege_type) as label,
              acl.is_grantable as grantable,
-             acl.grantee = 0::oid as public_grant
+             grantee_role.rolname as role_name
       from pg_class table_record
       join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
       cross join lateral aclexplode(coalesce(
@@ -1540,21 +1592,79 @@ export async function probeDatabaseReadiness(
       left join pg_roles grantee_role on grantee_role.oid = acl.grantee
       where table_namespace.nspname = 'public'
         and table_record.relkind in ('r', 'p')
-        and (acl.grantee = 0::oid or grantee_role.rolname = current_user)
+        and acl.grantee <> table_record.relowner
     `;
-    const actualRuntimePrivileges = new Set(
-      runtimePrivilegeRows.map((row) => row.label),
+    const capabilityRoleRows = await sql<
+      { capability: RuntimeCapability; role_name: string }[]
+    >`
+      select role_name::text, capability
+      from public.runtime_database_capabilities
+      order by role_name
+    `;
+    const [migrationOwner] = await sql<{ role_name: string }[]>`
+      select pg_get_userbyid(table_record.relowner) as role_name
+      from pg_class table_record
+      join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+      where table_namespace.nspname = 'public'
+        and table_record.relname = 'schema_migrations'
+        and table_record.relkind in ('r', 'p')
+    `;
+    if (!migrationOwner) return { status: "SCHEMA_NOT_READY" };
+    const expectedTablePrivileges = new Set<string>();
+    const addExpectedTablePrivileges = (
+      roleName: string,
+      labels: readonly string[],
+    ) => {
+      for (const label of labels) {
+        expectedTablePrivileges.add(`${roleName}:${label}`);
+      }
+    };
+    for (const role of capabilityRoleRows) {
+      if (role.role_name === migrationOwner.role_name) continue;
+      addExpectedTablePrivileges(
+        role.role_name,
+        role.capability === "API_RUNTIME"
+          ? EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
+          : EXPECTED_RECONCILER_TABLE_PRIVILEGES,
+      );
+    }
+    addExpectedTablePrivileges("werehere_auth_session_definer", [
+      "auth_identities:SELECT",
+      "auth_identities:UPDATE",
+      "users:SELECT",
+      "users:UPDATE",
+      "companies:SELECT",
+      "companies:UPDATE",
+      "auth_sessions:SELECT",
+      "auth_sessions:INSERT",
+      "auth_sessions:UPDATE",
+      "audit_events:INSERT",
+      "runtime_database_capabilities:SELECT",
+    ]);
+    addExpectedTablePrivileges("werehere_tenant_authority_definer", [
+      "auth_sessions:SELECT",
+      "users:SELECT",
+      "companies:SELECT",
+      "reconciliation_company_registry:SELECT",
+      "reconciliation_company_registry:INSERT",
+      "reconciliation_company_registry:UPDATE",
+    ]);
+    addExpectedTablePrivileges(migrationOwner.role_name, [
+      "runtime_database_capabilities:SELECT",
+      "runtime_database_capabilities:INSERT",
+      "runtime_database_capabilities:UPDATE",
+    ]);
+    const actualTablePrivileges = new Set(
+      tablePrivilegeRows.map(
+        (row) => `${row.role_name ?? "PUBLIC"}:${row.label}`,
+      ),
     );
-    const expectedRuntimePrivileges: readonly string[] =
-      options.capability === "API_RUNTIME"
-        ? EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
-        : EXPECTED_RECONCILER_TABLE_PRIVILEGES;
     if (
-      actualRuntimePrivileges.size !== expectedRuntimePrivileges.length ||
-      expectedRuntimePrivileges.some(
-        (label) => !actualRuntimePrivileges.has(label),
+      actualTablePrivileges.size !== expectedTablePrivileges.size ||
+      [...expectedTablePrivileges].some(
+        (privilege) => !actualTablePrivileges.has(privilege),
       ) ||
-      runtimePrivilegeRows.some((row) => row.grantable || row.public_grant)
+      tablePrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

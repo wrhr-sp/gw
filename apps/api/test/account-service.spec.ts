@@ -28,7 +28,7 @@ const hotelId = "50000000-0000-4000-8000-000000000001";
 const secondHotelId = "50000000-0000-4000-8000-000000000002";
 const request: CreateAccountRequest = {
   displayName: "김하우스",
-  loginName: "housekeeper-01",
+  loginName: "housekeeper01",
   email: "housekeeper-01@example.invalid",
   userType: "HOUSEKEEPING",
   hotelIds: [hotelId, secondHotelId],
@@ -108,6 +108,20 @@ function provider(
 }
 
 describe("account administration service", () => {
+  it("returns a generic duplicate before any provider call when the global login ID is already claimed", async () => {
+    const repo = repository({
+      reserveCreate: vi.fn(async () => ({ status: "LOGIN_ID_CONFLICT" as const })),
+    });
+    const identity = provider();
+    const service = createAccountService({ repository: repo, provider: identity });
+
+    await expect(
+      service.createAccount(principal, request, "global-login-conflict"),
+    ).rejects.toMatchObject({ code: "ACCOUNT_DUPLICATE", httpStatus: 409 });
+    expect(identity.createHumanUser).not.toHaveBeenCalled();
+    expect(identity.verifyPassword).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["PW-7", "a1!aaaa", ["비밀번호는 8자 이상 입력해 주세요."]],
     ["PW-NO-LOWER", "A1!AAAAA", ["비밀번호에 영문 소문자를 포함해 주세요."]],
@@ -734,7 +748,7 @@ describe("account administration service", () => {
             status: "RECOVERY_CONFIRMABLE" as const,
             idempotencyKey: "original-password-operation",
             leaseVersion: 1,
-            loginName: "pending-housekeeper",
+            loginName: "pendinghousekeeper",
             subject: pendingPrincipal.userId,
           }) as never,
       ),
@@ -755,7 +769,7 @@ describe("account administration service", () => {
     expect(identity.setPassword).not.toHaveBeenCalled();
     expect(identity.verifyPassword).toHaveBeenCalledWith({
       expectedSubject: pendingPrincipal.userId,
-      loginName: "pending-housekeeper",
+      loginName: "pendinghousekeeper",
       password: "Another-Strong-456!",
     });
     expect(repo.confirmInitialPasswordProviderState).toHaveBeenCalledWith(

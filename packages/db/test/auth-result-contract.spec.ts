@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseResolvedPrincipalRows } from "../src/auth";
+import {
+  parseResolvedLoginIdentityRows,
+  parseResolvedPrincipalRows,
+} from "../src/auth";
 
 const principalRow = {
   company_id: "10000000-0000-4000-8000-000000000001",
@@ -12,6 +15,22 @@ const principalRow = {
 };
 
 describe("auth resolve result contract", () => {
+  it("fails closed for ambiguous or incomplete short-login identity results", () => {
+    expect(parseResolvedLoginIdentityRows([])).toBeNull();
+    expect(
+      parseResolvedLoginIdentityRows([{ provider_subject: "subject-1" }]),
+    ).toEqual({ providerSubject: "subject-1" });
+    expect(() =>
+      parseResolvedLoginIdentityRows([
+        { provider_subject: "subject-1" },
+        { provider_subject: "subject-2" },
+      ]),
+    ).toThrow("multiple rows");
+    expect(() =>
+      parseResolvedLoginIdentityRows([{ provider_subject: null }]),
+    ).toThrow("incomplete row");
+  });
+
   it("accepts zero rows as an unauthenticated session", () => {
     expect(parseResolvedPrincipalRows([])).toBeNull();
   });

@@ -140,7 +140,7 @@ export function AccountCreateForm({
   const field = (name: AccountFieldName, label: string, type = "text") => {
     const registration = register(name, { onChange: () => clearStaleErrors(name) });
     return <label className="block text-sm font-semibold" htmlFor={`account-${name}`}>
-      {label}<input aria-describedby={errors[name] ? `account-${name}-error` : undefined} aria-invalid={Boolean(errors[name])} aria-required="true" className={inputClassName} id={`account-${name}`} required type={type} {...registration} />
+      {label}<input aria-describedby={errors[name] ? `account-${name}-error` : undefined} aria-invalid={Boolean(errors[name])} aria-required="true" autoCapitalize={name === "loginName" ? "none" : undefined} className={inputClassName} id={`account-${name}`} maxLength={name === "loginName" ? 30 : undefined} minLength={name === "loginName" ? 3 : undefined} pattern={name === "loginName" ? "[A-Za-z0-9]{3,30}" : undefined} required spellCheck={name === "loginName" ? false : undefined} type={type} {...registration} />
       {errors[name]?.message ? <span className="mt-1 block text-xs text-danger" id={`account-${name}-error`}>{errors[name]?.message}</span> : null}
     </label>;
   };

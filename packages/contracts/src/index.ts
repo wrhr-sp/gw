@@ -74,10 +74,25 @@ export const authRoutes = {
   session: "/api/auth/session",
 } as const;
 
+export const fixedReservedLoginIds = [
+  "admin", "administrator", "root", "system", "security", "api",
+  "service", "support", "test", "preview", "werehere",
+] as const;
+const fixedReservedLoginIdSet = new Set<string>(fixedReservedLoginIds);
+export const loginIdSchema = z.string().trim()
+  .min(3, { error: "로그인 아이디는 3자 이상 입력해 주세요." })
+  .max(30, { error: "로그인 아이디는 30자 이하로 입력해 주세요." })
+  .transform((value) => value.toLowerCase())
+  .pipe(z.string().regex(/^[a-z0-9]{3,30}$/u, {
+    error: "로그인 아이디는 영문과 숫자만 사용할 수 있습니다.",
+  }).refine((value) => !fixedReservedLoginIdSet.has(value), {
+    error: "사용할 수 없는 로그인 아이디입니다.",
+  }));
+
 export const customLoginRequestSchema = z.object({
   authRequest: z.string().trim().min(1).max(200),
   csrf: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
-  loginName: z.string().trim().min(1).max(200),
+  loginName: loginIdSchema,
   password: z.string().min(1).max(200),
 }).strict();
 export type CustomLoginRequest = z.infer<typeof customLoginRequestSchema>;
@@ -238,8 +253,7 @@ const accountHotelIdsSchema = z.array(
 
 const accountAssignmentFields = {
   displayName: z.string().trim().min(1, { error: "표시이름을 입력해 주세요." }).max(100),
-  loginName: z.string().trim().min(3, { error: "로그인 아이디는 3자 이상 입력해 주세요." }).max(100)
-    .regex(/^[A-Za-z0-9._-]+$/u, { error: "로그인 아이디는 영문, 숫자, 점, 밑줄, 하이픈만 사용할 수 있습니다." }),
+  loginName: loginIdSchema,
   email: z.email({ error: "올바른 이메일을 입력해 주세요." }).max(200),
   userType: hotelUserTypeSchema,
   hotelId: z.uuid({ error: "올바른 호텔을 선택해 주세요." }).optional(),
@@ -303,7 +317,7 @@ export type AccountListQuery = z.infer<typeof accountListQuerySchema>;
 export const accountSchema = z.object({
   id: z.uuid(),
   displayName: z.string().min(1),
-  loginName: z.string().min(1),
+  loginName: loginIdSchema,
   email: z.email(),
   userType: hotelUserTypeSchema,
   status: accountStatusSchema,

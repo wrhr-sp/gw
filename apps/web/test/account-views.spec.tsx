@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 const account = {
   id: "21000000-0000-4000-8000-000000000001",
   displayName: "김하우스",
-  loginName: "housekeeper-01",
+  loginName: "housekeeper01",
   email: "housekeeper-01@example.invalid",
   userType: "HOUSEKEEPING" as const,
   status: "PENDING_SETUP" as const,
@@ -57,7 +57,7 @@ describe("account administration views", () => {
   it.each([
     ["id", { id: "21000000-0000-4000-8000-000000000002" }],
     ["displayName", { displayName: "다른 사용자" }],
-    ["loginName", { loginName: "different-login" }],
+    ["loginName", { loginName: "differentlogin" }],
     ["email", { email: "different@example.invalid" }],
     ["userType", { userType: "INTERNAL_STAFF" as const }],
     ["hotelIds", { hotels: [account.hotels[0]!] }],

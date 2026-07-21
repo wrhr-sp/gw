@@ -16,7 +16,7 @@
 - Auth Request provider 검증은 transaction당 최대 5회만 예약하며, 이미 검증된 동일 요청은 provider 재호출 없이 CSRF만 교체한다.
 - Auth Request는 `openid profile` scope만 지원하며 별도 `prompt`·`maxAge` 요구와 Login Settings 핵심 필드 누락은 안전 실패한다.
 - credential POST는 CSRF와 시도 횟수를 PostgreSQL에서 원자 소비한 뒤에만 provider를 호출한다.
-- 로그인 시도는 auth request 5회, account identifier 15분 10회, canonical IP 15분 30회로 제한한다. HTTP 입력은 loginName 앞뒤 공백만 제거하고 대소문자·Unicode 본문은 provider에 보존한다. account는 별도로 `trim → NFKC → lowercase` 후 domain-separated HMAC, IP는 canonicalization 후 domain-separated HMAC만 저장한다.
+- 로그인 시도는 auth request 5회, account identifier 15분 10회, canonical IP 15분 30회로 제한한다. HTTP 입력은 짧은 로그인 ID만 허용하고 `trim → ASCII 영문 소문자·숫자 3~30자 검증 → lowercase`로 canonicalize한다. 백엔드는 PostgreSQL의 활성 identity mapping에서 검증된 ZITADEL subject를 해석해 Session API에 `userId`로 전달하고 반환 subject·organization을 다시 검증한다. 사용자 요청의 suffix나 전체 provider 로그인명을 받거나 신뢰하지 않으며 화면·오류·감사에 전체 ZITADEL 로그인명을 노출하지 않는다. rate-limit account identifier는 canonical 짧은 ID를 domain-separated HMAC으로 변환하고, IP는 canonicalization 후 domain-separated HMAC만 저장한다.
 - 최종 인증은 Authorization Code + PKCE callback 검증으로 완료하고 ZITADEL Session token을 호텔 session으로 직접 사용하지 않는다.
 - 비밀번호·MFA code·service token은 DB·로그·cookie·artifact에 저장하지 않는다.
 - 업무 프로필·법인·호텔·기능권한·자료: PostgreSQL.

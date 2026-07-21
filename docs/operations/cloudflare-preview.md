@@ -71,16 +71,16 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 1. Preview URL이 Neon HTTPS/TLS target인지 검사한다.
 2. host, port, database fingerprint가 Production과 같으면 중단한다.
 3. advisory lock을 획득한다.
-4. `EXPAND`에서는 additive·기존 Worker 호환 migration만 적용하고 destructive contract migration `0008`은 제외한다.
+4. `EXPAND`에서는 additive·기존 Worker 호환 migration을 적용한다. 로그인 ID는 `0009`에서 전역 unique와 immutable `login_id_registry`를 추가하되 strict 사용자 FK는 아직 적용하지 않는다.
 5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
    - API·reconciler·Web Worker가 모두 존재하면 smoke를 실행한다.
    - 세 Worker가 모두 없으면 최초 배포로 진행한다.
    - 일부만 존재하면 부분 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
-6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`을 적용해 legacy tenant authority와 broad ACL을 제거한다.
+6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`의 legacy tenant authority·broad ACL 제거와 `0010`의 canonical 형식·예약 ID·registry FK를 적용한다.
 7. 승인된 subject fingerprint·organization·고정 approval 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 canonical row 전체 값으로 멱등 연결한다.
 8. bootstrap audit의 tenant·actor·resource·fingerprint·approval·trace 전체 값이 정본과 다르면 성공으로 처리하지 않는다.
 9. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
-10. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. registry table 직접 권한은 두 role 모두 거부한다.
+10. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. `reconciliation_company_registry` 직접 권한은 두 role 모두 거부한다. `login_id_registry`는 API role에 `SELECT, INSERT`만 허용하고 UPDATE·DELETE는 금지하며 reconciler에는 직접 권한을 주지 않는다.
 11. 각 runtime role의 table·schema·sequence ACL을 capability별 exact allowlist와 비교하고 예상 밖 권한, `PUBLIC`, `WITH GRANT OPTION`을 거부한다.
 12. SECURITY DEFINER의 owner·`search_path=pg_catalog`·source fingerprint·direct execute allowlist를 검증하고 grantable execute와 stale named grantee를 거부한다.
 13. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
@@ -159,6 +159,75 @@ Web 200
 ```
 
 검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. create 응답이 유실되거나 잘못된 ID를 반환해도 `(company, actor, idempotency key)`로 durable provisioning attempt를 반복 조회하고, completion login·email과 deterministic target/provider subject를 exact 검증한다. canonical user row가 있으면 최신 version으로 비활성화하고 활성 DB session 0과 기존 token 401을 재확인한다. user row가 아직 없어도 deterministic provider subject를 bounded grace 동안 반복 조회하며, 늦게 나타난 provider user는 identity boundary를 확인한 뒤 직접 비활성화한다. 404는 grace의 마지막 조회에서만 absence로 인정하고, 이후 durable attempt를 다시 읽어 `COMPENSATED`가 아닌 미완성 상태가 남으면 operator recovery가 필요한 cleanup 실패로 처리한다. credential 검증용 provider session은 60초 lifetime으로 제한하며, cleanup과 connection close가 모두 성공한 뒤에만 `PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK`를 출력한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
+
+## Cleanup 실패 operator recovery
+
+`PREVIEW_ACCOUNT_CLEANUP_FAILED [ref=<REF>]`가 발생하면 같은 release를 재실행하지 않는다. `<REF>`는 credential이 아닌 smoke 식별자이며 create idempotency key는 `preview-account-create-<REF>`다. 비밀번호·token·DB URL은 명령행이나 문서에 직접 쓰지 않고 승인된 환경변수로만 전달한다.
+
+### 1. Durable attempt read-only discovery
+
+승인된 reconciler 연결과 Preview company/actor ID를 환경변수로 준비하고 다음 query를 transaction 안에서 실행한다. 출력에는 비밀번호 payload가 포함되지 않는다.
+
+```bash
+export IDEMPOTENCY_KEY="preview-account-create-${REF}"
+psql "$RECONCILER_DATABASE_URL" \
+  --set=company_id="$PREVIEW_COMPANY_ID" \
+  --set=actor_user_id="$PREVIEW_ACTOR_USER_ID" \
+  --set=idempotency_key="$IDEMPOTENCY_KEY" <<'SQL'
+begin read only;
+select set_config('app.reconciler_company_id', :'company_id', true);
+select attempt.target_user_id,
+       attempt.status,
+       attempt.provider_subject,
+       attempt.completion_payload->>'loginName' as login_name,
+       attempt.completion_payload->>'email' as email,
+       target.status as user_status,
+       target.version as user_version
+from public.account_provisioning_attempts attempt
+left join public.users target
+  on target.company_id = attempt.company_id
+ and target.id = attempt.target_user_id
+where attempt.company_id = :'company_id'::uuid
+  and attempt.actor_user_id = :'actor_user_id'::uuid
+  and attempt.idempotency_key = :'idempotency_key';
+rollback;
+SQL
+```
+
+- 0행이면 create 요청의 side effect 부재를 추정하지 않는다. provider verification session의 60초 lifetime과 clock skew를 포함해 최소 90초를 기다리고 provider audit에서 해당 login의 새 user/session이 없음을 확인한 뒤에도 0행일 때만 별도 승인으로 재실행한다.
+- 2행 이상이면 idempotency 경계가 손상된 상태이므로 수동 mutation을 금지하고 release를 중단한다.
+- 1행이면 `target_user_id`, completion login/email, `provider_subject`가 모두 동일한 smoke 대상인지 먼저 확인한다. 이 값이 다르면 provider나 DB를 변경하지 않는다.
+
+### 2. Attempt 상태별 조치
+
+| 상태                                                                               | 조치                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RESERVED_NOT_DISPATCHED`, `DISPATCHED`, `PROVIDER_CONFIRMED`, `RECOVERY_REQUIRED` | reconciler lease가 끝날 때까지 bounded polling한다. provider user가 나타나면 organization·subject·login/email을 exact 확인한 뒤 비활성화한다. terminal 상태가 되지 않으면 operator failure를 유지한다. |
+| `COMPENSATION_REQUIRED`                                                            | 승인된 reconciler recovery를 실행하고 `COMPENSATED`까지 확인한다. provider 404는 즉시 성공으로 보지 않고 bounded grace 마지막 조회에서만 absence로 인정한다.                                           |
+| `COMPENSATED`                                                                      | provider가 `INACTIVE` 또는 bounded terminal 404이고 canonical user가 없거나 `INACTIVE`인지 재확인한다.                                                                                                 |
+| `COMPLETED`                                                                        | canonical user의 최신 `version`을 다시 읽어 관리자 API로 비활성화한다. stale version을 재사용하지 않는다.                                                                                              |
+| `OPERATOR_REQUIRED`, `DEAD_LETTER`                                                 | 자동 재실행·이전 Worker rollback을 금지한다. 아래 DB/provider/session 증거를 수집한 뒤 별도 운영 승인으로 복구한다.                                                                                    |
+
+### 3. Provider와 DB 정리
+
+1. ZITADEL user 조회 결과의 organization ID, subject, login, email이 durable attempt와 모두 일치하는지 확인한다.
+2. 일치할 때만 provider deactivate를 호출한다. 응답 성공만 믿지 않고 `INACTIVE`까지 bounded polling한다.
+3. canonical user가 있으면 관리자 API에서 최신 version을 읽고 새 cleanup idempotency key `preview-account-cleanup-<REF>`로 deactivate한다.
+4. PostgreSQL에서 user가 `INACTIVE`인지 다시 읽는다. DB 직접 `UPDATE`는 사용하지 않는다.
+5. provider session POST response-loss가 기록됐다면 최소 90초를 기다리고 provider audit/session 조회에서 smoke principal의 활성 verification session이 없음을 확인한다.
+
+### 4. 최종 증거와 재실행 조건
+
+다음을 모두 충족해야 같은 Preview release를 새 run으로 다시 실행할 수 있다.
+
+- durable attempt가 `COMPLETED` 후 user `INACTIVE`, 또는 `COMPENSATED`
+- provider user가 expected organization/subject이며 `INACTIVE`, 또는 bounded grace 뒤 terminal 404
+- 해당 Preview user의 활성 PostgreSQL session 수가 정확히 0
+- 알려진 pending hotel session token이 있으면 `/api/auth/session`이 401
+- provider verification session이 GET 401/404이거나 response-loss 이후 90초 경과와 provider audit상 활성 session 0
+- Production DB·Production credential을 사용하지 않았다는 확인
+
+증거가 하나라도 없으면 `PREVIEW_ACCOUNT_CLEANUP_FAILED`를 해제하지 않고 새 deploy·CONTRACT·rollback을 진행하지 않는다.
 
 ## Rollback
 

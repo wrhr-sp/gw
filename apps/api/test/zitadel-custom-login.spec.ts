@@ -5,6 +5,7 @@ const base = {
   clientId: "hotel-client",
   consoleClientId: "console-client",
   issuer: "https://identity.example.test",
+  organizationId: "org-1",
   redirectUri: "https://hotel.example.test/api/auth/callback",
   serviceUserToken: "service-token",
   now: () => new Date("2026-07-17T00:00:30.000Z"),
@@ -42,7 +43,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     const result = await provider.authenticateAndFinalize({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     });
 
@@ -50,7 +51,7 @@ describe("ZITADEL custom login provider", () => {
     expect(result.clearBrowserBinding).toBe(false);
     const createBody = JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body));
     expect(createBody.checks).toEqual({
-      user: { loginName: "hotel-admin" },
+      user: { userId: "subject-1" },
       password: { password: "password-value" },
     });
     const callbackBody = JSON.parse(String(fetcher.mock.calls[5]?.[1]?.body));
@@ -82,7 +83,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-proto-defaults",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).resolves.toEqual({
       callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value`,
@@ -115,7 +116,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "console-request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).resolves.toEqual({
       callbackUrl: `${consoleRedirectUri}?code=console-code&state=console-state`,
@@ -187,7 +188,7 @@ describe("ZITADEL custom login provider", () => {
 
     await expect(provider.authenticateAndFinalize({
       authRequest: "console-request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
     expect(fetcher.mock.calls[6]?.[1]?.method).toBe("DELETE");
@@ -205,7 +206,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_MFA_REQUIRED" });
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -230,7 +231,7 @@ describe("ZITADEL custom login provider", () => {
       .mockResolvedValueOnce(json({}));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
-      authRequest: "request-1", loginName: "hotel-admin", password: "password-value",
+      authRequest: "request-1", userId: "subject-1", password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
   });
 
@@ -254,7 +255,7 @@ describe("ZITADEL custom login provider", () => {
       .mockResolvedValueOnce(json({}));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
-      authRequest: "request-1", loginName: "hotel-admin", password: "password-value",
+      authRequest: "request-1", userId: "subject-1", password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_MFA_REQUIRED" });
   });
 
@@ -288,7 +289,7 @@ describe("ZITADEL custom login provider", () => {
       .mockResolvedValueOnce(json({}));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
-      authRequest: "request-1", loginName: "hotel-admin", password: "password-value",
+      authRequest: "request-1", userId: "subject-1", password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
   });
 
@@ -306,7 +307,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -327,7 +328,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -343,7 +344,7 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      userId: "subject-1",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
     expect(fetcher).toHaveBeenCalledTimes(1);

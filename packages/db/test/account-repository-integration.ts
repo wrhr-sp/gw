@@ -31,7 +31,7 @@ const completionPayload = {
   action: "CREATE" as const,
   userId: "8a900000-0000-4000-8000-000000000001",
   displayName: "Recovered Account",
-  loginName: "recovered-account",
+  loginName: "recoveredaccount",
   email: "recovered-account@example.invalid",
   userType: "HOUSEKEEPING" as const,
   hotelId,
@@ -64,10 +64,16 @@ try {
       )
     `;
     await tx`
+      insert into login_id_registry (login_id, company_id, target_user_id) values
+      ('accountactor', ${companyId}, ${actorId}),
+      ('accounttarget', ${companyId}, ${targetAdminId}),
+      ('accountremaining', ${companyId}, ${remainingAdminId})
+    `;
+    await tx`
       insert into users (id, company_id, user_type, display_name, status, login_name, email) values
-      (${actorId}, ${companyId}, 'INTERNAL_STAFF', 'Actor Admin', 'ACTIVE', 'account-actor', 'account-actor@example.invalid'),
-      (${targetAdminId}, ${companyId}, 'INTERNAL_STAFF', 'Target Admin', 'ACTIVE', 'account-target', 'account-target@example.invalid'),
-      (${remainingAdminId}, ${companyId}, 'INTERNAL_STAFF', 'Remaining Admin', 'ACTIVE', 'account-remaining', 'account-remaining@example.invalid')
+      (${actorId}, ${companyId}, 'INTERNAL_STAFF', 'Actor Admin', 'ACTIVE', 'accountactor', 'account-actor@example.invalid'),
+      (${targetAdminId}, ${companyId}, 'INTERNAL_STAFF', 'Target Admin', 'ACTIVE', 'accounttarget', 'account-target@example.invalid'),
+      (${remainingAdminId}, ${companyId}, 'INTERNAL_STAFF', 'Remaining Admin', 'ACTIVE', 'accountremaining', 'account-remaining@example.invalid')
     `;
     await tx`
       insert into auth_identities (id, company_id, user_id, provider, provider_subject)
@@ -301,12 +307,18 @@ try {
     );
   }
 
+  const stalePayload = {
+    ...completionPayload,
+    displayName: "Stale Recovery Account",
+    loginName: "staleaccount",
+    email: "stale-account@example.invalid",
+  };
   const staleReserved = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000002",
     actor,
     attemptId: "8a910000-0000-4000-8000-000000000002",
     hotelIds: [hotelId, secondHotelId],
-    completionPayload,
+    completionPayload: stalePayload,
     idempotencyKey: "stale-create",
     requestHash: "stale-create-hash",
   });
@@ -324,7 +336,7 @@ try {
     actor,
     attemptId: "8a910000-0000-4000-8000-000000000098",
     hotelIds: [hotelId, secondHotelId],
-    completionPayload,
+    completionPayload: stalePayload,
     idempotencyKey: "stale-create",
     requestHash: "stale-create-hash",
   });
@@ -383,7 +395,7 @@ try {
   const recoveryPayload = {
     ...completionPayload,
     displayName: "Recovered Scheduled User",
-    loginName: "recovered-scheduled-user",
+    loginName: "recoveredscheduleduser",
     email: "recovered-scheduled-user@example.invalid",
   };
   const recoveryAccountId = "8a900000-0000-4000-8000-000000000003";
@@ -519,7 +531,7 @@ try {
     completionPayload: {
       ...completionPayload,
       displayName: "Late Provider User",
-      loginName: "late-provider-user",
+      loginName: "lateprovideruser",
       email: "late-provider-user@example.invalid",
     },
     idempotencyKey: "late-provider-recovery",
@@ -615,9 +627,13 @@ try {
   const pendingSessionId = "8a200000-0000-4000-8000-000000000004";
   await sql.begin(async (tx) => {
     await tx`
+      insert into login_id_registry (login_id, company_id, target_user_id)
+      values ('pendingsetup', ${companyId}, ${pendingUserId})
+    `;
+    await tx`
       insert into users (id, company_id, user_type, display_name, status, login_name, email, must_change_password)
       values (${pendingUserId}, ${companyId}, 'ROOM_OPERATIONS', 'Pending Setup', 'PENDING_SETUP',
-              'pending-setup', 'pending-setup@example.invalid', true)
+              'pendingsetup', 'pending-setup@example.invalid', true)
     `;
     await tx`
       insert into auth_identities (id, company_id, user_id, provider, provider_subject)
@@ -739,7 +755,7 @@ try {
     competingAttempt.idempotencyKey !== "initial-password-change" ||
     competingAttempt.leaseVersion !== 1 ||
     competingAttempt.subject !== pendingUserId ||
-    competingAttempt.loginName !== "pending-setup"
+    competingAttempt.loginName !== "pendingsetup"
   ) {
     throw new Error(
       "recovery-required initial-password attempt was not exposed for credential proof",

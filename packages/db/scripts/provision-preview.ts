@@ -260,11 +260,6 @@ try {
   if (!migrationOwnerIdentity)
     fail("Preview migration owner identity is unavailable");
   migrationOwnerRoleForCleanup = migrationOwnerIdentity.role_name;
-  localCiMembershipCleanupRequired = Boolean(localCiAdminDatabaseUrl);
-  await updateLocalCiDefinerMembership(
-    migrationOwnerIdentity.role_name,
-    "GRANT",
-  );
   const previewIdentity = await neonBranchIdentity(owner);
   if (productionUrl.hostname.toLowerCase().endsWith(".neon.tech")) {
     const production = postgres(productionDatabaseUrl, {
@@ -307,6 +302,44 @@ try {
     );
   }
 
+  const [existingMigrationMarker] = await owner<{ exists: boolean }[]>`
+    select to_regclass('public.schema_migrations') is not null as exists
+  `;
+  if (existingMigrationMarker?.exists) {
+    const [ownershipPreflight] = await owner<
+      { marker_owner_safe: boolean; unexpected_sequence_owners: number }[]
+    >`
+      select migration_table.relowner = current_user::regrole::oid as marker_owner_safe,
+             (
+               select count(*)::integer
+               from pg_class sequence_record
+               join pg_namespace sequence_namespace
+                 on sequence_namespace.oid = sequence_record.relnamespace
+               where sequence_namespace.nspname = 'public'
+                 and sequence_record.relkind = 'S'
+                 and sequence_record.relowner <> current_user::regrole::oid
+             ) as unexpected_sequence_owners
+      from pg_class migration_table
+      join pg_namespace migration_namespace
+        on migration_namespace.oid = migration_table.relnamespace
+      where migration_namespace.nspname = 'public'
+        and migration_table.relname = 'schema_migrations'
+        and migration_table.relkind in ('r', 'p')
+    `;
+    if (
+      !ownershipPreflight?.marker_owner_safe ||
+      ownershipPreflight.unexpected_sequence_owners !== 0
+    ) {
+      fail("Preview ownership preflight failed before database mutation");
+    }
+  }
+
+  await updateLocalCiDefinerMembership(
+    migrationOwnerIdentity.role_name,
+    "GRANT",
+  );
+  localCiMembershipCleanupRequired = Boolean(localCiAdminDatabaseUrl);
+
   const migrationDirectory = resolve(import.meta.dirname, "../migrations");
   const allMigrations = [
     ["0001_platform_foundation", "0001_platform_foundation.sql"],
@@ -319,16 +352,121 @@ try {
       "0007_api_tenant_authority_expand",
       "0007_api_tenant_authority_expand.sql",
     ],
+    ["0009_global_login_id_expand", "0009_global_login_id_expand.sql"],
     [
       "0008_remove_legacy_company_id_fallback",
       "0008_remove_legacy_company_id_fallback.sql",
     ],
+    ["0010_global_login_id_contract", "0010_global_login_id_contract.sql"],
   ] as const;
+  const contractOnlyMigrations = new Set([
+    "0008_remove_legacy_company_id_fallback",
+    "0010_global_login_id_contract",
+  ]);
   const migrations = contractPhase
-    ? allMigrations
-    : allMigrations.filter(
-        ([version]) => version !== "0008_remove_legacy_company_id_fallback",
-      );
+    ? allMigrations.filter(([version]) => version !== "0010_global_login_id_contract")
+    : allMigrations.filter(([version]) => !contractOnlyMigrations.has(version));
+
+  const bootstrapSchema = await owner<{ exists: boolean }[]>`
+    select to_regclass('public.users') is not null
+       and to_regclass('public.auth_identities') is not null
+       and to_regclass('public.login_id_registry') is not null as exists
+  `;
+  if (contractPhase && bootstrapSchema[0]?.exists) {
+    await owner.begin(async (sql) => {
+      const rows = await sql<
+        {
+          company_id: string;
+          login_name: string | null;
+          provider_subject: string | null;
+          status: string;
+        }[]
+      >`
+        select app_user.company_id::text,
+               app_user.login_name,
+               app_user.status,
+               identity.provider_subject
+        from public.users app_user
+        left join public.auth_identities identity
+          on identity.company_id = app_user.company_id
+         and identity.user_id = app_user.id
+         and identity.provider = 'ZITADEL'
+        where app_user.id = ${previewUserId}::uuid
+      `;
+      if (rows.length > 0) {
+        if (
+          rows.length !== 1 ||
+          rows[0]?.company_id !== previewCompanyId ||
+          rows[0].provider_subject !== zitadelSubject ||
+          rows[0].status !== "ACTIVE" ||
+          !["preview-admin", "previewadmin"].includes(rows[0].login_name ?? "")
+        ) {
+          fail("Existing Preview bootstrap identity cannot be aligned safely");
+        }
+        if (rows[0].login_name === "preview-admin") {
+          const collision = await sql<{ exists: boolean }[]>`
+            select exists (
+              select 1 from public.users
+              where lower(btrim(login_name)) = 'previewadmin'
+                and id <> ${previewUserId}::uuid
+            ) as exists
+          `;
+          if (collision[0]?.exists) {
+            fail("Preview bootstrap canonical login ID is unavailable");
+          }
+          await sql`
+            insert into public.login_id_registry (login_id, company_id, target_user_id)
+            values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+            on conflict (login_id) do nothing
+          `;
+          const [registryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+            select company_id::text, target_user_id::text
+            from public.login_id_registry
+            where login_id = 'previewadmin'
+          `;
+          if (
+            registryClaim?.company_id !== previewCompanyId ||
+            registryClaim.target_user_id !== previewUserId
+          ) {
+            fail("Preview bootstrap canonical login ID registry claim is unavailable");
+          }
+          await sql`
+            update public.users
+            set login_name = 'previewadmin',
+                version = version + 1,
+                updated_at = pg_catalog.statement_timestamp()
+            where id = ${previewUserId}::uuid
+              and company_id = ${previewCompanyId}::uuid
+              and login_name = 'preview-admin'
+          `;
+          await sql`
+            update public.auth_sessions
+            set revoked_at = pg_catalog.statement_timestamp(),
+                revoke_reason = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
+                session_version = session_version + 1
+            where company_id = ${previewCompanyId}::uuid
+              and user_id = ${previewUserId}::uuid
+              and revoked_at is null
+          `;
+          await sql`
+            insert into public.audit_events (
+              id, event_code, actor_user_id, actor_type, session_id, company_id,
+              resource_type, resource_id, before_summary, after_summary, reason,
+              result, trace_id
+            ) values (
+              pg_catalog.gen_random_uuid(), 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
+              ${previewUserId}::uuid, 'SYSTEM', null, ${previewCompanyId}::uuid,
+              'USER', ${previewUserId}::uuid,
+              pg_catalog.jsonb_build_object('state', 'LEGACY_NON_CANONICAL'),
+              pg_catalog.jsonb_build_object('state', 'MVP_CANONICAL'),
+              '승인된 초기 MVP 로그인 ID 정책 이관', 'SUCCEEDED',
+              pg_catalog.gen_random_uuid()
+            )
+          `;
+        }
+      }
+    });
+  }
 
   for (const [version, fileName] of migrations) {
     const markerTable = await owner<{ exists: boolean }[]>`
@@ -343,6 +481,114 @@ try {
     await owner.unsafe(
       await readFile(resolve(migrationDirectory, fileName), "utf8"),
     );
+  }
+
+
+  await owner.begin(async (sql) => {
+    const rows = await sql<
+      {
+        company_id: string;
+        login_name: string | null;
+        provider_subject: string | null;
+        status: string;
+      }[]
+    >`
+      select app_user.company_id::text,
+             app_user.login_name,
+             app_user.status,
+             identity.provider_subject
+      from public.users app_user
+      left join public.auth_identities identity
+        on identity.company_id = app_user.company_id
+       and identity.user_id = app_user.id
+       and identity.provider = 'ZITADEL'
+      where app_user.id = ${previewUserId}::uuid
+    `;
+    if (rows.length === 0) return;
+    if (
+      rows.length !== 1 ||
+      rows[0]?.company_id !== previewCompanyId ||
+      rows[0].provider_subject !== zitadelSubject ||
+      rows[0].status !== "ACTIVE" ||
+      !["preview-admin", "previewadmin"].includes(rows[0].login_name ?? "")
+    ) {
+      fail("Existing Preview bootstrap identity cannot be aligned safely");
+    }
+    if (rows[0].login_name === "previewadmin") return;
+    const collision = await sql<{ exists: boolean }[]>`
+      select exists (
+        select 1 from public.users
+        where lower(btrim(login_name)) = 'previewadmin'
+          and id <> ${previewUserId}::uuid
+      ) as exists
+    `;
+    if (collision[0]?.exists) fail("Preview bootstrap canonical login ID is unavailable");
+    await sql`
+      insert into public.login_id_registry (login_id, company_id, target_user_id)
+      values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+      on conflict (login_id) do nothing
+    `;
+    const [registryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+      select company_id::text, target_user_id::text
+      from public.login_id_registry
+      where login_id = 'previewadmin'
+    `;
+    if (
+      registryClaim?.company_id !== previewCompanyId ||
+      registryClaim.target_user_id !== previewUserId
+    ) {
+      fail("Preview bootstrap canonical login ID registry claim is unavailable");
+    }
+    await sql`
+      update public.users
+      set login_name = 'previewadmin',
+          version = version + 1,
+          updated_at = pg_catalog.statement_timestamp()
+      where id = ${previewUserId}::uuid
+        and company_id = ${previewCompanyId}::uuid
+        and login_name = 'preview-admin'
+    `;
+    await sql`
+      update public.auth_sessions
+      set revoked_at = pg_catalog.statement_timestamp(),
+          revoke_reason = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
+          session_version = session_version + 1
+      where company_id = ${previewCompanyId}::uuid
+        and user_id = ${previewUserId}::uuid
+        and revoked_at is null
+    `;
+    await sql`
+      insert into public.audit_events (
+        id, event_code, actor_user_id, actor_type, session_id, company_id,
+        resource_type, resource_id, before_summary, after_summary, reason,
+        result, trace_id
+      ) values (
+        pg_catalog.gen_random_uuid(), 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
+        ${previewUserId}::uuid, 'SYSTEM', null, ${previewCompanyId}::uuid,
+        'USER', ${previewUserId}::uuid,
+        pg_catalog.jsonb_build_object('state', 'LEGACY_NON_CANONICAL'),
+        pg_catalog.jsonb_build_object('state', 'MVP_CANONICAL'),
+        '승인된 초기 MVP 로그인 ID 정책 이관', 'SUCCEEDED',
+        pg_catalog.gen_random_uuid()
+      )
+    `;
+  });
+
+  if (contractPhase) {
+    const [contractApplied] = await owner<{ applied: boolean }[]>`
+      select exists(
+        select 1 from public.schema_migrations
+        where version = '0010_global_login_id_contract'
+      ) as applied
+    `;
+    if (!contractApplied?.applied) {
+      await owner.unsafe(
+        await readFile(
+          resolve(migrationDirectory, "0010_global_login_id_contract.sql"),
+          "utf8",
+        ),
+      );
+    }
   }
 
   await owner.begin(async (sql) => {
@@ -363,6 +609,22 @@ try {
       fail("Existing Preview company does not match the approved seed");
     }
     await sql`
+      insert into login_id_registry (login_id, company_id, target_user_id)
+      values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+      on conflict (login_id) do nothing
+    `;
+    const [seedRegistryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+      select company_id::text, target_user_id::text
+      from login_id_registry
+      where login_id = 'previewadmin'
+    `;
+    if (
+      seedRegistryClaim?.company_id !== previewCompanyId ||
+      seedRegistryClaim.target_user_id !== previewUserId
+    ) {
+      fail("Preview bootstrap canonical login ID registry claim is unavailable");
+    }
+    await sql`
       insert into users (id, company_id, user_type, display_name, status, login_name, email)
       values (
         ${previewUserId}::uuid,
@@ -370,7 +632,7 @@ try {
         'INTERNAL_STAFF',
         'Preview 관리자',
         'ACTIVE',
-        'preview-admin',
+        'previewadmin',
         'preview-admin@werehere.invalid'
       )
       on conflict (id) do update
@@ -394,7 +656,7 @@ try {
     if (
       user?.company_id !== previewCompanyId ||
       user.display_name !== "Preview 관리자" ||
-      user.login_name !== "preview-admin" ||
+      user.login_name !== "previewadmin" ||
       user.email !== "preview-admin@werehere.invalid" ||
       user.status !== "ACTIVE" ||
       user.user_type !== "INTERNAL_STAFF"
@@ -791,6 +1053,7 @@ try {
     contractPhase && legacyRuntimeState?.exists
       ? ", werehere_preview_runtime"
       : "";
+  const apiRuntimeTableGrantees = `${apiRuntimeRole}${legacyCompatibilityGrant}`;
 
   if (contractPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
@@ -816,7 +1079,100 @@ try {
     fail("Preview public sequence ownership is not canonical");
   }
 
+  await owner.begin(async (sql) => {
+    await sql.unsafe(capabilityDefinerCommands.grant_membership);
+    await sql.unsafe("set local role werehere_tenant_authority_definer");
+    await sql.unsafe(`
+      do $tenant_owned_table_acl_reset$
+      declare
+        acl_record record;
+      begin
+        for acl_record in
+          select distinct table_namespace.nspname as schema_name,
+                 table_record.relname as table_name,
+                 acl.grantee,
+                 grantee_role.rolname as grantee_name
+          from pg_class table_record
+          join pg_namespace table_namespace
+            on table_namespace.oid = table_record.relnamespace
+          cross join lateral aclexplode(coalesce(
+            table_record.relacl,
+            acldefault('r'::"char", table_record.relowner)
+          )) acl
+          left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where table_namespace.nspname = 'public'
+            and table_record.relkind in ('r', 'p')
+            and table_record.relowner = current_user::regrole::oid
+            and acl.grantee <> table_record.relowner
+        loop
+          if acl_record.grantee = 0::oid then
+            execute format(
+              'revoke all privileges on table %I.%I from public cascade',
+              acl_record.schema_name,
+              acl_record.table_name
+            );
+          else
+            execute format(
+              'revoke all privileges on table %I.%I from %I cascade',
+              acl_record.schema_name,
+              acl_record.table_name,
+              acl_record.grantee_name
+            );
+          end if;
+        end loop;
+      end
+      $tenant_owned_table_acl_reset$;
+
+      grant select, insert, update on public.runtime_database_capabilities
+        to session_user;
+      grant select on public.runtime_database_capabilities
+        to werehere_auth_session_definer;
+    `);
+    await sql.unsafe("reset role");
+    await sql.unsafe(capabilityDefinerCommands.revoke_membership);
+  });
+
   await owner.unsafe(`
+    do $migration_owned_table_acl_reset$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select distinct table_namespace.nspname as schema_name,
+               table_record.relname as table_name,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+        from pg_class table_record
+        join pg_namespace table_namespace
+          on table_namespace.oid = table_record.relnamespace
+        cross join lateral aclexplode(coalesce(
+          table_record.relacl,
+          acldefault('r'::"char", table_record.relowner)
+        )) acl
+        left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where table_namespace.nspname = 'public'
+          and table_record.relkind in ('r', 'p')
+          and table_record.relowner = current_user::regrole::oid
+          and acl.grantee <> table_record.relowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute format(
+            'revoke all privileges on table %I.%I from public cascade',
+            acl_record.schema_name,
+            acl_record.table_name
+          );
+        else
+          execute format(
+            'revoke all privileges on table %I.%I from %I cascade',
+            acl_record.schema_name,
+            acl_record.table_name,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $migration_owned_table_acl_reset$;
+
     revoke create on schema public from public;
     ${contractPhase ? "revoke usage on schema public from public;" : "grant usage on schema public to public;"}
 
@@ -902,25 +1258,38 @@ try {
     grant execute on function public.jsonb_reject_plaintext_password_keys(jsonb)
       to ${apiRuntimeRole}, ${reconcilerRole};
 
+    grant select, update on auth_identities, users, companies
+      to werehere_auth_session_definer;
+    grant select, insert, update on auth_sessions
+      to werehere_auth_session_definer;
+    grant insert on audit_events to werehere_auth_session_definer;
+
+    grant select on auth_sessions, users, companies, reconciliation_company_registry
+      to werehere_tenant_authority_definer;
+    grant insert, update on reconciliation_company_registry
+      to werehere_tenant_authority_definer;
+
     grant select on
       companies, users, auth_identities, auth_sessions, runtime_database_capabilities,
       auth_login_transactions, auth_credential_rate_limits,
       schema_migrations, roles, permissions, user_role_memberships,
       user_groups, user_group_memberships, permission_grants,
       branches, hotel_profiles, idempotency_records, outbox_jobs,
-      account_provisioning_attempts, initial_password_change_attempts, hotel_staff_assignments,
+      account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
+      hotel_staff_assignments,
       housekeeping_hotel_links, hotel_owner_assignments
-    to ${apiRuntimeRole};
-    grant insert, update, delete on auth_login_transactions to ${apiRuntimeRole};
-    grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeRole};
+    to ${apiRuntimeTableGrantees};
+    grant insert, update, delete on auth_login_transactions to ${apiRuntimeTableGrantees};
+    grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeTableGrantees};
 
     grant insert on audit_events, branches, hotel_profiles, auth_identities,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
-    to ${apiRuntimeRole};
+    to ${apiRuntimeTableGrantees};
     grant insert, update on users, account_provisioning_attempts,
-      initial_password_change_attempts to ${apiRuntimeRole};
-    grant insert, update, delete on idempotency_records to ${apiRuntimeRole};
-    grant insert, update on outbox_jobs to ${apiRuntimeRole};
+      initial_password_change_attempts to ${apiRuntimeTableGrantees};
+    grant insert on login_id_registry to ${apiRuntimeTableGrantees};
+    grant insert, update, delete on idempotency_records to ${apiRuntimeTableGrantees};
+    grant insert, update on outbox_jobs to ${apiRuntimeTableGrantees};
 
     grant select on
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
@@ -962,6 +1331,7 @@ try {
           where procedure_namespace.nspname = 'public'
             and procedure_record.proname in (
               'auth_create_session_v2',
+              'auth_resolve_login_identity_v1',
               'auth_resolve_principal_v2',
               'auth_revoke_session_v2',
               'auth_revoke_user_sessions_v1'
@@ -979,19 +1349,23 @@ try {
       $exact_auth_acl$;
       revoke all privileges on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
-      ), public.auth_resolve_principal_v2(bytea, integer),
+      ), public.auth_resolve_login_identity_v1(text),
+        public.auth_resolve_principal_v2(bytea, integer),
         public.auth_revoke_session_v2(bytea, text, uuid),
         public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         from public;
       revoke grant option for execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
-      ), public.auth_resolve_principal_v2(bytea, integer),
+      ), public.auth_resolve_login_identity_v1(text),
+        public.auth_resolve_principal_v2(bytea, integer),
         public.auth_revoke_session_v2(bytea, text, uuid),
         public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       grant execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) to ${apiRuntimeRole};
+      grant execute on function public.auth_resolve_login_identity_v1(text)
+        to ${apiRuntimeRole};
       grant execute on function public.auth_resolve_principal_v2(bytea, integer)
         to ${apiRuntimeRole};
       grant execute on function public.auth_revoke_session_v2(bytea, text, uuid)
@@ -1001,6 +1375,8 @@ try {
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from ${reconcilerRole};
+      revoke execute on function public.auth_resolve_login_identity_v1(text)
+        from ${reconcilerRole};
       revoke execute on function public.auth_resolve_principal_v2(bytea, integer)
         from ${reconcilerRole};
       revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
@@ -1013,6 +1389,8 @@ try {
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from werehere_preview_runtime;
+      revoke execute on function public.auth_resolve_login_identity_v1(text)
+        from werehere_preview_runtime;
       revoke execute on function public.auth_resolve_principal_v2(bytea, integer)
         from werehere_preview_runtime;
       revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
@@ -1080,7 +1458,7 @@ try {
         public.reconciler_current_company_id(), public.reconciliation_company_ids()
         from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       grant select on public.runtime_database_capabilities
-        to ${apiRuntimeRole}, ${reconcilerRole};
+        to ${apiRuntimeRole}, ${reconcilerRole}${legacyCompatibilityGrant};
       grant execute on function public.runtime_is_schema_owner(),
         public.runtime_has_capability(text), public.api_current_company_id(),
         public.reconciler_current_company_id()

@@ -26,6 +26,7 @@ drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
+drop role if exists preview_stale_table_acl_grantee;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -49,6 +50,7 @@ drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
+drop role if exists preview_stale_table_acl_grantee;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
@@ -115,6 +117,7 @@ values ('werehere_preview_runtime', 'API_RUNTIME')
 on conflict (role_name) do update set capability = excluded.capability;
 create role preview_stale_acl_grantee nologin noinherit;
 grant usage, create on schema public to preview_stale_acl_grantee;
+grant select, update on table public.users to preview_stale_acl_grantee;
 grant create on schema public to public;
 create sequence public.preview_stale_acl_sequence;
 alter sequence public.preview_stale_acl_sequence
@@ -130,6 +133,8 @@ select (
   and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
   and has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
   and not has_schema_privilege('preview_stale_acl_grantee', 'public', 'CREATE')
+  and not has_table_privilege('preview_stale_acl_grantee', 'public.users', 'SELECT')
+  and not has_table_privilege('preview_stale_acl_grantee', 'public.users', 'UPDATE')
   and not exists (
     select 1
     from pg_namespace namespace_record
@@ -165,6 +170,34 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 drop sequence public.preview_stale_acl_sequence;
 drop role preview_stale_acl_grantee;
+create sequence public.preview_precontract_owner_damage_sequence;
+alter sequence public.preview_precontract_owner_damage_sequence
+  owner to werehere_preview_api_runtime;
+SQL
+PRECONTRACT_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations where version = '0008_remove_legacy_company_id_fallback';
+select count(*) from runtime_database_capabilities where role_name = 'werehere_preview_runtime';
+select status || ':' || version::text from users where id = '71000000-0000-4000-8000-000000000001';
+SQL
+)"
+if run_provision CONTRACT >/dev/null 2>&1; then
+  printf '%s\n' 'Contract provisioning accepted noncanonical sequence ownership.' >&2
+  exit 1
+fi
+POST_PREFLIGHT_FAILURE_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations where version = '0008_remove_legacy_company_id_fallback';
+select count(*) from runtime_database_capabilities where role_name = 'werehere_preview_runtime';
+select status || ':' || version::text from users where id = '71000000-0000-4000-8000-000000000001';
+SQL
+)"
+if [[ "$POST_PREFLIGHT_FAILURE_STATE" != "$PRECONTRACT_STATE" ]]; then
+  printf '%s\n' 'Ownership preflight failure mutated CONTRACT state.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter sequence public.preview_precontract_owner_damage_sequence
+  owner to werehere_preview_migration_owner;
+drop sequence public.preview_precontract_owner_damage_sequence;
 SQL
 run_provision CONTRACT >/dev/null
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
@@ -249,10 +282,17 @@ where version in (
   '0001_platform_foundation', '0002_auth_session_runtime',
   '0003_hotel_basic_information', '0004_custom_login_security',
   '0005_auth_session_definer', '0006_account_administration',
-  '0007_api_tenant_authority_expand', '0008_remove_legacy_company_id_fallback'
+  '0007_api_tenant_authority_expand', '0008_remove_legacy_company_id_fallback',
+  '0009_global_login_id_expand', '0010_global_login_id_contract'
 );
 select count(*) from auth_identities
 where provider = 'ZITADEL' and provider_subject = '$SUBJECT';
+select count(*) from users
+where id = '71000000-0000-4000-8000-000000000001'
+  and company_id = '$COMPANY_ID' and login_name = 'previewadmin';
+select count(*) from login_id_registry
+where login_id = 'previewadmin' and company_id = '$COMPANY_ID'
+  and target_user_id = '71000000-0000-4000-8000-000000000001';
 select count(*) from permission_grants
 where id = '73000000-0000-4000-8000-000000000001'
   and company_id = '$COMPANY_ID'
@@ -320,7 +360,7 @@ select (
 )::int;
 SQL
 )"
-EXPECTED=$'8\n1\n1\n3\n1\n1\n2\n0\n1\n0\n0\n0'
+EXPECTED=$'10\n1\n1\n1\n1\n3\n1\n1\n2\n0\n1\n0\n0\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1
@@ -464,6 +504,17 @@ revoke all on sequence public.preview_stale_acl_sequence
 drop sequence public.preview_stale_acl_sequence;
 revoke all on schema public from preview_stale_acl_grantee;
 drop role preview_stale_acl_grantee;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_stale_table_acl_grantee nologin noinherit;
+grant update on table public.users to preview_stale_table_acl_grantee;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke all privileges on table public.users from preview_stale_table_acl_grantee;
+drop role preview_stale_table_acl_grantee;
 SQL
 assert_readiness READY
 

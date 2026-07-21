@@ -6,7 +6,10 @@ import {
   assertHousekeepingAssignmentRows,
   discoverCleanupAttempt,
   ensureDatabaseInactive,
+  finalizePreviewSmoke,
+  orchestratePreviewAccountCleanup,
   waitForProviderInactive,
+  waitForProviderSessionGone,
   waitForZeroActiveSessions,
 } from "./lib/preview-account-smoke-cleanup.mjs";
 
@@ -53,8 +56,10 @@ const reconcilerSql = postgres(reconcilerDatabaseUrl, {
   prepare: false,
 });
 const cookieName = "__Host-hotel_session";
-const runSuffix = `${runId}-${runAttempt}`.replace(/[^A-Za-z0-9-]/gu, "-");
-const loginName = `preview-smoke-${runSuffix}`.slice(0, 100);
+const runSuffix = `${runId}${runAttempt}`
+  .replace(/[^A-Za-z0-9]/gu, "")
+  .toLowerCase();
+const loginName = `p${runSuffix}`.slice(0, 30);
 const email = `${loginName}@werehere.invalid`;
 const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
 const assignmentStartDate = new Date().toISOString().slice(0, 10);
@@ -65,9 +70,11 @@ const changedPassword = `changed-a1!-${randomBytes(18).toString("base64url")}`;
 let adminToken;
 let adminPrincipal;
 let account;
+let accountCreateRequestStarted = false;
 let pendingSession;
 let providerSubject;
 let providerVerificationSession;
+let providerVerificationSessionCreationIndeterminate = false;
 let journeyError;
 
 function tokenHash(token) {
@@ -275,6 +282,18 @@ async function providerUserForCleanup(subject) {
   return result.status === 404 ? { absent: true } : result.data;
 }
 
+async function providerVerificationSessionStatus(session) {
+  const result = await provider(
+    `/v2/sessions/${encodeURIComponent(session.id)}`,
+    {
+      acceptableStatuses: [200, 401, 404],
+      includeStatus: true,
+      token: session.token,
+    },
+  );
+  return result.status;
+}
+
 async function assertHousekeepingAssignments(
   companyId,
   userId,
@@ -359,6 +378,7 @@ try {
     throw new Error("Preview smoke requires two distinct eligible hotels");
   }
 
+  accountCreateRequestStarted = true;
   const created = await api("/api/admin/users", {
     method: "POST",
     token: adminToken,
@@ -465,6 +485,7 @@ try {
   }
   account = activatedAccount;
 
+  providerVerificationSessionCreationIndeterminate = true;
   const providerSession = await provider("/v2/sessions", {
     method: "POST",
     token: verificationToken,
@@ -485,6 +506,7 @@ try {
       "Provider credential session creation response was invalid",
     );
   }
+  providerVerificationSessionCreationIndeterminate = false;
   const providerSessionReadBack = await provider(
     `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
     { token: providerVerificationSession.token },
@@ -508,6 +530,11 @@ try {
       body: { sessionToken: providerVerificationSession.token },
     },
   );
+  await waitForProviderSessionGone({
+    attempts: 12,
+    read: () => providerVerificationSessionStatus(providerVerificationSession),
+    waitMilliseconds: 5_000,
+  });
   providerVerificationSession = undefined;
 
   const deactivated = await api(
@@ -561,7 +588,7 @@ try {
   journeyError = error;
 }
 
-let cleanupFailed = false;
+let cleanupFailed = providerVerificationSessionCreationIndeterminate;
 if (providerVerificationSession?.id && providerVerificationSession.token) {
   try {
     await provider(
@@ -573,46 +600,35 @@ if (providerVerificationSession?.id && providerVerificationSession.token) {
         body: { sessionToken: providerVerificationSession.token },
       },
     );
+    await waitForProviderSessionGone({
+      attempts: 12,
+      read: () =>
+        providerVerificationSessionStatus(providerVerificationSession),
+      waitMilliseconds: 5_000,
+    });
   } catch {
     cleanupFailed = true;
   }
 }
 if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
   try {
-    const cleanupAttempt = await discoverCleanupAttempt({
-      attempts: 6,
-      expectedEmail: email,
-      expectedLoginName: loginName,
-      read: () =>
-        accountCleanupAttempt(adminPrincipal.companyId, adminPrincipal.userId),
-      waitMilliseconds: 5_000,
-    });
-    if (cleanupAttempt) {
-      account = { ...account, id: cleanupAttempt.id };
-      providerSubject = cleanupAttempt.providerSubject;
-      let databaseCleanupComplete = false;
-      const cleanupDatabaseAccount = async () => {
+    const responseAccountId = account?.id;
+    await orchestratePreviewAccountCleanup({
+      cleanupDatabase: async (targetId) => {
         await ensureDatabaseInactive({
           attempts: 6,
           deactivate: (state) =>
-            api(
-              `/api/admin/users/${encodeURIComponent(cleanupAttempt.id)}/deactivate`,
-              {
-                method: "POST",
-                token: adminToken,
-                idempotencyKey: `preview-account-cleanup-${runSuffix}`,
-                body: {
-                  version: state.version,
-                  reason: "Preview release 실패 검증 계정 정리",
-                },
+            api(`/api/admin/users/${encodeURIComponent(targetId)}/deactivate`, {
+              method: "POST",
+              token: adminToken,
+              idempotencyKey: `preview-account-cleanup-${runSuffix}`,
+              body: {
+                version: state.version,
+                reason: "Preview release 실패 검증 계정 정리",
               },
-            ),
+            }),
           read: () =>
-            accountCleanupState(
-              adminPrincipal.companyId,
-              cleanupAttempt.id,
-              loginName,
-            ),
+            accountCleanupState(adminPrincipal.companyId, targetId, loginName),
           waitMilliseconds: 5_000,
         });
         await waitForZeroActiveSessions({
@@ -621,7 +637,7 @@ if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
             activeSessionCount(
               adminPrincipal.sessionId,
               adminPrincipal.companyId,
-              cleanupAttempt.id,
+              targetId,
             ),
           waitMilliseconds: 5_000,
         });
@@ -631,58 +647,63 @@ if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
             expectedStatuses: [401],
           });
         }
-        databaseCleanupComplete = true;
-      };
-      if (cleanupAttempt.userStatus !== null) {
-        await cleanupDatabaseAccount();
-      }
-      await waitForProviderInactive({
-        allowAbsent: true,
-        attempts: 24,
-        deactivate: () => deactivateProviderForCleanup(providerSubject),
-        expectedOrganizationId: organizationId,
-        expectedSubject: providerSubject,
-        read: () => providerUserForCleanup(providerSubject),
-        waitMilliseconds: 5_000,
-      });
-      const finalAttempt = await discoverCleanupAttempt({
-        attempts: 1,
-        expectedEmail: email,
-        expectedLoginName: loginName,
-        read: () =>
-          accountCleanupAttempt(
-            adminPrincipal.companyId,
-            adminPrincipal.userId,
-          ),
-        waitMilliseconds: 0,
-      });
-      if (!finalAttempt) {
-        throw new Error("Preview account cleanup attempt disappeared");
-      }
-      if (finalAttempt.userStatus !== null && !databaseCleanupComplete) {
-        await cleanupDatabaseAccount();
-      }
-      if (
-        finalAttempt.userStatus === null &&
-        finalAttempt.attemptStatus !== "COMPENSATED"
-      ) {
-        throw new Error("Preview account cleanup requires operator recovery");
-      }
-    }
+      },
+      cleanupProvider: async (subject) => {
+        await waitForProviderInactive({
+          allowAbsent: true,
+          attempts: 24,
+          deactivate: () => deactivateProviderForCleanup(subject),
+          expectedOrganizationId: organizationId,
+          expectedSubject: subject,
+          read: () => providerUserForCleanup(subject),
+          waitMilliseconds: 5_000,
+        });
+      },
+      discoverAttempt: async () => {
+        const attempt = await discoverCleanupAttempt({
+          attempts: 6,
+          expectedEmail: email,
+          expectedLoginName: loginName,
+          read: () =>
+            accountCleanupAttempt(
+              adminPrincipal.companyId,
+              adminPrincipal.userId,
+            ),
+          waitMilliseconds: 5_000,
+        });
+        if (attempt) {
+          account = { ...account, id: attempt.id };
+          providerSubject = attempt.providerSubject;
+        }
+        return attempt;
+      },
+      refreshAttempt: () =>
+        discoverCleanupAttempt({
+          attempts: 1,
+          expectedEmail: email,
+          expectedLoginName: loginName,
+          read: () =>
+            accountCleanupAttempt(
+              adminPrincipal.companyId,
+              adminPrincipal.userId,
+            ),
+          waitMilliseconds: 0,
+        }),
+      requireAttempt: accountCreateRequestStarted,
+      responseAccountId,
+    });
   } catch {
     cleanupFailed = true;
   }
 }
-try {
-  await Promise.all([
-    apiSql.end({ timeout: 2 }),
-    reconcilerSql.end({ timeout: 2 }),
-  ]);
-} catch {
-  cleanupFailed = true;
-}
-if (cleanupFailed) {
-  throw new Error("PREVIEW_ACCOUNT_CLEANUP_FAILED");
-}
-if (journeyError) throw journeyError;
-console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");
+await finalizePreviewSmoke({
+  cleanupReference: runSuffix,
+  cleanupFailed,
+  close: () =>
+    Promise.all([
+      apiSql.end({ timeout: 2 }),
+      reconcilerSql.end({ timeout: 2 }),
+    ]),
+  journeyError,
+  writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK"),
+});

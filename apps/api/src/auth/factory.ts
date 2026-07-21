@@ -12,6 +12,7 @@ export type AuthBindings = DatabaseBindings & {
   ZITADEL_CLIENT_ID?: string;
   ZITADEL_CONSOLE_CLIENT_ID?: string;
   ZITADEL_ISSUER?: string;
+  ZITADEL_ORGANIZATION_ID?: string;
   ZITADEL_REDIRECT_URI?: string;
   ZITADEL_SERVICE_USER_TOKEN?: string;
 };
@@ -21,9 +22,10 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
   const clientId = bindings?.ZITADEL_CLIENT_ID?.trim();
   const consoleClientId = bindings?.ZITADEL_CONSOLE_CLIENT_ID?.trim();
   const redirectUri = bindings?.ZITADEL_REDIRECT_URI?.trim();
+  const organizationId = bindings?.ZITADEL_ORGANIZATION_ID?.trim();
   const serviceUserToken = bindings?.ZITADEL_SERVICE_USER_TOKEN?.trim();
   const encryptionKeyValue = bindings?.AUTH_TRANSACTION_ENCRYPTION_KEY?.trim();
-  if (!issuer || !clientId || !redirectUri || !serviceUserToken || !encryptionKeyValue) {
+  if (!issuer || !clientId || !organizationId || !redirectUri || !serviceUserToken || !encryptionKeyValue) {
     throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
   }
   const parsedRedirect = new URL(redirectUri);
@@ -57,6 +59,7 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
       clientId,
       ...(consoleClientId ? { consoleClientId } : {}),
       issuer,
+      organizationId,
       redirectUri: parsedRedirect.toString(),
       serviceUserToken,
     }),

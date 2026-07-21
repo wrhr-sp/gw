@@ -23,7 +23,7 @@ const jobs = [
 
 const completionPayload = accountCreateCompletionPayloadSchema.parse({
   displayName: "김하우스",
-  loginName: "housekeeper-01",
+  loginName: "housekeeper01",
   email: "housekeeper-01@example.invalid",
   userType: "HOUSEKEEPING",
   hotelIds: [

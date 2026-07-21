@@ -32,7 +32,7 @@ describe("ZITADEL account provisioning provider", () => {
       provider(fetcher as typeof fetch).createHumanUser({
         userId,
         displayName: "김하우스",
-        loginName: "housekeeper-01",
+        loginName: "housekeeper01",
         email: "housekeeper-01@example.invalid",
         initialPassword: "Strong-Preview-123!",
       }),
@@ -50,7 +50,7 @@ describe("ZITADEL account provisioning provider", () => {
     expect(body).toMatchObject({
       organizationId,
       userId,
-      username: "housekeeper-01",
+      username: "housekeeper01",
       human: {
         profile: { displayName: "김하우스" },
         email: { email: "housekeeper-01@example.invalid", isVerified: true },
@@ -68,7 +68,7 @@ describe("ZITADEL account provisioning provider", () => {
               userId,
               details: { resourceOwner: organizationId },
               state: "USER_STATE_ACTIVE",
-              username: "housekeeper-01",
+              username: "housekeeper01",
               human: { passwordChangeRequired: true },
             },
           }),
@@ -180,7 +180,7 @@ describe("ZITADEL account provisioning provider", () => {
     await expect(
       provider(fetcher as typeof fetch).verifyPassword({
         expectedSubject: userId,
-        loginName: "housekeeper-01",
+        loginName: "housekeeper01",
         password: "Strong-Preview-123!",
       }),
     ).resolves.toBe(true);
@@ -191,7 +191,7 @@ describe("ZITADEL account provisioning provider", () => {
     });
     expect(JSON.parse(String(sessionCreate[1]?.body))).toEqual({
       checks: {
-        user: { loginName: "housekeeper-01" },
+        user: { loginName: "housekeeper01" },
         password: { password: "Strong-Preview-123!" },
       },
       lifetime: "300s",
@@ -213,7 +213,7 @@ describe("ZITADEL account provisioning provider", () => {
     await expect(
       provider(fetcher as typeof fetch).verifyPassword({
         expectedSubject: userId,
-        loginName: "housekeeper-01",
+        loginName: "housekeeper01",
         password: "Different-Password-789!",
       }),
     ).resolves.toBe(false);
@@ -250,7 +250,7 @@ describe("ZITADEL account provisioning provider", () => {
       provider(fetcher as typeof fetch).createHumanUser({
         userId,
         displayName: "김하우스",
-        loginName: "housekeeper-01",
+        loginName: "housekeeper01",
         email: "housekeeper-01@example.invalid",
         initialPassword: "Strong-Preview-123!",
       }),

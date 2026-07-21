@@ -36,7 +36,7 @@ export function HotelLoginCard({
             <input name="csrf" type="hidden" value={csrf} />
             <label className="block space-y-2 text-[13px] font-semibold text-text" htmlFor="login-name">
               아이디
-              <input autoComplete="username" autoFocus className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-sm font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10" id="login-name" maxLength={200} name="loginName" placeholder="회사에서 발급한 아이디" required type="text" />
+              <input autoCapitalize="none" autoComplete="username" autoFocus className="h-mobile-action w-full rounded-control border border-border bg-surface px-3 text-sm font-normal text-text outline-none transition focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-10" id="login-name" inputMode="text" maxLength={30} minLength={3} name="loginName" pattern="[A-Za-z0-9]{3,30}" placeholder="회사에서 발급한 아이디" required spellCheck={false} type="text" />
             </label>
             <label className="block space-y-2 text-[13px] font-semibold text-text" htmlFor="login-password">
               비밀번호

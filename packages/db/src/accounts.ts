@@ -69,7 +69,8 @@ export type ReserveAccountCreateResult =
         | "COMPENSATION_REQUIRED"
         | "RECOVERY_REQUIRED"
         | "OPERATOR_REQUIRED"
-        | "DEAD_LETTER";
+        | "DEAD_LETTER"
+        | "LOGIN_ID_CONFLICT";
     };
 
 export type CompleteAccountCreateResult =
@@ -475,6 +476,43 @@ export function createPostgresAccountRepository(
         );
         if (hotel?.count !== hotelIds.length)
           return { status: "HOTEL_NOT_FOUND" } as const;
+
+        let targetAccountId = input.accountId;
+        const claimed = await transaction<{ target_user_id: string }[]>`
+          insert into login_id_registry (
+            login_id, company_id, target_user_id, actor_user_id,
+            idempotency_key, request_hash
+          ) values (
+            ${input.completionPayload.loginName}, ${input.actor.companyId},
+            ${input.accountId}, ${input.actor.userId},
+            ${input.idempotencyKey}, ${input.requestHash}
+          )
+          on conflict do nothing
+          returning target_user_id
+        `;
+        if (!claimed[0]) {
+          const [existingClaim] = await transaction<{
+            actor_user_id: string | null;
+            idempotency_key: string | null;
+            request_hash: string | null;
+            target_user_id: string;
+          }[]>`
+            select actor_user_id, idempotency_key, request_hash, target_user_id
+            from login_id_registry
+            where login_id = ${input.completionPayload.loginName}
+              and company_id = ${input.actor.companyId}
+          `;
+          if (
+            !existingClaim ||
+            existingClaim.actor_user_id !== input.actor.userId ||
+            existingClaim.idempotency_key !== input.idempotencyKey ||
+            existingClaim.request_hash !== input.requestHash
+          ) {
+            return { status: "LOGIN_ID_CONFLICT" } as const;
+          }
+          targetAccountId = existingClaim.target_user_id;
+        }
+
         const inserted = await transaction<
           { attempt_count: number; target_user_id: string }[]
         >`
@@ -482,11 +520,11 @@ export function createPostgresAccountRepository(
             id, company_id, actor_user_id, target_user_id, idempotency_key,
             request_hash, completion_payload, status, expires_at
           ) values (
-            ${input.attemptId}, ${input.actor.companyId}, ${input.actor.userId}, ${input.accountId},
+            ${input.attemptId}, ${input.actor.companyId}, ${input.actor.userId}, ${targetAccountId},
             ${input.idempotencyKey}, ${input.requestHash}, ${transaction.json({
               ...input.completionPayload,
               action: "CREATE",
-              userId: input.accountId,
+              userId: targetAccountId,
             })},
             'RESERVED_NOT_DISPATCHED', now() + interval '24 hours'
           )

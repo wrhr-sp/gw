@@ -17,6 +17,7 @@ const provisionSource = readFileSync(
 describe("account administration readiness contract", () => {
   it.each([
     "users_login_name_unique_idx",
+    "users_login_name_global_unique_idx",
     "users_email_unique_idx",
     "hotel_staff_assignments_active_primary_user_unique_idx",
     "hotel_staff_assignments_active_lookup_idx",
@@ -52,16 +53,30 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("current_user");
   });
 
-  it("uses complete runtime privilege allowlists and rejects public or grantable ACLs", () => {
+  it("uses complete table privilege allowlists and rejects public, stale named-role, or grantable ACLs", () => {
     expect(source).toContain("EXPECTED_API_RUNTIME_TABLE_PRIVILEGES");
     expect(source).toContain("EXPECTED_RECONCILER_TABLE_PRIVILEGES");
-    expect(source).not.toContain('"auth_sessions:INSERT"');
-    expect(source).not.toContain('"auth_sessions:UPDATE"');
-    expect(source).toContain(
-      "actualRuntimePrivileges.size !== expectedRuntimePrivileges.length",
+    const apiRuntimeAllowlist = source.slice(
+      source.indexOf("const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES"),
+      source.indexOf("const EXPECTED_RECONCILER_TABLE_PRIVILEGES"),
     );
-    expect(source).toContain("row.grantable || row.public_grant");
+    expect(apiRuntimeAllowlist).not.toContain('"auth_sessions:INSERT"');
+    expect(apiRuntimeAllowlist).not.toContain('"auth_sessions:UPDATE"');
+    expect(apiRuntimeAllowlist).toContain('"login_id_registry:SELECT"');
+    expect(apiRuntimeAllowlist).toContain('"login_id_registry:INSERT"');
+    expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
+    expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:DELETE"');
+    expect(source).toContain('name: "login_id_registry_immutable"');
+    expect(source).toContain('policy: "login_id_registry_company_isolation"');
+    expect(source).toContain(
+      "actualTablePrivileges.size !== expectedTablePrivileges.size",
+    );
+    expect(source).toContain("row.grantable || !row.role_name");
     expect(source).toContain("acl.is_grantable");
+    expect(source).toContain("for (const role of capabilityRoleRows)");
+    expect(source).toContain("werehere_auth_session_definer");
+    expect(source).toContain("werehere_tenant_authority_definer");
+    expect(source).toContain("migrationOwner.role_name");
     expect(source).toContain("expectedSchemaPrivileges");
     expect(source).toContain("schemaAclClosure.unexpected_count !== 0");
     expect(source).toContain("sequence_record.relkind = 'S'");
@@ -77,9 +92,29 @@ describe("account administration readiness contract", () => {
     );
     expect(provisionSource).toContain("grant usage on schema public to public");
     expect(provisionSource).toContain("$schema_acl_reset$");
+    expect(provisionSource).toContain("$migration_owned_table_acl_reset$");
+    expect(provisionSource).toContain("$tenant_owned_table_acl_reset$");
     expect(provisionSource).toContain("$sequence_acl_reset$");
     expect(accountSource).not.toMatch(/update\s+auth_sessions/iu);
     expect(accountSource).toContain("auth_revoke_user_sessions_v1");
+  });
+
+  it("checks canonical ownership before any migration or seed mutation", () => {
+    const preflight = provisionSource.indexOf(
+      "ownershipPreflight.unexpected_sequence_owners !== 0",
+    );
+    const migrationLoop = provisionSource.indexOf(
+      "for (const [version, fileName] of migrations)",
+    );
+    const previewSeed = provisionSource.indexOf(
+      "insert into companies (id, legal_name, status)",
+    );
+    expect(preflight).toBeGreaterThan(0);
+    expect(preflight).toBeLessThan(migrationLoop);
+    expect(preflight).toBeLessThan(previewSeed);
+    expect(
+      provisionSource.indexOf("updateLocalCiDefinerMembership(", preflight),
+    ).toBeGreaterThan(preflight);
   });
 
   it("requires the API-only user-session revoke definer boundary", () => {

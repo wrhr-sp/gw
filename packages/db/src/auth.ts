@@ -98,6 +98,9 @@ export interface AuthRepository {
   reserveCustomLoginStart(
     ipHash: Uint8Array,
   ): Promise<{ status: "RESERVED" | "RATE_LIMITED" }>;
+  resolveCustomLoginIdentity(
+    canonicalLoginId: string,
+  ): Promise<{ providerSubject: string } | null>;
   resolvePrincipal(
     tokenHash: Uint8Array,
     idleLifetimeSeconds: number,
@@ -160,6 +163,23 @@ export function parseResolvedPrincipalRows(
     throw new Error("auth principal function returned an incomplete principal");
   }
   return mapPrincipal(row as PrincipalRow);
+}
+
+export function parseResolvedLoginIdentityRows(
+  rows: { provider_subject: string | null }[],
+): { providerSubject: string } | null {
+  if (rows.length === 0) return null;
+  if (rows.length !== 1) {
+    throw new Error("login identity lookup returned multiple rows");
+  }
+  const providerSubject = rows[0]?.provider_subject;
+  if (
+    !providerSubject?.trim() ||
+    providerSubject !== providerSubject.trim()
+  ) {
+    throw new Error("login identity lookup returned an incomplete row");
+  }
+  return { providerSubject };
 }
 
 export function createPostgresAuthRepository(
@@ -527,6 +547,13 @@ export function createPostgresAuthRepository(
           user_type: result.user_type,
         }),
       } as const;
+    },
+
+    async resolveCustomLoginIdentity(canonicalLoginId) {
+      const rows = await sql<{ provider_subject: string | null }[]>`
+        select * from public.auth_resolve_login_identity_v1(${canonicalLoginId})
+      `;
+      return parseResolvedLoginIdentityRows(rows);
     },
 
     async resolvePrincipal(tokenHash, idleLifetimeSeconds) {

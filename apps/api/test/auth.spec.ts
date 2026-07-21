@@ -330,7 +330,7 @@ describe("hotel auth API", () => {
       body: new URLSearchParams({
         authRequest: "oidc-request-1",
         csrf: "c".repeat(43),
-        loginName: "  Hotel-Admin  ",
+        loginName: "  HotelAdmin  ",
         password: "password-value",
       }).toString(),
       headers: {
@@ -350,7 +350,7 @@ describe("hotel auth API", () => {
       browserBinding: "browser-binding-value",
       csrf: "c".repeat(43),
       ipAddress: "203.0.113.10",
-      loginName: "Hotel-Admin",
+      loginName: "hoteladmin",
       password: "password-value",
     });
   });

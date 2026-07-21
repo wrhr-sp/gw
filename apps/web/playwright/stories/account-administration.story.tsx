@@ -56,7 +56,7 @@ export function AccountDetailStory() {
           account={{
             id: "21000000-0000-4000-8000-000000000001",
             displayName: "김하우스",
-            loginName: "housekeeper-01",
+            loginName: "housekeeper01",
             email: "housekeeper-01@example.invalid",
             userType: "HOUSEKEEPING",
             status: "ACTIVE",

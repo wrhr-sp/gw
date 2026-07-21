@@ -3,8 +3,29 @@ import { describe, expect, it } from "vitest";
 
 const migrationUrl = new URL("../migrations/0006_account_administration.sql", import.meta.url);
 const readMigration = () => readFileSync(migrationUrl, "utf8");
+const expandMigrationUrl = new URL("../migrations/0009_global_login_id_expand.sql", import.meta.url);
+const contractMigrationUrl = new URL("../migrations/0010_global_login_id_contract.sql", import.meta.url);
 
 describe("account administration migration", () => {
+  it("expands global uniqueness before enforcing the canonical login ID contract", () => {
+    const expand = readFileSync(expandMigrationUrl, "utf8").toLowerCase();
+    const contract = readFileSync(contractMigrationUrl, "utf8").toLowerCase();
+    expect(expand).toContain("users_login_name_global_unique_idx");
+    expect(expand).toContain("pg_catalog.lower(pg_catalog.btrim(login_name))");
+    expect(expand).toContain("0009_global_login_id_expand");
+    expect(expand).toContain("create table public.login_id_registry");
+    expect(expand).toContain("prevent_login_id_registry_mutation");
+    expect(expand).toContain("enable row level security");
+    expect(contract).toContain("users_login_name_registry_fk");
+    expect(contract).toContain("users_login_name_format_check");
+    expect(contract).toContain("users_login_name_reserved_check");
+    expect(contract).toContain("^[a-z0-9]{3,30}$");
+    for (const reserved of ["admin", "administrator", "root", "system", "security", "api", "service", "support", "test", "preview", "werehere"]) {
+      expect(contract).toContain(`'${reserved}'`);
+    }
+    expect(contract).toContain("0010_global_login_id_contract");
+  });
+
   it("expands user type storage without breaking the previously deployed Worker", () => {
     const sql = readMigration();
     expect(sql).not.toMatch(/update\s+users\s+set\s+user_type/i);

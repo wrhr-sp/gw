@@ -183,8 +183,12 @@ export function createAccountService(input: {
         throw new AccountServiceError("FORBIDDEN", 403, false);
       if (reserved.status === "HOTEL_NOT_FOUND")
         throw new AccountServiceError("RESOURCE_NOT_FOUND", 404, false);
-      if (reserved.status === "COMPENSATED")
+      if (
+        reserved.status === "COMPENSATED" ||
+        reserved.status === "LOGIN_ID_CONFLICT"
+      ) {
         throw new AccountServiceError("ACCOUNT_DUPLICATE", 409, false);
+      }
       if (reserved.status === "COMPENSATION_REQUIRED")
         throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
       if (reserved.status === "RECOVERY_REQUIRED")

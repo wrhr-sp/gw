@@ -10,7 +10,10 @@ const {
   assertHousekeepingAssignmentRows,
   discoverCleanupAttempt,
   ensureDatabaseInactive,
+  finalizePreviewSmoke,
+  orchestratePreviewAccountCleanup,
   waitForProviderInactive,
+  waitForProviderSessionGone,
   waitForZeroActiveSessions,
 } = cleanupHelpers;
 
@@ -20,6 +23,13 @@ const smokeUrl = new URL(
 );
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
+const helperSource = readFileSync(
+  new URL(
+    "../../../scripts/lib/preview-account-smoke-cleanup.mjs",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 describe("hosted Preview account-management smoke", () => {
   it("is valid executable JavaScript", () => {
@@ -31,6 +41,9 @@ describe("hosted Preview account-management smoke", () => {
   });
 
   it("verifies canonical housekeeping multi-hotel material fields", () => {
+    expect(source).toContain('.replace(/[^A-Za-z0-9]/gu, "")');
+    expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
+    expect(source).not.toContain("const loginName = `preview-smoke-");
     expect(source).toContain('userType: "HOUSEKEEPING"');
     expect(source).toContain("hotelIds.length !== 2");
     expect(source).toContain("new Set(hotelIds).size !== 2");
@@ -106,6 +119,84 @@ describe("hosted Preview account-management smoke", () => {
         { id: "durable-preview-account-id" },
       ),
     ).toThrow("Created Preview account did not match its durable attempt");
+  });
+
+  it("cleans only the durable target after a wrong create response ID", async () => {
+    const calls: string[] = [];
+    const attempt = {
+      attemptStatus: "COMPLETED",
+      id: "durable-preview-account-id",
+      providerSubject: "durable-preview-account-id",
+      userStatus: "ACTIVE",
+    };
+    const result = await orchestratePreviewAccountCleanup({
+      cleanupDatabase: async (targetId: string) => {
+        calls.push(`database:${targetId}`);
+      },
+      cleanupProvider: async (subject: string) => {
+        calls.push(`provider:${subject}`);
+      },
+      discoverAttempt: async () => attempt,
+      refreshAttempt: async () => attempt,
+      requireAttempt: true,
+      responseAccountId: "existing-account-id",
+    });
+
+    expect(result).toEqual({
+      databaseCleanupComplete: true,
+      responseIdMatched: false,
+      targetId: "durable-preview-account-id",
+    });
+    expect(calls).toEqual([
+      "database:durable-preview-account-id",
+      "provider:durable-preview-account-id",
+    ]);
+    expect(calls.join("|")).not.toContain("existing-account-id");
+  });
+
+  it("cleans a canonical user that appears during provider cleanup", async () => {
+    const calls: string[] = [];
+    const initialAttempt = {
+      attemptStatus: "DISPATCHED",
+      id: "durable-preview-account-id",
+      providerSubject: "durable-preview-account-id",
+      userStatus: null,
+    };
+    const finalAttempt = {
+      ...initialAttempt,
+      attemptStatus: "COMPLETED",
+      userStatus: "PENDING_SETUP",
+    };
+    await orchestratePreviewAccountCleanup({
+      cleanupDatabase: async (targetId: string) => {
+        calls.push(`database:${targetId}`);
+      },
+      cleanupProvider: async (subject: string) => {
+        calls.push(`provider:${subject}`);
+      },
+      discoverAttempt: async () => initialAttempt,
+      refreshAttempt: async () => finalAttempt,
+      requireAttempt: true,
+      responseAccountId: undefined,
+    });
+
+    expect(calls).toEqual([
+      "provider:durable-preview-account-id",
+      "database:durable-preview-account-id",
+    ]);
+  });
+
+  it("fails closed when a started create has no observable durable attempt", async () => {
+    await expect(
+      orchestratePreviewAccountCleanup({
+        cleanupDatabase: async () => undefined,
+        cleanupProvider: async () => undefined,
+        discoverAttempt: async () => undefined,
+        refreshAttempt: async () => undefined,
+        requireAttempt: true,
+        responseAccountId: undefined,
+      }),
+    ).rejects.toThrow("Preview account cleanup attempt was not observable");
   });
 
   it("re-reads the current PostgreSQL version until deactivation is durable", async () => {
@@ -244,6 +335,65 @@ describe("hosted Preview account-management smoke", () => {
     expect(waits).toEqual([1, 1]);
   });
 
+  it("waits for a deleted provider verification session to disappear", async () => {
+    const statuses = [200, 200, 404];
+    const waits: number[] = [];
+    const result = await waitForProviderSessionGone({
+      attempts: 3,
+      read: async () => statuses.shift(),
+      wait: async (milliseconds: number) => waits.push(milliseconds),
+      waitMilliseconds: 1,
+    });
+
+    expect(result).toBe(404);
+    expect(waits).toEqual([1, 1]);
+  });
+
+  it("fails closed when a deleted provider session remains readable", async () => {
+    await expect(
+      waitForProviderSessionGone({
+        attempts: 2,
+        read: async () => 200,
+        wait: async () => undefined,
+        waitMilliseconds: 0,
+      }),
+    ).rejects.toThrow("Preview provider session remained active");
+  });
+
+  it("does not write a success marker when database close fails", async () => {
+    const output: string[] = [];
+    await expect(
+      finalizePreviewSmoke({
+        cleanupFailed: false,
+        close: async () => {
+          throw new Error("close failed");
+        },
+        journeyError: undefined,
+        writeSuccess: () => output.push("OK"),
+      }),
+    ).rejects.toThrow("PREVIEW_ACCOUNT_CLEANUP_FAILED");
+    expect(output).toEqual([]);
+  });
+
+  it("does not write a success marker for indeterminate provider session creation", async () => {
+    const output: string[] = [];
+    await expect(
+      finalizePreviewSmoke({
+        cleanupFailed: true,
+        close: async () => undefined,
+        journeyError: new Error("provider response lost"),
+        writeSuccess: () => output.push("OK"),
+      }),
+    ).rejects.toThrow("PREVIEW_ACCOUNT_CLEANUP_FAILED");
+    expect(output).toEqual([]);
+    expect(source).toContain(
+      "providerVerificationSessionCreationIndeterminate = true",
+    );
+    expect(source).toContain(
+      "let cleanupFailed = providerVerificationSessionCreationIndeterminate",
+    );
+  });
+
   it("independently waits for active PostgreSQL sessions to reach zero", async () => {
     const counts = [1, 0];
     const waits: number[] = [];
@@ -337,17 +487,15 @@ describe("hosted Preview account-management smoke", () => {
     ).rejects.toThrow("Preview provider identity boundary mismatch");
   });
 
-  it("allows only the final non-sensitive success marker in console output", () => {
+  it("allows only the final non-sensitive success marker in output code", () => {
     expect(source).toContain('redirect: "manual"');
-    const consoleCalls =
-      source.match(
-        /console\.(?:log|error|warn|info|debug)\s*\([\s\S]*?\);/gu,
-      ) ?? [];
-    expect(consoleCalls).toEqual([
-      'console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");',
-    ]);
-    expect(source.lastIndexOf(consoleCalls[0]!)).toBeGreaterThan(
-      source.indexOf("if (journeyError) throw journeyError;"),
+    expect(source.match(/console\./gu)).toEqual(["console."]);
+    expect(source).toContain(
+      'writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK")',
+    );
+    expect(source).toContain("await finalizePreviewSmoke({");
+    expect(`${source}\n${helperSource}`).not.toMatch(
+      /process\.(?:stdout|stderr)\.write|console\.(?:error|warn|info|debug)|\b(?:logger|log)\.(?:error|warn|info|debug)\s*\(/u,
     );
   });
 });

@@ -21,17 +21,26 @@ import {
   hotelStatusSchema,
   hotelUserTypeSchema,
   initialPasswordRequestSchema,
+  loginIdSchema,
   passwordPolicySchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("canonicalizes only approved MVP login IDs and blocks fixed reserved IDs", () => {
+    expect(loginIdSchema.parse("HotelAdmin")).toBe("hoteladmin");
+    for (const value of [
+      "ab", "a".repeat(31), "hotel-admin", "hotel_admin", "hotel.admin",
+      "호텔관리자", "admin", "root", "werehere",
+    ]) expect(loginIdSchema.safeParse(value).success).toBe(false);
+  });
+
   it.each([
     ["PW-7", "a1!aaaa"], ["PW-NO-LOWER", "A1!AAAAA"], ["PW-NO-NUMBER", "aa!aaaaa"],
     ["PW-NO-P/S", "aa1aaaaa"], ["PW-201", `a1!${"a".repeat(198)}`],
     ["punctuation-only", "!!!!!!!!"], ["symbol-only", "💡💡💡💡💡💡💡💡"],
   ])("rejects %s consistently on account password surfaces", (_fixture, password) => {
     const accountInput = {
-      displayName: "김하우스", loginName: "housekeeper-01", email: "housekeeper-01@example.invalid",
+      displayName: "김하우스", loginName: "housekeeper01", email: "housekeeper-01@example.invalid",
       userType: "HOUSEKEEPING" as const, hotelIds: ["50000000-0000-4000-8000-000000000001"],
       assignmentStartDate: "2026-07-19", reason: "계정 생성 검증", initialPassword: password,
     };
@@ -99,7 +108,7 @@ describe("hotel platform contracts", () => {
 
     const parsed = createAccountRequestSchema.parse({
       displayName: "김하우스",
-      loginName: "housekeeper-01",
+      loginName: "Housekeeper01",
       email: "housekeeper-01@example.invalid",
       userType: "HOUSEKEEPING",
       hotelIds: [
@@ -111,6 +120,7 @@ describe("hotel platform contracts", () => {
       initialPassword: "Strong-Preview-123!",
     });
     expect(parsed.userType).toBe("HOUSEKEEPING");
+    expect(parsed.loginName).toBe("housekeeper01");
     expect(createAccountRequestSchema.safeParse({ ...parsed, initialPassword: "Abcd123!" }).success).toBe(true);
     for (const initialPassword of ["Abc123!", "1234567!", "Password!", "Password1", "Abcd123 ", "Abcd123한"]) {
       expect(createAccountRequestSchema.safeParse({ ...parsed, initialPassword }).success).toBe(false);
@@ -205,15 +215,18 @@ describe("hotel platform contracts", () => {
   });
 
   it("requires a single-use CSRF token and provider-compatible credential bounds", () => {
-    expect(customLoginRequestSchema.safeParse({
+    const canonicalLoginRequest = customLoginRequestSchema.safeParse({
       authRequest: "request-1",
       csrf: "c".repeat(43),
-      loginName: "hotel-admin",
+      loginName: "HotelAdmin",
       password: "password-value",
-    }).success).toBe(true);
+    });
+    expect(canonicalLoginRequest.success).toBe(true);
+    if (!canonicalLoginRequest.success) throw canonicalLoginRequest.error;
+    expect(canonicalLoginRequest.data.loginName).toBe("hoteladmin");
     expect(customLoginRequestSchema.safeParse({
       authRequest: "request-1",
-      loginName: "hotel-admin",
+      loginName: "hoteladmin",
       password: "password-value",
     }).success).toBe(false);
     expect(customLoginRequestSchema.safeParse({

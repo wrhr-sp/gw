@@ -107,6 +107,76 @@ export async function discoverCleanupAttempt({
   return undefined;
 }
 
+export async function orchestratePreviewAccountCleanup({
+  cleanupDatabase,
+  cleanupProvider,
+  discoverAttempt,
+  refreshAttempt,
+  requireAttempt = false,
+  responseAccountId,
+}) {
+  const cleanupAttempt = await discoverAttempt();
+  if (!cleanupAttempt) {
+    if (requireAttempt) {
+      throw new Error("Preview account cleanup attempt was not observable");
+    }
+    return { responseIdMatched: false, targetId: null };
+  }
+  let databaseCleanupComplete = false;
+  if (cleanupAttempt.userStatus !== null) {
+    await cleanupDatabase(cleanupAttempt.id);
+    databaseCleanupComplete = true;
+  }
+  await cleanupProvider(cleanupAttempt.providerSubject);
+  const finalAttempt = await refreshAttempt();
+  if (
+    !finalAttempt ||
+    finalAttempt.id !== cleanupAttempt.id ||
+    finalAttempt.providerSubject !== cleanupAttempt.providerSubject
+  ) {
+    throw new Error("Preview account cleanup attempt changed identity");
+  }
+  if (finalAttempt.userStatus !== null && !databaseCleanupComplete) {
+    await cleanupDatabase(cleanupAttempt.id);
+    databaseCleanupComplete = true;
+  }
+  if (
+    finalAttempt.userStatus === null &&
+    finalAttempt.attemptStatus !== "COMPENSATED"
+  ) {
+    throw new Error("Preview account cleanup requires operator recovery");
+  }
+  return {
+    databaseCleanupComplete,
+    responseIdMatched: responseAccountId === cleanupAttempt.id,
+    targetId: cleanupAttempt.id,
+  };
+}
+
+export async function finalizePreviewSmoke({
+  cleanupReference,
+  cleanupFailed,
+  close,
+  journeyError,
+  writeSuccess,
+}) {
+  let finalCleanupFailed = cleanupFailed;
+  try {
+    await close();
+  } catch {
+    finalCleanupFailed = true;
+  }
+  if (finalCleanupFailed) {
+    throw new Error(
+      cleanupReference
+        ? `PREVIEW_ACCOUNT_CLEANUP_FAILED [ref=${cleanupReference}]`
+        : "PREVIEW_ACCOUNT_CLEANUP_FAILED",
+    );
+  }
+  if (journeyError) throw journeyError;
+  writeSuccess();
+}
+
 export async function ensureDatabaseInactive({
   attempts,
   deactivate,
@@ -185,6 +255,34 @@ export async function waitForProviderInactive({
     lastError
       ? "Preview provider deactivation read-back failed"
       : "Preview provider state remained active",
+  );
+}
+
+export async function waitForProviderSessionGone({
+  attempts,
+  read,
+  wait = defaultWait,
+  waitMilliseconds,
+}) {
+  assertAttempts(attempts);
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const status = await read();
+      if (status === 401 || status === 404) return status;
+      if (status !== 200) {
+        throw new Error("Preview provider session state was malformed");
+      }
+      lastError = undefined;
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt + 1 < attempts) await wait(waitMilliseconds);
+  }
+  throw new Error(
+    lastError
+      ? "Preview provider session deletion read-back failed"
+      : "Preview provider session remained active",
   );
 }
 
