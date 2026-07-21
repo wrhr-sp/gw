@@ -392,7 +392,7 @@ try {
     to ${runtimeRole};
     grant insert, update, delete on auth_login_transactions to ${runtimeRole};
     grant insert, update, delete on auth_credential_rate_limits to ${runtimeRole};
-    grant insert, update on auth_sessions to ${runtimeRole};
+    grant update on auth_sessions to ${runtimeRole};
     grant insert on audit_events, branches, hotel_profiles to ${runtimeRole};
     grant insert, update, delete on idempotency_records to ${runtimeRole};
   `);
