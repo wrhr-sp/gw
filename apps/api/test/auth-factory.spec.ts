@@ -3,7 +3,7 @@ import { createAuthServiceFromBindings } from "../src/auth/factory";
 
 const testBindings = {
   AUTH_TRANSACTION_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-  DATABASE_URL: "postgres://unused.invalid/hotel_test",
+  API_RUNTIME_DATABASE_URL: "postgres://unused.invalid/hotel_test",
   ZITADEL_CLIENT_ID: "hotel-client",
   ZITADEL_CONSOLE_CLIENT_ID: "console-client",
   ZITADEL_ISSUER: "https://identity.example.test",

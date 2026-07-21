@@ -2,14 +2,16 @@ import { probeDatabaseReadiness } from "../src/client";
 import postgres from "postgres";
 
 const databaseUrl = process.env.TEST_READY_URL ?? "";
+const probeUrl = process.env.TEST_PROBE_URL ?? "";
 if (!databaseUrl) throw new Error("TEST_READY_URL is required");
+if (!probeUrl) throw new Error("TEST_PROBE_URL is required");
 
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 
 async function verifyConstraintDamage(name: string, definition: string) {
   await sql.unsafe(`alter table hotel_profiles drop constraint ${name}`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${name} damage was reported as ${readiness.status}`);
     }
@@ -27,7 +29,7 @@ async function verifySecurityConstraintWeakening(
   await sql.unsafe(`alter table ${table} drop constraint ${name}`);
   await sql.unsafe(`alter table ${table} add constraint ${name} ${damagedDefinition}`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${name} weakened constraint was reported as ${readiness.status}`);
     }
@@ -37,12 +39,42 @@ async function verifySecurityConstraintWeakening(
   }
 }
 
+async function verifyExclusionExtraKeyWeakening() {
+  const name = "hotel_staff_assignments_primary_period_excl";
+  await sql.unsafe(`alter table hotel_staff_assignments drop constraint ${name}`);
+  await sql.unsafe(`
+    alter table hotel_staff_assignments add constraint ${name}
+    exclude using gist (
+      company_id with =,
+      branch_id with =,
+      user_id with =,
+      daterange(start_date, coalesce(end_date, 'infinity'::date), '[]') with &&
+    ) where (assignment_type = 'PRIMARY')
+  `);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`extra-key weakened exclusion was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`alter table hotel_staff_assignments drop constraint ${name}`);
+    await sql.unsafe(`
+      alter table hotel_staff_assignments add constraint ${name}
+      exclude using gist (
+        company_id with =,
+        user_id with =,
+        daterange(start_date, coalesce(end_date, 'infinity'::date), '[]') with &&
+      ) where (assignment_type = 'PRIMARY')
+    `);
+  }
+}
+
 async function verifyBranchCodeConstraintWeakening() {
   const name = "branches_branch_code_canonical_check";
   await sql.unsafe(`alter table branches drop constraint ${name}`);
   await sql.unsafe(`alter table branches add constraint ${name} check (branch_code = upper(btrim(branch_code)))`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`weakened branch code constraint was reported as ${readiness.status}`);
     }
@@ -60,7 +92,7 @@ async function verifyPhoneConstraintReplacement(damagedDefinition: string, label
   await sql.unsafe(`alter table hotel_profiles drop constraint ${name}`);
   await sql.unsafe(`alter table hotel_profiles add constraint ${name} ${damagedDefinition}`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${label} phone constraint was reported as ${readiness.status}`);
     }
@@ -76,7 +108,7 @@ async function verifyPhoneConstraintReplacement(damagedDefinition: string, label
 async function verifyPolicyDamage(table: string, name: string) {
   await sql.unsafe(`drop policy ${name} on ${table}`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${name} damage was reported as ${readiness.status}`);
     }
@@ -97,7 +129,7 @@ async function verifyPolicyWeakening(table: string, name: string) {
     with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid or true)
   `);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${name} weakened policy was reported as ${readiness.status}`);
     }
@@ -119,7 +151,7 @@ async function verifyAdditionalPermissivePolicy() {
     with check (true)
   `);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`additional permissive policy was reported as ${readiness.status}`);
     }
@@ -137,7 +169,7 @@ async function verifyRestrictivePolicy() {
     with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
   `);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`restrictive policy was reported as ${readiness.status}`);
     }
@@ -190,7 +222,7 @@ async function verifyPolicyRoleRestriction() {
 async function verifyRlsDisabled(table: string) {
   await sql.unsafe(`alter table ${table} disable row level security`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${table} disabled RLS was reported as ${readiness.status}`);
     }
@@ -202,7 +234,7 @@ async function verifyRlsDisabled(table: string) {
 async function verifyRlsNotForced(table: string) {
   await sql.unsafe(`alter table ${table} no force row level security`);
   try {
-    const readiness = await probeDatabaseReadiness(databaseUrl);
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`${table} non-forced RLS was reported as ${readiness.status}`);
     }
@@ -316,6 +348,7 @@ try {
     "check (expires_at <= window_started_at + interval '1 hour')",
     "check (expires_at <= window_started_at + interval '15 minutes')",
   );
+  await verifyExclusionExtraKeyWeakening();
   await verifyBranchCodeConstraintWeakening();
   await verifyPhoneConstraintReplacement(
     "check (representative_phone ~ '^[0-9+() -]{8,30}$' or true)",

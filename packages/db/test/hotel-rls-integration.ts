@@ -38,6 +38,7 @@ try {
   }
   await sql.unsafe(`create role ${roleName} nologin`);
   await sql.unsafe(`grant usage on schema public to ${roleName}`);
+  await sql.unsafe(`grant execute on function runtime_is_schema_owner(), runtime_has_capability(text), api_current_company_id(), reconciler_current_company_id() to ${roleName}`);
   await sql.unsafe(`grant select, insert on branches, hotel_profiles to ${roleName}`);
 
   await sql.unsafe(`set role ${roleName}`);

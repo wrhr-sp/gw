@@ -565,6 +565,10 @@ try {
   await sql`update users set status = 'LOCKED' where id = ${created.principal.userId}`;
   if (await repository.resolvePrincipal(tokenHash, 28_800)) throw new Error("locked user session was accepted");
   await sql`update users set status = 'ACTIVE' where id = ${created.principal.userId}`;
+  await sql`update users set status = 'PENDING_SETUP', must_change_password = true where id = ${created.principal.userId}`;
+  const pendingSetupPrincipal = await repository.resolvePrincipal(tokenHash, 28_800);
+  if (pendingSetupPrincipal?.mustChangePassword !== true) throw new Error("pending setup principal was not gated");
+  await sql`update users set status = 'ACTIVE', must_change_password = false where id = ${created.principal.userId}`;
 
   await sql`update companies set status = 'SUSPENDED' where id = ${created.principal.companyId}`;
   if (await repository.resolvePrincipal(tokenHash, 28_800)) throw new Error("suspended company session was accepted");

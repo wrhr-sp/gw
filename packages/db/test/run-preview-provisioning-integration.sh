@@ -6,7 +6,8 @@ TMP_DIR="$(mktemp -d /tmp/werehere-preview-provision.XXXXXX)"
 DATA_DIR="$TMP_DIR/data"
 SOCKET_DIR="$TMP_DIR/socket"
 LOG_FILE="$TMP_DIR/postgres.log"
-RUNTIME_URL_FILE="$TMP_DIR/runtime-url"
+API_RUNTIME_URL_FILE="$TMP_DIR/api-runtime-url"
+RECONCILER_URL_FILE="$TMP_DIR/reconciler-url"
 SUBJECT="preview-subject-integration"
 COMPANY_ID="70000000-0000-4000-8000-000000000001"
 MIGRATION_OWNER="werehere_preview_migration_owner"
@@ -18,6 +19,8 @@ cleanup() {
 drop database if exists werehere_preview_ci with (force);
 drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
+drop role if exists werehere_preview_api_runtime;
+drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
@@ -35,6 +38,8 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
 drop database if exists werehere_preview_ci with (force);
 drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
+drop role if exists werehere_preview_api_runtime;
+drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
 do $$
@@ -71,9 +76,14 @@ run_provision() {
       PREVIEW_PROVISION_LOCAL_CI_TEST=1 \
       DATABASE_URL_PREVIEW="$PREVIEW_URL" \
       DATABASE_URL="$PRODUCTION_URL" \
-      DATABASE_RUNTIME_PASSWORD_PREVIEW='preview-runtime-integration-password' \
-      RUNTIME_DATABASE_URL_FILE="$RUNTIME_URL_FILE" \
+      DATABASE_API_RUNTIME_PASSWORD_PREVIEW='preview-api-runtime-integration-password' \
+      DATABASE_RECONCILER_PASSWORD_PREVIEW='preview-reconciler-integration-password' \
+      API_RUNTIME_DATABASE_URL_FILE="$API_RUNTIME_URL_FILE" \
+      RECONCILER_DATABASE_URL_FILE="$RECONCILER_URL_FILE" \
       ZITADEL_PREVIEW_SUBJECT="$SUBJECT" \
+      ZITADEL_PREVIEW_SUBJECT_SHA256='4a5a9f382288501ac29a0a9ff003f6f5dca58d0dff0c3134a0480fb6a6c18bf6' \
+      ZITADEL_PREVIEW_ORGANIZATION_ID='preview-organization-integration' \
+      PREVIEW_BOOTSTRAP_APPROVAL_REF='ci-approved-bootstrap' \
       pnpm exec tsx packages/db/scripts/provision-preview.ts
   )
 }
@@ -99,17 +109,20 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
   -c "update permission_grants set valid_until = null where id = '73000000-0000-4000-8000-000000000001'" >/dev/null
 
-if [[ "$(stat -c '%a' "$RUNTIME_URL_FILE")" != "600" ]]; then
-  printf '%s\n' 'runtime URL file permissions are not 600' >&2
-  exit 1
-fi
+for url_file in "$API_RUNTIME_URL_FILE" "$RECONCILER_URL_FILE"; do
+  if [[ "$(stat -c '%a' "$url_file")" != "600" ]]; then
+    printf '%s\n' 'runtime URL file permissions are not 600' >&2
+    exit 1
+  fi
+done
 
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$PREVIEW_URL" <<SQL
 select count(*) from schema_migrations
 where version in (
   '0001_platform_foundation', '0002_auth_session_runtime',
   '0003_hotel_basic_information', '0004_custom_login_security',
-  '0005_auth_session_definer'
+  '0005_auth_session_definer', '0006_account_administration',
+  '0007_api_tenant_authority_expand'
 );
 select count(*) from auth_identities
 where provider = 'ZITADEL' and provider_subject = '$SUBJECT';
@@ -123,8 +136,22 @@ where id = '73000000-0000-4000-8000-000000000001'
   and effect = 'ALLOW'
   and granted_by = '71000000-0000-4000-8000-000000000001'
   and reason = 'Preview 초기 관리자 권한';
+select count(*) from permission_grants
+where company_id = '$COMPANY_ID'
+  and subject_id = '71000000-0000-4000-8000-000000000001'
+  and permission_code in ('USER_READ', 'USER_CREATE', 'USER_SUSPEND')
+  and effect = 'ALLOW' and valid_until is null;
+select count(*) from company_bootstrap_states
+where company_id = '$COMPANY_ID'
+  and subject_fingerprint = '4a5a9f382288501ac29a0a9ff003f6f5dca58d0dff0c3134a0480fb6a6c18bf6'
+  and zitadel_organization_id = 'preview-organization-integration'
+  and approval_reference = 'ci-approved-bootstrap';
+select count(*) from audit_events
+where id = '74000000-0000-4000-8000-000000000001'
+  and event_code = 'ACCOUNT_BOOTSTRAPPED';
 select count(*) from pg_roles
-where rolname = 'werehere_preview_runtime'
+where rolname in ('werehere_preview_api_runtime', 'werehere_preview_reconciler')
+  and rolcanlogin
   and not rolsuper
   and not rolinherit
   and not rolcreaterole
@@ -133,7 +160,7 @@ where rolname = 'werehere_preview_runtime'
   and not rolbypassrls;
 select count(*) from pg_auth_members membership
 join pg_roles runtime_role on runtime_role.oid = membership.member
-where runtime_role.rolname = 'werehere_preview_runtime';
+where runtime_role.rolname in ('werehere_preview_api_runtime', 'werehere_preview_reconciler');
 select count(*) from pg_roles
 where rolname = 'werehere_auth_session_definer'
   and not rolcanlogin
@@ -155,7 +182,7 @@ where definer_role.rolname = 'werehere_auth_session_definer'
   );
 SQL
 )"
-EXPECTED=$'5\n1\n1\n1\n0\n1\n0'
+EXPECTED=$'7\n1\n1\n3\n1\n1\n2\n0\n1\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1
@@ -193,11 +220,12 @@ values (
 );
 SQL
 
-RUNTIME_URL="$(<"$RUNTIME_URL_FILE")"
-PRIVILEGES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RUNTIME_URL" <<'SQL'
+API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
+RECONCILER_URL="$(<"$RECONCILER_URL_FILE")"
+PRIVILEGES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<'SQL'
 select has_function_privilege(
   current_user,
-  'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)',
+  'public.auth_create_session_v2(uuid,bytea,text,integer,integer,timestamptz,uuid)',
   'EXECUTE'
 );
 select has_table_privilege(current_user, 'public.auth_sessions', 'INSERT');
@@ -206,13 +234,13 @@ select has_table_privilege(current_user, 'public.users', 'UPDATE');
 select has_table_privilege(current_user, 'public.companies', 'UPDATE');
 SQL
 )"
-if [[ "$PRIVILEGES" != $'t\nf\nf\nf\nf' ]]; then
+if [[ "$PRIVILEGES" != $'t\nf\nf\nt\nf' ]]; then
   printf '%s\n' 'Runtime auth function privilege boundary is unsafe.' >&2
   exit 1
 fi
 (
   cd "$ROOT_DIR"
-  TEST_READY_URL="$RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+  TEST_READY_URL="$API_RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
 import postgres from "postgres";
 const databaseUrl = process.env.TEST_READY_URL;
 if (!databaseUrl) throw new Error("Preview runtime test configuration is missing");
@@ -229,7 +257,7 @@ NODE
 )
 (
   cd "$ROOT_DIR"
-  TEST_READY_URL="$RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm exec tsx <<'NODE'
+  TEST_READY_URL="$API_RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm exec tsx <<'NODE'
 import { createPostgresAuthRepository } from "./packages/db/src/auth.ts";
 const databaseUrl = process.env.TEST_READY_URL;
 const providerSubject = process.env.TEST_PROVIDER_SUBJECT;
@@ -292,7 +320,7 @@ for each row execute function public.preview_reject_auth_login_audit();
 SQL
 (
   cd "$ROOT_DIR"
-  TEST_READY_URL="$RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm --filter @werehere/db exec tsx <<'NODE'
+  TEST_READY_URL="$API_RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" pnpm --filter @werehere/db exec tsx <<'NODE'
 import postgres from "postgres";
 import { createPostgresAuthRepository } from "./src/auth.ts";
 const databaseUrl = process.env.TEST_READY_URL;
@@ -336,7 +364,7 @@ if [[ "$FAILED_SESSION_AUDIT" != $'0\n0' ]]; then
   printf '%s\n' 'Audit failure did not roll back the auth session transaction.' >&2
   exit 1
 fi
-VISIBLE="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RUNTIME_URL" <<SQL
+VISIBLE="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<SQL
 begin;
 select set_config('app.company_id', '$COMPANY_ID', true);
 select count(*) from branches where company_id = '7f000000-0000-4000-8000-000000000001';
@@ -345,13 +373,37 @@ SQL
 )"
 EXPECTED_VISIBLE="${COMPANY_ID}"$'\n0'
 if [[ "$VISIBLE" != "$EXPECTED_VISIBLE" ]]; then
-  printf '%s\n' 'Runtime role crossed the tenant RLS boundary.' >&2
+  printf '%s\n' 'API runtime role crossed the tenant RLS boundary.' >&2
   exit 1
 fi
 
-if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_URL" -c 'set role postgres' >/dev/null 2>&1; then
-  printf '%s\n' 'Runtime role unexpectedly assumed the owner role.' >&2
+API_CAPABILITIES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<'SQL'
+select has_function_privilege(current_user, 'public.reconciliation_company_ids()', 'EXECUTE');
+select has_table_privilege(current_user, 'public.reconciliation_company_registry', 'SELECT');
+SQL
+)"
+if [[ "$API_CAPABILITIES" != $'f\nf' ]]; then
+  printf '%s\n' 'API runtime role can discover reconciliation tenants.' >&2
   exit 1
 fi
+
+RECONCILER_CAPABILITIES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RECONCILER_URL" <<'SQL'
+select has_function_privilege(current_user, 'public.reconciliation_company_ids()', 'EXECUTE');
+select has_table_privilege(current_user, 'public.reconciliation_company_registry', 'SELECT');
+select has_table_privilege(current_user, 'public.idempotency_records', 'INSERT');
+select count(*) from public.reconciliation_company_ids();
+SQL
+)"
+if [[ "$RECONCILER_CAPABILITIES" != $'t\nf\nf\n2' ]]; then
+  printf '%s\n' 'Reconciler capability boundary is incorrect.' >&2
+  exit 1
+fi
+
+for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL"; do
+  if psql -X -v ON_ERROR_STOP=1 -d "$runtime_url" -c 'set role postgres' >/dev/null 2>&1; then
+    printf '%s\n' 'Runtime role unexpectedly assumed the owner role.' >&2
+    exit 1
+  fi
+done
 
 printf '%s\n' 'PREVIEW_PROVISIONING_INTEGRATION_OK'

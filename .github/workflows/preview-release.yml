@@ -23,13 +23,20 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
+      DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
+      DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
       ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
+      ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
+      ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
       ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
       ZITADEL_CLIENT_ID: ${{ vars.ZITADEL_CLIENT_ID }}
       ZITADEL_CONSOLE_CLIENT_ID: ${{ vars.ZITADEL_CONSOLE_CLIENT_ID }}
       ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
+      ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+      PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
       WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
-      RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-runtime-url
+      API_RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-api-runtime-url
+      RECONCILER_DATABASE_URL_FILE: /tmp/werehere-preview-reconciler-url
 
     steps:
       - name: Checkout
@@ -60,11 +67,17 @@ jobs:
             CLOUDFLARE_ACCOUNT_ID
             CLOUDFLARE_API_TOKEN
             AUTH_TRANSACTION_ENCRYPTION_KEY
+            DATABASE_API_RUNTIME_PASSWORD_PREVIEW
+            DATABASE_RECONCILER_PASSWORD_PREVIEW
             ZITADEL_SERVICE_USER_TOKEN
+            ZITADEL_USER_PROVISIONER_TOKEN
+            ZITADEL_PREVIEW_SUBJECT_SHA256
             ZITADEL_ISSUER
             ZITADEL_CLIENT_ID
             ZITADEL_CONSOLE_CLIENT_ID
             ZITADEL_REDIRECT_URI
+            ZITADEL_ORGANIZATION_ID
+            PREVIEW_BOOTSTRAP_APPROVAL_REF
           )
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
@@ -103,77 +116,140 @@ jobs:
           rm -f /tmp/werehere-api-preview-preflight.json
           printf '%s\n' 'PREVIEW_CONFIGURATION_PRESENT'
 
+      - name: Verify approved ZITADEL bootstrap identity
+        env:
+          ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
+          ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
+        run: pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts
+
       - name: Provision Neon Preview database and runtime role
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
-          DATABASE_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RUNTIME_PASSWORD_PREVIEW }}
+          DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
+          DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+          PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
         run: pnpm exec tsx packages/db/scripts/provision-preview.ts
 
-      - name: Create or update Preview Hyperdrive
+      - name: Create or update Preview Hyperdrives
         id: hyperdrive
         shell: bash
         working-directory: apps/api
         run: |
           set -euo pipefail
-          runtime_url="$(<"$RUNTIME_DATABASE_URL_FILE")"
-          printf '::add-mask::%s\n' "$runtime_url"
-          name='werehere-hotel-preview'
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
           list_url="$api?per_page=100"
-          list_file="$(mktemp)"
-          trap 'rm -f "$list_file"' EXIT
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "$list_url" > "$list_file"
-          if [[ "$(jq -r '.result_info.total_pages // 1' "$list_file")" -gt 1 ]]; then
-            printf '%s\n' 'Hyperdrive list exceeds the safe single-page lookup limit.' >&2
+          temp_dir="$(mktemp -d)"
+          legacy_before="$temp_dir/legacy-before.json"
+          legacy_after="$temp_dir/legacy-after.json"
+          trap 'rm -rf "$temp_dir"' EXIT
+          fetch_hyperdrive_list() {
+            local output_file="$1"
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUD...OKEN" \
+              "$list_url" > "$output_file"
+            if ! jq -e '
+              .success == true
+              and (.result | type) == "array"
+              and (.result_info | type) == "object"
+              and (.result_info.total_pages | type) == "number"
+              and .result_info.total_pages == 1
+            ' "$output_file" >/dev/null; then
+              printf '%s\n' 'Hyperdrive list response failed safety validation.' >&2
+              return 1
+            fi
+          }
+          snapshot_legacy_hyperdrive() {
+            local output_file="$1"
+            local list_file
+            local count
+            list_file="$(mktemp "$temp_dir/hyperdrive-list.XXXXXX")"
+            fetch_hyperdrive_list "$list_file"
+            count="$(jq '[.result[] | select(.name == "werehere-hotel-preview")] | length' "$list_file")"
+            if [[ "$count" -ne 1 ]]; then
+              printf '%s\n' 'The legacy Preview Hyperdrive is unavailable or ambiguous.' >&2
+              return 1
+            fi
+            jq -S '.result[] | select(.name == "werehere-hotel-preview")' \
+              "$list_file" > "$output_file"
+          }
+          ensure_hyperdrive() {
+            local name="$1"
+            local url_file="$2"
+            local output_name="$3"
+            local runtime_url
+            local list_file
+            local count
+            local id
+            runtime_url="$(<"$url_file")"
+            printf '::add-mask::%s\n' "$runtime_url"
+            list_file="$(mktemp "$temp_dir/hyperdrive-list.XXXXXX")"
+            fetch_hyperdrive_list "$list_file"
+            count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+            if [[ "$count" -gt 1 ]]; then
+              printf 'Multiple Hyperdrive configs have the same name: %s\n' "$name" >&2
+              return 1
+            fi
+            id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
+            if [[ -z "$id" ]]; then
+              pnpm exec wrangler hyperdrive create "$name" \
+                --config wrangler.preview.jsonc \
+                --connection-string "$runtime_url" \
+                --sslmode require \
+                --caching-disabled >/dev/null
+            else
+              pnpm exec wrangler hyperdrive update "$id" \
+                --config wrangler.preview.jsonc \
+                --connection-string "$runtime_url" \
+                --sslmode require \
+                --caching-disabled >/dev/null
+            fi
+            fetch_hyperdrive_list "$list_file"
+            count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+            if [[ "$count" -ne 1 ]]; then
+              printf 'Hyperdrive config was unavailable or ambiguous after provisioning: %s\n' "$name" >&2
+              return 1
+            fi
+            id="$(jq -er --arg name "$name" '.result[] | select(.name == $name) | .id | select(type == "string" and length > 0)' "$list_file")"
+            printf '%s=%s\n' "$output_name" "$id" >> "$GITHUB_OUTPUT"
+          }
+          snapshot_legacy_hyperdrive "$legacy_before"
+          ensure_hyperdrive 'werehere-hotel-api-preview' \
+            "$API_RUNTIME_DATABASE_URL_FILE" api_id
+          ensure_hyperdrive 'werehere-hotel-reconciler-preview' \
+            "$RECONCILER_DATABASE_URL_FILE" reconciler_id
+          snapshot_legacy_hyperdrive "$legacy_after"
+          if ! cmp -s "$legacy_before" "$legacy_after"; then
+            printf '%s\n' 'The legacy Preview Hyperdrive changed during account release provisioning.' >&2
             exit 1
           fi
-          count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
-          if [[ "$count" -gt 1 ]]; then
-            printf '%s\n' 'Multiple Preview Hyperdrive configs have the same name.' >&2
-            exit 1
-          fi
-          id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
-          if [[ -z "$id" ]]; then
-            pnpm exec wrangler hyperdrive create "$name" \
-              --config wrangler.preview.jsonc \
-              --connection-string "$runtime_url" \
-              --sslmode require \
-              --caching-disabled >/dev/null
-          else
-            pnpm exec wrangler hyperdrive update "$id" \
-              --config wrangler.preview.jsonc \
-              --connection-string "$runtime_url" \
-              --sslmode require \
-              --caching-disabled >/dev/null
-          fi
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "$list_url" > "$list_file"
-          id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
-          if [[ -z "$id" || "$id" == null ]]; then
-            printf '%s\n' 'Preview Hyperdrive ID was not found after provisioning.' >&2
-            exit 1
-          fi
-          printf 'id=%s\n' "$id" >> "$GITHUB_OUTPUT"
-          printf '%s\n' 'PREVIEW_HYPERDRIVE_READY'
+          printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PRESERVED'
+          printf '%s\n' 'PREVIEW_HYPERDRIVES_READY'
 
       - name: Render API Preview configuration and secrets
         env:
-          HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.id }}
+          API_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.api_id }}
+          RECONCILER_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.reconciler_id }}
         run: |
           node scripts/render-api-preview-config.mjs \
             apps/api/wrangler.preview.jsonc \
             apps/api/wrangler.preview.generated.json
+          node scripts/render-reconciler-preview-config.mjs \
+            apps/api/wrangler.reconciler.preview.jsonc \
+            apps/api/wrangler.reconciler.preview.generated.json
           python - <<'PY'
           import json, os
           from pathlib import Path
           Path('/tmp/werehere-api-preview-secrets.json').write_text(json.dumps({
               'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
               'ZITADEL_SERVICE_USER_TOKEN': os.environ['ZITADEL_SERVICE_USER_TOKEN'],
+              'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN'],
           }))
           os.chmod('/tmp/werehere-api-preview-secrets.json', 0o600)
           PY
@@ -260,7 +336,80 @@ jobs:
             printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
           }
           snapshot api werehere-hotel-api-preview
+          snapshot reconciler werehere-hotel-account-reconciler-preview
           snapshot web werehere-hotel-web-preview
+
+      - name: Deploy private account reconciler Worker
+        id: deploy_reconciler
+        working-directory: apps/api
+        env:
+          DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
+          pnpm exec wrangler deploy \
+            --config wrangler.reconciler.preview.generated.json \
+            --secrets-file /tmp/werehere-api-preview-secrets.json \
+            --strict \
+            --tag "$DEPLOY_TAG"
+          deployments_file="$(mktemp)"
+          trap 'rm -f "$deployments_file"' EXIT
+          resolve_tagged_version() {
+            local worker_name="$1"
+            local tag="$2"
+            local valid_absence_count=0
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              local versions_file
+              versions_file="$(mktemp)"
+              if curl --fail --silent --show-error \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/versions?deployable=true" \
+                > "$versions_file"; then
+                local resolved
+                if resolved="$(jq -er --arg tag "$tag" '
+                  if .success != true
+                    or (.result | type) != "object"
+                    or (.result.items | type) != "array" then
+                    error("Worker versions response failed safety validation")
+                  else
+                    [.result.items[] | select(.annotations["workers/tag"]? == $tag)] as $matches
+                    | if ($matches | length) == 0 then ""
+                      elif ($matches | length) != 1
+                        or ($matches[0].id | type) != "string"
+                        or ($matches[0].id | length) == 0 then
+                        error("Tagged Worker version was ambiguous")
+                      else $matches[0].id end
+                  end
+                ' "$versions_file")"; then
+                  rm -f "$versions_file"
+                  if [[ -n "$resolved" ]]; then
+                    printf '%s\n' "$resolved"
+                    return 0
+                  fi
+                  valid_absence_count=$((valid_absence_count + 1))
+                else
+                  rm -f "$versions_file"
+                fi
+              else
+                rm -f "$versions_file"
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
+            done
+            if [[ "$valid_absence_count" -eq 5 ]]; then return 1; fi
+            return 2
+          }
+          deployed_version="$(resolve_tagged_version werehere-hotel-account-reconciler-preview "$DEPLOY_TAG")"
+          printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
+          pnpm exec wrangler deployments list --name werehere-hotel-account-reconciler-preview --json > "$deployments_file"
+          jq -e --arg version "$deployed_version" '
+            type == "array" and length > 0
+            and (.[-1].versions | type) == "array"
+            and (.[-1].versions | length) == 1
+            and .[-1].versions[0].percentage == 100
+            and .[-1].versions[0].version_id == $version
+          ' "$deployments_file" >/dev/null
 
       - name: Deploy private API Worker
         id: deploy_api
@@ -421,6 +570,12 @@ jobs:
           API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
           API_DEPLOY_ATTEMPTED: ${{ steps.deploy_api.outputs.deploy_attempted }}
           API_DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-api
+          RECONCILER_PREVIOUS: ${{ steps.worker_snapshot.outputs.reconciler_previous }}
+          RECONCILER_EXISTED: ${{ steps.worker_snapshot.outputs.reconciler_existed }}
+          RECONCILER_DEPLOY_OUTCOME: ${{ steps.deploy_reconciler.outcome }}
+          RECONCILER_DEPLOYED: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          RECONCILER_DEPLOY_ATTEMPTED: ${{ steps.deploy_reconciler.outputs.deploy_attempted }}
+          RECONCILER_DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
           WEB_PREVIOUS: ${{ steps.worker_snapshot.outputs.web_previous }}
           WEB_EXISTED: ${{ steps.worker_snapshot.outputs.web_existed }}
           WEB_DEPLOY_OUTCOME: ${{ steps.deploy_web.outcome }}
@@ -581,6 +736,9 @@ jobs:
               return 1
             fi
             if [[ "$existed" == "true" && -n "$previous" ]]; then
+              # Wrangler 4.111.0 has no expected-current/ETag rollback option. Re-read
+              # immediately before mutation and verify afterward; an external deployment
+              # inside that provider-side race window is surfaced as rollback failure.
               current="$(active_worker_version "$worker_name")" || return 1
               [[ "$current" == "$deployed" ]] || return 1
               if ! pnpm --filter @werehere/api exec wrangler rollback "$previous" \
@@ -594,15 +752,10 @@ jobs:
               return
             fi
             if [[ "$existed" == "false" ]]; then
-              current="$(active_worker_version "$worker_name")" || return 1
-              [[ "$current" == "$deployed" ]] || return 1
-              pnpm --filter @werehere/api exec wrangler delete "$worker_name" --force || return 1
-              if worker_exists "$worker_name"; then
-                return 1
-              else
-                [[ "$?" -eq 1 ]]
-                return
-              fi
+              # Never auto-delete a first deployment: Wrangler delete has no conditional
+              # expected-current fence and could delete a concurrently deployed Worker.
+              printf 'First-deploy rollback requires operator recovery: %s\n' "$worker_name" >&2
+              return 1
             fi
             return 1
           }
@@ -613,6 +766,9 @@ jobs:
           rollback_worker werehere-hotel-api-preview \
             "$API_PREVIOUS" "$API_EXISTED" "$API_DEPLOY_OUTCOME" "$API_DEPLOYED" \
             "$API_DEPLOY_ATTEMPTED" "$API_DEPLOY_TAG" || rollback_failed=1
+          rollback_worker werehere-hotel-account-reconciler-preview \
+            "$RECONCILER_PREVIOUS" "$RECONCILER_EXISTED" "$RECONCILER_DEPLOY_OUTCOME" "$RECONCILER_DEPLOYED" \
+            "$RECONCILER_DEPLOY_ATTEMPTED" "$RECONCILER_DEPLOY_TAG" || rollback_failed=1
           if [[ "$rollback_failed" -ne 0 ]]; then
             printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED' >&2
             exit 1
@@ -622,7 +778,9 @@ jobs:
       - name: Remove transient credential files
         if: always()
         run: |
-          rm -f "$RUNTIME_DATABASE_URL_FILE"
+          rm -f "$API_RUNTIME_DATABASE_URL_FILE"
+          rm -f "$RECONCILER_DATABASE_URL_FILE"
           rm -f /tmp/werehere-api-preview-secrets.json
           rm -f /tmp/werehere-api-preview-preflight.json
           rm -f apps/api/wrangler.preview.generated.json
+          rm -f apps/api/wrangler.reconciler.preview.generated.json

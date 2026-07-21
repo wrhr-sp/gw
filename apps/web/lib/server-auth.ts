@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { fetchApi } from "./api-transport";
 
-export async function requireAuthenticatedPrincipal(): Promise<AuthenticatedPrincipal> {
+export async function requireAuthenticatedPrincipal(options: { allowPasswordChange?: boolean } = {}): Promise<AuthenticatedPrincipal> {
   const cookieHeader = (await cookies()).toString();
   const headers = new Headers();
   if (cookieHeader) headers.set("cookie", cookieHeader);
@@ -26,5 +26,8 @@ export async function requireAuthenticatedPrincipal(): Promise<AuthenticatedPrin
   }
   const parsed = authSessionResponseSchema.safeParse(body);
   if (!parsed.success) redirect("/login");
+  if (parsed.data.data.principal.mustChangePassword === true && !options.allowPasswordChange) {
+    redirect("/account/initial-password");
+  }
   return parsed.data.data.principal;
 }

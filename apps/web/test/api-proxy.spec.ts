@@ -224,6 +224,21 @@ describe("same-origin API runtime proxy", () => {
     });
   });
 
+  it("proxies only approved account collection, detail, deactivate, and password paths", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const userId = "21000000-0000-4000-8000-000000000001";
+    const collection = await GET(new Request("https://hotel.example.test/api/admin/users"), { params: Promise.resolve({ path: ["admin", "users"] }) });
+    const detail = await GET(new Request(`https://hotel.example.test/api/admin/users/${userId}`), { params: Promise.resolve({ path: ["admin", "users", userId] }) });
+    const deactivate = await POST(new Request(`https://hotel.example.test/api/admin/users/${userId}/deactivate`, { method: "POST" }), { params: Promise.resolve({ path: ["admin", "users", userId, "deactivate"] }) });
+    const password = await POST(new Request("https://hotel.example.test/api/account/initial-password", { method: "POST" }), { params: Promise.resolve({ path: ["account", "initial-password"] }) });
+    expect([collection.status, detail.status, deactivate.status, password.status]).toEqual([200, 200, 200, 200]);
+    const rejected = await POST(new Request(`https://hotel.example.test/api/admin/users/${userId}/role`, { method: "POST" }), { params: Promise.resolve({ path: ["admin", "users", userId, "role"] }) });
+    expect(rejected.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledTimes(4);
+  });
+
   it("exposes only the approved API health endpoints", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async (input: string | URL | Request) => {

@@ -1,9 +1,13 @@
 import {
+  accountListQuerySchema,
+  createAccountRequestSchema,
   customLoginRequestSchema,
   createHotelRequestSchema,
+  deactivateAccountRequestSchema,
   hotelIdempotencyKeySchema,
   hotelListQuerySchema,
   passwordPolicySchema,
+  initialPasswordRequestSchema,
   type AuthenticatedPrincipal,
   type HotelErrorCode,
 } from "@werehere/contracts";
@@ -11,19 +15,25 @@ import { probeDatabaseReadiness, type DatabaseReadiness } from "@werehere/db";
 import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { z } from "zod";
+import { createAccountServiceFromBindings, type AccountBindings } from "./accounts/factory";
+import { AccountServiceError, type AccountService } from "./accounts/service";
 import { createAuthServiceFromBindings, type AuthBindings } from "./auth/factory";
 import { AuthServiceError, type AuthService, type PasswordResetAuthService } from "./auth/service";
 import { createHotelServiceFromBindings, type HotelBindings } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
 import { resolveDatabaseUrl } from "./database";
 
-type Bindings = AuthBindings & HotelBindings;
+type Bindings = AccountBindings & AuthBindings & HotelBindings;
 
-type ReadinessProbe = (databaseUrl: string | undefined) => Promise<DatabaseReadiness>;
+type ReadinessProbe = (
+  databaseUrl: string | undefined,
+  options: { capability: "API_RUNTIME" | "RECONCILER" },
+) => Promise<DatabaseReadiness>;
 type InjectedAuthService = AuthService &
   Partial<Pick<PasswordResetAuthService, "preparePasswordReset" | "resetPassword">>;
 
 type CreateAppOptions = {
+  accountService?: AccountService;
   authService?: InjectedAuthService;
   databaseUrl?: string;
   hotelService?: HotelService;
@@ -119,6 +129,10 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.authService ? Promise.resolve(options.authService) : createAuthServiceFromBindings(bindings);
   }
 
+  function getAccountService(bindings: Bindings | undefined) {
+    return options.accountService ?? createAccountServiceFromBindings(bindings);
+  }
+
   function getHotelService(bindings: Bindings | undefined) {
     return options.hotelService ?? createHotelServiceFromBindings(bindings);
   }
@@ -132,6 +146,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.authService) await service.close?.();
+    }
+  }
+
+  async function withAccountService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: AccountService) => Promise<T>,
+  ): Promise<T> {
+    const service = getAccountService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.accountService) await service.close?.();
     }
   }
 
@@ -173,6 +199,42 @@ export function createApp(options: CreateAppOptions = {}) {
     }
   }
 
+  function accountFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
+    const candidate = error && typeof error === "object" ? error as {
+      code?: HotelErrorCode;
+      httpStatus?: number;
+      retryable?: boolean;
+      fieldErrors?: Array<{ field: string; message: string }>;
+    } : null;
+    if (error instanceof AccountServiceError || (
+      candidate?.code && typeof candidate.httpStatus === "number" && typeof candidate.retryable === "boolean"
+    )) {
+      const code = candidate!.code!;
+      const messages: Partial<Record<HotelErrorCode, string>> = {
+        EXTERNAL_AUTH_NOT_CONFIGURED: "계정 생성 연결이 설정되지 않았습니다.",
+        EXTERNAL_AUTH_UNAVAILABLE: "계정 인증 서비스에 연결할 수 없습니다.",
+        ACCOUNT_DUPLICATE: "이미 사용 중인 로그인 아이디 또는 이메일입니다.",
+        ACCOUNT_NOT_FOUND: "요청한 사용자 계정을 찾을 수 없습니다.",
+        ACCOUNT_VERSION_CONFLICT: "다른 관리자가 먼저 변경했습니다. 최신 정보를 다시 확인해 주세요.",
+        ACCOUNT_SELF_DEACTIVATION_FORBIDDEN: "현재 로그인한 자기 계정은 중지할 수 없습니다.",
+        LAST_ADMIN_DEACTIVATION_FORBIDDEN: "마지막 활성 관리자는 중지할 수 없습니다.",
+        COMPENSATION_REQUIRED: "외부 계정 정리가 필요합니다. 운영 담당자에게 문의해 주세요.",
+        PASSWORD_CHANGE_REQUIRED: "계속하려면 임시 비밀번호를 먼저 변경해 주세요.",
+        PASSWORD_RECOVERY_REQUIRED: "이전 비밀번호 변경 결과를 안전하게 확인 중입니다. 잠시 후 알고 있는 새 비밀번호로 다시 시도해 주세요.",
+        FORBIDDEN: "사용자 계정 관리 권한이 없습니다.",
+        DB_NOT_CONFIGURED: "데이터베이스 연결이 설정되지 않았습니다.",
+        INTERNAL_ERROR: "사용자 계정 요청을 처리할 수 없습니다.",
+      };
+      return context.json(errorResponse(
+        code,
+        messages[code] ?? "사용자 계정 요청을 처리할 수 없습니다.",
+        candidate!.retryable!,
+        candidate!.fieldErrors ?? [],
+      ), candidate!.httpStatus! as 400 | 401 | 403 | 404 | 409 | 500 | 503);
+    }
+    return context.json(errorResponse("INTERNAL_ERROR", "사용자 계정 요청을 처리할 수 없습니다.", true), 500);
+  }
+
   function hotelFailure(context: Context<{ Bindings: Bindings }>, error: unknown) {
     if (error instanceof HotelServiceError) {
       return context.json(errorResponse(
@@ -208,7 +270,12 @@ export function createApp(options: CreateAppOptions = {}) {
   ): Promise<AuthenticatedPrincipal | null> {
     const token = readUniqueCookie(context, SESSION_COOKIE_NAME);
     if (!token) return null;
-    return withAuthService(context.env, (service) => service.resolvePrincipal(token));
+    const principal = await withAuthService(context.env, (service) => service.resolvePrincipal(token));
+    if (
+      principal?.mustChangePassword === true &&
+      context.req.path !== "/api/account/initial-password"
+    ) throw new AccountServiceError("PASSWORD_CHANGE_REQUIRED", 403, false);
+    return principal;
   }
 
   function validationFailure(
@@ -285,8 +352,8 @@ export function createApp(options: CreateAppOptions = {}) {
   }));
 
   hotelApp.get("/api/health/ready", async (context) => {
-    const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl(context.env);
-    const readiness = await readinessProbe(databaseUrl);
+    const databaseUrl = options.databaseUrl ?? resolveDatabaseUrl(context.env, "API_RUNTIME");
+    const readiness = await readinessProbe(databaseUrl, { capability: "API_RUNTIME" });
 
     if (readiness.status === "READY") {
       return context.json({
@@ -659,6 +726,118 @@ export function createApp(options: CreateAppOptions = {}) {
       return context.body(null, 204);
     } catch (error) {
       return authFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/admin/users", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const query = accountListQuerySchema.safeParse(context.req.query());
+      if (!query.success) return validationFailure(context, zodFieldErrors(query.error.issues));
+      const result = await withAccountService(context.env, (service) => service.listAccounts(principal, query.data));
+      if (result.status === "FORBIDDEN") return context.json(errorResponse("FORBIDDEN", "사용자 계정 관리 권한이 없습니다.", false), 403);
+      return context.json({ ok: true as const, data: { accounts: result.accounts, pagination: result.pagination }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/admin/users", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const key = idempotencyKey(context);
+      if (!key) return validationFailure(context, [{ field: "idempotencyKey", message: "Idempotency-Key 헤더가 필요합니다." }]);
+      let body: unknown;
+      try { body = await context.req.json(); } catch {
+        return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]);
+      }
+      const parsed = createAccountRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withAccountService(context.env, (service) => service.createAccount(principal, parsed.data, key));
+      return context.json({ ok: true as const, data: { account: result.account }, error: null }, result.status === "CREATED" ? 201 : 200);
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/admin/users/capabilities", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const result = await withAccountService(context.env, (service) => service.getCapabilities(principal));
+      return context.json({ data: { permissions: result.permissions } });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/admin/users/:userId", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const userId = HOTEL_ID_SCHEMA.safeParse(context.req.param("userId"));
+      if (!userId.success) return context.json(errorResponse("ACCOUNT_NOT_FOUND", "요청한 사용자 계정을 찾을 수 없습니다.", false), 404);
+      const result = await withAccountService(context.env, (service) => service.getAccount(principal, userId.data));
+      if (!result || ("status" in result && result.status === "FORBIDDEN")) {
+        return context.json(errorResponse(result ? "FORBIDDEN" : "ACCOUNT_NOT_FOUND", result ? "사용자 계정 관리 권한이 없습니다." : "요청한 사용자 계정을 찾을 수 없습니다.", false), result ? 403 : 404);
+      }
+      return context.json({ ok: true as const, data: { account: result }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/admin/users/:userId/deactivate", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const userId = HOTEL_ID_SCHEMA.safeParse(context.req.param("userId"));
+      if (!userId.success) return context.json(errorResponse("ACCOUNT_NOT_FOUND", "요청한 사용자 계정을 찾을 수 없습니다.", false), 404);
+      const key = idempotencyKey(context);
+      if (!key) return validationFailure(context, [{ field: "idempotencyKey", message: "Idempotency-Key 헤더가 필요합니다." }]);
+      let body: unknown;
+      try { body = await context.req.json(); } catch {
+        return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]);
+      }
+      const parsed = deactivateAccountRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withAccountService(context.env, (service) => service.deactivateAccount(principal, userId.data, parsed.data, key));
+      return context.json({ ok: true as const, data: { account: result.account }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/account/initial-password", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const key = idempotencyKey(context);
+      if (!key) return validationFailure(context, [{ field: "idempotencyKey", message: "Idempotency-Key 헤더가 필요합니다." }]);
+      let body: unknown;
+      try { body = await context.req.json(); } catch {
+        return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]);
+      }
+      const parsed = initialPasswordRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      await withAccountService(context.env, (service) => service.changeInitialPassword(principal, parsed.data, key));
+      return context.body(null, 204);
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
     }
   });
 

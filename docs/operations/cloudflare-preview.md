@@ -11,11 +11,15 @@ Browser
   -> werehere-hotel-web-preview (OpenNext Worker, public workers.dev)
   -> API_SERVICE Service Binding
   -> werehere-hotel-api-preview (private Worker, workers.dev disabled)
-  -> HYPERDRIVE
-  -> Neon Preview PostgreSQL runtime role
+  -> API_HYPERDRIVE
+  -> Neon Preview PostgreSQL API runtime role
+
+Scheduled reconciler
+  -> RECONCILER_HYPERDRIVE
+  -> Neon Preview PostgreSQL reconciler role
 ```
 
-Web Worker에는 DB URL이나 Hyperdrive를 바인딩하지 않는다. API Worker에는 migration owner URL을 등록하지 않는다. `DATABASE_URL`은 로컬·CI fallback이고 Cloudflare runtime은 `HYPERDRIVE.connectionString`을 우선한다.
+Web Worker에는 DB URL이나 Hyperdrive를 바인딩하지 않는다. API Worker에는 migration owner URL을 등록하지 않는다. HTTP 요청은 `API_HYPERDRIVE`/`API_RUNTIME_DATABASE_URL`만, scheduled handler는 `RECONCILER_HYPERDRIVE`/`RECONCILER_DATABASE_URL`만 사용하며 서로 fallback하지 않는다.
 
 ## GitHub Preview environment
 
@@ -30,22 +34,27 @@ Repository secrets:
 
 Preview environment secrets:
 
-- `DATABASE_RUNTIME_PASSWORD_PREVIEW`
+- `DATABASE_API_RUNTIME_PASSWORD_PREVIEW`
+- `DATABASE_RECONCILER_PASSWORD_PREVIEW`: API password와 반드시 다른 값
 - `AUTH_TRANSACTION_ENCRYPTION_KEY`
 - `ZITADEL_SERVICE_USER_TOKEN`: `IAM_LOGIN_CLIENT` 전용 Preview service user PAT
+- `ZITADEL_USER_PROVISIONER_TOKEN`: Preview organization 사람 사용자 수명주기 전용 최소권한 PAT
 - `ZITADEL_PREVIEW_SUBJECT`
+- `ZITADEL_PREVIEW_SUBJECT_SHA256`: 승인된 최초 관리자 subject fingerprint
 
 Preview environment variables:
 
 - `ZITADEL_ISSUER`
 - `ZITADEL_CLIENT_ID`
 - `ZITADEL_REDIRECT_URI`
+- `ZITADEL_ORGANIZATION_ID`
+- `PREVIEW_BOOTSTRAP_APPROVAL_REF`: 최초 관리자 승인의 안정적인 티켓·결정 ID. `github.run_id`처럼 배포마다 바뀌는 값 금지
 
-값은 로그, 문서, artifact 또는 repository에 저장하지 않는다.
+secret 값은 로그, 문서, artifact 또는 repository에 저장하지 않는다. 승인 참조는 비밀값이 아니지만 protected `preview` environment에서만 변경하고, 최초 bootstrap 이후 identity·organization·fingerprint와 함께 불변성을 검사한다.
 
 Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을 유지하고 앱별 custom Login V2 base URL을 Preview Web의 `/api/auth/custom-login/start`로 설정한다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 결합하고 single-use CSRF를 발급한 뒤 `/login`으로 이동시킨다. 인스턴스 전체 전환은 하지 않는다. 문제가 생기면 앱별 custom login 설정만 해제해 기존 hosted login으로 rollback한다.
 
-`ZITADEL_SERVICE_USER_TOKEN`은 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
+두 ZITADEL PAT는 서로 다른 service user와 최소역할을 사용한다. 둘 다 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
 
 비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다.
 
@@ -63,11 +72,12 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 2. host, port, database fingerprint가 Production과 같으면 중단한다.
 3. advisory lock을 획득한다.
 4. `schema_migrations`에 없는 migration만 순서대로 적용한다.
-5. ZITADEL subject를 Preview 관리자와 회사 범위 `HOTEL_MANAGE`에 멱등 연결한다.
-6. `werehere_preview_runtime` role을 `NOINHERIT NOBYPASSRLS` non-owner로 구성한다.
-7. 기존 table privilege를 모두 회수하고 필요한 최소 privilege만 부여한다.
-8. runtime role로 semantic readiness를 확인한다.
-9. runtime URL은 권한 `0600` 임시 파일로만 Hyperdrive 단계에 전달한다.
+5. 승인된 subject fingerprint·organization·workflow run 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`에 멱등 연결한다.
+6. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
+7. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. registry table 직접 권한은 두 role 모두 거부한다.
+8. 각 role의 기존 table privilege를 모두 회수한 뒤 capability별 최소 privilege만 부여한다.
+9. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
+10. 두 runtime URL은 권한 `0600` 임시 파일로만 각 Hyperdrive 단계에 전달한다.
 
 DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
 
@@ -76,15 +86,17 @@ DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch
 - API Worker: `werehere-hotel-api-preview`
   - `workers_dev: false`
   - `preview_urls: false`
-  - `HYPERDRIVE` binding
+  - `API_HYPERDRIVE`, `RECONCILER_HYPERDRIVE` binding
 - Web Worker: `werehere-hotel-web-preview`
   - `workers_dev: true`
   - `preview_urls: false`
   - `API_SERVICE` binding
-- Hyperdrive: `werehere-hotel-preview`
-  - origin은 runtime role URL만 사용
-  - SQL cache는 초기에는 비활성화
-  - runtime role password는 최초 생성 때만 설정하며 일반 배포에서는 회전하지 않음
+- API Hyperdrive: `werehere-hotel-preview`
+  - origin은 API runtime role URL만 사용
+- Reconciler Hyperdrive: `werehere-hotel-reconciler-preview`
+  - origin은 reconciler role URL만 사용
+  - API와 reconciler Hyperdrive ID는 달라야 함
+  - 두 Hyperdrive 모두 SQL cache는 초기에는 비활성화
 
 Custom domain, DNS, Production Worker와 Production DB는 이 workflow 범위 밖이다.
 

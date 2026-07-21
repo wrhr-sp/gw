@@ -61,6 +61,9 @@ Web은 `HOTEL_API_ORIGIN`의 인증 API를 같은 origin `/api/auth/*` runtime p
 | `ZITADEL_REDIRECT_URI` | 고정 same-origin callback URI | 환경변수 |
 | `AUTH_TRANSACTION_ENCRYPTION_KEY` | PKCE verifier AES-256-GCM 암호화 | 32-byte secret의 canonical base64url |
 | `ZITADEL_SERVICE_USER_TOKEN` | custom Login BFF의 `IAM_LOGIN_CLIENT` 전용 PAT | API secret |
+| `ZITADEL_USER_PROVISIONER_TOKEN` | Preview 사용자 생성·중지 전용 최소권한 PAT | API secret |
+| `ZITADEL_ORGANIZATION_ID` | 사용자 provisioning 대상 Preview organization | 환경변수 |
+| `PREVIEW_BOOTSTRAP_APPROVAL_REF` | 보호된 Preview environment에 등록한 안정적인 최초 관리자 승인 티켓·결정 ID | 환경변수, 실행별 run ID 금지 |
 | `AUTH_SUCCESS_REDIRECT` | 로그인 성공 후 내부 상대경로 | 선택, 기본 `/hotel-operations` |
 
 secret 값은 저장소·문서·명령 출력에 남기지 않습니다. 설정이 없거나 형식이 잘못되면 가짜 로그인 대신 안정 오류코드로 실패합니다.

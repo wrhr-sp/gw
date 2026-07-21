@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountRoutes,
+  accountCapabilitiesResponseSchema,
+  accountStatusSchema,
+  accountCreateCompletionPayloadSchema,
+  authenticatedPrincipalSchema,
   authRoutes,
   authSessionResponseSchema,
+  createAccountRequestSchema,
   createHotelRequestSchema,
   customLoginRequestSchema,
   hotelDetailResponseSchema,
@@ -13,21 +19,141 @@ import {
   hotelRoutes,
   hotelStatusSchema,
   hotelUserTypeSchema,
+  initialPasswordRequestSchema,
   passwordPolicySchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it.each([
+    ["PW-7", "a1!aaaa"], ["PW-NO-LOWER", "A1!AAAAA"], ["PW-NO-NUMBER", "aa!aaaaa"],
+    ["PW-NO-P/S", "aa1aaaaa"], ["PW-201", `a1!${"a".repeat(198)}`],
+    ["punctuation-only", "!!!!!!!!"], ["symbol-only", "💡💡💡💡💡💡💡💡"],
+  ])("rejects %s consistently on account password surfaces", (_fixture, password) => {
+    const accountInput = {
+      displayName: "김하우스", loginName: "housekeeper-01", email: "housekeeper-01@example.invalid",
+      userType: "HOUSEKEEPING" as const, hotelIds: ["50000000-0000-4000-8000-000000000001"],
+      assignmentStartDate: "2026-07-19", reason: "계정 생성 검증", initialPassword: password,
+    };
+    expect(passwordPolicySchema.safeParse(password).success).toBe(false);
+    expect(createAccountRequestSchema.safeParse(accountInput).success).toBe(false);
+    expect(initialPasswordRequestSchema.safeParse({ newPassword: password }).success).toBe(false);
+  });
+
+  it.each([
+    ["PW-8", "a1!aaaaa"], ["uppercase-optional", "a1!bcdef"],
+    ["PW-200", `a1!${"a".repeat(197)}`], ["Unicode punctuation", "a1가나다라。바사"],
+    ["Unicode symbol", "a1가나다라💡바사"],
+  ])("accepts %s consistently with Unicode code-point length", (_fixture, password) => {
+    expect(passwordPolicySchema.safeParse(password).success).toBe(true);
+    expect(initialPasswordRequestSchema.safeParse({ newPassword: password }).success).toBe(true);
+  });
+
+  it("accepts only typed authenticated principals", () => {
+    expect(authenticatedPrincipalSchema.parse({
+      companyId: "10000000-0000-4000-8000-000000000001",
+      identityId: "20000000-0000-4000-8000-000000000001",
+      sessionId: "30000000-0000-4000-8000-000000000001",
+      userId: "40000000-0000-4000-8000-000000000001",
+      userType: "INTERNAL_STAFF",
+      displayName: "관리자",
+      mustChangePassword: true,
+    }).mustChangePassword).toBe(true);
+  });
+
   it("allows exactly the three approved MVP user types", () => {
     expect(hotelUserTypeSchema.options).toEqual([
       "INTERNAL_STAFF",
-      "ROOM_OPERATIONS",
-      "BRANCH_OWNER",
+      "HOUSEKEEPING",
+      "HOTEL_OWNER",
     ]);
     expect(hotelUserTypeSchema.safeParse("PARTNER_EMPLOYEE").success).toBe(false);
   });
 
   it("uses the approved hotel lifecycle states", () => {
     expect(hotelStatusSchema.options).toEqual(["PREPARING", "ACTIVE", "SUSPENDED"]);
+  });
+
+  it("defines account lifecycle routes and validates account creation", () => {
+    expect(accountStatusSchema.options).toEqual([
+      "PENDING_SETUP",
+      "ACTIVE",
+      "INACTIVE",
+      "LOCKED",
+    ]);
+    expect(accountRoutes.list).toBe("/api/admin/users");
+    expect(accountRoutes.create).toBe("/api/admin/users");
+    expect(accountRoutes.detail("user-1")).toBe("/api/admin/users/user-1");
+    expect(accountRoutes.deactivate("user-1")).toBe("/api/admin/users/user-1/deactivate");
+    expect(accountRoutes.initialPassword).toBe("/api/account/initial-password");
+    expect(accountRoutes.capabilities).toBe("/api/admin/users/capabilities");
+    expect(accountCapabilitiesResponseSchema.parse({
+      data: { permissions: ["USER_READ", "USER_CREATE"] },
+    }).data.permissions).toEqual(["USER_READ", "USER_CREATE"]);
+
+    const parsed = createAccountRequestSchema.parse({
+      displayName: "김하우스",
+      loginName: "housekeeper-01",
+      email: "housekeeper-01@example.invalid",
+      userType: "HOUSEKEEPING",
+      hotelIds: [
+        "50000000-0000-4000-8000-000000000001",
+        "50000000-0000-4000-8000-000000000002",
+      ],
+      assignmentStartDate: "2026-07-19",
+      reason: "Preview 하우스키핑 배정",
+      initialPassword: "Strong-Preview-123!",
+    });
+    expect(parsed.userType).toBe("HOUSEKEEPING");
+    expect(createAccountRequestSchema.safeParse({ ...parsed, initialPassword: "Abcd123!" }).success).toBe(true);
+    for (const initialPassword of ["Abc123!", "1234567!", "Password!", "Password1", "Abcd123 ", "Abcd123한"]) {
+      expect(createAccountRequestSchema.safeParse({ ...parsed, initialPassword }).success).toBe(false);
+    }
+    if (!parsed.hotelIds) throw new Error("HOUSEKEEPING hotelIds were not parsed");
+    const parsedHotelIds = parsed.hotelIds;
+    const legacyScalar = createAccountRequestSchema.parse({
+      ...parsed,
+      hotelId: parsedHotelIds[0],
+      hotelIds: undefined,
+    });
+    expect(legacyScalar.hotelId).toBeUndefined();
+    expect(legacyScalar.hotelIds).toEqual([parsedHotelIds[0]]);
+    const dualShape = createAccountRequestSchema.parse({
+      ...parsed,
+      hotelId: parsedHotelIds[1],
+      hotelIds: parsedHotelIds,
+    });
+    expect(dualShape.hotelId).toBeUndefined();
+    expect(dualShape.hotelIds).toEqual(parsedHotelIds);
+    const { initialPassword: _secret, ...completionPayload } = parsed;
+    void _secret;
+    const duplicated = createAccountRequestSchema.parse({
+      ...parsed,
+      hotelIds: [parsedHotelIds[0]!, parsedHotelIds[0]!, parsedHotelIds[1]!],
+    });
+    expect(duplicated.hotelIds).toEqual(parsedHotelIds);
+    expect(accountCreateCompletionPayloadSchema.parse({
+      ...completionPayload,
+      hotelIds: [parsedHotelIds[0]!, parsedHotelIds[0]!, parsedHotelIds[1]!],
+    }).hotelIds).toEqual(parsedHotelIds);
+    expect(createAccountRequestSchema.safeParse({
+      ...parsed,
+      hotelIds: Array.from({ length: 101 }, (_, index) => index % 2 === 0 ? parsedHotelIds[0]! : parsedHotelIds[1]!),
+    }).success).toBe(false);
+    expect(accountCreateCompletionPayloadSchema.parse(completionPayload)).toEqual(completionPayload);
+    expect(accountCreateCompletionPayloadSchema.safeParse(parsed).success).toBe(false);
+    expect(createAccountRequestSchema.safeParse({
+      ...parsed,
+      initialPassword: "short",
+    }).success).toBe(false);
+    expect(createAccountRequestSchema.safeParse({
+      ...parsed,
+      hotelIds: undefined,
+    }).success).toBe(false);
+    expect(createAccountRequestSchema.safeParse({
+      ...parsed,
+      userType: "INTERNAL_STAFF",
+      hotelId: "50000000-0000-4000-8000-000000000001",
+    }).success).toBe(false);
   });
 
   it("defines stable infrastructure and concurrency error codes", () => {
@@ -47,6 +173,16 @@ describe("hotel platform contracts", () => {
       "DB_NOT_CONFIGURED",
       "SCHEMA_NOT_READY",
       "FILE_STORAGE_NOT_CONFIGURED",
+      "EXTERNAL_AUTH_NOT_CONFIGURED",
+      "EXTERNAL_AUTH_UNAVAILABLE",
+      "ACCOUNT_DUPLICATE",
+      "ACCOUNT_NOT_FOUND",
+      "ACCOUNT_VERSION_CONFLICT",
+      "ACCOUNT_SELF_DEACTIVATION_FORBIDDEN",
+      "LAST_ADMIN_DEACTIVATION_FORBIDDEN",
+      "PASSWORD_CHANGE_REQUIRED",
+      "PASSWORD_RECOVERY_REQUIRED",
+      "COMPENSATION_REQUIRED",
       "INTERNAL_ERROR",
     ]) {
       expect(hotelErrorCodeSchema.safeParse(code).success).toBe(true);

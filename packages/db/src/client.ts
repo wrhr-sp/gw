@@ -6,13 +6,15 @@ export type DatabaseReadiness =
   | { status: "SCHEMA_NOT_READY" }
   | { status: "UNAVAILABLE" };
 
-const AUTH_CREATE_SESSION_PROSRC_SHA256 =
-  "e1ded89f7c5018259c9d96206d1d787cc96a8d58bacc90bde16c1510ea50815c";
+const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
+  "8b1471fab68cd50dbf0905af4a32a9f5d5642eb1d74e1500ec5cb073d4654790";
 
 async function sourceSha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+export type RuntimeCapability = "API_RUNTIME" | "RECONCILER";
 
 const REQUIRED_TABLES = [
   "schema_migrations",
@@ -33,6 +35,13 @@ const REQUIRED_TABLES = [
   "audit_events",
   "idempotency_records",
   "outbox_jobs",
+  "account_provisioning_attempts",
+  "initial_password_change_attempts",
+  "hotel_staff_assignments",
+  "housekeeping_hotel_links",
+  "hotel_owner_assignments",
+  "company_bootstrap_states",
+  "reconciliation_company_registry",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -72,6 +81,13 @@ const REQUIRED_COLUMNS = [
   ["idempotency_records", "company_id"],
   ["idempotency_records", "audit_event_id"],
   ["idempotency_records", "request_hash"],
+  ["users", "login_name"],
+  ["users", "email"],
+  ["users", "must_change_password"],
+  ["account_provisioning_attempts", "target_user_id"],
+  ["account_provisioning_attempts", "lease_expires_at"],
+  ["initial_password_change_attempts", "status"],
+  ["initial_password_change_attempts", "lease_expires_at"],
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
@@ -81,6 +97,24 @@ const REQUIRED_CONSTRAINTS = [
   ["audit_events", "foreign key (company_id, session_id) references auth_sessions(company_id, id)"],
   ["idempotency_records", "foreign key (company_id, audit_event_id) references audit_events(company_id, id)"],
 ] as const;
+
+const REQUIRED_EXCLUSION_CONSTRAINTS = [{
+  table: "hotel_staff_assignments",
+  name: "hotel_staff_assignments_primary_period_excl",
+  definition: "exclude using gist (company_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where ((assignment_type = 'primary'::text))",
+}, {
+  table: "housekeeping_hotel_links",
+  name: "housekeeping_hotel_links_period_excl",
+  definition: "exclude using gist (company_id with =, branch_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&)",
+}, {
+  table: "hotel_owner_assignments",
+  name: "hotel_owner_assignments_user_period_excl",
+  definition: "exclude using gist (company_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&)",
+}, {
+  table: "hotel_owner_assignments",
+  name: "hotel_owner_assignments_hotel_period_excl",
+  definition: "exclude using gist (company_id with =, branch_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&)",
+}] as const;
 
 const REQUIRED_CHECK_CONSTRAINTS = [
   { table: "auth_sessions", name: "auth_sessions_token_hash_check", definition: "check ((octet_length(token_hash) = 32))" },
@@ -138,7 +172,64 @@ const REQUIRED_INDEXES = [{
     "create index",
     "on public.auth_credential_rate_limits using btree (expires_at)",
   ],
+}, {
+  name: "users_login_name_unique_idx",
+  fragments: ["create unique index", "on public.users using btree (company_id, lower(btrim(login_name)))"],
+}, {
+  name: "users_email_unique_idx",
+  fragments: ["create unique index", "on public.users using btree (company_id, lower(btrim(email)))"],
+}, {
+  name: "hotel_staff_assignments_active_primary_user_unique_idx",
+  fragments: ["create unique index", "on public.hotel_staff_assignments using btree (company_id, user_id)"],
+}, {
+  name: "hotel_staff_assignments_active_lookup_idx",
+  fragments: ["create index", "on public.hotel_staff_assignments using btree (company_id, user_id, assignment_type, start_date desc)"],
+}, {
+  name: "account_provisioning_recovery_idx",
+  fragments: ["create index", "on public.account_provisioning_attempts using btree (company_id, status, lease_expires_at, updated_at)"],
+}, {
+  name: "initial_password_change_attempts_active_user_unique_idx",
+  fragments: ["create unique index", "on public.initial_password_change_attempts using btree (company_id, user_id)"],
+}, {
+  name: "account_provider_outbox_ready_idx",
+  fragments: ["create index", "on public.outbox_jobs using btree (company_id, status, available_at, created_at)"],
 }] as const;
+
+const REQUIRED_RUNTIME_PRIVILEGES = [
+  "users:INSERT",
+  "users:UPDATE",
+  "auth_identities:INSERT",
+  "audit_events:INSERT",
+  "idempotency_records:INSERT",
+  "idempotency_records:UPDATE",
+  "idempotency_records:DELETE",
+  "outbox_jobs:INSERT",
+  "outbox_jobs:UPDATE",
+  "account_provisioning_attempts:INSERT",
+  "account_provisioning_attempts:UPDATE",
+  "initial_password_change_attempts:INSERT",
+  "initial_password_change_attempts:UPDATE",
+  "hotel_staff_assignments:INSERT",
+  "housekeeping_hotel_links:INSERT",
+  "hotel_owner_assignments:INSERT",
+] as const;
+
+const FORBIDDEN_RUNTIME_PRIVILEGES = [
+  "auth_sessions:INSERT",
+  "auth_sessions:UPDATE",
+] as const;
+
+const REQUIRED_RECONCILER_PRIVILEGES = [
+  "users:INSERT",
+  "auth_identities:INSERT",
+  "audit_events:INSERT",
+  "outbox_jobs:INSERT",
+  "outbox_jobs:UPDATE",
+  "account_provisioning_attempts:UPDATE",
+  "hotel_staff_assignments:INSERT",
+  "housekeeping_hotel_links:INSERT",
+  "hotel_owner_assignments:INSERT",
+] as const;
 
 const REQUIRED_TRIGGERS = [
   { name: "audit_events_no_update", table: "audit_events", functionName: "reject_audit_event_change" },
@@ -149,18 +240,59 @@ const REQUIRED_TRIGGERS = [
   { name: "users_no_rekey", table: "users", functionName: "reject_access_subject_delete" },
   { name: "roles_no_rekey", table: "roles", functionName: "reject_access_subject_delete" },
   { name: "user_groups_no_rekey", table: "user_groups", functionName: "reject_access_subject_delete" },
+  { name: "companies_sync_reconciliation_registry", table: "companies", functionName: "sync_reconciliation_company_registry" },
 ] as const;
 
 const REQUIRED_RLS_POLICIES = [
+  { policy: "companies_company_isolation", table: "companies" },
+  { policy: "users_company_isolation", table: "users" },
+  { policy: "auth_identities_company_isolation", table: "auth_identities" },
+  { policy: "auth_sessions_company_isolation", table: "auth_sessions" },
   { policy: "branches_company_isolation", table: "branches" },
   { policy: "hotel_profiles_company_isolation", table: "hotel_profiles" },
+  { policy: "roles_company_isolation", table: "roles" },
+  { policy: "user_groups_company_isolation", table: "user_groups" },
+  { policy: "user_group_memberships_company_isolation", table: "user_group_memberships" },
+  { policy: "user_role_memberships_company_isolation", table: "user_role_memberships" },
+  { policy: "permission_grants_company_isolation", table: "permission_grants" },
+  { policy: "audit_events_company_isolation", table: "audit_events" },
+  { policy: "idempotency_records_company_isolation", table: "idempotency_records" },
+  { policy: "outbox_jobs_company_isolation", table: "outbox_jobs" },
+  { policy: "account_provisioning_attempts_company_isolation", table: "account_provisioning_attempts" },
+  { policy: "initial_password_change_attempts_company_isolation", table: "initial_password_change_attempts" },
+  { policy: "hotel_staff_assignments_company_isolation", table: "hotel_staff_assignments" },
+  { policy: "housekeeping_hotel_links_company_isolation", table: "housekeeping_hotel_links" },
+  { policy: "hotel_owner_assignments_company_isolation", table: "hotel_owner_assignments" },
 ] as const;
 
 function normalizeDefinition(value: string) {
   return value.toLowerCase().replaceAll('"', "").replace(/\s+/g, " ").trim();
 }
 
-export async function probeDatabaseReadiness(databaseUrl: string | undefined): Promise<DatabaseReadiness> {
+function isExactTenantPolicyExpression(value: string | null, tenantKey: "company_id" | "id") {
+  const normalized = normalizeDefinition(value ?? "")
+    .replace(/^\(+/u, "")
+    .replace(/\)+$/u, "");
+  const count = (fragment: string) => normalized.split(fragment).length - 1;
+  const ownerBranch = "when runtime_is_schema_owner() then true";
+  const apiBranch = `when runtime_has_capability('api_runtime'::text) then (${tenantKey} = api_current_company_id())`;
+  const reconcilerBranch = `when runtime_has_capability('reconciler'::text) then (${tenantKey} = reconciler_current_company_id())`;
+  const legacyBranch = `then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`;
+  return normalized.startsWith("case")
+    && normalized.endsWith("else false end")
+    && count(ownerBranch) === 1
+    && count(apiBranch) === 1
+    && count(reconcilerBranch) === 1
+    && count("when ((not runtime_has_capability('api_runtime'::text)) and (not runtime_has_capability('reconciler'::text)))") === 1
+    && count(legacyBranch) === 1
+    && !normalized.includes("app.session_id")
+    && !normalized.includes("app.reconciler_company_id");
+}
+
+export async function probeDatabaseReadiness(
+  databaseUrl: string | undefined,
+  options: { capability: RuntimeCapability } = { capability: "RECONCILER" },
+): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
 
   const sql = postgres(databaseUrl, {
@@ -198,14 +330,16 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const migrationRows = await sql<{ migration_applied: boolean }[]>`
-      select count(*) = 5 as migration_applied
+      select count(*) = 7 as migration_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
         '0002_auth_session_runtime',
         '0003_hotel_basic_information',
         '0004_custom_login_security',
-        '0005_auth_session_definer'
+        '0005_auth_session_definer',
+        '0006_account_administration',
+        '0007_api_tenant_authority_expand'
       )
     `;
     if (!migrationRows[0]?.migration_applied) return { status: "SCHEMA_NOT_READY" };
@@ -217,7 +351,7 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       safe_search_path: boolean;
       security_definer: boolean;
       source: string;
-      unauthorized_execute: boolean;
+      non_owner_execute_count: number;
     }[]>`
       select procedure_record.prosecdef as security_definer,
              procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
@@ -225,7 +359,7 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
                current_user, procedure_record.oid, 'EXECUTE'
              ) as executable,
              pg_get_function_result(procedure_record.oid) =
-               'TABLE(result_status text, company_id uuid, identity_id uuid, session_id uuid, user_id uuid, user_type text, display_name text)'
+               'TABLE(result_status text, company_id uuid, identity_id uuid, session_id uuid, user_id uuid, user_type text, display_name text, must_change_password boolean)'
                as return_signature_safe,
              procedure_record.prosrc as source,
              (
@@ -246,30 +380,117 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
                    )
                )
              ) as owner_safe,
-             exists (
-               select 1
+             (
+               select count(*)::integer
                from aclexplode(coalesce(
                  procedure_record.proacl,
                  acldefault('f', procedure_record.proowner)
                )) acl
                where acl.privilege_type = 'EXECUTE'
-                 and acl.grantee not in (procedure_record.proowner, current_role_record.oid)
-             ) as unauthorized_execute
+                 and acl.grantee <> procedure_record.proowner
+             ) as non_owner_execute_count
       from pg_proc procedure_record
       join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
       join pg_roles current_role_record on current_role_record.rolname = current_user
       join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
       where procedure_namespace.nspname = 'public'
-        and procedure_record.proname = 'auth_create_session'
+        and procedure_record.proname = 'auth_create_session_v2'
         and pg_get_function_identity_arguments(procedure_record.oid)
           = 'p_session_id uuid, p_token_hash bytea, p_provider_subject text, p_idle_lifetime_seconds integer, p_absolute_lifetime_seconds integer, p_auth_time timestamp with time zone, p_trace_id uuid'
     `;
     if (
       !authFunction?.security_definer || !authFunction.safe_search_path ||
-      !authFunction.executable || !authFunction.owner_safe ||
-      !authFunction.return_signature_safe || authFunction.unauthorized_execute ||
-      await sourceSha256(authFunction.source) !== AUTH_CREATE_SESSION_PROSRC_SHA256
+      authFunction.executable !== (options.capability === "API_RUNTIME") ||
+      !authFunction.owner_safe ||
+      !authFunction.return_signature_safe
+      || authFunction.non_owner_execute_count > 1
+      || (options.capability === "API_RUNTIME" && authFunction.non_owner_execute_count !== 1)
+      ||
+      await sourceSha256(authFunction.source) !== AUTH_CREATE_SESSION_V2_PROSRC_SHA256
     ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [runtimeRole] = await sql<{
+      rolcreatedb: boolean;
+      rolcreaterole: boolean;
+      rolinherit: boolean;
+      rolreplication: boolean;
+      rolsuper: boolean;
+      rolbypassrls: boolean;
+      role_member: boolean;
+      table_owner: boolean;
+    }[]>`
+      select role_record.rolsuper,
+             role_record.rolbypassrls,
+             role_record.rolcreatedb,
+             role_record.rolcreaterole,
+             role_record.rolinherit,
+             role_record.rolreplication,
+             exists (
+               select 1 from pg_auth_members membership
+               where membership.member = role_record.oid
+             ) as role_member,
+             exists (
+               select 1
+               from pg_class table_record
+               join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+               where table_namespace.nspname = 'public'
+                 and table_record.relkind in ('r', 'p')
+                 and pg_get_userbyid(table_record.relowner) = current_user
+             ) as table_owner
+      from pg_roles role_record
+      where role_record.rolname = current_user
+    `;
+    if (
+      !runtimeRole
+      || runtimeRole.rolsuper
+      || runtimeRole.rolbypassrls
+      || runtimeRole.rolcreatedb
+      || runtimeRole.rolcreaterole
+      || runtimeRole.rolinherit
+      || runtimeRole.rolreplication
+      || runtimeRole.role_member
+      || runtimeRole.table_owner
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [reconciliationDiscovery] = await sql<{
+      executable: boolean;
+      search_path_safe: boolean;
+      security_definer: boolean;
+    }[]>`
+      select function_record.prosecdef as security_definer,
+             function_record.proconfig = array['search_path=pg_catalog']::text[] as search_path_safe,
+             has_function_privilege(
+               current_user,
+               'public.reconciliation_company_ids()',
+               'EXECUTE'
+             ) as executable
+      from pg_proc function_record
+      join pg_namespace function_namespace on function_namespace.oid = function_record.pronamespace
+      where function_namespace.nspname = 'public'
+        and function_record.proname = 'reconciliation_company_ids'
+        and function_record.pronargs = 0
+    `;
+    if (
+      !reconciliationDiscovery
+      || !reconciliationDiscovery.security_definer
+      || !reconciliationDiscovery.search_path_safe
+      || reconciliationDiscovery.executable !== (options.capability === "RECONCILER")
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [registryPrivilege] = await sql<{ direct_access: boolean }[]>`
+      select has_table_privilege(current_user, 'public.reconciliation_company_registry', 'SELECT')
+          or has_table_privilege(current_user, 'public.reconciliation_company_registry', 'INSERT')
+          or has_table_privilege(current_user, 'public.reconciliation_company_registry', 'UPDATE')
+          or has_table_privilege(current_user, 'public.reconciliation_company_registry', 'DELETE')
+          as direct_access
+    `;
+    if (!registryPrivilege || registryPrivilege.direct_access) {
       return { status: "SCHEMA_NOT_READY" };
     }
 
@@ -296,6 +517,14 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }));
     if (REQUIRED_CONSTRAINTS.some(([table, required]) => !constraints.some((constraint) => (
       constraint.table === table && constraint.definition.includes(required)
+    )))) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (REQUIRED_EXCLUSION_CONSTRAINTS.some((required) => !constraints.some((constraint) => (
+      constraint.table === required.table
+      && constraint.name === required.name
+      && constraint.validated
+      && constraint.definition === required.definition
     )))) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -330,11 +559,49 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
     }
 
     const permissionRows = await sql<{ permission_ready: boolean }[]>`
-      select exists (
-        select 1 from permissions where code = 'HOTEL_MANAGE'
-      ) as permission_ready
+      select count(distinct code) = 4 as permission_ready
+      from permissions
+      where code in ('HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND')
     `;
     if (!permissionRows[0]?.permission_ready) return { status: "SCHEMA_NOT_READY" };
+
+    const runtimePrivilegeRows = await sql<{ allowed: boolean; label: string }[]>`
+      select requirement.label,
+             has_table_privilege(current_user,
+               'public.' || requirement.table_name,
+               requirement.privilege_name
+             ) as allowed
+      from (values
+        ('users:INSERT', 'users', 'INSERT'),
+        ('users:UPDATE', 'users', 'UPDATE'),
+        ('auth_identities:INSERT', 'auth_identities', 'INSERT'),
+        ('auth_sessions:INSERT', 'auth_sessions', 'INSERT'),
+        ('auth_sessions:UPDATE', 'auth_sessions', 'UPDATE'),
+        ('audit_events:INSERT', 'audit_events', 'INSERT'),
+        ('idempotency_records:INSERT', 'idempotency_records', 'INSERT'),
+        ('idempotency_records:UPDATE', 'idempotency_records', 'UPDATE'),
+        ('idempotency_records:DELETE', 'idempotency_records', 'DELETE'),
+        ('outbox_jobs:INSERT', 'outbox_jobs', 'INSERT'),
+        ('outbox_jobs:UPDATE', 'outbox_jobs', 'UPDATE'),
+        ('account_provisioning_attempts:INSERT', 'account_provisioning_attempts', 'INSERT'),
+        ('account_provisioning_attempts:UPDATE', 'account_provisioning_attempts', 'UPDATE'),
+        ('initial_password_change_attempts:INSERT', 'initial_password_change_attempts', 'INSERT'),
+        ('initial_password_change_attempts:UPDATE', 'initial_password_change_attempts', 'UPDATE'),
+        ('hotel_staff_assignments:INSERT', 'hotel_staff_assignments', 'INSERT'),
+        ('housekeeping_hotel_links:INSERT', 'housekeeping_hotel_links', 'INSERT'),
+        ('hotel_owner_assignments:INSERT', 'hotel_owner_assignments', 'INSERT')
+      ) as requirement(label, table_name, privilege_name)
+    `;
+    const runtimePrivileges = new Map(runtimePrivilegeRows.map((row) => [row.label, row.allowed]));
+    const requiredRuntimePrivileges: readonly string[] = options.capability === "API_RUNTIME"
+      ? REQUIRED_RUNTIME_PRIVILEGES
+      : REQUIRED_RECONCILER_PRIVILEGES;
+    if (
+      requiredRuntimePrivileges.some((label) => runtimePrivileges.get(label) !== true)
+      || FORBIDDEN_RUNTIME_PRIVILEGES.some((label) => runtimePrivileges.get(label) === true)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
 
     const triggerRows = await sql<{
       trigger_name: string;
@@ -395,8 +662,6 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
       where policy_namespace.nspname = 'public'
     `;
     if (REQUIRED_RLS_POLICIES.some((required) => !rlsRows.some((policy) => {
-      const usingExpression = normalizeDefinition(policy.using_expression ?? "");
-      const checkExpression = normalizeDefinition(policy.check_expression ?? "");
       return policy.policy_name === required.policy
         && policy.table_name === required.table
         && policy.row_security
@@ -404,16 +669,14 @@ export async function probeDatabaseReadiness(databaseUrl: string | undefined): P
         && policy.policy_permissive
         && policy.applies_to_current_role
         && policy.policy_command === "*"
-        && usingExpression.includes("app.company_id")
-        && usingExpression.includes("company_id")
-        && usingExpression.includes("nullif(current_setting('app.company_id'::text, true), ''::text)")
-        && usingExpression.includes("::uuid")
-        && !usingExpression.includes(" or ")
-        && checkExpression.includes("app.company_id")
-        && checkExpression.includes("company_id")
-        && checkExpression.includes("nullif(current_setting('app.company_id'::text, true), ''::text)")
-        && checkExpression.includes("::uuid")
-        && !checkExpression.includes(" or ");
+        && isExactTenantPolicyExpression(
+          policy.using_expression,
+          required.table === "companies" ? "id" : "company_id",
+        )
+        && isExactTenantPolicyExpression(
+          policy.check_expression,
+          required.table === "companies" ? "id" : "company_id",
+        );
     }))) {
       return { status: "SCHEMA_NOT_READY" };
     }

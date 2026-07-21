@@ -22,11 +22,19 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["health/live", new Set(["GET"])],
   ["health/ready", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
+  ["admin/users", new Set(["GET", "POST"])],
+  ["account/initial-password", new Set(["POST"])],
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (/^hotels\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(apiPath)) {
     return new Set(["GET"]);
+  }
+  if (/^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(apiPath)) {
+    return new Set(["GET"]);
+  }
+  if (/^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/deactivate$/iu.test(apiPath)) {
+    return new Set(["POST"]);
   }
   return API_PROXY_METHODS.get(apiPath);
 }
@@ -77,7 +85,8 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   }
 
   const hotelRequest = apiPath === "hotels" || apiPath.startsWith("hotels/");
-  const databaseRequest = hotelRequest || apiPath === "health/ready";
+  const accountRequest = apiPath === "admin/users" || apiPath.startsWith("admin/users/") || apiPath === "account/initial-password";
+  const databaseRequest = hotelRequest || accountRequest || apiPath === "health/ready";
   const exchangeFailureHeaders = apiPath === "auth/password/exchange"
     ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
     : {};

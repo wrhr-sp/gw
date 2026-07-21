@@ -38,7 +38,7 @@ export async function createAuthServiceFromBindings(bindings: AuthBindings | und
     || successRedirect.includes("\\")) {
     throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
   }
-  const databaseUrl = resolveDatabaseUrl(bindings);
+  const databaseUrl = resolveDatabaseUrl(bindings, "API_RUNTIME");
   if (!databaseUrl) throw new AuthServiceError("DB_NOT_CONFIGURED", 503, false);
 
   let encryptionKey: CryptoKey;

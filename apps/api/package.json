@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "wrangler dev",
-    "build": "wrangler deploy --dry-run --outdir dist",
+    "build": "wrangler deploy --dry-run --config wrangler.preview.jsonc --outdir dist/api && wrangler deploy --dry-run --config wrangler.reconciler.preview.jsonc --outdir dist/reconciler",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:worker": "bash test/run-worker-auth-smoke.sh"

@@ -2,14 +2,18 @@ import { Button, PageHeader } from "@werehere/ui";
 import { Building2 } from "lucide-react";
 import { HotelShell } from "../../components/hotels/hotel-shell";
 import { requireAuthenticatedPrincipal } from "../../lib/server-auth";
+import { fetchAccountCapabilities } from "../../lib/server-accounts";
 
 export const dynamic = "force-dynamic";
 
 export default async function HotelOperationsPage() {
-  const principal = await requireAuthenticatedPrincipal();
+  const [principal, accountPermissions] = await Promise.all([
+    requireAuthenticatedPrincipal(),
+    fetchAccountCapabilities(),
+  ]);
 
   return (
-    <HotelShell currentPath="/hotel-operations" principal={principal}>
+    <HotelShell accountPermissions={accountPermissions} currentPath="/hotel-operations" principal={principal}>
       <div className="mx-auto flex w-full max-w-hotel-detail flex-col gap-6">
         <PageHeader
           description="호텔을 등록하고 기본정보를 확인합니다. 객실·담당자·운영지표는 승인된 후속 기능에서 연결합니다."

@@ -1,5 +1,9 @@
-import type { AuthenticatedPrincipal, HotelUserType } from "@werehere/contracts";
+import type { AuthenticatedPrincipal } from "@werehere/contracts";
 import postgres from "postgres";
+import {
+  normalizeStoredHotelUserType,
+  type StoredHotelUserType,
+} from "./account-user-types";
 
 export type LoginTransaction = {
   codeVerifierCiphertext: Uint8Array;
@@ -99,8 +103,9 @@ type PrincipalRow = {
   identity_id: string;
   session_id: string;
   user_id: string;
-  user_type: HotelUserType;
+  user_type: StoredHotelUserType;
   display_name: string;
+  must_change_password: boolean;
 };
 
 function mapPrincipal(row: PrincipalRow): AuthenticatedPrincipal {
@@ -109,8 +114,9 @@ function mapPrincipal(row: PrincipalRow): AuthenticatedPrincipal {
     identityId: row.identity_id,
     sessionId: row.session_id,
     userId: row.user_id,
-    userType: row.user_type,
+    userType: normalizeStoredHotelUserType(row.user_type),
     displayName: row.display_name,
+    mustChangePassword: row.must_change_password,
   };
 }
 
@@ -396,12 +402,13 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         company_id: string | null;
         display_name: string | null;
         identity_id: string | null;
+        must_change_password: boolean | null;
         result_status: string;
         session_id: string | null;
         user_id: string | null;
-        user_type: HotelUserType | null;
+        user_type: StoredHotelUserType | null;
       }[]>`
-        select * from public.auth_create_session(
+        select * from public.auth_create_session_v2(
           ${input.sessionId}::uuid,
           ${input.tokenHash}::bytea,
           ${input.providerSubject}::text,
@@ -422,7 +429,8 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         if (
           result.company_id !== null || result.identity_id !== null ||
           result.session_id !== null || result.user_id !== null ||
-          result.user_type !== null || result.display_name !== null
+          result.user_type !== null || result.display_name !== null ||
+          result.must_change_password !== null
         ) {
           throw new Error("auth session denial returned principal data");
         }
@@ -433,103 +441,37 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
       }
       if (
         !result.company_id || !result.identity_id || !result.session_id ||
-        !result.user_id || !result.user_type || !result.display_name
+        !result.user_id || !result.user_type || !result.display_name ||
+        result.must_change_password === null
       ) {
         throw new Error("auth session function returned an incomplete principal");
       }
       return {
         status: "CREATED",
-        principal: {
-          companyId: result.company_id,
-          identityId: result.identity_id,
-          sessionId: result.session_id,
-          userId: result.user_id,
-          userType: result.user_type,
-          displayName: result.display_name,
-        },
+        principal: mapPrincipal({
+          company_id: result.company_id,
+          display_name: result.display_name,
+          identity_id: result.identity_id,
+          must_change_password: result.must_change_password,
+          session_id: result.session_id,
+          user_id: result.user_id,
+          user_type: result.user_type,
+        }),
       } as const;
     },
 
     async resolvePrincipal(tokenHash, idleLifetimeSeconds) {
       const rows = await sql<PrincipalRow[]>`
-        with active_principal as (
-          select session.id as session_id,
-                 session.company_id,
-                 session.identity_id,
-                 session.user_id,
-                 app_user.user_type,
-                 app_user.display_name
-          from auth_sessions session
-          join users app_user
-            on app_user.company_id = session.company_id
-           and app_user.id = session.user_id
-          join companies company on company.id = session.company_id
-          join auth_identities identity
-            on identity.company_id = session.company_id
-           and identity.id = session.identity_id
-           and identity.user_id = session.user_id
-          where session.token_hash = ${tokenHash}
-            and session.revoked_at is null
-            and session.idle_expires_at > now()
-            and session.absolute_expires_at > now()
-            and app_user.status = 'ACTIVE'
-            and company.status = 'ACTIVE'
-            and identity.provider = 'ZITADEL'
-        ), touch_session as (
-          update auth_sessions session
-          set last_seen_at = now(),
-              idle_expires_at = least(
-                now() + make_interval(secs => ${idleLifetimeSeconds}),
-                session.absolute_expires_at
-              )
-          from active_principal principal
-          where session.id = principal.session_id
-            and session.last_seen_at <= now() - interval '5 minutes'
-          returning session.id
-        )
-        select company_id, identity_id, session_id, user_id, user_type, display_name
-        from active_principal
+        select * from public.auth_resolve_principal_v2(${tokenHash}, ${idleLifetimeSeconds})
       `;
       return rows[0] ? mapPrincipal(rows[0]) : null;
     },
 
     async revokeSession(tokenHash, reason, traceId) {
-      return sql.begin(async (transaction) => {
-        const rows = await transaction<PrincipalRow[]>`
-          select session.company_id,
-                 session.identity_id,
-                 session.id as session_id,
-                 session.user_id,
-                 app_user.user_type,
-                 app_user.display_name
-          from auth_sessions session
-          join users app_user
-            on app_user.company_id = session.company_id
-           and app_user.id = session.user_id
-          where session.token_hash = ${tokenHash}
-            and session.revoked_at is null
-          for update of session
-        `;
-        const principal = rows[0];
-        if (!principal) return false;
-
-        await transaction`
-          update auth_sessions
-          set revoked_at = now(), revoke_reason = ${reason}
-          where id = ${principal.session_id}
-        `;
-        await transaction`
-          insert into audit_events (
-            id, event_code, actor_user_id, actor_type, session_id,
-            company_id, resource_type, resource_id, reason, result, trace_id
-          ) values (
-            ${crypto.randomUUID()}, 'AUTH_LOGOUT_SUCCEEDED', ${principal.user_id},
-            ${principal.user_type}, ${principal.session_id}, ${principal.company_id},
-            'SESSION', ${principal.session_id}, ${reason}, 'SUCCEEDED', ${traceId}
-          )
-        `;
-        return true;
-      });
+      const rows = await sql<{ revoked: boolean }[]>`
+        select public.auth_revoke_session_v2(${tokenHash}, ${reason}, ${traceId}) as revoked
+      `;
+      return rows[0]?.revoked ?? false;
     },
   };
 }

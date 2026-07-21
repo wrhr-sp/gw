@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { app, createApp } from "../src/app";
 
 describe("hotel API bootstrap", () => {
@@ -37,15 +37,17 @@ describe("hotel API bootstrap", () => {
   });
 
   it("reports readiness only after the PostgreSQL probe succeeds", async () => {
+    const readinessProbe = vi.fn(async () => ({ status: "READY" as const }));
     const response = await createApp({
       databaseUrl: "postgres://configured",
-      readinessProbe: async () => ({ status: "READY" }),
+      readinessProbe,
     }).request("/api/health/ready");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       ok: true,
       data: { service: "werehere-hotel-api", status: "READY" },
     });
+    expect(readinessProbe).toHaveBeenCalledWith("postgres://configured", { capability: "API_RUNTIME" });
   });
 
   it("uses the approved INTERNAL_ERROR HTTP contract when PostgreSQL is unavailable", async () => {
