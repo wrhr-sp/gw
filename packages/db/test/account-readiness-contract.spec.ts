@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const source = readFileSync(new URL("../src/client.ts", import.meta.url), "utf8");
-const accountSource = readFileSync(new URL("../src/accounts.ts", import.meta.url), "utf8");
+const source = readFileSync(
+  new URL("../src/client.ts", import.meta.url),
+  "utf8",
+);
+const accountSource = readFileSync(
+  new URL("../src/accounts.ts", import.meta.url),
+  "utf8",
+);
 
 describe("account administration readiness contract", () => {
   it.each([
@@ -23,26 +29,38 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("current_user");
   });
 
-  it("rejects direct auth-session writes for both runtime capabilities", () => {
-    expect(source).toMatch(/const FORBIDDEN_RUNTIME_PRIVILEGES = \[\s*"auth_sessions:INSERT",\s*"auth_sessions:UPDATE"/u);
-    expect(source).toContain("FORBIDDEN_RUNTIME_PRIVILEGES.some");
+  it("uses complete runtime privilege allowlists and rejects public or grantable ACLs", () => {
+    expect(source).toContain("EXPECTED_API_RUNTIME_TABLE_PRIVILEGES");
+    expect(source).toContain("EXPECTED_RECONCILER_TABLE_PRIVILEGES");
+    expect(source).not.toContain('"auth_sessions:INSERT"');
+    expect(source).not.toContain('"auth_sessions:UPDATE"');
+    expect(source).toContain(
+      "actualRuntimePrivileges.size !== expectedRuntimePrivileges.length",
+    );
+    expect(source).toContain("row.grantable || row.public_grant");
+    expect(source).toContain("acl.is_grantable");
     expect(accountSource).not.toMatch(/update\s+auth_sessions/iu);
     expect(accountSource).toContain("auth_revoke_user_sessions_v1");
   });
 
   it("requires the API-only user-session revoke definer boundary", () => {
     expect(source).toContain("AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256");
-    expect(source).toContain("procedure_record.proname = 'auth_revoke_user_sessions_v1'");
+    expect(source).toContain(
+      "procedure_record.proname = 'auth_revoke_user_sessions_v1'",
+    );
     expect(source).toContain("userSessionRevokeFunction.executable !==");
     expect(source).toContain('(options.capability === "API_RUNTIME")');
-    expect(source).toContain("userSessionRevokeFunction.non_owner_execute_count > 1");
+    expect(source).toContain(
+      "userSessionRevokeFunction.non_owner_execute_count > 1",
+    );
     expect(source).toMatch(
       /options\.capability === "API_RUNTIME" &&[\s\S]{0,120}userSessionRevokeFunction\.non_owner_execute_count !== 1/u,
     );
   });
 
   it("checks the connected runtime role's write privileges", () => {
-    expect(source).toContain("has_table_privilege(current_user");
+    expect(source).toContain("aclexplode(coalesce(");
+    expect(source).toContain("grantee_role.rolname = current_user");
     for (const requirement of [
       "auth_sessions:SELECT",
       "users:INSERT",
@@ -73,7 +91,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("public_execute");
     expect(source).toContain("0008_remove_legacy_company_id_fallback");
     expect(source).toContain('!normalized.includes("app.company_id")');
-    expect(source).not.toContain("grantee_role.rolname <> 'werehere_preview_runtime'");
+    expect(source).not.toContain(
+      "grantee_role.rolname <> 'werehere_preview_runtime'",
+    );
     expect(source).toContain("membership.admin_option");
+    expect(source).toContain("grantable_execute_count !== 0");
+    expect(source).toContain("auth_identities_provider_provider_subject_key");
+    expect(source).toContain("unique (provider, provider_subject)");
   });
 });

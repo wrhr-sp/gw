@@ -264,6 +264,17 @@ test("최초 비밀번호 서버 오류는 입력에 연결되고 수정 시 해
   );
   await expect(password).toBeFocused();
   await expect(password).toHaveAttribute("aria-invalid", "true");
+  const confirmation = form.getByLabel("새 비밀번호 확인");
+  await expect(confirmation).toHaveAttribute("aria-invalid", "false");
+  await expect(
+    form.getByText("새 비밀번호를 다시 입력해 주세요."),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await expect(page).toHaveScreenshot("initial-password-server-error.png");
+  await confirmation.fill("Changed-confirmation-123!");
+  await expect(form.getByRole("alert")).toContainText(
+    "비밀번호 정책을 확인해 주세요.",
+  );
   await expect(
     form.getByText("새 비밀번호를 다시 입력해 주세요."),
   ).toBeVisible();

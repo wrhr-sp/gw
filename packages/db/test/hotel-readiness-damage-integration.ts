@@ -322,6 +322,24 @@ async function verifyAuthFunctionNamedExecuteDamage() {
   }
 }
 
+async function verifyAuthFunctionGrantOptionDamage() {
+  await sql.unsafe(
+    `grant execute on function ${authFunctionSignature} to gw_runtime_probe with grant option`,
+  );
+  try {
+    const readiness = await probeDatabaseReadiness(databaseUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `grantable auth function execute was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(
+      `revoke grant option for execute on function ${authFunctionSignature} from gw_runtime_probe`,
+    );
+  }
+}
+
 async function verifyAuthFunctionBodyDamage(
   from: string,
   to: string,
@@ -434,6 +452,7 @@ try {
   await verifyTenantAuthorityHelperPublicExecuteDamage();
   await verifyAuthFunctionPublicExecuteDamage();
   await verifyAuthFunctionNamedExecuteDamage();
+  await verifyAuthFunctionGrantOptionDamage();
   await verifyAuthFunctionOwnerDamage();
   await verifyAuthFunctionBodyDamage(
     "if v_principal.user_status <> 'ACTIVE' or v_principal.company_status <> 'ACTIVE' then",

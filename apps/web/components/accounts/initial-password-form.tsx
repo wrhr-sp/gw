@@ -10,7 +10,11 @@ import { useRef, useState } from "react";
 export function InitialPasswordForm() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{
+    clearOn: "either" | "newPassword";
+    message: string;
+    target: "confirmation" | "newPassword";
+  } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -29,15 +33,22 @@ export function InitialPasswordForm() {
     setFieldError(null);
     setFormError(null);
     if (newPassword !== confirmation) {
-      setFieldError("새 비밀번호와 확인값이 일치하지 않습니다.");
+      setFieldError({
+        clearOn: "either",
+        message: "새 비밀번호와 확인값이 일치하지 않습니다.",
+        target: "confirmation",
+      });
       queueMicrotask(() => confirmationRef.current?.focus());
       return;
     }
     const parsed = initialPasswordRequestSchema.safeParse({ newPassword });
     if (!parsed.success) {
-      setFieldError(
-        parsed.error.issues[0]?.message ?? "새 비밀번호를 확인해 주세요.",
-      );
+      setFieldError({
+        clearOn: "newPassword",
+        message:
+          parsed.error.issues[0]?.message ?? "새 비밀번호를 확인해 주세요.",
+        target: "newPassword",
+      });
       queueMicrotask(() => newPasswordRef.current?.focus());
       return;
     }
@@ -65,7 +76,11 @@ export function InitialPasswordForm() {
             (error) => error.field === "newPassword",
           );
           if (passwordError) {
-            setFieldError(passwordError.message);
+            setFieldError({
+              clearOn: "newPassword",
+              message: passwordError.message,
+              target: "newPassword",
+            });
             queueMicrotask(() => newPasswordRef.current?.focus());
           }
           showFormError(failure.data.error.message);
@@ -120,64 +135,86 @@ export function InitialPasswordForm() {
       <p className="text-sm leading-6 text-muted" id="initial-password-policy">
         8자 이상 200자 이하이며 영문 소문자, 숫자, 기호를 각각 포함해야 합니다.
       </p>
-      <label className="text-sm font-semibold" htmlFor="new-password">
-        새 비밀번호
-        <input
-          aria-describedby={
-            fieldError
-              ? "initial-password-policy initial-password-field-error"
-              : "initial-password-policy"
-          }
-          aria-invalid={Boolean(fieldError)}
-          aria-required="true"
-          autoComplete="new-password"
-          className="mt-1 h-11 w-full rounded-control border border-border bg-surface px-3"
-          id="new-password"
-          maxLength={400}
-          minLength={8}
-          onChange={(event) => {
-            setNewPassword(event.target.value);
-            setFieldError(null);
-            setFormError(null);
-            idempotencyKeyRef.current = null;
-          }}
-          ref={newPasswordRef}
-          required
-          type="password"
-          value={newPassword}
-        />
-      </label>
-      <label className="text-sm font-semibold" htmlFor="confirm-password">
-        새 비밀번호 확인
-        <input
-          aria-describedby={
-            fieldError
-              ? "initial-password-policy initial-password-field-error"
-              : "initial-password-policy"
-          }
-          aria-invalid={Boolean(fieldError)}
-          aria-required="true"
-          autoComplete="new-password"
-          className="mt-1 h-11 w-full rounded-control border border-border bg-surface px-3"
-          id="confirm-password"
-          maxLength={400}
-          minLength={8}
-          onChange={(event) => {
-            setConfirmation(event.target.value);
-            setFieldError(null);
-            setFormError(null);
-          }}
-          ref={confirmationRef}
-          required
-          type="password"
-          value={confirmation}
-        />
-      </label>
-      {fieldError ? (
-        <p className="text-sm text-danger" id="initial-password-field-error">
-          {fieldError}
-        </p>
-      ) : null}
+      <div>
+        <label className="text-sm font-semibold" htmlFor="new-password">
+          새 비밀번호
+          <input
+            aria-describedby={
+              fieldError?.target === "newPassword"
+                ? "initial-password-policy initial-password-new-error"
+                : "initial-password-policy"
+            }
+            aria-invalid={fieldError?.target === "newPassword"}
+            aria-required="true"
+            autoComplete="new-password"
+            className="mt-1 h-11 w-full rounded-control border border-border bg-surface px-3"
+            id="new-password"
+            maxLength={400}
+            minLength={8}
+            onChange={(event) => {
+              setNewPassword(event.target.value);
+              if (
+                fieldError?.target === "newPassword" ||
+                fieldError?.clearOn === "either"
+              ) {
+                setFieldError(null);
+                setFormError(null);
+              }
+              idempotencyKeyRef.current = null;
+            }}
+            ref={newPasswordRef}
+            required
+            type="password"
+            value={newPassword}
+          />
+        </label>
+        {fieldError?.target === "newPassword" ? (
+          <span
+            className="mt-2 block text-sm font-normal text-danger"
+            id="initial-password-new-error"
+          >
+            {fieldError.message}
+          </span>
+        ) : null}
+      </div>
+      <div>
+        <label className="text-sm font-semibold" htmlFor="confirm-password">
+          새 비밀번호 확인
+          <input
+            aria-describedby={
+              fieldError?.target === "confirmation"
+                ? "initial-password-policy initial-password-confirmation-error"
+                : "initial-password-policy"
+            }
+            aria-invalid={fieldError?.target === "confirmation"}
+            aria-required="true"
+            autoComplete="new-password"
+            className="mt-1 h-11 w-full rounded-control border border-border bg-surface px-3"
+            id="confirm-password"
+            maxLength={400}
+            minLength={8}
+            onChange={(event) => {
+              setConfirmation(event.target.value);
+              if (fieldError?.clearOn === "either") {
+                setFieldError(null);
+                setFormError(null);
+              }
+            }}
+            ref={confirmationRef}
+            required
+            type="password"
+            value={confirmation}
+          />
+        </label>
+        {fieldError?.target === "confirmation" ? (
+          <span
+            className="mt-2 block text-sm font-normal text-danger"
+            id="initial-password-confirmation-error"
+          >
+            {fieldError.message}
+          </span>
+        ) : null}
+      </div>
       <Button
         className="min-h-11"
         disabled={pending || loggingOut}

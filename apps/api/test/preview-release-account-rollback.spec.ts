@@ -123,14 +123,33 @@ describe("Preview account Worker release safety", () => {
       'deployed_version="$(resolve_tagged_version werehere-hotel-api-preview "$DEPLOY_TAG")"',
     );
 
+    const snapshotPosition = workflow.indexOf(
+      "      - name: Snapshot active Worker versions\n",
+    );
+    const expandPosition = workflow.indexOf(
+      "      - name: Expand Neon Preview database for compatible Worker deploy\n",
+    );
+    const contractPosition = workflow.indexOf(
+      "      - name: Contract Neon Preview tenant authority\n",
+    );
     const smokePosition = workflow.indexOf(
-      "      - name: Verify public Preview path\n",
+      "      - name: Verify public Preview path after contract\n",
     );
     const baselinePosition = workflow.indexOf(
       "      - name: Record secure session-authority rollback baseline\n",
     );
-    expect(smokePosition).toBeGreaterThan(-1);
-    expect(baselinePosition).toBeGreaterThan(smokePosition);
+    const accountSmokePosition = workflow.indexOf(
+      "      - name: Verify hosted Preview account management journey\n",
+    );
+    expect(snapshotPosition).toBeGreaterThan(-1);
+    expect(expandPosition).toBeGreaterThan(snapshotPosition);
+    expect(contractPosition).toBeGreaterThan(expandPosition);
+    expect(smokePosition).toBeGreaterThan(contractPosition);
+    expect(accountSmokePosition).toBeGreaterThan(smokePosition);
+    expect(baselinePosition).toBeGreaterThan(accountSmokePosition);
+    expect(
+      workflowStep("Verify hosted Preview account management journey"),
+    ).toContain("node scripts/smoke-account-preview.mjs");
     const baseline = workflowStep(
       "Record secure session-authority rollback baseline",
     );

@@ -207,6 +207,42 @@ describe("DB-1A auth v2 and tenant authority contracts", () => {
     );
   });
 
+  it("replaces auth v2 as its hardened owner and removes temporary privileges", () => {
+    const grantMembership = migration8.indexOf(
+      "grant werehere_auth_session_definer to %I with inherit false, set true",
+    );
+    const grantSchemaCreate = migration8.indexOf(
+      "grant create on schema public to werehere_auth_session_definer",
+    );
+    const setOwnerRole = migration8.indexOf(
+      "set local role werehere_auth_session_definer",
+    );
+    const replaceFunction = migration8.indexOf(
+      "create or replace function public.auth_create_session_v2",
+    );
+    const resetRole = migration8.indexOf("reset role");
+    const revokeSchemaCreate = migration8.indexOf(
+      "revoke create on schema public from werehere_auth_session_definer",
+    );
+    const revokeMembership = migration8.indexOf(
+      "revoke werehere_auth_session_definer from %I granted by %I",
+    );
+    expect(grantMembership).toBeGreaterThan(-1);
+    expect(grantSchemaCreate).toBeGreaterThan(grantMembership);
+    expect(setOwnerRole).toBeGreaterThan(grantSchemaCreate);
+    expect(replaceFunction).toBeGreaterThan(setOwnerRole);
+    expect(resetRole).toBeGreaterThan(replaceFunction);
+    expect(revokeSchemaCreate).toBeGreaterThan(resetRole);
+    expect(revokeMembership).toBeGreaterThan(revokeSchemaCreate);
+  });
+
+  it("fails auth session creation closed when a provider subject is ambiguous", () => {
+    expect(migration8).toMatch(/into strict v_principal/iu);
+    expect(migration8).toMatch(
+      /when too_many_rows then\s+raise exception 'ambiguous auth identity' using errcode = '21000'/iu,
+    );
+  });
+
   it("records only the exact renamed schema markers", () => {
     expect(migration6).toContain("values ('0006_account_administration')");
     expect(migration7).toContain("values ('0007_api_tenant_authority_expand')");

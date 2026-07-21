@@ -33,10 +33,17 @@ const previewUserCreateGrantId = "73000000-0000-4000-8000-000000000003";
 const previewUserSuspendGrantId = "73000000-0000-4000-8000-000000000004";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
+const provisionPhase =
+  process.env.PREVIEW_PROVISION_PHASE?.trim().toUpperCase() || "CONTRACT";
 
 function fail(message: string): never {
   throw new Error(message);
 }
+
+if (provisionPhase !== "EXPAND" && provisionPhase !== "CONTRACT") {
+  fail("PREVIEW_PROVISION_PHASE must be EXPAND or CONTRACT");
+}
+const contractPhase = provisionPhase === "CONTRACT";
 
 function parseDatabaseUrl(
   value: string,
@@ -195,6 +202,8 @@ if (targetFingerprint(previewUrl) === targetFingerprint(productionUrl)) {
 }
 
 const owner = postgres(ownerDatabaseUrl, { max: 1, prepare: false });
+let migrationOwnerRoleForCleanup: string | null = null;
+let localCiMembershipCleanupRequired = false;
 
 async function updateLocalCiDefinerMembership(
   migrationOwnerRole: string,
@@ -247,6 +256,8 @@ try {
   `;
   if (!migrationOwnerIdentity)
     fail("Preview migration owner identity is unavailable");
+  migrationOwnerRoleForCleanup = migrationOwnerIdentity.role_name;
+  localCiMembershipCleanupRequired = Boolean(localCiAdminDatabaseUrl);
   await updateLocalCiDefinerMembership(
     migrationOwnerIdentity.role_name,
     "GRANT",
@@ -294,7 +305,7 @@ try {
   }
 
   const migrationDirectory = resolve(import.meta.dirname, "../migrations");
-  const migrations = [
+  const allMigrations = [
     ["0001_platform_foundation", "0001_platform_foundation.sql"],
     ["0002_auth_session_runtime", "0002_auth_session_runtime.sql"],
     ["0003_hotel_basic_information", "0003_hotel_basic_information.sql"],
@@ -310,6 +321,11 @@ try {
       "0008_remove_legacy_company_id_fallback.sql",
     ],
   ] as const;
+  const migrations = contractPhase
+    ? allMigrations
+    : allMigrations.filter(
+        ([version]) => version !== "0008_remove_legacy_company_id_fallback",
+      );
 
   for (const [version, fileName] of migrations) {
     const markerTable = await owner<{ exists: boolean }[]>`
@@ -458,19 +474,81 @@ try {
       )
       on conflict (id) do nothing
     `;
-    const [accountGrantCount] = await sql<{ grant_count: number }[]>`
-      select count(*)::int as grant_count
+    const accountGrants = await sql<
+      {
+        branch_id: string | null;
+        company_id: string;
+        effect: string;
+        granted_by: string;
+        id: string;
+        permission_code: string;
+        reason: string;
+        subject_id: string;
+        subject_type: string;
+        valid_from: string;
+        valid_until: string | null;
+        version: number;
+      }[]
+    >`
+      select id::text, company_id::text, branch_id::text, subject_type,
+             subject_id::text, permission_code, effect,
+             to_char(valid_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as valid_from,
+             valid_until::text, granted_by::text, reason, version
       from permission_grants
-      where company_id = ${previewCompanyId}::uuid
-        and subject_type = 'USER'
-        and subject_id = ${previewUserId}::uuid
-        and branch_id is null
-        and permission_code in ('USER_READ', 'USER_CREATE', 'USER_SUSPEND')
-        and effect = 'ALLOW'
-        and valid_until is null
+      where id in (
+        ${previewUserReadGrantId}::uuid,
+        ${previewUserCreateGrantId}::uuid,
+        ${previewUserSuspendGrantId}::uuid
+      )
     `;
-    if (accountGrantCount?.grant_count !== 3) {
-      fail("Preview account management permission grants are unavailable");
+    const expectedAccountGrants = new Map([
+      [
+        "USER_READ",
+        {
+          id: previewUserReadGrantId,
+          reason: "Preview 초기 관리자 사용자조회 권한",
+        },
+      ],
+      [
+        "USER_CREATE",
+        {
+          id: previewUserCreateGrantId,
+          reason: "Preview 초기 관리자 사용자생성 권한",
+        },
+      ],
+      [
+        "USER_SUSPEND",
+        {
+          id: previewUserSuspendGrantId,
+          reason: "Preview 초기 관리자 사용자중지 권한",
+        },
+      ],
+    ]);
+    if (
+      accountGrants.length !== expectedAccountGrants.size ||
+      accountGrants.some((accountGrant) => {
+        const expected = expectedAccountGrants.get(
+          accountGrant.permission_code,
+        );
+        return (
+          !expected ||
+          accountGrant.id !== expected.id ||
+          accountGrant.company_id !== previewCompanyId ||
+          accountGrant.branch_id !== null ||
+          accountGrant.subject_type !== "USER" ||
+          accountGrant.subject_id !== previewUserId ||
+          accountGrant.effect !== "ALLOW" ||
+          accountGrant.valid_from !== "2026-01-01T00:00:00Z" ||
+          accountGrant.valid_until !== null ||
+          accountGrant.granted_by !== previewUserId ||
+          accountGrant.reason !== expected.reason ||
+          accountGrant.version !== 1
+        );
+      })
+    ) {
+      fail(
+        "Existing Preview account permission grants do not match the approved seed",
+      );
     }
     const [grant] = await sql<
       {
@@ -564,11 +642,49 @@ try {
       )
       on conflict (id) do nothing
     `;
-    const [bootstrapAudit] = await sql<{ event_code: string }[]>`
-      select event_code from audit_events where id = ${previewBootstrapAuditId}::uuid
+    const [bootstrapAudit] = await sql<
+      {
+        actor_type: string;
+        actor_user_id: string | null;
+        after_summary: unknown;
+        company_id: string;
+        event_code: string;
+        reason: string | null;
+        resource_id: string;
+        resource_type: string;
+        result: string;
+        trace_id: string;
+      }[]
+    >`
+      select event_code, actor_user_id::text, actor_type, company_id::text,
+             resource_type, resource_id::text, reason, after_summary,
+             result, trace_id::text
+      from audit_events where id = ${previewBootstrapAuditId}::uuid
     `;
-    if (bootstrapAudit?.event_code !== "ACCOUNT_BOOTSTRAPPED")
-      fail("Preview bootstrap audit is unavailable");
+    const auditSummary =
+      bootstrapAudit?.after_summary &&
+      typeof bootstrapAudit.after_summary === "object" &&
+      !Array.isArray(bootstrapAudit.after_summary)
+        ? (bootstrapAudit.after_summary as Record<string, unknown>)
+        : null;
+    if (
+      bootstrapAudit?.event_code !== "ACCOUNT_BOOTSTRAPPED" ||
+      bootstrapAudit.actor_user_id !== null ||
+      bootstrapAudit.actor_type !== "SYSTEM" ||
+      bootstrapAudit.company_id !== previewCompanyId ||
+      bootstrapAudit.resource_type !== "USER" ||
+      bootstrapAudit.resource_id !== previewUserId ||
+      bootstrapAudit.reason !== bootstrapApprovalReference ||
+      bootstrapAudit.result !== "SUCCEEDED" ||
+      bootstrapAudit.trace_id !== previewBootstrapAuditId ||
+      !auditSummary ||
+      Object.keys(auditSummary).sort().join(",") !==
+        "subjectFingerprint,zitadelOrganizationId" ||
+      auditSummary.subjectFingerprint !== actualSubjectFingerprint ||
+      auditSummary.zitadelOrganizationId !== zitadelOrganizationId
+    ) {
+      fail("Existing Preview bootstrap audit does not match the approved seed");
+    }
   });
   console.log("PREVIEW_PRINCIPAL_SEEDED");
 
@@ -654,11 +770,12 @@ try {
       select 1 from pg_roles where rolname = 'werehere_preview_runtime'
     ) as exists
   `;
-  const legacyPolicyGrant = legacyRuntimeState?.exists
-    ? ", werehere_preview_runtime"
-    : "";
+  const legacyPolicyGrant =
+    contractPhase && legacyRuntimeState?.exists
+      ? ", werehere_preview_runtime"
+      : "";
 
-  if (legacyRuntimeState?.exists) {
+  if (contractPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
       revoke all privileges on all tables in schema public from werehere_preview_runtime;
       revoke all privileges on all sequences in schema public from werehere_preview_runtime;
@@ -718,6 +835,12 @@ try {
     await sql.unsafe(authDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_auth_session_definer");
     await sql.unsafe(`
+      revoke grant option for execute on function public.auth_create_session_v2(
+        uuid, bytea, text, integer, integer, timestamptz, uuid
+      ), public.auth_resolve_principal_v2(bytea, integer),
+        public.auth_revoke_session_v2(bytea, text, uuid),
+        public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       revoke execute on function public.auth_create_session(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from ${apiRuntimeRole}, ${reconcilerRole};
@@ -740,7 +863,7 @@ try {
       revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         from ${reconcilerRole}${legacyPolicyGrant};
       ${
-        legacyRuntimeState?.exists
+        contractPhase && legacyRuntimeState?.exists
           ? `
       revoke execute on function public.auth_create_session(
         uuid, bytea, text, integer, integer, timestamptz, uuid
@@ -769,6 +892,10 @@ try {
     await sql.unsafe(tenantDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_tenant_authority_definer");
     await sql.unsafe(`
+      revoke grant option for execute on function public.runtime_is_schema_owner(),
+        public.runtime_has_capability(text), public.api_current_company_id(),
+        public.reconciler_current_company_id(), public.reconciliation_company_ids()
+        from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       grant select on public.runtime_database_capabilities
         to ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.runtime_is_schema_owner()
@@ -781,7 +908,7 @@ try {
       grant execute on function public.reconciliation_company_ids() to ${reconcilerRole};
       revoke execute on function public.reconciliation_company_ids() from ${apiRuntimeRole};
       ${
-        legacyRuntimeState?.exists
+        contractPhase && legacyRuntimeState?.exists
           ? `
       revoke execute on function public.runtime_is_schema_owner(),
         public.runtime_has_capability(text),
@@ -799,7 +926,7 @@ try {
     await sql.unsafe(tenantDefinerCommands.revoke_membership);
   });
 
-  if (legacyRuntimeState?.exists) {
+  if (contractPhase && legacyRuntimeState?.exists) {
     const [legacyAccess] = await owner<
       { capability: boolean; schema_access: boolean; object_acl: boolean }[]
     >`
@@ -827,10 +954,14 @@ try {
         ) as object_acl
     `;
     const residualAccess = legacyAccess
-      ? Object.entries(legacyAccess).filter(([, present]) => present).map(([label]) => label)
+      ? Object.entries(legacyAccess)
+          .filter(([, present]) => present)
+          .map(([label]) => label)
       : ["verification_missing"];
     if (residualAccess.length > 0) {
-      fail(`Legacy Preview runtime access was not fully revoked: ${residualAccess.join(",")}`);
+      fail(
+        `Legacy Preview runtime access was not fully revoked: ${residualAccess.join(",")}`,
+      );
     }
   }
 
@@ -838,6 +969,7 @@ try {
     migrationOwnerIdentity.role_name,
     "REVOKE",
   );
+  localCiMembershipCleanupRequired = false;
 
   const definerMembershipSafety = await owner<
     {
@@ -932,6 +1064,7 @@ try {
 
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    requiredSchemaPhase: provisionPhase,
   });
   if (apiReadiness.status !== "READY") {
     fail(`Preview API runtime readiness failed: ${apiReadiness.status}`);
@@ -940,6 +1073,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      requiredSchemaPhase: provisionPhase,
     },
   );
   if (reconcilerReadiness.status !== "READY") {
@@ -947,8 +1081,18 @@ try {
   }
 
   console.log("PREVIEW_DATABASE_PROVISIONED");
+  console.log(`PREVIEW_DATABASE_PHASE_${provisionPhase}`);
   console.log("PREVIEW_API_RUNTIME_ROLE_READY");
   console.log("PREVIEW_RECONCILER_ROLE_READY");
 } finally {
-  await owner.end({ timeout: 2 });
+  try {
+    if (localCiMembershipCleanupRequired && migrationOwnerRoleForCleanup) {
+      await updateLocalCiDefinerMembership(
+        migrationOwnerRoleForCleanup,
+        "REVOKE",
+      );
+    }
+  } finally {
+    await owner.end({ timeout: 2 });
+  }
 }

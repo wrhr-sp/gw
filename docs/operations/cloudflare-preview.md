@@ -66,18 +66,22 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 
 ## DB provisioning
 
-`packages/db/scripts/provision-preview.ts`는 다음을 안전 실패 방식으로 수행한다.
+`packages/db/scripts/provision-preview.ts`는 `PREVIEW_PROVISION_PHASE=EXPAND|CONTRACT`를 받아 다음을 안전 실패 방식으로 수행한다.
 
 1. Preview URL이 Neon HTTPS/TLS target인지 검사한다.
 2. host, port, database fingerprint가 Production과 같으면 중단한다.
 3. advisory lock을 획득한다.
-4. `schema_migrations`에 없는 migration만 순서대로 적용한다.
-5. 승인된 subject fingerprint·organization·workflow run 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`에 멱등 연결한다.
-6. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
-7. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. registry table 직접 권한은 두 role 모두 거부한다.
-8. 각 role의 기존 table privilege를 모두 회수한 뒤 capability별 최소 privilege만 부여한다.
-9. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
-10. 두 runtime URL은 권한 `0600` 임시 파일로만 각 Hyperdrive 단계에 전달한다.
+4. `EXPAND`에서는 additive·기존 Worker 호환 migration만 적용하고 destructive contract migration `0008`은 제외한다.
+5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
+6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`을 적용해 legacy tenant authority와 broad ACL을 제거한다.
+7. 승인된 subject fingerprint·organization·고정 approval 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 canonical row 전체 값으로 멱등 연결한다.
+8. bootstrap audit의 tenant·actor·resource·fingerprint·approval·trace 전체 값이 정본과 다르면 성공으로 처리하지 않는다.
+9. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
+10. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. registry table 직접 권한은 두 role 모두 거부한다.
+11. 각 runtime role의 table ACL을 capability별 exact allowlist와 비교하고 예상 밖 권한, `PUBLIC`, `WITH GRANT OPTION`을 거부한다.
+12. SECURITY DEFINER의 owner·`search_path=pg_catalog`·source fingerprint·direct execute allowlist를 검증하고 grantable execute를 거부한다.
+13. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
+14. 두 runtime URL은 권한 `0600` 임시 파일로만 각 Hyperdrive 단계에 전달한다.
 
 DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
 
@@ -130,17 +134,32 @@ Web 200
 -> invalid callback 303 /login?error=invalid-flow + no-store + no-referrer + OAuth cookie 만료
 ```
 
-최종 승인 전 수동 smoke에는 실제 ZITADEL 사용자로 로그인한 뒤 호텔 목록, 등록, 상세 PostgreSQL read-back과 권한·tenant 차단 확인이 포함된다.
+`CONTRACT`와 post-contract public smoke 뒤에는 `scripts/smoke-account-preview.mjs`가 다음 hosted 계정관리 여정을 필수 gate로 실행한다.
+
+```text
+승인된 Preview bootstrap subject로 DB-backed 관리자 session 생성
+-> USER_CREATE-scoped eligible hotel 조회
+-> 실제 API로 Preview 검증 계정 생성
+-> PostgreSQL detail 재조회
+-> 새 사용자 DB session에서 최초 비밀번호 변경
+-> ZITADEL credential session 생성·주체·organization 재조회
+-> 관리자 API로 사용자 비활성화
+-> PostgreSQL INACTIVE, ZITADEL INACTIVE, 활성 DB session 0 재조회
+```
+
+검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. 실패 중 생성된 계정도 가능한 경우 비활성화하고, 삭제하거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
 
 ## Rollback
 
 1. smoke 실패 시 Preview 성공으로 보고하지 않는다.
-2. workflow가 배포 전 API/Web 활성 version을 기록한다.
-3. Web 배포 또는 공개 smoke 실패 시 이전 Worker version으로 자동 rollback한다.
-4. 이전 version이 없는 최초 배포였다면 이번 실행에서 만든 Preview Worker를 삭제한다.
-5. Hyperdrive의 runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
-6. DB 변경 복원이 필요하면 Neon Preview branch/snapshot을 복원하거나 Preview DB를 재생성한다.
-7. Production, DNS, custom domain은 변경하지 않는다.
-8. 인증 세션 definer 전환의 contract 적용 후 runtime에는 `auth_sessions UPDATE`만 유지하고 직접 `INSERT`는 허용하지 않는다.
-9. session 생성은 `auth_create_session(...)` 함수만 사용하며, integration에서 직접 `INSERT`의 `42501`, 함수 성공, session·audit read-back을 함께 검증한다.
-10. 직접 INSERT를 사용하는 contract 이전 Worker는 rollback 대상으로 사용하지 않는다.
+2. workflow는 DB 변경 전에 API/Web 활성 version을 기록한다.
+3. `EXPAND`와 기존 Worker compatibility smoke 전후에는 legacy compatibility가 유지된다.
+4. 신규 Worker deploy 또는 pre-contract smoke 실패처럼 `CONTRACT` 시작 전 실패만 이전 Worker version 복구 대상으로 판단할 수 있다.
+5. `CONTRACT` 시작 후에는 legacy authority가 제거됐으므로 이전 Worker로 자동 rollback하지 않는다. `CONTRACT_STARTED=true`로 operator recovery를 요구하고 안전 실패한다.
+6. 이전 version이 없는 최초 배포의 pre-contract 실패라면 이번 실행에서 만든 Preview Worker를 삭제할 수 있다.
+7. Hyperdrive runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
+8. DB 변경 복원이 필요하면 임의 down SQL 대신 승인된 Neon Preview branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
+9. Production, DNS, custom domain은 변경하지 않는다.
+10. contract 적용 후 API runtime은 `auth_sessions` 직접 `INSERT`·`UPDATE`를 할 수 없다. session 생성과 회수는 tenant-bound SECURITY DEFINER 함수만 사용한다.
+11. integration은 직접 mutation의 `42501`, 함수 성공, session·audit read-back, 임시 definer membership과 schema `CREATE` 권한의 종료 후 0건을 함께 검증한다.
+12. legacy tenant GUC나 broad ACL을 전제로 하는 contract 이전 Worker는 contract 이후 rollback 대상으로 사용하지 않는다.

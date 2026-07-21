@@ -76,10 +76,12 @@ $role$;
 SQL
 
 run_provision() {
+  local phase="${1:?provision phase is required}"
   (
     cd "$ROOT_DIR"
     CI=true \
       PREVIEW_PROVISION_LOCAL_CI_TEST=1 \
+      PREVIEW_PROVISION_PHASE="$phase" \
       PREVIEW_PROVISION_ADMIN_DATABASE_URL="$ADMIN_PREVIEW_URL" \
       DATABASE_URL_PREVIEW="$PREVIEW_URL" \
       DATABASE_URL="$PRODUCTION_URL" \
@@ -95,7 +97,7 @@ run_provision() {
   )
 }
 
-run_provision >/dev/null
+run_provision EXPAND >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 grant usage on schema public to werehere_preview_runtime;
 grant select on public.branches to werehere_preview_runtime;
@@ -108,11 +110,52 @@ insert into public.runtime_database_capabilities (role_name, capability)
 values ('werehere_preview_runtime', 'API_RUNTIME')
 on conflict (role_name) do update set capability = excluded.capability;
 SQL
-run_provision >/dev/null
+run_provision EXPAND >/dev/null
+EXPAND_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations where version = '0008_remove_legacy_company_id_fallback';
+select (
+  has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
+  and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
+  and has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
+  and exists (
+    select 1 from runtime_database_capabilities
+    where role_name = 'werehere_preview_runtime' and capability = 'API_RUNTIME'
+  )
+)::int;
+SQL
+)"
+if [[ "$EXPAND_RESULT" != $'0\n1' ]]; then
+  printf '%s\n' 'Expand provisioning did not preserve the compatible legacy runtime.' >&2
+  exit 1
+fi
+run_provision CONTRACT >/dev/null
+TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select
+  (select count(*)
+   from pg_auth_members membership
+   join pg_roles granted_role on granted_role.oid = membership.roleid
+   where granted_role.rolname in (
+     'werehere_auth_session_definer',
+     'werehere_tenant_authority_definer'
+   ))
+  +
+  (select count(*)
+   from pg_roles role
+   where role.rolname in (
+     'werehere_auth_session_definer',
+     'werehere_tenant_authority_definer'
+   )
+     and has_schema_privilege(role.oid, 'public', 'CREATE'));
+SQL
+)"
+if [[ "$TEMPORARY_DEFINER_PRIVILEGES" != "0" ]]; then
+  printf '%s\n' 'Contract retained temporary definer membership or schema CREATE privilege.' >&2
+  exit 1
+fi
 
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
   -c "update users set status = 'INACTIVE' where id = '71000000-0000-4000-8000-000000000001'" >/dev/null
-if run_provision >/dev/null 2>&1; then
+if run_provision CONTRACT >/dev/null 2>&1; then
   printf '%s\n' 'Provisioning accepted a drifted Preview user.' >&2
   exit 1
 fi
@@ -121,12 +164,39 @@ psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
 
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
   -c "update permission_grants set valid_until = '2026-06-01T00:00:00Z' where id = '73000000-0000-4000-8000-000000000001'" >/dev/null
-if run_provision >/dev/null 2>&1; then
+if run_provision CONTRACT >/dev/null 2>&1; then
   printf '%s\n' 'Provisioning accepted a drifted Preview permission grant.' >&2
   exit 1
 fi
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
   -c "update permission_grants set valid_until = null where id = '73000000-0000-4000-8000-000000000001'" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set valid_from = '2030-01-01T00:00:00Z' where id = '73000000-0000-4000-8000-000000000002'" >/dev/null
+if run_provision CONTRACT >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted USER_READ grant.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set valid_from = '2026-01-01T00:00:00Z' where id = '73000000-0000-4000-8000-000000000002'" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set reason = 'drifted' where id = '73000000-0000-4000-8000-000000000003'" >/dev/null
+if run_provision CONTRACT >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted USER_CREATE grant.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set reason = 'Preview 초기 관리자 사용자생성 권한' where id = '73000000-0000-4000-8000-000000000003'" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set version = 2 where id = '73000000-0000-4000-8000-000000000004'" >/dev/null
+if run_provision CONTRACT >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted USER_SUSPEND grant.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -c "update permission_grants set version = 1 where id = '73000000-0000-4000-8000-000000000004'" >/dev/null
 
 for url_file in "$API_RUNTIME_URL_FILE" "$RECONCILER_URL_FILE"; do
   if [[ "$(stat -c '%a' "$url_file")" != "600" ]]; then
@@ -250,8 +320,140 @@ values (
 );
 SQL
 
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.audit_events disable trigger audit_events_no_update;
+update public.audit_events
+set company_id = '7f000000-0000-4000-8000-000000000001',
+    resource_type = 'HOTEL',
+    resource_id = '7f100000-0000-4000-8000-000000000001',
+    reason = 'drifted approval',
+    after_summary = '{"subjectFingerprint":"drifted","zitadelOrganizationId":"drifted"}'::jsonb,
+    trace_id = '74000000-0000-4000-8000-000000000099'
+where id = '74000000-0000-4000-8000-000000000001';
+alter table public.audit_events enable trigger audit_events_no_update;
+SQL
+if run_provision CONTRACT >/dev/null 2>&1; then
+  printf '%s\n' 'Provisioning accepted a drifted bootstrap audit.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.audit_events disable trigger audit_events_no_update;
+update public.audit_events
+set company_id = '70000000-0000-4000-8000-000000000001',
+    resource_type = 'USER',
+    resource_id = '71000000-0000-4000-8000-000000000001',
+    reason = 'ci-approved-bootstrap',
+    after_summary = '{"subjectFingerprint":"4a5a9f382288501ac29a0a9ff003f6f5dca58d0dff0c3134a0480fb6a6c18bf6","zitadelOrganizationId":"preview-organization-integration"}'::jsonb,
+    trace_id = '74000000-0000-4000-8000-000000000001'
+where id = '74000000-0000-4000-8000-000000000001';
+alter table public.audit_events enable trigger audit_events_no_update;
+SQL
+run_provision CONTRACT >/dev/null
+
 API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
 RECONCILER_URL="$(<"$RECONCILER_URL_FILE")"
+
+readiness_status() {
+  local database_url="${1:?database URL is required}"
+  local capability="${2:?runtime capability is required}"
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$database_url" TEST_READY_CAPABILITY="$capability" \
+      pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+const capability = process.env.TEST_READY_CAPABILITY;
+if (!databaseUrl || (capability !== "API_RUNTIME" && capability !== "RECONCILER")) {
+  throw new Error("Readiness damage probe configuration is invalid");
+}
+const result = await probeDatabaseReadiness(databaseUrl, { capability });
+console.log(result.status);
+NODE
+  )
+}
+
+assert_readiness() {
+  local expected="${1:?expected readiness is required}"
+  local actual
+  actual="$(readiness_status "$API_RUNTIME_URL" API_RUNTIME)"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'API readiness was %s, expected %s.\n' "$actual" "$expected" >&2
+    exit 1
+  fi
+}
+
+assert_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant delete on public.users to werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke delete on public.users from werehere_preview_api_runtime' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+grant execute on function public.auth_create_session_v2(
+  uuid, bytea, text, integer, integer, timestamptz, uuid
+) to werehere_preview_api_runtime with grant option;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke grant option for execute on function public.auth_create_session_v2(
+  uuid, bytea, text, integer, integer, timestamptz, uuid
+) from werehere_preview_api_runtime cascade;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+alter table public.auth_identities
+  drop constraint auth_identities_provider_provider_subject_key;
+insert into public.auth_identities (
+  id, company_id, user_id, provider, provider_subject
+) values (
+  '72000000-0000-4000-8000-000000000099',
+  '$COMPANY_ID',
+  '71000000-0000-4000-8000-000000000001',
+  'ZITADEL',
+  '$SUBJECT'
+);
+SQL
+assert_readiness SCHEMA_NOT_READY
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$API_RUNTIME_URL" TEST_PROVIDER_SUBJECT="$SUBJECT" \
+    pnpm --filter @werehere/db exec tsx <<'NODE'
+import postgres from "postgres";
+import { createPostgresAuthRepository } from "./src/auth.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+const providerSubject = process.env.TEST_PROVIDER_SUBJECT;
+if (!databaseUrl || !providerSubject) throw new Error("Cardinality probe configuration is missing");
+const repository = createPostgresAuthRepository(databaseUrl);
+try {
+  await repository.createSession({
+    absoluteLifetimeSeconds: 86400,
+    authTime: new Date(),
+    idleLifetimeSeconds: 28800,
+    providerSubject,
+    sessionId: crypto.randomUUID(),
+    tokenHash: crypto.getRandomValues(new Uint8Array(32)),
+    traceId: crypto.randomUUID(),
+  });
+  throw new Error("Duplicate provider subjects unexpectedly created a session");
+} catch (error) {
+  if (!(error instanceof postgres.PostgresError) || error.code !== "21000") throw error;
+} finally {
+  await repository.close?.();
+}
+NODE
+)
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from public.auth_identities
+where id = '72000000-0000-4000-8000-000000000099';
+alter table public.auth_identities
+  add constraint auth_identities_provider_provider_subject_key
+  unique (provider, provider_subject);
+SQL
+assert_readiness READY
+
 PRIVILEGES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<'SQL'
 select has_function_privilege(
   current_user,

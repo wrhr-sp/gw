@@ -125,8 +125,94 @@ jobs:
           ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
         run: pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts
 
-      - name: Provision Neon Preview database and runtime role
+      - name: Snapshot active Worker versions
+        id: worker_snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          worker_exists() {
+            local worker_name="$1"
+            local response_file
+            response_file="$(mktemp)"
+            local status
+            if ! status="$(curl --silent --show-error \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              -H "Authorization: Bearer $CLOUD...OKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/settings")"; then
+              rm -f "$response_file"
+              return 2
+            fi
+            if [[ "$status" == "200" ]]; then
+              if jq -e '.success == true and (.result | type) == "object"' \
+                "$response_file" >/dev/null; then
+                rm -f "$response_file"
+                return 0
+              fi
+              rm -f "$response_file"
+              return 2
+            fi
+            if [[ "$status" == "404" ]]; then
+              if jq -e '.success == false and (.errors | type) == "array"' \
+                "$response_file" >/dev/null; then
+                rm -f "$response_file"
+                return 1
+              fi
+              rm -f "$response_file"
+              return 2
+            fi
+            rm -f "$response_file"
+            return 2
+          }
+          snapshot() {
+            local output_name="$1"
+            local worker_name="$2"
+            if worker_exists "$worker_name"; then
+              :
+            else
+              local exists_status="$?"
+              if [[ "$exists_status" -eq 1 ]]; then
+                printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
+                printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
+                return
+              fi
+              printf 'Worker existence lookup failed: %s\n' "$worker_name" >&2
+              exit 1
+            fi
+            local snapshot_file
+            local version
+            snapshot_file="$(mktemp)"
+            pnpm --filter @werehere/api exec wrangler deployments list \
+              --name "$worker_name" --json > "$snapshot_file"
+            if ! version="$(jq -er '
+              if type != "array" or length == 0 then
+                error("Worker deployment history was missing")
+              elif (.[-1].versions | type) != "array"
+                or (.[-1].versions | length) != 1
+                or (.[-1].versions[0].percentage | type) != "number"
+                or .[-1].versions[0].percentage != 100
+                or (.[-1].versions[0].version_id | type) != "string"
+                or (.[-1].versions[0].version_id | length) == 0 then
+                error("Active Worker deployment was not a single 100 percent version")
+              else
+                .[-1].versions[0].version_id
+              end
+            ' "$snapshot_file")"; then
+              rm -f "$snapshot_file"
+              printf 'Active Worker deployment is unsafe to snapshot: %s\n' "$worker_name" >&2
+              exit 1
+            fi
+            rm -f "$snapshot_file"
+            printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
+            printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
+          }
+          snapshot api werehere-hotel-api-preview
+          snapshot reconciler werehere-hotel-account-reconciler-preview
+          snapshot web werehere-hotel-web-preview
+
+      - name: Expand Neon Preview database for compatible Worker deploy
         env:
+          PREVIEW_PROVISION_PHASE: EXPAND
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
           DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
@@ -136,6 +222,13 @@ jobs:
           ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
         run: pnpm exec tsx packages/db/scripts/provision-preview.ts
+
+      - name: Verify previous Workers remain compatible after expand
+        if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
+        id: expand_compatibility_smoke
+        run: |
+          node scripts/smoke-cloudflare-preview.mjs
+          node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Create or update Preview Hyperdrives
         id: hyperdrive
@@ -252,91 +345,6 @@ jobs:
           }))
           os.chmod('/tmp/werehere-api-preview-secrets.json', 0o600)
           PY
-
-      - name: Snapshot active Worker versions
-        id: worker_snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          worker_exists() {
-            local worker_name="$1"
-            local response_file
-            response_file="$(mktemp)"
-            local status
-            if ! status="$(curl --silent --show-error \
-              --output "$response_file" \
-              --write-out '%{http_code}' \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/settings")"; then
-              rm -f "$response_file"
-              return 2
-            fi
-            if [[ "$status" == "200" ]]; then
-              if jq -e '.success == true and (.result | type) == "object"' \
-                "$response_file" >/dev/null; then
-                rm -f "$response_file"
-                return 0
-              fi
-              rm -f "$response_file"
-              return 2
-            fi
-            if [[ "$status" == "404" ]]; then
-              if jq -e '.success == false and (.errors | type) == "array"' \
-                "$response_file" >/dev/null; then
-                rm -f "$response_file"
-                return 1
-              fi
-              rm -f "$response_file"
-              return 2
-            fi
-            rm -f "$response_file"
-            return 2
-          }
-          snapshot() {
-            local output_name="$1"
-            local worker_name="$2"
-            if worker_exists "$worker_name"; then
-              :
-            else
-              local exists_status="$?"
-              if [[ "$exists_status" -eq 1 ]]; then
-                printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
-                printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
-                return
-              fi
-              printf 'Worker existence lookup failed: %s\n' "$worker_name" >&2
-              exit 1
-            fi
-            local snapshot_file
-            local version
-            snapshot_file="$(mktemp)"
-            pnpm --filter @werehere/api exec wrangler deployments list \
-              --name "$worker_name" --json > "$snapshot_file"
-            if ! version="$(jq -er '
-              if type != "array" or length == 0 then
-                error("Worker deployment history was missing")
-              elif (.[-1].versions | type) != "array"
-                or (.[-1].versions | length) != 1
-                or (.[-1].versions[0].percentage | type) != "number"
-                or .[-1].versions[0].percentage != 100
-                or (.[-1].versions[0].version_id | type) != "string"
-                or (.[-1].versions[0].version_id | length) == 0 then
-                error("Active Worker deployment was not a single 100 percent version")
-              else
-                .[-1].versions[0].version_id
-              end
-            ' "$snapshot_file")"; then
-              rm -f "$snapshot_file"
-              printf 'Active Worker deployment is unsafe to snapshot: %s\n' "$worker_name" >&2
-              exit 1
-            fi
-            rm -f "$snapshot_file"
-            printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
-            printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
-          }
-          snapshot api werehere-hotel-api-preview
-          snapshot reconciler werehere-hotel-account-reconciler-preview
-          snapshot web werehere-hotel-web-preview
 
       - name: Deploy private account reconciler Worker
         id: deploy_reconciler
@@ -553,11 +561,39 @@ jobs:
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
 
-      - name: Verify public Preview path
+      - name: Verify public Preview path before contract
         id: preview_smoke
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           node scripts/smoke-zitadel-console-preview.mjs
+
+      - name: Contract Neon Preview tenant authority
+        id: contract_database
+        env:
+          PREVIEW_PROVISION_PHASE: CONTRACT
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
+          DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+          PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
+        run: |
+          printf 'contract_started=true\n' >> "$GITHUB_OUTPUT"
+          pnpm exec tsx packages/db/scripts/provision-preview.ts
+
+      - name: Verify public Preview path after contract
+        id: post_contract_smoke
+        run: |
+          node scripts/smoke-cloudflare-preview.mjs
+          node scripts/smoke-zitadel-console-preview.mjs
+
+      - name: Verify hosted Preview account management journey
+        id: account_management_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: node scripts/smoke-account-preview.mjs
 
       - name: Record secure session-authority rollback baseline
         id: secure_rollback_baseline
@@ -597,6 +633,7 @@ jobs:
         if: failure()
         shell: bash
         env:
+          CONTRACT_STARTED: ${{ steps.contract_database.outputs.contract_started }}
           API_PREVIOUS: ${{ steps.worker_snapshot.outputs.api_previous }}
           API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
           API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
@@ -783,6 +820,23 @@ jobs:
             fi
             return 1
           }
+          if [[ "$CONTRACT_STARTED" == "true" ]]; then
+            contract_active_failed=0
+            [[ "$(active_worker_version werehere-hotel-api-preview)" == "$API_DEPLOYED" ]] \
+              || contract_active_failed=1
+            [[ "$(active_worker_version werehere-hotel-account-reconciler-preview)" == "$RECONCILER_DEPLOYED" ]] \
+              || contract_active_failed=1
+            [[ "$(active_worker_version werehere-hotel-web-preview)" == "$WEB_DEPLOYED" ]] \
+              || contract_active_failed=1
+            if [[ "$contract_active_failed" -ne 0 ]]; then
+              printf '%s\n' 'POST_CONTRACT_ACTIVE_WORKER_CHANGED' >&2
+            else
+              printf '%s\n' 'POST_CONTRACT_COMPATIBLE_WORKERS_PRESERVED' >&2
+            fi
+            printf '%s\n' 'PREVIEW_CONTRACT_OPERATOR_RECOVERY_REQUIRED' >&2
+            exit 1
+          fi
+
           rollback_failed=0
           rollback_worker werehere-hotel-web-preview \
             "$WEB_PREVIOUS" "$WEB_EXISTED" "$WEB_DEPLOY_OUTCOME" "$WEB_DEPLOYED" \

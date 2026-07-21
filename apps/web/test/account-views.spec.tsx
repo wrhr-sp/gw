@@ -224,7 +224,9 @@ describe("account administration views", () => {
     expect(initialPasswordFormSource).toContain("tabIndex={-1}");
     expect(initialPasswordFormSource).toContain("fieldError");
     expect(initialPasswordFormSource).toContain("fieldErrors.find(");
-    expect(initialPasswordFormSource).toContain('error.field === "newPassword"');
+    expect(initialPasswordFormSource).toContain(
+      'error.field === "newPassword"',
+    );
     expect(initialPasswordFormSource).toContain("setFormError(null)");
     expect(initialPasswordFormSource).toContain("idempotency-key");
     expect(html.match(/type="password"/g)).toHaveLength(2);
@@ -287,6 +289,24 @@ describe("account administration views", () => {
     expect(initialPasswordFormSource).toContain("aria-describedby");
     expect(initialPasswordFormSource).toContain(
       "confirmationRef.current?.focus()",
+    );
+  });
+
+  it("keeps a server new-password error owned by only that field", () => {
+    expect(initialPasswordFormSource).toMatch(
+      /setFieldError\(\{[\s\S]+clearOn: "newPassword",[\s\S]+target: "newPassword",[\s\S]+\}\)/u,
+    );
+    expect(initialPasswordFormSource).toContain(
+      'id="initial-password-new-error"',
+    );
+    expect(initialPasswordFormSource).toContain(
+      'id="initial-password-confirmation-error"',
+    );
+    expect(initialPasswordFormSource).not.toContain(
+      'id="initial-password-field-error"',
+    );
+    expect(initialPasswordFormSource).toMatch(
+      /setConfirmation\([\s\S]+if \(fieldError\?\.clearOn === "either"\)/u,
     );
   });
 

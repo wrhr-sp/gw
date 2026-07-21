@@ -598,6 +598,46 @@ try {
   }
   await sql`delete from auth_login_transactions where redirect_uri = 'https://capacity.example.test/callback'`;
 
+  await sql`alter table auth_identities drop constraint auth_identities_provider_provider_subject_key`;
+  await sql`
+    update auth_identities
+    set provider_subject = 'subject-1'
+    where provider = 'ZITADEL' and provider_subject = 'subject-2'
+  `;
+  let duplicateIdentityCode = "";
+  try {
+    await repository.createSession({
+      absoluteLifetimeSeconds: 86_400,
+      authTime: new Date(),
+      idleLifetimeSeconds: 28_800,
+      sessionId: crypto.randomUUID(),
+      tokenHash: encode("32".repeat(32)),
+      traceId: crypto.randomUUID(),
+      providerSubject: "subject-1",
+    });
+  } catch (error) {
+    duplicateIdentityCode =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+  } finally {
+    await sql`
+      update auth_identities
+      set provider_subject = 'subject-2'
+      where id = '30000000-0000-0000-0000-000000000002'::uuid
+    `;
+    await sql`
+      alter table auth_identities
+      add constraint auth_identities_provider_provider_subject_key
+      unique (provider, provider_subject)
+    `;
+  }
+  if (duplicateIdentityCode !== "21000") {
+    throw new Error(
+      `duplicate provider identity was not rejected with 21000: ${duplicateIdentityCode || "NO_ERROR"}`,
+    );
+  }
+
   const tokenHash = encode("33".repeat(32));
   const created = await repository.createSession({
     absoluteLifetimeSeconds: 86_400,

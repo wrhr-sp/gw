@@ -22,13 +22,17 @@ GRANT EXECUTE ON FUNCTION reconciliation_company_ids(), runtime_is_schema_owner(
   runtime_has_capability(text), api_current_company_id(), reconciler_current_company_id(),
   jsonb_reject_plaintext_password_keys(jsonb)
   TO gw_runtime_probe;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO gw_runtime_probe;
-REVOKE ALL ON reconciliation_company_registry FROM gw_runtime_probe;
-GRANT INSERT ON users, auth_identities, audit_events, outbox_jobs,
-  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM gw_runtime_probe;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM gw_runtime_probe;
+GRANT SELECT ON account_provisioning_attempts, auth_identities, branches, companies,
+  hotel_owner_assignments, hotel_profiles, hotel_staff_assignments,
+  housekeeping_hotel_links, outbox_jobs, permissions,
+  runtime_database_capabilities, schema_migrations, users
+  TO gw_runtime_probe;
+GRANT INSERT ON audit_events, auth_identities, hotel_owner_assignments,
+  hotel_staff_assignments, housekeeping_hotel_links, outbox_jobs, users
   TO gw_runtime_probe;
 GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO gw_runtime_probe;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO gw_runtime_probe;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('gw_runtime_probe', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
