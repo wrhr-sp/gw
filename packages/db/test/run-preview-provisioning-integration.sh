@@ -24,6 +24,7 @@ drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
+drop role if exists preview_stale_function_grantee;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -45,6 +46,7 @@ drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
+drop role if exists preview_stale_function_grantee;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
@@ -383,6 +385,88 @@ assert_readiness() {
 }
 
 assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant create on schema public to werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke create on schema public from werehere_preview_api_runtime' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create sequence public.preview_runtime_acl_damage_seq;
+grant usage on sequence public.preview_runtime_acl_damage_seq
+  to werehere_preview_api_runtime;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke all on sequence public.preview_runtime_acl_damage_seq
+  from werehere_preview_api_runtime;
+drop sequence public.preview_runtime_acl_damage_seq;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+grant execute on function public.reconciliation_company_ids()
+  to werehere_preview_reconciler with grant option;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke grant option for execute on function public.reconciliation_company_ids()
+  from werehere_preview_reconciler cascade;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_stale_function_grantee nologin noinherit;
+grant execute on function public.reconciliation_company_ids()
+  to preview_stale_function_grantee;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke execute on function public.reconciliation_company_ids()
+  from preview_stale_function_grantee;
+drop role preview_stale_function_grantee;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+insert into public.runtime_database_capabilities (role_name, capability)
+values ('preview_stale_capability', 'API_RUNTIME');
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from public.runtime_database_capabilities
+where role_name = 'preview_stale_capability';
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.users_login_name_unique_idx;
+create unique index users_login_name_unique_idx
+  on public.users (company_id, lower(btrim(login_name)))
+  where false;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.users_login_name_unique_idx;
+create unique index users_login_name_unique_idx
+  on public.users (company_id, lower(btrim(login_name)))
+  where login_name is not null;
+SQL
+assert_readiness READY
+
+LEGACY_AUTH_FUNCTION="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select to_regprocedure(
+  'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)'
+) is null;
+SQL
+)"
+if [[ "$LEGACY_AUTH_FUNCTION" != 't' ]]; then
+  printf '%s\n' 'Contract retained the legacy auth_create_session function.' >&2
+  exit 1
+fi
+
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'grant delete on public.users to werehere_preview_api_runtime' >/dev/null
 assert_readiness SCHEMA_NOT_READY

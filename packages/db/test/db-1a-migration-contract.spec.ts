@@ -220,6 +220,9 @@ describe("DB-1A auth v2 and tenant authority contracts", () => {
     const replaceFunction = migration8.indexOf(
       "create or replace function public.auth_create_session_v2",
     );
+    const dropLegacyFunction = migration8.indexOf(
+      "drop function public.auth_create_session(",
+    );
     const resetRole = migration8.indexOf("reset role");
     const revokeSchemaCreate = migration8.indexOf(
       "revoke create on schema public from werehere_auth_session_definer",
@@ -231,7 +234,8 @@ describe("DB-1A auth v2 and tenant authority contracts", () => {
     expect(grantSchemaCreate).toBeGreaterThan(grantMembership);
     expect(setOwnerRole).toBeGreaterThan(grantSchemaCreate);
     expect(replaceFunction).toBeGreaterThan(setOwnerRole);
-    expect(resetRole).toBeGreaterThan(replaceFunction);
+    expect(dropLegacyFunction).toBeGreaterThan(replaceFunction);
+    expect(resetRole).toBeGreaterThan(dropLegacyFunction);
     expect(revokeSchemaCreate).toBeGreaterThan(resetRole);
     expect(revokeMembership).toBeGreaterThan(revokeSchemaCreate);
   });

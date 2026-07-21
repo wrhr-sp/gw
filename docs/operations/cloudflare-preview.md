@@ -73,14 +73,21 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 3. advisory lock을 획득한다.
 4. `EXPAND`에서는 additive·기존 Worker 호환 migration만 적용하고 destructive contract migration `0008`은 제외한다.
 5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
+   - API·reconciler·Web Worker가 모두 존재하면 smoke를 실행한다.
+   - 세 Worker가 모두 없으면 최초 배포로 진행한다.
+   - 일부만 존재하면 부분 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
 6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`을 적용해 legacy tenant authority와 broad ACL을 제거한다.
 7. 승인된 subject fingerprint·organization·고정 approval 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 canonical row 전체 값으로 멱등 연결한다.
 8. bootstrap audit의 tenant·actor·resource·fingerprint·approval·trace 전체 값이 정본과 다르면 성공으로 처리하지 않는다.
 9. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
 10. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. registry table 직접 권한은 두 role 모두 거부한다.
-11. 각 runtime role의 table ACL을 capability별 exact allowlist와 비교하고 예상 밖 권한, `PUBLIC`, `WITH GRANT OPTION`을 거부한다.
-12. SECURITY DEFINER의 owner·`search_path=pg_catalog`·source fingerprint·direct execute allowlist를 검증하고 grantable execute를 거부한다.
+11. 각 runtime role의 table·schema·sequence ACL을 capability별 exact allowlist와 비교하고 예상 밖 권한, `PUBLIC`, `WITH GRANT OPTION`을 거부한다.
+12. SECURITY DEFINER의 owner·`search_path=pg_catalog`·source fingerprint·direct execute allowlist를 검증하고 grantable execute와 stale named grantee를 거부한다.
 13. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
+
+- `EXPAND`는 신규 API 1개·reconciler 1개와 정확한 `werehere_preview_runtime:API_RUNTIME` 1개만 선택적으로 허용한다.
+- `CONTRACT`는 신규 API 1개·reconciler 1개만 허용하고 legacy capability와 legacy `auth_create_session()` 함수가 0건이어야 한다.
+
 14. 두 runtime URL은 권한 `0600` 임시 파일로만 각 Hyperdrive 단계에 전달한다.
 
 DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
@@ -139,15 +146,15 @@ Web 200
 ```text
 승인된 Preview bootstrap subject로 DB-backed 관리자 session 생성
 -> USER_CREATE-scoped eligible hotel 조회
--> 실제 API로 Preview 검증 계정 생성
--> PostgreSQL detail 재조회
+-> 실제 API로 하우스키핑 계정과 서로 다른 호텔 2개 배정 생성
+-> PostgreSQL detail에서 이름·로그인·이메일·사용자유형·canonical 호텔 목록 재조회
 -> 새 사용자 DB session에서 최초 비밀번호 변경
 -> ZITADEL credential session 생성·주체·organization 재조회
 -> 관리자 API로 사용자 비활성화
 -> PostgreSQL INACTIVE, ZITADEL INACTIVE, 활성 DB session 0 재조회
 ```
 
-검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. 실패 중 생성된 계정도 가능한 경우 비활성화하고, 삭제하거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
+검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. 실패 중 생성된 계정은 reconciler DB에서 최신 version을 재조회해 비활성화하고 PostgreSQL·ZITADEL의 `INACTIVE` 상태를 다시 확인한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
 
 ## Rollback
 

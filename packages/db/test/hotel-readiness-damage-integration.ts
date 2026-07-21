@@ -281,7 +281,7 @@ async function verifyRlsNotForced(table: string) {
 }
 
 const authFunctionSignature =
-  "public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)";
+  "public.auth_create_session_v2(uuid,bytea,text,integer,integer,timestamptz,uuid)";
 
 async function verifyAuthFunctionPublicExecuteDamage() {
   await sql.unsafe(
@@ -455,7 +455,7 @@ try {
   await verifyAuthFunctionGrantOptionDamage();
   await verifyAuthFunctionOwnerDamage();
   await verifyAuthFunctionBodyDamage(
-    "if v_principal.user_status <> 'ACTIVE' or v_principal.company_status <> 'ACTIVE' then",
+    "if v_principal.user_status not in ('ACTIVE', 'PENDING_SETUP')\n     or v_principal.company_status <> 'ACTIVE' then",
     "if false then",
     "control-flow",
   );

@@ -210,6 +210,22 @@ jobs:
           snapshot reconciler werehere-hotel-account-reconciler-preview
           snapshot web werehere-hotel-web-preview
 
+      - name: Validate Preview Worker snapshot topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${{ steps.worker_snapshot.outputs.api_existed }}"
+          reconciler="${{ steps.worker_snapshot.outputs.reconciler_existed }}"
+          web="${{ steps.worker_snapshot.outputs.web_existed }}"
+          if [[ "$api" == "true" && "$reconciler" == "true" && "$web" == "true" ]]; then
+            exit 0
+          fi
+          if [[ "$api" == "false" && "$reconciler" == "false" && "$web" == "false" ]]; then
+            exit 0
+          fi
+          printf '%s\n' 'Preview Worker topology is partial; refusing release.' >&2
+          exit 1
+
       - name: Expand Neon Preview database for compatible Worker deploy
         env:
           PREVIEW_PROVISION_PHASE: EXPAND
@@ -224,7 +240,7 @@ jobs:
         run: pnpm exec tsx packages/db/scripts/provision-preview.ts
 
       - name: Verify previous Workers remain compatible after expand
-        if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
+        if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.reconciler_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
         id: expand_compatibility_smoke
         run: |
           node scripts/smoke-cloudflare-preview.mjs

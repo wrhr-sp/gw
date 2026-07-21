@@ -48,13 +48,17 @@ const cookieName = "__Host-hotel_session";
 const runSuffix = `${runId}-${runAttempt}`.replace(/[^A-Za-z0-9-]/gu, "-");
 const loginName = `preview-smoke-${runSuffix}`.slice(0, 100);
 const email = `${loginName}@werehere.invalid`;
+const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
+const assignmentStartDate = new Date().toISOString().slice(0, 10);
 const initialPassword = `preview-a1!-${randomBytes(18).toString("base64url")}`;
 const changedPassword = `changed-a1!-${randomBytes(18).toString("base64url")}`;
 let adminToken;
+let adminPrincipal;
 let account;
 let providerSubject;
 let providerVerificationSession;
 let accountDeactivated = false;
+let journeyError;
 
 function tokenHash(token) {
   return createHash("sha256").update(token, "utf8").digest();
@@ -176,6 +180,22 @@ async function providerSubjectFor(companyId, userId) {
   });
 }
 
+async function accountCleanupState(companyId, userId) {
+  return reconcilerSql.begin(async (sql) => {
+    await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
+    const rows = await sql`
+      select version, status
+      from public.users
+      where company_id = ${companyId}::uuid
+        and id = ${userId}::uuid
+    `;
+    if (rows.length !== 1 || !Number.isInteger(rows[0]?.version)) {
+      throw new Error("Preview account cleanup state read-back failed");
+    }
+    return rows[0];
+  });
+}
+
 async function activeSessionCount(sessionId, companyId, userId) {
   return apiSql.begin(async (sql) => {
     await sql`select set_config('app.session_id', ${sessionId}, true)`;
@@ -195,36 +215,40 @@ async function activeSessionCount(sessionId, companyId, userId) {
 try {
   const adminSession = await createSession(bootstrapSubject);
   adminToken = adminSession.token;
+  adminPrincipal = adminSession.principal;
 
   let eligible = await api("/api/admin/users/eligible-hotels", {
     token: adminToken,
   });
-  let hotelId = eligible?.data?.hotels?.[0]?.id;
-  if (!hotelId) {
-    const hotel = await api("/api/hotels", {
+  let eligibleHotels = eligible?.data?.hotels ?? [];
+  for (let slot = eligibleHotels.length; slot < 2; slot += 1) {
+    const hotelNumber = slot + 1;
+    await api("/api/hotels", {
       method: "POST",
       token: adminToken,
-      idempotencyKey: "preview-account-smoke-hotel-v1",
+      idempotencyKey: `preview-account-smoke-hotel-v${hotelNumber}`,
       expectedStatuses: [200, 201],
       body: {
-        branchCode: "PREVIEW_SMOKE",
-        name: "Preview 계정검증 호텔",
-        roadAddress: "서울특별시 중구 세종대로 1",
+        branchCode: `PREVIEW_SMOKE_${hotelNumber}`,
+        name: `Preview 계정검증 호텔 ${hotelNumber}`,
+        roadAddress: `서울특별시 중구 세종대로 ${hotelNumber}`,
         detailAddress: "",
-        representativePhone: "02-1234-5678",
+        representativePhone: `02-1234-567${hotelNumber}`,
         contractStartDate: "2026-01-01",
         contractEndDate: "2099-12-31",
       },
     });
-    hotelId = hotel?.data?.hotel?.id;
     eligible = await api("/api/admin/users/eligible-hotels", {
       token: adminToken,
     });
-    if (
-      !eligible?.data?.hotels?.some((hotelValue) => hotelValue.id === hotelId)
-    ) {
-      throw new Error("Preview smoke hotel was not available to USER_CREATE");
-    }
+    eligibleHotels = eligible?.data?.hotels ?? [];
+  }
+  const hotelIds = eligibleHotels
+    .slice(0, 2)
+    .map((hotel) => hotel.id)
+    .sort();
+  if (hotelIds.length !== 2 || new Set(hotelIds).size !== 2) {
+    throw new Error("Preview smoke requires two distinct eligible hotels");
   }
 
   const created = await api("/api/admin/users", {
@@ -233,21 +257,29 @@ try {
     idempotencyKey: `preview-account-create-${runSuffix}`,
     expectedStatuses: [200, 201],
     body: {
-      displayName: `Preview 검증 ${runSuffix}`.slice(0, 100),
+      displayName,
       loginName,
       email,
-      userType: "INTERNAL_STAFF",
-      hotelId,
-      assignmentStartDate: new Date().toISOString().slice(0, 10),
+      userType: "HOUSEKEEPING",
+      hotelIds,
+      assignmentStartDate,
       reason: "Preview release 실제 계정 흐름 검증",
       initialPassword,
     },
   });
   account = created?.data?.account;
+  const createdHotelIds = (account?.hotels ?? [])
+    .map((hotel) => hotel.id)
+    .sort();
   if (
     !account?.id ||
     account.status !== "PENDING_SETUP" ||
-    account.loginName !== loginName
+    account.displayName !== displayName ||
+    account.loginName !== loginName ||
+    account.email !== email ||
+    account.userType !== "HOUSEKEEPING" ||
+    account.hotelId !== null ||
+    JSON.stringify(createdHotelIds) !== JSON.stringify(hotelIds)
   ) {
     throw new Error("Created Preview account response was invalid");
   }
@@ -258,9 +290,20 @@ try {
       token: adminToken,
     },
   );
+  const detailAccount = detail?.data?.account;
+  const detailHotelIds = (detailAccount?.hotels ?? [])
+    .map((hotel) => hotel.id)
+    .sort();
   if (
-    detail?.data?.account?.id !== account.id ||
-    detail.data.account.version !== account.version
+    detailAccount?.id !== account.id ||
+    detailAccount.version !== account.version ||
+    detailAccount.displayName !== displayName ||
+    detailAccount.loginName !== loginName ||
+    detailAccount.email !== email ||
+    detailAccount.userType !== "HOUSEKEEPING" ||
+    detailAccount.status !== "PENDING_SETUP" ||
+    detailAccount.hotelId !== null ||
+    JSON.stringify(detailHotelIds) !== JSON.stringify(hotelIds)
   ) {
     throw new Error("Created Preview account PostgreSQL GET read-back failed");
   }
@@ -389,8 +432,13 @@ try {
   });
 
   console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");
-} finally {
-  if (providerVerificationSession?.id && providerVerificationSession.token) {
+} catch (error) {
+  journeyError = error;
+}
+
+let cleanupFailed = false;
+if (providerVerificationSession?.id && providerVerificationSession.token) {
+  try {
     await provider(
       `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
       {
@@ -399,21 +447,71 @@ try {
         acceptableStatuses: [200, 204, 404],
         body: { sessionToken: providerVerificationSession.token },
       },
-    ).catch(() => undefined);
+    );
+  } catch {
+    cleanupFailed = true;
   }
-  if (account?.id && adminToken && !accountDeactivated) {
-    await api(`/api/admin/users/${encodeURIComponent(account.id)}/deactivate`, {
-      method: "POST",
-      token: adminToken,
-      idempotencyKey: `preview-account-cleanup-${runSuffix}`,
-      body: {
-        version: account.version,
-        reason: "Preview release 실패 검증 계정 정리",
-      },
-    }).catch(() => undefined);
+}
+if (
+  account?.id &&
+  adminToken &&
+  adminPrincipal?.companyId &&
+  !accountDeactivated
+) {
+  try {
+    let cleanupState;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      cleanupState = await accountCleanupState(
+        adminPrincipal.companyId,
+        account.id,
+      );
+      if (cleanupState.status === "INACTIVE") break;
+      try {
+        await api(
+          `/api/admin/users/${encodeURIComponent(account.id)}/deactivate`,
+          {
+            method: "POST",
+            token: adminToken,
+            idempotencyKey: `preview-account-cleanup-${runSuffix}`,
+            body: {
+              version: cleanupState.version,
+              reason: "Preview release 실패 검증 계정 정리",
+            },
+          },
+        );
+      } catch {
+        if (attempt === 2) throw new Error("cleanup deactivate failed");
+      }
+    }
+    cleanupState = await accountCleanupState(
+      adminPrincipal.companyId,
+      account.id,
+    );
+    if (cleanupState.status !== "INACTIVE") {
+      throw new Error("cleanup database state remained active");
+    }
+    if (providerSubject) {
+      const providerUser = await provider(
+        `/v2/users/${encodeURIComponent(providerSubject)}`,
+      );
+      if (providerUser?.user?.state !== "USER_STATE_INACTIVE") {
+        throw new Error("cleanup provider state remained active");
+      }
+    }
+    accountDeactivated = true;
+  } catch {
+    cleanupFailed = true;
   }
+}
+try {
   await Promise.all([
     apiSql.end({ timeout: 2 }),
     reconcilerSql.end({ timeout: 2 }),
   ]);
+} catch {
+  cleanupFailed = true;
 }
+if (cleanupFailed) {
+  throw new Error("PREVIEW_ACCOUNT_CLEANUP_FAILED");
+}
+if (journeyError) throw journeyError;

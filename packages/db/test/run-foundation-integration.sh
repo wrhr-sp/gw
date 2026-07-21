@@ -69,6 +69,21 @@ $revoke$;
 commit;
 SQL
 }
+
+assert_legacy_auth_removed() {
+  local admin_url="$1"
+  local removed
+  removed="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select to_regprocedure(
+  'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)'
+) is null;
+SQL
+)"
+  if [[ "$removed" != "t" ]]; then
+    printf '%s\n' 'Contract retained the legacy auth_create_session function.' >&2
+    return 1
+  fi
+}
 MIGRATION="$ROOT_DIR/packages/db/migrations/0001_platform_foundation.sql"
 AUTH_MIGRATION="$ROOT_DIR/packages/db/migrations/0002_auth_session_runtime.sql"
 HOTEL_MIGRATION="$ROOT_DIR/packages/db/migrations/0003_hotel_basic_information.sql"
@@ -143,6 +158,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$TENANT_AUTHORITY_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null
+  assert_legacy_auth_removed "$TEST_DATABASE_URL"
   PROBE_URL="$(configure_runtime_probe_role "$TEST_DATABASE_URL")"
   register_owner_api_capability "$TEST_DATABASE_URL"
   RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$TEST_SQL")"
@@ -259,6 +275,7 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null
 ADMIN_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
+assert_legacy_auth_removed "$ADMIN_URL"
 PROBE_URL="$(configure_runtime_probe_role "$ADMIN_URL")"
 register_owner_api_capability "$ADMIN_URL"
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -h "$SOCKET_DIR" -p "$PORT" -U postgres \

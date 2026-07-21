@@ -251,8 +251,11 @@ async function updateLocalCiDefinerMembership(
 }
 
 try {
-  const [migrationOwnerIdentity] = await owner<{ role_name: string }[]>`
-    select current_user as role_name
+  const [migrationOwnerIdentity] = await owner<
+    { role_identifier: string; role_name: string }[]
+  >`
+    select current_user as role_name,
+           format('%I', current_user) as role_identifier
   `;
   if (!migrationOwnerIdentity)
     fail("Preview migration owner identity is unavailable");
@@ -765,11 +768,25 @@ try {
   )
     fail("Preview runtime capability registration failed");
 
-  const [legacyRuntimeState] = await owner<{ exists: boolean }[]>`
+  const [legacyRuntimeState] = await owner<
+    { compatible_capability: boolean; exists: boolean }[]
+  >`
     select exists(
-      select 1 from pg_roles where rolname = 'werehere_preview_runtime'
-    ) as exists
+             select 1 from pg_roles where rolname = 'werehere_preview_runtime'
+           ) as exists,
+           exists(
+             select 1
+             from public.runtime_database_capabilities
+             where role_name = 'werehere_preview_runtime'
+               and capability = 'API_RUNTIME'
+           ) as compatible_capability
   `;
+  const legacyCompatibilityGrant =
+    !contractPhase &&
+    legacyRuntimeState?.exists &&
+    legacyRuntimeState.compatible_capability
+      ? ", werehere_preview_runtime"
+      : "";
   const legacyPolicyGrant =
     contractPhase && legacyRuntimeState?.exists
       ? ", werehere_preview_runtime"
@@ -786,8 +803,10 @@ try {
   await owner.unsafe(`
     revoke all privileges on all tables in schema public from ${apiRuntimeRole};
     revoke all privileges on all tables in schema public from ${reconcilerRole};
-    revoke create on schema public from ${apiRuntimeRole};
-    revoke create on schema public from ${reconcilerRole};
+    revoke all privileges on all sequences in schema public from ${apiRuntimeRole};
+    revoke all privileges on all sequences in schema public from ${reconcilerRole};
+    revoke all on schema public from ${apiRuntimeRole};
+    revoke all on schema public from ${reconcilerRole};
     grant usage on schema public to ${apiRuntimeRole};
     grant usage on schema public to ${reconcilerRole};
     grant execute on function public.jsonb_reject_plaintext_password_keys(jsonb)
@@ -835,15 +854,51 @@ try {
     await sql.unsafe(authDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_auth_session_definer");
     await sql.unsafe(`
+      do $exact_auth_acl$
+      declare
+        acl_record record;
+      begin
+        for acl_record in
+          select procedure_record.oid::regprocedure::text as signature,
+                 grantee_role.rolname as grantee
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+          join pg_catalog.pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where procedure_namespace.nspname = 'public'
+            and procedure_record.proname in (
+              'auth_create_session_v2',
+              'auth_resolve_principal_v2',
+              'auth_revoke_session_v2',
+              'auth_revoke_user_sessions_v1'
+            )
+            and acl.privilege_type = 'EXECUTE'
+            and acl.grantee <> procedure_record.proowner
+        loop
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from %I cascade',
+            acl_record.signature,
+            acl_record.grantee
+          );
+        end loop;
+      end
+      $exact_auth_acl$;
+      revoke all privileges on function public.auth_create_session_v2(
+        uuid, bytea, text, integer, integer, timestamptz, uuid
+      ), public.auth_resolve_principal_v2(bytea, integer),
+        public.auth_revoke_session_v2(bytea, text, uuid),
+        public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from public;
       revoke grant option for execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ), public.auth_resolve_principal_v2(bytea, integer),
         public.auth_revoke_session_v2(bytea, text, uuid),
         public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         from ${apiRuntimeRole}, ${reconcilerRole} cascade;
-      revoke execute on function public.auth_create_session(
-        uuid, bytea, text, integer, integer, timestamptz, uuid
-      ) from ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) to ${apiRuntimeRole};
@@ -865,9 +920,6 @@ try {
       ${
         contractPhase && legacyRuntimeState?.exists
           ? `
-      revoke execute on function public.auth_create_session(
-        uuid, bytea, text, integer, integer, timestamptz, uuid
-      ) from werehere_preview_runtime;
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from werehere_preview_runtime;
@@ -892,19 +944,64 @@ try {
     await sql.unsafe(tenantDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_tenant_authority_definer");
     await sql.unsafe(`
+      do $exact_tenant_acl$
+      declare
+        acl_record record;
+      begin
+        for acl_record in
+          select procedure_record.oid::regprocedure::text as signature,
+                 grantee_role.rolname as grantee
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+          join pg_catalog.pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where procedure_namespace.nspname = 'public'
+            and procedure_record.proname in (
+              'runtime_is_schema_owner',
+              'runtime_has_capability',
+              'api_current_company_id',
+              'reconciler_current_company_id',
+              'sync_reconciliation_company_registry',
+              'reconciliation_company_ids'
+            )
+            and acl.privilege_type = 'EXECUTE'
+            and acl.grantee <> procedure_record.proowner
+        loop
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from %I cascade',
+            acl_record.signature,
+            acl_record.grantee
+          );
+        end loop;
+      end
+      $exact_tenant_acl$;
+      revoke all privileges on function public.runtime_is_schema_owner(),
+        public.runtime_has_capability(text), public.api_current_company_id(),
+        public.reconciler_current_company_id(),
+        public.sync_reconciliation_company_registry(),
+        public.reconciliation_company_ids()
+        from public;
       revoke grant option for execute on function public.runtime_is_schema_owner(),
         public.runtime_has_capability(text), public.api_current_company_id(),
         public.reconciler_current_company_id(), public.reconciliation_company_ids()
         from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       grant select on public.runtime_database_capabilities
         to ${apiRuntimeRole}, ${reconcilerRole};
+      grant execute on function public.runtime_is_schema_owner(),
+        public.runtime_has_capability(text), public.api_current_company_id(),
+        public.reconciler_current_company_id()
+        to werehere_auth_session_definer, ${migrationOwnerIdentity.role_identifier};
       grant execute on function public.runtime_is_schema_owner()
-        to ${apiRuntimeRole}, ${reconcilerRole};
+        to ${apiRuntimeRole}, ${reconcilerRole}${legacyCompatibilityGrant};
       grant execute on function public.runtime_has_capability(text)
-        to ${apiRuntimeRole}, ${reconcilerRole};
+        to ${apiRuntimeRole}, ${reconcilerRole}${legacyCompatibilityGrant};
       grant execute on function public.api_current_company_id(),
         public.reconciler_current_company_id()
-        to ${apiRuntimeRole}, ${reconcilerRole};
+        to ${apiRuntimeRole}, ${reconcilerRole}${legacyCompatibilityGrant};
       grant execute on function public.reconciliation_company_ids() to ${reconcilerRole};
       revoke execute on function public.reconciliation_company_ids() from ${apiRuntimeRole};
       ${
@@ -1067,7 +1164,9 @@ try {
     requiredSchemaPhase: provisionPhase,
   });
   if (apiReadiness.status !== "READY") {
-    fail(`Preview API runtime readiness failed: ${apiReadiness.status}`);
+    fail(
+      `Preview API runtime readiness failed in ${provisionPhase}: ${apiReadiness.status}`,
+    );
   }
   const reconcilerReadiness = await probeDatabaseReadiness(
     reconcilerUrl.toString(),

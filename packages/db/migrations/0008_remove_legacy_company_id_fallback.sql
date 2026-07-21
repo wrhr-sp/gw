@@ -142,6 +142,10 @@ begin
 end
 $function$;
 
+drop function public.auth_create_session(
+  uuid, bytea, text, integer, integer, timestamptz, uuid
+);
+
 reset role;
 revoke create on schema public from werehere_auth_session_definer;
 

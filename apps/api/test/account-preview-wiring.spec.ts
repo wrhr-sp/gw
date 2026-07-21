@@ -70,6 +70,22 @@ describe("Preview account provisioning wiring", () => {
     );
   });
 
+  it("fails closed when only part of the Preview Worker topology exists", () => {
+    expect(workflow).toContain("Validate Preview Worker snapshot topology");
+    expect(workflow).toContain(
+      "Preview Worker topology is partial; refusing release.",
+    );
+    expect(workflow).toContain(
+      'if [[ "$api" == "true" && "$reconciler" == "true" && "$web" == "true" ]]',
+    );
+    expect(workflow).toContain(
+      'if [[ "$api" == "false" && "$reconciler" == "false" && "$web" == "false" ]]',
+    );
+    expect(workflow).toMatch(
+      /Verify previous Workers remain compatible after expand[\s\S]*api_existed == 'true'[\s\S]*reconciler_existed == 'true'[\s\S]*web_existed == 'true'/u,
+    );
+  });
+
   it("uses a stable protected-environment bootstrap approval reference", () => {
     expect(workflow).toContain(
       "PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}",

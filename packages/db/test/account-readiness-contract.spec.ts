@@ -16,10 +16,29 @@ describe("account administration readiness contract", () => {
     "users_email_unique_idx",
     "hotel_staff_assignments_active_primary_user_unique_idx",
     "hotel_staff_assignments_active_lookup_idx",
+    "account_provisioning_attempts_active_user_unique_idx",
+    "account_provisioning_recovery_idx",
     "initial_password_change_attempts_active_user_unique_idx",
     "account_provider_outbox_ready_idx",
   ])("requires critical index %s", (name) => {
     expect(source).toContain(`name: "${name}"`);
+  });
+
+  it("matches complete critical index definitions including partial predicates", () => {
+    expect(source).toContain(
+      "normalizeDefinition(index.definition) === required.definition",
+    );
+    expect(source).not.toContain("required.fragments.every");
+    for (const predicate of [
+      "where (login_name is not null)",
+      "where (email is not null)",
+      "assignment_type = 'primary'::text",
+      "reserved_not_dispatched",
+      "provider_updated",
+      "account_provider_deactivate",
+    ]) {
+      expect(source).toContain(predicate);
+    }
   });
 
   it("rejects privileged runtime roles that bypass tenant RLS", () => {
@@ -39,6 +58,9 @@ describe("account administration readiness contract", () => {
     );
     expect(source).toContain("row.grantable || row.public_grant");
     expect(source).toContain("acl.is_grantable");
+    expect(source).toContain("expectedSchemaPrivileges");
+    expect(source).toContain("sequence_record.relkind = 'S'");
+    expect(source).toContain("sequencePrivilegeRows.length !== 0");
     expect(accountSource).not.toMatch(/update\s+auth_sessions/iu);
     expect(accountSource).toContain("auth_revoke_user_sessions_v1");
   });
@@ -86,6 +108,8 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("runtime_has_capability");
     expect(source).toContain("api_current_company_id");
     expect(source).toContain("reconciler_current_company_id");
+    expect(source).toContain("sync_reconciliation_company_registry");
+    expect(source).toContain("reconciliation_company_ids");
     expect(source).toContain("werehere_tenant_authority_definer");
     expect(source).toContain("unexpected_execute_count");
     expect(source).toContain("public_execute");
@@ -98,5 +122,9 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("grantable_execute_count !== 0");
     expect(source).toContain("auth_identities_provider_provider_subject_key");
     expect(source).toContain("unique (provider, provider_subject)");
+    expect(source).toContain("legacy_api_count");
+    expect(source).toContain('schemaPhase === "EXPAND"');
+    expect(source).toContain('schemaPhase === "CONTRACT"');
+    expect(source).toContain("capabilityTopology.total_count === 3");
   });
 });

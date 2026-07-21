@@ -126,8 +126,20 @@ describe("Preview account Worker release safety", () => {
     const snapshotPosition = workflow.indexOf(
       "      - name: Snapshot active Worker versions\n",
     );
+    const topologyPosition = workflow.indexOf(
+      "      - name: Validate Preview Worker snapshot topology\n",
+    );
     const expandPosition = workflow.indexOf(
       "      - name: Expand Neon Preview database for compatible Worker deploy\n",
+    );
+    const compatibilityPosition = workflow.indexOf(
+      "      - name: Verify previous Workers remain compatible after expand\n",
+    );
+    const deployPosition = workflow.indexOf(
+      "      - name: Deploy private account reconciler Worker\n",
+    );
+    const preContractSmokePosition = workflow.indexOf(
+      "      - name: Verify public Preview path before contract\n",
     );
     const contractPosition = workflow.indexOf(
       "      - name: Contract Neon Preview tenant authority\n",
@@ -142,8 +154,12 @@ describe("Preview account Worker release safety", () => {
       "      - name: Verify hosted Preview account management journey\n",
     );
     expect(snapshotPosition).toBeGreaterThan(-1);
-    expect(expandPosition).toBeGreaterThan(snapshotPosition);
-    expect(contractPosition).toBeGreaterThan(expandPosition);
+    expect(topologyPosition).toBeGreaterThan(snapshotPosition);
+    expect(expandPosition).toBeGreaterThan(topologyPosition);
+    expect(compatibilityPosition).toBeGreaterThan(expandPosition);
+    expect(deployPosition).toBeGreaterThan(compatibilityPosition);
+    expect(preContractSmokePosition).toBeGreaterThan(deployPosition);
+    expect(contractPosition).toBeGreaterThan(preContractSmokePosition);
     expect(smokePosition).toBeGreaterThan(contractPosition);
     expect(accountSmokePosition).toBeGreaterThan(smokePosition);
     expect(baselinePosition).toBeGreaterThan(accountSmokePosition);

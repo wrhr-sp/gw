@@ -33,6 +33,14 @@ const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
     "reconciler_current_company_id",
     "a9bd3f9247c4fd30e4108b2ef60925bb0f1fb0f6db1f52151aa6a366f45f393a",
   ],
+  [
+    "sync_reconciliation_company_registry",
+    "a5b8ca91bdef9a2410095193b7490490bfabc26c6f73402d663724b79d3a2078",
+  ],
+  [
+    "reconciliation_company_ids",
+    "adc258a1aa7723d9524afb69a8a773d4190978e12d312aa89a433a2017df5bcb",
+  ],
 ]);
 
 async function sourceSha256(value: string) {
@@ -316,82 +324,63 @@ const REQUIRED_SECURITY_CHECK_CONSTRAINTS = [
 const REQUIRED_INDEXES = [
   {
     name: "branches_active_hotel_name_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.branches using btree (company_id, lower(btrim(name)))",
-      "where ((branch_type = 'hotel'::text) and (status = 'active'::text))",
-    ],
+    definition:
+      "create unique index branches_active_hotel_name_unique_idx on public.branches using btree (company_id, lower(btrim(name))) where ((branch_type = 'hotel'::text) and (status = 'active'::text))",
   },
   {
     name: "auth_login_transactions_browser_binding_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.auth_login_transactions using btree (browser_binding_hash)",
-    ],
+    definition:
+      "create unique index auth_login_transactions_browser_binding_unique_idx on public.auth_login_transactions using btree (browser_binding_hash)",
   },
   {
     name: "auth_login_transactions_custom_request_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.auth_login_transactions using btree (custom_auth_request_hash)",
-      "where (custom_auth_request_hash is not null)",
-    ],
+    definition:
+      "create unique index auth_login_transactions_custom_request_unique_idx on public.auth_login_transactions using btree (custom_auth_request_hash) where (custom_auth_request_hash is not null)",
   },
   {
     name: "auth_credential_rate_limits_expiry_idx",
-    fragments: [
-      "create index",
-      "on public.auth_credential_rate_limits using btree (expires_at)",
-    ],
+    definition:
+      "create index auth_credential_rate_limits_expiry_idx on public.auth_credential_rate_limits using btree (expires_at)",
   },
   {
     name: "users_login_name_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.users using btree (company_id, lower(btrim(login_name)))",
-    ],
+    definition:
+      "create unique index users_login_name_unique_idx on public.users using btree (company_id, lower(btrim(login_name))) where (login_name is not null)",
   },
   {
     name: "users_email_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.users using btree (company_id, lower(btrim(email)))",
-    ],
+    definition:
+      "create unique index users_email_unique_idx on public.users using btree (company_id, lower(btrim(email))) where (email is not null)",
   },
   {
     name: "hotel_staff_assignments_active_primary_user_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.hotel_staff_assignments using btree (company_id, user_id)",
-    ],
+    definition:
+      "create unique index hotel_staff_assignments_active_primary_user_unique_idx on public.hotel_staff_assignments using btree (company_id, user_id) where ((end_date is null) and (assignment_type = 'primary'::text))",
   },
   {
     name: "hotel_staff_assignments_active_lookup_idx",
-    fragments: [
-      "create index",
-      "on public.hotel_staff_assignments using btree (company_id, user_id, assignment_type, start_date desc)",
-    ],
+    definition:
+      "create index hotel_staff_assignments_active_lookup_idx on public.hotel_staff_assignments using btree (company_id, user_id, assignment_type, start_date desc) include (branch_id) where (end_date is null)",
+  },
+  {
+    name: "account_provisioning_attempts_active_user_unique_idx",
+    definition:
+      "create unique index account_provisioning_attempts_active_user_unique_idx on public.account_provisioning_attempts using btree (company_id, target_user_id) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_confirmed'::text, 'recovery_required'::text, 'compensation_required'::text]))",
   },
   {
     name: "account_provisioning_recovery_idx",
-    fragments: [
-      "create index",
-      "on public.account_provisioning_attempts using btree (company_id, status, lease_expires_at, updated_at)",
-    ],
+    definition:
+      "create index account_provisioning_recovery_idx on public.account_provisioning_attempts using btree (company_id, status, lease_expires_at, updated_at) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_confirmed'::text, 'recovery_required'::text, 'compensation_required'::text, 'operator_required'::text]))",
   },
   {
     name: "initial_password_change_attempts_active_user_unique_idx",
-    fragments: [
-      "create unique index",
-      "on public.initial_password_change_attempts using btree (company_id, user_id)",
-    ],
+    definition:
+      "create unique index initial_password_change_attempts_active_user_unique_idx on public.initial_password_change_attempts using btree (company_id, user_id) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_updated'::text, 'recovery_required'::text]))",
   },
   {
     name: "account_provider_outbox_ready_idx",
-    fragments: [
-      "create index",
-      "on public.outbox_jobs using btree (company_id, status, available_at, created_at)",
-    ],
+    definition:
+      "create index account_provider_outbox_ready_idx on public.outbox_jobs using btree (company_id, status, available_at, created_at) where ((job_type = any (array['account_provider_deactivate'::text, 'account_provider_compensate'::text])) and (status = any (array['pending'::text, 'failed'::text, 'processing'::text])))",
   },
 ] as const;
 
@@ -685,6 +674,29 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     }
 
+    const [legacyAuthFunction] = await sql<
+      { executable: boolean; exists: boolean }[]
+    >`
+      select
+        to_regprocedure(
+          'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)'
+        ) is not null as exists,
+        coalesce(has_function_privilege(
+          current_user,
+          to_regprocedure(
+            'public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)'
+          ),
+          'EXECUTE'
+        ), false) as executable
+    `;
+    if (
+      !legacyAuthFunction ||
+      (schemaPhase === "CONTRACT" && legacyAuthFunction.exists) ||
+      (schemaPhase === "EXPAND" && legacyAuthFunction.executable)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
     const [authFunction] = await sql<
       {
         executable: boolean;
@@ -947,6 +959,7 @@ export async function probeDatabaseReadiness(
 
     const tenantAuthorityFunctions = await sql<
       {
+        executable: boolean;
         function_name: string;
         grantable_execute_count: number;
         identity_arguments: string;
@@ -965,6 +978,9 @@ export async function probeDatabaseReadiness(
              procedure_record.prosecdef as security_definer,
              procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
              procedure_record.prosrc as source,
+             has_function_privilege(
+               current_user, procedure_record.oid, 'EXECUTE'
+             ) as executable,
              (
                procedure_owner.rolname = 'werehere_tenant_authority_definer'
                and not procedure_owner.rolcanlogin
@@ -1007,17 +1023,38 @@ export async function probeDatabaseReadiness(
                  and (
                    acl.grantee = 0
                    or grantee_role.rolname is null
-                   or (
-                     grantee_role.rolname <> 'werehere_auth_session_definer'
-                     and grantee_role.rolname <> pg_get_userbyid((
+                   or not (
+                     grantee_role.rolname = pg_get_userbyid((
                        select table_record.relowner
                        from pg_class table_record
                        join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
                        where table_namespace.nspname = 'public' and table_record.relname = 'companies'
                      ))
-                     and not exists (
-                       select 1 from public.runtime_database_capabilities capability_record
+                     or (
+                       grantee_role.rolname = 'werehere_auth_session_definer'
+                       and procedure_record.proname in (
+                         'runtime_is_schema_owner',
+                         'runtime_has_capability',
+                         'api_current_company_id',
+                         'reconciler_current_company_id'
+                       )
+                     )
+                     or exists (
+                       select 1
+                       from public.runtime_database_capabilities capability_record
                        where capability_record.role_name = grantee_role.rolname
+                         and (
+                           procedure_record.proname in (
+                             'runtime_is_schema_owner',
+                             'runtime_has_capability',
+                             'api_current_company_id',
+                             'reconciler_current_company_id'
+                           )
+                           or (
+                             procedure_record.proname = 'reconciliation_company_ids'
+                             and capability_record.capability = 'RECONCILER'
+                           )
+                         )
                      )
                    )
                  )
@@ -1030,7 +1067,9 @@ export async function probeDatabaseReadiness(
           'runtime_is_schema_owner',
           'runtime_has_capability',
           'api_current_company_id',
-          'reconciler_current_company_id'
+          'reconciler_current_company_id',
+          'sync_reconciliation_company_registry',
+          'reconciliation_company_ids'
         )
     `;
     const expectedTenantAuthorityFunctions = new Map([
@@ -1054,6 +1093,18 @@ export async function probeDatabaseReadiness(
         "reconciler_current_company_id",
         { arguments: "", result: "uuid", securityDefiner: true },
       ],
+      [
+        "sync_reconciliation_company_registry",
+        { arguments: "", result: "trigger", securityDefiner: true },
+      ],
+      [
+        "reconciliation_company_ids",
+        {
+          arguments: "",
+          result: "TABLE(company_id uuid)",
+          securityDefiner: true,
+        },
+      ],
     ]);
     if (
       tenantAuthorityFunctions.length !== expectedTenantAuthorityFunctions.size
@@ -1073,6 +1124,12 @@ export async function probeDatabaseReadiness(
         helper.identity_arguments !== expected.arguments ||
         helper.result_signature !== expected.result ||
         helper.security_definer !== expected.securityDefiner ||
+        helper.executable !==
+          (helper.function_name === "sync_reconciliation_company_registry"
+            ? false
+            : helper.function_name === "reconciliation_company_ids"
+              ? options.capability === "RECONCILER"
+              : true) ||
         !helper.safe_search_path ||
         !helper.owner_safe ||
         helper.public_execute ||
@@ -1091,6 +1148,43 @@ export async function probeDatabaseReadiness(
              public.runtime_has_capability(${options.capability === "API_RUNTIME" ? "RECONCILER" : "API_RUNTIME"}) as unexpected
     `;
     if (!capabilityIdentity?.expected || capabilityIdentity.unexpected) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [capabilityTopology] = await sql<
+      {
+        api_count: number;
+        legacy_api_count: number;
+        reconciler_count: number;
+        total_count: number;
+      }[]
+    >`
+      select count(*)::integer as total_count,
+             count(*) filter (where capability = 'API_RUNTIME')::integer as api_count,
+             count(*) filter (where capability = 'RECONCILER')::integer as reconciler_count,
+             count(*) filter (
+               where role_name = 'werehere_preview_runtime'
+                 and capability = 'API_RUNTIME'
+             )::integer as legacy_api_count
+      from public.runtime_database_capabilities
+    `;
+    const expandTopologyReady =
+      schemaPhase === "EXPAND" &&
+      capabilityTopology &&
+      capabilityTopology.reconciler_count === 1 &&
+      ((capabilityTopology.total_count === 2 &&
+        capabilityTopology.api_count === 1 &&
+        capabilityTopology.legacy_api_count === 0) ||
+        (capabilityTopology.total_count === 3 &&
+          capabilityTopology.api_count === 2 &&
+          capabilityTopology.legacy_api_count === 1));
+    const contractTopologyReady =
+      schemaPhase === "CONTRACT" &&
+      capabilityTopology?.total_count === 2 &&
+      capabilityTopology.api_count === 1 &&
+      capabilityTopology.reconciler_count === 1 &&
+      capabilityTopology.legacy_api_count === 0;
+    if (!expandTopologyReady && !contractTopologyReady) {
       return { status: "SCHEMA_NOT_READY" };
     }
 
@@ -1138,6 +1232,55 @@ export async function probeDatabaseReadiness(
       runtimeRole.role_member ||
       runtimeRole.table_owner
     ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const schemaPrivilegeRows = await sql<
+      { grantable: boolean; label: string }[]
+    >`
+      select
+        case when acl.grantee = 0::oid then 'PUBLIC' else 'CURRENT' end
+          || ':' || upper(acl.privilege_type) as label,
+        acl.is_grantable as grantable
+      from pg_namespace namespace_record
+      cross join lateral aclexplode(coalesce(
+        namespace_record.nspacl,
+        acldefault('n'::"char", namespace_record.nspowner)
+      )) acl
+      left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+      where namespace_record.nspname = 'public'
+        and (acl.grantee = 0::oid or grantee_role.rolname = current_user)
+    `;
+    const expectedSchemaPrivileges = new Set([
+      "CURRENT:USAGE",
+      ...(schemaPhase === "EXPAND" ? ["PUBLIC:USAGE"] : []),
+    ]);
+    if (
+      schemaPrivilegeRows.length !== expectedSchemaPrivileges.size ||
+      schemaPrivilegeRows.some(
+        (row) => row.grantable || !expectedSchemaPrivileges.has(row.label),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const sequencePrivilegeRows = await sql<
+      { grantable: boolean; label: string }[]
+    >`
+      select sequence_record.relname || ':' || upper(acl.privilege_type) as label,
+             acl.is_grantable as grantable
+      from pg_class sequence_record
+      join pg_namespace sequence_namespace on sequence_namespace.oid = sequence_record.relnamespace
+      cross join lateral aclexplode(coalesce(
+        sequence_record.relacl,
+        acldefault('S'::"char", sequence_record.relowner)
+      )) acl
+      left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+      where sequence_namespace.nspname = 'public'
+        and sequence_record.relkind = 'S'
+        and (acl.grantee = 0::oid or grantee_role.rolname = current_user)
+    `;
+    if (sequencePrivilegeRows.length !== 0) {
       return { status: "SCHEMA_NOT_READY" };
     }
 
@@ -1282,15 +1425,11 @@ export async function probeDatabaseReadiness(
     if (
       REQUIRED_INDEXES.some(
         (required) =>
-          !indexRows.some((index) => {
-            const definition = normalizeDefinition(index.definition);
-            return (
+          !indexRows.some(
+            (index) =>
               index.index_name === required.name &&
-              required.fragments.every((fragment) =>
-                definition.includes(fragment),
-              )
-            );
-          }),
+              normalizeDefinition(index.definition) === required.definition,
+          ),
       )
     ) {
       return { status: "SCHEMA_NOT_READY" };

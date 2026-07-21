@@ -249,10 +249,20 @@ test("최초 비밀번호 서버 오류는 입력에 연결되고 수정 시 해
       }),
     }),
   );
+  await page.setViewportSize({ width: 1440, height: 900 });
   const form = await mount(
-    <main>
-      <h1>최초 비밀번호 변경</h1>
-      <InitialPasswordForm />
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <section className="w-full max-w-md rounded-panel border border-border bg-surface p-6 shadow-sm md:p-8">
+        <p className="text-sm font-semibold text-primary">We’reHere 호텔관리</p>
+        <h1 className="mt-2 text-2xl font-bold text-text">
+          임시 비밀번호 변경
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Preview 검증 사용자님, 호텔관리 기능을 사용하기 전에 본인만 아는 새
+          비밀번호로 변경해 주세요.
+        </p>
+        <InitialPasswordForm />
+      </section>
     </main>,
   );
   const password = form.getByLabel("새 비밀번호", { exact: true });
@@ -271,6 +281,11 @@ test("최초 비밀번호 서버 오류는 입력에 연결되고 수정 시 해
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await expect(page).toHaveScreenshot("initial-password-server-error.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await expect(page).toHaveScreenshot(
+    "initial-password-server-error-mobile.png",
+  );
   await confirmation.fill("Changed-confirmation-123!");
   await expect(form.getByRole("alert")).toContainText(
     "비밀번호 정책을 확인해 주세요.",
