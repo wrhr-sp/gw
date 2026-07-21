@@ -21,6 +21,13 @@ describe("Preview account Worker release safety", () => {
     expect(step).toContain('(.result | type) == "array"');
     expect(step).toContain('(.result_info.total_pages | type) == "number"');
     expect(step).toContain(".result_info.total_pages == 1");
+    expect(step).toContain("and all(.result[];");
+    expect(step).toContain('(.name | type) == "string"');
+    expect(step).toContain('(.name | length) > 0');
+    expect(step).toContain('(.id | type) == "string"');
+    expect(step).toContain('(.id | length) > 0');
+    expect(step).toContain('if [[ "$count" -eq 0 ]]');
+    expect(step).toContain("id=\"$(jq -er --arg name \"$name\"");
     expect(step).toContain("if [[ \"$count\" -ne 1 ]]");
     expect(step).toContain("ensure_hyperdrive 'werehere-hotel-api-preview'");
     expect(step).not.toContain("ensure_hyperdrive 'werehere-hotel-preview'");

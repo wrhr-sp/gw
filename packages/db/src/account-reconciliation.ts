@@ -20,7 +20,7 @@ export type AccountCreateRecoveryJob = {
   actorUserId: string;
   idempotencyKey: string;
   leaseVersion: number;
-  status: "DISPATCHED" | "RECOVERY_REQUIRED" | "PROVIDER_CONFIRMED";
+  status: "DISPATCHED" | "RECOVERY_REQUIRED" | "PROVIDER_CONFIRMED" | "OPERATOR_REQUIRED";
   completionPayload: AccountCreateCompletionPayload;
 };
 
@@ -66,7 +66,14 @@ function mapJob(row: JobRow): AccountProviderJob {
 }
 
 function mapCreateRecovery(row: CreateRecoveryRow): AccountCreateRecoveryJob | null {
-  const parsed = accountCreateCompletionPayloadSchema.safeParse(row.completion_payload);
+  if (
+    !row.completion_payload
+    || typeof row.completion_payload !== "object"
+    || Array.isArray(row.completion_payload)
+  ) return null;
+  const { action, userId, ...completionPayload } = row.completion_payload as Record<string, unknown>;
+  if (action !== "CREATE" || userId !== row.target_user_id) return null;
+  const parsed = accountCreateCompletionPayloadSchema.safeParse(completionPayload);
   if (!parsed.success) return null;
   return {
     attemptId: row.id,
@@ -158,15 +165,43 @@ export function createPostgresAccountReconciliationRepository(
               select id
               from account_provisioning_attempts
               where company_id = ${company.id}
-                and expires_at > now()
-                and status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'PROVIDER_CONFIRMED')
+                and status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'PROVIDER_CONFIRMED', 'OPERATOR_REQUIRED')
                 and lease_expires_at <= now()
               order by updated_at, created_at, id
               for update skip locked
               limit ${remaining}
             )
             update account_provisioning_attempts attempt
-            set lease_expires_at = least(attempt.expires_at, now() + interval '5 minutes'),
+            set status = case
+                  when attempt.expires_at <= now()
+                    and attempt.status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'OPERATOR_REQUIRED')
+                    then 'OPERATOR_REQUIRED'
+                  else attempt.status
+                end,
+                operator_reason = case
+                  when attempt.expires_at <= now()
+                    and attempt.status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'OPERATOR_REQUIRED')
+                    then 'PROVIDER_NOT_FOUND_AFTER_GRACE'
+                  else attempt.operator_reason
+                end,
+                operator_required_at = case
+                  when attempt.expires_at <= now()
+                    and attempt.status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'OPERATOR_REQUIRED')
+                    then coalesce(attempt.operator_required_at, now())
+                  else attempt.operator_required_at
+                end,
+                lease_expires_at = case
+                  when attempt.expires_at <= now() and attempt.status = 'PROVIDER_CONFIRMED'
+                    then now() + interval '5 minutes'
+                  when attempt.expires_at <= now() then now() + interval '24 hours'
+                  else least(attempt.expires_at, now() + interval '5 minutes')
+                end,
+                expires_at = case
+                  when attempt.expires_at <= now() and attempt.status = 'PROVIDER_CONFIRMED'
+                    then now() + interval '5 minutes'
+                  when attempt.expires_at <= now() then now() + interval '24 hours'
+                  else attempt.expires_at
+                end,
                 attempt_count = attempt.attempt_count + 1,
                 updated_at = now()
             from claimable
@@ -202,11 +237,33 @@ export function createPostgresAccountReconciliationRepository(
         await transaction`select set_config('app.reconciler_company_id', ${job.companyId}, true)`;
         const updated = await transaction<{ id: string }[]>`
           update account_provisioning_attempts
-          set status = 'OPERATOR_REQUIRED', failure_code = 'PROVIDER_NOT_FOUND',
-              operator_reason = 'PROVIDER_NOT_FOUND', operator_required_at = now(),
+          set status = case
+                when status = 'OPERATOR_REQUIRED' or expires_at <= now() then 'OPERATOR_REQUIRED'
+                else 'RECOVERY_REQUIRED'
+              end,
+              failure_code = 'PROVIDER_NOT_VISIBLE',
+              recovery_required_at = coalesce(recovery_required_at, now()),
+              operator_reason = case
+                when status = 'OPERATOR_REQUIRED' or expires_at <= now() then 'PROVIDER_NOT_FOUND_AFTER_GRACE'
+                else null
+              end,
+              operator_required_at = case
+                when status = 'OPERATOR_REQUIRED' or expires_at <= now()
+                  then coalesce(operator_required_at, now())
+                else null
+              end,
+              lease_expires_at = case
+                when status = 'OPERATOR_REQUIRED' or expires_at <= now() then now() + interval '24 hours'
+                else least(expires_at, now() + interval '5 minutes')
+              end,
+              expires_at = case
+                when status = 'OPERATOR_REQUIRED' or expires_at <= now() then now() + interval '24 hours'
+                else expires_at
+              end,
               updated_at = now()
           where company_id = ${job.companyId} and id = ${job.attemptId}
-            and target_user_id = ${job.userId} and status in ('DISPATCHED', 'RECOVERY_REQUIRED')
+            and target_user_id = ${job.userId}
+            and status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'OPERATOR_REQUIRED')
             and attempt_count = ${job.leaseVersion}
           returning id
         `;
@@ -246,7 +303,7 @@ export function createPostgresAccountReconciliationRepository(
           const compensated = await transaction<{ id: string }[]>`
             update account_provisioning_attempts
             set status = 'COMPENSATED', failure_code = 'DB_COMPLETION_FAILED',
-                updated_at = now(), completed_at = now()
+                updated_at = now(), compensated_at = now(), completed_at = now()
             where company_id = ${job.companyId} and target_user_id = ${job.userId}
               and status = 'COMPENSATION_REQUIRED'
             returning id

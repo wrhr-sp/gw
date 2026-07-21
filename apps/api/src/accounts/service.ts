@@ -1,5 +1,6 @@
 import type {
   Account,
+  AccountEligibleHotel,
   AccountPermission,
   AccountListQuery,
   AuthenticatedPrincipal,
@@ -13,8 +14,7 @@ import type { AccountRepository as DbAccountRepository } from "@werehere/db";
 
 type ApiSessionMethod = "markCreateDispatched" | "markProviderCreated" | "markCreateRecoveryRequired"
   | "completeCreate" | "getCreateOutcome"
-  | "prepareCompensation" | "markCompensated" | "markProviderDeactivationSucceeded"
-  | "markProviderDeactivationFailed" | "markInitialPasswordDispatched"
+  | "prepareCompensation" | "markInitialPasswordDispatched"
   | "markInitialPasswordRecoveryRequired" | "confirmInitialPasswordProviderState"
   | "markInitialPasswordProviderUpdated";
 type RequireSession<F> = F extends (input: infer I) => infer R ? (input: I & { sessionId: string }) => R : never;
@@ -61,6 +61,10 @@ export interface AccountService {
   ): Promise<{ status: "CREATED" | "REPLAYED"; account: Account }>;
   listAccounts(principal: AuthenticatedPrincipal, query: AccountListQuery): Promise<
     | { status: "OK"; accounts: Account[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }
+    | { status: "FORBIDDEN" }
+  >;
+  listEligibleHotels(principal: AuthenticatedPrincipal): Promise<
+    | { status: "OK"; hotels: AccountEligibleHotel[] }
     | { status: "FORBIDDEN" }
   >;
   getAccount(principal: AuthenticatedPrincipal, userId: string): Promise<Account | null | { status: "FORBIDDEN" }>;
@@ -263,20 +267,7 @@ export function createAccountService(input: {
             }
             throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, true);
           }
-          try {
-            await input.provider.deactivateHumanUser(targetId);
-          } catch {
-            throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
-          }
-          const finalized = await input.repository.markCompensated({
-            accountId: targetId,
-            companyId: principal.companyId,
-            sessionId: principal.sessionId,
-            leaseVersion,
-          });
-          if (finalized === "STALE_LEASE") {
-            throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
-          }
+          throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
         }
         if (error instanceof AccountServiceError) throw error;
         throw new AccountServiceError("INTERNAL_ERROR", 500, true);
@@ -285,6 +276,10 @@ export function createAccountService(input: {
 
     listAccounts(principal, query) {
       return input.repository.listAccounts(actor(principal), query);
+    },
+
+    listEligibleHotels(principal) {
+      return input.repository.listEligibleHotels(actor(principal));
     },
 
     getAccount(principal, userId) {
@@ -314,31 +309,6 @@ export function createAccountService(input: {
       if (result.status === "LAST_ADMIN") throw new AccountServiceError("LAST_ADMIN_DEACTIVATION_FORBIDDEN", 409, false);
       if (result.status === "IDEMPOTENCY_CONFLICT") throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
       if (result.status !== "UPDATED") throw new AccountServiceError("INTERNAL_ERROR", 500, true);
-      try {
-        await input.provider.deactivateHumanUser(result.providerSubject);
-        await input.repository.markProviderDeactivationSucceeded({
-          companyId: principal.companyId,
-          sessionId: principal.sessionId,
-          userId,
-          idempotencyKey,
-        });
-      } catch (error) {
-        const providerError = error instanceof AccountServiceError
-          ? error
-          : new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
-        try {
-          await input.repository.markProviderDeactivationFailed({
-            companyId: principal.companyId,
-            sessionId: principal.sessionId,
-            userId,
-            idempotencyKey,
-            errorCode: providerError.code,
-          });
-        } catch {
-          // The PENDING outbox row was committed with the local suspension and remains retryable.
-        }
-        throw providerError;
-      }
       return result;
     },
 

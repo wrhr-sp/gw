@@ -344,6 +344,18 @@ export const accountCapabilitiesResponseSchema = z.object({
   data: z.object({ permissions: z.array(accountPermissionSchema) }).strict(),
 }).strict();
 
+export const accountEligibleHotelSchema = z.object({
+  id: z.uuid(),
+  name: z.string().trim().min(1).max(100),
+}).strict();
+export type AccountEligibleHotel = z.infer<typeof accountEligibleHotelSchema>;
+
+export const accountEligibleHotelsResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.object({ hotels: z.array(accountEligibleHotelSchema) }).strict(),
+  error: z.null(),
+}).strict();
+
 export const deactivateAccountRequestSchema = z.object({
   version: z.number().int().positive(),
   reason: z.string().trim()
@@ -360,6 +372,7 @@ export const accountRoutes = {
   list: "/api/admin/users",
   create: "/api/admin/users",
   capabilities: "/api/admin/users/capabilities",
+  eligibleHotels: "/api/admin/users/eligible-hotels",
   detail: (userId: string) => accountPath(userId),
   deactivate: (userId: string) => `${accountPath(userId)}/deactivate` as const,
   initialPassword: "/api/account/initial-password",

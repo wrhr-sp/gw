@@ -160,6 +160,13 @@ jobs:
               and (.result_info | type) == "object"
               and (.result_info.total_pages | type) == "number"
               and .result_info.total_pages == 1
+              and all(.result[];
+                type == "object"
+                and (.name | type) == "string"
+                and (.name | length) > 0
+                and (.id | type) == "string"
+                and (.id | length) > 0
+              )
             ' "$output_file" >/dev/null; then
               printf '%s\n' 'Hyperdrive list response failed safety validation.' >&2
               return 1
@@ -196,14 +203,19 @@ jobs:
               printf 'Multiple Hyperdrive configs have the same name: %s\n' "$name" >&2
               return 1
             fi
-            id="$(jq -r --arg name "$name" '.result[] | select(.name == $name) | .id' "$list_file")"
-            if [[ -z "$id" ]]; then
+            if [[ "$count" -eq 0 ]]; then
               pnpm exec wrangler hyperdrive create "$name" \
                 --config wrangler.preview.jsonc \
                 --connection-string "$runtime_url" \
                 --sslmode require \
                 --caching-disabled >/dev/null
             else
+              id="$(jq -er --arg name "$name" '
+                .result[]
+                | select(.name == $name)
+                | .id
+                | select(type == "string" and length > 0)
+              ' "$list_file")"
               pnpm exec wrangler hyperdrive update "$id" \
                 --config wrangler.preview.jsonc \
                 --connection-string "$runtime_url" \

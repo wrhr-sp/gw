@@ -186,8 +186,11 @@ describe("account administration views", () => {
     expect(accountCreateFormSource).toContain("formErrorRef.current?.focus()");
     expect(accountCreateFormSource).toContain("firstHotelRef.current?.focus()");
     expect(accountCreateFormSource).toContain("onCancel");
-    expect(accountCreateFormSource).toContain('register("hotelIds")');
+    expect(accountCreateFormSource).toContain('register("hotelIds"');
     expect(accountCreateFormSource).toContain('userType === "HOUSEKEEPING"');
+    expect(accountCreateFormSource).toContain("clearErrors(names)");
+    expect(accountCreateFormSource).toContain("setFormError(null)");
+    expect(accountCreateFormSource).toContain('onChange: () => clearStaleErrors(name)');
   });
 
   it("distinguishes authorization failures from account-list server failures", () => {

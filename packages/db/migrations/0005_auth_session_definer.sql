@@ -21,7 +21,16 @@ begin
       where membership.member = v_role.oid
         or (
           membership.roleid = v_role.oid
-          and (membership.inherit_option or membership.set_option)
+          and (membership.inherit_option or membership.set_option or membership.admin_option)
+          and not (
+            membership.member = (
+              select current_role_record.oid from pg_catalog.pg_roles current_role_record
+              where current_role_record.rolname = current_user
+            )
+            and membership.admin_option
+            and not membership.inherit_option
+            and not membership.set_option
+          )
         )
     ) then
     raise exception 'unsafe auth session definer role' using errcode = '42501';

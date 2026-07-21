@@ -66,7 +66,6 @@ function accountRepository() {
       account: { id: input.accountId },
     } as never)),
     prepareCompensation: vi.fn<() => Promise<"UPDATED" | "STALE_LEASE">>(async () => "UPDATED"),
-    markCompensated: vi.fn(async () => "UPDATED" as const),
   };
 }
 
@@ -144,6 +143,50 @@ describe("account provider outbox reconciler", () => {
     }));
   });
 
+  it("keeps a provider 404 in durable read-back recovery instead of treating it as terminal", async () => {
+    const repository = {
+      claimJobs: vi.fn(async () => []),
+      claimRecoverableCreates: vi.fn(async () => [createJobs[0]!]),
+      markCreateMissing: vi.fn(async () => undefined),
+      markCreateRecoveryFailed: vi.fn(async () => undefined),
+      markSucceeded: vi.fn(async () => undefined),
+      markFailed: vi.fn(async () => undefined),
+    };
+    const accounts = accountRepository();
+    const provider = {
+      deactivateHumanUser: vi.fn(async () => undefined),
+      humanUserExists: vi.fn(async () => false),
+    };
+
+    await expect(reconcileAccountProviderJobs({ repository, accountRepository: accounts, provider, batchSize: 10 }))
+      .resolves.toEqual({ claimed: 1, succeeded: 1, failed: 0 });
+    expect(repository.markCreateMissing).toHaveBeenCalledWith(createJobs[0]);
+    expect(accounts.markProviderCreated).not.toHaveBeenCalled();
+    expect(accounts.completeCreate).not.toHaveBeenCalled();
+  });
+
+  it("hands owned create compensation to the outbox without a parallel provider mutation", async () => {
+    const repository = {
+      claimJobs: vi.fn(async () => []),
+      claimRecoverableCreates: vi.fn(async () => [createJobs[1]!]),
+      markCreateMissing: vi.fn(async () => undefined),
+      markCreateRecoveryFailed: vi.fn(async () => undefined),
+      markSucceeded: vi.fn(async () => undefined),
+      markFailed: vi.fn(async () => undefined),
+    };
+    const accounts = accountRepository();
+    accounts.completeCreate.mockResolvedValue({ status: "DUPLICATE" } as never);
+    const provider = {
+      deactivateHumanUser: vi.fn(async () => undefined),
+      humanUserExists: vi.fn(async () => true),
+    };
+
+    await expect(reconcileAccountProviderJobs({ repository, accountRepository: accounts, provider, batchSize: 10 }))
+      .resolves.toEqual({ claimed: 1, succeeded: 1, failed: 0 });
+    expect(accounts.prepareCompensation).toHaveBeenCalled();
+    expect(provider.deactivateHumanUser).not.toHaveBeenCalled();
+  });
+
   it("does not deactivate a provider identity after a stale recovery loses compensation ownership", async () => {
     const repository = {
       claimJobs: vi.fn(async () => []),
@@ -164,6 +207,5 @@ describe("account provider outbox reconciler", () => {
     await expect(reconcileAccountProviderJobs({ repository, accountRepository: accounts, provider, batchSize: 10 }))
       .resolves.toEqual({ claimed: 1, succeeded: 0, failed: 1 });
     expect(provider.deactivateHumanUser).not.toHaveBeenCalled();
-    expect(accounts.markCompensated).not.toHaveBeenCalled();
   });
 });

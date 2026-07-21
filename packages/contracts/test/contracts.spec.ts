@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountRoutes,
   accountCapabilitiesResponseSchema,
+  accountEligibleHotelsResponseSchema,
   accountStatusSchema,
   accountCreateCompletionPayloadSchema,
   authenticatedPrincipalSchema,
@@ -86,9 +87,15 @@ describe("hotel platform contracts", () => {
     expect(accountRoutes.deactivate("user-1")).toBe("/api/admin/users/user-1/deactivate");
     expect(accountRoutes.initialPassword).toBe("/api/account/initial-password");
     expect(accountRoutes.capabilities).toBe("/api/admin/users/capabilities");
+    expect(accountRoutes.eligibleHotels).toBe("/api/admin/users/eligible-hotels");
     expect(accountCapabilitiesResponseSchema.parse({
       data: { permissions: ["USER_READ", "USER_CREATE"] },
     }).data.permissions).toEqual(["USER_READ", "USER_CREATE"]);
+    expect(accountEligibleHotelsResponseSchema.parse({
+      ok: true,
+      data: { hotels: [{ id: "50000000-0000-4000-8000-000000000001", name: "위아히어 강남호텔" }] },
+      error: null,
+    }).data.hotels).toHaveLength(1);
 
     const parsed = createAccountRequestSchema.parse({
       displayName: "김하우스",

@@ -14,6 +14,7 @@ const zitadelSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim() ?? "";
 const approvedSubjectFingerprint = process.env.ZITADEL_PREVIEW_SUBJECT_SHA256?.trim().toLowerCase() ?? "";
 const zitadelOrganizationId = process.env.ZITADEL_PREVIEW_ORGANIZATION_ID?.trim() ?? "";
 const bootstrapApprovalReference = process.env.PREVIEW_BOOTSTRAP_APPROVAL_REF?.trim() ?? "";
+const localCiAdminDatabaseUrl = process.env.PREVIEW_PROVISION_ADMIN_DATABASE_URL?.trim() ?? "";
 const apiRuntimeRole = "werehere_preview_api_runtime";
 const reconcilerRole = "werehere_preview_reconciler";
 const previewCompanyId = "70000000-0000-4000-8000-000000000001";
@@ -151,13 +152,74 @@ if (localCiTestMode) {
       "Local provisioning test mode is restricted to loopback CI/test databases",
     );
   }
+  if (localCiAdminDatabaseUrl) {
+    const localAdminUrl = parseDatabaseUrl(
+      localCiAdminDatabaseUrl,
+      "PREVIEW_PROVISION_ADMIN_DATABASE_URL",
+      false,
+    );
+    const adminLoopback =
+      localAdminUrl.hostname === "127.0.0.1" || localAdminUrl.hostname === "localhost";
+    if (!adminLoopback || targetFingerprint(localAdminUrl) !== targetFingerprint(previewUrl)) {
+      fail("Local provisioning admin target must be the same loopback Preview test database");
+    }
+  }
+} else if (localCiAdminDatabaseUrl) {
+  fail("PREVIEW_PROVISION_ADMIN_DATABASE_URL is restricted to local CI test mode");
 }
 if (targetFingerprint(previewUrl) === targetFingerprint(productionUrl)) {
   fail("Preview and Production database targets must differ");
 }
 
 const owner = postgres(ownerDatabaseUrl, { max: 1, prepare: false });
+
+async function updateLocalCiDefinerMembership(
+  migrationOwnerRole: string,
+  action: "GRANT" | "REVOKE",
+): Promise<void> {
+  if (!localCiAdminDatabaseUrl) return;
+  const localAdmin = postgres(localCiAdminDatabaseUrl, { max: 1, prepare: false });
+  try {
+    const commands = action === "GRANT"
+      ? await localAdmin<{ command: string }[]>`
+          select format(
+            'grant %I to %I with admin true, inherit false, set false',
+            definer_role.rolname,
+            ${migrationOwnerRole}::text
+          ) as command
+          from pg_roles definer_role
+          where definer_role.rolname in (
+            'werehere_auth_session_definer',
+            'werehere_tenant_authority_definer'
+          )
+        `
+      : await localAdmin<{ command: string }[]>`
+          select format(
+            'revoke %I from %I granted by %I',
+            definer_role.rolname,
+            ${migrationOwnerRole}::text,
+            current_user
+          ) as command
+          from pg_roles definer_role
+          where definer_role.rolname in (
+            'werehere_auth_session_definer',
+            'werehere_tenant_authority_definer'
+          )
+        `;
+    for (const command of commands) {
+      await localAdmin.unsafe(command.command);
+    }
+  } finally {
+    await localAdmin.end({ timeout: 2 });
+  }
+}
+
 try {
+  const [migrationOwnerIdentity] = await owner<{ role_name: string }[]>`
+    select current_user as role_name
+  `;
+  if (!migrationOwnerIdentity) fail("Preview migration owner identity is unavailable");
+  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "GRANT");
   const previewIdentity = await neonBranchIdentity(owner);
   if (productionUrl.hostname.toLowerCase().endsWith(".neon.tech")) {
     const production = postgres(productionDatabaseUrl, {
@@ -547,7 +609,7 @@ try {
       to ${apiRuntimeRole}, ${reconcilerRole};
 
     grant select on
-      companies, users, auth_identities,
+      companies, users, auth_identities, auth_sessions,
       auth_login_transactions, auth_credential_rate_limits,
       schema_migrations, roles, permissions, user_role_memberships,
       user_groups, user_group_memberships, permission_grants,
@@ -577,6 +639,7 @@ try {
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
   `);
 
+  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "GRANT");
   const authDefinerCommands = await buildDefinerCommands("werehere_auth_session_definer");
   await owner.begin(async (sql) => {
     await sql.unsafe(authDefinerCommands.grant_membership);
@@ -626,6 +689,36 @@ try {
     await sql.unsafe("reset role");
     await sql.unsafe(tenantDefinerCommands.revoke_membership);
   });
+
+  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "REVOKE");
+
+  const definerMembershipSafety = await owner<{
+    admin_option: boolean;
+    definer_role: string;
+    grantor_role: string;
+    inherit_option: boolean;
+    member_role: string;
+    set_option: boolean;
+  }[]>`
+    select definer_role.rolname as definer_role,
+           member_role.rolname as member_role,
+           grantor_role.rolname as grantor_role,
+           membership.inherit_option,
+           membership.set_option,
+           membership.admin_option
+    from pg_auth_members membership
+    join pg_roles definer_role on definer_role.oid = membership.roleid
+    join pg_roles member_role on member_role.oid = membership.member
+    join pg_roles grantor_role on grantor_role.oid = membership.grantor
+    where definer_role.rolname in (
+      'werehere_auth_session_definer',
+      'werehere_tenant_authority_definer'
+    )
+      and (membership.inherit_option or membership.set_option or membership.admin_option)
+  `;
+  if (definerMembershipSafety.length !== 0) {
+    fail("Preview definer membership cleanup failed");
+  }
 
   for (const role of roles) {
     const [safety] = await owner<{

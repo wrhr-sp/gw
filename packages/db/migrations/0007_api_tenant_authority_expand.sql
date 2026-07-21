@@ -32,7 +32,16 @@ begin
         where membership.member = v_role.oid
           or (
             membership.roleid = v_role.oid
-            and (membership.inherit_option or membership.set_option)
+            and (membership.inherit_option or membership.set_option or membership.admin_option)
+            and not (
+              membership.member = (
+                select current_role_record.oid from pg_catalog.pg_roles current_role_record
+                where current_role_record.rolname = current_user
+              )
+              and membership.admin_option
+              and not membership.inherit_option
+              and not membership.set_option
+            )
           )
       ) then
       raise exception 'unsafe definer role: %', v_role_name using errcode = '42501';
@@ -69,7 +78,7 @@ as $function$
           where membership.member = trusted_definer.oid
             or (
               membership.roleid = trusted_definer.oid
-              and (membership.inherit_option or membership.set_option)
+              and (membership.inherit_option or membership.set_option or membership.admin_option)
             )
         )
     )
@@ -526,6 +535,8 @@ begin
       'create policy %I on public.%I using (
         case
           when public.runtime_is_schema_owner() then true
+          when current_user = ''werehere_auth_session_definer'' then true
+          when current_user = ''werehere_tenant_authority_definer'' then true
           when public.runtime_has_capability(''API_RUNTIME'') then %I = public.api_current_company_id()
           when public.runtime_has_capability(''RECONCILER'') then %I = public.reconciler_current_company_id()
           when not public.runtime_has_capability(''API_RUNTIME'')
@@ -536,6 +547,8 @@ begin
       ) with check (
         case
           when public.runtime_is_schema_owner() then true
+          when current_user = ''werehere_auth_session_definer'' then true
+          when current_user = ''werehere_tenant_authority_definer'' then true
           when public.runtime_has_capability(''API_RUNTIME'') then %I = public.api_current_company_id()
           when public.runtime_has_capability(''RECONCILER'') then %I = public.reconciler_current_company_id()
           when not public.runtime_has_capability(''API_RUNTIME'')

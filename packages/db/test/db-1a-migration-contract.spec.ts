@@ -69,6 +69,7 @@ describe("DB-1A auth v2 and tenant authority contracts", () => {
     expect(migration7).toMatch(/from public\.reconciliation_company_registry/i);
     expect(migration7).toMatch(/role_name = session_user/i);
     expect(migration7).toMatch(/revoke all on function public\.runtime_has_capability\(text\) from public/i);
+    expect(migration7).toContain("membership.admin_option");
   });
 
   it("expands named policies with capability CASE branches and legacy fallback without drop-all", () => {

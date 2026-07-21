@@ -1,10 +1,12 @@
 import {
   accountCapabilitiesResponseSchema,
   accountDetailResponseSchema,
+  accountEligibleHotelsResponseSchema,
   accountListQuerySchema,
   accountListResponseSchema,
   hotelErrorResponseSchema,
   type Account,
+  type AccountEligibleHotel,
   type AccountPermission,
   type AccountListQuery,
   type HotelErrorCode,
@@ -51,6 +53,23 @@ export async function fetchAccountCapabilitiesResult(): Promise<AccountCapabilit
 export async function fetchAccountCapabilities(): Promise<AccountPermission[]> {
   const result = await fetchAccountCapabilitiesResult();
   return result.ok ? result.permissions : [];
+}
+
+export async function fetchEligibleHotels(): Promise<
+  | { ok: true; hotels: AccountEligibleHotel[] }
+  | { ok: false; error: Failure }
+> {
+  const response = await request("/api/admin/users/eligible-hotels");
+  if (response.status === 401) redirect("/login");
+  if (!response.ok) return { ok: false, error: await failure(response) };
+  try {
+    const parsed = accountEligibleHotelsResponseSchema.safeParse(await response.json());
+    if (parsed.success) return { ok: true, hotels: parsed.data.data.hotels };
+  } catch { /* stable fallback below */ }
+  return {
+    ok: false,
+    error: { code: "INTERNAL_ERROR", message: "배정 가능한 호텔 응답이 올바르지 않습니다.", status: 502 },
+  };
 }
 
 export async function fetchAccountList(queryInput: Partial<AccountListQuery> = {}): Promise<

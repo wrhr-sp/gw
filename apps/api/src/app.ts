@@ -779,6 +779,22 @@ export function createApp(options: CreateAppOptions = {}) {
     }
   });
 
+  hotelApp.get("/api/admin/users/eligible-hotels", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const result = await withAccountService(context.env, (service) => service.listEligibleHotels(principal));
+      if (result.status === "FORBIDDEN") {
+        return context.json(errorResponse("FORBIDDEN", "사용자 계정 생성 권한이 없습니다.", false), 403);
+      }
+      return context.json({ ok: true as const, data: { hotels: result.hotels }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return accountFailure(context, error);
+    }
+  });
+
   hotelApp.get("/api/admin/users/:userId", async (context) => {
     context.header("Cache-Control", "private, no-store");
     try {

@@ -177,6 +177,7 @@ alter table outbox_jobs
     job_type not in ('ACCOUNT_PROVIDER_DEACTIVATE', 'ACCOUNT_PROVIDER_COMPENSATE')
     or (
       pg_catalog.jsonb_typeof(payload) = 'object'
+      and payload ?& array['userId', 'providerSubject', 'action']
       and pg_catalog.jsonb_typeof(payload->'userId') = 'string'
       and pg_catalog.btrim(payload->>'userId') <> ''
       and pg_catalog.jsonb_typeof(payload->'providerSubject') = 'string'
@@ -196,10 +197,9 @@ create table account_provisioning_attempts (
   request_hash text not null check (btrim(request_hash) <> ''),
   completion_payload jsonb not null check (
     pg_catalog.jsonb_typeof(completion_payload) = 'object'
+    and completion_payload ?& array['userId', 'action']
     and pg_catalog.jsonb_typeof(completion_payload->'userId') = 'string'
     and pg_catalog.btrim(completion_payload->>'userId') <> ''
-    and pg_catalog.jsonb_typeof(completion_payload->'providerSubject') = 'string'
-    and pg_catalog.btrim(completion_payload->>'providerSubject') <> ''
     and pg_catalog.jsonb_typeof(completion_payload->'action') = 'string'
     and completion_payload->>'action' = 'CREATE'
     and public.jsonb_reject_plaintext_password_keys(completion_payload)
@@ -251,7 +251,8 @@ create unique index account_provisioning_attempts_active_user_unique_idx
   where status in ('RESERVED_NOT_DISPATCHED', 'DISPATCHED', 'PROVIDER_CONFIRMED', 'RECOVERY_REQUIRED', 'COMPENSATION_REQUIRED');
 create index account_provisioning_recovery_idx
   on account_provisioning_attempts (company_id, status, lease_expires_at, updated_at)
-  where status in ('RESERVED_NOT_DISPATCHED', 'DISPATCHED', 'PROVIDER_CONFIRMED', 'RECOVERY_REQUIRED', 'COMPENSATION_REQUIRED');
+  where status in ('RESERVED_NOT_DISPATCHED', 'DISPATCHED', 'PROVIDER_CONFIRMED', 'RECOVERY_REQUIRED',
+                   'COMPENSATION_REQUIRED', 'OPERATOR_REQUIRED');
 
 create table initial_password_change_attempts (
   id uuid primary key,

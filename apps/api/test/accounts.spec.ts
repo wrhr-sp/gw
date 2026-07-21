@@ -70,6 +70,10 @@ function accountService(overrides: Partial<AccountService> = {}): AccountService
       accounts: [account],
       pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
     })),
+    listEligibleHotels: vi.fn(async () => ({
+      status: "OK" as const,
+      hotels: [{ id: account.hotelId!, name: "위아히어 강남호텔" }],
+    })),
     getAccount: vi.fn(async () => account),
     getCapabilities: vi.fn(async () => ({
       permissions: ["USER_READ", "USER_CREATE"] satisfies AccountPermission[],
@@ -98,6 +102,28 @@ describe("account administration API", () => {
     expect(service.getCapabilities).toHaveBeenCalledWith(principal);
   });
 
+  it("returns USER_CREATE-scoped eligible hotels without accepting a tenant input", async () => {
+    const service = accountService();
+    const response = await createApp({ authService: authService(), accountService: service })
+      .request("/api/admin/users/eligible-hotels", {
+        headers: { cookie: "__Host-hotel_session=opaque-session-token" },
+      });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { hotels: [{ id: account.hotelId!, name: "위아히어 강남호텔" }] },
+      error: null,
+    });
+    expect(service.listEligibleHotels).toHaveBeenCalledWith(principal);
+  });
+
+  it("requires authentication for eligible hotels", async () => {
+    const response = await createApp({ authService: authService(false), accountService: accountService() })
+      .request("/api/admin/users/eligible-hotels");
+    expect(response.status).toBe(401);
+  });
+
   it("lists company-scoped accounts", async () => {
     const service = accountService();
     const response = await createApp({ authService: authService(), accountService: service })
@@ -112,6 +138,7 @@ describe("account administration API", () => {
   it("maps DB permission DENY results to stable 403 responses", async () => {
     const denied = accountService({
       listAccounts: vi.fn(async () => ({ status: "FORBIDDEN" as const })),
+      listEligibleHotels: vi.fn(async () => ({ status: "FORBIDDEN" as const })),
       getAccount: vi.fn(async () => ({ status: "FORBIDDEN" as const })),
       createAccount: vi.fn(async () => { throw new AccountServiceError("FORBIDDEN", 403, false); }),
       deactivateAccount: vi.fn(async () => { throw new AccountServiceError("FORBIDDEN", 403, false); }),
@@ -119,6 +146,7 @@ describe("account administration API", () => {
     const app = createApp({ authService: authService(), accountService: denied });
     const headers = { cookie: "__Host-hotel_session=opaque-session-token" };
     const list = await app.request("/api/admin/users", { headers });
+    const eligibleHotels = await app.request("/api/admin/users/eligible-hotels", { headers });
     const detail = await app.request(`/api/admin/users/${account.id}`, { headers });
     const create = await app.request("/api/admin/users", {
       method: "POST",
@@ -130,7 +158,7 @@ describe("account administration API", () => {
       headers: { ...headers, "content-type": "application/json", "idempotency-key": "denied-deactivate" },
       body: JSON.stringify({ version: 1, reason: "권한 차단 검증" }),
     });
-    for (const response of [list, detail, create, deactivate]) {
+    for (const response of [list, eligibleHotels, detail, create, deactivate]) {
       expect(response.status).toBe(403);
       expect(await response.json()).toMatchObject({ error: { code: "FORBIDDEN", retryable: false } });
     }

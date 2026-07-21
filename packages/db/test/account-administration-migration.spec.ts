@@ -67,6 +67,8 @@ describe("account administration migration", () => {
 
     expect(sql).not.toMatch(/plain_password|password_hash|password_digest|new_password|password_value/i);
     expect(sql).toContain("public.jsonb_reject_plaintext_password_keys(completion_payload)");
+    expect(sql).toContain("payload ?& array['userId', 'providerSubject', 'action']");
+    expect(sql).toContain("completion_payload ?& array['userId', 'action']");
     for (const forbiddenKey of ["'initialpassword'", "'password'", "'plainpassword'", "'newpassword'"]) {
       expect(sql).toContain(forbiddenKey);
     }

@@ -23,6 +23,7 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["health/ready", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
+  ["admin/users/eligible-hotels", new Set(["GET"])],
   ["account/initial-password", new Set(["POST"])],
 ]);
 

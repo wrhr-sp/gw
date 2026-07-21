@@ -41,6 +41,7 @@ describe("account administration readiness contract", () => {
   it("checks the connected runtime role's write privileges", () => {
     expect(source).toContain("has_table_privilege(current_user");
     for (const requirement of [
+      "auth_sessions:SELECT",
       "users:INSERT",
       "users:UPDATE",
       "auth_identities:INSERT",
@@ -52,5 +53,13 @@ describe("account administration readiness contract", () => {
     ]) {
       expect(source).toContain(requirement);
     }
+  });
+
+  it("binds readiness to the exact runtime capability and all auth definer fingerprints", () => {
+    expect(source).toContain("capabilityIdentity?.expected");
+    expect(source).toContain("capabilityIdentity.unexpected");
+    expect(source).toContain("AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256");
+    expect(source).toContain("AUTH_REVOKE_SESSION_V2_PROSRC_SHA256");
+    expect(source).toContain("membership.admin_option");
   });
 });

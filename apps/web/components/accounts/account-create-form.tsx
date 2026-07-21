@@ -43,11 +43,17 @@ export function AccountCreateForm({
   const firstHotelRef = useRef<HTMLInputElement>(null);
   const cancelDialogRef = useRef<HTMLDialogElement>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const { register, handleSubmit, setError, setFocus, setValue, watch, formState: { errors, isDirty, isSubmitting } } = useForm<CreateAccountRequest>({
+  const { clearErrors, register, handleSubmit, setError, setFocus, setValue, watch, formState: { errors, isDirty, isSubmitting } } = useForm<CreateAccountRequest>({
     defaultValues: { userType: "INTERNAL_STAFF", hotelIds: [], assignmentStartDate: defaultDate },
   });
   const userType = watch("userType");
-  const userTypeRegistration = register("userType");
+  const clearStaleErrors = (...names: AccountFieldName[]) => {
+    clearErrors(names);
+    setFormError(null);
+  };
+  const userTypeRegistration = register("userType", {
+    onChange: () => clearStaleErrors("userType"),
+  });
 
   const showFormError = (message: string) => {
     setFormError(message);
@@ -131,10 +137,13 @@ export function AccountCreateForm({
     router.refresh();
   });
 
-  const field = (name: AccountFieldName, label: string, type = "text") => <label className="block text-sm font-semibold" htmlFor={`account-${name}`}>
-    {label}<input aria-describedby={errors[name] ? `account-${name}-error` : undefined} aria-invalid={Boolean(errors[name])} aria-required="true" className={inputClassName} id={`account-${name}`} required type={type} {...register(name)} />
-    {errors[name]?.message ? <span className="mt-1 block text-xs text-danger" id={`account-${name}-error`}>{errors[name]?.message}</span> : null}
-  </label>;
+  const field = (name: AccountFieldName, label: string, type = "text") => {
+    const registration = register(name, { onChange: () => clearStaleErrors(name) });
+    return <label className="block text-sm font-semibold" htmlFor={`account-${name}`}>
+      {label}<input aria-describedby={errors[name] ? `account-${name}-error` : undefined} aria-invalid={Boolean(errors[name])} aria-required="true" className={inputClassName} id={`account-${name}`} required type={type} {...registration} />
+      {errors[name]?.message ? <span className="mt-1 block text-xs text-danger" id={`account-${name}-error`}>{errors[name]?.message}</span> : null}
+    </label>;
+  };
 
   return <form className="flex flex-col gap-6 pb-20 lg:pb-0" data-endpoint="/api/admin/users" noValidate onSubmit={submit}>
     {formError ? <div className="rounded-control border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger" ref={formErrorRef} role="alert" tabIndex={-1}>{formError}</div> : null}
@@ -143,6 +152,7 @@ export function AccountCreateForm({
       <div className="mt-5 grid gap-5 sm:grid-cols-2">{field("displayName", "표시이름")}{field("loginName", "로그인 아이디")}{field("email", "이메일", "email")}
         <label className="block text-sm font-semibold" htmlFor="account-userType">사용자유형<select aria-describedby={errors.userType ? "account-userType-error" : undefined} aria-invalid={Boolean(errors.userType)} aria-required="true" className={inputClassName} id="account-userType" required {...userTypeRegistration} onChange={(event) => {
           void userTypeRegistration.onChange(event);
+          clearStaleErrors("userType", "hotelId", "hotelIds");
           if (event.target.value === "HOUSEKEEPING") setValue("hotelId", undefined);
           else setValue("hotelIds", []);
         }}><option value="INTERNAL_STAFF">사내 임직원</option><option value="HOUSEKEEPING">하우스키핑</option><option value="HOTEL_OWNER">호텔 소유주</option></select>{errors.userType?.message ? <span className="mt-1 block text-xs text-danger" id="account-userType-error">{errors.userType.message}</span> : null}</label>
@@ -152,14 +162,14 @@ export function AccountCreateForm({
       {userType === "HOUSEKEEPING" ? <fieldset aria-describedby="account-hotelIds-error" aria-invalid={Boolean(errors.hotelIds)} className="sm:col-span-2">
         <legend className="text-sm font-semibold">담당 호텔 <span className="text-muted">(1곳 이상)</span></legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">{hotels.map((hotel, index) => {
-          const registration = register("hotelIds");
+          const registration = register("hotelIds", { onChange: () => clearStaleErrors("hotelIds") });
           return <label className="flex min-h-11 items-center gap-3 rounded-control border border-border px-3 py-2 text-sm" key={hotel.id}><input type="checkbox" value={hotel.id} {...registration} ref={(node) => { registration.ref(node); if (index === 0) firstHotelRef.current = node; }} />{hotel.name}</label>;
         })}</div>
         <span className={`mt-1 block text-xs ${errors.hotelIds ? "text-danger" : "sr-only"}`} id="account-hotelIds-error">{errors.hotelIds?.message ?? "담당 호텔을 1곳 이상 선택해야 합니다."}</span>
-      </fieldset> : <label className="block text-sm font-semibold" htmlFor="account-hotelId">호텔<select aria-describedby={errors.hotelId ? "account-hotelId-error" : undefined} aria-invalid={Boolean(errors.hotelId)} aria-required="true" className={inputClassName} id="account-hotelId" required {...register("hotelId")}><option value="">호텔 선택</option>{hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}</select>{errors.hotelId?.message ? <span className="mt-1 block text-xs text-danger" id="account-hotelId-error">{errors.hotelId.message}</span> : null}</label>}
+      </fieldset> : <label className="block text-sm font-semibold" htmlFor="account-hotelId">호텔<select aria-describedby={errors.hotelId ? "account-hotelId-error" : undefined} aria-invalid={Boolean(errors.hotelId)} aria-required="true" className={inputClassName} id="account-hotelId" required {...register("hotelId", { onChange: () => clearStaleErrors("hotelId") })}><option value="">호텔 선택</option>{hotels.map((hotel) => <option key={hotel.id} value={hotel.id}>{hotel.name}</option>)}</select>{errors.hotelId?.message ? <span className="mt-1 block text-xs text-danger" id="account-hotelId-error">{errors.hotelId.message}</span> : null}</label>}
       {field("assignmentStartDate", "배정 시작일", "date")}
       <label className="block text-sm font-semibold" htmlFor="account-initialPassword">임시 비밀번호
-        <input aria-describedby={errors.initialPassword ? "account-initialPassword-policy account-initialPassword-error" : "account-initialPassword-policy"} aria-invalid={Boolean(errors.initialPassword)} aria-required="true" className={inputClassName} id="account-initialPassword" maxLength={400} minLength={8} required type="password" {...register("initialPassword")} />
+        <input aria-describedby={errors.initialPassword ? "account-initialPassword-policy account-initialPassword-error" : "account-initialPassword-policy"} aria-invalid={Boolean(errors.initialPassword)} aria-required="true" className={inputClassName} id="account-initialPassword" maxLength={400} minLength={8} required type="password" {...register("initialPassword", { onChange: () => clearStaleErrors("initialPassword") })} />
         <span className="mt-1 block text-xs text-muted" id="account-initialPassword-policy">8자 이상 200자 이하이며 영문 소문자, 숫자, 기호를 각각 포함해야 합니다.</span>
         {errors.initialPassword?.message ? <span className="mt-1 block text-xs text-danger" id="account-initialPassword-error">{errors.initialPassword.message}</span> : null}
       </label>

@@ -2,6 +2,7 @@ import {
   accountSchema,
   type AccountCreateCompletionPayload,
   type Account,
+  type AccountEligibleHotel,
   type AccountPermission,
   type AccountListQuery,
   type DeactivateAccountRequest,
@@ -63,8 +64,12 @@ export type AccountListResult =
   | { status: "OK"; accounts: Account[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }
   | { status: "FORBIDDEN" };
 
+export type AccountEligibleHotelsResult =
+  | { status: "OK"; hotels: AccountEligibleHotel[] }
+  | { status: "FORBIDDEN" };
+
 export type AccountDeactivateResult =
-  | { status: "UPDATED"; account: Account; providerSubject: string }
+  | { status: "UPDATED"; account: Account }
   | { status: "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "LAST_ADMIN" | "IDEMPOTENCY_CONFLICT" };
 
 export interface AccountRepository {
@@ -93,8 +98,9 @@ export interface AccountRepository {
   completeCreate(input: CompleteAccountCreateInput): Promise<CompleteAccountCreateResult>;
   getCreateOutcome(input: { accountId: string; companyId: string; sessionId?: string }): Promise<AccountCreateOutcome>;
   prepareCompensation(input: { accountId: string; companyId: string; sessionId?: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
-  markCompensated(input: { accountId: string; companyId: string; sessionId?: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
+
   listAccounts(actor: AccountActor, query: AccountListQuery): Promise<AccountListResult>;
+  listEligibleHotels(actor: AccountActor): Promise<AccountEligibleHotelsResult>;
   getAccount(actor: AccountActor, userId: string): Promise<Account | null | { status: "FORBIDDEN" }>;
   getCapabilities(actor: AccountActor): Promise<{ permissions: AccountPermission[] }>;
   deactivateAccount(input: {
@@ -106,19 +112,7 @@ export interface AccountRepository {
     traceId: string;
     value: DeactivateAccountRequest;
   }): Promise<AccountDeactivateResult>;
-  markProviderDeactivationSucceeded(input: {
-    companyId: string;
-    sessionId?: string;
-    userId: string;
-    idempotencyKey: string;
-  }): Promise<void>;
-  markProviderDeactivationFailed(input: {
-    companyId: string;
-    sessionId?: string;
-    userId: string;
-    idempotencyKey: string;
-    errorCode: string;
-  }): Promise<void>;
+
   reserveInitialPassword(input: {
     companyId: string;
     sessionId: string;
@@ -358,7 +352,11 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             request_hash, completion_payload, status, expires_at
           ) values (
             ${input.attemptId}, ${input.actor.companyId}, ${input.actor.userId}, ${input.accountId},
-            ${input.idempotencyKey}, ${input.requestHash}, ${transaction.json(input.completionPayload)},
+            ${input.idempotencyKey}, ${input.requestHash}, ${transaction.json({
+              ...input.completionPayload,
+              action: "CREATE",
+              userId: input.accountId,
+            })},
             'RESERVED_NOT_DISPATCHED', now() + interval '24 hours'
           )
           on conflict (company_id, actor_user_id, idempotency_key) do nothing
@@ -467,10 +465,11 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         const rows = await transaction<{ id: string }[]>`
           update account_provisioning_attempts
           set status = 'PROVIDER_CONFIRMED', provider_subject = ${input.subject},
-              provider_confirmed_at = now(), updated_at = now()
+              provider_confirmed_at = now(), operator_reason = null,
+              operator_required_at = null, failure_code = null, updated_at = now()
           where company_id = ${input.companyId}
             and target_user_id = ${input.accountId}
-            and status in ('DISPATCHED', 'RECOVERY_REQUIRED')
+            and status in ('DISPATCHED', 'RECOVERY_REQUIRED', 'OPERATOR_REQUIRED')
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
@@ -629,7 +628,8 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           select ${crypto.randomUUID()}, ${input.companyId}, 'ACCOUNT_PROVIDER_COMPENSATE',
                  jsonb_build_object(
                    'userId', ${input.accountId}::text,
-                   'providerSubject', ${updated[0].provider_subject}::text
+                   'providerSubject', ${updated[0].provider_subject}::text,
+                   'action', 'COMPENSATE'
                  ), 'PENDING', now()
           where not exists (
             select 1 from outbox_jobs
@@ -643,32 +643,6 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
       });
     },
 
-    async markCompensated(input) {
-      return sql.begin(async (transaction) => {
-        await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-        const updated = await transaction<{ id: string }[]>`
-          update account_provisioning_attempts
-          set status = 'COMPENSATED', failure_code = 'DB_COMPLETION_FAILED',
-              compensated_at = now(), completed_at = now(), updated_at = now()
-          where company_id = ${input.companyId} and target_user_id = ${input.accountId}
-            and status = 'COMPENSATION_REQUIRED'
-            and attempt_count = ${input.leaseVersion}
-          returning id
-        `;
-        if (!updated[0]) return "STALE_LEASE" as const;
-        await transaction`
-          update outbox_jobs
-          set status = 'SUCCEEDED', completed_at = now(), updated_at = now(),
-              locked_at = null, claim_token = null, last_error_code = null
-          where company_id = ${input.companyId}
-            and job_type = 'ACCOUNT_PROVIDER_COMPENSATE'
-            and payload->>'userId' = ${input.accountId}
-            and status in ('PENDING', 'FAILED')
-        `;
-        return "UPDATED" as const;
-      });
-    },
 
     async getCreateOutcome(input) {
       return sql.begin(async (transaction) => {
@@ -728,6 +702,27 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         `, [actor.companyId, query.userType ?? null, storedUserType, query.status ?? null, query.q ?? null, query.pageSize, offset]);
         const accounts = rows.map(mapAccount);
         return { status: "OK", accounts, pagination: { page, pageSize: query.pageSize, total, totalPages } } as const;
+      });
+    },
+
+    async listEligibleHotels(actor) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
+        if (!await permission(transaction, actor, "USER_CREATE")) {
+          return { status: "FORBIDDEN" } as const;
+        }
+        const hotels = await transaction<{ id: string; name: string }[]>`
+          select branch.id, branch.name
+          from branches branch
+          join hotel_profiles profile
+            on profile.company_id = branch.company_id
+           and profile.branch_id = branch.id
+          where branch.company_id = ${actor.companyId}
+            and branch.branch_type = 'HOTEL'
+            and branch.status = 'ACTIVE'
+          order by branch.name, branch.id
+        `;
+        return { status: "OK", hotels } as const;
       });
     },
 
@@ -795,15 +790,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           }
           if (existing.status === "COMPLETED" && existing.resource_id) {
             const replayed = await selectAccount(transaction, input.actor.companyId, existing.resource_id);
-            const [identity] = await transaction<{ provider_subject: string }[]>`
-              select provider_subject from auth_identities
-              where company_id = ${input.actor.companyId}
-                and user_id = ${existing.resource_id}
-                and provider = 'ZITADEL'
-            `;
-            if (replayed && identity) {
-              return { status: "UPDATED", account: replayed, providerSubject: identity.provider_subject } as const;
-            }
+            if (replayed) return { status: "UPDATED", account: replayed } as const;
           }
           return { status: "IDEMPOTENCY_CONFLICT" } as const;
         }
@@ -909,6 +896,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               userId: input.targetUserId,
               providerSubject: target.provider_subject,
               idempotencyKey: input.idempotencyKey,
+              action: "DEACTIVATE",
             })},
             'PENDING', now()
           )
@@ -938,73 +926,10 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and operation_path = ${operationPath}
             and status = 'IN_PROGRESS'
         `;
-        return { status: "UPDATED", account, providerSubject: target.provider_subject } as const;
+        return { status: "UPDATED", account } as const;
       });
     },
 
-    async markProviderDeactivationSucceeded(input) {
-      await sql.begin(async (transaction) => {
-        await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-        const updated = await transaction<{ id: string }[]>`
-          update outbox_jobs
-          set status = 'SUCCEEDED', completed_at = now(), updated_at = now(),
-              locked_at = null, claim_token = null, last_error_code = null
-          where company_id = ${input.companyId}
-            and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
-            and payload->>'userId' = ${input.userId}
-            and payload->>'idempotencyKey' = ${input.idempotencyKey}
-            and status in ('PENDING', 'FAILED')
-          returning id
-        `;
-        if (!updated[0]) {
-          const [existing] = await transaction<{ status: string }[]>`
-            select status from outbox_jobs
-            where company_id = ${input.companyId}
-              and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
-              and payload->>'userId' = ${input.userId}
-              and payload->>'idempotencyKey' = ${input.idempotencyKey}
-          `;
-          if (existing?.status !== 'SUCCEEDED' && existing?.status !== 'PROCESSING') {
-            throw new Error('provider deactivation outbox is unavailable');
-          }
-        }
-      });
-    },
-
-    async markProviderDeactivationFailed(input) {
-      await sql.begin(async (transaction) => {
-        await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-        const updated = await transaction<{ id: string }[]>`
-          update outbox_jobs
-          set status = case when attempt_count + 1 >= 8 then 'DEAD_LETTER' else 'FAILED' end,
-              attempt_count = attempt_count + 1,
-              available_at = now() + interval '1 minute', updated_at = now(),
-              locked_at = null, claim_token = null, last_error_code = ${input.errorCode},
-              completed_at = case when attempt_count + 1 >= 8 then now() else completed_at end,
-              dead_lettered_at = case when attempt_count + 1 >= 8 then now() else dead_lettered_at end
-          where company_id = ${input.companyId}
-            and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
-            and payload->>'userId' = ${input.userId}
-            and payload->>'idempotencyKey' = ${input.idempotencyKey}
-            and status in ('PENDING', 'FAILED')
-          returning id
-        `;
-        if (!updated[0]) {
-          const [existing] = await transaction<{ status: string }[]>`
-            select status from outbox_jobs
-            where company_id = ${input.companyId}
-              and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
-              and payload->>'userId' = ${input.userId}
-              and payload->>'idempotencyKey' = ${input.idempotencyKey}
-          `;
-          if (existing?.status !== 'PROCESSING' && existing?.status !== 'DEAD_LETTER') {
-            throw new Error('provider deactivation outbox is unavailable');
-          }
-        }
-      });
-    },
 
     async reserveInitialPassword(input) {
       return sql.begin(async (transaction) => {
@@ -1100,7 +1025,17 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           return { status: recovery ? "RECOVERY_REQUIRED" : "IN_PROGRESS" } as const;
         }
         if (existing?.status === "RECOVERY_REQUIRED") {
-          if (existing.expires_at <= now) return { status: "NOT_PENDING" } as const;
+          if (existing.expires_at <= now) {
+            await transaction`
+              update initial_password_change_attempts
+              set status = 'OPERATOR_REQUIRED', operator_reason = 'PASSWORD_RECOVERY_EXPIRED',
+                  operator_required_at = now(), updated_at = now()
+              where company_id = ${input.companyId} and user_id = ${input.userId}
+                and idempotency_key = ${input.idempotencyKey}
+                and status = 'RECOVERY_REQUIRED' and expires_at <= now()
+            `;
+            return { status: "NOT_PENDING" } as const;
+          }
           return {
             status: "RECOVERY_CONFIRMABLE",
             subject: existing.provider_subject,
@@ -1161,14 +1096,23 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           } as const;
         }
         if (activeAttempt?.status === "RECOVERY_REQUIRED") {
-          if (activeAttempt.expires_at <= now) return { status: "NOT_PENDING" } as const;
-          return {
-            status: "RECOVERY_CONFIRMABLE",
-            subject: activeAttempt.provider_subject,
-            loginName: activeAttempt.login_name,
-            idempotencyKey: activeAttempt.idempotency_key,
-            leaseVersion: activeAttempt.attempt_count,
-          } as const;
+          if (activeAttempt.expires_at <= now) {
+            await transaction`
+              update initial_password_change_attempts
+              set status = 'OPERATOR_REQUIRED', operator_reason = 'PASSWORD_RECOVERY_EXPIRED',
+                  operator_required_at = now(), updated_at = now()
+              where company_id = ${input.companyId} and id = ${activeAttempt.id}
+                and status = 'RECOVERY_REQUIRED' and expires_at <= now()
+            `;
+          } else {
+            return {
+              status: "RECOVERY_CONFIRMABLE",
+              subject: activeAttempt.provider_subject,
+              loginName: activeAttempt.login_name,
+              idempotencyKey: activeAttempt.idempotency_key,
+              leaseVersion: activeAttempt.attempt_count,
+            } as const;
+          }
         }
         if (activeAttempt?.status === "PROVIDER_UPDATED") {
           return {

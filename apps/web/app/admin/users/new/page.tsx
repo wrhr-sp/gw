@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { AccountCreateForm } from "../../../../components/accounts/account-create-form";
 import { HotelShell } from "../../../../components/hotels/hotel-shell";
 import { requireAuthenticatedPrincipal } from "../../../../lib/server-auth";
-import { fetchAccountCapabilitiesResult } from "../../../../lib/server-accounts";
-import { fetchHotelList } from "../../../../lib/server-hotels";
+import { fetchAccountCapabilitiesResult, fetchEligibleHotels } from "../../../../lib/server-accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +23,7 @@ export default async function NewAdminUserPage() {
   }
   const permissions = capabilities.permissions;
   if (!permissions.includes("USER_CREATE")) notFound();
-  const hotels = await fetchHotelList({ page: 1, pageSize: 100 });
+  const hotels = await fetchEligibleHotels();
   const content = !hotels.ok ? (
     <section className="rounded-panel border border-border bg-surface p-6" role="alert">
       <h2 className="font-semibold">호텔 목록을 불러오지 못했습니다</h2>
@@ -35,7 +34,7 @@ export default async function NewAdminUserPage() {
       <h2 className="font-semibold">배정 가능한 호텔이 없습니다</h2>
       <p className="mt-2 text-sm text-muted">활성 호텔을 먼저 등록한 뒤 사용자 계정을 생성해 주세요.</p>
     </section>
-  ) : <AccountCreateForm hotels={hotels.hotels.map(({ id, name }) => ({ id, name }))} />;
+  ) : <AccountCreateForm hotels={hotels.hotels} />;
   return <HotelShell accountPermissions={permissions} currentPath="/admin/users" principal={principal}>
     <div className="mx-auto flex w-full max-w-hotel-detail flex-col gap-6">
       <PageHeader eyebrow="사용자 계정" title="사용자 생성" description="사람 계정과 호텔관리 업무범위를 한 번에 생성합니다." />

@@ -22,6 +22,8 @@ drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
+drop role if exists werehere_auth_session_definer;
+drop role if exists werehere_tenant_authority_definer;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -41,15 +43,9 @@ drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
 drop role if exists werehere_preview_migration_owner;
+drop role if exists werehere_auth_session_definer;
+drop role if exists werehere_tenant_authority_definer;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
-do $$
-begin
-  if exists (select 1 from pg_roles where rolname = 'werehere_auth_session_definer') then
-    grant werehere_auth_session_definer to werehere_preview_migration_owner
-      with admin true, inherit false, set false;
-  end if;
-end
-$$;
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
 SQL
@@ -74,6 +70,7 @@ run_provision() {
     cd "$ROOT_DIR"
     CI=true \
       PREVIEW_PROVISION_LOCAL_CI_TEST=1 \
+      PREVIEW_PROVISION_ADMIN_DATABASE_URL="$ADMIN_PREVIEW_URL" \
       DATABASE_URL_PREVIEW="$PREVIEW_URL" \
       DATABASE_URL="$PRODUCTION_URL" \
       DATABASE_API_RUNTIME_PASSWORD_PREVIEW='preview-api-runtime-integration-password' \
@@ -233,13 +230,15 @@ select has_function_privilege(
   'public.auth_revoke_user_sessions_v1(uuid,uuid,text)',
   'EXECUTE'
 );
+select has_table_privilege(current_user, 'public.auth_sessions', 'SELECT');
 select has_table_privilege(current_user, 'public.auth_sessions', 'INSERT');
+select has_table_privilege(current_user, 'public.auth_sessions', 'UPDATE');
 select has_table_privilege(current_user, 'public.auth_identities', 'UPDATE');
 select has_table_privilege(current_user, 'public.users', 'UPDATE');
 select has_table_privilege(current_user, 'public.companies', 'UPDATE');
 SQL
 )"
-if [[ "$PRIVILEGES" != $'t\nt\nf\nf\nt\nf' ]]; then
+if [[ "$PRIVILEGES" != $'t\nt\nt\nf\nf\nf\nt\nf' ]]; then
   printf '%s\n' 'Runtime auth function privilege boundary is unsafe.' >&2
   exit 1
 fi
@@ -281,7 +280,12 @@ try {
     traceId,
   });
   if (result.status !== "CREATED" || result.principal.sessionId !== sessionId) {
-    throw new Error("Runtime auth session function did not create the expected principal");
+    const sessionMatches = result.status === "CREATED"
+      ? result.principal.sessionId === sessionId
+      : false;
+    throw new Error(
+      `Runtime auth session function returned status=${result.status} sessionMatches=${sessionMatches}`,
+    );
   }
 } finally {
   await repository.close?.();
@@ -447,6 +451,29 @@ if [[ "$RECONCILER_CAPABILITIES" != $'t\nf\nf\nf\n2' ]]; then
   printf '%s\n' 'Reconciler capability boundary is incorrect.' >&2
   exit 1
 fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+update runtime_database_capabilities
+set capability = 'RECONCILER'
+where role_name = 'werehere_preview_api_runtime';
+SQL
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$API_RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Preview runtime test configuration is missing");
+const result = await probeDatabaseReadiness(databaseUrl, { capability: "API_RUNTIME" });
+if (result.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`Capability registry drift was accepted: ${result.status}`);
+}
+NODE
+)
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+update runtime_database_capabilities
+set capability = 'API_RUNTIME'
+where role_name = 'werehere_preview_api_runtime';
+SQL
 
 for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL"; do
   if psql -X -v ON_ERROR_STOP=1 -d "$runtime_url" -c 'set role postgres' >/dev/null 2>&1; then

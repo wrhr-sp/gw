@@ -141,6 +141,43 @@ test("생성 POST와 GET 재조회 material 필드가 다르면 상세 이동을
   await expect(view.getByRole("heading", { name: "사용자 생성", level: 1 })).toBeVisible();
 });
 
+test("서버 필드 오류는 해당 입력 수정 시 상단 오류와 함께 해제", async ({ mount, page }) => {
+  await page.route("**/api/admin/users", async (route) => route.fulfill({
+    status: 422,
+    json: {
+      ok: false,
+      data: null,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "입력값을 확인해 주세요.",
+        retryable: false,
+        retryAfterSeconds: null,
+        traceId: "50000000-0000-4000-8000-000000000099",
+        fieldErrors: [{ field: "loginName", message: "이미 사용 중인 로그인 아이디입니다." }],
+      },
+    },
+  }));
+  const view = await mount(<AccountCreateStory />);
+  await view.getByLabel("표시이름").fill("김하우스");
+  const loginName = view.getByLabel("로그인 아이디");
+  await loginName.fill("duplicate-login");
+  await view.getByLabel("이메일").fill("duplicate-login@example.invalid");
+  await view.getByLabel("사용자유형").selectOption("HOUSEKEEPING");
+  await view.getByLabel("위아히어 강남호텔").check();
+  await view.getByLabel("배정 시작일").fill("2026-07-19");
+  await view.getByLabel("임시 비밀번호").fill("Strong-Preview-123!");
+  await view.getByLabel("생성 사유").fill("서버 오류 해제 검증");
+  await view.getByRole("button", { name: "사용자 생성" }).click();
+  await expect(view.getByRole("alert")).toContainText("입력값을 확인해 주세요.");
+  await expect(view.getByText("이미 사용 중인 로그인 아이디입니다.")).toBeVisible();
+  await expect(loginName).toHaveAttribute("aria-invalid", "true");
+  await loginName.fill("available-login");
+  await expect(view.getByRole("alert")).toHaveCount(0);
+  await expect(view.getByText("이미 사용 중인 로그인 아이디입니다.")).toHaveCount(0);
+  await expect(loginName).toHaveAttribute("aria-invalid", "false");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
 test("모바일 하우스키핑 복수 호텔 선택", async ({ mount, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const view = await mount(<AccountCreateStory />);

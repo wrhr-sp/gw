@@ -20,7 +20,7 @@ type ReconcileInput = {
     | "markSucceeded"
     | "markFailed"
   >;
-  accountRepository: Pick<AccountRepository, "markProviderCreated" | "completeCreate" | "prepareCompensation" | "markCompensated">;
+  accountRepository: Pick<AccountRepository, "markProviderCreated" | "completeCreate" | "prepareCompensation">;
   provider: AccountReconciliationProvider;
   batchSize: number;
 };
@@ -96,17 +96,7 @@ async function recoverCreate(input: ReconcileInput, job: AccountCreateRecoveryJo
     leaseVersion: job.leaseVersion,
   });
   if (prepared === "STALE_LEASE") return false;
-  try {
-    await input.provider.deactivateHumanUser(job.userId);
-  } catch {
-    throw new Error("account create recovery compensation failed");
-  }
-  const finalized = await input.accountRepository.markCompensated({
-    accountId: job.userId,
-    companyId: job.companyId,
-    leaseVersion: job.leaseVersion,
-  });
-  return finalized === "UPDATED";
+  return true;
 }
 
 async function markCreateRecoveryFailedSafely(

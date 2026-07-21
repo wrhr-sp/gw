@@ -8,6 +8,10 @@ export type DatabaseReadiness =
 
 const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
   "8b1471fab68cd50dbf0905af4a32a9f5d5642eb1d74e1500ec5cb073d4654790";
+const AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256 =
+  "59fcd28ea1349f6be3d64faae5e0f80121a21cf90fcabfd041906ed23e4df6dc";
+const AUTH_REVOKE_SESSION_V2_PROSRC_SHA256 =
+  "58a5cbb3a9370b2b6beb6b10d906a49b3647af6e0c12c2d56a524bc6fae7d6a0";
 const AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256 =
   "061a73c1c7114330cebb91eb10546499665aa6d3f5887cedb4da7253e9faa0e1";
 
@@ -198,6 +202,7 @@ const REQUIRED_INDEXES = [{
 }] as const;
 
 const REQUIRED_RUNTIME_PRIVILEGES = [
+  "auth_sessions:SELECT",
   "users:INSERT",
   "users:UPDATE",
   "auth_identities:INSERT",
@@ -277,12 +282,16 @@ function isExactTenantPolicyExpression(value: string | null, tenantKey: "company
     .replace(/\)+$/u, "");
   const count = (fragment: string) => normalized.split(fragment).length - 1;
   const ownerBranch = "when runtime_is_schema_owner() then true";
+  const authDefinerBranch = "when (current_user = 'werehere_auth_session_definer'::name) then true";
+  const tenantDefinerBranch = "when (current_user = 'werehere_tenant_authority_definer'::name) then true";
   const apiBranch = `when runtime_has_capability('api_runtime'::text) then (${tenantKey} = api_current_company_id())`;
   const reconcilerBranch = `when runtime_has_capability('reconciler'::text) then (${tenantKey} = reconciler_current_company_id())`;
   const legacyBranch = `then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`;
   return normalized.startsWith("case")
     && normalized.endsWith("else false end")
     && count(ownerBranch) === 1
+    && count(authDefinerBranch) === 1
+    && count(tenantDefinerBranch) === 1
     && count(apiBranch) === 1
     && count(reconcilerBranch) === 1
     && count("when ((not runtime_has_capability('api_runtime'::text)) and (not runtime_has_capability('reconciler'::text)))") === 1
@@ -378,7 +387,7 @@ export async function probeDatabaseReadiness(
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option)
+                     and (membership.inherit_option or membership.set_option or membership.admin_option)
                    )
                )
              ) as owner_safe,
@@ -413,6 +422,84 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     }
 
+    const authSupportFunctions = await sql<{
+      executable: boolean;
+      function_name: string;
+      non_owner_execute_count: number;
+      owner_safe: boolean;
+      safe_search_path: boolean;
+      security_definer: boolean;
+      source: string;
+    }[]>`
+      select procedure_record.proname as function_name,
+             procedure_record.prosecdef as security_definer,
+             procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
+             has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
+             procedure_record.prosrc as source,
+             (
+               procedure_owner.rolname = 'werehere_auth_session_definer'
+               and not procedure_owner.rolcanlogin
+               and not procedure_owner.rolinherit
+               and not procedure_owner.rolsuper
+               and not procedure_owner.rolcreatedb
+               and not procedure_owner.rolcreaterole
+               and not procedure_owner.rolreplication
+               and not procedure_owner.rolbypassrls
+               and not exists (
+                 select 1 from pg_auth_members membership
+                 where membership.member = procedure_owner.oid
+                   or (
+                     membership.roleid = procedure_owner.oid
+                     and (membership.inherit_option or membership.set_option or membership.admin_option)
+                   )
+               )
+             ) as owner_safe,
+             (
+               select count(*)::integer
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee <> procedure_record.proowner
+             ) as non_owner_execute_count
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
+      where procedure_namespace.nspname = 'public'
+        and (
+          (procedure_record.proname = 'auth_resolve_principal_v2'
+            and pg_get_function_identity_arguments(procedure_record.oid)
+              = 'p_token_hash bytea, p_idle_lifetime_seconds integer')
+          or
+          (procedure_record.proname = 'auth_revoke_session_v2'
+            and pg_get_function_identity_arguments(procedure_record.oid)
+              = 'p_token_hash bytea, p_reason text, p_trace_id uuid')
+        )
+    `;
+    const expectedAuthSupportDigests = new Map([
+      ["auth_resolve_principal_v2", AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256],
+      ["auth_revoke_session_v2", AUTH_REVOKE_SESSION_V2_PROSRC_SHA256],
+    ]);
+    if (authSupportFunctions.length !== expectedAuthSupportDigests.size) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    for (const authSupportFunction of authSupportFunctions) {
+      const expectedDigest = expectedAuthSupportDigests.get(authSupportFunction.function_name);
+      if (
+        !expectedDigest
+        || !authSupportFunction.security_definer
+        || !authSupportFunction.safe_search_path
+        || authSupportFunction.executable !== (options.capability === "API_RUNTIME")
+        || !authSupportFunction.owner_safe
+        || authSupportFunction.non_owner_execute_count > 1
+        || (options.capability === "API_RUNTIME" && authSupportFunction.non_owner_execute_count !== 1)
+        || await sourceSha256(authSupportFunction.source) !== expectedDigest
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+    }
+
     const [userSessionRevokeFunction] = await sql<{
       executable: boolean;
       owner_safe: boolean;
@@ -441,7 +528,7 @@ export async function probeDatabaseReadiness(
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option)
+                     and (membership.inherit_option or membership.set_option or membership.admin_option)
                    )
                )
              ) as owner_safe,
@@ -472,6 +559,14 @@ export async function probeDatabaseReadiness(
       || (options.capability === "API_RUNTIME" && userSessionRevokeFunction.non_owner_execute_count !== 1)
       || await sourceSha256(userSessionRevokeFunction.source) !== AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256
     ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [capabilityIdentity] = await sql<{ expected: boolean; unexpected: boolean }[]>`
+      select public.runtime_has_capability(${options.capability}) as expected,
+             public.runtime_has_capability(${options.capability === "API_RUNTIME" ? "RECONCILER" : "API_RUNTIME"}) as unexpected
+    `;
+    if (!capabilityIdentity?.expected || capabilityIdentity.unexpected) {
       return { status: "SCHEMA_NOT_READY" };
     }
 
@@ -636,6 +731,7 @@ export async function probeDatabaseReadiness(
                requirement.privilege_name
              ) as allowed
       from (values
+        ('auth_sessions:SELECT', 'auth_sessions', 'SELECT'),
         ('users:INSERT', 'users', 'INSERT'),
         ('users:UPDATE', 'users', 'UPDATE'),
         ('auth_identities:INSERT', 'auth_identities', 'INSERT'),

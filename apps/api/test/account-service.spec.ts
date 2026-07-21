@@ -51,13 +51,11 @@ function repository(overrides: Partial<AccountRepository> = {}): AccountReposito
     completeCreate: vi.fn(async () => ({ status: "CREATED" as const, account })),
     getCreateOutcome: vi.fn(async () => ({ status: "COMPLETED" as const, account })),
     prepareCompensation: vi.fn(async () => "UPDATED" as const),
-    markCompensated: vi.fn(async () => "UPDATED" as const),
     listAccounts: vi.fn(),
+    listEligibleHotels: vi.fn(async () => ({ status: "OK" as const, hotels: [] })),
     getAccount: vi.fn(),
     getCapabilities: vi.fn(async () => ({ permissions: [] })),
     deactivateAccount: vi.fn(),
-    markProviderDeactivationSucceeded: vi.fn(async () => undefined),
-    markProviderDeactivationFailed: vi.fn(async () => undefined),
     reserveInitialPassword: vi.fn(async () => ({ status: "RESERVED_NOT_DISPATCHED" as const, subject: principal.userId, leaseVersion: 1 })),
     markInitialPasswordDispatched: vi.fn(async () => "UPDATED" as const),
     markInitialPasswordRecoveryRequired: vi.fn(async () => "UPDATED" as const),
@@ -253,7 +251,6 @@ describe("account administration service", () => {
     await expect(service.createAccount(principal, request, "account-create-stale-owner"))
       .rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT", retryable: true });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
-    expect(repo.markCompensated).not.toHaveBeenCalled();
   });
 
   it("records a duplicate provider result for reconciliation without immediate credential probing", async () => {
@@ -308,7 +305,6 @@ describe("account administration service", () => {
     await expect(service.createAccount(principal, request, "account-create-2"))
       .resolves.toEqual({ status: "CREATED", account });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
-    expect(repo.markCompensated).not.toHaveBeenCalled();
   });
 
   it("leaves an ambiguous provider-created attempt recoverable instead of disabling it", async () => {
@@ -322,7 +318,6 @@ describe("account administration service", () => {
     await expect(service.createAccount(principal, request, "account-create-ambiguous"))
       .rejects.toMatchObject({ code: "INTERNAL_ERROR", retryable: true });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
-    expect(repo.markCompensated).not.toHaveBeenCalled();
   });
 
   it("resolves a stale compensation owner from DB without deactivating the completed identity", async () => {
@@ -337,10 +332,9 @@ describe("account administration service", () => {
     await expect(service.createAccount(principal, request, "account-create-stale-compensation"))
       .resolves.toEqual({ status: "CREATED", account });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
-    expect(repo.markCompensated).not.toHaveBeenCalled();
   });
 
-  it("durably reserves compensation before deactivating the provider identity", async () => {
+  it("durably reserves compensation for the single outbox dispatcher without an API provider call", async () => {
     const repo = repository({
       completeCreate: vi.fn(async () => ({ status: "DUPLICATE" as const })),
     });
@@ -348,10 +342,9 @@ describe("account administration service", () => {
     const service = createAccountService({ repository: repo, provider: identity });
 
     await expect(service.createAccount(principal, request, "account-create-owned-compensation"))
-      .rejects.toMatchObject({ code: "ACCOUNT_DUPLICATE" });
-    expect(vi.mocked(repo.prepareCompensation).mock.invocationCallOrder[0])
-      .toBeLessThan(vi.mocked(identity.deactivateHumanUser).mock.invocationCallOrder[0]!);
-    expect(repo.markCompensated).toHaveBeenCalledWith(expect.objectContaining({ leaseVersion: 1 }));
+      .rejects.toMatchObject({ code: "COMPENSATION_REQUIRED" });
+    expect(repo.prepareCompensation).toHaveBeenCalledWith(expect.objectContaining({ leaseVersion: 1 }));
+    expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 
   it("blocks self-deactivation before calling the provider", async () => {
@@ -375,7 +368,7 @@ describe("account administration service", () => {
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 
-  it("marks the durable provider-deactivation job succeeded after ZITADEL confirms", async () => {
+  it("leaves provider deactivation to the single outbox dispatcher", async () => {
     const repo = repository({
       deactivateAccount: vi.fn(async () => ({
         status: "UPDATED" as const,
@@ -385,14 +378,12 @@ describe("account administration service", () => {
     });
     const identity = provider();
     const service = createAccountService({ repository: repo, provider: identity });
-    await service.deactivateAccount(principal, accountId, { version: 1, reason: "관리자 중지" }, "deactivate-success");
-    expect(identity.deactivateHumanUser).toHaveBeenCalledWith("zitadel-target-admin-subject");
-    expect(repo.markProviderDeactivationSucceeded).toHaveBeenCalledWith({
-      companyId: principal.companyId, sessionId: principal.sessionId, userId: accountId, idempotencyKey: "deactivate-success",
-    });
+    await expect(service.deactivateAccount(principal, accountId, { version: 1, reason: "관리자 중지" }, "deactivate-success"))
+      .resolves.toMatchObject({ status: "UPDATED", account: { status: "INACTIVE" } });
+    expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 
-  it("keeps a durable failed provider-deactivation job for reconciliation", async () => {
+  it("does not let provider availability race the committed deactivation outbox", async () => {
     const repo = repository({
       deactivateAccount: vi.fn(async () => ({
         status: "UPDATED" as const,
@@ -405,10 +396,8 @@ describe("account administration service", () => {
     });
     const service = createAccountService({ repository: repo, provider: identity });
     await expect(service.deactivateAccount(principal, accountId, { version: 1, reason: "관리자 중지" }, "deactivate-failed"))
-      .rejects.toMatchObject({ code: "EXTERNAL_AUTH_UNAVAILABLE" });
-    expect(repo.markProviderDeactivationFailed).toHaveBeenCalledWith({
-      companyId: principal.companyId, sessionId: principal.sessionId, userId: accountId, idempotencyKey: "deactivate-failed", errorCode: "EXTERNAL_AUTH_UNAVAILABLE",
-    });
+      .resolves.toMatchObject({ status: "UPDATED" });
+    expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 
   it("reserves PENDING_SETUP in DB before changing ZITADEL and clearing the local gate", async () => {

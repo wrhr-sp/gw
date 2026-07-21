@@ -22,6 +22,8 @@ const hotelId = "8a510000-0000-4000-8000-000000000001";
 const secondHotelId = "8a510000-0000-4000-8000-000000000002";
 const actor = { companyId, sessionId, userId: actorId, userType: "INTERNAL_STAFF" as const };
 const completionPayload = {
+  action: "CREATE" as const,
+  userId: "8a900000-0000-4000-8000-000000000001",
   displayName: "Recovered Account",
   loginName: "recovered-account",
   email: "recovered-account@example.invalid",
@@ -136,6 +138,27 @@ try {
 
   const listed = await repository.listAccounts(actor, { page: 1, pageSize: 20 });
   if (listed.status !== "OK" || listed.accounts.length !== 3) throw new Error("role-based USER_READ was not effective");
+  const eligibleHotels = await repository.listEligibleHotels(actor);
+  if (eligibleHotels.status !== "OK"
+    || eligibleHotels.hotels.length !== 2
+    || eligibleHotels.hotels[0]?.id !== hotelId
+    || eligibleHotels.hotels[1]?.id !== secondHotelId) {
+    throw new Error("USER_CREATE eligible hotels were not tenant-scoped and deterministically sorted");
+  }
+  await sql`
+    insert into permission_grants (
+      id, company_id, branch_id, subject_type, subject_id,
+      permission_code, effect, valid_from, granted_by, reason
+    ) values (
+      '8a800000-0000-4000-8000-000000000006', ${companyId}, null, 'USER', ${actorId},
+      'USER_CREATE', 'DENY', now() - interval '1 minute', ${actorId}, 'eligible hotel deny probe'
+    )
+  `;
+  const deniedEligibleHotels = await repository.listEligibleHotels(actor);
+  if (deniedEligibleHotels.status !== "FORBIDDEN") {
+    throw new Error("explicit USER_CREATE DENY did not block eligible hotel discovery");
+  }
+  await sql`delete from permission_grants where id = '8a800000-0000-4000-8000-000000000006'`;
   const canonicalLastPage = await repository.listAccounts(actor, { page: 99, pageSize: 2 });
   if (canonicalLastPage.status !== "OK"
     || canonicalLastPage.pagination.page !== 2
@@ -207,12 +230,13 @@ try {
     leaseVersion: resumed.leaseVersion,
   });
   if (preparedCompensation !== "UPDATED") throw new Error("compensation was not durably prepared");
-  const finalizedCompensation = await repository.markCompensated({
-    accountId: "8a900000-0000-4000-8000-000000000001",
-    companyId,
-    leaseVersion: resumed.leaseVersion,
-  });
-  if (finalizedCompensation !== "UPDATED") throw new Error("compensation was not finalized");
+  const compensationJobs = await reconciliationRepository.claimJobs(10);
+  const compensationJob = compensationJobs.find((job) =>
+    job.jobType === "ACCOUNT_PROVIDER_COMPENSATE"
+    && job.userId === "8a900000-0000-4000-8000-000000000001"
+  );
+  if (!compensationJob) throw new Error("compensation outbox was not claimable");
+  await reconciliationRepository.markSucceeded(compensationJob);
   const compensatedReplay = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
     actor,
@@ -417,15 +441,41 @@ try {
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
   const repeatedLateClaims = await reconciliationRepository.claimRecoverableCreates(10);
-  if (repeatedLateClaims.some((job) => job.userId === lateProviderAccountId)) {
-    throw new Error("provider-not-found operator terminal remained automatically claimable");
+  const repeatedLateClaim = repeatedLateClaims.find((job) => job.userId === lateProviderAccountId);
+  if (!repeatedLateClaim || repeatedLateClaim.status !== "RECOVERY_REQUIRED") {
+    throw new Error("provider-not-visible attempt did not remain claimable during grace");
   }
+  await reconciliationRepository.markCreateMissing(repeatedLateClaim);
+  await sql`
+    update account_provisioning_attempts
+    set created_at = now() - interval '2 days',
+        expires_at = now() - interval '1 second',
+        lease_expires_at = now() - interval '2 seconds'
+    where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
+  `;
+  const expiredLateClaims = await reconciliationRepository.claimRecoverableCreates(10);
+  const expiredLateClaim = expiredLateClaims.find((job) => job.userId === lateProviderAccountId);
+  if (!expiredLateClaim) throw new Error("expired provider recovery was not claimed for terminal evidence");
+  await reconciliationRepository.markCreateMissing(expiredLateClaim);
   const [lateTerminal] = await sql<{ operator_reason: string | null; status: string }[]>`
     select status, operator_reason from account_provisioning_attempts
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
-  if (lateTerminal?.status !== "OPERATOR_REQUIRED" || lateTerminal.operator_reason !== "PROVIDER_NOT_FOUND") {
-    throw new Error("provider-not-found evidence did not enter operator-required terminal state");
+  if (
+    lateTerminal?.status !== "OPERATOR_REQUIRED"
+    || lateTerminal.operator_reason !== "PROVIDER_NOT_FOUND_AFTER_GRACE"
+  ) {
+    throw new Error("provider-not-found evidence did not enter operator-required sweep state");
+  }
+  await sql`
+    update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
+    where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
+  `;
+  const operatorSweepClaims = await reconciliationRepository.claimRecoverableCreates(10);
+  if (!operatorSweepClaims.some((job) =>
+    job.userId === lateProviderAccountId && job.status === "OPERATOR_REQUIRED"
+  )) {
+    throw new Error("operator-required orphan was not retained in the long-horizon sweep");
   }
 
   const pendingUserId = "8a100000-0000-4000-8000-000000000004";
@@ -593,6 +643,7 @@ try {
         userId: targetAdminId,
         providerSubject: "zitadel-target-admin-subject",
         idempotencyKey: "dead-letter-integration",
+        action: "DEACTIVATE",
       })},
       'PENDING', 7, now()
     )

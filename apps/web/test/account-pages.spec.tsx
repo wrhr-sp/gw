@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   capabilities: vi.fn(),
   detail: vi.fn(),
-  hotelList: vi.fn(),
+  eligibleHotels: vi.fn(),
   list: vi.fn(),
   notFound: vi.fn(),
   principal: vi.fn(),
@@ -15,14 +15,15 @@ vi.mock("next/navigation", () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
   usePathname: () => "/admin/users",
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock("../lib/server-auth", () => ({ requireAuthenticatedPrincipal: mocks.principal }));
 vi.mock("../lib/server-accounts", () => ({
   fetchAccountCapabilitiesResult: mocks.capabilities,
   fetchAccountDetail: mocks.detail,
+  fetchEligibleHotels: mocks.eligibleHotels,
   fetchAccountList: mocks.list,
 }));
-vi.mock("../lib/server-hotels", () => ({ fetchHotelList: mocks.hotelList }));
 
 import AdminUserDetailPage from "../app/admin/users/[userId]/page";
 import NewAdminUserPage from "../app/admin/users/new/page";
@@ -65,6 +66,29 @@ describe("account administration server pages", () => {
     mocks.capabilities.mockResolvedValue({ ok: true, permissions: [] });
     mocks.notFound.mockImplementation(() => { throw new Error("NOT_FOUND"); });
     await expect(AdminUsersPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("uses USER_CREATE eligible hotels for the account form", async () => {
+    mocks.capabilities.mockResolvedValue({ ok: true, permissions: ["USER_CREATE"] });
+    mocks.eligibleHotels.mockResolvedValue({
+      ok: true,
+      hotels: [{ id: "50000000-0000-4000-8000-000000000001", name: "위아히어 강남호텔" }],
+    });
+    const html = renderToStaticMarkup(await NewAdminUserPage());
+    expect(html).toContain("위아히어 강남호텔");
+    expect(mocks.eligibleHotels).toHaveBeenCalledOnce();
+  });
+
+  it("separates an empty eligible set from a dependency failure", async () => {
+    mocks.capabilities.mockResolvedValue({ ok: true, permissions: ["USER_CREATE"] });
+    mocks.eligibleHotels.mockResolvedValueOnce({ ok: true, hotels: [] });
+    expect(renderToStaticMarkup(await NewAdminUserPage())).toContain("배정 가능한 호텔이 없습니다");
+
+    mocks.eligibleHotels.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "INTERNAL_ERROR", message: "호텔 의존성 오류", status: 503 },
+    });
+    expect(renderToStaticMarkup(await NewAdminUserPage())).toContain("호텔 의존성 오류");
   });
 
   it("redirects an out-of-range page while preserving active filters", async () => {

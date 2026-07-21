@@ -185,16 +185,9 @@ async function verifyRestrictivePolicy() {
 
 async function verifyPolicyRoleRestriction() {
   const policyName = "branches_company_isolation";
-  const runtimeRole = "hotel_readiness_runtime_test";
   const unrelatedRole = "hotel_readiness_unrelated_test";
-  const runtimeUrl = new URL(databaseUrl);
-  runtimeUrl.username = runtimeRole;
-  runtimeUrl.password = "";
 
-  await sql.unsafe(`create role ${runtimeRole} login noinherit nobypassrls`);
   await sql.unsafe(`create role ${unrelatedRole} nologin`);
-  await sql.unsafe(`grant usage on schema public to ${runtimeRole}`);
-  await sql.unsafe(`grant select on schema_migrations, permissions to ${runtimeRole}`);
   await sql.unsafe(`drop policy ${policyName} on branches`);
   await sql.unsafe(`
     create policy ${policyName} on branches to ${unrelatedRole}
@@ -202,7 +195,7 @@ async function verifyPolicyRoleRestriction() {
     with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
   `);
   try {
-    const readiness = await probeDatabaseReadiness(runtimeUrl.toString());
+    const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
       throw new Error(`role-restricted policy was reported as ${readiness.status}`);
     }
@@ -213,8 +206,6 @@ async function verifyPolicyRoleRestriction() {
       using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
       with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
     `);
-    await sql.unsafe(`drop owned by ${runtimeRole}`);
-    await sql.unsafe(`drop role ${runtimeRole}`);
     await sql.unsafe(`drop role ${unrelatedRole}`);
   }
 }
