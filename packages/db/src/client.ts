@@ -203,6 +203,11 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
     table: "login_id_registry",
   },
   {
+    definition: "unique (login_id, company_id, target_user_id)",
+    name: "login_id_registry_login_id_company_id_target_user_id_key",
+    table: "login_id_registry",
+  },
+  {
     definition: "unique (company_id, actor_user_id, idempotency_key)",
     name: "login_id_registry_company_id_actor_user_id_idempotency_key_key",
     table: "login_id_registry",
@@ -285,9 +290,27 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     definition:
       "check (((login_id ~ '^[a-z0-9]{3,30}$'::text) and (login_id <> all (array['admin'::text, 'administrator'::text, 'root'::text, 'system'::text, 'security'::text, 'api'::text, 'service'::text, 'support'::text, 'test'::text, 'preview'::text, 'werehere'::text]))))",
   },
+  {
+    table: "login_id_registry",
+    name: "login_id_registry_check",
+    definition:
+      "check ((((actor_user_id is null) and (idempotency_key is null) and (request_hash is null)) or ((actor_user_id is not null) and (idempotency_key is not null) and (request_hash is not null) and (btrim(idempotency_key) <> ''::text) and (btrim(request_hash) <> ''::text))))",
+  },
 ] as const;
 
 const REQUIRED_CONTRACT_CONSTRAINTS = [
+  {
+    table: "users",
+    name: "users_login_name_format_check",
+    definition:
+      "check (((login_name is null) or (login_name ~ '^[a-z0-9]{3,30}$'::text)))",
+  },
+  {
+    table: "users",
+    name: "users_login_name_reserved_check",
+    definition:
+      "check (((login_name is null) or (login_name <> all (array['admin'::text, 'administrator'::text, 'root'::text, 'system'::text, 'security'::text, 'api'::text, 'service'::text, 'support'::text, 'test'::text, 'preview'::text, 'werehere'::text]))))",
+  },
   {
     table: "users",
     name: "users_login_name_registry_fk",
@@ -1610,19 +1633,6 @@ export async function probeDatabaseReadiness(
               constraint.name === required.name &&
               constraint.validated &&
               constraint.definition === required.definition,
-          ),
-      )
-    ) {
-      return { status: "SCHEMA_NOT_READY" };
-    }
-    if (
-      schemaPhase === "CONTRACT" &&
-      ["users_login_name_format_check", "users_login_name_reserved_check"].some(
-        (requiredName) =>
-          !constraints.some((constraint) =>
-            constraint.table === "users" &&
-            constraint.name === requiredName &&
-            constraint.validated,
           ),
       )
     ) {

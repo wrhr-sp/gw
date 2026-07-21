@@ -458,6 +458,36 @@ async function verifyLoginRegistryPrimaryKeyDamage() {
   }
 }
 
+async function verifyLoginRegistryTupleUniqueConstraintDamage() {
+  await sql`alter table users drop constraint users_login_name_registry_fk`;
+  await sql`alter table login_id_registry drop constraint login_id_registry_login_id_company_id_target_user_id_key`;
+  await sql`create unique index login_id_registry_tuple_damage_idx on login_id_registry (login_id, company_id, target_user_id)`;
+  await sql`
+    alter table users add constraint users_login_name_registry_fk
+    foreign key (login_name, company_id, id)
+    references login_id_registry (login_id, company_id, target_user_id)
+  `;
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`tuple unique index substitution was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql`alter table users drop constraint users_login_name_registry_fk`;
+    await sql`drop index login_id_registry_tuple_damage_idx`;
+    await sql`
+      alter table login_id_registry
+      add constraint login_id_registry_login_id_company_id_target_user_id_key
+      unique (login_id, company_id, target_user_id)
+    `;
+    await sql`
+      alter table users add constraint users_login_name_registry_fk
+      foreign key (login_name, company_id, id)
+      references login_id_registry (login_id, company_id, target_user_id)
+    `;
+  }
+}
+
 async function verifyLoginRegistryPolicyExtraBranchDamage() {
   const name = "login_id_registry_company_isolation";
   await sql.unsafe(`drop policy ${name} on login_id_registry`);
@@ -571,6 +601,25 @@ async function verifyLoginIdentityVolatilityDamage() {
 
 try {
   await verifyLoginRegistryPrimaryKeyDamage();
+  await verifyLoginRegistryTupleUniqueConstraintDamage();
+  await verifySecurityConstraintWeakening(
+    "login_id_registry",
+    "login_id_registry_check",
+    "check (true)",
+    "check ((actor_user_id is null and idempotency_key is null and request_hash is null) or (actor_user_id is not null and idempotency_key is not null and request_hash is not null and btrim(idempotency_key) <> '' and btrim(request_hash) <> ''))",
+  );
+  await verifySecurityConstraintWeakening(
+    "users",
+    "users_login_name_format_check",
+    "check (login_name is null or true)",
+    "check (login_name is null or login_name ~ '^[a-z0-9]{3,30}$')",
+  );
+  await verifySecurityConstraintWeakening(
+    "users",
+    "users_login_name_reserved_check",
+    "check (login_name is null or true)",
+    "check (login_name is null or login_name not in ('admin', 'administrator', 'root', 'system', 'security', 'api', 'service', 'support', 'test', 'preview', 'werehere'))",
+  );
   await verifyLoginRegistryPolicyExtraBranchDamage();
   await verifyLoginRegistryPolicyLiteralCaseDamage();
   await verifyLoginRegistryTriggerBodyDamage();

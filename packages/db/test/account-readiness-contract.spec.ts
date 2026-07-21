@@ -33,8 +33,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("REQUIRED_PRIMARY_KEY_CONSTRAINTS");
     expect(source).toContain('name: "login_id_registry_pkey"');
     expect(source).toContain('name: "login_id_registry_company_id_target_user_id_key"');
+    expect(source).toContain('name: "login_id_registry_login_id_company_id_target_user_id_key"');
     expect(source).toContain('name: "login_id_registry_company_id_actor_user_id_idempotency_key_key"');
     expect(source).toContain('name: "login_id_registry_login_id_check"');
+    expect(source).toContain('name: "login_id_registry_check"');
+    expect(source).toContain('name: "users_login_name_format_check"');
+    expect(source).toContain('name: "users_login_name_reserved_check"');
     expect(source).toContain('name: "users_login_name_registry_fk"');
     expect(source).toContain(
       "normalizeDefinition(index.definition) === required.definition",
