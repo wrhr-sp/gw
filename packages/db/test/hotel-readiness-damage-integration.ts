@@ -16,7 +16,9 @@ async function verifyConstraintDamage(name: string, definition: string) {
       throw new Error(`${name} damage was reported as ${readiness.status}`);
     }
   } finally {
-    await sql.unsafe(`alter table hotel_profiles add constraint ${name} ${definition}`);
+    await sql.unsafe(
+      `alter table hotel_profiles add constraint ${name} ${definition}`,
+    );
   }
 }
 
@@ -27,21 +29,29 @@ async function verifySecurityConstraintWeakening(
   approvedDefinition: string,
 ) {
   await sql.unsafe(`alter table ${table} drop constraint ${name}`);
-  await sql.unsafe(`alter table ${table} add constraint ${name} ${damagedDefinition}`);
+  await sql.unsafe(
+    `alter table ${table} add constraint ${name} ${damagedDefinition}`,
+  );
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${name} weakened constraint was reported as ${readiness.status}`);
+      throw new Error(
+        `${name} weakened constraint was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter table ${table} drop constraint ${name}`);
-    await sql.unsafe(`alter table ${table} add constraint ${name} ${approvedDefinition}`);
+    await sql.unsafe(
+      `alter table ${table} add constraint ${name} ${approvedDefinition}`,
+    );
   }
 }
 
 async function verifyExclusionExtraKeyWeakening() {
   const name = "hotel_staff_assignments_primary_period_excl";
-  await sql.unsafe(`alter table hotel_staff_assignments drop constraint ${name}`);
+  await sql.unsafe(
+    `alter table hotel_staff_assignments drop constraint ${name}`,
+  );
   await sql.unsafe(`
     alter table hotel_staff_assignments add constraint ${name}
     exclude using gist (
@@ -54,10 +64,14 @@ async function verifyExclusionExtraKeyWeakening() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`extra-key weakened exclusion was reported as ${readiness.status}`);
+      throw new Error(
+        `extra-key weakened exclusion was reported as ${readiness.status}`,
+      );
     }
   } finally {
-    await sql.unsafe(`alter table hotel_staff_assignments drop constraint ${name}`);
+    await sql.unsafe(
+      `alter table hotel_staff_assignments drop constraint ${name}`,
+    );
     await sql.unsafe(`
       alter table hotel_staff_assignments add constraint ${name}
       exclude using gist (
@@ -72,11 +86,15 @@ async function verifyExclusionExtraKeyWeakening() {
 async function verifyBranchCodeConstraintWeakening() {
   const name = "branches_branch_code_canonical_check";
   await sql.unsafe(`alter table branches drop constraint ${name}`);
-  await sql.unsafe(`alter table branches add constraint ${name} check (branch_code = upper(btrim(branch_code)))`);
+  await sql.unsafe(
+    `alter table branches add constraint ${name} check (branch_code = upper(btrim(branch_code)))`,
+  );
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`weakened branch code constraint was reported as ${readiness.status}`);
+      throw new Error(
+        `weakened branch code constraint was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter table branches drop constraint ${name}`);
@@ -87,14 +105,21 @@ async function verifyBranchCodeConstraintWeakening() {
   }
 }
 
-async function verifyPhoneConstraintReplacement(damagedDefinition: string, label: string) {
+async function verifyPhoneConstraintReplacement(
+  damagedDefinition: string,
+  label: string,
+) {
   const name = "hotel_profiles_representative_phone_format";
   await sql.unsafe(`alter table hotel_profiles drop constraint ${name}`);
-  await sql.unsafe(`alter table hotel_profiles add constraint ${name} ${damagedDefinition}`);
+  await sql.unsafe(
+    `alter table hotel_profiles add constraint ${name} ${damagedDefinition}`,
+  );
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${label} phone constraint was reported as ${readiness.status}`);
+      throw new Error(
+        `${label} phone constraint was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter table hotel_profiles drop constraint ${name}`);
@@ -105,6 +130,33 @@ async function verifyPhoneConstraintReplacement(damagedDefinition: string, label
   }
 }
 
+async function restoreTenantPolicy(table: string, name: string) {
+  const tenantKey = table === "companies" ? "id" : "company_id";
+  await sql.unsafe(`
+    create policy ${name} on ${table}
+    using (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('API_RUNTIME') then ${tenantKey} = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then ${tenantKey} = reconciler_current_company_id()
+        else false
+      end
+    )
+    with check (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('API_RUNTIME') then ${tenantKey} = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then ${tenantKey} = reconciler_current_company_id()
+        else false
+      end
+    )
+  `);
+}
+
 async function verifyPolicyDamage(table: string, name: string) {
   await sql.unsafe(`drop policy ${name} on ${table}`);
   try {
@@ -113,11 +165,7 @@ async function verifyPolicyDamage(table: string, name: string) {
       throw new Error(`${name} damage was reported as ${readiness.status}`);
     }
   } finally {
-    await sql.unsafe(`
-      create policy ${name} on ${table}
-      using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-      with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-    `);
+    await restoreTenantPolicy(table, name);
   }
 }
 
@@ -131,15 +179,13 @@ async function verifyPolicyWeakening(table: string, name: string) {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${name} weakened policy was reported as ${readiness.status}`);
+      throw new Error(
+        `${name} weakened policy was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`drop policy ${name} on ${table}`);
-    await sql.unsafe(`
-      create policy ${name} on ${table}
-      using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-      with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-    `);
+    await restoreTenantPolicy(table, name);
   }
 }
 
@@ -153,7 +199,9 @@ async function verifyAdditionalPermissivePolicy() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`additional permissive policy was reported as ${readiness.status}`);
+      throw new Error(
+        `additional permissive policy was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`drop policy ${name} on branches`);
@@ -175,11 +223,7 @@ async function verifyRestrictivePolicy() {
     }
   } finally {
     await sql.unsafe(`drop policy ${name} on branches`);
-    await sql.unsafe(`
-      create policy ${name} on branches
-      using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-      with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-    `);
+    await restoreTenantPolicy("branches", name);
   }
 }
 
@@ -197,15 +241,13 @@ async function verifyPolicyRoleRestriction() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`role-restricted policy was reported as ${readiness.status}`);
+      throw new Error(
+        `role-restricted policy was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`drop policy ${policyName} on branches`);
-    await sql.unsafe(`
-      create policy ${policyName} on branches
-      using (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-      with check (company_id = nullif(current_setting('app.company_id', true), '')::uuid)
-    `);
+    await restoreTenantPolicy("branches", policyName);
     await sql.unsafe(`drop role ${unrelatedRole}`);
   }
 }
@@ -215,7 +257,9 @@ async function verifyRlsDisabled(table: string) {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${table} disabled RLS was reported as ${readiness.status}`);
+      throw new Error(
+        `${table} disabled RLS was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter table ${table} enable row level security`);
@@ -227,7 +271,9 @@ async function verifyRlsNotForced(table: string) {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${table} non-forced RLS was reported as ${readiness.status}`);
+      throw new Error(
+        `${table} non-forced RLS was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter table ${table} force row level security`);
@@ -238,14 +284,20 @@ const authFunctionSignature =
   "public.auth_create_session(uuid,bytea,text,integer,integer,timestamptz,uuid)";
 
 async function verifyAuthFunctionPublicExecuteDamage() {
-  await sql.unsafe(`grant execute on function ${authFunctionSignature} to public`);
+  await sql.unsafe(
+    `grant execute on function ${authFunctionSignature} to public`,
+  );
   try {
     const readiness = await probeDatabaseReadiness(databaseUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`PUBLIC auth function execute was reported as ${readiness.status}`);
+      throw new Error(
+        `PUBLIC auth function execute was reported as ${readiness.status}`,
+      );
     }
   } finally {
-    await sql.unsafe(`revoke execute on function ${authFunctionSignature} from public`);
+    await sql.unsafe(
+      `revoke execute on function ${authFunctionSignature} from public`,
+    );
   }
 }
 
@@ -258,7 +310,9 @@ async function verifyAuthFunctionNamedExecuteDamage() {
   try {
     const readiness = await probeDatabaseReadiness(databaseUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`named auth function execute was reported as ${readiness.status}`);
+      throw new Error(
+        `named auth function execute was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(
@@ -268,18 +322,25 @@ async function verifyAuthFunctionNamedExecuteDamage() {
   }
 }
 
-async function verifyAuthFunctionBodyDamage(from: string, to: string, label: string) {
+async function verifyAuthFunctionBodyDamage(
+  from: string,
+  to: string,
+  label: string,
+) {
   const [functionRecord] = await sql<{ definition: string }[]>`
     select pg_get_functiondef(${authFunctionSignature}::regprocedure) as definition
   `;
   if (!functionRecord) throw new Error("auth function definition is missing");
   const damaged = functionRecord.definition.replace(from, to);
-  if (damaged === functionRecord.definition) throw new Error("auth function damage fixture did not apply");
+  if (damaged === functionRecord.definition)
+    throw new Error("auth function damage fixture did not apply");
   await sql.unsafe(damaged);
   try {
     const readiness = await probeDatabaseReadiness(databaseUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`${label} auth function body damage was reported as ${readiness.status}`);
+      throw new Error(
+        `${label} auth function body damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(functionRecord.definition);
@@ -289,11 +350,15 @@ async function verifyAuthFunctionBodyDamage(from: string, to: string, label: str
 async function verifyAuthFunctionOwnerDamage() {
   const damageOwner = "werehere_auth_owner_damage";
   await sql.unsafe(`create role ${damageOwner} nologin noinherit`);
-  await sql.unsafe(`alter function ${authFunctionSignature} owner to ${damageOwner}`);
+  await sql.unsafe(
+    `alter function ${authFunctionSignature} owner to ${damageOwner}`,
+  );
   try {
     const readiness = await probeDatabaseReadiness(databaseUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`auth function owner damage was reported as ${readiness.status}`);
+      throw new Error(
+        `auth function owner damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(
@@ -303,7 +368,70 @@ async function verifyAuthFunctionOwnerDamage() {
   }
 }
 
+async function verifyTenantAuthorityHelperBodyDamage() {
+  const signature = "public.reconciler_current_company_id()";
+  const [record] = await sql<{ definition: string }[]>`
+    select pg_get_functiondef(${signature}::regprocedure) as definition
+  `;
+  if (!record) throw new Error("tenant authority helper definition is missing");
+  const damaged = record.definition.replace(
+    /'RECONCILER'(?:::text)?/u,
+    "'reconciler'",
+  );
+  if (damaged === record.definition)
+    throw new Error("tenant authority helper damage fixture did not apply");
+  await sql.unsafe(damaged);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `tenant authority body damage was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(record.definition);
+  }
+}
+
+async function verifyTenantAuthorityHelperOwnerDamage() {
+  const signature = "public.api_current_company_id()";
+  const damageOwner = "werehere_tenant_helper_owner_damage";
+  await sql.unsafe(`create role ${damageOwner} nologin noinherit`);
+  await sql.unsafe(`alter function ${signature} owner to ${damageOwner}`);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `tenant authority owner damage was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(
+      `alter function ${signature} owner to werehere_tenant_authority_definer`,
+    );
+    await sql.unsafe(`drop role ${damageOwner}`);
+  }
+}
+
+async function verifyTenantAuthorityHelperPublicExecuteDamage() {
+  const signature = "public.runtime_has_capability(text)";
+  await sql.unsafe(`grant execute on function ${signature} to public`);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `tenant authority PUBLIC execute damage was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(`revoke execute on function ${signature} from public`);
+  }
+}
+
 try {
+  await verifyTenantAuthorityHelperBodyDamage();
+  await verifyTenantAuthorityHelperOwnerDamage();
+  await verifyTenantAuthorityHelperPublicExecuteDamage();
   await verifyAuthFunctionPublicExecuteDamage();
   await verifyAuthFunctionNamedExecuteDamage();
   await verifyAuthFunctionOwnerDamage();
@@ -350,7 +478,10 @@ try {
     "not-valid",
   );
   await verifyPolicyDamage("branches", "branches_company_isolation");
-  await verifyPolicyDamage("hotel_profiles", "hotel_profiles_company_isolation");
+  await verifyPolicyDamage(
+    "hotel_profiles",
+    "hotel_profiles_company_isolation",
+  );
   await verifyPolicyWeakening("branches", "branches_company_isolation");
   await verifyAdditionalPermissivePolicy();
   await verifyRestrictivePolicy();

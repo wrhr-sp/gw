@@ -47,10 +47,30 @@ export type CompleteAccountCreateInput = {
 };
 
 export type ReserveAccountCreateResult =
-  | { status: "RESERVED_NOT_DISPATCHED"; accountId: string; leaseVersion: number }
-  | { status: "PROVIDER_CONFIRMED"; accountId: string; subject: string; leaseVersion: number }
+  | {
+      status: "RESERVED_NOT_DISPATCHED";
+      accountId: string;
+      leaseVersion: number;
+    }
+  | {
+      status: "PROVIDER_CONFIRMED";
+      accountId: string;
+      subject: string;
+      leaseVersion: number;
+    }
   | { status: "REPLAYED"; account: Account }
-  | { status: "IDEMPOTENCY_CONFLICT" | "IN_PROGRESS" | "FORBIDDEN" | "HOTEL_NOT_FOUND" | "COMPENSATED" | "COMPENSATION_REQUIRED" | "RECOVERY_REQUIRED" | "OPERATOR_REQUIRED" | "DEAD_LETTER" };
+  | {
+      status:
+        | "IDEMPOTENCY_CONFLICT"
+        | "IN_PROGRESS"
+        | "FORBIDDEN"
+        | "HOTEL_NOT_FOUND"
+        | "COMPENSATED"
+        | "COMPENSATION_REQUIRED"
+        | "RECOVERY_REQUIRED"
+        | "OPERATOR_REQUIRED"
+        | "DEAD_LETTER";
+    };
 
 export type CompleteAccountCreateResult =
   | { status: "CREATED" | "REPLAYED"; account: Account }
@@ -58,10 +78,30 @@ export type CompleteAccountCreateResult =
 
 export type AccountCreateOutcome =
   | { status: "COMPLETED"; account: Account }
-  | { status: "PROVIDER_CONFIRMED" | "RESERVED_NOT_DISPATCHED" | "DISPATCHED" | "RECOVERY_REQUIRED" | "COMPENSATED" | "COMPENSATION_REQUIRED" | "OPERATOR_REQUIRED" | "DEAD_LETTER" | "NOT_FOUND" };
+  | {
+      status:
+        | "PROVIDER_CONFIRMED"
+        | "RESERVED_NOT_DISPATCHED"
+        | "DISPATCHED"
+        | "RECOVERY_REQUIRED"
+        | "COMPENSATED"
+        | "COMPENSATION_REQUIRED"
+        | "OPERATOR_REQUIRED"
+        | "DEAD_LETTER"
+        | "NOT_FOUND";
+    };
 
 export type AccountListResult =
-  | { status: "OK"; accounts: Account[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } }
+  | {
+      status: "OK";
+      accounts: Account[];
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+      };
+    }
   | { status: "FORBIDDEN" };
 
 export type AccountEligibleHotelsResult =
@@ -70,11 +110,20 @@ export type AccountEligibleHotelsResult =
 
 export type AccountDeactivateResult =
   | { status: "UPDATED"; account: Account }
-  | { status: "FORBIDDEN" | "NOT_FOUND" | "VERSION_CONFLICT" | "LAST_ADMIN" | "IDEMPOTENCY_CONFLICT" };
+  | {
+      status:
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "VERSION_CONFLICT"
+        | "LAST_ADMIN"
+        | "IDEMPOTENCY_CONFLICT";
+    };
 
 export interface AccountRepository {
   close?(): Promise<void>;
-  reserveCreate(input: ReserveAccountCreateInput): Promise<ReserveAccountCreateResult>;
+  reserveCreate(
+    input: ReserveAccountCreateInput,
+  ): Promise<ReserveAccountCreateResult>;
   markCreateDispatched(input: {
     accountId: string;
     companyId: string;
@@ -95,14 +144,33 @@ export interface AccountRepository {
     leaseVersion: number;
     errorCode: string;
   }): Promise<"UPDATED" | "STALE_LEASE">;
-  completeCreate(input: CompleteAccountCreateInput): Promise<CompleteAccountCreateResult>;
-  getCreateOutcome(input: { accountId: string; companyId: string; sessionId?: string }): Promise<AccountCreateOutcome>;
-  prepareCompensation(input: { accountId: string; companyId: string; sessionId?: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
+  completeCreate(
+    input: CompleteAccountCreateInput,
+  ): Promise<CompleteAccountCreateResult>;
+  getCreateOutcome(input: {
+    accountId: string;
+    companyId: string;
+    sessionId?: string;
+  }): Promise<AccountCreateOutcome>;
+  prepareCompensation(input: {
+    accountId: string;
+    companyId: string;
+    sessionId?: string;
+    leaseVersion: number;
+  }): Promise<"UPDATED" | "STALE_LEASE">;
 
-  listAccounts(actor: AccountActor, query: AccountListQuery): Promise<AccountListResult>;
+  listAccounts(
+    actor: AccountActor,
+    query: AccountListQuery,
+  ): Promise<AccountListResult>;
   listEligibleHotels(actor: AccountActor): Promise<AccountEligibleHotelsResult>;
-  getAccount(actor: AccountActor, userId: string): Promise<Account | null | { status: "FORBIDDEN" }>;
-  getCapabilities(actor: AccountActor): Promise<{ permissions: AccountPermission[] }>;
+  getAccount(
+    actor: AccountActor,
+    userId: string,
+  ): Promise<Account | null | { status: "FORBIDDEN" }>;
+  getCapabilities(
+    actor: AccountActor,
+  ): Promise<{ permissions: AccountPermission[] }>;
   deactivateAccount(input: {
     actor: AccountActor;
     auditEventId: string;
@@ -119,10 +187,32 @@ export interface AccountRepository {
     userId: string;
     idempotencyKey: string;
   }): Promise<
-    | { status: "RESERVED_NOT_DISPATCHED"; subject: string; leaseVersion: number }
-    | { status: "PROVIDER_UPDATED"; subject: string; loginName: string; idempotencyKey: string; leaseVersion: number }
-    | { status: "RECOVERY_CONFIRMABLE"; subject: string; loginName: string; idempotencyKey: string; leaseVersion: number }
-    | { status: "REPLAYED" | "IN_PROGRESS" | "RECOVERY_REQUIRED" | "NOT_PENDING" }
+    | {
+        status: "RESERVED_NOT_DISPATCHED";
+        subject: string;
+        leaseVersion: number;
+      }
+    | {
+        status: "PROVIDER_UPDATED";
+        subject: string;
+        loginName: string;
+        idempotencyKey: string;
+        leaseVersion: number;
+      }
+    | {
+        status: "RECOVERY_CONFIRMABLE";
+        subject: string;
+        loginName: string;
+        idempotencyKey: string;
+        leaseVersion: number;
+      }
+    | {
+        status:
+          | "REPLAYED"
+          | "IN_PROGRESS"
+          | "RECOVERY_REQUIRED"
+          | "NOT_PENDING";
+      }
   >;
   markInitialPasswordDispatched(input: {
     companyId: string;
@@ -224,11 +314,23 @@ const selection = `
 `;
 
 function isDuplicate(error: unknown) {
-  return Boolean(error && typeof error === "object" && "code" in error && error.code === "23505");
+  return Boolean(
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "23505",
+  );
 }
 
-export function createPostgresAccountRepository(databaseUrl: string): AccountRepository {
-  const sql = postgres(databaseUrl, { max: 5, connect_timeout: 5, idle_timeout: 20, prepare: false });
+export function createPostgresAccountRepository(
+  databaseUrl: string,
+): AccountRepository {
+  const sql = postgres(databaseUrl, {
+    max: 5,
+    connect_timeout: 5,
+    idle_timeout: 20,
+    prepare: false,
+  });
 
   const permission = async (
     transaction: postgres.TransactionSql,
@@ -290,8 +392,13 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
     return row?.allowed === true;
   };
 
-  const selectAccount = async (transaction: postgres.TransactionSql, companyId: string, userId: string) => {
-    const rows = await transaction.unsafe<AccountRow[]>(`
+  const selectAccount = async (
+    transaction: postgres.TransactionSql,
+    companyId: string,
+    userId: string,
+  ) => {
+    const rows = await transaction.unsafe<AccountRow[]>(
+      `
       select ${selection}
       from users u
       left join lateral (
@@ -316,26 +423,45 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         on hotel_branch.company_id = u.company_id
        and hotel_branch.id = coalesce(staff.branch_id, housekeeping.branch_id, owner_link.branch_id)
       where u.company_id = $1 and u.id = $2 and u.login_name is not null and u.email is not null
-    `, [companyId, userId]);
+    `,
+      [companyId, userId],
+    );
     return rows[0] ? mapAccount(rows[0]) : null;
   };
 
   return {
-    async close() { await sql.end({ timeout: 1 }); },
+    async close() {
+      await sql.end({ timeout: 1 });
+    },
 
     async reserveCreate(input) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
-        if (!await permission(transaction, input.actor, "USER_CREATE")) return { status: "FORBIDDEN" } as const;
-        const payloadHotelIds = input.completionPayload.userType === "HOUSEKEEPING"
-          ? [...new Set(input.completionPayload.hotelIds ?? (input.completionPayload.hotelId ? [input.completionPayload.hotelId] : []))]
-          : input.completionPayload.hotelId ? [input.completionPayload.hotelId] : [];
+        if (!(await permission(transaction, input.actor, "USER_CREATE")))
+          return { status: "FORBIDDEN" } as const;
+        const payloadHotelIds =
+          input.completionPayload.userType === "HOUSEKEEPING"
+            ? [
+                ...new Set(
+                  input.completionPayload.hotelIds ??
+                    (input.completionPayload.hotelId
+                      ? [input.completionPayload.hotelId]
+                      : []),
+                ),
+              ]
+            : input.completionPayload.hotelId
+              ? [input.completionPayload.hotelId]
+              : [];
         const hotelIds = [...new Set(input.hotelIds)];
-        if (hotelIds.length === 0
-          || JSON.stringify([...hotelIds].sort()) !== JSON.stringify([...payloadHotelIds].sort())) {
+        if (
+          hotelIds.length === 0 ||
+          JSON.stringify([...hotelIds].sort()) !==
+            JSON.stringify([...payloadHotelIds].sort())
+        ) {
           return { status: "HOTEL_NOT_FOUND" } as const;
         }
-        const [hotel] = await transaction.unsafe<{ count: number }[]>(`
+        const [hotel] = await transaction.unsafe<{ count: number }[]>(
+          `
           select count(*)::int as count
           from branches branch
           join hotel_profiles profile
@@ -344,9 +470,14 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and branch.id = any($2::uuid[])
             and branch.branch_type = 'HOTEL'
             and branch.status = 'ACTIVE'
-        `, [input.actor.companyId, hotelIds]);
-        if (hotel?.count !== hotelIds.length) return { status: "HOTEL_NOT_FOUND" } as const;
-        const inserted = await transaction<{ attempt_count: number; target_user_id: string }[]>`
+        `,
+          [input.actor.companyId, hotelIds],
+        );
+        if (hotel?.count !== hotelIds.length)
+          return { status: "HOTEL_NOT_FOUND" } as const;
+        const inserted = await transaction<
+          { attempt_count: number; target_user_id: string }[]
+        >`
           insert into account_provisioning_attempts (
             id, company_id, actor_user_id, target_user_id, idempotency_key,
             request_hash, completion_payload, status, expires_at
@@ -362,20 +493,23 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           on conflict (company_id, actor_user_id, idempotency_key) do nothing
           returning target_user_id, attempt_count
         `;
-        if (inserted[0]) return {
-          status: "RESERVED_NOT_DISPATCHED",
-          accountId: inserted[0].target_user_id,
-          leaseVersion: inserted[0].attempt_count,
-        } as const;
-        const [existing] = await transaction<{
-          attempt_count: number;
-          expires_at: Date;
-          lease_expires_at: Date;
-          provider_subject: string | null;
-          request_hash: string;
-          status: string;
-          target_user_id: string;
-        }[]>`
+        if (inserted[0])
+          return {
+            status: "RESERVED_NOT_DISPATCHED",
+            accountId: inserted[0].target_user_id,
+            leaseVersion: inserted[0].attempt_count,
+          } as const;
+        const [existing] = await transaction<
+          {
+            attempt_count: number;
+            expires_at: Date;
+            lease_expires_at: Date;
+            provider_subject: string | null;
+            request_hash: string;
+            status: string;
+            target_user_id: string;
+          }[]
+        >`
           select request_hash, status, target_user_id, provider_subject,
                  attempt_count, lease_expires_at, expires_at
           from account_provisioning_attempts
@@ -384,17 +518,34 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and idempotency_key = ${input.idempotencyKey}
           for update
         `;
-        if (!existing || existing.request_hash !== input.requestHash) return { status: "IDEMPOTENCY_CONFLICT" } as const;
+        if (!existing || existing.request_hash !== input.requestHash)
+          return { status: "IDEMPOTENCY_CONFLICT" } as const;
         if (existing.status === "COMPLETED") {
-          const account = await selectAccount(transaction, input.actor.companyId, existing.target_user_id);
+          const account = await selectAccount(
+            transaction,
+            input.actor.companyId,
+            existing.target_user_id,
+          );
           if (account) return { status: "REPLAYED", account } as const;
         }
-        if (["COMPENSATED", "COMPENSATION_REQUIRED", "RECOVERY_REQUIRED", "OPERATOR_REQUIRED", "DEAD_LETTER"].includes(existing.status)) {
+        if (
+          [
+            "COMPENSATED",
+            "COMPENSATION_REQUIRED",
+            "RECOVERY_REQUIRED",
+            "OPERATOR_REQUIRED",
+            "DEAD_LETTER",
+          ].includes(existing.status)
+        ) {
           return { status: existing.status } as ReserveAccountCreateResult;
         }
         const now = new Date();
-        if (existing.status === "PROVIDER_CONFIRMED" && existing.provider_subject
-          && existing.lease_expires_at <= now && existing.expires_at > now) {
+        if (
+          existing.status === "PROVIDER_CONFIRMED" &&
+          existing.provider_subject &&
+          existing.lease_expires_at <= now &&
+          existing.expires_at > now
+        ) {
           const [reacquired] = await transaction<{ attempt_count: number }[]>`
             update account_provisioning_attempts
             set lease_expires_at = least(expires_at, now() + interval '2 minutes'),
@@ -409,15 +560,22 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               and expires_at > now()
             returning attempt_count
           `;
-          if (reacquired) return {
-            status: "PROVIDER_CONFIRMED",
-            accountId: existing.target_user_id,
-            subject: existing.provider_subject,
-            leaseVersion: reacquired.attempt_count,
-          } as const;
+          if (reacquired)
+            return {
+              status: "PROVIDER_CONFIRMED",
+              accountId: existing.target_user_id,
+              subject: existing.provider_subject,
+              leaseVersion: reacquired.attempt_count,
+            } as const;
         }
-        if (existing.status === "RESERVED_NOT_DISPATCHED" && existing.lease_expires_at <= now && existing.expires_at > now) {
-          const [reacquired] = await transaction<{ attempt_count: number; target_user_id: string }[]>`
+        if (
+          existing.status === "RESERVED_NOT_DISPATCHED" &&
+          existing.lease_expires_at <= now &&
+          existing.expires_at > now
+        ) {
+          const [reacquired] = await transaction<
+            { attempt_count: number; target_user_id: string }[]
+          >`
             update account_provisioning_attempts
             set lease_expires_at = least(expires_at, now() + interval '2 minutes'),
                 attempt_count = attempt_count + 1,
@@ -431,11 +589,12 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               and expires_at > now()
             returning target_user_id, attempt_count
           `;
-          if (reacquired) return {
-            status: "RESERVED_NOT_DISPATCHED",
-            accountId: reacquired.target_user_id,
-            leaseVersion: reacquired.attempt_count,
-          } as const;
+          if (reacquired)
+            return {
+              status: "RESERVED_NOT_DISPATCHED",
+              accountId: reacquired.target_user_id,
+              leaseVersion: reacquired.attempt_count,
+            } as const;
         }
         return { status: "IN_PROGRESS" } as const;
       });
@@ -454,7 +613,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -473,7 +632,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -491,7 +650,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -499,8 +658,14 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
       try {
         const completion = await sql.begin(async (transaction) => {
           await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-          const [attempt] = await transaction<{ attempt_count: number; status: string; provider_subject: string | null }[]>`
+          await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
+          const [attempt] = await transaction<
+            {
+              attempt_count: number;
+              status: string;
+              provider_subject: string | null;
+            }[]
+          >`
             select status, provider_subject, attempt_count from account_provisioning_attempts
             where company_id = ${input.companyId} and target_user_id = ${input.accountId}
             for update
@@ -508,18 +673,32 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           if (attempt?.status === "COMPLETED") {
             return { status: "REPLAYED", accountId: input.accountId } as const;
           }
-          if (attempt?.status !== "PROVIDER_CONFIRMED"
-            || attempt.provider_subject !== input.subject
-            || attempt.attempt_count !== input.leaseVersion) {
+          if (
+            attempt?.status !== "PROVIDER_CONFIRMED" ||
+            attempt.provider_subject !== input.subject ||
+            attempt.attempt_count !== input.leaseVersion
+          ) {
             throw new Error("account provider state is unavailable");
           }
-          const hotelIds = input.value.userType === "HOUSEKEEPING"
-            ? [...new Set(input.value.hotelIds ?? (input.value.hotelId ? [input.value.hotelId] : []))]
-            : input.value.hotelId ? [input.value.hotelId] : [];
-          if (hotelIds.length === 0 || input.assignmentIds.length !== hotelIds.length) {
+          const hotelIds =
+            input.value.userType === "HOUSEKEEPING"
+              ? [
+                  ...new Set(
+                    input.value.hotelIds ??
+                      (input.value.hotelId ? [input.value.hotelId] : []),
+                  ),
+                ]
+              : input.value.hotelId
+                ? [input.value.hotelId]
+                : [];
+          if (
+            hotelIds.length === 0 ||
+            input.assignmentIds.length !== hotelIds.length
+          ) {
             return { status: "FORBIDDEN" } as const;
           }
-          const eligibleHotels = await transaction.unsafe<{ id: string }[]>(`
+          const eligibleHotels = await transaction.unsafe<{ id: string }[]>(
+            `
             select branch.id
             from branches branch
             join hotel_profiles profile
@@ -530,8 +709,11 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               and branch.status = 'ACTIVE'
             order by branch.id
             for update of branch, profile
-          `, [input.companyId, hotelIds]);
-          if (eligibleHotels.length !== hotelIds.length) return { status: "FORBIDDEN" } as const;
+          `,
+            [input.companyId, hotelIds],
+          );
+          if (eligibleHotels.length !== hotelIds.length)
+            return { status: "FORBIDDEN" } as const;
           await transaction`
             insert into users (
               id, company_id, user_type, display_name, status, login_name, email, must_change_password
@@ -596,10 +778,15 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         if (completion.status === "FORBIDDEN") return completion;
         const account = await sql.begin(async (transaction) => {
           await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-          return selectAccount(transaction, input.companyId, completion.accountId);
+          await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
+          return selectAccount(
+            transaction,
+            input.companyId,
+            completion.accountId,
+          );
         });
-        if (!account) throw new Error("created account post-commit read-back failed");
+        if (!account)
+          throw new Error("created account post-commit read-back failed");
         return { status: completion.status, account } as const;
       } catch (error) {
         if (isDuplicate(error)) return { status: "DUPLICATE" } as const;
@@ -611,7 +798,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
         await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
-        const updated = await transaction<{ id: string; provider_subject: string }[]>`
+        const updated = await transaction<
+          { id: string; provider_subject: string }[]
+        >`
           update account_provisioning_attempts
           set status = 'COMPENSATION_REQUIRED',
               failure_code = 'DB_COMPLETION_FAILED',
@@ -643,7 +832,6 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
       });
     },
 
-
     async getCreateOutcome(input) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
@@ -654,13 +842,25 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         `;
         if (!attempt) return { status: "NOT_FOUND" } as const;
         if (attempt.status === "COMPLETED") {
-          const account = await selectAccount(transaction, input.companyId, input.accountId);
+          const account = await selectAccount(
+            transaction,
+            input.companyId,
+            input.accountId,
+          );
           if (account) return { status: "COMPLETED", account } as const;
         }
-        if ([
-          "PROVIDER_CONFIRMED", "RESERVED_NOT_DISPATCHED", "DISPATCHED", "RECOVERY_REQUIRED",
-          "COMPENSATED", "COMPENSATION_REQUIRED", "OPERATOR_REQUIRED", "DEAD_LETTER",
-        ].includes(attempt.status)) {
+        if (
+          [
+            "PROVIDER_CONFIRMED",
+            "RESERVED_NOT_DISPATCHED",
+            "DISPATCHED",
+            "RECOVERY_REQUIRED",
+            "COMPENSATED",
+            "COMPENSATION_REQUIRED",
+            "OPERATOR_REQUIRED",
+            "DEAD_LETTER",
+          ].includes(attempt.status)
+        ) {
           return { status: attempt.status } as AccountCreateOutcome;
         }
         return { status: "NOT_FOUND" } as const;
@@ -670,23 +870,34 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
     async listAccounts(actor, query) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
-        if (!await permission(transaction, actor, "USER_READ")) return { status: "FORBIDDEN" } as const;
+        if (!(await permission(transaction, actor, "USER_READ")))
+          return { status: "FORBIDDEN" } as const;
         const storedUserType = query.userType
           ? toExpandCompatibleStoredUserType(query.userType)
           : null;
-        const countRows = await transaction.unsafe<{ total: number }[]>(`
+        const countRows = await transaction.unsafe<{ total: number }[]>(
+          `
           select count(*)::int as total
           from users u
           where u.company_id = $1 and u.login_name is not null and u.email is not null
             and ($2::text is null or u.user_type in ($2::text, $3::text))
             and ($4::text is null or u.status = $4::text)
             and ($5::text is null or u.display_name ilike ('%' || $5::text || '%') or u.login_name ilike ('%' || $5::text || '%'))
-        `, [actor.companyId, query.userType ?? null, storedUserType, query.status ?? null, query.q ?? null]);
+        `,
+          [
+            actor.companyId,
+            query.userType ?? null,
+            storedUserType,
+            query.status ?? null,
+            query.q ?? null,
+          ],
+        );
         const total = countRows[0]?.total ?? 0;
         const totalPages = total === 0 ? 0 : Math.ceil(total / query.pageSize);
         const page = totalPages === 0 ? 1 : Math.min(query.page, totalPages);
         const offset = (page - 1) * query.pageSize;
-        const rows = await transaction.unsafe<AccountListRow[]>(`
+        const rows = await transaction.unsafe<AccountListRow[]>(
+          `
           select ${selection}
           from users u
           left join lateral (select branch_id from hotel_staff_assignments where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) order by (assignment_type = 'PRIMARY') desc, start_date desc limit 1) staff on true
@@ -699,16 +910,30 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and ($5::text is null or u.display_name ilike ('%' || $5::text || '%') or u.login_name ilike ('%' || $5::text || '%'))
           order by u.created_at desc, u.id
           limit $6 offset $7
-        `, [actor.companyId, query.userType ?? null, storedUserType, query.status ?? null, query.q ?? null, query.pageSize, offset]);
+        `,
+          [
+            actor.companyId,
+            query.userType ?? null,
+            storedUserType,
+            query.status ?? null,
+            query.q ?? null,
+            query.pageSize,
+            offset,
+          ],
+        );
         const accounts = rows.map(mapAccount);
-        return { status: "OK", accounts, pagination: { page, pageSize: query.pageSize, total, totalPages } } as const;
+        return {
+          status: "OK",
+          accounts,
+          pagination: { page, pageSize: query.pageSize, total, totalPages },
+        } as const;
       });
     },
 
     async listEligibleHotels(actor) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
-        if (!await permission(transaction, actor, "USER_CREATE")) {
+        if (!(await permission(transaction, actor, "USER_CREATE"))) {
           return { status: "FORBIDDEN" } as const;
         }
         const hotels = await transaction<{ id: string; name: string }[]>`
@@ -729,7 +954,8 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
     async getAccount(actor, userId) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
-        if (!await permission(transaction, actor, "USER_READ")) return { status: "FORBIDDEN" } as const;
+        if (!(await permission(transaction, actor, "USER_READ")))
+          return { status: "FORBIDDEN" } as const;
         return selectAccount(transaction, actor.companyId, userId);
       });
     },
@@ -737,25 +963,33 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
     async getCapabilities(actor) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
-        const candidates: AccountPermission[] = ["USER_READ", "USER_CREATE", "USER_SUSPEND"];
+        const candidates: AccountPermission[] = [
+          "USER_READ",
+          "USER_CREATE",
+          "USER_SUSPEND",
+        ];
         const permissions: AccountPermission[] = [];
         for (const code of candidates) {
-          if (await permission(transaction, actor, code)) permissions.push(code);
+          if (await permission(transaction, actor, code))
+            permissions.push(code);
         }
         return { permissions };
       });
     },
 
     async deactivateAccount(input) {
-      const requestHash = input.requestHash ?? JSON.stringify({
-        targetUserId: input.targetUserId,
-        version: input.value.version,
-        reason: input.value.reason,
-      });
+      const requestHash =
+        input.requestHash ??
+        JSON.stringify({
+          targetUserId: input.targetUserId,
+          version: input.value.version,
+          reason: input.value.reason,
+        });
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         await transaction`select pg_advisory_xact_lock(hashtextextended(${`${input.actor.companyId}:account-deactivation`}, 0))`;
-        if (!await permission(transaction, input.actor, "USER_SUSPEND")) return { status: "FORBIDDEN" } as const;
+        if (!(await permission(transaction, input.actor, "USER_SUSPEND")))
+          return { status: "FORBIDDEN" } as const;
 
         const operationPath = `/api/admin/users/${input.targetUserId}/deactivate`;
         const inserted = await transaction<{ id: string }[]>`
@@ -771,11 +1005,13 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           returning id
         `;
         if (!inserted[0]) {
-          const [existing] = await transaction<{
-            request_hash: string;
-            resource_id: string | null;
-            status: string;
-          }[]>`
+          const [existing] = await transaction<
+            {
+              request_hash: string;
+              resource_id: string | null;
+              status: string;
+            }[]
+          >`
             select request_hash, resource_id::text, status
             from idempotency_records
             where company_id = ${input.actor.companyId}
@@ -789,8 +1025,13 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             return { status: "IDEMPOTENCY_CONFLICT" } as const;
           }
           if (existing.status === "COMPLETED" && existing.resource_id) {
-            const replayed = await selectAccount(transaction, input.actor.companyId, existing.resource_id);
-            if (replayed) return { status: "UPDATED", account: replayed } as const;
+            const replayed = await selectAccount(
+              transaction,
+              input.actor.companyId,
+              existing.resource_id,
+            );
+            if (replayed)
+              return { status: "UPDATED", account: replayed } as const;
           }
           return { status: "IDEMPOTENCY_CONFLICT" } as const;
         }
@@ -807,7 +1048,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           `;
         };
 
-        const [target] = await transaction<{ provider_subject: string; status: string; version: number }[]>`
+        const [target] = await transaction<
+          { provider_subject: string; status: string; version: number }[]
+        >`
           select user_record.status, user_record.version, identity_record.provider_subject
           from users user_record
           join auth_identities identity_record
@@ -826,7 +1069,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           await discardIdempotency();
           return { status: "VERSION_CONFLICT" } as const;
         }
-        const [adminState] = await transaction<{ active_admin_count: number; target_is_admin: boolean }[]>`
+        const [adminState] = await transaction<
+          { active_admin_count: number; target_is_admin: boolean }[]
+        >`
           with active_users as (
             select id from users
             where company_id = ${input.actor.companyId} and status = 'ACTIVE'
@@ -911,7 +1156,11 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             ${input.value.reason}, 'SUCCEEDED', ${input.traceId}
           )
         `;
-        const account = await selectAccount(transaction, input.actor.companyId, input.targetUserId);
+        const account = await selectAccount(
+          transaction,
+          input.actor.companyId,
+          input.targetUserId,
+        );
         if (!account) throw new Error("deactivated account read-back failed");
         await transaction`
           update idempotency_records
@@ -930,21 +1179,22 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
       });
     },
 
-
     async reserveInitialPassword(input) {
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
         await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
         await transaction`select pg_advisory_xact_lock(hashtextextended(${`${input.companyId}:${input.userId}:initial-password`}, 0))`;
-        const [existing] = await transaction<{
-          attempt_count: number;
-          expires_at: Date;
-          idempotency_key: string;
-          lease_expires_at: Date;
-          login_name: string;
-          provider_subject: string;
-          status: string;
-        }[]>`
+        const [existing] = await transaction<
+          {
+            attempt_count: number;
+            expires_at: Date;
+            idempotency_key: string;
+            lease_expires_at: Date;
+            login_name: string;
+            provider_subject: string;
+            status: string;
+          }[]
+        >`
           select attempt.status, attempt.provider_subject, attempt.lease_expires_at,
                  attempt.expires_at, attempt.idempotency_key, attempt.attempt_count,
                  user_record.login_name
@@ -956,9 +1206,12 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt.idempotency_key = ${input.idempotencyKey}
           for update of attempt, user_record
         `;
-        if (existing?.status === "COMPLETED") return { status: "REPLAYED" } as const;
+        if (existing?.status === "COMPLETED")
+          return { status: "REPLAYED" } as const;
 
-        const [eligible] = await transaction<{ login_name: string; provider_subject: string }[]>`
+        const [eligible] = await transaction<
+          { login_name: string; provider_subject: string }[]
+        >`
           select user_record.login_name, identity_record.provider_subject
           from auth_sessions session_record
           join users user_record
@@ -990,7 +1243,8 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           } as const;
         }
         if (existing?.status === "RESERVED_NOT_DISPATCHED") {
-          if (existing.lease_expires_at > now) return { status: "IN_PROGRESS" } as const;
+          if (existing.lease_expires_at > now)
+            return { status: "IN_PROGRESS" } as const;
           const [reacquired] = await transaction<{ attempt_count: number }[]>`
             update initial_password_change_attempts
             set lease_expires_at = least(expires_at, now() + interval '2 minutes'),
@@ -1003,14 +1257,17 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               and expires_at > now()
             returning attempt_count
           `;
-          return reacquired ? {
-            status: "RESERVED_NOT_DISPATCHED",
-            subject: existing.provider_subject,
-            leaseVersion: reacquired.attempt_count,
-          } as const : { status: "IN_PROGRESS" } as const;
+          return reacquired
+            ? ({
+                status: "RESERVED_NOT_DISPATCHED",
+                subject: existing.provider_subject,
+                leaseVersion: reacquired.attempt_count,
+              } as const)
+            : ({ status: "IN_PROGRESS" } as const);
         }
         if (existing?.status === "DISPATCHED") {
-          if (existing.lease_expires_at > now) return { status: "IN_PROGRESS" } as const;
+          if (existing.lease_expires_at > now)
+            return { status: "IN_PROGRESS" } as const;
           const [recovery] = await transaction<{ id: string }[]>`
             update initial_password_change_attempts
             set status = 'RECOVERY_REQUIRED', failure_code = 'PROVIDER_RESULT_AMBIGUOUS',
@@ -1022,7 +1279,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
               and lease_expires_at <= now()
             returning id
           `;
-          return { status: recovery ? "RECOVERY_REQUIRED" : "IN_PROGRESS" } as const;
+          return {
+            status: recovery ? "RECOVERY_REQUIRED" : "IN_PROGRESS",
+          } as const;
         }
         if (existing?.status === "RECOVERY_REQUIRED") {
           if (existing.expires_at <= now) {
@@ -1045,16 +1304,18 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           } as const;
         }
 
-        const [activeAttempt] = await transaction<{
-          attempt_count: number;
-          expires_at: Date;
-          id: string;
-          idempotency_key: string;
-          lease_expires_at: Date;
-          login_name: string;
-          provider_subject: string;
-          status: string;
-        }[]>`
+        const [activeAttempt] = await transaction<
+          {
+            attempt_count: number;
+            expires_at: Date;
+            id: string;
+            idempotency_key: string;
+            lease_expires_at: Date;
+            login_name: string;
+            provider_subject: string;
+            status: string;
+          }[]
+        >`
           select attempt.id, attempt.status, attempt.lease_expires_at, attempt.expires_at,
                  attempt.idempotency_key, attempt.attempt_count, attempt.provider_subject,
                  user_record.login_name
@@ -1067,7 +1328,8 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           for update of attempt, user_record
         `;
         if (activeAttempt?.status === "RESERVED_NOT_DISPATCHED") {
-          if (activeAttempt.lease_expires_at > now) return { status: "IN_PROGRESS" } as const;
+          if (activeAttempt.lease_expires_at > now)
+            return { status: "IN_PROGRESS" } as const;
           await transaction`
             update initial_password_change_attempts
             set status = 'OPERATOR_REQUIRED', operator_reason = 'ABANDONED_BEFORE_DISPATCH',
@@ -1077,7 +1339,8 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           `;
         }
         if (activeAttempt?.status === "DISPATCHED") {
-          if (activeAttempt.lease_expires_at > now) return { status: "IN_PROGRESS" } as const;
+          if (activeAttempt.lease_expires_at > now)
+            return { status: "IN_PROGRESS" } as const;
           const [recovery] = await transaction<{ id: string }[]>`
             update initial_password_change_attempts
             set status = 'RECOVERY_REQUIRED', failure_code = 'PROVIDER_RESULT_AMBIGUOUS',
@@ -1134,8 +1397,13 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           )
           returning attempt_count
         `;
-        if (!created) throw new Error("initial password reservation was not created");
-        return { status: "RESERVED_NOT_DISPATCHED", subject: eligible.provider_subject, leaseVersion: created.attempt_count } as const;
+        if (!created)
+          throw new Error("initial password reservation was not created");
+        return {
+          status: "RESERVED_NOT_DISPATCHED",
+          subject: eligible.provider_subject,
+          leaseVersion: created.attempt_count,
+        } as const;
       });
     },
 
@@ -1153,7 +1421,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -1172,7 +1440,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -1191,7 +1459,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and expires_at > now()
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -1209,7 +1477,7 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and attempt_count = ${input.leaseVersion}
           returning id
         `;
-        return rows[0] ? "UPDATED" as const : "STALE_LEASE" as const;
+        return rows[0] ? ("UPDATED" as const) : ("STALE_LEASE" as const);
       });
     },
 
@@ -1224,8 +1492,10 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             and idempotency_key = ${input.idempotencyKey}
           for update
         `;
-        if (attempt?.status === "COMPLETED") return { status: "REPLAYED" } as const;
-        if (attempt?.status !== "PROVIDER_UPDATED") return { status: "NOT_PENDING" } as const;
+        if (attempt?.status === "COMPLETED")
+          return { status: "REPLAYED" } as const;
+        if (attempt?.status !== "PROVIDER_UPDATED")
+          return { status: "NOT_PENDING" } as const;
         const rows = await transaction<{ id: string }[]>`
           update users
           set status = 'ACTIVE', must_change_password = false, version = version + 1, updated_at = now()
@@ -1235,11 +1505,6 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         `;
         if (!rows[0]) return { status: "NOT_PENDING" } as const;
         await transaction`
-          select public.auth_revoke_user_sessions_v1(
-            ${input.companyId}, ${input.userId}, 'INITIAL_PASSWORD_CHANGED'
-          )
-        `;
-        await transaction`
           insert into audit_events (
             id, event_code, actor_user_id, actor_type, session_id, company_id,
             resource_type, resource_id, result, trace_id
@@ -1248,13 +1513,20 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
             ${input.sessionId}, ${input.companyId}, 'USER', ${input.userId}, 'SUCCEEDED', ${input.traceId}
           )
         `;
-        await transaction`
+        const completed = await transaction<{ id: string }[]>`
           update initial_password_change_attempts
           set status = 'COMPLETED', completed_at = now(), updated_at = now()
           where company_id = ${input.companyId}
             and user_id = ${input.userId}
             and idempotency_key = ${input.idempotencyKey}
             and status = 'PROVIDER_UPDATED'
+          returning id
+        `;
+        if (!completed[0]) return { status: "NOT_PENDING" } as const;
+        await transaction`
+          select public.auth_revoke_user_sessions_v1(
+            ${input.companyId}, ${input.userId}, 'INITIAL_PASSWORD_CHANGED'
+          )
         `;
         return { status: "UPDATED" } as const;
       });

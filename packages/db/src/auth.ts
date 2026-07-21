@@ -81,7 +81,9 @@ export interface AuthRepository {
   createCustomLoginTransaction(
     input: CreateCustomLoginTransactionInput,
   ): Promise<CreateCustomLoginTransactionResult>;
-  createLoginTransaction(input: CreateLoginTransactionInput): Promise<CreateLoginTransactionResult>;
+  createLoginTransaction(
+    input: CreateLoginTransactionInput,
+  ): Promise<CreateLoginTransactionResult>;
   createSession(input: CreateSessionInput): Promise<CreateSessionResult>;
   prepareCustomLogin(input: {
     authRequestHash: Uint8Array;
@@ -93,9 +95,18 @@ export interface AuthRepository {
     authRequestHash: Uint8Array;
     browserBindingHash: Uint8Array;
   }): Promise<ReserveCustomLoginValidationResult>;
-  reserveCustomLoginStart(ipHash: Uint8Array): Promise<{ status: "RESERVED" | "RATE_LIMITED" }>;
-  resolvePrincipal(tokenHash: Uint8Array, idleLifetimeSeconds: number): Promise<AuthenticatedPrincipal | null>;
-  revokeSession(tokenHash: Uint8Array, reason: string, traceId: string): Promise<boolean>;
+  reserveCustomLoginStart(
+    ipHash: Uint8Array,
+  ): Promise<{ status: "RESERVED" | "RATE_LIMITED" }>;
+  resolvePrincipal(
+    tokenHash: Uint8Array,
+    idleLifetimeSeconds: number,
+  ): Promise<AuthenticatedPrincipal | null>;
+  revokeSession(
+    tokenHash: Uint8Array,
+    reason: string,
+    traceId: string,
+  ): Promise<boolean>;
 }
 
 type PrincipalRow = {
@@ -120,7 +131,40 @@ function mapPrincipal(row: PrincipalRow): AuthenticatedPrincipal {
   };
 }
 
-export function createPostgresAuthRepository(databaseUrl: string): AuthRepository {
+export function parseResolvedPrincipalRows(
+  rows: unknown[],
+): AuthenticatedPrincipal | null {
+  if (rows.length > 1)
+    throw new Error("auth principal function returned multiple rows");
+  const result = rows[0];
+  if (!result) return null;
+  if (typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("auth principal function returned an incomplete principal");
+  }
+  const row = result as Partial<Record<keyof PrincipalRow, unknown>>;
+  if (
+    typeof row.company_id !== "string" ||
+    row.company_id.length === 0 ||
+    typeof row.identity_id !== "string" ||
+    row.identity_id.length === 0 ||
+    typeof row.session_id !== "string" ||
+    row.session_id.length === 0 ||
+    typeof row.user_id !== "string" ||
+    row.user_id.length === 0 ||
+    typeof row.user_type !== "string" ||
+    row.user_type.length === 0 ||
+    typeof row.display_name !== "string" ||
+    row.display_name.length === 0 ||
+    typeof row.must_change_password !== "boolean"
+  ) {
+    throw new Error("auth principal function returned an incomplete principal");
+  }
+  return mapPrincipal(row as PrincipalRow);
+}
+
+export function createPostgresAuthRepository(
+  databaseUrl: string,
+): AuthRepository {
   const sql = postgres(databaseUrl, {
     max: 5,
     connect_timeout: 5,
@@ -147,13 +191,17 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
             for update skip locked
           )
         `;
-        const capacity = await transaction<{ active_count: number; recent_count: number }[]>`
+        const capacity = await transaction<
+          { active_count: number; recent_count: number }[]
+        >`
           select count(*) filter (where expires_at > now())::int as active_count,
                  count(*) filter (where created_at > now() - interval '1 minute')::int as recent_count
           from auth_login_transactions
         `;
-        if ((capacity[0]?.active_count ?? 0) >= 10000
-          || (capacity[0]?.recent_count ?? 0) >= 1000) {
+        if (
+          (capacity[0]?.active_count ?? 0) >= 10000 ||
+          (capacity[0]?.recent_count ?? 0) >= 1000
+        ) {
           return { status: "CAPACITY_EXCEEDED" } as const;
         }
         await transaction`
@@ -194,13 +242,17 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
           ) as claimed
         `;
         if (claimed[0]?.claimed) return { status: "REPLAYED" } as const;
-        const capacity = await transaction<{ active_count: number; recent_count: number }[]>`
+        const capacity = await transaction<
+          { active_count: number; recent_count: number }[]
+        >`
           select count(*) filter (where expires_at > now())::int as active_count,
                  count(*) filter (where created_at > now() - interval '1 minute')::int as recent_count
           from auth_login_transactions
         `;
-        if ((capacity[0]?.active_count ?? 0) >= 10000
-          || (capacity[0]?.recent_count ?? 0) >= 1000) {
+        if (
+          (capacity[0]?.active_count ?? 0) >= 10000 ||
+          (capacity[0]?.recent_count ?? 0) >= 1000
+        ) {
           return { status: "CAPACITY_EXCEEDED" } as const;
         }
         await transaction`
@@ -222,13 +274,15 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
     },
 
     async consumeLoginTransaction(stateHash, browserBindingHash) {
-      const rows = await sql<{
-        code_verifier_ciphertext: Uint8Array;
-        code_verifier_iv: Uint8Array;
-        encryption_key_version: number;
-        nonce_hash: Uint8Array;
-        redirect_uri: string;
-      }[]>`
+      const rows = await sql<
+        {
+          code_verifier_ciphertext: Uint8Array;
+          code_verifier_iv: Uint8Array;
+          encryption_key_version: number;
+          nonce_hash: Uint8Array;
+          redirect_uri: string;
+        }[]
+      >`
         delete from auth_login_transactions
         where state_hash = ${stateHash}
           and browser_binding_hash = ${browserBindingHash}
@@ -237,13 +291,15 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
                   encryption_key_version, nonce_hash, redirect_uri
       `;
       const row = rows[0];
-      return row ? {
-        codeVerifierCiphertext: row.code_verifier_ciphertext,
-        codeVerifierIv: row.code_verifier_iv,
-        encryptionKeyVersion: row.encryption_key_version,
-        nonceHash: row.nonce_hash,
-        redirectUri: row.redirect_uri,
-      } : null;
+      return row
+        ? {
+            codeVerifierCiphertext: row.code_verifier_ciphertext,
+            codeVerifierIv: row.code_verifier_iv,
+            encryptionKeyVersion: row.encryption_key_version,
+            nonceHash: row.nonce_hash,
+            redirectUri: row.redirect_uri,
+          }
+        : null;
     },
 
     async prepareCustomLogin(input) {
@@ -268,8 +324,8 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         ) as limited
       `;
       return limited[0]?.limited
-        ? { status: "RATE_LIMITED" } as const
-        : { status: "FLOW_INVALID" } as const;
+        ? ({ status: "RATE_LIMITED" } as const)
+        : ({ status: "FLOW_INVALID" } as const);
     },
 
     async reserveCustomLoginValidation(input) {
@@ -304,8 +360,8 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         ) as limited
       `;
       return limited[0]?.limited
-        ? { status: "RATE_LIMITED" } as const
-        : { status: "FLOW_INVALID" } as const;
+        ? ({ status: "RATE_LIMITED" } as const)
+        : ({ status: "FLOW_INVALID" } as const);
     },
 
     async reserveCustomLoginStart(ipHash) {
@@ -331,8 +387,8 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         returning attempt_count
       `;
       return (rows[0]?.attempt_count ?? 1000) > 20
-        ? { status: "RATE_LIMITED" } as const
-        : { status: "RESERVED" } as const;
+        ? ({ status: "RATE_LIMITED" } as const)
+        : ({ status: "RESERVED" } as const);
     },
 
     async consumeCustomLoginAttempt(input) {
@@ -392,22 +448,24 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
           counts.push(rows[0]?.attempt_count ?? 1000);
         }
         return counts[0]! > 30 || counts[1]! > 10
-          ? { status: "RATE_LIMITED" } as const
-          : { status: "CONSUMED" } as const;
+          ? ({ status: "RATE_LIMITED" } as const)
+          : ({ status: "CONSUMED" } as const);
       });
     },
 
     async createSession(input) {
-      const rows = await sql<{
-        company_id: string | null;
-        display_name: string | null;
-        identity_id: string | null;
-        must_change_password: boolean | null;
-        result_status: string;
-        session_id: string | null;
-        user_id: string | null;
-        user_type: StoredHotelUserType | null;
-      }[]>`
+      const rows = await sql<
+        {
+          company_id: string | null;
+          display_name: string | null;
+          identity_id: string | null;
+          must_change_password: boolean | null;
+          result_status: string;
+          session_id: string | null;
+          user_id: string | null;
+          user_type: StoredHotelUserType | null;
+        }[]
+      >`
         select * from public.auth_create_session_v2(
           ${input.sessionId}::uuid,
           ${input.tokenHash}::bytea,
@@ -419,7 +477,9 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         )
       `;
       if (rows.length !== 1) {
-        throw new Error("auth session function returned an unexpected row count");
+        throw new Error(
+          "auth session function returned an unexpected row count",
+        );
       }
       const result = rows[0]!;
       if (
@@ -427,9 +487,12 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         result.result_status === "PRINCIPAL_INACTIVE"
       ) {
         if (
-          result.company_id !== null || result.identity_id !== null ||
-          result.session_id !== null || result.user_id !== null ||
-          result.user_type !== null || result.display_name !== null ||
+          result.company_id !== null ||
+          result.identity_id !== null ||
+          result.session_id !== null ||
+          result.user_id !== null ||
+          result.user_type !== null ||
+          result.display_name !== null ||
           result.must_change_password !== null
         ) {
           throw new Error("auth session denial returned principal data");
@@ -440,11 +503,17 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
         throw new Error("auth session function returned an unexpected status");
       }
       if (
-        !result.company_id || !result.identity_id || !result.session_id ||
-        !result.user_id || !result.user_type || !result.display_name ||
+        !result.company_id ||
+        !result.identity_id ||
+        !result.session_id ||
+        !result.user_id ||
+        !result.user_type ||
+        !result.display_name ||
         result.must_change_password === null
       ) {
-        throw new Error("auth session function returned an incomplete principal");
+        throw new Error(
+          "auth session function returned an incomplete principal",
+        );
       }
       return {
         status: "CREATED",
@@ -464,7 +533,7 @@ export function createPostgresAuthRepository(databaseUrl: string): AuthRepositor
       const rows = await sql<PrincipalRow[]>`
         select * from public.auth_resolve_principal_v2(${tokenHash}, ${idleLifetimeSeconds})
       `;
-      return rows[0] ? mapPrincipal(rows[0]) : null;
+      return parseResolvedPrincipalRows(rows);
     },
 
     async revokeSession(tokenHash, reason, traceId) {

@@ -33,9 +33,12 @@ describe("account administration readiness contract", () => {
   it("requires the API-only user-session revoke definer boundary", () => {
     expect(source).toContain("AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256");
     expect(source).toContain("procedure_record.proname = 'auth_revoke_user_sessions_v1'");
-    expect(source).toContain("userSessionRevokeFunction.executable !== (options.capability === \"API_RUNTIME\")");
+    expect(source).toContain("userSessionRevokeFunction.executable !==");
+    expect(source).toContain('(options.capability === "API_RUNTIME")');
     expect(source).toContain("userSessionRevokeFunction.non_owner_execute_count > 1");
-    expect(source).toContain("options.capability === \"API_RUNTIME\" && userSessionRevokeFunction.non_owner_execute_count !== 1");
+    expect(source).toMatch(
+      /options\.capability === "API_RUNTIME" &&[\s\S]{0,120}userSessionRevokeFunction\.non_owner_execute_count !== 1/u,
+    );
   });
 
   it("checks the connected runtime role's write privileges", () => {
@@ -60,6 +63,17 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("capabilityIdentity.unexpected");
     expect(source).toContain("AUTH_RESOLVE_PRINCIPAL_V2_PROSRC_SHA256");
     expect(source).toContain("AUTH_REVOKE_SESSION_V2_PROSRC_SHA256");
+    expect(source).toContain("TENANT_AUTHORITY_PROSRC_SHA256");
+    expect(source).toContain("runtime_is_schema_owner");
+    expect(source).toContain("runtime_has_capability");
+    expect(source).toContain("api_current_company_id");
+    expect(source).toContain("reconciler_current_company_id");
+    expect(source).toContain("werehere_tenant_authority_definer");
+    expect(source).toContain("unexpected_execute_count");
+    expect(source).toContain("public_execute");
+    expect(source).toContain("0008_remove_legacy_company_id_fallback");
+    expect(source).toContain('!normalized.includes("app.company_id")');
+    expect(source).not.toContain("grantee_role.rolname <> 'werehere_preview_runtime'");
     expect(source).toContain("membership.admin_option");
   });
 });

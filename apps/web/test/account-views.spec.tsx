@@ -24,8 +24,16 @@ const account = {
   hotelName: "위아히어 강남호텔",
   hotelCode: "GANGNAM-01",
   hotels: [
-    { id: "50000000-0000-4000-8000-000000000001", name: "위아히어 강남호텔", code: "GANGNAM-01" },
-    { id: "50000000-0000-4000-8000-000000000002", name: "위아히어 부산호텔", code: "BUSAN-01" },
+    {
+      id: "50000000-0000-4000-8000-000000000001",
+      name: "위아히어 강남호텔",
+      code: "GANGNAM-01",
+    },
+    {
+      id: "50000000-0000-4000-8000-000000000002",
+      name: "위아히어 부산호텔",
+      code: "BUSAN-01",
+    },
   ],
   version: 1,
   createdAt: "2026-07-19T00:00:00.000Z",
@@ -56,15 +64,22 @@ describe("account administration views", () => {
     ["status", { status: "ACTIVE" as const }],
     ["version", { version: 2 }],
   ])("rejects a read-back mismatch in material field %s", (_field, patch) => {
-    expect(accountReadBackMatches(account, { ...account, ...patch })).toBe(false);
+    expect(accountReadBackMatches(account, { ...account, ...patch })).toBe(
+      false,
+    );
   });
 
   it("renders real account fields in desktop rows and mobile cards", () => {
-    const html = renderToStaticMarkup(<AccountListView canCreate result={{
-      ok: true,
-      accounts: [account],
-      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-    }} />);
+    const html = renderToStaticMarkup(
+      <AccountListView
+        canCreate
+        result={{
+          ok: true,
+          accounts: [account],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        }}
+      />,
+    );
     expect(html).toContain("사용자 계정");
     expect(html).toContain("김하우스");
     expect(html).toContain("하우스키핑");
@@ -76,18 +91,27 @@ describe("account administration views", () => {
   });
 
   it("hides create and suspend actions without their independent capabilities", () => {
-    const list = renderToStaticMarkup(<AccountListView canCreate={false} result={{
-      ok: true,
-      accounts: [account],
-      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-    }} />);
+    const list = renderToStaticMarkup(
+      <AccountListView
+        canCreate={false}
+        result={{
+          ok: true,
+          accounts: [account],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        }}
+      />,
+    );
     expect(list).not.toContain("사용자 생성");
-    const detail = renderToStaticMarkup(<AccountDetailView account={account} canSuspend={false} />);
+    const detail = renderToStaticMarkup(
+      <AccountDetailView account={account} canSuspend={false} />,
+    );
     expect(detail).not.toContain("계정 중지");
   });
 
   it("renders a hotel name and code instead of an internal UUID", () => {
-    const html = renderToStaticMarkup(<AccountDetailView account={account} canSuspend={false} />);
+    const html = renderToStaticMarkup(
+      <AccountDetailView account={account} canSuspend={false} />,
+    );
     expect(html).toContain("위아히어 강남호텔");
     expect(html).toContain("GANGNAM-01");
     expect(html).toContain("위아히어 부산호텔");
@@ -96,10 +120,21 @@ describe("account administration views", () => {
   });
 
   it("renders a real creation form with no registration-request language", () => {
-    const html = renderToStaticMarkup(<AccountCreateForm hotels={[
-      { id: account.hotelId, name: "위아히어 강남호텔" },
-    ]} />);
-    for (const label of ["표시이름", "로그인 아이디", "이메일", "사용자유형", "호텔", "임시 비밀번호", "배정 시작일", "생성 사유"]) {
+    const html = renderToStaticMarkup(
+      <AccountCreateForm
+        hotels={[{ id: account.hotelId, name: "위아히어 강남호텔" }]}
+      />,
+    );
+    for (const label of [
+      "표시이름",
+      "로그인 아이디",
+      "이메일",
+      "사용자유형",
+      "호텔",
+      "임시 비밀번호",
+      "배정 시작일",
+      "생성 사유",
+    ]) {
       expect(html).toContain(label);
     }
     expect(html).toContain("/api/admin/users");
@@ -114,15 +149,21 @@ describe("account administration views", () => {
   });
 
   it("renders searchable filters and pagination links that preserve the active query", () => {
-    const html = renderToStaticMarkup(<AccountListView canCreate query={{
-      q: "김",
-      status: "ACTIVE",
-      userType: "HOUSEKEEPING",
-    }} result={{
-      ok: true,
-      accounts: [account],
-      pagination: { page: 2, pageSize: 20, total: 41, totalPages: 3 },
-    }} />);
+    const html = renderToStaticMarkup(
+      <AccountListView
+        canCreate
+        query={{
+          q: "김",
+          status: "ACTIVE",
+          userType: "HOUSEKEEPING",
+        }}
+        result={{
+          ok: true,
+          accounts: [account],
+          pagination: { page: 2, pageSize: 20, total: 41, totalPages: 3 },
+        }}
+      />,
+    );
     expect(html).toContain("사용자 검색");
     expect(html).toContain("상태 필터");
     expect(html).toContain("사용자유형 필터");
@@ -132,19 +173,41 @@ describe("account administration views", () => {
   });
 
   it("distinguishes filtered empty, creatable empty, and read-only empty account lists", () => {
-    const filtered = renderToStaticMarkup(<AccountListView canCreate query={{ q: "없는사용자" }} result={{
-      ok: true, accounts: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
-    }} />);
+    const filtered = renderToStaticMarkup(
+      <AccountListView
+        canCreate
+        query={{ q: "없는사용자" }}
+        result={{
+          ok: true,
+          accounts: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        }}
+      />,
+    );
     expect(filtered).toContain("검색 조건에 맞는 사용자가 없습니다");
     expect(filtered).toContain("필터 초기화");
     expect(filtered).not.toContain("첫 사용자를 생성");
-    const creatable = renderToStaticMarkup(<AccountListView canCreate result={{
-      ok: true, accounts: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
-    }} />);
+    const creatable = renderToStaticMarkup(
+      <AccountListView
+        canCreate
+        result={{
+          ok: true,
+          accounts: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        }}
+      />,
+    );
     expect(creatable).toContain("생성된 사용자 계정이 없습니다");
-    const readOnly = renderToStaticMarkup(<AccountListView canCreate={false} result={{
-      ok: true, accounts: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
-    }} />);
+    const readOnly = renderToStaticMarkup(
+      <AccountListView
+        canCreate={false}
+        result={{
+          ok: true,
+          accounts: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        }}
+      />,
+    );
     expect(readOnly).toContain("조회 가능한 사용자 계정이 없습니다");
   });
 
@@ -155,9 +218,14 @@ describe("account administration views", () => {
     expect(html).toContain("/api/account/initial-password");
     expect(html).toContain("다른 계정으로 로그인");
     expect(initialPasswordFormSource).toContain('aria-required="true"');
-    expect(initialPasswordFormSource).toContain("formErrorRef.current?.focus()");
-    expect(initialPasswordFormSource).toContain('tabIndex={-1}');
+    expect(initialPasswordFormSource).toContain(
+      "formErrorRef.current?.focus()",
+    );
+    expect(initialPasswordFormSource).toContain("tabIndex={-1}");
     expect(initialPasswordFormSource).toContain("fieldError");
+    expect(initialPasswordFormSource).toContain("fieldErrors.find(");
+    expect(initialPasswordFormSource).toContain('error.field === "newPassword"');
+    expect(initialPasswordFormSource).toContain("setFormError(null)");
     expect(initialPasswordFormSource).toContain("idempotency-key");
     expect(html.match(/type="password"/g)).toHaveLength(2);
     expect(html.match(/minLength="8"/g)).toHaveLength(2);
@@ -170,16 +238,22 @@ describe("account administration views", () => {
 
   it("reuses one idempotency key while retrying the same initial password payload", () => {
     expect(initialPasswordFormSource).toContain("useRef");
-    expect(initialPasswordFormSource).toContain('/api/auth/logout');
-    expect(initialPasswordFormSource).toMatch(/idempotency-key["']:\s*idempotencyKeyRef\.current/u);
-    expect(initialPasswordFormSource).not.toMatch(/idempotency-key["']:\s*crypto\.randomUUID\(\)/u);
+    expect(initialPasswordFormSource).toContain("/api/auth/logout");
+    expect(initialPasswordFormSource).toMatch(
+      /idempotency-key["']:\s*idempotencyKeyRef\.current/u,
+    );
+    expect(initialPasswordFormSource).not.toMatch(
+      /idempotency-key["']:\s*crypto\.randomUUID\(\)/u,
+    );
   });
 
   it("links account create errors and moves focus to the first server field error", () => {
     expect(accountCreateFormSource).toContain("aria-describedby");
     expect(accountCreateFormSource).toContain("serverErrorField");
     expect(accountCreateFormSource).toMatch(/setFocus\(serverErrorField\)/u);
-    expect(accountCreateFormSource).toContain("작성 중인 내용을 폐기하시겠습니까?");
+    expect(accountCreateFormSource).toContain(
+      "작성 중인 내용을 폐기하시겠습니까?",
+    );
     expect(accountCreateFormSource).toContain("<dialog");
     expect(accountCreateFormSource).toContain('role="alertdialog"');
     expect(accountCreateFormSource).toContain('aria-required="true"');
@@ -190,30 +264,43 @@ describe("account administration views", () => {
     expect(accountCreateFormSource).toContain('userType === "HOUSEKEEPING"');
     expect(accountCreateFormSource).toContain("clearErrors(names)");
     expect(accountCreateFormSource).toContain("setFormError(null)");
-    expect(accountCreateFormSource).toContain('onChange: () => clearStaleErrors(name)');
+    expect(accountCreateFormSource).toContain(
+      "onChange: () => clearStaleErrors(name)",
+    );
   });
 
   it("distinguishes authorization failures from account-list server failures", () => {
-    const html = renderToStaticMarkup(<AccountListView canCreate={false} result={{
-      ok: false,
-      error: { code: "INTERNAL_ERROR", message: "일시적인 오류입니다." },
-    }} />);
+    const html = renderToStaticMarkup(
+      <AccountListView
+        canCreate={false}
+        result={{
+          ok: false,
+          error: { code: "INTERNAL_ERROR", message: "일시적인 오류입니다." },
+        }}
+      />,
+    );
     expect(html).toContain("사용자 계정을 불러오지 못했습니다");
     expect(html).not.toContain("관리 권한이 없습니다");
   });
 
   it("focuses invalid initial password input and exposes an error description", () => {
     expect(initialPasswordFormSource).toContain("aria-describedby");
-    expect(initialPasswordFormSource).toContain("confirmationRef.current?.focus()");
+    expect(initialPasswordFormSource).toContain(
+      "confirmationRef.current?.focus()",
+    );
   });
 
   it("requires shared suspension validation, generic error focus, explicit confirmation, and one retry key", () => {
-    expect(accountDetailViewSource).toContain("deactivateAccountRequestSchema.safeParse");
+    expect(accountDetailViewSource).toContain(
+      "deactivateAccountRequestSchema.safeParse",
+    );
     expect(accountDetailViewSource).toContain("formErrorRef.current?.focus()");
-    expect(accountDetailViewSource).toContain('tabIndex={-1}');
+    expect(accountDetailViewSource).toContain("tabIndex={-1}");
     expect(accountDetailViewSource).toContain("reasonError");
     expect(accountDetailViewSource).toContain("중지하시겠습니까?");
     expect(accountDetailViewSource).toContain("idempotencyKeyRef");
-    expect(accountDetailViewSource).not.toMatch(/idempotency-key["']:\s*crypto\.randomUUID\(\)/u);
+    expect(accountDetailViewSource).not.toMatch(
+      /idempotency-key["']:\s*crypto\.randomUUID\(\)/u,
+    );
   });
 });

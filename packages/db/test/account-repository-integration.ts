@@ -8,7 +8,8 @@ if (!databaseUrl) throw new Error("TEST_READY_URL is required");
 if (!probeUrl) throw new Error("TEST_PROBE_URL is required");
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 const repository = createPostgresAccountRepository(databaseUrl);
-const reconciliationRepository = createPostgresAccountReconciliationRepository(probeUrl);
+const reconciliationRepository =
+  createPostgresAccountReconciliationRepository(probeUrl);
 
 const companyId = "8a000000-0000-4000-8000-000000000001";
 const actorId = "8a100000-0000-4000-8000-000000000001";
@@ -20,7 +21,12 @@ const roleId = "8a400000-0000-4000-8000-000000000001";
 const groupId = "8a500000-0000-4000-8000-000000000001";
 const hotelId = "8a510000-0000-4000-8000-000000000001";
 const secondHotelId = "8a510000-0000-4000-8000-000000000002";
-const actor = { companyId, sessionId, userId: actorId, userType: "INTERNAL_STAFF" as const };
+const actor = {
+  companyId,
+  sessionId,
+  userId: actorId,
+  userType: "INTERNAL_STAFF" as const,
+};
 const completionPayload = {
   action: "CREATE" as const,
   userId: "8a900000-0000-4000-8000-000000000001",
@@ -123,9 +129,11 @@ try {
       )
     `;
   } catch (error) {
-    overlappingAssignmentRejected = (error as { code?: string }).code === "23P01";
+    overlappingAssignmentRejected =
+      (error as { code?: string }).code === "23P01";
   }
-  if (!overlappingAssignmentRejected) throw new Error("overlapping primary hotel assignment was accepted");
+  if (!overlappingAssignmentRejected)
+    throw new Error("overlapping primary hotel assignment was accepted");
   await sql`
     insert into hotel_staff_assignments (
       id, company_id, branch_id, user_id, assignment_type,
@@ -136,14 +144,22 @@ try {
     )
   `;
 
-  const listed = await repository.listAccounts(actor, { page: 1, pageSize: 20 });
-  if (listed.status !== "OK" || listed.accounts.length !== 3) throw new Error("role-based USER_READ was not effective");
+  const listed = await repository.listAccounts(actor, {
+    page: 1,
+    pageSize: 20,
+  });
+  if (listed.status !== "OK" || listed.accounts.length !== 3)
+    throw new Error("role-based USER_READ was not effective");
   const eligibleHotels = await repository.listEligibleHotels(actor);
-  if (eligibleHotels.status !== "OK"
-    || eligibleHotels.hotels.length !== 2
-    || eligibleHotels.hotels[0]?.id !== hotelId
-    || eligibleHotels.hotels[1]?.id !== secondHotelId) {
-    throw new Error("USER_CREATE eligible hotels were not tenant-scoped and deterministically sorted");
+  if (
+    eligibleHotels.status !== "OK" ||
+    eligibleHotels.hotels.length !== 2 ||
+    eligibleHotels.hotels[0]?.id !== hotelId ||
+    eligibleHotels.hotels[1]?.id !== secondHotelId
+  ) {
+    throw new Error(
+      "USER_CREATE eligible hotels were not tenant-scoped and deterministically sorted",
+    );
   }
   await sql`
     insert into permission_grants (
@@ -156,22 +172,39 @@ try {
   `;
   const deniedEligibleHotels = await repository.listEligibleHotels(actor);
   if (deniedEligibleHotels.status !== "FORBIDDEN") {
-    throw new Error("explicit USER_CREATE DENY did not block eligible hotel discovery");
+    throw new Error(
+      "explicit USER_CREATE DENY did not block eligible hotel discovery",
+    );
   }
   await sql`delete from permission_grants where id = '8a800000-0000-4000-8000-000000000006'`;
-  const canonicalLastPage = await repository.listAccounts(actor, { page: 99, pageSize: 2 });
-  if (canonicalLastPage.status !== "OK"
-    || canonicalLastPage.pagination.page !== 2
-    || canonicalLastPage.pagination.totalPages !== 2
-    || canonicalLastPage.accounts.length !== 1) {
-    throw new Error("out-of-range account page was not canonicalized to the last page");
+  const canonicalLastPage = await repository.listAccounts(actor, {
+    page: 99,
+    pageSize: 2,
+  });
+  if (
+    canonicalLastPage.status !== "OK" ||
+    canonicalLastPage.pagination.page !== 2 ||
+    canonicalLastPage.pagination.totalPages !== 2 ||
+    canonicalLastPage.accounts.length !== 1
+  ) {
+    throw new Error(
+      "out-of-range account page was not canonicalized to the last page",
+    );
   }
-  const canonicalEmptyPage = await repository.listAccounts(actor, { page: 99, pageSize: 2, q: "없는사용자" });
-  if (canonicalEmptyPage.status !== "OK"
-    || canonicalEmptyPage.pagination.page !== 1
-    || canonicalEmptyPage.pagination.total !== 0
-    || canonicalEmptyPage.accounts.length !== 0) {
-    throw new Error("empty filtered account page was not canonicalized to page one");
+  const canonicalEmptyPage = await repository.listAccounts(actor, {
+    page: 99,
+    pageSize: 2,
+    q: "없는사용자",
+  });
+  if (
+    canonicalEmptyPage.status !== "OK" ||
+    canonicalEmptyPage.pagination.page !== 1 ||
+    canonicalEmptyPage.pagination.total !== 0 ||
+    canonicalEmptyPage.accounts.length !== 0
+  ) {
+    throw new Error(
+      "empty filtered account page was not canonicalized to page one",
+    );
   }
 
   const invalidHotelReservation = await repository.reserveCreate({
@@ -179,12 +212,19 @@ try {
     actor,
     attemptId: "8a910000-0000-4000-8000-000000000090",
     hotelIds: ["8a510000-0000-4000-8000-000000000099"],
-    completionPayload: { ...completionPayload, hotelId: "8a510000-0000-4000-8000-000000000099" },
+    completionPayload: {
+      ...completionPayload,
+      hotelId: "8a510000-0000-4000-8000-000000000099",
+    },
     idempotencyKey: "invalid-hotel-create",
     requestHash: "invalid-hotel-create-hash",
   });
-  if ((invalidHotelReservation as { status: string }).status !== "HOTEL_NOT_FOUND") {
-    throw new Error("out-of-tenant or missing hotel was not rejected before provider mutation");
+  if (
+    (invalidHotelReservation as { status: string }).status !== "HOTEL_NOT_FOUND"
+  ) {
+    throw new Error(
+      "out-of-tenant or missing hotel was not rejected before provider mutation",
+    );
   }
 
   const reserved = await repository.reserveCreate({
@@ -196,12 +236,16 @@ try {
     idempotencyKey: "role-group-create",
     requestHash: "role-group-create-hash",
   });
-  if (reserved.status !== "RESERVED_NOT_DISPATCHED") throw new Error("group-based USER_CREATE was not effective");
-  if (await repository.markCreateDispatched({
-    accountId: "8a900000-0000-4000-8000-000000000001",
-    companyId,
-    leaseVersion: reserved.leaseVersion,
-  }) !== "UPDATED") throw new Error("group-based create was not durably dispatched");
+  if (reserved.status !== "RESERVED_NOT_DISPATCHED")
+    throw new Error("group-based USER_CREATE was not effective");
+  if (
+    (await repository.markCreateDispatched({
+      accountId: "8a900000-0000-4000-8000-000000000001",
+      companyId,
+      leaseVersion: reserved.leaseVersion,
+    })) !== "UPDATED"
+  )
+    throw new Error("group-based create was not durably dispatched");
   await repository.markProviderCreated({
     accountId: "8a900000-0000-4000-8000-000000000001",
     companyId,
@@ -222,20 +266,25 @@ try {
     requestHash: "role-group-create-hash",
   });
   if (resumed.status !== "PROVIDER_CONFIRMED") {
-    throw new Error(`provider-created attempt was not resumable: ${resumed.status}`);
+    throw new Error(
+      `provider-created attempt was not resumable: ${resumed.status}`,
+    );
   }
   const preparedCompensation = await repository.prepareCompensation({
     accountId: "8a900000-0000-4000-8000-000000000001",
     companyId,
     leaseVersion: resumed.leaseVersion,
   });
-  if (preparedCompensation !== "UPDATED") throw new Error("compensation was not durably prepared");
+  if (preparedCompensation !== "UPDATED")
+    throw new Error("compensation was not durably prepared");
   const compensationJobs = await reconciliationRepository.claimJobs(10);
-  const compensationJob = compensationJobs.find((job) =>
-    job.jobType === "ACCOUNT_PROVIDER_COMPENSATE"
-    && job.userId === "8a900000-0000-4000-8000-000000000001"
+  const compensationJob = compensationJobs.find(
+    (job) =>
+      job.jobType === "ACCOUNT_PROVIDER_COMPENSATE" &&
+      job.userId === "8a900000-0000-4000-8000-000000000001",
   );
-  if (!compensationJob) throw new Error("compensation outbox was not claimable");
+  if (!compensationJob)
+    throw new Error("compensation outbox was not claimable");
   await reconciliationRepository.markSucceeded(compensationJob);
   const compensatedReplay = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
@@ -247,7 +296,9 @@ try {
     requestHash: "role-group-create-hash",
   });
   if ((compensatedReplay as { status: string }).status !== "COMPENSATED") {
-    throw new Error(`compensated create replay was not terminal: ${compensatedReplay.status}`);
+    throw new Error(
+      `compensated create replay was not terminal: ${compensatedReplay.status}`,
+    );
   }
 
   const staleReserved = await repository.reserveCreate({
@@ -259,8 +310,10 @@ try {
     idempotencyKey: "stale-create",
     requestHash: "stale-create-hash",
   });
-  if (staleReserved.status !== "RESERVED_NOT_DISPATCHED") throw new Error("stale recovery fixture was not reserved");
-  if (!("leaseVersion" in staleReserved)) throw new Error("initial create lease has no fencing version");
+  if (staleReserved.status !== "RESERVED_NOT_DISPATCHED")
+    throw new Error("stale recovery fixture was not reserved");
+  if (!("leaseVersion" in staleReserved))
+    throw new Error("initial create lease has no fencing version");
   const staleLeaseVersion = staleReserved.leaseVersion;
   await sql`
     update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
@@ -275,29 +328,40 @@ try {
     idempotencyKey: "stale-create",
     requestHash: "stale-create-hash",
   });
-  if (recoveredLease.status !== "RESERVED_NOT_DISPATCHED") throw new Error(`expired create lease was not recovered: ${recoveredLease.status}`);
-  if (!("leaseVersion" in recoveredLease) || recoveredLease.leaseVersion <= staleLeaseVersion) {
+  if (recoveredLease.status !== "RESERVED_NOT_DISPATCHED")
+    throw new Error(
+      `expired create lease was not recovered: ${recoveredLease.status}`,
+    );
+  if (
+    !("leaseVersion" in recoveredLease) ||
+    recoveredLease.leaseVersion <= staleLeaseVersion
+  ) {
     throw new Error("create lease fencing version did not advance");
   }
-  if (await repository.markCreateDispatched({
-    accountId: "8a900000-0000-4000-8000-000000000002",
-    companyId,
-    leaseVersion: recoveredLease.leaseVersion,
-  }) !== "UPDATED") throw new Error("recovered create was not durably dispatched");
+  if (
+    (await repository.markCreateDispatched({
+      accountId: "8a900000-0000-4000-8000-000000000002",
+      companyId,
+      leaseVersion: recoveredLease.leaseVersion,
+    })) !== "UPDATED"
+  )
+    throw new Error("recovered create was not durably dispatched");
   const staleMark = await repository.markProviderCreated({
     accountId: "8a900000-0000-4000-8000-000000000002",
     companyId,
     leaseVersion: staleLeaseVersion,
     subject: "8a900000-0000-4000-8000-000000000002",
   });
-  if (staleMark !== "STALE_LEASE") throw new Error("stale create lease updated provider state");
+  if (staleMark !== "STALE_LEASE")
+    throw new Error("stale create lease updated provider state");
   const currentMark = await repository.markProviderCreated({
     accountId: "8a900000-0000-4000-8000-000000000002",
     companyId,
     leaseVersion: recoveredLease.leaseVersion,
     subject: "8a900000-0000-4000-8000-000000000002",
   });
-  if (currentMark !== "UPDATED") throw new Error("current create lease could not update provider state");
+  if (currentMark !== "UPDATED")
+    throw new Error("current create lease could not update provider state");
   await sql`
     update account_provisioning_attempts set status = 'COMPLETED', completed_at = now()
     where company_id = ${companyId} and target_user_id = '8a900000-0000-4000-8000-000000000002'
@@ -307,12 +371,14 @@ try {
     companyId,
     leaseVersion: recoveredLease.leaseVersion,
   });
-  if (completedCompensation !== "STALE_LEASE") throw new Error("completed create acquired compensation ownership");
+  if (completedCompensation !== "STALE_LEASE")
+    throw new Error("completed create acquired compensation ownership");
   const [completedAttempt] = await sql<{ status: string }[]>`
     select status from account_provisioning_attempts
     where company_id = ${companyId} and target_user_id = '8a900000-0000-4000-8000-000000000002'
   `;
-  if (completedAttempt?.status !== "COMPLETED") throw new Error("completed create was overwritten by compensation");
+  if (completedAttempt?.status !== "COMPLETED")
+    throw new Error("completed create was overwritten by compensation");
 
   const recoveryPayload = {
     ...completionPayload,
@@ -330,27 +396,37 @@ try {
     idempotencyKey: "scheduled-create-recovery",
     requestHash: "scheduled-create-recovery-hash",
   });
-  if (recoveryReserved.status !== "RESERVED_NOT_DISPATCHED") throw new Error("scheduled recovery fixture was not reserved");
-  if (await repository.markCreateDispatched({
-    accountId: recoveryAccountId,
-    companyId,
-    leaseVersion: recoveryReserved.leaseVersion,
-  }) !== "UPDATED") throw new Error("scheduled recovery fixture was not dispatched");
+  if (recoveryReserved.status !== "RESERVED_NOT_DISPATCHED")
+    throw new Error("scheduled recovery fixture was not reserved");
+  if (
+    (await repository.markCreateDispatched({
+      accountId: recoveryAccountId,
+      companyId,
+      leaseVersion: recoveryReserved.leaseVersion,
+    })) !== "UPDATED"
+  )
+    throw new Error("scheduled recovery fixture was not dispatched");
   const recoveryMarked = await repository.markProviderCreated({
     accountId: recoveryAccountId,
     companyId,
     leaseVersion: recoveryReserved.leaseVersion,
     subject: recoveryAccountId,
   });
-  if (recoveryMarked !== "UPDATED") throw new Error("scheduled recovery provider marker failed");
+  if (recoveryMarked !== "UPDATED")
+    throw new Error("scheduled recovery provider marker failed");
   await sql`
     update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
     where company_id = ${companyId} and target_user_id = ${recoveryAccountId}
   `;
-  const recoveryJobs = await reconciliationRepository.claimRecoverableCreates(10);
-  const recoveryJob = recoveryJobs.find((job) => job.userId === recoveryAccountId);
+  const recoveryJobs =
+    await reconciliationRepository.claimRecoverableCreates(10);
+  const recoveryJob = recoveryJobs.find(
+    (job) => job.userId === recoveryAccountId,
+  );
   if (!recoveryJob || recoveryJob.status !== "PROVIDER_CONFIRMED") {
-    throw new Error("provider-created attempt was not claimed for scheduled DB completion");
+    throw new Error(
+      "provider-created attempt was not claimed for scheduled DB completion",
+    );
   }
   const recoveryCompletionInput = {
     accountId: recoveryJob.userId,
@@ -369,41 +445,68 @@ try {
   };
   let staleCompletionRejected = false;
   try {
-    await repository.completeCreate({ ...recoveryCompletionInput, leaseVersion: recoveryReserved.leaseVersion });
+    await repository.completeCreate({
+      ...recoveryCompletionInput,
+      leaseVersion: recoveryReserved.leaseVersion,
+    });
   } catch {
     staleCompletionRejected = true;
   }
-  if (!staleCompletionRejected) throw new Error("stale recovery generation completed an account");
+  if (!staleCompletionRejected)
+    throw new Error("stale recovery generation completed an account");
   const staleCompensation = await repository.prepareCompensation({
     accountId: recoveryJob.userId,
     companyId: recoveryJob.companyId,
     leaseVersion: recoveryReserved.leaseVersion,
   });
-  if (staleCompensation !== "STALE_LEASE") throw new Error("stale recovery generation acquired compensation ownership");
+  if (staleCompensation !== "STALE_LEASE")
+    throw new Error(
+      "stale recovery generation acquired compensation ownership",
+    );
   await sql`update branches set status = 'INACTIVE' where company_id = ${companyId} and id = ${secondHotelId}`;
-  const ineligibleCompletion = await repository.completeCreate(recoveryCompletionInput);
+  const ineligibleCompletion = await repository.completeCreate(
+    recoveryCompletionInput,
+  );
   if (ineligibleCompletion.status !== "FORBIDDEN") {
-    throw new Error(`inactive hotel completed an account: ${ineligibleCompletion.status}`);
+    throw new Error(
+      `inactive hotel completed an account: ${ineligibleCompletion.status}`,
+    );
   }
   const [partialAccount] = await sql<{ count: number }[]>`
     select count(*)::int as count from users where company_id = ${companyId} and id = ${recoveryAccountId}
   `;
-  if (partialAccount?.count !== 0) throw new Error("ineligible hotel completion persisted a partial account");
+  if (partialAccount?.count !== 0)
+    throw new Error("ineligible hotel completion persisted a partial account");
   await sql`update branches set status = 'ACTIVE' where company_id = ${companyId} and id = ${secondHotelId}`;
-  const recoveredCreate = await repository.completeCreate(recoveryCompletionInput);
-  if (recoveredCreate.status !== "CREATED" || recoveredCreate.account.id !== recoveryAccountId) {
-    throw new Error(`scheduled DB completion failed: ${recoveredCreate.status}`);
+  const recoveredCreate = await repository.completeCreate(
+    recoveryCompletionInput,
+  );
+  if (
+    recoveredCreate.status !== "CREATED" ||
+    recoveredCreate.account.id !== recoveryAccountId
+  ) {
+    throw new Error(
+      `scheduled DB completion failed: ${recoveredCreate.status}`,
+    );
   }
-  const recoveredHotelIds = recoveredCreate.account.hotels?.map((hotel) => hotel.id).sort() ?? [];
-  if (recoveredHotelIds.join(",") !== [hotelId, secondHotelId].sort().join(",")) {
-    throw new Error("multi-hotel housekeeping assignments were not returned by account read-back");
+  const recoveredHotelIds =
+    recoveredCreate.account.hotels?.map((hotel) => hotel.id).sort() ?? [];
+  if (
+    recoveredHotelIds.join(",") !== [hotelId, secondHotelId].sort().join(",")
+  ) {
+    throw new Error(
+      "multi-hotel housekeeping assignments were not returned by account read-back",
+    );
   }
   const recoveredLinks = await sql<{ branch_id: string }[]>`
     select branch_id from housekeeping_hotel_links
     where company_id = ${companyId} and user_id = ${recoveryAccountId}
     order by branch_id
   `;
-  if (recoveredLinks.map((link) => link.branch_id).join(",") !== [hotelId, secondHotelId].sort().join(",")) {
+  if (
+    recoveredLinks.map((link) => link.branch_id).join(",") !==
+    [hotelId, secondHotelId].sort().join(",")
+  ) {
     throw new Error("multi-hotel housekeeping assignments were not persisted");
   }
 
@@ -422,28 +525,41 @@ try {
     idempotencyKey: "late-provider-recovery",
     requestHash: "late-provider-recovery-hash",
   });
-  if (lateProviderAttempt.status !== "RESERVED_NOT_DISPATCHED") throw new Error("late provider recovery fixture was not reserved");
-  if (await repository.markCreateDispatched({
-    accountId: lateProviderAccountId,
-    companyId,
-    leaseVersion: lateProviderAttempt.leaseVersion,
-  }) !== "UPDATED") throw new Error("late provider fixture was not dispatched");
+  if (lateProviderAttempt.status !== "RESERVED_NOT_DISPATCHED")
+    throw new Error("late provider recovery fixture was not reserved");
+  if (
+    (await repository.markCreateDispatched({
+      accountId: lateProviderAccountId,
+      companyId,
+      leaseVersion: lateProviderAttempt.leaseVersion,
+    })) !== "UPDATED"
+  )
+    throw new Error("late provider fixture was not dispatched");
   await sql`
     update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
-  const firstLateClaims = await reconciliationRepository.claimRecoverableCreates(10);
-  const firstLateClaim = firstLateClaims.find((job) => job.userId === lateProviderAccountId);
-  if (!firstLateClaim) throw new Error("late provider attempt was not initially claimable");
+  const firstLateClaims =
+    await reconciliationRepository.claimRecoverableCreates(10);
+  const firstLateClaim = firstLateClaims.find(
+    (job) => job.userId === lateProviderAccountId,
+  );
+  if (!firstLateClaim)
+    throw new Error("late provider attempt was not initially claimable");
   await reconciliationRepository.markCreateMissing(firstLateClaim);
   await sql`
     update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
-  const repeatedLateClaims = await reconciliationRepository.claimRecoverableCreates(10);
-  const repeatedLateClaim = repeatedLateClaims.find((job) => job.userId === lateProviderAccountId);
+  const repeatedLateClaims =
+    await reconciliationRepository.claimRecoverableCreates(10);
+  const repeatedLateClaim = repeatedLateClaims.find(
+    (job) => job.userId === lateProviderAccountId,
+  );
   if (!repeatedLateClaim || repeatedLateClaim.status !== "RECOVERY_REQUIRED") {
-    throw new Error("provider-not-visible attempt did not remain claimable during grace");
+    throw new Error(
+      "provider-not-visible attempt did not remain claimable during grace",
+    );
   }
   await reconciliationRepository.markCreateMissing(repeatedLateClaim);
   await sql`
@@ -453,29 +569,46 @@ try {
         lease_expires_at = now() - interval '2 seconds'
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
-  const expiredLateClaims = await reconciliationRepository.claimRecoverableCreates(10);
-  const expiredLateClaim = expiredLateClaims.find((job) => job.userId === lateProviderAccountId);
-  if (!expiredLateClaim) throw new Error("expired provider recovery was not claimed for terminal evidence");
+  const expiredLateClaims =
+    await reconciliationRepository.claimRecoverableCreates(10);
+  const expiredLateClaim = expiredLateClaims.find(
+    (job) => job.userId === lateProviderAccountId,
+  );
+  if (!expiredLateClaim)
+    throw new Error(
+      "expired provider recovery was not claimed for terminal evidence",
+    );
   await reconciliationRepository.markCreateMissing(expiredLateClaim);
-  const [lateTerminal] = await sql<{ operator_reason: string | null; status: string }[]>`
+  const [lateTerminal] = await sql<
+    { operator_reason: string | null; status: string }[]
+  >`
     select status, operator_reason from account_provisioning_attempts
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
   if (
-    lateTerminal?.status !== "OPERATOR_REQUIRED"
-    || lateTerminal.operator_reason !== "PROVIDER_NOT_FOUND_AFTER_GRACE"
+    lateTerminal?.status !== "OPERATOR_REQUIRED" ||
+    lateTerminal.operator_reason !== "PROVIDER_NOT_FOUND_AFTER_GRACE"
   ) {
-    throw new Error("provider-not-found evidence did not enter operator-required sweep state");
+    throw new Error(
+      "provider-not-found evidence did not enter operator-required sweep state",
+    );
   }
   await sql`
     update account_provisioning_attempts set lease_expires_at = now() - interval '1 second'
     where company_id = ${companyId} and target_user_id = ${lateProviderAccountId}
   `;
-  const operatorSweepClaims = await reconciliationRepository.claimRecoverableCreates(10);
-  if (!operatorSweepClaims.some((job) =>
-    job.userId === lateProviderAccountId && job.status === "OPERATOR_REQUIRED"
-  )) {
-    throw new Error("operator-required orphan was not retained in the long-horizon sweep");
+  const operatorSweepClaims =
+    await reconciliationRepository.claimRecoverableCreates(10);
+  if (
+    !operatorSweepClaims.some(
+      (job) =>
+        job.userId === lateProviderAccountId &&
+        job.status === "OPERATOR_REQUIRED",
+    )
+  ) {
+    throw new Error(
+      "operator-required orphan was not retained in the long-horizon sweep",
+    );
   }
 
   const pendingUserId = "8a100000-0000-4000-8000-000000000004";
@@ -505,59 +638,141 @@ try {
     pageSize: 20,
     userType: "HOUSEKEEPING",
   });
-  if (legacyAliasFiltered.status !== "OK"
-    || !legacyAliasFiltered.accounts.some((account) => account.id === pendingUserId)) {
-    throw new Error("legacy HOUSEKEEPING storage alias was not filterable through the new API type");
+  if (
+    legacyAliasFiltered.status !== "OK" ||
+    !legacyAliasFiltered.accounts.some(
+      (account) => account.id === pendingUserId,
+    )
+  ) {
+    throw new Error(
+      "legacy HOUSEKEEPING storage alias was not filterable through the new API type",
+    );
   }
   const passwordRepository = repository as unknown as {
-    reserveInitialPassword(input: { companyId: string; userId: string; sessionId: string; idempotencyKey: string }): Promise<{ status: string; subject?: string; loginName?: string; idempotencyKey?: string; leaseVersion?: number }>;
-    markInitialPasswordDispatched(input: { companyId: string; userId: string; idempotencyKey: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
-    confirmInitialPasswordProviderState(input: { companyId: string; userId: string; idempotencyKey: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
-    markInitialPasswordProviderUpdated(input: { companyId: string; userId: string; idempotencyKey: string; leaseVersion: number }): Promise<"UPDATED" | "STALE_LEASE">;
-    completeInitialPassword(input: { companyId: string; userId: string; sessionId: string; idempotencyKey: string; auditEventId: string; traceId: string }): Promise<{ status: string }>;
+    reserveInitialPassword(input: {
+      companyId: string;
+      userId: string;
+      sessionId: string;
+      idempotencyKey: string;
+    }): Promise<{
+      status: string;
+      subject?: string;
+      loginName?: string;
+      idempotencyKey?: string;
+      leaseVersion?: number;
+    }>;
+    markInitialPasswordDispatched(input: {
+      companyId: string;
+      userId: string;
+      idempotencyKey: string;
+      leaseVersion: number;
+    }): Promise<"UPDATED" | "STALE_LEASE">;
+    confirmInitialPasswordProviderState(input: {
+      companyId: string;
+      userId: string;
+      idempotencyKey: string;
+      leaseVersion: number;
+    }): Promise<"UPDATED" | "STALE_LEASE">;
+    markInitialPasswordProviderUpdated(input: {
+      companyId: string;
+      userId: string;
+      idempotencyKey: string;
+      leaseVersion: number;
+    }): Promise<"UPDATED" | "STALE_LEASE">;
+    completeInitialPassword(input: {
+      companyId: string;
+      userId: string;
+      sessionId: string;
+      idempotencyKey: string;
+      auditEventId: string;
+      traceId: string;
+    }): Promise<{ status: string }>;
   };
   const passwordReserved = await passwordRepository.reserveInitialPassword({
-    companyId, userId: pendingUserId, sessionId: pendingSessionId, idempotencyKey: "initial-password-change",
+    companyId,
+    userId: pendingUserId,
+    sessionId: pendingSessionId,
+    idempotencyKey: "initial-password-change",
   });
-  if (passwordReserved.status !== "RESERVED_NOT_DISPATCHED" || passwordReserved.subject !== pendingUserId || passwordReserved.leaseVersion !== 1) {
-    throw new Error(`initial password was not reserved before provider mutation: ${passwordReserved.status}`);
+  if (
+    passwordReserved.status !== "RESERVED_NOT_DISPATCHED" ||
+    passwordReserved.subject !== pendingUserId ||
+    passwordReserved.leaseVersion !== 1
+  ) {
+    throw new Error(
+      `initial password was not reserved before provider mutation: ${passwordReserved.status}`,
+    );
   }
-  if (await passwordRepository.markInitialPasswordDispatched({
-    companyId, userId: pendingUserId, idempotencyKey: "initial-password-change", leaseVersion: 1,
-  }) !== "UPDATED") throw new Error("initial password mutation was not durably dispatched");
+  if (
+    (await passwordRepository.markInitialPasswordDispatched({
+      companyId,
+      userId: pendingUserId,
+      idempotencyKey: "initial-password-change",
+      leaseVersion: 1,
+    })) !== "UPDATED"
+  )
+    throw new Error("initial password mutation was not durably dispatched");
   await sql`
     update initial_password_change_attempts set lease_expires_at = now() - interval '1 second'
     where company_id = ${companyId} and user_id = ${pendingUserId}
       and idempotency_key = 'initial-password-change'
   `;
   const expiredSameAttempt = await passwordRepository.reserveInitialPassword({
-    companyId, userId: pendingUserId, sessionId: pendingSessionId, idempotencyKey: "initial-password-change",
+    companyId,
+    userId: pendingUserId,
+    sessionId: pendingSessionId,
+    idempotencyKey: "initial-password-change",
   });
   if (expiredSameAttempt.status !== "RECOVERY_REQUIRED") {
-    throw new Error("expired initial-password attempt did not enter recovery-required state");
+    throw new Error(
+      "expired initial-password attempt did not enter recovery-required state",
+    );
   }
   const competingAttempt = await passwordRepository.reserveInitialPassword({
-    companyId, userId: pendingUserId, sessionId: pendingSessionId, idempotencyKey: "competing-password-change",
+    companyId,
+    userId: pendingUserId,
+    sessionId: pendingSessionId,
+    idempotencyKey: "competing-password-change",
   });
-  if (competingAttempt.status !== "RECOVERY_CONFIRMABLE"
-    || competingAttempt.idempotencyKey !== "initial-password-change"
-    || competingAttempt.leaseVersion !== 1
-    || competingAttempt.subject !== pendingUserId
-    || competingAttempt.loginName !== "pending-setup") {
-    throw new Error("recovery-required initial-password attempt was not exposed for credential proof");
+  if (
+    competingAttempt.status !== "RECOVERY_CONFIRMABLE" ||
+    competingAttempt.idempotencyKey !== "initial-password-change" ||
+    competingAttempt.leaseVersion !== 1 ||
+    competingAttempt.subject !== pendingUserId ||
+    competingAttempt.loginName !== "pending-setup"
+  ) {
+    throw new Error(
+      "recovery-required initial-password attempt was not exposed for credential proof",
+    );
   }
-  const stalePasswordMarker = await passwordRepository.markInitialPasswordProviderUpdated({
-    companyId, userId: pendingUserId, idempotencyKey: "competing-password-change", leaseVersion: 2,
-  });
-  if (stalePasswordMarker !== "STALE_LEASE") throw new Error("unverified recovery changed the provider marker");
-  const confirmedPasswordMarker = await passwordRepository.confirmInitialPasswordProviderState({
-    companyId, userId: pendingUserId, idempotencyKey: "initial-password-change", leaseVersion: 1,
-  });
-  if (confirmedPasswordMarker !== "UPDATED") throw new Error("verified password state was not accepted");
+  const stalePasswordMarker =
+    await passwordRepository.markInitialPasswordProviderUpdated({
+      companyId,
+      userId: pendingUserId,
+      idempotencyKey: "competing-password-change",
+      leaseVersion: 2,
+    });
+  if (stalePasswordMarker !== "STALE_LEASE")
+    throw new Error("unverified recovery changed the provider marker");
+  const confirmedPasswordMarker =
+    await passwordRepository.confirmInitialPasswordProviderState({
+      companyId,
+      userId: pendingUserId,
+      idempotencyKey: "initial-password-change",
+      leaseVersion: 1,
+    });
+  if (confirmedPasswordMarker !== "UPDATED")
+    throw new Error("verified password state was not accepted");
   const passwordResumed = await passwordRepository.reserveInitialPassword({
-    companyId, userId: pendingUserId, sessionId: pendingSessionId, idempotencyKey: "initial-password-change",
+    companyId,
+    userId: pendingUserId,
+    sessionId: pendingSessionId,
+    idempotencyKey: "initial-password-change",
   });
-  if (passwordResumed.status !== "PROVIDER_UPDATED") throw new Error(`provider-updated password attempt was not resumable: ${passwordResumed.status}`);
+  if (passwordResumed.status !== "PROVIDER_UPDATED")
+    throw new Error(
+      `provider-updated password attempt was not resumable: ${passwordResumed.status}`,
+    );
   const passwordCompleted = await passwordRepository.completeInitialPassword({
     companyId,
     userId: pendingUserId,
@@ -566,17 +781,51 @@ try {
     auditEventId: "8aa00000-0000-4000-8000-000000000099",
     traceId: "8ab00000-0000-4000-8000-000000000099",
   });
-  if (passwordCompleted.status !== "UPDATED") throw new Error(`initial password local completion failed: ${passwordCompleted.status}`);
-  const [activated] = await sql<{ status: string; must_change_password: boolean }[]>`
+  if (passwordCompleted.status !== "UPDATED")
+    throw new Error(
+      `initial password local completion failed: ${passwordCompleted.status}`,
+    );
+  const [activated] = await sql<
+    { status: string; must_change_password: boolean }[]
+  >`
     select status, must_change_password from users where company_id = ${companyId} and id = ${pendingUserId}
   `;
-  if (activated?.status !== "ACTIVE" || activated.must_change_password) throw new Error("initial password state was not read back as ACTIVE");
-  const [setupSession] = await sql<{ revoke_reason: string | null; revoked_at: Date | null }[]>`
+  if (activated?.status !== "ACTIVE" || activated.must_change_password)
+    throw new Error("initial password state was not read back as ACTIVE");
+  const [setupSession] = await sql<
+    { revoke_reason: string | null; revoked_at: Date | null }[]
+  >`
     select revoked_at, revoke_reason from auth_sessions
     where company_id = ${companyId} and id = ${pendingSessionId}
   `;
-  if (!setupSession?.revoked_at || setupSession.revoke_reason !== "INITIAL_PASSWORD_CHANGED") {
-    throw new Error("current setup session was not revoked with the initial-password reason");
+  if (
+    !setupSession?.revoked_at ||
+    setupSession.revoke_reason !== "INITIAL_PASSWORD_CHANGED"
+  ) {
+    throw new Error(
+      "current setup session was not revoked with the initial-password reason",
+    );
+  }
+  const [passwordCompletion] = await sql<
+    { attempt_status: string; audit_count: number }[]
+  >`
+    select
+      (select status from initial_password_change_attempts
+       where company_id = ${companyId} and user_id = ${pendingUserId}
+         and idempotency_key = 'initial-password-change') as attempt_status,
+      (select count(*)::int from audit_events
+       where company_id = ${companyId}
+         and id = '8aa00000-0000-4000-8000-000000000099'
+         and event_code = 'ACCOUNT_INITIAL_PASSWORD_CHANGED'
+         and result = 'SUCCEEDED') as audit_count
+  `;
+  if (
+    passwordCompletion?.attempt_status !== "COMPLETED" ||
+    passwordCompletion.audit_count !== 1
+  ) {
+    throw new Error(
+      "initial password completion did not atomically persist attempt and audit state",
+    );
   }
 
   const first = await repository.deactivateAccount({
@@ -590,7 +839,9 @@ try {
   if (first.status !== "UPDATED" || first.account.status !== "INACTIVE") {
     throw new Error(`non-last admin deactivation failed: ${first.status}`);
   }
-  const [pendingOutbox] = await sql<{ count: number; provider_subject: string | null }[]>`
+  const [pendingOutbox] = await sql<
+    { count: number; provider_subject: string | null }[]
+  >`
     select count(*)::int as count, min(payload->>'providerSubject') as provider_subject from outbox_jobs
     where company_id = ${companyId}
       and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
@@ -598,13 +849,27 @@ try {
       and payload->>'idempotencyKey' = 'deactivate-target-admin'
       and status = 'PENDING'
   `;
-  if (pendingOutbox?.count !== 1 || pendingOutbox.provider_subject !== "zitadel-target-admin-subject") {
-    throw new Error("provider deactivation intent did not preserve the tenant-bound provider subject");
+  if (
+    pendingOutbox?.count !== 1 ||
+    pendingOutbox.provider_subject !== "zitadel-target-admin-subject"
+  ) {
+    throw new Error(
+      "provider deactivation intent did not preserve the tenant-bound provider subject",
+    );
   }
   const claimedJobs = await reconciliationRepository.claimJobs(10);
-  const firstClaim = claimedJobs.find((job) => job.jobType === "ACCOUNT_PROVIDER_DEACTIVATE" && job.userId === targetAdminId);
-  if (!firstClaim || firstClaim.providerSubject !== "zitadel-target-admin-subject") {
-    throw new Error("provider deactivation outbox did not claim the provider subject");
+  const firstClaim = claimedJobs.find(
+    (job) =>
+      job.jobType === "ACCOUNT_PROVIDER_DEACTIVATE" &&
+      job.userId === targetAdminId,
+  );
+  if (
+    !firstClaim ||
+    firstClaim.providerSubject !== "zitadel-target-admin-subject"
+  ) {
+    throw new Error(
+      "provider deactivation outbox did not claim the provider subject",
+    );
   }
   await sql`
     update outbox_jobs set locked_at = now() - interval '6 minutes'
@@ -612,9 +877,15 @@ try {
   `;
   const reclaimedJobs = await reconciliationRepository.claimJobs(10);
   const winningClaim = reclaimedJobs.find((job) => job.id === firstClaim.id);
-  if (!winningClaim) throw new Error("stale provider deactivation claim was not reclaimed");
-  if ((firstClaim as { claimToken?: string }).claimToken === (winningClaim as { claimToken?: string }).claimToken) {
-    throw new Error("reclaimed provider deactivation job did not rotate its claim token");
+  if (!winningClaim)
+    throw new Error("stale provider deactivation claim was not reclaimed");
+  if (
+    (firstClaim as { claimToken?: string }).claimToken ===
+    (winningClaim as { claimToken?: string }).claimToken
+  ) {
+    throw new Error(
+      "reclaimed provider deactivation job did not rotate its claim token",
+    );
   }
   let staleWorkerRejected = false;
   try {
@@ -622,7 +893,10 @@ try {
   } catch {
     staleWorkerRejected = true;
   }
-  if (!staleWorkerRejected) throw new Error("stale outbox worker was allowed to complete a newer claim");
+  if (!staleWorkerRejected)
+    throw new Error(
+      "stale outbox worker was allowed to complete a newer claim",
+    );
   await reconciliationRepository.markSucceeded(winningClaim);
   const [succeededOutbox] = await sql<{ count: number }[]>`
     select count(*)::int as count from outbox_jobs
@@ -631,7 +905,8 @@ try {
       and payload->>'userId' = ${targetAdminId}
       and status = 'SUCCEEDED'
   `;
-  if (succeededOutbox?.count !== 1) throw new Error("provider deactivation success was not persisted");
+  if (succeededOutbox?.count !== 1)
+    throw new Error("provider deactivation success was not persisted");
 
   const deadLetterJobId = "8ac00000-0000-4000-8000-000000000008";
   await sql`
@@ -649,19 +924,33 @@ try {
     )
   `;
   const deadLetterClaims = await reconciliationRepository.claimJobs(10);
-  const deadLetterClaim = deadLetterClaims.find((job) => job.id === deadLetterJobId);
-  if (!deadLetterClaim) throw new Error("eighth-attempt outbox job was not claimable");
-  await reconciliationRepository.markFailed(deadLetterClaim, "EXTERNAL_AUTH_UNAVAILABLE");
-  const [deadLettered] = await sql<{
-    claim_token: string | null;
-    dead_lettered_at: Date | null;
-    status: string;
-  }[]>`
+  const deadLetterClaim = deadLetterClaims.find(
+    (job) => job.id === deadLetterJobId,
+  );
+  if (!deadLetterClaim)
+    throw new Error("eighth-attempt outbox job was not claimable");
+  await reconciliationRepository.markFailed(
+    deadLetterClaim,
+    "EXTERNAL_AUTH_UNAVAILABLE",
+  );
+  const [deadLettered] = await sql<
+    {
+      claim_token: string | null;
+      dead_lettered_at: Date | null;
+      status: string;
+    }[]
+  >`
     select status, claim_token, dead_lettered_at from outbox_jobs
     where company_id = ${companyId} and id = ${deadLetterJobId}
   `;
-  if (deadLettered?.status !== "DEAD_LETTER" || !deadLettered.dead_lettered_at || deadLettered.claim_token !== null) {
-    throw new Error("eighth outbox failure did not enter fenced dead-letter state");
+  if (
+    deadLettered?.status !== "DEAD_LETTER" ||
+    !deadLettered.dead_lettered_at ||
+    deadLettered.claim_token !== null
+  ) {
+    throw new Error(
+      "eighth outbox failure did not enter fenced dead-letter state",
+    );
   }
 
   const replay = await repository.deactivateAccount({
@@ -672,7 +961,10 @@ try {
     traceId: "8ab00000-0000-4000-8000-000000000002",
     value: { version: 1, reason: "integration deactivation" },
   });
-  if (replay.status !== "UPDATED" || replay.account.version !== first.account.version) {
+  if (
+    replay.status !== "UPDATED" ||
+    replay.account.version !== first.account.version
+  ) {
     throw new Error(`deactivation replay was not stable: ${replay.status}`);
   }
 
@@ -684,7 +976,8 @@ try {
     traceId: "8ab00000-0000-4000-8000-000000000003",
     value: { version: 1, reason: "different request" },
   });
-  if ((conflict as { status: string }).status !== "IDEMPOTENCY_CONFLICT") throw new Error("deactivation idempotency conflict was not rejected");
+  if ((conflict as { status: string }).status !== "IDEMPOTENCY_CONFLICT")
+    throw new Error("deactivation idempotency conflict was not rejected");
 
   const secondAdmin = await repository.deactivateAccount({
     actor,
@@ -694,7 +987,8 @@ try {
     traceId: "8ab00000-0000-4000-8000-000000000004",
     value: { version: 1, reason: "actor remains active" },
   });
-  if (secondAdmin.status !== "UPDATED") throw new Error(`second admin deactivation failed: ${secondAdmin.status}`);
+  if (secondAdmin.status !== "UPDATED")
+    throw new Error(`second admin deactivation failed: ${secondAdmin.status}`);
 
   const last = await repository.deactivateAccount({
     actor,
@@ -704,7 +998,8 @@ try {
     traceId: "8ab00000-0000-4000-8000-000000000005",
     value: { version: 1, reason: "must remain active" },
   });
-  if (last.status !== "LAST_ADMIN") throw new Error(`last admin was not protected: ${last.status}`);
+  if (last.status !== "LAST_ADMIN")
+    throw new Error(`last admin was not protected: ${last.status}`);
 
   console.log("ACCOUNT_REPOSITORY_INTEGRATION_OK");
 } finally {

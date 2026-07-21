@@ -6,7 +6,7 @@ import type {
 } from "@werehere/db";
 
 export type AccountReconciliationProvider = {
-  deactivateHumanUser(userId: string): Promise<void>;
+  deactivateHumanUser(userId: string): Promise<"DEACTIVATED" | "NOT_FOUND">;
   humanUserExists(userId: string): Promise<boolean>;
 };
 
@@ -20,13 +20,18 @@ type ReconcileInput = {
     | "markSucceeded"
     | "markFailed"
   >;
-  accountRepository: Pick<AccountRepository, "markProviderCreated" | "completeCreate" | "prepareCompensation">;
+  accountRepository: Pick<
+    AccountRepository,
+    "markProviderCreated" | "completeCreate" | "prepareCompensation"
+  >;
   provider: AccountReconciliationProvider;
   batchSize: number;
 };
 
 export async function reconcileAccountProviderJobs(input: ReconcileInput) {
-  const createJobs = await input.repository.claimRecoverableCreates(input.batchSize);
+  const createJobs = await input.repository.claimRecoverableCreates(
+    input.batchSize,
+  );
   const remaining = Math.max(1, input.batchSize - createJobs.length);
   const providerJobs = await input.repository.claimJobs(remaining);
   let succeeded = 0;
@@ -45,19 +50,40 @@ export async function reconcileAccountProviderJobs(input: ReconcileInput) {
 
   for (const job of providerJobs) {
     try {
-      await input.provider.deactivateHumanUser(job.providerSubject);
+      const outcome = await input.provider.deactivateHumanUser(
+        job.providerSubject,
+      );
+      if (
+        job.jobType === "ACCOUNT_PROVIDER_COMPENSATE" &&
+        outcome === "NOT_FOUND"
+      ) {
+        await markFailedSafely(input.repository, job, "PROVIDER_NOT_VISIBLE");
+        failed += 1;
+        continue;
+      }
       await input.repository.markSucceeded(job);
       succeeded += 1;
     } catch {
-      await markFailedSafely(input.repository, job);
+      await markFailedSafely(
+        input.repository,
+        job,
+        "EXTERNAL_AUTH_UNAVAILABLE",
+      );
       failed += 1;
     }
   }
 
-  return { claimed: createJobs.length + providerJobs.length, succeeded, failed };
+  return {
+    claimed: createJobs.length + providerJobs.length,
+    succeeded,
+    failed,
+  };
 }
 
-async function recoverCreate(input: ReconcileInput, job: AccountCreateRecoveryJob) {
+async function recoverCreate(
+  input: ReconcileInput,
+  job: AccountCreateRecoveryJob,
+) {
   if (job.status !== "PROVIDER_CONFIRMED") {
     const exists = await input.provider.humanUserExists(job.userId);
     if (!exists) {
@@ -73,13 +99,16 @@ async function recoverCreate(input: ReconcileInput, job: AccountCreateRecoveryJo
     if (marked === "STALE_LEASE") return false;
   }
 
-  const assignmentCount = job.completionPayload.userType === "HOUSEKEEPING"
-    ? job.completionPayload.hotelIds?.length ?? 0
-    : 1;
+  const assignmentCount =
+    job.completionPayload.userType === "HOUSEKEEPING"
+      ? (job.completionPayload.hotelIds?.length ?? 0)
+      : 1;
   const completed = await input.accountRepository.completeCreate({
     accountId: job.userId,
     actorUserId: job.actorUserId,
-    assignmentIds: Array.from({ length: assignmentCount }, () => crypto.randomUUID()),
+    assignmentIds: Array.from({ length: assignmentCount }, () =>
+      crypto.randomUUID(),
+    ),
     auditEventId: crypto.randomUUID(),
     companyId: job.companyId,
     idempotencyKey: job.idempotencyKey,
@@ -88,7 +117,8 @@ async function recoverCreate(input: ReconcileInput, job: AccountCreateRecoveryJo
     traceId: crypto.randomUUID(),
     value: job.completionPayload,
   });
-  if (completed.status === "CREATED" || completed.status === "REPLAYED") return true;
+  if (completed.status === "CREATED" || completed.status === "REPLAYED")
+    return true;
 
   const prepared = await input.accountRepository.prepareCompensation({
     accountId: job.userId,
@@ -113,9 +143,10 @@ async function markCreateRecoveryFailedSafely(
 async function markFailedSafely(
   repository: Pick<AccountReconciliationRepository, "markFailed">,
   job: AccountProviderJob,
+  errorCode: string,
 ) {
   try {
-    await repository.markFailed(job, "EXTERNAL_AUTH_UNAVAILABLE");
+    await repository.markFailed(job, errorCode);
   } catch {
     // A stale PROCESSING lock remains reclaimable after the five-minute claim timeout.
   }

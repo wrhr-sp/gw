@@ -65,6 +65,16 @@ else
   createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_production_ci
 fi
 
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+do $role$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'werehere_preview_runtime') then
+    create role werehere_preview_runtime login noinherit password 'legacy-preview-integration-password';
+  end if;
+end
+$role$;
+SQL
+
 run_provision() {
   (
     cd "$ROOT_DIR"
@@ -86,6 +96,18 @@ run_provision() {
 }
 
 run_provision >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+grant usage on schema public to werehere_preview_runtime;
+grant select on public.branches to werehere_preview_runtime;
+grant execute on function public.runtime_is_schema_owner(),
+  public.runtime_has_capability(text),
+  public.api_current_company_id(),
+  public.reconciler_current_company_id()
+  to werehere_preview_runtime;
+insert into public.runtime_database_capabilities (role_name, capability)
+values ('werehere_preview_runtime', 'API_RUNTIME')
+on conflict (role_name) do update set capability = excluded.capability;
+SQL
 run_provision >/dev/null
 
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
@@ -119,7 +141,7 @@ where version in (
   '0001_platform_foundation', '0002_auth_session_runtime',
   '0003_hotel_basic_information', '0004_custom_login_security',
   '0005_auth_session_definer', '0006_account_administration',
-  '0007_api_tenant_authority_expand'
+  '0007_api_tenant_authority_expand', '0008_remove_legacy_company_id_fallback'
 );
 select count(*) from auth_identities
 where provider = 'ZITADEL' and provider_subject = '$SUBJECT';
@@ -177,9 +199,20 @@ where definer_role.rolname = 'werehere_auth_session_definer'
     or membership.inherit_option
     or membership.set_option
   );
+select count(*) from runtime_database_capabilities
+where role_name = 'werehere_preview_runtime';
+select (
+  has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
+  or has_schema_privilege('werehere_preview_runtime', 'public', 'CREATE')
+  or has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
+  or has_function_privilege('werehere_preview_runtime', 'public.runtime_is_schema_owner()', 'EXECUTE')
+  or has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
+  or has_function_privilege('werehere_preview_runtime', 'public.api_current_company_id()', 'EXECUTE')
+  or has_function_privilege('werehere_preview_runtime', 'public.reconciler_current_company_id()', 'EXECUTE')
+)::int;
 SQL
 )"
-EXPECTED=$'7\n1\n1\n3\n1\n1\n2\n0\n1\n0'
+EXPECTED=$'8\n1\n1\n3\n1\n1\n2\n0\n1\n0\n0\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1

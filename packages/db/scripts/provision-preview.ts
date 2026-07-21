@@ -6,15 +6,22 @@ import { probeDatabaseReadiness } from "../src/client";
 
 const ownerDatabaseUrl = process.env.DATABASE_URL_PREVIEW?.trim() ?? "";
 const productionDatabaseUrl = process.env.DATABASE_URL?.trim() ?? "";
-const apiRuntimePassword = process.env.DATABASE_API_RUNTIME_PASSWORD_PREVIEW ?? "";
-const reconcilerPassword = process.env.DATABASE_RECONCILER_PASSWORD_PREVIEW ?? "";
+const apiRuntimePassword =
+  process.env.DATABASE_API_RUNTIME_PASSWORD_PREVIEW ?? "";
+const reconcilerPassword =
+  process.env.DATABASE_RECONCILER_PASSWORD_PREVIEW ?? "";
 const apiOutputFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim() ?? "";
-const reconcilerOutputFile = process.env.RECONCILER_DATABASE_URL_FILE?.trim() ?? "";
+const reconcilerOutputFile =
+  process.env.RECONCILER_DATABASE_URL_FILE?.trim() ?? "";
 const zitadelSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim() ?? "";
-const approvedSubjectFingerprint = process.env.ZITADEL_PREVIEW_SUBJECT_SHA256?.trim().toLowerCase() ?? "";
-const zitadelOrganizationId = process.env.ZITADEL_PREVIEW_ORGANIZATION_ID?.trim() ?? "";
-const bootstrapApprovalReference = process.env.PREVIEW_BOOTSTRAP_APPROVAL_REF?.trim() ?? "";
-const localCiAdminDatabaseUrl = process.env.PREVIEW_PROVISION_ADMIN_DATABASE_URL?.trim() ?? "";
+const approvedSubjectFingerprint =
+  process.env.ZITADEL_PREVIEW_SUBJECT_SHA256?.trim().toLowerCase() ?? "";
+const zitadelOrganizationId =
+  process.env.ZITADEL_PREVIEW_ORGANIZATION_ID?.trim() ?? "";
+const bootstrapApprovalReference =
+  process.env.PREVIEW_BOOTSTRAP_APPROVAL_REF?.trim() ?? "";
+const localCiAdminDatabaseUrl =
+  process.env.PREVIEW_PROVISION_ADMIN_DATABASE_URL?.trim() ?? "";
 const apiRuntimeRole = "werehere_preview_api_runtime";
 const reconcilerRole = "werehere_preview_reconciler";
 const previewCompanyId = "70000000-0000-4000-8000-000000000001";
@@ -117,17 +124,25 @@ async function neonBranchIdentity(sql: postgres.Sql): Promise<{
 if (!ownerDatabaseUrl) fail("DATABASE_URL_PREVIEW is required");
 if (!productionDatabaseUrl)
   fail("DATABASE_URL is required for target separation verification");
-if (!apiRuntimePassword) fail("DATABASE_API_RUNTIME_PASSWORD_PREVIEW is required");
-if (!reconcilerPassword) fail("DATABASE_RECONCILER_PASSWORD_PREVIEW is required");
-if (apiRuntimePassword === reconcilerPassword) fail("Preview runtime passwords must differ");
+if (!apiRuntimePassword)
+  fail("DATABASE_API_RUNTIME_PASSWORD_PREVIEW is required");
+if (!reconcilerPassword)
+  fail("DATABASE_RECONCILER_PASSWORD_PREVIEW is required");
+if (apiRuntimePassword === reconcilerPassword)
+  fail("Preview runtime passwords must differ");
 if (!apiOutputFile) fail("API_RUNTIME_DATABASE_URL_FILE is required");
 if (!reconcilerOutputFile) fail("RECONCILER_DATABASE_URL_FILE is required");
 if (!zitadelSubject) fail("ZITADEL_PREVIEW_SUBJECT is required");
-if (!/^[0-9a-f]{64}$/u.test(approvedSubjectFingerprint)) fail("ZITADEL_PREVIEW_SUBJECT_SHA256 is required");
-const actualSubjectFingerprint = createHash("sha256").update(zitadelSubject, "utf8").digest("hex");
-if (actualSubjectFingerprint !== approvedSubjectFingerprint) fail("ZITADEL Preview subject fingerprint mismatch");
+if (!/^[0-9a-f]{64}$/u.test(approvedSubjectFingerprint))
+  fail("ZITADEL_PREVIEW_SUBJECT_SHA256 is required");
+const actualSubjectFingerprint = createHash("sha256")
+  .update(zitadelSubject, "utf8")
+  .digest("hex");
+if (actualSubjectFingerprint !== approvedSubjectFingerprint)
+  fail("ZITADEL Preview subject fingerprint mismatch");
 if (!zitadelOrganizationId) fail("ZITADEL_PREVIEW_ORGANIZATION_ID is required");
-if (!bootstrapApprovalReference) fail("PREVIEW_BOOTSTRAP_APPROVAL_REF is required");
+if (!bootstrapApprovalReference)
+  fail("PREVIEW_BOOTSTRAP_APPROVAL_REF is required");
 
 const previewUrl = parseDatabaseUrl(
   ownerDatabaseUrl,
@@ -159,13 +174,21 @@ if (localCiTestMode) {
       false,
     );
     const adminLoopback =
-      localAdminUrl.hostname === "127.0.0.1" || localAdminUrl.hostname === "localhost";
-    if (!adminLoopback || targetFingerprint(localAdminUrl) !== targetFingerprint(previewUrl)) {
-      fail("Local provisioning admin target must be the same loopback Preview test database");
+      localAdminUrl.hostname === "127.0.0.1" ||
+      localAdminUrl.hostname === "localhost";
+    if (
+      !adminLoopback ||
+      targetFingerprint(localAdminUrl) !== targetFingerprint(previewUrl)
+    ) {
+      fail(
+        "Local provisioning admin target must be the same loopback Preview test database",
+      );
     }
   }
 } else if (localCiAdminDatabaseUrl) {
-  fail("PREVIEW_PROVISION_ADMIN_DATABASE_URL is restricted to local CI test mode");
+  fail(
+    "PREVIEW_PROVISION_ADMIN_DATABASE_URL is restricted to local CI test mode",
+  );
 }
 if (targetFingerprint(previewUrl) === targetFingerprint(productionUrl)) {
   fail("Preview and Production database targets must differ");
@@ -178,10 +201,14 @@ async function updateLocalCiDefinerMembership(
   action: "GRANT" | "REVOKE",
 ): Promise<void> {
   if (!localCiAdminDatabaseUrl) return;
-  const localAdmin = postgres(localCiAdminDatabaseUrl, { max: 1, prepare: false });
+  const localAdmin = postgres(localCiAdminDatabaseUrl, {
+    max: 1,
+    prepare: false,
+  });
   try {
-    const commands = action === "GRANT"
-      ? await localAdmin<{ command: string }[]>`
+    const commands =
+      action === "GRANT"
+        ? await localAdmin<{ command: string }[]>`
           select format(
             'grant %I to %I with admin true, inherit false, set false',
             definer_role.rolname,
@@ -193,7 +220,7 @@ async function updateLocalCiDefinerMembership(
             'werehere_tenant_authority_definer'
           )
         `
-      : await localAdmin<{ command: string }[]>`
+        : await localAdmin<{ command: string }[]>`
           select format(
             'revoke %I from %I granted by %I',
             definer_role.rolname,
@@ -218,8 +245,12 @@ try {
   const [migrationOwnerIdentity] = await owner<{ role_name: string }[]>`
     select current_user as role_name
   `;
-  if (!migrationOwnerIdentity) fail("Preview migration owner identity is unavailable");
-  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "GRANT");
+  if (!migrationOwnerIdentity)
+    fail("Preview migration owner identity is unavailable");
+  await updateLocalCiDefinerMembership(
+    migrationOwnerIdentity.role_name,
+    "GRANT",
+  );
   const previewIdentity = await neonBranchIdentity(owner);
   if (productionUrl.hostname.toLowerCase().endsWith(".neon.tech")) {
     const production = postgres(productionDatabaseUrl, {
@@ -250,7 +281,10 @@ try {
     from pg_roles role_record
     where role_record.rolname = current_user
   `;
-  if (!identity[0] || [apiRuntimeRole, reconcilerRole].includes(identity[0].current_user)) {
+  if (
+    !identity[0] ||
+    [apiRuntimeRole, reconcilerRole].includes(identity[0].current_user)
+  ) {
     fail("Preview migration credential must differ from both runtime roles");
   }
   if (!identity[0].can_create_role) {
@@ -267,7 +301,14 @@ try {
     ["0004_custom_login_security", "0004_custom_login_security.sql"],
     ["0005_auth_session_definer", "0005_auth_session_definer.sql"],
     ["0006_account_administration", "0006_account_administration.sql"],
-    ["0007_api_tenant_authority_expand", "0007_api_tenant_authority_expand.sql"],
+    [
+      "0007_api_tenant_authority_expand",
+      "0007_api_tenant_authority_expand.sql",
+    ],
+    [
+      "0008_remove_legacy_company_id_fallback",
+      "0008_remove_legacy_company_id_fallback.sql",
+    ],
   ] as const;
 
   for (const [version, fileName] of migrations) {
@@ -488,12 +529,14 @@ try {
       )
       on conflict (company_id) do nothing
     `;
-    const [bootstrap] = await sql<{
-      approval_reference: string;
-      bootstrapped_user_id: string;
-      subject_fingerprint: string;
-      zitadel_organization_id: string;
-    }[]>`
+    const [bootstrap] = await sql<
+      {
+        approval_reference: string;
+        bootstrapped_user_id: string;
+        subject_fingerprint: string;
+        zitadel_organization_id: string;
+      }[]
+    >`
       select bootstrapped_user_id::text, subject_fingerprint,
              zitadel_organization_id, approval_reference
       from company_bootstrap_states
@@ -504,7 +547,10 @@ try {
       bootstrap.subject_fingerprint !== actualSubjectFingerprint ||
       bootstrap.zitadel_organization_id !== zitadelOrganizationId ||
       bootstrap.approval_reference !== bootstrapApprovalReference
-    ) fail("Existing Preview bootstrap marker does not match the approved identity");
+    )
+      fail(
+        "Existing Preview bootstrap marker does not match the approved identity",
+      );
     await sql`
       insert into audit_events (
         id, event_code, actor_user_id, actor_type, company_id,
@@ -521,7 +567,8 @@ try {
     const [bootstrapAudit] = await sql<{ event_code: string }[]>`
       select event_code from audit_events where id = ${previewBootstrapAuditId}::uuid
     `;
-    if (bootstrapAudit?.event_code !== "ACCOUNT_BOOTSTRAPPED") fail("Preview bootstrap audit is unavailable");
+    if (bootstrapAudit?.event_code !== "ACCOUNT_BOOTSTRAPPED")
+      fail("Preview bootstrap audit is unavailable");
   });
   console.log("PREVIEW_PRINCIPAL_SEEDED");
 
@@ -537,7 +584,9 @@ try {
       const [createRole] = await owner<{ command: string }[]>`
         select format('create role %I login', ${role.name}::text) as command
       `;
-      await owner.unsafe(createRole?.command ?? fail("Could not build runtime role command"));
+      await owner.unsafe(
+        createRole?.command ?? fail("Could not build runtime role command"),
+      );
     }
     const [secureRole] = await owner<{ command: string }[]>`
       select format(
@@ -546,11 +595,15 @@ try {
         ${role.password}::text
       ) as command
     `;
-    await owner.unsafe(secureRole?.command ?? fail("Could not secure runtime role"));
+    await owner.unsafe(
+      secureRole?.command ?? fail("Could not secure runtime role"),
+    );
   }
 
   const buildDefinerCommands = async (roleName: string) => {
-    const [commands] = await owner<{ grant_membership: string; revoke_membership: string }[]>`
+    const [commands] = await owner<
+      { grant_membership: string; revoke_membership: string }[]
+    >`
       select format(
                'grant %I to %I with inherit false, set true',
                ${roleName}::text, current_user
@@ -563,7 +616,9 @@ try {
     return commands ?? fail("Could not build definer membership commands");
   };
 
-  const capabilityDefinerCommands = await buildDefinerCommands("werehere_tenant_authority_definer");
+  const capabilityDefinerCommands = await buildDefinerCommands(
+    "werehere_tenant_authority_definer",
+  );
   let capabilityRows: Array<{ capability: string; role_name: string }> = [];
   await owner.begin(async (sql) => {
     await sql.unsafe(capabilityDefinerCommands.grant_membership);
@@ -585,18 +640,31 @@ try {
     await sql.unsafe(capabilityDefinerCommands.revoke_membership);
   });
 
-  const capabilityMap = new Map(capabilityRows.map((row) => [row.role_name, row.capability]));
+  const capabilityMap = new Map(
+    capabilityRows.map((row) => [row.role_name, row.capability]),
+  );
   if (
-    capabilityMap.get(apiRuntimeRole) !== "API_RUNTIME"
-    || capabilityMap.get(reconcilerRole) !== "RECONCILER"
-  ) fail("Preview runtime capability registration failed");
+    capabilityMap.get(apiRuntimeRole) !== "API_RUNTIME" ||
+    capabilityMap.get(reconcilerRole) !== "RECONCILER"
+  )
+    fail("Preview runtime capability registration failed");
 
   const [legacyRuntimeState] = await owner<{ exists: boolean }[]>`
     select exists(
       select 1 from pg_roles where rolname = 'werehere_preview_runtime'
     ) as exists
   `;
-  const legacyPolicyGrant = legacyRuntimeState?.exists ? ", werehere_preview_runtime" : "";
+  const legacyPolicyGrant = legacyRuntimeState?.exists
+    ? ", werehere_preview_runtime"
+    : "";
+
+  if (legacyRuntimeState?.exists) {
+    await owner.unsafe(`
+      revoke all privileges on all tables in schema public from werehere_preview_runtime;
+      revoke all privileges on all sequences in schema public from werehere_preview_runtime;
+      revoke all on schema public from werehere_preview_runtime;
+    `);
+  }
 
   await owner.unsafe(`
     revoke all privileges on all tables in schema public from ${apiRuntimeRole};
@@ -609,7 +677,7 @@ try {
       to ${apiRuntimeRole}, ${reconcilerRole};
 
     grant select on
-      companies, users, auth_identities, auth_sessions,
+      companies, users, auth_identities, auth_sessions, runtime_database_capabilities,
       auth_login_transactions, auth_credential_rate_limits,
       schema_migrations, roles, permissions, user_role_memberships,
       user_groups, user_group_memberships, permission_grants,
@@ -630,7 +698,7 @@ try {
 
     grant select on
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
-      outbox_jobs, account_provisioning_attempts,
+      runtime_database_capabilities, outbox_jobs, account_provisioning_attempts,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
     to ${reconcilerRole};
     grant insert on users, auth_identities, audit_events, outbox_jobs,
@@ -639,8 +707,13 @@ try {
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
   `);
 
-  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "GRANT");
-  const authDefinerCommands = await buildDefinerCommands("werehere_auth_session_definer");
+  await updateLocalCiDefinerMembership(
+    migrationOwnerIdentity.role_name,
+    "GRANT",
+  );
+  const authDefinerCommands = await buildDefinerCommands(
+    "werehere_auth_session_definer",
+  );
   await owner.begin(async (sql) => {
     await sql.unsafe(authDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_auth_session_definer");
@@ -666,40 +739,116 @@ try {
         from ${reconcilerRole};
       revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         from ${reconcilerRole}${legacyPolicyGrant};
+      ${
+        legacyRuntimeState?.exists
+          ? `
+      revoke execute on function public.auth_create_session(
+        uuid, bytea, text, integer, integer, timestamptz, uuid
+      ) from werehere_preview_runtime;
+      revoke execute on function public.auth_create_session_v2(
+        uuid, bytea, text, integer, integer, timestamptz, uuid
+      ) from werehere_preview_runtime;
+      revoke execute on function public.auth_resolve_principal_v2(bytea, integer)
+        from werehere_preview_runtime;
+      revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
+        from werehere_preview_runtime;
+      revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from werehere_preview_runtime;
+      `
+          : ""
+      }
     `);
     await sql.unsafe("reset role");
     await sql.unsafe(authDefinerCommands.revoke_membership);
   });
 
-  const tenantDefinerCommands = await buildDefinerCommands("werehere_tenant_authority_definer");
+  const tenantDefinerCommands = await buildDefinerCommands(
+    "werehere_tenant_authority_definer",
+  );
   await owner.begin(async (sql) => {
     await sql.unsafe(tenantDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_tenant_authority_definer");
     await sql.unsafe(`
+      grant select on public.runtime_database_capabilities
+        to ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.runtime_is_schema_owner()
-        to ${apiRuntimeRole}, ${reconcilerRole}${legacyPolicyGrant};
+        to ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.runtime_has_capability(text)
-        to ${apiRuntimeRole}, ${reconcilerRole}${legacyPolicyGrant};
+        to ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.api_current_company_id(),
         public.reconciler_current_company_id()
-        to ${apiRuntimeRole}, ${reconcilerRole}${legacyPolicyGrant};
+        to ${apiRuntimeRole}, ${reconcilerRole};
       grant execute on function public.reconciliation_company_ids() to ${reconcilerRole};
       revoke execute on function public.reconciliation_company_ids() from ${apiRuntimeRole};
+      ${
+        legacyRuntimeState?.exists
+          ? `
+      revoke execute on function public.runtime_is_schema_owner(),
+        public.runtime_has_capability(text),
+        public.api_current_company_id(),
+        public.reconciler_current_company_id(),
+        public.reconciliation_company_ids()
+        from werehere_preview_runtime;
+      delete from public.runtime_database_capabilities
+        where role_name = 'werehere_preview_runtime';
+      `
+          : ""
+      }
     `);
     await sql.unsafe("reset role");
     await sql.unsafe(tenantDefinerCommands.revoke_membership);
   });
 
-  await updateLocalCiDefinerMembership(migrationOwnerIdentity.role_name, "REVOKE");
+  if (legacyRuntimeState?.exists) {
+    const [legacyAccess] = await owner<
+      { capability: boolean; schema_access: boolean; object_acl: boolean }[]
+    >`
+      select
+        exists (
+          select 1 from public.runtime_database_capabilities
+          where role_name = 'werehere_preview_runtime'
+        ) as capability,
+        (
+          has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
+          or has_schema_privilege('werehere_preview_runtime', 'public', 'CREATE')
+        ) as schema_access,
+        exists (
+          select 1
+          from pg_class object_record
+          join pg_namespace object_namespace on object_namespace.oid = object_record.relnamespace
+          cross join lateral aclexplode(coalesce(
+            object_record.relacl,
+            acldefault(case when object_record.relkind = 'S' then 'S'::"char" else 'r'::"char" end, object_record.relowner)
+          )) acl
+          join pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where object_namespace.nspname = 'public'
+            and object_record.relkind in ('r', 'p', 'S')
+            and grantee_role.rolname = 'werehere_preview_runtime'
+        ) as object_acl
+    `;
+    const residualAccess = legacyAccess
+      ? Object.entries(legacyAccess).filter(([, present]) => present).map(([label]) => label)
+      : ["verification_missing"];
+    if (residualAccess.length > 0) {
+      fail(`Legacy Preview runtime access was not fully revoked: ${residualAccess.join(",")}`);
+    }
+  }
 
-  const definerMembershipSafety = await owner<{
-    admin_option: boolean;
-    definer_role: string;
-    grantor_role: string;
-    inherit_option: boolean;
-    member_role: string;
-    set_option: boolean;
-  }[]>`
+  await updateLocalCiDefinerMembership(
+    migrationOwnerIdentity.role_name,
+    "REVOKE",
+  );
+
+  const definerMembershipSafety = await owner<
+    {
+      admin_option: boolean;
+      definer_role: string;
+      grantor_role: string;
+      inherit_option: boolean;
+      member_role: string;
+      set_option: boolean;
+    }[]
+  >`
     select definer_role.rolname as definer_role,
            member_role.rolname as member_role,
            grantor_role.rolname as grantor_role,
@@ -721,16 +870,18 @@ try {
   }
 
   for (const role of roles) {
-    const [safety] = await owner<{
-      bypass_rls: boolean;
-      creates_databases: boolean;
-      creates_roles: boolean;
-      has_memberships: boolean;
-      inherits_roles: boolean;
-      owns_public_table: boolean;
-      replicates: boolean;
-      superuser: boolean;
-    }[]>`
+    const [safety] = await owner<
+      {
+        bypass_rls: boolean;
+        creates_databases: boolean;
+        creates_roles: boolean;
+        has_memberships: boolean;
+        inherits_roles: boolean;
+        owns_public_table: boolean;
+        replicates: boolean;
+        superuser: boolean;
+      }[]
+    >`
       select runtime_role.rolsuper as superuser,
              runtime_role.rolbypassrls as bypass_rls,
              runtime_role.rolcreatedb as creates_databases,
@@ -753,16 +904,17 @@ try {
       where runtime_role.rolname = ${role.name}
     `;
     if (
-      !safety
-      || safety.superuser
-      || safety.bypass_rls
-      || safety.creates_databases
-      || safety.creates_roles
-      || safety.has_memberships
-      || safety.inherits_roles
-      || safety.owns_public_table
-      || safety.replicates
-    ) fail("Preview runtime role safety verification failed");
+      !safety ||
+      safety.superuser ||
+      safety.bypass_rls ||
+      safety.creates_databases ||
+      safety.creates_roles ||
+      safety.has_memberships ||
+      safety.inherits_roles ||
+      safety.owns_public_table ||
+      safety.replicates
+    )
+      fail("Preview runtime role safety verification failed");
   }
 
   const apiRuntimeUrl = new URL(previewUrl);
@@ -773,7 +925,9 @@ try {
   reconcilerUrl.password = reconcilerPassword;
   await writeFile(apiOutputFile, apiRuntimeUrl.toString(), { mode: 0o600 });
   await chmod(apiOutputFile, 0o600);
-  await writeFile(reconcilerOutputFile, reconcilerUrl.toString(), { mode: 0o600 });
+  await writeFile(reconcilerOutputFile, reconcilerUrl.toString(), {
+    mode: 0o600,
+  });
   await chmod(reconcilerOutputFile, 0o600);
 
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
@@ -782,9 +936,12 @@ try {
   if (apiReadiness.status !== "READY") {
     fail(`Preview API runtime readiness failed: ${apiReadiness.status}`);
   }
-  const reconcilerReadiness = await probeDatabaseReadiness(reconcilerUrl.toString(), {
-    capability: "RECONCILER",
-  });
+  const reconcilerReadiness = await probeDatabaseReadiness(
+    reconcilerUrl.toString(),
+    {
+      capability: "RECONCILER",
+    },
+  );
   if (reconcilerReadiness.status !== "READY") {
     fail(`Preview reconciler readiness failed: ${reconcilerReadiness.status}`);
   }

@@ -1,4 +1,7 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
@@ -14,18 +17,31 @@ function workflowStep(name: string) {
   return workflow.slice(start, next < 0 ? workflow.length : next);
 }
 
+function validateHyperdriveList(value: unknown) {
+  const directory = mkdtempSync(join(tmpdir(), "hyperdrive-list-test-"));
+  const fixture = join(directory, "response.json");
+  try {
+    writeFileSync(fixture, JSON.stringify(value));
+    return spawnSync(
+      process.execPath,
+      [
+        new URL(
+          "../../../scripts/validate-cloudflare-hyperdrive-list.mjs",
+          import.meta.url,
+        ).pathname,
+        fixture,
+      ],
+      { encoding: "utf8" },
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 describe("Preview account Worker release safety", () => {
   it("validates Hyperdrive list envelopes and preserves the legacy binding exactly", () => {
     const step = workflowStep("Create or update Preview Hyperdrives");
-    expect(step).toContain(".success == true");
-    expect(step).toContain('(.result | type) == "array"');
-    expect(step).toContain('(.result_info.total_pages | type) == "number"');
-    expect(step).toContain(".result_info.total_pages == 1");
-    expect(step).toContain("and all(.result[];");
-    expect(step).toContain('(.name | type) == "string"');
-    expect(step).toContain("(.name | length) > 0");
-    expect(step).toContain('(.id | type) == "string"');
-    expect(step).toContain("(.id | length) > 0");
+    expect(step).toContain("validate-cloudflare-hyperdrive-list.mjs");
     expect(step).toContain('if [[ "$count" -eq 0 ]]');
     expect(step).toContain('id="$(jq -er --arg name "$name"');
     expect(step).toContain('if [[ "$count" -ne 1 ]]');
@@ -36,6 +52,41 @@ describe("Preview account Worker release safety", () => {
     expect(step).toContain('cmp -s "$legacy_before" "$legacy_after"');
     expect(step).toContain("PREVIEW_LEGACY_HYPERDRIVE_PRESERVED");
     expect(step).toContain("trap 'rm -rf \"$temp_dir\"' EXIT");
+  });
+
+  it("rejects malformed or contradictory Hyperdrive pagination before mutation", () => {
+    const valid = {
+      success: true,
+      result: [{ id: "hyperdrive-1", name: "werehere-hotel-preview" }],
+      result_info: {
+        page: 1,
+        per_page: 100,
+        count: 1,
+        total_count: 1,
+        total_pages: 1,
+      },
+    };
+    expect(validateHyperdriveList(valid).status).toBe(0);
+    for (const invalid of [
+      null,
+      { ...valid, result_info: null },
+      { ...valid, result_info: { ...valid.result_info, page: 2 } },
+      { ...valid, result_info: { ...valid.result_info, count: 0 } },
+      { ...valid, result_info: { ...valid.result_info, total_count: 2 } },
+      { ...valid, result_info: { ...valid.result_info, total_pages: 2 } },
+      { ...valid, result: [{ id: null, name: "werehere-hotel-preview" }] },
+      { ...valid, result: [{ id: "hyperdrive-1", name: null }] },
+      {
+        ...valid,
+        result: [
+          { id: "hyperdrive-1", name: "a" },
+          { id: "hyperdrive-1", name: "b" },
+        ],
+        result_info: { ...valid.result_info, count: 2, total_count: 2 },
+      },
+    ]) {
+      expect(validateHyperdriveList(invalid).status).not.toBe(0);
+    }
   });
 
   it("tags and resolves the exact reconciler deployment version inside its own step", () => {
@@ -97,7 +148,7 @@ describe("Preview account Worker release safety", () => {
     );
   });
 
-  it("fences reconciler rollback and fails closed for an unfenced first deployment", () => {
+  it("fails closed without an unfenced automatic rollback mutation", () => {
     const step = workflowStep("Roll back failed Worker release");
     for (const name of [
       "RECONCILER_PREVIOUS",
@@ -115,11 +166,14 @@ describe("Preview account Worker release safety", () => {
     expect(step).toContain(
       "Worker changed outside this release; refusing rollback",
     );
-    expect(step).toContain('[[ "$current" == "$deployed" ]]');
-    expect(step).toContain('[[ "$active" == "$previous" ]]');
+    expect(step).toContain('[[ "$current" != "$deployed" ]]');
+    expect(step).not.toContain("wrangler rollback");
+    expect(step).toContain(
+      "Conditional rollback is unavailable; operator recovery required",
+    );
     expect(step).not.toContain('wrangler delete "$worker_name"');
     expect(step).toContain("First-deploy rollback requires operator recovery");
-    expect(step).toContain("PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED");
+    expect(step).toContain("PREVIEW_WORKER_OPERATOR_RECOVERY_REQUIRED");
     expect(step).toContain("PREVIEW_WORKER_ROLLBACK_VERIFIED");
   });
 });

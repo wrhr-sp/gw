@@ -154,20 +154,7 @@ jobs:
             curl --fail --silent --show-error \
               -H "Authorization: Bearer $CLOUD...OKEN" \
               "$list_url" > "$output_file"
-            if ! jq -e '
-              .success == true
-              and (.result | type) == "array"
-              and (.result_info | type) == "object"
-              and (.result_info.total_pages | type) == "number"
-              and .result_info.total_pages == 1
-              and all(.result[];
-                type == "object"
-                and (.name | type) == "string"
-                and (.name | length) > 0
-                and (.id | type) == "string"
-                and (.id | length) > 0
-              )
-            ' "$output_file" >/dev/null; then
+            if ! node "$GITHUB_WORKSPACE/scripts/validate-cloudflare-hyperdrive-list.mjs" "$output_file" >/dev/null; then
               printf '%s\n' 'Hyperdrive list response failed safety validation.' >&2
               return 1
             fi
@@ -782,20 +769,11 @@ jobs:
               return 1
             fi
             if [[ "$existed" == "true" && -n "$previous" ]]; then
-              # Wrangler 4.111.0 has no expected-current/ETag rollback option. Re-read
-              # immediately before mutation and verify afterward; an external deployment
-              # inside that provider-side race window is surfaced as rollback failure.
-              current="$(active_worker_version "$worker_name")" || return 1
-              [[ "$current" == "$deployed" ]] || return 1
-              if ! pnpm --filter @werehere/api exec wrangler rollback "$previous" \
-                --name "$worker_name" --yes \
-                --message 'Automated rollback after failed Preview release'; then
-                return 1
-              fi
-              local active
-              active="$(active_worker_version "$worker_name")" || return 1
-              [[ "$active" == "$previous" ]]
-              return
+              # Wrangler 4.111.0 and the provider API expose no expected-current/ETag
+              # rollback mutation. Any automatic rollback can overwrite a concurrent
+              # deployment after the active-version check, so fail closed instead.
+              printf 'Conditional rollback is unavailable; operator recovery required: %s\n' "$worker_name" >&2
+              return 1
             fi
             if [[ "$existed" == "false" ]]; then
               # Never auto-delete a first deployment: Wrangler delete has no conditional
@@ -816,7 +794,7 @@ jobs:
             "$RECONCILER_PREVIOUS" "$RECONCILER_EXISTED" "$RECONCILER_DEPLOY_OUTCOME" "$RECONCILER_DEPLOYED" \
             "$RECONCILER_DEPLOY_ATTEMPTED" "$RECONCILER_DEPLOY_TAG" || rollback_failed=1
           if [[ "$rollback_failed" -ne 0 ]]; then
-            printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFICATION_FAILED' >&2
+            printf '%s\n' 'PREVIEW_WORKER_OPERATOR_RECOVERY_REQUIRED' >&2
             exit 1
           fi
           printf '%s\n' 'PREVIEW_WORKER_ROLLBACK_VERIFIED'
