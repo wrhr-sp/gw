@@ -592,6 +592,8 @@ try {
         to ${apiRuntimeRole};
       grant execute on function public.auth_revoke_session_v2(bytea, text, uuid)
         to ${apiRuntimeRole};
+      grant execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        to ${apiRuntimeRole};
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from ${reconcilerRole};
@@ -599,6 +601,8 @@ try {
         from ${reconcilerRole};
       revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
         from ${reconcilerRole};
+      revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from ${reconcilerRole}${legacyPolicyGrant};
     `);
     await sql.unsafe("reset role");
     await sql.unsafe(authDefinerCommands.revoke_membership);

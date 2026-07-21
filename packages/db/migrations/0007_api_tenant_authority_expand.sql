@@ -378,6 +378,36 @@ begin
 end
 $function$;
 
+create function public.auth_revoke_user_sessions_v1(
+  p_company_id uuid,
+  p_user_id uuid,
+  p_reason text
+)
+returns integer
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  v_revoked_count integer;
+begin
+  if p_company_id is null
+     or p_user_id is null
+     or p_reason not in ('ACCOUNT_DEACTIVATED', 'INITIAL_PASSWORD_CHANGED')
+     or p_company_id is distinct from public.api_current_company_id() then
+    raise insufficient_privilege using message = 'active API tenant authority is required';
+  end if;
+
+  update public.auth_sessions
+  set revoked_at = pg_catalog.statement_timestamp(), revoke_reason = p_reason
+  where company_id = p_company_id
+    and user_id = p_user_id
+    and revoked_at is null;
+  get diagnostics v_revoked_count = row_count;
+  return v_revoked_count;
+end
+$function$;
+
 -- Match migration 0005's temporary SET-only ownership membership pattern.
 grant usage, create on schema public to werehere_auth_session_definer;
 grant usage, create on schema public to werehere_tenant_authority_definer;
@@ -398,6 +428,8 @@ alter function public.auth_resolve_principal_v2(bytea, integer)
   owner to werehere_auth_session_definer;
 alter function public.auth_revoke_session_v2(bytea, text, uuid)
   owner to werehere_auth_session_definer;
+alter function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+  owner to werehere_auth_session_definer;
 
 alter table public.runtime_database_capabilities owner to werehere_tenant_authority_definer;
 alter function public.runtime_is_schema_owner() owner to werehere_tenant_authority_definer;
@@ -411,6 +443,7 @@ set local role werehere_auth_session_definer;
 revoke all on function public.auth_create_session_v2(uuid, bytea, text, integer, integer, timestamptz, uuid) from public;
 revoke all on function public.auth_resolve_principal_v2(bytea, integer) from public;
 revoke all on function public.auth_revoke_session_v2(bytea, text, uuid) from public;
+revoke all on function public.auth_revoke_user_sessions_v1(uuid, uuid, text) from public;
 reset role;
 
 set local role werehere_tenant_authority_definer;

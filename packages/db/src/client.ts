@@ -8,6 +8,8 @@ export type DatabaseReadiness =
 
 const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
   "8b1471fab68cd50dbf0905af4a32a9f5d5642eb1d74e1500ec5cb073d4654790";
+const AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256 =
+  "061a73c1c7114330cebb91eb10546499665aa6d3f5887cedb4da7253e9faa0e1";
 
 async function sourceSha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -407,6 +409,68 @@ export async function probeDatabaseReadiness(
       || (options.capability === "API_RUNTIME" && authFunction.non_owner_execute_count !== 1)
       ||
       await sourceSha256(authFunction.source) !== AUTH_CREATE_SESSION_V2_PROSRC_SHA256
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [userSessionRevokeFunction] = await sql<{
+      executable: boolean;
+      owner_safe: boolean;
+      return_signature_safe: boolean;
+      safe_search_path: boolean;
+      security_definer: boolean;
+      source: string;
+      non_owner_execute_count: number;
+    }[]>`
+      select procedure_record.prosecdef as security_definer,
+             procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
+             has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
+             pg_get_function_result(procedure_record.oid) = 'integer' as return_signature_safe,
+             procedure_record.prosrc as source,
+             (
+               procedure_owner.rolname = 'werehere_auth_session_definer'
+               and not procedure_owner.rolcanlogin
+               and not procedure_owner.rolinherit
+               and not procedure_owner.rolsuper
+               and not procedure_owner.rolcreatedb
+               and not procedure_owner.rolcreaterole
+               and not procedure_owner.rolreplication
+               and not procedure_owner.rolbypassrls
+               and not exists (
+                 select 1 from pg_auth_members membership
+                 where membership.member = procedure_owner.oid
+                   or (
+                     membership.roleid = procedure_owner.oid
+                     and (membership.inherit_option or membership.set_option)
+                   )
+               )
+             ) as owner_safe,
+             (
+               select count(*)::integer
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee <> procedure_record.proowner
+             ) as non_owner_execute_count
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
+      where procedure_namespace.nspname = 'public'
+        and procedure_record.proname = 'auth_revoke_user_sessions_v1'
+        and pg_get_function_identity_arguments(procedure_record.oid)
+          = 'p_company_id uuid, p_user_id uuid, p_reason text'
+    `;
+    if (
+      !userSessionRevokeFunction?.security_definer
+      || !userSessionRevokeFunction.safe_search_path
+      || userSessionRevokeFunction.executable !== (options.capability === "API_RUNTIME")
+      || !userSessionRevokeFunction.owner_safe
+      || !userSessionRevokeFunction.return_signature_safe
+      || userSessionRevokeFunction.non_owner_execute_count > 1
+      || (options.capability === "API_RUNTIME" && userSessionRevokeFunction.non_owner_execute_count !== 1)
+      || await sourceSha256(userSessionRevokeFunction.source) !== AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

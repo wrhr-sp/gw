@@ -228,13 +228,18 @@ select has_function_privilege(
   'public.auth_create_session_v2(uuid,bytea,text,integer,integer,timestamptz,uuid)',
   'EXECUTE'
 );
+select has_function_privilege(
+  current_user,
+  'public.auth_revoke_user_sessions_v1(uuid,uuid,text)',
+  'EXECUTE'
+);
 select has_table_privilege(current_user, 'public.auth_sessions', 'INSERT');
 select has_table_privilege(current_user, 'public.auth_identities', 'UPDATE');
 select has_table_privilege(current_user, 'public.users', 'UPDATE');
 select has_table_privilege(current_user, 'public.companies', 'UPDATE');
 SQL
 )"
-if [[ "$PRIVILEGES" != $'t\nf\nf\nt\nf' ]]; then
+if [[ "$PRIVILEGES" != $'t\nt\nf\nf\nt\nf' ]]; then
   printf '%s\n' 'Runtime auth function privilege boundary is unsafe.' >&2
   exit 1
 fi
@@ -366,14 +371,57 @@ if [[ "$FAILED_SESSION_AUDIT" != $'0\n0' ]]; then
 fi
 VISIBLE="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<SQL
 begin;
-select set_config('app.company_id', '$COMPANY_ID', true);
+select set_config('app.session_id', '$SESSION_ID', true);
+select count(*) from companies where id = '$COMPANY_ID';
 select count(*) from branches where company_id = '7f000000-0000-4000-8000-000000000001';
 rollback;
 SQL
 )"
-EXPECTED_VISIBLE="${COMPANY_ID}"$'\n0'
+EXPECTED_VISIBLE="${SESSION_ID}"$'\n1\n0'
 if [[ "$VISIBLE" != "$EXPECTED_VISIBLE" ]]; then
-  printf '%s\n' 'API runtime role crossed the tenant RLS boundary.' >&2
+  printf '%s\n' 'API runtime role crossed or lost the session-derived tenant RLS boundary.' >&2
+  exit 1
+fi
+
+if psql -X -q -v ON_ERROR_STOP=1 -d "$API_RUNTIME_URL" >/dev/null 2>&1 <<SQL
+begin;
+select set_config('app.session_id', '$SESSION_ID', true);
+select public.auth_revoke_user_sessions_v1(
+  '7f000000-0000-4000-8000-000000000001',
+  '71000000-0000-4000-8000-000000000001',
+  'ACCOUNT_DEACTIVATED'
+);
+commit;
+SQL
+then
+  printf '%s\n' 'API runtime user-session revocation crossed the tenant boundary.' >&2
+  exit 1
+fi
+
+REVOKED="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$API_RUNTIME_URL" <<SQL
+begin;
+select set_config('app.session_id', '$SESSION_ID', true);
+select public.auth_revoke_user_sessions_v1(
+  '$COMPANY_ID',
+  '71000000-0000-4000-8000-000000000001',
+  'INITIAL_PASSWORD_CHANGED'
+);
+commit;
+SQL
+)"
+if [[ "$REVOKED" != "${SESSION_ID}"$'\n1' ]]; then
+  printf '%s\n' 'API runtime user-session revocation did not revoke the expected session.' >&2
+  exit 1
+fi
+REVOKE_READ_BACK="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from auth_sessions
+where id = '$SESSION_ID'::uuid
+  and revoked_at is not null
+  and revoke_reason = 'INITIAL_PASSWORD_CHANGED';
+SQL
+)"
+if [[ "$REVOKE_READ_BACK" != '1' ]]; then
+  printf '%s\n' 'API runtime user-session revocation read-back failed.' >&2
   exit 1
 fi
 
@@ -389,12 +437,13 @@ fi
 
 RECONCILER_CAPABILITIES="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$RECONCILER_URL" <<'SQL'
 select has_function_privilege(current_user, 'public.reconciliation_company_ids()', 'EXECUTE');
+select has_function_privilege(current_user, 'public.auth_revoke_user_sessions_v1(uuid,uuid,text)', 'EXECUTE');
 select has_table_privilege(current_user, 'public.reconciliation_company_registry', 'SELECT');
 select has_table_privilege(current_user, 'public.idempotency_records', 'INSERT');
 select count(*) from public.reconciliation_company_ids();
 SQL
 )"
-if [[ "$RECONCILER_CAPABILITIES" != $'t\nf\nf\n2' ]]; then
+if [[ "$RECONCILER_CAPABILITIES" != $'t\nf\nf\nf\n2' ]]; then
   printf '%s\n' 'Reconciler capability boundary is incorrect.' >&2
   exit 1
 fi

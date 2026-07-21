@@ -49,6 +49,15 @@ describe("DB-1A auth v2 and tenant authority contracts", () => {
     expect(migration7).toMatch(/'PRINCIPAL_INACTIVE'[\s\S]+null::boolean/i);
   });
 
+  it("provides an API-tenant-bound definer for user-wide session revocation", () => {
+    expect(migration7).toMatch(/create function public\.auth_revoke_user_sessions_v1\(\s*p_company_id uuid,\s*p_user_id uuid,\s*p_reason text/iu);
+    expect(migration7).toMatch(/auth_revoke_user_sessions_v1[\s\S]+security definer[\s\S]+set search_path = pg_catalog/iu);
+    expect(migration7).toContain("p_company_id is distinct from public.api_current_company_id()");
+    expect(migration7).toContain("p_reason not in ('ACCOUNT_DEACTIVATED', 'INITIAL_PASSWORD_CHANGED')");
+    expect(migration7).toMatch(/alter function public\.auth_revoke_user_sessions_v1\(uuid, uuid, text\)\s+owner to werehere_auth_session_definer/iu);
+    expect(migration7).toMatch(/revoke all on function public\.auth_revoke_user_sessions_v1\(uuid, uuid, text\) from public/iu);
+  });
+
   it("uses isolated hardened owners, public qualification, and no residual membership", () => {
     expect(migration7).toContain("werehere_auth_session_definer");
     expect(migration7).toContain("werehere_tenant_authority_definer");

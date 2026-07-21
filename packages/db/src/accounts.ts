@@ -897,8 +897,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
           where company_id = ${input.actor.companyId} and id = ${input.targetUserId}
         `;
         await transaction`
-          update auth_sessions set revoked_at = now(), revoke_reason = 'ACCOUNT_DEACTIVATED'
-          where company_id = ${input.actor.companyId} and user_id = ${input.targetUserId} and revoked_at is null
+          select public.auth_revoke_user_sessions_v1(
+            ${input.actor.companyId}, ${input.targetUserId}, 'ACCOUNT_DEACTIVATED'
+          )
         `;
         await transaction`
           insert into outbox_jobs (id, company_id, job_type, payload, status, available_at)
@@ -1290,9 +1291,9 @@ export function createPostgresAccountRepository(databaseUrl: string): AccountRep
         `;
         if (!rows[0]) return { status: "NOT_PENDING" } as const;
         await transaction`
-          update auth_sessions set revoked_at = now(), revoke_reason = 'INITIAL_PASSWORD_CHANGED'
-          where company_id = ${input.companyId} and user_id = ${input.userId}
-            and revoked_at is null
+          select public.auth_revoke_user_sessions_v1(
+            ${input.companyId}, ${input.userId}, 'INITIAL_PASSWORD_CHANGED'
+          )
         `;
         await transaction`
           insert into audit_events (

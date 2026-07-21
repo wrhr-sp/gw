@@ -521,11 +521,13 @@ try {
     select status, must_change_password from users where company_id = ${companyId} and id = ${pendingUserId}
   `;
   if (activated?.status !== "ACTIVE" || activated.must_change_password) throw new Error("initial password state was not read back as ACTIVE");
-  const [setupSession] = await sql<{ revoked_at: Date | null }[]>`
-    select revoked_at from auth_sessions
+  const [setupSession] = await sql<{ revoke_reason: string | null; revoked_at: Date | null }[]>`
+    select revoked_at, revoke_reason from auth_sessions
     where company_id = ${companyId} and id = ${pendingSessionId}
   `;
-  if (!setupSession?.revoked_at) throw new Error("current setup session was promoted instead of revoked");
+  if (!setupSession?.revoked_at || setupSession.revoke_reason !== "INITIAL_PASSWORD_CHANGED") {
+    throw new Error("current setup session was not revoked with the initial-password reason");
+  }
 
   const first = await repository.deactivateAccount({
     actor,
