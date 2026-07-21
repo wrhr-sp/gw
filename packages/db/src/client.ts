@@ -1807,6 +1807,7 @@ export async function probeDatabaseReadiness(
         function_name: string;
         function_owner: string;
         function_source: string;
+        function_acl_safe: boolean;
         function_contract_safe: boolean;
         trigger_type: number;
       }[]
@@ -1818,6 +1819,20 @@ export async function probeDatabaseReadiness(
              trigger_function.proname as function_name,
              trigger_function.prosrc as function_source,
              trigger_owner.rolname as function_owner,
+             (
+               select count(*) = 1
+                  and bool_and(
+                    function_acl.grantee = trigger_function.proowner
+                    and function_acl.privilege_type = 'EXECUTE'
+                    and not function_acl.is_grantable
+                  )
+               from aclexplode(
+                 coalesce(
+                   trigger_function.proacl,
+                   acldefault('f', trigger_function.proowner)
+                 )
+               ) function_acl
+             ) as function_acl_safe,
              (
                pg_get_function_result(trigger_function.oid) = 'trigger'
                and trigger_language.lanname = 'plpgsql'
@@ -1844,7 +1859,7 @@ export async function probeDatabaseReadiness(
               trigger.trigger_name === required.name &&
               trigger.table_name === required.table &&
               trigger.function_name === required.functionName &&
-              (trigger.enabled === "O" || trigger.enabled === "A"),
+              trigger.enabled === "O",
           ),
       )
     ) {
@@ -1857,6 +1872,7 @@ export async function probeDatabaseReadiness(
       !loginRegistryTrigger ||
       loginRegistryTrigger.trigger_type !== 27 ||
       loginRegistryTrigger.function_owner !== migrationOwner.role_name ||
+      !loginRegistryTrigger.function_acl_safe ||
       !loginRegistryTrigger.function_contract_safe ||
       (await sourceSha256(loginRegistryTrigger.function_source)) !==
         PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256

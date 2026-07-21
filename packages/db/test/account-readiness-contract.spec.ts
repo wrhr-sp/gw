@@ -190,6 +190,9 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("authSupportFunction.contract_safe");
     expect(source).toContain("PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256");
     expect(source).toContain("loginRegistryTrigger.trigger_type !== 27");
+    expect(source).toContain('trigger.enabled === "O"');
+    expect(source).toContain("!loginRegistryTrigger.function_acl_safe");
+    expect(source).toContain("aclexplode(");
     expect(source).not.toContain(
       "grantee_role.rolname <> 'werehere_preview_runtime'",
     );
