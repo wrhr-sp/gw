@@ -773,14 +773,25 @@ if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
     cleanupFailed = true;
   }
 }
-await finalizePreviewSmoke({
-  cleanupReference: runSuffix,
-  cleanupFailed,
-  close: () =>
-    Promise.all([
-      apiSql.end({ timeout: 2 }),
-      reconcilerSql.end({ timeout: 2 }),
-    ]),
-  journeyError,
-  writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK"),
-});
+try {
+  await finalizePreviewSmoke({
+    cleanupReference: runSuffix,
+    cleanupFailed,
+    close: () =>
+      Promise.all([
+        apiSql.end({ timeout: 2 }),
+        reconcilerSql.end({ timeout: 2 }),
+      ]),
+    journeyError,
+    writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK"),
+  });
+} catch (error) {
+  const message = error instanceof Error ? error.message : "";
+  if (
+    message === "PREVIEW_ACCOUNT_JOURNEY_FAILED" ||
+    /^PREVIEW_ACCOUNT_CLEANUP_FAILED \[ref=[A-Za-z0-9]+\]$/u.test(message)
+  ) {
+    throw new Error(message);
+  }
+  throw new Error("PREVIEW_ACCOUNT_SMOKE_FAILED");
+}

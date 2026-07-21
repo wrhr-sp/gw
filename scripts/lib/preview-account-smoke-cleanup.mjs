@@ -173,7 +173,7 @@ export async function finalizePreviewSmoke({
         : "PREVIEW_ACCOUNT_CLEANUP_FAILED",
     );
   }
-  if (journeyError) throw journeyError;
+  if (journeyError) throw new Error("PREVIEW_ACCOUNT_JOURNEY_FAILED");
   writeSuccess();
 }
 

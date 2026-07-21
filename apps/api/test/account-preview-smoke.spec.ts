@@ -21,15 +21,13 @@ const smokeUrl = new URL(
   "../../../scripts/smoke-account-preview.mjs",
   import.meta.url,
 );
+const cleanupHelperUrl = new URL(
+  "../../../scripts/lib/preview-account-smoke-cleanup.mjs",
+  import.meta.url,
+);
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
-const helperSource = readFileSync(
-  new URL(
-    "../../../scripts/lib/preview-account-smoke-cleanup.mjs",
-    import.meta.url,
-  ),
-  "utf8",
-);
+const helperSource = readFileSync(cleanupHelperUrl, "utf8");
 
 describe("hosted Preview account-management smoke", () => {
   it("is valid executable JavaScript", () => {
@@ -65,6 +63,39 @@ describe("hosted Preview account-management smoke", () => {
     expect(result.status).not.toBe(0);
     const output = `${result.stdout}${result.stderr}`;
     for (const sentinel of sentinels) expect(output).not.toContain(sentinel);
+  });
+
+  it("sanitizes runtime journey failures and success output in real subprocesses", () => {
+    const sentinel = "provider-runtime-secret-sentinel";
+    const importTarget = JSON.stringify(cleanupHelperUrl.href);
+    const failed = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error(${JSON.stringify(sentinel)}), writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(failed.status).not.toBe(0);
+    const failedOutput = `${failed.stdout}${failed.stderr}`;
+    expect(failedOutput).toContain("PREVIEW_ACCOUNT_JOURNEY_FAILED");
+    expect(failedOutput).not.toContain(sentinel);
+    expect(failedOutput).not.toContain("UNEXPECTED_SUCCESS");
+
+    const succeeded = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: ${JSON.stringify(sentinel)}, cleanupFailed: false, close: async () => undefined, journeyError: undefined, writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK") });`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(succeeded.status).toBe(0);
+    const succeededOutput = `${succeeded.stdout}${succeeded.stderr}`;
+    expect(succeededOutput).toContain("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");
+    expect(succeededOutput).not.toContain(sentinel);
   });
 
   it("verifies canonical housekeeping multi-hotel material fields", () => {
