@@ -5,6 +5,10 @@ const workflow = readFileSync(
   new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
   "utf8",
 );
+const ciWorkflow = readFileSync(
+  new URL("../../../.github/workflows/ci.yml", import.meta.url),
+  "utf8",
+);
 const renderer = readFileSync(
   new URL("../../../scripts/render-api-preview-config.mjs", import.meta.url),
   "utf8",
@@ -123,6 +127,13 @@ describe("Preview account provisioning wiring", () => {
   });
 
   it("renders one isolated Hyperdrive binding per Worker artifact", () => {
+    expect(ciWorkflow).toContain(
+      "API_HYPERDRIVE_ID=00000000000000000000000000000000",
+    );
+    expect(ciWorkflow).toContain(
+      "ZITADEL_ORGANIZATION_ID=preview-organization",
+    );
+    expect(ciWorkflow).not.toContain("\n          HYPERDRIVE_ID=");
     for (const name of [
       "DATABASE_API_RUNTIME_PASSWORD_PREVIEW",
       "DATABASE_RECONCILER_PASSWORD_PREVIEW",
