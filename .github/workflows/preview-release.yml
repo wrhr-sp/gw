@@ -427,7 +427,7 @@ jobs:
         id: deploy_api
         working-directory: apps/api
         env:
-          DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-api
+          DEPLOY_TAG: secure-session-authority-v1-github-${{ github.run_id }}-${{ github.run_attempt }}-api
         shell: bash
         run: |
           set -euo pipefail
@@ -572,6 +572,40 @@ jobs:
           node scripts/smoke-cloudflare-preview.mjs
           node scripts/smoke-zitadel-console-preview.mjs
 
+      - name: Record secure session-authority rollback baseline
+        id: secure_rollback_baseline
+        shell: bash
+        env:
+          API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
+          API_DEPLOY_TAG: secure-session-authority-v1-github-${{ github.run_id }}-${{ github.run_attempt }}-api
+        run: |
+          set -euo pipefail
+          if [[ -z "$API_DEPLOYED" ]]; then
+            printf '%s\n' 'Secure API deployment version is unavailable.' >&2
+            exit 1
+          fi
+          deployments_file="$(mktemp)"
+          trap 'rm -f "$deployments_file"' EXIT
+          pnpm --filter @werehere/api exec wrangler deployments list \
+            --name werehere-hotel-api-preview --json > "$deployments_file"
+          jq -e --arg version "$API_DEPLOYED" '
+            type == "array" and length > 0
+            and (.[-1].versions | type) == "array"
+            and (.[-1].versions | length) == 1
+            and .[-1].versions[0].percentage == 100
+            and .[-1].versions[0].version_id == $version
+          ' "$deployments_file" >/dev/null
+          {
+            printf '## Secure Preview rollback baseline\n'
+            printf -- '- Security contract: `session-derived-tenant-authority-v1`\n'
+            printf -- '- Source commit: `%s`\n' "$GITHUB_SHA"
+            printf -- '- Workflow run: `%s`\n' "$GITHUB_RUN_ID"
+            printf -- '- API Worker version: `%s`\n' "$API_DEPLOYED"
+            printf -- '- Deploy tag: `%s`\n' "$API_DEPLOY_TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'secure_version=%s\n' "$API_DEPLOYED" >> "$GITHUB_OUTPUT"
+          printf '%s\n' 'PREVIEW_SECURE_ROLLBACK_BASELINE_VERIFIED'
+
       - name: Roll back failed Worker release
         if: failure()
         shell: bash
@@ -581,7 +615,7 @@ jobs:
           API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
           API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
           API_DEPLOY_ATTEMPTED: ${{ steps.deploy_api.outputs.deploy_attempted }}
-          API_DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-api
+          API_DEPLOY_TAG: secure-session-authority-v1-github-${{ github.run_id }}-${{ github.run_attempt }}-api
           RECONCILER_PREVIOUS: ${{ steps.worker_snapshot.outputs.reconciler_previous }}
           RECONCILER_EXISTED: ${{ steps.worker_snapshot.outputs.reconciler_existed }}
           RECONCILER_DEPLOY_OUTCOME: ${{ steps.deploy_reconciler.outcome }}
