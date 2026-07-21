@@ -31,6 +31,9 @@ describe("account administration readiness contract", () => {
 
   it("matches complete critical index definitions including partial predicates", () => {
     expect(source).toContain("REQUIRED_PRIMARY_KEY_CONSTRAINTS");
+    expect(source).toContain("REQUIRED_FOREIGN_KEY_CONSTRAINTS");
+    expect(source).toContain('name: "login_id_registry_company_id_fkey"');
+    expect(source).toContain('name: "login_id_registry_company_id_actor_user_id_fkey"');
     expect(source).toContain('name: "login_id_registry_pkey"');
     expect(source).toContain('name: "login_id_registry_company_id_target_user_id_key"');
     expect(source).toContain('name: "login_id_registry_login_id_company_id_target_user_id_key"');

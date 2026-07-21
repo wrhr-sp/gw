@@ -221,7 +221,7 @@ where app_user.id = '71000000-0000-4000-8000-000000000001'
   and identity.provider = 'ZITADEL';
 SQL
 
-run_provision CONTRACT >/dev/null
+run_provision EXPAND >/dev/null
 ALIGNED_BOOTSTRAP_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select login_name || ':' || version::text
 from users where id = '71000000-0000-4000-8000-000000000001';
@@ -253,7 +253,7 @@ if [[ "$ALIGNED_BOOTSTRAP_RESULT" != $'previewadmin:2\n1\n4\n1\n1\n1\n0' ]]; the
   printf '%s\n' 'Preview bootstrap login ID alignment contract failed.' >&2
   exit 1
 fi
-run_provision CONTRACT >/dev/null
+run_provision EXPAND >/dev/null
 ALIGNED_BOOTSTRAP_REPLAY="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select login_name || ':' || version::text
 from users where id = '71000000-0000-4000-8000-000000000001';
@@ -266,6 +266,7 @@ if [[ "$ALIGNED_BOOTSTRAP_REPLAY" != $'previewadmin:2\n1' ]]; then
   printf '%s\n' 'Preview bootstrap alignment was not idempotent.' >&2
   exit 1
 fi
+run_provision CONTRACT >/dev/null
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
   (select count(*)

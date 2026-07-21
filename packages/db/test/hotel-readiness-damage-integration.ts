@@ -458,6 +458,23 @@ async function verifyLoginRegistryPrimaryKeyDamage() {
   }
 }
 
+async function verifyLoginRegistryForeignKeyDamage(
+  name: string,
+  approvedDefinition: string,
+) {
+  await sql.unsafe(`alter table login_id_registry drop constraint ${name}`);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`${name} damage was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(
+      `alter table login_id_registry add constraint ${name} ${approvedDefinition}`,
+    );
+  }
+}
+
 async function verifyLoginRegistryTupleUniqueConstraintDamage() {
   await sql`alter table users drop constraint users_login_name_registry_fk`;
   await sql`alter table login_id_registry drop constraint login_id_registry_login_id_company_id_target_user_id_key`;
@@ -601,6 +618,14 @@ async function verifyLoginIdentityVolatilityDamage() {
 
 try {
   await verifyLoginRegistryPrimaryKeyDamage();
+  await verifyLoginRegistryForeignKeyDamage(
+    "login_id_registry_company_id_fkey",
+    "foreign key (company_id) references companies(id)",
+  );
+  await verifyLoginRegistryForeignKeyDamage(
+    "login_id_registry_company_id_actor_user_id_fkey",
+    "foreign key (company_id, actor_user_id) references users(company_id, id)",
+  );
   await verifyLoginRegistryTupleUniqueConstraintDamage();
   await verifySecurityConstraintWeakening(
     "login_id_registry",

@@ -156,6 +156,20 @@ const REQUIRED_CONSTRAINTS = [
   ],
 ] as const;
 
+const REQUIRED_FOREIGN_KEY_CONSTRAINTS = [
+  {
+    table: "login_id_registry",
+    name: "login_id_registry_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "login_id_registry",
+    name: "login_id_registry_company_id_actor_user_id_fkey",
+    definition:
+      "foreign key (company_id, actor_user_id) references users(company_id, id)",
+  },
+] as const;
+
 const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
   {
     table: "login_id_registry",
@@ -1562,6 +1576,20 @@ export async function probeDatabaseReadiness(
             (constraint) =>
               constraint.table === table &&
               constraint.definition.includes(required),
+          ),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (
+      REQUIRED_FOREIGN_KEY_CONSTRAINTS.some(
+        (required) =>
+          !constraints.some(
+            (constraint) =>
+              constraint.table === required.table &&
+              constraint.name === required.name &&
+              constraint.validated &&
+              constraint.definition === required.definition,
           ),
       )
     ) {

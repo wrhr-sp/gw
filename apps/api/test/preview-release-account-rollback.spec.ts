@@ -138,6 +138,12 @@ describe("Preview account Worker release safety", () => {
     const deployPosition = workflow.indexOf(
       "      - name: Deploy private account reconciler Worker\n",
     );
+    const apiDeployPosition = workflow.indexOf(
+      "      - name: Deploy private API Worker\n",
+    );
+    const webDeployPosition = workflow.indexOf(
+      "      - name: Deploy public Web Worker\n",
+    );
     const preContractSmokePosition = workflow.indexOf(
       "      - name: Verify public Preview path and bootstrap mapping before contract\n",
     );
@@ -158,7 +164,9 @@ describe("Preview account Worker release safety", () => {
     expect(expandPosition).toBeGreaterThan(topologyPosition);
     expect(compatibilityPosition).toBeGreaterThan(expandPosition);
     expect(deployPosition).toBeGreaterThan(compatibilityPosition);
-    expect(preContractSmokePosition).toBeGreaterThan(deployPosition);
+    expect(apiDeployPosition).toBeGreaterThan(deployPosition);
+    expect(webDeployPosition).toBeGreaterThan(apiDeployPosition);
+    expect(preContractSmokePosition).toBeGreaterThan(webDeployPosition);
     expect(accountSmokePosition).toBeGreaterThan(preContractSmokePosition);
     expect(contractPosition).toBeGreaterThan(accountSmokePosition);
     expect(smokePosition).toBeGreaterThan(contractPosition);
