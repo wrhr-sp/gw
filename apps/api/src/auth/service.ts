@@ -1,4 +1,4 @@
-import type { AuthenticatedPrincipal, HotelErrorCode } from "@werehere/contracts";
+import { passwordPolicySchema, type AuthenticatedPrincipal, type HotelErrorCode } from "@werehere/contracts";
 import type { AuthRepository } from "@werehere/db";
 import {
   base64UrlDecode,
@@ -380,12 +380,11 @@ export function createAuthService(input: {
     },
 
     async resetPassword(token, newPassword) {
-      if (!input.customLoginProvider || newPassword.length < 12 || newPassword.length > 200) {
-        throw new AuthServiceError(
-          input.customLoginProvider ? "AUTH_FLOW_INVALID" : "AUTH_PROVIDER_NOT_CONFIGURED",
-          input.customLoginProvider ? 400 : 503,
-          false,
-        );
+      if (!input.customLoginProvider) {
+        throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+      }
+      if (!passwordPolicySchema.safeParse(newPassword).success) {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 400, false);
       }
       try {
         const parts = token.split(".");

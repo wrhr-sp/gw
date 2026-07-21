@@ -216,6 +216,30 @@ describe("hotel auth API", () => {
     expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
   });
 
+  it("enforces the eight-character letter-number-symbol policy before calling ZITADEL", async () => {
+    const service = createService();
+    const request = async (password: string) => createApp({ authService: service }).request("/api/auth/password/set", {
+      body: new URLSearchParams({ confirmation: password, newPassword: password }).toString(),
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: `__Host-hotel_password_reset=iv.${"t".repeat(64)}`,
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+
+    const accepted = await request("Abcd123!");
+    expect(accepted.headers.get("location")).toBe("/login");
+    expect(service.resetPassword).toHaveBeenCalledTimes(1);
+
+    for (const rejected of ["Abc123!", "12345678901!", "PasswordOnly!", "PasswordOnly1", "Abcd123 ", "Abcd123한"]) {
+      const response = await request(rejected);
+      expect(response.headers.get("location")).toBe("/password/set?error=password-policy");
+    }
+    expect(service.resetPassword).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves the reset cookie for a known password-policy rejection", async () => {
     const service = createService({
       resetPassword: vi.fn(async () => {

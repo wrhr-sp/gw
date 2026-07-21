@@ -3,6 +3,7 @@ import {
   createHotelRequestSchema,
   hotelIdempotencyKeySchema,
   hotelListQuerySchema,
+  passwordPolicySchema,
   type AuthenticatedPrincipal,
   type HotelErrorCode,
 } from "@werehere/contracts";
@@ -70,8 +71,8 @@ const PASSWORD_RESET_COOKIE_OPTIONS = {
   sameSite: "Strict" as const,
 };
 const PASSWORD_RESET_FORM_SCHEMA = z.object({
-  confirmation: z.string().min(12).max(200),
-  newPassword: z.string().min(12).max(200),
+  confirmation: z.string().min(1).max(400),
+  newPassword: passwordPolicySchema,
 }).strict();
 const HOTEL_ID_SCHEMA = z.uuid();
 
