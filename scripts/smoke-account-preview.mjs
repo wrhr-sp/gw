@@ -2,7 +2,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import {
-  discoverCleanupAccount,
+  assertCreateResponseMatchesAttempt,
+  assertHousekeepingAssignmentRows,
+  discoverCleanupAttempt,
   ensureDatabaseInactive,
   waitForProviderInactive,
   waitForZeroActiveSessions,
@@ -57,11 +59,13 @@ const email = `${loginName}@werehere.invalid`;
 const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
 const assignmentStartDate = new Date().toISOString().slice(0, 10);
 const assignmentReason = "Preview release 실제 계정 흐름 검증";
+const accountCreateIdempotencyKey = `preview-account-create-${runSuffix}`;
 const initialPassword = `preview-a1!-${randomBytes(18).toString("base64url")}`;
 const changedPassword = `changed-a1!-${randomBytes(18).toString("base64url")}`;
 let adminToken;
 let adminPrincipal;
 let account;
+let pendingSession;
 let providerSubject;
 let providerVerificationSession;
 let journeyError;
@@ -141,6 +145,7 @@ async function provider(
   {
     acceptableStatuses = [200],
     body,
+    includeStatus = false,
     method = "GET",
     token = provisionerToken,
   } = {},
@@ -161,12 +166,14 @@ async function provider(
       `Identity provider Preview smoke failed at ${method} ${path.split("/").slice(0, 3).join("/")} (${response.status})`,
     );
   }
+  let data = null;
   if (
-    response.status === 204 ||
-    !response.headers.get("content-type")?.includes("application/json")
-  )
-    return null;
-  return response.json();
+    response.status !== 204 &&
+    response.headers.get("content-type")?.includes("application/json")
+  ) {
+    data = await response.json();
+  }
+  return includeStatus ? { data, status: response.status } : data;
 }
 
 async function providerSubjectFor(companyId, userId) {
@@ -195,36 +202,77 @@ async function providerSubjectFor(companyId, userId) {
   });
 }
 
-async function accountCleanupState(companyId, userId) {
+async function accountCleanupState(companyId, userId, expectedLoginName) {
   return reconcilerSql.begin(async (sql) => {
     await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
     const rows = await sql`
-      select id, version, status
+      select id, login_name, version, status
       from public.users
       where company_id = ${companyId}::uuid
         and id = ${userId}::uuid
     `;
-    if (rows.length !== 1 || !Number.isInteger(rows[0]?.version)) {
+    if (
+      rows.length !== 1 ||
+      !Number.isInteger(rows[0]?.version) ||
+      rows[0]?.login_name !== expectedLoginName
+    ) {
       throw new Error("Preview account cleanup state read-back failed");
     }
     return rows[0];
   });
 }
 
-async function accountCleanupStateByLogin(companyId, cleanupLoginName) {
+async function accountCleanupAttempt(companyId, actorUserId) {
   return reconcilerSql.begin(async (sql) => {
     await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
     const rows = await sql`
-      select id, version, status
-      from public.users
-      where company_id = ${companyId}::uuid
-        and lower(btrim(login_name)) = lower(btrim(${cleanupLoginName}))
+      select attempt.target_user_id as id,
+             attempt.status as attempt_status,
+             attempt.provider_subject,
+             attempt.completion_payload->>'loginName' as request_login_name,
+             attempt.completion_payload->>'email' as request_email,
+             target.status as user_status,
+             target.version as user_version
+      from public.account_provisioning_attempts attempt
+      left join public.users target
+        on target.company_id = attempt.company_id
+       and target.id = attempt.target_user_id
+      where attempt.company_id = ${companyId}::uuid
+        and attempt.actor_user_id = ${actorUserId}::uuid
+        and attempt.idempotency_key = ${accountCreateIdempotencyKey}
     `;
     if (rows.length > 1) {
-      throw new Error("Preview account cleanup login was ambiguous");
+      throw new Error("Preview account cleanup attempt was ambiguous");
     }
-    return rows[0];
+    const row = rows[0];
+    return row
+      ? {
+          id: row.id,
+          attemptStatus: row.attempt_status,
+          providerSubject: row.provider_subject,
+          requestEmail: row.request_email,
+          requestLoginName: row.request_login_name,
+          userStatus: row.user_status ?? null,
+          userVersion: row.user_version ?? null,
+        }
+      : undefined;
   });
+}
+
+async function deactivateProviderForCleanup(subject) {
+  await provider(`/v2/users/${encodeURIComponent(subject)}/deactivate`, {
+    acceptableStatuses: [200, 204, 404],
+    body: {},
+    method: "POST",
+  });
+}
+
+async function providerUserForCleanup(subject) {
+  const result = await provider(`/v2/users/${encodeURIComponent(subject)}`, {
+    acceptableStatuses: [200, 404],
+    includeStatus: true,
+  });
+  return result.status === 404 ? { absent: true } : result.data;
 }
 
 async function assertHousekeepingAssignments(
@@ -242,17 +290,11 @@ async function assertHousekeepingAssignments(
         and end_date is null
       order by branch_id
     `;
-    const persistedHotelIds = rows.map((row) => row.branch_id).sort();
-    if (
-      JSON.stringify(persistedHotelIds) !== JSON.stringify(expectedHotelIds) ||
-      rows.some(
-        (row) =>
-          row.start_date !== assignmentStartDate ||
-          row.reason !== assignmentReason,
-      )
-    ) {
-      throw new Error("Preview housekeeping assignment persistence mismatch");
-    }
+    assertHousekeepingAssignmentRows(rows, {
+      expectedHotelIds,
+      expectedReason: assignmentReason,
+      expectedStartDate: assignmentStartDate,
+    });
   });
 }
 
@@ -320,7 +362,7 @@ try {
   const created = await api("/api/admin/users", {
     method: "POST",
     token: adminToken,
-    idempotencyKey: `preview-account-create-${runSuffix}`,
+    idempotencyKey: accountCreateIdempotencyKey,
     expectedStatuses: [200, 201],
     body: {
       displayName,
@@ -334,6 +376,18 @@ try {
     },
   });
   account = created?.data?.account;
+  const createAttempt = await discoverCleanupAttempt({
+    attempts: 6,
+    expectedEmail: email,
+    expectedLoginName: loginName,
+    read: () =>
+      accountCleanupAttempt(
+        adminSession.principal.companyId,
+        adminSession.principal.userId,
+      ),
+    waitMilliseconds: 5_000,
+  });
+  account = assertCreateResponseMatchesAttempt(account, createAttempt);
   const createdHotelIds = (account?.hotels ?? [])
     .map((hotel) => hotel.id)
     .sort();
@@ -384,7 +438,12 @@ try {
     adminSession.principal.companyId,
     account.id,
   );
-  const pendingSession = await createSession(providerSubject);
+  if (providerSubject !== createAttempt.providerSubject) {
+    throw new Error(
+      "Created account provider subject did not match durable target",
+    );
+  }
+  pendingSession = await createSession(providerSubject);
   await api("/api/account/initial-password", {
     method: "POST",
     token: pendingSession.token,
@@ -396,14 +455,15 @@ try {
     `/api/admin/users/${encodeURIComponent(account.id)}`,
     { token: adminToken },
   );
-  account = activatedDetail?.data?.account;
+  const activatedAccount = activatedDetail?.data?.account;
   if (
-    !account?.id ||
-    account.status !== "ACTIVE" ||
-    account.mustChangePassword !== false
+    activatedAccount?.id !== createAttempt.id ||
+    activatedAccount.status !== "ACTIVE" ||
+    activatedAccount.mustChangePassword !== false
   ) {
     throw new Error("Initial password change PostgreSQL read-back failed");
   }
+  account = activatedAccount;
 
   const providerSession = await provider("/v2/sessions", {
     method: "POST",
@@ -413,7 +473,7 @@ try {
         user: { loginName },
         password: { password: changedPassword },
       },
-      lifetime: "300s",
+      lifetime: "60s",
     },
   });
   providerVerificationSession = {
@@ -497,8 +557,6 @@ try {
     token: pendingSession.token,
     expectedStatuses: [401],
   });
-
-  console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");
 } catch (error) {
   journeyError = error;
 }
@@ -519,59 +577,97 @@ if (providerVerificationSession?.id && providerVerificationSession.token) {
     cleanupFailed = true;
   }
 }
-if (adminToken && adminPrincipal?.companyId) {
+if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
   try {
-    const cleanupTarget = await discoverCleanupAccount({
+    const cleanupAttempt = await discoverCleanupAttempt({
       attempts: 6,
+      expectedEmail: email,
+      expectedLoginName: loginName,
       read: () =>
-        account?.id
-          ? accountCleanupState(adminPrincipal.companyId, account.id)
-          : accountCleanupStateByLogin(adminPrincipal.companyId, loginName),
+        accountCleanupAttempt(adminPrincipal.companyId, adminPrincipal.userId),
       waitMilliseconds: 5_000,
     });
-    if (cleanupTarget) {
-      account = { ...account, ...cleanupTarget };
-      await ensureDatabaseInactive({
-        attempts: 6,
-        deactivate: (state) =>
-          api(
-            `/api/admin/users/${encodeURIComponent(cleanupTarget.id)}/deactivate`,
-            {
-              method: "POST",
-              token: adminToken,
-              idempotencyKey: `preview-account-cleanup-${runSuffix}`,
-              body: {
-                version: state.version,
-                reason: "Preview release 실패 검증 계정 정리",
+    if (cleanupAttempt) {
+      account = { ...account, id: cleanupAttempt.id };
+      providerSubject = cleanupAttempt.providerSubject;
+      let databaseCleanupComplete = false;
+      const cleanupDatabaseAccount = async () => {
+        await ensureDatabaseInactive({
+          attempts: 6,
+          deactivate: (state) =>
+            api(
+              `/api/admin/users/${encodeURIComponent(cleanupAttempt.id)}/deactivate`,
+              {
+                method: "POST",
+                token: adminToken,
+                idempotencyKey: `preview-account-cleanup-${runSuffix}`,
+                body: {
+                  version: state.version,
+                  reason: "Preview release 실패 검증 계정 정리",
+                },
               },
-            },
-          ),
-        read: () =>
-          accountCleanupState(adminPrincipal.companyId, cleanupTarget.id),
-        waitMilliseconds: 5_000,
-      });
-      await waitForZeroActiveSessions({
-        attempts: 6,
-        read: () =>
-          activeSessionCount(
-            adminPrincipal.sessionId,
-            adminPrincipal.companyId,
-            cleanupTarget.id,
-          ),
-        waitMilliseconds: 5_000,
-      });
-      providerSubject ??= await providerSubjectFor(
-        adminPrincipal.companyId,
-        cleanupTarget.id,
-      );
+            ),
+          read: () =>
+            accountCleanupState(
+              adminPrincipal.companyId,
+              cleanupAttempt.id,
+              loginName,
+            ),
+          waitMilliseconds: 5_000,
+        });
+        await waitForZeroActiveSessions({
+          attempts: 6,
+          read: () =>
+            activeSessionCount(
+              adminPrincipal.sessionId,
+              adminPrincipal.companyId,
+              cleanupAttempt.id,
+            ),
+          waitMilliseconds: 5_000,
+        });
+        if (pendingSession?.token) {
+          await api("/api/auth/session", {
+            token: pendingSession.token,
+            expectedStatuses: [401],
+          });
+        }
+        databaseCleanupComplete = true;
+      };
+      if (cleanupAttempt.userStatus !== null) {
+        await cleanupDatabaseAccount();
+      }
       await waitForProviderInactive({
+        allowAbsent: true,
         attempts: 24,
+        deactivate: () => deactivateProviderForCleanup(providerSubject),
         expectedOrganizationId: organizationId,
         expectedSubject: providerSubject,
-        read: () =>
-          provider(`/v2/users/${encodeURIComponent(providerSubject)}`),
+        read: () => providerUserForCleanup(providerSubject),
         waitMilliseconds: 5_000,
       });
+      const finalAttempt = await discoverCleanupAttempt({
+        attempts: 1,
+        expectedEmail: email,
+        expectedLoginName: loginName,
+        read: () =>
+          accountCleanupAttempt(
+            adminPrincipal.companyId,
+            adminPrincipal.userId,
+          ),
+        waitMilliseconds: 0,
+      });
+      if (!finalAttempt) {
+        throw new Error("Preview account cleanup attempt disappeared");
+      }
+      if (finalAttempt.userStatus !== null && !databaseCleanupComplete) {
+        await cleanupDatabaseAccount();
+      }
+      if (
+        finalAttempt.userStatus === null &&
+        finalAttempt.attemptStatus !== "COMPENSATED"
+      ) {
+        throw new Error("Preview account cleanup requires operator recovery");
+      }
     }
   } catch {
     cleanupFailed = true;
@@ -589,3 +685,4 @@ if (cleanupFailed) {
   throw new Error("PREVIEW_ACCOUNT_CLEANUP_FAILED");
 }
 if (journeyError) throw journeyError;
+console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");

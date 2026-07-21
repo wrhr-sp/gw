@@ -22,8 +22,60 @@ function assertAccountState(value) {
   return value;
 }
 
-export async function discoverCleanupAccount({
+export function assertCreateResponseMatchesAttempt(account, attempt) {
+  if (!attempt || account?.id !== attempt.id) {
+    throw new Error(
+      "Created Preview account did not match its durable attempt",
+    );
+  }
+  return account;
+}
+
+export function assertHousekeepingAssignmentRows(
+  rows,
+  { expectedHotelIds, expectedReason, expectedStartDate },
+) {
+  const persistedHotelIds = rows.map((row) => row.branch_id).sort();
+  if (
+    JSON.stringify(persistedHotelIds) !== JSON.stringify(expectedHotelIds) ||
+    rows.some(
+      (row) =>
+        row.start_date !== expectedStartDate || row.reason !== expectedReason,
+    )
+  ) {
+    throw new Error("Preview housekeeping assignment persistence mismatch");
+  }
+}
+
+export function validateCleanupAttempt(
+  value,
+  { expectedEmail, expectedLoginName },
+) {
+  if (
+    !value ||
+    typeof value.id !== "string" ||
+    value.id.length === 0 ||
+    typeof value.attemptStatus !== "string" ||
+    value.requestEmail !== expectedEmail ||
+    value.requestLoginName !== expectedLoginName ||
+    (value.providerSubject !== null && value.providerSubject !== value.id) ||
+    (value.userStatus === null
+      ? value.userVersion !== null
+      : typeof value.userStatus !== "string" ||
+        !Number.isInteger(value.userVersion))
+  ) {
+    throw new Error("Preview account cleanup attempt identity mismatch");
+  }
+  return {
+    ...value,
+    providerSubject: value.id,
+  };
+}
+
+export async function discoverCleanupAttempt({
   attempts,
+  expectedEmail,
+  expectedLoginName,
   read,
   wait = defaultWait,
   waitMilliseconds,
@@ -34,14 +86,24 @@ export async function discoverCleanupAccount({
     try {
       const value = await read();
       lastError = undefined;
-      if (value !== undefined && value !== null)
-        return assertAccountState(value);
+      if (value !== undefined && value !== null) {
+        return validateCleanupAttempt(value, {
+          expectedEmail,
+          expectedLoginName,
+        });
+      }
     } catch (error) {
+      if (
+        error?.message === "Preview account cleanup attempt identity mismatch"
+      ) {
+        throw error;
+      }
       lastError = error;
     }
     if (attempt + 1 < attempts) await wait(waitMilliseconds);
   }
-  if (lastError) throw new Error("Preview account cleanup discovery failed");
+  if (lastError)
+    throw new Error("Preview account cleanup attempt lookup failed");
   return undefined;
 }
 
@@ -84,7 +146,9 @@ export async function ensureDatabaseInactive({
 }
 
 export async function waitForProviderInactive({
+  allowAbsent = false,
   attempts,
+  deactivate,
   expectedOrganizationId,
   expectedSubject,
   read,
@@ -96,6 +160,10 @@ export async function waitForProviderInactive({
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const value = await read();
+      if (value?.absent === true) {
+        if (allowAbsent && attempt + 1 === attempts) return value;
+        throw new Error("Preview provider user was unexpectedly absent");
+      }
       if (
         value?.user?.userId !== expectedSubject ||
         value.user?.details?.resourceOwner !== expectedOrganizationId
@@ -103,6 +171,7 @@ export async function waitForProviderInactive({
         throw new Error("Preview provider identity boundary mismatch");
       }
       if (value.user.state === "USER_STATE_INACTIVE") return value;
+      if (deactivate) await deactivate(value);
       lastError = undefined;
     } catch (error) {
       if (error?.message === "Preview provider identity boundary mismatch") {

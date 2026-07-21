@@ -800,7 +800,26 @@ try {
     `);
   }
 
+  const [sequenceOwnerTopology] = await owner<{ unexpected_count: number }[]>`
+    select count(*)::integer as unexpected_count
+    from pg_class sequence_record
+    join pg_namespace sequence_namespace
+      on sequence_namespace.oid = sequence_record.relnamespace
+    join pg_class migration_table
+      on migration_table.relname = 'schema_migrations'
+     and migration_table.relnamespace = sequence_record.relnamespace
+    where sequence_namespace.nspname = 'public'
+      and sequence_record.relkind = 'S'
+      and sequence_record.relowner <> migration_table.relowner
+  `;
+  if (!sequenceOwnerTopology || sequenceOwnerTopology.unexpected_count !== 0) {
+    fail("Preview public sequence ownership is not canonical");
+  }
+
   await owner.unsafe(`
+    revoke create on schema public from public;
+    ${contractPhase ? "revoke usage on schema public from public;" : "grant usage on schema public to public;"}
+
     do $schema_acl_reset$
     declare
       acl_record record;

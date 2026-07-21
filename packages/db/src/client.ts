@@ -1248,7 +1248,7 @@ export async function probeDatabaseReadiness(
                from pg_class table_record
                join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
                where table_namespace.nspname = 'public'
-                 and table_record.relkind in ('r', 'p')
+                 and table_record.relkind in ('r', 'p', 'S')
                  and pg_get_userbyid(table_record.relowner) = current_user
              ) as table_owner
       from pg_roles role_record
@@ -1344,6 +1344,25 @@ export async function probeDatabaseReadiness(
         and acl.grantee <> sequence_record.relowner
     `;
     if (sequencePrivilegeRows.length !== 0) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [sequenceOwnerTopology] = await sql<{ unexpected_count: number }[]>`
+      select count(*)::integer as unexpected_count
+      from pg_class sequence_record
+      join pg_namespace sequence_namespace
+        on sequence_namespace.oid = sequence_record.relnamespace
+      join pg_class migration_table
+        on migration_table.relname = 'schema_migrations'
+       and migration_table.relnamespace = sequence_record.relnamespace
+      where sequence_namespace.nspname = 'public'
+        and sequence_record.relkind = 'S'
+        and sequence_record.relowner <> migration_table.relowner
+    `;
+    if (
+      !sequenceOwnerTopology ||
+      sequenceOwnerTopology.unexpected_count !== 0
+    ) {
       return { status: "SCHEMA_NOT_READY" };
     }
 

@@ -66,7 +66,16 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("schemaAclClosure.unexpected_count !== 0");
     expect(source).toContain("sequence_record.relkind = 'S'");
     expect(source).toContain("acl.grantee <> sequence_record.relowner");
+    expect(source).toContain("sequenceOwnerTopology.unexpected_count !== 0");
+    expect(source).toContain(
+      "sequence_record.relowner <> migration_table.relowner",
+    );
+    expect(source).toContain("table_record.relkind in ('r', 'p', 'S')");
     expect(source).toContain("sequencePrivilegeRows.length !== 0");
+    expect(provisionSource).toContain(
+      "revoke create on schema public from public",
+    );
+    expect(provisionSource).toContain("grant usage on schema public to public");
     expect(provisionSource).toContain("$schema_acl_reset$");
     expect(provisionSource).toContain("$sequence_acl_reset$");
     expect(accountSource).not.toMatch(/update\s+auth_sessions/iu);

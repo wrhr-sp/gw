@@ -115,6 +115,7 @@ values ('werehere_preview_runtime', 'API_RUNTIME')
 on conflict (role_name) do update set capability = excluded.capability;
 create role preview_stale_acl_grantee nologin noinherit;
 grant usage, create on schema public to preview_stale_acl_grantee;
+grant create on schema public to public;
 create sequence public.preview_stale_acl_sequence;
 alter sequence public.preview_stale_acl_sequence
   owner to werehere_preview_migration_owner;
@@ -129,6 +130,17 @@ select (
   and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
   and has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
   and not has_schema_privilege('preview_stale_acl_grantee', 'public', 'CREATE')
+  and not exists (
+    select 1
+    from pg_namespace namespace_record
+    cross join lateral aclexplode(coalesce(
+      namespace_record.nspacl,
+      acldefault('n'::"char", namespace_record.nspowner)
+    )) acl
+    where namespace_record.nspname = 'public'
+      and acl.grantee = 0
+      and acl.privilege_type = 'CREATE'
+  )
   and not has_sequence_privilege(
     'preview_stale_acl_grantee',
     'public.preview_stale_acl_sequence',
@@ -408,6 +420,19 @@ assert_readiness() {
   fi
 }
 
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create sequence public.preview_runtime_owned_damage_sequence;
+alter sequence public.preview_runtime_owned_damage_sequence
+  owner to werehere_preview_api_runtime;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter sequence public.preview_runtime_owned_damage_sequence
+  owner to werehere_preview_migration_owner;
+drop sequence public.preview_runtime_owned_damage_sequence;
+SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'

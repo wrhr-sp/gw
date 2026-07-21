@@ -98,7 +98,7 @@ DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch
   - `workers_dev: false`
   - `preview_urls: false`
   - `API_HYPERDRIVE` binding만 사용
-- Reconciler Worker: `werehere-hotel-reconciler-preview`
+- Reconciler Worker: `werehere-hotel-account-reconciler-preview`
   - HTTP API를 제공하지 않음
   - `RECONCILER_HYPERDRIVE` binding만 사용
 - Web Worker: `werehere-hotel-web-preview`
@@ -158,7 +158,7 @@ Web 200
 -> PostgreSQL INACTIVE, ZITADEL INACTIVE, 활성 DB session 0 재조회
 ```
 
-검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. create 응답이 유실돼 account ID가 없어도 deterministic login을 반복 조회해 생성된 계정을 찾는다. 발견한 계정은 reconciler DB에서 최신 version을 재조회해 비활성화하고, 비동기 reconciler 반영을 기다리며 PostgreSQL·ZITADEL의 `INACTIVE` 상태를 제한 시간 동안 반복 확인한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
+검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. create 응답이 유실되거나 잘못된 ID를 반환해도 `(company, actor, idempotency key)`로 durable provisioning attempt를 반복 조회하고, completion login·email과 deterministic target/provider subject를 exact 검증한다. canonical user row가 있으면 최신 version으로 비활성화하고 활성 DB session 0과 기존 token 401을 재확인한다. user row가 아직 없어도 deterministic provider subject를 bounded grace 동안 반복 조회하며, 늦게 나타난 provider user는 identity boundary를 확인한 뒤 직접 비활성화한다. 404는 grace의 마지막 조회에서만 absence로 인정하고, 이후 durable attempt를 다시 읽어 `COMPENSATED`가 아닌 미완성 상태가 남으면 operator recovery가 필요한 cleanup 실패로 처리한다. credential 검증용 provider session은 60초 lifetime으로 제한하며, cleanup과 connection close가 모두 성공한 뒤에만 `PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK`를 출력한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
 
 ## Rollback
 
