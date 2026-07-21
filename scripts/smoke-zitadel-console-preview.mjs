@@ -1,15 +1,44 @@
+import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
+
+const requireFromDb = createRequire(new URL("../packages/db/package.json", import.meta.url));
+const postgres = requireFromDb("postgres");
 
 const webPreviewUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
 const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
-if (!webPreviewUrl || !issuer || !consoleClientId) {
+const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
+const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
+if (!webPreviewUrl || !issuer || !consoleClientId || !bootstrapSubject || !apiUrlFile) {
   throw new Error("Console Preview smoke configuration is missing");
 }
 const webOrigin = new URL(webPreviewUrl).origin;
 const issuerUrl = new URL(issuer);
 if (issuerUrl.protocol !== "https:" || issuerUrl.origin !== issuer || !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId)) {
   throw new Error("Console Preview smoke configuration is invalid");
+}
+
+const apiDatabaseUrl = (await readFile(apiUrlFile, "utf8")).trim();
+const apiSql = postgres(apiDatabaseUrl, { max: 1, prepare: false });
+try {
+  const canonical = await apiSql`
+    select provider_subject
+    from public.auth_resolve_login_identity_v1('previewadmin')
+  `;
+  const legacy = await apiSql`
+    select provider_subject
+    from public.auth_resolve_login_identity_v1('preview-admin')
+  `;
+  if (
+    canonical.length !== 1 ||
+    canonical[0]?.provider_subject !== bootstrapSubject ||
+    legacy.length !== 0
+  ) {
+    throw new Error("Preview bootstrap login mapping is not canonical");
+  }
+} finally {
+  await apiSql.end({ timeout: 2 });
 }
 
 const environmentResponse = await fetch(`${issuer}/ui/console/assets/environment.json`, {

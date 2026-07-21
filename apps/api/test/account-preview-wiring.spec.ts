@@ -55,7 +55,13 @@ describe("Preview account provisioning wiring", () => {
     const expandStep =
       "Expand Neon Preview database for compatible Worker deploy";
     const contractStep = "Contract Neon Preview tenant authority";
+    const accountLoginStep =
+      "Verify hosted Preview account management and canonical login before contract";
+    const mappingStep =
+      "Verify public Preview path and bootstrap mapping before contract";
     expect(workflow).toContain(verifyStep);
+    expect(workflow).toContain(accountLoginStep);
+    expect(workflow).toContain("node scripts/smoke-zitadel-console-preview.mjs");
     expect(workflow).toContain(
       "pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts",
     );
@@ -63,6 +69,15 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf(expandStep),
     );
     expect(workflow.indexOf(verifyStep)).toBeLessThan(
+      workflow.indexOf(contractStep),
+    );
+    expect(workflow.indexOf(expandStep)).toBeLessThan(
+      workflow.indexOf(mappingStep),
+    );
+    expect(workflow.indexOf(mappingStep)).toBeLessThan(
+      workflow.indexOf(accountLoginStep),
+    );
+    expect(workflow.indexOf(accountLoginStep)).toBeLessThan(
       workflow.indexOf(contractStep),
     );
     expect(workflow).toMatch(

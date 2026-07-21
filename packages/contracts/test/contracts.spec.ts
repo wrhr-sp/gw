@@ -223,12 +223,18 @@ describe("hotel platform contracts", () => {
     });
     expect(canonicalLoginRequest.success).toBe(true);
     if (!canonicalLoginRequest.success) throw canonicalLoginRequest.error;
-    expect(canonicalLoginRequest.data.loginName).toBe("hoteladmin");
+    expect(canonicalLoginRequest.data.loginName).toBe("HotelAdmin");
     expect(customLoginRequestSchema.safeParse({
       authRequest: "request-1",
       loginName: "hoteladmin",
       password: "password-value",
     }).success).toBe(false);
+    expect(customLoginRequestSchema.safeParse({
+      authRequest: "request-1",
+      csrf: "c".repeat(43),
+      loginName: "invalid-id",
+      password: "password-value",
+    }).success).toBe(true);
     expect(customLoginRequestSchema.safeParse({
       authRequest: "request-1",
       csrf: "c".repeat(43),

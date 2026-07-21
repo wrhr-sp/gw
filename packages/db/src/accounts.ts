@@ -477,6 +477,33 @@ export function createPostgresAccountRepository(
         if (hotel?.count !== hotelIds.length)
           return { status: "HOTEL_NOT_FOUND" } as const;
 
+        await transaction`
+          select pg_advisory_xact_lock(hashtextextended(
+            ${`${input.actor.companyId}:${input.actor.userId}:${input.idempotencyKey}`},
+            915202607220001
+          ))
+        `;
+        const [idempotencyAttempt] = await transaction<{
+          request_hash: string;
+          request_login_name: string | null;
+        }[]>`
+          select request_hash,
+                 completion_payload->>'loginName' as request_login_name
+          from account_provisioning_attempts
+          where company_id = ${input.actor.companyId}
+            and actor_user_id = ${input.actor.userId}
+            and idempotency_key = ${input.idempotencyKey}
+          for update
+        `;
+        if (
+          idempotencyAttempt &&
+          (idempotencyAttempt.request_hash !== input.requestHash ||
+            idempotencyAttempt.request_login_name !==
+              input.completionPayload.loginName)
+        ) {
+          return { status: "IDEMPOTENCY_CONFLICT" } as const;
+        }
+
         let targetAccountId = input.accountId;
         const claimed = await transaction<{ target_user_id: string }[]>`
           insert into login_id_registry (

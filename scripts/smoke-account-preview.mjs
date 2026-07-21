@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { chromium } from "@playwright/test";
 import {
   assertCreateResponseMatchesAttempt,
   assertHousekeepingAssignmentRows,
@@ -339,6 +340,68 @@ async function activeSessionCount(sessionId, companyId, userId) {
   });
 }
 
+async function verifyHostedCustomLogin({
+  expectedUserId,
+  loginId,
+  password,
+  shouldAuthenticate,
+}) {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/api/auth/login`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    await page.waitForURL((candidate) =>
+      candidate.origin === new URL(baseUrl).origin &&
+      candidate.pathname === "/login" &&
+      /^[A-Za-z0-9_-]{1,200}$/u.test(candidate.searchParams.get("authRequest") ?? "") &&
+      /^[A-Za-z0-9_-]{43}$/u.test(candidate.searchParams.get("csrf") ?? ""),
+    { timeout: 60_000 });
+    const loginInput = page.locator("#login-name");
+    await loginInput.evaluate((element) => element.removeAttribute("pattern"));
+    await loginInput.fill(loginId);
+    await page.locator("#login-password").fill(password);
+    await page.getByRole("button", { name: "로그인" }).click();
+
+    if (!shouldAuthenticate) {
+      await page.waitForURL((candidate) =>
+        candidate.origin === new URL(baseUrl).origin &&
+        candidate.pathname === "/login" &&
+        candidate.searchParams.get("error") === "invalid-credentials",
+      { timeout: 60_000 });
+      const rejectedCookies = await context.cookies(baseUrl);
+      if (rejectedCookies.some((cookie) => cookie.name === cookieName)) {
+        throw new Error("Rejected legacy login alias issued a hotel session");
+      }
+      return;
+    }
+
+    await page.waitForURL((candidate) =>
+      candidate.origin === new URL(baseUrl).origin &&
+      !candidate.pathname.startsWith("/api/auth") &&
+      candidate.pathname !== "/login",
+    { timeout: 60_000 });
+    const sessionResponse = await context.request.get(`${baseUrl}/api/auth/session`, {
+      headers: { accept: "application/json" },
+    });
+    if (sessionResponse.status() !== 200) {
+      throw new Error("Hosted canonical login did not issue a readable hotel session");
+    }
+    const sessionBody = await sessionResponse.json();
+    if (
+      sessionBody?.data?.authenticated !== true ||
+      sessionBody.data?.principal?.userId !== expectedUserId
+    ) {
+      throw new Error("Hosted canonical login resolved an unexpected internal user");
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
 try {
   const adminSession = await createSession(bootstrapSubject);
   adminToken = adminSession.token;
@@ -485,13 +548,27 @@ try {
   }
   account = activatedAccount;
 
+  await verifyHostedCustomLogin({
+    expectedUserId: account.id,
+    loginId: loginName,
+    password: changedPassword,
+    shouldAuthenticate: true,
+  });
+  const legacyAlias = `${loginName.slice(0, -1)}-${loginName.slice(-1)}`;
+  await verifyHostedCustomLogin({
+    expectedUserId: account.id,
+    loginId: legacyAlias,
+    password: changedPassword,
+    shouldAuthenticate: false,
+  });
+
   providerVerificationSessionCreationIndeterminate = true;
   const providerSession = await provider("/v2/sessions", {
     method: "POST",
     token: verificationToken,
     body: {
       checks: {
-        user: { loginName },
+        user: { userId: providerSubject },
         password: { password: changedPassword },
       },
       lifetime: "60s",

@@ -193,7 +193,7 @@ export function createZitadelUserProvider(
           method: "POST",
           body: JSON.stringify({
             checks: {
-              user: { loginName: input.loginName },
+              user: { userId: input.expectedSubject },
               password: { password: input.password },
             },
             lifetime: VERIFICATION_SESSION_LIFETIME,

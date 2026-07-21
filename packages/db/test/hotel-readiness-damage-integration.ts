@@ -446,7 +446,135 @@ async function verifyTenantAuthorityHelperPublicExecuteDamage() {
   }
 }
 
+async function verifyLoginRegistryPrimaryKeyDamage() {
+  await sql`alter table login_id_registry drop constraint login_id_registry_pkey`;
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`missing login registry primary key was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql`alter table login_id_registry add constraint login_id_registry_pkey primary key (login_id)`;
+  }
+}
+
+async function verifyLoginRegistryPolicyExtraBranchDamage() {
+  const name = "login_id_registry_company_isolation";
+  await sql.unsafe(`drop policy ${name} on login_id_registry`);
+  await sql.unsafe(`
+    create policy ${name} on login_id_registry
+    using (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('API_RUNTIME') then company_id = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then company_id = reconciler_current_company_id()
+        when true then true
+        else false
+      end
+    )
+    with check (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('API_RUNTIME') then company_id = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then company_id = reconciler_current_company_id()
+        when true then true
+        else false
+      end
+    )
+  `);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`extra-branch login registry policy was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`drop policy ${name} on login_id_registry`);
+    await restoreTenantPolicy("login_id_registry", name);
+  }
+}
+
+async function verifyLoginRegistryPolicyLiteralCaseDamage() {
+  const name = "login_id_registry_company_isolation";
+  await sql.unsafe(`drop policy ${name} on login_id_registry`);
+  await sql.unsafe(`
+    create policy ${name} on login_id_registry
+    using (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('api_runtime') then company_id = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then company_id = reconciler_current_company_id()
+        else false
+      end
+    )
+    with check (
+      case
+        when runtime_is_schema_owner() then true
+        when current_user = 'werehere_auth_session_definer' then true
+        when current_user = 'werehere_tenant_authority_definer' then true
+        when runtime_has_capability('api_runtime') then company_id = api_current_company_id()
+        when runtime_has_capability('RECONCILER') then company_id = reconciler_current_company_id()
+        else false
+      end
+    )
+  `);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`lowercase capability policy was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`drop policy ${name} on login_id_registry`);
+    await restoreTenantPolicy("login_id_registry", name);
+  }
+}
+
+async function verifyLoginRegistryTriggerBodyDamage() {
+  const signature = "public.prevent_login_id_registry_mutation()";
+  const [record] = await sql<{ definition: string }[]>`
+    select pg_get_functiondef(${signature}::regprocedure) as definition
+  `;
+  if (!record) throw new Error("login registry trigger function is missing");
+  const damaged = record.definition.replace(
+    "raise exception 'login ID registry rows are immutable' using errcode = '55000';",
+    "return old;",
+  );
+  if (damaged === record.definition) throw new Error("trigger body damage fixture did not apply");
+  await sql.unsafe(damaged);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`weakened login registry trigger was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(record.definition);
+  }
+}
+
+async function verifyLoginIdentityVolatilityDamage() {
+  const signature = "public.auth_resolve_login_identity_v1(text)";
+  await sql.unsafe(`alter function ${signature} volatile`);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(`volatile login identity lookup was reported as ${readiness.status}`);
+    }
+  } finally {
+    await sql.unsafe(`alter function ${signature} stable`);
+  }
+}
+
 try {
+  await verifyLoginRegistryPrimaryKeyDamage();
+  await verifyLoginRegistryPolicyExtraBranchDamage();
+  await verifyLoginRegistryPolicyLiteralCaseDamage();
+  await verifyLoginRegistryTriggerBodyDamage();
+  await verifyLoginIdentityVolatilityDamage();
   await verifyTenantAuthorityHelperBodyDamage();
   await verifyTenantAuthorityHelperOwnerDamage();
   await verifyTenantAuthorityHelperPublicExecuteDamage();

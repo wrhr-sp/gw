@@ -18,6 +18,8 @@ const AUTH_REVOKE_SESSION_V2_PROSRC_SHA256 =
   "58a5cbb3a9370b2b6beb6b10d906a49b3647af6e0c12c2d56a524bc6fae7d6a0";
 const AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256 =
   "061a73c1c7114330cebb91eb10546499665aa6d3f5887cedb4da7253e9faa0e1";
+const PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256 =
+  "be07b10542ba804bb4d3d0a5afa3e4604e9e4e5c32e745a6ad74aea45b214bbd";
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
   [
     "runtime_is_schema_owner",
@@ -154,6 +156,14 @@ const REQUIRED_CONSTRAINTS = [
   ],
 ] as const;
 
+const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
+  {
+    table: "login_id_registry",
+    name: "login_id_registry_pkey",
+    definition: "primary key (login_id)",
+  },
+] as const;
+
 const REQUIRED_EXCLUSION_CONSTRAINTS = [
   {
     table: "hotel_staff_assignments",
@@ -186,6 +196,16 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
     definition: "unique (provider, provider_subject)",
     name: "auth_identities_provider_provider_subject_key",
     table: "auth_identities",
+  },
+  {
+    definition: "unique (company_id, target_user_id)",
+    name: "login_id_registry_company_id_target_user_id_key",
+    table: "login_id_registry",
+  },
+  {
+    definition: "unique (company_id, actor_user_id, idempotency_key)",
+    name: "login_id_registry_company_id_actor_user_id_idempotency_key_key",
+    table: "login_id_registry",
   },
 ] as const;
 
@@ -258,6 +278,21 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     name: "idempotency_records_completed_result_check",
     definition:
       "check (((status <> 'completed'::text) or ((completed_at is not null) and (resource_type is not null) and (resource_id is not null) and (audit_event_id is not null) and (result_snapshot is not null))))",
+  },
+  {
+    table: "login_id_registry",
+    name: "login_id_registry_login_id_check",
+    definition:
+      "check (((login_id ~ '^[a-z0-9]{3,30}$'::text) and (login_id <> all (array['admin'::text, 'administrator'::text, 'root'::text, 'system'::text, 'security'::text, 'api'::text, 'service'::text, 'support'::text, 'test'::text, 'preview'::text, 'werehere'::text]))))",
+  },
+] as const;
+
+const REQUIRED_CONTRACT_CONSTRAINTS = [
+  {
+    table: "users",
+    name: "users_login_name_registry_fk",
+    definition:
+      "foreign key (login_name, company_id, id) references login_id_registry(login_id, company_id, target_user_id)",
   },
 ] as const;
 
@@ -578,39 +613,55 @@ function normalizeDefinition(value: string) {
   return value.toLowerCase().replaceAll('"', "").replace(/\s+/g, " ").trim();
 }
 
+function normalizePolicyDefinition(value: string) {
+  const sqlLiterals: string[] = [];
+  const withLiteralPlaceholders = value.replace(
+    /'(?:''|[^'])*'/gu,
+    (literal) => {
+      const placeholder = `__SQL_LITERAL_${sqlLiterals.length}__`;
+      sqlLiterals.push(literal);
+      return placeholder;
+    },
+  );
+  return withLiteralPlaceholders
+    .toLowerCase()
+    .replaceAll('"', "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/__sql_literal_(\d+)__/gu, (_placeholder, index: string) =>
+      sqlLiterals[Number(index)] ?? "",
+    );
+}
+
 function isExactTenantPolicyExpression(
   value: string | null,
   tenantKey: "company_id" | "id",
   schemaPhase: "CONTRACT" | "EXPAND",
 ) {
-  const normalized = normalizeDefinition(value ?? "")
+  const normalized = normalizePolicyDefinition(value ?? "")
     .replace(/^\(+/u, "")
     .replace(/\)+$/u, "");
-  const count = (fragment: string) => normalized.split(fragment).length - 1;
   const ownerBranch = "when runtime_is_schema_owner() then true";
   const authDefinerBranch =
     "when (current_user = 'werehere_auth_session_definer'::name) then true";
   const tenantDefinerBranch =
     "when (current_user = 'werehere_tenant_authority_definer'::name) then true";
-  const apiBranch = `when runtime_has_capability('api_runtime'::text) then (${tenantKey} = api_current_company_id())`;
-  const reconcilerBranch = `when runtime_has_capability('reconciler'::text) then (${tenantKey} = reconciler_current_company_id())`;
-  const legacyGuard =
-    "when ((not runtime_has_capability('api_runtime'::text)) and (not runtime_has_capability('reconciler'::text)))";
-  const legacyBranch = `then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`;
-  return (
-    normalized.startsWith("case") &&
-    normalized.endsWith("else false end") &&
-    count(ownerBranch) === 1 &&
-    count(authDefinerBranch) === 1 &&
-    count(tenantDefinerBranch) === 1 &&
-    count(apiBranch) === 1 &&
-    count(reconcilerBranch) === 1 &&
-    (schemaPhase === "CONTRACT"
-      ? !normalized.includes("app.company_id")
-      : count(legacyGuard) === 1 && count(legacyBranch) === 1) &&
-    !normalized.includes("app.session_id") &&
-    !normalized.includes("app.reconciler_company_id")
-  );
+  const apiBranch = `when runtime_has_capability('API_RUNTIME'::text) then (${tenantKey} = api_current_company_id())`;
+  const reconcilerBranch = `when runtime_has_capability('RECONCILER'::text) then (${tenantKey} = reconciler_current_company_id())`;
+  const legacyBranch = schemaPhase === "EXPAND"
+    ? `when ((not runtime_has_capability('API_RUNTIME'::text)) and (not runtime_has_capability('RECONCILER'::text))) then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`
+    : null;
+  const expected = [
+    "case",
+    ownerBranch,
+    authDefinerBranch,
+    tenantDefinerBranch,
+    apiBranch,
+    reconcilerBranch,
+    legacyBranch,
+    "else false end",
+  ].filter((fragment): fragment is string => fragment !== null).join(" ");
+  return normalized === expected;
 }
 
 export async function probeDatabaseReadiness(
@@ -826,6 +877,7 @@ export async function probeDatabaseReadiness(
 
     const authSupportFunctions = await sql<
       {
+        contract_safe: boolean;
         executable: boolean;
         function_name: string;
         grantable_execute_count: number;
@@ -842,6 +894,15 @@ export async function probeDatabaseReadiness(
              procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
              has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
              procedure_record.prosrc as source,
+             case
+               when procedure_record.proname = 'auth_resolve_login_identity_v1' then
+                 pg_get_function_result(procedure_record.oid) = 'TABLE(provider_subject text)'
+                 and function_language.lanname = 'sql'
+                 and procedure_record.provolatile = 's'
+                 and procedure_record.proparallel = 'u'
+                 and not procedure_record.proleakproof
+               else true
+             end as contract_safe,
              exists (
                select 1
                from aclexplode(coalesce(
@@ -891,6 +952,7 @@ export async function probeDatabaseReadiness(
       from pg_proc procedure_record
       join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
       join pg_roles procedure_owner on procedure_owner.oid = procedure_record.proowner
+      join pg_language function_language on function_language.oid = procedure_record.prolang
       where procedure_namespace.nspname = 'public'
         and (
           (procedure_record.proname = 'auth_resolve_login_identity_v1'
@@ -925,6 +987,7 @@ export async function probeDatabaseReadiness(
         !expectedDigest ||
         !authSupportFunction.security_definer ||
         !authSupportFunction.safe_search_path ||
+        !authSupportFunction.contract_safe ||
         authSupportFunction.executable !==
           (options.capability === "API_RUNTIME") ||
         !authSupportFunction.owner_safe ||
@@ -1482,6 +1545,20 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     }
     if (
+      REQUIRED_PRIMARY_KEY_CONSTRAINTS.some(
+        (required) =>
+          !constraints.some(
+            (constraint) =>
+              constraint.table === required.table &&
+              constraint.name === required.name &&
+              constraint.validated &&
+              constraint.definition === required.definition,
+          ),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (
       REQUIRED_UNIQUE_CONSTRAINTS.some(
         (required) =>
           !constraints.some(
@@ -1511,6 +1588,21 @@ export async function probeDatabaseReadiness(
     }
     if (
       REQUIRED_CHECK_CONSTRAINTS.some(
+        (required) =>
+          !constraints.some(
+            (constraint) =>
+              constraint.table === required.table &&
+              constraint.name === required.name &&
+              constraint.validated &&
+              constraint.definition === required.definition,
+          ),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (
+      schemaPhase === "CONTRACT" &&
+      REQUIRED_CONTRACT_CONSTRAINTS.some(
         (required) =>
           !constraints.some(
             (constraint) =>
@@ -1675,16 +1767,34 @@ export async function probeDatabaseReadiness(
         enabled: string;
         table_name: string;
         function_name: string;
+        function_owner: string;
+        function_source: string;
+        function_contract_safe: boolean;
+        trigger_type: number;
       }[]
     >`
       select trigger_record.tgname as trigger_name,
              trigger_record.tgenabled as enabled,
+             trigger_record.tgtype::integer as trigger_type,
              trigger_table.relname as table_name,
-             trigger_function.proname as function_name
+             trigger_function.proname as function_name,
+             trigger_function.prosrc as function_source,
+             trigger_owner.rolname as function_owner,
+             (
+               pg_get_function_result(trigger_function.oid) = 'trigger'
+               and trigger_language.lanname = 'plpgsql'
+               and trigger_function.provolatile = 'v'
+               and trigger_function.proparallel = 'u'
+               and not trigger_function.proleakproof
+               and not trigger_function.prosecdef
+               and trigger_function.proconfig = array['search_path=pg_catalog']::text[]
+             ) as function_contract_safe
       from pg_trigger trigger_record
       join pg_class trigger_table on trigger_table.oid = trigger_record.tgrelid
       join pg_namespace trigger_namespace on trigger_namespace.oid = trigger_table.relnamespace
       join pg_proc trigger_function on trigger_function.oid = trigger_record.tgfoid
+      join pg_roles trigger_owner on trigger_owner.oid = trigger_function.proowner
+      join pg_language trigger_language on trigger_language.oid = trigger_function.prolang
       where trigger_namespace.nspname = 'public'
         and not trigger_record.tgisinternal
     `;
@@ -1699,6 +1809,19 @@ export async function probeDatabaseReadiness(
               (trigger.enabled === "O" || trigger.enabled === "A"),
           ),
       )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    const loginRegistryTrigger = triggerRows.find(
+      (trigger) => trigger.trigger_name === "login_id_registry_immutable",
+    );
+    if (
+      !loginRegistryTrigger ||
+      loginRegistryTrigger.trigger_type !== 27 ||
+      loginRegistryTrigger.function_owner !== migrationOwner.role_name ||
+      !loginRegistryTrigger.function_contract_safe ||
+      (await sourceSha256(loginRegistryTrigger.function_source)) !==
+        PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

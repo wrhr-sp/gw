@@ -244,6 +244,73 @@ try {
   });
   if (reserved.status !== "RESERVED_NOT_DISPATCHED")
     throw new Error("group-based USER_CREATE was not effective");
+  const conflictingIdempotency = await repository.reserveCreate({
+    accountId: "8a900000-0000-4000-8000-000000000099",
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000099",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload: {
+      ...completionPayload,
+      displayName: "Conflicting Idempotency Account",
+      loginName: "unclaimedaccount",
+      email: "unclaimed-account@example.invalid",
+    },
+    idempotencyKey: "role-group-create",
+    requestHash: "different-role-group-create-hash",
+  });
+  if (conflictingIdempotency.status !== "IDEMPOTENCY_CONFLICT") {
+    throw new Error("changed idempotency payload was not rejected");
+  }
+  const [leakedClaim] = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from login_id_registry
+    where login_id = 'unclaimedaccount'
+  `;
+  if (leakedClaim?.count !== 0) {
+    throw new Error("failed idempotency request leaked an immutable login ID claim");
+  }
+
+  const concurrentLoginNames = [
+    "concurrentclaimone",
+    "concurrentclaimtwo",
+  ] as const;
+  const concurrentReservations = await Promise.all(
+    concurrentLoginNames.map((concurrentLoginName, index) => {
+      const accountId = `8a900000-0000-4000-8000-${String(100 + index).padStart(12, "0")}`;
+      return repository.reserveCreate({
+        accountId,
+        actor,
+        attemptId: `8a910000-0000-4000-8000-${String(100 + index).padStart(12, "0")}`,
+        hotelIds: [hotelId, secondHotelId],
+        completionPayload: {
+          ...completionPayload,
+          displayName: `Concurrent Claim ${index + 1}`,
+          loginName: concurrentLoginName,
+          email: `${concurrentLoginName}@example.invalid`,
+        },
+        idempotencyKey: "concurrent-idempotency-claim",
+        requestHash: `concurrent-request-hash-${index + 1}`,
+      });
+    }),
+  );
+  const concurrentStatuses = concurrentReservations
+    .map((result) => result.status)
+    .sort();
+  if (
+    JSON.stringify(concurrentStatuses) !==
+    JSON.stringify(["IDEMPOTENCY_CONFLICT", "RESERVED_NOT_DISPATCHED"])
+  ) {
+    throw new Error(`concurrent idempotency serialization failed: ${concurrentStatuses.join(",")}`);
+  }
+  const [concurrentClaims] = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from login_id_registry
+    where login_id in (${concurrentLoginNames[0]}, ${concurrentLoginNames[1]})
+  `;
+  if (concurrentClaims?.count !== 1) {
+    throw new Error("concurrent idempotency loser leaked an immutable login ID claim");
+  }
+
   if (
     (await repository.markCreateDispatched({
       accountId: "8a900000-0000-4000-8000-000000000001",

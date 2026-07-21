@@ -191,7 +191,7 @@ describe("ZITADEL account provisioning provider", () => {
     });
     expect(JSON.parse(String(sessionCreate[1]?.body))).toEqual({
       checks: {
-        user: { loginName: "housekeeper01" },
+        user: { userId },
         password: { password: "Strong-Preview-123!" },
       },
       lifetime: "300s",

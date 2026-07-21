@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -40,9 +40,41 @@ describe("hosted Preview account-management smoke", () => {
     ).not.toThrow();
   });
 
+  it("does not expose runtime secret inputs through the real process stdout or stderr", () => {
+    const sentinels = [
+      "provisioner-secret-sentinel",
+      "verification-secret-sentinel",
+      "bootstrap-subject-sentinel",
+    ];
+    const result = spawnSync(process.execPath, [smokePath], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        WEB_PREVIEW_URL: "invalid-preview-url",
+        ZITADEL_PREVIEW_SUBJECT: sentinels[2],
+        ZITADEL_ISSUER: "https://identity.example.test",
+        ZITADEL_ORGANIZATION_ID: "organization-id",
+        ZITADEL_USER_PROVISIONER_TOKEN: sentinels[0],
+        ZITADEL_SERVICE_USER_TOKEN: sentinels[1],
+        API_RUNTIME_DATABASE_URL_FILE: "/nonexistent/runtime-url",
+        RECONCILER_DATABASE_URL_FILE: "/nonexistent/reconciler-url",
+        GITHUB_RUN_ID: "1",
+        GITHUB_RUN_ATTEMPT: "1",
+      },
+    });
+    expect(result.status).not.toBe(0);
+    const output = `${result.stdout}${result.stderr}`;
+    for (const sentinel of sentinels) expect(output).not.toContain(sentinel);
+  });
+
   it("verifies canonical housekeeping multi-hotel material fields", () => {
     expect(source).toContain('.replace(/[^A-Za-z0-9]/gu, "")');
     expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
+    expect(source).toContain("async function verifyHostedCustomLogin");
+    expect(source).toContain('context.request.get(`${baseUrl}/api/auth/session`');
+    expect(source).toContain("const legacyAlias = `${loginName.slice(0, -1)}-${loginName.slice(-1)}`");
+    expect(source).toContain("Rejected legacy login alias issued a hotel session");
+    expect(source).toContain("user: { userId: providerSubject }");
     expect(source).not.toContain("const loginName = `preview-smoke-");
     expect(source).toContain('userType: "HOUSEKEEPING"');
     expect(source).toContain("hotelIds.length !== 2");

@@ -577,11 +577,19 @@ jobs:
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
 
-      - name: Verify public Preview path before contract
+      - name: Verify public Preview path and bootstrap mapping before contract
         id: preview_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           node scripts/smoke-zitadel-console-preview.mjs
+
+      - name: Verify hosted Preview account management and canonical login before contract
+        id: account_management_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: node scripts/smoke-account-preview.mjs
 
       - name: Contract Neon Preview tenant authority
         id: contract_database
@@ -599,17 +607,13 @@ jobs:
           printf 'contract_started=true\n' >> "$GITHUB_OUTPUT"
           pnpm exec tsx packages/db/scripts/provision-preview.ts
 
-      - name: Verify public Preview path after contract
+      - name: Verify public Preview path and bootstrap mapping after contract
         id: post_contract_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           node scripts/smoke-zitadel-console-preview.mjs
-
-      - name: Verify hosted Preview account management journey
-        id: account_management_smoke
-        env:
-          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
-        run: node scripts/smoke-account-preview.mjs
 
       - name: Record secure session-authority rollback baseline
         id: secure_rollback_baseline

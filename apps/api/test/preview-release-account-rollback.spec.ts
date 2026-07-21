@@ -139,19 +139,19 @@ describe("Preview account Worker release safety", () => {
       "      - name: Deploy private account reconciler Worker\n",
     );
     const preContractSmokePosition = workflow.indexOf(
-      "      - name: Verify public Preview path before contract\n",
+      "      - name: Verify public Preview path and bootstrap mapping before contract\n",
+    );
+    const accountSmokePosition = workflow.indexOf(
+      "      - name: Verify hosted Preview account management and canonical login before contract\n",
     );
     const contractPosition = workflow.indexOf(
       "      - name: Contract Neon Preview tenant authority\n",
     );
     const smokePosition = workflow.indexOf(
-      "      - name: Verify public Preview path after contract\n",
+      "      - name: Verify public Preview path and bootstrap mapping after contract\n",
     );
     const baselinePosition = workflow.indexOf(
       "      - name: Record secure session-authority rollback baseline\n",
-    );
-    const accountSmokePosition = workflow.indexOf(
-      "      - name: Verify hosted Preview account management journey\n",
     );
     expect(snapshotPosition).toBeGreaterThan(-1);
     expect(topologyPosition).toBeGreaterThan(snapshotPosition);
@@ -159,12 +159,12 @@ describe("Preview account Worker release safety", () => {
     expect(compatibilityPosition).toBeGreaterThan(expandPosition);
     expect(deployPosition).toBeGreaterThan(compatibilityPosition);
     expect(preContractSmokePosition).toBeGreaterThan(deployPosition);
-    expect(contractPosition).toBeGreaterThan(preContractSmokePosition);
+    expect(accountSmokePosition).toBeGreaterThan(preContractSmokePosition);
+    expect(contractPosition).toBeGreaterThan(accountSmokePosition);
     expect(smokePosition).toBeGreaterThan(contractPosition);
-    expect(accountSmokePosition).toBeGreaterThan(smokePosition);
-    expect(baselinePosition).toBeGreaterThan(accountSmokePosition);
+    expect(baselinePosition).toBeGreaterThan(smokePosition);
     expect(
-      workflowStep("Verify hosted Preview account management journey"),
+      workflowStep("Verify hosted Preview account management and canonical login before contract"),
     ).toContain("node scripts/smoke-account-preview.mjs");
     const baseline = workflowStep(
       "Record secure session-authority rollback baseline",

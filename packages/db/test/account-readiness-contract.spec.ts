@@ -30,6 +30,12 @@ describe("account administration readiness contract", () => {
   });
 
   it("matches complete critical index definitions including partial predicates", () => {
+    expect(source).toContain("REQUIRED_PRIMARY_KEY_CONSTRAINTS");
+    expect(source).toContain('name: "login_id_registry_pkey"');
+    expect(source).toContain('name: "login_id_registry_company_id_target_user_id_key"');
+    expect(source).toContain('name: "login_id_registry_company_id_actor_user_id_idempotency_key_key"');
+    expect(source).toContain('name: "login_id_registry_login_id_check"');
+    expect(source).toContain('name: "users_login_name_registry_fk"');
     expect(source).toContain(
       "normalizeDefinition(index.definition) === required.definition",
     );
@@ -169,7 +175,14 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("authFunction.public_execute");
     expect(source).toContain("authSupportFunction.public_execute");
     expect(source).toContain("0008_remove_legacy_company_id_fallback");
-    expect(source).toContain('!normalized.includes("app.company_id")');
+    expect(source).toContain("return normalized === expected");
+    expect(source).toContain("function normalizePolicyDefinition");
+    expect(source).toContain("const sqlLiterals: string[] = []");
+    expect(source).toContain("__SQL_LITERAL_");
+    expect(source).toContain("runtime_has_capability('API_RUNTIME'::text)");
+    expect(source).toContain("authSupportFunction.contract_safe");
+    expect(source).toContain("PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256");
+    expect(source).toContain("loginRegistryTrigger.trigger_type !== 27");
     expect(source).not.toContain(
       "grantee_role.rolname <> 'werehere_preview_runtime'",
     );

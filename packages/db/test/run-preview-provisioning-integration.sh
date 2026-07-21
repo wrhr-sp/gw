@@ -199,7 +199,73 @@ alter sequence public.preview_precontract_owner_damage_sequence
   owner to werehere_preview_migration_owner;
 drop sequence public.preview_precontract_owner_damage_sequence;
 SQL
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+update public.users
+set login_name = 'preview-admin'
+where id = '71000000-0000-4000-8000-000000000001'
+  and company_id = '$COMPANY_ID'
+  and login_name = 'previewadmin';
+insert into public.auth_sessions (
+  id, company_id, user_id, identity_id, token_hash,
+  idle_expires_at, absolute_expires_at, auth_time, authentication_method
+)
+select
+  '71900000-0000-4000-8000-000000000001', '$COMPANY_ID', app_user.id,
+  identity.id, decode(repeat('ab', 32), 'hex'),
+  now() + interval '1 hour', now() + interval '2 hours', now(), 'OIDC_PKCE'
+from public.users app_user
+join public.auth_identities identity
+  on identity.company_id = app_user.company_id and identity.user_id = app_user.id
+where app_user.id = '71000000-0000-4000-8000-000000000001'
+  and identity.provider = 'ZITADEL';
+SQL
+
 run_provision CONTRACT >/dev/null
+ALIGNED_BOOTSTRAP_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select login_name || ':' || version::text
+from users where id = '71000000-0000-4000-8000-000000000001';
+select count(*) from auth_identities
+where company_id = '$COMPANY_ID'
+  and user_id = '71000000-0000-4000-8000-000000000001'
+  and provider = 'ZITADEL' and provider_subject = '$SUBJECT';
+select count(*) from permission_grants
+where company_id = '$COMPANY_ID'
+  and subject_id = '71000000-0000-4000-8000-000000000001'
+  and permission_code in ('HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND')
+  and effect = 'ALLOW' and valid_until is null;
+select count(*) from auth_sessions
+where id = '71900000-0000-4000-8000-000000000001'
+  and revoked_at is not null
+  and revoke_reason = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED';
+select count(*) from audit_events
+where event_code = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED'
+  and company_id = '$COMPANY_ID'
+  and actor_user_id = '71000000-0000-4000-8000-000000000001'
+  and before_summary->>'state' = 'LEGACY_NON_CANONICAL'
+  and after_summary->>'state' = 'MVP_CANONICAL';
+select count(*) from auth_resolve_login_identity_v1('previewadmin')
+where provider_subject = '$SUBJECT';
+select count(*) from auth_resolve_login_identity_v1('preview-admin');
+SQL
+)"
+if [[ "$ALIGNED_BOOTSTRAP_RESULT" != $'previewadmin:2\n1\n4\n1\n1\n1\n0' ]]; then
+  printf '%s\n' 'Preview bootstrap login ID alignment contract failed.' >&2
+  exit 1
+fi
+run_provision CONTRACT >/dev/null
+ALIGNED_BOOTSTRAP_REPLAY="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select login_name || ':' || version::text
+from users where id = '71000000-0000-4000-8000-000000000001';
+select count(*) from audit_events
+where event_code = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED'
+  and company_id = '$COMPANY_ID';
+SQL
+)"
+if [[ "$ALIGNED_BOOTSTRAP_REPLAY" != $'previewadmin:2\n1' ]]; then
+  printf '%s\n' 'Preview bootstrap alignment was not idempotent.' >&2
+  exit 1
+fi
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
   (select count(*)

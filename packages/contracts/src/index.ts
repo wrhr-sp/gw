@@ -92,7 +92,7 @@ export const loginIdSchema = z.string().trim()
 export const customLoginRequestSchema = z.object({
   authRequest: z.string().trim().min(1).max(200),
   csrf: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
-  loginName: loginIdSchema,
+  loginName: z.string().min(1).max(200),
   password: z.string().min(1).max(200),
 }).strict();
 export type CustomLoginRequest = z.infer<typeof customLoginRequestSchema>;
