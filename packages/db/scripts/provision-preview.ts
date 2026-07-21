@@ -801,6 +801,77 @@ try {
   }
 
   await owner.unsafe(`
+    do $schema_acl_reset$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select distinct grantee_role.rolname as grantee_name
+        from pg_namespace namespace_record
+        cross join lateral aclexplode(coalesce(
+          namespace_record.nspacl,
+          acldefault('n'::"char", namespace_record.nspowner)
+        )) acl
+        join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where namespace_record.nspname = 'public'
+          and acl.grantee <> namespace_record.nspowner
+          and grantee_role.rolname not in (
+            'werehere_auth_session_definer',
+            'werehere_tenant_authority_definer'
+          )
+          and not exists (
+            select 1
+            from public.runtime_database_capabilities capability
+            where capability.role_name = grantee_role.rolname
+          )
+      loop
+        execute format(
+          'revoke all privileges on schema public from %I cascade',
+          acl_record.grantee_name
+        );
+      end loop;
+    end
+    $schema_acl_reset$;
+
+    do $sequence_acl_reset$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select sequence_namespace.nspname as schema_name,
+               sequence_record.relname as sequence_name,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+        from pg_class sequence_record
+        join pg_namespace sequence_namespace
+          on sequence_namespace.oid = sequence_record.relnamespace
+        cross join lateral aclexplode(coalesce(
+          sequence_record.relacl,
+          acldefault('S'::"char", sequence_record.relowner)
+        )) acl
+        left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where sequence_namespace.nspname = 'public'
+          and sequence_record.relkind = 'S'
+          and acl.grantee <> sequence_record.relowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute format(
+            'revoke all privileges on sequence %I.%I from public cascade',
+            acl_record.schema_name,
+            acl_record.sequence_name
+          );
+        else
+          execute format(
+            'revoke all privileges on sequence %I.%I from %I cascade',
+            acl_record.schema_name,
+            acl_record.sequence_name,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $sequence_acl_reset$;
+
     revoke all privileges on all tables in schema public from ${apiRuntimeRole};
     revoke all privileges on all tables in schema public from ${reconcilerRole};
     revoke all privileges on all sequences in schema public from ${apiRuntimeRole};

@@ -1,8 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/experimental-ct-react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { HotelLoginCard } from "../components/auth/hotel-login-card";
 import { PasswordResetCard } from "../components/auth/password-reset-card";
 import { InitialPasswordForm } from "../components/accounts/initial-password-form";
+
+const initialPasswordPageSource = readFileSync(
+  resolve(process.cwd(), "app/account/initial-password/page.tsx"),
+  "utf8",
+);
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -250,11 +257,26 @@ test("최초 비밀번호 서버 오류는 입력에 연결되고 수정 시 해
     }),
   );
   await page.setViewportSize({ width: 1440, height: 900 });
+  expect(initialPasswordPageSource).toContain(
+    'className="flex min-h-screen items-center justify-center bg-background px-4 py-10"',
+  );
+  expect(initialPasswordPageSource).toContain(
+    'className="w-full max-w-md rounded-panel border border-border bg-surface p-6 shadow-sm md:p-8"',
+  );
+  expect(initialPasswordPageSource).toContain(
+    'aria-labelledby="initial-password-title"',
+  );
   const form = await mount(
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <section className="w-full max-w-md rounded-panel border border-border bg-surface p-6 shadow-sm md:p-8">
+      <section
+        aria-labelledby="initial-password-title"
+        className="w-full max-w-md rounded-panel border border-border bg-surface p-6 shadow-sm md:p-8"
+      >
         <p className="text-sm font-semibold text-primary">We’reHere 호텔관리</p>
-        <h1 className="mt-2 text-2xl font-bold text-text">
+        <h1
+          id="initial-password-title"
+          className="mt-2 text-2xl font-bold text-text"
+        >
           임시 비밀번호 변경
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted">
@@ -276,6 +298,13 @@ test("최초 비밀번호 서버 오류는 입력에 연결되고 수정 시 해
   await expect(password).toHaveAttribute("aria-invalid", "true");
   const confirmation = form.getByLabel("새 비밀번호 확인");
   await expect(confirmation).toHaveAttribute("aria-invalid", "false");
+  await expect(form.getByRole("button", { name: "비밀번호 변경" })).toHaveCSS(
+    "min-height",
+    "44px",
+  );
+  await expect(
+    form.getByRole("button", { name: "다른 계정으로 로그인" }),
+  ).toHaveCSS("min-height", "44px");
   await expect(
     form.getByText("새 비밀번호를 다시 입력해 주세요."),
   ).toBeVisible();

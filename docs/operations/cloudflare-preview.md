@@ -97,7 +97,10 @@ DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch
 - API Worker: `werehere-hotel-api-preview`
   - `workers_dev: false`
   - `preview_urls: false`
-  - `API_HYPERDRIVE`, `RECONCILER_HYPERDRIVE` binding
+  - `API_HYPERDRIVE` binding만 사용
+- Reconciler Worker: `werehere-hotel-reconciler-preview`
+  - HTTP API를 제공하지 않음
+  - `RECONCILER_HYPERDRIVE` binding만 사용
 - Web Worker: `werehere-hotel-web-preview`
   - `workers_dev: true`
   - `preview_urls: false`
@@ -148,22 +151,23 @@ Web 200
 -> USER_CREATE-scoped eligible hotel 조회
 -> 실제 API로 하우스키핑 계정과 서로 다른 호텔 2개 배정 생성
 -> PostgreSQL detail에서 이름·로그인·이메일·사용자유형·canonical 호텔 목록 재조회
+-> housekeeping assignment row에서 시작일·사유·호텔 2개를 직접 재조회
 -> 새 사용자 DB session에서 최초 비밀번호 변경
 -> ZITADEL credential session 생성·주체·organization 재조회
 -> 관리자 API로 사용자 비활성화
 -> PostgreSQL INACTIVE, ZITADEL INACTIVE, 활성 DB session 0 재조회
 ```
 
-검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. 실패 중 생성된 계정은 reconciler DB에서 최신 version을 재조회해 비활성화하고 PostgreSQL·ZITADEL의 `INACTIVE` 상태를 다시 확인한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
+검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. create 응답이 유실돼 account ID가 없어도 deterministic login을 반복 조회해 생성된 계정을 찾는다. 발견한 계정은 reconciler DB에서 최신 version을 재조회해 비활성화하고, 비동기 reconciler 반영을 기다리며 PostgreSQL·ZITADEL의 `INACTIVE` 상태를 제한 시간 동안 반복 확인한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
 
 ## Rollback
 
 1. smoke 실패 시 Preview 성공으로 보고하지 않는다.
 2. workflow는 DB 변경 전에 API/Web 활성 version을 기록한다.
 3. `EXPAND`와 기존 Worker compatibility smoke 전후에는 legacy compatibility가 유지된다.
-4. 신규 Worker deploy 또는 pre-contract smoke 실패처럼 `CONTRACT` 시작 전 실패만 이전 Worker version 복구 대상으로 판단할 수 있다.
-5. `CONTRACT` 시작 후에는 legacy authority가 제거됐으므로 이전 Worker로 자동 rollback하지 않는다. `CONTRACT_STARTED=true`로 operator recovery를 요구하고 안전 실패한다.
-6. 이전 version이 없는 최초 배포의 pre-contract 실패라면 이번 실행에서 만든 Preview Worker를 삭제할 수 있다.
+4. 신규 Worker deploy 또는 pre-contract smoke 실패라도 workflow는 동시 배포를 덮어쓸 수 있는 이전 Worker 자동 복구나 최초 Worker 자동 삭제를 수행하지 않는다. 기록된 version을 근거로 operator recovery를 요구한다.
+5. `CONTRACT` 시작 후에는 legacy authority가 제거됐으므로 이전 Worker로 rollback하지 않는다. `CONTRACT_STARTED=true`로 operator recovery를 요구하고 안전 실패한다.
+6. 최초 배포의 pre-contract 실패도 자동 삭제하지 않는다. 활성 version과 생성된 Worker를 operator가 read-back한 뒤 명시적으로 복구한다.
 7. Hyperdrive runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
 8. DB 변경 복원이 필요하면 임의 down SQL 대신 승인된 Neon Preview branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
 9. Production, DNS, custom domain은 변경하지 않는다.

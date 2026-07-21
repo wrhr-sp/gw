@@ -1,6 +1,12 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import {
+  discoverCleanupAccount,
+  ensureDatabaseInactive,
+  waitForProviderInactive,
+  waitForZeroActiveSessions,
+} from "./lib/preview-account-smoke-cleanup.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -50,6 +56,7 @@ const loginName = `preview-smoke-${runSuffix}`.slice(0, 100);
 const email = `${loginName}@werehere.invalid`;
 const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
 const assignmentStartDate = new Date().toISOString().slice(0, 10);
+const assignmentReason = "Preview release 실제 계정 흐름 검증";
 const initialPassword = `preview-a1!-${randomBytes(18).toString("base64url")}`;
 const changedPassword = `changed-a1!-${randomBytes(18).toString("base64url")}`;
 let adminToken;
@@ -57,7 +64,6 @@ let adminPrincipal;
 let account;
 let providerSubject;
 let providerVerificationSession;
-let accountDeactivated = false;
 let journeyError;
 
 function tokenHash(token) {
@@ -167,11 +173,20 @@ async function providerSubjectFor(companyId, userId) {
   return reconcilerSql.begin(async (sql) => {
     await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
     const rows = await sql`
-      select provider_subject
-      from public.auth_identities
-      where company_id = ${companyId}::uuid
-        and user_id = ${userId}::uuid
-        and provider = 'ZITADEL'
+      select distinct provider_subject
+      from (
+        select provider_subject
+        from public.auth_identities
+        where company_id = ${companyId}::uuid
+          and user_id = ${userId}::uuid
+          and provider = 'ZITADEL'
+        union all
+        select provider_subject
+        from public.account_provisioning_attempts
+        where company_id = ${companyId}::uuid
+          and target_user_id = ${userId}::uuid
+          and provider_subject is not null
+      ) provider_subjects
     `;
     if (rows.length !== 1 || !rows[0]?.provider_subject) {
       throw new Error("Created account provider identity read-back failed");
@@ -184,7 +199,7 @@ async function accountCleanupState(companyId, userId) {
   return reconcilerSql.begin(async (sql) => {
     await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
     const rows = await sql`
-      select version, status
+      select id, version, status
       from public.users
       where company_id = ${companyId}::uuid
         and id = ${userId}::uuid
@@ -196,18 +211,69 @@ async function accountCleanupState(companyId, userId) {
   });
 }
 
+async function accountCleanupStateByLogin(companyId, cleanupLoginName) {
+  return reconcilerSql.begin(async (sql) => {
+    await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
+    const rows = await sql`
+      select id, version, status
+      from public.users
+      where company_id = ${companyId}::uuid
+        and lower(btrim(login_name)) = lower(btrim(${cleanupLoginName}))
+    `;
+    if (rows.length > 1) {
+      throw new Error("Preview account cleanup login was ambiguous");
+    }
+    return rows[0];
+  });
+}
+
+async function assertHousekeepingAssignments(
+  companyId,
+  userId,
+  expectedHotelIds,
+) {
+  return reconcilerSql.begin(async (sql) => {
+    await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
+    const rows = await sql`
+      select branch_id, start_date::text as start_date, reason
+      from public.housekeeping_hotel_links
+      where company_id = ${companyId}::uuid
+        and user_id = ${userId}::uuid
+        and end_date is null
+      order by branch_id
+    `;
+    const persistedHotelIds = rows.map((row) => row.branch_id).sort();
+    if (
+      JSON.stringify(persistedHotelIds) !== JSON.stringify(expectedHotelIds) ||
+      rows.some(
+        (row) =>
+          row.start_date !== assignmentStartDate ||
+          row.reason !== assignmentReason,
+      )
+    ) {
+      throw new Error("Preview housekeeping assignment persistence mismatch");
+    }
+  });
+}
+
 async function activeSessionCount(sessionId, companyId, userId) {
   return apiSql.begin(async (sql) => {
     await sql`select set_config('app.session_id', ${sessionId}, true)`;
     const [row] = await sql`
-      select count(*)::integer as count
-      from public.auth_sessions
-      where company_id = ${companyId}::uuid
-        and user_id = ${userId}::uuid
-        and revoked_at is null
-        and idle_expires_at > statement_timestamp()
-        and absolute_expires_at > statement_timestamp()
+      select public.api_current_company_id() as context_company_id,
+             (
+               select count(*)::integer
+               from public.auth_sessions
+               where company_id = ${companyId}::uuid
+                 and user_id = ${userId}::uuid
+                 and revoked_at is null
+                 and idle_expires_at > statement_timestamp()
+                 and absolute_expires_at > statement_timestamp()
+             ) as count
     `;
+    if (row?.context_company_id !== companyId) {
+      throw new Error("Preview session read-back tenant context was invalid");
+    }
     return row?.count;
   });
 }
@@ -263,7 +329,7 @@ try {
       userType: "HOUSEKEEPING",
       hotelIds,
       assignmentStartDate,
-      reason: "Preview release 실제 계정 흐름 검증",
+      reason: assignmentReason,
       initialPassword,
     },
   });
@@ -307,6 +373,12 @@ try {
   ) {
     throw new Error("Created Preview account PostgreSQL GET read-back failed");
   }
+
+  await assertHousekeepingAssignments(
+    adminSession.principal.companyId,
+    account.id,
+    hotelIds,
+  );
 
   providerSubject = await providerSubjectFor(
     adminSession.principal.companyId,
@@ -394,7 +466,6 @@ try {
   if (account?.status !== "INACTIVE") {
     throw new Error("Preview account did not become inactive");
   }
-  accountDeactivated = true;
 
   const inactiveDetail = await api(
     `/api/admin/users/${encodeURIComponent(account.id)}`,
@@ -405,27 +476,23 @@ try {
   if (inactiveDetail?.data?.account?.status !== "INACTIVE") {
     throw new Error("Inactive Preview account PostgreSQL read-back failed");
   }
-  const providerUser = await provider(
-    `/v2/users/${encodeURIComponent(providerSubject)}`,
-  );
-  if (
-    providerUser?.user?.userId !== providerSubject ||
-    providerUser.user?.details?.resourceOwner !== organizationId ||
-    providerUser.user?.state !== "USER_STATE_INACTIVE"
-  ) {
-    throw new Error("Provider user deactivation read-back failed");
-  }
-  if (
-    (await activeSessionCount(
-      adminSession.principal.sessionId,
-      adminSession.principal.companyId,
-      account.id,
-    )) !== 0
-  ) {
-    throw new Error(
-      "Deactivated Preview account retained an active hotel session",
-    );
-  }
+  await waitForProviderInactive({
+    attempts: 24,
+    expectedOrganizationId: organizationId,
+    expectedSubject: providerSubject,
+    read: () => provider(`/v2/users/${encodeURIComponent(providerSubject)}`),
+    waitMilliseconds: 5_000,
+  });
+  await waitForZeroActiveSessions({
+    attempts: 6,
+    read: () =>
+      activeSessionCount(
+        adminSession.principal.sessionId,
+        adminSession.principal.companyId,
+        account.id,
+      ),
+    waitMilliseconds: 5_000,
+  });
   await api("/api/auth/session", {
     token: pendingSession.token,
     expectedStatuses: [401],
@@ -452,53 +519,60 @@ if (providerVerificationSession?.id && providerVerificationSession.token) {
     cleanupFailed = true;
   }
 }
-if (
-  account?.id &&
-  adminToken &&
-  adminPrincipal?.companyId &&
-  !accountDeactivated
-) {
+if (adminToken && adminPrincipal?.companyId) {
   try {
-    let cleanupState;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      cleanupState = await accountCleanupState(
-        adminPrincipal.companyId,
-        account.id,
-      );
-      if (cleanupState.status === "INACTIVE") break;
-      try {
-        await api(
-          `/api/admin/users/${encodeURIComponent(account.id)}/deactivate`,
-          {
-            method: "POST",
-            token: adminToken,
-            idempotencyKey: `preview-account-cleanup-${runSuffix}`,
-            body: {
-              version: cleanupState.version,
-              reason: "Preview release 실패 검증 계정 정리",
+    const cleanupTarget = await discoverCleanupAccount({
+      attempts: 6,
+      read: () =>
+        account?.id
+          ? accountCleanupState(adminPrincipal.companyId, account.id)
+          : accountCleanupStateByLogin(adminPrincipal.companyId, loginName),
+      waitMilliseconds: 5_000,
+    });
+    if (cleanupTarget) {
+      account = { ...account, ...cleanupTarget };
+      await ensureDatabaseInactive({
+        attempts: 6,
+        deactivate: (state) =>
+          api(
+            `/api/admin/users/${encodeURIComponent(cleanupTarget.id)}/deactivate`,
+            {
+              method: "POST",
+              token: adminToken,
+              idempotencyKey: `preview-account-cleanup-${runSuffix}`,
+              body: {
+                version: state.version,
+                reason: "Preview release 실패 검증 계정 정리",
+              },
             },
-          },
-        );
-      } catch {
-        if (attempt === 2) throw new Error("cleanup deactivate failed");
-      }
-    }
-    cleanupState = await accountCleanupState(
-      adminPrincipal.companyId,
-      account.id,
-    );
-    if (cleanupState.status !== "INACTIVE") {
-      throw new Error("cleanup database state remained active");
-    }
-    if (providerSubject) {
-      const providerUser = await provider(
-        `/v2/users/${encodeURIComponent(providerSubject)}`,
+          ),
+        read: () =>
+          accountCleanupState(adminPrincipal.companyId, cleanupTarget.id),
+        waitMilliseconds: 5_000,
+      });
+      await waitForZeroActiveSessions({
+        attempts: 6,
+        read: () =>
+          activeSessionCount(
+            adminPrincipal.sessionId,
+            adminPrincipal.companyId,
+            cleanupTarget.id,
+          ),
+        waitMilliseconds: 5_000,
+      });
+      providerSubject ??= await providerSubjectFor(
+        adminPrincipal.companyId,
+        cleanupTarget.id,
       );
-      if (providerUser?.user?.state !== "USER_STATE_INACTIVE") {
-        throw new Error("cleanup provider state remained active");
-      }
+      await waitForProviderInactive({
+        attempts: 24,
+        expectedOrganizationId: organizationId,
+        expectedSubject: providerSubject,
+        read: () =>
+          provider(`/v2/users/${encodeURIComponent(providerSubject)}`),
+        waitMilliseconds: 5_000,
+      });
     }
-    accountDeactivated = true;
   } catch {
     cleanupFailed = true;
   }

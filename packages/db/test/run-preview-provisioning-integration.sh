@@ -25,6 +25,7 @@ drop role if exists werehere_preview_migration_owner;
 drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
 drop role if exists preview_stale_function_grantee;
+drop role if exists preview_stale_acl_grantee;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -47,6 +48,7 @@ drop role if exists werehere_preview_migration_owner;
 drop role if exists werehere_auth_session_definer;
 drop role if exists werehere_tenant_authority_definer;
 drop role if exists preview_stale_function_grantee;
+drop role if exists preview_stale_acl_grantee;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
@@ -111,6 +113,13 @@ grant execute on function public.runtime_is_schema_owner(),
 insert into public.runtime_database_capabilities (role_name, capability)
 values ('werehere_preview_runtime', 'API_RUNTIME')
 on conflict (role_name) do update set capability = excluded.capability;
+create role preview_stale_acl_grantee nologin noinherit;
+grant usage, create on schema public to preview_stale_acl_grantee;
+create sequence public.preview_stale_acl_sequence;
+alter sequence public.preview_stale_acl_sequence
+  owner to werehere_preview_migration_owner;
+grant usage, update on sequence public.preview_stale_acl_sequence
+  to preview_stale_acl_grantee;
 SQL
 run_provision EXPAND >/dev/null
 EXPAND_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
@@ -119,6 +128,17 @@ select (
   has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
   and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
   and has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
+  and not has_schema_privilege('preview_stale_acl_grantee', 'public', 'CREATE')
+  and not has_sequence_privilege(
+    'preview_stale_acl_grantee',
+    'public.preview_stale_acl_sequence',
+    'USAGE'
+  )
+  and not has_sequence_privilege(
+    'preview_stale_acl_grantee',
+    'public.preview_stale_acl_sequence',
+    'UPDATE'
+  )
   and exists (
     select 1 from runtime_database_capabilities
     where role_name = 'werehere_preview_runtime' and capability = 'API_RUNTIME'
@@ -127,9 +147,13 @@ select (
 SQL
 )"
 if [[ "$EXPAND_RESULT" != $'0\n1' ]]; then
-  printf '%s\n' 'Expand provisioning did not preserve the compatible legacy runtime.' >&2
+  printf '%s\n' 'Expand provisioning did not preserve compatibility or revoke stale ACLs.' >&2
   exit 1
 fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop sequence public.preview_stale_acl_sequence;
+drop role preview_stale_acl_grantee;
+SQL
 run_provision CONTRACT >/dev/null
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
@@ -384,6 +408,38 @@ assert_readiness() {
   fi
 }
 
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke execute on function public.auth_create_session_v2(uuid, bytea, text, integer, integer, timestamptz, uuid)
+  from werehere_preview_api_runtime;
+grant execute on function public.auth_create_session_v2(uuid, bytea, text, integer, integer, timestamptz, uuid)
+  to public;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke execute on function public.auth_create_session_v2(uuid, bytea, text, integer, integer, timestamptz, uuid)
+  from public;
+grant execute on function public.auth_create_session_v2(uuid, bytea, text, integer, integer, timestamptz, uuid)
+  to werehere_preview_api_runtime;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_stale_acl_grantee nologin noinherit;
+grant usage, create on schema public to preview_stale_acl_grantee;
+create sequence public.preview_stale_acl_sequence;
+grant usage, update on sequence public.preview_stale_acl_sequence
+  to preview_stale_acl_grantee;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke all on sequence public.preview_stale_acl_sequence
+  from preview_stale_acl_grantee;
+drop sequence public.preview_stale_acl_sequence;
+revoke all on schema public from preview_stale_acl_grantee;
+drop role preview_stale_acl_grantee;
+SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \

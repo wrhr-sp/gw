@@ -9,6 +9,10 @@ const accountSource = readFileSync(
   new URL("../src/accounts.ts", import.meta.url),
   "utf8",
 );
+const provisionSource = readFileSync(
+  new URL("../scripts/provision-preview.ts", import.meta.url),
+  "utf8",
+);
 
 describe("account administration readiness contract", () => {
   it.each([
@@ -59,8 +63,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("row.grantable || row.public_grant");
     expect(source).toContain("acl.is_grantable");
     expect(source).toContain("expectedSchemaPrivileges");
+    expect(source).toContain("schemaAclClosure.unexpected_count !== 0");
     expect(source).toContain("sequence_record.relkind = 'S'");
+    expect(source).toContain("acl.grantee <> sequence_record.relowner");
     expect(source).toContain("sequencePrivilegeRows.length !== 0");
+    expect(provisionSource).toContain("$schema_acl_reset$");
+    expect(provisionSource).toContain("$sequence_acl_reset$");
     expect(accountSource).not.toMatch(/update\s+auth_sessions/iu);
     expect(accountSource).toContain("auth_revoke_user_sessions_v1");
   });
@@ -71,6 +79,7 @@ describe("account administration readiness contract", () => {
       "procedure_record.proname = 'auth_revoke_user_sessions_v1'",
     );
     expect(source).toContain("userSessionRevokeFunction.executable !==");
+    expect(source).toContain("userSessionRevokeFunction.public_execute");
     expect(source).toContain('(options.capability === "API_RUNTIME")');
     expect(source).toContain(
       "userSessionRevokeFunction.non_owner_execute_count > 1",
@@ -113,6 +122,8 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("werehere_tenant_authority_definer");
     expect(source).toContain("unexpected_execute_count");
     expect(source).toContain("public_execute");
+    expect(source).toContain("authFunction.public_execute");
+    expect(source).toContain("authSupportFunction.public_execute");
     expect(source).toContain("0008_remove_legacy_company_id_fallback");
     expect(source).toContain('!normalized.includes("app.company_id")');
     expect(source).not.toContain(

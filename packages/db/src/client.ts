@@ -707,6 +707,7 @@ export async function probeDatabaseReadiness(
         source: string;
         grantable_execute_count: number;
         non_owner_execute_count: number;
+        public_execute: boolean;
       }[]
     >`
       select procedure_record.prosecdef as security_definer,
@@ -718,6 +719,15 @@ export async function probeDatabaseReadiness(
                'TABLE(result_status text, company_id uuid, identity_id uuid, session_id uuid, user_id uuid, user_type text, display_name text, must_change_password boolean)'
                as return_signature_safe,
              procedure_record.prosrc as source,
+             exists (
+               select 1
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee = 0::oid
+             ) as public_execute,
              (
                procedure_owner.rolname = 'werehere_auth_session_definer'
                and not procedure_owner.rolcanlogin
@@ -769,6 +779,7 @@ export async function probeDatabaseReadiness(
       !authFunction.safe_search_path ||
       authFunction.executable !== (options.capability === "API_RUNTIME") ||
       !authFunction.owner_safe ||
+      authFunction.public_execute ||
       !authFunction.return_signature_safe ||
       authFunction.grantable_execute_count !== 0 ||
       authFunction.non_owner_execute_count > 1 ||
@@ -789,6 +800,7 @@ export async function probeDatabaseReadiness(
         grantable_execute_count: number;
         non_owner_execute_count: number;
         owner_safe: boolean;
+        public_execute: boolean;
         safe_search_path: boolean;
         security_definer: boolean;
         source: string;
@@ -799,6 +811,15 @@ export async function probeDatabaseReadiness(
              procedure_record.proconfig = array['search_path=pg_catalog']::text[] as safe_search_path,
              has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
              procedure_record.prosrc as source,
+             exists (
+               select 1
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee = 0::oid
+             ) as public_execute,
              (
                procedure_owner.rolname = 'werehere_auth_session_definer'
                and not procedure_owner.rolcanlogin
@@ -868,6 +889,7 @@ export async function probeDatabaseReadiness(
         authSupportFunction.executable !==
           (options.capability === "API_RUNTIME") ||
         !authSupportFunction.owner_safe ||
+        authSupportFunction.public_execute ||
         authSupportFunction.grantable_execute_count !== 0 ||
         authSupportFunction.non_owner_execute_count > 1 ||
         (options.capability === "API_RUNTIME" &&
@@ -888,6 +910,7 @@ export async function probeDatabaseReadiness(
         source: string;
         grantable_execute_count: number;
         non_owner_execute_count: number;
+        public_execute: boolean;
       }[]
     >`
       select procedure_record.prosecdef as security_definer,
@@ -895,6 +918,15 @@ export async function probeDatabaseReadiness(
              has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
              pg_get_function_result(procedure_record.oid) = 'integer' as return_signature_safe,
              procedure_record.prosrc as source,
+             exists (
+               select 1
+               from aclexplode(coalesce(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) acl
+               where acl.privilege_type = 'EXECUTE'
+                 and acl.grantee = 0::oid
+             ) as public_execute,
              (
                procedure_owner.rolname = 'werehere_auth_session_definer'
                and not procedure_owner.rolcanlogin
@@ -946,6 +978,7 @@ export async function probeDatabaseReadiness(
       userSessionRevokeFunction.executable !==
         (options.capability === "API_RUNTIME") ||
       !userSessionRevokeFunction.owner_safe ||
+      userSessionRevokeFunction.public_execute ||
       !userSessionRevokeFunction.return_signature_safe ||
       userSessionRevokeFunction.grantable_execute_count !== 0 ||
       userSessionRevokeFunction.non_owner_execute_count > 1 ||
@@ -1264,6 +1297,37 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     }
 
+    const [schemaAclClosure] = await sql<{ unexpected_count: number }[]>`
+      select count(*)::integer as unexpected_count
+      from pg_namespace namespace_record
+      cross join lateral aclexplode(coalesce(
+        namespace_record.nspacl,
+        acldefault('n'::"char", namespace_record.nspowner)
+      )) acl
+      left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+      where namespace_record.nspname = 'public'
+        and acl.grantee <> namespace_record.nspowner
+        and not (
+          acl.privilege_type = 'USAGE'
+          and not acl.is_grantable
+          and (
+            (acl.grantee = 0::oid and ${schemaPhase === "EXPAND"})
+            or grantee_role.rolname in (
+              'werehere_auth_session_definer',
+              'werehere_tenant_authority_definer'
+            )
+            or exists (
+              select 1
+              from public.runtime_database_capabilities capability
+              where capability.role_name = grantee_role.rolname
+            )
+          )
+        )
+    `;
+    if (!schemaAclClosure || schemaAclClosure.unexpected_count !== 0) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
     const sequencePrivilegeRows = await sql<
       { grantable: boolean; label: string }[]
     >`
@@ -1275,10 +1339,9 @@ export async function probeDatabaseReadiness(
         sequence_record.relacl,
         acldefault('S'::"char", sequence_record.relowner)
       )) acl
-      left join pg_roles grantee_role on grantee_role.oid = acl.grantee
       where sequence_namespace.nspname = 'public'
         and sequence_record.relkind = 'S'
-        and (acl.grantee = 0::oid or grantee_role.rolname = current_user)
+        and acl.grantee <> sequence_record.relowner
     `;
     if (sequencePrivilegeRows.length !== 0) {
       return { status: "SCHEMA_NOT_READY" };
