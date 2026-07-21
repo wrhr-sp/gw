@@ -294,7 +294,7 @@ describe("auth service", () => {
       userId: "subject-1",
     });
 
-    for (const invalidPassword of ["Abc123!", "Abcd12😀", "1234567!", "Password!", "Password1", "Abcd123 ", "Abcd123한"]) {
+    for (const invalidPassword of ["Abc123!", "Abcd12😀", "ABCD123!", "1234567!", "Password!", "Password1", "Abcd123 ", "Abcd123한"]) {
       await expect(service.resetPassword(prepared.token, invalidPassword))
         .rejects.toMatchObject({ code: "AUTH_CREDENTIALS_INVALID" });
     }

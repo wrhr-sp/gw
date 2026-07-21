@@ -6,13 +6,13 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 
 export type PasswordResetMode = "exchange" | "form" | "invalid";
 const PASSWORD_RESET_EXCHANGE_PENDING_COOKIE = "__Host-hotel_password_reset_exchange_pending";
-const PASSWORD_POLICY_ERROR = "비밀번호는 8자 이상이며 영문, 숫자, 기호를 각각 포함해야 합니다.";
+const PASSWORD_POLICY_ERROR = "비밀번호는 8자 이상이며 영문 소문자, 숫자, 기호를 각각 포함해야 합니다.";
 const PASSWORD_MISMATCH_ERROR = "새 비밀번호와 비밀번호 확인이 일치하지 않습니다.";
 
 function meetsPasswordPolicy(password: string) {
   const characterLength = [...password].length;
   return characterLength >= 8 && characterLength <= 200 &&
-    /[A-Za-z]/u.test(password) && /[0-9]/u.test(password) && /[\p{P}\p{S}]/u.test(password);
+    /[a-z]/u.test(password) && /[0-9]/u.test(password) && /[\p{P}\p{S}]/u.test(password);
 }
 
 function setExchangePendingCookie(pending: boolean) {
@@ -147,7 +147,7 @@ export function PasswordResetCard({
         ) : (
           <>
             <p className="mb-6 text-sm leading-6 text-muted" id="password-policy-description">
-              다른 곳에서 사용하지 않는 8자 이상의 비밀번호를 입력하세요. 영문, 숫자, 기호를 각각 포함해야 합니다.
+              다른 곳에서 사용하지 않는 8자 이상의 비밀번호를 입력하세요. 영문 소문자, 숫자, 기호를 각각 포함해야 합니다.
             </p>
             {visibleError ? (
               <div className="mb-5 rounded-control border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700" id="password-reset-error" ref={errorRef} role="alert" tabIndex={-1}>

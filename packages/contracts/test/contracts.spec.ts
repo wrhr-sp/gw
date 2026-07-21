@@ -81,10 +81,11 @@ describe("hotel platform contracts", () => {
     }).success).toBe(false);
   });
 
-  it("requires at least eight characters with a letter, number, and symbol", () => {
+  it("requires at least eight characters with a lowercase letter, number, and symbol", () => {
     expect(passwordPolicySchema.safeParse("Abcd123!").success).toBe(true);
     expect(passwordPolicySchema.safeParse("Abc123!").success).toBe(false);
     expect(passwordPolicySchema.safeParse("Abcd12😀").success).toBe(false);
+    expect(passwordPolicySchema.safeParse("ABCD123!").success).toBe(false);
     expect(passwordPolicySchema.safeParse("1234567!").success).toBe(false);
     expect(passwordPolicySchema.safeParse("Password!").success).toBe(false);
     expect(passwordPolicySchema.safeParse("Password1").success).toBe(false);
