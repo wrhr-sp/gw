@@ -55,8 +55,8 @@ export type PrepareCustomLoginResult =
   | { status: "RATE_LIMITED" };
 
 export type ReserveCustomLoginValidationResult =
-  | { status: "RESERVED" }
-  | { status: "VALIDATED" }
+  | { status: "RESERVED"; attemptCount: number }
+  | { status: "VALIDATED"; attemptCount: number }
   | { status: "FLOW_INVALID" }
   | { status: "RATE_LIMITED" };
 
@@ -78,6 +78,10 @@ export interface AuthRepository {
     csrfHash: Uint8Array;
     ipHash: Uint8Array;
   }): Promise<ConsumeCustomLoginAttemptResult>;
+  discardCustomLoginTransaction(input: {
+    authRequestHash: Uint8Array;
+    browserBindingHash: Uint8Array;
+  }): Promise<boolean>;
   createCustomLoginTransaction(
     input: CreateCustomLoginTransactionInput,
   ): Promise<CreateCustomLoginTransactionResult>;
@@ -90,6 +94,7 @@ export interface AuthRepository {
     browserBindingHash: Uint8Array;
     csrfHash: Uint8Array;
     csrfLifetimeSeconds: number;
+    expectedAttemptCount: number;
   }): Promise<PrepareCustomLoginResult>;
   reserveCustomLoginValidation(input: {
     authRequestHash: Uint8Array;
@@ -330,6 +335,7 @@ export function createPostgresAuthRepository(
             custom_csrf_expires_at = now() + make_interval(secs => ${input.csrfLifetimeSeconds})
         where browser_binding_hash = ${input.browserBindingHash}
           and expires_at > now() + make_interval(secs => ${input.csrfLifetimeSeconds})
+          and custom_attempt_count = ${input.expectedAttemptCount}
           and custom_attempt_count < 5
           and (custom_auth_request_hash is null or custom_auth_request_hash = ${input.authRequestHash})
         returning id
@@ -349,39 +355,52 @@ export function createPostgresAuthRepository(
     },
 
     async reserveCustomLoginValidation(input) {
-      const validated = await sql<{ validated: boolean }[]>`
-        select exists (
-          select 1 from auth_login_transactions
+      return sql.begin(async (transaction) => {
+        const [row] = await transaction<
+          {
+            attempt_count: number;
+            auth_request_matches: boolean;
+            id: string;
+            unbound: boolean;
+            validation_count: number;
+          }[]
+        >`
+          select id, custom_attempt_count as attempt_count,
+                 custom_validation_count as validation_count,
+                 custom_auth_request_hash is null as unbound,
+                 coalesce(custom_auth_request_hash = ${input.authRequestHash}, false)
+                   as auth_request_matches
+          from auth_login_transactions
           where browser_binding_hash = ${input.browserBindingHash}
-            and custom_auth_request_hash = ${input.authRequestHash}
             and expires_at > now()
-        ) as validated
-      `;
-      if (validated[0]?.validated) return { status: "VALIDATED" } as const;
-
-      const reserved = await sql<{ id: string }[]>`
-        update auth_login_transactions
-        set custom_validation_count = custom_validation_count + 1
-        where browser_binding_hash = ${input.browserBindingHash}
-          and custom_auth_request_hash is null
-          and custom_validation_count < 5
-          and expires_at > now()
-        returning id
-      `;
-      if (reserved[0]) return { status: "RESERVED" } as const;
-
-      const limited = await sql<{ limited: boolean }[]>`
-        select exists (
-          select 1 from auth_login_transactions
-          where browser_binding_hash = ${input.browserBindingHash}
-            and custom_auth_request_hash is null
-            and custom_validation_count >= 5
-            and expires_at > now()
-        ) as limited
-      `;
-      return limited[0]?.limited
-        ? ({ status: "RATE_LIMITED" } as const)
-        : ({ status: "FLOW_INVALID" } as const);
+          for update
+        `;
+        if (!row) return { status: "FLOW_INVALID" } as const;
+        if (row.auth_request_matches && row.attempt_count === 0) {
+          return {
+            status: "VALIDATED",
+            attemptCount: row.attempt_count,
+          } as const;
+        }
+        const mayValidate =
+          row.unbound ||
+          (row.auth_request_matches && row.attempt_count > 0);
+        if (!mayValidate) return { status: "FLOW_INVALID" } as const;
+        if (row.validation_count >= 5) {
+          return { status: "RATE_LIMITED" } as const;
+        }
+        const reserved = await transaction<{ id: string }[]>`
+          update auth_login_transactions
+          set custom_validation_count = custom_validation_count + 1
+          where id = ${row.id}
+          returning id
+        `;
+        if (!reserved[0]) return { status: "FLOW_INVALID" } as const;
+        return {
+          status: "RESERVED",
+          attemptCount: row.attempt_count,
+        } as const;
+      });
     },
 
     async reserveCustomLoginStart(ipHash) {
@@ -471,6 +490,16 @@ export function createPostgresAuthRepository(
           ? ({ status: "RATE_LIMITED" } as const)
           : ({ status: "CONSUMED" } as const);
       });
+    },
+
+    async discardCustomLoginTransaction(input) {
+      const rows = await sql<{ id: string }[]>`
+        delete from auth_login_transactions
+        where browser_binding_hash = ${input.browserBindingHash}
+          and custom_auth_request_hash = ${input.authRequestHash}
+        returning id
+      `;
+      return rows.length === 1;
     },
 
     async createSession(input) {

@@ -647,6 +647,16 @@ export function createApp(options: CreateAppOptions = {}) {
       }
       return context.redirect(result.callbackUrl, 302);
     } catch (error) {
+      if (
+        error instanceof AuthServiceError &&
+        error.code === "AUTH_FLOW_INVALID"
+      ) {
+        setCookie(context, OAUTH_BROWSER_COOKIE_NAME, "", {
+          ...OAUTH_BROWSER_COOKIE_OPTIONS,
+          maxAge: 0,
+        });
+        return context.redirect("/login?error=invalid-flow", 303);
+      }
       const authRequest = encodeURIComponent(parsed.data.authRequest);
       const reason = error instanceof AuthServiceError
         ? error.code === "AUTH_CREDENTIALS_INVALID" ? "invalid-credentials"

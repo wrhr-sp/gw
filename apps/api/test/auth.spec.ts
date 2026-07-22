@@ -383,6 +383,35 @@ describe("hotel auth API", () => {
     expect(response.headers.get("location")).toContain("error=invalid-credentials");
   });
 
+  it("terminates an expired credential auth request without replaying the stale request", async () => {
+    const service = createService({
+      finalizeCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: new URLSearchParams({
+        authRequest: "expired-request-sentinel",
+        csrf: "c".repeat(43),
+        loginName: "HotelAdmin",
+        password: "password-value",
+      }).toString(),
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?error=invalid-flow");
+    expect(response.headers.get("location")).not.toContain("expired-request-sentinel");
+    expect(response.headers.get("set-cookie") ?? "")
+      .toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+  });
+
   it("clears the browser binding before redirecting a completed Console login", async () => {
     const service = createService({
       finalizeCustomLogin: vi.fn(async () => ({

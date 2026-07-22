@@ -376,7 +376,7 @@ export function createZitadelCustomLoginProvider(input: {
           headers: { ...serviceHeaders, "content-type": "application/json" },
           method: "POST",
         });
-        if (!callbackResponse.ok) throw providerFailure(callbackResponse.status);
+        if (!callbackResponse.ok) throw authRequestFailure(callbackResponse.status);
         const callback = callbackResponseSchema.safeParse(await callbackResponse.json());
         if (!callback.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
         const callbackUrl = new URL(callback.data.callbackUrl);

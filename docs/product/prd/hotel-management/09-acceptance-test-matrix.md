@@ -67,6 +67,7 @@
 | `HOT-E2E-046` | 정상 Console tuple과 호텔/Console 요소를 섞은 요청 | custom login 검증 | `${ZITADEL_ISSUER}/ui/console/auth/callback`·`email openid profile` 정상 tuple만 허용하고 client/callback/scope 혼합·중복 scope 거부 |
 | `HOT-E2E-047` | instance 또는 organization 정책이 로그인 MFA 강제 | 비밀번호 custom login 시도 | `AUTH_MFA_REQUIRED`, callback 미발급, 생성된 provider session 정리; READY factor 등록만으로 MFA challenge 완료를 주장하지 않음 |
 | `HOT-E2E-048` | provider `404`로 종료된 Auth Request | start route와 로그인 화면 처리 | `/login?error=invalid-flow`로 이동, 만료 안내와 새 로그인 시작 제공, 기존 auth request·CSRF 재사용 없음 |
+| `HOT-E2E-049` | credential POST 중 만료된 Auth Request | provider `AUTH_FLOW_INVALID` 반환 | 정상 DB에서 exact transaction 삭제, binding cookie 만료, stale request 없는 `/login?error=invalid-flow` 이동; 삭제 오류·응답 유실에서도 다음 CSRF 전 provider 재검증 |
 
 ## 비밀번호 정책 수용 시나리오
 

@@ -59,6 +59,62 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
 
+  it.each([400, 404, 410])(
+    "classifies late auth-request callback HTTP %i as a terminal invalid flow",
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(json({ authRequest: {
+          id: "late-expiry-request",
+          clientId: "hotel-client",
+          redirectUri: base.redirectUri,
+          scope: ["openid", "profile"],
+        } }))
+        .mockResolvedValueOnce(json({ settings: {
+          allowLocalAuthentication: true,
+          forceMfa: false,
+          forceMfaLocalOnly: false,
+        } }))
+        .mockResolvedValueOnce(json({
+          sessionId: "late-expiry-session",
+          sessionToken: "late-expiry-token",
+        }))
+        .mockResolvedValueOnce(json({ session: {
+          id: "late-expiry-session",
+          expirationDate: "2026-07-17T00:05:00.000Z",
+          factors: {
+            user: {
+              id: "subject-1",
+              organizationId: "org-1",
+              verifiedAt: "2026-07-17T00:00:00.000Z",
+            },
+            password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+          },
+        } }))
+        .mockResolvedValueOnce(json({ settings: {
+          allowLocalAuthentication: true,
+          forceMfa: false,
+          forceMfaLocalOnly: false,
+        } }))
+        .mockResolvedValueOnce(json({}, status))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "late-expiry-request",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({
+        code: "AUTH_FLOW_INVALID",
+        httpStatus: 400,
+        retryable: false,
+      });
+      expect(String(fetcher.mock.calls[6]?.[0])).toContain(
+        "/v2/sessions/late-expiry-session",
+      );
+      expect(fetcher.mock.calls[6]?.[1]?.method).toBe("DELETE");
+    },
+  );
+
   it("accepts omitted false booleans in protobuf JSON login settings", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
