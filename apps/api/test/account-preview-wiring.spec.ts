@@ -77,6 +77,7 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_USER_PROVISIONER_TOKEN",
       "ZITADEL_PREVIEW_SUBJECT",
       "ZITADEL_PREVIEW_SUBJECT_SHA256",
+      "ZITADEL_PREVIEW_PASSWORD",
       "ZITADEL_ISSUER",
       "ZITADEL_CLIENT_ID",
       "ZITADEL_CONSOLE_CLIENT_ID",
@@ -97,8 +98,14 @@ describe("Preview account provisioning wiring", () => {
     const missingLines = empty.stderr
       .split("\n")
       .filter((line) => line.startsWith("Missing required Preview configuration: "));
-    expect(missingLines).toHaveLength(17);
-    expect(new Set(missingLines).size).toBe(17);
+    expect(missingLines).toHaveLength(18);
+    expect(new Set(missingLines).size).toBe(18);
+    expect(preflight.indexOf("unset ZITADEL_PREVIEW_PASSWORD")).toBeGreaterThan(
+      preflight.indexOf("for name in \"${missing[@]}\""),
+    );
+    expect(preflight.indexOf("unset ZITADEL_PREVIEW_PASSWORD")).toBeLessThan(
+      preflight.indexOf("node <<'NODE'"),
+    );
 
     const canaryEnv = Object.fromEntries(
       required!.slice(1).map((name, index) => [name, `secret-canary-${index}`]),
@@ -115,6 +122,16 @@ describe("Preview account provisioning wiring", () => {
     expect(`${oneMissing.stdout}\n${oneMissing.stderr}`).not.toContain(
       "secret-canary-",
     );
+
+    const allPresent = spawnSync("bash", {
+      input: shell,
+      encoding: "utf8",
+      env: Object.fromEntries(required!.map((name, index) => [name, `secret-canary-${index}`])),
+    });
+    expect(allPresent.status).toBe(0);
+    expect(`${allPresent.stdout}\n${allPresent.stderr}`).not.toContain(
+      "secret-canary-",
+    );
   });
 
   it("verifies the approved ZITADEL identity before database bootstrap", () => {
@@ -124,10 +141,13 @@ describe("Preview account provisioning wiring", () => {
     const contractStep = "Contract Neon Preview tenant authority";
     const accountLoginStep =
       "Verify hosted Preview account management and canonical login before contract";
+    const consoleCredentialStep =
+      "Verify hosted Preview Console credential and callback before contract";
     const mappingStep =
       "Verify public Preview path and bootstrap mapping before contract";
     expect(workflow).toContain(verifyStep);
     expect(workflow).toContain(accountLoginStep);
+    expect(workflow).toContain(consoleCredentialStep);
     expect(workflow).toContain("node scripts/smoke-zitadel-console-preview.mjs");
     expect(workflow).toContain(
       "pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts",
@@ -145,7 +165,16 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf(accountLoginStep),
     );
     expect(workflow.indexOf(accountLoginStep)).toBeLessThan(
+      workflow.indexOf(consoleCredentialStep),
+    );
+    expect(workflow.indexOf(consoleCredentialStep)).toBeLessThan(
       workflow.indexOf(contractStep),
+    );
+    expect(workflow).toMatch(
+      /Verify hosted Preview Console credential and callback before contract[\s\S]*ZITADEL_PREVIEW_PASSWORD:\s*\$\{\{\s*secrets\.ZITADEL_PREVIEW_PASSWORD\s*\}\}[\s\S]*node scripts\/smoke-zitadel-console-preview\.mjs/u,
+    );
+    expect(workflow.slice(0, workflow.indexOf("steps:"))).not.toContain(
+      "ZITADEL_PREVIEW_PASSWORD",
     );
     expect(workflow).toMatch(
       /Verify approved ZITADEL bootstrap identity[\s\S]*ZITADEL_USER_PROVISIONER_TOKEN:[\s\S]*secrets\.ZITADEL_USER_PROVISIONER_TOKEN/u,

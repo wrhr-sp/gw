@@ -64,6 +64,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -79,6 +80,7 @@ jobs:
             ZITADEL_USER_PROVISIONER_TOKEN
             ZITADEL_PREVIEW_SUBJECT
             ZITADEL_PREVIEW_SUBJECT_SHA256
+            ZITADEL_PREVIEW_PASSWORD
             ZITADEL_ISSUER
             ZITADEL_CLIENT_ID
             ZITADEL_CONSOLE_CLIENT_ID
@@ -98,6 +100,7 @@ jobs:
             done
             exit 1
           fi
+          unset ZITADEL_PREVIEW_PASSWORD
           node <<'NODE'
           const key = process.env.AUTH_TRANSACTION_ENCRYPTION_KEY;
           const bytes = Buffer.from(key, "base64url");
@@ -603,6 +606,14 @@ jobs:
         env:
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: node scripts/smoke-account-preview.mjs
+
+      - name: Verify hosted Preview Console credential and callback before contract
+        id: console_credential_callback_smoke
+        env:
+          ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK: "true"
+          ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Contract Neon Preview tenant authority
         id: contract_database

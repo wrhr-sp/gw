@@ -9,9 +9,15 @@ const webPreviewUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
 const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
+const previewPassword = process.env.ZITADEL_PREVIEW_PASSWORD;
+const requireCredentialCallback =
+  process.env.ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK === "true";
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
 if (!webPreviewUrl || !issuer || !consoleClientId || !bootstrapSubject || !apiUrlFile) {
   throw new Error("Console Preview smoke configuration is missing");
+}
+if (requireCredentialCallback && !previewPassword) {
+  throw new Error("Console Preview credential configuration is missing");
 }
 const webOrigin = new URL(webPreviewUrl).origin;
 const issuerUrl = new URL(issuer);
@@ -84,8 +90,47 @@ try {
   ) {
     throw new Error("Preview Console browser binding cookie contract is invalid");
   }
+
+  if (requireCredentialCallback) {
+    let callbackRequestObserved = false;
+    const observeCallbackRequest = (request) => {
+      const candidate = new URL(request.url());
+      if (
+        candidate.origin === issuerUrl.origin &&
+        candidate.pathname === "/ui/console/auth/callback"
+      ) {
+        callbackRequestObserved = true;
+      }
+    };
+    page.on("request", observeCallbackRequest);
+    try {
+      await page.locator("#login-name").fill("previewadmin");
+      await page.locator("#login-password").fill(previewPassword);
+      await page.getByRole("button", { name: "로그인", exact: true }).click();
+      await page.waitForURL((candidate) =>
+        candidate.origin === issuerUrl.origin &&
+        candidate.pathname.startsWith("/ui/console") &&
+        candidate.pathname !== "/ui/console/auth/callback",
+      { timeout: 60_000 });
+    } catch {
+      throw new Error("Preview Console credential flow did not complete");
+    } finally {
+      page.off("request", observeCallbackRequest);
+    }
+    if (!callbackRequestObserved) {
+      throw new Error("Console callback request was not observed");
+    }
+    const terminalCookies = await context.cookies(webPreviewUrl);
+    if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {
+      throw new Error("Preview Console browser binding cookie remained after terminal success");
+    }
+  }
 } finally {
   await browser.close();
 }
 
-console.log("ZITADEL_CONSOLE_PREVIEW_PREAUTH_SMOKE_OK");
+console.log(
+  requireCredentialCallback
+    ? "ZITADEL_CONSOLE_PREVIEW_CREDENTIAL_CALLBACK_SMOKE_OK"
+    : "ZITADEL_CONSOLE_PREVIEW_PREAUTH_SMOKE_OK",
+);
