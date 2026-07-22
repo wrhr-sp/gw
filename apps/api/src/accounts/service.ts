@@ -245,6 +245,7 @@ export function createAccountService(input: {
         );
       value = parsed.data;
       const accountId = crypto.randomUUID();
+      const traceId = crypto.randomUUID();
       const hotelIds =
         value.userType === "HOUSEKEEPING"
           ? (value.hotelIds ?? [])
@@ -266,10 +267,12 @@ export function createAccountService(input: {
         accountId,
         actor: actor(principal),
         attemptId: crypto.randomUUID(),
+        auditEventId: crypto.randomUUID(),
         hotelIds,
         completionPayload: nonSecretRequest,
         idempotencyKey,
         requestHash: await sha256(JSON.stringify(nonSecretRequest)),
+        traceId,
       });
       if (reserved.status === "FORBIDDEN")
         throw new AccountServiceError("FORBIDDEN", 403, false);
@@ -398,6 +401,7 @@ export function createAccountService(input: {
         }
         const completed = await input.repository.completeCreate({
           accountId: targetId,
+          actorType: principal.userType,
           actorUserId: principal.userId,
           assignmentIds: hotelIds.map(() => crypto.randomUUID()),
           auditEventId: crypto.randomUUID(),
@@ -406,7 +410,7 @@ export function createAccountService(input: {
           idempotencyKey,
           leaseVersion,
           subject,
-          traceId: crypto.randomUUID(),
+          traceId,
           value: nonSecretRequest,
         });
         if (completed.status === "FORBIDDEN") {

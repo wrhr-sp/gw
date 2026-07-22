@@ -55,6 +55,9 @@ const createJobs = [
     leaseVersion: 1,
     status: "PROVIDER_CONFIRMED" as const,
     completionPayload,
+    originActorType: "INTERNAL_STAFF" as const,
+    originSessionId: "23000000-0000-4000-8000-000000000002",
+    traceId: "93000000-0000-4000-8000-000000000002",
   },
 ];
 
@@ -230,10 +233,17 @@ describe("account provider outbox reconciler", () => {
       }),
     );
     expect(accounts.completeCreate).toHaveBeenCalledTimes(2);
+    expect(accounts.completeCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ traceId: createJobs[0]!.attemptId }),
+    );
     expect(accounts.completeCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: createJobs[1]!.userId,
+        actorType: createJobs[1]!.originActorType,
         assignmentIds: [expect.any(String), expect.any(String)],
+        sessionId: createJobs[1]!.originSessionId,
+        traceId: createJobs[1]!.traceId,
         value: completionPayload,
       }),
     );

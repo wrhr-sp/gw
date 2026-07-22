@@ -256,7 +256,9 @@ DB·migration·ZITADEL 설정이 없으면 가짜 성공·DB-only 사용자·in-
 - `ACCOUNT_DEACTIVATED`
 - `ACCOUNT_SESSION_REVOKED`
 
-비밀번호·token·전체 이메일 원문·provider 오류 body는 감사에 저장하지 않는다. 대상 사용자 ID, 회사 ID, 사용자유형, 호텔 ID, 행위자, 결과, 사유, trace ID, 시각을 저장한다.
+비밀번호·token·전체 이메일 원문·login ID·provider subject·provider 오류 body·사용자 자유문 사유는 감사에 저장하지 않는다. 대상 사용자 ID, 회사 ID, 사용자유형, 호텔 ID, 행위자, 결과, 안정적인 사유 코드, trace ID, 시각을 저장한다. 단일 호텔 사건만 `branch_id`를 설정하고, 복수 호텔 사건은 `branch_id=null`과 정렬·중복제거한 전체 `hotelIds`를 구조화 summary에 저장한다.
+
+`ACCOUNT_PROVISION_REQUESTED`는 신규 provisioning attempt 최초 reserve와 같은 transaction에서 1회만 저장하고 멱등 replay에는 추가하지 않는다. 이 transaction은 최초 actor type·session·trace를 attempt 내부 metadata에 함께 저장한다. `ACCOUNT_CREATED`도 API 즉시 완료와 scheduled recovery 모두 최초 actor type·session·trace를 기록한다. `ACCOUNT_CREATE_FAILED`는 provider identity 생성 뒤 DB 완료 실패가 증명되어 compensation intent·outbox를 저장하는 transaction에서 1회 기록한다. provider 결과나 DB 완료 여부가 불명확한 recovery 상태에는 terminal 실패 사건을 기록하지 않는다. `ACCOUNT_COMPENSATION_SUCCEEDED`와 `ACCOUNT_COMPENSATION_FAILED`는 claim-token 승자의 outbox marker와 같은 transaction에서 기록한다. stale marker와 멱등 replay는 중복 사건을 만들지 않으며, 실제 provider 재시도 실패는 각 fenced attempt별 실패 사건을 남길 수 있다. `ACCOUNT_SESSION_REVOKED`는 계정 중지의 local INACTIVE·활성 세션 회수·provider outbox transaction에서 회수 건수와 함께 1회 기록하고, 세션이 0건이어도 수행 결과를 기록한다. 생성 request→완료·실패→보상 사건과 scheduled recovery는 attempt에 저장된 최초 actor type·session·trace를 재사용한다. legacy provider-confirmed attempt에 trace가 없으면 compensation 준비 transaction에서 새 trace를 durable backfill하고, 이미 active인 legacy compensation job은 stable outbox job ID를 trace fallback으로 사용한다. legacy recovery completion은 stable attempt ID를 trace fallback으로 사용하며 origin actor/session metadata가 없으면 actor type은 기존 안전 fallback, session은 null로 기록한다. 감사 insert가 실패하면 결합된 attempt·outbox·사용자·session 전이도 모두 rollback한다.
 
 ## 17. 수용 기준
 

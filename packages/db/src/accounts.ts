@@ -32,14 +32,17 @@ export type ReserveAccountCreateInput = {
   accountId: string;
   actor: AccountActor;
   attemptId: string;
+  auditEventId?: string;
   hotelIds: string[];
   completionPayload: AccountCreateCompletionPayload;
   idempotencyKey: string;
   requestHash: string;
+  traceId?: string;
 };
 
 export type CompleteAccountCreateInput = {
   accountId: string;
+  actorType?: HotelUserType;
   actorUserId: string;
   assignmentIds: string[];
   auditEventId: string;
@@ -482,6 +485,8 @@ export function createPostgresAccountRepository(
     },
 
     async reserveCreate(input) {
+      const auditEventId = input.auditEventId ?? crypto.randomUUID();
+      const traceId = input.traceId ?? crypto.randomUUID();
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         if (!(await permission(transaction, input.actor, "USER_CREATE")))
@@ -596,7 +601,13 @@ export function createPostgresAccountRepository(
             ${input.attemptId}, ${input.actor.companyId}, ${input.actor.userId}, ${targetAccountId},
             ${input.idempotencyKey}, ${input.requestHash}, ${transaction.json({
               ...input.completionPayload,
+              ...(input.completionPayload.userType === "HOUSEKEEPING"
+                ? { hotelIds: [...hotelIds].sort() }
+                : {}),
               action: "CREATE",
+              originActorType: input.actor.userType,
+              originSessionId: input.actor.sessionId,
+              traceId,
               userId: targetAccountId,
             })},
             'RESERVED_NOT_DISPATCHED', now() + interval '24 hours'
@@ -604,12 +615,31 @@ export function createPostgresAccountRepository(
           on conflict (company_id, actor_user_id, idempotency_key) do nothing
           returning target_user_id, attempt_count
         `;
-        if (inserted[0])
+        if (inserted[0]) {
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            ) values (
+              ${auditEventId}, 'ACCOUNT_PROVISION_REQUESTED',
+              ${input.actor.userId}, ${input.actor.userType}, ${input.actor.sessionId},
+              ${input.actor.companyId}, ${hotelIds.length === 1 ? hotelIds[0]! : null},
+              'USER', ${inserted[0].target_user_id},
+              ${transaction.json({
+                hotelCount: hotelIds.length,
+                hotelIds: [...hotelIds].sort(),
+                userType: input.completionPayload.userType,
+              })},
+              'ACCOUNT_PROVISION_REQUESTED', 'SUCCEEDED', ${traceId}
+            )
+          `;
           return {
             status: "RESERVED_NOT_DISPATCHED",
             accountId: inserted[0].target_user_id,
             leaseVersion: inserted[0].attempt_count,
           } as const;
+        }
         const [existing] = await transaction<
           {
             attempt_count: number;
@@ -908,13 +938,21 @@ export function createPostgresAccountRepository(
           }
           await transaction`
             insert into audit_events (
-              id, event_code, actor_user_id, actor_type, company_id, branch_id,
+              id, event_code, actor_user_id, actor_type, session_id, company_id, branch_id,
               resource_type, resource_id, after_summary, reason, result, trace_id
             ) values (
-              ${input.auditEventId}, 'ACCOUNT_CREATED', ${input.actorUserId}, 'INTERNAL_STAFF',
-              ${input.companyId}, ${hotelIds[0]!}, 'USER', ${input.accountId},
-              ${transaction.json({ userType: input.value.userType, status: "PENDING_SETUP", hotelCount: hotelIds.length })},
-              ${input.value.reason}, 'SUCCEEDED', ${input.traceId}
+              ${input.auditEventId}, 'ACCOUNT_CREATED', ${input.actorUserId},
+              ${input.actorType ?? "INTERNAL_STAFF"},
+              ${input.sessionId ?? null}, ${input.companyId},
+              ${hotelIds.length === 1 ? hotelIds[0]! : null},
+              'USER', ${input.accountId},
+              ${transaction.json({
+                userType: input.value.userType,
+                status: "PENDING_SETUP",
+                hotelCount: hotelIds.length,
+                hotelIds: [...hotelIds].sort(),
+              })},
+              'ACCOUNT_CREATED', 'SUCCEEDED', ${input.traceId}
             )
           `;
           await transaction`
@@ -946,6 +984,8 @@ export function createPostgresAccountRepository(
 
     async prepareCompensation(input) {
       const providerJobId = crypto.randomUUID();
+      const auditEventId = crypto.randomUUID();
+      const legacyTraceId = crypto.randomUUID();
       return sql.begin(async (transaction) => {
         if (input.sessionId) {
           await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
@@ -953,17 +993,32 @@ export function createPostgresAccountRepository(
           await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
         }
         const updated = await transaction<
-          { id: string; provider_subject: string }[]
+          {
+            actor_user_id: string;
+            completion_payload: Record<string, unknown>;
+            id: string;
+            provider_subject: string;
+          }[]
         >`
           update account_provisioning_attempts
           set status = 'COMPENSATION_REQUIRED',
               failure_code = 'DB_COMPLETION_FAILED',
               compensation_required_at = now(),
+              completion_payload = case
+                when jsonb_typeof(completion_payload->'traceId') = 'string'
+                then completion_payload
+                else jsonb_set(
+                  completion_payload,
+                  '{traceId}',
+                  to_jsonb(${legacyTraceId}::text),
+                  true
+                )
+              end,
               updated_at = now()
           where company_id = ${input.companyId} and target_user_id = ${input.accountId}
             and status = 'PROVIDER_CONFIRMED'
             and attempt_count = ${input.leaseVersion}
-          returning id, provider_subject
+          returning id, actor_user_id, completion_payload, provider_subject
         `;
         if (!updated[0]) return { status: "STALE_LEASE" } as const;
         await transaction`
@@ -978,6 +1033,60 @@ export function createPostgresAccountRepository(
               action: "COMPENSATE",
             })},
             'PENDING', now()
+          )
+        `;
+        const completionPayload = updated[0].completion_payload;
+        const originActorType = completionPayload.originActorType;
+        const originSessionId = completionPayload.originSessionId;
+        const traceId = completionPayload.traceId;
+        const userType = completionPayload.userType;
+        const hotelIds = Array.isArray(completionPayload.hotelIds)
+          ? completionPayload.hotelIds.filter(
+              (hotelId): hotelId is string => typeof hotelId === "string",
+            )
+          : typeof completionPayload.hotelId === "string"
+            ? [completionPayload.hotelId]
+            : [];
+        if (
+          typeof traceId !== "string" ||
+          typeof userType !== "string" ||
+          !hotelIds[0]
+        ) {
+          throw new Error("account compensation audit context is unavailable");
+        }
+        const [auditActor] = await transaction<{ user_type: string }[]>`
+          select user_type from users
+          where company_id = ${input.companyId}
+            and id = ${updated[0].actor_user_id}
+        `;
+        if (!auditActor) {
+          throw new Error("account compensation audit actor is unavailable");
+        }
+        const auditActorType =
+          originActorType === "INTERNAL_STAFF" ||
+          originActorType === "HOUSEKEEPING" ||
+          originActorType === "HOTEL_OWNER"
+            ? originActorType
+            : auditActor.user_type;
+        const auditSessionId =
+          typeof originSessionId === "string"
+            ? originSessionId
+            : (input.sessionId ?? null);
+        await transaction`
+          insert into audit_events (
+            id, event_code, actor_user_id, actor_type, session_id,
+            company_id, branch_id, resource_type, resource_id,
+            after_summary, reason, result, trace_id
+          ) values (
+            ${auditEventId}, 'ACCOUNT_CREATE_FAILED', ${updated[0].actor_user_id},
+            ${auditActorType}, ${auditSessionId}, ${input.companyId},
+            ${hotelIds.length === 1 ? hotelIds[0] : null}, 'USER', ${input.accountId},
+            ${transaction.json({
+              hotelCount: hotelIds.length,
+              hotelIds: [...hotelIds].sort(),
+              userType,
+            })},
+            ${input.originalErrorCode}, 'FAILED', ${traceId}
           )
         `;
         return {
@@ -1126,6 +1235,58 @@ export function createPostgresAccountRepository(
           if (!compensated[0]) {
             throw new Error("account compensation state is unavailable");
           }
+          if (!input.job.originalErrorCode) {
+            throw new Error("account compensation original error is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_SUCCEEDED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   coalesce(
+                     (attempt.completion_payload->>'originSessionId')::uuid,
+                     ${input.sessionId}::uuid
+                   ),
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${input.job.originalErrorCode}, 'SUCCEEDED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${input.job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${input.job.provisioningAttemptId}
+              and attempt.company_id = ${input.companyId}
+          `;
         }
         return "UPDATED" as const;
       });
@@ -1149,7 +1310,68 @@ export function createPostgresAccountRepository(
             and claim_token = ${input.job.claimToken}
           returning id
         `;
-        return updated[0] ? "UPDATED" as const : "STALE_CLAIM" as const;
+        if (!updated[0]) return "STALE_CLAIM" as const;
+        if (input.job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (
+            !input.job.provisioningAttemptId ||
+            !input.job.originalErrorCode
+          ) {
+            throw new Error("account compensation audit linkage is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_FAILED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   coalesce(
+                     (attempt.completion_payload->>'originSessionId')::uuid,
+                     ${input.sessionId}::uuid
+                   ),
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${input.errorCode}, 'FAILED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${input.job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${input.job.provisioningAttemptId}
+              and attempt.company_id = ${input.companyId}
+              and attempt.target_user_id = ${input.job.userId}
+              and attempt.provider_subject = ${input.job.providerSubject}
+              and attempt.status = 'COMPENSATION_REQUIRED'
+          `;
+        }
+        return "UPDATED" as const;
       });
     },
 
@@ -1470,9 +1692,24 @@ export function createPostgresAccountRepository(
             version = version + 1, updated_at = now()
           where company_id = ${input.actor.companyId} and id = ${input.targetUserId}
         `;
-        await transaction`
+        const [revocation] = await transaction<{ revoked_count: number }[]>`
           select public.auth_revoke_user_sessions_v1(
             ${input.actor.companyId}, ${input.targetUserId}, 'ACCOUNT_DEACTIVATED'
+          ) as revoked_count
+        `;
+        if (!revocation) {
+          throw new Error("account session revocation result is unavailable");
+        }
+        await transaction`
+          insert into audit_events (
+            id, event_code, actor_user_id, actor_type, session_id, company_id,
+            resource_type, resource_id, after_summary, reason, result, trace_id
+          ) values (
+            gen_random_uuid(), 'ACCOUNT_SESSION_REVOKED', ${input.actor.userId},
+            ${input.actor.userType}, ${input.actor.sessionId}, ${input.actor.companyId},
+            'USER', ${input.targetUserId},
+            ${transaction.json({ revokedCount: revocation.revoked_count })},
+            'ACCOUNT_DEACTIVATED', 'SUCCEEDED', ${input.traceId}
           )
         `;
         await transaction`
@@ -1495,7 +1732,7 @@ export function createPostgresAccountRepository(
           ) values (
             ${input.auditEventId}, 'ACCOUNT_DEACTIVATED', ${input.actor.userId}, ${input.actor.userType},
             ${input.actor.sessionId}, ${input.actor.companyId}, 'USER', ${input.targetUserId},
-            ${input.value.reason}, 'SUCCEEDED', ${input.traceId}
+            'ACCOUNT_DEACTIVATED', 'SUCCEEDED', ${input.traceId}
           )
         `;
         const account = await selectAccount(

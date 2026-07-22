@@ -289,12 +289,19 @@ describe("account administration service", () => {
     expect(repo.markProviderCreated).toHaveBeenCalledWith(
       expect.objectContaining({ accountId, subject: accountId }),
     );
+    const reservedTraceId = vi.mocked(repo.reserveCreate).mock.calls[0]?.[0].traceId;
+    expect(reservedTraceId).toEqual(expect.any(String));
+    expect(repo.reserveCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ auditEventId: expect.any(String) }),
+    );
     expect(repo.completeCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId,
+        actorType: principal.userType,
         companyId: principal.companyId,
         actorUserId: principal.userId,
         assignmentIds: [expect.any(String), expect.any(String)],
+        traceId: reservedTraceId,
         value: expect.objectContaining({ hotelIds: [hotelId, secondHotelId] }),
         subject: accountId,
       }),
