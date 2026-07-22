@@ -102,6 +102,13 @@ function providerFailure(status: number): AuthServiceError {
   return new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
 }
 
+function authRequestFailure(status: number): AuthServiceError {
+  if (status === 400 || status === 404 || status === 410) {
+    return new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+  }
+  return providerFailure(status);
+}
+
 export function createZitadelCustomLoginProvider(input: {
   clientId: string;
   consoleClientId?: string;
@@ -157,17 +164,14 @@ export function createZitadelCustomLoginProvider(input: {
     try {
       const response = await fetcher(url, { ...init, redirect: "manual" });
       if (response.status >= 300 && response.status < 400) {
-        let pathname = "invalid";
         let sameOrigin = false;
         try {
           const location = new URL(response.headers.get("location") ?? "", url);
-          pathname = location.pathname;
           sameOrigin = location.origin === issuer;
         } catch {
           // Invalid redirect metadata remains fail-closed.
         }
         console.warn("custom_login_provider_redirect_rejected", {
-          pathname,
           sameOrigin,
           status: response.status,
         });
@@ -199,7 +203,7 @@ export function createZitadelCustomLoginProvider(input: {
     });
     if (!authResponse.ok) {
       console.warn("custom_login_auth_request_rejected", { reason: "http", status: authResponse.status });
-      throw providerFailure(authResponse.status);
+      throw authRequestFailure(authResponse.status);
     }
     let authBody: unknown;
     try {

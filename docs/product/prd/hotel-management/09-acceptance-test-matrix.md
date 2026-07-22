@@ -62,6 +62,11 @@
 | `HOT-E2E-041` | 일반 사용자 활성 session | 관리자가 계정 중지 | 로컬 상태 즉시 `INACTIVE`, 기존 session 회수, 신규 로그인 차단 |
 | `HOT-E2E-042` | 계정 중지 또는 생성 보상 시 provider 일시 실패 | scheduled reconciler 실행 | outbox claim·backoff 후 provider 비활성화와 `SUCCEEDED`/`COMPENSATED`로 수렴 |
 | `HOT-E2E-043` | 390px 모바일·키보드 사용자 | 계정 목록·생성·상세·중지·비밀번호 변경 | 모바일 재배치, 오류 focus·label·44px 동작영역·중복 제출 차단 통과 |
+| `HOT-E2E-044` | 만료되거나 존재하지 않는 ZITADEL Auth Request | custom login 시작 | `AUTH_FLOW_INVALID`, 재시도 불가, 서비스 장애 문구 대신 새 인증 요청 안내 |
+| `HOT-E2E-045` | Preview 필수 configuration 여러 개 누락 | release preflight 실행 | 모든 누락 이름을 한 번에 비민감 출력하고 첫 mutation 전에 중단 |
+| `HOT-E2E-046` | 정상 Console tuple과 호텔/Console 요소를 섞은 요청 | custom login 검증 | `${ZITADEL_ISSUER}/ui/console/auth/callback`·`email openid profile` 정상 tuple만 허용하고 client/callback/scope 혼합·중복 scope 거부 |
+| `HOT-E2E-047` | instance 또는 organization 정책이 로그인 MFA 강제 | 비밀번호 custom login 시도 | `AUTH_MFA_REQUIRED`, callback 미발급, 생성된 provider session 정리; READY factor 등록만으로 MFA challenge 완료를 주장하지 않음 |
+| `HOT-E2E-048` | provider `404`로 종료된 Auth Request | start route와 로그인 화면 처리 | `/login?error=invalid-flow`로 이동, 만료 안내와 새 로그인 시작 제공, 기존 auth request·CSRF 재사용 없음 |
 
 ## 비밀번호 정책 수용 시나리오
 

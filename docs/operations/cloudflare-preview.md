@@ -38,7 +38,7 @@ Preview environment secrets:
 - `DATABASE_RECONCILER_PASSWORD_PREVIEW`: API password와 반드시 다른 값
 - `AUTH_TRANSACTION_ENCRYPTION_KEY`
 - `ZITADEL_SERVICE_USER_TOKEN`: `IAM_LOGIN_CLIENT` 전용 Preview service user PAT
-- `ZITADEL_USER_PROVISIONER_TOKEN`: Preview organization 사람 사용자 수명주기 전용 최소권한 PAT
+- `ZITADEL_USER_PROVISIONER_TOKEN`: Preview organization 사람 사용자 수명주기 전용 별도 service account PAT. 운영 승인 prerequisite는 `ORG_USER_MANAGER`만 부여하고 `IAM_*`·`ORG_OWNER`를 부여하지 않는 것임
 - `ZITADEL_PREVIEW_SUBJECT`
 - `ZITADEL_PREVIEW_SUBJECT_SHA256`: 승인된 최초 관리자 subject fingerprint
 
@@ -46,15 +46,18 @@ Preview environment variables:
 
 - `ZITADEL_ISSUER`
 - `ZITADEL_CLIENT_ID`
+- `ZITADEL_CONSOLE_CLIENT_ID`: ZITADEL 기본 Console client의 고정 ID. 호텔 Web client ID와 재사용 금지
 - `ZITADEL_REDIRECT_URI`
 - `ZITADEL_ORGANIZATION_ID`
 - `PREVIEW_BOOTSTRAP_APPROVAL_REF`: 최초 관리자 승인의 안정적인 티켓·결정 ID. `github.run_id`처럼 배포마다 바뀌는 값 금지
 
-secret 값은 로그, 문서, artifact 또는 repository에 저장하지 않는다. 승인 참조는 비밀값이 아니지만 protected `preview` environment에서만 변경하고, 최초 bootstrap 이후 identity·organization·fingerprint와 함께 불변성을 검사한다.
+secret 값은 로그, 문서, artifact 또는 repository에 저장하지 않는다. 승인 참조는 비밀값이 아니지만 protected `preview` environment에서만 변경하고, 최초 bootstrap 이후 identity·organization·fingerprint와 함께 불변성을 검사한다. release preflight는 누락된 required configuration 이름을 모두 모아 한 번에 출력한 뒤 첫 mutation 전에 중단하며 값은 출력하지 않는다.
 
-Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을 유지하고 앱별 custom Login V2 base URL을 Preview Web의 `/api/auth/custom-login/start`로 설정한다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 결합하고 single-use CSRF를 발급한 뒤 `/login`으로 이동시킨다. 인스턴스 전체 전환은 하지 않는다. 문제가 생기면 앱별 custom login 설정만 해제해 기존 hosted login으로 rollback한다.
+최초 Preview 관리자 subject는 release 전에 ZITADEL에서 Active Human, 정확한 Preview organization, Ready MFA factor를 모두 충족해야 한다. MFA factor 등록은 bootstrap identity 보호 gate이며 현재 호텔 custom credential 화면의 입력은 짧은 ID·비밀번호까지다. ZITADEL 조직 정책이 로그인 MFA를 강제하면 호텔 custom login은 우회하지 않고 `AUTH_MFA_REQUIRED`로 중단한다.
 
-두 ZITADEL PAT는 서로 다른 service user와 최소역할을 사용한다. 둘 다 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
+Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을 유지하고 앱별 custom Login V2 base URL을 Preview Web의 `/api/auth/custom-login/start`로 설정한다. 호텔 Web tuple은 `ZITADEL_CLIENT_ID`·`ZITADEL_REDIRECT_URI`·`openid profile`, Console tuple은 `ZITADEL_CONSOLE_CLIENT_ID`·`${ZITADEL_ISSUER}/ui/console/auth/callback`·`email openid profile`로 고정하며 두 tuple의 요소를 섞지 않는다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 결합하고 single-use CSRF를 발급한 뒤 `/login`으로 이동시킨다. custom login 시작 단계에서 만료·존재하지 않는 auth request의 provider `400`·`404`·`410`은 `AUTH_FLOW_INVALID`로 종료하며 기존 URL을 재사용하지 않고 Console 또는 호텔 로그인 시작점에서 새 요청을 만든다. 이를 `AUTH_PROVIDER_UNAVAILABLE`로 표시하지 않는다. 인스턴스 전체 전환은 하지 않는다. 문제가 생기면 앱별 custom login 설정만 해제해 기존 hosted login으로 rollback한다.
+
+두 ZITADEL PAT는 서로 다른 service user와 최소역할을 사용해야 한다. 둘 다 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다. 현재 workflow는 secret 이름의 존재와 API 사용 가능성만 검증하며 두 token의 subject·상호 동일성·effective role·금지 role 부재까지 증명하지 않는다. 따라서 Preview 운영자는 발급 시 별도 service account 여부와 실제 role을 ZITADEL에서 read-back해 승인 근거에 남겨야 한다.
 
 비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다.
 
