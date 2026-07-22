@@ -37,6 +37,7 @@ async function createPreparedFlow(
     browserBindingHash,
     csrfHash,
     csrfLifetimeSeconds: 300,
+    expectedAttemptCount: 0,
   });
   if (prepared.status !== "PREPARED")
     throw new Error(`parallel flow prepare failed: ${prepared.status}`);
@@ -116,6 +117,73 @@ try {
     throw new Error(
       "replayed custom request created more than one transaction",
     );
+  }
+
+  const discardFlow = await createPreparedFlow(
+    repository,
+    "https://hotel.example.test/api/auth/callback",
+  );
+  const initialValidation = await repository.reserveCustomLoginValidation({
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+  });
+  if (initialValidation.status !== "VALIDATED") {
+    throw new Error("untouched custom login transaction was not validation-reusable");
+  }
+  const consumedDiscardFlow = await repository.consumeCustomLoginAttempt({
+    accountHash: randomBytes(32),
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+    csrfHash: discardFlow.csrfHash,
+    ipHash: randomBytes(32),
+  });
+  if (consumedDiscardFlow.status !== "CONSUMED") {
+    throw new Error("custom login transaction setup was not consumed");
+  }
+  const postAttemptValidation = await repository.reserveCustomLoginValidation({
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+  });
+  if (postAttemptValidation.status !== "RESERVED") {
+    throw new Error("credential-attempted custom login skipped provider revalidation");
+  }
+  const postAttemptPrepared = await repository.prepareCustomLogin({
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+    csrfHash: randomBytes(32),
+    csrfLifetimeSeconds: 300,
+    expectedAttemptCount: postAttemptValidation.attemptCount,
+  });
+  if (postAttemptPrepared.status !== "PREPARED") {
+    throw new Error("provider-revalidated custom login could not issue a new CSRF");
+  }
+  const wrongDiscard = await repository.discardCustomLoginTransaction({
+    authRequestHash: randomBytes(32),
+    browserBindingHash: discardFlow.browserBindingHash,
+  });
+  if (wrongDiscard) {
+    throw new Error("custom login discard accepted a mismatched auth request hash");
+  }
+  const discarded = await repository.discardCustomLoginTransaction({
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+  });
+  if (!discarded) throw new Error("custom login transaction was not discarded");
+  const discardedRows = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from auth_login_transactions
+    where custom_auth_request_hash = ${discardFlow.authRequestHash}
+      and browser_binding_hash = ${discardFlow.browserBindingHash}
+  `;
+  if (discardedRows[0]?.count !== 0) {
+    throw new Error("discarded custom login transaction remained in PostgreSQL");
+  }
+  const discardedReplay = await repository.discardCustomLoginTransaction({
+    authRequestHash: discardFlow.authRequestHash,
+    browserBindingHash: discardFlow.browserBindingHash,
+  });
+  if (discardedReplay) {
+    throw new Error("custom login transaction discard replay reported a deletion");
   }
 
   const startIpHash = randomBytes(32);
@@ -231,6 +299,7 @@ try {
     browserBindingHash,
     csrfHash,
     csrfLifetimeSeconds: 300,
+    expectedAttemptCount: validationReservation.attemptCount,
   });
   if (prepared.status !== "PREPARED")
     throw new Error(`custom login prepare failed: ${prepared.status}`);
@@ -270,6 +339,16 @@ try {
   });
   if (consumedAttempt.status !== "CONSUMED")
     throw new Error("valid custom login attempt was rejected");
+  const staleValidatedPrepare = await repository.prepareCustomLogin({
+    authRequestHash,
+    browserBindingHash,
+    csrfHash: encode("97".repeat(32)),
+    csrfLifetimeSeconds: 300,
+    expectedAttemptCount: cachedValidation.attemptCount,
+  });
+  if (staleValidatedPrepare.status !== "FLOW_INVALID") {
+    throw new Error("credential attempt did not fence a stale VALIDATED reservation");
+  }
   const replayedAttempt = await repository.consumeCustomLoginAttempt({
     accountHash: encode("15".repeat(32)),
     authRequestHash,
@@ -284,11 +363,19 @@ try {
     const nextCsrfHash = encode(
       attemptNumber.toString(16).padStart(2, "0").repeat(32),
     );
+    const nextValidation = await repository.reserveCustomLoginValidation({
+      authRequestHash,
+      browserBindingHash,
+    });
+    if (nextValidation.status !== "RESERVED") {
+      throw new Error(`attempt ${attemptNumber} did not reserve provider revalidation`);
+    }
     const nextPrepared = await repository.prepareCustomLogin({
       authRequestHash,
       browserBindingHash,
       csrfHash: nextCsrfHash,
       csrfLifetimeSeconds: 300,
+      expectedAttemptCount: nextValidation.attemptCount,
     });
     if (nextPrepared.status !== "PREPARED")
       throw new Error(`attempt ${attemptNumber} was not prepared`);
@@ -302,11 +389,9 @@ try {
     if (nextAttempt.status !== "CONSUMED")
       throw new Error(`attempt ${attemptNumber} was not consumed`);
   }
-  const exhausted = await repository.prepareCustomLogin({
+  const exhausted = await repository.reserveCustomLoginValidation({
     authRequestHash,
     browserBindingHash,
-    csrfHash: encode("70".repeat(32)),
-    csrfLifetimeSeconds: 300,
   });
   if (exhausted.status !== "RATE_LIMITED")
     throw new Error("auth request attempt limit was not enforced");
@@ -414,6 +499,7 @@ try {
       browserBindingHash: probeBrowserHash,
       csrfHash: probeCsrfHash,
       csrfLifetimeSeconds: 300,
+      expectedAttemptCount: 0,
     });
     if (preparedProbe.status !== "PREPARED")
       throw new Error(`${scope} rate probe prepare failed`);

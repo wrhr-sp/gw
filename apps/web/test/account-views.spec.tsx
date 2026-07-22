@@ -81,6 +81,7 @@ describe("account administration views", () => {
       />,
     );
     expect(html).toContain("사용자 계정");
+    expect(html).toContain('aria-label="사용자 계정 도움말"');
     expect(html).toContain("김하우스");
     expect(html).toContain("하우스키핑");
     expect(html).toContain("최초 설정 대기");
@@ -116,6 +117,8 @@ describe("account administration views", () => {
     expect(html).toContain("GANGNAM-01");
     expect(html).toContain("위아히어 부산호텔");
     expect(html).toContain("BUSAN-01");
+    expect(html).toContain('aria-label="사용자 상세 도움말"');
+    expect(html).not.toContain("데이터 버전");
     expect(html).not.toContain(account.hotelId);
   });
 

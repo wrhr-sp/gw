@@ -60,6 +60,11 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Validate required Preview configuration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -67,11 +72,15 @@ jobs:
             CLOUDFLARE_ACCOUNT_ID
             CLOUDFLARE_API_TOKEN
             AUTH_TRANSACTION_ENCRYPTION_KEY
+            DATABASE_URL
+            DATABASE_URL_PREVIEW
             DATABASE_API_RUNTIME_PASSWORD_PREVIEW
             DATABASE_RECONCILER_PASSWORD_PREVIEW
             ZITADEL_SERVICE_USER_TOKEN
             ZITADEL_USER_PROVISIONER_TOKEN
+            ZITADEL_PREVIEW_SUBJECT
             ZITADEL_PREVIEW_SUBJECT_SHA256
+            ZITADEL_PREVIEW_PASSWORD
             ZITADEL_ISSUER
             ZITADEL_CLIENT_ID
             ZITADEL_CONSOLE_CLIENT_ID
@@ -79,12 +88,19 @@ jobs:
             ZITADEL_ORGANIZATION_ID
             PREVIEW_BOOTSTRAP_APPROVAL_REF
           )
+          missing=()
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
-              printf 'Missing required Preview configuration: %s\n' "$name" >&2
-              exit 1
+              missing+=("$name")
             fi
           done
+          if (( ${#missing[@]} > 0 )); then
+            for name in "${missing[@]}"; do
+              printf 'Missing required Preview configuration: %s\n' "$name" >&2
+            done
+            exit 1
+          fi
+          unset ZITADEL_PREVIEW_PASSWORD
           node <<'NODE'
           const key = process.env.AUTH_TRANSACTION_ENCRYPTION_KEY;
           const bytes = Buffer.from(key, "base64url");
@@ -590,6 +606,14 @@ jobs:
         env:
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: node scripts/smoke-account-preview.mjs
+
+      - name: Verify hosted Preview Console credential and callback before contract
+        id: console_credential_callback_smoke
+        env:
+          ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK: "true"
+          ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Contract Neon Preview tenant authority
         id: contract_database

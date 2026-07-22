@@ -59,6 +59,62 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
 
+  it.each([400, 404, 410])(
+    "classifies late auth-request callback HTTP %i as a terminal invalid flow",
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(json({ authRequest: {
+          id: "late-expiry-request",
+          clientId: "hotel-client",
+          redirectUri: base.redirectUri,
+          scope: ["openid", "profile"],
+        } }))
+        .mockResolvedValueOnce(json({ settings: {
+          allowLocalAuthentication: true,
+          forceMfa: false,
+          forceMfaLocalOnly: false,
+        } }))
+        .mockResolvedValueOnce(json({
+          sessionId: "late-expiry-session",
+          sessionToken: "late-expiry-token",
+        }))
+        .mockResolvedValueOnce(json({ session: {
+          id: "late-expiry-session",
+          expirationDate: "2026-07-17T00:05:00.000Z",
+          factors: {
+            user: {
+              id: "subject-1",
+              organizationId: "org-1",
+              verifiedAt: "2026-07-17T00:00:00.000Z",
+            },
+            password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+          },
+        } }))
+        .mockResolvedValueOnce(json({ settings: {
+          allowLocalAuthentication: true,
+          forceMfa: false,
+          forceMfaLocalOnly: false,
+        } }))
+        .mockResolvedValueOnce(json({}, status))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "late-expiry-request",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({
+        code: "AUTH_FLOW_INVALID",
+        httpStatus: 400,
+        retryable: false,
+      });
+      expect(String(fetcher.mock.calls[6]?.[0])).toContain(
+        "/v2/sessions/late-expiry-session",
+      );
+      expect(fetcher.mock.calls[6]?.[1]?.method).toBe("DELETE");
+    },
+  );
+
   it("accepts omitted false booleans in protobuf JSON login settings", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
@@ -362,6 +418,57 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it.each([400, 404, 410])(
+    "classifies an invalid or expired auth request HTTP %i as an invalid flow",
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({}, status));
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+      await expect(provider.validateAuthRequest("request-1"))
+        .rejects.toMatchObject({
+          code: "AUTH_FLOW_INVALID",
+          httpStatus: 400,
+          retryable: false,
+        });
+      expect(fetcher).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    { status: 401, code: "AUTH_PROVIDER_NOT_CONFIGURED", httpStatus: 503, retryable: false },
+    { status: 403, code: "AUTH_PROVIDER_NOT_CONFIGURED", httpStatus: 503, retryable: false },
+    { status: 429, code: "AUTH_RATE_LIMITED", httpStatus: 429, retryable: true },
+    { status: 500, code: "AUTH_PROVIDER_UNAVAILABLE", httpStatus: 503, retryable: true },
+  ])("preserves provider status $status as $code", async ({ status, code, httpStatus, retryable }) => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({}, status));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+    await expect(provider.validateAuthRequest("request-1"))
+      .rejects.toMatchObject({ code, httpStatus, retryable });
+  });
+
+  it.each([400, 404, 410])(
+    "does not classify login-settings HTTP %i as an expired auth request",
+    async (status) => {
+      const fetcher = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(json({ authRequest: {
+          id: "request-1",
+          clientId: "hotel-client",
+          redirectUri: base.redirectUri,
+          scope: ["openid", "profile"],
+        } }))
+        .mockResolvedValueOnce(json({}, status));
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "request-1",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({
+        code: "AUTH_PROVIDER_UNAVAILABLE",
+        httpStatus: 503,
+        retryable: true,
+      });
+    },
+  );
+
   it("sets a password only with the one-time verification code and never returns it", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ details: { sequence: "1" } }));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
@@ -418,17 +525,17 @@ describe("ZITADEL custom login provider", () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, {
       status: 302,
-      headers: { location: `${base.issuer}/ui/login?secret=not-logged` },
+      headers: { location: `${base.issuer}/secret-path-sentinel?secret=not-logged` },
     }));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.validateAuthRequest("request-1"))
       .rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
     expect(warning).toHaveBeenCalledWith("custom_login_provider_redirect_rejected", {
-      pathname: "/ui/login",
       sameOrigin: true,
       status: 302,
     });
-    expect(warning.mock.calls.flat().join(" ")).not.toContain("secret");
+    expect(warning.mock.calls.flat().join(" ")).not.toContain("secret-path-sentinel");
+    expect(warning.mock.calls.flat().join(" ")).not.toContain("not-logged");
     warning.mockRestore();
   });
 });

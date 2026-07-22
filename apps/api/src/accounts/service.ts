@@ -22,6 +22,9 @@ type ApiSessionMethod =
   | "completeCreate"
   | "getCreateOutcome"
   | "prepareCompensation"
+  | "claimExactProviderJob"
+  | "markProviderJobSucceeded"
+  | "markProviderJobFailed"
   | "markInitialPasswordDispatched"
   | "markInitialPasswordRecoveryRequired"
   | "confirmInitialPasswordProviderState"
@@ -103,7 +106,7 @@ export interface AccountService {
     userId: string,
     value: DeactivateAccountRequest,
     idempotencyKey?: string,
-  ): Promise<{ status: "UPDATED"; account: Account }>;
+  ): Promise<{ status: "UPDATED" | "REPLAYED"; account: Account }>;
   changeInitialPassword(
     principal: AuthenticatedPrincipal,
     value: InitialPasswordRequest,
@@ -130,10 +133,99 @@ function actor(principal: AuthenticatedPrincipal) {
   };
 }
 
+function compensationOriginalError(
+  code: "ACCOUNT_DUPLICATE" | "FORBIDDEN" | "INTERNAL_ERROR",
+) {
+  if (code === "FORBIDDEN") {
+    return new AccountServiceError("FORBIDDEN", 403, false);
+  }
+  if (code === "INTERNAL_ERROR") {
+    return new AccountServiceError("INTERNAL_ERROR", 500, true);
+  }
+  return new AccountServiceError("ACCOUNT_DUPLICATE", 409, false);
+}
+
 export function createAccountService(input: {
   provider: UserProvisioningProvider;
   repository: AccountRepository;
 }): AccountService {
+  async function dispatchProviderDeactivation(
+    principal: AuthenticatedPrincipal,
+    jobId: string,
+    expectedJobType:
+      | "ACCOUNT_PROVIDER_DEACTIVATE"
+      | "ACCOUNT_PROVIDER_COMPENSATE",
+  ): Promise<"SUCCEEDED" | "PROVIDER_NOT_VISIBLE"> {
+    const claimed = await input.repository.claimExactProviderJob({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      jobId,
+      expectedJobType,
+    });
+    if (claimed.status === "SUCCEEDED") return "SUCCEEDED";
+    if (claimed.status === "DEAD_LETTER") {
+      throw new AccountServiceError("INTERNAL_ERROR", 500, false);
+    }
+    if (claimed.status !== "CLAIMED") {
+      throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+    }
+
+    let providerResult: "DEACTIVATED" | "NOT_FOUND";
+    try {
+      providerResult = await input.provider.deactivateHumanUser(
+        claimed.job.providerSubject,
+      );
+    } catch (error) {
+      const code =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "EXTERNAL_AUTH_NOT_CONFIGURED"
+          ? "EXTERNAL_AUTH_NOT_CONFIGURED"
+          : "EXTERNAL_AUTH_UNAVAILABLE";
+      const marked = await input.repository.markProviderJobFailed({
+        companyId: principal.companyId,
+        sessionId: principal.sessionId,
+        job: claimed.job,
+        errorCode: code,
+      });
+      if (marked === "STALE_CLAIM") {
+        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+      }
+      throw new AccountServiceError(
+        code,
+        503,
+        code === "EXTERNAL_AUTH_UNAVAILABLE",
+      );
+    }
+
+    if (
+      providerResult === "NOT_FOUND" &&
+      expectedJobType === "ACCOUNT_PROVIDER_COMPENSATE"
+    ) {
+      const marked = await input.repository.markProviderJobFailed({
+        companyId: principal.companyId,
+        sessionId: principal.sessionId,
+        job: claimed.job,
+        errorCode: "PROVIDER_NOT_VISIBLE",
+      });
+      if (marked === "STALE_CLAIM") {
+        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+      }
+      return "PROVIDER_NOT_VISIBLE";
+    }
+
+    const marked = await input.repository.markProviderJobSucceeded({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      job: claimed.job,
+    });
+    if (marked === "STALE_CLAIM") {
+      throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+    }
+    return "SUCCEEDED";
+  }
+
   return {
     close() {
       return input.repository.close?.() ?? Promise.resolve();
@@ -153,6 +245,7 @@ export function createAccountService(input: {
         );
       value = parsed.data;
       const accountId = crypto.randomUUID();
+      const traceId = crypto.randomUUID();
       const hotelIds =
         value.userType === "HOUSEKEEPING"
           ? (value.hotelIds ?? [])
@@ -174,23 +267,45 @@ export function createAccountService(input: {
         accountId,
         actor: actor(principal),
         attemptId: crypto.randomUUID(),
+        auditEventId: crypto.randomUUID(),
         hotelIds,
         completionPayload: nonSecretRequest,
         idempotencyKey,
         requestHash: await sha256(JSON.stringify(nonSecretRequest)),
+        traceId,
       });
       if (reserved.status === "FORBIDDEN")
         throw new AccountServiceError("FORBIDDEN", 403, false);
       if (reserved.status === "HOTEL_NOT_FOUND")
         throw new AccountServiceError("RESOURCE_NOT_FOUND", 404, false);
-      if (
-        reserved.status === "COMPENSATED" ||
-        reserved.status === "LOGIN_ID_CONFLICT"
-      ) {
+      if (reserved.status === "COMPENSATED") {
+        throw compensationOriginalError(reserved.originalErrorCode);
+      }
+      if (reserved.status === "LOGIN_ID_CONFLICT") {
         throw new AccountServiceError("ACCOUNT_DUPLICATE", 409, false);
       }
-      if (reserved.status === "COMPENSATION_REQUIRED")
-        throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
+      if (reserved.status === "COMPENSATION_REQUIRED") {
+        try {
+          const compensation = await dispatchProviderDeactivation(
+            principal,
+            reserved.providerJobId,
+            "ACCOUNT_PROVIDER_COMPENSATE",
+          );
+          if (compensation !== "SUCCEEDED") {
+            throw new AccountServiceError("COMPENSATION_REQUIRED", 503, true);
+          }
+        } catch (error) {
+          if (
+            error instanceof AccountServiceError &&
+            error.code === "INTERNAL_ERROR" &&
+            !error.retryable
+          ) {
+            throw error;
+          }
+          throw new AccountServiceError("COMPENSATION_REQUIRED", 503, true);
+        }
+        throw compensationOriginalError(reserved.originalErrorCode);
+      }
       if (reserved.status === "RECOVERY_REQUIRED")
         throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
       if (
@@ -204,7 +319,15 @@ export function createAccountService(input: {
       if (reserved.status === "IN_PROGRESS")
         throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, true);
       if (reserved.status === "REPLAYED") {
-        throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
+        const credentialMatches = await input.provider.verifyPassword({
+          expectedSubject: reserved.account.id,
+          loginName: value.loginName,
+          password: value.initialPassword,
+        });
+        if (!credentialMatches) {
+          throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
+        }
+        return { status: "REPLAYED", account: reserved.account };
       }
       if (!("accountId" in reserved))
         throw new AccountServiceError("INTERNAL_ERROR", 500, true);
@@ -278,6 +401,7 @@ export function createAccountService(input: {
         }
         const completed = await input.repository.completeCreate({
           accountId: targetId,
+          actorType: principal.userType,
           actorUserId: principal.userId,
           assignmentIds: hotelIds.map(() => crypto.randomUUID()),
           auditEventId: crypto.randomUUID(),
@@ -286,7 +410,7 @@ export function createAccountService(input: {
           idempotencyKey,
           leaseVersion,
           subject,
-          traceId: crypto.randomUUID(),
+          traceId,
           value: nonSecretRequest,
         });
         if (completed.status === "FORBIDDEN") {
@@ -318,18 +442,29 @@ export function createAccountService(input: {
             if (outcome.status === "COMPLETED") {
               return { status: "CREATED", account: outcome.account };
             }
+            if (outcome.status === "PROVIDER_CONFIRMED") {
+              compensationAllowed = true;
+            }
           } catch {
-            // The original result remains ambiguous. A retry/reconciler must converge it.
+            // Read-back is ambiguous, so the durable provider-confirmed state remains recoverable.
           }
         }
         if (providerCreated && compensationAllowed) {
+          const originalErrorCode =
+            error instanceof AccountServiceError && error.code === "FORBIDDEN"
+              ? "FORBIDDEN"
+              : error instanceof AccountServiceError &&
+                  error.code === "ACCOUNT_DUPLICATE"
+                ? "ACCOUNT_DUPLICATE"
+                : "INTERNAL_ERROR";
           const prepared = await input.repository.prepareCompensation({
             accountId: targetId,
             companyId: principal.companyId,
             sessionId: principal.sessionId,
             leaseVersion,
+            originalErrorCode,
           });
-          if (prepared === "STALE_LEASE") {
+          if (prepared.status === "STALE_LEASE") {
             const outcome = await input.repository.getCreateOutcome({
               accountId: targetId,
               companyId: principal.companyId,
@@ -340,7 +475,27 @@ export function createAccountService(input: {
             }
             throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, true);
           }
-          throw new AccountServiceError("COMPENSATION_REQUIRED", 503, false);
+          try {
+            const compensation = await dispatchProviderDeactivation(
+              principal,
+              prepared.providerJobId,
+              "ACCOUNT_PROVIDER_COMPENSATE",
+            );
+            if (compensation !== "SUCCEEDED") {
+              throw new AccountServiceError("COMPENSATION_REQUIRED", 503, true);
+            }
+          } catch (compensationError) {
+            if (
+              compensationError instanceof AccountServiceError &&
+              compensationError.code === "INTERNAL_ERROR" &&
+              !compensationError.retryable
+            ) {
+              throw compensationError;
+            }
+            throw new AccountServiceError("COMPENSATION_REQUIRED", 503, true);
+          }
+          if (error instanceof AccountServiceError) throw error;
+          throw compensationOriginalError(originalErrorCode);
         }
         if (error instanceof AccountServiceError) throw error;
         throw new AccountServiceError("INTERNAL_ERROR", 500, true);
@@ -405,8 +560,13 @@ export function createAccountService(input: {
         );
       if (result.status === "IDEMPOTENCY_CONFLICT")
         throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
-      if (result.status !== "UPDATED")
+      if (result.status !== "UPDATED" && result.status !== "REPLAYED")
         throw new AccountServiceError("INTERNAL_ERROR", 500, true);
+      await dispatchProviderDeactivation(
+        principal,
+        result.providerJobId,
+        "ACCOUNT_PROVIDER_DEACTIVATE",
+      );
       return result;
     },
 

@@ -13,11 +13,15 @@
 - 인증: ZITADEL.
 - 사용자가 보는 로그인 화면은 호텔관리 자체 템플릿이며 ZITADEL credential·Auth Request API는 BFF가 호출한다.
 - custom Login V2는 `/api/auth/custom-login/start`에서 기존 browser-bound OIDC transaction과 auth request를 결합하고 single-use CSRF를 발급한다.
-- Auth Request provider 검증은 transaction당 최대 5회만 예약하며, 이미 검증된 동일 요청은 provider 재호출 없이 CSRF만 교체한다.
-- Auth Request는 `openid profile` scope만 지원하며 별도 `prompt`·`maxAge` 요구와 Login Settings 핵심 필드 누락은 안전 실패한다.
+- Auth Request provider 검증은 transaction당 최대 5회만 예약하며, credential attempt 전 이미 검증된 동일 요청은 provider 재호출 없이 CSRF만 교체한다. credential attempt 뒤의 동일 요청은 CSRF 재발급 전에 다시 검증한다.
+- 호텔 Web Auth Request는 `openid profile` scope만 지원하며 별도 `prompt`·`maxAge` 요구와 Login Settings 핵심 필드 누락은 안전 실패한다.
+- custom login 시작 단계의 Auth Request 조회 API가 반환한 `400`, `404`, `410`은 잘못됐거나 만료된 인증흐름으로 분류해 `AUTH_FLOW_INVALID`로 종료하고 새 인증 요청을 시작하도록 안내한다. `429`는 재시도 가능한 rate limit, `5xx`·잘못된 provider 응답은 `AUTH_PROVIDER_UNAVAILABLE`로 구분하며 만료를 서비스 장애로 표시하지 않는다.
+- credential POST 도중 provider가 `AUTH_FLOW_INVALID`를 반환하면 browser binding과 Auth Request hash가 모두 일치하는 PostgreSQL transaction 삭제를 시도하고 browser binding cookie를 만료시킨 뒤 `/login?error=invalid-flow`로 종료한다. 정상 DB에서는 exact transaction을 삭제한다. 삭제 DB 오류·응답 유실로 row가 남더라도 credential attempt가 있었던 transaction은 다음 CSRF 발급 전에 provider Auth Request를 반드시 다시 검증하며, 기존 Auth Request URL을 오류 복구에 재사용하지 않는다.
+- Preview Console은 고정 `ZITADEL_CONSOLE_CLIENT_ID`·`${ZITADEL_ISSUER}/ui/console/auth/callback`·`email openid profile` scope tuple만 custom Login V2에서 지원하고 호텔 Web client와 callback을 혼합하지 않는다.
 - credential POST는 CSRF와 시도 횟수를 PostgreSQL에서 원자 소비한 뒤에만 provider를 호출한다.
 - 로그인 시도는 auth request 5회, account identifier 15분 10회, canonical IP 15분 30회로 제한한다. HTTP 입력은 짧은 로그인 ID만 허용하고 `trim → ASCII 영문 소문자·숫자 3~30자 검증 → lowercase`로 canonicalize한다. 백엔드는 PostgreSQL의 활성 identity mapping에서 검증된 ZITADEL subject를 해석해 Session API에 `userId`로 전달하고 반환 subject·organization을 다시 검증한다. 사용자 요청의 suffix나 전체 provider 로그인명을 받거나 신뢰하지 않으며 화면·오류·감사에 전체 ZITADEL 로그인명을 노출하지 않는다. rate-limit account identifier는 canonical 짧은 ID를 domain-separated HMAC으로 변환하고, IP는 canonicalization 후 domain-separated HMAC만 저장한다.
 - 최종 인증은 Authorization Code + PKCE callback 검증으로 완료하고 ZITADEL Session token을 호텔 session으로 직접 사용하지 않는다.
+- 최초 Preview 관리자 bootstrap은 승인된 Active Human identity에 Ready MFA factor가 등록되어 있어야 한다. 이 조건은 identity 보호와 release 승인 gate이며, 초기 MVP 호텔 custom credential 요청 자체는 짧은 ID·비밀번호만 받는다. 조직 정책이 로그인 MFA를 강제하면 MFA challenge를 우회하지 않고 `AUTH_MFA_REQUIRED`로 안전 실패하며, 호텔 화면의 MFA challenge 지원은 별도 승인 전 범위에 포함하지 않는다.
 - 비밀번호·MFA code·service token은 DB·로그·cookie·artifact에 저장하지 않는다.
 - 업무 프로필·법인·호텔·기능권한·자료: PostgreSQL.
 - 프론트엔드가 ZITADEL API를 직접 호출하지 않는다.

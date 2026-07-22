@@ -37,7 +37,20 @@ const completionPayload = {
   hotelId,
   hotelIds: [hotelId, secondHotelId],
   assignmentStartDate: "2026-07-19",
-  reason: "account integration recovery",
+  reason: "do-not-audit-free-text-sentinel",
+};
+const auditPasswordSentinel = "AuditPasswordValue-7vX9!DoNotPersist";
+const auditTokenSentinel = "audit-token-value-4f81c7d2-do-not-persist";
+const auditProviderBodySentinel = "provider-body-value-91e6-do-not-persist";
+const auditProviderSubjectSentinel = "provider-subject-value-52a3-do-not-persist";
+const sensitiveAuditPayload = {
+  ...completionPayload,
+  reason: [
+    completionPayload.reason,
+    auditPasswordSentinel,
+    auditTokenSentinel,
+    auditProviderBodySentinel,
+  ].join(" | "),
 };
 
 try {
@@ -238,7 +251,7 @@ try {
     actor,
     attemptId: "8a910000-0000-4000-8000-000000000001",
     hotelIds: [hotelId, secondHotelId],
-    completionPayload,
+    completionPayload: sensitiveAuditPayload,
     idempotencyKey: "role-group-create",
     requestHash: "role-group-create-hash",
   });
@@ -343,22 +356,225 @@ try {
       `provider-created attempt was not resumable: ${resumed.status}`,
     );
   }
+  const unlinkedCompensationJobId = "6b100000-0000-4000-8000-000000000099";
+  await sql`
+    insert into outbox_jobs (id, company_id, job_type, payload, status)
+    values (
+      ${unlinkedCompensationJobId}, ${companyId}, 'ACCOUNT_PROVIDER_COMPENSATE',
+      ${sql.json({
+        action: "COMPENSATE",
+        originalErrorCode: "ACCOUNT_DUPLICATE",
+        providerSubject: "unlinked-provider-subject",
+        provisioningAttemptId: "6a100000-0000-4000-8000-000000000099",
+        userId: "6c100000-0000-4000-8000-000000000099",
+      })},
+      'PENDING'
+    )
+  `;
+  const unlinkedExactClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: unlinkedCompensationJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (unlinkedExactClaim.status !== "BUSY") {
+    throw new Error("unlinked compensation must not receive an API provider claim");
+  }
+  const unlinkedBatchClaims = await reconciliationRepository.claimJobs(10);
+  if (unlinkedBatchClaims.some((job) => job.id === unlinkedCompensationJobId)) {
+    throw new Error("unlinked compensation must not receive a reconciler provider claim");
+  }
+  await sql`
+    update outbox_jobs
+    set status = 'DEAD_LETTER', last_error_code = 'UNLINKED_COMPENSATION_TEST',
+        dead_lettered_at = now(), completed_at = now()
+    where id = ${unlinkedCompensationJobId}
+  `;
+  await sql`
+    update account_provisioning_attempts
+    set completion_payload = completion_payload - 'traceId',
+        provider_subject = ${auditProviderSubjectSentinel}
+    where company_id = ${companyId}
+      and target_user_id = '8a900000-0000-4000-8000-000000000001'
+  `;
+
   const preparedCompensation = await repository.prepareCompensation({
     accountId: "8a900000-0000-4000-8000-000000000001",
     companyId,
     leaseVersion: resumed.leaseVersion,
+    originalErrorCode: "ACCOUNT_DUPLICATE",
   });
-  if (preparedCompensation !== "UPDATED")
+  if (preparedCompensation.status !== "PREPARED")
     throw new Error("compensation was not durably prepared");
+  const [legacyPreparedTrace] = await sql<
+    { audit_trace_id: string; attempt_trace_id: string }[]
+  >`
+    select attempt.completion_payload->>'traceId' as attempt_trace_id,
+           audit.trace_id::text as audit_trace_id
+    from account_provisioning_attempts attempt
+    join audit_events audit
+      on audit.company_id = attempt.company_id
+     and audit.resource_id = attempt.target_user_id
+     and audit.event_code = 'ACCOUNT_CREATE_FAILED'
+    where attempt.company_id = ${companyId}
+      and attempt.target_user_id = '8a900000-0000-4000-8000-000000000001'
+  `;
+  if (
+    !legacyPreparedTrace?.attempt_trace_id ||
+    legacyPreparedTrace.audit_trace_id !== legacyPreparedTrace.attempt_trace_id
+  ) {
+    throw new Error("legacy provider-confirmed attempt did not receive a durable trace backfill");
+  }
+  const exactCompensationClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: preparedCompensation.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (
+    exactCompensationClaim.status !== "CLAIMED" ||
+    exactCompensationClaim.job.provisioningAttemptId !==
+      "8a910000-0000-4000-8000-000000000001" ||
+    exactCompensationClaim.job.providerSubject !== auditProviderSubjectSentinel ||
+    exactCompensationClaim.job.originalErrorCode !== "ACCOUNT_DUPLICATE"
+  ) {
+    throw new Error("API exact compensation claim lost saga ownership metadata");
+  }
   const compensationJobs = await reconciliationRepository.claimJobs(10);
-  const compensationJob = compensationJobs.find(
-    (job) =>
-      job.jobType === "ACCOUNT_PROVIDER_COMPENSATE" &&
-      job.userId === "8a900000-0000-4000-8000-000000000001",
+  if (compensationJobs.some((job) => job.id === exactCompensationClaim.job.id)) {
+    throw new Error("reconciler double-claimed an API-owned compensation job");
+  }
+  const compensationFailed = await repository.markProviderJobFailed({
+    companyId,
+    sessionId: actor.sessionId,
+    job: exactCompensationClaim.job,
+    errorCode: "EXTERNAL_AUTH_UNAVAILABLE",
+  });
+  if (compensationFailed !== "UPDATED") {
+    throw new Error("API exact compensation failure was not persisted");
+  }
+  const staleFailure = await repository.markProviderJobFailed({
+    companyId,
+    sessionId: actor.sessionId,
+    job: exactCompensationClaim.job,
+    errorCode: "EXTERNAL_AUTH_UNAVAILABLE",
+  });
+  if (staleFailure !== "STALE_CLAIM") {
+    throw new Error("stale compensation failure marker was accepted");
+  }
+  await sql`
+    update outbox_jobs set available_at = now()
+    where company_id = ${companyId} and id = ${preparedCompensation.providerJobId}
+  `;
+  const retriedCompensationClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: preparedCompensation.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (
+    retriedCompensationClaim.status !== "CLAIMED" ||
+    retriedCompensationClaim.job.claimToken === exactCompensationClaim.job.claimToken
+  ) {
+    throw new Error("failed compensation was not reclaimed with a rotated token");
+  }
+  const compensationMarked = await repository.markProviderJobSucceeded({
+    companyId,
+    sessionId: actor.sessionId,
+    job: retriedCompensationClaim.job,
+  });
+  if (compensationMarked !== "UPDATED") {
+    throw new Error("API exact compensation success was not persisted");
+  }
+  const compensationAudit = await sql<
+    { after_summary: unknown; count: number; event_code: string; trace_id: string }[]
+  >`
+    select event_code, count(*)::int as count, min(trace_id::text) as trace_id,
+           jsonb_agg(after_summary order by occurred_at) as after_summary
+    from audit_events
+    where company_id = ${companyId}
+      and resource_type = 'USER'
+      and resource_id = '8a900000-0000-4000-8000-000000000001'
+      and event_code in (
+        'ACCOUNT_PROVISION_REQUESTED', 'ACCOUNT_CREATE_FAILED',
+        'ACCOUNT_COMPENSATION_FAILED', 'ACCOUNT_COMPENSATION_SUCCEEDED'
+      )
+    group by event_code
+    order by event_code
+  `;
+  const compensationAuditCounts = Object.fromEntries(
+    compensationAudit.map((row) => [row.event_code, row.count]),
   );
-  if (!compensationJob)
-    throw new Error("compensation outbox was not claimable");
-  await reconciliationRepository.markSucceeded(compensationJob);
+  for (const code of [
+    "ACCOUNT_PROVISION_REQUESTED",
+    "ACCOUNT_CREATE_FAILED",
+    "ACCOUNT_COMPENSATION_FAILED",
+    "ACCOUNT_COMPENSATION_SUCCEEDED",
+  ]) {
+    if (compensationAuditCounts[code] !== 1) {
+      throw new Error(`${code} audit event was not persisted exactly once`);
+    }
+  }
+  if (
+    compensationAudit.some((row) => !row.trace_id) ||
+    JSON.stringify(compensationAudit).includes("recovered-account@example.invalid") ||
+    JSON.stringify(compensationAudit).includes("recoveredaccount")
+  ) {
+    throw new Error("compensation audit metadata is missing or contains sensitive identity data");
+  }
+  const [fullAuditDump] = await sql<{ rows: unknown }[]>`
+    select jsonb_agg(to_jsonb(audit_events) order by occurred_at) as rows
+    from audit_events
+    where company_id = ${companyId}
+      and resource_id = '8a900000-0000-4000-8000-000000000001'
+  `;
+  const serializedAuditDump = JSON.stringify(fullAuditDump?.rows ?? []);
+  for (const forbidden of [
+    "recovered-account@example.invalid",
+    "recoveredaccount",
+    "do-not-audit-free-text-sentinel",
+    auditPasswordSentinel,
+    auditTokenSentinel,
+    auditProviderBodySentinel,
+    auditProviderSubjectSentinel,
+  ]) {
+    if (serializedAuditDump.includes(forbidden)) {
+      throw new Error("account saga audit persisted forbidden sensitive metadata");
+    }
+  }
+  const [compensationAuditMetadata] = await sql<
+    {
+      actor_preserved: boolean;
+      branch_scope_preserved: boolean;
+      hotel_scope_preserved: boolean;
+      reason_safe: boolean;
+      session_preserved: boolean;
+    }[]
+  >`
+    select
+      bool_and(actor_user_id = ${actorId} and actor_type = 'INTERNAL_STAFF') as actor_preserved,
+      bool_and(session_id = ${sessionId}) as session_preserved,
+      bool_and(branch_id is null) as branch_scope_preserved,
+      bool_and(after_summary->'hotelIds' = to_jsonb(array[${hotelId}::uuid, ${secondHotelId}::uuid])) as hotel_scope_preserved,
+      bool_and(reason not like '%recoveredaccount%'
+        and reason not like '%recovered-account@example.invalid%') as reason_safe
+    from audit_events
+    where company_id = ${companyId}
+      and resource_id = '8a900000-0000-4000-8000-000000000001'
+      and event_code in (
+        'ACCOUNT_PROVISION_REQUESTED', 'ACCOUNT_CREATE_FAILED',
+        'ACCOUNT_COMPENSATION_FAILED', 'ACCOUNT_COMPENSATION_SUCCEEDED'
+      )
+  `;
+  if (
+    !compensationAuditMetadata?.actor_preserved ||
+    !compensationAuditMetadata.session_preserved ||
+    !compensationAuditMetadata.branch_scope_preserved ||
+    !compensationAuditMetadata.hotel_scope_preserved ||
+    !compensationAuditMetadata.reason_safe
+  ) {
+    throw new Error("account saga audit origin or multi-hotel metadata was not preserved safely");
+  }
   const compensatedReplay = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
     actor,
@@ -368,10 +584,237 @@ try {
     idempotencyKey: "role-group-create",
     requestHash: "role-group-create-hash",
   });
-  if ((compensatedReplay as { status: string }).status !== "COMPENSATED") {
+  if (
+    compensatedReplay.status !== "COMPENSATED" ||
+    compensatedReplay.originalErrorCode !== "ACCOUNT_DUPLICATE"
+  ) {
     throw new Error(
       `compensated create replay was not terminal: ${compensatedReplay.status}`,
     );
+  }
+  await sql`
+    update outbox_jobs
+    set payload = jsonb_set(payload, '{originalErrorCode}', '"INTERNAL_ERROR"'::jsonb)
+    where id = ${preparedCompensation.providerJobId}
+  `;
+  const internalCompensatedReplay = await repository.reserveCreate({
+    accountId: "8a900000-0000-4000-8000-000000000098",
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000096",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload,
+    idempotencyKey: "role-group-create",
+    requestHash: "role-group-create-hash",
+  });
+  if (
+    internalCompensatedReplay.status !== "COMPENSATED" ||
+    internalCompensatedReplay.originalErrorCode !== "INTERNAL_ERROR"
+  ) {
+    throw new Error("compensated operational failure lost its original error");
+  }
+  const replayAuditCounts = await sql<{ count: number; event_code: string }[]>`
+    select event_code, count(*)::int as count
+    from audit_events
+    where company_id = ${companyId}
+      and resource_id = '8a900000-0000-4000-8000-000000000001'
+      and event_code in (
+        'ACCOUNT_PROVISION_REQUESTED', 'ACCOUNT_CREATE_FAILED',
+        'ACCOUNT_COMPENSATION_FAILED', 'ACCOUNT_COMPENSATION_SUCCEEDED'
+      )
+    group by event_code
+  `;
+  if (replayAuditCounts.some((row) => row.count !== 1) || replayAuditCounts.length !== 4) {
+    throw new Error("compensated create replay duplicated saga audit events");
+  }
+
+  const scheduledAuditAccountId = "8a900000-0000-4000-8000-000000000044";
+  const scheduledAuditAttemptId = "8a910000-0000-4000-8000-000000000044";
+  const scheduledAuditPayload = {
+    ...completionPayload,
+    userId: scheduledAuditAccountId,
+    displayName: "Scheduled Compensation Audit",
+    loginName: "scheduledcompensationaudit",
+    email: "scheduled-compensation-audit@example.invalid",
+  };
+  const scheduledAuditReserved = await repository.reserveCreate({
+    accountId: scheduledAuditAccountId,
+    actor,
+    attemptId: scheduledAuditAttemptId,
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload: scheduledAuditPayload,
+    idempotencyKey: "scheduled-compensation-audit",
+    requestHash: "scheduled-compensation-audit-hash",
+  });
+  if (scheduledAuditReserved.status !== "RESERVED_NOT_DISPATCHED") {
+    throw new Error("scheduled compensation audit fixture was not reserved");
+  }
+  if (
+    (await repository.markCreateDispatched({
+      accountId: scheduledAuditAccountId,
+      companyId,
+      leaseVersion: scheduledAuditReserved.leaseVersion,
+    })) !== "UPDATED" ||
+    (await repository.markProviderCreated({
+      accountId: scheduledAuditAccountId,
+      companyId,
+      leaseVersion: scheduledAuditReserved.leaseVersion,
+      subject: scheduledAuditAccountId,
+    })) !== "UPDATED"
+  ) {
+    throw new Error("scheduled compensation audit fixture was not provider-confirmed");
+  }
+  const scheduledAuditPrepared = await repository.prepareCompensation({
+    accountId: scheduledAuditAccountId,
+    companyId,
+    leaseVersion: scheduledAuditReserved.leaseVersion,
+    originalErrorCode: "INTERNAL_ERROR",
+  });
+  if (scheduledAuditPrepared.status !== "PREPARED") {
+    throw new Error("scheduled compensation audit fixture was not prepared");
+  }
+  await sql`
+    update account_provisioning_attempts
+    set completion_payload = completion_payload - 'traceId'
+    where company_id = ${companyId} and id = ${scheduledAuditAttemptId}
+  `;
+  const scheduledFailureClaims = await reconciliationRepository.claimJobs(10);
+  const scheduledFailureClaim = scheduledFailureClaims.find(
+    (job) => job.id === scheduledAuditPrepared.providerJobId,
+  );
+  if (!scheduledFailureClaim) {
+    throw new Error("scheduled compensation audit failure claim was unavailable");
+  }
+  await sql`
+    alter table audit_events add constraint audit_events_test_reject_compensation_failed
+    check (event_code <> 'ACCOUNT_COMPENSATION_FAILED') not valid
+  `;
+  let compensationAuditRollbackObserved = false;
+  try {
+    await reconciliationRepository.markFailed(
+      scheduledFailureClaim,
+      "EXTERNAL_AUTH_UNAVAILABLE",
+    );
+  } catch {
+    compensationAuditRollbackObserved = true;
+  } finally {
+    await sql`
+      alter table audit_events drop constraint audit_events_test_reject_compensation_failed
+    `;
+  }
+  const [rolledBackCompensation] = await sql<
+    { attempt_status: string; audit_count: number; job_status: string }[]
+  >`
+    select attempt.status as attempt_status, job.status as job_status,
+           (select count(*)::int from audit_events audit
+             where audit.company_id = ${companyId}
+               and audit.resource_id = ${scheduledAuditAccountId}
+               and audit.event_code = 'ACCOUNT_COMPENSATION_FAILED') as audit_count
+    from account_provisioning_attempts attempt
+    join outbox_jobs job
+      on job.company_id = attempt.company_id
+     and job.id = ${scheduledAuditPrepared.providerJobId}
+    where attempt.company_id = ${companyId}
+      and attempt.id = ${scheduledAuditAttemptId}
+  `;
+  if (
+    !compensationAuditRollbackObserved ||
+    rolledBackCompensation?.attempt_status !== "COMPENSATION_REQUIRED" ||
+    rolledBackCompensation.job_status !== "PROCESSING" ||
+    rolledBackCompensation.audit_count !== 0
+  ) {
+    throw new Error("failed compensation audit did not roll back its state transition");
+  }
+  await reconciliationRepository.markFailed(
+    scheduledFailureClaim,
+    "EXTERNAL_AUTH_UNAVAILABLE",
+  );
+  await sql`
+    update outbox_jobs set available_at = now()
+    where company_id = ${companyId} and id = ${scheduledAuditPrepared.providerJobId}
+  `;
+  const scheduledSuccessClaims = await reconciliationRepository.claimJobs(10);
+  const scheduledSuccessClaim = scheduledSuccessClaims.find(
+    (job) => job.id === scheduledAuditPrepared.providerJobId,
+  );
+  if (!scheduledSuccessClaim) {
+    throw new Error("scheduled compensation audit success claim was unavailable");
+  }
+  await reconciliationRepository.markSucceeded(scheduledSuccessClaim);
+  const scheduledAuditCounts = await sql<{ count: number; event_code: string }[]>`
+    select event_code, count(*)::int as count
+    from audit_events
+    where company_id = ${companyId}
+      and resource_id = ${scheduledAuditAccountId}
+      and event_code in (
+        'ACCOUNT_PROVISION_REQUESTED', 'ACCOUNT_CREATE_FAILED',
+        'ACCOUNT_COMPENSATION_FAILED', 'ACCOUNT_COMPENSATION_SUCCEEDED'
+      )
+    group by event_code
+  `;
+  if (scheduledAuditCounts.some((row) => row.count !== 1) || scheduledAuditCounts.length !== 4) {
+    throw new Error("scheduled compensation transitions did not persist exact audit events");
+  }
+  const scheduledCompensationTraces = await sql<{ trace_id: string }[]>`
+    select distinct trace_id::text as trace_id
+    from audit_events
+    where company_id = ${companyId}
+      and resource_id = ${scheduledAuditAccountId}
+      and event_code in ('ACCOUNT_COMPENSATION_FAILED', 'ACCOUNT_COMPENSATION_SUCCEEDED')
+  `;
+  if (
+    scheduledCompensationTraces.length !== 1 ||
+    scheduledCompensationTraces[0]?.trace_id !== scheduledAuditPrepared.providerJobId
+  ) {
+    throw new Error("legacy active compensation did not use its durable job trace fallback");
+  }
+
+  const ambiguousAuditAccountId = "8a900000-0000-4000-8000-000000000045";
+  const ambiguousAuditReserved = await repository.reserveCreate({
+    accountId: ambiguousAuditAccountId,
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000045",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload: {
+      ...completionPayload,
+      displayName: "Ambiguous Provider Audit",
+      loginName: "ambiguousprovideraudit",
+      email: "ambiguous-provider-audit@example.invalid",
+    },
+    idempotencyKey: "ambiguous-provider-audit",
+    requestHash: "ambiguous-provider-audit-hash",
+  });
+  if (ambiguousAuditReserved.status !== "RESERVED_NOT_DISPATCHED") {
+    throw new Error("ambiguous provider audit fixture was not reserved");
+  }
+  if (
+    (await repository.markCreateDispatched({
+      accountId: ambiguousAuditAccountId,
+      companyId,
+      leaseVersion: ambiguousAuditReserved.leaseVersion,
+    })) !== "UPDATED" ||
+    (await repository.markCreateRecoveryRequired({
+      accountId: ambiguousAuditAccountId,
+      companyId,
+      leaseVersion: ambiguousAuditReserved.leaseVersion,
+      errorCode: "EXTERNAL_AUTH_UNAVAILABLE",
+    })) !== "UPDATED"
+  ) {
+    throw new Error("ambiguous provider audit fixture did not enter recovery");
+  }
+  const [ambiguousAuditCounts] = await sql<
+    { create_failed_count: number; requested_count: number }[]
+  >`
+    select
+      count(*) filter (where event_code = 'ACCOUNT_PROVISION_REQUESTED')::int as requested_count,
+      count(*) filter (where event_code = 'ACCOUNT_CREATE_FAILED')::int as create_failed_count
+    from audit_events
+    where company_id = ${companyId} and resource_id = ${ambiguousAuditAccountId}
+  `;
+  if (
+    ambiguousAuditCounts?.requested_count !== 1 ||
+    ambiguousAuditCounts.create_failed_count !== 0
+  ) {
+    throw new Error("ambiguous provider recovery emitted a terminal create failure audit");
   }
 
   const stalePayload = {
@@ -449,8 +892,9 @@ try {
     accountId: "8a900000-0000-4000-8000-000000000002",
     companyId,
     leaseVersion: recoveredLease.leaseVersion,
+    originalErrorCode: "ACCOUNT_DUPLICATE",
   });
-  if (completedCompensation !== "STALE_LEASE")
+  if (completedCompensation.status !== "STALE_LEASE")
     throw new Error("completed create acquired compensation ownership");
   const [completedAttempt] = await sql<{ status: string }[]>`
     select status from account_provisioning_attempts
@@ -509,6 +953,9 @@ try {
   }
   const recoveryCompletionInput = {
     accountId: recoveryJob.userId,
+    ...(recoveryJob.originActorType
+      ? { actorType: recoveryJob.originActorType }
+      : {}),
     actorUserId: recoveryJob.actorUserId,
     assignmentIds: [
       "8a920000-0000-4000-8000-000000000003",
@@ -518,8 +965,11 @@ try {
     companyId: recoveryJob.companyId,
     idempotencyKey: recoveryJob.idempotencyKey,
     leaseVersion: recoveryJob.leaseVersion,
+    ...(recoveryJob.originSessionId
+      ? { sessionId: recoveryJob.originSessionId }
+      : {}),
     subject: recoveryJob.userId,
-    traceId: "8ab00000-0000-4000-8000-000000000003",
+    traceId: recoveryJob.traceId ?? recoveryJob.attemptId,
     value: recoveryJob.completionPayload,
   };
   let staleCompletionRejected = false;
@@ -537,8 +987,9 @@ try {
     accountId: recoveryJob.userId,
     companyId: recoveryJob.companyId,
     leaseVersion: recoveryReserved.leaseVersion,
+    originalErrorCode: "FORBIDDEN",
   });
-  if (staleCompensation !== "STALE_LEASE")
+  if (staleCompensation.status !== "STALE_LEASE")
     throw new Error(
       "stale recovery generation acquired compensation ownership",
     );
@@ -587,6 +1038,22 @@ try {
     [hotelId, secondHotelId].sort().join(",")
   ) {
     throw new Error("multi-hotel housekeeping assignments were not persisted");
+  }
+  const [createdAudit] = await sql<
+    { actor_type: string; session_id: string; trace_id: string }[]
+  >`
+    select actor_type, session_id::text as session_id, trace_id::text as trace_id
+    from audit_events
+    where company_id = ${companyId}
+      and event_code = 'ACCOUNT_CREATED'
+      and resource_id = ${recoveryAccountId}
+  `;
+  if (
+    createdAudit?.actor_type !== recoveryJob.originActorType ||
+    createdAudit?.session_id !== recoveryJob.originSessionId ||
+    createdAudit?.trace_id !== recoveryJob.traceId
+  ) {
+    throw new Error("scheduled account-created audit lost its origin context");
   }
 
   const lateProviderAccountId = "8a900000-0000-4000-8000-000000000005";
@@ -911,6 +1378,61 @@ try {
     );
   }
 
+  const deactivationRollbackSessionId = "8a400000-0000-4000-8000-000000000099";
+  await sql`
+    insert into auth_sessions (
+      id, company_id, user_id, identity_id, token_hash,
+      idle_expires_at, absolute_expires_at, auth_time, authentication_method
+    ) values (
+      ${deactivationRollbackSessionId}, ${companyId}, ${targetAdminId},
+      '8a300000-0000-4000-8000-000000000002', decode(repeat('d7', 32), 'hex'),
+      now() + interval '8 hours', now() + interval '24 hours', now(), 'OIDC_PKCE'
+    )
+  `;
+  await sql`
+    alter table audit_events add constraint audit_events_test_reject_session_revoked
+    check (event_code <> 'ACCOUNT_SESSION_REVOKED') not valid
+  `;
+  let deactivationAuditRollbackObserved = false;
+  try {
+    await repository.deactivateAccount({
+      actor,
+      auditEventId: "8aa00000-0000-4000-8000-000000000099",
+      idempotencyKey: "deactivate-audit-rollback-probe",
+      targetUserId: targetAdminId,
+      traceId: "8ab00000-0000-4000-8000-000000000099",
+      value: { version: 1, reason: "do-not-audit-deactivation-sentinel" },
+    });
+  } catch {
+    deactivationAuditRollbackObserved = true;
+  } finally {
+    await sql`
+      alter table audit_events drop constraint audit_events_test_reject_session_revoked
+    `;
+  }
+  const [deactivationRollback] = await sql<
+    { outbox_count: number; revoked_at: Date | null; user_status: string }[]
+  >`
+    select target.status as user_status, session.revoked_at,
+           (select count(*)::int from outbox_jobs job
+             where job.company_id = ${companyId}
+               and job.job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
+               and job.payload->>'userId' = ${targetAdminId}) as outbox_count
+    from users target
+    join auth_sessions session
+      on session.company_id = target.company_id
+     and session.id = ${deactivationRollbackSessionId}
+    where target.company_id = ${companyId} and target.id = ${targetAdminId}
+  `;
+  if (
+    !deactivationAuditRollbackObserved ||
+    deactivationRollback?.user_status !== "ACTIVE" ||
+    deactivationRollback.revoked_at !== null ||
+    deactivationRollback.outbox_count !== 0
+  ) {
+    throw new Error("failed session-revoked audit did not roll back deactivation state");
+  }
+
   const first = await repository.deactivateAccount({
     actor,
     auditEventId: "8aa00000-0000-4000-8000-000000000001",
@@ -940,46 +1462,66 @@ try {
       "provider deactivation intent did not preserve the tenant-bound provider subject",
     );
   }
-  const claimedJobs = await reconciliationRepository.claimJobs(10);
-  const firstClaim = claimedJobs.find(
-    (job) =>
-      job.jobType === "ACCOUNT_PROVIDER_DEACTIVATE" &&
-      job.userId === targetAdminId,
-  );
+  const foreignCompanyClaim = await repository.claimExactProviderJob({
+    companyId: "10000000-0000-4000-8000-000000000099",
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_DEACTIVATE",
+  });
+  if (foreignCompanyClaim.status !== "NOT_FOUND") {
+    throw new Error("foreign company claimed a provider deactivation job");
+  }
+  const wrongTypeClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (wrongTypeClaim.status !== "NOT_FOUND") {
+    throw new Error("wrong provider job type acquired exact ownership");
+  }
+  const exactDeactivationClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_DEACTIVATE",
+  });
   if (
-    !firstClaim ||
-    firstClaim.providerSubject !== "zitadel-target-admin-subject"
+    exactDeactivationClaim.status !== "CLAIMED" ||
+    exactDeactivationClaim.job.providerSubject !==
+      "zitadel-target-admin-subject"
   ) {
     throw new Error(
-      "provider deactivation outbox did not claim the provider subject",
+      "API exact deactivation claim did not preserve provider ownership",
     );
+  }
+  const claimedJobs = await reconciliationRepository.claimJobs(10);
+  if (claimedJobs.some((job) => job.id === exactDeactivationClaim.job.id)) {
+    throw new Error("reconciler double-claimed an API-owned deactivation job");
   }
   await sql`
     update outbox_jobs set locked_at = now() - interval '6 minutes'
-    where company_id = ${companyId} and id = ${firstClaim.id}
+    where company_id = ${companyId} and id = ${exactDeactivationClaim.job.id}
   `;
   const reclaimedJobs = await reconciliationRepository.claimJobs(10);
-  const winningClaim = reclaimedJobs.find((job) => job.id === firstClaim.id);
+  const winningClaim = reclaimedJobs.find(
+    (job) => job.id === exactDeactivationClaim.job.id,
+  );
   if (!winningClaim)
     throw new Error("stale provider deactivation claim was not reclaimed");
-  if (
-    (firstClaim as { claimToken?: string }).claimToken ===
-    (winningClaim as { claimToken?: string }).claimToken
-  ) {
+  if (exactDeactivationClaim.job.claimToken === winningClaim.claimToken) {
     throw new Error(
       "reclaimed provider deactivation job did not rotate its claim token",
     );
   }
-  let staleWorkerRejected = false;
-  try {
-    await reconciliationRepository.markSucceeded(firstClaim);
-  } catch {
-    staleWorkerRejected = true;
+  const staleMarker = await repository.markProviderJobSucceeded({
+    companyId,
+    sessionId: actor.sessionId,
+    job: exactDeactivationClaim.job,
+  });
+  if (staleMarker !== "STALE_CLAIM") {
+    throw new Error("stale API worker completed a newer provider claim");
   }
-  if (!staleWorkerRejected)
-    throw new Error(
-      "stale outbox worker was allowed to complete a newer claim",
-    );
   await reconciliationRepository.markSucceeded(winningClaim);
   const [succeededOutbox] = await sql<{ count: number }[]>`
     select count(*)::int as count from outbox_jobs
@@ -1045,10 +1587,47 @@ try {
     value: { version: 1, reason: "integration deactivation" },
   });
   if (
-    replay.status !== "UPDATED" ||
-    replay.account.version !== first.account.version
+    replay.status !== "REPLAYED" ||
+    replay.account.version !== first.account.version ||
+    replay.providerJobId !== first.providerJobId ||
+    replay.providerJobStatus !== "SUCCEEDED"
   ) {
     throw new Error(`deactivation replay was not stable: ${replay.status}`);
+  }
+  const [sessionRevokedAudit] = await sql<
+    {
+      actor_type: string;
+      actor_user_id: string;
+      after_summary: { revokedCount?: number };
+      count: number;
+      reason: string;
+      session_id: string;
+      trace_id: string;
+    }[]
+  >`
+    select count(*)::int as count,
+           min(actor_user_id::text) as actor_user_id,
+           min(actor_type) as actor_type,
+           min(session_id::text) as session_id,
+           min(reason) as reason,
+           min(trace_id::text) as trace_id,
+           (jsonb_agg(after_summary order by occurred_at)->0) as after_summary
+    from audit_events
+    where company_id = ${companyId}
+      and resource_type = 'USER'
+      and resource_id = ${targetAdminId}
+      and event_code = 'ACCOUNT_SESSION_REVOKED'
+  `;
+  if (
+    sessionRevokedAudit?.count !== 1 ||
+    sessionRevokedAudit.actor_user_id !== actorId ||
+    sessionRevokedAudit.actor_type !== "INTERNAL_STAFF" ||
+    sessionRevokedAudit.session_id !== sessionId ||
+    sessionRevokedAudit.reason !== "ACCOUNT_DEACTIVATED" ||
+    sessionRevokedAudit.trace_id !== "8ab00000-0000-4000-8000-000000000001" ||
+    typeof sessionRevokedAudit.after_summary.revokedCount !== "number"
+  ) {
+    throw new Error("session revocation audit was not persisted exactly once with the original trace");
   }
 
   const conflict = await repository.deactivateAccount({

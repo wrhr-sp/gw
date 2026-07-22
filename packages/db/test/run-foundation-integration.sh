@@ -84,6 +84,143 @@ SQL
     return 1
   fi
 }
+assert_expand_isolated() {
+  local admin_url="$1"
+  local result
+  result="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select concat(
+  (select status || ':' || failure_code
+   from account_provisioning_attempts
+   where id = '1a110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || last_error_code
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || coalesce(last_error_code, 'NULL')
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000003')
+);
+delete from outbox_jobs where id in (
+  '1b110000-0000-4000-8000-000000000001',
+  '1b110000-0000-4000-8000-000000000003'
+);
+delete from account_provisioning_attempts where id = '1a110000-0000-4000-8000-000000000001';
+alter table users disable trigger users_no_delete;
+delete from users where id = '1c110000-0000-4000-8000-000000000001';
+alter table users enable trigger users_no_delete;
+delete from companies where id = '1d110000-0000-4000-8000-000000000001';
+SQL
+)"
+  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE" ]]; then
+    printf 'EXPAND did not isolate pre-existing legacy compensation: %s\n' "$result" >&2
+    return 1
+  fi
+}
+
+assert_exact_contract_isolated() {
+  local admin_url="$1"
+  local result
+  result="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select concat(
+  (select status || ':' || failure_code
+   from account_provisioning_attempts
+   where id = '1a110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || last_error_code
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || coalesce(last_error_code, 'NULL')
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000003'),
+  '|',
+  exists (
+    select 1 from pg_constraint
+    where conname = 'outbox_jobs_compensation_linkage_check'
+      and conrelid = 'public.outbox_jobs'::regclass
+  )
+);
+do $constraint_probe$
+begin
+  begin
+    insert into outbox_jobs (id, company_id, job_type, payload, status)
+    values (
+      '1b110000-0000-4000-8000-000000000002',
+      '1d110000-0000-4000-8000-000000000001',
+      'ACCOUNT_PROVIDER_COMPENSATE',
+      '{"userId":"1e110000-0000-4000-8000-000000000001","providerSubject":"legacy-provider-subject","action":"COMPENSATE"}'::jsonb,
+      'PENDING'
+    );
+    raise exception 'unsafe compensation payload passed exact linkage check';
+  exception when check_violation then
+    null;
+  end;
+end
+$constraint_probe$;
+delete from outbox_jobs where id in (
+  '1b110000-0000-4000-8000-000000000001',
+  '1b110000-0000-4000-8000-000000000003'
+);
+delete from account_provisioning_attempts where id = '1a110000-0000-4000-8000-000000000001';
+alter table users disable trigger users_no_delete;
+delete from users where id = '1c110000-0000-4000-8000-000000000001';
+alter table users enable trigger users_no_delete;
+delete from companies where id = '1d110000-0000-4000-8000-000000000001';
+SQL
+)"
+  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|t" ]]; then
+    printf 'Legacy compensation migration did not isolate unsafe provider work: %s\n' "$result" >&2
+    return 1
+  fi
+}
+
+seed_legacy_compensation() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+insert into companies (id, legal_name)
+values ('1d110000-0000-4000-8000-000000000001', 'Legacy Compensation Test');
+insert into users (id, company_id, user_type, display_name, status)
+values (
+  '1c110000-0000-4000-8000-000000000001',
+  '1d110000-0000-4000-8000-000000000001',
+  'INTERNAL_STAFF', 'Legacy Actor', 'ACTIVE'
+);
+insert into account_provisioning_attempts (
+  id, company_id, actor_user_id, target_user_id, idempotency_key,
+  request_hash, completion_payload, status, provider_subject, failure_code,
+  dispatched_at, provider_confirmed_at, compensation_required_at,
+  lease_expires_at, expires_at
+) values (
+  '1a110000-0000-4000-8000-000000000001',
+  '1d110000-0000-4000-8000-000000000001',
+  '1c110000-0000-4000-8000-000000000001',
+  '1e110000-0000-4000-8000-000000000001',
+  'legacy-compensation', 'legacy-request',
+  '{"userId":"1e110000-0000-4000-8000-000000000001","action":"CREATE"}'::jsonb,
+  'COMPENSATION_REQUIRED', 'legacy-provider-subject', 'DB_COMPLETION_FAILED',
+  now(), now(), now(), now() + interval '2 minutes', now() + interval '24 hours'
+);
+insert into outbox_jobs (
+  id, company_id, job_type, payload, status, locked_at, claim_token
+) values
+(
+  '1b110000-0000-4000-8000-000000000001',
+  '1d110000-0000-4000-8000-000000000001',
+  'ACCOUNT_PROVIDER_COMPENSATE',
+  '{"userId":"1e110000-0000-4000-8000-000000000001","providerSubject":"legacy-provider-subject","action":"COMPENSATE"}'::jsonb,
+  'PROCESSING', now(), '1f110000-0000-4000-8000-000000000001'
+),
+(
+  '1b110000-0000-4000-8000-000000000003',
+  '1d110000-0000-4000-8000-000000000001',
+  'ACCOUNT_PROVIDER_COMPENSATE',
+  '{"userId":"1e110000-0000-4000-8000-000000000001","providerSubject":"legacy-provider-subject","action":"COMPENSATE","provisioningAttemptId":"1a110000-0000-4000-8000-000000000099","originalErrorCode":"ACCOUNT_DUPLICATE"}'::jsonb,
+  'PENDING', null, null
+);
+SQL
+}
+
 MIGRATION="$ROOT_DIR/packages/db/migrations/0001_platform_foundation.sql"
 AUTH_MIGRATION="$ROOT_DIR/packages/db/migrations/0002_auth_session_runtime.sql"
 HOTEL_MIGRATION="$ROOT_DIR/packages/db/migrations/0003_hotel_basic_information.sql"
@@ -92,6 +229,8 @@ SESSION_DEFINER_MIGRATION="$ROOT_DIR/packages/db/migrations/0005_auth_session_de
 ACCOUNT_MIGRATION="$ROOT_DIR/packages/db/migrations/0006_account_administration.sql"
 TENANT_AUTHORITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0007_api_tenant_authority_expand.sql"
 GLOBAL_LOGIN_EXPAND_MIGRATION="$ROOT_DIR/packages/db/migrations/0009_global_login_id_expand.sql"
+ACCOUNT_PROVIDER_EXACT_DISPATCH_MIGRATION="$ROOT_DIR/packages/db/migrations/0011_account_provider_exact_dispatch.sql"
+ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
 GLOBAL_LOGIN_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0010_global_login_id_contract.sql"
 TEST_SQL="$ROOT_DIR/packages/db/test/foundation-integration.sql"
@@ -147,7 +286,15 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
@@ -168,7 +315,13 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$TENANT_AUTHORITY_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_EXPAND_MIGRATION" >/dev/null
+  seed_legacy_compensation "$TEST_DATABASE_URL"
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_MIGRATION" >/dev/null
+  assert_expand_isolated "$TEST_DATABASE_URL"
+  seed_legacy_compensation "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null
+  assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
   PROBE_URL="$(configure_runtime_probe_role "$TEST_DATABASE_URL")"
@@ -286,8 +439,16 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$TENANT_AUTHORITY_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_EXPAND_MIGRATION" >/dev/null
+seed_legacy_compensation "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_MIGRATION" >/dev/null
+assert_expand_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
+seed_legacy_compensation "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null
+assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
 ADMIN_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
@@ -354,6 +515,70 @@ NODE
 )
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column malformed_version to version" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test -c "alter table outbox_jobs drop constraint outbox_jobs_compensation_linkage_check" >/dev/null
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$PROBE_URL" \
+  pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after exact dispatch constraint drop, received ${damaged.status}`);
+}
+NODE
+)
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test >/dev/null <<'SQL'
+alter table outbox_jobs
+  add constraint outbox_jobs_compensation_linkage_check check (
+    job_type <> 'ACCOUNT_PROVIDER_COMPENSATE'
+    or status = 'PENDING'
+    or status in ('SUCCEEDED', 'CANCELLED', 'DEAD_LETTER')
+    or coalesce((
+      pg_catalog.jsonb_typeof(payload->'provisioningAttemptId') = 'string'
+      and payload->>'provisioningAttemptId' ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      and pg_catalog.jsonb_typeof(payload->'originalErrorCode') = 'string'
+      and payload->>'originalErrorCode' in (
+        'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
+      )
+    ), false)
+  );
+SQL
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$PROBE_URL" \
+  pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const weakened = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (weakened.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY for weakened exact dispatch constraint, received ${weakened.status}`);
+}
+NODE
+)
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test -c "alter table outbox_jobs drop constraint outbox_jobs_compensation_linkage_check" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test >/dev/null <<'SQL'
+alter table outbox_jobs
+  add constraint outbox_jobs_compensation_linkage_check check (
+    job_type <> 'ACCOUNT_PROVIDER_COMPENSATE'
+    or status in ('SUCCEEDED', 'CANCELLED', 'DEAD_LETTER')
+    or coalesce((
+      pg_catalog.jsonb_typeof(payload->'provisioningAttemptId') = 'string'
+      and payload->>'provisioningAttemptId' ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      and pg_catalog.jsonb_typeof(payload->'originalErrorCode') = 'string'
+      and payload->>'originalErrorCode' in (
+        'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
+      )
+    ), false)
+  );
+SQL
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table audit_events disable trigger audit_events_no_update" >/dev/null

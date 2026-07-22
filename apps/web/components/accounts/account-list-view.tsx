@@ -1,6 +1,7 @@
 import type { Account, HotelErrorCode } from "@werehere/contracts";
-import { Button, DataTable, EmptyState, PageHeader, StatusBadge } from "@werehere/ui";
+import { Button, DataTable, EmptyState, FeatureGuide, PageHeader, StatusBadge } from "@werehere/ui";
 import { Plus } from "lucide-react";
+import { accountFeatureGuides } from "../../lib/feature-guides";
 
 const typeLabel = { INTERNAL_STAFF: "사내 임직원", HOUSEKEEPING: "하우스키핑", HOTEL_OWNER: "호텔 소유주" } as const;
 const statusLabel = { PENDING_SETUP: "최초 설정 대기", ACTIVE: "활성", INACTIVE: "중지", LOCKED: "잠김" } as const;
@@ -37,6 +38,7 @@ export function AccountListView({ canCreate, query = {}, result }: {
         description="회사 사용자와 로그인 상태, 사용자유형, 호텔 연결을 관리합니다."
         eyebrow="관리자"
         title="사용자 계정"
+        titleAccessory={<FeatureGuide content={accountFeatureGuides["account-administration.list"]} />}
       />
       <form action="/admin/users" className="grid gap-3 rounded-panel border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]" method="get">
         <label className="text-sm font-semibold" htmlFor="account-search">사용자 검색

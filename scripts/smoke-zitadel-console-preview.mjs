@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
+import {
+  isAuthenticatedConsoleResponse,
+  isSuccessfulConsoleCallbackResponse,
+  isValidConsoleLanding,
+} from "./lib/zitadel-console-smoke-contract.mjs";
 
 const requireFromDb = createRequire(new URL("../packages/db/package.json", import.meta.url));
 const postgres = requireFromDb("postgres");
@@ -9,9 +14,15 @@ const webPreviewUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
 const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
+const previewPassword = process.env.ZITADEL_PREVIEW_PASSWORD;
+const requireCredentialCallback =
+  process.env.ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK === "true";
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
 if (!webPreviewUrl || !issuer || !consoleClientId || !bootstrapSubject || !apiUrlFile) {
   throw new Error("Console Preview smoke configuration is missing");
+}
+if (requireCredentialCallback && !previewPassword) {
+  throw new Error("Console Preview credential configuration is missing");
 }
 const webOrigin = new URL(webPreviewUrl).origin;
 const issuerUrl = new URL(issuer);
@@ -84,8 +95,80 @@ try {
   ) {
     throw new Error("Preview Console browser binding cookie contract is invalid");
   }
+
+  if (requireCredentialCallback) {
+    try {
+      const callbackResponse = page.waitForResponse((response) =>
+        isSuccessfulConsoleCallbackResponse({
+          issuerOrigin: issuerUrl.origin,
+          status: response.status(),
+          url: response.url(),
+        }),
+      { timeout: 60_000 });
+      const authenticatedUserResponse = page.waitForResponse((response) =>
+        isAuthenticatedConsoleResponse({
+          issuerOrigin: issuerUrl.origin,
+          status: response.status(),
+          url: response.url(),
+        }),
+      { timeout: 60_000 });
+      const authenticatedLanding = page.waitForURL(
+        (candidate) => isValidConsoleLanding(candidate.toString(), issuerUrl.origin),
+        { timeout: 60_000 },
+      );
+      await page.locator("#login-name").fill("previewadmin");
+      await page.locator("#login-password").fill(previewPassword);
+      await page.getByRole("button", { name: "로그인", exact: true }).click();
+      await Promise.all([callbackResponse, authenticatedUserResponse, authenticatedLanding]);
+      const consoleIdentityVerified = await page.evaluate(
+        ({ expectedAudience, expectedIssuer, expectedSubject }) => {
+          for (const storage of [window.sessionStorage, window.localStorage]) {
+            const accessToken = storage.getItem("access_token");
+            const idToken = storage.getItem("id_token");
+            if (!accessToken || !idToken) continue;
+            try {
+              const encodedPayload = idToken.split(".")[1];
+              if (!encodedPayload) continue;
+              const padded = encodedPayload.replace(/-/gu, "+").replace(/_/gu, "/")
+                .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+              const payload = JSON.parse(window.atob(padded));
+              const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+              if (
+                payload.iss === expectedIssuer &&
+                payload.sub === expectedSubject &&
+                audiences.includes(expectedAudience) &&
+                typeof payload.exp === "number" &&
+                payload.exp * 1000 > Date.now()
+              ) return true;
+            } catch {
+              continue;
+            }
+          }
+          return false;
+        },
+        {
+          expectedAudience: consoleClientId,
+          expectedIssuer: issuer,
+          expectedSubject: bootstrapSubject,
+        },
+      );
+      if (!consoleIdentityVerified) {
+        throw new Error("Preview Console authenticated identity could not be verified");
+      }
+    } catch {
+      throw new Error("Preview Console credential flow did not complete authenticated read-back");
+    }
+    const terminalCookies = await context.cookies(webPreviewUrl);
+    if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {
+      throw new Error("Preview Console browser binding cookie remained after terminal success");
+    }
+  }
 } finally {
   await browser.close();
 }
 
-console.log("ZITADEL_CONSOLE_PREVIEW_PREAUTH_SMOKE_OK");
+console.log(
+  requireCredentialCallback
+    ? "ZITADEL_CONSOLE_PREVIEW_CREDENTIAL_CALLBACK_SMOKE_OK"
+    : "ZITADEL_CONSOLE_PREVIEW_PREAUTH_SMOKE_OK",
+);

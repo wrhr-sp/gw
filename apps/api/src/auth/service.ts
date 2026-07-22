@@ -197,6 +197,7 @@ export function createAuthService(input: {
       browserBindingHash,
       csrfHash: await sha256(csrf),
       csrfLifetimeSeconds: 5 * 60,
+      expectedAttemptCount: reservation.attemptCount,
     });
     if (result.status === "RATE_LIMITED") {
       throw new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
@@ -327,16 +328,18 @@ export function createAuthService(input: {
       }
       const parsedLoginId = loginIdSchema.safeParse(command.loginName);
       const canonicalLoginId = parsedLoginId.success ? parsedLoginId.data : "invalid";
+      const authRequestHash = await hmacSha256(
+        input.rateLimitKey,
+        `custom-login/auth-request/v1\0${command.authRequest}`,
+      );
+      const browserBindingHash = await sha256(command.browserBinding);
       const attempt = await input.repository.consumeCustomLoginAttempt({
         accountHash: await hmacSha256(
           input.rateLimitKey,
           `custom-login/account/v1\0${canonicalLoginId}`,
         ),
-        authRequestHash: await hmacSha256(
-          input.rateLimitKey,
-          `custom-login/auth-request/v1\0${command.authRequest}`,
-        ),
-        browserBindingHash: await sha256(command.browserBinding),
+        authRequestHash,
+        browserBindingHash,
         csrfHash: await sha256(command.csrf),
         ipHash: await hmacSha256(
           input.rateLimitKey,
@@ -363,6 +366,20 @@ export function createAuthService(input: {
           userId: identity.providerSubject,
         });
       } catch (error) {
+        if (
+          error instanceof AuthServiceError &&
+          error.code === "AUTH_FLOW_INVALID"
+        ) {
+          try {
+            await input.repository.discardCustomLoginTransaction({
+              authRequestHash,
+              browserBindingHash,
+            });
+          } catch {
+            // Clearing the browser binding at the HTTP boundary still makes the stale row unreachable.
+          }
+          throw error;
+        }
         if (error instanceof AuthServiceError) throw error;
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       }

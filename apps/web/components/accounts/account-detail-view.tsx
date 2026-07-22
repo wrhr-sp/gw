@@ -1,9 +1,10 @@
 "use client";
 
 import { accountDetailResponseSchema, deactivateAccountRequestSchema, hotelErrorResponseSchema, type Account } from "@werehere/contracts";
-import { Button, PageHeader, StatusBadge } from "@werehere/ui";
+import { Button, FeatureGuide, PageHeader, StatusBadge } from "@werehere/ui";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { accountFeatureGuides } from "../../lib/feature-guides";
 
 const typeLabel = { INTERNAL_STAFF: "사내 임직원", HOUSEKEEPING: "하우스키핑", HOTEL_OWNER: "호텔 소유주" } as const;
 const statusLabel = { PENDING_SETUP: "최초 설정 대기", ACTIVE: "활성", INACTIVE: "중지", LOCKED: "잠김" } as const;
@@ -80,7 +81,12 @@ export function AccountDetailView({ account, canSuspend }: { account: Account; c
   };
 
   return <div className="mx-auto flex w-full max-w-hotel-detail flex-col gap-6">
-    <PageHeader eyebrow="사용자 계정" title={account.displayName} description="로그인 identity와 호텔관리 업무계정의 현재 상태입니다." />
+    <PageHeader
+      eyebrow="사용자 계정"
+      title={account.displayName}
+      description="로그인 계정과 호텔관리 업무계정의 현재 상태입니다."
+      titleAccessory={<FeatureGuide content={accountFeatureGuides["account-administration.detail"]} />}
+    />
     <section className="rounded-panel border border-border bg-surface p-5 md:p-6">
       <div className="flex items-center justify-between"><h2 className="font-semibold">계정정보</h2><StatusBadge>{statusLabel[account.status]}</StatusBadge></div>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -88,7 +94,6 @@ export function AccountDetailView({ account, canSuspend }: { account: Account; c
         <div><dt className="text-xs text-muted">이메일</dt><dd className="mt-1 text-sm">{account.email}</dd></div>
         <div><dt className="text-xs text-muted">사용자유형</dt><dd className="mt-1 text-sm">{typeLabel[account.userType]}</dd></div>
         <div><dt className="text-xs text-muted">연결 호텔</dt><dd className="mt-1 text-sm">{account.hotels?.length ? <ul className="space-y-1">{account.hotels.map((hotel) => <li className="break-words" key={hotel.id}>{hotel.name} ({hotel.code})</li>)}</ul> : account.hotelName ? `${account.hotelName}${account.hotelCode ? ` (${account.hotelCode})` : ""}` : account.hotelId ? "연결된 호텔 정보 확인 필요" : "없음"}</dd></div>
-        <div><dt className="text-xs text-muted">데이터 버전</dt><dd className="mt-1 text-sm">{account.version}</dd></div>
       </dl>
     </section>
     {canSuspend && account.status !== "INACTIVE" ? (

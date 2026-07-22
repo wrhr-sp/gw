@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ActionButtonGroup,
   Button,
+  FeatureGuide,
   PageHeader,
   StatusBadge,
   SummaryCard,
@@ -22,6 +23,31 @@ describe("approved hotel page primitives", () => {
     expect(html).toContain("호텔 관리");
     expect(html).toContain("호텔 기본정보와 운영상태를 관리합니다.");
     expect(html).toContain("호텔 등록");
+  });
+
+  it("renders a titled 44px feature-guide control beside a page heading", () => {
+    const html = renderToStaticMarkup(
+      <PageHeader
+        title="사용자 계정"
+        titleAccessory={
+          <FeatureGuide
+            content={{
+              audience: ["계정 조회 권한이 있는 관리자"],
+              cautions: ["권한이 없는 작업은 실행할 수 없습니다."],
+              featureKey: "account-administration.list",
+              permissions: ["사용자 조회 권한"],
+              steps: ["검색 조건을 선택합니다.", "사용자를 선택합니다."],
+              summary: "회사 사용자 계정을 조회합니다.",
+              title: "사용자 계정",
+              version: "1.0",
+            }}
+          />
+        }
+      />,
+    );
+    expect(html).toContain('aria-label="사용자 계정 도움말"');
+    expect(html).toContain("min-h-11");
+    expect(html).toContain("min-w-11");
   });
 
   it("does not rely on color alone for status meaning", () => {

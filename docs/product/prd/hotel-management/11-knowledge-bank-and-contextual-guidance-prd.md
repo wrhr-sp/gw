@@ -200,6 +200,13 @@ KNOWLEDGE_ARCHIVE
 - 없는 `feature_key`, 빈 설명, 현재 route와 불일치한 가이드는 build/test에서 실패시킨다.
 - 가이드 열람은 일반적으로 감사대상이 아니며, 개인별 열람이력·프로파일링을 저장하지 않는다.
 
+### 11.5 현재 구현 범위
+
+- 계정관리 1차 slice는 사용자 목록, 사용자 생성, 사용자 상세 route에 각각 `account-administration.list`, `account-administration.create`, `account-administration.detail` 가이드를 연결한다.
+- 공통 `FeatureGuide`는 PC에서 Radix Popover, 390px 모바일에서 Radix Dialog를 사용하며 같은 registry 콘텐츠를 표시한다.
+- 계정관리 route coverage, registry 필수 콘텐츠, 내부용 문구 금지, 44×44px trigger, Escape·바깥영역 닫기와 trigger 포커스 복귀를 자동 검증한다.
+- 이 1차 slice 완료를 호텔관리 모든 사용자-facing route의 guide coverage 완료로 간주하지 않는다. 다른 기능은 각 실제 UI·권한 계약 구현과 함께 같은 공통 패턴으로 추가한다.
+
 ## 12. 제안 API 경계
 
 ```text

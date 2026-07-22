@@ -29,6 +29,7 @@ async function setup() {
       redirectUri: loginTransaction.redirectUri,
     } : null),
     consumeCustomLoginAttempt: vi.fn(async () => ({ status: "CONSUMED" as const })),
+    discardCustomLoginTransaction: vi.fn(async () => true),
     createSession: vi.fn(async (input) => ({
       status: "CREATED" as const,
       principal: {
@@ -41,7 +42,10 @@ async function setup() {
       },
     })),
     prepareCustomLogin: vi.fn(async () => ({ status: "PREPARED" as const })),
-    reserveCustomLoginValidation: vi.fn(async () => ({ status: "RESERVED" as const })),
+    reserveCustomLoginValidation: vi.fn(async () => ({
+      status: "RESERVED" as const,
+      attemptCount: 0,
+    })),
     reserveCustomLoginStart: vi.fn(async () => ({ status: "RESERVED" as const })),
     resolveCustomLoginIdentity: vi.fn(async () => ({ providerSubject: "subject-1" })),
     resolvePrincipal: vi.fn(async () => null),
@@ -277,11 +281,54 @@ describe("auth service", () => {
     expect(customLoginProvider.authenticateAndFinalize).not.toHaveBeenCalled();
   });
 
+  it("discards the bound transaction when credential finalization reports an invalid auth flow", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(customLoginProvider.authenticateAndFinalize).mockRejectedValue(
+      new AuthServiceError("AUTH_FLOW_INVALID", 400, false),
+    );
+
+    await expect(service.finalizeCustomLogin({
+      authRequest: "expired-request",
+      browserBinding: "browser-binding",
+      csrf: "csrf-value",
+      ipAddress: "203.0.113.10",
+      loginName: "HotelAdmin",
+      password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID", retryable: false });
+
+    expect(repository.discardCustomLoginTransaction).toHaveBeenCalledWith({
+      authRequestHash: expect.any(Uint8Array),
+      browserBindingHash: expect.any(Uint8Array),
+    });
+    expect(vi.mocked(customLoginProvider.authenticateAndFinalize).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(repository.discardCustomLoginTransaction).mock.invocationCallOrder[0]!);
+  });
+
+  it("keeps an invalid auth flow terminal when transaction deletion is unavailable", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(customLoginProvider.authenticateAndFinalize).mockRejectedValue(
+      new AuthServiceError("AUTH_FLOW_INVALID", 400, false),
+    );
+    vi.mocked(repository.discardCustomLoginTransaction).mockRejectedValue(
+      new Error("database unavailable sentinel"),
+    );
+
+    await expect(service.finalizeCustomLogin({
+      authRequest: "expired-request",
+      browserBinding: "browser-binding",
+      csrf: "csrf-value",
+      ipAddress: "203.0.113.10",
+      loginName: "HotelAdmin",
+      password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID", retryable: false });
+    expect(repository.discardCustomLoginTransaction).toHaveBeenCalledOnce();
+  });
+
   it("reissues CSRF without revalidating an already validated auth request", async () => {
     const { customLoginProvider, repository, service } = await setup();
     vi.mocked(repository.reserveCustomLoginValidation)
-      .mockResolvedValueOnce({ status: "RESERVED" })
-      .mockResolvedValueOnce({ status: "VALIDATED" });
+      .mockResolvedValueOnce({ status: "RESERVED", attemptCount: 0 })
+      .mockResolvedValueOnce({ status: "VALIDATED", attemptCount: 0 });
 
     const first = await service.prepareCustomLogin("request-1", "browser-binding");
     const second = await service.prepareCustomLogin("request-1", "browser-binding");

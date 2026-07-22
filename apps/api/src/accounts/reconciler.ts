@@ -105,6 +105,7 @@ async function recoverCreate(
       : 1;
   const completed = await input.accountRepository.completeCreate({
     accountId: job.userId,
+    ...(job.originActorType ? { actorType: job.originActorType } : {}),
     actorUserId: job.actorUserId,
     assignmentIds: Array.from({ length: assignmentCount }, () =>
       crypto.randomUUID(),
@@ -113,8 +114,9 @@ async function recoverCreate(
     companyId: job.companyId,
     idempotencyKey: job.idempotencyKey,
     leaseVersion: job.leaseVersion,
+    ...(job.originSessionId ? { sessionId: job.originSessionId } : {}),
     subject: job.userId,
-    traceId: crypto.randomUUID(),
+    traceId: job.traceId ?? job.attemptId,
     value: job.completionPayload,
   });
   if (completed.status === "CREATED" || completed.status === "REPLAYED")
@@ -124,8 +126,10 @@ async function recoverCreate(
     accountId: job.userId,
     companyId: job.companyId,
     leaseVersion: job.leaseVersion,
+    originalErrorCode:
+      completed.status === "FORBIDDEN" ? "FORBIDDEN" : "ACCOUNT_DUPLICATE",
   });
-  if (prepared === "STALE_LEASE") return false;
+  if (prepared.status === "STALE_LEASE") return false;
   return true;
 }
 

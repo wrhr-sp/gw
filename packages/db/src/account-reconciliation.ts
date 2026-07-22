@@ -1,8 +1,20 @@
 import {
   accountCreateCompletionPayloadSchema,
   type AccountCreateCompletionPayload,
+  type HotelUserType,
 } from "@werehere/contracts";
 import postgres from "postgres";
+
+export type CompensationOriginalErrorCode =
+  | "ACCOUNT_DUPLICATE"
+  | "FORBIDDEN"
+  | "INTERNAL_ERROR";
+export type AccountProviderJobStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "DEAD_LETTER";
 
 export type AccountProviderJob = {
   id: string;
@@ -11,7 +23,15 @@ export type AccountProviderJob = {
   providerSubject: string;
   jobType: "ACCOUNT_PROVIDER_DEACTIVATE" | "ACCOUNT_PROVIDER_COMPENSATE";
   claimToken: string;
+  provisioningAttemptId?: string;
+  originalErrorCode?: CompensationOriginalErrorCode;
 };
+
+export type ClaimExactAccountProviderJobResult =
+  | { status: "CLAIMED"; job: AccountProviderJob }
+  | { status: "SUCCEEDED" }
+  | { status: "BUSY" | "NOT_READY" | "NOT_FOUND" }
+  | { status: "DEAD_LETTER"; errorCode: string | null };
 
 export type AccountCreateRecoveryJob = {
   attemptId: string;
@@ -22,6 +42,9 @@ export type AccountCreateRecoveryJob = {
   leaseVersion: number;
   status: "DISPATCHED" | "RECOVERY_REQUIRED" | "PROVIDER_CONFIRMED" | "OPERATOR_REQUIRED";
   completionPayload: AccountCreateCompletionPayload;
+  originActorType?: HotelUserType;
+  originSessionId?: string;
+  traceId?: string;
 };
 
 export interface AccountReconciliationRepository {
@@ -39,7 +62,9 @@ type JobRow = {
   company_id: string;
   id: string;
   job_type: AccountProviderJob["jobType"];
+  original_error_code: string | null;
   provider_subject: string;
+  provisioning_attempt_id: string | null;
   user_id: string;
 };
 
@@ -55,7 +80,7 @@ type CreateRecoveryRow = {
 };
 
 function mapJob(row: JobRow): AccountProviderJob {
-  return {
+  const job: AccountProviderJob = {
     id: row.id,
     companyId: row.company_id,
     userId: row.user_id,
@@ -63,6 +88,17 @@ function mapJob(row: JobRow): AccountProviderJob {
     jobType: row.job_type,
     claimToken: row.claim_token,
   };
+  if (row.provisioning_attempt_id) {
+    job.provisioningAttemptId = row.provisioning_attempt_id;
+  }
+  if (
+    row.original_error_code === "ACCOUNT_DUPLICATE" ||
+    row.original_error_code === "FORBIDDEN" ||
+    row.original_error_code === "INTERNAL_ERROR"
+  ) {
+    job.originalErrorCode = row.original_error_code;
+  }
+  return job;
 }
 
 function mapCreateRecovery(row: CreateRecoveryRow): AccountCreateRecoveryJob | null {
@@ -71,11 +107,22 @@ function mapCreateRecovery(row: CreateRecoveryRow): AccountCreateRecoveryJob | n
     || typeof row.completion_payload !== "object"
     || Array.isArray(row.completion_payload)
   ) return null;
-  const { action, userId, ...completionPayload } = row.completion_payload as Record<string, unknown>;
+  const storedPayload = row.completion_payload as Record<string, unknown>;
+  const action = storedPayload.action;
+  const originActorType = storedPayload.originActorType;
+  const originSessionId = storedPayload.originSessionId;
+  const userId = storedPayload.userId;
+  const traceId = storedPayload.traceId;
+  const completionPayload = { ...storedPayload };
+  delete completionPayload.action;
+  delete completionPayload.originActorType;
+  delete completionPayload.originSessionId;
+  delete completionPayload.userId;
+  delete completionPayload.traceId;
   if (action !== "CREATE" || userId !== row.target_user_id) return null;
   const parsed = accountCreateCompletionPayloadSchema.safeParse(completionPayload);
   if (!parsed.success) return null;
-  return {
+  const job: AccountCreateRecoveryJob = {
     attemptId: row.id,
     companyId: row.company_id,
     userId: row.target_user_id,
@@ -85,6 +132,16 @@ function mapCreateRecovery(row: CreateRecoveryRow): AccountCreateRecoveryJob | n
     status: row.status,
     completionPayload: parsed.data,
   };
+  if (
+    originActorType === "INTERNAL_STAFF" ||
+    originActorType === "HOUSEKEEPING" ||
+    originActorType === "HOTEL_OWNER"
+  ) {
+    job.originActorType = originActorType;
+  }
+  if (typeof originSessionId === "string") job.originSessionId = originSessionId;
+  if (typeof traceId === "string") job.traceId = traceId;
+  return job;
 }
 
 export function createPostgresAccountReconciliationRepository(
@@ -120,16 +177,31 @@ export function createPostgresAccountReconciliationRepository(
           await transaction`select set_config('app.reconciler_company_id', ${company.id}, true)`;
           return transaction<JobRow[]>`
             with claimable as (
-              select id
-              from outbox_jobs
-              where company_id = ${company.id}
-                and job_type in ('ACCOUNT_PROVIDER_DEACTIVATE', 'ACCOUNT_PROVIDER_COMPENSATE')
-                and payload ? 'providerSubject'
+              select job.id
+              from outbox_jobs job
+              where job.company_id = ${company.id}
+                and job.job_type in ('ACCOUNT_PROVIDER_DEACTIVATE', 'ACCOUNT_PROVIDER_COMPENSATE')
                 and (
-                  (status in ('PENDING', 'FAILED') and available_at <= now())
-                  or (status = 'PROCESSING' and locked_at < now() - interval '5 minutes')
+                  job.job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
+                  or (
+                    job.payload->>'originalErrorCode' in (
+                      'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
+                    )
+                    and exists (
+                      select 1 from account_provisioning_attempts attempt
+                      where attempt.id::text = job.payload->>'provisioningAttemptId'
+                        and attempt.company_id = job.company_id
+                        and attempt.target_user_id::text = job.payload->>'userId'
+                        and attempt.provider_subject = job.payload->>'providerSubject'
+                        and attempt.status = 'COMPENSATION_REQUIRED'
+                    )
+                  )
                 )
-              order by available_at, created_at, id
+                and (
+                  (job.status in ('PENDING', 'FAILED') and job.available_at <= now())
+                  or (job.status = 'PROCESSING' and job.locked_at < now() - interval '5 minutes')
+                )
+              order by job.available_at, job.created_at, job.id
               for update skip locked
               limit ${remaining}
             )
@@ -141,7 +213,9 @@ export function createPostgresAccountReconciliationRepository(
             where job.id = claimable.id
             returning job.id, job.company_id, job.job_type, job.claim_token,
                       job.payload->>'userId' as user_id,
-                      job.payload->>'providerSubject' as provider_subject
+                      job.payload->>'providerSubject' as provider_subject,
+                      job.payload->>'provisioningAttemptId' as provisioning_attempt_id,
+                      job.payload->>'originalErrorCode' as original_error_code
           `;
         });
         for (const row of claimed) {
@@ -300,15 +374,69 @@ export function createPostgresAccountReconciliationRepository(
         `;
         if (!updated[0]) throw new Error("account provider outbox success transition is unavailable");
         if (job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (!job.provisioningAttemptId) {
+            throw new Error("account compensation attempt identity is unavailable");
+          }
           const compensated = await transaction<{ id: string }[]>`
             update account_provisioning_attempts
-            set status = 'COMPENSATED', failure_code = 'DB_COMPLETION_FAILED',
+            set status = 'COMPENSATED',
                 updated_at = now(), compensated_at = now(), completed_at = now()
-            where company_id = ${job.companyId} and target_user_id = ${job.userId}
+            where id = ${job.provisioningAttemptId}
+              and company_id = ${job.companyId}
+              and target_user_id = ${job.userId}
+              and provider_subject = ${job.providerSubject}
               and status = 'COMPENSATION_REQUIRED'
             returning id
           `;
           if (!compensated[0]) throw new Error("account compensation state is unavailable");
+          if (!job.originalErrorCode) {
+            throw new Error("account compensation original error is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id, company_id, branch_id,
+              resource_type, resource_id, after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_SUCCEEDED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   (attempt.completion_payload->>'originSessionId')::uuid,
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${job.originalErrorCode}, 'SUCCEEDED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${job.provisioningAttemptId}
+              and attempt.company_id = ${job.companyId}
+          `;
         }
       });
     },
@@ -332,6 +460,59 @@ export function createPostgresAccountReconciliationRepository(
           returning id
         `;
         if (!updated[0]) throw new Error("account provider outbox failure transition is unavailable");
+        if (job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (!job.provisioningAttemptId || !job.originalErrorCode) {
+            throw new Error("account compensation audit linkage is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id, company_id, branch_id,
+              resource_type, resource_id, after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_FAILED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   (attempt.completion_payload->>'originSessionId')::uuid,
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${errorCode}, 'FAILED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${job.provisioningAttemptId}
+              and attempt.company_id = ${job.companyId}
+              and attempt.target_user_id = ${job.userId}
+              and attempt.provider_subject = ${job.providerSubject}
+              and attempt.status = 'COMPENSATION_REQUIRED'
+          `;
+        }
       });
     },
   };

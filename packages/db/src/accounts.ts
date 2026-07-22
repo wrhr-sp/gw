@@ -9,6 +9,12 @@ import {
   type HotelUserType,
 } from "@werehere/contracts";
 import postgres from "postgres";
+import type {
+  AccountProviderJob,
+  AccountProviderJobStatus,
+  ClaimExactAccountProviderJobResult,
+  CompensationOriginalErrorCode,
+} from "./account-reconciliation";
 import {
   normalizeStoredHotelUserType,
   toExpandCompatibleStoredUserType,
@@ -26,14 +32,17 @@ export type ReserveAccountCreateInput = {
   accountId: string;
   actor: AccountActor;
   attemptId: string;
+  auditEventId?: string;
   hotelIds: string[];
   completionPayload: AccountCreateCompletionPayload;
   idempotencyKey: string;
   requestHash: string;
+  traceId?: string;
 };
 
 export type CompleteAccountCreateInput = {
   accountId: string;
+  actorType?: HotelUserType;
   actorUserId: string;
   assignmentIds: string[];
   auditEventId: string;
@@ -60,13 +69,22 @@ export type ReserveAccountCreateResult =
     }
   | { status: "REPLAYED"; account: Account }
   | {
+      status: "COMPENSATION_REQUIRED";
+      accountId: string;
+      providerJobId: string;
+      providerJobStatus: AccountProviderJobStatus;
+      originalErrorCode: CompensationOriginalErrorCode;
+    }
+  | {
+      status: "COMPENSATED";
+      originalErrorCode: CompensationOriginalErrorCode;
+    }
+  | {
       status:
         | "IDEMPOTENCY_CONFLICT"
         | "IN_PROGRESS"
         | "FORBIDDEN"
         | "HOTEL_NOT_FOUND"
-        | "COMPENSATED"
-        | "COMPENSATION_REQUIRED"
         | "RECOVERY_REQUIRED"
         | "OPERATOR_REQUIRED"
         | "DEAD_LETTER"
@@ -110,7 +128,12 @@ export type AccountEligibleHotelsResult =
   | { status: "FORBIDDEN" };
 
 export type AccountDeactivateResult =
-  | { status: "UPDATED"; account: Account }
+  | {
+      status: "UPDATED" | "REPLAYED";
+      account: Account;
+      providerJobId: string;
+      providerJobStatus: AccountProviderJobStatus;
+    }
   | {
       status:
         | "FORBIDDEN"
@@ -158,7 +181,33 @@ export interface AccountRepository {
     companyId: string;
     sessionId?: string;
     leaseVersion: number;
-  }): Promise<"UPDATED" | "STALE_LEASE">;
+    originalErrorCode: CompensationOriginalErrorCode;
+  }): Promise<
+    | {
+        status: "PREPARED";
+        providerJobId: string;
+        providerJobStatus: AccountProviderJobStatus;
+        originalErrorCode: CompensationOriginalErrorCode;
+      }
+    | { status: "STALE_LEASE" }
+  >;
+  claimExactProviderJob(input: {
+    companyId: string;
+    sessionId: string;
+    jobId: string;
+    expectedJobType: AccountProviderJob["jobType"];
+  }): Promise<ClaimExactAccountProviderJobResult>;
+  markProviderJobSucceeded(input: {
+    companyId: string;
+    sessionId: string;
+    job: AccountProviderJob;
+  }): Promise<"UPDATED" | "STALE_CLAIM">;
+  markProviderJobFailed(input: {
+    companyId: string;
+    sessionId: string;
+    job: AccountProviderJob;
+    errorCode: string;
+  }): Promise<"UPDATED" | "STALE_CLAIM">;
 
   listAccounts(
     actor: AccountActor,
@@ -436,6 +485,8 @@ export function createPostgresAccountRepository(
     },
 
     async reserveCreate(input) {
+      const auditEventId = input.auditEventId ?? crypto.randomUUID();
+      const traceId = input.traceId ?? crypto.randomUUID();
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         if (!(await permission(transaction, input.actor, "USER_CREATE")))
@@ -550,7 +601,13 @@ export function createPostgresAccountRepository(
             ${input.attemptId}, ${input.actor.companyId}, ${input.actor.userId}, ${targetAccountId},
             ${input.idempotencyKey}, ${input.requestHash}, ${transaction.json({
               ...input.completionPayload,
+              ...(input.completionPayload.userType === "HOUSEKEEPING"
+                ? { hotelIds: [...hotelIds].sort() }
+                : {}),
               action: "CREATE",
+              originActorType: input.actor.userType,
+              originSessionId: input.actor.sessionId,
+              traceId,
               userId: targetAccountId,
             })},
             'RESERVED_NOT_DISPATCHED', now() + interval '24 hours'
@@ -558,12 +615,31 @@ export function createPostgresAccountRepository(
           on conflict (company_id, actor_user_id, idempotency_key) do nothing
           returning target_user_id, attempt_count
         `;
-        if (inserted[0])
+        if (inserted[0]) {
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            ) values (
+              ${auditEventId}, 'ACCOUNT_PROVISION_REQUESTED',
+              ${input.actor.userId}, ${input.actor.userType}, ${input.actor.sessionId},
+              ${input.actor.companyId}, ${hotelIds.length === 1 ? hotelIds[0]! : null},
+              'USER', ${inserted[0].target_user_id},
+              ${transaction.json({
+                hotelCount: hotelIds.length,
+                hotelIds: [...hotelIds].sort(),
+                userType: input.completionPayload.userType,
+              })},
+              'ACCOUNT_PROVISION_REQUESTED', 'SUCCEEDED', ${traceId}
+            )
+          `;
           return {
             status: "RESERVED_NOT_DISPATCHED",
             accountId: inserted[0].target_user_id,
             leaseVersion: inserted[0].attempt_count,
           } as const;
+        }
         const [existing] = await transaction<
           {
             attempt_count: number;
@@ -594,9 +670,48 @@ export function createPostgresAccountRepository(
           if (account) return { status: "REPLAYED", account } as const;
         }
         if (
+          existing.status === "COMPENSATED" ||
+          existing.status === "COMPENSATION_REQUIRED"
+        ) {
+          const [providerJob] = await transaction<{
+            id: string;
+            original_error_code: string | null;
+            status: AccountProviderJobStatus;
+          }[]>`
+            select id, status, payload->>'originalErrorCode' as original_error_code
+            from outbox_jobs
+            where company_id = ${input.actor.companyId}
+              and job_type = 'ACCOUNT_PROVIDER_COMPENSATE'
+              and payload->>'userId' = ${existing.target_user_id}
+              and status <> 'CANCELLED'
+            order by created_at, id
+            limit 1
+          `;
+          const originalErrorCode = providerJob?.original_error_code;
+          if (
+            !providerJob ||
+            (originalErrorCode !== "ACCOUNT_DUPLICATE" &&
+              originalErrorCode !== "FORBIDDEN" &&
+              originalErrorCode !== "INTERNAL_ERROR")
+          ) {
+            return { status: "DEAD_LETTER" } as const;
+          }
+          if (existing.status === "COMPENSATED") {
+            if (providerJob.status !== "SUCCEEDED") {
+              return { status: "DEAD_LETTER" } as const;
+            }
+            return { status: "COMPENSATED", originalErrorCode } as const;
+          }
+          return {
+            status: "COMPENSATION_REQUIRED",
+            accountId: existing.target_user_id,
+            providerJobId: providerJob.id,
+            providerJobStatus: providerJob.status,
+            originalErrorCode,
+          } as const;
+        }
+        if (
           [
-            "COMPENSATED",
-            "COMPENSATION_REQUIRED",
             "RECOVERY_REQUIRED",
             "OPERATOR_REQUIRED",
             "DEAD_LETTER",
@@ -823,13 +938,21 @@ export function createPostgresAccountRepository(
           }
           await transaction`
             insert into audit_events (
-              id, event_code, actor_user_id, actor_type, company_id, branch_id,
+              id, event_code, actor_user_id, actor_type, session_id, company_id, branch_id,
               resource_type, resource_id, after_summary, reason, result, trace_id
             ) values (
-              ${input.auditEventId}, 'ACCOUNT_CREATED', ${input.actorUserId}, 'INTERNAL_STAFF',
-              ${input.companyId}, ${hotelIds[0]!}, 'USER', ${input.accountId},
-              ${transaction.json({ userType: input.value.userType, status: "PENDING_SETUP", hotelCount: hotelIds.length })},
-              ${input.value.reason}, 'SUCCEEDED', ${input.traceId}
+              ${input.auditEventId}, 'ACCOUNT_CREATED', ${input.actorUserId},
+              ${input.actorType ?? "INTERNAL_STAFF"},
+              ${input.sessionId ?? null}, ${input.companyId},
+              ${hotelIds.length === 1 ? hotelIds[0]! : null},
+              'USER', ${input.accountId},
+              ${transaction.json({
+                userType: input.value.userType,
+                status: "PENDING_SETUP",
+                hotelCount: hotelIds.length,
+                hotelIds: [...hotelIds].sort(),
+              })},
+              'ACCOUNT_CREATED', 'SUCCEEDED', ${input.traceId}
             )
           `;
           await transaction`
@@ -860,39 +983,394 @@ export function createPostgresAccountRepository(
     },
 
     async prepareCompensation(input) {
+      const providerJobId = crypto.randomUUID();
+      const auditEventId = crypto.randomUUID();
+      const legacyTraceId = crypto.randomUUID();
       return sql.begin(async (transaction) => {
-        await transaction`select set_config('app.session_id', ${input.sessionId ?? ""}, true)`;
-        await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
+        if (input.sessionId) {
+          await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        } else {
+          await transaction`select set_config('app.reconciler_company_id', ${input.companyId}, true)`;
+        }
         const updated = await transaction<
-          { id: string; provider_subject: string }[]
+          {
+            actor_user_id: string;
+            completion_payload: Record<string, unknown>;
+            id: string;
+            provider_subject: string;
+          }[]
         >`
           update account_provisioning_attempts
           set status = 'COMPENSATION_REQUIRED',
               failure_code = 'DB_COMPLETION_FAILED',
               compensation_required_at = now(),
+              completion_payload = case
+                when jsonb_typeof(completion_payload->'traceId') = 'string'
+                then completion_payload
+                else jsonb_set(
+                  completion_payload,
+                  '{traceId}',
+                  to_jsonb(${legacyTraceId}::text),
+                  true
+                )
+              end,
               updated_at = now()
           where company_id = ${input.companyId} and target_user_id = ${input.accountId}
             and status = 'PROVIDER_CONFIRMED'
             and attempt_count = ${input.leaseVersion}
-          returning id, provider_subject
+          returning id, actor_user_id, completion_payload, provider_subject
         `;
-        if (!updated[0]) return "STALE_LEASE" as const;
+        if (!updated[0]) return { status: "STALE_LEASE" } as const;
         await transaction`
           insert into outbox_jobs (id, company_id, job_type, payload, status, available_at)
-          select ${crypto.randomUUID()}, ${input.companyId}, 'ACCOUNT_PROVIDER_COMPENSATE',
-                 jsonb_build_object(
-                   'userId', ${input.accountId}::text,
-                   'providerSubject', ${updated[0].provider_subject}::text,
-                   'action', 'COMPENSATE'
-                 ), 'PENDING', now()
-          where not exists (
-            select 1 from outbox_jobs
-            where company_id = ${input.companyId}
-              and job_type = 'ACCOUNT_PROVIDER_COMPENSATE'
-              and payload->>'userId' = ${input.accountId}
-              and status <> 'CANCELLED'
+          values (
+            ${providerJobId}, ${input.companyId}, 'ACCOUNT_PROVIDER_COMPENSATE',
+            ${transaction.json({
+              userId: input.accountId,
+              providerSubject: updated[0].provider_subject,
+              provisioningAttemptId: updated[0].id,
+              originalErrorCode: input.originalErrorCode,
+              action: "COMPENSATE",
+            })},
+            'PENDING', now()
           )
         `;
+        const completionPayload = updated[0].completion_payload;
+        const originActorType = completionPayload.originActorType;
+        const originSessionId = completionPayload.originSessionId;
+        const traceId = completionPayload.traceId;
+        const userType = completionPayload.userType;
+        const hotelIds = Array.isArray(completionPayload.hotelIds)
+          ? completionPayload.hotelIds.filter(
+              (hotelId): hotelId is string => typeof hotelId === "string",
+            )
+          : typeof completionPayload.hotelId === "string"
+            ? [completionPayload.hotelId]
+            : [];
+        if (
+          typeof traceId !== "string" ||
+          typeof userType !== "string" ||
+          !hotelIds[0]
+        ) {
+          throw new Error("account compensation audit context is unavailable");
+        }
+        const [auditActor] = await transaction<{ user_type: string }[]>`
+          select user_type from users
+          where company_id = ${input.companyId}
+            and id = ${updated[0].actor_user_id}
+        `;
+        if (!auditActor) {
+          throw new Error("account compensation audit actor is unavailable");
+        }
+        const auditActorType =
+          originActorType === "INTERNAL_STAFF" ||
+          originActorType === "HOUSEKEEPING" ||
+          originActorType === "HOTEL_OWNER"
+            ? originActorType
+            : auditActor.user_type;
+        const auditSessionId =
+          typeof originSessionId === "string"
+            ? originSessionId
+            : (input.sessionId ?? null);
+        await transaction`
+          insert into audit_events (
+            id, event_code, actor_user_id, actor_type, session_id,
+            company_id, branch_id, resource_type, resource_id,
+            after_summary, reason, result, trace_id
+          ) values (
+            ${auditEventId}, 'ACCOUNT_CREATE_FAILED', ${updated[0].actor_user_id},
+            ${auditActorType}, ${auditSessionId}, ${input.companyId},
+            ${hotelIds.length === 1 ? hotelIds[0] : null}, 'USER', ${input.accountId},
+            ${transaction.json({
+              hotelCount: hotelIds.length,
+              hotelIds: [...hotelIds].sort(),
+              userType,
+            })},
+            ${input.originalErrorCode}, 'FAILED', ${traceId}
+          )
+        `;
+        return {
+          status: "PREPARED",
+          providerJobId,
+          providerJobStatus: "PENDING",
+          originalErrorCode: input.originalErrorCode,
+        } as const;
+      });
+    },
+
+    async claimExactProviderJob(input) {
+      const claimToken = crypto.randomUUID();
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const [claimed] = await transaction<
+          {
+            claim_token: string;
+            company_id: string;
+            id: string;
+            job_type: AccountProviderJob["jobType"];
+            original_error_code: string | null;
+            provider_subject: string;
+            provisioning_attempt_id: string | null;
+            user_id: string;
+          }[]
+        >`
+          with claimable as (
+            select job.id from outbox_jobs job
+            where job.id = ${input.jobId}
+              and job.company_id = ${input.companyId}
+              and job.job_type = ${input.expectedJobType}
+              and (
+                job.job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
+                or (
+                  job.payload->>'originalErrorCode' in (
+                    'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
+                  )
+                  and exists (
+                    select 1 from account_provisioning_attempts attempt
+                    where attempt.id::text = job.payload->>'provisioningAttemptId'
+                      and attempt.company_id = job.company_id
+                      and attempt.target_user_id::text = job.payload->>'userId'
+                      and attempt.provider_subject = job.payload->>'providerSubject'
+                      and attempt.status = 'COMPENSATION_REQUIRED'
+                  )
+                )
+              )
+              and (
+                (job.status in ('PENDING', 'FAILED') and job.available_at <= now())
+                or (job.status = 'PROCESSING' and job.locked_at < now() - interval '5 minutes')
+              )
+            for update skip locked
+          )
+          update outbox_jobs job
+          set status = 'PROCESSING', locked_at = now(),
+              attempt_count = attempt_count + 1, updated_at = now(),
+              last_error_code = null, claim_token = ${claimToken}
+          from claimable
+          where job.id = claimable.id
+          returning job.id, job.company_id, job.job_type, job.claim_token,
+                    job.payload->>'userId' as user_id,
+                    job.payload->>'providerSubject' as provider_subject,
+                    job.payload->>'provisioningAttemptId' as provisioning_attempt_id,
+                    job.payload->>'originalErrorCode' as original_error_code
+        `;
+        if (claimed?.user_id && claimed.provider_subject) {
+          const job: AccountProviderJob = {
+            id: claimed.id,
+            companyId: claimed.company_id,
+            userId: claimed.user_id,
+            providerSubject: claimed.provider_subject,
+            jobType: claimed.job_type,
+            claimToken: claimed.claim_token,
+          };
+          if (claimed.provisioning_attempt_id) {
+            job.provisioningAttemptId = claimed.provisioning_attempt_id;
+          }
+          if (
+            claimed.original_error_code === "ACCOUNT_DUPLICATE" ||
+            claimed.original_error_code === "FORBIDDEN" ||
+            claimed.original_error_code === "INTERNAL_ERROR"
+          ) {
+            job.originalErrorCode = claimed.original_error_code;
+          }
+          return { status: "CLAIMED", job } as const;
+        }
+        const [stored] = await transaction<{
+          available_at: Date;
+          last_error_code: string | null;
+          status: string;
+        }[]>`
+          select status, available_at, last_error_code
+          from outbox_jobs
+          where id = ${input.jobId}
+            and company_id = ${input.companyId}
+            and job_type = ${input.expectedJobType}
+        `;
+        if (!stored || stored.status === "CANCELLED") {
+          return { status: "NOT_FOUND" } as const;
+        }
+        if (stored.status === "SUCCEEDED") {
+          return { status: "SUCCEEDED" } as const;
+        }
+        if (stored.status === "DEAD_LETTER") {
+          return {
+            status: "DEAD_LETTER",
+            errorCode: stored.last_error_code,
+          } as const;
+        }
+        if (stored.status === "FAILED" && stored.available_at > new Date()) {
+          return { status: "NOT_READY" } as const;
+        }
+        return { status: "BUSY" } as const;
+      });
+    },
+
+    async markProviderJobSucceeded(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const updated = await transaction<{ id: string }[]>`
+          update outbox_jobs
+          set status = 'SUCCEEDED', completed_at = now(), locked_at = null,
+              updated_at = now(), last_error_code = null, claim_token = null
+          where id = ${input.job.id} and company_id = ${input.companyId}
+            and job_type = ${input.job.jobType} and status = 'PROCESSING'
+            and claim_token = ${input.job.claimToken}
+          returning id
+        `;
+        if (!updated[0]) return "STALE_CLAIM" as const;
+        if (input.job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (!input.job.provisioningAttemptId) {
+            throw new Error("account compensation attempt identity is unavailable");
+          }
+          const compensated = await transaction<{ id: string }[]>`
+            update account_provisioning_attempts
+            set status = 'COMPENSATED', compensated_at = now(),
+                completed_at = now(), updated_at = now()
+            where id = ${input.job.provisioningAttemptId}
+              and company_id = ${input.companyId}
+              and target_user_id = ${input.job.userId}
+              and provider_subject = ${input.job.providerSubject}
+              and status = 'COMPENSATION_REQUIRED'
+            returning id
+          `;
+          if (!compensated[0]) {
+            throw new Error("account compensation state is unavailable");
+          }
+          if (!input.job.originalErrorCode) {
+            throw new Error("account compensation original error is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_SUCCEEDED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   coalesce(
+                     (attempt.completion_payload->>'originSessionId')::uuid,
+                     ${input.sessionId}::uuid
+                   ),
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${input.job.originalErrorCode}, 'SUCCEEDED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${input.job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${input.job.provisioningAttemptId}
+              and attempt.company_id = ${input.companyId}
+          `;
+        }
+        return "UPDATED" as const;
+      });
+    },
+
+    async markProviderJobFailed(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const updated = await transaction<{ id: string }[]>`
+          update outbox_jobs
+          set status = case when attempt_count >= 8 then 'DEAD_LETTER' else 'FAILED' end,
+              locked_at = null, claim_token = null, updated_at = now(),
+              last_error_code = ${input.errorCode},
+              completed_at = case when attempt_count >= 8 then now() else completed_at end,
+              dead_lettered_at = case when attempt_count >= 8 then now() else dead_lettered_at end,
+              available_at = now() + make_interval(
+                secs => least(3600, 60 * power(2, least(attempt_count, 6)))::int
+              )
+          where id = ${input.job.id} and company_id = ${input.companyId}
+            and job_type = ${input.job.jobType} and status = 'PROCESSING'
+            and claim_token = ${input.job.claimToken}
+          returning id
+        `;
+        if (!updated[0]) return "STALE_CLAIM" as const;
+        if (input.job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (
+            !input.job.provisioningAttemptId ||
+            !input.job.originalErrorCode
+          ) {
+            throw new Error("account compensation audit linkage is unavailable");
+          }
+          await transaction`
+            insert into audit_events (
+              id, event_code, actor_user_id, actor_type, session_id,
+              company_id, branch_id, resource_type, resource_id,
+              after_summary, reason, result, trace_id
+            )
+            select gen_random_uuid(), 'ACCOUNT_COMPENSATION_FAILED',
+                   attempt.actor_user_id,
+                   coalesce(attempt.completion_payload->>'originActorType', audit_actor.user_type),
+                   coalesce(
+                     (attempt.completion_payload->>'originSessionId')::uuid,
+                     ${input.sessionId}::uuid
+                   ),
+                   attempt.company_id,
+                   case
+                     when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                      and jsonb_array_length(attempt.completion_payload->'hotelIds') > 1
+                     then null
+                     else coalesce(
+                       attempt.completion_payload->>'hotelId',
+                       attempt.completion_payload->'hotelIds'->>0
+                     )::uuid
+                   end,
+                   'USER', attempt.target_user_id,
+                   jsonb_build_object(
+                     'hotelCount', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then jsonb_array_length(attempt.completion_payload->'hotelIds')
+                       else 1
+                     end,
+                     'hotelIds', case
+                       when jsonb_typeof(attempt.completion_payload->'hotelIds') = 'array'
+                       then attempt.completion_payload->'hotelIds'
+                       else jsonb_build_array(attempt.completion_payload->>'hotelId')
+                     end,
+                     'userType', attempt.completion_payload->>'userType'
+                   ),
+                   ${input.errorCode}, 'FAILED',
+                   coalesce(
+                     (attempt.completion_payload->>'traceId')::uuid,
+                     ${input.job.id}::uuid
+                   )
+            from account_provisioning_attempts attempt
+            join users audit_actor
+              on audit_actor.company_id = attempt.company_id
+             and audit_actor.id = attempt.actor_user_id
+            where attempt.id = ${input.job.provisioningAttemptId}
+              and attempt.company_id = ${input.companyId}
+              and attempt.target_user_id = ${input.job.userId}
+              and attempt.provider_subject = ${input.job.providerSubject}
+              and attempt.status = 'COMPENSATION_REQUIRED'
+          `;
+        }
         return "UPDATED" as const;
       });
     },
@@ -1050,6 +1528,7 @@ export function createPostgresAccountRepository(
           version: input.value.version,
           reason: input.value.reason,
         });
+      const providerJobId = crypto.randomUUID();
       return sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         await transaction`select pg_advisory_xact_lock(hashtextextended(${`${input.actor.companyId}:account-deactivation`}, 0))`;
@@ -1095,8 +1574,28 @@ export function createPostgresAccountRepository(
               input.actor.companyId,
               existing.resource_id,
             );
-            if (replayed)
-              return { status: "UPDATED", account: replayed } as const;
+            const [providerJob] = await transaction<{
+              id: string;
+              status: AccountProviderJobStatus;
+            }[]>`
+              select id, status from outbox_jobs
+              where company_id = ${input.actor.companyId}
+                and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
+                and payload->>'userId' = ${existing.resource_id}
+                and payload->>'idempotencyKey' = ${input.idempotencyKey}
+                and status <> 'CANCELLED'
+              order by created_at, id
+              limit 1
+            `;
+            if (!replayed || !providerJob) {
+              throw new Error("deactivation idempotency outbox is unavailable");
+            }
+            return {
+              status: "REPLAYED",
+              account: replayed,
+              providerJobId: providerJob.id,
+              providerJobStatus: providerJob.status,
+            } as const;
           }
           return { status: "IDEMPOTENCY_CONFLICT" } as const;
         }
@@ -1193,15 +1692,30 @@ export function createPostgresAccountRepository(
             version = version + 1, updated_at = now()
           where company_id = ${input.actor.companyId} and id = ${input.targetUserId}
         `;
-        await transaction`
+        const [revocation] = await transaction<{ revoked_count: number }[]>`
           select public.auth_revoke_user_sessions_v1(
             ${input.actor.companyId}, ${input.targetUserId}, 'ACCOUNT_DEACTIVATED'
+          ) as revoked_count
+        `;
+        if (!revocation) {
+          throw new Error("account session revocation result is unavailable");
+        }
+        await transaction`
+          insert into audit_events (
+            id, event_code, actor_user_id, actor_type, session_id, company_id,
+            resource_type, resource_id, after_summary, reason, result, trace_id
+          ) values (
+            gen_random_uuid(), 'ACCOUNT_SESSION_REVOKED', ${input.actor.userId},
+            ${input.actor.userType}, ${input.actor.sessionId}, ${input.actor.companyId},
+            'USER', ${input.targetUserId},
+            ${transaction.json({ revokedCount: revocation.revoked_count })},
+            'ACCOUNT_DEACTIVATED', 'SUCCEEDED', ${input.traceId}
           )
         `;
         await transaction`
           insert into outbox_jobs (id, company_id, job_type, payload, status, available_at)
           values (
-            ${crypto.randomUUID()}, ${input.actor.companyId}, 'ACCOUNT_PROVIDER_DEACTIVATE',
+            ${providerJobId}, ${input.actor.companyId}, 'ACCOUNT_PROVIDER_DEACTIVATE',
             ${transaction.json({
               userId: input.targetUserId,
               providerSubject: target.provider_subject,
@@ -1218,7 +1732,7 @@ export function createPostgresAccountRepository(
           ) values (
             ${input.auditEventId}, 'ACCOUNT_DEACTIVATED', ${input.actor.userId}, ${input.actor.userType},
             ${input.actor.sessionId}, ${input.actor.companyId}, 'USER', ${input.targetUserId},
-            ${input.value.reason}, 'SUCCEEDED', ${input.traceId}
+            'ACCOUNT_DEACTIVATED', 'SUCCEEDED', ${input.traceId}
           )
         `;
         const account = await selectAccount(
@@ -1240,7 +1754,12 @@ export function createPostgresAccountRepository(
             and operation_path = ${operationPath}
             and status = 'IN_PROGRESS'
         `;
-        return { status: "UPDATED", account } as const;
+        return {
+          status: "UPDATED",
+          account,
+          providerJobId,
+          providerJobStatus: "PENDING",
+        } as const;
       });
     },
 
