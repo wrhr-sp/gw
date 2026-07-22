@@ -5,6 +5,14 @@ const migrationUrl = new URL("../migrations/0006_account_administration.sql", im
 const readMigration = () => readFileSync(migrationUrl, "utf8");
 const expandMigrationUrl = new URL("../migrations/0009_global_login_id_expand.sql", import.meta.url);
 const contractMigrationUrl = new URL("../migrations/0010_global_login_id_contract.sql", import.meta.url);
+const providerDispatchExpandMigrationUrl = new URL(
+  "../migrations/0011_account_provider_exact_dispatch.sql",
+  import.meta.url,
+);
+const providerDispatchContractMigrationUrl = new URL(
+  "../migrations/0012_account_provider_exact_dispatch_contract.sql",
+  import.meta.url,
+);
 
 describe("account administration migration", () => {
   it("expands global uniqueness before enforcing the canonical login ID contract", () => {
@@ -24,6 +32,23 @@ describe("account administration migration", () => {
       expect(contract).toContain(`'${reserved}'`);
     }
     expect(contract).toContain("0010_global_login_id_contract");
+  });
+
+  it("keeps EXPAND writer-compatible, then dead-letters legacy rows before CONTRACT linkage enforcement", () => {
+    const expand = readFileSync(providerDispatchExpandMigrationUrl, "utf8");
+    const contract = readFileSync(providerDispatchContractMigrationUrl, "utf8");
+    expect(expand).toContain("LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE");
+    expect(expand).not.toContain("add constraint outbox_jobs_compensation_linkage_check");
+    expect(expand).toContain("0011_account_provider_exact_dispatch");
+    expect(contract).toContain("LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE");
+    expect(contract).toContain("outbox_jobs_compensation_linkage_check");
+    expect(contract).toContain("coalesce");
+    expect(contract).toContain("provisioningAttemptId");
+    expect(contract).toContain("originalErrorCode");
+    expect(contract).toContain("ACCOUNT_DUPLICATE");
+    expect(contract).toContain("FORBIDDEN");
+    expect(contract).toContain("INTERNAL_ERROR");
+    expect(contract).toContain("0012_account_provider_exact_dispatch_contract");
   });
 
   it("expands user type storage without breaking the previously deployed Worker", () => {

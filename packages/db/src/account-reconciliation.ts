@@ -4,6 +4,17 @@ import {
 } from "@werehere/contracts";
 import postgres from "postgres";
 
+export type CompensationOriginalErrorCode =
+  | "ACCOUNT_DUPLICATE"
+  | "FORBIDDEN"
+  | "INTERNAL_ERROR";
+export type AccountProviderJobStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "DEAD_LETTER";
+
 export type AccountProviderJob = {
   id: string;
   companyId: string;
@@ -11,7 +22,15 @@ export type AccountProviderJob = {
   providerSubject: string;
   jobType: "ACCOUNT_PROVIDER_DEACTIVATE" | "ACCOUNT_PROVIDER_COMPENSATE";
   claimToken: string;
+  provisioningAttemptId?: string;
+  originalErrorCode?: CompensationOriginalErrorCode;
 };
+
+export type ClaimExactAccountProviderJobResult =
+  | { status: "CLAIMED"; job: AccountProviderJob }
+  | { status: "SUCCEEDED" }
+  | { status: "BUSY" | "NOT_READY" | "NOT_FOUND" }
+  | { status: "DEAD_LETTER"; errorCode: string | null };
 
 export type AccountCreateRecoveryJob = {
   attemptId: string;
@@ -39,7 +58,9 @@ type JobRow = {
   company_id: string;
   id: string;
   job_type: AccountProviderJob["jobType"];
+  original_error_code: string | null;
   provider_subject: string;
+  provisioning_attempt_id: string | null;
   user_id: string;
 };
 
@@ -55,7 +76,7 @@ type CreateRecoveryRow = {
 };
 
 function mapJob(row: JobRow): AccountProviderJob {
-  return {
+  const job: AccountProviderJob = {
     id: row.id,
     companyId: row.company_id,
     userId: row.user_id,
@@ -63,6 +84,17 @@ function mapJob(row: JobRow): AccountProviderJob {
     jobType: row.job_type,
     claimToken: row.claim_token,
   };
+  if (row.provisioning_attempt_id) {
+    job.provisioningAttemptId = row.provisioning_attempt_id;
+  }
+  if (
+    row.original_error_code === "ACCOUNT_DUPLICATE" ||
+    row.original_error_code === "FORBIDDEN" ||
+    row.original_error_code === "INTERNAL_ERROR"
+  ) {
+    job.originalErrorCode = row.original_error_code;
+  }
+  return job;
 }
 
 function mapCreateRecovery(row: CreateRecoveryRow): AccountCreateRecoveryJob | null {
@@ -120,16 +152,31 @@ export function createPostgresAccountReconciliationRepository(
           await transaction`select set_config('app.reconciler_company_id', ${company.id}, true)`;
           return transaction<JobRow[]>`
             with claimable as (
-              select id
-              from outbox_jobs
-              where company_id = ${company.id}
-                and job_type in ('ACCOUNT_PROVIDER_DEACTIVATE', 'ACCOUNT_PROVIDER_COMPENSATE')
-                and payload ? 'providerSubject'
+              select job.id
+              from outbox_jobs job
+              where job.company_id = ${company.id}
+                and job.job_type in ('ACCOUNT_PROVIDER_DEACTIVATE', 'ACCOUNT_PROVIDER_COMPENSATE')
                 and (
-                  (status in ('PENDING', 'FAILED') and available_at <= now())
-                  or (status = 'PROCESSING' and locked_at < now() - interval '5 minutes')
+                  job.job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'
+                  or (
+                    job.payload->>'originalErrorCode' in (
+                      'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
+                    )
+                    and exists (
+                      select 1 from account_provisioning_attempts attempt
+                      where attempt.id::text = job.payload->>'provisioningAttemptId'
+                        and attempt.company_id = job.company_id
+                        and attempt.target_user_id::text = job.payload->>'userId'
+                        and attempt.provider_subject = job.payload->>'providerSubject'
+                        and attempt.status = 'COMPENSATION_REQUIRED'
+                    )
+                  )
                 )
-              order by available_at, created_at, id
+                and (
+                  (job.status in ('PENDING', 'FAILED') and job.available_at <= now())
+                  or (job.status = 'PROCESSING' and job.locked_at < now() - interval '5 minutes')
+                )
+              order by job.available_at, job.created_at, job.id
               for update skip locked
               limit ${remaining}
             )
@@ -141,7 +188,9 @@ export function createPostgresAccountReconciliationRepository(
             where job.id = claimable.id
             returning job.id, job.company_id, job.job_type, job.claim_token,
                       job.payload->>'userId' as user_id,
-                      job.payload->>'providerSubject' as provider_subject
+                      job.payload->>'providerSubject' as provider_subject,
+                      job.payload->>'provisioningAttemptId' as provisioning_attempt_id,
+                      job.payload->>'originalErrorCode' as original_error_code
           `;
         });
         for (const row of claimed) {
@@ -300,11 +349,17 @@ export function createPostgresAccountReconciliationRepository(
         `;
         if (!updated[0]) throw new Error("account provider outbox success transition is unavailable");
         if (job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
+          if (!job.provisioningAttemptId) {
+            throw new Error("account compensation attempt identity is unavailable");
+          }
           const compensated = await transaction<{ id: string }[]>`
             update account_provisioning_attempts
-            set status = 'COMPENSATED', failure_code = 'DB_COMPLETION_FAILED',
+            set status = 'COMPENSATED',
                 updated_at = now(), compensated_at = now(), completed_at = now()
-            where company_id = ${job.companyId} and target_user_id = ${job.userId}
+            where id = ${job.provisioningAttemptId}
+              and company_id = ${job.companyId}
+              and target_user_id = ${job.userId}
+              and provider_subject = ${job.providerSubject}
               and status = 'COMPENSATION_REQUIRED'
             returning id
           `;

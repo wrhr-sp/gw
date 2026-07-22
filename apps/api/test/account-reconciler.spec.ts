@@ -68,9 +68,12 @@ function accountRepository() {
           account: { id: input.accountId },
         }) as never,
     ),
-    prepareCompensation: vi.fn<() => Promise<"UPDATED" | "STALE_LEASE">>(
-      async () => "UPDATED",
-    ),
+    prepareCompensation: vi.fn(async () => ({
+      status: "PREPARED" as const,
+      providerJobId: "91000000-0000-4000-8000-000000000003",
+      providerJobStatus: "PENDING" as const,
+      originalErrorCode: "ACCOUNT_DUPLICATE" as const,
+    })),
   };
 }
 
@@ -303,7 +306,9 @@ describe("account provider outbox reconciler", () => {
     };
     const accounts = accountRepository();
     accounts.completeCreate.mockResolvedValue({ status: "DUPLICATE" } as never);
-    accounts.prepareCompensation.mockResolvedValue("STALE_LEASE");
+    accounts.prepareCompensation = vi.fn(async () => ({
+      status: "STALE_LEASE" as const,
+    })) as never;
     const provider = {
       deactivateHumanUser: vi.fn(async () => "DEACTIVATED" as const),
       humanUserExists: vi.fn(async () => true),

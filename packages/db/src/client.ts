@@ -228,6 +228,9 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
   },
 ] as const;
 
+const REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK =
+  "check (((job_type <> 'account_provider_compensate'::text) or (status = any (array['succeeded'::text, 'cancelled'::text, 'dead_letter'::text])) or coalesce(((jsonb_typeof((payload -> 'provisioningattemptid'::text)) = 'string'::text) and ((payload ->> 'provisioningattemptid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'originalerrorcode'::text)) = 'string'::text) and ((payload ->> 'originalerrorcode'::text) = any (array['account_duplicate'::text, 'forbidden'::text, 'internal_error'::text]))), false)))";
+
 const REQUIRED_CHECK_CONSTRAINTS = [
   {
     table: "auth_sessions",
@@ -759,13 +762,14 @@ export async function probeDatabaseReadiness(
                  '0008_remove_legacy_company_id_fallback',
                  '0010_global_login_id_contract'
                )
-             ) = 8 as expand_applied,
+             ) = 9 as expand_applied,
              count(*) filter (
                where version in (
                  '0008_remove_legacy_company_id_fallback',
-                 '0010_global_login_id_contract'
+                 '0010_global_login_id_contract',
+                 '0012_account_provider_exact_dispatch_contract'
                )
-             ) = 2 as contract_applied
+             ) = 3 as contract_applied
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -777,7 +781,9 @@ export async function probeDatabaseReadiness(
         '0007_api_tenant_authority_expand',
         '0008_remove_legacy_company_id_fallback',
         '0009_global_login_id_expand',
-        '0010_global_login_id_contract'
+        '0010_global_login_id_contract',
+        '0011_account_provider_exact_dispatch',
+        '0012_account_provider_exact_dispatch_contract'
       )
     `;
     const schemaPhase = migrationRows[0]?.contract_applied
@@ -1569,6 +1575,20 @@ export async function probeDatabaseReadiness(
       validated: row.validated,
       definition: normalizeDefinition(row.definition),
     }));
+    const exactDispatchConstraint = constraints.find(
+      (constraint) =>
+        constraint.table === "outbox_jobs" &&
+        constraint.name === "outbox_jobs_compensation_linkage_check" &&
+        constraint.validated,
+    );
+    if (
+      schemaPhase === "CONTRACT" &&
+      (!exactDispatchConstraint ||
+        exactDispatchConstraint.definition !==
+          REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
     if (
       REQUIRED_CONSTRAINTS.some(
         ([table, required]) =>

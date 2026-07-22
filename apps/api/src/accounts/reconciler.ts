@@ -124,8 +124,10 @@ async function recoverCreate(
     accountId: job.userId,
     companyId: job.companyId,
     leaseVersion: job.leaseVersion,
+    originalErrorCode:
+      completed.status === "FORBIDDEN" ? "FORBIDDEN" : "ACCOUNT_DUPLICATE",
   });
-  if (prepared === "STALE_LEASE") return false;
+  if (prepared.status === "STALE_LEASE") return false;
   return true;
 }
 

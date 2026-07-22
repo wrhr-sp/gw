@@ -168,8 +168,8 @@ PENDING_SETUP → ACTIVE → INACTIVE
 - 물리삭제하지 않는다.
 - 자기계정 중지와 마지막 활성 `USER_SUSPEND` 관리자 중지는 차단한다.
 - 중지 transaction은 로컬 `INACTIVE` 전환·hotel session 회수·감사·`ACCOUNT_PROVIDER_DEACTIVATE` outbox를 함께 확정한다.
-- ZITADEL 비활성화 성공은 outbox `SUCCEEDED`, 실패는 안전 오류코드와 함께 `FAILED`로 기록하고 재시도한다.
-- provider 실패 시에도 로컬 접근 차단을 되돌리지 않으며, 같은 멱등키 재시도는 provider의 idempotent 비활성화와 outbox 완료로 수렴한다.
+- API는 commit된 exact outbox를 즉시 claim하고 ZITADEL 비활성화를 시도한다. provider 결과와 claim-token fenced outbox `SUCCEEDED`가 확인된 뒤에만 2xx를 반환한다.
+- provider 실패는 안전 오류코드와 함께 `FAILED`로 기록하고 재시도한다. 로컬 접근 차단은 되돌리지 않으며, 같은 멱등키 재시도는 저장된 outbox ID에서 수렴한다.
 
 ## 10. 권한
 
@@ -215,15 +215,18 @@ PENDING_SETUP → ACTIVE → INACTIVE
 
 활성 lease 동안 동일 요청의 중복 provider 호출을 차단하고, lease 만료 후 동일 payload·멱등키만 재획득한다. 재획득마다 단조 증가 fencing generation을 발급하며 provider 후 DB 상태 갱신은 현재 generation과 일치할 때만 허용한다. stale 요청은 deterministic identity를 비활성화하거나 보상하지 않고 retryable 멱등 충돌로 종료한다. `PROVIDER_CREATED` attempt 재시도는 provider create를 반복하지 않고 DB 확정부터 재개한다. 완료된 동일 payload·멱등키 replay는 제출된 임시 비밀번호가 deterministic provider subject에 실제로 일치하는지 5분 수명의 단기 Session API로 증명한 뒤에만 기존 계정 결과를 반환한다. 공식 password-invalid ErrorDetail `COMMAND-3M0fs`만 credential 불일치로 분류해 `IDEMPOTENCY_CONFLICT`로 종료하며, unknown `400`·`404`·`429`는 retryable provider 오류로 안전 실패한다. 생성한 verification session 삭제가 실패하면 민감값 없는 `account_verification_session_cleanup_failed` 사건을 남기고 replay 2xx를 반환하지 않는다.
 
-ZITADEL 생성 후 DB transaction이 실패하면 ZITADEL 사용자를 즉시 비활성화한다. 보상 성공·실패를 민감값 없이 감사/운영상태로 남긴다. 보상도 실패하면 `COMPENSATION_REQUIRED` 상태와 `ACCOUNT_PROVIDER_COMPENSATE` outbox를 같은 transaction에 저장하고 2xx를 반환하지 않는다. Preview scheduled reconciler는 tenant RLS 안에서 `FOR UPDATE SKIP LOCKED`로 작업을 claim하고, stale processing lock 회수·지수 backoff를 적용해 provider 비활성화와 `COMPENSATED` 상태로 수렴한다. 재시도는 같은 멱등키로 고아 identity를 중복 생성하지 않는다.
+ZITADEL 생성 후 DB 완료가 `DUPLICATE`·`FORBIDDEN`으로 명시적으로 종료되거나, DB 완료 응답 실패 뒤 tenant-authorized read-back이 완료 aggregate 없이 attempt `PROVIDER_CONFIRMED`를 확인하면 원래 비즈니스 오류 또는 retryable `INTERNAL_ERROR`, exact provisioning attempt ID, provider subject를 `COMPENSATION_REQUIRED` 상태와 `ACCOUNT_PROVIDER_COMPENSATE` outbox에 같은 transaction으로 먼저 저장한다. read-back이 불가능하거나 완료 여부가 불명확하면 보상하지 않고 provider-confirmed recovery 상태를 유지한다. API는 commit된 exact outbox ID를 scheduled reconciler와 동일한 `PENDING`/due `FAILED`/stale `PROCESSING` claim 규칙으로 즉시 획득해 ZITADEL 사용자를 비활성화한다. claim 승자만 provider를 호출하며 성공 marker는 company·job ID·job type·claim token과 exact provisioning attempt ID가 모두 일치해야 outbox `SUCCEEDED`와 attempt `COMPENSATED`를 같은 transaction으로 확정한다. 즉시 보상이 완료되면 저장된 원래 `ACCOUNT_DUPLICATE`, `FORBIDDEN` 또는 retryable `INTERNAL_ERROR`를 반환하고, provider `NOT_FOUND`는 생성 결과의 late visibility 가능성 때문에 보상 성공으로 간주하지 않는다. 즉시 claim·provider·marker가 실패하거나 불명확하면 2xx나 원래 오류를 반환하지 않고 `COMPENSATION_REQUIRED`를 유지한다. exact attempt ID 또는 원래 오류가 없는 legacy active 보상 job은 값을 추측해 backfill하지 않는다. EXPAND migration은 배포 전에 이미 존재한 legacy job과 attempt를 `DEAD_LETTER`/`LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE`로 격리하되 이전 Worker writer와 호환되도록 신규 payload CHECK를 아직 적용하지 않는다. exact-linkage-aware Worker 배포와 호환 smoke 뒤 CONTRACT migration이 배포 창 동안 이전 Worker가 기록한 legacy row를 다시 격리하고 신규 active payload DB CHECK를 적용한다. CONTRACT 이후 active 보상 payload는 DB CHECK와 claim-time attempt ID·user·provider subject 대조를 모두 통과해야 provider를 호출할 수 있다. Preview scheduled reconciler는 tenant RLS 안에서 `FOR UPDATE SKIP LOCKED`, claim-token fencing, stale processing lock 회수, 지수 backoff로 동일 outbox를 수렴시킨다. provider deactivate는 멱등 at-least-once이며 lease takeover 때문에 외부 호출 exactly-once를 주장하지 않는다. 같은 멱등키 재시도는 저장된 outbox ID·상태·원래 오류를 재사용하고 고아 identity를 중복 생성하지 않는다.
 
 ## 14. 계정 중지
 
 - version·사유·권한·자기중지·마지막관리자 규칙을 검증한다.
 - ZITADEL 비활성화와 DB 상태변경을 saga로 처리한다.
-- DB `users.status=INACTIVE` 저장과 모든 활성 `auth_sessions` 회수를 같은 transaction에서 처리한다.
+- DB `users.status=INACTIVE` 저장, 모든 활성 `auth_sessions` 회수, 감사, `ACCOUNT_PROVIDER_DEACTIVATE` outbox를 같은 transaction에서 처리한다.
 - DB 중지·session 회수를 먼저 원자적으로 완료해 호텔 접근을 즉시 차단한다.
-- provider 비활성화 실패 시 호텔 접근은 차단된 상태를 유지하고 2xx를 반환하지 않으며, 같은 멱등키 재시도로 provider 비활성화를 다시 수행한다.
+- API는 commit된 exact outbox ID를 동일 tenant session으로 claim한 경우에만 provider를 호출한다. scheduled reconciler와 API는 동일한 `claim_token` fence를 사용하므로 정상 경쟁에서는 한 claim 승자만 호출한다.
+- provider `DEACTIVATED` 또는 `NOT_FOUND`와 claim-token fenced `SUCCEEDED` DB marker가 모두 확인된 뒤에만 2xx를 반환한다. provider `NOT_FOUND`는 일반 중지에서는 이미 목적 상태인 멱등 성공이다.
+- provider 호출·marker·claim이 실패하거나 다른 worker가 처리 중이면 호텔 접근은 차단된 상태를 유지하고 retryable non-2xx를 반환한다. 같은 멱등키 replay는 저장된 exact outbox 상태를 사용하며 `SUCCEEDED`면 provider를 재호출하지 않고, due `FAILED`면 claim 승자만 재시도하며, `PROCESSING`·not-due `FAILED`·`DEAD_LETTER`는 2xx를 반환하지 않는다.
+- provider 성공 뒤 marker 전 crash는 stale lease 회수 후 멱등 deactivate를 반복할 수 있으므로 외부 exactly-once를 주장하지 않으며, 이전 claim token은 새 owner의 결과를 완료할 수 없다.
 - 중지 성공 후 provider 인증이 남아 있어도 호텔관리 principal 해석이 실패해야 한다.
 
 ## 15. 오류

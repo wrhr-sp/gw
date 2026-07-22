@@ -346,7 +346,9 @@ where version in (
   '0003_hotel_basic_information', '0004_custom_login_security',
   '0005_auth_session_definer', '0006_account_administration',
   '0007_api_tenant_authority_expand', '0008_remove_legacy_company_id_fallback',
-  '0009_global_login_id_expand', '0010_global_login_id_contract'
+  '0009_global_login_id_expand', '0010_global_login_id_contract',
+  '0011_account_provider_exact_dispatch',
+  '0012_account_provider_exact_dispatch_contract'
 );
 select count(*) from auth_identities
 where provider = 'ZITADEL' and provider_subject = '$SUBJECT';
@@ -423,7 +425,7 @@ select (
 )::int;
 SQL
 )"
-EXPECTED=$'10\n1\n1\n1\n1\n3\n1\n1\n2\n0\n1\n0\n0\n0'
+EXPECTED=$'12\n1\n1\n1\n1\n3\n1\n1\n2\n0\n1\n0\n0\n0'
 if [[ "$RESULT" != "$EXPECTED" ]]; then
   printf '%s\n' 'Preview provisioning database assertions failed.' >&2
   exit 1

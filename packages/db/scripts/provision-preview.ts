@@ -354,14 +354,23 @@ try {
     ],
     ["0009_global_login_id_expand", "0009_global_login_id_expand.sql"],
     [
+      "0011_account_provider_exact_dispatch",
+      "0011_account_provider_exact_dispatch.sql",
+    ],
+    [
       "0008_remove_legacy_company_id_fallback",
       "0008_remove_legacy_company_id_fallback.sql",
+    ],
+    [
+      "0012_account_provider_exact_dispatch_contract",
+      "0012_account_provider_exact_dispatch_contract.sql",
     ],
     ["0010_global_login_id_contract", "0010_global_login_id_contract.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
     "0010_global_login_id_contract",
+    "0012_account_provider_exact_dispatch_contract",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(([version]) => version !== "0010_global_login_id_contract")

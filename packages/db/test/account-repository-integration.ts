@@ -343,22 +343,75 @@ try {
       `provider-created attempt was not resumable: ${resumed.status}`,
     );
   }
+  const unlinkedCompensationJobId = "6b100000-0000-4000-8000-000000000099";
+  await sql`
+    insert into outbox_jobs (id, company_id, job_type, payload, status)
+    values (
+      ${unlinkedCompensationJobId}, ${companyId}, 'ACCOUNT_PROVIDER_COMPENSATE',
+      ${sql.json({
+        action: "COMPENSATE",
+        originalErrorCode: "ACCOUNT_DUPLICATE",
+        providerSubject: "unlinked-provider-subject",
+        provisioningAttemptId: "6a100000-0000-4000-8000-000000000099",
+        userId: "6c100000-0000-4000-8000-000000000099",
+      })},
+      'PENDING'
+    )
+  `;
+  const unlinkedExactClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: unlinkedCompensationJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (unlinkedExactClaim.status !== "BUSY") {
+    throw new Error("unlinked compensation must not receive an API provider claim");
+  }
+  const unlinkedBatchClaims = await reconciliationRepository.claimJobs(10);
+  if (unlinkedBatchClaims.some((job) => job.id === unlinkedCompensationJobId)) {
+    throw new Error("unlinked compensation must not receive a reconciler provider claim");
+  }
+  await sql`
+    update outbox_jobs
+    set status = 'DEAD_LETTER', last_error_code = 'UNLINKED_COMPENSATION_TEST',
+        dead_lettered_at = now(), completed_at = now()
+    where id = ${unlinkedCompensationJobId}
+  `;
+
   const preparedCompensation = await repository.prepareCompensation({
     accountId: "8a900000-0000-4000-8000-000000000001",
     companyId,
     leaseVersion: resumed.leaseVersion,
+    originalErrorCode: "ACCOUNT_DUPLICATE",
   });
-  if (preparedCompensation !== "UPDATED")
+  if (preparedCompensation.status !== "PREPARED")
     throw new Error("compensation was not durably prepared");
+  const exactCompensationClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: preparedCompensation.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (
+    exactCompensationClaim.status !== "CLAIMED" ||
+    exactCompensationClaim.job.provisioningAttemptId !==
+      "8a910000-0000-4000-8000-000000000001" ||
+    exactCompensationClaim.job.originalErrorCode !== "ACCOUNT_DUPLICATE"
+  ) {
+    throw new Error("API exact compensation claim lost saga ownership metadata");
+  }
   const compensationJobs = await reconciliationRepository.claimJobs(10);
-  const compensationJob = compensationJobs.find(
-    (job) =>
-      job.jobType === "ACCOUNT_PROVIDER_COMPENSATE" &&
-      job.userId === "8a900000-0000-4000-8000-000000000001",
-  );
-  if (!compensationJob)
-    throw new Error("compensation outbox was not claimable");
-  await reconciliationRepository.markSucceeded(compensationJob);
+  if (compensationJobs.some((job) => job.id === exactCompensationClaim.job.id)) {
+    throw new Error("reconciler double-claimed an API-owned compensation job");
+  }
+  const compensationMarked = await repository.markProviderJobSucceeded({
+    companyId,
+    sessionId: actor.sessionId,
+    job: exactCompensationClaim.job,
+  });
+  if (compensationMarked !== "UPDATED") {
+    throw new Error("API exact compensation success was not persisted");
+  }
   const compensatedReplay = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
     actor,
@@ -368,10 +421,33 @@ try {
     idempotencyKey: "role-group-create",
     requestHash: "role-group-create-hash",
   });
-  if ((compensatedReplay as { status: string }).status !== "COMPENSATED") {
+  if (
+    compensatedReplay.status !== "COMPENSATED" ||
+    compensatedReplay.originalErrorCode !== "ACCOUNT_DUPLICATE"
+  ) {
     throw new Error(
       `compensated create replay was not terminal: ${compensatedReplay.status}`,
     );
+  }
+  await sql`
+    update outbox_jobs
+    set payload = jsonb_set(payload, '{originalErrorCode}', '"INTERNAL_ERROR"'::jsonb)
+    where id = ${preparedCompensation.providerJobId}
+  `;
+  const internalCompensatedReplay = await repository.reserveCreate({
+    accountId: "8a900000-0000-4000-8000-000000000098",
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000096",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload,
+    idempotencyKey: "role-group-create",
+    requestHash: "role-group-create-hash",
+  });
+  if (
+    internalCompensatedReplay.status !== "COMPENSATED" ||
+    internalCompensatedReplay.originalErrorCode !== "INTERNAL_ERROR"
+  ) {
+    throw new Error("compensated operational failure lost its original error");
   }
 
   const stalePayload = {
@@ -449,8 +525,9 @@ try {
     accountId: "8a900000-0000-4000-8000-000000000002",
     companyId,
     leaseVersion: recoveredLease.leaseVersion,
+    originalErrorCode: "ACCOUNT_DUPLICATE",
   });
-  if (completedCompensation !== "STALE_LEASE")
+  if (completedCompensation.status !== "STALE_LEASE")
     throw new Error("completed create acquired compensation ownership");
   const [completedAttempt] = await sql<{ status: string }[]>`
     select status from account_provisioning_attempts
@@ -537,8 +614,9 @@ try {
     accountId: recoveryJob.userId,
     companyId: recoveryJob.companyId,
     leaseVersion: recoveryReserved.leaseVersion,
+    originalErrorCode: "FORBIDDEN",
   });
-  if (staleCompensation !== "STALE_LEASE")
+  if (staleCompensation.status !== "STALE_LEASE")
     throw new Error(
       "stale recovery generation acquired compensation ownership",
     );
@@ -940,46 +1018,66 @@ try {
       "provider deactivation intent did not preserve the tenant-bound provider subject",
     );
   }
-  const claimedJobs = await reconciliationRepository.claimJobs(10);
-  const firstClaim = claimedJobs.find(
-    (job) =>
-      job.jobType === "ACCOUNT_PROVIDER_DEACTIVATE" &&
-      job.userId === targetAdminId,
-  );
+  const foreignCompanyClaim = await repository.claimExactProviderJob({
+    companyId: "10000000-0000-4000-8000-000000000099",
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_DEACTIVATE",
+  });
+  if (foreignCompanyClaim.status !== "NOT_FOUND") {
+    throw new Error("foreign company claimed a provider deactivation job");
+  }
+  const wrongTypeClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
+  });
+  if (wrongTypeClaim.status !== "NOT_FOUND") {
+    throw new Error("wrong provider job type acquired exact ownership");
+  }
+  const exactDeactivationClaim = await repository.claimExactProviderJob({
+    companyId,
+    sessionId: actor.sessionId,
+    jobId: first.providerJobId,
+    expectedJobType: "ACCOUNT_PROVIDER_DEACTIVATE",
+  });
   if (
-    !firstClaim ||
-    firstClaim.providerSubject !== "zitadel-target-admin-subject"
+    exactDeactivationClaim.status !== "CLAIMED" ||
+    exactDeactivationClaim.job.providerSubject !==
+      "zitadel-target-admin-subject"
   ) {
     throw new Error(
-      "provider deactivation outbox did not claim the provider subject",
+      "API exact deactivation claim did not preserve provider ownership",
     );
+  }
+  const claimedJobs = await reconciliationRepository.claimJobs(10);
+  if (claimedJobs.some((job) => job.id === exactDeactivationClaim.job.id)) {
+    throw new Error("reconciler double-claimed an API-owned deactivation job");
   }
   await sql`
     update outbox_jobs set locked_at = now() - interval '6 minutes'
-    where company_id = ${companyId} and id = ${firstClaim.id}
+    where company_id = ${companyId} and id = ${exactDeactivationClaim.job.id}
   `;
   const reclaimedJobs = await reconciliationRepository.claimJobs(10);
-  const winningClaim = reclaimedJobs.find((job) => job.id === firstClaim.id);
+  const winningClaim = reclaimedJobs.find(
+    (job) => job.id === exactDeactivationClaim.job.id,
+  );
   if (!winningClaim)
     throw new Error("stale provider deactivation claim was not reclaimed");
-  if (
-    (firstClaim as { claimToken?: string }).claimToken ===
-    (winningClaim as { claimToken?: string }).claimToken
-  ) {
+  if (exactDeactivationClaim.job.claimToken === winningClaim.claimToken) {
     throw new Error(
       "reclaimed provider deactivation job did not rotate its claim token",
     );
   }
-  let staleWorkerRejected = false;
-  try {
-    await reconciliationRepository.markSucceeded(firstClaim);
-  } catch {
-    staleWorkerRejected = true;
+  const staleMarker = await repository.markProviderJobSucceeded({
+    companyId,
+    sessionId: actor.sessionId,
+    job: exactDeactivationClaim.job,
+  });
+  if (staleMarker !== "STALE_CLAIM") {
+    throw new Error("stale API worker completed a newer provider claim");
   }
-  if (!staleWorkerRejected)
-    throw new Error(
-      "stale outbox worker was allowed to complete a newer claim",
-    );
   await reconciliationRepository.markSucceeded(winningClaim);
   const [succeededOutbox] = await sql<{ count: number }[]>`
     select count(*)::int as count from outbox_jobs
@@ -1045,8 +1143,10 @@ try {
     value: { version: 1, reason: "integration deactivation" },
   });
   if (
-    replay.status !== "UPDATED" ||
-    replay.account.version !== first.account.version
+    replay.status !== "REPLAYED" ||
+    replay.account.version !== first.account.version ||
+    replay.providerJobId !== first.providerJobId ||
+    replay.providerJobStatus !== "SUCCEEDED"
   ) {
     throw new Error(`deactivation replay was not stable: ${replay.status}`);
   }
