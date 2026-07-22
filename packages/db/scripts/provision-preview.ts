@@ -401,6 +401,7 @@ try {
          and identity.user_id = app_user.id
          and identity.provider = 'ZITADEL'
         where app_user.id = ${previewUserId}::uuid
+        for update of app_user
       `;
       if (rows.length > 0) {
         if (
@@ -408,11 +409,17 @@ try {
           rows[0]?.company_id !== previewCompanyId ||
           rows[0].provider_subject !== zitadelSubject ||
           rows[0].status !== "ACTIVE" ||
-          !["preview-admin", "previewadmin"].includes(rows[0].login_name ?? "")
+          (
+            rows[0].login_name !== null &&
+            !["preview-admin", "previewadmin"].includes(rows[0].login_name)
+          )
         ) {
           fail("Existing Preview bootstrap identity cannot be aligned safely");
         }
-        if (rows[0].login_name === "preview-admin") {
+        if (rows[0].login_name !== "previewadmin") {
+          const legacyLoginState = rows[0].login_name === null
+            ? "LEGACY_UNSET"
+            : "LEGACY_NON_CANONICAL";
           const collision = await sql<{ exists: boolean }[]>`
             select exists (
               select 1 from public.users
@@ -446,7 +453,7 @@ try {
                 updated_at = pg_catalog.statement_timestamp()
             where id = ${previewUserId}::uuid
               and company_id = ${previewCompanyId}::uuid
-              and login_name = 'preview-admin'
+              and (login_name = 'preview-admin' or login_name is null)
           `;
           await sql`
             update public.auth_sessions
@@ -466,7 +473,7 @@ try {
               pg_catalog.gen_random_uuid(), 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
               ${previewUserId}::uuid, 'SYSTEM', null, ${previewCompanyId}::uuid,
               'USER', ${previewUserId}::uuid,
-              pg_catalog.jsonb_build_object('state', 'LEGACY_NON_CANONICAL'),
+              pg_catalog.jsonb_build_object('state', ${legacyLoginState}::text),
               pg_catalog.jsonb_build_object('state', 'MVP_CANONICAL'),
               '승인된 초기 MVP 로그인 ID 정책 이관', 'SUCCEEDED',
               pg_catalog.gen_random_uuid()
@@ -512,6 +519,7 @@ try {
        and identity.user_id = app_user.id
        and identity.provider = 'ZITADEL'
       where app_user.id = ${previewUserId}::uuid
+      for update of app_user
     `;
     if (rows.length === 0) return;
     if (
@@ -519,11 +527,17 @@ try {
       rows[0]?.company_id !== previewCompanyId ||
       rows[0].provider_subject !== zitadelSubject ||
       rows[0].status !== "ACTIVE" ||
-      !["preview-admin", "previewadmin"].includes(rows[0].login_name ?? "")
+      (
+        rows[0].login_name !== null &&
+        !["preview-admin", "previewadmin"].includes(rows[0].login_name)
+      )
     ) {
       fail("Existing Preview bootstrap identity cannot be aligned safely");
     }
     if (rows[0].login_name === "previewadmin") return;
+    const legacyLoginState = rows[0].login_name === null
+      ? "LEGACY_UNSET"
+      : "LEGACY_NON_CANONICAL";
     const collision = await sql<{ exists: boolean }[]>`
       select exists (
         select 1 from public.users
@@ -555,7 +569,7 @@ try {
           updated_at = pg_catalog.statement_timestamp()
       where id = ${previewUserId}::uuid
         and company_id = ${previewCompanyId}::uuid
-        and login_name = 'preview-admin'
+        and (login_name = 'preview-admin' or login_name is null)
     `;
     await sql`
       update public.auth_sessions
@@ -575,7 +589,7 @@ try {
         pg_catalog.gen_random_uuid(), 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED',
         ${previewUserId}::uuid, 'SYSTEM', null, ${previewCompanyId}::uuid,
         'USER', ${previewUserId}::uuid,
-        pg_catalog.jsonb_build_object('state', 'LEGACY_NON_CANONICAL'),
+        pg_catalog.jsonb_build_object('state', ${legacyLoginState}::text),
         pg_catalog.jsonb_build_object('state', 'MVP_CANONICAL'),
         '승인된 초기 MVP 로그인 ID 정책 이관', 'SUCCEEDED',
         pg_catalog.gen_random_uuid()
