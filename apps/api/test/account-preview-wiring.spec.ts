@@ -134,6 +134,10 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_ORGANIZATION_ID=preview-organization",
     );
     expect(ciWorkflow).not.toContain("\n          HYPERDRIVE_ID=");
+    expect(workflow).toContain(
+      "API_HYPERDRIVE_ID=00000000000000000000000000000000",
+    );
+    expect(workflow).not.toContain("\n          HYPERDRIVE_ID=");
     for (const name of [
       "DATABASE_API_RUNTIME_PASSWORD_PREVIEW",
       "DATABASE_RECONCILER_PASSWORD_PREVIEW",

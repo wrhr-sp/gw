@@ -14,7 +14,10 @@ WORKER_PID=""
 SESSION_TOKEN="BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
 RUNTIME_ROLE="werehere_worker_runtime_test"
 RUNTIME_PASSWORD="worker-runtime-test-only"
+RECONCILER_ROLE="werehere_worker_reconciler_test"
+RECONCILER_PASSWORD="worker-reconciler-test-only"
 RUNTIME_DATABASE_URL=""
+WORKER_CONFIG="$TMP_DIR/wrangler.worker-smoke.json"
 
 DATABASE_NAME="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -c "select current_database()")"
 if [[ ! "$DATABASE_NAME" =~ (_test|_ci)($|_) ]]; then
@@ -32,7 +35,7 @@ cleanup() {
     wait "$WORKER_PID" >/dev/null 2>&1 || true
   fi
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null 2>&1 \
-    -c "drop owned by $RUNTIME_ROLE; drop role $RUNTIME_ROLE" || true
+    -c "delete from runtime_database_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE'); drop owned by $RUNTIME_ROLE, $RECONCILER_ROLE; drop role $RUNTIME_ROLE, $RECONCILER_ROLE" || true
   if [[ "$status" -ne 0 && -f "$LOG_FILE" ]]; then
     python - "$LOG_FILE" "$TEST_DATABASE_URL" "$RUNTIME_DATABASE_URL" <<'PY'
 from pathlib import Path
@@ -55,28 +58,71 @@ psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<SQL
 DO \$\$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$RUNTIME_ROLE') THEN
+    DELETE FROM runtime_database_capabilities WHERE role_name = '$RUNTIME_ROLE';
     EXECUTE 'DROP OWNED BY $RUNTIME_ROLE';
     EXECUTE 'DROP ROLE $RUNTIME_ROLE';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$RECONCILER_ROLE') THEN
+    DELETE FROM runtime_database_capabilities WHERE role_name = '$RECONCILER_ROLE';
+    EXECUTE 'DROP OWNED BY $RECONCILER_ROLE';
+    EXECUTE 'DROP ROLE $RECONCILER_ROLE';
   END IF;
 END
 \$\$;
 CREATE ROLE $RUNTIME_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$RUNTIME_PASSWORD';
+CREATE ROLE $RECONCILER_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$RECONCILER_PASSWORD';
 GRANT USAGE ON SCHEMA public TO $RUNTIME_ROLE;
 GRANT SELECT ON
-  companies, users, auth_identities, auth_sessions,
+  companies, users, auth_identities, auth_sessions, runtime_database_capabilities,
   auth_login_transactions, auth_credential_rate_limits,
   schema_migrations, roles, permissions, user_role_memberships,
   user_groups, user_group_memberships, permission_grants,
-  branches, hotel_profiles, idempotency_records
+  branches, hotel_profiles, idempotency_records, outbox_jobs,
+  account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
+  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
-GRANT UPDATE ON auth_sessions TO $RUNTIME_ROLE;
-GRANT INSERT ON audit_events, branches, hotel_profiles TO $RUNTIME_ROLE;
+GRANT INSERT ON audit_events, branches, hotel_profiles, auth_identities,
+  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+TO $RUNTIME_ROLE;
+GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
+  initial_password_change_attempts TO $RUNTIME_ROLE;
+GRANT INSERT ON login_id_registry TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
-GRANT EXECUTE ON FUNCTION public.auth_create_session(
+GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
+GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
+  public.runtime_is_schema_owner(), public.runtime_has_capability(text),
+  public.api_current_company_id(), public.reconciler_current_company_id(),
+  public.auth_create_session_v2(
   uuid, bytea, text, integer, integer, timestamptz, uuid
-) TO $RUNTIME_ROLE;
+), public.auth_resolve_login_identity_v1(text),
+  public.auth_resolve_principal_v2(bytea, integer),
+  public.auth_revoke_session_v2(bytea, text, uuid),
+  public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+TO $RUNTIME_ROLE;
+INSERT INTO runtime_database_capabilities (role_name, capability)
+VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
+ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
+GRANT USAGE ON SCHEMA public TO $RECONCILER_ROLE;
+GRANT SELECT ON
+  schema_migrations, companies, permissions, users, auth_identities, branches,
+  hotel_profiles, runtime_database_capabilities, outbox_jobs,
+  account_provisioning_attempts, hotel_staff_assignments,
+  housekeeping_hotel_links, hotel_owner_assignments
+TO $RECONCILER_ROLE;
+GRANT INSERT ON users, auth_identities, audit_events, outbox_jobs,
+  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+TO $RECONCILER_ROLE;
+GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO $RECONCILER_ROLE;
+GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
+  public.runtime_is_schema_owner(), public.runtime_has_capability(text),
+  public.api_current_company_id(), public.reconciler_current_company_id(),
+  public.reconciliation_company_ids()
+TO $RECONCILER_ROLE;
+INSERT INTO runtime_database_capabilities (role_name, capability)
+VALUES ('$RECONCILER_ROLE', 'RECONCILER')
+ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
 SQL
 
 RUNTIME_DATABASE_URL="$(python - "$TEST_DATABASE_URL" "$RUNTIME_ROLE" "$RUNTIME_PASSWORD" <<'PY'
@@ -91,6 +137,37 @@ credentials = f"{quote(sys.argv[2])}:{quote(sys.argv[3])}@"
 print(urlunsplit((source.scheme, credentials + host, source.path, source.query, source.fragment)))
 PY
 )"
+
+python - "$WORKER_CONFIG" "$ROOT_DIR/apps/api/src/index.ts" "$RUNTIME_DATABASE_URL" "$PORT" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+config = {
+    "name": "werehere-worker-runtime-smoke",
+    "main": sys.argv[2],
+    "compatibility_date": "2026-05-01",
+    "compatibility_flags": ["nodejs_compat"],
+    "hyperdrive": [{
+        "binding": "API_HYPERDRIVE",
+        "id": "00000000000000000000000000000000",
+        "localConnectionString": sys.argv[3],
+    }],
+    "vars": {
+        "ZITADEL_ISSUER": "https://127.0.0.1:1",
+        "ZITADEL_CLIENT_ID": "worker-smoke-client",
+        "ZITADEL_ORGANIZATION_ID": "worker-smoke-organization",
+        "ZITADEL_USER_PROVISIONER_TOKEN": "worker-smoke-provisioner-token",
+        "ZITADEL_REDIRECT_URI": f"http://127.0.0.1:{sys.argv[4]}/api/auth/callback",
+        "ZITADEL_SERVICE_USER_TOKEN": "worker-smoke-service-token",
+        "AUTH_TRANSACTION_ENCRYPTION_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    },
+}
+path.write_text(json.dumps(config), encoding="utf-8")
+os.chmod(path, 0o600)
+PY
 
 TOKEN_HASH="$(printf '%s' "$SESSION_TOKEN" | sha256sum | cut -d ' ' -f 1)"
 psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -v token_hash="$TOKEN_HASH" >/dev/null <<'SQL'
@@ -132,13 +209,7 @@ insert into permission_grants (
 );
 SQL
 
-pnpm --filter @werehere/api exec wrangler dev --port "$PORT" \
-  --var "DATABASE_URL:$RUNTIME_DATABASE_URL" \
-  --var "ZITADEL_ISSUER:https://127.0.0.1:1" \
-  --var "ZITADEL_CLIENT_ID:worker-smoke-client" \
-  --var "ZITADEL_REDIRECT_URI:http://127.0.0.1:$PORT/api/auth/callback" \
-  --var "ZITADEL_SERVICE_USER_TOKEN:worker-smoke-service-token" \
-  --var "AUTH_TRANSACTION_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" \
+pnpm --filter @werehere/api exec wrangler dev --config "$WORKER_CONFIG" --port "$PORT" \
   >"$LOG_FILE" 2>&1 &
 WORKER_PID="$!"
 
