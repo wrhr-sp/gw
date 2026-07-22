@@ -209,11 +209,11 @@ PENDING_SETUP → ACTIVE → INACTIVE
 1. 권한·입력·호텔범위·멱등키 검증
 2. PostgreSQL에 `PROVISIONING` 예약·idempotency 원장·2분 lease·재시도 횟수 저장
 3. ZITADEL human user를 예약된 deterministic ID로 생성
-4. 성공 응답 유실·409이면 `GET /v2/users/{deterministic-id}`가 정확히 같은 ID를 반환한 경우에만 provider 성공으로 확정
+4. 성공 응답 유실·409이면 `GET /v2/users/{deterministic-id}`가 정확히 같은 ID·organization의 `ACTIVE` human을 반환한 경우에만 provider 성공으로 확정
 5. PostgreSQL transaction으로 `users`, `auth_identities`, 호텔관계, 감사, idempotency 결과 저장
 6. 생성 ID로 상세 재조회 후 응답
 
-활성 lease 동안 동일 요청의 중복 provider 호출을 차단하고, lease 만료 후 동일 payload·멱등키만 재획득한다. 재획득마다 단조 증가 fencing generation을 발급하며 provider 후 DB 상태 갱신은 현재 generation과 일치할 때만 허용한다. stale 요청은 deterministic identity를 비활성화하거나 보상하지 않고 retryable 멱등 충돌로 종료한다. `PROVIDER_CREATED` attempt 재시도는 provider create를 반복하지 않고 DB 확정부터 재개한다.
+활성 lease 동안 동일 요청의 중복 provider 호출을 차단하고, lease 만료 후 동일 payload·멱등키만 재획득한다. 재획득마다 단조 증가 fencing generation을 발급하며 provider 후 DB 상태 갱신은 현재 generation과 일치할 때만 허용한다. stale 요청은 deterministic identity를 비활성화하거나 보상하지 않고 retryable 멱등 충돌로 종료한다. `PROVIDER_CREATED` attempt 재시도는 provider create를 반복하지 않고 DB 확정부터 재개한다. 완료된 동일 payload·멱등키 replay는 제출된 임시 비밀번호가 deterministic provider subject에 실제로 일치하는지 5분 수명의 단기 Session API로 증명한 뒤에만 기존 계정 결과를 반환한다. 공식 password-invalid ErrorDetail `COMMAND-3M0fs`만 credential 불일치로 분류해 `IDEMPOTENCY_CONFLICT`로 종료하며, unknown `400`·`404`·`429`는 retryable provider 오류로 안전 실패한다. 생성한 verification session 삭제가 실패하면 민감값 없는 `account_verification_session_cleanup_failed` 사건을 남기고 replay 2xx를 반환하지 않는다.
 
 ZITADEL 생성 후 DB transaction이 실패하면 ZITADEL 사용자를 즉시 비활성화한다. 보상 성공·실패를 민감값 없이 감사/운영상태로 남긴다. 보상도 실패하면 `COMPENSATION_REQUIRED` 상태와 `ACCOUNT_PROVIDER_COMPENSATE` outbox를 같은 transaction에 저장하고 2xx를 반환하지 않는다. Preview scheduled reconciler는 tenant RLS 안에서 `FOR UPDATE SKIP LOCKED`로 작업을 claim하고, stale processing lock 회수·지수 backoff를 적용해 provider 비활성화와 `COMPENSATED` 상태로 수렴한다. 재시도는 같은 멱등키로 고아 identity를 중복 생성하지 않는다.
 

@@ -52,7 +52,7 @@
 | `HOT-E2E-031` | 기능 권한 없는 사용자 | 직접 route와 화면 접근 | 기능 제목·가이드·관련 링크 비노출, API도 차단 |
 | `HOT-E2E-032` | 승인된 Preview 관리자 identity·organization·MFA 준비 | one-shot bootstrap 실행 및 같은 승인으로 재실행 | 최초 관리자 1명 연결, 동일 승인 멱등, 다른 subject 차단 |
 | `HOT-E2E-033` | `USER_CREATE` 관리자 | 사내 임직원 계정 생성 | ZITADEL human 생성, DB 사용자·PRIMARY 호텔배정·감사 저장, 재조회 일치 |
-| `HOT-E2E-034` | 동일 멱등키·동일 계정 payload | 생성 요청 재시도 | 같은 계정 결과, provider·DB 중복 생성 없음 |
+| `HOT-E2E-034` | 동일 멱등키·동일 계정 payload·동일 임시 비밀번호 | 생성 요청 재시도 | exact subject·organization credential 검증과 verification session 삭제 뒤 같은 계정 결과, provider·DB 중복 생성 없음; 공식 invalid-password만 409 `IDEMPOTENCY_CONFLICT`, unknown 400·404·429 또는 cleanup 실패는 retryable 503 |
 | `HOT-E2E-035` | provider 응답 지연 뒤 create lease takeover | 이전 owner가 늦게 완료 | stale generation 거부, 정상 identity 비활성화·보상 금지 |
 | `HOT-E2E-036` | `PENDING_SETUP` 신규 사용자 | 임시 credential 로그인 | 최초 비밀번호 변경 화면만 허용, 일반 업무 API 차단 |
 | `HOT-E2E-037` | 최초 비밀번호 변경 provider 성공 | 동일 payload 재시도·로그인 | provider 쓰기 반복 없이 DB `ACTIVE`, 새 session 발급, 임시 credential 거부 |
@@ -68,6 +68,7 @@
 | `HOT-E2E-047` | instance 또는 organization 정책이 로그인 MFA 강제 | 비밀번호 custom login 시도 | `AUTH_MFA_REQUIRED`, callback 미발급, 생성된 provider session 정리; READY factor 등록만으로 MFA challenge 완료를 주장하지 않음 |
 | `HOT-E2E-048` | provider `404`로 종료된 Auth Request | start route와 로그인 화면 처리 | `/login?error=invalid-flow`로 이동, 만료 안내와 새 로그인 시작 제공, 기존 auth request·CSRF 재사용 없음 |
 | `HOT-E2E-049` | credential POST 중 만료된 Auth Request | provider `AUTH_FLOW_INVALID` 반환 | 정상 DB에서 exact transaction 삭제, binding cookie 만료, stale request 없는 `/login?error=invalid-flow` 이동; 삭제 오류·응답 유실에서도 다음 CSRF 전 provider 재검증 |
+| `HOT-E2E-050` | deterministic provider create의 `409` 또는 응답 유실 | exact ID read-back | 같은 organization의 `ACTIVE` human이면 DB 생성을 계속하고, `404`·foreign organization·malformed 응답이면 성공으로 확정하지 않음 |
 
 ## 비밀번호 정책 수용 시나리오
 

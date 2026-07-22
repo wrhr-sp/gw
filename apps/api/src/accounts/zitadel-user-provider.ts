@@ -53,6 +53,14 @@ const getResponseSchema = z
       .passthrough(),
   })
   .passthrough();
+const providerErrorSchema = z
+  .object({
+    details: z
+      .array(z.object({ id: z.string().min(1).max(100) }).passthrough())
+      .default([]),
+  })
+  .passthrough();
+const PASSWORD_INVALID_ERROR_ID = "COMMAND-3M0fs";
 
 export type ZitadelUserProviderOptions = {
   fetcher?: typeof fetch;
@@ -129,61 +137,79 @@ export function createZitadelUserProvider(
     return response;
   }
 
+  async function readHumanUserExists(subject: string) {
+    const response = await request(
+      `/v2/users/${encodeURIComponent(subject)}`,
+      { method: "GET" },
+      [404],
+    );
+    if (response.status === 404) return false;
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+    }
+    const found = getResponseSchema.safeParse(body);
+    if (
+      !found.success ||
+      found.data.user.userId !== subject ||
+      found.data.user.details.resourceOwner !== organizationId
+    ) {
+      throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+    }
+    return true;
+  }
+
   return {
     async createHumanUser(input) {
-      const response = await request("/v2/users/new", {
-        method: "POST",
-        body: JSON.stringify({
-          organizationId,
-          userId: input.userId,
-          username: input.loginName,
-          human: {
-            profile: {
-              givenName: input.displayName,
-              familyName: input.displayName,
-              displayName: input.displayName,
-              preferredLanguage: "ko",
-            },
-            email: { email: input.email, isVerified: true },
-            password: { password: input.initialPassword, changeRequired: true },
-          },
-        }),
-      });
-      let body: unknown;
       try {
-        body = await response.json();
-      } catch {
-        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+        const response = await request("/v2/users/new", {
+          method: "POST",
+          body: JSON.stringify({
+            organizationId,
+            userId: input.userId,
+            username: input.loginName,
+            human: {
+              profile: {
+                givenName: input.displayName,
+                familyName: input.displayName,
+                displayName: input.displayName,
+                preferredLanguage: "ko",
+              },
+              email: { email: input.email, isVerified: true },
+              password: { password: input.initialPassword, changeRequired: true },
+            },
+          }),
+        });
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch {
+          throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+        }
+        const created = createResponseSchema.safeParse(body);
+        if (!created.success || created.data.id !== input.userId) {
+          throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+        }
+        return { subject: created.data.id };
+      } catch (error) {
+        if (
+          !(error instanceof AccountServiceError) ||
+          (error.code !== "ACCOUNT_DUPLICATE" &&
+            error.code !== "EXTERNAL_AUTH_UNAVAILABLE")
+        ) {
+          throw error;
+        }
+        if (await readHumanUserExists(input.userId)) {
+          return { subject: input.userId };
+        }
+        throw error;
       }
-      const created = createResponseSchema.safeParse(body);
-      if (!created.success || created.data.id !== input.userId) {
-        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
-      }
-      return { subject: created.data.id };
     },
 
     async humanUserExists(subject) {
-      const response = await request(
-        `/v2/users/${encodeURIComponent(subject)}`,
-        { method: "GET" },
-        [404],
-      );
-      if (response.status === 404) return false;
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch {
-        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
-      }
-      const found = getResponseSchema.safeParse(body);
-      if (
-        !found.success ||
-        found.data.user.userId !== subject ||
-        found.data.user.details.resourceOwner !== organizationId
-      ) {
-        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
-      }
-      return true;
+      return readHumanUserExists(subject);
     },
 
     async verifyPassword(input) {
@@ -199,11 +225,29 @@ export function createZitadelUserProvider(
             lifetime: VERIFICATION_SESSION_LIFETIME,
           }),
         },
-        [400, 404],
+        [400, 404, 429],
         verificationToken,
       );
-      if (createResponse.status === 400 || createResponse.status === 404)
-        return false;
+      if (!createResponse.ok) {
+        if (createResponse.status === 400) {
+          let errorBody: unknown;
+          try {
+            errorBody = await createResponse.json();
+          } catch {
+            throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+          }
+          const providerError = providerErrorSchema.safeParse(errorBody);
+          if (
+            providerError.success &&
+            providerError.data.details.some(
+              (detail) => detail.id === PASSWORD_INVALID_ERROR_ID,
+            )
+          ) {
+            return false;
+          }
+        }
+        throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+      }
       let createBody: unknown;
       try {
         createBody = await createResponse.json();
@@ -214,6 +258,7 @@ export function createZitadelUserProvider(
       if (!created.success)
         throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
 
+      let verificationFailure: { error: unknown } | null = null;
       try {
         const sessionResponse = await request(
           `/v2/sessions/${encodeURIComponent(created.data.sessionId)}`,
@@ -236,22 +281,31 @@ export function createZitadelUserProvider(
         ) {
           throw new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
         }
-        return true;
-      } finally {
-        try {
-          await request(
-            `/v2/sessions/${encodeURIComponent(created.data.sessionId)}`,
-            {
-              method: "DELETE",
-              body: JSON.stringify({ sessionToken: created.data.sessionToken }),
-            },
-            [404],
-            verificationToken,
-          );
-        } catch {
-          // The five-minute provider lifetime bounds cleanup failures.
-        }
+      } catch (error) {
+        verificationFailure = { error };
       }
+      try {
+        await request(
+          `/v2/sessions/${encodeURIComponent(created.data.sessionId)}`,
+          {
+            method: "DELETE",
+            body: JSON.stringify({ sessionToken: created.data.sessionToken }),
+          },
+          [404],
+          verificationToken,
+        );
+      } catch (error) {
+        const cleanupError =
+          error instanceof AccountServiceError
+            ? error
+            : new AccountServiceError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
+        console.error("account_verification_session_cleanup_failed", {
+          code: cleanupError.code,
+        });
+        throw cleanupError;
+      }
+      if (verificationFailure) throw verificationFailure.error;
+      return true;
     },
 
     async deactivateHumanUser(subject) {

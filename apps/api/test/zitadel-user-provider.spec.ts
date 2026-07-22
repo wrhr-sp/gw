@@ -59,6 +59,80 @@ describe("ZITADEL account provisioning provider", () => {
     });
   });
 
+  it("recovers provider HTTP 409 only after exact deterministic read-back", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 409,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: {
+        userId,
+        details: { resourceOwner: organizationId },
+        state: "USER_STATE_ACTIVE",
+        username: "housekeeper01",
+        human: { passwordChangeRequired: true },
+      } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+
+    await expect(provider(fetcher as typeof fetch).createHumanUser({
+      userId,
+      displayName: "김하우스",
+      loginName: "housekeeper01",
+      email: "housekeeper-01@example.invalid",
+      initialPassword: "Strong-Preview-123!",
+    })).resolves.toEqual({ subject: userId });
+    expect(String(fetcher.mock.calls[1]?.[0])).toBe(`${issuer}/v2/users/${userId}`);
+    expect(fetcher.mock.calls[1]?.[1]?.method).toBe("GET");
+  });
+
+  it("recovers a lost create response only after exact deterministic read-back", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: {
+        userId,
+        details: { resourceOwner: organizationId },
+        state: "USER_STATE_ACTIVE",
+        human: { passwordChangeRequired: true },
+      } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }));
+
+    await expect(provider(fetcher as typeof fetch).createHumanUser({
+      userId,
+      displayName: "김하우스",
+      loginName: "housekeeper01",
+      email: "housekeeper-01@example.invalid",
+      initialPassword: "Strong-Preview-123!",
+    })).resolves.toEqual({ subject: userId });
+  });
+
+  it("preserves provider duplicate when deterministic read-back is not found", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 409,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }));
+
+    await expect(provider(fetcher as typeof fetch).createHumanUser({
+      userId,
+      displayName: "김하우스",
+      loginName: "housekeeper01",
+      email: "housekeeper-01@example.invalid",
+      initialPassword: "Strong-Preview-123!",
+    })).rejects.toMatchObject({
+      code: "ACCOUNT_DUPLICATE",
+      httpStatus: 409,
+      retryable: false,
+    });
+  });
+
   it("reads back only the deterministic user ID after an ambiguous create result", async () => {
     const fetcher = vi.fn<typeof fetch>(
       async () =>
@@ -202,10 +276,52 @@ describe("ZITADEL account provisioning provider", () => {
     );
   });
 
-  it("returns false for a credential rejected by the provider", async () => {
+  it("fails the credential verification when temporary session cleanup fails", async () => {
+    const safeError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+      if (init?.method === "POST") {
+        return new Response(JSON.stringify({
+          sessionId: "cleanup-failed-session",
+          sessionToken: "cleanup-failed-token",
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (init?.method === "GET") {
+        return new Response(JSON.stringify({ session: {
+          id: "cleanup-failed-session",
+          factors: {
+            user: { id: userId, organizationId },
+            password: { verifiedAt: "2026-07-19T00:00:00.000Z" },
+          },
+        } }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify({}), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await expect(provider(fetcher as typeof fetch).verifyPassword({
+      expectedSubject: userId,
+      loginName: "housekeeper01",
+      password: "Strong-Preview-123!",
+    })).rejects.toMatchObject({
+      code: "EXTERNAL_AUTH_UNAVAILABLE",
+      retryable: true,
+    });
+    expect(safeError).toHaveBeenCalledWith(
+      "account_verification_session_cleanup_failed",
+      { code: "EXTERNAL_AUTH_UNAVAILABLE" },
+    );
+    expect(JSON.stringify(safeError.mock.calls)).not.toContain("cleanup-failed-token");
+    safeError.mockRestore();
+  });
+
+  it("returns false only for the official invalid-password ErrorDetail", async () => {
     const fetcher = vi.fn<typeof fetch>(
       async () =>
-        new Response(JSON.stringify({}), {
+        new Response(JSON.stringify({
+          details: [{ id: "COMMAND-3M0fs" }],
+        }), {
           status: 400,
           headers: { "content-type": "application/json" },
         }),
@@ -217,6 +333,25 @@ describe("ZITADEL account provisioning provider", () => {
         password: "Different-Password-789!",
       }),
     ).resolves.toBe(false);
+  });
+
+  it.each([
+    [400, { details: [{ id: "SESSION-UNKNOWN" }] }],
+    [429, {}],
+  ])("fails closed for non-credential Session API HTTP %i", async (status, body) => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "content-type": "application/json" },
+      }));
+    await expect(provider(fetcher as typeof fetch).verifyPassword({
+      expectedSubject: userId,
+      loginName: "housekeeper01",
+      password: "Different-Password-789!",
+    })).rejects.toMatchObject({
+      code: "EXTERNAL_AUTH_UNAVAILABLE",
+      retryable: true,
+    });
   });
 
   it("sets the authenticated user's first private password without persisting it locally", async () => {

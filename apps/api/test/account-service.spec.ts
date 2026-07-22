@@ -371,23 +371,40 @@ describe("account administration service", () => {
     );
   });
 
-  it("rejects a credential-bearing create replay instead of claiming a different password was applied", async () => {
+  it("returns a completed create replay only after verifying the submitted credential", async () => {
     const repo = repository({
       reserveCreate: vi.fn(
         async () => ({ status: "REPLAYED", account }) as never,
       ),
     });
-    const identity = provider();
-    const service = createAccountService({
-      repository: repo,
-      provider: identity,
-    });
+    const identity = provider({ verifyPassword: vi.fn(async () => true) });
+    const service = createAccountService({ repository: repo, provider: identity });
 
     await expect(
       service.createAccount(principal, request, "account-create-replay"),
+    ).resolves.toEqual({ status: "REPLAYED", account });
+    expect(identity.createHumanUser).not.toHaveBeenCalled();
+    expect(identity.verifyPassword).toHaveBeenCalledWith({
+      expectedSubject: account.id,
+      loginName: request.loginName,
+      password: request.initialPassword,
+    });
+  });
+
+  it("rejects a completed create replay when the submitted credential differs", async () => {
+    const repo = repository({
+      reserveCreate: vi.fn(
+        async () => ({ status: "REPLAYED", account }) as never,
+      ),
+    });
+    const identity = provider({ verifyPassword: vi.fn(async () => false) });
+    const service = createAccountService({ repository: repo, provider: identity });
+
+    await expect(
+      service.createAccount(principal, request, "account-create-replay-mismatch"),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT", retryable: false });
     expect(identity.createHumanUser).not.toHaveBeenCalled();
-    expect(identity.verifyPassword).not.toHaveBeenCalled();
+    expect(identity.verifyPassword).toHaveBeenCalledOnce();
   });
 
   it("does not compensate a deterministic provider identity after losing the create lease", async () => {

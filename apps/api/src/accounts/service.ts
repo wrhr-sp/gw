@@ -204,7 +204,15 @@ export function createAccountService(input: {
       if (reserved.status === "IN_PROGRESS")
         throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, true);
       if (reserved.status === "REPLAYED") {
-        throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
+        const credentialMatches = await input.provider.verifyPassword({
+          expectedSubject: reserved.account.id,
+          loginName: value.loginName,
+          password: value.initialPassword,
+        });
+        if (!credentialMatches) {
+          throw new AccountServiceError("IDEMPOTENCY_CONFLICT", 409, false);
+        }
+        return { status: "REPLAYED", account: reserved.account };
       }
       if (!("accountId" in reserved))
         throw new AccountServiceError("INTERNAL_ERROR", 500, true);
