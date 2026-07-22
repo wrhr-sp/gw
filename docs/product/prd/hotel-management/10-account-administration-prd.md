@@ -273,4 +273,7 @@ DB·migration·ZITADEL 설정이 없으면 가짜 성공·DB-only 사용자·in-
 - 중지 직후 기존 opaque session과 신규 로그인이 차단된다.
 - 자기계정과 마지막 활성 관리자는 중지할 수 없다.
 - 비밀번호·token이 소스·로그·문서·감사·DB에 남지 않는다.
+- 사용자 목록·생성·상세 제목 옆에 현재 화면과 권한 계약에 맞는 `?` 기능가이드가 표시된다.
+- 계정관리 가이드는 목적·대상·기본 사용순서·필요 권한·주의사항을 짧은 한국어로 제공하며 예정 기능과 내부 기술용어를 노출하지 않는다.
+- PC Popover와 390px 모바일 Dialog에서 키보드·스크린리더·44×44px touch target·Escape·바깥영역 닫기·trigger 포커스 복귀가 동작한다.
 - focused test, real PostgreSQL integration, 전체 `pnpm check`, Cloudflare build, Preview mutation/read-back/cleanup을 통과한다.

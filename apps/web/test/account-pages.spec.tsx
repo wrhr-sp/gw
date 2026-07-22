@@ -76,6 +76,7 @@ describe("account administration server pages", () => {
     });
     const html = renderToStaticMarkup(await NewAdminUserPage());
     expect(html).toContain("위아히어 강남호텔");
+    expect(html).toContain('aria-label="사용자 생성 도움말"');
     expect(mocks.eligibleHotels).toHaveBeenCalledOnce();
   });
 

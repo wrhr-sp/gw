@@ -1,9 +1,10 @@
-import { PageHeader } from "@werehere/ui";
+import { FeatureGuide, PageHeader } from "@werehere/ui";
 import { notFound } from "next/navigation";
 import { AccountCreateForm } from "../../../../components/accounts/account-create-form";
 import { HotelShell } from "../../../../components/hotels/hotel-shell";
 import { requireAuthenticatedPrincipal } from "../../../../lib/server-auth";
 import { fetchAccountCapabilitiesResult, fetchEligibleHotels } from "../../../../lib/server-accounts";
+import { accountFeatureGuides } from "../../../../lib/feature-guides";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,12 @@ export default async function NewAdminUserPage() {
   ) : <AccountCreateForm hotels={hotels.hotels} />;
   return <HotelShell accountPermissions={permissions} currentPath="/admin/users" principal={principal}>
     <div className="mx-auto flex w-full max-w-hotel-detail flex-col gap-6">
-      <PageHeader eyebrow="사용자 계정" title="사용자 생성" description="사람 계정과 호텔관리 업무범위를 한 번에 생성합니다." />
+      <PageHeader
+        eyebrow="사용자 계정"
+        title="사용자 생성"
+        description="사람 계정과 호텔관리 업무범위를 한 번에 생성합니다."
+        titleAccessory={<FeatureGuide content={accountFeatureGuides["account-administration.create"]} />}
+      />
       {content}
     </div>
   </HotelShell>;

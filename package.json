@@ -12,6 +12,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "test:boundaries": "node scripts/test-import-boundaries.mjs",
+    "test:feature-guides": "pnpm --filter @werehere/ui exec vitest run test/layout-components.spec.tsx && pnpm --filter @werehere/web exec vitest run test/feature-guides.spec.ts test/account-pages.spec.tsx test/account-views.spec.tsx",
     "test:integration": "pnpm --filter @werehere/db test:integration",
     "test:mutation-verifier": "node scripts/test-file-mutation-verifier.mjs",
     "test:visual": "pnpm --filter @werehere/web test:visual",
