@@ -21,6 +21,8 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
+drop role if exists preview_stale_definer_member;
+drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
@@ -43,6 +45,8 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
+drop role if exists preview_stale_definer_member;
+drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
@@ -306,6 +310,75 @@ if [[ "$NULL_LOGIN_ALIGNMENT_RESULT" != $'previewadmin:3\n1\n1\n1' ]]; then
   printf '%s\n' 'Preview bootstrap NULL login alignment contract failed.' >&2
   exit 1
 fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+create role preview_stale_definer_member nologin noinherit;
+grant werehere_auth_session_definer,
+      werehere_tenant_authority_definer
+  to $MIGRATION_OWNER with admin true, inherit false, set true;
+SQL
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" >/dev/null <<'SQL'
+grant werehere_auth_session_definer to preview_stale_definer_member
+  with admin true, inherit false, set false;
+grant werehere_tenant_authority_definer to preview_stale_definer_member
+  with admin false, inherit true, set true;
+SQL
+run_provision EXPAND >/dev/null
+STALE_DEFINER_MEMBERSHIPS="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*)
+from pg_auth_members membership
+join pg_roles definer_role on definer_role.oid = membership.roleid
+where definer_role.rolname in (
+  'werehere_auth_session_definer',
+  'werehere_tenant_authority_definer'
+);
+SQL
+)"
+if [[ "$STALE_DEFINER_MEMBERSHIPS" != "0" ]]; then
+  printf '%s\n' 'Preview provisioning retained stale definer memberships.' >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_foreign_definer_grantor nologin noinherit;
+grant werehere_auth_session_definer to preview_foreign_definer_grantor
+  with admin true, inherit false, set true;
+set role preview_foreign_definer_grantor;
+grant werehere_auth_session_definer to preview_stale_definer_member
+  with admin false, inherit false, set false;
+reset role;
+SQL
+if run_provision EXPAND >/dev/null 2>&1; then
+  printf '%s\n' 'Preview provisioning removed a foreign-grantor definer membership.' >&2
+  exit 1
+fi
+FOREIGN_INERT_DEFINER_MEMBERSHIP="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*)
+from pg_auth_members membership
+join pg_roles definer_role on definer_role.oid = membership.roleid
+join pg_roles member_role on member_role.oid = membership.member
+join pg_roles grantor_role on grantor_role.oid = membership.grantor
+where definer_role.rolname = 'werehere_auth_session_definer'
+  and member_role.rolname = 'preview_stale_definer_member'
+  and grantor_role.rolname = 'preview_foreign_definer_grantor'
+  and not membership.admin_option
+  and not membership.inherit_option
+  and not membership.set_option;
+SQL
+)"
+if [[ "$FOREIGN_INERT_DEFINER_MEMBERSHIP" != "1" ]]; then
+  printf '%s\n' 'Preview provisioning did not fail closed on an inert foreign definer membership.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+set role preview_foreign_definer_grantor;
+revoke werehere_auth_session_definer from preview_stale_definer_member
+  granted by preview_foreign_definer_grantor;
+reset role;
+revoke werehere_auth_session_definer from preview_foreign_definer_grantor
+  granted by current_user;
+drop role preview_foreign_definer_grantor;
+SQL
 
 run_provision CONTRACT >/dev/null
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
