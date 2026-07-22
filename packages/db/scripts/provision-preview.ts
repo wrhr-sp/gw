@@ -1553,6 +1553,28 @@ try {
     }
   }
 
+  const residualDefinerMembershipCommands = await owner<{ command: string }[]>`
+    select format(
+             'revoke %I from %I granted by %I',
+             definer_role.rolname,
+             member_role.rolname,
+             grantor_role.rolname
+           ) as command
+    from pg_auth_members membership
+    join pg_roles definer_role on definer_role.oid = membership.roleid
+    join pg_roles member_role on member_role.oid = membership.member
+    join pg_roles grantor_role on grantor_role.oid = membership.grantor
+    where definer_role.rolname in (
+      'werehere_auth_session_definer',
+      'werehere_tenant_authority_definer'
+    )
+      and grantor_role.rolname = current_user
+    order by definer_role.rolname, member_role.rolname
+  `;
+  for (const membership of residualDefinerMembershipCommands) {
+    await owner.unsafe(membership.command);
+  }
+
   await updateLocalCiDefinerMembership(
     migrationOwnerIdentity.role_name,
     "REVOKE",
@@ -1583,7 +1605,6 @@ try {
       'werehere_auth_session_definer',
       'werehere_tenant_authority_definer'
     )
-      and (membership.inherit_option or membership.set_option or membership.admin_option)
   `;
   if (definerMembershipSafety.length !== 0) {
     fail("Preview definer membership cleanup failed");
