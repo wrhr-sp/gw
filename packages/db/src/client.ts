@@ -229,7 +229,7 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
 ] as const;
 
 const REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK =
-  "check (((job_type <> 'account_provider_compensate'::text) or (status = any (array['succeeded'::text, 'cancelled'::text, 'dead_letter'::text])) or coalesce(((jsonb_typeof((payload -> 'provisioningattemptid'::text)) = 'string'::text) and ((payload ->> 'provisioningattemptid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'originalerrorcode'::text)) = 'string'::text) and ((payload ->> 'originalerrorcode'::text) = any (array['account_duplicate'::text, 'forbidden'::text, 'internal_error'::text]))), false)))";
+  "check (((job_type <> 'account_provider_compensate'::text) or (status = any (array['succeeded'::text, 'cancelled'::text, 'dead_letter'::text])) or coalesce(((jsonb_typeof((payload -> 'provisioningattemptid'::text)) = 'string'::text) and ((payload ->> 'provisioningattemptid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'originalerrorcode'::text)) = 'string'::text) and ((payload ->> 'originalerrorcode'::text) = any (array['account_duplicate'::text, 'forbidden'::text, 'internal_error'::text])) and (jsonb_typeof((payload -> 'userid'::text)) = 'string'::text) and ((payload ->> 'userid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'providersubject'::text)) = 'string'::text) and ((length((payload ->> 'providersubject'::text)) >= 1) and (length((payload ->> 'providersubject'::text)) <= 200)) and ((payload ->> 'action'::text) = 'compensate'::text)), false)))";
 
 const REQUIRED_CHECK_CONSTRAINTS = [
   {

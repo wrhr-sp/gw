@@ -47,6 +47,18 @@ where job.job_type = 'ACCOUNT_PROVIDER_COMPENSATE'
     and job.payload->>'originalErrorCode' in (
       'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
     )
+    and pg_catalog.jsonb_typeof(job.payload->'userId') = 'string'
+    and pg_catalog.jsonb_typeof(job.payload->'providerSubject') = 'string'
+    and job.payload->>'action' = 'COMPENSATE'
+    and exists (
+      select 1
+      from public.account_provisioning_attempts attempt
+      where attempt.company_id = job.company_id
+        and attempt.id::text = job.payload->>'provisioningAttemptId'
+        and attempt.target_user_id::text = job.payload->>'userId'
+        and attempt.provider_subject = job.payload->>'providerSubject'
+        and attempt.status = 'COMPENSATION_REQUIRED'
+    )
   ), false);
 
 alter table public.outbox_jobs
@@ -61,6 +73,12 @@ alter table public.outbox_jobs
       and payload->>'originalErrorCode' in (
         'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
       )
+      and pg_catalog.jsonb_typeof(payload->'userId') = 'string'
+      and payload->>'userId' ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      and pg_catalog.jsonb_typeof(payload->'providerSubject') = 'string'
+      and length(payload->>'providerSubject') between 1 and 200
+      and payload->>'action' = 'COMPENSATE'
     ), false)
   );
 

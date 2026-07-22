@@ -38,6 +38,9 @@ describe("account administration migration", () => {
     const expand = readFileSync(providerDispatchExpandMigrationUrl, "utf8");
     const contract = readFileSync(providerDispatchContractMigrationUrl, "utf8");
     expect(expand).toContain("LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE");
+    expect(expand).toContain("attempt.id::text = job.payload->>'provisioningAttemptId'");
+    expect(expand).toContain("attempt.target_user_id::text = job.payload->>'userId'");
+    expect(expand).toContain("attempt.provider_subject = job.payload->>'providerSubject'");
     expect(expand).not.toContain("add constraint outbox_jobs_compensation_linkage_check");
     expect(expand).toContain("0011_account_provider_exact_dispatch");
     expect(contract).toContain("LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE");
@@ -45,6 +48,8 @@ describe("account administration migration", () => {
     expect(contract).toContain("coalesce");
     expect(contract).toContain("provisioningAttemptId");
     expect(contract).toContain("originalErrorCode");
+    expect(contract).toContain("payload->>'action' = 'COMPENSATE'");
+    expect(contract).toContain("attempt.provider_subject = job.payload->>'providerSubject'");
     expect(contract).toContain("ACCOUNT_DUPLICATE");
     expect(contract).toContain("FORBIDDEN");
     expect(contract).toContain("INTERNAL_ERROR");

@@ -16,21 +16,32 @@ test("PC 사용자 생성 기준 화면", async ({ mount, page }) => {
   await expect(page).toHaveScreenshot("account-create-desktop.png", { fullPage: true });
 });
 
-test("PC 기능가이드는 Popover로 열리고 Escape와 바깥 클릭 뒤 trigger에 복귀", async ({ mount, page }) => {
+test("PC 기능가이드는 모든 닫기 경로 뒤 trigger에 복귀", async ({ mount, page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const view = await mount(<AccountCreateStory />);
   const trigger = view.getByRole("button", { name: "사용자 생성 도움말" });
+  const guide = page.getByRole("dialog", { name: "사용자 생성 도움말" });
+  const close = page.getByRole("button", { name: "사용자 생성 도움말 닫기" });
   await expect(trigger).toHaveCSS("min-height", "44px");
   await expect(trigger).toHaveCSS("min-width", "44px");
-  await trigger.click();
-  const guide = page.getByRole("dialog", { name: "사용자 생성 도움말" });
+
+  await trigger.focus();
+  await page.keyboard.press("Enter");
   await expect(guide).toBeVisible();
   await expect(guide.getByRole("heading", { name: "기본 사용순서" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "사용자 생성 도움말 닫기" })).toBeFocused();
+  await expect(close).toBeFocused();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await expect(page).toHaveScreenshot("account-create-guide-popover-desktop.png", { fullPage: true });
+  await close.click();
+  await expect(guide).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+
+  await page.keyboard.press("Space");
+  await expect(guide).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(guide).not.toBeVisible();
   await expect(trigger).toBeFocused();
+
   await trigger.click();
   await expect(guide).toBeVisible();
   await page.mouse.click(1200, 850);
@@ -38,19 +49,35 @@ test("PC 기능가이드는 Popover로 열리고 Escape와 바깥 클릭 뒤 tri
   await expect(trigger).toBeFocused();
 });
 
-test("모바일 기능가이드는 44px trigger와 Dialog로 열리고 Escape 뒤 trigger에 복귀", async ({ mount, page }) => {
+test("모바일 기능가이드는 모든 닫기 경로 뒤 44px trigger에 복귀", async ({ mount, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const view = await mount(<AccountCreateStory />);
   const trigger = view.getByRole("button", { name: "사용자 생성 도움말" });
+  const guide = page.getByRole("dialog", { name: "사용자 생성 도움말" });
+  const close = page.getByRole("button", { name: "사용자 생성 도움말 닫기" });
   await expect(trigger).toHaveCSS("min-height", "44px");
   await expect(trigger).toHaveCSS("min-width", "44px");
-  await trigger.click();
-  const guide = page.getByRole("dialog", { name: "사용자 생성 도움말" });
+
+  await trigger.focus();
+  await page.keyboard.press("Enter");
   await expect(guide).toBeVisible();
   await expect(guide.getByText("사용 대상", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "사용자 생성 도움말 닫기" })).toBeFocused();
+  await expect(close).toBeFocused();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await expect(page).toHaveScreenshot("account-create-guide-dialog-mobile.png");
+  await close.click();
+  await expect(guide).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+
+  await page.keyboard.press("Space");
+  await expect(guide).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(guide).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await expect(guide).toBeVisible();
+  await page.getByTestId("feature-guide-overlay").click({ position: { x: 10, y: 10 } });
   await expect(guide).not.toBeVisible();
   await expect(trigger).toBeFocused();
 });

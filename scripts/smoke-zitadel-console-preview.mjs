@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
+import {
+  isAuthenticatedConsoleResponse,
+  isSuccessfulConsoleCallbackResponse,
+  isValidConsoleLanding,
+} from "./lib/zitadel-console-smoke-contract.mjs";
 
 const requireFromDb = createRequire(new URL("../packages/db/package.json", import.meta.url));
 const postgres = requireFromDb("postgres");
@@ -92,33 +97,66 @@ try {
   }
 
   if (requireCredentialCallback) {
-    let callbackRequestObserved = false;
-    const observeCallbackRequest = (request) => {
-      const candidate = new URL(request.url());
-      if (
-        candidate.origin === issuerUrl.origin &&
-        candidate.pathname === "/ui/console/auth/callback"
-      ) {
-        callbackRequestObserved = true;
-      }
-    };
-    page.on("request", observeCallbackRequest);
     try {
+      const callbackResponse = page.waitForResponse((response) =>
+        isSuccessfulConsoleCallbackResponse({
+          issuerOrigin: issuerUrl.origin,
+          status: response.status(),
+          url: response.url(),
+        }),
+      { timeout: 60_000 });
+      const authenticatedUserResponse = page.waitForResponse((response) =>
+        isAuthenticatedConsoleResponse({
+          issuerOrigin: issuerUrl.origin,
+          status: response.status(),
+          url: response.url(),
+        }),
+      { timeout: 60_000 });
+      const authenticatedLanding = page.waitForURL(
+        (candidate) => isValidConsoleLanding(candidate.toString(), issuerUrl.origin),
+        { timeout: 60_000 },
+      );
       await page.locator("#login-name").fill("previewadmin");
       await page.locator("#login-password").fill(previewPassword);
       await page.getByRole("button", { name: "로그인", exact: true }).click();
-      await page.waitForURL((candidate) =>
-        candidate.origin === issuerUrl.origin &&
-        candidate.pathname.startsWith("/ui/console") &&
-        candidate.pathname !== "/ui/console/auth/callback",
-      { timeout: 60_000 });
+      await Promise.all([callbackResponse, authenticatedUserResponse, authenticatedLanding]);
+      const consoleIdentityVerified = await page.evaluate(
+        ({ expectedAudience, expectedIssuer, expectedSubject }) => {
+          for (const storage of [window.sessionStorage, window.localStorage]) {
+            const accessToken = storage.getItem("access_token");
+            const idToken = storage.getItem("id_token");
+            if (!accessToken || !idToken) continue;
+            try {
+              const encodedPayload = idToken.split(".")[1];
+              if (!encodedPayload) continue;
+              const padded = encodedPayload.replace(/-/gu, "+").replace(/_/gu, "/")
+                .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+              const payload = JSON.parse(window.atob(padded));
+              const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+              if (
+                payload.iss === expectedIssuer &&
+                payload.sub === expectedSubject &&
+                audiences.includes(expectedAudience) &&
+                typeof payload.exp === "number" &&
+                payload.exp * 1000 > Date.now()
+              ) return true;
+            } catch {
+              continue;
+            }
+          }
+          return false;
+        },
+        {
+          expectedAudience: consoleClientId,
+          expectedIssuer: issuer,
+          expectedSubject: bootstrapSubject,
+        },
+      );
+      if (!consoleIdentityVerified) {
+        throw new Error("Preview Console authenticated identity could not be verified");
+      }
     } catch {
-      throw new Error("Preview Console credential flow did not complete");
-    } finally {
-      page.off("request", observeCallbackRequest);
-    }
-    if (!callbackRequestObserved) {
-      throw new Error("Console callback request was not observed");
+      throw new Error("Preview Console credential flow did not complete authenticated read-back");
     }
     const terminalCookies = await context.cookies(webPreviewUrl);
     if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {

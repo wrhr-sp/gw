@@ -47,6 +47,18 @@ where job.job_type = 'ACCOUNT_PROVIDER_COMPENSATE'
     and job.payload->>'originalErrorCode' in (
       'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
     )
+    and pg_catalog.jsonb_typeof(job.payload->'userId') = 'string'
+    and pg_catalog.jsonb_typeof(job.payload->'providerSubject') = 'string'
+    and job.payload->>'action' = 'COMPENSATE'
+    and exists (
+      select 1
+      from public.account_provisioning_attempts attempt
+      where attempt.company_id = job.company_id
+        and attempt.id::text = job.payload->>'provisioningAttemptId'
+        and attempt.target_user_id::text = job.payload->>'userId'
+        and attempt.provider_subject = job.payload->>'providerSubject'
+        and attempt.status = 'COMPENSATION_REQUIRED'
+    )
   ), false);
 
 -- EXPAND intentionally does not add the new payload CHECK. The previous Worker

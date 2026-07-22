@@ -95,9 +95,16 @@ select concat(
   '|',
   (select status || ':' || last_error_code
    from outbox_jobs
-   where id = '1b110000-0000-4000-8000-000000000001')
+   where id = '1b110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || coalesce(last_error_code, 'NULL')
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000003')
 );
-delete from outbox_jobs where id = '1b110000-0000-4000-8000-000000000001';
+delete from outbox_jobs where id in (
+  '1b110000-0000-4000-8000-000000000001',
+  '1b110000-0000-4000-8000-000000000003'
+);
 delete from account_provisioning_attempts where id = '1a110000-0000-4000-8000-000000000001';
 alter table users disable trigger users_no_delete;
 delete from users where id = '1c110000-0000-4000-8000-000000000001';
@@ -105,7 +112,7 @@ alter table users enable trigger users_no_delete;
 delete from companies where id = '1d110000-0000-4000-8000-000000000001';
 SQL
 )"
-  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE" ]]; then
+  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE" ]]; then
     printf 'EXPAND did not isolate pre-existing legacy compensation: %s\n' "$result" >&2
     return 1
   fi
@@ -123,6 +130,10 @@ select concat(
   (select status || ':' || last_error_code
    from outbox_jobs
    where id = '1b110000-0000-4000-8000-000000000001'),
+  '|',
+  (select status || ':' || coalesce(last_error_code, 'NULL')
+   from outbox_jobs
+   where id = '1b110000-0000-4000-8000-000000000003'),
   '|',
   exists (
     select 1 from pg_constraint
@@ -147,7 +158,10 @@ begin
   end;
 end
 $constraint_probe$;
-delete from outbox_jobs where id = '1b110000-0000-4000-8000-000000000001';
+delete from outbox_jobs where id in (
+  '1b110000-0000-4000-8000-000000000001',
+  '1b110000-0000-4000-8000-000000000003'
+);
 delete from account_provisioning_attempts where id = '1a110000-0000-4000-8000-000000000001';
 alter table users disable trigger users_no_delete;
 delete from users where id = '1c110000-0000-4000-8000-000000000001';
@@ -155,7 +169,7 @@ alter table users enable trigger users_no_delete;
 delete from companies where id = '1d110000-0000-4000-8000-000000000001';
 SQL
 )"
-  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|t" ]]; then
+  if [[ "$result" != "DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|DEAD_LETTER:LEGACY_COMPENSATION_LINKAGE_UNAVAILABLE|t" ]]; then
     printf 'Legacy compensation migration did not isolate unsafe provider work: %s\n' "$result" >&2
     return 1
   fi
@@ -189,12 +203,20 @@ insert into account_provisioning_attempts (
 );
 insert into outbox_jobs (
   id, company_id, job_type, payload, status, locked_at, claim_token
-) values (
+) values
+(
   '1b110000-0000-4000-8000-000000000001',
   '1d110000-0000-4000-8000-000000000001',
   'ACCOUNT_PROVIDER_COMPENSATE',
   '{"userId":"1e110000-0000-4000-8000-000000000001","providerSubject":"legacy-provider-subject","action":"COMPENSATE"}'::jsonb,
   'PROCESSING', now(), '1f110000-0000-4000-8000-000000000001'
+),
+(
+  '1b110000-0000-4000-8000-000000000003',
+  '1d110000-0000-4000-8000-000000000001',
+  'ACCOUNT_PROVIDER_COMPENSATE',
+  '{"userId":"1e110000-0000-4000-8000-000000000001","providerSubject":"legacy-provider-subject","action":"COMPENSATE","provisioningAttemptId":"1a110000-0000-4000-8000-000000000099","originalErrorCode":"ACCOUNT_DUPLICATE"}'::jsonb,
+  'PENDING', null, null
 );
 SQL
 }

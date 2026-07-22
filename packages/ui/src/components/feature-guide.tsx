@@ -117,7 +117,10 @@ export function FeatureGuide({ content, className }: FeatureGuideProps) {
           </button>
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/40" />
+          <Dialog.Overlay
+            className="fixed inset-0 z-50 bg-slate-950/40"
+            data-testid="feature-guide-overlay"
+          />
           <Dialog.Content
             aria-describedby={mobileDescriptionId}
             className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-panel border border-border bg-surface p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-panel outline-none md:hidden"

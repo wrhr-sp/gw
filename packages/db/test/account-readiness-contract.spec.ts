@@ -54,6 +54,9 @@ describe("account administration readiness contract", () => {
       "reserved_not_dispatched",
       "provider_updated",
       "account_provider_deactivate",
+      "payload -> 'userid'::text",
+      "payload -> 'providersubject'::text",
+      "payload ->> 'action'::text) = 'compensate'::text",
     ]) {
       expect(source).toContain(predicate);
     }
