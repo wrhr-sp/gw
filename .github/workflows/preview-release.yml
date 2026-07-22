@@ -154,7 +154,7 @@ jobs:
             if ! status="$(curl --silent --show-error \
               --output "$response_file" \
               --write-out '%{http_code}' \
-              -H "Authorization: Bearer $CLOUD...OKEN" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/settings")"; then
               rm -f "$response_file"
               return 2
@@ -277,7 +277,7 @@ jobs:
           fetch_hyperdrive_list() {
             local output_file="$1"
             curl --fail --silent --show-error \
-              -H "Authorization: Bearer $CLOUD...OKEN" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "$list_url" > "$output_file"
             if ! node "$GITHUB_WORKSPACE/scripts/validate-cloudflare-hyperdrive-list.mjs" "$output_file" >/dev/null; then
               printf '%s\n' 'Hyperdrive list response failed safety validation.' >&2
