@@ -186,7 +186,64 @@ describe("Preview account provisioning wiring", () => {
     );
   });
 
-  it("fails closed when only part of the Preview Worker topology exists", () => {
+  it("accepts only complete, empty, or the exact reconciler bootstrap Worker topology", () => {
+    const topologyStep = workflow.slice(
+      workflow.indexOf("Validate Preview Worker snapshot topology"),
+      workflow.indexOf("Expand Neon Preview database for compatible Worker deploy"),
+    );
+    const shell = topologyStep
+      .slice(topologyStep.indexOf("          set -euo pipefail"))
+      .split("\n")
+      .map((line) => line.startsWith("          ") ? line.slice(10) : line)
+      .join("\n")
+      .replace(
+        'api="${{ steps.worker_snapshot.outputs.api_existed }}"',
+        'api="$API_EXISTS"',
+      )
+      .replace(
+        'reconciler="${{ steps.worker_snapshot.outputs.reconciler_existed }}"',
+        'reconciler="$RECONCILER_EXISTS"',
+      )
+      .replace(
+        'web="${{ steps.worker_snapshot.outputs.web_existed }}"',
+        'web="$WEB_EXISTS"',
+      );
+    const runTopology = (api: boolean, reconciler: boolean, web: boolean) =>
+      spawnSync("bash", {
+        input: shell,
+        encoding: "utf8",
+        env: {
+          API_EXISTS: String(api),
+          RECONCILER_EXISTS: String(reconciler),
+          WEB_EXISTS: String(web),
+        },
+      });
+
+    for (const topology of [
+      [true, true, true],
+      [false, false, false],
+      [true, false, true],
+    ] as const) {
+      const [api, reconciler, web] = topology;
+      expect(runTopology(api, reconciler, web).status).toBe(0);
+    }
+    for (const topology of [
+      [true, true, false],
+      [true, false, false],
+      [false, true, true],
+      [false, true, false],
+      [false, false, true],
+    ] as const) {
+      const [api, reconciler, web] = topology;
+      const result = runTopology(api, reconciler, web);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        "Preview Worker topology is partial; refusing release.",
+      );
+    }
+  });
+
+  it("fails closed for every unapproved partial Preview Worker topology", () => {
     expect(workflow).toContain("Validate Preview Worker snapshot topology");
     expect(workflow).toContain(
       "Preview Worker topology is partial; refusing release.",
@@ -195,11 +252,21 @@ describe("Preview account provisioning wiring", () => {
       'if [[ "$api" == "true" && "$reconciler" == "true" && "$web" == "true" ]]',
     );
     expect(workflow).toContain(
+      'if [[ "$api" == "true" && "$reconciler" == "false" && "$web" == "true" ]]',
+    );
+    expect(workflow).toContain(
+      "Preview reconciler bootstrap topology accepted.",
+    );
+    expect(workflow).toContain(
       'if [[ "$api" == "false" && "$reconciler" == "false" && "$web" == "false" ]]',
     );
-    expect(workflow).toMatch(
-      /Verify previous Workers remain compatible after expand[\s\S]*api_existed == 'true'[\s\S]*reconciler_existed == 'true'[\s\S]*web_existed == 'true'/u,
+    const compatibilityStep = workflow.slice(
+      workflow.indexOf("Verify previous Workers remain compatible after expand"),
+      workflow.indexOf("Create or update Preview Hyperdrives"),
     );
+    expect(compatibilityStep).toContain("api_existed == 'true'");
+    expect(compatibilityStep).toContain("web_existed == 'true'");
+    expect(compatibilityStep).not.toContain("reconciler_existed");
   });
 
   it("uses a stable protected-environment bootstrap approval reference", () => {
