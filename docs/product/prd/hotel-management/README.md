@@ -21,6 +21,8 @@
 8. [사용자 검토표](07-user-review-checklist.md)
 9. [API·데이터 계약 초안](08-api-data-contract-draft.md)
 10. [수용·테스트 매트릭스](09-acceptance-test-matrix.md)
+11. [계정·사용자 관리](10-account-administration-prd.md)
+12. [호텔 운영 지식뱅크·기능 가이드](11-knowledge-bank-and-contextual-guidance-prd.md)
 
 ## 결정 상태 표시
 

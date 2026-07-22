@@ -12,7 +12,7 @@ const required = (name) => {
   return value;
 };
 
-const hyperdriveId = required("HYPERDRIVE_ID");
+const apiHyperdriveId = required("API_HYPERDRIVE_ID");
 const issuer = new URL(required("ZITADEL_ISSUER"));
 const redirectUri = new URL(required("ZITADEL_REDIRECT_URI"));
 const webPreviewUrl = new URL(required("WEB_PREVIEW_URL"));
@@ -52,12 +52,15 @@ if (
 
 const source = await readFile(resolve(inputPath), "utf8");
 const config = JSON.parse(source.replace(/,\s*([}\]])/gu, "$1"));
-config.hyperdrive = [{ binding: "HYPERDRIVE", id: hyperdriveId }];
+config.hyperdrive = [
+  { binding: "API_HYPERDRIVE", id: apiHyperdriveId },
+];
 config.vars = {
   ...config.vars,
   ZITADEL_ISSUER: issuer.toString().replace(/\/$/u, ""),
   ZITADEL_CLIENT_ID: clientId,
   ZITADEL_CONSOLE_CLIENT_ID: consoleClientId,
+  ZITADEL_ORGANIZATION_ID: required("ZITADEL_ORGANIZATION_ID"),
   ZITADEL_REDIRECT_URI: redirectUri.toString(),
 };
 

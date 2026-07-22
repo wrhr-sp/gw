@@ -32,7 +32,7 @@ describe("0001 platform foundation migration", () => {
     }
   });
 
-  it("allows exactly the approved MVP user type codes", () => {
+  it("keeps only the three legacy bootstrap user codes before the 0005 rename migration", () => {
     const sql = readMigration();
     expect(sql).toContain("INTERNAL_STAFF");
     expect(sql).toContain("ROOM_OPERATIONS");

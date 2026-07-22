@@ -6,6 +6,7 @@ import {
   type HotelUserType,
 } from "@werehere/contracts";
 import postgres from "postgres";
+import { toExpandCompatibleStoredUserType } from "./account-user-types";
 
 export type HotelActor = {
   companyId: string;
@@ -124,15 +125,18 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
     reason: string,
   ) {
     if (!audit) return;
-    await sql`
-      insert into audit_events (
-        id, event_code, actor_user_id, actor_type, session_id,
-        company_id, resource_type, resource_id, reason, result, trace_id
-      ) values (
-        ${audit.auditEventId}, ${eventCode}, ${actor.userId}, ${actor.userType}, ${actor.sessionId},
-        ${actor.companyId}, ${resourceType}, ${resourceId}, ${reason}, 'DENIED', ${audit.traceId}
-      )
-    `;
+    await sql.begin(async (transaction) => {
+      await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
+      await transaction`
+        insert into audit_events (
+          id, event_code, actor_user_id, actor_type, session_id,
+          company_id, resource_type, resource_id, reason, result, trace_id
+        ) values (
+          ${audit.auditEventId}, ${eventCode}, ${actor.userId}, ${actor.userType}, ${actor.sessionId},
+          ${actor.companyId}, ${resourceType}, ${resourceId}, ${reason}, 'DENIED', ${audit.traceId}
+        )
+      `;
+    });
   }
 
   return {
@@ -142,7 +146,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
 
     async listHotels(actor, query = { page: 1, pageSize: 20 }, audit) {
       return sql.begin(async (transaction) => {
-        await transaction`select set_config('app.company_id', ${actor.companyId}, true)`;
+        await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
         const permission = await transaction<{
           actor_valid: boolean;
           allowed: boolean;
@@ -160,7 +164,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
             and s.idle_expires_at > now()
             and s.absolute_expires_at > now()
             and u.status = 'ACTIVE'
-            and u.user_type = ${actor.userType}
+            and u.user_type in (${actor.userType}, ${toExpandCompatibleStoredUserType(actor.userType)})
             and c.status = 'ACTIVE'
         ), effective_subjects as (
           select 'USER'::text as subject_type, user_id as subject_id from valid_actor
@@ -279,7 +283,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
             and s.idle_expires_at > now()
             and s.absolute_expires_at > now()
             and u.status = 'ACTIVE'
-            and u.user_type = ${actor.userType}
+            and u.user_type in (${actor.userType}, ${toExpandCompatibleStoredUserType(actor.userType)})
             and c.status = 'ACTIVE'
         ), effective_subjects as (
           select 'USER'::text as subject_type, user_id as subject_id from valid_actor
@@ -368,7 +372,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
 
     async getHotel(actor, hotelId, audit) {
       return sql.begin(async (transaction) => {
-        await transaction`select set_config('app.company_id', ${actor.companyId}, true)`;
+        await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
         const rows = await transaction<HotelRow[]>`
         with valid_actor as (
           select u.id as user_id
@@ -382,7 +386,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
             and s.idle_expires_at > now()
             and s.absolute_expires_at > now()
             and u.status = 'ACTIVE'
-            and u.user_type = ${actor.userType}
+            and u.user_type in (${actor.userType}, ${toExpandCompatibleStoredUserType(actor.userType)})
             and c.status = 'ACTIVE'
         ), effective_subjects as (
           select 'USER'::text as subject_type, user_id as subject_id from valid_actor
@@ -473,7 +477,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
       try {
         const result = await sql.begin(async (transaction) => {
           stage = "TENANT_CONTEXT";
-          await transaction`select set_config('app.company_id', ${input.actor.companyId}, true)`;
+          await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
           stage = "ADVISORY_LOCK";
           await transaction`
             select pg_advisory_xact_lock(hashtextextended(
@@ -495,7 +499,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
                 and s.idle_expires_at > now()
                 and s.absolute_expires_at > now()
                 and u.status = 'ACTIVE'
-                and u.user_type = ${input.actor.userType}
+                and u.user_type in (${input.actor.userType}, ${toExpandCompatibleStoredUserType(input.actor.userType)})
                 and c.status = 'ACTIVE'
             ), effective_subjects as (
               select 'USER'::text as subject_type, user_id as subject_id from valid_actor
@@ -670,7 +674,7 @@ export function createPostgresHotelRepository(databaseUrl: string): HotelReposit
         if (result.status === "CREATED" || result.status === "REPLAYED") {
           stage = "POST_COMMIT_READBACK";
           const committedRows = await sql.begin(async (transaction) => {
-            await transaction`select set_config('app.company_id', ${input.actor.companyId}, true)`;
+            await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
             return transaction<HotelRow[]>`
               select ${sql.unsafe(hotelSelection)}
               from branches b

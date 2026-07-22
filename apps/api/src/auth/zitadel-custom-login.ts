@@ -107,11 +107,16 @@ export function createZitadelCustomLoginProvider(input: {
   consoleClientId?: string;
   fetcher?: typeof fetch;
   issuer: string;
+  organizationId: string;
   redirectUri: string;
   serviceUserToken: string;
   now?: () => Date;
 }): CustomLoginProvider {
   const issuer = normalizeIssuer(input.issuer);
+  const expectedOrganizationId = input.organizationId.trim();
+  if (!/^[A-Za-z0-9_-]{1,200}$/u.test(expectedOrganizationId)) {
+    throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+  }
   const redirectUri = new URL(input.redirectUri);
   const loopbackHttp = redirectUri.protocol === "http:" &&
     ["127.0.0.1", "::1", "localhost"].includes(redirectUri.hostname);
@@ -275,7 +280,7 @@ export function createZitadelCustomLoginProvider(input: {
         throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
       }
     },
-    async authenticateAndFinalize({ authRequest, loginName, password }) {
+    async authenticateAndFinalize({ authRequest, password, userId }) {
       const authRequestId = safeSegment(authRequest);
       const authRequestTarget = await inspectAuthRequest(authRequest);
 
@@ -295,7 +300,7 @@ export function createZitadelCustomLoginProvider(input: {
 
       const createResponse = await request(`${issuer}/v2/sessions`, {
         body: JSON.stringify({
-          checks: { user: { loginName }, password: { password } },
+          checks: { user: { userId }, password: { password } },
           lifetime: SESSION_LIFETIME,
         }),
         headers: { ...serviceHeaders, "content-type": "application/json" },
@@ -318,6 +323,12 @@ export function createZitadelCustomLoginProvider(input: {
         const parsedSession = sessionResponseSchema.safeParse(await sessionResponse.json());
         if (!parsedSession.success || parsedSession.data.session.id !== latest.sessionId) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+        }
+        if (
+          parsedSession.data.session.factors.user.id !== userId ||
+          parsedSession.data.session.factors.user.organizationId !== expectedOrganizationId
+        ) {
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false);
         }
         const current = now().getTime();
         const userVerified = Date.parse(parsedSession.data.session.factors.user.verifiedAt);

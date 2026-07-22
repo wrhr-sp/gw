@@ -3,10 +3,11 @@ import { createAuthServiceFromBindings } from "../src/auth/factory";
 
 const testBindings = {
   AUTH_TRANSACTION_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-  DATABASE_URL: "postgres://unused.invalid/hotel_test",
+  API_RUNTIME_DATABASE_URL: "postgres://unused.invalid/hotel_test",
   ZITADEL_CLIENT_ID: "hotel-client",
   ZITADEL_CONSOLE_CLIENT_ID: "console-client",
   ZITADEL_ISSUER: "https://identity.example.test",
+  ZITADEL_ORGANIZATION_ID: "org-1",
   ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback",
   ZITADEL_SERVICE_USER_TOKEN: "service-token",
 };
@@ -16,6 +17,14 @@ describe("auth service factory", () => {
     const { ZITADEL_SERVICE_USER_TOKEN: omittedToken, ...withoutToken } = testBindings;
     void omittedToken;
     await expect(createAuthServiceFromBindings(withoutToken)).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_NOT_CONFIGURED",
+    });
+  });
+
+  it("fails closed when the approved ZITADEL organization is missing", async () => {
+    const { ZITADEL_ORGANIZATION_ID: omittedOrganization, ...withoutOrganization } = testBindings;
+    void omittedOrganization;
+    await expect(createAuthServiceFromBindings(withoutOrganization)).rejects.toMatchObject({
       code: "AUTH_PROVIDER_NOT_CONFIGURED",
     });
   });

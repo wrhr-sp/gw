@@ -91,8 +91,8 @@ insert into companies (id, legal_name) values
 
 insert into users (id, company_id, user_type, display_name) values
   ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'INTERNAL_STAFF', '사내 임직원'),
-  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'ROOM_OPERATIONS', '하우스키핑'),
-  ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'BRANCH_OWNER', '호텔 소유주'),
+  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'HOUSEKEEPING', '하우스키핑'),
+  ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'HOTEL_OWNER', '호텔 소유주'),
   ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000002', 'INTERNAL_STAFF', '다른 법인 임직원');
 
 do $$
@@ -513,7 +513,7 @@ insert into audit_events (
   '60000000-0000-0000-0000-000000000003',
   'OTHER_COMPANY_EVENT',
   '20000000-0000-0000-0000-000000000004',
-  'BRANCH_OWNER',
+  'HOTEL_OWNER',
   '10000000-0000-0000-0000-000000000002',
   'COMPANY',
   'SUCCEEDED',
@@ -607,6 +607,93 @@ begin
     );
     raise exception 'duplicate idempotency scope was accepted';
   exception when unique_violation then
+    null;
+  end;
+end;
+$$;
+
+do $$
+begin
+  insert into login_id_registry (login_id, company_id, target_user_id)
+  values (
+    'globaluser',
+    '10000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001'
+  );
+  update users
+  set login_name = 'globaluser'
+  where id = '20000000-0000-0000-0000-000000000001';
+
+  if (
+    select provider_subject <> 'subject-1'
+    from auth_resolve_login_identity_v1('globaluser')
+  ) then
+    raise exception 'canonical login ID did not resolve the expected provider subject';
+  end if;
+  if exists (select 1 from auth_resolve_login_identity_v1('missinguser')) then
+    raise exception 'unknown login ID resolved a provider subject';
+  end if;
+
+  insert into login_id_registry (login_id, company_id, target_user_id)
+  values (
+    'otheruser',
+    '10000000-0000-0000-0000-000000000002',
+    '20000000-0000-0000-0000-000000000004'
+  );
+  update users
+  set login_name = 'otheruser'
+  where id = '20000000-0000-0000-0000-000000000004'
+    and company_id = '10000000-0000-0000-0000-000000000002';
+
+  begin
+    insert into login_id_registry (login_id, company_id, target_user_id)
+    values (
+      'globaluser',
+      '10000000-0000-0000-0000-000000000002',
+      '20000000-0000-0000-0000-000000000004'
+    );
+    raise exception 'cross-company duplicate login ID was accepted';
+  exception when unique_violation then
+    null;
+  end;
+
+  begin
+    insert into login_id_registry (login_id, company_id, target_user_id)
+    values (
+      'invalid-id',
+      '10000000-0000-0000-0000-000000000002',
+      '20000000-0000-0000-0000-000000000005'
+    );
+    raise exception 'non-canonical login ID was accepted';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    update login_id_registry
+    set target_user_id = '20000000-0000-0000-0000-000000000004'
+    where login_id = 'globaluser';
+    raise exception 'issued login ID registry row was mutable';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  begin
+    delete from login_id_registry where login_id = 'globaluser';
+    raise exception 'issued login ID registry row was deletable';
+  exception when sqlstate '55000' then
+    null;
+  end;
+
+  begin
+    insert into login_id_registry (login_id, company_id, target_user_id)
+    values (
+      'admin',
+      '10000000-0000-0000-0000-000000000002',
+      '20000000-0000-0000-0000-000000000006'
+    );
+    raise exception 'fixed reserved login ID was accepted';
+  exception when check_violation then
     null;
   end;
 end;

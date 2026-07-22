@@ -43,6 +43,25 @@
 | `HOT-E2E-022` | DB/R2 schema 미설정 | 저장 요청 | 명확한 503, 가짜 성공·부분자료 없음 |
 | `HOT-E2E-023` | 긴급이슈 저장 성공·푸시 실패 | 알림 처리 | 이슈 유지, 인앱 알림·푸시 실패상태 기록 |
 | `HOT-E2E-024` | 감염 또는 금지형식 파일 | 업로드 완료 | 부모자료 연결 금지·검역/차단·운영알림 |
+| `HOT-E2E-025` | 회사 공통·자기 호텔 게시지식과 타 호텔 전용지식 존재 | 증상·태그 검색 | 허용 지식만 반환, 타 호텔 제목·건수·태그 비노출 |
+| `HOT-E2E-026` | 초안 작성권한만 있는 사용자 | 게시 상태전이 직접호출 | 403, 초안·version 유지, 실패감사 |
+| `HOT-E2E-027` | 고객 식별정보가 포함된 컴플레인 사례 | 검토·게시 요청 | 게시 차단, 안전한 필드오류, 원문 감사 미저장 |
+| `HOT-E2E-028` | 재검토 예정일이 지난 게시지식 | 검색·상세 열람 | `NEEDS_REVIEW` 명시, 최신 권장정보처럼 표시하지 않음 |
+| `HOT-E2E-029` | 사용자-facing 기능 page | 제목 옆 `?` 클릭·Enter·Space | 목적·사용법·권한·주의사항 표시, Escape 닫기·포커스 복귀 |
+| `HOT-E2E-030` | 390px 모바일·스크린리더 | 기능 가이드 열람 | 44px 터치영역, 접근 가능한 이름, Sheet/Dialog 읽기순서 통과 |
+| `HOT-E2E-031` | 기능 권한 없는 사용자 | 직접 route와 화면 접근 | 기능 제목·가이드·관련 링크 비노출, API도 차단 |
+| `HOT-E2E-032` | 승인된 Preview 관리자 identity·organization·MFA 준비 | one-shot bootstrap 실행 및 같은 승인으로 재실행 | 최초 관리자 1명 연결, 동일 승인 멱등, 다른 subject 차단 |
+| `HOT-E2E-033` | `USER_CREATE` 관리자 | 사내 임직원 계정 생성 | ZITADEL human 생성, DB 사용자·PRIMARY 호텔배정·감사 저장, 재조회 일치 |
+| `HOT-E2E-034` | 동일 멱등키·동일 계정 payload | 생성 요청 재시도 | 같은 계정 결과, provider·DB 중복 생성 없음 |
+| `HOT-E2E-035` | provider 응답 지연 뒤 create lease takeover | 이전 owner가 늦게 완료 | stale generation 거부, 정상 identity 비활성화·보상 금지 |
+| `HOT-E2E-036` | `PENDING_SETUP` 신규 사용자 | 임시 credential 로그인 | 최초 비밀번호 변경 화면만 허용, 일반 업무 API 차단 |
+| `HOT-E2E-037` | 최초 비밀번호 변경 provider 성공 | 동일 payload 재시도·로그인 | provider 쓰기 반복 없이 DB `ACTIVE`, 새 session 발급, 임시 credential 거부 |
+| `HOT-E2E-038` | `USER_READ`·`USER_CREATE`·`USER_SUSPEND`가 각각 없는 사용자 | 메뉴·버튼·직접 URL·API 접근 | 해당 기능 비노출 및 서버 403/404, 허용 기능은 유지 |
+| `HOT-E2E-039` | 다른 회사의 사용자 ID | 상세·중지 직접 호출 | 존재·PII 비노출, 상태·session 불변 |
+| `HOT-E2E-040` | 관리자 자기 자신 또는 마지막 활성 관리자 | 중지 요청 | 차단, 계정·session·권한 유지 |
+| `HOT-E2E-041` | 일반 사용자 활성 session | 관리자가 계정 중지 | 로컬 상태 즉시 `INACTIVE`, 기존 session 회수, 신규 로그인 차단 |
+| `HOT-E2E-042` | 계정 중지 또는 생성 보상 시 provider 일시 실패 | scheduled reconciler 실행 | outbox claim·backoff 후 provider 비활성화와 `SUCCEEDED`/`COMPENSATED`로 수렴 |
+| `HOT-E2E-043` | 390px 모바일·키보드 사용자 | 계정 목록·생성·상세·중지·비밀번호 변경 | 모바일 재배치, 오류 focus·label·44px 동작영역·중복 제출 차단 통과 |
 
 ## 비밀번호 정책 수용 시나리오
 
@@ -98,6 +117,8 @@
 - 객실번호·점검 자동생성·일매출 중복 unique 위반 실패.
 - transaction 중간실패 시 업무자료·감사·첨부참조 모두 rollback.
 - 과거 version·상태이력·원행위자 보존.
+- 지식 게시 version과 검토대상 version 불일치 시 전이 실패.
+- 회사·호텔 지식 검색의 RLS와 application predicate 이중 격리.
 
 ## Preview 완료 게이트
 
@@ -109,3 +130,4 @@
 6. 사용자유형별 로그인 E2E.
 7. 타 법인·타 호텔·직접 API 권한우회 회귀.
 8. PR/CI/merge/deploy/live smoke는 PRD 승인 후 별도 오케스트레이션 범위로 진행.
+9. 모든 사용자-facing route와 typed feature-guide registry의 누락·중복·빈 콘텐츠 검사.

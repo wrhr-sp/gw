@@ -1,4 +1,9 @@
-import { passwordPolicySchema, type AuthenticatedPrincipal, type HotelErrorCode } from "@werehere/contracts";
+import {
+  loginIdSchema,
+  passwordPolicySchema,
+  type AuthenticatedPrincipal,
+  type HotelErrorCode,
+} from "@werehere/contracts";
 import type { AuthRepository } from "@werehere/db";
 import {
   base64UrlDecode,
@@ -63,8 +68,8 @@ export interface CustomLoginProvider {
   validateAuthRequest(authRequest: string): Promise<void>;
   authenticateAndFinalize(input: {
     authRequest: string;
-    loginName: string;
     password: string;
+    userId: string;
   }): Promise<{ callbackUrl: string; clearBrowserBinding?: boolean }>;
   setPassword(input: { code: string; newPassword: string; userId: string }): Promise<void>;
 }
@@ -320,10 +325,12 @@ export function createAuthService(input: {
       if (!input.customLoginProvider) {
         throw new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
       }
+      const parsedLoginId = loginIdSchema.safeParse(command.loginName);
+      const canonicalLoginId = parsedLoginId.success ? parsedLoginId.data : "invalid";
       const attempt = await input.repository.consumeCustomLoginAttempt({
         accountHash: await hmacSha256(
           input.rateLimitKey,
-          `custom-login/account/v1\0${command.loginName.trim().normalize("NFKC").toLowerCase()}`,
+          `custom-login/account/v1\0${canonicalLoginId}`,
         ),
         authRequestHash: await hmacSha256(
           input.rateLimitKey,
@@ -342,11 +349,18 @@ export function createAuthService(input: {
       if (attempt.status !== "CONSUMED") {
         throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
       }
+      if (!parsedLoginId.success) {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+      }
+      const identity = await input.repository.resolveCustomLoginIdentity(canonicalLoginId);
+      if (!identity) {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+      }
       try {
         return await input.customLoginProvider.authenticateAndFinalize({
           authRequest: command.authRequest,
-          loginName: command.loginName,
           password: command.password,
+          userId: identity.providerSubject,
         });
       } catch (error) {
         if (error instanceof AuthServiceError) throw error;

@@ -11,11 +11,15 @@ Browser
   -> werehere-hotel-web-preview (OpenNext Worker, public workers.dev)
   -> API_SERVICE Service Binding
   -> werehere-hotel-api-preview (private Worker, workers.dev disabled)
-  -> HYPERDRIVE
-  -> Neon Preview PostgreSQL runtime role
+  -> API_HYPERDRIVE
+  -> Neon Preview PostgreSQL API runtime role
+
+Scheduled reconciler
+  -> RECONCILER_HYPERDRIVE
+  -> Neon Preview PostgreSQL reconciler role
 ```
 
-Web Worker에는 DB URL이나 Hyperdrive를 바인딩하지 않는다. API Worker에는 migration owner URL을 등록하지 않는다. `DATABASE_URL`은 로컬·CI fallback이고 Cloudflare runtime은 `HYPERDRIVE.connectionString`을 우선한다.
+Web Worker에는 DB URL이나 Hyperdrive를 바인딩하지 않는다. API Worker에는 migration owner URL을 등록하지 않는다. HTTP 요청은 `API_HYPERDRIVE`/`API_RUNTIME_DATABASE_URL`만, scheduled handler는 `RECONCILER_HYPERDRIVE`/`RECONCILER_DATABASE_URL`만 사용하며 서로 fallback하지 않는다.
 
 ## GitHub Preview environment
 
@@ -30,22 +34,27 @@ Repository secrets:
 
 Preview environment secrets:
 
-- `DATABASE_RUNTIME_PASSWORD_PREVIEW`
+- `DATABASE_API_RUNTIME_PASSWORD_PREVIEW`
+- `DATABASE_RECONCILER_PASSWORD_PREVIEW`: API password와 반드시 다른 값
 - `AUTH_TRANSACTION_ENCRYPTION_KEY`
 - `ZITADEL_SERVICE_USER_TOKEN`: `IAM_LOGIN_CLIENT` 전용 Preview service user PAT
+- `ZITADEL_USER_PROVISIONER_TOKEN`: Preview organization 사람 사용자 수명주기 전용 최소권한 PAT
 - `ZITADEL_PREVIEW_SUBJECT`
+- `ZITADEL_PREVIEW_SUBJECT_SHA256`: 승인된 최초 관리자 subject fingerprint
 
 Preview environment variables:
 
 - `ZITADEL_ISSUER`
 - `ZITADEL_CLIENT_ID`
 - `ZITADEL_REDIRECT_URI`
+- `ZITADEL_ORGANIZATION_ID`
+- `PREVIEW_BOOTSTRAP_APPROVAL_REF`: 최초 관리자 승인의 안정적인 티켓·결정 ID. `github.run_id`처럼 배포마다 바뀌는 값 금지
 
-값은 로그, 문서, artifact 또는 repository에 저장하지 않는다.
+secret 값은 로그, 문서, artifact 또는 repository에 저장하지 않는다. 승인 참조는 비밀값이 아니지만 protected `preview` environment에서만 변경하고, 최초 bootstrap 이후 identity·organization·fingerprint와 함께 불변성을 검사한다.
 
 Preview ZITADEL 애플리케이션은 기존 Authorization Code + PKCE 설정을 유지하고 앱별 custom Login V2 base URL을 Preview Web의 `/api/auth/custom-login/start`로 설정한다. 이 endpoint가 auth request를 기존 browser-bound OIDC transaction과 결합하고 single-use CSRF를 발급한 뒤 `/login`으로 이동시킨다. 인스턴스 전체 전환은 하지 않는다. 문제가 생기면 앱별 custom login 설정만 해제해 기존 hosted login으로 rollback한다.
 
-`ZITADEL_SERVICE_USER_TOKEN`은 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
+두 ZITADEL PAT는 서로 다른 service user와 최소역할을 사용한다. 둘 다 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다.
 
 비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다.
 
@@ -57,17 +66,29 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 
 ## DB provisioning
 
-`packages/db/scripts/provision-preview.ts`는 다음을 안전 실패 방식으로 수행한다.
+`packages/db/scripts/provision-preview.ts`는 `PREVIEW_PROVISION_PHASE=EXPAND|CONTRACT`를 받아 다음을 안전 실패 방식으로 수행한다.
 
 1. Preview URL이 Neon HTTPS/TLS target인지 검사한다.
 2. host, port, database fingerprint가 Production과 같으면 중단한다.
 3. advisory lock을 획득한다.
-4. `schema_migrations`에 없는 migration만 순서대로 적용한다.
-5. ZITADEL subject를 Preview 관리자와 회사 범위 `HOTEL_MANAGE`에 멱등 연결한다.
-6. `werehere_preview_runtime` role을 `NOINHERIT NOBYPASSRLS` non-owner로 구성한다.
-7. 기존 table privilege를 모두 회수하고 필요한 최소 privilege만 부여한다.
-8. runtime role로 semantic readiness를 확인한다.
-9. runtime URL은 권한 `0600` 임시 파일로만 Hyperdrive 단계에 전달한다.
+4. `EXPAND`에서는 additive·기존 Worker 호환 migration을 적용한다. 로그인 ID는 `0009`에서 전역 unique와 immutable `login_id_registry`를 추가하되 strict 사용자 FK는 아직 적용하지 않는다.
+5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
+   - API·reconciler·Web Worker가 모두 존재하면 smoke를 실행한다.
+   - 세 Worker가 모두 없으면 최초 배포로 진행한다.
+   - 일부만 존재하면 부분 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
+6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`의 legacy tenant authority·broad ACL 제거와 `0010`의 canonical 형식·예약 ID·registry FK를 적용한다.
+7. 승인된 subject fingerprint·organization·고정 approval 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 canonical row 전체 값으로 멱등 연결한다.
+8. bootstrap audit의 tenant·actor·resource·fingerprint·approval·trace 전체 값이 정본과 다르면 성공으로 처리하지 않는다.
+9. `werehere_preview_api_runtime`과 `werehere_preview_reconciler`를 서로 다른 password의 `NOINHERIT NOBYPASSRLS` non-owner role로 구성한다.
+10. API role에서 tenant discovery 함수 실행권한을 회수하고 reconciler role에만 부여한다. `reconciliation_company_registry` 직접 권한은 두 role 모두 거부한다. `login_id_registry`는 API role에 `SELECT, INSERT`만 허용하고 UPDATE·DELETE는 금지하며 reconciler에는 직접 권한을 주지 않는다.
+11. 각 runtime role의 table·schema·sequence ACL을 capability별 exact allowlist와 비교하고 예상 밖 권한, `PUBLIC`, `WITH GRANT OPTION`을 거부한다.
+12. SECURITY DEFINER의 owner·`search_path=pg_catalog`·source fingerprint·direct execute allowlist를 검증하고 grantable execute와 stale named grantee를 거부한다.
+13. 두 role을 각각 `API_RUNTIME`, `RECONCILER` semantic readiness로 확인한다.
+
+- `EXPAND`는 신규 API 1개·reconciler 1개와 정확한 `werehere_preview_runtime:API_RUNTIME` 1개만 선택적으로 허용한다.
+- `CONTRACT`는 신규 API 1개·reconciler 1개만 허용하고 legacy capability와 legacy `auth_create_session()` 함수가 0건이어야 한다.
+
+14. 두 runtime URL은 권한 `0600` 임시 파일로만 각 Hyperdrive 단계에 전달한다.
 
 DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
 
@@ -76,15 +97,20 @@ DB rollback은 down SQL을 추측해 실행하지 않는다. Preview Neon branch
 - API Worker: `werehere-hotel-api-preview`
   - `workers_dev: false`
   - `preview_urls: false`
-  - `HYPERDRIVE` binding
+  - `API_HYPERDRIVE` binding만 사용
+- Reconciler Worker: `werehere-hotel-account-reconciler-preview`
+  - HTTP API를 제공하지 않음
+  - `RECONCILER_HYPERDRIVE` binding만 사용
 - Web Worker: `werehere-hotel-web-preview`
   - `workers_dev: true`
   - `preview_urls: false`
   - `API_SERVICE` binding
-- Hyperdrive: `werehere-hotel-preview`
-  - origin은 runtime role URL만 사용
-  - SQL cache는 초기에는 비활성화
-  - runtime role password는 최초 생성 때만 설정하며 일반 배포에서는 회전하지 않음
+- API Hyperdrive: `werehere-hotel-preview`
+  - origin은 API runtime role URL만 사용
+- Reconciler Hyperdrive: `werehere-hotel-reconciler-preview`
+  - origin은 reconciler role URL만 사용
+  - API와 reconciler Hyperdrive ID는 달라야 함
+  - 두 Hyperdrive 모두 SQL cache는 초기에는 비활성화
 
 Custom domain, DNS, Production Worker와 Production DB는 이 workflow 범위 밖이다.
 
@@ -118,17 +144,102 @@ Web 200
 -> invalid callback 303 /login?error=invalid-flow + no-store + no-referrer + OAuth cookie 만료
 ```
 
-최종 승인 전 수동 smoke에는 실제 ZITADEL 사용자로 로그인한 뒤 호텔 목록, 등록, 상세 PostgreSQL read-back과 권한·tenant 차단 확인이 포함된다.
+`CONTRACT`와 post-contract public smoke 뒤에는 `scripts/smoke-account-preview.mjs`가 다음 hosted 계정관리 여정을 필수 gate로 실행한다.
+
+```text
+승인된 Preview bootstrap subject로 DB-backed 관리자 session 생성
+-> USER_CREATE-scoped eligible hotel 조회
+-> 실제 API로 하우스키핑 계정과 서로 다른 호텔 2개 배정 생성
+-> PostgreSQL detail에서 이름·로그인·이메일·사용자유형·canonical 호텔 목록 재조회
+-> housekeeping assignment row에서 시작일·사유·호텔 2개를 직접 재조회
+-> 새 사용자 DB session에서 최초 비밀번호 변경
+-> ZITADEL credential session 생성·주체·organization 재조회
+-> 관리자 API로 사용자 비활성화
+-> PostgreSQL INACTIVE, ZITADEL INACTIVE, 활성 DB session 0 재조회
+```
+
+검증용 비밀번호와 session/provider token은 메모리에서만 사용하며 로그·artifact·DB·audit에 남기지 않는다. create 응답이 유실되거나 잘못된 ID를 반환해도 `(company, actor, idempotency key)`로 durable provisioning attempt를 반복 조회하고, completion login·email과 deterministic target/provider subject를 exact 검증한다. canonical user row가 있으면 최신 version으로 비활성화하고 활성 DB session 0과 기존 token 401을 재확인한다. user row가 아직 없어도 deterministic provider subject를 bounded grace 동안 반복 조회하며, 늦게 나타난 provider user는 identity boundary를 확인한 뒤 직접 비활성화한다. 404는 grace의 마지막 조회에서만 absence로 인정하고, 이후 durable attempt를 다시 읽어 `COMPENSATED`가 아닌 미완성 상태가 남으면 operator recovery가 필요한 cleanup 실패로 처리한다. credential 검증용 provider session은 60초 lifetime으로 제한하며, cleanup과 connection close가 모두 성공한 뒤에만 `PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK`를 출력한다. cleanup 실패는 `PREVIEW_ACCOUNT_CLEANUP_FAILED`로 release를 실패시키며 숨기거나 가짜 성공으로 기록하지 않는다. Preview 계정·감사기록은 검증 이력으로 남을 수 있으며 Production 사용자나 Production credential을 사용하지 않는다.
+
+## Cleanup 실패 operator recovery
+
+`PREVIEW_ACCOUNT_CLEANUP_FAILED [ref=<REF>]`가 발생하면 같은 release를 재실행하지 않는다. `<REF>`는 credential이 아닌 smoke 식별자이며 create idempotency key는 `preview-account-create-<REF>`다. 비밀번호·token·DB URL은 명령행이나 문서에 직접 쓰지 않고 승인된 환경변수로만 전달한다.
+
+### 1. Durable attempt read-only discovery
+
+승인된 reconciler 연결과 Preview company/actor ID를 환경변수로 준비하고 다음 query를 transaction 안에서 실행한다. 출력에는 비밀번호 payload가 포함되지 않는다.
+
+```bash
+export IDEMPOTENCY_KEY="preview-account-create-${REF}"
+psql "$RECONCILER_DATABASE_URL" \
+  --set=company_id="$PREVIEW_COMPANY_ID" \
+  --set=actor_user_id="$PREVIEW_ACTOR_USER_ID" \
+  --set=idempotency_key="$IDEMPOTENCY_KEY" <<'SQL'
+begin read only;
+select set_config('app.reconciler_company_id', :'company_id', true);
+select attempt.target_user_id,
+       attempt.status,
+       attempt.provider_subject,
+       attempt.completion_payload->>'loginName' as login_name,
+       attempt.completion_payload->>'email' as email,
+       target.status as user_status,
+       target.version as user_version
+from public.account_provisioning_attempts attempt
+left join public.users target
+  on target.company_id = attempt.company_id
+ and target.id = attempt.target_user_id
+where attempt.company_id = :'company_id'::uuid
+  and attempt.actor_user_id = :'actor_user_id'::uuid
+  and attempt.idempotency_key = :'idempotency_key';
+rollback;
+SQL
+```
+
+- 0행이면 create 요청의 side effect 부재를 추정하지 않는다. provider verification session의 60초 lifetime과 clock skew를 포함해 최소 90초를 기다리고 provider audit에서 해당 login의 새 user/session이 없음을 확인한 뒤에도 0행일 때만 별도 승인으로 재실행한다.
+- 2행 이상이면 idempotency 경계가 손상된 상태이므로 수동 mutation을 금지하고 release를 중단한다.
+- 1행이면 `target_user_id`, completion login/email, `provider_subject`가 모두 동일한 smoke 대상인지 먼저 확인한다. 이 값이 다르면 provider나 DB를 변경하지 않는다.
+
+### 2. Attempt 상태별 조치
+
+| 상태                                                                               | 조치                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RESERVED_NOT_DISPATCHED`, `DISPATCHED`, `PROVIDER_CONFIRMED`, `RECOVERY_REQUIRED` | reconciler lease가 끝날 때까지 bounded polling한다. provider user가 나타나면 organization·subject·login/email을 exact 확인한 뒤 비활성화한다. terminal 상태가 되지 않으면 operator failure를 유지한다. |
+| `COMPENSATION_REQUIRED`                                                            | 승인된 reconciler recovery를 실행하고 `COMPENSATED`까지 확인한다. provider 404는 즉시 성공으로 보지 않고 bounded grace 마지막 조회에서만 absence로 인정한다.                                           |
+| `COMPENSATED`                                                                      | provider가 `INACTIVE` 또는 bounded terminal 404이고 canonical user가 없거나 `INACTIVE`인지 재확인한다.                                                                                                 |
+| `COMPLETED`                                                                        | canonical user의 최신 `version`을 다시 읽어 관리자 API로 비활성화한다. stale version을 재사용하지 않는다.                                                                                              |
+| `OPERATOR_REQUIRED`, `DEAD_LETTER`                                                 | 자동 재실행·이전 Worker rollback을 금지한다. 아래 DB/provider/session 증거를 수집한 뒤 별도 운영 승인으로 복구한다.                                                                                    |
+
+### 3. Provider와 DB 정리
+
+1. ZITADEL user 조회 결과의 organization ID, subject, login, email이 durable attempt와 모두 일치하는지 확인한다.
+2. 일치할 때만 provider deactivate를 호출한다. 응답 성공만 믿지 않고 `INACTIVE`까지 bounded polling한다.
+3. canonical user가 있으면 관리자 API에서 최신 version을 읽고 새 cleanup idempotency key `preview-account-cleanup-<REF>`로 deactivate한다.
+4. PostgreSQL에서 user가 `INACTIVE`인지 다시 읽는다. DB 직접 `UPDATE`는 사용하지 않는다.
+5. provider session POST response-loss가 기록됐다면 최소 90초를 기다리고 provider audit/session 조회에서 smoke principal의 활성 verification session이 없음을 확인한다.
+
+### 4. 최종 증거와 재실행 조건
+
+다음을 모두 충족해야 같은 Preview release를 새 run으로 다시 실행할 수 있다.
+
+- durable attempt가 `COMPLETED` 후 user `INACTIVE`, 또는 `COMPENSATED`
+- provider user가 expected organization/subject이며 `INACTIVE`, 또는 bounded grace 뒤 terminal 404
+- 해당 Preview user의 활성 PostgreSQL session 수가 정확히 0
+- 알려진 pending hotel session token이 있으면 `/api/auth/session`이 401
+- provider verification session이 GET 401/404이거나 response-loss 이후 90초 경과와 provider audit상 활성 session 0
+- Production DB·Production credential을 사용하지 않았다는 확인
+
+증거가 하나라도 없으면 `PREVIEW_ACCOUNT_CLEANUP_FAILED`를 해제하지 않고 새 deploy·CONTRACT·rollback을 진행하지 않는다.
 
 ## Rollback
 
 1. smoke 실패 시 Preview 성공으로 보고하지 않는다.
-2. workflow가 배포 전 API/Web 활성 version을 기록한다.
-3. Web 배포 또는 공개 smoke 실패 시 이전 Worker version으로 자동 rollback한다.
-4. 이전 version이 없는 최초 배포였다면 이번 실행에서 만든 Preview Worker를 삭제한다.
-5. Hyperdrive의 runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
-6. DB 변경 복원이 필요하면 Neon Preview branch/snapshot을 복원하거나 Preview DB를 재생성한다.
-7. Production, DNS, custom domain은 변경하지 않는다.
-8. 인증 세션 definer 전환의 contract 적용 후 runtime에는 `auth_sessions UPDATE`만 유지하고 직접 `INSERT`는 허용하지 않는다.
-9. session 생성은 `auth_create_session(...)` 함수만 사용하며, integration에서 직접 `INSERT`의 `42501`, 함수 성공, session·audit read-back을 함께 검증한다.
-10. 직접 INSERT를 사용하는 contract 이전 Worker는 rollback 대상으로 사용하지 않는다.
+2. workflow는 DB 변경 전에 API/Web 활성 version을 기록한다.
+3. `EXPAND`와 기존 Worker compatibility smoke 전후에는 legacy compatibility가 유지된다.
+4. 신규 Worker deploy 또는 pre-contract smoke 실패라도 workflow는 동시 배포를 덮어쓸 수 있는 이전 Worker 자동 복구나 최초 Worker 자동 삭제를 수행하지 않는다. 기록된 version을 근거로 operator recovery를 요구한다.
+5. `CONTRACT` 시작 후에는 legacy authority가 제거됐으므로 이전 Worker로 rollback하지 않는다. `CONTRACT_STARTED=true`로 operator recovery를 요구하고 안전 실패한다.
+6. 최초 배포의 pre-contract 실패도 자동 삭제하지 않는다. 활성 version과 생성된 Worker를 operator가 read-back한 뒤 명시적으로 복구한다.
+7. Hyperdrive runtime password 회전은 일반 배포와 분리해 별도 승인·전환 절차로 수행한다.
+8. DB 변경 복원이 필요하면 임의 down SQL 대신 승인된 Neon Preview branch/snapshot 복원 또는 Preview DB 재생성을 사용한다.
+9. Production, DNS, custom domain은 변경하지 않는다.
+10. contract 적용 후 API runtime은 `auth_sessions` 직접 `INSERT`·`UPDATE`를 할 수 없다. session 생성과 회수는 tenant-bound SECURITY DEFINER 함수만 사용한다.
+11. integration은 직접 mutation의 `42501`, 함수 성공, session·audit read-back, 임시 definer membership과 schema `CREATE` 권한의 종료 후 0건을 함께 검증한다.
+12. legacy tenant GUC나 broad ACL을 전제로 하는 contract 이전 Worker는 contract 이후 rollback 대상으로 사용하지 않는다.

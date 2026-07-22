@@ -330,7 +330,7 @@ describe("hotel auth API", () => {
       body: new URLSearchParams({
         authRequest: "oidc-request-1",
         csrf: "c".repeat(43),
-        loginName: "  Hotel-Admin  ",
+        loginName: "  HotelAdmin  ",
         password: "password-value",
       }).toString(),
       headers: {
@@ -350,9 +350,37 @@ describe("hotel auth API", () => {
       browserBinding: "browser-binding-value",
       csrf: "c".repeat(43),
       ipAddress: "203.0.113.10",
-      loginName: "Hotel-Admin",
+      loginName: "  HotelAdmin  ",
       password: "password-value",
     });
+  });
+
+  it("routes malformed login IDs through credential rate limiting before the generic error", async () => {
+    const service = createService({
+      finalizeCustomLogin: vi.fn(async () => {
+        throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+      }),
+    });
+    const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
+      body: new URLSearchParams({
+        authRequest: "oidc-request-1",
+        csrf: "c".repeat(43),
+        loginName: "invalid-id",
+        password: "password-value",
+      }).toString(),
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "cf-connecting-ip": "203.0.113.10",
+        cookie: "__Host-hotel_oauth_browser=browser-binding-value",
+        origin: "https://hotel.example.test",
+        "sec-fetch-site": "same-origin",
+      },
+      method: "POST",
+    }, { ZITADEL_REDIRECT_URI: "https://hotel.example.test/api/auth/callback" });
+
+    expect(service.finalizeCustomLogin).toHaveBeenCalledOnce();
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toContain("error=invalid-credentials");
   });
 
   it("clears the browser binding before redirecting a completed Console login", async () => {

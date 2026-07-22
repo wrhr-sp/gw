@@ -43,6 +43,7 @@ async function setup() {
     prepareCustomLogin: vi.fn(async () => ({ status: "PREPARED" as const })),
     reserveCustomLoginValidation: vi.fn(async () => ({ status: "RESERVED" as const })),
     reserveCustomLoginStart: vi.fn(async () => ({ status: "RESERVED" as const })),
+    resolveCustomLoginIdentity: vi.fn(async () => ({ providerSubject: "subject-1" })),
     resolvePrincipal: vi.fn(async () => null),
     revokeSession: vi.fn(async () => true),
   };
@@ -172,7 +173,7 @@ describe("auth service", () => {
       browserBinding: "browser-binding",
       csrf: "csrf-value",
       ipAddress: "203.0.113.10",
-      loginName: "Hotel-Admin",
+      loginName: "HotelAdmin",
       password: "password-value",
     });
     const credentialIpHash = vi.mocked(repository.consumeCustomLoginAttempt).mock.calls[0]?.[0].ipHash;
@@ -219,7 +220,7 @@ describe("auth service", () => {
       browserBinding: "browser-binding",
       csrf: prepared.csrf,
       ipAddress: "203.0.113.10",
-      loginName: "Hotel-Admin",
+      loginName: "HotelAdmin",
       password: "password-value",
     });
     expect(vi.mocked(repository.consumeCustomLoginAttempt).mock.invocationCallOrder[0])
@@ -235,13 +236,14 @@ describe("auth service", () => {
       browserBinding: "browser-binding",
       csrf: prepared.csrf,
       ipAddress: "203.0.113.10",
-      loginName: "ＨＯＴＥＬ-ＡＤＭＩＮ",
+      loginName: "HOTELADMIN",
       password: "password-value",
     });
     const variantAccountHash = vi.mocked(repository.consumeCustomLoginAttempt).mock.calls[1]?.[0].accountHash;
     expect(variantAccountHash).toEqual(firstAccountHash);
+    expect(repository.resolveCustomLoginIdentity).toHaveBeenLastCalledWith("hoteladmin");
     expect(customLoginProvider.authenticateAndFinalize).toHaveBeenLastCalledWith(expect.objectContaining({
-      loginName: "ＨＯＴＥＬ-ＡＤＭＩＮ",
+      userId: "subject-1",
     }));
 
     vi.mocked(repository.consumeCustomLoginAttempt).mockResolvedValueOnce({ status: "FLOW_INVALID" });
@@ -250,9 +252,29 @@ describe("auth service", () => {
       browserBinding: "browser-binding",
       csrf: prepared.csrf,
       ipAddress: "203.0.113.10",
-      loginName: "Hotel-Admin",
+      loginName: "HotelAdmin",
       password: "password-value",
     })).rejects.toMatchObject({ code: "AUTH_FLOW_INVALID" });
+  });
+
+  it("consumes the attempt but never calls ZITADEL when the short ID is invalid or inactive", async () => {
+    const { customLoginProvider, repository, service } = await setup();
+    vi.mocked(repository.resolveCustomLoginIdentity).mockResolvedValue(null);
+    await expect(service.finalizeCustomLogin({
+      authRequest: "request-1", browserBinding: "browser-binding", csrf: "csrf-value",
+      ipAddress: "203.0.113.10", loginName: "invalid-id", password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_CREDENTIALS_INVALID", httpStatus: 401 });
+    expect(repository.consumeCustomLoginAttempt).toHaveBeenCalledOnce();
+    expect(repository.resolveCustomLoginIdentity).not.toHaveBeenCalled();
+    expect(customLoginProvider.authenticateAndFinalize).not.toHaveBeenCalled();
+
+    vi.mocked(repository.consumeCustomLoginAttempt).mockClear();
+    await expect(service.finalizeCustomLogin({
+      authRequest: "request-2", browserBinding: "browser-binding", csrf: "csrf-value",
+      ipAddress: "203.0.113.10", loginName: "missinguser", password: "password-value",
+    })).rejects.toMatchObject({ code: "AUTH_CREDENTIALS_INVALID", httpStatus: 401 });
+    expect(repository.resolveCustomLoginIdentity).toHaveBeenCalledWith("missinguser");
+    expect(customLoginProvider.authenticateAndFinalize).not.toHaveBeenCalled();
   });
 
   it("reissues CSRF without revalidating an already validated auth request", async () => {

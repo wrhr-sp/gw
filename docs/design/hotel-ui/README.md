@@ -120,6 +120,7 @@ TopBar(현재 호텔·알림)
 - `AppShell`
 - `HotelSwitcher`
 - `PageHeader`
+- `FeatureGuide` (`PageHeader` 제목 옆 `?` button + Popover/모바일 Sheet·Dialog)
 - `SummaryCard`
 - `FilterBar`
 - `DataTable`
@@ -137,6 +138,8 @@ TopBar(현재 호텔·알림)
 - `EmptyState`
 - `ErrorState`
 - `LoadingState`
+
+`FeatureGuide`는 hover 전용 Tooltip으로 구현하지 않는다. 기능명을 포함한 접근 가능한 이름, 클릭·터치·Enter·Space, Escape 닫기, 닫은 뒤 원래 버튼으로 포커스 복귀, 모바일 최소 44×44px 터치영역을 제공한다. 내용은 기능 목적·사용대상·기본 순서·필요 권한·주의사항을 짧은 한국어로 설명하며 권한 없는 기능에는 가이드도 렌더하지 않는다.
 
 ## 8. 표준 화면 템플릿
 
@@ -203,6 +206,8 @@ PageHeader → FilterBar → LedgerTable → Totals → Correction/Audit Detail
 - 390px 모바일, 1024px 노트북, 1440px PC 검증
 - 색상 없이도 상태 식별 가능
 - 권한 없는 메뉴·액션의 서버 검증과 화면 표현 일치
+- 모든 사용자-facing 기능 제목 옆 `?` 가이드와 route별 typed registry coverage
+- 가이드의 키보드·스크린리더·모바일 Sheet/Dialog·포커스 복귀 검증
 - 로딩·빈 상태·오류·저속망 상태 포함
 - 상태 변경 버튼은 실제 API와 DB 재조회에 연결
 - mock·placeholder·가짜 성공 금지
