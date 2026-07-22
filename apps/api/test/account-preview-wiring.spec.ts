@@ -39,6 +39,11 @@ const reconcilerEntry = readFileSync(
 );
 
 describe("Preview account provisioning wiring", () => {
+  it("uses the exact Cloudflare token environment variable in every shell request", () => {
+    expect(workflow).not.toContain("$CLOUD...OKEN");
+    expect(workflow.match(/\$CLOUDFLARE_API_TOKEN\b/gu)).toHaveLength(7);
+  });
+
   it("requires separate lifecycle and bootstrap identity inputs", () => {
     for (const name of [
       "ZITADEL_USER_PROVISIONER_TOKEN",
