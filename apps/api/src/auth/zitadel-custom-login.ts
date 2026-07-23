@@ -44,7 +44,7 @@ const sessionResponseSchema = z.object({
       }).passthrough(),
       password: z.object({
         verifiedAt: z.iso.datetime({ offset: true }),
-      }).passthrough(),
+      }).passthrough().optional(),
     }).passthrough(),
   }).passthrough(),
 }).passthrough();
@@ -357,9 +357,13 @@ export function createZitadelCustomLoginProvider(input: {
         ) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK");
         }
+        const passwordVerifiedAt = parsedSession.data.session.factors.password?.verifiedAt;
+        if (!passwordVerifiedAt) {
+          throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+        }
         const current = now().getTime();
         const userVerified = Date.parse(parsedSession.data.session.factors.user.verifiedAt);
-        const passwordVerified = Date.parse(parsedSession.data.session.factors.password.verifiedAt);
+        const passwordVerified = Date.parse(passwordVerifiedAt);
         const expiration = Date.parse(parsedSession.data.session.expirationDate);
         if (
           userVerified > current + MAX_CLOCK_SKEW_MS ||

@@ -375,6 +375,54 @@ describe("ZITADEL custom login provider", () => {
     });
   });
 
+  it("classifies a missing password factor as invalid credentials", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ authRequest: {
+        id: "request-1", clientId: "hotel-client", redirectUri: base.redirectUri,
+        scope: ["openid", "profile"],
+      } }))
+      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
+      .mockResolvedValueOnce(json({ sessionId: "session-1", sessionToken: "token-password" }))
+      .mockResolvedValueOnce(json({ session: {
+        id: "session-1",
+        expirationDate: "2026-07-17T00:05:00.000Z",
+        factors: {
+          user: { id: "subject-1", organizationId: "org-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+        },
+      } }))
+      .mockResolvedValueOnce(json({}));
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "request-1", userId: "subject-1", password: "wrong-password",
+    })).rejects.toMatchObject({
+      code: "AUTH_CREDENTIALS_INVALID",
+      providerDiagnosticStage: undefined,
+    });
+    expect(fetcher.mock.calls[4]?.[1]?.method).toBe("DELETE");
+  });
+
+  it("fails closed on identity mismatch before classifying a missing password factor", async () => {
+    const responses = validAuthenticationResponses();
+    responses[3] = json({ session: {
+      id: "session-1",
+      expirationDate: "2026-07-17T00:05:00.000Z",
+      factors: {
+        user: { id: "subject-1", organizationId: "foreign-org", verifiedAt: "2026-07-17T00:00:00.000Z" },
+      },
+    } });
+    const fetcher = vi.fn<typeof fetch>();
+    for (const response of responses) fetcher.mockResolvedValueOnce(response);
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "request-1", userId: "subject-1", password: "wrong-password",
+    })).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_UNAVAILABLE",
+      providerDiagnosticStage: "SESSION_READBACK",
+    });
+  });
+
   it("does not finalize when organization policy requires MFA", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
