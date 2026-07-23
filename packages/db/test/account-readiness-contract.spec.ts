@@ -98,18 +98,31 @@ describe("account administration readiness contract", () => {
     expect(apiRuntimeAllowlist).toContain('"login_id_registry:INSERT"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:DELETE"');
-    expect(source).toContain("EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES");
+    expect(source).toContain("EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES");
+    expect(source).toContain("EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES");
     expect(source).toContain('"auth_identities:updated_at:UPDATE"');
     expect(source).toContain('"branches:updated_at:UPDATE"');
     expect(source).toContain('"hotel_profiles:updated_at:UPDATE"');
-    expect(source).toContain(
-      "actualColumnPrivileges.size !== expectedColumnPrivileges.size",
+    expect(source).toContain("expectedColumnPrivilegeCandidates.some");
+    expect(source).toContain('schemaPhase === "EXPAND"');
+    expect(provisionSource).toContain(
+      'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
     );
     expect(provisionSource).toContain(
-      "grant update (updated_at) on auth_identities, branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
+      'const requiredSchemaPhase: "CONTRACT" | "EXPAND" = contractPhase',
+    );
+    expect(provisionSource).toContain("requiredSchemaPhase,\n  });");
+    expect(provisionSource).toContain(
+      "revoke update (updated_at) on auth_identities\n      from ${apiRuntimeTableGrantees}, ${reconcilerRole};",
     );
     expect(provisionSource).toContain(
-      "revoke update (updated_at) on auth_identities, branches, hotel_profiles\n      from ${reconcilerRole};",
+      "grant update (updated_at) on branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
+    );
+    expect(provisionSource).toContain(
+      "grant update (updated_at) on auth_identities to ${apiRuntimeTableGrantees};",
+    );
+    expect(provisionSource).toContain(
+      "revoke update (updated_at) on branches, hotel_profiles\n      from ${reconcilerRole};",
     );
     expect(source).toContain('name: "login_id_registry_immutable"');
     expect(source).toContain('policy: "login_id_registry_company_isolation"');

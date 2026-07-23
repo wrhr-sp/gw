@@ -40,10 +40,18 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-if (provisionPhase !== "EXPAND" && provisionPhase !== "CONTRACT") {
-  fail("PREVIEW_PROVISION_PHASE must be EXPAND or CONTRACT");
+if (
+  provisionPhase !== "EXPAND" &&
+  provisionPhase !== "EXPAND_IDENTITY_LOCK" &&
+  provisionPhase !== "CONTRACT"
+) {
+  fail(
+    "PREVIEW_PROVISION_PHASE must be EXPAND, EXPAND_IDENTITY_LOCK, or CONTRACT",
+  );
 }
 const contractPhase = provisionPhase === "CONTRACT";
+const identityLockPhase =
+  provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase;
 
 function parseDatabaseUrl(
   value: string,
@@ -1346,10 +1354,17 @@ try {
     grant insert, update on users, account_provisioning_attempts,
       initial_password_change_attempts to ${apiRuntimeTableGrantees};
     grant insert on login_id_registry to ${apiRuntimeTableGrantees};
-    revoke update (updated_at) on auth_identities, branches, hotel_profiles
+    revoke update (updated_at) on auth_identities
+      from ${apiRuntimeTableGrantees}, ${reconcilerRole};
+    revoke update (updated_at) on branches, hotel_profiles
       from ${reconcilerRole};
-    grant update (updated_at) on auth_identities, branches, hotel_profiles
+    grant update (updated_at) on branches, hotel_profiles
       to ${apiRuntimeTableGrantees};
+    ${
+      identityLockPhase
+        ? `grant update (updated_at) on auth_identities to ${apiRuntimeTableGrantees};`
+        : ""
+    }
     grant insert, update, delete on idempotency_records to ${apiRuntimeTableGrantees};
     grant insert, update on outbox_jobs to ${apiRuntimeTableGrantees};
 
@@ -1732,9 +1747,12 @@ try {
   });
   await chmod(reconcilerOutputFile, 0o600);
 
+  const requiredSchemaPhase: "CONTRACT" | "EXPAND" = contractPhase
+    ? "CONTRACT"
+    : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
-    requiredSchemaPhase: provisionPhase,
+    requiredSchemaPhase,
   });
   if (apiReadiness.status !== "READY") {
     fail(
@@ -1745,7 +1763,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
-      requiredSchemaPhase: provisionPhase,
+      requiredSchemaPhase,
     },
   );
   if (reconcilerReadiness.status !== "READY") {

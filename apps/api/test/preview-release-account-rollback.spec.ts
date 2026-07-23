@@ -382,6 +382,12 @@ describe("Preview account Worker release safety", () => {
     const apiDeployPosition = workflow.indexOf(
       "      - name: Deploy private API Worker\n",
     );
+    const identityLockExpandPosition = workflow.indexOf(
+      "      - name: Expand Preview account identity lock ACL after API deploy\n",
+    );
+    const identityLockSmokePosition = workflow.indexOf(
+      "      - name: Verify deployed API accepts staged identity lock ACL\n",
+    );
     const webDeployPosition = workflow.indexOf(
       "      - name: Deploy public Web Worker\n",
     );
@@ -408,7 +414,11 @@ describe("Preview account Worker release safety", () => {
     expect(canonicalCompatibilityPosition).toBeGreaterThan(hyperdrivePosition);
     expect(deployPosition).toBeGreaterThan(canonicalCompatibilityPosition);
     expect(apiDeployPosition).toBeGreaterThan(deployPosition);
-    expect(webDeployPosition).toBeGreaterThan(apiDeployPosition);
+    expect(identityLockExpandPosition).toBeGreaterThan(apiDeployPosition);
+    expect(identityLockSmokePosition).toBeGreaterThan(
+      identityLockExpandPosition,
+    );
+    expect(webDeployPosition).toBeGreaterThan(identityLockSmokePosition);
     expect(preContractSmokePosition).toBeGreaterThan(webDeployPosition);
     expect(accountSmokePosition).toBeGreaterThan(preContractSmokePosition);
     expect(contractPosition).toBeGreaterThan(accountSmokePosition);
@@ -419,6 +429,18 @@ describe("Preview account Worker release safety", () => {
         "Verify hosted Preview account management and canonical login before contract",
       ),
     ).toContain("node scripts/smoke-account-preview.mjs");
+    expect(
+      workflowStep("Expand Preview account identity lock ACL after API deploy"),
+    ).toContain("PREVIEW_PROVISION_PHASE: EXPAND_IDENTITY_LOCK");
+    const identityLockSmoke = workflowStep(
+      "Verify deployed API accepts staged identity lock ACL",
+    );
+    expect(identityLockSmoke).toContain(
+      "node scripts/smoke-cloudflare-preview.mjs",
+    );
+    expect(identityLockSmoke).toContain(
+      "node scripts/smoke-zitadel-console-preview.mjs",
+    );
     const baseline = workflowStep(
       "Record secure session-authority rollback baseline",
     );
