@@ -41,7 +41,7 @@ const sessionResponseSchema = z.object({
         id: z.string().min(1),
         organizationId: z.string().min(1),
         verifiedAt: z.iso.datetime({ offset: true }),
-      }).passthrough(),
+      }).passthrough().optional(),
       password: z.object({
         verifiedAt: z.iso.datetime({ offset: true }),
       }).passthrough().optional(),
@@ -351,9 +351,13 @@ export function createZitadelCustomLoginProvider(input: {
         if (!parsedSession.success || parsedSession.data.session.id !== latest.sessionId) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK");
         }
+        const userFactor = parsedSession.data.session.factors.user;
+        if (!userFactor) {
+          throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
+        }
         if (
-          parsedSession.data.session.factors.user.id !== userId ||
-          parsedSession.data.session.factors.user.organizationId !== expectedOrganizationId
+          userFactor.id !== userId ||
+          userFactor.organizationId !== expectedOrganizationId
         ) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK");
         }
@@ -362,7 +366,7 @@ export function createZitadelCustomLoginProvider(input: {
           throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
         }
         const current = now().getTime();
-        const userVerified = Date.parse(parsedSession.data.session.factors.user.verifiedAt);
+        const userVerified = Date.parse(userFactor.verifiedAt);
         const passwordVerified = Date.parse(passwordVerifiedAt);
         const expiration = Date.parse(parsedSession.data.session.expirationDate);
         if (
@@ -375,7 +379,7 @@ export function createZitadelCustomLoginProvider(input: {
           throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
         }
 
-        const organizationId = parsedSession.data.session.factors.user.organizationId;
+        const organizationId = userFactor.organizationId;
         const organizationSettingsUrl = new URL(`${issuer}/v2/settings/login`);
         organizationSettingsUrl.searchParams.set("ctx.orgId", organizationId);
         const organizationSettingsResponse = await request(organizationSettingsUrl.toString(), {

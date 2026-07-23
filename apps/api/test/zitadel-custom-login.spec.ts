@@ -375,6 +375,26 @@ describe("ZITADEL custom login provider", () => {
     });
   });
 
+  it("classifies a missing user factor as invalid credentials without a diagnostic stage", async () => {
+    const responses = validAuthenticationResponses();
+    responses[3] = json({ session: {
+      id: "session-1",
+      expirationDate: "2026-07-17T00:05:00.000Z",
+      factors: {},
+    } });
+    const fetcher = vi.fn<typeof fetch>();
+    for (const response of responses) fetcher.mockResolvedValueOnce(response);
+    const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+    await expect(provider.authenticateAndFinalize({
+      authRequest: "request-1", userId: "subject-1", password: "password-value",
+    })).rejects.toMatchObject({
+      code: "AUTH_CREDENTIALS_INVALID",
+      providerDiagnosticStage: undefined,
+    });
+    expect(fetcher.mock.calls[4]?.[1]?.method).toBe("DELETE");
+  });
+
   it("classifies a missing password factor as invalid credentials", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({ authRequest: {
