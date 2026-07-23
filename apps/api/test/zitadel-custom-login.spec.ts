@@ -38,7 +38,8 @@ describe("ZITADEL custom login provider", () => {
         },
       } }))
       .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
-      .mockResolvedValueOnce(json({ callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value` }));
+      .mockResolvedValueOnce(json({ callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value` }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     const result = await provider.authenticateAndFinalize({
@@ -56,6 +57,9 @@ describe("ZITADEL custom login provider", () => {
     });
     const callbackBody = JSON.parse(String(fetcher.mock.calls[5]?.[1]?.body));
     expect(callbackBody.session).toEqual({ sessionId: "session-1", sessionToken: "token-password" });
+    expect(fetcher.mock.calls[6]?.[0]).toBe(`${base.issuer}/v2/sessions/session-1`);
+    expect(fetcher.mock.calls[6]?.[1]?.method).toBe("DELETE");
+    expect(JSON.parse(String(fetcher.mock.calls[6]?.[1]?.body))).toEqual({ sessionToken: "token-password" });
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
 
