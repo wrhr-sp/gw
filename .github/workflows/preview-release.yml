@@ -650,6 +650,8 @@ jobs:
       - name: Verify previous Workers use canonical Preview Hyperdrives
         if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
         id: expand_compatibility_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           if [[ "${{ steps.hyperdrive.outputs.legacy_api_promoted }}" == "true" && \
                 ( "${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}" == "true" || \

@@ -230,6 +230,17 @@ describe("Preview account Worker release safety", () => {
     expect(preTarget).toContain(
       "node scripts/smoke-zitadel-console-preview.mjs",
     );
+    const consoleSmokeSteps = workflow
+      .split(/\n(?= {6}- name: )/u)
+      .filter((step) =>
+        step.includes("node scripts/smoke-zitadel-console-preview.mjs"),
+      );
+    expect(consoleSmokeSteps.length).toBeGreaterThan(0);
+    for (const step of consoleSmokeSteps) {
+      expect(step).toContain(
+        "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
+      );
+    }
     expect(preTarget).toContain(
       "preview-hyperdrive-retarget-contract.mjs probe",
     );
