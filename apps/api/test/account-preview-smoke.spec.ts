@@ -115,6 +115,26 @@ describe("hosted Preview account-management smoke", () => {
       "PREVIEW_ACCOUNT_JOURNEY_FAILED_ACCOUNT_CREATE_VALIDATION_ERROR",
     );
 
+    for (const code of [
+      "ACCOUNT_CREATE_ATTEMPT_READBACK",
+      "ACCOUNT_CREATE_IDENTITY_MATCH",
+      "ACCOUNT_CREATE_RESPONSE_SCHEMA",
+    ]) {
+      const readbackFailure = spawnSync(
+        process.execPath,
+        [
+          "--input-type=module",
+          "--eval",
+          `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error("hidden"), journeyFailureCode: ${JSON.stringify(code)}, writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+        ],
+        { encoding: "utf8" },
+      );
+      expect(readbackFailure.status).not.toBe(0);
+      expect(`${readbackFailure.stdout}${readbackFailure.stderr}`).toContain(
+        `PREVIEW_ACCOUNT_JOURNEY_FAILED_${code}`,
+      );
+    }
+
     const sagaFailure = spawnSync(
       process.execPath,
       [
@@ -145,6 +165,22 @@ describe("hosted Preview account-management smoke", () => {
   });
 
   it("verifies canonical housekeeping multi-hotel material fields", () => {
+    const attemptPosition = source.indexOf(
+      'journeyFailureCode = "ACCOUNT_CREATE_ATTEMPT_READBACK"',
+    );
+    const identityPosition = source.indexOf(
+      'journeyFailureCode = "ACCOUNT_CREATE_IDENTITY_MATCH"',
+    );
+    const attemptRequiredPosition = source.indexOf(
+      "Created Preview account durable attempt was not observable",
+    );
+    const schemaPosition = source.indexOf(
+      'journeyFailureCode = "ACCOUNT_CREATE_RESPONSE_SCHEMA"',
+    );
+    expect(attemptPosition).toBeGreaterThan(-1);
+    expect(attemptRequiredPosition).toBeGreaterThan(attemptPosition);
+    expect(identityPosition).toBeGreaterThan(attemptRequiredPosition);
+    expect(schemaPosition).toBeGreaterThan(identityPosition);
     expect(source).toContain('.replace(/[^A-Za-z0-9]/gu, "")');
     expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
     expect(source).toContain("async function verifyHostedCustomLogin");

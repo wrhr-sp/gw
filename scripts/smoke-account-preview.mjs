@@ -554,7 +554,7 @@ try {
     },
   });
   account = created?.data?.account;
-  journeyFailureCode = "ACCOUNT_CREATE_READBACK";
+  journeyFailureCode = "ACCOUNT_CREATE_ATTEMPT_READBACK";
   const createAttempt = await discoverCleanupAttempt({
     attempts: 6,
     expectedEmail: email,
@@ -566,7 +566,14 @@ try {
       ),
     waitMilliseconds: 5_000,
   });
+  if (!createAttempt) {
+    throw new Error(
+      "Created Preview account durable attempt was not observable",
+    );
+  }
+  journeyFailureCode = "ACCOUNT_CREATE_IDENTITY_MATCH";
   account = assertCreateResponseMatchesAttempt(account, createAttempt);
+  journeyFailureCode = "ACCOUNT_CREATE_RESPONSE_SCHEMA";
   const createdHotelIds = (account?.hotels ?? [])
     .map((hotel) => hotel.id)
     .sort();
