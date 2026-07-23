@@ -434,6 +434,15 @@ alter database werehere_preview_ci owner to $MIGRATION_OWNER;
 drop role preview_wrong_database_owner;
 SQL
 run_provision EXPAND >/dev/null
+EXPAND_RUNTIME_OWNER_HASH="$(
+  psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
+    -c "select prosrc from pg_proc procedure_record join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace where procedure_namespace.nspname = 'public' and procedure_record.proname = 'runtime_is_schema_owner'" |
+    python3 -c 'import hashlib,sys; data=sys.stdin.buffer.read(); assert data.endswith(b"\n"); print(hashlib.sha256(data[:-1]).hexdigest())'
+)"
+if [[ "$EXPAND_RUNTIME_OWNER_HASH" != "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221" ]]; then
+  printf '%s\n' 'EXPAND did not preserve the previous Worker runtime owner contract.' >&2
+  exit 1
+fi
 NEON_CREATOR_MEMBERSHIP_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select count(*)
 from pg_auth_members membership
@@ -457,6 +466,15 @@ if [[ "$NEON_CREATOR_MEMBERSHIP_RESULT" != "2" ]]; then
 fi
 
 run_provision CONTRACT >/dev/null
+CONTRACT_RUNTIME_OWNER_HASH="$(
+  psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
+    -c "select prosrc from pg_proc procedure_record join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace where procedure_namespace.nspname = 'public' and procedure_record.proname = 'runtime_is_schema_owner'" |
+    python3 -c 'import hashlib,sys; data=sys.stdin.buffer.read(); assert data.endswith(b"\n"); print(hashlib.sha256(data[:-1]).hexdigest())'
+)"
+if [[ "$CONTRACT_RUNTIME_OWNER_HASH" != "48d938d880cd3ae967ca52e9896797d6ef5526ad2e8cf22801d9159b982f1d2f" ]]; then
+  printf '%s\n' 'CONTRACT did not install the hardened runtime owner contract.' >&2
+  exit 1
+fi
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
   (select count(*)
@@ -729,6 +747,31 @@ assert_readiness() {
   fi
 }
 
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from public.schema_migrations
+where version in (
+  '0010_global_login_id_contract',
+  '0012_account_provider_exact_dispatch_contract',
+  '0015_neon_definer_contract_hardening'
+);
+SQL
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -f "$ROOT_DIR/packages/db/migrations/0014_neon_definer_expand_compatibility.sql" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+insert into public.schema_migrations(version)
+values ('0012_account_provider_exact_dispatch_contract');
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -f "$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+insert into public.schema_migrations(version)
+values ('0010_global_login_id_contract');
+SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL

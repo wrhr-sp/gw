@@ -374,6 +374,10 @@ try {
       "0013_neon_definer_creator_membership.sql",
     ],
     [
+      "0014_neon_definer_expand_compatibility",
+      "0014_neon_definer_expand_compatibility.sql",
+    ],
+    [
       "0008_remove_legacy_company_id_fallback",
       "0008_remove_legacy_company_id_fallback.sql",
     ],
@@ -381,12 +385,17 @@ try {
       "0012_account_provider_exact_dispatch_contract",
       "0012_account_provider_exact_dispatch_contract.sql",
     ],
+    [
+      "0015_neon_definer_contract_hardening",
+      "0015_neon_definer_contract_hardening.sql",
+    ],
     ["0010_global_login_id_contract", "0010_global_login_id_contract.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
     "0010_global_login_id_contract",
     "0012_account_provider_exact_dispatch_contract",
+    "0015_neon_definer_contract_hardening",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(([version]) => version !== "0010_global_login_id_contract")

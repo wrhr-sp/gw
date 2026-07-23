@@ -15,6 +15,14 @@ const provisionSource = readFileSync(
 );
 
 describe("account administration readiness contract", () => {
+  it("requires exact EXPAND and CONTRACT migration marker sets", () => {
+    expect(source).toContain("expand_marker_count");
+    expect(source).toContain("contract_marker_count");
+    expect(source).toContain("migrationRows[0]?.expand_marker_count === 11");
+    expect(source).toContain("migrationRows[0].contract_marker_count === 0");
+    expect(source).toContain("migrationRows[0].contract_marker_count === 4");
+  });
+
   it.each([
     "users_login_name_unique_idx",
     "users_login_name_global_unique_idx",

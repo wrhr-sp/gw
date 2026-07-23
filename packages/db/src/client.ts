@@ -20,6 +20,8 @@ const AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256 =
   "061a73c1c7114330cebb91eb10546499665aa6d3f5887cedb4da7253e9faa0e1";
 const PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256 =
   "be07b10542ba804bb4d3d0a5afa3e4604e9e4e5c32e745a6ad74aea45b214bbd";
+const RUNTIME_IS_SCHEMA_OWNER_EXPAND_PROSRC_SHA256 =
+  "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221";
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
   [
     "runtime_is_schema_owner",
@@ -755,21 +757,31 @@ export async function probeDatabaseReadiness(
     }
 
     const migrationRows = await sql<
-      { contract_applied: boolean; expand_applied: boolean }[]
+      { contract_marker_count: number; expand_marker_count: number }[]
     >`
       select count(*) filter (
-               where version not in (
-                 '0008_remove_legacy_company_id_fallback',
-                 '0010_global_login_id_contract'
+               where version in (
+                 '0001_platform_foundation',
+                 '0002_auth_session_runtime',
+                 '0003_hotel_basic_information',
+                 '0004_custom_login_security',
+                 '0005_auth_session_definer',
+                 '0006_account_administration',
+                 '0007_api_tenant_authority_expand',
+                 '0009_global_login_id_expand',
+                 '0011_account_provider_exact_dispatch',
+                 '0013_neon_definer_creator_membership',
+                 '0014_neon_definer_expand_compatibility'
                )
-             ) = 10 as expand_applied,
+             )::integer as expand_marker_count,
              count(*) filter (
                where version in (
                  '0008_remove_legacy_company_id_fallback',
                  '0010_global_login_id_contract',
-                 '0012_account_provider_exact_dispatch_contract'
+                 '0012_account_provider_exact_dispatch_contract',
+                 '0015_neon_definer_contract_hardening'
                )
-             ) = 3 as contract_applied
+             )::integer as contract_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -784,14 +796,19 @@ export async function probeDatabaseReadiness(
         '0010_global_login_id_contract',
         '0011_account_provider_exact_dispatch',
         '0012_account_provider_exact_dispatch_contract',
-        '0013_neon_definer_creator_membership'
+        '0013_neon_definer_creator_membership',
+        '0014_neon_definer_expand_compatibility',
+        '0015_neon_definer_contract_hardening'
       )
     `;
-    const schemaPhase = migrationRows[0]?.contract_applied
-      ? "CONTRACT"
-      : migrationRows[0]?.expand_applied
-        ? "EXPAND"
-        : null;
+    const schemaPhase =
+      migrationRows[0]?.expand_marker_count === 11 &&
+      migrationRows[0].contract_marker_count === 4
+        ? "CONTRACT"
+        : migrationRows[0]?.expand_marker_count === 11 &&
+            migrationRows[0].contract_marker_count === 0
+          ? "EXPAND"
+          : null;
     if (
       !schemaPhase ||
       (options.requiredSchemaPhase &&
@@ -1380,9 +1397,11 @@ export async function probeDatabaseReadiness(
       const expected = expectedTenantAuthorityFunctions.get(
         helper.function_name,
       );
-      const expectedDigest = TENANT_AUTHORITY_PROSRC_SHA256.get(
-        helper.function_name,
-      );
+      const expectedDigest =
+        helper.function_name === "runtime_is_schema_owner" &&
+        schemaPhase === "EXPAND"
+          ? RUNTIME_IS_SCHEMA_OWNER_EXPAND_PROSRC_SHA256
+          : TENANT_AUTHORITY_PROSRC_SHA256.get(helper.function_name);
       if (
         !expected ||
         !expectedDigest ||
