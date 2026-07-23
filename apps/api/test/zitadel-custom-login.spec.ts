@@ -99,9 +99,13 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
 
-  it.each(PROVIDER_AUTHENTICATION_STAGES.map((stage, index) => ({ index, stage }))) (
-    "classifies malformed JSON at $stage with that fixed stage",
-    async ({ index, stage }) => {
+  it.each(PROVIDER_AUTHENTICATION_STAGES.map((stage, index) => ({
+    index,
+    stage,
+    expectedStage: stage === "SESSION_READBACK" ? "SESSION_READBACK_JSON" : stage,
+  }))) (
+    "classifies malformed JSON at $stage as $expectedStage",
+    async ({ index, expectedStage }) => {
       const responses = validAuthenticationResponses();
       responses[index] = malformedJson();
       const fetcher = vi.fn<typeof fetch>();
@@ -114,8 +118,30 @@ describe("ZITADEL custom login provider", () => {
         password: "password-value",
       })).rejects.toMatchObject({
         code: "AUTH_PROVIDER_UNAVAILABLE",
-        providerDiagnosticStage: stage,
+        providerDiagnosticStage: expectedStage,
       });
+    },
+  );
+
+  it.each([
+    { status: 401, code: "AUTH_PROVIDER_NOT_CONFIGURED", stage: "SESSION_READBACK_AUTHORIZATION" },
+    { status: 403, code: "AUTH_PROVIDER_NOT_CONFIGURED", stage: "SESSION_READBACK_AUTHORIZATION" },
+    { status: 500, code: "AUTH_PROVIDER_UNAVAILABLE", stage: "SESSION_READBACK_STATUS" },
+  ] as const)(
+    "classifies session read-back HTTP $status as $stage",
+    async ({ status, code, stage }) => {
+      const responses = validAuthenticationResponses();
+      responses[3] = json({}, status);
+      const fetcher = vi.fn<typeof fetch>();
+      for (const response of responses) fetcher.mockResolvedValueOnce(response);
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "request-1",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({ code, providerDiagnosticStage: stage });
+      expect(fetcher.mock.calls[4]?.[1]?.method).toBe("DELETE");
     },
   );
 

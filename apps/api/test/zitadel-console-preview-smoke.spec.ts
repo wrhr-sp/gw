@@ -161,6 +161,19 @@ describe("hosted Preview Console credential smoke", () => {
       location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
       providerStage: "SESSION_READBACK",
     })).toBe("CUSTOM_LOGIN_PROVIDER_SESSION_READBACK");
+    for (const [providerStage, expected] of [
+      ["SESSION_READBACK_AUTHORIZATION", "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_AUTHORIZATION"],
+      ["SESSION_READBACK_STATUS", "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_STATUS"],
+      ["SESSION_READBACK_JSON", "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_JSON"],
+    ] as const) {
+      expect(consoleCustomLoginResponseFailureStage({
+        issuerOrigin,
+        webOrigin,
+        status: 303,
+        location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
+        providerStage,
+      })).toBe(expected);
+    }
     expect(consoleCustomLoginResponseFailureStage({
       issuerOrigin,
       webOrigin,
@@ -199,6 +212,9 @@ describe("hosted Preview Console credential smoke", () => {
       "CUSTOM_LOGIN_PROVIDER_LOGIN_SETTINGS",
       "CUSTOM_LOGIN_PROVIDER_SESSION_CREATE",
       "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_AUTHORIZATION",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_STATUS",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_JSON",
       "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_SCHEMA",
       "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_IDENTITY",
       "CUSTOM_LOGIN_PROVIDER_ORGANIZATION_SETTINGS",
