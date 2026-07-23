@@ -73,15 +73,31 @@ describe("hosted Preview account-management smoke", () => {
       [
         "--input-type=module",
         "--eval",
-        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error(${JSON.stringify(sentinel)}), writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error(${JSON.stringify(sentinel)}), journeyFailureCode: ${JSON.stringify(sentinel)}, writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
       ],
       { encoding: "utf8" },
     );
     expect(failed.status).not.toBe(0);
     const failedOutput = `${failed.stdout}${failed.stderr}`;
-    expect(failedOutput).toContain("PREVIEW_ACCOUNT_JOURNEY_FAILED");
+    expect(failedOutput).toContain(
+      "PREVIEW_ACCOUNT_JOURNEY_FAILED_UNCLASSIFIED",
+    );
     expect(failedOutput).not.toContain(sentinel);
     expect(failedOutput).not.toContain("UNEXPECTED_SUCCESS");
+
+    const allowedFailure = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error("hidden"), journeyFailureCode: "ADMIN_SESSION_RUNTIME_DENIED", writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(allowedFailure.status).not.toBe(0);
+    expect(`${allowedFailure.stdout}${allowedFailure.stderr}`).toContain(
+      "PREVIEW_ACCOUNT_JOURNEY_FAILED_ADMIN_SESSION_RUNTIME_DENIED",
+    );
 
     const succeeded = spawnSync(
       process.execPath,
@@ -102,9 +118,21 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('.replace(/[^A-Za-z0-9]/gu, "")');
     expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
     expect(source).toContain("async function verifyHostedCustomLogin");
-    expect(source).toContain('context.request.get(`${baseUrl}/api/auth/session`');
-    expect(source).toContain("const legacyAlias = `${loginName.slice(0, -1)}-${loginName.slice(-1)}`");
-    expect(source).toContain("Rejected legacy login alias issued a hotel session");
+    expect(source).toMatch(
+      /context\.request\.get\(\s*`\$\{baseUrl\}\/api\/auth\/session`/u,
+    );
+    expect(source).toContain("const denialHasNoPrincipal");
+    expect(source).toContain("result?.identity_id");
+    expect(source).toContain("uuidPattern.test(result.company_id");
+    expect(source).toContain(
+      'typeof result.must_change_password !== "boolean"',
+    );
+    expect(source).toContain(
+      "const legacyAlias = `${loginName.slice(0, -1)}-${loginName.slice(-1)}`",
+    );
+    expect(source).toContain(
+      "Rejected legacy login alias issued a hotel session",
+    );
     expect(source).toContain("user: { userId: providerSubject }");
     expect(source).not.toContain("const loginName = `preview-smoke-");
     expect(source).toContain('userType: "HOUSEKEEPING"');

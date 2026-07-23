@@ -77,12 +77,13 @@ let providerSubject;
 let providerVerificationSession;
 let providerVerificationSessionCreationIndeterminate = false;
 let journeyError;
+let journeyFailureCode = "UNCLASSIFIED";
 
 function tokenHash(token) {
   return createHash("sha256").update(token, "utf8").digest();
 }
 
-async function createSession(providerSubjectValue) {
+async function createSession(providerSubjectValue, failurePrefix) {
   const token = randomBytes(32).toString("base64url");
   const rows = await apiSql`
     select * from public.auth_create_session_v2(
@@ -95,15 +96,56 @@ async function createSession(providerSubjectValue) {
       ${randomUUID()}::uuid
     )
   `;
-  if (rows.length !== 1 || rows[0]?.result_status !== "CREATED") {
-    throw new Error("Preview smoke session could not be created");
+  const knownStatuses = new Set([
+    "IDENTITY_NOT_PROVISIONED",
+    "PRINCIPAL_INACTIVE",
+    "RUNTIME_DENIED",
+  ]);
+  const invalidResponse = () => {
+    const error = new Error("Preview smoke session response was invalid");
+    error.previewFailureCode = `${failurePrefix}_INVALID_RESPONSE`;
+    throw error;
+  };
+  if (rows.length !== 1) invalidResponse();
+  const result = rows[0];
+  if (result?.result_status !== "CREATED") {
+    const denialHasNoPrincipal = [
+      result?.company_id,
+      result?.identity_id,
+      result?.session_id,
+      result?.user_id,
+      result?.user_type,
+      result?.display_name,
+      result?.must_change_password,
+    ].every((value) => value === null);
+    if (!knownStatuses.has(result?.result_status) || !denialHasNoPrincipal) {
+      invalidResponse();
+    }
+    const error = new Error("Preview smoke session could not be created");
+    error.previewFailureCode = `${failurePrefix}_${result.result_status}`;
+    throw error;
+  }
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+  if (
+    !uuidPattern.test(result.company_id ?? "") ||
+    !uuidPattern.test(result.identity_id ?? "") ||
+    !uuidPattern.test(result.session_id ?? "") ||
+    !uuidPattern.test(result.user_id ?? "") ||
+    typeof result.user_type !== "string" ||
+    result.user_type.length === 0 ||
+    typeof result.display_name !== "string" ||
+    result.display_name.length === 0 ||
+    typeof result.must_change_password !== "boolean"
+  ) {
+    invalidResponse();
   }
   return {
     token,
     principal: {
-      companyId: rows[0].company_id,
-      sessionId: rows[0].session_id,
-      userId: rows[0].user_id,
+      companyId: result.company_id,
+      sessionId: result.session_id,
+      userId: result.user_id,
     },
   };
 }
@@ -354,12 +396,16 @@ async function verifyHostedCustomLogin({
       waitUntil: "domcontentloaded",
       timeout: 60_000,
     });
-    await page.waitForURL((candidate) =>
-      candidate.origin === new URL(baseUrl).origin &&
-      candidate.pathname === "/login" &&
-      /^[A-Za-z0-9_-]{1,200}$/u.test(candidate.searchParams.get("authRequest") ?? "") &&
-      /^[A-Za-z0-9_-]{43}$/u.test(candidate.searchParams.get("csrf") ?? ""),
-    { timeout: 60_000 });
+    await page.waitForURL(
+      (candidate) =>
+        candidate.origin === new URL(baseUrl).origin &&
+        candidate.pathname === "/login" &&
+        /^[A-Za-z0-9_-]{1,200}$/u.test(
+          candidate.searchParams.get("authRequest") ?? "",
+        ) &&
+        /^[A-Za-z0-9_-]{43}$/u.test(candidate.searchParams.get("csrf") ?? ""),
+      { timeout: 60_000 },
+    );
     const loginInput = page.locator("#login-name");
     await loginInput.evaluate((element) => element.removeAttribute("pattern"));
     await loginInput.fill(loginId);
@@ -367,11 +413,13 @@ async function verifyHostedCustomLogin({
     await page.getByRole("button", { name: "로그인" }).click();
 
     if (!shouldAuthenticate) {
-      await page.waitForURL((candidate) =>
-        candidate.origin === new URL(baseUrl).origin &&
-        candidate.pathname === "/login" &&
-        candidate.searchParams.get("error") === "invalid-credentials",
-      { timeout: 60_000 });
+      await page.waitForURL(
+        (candidate) =>
+          candidate.origin === new URL(baseUrl).origin &&
+          candidate.pathname === "/login" &&
+          candidate.searchParams.get("error") === "invalid-credentials",
+        { timeout: 60_000 },
+      );
       const rejectedCookies = await context.cookies(baseUrl);
       if (rejectedCookies.some((cookie) => cookie.name === cookieName)) {
         throw new Error("Rejected legacy login alias issued a hotel session");
@@ -379,23 +427,32 @@ async function verifyHostedCustomLogin({
       return;
     }
 
-    await page.waitForURL((candidate) =>
-      candidate.origin === new URL(baseUrl).origin &&
-      !candidate.pathname.startsWith("/api/auth") &&
-      candidate.pathname !== "/login",
-    { timeout: 60_000 });
-    const sessionResponse = await context.request.get(`${baseUrl}/api/auth/session`, {
-      headers: { accept: "application/json" },
-    });
+    await page.waitForURL(
+      (candidate) =>
+        candidate.origin === new URL(baseUrl).origin &&
+        !candidate.pathname.startsWith("/api/auth") &&
+        candidate.pathname !== "/login",
+      { timeout: 60_000 },
+    );
+    const sessionResponse = await context.request.get(
+      `${baseUrl}/api/auth/session`,
+      {
+        headers: { accept: "application/json" },
+      },
+    );
     if (sessionResponse.status() !== 200) {
-      throw new Error("Hosted canonical login did not issue a readable hotel session");
+      throw new Error(
+        "Hosted canonical login did not issue a readable hotel session",
+      );
     }
     const sessionBody = await sessionResponse.json();
     if (
       sessionBody?.data?.authenticated !== true ||
       sessionBody.data?.principal?.userId !== expectedUserId
     ) {
-      throw new Error("Hosted canonical login resolved an unexpected internal user");
+      throw new Error(
+        "Hosted canonical login resolved an unexpected internal user",
+      );
     }
   } finally {
     await browser.close();
@@ -403,16 +460,19 @@ async function verifyHostedCustomLogin({
 }
 
 try {
-  const adminSession = await createSession(bootstrapSubject);
+  journeyFailureCode = "ADMIN_SESSION_CREATE";
+  const adminSession = await createSession(bootstrapSubject, "ADMIN_SESSION");
   adminToken = adminSession.token;
   adminPrincipal = adminSession.principal;
 
+  journeyFailureCode = "ELIGIBLE_HOTELS_READ";
   let eligible = await api("/api/admin/users/eligible-hotels", {
     token: adminToken,
   });
   let eligibleHotels = eligible?.data?.hotels ?? [];
   for (let slot = eligibleHotels.length; slot < 2; slot += 1) {
     const hotelNumber = slot + 1;
+    journeyFailureCode = "HOTEL_BOOTSTRAP_CREATE";
     await api("/api/hotels", {
       method: "POST",
       token: adminToken,
@@ -428,6 +488,7 @@ try {
         contractEndDate: "2099-12-31",
       },
     });
+    journeyFailureCode = "ELIGIBLE_HOTELS_READ";
     eligible = await api("/api/admin/users/eligible-hotels", {
       token: adminToken,
     });
@@ -437,10 +498,12 @@ try {
     .slice(0, 2)
     .map((hotel) => hotel.id)
     .sort();
+  journeyFailureCode = "HOTEL_BOOTSTRAP_VERIFY";
   if (hotelIds.length !== 2 || new Set(hotelIds).size !== 2) {
     throw new Error("Preview smoke requires two distinct eligible hotels");
   }
 
+  journeyFailureCode = "ACCOUNT_CREATE";
   accountCreateRequestStarted = true;
   const created = await api("/api/admin/users", {
     method: "POST",
@@ -459,6 +522,7 @@ try {
     },
   });
   account = created?.data?.account;
+  journeyFailureCode = "ACCOUNT_CREATE_READBACK";
   const createAttempt = await discoverCleanupAttempt({
     attempts: 6,
     expectedEmail: email,
@@ -487,6 +551,7 @@ try {
     throw new Error("Created Preview account response was invalid");
   }
 
+  journeyFailureCode = "ACCOUNT_DETAIL_READBACK";
   const detail = await api(
     `/api/admin/users/${encodeURIComponent(account.id)}`,
     {
@@ -511,12 +576,14 @@ try {
     throw new Error("Created Preview account PostgreSQL GET read-back failed");
   }
 
+  journeyFailureCode = "HOUSEKEEPING_ASSIGNMENTS";
   await assertHousekeepingAssignments(
     adminSession.principal.companyId,
     account.id,
     hotelIds,
   );
 
+  journeyFailureCode = "PROVIDER_IDENTITY_READBACK";
   providerSubject = await providerSubjectFor(
     adminSession.principal.companyId,
     account.id,
@@ -526,7 +593,9 @@ try {
       "Created account provider subject did not match durable target",
     );
   }
-  pendingSession = await createSession(providerSubject);
+  journeyFailureCode = "PENDING_SESSION_CREATE";
+  pendingSession = await createSession(providerSubject, "PENDING_SESSION");
+  journeyFailureCode = "INITIAL_PASSWORD";
   await api("/api/account/initial-password", {
     method: "POST",
     token: pendingSession.token,
@@ -548,6 +617,7 @@ try {
   }
   account = activatedAccount;
 
+  journeyFailureCode = "CUSTOM_LOGIN_CANONICAL";
   await verifyHostedCustomLogin({
     expectedUserId: account.id,
     loginId: loginName,
@@ -555,6 +625,7 @@ try {
     shouldAuthenticate: true,
   });
   const legacyAlias = `${loginName.slice(0, -1)}-${loginName.slice(-1)}`;
+  journeyFailureCode = "CUSTOM_LOGIN_LEGACY_REJECT";
   await verifyHostedCustomLogin({
     expectedUserId: account.id,
     loginId: legacyAlias,
@@ -562,6 +633,7 @@ try {
     shouldAuthenticate: false,
   });
 
+  journeyFailureCode = "PROVIDER_SESSION_CREATE";
   providerVerificationSessionCreationIndeterminate = true;
   const providerSession = await provider("/v2/sessions", {
     method: "POST",
@@ -584,6 +656,7 @@ try {
     );
   }
   providerVerificationSessionCreationIndeterminate = false;
+  journeyFailureCode = "PROVIDER_SESSION_READBACK";
   const providerSessionReadBack = await provider(
     `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
     { token: providerVerificationSession.token },
@@ -598,6 +671,7 @@ try {
       "Provider credential session read-back did not match the created account",
     );
   }
+  journeyFailureCode = "PROVIDER_SESSION_DELETE";
   await provider(
     `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
     {
@@ -614,6 +688,7 @@ try {
   });
   providerVerificationSession = undefined;
 
+  journeyFailureCode = "ACCOUNT_DEACTIVATE";
   const deactivated = await api(
     `/api/admin/users/${encodeURIComponent(account.id)}/deactivate`,
     {
@@ -631,6 +706,7 @@ try {
     throw new Error("Preview account did not become inactive");
   }
 
+  journeyFailureCode = "ACCOUNT_INACTIVE_READBACK";
   const inactiveDetail = await api(
     `/api/admin/users/${encodeURIComponent(account.id)}`,
     {
@@ -640,6 +716,7 @@ try {
   if (inactiveDetail?.data?.account?.status !== "INACTIVE") {
     throw new Error("Inactive Preview account PostgreSQL read-back failed");
   }
+  journeyFailureCode = "PROVIDER_INACTIVE";
   await waitForProviderInactive({
     attempts: 24,
     expectedOrganizationId: organizationId,
@@ -647,6 +724,7 @@ try {
     read: () => provider(`/v2/users/${encodeURIComponent(providerSubject)}`),
     waitMilliseconds: 5_000,
   });
+  journeyFailureCode = "SESSION_REVOCATION";
   await waitForZeroActiveSessions({
     attempts: 6,
     read: () =>
@@ -663,6 +741,13 @@ try {
   });
 } catch (error) {
   journeyError = error;
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof error.previewFailureCode === "string"
+  ) {
+    journeyFailureCode = error.previewFailureCode;
+  }
 }
 
 let cleanupFailed = providerVerificationSessionCreationIndeterminate;
@@ -783,12 +868,13 @@ try {
         reconcilerSql.end({ timeout: 2 }),
       ]),
     journeyError,
+    journeyFailureCode,
     writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK"),
   });
 } catch (error) {
   const message = error instanceof Error ? error.message : "";
   if (
-    message === "PREVIEW_ACCOUNT_JOURNEY_FAILED" ||
+    /^PREVIEW_ACCOUNT_JOURNEY_FAILED_[A-Z0-9_]+$/u.test(message) ||
     /^PREVIEW_ACCOUNT_CLEANUP_FAILED \[ref=[A-Za-z0-9]+\]$/u.test(message)
   ) {
     throw new Error(message);

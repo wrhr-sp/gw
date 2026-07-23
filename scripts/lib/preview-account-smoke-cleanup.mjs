@@ -158,6 +158,7 @@ export async function finalizePreviewSmoke({
   cleanupFailed,
   close,
   journeyError,
+  journeyFailureCode,
   writeSuccess,
 }) {
   let finalCleanupFailed = cleanupFailed;
@@ -173,7 +174,43 @@ export async function finalizePreviewSmoke({
         : "PREVIEW_ACCOUNT_CLEANUP_FAILED",
     );
   }
-  if (journeyError) throw new Error("PREVIEW_ACCOUNT_JOURNEY_FAILED");
+  if (journeyError) {
+    const allowedFailureCodes = new Set([
+      "ACCOUNT_CREATE",
+      "ACCOUNT_CREATE_READBACK",
+      "ACCOUNT_DEACTIVATE",
+      "ACCOUNT_DETAIL_READBACK",
+      "ACCOUNT_INACTIVE_READBACK",
+      "ADMIN_SESSION_CREATE",
+      "ADMIN_SESSION_IDENTITY_NOT_PROVISIONED",
+      "ADMIN_SESSION_INVALID_RESPONSE",
+      "ADMIN_SESSION_PRINCIPAL_INACTIVE",
+      "ADMIN_SESSION_RUNTIME_DENIED",
+      "CUSTOM_LOGIN_CANONICAL",
+      "CUSTOM_LOGIN_LEGACY_REJECT",
+      "ELIGIBLE_HOTELS_READ",
+      "HOTEL_BOOTSTRAP_CREATE",
+      "HOTEL_BOOTSTRAP_VERIFY",
+      "HOUSEKEEPING_ASSIGNMENTS",
+      "INITIAL_PASSWORD",
+      "PENDING_SESSION_CREATE",
+      "PENDING_SESSION_IDENTITY_NOT_PROVISIONED",
+      "PENDING_SESSION_INVALID_RESPONSE",
+      "PENDING_SESSION_PRINCIPAL_INACTIVE",
+      "PENDING_SESSION_RUNTIME_DENIED",
+      "PROVIDER_IDENTITY_READBACK",
+      "PROVIDER_INACTIVE",
+      "PROVIDER_SESSION_CREATE",
+      "PROVIDER_SESSION_DELETE",
+      "PROVIDER_SESSION_READBACK",
+      "SESSION_REVOCATION",
+      "UNCLASSIFIED",
+    ]);
+    const safeFailureCode = allowedFailureCodes.has(journeyFailureCode)
+      ? journeyFailureCode
+      : "UNCLASSIFIED";
+    throw new Error(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${safeFailureCode}`);
+  }
   writeSuccess();
 }
 
