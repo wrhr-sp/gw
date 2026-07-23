@@ -79,6 +79,18 @@ let providerVerificationSessionCreationIndeterminate = false;
 let journeyError;
 let journeyFailureCode = "UNCLASSIFIED";
 
+const accountCreateSagaStatuses = new Set([
+  "RESERVED_NOT_DISPATCHED",
+  "DISPATCHED",
+  "PROVIDER_CONFIRMED",
+  "COMPLETED",
+  "RECOVERY_REQUIRED",
+  "COMPENSATION_REQUIRED",
+  "COMPENSATED",
+  "OPERATOR_REQUIRED",
+  "DEAD_LETTER",
+]);
+
 function tokenHash(token) {
   return createHash("sha256").update(token, "utf8").digest();
 }
@@ -854,6 +866,12 @@ if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
           waitMilliseconds: 5_000,
         });
         if (attempt) {
+          if (
+            journeyFailureCode === "ACCOUNT_CREATE_INTERNAL_ERROR" &&
+            accountCreateSagaStatuses.has(attempt.attemptStatus)
+          ) {
+            journeyFailureCode = `ACCOUNT_CREATE_INTERNAL_ERROR_SAGA_${attempt.attemptStatus}`;
+          }
           account = { ...account, id: attempt.id };
           providerSubject = attempt.providerSubject;
         }

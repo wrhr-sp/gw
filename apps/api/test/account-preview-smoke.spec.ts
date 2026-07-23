@@ -115,6 +115,20 @@ describe("hosted Preview account-management smoke", () => {
       "PREVIEW_ACCOUNT_JOURNEY_FAILED_ACCOUNT_CREATE_VALIDATION_ERROR",
     );
 
+    const sagaFailure = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error("hidden"), journeyFailureCode: "ACCOUNT_CREATE_INTERNAL_ERROR_SAGA_PROVIDER_CONFIRMED", writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(sagaFailure.status).not.toBe(0);
+    expect(`${sagaFailure.stdout}${sagaFailure.stderr}`).toContain(
+      "PREVIEW_ACCOUNT_JOURNEY_FAILED_ACCOUNT_CREATE_INTERNAL_ERROR_SAGA_PROVIDER_CONFIRMED",
+    );
+
     const succeeded = spawnSync(
       process.execPath,
       [
@@ -141,6 +155,12 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('path === "/api/admin/users"');
     expect(source).toContain('journeyFailureCode === "ACCOUNT_CREATE"');
     expect(source).toContain("accountCreateCodes.has(code)");
+    expect(source).toContain(
+      'journeyFailureCode === "ACCOUNT_CREATE_INTERNAL_ERROR"',
+    );
+    expect(source).toContain(
+      "accountCreateSagaStatuses.has(attempt.attemptStatus)",
+    );
     expect(source).toContain("result?.identity_id");
     expect(source).toContain("uuidPattern.test(result.company_id");
     expect(source).toContain(
