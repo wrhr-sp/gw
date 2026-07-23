@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Root smoke helper is executable JavaScript outside the TS workspace.
-import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, isAuthenticatedConsoleResponse, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
+import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
 
 const smokeScriptUrl = new URL(
   "../../../scripts/smoke-zitadel-console-preview.mjs",
@@ -55,6 +55,14 @@ describe("hosted Preview Console credential smoke", () => {
 
   it("accepts only a successful exact callback response and authenticated Console user response", () => {
     const issuerOrigin = "https://identity.example.test";
+    expect(isConsoleCallbackTarget({
+      issuerOrigin,
+      url: `${issuerOrigin}/ui/console/auth/callback?opaque=redacted`,
+    })).toBe(true);
+    expect(isConsoleCallbackTarget({
+      issuerOrigin,
+      url: `${issuerOrigin}/ui/console/auth/callbackevil`,
+    })).toBe(false);
     expect(isSuccessfulConsoleCallbackResponse({
       issuerOrigin,
       status: 302,
@@ -75,6 +83,16 @@ describe("hosted Preview Console credential smoke", () => {
       status: 302,
       url: `${issuerOrigin}/ui/console/auth/callback?error=access_denied&state=opaque`,
     })).toBe(false);
+    expect(consoleCallbackResponseFailureStage({
+      issuerOrigin,
+      status: 500,
+      url: `${issuerOrigin}/ui/console/auth/callback`,
+    })).toBe("CALLBACK_RESPONSE_STATUS");
+    expect(consoleCallbackResponseFailureStage({
+      issuerOrigin,
+      status: 302,
+      url: `${issuerOrigin}/ui/console/auth/callback?error=redacted`,
+    })).toBe("CALLBACK_RESPONSE_ERROR");
     expect(isAuthenticatedConsoleResponse({
       issuerOrigin,
       status: 200,
@@ -112,7 +130,10 @@ describe("hosted Preview Console credential smoke", () => {
   it("classifies credential completion failures with a fixed secret-safe stage", () => {
     expect(CONSOLE_CREDENTIAL_FAILURE_STAGES).toEqual([
       "SUBMIT",
+      "CALLBACK_REQUEST",
       "CALLBACK_RESPONSE",
+      "CALLBACK_RESPONSE_STATUS",
+      "CALLBACK_RESPONSE_ERROR",
       "AUTHENTICATED_USER_RESPONSE",
       "TERMINAL_LANDING",
       "TOKEN_IDENTITY",
@@ -143,9 +164,11 @@ describe("hosted Preview Console credential smoke", () => {
       .toBe("ZITADEL_CONSOLE_PREVIEW_CREDENTIAL_FAILED_UNCLASSIFIED");
     const fulfilled = { status: "fulfilled", value: undefined } as const;
     const rejected = { status: "rejected", reason: new Error("listener failed") } as const;
-    expect(consoleCredentialCompletionFailureStage([rejected, rejected, rejected]))
+    expect(consoleCredentialCompletionFailureStage([rejected, rejected, rejected, rejected]))
+      .toBe("CALLBACK_REQUEST");
+    expect(consoleCredentialCompletionFailureStage([fulfilled, rejected, rejected, rejected]))
       .toBe("CALLBACK_RESPONSE");
-    expect(consoleCredentialCompletionFailureStage([fulfilled, rejected, rejected]))
+    expect(consoleCredentialCompletionFailureStage([fulfilled, fulfilled, rejected, rejected]))
       .toBe("AUTHENTICATED_USER_RESPONSE");
   });
 
@@ -193,9 +216,11 @@ describe("hosted Preview Console credential smoke", () => {
     expect(source).toContain('page.locator("#login-name").fill("previewadmin")');
     expect(source).toContain('page.locator("#login-password").fill(previewPassword)');
     expect(source).toContain('page.getByRole("button", { name: "로그인", exact: true }).click()');
-    expect(source).toContain("isSuccessfulConsoleCallbackResponse");
+    expect(source).toContain("isConsoleCallbackTarget");
+    expect(source).toContain("consoleCallbackResponseFailureStage");
     expect(source).toContain("isAuthenticatedConsoleResponse");
     expect(source).toContain("isValidConsoleLanding");
+    expect(source).toContain("page.waitForRequest");
     expect(source).toContain("page.waitForResponse");
     expect(source).toContain("const credentialCompletion = Promise.allSettled([");
     expect(source.indexOf("const credentialCompletion = Promise.allSettled(["))

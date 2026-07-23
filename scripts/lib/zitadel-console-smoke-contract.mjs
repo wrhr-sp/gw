@@ -9,7 +9,10 @@ function parseSameOrigin(value, issuerOrigin) {
 
 export const CONSOLE_CREDENTIAL_FAILURE_STAGES = Object.freeze([
   "SUBMIT",
+  "CALLBACK_REQUEST",
   "CALLBACK_RESPONSE",
+  "CALLBACK_RESPONSE_STATUS",
+  "CALLBACK_RESPONSE_ERROR",
   "AUTHENTICATED_USER_RESPONSE",
   "TERMINAL_LANDING",
   "TOKEN_IDENTITY",
@@ -38,10 +41,12 @@ export function consoleCredentialFailureStage({
 }
 
 export function consoleCredentialCompletionFailureStage([
+  callbackRequestResult,
   callbackResult,
   authenticatedUserResult,
   landingResult,
 ]) {
+  if (callbackRequestResult?.status !== "fulfilled") return "CALLBACK_REQUEST";
   return consoleCredentialFailureStage({
     callbackStatus: callbackResult?.status,
     authenticatedUserStatus: authenticatedUserResult?.status,
@@ -51,15 +56,21 @@ export function consoleCredentialCompletionFailureStage([
   });
 }
 
-export function isSuccessfulConsoleCallbackResponse({ issuerOrigin, status, url }) {
+export function isConsoleCallbackTarget({ issuerOrigin, url }) {
   const candidate = parseSameOrigin(url, issuerOrigin);
-  return Boolean(
-    candidate &&
-    status >= 200 &&
-    status < 400 &&
-    candidate.pathname === "/ui/console/auth/callback" &&
-    !candidate.searchParams.has("error"),
-  );
+  return candidate?.pathname === "/ui/console/auth/callback";
+}
+
+export function consoleCallbackResponseFailureStage({ issuerOrigin, status, url }) {
+  if (!isConsoleCallbackTarget({ issuerOrigin, url })) return "CALLBACK_RESPONSE";
+  if (!Number.isInteger(status) || status < 200 || status >= 400) {
+    return "CALLBACK_RESPONSE_STATUS";
+  }
+  return new URL(url).searchParams.has("error") ? "CALLBACK_RESPONSE_ERROR" : null;
+}
+
+export function isSuccessfulConsoleCallbackResponse({ issuerOrigin, status, url }) {
+  return consoleCallbackResponseFailureStage({ issuerOrigin, status, url }) === null;
 }
 
 export function isAuthenticatedConsoleResponse({ issuerOrigin, status, url }) {
