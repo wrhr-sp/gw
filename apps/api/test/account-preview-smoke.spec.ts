@@ -185,6 +185,9 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
     expect(source).toContain("!hotelIds.includes(account.hotelId)");
     expect(source).toContain("!hotelIds.includes(detailAccount.hotelId)");
+    expect(source).toContain("status, must_change_password");
+    expect(source).toContain("activatedState.must_change_password !== false");
+    expect(source).not.toContain("activatedAccount.mustChangePassword");
     expect(source).toContain("async function verifyHostedCustomLogin");
     expect(source).toMatch(
       /context\.request\.get\(\s*`\$\{baseUrl\}\/api\/auth\/session`/u,

@@ -288,7 +288,7 @@ async function accountCleanupState(companyId, userId, expectedLoginName) {
   return reconcilerSql.begin(async (sql) => {
     await sql`select set_config('app.reconciler_company_id', ${companyId}, true)`;
     const rows = await sql`
-      select id, login_name, version, status
+      select id, login_name, version, status, must_change_password
       from public.users
       where company_id = ${companyId}::uuid
         and id = ${userId}::uuid
@@ -647,10 +647,17 @@ try {
     { token: adminToken },
   );
   const activatedAccount = activatedDetail?.data?.account;
+  const activatedState = await accountCleanupState(
+    adminSession.principal.companyId,
+    account.id,
+    loginName,
+  );
   if (
     activatedAccount?.id !== createAttempt.id ||
     activatedAccount.status !== "ACTIVE" ||
-    activatedAccount.mustChangePassword !== false
+    activatedState.id !== createAttempt.id ||
+    activatedState.status !== "ACTIVE" ||
+    activatedState.must_change_password !== false
   ) {
     throw new Error("Initial password change PostgreSQL read-back failed");
   }
