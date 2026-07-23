@@ -99,6 +99,22 @@ describe("hosted Preview account-management smoke", () => {
       "PREVIEW_ACCOUNT_JOURNEY_FAILED_ADMIN_SESSION_RUNTIME_DENIED",
     );
 
+    const accountCreateFailure = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `import { finalizePreviewSmoke } from ${importTarget}; await finalizePreviewSmoke({ cleanupReference: "safe-ref", cleanupFailed: false, close: async () => undefined, journeyError: new Error("hidden"), journeyFailureCode: "ACCOUNT_CREATE_VALIDATION_ERROR", writeSuccess: () => console.log("UNEXPECTED_SUCCESS") });`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(accountCreateFailure.status).not.toBe(0);
+    expect(
+      `${accountCreateFailure.stdout}${accountCreateFailure.stderr}`,
+    ).toContain(
+      "PREVIEW_ACCOUNT_JOURNEY_FAILED_ACCOUNT_CREATE_VALIDATION_ERROR",
+    );
+
     const succeeded = spawnSync(
       process.execPath,
       [
@@ -122,6 +138,9 @@ describe("hosted Preview account-management smoke", () => {
       /context\.request\.get\(\s*`\$\{baseUrl\}\/api\/auth\/session`/u,
     );
     expect(source).toContain("const denialHasNoPrincipal");
+    expect(source).toContain('path === "/api/admin/users"');
+    expect(source).toContain('journeyFailureCode === "ACCOUNT_CREATE"');
+    expect(source).toContain("accountCreateCodes.has(code)");
     expect(source).toContain("result?.identity_id");
     expect(source).toContain("uuidPattern.test(result.company_id");
     expect(source).toContain(
