@@ -5,6 +5,7 @@ import {
   consoleCallbackResponseFailureStage,
   consoleCredentialCompletionFailureStage,
   consoleCredentialFailureMarker,
+  consoleCustomLoginResponseFailureStage,
   isAuthenticatedConsoleResponse,
   isConsoleCallbackTarget,
   isValidConsoleLanding,
@@ -103,6 +104,12 @@ try {
   if (requireCredentialCallback) {
     let credentialFailureStage = "SUBMIT";
     try {
+      const customLoginResponse = page.waitForResponse((response) => {
+        const candidate = new URL(response.url());
+        return candidate.origin === webOrigin &&
+          candidate.pathname === "/api/auth/custom-login" &&
+          response.request().method() === "POST";
+      }, { timeout: 60_000 });
       const callbackRequest = page.waitForRequest((request) =>
         isConsoleCallbackTarget({
           issuerOrigin: issuerUrl.origin,
@@ -127,6 +134,7 @@ try {
         { timeout: 60_000 },
       );
       const credentialCompletion = Promise.allSettled([
+        customLoginResponse,
         callbackRequest,
         callbackResponse,
         authenticatedUserResponse,
@@ -136,12 +144,26 @@ try {
       await page.locator("#login-password").fill(previewPassword);
       await page.getByRole("button", { name: "로그인", exact: true }).click();
       const completionResults = await credentialCompletion;
-      const completionFailureStage = consoleCredentialCompletionFailureStage(completionResults);
+      const customLoginResult = completionResults[0];
+      if (customLoginResult.status !== "fulfilled") {
+        credentialFailureStage = "CUSTOM_LOGIN_RESPONSE";
+        throw new Error("credential-stage-failed");
+      }
+      credentialFailureStage = consoleCustomLoginResponseFailureStage({
+        issuerOrigin: issuerUrl.origin,
+        webOrigin,
+        status: customLoginResult.value.status(),
+        location: await customLoginResult.value.headerValue("location"),
+      });
+      if (credentialFailureStage) throw new Error("credential-stage-failed");
+      const completionFailureStage = consoleCredentialCompletionFailureStage(
+        completionResults.slice(1),
+      );
       if (completionFailureStage) {
         credentialFailureStage = completionFailureStage;
         throw new Error("credential-stage-failed");
       }
-      const callbackResult = completionResults[1];
+      const callbackResult = completionResults[2];
       credentialFailureStage = consoleCallbackResponseFailureStage({
         issuerOrigin: issuerUrl.origin,
         status: callbackResult.value.status(),

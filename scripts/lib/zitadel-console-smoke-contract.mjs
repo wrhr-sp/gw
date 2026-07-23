@@ -9,6 +9,14 @@ function parseSameOrigin(value, issuerOrigin) {
 
 export const CONSOLE_CREDENTIAL_FAILURE_STAGES = Object.freeze([
   "SUBMIT",
+  "CUSTOM_LOGIN_RESPONSE",
+  "CUSTOM_LOGIN_RESPONSE_STATUS",
+  "CUSTOM_LOGIN_REDIRECT_INVALID_FLOW",
+  "CUSTOM_LOGIN_REDIRECT_INVALID_CREDENTIALS",
+  "CUSTOM_LOGIN_REDIRECT_MFA_REQUIRED",
+  "CUSTOM_LOGIN_REDIRECT_RATE_LIMITED",
+  "CUSTOM_LOGIN_REDIRECT_UNAVAILABLE",
+  "CUSTOM_LOGIN_REDIRECT_OTHER",
   "CALLBACK_REQUEST",
   "CALLBACK_RESPONSE",
   "CALLBACK_RESPONSE_STATUS",
@@ -67,6 +75,39 @@ export function consoleCallbackResponseFailureStage({ issuerOrigin, status, url 
     return "CALLBACK_RESPONSE_STATUS";
   }
   return new URL(url).searchParams.has("error") ? "CALLBACK_RESPONSE_ERROR" : null;
+}
+
+export function consoleCustomLoginResponseFailureStage({
+  issuerOrigin,
+  webOrigin,
+  status,
+  location,
+}) {
+  if (!Number.isInteger(status) || status < 300 || status >= 400) {
+    return "CUSTOM_LOGIN_RESPONSE_STATUS";
+  }
+  let target;
+  try {
+    target = new URL(location, webOrigin);
+  } catch {
+    return "CUSTOM_LOGIN_REDIRECT_OTHER";
+  }
+  if (isConsoleCallbackTarget({ issuerOrigin, url: target.toString() })) return null;
+  if (target.origin !== webOrigin) return "CUSTOM_LOGIN_REDIRECT_OTHER";
+  const reason = target.searchParams.get("error");
+  if (target.pathname === "/login" && reason === "invalid-flow") {
+    return "CUSTOM_LOGIN_REDIRECT_INVALID_FLOW";
+  }
+  if (target.pathname !== "/api/auth/custom-login/start") {
+    return "CUSTOM_LOGIN_REDIRECT_OTHER";
+  }
+  return {
+    "invalid-credentials": "CUSTOM_LOGIN_REDIRECT_INVALID_CREDENTIALS",
+    "mfa-required": "CUSTOM_LOGIN_REDIRECT_MFA_REQUIRED",
+    "rate-limited": "CUSTOM_LOGIN_REDIRECT_RATE_LIMITED",
+    unavailable: "CUSTOM_LOGIN_REDIRECT_UNAVAILABLE",
+    "invalid-flow": "CUSTOM_LOGIN_REDIRECT_INVALID_FLOW",
+  }[reason] ?? "CUSTOM_LOGIN_REDIRECT_OTHER";
 }
 
 export function isSuccessfulConsoleCallbackResponse({ issuerOrigin, status, url }) {
