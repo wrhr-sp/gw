@@ -548,6 +548,11 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
   "users:SELECT",
 ] as const;
 
+const EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES = [
+  "branches:updated_at:UPDATE",
+  "hotel_profiles:updated_at:UPDATE",
+] as const;
+
 const REQUIRED_TRIGGERS = [
   {
     name: "login_id_registry_immutable",
@@ -670,8 +675,9 @@ function normalizePolicyDefinition(value: string) {
     .replaceAll('"', "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/__sql_literal_(\d+)__/gu, (_placeholder, index: string) =>
-      sqlLiterals[Number(index)] ?? "",
+    .replace(
+      /__sql_literal_(\d+)__/gu,
+      (_placeholder, index: string) => sqlLiterals[Number(index)] ?? "",
     );
 }
 
@@ -690,9 +696,10 @@ function isExactTenantPolicyExpression(
     "when (current_user = 'werehere_tenant_authority_definer'::name) then true";
   const apiBranch = `when runtime_has_capability('API_RUNTIME'::text) then (${tenantKey} = api_current_company_id())`;
   const reconcilerBranch = `when runtime_has_capability('RECONCILER'::text) then (${tenantKey} = reconciler_current_company_id())`;
-  const legacyBranch = schemaPhase === "EXPAND"
-    ? `when ((not runtime_has_capability('API_RUNTIME'::text)) and (not runtime_has_capability('RECONCILER'::text))) then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`
-    : null;
+  const legacyBranch =
+    schemaPhase === "EXPAND"
+      ? `when ((not runtime_has_capability('API_RUNTIME'::text)) and (not runtime_has_capability('RECONCILER'::text))) then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`
+      : null;
   const expected = [
     "case",
     ownerBranch,
@@ -702,7 +709,9 @@ function isExactTenantPolicyExpression(
     reconcilerBranch,
     legacyBranch,
     "else false end",
-  ].filter((fragment): fragment is string => fragment !== null).join(" ");
+  ]
+    .filter((fragment): fragment is string => fragment !== null)
+    .join(" ");
   return normalized === expected;
 }
 
@@ -1921,6 +1930,50 @@ export async function probeDatabaseReadiness(
         (privilege) => !actualTablePrivileges.has(privilege),
       ) ||
       tablePrivilegeRows.some((row) => row.grantable || !row.role_name)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const columnPrivilegeRows = await sql<
+      { grantable: boolean; label: string; role_name: string | null }[]
+    >`
+      select table_record.relname || ':' || column_record.attname || ':' ||
+               upper(acl.privilege_type) as label,
+             acl.is_grantable as grantable,
+             grantee_role.rolname as role_name
+      from pg_class table_record
+      join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+      join pg_attribute column_record on column_record.attrelid = table_record.oid
+      cross join lateral aclexplode(column_record.attacl) acl
+      left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+      where table_namespace.nspname = 'public'
+        and table_record.relkind in ('r', 'p')
+        and column_record.attnum > 0
+        and not column_record.attisdropped
+        and acl.grantee <> table_record.relowner
+    `;
+    const expectedColumnPrivileges = new Set<string>();
+    for (const role of capabilityRoleRows) {
+      if (
+        role.role_name !== migrationOwner.role_name &&
+        role.capability === "API_RUNTIME"
+      ) {
+        for (const label of EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES) {
+          expectedColumnPrivileges.add(`${role.role_name}:${label}`);
+        }
+      }
+    }
+    const actualColumnPrivileges = new Set(
+      columnPrivilegeRows.map(
+        (row) => `${row.role_name ?? "PUBLIC"}:${row.label}`,
+      ),
+    );
+    if (
+      actualColumnPrivileges.size !== expectedColumnPrivileges.size ||
+      [...expectedColumnPrivileges].some(
+        (privilege) => !actualColumnPrivileges.has(privilege),
+      ) ||
+      columnPrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

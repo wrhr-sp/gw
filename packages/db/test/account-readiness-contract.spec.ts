@@ -41,11 +41,19 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("REQUIRED_PRIMARY_KEY_CONSTRAINTS");
     expect(source).toContain("REQUIRED_FOREIGN_KEY_CONSTRAINTS");
     expect(source).toContain('name: "login_id_registry_company_id_fkey"');
-    expect(source).toContain('name: "login_id_registry_company_id_actor_user_id_fkey"');
+    expect(source).toContain(
+      'name: "login_id_registry_company_id_actor_user_id_fkey"',
+    );
     expect(source).toContain('name: "login_id_registry_pkey"');
-    expect(source).toContain('name: "login_id_registry_company_id_target_user_id_key"');
-    expect(source).toContain('name: "login_id_registry_login_id_company_id_target_user_id_key"');
-    expect(source).toContain('name: "login_id_registry_company_id_actor_user_id_idempotency_key_key"');
+    expect(source).toContain(
+      'name: "login_id_registry_company_id_target_user_id_key"',
+    );
+    expect(source).toContain(
+      'name: "login_id_registry_login_id_company_id_target_user_id_key"',
+    );
+    expect(source).toContain(
+      'name: "login_id_registry_company_id_actor_user_id_idempotency_key_key"',
+    );
     expect(source).toContain('name: "login_id_registry_login_id_check"');
     expect(source).toContain('name: "login_id_registry_check"');
     expect(source).toContain('name: "users_login_name_format_check"');
@@ -90,6 +98,18 @@ describe("account administration readiness contract", () => {
     expect(apiRuntimeAllowlist).toContain('"login_id_registry:INSERT"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:DELETE"');
+    expect(source).toContain("EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES");
+    expect(source).toContain('"branches:updated_at:UPDATE"');
+    expect(source).toContain('"hotel_profiles:updated_at:UPDATE"');
+    expect(source).toContain(
+      "actualColumnPrivileges.size !== expectedColumnPrivileges.size",
+    );
+    expect(provisionSource).toContain(
+      "grant update (updated_at) on branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
+    );
+    expect(provisionSource).toContain(
+      "revoke update (updated_at) on branches, hotel_profiles\n      from ${reconcilerRole};",
+    );
     expect(source).toContain('name: "login_id_registry_immutable"');
     expect(source).toContain('policy: "login_id_registry_company_isolation"');
     expect(source).toContain(
@@ -199,7 +219,9 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("__SQL_LITERAL_");
     expect(source).toContain("runtime_has_capability('API_RUNTIME'::text)");
     expect(source).toContain("authSupportFunction.contract_safe");
-    expect(source).toContain("PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256");
+    expect(source).toContain(
+      "PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256",
+    );
     expect(source).toContain("loginRegistryTrigger.trigger_type !== 27");
     expect(source).toContain('trigger.enabled === "O"');
     expect(source).toContain("!loginRegistryTrigger.function_acl_safe");
