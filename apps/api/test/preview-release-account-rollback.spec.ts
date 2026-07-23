@@ -38,19 +38,58 @@ function validateHyperdriveList(value: unknown) {
   }
 }
 
+function validateWorkerHyperdriveBinding(
+  value: unknown,
+  bindingName = "API_HYPERDRIVE",
+) {
+  const directory = mkdtempSync(join(tmpdir(), "worker-binding-test-"));
+  const fixture = join(directory, "response.json");
+  try {
+    writeFileSync(fixture, JSON.stringify(value));
+    return spawnSync(
+      process.execPath,
+      [
+        new URL(
+          "../../../scripts/validate-cloudflare-worker-hyperdrive-binding.mjs",
+          import.meta.url,
+        ).pathname,
+        fixture,
+        bindingName,
+      ],
+      { encoding: "utf8" },
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 describe("Preview account Worker release safety", () => {
-  it("validates Hyperdrive list envelopes and preserves the legacy binding exactly", () => {
+  it("uses exact Worker binding IDs and preserves or promotes the legacy binding safely", () => {
+    const snapshot = workflowStep("Snapshot active Worker versions");
+    expect(snapshot).toContain("worker_hyperdrive_id");
+    expect(snapshot).toContain(
+      "validate-cloudflare-worker-hyperdrive-binding.mjs",
+    );
+    expect(snapshot).toContain("API_HYPERDRIVE");
+    expect(snapshot).toContain("RECONCILER_HYPERDRIVE");
+    expect(snapshot).toContain("hyperdrive_id=%s");
     const step = workflowStep("Create or update Preview Hyperdrives");
     expect(step).toContain("validate-cloudflare-hyperdrive-list.mjs");
     expect(step).toContain('if [[ "$count" -eq 0 ]]');
     expect(step).toContain("id=\"$(jq -er '.id");
     expect(step).toContain('if [[ "$count" -ne 1 ]]');
+    expect(step).toContain("hyperdrive_count");
+    expect(step).toContain("write_hyperdrive_config");
+    expect(step).toContain("$api_hyperdrive_id");
     expect(step).toContain("ensure_hyperdrive 'werehere-hotel-api-preview'");
     expect(step).not.toContain("ensure_hyperdrive 'werehere-hotel-preview'");
     expect(step).toContain('snapshot_legacy_hyperdrive "$legacy_before"');
     expect(step).toContain('snapshot_legacy_hyperdrive "$legacy_after"');
     expect(step).toContain('cmp -s "$legacy_before" "$legacy_after"');
     expect(step).toContain("PREVIEW_LEGACY_HYPERDRIVE_PRESERVED");
+    expect(step).toContain(
+      "PREVIEW_LEGACY_HYPERDRIVE_PROMOTED_TO_CANONICAL_API",
+    );
     expect(step).toContain("trap 'rm -rf \"$temp_dir\"' EXIT");
     expect(step).toContain("PREVIEW_API_HYPERDRIVE_TARGET_MISMATCH_CONFIRMED");
     expect(step).toContain("hyperdrive_target_state");
@@ -66,6 +105,81 @@ describe("Preview account Worker release safety", () => {
       '[[ -n "$id" && "$(jq -r \'.id\' "$verified_file")" != "$id" ]]',
     );
     expect(step).toContain('>"$create_output_file" 2>&1');
+  });
+
+  it("fails closed for malformed or ambiguous Worker Hyperdrive bindings", () => {
+    const id = "11111111111111111111111111111111";
+    const validBinding = {
+      name: "API_HYPERDRIVE",
+      type: "hyperdrive",
+      id,
+    };
+    const valid = validateWorkerHyperdriveBinding({
+      success: true,
+      result: {
+        bindings: [
+          { name: "OTHER_VALUE", type: "plain_text", text: "fixture" },
+          validBinding,
+        ],
+      },
+    });
+    expect(valid.status).toBe(0);
+    expect(valid.stdout).toBe(`${id}\n`);
+    expect(valid.stderr).toBe("");
+
+    const invalid = [
+      null,
+      { success: false, result: { bindings: [validBinding] } },
+      { success: true, result: {} },
+      { success: true, result: { bindings: {} } },
+      { success: true, result: { bindings: [] } },
+      {
+        success: true,
+        result: {
+          bindings: [
+            validBinding,
+            { name: "API_HYPERDRIVE", type: "hyperdrive" },
+          ],
+        },
+      },
+      {
+        success: true,
+        result: { bindings: [validBinding, { ...validBinding }] },
+      },
+      {
+        success: true,
+        result: {
+          bindings: [
+            {
+              name: "API_HYPERDRIVE",
+              type: "hyperdrive",
+              id: id.toUpperCase().replace("1", "A"),
+            },
+          ],
+        },
+      },
+      {
+        success: true,
+        result: {
+          bindings: [{ name: "API_HYPERDRIVE", type: "hyperdrive", id: 42 }],
+        },
+      },
+      {
+        success: true,
+        result: {
+          bindings: [{ name: "API_HYPERDRIVE", type: "service", id }],
+        },
+      },
+    ];
+
+    for (const fixture of invalid) {
+      const result = validateWorkerHyperdriveBinding(fixture);
+      expect(result.status).not.toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe(
+        "Worker Hyperdrive binding validation failed.\n",
+      );
+    }
   });
 
   it("keeps the one-time Hyperdrive retarget gate explicit and default-off", () => {
