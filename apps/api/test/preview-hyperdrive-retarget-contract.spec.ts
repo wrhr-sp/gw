@@ -126,6 +126,13 @@ describe("Preview Hyperdrive retarget contract", () => {
       "DENY_INVALID_ORIGIN",
     ],
     [true, "DB_DEPENDENCY_UNAVAILABLE", "MISMATCH", "COMPLETE", "RETARGET"],
+    [
+      true,
+      "DB_DEPENDENCY_UNAVAILABLE",
+      "MISMATCH",
+      "API_WEB_LEGACY",
+      "RETARGET",
+    ],
   ] as const)(
     "enforces approved retarget truth table %#",
     (approved, readiness, targetState, topology, expected) => {

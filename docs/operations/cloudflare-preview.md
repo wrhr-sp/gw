@@ -82,7 +82,8 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
    - API·reconciler·Web Worker가 모두 존재하면 EXPAND 직후 먼저 smoke를 실행한다.
    - 세 Worker가 모두 없으면 최초 배포로 진행한다.
-   - 일부만 존재하면 부분 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
+   - 기존 API·Web은 있고 account reconciler만 없으면 초기 account 전환 topology로 인정한다. 이 경우 typed API DB dependency failure와 명시 승인 아래 기존 API Hyperdrive를 exact-ID retarget하고 reconciler Hyperdrive는 새 canonical config로 생성·read-back한 뒤 reconciler Worker를 처음 배포한다.
+   - API 또는 Web이 누락된 그 밖의 부분 topology는 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
    - Preview DB branch를 교체해 기존 API Hyperdrive가 아직 canonical Preview target과 다른 일회성 전환에만 `preview_hyperdrive_retarget=true`를 명시할 수 있다. 기본값은 `false`다.
    - 이 입력은 기존 Worker의 liveness가 정상이고 readiness가 정확히 `500 INTERNAL_ERROR`인 typed DB dependency failure와 Cloudflare API에서 확인한 API Hyperdrive origin의 host·port·database·user 불일치가 동시에 있어야만 mutation을 허용한다. transport·parser·429·다른 상태/code 및 broad smoke 실패는 retarget으로 분류하지 않는다. 실제 origin 값은 로그에 출력하지 않는다.
    - 기존 config가 canonical target과 `MATCH`이면 일반 release에서 mutation하지 않고 그대로 재사용한다. `MISMATCH`는 위 승인 상태에서만 허용하며, mutation 직전 동일 ID·origin snapshot을 다시 확인한다.

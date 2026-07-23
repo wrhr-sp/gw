@@ -92,6 +92,7 @@ function runHyperdriveStep(options: {
   apiPresent?: boolean;
   reconcilerPresent?: boolean;
   workersExist?: boolean;
+  reconcilerWorkerExists?: boolean;
 }) {
   const directory = mkdtempSync(join(tmpdir(), "preview-hyperdrive-shell-"));
   const binDirectory = join(directory, "bin");
@@ -245,7 +246,7 @@ NODE
     )
     .replaceAll(
       "${{ steps.worker_snapshot.outputs.reconciler_existed }}",
-      String(options.workersExist !== false),
+      String(options.reconcilerWorkerExists ?? options.workersExist !== false),
     )
     .replaceAll(
       "${{ steps.worker_snapshot.outputs.web_existed }}",
@@ -276,9 +277,130 @@ NODE
   const snapshotFiles = existsSync(fixedSnapshotDirectory)
     ? readdirSync(fixedSnapshotDirectory).sort()
     : [];
+  const snapshotContents = Object.fromEntries(
+    snapshotFiles.map((name) => [
+      name,
+      readFileSync(join(fixedSnapshotDirectory, name), "utf8"),
+    ]),
+  );
   rmSync(fixedSnapshotDirectory, { recursive: true, force: true });
   rmSync(directory, { recursive: true, force: true });
-  return { result, calls, state, snapshotFiles };
+  return { result, calls, state, snapshotFiles, snapshotContents };
+}
+
+function runHyperdriveRecovery(
+  state: Config[],
+  snapshotContents: Record<string, string>,
+) {
+  const directory = mkdtempSync(join(tmpdir(), "preview-hyperdrive-recovery-"));
+  const binDirectory = join(directory, "bin");
+  mkdirSync(binDirectory);
+  mkdirSync(fixedSnapshotDirectory);
+  for (const [name, content] of Object.entries(snapshotContents)) {
+    writeFileSync(join(fixedSnapshotDirectory, name), content, { mode: 0o600 });
+  }
+  const stateFile = join(directory, "state.json");
+  const apiUrlFile = join(directory, "api-url");
+  const reconcilerUrlFile = join(directory, "reconciler-url");
+  writeFileSync(stateFile, JSON.stringify(state));
+  writeFileSync(
+    apiUrlFile,
+    `postgresql://${canonicalApi.user}:fixture-password@${canonicalApi.host}:${canonicalApi.port}/${canonicalApi.database}`,
+  );
+  writeFileSync(
+    reconcilerUrlFile,
+    `postgresql://${canonicalReconciler.user}:fixture-password@${canonicalReconciler.host}:${canonicalReconciler.port}/${canonicalReconciler.database}`,
+  );
+  writeFileSync(
+    join(binDirectory, "curl"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+node - "$MOCK_HYPERDRIVE_STATE" <<'NODE'
+const { readFileSync } = require("node:fs");
+const result = JSON.parse(readFileSync(process.argv[2], "utf8"));
+process.stdout.write(JSON.stringify({
+  success: true,
+  result,
+  result_info: { page: 1, per_page: 100, count: result.length, total_count: result.length, total_pages: 1 },
+}));
+NODE
+`,
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(binDirectory, "jq"),
+    `#!/usr/bin/env node
+const { readFileSync } = require("node:fs");
+const args = process.argv.slice(2);
+const variables = {};
+const positional = [];
+for (let index = 0; index < args.length; index += 1) {
+  if (args[index] === "--arg") {
+    variables[args[index + 1]] = args[index + 2];
+    index += 2;
+  } else if (!args[index].startsWith("-")) {
+    positional.push(args[index]);
+  }
+}
+const query = positional[0];
+const input = JSON.parse(readFileSync(positional[1], "utf8"));
+if (query.includes(".id") && !query.includes(".result")) {
+  if (typeof input.id !== "string" || input.id.length === 0) process.exit(1);
+  process.stdout.write(input.id + "\\n");
+  process.exit(0);
+}
+if (query.includes(".name") && !query.includes(".result")) {
+  if (typeof input.name !== "string" || input.name.length === 0) process.exit(1);
+  process.stdout.write(input.name + "\\n");
+  process.exit(0);
+}
+const selected = input.result.filter((entry) =>
+  (!variables.id || entry.id === variables.id) &&
+  (!variables.name || entry.name === variables.name)
+);
+if (query.includes("| length")) {
+  process.stdout.write(String(selected.length));
+  process.exit(0);
+}
+if (selected.length !== 1) process.exit(1);
+const entry = selected[0];
+const output = query.includes("{id, name, origin, caching}")
+  ? { id: entry.id, name: entry.name, origin: entry.origin, caching: entry.caching }
+  : entry;
+process.stdout.write(JSON.stringify(output, null, 2) + "\\n");
+`,
+    { mode: 0o755 },
+  );
+  const rollback = workflowRun("Roll back failed Worker release");
+  const start = rollback.indexOf(
+    "cloudflare_token_name=CLOUDFLARE_API_TOKEN\n",
+  );
+  const end = rollback.indexOf(
+    '\nif [[ "$CONTRACT_STARTED" == "true" ]]; then',
+    start,
+  );
+  if (start < 0 || end < 0) throw new Error("Recovery classifier is missing");
+  const script = `set -euo pipefail\n${rollback.slice(start, end)}\nclassify_hyperdrive_recovery`;
+  const result = spawnSync("bash", ["-c", script], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ""}`,
+      MOCK_HYPERDRIVE_STATE: stateFile,
+      CLOUDFLARE_ACCOUNT_ID: "fixture-account",
+      CLOUDFLARE_API_TOKEN: "fixture-token",
+      API_RUNTIME_DATABASE_URL_FILE: apiUrlFile,
+      RECONCILER_DATABASE_URL_FILE: reconcilerUrlFile,
+      CONTRACT_STARTED: "false",
+      API_DEPLOY_ATTEMPTED: "false",
+      RECONCILER_DEPLOY_ATTEMPTED: "false",
+      WEB_DEPLOY_ATTEMPTED: "false",
+    },
+  });
+  rmSync(fixedSnapshotDirectory, { recursive: true, force: true });
+  rmSync(directory, { recursive: true, force: true });
+  return result;
 }
 
 afterEach(() => {
@@ -395,6 +517,79 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
     expect(execution.calls).toEqual([]);
     expect(execution.result.stderr).toContain(
       "Hyperdrive target mismatch requires the approved retarget state",
+    );
+  });
+
+  it("retargets existing API and creates reconciler for the legacy API-Web topology", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: staleOrigin,
+      reconcilerOrigin: staleOrigin,
+      approved: true,
+      required: true,
+      reconcilerPresent: false,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.calls).toHaveLength(2);
+    expect(execution.calls[0]).toContain("hyperdrive update api-id");
+    expect(execution.calls[1]).toContain(
+      "hyperdrive create werehere-hotel-reconciler-preview",
+    );
+    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
+      canonicalApi,
+    );
+    expect(
+      execution.state.find(
+        ({ id }) => id === "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      )?.origin,
+    ).toEqual(canonicalReconciler);
+    expect(execution.snapshotFiles).toEqual([
+      "api_id-before.json",
+      "reconciler_id-create-attempted",
+      "reconciler_id-created-id",
+    ]);
+  });
+
+  it("classifies legacy API update plus reconciler create failure as split recovery", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: staleOrigin,
+      reconcilerOrigin: staleOrigin,
+      approved: true,
+      required: true,
+      reconcilerPresent: false,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+      failCreateName: "werehere-hotel-reconciler-preview",
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.calls).toHaveLength(2);
+    expect(execution.calls[0]).toContain("hyperdrive update api-id");
+    expect(execution.calls[1]).toContain(
+      "hyperdrive create werehere-hotel-reconciler-preview",
+    );
+    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
+      canonicalApi,
+    );
+    expect(
+      execution.state.some(
+        ({ name }) => name === "werehere-hotel-reconciler-preview",
+      ),
+    ).toBe(false);
+    expect(execution.snapshotFiles).toEqual([
+      "api_id-before.json",
+      "reconciler_id-create-attempted",
+    ]);
+    const recovery = runHyperdriveRecovery(
+      execution.state,
+      execution.snapshotContents,
+    );
+    expect(recovery.status).not.toBe(0);
+    expect(recovery.stderr).toContain(
+      "PREVIEW_HYPERDRIVE_SPLIT_TOPOLOGY_OPERATOR_RECOVERY_REQUIRED",
+    );
+    expect(recovery.stderr).not.toContain(
+      "PREVIEW_HYPERDRIVE_RECOVERY_STATE_INDETERMINATE",
     );
   });
 

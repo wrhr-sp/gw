@@ -84,6 +84,18 @@ describe("Preview account Worker release safety", () => {
     );
     expect(preTarget).toContain("retarget_required=true");
     expect(preTarget).toContain("PREVIEW_EXISTING_WORKER_RETARGET_REQUIRED");
+    const provisioning = workflowStep("Create or update Preview Hyperdrives");
+    expect(provisioning).toContain("retarget_topology=API_WEB_LEGACY");
+    expect(provisioning).toContain("retarget_topology=COMPLETE");
+    expect(provisioning).toContain(
+      '[[ "$api_existed" != "true" || "$web_existed" != "true" ]]',
+    );
+    expect(provisioning).toContain(
+      'DB_DEPENDENCY_UNAVAILABLE "$api_target_state" "$retarget_topology"',
+    );
+    expect(provisioning).not.toContain(
+      "requires a complete existing Worker topology",
+    );
     const canonicalTarget = workflowStep(
       "Verify previous Workers use canonical Preview Hyperdrives",
     );
