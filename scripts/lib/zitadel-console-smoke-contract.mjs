@@ -58,9 +58,7 @@ export function isSuccessfulConsoleCallbackResponse({ issuerOrigin, status, url 
     status >= 200 &&
     status < 400 &&
     candidate.pathname === "/ui/console/auth/callback" &&
-    !candidate.searchParams.has("error") &&
-    candidate.searchParams.has("code") &&
-    candidate.searchParams.has("state"),
+    !candidate.searchParams.has("error"),
   );
 }
 

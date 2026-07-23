@@ -62,6 +62,11 @@ describe("hosted Preview Console credential smoke", () => {
     })).toBe(true);
     expect(isSuccessfulConsoleCallbackResponse({
       issuerOrigin,
+      status: 200,
+      url: `${issuerOrigin}/ui/console/auth/callback`,
+    })).toBe(true);
+    expect(isSuccessfulConsoleCallbackResponse({
+      issuerOrigin,
       status: 500,
       url: `${issuerOrigin}/ui/console/auth/callback?error=denied`,
     })).toBe(false);
