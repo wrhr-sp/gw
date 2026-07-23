@@ -398,7 +398,9 @@ try {
     "0015_neon_definer_contract_hardening",
   ]);
   const migrations = contractPhase
-    ? allMigrations.filter(([version]) => version !== "0010_global_login_id_contract")
+    ? allMigrations.filter(
+        ([version]) => version !== "0010_global_login_id_contract",
+      )
     : allMigrations.filter(([version]) => !contractOnlyMigrations.has(version));
 
   const bootstrapSchema = await owner<{ exists: boolean }[]>`
@@ -434,17 +436,16 @@ try {
           rows[0]?.company_id !== previewCompanyId ||
           rows[0].provider_subject !== zitadelSubject ||
           rows[0].status !== "ACTIVE" ||
-          (
-            rows[0].login_name !== null &&
-            !["preview-admin", "previewadmin"].includes(rows[0].login_name)
-          )
+          (rows[0].login_name !== null &&
+            !["preview-admin", "previewadmin"].includes(rows[0].login_name))
         ) {
           fail("Existing Preview bootstrap identity cannot be aligned safely");
         }
         if (rows[0].login_name !== "previewadmin") {
-          const legacyLoginState = rows[0].login_name === null
-            ? "LEGACY_UNSET"
-            : "LEGACY_NON_CANONICAL";
+          const legacyLoginState =
+            rows[0].login_name === null
+              ? "LEGACY_UNSET"
+              : "LEGACY_NON_CANONICAL";
           const collision = await sql<{ exists: boolean }[]>`
             select exists (
               select 1 from public.users
@@ -460,7 +461,9 @@ try {
             values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
             on conflict (login_id) do nothing
           `;
-          const [registryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+          const [registryClaim] = await sql<
+            { company_id: string; target_user_id: string }[]
+          >`
             select company_id::text, target_user_id::text
             from public.login_id_registry
             where login_id = 'previewadmin'
@@ -469,7 +472,9 @@ try {
             registryClaim?.company_id !== previewCompanyId ||
             registryClaim.target_user_id !== previewUserId
           ) {
-            fail("Preview bootstrap canonical login ID registry claim is unavailable");
+            fail(
+              "Preview bootstrap canonical login ID registry claim is unavailable",
+            );
           }
           await sql`
             update public.users
@@ -524,7 +529,6 @@ try {
     );
   }
 
-
   await owner.begin(async (sql) => {
     const rows = await sql<
       {
@@ -552,17 +556,14 @@ try {
       rows[0]?.company_id !== previewCompanyId ||
       rows[0].provider_subject !== zitadelSubject ||
       rows[0].status !== "ACTIVE" ||
-      (
-        rows[0].login_name !== null &&
-        !["preview-admin", "previewadmin"].includes(rows[0].login_name)
-      )
+      (rows[0].login_name !== null &&
+        !["preview-admin", "previewadmin"].includes(rows[0].login_name))
     ) {
       fail("Existing Preview bootstrap identity cannot be aligned safely");
     }
     if (rows[0].login_name === "previewadmin") return;
-    const legacyLoginState = rows[0].login_name === null
-      ? "LEGACY_UNSET"
-      : "LEGACY_NON_CANONICAL";
+    const legacyLoginState =
+      rows[0].login_name === null ? "LEGACY_UNSET" : "LEGACY_NON_CANONICAL";
     const collision = await sql<{ exists: boolean }[]>`
       select exists (
         select 1 from public.users
@@ -570,13 +571,16 @@ try {
           and id <> ${previewUserId}::uuid
       ) as exists
     `;
-    if (collision[0]?.exists) fail("Preview bootstrap canonical login ID is unavailable");
+    if (collision[0]?.exists)
+      fail("Preview bootstrap canonical login ID is unavailable");
     await sql`
       insert into public.login_id_registry (login_id, company_id, target_user_id)
       values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
       on conflict (login_id) do nothing
     `;
-    const [registryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+    const [registryClaim] = await sql<
+      { company_id: string; target_user_id: string }[]
+    >`
       select company_id::text, target_user_id::text
       from public.login_id_registry
       where login_id = 'previewadmin'
@@ -585,7 +589,9 @@ try {
       registryClaim?.company_id !== previewCompanyId ||
       registryClaim.target_user_id !== previewUserId
     ) {
-      fail("Preview bootstrap canonical login ID registry claim is unavailable");
+      fail(
+        "Preview bootstrap canonical login ID registry claim is unavailable",
+      );
     }
     await sql`
       update public.users
@@ -661,7 +667,9 @@ try {
       values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
       on conflict (login_id) do nothing
     `;
-    const [seedRegistryClaim] = await sql<{ company_id: string; target_user_id: string }[]>`
+    const [seedRegistryClaim] = await sql<
+      { company_id: string; target_user_id: string }[]
+    >`
       select company_id::text, target_user_id::text
       from login_id_registry
       where login_id = 'previewadmin'
@@ -670,7 +678,9 @@ try {
       seedRegistryClaim?.company_id !== previewCompanyId ||
       seedRegistryClaim.target_user_id !== previewUserId
     ) {
-      fail("Preview bootstrap canonical login ID registry claim is unavailable");
+      fail(
+        "Preview bootstrap canonical login ID registry claim is unavailable",
+      );
     }
     await sql`
       insert into users (id, company_id, user_type, display_name, status, login_name, email)
@@ -1336,6 +1346,10 @@ try {
     grant insert, update on users, account_provisioning_attempts,
       initial_password_change_attempts to ${apiRuntimeTableGrantees};
     grant insert on login_id_registry to ${apiRuntimeTableGrantees};
+    revoke update (updated_at) on branches, hotel_profiles
+      from ${reconcilerRole};
+    grant update (updated_at) on branches, hotel_profiles
+      to ${apiRuntimeTableGrantees};
     grant insert, update, delete on idempotency_records to ${apiRuntimeTableGrantees};
     grant insert, update on outbox_jobs to ${apiRuntimeTableGrantees};
 
@@ -1653,10 +1667,7 @@ try {
         !membership.inherit_option &&
         !membership.set_option,
     );
-  if (
-    definerMembershipSafety.length !== 0 &&
-    !hasExactNeonCreatorMemberships
-  ) {
+  if (definerMembershipSafety.length !== 0 && !hasExactNeonCreatorMemberships) {
     fail("Preview definer membership cleanup failed");
   }
 

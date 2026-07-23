@@ -89,6 +89,7 @@ TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
   initial_password_change_attempts TO $RUNTIME_ROLE;
 GRANT INSERT ON login_id_registry TO $RUNTIME_ROLE;
+GRANT UPDATE (updated_at) ON branches, hotel_profiles TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
@@ -275,6 +276,32 @@ if hotel.get("status") != "PREPARING" or hotel.get("branchCode") != "WORKER-HOTE
 (root / "hotel-id.txt").write_text(hotel["id"], encoding="utf-8")
 PY
 HOTEL_ID="$(<"$TMP_DIR/hotel-id.txt")"
+psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+  -v session_id="41000000-0000-4000-8000-000000000001" \
+  -v hotel_id="$HOTEL_ID" >/dev/null <<'SQL'
+begin;
+select set_config('app.session_id', :'session_id', true);
+select branch.id
+from branches branch
+join hotel_profiles profile
+  on profile.company_id = branch.company_id and profile.branch_id = branch.id
+where branch.company_id = '11000000-0000-4000-8000-000000000001'
+  and branch.id = :'hotel_id'::uuid
+for update of branch, profile;
+rollback;
+SQL
+if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+  -v session_id="41000000-0000-4000-8000-000000000001" \
+  -v hotel_id="$HOTEL_ID" >/dev/null 2>&1 <<'SQL'
+begin;
+select set_config('app.session_id', :'session_id', true);
+update branches set status = 'INACTIVE' where id = :'hotel_id'::uuid;
+rollback;
+SQL
+then
+  printf 'API runtime unexpectedly received branch status UPDATE privilege.\n' >&2
+  exit 1
+fi
 HOTEL_DETAIL_STATUS="$(curl --silent --show-error -o "$TMP_DIR/hotel-detail.json" -w '%{http_code}' \
   -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID")"
 
