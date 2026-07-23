@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Root smoke helper is executable JavaScript outside the TS workspace.
-import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
+import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, consoleCustomLoginResponseFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
 
 const smokeScriptUrl = new URL(
   "../../../scripts/smoke-zitadel-console-preview.mjs",
@@ -127,9 +127,46 @@ describe("hosted Preview Console credential smoke", () => {
     }
   });
 
+  it("classifies custom login POST redirects without exposing their URL", () => {
+    const issuerOrigin = "https://identity.example.test";
+    const webOrigin = "https://preview.example.test";
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 302,
+      location: `${issuerOrigin}/ui/console/auth/callback?opaque=redacted`,
+    })).toBeNull();
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 500,
+      location: null,
+    })).toBe("CUSTOM_LOGIN_RESPONSE_STATUS");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/api/auth/custom-login/start?error=invalid-credentials&authRequest=redacted`,
+    })).toBe("CUSTOM_LOGIN_REDIRECT_INVALID_CREDENTIALS");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/login?error=invalid-flow`,
+    })).toBe("CUSTOM_LOGIN_REDIRECT_INVALID_FLOW");
+  });
+
   it("classifies credential completion failures with a fixed secret-safe stage", () => {
     expect(CONSOLE_CREDENTIAL_FAILURE_STAGES).toEqual([
       "SUBMIT",
+      "CUSTOM_LOGIN_RESPONSE",
+      "CUSTOM_LOGIN_RESPONSE_STATUS",
+      "CUSTOM_LOGIN_REDIRECT_INVALID_FLOW",
+      "CUSTOM_LOGIN_REDIRECT_INVALID_CREDENTIALS",
+      "CUSTOM_LOGIN_REDIRECT_MFA_REQUIRED",
+      "CUSTOM_LOGIN_REDIRECT_RATE_LIMITED",
+      "CUSTOM_LOGIN_REDIRECT_UNAVAILABLE",
+      "CUSTOM_LOGIN_REDIRECT_OTHER",
       "CALLBACK_REQUEST",
       "CALLBACK_RESPONSE",
       "CALLBACK_RESPONSE_STATUS",
@@ -216,6 +253,9 @@ describe("hosted Preview Console credential smoke", () => {
     expect(source).toContain('page.locator("#login-name").fill("previewadmin")');
     expect(source).toContain('page.locator("#login-password").fill(previewPassword)');
     expect(source).toContain('page.getByRole("button", { name: "로그인", exact: true }).click()');
+    expect(source).toContain("consoleCustomLoginResponseFailureStage");
+    expect(source).toContain('candidate.pathname === "/api/auth/custom-login"');
+    expect(source).toContain('headerValue("location")');
     expect(source).toContain("isConsoleCallbackTarget");
     expect(source).toContain("consoleCallbackResponseFailureStage");
     expect(source).toContain("isAuthenticatedConsoleResponse");
