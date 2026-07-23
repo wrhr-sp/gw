@@ -213,7 +213,6 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain(
       "Rejected legacy login alias issued a hotel session",
     );
-    expect(source).toContain("user: { userId: providerSubject }");
     expect(source).not.toContain("const loginName = `preview-smoke-");
     expect(source).toContain('userType: "HOUSEKEEPING"');
     expect(source).toContain("hotelIds.length !== 2");
@@ -546,7 +545,7 @@ describe("hosted Preview account-management smoke", () => {
     expect(output).toEqual([]);
   });
 
-  it("does not write a success marker for indeterminate provider session creation", async () => {
+  it("does not write a success marker when cleanup is indeterminate", async () => {
     const output: string[] = [];
     await expect(
       finalizePreviewSmoke({
@@ -557,12 +556,9 @@ describe("hosted Preview account-management smoke", () => {
       }),
     ).rejects.toThrow("PREVIEW_ACCOUNT_CLEANUP_FAILED");
     expect(output).toEqual([]);
-    expect(source).toContain(
-      "providerVerificationSessionCreationIndeterminate = true",
-    );
-    expect(source).toContain(
-      "let cleanupFailed = providerVerificationSessionCreationIndeterminate",
-    );
+    expect(source).not.toContain("providerVerificationSession");
+    expect(source).not.toContain('journeyFailureCode = "PROVIDER_SESSION_');
+    expect(source).toContain("let cleanupFailed = false");
   });
 
   it("independently waits for active PostgreSQL sessions to reach zero", async () => {

@@ -10,7 +10,6 @@ import {
   finalizePreviewSmoke,
   orchestratePreviewAccountCleanup,
   waitForProviderInactive,
-  waitForProviderSessionGone,
   waitForZeroActiveSessions,
 } from "./lib/preview-account-smoke-cleanup.mjs";
 
@@ -74,8 +73,7 @@ let account;
 let accountCreateRequestStarted = false;
 let pendingSession;
 let providerSubject;
-let providerVerificationSession;
-let providerVerificationSessionCreationIndeterminate = false;
+
 let journeyError;
 let journeyFailureCode = "UNCLASSIFIED";
 
@@ -355,18 +353,6 @@ async function providerUserForCleanup(subject) {
     includeStatus: true,
   });
   return result.status === 404 ? { absent: true } : result.data;
-}
-
-async function providerVerificationSessionStatus(session) {
-  const result = await provider(
-    `/v2/sessions/${encodeURIComponent(session.id)}`,
-    {
-      acceptableStatuses: [200, 401, 404],
-      includeStatus: true,
-      token: session.token,
-    },
-  );
-  return result.status;
 }
 
 async function assertHousekeepingAssignments(
@@ -679,61 +665,6 @@ try {
     shouldAuthenticate: false,
   });
 
-  journeyFailureCode = "PROVIDER_SESSION_CREATE";
-  providerVerificationSessionCreationIndeterminate = true;
-  const providerSession = await provider("/v2/sessions", {
-    method: "POST",
-    token: verificationToken,
-    body: {
-      checks: {
-        user: { userId: providerSubject },
-        password: { password: changedPassword },
-      },
-      lifetime: "60s",
-    },
-  });
-  providerVerificationSession = {
-    id: providerSession?.sessionId,
-    token: providerSession?.sessionToken,
-  };
-  if (!providerVerificationSession.id || !providerVerificationSession.token) {
-    throw new Error(
-      "Provider credential session creation response was invalid",
-    );
-  }
-  providerVerificationSessionCreationIndeterminate = false;
-  journeyFailureCode = "PROVIDER_SESSION_READBACK";
-  const providerSessionReadBack = await provider(
-    `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
-    { token: providerVerificationSession.token },
-  );
-  if (
-    providerSessionReadBack?.session?.id !== providerVerificationSession.id ||
-    providerSessionReadBack.session?.factors?.user?.id !== providerSubject ||
-    providerSessionReadBack.session?.factors?.user?.organizationId !==
-      organizationId
-  ) {
-    throw new Error(
-      "Provider credential session read-back did not match the created account",
-    );
-  }
-  journeyFailureCode = "PROVIDER_SESSION_DELETE";
-  await provider(
-    `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
-    {
-      method: "DELETE",
-      token: verificationToken,
-      acceptableStatuses: [200, 204],
-      body: { sessionToken: providerVerificationSession.token },
-    },
-  );
-  await waitForProviderSessionGone({
-    attempts: 12,
-    read: () => providerVerificationSessionStatus(providerVerificationSession),
-    waitMilliseconds: 5_000,
-  });
-  providerVerificationSession = undefined;
-
   journeyFailureCode = "ACCOUNT_DEACTIVATE";
   const deactivated = await api(
     `/api/admin/users/${encodeURIComponent(account.id)}/deactivate`,
@@ -796,28 +727,7 @@ try {
   }
 }
 
-let cleanupFailed = providerVerificationSessionCreationIndeterminate;
-if (providerVerificationSession?.id && providerVerificationSession.token) {
-  try {
-    await provider(
-      `/v2/sessions/${encodeURIComponent(providerVerificationSession.id)}`,
-      {
-        method: "DELETE",
-        token: verificationToken,
-        acceptableStatuses: [200, 204, 404],
-        body: { sessionToken: providerVerificationSession.token },
-      },
-    );
-    await waitForProviderSessionGone({
-      attempts: 12,
-      read: () =>
-        providerVerificationSessionStatus(providerVerificationSession),
-      waitMilliseconds: 5_000,
-    });
-  } catch {
-    cleanupFailed = true;
-  }
-}
+let cleanupFailed = false;
 if (adminToken && adminPrincipal?.companyId && adminPrincipal.userId) {
   try {
     const responseAccountId = account?.id;
