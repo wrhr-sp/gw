@@ -182,9 +182,29 @@ async function api(
         // Status and stable error code are the only diagnostics; bodies may contain sensitive data.
       }
     }
-    throw new Error(
+    const error = new Error(
       `Account Preview smoke ${path} failed with ${response.status} (${code})`,
     );
+    const accountCreateCodes = new Set([
+      "ACCOUNT_DUPLICATE",
+      "AUTH_REQUIRED",
+      "EXTERNAL_AUTH_NOT_CONFIGURED",
+      "EXTERNAL_AUTH_UNAVAILABLE",
+      "FORBIDDEN",
+      "IDEMPOTENCY_CONFLICT",
+      "INTERNAL_ERROR",
+      "SCHEMA_NOT_READY",
+      "VALIDATION_ERROR",
+    ]);
+    if (
+      path === "/api/admin/users" &&
+      method === "POST" &&
+      journeyFailureCode === "ACCOUNT_CREATE" &&
+      accountCreateCodes.has(code)
+    ) {
+      error.previewFailureCode = `ACCOUNT_CREATE_${code}`;
+    }
+    throw error;
   }
   if (response.status === 204) return null;
   return response.json();
