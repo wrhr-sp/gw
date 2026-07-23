@@ -828,6 +828,26 @@ jobs:
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
 
+      - name: Expand Preview account identity lock ACL after API deploy
+        env:
+          PREVIEW_PROVISION_PHASE: EXPAND_IDENTITY_LOCK
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
+          DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+          PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
+        run: pnpm exec tsx packages/db/scripts/provision-preview.ts
+
+      - name: Verify deployed API accepts staged identity lock ACL
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          node scripts/smoke-cloudflare-preview.mjs
+          node scripts/smoke-zitadel-console-preview.mjs
+
       - name: Build OpenNext Web Worker
         run: pnpm --filter @werehere/web build:cloudflare
 

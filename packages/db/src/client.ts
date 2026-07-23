@@ -548,10 +548,14 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
   "users:SELECT",
 ] as const;
 
-const EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES = [
-  "auth_identities:updated_at:UPDATE",
+const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
+] as const;
+
+const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
+  "auth_identities:updated_at:UPDATE",
+  ...EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -1953,26 +1957,39 @@ export async function probeDatabaseReadiness(
         and not column_record.attisdropped
         and acl.grantee <> table_record.relowner
     `;
-    const expectedColumnPrivileges = new Set<string>();
-    for (const role of capabilityRoleRows) {
-      if (
-        role.role_name !== migrationOwner.role_name &&
-        role.capability === "API_RUNTIME"
-      ) {
-        for (const label of EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES) {
-          expectedColumnPrivileges.add(`${role.role_name}:${label}`);
+    const expectedColumnPrivilegeCandidates = (
+      schemaPhase === "EXPAND"
+        ? [
+            EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
+            EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES,
+          ]
+        : [EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES]
+    ).map((labels) => {
+      const expected = new Set<string>();
+      for (const role of capabilityRoleRows) {
+        if (
+          role.role_name !== migrationOwner.role_name &&
+          role.capability === "API_RUNTIME"
+        ) {
+          for (const label of labels) {
+            expected.add(`${role.role_name}:${label}`);
+          }
         }
       }
-    }
+      return expected;
+    });
     const actualColumnPrivileges = new Set(
       columnPrivilegeRows.map(
         (row) => `${row.role_name ?? "PUBLIC"}:${row.label}`,
       ),
     );
     if (
-      actualColumnPrivileges.size !== expectedColumnPrivileges.size ||
-      [...expectedColumnPrivileges].some(
-        (privilege) => !actualColumnPrivileges.has(privilege),
+      !expectedColumnPrivilegeCandidates.some(
+        (expected) =>
+          actualColumnPrivileges.size === expected.size &&
+          [...expected].every((privilege) =>
+            actualColumnPrivileges.has(privilege),
+          ),
       ) ||
       columnPrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
