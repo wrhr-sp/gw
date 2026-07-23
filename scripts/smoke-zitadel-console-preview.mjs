@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
 import {
+  consoleCredentialCompletionFailureStage,
+  consoleCredentialFailureMarker,
   isAuthenticatedConsoleResponse,
   isSuccessfulConsoleCallbackResponse,
   isValidConsoleLanding,
@@ -66,6 +68,7 @@ if (
 }
 
 const browser = await chromium.launch({ headless: true });
+let browserFlowFailure;
 try {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -97,6 +100,7 @@ try {
   }
 
   if (requireCredentialCallback) {
+    let credentialFailureStage = "SUBMIT";
     try {
       const callbackResponse = page.waitForResponse((response) =>
         isSuccessfulConsoleCallbackResponse({
@@ -116,10 +120,22 @@ try {
         (candidate) => isValidConsoleLanding(candidate.toString(), issuerUrl.origin),
         { timeout: 60_000 },
       );
+      const credentialCompletion = Promise.allSettled([
+        callbackResponse,
+        authenticatedUserResponse,
+        authenticatedLanding,
+      ]);
       await page.locator("#login-name").fill("previewadmin");
       await page.locator("#login-password").fill(previewPassword);
       await page.getByRole("button", { name: "로그인", exact: true }).click();
-      await Promise.all([callbackResponse, authenticatedUserResponse, authenticatedLanding]);
+      const completionFailureStage = consoleCredentialCompletionFailureStage(
+        await credentialCompletion,
+      );
+      if (completionFailureStage) {
+        credentialFailureStage = completionFailureStage;
+        throw new Error("credential-stage-failed");
+      }
+      credentialFailureStage = "TOKEN_IDENTITY";
       const consoleIdentityVerified = await page.evaluate(
         ({ expectedAudience, expectedIssuer, expectedSubject }) => {
           for (const storage of [window.sessionStorage, window.localStorage]) {
@@ -152,20 +168,35 @@ try {
           expectedSubject: bootstrapSubject,
         },
       );
-      if (!consoleIdentityVerified) {
-        throw new Error("Preview Console authenticated identity could not be verified");
+      if (!consoleIdentityVerified) throw new Error("credential-stage-failed");
+    } catch {
+      throw new Error(consoleCredentialFailureMarker(credentialFailureStage));
+    }
+    try {
+      const terminalCookies = await context.cookies(webPreviewUrl);
+      if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {
+        throw new Error("credential-cookie-remained");
       }
     } catch {
-      throw new Error("Preview Console credential flow did not complete authenticated read-back");
-    }
-    const terminalCookies = await context.cookies(webPreviewUrl);
-    if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {
-      throw new Error("Preview Console browser binding cookie remained after terminal success");
+      throw new Error(consoleCredentialFailureMarker("COOKIE_CLEANUP"));
     }
   }
+} catch (error) {
+  browserFlowFailure = error;
 } finally {
-  await browser.close();
+  try {
+    await browser.close();
+  } catch {
+    if (!browserFlowFailure) {
+      browserFlowFailure = new Error(
+        requireCredentialCallback
+          ? consoleCredentialFailureMarker("BROWSER_CLOSE")
+          : "ZITADEL_CONSOLE_PREVIEW_BROWSER_CLOSE_FAILED",
+      );
+    }
+  }
 }
+if (browserFlowFailure) throw browserFlowFailure;
 
 console.log(
   requireCredentialCallback
