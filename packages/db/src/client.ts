@@ -549,6 +549,7 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
 ] as const;
 
 const EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES = [
+  "auth_identities:updated_at:UPDATE",
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
 ] as const;

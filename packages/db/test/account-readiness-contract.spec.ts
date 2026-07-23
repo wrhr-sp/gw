@@ -99,16 +99,17 @@ describe("account administration readiness contract", () => {
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:DELETE"');
     expect(source).toContain("EXPECTED_API_RUNTIME_COLUMN_PRIVILEGES");
+    expect(source).toContain('"auth_identities:updated_at:UPDATE"');
     expect(source).toContain('"branches:updated_at:UPDATE"');
     expect(source).toContain('"hotel_profiles:updated_at:UPDATE"');
     expect(source).toContain(
       "actualColumnPrivileges.size !== expectedColumnPrivileges.size",
     );
     expect(provisionSource).toContain(
-      "grant update (updated_at) on branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
+      "grant update (updated_at) on auth_identities, branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
     );
     expect(provisionSource).toContain(
-      "revoke update (updated_at) on branches, hotel_profiles\n      from ${reconcilerRole};",
+      "revoke update (updated_at) on auth_identities, branches, hotel_profiles\n      from ${reconcilerRole};",
     );
     expect(source).toContain('name: "login_id_registry_immutable"');
     expect(source).toContain('policy: "login_id_registry_company_isolation"');
