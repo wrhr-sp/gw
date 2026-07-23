@@ -2,10 +2,11 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
 import {
+  consoleCallbackResponseFailureStage,
   consoleCredentialCompletionFailureStage,
   consoleCredentialFailureMarker,
   isAuthenticatedConsoleResponse,
-  isSuccessfulConsoleCallbackResponse,
+  isConsoleCallbackTarget,
   isValidConsoleLanding,
 } from "./lib/zitadel-console-smoke-contract.mjs";
 
@@ -102,10 +103,15 @@ try {
   if (requireCredentialCallback) {
     let credentialFailureStage = "SUBMIT";
     try {
-      const callbackResponse = page.waitForResponse((response) =>
-        isSuccessfulConsoleCallbackResponse({
+      const callbackRequest = page.waitForRequest((request) =>
+        isConsoleCallbackTarget({
           issuerOrigin: issuerUrl.origin,
-          status: response.status(),
+          url: request.url(),
+        }),
+      { timeout: 60_000 });
+      const callbackResponse = page.waitForResponse((response) =>
+        isConsoleCallbackTarget({
+          issuerOrigin: issuerUrl.origin,
           url: response.url(),
         }),
       { timeout: 60_000 });
@@ -121,6 +127,7 @@ try {
         { timeout: 60_000 },
       );
       const credentialCompletion = Promise.allSettled([
+        callbackRequest,
         callbackResponse,
         authenticatedUserResponse,
         authenticatedLanding,
@@ -128,13 +135,19 @@ try {
       await page.locator("#login-name").fill("previewadmin");
       await page.locator("#login-password").fill(previewPassword);
       await page.getByRole("button", { name: "로그인", exact: true }).click();
-      const completionFailureStage = consoleCredentialCompletionFailureStage(
-        await credentialCompletion,
-      );
+      const completionResults = await credentialCompletion;
+      const completionFailureStage = consoleCredentialCompletionFailureStage(completionResults);
       if (completionFailureStage) {
         credentialFailureStage = completionFailureStage;
         throw new Error("credential-stage-failed");
       }
+      const callbackResult = completionResults[1];
+      credentialFailureStage = consoleCallbackResponseFailureStage({
+        issuerOrigin: issuerUrl.origin,
+        status: callbackResult.value.status(),
+        url: callbackResult.value.url(),
+      });
+      if (credentialFailureStage) throw new Error("credential-stage-failed");
       credentialFailureStage = "TOKEN_IDENTITY";
       const consoleIdentityVerified = await page.evaluate(
         ({ expectedAudience, expectedIssuer, expectedSubject }) => {
