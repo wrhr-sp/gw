@@ -80,9 +80,16 @@ URL fragment는 브라우저가 Worker로 전송하지 않으므로 Cloudflare r
 3. advisory lock을 획득한다.
 4. `EXPAND`에서는 additive·기존 Worker 호환 migration을 적용한다. 로그인 ID는 `0009`에서 전역 unique와 immutable `login_id_registry`를 추가하되 strict 사용자 FK는 아직 적용하지 않는다.
 5. 기존 Worker의 공개·인증 compatibility smoke가 성공한 뒤 신규 Worker를 배포한다.
-   - API·reconciler·Web Worker가 모두 존재하면 smoke를 실행한다.
+   - API·reconciler·Web Worker가 모두 존재하면 EXPAND 직후 먼저 smoke를 실행한다.
    - 세 Worker가 모두 없으면 최초 배포로 진행한다.
    - 일부만 존재하면 부분 복구 상태로 판단해 `EXPAND` 전에 fail-closed한다.
+   - Preview DB branch를 교체해 기존 API Hyperdrive가 아직 canonical Preview target과 다른 일회성 전환에만 `preview_hyperdrive_retarget=true`를 명시할 수 있다. 기본값은 `false`다.
+   - 이 입력은 기존 Worker의 liveness가 정상이고 readiness가 정확히 `500 INTERNAL_ERROR`인 typed DB dependency failure와 Cloudflare API에서 확인한 API Hyperdrive origin의 host·port·database·user 불일치가 동시에 있어야만 mutation을 허용한다. transport·parser·429·다른 상태/code 및 broad smoke 실패는 retarget으로 분류하지 않는다. 실제 origin 값은 로그에 출력하지 않는다.
+   - 기존 config가 canonical target과 `MATCH`이면 일반 release에서 mutation하지 않고 그대로 재사용한다. `MISMATCH`는 위 승인 상태에서만 허용하며, mutation 직전 동일 ID·origin snapshot을 다시 확인한다.
+   - API와 reconciler Hyperdrive 모두 mutation 직후 canonical origin `MATCH`를 authoritative read-back해야 한다. 최초 배포 create는 pinned Wrangler 성공 출력에서 32자 exact ID를 캡처하고 같은 ID로 read-back한다. create 시도와 absent-before 상태도 recovery marker로 보존하며, 생성한 canonical config는 durable Preview 기반으로 유지한다.
+   - Hyperdrive 정렬 직후 기존 Web/API 및 Console smoke를 다시 통과해야 하며, 통과 전에는 reconciler·API·Web Worker를 배포하지 않는다.
+   - Hyperdrive API는 조건부 update/ETag를 제공하지 않으므로 자동 origin rollback으로 다른 관리자 변경을 덮지 않는다. 실패 시 update snapshot 또는 create-attempt/created-ID marker를 기준으로 현재 origin을 다시 읽어 `ABSENT`, `ORIGINAL`, `CANONICAL`, split 또는 indeterminate로 분류하고 안정적인 operator-recovery marker와 함께 중단한다. canonical alignment는 명시적으로 durable하며, split/indeterminate 상태에서는 topology를 확인·복구하기 전 재-dispatch하지 않는다.
+   - Worker 배포 또는 CONTRACT가 시작된 뒤에도 자동 topology rollback을 금지하고 operator recovery로 중단한다.
 6. 신규 Worker의 public smoke가 성공한 뒤에만 `CONTRACT`에서 `0008`의 legacy tenant authority·broad ACL 제거와 `0010`의 canonical 형식·예약 ID·registry FK를 적용한다.
 7. 승인된 subject fingerprint·organization·고정 approval 참조를 확인하고 Preview 관리자와 회사 범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 canonical row 전체 값으로 멱등 연결한다.
 8. bootstrap audit의 tenant·actor·resource·fingerprint·approval·trace 전체 값이 정본과 다르면 성공으로 처리하지 않는다.

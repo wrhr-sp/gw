@@ -43,7 +43,7 @@ describe("Preview account Worker release safety", () => {
     const step = workflowStep("Create or update Preview Hyperdrives");
     expect(step).toContain("validate-cloudflare-hyperdrive-list.mjs");
     expect(step).toContain('if [[ "$count" -eq 0 ]]');
-    expect(step).toContain('id="$(jq -er --arg name "$name"');
+    expect(step).toContain("id=\"$(jq -er '.id");
     expect(step).toContain('if [[ "$count" -ne 1 ]]');
     expect(step).toContain("ensure_hyperdrive 'werehere-hotel-api-preview'");
     expect(step).not.toContain("ensure_hyperdrive 'werehere-hotel-preview'");
@@ -52,6 +52,47 @@ describe("Preview account Worker release safety", () => {
     expect(step).toContain('cmp -s "$legacy_before" "$legacy_after"');
     expect(step).toContain("PREVIEW_LEGACY_HYPERDRIVE_PRESERVED");
     expect(step).toContain("trap 'rm -rf \"$temp_dir\"' EXIT");
+    expect(step).toContain("PREVIEW_API_HYPERDRIVE_TARGET_MISMATCH_CONFIRMED");
+    expect(step).toContain("hyperdrive_target_state");
+    expect(step).toContain("preview-hyperdrive-retarget-contract.mjs");
+    expect(step).toContain('decide "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED"');
+    expect(step).toContain('if [[ "$allow_mismatch" != "true" ]]');
+    expect(step).toContain("Hyperdrive canonical origin read-back failed");
+    expect(step).toContain('cmp -s "$current_file" "$verified_file"');
+    expect(step).toContain("parse-created-id");
+    expect(step).toContain("${output_name}-create-attempted");
+    expect(step).toContain("${output_name}-created-id");
+    expect(step).toContain(
+      '[[ -n "$id" && "$(jq -r \'.id\' "$verified_file")" != "$id" ]]',
+    );
+    expect(step).toContain('>"$create_output_file" 2>&1');
+  });
+
+  it("keeps the one-time Hyperdrive retarget gate explicit and default-off", () => {
+    expect(workflow).toContain("preview_hyperdrive_retarget:");
+    expect(workflow).toContain("default: false");
+    const preTarget = workflowStep(
+      "Verify previous Workers remain compatible after expand",
+    );
+    expect(preTarget).toContain("PREVIEW_HYPERDRIVE_RETARGET_APPROVED");
+    expect(preTarget).toContain(
+      "preview-hyperdrive-retarget-contract.mjs probe",
+    );
+    expect(preTarget).toContain('readiness_status" -ne 10');
+    expect(preTarget).toContain(
+      'readiness_classification" != "DB_DEPENDENCY_UNAVAILABLE"',
+    );
+    expect(preTarget).toContain("retarget_required=true");
+    expect(preTarget).toContain("PREVIEW_EXISTING_WORKER_RETARGET_REQUIRED");
+    const canonicalTarget = workflowStep(
+      "Verify previous Workers use canonical Preview Hyperdrives",
+    );
+    expect(canonicalTarget).toContain(
+      "node scripts/smoke-cloudflare-preview.mjs",
+    );
+    expect(canonicalTarget).toContain(
+      "node scripts/smoke-zitadel-console-preview.mjs",
+    );
   });
 
   it("rejects malformed or contradictory Hyperdrive pagination before mutation", () => {
@@ -135,6 +176,12 @@ describe("Preview account Worker release safety", () => {
     const compatibilityPosition = workflow.indexOf(
       "      - name: Verify previous Workers remain compatible after expand\n",
     );
+    const hyperdrivePosition = workflow.indexOf(
+      "      - name: Create or update Preview Hyperdrives\n",
+    );
+    const canonicalCompatibilityPosition = workflow.indexOf(
+      "      - name: Verify previous Workers use canonical Preview Hyperdrives\n",
+    );
     const deployPosition = workflow.indexOf(
       "      - name: Deploy private account reconciler Worker\n",
     );
@@ -163,7 +210,9 @@ describe("Preview account Worker release safety", () => {
     expect(topologyPosition).toBeGreaterThan(snapshotPosition);
     expect(expandPosition).toBeGreaterThan(topologyPosition);
     expect(compatibilityPosition).toBeGreaterThan(expandPosition);
-    expect(deployPosition).toBeGreaterThan(compatibilityPosition);
+    expect(hyperdrivePosition).toBeGreaterThan(compatibilityPosition);
+    expect(canonicalCompatibilityPosition).toBeGreaterThan(hyperdrivePosition);
+    expect(deployPosition).toBeGreaterThan(canonicalCompatibilityPosition);
     expect(apiDeployPosition).toBeGreaterThan(deployPosition);
     expect(webDeployPosition).toBeGreaterThan(apiDeployPosition);
     expect(preContractSmokePosition).toBeGreaterThan(webDeployPosition);
@@ -172,7 +221,9 @@ describe("Preview account Worker release safety", () => {
     expect(smokePosition).toBeGreaterThan(contractPosition);
     expect(baselinePosition).toBeGreaterThan(smokePosition);
     expect(
-      workflowStep("Verify hosted Preview account management and canonical login before contract"),
+      workflowStep(
+        "Verify hosted Preview account management and canonical login before contract",
+      ),
     ).toContain("node scripts/smoke-account-preview.mjs");
     const baseline = workflowStep(
       "Record secure session-authority rollback baseline",
@@ -191,7 +242,30 @@ describe("Preview account Worker release safety", () => {
     );
   });
 
-  it("fails closed without an unfenced automatic rollback mutation", () => {
+  it("classifies Hyperdrive state without an unfenced automatic rollback mutation", () => {
+    const step = workflowStep("Roll back failed Worker release");
+    expect(step).toContain("classify_hyperdrive_recovery");
+    expect(step).toContain("api_id-before.json");
+    expect(step).toContain("reconciler_id-before.json");
+    expect(step).toContain("api_id-create-attempted");
+    expect(step).toContain("reconciler_id-create-attempted");
+    expect(step).toContain("api_id-created-id");
+    expect(step).toContain("reconciler_id-created-id");
+    expect(step).toContain('[[ "$id" =~ ^[0-9a-f]{32}$ ]]');
+    expect(step).toContain("printf 'ABSENT\\n'");
+    expect(step).toContain("validate-cloudflare-hyperdrive-list.mjs");
+    expect(step).toContain(
+      "PREVIEW_HYPERDRIVE_SPLIT_TOPOLOGY_OPERATOR_RECOVERY_REQUIRED",
+    );
+    expect(step).toContain(
+      "PREVIEW_HYPERDRIVES_CANONICAL_DURABLE_OPERATOR_RECOVERY_REQUIRED",
+    );
+    expect(step).toContain("PREVIEW_HYPERDRIVE_RECOVERY_STATE_INDETERMINATE");
+    expect(step).not.toContain("wrangler hyperdrive update");
+    expect(step).not.toContain("restore_hyperdrive");
+  });
+
+  it("fails closed without an unfenced automatic Worker rollback mutation", () => {
     const step = workflowStep("Roll back failed Worker release");
     for (const name of [
       "RECONCILER_PREVIOUS",
