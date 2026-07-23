@@ -40,7 +40,7 @@ function validateHyperdriveList(value: unknown) {
 
 function validateWorkerHyperdriveBinding(
   value: unknown,
-  bindingName = "API_HYPERDRIVE",
+  bindingNames = ["API_HYPERDRIVE"],
 ) {
   const directory = mkdtempSync(join(tmpdir(), "worker-binding-test-"));
   const fixture = join(directory, "response.json");
@@ -54,7 +54,7 @@ function validateWorkerHyperdriveBinding(
           import.meta.url,
         ).pathname,
         fixture,
-        bindingName,
+        ...bindingNames,
       ],
       { encoding: "utf8" },
     );
@@ -72,6 +72,9 @@ describe("Preview account Worker release safety", () => {
     );
     expect(snapshot).toContain("API_HYPERDRIVE");
     expect(snapshot).toContain("RECONCILER_HYPERDRIVE");
+    expect(snapshot).toContain(
+      'worker_hyperdrive_id "$worker_name" API_HYPERDRIVE HYPERDRIVE',
+    );
     expect(snapshot).toContain("hyperdrive_id=%s");
     const step = workflowStep("Create or update Preview Hyperdrives");
     expect(step).toContain("validate-cloudflare-hyperdrive-list.mjs");
@@ -114,18 +117,50 @@ describe("Preview account Worker release safety", () => {
       type: "hyperdrive",
       id,
     };
-    const valid = validateWorkerHyperdriveBinding({
-      success: true,
-      result: {
-        bindings: [
-          { name: "OTHER_VALUE", type: "plain_text", text: "fixture" },
-          validBinding,
-        ],
+    const acceptedApiBindingNames = ["API_HYPERDRIVE", "HYPERDRIVE"];
+    const valid = validateWorkerHyperdriveBinding(
+      {
+        success: true,
+        result: {
+          bindings: [
+            { name: "OTHER_VALUE", type: "plain_text", text: "fixture" },
+            validBinding,
+          ],
+        },
       },
-    });
+      acceptedApiBindingNames,
+    );
     expect(valid.status).toBe(0);
     expect(valid.stdout).toBe(`${id}\n`);
     expect(valid.stderr).toBe("");
+
+    const legacy = validateWorkerHyperdriveBinding(
+      {
+        success: true,
+        result: {
+          bindings: [{ ...validBinding, name: "HYPERDRIVE" }],
+        },
+      },
+      acceptedApiBindingNames,
+    );
+    expect(legacy.status).toBe(0);
+    expect(legacy.stdout).toBe(`${id}\n`);
+    expect(legacy.stderr).toBe("");
+
+    const ambiguousAlias = validateWorkerHyperdriveBinding(
+      {
+        success: true,
+        result: {
+          bindings: [validBinding, { ...validBinding, name: "HYPERDRIVE" }],
+        },
+      },
+      acceptedApiBindingNames,
+    );
+    expect(ambiguousAlias.status).not.toBe(0);
+    expect(ambiguousAlias.stdout).toBe("");
+    expect(ambiguousAlias.stderr).toBe(
+      "Worker Hyperdrive binding validation failed.\n",
+    );
 
     const invalid = [
       null,

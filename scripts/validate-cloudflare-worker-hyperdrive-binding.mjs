@@ -11,20 +11,26 @@ function isPlainObject(value) {
   );
 }
 
-export function validateWorkerHyperdriveBinding(envelope, bindingName) {
+export function validateWorkerHyperdriveBinding(envelope, bindingNames) {
+  const acceptedNames = Array.isArray(bindingNames)
+    ? bindingNames
+    : [bindingNames];
   if (
     !isPlainObject(envelope) ||
     envelope.success !== true ||
     !isPlainObject(envelope.result) ||
     !Array.isArray(envelope.result.bindings) ||
-    typeof bindingName !== "string" ||
-    bindingName.length === 0
+    acceptedNames.length === 0 ||
+    acceptedNames.some(
+      (name) => typeof name !== "string" || name.length === 0,
+    ) ||
+    new Set(acceptedNames).size !== acceptedNames.length
   ) {
     throw new Error("Worker settings binding envelope was invalid");
   }
 
   const matchingName = envelope.result.bindings.filter(
-    (binding) => isPlainObject(binding) && binding.name === bindingName,
+    (binding) => isPlainObject(binding) && acceptedNames.includes(binding.name),
   );
   if (matchingName.length !== 1) {
     throw new Error("Worker Hyperdrive binding was unavailable or ambiguous");
@@ -43,15 +49,15 @@ export function validateWorkerHyperdriveBinding(envelope, bindingName) {
 }
 
 async function main() {
-  const [inputPath, bindingName] = process.argv.slice(2);
-  if (!inputPath || !bindingName) {
+  const [inputPath, ...bindingNames] = process.argv.slice(2);
+  if (!inputPath || bindingNames.length === 0) {
     throw new Error(
-      "Usage: validate-cloudflare-worker-hyperdrive-binding.mjs <settings.json> <binding-name>",
+      "Usage: validate-cloudflare-worker-hyperdrive-binding.mjs <settings.json> <binding-name> [binding-alias...]",
     );
   }
   const envelope = JSON.parse(await readFile(resolve(inputPath), "utf8"));
   process.stdout.write(
-    `${validateWorkerHyperdriveBinding(envelope, bindingName)}\n`,
+    `${validateWorkerHyperdriveBinding(envelope, bindingNames)}\n`,
   );
 }
 

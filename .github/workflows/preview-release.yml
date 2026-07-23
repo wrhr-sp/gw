@@ -190,6 +190,11 @@ jobs:
           worker_hyperdrive_id() {
             local worker_name="$1"
             local binding_name="$2"
+            local binding_alias="${3:-}"
+            local binding_names=("$binding_name")
+            if [[ -n "$binding_alias" ]]; then
+              binding_names+=("$binding_alias")
+            fi
             local response_file status id
             response_file="$(mktemp)"
             if ! status="$(curl --silent --show-error \
@@ -206,7 +211,7 @@ jobs:
             fi
             if ! id="$(
               node "$GITHUB_WORKSPACE/scripts/validate-cloudflare-worker-hyperdrive-binding.mjs" \
-                "$response_file" "$binding_name"
+                "$response_file" "${binding_names[@]}"
             )"; then
               rm -f "$response_file"
               return 1
@@ -232,7 +237,7 @@ jobs:
             fi
             local hyperdrive_id=""
             if [[ "$output_name" == "api" ]]; then
-              hyperdrive_id="$(worker_hyperdrive_id "$worker_name" API_HYPERDRIVE)" || {
+              hyperdrive_id="$(worker_hyperdrive_id "$worker_name" API_HYPERDRIVE HYPERDRIVE)" || {
                 printf 'API Worker Hyperdrive binding lookup failed.\n' >&2
                 exit 1
               }
