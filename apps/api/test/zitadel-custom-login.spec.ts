@@ -18,6 +18,45 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function validAuthenticationResponses(): Response[] {
+  return [
+    json({ authRequest: {
+      id: "request-1",
+      clientId: "hotel-client",
+      redirectUri: base.redirectUri,
+      scope: ["openid", "profile"],
+    } }),
+    json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }),
+    json({ sessionId: "session-1", sessionToken: "token-password" }),
+    json({ session: {
+      id: "session-1",
+      expirationDate: "2026-07-17T00:05:00.000Z",
+      factors: {
+        user: { id: "subject-1", organizationId: "org-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+        password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
+      },
+    } }),
+    json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }),
+    json({ callbackUrl: `${base.redirectUri}?code=authorization-code&state=state-value` }),
+  ];
+}
+
+const PROVIDER_AUTHENTICATION_STAGES = [
+  "AUTH_REQUEST_INSPECT",
+  "LOGIN_SETTINGS",
+  "SESSION_CREATE",
+  "SESSION_READBACK",
+  "ORGANIZATION_SETTINGS",
+  "AUTH_REQUEST_FINALIZE",
+] as const;
+
+function malformedJson(): Response {
+  return new Response("{", {
+    headers: { "content-type": "application/json" },
+    status: 200,
+  });
+}
+
 describe("ZITADEL custom login provider", () => {
   it("finalizes the existing OIDC auth request with the latest password-verified session token", async () => {
     const fetcher = vi.fn<typeof fetch>()
@@ -59,6 +98,47 @@ describe("ZITADEL custom login provider", () => {
     expect(fetcher.mock.calls).toHaveLength(6);
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
+
+  it.each(PROVIDER_AUTHENTICATION_STAGES.map((stage, index) => ({ index, stage }))) (
+    "classifies malformed JSON at $stage with that fixed stage",
+    async ({ index, stage }) => {
+      const responses = validAuthenticationResponses();
+      responses[index] = malformedJson();
+      const fetcher = vi.fn<typeof fetch>();
+      for (const response of responses) fetcher.mockResolvedValueOnce(response);
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "request-1",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({
+        code: "AUTH_PROVIDER_UNAVAILABLE",
+        providerDiagnosticStage: stage,
+      });
+    },
+  );
+
+  it.each(PROVIDER_AUTHENTICATION_STAGES.map((stage, index) => ({ index, stage }))) (
+    "classifies a transport failure during $stage as NETWORK",
+    async ({ index }) => {
+      const fetcher = vi.fn<typeof fetch>();
+      for (const response of validAuthenticationResponses().slice(0, index)) {
+        fetcher.mockResolvedValueOnce(response);
+      }
+      fetcher.mockRejectedValueOnce(new Error("transport unavailable"));
+      const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
+      await expect(provider.authenticateAndFinalize({
+        authRequest: "request-1",
+        userId: "subject-1",
+        password: "password-value",
+      })).rejects.toMatchObject({
+        code: "AUTH_PROVIDER_UNAVAILABLE",
+        providerDiagnosticStage: "NETWORK",
+      });
+    },
+  );
 
   it.each([400, 404, 410])(
     "classifies late auth-request callback HTTP %i as a terminal invalid flow",
@@ -289,7 +369,10 @@ describe("ZITADEL custom login provider", () => {
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1", userId: "subject-1", password: "password-value",
-    })).rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
+    })).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_UNAVAILABLE",
+      providerDiagnosticStage: "SESSION_READBACK",
+    });
   });
 
   it("does not finalize when organization policy requires MFA", async () => {
@@ -366,7 +449,10 @@ describe("ZITADEL custom login provider", () => {
       authRequest: "request-1",
       userId: "subject-1",
       password: "password-value",
-    })).rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
+    })).rejects.toMatchObject({
+      code: "AUTH_PROVIDER_UNAVAILABLE",
+      providerDiagnosticStage: "LOGIN_SETTINGS",
+    });
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
@@ -415,7 +501,10 @@ describe("ZITADEL custom login provider", () => {
     } }));
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
     await expect(provider.validateAuthRequest("request-1"))
-      .rejects.toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE" });
+      .rejects.toMatchObject({
+        code: "AUTH_PROVIDER_UNAVAILABLE",
+        providerDiagnosticStage: "AUTH_REQUEST_INSPECT",
+      });
     expect(fetcher).toHaveBeenCalledOnce();
   });
 

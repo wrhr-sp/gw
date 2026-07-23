@@ -154,6 +154,9 @@ try {
         webOrigin,
         status: customLoginResult.value.status(),
         location: await customLoginResult.value.headerValue("location"),
+        providerStage: await customLoginResult.value.headerValue(
+          "x-werehere-auth-provider-stage",
+        ),
       });
       if (credentialFailureStage) throw new Error("credential-stage-failed");
       const completionFailureStage = consoleCredentialCompletionFailureStage(

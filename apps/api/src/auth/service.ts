@@ -106,11 +106,23 @@ export interface PasswordResetAuthService extends AuthService {
   resetPassword(token: string, newPassword: string): Promise<void>;
 }
 
+export const AUTH_PROVIDER_DIAGNOSTIC_STAGES = [
+  "AUTH_REQUEST_INSPECT",
+  "LOGIN_SETTINGS",
+  "SESSION_CREATE",
+  "SESSION_READBACK",
+  "ORGANIZATION_SETTINGS",
+  "AUTH_REQUEST_FINALIZE",
+  "NETWORK",
+] as const;
+export type AuthProviderDiagnosticStage = typeof AUTH_PROVIDER_DIAGNOSTIC_STAGES[number];
+
 export class AuthServiceError extends Error {
   constructor(
     public readonly code: HotelErrorCode,
     public readonly httpStatus: 400 | 401 | 403 | 429 | 500 | 503,
     public readonly retryable: boolean,
+    public readonly providerDiagnosticStage?: AuthProviderDiagnosticStage,
   ) {
     super(code);
     this.name = "AuthServiceError";
