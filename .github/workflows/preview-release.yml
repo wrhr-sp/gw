@@ -472,9 +472,14 @@ jobs:
               printf '%s\n' 'Preview Hyperdrive retarget was not explicitly approved.' >&2
               exit 1
             fi
-            if [[ "$api_existed" != "true" || "$reconciler_existed" != "true" || "$web_existed" != "true" ]]; then
-              printf '%s\n' 'Preview Hyperdrive retarget requires a complete existing Worker topology.' >&2
+            if [[ "$api_existed" != "true" || "$web_existed" != "true" ]]; then
+              printf '%s\n' 'Preview Hyperdrive retarget requires existing API and Web Workers.' >&2
               exit 1
+            fi
+            if [[ "$reconciler_existed" == "true" ]]; then
+              retarget_topology=COMPLETE
+            else
+              retarget_topology=API_WEB_LEGACY
             fi
             api_target_state="$(hyperdrive_target_state \
               'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE")"
@@ -482,7 +487,7 @@ jobs:
             retarget_decision="$(
               node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
                 decide "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" \
-                DB_DEPENDENCY_UNAVAILABLE "$api_target_state" COMPLETE
+                DB_DEPENDENCY_UNAVAILABLE "$api_target_state" "$retarget_topology"
             )"
             decision_status="$?"
             set -e

@@ -85,7 +85,9 @@ export function decideRetarget({ approved, readiness, targetState, topology }) {
     return "DENY_UNCLASSIFIED_FAILURE";
   }
   if (!approved) return "DENY_NOT_APPROVED";
-  if (topology !== "COMPLETE") return "DENY_PARTIAL_TOPOLOGY";
+  if (topology !== "COMPLETE" && topology !== "API_WEB_LEGACY") {
+    return "DENY_PARTIAL_TOPOLOGY";
+  }
   if (targetState !== "MISMATCH") return "DENY_TARGET_ALREADY_MATCHED";
   return "RETARGET";
 }
