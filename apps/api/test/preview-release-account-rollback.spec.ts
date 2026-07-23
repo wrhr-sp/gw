@@ -225,6 +225,12 @@ describe("Preview account Worker release safety", () => {
     );
     expect(preTarget).toContain("PREVIEW_HYPERDRIVE_RETARGET_APPROVED");
     expect(preTarget).toContain(
+      "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
+    );
+    expect(preTarget).toContain(
+      "node scripts/smoke-zitadel-console-preview.mjs",
+    );
+    expect(preTarget).toContain(
       "preview-hyperdrive-retarget-contract.mjs probe",
     );
     expect(preTarget).toContain('readiness_status" -ne 10');
