@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AuthServiceError, type CustomLoginProvider } from "./service";
+import { AuthServiceError, type AuthProviderDiagnosticStage, type CustomLoginProvider } from "./service";
 
 const SESSION_LIFETIME = "300s";
 const MAX_CLOCK_SKEW_MS = 60_000;
@@ -94,19 +94,19 @@ function safeSegment(value: string): string {
   return encodeURIComponent(value);
 }
 
-function providerFailure(status: number): AuthServiceError {
-  if (status === 429) return new AuthServiceError("AUTH_RATE_LIMITED", 429, true);
+function providerFailure(status: number, stage?: AuthProviderDiagnosticStage): AuthServiceError {
+  if (status === 429) return new AuthServiceError("AUTH_RATE_LIMITED", 429, true, stage);
   if (status === 401 || status === 403) {
-    return new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false);
+    return new AuthServiceError("AUTH_PROVIDER_NOT_CONFIGURED", 503, false, stage);
   }
-  return new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+  return new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, stage);
 }
 
-function authRequestFailure(status: number): AuthServiceError {
+function authRequestFailure(status: number, stage?: AuthProviderDiagnosticStage): AuthServiceError {
   if (status === 400 || status === 404 || status === 410) {
-    return new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
+    return new AuthServiceError("AUTH_FLOW_INVALID", 400, false, stage);
   }
-  return providerFailure(status);
+  return providerFailure(status, stage);
 }
 
 export function createZitadelCustomLoginProvider(input: {
@@ -160,7 +160,11 @@ export function createZitadelCustomLoginProvider(input: {
     authorization: `Bearer ${input.serviceUserToken}`,
   };
 
-  async function request(url: string, init: RequestInit = {}): Promise<Response> {
+  async function request(
+    url: string,
+    init: RequestInit = {},
+    stage: AuthProviderDiagnosticStage = "NETWORK",
+  ): Promise<Response> {
     try {
       const response = await fetcher(url, { ...init, redirect: "manual" });
       if (response.status >= 300 && response.status < 400) {
@@ -175,12 +179,23 @@ export function createZitadelCustomLoginProvider(input: {
           sameOrigin,
           status: response.status,
         });
-        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, stage);
       }
       return response;
     } catch (error) {
       if (error instanceof AuthServiceError) throw error;
-      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "NETWORK");
+    }
+  }
+
+  async function decodeProviderJson(
+    response: Response,
+    stage: AuthProviderDiagnosticStage,
+  ): Promise<unknown> {
+    try {
+      return await response.json();
+    } catch {
+      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, stage);
     }
   }
 
@@ -200,22 +215,22 @@ export function createZitadelCustomLoginProvider(input: {
     const authRequestId = safeSegment(authRequest);
     const authResponse = await request(`${issuer}/v2/oidc/auth_requests/${authRequestId}`, {
       headers: serviceHeaders,
-    });
+    }, "AUTH_REQUEST_INSPECT");
     if (!authResponse.ok) {
       console.warn("custom_login_auth_request_rejected", { reason: "http", status: authResponse.status });
-      throw authRequestFailure(authResponse.status);
+      throw authRequestFailure(authResponse.status, "AUTH_REQUEST_INSPECT");
     }
     let authBody: unknown;
     try {
-      authBody = await authResponse.json();
-    } catch {
+      authBody = await decodeProviderJson(authResponse, "AUTH_REQUEST_INSPECT");
+    } catch (error) {
       console.warn("custom_login_auth_request_rejected", { reason: "invalid-json" });
-      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      throw error;
     }
     const parsedAuth = authRequestResponseSchema.safeParse(authBody);
     if (!parsedAuth.success) {
       console.warn("custom_login_auth_request_rejected", { reason: "schema" });
-      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "AUTH_REQUEST_INSPECT");
     }
     const supportedScopes = [...new Set(parsedAuth.data.authRequest.scope)].sort();
     const target = authRequestTargets.find((candidate) => (
@@ -288,10 +303,16 @@ export function createZitadelCustomLoginProvider(input: {
       const authRequestId = safeSegment(authRequest);
       const authRequestTarget = await inspectAuthRequest(authRequest);
 
-      const settingsResponse = await request(`${issuer}/v2/settings/login`, { headers: serviceHeaders });
-      if (!settingsResponse.ok) throw providerFailure(settingsResponse.status);
-      const settings = settingsResponseSchema.safeParse(await settingsResponse.json());
-      if (!settings.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      const settingsResponse = await request(
+        `${issuer}/v2/settings/login`,
+        { headers: serviceHeaders },
+        "LOGIN_SETTINGS",
+      );
+      if (!settingsResponse.ok) throw providerFailure(settingsResponse.status, "LOGIN_SETTINGS");
+      const settings = settingsResponseSchema.safeParse(await decodeProviderJson(settingsResponse, "LOGIN_SETTINGS"));
+      if (!settings.success) {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "LOGIN_SETTINGS");
+      }
       if (
         settings.data.settings.allowLocalAuthentication === false ||
         settings.data.settings.allowUsernamePassword === false
@@ -309,30 +330,32 @@ export function createZitadelCustomLoginProvider(input: {
         }),
         headers: { ...serviceHeaders, "content-type": "application/json" },
         method: "POST",
-      });
+      }, "SESSION_CREATE");
       if (createResponse.status === 400 || createResponse.status === 404) {
         throw new AuthServiceError("AUTH_CREDENTIALS_INVALID", 401, false);
       }
-      if (!createResponse.ok) throw providerFailure(createResponse.status);
-      const created = createSessionTokenSchema.safeParse(await createResponse.json());
-      if (!created.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+      if (!createResponse.ok) throw providerFailure(createResponse.status, "SESSION_CREATE");
+      const created = createSessionTokenSchema.safeParse(await decodeProviderJson(createResponse, "SESSION_CREATE"));
+      if (!created.success) {
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_CREATE");
+      }
 
       const latest = created.data;
       let finalized = false;
       try {
         const sessionResponse = await request(`${issuer}/v2/sessions/${safeSegment(latest.sessionId)}`, {
           headers: { accept: "application/json", authorization: `Bearer ${latest.sessionToken}` },
-        });
-        if (!sessionResponse.ok) throw providerFailure(sessionResponse.status);
-        const parsedSession = sessionResponseSchema.safeParse(await sessionResponse.json());
+        }, "SESSION_READBACK");
+        if (!sessionResponse.ok) throw providerFailure(sessionResponse.status, "SESSION_READBACK");
+        const parsedSession = sessionResponseSchema.safeParse(await decodeProviderJson(sessionResponse, "SESSION_READBACK"));
         if (!parsedSession.success || parsedSession.data.session.id !== latest.sessionId) {
-          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK");
         }
         if (
           parsedSession.data.session.factors.user.id !== userId ||
           parsedSession.data.session.factors.user.organizationId !== expectedOrganizationId
         ) {
-          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false);
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK");
         }
         const current = now().getTime();
         const userVerified = Date.parse(parsedSession.data.session.factors.user.verifiedAt);
@@ -353,11 +376,15 @@ export function createZitadelCustomLoginProvider(input: {
         organizationSettingsUrl.searchParams.set("ctx.orgId", organizationId);
         const organizationSettingsResponse = await request(organizationSettingsUrl.toString(), {
           headers: serviceHeaders,
-        });
-        if (!organizationSettingsResponse.ok) throw providerFailure(organizationSettingsResponse.status);
-        const organizationSettings = settingsResponseSchema.safeParse(await organizationSettingsResponse.json());
+        }, "ORGANIZATION_SETTINGS");
+        if (!organizationSettingsResponse.ok) {
+          throw providerFailure(organizationSettingsResponse.status, "ORGANIZATION_SETTINGS");
+        }
+        const organizationSettings = settingsResponseSchema.safeParse(
+          await decodeProviderJson(organizationSettingsResponse, "ORGANIZATION_SETTINGS"),
+        );
         if (!organizationSettings.success) {
-          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "ORGANIZATION_SETTINGS");
         }
         if (
           organizationSettings.data.settings.allowLocalAuthentication === false ||
@@ -375,10 +402,16 @@ export function createZitadelCustomLoginProvider(input: {
           }),
           headers: { ...serviceHeaders, "content-type": "application/json" },
           method: "POST",
-        });
-        if (!callbackResponse.ok) throw authRequestFailure(callbackResponse.status);
-        const callback = callbackResponseSchema.safeParse(await callbackResponse.json());
-        if (!callback.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+        }, "AUTH_REQUEST_FINALIZE");
+        if (!callbackResponse.ok) {
+          throw authRequestFailure(callbackResponse.status, "AUTH_REQUEST_FINALIZE");
+        }
+        const callback = callbackResponseSchema.safeParse(
+          await decodeProviderJson(callbackResponse, "AUTH_REQUEST_FINALIZE"),
+        );
+        if (!callback.success) {
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "AUTH_REQUEST_FINALIZE");
+        }
         const callbackUrl = new URL(callback.data.callbackUrl);
         const expectedCallbackUrl = new URL(authRequestTarget.redirectUri);
         const callbackKeys = [...callbackUrl.searchParams.keys()];

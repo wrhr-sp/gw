@@ -494,7 +494,7 @@ describe("hotel auth API", () => {
   it("preserves the custom login context when the provider is temporarily unavailable", async () => {
     const service = createService({
       finalizeCustomLogin: vi.fn(async () => {
-        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
+        throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK");
       }),
     });
     const response = await createApp({ authService: service }).request("/api/auth/custom-login", {
@@ -511,6 +511,7 @@ describe("hotel auth API", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location"))
       .toBe("/api/auth/custom-login/start?authRequest=request-1&error=unavailable");
+    expect(response.headers.get("x-werehere-auth-provider-stage")).toBe("SESSION_READBACK");
   });
 
   it("rejects callback requests without both code and state", async () => {

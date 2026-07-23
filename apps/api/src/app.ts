@@ -18,7 +18,7 @@ import { z } from "zod";
 import { createAccountServiceFromBindings, type AccountBindings } from "./accounts/factory";
 import { AccountServiceError, type AccountService } from "./accounts/service";
 import { createAuthServiceFromBindings, type AuthBindings } from "./auth/factory";
-import { AuthServiceError, type AuthService, type PasswordResetAuthService } from "./auth/service";
+import { AUTH_PROVIDER_DIAGNOSTIC_STAGES, AuthServiceError, type AuthService, type PasswordResetAuthService } from "./auth/service";
 import { createHotelServiceFromBindings, type HotelBindings } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
 import { resolveDatabaseUrl } from "./database";
@@ -647,6 +647,13 @@ export function createApp(options: CreateAppOptions = {}) {
       }
       return context.redirect(result.callbackUrl, 302);
     } catch (error) {
+      if (
+        error instanceof AuthServiceError &&
+        error.providerDiagnosticStage &&
+        AUTH_PROVIDER_DIAGNOSTIC_STAGES.includes(error.providerDiagnosticStage)
+      ) {
+        context.header("X-WereHere-Auth-Provider-Stage", error.providerDiagnosticStage);
+      }
       if (
         error instanceof AuthServiceError &&
         error.code === "AUTH_FLOW_INVALID"

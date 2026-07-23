@@ -154,6 +154,20 @@ describe("hosted Preview Console credential smoke", () => {
       status: 303,
       location: `${webOrigin}/login?error=invalid-flow`,
     })).toBe("CUSTOM_LOGIN_REDIRECT_INVALID_FLOW");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
+      providerStage: "SESSION_READBACK",
+    })).toBe("CUSTOM_LOGIN_PROVIDER_SESSION_READBACK");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
+      providerStage: "secret-sentinel",
+    })).toBe("CUSTOM_LOGIN_REDIRECT_UNAVAILABLE");
   });
 
   it("classifies credential completion failures with a fixed secret-safe stage", () => {
@@ -167,6 +181,13 @@ describe("hosted Preview Console credential smoke", () => {
       "CUSTOM_LOGIN_REDIRECT_RATE_LIMITED",
       "CUSTOM_LOGIN_REDIRECT_UNAVAILABLE",
       "CUSTOM_LOGIN_REDIRECT_OTHER",
+      "CUSTOM_LOGIN_PROVIDER_AUTH_REQUEST_INSPECT",
+      "CUSTOM_LOGIN_PROVIDER_LOGIN_SETTINGS",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_CREATE",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK",
+      "CUSTOM_LOGIN_PROVIDER_ORGANIZATION_SETTINGS",
+      "CUSTOM_LOGIN_PROVIDER_AUTH_REQUEST_FINALIZE",
+      "CUSTOM_LOGIN_PROVIDER_NETWORK",
       "CALLBACK_REQUEST",
       "CALLBACK_RESPONSE",
       "CALLBACK_RESPONSE_STATUS",
