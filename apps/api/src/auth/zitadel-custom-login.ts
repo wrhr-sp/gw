@@ -346,8 +346,15 @@ export function createZitadelCustomLoginProvider(input: {
         const sessionResponse = await request(`${issuer}/v2/sessions/${safeSegment(latest.sessionId)}`, {
           headers: { accept: "application/json", authorization: `Bearer ${latest.sessionToken}` },
         }, "SESSION_READBACK");
-        if (!sessionResponse.ok) throw providerFailure(sessionResponse.status, "SESSION_READBACK");
-        const parsedSession = sessionResponseSchema.safeParse(await decodeProviderJson(sessionResponse, "SESSION_READBACK"));
+        if (!sessionResponse.ok) {
+          const statusStage = sessionResponse.status === 401 || sessionResponse.status === 403
+            ? "SESSION_READBACK_AUTHORIZATION"
+            : "SESSION_READBACK_STATUS";
+          throw providerFailure(sessionResponse.status, statusStage);
+        }
+        const parsedSession = sessionResponseSchema.safeParse(
+          await decodeProviderJson(sessionResponse, "SESSION_READBACK_JSON"),
+        );
         if (!parsedSession.success) {
           throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK_SCHEMA");
         }
