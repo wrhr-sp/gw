@@ -77,6 +77,9 @@ const legacyOrigin: Origin = {
   user: "legacy_runtime",
   scheme: "postgresql",
 };
+const existingApiId = "11111111111111111111111111111111";
+const existingReconcilerId = "22222222222222222222222222222222";
+const legacyId = "33333333333333333333333333333333";
 
 function config(id: string, name: string, origin: Origin): Config {
   return { id, name, origin, caching: { disabled: true } };
@@ -93,6 +96,8 @@ function runHyperdriveStep(options: {
   reconcilerPresent?: boolean;
   workersExist?: boolean;
   reconcilerWorkerExists?: boolean;
+  apiBindingId?: string;
+  reconcilerBindingId?: string;
 }) {
   const directory = mkdtempSync(join(tmpdir(), "preview-hyperdrive-shell-"));
   const binDirectory = join(directory, "bin");
@@ -105,17 +110,17 @@ function runHyperdriveStep(options: {
   const apiUrl = `postgresql://${canonicalApi.user}:fixture-password@${canonicalApi.host}:${canonicalApi.port}/${canonicalApi.database}`;
   const reconcilerUrl = `postgresql://${canonicalReconciler.user}:fixture-password@${canonicalReconciler.host}:${canonicalReconciler.port}/${canonicalReconciler.database}`;
   const initialState = [
-    config("legacy-id", "werehere-hotel-preview", legacyOrigin),
+    config(legacyId, "werehere-hotel-preview", legacyOrigin),
   ];
   if (options.apiPresent !== false) {
     initialState.push(
-      config("api-id", "werehere-hotel-api-preview", options.apiOrigin),
+      config(existingApiId, "werehere-hotel-api-preview", options.apiOrigin),
     );
   }
   if (options.reconcilerPresent !== false) {
     initialState.push(
       config(
-        "reconciler-id",
+        existingReconcilerId,
         "werehere-hotel-reconciler-preview",
         options.reconcilerOrigin,
       ),
@@ -145,19 +150,25 @@ for (let index = 0; index < args.length; index += 1) {
 }
 const query = positional[0];
 const input = JSON.parse(readFileSync(positional[1], "utf8"));
-if (query.includes("| length")) {
-  const name = variables.name ?? "werehere-hotel-preview";
-  process.stdout.write(String(input.result.filter((entry) => entry.name === name).length));
-  process.exit(0);
-}
 if (query.includes(".id") && !query.includes(".result")) {
   if (typeof input.id !== "string" || input.id.length === 0) process.exit(1);
   process.stdout.write(input.id + "\\n");
   process.exit(0);
 }
-const name = variables.name ?? "werehere-hotel-preview";
-const selected = input.result.find((entry) => entry.name === name);
-if (!selected) process.exit(1);
+const literalLegacyName = query.includes('werehere-hotel-preview')
+  ? 'werehere-hotel-preview'
+  : undefined;
+const selectedEntries = input.result.filter((entry) =>
+  (!variables.id || entry.id === variables.id) &&
+  (!variables.name || entry.name === variables.name) &&
+  (!literalLegacyName || entry.name === literalLegacyName)
+);
+if (query.includes("| length")) {
+  process.stdout.write(String(selectedEntries.length));
+  process.exit(0);
+}
+if (selectedEntries.length !== 1) process.exit(1);
+const selected = selectedEntries[0];
 const output = query.includes("{id, name, origin, caching}")
   ? { id: selected.id, name: selected.name, origin: selected.origin, caching: selected.caching }
   : selected;
@@ -215,8 +226,9 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const [file, operation, idOrName] = process.argv.slice(2);
 const state = JSON.parse(readFileSync(file, "utf8"));
 const targets = {
-  "api-id": ${JSON.stringify(canonicalApi)},
-  "reconciler-id": ${JSON.stringify(canonicalReconciler)},
+  "${existingApiId}": ${JSON.stringify(canonicalApi)},
+  "${existingReconcilerId}": ${JSON.stringify(canonicalReconciler)},
+  "${legacyId}": ${JSON.stringify(canonicalApi)},
 };
 const createTargets = {
   "werehere-hotel-api-preview": { id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", origin: ${JSON.stringify(canonicalApi)} },
@@ -251,6 +263,18 @@ NODE
     .replaceAll(
       "${{ steps.worker_snapshot.outputs.web_existed }}",
       String(options.workersExist !== false),
+    )
+    .replaceAll(
+      "${{ steps.worker_snapshot.outputs.api_hyperdrive_id }}",
+      options.apiBindingId ??
+        (options.workersExist !== false ? existingApiId : ""),
+    )
+    .replaceAll(
+      "${{ steps.worker_snapshot.outputs.reconciler_hyperdrive_id }}",
+      options.reconcilerBindingId ??
+        ((options.reconcilerWorkerExists ?? options.workersExist !== false)
+          ? existingReconcilerId
+          : ""),
     );
   const result = spawnSync("bash", ["-c", script], {
     cwd: join(repoRoot, "apps/api"),
@@ -526,17 +550,19 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
       reconcilerOrigin: staleOrigin,
       approved: true,
       required: true,
+      apiPresent: false,
       reconcilerPresent: false,
       workersExist: true,
       reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
     });
     expect(execution.result.status).toBe(0);
     expect(execution.calls).toHaveLength(2);
-    expect(execution.calls[0]).toContain("hyperdrive update api-id");
+    expect(execution.calls[0]).toContain(`hyperdrive update ${legacyId}`);
     expect(execution.calls[1]).toContain(
       "hyperdrive create werehere-hotel-reconciler-preview",
     );
-    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
+    expect(execution.state.find(({ id }) => id === legacyId)?.origin).toEqual(
       canonicalApi,
     );
     expect(
@@ -557,18 +583,20 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
       reconcilerOrigin: staleOrigin,
       approved: true,
       required: true,
+      apiPresent: false,
       reconcilerPresent: false,
       workersExist: true,
       reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
       failCreateName: "werehere-hotel-reconciler-preview",
     });
     expect(execution.result.status).not.toBe(0);
     expect(execution.calls).toHaveLength(2);
-    expect(execution.calls[0]).toContain("hyperdrive update api-id");
+    expect(execution.calls[0]).toContain(`hyperdrive update ${legacyId}`);
     expect(execution.calls[1]).toContain(
       "hyperdrive create werehere-hotel-reconciler-preview",
     );
-    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
+    expect(execution.state.find(({ id }) => id === legacyId)?.origin).toEqual(
       canonicalApi,
     );
     expect(
@@ -602,13 +630,15 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
     });
     expect(execution.result.status).toBe(0);
     expect(execution.calls).toHaveLength(2);
-    expect(execution.calls[0]).toContain("hyperdrive update api-id");
-    expect(execution.calls[1]).toContain("hyperdrive update reconciler-id");
-    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
-      canonicalApi,
+    expect(execution.calls[0]).toContain(`hyperdrive update ${existingApiId}`);
+    expect(execution.calls[1]).toContain(
+      `hyperdrive update ${existingReconcilerId}`,
     );
     expect(
-      execution.state.find(({ id }) => id === "reconciler-id")?.origin,
+      execution.state.find(({ id }) => id === existingApiId)?.origin,
+    ).toEqual(canonicalApi);
+    expect(
+      execution.state.find(({ id }) => id === existingReconcilerId)?.origin,
     ).toEqual(canonicalReconciler);
   });
 
@@ -618,15 +648,15 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
       reconcilerOrigin: staleOrigin,
       approved: true,
       required: true,
-      failUpdateId: "reconciler-id",
+      failUpdateId: existingReconcilerId,
     });
     expect(execution.result.status).not.toBe(0);
     expect(execution.calls).toHaveLength(2);
-    expect(execution.state.find(({ id }) => id === "api-id")?.origin).toEqual(
-      canonicalApi,
-    );
     expect(
-      execution.state.find(({ id }) => id === "reconciler-id")?.origin,
+      execution.state.find(({ id }) => id === existingApiId)?.origin,
+    ).toEqual(canonicalApi);
+    expect(
+      execution.state.find(({ id }) => id === existingReconcilerId)?.origin,
     ).toEqual(staleOrigin);
   });
 });

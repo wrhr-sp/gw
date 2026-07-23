@@ -152,6 +152,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cloudflare_token="$CLOUDFLARE_API_TOKEN"
           worker_exists() {
             local worker_name="$1"
             local response_file
@@ -160,7 +161,7 @@ jobs:
             if ! status="$(curl --silent --show-error \
               --output "$response_file" \
               --write-out '%{http_code}' \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Authorization: Bearer $cloudflare_token" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/settings")"; then
               rm -f "$response_file"
               return 2
@@ -186,6 +187,33 @@ jobs:
             rm -f "$response_file"
             return 2
           }
+          worker_hyperdrive_id() {
+            local worker_name="$1"
+            local binding_name="$2"
+            local response_file status id
+            response_file="$(mktemp)"
+            if ! status="$(curl --silent --show-error \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              -H "Authorization: Bearer $cloudflare_token" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker_name/settings")"; then
+              rm -f "$response_file"
+              return 1
+            fi
+            if [[ "$status" != "200" ]]; then
+              rm -f "$response_file"
+              return 1
+            fi
+            if ! id="$(
+              node "$GITHUB_WORKSPACE/scripts/validate-cloudflare-worker-hyperdrive-binding.mjs" \
+                "$response_file" "$binding_name"
+            )"; then
+              rm -f "$response_file"
+              return 1
+            fi
+            rm -f "$response_file"
+            printf '%s\n' "$id"
+          }
           snapshot() {
             local output_name="$1"
             local worker_name="$2"
@@ -196,10 +224,23 @@ jobs:
               if [[ "$exists_status" -eq 1 ]]; then
                 printf '%s_previous=\n' "$output_name" >> "$GITHUB_OUTPUT"
                 printf '%s_existed=false\n' "$output_name" >> "$GITHUB_OUTPUT"
+                printf '%s_hyperdrive_id=\n' "$output_name" >> "$GITHUB_OUTPUT"
                 return
               fi
               printf 'Worker existence lookup failed: %s\n' "$worker_name" >&2
               exit 1
+            fi
+            local hyperdrive_id=""
+            if [[ "$output_name" == "api" ]]; then
+              hyperdrive_id="$(worker_hyperdrive_id "$worker_name" API_HYPERDRIVE)" || {
+                printf 'API Worker Hyperdrive binding lookup failed.\n' >&2
+                exit 1
+              }
+            elif [[ "$output_name" == "reconciler" ]]; then
+              hyperdrive_id="$(worker_hyperdrive_id "$worker_name" RECONCILER_HYPERDRIVE)" || {
+                printf 'Reconciler Worker Hyperdrive binding lookup failed.\n' >&2
+                exit 1
+              }
             fi
             local snapshot_file
             local version
@@ -227,6 +268,7 @@ jobs:
             rm -f "$snapshot_file"
             printf '%s_previous=%s\n' "$output_name" "$version" >> "$GITHUB_OUTPUT"
             printf '%s_existed=true\n' "$output_name" >> "$GITHUB_OUTPUT"
+            printf '%s_hyperdrive_id=%s\n' "$output_name" "$hyperdrive_id" >> "$GITHUB_OUTPUT"
           }
           snapshot api werehere-hotel-api-preview
           snapshot reconciler werehere-hotel-account-reconciler-preview
@@ -333,22 +375,47 @@ jobs:
             jq -S '.result[] | select(.name == "werehere-hotel-preview")' \
               "$list_file" > "$output_file"
           }
+          hyperdrive_count() {
+            local list_file="$1"
+            local name="$2"
+            local expected_id="$3"
+            if [[ -n "$expected_id" ]]; then
+              jq --arg id "$expected_id" '[.result[] | select(.id == $id)] | length' "$list_file"
+            else
+              jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file"
+            fi
+          }
+          write_hyperdrive_config() {
+            local list_file="$1"
+            local output_file="$2"
+            local name="$3"
+            local expected_id="$4"
+            if [[ -n "$expected_id" ]]; then
+              jq -eS --arg id "$expected_id" '
+                .result[] | select(.id == $id) | {id, name, origin, caching}
+              ' "$list_file" > "$output_file"
+            else
+              jq -eS --arg name "$name" '
+                .result[] | select(.name == $name) | {id, name, origin, caching}
+              ' "$list_file" > "$output_file"
+            fi
+          }
           hyperdrive_target_state() {
             local name="$1"
             local url_file="$2"
+            local expected_id="$3"
             local list_file
             local config_file
             local count
             list_file="$(mktemp "$temp_dir/hyperdrive-target-list.XXXXXX")"
             config_file="$(mktemp "$temp_dir/hyperdrive-target-config.XXXXXX")"
             fetch_hyperdrive_list "$list_file"
-            count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+            count="$(hyperdrive_count "$list_file" "$name" "$expected_id")"
             if [[ "$count" -ne 1 ]]; then
-              printf '%s\n' 'The existing API Hyperdrive is unavailable or ambiguous for retarget validation.' >&2
+              printf '%s\n' 'The existing API Hyperdrive binding is unavailable or ambiguous for retarget validation.' >&2
               return 2
             fi
-            jq -e --arg name "$name" '.result[] | select(.name == $name)' \
-              "$list_file" > "$config_file"
+            write_hyperdrive_config "$list_file" "$config_file" "$name" "$expected_id"
             node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
               target-state "$config_file" "$url_file"
           }
@@ -358,6 +425,7 @@ jobs:
             local output_name="$3"
             local expected_existing="$4"
             local allow_mismatch="$5"
+            local expected_id="$6"
             local runtime_url
             local list_file
             local current_file
@@ -371,9 +439,9 @@ jobs:
             current_file="$(mktemp "$temp_dir/hyperdrive-current.XXXXXX")"
             verified_file="$(mktemp "$temp_dir/hyperdrive-verified.XXXXXX")"
             fetch_hyperdrive_list "$list_file"
-            count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+            count="$(hyperdrive_count "$list_file" "$name" "$expected_id")"
             if [[ "$count" -gt 1 ]]; then
-              printf 'Multiple Hyperdrive configs have the same name: %s\n' "$name" >&2
+              printf 'Multiple Hyperdrive configs matched the expected identity: %s\n' "$name" >&2
               return 1
             fi
             if [[ "$count" -eq 0 ]]; then
@@ -408,9 +476,7 @@ jobs:
               install -m 600 "$created_id_file" "/tmp/werehere-hyperdrive-retarget/${output_name}-created-id"
               rm -f "$created_id_file"
             else
-              jq -eS --arg name "$name" '
-                .result[] | select(.name == $name) | {id, name, origin, caching}
-              ' "$list_file" > "$current_file"
+              write_hyperdrive_config "$list_file" "$current_file" "$name" "$expected_id"
               id="$(jq -er '.id | select(type == "string" and length > 0)' "$current_file")"
               state="$(node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
                 target-state "$current_file" "$url_file")"
@@ -420,11 +486,9 @@ jobs:
                   return 1
                 fi
                 fetch_hyperdrive_list "$list_file"
-                count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+                count="$(hyperdrive_count "$list_file" "$name" "$expected_id")"
                 [[ "$count" -eq 1 ]] || return 1
-                jq -eS --arg name "$name" '
-                  .result[] | select(.name == $name) | {id, name, origin, caching}
-                ' "$list_file" > "$verified_file"
+                write_hyperdrive_config "$list_file" "$verified_file" "$name" "$expected_id"
                 if ! cmp -s "$current_file" "$verified_file"; then
                   printf 'Hyperdrive changed after validation; refusing retarget: %s\n' "$name" >&2
                   return 1
@@ -442,14 +506,12 @@ jobs:
               fi
             fi
             fetch_hyperdrive_list "$list_file"
-            count="$(jq --arg name "$name" '[.result[] | select(.name == $name)] | length' "$list_file")"
+            count="$(hyperdrive_count "$list_file" "$name" "$id")"
             if [[ "$count" -ne 1 ]]; then
               printf 'Hyperdrive config was unavailable or ambiguous after provisioning: %s\n' "$name" >&2
               return 1
             fi
-            jq -eS --arg name "$name" '
-              .result[] | select(.name == $name) | {id, name, origin, caching}
-            ' "$list_file" > "$verified_file"
+            write_hyperdrive_config "$list_file" "$verified_file" "$name" "$id"
             if [[ -n "$id" && "$(jq -r '.id' "$verified_file")" != "$id" ]]; then
               printf 'Hyperdrive identity changed during provisioning: %s\n' "$name" >&2
               return 1
@@ -467,6 +529,16 @@ jobs:
           api_existed="${{ steps.worker_snapshot.outputs.api_existed }}"
           reconciler_existed="${{ steps.worker_snapshot.outputs.reconciler_existed }}"
           web_existed="${{ steps.worker_snapshot.outputs.web_existed }}"
+          api_hyperdrive_id="${{ steps.worker_snapshot.outputs.api_hyperdrive_id }}"
+          reconciler_hyperdrive_id="${{ steps.worker_snapshot.outputs.reconciler_hyperdrive_id }}"
+          if [[ "$api_existed" == "true" && ! "$api_hyperdrive_id" =~ ^[0-9a-f]{32}$ ]]; then
+            printf '%s\n' 'Existing API Worker Hyperdrive binding ID was invalid.' >&2
+            exit 1
+          fi
+          if [[ "$reconciler_existed" == "true" && ! "$reconciler_hyperdrive_id" =~ ^[0-9a-f]{32}$ ]]; then
+            printf '%s\n' 'Existing reconciler Worker Hyperdrive binding ID was invalid.' >&2
+            exit 1
+          fi
           if [[ "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" == "true" ]]; then
             if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
               printf '%s\n' 'Preview Hyperdrive retarget was not explicitly approved.' >&2
@@ -482,7 +554,8 @@ jobs:
               retarget_topology=API_WEB_LEGACY
             fi
             api_target_state="$(hyperdrive_target_state \
-              'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE")"
+              'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE" \
+              "$api_hyperdrive_id")"
             set +e
             retarget_decision="$(
               node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
@@ -501,18 +574,27 @@ jobs:
             exit 1
           fi
           snapshot_legacy_hyperdrive "$legacy_before"
+          legacy_hyperdrive_id="$(jq -er '.id | select(type == "string" and length > 0)' "$legacy_before")"
           ensure_hyperdrive 'werehere-hotel-api-preview' \
             "$API_RUNTIME_DATABASE_URL_FILE" api_id "$api_existed" \
-            "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED"
+            "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" "$api_hyperdrive_id"
           ensure_hyperdrive 'werehere-hotel-reconciler-preview' \
             "$RECONCILER_DATABASE_URL_FILE" reconciler_id "$reconciler_existed" \
-            "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED"
+            "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" "$reconciler_hyperdrive_id"
           snapshot_legacy_hyperdrive "$legacy_after"
-          if ! cmp -s "$legacy_before" "$legacy_after"; then
-            printf '%s\n' 'The legacy Preview Hyperdrive changed during account release provisioning.' >&2
-            exit 1
+          if [[ "$api_hyperdrive_id" == "$legacy_hyperdrive_id" ]]; then
+            if [[ "$(jq -er '.id' "$legacy_after")" != "$legacy_hyperdrive_id" ]]; then
+              printf '%s\n' 'The active legacy-named API Hyperdrive identity changed.' >&2
+              exit 1
+            fi
+            printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PROMOTED_TO_CANONICAL_API'
+          else
+            if ! cmp -s "$legacy_before" "$legacy_after"; then
+              printf '%s\n' 'The legacy Preview Hyperdrive changed during account release provisioning.' >&2
+              exit 1
+            fi
+            printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PRESERVED'
           fi
-          printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PRESERVED'
           printf '%s\n' 'PREVIEW_HYPERDRIVES_READY'
 
       - name: Verify previous Workers use canonical Preview Hyperdrives
