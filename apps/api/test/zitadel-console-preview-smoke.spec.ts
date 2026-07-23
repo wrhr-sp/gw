@@ -166,6 +166,20 @@ describe("hosted Preview Console credential smoke", () => {
       webOrigin,
       status: 303,
       location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
+      providerStage: "SESSION_READBACK_SCHEMA",
+    })).toBe("CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_SCHEMA");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
+      providerStage: "SESSION_READBACK_IDENTITY",
+    })).toBe("CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_IDENTITY");
+    expect(consoleCustomLoginResponseFailureStage({
+      issuerOrigin,
+      webOrigin,
+      status: 303,
+      location: `${webOrigin}/api/auth/custom-login/start?error=unavailable&authRequest=redacted`,
       providerStage: "secret-sentinel",
     })).toBe("CUSTOM_LOGIN_REDIRECT_UNAVAILABLE");
   });
@@ -185,6 +199,8 @@ describe("hosted Preview Console credential smoke", () => {
       "CUSTOM_LOGIN_PROVIDER_LOGIN_SETTINGS",
       "CUSTOM_LOGIN_PROVIDER_SESSION_CREATE",
       "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_SCHEMA",
+      "CUSTOM_LOGIN_PROVIDER_SESSION_READBACK_IDENTITY",
       "CUSTOM_LOGIN_PROVIDER_ORGANIZATION_SETTINGS",
       "CUSTOM_LOGIN_PROVIDER_AUTH_REQUEST_FINALIZE",
       "CUSTOM_LOGIN_PROVIDER_NETWORK",

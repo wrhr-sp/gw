@@ -348,8 +348,11 @@ export function createZitadelCustomLoginProvider(input: {
         }, "SESSION_READBACK");
         if (!sessionResponse.ok) throw providerFailure(sessionResponse.status, "SESSION_READBACK");
         const parsedSession = sessionResponseSchema.safeParse(await decodeProviderJson(sessionResponse, "SESSION_READBACK"));
-        if (!parsedSession.success || parsedSession.data.session.id !== latest.sessionId) {
-          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK");
+        if (!parsedSession.success) {
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true, "SESSION_READBACK_SCHEMA");
+        }
+        if (parsedSession.data.session.id !== latest.sessionId) {
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK_IDENTITY");
         }
         const userFactor = parsedSession.data.session.factors.user;
         if (!userFactor) {
@@ -359,7 +362,7 @@ export function createZitadelCustomLoginProvider(input: {
           userFactor.id !== userId ||
           userFactor.organizationId !== expectedOrganizationId
         ) {
-          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK");
+          throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, false, "SESSION_READBACK_IDENTITY");
         }
         const passwordVerifiedAt = parsedSession.data.session.factors.password?.verifiedAt;
         if (!passwordVerifiedAt) {
