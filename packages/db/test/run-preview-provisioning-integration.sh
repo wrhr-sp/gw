@@ -24,6 +24,8 @@ drop role if exists werehere_preview_reconciler;
 drop role if exists preview_stale_definer_member;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
+drop role if exists cloud_admin;
+drop role if exists preview_wrong_database_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
 drop role if exists preview_stale_table_acl_grantee;
@@ -48,6 +50,8 @@ drop role if exists werehere_preview_reconciler;
 drop role if exists preview_stale_definer_member;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
+drop role if exists cloud_admin;
+drop role if exists preview_wrong_database_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
 drop role if exists preview_stale_table_acl_grantee;
@@ -380,16 +384,98 @@ revoke werehere_auth_session_definer from preview_foreign_definer_grantor
 drop role preview_foreign_definer_grantor;
 SQL
 
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+create role cloud_admin superuser nologin noinherit;
+grant werehere_auth_session_definer to $MIGRATION_OWNER
+  with admin true, inherit false, set true;
+grant werehere_tenant_authority_definer to $MIGRATION_OWNER
+  with admin true, inherit false, set false;
+update pg_auth_members membership
+set grantor = (select oid from pg_roles where rolname = 'cloud_admin')
+from pg_roles definer_role, pg_roles member_role
+where definer_role.oid = membership.roleid
+  and member_role.oid = membership.member
+  and definer_role.rolname in (
+    'werehere_auth_session_definer',
+    'werehere_tenant_authority_definer'
+  )
+  and member_role.rolname = '$MIGRATION_OWNER';
+SQL
+if run_provision EXPAND >/dev/null 2>&1; then
+  printf '%s\n' 'Preview provisioning accepted a malformed Neon creator membership pair.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+update pg_auth_members membership
+set set_option = false
+from pg_roles definer_role, pg_roles member_role, pg_roles grantor_role
+where definer_role.oid = membership.roleid
+  and member_role.oid = membership.member
+  and grantor_role.oid = membership.grantor
+  and definer_role.rolname = 'werehere_auth_session_definer'
+  and member_role.rolname = '$MIGRATION_OWNER'
+  and grantor_role.rolname = 'cloud_admin';
+SQL
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_wrong_database_owner nologin noinherit;
+alter database werehere_preview_ci owner to preview_wrong_database_owner;
+SQL
+set +e
+DATABASE_OWNER_MISMATCH_OUTPUT="$(run_provision EXPAND 2>&1)"
+DATABASE_OWNER_MISMATCH_STATUS=$?
+set -e
+if [[ "$DATABASE_OWNER_MISMATCH_STATUS" -eq 0 ]] ||
+  [[ "$DATABASE_OWNER_MISMATCH_OUTPUT" != *'Preview migration credential must own the Preview database'* ]]; then
+  printf '%s\n' 'Preview provisioning did not fail at the database-owner preflight.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+alter database werehere_preview_ci owner to $MIGRATION_OWNER;
+drop role preview_wrong_database_owner;
+SQL
+run_provision EXPAND >/dev/null
+NEON_CREATOR_MEMBERSHIP_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*)
+from pg_auth_members membership
+join pg_roles definer_role on definer_role.oid = membership.roleid
+join pg_roles member_role on member_role.oid = membership.member
+join pg_roles grantor_role on grantor_role.oid = membership.grantor
+where definer_role.rolname in (
+  'werehere_auth_session_definer',
+  'werehere_tenant_authority_definer'
+)
+  and member_role.rolname = '$MIGRATION_OWNER'
+  and grantor_role.rolname = 'cloud_admin'
+  and membership.admin_option
+  and not membership.inherit_option
+  and not membership.set_option;
+SQL
+)"
+if [[ "$NEON_CREATOR_MEMBERSHIP_RESULT" != "2" ]]; then
+  printf '%s\n' 'Preview provisioning did not preserve the exact Neon creator membership pair.' >&2
+  exit 1
+fi
+
 run_provision CONTRACT >/dev/null
 TEMPORARY_DEFINER_PRIVILEGES="$(psql -X -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
   (select count(*)
    from pg_auth_members membership
    join pg_roles granted_role on granted_role.oid = membership.roleid
+   join pg_roles member_role on member_role.oid = membership.member
+   join pg_roles grantor_role on grantor_role.oid = membership.grantor
    where granted_role.rolname in (
      'werehere_auth_session_definer',
      'werehere_tenant_authority_definer'
-   ))
+   )
+     and not (
+       member_role.rolname = 'werehere_preview_migration_owner'
+       and grantor_role.rolname = 'cloud_admin'
+       and grantor_role.rolsuper
+       and membership.admin_option
+       and not membership.inherit_option
+       and not membership.set_option
+     ))
   +
   (select count(*)
    from pg_roles role
@@ -643,6 +729,30 @@ assert_readiness() {
   fi
 }
 
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+delete from pg_auth_members membership
+using pg_roles definer_role, pg_roles member_role, pg_roles grantor_role
+where definer_role.oid = membership.roleid
+  and member_role.oid = membership.member
+  and grantor_role.oid = membership.grantor
+  and definer_role.rolname = 'werehere_tenant_authority_definer'
+  and member_role.rolname = '$MIGRATION_OWNER'
+  and grantor_role.rolname = 'cloud_admin';
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+grant werehere_tenant_authority_definer to $MIGRATION_OWNER
+  with admin true, inherit false, set false;
+update pg_auth_members membership
+set grantor = (select oid from pg_roles where rolname = 'cloud_admin')
+from pg_roles definer_role, pg_roles member_role
+where definer_role.oid = membership.roleid
+  and member_role.oid = membership.member
+  and definer_role.rolname = 'werehere_tenant_authority_definer'
+  and member_role.rolname = '$MIGRATION_OWNER';
+SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'

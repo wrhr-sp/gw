@@ -252,13 +252,25 @@ async function updateLocalCiDefinerMembership(
 
 try {
   const [migrationOwnerIdentity] = await owner<
-    { role_identifier: string; role_name: string }[]
+    {
+      database_owner_role_name: string;
+      owns_database: boolean;
+      role_identifier: string;
+      role_name: string;
+    }[]
   >`
     select current_user as role_name,
-           format('%I', current_user) as role_identifier
+           format('%I', current_user) as role_identifier,
+           pg_get_userbyid(database_record.datdba) as database_owner_role_name,
+           current_user::regrole::oid = database_record.datdba as owns_database
+    from pg_database database_record
+    where database_record.datname = current_database()
   `;
   if (!migrationOwnerIdentity)
     fail("Preview migration owner identity is unavailable");
+  if (!migrationOwnerIdentity.owns_database) {
+    fail("Preview migration credential must own the Preview database");
+  }
   migrationOwnerRoleForCleanup = migrationOwnerIdentity.role_name;
   const previewIdentity = await neonBranchIdentity(owner);
   if (productionUrl.hostname.toLowerCase().endsWith(".neon.tech")) {
@@ -356,6 +368,10 @@ try {
     [
       "0011_account_provider_exact_dispatch",
       "0011_account_provider_exact_dispatch.sql",
+    ],
+    [
+      "0013_neon_definer_creator_membership",
+      "0013_neon_definer_creator_membership.sql",
     ],
     [
       "0008_remove_legacy_company_id_fallback",
@@ -1586,6 +1602,7 @@ try {
       admin_option: boolean;
       definer_role: string;
       grantor_role: string;
+      grantor_superuser: boolean;
       inherit_option: boolean;
       member_role: string;
       set_option: boolean;
@@ -1594,6 +1611,7 @@ try {
     select definer_role.rolname as definer_role,
            member_role.rolname as member_role,
            grantor_role.rolname as grantor_role,
+           grantor_role.rolsuper as grantor_superuser,
            membership.inherit_option,
            membership.set_option,
            membership.admin_option
@@ -1606,7 +1624,30 @@ try {
       'werehere_tenant_authority_definer'
     )
   `;
-  if (definerMembershipSafety.length !== 0) {
+  const neonCreatorDefinerRoles = new Set([
+    "werehere_auth_session_definer",
+    "werehere_tenant_authority_definer",
+  ]);
+  const hasExactNeonCreatorMemberships =
+    definerMembershipSafety.length === neonCreatorDefinerRoles.size &&
+    new Set(
+      definerMembershipSafety.map((membership) => membership.definer_role),
+    ).size === neonCreatorDefinerRoles.size &&
+    definerMembershipSafety.every(
+      (membership) =>
+        neonCreatorDefinerRoles.has(membership.definer_role) &&
+        membership.member_role ===
+          migrationOwnerIdentity.database_owner_role_name &&
+        membership.grantor_role === "cloud_admin" &&
+        membership.grantor_superuser &&
+        membership.admin_option &&
+        !membership.inherit_option &&
+        !membership.set_option,
+    );
+  if (
+    definerMembershipSafety.length !== 0 &&
+    !hasExactNeonCreatorMemberships
+  ) {
     fail("Preview definer membership cleanup failed");
   }
 

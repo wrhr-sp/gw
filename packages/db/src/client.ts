@@ -23,7 +23,7 @@ const PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256 =
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
   [
     "runtime_is_schema_owner",
-    "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221",
+    "48d938d880cd3ae967ca52e9896797d6ef5526ad2e8cf22801d9159b982f1d2f",
   ],
   [
     "runtime_has_capability",
@@ -762,7 +762,7 @@ export async function probeDatabaseReadiness(
                  '0008_remove_legacy_company_id_fallback',
                  '0010_global_login_id_contract'
                )
-             ) = 9 as expand_applied,
+             ) = 10 as expand_applied,
              count(*) filter (
                where version in (
                  '0008_remove_legacy_company_id_fallback',
@@ -783,7 +783,8 @@ export async function probeDatabaseReadiness(
         '0009_global_login_id_expand',
         '0010_global_login_id_contract',
         '0011_account_provider_exact_dispatch',
-        '0012_account_provider_exact_dispatch_contract'
+        '0012_account_provider_exact_dispatch_contract',
+        '0013_neon_definer_creator_membership'
       )
     `;
     const schemaPhase = migrationRows[0]?.contract_applied
@@ -796,6 +797,36 @@ export async function probeDatabaseReadiness(
       (options.requiredSchemaPhase &&
         options.requiredSchemaPhase !== schemaPhase)
     ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const [definerMembershipTopology] = await sql<
+      { exact_zero_or_neon_pair: boolean }[]
+    >`
+      select count(*) = 0
+        or (
+          count(*) = 2
+          and count(distinct granted_role.rolname) = 2
+          and bool_and(
+            membership.member = database_record.datdba
+            and grantor_role.rolname = 'cloud_admin'
+            and grantor_role.rolsuper
+            and membership.admin_option
+            and not membership.inherit_option
+            and not membership.set_option
+          )
+        ) as exact_zero_or_neon_pair
+      from pg_auth_members membership
+      join pg_roles granted_role on granted_role.oid = membership.roleid
+      join pg_roles grantor_role on grantor_role.oid = membership.grantor
+      join pg_database database_record
+        on database_record.datname = current_database()
+      where granted_role.rolname in (
+        'werehere_auth_session_definer',
+        'werehere_tenant_authority_definer'
+      )
+    `;
+    if (!definerMembershipTopology?.exact_zero_or_neon_pair) {
       return { status: "SCHEMA_NOT_READY" };
     }
 
@@ -863,11 +894,25 @@ export async function probeDatabaseReadiness(
                and not procedure_owner.rolreplication
                and not procedure_owner.rolbypassrls
                and not exists (
-                 select 1 from pg_auth_members membership
+                 select 1
+                 from pg_auth_members membership
+                 join pg_roles membership_grantor
+                   on membership_grantor.oid = membership.grantor
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option or membership.admin_option)
+                     and not (
+                       membership.member = (
+                         select database_record.datdba
+                         from pg_database database_record
+                         where database_record.datname = current_database()
+                       )
+                       and membership_grantor.rolname = 'cloud_admin'
+                       and membership_grantor.rolsuper
+                       and membership.admin_option
+                       and not membership.inherit_option
+                       and not membership.set_option
+                     )
                    )
                )
              ) as owner_safe,
@@ -965,11 +1010,25 @@ export async function probeDatabaseReadiness(
                and not procedure_owner.rolreplication
                and not procedure_owner.rolbypassrls
                and not exists (
-                 select 1 from pg_auth_members membership
+                 select 1
+                 from pg_auth_members membership
+                 join pg_roles membership_grantor
+                   on membership_grantor.oid = membership.grantor
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option or membership.admin_option)
+                     and not (
+                       membership.member = (
+                         select database_record.datdba
+                         from pg_database database_record
+                         where database_record.datname = current_database()
+                       )
+                       and membership_grantor.rolname = 'cloud_admin'
+                       and membership_grantor.rolsuper
+                       and membership.admin_option
+                       and not membership.inherit_option
+                       and not membership.set_option
+                     )
                    )
                )
              ) as owner_safe,
@@ -1082,11 +1141,25 @@ export async function probeDatabaseReadiness(
                and not procedure_owner.rolreplication
                and not procedure_owner.rolbypassrls
                and not exists (
-                 select 1 from pg_auth_members membership
+                 select 1
+                 from pg_auth_members membership
+                 join pg_roles membership_grantor
+                   on membership_grantor.oid = membership.grantor
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option or membership.admin_option)
+                     and not (
+                       membership.member = (
+                         select database_record.datdba
+                         from pg_database database_record
+                         where database_record.datname = current_database()
+                       )
+                       and membership_grantor.rolname = 'cloud_admin'
+                       and membership_grantor.rolsuper
+                       and membership.admin_option
+                       and not membership.inherit_option
+                       and not membership.set_option
+                     )
                    )
                )
              ) as owner_safe,
@@ -1169,11 +1242,25 @@ export async function probeDatabaseReadiness(
                and not procedure_owner.rolreplication
                and not procedure_owner.rolbypassrls
                and not exists (
-                 select 1 from pg_auth_members membership
+                 select 1
+                 from pg_auth_members membership
+                 join pg_roles membership_grantor
+                   on membership_grantor.oid = membership.grantor
                  where membership.member = procedure_owner.oid
                    or (
                      membership.roleid = procedure_owner.oid
-                     and (membership.inherit_option or membership.set_option or membership.admin_option)
+                     and not (
+                       membership.member = (
+                         select database_record.datdba
+                         from pg_database database_record
+                         where database_record.datname = current_database()
+                       )
+                       and membership_grantor.rolname = 'cloud_admin'
+                       and membership_grantor.rolsuper
+                       and membership.admin_option
+                       and not membership.inherit_option
+                       and not membership.set_option
+                     )
                    )
                )
              ) as owner_safe,
