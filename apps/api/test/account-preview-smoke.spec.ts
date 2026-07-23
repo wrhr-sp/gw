@@ -183,6 +183,8 @@ describe("hosted Preview account-management smoke", () => {
     expect(schemaPosition).toBeGreaterThan(identityPosition);
     expect(source).toContain('.replace(/[^A-Za-z0-9]/gu, "")');
     expect(source).toContain("const loginName = `p${runSuffix}`.slice(0, 30)");
+    expect(source).toContain("!hotelIds.includes(account.hotelId)");
+    expect(source).toContain("!hotelIds.includes(detailAccount.hotelId)");
     expect(source).toContain("async function verifyHostedCustomLogin");
     expect(source).toMatch(
       /context\.request\.get\(\s*`\$\{baseUrl\}\/api\/auth\/session`/u,
