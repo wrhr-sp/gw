@@ -318,6 +318,7 @@ export function createZitadelCustomLoginProvider(input: {
       if (!created.success) throw new AuthServiceError("AUTH_PROVIDER_UNAVAILABLE", 503, true);
 
       const latest = created.data;
+      let finalized = false;
       try {
         const sessionResponse = await request(`${issuer}/v2/sessions/${safeSegment(latest.sessionId)}`, {
           headers: { accept: "application/json", authorization: `Bearer ${latest.sessionToken}` },
@@ -397,12 +398,13 @@ export function createZitadelCustomLoginProvider(input: {
         ) {
           throw new AuthServiceError("AUTH_FLOW_INVALID", 400, false);
         }
+        finalized = true;
         return {
           callbackUrl: callbackUrl.toString(),
           clearBrowserBinding: authRequestTarget.clearBrowserBinding,
         };
       } finally {
-        await terminate(latest.sessionId, latest.sessionToken);
+        if (!finalized) await terminate(latest.sessionId, latest.sessionToken);
       }
     },
   };
