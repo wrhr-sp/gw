@@ -584,7 +584,7 @@ try {
     account.loginName !== loginName ||
     account.email !== email ||
     account.userType !== "HOUSEKEEPING" ||
-    account.hotelId !== null ||
+    !hotelIds.includes(account.hotelId) ||
     JSON.stringify(createdHotelIds) !== JSON.stringify(hotelIds)
   ) {
     throw new Error("Created Preview account response was invalid");
@@ -609,7 +609,7 @@ try {
     detailAccount.email !== email ||
     detailAccount.userType !== "HOUSEKEEPING" ||
     detailAccount.status !== "PENDING_SETUP" ||
-    detailAccount.hotelId !== null ||
+    !hotelIds.includes(detailAccount.hotelId) ||
     JSON.stringify(detailHotelIds) !== JSON.stringify(hotelIds)
   ) {
     throw new Error("Created Preview account PostgreSQL GET read-back failed");
