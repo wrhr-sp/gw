@@ -233,6 +233,14 @@ describe("Preview account Worker release safety", () => {
     );
     expect(preTarget).toContain("retarget_required=true");
     expect(preTarget).toContain("PREVIEW_EXISTING_WORKER_RETARGET_REQUIRED");
+    expect(preTarget).toContain('readiness_status" -eq 11');
+    expect(preTarget).toContain(
+      'readiness_classification" == "SCHEMA_NOT_READY"',
+    );
+    expect(preTarget).toContain("legacy_schema_recovery_required=true");
+    expect(preTarget).toContain(
+      "PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_REQUIRED",
+    );
     const provisioning = workflowStep("Create or update Preview Hyperdrives");
     expect(provisioning).toContain("retarget_topology=API_WEB_LEGACY");
     expect(provisioning).toContain("retarget_topology=COMPLETE");
@@ -242,6 +250,11 @@ describe("Preview account Worker release safety", () => {
     expect(provisioning).toContain(
       'DB_DEPENDENCY_UNAVAILABLE "$api_target_state" "$retarget_topology"',
     );
+    expect(provisioning).toContain(
+      'SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY',
+    );
+    expect(provisioning).toContain("CONTINUE_CANONICAL_LEGACY_RECOVERY");
+    expect(provisioning).toContain("legacy_api_promoted=true");
     expect(provisioning).not.toContain(
       "requires a complete existing Worker topology",
     );
@@ -253,6 +266,9 @@ describe("Preview account Worker release safety", () => {
     );
     expect(canonicalTarget).toContain(
       "node scripts/smoke-zitadel-console-preview.mjs",
+    );
+    expect(canonicalTarget).toContain(
+      "PREVIEW_LEGACY_API_POST_RETARGET_SMOKE_DEFERRED",
     );
   });
 

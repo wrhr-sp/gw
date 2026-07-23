@@ -32,6 +32,15 @@ export function classifyReadinessResponses(live, ready) {
   ) {
     return "DB_DEPENDENCY_UNAVAILABLE";
   }
+  if (
+    isObject(ready) &&
+    ready.status === 503 &&
+    isObject(ready.body) &&
+    ready.body.ok === false &&
+    ready.body.error?.code === "SCHEMA_NOT_READY"
+  ) {
+    return "SCHEMA_NOT_READY";
+  }
   return "UNCLASSIFIED_FAILURE";
 }
 
@@ -80,6 +89,15 @@ export function decideRetarget({ approved, readiness, targetState, topology }) {
     return targetState === "MATCH"
       ? "NORMAL_RELEASE"
       : "DENY_HEALTHY_TARGET_MISMATCH";
+  }
+  if (readiness === "SCHEMA_NOT_READY") {
+    if (!approved) return "DENY_NOT_APPROVED";
+    if (topology !== "API_WEB_LEGACY") {
+      return "DENY_SCHEMA_RECOVERY_TOPOLOGY";
+    }
+    return targetState === "MATCH"
+      ? "CONTINUE_CANONICAL_LEGACY_RECOVERY"
+      : "DENY_SCHEMA_RECOVERY_TARGET_NOT_CANONICAL";
   }
   if (readiness !== "DB_DEPENDENCY_UNAVAILABLE") {
     return "DENY_UNCLASSIFIED_FAILURE";
@@ -135,6 +153,7 @@ async function main() {
     );
     process.stdout.write(`${classification}\n`);
     if (classification === "DB_DEPENDENCY_UNAVAILABLE") process.exitCode = 10;
+    else if (classification === "SCHEMA_NOT_READY") process.exitCode = 11;
     else if (classification !== "READY") process.exitCode = 1;
     return;
   }
@@ -157,7 +176,11 @@ async function main() {
       topology: fourth,
     });
     process.stdout.write(`${decision}\n`);
-    if (decision !== "RETARGET" && decision !== "NORMAL_RELEASE") {
+    if (
+      decision !== "RETARGET" &&
+      decision !== "NORMAL_RELEASE" &&
+      decision !== "CONTINUE_CANONICAL_LEGACY_RECOVERY"
+    ) {
       process.exitCode = 3;
     }
     return;

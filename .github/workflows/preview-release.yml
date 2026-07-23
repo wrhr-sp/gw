@@ -328,6 +328,17 @@ jobs:
             node scripts/smoke-cloudflare-preview.mjs
             node scripts/smoke-zitadel-console-preview.mjs
             printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
+            printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$readiness_status" -eq 11 && "$readiness_classification" == "SCHEMA_NOT_READY" ]]; then
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
+              printf '%s\n' 'PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_NOT_APPROVED' >&2
+              exit 1
+            fi
+            printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
+            printf 'legacy_schema_recovery_required=true\n' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_REQUIRED'
             exit 0
           fi
           if [[ "$readiness_status" -ne 10 || "$readiness_classification" != "DB_DEPENDENCY_UNAVAILABLE" ]]; then
@@ -339,6 +350,7 @@ jobs:
             exit 1
           fi
           printf 'retarget_required=true\n' >> "$GITHUB_OUTPUT"
+          printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
           printf '%s\n' 'PREVIEW_EXISTING_WORKER_RETARGET_REQUIRED'
 
       - name: Create or update Preview Hyperdrives
@@ -348,6 +360,7 @@ jobs:
         env:
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
           PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}
+          PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_required }}
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
@@ -544,6 +557,10 @@ jobs:
             printf '%s\n' 'Existing reconciler Worker Hyperdrive binding ID was invalid.' >&2
             exit 1
           fi
+          if [[ "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" == "true" && "$PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED" == "true" ]]; then
+            printf '%s\n' 'Preview Hyperdrive retarget and legacy schema recovery cannot both be required.' >&2
+            exit 1
+          fi
           if [[ "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" == "true" ]]; then
             if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
               printf '%s\n' 'Preview Hyperdrive retarget was not explicitly approved.' >&2
@@ -574,6 +591,31 @@ jobs:
               exit 1
             fi
             printf '%s\n' 'PREVIEW_API_HYPERDRIVE_TARGET_MISMATCH_CONFIRMED'
+          elif [[ "$PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED" == "true" ]]; then
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery was not explicitly approved.' >&2
+              exit 1
+            fi
+            if [[ "$api_existed" != "true" || "$web_existed" != "true" || "$reconciler_existed" != "false" ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery requires exact API-Web legacy Worker topology.' >&2
+              exit 1
+            fi
+            api_target_state="$(hyperdrive_target_state \
+              'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE" \
+              "$api_hyperdrive_id")"
+            set +e
+            recovery_decision="$(
+              node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
+                decide "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" \
+                SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY
+            )"
+            decision_status="$?"
+            set -e
+            if [[ "$decision_status" -ne 0 || "$recovery_decision" != "CONTINUE_CANONICAL_LEGACY_RECOVERY" ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery decision was denied.' >&2
+              exit 1
+            fi
+            printf '%s\n' 'PREVIEW_CANONICAL_LEGACY_SCHEMA_RECOVERY_CONFIRMED'
           elif [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" == "true" ]]; then
             printf '%s\n' 'Preview Hyperdrive retarget was approved without a failed existing-Worker readiness gate.' >&2
             exit 1
@@ -592,12 +634,14 @@ jobs:
               printf '%s\n' 'The active legacy-named API Hyperdrive identity changed.' >&2
               exit 1
             fi
+            printf 'legacy_api_promoted=true\n' >> "$GITHUB_OUTPUT"
             printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PROMOTED_TO_CANONICAL_API'
           else
             if ! cmp -s "$legacy_before" "$legacy_after"; then
               printf '%s\n' 'The legacy Preview Hyperdrive changed during account release provisioning.' >&2
               exit 1
             fi
+            printf 'legacy_api_promoted=false\n' >> "$GITHUB_OUTPUT"
             printf '%s\n' 'PREVIEW_LEGACY_HYPERDRIVE_PRESERVED'
           fi
           printf '%s\n' 'PREVIEW_HYPERDRIVES_READY'
@@ -606,8 +650,14 @@ jobs:
         if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
         id: expand_compatibility_smoke
         run: |
-          node scripts/smoke-cloudflare-preview.mjs
-          node scripts/smoke-zitadel-console-preview.mjs
+          if [[ "${{ steps.hyperdrive.outputs.legacy_api_promoted }}" == "true" && \
+                ( "${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}" == "true" || \
+                  "${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_required }}" == "true" ) ]]; then
+            printf '%s\n' 'PREVIEW_LEGACY_API_POST_RETARGET_SMOKE_DEFERRED'
+          else
+            node scripts/smoke-cloudflare-preview.mjs
+            node scripts/smoke-zitadel-console-preview.mjs
+          fi
 
       - name: Render API Preview configuration and secrets
         env:

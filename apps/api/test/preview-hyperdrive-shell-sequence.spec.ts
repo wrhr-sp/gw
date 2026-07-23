@@ -90,6 +90,8 @@ function runHyperdriveStep(options: {
   reconcilerOrigin: Origin;
   approved: boolean;
   required: boolean;
+  legacySchemaRecovery?: boolean;
+  legacyConfigOrigin?: Origin;
   failUpdateId?: string;
   failCreateName?: string;
   apiPresent?: boolean;
@@ -110,7 +112,11 @@ function runHyperdriveStep(options: {
   const apiUrl = `postgresql://${canonicalApi.user}:fixture-password@${canonicalApi.host}:${canonicalApi.port}/${canonicalApi.database}`;
   const reconcilerUrl = `postgresql://${canonicalReconciler.user}:fixture-password@${canonicalReconciler.host}:${canonicalReconciler.port}/${canonicalReconciler.database}`;
   const initialState = [
-    config(legacyId, "werehere-hotel-preview", legacyOrigin),
+    config(
+      legacyId,
+      "werehere-hotel-preview",
+      options.legacyConfigOrigin ?? legacyOrigin,
+    ),
   ];
   if (options.apiPresent !== false) {
     initialState.push(
@@ -290,6 +296,9 @@ NODE
       RECONCILER_DATABASE_URL_FILE: reconcilerUrlFile,
       PREVIEW_HYPERDRIVE_RETARGET_APPROVED: String(options.approved),
       PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: String(options.required),
+      PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: String(
+        options.legacySchemaRecovery ?? false,
+      ),
       MOCK_HYPERDRIVE_STATE: stateFile,
       MOCK_HYPERDRIVE_CALLS: callsFile,
       MOCK_FAIL_UPDATE_ID: options.failUpdateId ?? "",
@@ -298,6 +307,7 @@ NODE
   });
   const calls = readFileSync(callsFile, "utf8").split("\n").filter(Boolean);
   const state = JSON.parse(readFileSync(stateFile, "utf8")) as Config[];
+  const githubOutput = readFileSync(outputFile, "utf8");
   const snapshotFiles = existsSync(fixedSnapshotDirectory)
     ? readdirSync(fixedSnapshotDirectory).sort()
     : [];
@@ -309,7 +319,14 @@ NODE
   );
   rmSync(fixedSnapshotDirectory, { recursive: true, force: true });
   rmSync(directory, { recursive: true, force: true });
-  return { result, calls, state, snapshotFiles, snapshotContents };
+  return {
+    result,
+    calls,
+    state,
+    githubOutput,
+    snapshotFiles,
+    snapshotContents,
+  };
 }
 
 function runHyperdriveRecovery(
@@ -575,6 +592,36 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
       "reconciler_id-create-attempted",
       "reconciler_id-created-id",
     ]);
+  });
+
+  it("continues canonical legacy schema recovery without mutating Hyperdrives", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: true,
+      required: false,
+      legacySchemaRecovery: true,
+      legacyConfigOrigin: canonicalApi,
+      apiPresent: false,
+      reconcilerPresent: true,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_CANONICAL_LEGACY_SCHEMA_RECOVERY_CONFIRMED",
+    );
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_LEGACY_HYPERDRIVE_PROMOTED_TO_CANONICAL_API",
+    );
+    expect(execution.githubOutput).toContain(`api_id=${legacyId}`);
+    expect(execution.githubOutput).toContain(
+      `reconciler_id=${existingReconcilerId}`,
+    );
+    expect(execution.githubOutput).toContain("legacy_api_promoted=true");
+    expect(execution.snapshotFiles).toEqual([]);
   });
 
   it("classifies legacy API update plus reconciler create failure as split recovery", () => {
