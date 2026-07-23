@@ -317,6 +317,7 @@ jobs:
         id: pre_hyperdrive_compatibility
         env:
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           set +e
           readiness_classification="$(
