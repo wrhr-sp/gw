@@ -350,28 +350,24 @@ describe("ZITADEL custom login provider", () => {
   });
 
   it("fails closed when the checked user factor omits its organization", async () => {
-    const fetcher = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(json({ authRequest: {
-        id: "request-1", clientId: "hotel-client", redirectUri: base.redirectUri,
-        scope: ["openid", "profile"],
-      } }))
-      .mockResolvedValueOnce(json({ settings: { allowLocalAuthentication: true, forceMfa: false, forceMfaLocalOnly: false } }))
-      .mockResolvedValueOnce(json({ sessionId: "session-1", sessionToken: "token-password" }))
-      .mockResolvedValueOnce(json({ session: {
-        id: "session-1",
-        expirationDate: "2026-07-17T00:05:00.000Z",
-        factors: {
-          user: { id: "subject-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
-          password: { verifiedAt: "2026-07-17T00:00:10.000Z" },
-        },
-      } }))
-      .mockResolvedValueOnce(json({}));
+    const responses = validAuthenticationResponses();
+    responses[3] = json({ session: {
+      id: "session-1",
+      expirationDate: "2026-07-17T00:05:00.000Z",
+      factors: {
+        user: { id: "subject-1", verifiedAt: "2026-07-17T00:00:00.000Z" },
+        password: { verifiedAt: "2026-07-17T00:00:00.000Z" },
+      },
+    } });
+    const fetcher = vi.fn<typeof fetch>();
+    for (const response of responses) fetcher.mockResolvedValueOnce(response);
     const provider = createZitadelCustomLoginProvider({ ...base, fetcher });
+
     await expect(provider.authenticateAndFinalize({
       authRequest: "request-1", userId: "subject-1", password: "password-value",
     })).rejects.toMatchObject({
       code: "AUTH_PROVIDER_UNAVAILABLE",
-      providerDiagnosticStage: "SESSION_READBACK",
+      providerDiagnosticStage: "SESSION_READBACK_SCHEMA",
     });
   });
 
@@ -421,7 +417,6 @@ describe("ZITADEL custom login provider", () => {
     });
     expect(fetcher.mock.calls[4]?.[1]?.method).toBe("DELETE");
   });
-
   it("fails closed on identity mismatch before classifying a missing password factor", async () => {
     const responses = validAuthenticationResponses();
     responses[3] = json({ session: {
@@ -439,7 +434,7 @@ describe("ZITADEL custom login provider", () => {
       authRequest: "request-1", userId: "subject-1", password: "wrong-password",
     })).rejects.toMatchObject({
       code: "AUTH_PROVIDER_UNAVAILABLE",
-      providerDiagnosticStage: "SESSION_READBACK",
+      providerDiagnosticStage: "SESSION_READBACK_IDENTITY",
     });
   });
 
