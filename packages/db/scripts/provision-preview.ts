@@ -1346,9 +1346,9 @@ try {
     grant insert, update on users, account_provisioning_attempts,
       initial_password_change_attempts to ${apiRuntimeTableGrantees};
     grant insert on login_id_registry to ${apiRuntimeTableGrantees};
-    revoke update (updated_at) on branches, hotel_profiles
+    revoke update (updated_at) on auth_identities, branches, hotel_profiles
       from ${reconcilerRole};
-    grant update (updated_at) on branches, hotel_profiles
+    grant update (updated_at) on auth_identities, branches, hotel_profiles
       to ${apiRuntimeTableGrantees};
     grant insert, update, delete on idempotency_records to ${apiRuntimeTableGrantees};
     grant insert, update on outbox_jobs to ${apiRuntimeTableGrantees};

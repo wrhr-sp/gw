@@ -89,7 +89,7 @@ TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
   initial_password_change_attempts TO $RUNTIME_ROLE;
 GRANT INSERT ON login_id_registry TO $RUNTIME_ROLE;
-GRANT UPDATE (updated_at) ON branches, hotel_profiles TO $RUNTIME_ROLE;
+GRANT UPDATE (updated_at) ON auth_identities, branches, hotel_profiles TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
@@ -300,6 +300,33 @@ rollback;
 SQL
 then
   printf 'API runtime unexpectedly received branch status UPDATE privilege.\n' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+  -v session_id="41000000-0000-4000-8000-000000000001" >/dev/null <<'SQL'
+begin;
+select set_config('app.session_id', :'session_id', true);
+select user_record.id
+from users user_record
+join auth_identities identity_record
+  on identity_record.company_id = user_record.company_id
+ and identity_record.user_id = user_record.id
+where user_record.company_id = '11000000-0000-4000-8000-000000000001'
+  and user_record.id = '21000000-0000-4000-8000-000000000001'
+for update of user_record, identity_record;
+rollback;
+SQL
+if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+  -v session_id="41000000-0000-4000-8000-000000000001" >/dev/null 2>&1 <<'SQL'
+begin;
+select set_config('app.session_id', :'session_id', true);
+update auth_identities
+set provider_subject = 'worker-smoke-forbidden-subject'
+where id = '31000000-0000-4000-8000-000000000001';
+rollback;
+SQL
+then
+  printf 'API runtime unexpectedly received provider identity UPDATE privilege.\n' >&2
   exit 1
 fi
 HOTEL_DETAIL_STATUS="$(curl --silent --show-error -o "$TMP_DIR/hotel-detail.json" -w '%{http_code}' \
