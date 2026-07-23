@@ -15,6 +15,10 @@ const unavailable = {
   status: 500,
   body: { ok: false, error: { code: "INTERNAL_ERROR" } },
 };
+const schemaNotReady = {
+  status: 503,
+  body: { ok: false, error: { code: "SCHEMA_NOT_READY" } },
+};
 
 const matchingConfig = {
   id: "hyperdrive-api",
@@ -35,9 +39,12 @@ describe("Preview Hyperdrive retarget contract", () => {
     expect(classifyReadinessResponses(liveUp, unavailable)).toBe(
       "DB_DEPENDENCY_UNAVAILABLE",
     );
+    expect(classifyReadinessResponses(liveUp, schemaNotReady)).toBe(
+      "SCHEMA_NOT_READY",
+    );
     for (const candidate of [
       { status: 429, body: unavailable.body },
-      { status: 503, body: { ok: false, error: { code: "SCHEMA_NOT_READY" } } },
+      { status: 503, body: { ok: false, error: { code: "OTHER" } } },
       { status: 500, body: { ok: false, error: { code: "OTHER" } } },
       { status: 500, body: null },
     ]) {
@@ -132,6 +139,28 @@ describe("Preview Hyperdrive retarget contract", () => {
       "MISMATCH",
       "API_WEB_LEGACY",
       "RETARGET",
+    ],
+    [
+      true,
+      "SCHEMA_NOT_READY",
+      "MATCH",
+      "API_WEB_LEGACY",
+      "CONTINUE_CANONICAL_LEGACY_RECOVERY",
+    ],
+    [false, "SCHEMA_NOT_READY", "MATCH", "API_WEB_LEGACY", "DENY_NOT_APPROVED"],
+    [
+      true,
+      "SCHEMA_NOT_READY",
+      "MISMATCH",
+      "API_WEB_LEGACY",
+      "DENY_SCHEMA_RECOVERY_TARGET_NOT_CANONICAL",
+    ],
+    [
+      true,
+      "SCHEMA_NOT_READY",
+      "MATCH",
+      "COMPLETE",
+      "DENY_SCHEMA_RECOVERY_TOPOLOGY",
     ],
   ] as const)(
     "enforces approved retarget truth table %#",
