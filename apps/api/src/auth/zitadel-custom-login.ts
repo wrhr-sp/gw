@@ -343,8 +343,10 @@ export function createZitadelCustomLoginProvider(input: {
       const latest = created.data;
       let finalized = false;
       try {
-        const sessionResponse = await request(`${issuer}/v2/sessions/${safeSegment(latest.sessionId)}`, {
-          headers: { accept: "application/json", authorization: `Bearer ${latest.sessionToken}` },
+        const sessionReadbackUrl = new URL(`${issuer}/v2/sessions/${safeSegment(latest.sessionId)}`);
+        sessionReadbackUrl.searchParams.set("sessionToken", latest.sessionToken);
+        const sessionResponse = await request(sessionReadbackUrl.toString(), {
+          headers: { accept: "application/json" },
         }, "SESSION_READBACK");
         if (!sessionResponse.ok) {
           const statusStage = sessionResponse.status === 401 || sessionResponse.status === 403
