@@ -18,7 +18,7 @@ const {
   waitForProviderSessionGone,
   waitForZeroActiveSessions,
 } = cleanupHelpers;
-const { runHostedMutation, runHostedMutationWithReload, seoulCalendarDate } =
+const { runHostedMutation, runHostedMutationWithReload } =
   relationshipSmokeHelpers;
 
 const smokeUrl = new URL(
@@ -258,15 +258,6 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain("row?.context_company_id !== companyId");
   });
 
-  it("uses the Seoul calendar date at the UTC day boundary", () => {
-    expect(seoulCalendarDate(new Date("2026-07-24T14:59:59.000Z"))).toBe(
-      "2026-07-24",
-    );
-    expect(seoulCalendarDate(new Date("2026-07-24T15:00:00.000Z"))).toBe(
-      "2026-07-25",
-    );
-  });
-
   it("does not register a reload waiter for a rejected hosted mutation", async () => {
     const events: string[] = [];
     await expect(
@@ -382,6 +373,12 @@ describe("hosted Preview account-management smoke", () => {
       "Hosted relationship candidate UI exposed private identity data",
     );
     expect(source).toContain('label: "Hosted relationship assignment"');
+    expect(source).toContain(
+      "const assignmentStartDate = new Date().toISOString().slice(0, 10)",
+    );
+    expect(source).toMatch(
+      /getByLabel\("관계유형"\)\.selectOption\("HOUSEKEEPING"\)[\s\S]*?getByLabel\("시작일", \{ exact: true \}\)\s*\.fill\(assignmentStartDate\)[\s\S]*?getByLabel\("후보 이름 검색"\)/u,
+    );
     expect(source).toContain(
       'label: "Hosted activation readiness did not fail closed"',
     );

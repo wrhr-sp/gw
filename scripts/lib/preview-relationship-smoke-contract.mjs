@@ -1,23 +1,5 @@
-export function seoulCalendarDate(now = new Date()) {
-  const parts = new Map(
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Seoul",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-      .formatToParts(now)
-      .map((part) => [part.type, part.value]),
-  );
-  const year = parts.get("year");
-  const month = parts.get("month");
-  const day = parts.get("day");
-  if (!year || !month || !day) {
-    throw new Error("Seoul calendar date could not be resolved");
-  }
-  return `${year}-${month}-${day}`;
-}
-
+// Date values are supplied explicitly by the caller; this helper only owns
+// response/click settlement and optional reload sequencing.
 export async function runHostedMutation({
   acceptedStatuses,
   click,
