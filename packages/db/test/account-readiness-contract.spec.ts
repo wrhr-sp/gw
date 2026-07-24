@@ -171,6 +171,12 @@ describe("account administration readiness contract", () => {
       "pg_advisory_lock(hashtextextended('werehere-preview-migration', 0))",
     );
     expect(provisionSource).toContain(
+      "PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND",
+    );
+    expect(provisionSource).toContain(
+      'provisionPhase === "EXPAND" && contractCompatibleAclPhase',
+    );
+    expect(provisionSource).toContain(
       'contractCompatibleAclPhase ? "revoke usage on schema public from public;"',
     );
     expect(provisionSource).toContain(

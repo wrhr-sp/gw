@@ -1929,6 +1929,9 @@ try {
 
   console.log("PREVIEW_DATABASE_PROVISIONED");
   console.log(`PREVIEW_DATABASE_PHASE_${provisionPhase}`);
+  if (provisionPhase === "EXPAND" && contractCompatibleAclPhase) {
+    console.log("PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND");
+  }
   console.log("PREVIEW_API_RUNTIME_ROLE_READY");
   console.log("PREVIEW_RECONCILER_ROLE_READY");
 } finally {

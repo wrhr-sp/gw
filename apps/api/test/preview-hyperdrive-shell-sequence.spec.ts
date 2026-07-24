@@ -34,6 +34,48 @@ function workflowRun(name: string) {
     .join("\n");
 }
 
+function runPreHyperdriveCompatibility(options: {
+  approved: boolean;
+  attested: boolean;
+  classification: "DB_DEPENDENCY_UNAVAILABLE" | "SCHEMA_NOT_READY";
+  status: 10 | 11;
+}) {
+  const directory = mkdtempSync(join(tmpdir(), "preview-pre-hyperdrive-"));
+  const binDirectory = join(directory, "bin");
+  const outputFile = join(directory, "github-output.txt");
+  mkdirSync(binDirectory);
+  writeFileSync(outputFile, "");
+  writeFileSync(
+    join(binDirectory, "node"),
+    `#!/usr/bin/env bash\nprintf '%s\\n' "$MOCK_READINESS_CLASSIFICATION"\nexit "$MOCK_READINESS_STATUS"\n`,
+    { mode: 0o755 },
+  );
+  const result = spawnSync(
+    "bash",
+    [
+      "-c",
+      workflowRun("Verify previous Workers remain compatible after expand"),
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${binDirectory}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ""}`,
+        GITHUB_OUTPUT: outputFile,
+        PREVIEW_CONTRACT_COMPATIBLE_EXPAND: String(options.attested),
+        PREVIEW_HYPERDRIVE_RETARGET_APPROVED: String(options.approved),
+        MOCK_READINESS_CLASSIFICATION: options.classification,
+        MOCK_READINESS_STATUS: String(options.status),
+        WEB_PREVIEW_URL: "https://preview.invalid",
+      },
+    },
+  );
+  const githubOutput = readFileSync(outputFile, "utf8");
+  rmSync(directory, { recursive: true, force: true });
+  return { result, githubOutput };
+}
+
 type Origin = {
   host: string;
   port: number;
@@ -90,6 +132,7 @@ function runHyperdriveStep(options: {
   reconcilerOrigin: Origin;
   approved: boolean;
   required: boolean;
+  legacySchemaRecoveryAttested?: boolean;
   legacySchemaRecovery?: boolean;
   legacyConfigOrigin?: Origin;
   failUpdateId?: string;
@@ -296,6 +339,9 @@ NODE
       RECONCILER_DATABASE_URL_FILE: reconcilerUrlFile,
       PREVIEW_HYPERDRIVE_RETARGET_APPROVED: String(options.approved),
       PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: String(options.required),
+      PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED: String(
+        options.legacySchemaRecoveryAttested ?? false,
+      ),
       PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: String(
         options.legacySchemaRecovery ?? false,
       ),
@@ -449,6 +495,45 @@ afterEach(() => {
 });
 
 describe("Preview Hyperdrive source-faithful shell sequence", () => {
+  it("accepts attested schema recovery without enabling retarget", () => {
+    const execution = runPreHyperdriveCompatibility({
+      approved: false,
+      attested: true,
+      classification: "SCHEMA_NOT_READY",
+      status: 11,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.githubOutput).toContain("retarget_required=false");
+    expect(execution.githubOutput).toContain(
+      "legacy_schema_recovery_required=true",
+    );
+    expect(execution.githubOutput).toContain(
+      "legacy_schema_recovery_attested=true",
+    );
+  });
+
+  it("rejects unattested schema recovery when retarget approval is false", () => {
+    const execution = runPreHyperdriveCompatibility({
+      approved: false,
+      attested: false,
+      classification: "SCHEMA_NOT_READY",
+      status: 11,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.githubOutput).toBe("");
+  });
+
+  it("does not let schema attestation approve a database dependency retarget", () => {
+    const execution = runPreHyperdriveCompatibility({
+      approved: false,
+      attested: true,
+      classification: "DB_DEPENDENCY_UNAVAILABLE",
+      status: 10,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.githubOutput).toBe("");
+  });
+
   it("performs no mutation for default-false existing canonical targets", () => {
     const execution = runHyperdriveStep({
       apiOrigin: canonicalApi,
@@ -621,6 +706,78 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
       `reconciler_id=${existingReconcilerId}`,
     );
     expect(execution.githubOutput).toContain("legacy_api_promoted=true");
+    expect(execution.snapshotFiles).toEqual([]);
+  });
+
+  it("continues attested canonical legacy recovery without retarget approval", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      legacySchemaRecovery: true,
+      legacySchemaRecoveryAttested: true,
+      legacyConfigOrigin: canonicalApi,
+      apiPresent: false,
+      reconcilerPresent: true,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_CANONICAL_LEGACY_SCHEMA_RECOVERY_CONFIRMED",
+    );
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_CANONICAL_LEGACY_RECOVERY_PROVIDER_MUTATION_DENIED",
+    );
+    expect(execution.githubOutput).toContain(`api_id=${legacyId}`);
+    expect(execution.snapshotFiles).toEqual([]);
+  });
+
+  it("rejects attested legacy recovery when the API target is not canonical", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: staleOrigin,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      legacySchemaRecovery: true,
+      legacySchemaRecoveryAttested: true,
+      legacyConfigOrigin: staleOrigin,
+      apiPresent: false,
+      reconcilerPresent: true,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stderr).toContain(
+      "Preview canonical legacy recovery decision was denied.",
+    );
+  });
+
+  it("rejects attested legacy recovery without creating a missing reconciler config", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      legacySchemaRecovery: true,
+      legacySchemaRecoveryAttested: true,
+      legacyConfigOrigin: canonicalApi,
+      apiPresent: false,
+      reconcilerPresent: false,
+      workersExist: true,
+      reconcilerWorkerExists: false,
+      apiBindingId: legacyId,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stderr).toContain(
+      "Preview canonical legacy recovery requires one exact reconciler Hyperdrive identity.",
+    );
     expect(execution.snapshotFiles).toEqual([]);
   });
 
