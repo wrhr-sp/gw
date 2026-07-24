@@ -759,6 +759,7 @@ where version in (
 SQL
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -f "$ROOT_DIR/packages/db/migrations/0014_neon_definer_expand_compatibility.sql" >/dev/null
+# Contract-only physical changes remain, so marker rollback alone must fail closed.
 assert_readiness SCHEMA_NOT_READY
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 insert into public.schema_migrations(version)

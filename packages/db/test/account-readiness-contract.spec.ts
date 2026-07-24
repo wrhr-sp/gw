@@ -21,6 +21,16 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("migrationRows[0]?.expand_marker_count === 11");
     expect(source).toContain("migrationRows[0].contract_marker_count === 0");
     expect(source).toContain("migrationRows[0].contract_marker_count === 4");
+    expect(source).toContain(
+      "migrationRows[0].hotel_relationship_marker_count === 1",
+    );
+    expect(source).toContain("HOTEL_RELATIONSHIP_REQUIRED_COLUMNS");
+    expect(provisionSource).toContain(
+      '"0016_hotel_relationship_management.sql"',
+    );
+    expect(provisionSource).not.toContain(
+      '"0015_neon_definer_contract_hardening",\n    "0016_hotel_relationship_management",',
+    );
   });
 
   it.each([
@@ -99,10 +109,28 @@ describe("account administration readiness contract", () => {
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:DELETE"');
     expect(source).toContain("EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES");
+    expect(source).toContain(
+      "EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES",
+    );
     expect(source).toContain("EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES");
     expect(source).toContain('"auth_identities:updated_at:UPDATE"');
     expect(source).toContain('"branches:updated_at:UPDATE"');
     expect(source).toContain('"hotel_profiles:updated_at:UPDATE"');
+    expect(source).toContain('"hotel_profiles:version:UPDATE"');
+    expect(source).toContain('"hotel_staff_assignments:terminated_at:UPDATE"');
+    expect(source).toContain('"housekeeping_hotel_links:terminated_at:UPDATE"');
+    expect(source).toContain('"hotel_owner_assignments:terminated_at:UPDATE"');
+    const expandColumnAllowlist = source.slice(
+      source.indexOf("const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES"),
+      source.indexOf("const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES"),
+    );
+    expect(expandColumnAllowlist).not.toContain("terminated_at:UPDATE");
+    expect(source).toContain(
+      "EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,\n          ]\n        : [EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES]",
+    );
+    expect(expandColumnAllowlist).not.toContain(
+      "hotel_profiles:version:UPDATE",
+    );
     expect(source).toContain("expectedColumnPrivilegeCandidates.some");
     expect(source).toContain('schemaPhase === "EXPAND"');
     expect(provisionSource).toContain(
@@ -116,7 +144,10 @@ describe("account administration readiness contract", () => {
       "revoke update (updated_at) on auth_identities\n      from ${apiRuntimeTableGrantees}, ${reconcilerRole};",
     );
     expect(provisionSource).toContain(
-      "grant update (updated_at) on branches, hotel_profiles\n      to ${apiRuntimeTableGrantees};",
+      "contractPhase\n        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
+    );
+    expect(provisionSource).toContain(
+      "grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)\n      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments",
     );
     expect(provisionSource).toContain(
       "grant update (updated_at) on auth_identities to ${apiRuntimeTableGrantees};",
@@ -133,6 +164,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("acl.is_grantable");
     expect(source).toContain("for (const role of capabilityRoleRows)");
     expect(source).toContain("werehere_auth_session_definer");
+    expect(source).toContain("auth_revoke_hotel_owner_sessions_v1");
+    expect(source).toContain(
+      "pg_get_function_result(procedure_record.oid) = 'integer'",
+    );
+    expect(source).toContain("function_language.lanname = 'plpgsql'");
+    expect(source).toContain("procedure_record.provolatile = 'v'");
     expect(source).toContain("werehere_tenant_authority_definer");
     expect(source).toContain("migrationOwner.role_name");
     expect(source).toContain("expectedSchemaPrivileges");

@@ -138,12 +138,37 @@ function provider(
 }
 
 describe("account administration service", () => {
-  it("returns a generic duplicate before any provider call when the global login ID is already claimed", async () => {
+  it("stops before provider mutation when hotel relationship permission is denied", async () => {
     const repo = repository({
-      reserveCreate: vi.fn(async () => ({ status: "LOGIN_ID_CONFLICT" as const })),
+      reserveCreate: vi.fn(async () => ({ status: "FORBIDDEN" as const })),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
+
+    await expect(
+      service.createAccount(
+        principal,
+        request,
+        "relationship-permission-denied",
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", httpStatus: 403 });
+    expect(identity.createHumanUser).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic duplicate before any provider call when the global login ID is already claimed", async () => {
+    const repo = repository({
+      reserveCreate: vi.fn(async () => ({
+        status: "LOGIN_ID_CONFLICT" as const,
+      })),
+    });
+    const identity = provider();
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
       service.createAccount(principal, request, "global-login-conflict"),
@@ -289,7 +314,8 @@ describe("account administration service", () => {
     expect(repo.markProviderCreated).toHaveBeenCalledWith(
       expect.objectContaining({ accountId, subject: accountId }),
     );
-    const reservedTraceId = vi.mocked(repo.reserveCreate).mock.calls[0]?.[0].traceId;
+    const reservedTraceId = vi.mocked(repo.reserveCreate).mock.calls[0]?.[0]
+      .traceId;
     expect(reservedTraceId).toEqual(expect.any(String));
     expect(repo.reserveCreate).toHaveBeenCalledWith(
       expect.objectContaining({ auditEventId: expect.any(String) }),
@@ -360,7 +386,10 @@ describe("account administration service", () => {
       })),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
       service.createAccount(principal, request, "account-create-compensated"),
@@ -381,10 +410,17 @@ describe("account administration service", () => {
       })),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-internal-compensated"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-internal-compensated",
+      ),
     ).rejects.toMatchObject({
       code: "INTERNAL_ERROR",
       httpStatus: 500,
@@ -410,7 +446,10 @@ describe("account administration service", () => {
         })),
       });
       const identity = provider();
-      const service = createAccountService({ repository: repo, provider: identity });
+      const service = createAccountService({
+        repository: repo,
+        provider: identity,
+      });
 
       await expect(
         service.createAccount(
@@ -440,10 +479,17 @@ describe("account administration service", () => {
       claimExactProviderJob: vi.fn(async () => ({ status: "BUSY" as const })),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-compensation-busy"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-compensation-busy",
+      ),
     ).rejects.toMatchObject({
       code: "COMPENSATION_REQUIRED",
       httpStatus: 503,
@@ -494,7 +540,10 @@ describe("account administration service", () => {
       ),
     });
     const identity = provider({ verifyPassword: vi.fn(async () => true) });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
       service.createAccount(principal, request, "account-create-replay"),
@@ -514,10 +563,17 @@ describe("account administration service", () => {
       ),
     });
     const identity = provider({ verifyPassword: vi.fn(async () => false) });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-replay-mismatch"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-replay-mismatch",
+      ),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT", retryable: false });
     expect(identity.createHumanUser).not.toHaveBeenCalled();
     expect(identity.verifyPassword).toHaveBeenCalledOnce();
@@ -637,10 +693,17 @@ describe("account administration service", () => {
       ),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-proven-rollback"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-proven-rollback",
+      ),
     ).rejects.toMatchObject({ code: "INTERNAL_ERROR", retryable: true });
     expect(repo.prepareCompensation).toHaveBeenCalledWith(
       expect.objectContaining({ originalErrorCode: "INTERNAL_ERROR" }),
@@ -659,7 +722,10 @@ describe("account administration service", () => {
       }),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
       service.createAccount(principal, request, "account-create-ambiguous"),
@@ -700,7 +766,10 @@ describe("account administration service", () => {
       completeCreate: vi.fn(async () => ({ status: "DUPLICATE" as const })),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
       service.createAccount(
@@ -748,10 +817,17 @@ describe("account administration service", () => {
         throw new AccountProviderError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
       }),
     });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-compensation-failed"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-compensation-failed",
+      ),
     ).rejects.toMatchObject({ code: "COMPENSATION_REQUIRED", httpStatus: 503 });
     expect(repo.markProviderJobFailed).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -769,10 +845,17 @@ describe("account administration service", () => {
     const identity = provider({
       deactivateHumanUser: vi.fn(async () => "NOT_FOUND" as const),
     });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
     await expect(
-      service.createAccount(principal, request, "account-create-compensation-not-found"),
+      service.createAccount(
+        principal,
+        request,
+        "account-create-compensation-not-found",
+      ),
     ).rejects.toMatchObject({ code: "COMPENSATION_REQUIRED", retryable: true });
     expect(repo.markProviderJobFailed).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -827,21 +910,31 @@ describe("account administration service", () => {
   });
 
   it("claims the committed deactivation job before calling the provider and returning 2xx", async () => {
-    const inactiveAccount = { ...account, status: "INACTIVE" as const, version: 2 };
+    const inactiveAccount = {
+      ...account,
+      status: "INACTIVE" as const,
+      version: 2,
+    };
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "UPDATED" as const,
-        account: inactiveAccount,
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "PENDING" as const,
-      }) as never),
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "UPDATED" as const,
+            account: inactiveAccount,
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "PENDING" as const,
+          }) as never,
+      ),
       claimExactProviderJob: vi.fn(async () => ({
         status: "CLAIMED" as const,
         job: deactivationJob,
       })) as never,
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
     await expect(
       service.deactivateAccount(
         principal,
@@ -873,12 +966,15 @@ describe("account administration service", () => {
 
   it("treats ordinary provider NOT_FOUND as idempotent deactivation success", async () => {
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "UPDATED" as const,
-        account: { ...account, status: "INACTIVE" as const, version: 2 },
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "PENDING" as const,
-      }) as never),
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "UPDATED" as const,
+            account: { ...account, status: "INACTIVE" as const, version: 2 },
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "PENDING" as const,
+          }) as never,
+      ),
       claimExactProviderJob: vi.fn(async () => ({
         status: "CLAIMED" as const,
         job: deactivationJob,
@@ -887,14 +983,19 @@ describe("account administration service", () => {
     const identity = provider({
       deactivateHumanUser: vi.fn(async () => "NOT_FOUND" as const),
     });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
-    await expect(service.deactivateAccount(
-      principal,
-      accountId,
-      { version: 1, reason: "관리자 중지" },
-      "deactivate-not-found",
-    )).resolves.toMatchObject({ status: "UPDATED" });
+    await expect(
+      service.deactivateAccount(
+        principal,
+        accountId,
+        { version: 1, reason: "관리자 중지" },
+        "deactivate-not-found",
+      ),
+    ).resolves.toMatchObject({ status: "UPDATED" });
     expect(repo.markProviderJobSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ job: deactivationJob }),
     );
@@ -903,12 +1004,15 @@ describe("account administration service", () => {
 
   it("does not return 2xx when its provider success marker lost the claim token", async () => {
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "UPDATED" as const,
-        account: { ...account, status: "INACTIVE" as const, version: 2 },
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "PENDING" as const,
-      }) as never),
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "UPDATED" as const,
+            account: { ...account, status: "INACTIVE" as const, version: 2 },
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "PENDING" as const,
+          }) as never,
+      ),
       claimExactProviderJob: vi.fn(async () => ({
         status: "CLAIMED" as const,
         job: deactivationJob,
@@ -916,14 +1020,19 @@ describe("account administration service", () => {
       markProviderJobSucceeded: vi.fn(async () => "STALE_CLAIM" as const),
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
-    await expect(service.deactivateAccount(
-      principal,
-      accountId,
-      { version: 1, reason: "관리자 중지" },
-      "deactivate-stale-marker",
-    )).rejects.toMatchObject({
+    await expect(
+      service.deactivateAccount(
+        principal,
+        accountId,
+        { version: 1, reason: "관리자 중지" },
+        "deactivate-stale-marker",
+      ),
+    ).rejects.toMatchObject({
       code: "EXTERNAL_AUTH_UNAVAILABLE",
       httpStatus: 503,
       retryable: true,
@@ -932,12 +1041,15 @@ describe("account administration service", () => {
 
   it("persists deactivation provider failure and never returns the committed local account as success", async () => {
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "UPDATED" as const,
-        account: { ...account, status: "INACTIVE" as const, version: 2 },
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "PENDING" as const,
-      }) as never),
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "UPDATED" as const,
+            account: { ...account, status: "INACTIVE" as const, version: 2 },
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "PENDING" as const,
+          }) as never,
+      ),
       claimExactProviderJob: vi.fn(async () => ({
         status: "CLAIMED" as const,
         job: deactivationJob,
@@ -948,7 +1060,10 @@ describe("account administration service", () => {
         throw new AccountProviderError("EXTERNAL_AUTH_UNAVAILABLE", 503, true);
       }),
     });
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
     await expect(
       service.deactivateAccount(
         principal,
@@ -972,45 +1087,68 @@ describe("account administration service", () => {
 
   it("returns a deactivation replay without another provider call when the exact job succeeded", async () => {
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "REPLAYED" as const,
-        account: { ...account, status: "INACTIVE" as const, version: 2 },
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "SUCCEEDED" as const,
-      }) as never),
-      claimExactProviderJob: vi.fn(async () => ({ status: "SUCCEEDED" as const })) as never,
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "REPLAYED" as const,
+            account: { ...account, status: "INACTIVE" as const, version: 2 },
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "SUCCEEDED" as const,
+          }) as never,
+      ),
+      claimExactProviderJob: vi.fn(async () => ({
+        status: "SUCCEEDED" as const,
+      })) as never,
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
-    await expect(service.deactivateAccount(
-      principal,
-      accountId,
-      { version: 1, reason: "관리자 중지" },
-      "deactivate-replay",
-    )).resolves.toMatchObject({ status: "REPLAYED" });
+    await expect(
+      service.deactivateAccount(
+        principal,
+        accountId,
+        { version: 1, reason: "관리자 중지" },
+        "deactivate-replay",
+      ),
+    ).resolves.toMatchObject({ status: "REPLAYED" });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 
   it("does not dispatch when another worker owns the exact deactivation job", async () => {
     const repo = repository({
-      deactivateAccount: vi.fn(async () => ({
-        status: "REPLAYED" as const,
-        account: { ...account, status: "INACTIVE" as const, version: 2 },
-        providerJobId: deactivationJob.id,
-        providerJobStatus: "PROCESSING" as const,
-      }) as never),
-      claimExactProviderJob: vi.fn(async () => ({ status: "BUSY" as const })) as never,
+      deactivateAccount: vi.fn(
+        async () =>
+          ({
+            status: "REPLAYED" as const,
+            account: { ...account, status: "INACTIVE" as const, version: 2 },
+            providerJobId: deactivationJob.id,
+            providerJobStatus: "PROCESSING" as const,
+          }) as never,
+      ),
+      claimExactProviderJob: vi.fn(async () => ({
+        status: "BUSY" as const,
+      })) as never,
     });
     const identity = provider();
-    const service = createAccountService({ repository: repo, provider: identity });
+    const service = createAccountService({
+      repository: repo,
+      provider: identity,
+    });
 
-    await expect(service.deactivateAccount(
-      principal,
-      accountId,
-      { version: 1, reason: "관리자 중지" },
-      "deactivate-busy",
-    )).rejects.toMatchObject({ code: "EXTERNAL_AUTH_UNAVAILABLE", retryable: true });
+    await expect(
+      service.deactivateAccount(
+        principal,
+        accountId,
+        { version: 1, reason: "관리자 중지" },
+        "deactivate-busy",
+      ),
+    ).rejects.toMatchObject({
+      code: "EXTERNAL_AUTH_UNAVAILABLE",
+      retryable: true,
+    });
     expect(identity.deactivateHumanUser).not.toHaveBeenCalled();
   });
 

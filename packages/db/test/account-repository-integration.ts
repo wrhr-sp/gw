@@ -1,5 +1,6 @@
 import { createPostgresAccountRepository } from "../src/accounts";
 import { createPostgresAccountReconciliationRepository } from "../src/account-reconciliation";
+import { createPostgresHotelRepository } from "../src/hotels";
 import postgres from "postgres";
 
 const databaseUrl = process.env.TEST_READY_URL;
@@ -8,6 +9,7 @@ if (!databaseUrl) throw new Error("TEST_READY_URL is required");
 if (!probeUrl) throw new Error("TEST_PROBE_URL is required");
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 const repository = createPostgresAccountRepository(databaseUrl);
+const hotelRepository = createPostgresHotelRepository(databaseUrl);
 const reconciliationRepository =
   createPostgresAccountReconciliationRepository(probeUrl);
 
@@ -42,7 +44,8 @@ const completionPayload = {
 const auditPasswordSentinel = "AuditPasswordValue-7vX9!DoNotPersist";
 const auditTokenSentinel = "audit-token-value-4f81c7d2-do-not-persist";
 const auditProviderBodySentinel = "provider-body-value-91e6-do-not-persist";
-const auditProviderSubjectSentinel = "provider-subject-value-52a3-do-not-persist";
+const auditProviderSubjectSentinel =
+  "provider-subject-value-52a3-do-not-persist";
 const sensitiveAuditPayload = {
   ...completionPayload,
   reason: [
@@ -123,7 +126,10 @@ try {
       ('8a800000-0000-4000-8000-000000000002', ${companyId}, null, 'GROUP', ${groupId}, 'USER_CREATE', 'ALLOW', now() - interval '1 minute', ${actorId}, 'creator group'),
       ('8a800000-0000-4000-8000-000000000003', ${companyId}, null, 'USER', ${actorId}, 'USER_SUSPEND', 'ALLOW', now() - interval '1 minute', ${actorId}, 'actor suspend'),
       ('8a800000-0000-4000-8000-000000000004', ${companyId}, null, 'USER', ${targetAdminId}, 'USER_SUSPEND', 'ALLOW', now() - interval '1 minute', ${actorId}, 'target admin'),
-      ('8a800000-0000-4000-8000-000000000005', ${companyId}, null, 'USER', ${remainingAdminId}, 'USER_SUSPEND', 'ALLOW', now() - interval '1 minute', ${actorId}, 'remaining admin')
+      ('8a800000-0000-4000-8000-000000000005', ${companyId}, null, 'USER', ${remainingAdminId}, 'USER_SUSPEND', 'ALLOW', now() - interval '1 minute', ${actorId}, 'remaining admin'),
+      ('8a800000-0000-4000-8000-000000000010', ${companyId}, null, 'USER', ${actorId}, 'HOTEL_ASSIGNMENT_MANAGE', 'ALLOW', now() - interval '1 minute', ${actorId}, 'account relationship integration'),
+      ('8a800000-0000-4000-8000-000000000011', ${companyId}, null, 'USER', ${actorId}, 'HOTEL_OWNER_MANAGE', 'ALLOW', now() - interval '1 minute', ${actorId}, 'account owner integration'),
+      ('8a800000-0000-4000-8000-000000000012', ${companyId}, null, 'USER', ${actorId}, 'HOTEL_STATUS_MANAGE', 'ALLOW', now() - interval '1 minute', ${actorId}, 'hotel status integration')
     `;
   });
 
@@ -162,6 +168,173 @@ try {
       date '2026-02-01', date '2026-02-10', 'adjacent assignment', ${actorId}
     )
   `;
+
+  const invalidAssignmentTarget = await hotelRepository.createAssignment({
+    actor,
+    assignmentId: "8a520000-0000-4000-8000-000000000019",
+    auditEventId: "8ac00000-0000-4000-8000-000000000019",
+    hotelId,
+    idempotencyKey: "hotel-assignment-invalid-target-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000019",
+    operationPath: `/api/hotels/${hotelId}/assignments`,
+    requestHash: "hotel-assignment-invalid-target-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000019",
+    value: {
+      hotelVersion: 1,
+      userId: "8a100000-0000-4000-8000-000000000099",
+      relationshipType: "STAFF",
+      assignmentType: "PRIMARY",
+      startDate: "2026-03-01",
+      reason: "invalid target must not change hotel version",
+    },
+  });
+  if (invalidAssignmentTarget.status !== "NOT_FOUND") {
+    throw new Error(
+      `invalid assignment target was not rejected: ${invalidAssignmentTarget.status}`,
+    );
+  }
+  const [versionAfterInvalidTarget] = await sql<{ version: number }[]>`
+    select version from hotel_profiles
+    where company_id = ${companyId} and branch_id = ${hotelId}
+  `;
+  if (versionAfterInvalidTarget?.version !== 1) {
+    throw new Error("invalid assignment target changed hotel version");
+  }
+
+  const createdHotelAssignment = await hotelRepository.createAssignment({
+    actor,
+    assignmentId: "8a520000-0000-4000-8000-000000000020",
+    auditEventId: "8ac00000-0000-4000-8000-000000000020",
+    hotelId,
+    idempotencyKey: "hotel-assignment-create-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000020",
+    operationPath: `/api/hotels/${hotelId}/assignments`,
+    requestHash: "hotel-assignment-create-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000020",
+    value: {
+      hotelVersion: 1,
+      userId: targetAdminId,
+      relationshipType: "STAFF",
+      assignmentType: "PRIMARY",
+      startDate: "2026-03-01",
+      reason: "relationship integration create",
+    },
+  });
+  if (
+    createdHotelAssignment.status !== "CREATED" ||
+    createdHotelAssignment.assignment.version !== 1
+  ) {
+    throw new Error(
+      `hotel assignment create/read-back failed: ${createdHotelAssignment.status}`,
+    );
+  }
+  const relationshipConflict = await hotelRepository.createAssignment({
+    actor,
+    assignmentId: "8a520000-0000-4000-8000-000000000021",
+    auditEventId: "8ac00000-0000-4000-8000-000000000021",
+    hotelId,
+    idempotencyKey: "hotel-assignment-conflict-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000021",
+    operationPath: `/api/hotels/${hotelId}/assignments`,
+    requestHash: "hotel-assignment-conflict-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000021",
+    value: {
+      hotelVersion: 2,
+      userId: targetAdminId,
+      relationshipType: "STAFF",
+      assignmentType: "PRIMARY",
+      startDate: "2026-03-01",
+      reason: "relationship integration overlap",
+    },
+  });
+  if (relationshipConflict.status !== "RELATIONSHIP_CONFLICT") {
+    throw new Error(
+      `relationship overlap was not mapped to stable conflict: ${relationshipConflict.status}`,
+    );
+  }
+  const endedHotelAssignment = await hotelRepository.endAssignment({
+    actor,
+    assignmentId: createdHotelAssignment.assignment.id,
+    auditEventId: "8ac00000-0000-4000-8000-000000000022",
+    hotelId,
+    idempotencyKey: "hotel-assignment-end-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000022",
+    operationPath: `/api/hotels/${hotelId}/assignments/${createdHotelAssignment.assignment.id}/end`,
+    requestHash: "hotel-assignment-end-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000022",
+    value: {
+      version: 1,
+      emergency: true,
+      reason: "relationship integration emergency end",
+    },
+  });
+  if (
+    endedHotelAssignment.status !== "ENDED" ||
+    endedHotelAssignment.assignment.version !== 2 ||
+    !endedHotelAssignment.assignment.terminatedAt
+  ) {
+    throw new Error(
+      `hotel assignment emergency end/read-back failed: ${endedHotelAssignment.status}`,
+    );
+  }
+  const staleHotelAssignmentEnd = await hotelRepository.endAssignment({
+    actor,
+    assignmentId: createdHotelAssignment.assignment.id,
+    auditEventId: "8ac00000-0000-4000-8000-000000000023",
+    hotelId,
+    idempotencyKey: "hotel-assignment-stale-end-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000023",
+    operationPath: `/api/hotels/${hotelId}/assignments/${createdHotelAssignment.assignment.id}/end`,
+    requestHash: "hotel-assignment-stale-end-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000023",
+    value: {
+      version: 1,
+      emergency: true,
+      reason: "relationship integration stale end",
+    },
+  });
+  if (staleHotelAssignmentEnd.status !== "VERSION_CONFLICT") {
+    throw new Error(
+      `stale hotel assignment end was not rejected: ${staleHotelAssignmentEnd.status}`,
+    );
+  }
+  const activationReadiness = await hotelRepository.activateHotel({
+    actor,
+    assignmentId: hotelId,
+    auditEventId: "8ac00000-0000-4000-8000-000000000024",
+    hotelId,
+    idempotencyKey: "hotel-activation-readiness-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000024",
+    operationPath: `/api/hotels/${hotelId}/activate`,
+    requestHash: "hotel-activation-readiness-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000024",
+    value: { version: 2 },
+  });
+  if (
+    activationReadiness.status !== "READINESS_REQUIRED" ||
+    !activationReadiness.missing.includes("ROOM") ||
+    !activationReadiness.missing.includes("CONTACT")
+  ) {
+    throw new Error("hotel activation did not fail closed with missing items");
+  }
+  const activationReplay = await hotelRepository.activateHotel({
+    actor,
+    assignmentId: hotelId,
+    auditEventId: "8ac00000-0000-4000-8000-000000000025",
+    hotelId,
+    idempotencyKey: "hotel-activation-readiness-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000025",
+    operationPath: `/api/hotels/${hotelId}/activate`,
+    requestHash: "hotel-activation-readiness-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000025",
+    value: { version: 2 },
+  });
+  if (
+    activationReplay.status !== "READINESS_REQUIRED" ||
+    activationReplay.missing.join(",") !== activationReadiness.missing.join(",")
+  ) {
+    throw new Error("hotel activation readiness replay was not stable");
+  }
 
   const listed = await repository.listAccounts(actor, {
     page: 1,
@@ -280,7 +453,9 @@ try {
     where login_id = 'unclaimedaccount'
   `;
   if (leakedClaim?.count !== 0) {
-    throw new Error("failed idempotency request leaked an immutable login ID claim");
+    throw new Error(
+      "failed idempotency request leaked an immutable login ID claim",
+    );
   }
 
   const concurrentLoginNames = [
@@ -313,7 +488,9 @@ try {
     JSON.stringify(concurrentStatuses) !==
     JSON.stringify(["IDEMPOTENCY_CONFLICT", "RESERVED_NOT_DISPATCHED"])
   ) {
-    throw new Error(`concurrent idempotency serialization failed: ${concurrentStatuses.join(",")}`);
+    throw new Error(
+      `concurrent idempotency serialization failed: ${concurrentStatuses.join(",")}`,
+    );
   }
   const [concurrentClaims] = await sql<{ count: number }[]>`
     select count(*)::int as count
@@ -321,7 +498,9 @@ try {
     where login_id in (${concurrentLoginNames[0]}, ${concurrentLoginNames[1]})
   `;
   if (concurrentClaims?.count !== 1) {
-    throw new Error("concurrent idempotency loser leaked an immutable login ID claim");
+    throw new Error(
+      "concurrent idempotency loser leaked an immutable login ID claim",
+    );
   }
 
   if (
@@ -378,11 +557,15 @@ try {
     expectedJobType: "ACCOUNT_PROVIDER_COMPENSATE",
   });
   if (unlinkedExactClaim.status !== "BUSY") {
-    throw new Error("unlinked compensation must not receive an API provider claim");
+    throw new Error(
+      "unlinked compensation must not receive an API provider claim",
+    );
   }
   const unlinkedBatchClaims = await reconciliationRepository.claimJobs(10);
   if (unlinkedBatchClaims.some((job) => job.id === unlinkedCompensationJobId)) {
-    throw new Error("unlinked compensation must not receive a reconciler provider claim");
+    throw new Error(
+      "unlinked compensation must not receive a reconciler provider claim",
+    );
   }
   await sql`
     update outbox_jobs
@@ -423,7 +606,9 @@ try {
     !legacyPreparedTrace?.attempt_trace_id ||
     legacyPreparedTrace.audit_trace_id !== legacyPreparedTrace.attempt_trace_id
   ) {
-    throw new Error("legacy provider-confirmed attempt did not receive a durable trace backfill");
+    throw new Error(
+      "legacy provider-confirmed attempt did not receive a durable trace backfill",
+    );
   }
   const exactCompensationClaim = await repository.claimExactProviderJob({
     companyId,
@@ -435,13 +620,18 @@ try {
     exactCompensationClaim.status !== "CLAIMED" ||
     exactCompensationClaim.job.provisioningAttemptId !==
       "8a910000-0000-4000-8000-000000000001" ||
-    exactCompensationClaim.job.providerSubject !== auditProviderSubjectSentinel ||
+    exactCompensationClaim.job.providerSubject !==
+      auditProviderSubjectSentinel ||
     exactCompensationClaim.job.originalErrorCode !== "ACCOUNT_DUPLICATE"
   ) {
-    throw new Error("API exact compensation claim lost saga ownership metadata");
+    throw new Error(
+      "API exact compensation claim lost saga ownership metadata",
+    );
   }
   const compensationJobs = await reconciliationRepository.claimJobs(10);
-  if (compensationJobs.some((job) => job.id === exactCompensationClaim.job.id)) {
+  if (
+    compensationJobs.some((job) => job.id === exactCompensationClaim.job.id)
+  ) {
     throw new Error("reconciler double-claimed an API-owned compensation job");
   }
   const compensationFailed = await repository.markProviderJobFailed({
@@ -474,9 +664,12 @@ try {
   });
   if (
     retriedCompensationClaim.status !== "CLAIMED" ||
-    retriedCompensationClaim.job.claimToken === exactCompensationClaim.job.claimToken
+    retriedCompensationClaim.job.claimToken ===
+      exactCompensationClaim.job.claimToken
   ) {
-    throw new Error("failed compensation was not reclaimed with a rotated token");
+    throw new Error(
+      "failed compensation was not reclaimed with a rotated token",
+    );
   }
   const compensationMarked = await repository.markProviderJobSucceeded({
     companyId,
@@ -487,7 +680,12 @@ try {
     throw new Error("API exact compensation success was not persisted");
   }
   const compensationAudit = await sql<
-    { after_summary: unknown; count: number; event_code: string; trace_id: string }[]
+    {
+      after_summary: unknown;
+      count: number;
+      event_code: string;
+      trace_id: string;
+    }[]
   >`
     select event_code, count(*)::int as count, min(trace_id::text) as trace_id,
            jsonb_agg(after_summary order by occurred_at) as after_summary
@@ -517,10 +715,14 @@ try {
   }
   if (
     compensationAudit.some((row) => !row.trace_id) ||
-    JSON.stringify(compensationAudit).includes("recovered-account@example.invalid") ||
+    JSON.stringify(compensationAudit).includes(
+      "recovered-account@example.invalid",
+    ) ||
     JSON.stringify(compensationAudit).includes("recoveredaccount")
   ) {
-    throw new Error("compensation audit metadata is missing or contains sensitive identity data");
+    throw new Error(
+      "compensation audit metadata is missing or contains sensitive identity data",
+    );
   }
   const [fullAuditDump] = await sql<{ rows: unknown }[]>`
     select jsonb_agg(to_jsonb(audit_events) order by occurred_at) as rows
@@ -539,7 +741,9 @@ try {
     auditProviderSubjectSentinel,
   ]) {
     if (serializedAuditDump.includes(forbidden)) {
-      throw new Error("account saga audit persisted forbidden sensitive metadata");
+      throw new Error(
+        "account saga audit persisted forbidden sensitive metadata",
+      );
     }
   }
   const [compensationAuditMetadata] = await sql<
@@ -573,7 +777,9 @@ try {
     !compensationAuditMetadata.hotel_scope_preserved ||
     !compensationAuditMetadata.reason_safe
   ) {
-    throw new Error("account saga audit origin or multi-hotel metadata was not preserved safely");
+    throw new Error(
+      "account saga audit origin or multi-hotel metadata was not preserved safely",
+    );
   }
   const compensatedReplay = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
@@ -623,7 +829,10 @@ try {
       )
     group by event_code
   `;
-  if (replayAuditCounts.some((row) => row.count !== 1) || replayAuditCounts.length !== 4) {
+  if (
+    replayAuditCounts.some((row) => row.count !== 1) ||
+    replayAuditCounts.length !== 4
+  ) {
     throw new Error("compensated create replay duplicated saga audit events");
   }
 
@@ -661,7 +870,9 @@ try {
       subject: scheduledAuditAccountId,
     })) !== "UPDATED"
   ) {
-    throw new Error("scheduled compensation audit fixture was not provider-confirmed");
+    throw new Error(
+      "scheduled compensation audit fixture was not provider-confirmed",
+    );
   }
   const scheduledAuditPrepared = await repository.prepareCompensation({
     accountId: scheduledAuditAccountId,
@@ -682,7 +893,9 @@ try {
     (job) => job.id === scheduledAuditPrepared.providerJobId,
   );
   if (!scheduledFailureClaim) {
-    throw new Error("scheduled compensation audit failure claim was unavailable");
+    throw new Error(
+      "scheduled compensation audit failure claim was unavailable",
+    );
   }
   await sql`
     alter table audit_events add constraint audit_events_test_reject_compensation_failed
@@ -722,7 +935,9 @@ try {
     rolledBackCompensation.job_status !== "PROCESSING" ||
     rolledBackCompensation.audit_count !== 0
   ) {
-    throw new Error("failed compensation audit did not roll back its state transition");
+    throw new Error(
+      "failed compensation audit did not roll back its state transition",
+    );
   }
   await reconciliationRepository.markFailed(
     scheduledFailureClaim,
@@ -737,10 +952,14 @@ try {
     (job) => job.id === scheduledAuditPrepared.providerJobId,
   );
   if (!scheduledSuccessClaim) {
-    throw new Error("scheduled compensation audit success claim was unavailable");
+    throw new Error(
+      "scheduled compensation audit success claim was unavailable",
+    );
   }
   await reconciliationRepository.markSucceeded(scheduledSuccessClaim);
-  const scheduledAuditCounts = await sql<{ count: number; event_code: string }[]>`
+  const scheduledAuditCounts = await sql<
+    { count: number; event_code: string }[]
+  >`
     select event_code, count(*)::int as count
     from audit_events
     where company_id = ${companyId}
@@ -751,8 +970,13 @@ try {
       )
     group by event_code
   `;
-  if (scheduledAuditCounts.some((row) => row.count !== 1) || scheduledAuditCounts.length !== 4) {
-    throw new Error("scheduled compensation transitions did not persist exact audit events");
+  if (
+    scheduledAuditCounts.some((row) => row.count !== 1) ||
+    scheduledAuditCounts.length !== 4
+  ) {
+    throw new Error(
+      "scheduled compensation transitions did not persist exact audit events",
+    );
   }
   const scheduledCompensationTraces = await sql<{ trace_id: string }[]>`
     select distinct trace_id::text as trace_id
@@ -763,9 +987,12 @@ try {
   `;
   if (
     scheduledCompensationTraces.length !== 1 ||
-    scheduledCompensationTraces[0]?.trace_id !== scheduledAuditPrepared.providerJobId
+    scheduledCompensationTraces[0]?.trace_id !==
+      scheduledAuditPrepared.providerJobId
   ) {
-    throw new Error("legacy active compensation did not use its durable job trace fallback");
+    throw new Error(
+      "legacy active compensation did not use its durable job trace fallback",
+    );
   }
 
   const ambiguousAuditAccountId = "8a900000-0000-4000-8000-000000000045";
@@ -814,7 +1041,9 @@ try {
     ambiguousAuditCounts?.requested_count !== 1 ||
     ambiguousAuditCounts.create_failed_count !== 0
   ) {
-    throw new Error("ambiguous provider recovery emitted a terminal create failure audit");
+    throw new Error(
+      "ambiguous provider recovery emitted a terminal create failure audit",
+    );
   }
 
   const stalePayload = {
@@ -1008,6 +1237,38 @@ try {
   if (partialAccount?.count !== 0)
     throw new Error("ineligible hotel completion persisted a partial account");
   await sql`update branches set status = 'ACTIVE' where company_id = ${companyId} and id = ${secondHotelId}`;
+  const completionDenyGrantId = "8a800000-0000-4000-8000-000000000099";
+  await sql`
+    insert into permission_grants (
+      id, company_id, branch_id, subject_type, subject_id, permission_code,
+      effect, valid_from, granted_by, reason
+    ) values (
+      ${completionDenyGrantId}, ${companyId}, null, 'USER', ${actorId},
+      'HOTEL_ASSIGNMENT_MANAGE', 'DENY', now() - interval '1 minute',
+      ${actorId}, 'completion permission revocation integration'
+    )
+  `;
+  const revokedPermissionCompletion = await repository.completeCreate(
+    recoveryCompletionInput,
+  );
+  if (revokedPermissionCompletion.status !== "FORBIDDEN") {
+    throw new Error(
+      `revoked relationship permission completed an account: ${revokedPermissionCompletion.status}`,
+    );
+  }
+  const [revokedPermissionPartialAccount] = await sql<{ count: number }[]>`
+    select count(*)::int as count from users
+    where company_id = ${companyId} and id = ${recoveryAccountId}
+  `;
+  if (revokedPermissionPartialAccount?.count !== 0) {
+    throw new Error(
+      "revoked completion permission persisted a partial account",
+    );
+  }
+  await sql`
+    delete from permission_grants
+    where company_id = ${companyId} and id = ${completionDenyGrantId}
+  `;
   const recoveredCreate = await repository.completeCreate(
     recoveryCompletionInput,
   );
@@ -1430,7 +1691,9 @@ try {
     deactivationRollback.revoked_at !== null ||
     deactivationRollback.outbox_count !== 0
   ) {
-    throw new Error("failed session-revoked audit did not roll back deactivation state");
+    throw new Error(
+      "failed session-revoked audit did not roll back deactivation state",
+    );
   }
 
   const first = await repository.deactivateAccount({
@@ -1627,7 +1890,9 @@ try {
     sessionRevokedAudit.trace_id !== "8ab00000-0000-4000-8000-000000000001" ||
     typeof sessionRevokedAudit.after_summary.revokedCount !== "number"
   ) {
-    throw new Error("session revocation audit was not persisted exactly once with the original trace");
+    throw new Error(
+      "session revocation audit was not persisted exactly once with the original trace",
+    );
   }
 
   const conflict = await repository.deactivateAccount({
@@ -1663,9 +1928,147 @@ try {
   if (last.status !== "LAST_ADMIN")
     throw new Error(`last admin was not protected: ${last.status}`);
 
+  const previousOwnerId = "8a100000-0000-4000-8000-000000000020";
+  const nextOwnerId = "8a100000-0000-4000-8000-000000000021";
+  const previousOwnerSessionId = "8a200000-0000-4000-8000-000000000020";
+  await sql.begin(async (tx) => {
+    await tx`
+      insert into login_id_registry (login_id, company_id, target_user_id) values
+      ('previousowner', ${companyId}, ${previousOwnerId}),
+      ('nextowner', ${companyId}, ${nextOwnerId})
+    `;
+    await tx`
+      insert into users (id, company_id, user_type, display_name, status, login_name, email) values
+      (${previousOwnerId}, ${companyId}, 'HOTEL_OWNER', 'Previous Owner', 'ACTIVE', 'previousowner', 'previous-owner@example.invalid'),
+      (${nextOwnerId}, ${companyId}, 'HOTEL_OWNER', 'Next Owner', 'ACTIVE', 'nextowner', 'next-owner@example.invalid')
+    `;
+    await tx`
+      insert into auth_identities (id, company_id, user_id, provider, provider_subject) values
+      ('8a300000-0000-4000-8000-000000000020', ${companyId}, ${previousOwnerId}, 'ZITADEL', 'previous-owner-subject'),
+      ('8a300000-0000-4000-8000-000000000021', ${companyId}, ${nextOwnerId}, 'ZITADEL', 'next-owner-subject')
+    `;
+    await tx`
+      insert into auth_sessions (
+        id, company_id, user_id, identity_id, token_hash,
+        idle_expires_at, absolute_expires_at, auth_time, authentication_method
+      ) values (
+        ${previousOwnerSessionId}, ${companyId}, ${previousOwnerId},
+        '8a300000-0000-4000-8000-000000000020', decode(repeat('9c', 32), 'hex'),
+        now() + interval '8 hours', now() + interval '24 hours', now(), 'OIDC_PKCE'
+      )
+    `;
+    await tx`
+      insert into hotel_owner_assignments (
+        id, company_id, branch_id, user_id, start_date, reason, created_by
+      ) values (
+        '8a520000-0000-4000-8000-000000000030', ${companyId}, ${hotelId},
+        ${previousOwnerId}, current_date, 'owner transfer baseline', ${actorId}
+      )
+    `;
+  });
+  await sql`
+    insert into permission_grants (
+      id, company_id, branch_id, subject_type, subject_id, permission_code,
+      effect, valid_from, granted_by, reason
+    ) values (
+      '8a800000-0000-4000-8000-000000000098', ${companyId}, ${hotelId},
+      'USER', ${previousOwnerId}, 'HOTEL_OWNER_MANAGE', 'ALLOW',
+      now() - interval '1 minute', ${actorId}, 'self owner transfer integration'
+    )
+  `;
+  const previousOwnerActor = {
+    companyId,
+    sessionId: previousOwnerSessionId,
+    userId: previousOwnerId,
+    userType: "HOTEL_OWNER" as const,
+  };
+  const transferredOwner = await hotelRepository.transferOwner({
+    actor: previousOwnerActor,
+    assignmentId: "8a520000-0000-4000-8000-000000000031",
+    auditEventId: "8ac00000-0000-4000-8000-000000000031",
+    hotelId,
+    idempotencyKey: "hotel-owner-transfer-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000031",
+    operationPath: `/api/hotels/${hotelId}/owner-transfer`,
+    requestHash: "hotel-owner-transfer-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000031",
+    value: {
+      version: 2,
+      newOwnerUserId: nextOwnerId,
+      reason: "owner transfer integration",
+    },
+  });
+  if (
+    transferredOwner.status !== "TRANSFERRED" ||
+    transferredOwner.assignment.userId !== nextOwnerId
+  ) {
+    throw new Error(
+      `owner transfer/read-back failed: ${transferredOwner.status}`,
+    );
+  }
+  const [previousOwnerSession] = await sql<
+    { revoke_reason: string | null; revoked_at: Date | null }[]
+  >`
+    select revoked_at, revoke_reason from auth_sessions
+    where company_id = ${companyId} and id = ${previousOwnerSessionId}
+  `;
+  if (
+    !previousOwnerSession?.revoked_at ||
+    previousOwnerSession.revoke_reason !== "HOTEL_OWNER_TRANSFERRED"
+  ) {
+    throw new Error("previous owner session was not revoked atomically");
+  }
+  const sameOwnerTransfer = await hotelRepository.transferOwner({
+    actor,
+    assignmentId: "8a520000-0000-4000-8000-000000000033",
+    auditEventId: "8ac00000-0000-4000-8000-000000000033",
+    hotelId,
+    idempotencyKey: "hotel-owner-same-owner-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000033",
+    operationPath: `/api/hotels/${hotelId}/owner-transfer`,
+    requestHash: "hotel-owner-same-owner-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000033",
+    value: {
+      version: 3,
+      newOwnerUserId: nextOwnerId,
+      reason: "same owner must not revoke current access",
+    },
+  });
+  if (sameOwnerTransfer.status !== "RELATIONSHIP_CONFLICT") {
+    throw new Error(
+      `same-owner transfer was not rejected: ${sameOwnerTransfer.status}`,
+    );
+  }
+  await sql`
+    update auth_sessions set auth_time = now() - interval '6 minutes'
+    where company_id = ${companyId} and id = ${sessionId}
+  `;
+  const staleReauthTransfer = await hotelRepository.transferOwner({
+    actor,
+    assignmentId: "8a520000-0000-4000-8000-000000000032",
+    auditEventId: "8ac00000-0000-4000-8000-000000000032",
+    hotelId,
+    idempotencyKey: "hotel-owner-stale-reauth-integration",
+    idempotencyRecordId: "8ad00000-0000-4000-8000-000000000032",
+    operationPath: `/api/hotels/${hotelId}/owner-transfer`,
+    requestHash: "hotel-owner-stale-reauth-hash",
+    traceId: "8ae00000-0000-4000-8000-000000000032",
+    value: {
+      version: 3,
+      newOwnerUserId: previousOwnerId,
+      reason: "stale reauthentication must fail",
+    },
+  });
+  if (staleReauthTransfer.status !== "REAUTHENTICATION_REQUIRED") {
+    throw new Error(
+      `stale owner transfer was not rejected: ${staleReauthTransfer.status}`,
+    );
+  }
+
   console.log("ACCOUNT_REPOSITORY_INTEGRATION_OK");
 } finally {
   await reconciliationRepository.close();
+  await hotelRepository.close?.();
   await repository.close?.();
   await sql.end({ timeout: 1 });
 }

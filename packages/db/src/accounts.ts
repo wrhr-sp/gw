@@ -347,15 +347,15 @@ const selection = `
     from (
       select branch_id from hotel_staff_assignments
       where company_id = u.company_id and user_id = u.id
-        and start_date <= current_date and (end_date is null or end_date >= current_date)
+        and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
       union
       select branch_id from housekeeping_hotel_links
       where company_id = u.company_id and user_id = u.id
-        and start_date <= current_date and (end_date is null or end_date >= current_date)
+        and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
       union
       select branch_id from hotel_owner_assignments
       where company_id = u.company_id and user_id = u.id
-        and start_date <= current_date and (end_date is null or end_date >= current_date)
+        and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
     ) linked
     join branches linked_branch
       on linked_branch.company_id = u.company_id and linked_branch.id = linked.branch_id
@@ -385,7 +385,12 @@ export function createPostgresAccountRepository(
   const permission = async (
     transaction: postgres.TransactionSql,
     actor: AccountActor,
-    code: "USER_READ" | "USER_CREATE" | "USER_SUSPEND",
+    code:
+      | "USER_READ"
+      | "USER_CREATE"
+      | "USER_SUSPEND"
+      | "HOTEL_ASSIGNMENT_MANAGE"
+      | "HOTEL_OWNER_MANAGE",
   ) => {
     const [row] = await transaction<{ allowed: boolean }[]>`
       with principal_valid as (
@@ -442,6 +447,66 @@ export function createPostgresAccountRepository(
     return row?.allowed === true;
   };
 
+  const relationshipCreationPermission = async (
+    transaction: postgres.TransactionSql,
+    actor: AccountActor,
+    code: "HOTEL_ASSIGNMENT_MANAGE" | "HOTEL_OWNER_MANAGE",
+    hotelIds: string[],
+    requireRecentAuth: boolean,
+  ) => {
+    const [row] = await transaction<
+      { allowed: boolean; recent_auth: boolean }[]
+    >`
+      with principal_valid as (
+        select actor.id, actor.company_id, session_record.auth_time
+        from auth_sessions session_record
+        join users actor on actor.company_id = session_record.company_id and actor.id = session_record.user_id
+        join companies company on company.id = actor.company_id
+        where session_record.company_id = ${actor.companyId} and session_record.id = ${actor.sessionId}
+          and session_record.user_id = ${actor.userId} and session_record.revoked_at is null
+          and session_record.idle_expires_at > now() and session_record.absolute_expires_at > now()
+          and actor.status = 'ACTIVE' and company.status = 'ACTIVE'
+      ), effective_subjects as (
+        select 'USER'::text as subject_type, id as subject_id from principal_valid
+        union all
+        select 'ROLE', membership.role_id from principal_valid
+        join user_role_memberships membership on membership.company_id = principal_valid.company_id and membership.user_id = principal_valid.id
+        join roles role_record on role_record.company_id = membership.company_id and role_record.id = membership.role_id
+        where membership.valid_from <= now() and (membership.valid_until is null or membership.valid_until > now()) and role_record.status = 'ACTIVE'
+        union all
+        select 'GROUP', membership.group_id from principal_valid
+        join user_group_memberships membership on membership.company_id = principal_valid.company_id and membership.user_id = principal_valid.id
+        join user_groups group_record on group_record.company_id = membership.company_id and group_record.id = membership.group_id
+        where membership.valid_from <= now() and (membership.valid_until is null or membership.valid_until > now()) and group_record.status = 'ACTIVE'
+      )
+      select
+        not exists (
+          select 1 from unnest(${hotelIds}::uuid[]) requested_hotel(id)
+          where not exists (
+            select 1 from permission_grants grant_record join effective_subjects subject
+              on subject.subject_type = grant_record.subject_type and subject.subject_id = grant_record.subject_id
+            where grant_record.company_id = ${actor.companyId} and grant_record.permission_code = ${code}
+              and grant_record.effect = 'ALLOW'
+              and (grant_record.branch_id is null or grant_record.branch_id = any(${hotelIds}::uuid[]))
+              and (grant_record.branch_id is null or grant_record.branch_id = requested_hotel.id)
+              and grant_record.valid_from <= now() and (grant_record.valid_until is null or grant_record.valid_until > now())
+          )
+          or exists (
+            select 1 from permission_grants grant_record join effective_subjects subject
+              on subject.subject_type = grant_record.subject_type and subject.subject_id = grant_record.subject_id
+            where grant_record.company_id = ${actor.companyId} and grant_record.permission_code = ${code}
+              and grant_record.effect = 'DENY'
+              and (grant_record.branch_id is null or grant_record.branch_id = requested_hotel.id)
+              and grant_record.valid_from <= now() and (grant_record.valid_until is null or grant_record.valid_until > now())
+          )
+        ) as allowed,
+        coalesce((select auth_time >= now() - interval '5 minutes' from principal_valid limit 1), false) as recent_auth
+    `;
+    return (
+      row?.allowed === true && (!requireRecentAuth || row.recent_auth === true)
+    );
+  };
+
   const selectAccount = async (
     transaction: postgres.TransactionSql,
     companyId: string,
@@ -454,19 +519,19 @@ export function createPostgresAccountRepository(
       left join lateral (
         select branch_id from hotel_staff_assignments
         where company_id = u.company_id and user_id = u.id
-          and start_date <= current_date and (end_date is null or end_date >= current_date)
+          and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
         order by (assignment_type = 'PRIMARY') desc, start_date desc limit 1
       ) staff on true
       left join lateral (
         select branch_id from housekeeping_hotel_links
         where company_id = u.company_id and user_id = u.id
-          and start_date <= current_date and (end_date is null or end_date >= current_date)
+          and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
         order by start_date desc limit 1
       ) housekeeping on true
       left join lateral (
         select branch_id from hotel_owner_assignments
         where company_id = u.company_id and user_id = u.id
-          and start_date <= current_date and (end_date is null or end_date >= current_date)
+          and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null
         order by start_date desc limit 1
       ) owner_link on true
       left join branches hotel_branch
@@ -505,6 +570,20 @@ export function createPostgresAccountRepository(
               ? [input.completionPayload.hotelId]
               : [];
         const hotelIds = [...new Set(input.hotelIds)];
+        const relationshipPermissionCode =
+          input.completionPayload.userType === "HOTEL_OWNER"
+            ? "HOTEL_OWNER_MANAGE"
+            : "HOTEL_ASSIGNMENT_MANAGE";
+        if (
+          !(await relationshipCreationPermission(
+            transaction,
+            input.actor,
+            relationshipPermissionCode,
+            hotelIds,
+            input.completionPayload.userType === "HOTEL_OWNER",
+          ))
+        )
+          return { status: "FORBIDDEN" } as const;
         if (
           hotelIds.length === 0 ||
           JSON.stringify([...hotelIds].sort()) !==
@@ -534,10 +613,12 @@ export function createPostgresAccountRepository(
             915202607220001
           ))
         `;
-        const [idempotencyAttempt] = await transaction<{
-          request_hash: string;
-          request_login_name: string | null;
-        }[]>`
+        const [idempotencyAttempt] = await transaction<
+          {
+            request_hash: string;
+            request_login_name: string | null;
+          }[]
+        >`
           select request_hash,
                  completion_payload->>'loginName' as request_login_name
           from account_provisioning_attempts
@@ -569,12 +650,14 @@ export function createPostgresAccountRepository(
           returning target_user_id
         `;
         if (!claimed[0]) {
-          const [existingClaim] = await transaction<{
-            actor_user_id: string | null;
-            idempotency_key: string | null;
-            request_hash: string | null;
-            target_user_id: string;
-          }[]>`
+          const [existingClaim] = await transaction<
+            {
+              actor_user_id: string | null;
+              idempotency_key: string | null;
+              request_hash: string | null;
+              target_user_id: string;
+            }[]
+          >`
             select actor_user_id, idempotency_key, request_hash, target_user_id
             from login_id_registry
             where login_id = ${input.completionPayload.loginName}
@@ -673,11 +756,13 @@ export function createPostgresAccountRepository(
           existing.status === "COMPENSATED" ||
           existing.status === "COMPENSATION_REQUIRED"
         ) {
-          const [providerJob] = await transaction<{
-            id: string;
-            original_error_code: string | null;
-            status: AccountProviderJobStatus;
-          }[]>`
+          const [providerJob] = await transaction<
+            {
+              id: string;
+              original_error_code: string | null;
+              status: AccountProviderJobStatus;
+            }[]
+          >`
             select id, status, payload->>'originalErrorCode' as original_error_code
             from outbox_jobs
             where company_id = ${input.actor.companyId}
@@ -711,11 +796,9 @@ export function createPostgresAccountRepository(
           } as const;
         }
         if (
-          [
-            "RECOVERY_REQUIRED",
-            "OPERATOR_REQUIRED",
-            "DEAD_LETTER",
-          ].includes(existing.status)
+          ["RECOVERY_REQUIRED", "OPERATOR_REQUIRED", "DEAD_LETTER"].includes(
+            existing.status,
+          )
         ) {
           return { status: existing.status } as ReserveAccountCreateResult;
         }
@@ -874,6 +957,27 @@ export function createPostgresAccountRepository(
           if (
             hotelIds.length === 0 ||
             input.assignmentIds.length !== hotelIds.length
+          ) {
+            return { status: "FORBIDDEN" } as const;
+          }
+          const relationshipPermissionCode =
+            input.value.userType === "HOTEL_OWNER"
+              ? "HOTEL_OWNER_MANAGE"
+              : "HOTEL_ASSIGNMENT_MANAGE";
+          if (
+            !input.sessionId ||
+            !(await relationshipCreationPermission(
+              transaction,
+              {
+                companyId: input.companyId,
+                sessionId: input.sessionId,
+                userId: input.actorUserId,
+                userType: input.actorType ?? "INTERNAL_STAFF",
+              },
+              relationshipPermissionCode,
+              hotelIds,
+              input.value.userType === "HOTEL_OWNER",
+            ))
           ) {
             return { status: "FORBIDDEN" } as const;
           }
@@ -1174,11 +1278,13 @@ export function createPostgresAccountRepository(
           }
           return { status: "CLAIMED", job } as const;
         }
-        const [stored] = await transaction<{
-          available_at: Date;
-          last_error_code: string | null;
-          status: string;
-        }[]>`
+        const [stored] = await transaction<
+          {
+            available_at: Date;
+            last_error_code: string | null;
+            status: string;
+          }[]
+        >`
           select status, available_at, last_error_code
           from outbox_jobs
           where id = ${input.jobId}
@@ -1219,7 +1325,9 @@ export function createPostgresAccountRepository(
         if (!updated[0]) return "STALE_CLAIM" as const;
         if (input.job.jobType === "ACCOUNT_PROVIDER_COMPENSATE") {
           if (!input.job.provisioningAttemptId) {
-            throw new Error("account compensation attempt identity is unavailable");
+            throw new Error(
+              "account compensation attempt identity is unavailable",
+            );
           }
           const compensated = await transaction<{ id: string }[]>`
             update account_provisioning_attempts
@@ -1236,7 +1344,9 @@ export function createPostgresAccountRepository(
             throw new Error("account compensation state is unavailable");
           }
           if (!input.job.originalErrorCode) {
-            throw new Error("account compensation original error is unavailable");
+            throw new Error(
+              "account compensation original error is unavailable",
+            );
           }
           await transaction`
             insert into audit_events (
@@ -1316,7 +1426,9 @@ export function createPostgresAccountRepository(
             !input.job.provisioningAttemptId ||
             !input.job.originalErrorCode
           ) {
-            throw new Error("account compensation audit linkage is unavailable");
+            throw new Error(
+              "account compensation audit linkage is unavailable",
+            );
           }
           await transaction`
             insert into audit_events (
@@ -1443,9 +1555,9 @@ export function createPostgresAccountRepository(
           `
           select ${selection}
           from users u
-          left join lateral (select branch_id from hotel_staff_assignments where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) order by (assignment_type = 'PRIMARY') desc, start_date desc limit 1) staff on true
-          left join lateral (select branch_id from housekeeping_hotel_links where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) order by start_date desc limit 1) housekeeping on true
-          left join lateral (select branch_id from hotel_owner_assignments where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) order by start_date desc limit 1) owner_link on true
+          left join lateral (select branch_id from hotel_staff_assignments where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null order by (assignment_type = 'PRIMARY') desc, start_date desc limit 1) staff on true
+          left join lateral (select branch_id from housekeeping_hotel_links where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null order by start_date desc limit 1) housekeeping on true
+          left join lateral (select branch_id from hotel_owner_assignments where company_id=u.company_id and user_id=u.id and start_date <= current_date and (end_date is null or end_date >= current_date) and terminated_at is null order by start_date desc limit 1) owner_link on true
           left join branches hotel_branch on hotel_branch.company_id=u.company_id and hotel_branch.id=coalesce(staff.branch_id, housekeeping.branch_id, owner_link.branch_id)
           where u.company_id = $1 and u.login_name is not null and u.email is not null
             and ($2::text is null or u.user_type in ($2::text, $3::text))
@@ -1574,10 +1686,12 @@ export function createPostgresAccountRepository(
               input.actor.companyId,
               existing.resource_id,
             );
-            const [providerJob] = await transaction<{
-              id: string;
-              status: AccountProviderJobStatus;
-            }[]>`
+            const [providerJob] = await transaction<
+              {
+                id: string;
+                status: AccountProviderJobStatus;
+              }[]
+            >`
               select id, status from outbox_jobs
               where company_id = ${input.actor.companyId}
                 and job_type = 'ACCOUNT_PROVIDER_DEACTIVATE'

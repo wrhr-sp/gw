@@ -59,7 +59,7 @@ async function verifyExclusionExtraKeyWeakening() {
       branch_id with =,
       user_id with =,
       daterange(start_date, coalesce(end_date, 'infinity'::date), '[]') with &&
-    ) where (assignment_type = 'PRIMARY')
+    ) where (assignment_type = 'PRIMARY' and terminated_at is null)
   `);
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
@@ -78,7 +78,7 @@ async function verifyExclusionExtraKeyWeakening() {
         company_id with =,
         user_id with =,
         daterange(start_date, coalesce(end_date, 'infinity'::date), '[]') with &&
-      ) where (assignment_type = 'PRIMARY')
+      ) where (assignment_type = 'PRIMARY' and terminated_at is null)
     `);
   }
 }
@@ -449,6 +449,21 @@ async function verifyTenantAuthorityHelperPublicExecuteDamage() {
   }
 }
 
+async function verifyHotelOwnerSessionRevokeVolatilityDamage() {
+  const signature = "public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)";
+  await sql.unsafe(`alter function ${signature} stable`);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `hotel owner session revoke volatility damage was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(`alter function ${signature} volatile`);
+  }
+}
+
 async function assertReadinessReady(label: string) {
   const readiness = await probeDatabaseReadiness(probeUrl);
   if (readiness.status !== "READY") {
@@ -470,7 +485,9 @@ async function verifyLoginRegistryPrimaryKeyDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`missing login registry primary key was reported as ${readiness.status}`);
+      throw new Error(
+        `missing login registry primary key was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql`alter table login_id_registry add constraint login_id_registry_pkey primary key (login_id)`;
@@ -540,7 +557,9 @@ async function verifyLoginRegistryTupleUniqueConstraintDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`tuple unique index substitution was reported as ${readiness.status}`);
+      throw new Error(
+        `tuple unique index substitution was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql`alter table users drop constraint users_login_name_registry_fk`;
@@ -589,7 +608,9 @@ async function verifyLoginRegistryPolicyExtraBranchDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`extra-branch login registry policy was reported as ${readiness.status}`);
+      throw new Error(
+        `extra-branch login registry policy was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`drop policy ${name} on login_id_registry`);
@@ -626,7 +647,9 @@ async function verifyLoginRegistryPolicyLiteralCaseDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`lowercase capability policy was reported as ${readiness.status}`);
+      throw new Error(
+        `lowercase capability policy was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`drop policy ${name} on login_id_registry`);
@@ -644,12 +667,15 @@ async function verifyLoginRegistryTriggerBodyDamage() {
     "raise exception 'login ID registry rows are immutable' using errcode = '55000';",
     "return old;",
   );
-  if (damaged === record.definition) throw new Error("trigger body damage fixture did not apply");
+  if (damaged === record.definition)
+    throw new Error("trigger body damage fixture did not apply");
   await sql.unsafe(damaged);
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`weakened login registry trigger was reported as ${readiness.status}`);
+      throw new Error(
+        `weakened login registry trigger was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(record.definition);
@@ -666,7 +692,9 @@ async function verifyLoginRegistryTriggerEventMaskDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger event mask damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger event mask damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql`drop trigger login_id_registry_immutable on login_id_registry`;
@@ -683,7 +711,9 @@ async function verifyLoginRegistryTriggerEnabledDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`always-enabled trigger was reported as ${readiness.status}`);
+      throw new Error(
+        `always-enabled trigger was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql`alter table login_id_registry enable trigger login_id_registry_immutable`;
@@ -703,7 +733,9 @@ async function verifyLoginRegistryTriggerOwnerDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger function owner damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger function owner damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter function ${signature} owner to ${owner.role_name}`);
@@ -717,10 +749,14 @@ async function verifyLoginRegistryTriggerSearchPathDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger function search path damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger function search path damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
-    await sql.unsafe(`alter function ${signature} set search_path = pg_catalog`);
+    await sql.unsafe(
+      `alter function ${signature} set search_path = pg_catalog`,
+    );
   }
 }
 
@@ -730,7 +766,9 @@ async function verifyLoginRegistryTriggerPublicExecuteDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger function PUBLIC execute damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger function PUBLIC execute damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`revoke execute on function ${signature} from public`);
@@ -745,10 +783,14 @@ async function verifyLoginRegistryTriggerNamedExecuteDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger function named execute damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger function named execute damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
-    await sql.unsafe(`revoke execute on function ${signature} from ${damageRole}`);
+    await sql.unsafe(
+      `revoke execute on function ${signature} from ${damageRole}`,
+    );
     await sql.unsafe(`drop role ${damageRole}`);
   }
 }
@@ -766,7 +808,9 @@ async function verifyLoginRegistryTriggerGrantOptionDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`trigger function grant option damage was reported as ${readiness.status}`);
+      throw new Error(
+        `trigger function grant option damage was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(
@@ -781,7 +825,9 @@ async function verifyLoginIdentityVolatilityDamage() {
   try {
     const readiness = await probeDatabaseReadiness(probeUrl);
     if (readiness.status !== "SCHEMA_NOT_READY") {
-      throw new Error(`volatile login identity lookup was reported as ${readiness.status}`);
+      throw new Error(
+        `volatile login identity lookup was reported as ${readiness.status}`,
+      );
     }
   } finally {
     await sql.unsafe(`alter function ${signature} stable`);
@@ -823,7 +869,10 @@ try {
           "company_id, actor_user_id, idempotency_key",
         ),
     ],
-    ["login registry tuple unique", () => verifyLoginRegistryTupleUniqueConstraintDamage()],
+    [
+      "login registry tuple unique",
+      () => verifyLoginRegistryTupleUniqueConstraintDamage(),
+    ],
     [
       "login registry canonical reserved check",
       () =>
@@ -864,25 +913,77 @@ try {
           "check (login_name is null or login_name not in ('admin', 'administrator', 'root', 'system', 'security', 'api', 'service', 'support', 'test', 'preview', 'werehere'))",
         ),
     ],
-    ["users login registry foreign key", () => verifyUsersLoginRegistryForeignKeyDamage()],
-    ["login registry policy extra branch", () => verifyLoginRegistryPolicyExtraBranchDamage()],
-    ["login registry policy literal case", () => verifyLoginRegistryPolicyLiteralCaseDamage()],
-    ["login registry trigger body", () => verifyLoginRegistryTriggerBodyDamage()],
-    ["login registry trigger event mask", () => verifyLoginRegistryTriggerEventMaskDamage()],
-    ["login registry trigger enabled", () => verifyLoginRegistryTriggerEnabledDamage()],
-    ["login registry trigger owner", () => verifyLoginRegistryTriggerOwnerDamage()],
-    ["login registry trigger search path", () => verifyLoginRegistryTriggerSearchPathDamage()],
-    ["login registry trigger PUBLIC execute", () => verifyLoginRegistryTriggerPublicExecuteDamage()],
-    ["login registry trigger named execute", () => verifyLoginRegistryTriggerNamedExecuteDamage()],
-    ["login registry trigger grant option", () => verifyLoginRegistryTriggerGrantOptionDamage()],
+    [
+      "users login registry foreign key",
+      () => verifyUsersLoginRegistryForeignKeyDamage(),
+    ],
+    [
+      "login registry policy extra branch",
+      () => verifyLoginRegistryPolicyExtraBranchDamage(),
+    ],
+    [
+      "login registry policy literal case",
+      () => verifyLoginRegistryPolicyLiteralCaseDamage(),
+    ],
+    [
+      "login registry trigger body",
+      () => verifyLoginRegistryTriggerBodyDamage(),
+    ],
+    [
+      "login registry trigger event mask",
+      () => verifyLoginRegistryTriggerEventMaskDamage(),
+    ],
+    [
+      "login registry trigger enabled",
+      () => verifyLoginRegistryTriggerEnabledDamage(),
+    ],
+    [
+      "login registry trigger owner",
+      () => verifyLoginRegistryTriggerOwnerDamage(),
+    ],
+    [
+      "login registry trigger search path",
+      () => verifyLoginRegistryTriggerSearchPathDamage(),
+    ],
+    [
+      "login registry trigger PUBLIC execute",
+      () => verifyLoginRegistryTriggerPublicExecuteDamage(),
+    ],
+    [
+      "login registry trigger named execute",
+      () => verifyLoginRegistryTriggerNamedExecuteDamage(),
+    ],
+    [
+      "login registry trigger grant option",
+      () => verifyLoginRegistryTriggerGrantOptionDamage(),
+    ],
     ["login identity volatility", () => verifyLoginIdentityVolatilityDamage()],
-    ["tenant authority helper body", () => verifyTenantAuthorityHelperBodyDamage()],
-    ["tenant authority helper owner", () => verifyTenantAuthorityHelperOwnerDamage()],
-    ["tenant authority helper PUBLIC execute", () => verifyTenantAuthorityHelperPublicExecuteDamage()],
-    ["auth function PUBLIC execute", () => verifyAuthFunctionPublicExecuteDamage()],
-    ["auth function named execute", () => verifyAuthFunctionNamedExecuteDamage()],
+    [
+      "tenant authority helper body",
+      () => verifyTenantAuthorityHelperBodyDamage(),
+    ],
+    [
+      "tenant authority helper owner",
+      () => verifyTenantAuthorityHelperOwnerDamage(),
+    ],
+    [
+      "tenant authority helper PUBLIC execute",
+      () => verifyTenantAuthorityHelperPublicExecuteDamage(),
+    ],
+    [
+      "auth function PUBLIC execute",
+      () => verifyAuthFunctionPublicExecuteDamage(),
+    ],
+    [
+      "auth function named execute",
+      () => verifyAuthFunctionNamedExecuteDamage(),
+    ],
     ["auth function grant option", () => verifyAuthFunctionGrantOptionDamage()],
     ["auth function owner", () => verifyAuthFunctionOwnerDamage()],
+    [
+      "hotel owner session revoke volatility",
+      () => verifyHotelOwnerSessionRevokeVolatilityDamage(),
+    ],
     [
       "auth function control flow",
       () =>
@@ -894,7 +995,8 @@ try {
     ],
     [
       "auth function string literal",
-      () => verifyAuthFunctionBodyDamage("'ACTIVE'", "'active'", "string-literal"),
+      () =>
+        verifyAuthFunctionBodyDamage("'ACTIVE'", "'active'", "string-literal"),
     ],
     [
       "hotel road address check",
@@ -960,19 +1062,32 @@ try {
           "not-valid",
         ),
     ],
-    ["branches policy missing", () => verifyPolicyDamage("branches", "branches_company_isolation")],
+    [
+      "branches policy missing",
+      () => verifyPolicyDamage("branches", "branches_company_isolation"),
+    ],
     [
       "hotel profiles policy missing",
-      () => verifyPolicyDamage("hotel_profiles", "hotel_profiles_company_isolation"),
+      () =>
+        verifyPolicyDamage(
+          "hotel_profiles",
+          "hotel_profiles_company_isolation",
+        ),
     ],
-    ["branches policy weakened", () => verifyPolicyWeakening("branches", "branches_company_isolation")],
+    [
+      "branches policy weakened",
+      () => verifyPolicyWeakening("branches", "branches_company_isolation"),
+    ],
     ["additional permissive policy", () => verifyAdditionalPermissivePolicy()],
     ["restrictive policy", () => verifyRestrictivePolicy()],
     ["policy role restriction", () => verifyPolicyRoleRestriction()],
     ["branches RLS disabled", () => verifyRlsDisabled("branches")],
     ["hotel profiles RLS disabled", () => verifyRlsDisabled("hotel_profiles")],
     ["branches RLS not forced", () => verifyRlsNotForced("branches")],
-    ["hotel profiles RLS not forced", () => verifyRlsNotForced("hotel_profiles")],
+    [
+      "hotel profiles RLS not forced",
+      () => verifyRlsNotForced("hotel_profiles"),
+    ],
   ];
 
   for (const [label, damage] of damageCases) {

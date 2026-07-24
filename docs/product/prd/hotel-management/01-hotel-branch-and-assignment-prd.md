@@ -2,11 +2,11 @@
 
 ## 문서 정보
 
-| 항목 | 값 |
-|---|---|
-| PRD ID | `HOTEL-MVP-010` |
-| 상태 | `user_approved` |
-| 근거 | `COM-Q-006,008,016-R2,018,020~023,048~057`, `HDRAFT-001,002,007,012` |
+| 항목   | 값                                                                   |
+| ------ | -------------------------------------------------------------------- |
+| PRD ID | `HOTEL-MVP-010`                                                      |
+| 상태   | `user_approved`                                                      |
+| 근거   | `COM-Q-006,008,016-R2,018,020~023,048~057`, `HDRAFT-001,002,007,012` |
 
 ## 목적과 범위
 
@@ -29,14 +29,14 @@ PREPARING(준비중) → ACTIVE(운영중) → SUSPENDED(운영중지) → ACTIV
 
 ## 기본정보 — 사용자 승인
 
-| 필드 | 규칙 |
-|---|---|
-| 호텔명 | 회사 안에서 활성 지점명 중복검사 |
-| 주소 | 도로명주소와 상세주소 분리 |
-| 대표연락처 | 호텔 업무연락처, 소유주 개인연락처와 분리 |
-| 운영상태 | 준비중·운영중·운영중지 |
-| 위탁계약기간 | 날짜 범위, 종료일 포함 UI |
-| version | 모든 변경 시 증가 |
+| 필드         | 규칙                                      |
+| ------------ | ----------------------------------------- |
+| 호텔명       | 회사 안에서 활성 지점명 중복검사          |
+| 주소         | 도로명주소와 상세주소 분리                |
+| 대표연락처   | 호텔 업무연락처, 소유주 개인연락처와 분리 |
+| 운영상태     | 준비중·운영중·운영중지                    |
+| 위탁계약기간 | 날짜 범위, 종료일 포함 UI                 |
+| version      | 모든 변경 시 증가                         |
 
 호텔 코드는 기존 branch 정책을 존중하되 사원번호 `YYMMnnn` 정책을 재사용하지 않는다.
 
@@ -71,15 +71,26 @@ PREPARING(준비중) → ACTIVE(운영중) → SUSPENDED(운영중지) → ACTIV
 - 긴급 종료는 접근·세션 문맥을 즉시 차단하고 진행업무를 미배정으로 전환해 관리자에게 알린다.
 - 종료 후 신규 업무 접근은 불가하나 과거 행위자·배정이력은 보존한다.
 
+### 선행 도메인 완성 전 안전정책 — 사용자 승인 2026-07-24
+
+- 객실·체크리스트·점검일정·문의처가 구현되기 전 활성화 요청은 누락항목을 모두 반환하고 상태를 변경하지 않는다. 가짜 활성화 성공을 금지한다.
+- 점검·운영이슈 재배정 기능이 구현되기 전 정상 배정종료는 `DEPENDENT_WORK_REASSIGNMENT_REQUIRED`로 차단한다.
+- 긴급 종료만 `terminated_at`을 즉시 기록해 같은 날에도 신규 접근을 차단한다.
+- 호텔 소유주 교체는 초기 MVP에서 즉시 교체만 지원하고 예약 교체는 후속으로 둔다.
+- 소유주 교체는 현재 세션의 `auth_time`이 5분 이내인 경우에만 허용하며, 그보다 오래된 세션은 다시 로그인해야 한다.
+- 계정 생성과 호텔 관계 생성 권한을 분리한다. `USER_CREATE`만으로 배정이나 소유주 연결을 만들 수 없다.
+- 외부 identity provider 처리 뒤 DB completion transaction에서 원래 actor의 활성 session, 최신 deny precedence, 호텔범위 권한을 다시 검증한다. 소유주 계정은 이 시점에도 `auth_time` 5분 조건을 충족해야 하며 실패하면 로컬 사용자·관계를 만들지 않고 provider 보상 흐름으로 전환한다.
+- 무중단 배포에서 EXPAND는 기존 Worker가 허용하던 column ACL과 기존 auth 함수 fingerprint를 유지한다. 호텔 version·관계 종료 UPDATE 권한은 새 Worker 배포 후 CONTRACT 단계에서만 연다.
+
 ## 권한
 
-| 행위 | 권한 |
-|---|---|
-| 호텔 생성·기본정보 수정 | `HOTEL_MANAGE` |
-| 운영중지·재활성화 | `HOTEL_STATUS_MANAGE` + 재인증 |
-| 사내/하우스키핑 배정 | `HOTEL_ASSIGNMENT_MANAGE` |
-| 호텔 소유주 연결·교체 | `HOTEL_OWNER_MANAGE` + 재인증 |
-| 추가기능 권한관리 | `HOTEL_PERMISSION_MANAGE` |
+| 행위                    | 권한                           |
+| ----------------------- | ------------------------------ |
+| 호텔 생성·기본정보 수정 | `HOTEL_MANAGE`                 |
+| 운영중지·재활성화       | `HOTEL_STATUS_MANAGE` + 재인증 |
+| 사내/하우스키핑 배정    | `HOTEL_ASSIGNMENT_MANAGE`      |
+| 호텔 소유주 연결·교체   | `HOTEL_OWNER_MANAGE` + 재인증  |
+| 추가기능 권한관리       | `HOTEL_PERMISSION_MANAGE`      |
 
 `HOTEL_STATUS_MANAGE`, `HOTEL_PERMISSION_MANAGE` 자체권한은 회사 관리자만 부여·회수한다. 위임관리자는 자기권한·상위권한·다른 호텔 권한을 변경하지 못한다.
 
@@ -87,30 +98,30 @@ PREPARING(준비중) → ACTIVE(운영중) → SUSPENDED(운영중지) → ACTIV
 
 `branches`를 호텔 지점의 정본 ID·법인경계로 사용하고 `hotel_profiles.branch_id`를 PK/FK로 두어 호텔 전용정보만 1:1 확장한다. 독립 `hotels` 테이블을 별도 정본으로 만들지 않는다. 모든 호텔 하위 FK는 가능한 경우 `(company_id, branch_id)` 복합키로 같은 법인 경계를 DB에서도 보장한다.
 
-| 엔터티 | 핵심 제약 |
-|---|---|
-| `hotel_profiles` | `branch_id` 1:1, 상태·기본정보·version |
-| `hotel_staff_assignments` | 사내 사용자·호텔·시작/종료·배정종류 |
-| `housekeeping_hotel_links` | 하우스키핑·호텔·시작/종료·상태 |
-| `hotel_owner_assignments` | 활성 호텔 1:1, 활성 소유주 계정도 호텔 1곳 |
-| `hotel_status_history` | 전이 전후·사유·행위자·시각 |
-| `hotel_permission_grants` | 대상·권한·호텔범위·기간·부여자 |
+| 엔터티                     | 핵심 제약                                  |
+| -------------------------- | ------------------------------------------ |
+| `hotel_profiles`           | `branch_id` 1:1, 상태·기본정보·version     |
+| `hotel_staff_assignments`  | 사내 사용자·호텔·시작/종료·배정종류        |
+| `housekeeping_hotel_links` | 하우스키핑·호텔·시작/종료·상태             |
+| `hotel_owner_assignments`  | 활성 호텔 1:1, 활성 소유주 계정도 호텔 1곳 |
+| `hotel_status_history`     | 전이 전후·사유·행위자·시각                 |
+| `hotel_permission_grants`  | 대상·권한·호텔범위·기간·부여자             |
 
 모든 테이블에 `company_id`, 생성·수정시각, 필요한 경우 `version`을 둔다. FK와 복합 unique/partial unique로 1:1 정책을 DB에서도 보장한다.
 
 ## API 제안
 
-| 메서드 | 경로 | 목적 |
-|---|---|---|
-| POST | `/api/hotels` | 준비중 호텔 생성 |
-| GET | `/api/hotels` | 권한범위 호텔 목록 |
-| GET/PATCH | `/api/hotels/:hotelId` | 상세조회·기본정보 수정 |
-| POST | `/api/hotels/:hotelId/activate` | 준비조건 검사 후 활성화 |
-| POST | `/api/hotels/:hotelId/suspend` | 영향미리보기 확인 후 운영중지 |
-| POST | `/api/hotels/:hotelId/reactivate` | 준비조건 재검사 후 재활성화 |
-| POST/DELETE | `/api/hotels/:hotelId/staff-assignments/*` | 사내 배정·종료 |
-| POST/DELETE | `/api/hotels/:hotelId/housekeeping-links/*` | 하우스키핑 연결·종료 |
-| POST | `/api/hotels/:hotelId/owner-transfer` | 소유주 identity 원자 교체 |
+| 메서드      | 경로                                        | 목적                          |
+| ----------- | ------------------------------------------- | ----------------------------- |
+| POST        | `/api/hotels`                               | 준비중 호텔 생성              |
+| GET         | `/api/hotels`                               | 권한범위 호텔 목록            |
+| GET/PATCH   | `/api/hotels/:hotelId`                      | 상세조회·기본정보 수정        |
+| POST        | `/api/hotels/:hotelId/activate`             | 준비조건 검사 후 활성화       |
+| POST        | `/api/hotels/:hotelId/suspend`              | 영향미리보기 확인 후 운영중지 |
+| POST        | `/api/hotels/:hotelId/reactivate`           | 준비조건 재검사 후 재활성화   |
+| POST/DELETE | `/api/hotels/:hotelId/staff-assignments/*`  | 사내 배정·종료                |
+| POST/DELETE | `/api/hotels/:hotelId/housekeeping-links/*` | 하우스키핑 연결·종료          |
+| POST        | `/api/hotels/:hotelId/owner-transfer`       | 소유주 identity 원자 교체     |
 
 ## 수용 기준
 
