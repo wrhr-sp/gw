@@ -630,9 +630,15 @@ jobs:
               printf '%s\n' 'Preview canonical legacy recovery was neither explicitly approved nor attested.' >&2
               exit 1
             fi
-            if [[ "$api_existed" != "true" || "$web_existed" != "true" || "$reconciler_existed" != "false" ]]; then
-              printf '%s\n' 'Preview canonical legacy recovery requires exact API-Web legacy Worker topology.' >&2
+            if [[ "$api_existed" != "true" || "$web_existed" != "true" ]]; then
+              printf '%s\n' 'Preview canonical schema recovery requires existing API and Web Workers.' >&2
               exit 1
+            fi
+            if [[ "$reconciler_existed" == "true" ]]; then
+              recovery_topology=COMPLETE
+              reconciler_config_expected=true
+            else
+              recovery_topology=API_WEB_LEGACY
             fi
             api_target_state="$(hyperdrive_target_state \
               'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE" \
@@ -645,7 +651,7 @@ jobs:
             recovery_decision="$(
               node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
                 decide "$recovery_approved" \
-                SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY
+                SCHEMA_NOT_READY "$api_target_state" "$recovery_topology"
             )"
             decision_status="$?"
             set -e
@@ -653,15 +659,17 @@ jobs:
               printf '%s\n' 'Preview canonical legacy recovery decision was denied.' >&2
               exit 1
             fi
-            set +e
-            reconciler_hyperdrive_id="$(
-              hyperdrive_config_id 'werehere-hotel-reconciler-preview'
-            )"
-            reconciler_identity_status="$?"
-            set -e
-            if [[ "$reconciler_identity_status" -ne 0 ]]; then
-              printf '%s\n' 'Preview canonical legacy recovery requires one exact reconciler Hyperdrive identity.' >&2
-              exit 1
+            if [[ "$recovery_topology" == "API_WEB_LEGACY" ]]; then
+              set +e
+              reconciler_hyperdrive_id="$(
+                hyperdrive_config_id 'werehere-hotel-reconciler-preview'
+              )"
+              reconciler_identity_status="$?"
+              set -e
+              if [[ "$reconciler_identity_status" -ne 0 ]]; then
+                printf '%s\n' 'Preview canonical legacy recovery requires one exact reconciler Hyperdrive identity.' >&2
+                exit 1
+              fi
             fi
             set +e
             reconciler_target_state="$(hyperdrive_target_state \

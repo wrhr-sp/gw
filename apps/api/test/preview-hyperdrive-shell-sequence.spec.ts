@@ -736,6 +736,44 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
     expect(execution.snapshotFiles).toEqual([]);
   });
 
+  it("continues attested complete-topology recovery without provider mutation", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      legacySchemaRecovery: true,
+      legacySchemaRecoveryAttested: true,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_CANONICAL_LEGACY_RECOVERY_PROVIDER_MUTATION_DENIED",
+    );
+    expect(execution.githubOutput).toContain(`api_id=${existingApiId}`);
+    expect(execution.githubOutput).toContain(
+      `reconciler_id=${existingReconcilerId}`,
+    );
+    expect(execution.githubOutput).toContain("legacy_api_promoted=false");
+    expect(execution.snapshotFiles).toEqual([]);
+  });
+
+  it("rejects attested complete recovery when the reconciler target is not canonical", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: staleOrigin,
+      approved: false,
+      required: false,
+      legacySchemaRecovery: true,
+      legacySchemaRecoveryAttested: true,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stderr).toContain(
+      "Preview canonical legacy recovery requires an existing canonical reconciler Hyperdrive.",
+    );
+  });
+
   it("rejects attested legacy recovery when the API target is not canonical", () => {
     const execution = runHyperdriveStep({
       apiOrigin: staleOrigin,
