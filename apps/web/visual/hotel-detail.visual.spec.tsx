@@ -78,6 +78,53 @@ test("관계관리 dialog는 후보 표시이름·키보드·최근로그인 안
   ).toEqual([]);
 });
 
+test("배정 날짜를 먼저 설정한 뒤 선택한 후보와 날짜를 POST한다", async ({
+  mount,
+  page,
+}) => {
+  let requestBody: Record<string, unknown> | undefined;
+  await page.route("**/api/hotels/*/assignments", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    requestBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({
+      contentType: "application/json",
+      status: 409,
+      body: JSON.stringify({
+        ok: false,
+        data: null,
+        error: {
+          code: "VERSION_CONFLICT",
+          message: "다른 사용자가 먼저 수정했습니다.",
+          retryable: false,
+          retryAfterSeconds: null,
+          traceId: "55000000-0000-4000-8000-000000000008",
+          fieldErrors: [],
+        },
+      }),
+    });
+  });
+  const detail = await mount(<HotelDetailStory />);
+  await detail.getByRole("button", { name: "배정 추가" }).click();
+  const dialog = detail.getByRole("dialog", { name: "배정 추가" });
+  await dialog.getByLabel("관계유형").selectOption("HOUSEKEEPING");
+  await dialog.getByLabel("시작일", { exact: true }).fill("2026-07-24");
+  await dialog.getByLabel("후보 이름 검색").fill("정객실");
+  const candidate = dialog.getByLabel("배정 후보");
+  await expect(
+    candidate.getByRole("option", { name: "정객실" }),
+  ).toBeAttached();
+  await candidate.selectOption({ label: "정객실" });
+  await dialog.getByLabel("배정 사유").fill("Preview 관계 재배정 검증");
+  await dialog.getByRole("button", { name: "배정 저장" }).click();
+  await expect
+    .poll(() => requestBody)
+    .toMatchObject({
+      relationshipType: "HOUSEKEEPING",
+      startDate: "2026-07-24",
+      userId: "20000000-0000-4000-8000-000000000014",
+    });
+});
+
 test("배정 version conflict는 dialog 오류 focus와 입력 보존을 제공한다", async ({
   mount,
   page,

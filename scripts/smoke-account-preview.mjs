@@ -15,7 +15,6 @@ import {
 import {
   runHostedMutation,
   runHostedMutationWithReload,
-  seoulCalendarDate,
 } from "./lib/preview-relationship-smoke-contract.mjs";
 
 const requireFromDb = createRequire(
@@ -67,7 +66,7 @@ const runSuffix = `${runId}${runAttempt}`
 const loginName = `p${runSuffix}`.slice(0, 30);
 const email = `${loginName}@werehere.invalid`;
 const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
-const assignmentStartDate = seoulCalendarDate();
+const assignmentStartDate = new Date().toISOString().slice(0, 10);
 const assignmentReason = "Preview release 실제 계정 흐름 검증";
 const accountCreateIdempotencyKey = `preview-account-create-${runSuffix}`;
 const initialPassword = `preview-a1!-${randomBytes(18).toString("base64url")}`;
@@ -563,6 +562,9 @@ async function verifyHostedRelationshipManagement({
     await page.getByRole("button", { name: "배정 추가" }).click();
     const assignmentDialog = page.getByRole("dialog", { name: "배정 추가" });
     await assignmentDialog.getByLabel("관계유형").selectOption("HOUSEKEEPING");
+    await assignmentDialog
+      .getByLabel("시작일", { exact: true })
+      .fill(assignmentStartDate);
     await assignmentDialog
       .getByLabel("후보 이름 검색")
       .fill(expectedDisplayName);
