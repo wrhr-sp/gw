@@ -79,8 +79,8 @@ PREPARING(준비중) → ACTIVE(운영중) → SUSPENDED(운영중지) → ACTIV
 - 호텔 소유주 교체는 초기 MVP에서 즉시 교체만 지원하고 예약 교체는 후속으로 둔다.
 - 소유주 교체는 현재 세션의 `auth_time`이 5분 이내인 경우에만 허용하며, 그보다 오래된 세션은 다시 로그인해야 한다.
 - 계정 생성과 호텔 관계 생성 권한을 분리한다. `USER_CREATE`만으로 배정이나 소유주 연결을 만들 수 없다.
-- 외부 identity provider 처리 뒤 DB completion transaction에서 원래 actor의 활성 session, 최신 deny precedence, 호텔범위 권한을 다시 검증한다. 소유주 계정은 이 시점에도 `auth_time` 5분 조건을 충족해야 하며 실패하면 로컬 사용자·관계를 만들지 않고 provider 보상 흐름으로 전환한다.
-- 무중단 배포에서 EXPAND는 기존 Worker가 허용하던 column ACL과 기존 auth 함수 fingerprint를 유지한다. 호텔 version·관계 종료 UPDATE 권한은 새 Worker 배포 후 CONTRACT 단계에서만 연다.
+- 외부 identity provider 처리 뒤 DB completion transaction에서 원래 actor의 활성 session, 최신 `USER_CREATE`와 관계권한 deny precedence, 호텔범위를 모두 다시 검증한다. 소유주 계정은 이 시점에도 `auth_time` 5분 조건을 충족해야 하며 실패하면 로컬 사용자·관계·성공감사를 만들지 않고 provider 보상 흐름으로 전환한다.
+- 무중단 반복 배포에서 기존 인증·계정 schema가 이미 CONTRACT여도 신규 호텔 기능 ACL은 EXPAND→IDENTITY_LOCK→CONTRACT로 독립 진행할 수 있어야 한다. phase가 명시된 provisioning readiness는 해당 호텔 ACL을 엄격히 검사하고, 일반 Worker health는 승인된 exact phase ACL 중 하나만 허용한다. 호텔 version·관계 종료 UPDATE 권한은 새 Worker 배포 후 CONTRACT 단계에서만 연다.
 
 ## 권한
 

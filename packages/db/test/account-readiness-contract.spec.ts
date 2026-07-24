@@ -22,11 +22,17 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("migrationRows[0].contract_marker_count === 0");
     expect(source).toContain("migrationRows[0].contract_marker_count === 4");
     expect(source).toContain(
-      "migrationRows[0].hotel_relationship_marker_count === 1",
+      "migrationRows[0]?.hotel_relationship_marker_count !== 1",
+    );
+    expect(source).toContain(
+      "migrationRows[0].hotel_integrity_marker_count !== 1",
     );
     expect(source).toContain("HOTEL_RELATIONSHIP_REQUIRED_COLUMNS");
     expect(provisionSource).toContain(
       '"0016_hotel_relationship_management.sql"',
+    );
+    expect(provisionSource).toContain(
+      '"0017_hotel_relationship_integrity_hardening.sql"',
     );
     expect(provisionSource).not.toContain(
       '"0015_neon_definer_contract_hardening",\n    "0016_hotel_relationship_management",',
@@ -125,21 +131,29 @@ describe("account administration readiness contract", () => {
       source.indexOf("const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES"),
     );
     expect(expandColumnAllowlist).not.toContain("terminated_at:UPDATE");
+    expect(source).toContain("const columnPhaseDefinitions = [");
+    expect(source).toContain('phase: "EXPAND_IDENTITY_LOCK" as const');
+    expect(source).toContain("const observedSchemaAclPhase");
+    expect(source).toContain("const observedColumnAclPhase");
+    expect(source).toContain("const approvedAclTuple");
     expect(source).toContain(
-      "EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,\n          ]\n        : [EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES]",
+      'observedSchemaAclPhase === "CONTRACT" &&\n          observedColumnAclPhase === "CONTRACT"',
     );
+    expect(source).not.toContain("options.requiredSchemaPhase !== schemaPhase");
     expect(expandColumnAllowlist).not.toContain(
       "hotel_profiles:version:UPDATE",
     );
-    expect(source).toContain("expectedColumnPrivilegeCandidates.some");
-    expect(source).toContain('schemaPhase === "EXPAND"');
+    expect(source).toContain("expectedColumnPrivilegeCandidates.filter");
+    expect(source).toContain("matchingColumnAclPhases.length === 1");
     expect(provisionSource).toContain(
       'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
     );
     expect(provisionSource).toContain(
-      'const requiredSchemaPhase: "CONTRACT" | "EXPAND" = contractPhase',
+      "const requiredRolloutPhase = provisionPhase",
     );
-    expect(provisionSource).toContain("requiredSchemaPhase,\n  });");
+    expect(provisionSource).toContain(
+      "requiredSchemaPhase: requiredRolloutPhase",
+    );
     expect(provisionSource).toContain(
       "revoke update (updated_at) on auth_identities\n      from ${apiRuntimeTableGrantees}, ${reconcilerRole};",
     );
@@ -165,6 +179,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("for (const role of capabilityRoleRows)");
     expect(source).toContain("werehere_auth_session_definer");
     expect(source).toContain("auth_revoke_hotel_owner_sessions_v1");
+    expect(source).toContain("0017_hotel_relationship_integrity_hardening");
+    expect(source).toContain("REJECT_HOTEL_RELATIONSHIP_DELETE_PROSRC_SHA256");
+    expect(source).toContain("trigger.trigger_type === 11");
+    expect(source).toContain(
+      'trigger.function_name === "reject_hotel_relationship_delete"',
+    );
     expect(source).toContain(
       "pg_get_function_result(procedure_record.oid) = 'integer'",
     );
@@ -172,7 +192,11 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("procedure_record.provolatile = 'v'");
     expect(source).toContain("werehere_tenant_authority_definer");
     expect(source).toContain("migrationOwner.role_name");
-    expect(source).toContain("expectedSchemaPrivileges");
+    expect(source).toContain("matchesSchemaPrivileges");
+    expect(source).toContain("publicSchemaUsageAllowed");
+    expect(source).toContain(
+      'requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK"',
+    );
     expect(source).toContain("schemaAclClosure.unexpected_count !== 0");
     expect(source).toContain("sequence_record.relkind = 'S'");
     expect(source).toContain("acl.grantee <> sequence_record.relowner");

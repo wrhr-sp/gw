@@ -964,16 +964,18 @@ export function createPostgresAccountRepository(
             input.value.userType === "HOTEL_OWNER"
               ? "HOTEL_OWNER_MANAGE"
               : "HOTEL_ASSIGNMENT_MANAGE";
+          const completionActor: AccountActor = {
+            companyId: input.companyId,
+            sessionId: input.sessionId ?? "",
+            userId: input.actorUserId,
+            userType: input.actorType ?? "INTERNAL_STAFF",
+          };
           if (
             !input.sessionId ||
+            !(await permission(transaction, completionActor, "USER_CREATE")) ||
             !(await relationshipCreationPermission(
               transaction,
-              {
-                companyId: input.companyId,
-                sessionId: input.sessionId,
-                userId: input.actorUserId,
-                userType: input.actorType ?? "INTERNAL_STAFF",
-              },
+              completionActor,
               relationshipPermissionCode,
               hotelIds,
               input.value.userType === "HOTEL_OWNER",
