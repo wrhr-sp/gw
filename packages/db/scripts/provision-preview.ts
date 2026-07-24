@@ -53,7 +53,8 @@ if (
   );
 }
 const contractPhase = provisionPhase === "CONTRACT";
-const identityLockPhase =
+let contractCompatibleAclPhase = contractPhase;
+let identityLockPhase =
   provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase;
 
 function parseDatabaseUrl(
@@ -422,12 +423,65 @@ try {
       )
     : allMigrations.filter(([version]) => !contractOnlyMigrations.has(version));
 
-  const bootstrapSchema = await owner<{ exists: boolean }[]>`
-    select to_regclass('public.users') is not null
-       and to_regclass('public.auth_identities') is not null
-       and to_regclass('public.login_id_registry') is not null as exists
-  `;
-  if (contractPhase && bootstrapSchema[0]?.exists) {
+  const readContractBaseState = async () => {
+    const [objects] = await owner<
+      {
+        auth_identities_exists: boolean;
+        login_id_registry_exists: boolean;
+        schema_migrations_exists: boolean;
+        users_exists: boolean;
+      }[]
+    >`
+      select
+        to_regclass('public.users') is not null as users_exists,
+        to_regclass('public.auth_identities') is not null as auth_identities_exists,
+        to_regclass('public.login_id_registry') is not null as login_id_registry_exists,
+        to_regclass('public.schema_migrations') is not null as schema_migrations_exists
+    `;
+    if (!objects) fail("Preview contract base state is unavailable");
+    let contractMarkerCount = 0;
+    if (objects.schema_migrations_exists) {
+      const [markers] = await owner<{ count: number }[]>`
+        select count(*)::integer as count
+        from public.schema_migrations
+        where version in (
+          '0008_remove_legacy_company_id_fallback',
+          '0010_global_login_id_contract',
+          '0012_account_provider_exact_dispatch_contract',
+          '0015_neon_definer_contract_hardening'
+        )
+      `;
+      contractMarkerCount =
+        markers?.count ?? fail("Preview contract marker state is unavailable");
+    }
+    return {
+      ...objects,
+      contract_marker_count: contractMarkerCount,
+    };
+  };
+  const contractBaseState = await readContractBaseState();
+  const bootstrapSchemaReady =
+    contractBaseState.users_exists &&
+    contractBaseState.auth_identities_exists &&
+    contractBaseState.login_id_registry_exists;
+  const bootstrapSchemaPresent =
+    contractBaseState.users_exists ||
+    contractBaseState.auth_identities_exists ||
+    contractBaseState.login_id_registry_exists;
+  if (bootstrapSchemaPresent && !bootstrapSchemaReady) {
+    fail("Preview bootstrap schema is incomplete");
+  }
+  if (provisionPhase === "EXPAND") {
+    if (
+      contractBaseState.contract_marker_count !== 0 &&
+      contractBaseState.contract_marker_count !== 4
+    ) {
+      fail("Preview contract markers are partial");
+    }
+    contractCompatibleAclPhase = contractBaseState.contract_marker_count === 4;
+    identityLockPhase = contractCompatibleAclPhase;
+  }
+  if (contractPhase && bootstrapSchemaReady) {
     await owner.begin(async (sql) => {
       const rows = await sql<
         {
@@ -1131,6 +1185,19 @@ try {
     return commands ?? fail("Could not build definer membership commands");
   };
 
+  if (provisionPhase === "EXPAND") {
+    const latestContractBaseState = await readContractBaseState();
+    if (
+      !latestContractBaseState.users_exists ||
+      !latestContractBaseState.auth_identities_exists ||
+      !latestContractBaseState.login_id_registry_exists ||
+      latestContractBaseState.contract_marker_count !==
+        contractBaseState.contract_marker_count
+    ) {
+      fail("Preview contract base changed before ACL reconciliation");
+    }
+  }
+
   const capabilityDefinerCommands = await buildDefinerCommands(
     "werehere_tenant_authority_definer",
   );
@@ -1308,7 +1375,7 @@ try {
     $migration_owned_table_acl_reset$;
 
     revoke create on schema public from public;
-    ${contractPhase ? "revoke usage on schema public from public;" : "grant usage on schema public to public;"}
+    ${contractCompatibleAclPhase ? "revoke usage on schema public from public;" : "grant usage on schema public to public;"}
 
     do $schema_acl_reset$
     declare
@@ -1434,7 +1501,7 @@ try {
     grant update (updated_at) on branches, hotel_profiles
       to ${apiRuntimeTableGrantees};
     ${
-      contractPhase
+      contractCompatibleAclPhase
         ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};
     grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)
       on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
@@ -1837,7 +1904,9 @@ try {
   });
   await chmod(reconcilerOutputFile, 0o600);
 
-  const requiredRolloutPhase = provisionPhase;
+  const requiredRolloutPhase = contractCompatibleAclPhase
+    ? "CONTRACT"
+    : provisionPhase;
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
     requiredSchemaPhase: requiredRolloutPhase,
