@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
 import * as cleanupHelpers from "../../../scripts/lib/preview-account-smoke-cleanup.mjs";
+// @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
+import * as relationshipSmokeHelpers from "../../../scripts/lib/preview-relationship-smoke-contract.mjs";
 
 const {
   assertCreateResponseMatchesAttempt,
@@ -16,6 +18,8 @@ const {
   waitForProviderSessionGone,
   waitForZeroActiveSessions,
 } = cleanupHelpers;
+const { runHostedMutation, runHostedMutationWithReload, seoulCalendarDate } =
+  relationshipSmokeHelpers;
 
 const smokeUrl = new URL(
   "../../../scripts/smoke-account-preview.mjs",
@@ -252,6 +256,141 @@ describe("hosted Preview account-management smoke", () => {
       "public.api_current_company_id() as context_company_id",
     );
     expect(source).toContain("row?.context_company_id !== companyId");
+  });
+
+  it("uses the Seoul calendar date at the UTC day boundary", () => {
+    expect(seoulCalendarDate(new Date("2026-07-24T14:59:59.000Z"))).toBe(
+      "2026-07-24",
+    );
+    expect(seoulCalendarDate(new Date("2026-07-24T15:00:00.000Z"))).toBe(
+      "2026-07-25",
+    );
+  });
+
+  it("does not register a reload waiter for a rejected hosted mutation", async () => {
+    const events: string[] = [];
+    await expect(
+      runHostedMutationWithReload({
+        acceptedStatuses: [200],
+        click: async () => {
+          events.push("click");
+        },
+        label: "hosted end",
+        waitForReload: async () => {
+          events.push("reload");
+        },
+        waitForResponse: async () => {
+          events.push("response");
+          return { status: () => 409 };
+        },
+      }),
+    ).rejects.toThrow("hosted end failed (409)");
+    expect(events).toEqual(["response", "click"]);
+  });
+
+  it("settles the response waiter after click rejection before browser-style cleanup", async () => {
+    const events: string[] = [];
+    try {
+      await expect(
+        runHostedMutation({
+          acceptedStatuses: [200],
+          click: async () => {
+            events.push("click-rejected");
+            throw new Error("click failed");
+          },
+          label: "hosted readiness",
+          waitForResponse: () =>
+            new Promise((_, reject) => {
+              setTimeout(() => {
+                events.push("response-rejected");
+                reject(new Error("response waiter closed"));
+              }, 0);
+            }),
+        }),
+      ).rejects.toThrow("click failed");
+    } finally {
+      events.push("close");
+    }
+    expect(events).toEqual(["click-rejected", "response-rejected", "close"]);
+  });
+
+  it("settles response timeout before browser-style cleanup", async () => {
+    const events: string[] = [];
+    try {
+      await expect(
+        runHostedMutation({
+          acceptedStatuses: [200],
+          click: async () => {
+            events.push("click");
+          },
+          label: "hosted readiness",
+          waitForResponse: async () => {
+            events.push("response-timeout");
+            throw new Error("response timeout");
+          },
+        }),
+      ).rejects.toThrow("response timeout");
+    } finally {
+      events.push("close");
+    }
+    expect(events).toEqual(["response-timeout", "click", "close"]);
+  });
+
+  it("settles reload failure before browser-style cleanup", async () => {
+    const events: string[] = [];
+    try {
+      await expect(
+        runHostedMutationWithReload({
+          acceptedStatuses: [200],
+          click: async () => {
+            events.push("click");
+          },
+          label: "hosted assignment",
+          waitForReload: async () => {
+            events.push("reload");
+            throw new Error("reload failed");
+          },
+          waitForResponse: async () => {
+            events.push("response");
+            return { status: () => 200 };
+          },
+        }),
+      ).rejects.toThrow("reload failed");
+    } finally {
+      events.push("close");
+    }
+    expect(events).toEqual(["response", "click", "reload", "close"]);
+  });
+
+  it("exercises hosted relationship termination, privacy-minimal reassignment, and fail-closed readiness", () => {
+    const relationshipPosition = source.indexOf(
+      'journeyFailureCode = "RELATIONSHIP_MANAGEMENT_UI"',
+    );
+    const reassignmentReadbackPosition = source.indexOf(
+      'journeyFailureCode = "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI"',
+    );
+    const deactivationPosition = source.indexOf(
+      'journeyFailureCode = "ACCOUNT_DEACTIVATE"',
+    );
+    expect(source).toContain(
+      "async function verifyHostedRelationshipManagement",
+    );
+    expect(source).toContain("await context.addCookies");
+    expect(source).toContain('{ name: "정상 종료" }');
+    expect(source).toContain('label: "Hosted relationship emergency end"');
+    expect(source).toContain(
+      "Hosted relationship candidate UI exposed private identity data",
+    );
+    expect(source).toContain('label: "Hosted relationship assignment"');
+    expect(source).toContain(
+      'label: "Hosted activation readiness did not fail closed"',
+    );
+    expect(source).toMatch(
+      /acceptedStatuses: \[409\][\s\S]*?label: "Hosted activation readiness did not fail closed"/u,
+    );
+    expect(relationshipPosition).toBeGreaterThan(-1);
+    expect(reassignmentReadbackPosition).toBeGreaterThan(relationshipPosition);
+    expect(deactivationPosition).toBeGreaterThan(reassignmentReadbackPosition);
   });
 
   it("discovers an ambiguous create from its durable attempt before the user row exists", async () => {
