@@ -300,6 +300,7 @@ jobs:
           exit 1
 
       - name: Expand Neon Preview database for compatible Worker deploy
+        id: database_expand
         env:
           PREVIEW_PROVISION_PHASE: EXPAND
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -310,12 +311,22 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
           ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
-        run: pnpm exec tsx packages/db/scripts/provision-preview.ts
+        run: |
+          set -euo pipefail
+          provision_log="$(mktemp)"
+          trap 'rm -f "$provision_log"' EXIT
+          pnpm exec tsx packages/db/scripts/provision-preview.ts | tee "$provision_log"
+          if grep -Fxq 'PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND' "$provision_log"; then
+            printf 'contract_compatible=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'contract_compatible=false\n' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Verify previous Workers remain compatible after expand
         if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
         id: pre_hyperdrive_compatibility
         env:
+          PREVIEW_CONTRACT_COMPATIBLE_EXPAND: ${{ steps.database_expand.outputs.contract_compatible }}
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
@@ -333,12 +344,15 @@ jobs:
             exit 0
           fi
           if [[ "$readiness_status" -eq 11 && "$readiness_classification" == "SCHEMA_NOT_READY" ]]; then
-            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" && \
+                  "$PREVIEW_CONTRACT_COMPATIBLE_EXPAND" != "true" ]]; then
               printf '%s\n' 'PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_NOT_APPROVED' >&2
               exit 1
             fi
             printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
             printf 'legacy_schema_recovery_required=true\n' >> "$GITHUB_OUTPUT"
+            printf 'legacy_schema_recovery_attested=%s\n' \
+              "$PREVIEW_CONTRACT_COMPATIBLE_EXPAND" >> "$GITHUB_OUTPUT"
             printf '%s\n' 'PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_REQUIRED'
             exit 0
           fi
@@ -361,6 +375,7 @@ jobs:
         env:
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
           PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}
+          PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_attested }}
           PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_required }}
         run: |
           set -euo pipefail
@@ -437,6 +452,22 @@ jobs:
             write_hyperdrive_config "$list_file" "$config_file" "$name" "$expected_id"
             node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
               target-state "$config_file" "$url_file"
+          }
+          hyperdrive_config_id() {
+            local name="$1"
+            local list_file
+            local config_file
+            local count
+            list_file="$(mktemp "$temp_dir/hyperdrive-identity-list.XXXXXX")"
+            config_file="$(mktemp "$temp_dir/hyperdrive-identity-config.XXXXXX")"
+            fetch_hyperdrive_list "$list_file"
+            count="$(hyperdrive_count "$list_file" "$name" '')"
+            if [[ "$count" -ne 1 ]]; then
+              printf 'The expected Hyperdrive identity is unavailable or ambiguous: %s\n' "$name" >&2
+              return 2
+            fi
+            write_hyperdrive_config "$list_file" "$config_file" "$name" ''
+            jq -er '.id | select(type == "string" and test("^[0-9a-f]{32}$"))' "$config_file"
           }
           ensure_hyperdrive() {
             local name="$1"
@@ -547,6 +578,7 @@ jobs:
           mkdir -m 700 /tmp/werehere-hyperdrive-retarget
           api_existed="${{ steps.worker_snapshot.outputs.api_existed }}"
           reconciler_existed="${{ steps.worker_snapshot.outputs.reconciler_existed }}"
+          reconciler_config_expected="$reconciler_existed"
           web_existed="${{ steps.worker_snapshot.outputs.web_existed }}"
           api_hyperdrive_id="${{ steps.worker_snapshot.outputs.api_hyperdrive_id }}"
           reconciler_hyperdrive_id="${{ steps.worker_snapshot.outputs.reconciler_hyperdrive_id }}"
@@ -593,8 +625,9 @@ jobs:
             fi
             printf '%s\n' 'PREVIEW_API_HYPERDRIVE_TARGET_MISMATCH_CONFIRMED'
           elif [[ "$PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED" == "true" ]]; then
-            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" ]]; then
-              printf '%s\n' 'Preview canonical legacy recovery was not explicitly approved.' >&2
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" && \
+                  "$PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED" != "true" ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery was neither explicitly approved nor attested.' >&2
               exit 1
             fi
             if [[ "$api_existed" != "true" || "$web_existed" != "true" || "$reconciler_existed" != "false" ]]; then
@@ -604,10 +637,14 @@ jobs:
             api_target_state="$(hyperdrive_target_state \
               'werehere-hotel-api-preview' "$API_RUNTIME_DATABASE_URL_FILE" \
               "$api_hyperdrive_id")"
+            recovery_approved="$PREVIEW_HYPERDRIVE_RETARGET_APPROVED"
+            if [[ "$PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED" == "true" ]]; then
+              recovery_approved=true
+            fi
             set +e
             recovery_decision="$(
               node "$GITHUB_WORKSPACE/scripts/preview-hyperdrive-retarget-contract.mjs" \
-                decide "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" \
+                decide "$recovery_approved" \
                 SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY
             )"
             decision_status="$?"
@@ -616,6 +653,28 @@ jobs:
               printf '%s\n' 'Preview canonical legacy recovery decision was denied.' >&2
               exit 1
             fi
+            set +e
+            reconciler_hyperdrive_id="$(
+              hyperdrive_config_id 'werehere-hotel-reconciler-preview'
+            )"
+            reconciler_identity_status="$?"
+            set -e
+            if [[ "$reconciler_identity_status" -ne 0 ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery requires one exact reconciler Hyperdrive identity.' >&2
+              exit 1
+            fi
+            set +e
+            reconciler_target_state="$(hyperdrive_target_state \
+              'werehere-hotel-reconciler-preview' "$RECONCILER_DATABASE_URL_FILE" \
+              "$reconciler_hyperdrive_id")"
+            reconciler_target_status="$?"
+            set -e
+            if [[ "$reconciler_target_status" -ne 0 || "$reconciler_target_state" != "MATCH" ]]; then
+              printf '%s\n' 'Preview canonical legacy recovery requires an existing canonical reconciler Hyperdrive.' >&2
+              exit 1
+            fi
+            reconciler_config_expected=true
+            printf '%s\n' 'PREVIEW_CANONICAL_LEGACY_RECOVERY_PROVIDER_MUTATION_DENIED'
             printf '%s\n' 'PREVIEW_CANONICAL_LEGACY_SCHEMA_RECOVERY_CONFIRMED'
           elif [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" == "true" ]]; then
             printf '%s\n' 'Preview Hyperdrive retarget was approved without a failed existing-Worker readiness gate.' >&2
@@ -627,7 +686,7 @@ jobs:
             "$API_RUNTIME_DATABASE_URL_FILE" api_id "$api_existed" \
             "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" "$api_hyperdrive_id"
           ensure_hyperdrive 'werehere-hotel-reconciler-preview' \
-            "$RECONCILER_DATABASE_URL_FILE" reconciler_id "$reconciler_existed" \
+            "$RECONCILER_DATABASE_URL_FILE" reconciler_id "$reconciler_config_expected" \
             "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" "$reconciler_hyperdrive_id"
           snapshot_legacy_hyperdrive "$legacy_after"
           if [[ "$api_hyperdrive_id" == "$legacy_hyperdrive_id" ]]; then

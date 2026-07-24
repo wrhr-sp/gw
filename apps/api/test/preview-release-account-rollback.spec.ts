@@ -220,6 +220,15 @@ describe("Preview account Worker release safety", () => {
   it("keeps the one-time Hyperdrive retarget gate explicit and default-off", () => {
     expect(workflow).toContain("preview_hyperdrive_retarget:");
     expect(workflow).toContain("default: false");
+    const databaseExpand = workflowStep(
+      "Expand Neon Preview database for compatible Worker deploy",
+    );
+    expect(databaseExpand).toContain("id: database_expand");
+    expect(databaseExpand).toContain(
+      "PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND",
+    );
+    expect(databaseExpand).toContain("contract_compatible=true");
+    expect(databaseExpand).toContain("contract_compatible=false");
     const preTarget = workflowStep(
       "Verify previous Workers remain compatible after expand",
     );
@@ -256,6 +265,10 @@ describe("Preview account Worker release safety", () => {
     );
     expect(preTarget).toContain("legacy_schema_recovery_required=true");
     expect(preTarget).toContain(
+      "PREVIEW_CONTRACT_COMPATIBLE_EXPAND: ${{ steps.database_expand.outputs.contract_compatible }}",
+    );
+    expect(preTarget).toContain("legacy_schema_recovery_attested=%s");
+    expect(preTarget).toContain(
       "PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_REQUIRED",
     );
     const provisioning = workflowStep("Create or update Preview Hyperdrives");
@@ -269,6 +282,23 @@ describe("Preview account Worker release safety", () => {
     );
     expect(provisioning).toContain(
       'SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY',
+    );
+    expect(provisioning).toContain("PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED");
+    expect(provisioning).toContain('decide "$recovery_approved"');
+    expect(provisioning).toContain(
+      "Preview canonical legacy recovery requires an existing canonical reconciler Hyperdrive.",
+    );
+    expect(provisioning).toContain("reconciler_config_expected=true");
+    expect(provisioning).toContain("hyperdrive_config_id()");
+    expect(provisioning).toContain(
+      "hyperdrive_config_id 'werehere-hotel-reconciler-preview'",
+    );
+    expect(provisioning).toContain('"$reconciler_hyperdrive_id")');
+    expect(provisioning).toContain(
+      'reconciler_id "$reconciler_config_expected"',
+    );
+    expect(provisioning).toContain(
+      "PREVIEW_CANONICAL_LEGACY_RECOVERY_PROVIDER_MUTATION_DENIED",
     );
     expect(provisioning).toContain("CONTINUE_CANONICAL_LEGACY_RECOVERY");
     expect(provisioning).toContain("legacy_api_promoted=true");
