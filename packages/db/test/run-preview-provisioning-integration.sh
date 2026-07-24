@@ -714,9 +714,88 @@ where id = '74000000-0000-4000-8000-000000000001';
 alter table public.audit_events enable trigger audit_events_no_update;
 SQL
 run_provision CONTRACT >/dev/null
-# A later release must be able to stage new EXPAND ACLs on an already contracted
-# authentication/account schema, then converge back to exact CONTRACT ACLs.
+
+contract_acl_snapshot() {
+  psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select concat(
+  has_schema_privilege('public', 'public', 'usage'),
+  '|',
+  coalesce(string_agg(
+    coalesce(grantee_role.rolname, 'PUBLIC') || ':' || table_record.relname || ':' ||
+      column_record.attname || ':' || upper(acl.privilege_type),
+    ',' order by grantee_role.rolname, table_record.relname, column_record.attname,
+      acl.privilege_type
+  ), '')
+)
+from pg_class table_record
+join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+join pg_attribute column_record on column_record.attrelid = table_record.oid
+cross join lateral aclexplode(column_record.attacl) acl
+left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+where table_namespace.nspname = 'public'
+  and table_record.relname in (
+    'auth_identities', 'branches', 'hotel_profiles',
+    'hotel_staff_assignments', 'housekeeping_hotel_links',
+    'hotel_owner_assignments'
+  )
+  and acl.grantee <> table_record.relowner;
+SQL
+}
+
+CONTRACT_ACL_BEFORE_DAMAGE="$(contract_acl_snapshot)"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from public.schema_migrations
+where version = '0015_neon_definer_contract_hardening';
+SQL
+if run_provision EXPAND >/dev/null 2>&1; then
+  printf '%s\n' 'EXPAND accepted partial contract markers.' >&2
+  exit 1
+fi
+if [[ "$(contract_acl_snapshot)" != "$CONTRACT_ACL_BEFORE_DAMAGE" ]]; then
+  printf '%s\n' 'Partial-marker EXPAND changed the contract ACL.' >&2
+  exit 1
+fi
+run_provision CONTRACT >/dev/null
+
+CONTRACT_ACL_BEFORE_DAMAGE="$(contract_acl_snapshot)"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.login_id_registry rename to login_id_registry_damaged' >/dev/null
+if run_provision EXPAND >/dev/null 2>&1; then
+  printf '%s\n' 'EXPAND accepted a damaged bootstrap schema.' >&2
+  exit 1
+fi
+if [[ "$(contract_acl_snapshot)" != "$CONTRACT_ACL_BEFORE_DAMAGE" ]]; then
+  printf '%s\n' 'Bootstrap-damaged EXPAND changed the contract ACL.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.login_id_registry_damaged rename to login_id_registry' >/dev/null
+
+# A later release must be able to apply new EXPAND migrations on an already
+# contracted base while retaining the previous Worker's exact CONTRACT ACL,
+# then converge idempotently through CONTRACT provisioning.
 run_provision EXPAND >/dev/null
+COMPAT_EXPAND_API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$COMPAT_EXPAND_API_RUNTIME_URL" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const result = await probeDatabaseReadiness(process.env.TEST_READY_URL, {
+  capability: "API_RUNTIME",
+});
+if (result.status !== "READY") {
+  throw new Error(`contracted-base EXPAND was not previous-Worker compatible: ${result.status}`);
+}
+NODE
+)
+COMPAT_EXPAND_SCHEMA_ACL="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select has_schema_privilege('public', 'public', 'usage');
+SQL
+)"
+if [[ "$COMPAT_EXPAND_SCHEMA_ACL" != "f" ]]; then
+  printf '%s\n' 'Contracted-base EXPAND reopened PUBLIC schema usage.' >&2
+  exit 1
+fi
 run_provision CONTRACT >/dev/null
 
 API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"

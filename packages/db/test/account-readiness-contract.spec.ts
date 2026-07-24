@@ -149,7 +149,29 @@ describe("account administration readiness contract", () => {
       'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
     );
     expect(provisionSource).toContain(
-      "const requiredRolloutPhase = provisionPhase",
+      "const requiredRolloutPhase = contractCompatibleAclPhase",
+    );
+    expect(provisionSource).toContain('if (provisionPhase === "EXPAND")');
+    expect(provisionSource).toContain(
+      "contract_marker_count: contractMarkerCount",
+    );
+    expect(provisionSource).toContain(
+      "contractBaseState.contract_marker_count !== 0",
+    );
+    expect(provisionSource).toContain(
+      'fail("Preview contract markers are partial")',
+    );
+    expect(provisionSource).toContain(
+      "const latestContractBaseState = await readContractBaseState()",
+    );
+    expect(provisionSource).toContain(
+      'fail("Preview contract base changed before ACL reconciliation")',
+    );
+    expect(provisionSource).toContain(
+      "pg_advisory_lock(hashtextextended('werehere-preview-migration', 0))",
+    );
+    expect(provisionSource).toContain(
+      'contractCompatibleAclPhase ? "revoke usage on schema public from public;"',
     );
     expect(provisionSource).toContain(
       "requiredSchemaPhase: requiredRolloutPhase",
@@ -158,7 +180,7 @@ describe("account administration readiness contract", () => {
       "revoke update (updated_at) on auth_identities\n      from ${apiRuntimeTableGrantees}, ${reconcilerRole};",
     );
     expect(provisionSource).toContain(
-      "contractPhase\n        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
+      "contractCompatibleAclPhase\n        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
     );
     expect(provisionSource).toContain(
       "grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)\n      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments",
