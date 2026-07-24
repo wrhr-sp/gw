@@ -347,6 +347,107 @@ export const hotelAssignmentSchema = z
   .strict();
 export type HotelAssignment = z.infer<typeof hotelAssignmentSchema>;
 
+export const hotelRelationshipPersonSchema = z
+  .object({
+    userId: z.uuid(),
+    displayName: z.string().trim().min(1).max(100),
+    userType: hotelUserTypeSchema,
+  })
+  .strict();
+export type HotelRelationshipPerson = z.infer<
+  typeof hotelRelationshipPersonSchema
+>;
+
+export const hotelAssignmentViewSchema = hotelAssignmentSchema
+  .extend({ assignee: hotelRelationshipPersonSchema })
+  .strict();
+export type HotelAssignmentView = z.infer<typeof hotelAssignmentViewSchema>;
+
+export const hotelAssignmentListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ assignments: z.array(hotelAssignmentViewSchema) })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelOwnerRelationshipsResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ owners: z.array(hotelAssignmentViewSchema) }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelCandidateQuerySchema = z
+  .object({
+    relationshipType: hotelRelationshipTypeSchema,
+    assignmentType: hotelAssignmentTypeSchema.optional(),
+    startDate: z.iso.date().optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.relationshipType === "OWNER" && value.startDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "소유주 후보는 서버의 현재 날짜를 사용합니다.",
+      });
+    }
+    if (value.relationshipType !== "OWNER" && !value.startDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["startDate"],
+        message: "배정 시작일을 입력해 주세요.",
+      });
+    }
+    if (value.relationshipType === "STAFF" && !value.assignmentType) {
+      context.addIssue({
+        code: "custom",
+        path: ["assignmentType"],
+        message: "사내 배정 유형을 선택해 주세요.",
+      });
+    }
+    if (value.relationshipType !== "STAFF" && value.assignmentType) {
+      context.addIssue({
+        code: "custom",
+        path: ["assignmentType"],
+        message: "해당 관계유형에는 배정 유형을 사용하지 않습니다.",
+      });
+    }
+  });
+export type HotelCandidateQuery = z.infer<typeof hotelCandidateQuerySchema>;
+
+export const hotelEligibleCandidateSchema = hotelRelationshipPersonSchema;
+export type HotelEligibleCandidate = z.infer<
+  typeof hotelEligibleCandidateSchema
+>;
+
+export const hotelEligibleCandidatesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        candidates: z.array(hotelEligibleCandidateSchema),
+        pagination: z
+          .object({
+            page: z.number().int().positive(),
+            pageSize: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+            totalPages: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
 export const hotelListResponseSchema = z
   .object({
     ok: z.literal(true),
@@ -403,6 +504,9 @@ export const hotelRoutes = {
     `${hotelPath(hotelId)}/staff-assignments` as const,
   assignments: (hotelId: string) =>
     `${hotelPath(hotelId)}/assignments` as const,
+  owner: (hotelId: string) => `${hotelPath(hotelId)}/owner` as const,
+  eligibleCandidates: (hotelId: string) =>
+    `${hotelPath(hotelId)}/eligible-candidates` as const,
   endAssignment: (hotelId: string, assignmentId: string) =>
     `${hotelPath(hotelId)}/assignments/${encodeURIComponent(assignmentId)}/end` as const,
   housekeepingLinks: (hotelId: string) =>

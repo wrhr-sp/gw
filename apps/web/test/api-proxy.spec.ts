@@ -43,30 +43,39 @@ describe("same-origin API runtime proxy", () => {
 
   it("forwards query and cookies and preserves redirect response headers", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    const upstreamFetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      expect(String(input)).toBe("http://127.0.0.1:8787/api/auth/callback?code=value&state=state");
-      expect(new Headers(init?.headers).get("cookie")).toBe("__Host-hotel_oauth_browser=binding");
-      expect(init?.redirect).toBe("manual");
-      const headers = new Headers({ location: "/hotel-operations" });
-      headers.append(
-        "set-cookie",
-        "__Host-hotel_session=opaque; Path=/; Secure; HttpOnly; SameSite=Lax",
-      );
-      headers.append(
-        "set-cookie",
-        "__Host-hotel_oauth_browser=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
-      );
-      return new Response(null, {
-        status: 302,
-        headers,
-      });
-    });
+    const upstreamFetch = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        expect(String(input)).toBe(
+          "http://127.0.0.1:8787/api/auth/callback?code=value&state=state",
+        );
+        expect(new Headers(init?.headers).get("cookie")).toBe(
+          "__Host-hotel_oauth_browser=binding",
+        );
+        expect(init?.redirect).toBe("manual");
+        const headers = new Headers({ location: "/hotel-operations" });
+        headers.append(
+          "set-cookie",
+          "__Host-hotel_session=opaque; Path=/; Secure; HttpOnly; SameSite=Lax",
+        );
+        headers.append(
+          "set-cookie",
+          "__Host-hotel_oauth_browser=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
+        );
+        return new Response(null, {
+          status: 302,
+          headers,
+        });
+      },
+    );
     vi.stubGlobal("fetch", upstreamFetch);
 
     const response = await GET(
-      new Request("https://hotel.example.test/api/auth/callback?code=value&state=state", {
-        headers: { cookie: "__Host-hotel_oauth_browser=binding" },
-      }),
+      new Request(
+        "https://hotel.example.test/api/auth/callback?code=value&state=state",
+        {
+          headers: { cookie: "__Host-hotel_oauth_browser=binding" },
+        },
+      ),
       { params: Promise.resolve({ path: ["auth", "callback"] }) },
     );
     expect(response.status).toBe(302);
@@ -80,16 +89,22 @@ describe("same-origin API runtime proxy", () => {
 
   it("redirects callback transport failures without exposing proxy JSON", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new Error("transport sentinel")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockRejectedValue(new Error("transport sentinel")),
+    );
     const response = await GET(
-      new Request("https://hotel.example.test/api/auth/callback?code=value&state=state"),
+      new Request(
+        "https://hotel.example.test/api/auth/callback?code=value&state=state",
+      ),
       { params: Promise.resolve({ path: ["auth", "callback"] }) },
     );
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/login?error=unavailable");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
-    expect(response.headers.get("set-cookie") ?? "")
-      .toMatch(/__Host-hotel_oauth_browser=.*Max-Age=0/i);
+    expect(response.headers.get("set-cookie") ?? "").toMatch(
+      /__Host-hotel_oauth_browser=.*Max-Age=0/i,
+    );
     expect(await response.text()).not.toContain("transport sentinel");
   });
 
@@ -99,19 +114,34 @@ describe("same-origin API runtime proxy", () => {
       expect(String(input)).toBe(
         "http://127.0.0.1:8787/api/auth/custom-login/start/login?authRequest=request-1",
       );
-      return new Response(null, { status: 303, headers: { location: "/login" } });
+      return new Response(null, {
+        status: 303,
+        headers: { location: "/login" },
+      });
     });
     vi.stubGlobal("fetch", upstreamFetch);
 
     const allowed = await GET(
-      new Request("https://hotel.example.test/api/auth/custom-login/start/login?authRequest=request-1"),
-      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "login"] }) },
+      new Request(
+        "https://hotel.example.test/api/auth/custom-login/start/login?authRequest=request-1",
+      ),
+      {
+        params: Promise.resolve({
+          path: ["auth", "custom-login", "start", "login"],
+        }),
+      },
     );
     expect(allowed.status).toBe(303);
 
     const unapproved = await GET(
-      new Request("https://hotel.example.test/api/auth/custom-login/start/other?authRequest=request-1"),
-      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "other"] }) },
+      new Request(
+        "https://hotel.example.test/api/auth/custom-login/start/other?authRequest=request-1",
+      ),
+      {
+        params: Promise.resolve({
+          path: ["auth", "custom-login", "start", "other"],
+        }),
+      },
     );
     expect(unapproved.status).toBe(404);
     expect(upstreamFetch).toHaveBeenCalledOnce();
@@ -119,14 +149,22 @@ describe("same-origin API runtime proxy", () => {
 
   it("allows only the exact password-reset exchange and submit endpoints", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    const upstreamFetch = vi.fn<typeof fetch>().mockImplementation(async (input) => {
-      return String(input).endsWith("/api/auth/password/exchange")
-        ? new Response(null, {
-          headers: { "set-cookie": "__Host-hotel_password_reset=opaque; Path=/; HttpOnly; Secure; SameSite=Strict" },
-          status: 204,
-        })
-        : new Response(null, { status: 303, headers: { location: "/login" } });
-    });
+    const upstreamFetch = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input) => {
+        return String(input).endsWith("/api/auth/password/exchange")
+          ? new Response(null, {
+              headers: {
+                "set-cookie":
+                  "__Host-hotel_password_reset=opaque; Path=/; HttpOnly; Secure; SameSite=Strict",
+              },
+              status: 204,
+            })
+          : new Response(null, {
+              status: 303,
+              headers: { location: "/login" },
+            });
+      });
     vi.stubGlobal("fetch", upstreamFetch);
 
     const exchange = await POST(
@@ -138,12 +176,17 @@ describe("same-origin API runtime proxy", () => {
       { params: Promise.resolve({ path: ["auth", "password", "exchange"] }) },
     );
     expect(exchange.status).toBe(204);
-    expect(exchange.headers.get("set-cookie")).toContain("__Host-hotel_password_reset=opaque");
+    expect(exchange.headers.get("set-cookie")).toContain(
+      "__Host-hotel_password_reset=opaque",
+    );
     expect(String(upstreamFetch.mock.calls[0]?.[0])).toBe(
       "http://127.0.0.1:8787/api/auth/password/exchange",
     );
-    expect(new TextDecoder().decode(upstreamFetch.mock.calls[0]?.[1]?.body as ArrayBuffer))
-      .toBe("userID=user-1&code=code-1");
+    expect(
+      new TextDecoder().decode(
+        upstreamFetch.mock.calls[0]?.[1]?.body as ArrayBuffer,
+      ),
+    ).toBe("userID=user-1&code=code-1");
 
     const submit = await POST(
       new Request("https://hotel.example.test/api/auth/password/set", {
@@ -156,8 +199,14 @@ describe("same-origin API runtime proxy", () => {
     expect(submit.status).toBe(303);
 
     const unapproved = await GET(
-      new Request("https://hotel.example.test/api/auth/custom-login/start/password/other"),
-      { params: Promise.resolve({ path: ["auth", "custom-login", "start", "password", "other"] }) },
+      new Request(
+        "https://hotel.example.test/api/auth/custom-login/start/password/other",
+      ),
+      {
+        params: Promise.resolve({
+          path: ["auth", "custom-login", "start", "password", "other"],
+        }),
+      },
     );
     expect(unapproved.status).toBe(404);
     expect(upstreamFetch).toHaveBeenCalledTimes(2);
@@ -165,7 +214,12 @@ describe("same-origin API runtime proxy", () => {
 
   it("expires a stale reset cookie when the exchange upstream is unavailable", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new Error("upstream unavailable")));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockRejectedValue(new Error("upstream unavailable")),
+    );
 
     const response = await POST(
       new Request("https://hotel.example.test/api/auth/password/exchange", {
@@ -176,7 +230,9 @@ describe("same-origin API runtime proxy", () => {
       { params: Promise.resolve({ path: ["auth", "password", "exchange"] }) },
     );
     expect(response.status).toBe(503);
-    expect(response.headers.get("set-cookie") ?? "").toMatch(/__Host-hotel_password_reset=.*Max-Age=0/i);
+    expect(response.headers.get("set-cookie") ?? "").toMatch(
+      /__Host-hotel_password_reset=.*Max-Age=0/i,
+    );
   });
 
   it("rejects a non-HTTPS non-local API origin", async () => {
@@ -206,19 +262,70 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(detail.status).toBe(200);
 
-    const unapprovedPath = await POST(
-      new Request(`https://hotel.example.test/api/hotels/${hotelId}/activate`, { method: "POST" }),
+    const activate = await POST(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/activate`, {
+        method: "POST",
+      }),
       { params: Promise.resolve({ path: ["hotels", hotelId, "activate"] }) },
+    );
+    expect(activate.status).toBe(200);
+    const assignments = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/assignments`,
+      ),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "assignments"] }) },
+    );
+    const owner = await GET(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/owner`),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "owner"] }) },
+    );
+    const candidates = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/eligible-candidates?relationshipType=OWNER`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "eligible-candidates"],
+        }),
+      },
+    );
+    expect([assignments.status, owner.status, candidates.status]).toEqual([
+      200, 200, 200,
+    ]);
+    const wrongCandidateMethod = await POST(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/eligible-candidates`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "eligible-candidates"],
+        }),
+      },
+    );
+    expect(wrongCandidateMethod.status).toBe(405);
+    expect(wrongCandidateMethod.headers.get("allow")).toBe("GET");
+    const unapprovedPath = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/private-users`,
+      ),
+      {
+        params: Promise.resolve({ path: ["hotels", hotelId, "private-users"] }),
+      },
     );
     expect(unapprovedPath.status).toBe(404);
 
     const wrongMethod = await POST(
-      new Request("https://hotel.example.test/api/auth/session", { method: "POST" }),
+      new Request("https://hotel.example.test/api/auth/session", {
+        method: "POST",
+      }),
       { params: Promise.resolve({ path: ["auth", "session"] }) },
     );
     expect(wrongMethod.status).toBe(405);
     expect(wrongMethod.headers.get("allow")).toBe("GET");
-    expect(hotelErrorResponseSchema.parse(await wrongMethod.json())).toMatchObject({
+    expect(
+      hotelErrorResponseSchema.parse(await wrongMethod.json()),
+    ).toMatchObject({
       ok: false,
       error: { code: "RESOURCE_NOT_FOUND", retryable: false },
     });
@@ -229,15 +336,64 @@ describe("same-origin API runtime proxy", () => {
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", upstreamFetch);
     const userId = "21000000-0000-4000-8000-000000000001";
-    const collection = await GET(new Request("https://hotel.example.test/api/admin/users"), { params: Promise.resolve({ path: ["admin", "users"] }) });
-    const eligibleHotels = await GET(new Request("https://hotel.example.test/api/admin/users/eligible-hotels"), { params: Promise.resolve({ path: ["admin", "users", "eligible-hotels"] }) });
-    const detail = await GET(new Request(`https://hotel.example.test/api/admin/users/${userId}`), { params: Promise.resolve({ path: ["admin", "users", userId] }) });
-    const deactivate = await POST(new Request(`https://hotel.example.test/api/admin/users/${userId}/deactivate`, { method: "POST" }), { params: Promise.resolve({ path: ["admin", "users", userId, "deactivate"] }) });
-    const password = await POST(new Request("https://hotel.example.test/api/account/initial-password", { method: "POST" }), { params: Promise.resolve({ path: ["account", "initial-password"] }) });
-    expect([collection.status, eligibleHotels.status, detail.status, deactivate.status, password.status]).toEqual([200, 200, 200, 200, 200]);
-    const rejected = await POST(new Request(`https://hotel.example.test/api/admin/users/${userId}/role`, { method: "POST" }), { params: Promise.resolve({ path: ["admin", "users", userId, "role"] }) });
+    const collection = await GET(
+      new Request("https://hotel.example.test/api/admin/users"),
+      { params: Promise.resolve({ path: ["admin", "users"] }) },
+    );
+    const eligibleHotels = await GET(
+      new Request("https://hotel.example.test/api/admin/users/eligible-hotels"),
+      {
+        params: Promise.resolve({
+          path: ["admin", "users", "eligible-hotels"],
+        }),
+      },
+    );
+    const detail = await GET(
+      new Request(`https://hotel.example.test/api/admin/users/${userId}`),
+      { params: Promise.resolve({ path: ["admin", "users", userId] }) },
+    );
+    const deactivate = await POST(
+      new Request(
+        `https://hotel.example.test/api/admin/users/${userId}/deactivate`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["admin", "users", userId, "deactivate"],
+        }),
+      },
+    );
+    const password = await POST(
+      new Request("https://hotel.example.test/api/account/initial-password", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["account", "initial-password"] }) },
+    );
+    expect([
+      collection.status,
+      eligibleHotels.status,
+      detail.status,
+      deactivate.status,
+      password.status,
+    ]).toEqual([200, 200, 200, 200, 200]);
+    const rejected = await POST(
+      new Request(`https://hotel.example.test/api/admin/users/${userId}/role`, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["admin", "users", userId, "role"] }) },
+    );
     expect(rejected.status).toBe(404);
-    const rejectedEligibleMethod = await POST(new Request("https://hotel.example.test/api/admin/users/eligible-hotels", { method: "POST" }), { params: Promise.resolve({ path: ["admin", "users", "eligible-hotels"] }) });
+    const rejectedEligibleMethod = await POST(
+      new Request(
+        "https://hotel.example.test/api/admin/users/eligible-hotels",
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["admin", "users", "eligible-hotels"],
+        }),
+      },
+    );
     expect(rejectedEligibleMethod.status).toBe(405);
     expect(rejectedEligibleMethod.headers.get("allow")).toBe("GET");
     expect(upstreamFetch).toHaveBeenCalledTimes(5);

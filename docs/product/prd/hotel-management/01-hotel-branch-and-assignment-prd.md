@@ -123,6 +123,15 @@ PREPARING(준비중) → ACTIVE(운영중) → SUSPENDED(운영중지) → ACTIV
 | POST/DELETE | `/api/hotels/:hotelId/housekeeping-links/*` | 하우스키핑 연결·종료          |
 | POST        | `/api/hotels/:hotelId/owner-transfer`       | 소유주 identity 원자 교체     |
 
+- 후보 selector는 관계관리 전용 API를 사용한다. 기존 계정관리 목록 API를 재사용하거나 로그인 ID·이메일·전화번호·사번을 노출하지 않는다.
+- 관계 목록은 최소 표시정보(`userId`, `displayName`, `userType`)만 반환하고, 사내 임직원·하우스키핑 관계와 소유주 관계를 각 관리 권한으로 분리한다.
+- 후보 API는 회사·호텔 scope와 최신 DENY precedence를 서버에서 검증하고, 관계유형별 사용자유형·계정상태·기간충돌을 서버 기준으로 제외한다. 후보 결과는 mutation 권한판정을 대신하지 않는다.
+- 후보 검색은 페이지네이션하며, 이름 중복을 이유로 개인정보 필드를 추가 노출하지 않는다.
+- 후보 목록과 pagination metadata는 하나의 DB snapshot에서 계산한다.
+- 지원배정은 여러 호텔에 가능하지만 같은 호텔·같은 사용자의 기간 overlap은 DB constraint와 최종 mutation에서 차단한다.
+- 소유주 후보는 클라이언트가 지정한 날짜가 아니라 서버의 `current_date`를 사용한다.
+- 소유주 조회·후보조회 권한이 없거나 범위 밖 호텔이면 존재 여부를 드러내지 않는 404 계열로 안전 실패한다.
+
 ## 수용 기준
 
 - 타 법인 ID를 전송해도 404 또는 안전한 forbidden으로 차단한다.
