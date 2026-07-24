@@ -503,6 +503,7 @@ async function verifyHostedRelationshipManagement({
       },
     ]);
     const page = await context.newPage();
+    journeyFailureCode = "RELATIONSHIP_UI_RENDER";
     await page.goto(`${baseUrl}/hotels/${encodeURIComponent(hotelId)}`, {
       waitUntil: "domcontentloaded",
       timeout: 60_000,
@@ -532,6 +533,7 @@ async function verifyHostedRelationshipManagement({
       );
     }
 
+    journeyFailureCode = "RELATIONSHIP_UI_END";
     await targetAssignment.getByRole("button", { name: "긴급 종료" }).click();
     const endDialog = page.getByRole("alertdialog", {
       name: "관계를 긴급 종료하시겠습니까?",
@@ -559,6 +561,7 @@ async function verifyHostedRelationshipManagement({
         ),
     });
 
+    journeyFailureCode = "RELATIONSHIP_UI_ASSIGN";
     await page.getByRole("button", { name: "배정 추가" }).click();
     const assignmentDialog = page.getByRole("dialog", { name: "배정 추가" });
     await assignmentDialog.getByLabel("관계유형").selectOption("HOUSEKEEPING");
@@ -607,6 +610,7 @@ async function verifyHostedRelationshipManagement({
       .filter({ hasText: expectedDisplayName })
       .waitFor({ state: "visible", timeout: 60_000 });
 
+    journeyFailureCode = "RELATIONSHIP_UI_READINESS";
     await runHostedMutation({
       acceptedStatuses: [409],
       click: () =>
