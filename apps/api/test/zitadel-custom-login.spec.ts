@@ -98,7 +98,8 @@ describe("ZITADEL custom login provider", () => {
     const readbackUrl = new URL(String(fetcher.mock.calls[3]?.[0]));
     expect(readbackUrl.pathname).toBe("/v2/sessions/session-1");
     expect(readbackUrl.searchParams.get("sessionToken")).toBe("token-password");
-    expect(new Headers(fetcher.mock.calls[3]?.[1]?.headers).has("authorization")).toBe(false);
+    expect(new Headers(fetcher.mock.calls[3]?.[1]?.headers).get("authorization"))
+      .toBe("Bearer token-password");
     expect(fetcher.mock.calls).toHaveLength(6);
     expect(fetcher.mock.calls.every(([, init]) => init?.redirect === "manual")).toBe(true);
   });
