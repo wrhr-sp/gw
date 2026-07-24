@@ -1,5 +1,6 @@
 import {
   hotelAssignmentSchema,
+  hotelAssignmentViewSchema,
   hotelActivationReadinessItemSchema,
   hotelBasicInformationSchema,
   type ActivateHotelRequest,
@@ -8,13 +9,19 @@ import {
   type EndHotelAssignmentRequest,
   type HotelActivationReadinessItem,
   type HotelAssignment,
+  type HotelAssignmentView,
   type HotelBasicInformation,
+  type HotelCandidateQuery,
+  type HotelEligibleCandidate,
   type HotelListQuery,
   type HotelUserType,
   type OwnerTransferRequest,
 } from "@werehere/contracts";
 import postgres from "postgres";
-import { toExpandCompatibleStoredUserType } from "./account-user-types";
+import {
+  normalizeStoredHotelUserType,
+  toExpandCompatibleStoredUserType,
+} from "./account-user-types";
 
 export type HotelActor = {
   companyId: string;
@@ -102,6 +109,19 @@ export type HotelListResult =
     }
   | { status: "FORBIDDEN" };
 
+export type HotelEligibleCandidatesResult =
+  | {
+      status: "OK";
+      candidates: HotelEligibleCandidate[];
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+      };
+    }
+  | { status: "NOT_FOUND" };
+
 export interface HotelRepository {
   close(): Promise<void>;
   createHotel(input: CreateHotelInput): Promise<HotelCreateResult>;
@@ -120,9 +140,22 @@ export interface HotelRepository {
     hotelId: string,
     audit?: HotelAuditContext,
   ): Promise<
-    | { status: "OK"; assignments: HotelAssignment[] }
+    | { status: "OK"; assignments: HotelAssignmentView[] }
     | { status: "FORBIDDEN" | "NOT_FOUND" }
   >;
+  listOwnerRelationships(
+    actor: HotelActor,
+    hotelId: string,
+    audit?: HotelAuditContext,
+  ): Promise<
+    { status: "OK"; owners: HotelAssignmentView[] } | { status: "NOT_FOUND" }
+  >;
+  listEligibleCandidates(
+    actor: HotelActor,
+    hotelId: string,
+    query: HotelCandidateQuery,
+    audit?: HotelAuditContext,
+  ): Promise<HotelEligibleCandidatesResult>;
   createAssignment(
     input: HotelRelationshipMutationInput<CreateHotelAssignmentRequest>,
   ): Promise<HotelAssignmentMutationResult>;
@@ -171,6 +204,26 @@ type AssignmentRow = {
   version: number;
 };
 
+type AssignmentViewRow = AssignmentRow & {
+  display_name: string;
+  user_type: string;
+};
+
+type CandidateRow = {
+  display_name: string;
+  user_id: string;
+  user_type: string;
+};
+
+type CandidatePageRow = {
+  display_name: string | null;
+  page: number;
+  total: number;
+  total_pages: number;
+  user_id: string | null;
+  user_type: string | null;
+};
+
 function mapAssignment(row: AssignmentRow): HotelAssignment {
   return hotelAssignmentSchema.parse({
     id: row.id,
@@ -187,6 +240,25 @@ function mapAssignment(row: AssignmentRow): HotelAssignment {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   });
+}
+
+function mapAssignmentView(row: AssignmentViewRow): HotelAssignmentView {
+  return hotelAssignmentViewSchema.parse({
+    ...mapAssignment(row),
+    assignee: {
+      userId: row.user_id,
+      displayName: row.display_name,
+      userType: normalizeStoredHotelUserType(row.user_type),
+    },
+  });
+}
+
+function mapCandidate(row: CandidateRow): HotelEligibleCandidate {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    userType: normalizeStoredHotelUserType(row.user_type),
+  };
 }
 
 function isRelationshipConflict(error: unknown) {
@@ -772,18 +844,217 @@ export function createPostgresHotelRepository(
           where profile.company_id = ${actor.companyId} and profile.branch_id = ${hotelId}
         `;
         if (!hotel[0]) return { status: "NOT_FOUND" } as const;
-        const rows = await transaction.unsafe<AssignmentRow[]>(
-          `select relationship.id, relationship.branch_id, relationship.user_id,
+        const rows = await transaction.unsafe<AssignmentViewRow[]>(
+          `select relationship.id, relationship.company_id, relationship.branch_id, relationship.user_id,
                   relationship.relationship_type, relationship.assignment_type,
                   relationship.start_date::text, relationship.end_date::text,
                   relationship.reason, relationship.terminated_at, relationship.termination_reason,
-                  relationship.version, relationship.created_at, relationship.updated_at
+                  relationship.version, relationship.created_at, relationship.updated_at,
+                  app_user.display_name, app_user.user_type
              from (${assignmentUnion}) relationship
+             join users app_user on app_user.company_id = relationship.company_id
+                                and app_user.id = relationship.user_id
             where relationship.company_id = $1 and relationship.branch_id = $2
+              and relationship.relationship_type <> 'OWNER'
             order by relationship.created_at, relationship.id`,
           [actor.companyId, hotelId],
         );
-        return { status: "OK", assignments: rows.map(mapAssignment) } as const;
+        return {
+          status: "OK",
+          assignments: rows.map(mapAssignmentView),
+        } as const;
+      });
+    },
+
+    async listOwnerRelationships(actor, hotelId, audit) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
+        const access = await relationshipPermission(
+          transaction,
+          actor,
+          hotelId,
+          "HOTEL_OWNER_MANAGE",
+        );
+        if (!access.allowed) {
+          if (access.actorValid)
+            await auditDenied(
+              actor,
+              audit,
+              "HOTEL_OWNER_LIST_DENIED",
+              "HOTEL",
+              hotelId,
+              "호텔이 없거나 HOTEL_OWNER_MANAGE 권한범위 밖",
+            );
+          return { status: "NOT_FOUND" } as const;
+        }
+        const [hotel] = await transaction<{ id: string }[]>`
+          select branch_id as id from hotel_profiles
+          where company_id = ${actor.companyId} and branch_id = ${hotelId}
+        `;
+        if (!hotel) return { status: "NOT_FOUND" } as const;
+        const rows = await transaction.unsafe<AssignmentViewRow[]>(
+          `select relationship.id, relationship.company_id, relationship.branch_id, relationship.user_id,
+                  relationship.relationship_type, relationship.assignment_type,
+                  relationship.start_date::text, relationship.end_date::text,
+                  relationship.reason, relationship.terminated_at, relationship.termination_reason,
+                  relationship.version, relationship.created_at, relationship.updated_at,
+                  app_user.display_name, app_user.user_type
+             from (${assignmentUnion}) relationship
+             join users app_user on app_user.company_id = relationship.company_id
+                                and app_user.id = relationship.user_id
+            where relationship.company_id = $1 and relationship.branch_id = $2
+              and relationship.relationship_type = 'OWNER'
+            order by relationship.created_at, relationship.id`,
+          [actor.companyId, hotelId],
+        );
+        return { status: "OK", owners: rows.map(mapAssignmentView) } as const;
+      });
+    },
+
+    async listEligibleCandidates(actor, hotelId, query, audit) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
+        const permission =
+          query.relationshipType === "OWNER"
+            ? "HOTEL_OWNER_MANAGE"
+            : "HOTEL_ASSIGNMENT_MANAGE";
+        const access = await relationshipPermission(
+          transaction,
+          actor,
+          hotelId,
+          permission,
+        );
+        if (!access.allowed) {
+          if (access.actorValid)
+            await auditDenied(
+              actor,
+              audit,
+              "HOTEL_RELATIONSHIP_CANDIDATE_LIST_DENIED",
+              "HOTEL",
+              hotelId,
+              `호텔이 없거나 ${permission} 권한범위 밖`,
+            );
+          return { status: "NOT_FOUND" } as const;
+        }
+        const [hotel] = await transaction<{ id: string }[]>`
+          select branch_id as id from hotel_profiles
+          where company_id = ${actor.companyId} and branch_id = ${hotelId}
+        `;
+        if (!hotel) return { status: "NOT_FOUND" } as const;
+        const storedTypes =
+          query.relationshipType === "STAFF"
+            ? ["INTERNAL_STAFF"]
+            : query.relationshipType === "HOUSEKEEPING"
+              ? ["HOUSEKEEPING", "ROOM_OPERATIONS"]
+              : ["HOTEL_OWNER", "BRANCH_OWNER"];
+        const statuses =
+          query.relationshipType === "OWNER"
+            ? ["ACTIVE"]
+            : ["ACTIVE", "PENDING_SETUP"];
+        const relationshipFilter =
+          query.relationshipType === "STAFF" &&
+          query.assignmentType === "PRIMARY"
+            ? `not exists (
+                 select 1 from hotel_staff_assignments existing
+                  where existing.company_id = app_user.company_id
+                    and existing.user_id = app_user.id
+                    and existing.assignment_type = 'PRIMARY'
+                    and existing.terminated_at is null
+                    and (existing.end_date is null or existing.end_date >= $5::date)
+               )`
+            : query.relationshipType === "STAFF" &&
+                query.assignmentType === "SUPPORT"
+              ? `not exists (
+                   select 1 from hotel_staff_assignments existing
+                    where existing.company_id = app_user.company_id
+                      and existing.branch_id = $2::uuid
+                      and existing.user_id = app_user.id
+                      and existing.assignment_type = 'SUPPORT'
+                      and existing.terminated_at is null
+                      and (existing.end_date is null or existing.end_date >= $5::date)
+                 )`
+              : query.relationshipType === "HOUSEKEEPING"
+                ? `not exists (
+                     select 1 from housekeeping_hotel_links existing
+                      where existing.company_id = app_user.company_id
+                        and existing.branch_id = $2::uuid
+                        and existing.user_id = app_user.id
+                        and existing.terminated_at is null
+                        and (existing.end_date is null or existing.end_date >= $5::date)
+                   )`
+                : `not exists (
+                     select 1 from hotel_owner_assignments existing
+                      where existing.company_id = app_user.company_id
+                        and existing.user_id = app_user.id
+                        and existing.terminated_at is null
+                        and (existing.end_date is null or existing.end_date >= current_date)
+                   )`;
+        const parameters = [
+          actor.companyId,
+          hotelId,
+          storedTypes,
+          statuses,
+          query.startDate ?? "1970-01-01",
+          query.q ?? null,
+          query.page,
+          query.pageSize,
+        ];
+        const rows = await transaction.unsafe<CandidatePageRow[]>(
+          `with eligible as materialized (
+             select app_user.id as user_id, app_user.display_name, app_user.user_type
+               from users app_user
+              where app_user.company_id = $1::uuid
+                and $2::uuid is not null
+                and $5::date is not null
+                and app_user.user_type = any($3::text[])
+                and app_user.status = any($4::text[])
+                and ($6::text is null or app_user.display_name ilike '%' || $6 || '%')
+                and ${relationshipFilter}
+           ), metadata as (
+             select count(*)::int as total,
+                    ceil(count(*)::numeric / $8::int)::int as total_pages
+               from eligible
+           ), resolved as (
+             select total, total_pages,
+                    case when total_pages = 0 then 1 else least($7::int, total_pages) end as page
+               from metadata
+           ), numbered as (
+             select eligible.*,
+                    row_number() over (order by display_name, user_id) as row_number
+               from eligible
+           )
+           select numbered.user_id, numbered.display_name, numbered.user_type,
+                  resolved.total, resolved.total_pages, resolved.page
+             from resolved
+             left join numbered
+               on numbered.row_number > (resolved.page - 1) * $8::int
+              and numbered.row_number <= resolved.page * $8::int
+            order by numbered.row_number`,
+          parameters,
+        );
+        const metadata = rows[0] ?? {
+          page: 1,
+          total: 0,
+          total_pages: 0,
+        };
+        const candidates = rows
+          .filter(
+            (row): row is CandidatePageRow & CandidateRow =>
+              row.user_id !== null &&
+              row.display_name !== null &&
+              row.user_type !== null,
+          )
+          .map(mapCandidate);
+        return {
+          status: "OK",
+          candidates,
+          pagination: {
+            page: metadata.page,
+            pageSize: query.pageSize,
+            total: metadata.total,
+            totalPages: metadata.total_pages,
+          },
+        } as const;
       });
     },
 

@@ -7,8 +7,11 @@ import {
   createHotelRequestSchema,
   deactivateAccountRequestSchema,
   endHotelAssignmentRequestSchema,
+  hotelCandidateQuerySchema,
+  hotelEligibleCandidatesResponseSchema,
   hotelIdempotencyKeySchema,
   hotelListQuerySchema,
+  hotelOwnerRelationshipsResponseSchema,
   ownerTransferRequestSchema,
   passwordPolicySchema,
   initialPasswordRequestSchema,
@@ -1462,6 +1465,78 @@ export function createApp(options: CreateAppOptions = {}) {
         data: { assignments: result.assignments },
         error: null,
       });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/owner", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const result = await withHotelService(context.env, (service) =>
+        service.listOwnerRelationships(principal, hotelId.data),
+      );
+      if (result.status !== "OK")
+        return mutationFailure(context, result.status);
+      return context.json(
+        hotelOwnerRelationshipsResponseSchema.parse({
+          ok: true,
+          data: { owners: result.owners },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/eligible-candidates", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const parsed = hotelCandidateQuerySchema.safeParse(context.req.query());
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withHotelService(context.env, (service) =>
+        service.listEligibleCandidates(principal, hotelId.data, parsed.data),
+      );
+      if (result.status !== "OK")
+        return mutationFailure(context, result.status);
+      return context.json(
+        hotelEligibleCandidatesResponseSchema.parse({
+          ok: true,
+          data: {
+            candidates: result.candidates,
+            pagination: result.pagination,
+          },
+          error: null,
+        }),
+      );
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);
       return hotelFailure(context, error);

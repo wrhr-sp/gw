@@ -1,3 +1,4 @@
+import { hotelRoutes } from "@werehere/contracts";
 import type {
   ActivateHotelRequest,
   AuthenticatedPrincipal,
@@ -5,6 +6,7 @@ import type {
   CreateHotelRequest,
   EndHotelAssignmentRequest,
   HotelBasicInformation,
+  HotelCandidateQuery,
   HotelListQuery,
   OwnerTransferRequest,
 } from "@werehere/contracts";
@@ -44,6 +46,15 @@ export interface HotelService {
     principal: AuthenticatedPrincipal,
     hotelId: string,
   ): Promise<Awaited<ReturnType<HotelRepository["listAssignments"]>>>;
+  listOwnerRelationships(
+    principal: AuthenticatedPrincipal,
+    hotelId: string,
+  ): Promise<Awaited<ReturnType<HotelRepository["listOwnerRelationships"]>>>;
+  listEligibleCandidates(
+    principal: AuthenticatedPrincipal,
+    hotelId: string,
+    query: HotelCandidateQuery,
+  ): Promise<Awaited<ReturnType<HotelRepository["listEligibleCandidates"]>>>;
   createAssignment(
     principal: AuthenticatedPrincipal,
     hotelId: string,
@@ -129,6 +140,25 @@ export function createHotelService(repository: HotelRepository): HotelService {
       });
     },
 
+    listOwnerRelationships(principal, hotelId) {
+      return repository.listOwnerRelationships(actor(principal), hotelId, {
+        auditEventId: crypto.randomUUID(),
+        traceId: crypto.randomUUID(),
+      });
+    },
+
+    listEligibleCandidates(principal, hotelId, query) {
+      return repository.listEligibleCandidates(
+        actor(principal),
+        hotelId,
+        query,
+        {
+          auditEventId: crypto.randomUUID(),
+          traceId: crypto.randomUUID(),
+        },
+      );
+    },
+
     async createAssignment(principal, hotelId, value, idempotencyKey) {
       return repository.createAssignment({
         actor: actor(principal),
@@ -137,7 +167,7 @@ export function createHotelService(repository: HotelRepository): HotelService {
         hotelId,
         idempotencyKey,
         idempotencyRecordId: crypto.randomUUID(),
-        operationPath: `/api/hotels/${hotelId}/assignments`,
+        operationPath: hotelRoutes.assignments(hotelId),
         requestHash: await requestHash(value),
         traceId: crypto.randomUUID(),
         value,
@@ -158,7 +188,7 @@ export function createHotelService(repository: HotelRepository): HotelService {
         hotelId,
         idempotencyKey,
         idempotencyRecordId: crypto.randomUUID(),
-        operationPath: `/api/hotels/${hotelId}/assignments/${assignmentId}/end`,
+        operationPath: hotelRoutes.endAssignment(hotelId, assignmentId),
         requestHash: await requestHash(value),
         traceId: crypto.randomUUID(),
         value,
@@ -173,7 +203,7 @@ export function createHotelService(repository: HotelRepository): HotelService {
         hotelId,
         idempotencyKey,
         idempotencyRecordId: crypto.randomUUID(),
-        operationPath: `/api/hotels/${hotelId}/owner-transfer`,
+        operationPath: hotelRoutes.ownerTransfer(hotelId),
         requestHash: await requestHash(value),
         traceId: crypto.randomUUID(),
         value,
@@ -188,7 +218,7 @@ export function createHotelService(repository: HotelRepository): HotelService {
         hotelId,
         idempotencyKey,
         idempotencyRecordId: crypto.randomUUID(),
-        operationPath: `/api/hotels/${hotelId}/activate`,
+        operationPath: hotelRoutes.activate(hotelId),
         requestHash: await requestHash(value),
         traceId: crypto.randomUUID(),
         value,

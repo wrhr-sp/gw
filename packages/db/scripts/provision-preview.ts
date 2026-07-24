@@ -410,6 +410,10 @@ try {
       "0017_hotel_relationship_integrity_hardening",
       "0017_hotel_relationship_integrity_hardening.sql",
     ],
+    [
+      "0018_hotel_support_assignment_overlap",
+      "0018_hotel_support_assignment_overlap.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",

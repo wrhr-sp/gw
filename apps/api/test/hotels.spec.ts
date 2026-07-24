@@ -2,6 +2,7 @@ import type {
   AuthenticatedPrincipal,
   HotelActivationReadinessItem,
   HotelAssignment,
+  HotelAssignmentView,
   HotelBasicInformation,
 } from "@werehere/contracts";
 import { describe, expect, it, vi } from "vitest";
@@ -49,6 +50,15 @@ const assignment: HotelAssignment = {
   updatedAt: "2026-07-24T00:00:00.000Z",
 };
 
+const assignmentView: HotelAssignmentView = {
+  ...assignment,
+  assignee: {
+    userId: assignment.userId,
+    displayName: "김민수",
+    userType: "INTERNAL_STAFF",
+  },
+};
+
 function authService(active = true): AuthService {
   return {
     beginCustomLogin: vi.fn(async () => ({
@@ -84,7 +94,16 @@ function hotelService(overrides: Partial<HotelService> = {}): HotelService {
     getHotel: vi.fn(async () => hotel),
     listAssignments: vi.fn(async () => ({
       status: "OK" as const,
-      assignments: [],
+      assignments: [assignmentView],
+    })),
+    listOwnerRelationships: vi.fn(async () => ({
+      status: "OK" as const,
+      owners: [],
+    })),
+    listEligibleCandidates: vi.fn(async () => ({
+      status: "OK" as const,
+      candidates: [assignmentView.assignee],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
     })),
     listHotels: vi.fn(async () => ({
       status: "OK" as const,
@@ -108,6 +127,91 @@ const createBody = {
 };
 
 describe("hotel basic information API", () => {
+  it("returns separate minimal assignment and owner read models", async () => {
+    const owner: HotelAssignmentView = {
+      ...assignmentView,
+      relationshipType: "OWNER",
+      assignmentType: null,
+      assignee: {
+        userId: "20000000-0000-4000-8000-000000000003",
+        displayName: "호텔 소유주",
+        userType: "HOTEL_OWNER",
+      },
+    };
+    const service = hotelService({
+      listOwnerRelationships: vi.fn(async () => ({
+        status: "OK" as const,
+        owners: [owner],
+      })),
+    });
+    const app = createApp({
+      authService: authService(),
+      hotelService: service,
+    });
+    const headers = { cookie: "__Host-hotel_session=opaque-session-token" };
+    const assignments = await app.request(
+      `/api/hotels/${hotel.id}/assignments`,
+      { headers },
+    );
+    const owners = await app.request(`/api/hotels/${hotel.id}/owner`, {
+      headers,
+    });
+    expect(assignments.status).toBe(200);
+    expect(await assignments.json()).toMatchObject({
+      data: { assignments: [{ assignee: { displayName: "김민수" } }] },
+    });
+    expect(owners.status).toBe(200);
+    const ownerBody = (await owners.json()) as {
+      data: { owners: Array<{ assignee: Record<string, unknown> }> };
+    };
+    expect(ownerBody.data.owners[0]?.assignee).toMatchObject({
+      displayName: "호텔 소유주",
+      userType: "HOTEL_OWNER",
+    });
+    expect(ownerBody.data.owners[0]?.assignee).not.toHaveProperty("email");
+  });
+
+  it("validates and forwards relationship-specific candidate queries", async () => {
+    const listEligibleCandidates = vi.fn(async () => ({
+      status: "OK" as const,
+      candidates: [assignmentView.assignee],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }));
+    const app = createApp({
+      authService: authService(),
+      hotelService: hotelService({ listEligibleCandidates }),
+    });
+    const response = await app.request(
+      `/api/hotels/${hotel.id}/eligible-candidates?relationshipType=STAFF&assignmentType=PRIMARY&startDate=2026-07-24`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(response.status).toBe(200);
+    expect(listEligibleCandidates).toHaveBeenCalledWith(
+      principal,
+      hotel.id,
+      expect.objectContaining({
+        relationshipType: "STAFF",
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+    const ownerResponse = await app.request(
+      `/api/hotels/${hotel.id}/eligible-candidates?relationshipType=OWNER`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(ownerResponse.status).toBe(200);
+    expect(listEligibleCandidates).toHaveBeenLastCalledWith(
+      principal,
+      hotel.id,
+      expect.not.objectContaining({ startDate: expect.anything() }),
+    );
+    const invalid = await app.request(
+      `/api/hotels/${hotel.id}/eligible-candidates?relationshipType=OWNER&assignmentType=PRIMARY&startDate=2026-07-24`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(invalid.status).toBe(400);
+  });
+
   it("safe-fails activation with every unavailable readiness item and no success", async () => {
     const response = await createApp({
       authService: authService(),

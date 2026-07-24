@@ -27,12 +27,18 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       "migrationRows[0].hotel_integrity_marker_count !== 1",
     );
+    expect(source).toContain(
+      "migrationRows[0].hotel_support_overlap_marker_count !== 1",
+    );
     expect(source).toContain("HOTEL_RELATIONSHIP_REQUIRED_COLUMNS");
     expect(provisionSource).toContain(
       '"0016_hotel_relationship_management.sql"',
     );
     expect(provisionSource).toContain(
       '"0017_hotel_relationship_integrity_hardening.sql"',
+    );
+    expect(provisionSource).toContain(
+      '"0018_hotel_support_assignment_overlap.sql"',
     );
     expect(provisionSource).not.toContain(
       '"0015_neon_definer_contract_hardening",\n    "0016_hotel_relationship_management",',
@@ -208,6 +214,10 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("werehere_auth_session_definer");
     expect(source).toContain("auth_revoke_hotel_owner_sessions_v1");
     expect(source).toContain("0017_hotel_relationship_integrity_hardening");
+    expect(source).toContain("0018_hotel_support_assignment_overlap");
+    expect(source).toContain(
+      "hotel_staff_assignments_support_hotel_period_excl",
+    );
     expect(source).toContain("REJECT_HOTEL_RELATIONSHIP_DELETE_PROSRC_SHA256");
     expect(source).toContain("trigger.trigger_type === 11");
     expect(source).toContain(

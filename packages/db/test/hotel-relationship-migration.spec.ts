@@ -15,6 +15,13 @@ const integrityMigration = readFileSync(
   ),
   "utf8",
 );
+const supportOverlapMigration = readFileSync(
+  new URL(
+    "../migrations/0018_hotel_support_assignment_overlap.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const hotelRepository = readFileSync(
   new URL("../src/hotels.ts", import.meta.url),
   "utf8",
@@ -38,6 +45,13 @@ describe("HOTEL-MVP-010 Phase A database contract", () => {
     expect(
       integrityMigration.match(/termination_reason is not null/gu),
     ).toHaveLength(3);
+    expect(supportOverlapMigration).toContain(
+      "hotel_staff_assignments_support_hotel_period_excl",
+    );
+    expect(supportOverlapMigration).toContain("branch_id with =");
+    expect(supportOverlapMigration).toContain(
+      "assignment_type = 'SUPPORT' and terminated_at is null",
+    );
     expect(migration).toContain("HOTEL_ASSIGNMENT_MANAGE");
     expect(migration).toContain("HOTEL_OWNER_MANAGE");
     expect(migration).toContain("HOTEL_OWNER_TRANSFERRED");

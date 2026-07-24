@@ -1,9 +1,16 @@
 import type { HotelErrorCode } from "@werehere/contracts";
-import { ApiTransportNotConfiguredError, fetchApi } from "../../../lib/api-transport";
+import {
+  ApiTransportNotConfiguredError,
+  fetchApi,
+} from "../../../lib/api-transport";
 
 export const dynamic = "force-dynamic";
-const CLEAR_PASSWORD_RESET_COOKIE = "__Host-hotel_password_reset=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict";
-const CLEAR_OAUTH_BROWSER_COOKIE = "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
+const CLEAR_PASSWORD_RESET_COOKIE =
+  "__Host-hotel_password_reset=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict";
+const CLEAR_OAUTH_BROWSER_COOKIE =
+  "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
+const UUID_PATH_PATTERN =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -28,18 +35,55 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
-  if (/^hotels\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(apiPath)) {
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/(?:assignments|owner|eligible-candidates)$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return apiPath.endsWith("/assignments")
+      ? new Set(["GET", "POST"])
+      : new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/assignments/${UUID_PATH_PATTERN}/end$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/(?:owner-transfer|activate)$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    /^hotels\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      apiPath,
+    )
+  ) {
     return new Set(["GET"]);
   }
-  if (/^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(apiPath)) {
+  if (
+    /^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      apiPath,
+    )
+  ) {
     return new Set(["GET"]);
   }
-  if (/^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/deactivate$/iu.test(apiPath)) {
+  if (
+    /^admin\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/deactivate$/iu.test(
+      apiPath,
+    )
+  ) {
     return new Set(["POST"]);
   }
   return API_PROXY_METHODS.get(apiPath);
 }
-
 
 function failure(
   code: HotelErrorCode,
@@ -48,32 +92,54 @@ function failure(
   retryable: boolean,
   extraHeaders: HeadersInit = {},
 ) {
-  return Response.json({
-    ok: false,
-    data: null,
-    error: {
-      code,
-      fieldErrors: [],
-      message,
-      retryable,
-      retryAfterSeconds: null,
-      traceId: crypto.randomUUID(),
+  return Response.json(
+    {
+      ok: false,
+      data: null,
+      error: {
+        code,
+        fieldErrors: [],
+        message,
+        retryable,
+        retryAfterSeconds: null,
+        traceId: crypto.randomUUID(),
+      },
     },
-  }, {
-    status,
-    headers: { "Cache-Control": "no-store", ...Object.fromEntries(new Headers(extraHeaders)) },
-  });
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+        ...Object.fromEntries(new Headers(extraHeaders)),
+      },
+    },
+  );
 }
 
-async function proxy(request: Request, context: RouteContext): Promise<Response> {
+async function proxy(
+  request: Request,
+  context: RouteContext,
+): Promise<Response> {
   const { path } = await context.params;
-  if (path.length === 0 || path.some((segment) => segment === "." || segment === "..")) {
-    return failure("RESOURCE_NOT_FOUND", "요청한 API 경로를 찾을 수 없습니다.", 404, false);
+  if (
+    path.length === 0 ||
+    path.some((segment) => segment === "." || segment === "..")
+  ) {
+    return failure(
+      "RESOURCE_NOT_FOUND",
+      "요청한 API 경로를 찾을 수 없습니다.",
+      404,
+      false,
+    );
   }
   const apiPath = path.join("/");
   const methods = allowedMethods(apiPath);
   if (!methods) {
-    return failure("RESOURCE_NOT_FOUND", "요청한 API 경로를 찾을 수 없습니다.", 404, false);
+    return failure(
+      "RESOURCE_NOT_FOUND",
+      "요청한 API 경로를 찾을 수 없습니다.",
+      404,
+      false,
+    );
   }
   if (!methods.has(request.method)) {
     return failure(
@@ -86,11 +152,16 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   }
 
   const hotelRequest = apiPath === "hotels" || apiPath.startsWith("hotels/");
-  const accountRequest = apiPath === "admin/users" || apiPath.startsWith("admin/users/") || apiPath === "account/initial-password";
-  const databaseRequest = hotelRequest || accountRequest || apiPath === "health/ready";
-  const exchangeFailureHeaders = apiPath === "auth/password/exchange"
-    ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
-    : {};
+  const accountRequest =
+    apiPath === "admin/users" ||
+    apiPath.startsWith("admin/users/") ||
+    apiPath === "account/initial-password";
+  const databaseRequest =
+    hotelRequest || accountRequest || apiPath === "health/ready";
+  const exchangeFailureHeaders =
+    apiPath === "auth/password/exchange"
+      ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
+      : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
 
   const headers = new Headers(request.headers);
@@ -129,12 +200,29 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
     }
     if (error instanceof ApiTransportNotConfiguredError) {
       return databaseRequest
-        ? failure("DB_NOT_CONFIGURED", "호텔 API 연결이 설정되지 않았습니다.", 503, false)
-        : failure("AUTH_PROVIDER_NOT_CONFIGURED", "인증 API 연결이 설정되지 않았습니다.", 503, false, exchangeFailureHeaders);
+        ? failure(
+            "DB_NOT_CONFIGURED",
+            "호텔 API 연결이 설정되지 않았습니다.",
+            503,
+            false,
+          )
+        : failure(
+            "AUTH_PROVIDER_NOT_CONFIGURED",
+            "인증 API 연결이 설정되지 않았습니다.",
+            503,
+            false,
+            exchangeFailureHeaders,
+          );
     }
     return databaseRequest
       ? failure("INTERNAL_ERROR", "호텔 API에 연결할 수 없습니다.", 503, true)
-      : failure("AUTH_PROVIDER_UNAVAILABLE", "인증 API에 연결할 수 없습니다.", 503, true, exchangeFailureHeaders);
+      : failure(
+          "AUTH_PROVIDER_UNAVAILABLE",
+          "인증 API에 연결할 수 없습니다.",
+          503,
+          true,
+          exchangeFailureHeaders,
+        );
   }
 }
 

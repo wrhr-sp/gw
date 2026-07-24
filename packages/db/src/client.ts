@@ -220,6 +220,12 @@ const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
 const REQUIRED_EXCLUSION_CONSTRAINTS = [
   {
     table: "hotel_staff_assignments",
+    name: "hotel_staff_assignments_support_hotel_period_excl",
+    definition:
+      "exclude using gist (company_id with =, branch_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'support'::text) and (terminated_at is null)))",
+  },
+  {
+    table: "hotel_staff_assignments",
     name: "hotel_staff_assignments_primary_period_excl",
     definition:
       "exclude using gist (company_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'primary'::text) and (terminated_at is null)))",
@@ -871,6 +877,7 @@ export async function probeDatabaseReadiness(
         expand_marker_count: number;
         hotel_integrity_marker_count: number;
         hotel_relationship_marker_count: number;
+        hotel_support_overlap_marker_count: number;
       }[]
     >`
       select count(*) filter (
@@ -901,7 +908,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_relationship_marker_count,
              count(*) filter (
                where version = '0017_hotel_relationship_integrity_hardening'
-             )::integer as hotel_integrity_marker_count
+             )::integer as hotel_integrity_marker_count,
+             count(*) filter (
+               where version = '0018_hotel_support_assignment_overlap'
+             )::integer as hotel_support_overlap_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -920,7 +930,8 @@ export async function probeDatabaseReadiness(
         '0014_neon_definer_expand_compatibility',
         '0015_neon_definer_contract_hardening',
         '0016_hotel_relationship_management',
-        '0017_hotel_relationship_integrity_hardening'
+        '0017_hotel_relationship_integrity_hardening',
+        '0018_hotel_support_assignment_overlap'
       )
     `;
     const schemaPhase =
@@ -934,7 +945,8 @@ export async function probeDatabaseReadiness(
     if (
       !schemaPhase ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
-      migrationRows[0].hotel_integrity_marker_count !== 1
+      migrationRows[0].hotel_integrity_marker_count !== 1 ||
+      migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

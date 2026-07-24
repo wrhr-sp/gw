@@ -22,6 +22,10 @@ import {
   hotelRoutes,
   hotelStatusSchema,
   hotelAssignmentSchema,
+  hotelAssignmentListResponseSchema,
+  hotelCandidateQuerySchema,
+  hotelEligibleCandidatesResponseSchema,
+  hotelOwnerRelationshipsResponseSchema,
   hotelUserTypeSchema,
   endHotelAssignmentRequestSchema,
   initialPasswordRequestSchema,
@@ -31,6 +35,100 @@ import {
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("keeps relationship candidate queries strict and relationship-specific", () => {
+    expect(
+      hotelCandidateQuerySchema.parse({
+        relationshipType: "STAFF",
+        assignmentType: "PRIMARY",
+        startDate: "2026-07-24",
+      }),
+    ).toMatchObject({ page: 1, pageSize: 20 });
+    expect(
+      hotelCandidateQuerySchema.safeParse({
+        relationshipType: "STAFF",
+        startDate: "2026-07-24",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelCandidateQuerySchema.safeParse({
+        relationshipType: "OWNER",
+        assignmentType: "PRIMARY",
+        startDate: "2026-07-24",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelCandidateQuerySchema.parse({ relationshipType: "OWNER" }),
+    ).toMatchObject({ relationshipType: "OWNER", page: 1, pageSize: 20 });
+    expect(
+      hotelCandidateQuerySchema.safeParse({
+        relationshipType: "OWNER",
+        startDate: "2026-07-24",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelCandidateQuerySchema.safeParse({
+        relationshipType: "HOUSEKEEPING",
+        startDate: "2026-07-24",
+        companyId: "10000000-0000-4000-8000-000000000001",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("exposes only minimal relationship display data with pagination", () => {
+    const assignment = {
+      id: "60000000-0000-4000-8000-000000000001",
+      hotelId: "50000000-0000-4000-8000-000000000001",
+      userId: "20000000-0000-4000-8000-000000000001",
+      relationshipType: "STAFF" as const,
+      assignmentType: "PRIMARY" as const,
+      startDate: "2026-07-24",
+      endDate: null,
+      reason: "기본 배정",
+      terminatedAt: null,
+      terminationReason: null,
+      version: 1,
+      createdAt: "2026-07-24T00:00:00.000Z",
+      updatedAt: "2026-07-24T00:00:00.000Z",
+      assignee: {
+        userId: "20000000-0000-4000-8000-000000000001",
+        displayName: "김민수",
+        userType: "INTERNAL_STAFF" as const,
+      },
+    };
+    expect(
+      hotelAssignmentListResponseSchema.parse({
+        ok: true,
+        data: { assignments: [assignment] },
+        error: null,
+      }).data.assignments[0]?.assignee.displayName,
+    ).toBe("김민수");
+    expect(
+      hotelOwnerRelationshipsResponseSchema.parse({
+        ok: true,
+        data: {
+          owners: [
+            { ...assignment, relationshipType: "OWNER", assignmentType: null },
+          ],
+        },
+        error: null,
+      }).data.owners,
+    ).toHaveLength(1);
+    expect(
+      hotelEligibleCandidatesResponseSchema.parse({
+        ok: true,
+        data: {
+          candidates: [assignment.assignee],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        error: null,
+      }).data.candidates[0],
+    ).not.toHaveProperty("email");
+    expect(hotelRoutes.owner(assignment.hotelId)).toContain("/owner");
+    expect(hotelRoutes.eligibleCandidates(assignment.hotelId)).toContain(
+      "/eligible-candidates",
+    );
+  });
+
   it("defines Phase A relationship mutations without scheduled owner transfer", () => {
     expect(
       createHotelAssignmentRequestSchema.parse({
