@@ -90,6 +90,11 @@ GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
   initial_password_change_attempts TO $RUNTIME_ROLE;
 GRANT INSERT ON login_id_registry TO $RUNTIME_ROLE;
 GRANT UPDATE (updated_at) ON auth_identities, branches, hotel_profiles TO $RUNTIME_ROLE;
+GRANT UPDATE (version) ON hotel_profiles TO $RUNTIME_ROLE;
+GRANT UPDATE (
+  end_date, terminated_at, termination_reason, terminated_by, version, updated_at
+) ON hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
@@ -100,7 +105,8 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
 ), public.auth_resolve_login_identity_v1(text),
   public.auth_resolve_principal_v2(bytea, integer),
   public.auth_revoke_session_v2(bytea, text, uuid),
-  public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+  public.auth_revoke_user_sessions_v1(uuid, uuid, text),
+  public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
