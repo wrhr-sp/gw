@@ -36,6 +36,12 @@ export const CONSOLE_CREDENTIAL_FAILURE_STAGES = Object.freeze([
   "AUTHENTICATED_USER_RESPONSE",
   "TERMINAL_LANDING",
   "TOKEN_IDENTITY",
+  "TOKEN_RESPONSE",
+  "TOKEN_DECODE",
+  "TOKEN_ISSUER",
+  "TOKEN_AUDIENCE",
+  "TOKEN_SUBJECT",
+  "TOKEN_EXPIRY",
   "COOKIE_CLEANUP",
   "BROWSER_CLOSE",
 ]);
@@ -57,6 +63,24 @@ export function consoleCredentialFailureStage({
   if (landingStatus !== "fulfilled") return "TERMINAL_LANDING";
   if (identityVerified === false) return "TOKEN_IDENTITY";
   if (cookieCleared === false) return "COOKIE_CLEANUP";
+  return null;
+}
+
+export function consoleTokenIdentityFailureStage({
+  claims,
+  expectedAudience,
+  expectedIssuer,
+  expectedSubject,
+  nowMilliseconds = Date.now(),
+}) {
+  if (!claims || typeof claims !== "object" || Array.isArray(claims)) return "TOKEN_DECODE";
+  if (claims.iss !== expectedIssuer) return "TOKEN_ISSUER";
+  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  if (!audiences.includes(expectedAudience)) return "TOKEN_AUDIENCE";
+  if (claims.sub !== expectedSubject) return "TOKEN_SUBJECT";
+  if (typeof claims.exp !== "number" || claims.exp * 1000 <= nowMilliseconds) {
+    return "TOKEN_EXPIRY";
+  }
   return null;
 }
 

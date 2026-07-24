@@ -6,6 +6,7 @@ import {
   consoleCredentialCompletionFailureStage,
   consoleCredentialFailureMarker,
   consoleCustomLoginResponseFailureStage,
+  consoleTokenIdentityFailureStage,
   isAuthenticatedConsoleResponse,
   isConsoleCallbackTarget,
   isValidConsoleLanding,
@@ -122,6 +123,12 @@ try {
           url: response.url(),
         }),
       { timeout: 60_000 });
+      const tokenResponse = page.waitForResponse((response) => {
+        const candidate = new URL(response.url());
+        return candidate.origin === issuerUrl.origin &&
+          candidate.pathname === "/oauth/v2/token" &&
+          response.request().method() === "POST";
+      }, { timeout: 60_000 });
       const authenticatedUserResponse = page.waitForResponse((response) =>
         isAuthenticatedConsoleResponse({
           issuerOrigin: issuerUrl.origin,
@@ -139,6 +146,7 @@ try {
         callbackResponse,
         authenticatedUserResponse,
         authenticatedLanding,
+        tokenResponse,
       ]);
       await page.locator("#login-name").fill("previewadmin");
       await page.locator("#login-password").fill(previewPassword);
@@ -173,40 +181,30 @@ try {
         url: callbackResult.value.url(),
       });
       if (credentialFailureStage) throw new Error("credential-stage-failed");
-      credentialFailureStage = "TOKEN_IDENTITY";
-      const consoleIdentityVerified = await page.evaluate(
-        ({ expectedAudience, expectedIssuer, expectedSubject }) => {
-          for (const storage of [window.sessionStorage, window.localStorage]) {
-            const accessToken = storage.getItem("access_token");
-            const idToken = storage.getItem("id_token");
-            if (!accessToken || !idToken) continue;
-            try {
-              const encodedPayload = idToken.split(".")[1];
-              if (!encodedPayload) continue;
-              const padded = encodedPayload.replace(/-/gu, "+").replace(/_/gu, "/")
-                .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
-              const payload = JSON.parse(window.atob(padded));
-              const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-              if (
-                payload.iss === expectedIssuer &&
-                payload.sub === expectedSubject &&
-                audiences.includes(expectedAudience) &&
-                typeof payload.exp === "number" &&
-                payload.exp * 1000 > Date.now()
-              ) return true;
-            } catch {
-              continue;
-            }
-          }
-          return false;
-        },
-        {
-          expectedAudience: consoleClientId,
-          expectedIssuer: issuer,
-          expectedSubject: bootstrapSubject,
-        },
-      );
-      if (!consoleIdentityVerified) throw new Error("credential-stage-failed");
+      const tokenResult = completionResults[5];
+      if (tokenResult?.status !== "fulfilled" || tokenResult.value.status() !== 200) {
+        credentialFailureStage = "TOKEN_RESPONSE";
+        throw new Error("credential-stage-failed");
+      }
+      let tokenClaims;
+      try {
+        const tokenBody = await tokenResult.value.json();
+        const idToken = tokenBody?.id_token;
+        if (typeof idToken !== "string") throw new Error("missing-id-token");
+        const encodedPayload = idToken.split(".")[1];
+        if (!encodedPayload) throw new Error("missing-token-payload");
+        tokenClaims = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
+      } catch {
+        credentialFailureStage = "TOKEN_DECODE";
+        throw new Error("credential-stage-failed");
+      }
+      credentialFailureStage = consoleTokenIdentityFailureStage({
+        claims: tokenClaims,
+        expectedAudience: consoleClientId,
+        expectedIssuer: issuer,
+        expectedSubject: bootstrapSubject,
+      });
+      if (credentialFailureStage) throw new Error("credential-stage-failed");
     } catch {
       throw new Error(consoleCredentialFailureMarker(credentialFailureStage));
     }

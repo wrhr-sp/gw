@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Root smoke helper is executable JavaScript outside the TS workspace.
-import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, consoleCustomLoginResponseFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
+import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, consoleCustomLoginResponseFailureStage, consoleTokenIdentityFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
 
 const smokeScriptUrl = new URL(
   "../../../scripts/smoke-zitadel-console-preview.mjs",
@@ -197,6 +197,35 @@ describe("hosted Preview Console credential smoke", () => {
     })).toBe("CUSTOM_LOGIN_REDIRECT_UNAVAILABLE");
   });
 
+  it("classifies OIDC token identity failures without exposing claim values", () => {
+    const expected = {
+      expectedAudience: "console-client",
+      expectedIssuer: "https://identity.example.test",
+      expectedSubject: "bootstrap-subject",
+      nowMilliseconds: 1_000_000,
+    };
+    const validClaims = {
+      aud: ["console-client"],
+      exp: 2_000,
+      iss: "https://identity.example.test",
+      sub: "bootstrap-subject",
+    };
+    expect(consoleTokenIdentityFailureStage({ claims: validClaims, ...expected })).toBeNull();
+    expect(consoleTokenIdentityFailureStage({ claims: null, ...expected })).toBe("TOKEN_DECODE");
+    expect(consoleTokenIdentityFailureStage({
+      claims: { ...validClaims, iss: "https://other.example.test" }, ...expected,
+    })).toBe("TOKEN_ISSUER");
+    expect(consoleTokenIdentityFailureStage({
+      claims: { ...validClaims, aud: ["other-client"] }, ...expected,
+    })).toBe("TOKEN_AUDIENCE");
+    expect(consoleTokenIdentityFailureStage({
+      claims: { ...validClaims, sub: "other-subject" }, ...expected,
+    })).toBe("TOKEN_SUBJECT");
+    expect(consoleTokenIdentityFailureStage({
+      claims: { ...validClaims, exp: 1_000 }, ...expected,
+    })).toBe("TOKEN_EXPIRY");
+  });
+
   it("classifies credential completion failures with a fixed secret-safe stage", () => {
     expect(CONSOLE_CREDENTIAL_FAILURE_STAGES).toEqual([
       "SUBMIT",
@@ -227,6 +256,12 @@ describe("hosted Preview Console credential smoke", () => {
       "AUTHENTICATED_USER_RESPONSE",
       "TERMINAL_LANDING",
       "TOKEN_IDENTITY",
+      "TOKEN_RESPONSE",
+      "TOKEN_DECODE",
+      "TOKEN_ISSUER",
+      "TOKEN_AUDIENCE",
+      "TOKEN_SUBJECT",
+      "TOKEN_EXPIRY",
       "COOKIE_CLEANUP",
       "BROWSER_CLOSE",
     ]);
@@ -322,10 +357,12 @@ describe("hosted Preview Console credential smoke", () => {
     expect(source).toContain("await credentialCompletion");
     expect(source).toContain("consoleCredentialFailureMarker(credentialFailureStage)");
     expect(source).not.toContain("Preview Console credential flow did not complete authenticated read-back");
-    expect(source).toContain('storage.getItem("access_token")');
-    expect(source).toContain('storage.getItem("id_token")');
-    expect(source).toContain("payload.sub === expectedSubject");
-    expect(source).toContain("audiences.includes(expectedAudience)");
+    expect(source).toContain('candidate.pathname === "/oauth/v2/token"');
+    expect(source).toContain("const tokenBody = await tokenResult.value.json()");
+    expect(source).toContain('Buffer.from(encodedPayload, "base64url")');
+    expect(source).toContain("consoleTokenIdentityFailureStage({");
+    expect(source).not.toContain('storage.getItem("access_token")');
+    expect(source).not.toContain('storage.getItem("id_token")');
     expect(source).toContain('consoleCredentialFailureMarker("COOKIE_CLEANUP")');
     expect(source).toContain('consoleCredentialFailureMarker("BROWSER_CLOSE")');
     expect(source).toContain("if (!browserFlowFailure)");
