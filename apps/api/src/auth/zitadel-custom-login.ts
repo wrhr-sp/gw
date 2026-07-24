@@ -347,8 +347,8 @@ export function createZitadelCustomLoginProvider(input: {
         sessionReadbackUrl.searchParams.set("sessionToken", latest.sessionToken);
         const sessionResponse = await request(sessionReadbackUrl.toString(), {
           headers: {
+            ...serviceHeaders,
             accept: "application/json",
-            authorization: `Bearer ${latest.sessionToken}`,
           },
         }, "SESSION_READBACK");
         if (!sessionResponse.ok) {
