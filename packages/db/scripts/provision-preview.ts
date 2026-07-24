@@ -31,6 +31,9 @@ const previewGrantId = "73000000-0000-4000-8000-000000000001";
 const previewUserReadGrantId = "73000000-0000-4000-8000-000000000002";
 const previewUserCreateGrantId = "73000000-0000-4000-8000-000000000003";
 const previewUserSuspendGrantId = "73000000-0000-4000-8000-000000000004";
+const previewHotelAssignmentGrantId = "73000000-0000-4000-8000-000000000005";
+const previewHotelOwnerGrantId = "73000000-0000-4000-8000-000000000006";
+const previewHotelStatusGrantId = "73000000-0000-4000-8000-000000000007";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -398,6 +401,10 @@ try {
       "0015_neon_definer_contract_hardening.sql",
     ],
     ["0010_global_login_id_contract", "0010_global_login_id_contract.sql"],
+    [
+      "0016_hotel_relationship_management",
+      "0016_hotel_relationship_management.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -881,6 +888,63 @@ try {
         "Existing Preview account permission grants do not match the approved seed",
       );
     }
+    await sql`
+        insert into permission_grants (
+          id, company_id, branch_id, subject_type, subject_id,
+          permission_code, effect, valid_from, valid_until, granted_by, reason
+        ) values
+        (${previewHotelAssignmentGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_ASSIGNMENT_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔배정 권한'),
+        (${previewHotelOwnerGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_OWNER_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔소유주 권한'),
+        (${previewHotelStatusGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_STATUS_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔상태 권한')
+        on conflict (id) do nothing
+      `;
+    const relationshipGrants = await sql<
+      {
+        branch_id: string | null;
+        company_id: string;
+        effect: string;
+        granted_by: string;
+        id: string;
+        permission_code: string;
+        subject_id: string;
+        subject_type: string;
+        valid_from: string;
+        valid_until: string | null;
+        version: number;
+      }[]
+    >`
+        select id::text, company_id::text, branch_id::text, subject_type,
+               subject_id::text, permission_code, effect,
+               to_char(valid_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as valid_from,
+               valid_until::text, granted_by::text, version
+        from permission_grants
+        where id in (${previewHotelAssignmentGrantId}::uuid, ${previewHotelOwnerGrantId}::uuid, ${previewHotelStatusGrantId}::uuid)
+        order by permission_code
+      `;
+    const exactRelationshipGrants = new Map([
+      ["HOTEL_ASSIGNMENT_MANAGE", previewHotelAssignmentGrantId],
+      ["HOTEL_OWNER_MANAGE", previewHotelOwnerGrantId],
+      ["HOTEL_STATUS_MANAGE", previewHotelStatusGrantId],
+    ]);
+    if (
+      relationshipGrants.length !== 3 ||
+      relationshipGrants.some(
+        (grant) =>
+          exactRelationshipGrants.get(grant.permission_code) !== grant.id ||
+          grant.company_id !== previewCompanyId ||
+          grant.branch_id !== null ||
+          grant.subject_type !== "USER" ||
+          grant.subject_id !== previewUserId ||
+          grant.effect !== "ALLOW" ||
+          grant.valid_from !== "2026-01-01T00:00:00Z" ||
+          grant.valid_until !== null ||
+          grant.granted_by !== previewUserId ||
+          grant.version !== 1,
+      )
+    )
+      fail(
+        "Existing Preview hotel relationship grants do not match the approved seed",
+      );
     const [grant] = await sql<
       {
         branch_id: string | null;
@@ -1358,8 +1422,21 @@ try {
       from ${apiRuntimeTableGrantees}, ${reconcilerRole};
     revoke update (updated_at) on branches, hotel_profiles
       from ${reconcilerRole};
+    revoke update (version) on hotel_profiles
+      from ${apiRuntimeTableGrantees}, ${reconcilerRole};
+    revoke update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)
+      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+      from ${apiRuntimeTableGrantees}, ${reconcilerRole};
     grant update (updated_at) on branches, hotel_profiles
       to ${apiRuntimeTableGrantees};
+    ${
+      contractPhase
+        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};
+    grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)
+      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+      to ${apiRuntimeTableGrantees};`
+        : ""
+    }
     ${
       identityLockPhase
         ? `grant update (updated_at) on auth_identities to ${apiRuntimeTableGrantees};`
@@ -1411,7 +1488,8 @@ try {
               'auth_resolve_login_identity_v1',
               'auth_resolve_principal_v2',
               'auth_revoke_session_v2',
-              'auth_revoke_user_sessions_v1'
+              'auth_revoke_user_sessions_v1',
+              'auth_revoke_hotel_owner_sessions_v1'
             )
             and acl.privilege_type = 'EXECUTE'
             and acl.grantee <> procedure_record.proowner
@@ -1429,14 +1507,16 @@ try {
       ), public.auth_resolve_login_identity_v1(text),
         public.auth_resolve_principal_v2(bytea, integer),
         public.auth_revoke_session_v2(bytea, text, uuid),
-        public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        public.auth_revoke_user_sessions_v1(uuid, uuid, text),
+        public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
         from public;
       revoke grant option for execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ), public.auth_resolve_login_identity_v1(text),
         public.auth_resolve_principal_v2(bytea, integer),
         public.auth_revoke_session_v2(bytea, text, uuid),
-        public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        public.auth_revoke_user_sessions_v1(uuid, uuid, text),
+        public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
         from ${apiRuntimeRole}, ${reconcilerRole} cascade;
       grant execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
@@ -1449,6 +1529,8 @@ try {
         to ${apiRuntimeRole};
       grant execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
         to ${apiRuntimeRole};
+      grant execute on function public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
+        to ${apiRuntimeRole};
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
       ) from ${reconcilerRole};
@@ -1459,6 +1541,8 @@ try {
       revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
         from ${reconcilerRole};
       revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from ${reconcilerRole};
+      revoke execute on function public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
         from ${reconcilerRole}${legacyPolicyGrant};
       ${
         contractPhase && legacyRuntimeState?.exists
@@ -1473,6 +1557,8 @@ try {
       revoke execute on function public.auth_revoke_session_v2(bytea, text, uuid)
         from werehere_preview_runtime;
       revoke execute on function public.auth_revoke_user_sessions_v1(uuid, uuid, text)
+        from werehere_preview_runtime;
+      revoke execute on function public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
         from werehere_preview_runtime;
       `
           : ""
