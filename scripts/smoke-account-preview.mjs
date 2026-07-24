@@ -12,6 +12,11 @@ import {
   waitForProviderInactive,
   waitForZeroActiveSessions,
 } from "./lib/preview-account-smoke-cleanup.mjs";
+import {
+  runHostedMutation,
+  runHostedMutationWithReload,
+  seoulCalendarDate,
+} from "./lib/preview-relationship-smoke-contract.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -62,7 +67,7 @@ const runSuffix = `${runId}${runAttempt}`
 const loginName = `p${runSuffix}`.slice(0, 30);
 const email = `${loginName}@werehere.invalid`;
 const displayName = `Preview 검증 ${runSuffix}`.slice(0, 100);
-const assignmentStartDate = new Date().toISOString().slice(0, 10);
+const assignmentStartDate = seoulCalendarDate();
 const assignmentReason = "Preview release 실제 계정 흐름 검증";
 const accountCreateIdempotencyKey = `preview-account-create-${runSuffix}`;
 const initialPassword = `preview-a1!-${randomBytes(18).toString("base64url")}`;
@@ -477,6 +482,153 @@ async function verifyHostedCustomLogin({
   }
 }
 
+async function verifyHostedRelationshipManagement({
+  accountId,
+  displayName: expectedDisplayName,
+  email: expectedEmail,
+  hotelId,
+  loginName: expectedLoginName,
+  token,
+}) {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext();
+    await context.addCookies([
+      {
+        name: cookieName,
+        value: token,
+        url: baseUrl,
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+      },
+    ]);
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/hotels/${encodeURIComponent(hotelId)}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    const relationshipHeading = page.getByRole("heading", {
+      name: "관계 및 운영 준비",
+    });
+    await relationshipHeading.waitFor({ state: "visible", timeout: 60_000 });
+    const relationshipPanel = page.locator(
+      'section[aria-labelledby="hotel-relationships-title"]',
+    );
+    const targetAssignment = relationshipPanel
+      .getByRole("listitem")
+      .filter({ hasText: expectedDisplayName });
+    if ((await targetAssignment.count()) !== 1) {
+      throw new Error(
+        "Hosted relationship UI did not render the expected assignment",
+      );
+    }
+    if (
+      (await relationshipPanel
+        .getByRole("button", { name: "정상 종료" })
+        .count()) !== 0
+    ) {
+      throw new Error(
+        "Hosted relationship UI exposed unsafe normal termination",
+      );
+    }
+
+    await targetAssignment.getByRole("button", { name: "긴급 종료" }).click();
+    const endDialog = page.getByRole("alertdialog", {
+      name: "관계를 긴급 종료하시겠습니까?",
+    });
+    await endDialog
+      .getByLabel("긴급 종료 사유")
+      .fill("Preview hosted 관계 종료 검증");
+    await runHostedMutationWithReload({
+      acceptedStatuses: [200],
+      click: () =>
+        endDialog.getByRole("button", { name: "긴급 종료 확인" }).click(),
+      label: "Hosted relationship emergency end",
+      waitForReload: () =>
+        page.waitForNavigation({
+          waitUntil: "domcontentloaded",
+          timeout: 60_000,
+        }),
+      waitForResponse: () =>
+        page.waitForResponse(
+          (response) =>
+            response.request().method() === "POST" &&
+            response.url().includes(`/api/hotels/${hotelId}/assignments/`) &&
+            response.url().endsWith("/end"),
+          { timeout: 60_000 },
+        ),
+    });
+
+    await page.getByRole("button", { name: "배정 추가" }).click();
+    const assignmentDialog = page.getByRole("dialog", { name: "배정 추가" });
+    await assignmentDialog.getByLabel("관계유형").selectOption("HOUSEKEEPING");
+    await assignmentDialog
+      .getByLabel("후보 이름 검색")
+      .fill(expectedDisplayName);
+    const candidate = assignmentDialog.getByLabel("배정 후보");
+    await candidate
+      .getByRole("option", { name: expectedDisplayName })
+      .waitFor({ state: "attached", timeout: 60_000 });
+    const visibleText = await assignmentDialog.innerText();
+    if (
+      visibleText.includes(expectedEmail) ||
+      visibleText.includes(expectedLoginName) ||
+      visibleText.includes(accountId)
+    ) {
+      throw new Error(
+        "Hosted relationship candidate UI exposed private identity data",
+      );
+    }
+    await candidate.selectOption({ label: expectedDisplayName });
+    await assignmentDialog.getByLabel("배정 사유").fill(assignmentReason);
+    await runHostedMutationWithReload({
+      acceptedStatuses: [200, 201],
+      click: () =>
+        assignmentDialog.getByRole("button", { name: "배정 저장" }).click(),
+      label: "Hosted relationship assignment",
+      waitForReload: () =>
+        page.waitForNavigation({
+          waitUntil: "domcontentloaded",
+          timeout: 60_000,
+        }),
+      waitForResponse: () =>
+        page.waitForResponse(
+          (response) =>
+            response.request().method() === "POST" &&
+            response.url().endsWith(`/api/hotels/${hotelId}/assignments`),
+          { timeout: 60_000 },
+        ),
+    });
+    await relationshipPanel
+      .getByRole("listitem")
+      .filter({ hasText: expectedDisplayName })
+      .waitFor({ state: "visible", timeout: 60_000 });
+
+    await runHostedMutation({
+      acceptedStatuses: [409],
+      click: () =>
+        relationshipPanel
+          .getByRole("button", { name: "준비상태 확인" })
+          .click(),
+      label: "Hosted activation readiness did not fail closed",
+      waitForResponse: () =>
+        page.waitForResponse(
+          (response) =>
+            response.request().method() === "POST" &&
+            response.url().endsWith(`/api/hotels/${hotelId}/activate`),
+          { timeout: 60_000 },
+        ),
+    });
+    await relationshipPanel
+      .getByRole("alert")
+      .filter({ hasText: "준비항목" })
+      .waitFor({ state: "visible", timeout: 60_000 });
+  } finally {
+    await browser.close();
+  }
+}
+
 try {
   journeyFailureCode = "ADMIN_SESSION_CREATE";
   const adminSession = await createSession(bootstrapSubject, "ADMIN_SESSION");
@@ -664,6 +816,22 @@ try {
     password: changedPassword,
     shouldAuthenticate: false,
   });
+
+  journeyFailureCode = "RELATIONSHIP_MANAGEMENT_UI";
+  await verifyHostedRelationshipManagement({
+    accountId: account.id,
+    displayName,
+    email,
+    hotelId: hotelIds[0],
+    loginName,
+    token: adminToken,
+  });
+  journeyFailureCode = "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI";
+  await assertHousekeepingAssignments(
+    adminSession.principal.companyId,
+    account.id,
+    hotelIds,
+  );
 
   journeyFailureCode = "ACCOUNT_DEACTIVATE";
   const deactivated = await api(
