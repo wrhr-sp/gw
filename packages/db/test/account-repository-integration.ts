@@ -252,6 +252,32 @@ try {
       `relationship overlap was not mapped to stable conflict: ${relationshipConflict.status}`,
     );
   }
+  let nullTerminationReasonRejected = false;
+  try {
+    await sql`
+      update hotel_staff_assignments
+      set end_date = current_date,
+          terminated_at = now(),
+          termination_reason = null,
+          terminated_by = ${actorId}
+      where company_id = ${companyId}
+        and id = ${createdHotelAssignment.assignment.id}
+    `;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23514"
+    ) {
+      nullTerminationReasonRejected = true;
+    } else {
+      throw error;
+    }
+  }
+  if (!nullTerminationReasonRejected) {
+    throw new Error("NULL relationship termination reason was accepted");
+  }
   const endedHotelAssignment = await hotelRepository.endAssignment({
     actor,
     assignmentId: createdHotelAssignment.assignment.id,
@@ -1244,8 +1270,8 @@ try {
       effect, valid_from, granted_by, reason
     ) values (
       ${completionDenyGrantId}, ${companyId}, null, 'USER', ${actorId},
-      'HOTEL_ASSIGNMENT_MANAGE', 'DENY', now() - interval '1 minute',
-      ${actorId}, 'completion permission revocation integration'
+      'USER_CREATE', 'DENY', now() - interval '1 minute',
+      ${actorId}, 'completion user-create revocation integration'
     )
   `;
   const revokedPermissionCompletion = await repository.completeCreate(
@@ -1253,22 +1279,151 @@ try {
   );
   if (revokedPermissionCompletion.status !== "FORBIDDEN") {
     throw new Error(
-      `revoked relationship permission completed an account: ${revokedPermissionCompletion.status}`,
+      `revoked USER_CREATE permission completed an account: ${revokedPermissionCompletion.status}`,
     );
   }
-  const [revokedPermissionPartialAccount] = await sql<{ count: number }[]>`
-    select count(*)::int as count from users
-    where company_id = ${companyId} and id = ${recoveryAccountId}
+  const [revokedPermissionResidue] = await sql<
+    {
+      completed_attempt_count: number;
+      identity_count: number;
+      relationship_count: number;
+      success_audit_count: number;
+      user_count: number;
+    }[]
+  >`
+    select
+      (select count(*)::int from users
+       where company_id = ${companyId} and id = ${recoveryAccountId}) as user_count,
+      (select count(*)::int from auth_identities
+       where company_id = ${companyId} and user_id = ${recoveryAccountId}) as identity_count,
+      (select count(*)::int from housekeeping_hotel_links
+       where company_id = ${companyId} and user_id = ${recoveryAccountId}) as relationship_count,
+      (select count(*)::int from audit_events
+       where company_id = ${companyId} and resource_id = ${recoveryAccountId}
+         and event_code = 'ACCOUNT_CREATED' and result = 'SUCCEEDED') as success_audit_count,
+      (select count(*)::int from account_provisioning_attempts
+       where company_id = ${companyId} and target_user_id = ${recoveryAccountId}
+         and status = 'COMPLETED') as completed_attempt_count
   `;
-  if (revokedPermissionPartialAccount?.count !== 0) {
+  if (
+    !revokedPermissionResidue ||
+    Object.values(revokedPermissionResidue).some((count) => count !== 0)
+  ) {
     throw new Error(
-      "revoked completion permission persisted a partial account",
+      "revoked USER_CREATE completion persisted local success residue",
     );
   }
   await sql`
     delete from permission_grants
     where company_id = ${companyId} and id = ${completionDenyGrantId}
   `;
+  const relationshipDenyAccountId = "8a900000-0000-4000-8000-000000000004";
+  const relationshipDenyPayload = {
+    ...completionPayload,
+    displayName: "Relationship Denied User",
+    loginName: "relationshipdenieduser",
+    email: "relationship-denied-user@example.invalid",
+  };
+  const relationshipDenyReserved = await repository.reserveCreate({
+    accountId: relationshipDenyAccountId,
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000004",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload: relationshipDenyPayload,
+    idempotencyKey: "relationship-denied-create",
+    requestHash: "relationship-denied-create-hash",
+  });
+  if (relationshipDenyReserved.status !== "RESERVED_NOT_DISPATCHED") {
+    throw new Error("relationship-denied fixture was not reserved");
+  }
+  if (
+    (await repository.markCreateDispatched({
+      accountId: relationshipDenyAccountId,
+      companyId,
+      leaseVersion: relationshipDenyReserved.leaseVersion,
+    })) !== "UPDATED"
+  ) {
+    throw new Error("relationship-denied fixture was not dispatched");
+  }
+  if (
+    (await repository.markProviderCreated({
+      accountId: relationshipDenyAccountId,
+      companyId,
+      leaseVersion: relationshipDenyReserved.leaseVersion,
+      subject: relationshipDenyAccountId,
+    })) !== "UPDATED"
+  ) {
+    throw new Error("relationship-denied provider marker failed");
+  }
+  const relationshipDenyGrantId = "8a800000-0000-4000-8000-000000000098";
+  await sql`
+    insert into permission_grants (
+      id, company_id, branch_id, subject_type, subject_id, permission_code,
+      effect, valid_from, granted_by, reason
+    ) values (
+      ${relationshipDenyGrantId}, ${companyId}, null, 'USER', ${actorId},
+      'HOTEL_ASSIGNMENT_MANAGE', 'DENY', now() - interval '1 minute',
+      ${actorId}, 'completion relationship permission revocation integration'
+    )
+  `;
+  const relationshipDeniedCompletion = await repository.completeCreate({
+    accountId: relationshipDenyAccountId,
+    actorUserId: actor.userId,
+    actorType: actor.userType,
+    assignmentIds: [
+      "8a920000-0000-4000-8000-000000000005",
+      "8a920000-0000-4000-8000-000000000006",
+    ],
+    auditEventId: "8aa00000-0000-4000-8000-000000000004",
+    companyId,
+    idempotencyKey: "relationship-denied-create",
+    leaseVersion: relationshipDenyReserved.leaseVersion,
+    sessionId: actor.sessionId,
+    subject: relationshipDenyAccountId,
+    traceId: "8ae00000-0000-4000-8000-000000000004",
+    value: relationshipDenyPayload,
+  });
+  if (relationshipDeniedCompletion.status !== "FORBIDDEN") {
+    throw new Error(
+      `revoked relationship permission completed an account: ${relationshipDeniedCompletion.status}`,
+    );
+  }
+  const [relationshipDenyResidue] = await sql<
+    {
+      completed_attempt_count: number;
+      identity_count: number;
+      relationship_count: number;
+      success_audit_count: number;
+      user_count: number;
+    }[]
+  >`
+    select
+      (select count(*)::int from users
+       where company_id = ${companyId} and id = ${relationshipDenyAccountId}) as user_count,
+      (select count(*)::int from auth_identities
+       where company_id = ${companyId} and user_id = ${relationshipDenyAccountId}) as identity_count,
+      (select count(*)::int from housekeeping_hotel_links
+       where company_id = ${companyId} and user_id = ${relationshipDenyAccountId}) as relationship_count,
+      (select count(*)::int from audit_events
+       where company_id = ${companyId} and resource_id = ${relationshipDenyAccountId}
+         and event_code = 'ACCOUNT_CREATED' and result = 'SUCCEEDED') as success_audit_count,
+      (select count(*)::int from account_provisioning_attempts
+       where company_id = ${companyId} and target_user_id = ${relationshipDenyAccountId}
+         and status = 'COMPLETED') as completed_attempt_count
+  `;
+  if (
+    !relationshipDenyResidue ||
+    Object.values(relationshipDenyResidue).some((count) => count !== 0)
+  ) {
+    throw new Error(
+      "revoked relationship completion persisted local success residue",
+    );
+  }
+  await sql`
+    delete from permission_grants
+    where company_id = ${companyId} and id = ${relationshipDenyGrantId}
+  `;
+
   const recoveredCreate = await repository.completeCreate(
     recoveryCompletionInput,
   );

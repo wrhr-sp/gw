@@ -22,6 +22,8 @@ const AUTH_REVOKE_HOTEL_OWNER_SESSIONS_V1_PROSRC_SHA256 =
   "5580111208ab4d261cc45ad6a21597b03c1e33cf6acf8e3875369acaa02d79b2";
 const PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256 =
   "be07b10542ba804bb4d3d0a5afa3e4604e9e4e5c32e745a6ad74aea45b214bbd";
+const REJECT_HOTEL_RELATIONSHIP_DELETE_PROSRC_SHA256 =
+  "63543136e8b51cb928e4f0991885dcff14c82179fbff724aecb886c743c771e7";
 const RUNTIME_IS_SCHEMA_OWNER_EXPAND_PROSRC_SHA256 =
   "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221";
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
@@ -273,19 +275,19 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     table: "hotel_staff_assignments",
     name: "hotel_staff_assignments_termination_shape",
     definition:
-      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
+      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (termination_reason is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
   },
   {
     table: "housekeeping_hotel_links",
     name: "housekeeping_hotel_links_termination_shape",
     definition:
-      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
+      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (termination_reason is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
   },
   {
     table: "hotel_owner_assignments",
     name: "hotel_owner_assignments_termination_shape",
     definition:
-      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
+      "check ((((terminated_at is null) and (termination_reason is null) and (terminated_by is null)) or ((terminated_at is not null) and (termination_reason is not null) and (btrim(termination_reason) <> ''::text) and (terminated_by is not null) and (end_date is not null))))",
   },
   {
     table: "auth_sessions",
@@ -815,7 +817,9 @@ export async function probeDatabaseReadiness(
   databaseUrl: string | undefined,
   options: {
     capability: RuntimeCapability;
-    requiredSchemaPhase?: "CONTRACT" | "EXPAND";
+    // Provisioning uses this as a strict hotel-rollout ACL gate. General
+    // Worker health accepts any exact approved rollout ACL on a contracted base.
+    requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
@@ -865,6 +869,7 @@ export async function probeDatabaseReadiness(
       {
         contract_marker_count: number;
         expand_marker_count: number;
+        hotel_integrity_marker_count: number;
         hotel_relationship_marker_count: number;
       }[]
     >`
@@ -893,7 +898,10 @@ export async function probeDatabaseReadiness(
              )::integer as contract_marker_count,
              count(*) filter (
                where version = '0016_hotel_relationship_management'
-             )::integer as hotel_relationship_marker_count
+             )::integer as hotel_relationship_marker_count,
+             count(*) filter (
+               where version = '0017_hotel_relationship_integrity_hardening'
+             )::integer as hotel_integrity_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -911,23 +919,22 @@ export async function probeDatabaseReadiness(
         '0013_neon_definer_creator_membership',
         '0014_neon_definer_expand_compatibility',
         '0015_neon_definer_contract_hardening',
-        '0016_hotel_relationship_management'
+        '0016_hotel_relationship_management',
+        '0017_hotel_relationship_integrity_hardening'
       )
     `;
     const schemaPhase =
       migrationRows[0]?.expand_marker_count === 11 &&
-      migrationRows[0].contract_marker_count === 4 &&
-      migrationRows[0].hotel_relationship_marker_count === 1
+      migrationRows[0].contract_marker_count === 4
         ? "CONTRACT"
         : migrationRows[0]?.expand_marker_count === 11 &&
-            migrationRows[0].contract_marker_count === 0 &&
-            migrationRows[0].hotel_relationship_marker_count === 1
+            migrationRows[0].contract_marker_count === 0
           ? "EXPAND"
           : null;
     if (
       !schemaPhase ||
-      (options.requiredSchemaPhase &&
-        options.requiredSchemaPhase !== schemaPhase)
+      migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
+      migrationRows[0].hotel_integrity_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -1676,18 +1683,28 @@ export async function probeDatabaseReadiness(
       where namespace_record.nspname = 'public'
         and (acl.grantee = 0::oid or grantee_role.rolname = current_user)
     `;
-    const expectedSchemaPrivileges = new Set([
-      "CURRENT:USAGE",
-      ...(schemaPhase === "EXPAND" ? ["PUBLIC:USAGE"] : []),
-    ]);
-    if (
-      schemaPrivilegeRows.length !== expectedSchemaPrivileges.size ||
-      schemaPrivilegeRows.some(
-        (row) => row.grantable || !expectedSchemaPrivileges.has(row.label),
-      )
-    ) {
+    const currentOnlySchemaPrivileges = new Set(["CURRENT:USAGE"]);
+    const expandSchemaPrivileges = new Set(["CURRENT:USAGE", "PUBLIC:USAGE"]);
+    const actualSchemaPrivileges = new Set(
+      schemaPrivilegeRows.map((row) => row.label),
+    );
+    const matchesSchemaPrivileges = (expected: Set<string>) =>
+      schemaPrivilegeRows.length === expected.size &&
+      actualSchemaPrivileges.size === expected.size &&
+      schemaPrivilegeRows.every(
+        (row) => !row.grantable && expected.has(row.label),
+      );
+    const observedSchemaAclPhase = matchesSchemaPrivileges(
+      expandSchemaPrivileges,
+    )
+      ? "EXPAND"
+      : matchesSchemaPrivileges(currentOnlySchemaPrivileges)
+        ? "CONTRACT"
+        : null;
+    if (!observedSchemaAclPhase) {
       return { status: "SCHEMA_NOT_READY" };
     }
+    const publicSchemaUsageAllowed = observedSchemaAclPhase === "EXPAND";
 
     const [schemaAclClosure] = await sql<{ unexpected_count: number }[]>`
       select count(*)::integer as unexpected_count
@@ -1703,7 +1720,7 @@ export async function probeDatabaseReadiness(
           acl.privilege_type = 'USAGE'
           and not acl.is_grantable
           and (
-            (acl.grantee = 0::oid and ${schemaPhase === "EXPAND"})
+            (acl.grantee = 0::oid and ${publicSchemaUsageAllowed})
             or grantee_role.rolname in (
               'werehere_auth_session_definer',
               'werehere_tenant_authority_definer'
@@ -2084,40 +2101,69 @@ export async function probeDatabaseReadiness(
         and not column_record.attisdropped
         and acl.grantee <> table_record.relowner
     `;
-    const expectedColumnPrivilegeCandidates = (
-      schemaPhase === "EXPAND"
-        ? [
-            EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
-            EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
-          ]
-        : [EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES]
-    ).map((labels) => {
-      const expected = new Set<string>();
-      for (const role of capabilityRoleRows) {
-        if (
-          role.role_name !== migrationOwner.role_name &&
-          role.capability === "API_RUNTIME"
-        ) {
-          for (const label of labels) {
-            expected.add(`${role.role_name}:${label}`);
+    const columnPhaseDefinitions = [
+      {
+        phase: "EXPAND" as const,
+        labels: EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
+      },
+      {
+        phase: "EXPAND_IDENTITY_LOCK" as const,
+        labels: EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
+      },
+      {
+        phase: "CONTRACT" as const,
+        labels: EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES,
+      },
+    ];
+    const expectedColumnPrivilegeCandidates = columnPhaseDefinitions.map(
+      ({ labels, phase }) => {
+        const expected = new Set<string>();
+        for (const role of capabilityRoleRows) {
+          if (
+            role.role_name !== migrationOwner.role_name &&
+            role.capability === "API_RUNTIME"
+          ) {
+            for (const label of labels) {
+              expected.add(`${role.role_name}:${label}`);
+            }
           }
         }
-      }
-      return expected;
-    });
+        return { expected, phase };
+      },
+    );
     const actualColumnPrivileges = new Set(
       columnPrivilegeRows.map(
         (row) => `${row.role_name ?? "PUBLIC"}:${row.label}`,
       ),
     );
+    const matchingColumnAclPhases = expectedColumnPrivilegeCandidates.filter(
+      ({ expected }) =>
+        actualColumnPrivileges.size === expected.size &&
+        [...expected].every((privilege) =>
+          actualColumnPrivileges.has(privilege),
+        ),
+    );
+    const observedColumnAclPhase =
+      matchingColumnAclPhases.length === 1
+        ? matchingColumnAclPhases[0]?.phase
+        : matchingColumnAclPhases.length === columnPhaseDefinitions.length &&
+            actualColumnPrivileges.size === 0
+          ? observedSchemaAclPhase === "CONTRACT"
+            ? "CONTRACT"
+            : "EXPAND"
+          : undefined;
+    const requiredRolloutPhase = options.requiredSchemaPhase;
+    const approvedAclTuple = requiredRolloutPhase
+      ? observedColumnAclPhase === requiredRolloutPhase &&
+        observedSchemaAclPhase ===
+          (requiredRolloutPhase === "CONTRACT" ? "CONTRACT" : "EXPAND")
+      : (observedSchemaAclPhase === "EXPAND" &&
+          (observedColumnAclPhase === "EXPAND" ||
+            observedColumnAclPhase === "EXPAND_IDENTITY_LOCK")) ||
+        (observedSchemaAclPhase === "CONTRACT" &&
+          observedColumnAclPhase === "CONTRACT");
     if (
-      !expectedColumnPrivilegeCandidates.some(
-        (expected) =>
-          actualColumnPrivileges.size === expected.size &&
-          [...expected].every((privilege) =>
-            actualColumnPrivileges.has(privilege),
-          ),
-      ) ||
+      !approvedAclTuple ||
       columnPrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
       return { status: "SCHEMA_NOT_READY" };
@@ -2200,6 +2246,27 @@ export async function probeDatabaseReadiness(
       !loginRegistryTrigger.function_contract_safe ||
       (await sourceSha256(loginRegistryTrigger.function_source)) !==
         PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    const hotelHistoryTriggers = triggerRows.filter(
+      (trigger) => trigger.function_name === "reject_hotel_relationship_delete",
+    );
+    if (
+      hotelHistoryTriggers.length !== 3 ||
+      (
+        await Promise.all(
+          hotelHistoryTriggers.map(
+            async (trigger) =>
+              trigger.trigger_type === 11 &&
+              trigger.function_owner === migrationOwner.role_name &&
+              trigger.function_acl_safe &&
+              trigger.function_contract_safe &&
+              (await sourceSha256(trigger.function_source)) ===
+                REJECT_HOTEL_RELATIONSHIP_DELETE_PROSRC_SHA256,
+          ),
+        )
+      ).some((safe) => !safe)
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

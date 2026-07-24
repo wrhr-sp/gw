@@ -405,6 +405,10 @@ try {
       "0016_hotel_relationship_management",
       "0016_hotel_relationship_management.sql",
     ],
+    [
+      "0017_hotel_relationship_integrity_hardening",
+      "0017_hotel_relationship_integrity_hardening.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -1833,12 +1837,10 @@ try {
   });
   await chmod(reconcilerOutputFile, 0o600);
 
-  const requiredSchemaPhase: "CONTRACT" | "EXPAND" = contractPhase
-    ? "CONTRACT"
-    : "EXPAND";
+  const requiredRolloutPhase = provisionPhase;
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
-    requiredSchemaPhase,
+    requiredSchemaPhase: requiredRolloutPhase,
   });
   if (apiReadiness.status !== "READY") {
     fail(
@@ -1849,7 +1851,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
-      requiredSchemaPhase,
+      requiredSchemaPhase: requiredRolloutPhase,
     },
   );
   if (reconcilerReadiness.status !== "READY") {

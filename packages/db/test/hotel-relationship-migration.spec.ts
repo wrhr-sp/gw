@@ -8,6 +8,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const integrityMigration = readFileSync(
+  new URL(
+    "../migrations/0017_hotel_relationship_integrity_hardening.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const hotelRepository = readFileSync(
   new URL("../src/hotels.ts", import.meta.url),
   "utf8",
@@ -24,6 +31,13 @@ describe("HOTEL-MVP-010 Phase A database contract", () => {
     expect(migration).toContain("terminated_by");
     expect(migration).toContain("version integer not null default 1");
     expect(migration).toContain("reject_hotel_relationship_delete");
+    expect(migration).toContain("termination_reason is not null");
+    expect(integrityMigration).toContain(
+      "0017_hotel_relationship_integrity_hardening",
+    );
+    expect(
+      integrityMigration.match(/termination_reason is not null/gu),
+    ).toHaveLength(3);
     expect(migration).toContain("HOTEL_ASSIGNMENT_MANAGE");
     expect(migration).toContain("HOTEL_OWNER_MANAGE");
     expect(migration).toContain("HOTEL_OWNER_TRANSFERRED");
@@ -72,6 +86,9 @@ describe("HOTEL-MVP-010 Phase A database contract", () => {
       accountRepository.indexOf("async markCreateFailed"),
     );
     expect(completion).toContain("relationshipCreationPermission");
+    expect(completion).toContain(
+      'permission(transaction, completionActor, "USER_CREATE")',
+    );
     expect(completion).toContain("!input.sessionId");
   });
 });

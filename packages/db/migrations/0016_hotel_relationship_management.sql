@@ -81,7 +81,7 @@ alter table hotel_staff_assignments
     foreign key (company_id, terminated_by) references users(company_id, id),
   add constraint hotel_staff_assignments_termination_shape check (
     (terminated_at is null and termination_reason is null and terminated_by is null)
-    or (terminated_at is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
+    or (terminated_at is not null and termination_reason is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
   );
 
 alter table housekeeping_hotel_links
@@ -93,7 +93,7 @@ alter table housekeeping_hotel_links
     foreign key (company_id, terminated_by) references users(company_id, id),
   add constraint housekeeping_hotel_links_termination_shape check (
     (terminated_at is null and termination_reason is null and terminated_by is null)
-    or (terminated_at is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
+    or (terminated_at is not null and termination_reason is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
   );
 
 alter table hotel_owner_assignments
@@ -105,7 +105,7 @@ alter table hotel_owner_assignments
     foreign key (company_id, terminated_by) references users(company_id, id),
   add constraint hotel_owner_assignments_termination_shape check (
     (terminated_at is null and termination_reason is null and terminated_by is null)
-    or (terminated_at is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
+    or (terminated_at is not null and termination_reason is not null and btrim(termination_reason) <> '' and terminated_by is not null and end_date is not null)
   );
 
 -- A terminated relationship is historical even when its inclusive end_date is today.

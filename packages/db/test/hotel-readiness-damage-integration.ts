@@ -706,6 +706,55 @@ async function verifyLoginRegistryTriggerEventMaskDamage() {
   }
 }
 
+async function verifyHotelRelationshipDeleteTriggerBodyDamage() {
+  const signature = "public.reject_hotel_relationship_delete()";
+  const [record] = await sql<{ definition: string }[]>`
+    select pg_get_functiondef(${signature}::regprocedure) as definition
+  `;
+  if (!record) throw new Error("hotel relationship delete trigger is missing");
+  const damaged = record.definition.replace(
+    "raise exception 'hotel relationship history cannot be physically deleted' using errcode = '55000';",
+    "return old;",
+  );
+  if (damaged === record.definition)
+    throw new Error("hotel delete trigger body damage fixture did not apply");
+  await sql.unsafe(damaged);
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `weakened hotel delete trigger was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql.unsafe(record.definition);
+  }
+}
+
+async function verifyHotelRelationshipDeleteTriggerEventMaskDamage() {
+  await sql`drop trigger hotel_staff_assignments_no_delete on hotel_staff_assignments`;
+  await sql`
+    create trigger hotel_staff_assignments_no_delete
+    before update on hotel_staff_assignments
+    for each row execute function reject_hotel_relationship_delete()
+  `;
+  try {
+    const readiness = await probeDatabaseReadiness(probeUrl);
+    if (readiness.status !== "SCHEMA_NOT_READY") {
+      throw new Error(
+        `hotel delete trigger event-mask damage was reported as ${readiness.status}`,
+      );
+    }
+  } finally {
+    await sql`drop trigger hotel_staff_assignments_no_delete on hotel_staff_assignments`;
+    await sql`
+      create trigger hotel_staff_assignments_no_delete
+      before delete on hotel_staff_assignments
+      for each row execute function reject_hotel_relationship_delete()
+    `;
+  }
+}
+
 async function verifyLoginRegistryTriggerEnabledDamage() {
   await sql`alter table login_id_registry enable always trigger login_id_registry_immutable`;
   try {
@@ -932,6 +981,14 @@ try {
     [
       "login registry trigger event mask",
       () => verifyLoginRegistryTriggerEventMaskDamage(),
+    ],
+    [
+      "hotel relationship delete trigger body",
+      () => verifyHotelRelationshipDeleteTriggerBodyDamage(),
+    ],
+    [
+      "hotel relationship delete trigger event mask",
+      () => verifyHotelRelationshipDeleteTriggerEventMaskDamage(),
     ],
     [
       "login registry trigger enabled",

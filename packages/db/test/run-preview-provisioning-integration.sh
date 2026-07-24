@@ -714,6 +714,10 @@ where id = '74000000-0000-4000-8000-000000000001';
 alter table public.audit_events enable trigger audit_events_no_update;
 SQL
 run_provision CONTRACT >/dev/null
+# A later release must be able to stage new EXPAND ACLs on an already contracted
+# authentication/account schema, then converge back to exact CONTRACT ACLs.
+run_provision EXPAND >/dev/null
+run_provision CONTRACT >/dev/null
 
 API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
 RECONCILER_URL="$(<"$RECONCILER_URL_FILE")"
@@ -747,6 +751,66 @@ assert_readiness() {
   fi
 }
 
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant usage on schema public to public' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke usage on schema public from public' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+do $damage_expand_columns$
+declare
+  role_record record;
+begin
+  for role_record in
+    select role_name from public.runtime_database_capabilities
+    where capability = 'API_RUNTIME'
+  loop
+    execute format(
+      'revoke update (updated_at) on public.auth_identities from %I',
+      role_record.role_name
+    );
+    execute format(
+      'revoke update (version) on public.hotel_profiles from %I',
+      role_record.role_name
+    );
+    execute format(
+      'revoke update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at) on public.hotel_staff_assignments, public.housekeeping_hotel_links, public.hotel_owner_assignments from %I',
+      role_record.role_name
+    );
+  end loop;
+end
+$damage_expand_columns$;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+do $restore_contract_columns$
+declare
+  role_record record;
+begin
+  for role_record in
+    select role_name from public.runtime_database_capabilities
+    where capability = 'API_RUNTIME'
+  loop
+    execute format(
+      'grant update (updated_at) on public.auth_identities to %I',
+      role_record.role_name
+    );
+    execute format(
+      'grant update (version) on public.hotel_profiles to %I',
+      role_record.role_name
+    );
+    execute format(
+      'grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at) on public.hotel_staff_assignments, public.housekeeping_hotel_links, public.hotel_owner_assignments to %I',
+      role_record.role_name
+    );
+  end loop;
+end
+$restore_contract_columns$;
+SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
