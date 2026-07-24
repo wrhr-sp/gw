@@ -23,6 +23,8 @@ import {
   hotelStatusSchema,
   hotelAssignmentSchema,
   hotelAssignmentListResponseSchema,
+  hotelAssignmentMutationResponseSchema,
+  hotelActivationMutationResponseSchema,
   hotelCandidateQuerySchema,
   hotelEligibleCandidatesResponseSchema,
   hotelOwnerRelationshipsResponseSchema,
@@ -95,6 +97,8 @@ describe("hotel platform contracts", () => {
         userType: "INTERNAL_STAFF" as const,
       },
     };
+    const { assignee, ...mutationAssignment } = assignment;
+    expect(assignee.displayName).toBe("김민수");
     expect(
       hotelAssignmentListResponseSchema.parse({
         ok: true,
@@ -102,6 +106,20 @@ describe("hotel platform contracts", () => {
         error: null,
       }).data.assignments[0]?.assignee.displayName,
     ).toBe("김민수");
+    expect(
+      hotelAssignmentMutationResponseSchema.parse({
+        ok: true,
+        data: { assignment: mutationAssignment },
+        error: null,
+      }).data.assignment.id,
+    ).toBe(assignment.id);
+    expect(
+      hotelAssignmentMutationResponseSchema.safeParse({
+        ok: true,
+        data: { assignment },
+        error: null,
+      }).success,
+    ).toBe(false);
     expect(
       hotelOwnerRelationshipsResponseSchema.parse({
         ok: true,
@@ -130,6 +148,13 @@ describe("hotel platform contracts", () => {
   });
 
   it("defines Phase A relationship mutations without scheduled owner transfer", () => {
+    expect(
+      hotelActivationMutationResponseSchema.safeParse({
+        ok: true,
+        data: {},
+        error: null,
+      }).success,
+    ).toBe(false);
     expect(
       createHotelAssignmentRequestSchema.parse({
         userId: "20000000-0000-4000-8000-000000000002",

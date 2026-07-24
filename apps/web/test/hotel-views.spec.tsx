@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HotelDetailView } from "../components/hotels/hotel-detail-view";
 import { HotelListView } from "../components/hotels/hotel-list-view";
+import { relationshipFailureMessage } from "../components/hotels/relationship-management-panel";
 
 const hotel = {
   id: "50000000-0000-4000-8000-000000000001",
@@ -23,7 +24,12 @@ describe("hotel list and detail views", () => {
     const html = renderToStaticMarkup(
       <HotelListView
         query={{ page: 1, pageSize: 20 }}
-        result={{ ok: true, capabilities: { canCreate: true }, hotels: [hotel], pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 } }}
+        result={{
+          ok: true,
+          capabilities: { canCreate: true },
+          hotels: [hotel],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        }}
       />,
     );
     expect(html).toContain("호텔코드");
@@ -36,25 +42,43 @@ describe("hotel list and detail views", () => {
     const forbidden = renderToStaticMarkup(
       <HotelListView
         query={{ page: 1, pageSize: 20 }}
-        result={{ ok: false, error: { code: "FORBIDDEN", message: "권한이 없습니다." } }}
+        result={{
+          ok: false,
+          error: { code: "FORBIDDEN", message: "권한이 없습니다." },
+        }}
       />,
     );
     const empty = renderToStaticMarkup(
       <HotelListView
         query={{ page: 1, pageSize: 20 }}
-        result={{ ok: true, capabilities: { canCreate: true }, hotels: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } }}
+        result={{
+          ok: true,
+          capabilities: { canCreate: true },
+          hotels: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        }}
       />,
     );
     const filteredEmpty = renderToStaticMarkup(
       <HotelListView
         query={{ page: 1, pageSize: 20, q: "없는호텔" }}
-        result={{ ok: true, capabilities: { canCreate: true }, hotels: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } }}
+        result={{
+          ok: true,
+          capabilities: { canCreate: true },
+          hotels: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        }}
       />,
     );
     const branchScoped = renderToStaticMarkup(
       <HotelListView
         query={{ page: 1, pageSize: 20 }}
-        result={{ ok: true, capabilities: { canCreate: false }, hotels: [hotel], pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 } }}
+        result={{
+          ok: true,
+          capabilities: { canCreate: false },
+          hotels: [hotel],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        }}
       />,
     );
     expect(forbidden).toContain("호텔 관리 권한이 없습니다");
@@ -67,10 +91,40 @@ describe("hotel list and detail views", () => {
   });
 
   it("renders the DB read-back detail including empty optional address and version", () => {
-    const html = renderToStaticMarkup(<HotelDetailView result={{ ok: true, hotel }} />);
+    const html = renderToStaticMarkup(
+      <HotelDetailView result={{ ok: true, hotel }} />,
+    );
     expect(html).toContain("위아히어 강남호텔");
     expect(html).toContain("상세주소");
     expect(html).toContain("없음");
     expect(html).toContain("데이터 버전");
+    expect(html).toContain("관계 및 운영 준비");
+    expect(html).toContain("hotel-relationship-management");
+    expect(html).toContain('href="#hotel-relationships-title"');
+    expect(html).not.toContain('type="text" name="userId"');
+  });
+
+  it("turns stable relationship failures into actionable Korean guidance", () => {
+    expect(
+      relationshipFailureMessage({
+        code: "VERSION_CONFLICT",
+        fieldErrors: [],
+        message: "conflict",
+      }),
+    ).toContain("최신 정보를 불러왔으니");
+    expect(
+      relationshipFailureMessage({
+        code: "REAUTHENTICATION_REQUIRED",
+        fieldErrors: [],
+        message: "reauth",
+      }),
+    ).toContain("최근 5분");
+    expect(
+      relationshipFailureMessage({
+        code: "DEPENDENT_WORK_REASSIGNMENT_REQUIRED",
+        fieldErrors: [],
+        message: "dependent",
+      }),
+    ).toContain("긴급 종료만 지원");
   });
 });
