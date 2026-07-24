@@ -92,7 +92,7 @@ export function decideRetarget({ approved, readiness, targetState, topology }) {
   }
   if (readiness === "SCHEMA_NOT_READY") {
     if (!approved) return "DENY_NOT_APPROVED";
-    if (topology !== "API_WEB_LEGACY") {
+    if (topology !== "API_WEB_LEGACY" && topology !== "COMPLETE") {
       return "DENY_SCHEMA_RECOVERY_TOPOLOGY";
     }
     return targetState === "MATCH"

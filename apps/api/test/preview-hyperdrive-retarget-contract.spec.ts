@@ -160,7 +160,14 @@ describe("Preview Hyperdrive retarget contract", () => {
       "SCHEMA_NOT_READY",
       "MATCH",
       "COMPLETE",
-      "DENY_SCHEMA_RECOVERY_TOPOLOGY",
+      "CONTINUE_CANONICAL_LEGACY_RECOVERY",
+    ],
+    [
+      true,
+      "SCHEMA_NOT_READY",
+      "MISMATCH",
+      "COMPLETE",
+      "DENY_SCHEMA_RECOVERY_TARGET_NOT_CANONICAL",
     ],
   ] as const)(
     "enforces approved retarget truth table %#",

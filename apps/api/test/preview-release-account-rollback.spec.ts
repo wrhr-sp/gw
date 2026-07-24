@@ -281,8 +281,10 @@ describe("Preview account Worker release safety", () => {
       'DB_DEPENDENCY_UNAVAILABLE "$api_target_state" "$retarget_topology"',
     );
     expect(provisioning).toContain(
-      'SCHEMA_NOT_READY "$api_target_state" API_WEB_LEGACY',
+      'SCHEMA_NOT_READY "$api_target_state" "$recovery_topology"',
     );
+    expect(provisioning).toContain("recovery_topology=API_WEB_LEGACY");
+    expect(provisioning).toContain("recovery_topology=COMPLETE");
     expect(provisioning).toContain("PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED");
     expect(provisioning).toContain('decide "$recovery_approved"');
     expect(provisioning).toContain(
