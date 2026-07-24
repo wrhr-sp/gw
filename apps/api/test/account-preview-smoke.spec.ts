@@ -168,6 +168,27 @@ describe("hosted Preview account-management smoke", () => {
     expect(succeededOutput).not.toContain(sentinel);
   });
 
+  it("preserves safe relationship journey failure codes after cleanup", async () => {
+    for (const failureCode of [
+      "RELATIONSHIP_UI_RENDER",
+      "RELATIONSHIP_UI_END",
+      "RELATIONSHIP_UI_ASSIGN",
+      "RELATIONSHIP_UI_READINESS",
+      "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
+    ]) {
+      await expect(
+        finalizePreviewSmoke({
+          cleanupReference: "safe-ref",
+          cleanupFailed: false,
+          close: async () => undefined,
+          journeyError: new Error("private runtime detail"),
+          journeyFailureCode: failureCode,
+          writeSuccess: () => undefined,
+        }),
+      ).rejects.toThrow(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${failureCode}`);
+    }
+  });
+
   it("verifies canonical housekeeping multi-hotel material fields", () => {
     const attemptPosition = source.indexOf(
       'journeyFailureCode = "ACCOUNT_CREATE_ATTEMPT_READBACK"',
@@ -366,6 +387,16 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain(
       "async function verifyHostedRelationshipManagement",
     );
+    for (const failureCode of [
+      "RELATIONSHIP_UI_RENDER",
+      "RELATIONSHIP_UI_END",
+      "RELATIONSHIP_UI_ASSIGN",
+      "RELATIONSHIP_UI_READINESS",
+      "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
+    ]) {
+      expect(source).toContain(`journeyFailureCode = "${failureCode}"`);
+      expect(helperSource).toContain(`"${failureCode}"`);
+    }
     expect(source).toContain("await context.addCookies");
     expect(source).toContain('{ name: "정상 종료" }');
     expect(source).toContain('label: "Hosted relationship emergency end"');
