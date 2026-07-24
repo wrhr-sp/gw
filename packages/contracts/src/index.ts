@@ -347,6 +347,17 @@ export const hotelAssignmentSchema = z
   .strict();
 export type HotelAssignment = z.infer<typeof hotelAssignmentSchema>;
 
+export const hotelAssignmentMutationResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ assignment: hotelAssignmentSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelAssignmentMutationResponse = z.infer<
+  typeof hotelAssignmentMutationResponseSchema
+>;
+
 export const hotelRelationshipPersonSchema = z
   .object({
     userId: z.uuid(),
@@ -476,6 +487,11 @@ export const hotelDetailResponseSchema = z
     error: z.null(),
   })
   .strict();
+
+export const hotelActivationMutationResponseSchema = hotelDetailResponseSchema;
+export type HotelActivationMutationResponse = z.infer<
+  typeof hotelActivationMutationResponseSchema
+>;
 
 export const authSessionResponseSchema = z
   .object({
