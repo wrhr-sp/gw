@@ -79,12 +79,14 @@ GRANT SELECT ON
   user_groups, user_group_memberships, permission_grants,
   branches, hotel_profiles, idempotency_records, outbox_jobs,
   account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
-  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
+  hotel_room_types, hotel_rooms, hotel_room_status_history
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
 GRANT INSERT ON audit_events, branches, hotel_profiles, auth_identities,
-  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+  hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
+  hotel_room_types, hotel_rooms, hotel_room_status_history
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
   initial_password_change_attempts TO $RUNTIME_ROLE;
@@ -95,6 +97,13 @@ GRANT UPDATE (
   end_date, terminated_at, termination_reason, terminated_by, version, updated_at
 ) ON hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
 TO $RUNTIME_ROLE;
+GRANT UPDATE (name, display_order, is_active, version, updated_by, updated_at)
+  ON hotel_room_types TO $RUNTIME_ROLE;
+GRANT UPDATE (
+  room_number, floor_label, floor_sort_key, room_type_id, status,
+  internal_note, owner_visible_note, planned_resume_date,
+  version, updated_by, updated_at
+) ON hotel_rooms TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
@@ -131,6 +140,106 @@ INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RECONCILER_ROLE', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
 SQL
+
+ROOM_ACL_MISMATCHES="$(psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
+  -v runtime_role="$RUNTIME_ROLE" -v reconciler_role="$RECONCILER_ROLE" \
+  -X -A -t <<'SQL'
+WITH protected_roles(role_name) AS (
+  VALUES (:'runtime_role'::text), (:'reconciler_role'::text)
+), room_tables(table_name) AS (
+  VALUES ('hotel_room_types'::text), ('hotel_rooms'::text),
+    ('hotel_room_status_history'::text)
+), table_privileges(privilege_name) AS (
+  VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
+    ('DELETE'::text), ('TRUNCATE'::text), ('REFERENCES'::text),
+    ('TRIGGER'::text), ('MAINTAIN'::text)
+), table_mismatches AS (
+  SELECT 1
+  FROM protected_roles role
+  CROSS JOIN room_tables room
+  CROSS JOIN table_privileges privilege
+  WHERE has_table_privilege(
+    role.role_name,
+    format('public.%I', room.table_name),
+    privilege.privilege_name
+  ) IS DISTINCT FROM (
+    role.role_name = :'runtime_role'
+    AND privilege.privilege_name IN ('SELECT', 'INSERT')
+  )
+), column_privileges(privilege_name) AS (
+  VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
+    ('REFERENCES'::text)
+), column_mismatches AS (
+  SELECT 1
+  FROM protected_roles role
+  CROSS JOIN room_tables room
+  JOIN information_schema.columns column_info
+    ON column_info.table_schema = 'public'
+   AND column_info.table_name = room.table_name
+  CROSS JOIN column_privileges privilege
+  WHERE has_column_privilege(
+    role.role_name,
+    format('public.%I', room.table_name),
+    column_info.column_name,
+    privilege.privilege_name
+  ) IS DISTINCT FROM (
+    role.role_name = :'runtime_role'
+    AND (
+      privilege.privilege_name IN ('SELECT', 'INSERT')
+      OR (
+        privilege.privilege_name = 'UPDATE'
+        AND (
+          (
+            room.table_name = 'hotel_room_types'
+            AND column_info.column_name = ANY (ARRAY[
+              'name', 'display_order', 'is_active', 'version',
+              'updated_by', 'updated_at'
+            ]::text[])
+          )
+          OR (
+            room.table_name = 'hotel_rooms'
+            AND column_info.column_name = ANY (ARRAY[
+              'room_number', 'floor_label', 'floor_sort_key', 'room_type_id',
+              'status', 'internal_note', 'owner_visible_note',
+              'planned_resume_date', 'version', 'updated_by', 'updated_at'
+            ]::text[])
+          )
+        )
+      )
+    )
+  )
+), schema_mismatches AS (
+  SELECT 1
+  FROM protected_roles role
+  CROSS JOIN (VALUES ('USAGE'::text, true), ('CREATE'::text, false)) expected(privilege_name, allowed)
+  WHERE has_schema_privilege(role.role_name, 'public', expected.privilege_name)
+    IS DISTINCT FROM expected.allowed
+), membership_mismatches AS (
+  SELECT 1
+  FROM pg_auth_members membership
+  JOIN pg_roles protected ON protected.oid = membership.member
+  WHERE protected.rolname IN (:'runtime_role', :'reconciler_role')
+), attribute_mismatches AS (
+  SELECT 1
+  FROM pg_roles role
+  WHERE role.rolname IN (:'runtime_role', :'reconciler_role')
+    AND (role.rolsuper OR role.rolinherit OR role.rolbypassrls)
+)
+SELECT count(*)
+FROM (
+  SELECT 1 FROM table_mismatches
+  UNION ALL SELECT 1 FROM column_mismatches
+  UNION ALL SELECT 1 FROM schema_mismatches
+  UNION ALL SELECT 1 FROM membership_mismatches
+  UNION ALL SELECT 1 FROM attribute_mismatches
+) mismatch;
+SQL
+)"
+if [[ "$ROOM_ACL_MISMATCHES" != "0" ]]; then
+  printf 'WORKER_ROOM_RUNTIME_ACL_MISMATCH\n' >&2
+  exit 1
+fi
+printf 'WORKER_ROOM_RUNTIME_ACL_OK\n'
 
 RUNTIME_DATABASE_URL="$(python - "$TEST_DATABASE_URL" "$RUNTIME_ROLE" "$RUNTIME_PASSWORD" <<'PY'
 from urllib.parse import quote, urlsplit, urlunsplit
