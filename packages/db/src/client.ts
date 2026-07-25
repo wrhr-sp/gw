@@ -2155,6 +2155,7 @@ export async function probeDatabaseReadiness(
           actualColumnPrivileges.has(privilege),
         ),
     );
+    const requiredRolloutPhase = options.requiredSchemaPhase;
     const observedColumnAclPhase =
       matchingColumnAclPhases.length === 1
         ? matchingColumnAclPhases[0]?.phase
@@ -2163,16 +2164,21 @@ export async function probeDatabaseReadiness(
               ({ phase }) => phase === "EXPAND_IDENTITY_LOCK",
             ) &&
             matchingColumnAclPhases.some(({ phase }) => phase === "CONTRACT")
-          ? schemaPhase === "CONTRACT"
+          ? requiredRolloutPhase === "CONTRACT"
             ? "CONTRACT"
-            : "EXPAND_IDENTITY_LOCK"
+            : requiredRolloutPhase === "EXPAND_IDENTITY_LOCK"
+              ? "EXPAND_IDENTITY_LOCK"
+              : requiredRolloutPhase === undefined
+                ? schemaPhase === "CONTRACT"
+                  ? "CONTRACT"
+                  : "EXPAND_IDENTITY_LOCK"
+                : undefined
           : matchingColumnAclPhases.length === columnPhaseDefinitions.length &&
               actualColumnPrivileges.size === 0
             ? observedSchemaAclPhase === "CONTRACT"
               ? "CONTRACT"
               : "EXPAND"
             : undefined;
-    const requiredRolloutPhase = options.requiredSchemaPhase;
     const approvedAclTuple = requiredRolloutPhase
       ? observedColumnAclPhase === requiredRolloutPhase &&
         observedSchemaAclPhase ===

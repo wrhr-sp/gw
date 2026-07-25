@@ -153,7 +153,10 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("matchingColumnAclPhases.length === 1");
     expect(source).toContain("matchingColumnAclPhases.length === 2");
     expect(source).toContain(
-      'schemaPhase === "CONTRACT"\n            ? "CONTRACT"\n            : "EXPAND_IDENTITY_LOCK"',
+      'requiredRolloutPhase === "CONTRACT"\n            ? "CONTRACT"\n            : requiredRolloutPhase === "EXPAND_IDENTITY_LOCK"',
+    );
+    expect(source).toContain(
+      'requiredRolloutPhase === undefined\n                ? schemaPhase === "CONTRACT"',
     );
     expect(provisionSource).toContain(
       'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
