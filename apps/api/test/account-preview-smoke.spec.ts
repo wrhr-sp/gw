@@ -178,7 +178,11 @@ describe("hosted Preview account-management smoke", () => {
       "RELATIONSHIP_UI_END",
       "RELATIONSHIP_UI_END_DIALOG",
       "RELATIONSHIP_UI_END_MUTATION_RELOAD",
+      "RELATIONSHIP_UI_END_MUTATION",
+      "RELATIONSHIP_UI_END_RELOAD",
       "RELATIONSHIP_UI_ASSIGN",
+      "RELATIONSHIP_UI_ASSIGN_MUTATION",
+      "RELATIONSHIP_UI_ASSIGN_RELOAD",
       "RELATIONSHIP_UI_READINESS",
       "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
     ]) {
@@ -290,6 +294,9 @@ describe("hosted Preview account-management smoke", () => {
     await expect(
       runHostedMutationWithReload({
         acceptedStatuses: [200],
+        beforeReload: async () => {
+          events.push("before-reload");
+        },
         click: async () => {
           events.push("click");
         },
@@ -360,6 +367,9 @@ describe("hosted Preview account-management smoke", () => {
       await expect(
         runHostedMutationWithReload({
           acceptedStatuses: [200],
+          beforeReload: async () => {
+            events.push("before-reload");
+          },
           click: async () => {
             events.push("click");
           },
@@ -377,7 +387,13 @@ describe("hosted Preview account-management smoke", () => {
     } finally {
       events.push("close");
     }
-    expect(events).toEqual(["response", "click", "reload", "close"]);
+    expect(events).toEqual([
+      "response",
+      "click",
+      "before-reload",
+      "reload",
+      "close",
+    ]);
   });
 
   it("exercises hosted relationship termination, privacy-minimal reassignment, and fail-closed readiness", () => {
@@ -399,8 +415,11 @@ describe("hosted Preview account-management smoke", () => {
       "RELATIONSHIP_UI_RENDER_ASSIGNMENT",
       "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD",
       "RELATIONSHIP_UI_END_DIALOG",
-      "RELATIONSHIP_UI_END_MUTATION_RELOAD",
+      "RELATIONSHIP_UI_END_MUTATION",
+      "RELATIONSHIP_UI_END_RELOAD",
       "RELATIONSHIP_UI_ASSIGN",
+      "RELATIONSHIP_UI_ASSIGN_MUTATION",
+      "RELATIONSHIP_UI_ASSIGN_RELOAD",
       "RELATIONSHIP_UI_READINESS",
       "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
     ]) {
