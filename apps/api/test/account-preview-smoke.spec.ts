@@ -405,6 +405,9 @@ describe("hosted Preview account-management smoke", () => {
       expect(helperSource).toContain(`"${failureCode}"`);
     }
     expect(source).toContain("await context.addCookies");
+    expect(source).toMatch(
+      /relationshipHeading\.waitFor[\s\S]*?targetAssignment\.waitFor\(\{ state: "visible", timeout: 60_000 \}\)[\s\S]*?targetAssignment\.count\(\)/u,
+    );
     expect(source).toContain('{ name: "정상 종료" }');
     expect(source).toContain('label: "Hosted relationship emergency end"');
     expect(source).toContain(
