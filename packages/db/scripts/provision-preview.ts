@@ -1504,14 +1504,10 @@ try {
       from ${apiRuntimeTableGrantees}, ${reconcilerRole};
     grant update (updated_at) on branches, hotel_profiles
       to ${apiRuntimeTableGrantees};
+    grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};
     grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)
       on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
       to ${apiRuntimeTableGrantees};
-    ${
-      contractCompatibleAclPhase
-        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};`
-        : ""
-    }
     ${
       identityLockPhase
         ? `grant update (updated_at) on auth_identities to ${apiRuntimeTableGrantees};`
