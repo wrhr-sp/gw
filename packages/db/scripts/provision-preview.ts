@@ -34,6 +34,10 @@ const previewUserSuspendGrantId = "73000000-0000-4000-8000-000000000004";
 const previewHotelAssignmentGrantId = "73000000-0000-4000-8000-000000000005";
 const previewHotelOwnerGrantId = "73000000-0000-4000-8000-000000000006";
 const previewHotelStatusGrantId = "73000000-0000-4000-8000-000000000007";
+const previewHotelRoomReadGrantId = "73000000-0000-4000-8000-000000000008";
+const previewHotelRoomManageGrantId = "73000000-0000-4000-8000-000000000009";
+const previewHotelRoomTypeManageGrantId =
+  "73000000-0000-4000-8000-000000000010";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -414,12 +418,18 @@ try {
       "0018_hotel_support_assignment_overlap",
       "0018_hotel_support_assignment_overlap.sql",
     ],
+    ["0019_hotel_room_management", "0019_hotel_room_management.sql"],
+    [
+      "0022_hotel_room_contract_hardening",
+      "0022_hotel_room_contract_hardening.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
     "0010_global_login_id_contract",
     "0012_account_provider_exact_dispatch_contract",
     "0015_neon_definer_contract_hardening",
+    "0022_hotel_room_contract_hardening",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -948,6 +958,90 @@ try {
     ) {
       fail(
         "Existing Preview account permission grants do not match the approved seed",
+      );
+    }
+    await sql`
+      insert into permission_grants (
+        id, company_id, branch_id, subject_type, subject_id,
+        permission_code, effect, valid_from, valid_until, granted_by, reason
+      ) values
+        (${previewHotelRoomReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_ROOM_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 객실조회 권한'),
+        (${previewHotelRoomManageGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_ROOM_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 객실관리 권한'),
+        (${previewHotelRoomTypeManageGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_ROOM_TYPE_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 객실유형관리 권한')
+      on conflict (id) do nothing
+    `;
+    const roomGrants = await sql<
+      {
+        branch_id: string | null;
+        company_id: string;
+        effect: string;
+        granted_by: string;
+        id: string;
+        permission_code: string;
+        reason: string;
+        subject_id: string;
+        subject_type: string;
+        valid_from: string;
+        valid_until: string | null;
+        version: number;
+      }[]
+    >`
+      select id::text, company_id::text, branch_id::text, subject_type,
+             subject_id::text, permission_code, effect,
+             to_char(valid_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as valid_from,
+             valid_until::text, granted_by::text, reason, version
+        from permission_grants
+       where id in (
+         ${previewHotelRoomReadGrantId}::uuid,
+         ${previewHotelRoomManageGrantId}::uuid,
+         ${previewHotelRoomTypeManageGrantId}::uuid
+       )
+    `;
+    const expectedRoomGrants = new Map([
+      [
+        "HOTEL_ROOM_READ",
+        {
+          id: previewHotelRoomReadGrantId,
+          reason: "Preview 초기 관리자 객실조회 권한",
+        },
+      ],
+      [
+        "HOTEL_ROOM_MANAGE",
+        {
+          id: previewHotelRoomManageGrantId,
+          reason: "Preview 초기 관리자 객실관리 권한",
+        },
+      ],
+      [
+        "HOTEL_ROOM_TYPE_MANAGE",
+        {
+          id: previewHotelRoomTypeManageGrantId,
+          reason: "Preview 초기 관리자 객실유형관리 권한",
+        },
+      ],
+    ]);
+    if (
+      roomGrants.length !== expectedRoomGrants.size ||
+      roomGrants.some((grant) => {
+        const expected = expectedRoomGrants.get(grant.permission_code);
+        return (
+          !expected ||
+          grant.id !== expected.id ||
+          grant.company_id !== previewCompanyId ||
+          grant.branch_id !== null ||
+          grant.subject_type !== "USER" ||
+          grant.subject_id !== previewUserId ||
+          grant.effect !== "ALLOW" ||
+          grant.valid_from !== "2026-01-01T00:00:00Z" ||
+          grant.valid_until !== null ||
+          grant.granted_by !== previewUserId ||
+          grant.reason !== expected.reason ||
+          grant.version !== 1
+        );
+      })
+    ) {
+      fail(
+        "Existing Preview room permission grants do not match the approved seed",
       );
     }
     await sql`
@@ -1482,14 +1576,23 @@ try {
       branches, hotel_profiles, idempotency_records, outbox_jobs,
       account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
       hotel_staff_assignments,
-      housekeeping_hotel_links, hotel_owner_assignments
+      housekeeping_hotel_links, hotel_owner_assignments,
+      hotel_room_types, hotel_rooms, hotel_room_status_history
     to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_login_transactions to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeTableGrantees};
 
     grant insert on audit_events, branches, hotel_profiles, auth_identities,
-      hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+      hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
+      hotel_room_types, hotel_rooms, hotel_room_status_history
     to ${apiRuntimeTableGrantees};
+    grant update (name, display_order, is_active, version, updated_by, updated_at)
+      on hotel_room_types to ${apiRuntimeTableGrantees};
+    grant update (
+      room_number, floor_label, floor_sort_key, room_type_id, status,
+      internal_note, owner_visible_note, planned_resume_date,
+      version, updated_by, updated_at
+    ) on hotel_rooms to ${apiRuntimeTableGrantees};
     grant insert, update on users, account_provisioning_attempts,
       initial_password_change_attempts to ${apiRuntimeTableGrantees};
     grant insert on login_id_registry to ${apiRuntimeTableGrantees};

@@ -24,6 +24,14 @@ const PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256 =
   "be07b10542ba804bb4d3d0a5afa3e4604e9e4e5c32e745a6ad74aea45b214bbd";
 const REJECT_HOTEL_RELATIONSHIP_DELETE_PROSRC_SHA256 =
   "63543136e8b51cb928e4f0991885dcff14c82179fbff724aecb886c743c771e7";
+const ENFORCE_HOTEL_ROOM_TYPE_SCOPE_PROSRC_SHA256 =
+  "286caaed14c7f9b8cb4e9f7c923ce9cf3c35c1601afdfff4491bfbf7504f6301";
+const REJECT_HOTEL_ROOM_TYPE_SCOPE_CHANGE_PROSRC_SHA256 =
+  "ba32fe70a4efb34567b00e952d101cccea173ad71a663763f8da6ba8d24f100a";
+const REJECT_HOTEL_ROOM_DELETE_PROSRC_SHA256 =
+  "b74c7a7235f0854bc8793be2e0d56b2e6156813b45b0ca2e5f81331c303e6a1b";
+const REJECT_HOTEL_ROOM_HISTORY_CHANGE_PROSRC_SHA256 =
+  "d009a84452fcd3b15d40a4297249ac6bffb48a12aeed053481e5c5dfeb189949";
 const RUNTIME_IS_SCHEMA_OWNER_EXPAND_PROSRC_SHA256 =
   "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221";
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
@@ -90,6 +98,9 @@ const REQUIRED_TABLES = [
   "hotel_staff_assignments",
   "housekeeping_hotel_links",
   "hotel_owner_assignments",
+  "hotel_room_types",
+  "hotel_rooms",
+  "hotel_room_status_history",
   "company_bootstrap_states",
   "reconciliation_company_registry",
 ] as const;
@@ -140,6 +151,14 @@ const REQUIRED_COLUMNS = [
   ["login_id_registry", "target_user_id"],
   ["initial_password_change_attempts", "status"],
   ["initial_password_change_attempts", "lease_expires_at"],
+  ["hotel_room_types", "scope"],
+  ["hotel_room_types", "is_active"],
+  ["hotel_rooms", "room_number"],
+  ["hotel_rooms", "room_type_id"],
+  ["hotel_rooms", "status"],
+  ["hotel_rooms", "version"],
+  ["hotel_room_status_history", "previous_status"],
+  ["hotel_room_status_history", "next_status"],
 ] as const;
 
 const HOTEL_RELATIONSHIP_REQUIRED_COLUMNS = [
@@ -207,6 +226,81 @@ const REQUIRED_FOREIGN_KEY_CONSTRAINTS = [
     definition:
       "foreign key (company_id, actor_user_id) references users(company_id, id)",
   },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_company_id_branch_id_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_company_id_created_by_fkey",
+    definition:
+      "foreign key (company_id, created_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_company_id_updated_by_fkey",
+    definition:
+      "foreign key (company_id, updated_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_company_id_branch_id_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_company_id_room_type_id_fkey",
+    definition:
+      "foreign key (company_id, room_type_id) references hotel_room_types(company_id, id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_company_id_created_by_fkey",
+    definition:
+      "foreign key (company_id, created_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_company_id_updated_by_fkey",
+    definition:
+      "foreign key (company_id, updated_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_company_id_branch_id_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_room_hotel_fkey",
+    definition:
+      "foreign key (company_id, branch_id, room_id) references hotel_rooms(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_company_id_changed_by_fkey",
+    definition:
+      "foreign key (company_id, changed_by) references users(company_id, id)",
+  },
 ] as const;
 
 const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
@@ -215,6 +309,21 @@ const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
     name: "login_id_registry_pkey",
     definition: "primary key (login_id)",
   },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_pkey",
+    definition: "primary key (id)",
+  },
 ] as const;
 
 const REQUIRED_EXCLUSION_CONSTRAINTS = [
@@ -222,13 +331,13 @@ const REQUIRED_EXCLUSION_CONSTRAINTS = [
     table: "hotel_staff_assignments",
     name: "hotel_staff_assignments_support_hotel_period_excl",
     definition:
-      "exclude using gist (company_id with =, branch_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'support'::text) and (terminated_at is null)))",
+      "exclude using gist (company_id with =, branch_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'SUPPORT'::text) and (terminated_at is null)))",
   },
   {
     table: "hotel_staff_assignments",
     name: "hotel_staff_assignments_primary_period_excl",
     definition:
-      "exclude using gist (company_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'primary'::text) and (terminated_at is null)))",
+      "exclude using gist (company_id with =, user_id with =, daterange(start_date, coalesce(end_date, 'infinity'::date), '[]'::text) with &&) where (((assignment_type = 'PRIMARY'::text) and (terminated_at is null)))",
   },
   {
     table: "housekeeping_hotel_links",
@@ -271,10 +380,36 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
     name: "login_id_registry_company_id_actor_user_id_idempotency_key_key",
     table: "login_id_registry",
   },
+  {
+    definition: "unique (company_id, id)",
+    name: "hotel_room_types_company_id_id_key",
+    table: "hotel_room_types",
+  },
+  {
+    definition:
+      "unique nulls not distinct (company_id, branch_id, normalized_name)",
+    name: "hotel_room_types_company_id_branch_id_normalized_name_key",
+    table: "hotel_room_types",
+  },
+  {
+    definition: "unique (company_id, id)",
+    name: "hotel_rooms_company_id_id_key",
+    table: "hotel_rooms",
+  },
+  {
+    definition: "unique (company_id, branch_id, id)",
+    name: "hotel_rooms_company_branch_id_key",
+    table: "hotel_rooms",
+  },
+  {
+    definition: "unique (company_id, branch_id, room_number)",
+    name: "hotel_rooms_company_id_branch_id_room_number_key",
+    table: "hotel_rooms",
+  },
 ] as const;
 
 const REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK =
-  "check (((job_type <> 'account_provider_compensate'::text) or (status = any (array['succeeded'::text, 'cancelled'::text, 'dead_letter'::text])) or coalesce(((jsonb_typeof((payload -> 'provisioningattemptid'::text)) = 'string'::text) and ((payload ->> 'provisioningattemptid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'originalerrorcode'::text)) = 'string'::text) and ((payload ->> 'originalerrorcode'::text) = any (array['account_duplicate'::text, 'forbidden'::text, 'internal_error'::text])) and (jsonb_typeof((payload -> 'userid'::text)) = 'string'::text) and ((payload ->> 'userid'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'providersubject'::text)) = 'string'::text) and ((length((payload ->> 'providersubject'::text)) >= 1) and (length((payload ->> 'providersubject'::text)) <= 200)) and ((payload ->> 'action'::text) = 'compensate'::text)), false)))";
+  "check (((job_type <> 'ACCOUNT_PROVIDER_COMPENSATE'::text) or (status = any (array['SUCCEEDED'::text, 'CANCELLED'::text, 'DEAD_LETTER'::text])) or coalesce(((jsonb_typeof((payload -> 'provisioningAttemptId'::text)) = 'string'::text) and ((payload ->> 'provisioningAttemptId'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'originalErrorCode'::text)) = 'string'::text) and ((payload ->> 'originalErrorCode'::text) = any (array['ACCOUNT_DUPLICATE'::text, 'FORBIDDEN'::text, 'INTERNAL_ERROR'::text])) and (jsonb_typeof((payload -> 'userId'::text)) = 'string'::text) and ((payload ->> 'userId'::text) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) and (jsonb_typeof((payload -> 'providerSubject'::text)) = 'string'::text) and ((length((payload ->> 'providerSubject'::text)) >= 1) and (length((payload ->> 'providerSubject'::text)) <= 200)) and ((payload ->> 'action'::text) = 'COMPENSATE'::text)), false)))";
 
 const REQUIRED_CHECK_CONSTRAINTS = [
   {
@@ -356,13 +491,116 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     table: "branches",
     name: "branches_branch_code_canonical_check",
     definition:
-      "check (((branch_code = upper(btrim(branch_code))) and (branch_code ~ '^[a-z0-9][a-z0-9_-]*$'::text)))",
+      "check (((branch_code = upper(btrim(branch_code))) and (branch_code ~ '^[A-Z0-9][A-Z0-9_-]*$'::text)))",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_scope_shape",
+    definition:
+      "check ((((scope = 'COMPANY'::text) and (branch_id is null)) or ((scope = 'HOTEL'::text) and (branch_id is not null))))",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_scope_check",
+    definition: "check ((scope = any (array['COMPANY'::text, 'HOTEL'::text])))",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_name_check",
+    definition:
+      "check (((btrim(name) <> ''::text) and (char_length(name) <= 100)))",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_display_order_check",
+    definition: "check (((display_order >= 0) and (display_order <= 100000)))",
+  },
+  {
+    table: "hotel_room_types",
+    name: "hotel_room_types_version_check",
+    definition: "check ((version > 0))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_room_number_check",
+    definition:
+      "check (((btrim(room_number) <> ''::text) and (char_length(room_number) <= 40)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_floor_label_check",
+    definition:
+      "check (((btrim(floor_label) <> ''::text) and (char_length(floor_label) <= 40)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_floor_sort_key_check",
+    definition:
+      "check (((floor_sort_key >= '-1000'::integer) and (floor_sort_key <= 1000)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_status_check",
+    definition:
+      "check ((status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_resume_shape",
+    definition:
+      "check (((status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_internal_note_check",
+    definition:
+      "check (((internal_note is null) or (char_length(internal_note) <= 1000)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_owner_visible_note_check",
+    definition:
+      "check (((owner_visible_note is null) or (char_length(owner_visible_note) <= 1000)))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_version_check",
+    definition: "check ((version > 0))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_previous_status_check",
+    definition:
+      "check ((previous_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_next_status_check",
+    definition:
+      "check ((next_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_reason_check",
+    definition:
+      "check (((btrim(reason) <> ''::text) and (char_length(reason) <= 500)))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_transition",
+    definition: "check ((previous_status <> next_status))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_resume_shape",
+    definition:
+      "check (((next_status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
   },
   {
     table: "idempotency_records",
     name: "idempotency_records_completed_result_check",
     definition:
-      "check (((status <> 'completed'::text) or ((completed_at is not null) and (resource_type is not null) and (resource_id is not null) and (audit_event_id is not null) and (result_snapshot is not null))))",
+      "check (((status <> 'COMPLETED'::text) or ((completed_at is not null) and (resource_type is not null) and (resource_id is not null) and (audit_event_id is not null) and (result_snapshot is not null))))",
   },
   {
     table: "login_id_registry",
@@ -439,7 +677,7 @@ const REQUIRED_SECURITY_CHECK_CONSTRAINTS = [
   {
     table: "auth_credential_rate_limits",
     name: "auth_credential_rate_limits_scope_check",
-    definition: "check ((scope = any (array['ip'::text, 'account'::text])))",
+    definition: "check ((scope = any (array['IP'::text, 'ACCOUNT'::text])))",
   },
   {
     table: "auth_credential_rate_limits",
@@ -468,7 +706,7 @@ const REQUIRED_INDEXES = [
   {
     name: "branches_active_hotel_name_unique_idx",
     definition:
-      "create unique index branches_active_hotel_name_unique_idx on public.branches using btree (company_id, lower(btrim(name))) where ((branch_type = 'hotel'::text) and (status = 'active'::text))",
+      "create unique index branches_active_hotel_name_unique_idx on public.branches using btree (company_id, lower(btrim(name))) where ((branch_type = 'HOTEL'::text) and (status = 'ACTIVE'::text))",
   },
   {
     name: "auth_login_transactions_browser_binding_unique_idx",
@@ -503,7 +741,7 @@ const REQUIRED_INDEXES = [
   {
     name: "hotel_staff_assignments_active_primary_user_unique_idx",
     definition:
-      "create unique index hotel_staff_assignments_active_primary_user_unique_idx on public.hotel_staff_assignments using btree (company_id, user_id) where ((end_date is null) and (assignment_type = 'primary'::text))",
+      "create unique index hotel_staff_assignments_active_primary_user_unique_idx on public.hotel_staff_assignments using btree (company_id, user_id) where ((end_date is null) and (assignment_type = 'PRIMARY'::text))",
   },
   {
     name: "hotel_staff_assignments_active_lookup_idx",
@@ -513,22 +751,42 @@ const REQUIRED_INDEXES = [
   {
     name: "account_provisioning_attempts_active_user_unique_idx",
     definition:
-      "create unique index account_provisioning_attempts_active_user_unique_idx on public.account_provisioning_attempts using btree (company_id, target_user_id) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_confirmed'::text, 'recovery_required'::text, 'compensation_required'::text]))",
+      "create unique index account_provisioning_attempts_active_user_unique_idx on public.account_provisioning_attempts using btree (company_id, target_user_id) where (status = any (array['RESERVED_NOT_DISPATCHED'::text, 'DISPATCHED'::text, 'PROVIDER_CONFIRMED'::text, 'RECOVERY_REQUIRED'::text, 'COMPENSATION_REQUIRED'::text]))",
   },
   {
     name: "account_provisioning_recovery_idx",
     definition:
-      "create index account_provisioning_recovery_idx on public.account_provisioning_attempts using btree (company_id, status, lease_expires_at, updated_at) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_confirmed'::text, 'recovery_required'::text, 'compensation_required'::text, 'operator_required'::text]))",
+      "create index account_provisioning_recovery_idx on public.account_provisioning_attempts using btree (company_id, status, lease_expires_at, updated_at) where (status = any (array['RESERVED_NOT_DISPATCHED'::text, 'DISPATCHED'::text, 'PROVIDER_CONFIRMED'::text, 'RECOVERY_REQUIRED'::text, 'COMPENSATION_REQUIRED'::text, 'OPERATOR_REQUIRED'::text]))",
   },
   {
     name: "initial_password_change_attempts_active_user_unique_idx",
     definition:
-      "create unique index initial_password_change_attempts_active_user_unique_idx on public.initial_password_change_attempts using btree (company_id, user_id) where (status = any (array['reserved_not_dispatched'::text, 'dispatched'::text, 'provider_updated'::text, 'recovery_required'::text]))",
+      "create unique index initial_password_change_attempts_active_user_unique_idx on public.initial_password_change_attempts using btree (company_id, user_id) where (status = any (array['RESERVED_NOT_DISPATCHED'::text, 'DISPATCHED'::text, 'PROVIDER_UPDATED'::text, 'RECOVERY_REQUIRED'::text]))",
   },
   {
     name: "account_provider_outbox_ready_idx",
     definition:
-      "create index account_provider_outbox_ready_idx on public.outbox_jobs using btree (company_id, status, available_at, created_at) where ((job_type = any (array['account_provider_deactivate'::text, 'account_provider_compensate'::text])) and (status = any (array['pending'::text, 'failed'::text, 'processing'::text])))",
+      "create index account_provider_outbox_ready_idx on public.outbox_jobs using btree (company_id, status, available_at, created_at) where ((job_type = any (array['ACCOUNT_PROVIDER_DEACTIVATE'::text, 'ACCOUNT_PROVIDER_COMPENSATE'::text])) and (status = any (array['PENDING'::text, 'FAILED'::text, 'PROCESSING'::text])))",
+  },
+  {
+    name: "hotel_room_types_scope_list_idx",
+    definition:
+      "create index hotel_room_types_scope_list_idx on public.hotel_room_types using btree (company_id, branch_id, is_active, display_order, normalized_name)",
+  },
+  {
+    name: "hotel_rooms_hotel_list_idx",
+    definition:
+      "create index hotel_rooms_hotel_list_idx on public.hotel_rooms using btree (company_id, branch_id, floor_sort_key, room_number, id)",
+  },
+  {
+    name: "hotel_rooms_hotel_status_idx",
+    definition:
+      "create index hotel_rooms_hotel_status_idx on public.hotel_rooms using btree (company_id, branch_id, status, floor_sort_key, room_number)",
+  },
+  {
+    name: "hotel_room_status_history_room_idx",
+    definition:
+      "create index hotel_room_status_history_room_idx on public.hotel_room_status_history using btree (company_id, branch_id, room_id, changed_at desc)",
   },
 ] as const;
 
@@ -555,6 +813,12 @@ const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "hotel_owner_assignments:SELECT",
   "hotel_profiles:INSERT",
   "hotel_profiles:SELECT",
+  "hotel_room_status_history:INSERT",
+  "hotel_room_status_history:SELECT",
+  "hotel_room_types:INSERT",
+  "hotel_room_types:SELECT",
+  "hotel_rooms:INSERT",
+  "hotel_rooms:SELECT",
   "hotel_staff_assignments:INSERT",
   "hotel_staff_assignments:SELECT",
   "housekeeping_hotel_links:INSERT",
@@ -613,6 +877,23 @@ const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
   "hotel_profiles:version:UPDATE",
+  "hotel_room_types:display_order:UPDATE",
+  "hotel_room_types:is_active:UPDATE",
+  "hotel_room_types:name:UPDATE",
+  "hotel_room_types:updated_at:UPDATE",
+  "hotel_room_types:updated_by:UPDATE",
+  "hotel_room_types:version:UPDATE",
+  "hotel_rooms:floor_label:UPDATE",
+  "hotel_rooms:floor_sort_key:UPDATE",
+  "hotel_rooms:internal_note:UPDATE",
+  "hotel_rooms:owner_visible_note:UPDATE",
+  "hotel_rooms:planned_resume_date:UPDATE",
+  "hotel_rooms:room_number:UPDATE",
+  "hotel_rooms:room_type_id:UPDATE",
+  "hotel_rooms:status:UPDATE",
+  "hotel_rooms:updated_at:UPDATE",
+  "hotel_rooms:updated_by:UPDATE",
+  "hotel_rooms:version:UPDATE",
   "hotel_owner_assignments:end_date:UPDATE",
   "hotel_owner_assignments:terminated_at:UPDATE",
   "hotel_owner_assignments:terminated_by:UPDATE",
@@ -708,6 +989,36 @@ const REQUIRED_TRIGGERS = [
     table: "hotel_owner_assignments",
     functionName: "reject_hotel_relationship_delete",
   },
+  {
+    name: "hotel_room_types_scope_immutable",
+    table: "hotel_room_types",
+    functionName: "reject_hotel_room_type_scope_change",
+  },
+  {
+    name: "hotel_rooms_room_type_scope_guard",
+    table: "hotel_rooms",
+    functionName: "enforce_hotel_room_type_scope",
+  },
+  {
+    name: "hotel_room_types_no_delete",
+    table: "hotel_room_types",
+    functionName: "reject_hotel_room_delete",
+  },
+  {
+    name: "hotel_rooms_no_delete",
+    table: "hotel_rooms",
+    functionName: "reject_hotel_room_delete",
+  },
+  {
+    name: "hotel_room_status_history_no_update",
+    table: "hotel_room_status_history",
+    functionName: "reject_hotel_room_history_change",
+  },
+  {
+    name: "hotel_room_status_history_no_delete",
+    table: "hotel_room_status_history",
+    functionName: "reject_hotel_room_history_change",
+  },
 ] as const;
 
 const REQUIRED_RLS_POLICIES = [
@@ -758,11 +1069,13 @@ const REQUIRED_RLS_POLICIES = [
     policy: "hotel_owner_assignments_company_isolation",
     table: "hotel_owner_assignments",
   },
+  { policy: "hotel_room_types_company_isolation", table: "hotel_room_types" },
+  { policy: "hotel_rooms_company_isolation", table: "hotel_rooms" },
+  {
+    policy: "hotel_room_status_history_company_isolation",
+    table: "hotel_room_status_history",
+  },
 ] as const;
-
-function normalizeDefinition(value: string) {
-  return value.toLowerCase().replaceAll('"', "").replace(/\s+/g, " ").trim();
-}
 
 function normalizePolicyDefinition(value: string) {
   const sqlLiterals: string[] = [];
@@ -783,6 +1096,10 @@ function normalizePolicyDefinition(value: string) {
       /__sql_literal_(\d+)__/gu,
       (_placeholder, index: string) => sqlLiterals[Number(index)] ?? "",
     );
+}
+
+function normalizeDefinition(value: string) {
+  return normalizePolicyDefinition(value);
 }
 
 function isExactTenantPolicyExpression(
@@ -878,6 +1195,8 @@ export async function probeDatabaseReadiness(
         hotel_integrity_marker_count: number;
         hotel_relationship_marker_count: number;
         hotel_support_overlap_marker_count: number;
+        hotel_room_marker_count: number;
+        hotel_room_contract_marker_count: number;
       }[]
     >`
       select count(*) filter (
@@ -911,7 +1230,13 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_integrity_marker_count,
              count(*) filter (
                where version = '0018_hotel_support_assignment_overlap'
-             )::integer as hotel_support_overlap_marker_count
+             )::integer as hotel_support_overlap_marker_count,
+             count(*) filter (
+               where version = '0019_hotel_room_management'
+             )::integer as hotel_room_marker_count,
+             count(*) filter (
+               where version = '0022_hotel_room_contract_hardening'
+             )::integer as hotel_room_contract_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -931,7 +1256,9 @@ export async function probeDatabaseReadiness(
         '0015_neon_definer_contract_hardening',
         '0016_hotel_relationship_management',
         '0017_hotel_relationship_integrity_hardening',
-        '0018_hotel_support_assignment_overlap'
+        '0018_hotel_support_assignment_overlap',
+        '0019_hotel_room_management',
+        '0022_hotel_room_contract_hardening'
       )
     `;
     const schemaPhase =
@@ -946,7 +1273,11 @@ export async function probeDatabaseReadiness(
       !schemaPhase ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
       migrationRows[0].hotel_integrity_marker_count !== 1 ||
-      migrationRows[0].hotel_support_overlap_marker_count !== 1
+      migrationRows[0].hotel_support_overlap_marker_count !== 1 ||
+      migrationRows[0].hotel_room_marker_count !== 1 ||
+      (schemaPhase === "EXPAND"
+        ? migrationRows[0].hotel_room_contract_marker_count !== 0
+        : migrationRows[0].hotel_room_contract_marker_count !== 1)
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -958,9 +1289,13 @@ export async function probeDatabaseReadiness(
       return { status: "SCHEMA_NOT_READY" };
     const [hotelPermissionCatalog] = await sql<{ count: number }[]>`
       select count(*)::integer as count from permissions
-      where code in ('HOTEL_ASSIGNMENT_MANAGE', 'HOTEL_OWNER_MANAGE', 'HOTEL_STATUS_MANAGE', 'HOTEL_PERMISSION_MANAGE')
+      where code in (
+        'HOTEL_ASSIGNMENT_MANAGE', 'HOTEL_OWNER_MANAGE', 'HOTEL_STATUS_MANAGE',
+        'HOTEL_PERMISSION_MANAGE', 'HOTEL_ROOM_READ', 'HOTEL_ROOM_MANAGE',
+        'HOTEL_ROOM_TYPE_MANAGE'
+      )
     `;
-    if (hotelPermissionCatalog?.count !== 4)
+    if (hotelPermissionCatalog?.count !== 7)
       return { status: "SCHEMA_NOT_READY" };
 
     const [definerMembershipTopology] = await sql<
@@ -2205,12 +2540,22 @@ export async function probeDatabaseReadiness(
         function_source: string;
         function_acl_safe: boolean;
         function_contract_safe: boolean;
+        protected_columns: string[];
         trigger_type: number;
       }[]
     >`
       select trigger_record.tgname as trigger_name,
              trigger_record.tgenabled as enabled,
              trigger_record.tgtype::integer as trigger_type,
+             array(
+               select protected_column.attname
+               from unnest(trigger_record.tgattr::smallint[]) with ordinality
+                 protected_attribute(attribute_number, attribute_order)
+               join pg_attribute protected_column
+                 on protected_column.attrelid = trigger_record.tgrelid
+                and protected_column.attnum = protected_attribute.attribute_number
+               order by protected_attribute.attribute_order
+             ) as protected_columns,
              trigger_table.relname as table_name,
              trigger_function.proname as function_name,
              trigger_function.prosrc as function_source,
@@ -2296,10 +2641,80 @@ export async function probeDatabaseReadiness(
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
+    const roomTriggerContracts = new Map([
+      [
+        "hotel_room_types_scope_immutable",
+        {
+          digest: REJECT_HOTEL_ROOM_TYPE_SCOPE_CHANGE_PROSRC_SHA256,
+          protectedColumns: ["company_id", "scope", "branch_id"],
+          type: 19,
+        },
+      ],
+      [
+        "hotel_rooms_room_type_scope_guard",
+        {
+          digest: ENFORCE_HOTEL_ROOM_TYPE_SCOPE_PROSRC_SHA256,
+          protectedColumns: ["company_id", "branch_id", "room_type_id"],
+          type: 23,
+        },
+      ],
+      [
+        "hotel_room_types_no_delete",
+        {
+          digest: REJECT_HOTEL_ROOM_DELETE_PROSRC_SHA256,
+          protectedColumns: [],
+          type: 11,
+        },
+      ],
+      [
+        "hotel_rooms_no_delete",
+        {
+          digest: REJECT_HOTEL_ROOM_DELETE_PROSRC_SHA256,
+          protectedColumns: [],
+          type: 11,
+        },
+      ],
+      [
+        "hotel_room_status_history_no_update",
+        {
+          digest: REJECT_HOTEL_ROOM_HISTORY_CHANGE_PROSRC_SHA256,
+          protectedColumns: [],
+          type: 19,
+        },
+      ],
+      [
+        "hotel_room_status_history_no_delete",
+        {
+          digest: REJECT_HOTEL_ROOM_HISTORY_CHANGE_PROSRC_SHA256,
+          protectedColumns: [],
+          type: 11,
+        },
+      ],
+    ]);
+    for (const [triggerName, expected] of roomTriggerContracts) {
+      const trigger = triggerRows.find(
+        (candidate) => candidate.trigger_name === triggerName,
+      );
+      if (
+        !trigger ||
+        trigger.trigger_type !== expected.type ||
+        trigger.protected_columns.length !== expected.protectedColumns.length ||
+        trigger.protected_columns.some(
+          (column, index) => column !== expected.protectedColumns[index],
+        ) ||
+        trigger.function_owner !== migrationOwner.role_name ||
+        !trigger.function_acl_safe ||
+        !trigger.function_contract_safe ||
+        (await sourceSha256(trigger.function_source)) !== expected.digest
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+    }
 
     const rlsRows = await sql<
       {
         applies_to_current_role: boolean;
+        roles_public: boolean;
         policy_name: string;
         policy_command: string;
         policy_permissive: boolean;
@@ -2313,6 +2728,7 @@ export async function probeDatabaseReadiness(
       select policy_record.polname as policy_name,
              policy_record.polcmd as policy_command,
              policy_record.polpermissive as policy_permissive,
+             policy_record.polroles = array[0::oid] as roles_public,
              case
                when 0::oid = any(policy_record.polroles) then true
                else exists (
@@ -2341,6 +2757,7 @@ export async function probeDatabaseReadiness(
               policy.row_security &&
               policy.row_security_forced &&
               policy.policy_permissive &&
+              policy.roles_public &&
               policy.applies_to_current_role &&
               policy.policy_command === "*" &&
               isExactTenantPolicyExpression(

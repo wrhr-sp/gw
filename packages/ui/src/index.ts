@@ -1,7 +1,16 @@
 export { ActionButtonGroup } from "./components/action-button-group";
 export { Button, buttonVariants } from "./components/button";
-export { DataTable, EmptyState, FilterBar, Pagination } from "./components/data-display";
-export { FeatureGuide, type FeatureGuideContent } from "./components/feature-guide";
+export {
+  DataTable,
+  EmptyState,
+  FilterBar,
+  Pagination,
+} from "./components/data-display";
+export { Dialog } from "./components/dialog";
+export {
+  FeatureGuide,
+  type FeatureGuideContent,
+} from "./components/feature-guide";
 export { PageHeader } from "./components/page-header";
 export { StatusBadge } from "./components/status-badge";
 export { SummaryCard } from "./components/summary-card";

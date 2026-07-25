@@ -1,10 +1,28 @@
 import { expect, test } from "@playwright/experimental-ct-react";
 import AxeBuilder from "@axe-core/playwright";
 import { RelationshipManagementPanel } from "../components/hotels/relationship-management-panel";
+import { RoomManagementPanel } from "../components/hotels/room-management-panel";
 import { HotelDetailStory } from "../playwright/stories/hotel-detail.story";
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+});
+
+const errorResponse = (
+  code: "VALIDATION_ERROR" | "VERSION_CONFLICT",
+  message: string,
+  fieldErrors: Array<{ field: string; message: string }> = [],
+) => ({
+  ok: false,
+  data: null,
+  error: {
+    code,
+    message,
+    retryable: false,
+    retryAfterSeconds: null,
+    traceId: "55000000-0000-4000-8000-000000000098",
+    fieldErrors,
+  },
 });
 
 for (const viewport of [
@@ -31,6 +49,26 @@ for (const viewport of [
     await expect(
       detail.getByRole("heading", { name: "관계 및 운영 준비" }),
     ).toBeVisible();
+    await expect(
+      detail.getByRole("heading", { name: "객실관리" }),
+    ).toBeVisible();
+    const roomSurface =
+      viewport.name === "mobile"
+        ? detail.locator("article")
+        : detail.locator("#hotel-room-management table");
+    if (viewport.name === "mobile") {
+      await expect(
+        roomSurface.getByRole("heading", { name: "101" }),
+      ).toBeVisible();
+      await expect(
+        roomSurface.getByRole("heading", { name: "1201" }),
+      ).toBeVisible();
+    } else {
+      await expect(roomSurface.getByText("101", { exact: true })).toBeVisible();
+      await expect(
+        roomSurface.getByText("1201", { exact: true }),
+      ).toBeVisible();
+    }
     await expect(detail.getByText("김현장")).toBeVisible();
     await expect(detail.getByText("이소유")).toBeVisible();
     await expect(detail.getByRole("link", { name: "호텔 목록" })).toHaveCSS(
@@ -45,8 +83,745 @@ for (const viewport of [
     await expect(page).toHaveScreenshot(`hotel-detail-${viewport.name}.png`, {
       fullPage: viewport.name === "mobile",
     });
+    if (viewport.name === "mobile") {
+      await detail.locator("#hotel-room-management").evaluate((element) => {
+        element.scrollIntoView({ block: "start" });
+      });
+      await expect(page).toHaveScreenshot("hotel-detail-mobile-viewport.png");
+    }
   });
 }
+
+test("객실 등록 dialog는 focus·Escape 복귀·open-state Axe를 제공한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const detail = await mount(<HotelDetailStory />);
+  const trigger = detail.getByRole("button", { name: "객실 등록" });
+  await expect(trigger).toHaveCSS("min-height", "44px");
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "객실 정보" });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "객실 관리 대화상자 닫기" }),
+  ).toHaveCSS("min-height", "44px");
+  await expect(dialog.getByLabel("객실번호")).toBeFocused();
+  expect(
+    (await new AxeBuilder({ page }).include('[role="dialog"]').analyze())
+      .violations,
+  ).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+test("객실 등록은 계약 payload와 idempotency key를 보내고 목록을 재조회한다", async ({
+  mount,
+  page,
+}) => {
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  const createdRoom = {
+    id: "55000000-0000-4000-8000-000000000003",
+    hotelId,
+    roomNumber: "202",
+    floorLabel: "2층",
+    floorSortKey: 2,
+    roomType: {
+      id: "54000000-0000-4000-8000-000000000001",
+      name: "스탠다드 더블",
+      scope: "COMPANY",
+    },
+    status: "ACTIVE",
+    internalNote: "린넨 교체 확인",
+    ownerVisibleNote: "조용한 객실",
+    plannedResumeDate: null,
+    version: 1,
+    createdAt: "2026-07-25T02:00:00.000Z",
+    updatedAt: "2026-07-25T02:00:00.000Z",
+  };
+  let submitted: unknown;
+  let idempotencyKey = "";
+  await page.route(`**/api/hotels/${hotelId}/rooms*`, async (route) => {
+    if (route.request().method() === "POST") {
+      submitted = route.request().postDataJSON();
+      idempotencyKey = route.request().headers()["idempotency-key"] ?? "";
+      await route.fulfill({
+        contentType: "application/json",
+        json: { ok: true, data: { room: createdRoom }, error: null },
+        status: 201,
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        ok: true,
+        data: {
+          capabilities: { canManage: true, canManageTypes: true },
+          rooms: [createdRoom],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        error: null,
+      },
+      status: 200,
+    });
+  });
+  const detail = await mount(<HotelDetailStory />);
+  const trigger = detail.getByRole("button", { name: "객실 등록" });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "객실 정보" });
+  await dialog.getByLabel("객실번호").fill("202");
+  await dialog
+    .getByLabel("객실유형")
+    .selectOption("54000000-0000-4000-8000-000000000001");
+  await dialog.getByLabel("층 표시").fill("2층");
+  await dialog.getByLabel("층 정렬순서").fill("2");
+  await dialog.getByLabel("소유주 공개 메모").fill("조용한 객실");
+  await dialog.getByLabel("내부 메모").fill("린넨 교체 확인");
+  await dialog.getByRole("button", { name: "저장" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await expect(detail.getByText("202", { exact: true }).first()).toBeVisible();
+  expect(submitted).toMatchObject({
+    floorLabel: "2층",
+    floorSortKey: 2,
+    internalNote: "린넨 교체 확인",
+    ownerVisibleNote: "조용한 객실",
+    roomNumber: "202",
+    roomTypeId: "54000000-0000-4000-8000-000000000001",
+  });
+  expect(idempotencyKey).toMatch(/^[0-9a-f-]{36}$/u);
+});
+
+test("객실 version conflict는 입력을 보존하고 최신 version으로 재시도한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  const roomId = "55000000-0000-4000-8000-000000000001";
+  const roomType = {
+    id: "54000000-0000-4000-8000-000000000001",
+    hotelId: null,
+    name: "스탠다드 더블",
+    scope: "COMPANY" as const,
+    displayOrder: 10,
+    isActive: true,
+    version: 2,
+    createdAt: "2026-07-25T00:00:00.000Z",
+    updatedAt: "2026-07-25T03:00:00.000Z",
+  };
+  const latestRoom = {
+    id: roomId,
+    hotelId,
+    roomNumber: "101",
+    floorLabel: "1층",
+    floorSortKey: 1,
+    roomType: {
+      id: roomType.id,
+      name: roomType.name,
+      scope: roomType.scope,
+    },
+    status: "ACTIVE" as const,
+    internalNote: "최신 내부 메모",
+    ownerVisibleNote: "다른 사용자의 메모",
+    plannedResumeDate: null,
+    version: 3,
+    createdAt: "2026-07-25T00:00:00.000Z",
+    updatedAt: "2026-07-25T03:00:00.000Z",
+  };
+  const submittedVersions: number[] = [];
+  await page.route(`**/api/hotels/${hotelId}/room-types`, (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: { ok: true, data: { roomTypes: [roomType] }, error: null },
+    }),
+  );
+  await page.route(`**/api/hotels/${hotelId}/rooms?*`, (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: {
+        ok: true,
+        data: {
+          capabilities: { canManage: true, canManageTypes: true },
+          rooms: [latestRoom],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        error: null,
+      },
+    }),
+  );
+  await page.route(`**/api/hotels/${hotelId}/rooms/${roomId}`, (route) => {
+    if (route.request().method() === "GET")
+      return route.fulfill({
+        contentType: "application/json",
+        json: { ok: true, data: { room: latestRoom }, error: null },
+      });
+    const body = route.request().postDataJSON() as { version: number };
+    submittedVersions.push(body.version);
+    if (submittedVersions.length === 1)
+      return route.fulfill({
+        contentType: "application/json",
+        status: 409,
+        json: {
+          ok: false,
+          data: null,
+          error: {
+            code: "VERSION_CONFLICT",
+            message: "다른 사용자가 먼저 수정했습니다.",
+            retryable: false,
+            retryAfterSeconds: null,
+            traceId: "55000000-0000-4000-8000-000000000099",
+            fieldErrors: [],
+          },
+        },
+      });
+    return route.fulfill({
+      contentType: "application/json",
+      json: {
+        ok: true,
+        data: {
+          room: {
+            ...latestRoom,
+            ownerVisibleNote: "사용자 입력 보존",
+            version: 4,
+          },
+        },
+        error: null,
+      },
+    });
+  });
+
+  const detail = await mount(<HotelDetailStory />);
+  const roomCard = detail.locator("article").filter({ hasText: "101" });
+  const trigger = roomCard.getByRole("button", { name: "수정" });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "객실 정보" });
+  const note = dialog.getByLabel("소유주 공개 메모");
+  await note.fill("사용자 입력 보존");
+  await dialog.getByRole("button", { name: "저장" }).click();
+  const conflict = dialog.locator('[role="alert"][tabindex="-1"]');
+  await expect(conflict).toBeFocused();
+  await expect(conflict).toContainText("최신 객실 정보를 불러왔습니다");
+  await expect(note).toHaveValue("사용자 입력 보존");
+  expect(submittedVersions).toEqual([1]);
+  await expect(page).toHaveScreenshot(
+    "hotel-room-dialog-version-conflict-mobile.png",
+  );
+  const save = dialog.getByRole("button", { name: "저장" });
+  const finalField = dialog.getByLabel("내부 메모");
+  const mobileNavigation = detail.locator(
+    'nav[aria-label="모바일 호텔 운영 메뉴"]',
+  );
+  await finalField.scrollIntoViewIfNeeded();
+  const [saveBox, finalFieldBox, navigationBox] = await Promise.all([
+    save.boundingBox(),
+    finalField.boundingBox(),
+    mobileNavigation.boundingBox(),
+  ]);
+  expect(finalFieldBox).not.toBeNull();
+  expect(saveBox).not.toBeNull();
+  expect(navigationBox).not.toBeNull();
+  expect(
+    (finalFieldBox?.y ?? 0) + (finalFieldBox?.height ?? 0),
+  ).toBeLessThanOrEqual(saveBox?.y ?? 0);
+  expect((saveBox?.y ?? 0) + (saveBox?.height ?? 0)).toBeLessThanOrEqual(
+    navigationBox?.y ?? 0,
+  );
+  await save.click();
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  expect(submittedVersions).toEqual([1, 3]);
+});
+
+test("객실·상태·유형 version conflict 최신 조회 실패는 입력과 retry 안내를 보존한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  const roomId = "55000000-0000-4000-8000-000000000001";
+  const typeId = "54000000-0000-4000-8000-000000000001";
+  let roomLatestReady = false;
+  let typeLatestReady = false;
+  const latestRoom = {
+    id: roomId,
+    hotelId,
+    roomNumber: "101",
+    floorLabel: "1층",
+    floorSortKey: 1,
+    roomType: { id: typeId, name: "스탠다드 더블", scope: "COMPANY" },
+    status: "ACTIVE",
+    internalNote: "엘리베이터 소음 점검",
+    ownerVisibleNote: "엘리베이터 인접",
+    plannedResumeDate: null,
+    version: 3,
+    createdAt: "2026-07-25T00:00:00.000Z",
+    updatedAt: "2026-07-25T03:00:00.000Z",
+  };
+  const latestType = {
+    id: typeId,
+    hotelId: null,
+    name: "스탠다드 더블",
+    scope: "COMPANY",
+    displayOrder: 10,
+    isActive: true,
+    version: 3,
+    createdAt: "2026-07-25T00:00:00.000Z",
+    updatedAt: "2026-07-25T03:00:00.000Z",
+  };
+  await page.route(`**/api/hotels/${hotelId}/rooms/${roomId}`, (route) => {
+    if (route.request().method() === "GET")
+      return roomLatestReady
+        ? route.fulfill({
+            json: { ok: true, data: { room: latestRoom }, error: null },
+          })
+        : route.fulfill({
+            status: 503,
+            json: errorResponse("VALIDATION_ERROR", "조회 실패"),
+          });
+    return route.fulfill({
+      status: 409,
+      json: errorResponse(
+        "VERSION_CONFLICT",
+        "다른 사용자가 먼저 수정했습니다.",
+      ),
+    });
+  });
+  await page.route(`**/api/hotels/${hotelId}/rooms/${roomId}/status`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: errorResponse(
+        "VERSION_CONFLICT",
+        "다른 사용자가 먼저 수정했습니다.",
+      ),
+    }),
+  );
+  await page.route(`**/api/hotels/${hotelId}/room-types/${typeId}`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: errorResponse(
+        "VERSION_CONFLICT",
+        "다른 사용자가 먼저 수정했습니다.",
+      ),
+    }),
+  );
+  await page.route(`**/api/hotels/${hotelId}/room-types`, (route) =>
+    typeLatestReady
+      ? route.fulfill({
+          json: {
+            ok: true,
+            data: { roomTypes: [latestType] },
+            error: null,
+          },
+        })
+      : route.fulfill({
+          status: 503,
+          json: errorResponse("VALIDATION_ERROR", "조회 실패"),
+        }),
+  );
+
+  const detail = await mount(<HotelDetailStory />);
+  const roomCard = detail.locator("article").filter({ hasText: "101" });
+
+  await roomCard.getByRole("button", { name: "수정" }).click();
+  let dialog = page.getByRole("dialog", { name: "객실 정보" });
+  const note = dialog.getByLabel("소유주 공개 메모");
+  await note.fill("객실 입력 보존");
+  await dialog.getByRole("button", { name: "저장" }).click();
+  let alert = dialog.locator('[role="alert"][tabindex="-1"]');
+  await expect(alert).toBeFocused();
+  await expect(alert).toContainText("다시 불러오지 못했습니다");
+  await expect(alert).toContainText("최신정보를 다시 불러와 주세요");
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeDisabled();
+  await expect(
+    alert.getByRole("button", { name: "최신정보 다시 불러오기" }),
+  ).toBeVisible();
+  await expect(note).toHaveValue("객실 입력 보존");
+  roomLatestReady = true;
+  typeLatestReady = true;
+  await alert.getByRole("button", { name: "최신정보 다시 불러오기" }).click();
+  await expect(alert).toHaveCount(0);
+  await expect(note).toHaveValue("객실 입력 보존");
+  await expect(dialog.getByRole("button", { name: "저장" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "객실 관리 대화상자 닫기" }).click();
+
+  roomLatestReady = false;
+  await roomCard.getByRole("button", { name: "상태변경" }).click();
+  dialog = page.getByRole("dialog", { name: "객실 운영상태" });
+  const reason = dialog.getByLabel("변경 사유");
+  await reason.fill("상태 입력 보존");
+  await dialog.getByRole("button", { name: "상태 저장" }).click();
+  alert = dialog.locator('[role="alert"][tabindex="-1"]');
+  await expect(alert).toBeFocused();
+  await expect(alert).toContainText("다시 불러오지 못했습니다");
+  await expect(reason).toHaveValue("상태 입력 보존");
+  await expect(
+    dialog.getByRole("button", { name: "상태 저장" }),
+  ).toBeDisabled();
+  roomLatestReady = true;
+  await alert.getByRole("button", { name: "최신정보 다시 불러오기" }).click();
+  await expect(alert).toHaveCount(0);
+  await expect(reason).toHaveValue("상태 입력 보존");
+  await expect(dialog.getByRole("button", { name: "상태 저장" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "객실 관리 대화상자 닫기" }).click();
+
+  typeLatestReady = false;
+  await detail
+    .getByRole("button", { name: /스탠다드 더블 · 회사공통 · 사용/u })
+    .click();
+  dialog = page.getByRole("dialog", { name: "객실유형" });
+  const typeName = dialog.getByLabel("유형명");
+  await typeName.fill("유형 입력 보존");
+  await dialog.getByRole("button", { name: "유형 저장" }).click();
+  alert = dialog.locator('[role="alert"][tabindex="-1"]');
+  await expect(alert).toBeFocused();
+  await expect(alert).toContainText(
+    "최신 객실유형 정보를 다시 불러오지 못했습니다",
+  );
+  await expect(typeName).toHaveValue("유형 입력 보존");
+  await expect(
+    dialog.getByRole("button", { name: "유형 저장" }),
+  ).toBeDisabled();
+  typeLatestReady = true;
+  await alert.getByRole("button", { name: "최신정보 다시 불러오기" }).click();
+  await expect(alert).toHaveCount(0);
+  await expect(typeName).toHaveValue("유형 입력 보존");
+  await expect(dialog.getByRole("button", { name: "유형 저장" })).toBeEnabled();
+});
+
+test("객실·상태·유형 field error는 target ARIA와 focus를 연결하고 해당 field 수정 시 해제한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  const roomId = "55000000-0000-4000-8000-000000000001";
+  await page.route(`**/api/hotels/${hotelId}/rooms/${roomId}`, (route) =>
+    route.fulfill({
+      status: 400,
+      json: errorResponse("VALIDATION_ERROR", "입력값을 확인해 주세요.", [
+        { field: "ownerVisibleNote", message: "공개 메모를 확인해 주세요." },
+      ]),
+    }),
+  );
+  await page.route(`**/api/hotels/${hotelId}/rooms/${roomId}/status`, (route) =>
+    route.fulfill({
+      status: 400,
+      json: errorResponse("VALIDATION_ERROR", "입력값을 확인해 주세요.", [
+        { field: "reason", message: "변경 사유를 확인해 주세요." },
+      ]),
+    }),
+  );
+  await page.route(
+    `**/api/hotels/${hotelId}/room-types/54000000-0000-4000-8000-000000000001`,
+    (route) =>
+      route.fulfill({
+        status: 400,
+        json: errorResponse("VALIDATION_ERROR", "입력값을 확인해 주세요.", [
+          { field: "name", message: "유형명을 확인해 주세요." },
+        ]),
+      }),
+  );
+  const detail = await mount(<HotelDetailStory />);
+  const roomCard = detail.locator("article").filter({ hasText: "101" });
+  await roomCard.getByRole("button", { name: "수정" }).click();
+  const dialog = page.getByRole("dialog", { name: "객실 정보" });
+  const note = dialog.getByLabel("소유주 공개 메모");
+  const sibling = dialog.getByLabel("내부 메모");
+  await note.fill("서버 검증 대상");
+  await dialog.getByRole("button", { name: "저장" }).click();
+  await expect(note).toBeFocused();
+  await expect(note).toHaveAttribute("aria-invalid", "true");
+  await expect(note).toHaveAttribute(
+    "aria-describedby",
+    "room-editor-error-ownerVisibleNote-0",
+  );
+  await expect(
+    dialog.locator("#room-editor-error-ownerVisibleNote-0"),
+  ).toHaveText("공개 메모를 확인해 주세요.");
+  await expect(sibling).toHaveAttribute("aria-invalid", "false");
+  expect(
+    (await new AxeBuilder({ page }).include('[role="dialog"]').analyze())
+      .violations,
+  ).toEqual([]);
+  await note.fill("수정한 공개 메모");
+  await expect(note).toHaveAttribute("aria-invalid", "false");
+  await expect(note).not.toHaveAttribute(
+    "aria-describedby",
+    "room-editor-error-ownerVisibleNote-0",
+  );
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "객실 관리 대화상자 닫기" }).click();
+
+  await roomCard.getByRole("button", { name: "상태변경" }).click();
+  let nextDialog = page.getByRole("dialog", { name: "객실 운영상태" });
+  const reason = nextDialog.getByLabel("변경 사유");
+  await reason.fill("상태 서버 검증 대상");
+  await nextDialog.getByRole("button", { name: "상태 저장" }).click();
+  await expect(reason).toBeFocused();
+  await expect(reason).toHaveAttribute("aria-invalid", "true");
+  await expect(reason).toHaveAttribute(
+    "aria-describedby",
+    "status-editor-error-reason-0",
+  );
+  await expect(nextDialog.locator("#status-editor-error-reason-0")).toHaveText(
+    "변경 사유를 확인해 주세요.",
+  );
+  await reason.fill("수정한 변경 사유");
+  await expect(reason).toHaveAttribute("aria-invalid", "false");
+  await expect(nextDialog.getByRole("alert")).toHaveCount(0);
+  await nextDialog
+    .getByRole("button", { name: "객실 관리 대화상자 닫기" })
+    .click();
+
+  await detail
+    .getByRole("button", { name: /스탠다드 더블 · 회사공통 · 사용/u })
+    .click();
+  nextDialog = page.getByRole("dialog", { name: "객실유형" });
+  const typeName = nextDialog.getByLabel("유형명");
+  await typeName.fill("유형 서버 검증 대상");
+  await nextDialog.getByRole("button", { name: "유형 저장" }).click();
+  await expect(typeName).toBeFocused();
+  await expect(typeName).toHaveAttribute("aria-invalid", "true");
+  await expect(typeName).toHaveAttribute(
+    "aria-describedby",
+    "type-editor-error-name-0",
+  );
+  await expect(nextDialog.locator("#type-editor-error-name-0")).toHaveText(
+    "유형명을 확인해 주세요.",
+  );
+  expect(
+    (await new AxeBuilder({ page }).include('[role="dialog"]').analyze())
+      .violations,
+  ).toEqual([]);
+  await typeName.fill("수정한 유형명");
+  await expect(typeName).toHaveAttribute("aria-invalid", "false");
+  await expect(nextDialog.getByRole("alert")).toHaveCount(0);
+});
+
+test("SSR 객실 초기 오류는 자동 재조회 성공 후 사라진다", async ({
+  mount,
+  page,
+}) => {
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  let releaseRooms: (() => void) | undefined;
+  const roomsGate = new Promise<void>((resolve) => {
+    releaseRooms = resolve;
+  });
+  await page.route(`**/api/hotels/${hotelId}/rooms?*`, async (route) => {
+    await roomsGate;
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        ok: true,
+        data: {
+          capabilities: { canManage: false, canManageTypes: false },
+          rooms: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        },
+        error: null,
+      },
+    });
+  });
+  await page.route(`**/api/hotels/${hotelId}/room-types`, (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: { ok: true, data: { roomTypes: [] }, error: null },
+    }),
+  );
+  const panel = await mount(
+    <RoomManagementPanel
+      hotelId={hotelId}
+      initialFailure={{
+        code: "INTERNAL_ERROR",
+        message: "초기 로드 실패",
+        status: 503,
+      }}
+    />,
+  );
+  const alert = panel
+    .getByRole("alert", { name: "" })
+    .filter({ hasText: "객실 정보를 불러오지 못했습니다" });
+  await expect(alert).toBeVisible();
+  releaseRooms?.();
+  await expect(alert).toHaveCount(0);
+  await expect(panel.getByText("등록된 객실이 없습니다")).toBeVisible();
+});
+
+test("객실 검색과 페이지 이동은 서버 query로 101번째 객실까지 도달한다", async ({
+  mount,
+  page,
+}) => {
+  const hotelId = "50000000-0000-4000-8000-000000000001";
+  const requests: string[] = [];
+  await page.route(`**/api/hotels/${hotelId}/rooms?*`, async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url.search);
+    const currentPage = Number(url.searchParams.get("page") ?? "1");
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        ok: true,
+        data: {
+          capabilities: { canManage: true, canManageTypes: false },
+          rooms:
+            currentPage === 6
+              ? [
+                  {
+                    createdAt: "2026-07-25T00:00:00.000Z",
+                    floorLabel: "10층",
+                    floorSortKey: 10,
+                    hotelId,
+                    id: "51000000-0000-4000-8000-000000000101",
+                    internalNote: null,
+                    ownerVisibleNote: null,
+                    plannedResumeDate: null,
+                    roomNumber: "101번째 객실",
+                    roomType: {
+                      id: "54000000-0000-4000-8000-000000000001",
+                      name: "스탠다드",
+                      scope: "COMPANY",
+                    },
+                    status: "ACTIVE",
+                    updatedAt: "2026-07-25T00:00:00.000Z",
+                    version: 1,
+                  },
+                ]
+              : [],
+          pagination: {
+            page: currentPage,
+            pageSize: 20,
+            total: 101,
+            totalPages: 6,
+          },
+        },
+        error: null,
+      },
+    });
+  });
+  await page.route(`**/api/hotels/${hotelId}/room-types`, (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: { ok: true, data: { roomTypes: [] }, error: null },
+    }),
+  );
+  const panel = await mount(
+    <RoomManagementPanel
+      hotelId={hotelId}
+      initialData={{
+        capabilities: { canManage: true, canManageTypes: false },
+        pagination: { page: 1, pageSize: 20, total: 101, totalPages: 6 },
+        rooms: [],
+        roomTypes: [],
+      }}
+    />,
+  );
+  await expect(panel.getByText("현재 1 / 6 페이지")).toBeVisible();
+  expect(requests).toEqual([]);
+  await panel.getByLabel("객실 검색").fill(" 101 ");
+  await expect
+    .poll(() => requests.some((query) => query.includes("q=101")))
+    .toBe(true);
+  for (const expectedPage of [2, 3, 4, 5, 6]) {
+    await panel.getByRole("button", { name: "다음 페이지" }).click();
+    await expect(
+      panel.getByText(`현재 ${expectedPage} / 6 페이지`),
+    ).toBeVisible();
+  }
+  await expect(panel.getByRole("cell", { name: "101번째 객실" })).toBeVisible();
+  expect(requests.at(-1)).toContain("page=6");
+  expect(requests.at(-1)).toContain("pageSize=20");
+  expect(requests.at(-1)).toContain("q=101");
+});
+
+test("객실 dialog trigger가 제거되면 객실관리 제목으로 focus를 복원한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const detail = await mount(<HotelDetailStory />);
+  const trigger = detail
+    .locator("article")
+    .filter({ hasText: "101" })
+    .getByRole("button", { name: "수정" });
+  const triggerHandle = await trigger.elementHandle();
+  if (!triggerHandle) throw new Error("객실 수정 trigger를 찾지 못했습니다.");
+  await trigger.click();
+  await triggerHandle.evaluate((element) => element.remove());
+  await page
+    .getByRole("dialog", { name: "객실 정보" })
+    .getByRole("button", { name: "객실 관리 대화상자 닫기" })
+    .click();
+  await expect(detail.getByRole("heading", { name: "객실관리" })).toBeFocused();
+});
+
+test("모바일 객실 pagination과 세 editor는 44px·하단 navigation 경계를 지킨다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const detail = await mount(<HotelDetailStory />);
+  const navigation = detail.locator('nav[aria-label="모바일 호텔 운영 메뉴"]');
+  await expect(detail.getByRole("button", { name: "이전 페이지" })).toHaveCSS(
+    "min-height",
+    "44px",
+  );
+  await expect(detail.getByRole("button", { name: "다음 페이지" })).toHaveCSS(
+    "min-height",
+    "44px",
+  );
+
+  const assertDialogAboveNavigation = async (dialogName: string) => {
+    const dialog = page.getByRole("dialog", { name: dialogName });
+    const [dialogBox, navigationBox] = await Promise.all([
+      dialog.boundingBox(),
+      navigation.boundingBox(),
+    ]);
+    expect(dialogBox).not.toBeNull();
+    expect(navigationBox).not.toBeNull();
+    expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(
+      navigationBox?.y ?? 0,
+    );
+    await dialog
+      .getByRole("button", { name: "객실 관리 대화상자 닫기" })
+      .click();
+  };
+
+  const firstRoom = detail.locator("article").filter({ hasText: "101" });
+  await firstRoom.getByRole("button", { name: "수정" }).click();
+  await assertDialogAboveNavigation("객실 정보");
+  await firstRoom.getByRole("button", { name: "상태변경" }).click();
+  await assertDialogAboveNavigation("객실 운영상태");
+  await detail
+    .getByRole("button", { name: /스탠다드 더블 · 회사공통 · 사용/u })
+    .click();
+  await assertDialogAboveNavigation("객실유형");
+});
+
+test("객실유형 수정의 빈 정렬순서는 한국어 field 오류와 ARIA를 제공한다", async ({
+  mount,
+  page,
+}) => {
+  const detail = await mount(<HotelDetailStory />);
+  await detail
+    .getByRole("button", { name: /스탠다드 더블 · 회사공통 · 사용/u })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "객실유형" });
+  const displayOrder = dialog.getByLabel("정렬순서");
+  await displayOrder.fill("");
+  await dialog.getByRole("button", { name: "유형 저장" }).click();
+  await expect(displayOrder).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    dialog.getByText("정렬순서를 숫자로 입력해 주세요."),
+  ).toBeVisible();
+  await expect(displayOrder).toHaveAttribute(
+    "aria-describedby",
+    /type-editor-error-displayOrder-0/u,
+  );
+  await expect(dialog).not.toContainText(/Invalid|expected number/iu);
+});
 
 test("관계관리 dialog는 후보 표시이름·키보드·최근로그인 안내를 제공한다", async ({
   mount,

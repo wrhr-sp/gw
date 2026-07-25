@@ -2,30 +2,66 @@
 
 ## 문서 정보
 
-| 항목 | 값 |
-|---|---|
-| PRD ID | `HOTEL-MVP-020` |
-| 상태 | `user_approved` |
-| 근거 | `COM-Q-022~028,039~047,049~050`, `HDRAFT-002~004,007,009~010` |
+| 항목   | 값                                                            |
+| ------ | ------------------------------------------------------------- |
+| PRD ID | `HOTEL-MVP-020`                                               |
+| 상태   | `user_approved`                                               |
+| 근거   | `COM-Q-022~028,039~047,049~050`, `HDRAFT-002~004,007,009~010` |
 
 ## 객실 기준정보
 
-| 필드 | 필수 | 규칙 |
-|---|---|---|
-| 객실번호 | Y | 같은 호텔에서 유일, 다른 호텔은 중복 가능 |
-| 층 | Y | 표시용 문자열 허용, 정렬키 별도 |
-| 객실유형 | Y | 회사 공통 + 호텔별 추가 기준정보 |
-| 운영상태 | Y | 운영중·일시중지·운영중지 |
-| 메모 | N | 내부업무 메모, 소유주 노출 여부 분리 |
-| version | Y | 오래된 저장 409 |
+| 필드     | 필수 | 규칙                                      |
+| -------- | ---- | ----------------------------------------- |
+| 객실번호 | Y    | 같은 호텔에서 유일, 다른 호텔은 중복 가능 |
+| 층       | Y    | 표시용 문자열 허용, 정렬키 별도           |
+| 객실유형 | Y    | 회사 공통 + 호텔별 추가 기준정보          |
+| 운영상태 | Y    | 운영중·일시중지·운영중지                  |
+| 메모     | N    | 내부업무 메모, 소유주 노출 여부 분리      |
+| version  | Y    | 오래된 저장 409                           |
 
 예약·요금·투숙객 이름·연락처·예약번호는 수집하지 않는다. 향후 외부 객실 ID는 별도 매핑 테이블로 추가한다.
 
+### 객실 기준정보 구현 방식 승인
+
+| 항목           | 값                                                        |
+| -------------- | --------------------------------------------------------- |
+| 후보 gate 상태 | `approved`                                                |
+| 선택자         | 대장                                                      |
+| 선택           | 추천안 A 일괄 승인                                        |
+| 적용 범위      | 이 PRD에 이미 승인된 객실 기준정보·객실유형·운영상태      |
+| 제외 범위      | 체크리스트·객실점검·예약·PMS·OTA 연동과 그 밖의 신규 기능 |
+
+후보 gate는 무엇을 제공할지 정하는 절차가 아니라, 승인된 동일 기능을 어떤 방식으로 구현할지 정하는 절차다. 기능 추가·제거와 제품 범위 변경은 별도 PRD 승인을 받는다.
+
+동일 기능 구현 후보와 선택 결과:
+
+| 구현 영역      | 후보 A — 선택                                              | 후보 B                                            | 후보 C                             |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------- | ---------------------------------- |
+| 데이터·API     | 계약 → Service/Repository → PostgreSQL                     | PostgREST DB-first REST + RLS                     | Hasura GraphQL Engine + PostgreSQL |
+| 검색           | 네이티브 검색폼 + 내부 서버 API                            | cmdk 기반 검색                                    | Downshift 기반 원격 검색           |
+| PC·모바일 목록 | TanStack Query + 공용 DataTable·semantic table·모바일 카드 | TanStack Table/Query + semantic table·모바일 카드 | AG Grid + 별도 모바일 카드         |
+| 폼·접근성      | React Hook Form + Zod + Radix                              | Conform                                           | React Aria Components              |
+| 상태 전이      | PostgreSQL transaction·lock/version                        | XState + PostgreSQL                               | DBOS durable workflow              |
+| 멱등성         | PostgreSQL idempotency ledger                              | node-idempotency                                  | DBOS workflow ID                   |
+| 감사           | transactional domain audit                                 | pgAudit 보완                                      | Retraced self-host 복제            |
+| 권한·격리      | PostgreSQL RLS + 애플리케이션 권한                         | OpenFGA + RLS                                     | Cerbos + RLS                       |
+
+선택 이유는 신규 외부 서비스·유료 API·두 번째 UI 체계 없이 현재 TypeScript·PostgreSQL·Cloudflare 구조에서 회사·호텔 격리, transaction, 감사, 모바일 접근성을 가장 단순하게 강제할 수 있기 때문이다. 기존 스택이라는 이유로 자동 선택한 것이 아니라 비용·라이선스·상업 이용·보안·호텔 격리·운영 부담·유지보수·확장성을 비교한 결과다.
+
+다음 조건이 생기면 추천은 무효가 될 수 있으며 기능 확장 PRD와 후보 gate를 다시 수행한다.
+
+- 외부 PMS가 객실정보의 정본으로 승인됨
+- 원격 자동완성, 수만 행 Excel형 편집 또는 장기 다중 시스템 saga가 필수화됨
+- 관계·속성 권한이 현재 애플리케이션 권한과 RLS로 감당할 수 없게 됨
+- 새 UI·API·저장 구조·운영 시스템이 필요해짐
+
+대안 도입 전에는 PoC, 법률·라이선스, 보안·호텔 격리, 성능, 배포·운영 gate를 각각 통과해야 한다.
+
 ### 객실 상태
 
-| 내부코드 | 표시명 |
-|---|---|
-| `ACTIVE` | 운영중 |
+| 내부코드         | 표시명   |
+| ---------------- | -------- |
+| `ACTIVE`         | 운영중   |
 | `TEMP_SUSPENDED` | 일시중지 |
 | `OUT_OF_SERVICE` | 운영중지 |
 
@@ -75,12 +111,12 @@
 
 ### 이상등급
 
-| 등급 | 의미 | 후속처리 |
-|---|---|---|
-| 관찰 | 추적 필요 | 점검 안에서 기록 |
-| 경미 | 일반 보완·수선 | 점검 안에서 기록, 필요 시 수동 이슈 |
-| 중대 | 운영차질·고객영향 가능 | 운영이슈 자동생성 |
-| 긴급 | 안전·보안·영업중단 위험 | 운영이슈 자동생성 + 즉시알림 |
+| 등급 | 의미                    | 후속처리                            |
+| ---- | ----------------------- | ----------------------------------- |
+| 관찰 | 추적 필요               | 점검 안에서 기록                    |
+| 경미 | 일반 보완·수선          | 점검 안에서 기록, 필요 시 수동 이슈 |
+| 중대 | 운영차질·고객영향 가능  | 운영이슈 자동생성                   |
+| 긴급 | 안전·보안·영업중단 위험 | 운영이슈 자동생성 + 즉시알림        |
 
 ### 취소·재점검 — 사용자 승인
 
@@ -94,17 +130,17 @@
 
 ## 데이터 모델 제안
 
-| 엔터티 | 역할 |
-|---|---|
-| `hotel_room_types` | 회사 공통/호텔 추가 객실유형·비활성화 |
-| `hotel_rooms` | 객실정보·운영상태·version |
-| `hotel_room_status_history` | 상태 전후·사유·행위자 |
-| `inspection_templates/versions/items` | 템플릿 버전 |
-| `inspection_schedules` | 반복규칙·대상·기한·기본담당 |
-| `room_inspections` | 업무일·상태·책임자·원본 재점검 연결 |
-| `room_inspection_participants` | 참여자 |
-| `inspection_item_snapshots/results` | 생성시점 스냅샷·결과·등급 |
-| `inspection_attachments` | 비공개 파일 참조 |
+| 엔터티                                | 역할                                  |
+| ------------------------------------- | ------------------------------------- |
+| `hotel_room_types`                    | 회사 공통/호텔 추가 객실유형·비활성화 |
+| `hotel_rooms`                         | 객실정보·운영상태·version             |
+| `hotel_room_status_history`           | 상태 전후·사유·행위자                 |
+| `inspection_templates/versions/items` | 템플릿 버전                           |
+| `inspection_schedules`                | 반복규칙·대상·기한·기본담당           |
+| `room_inspections`                    | 업무일·상태·책임자·원본 재점검 연결   |
+| `room_inspection_participants`        | 참여자                                |
+| `inspection_item_snapshots/results`   | 생성시점 스냅샷·결과·등급             |
+| `inspection_attachments`              | 비공개 파일 참조                      |
 
 ## 상태 제안
 
@@ -116,18 +152,18 @@
 
 ## API 제안
 
-| 메서드 | 경로 |
-|---|---|
-| GET/POST | `/api/hotels/:hotelId/rooms` |
-| GET/PATCH | `/api/hotels/:hotelId/rooms/:roomId` |
-| POST | `/api/hotels/:hotelId/rooms/:roomId/status` |
-| GET/POST | `/api/hotels/:hotelId/inspection-templates` |
-| POST | `/api/hotels/:hotelId/inspection-schedules` |
-| POST | `/api/hotels/:hotelId/inspections` |
-| PATCH | `/api/hotels/:hotelId/inspections/:inspectionId/results` |
-| POST | `/api/hotels/:hotelId/inspections/:inspectionId/complete` |
-| POST | `/api/hotels/:hotelId/inspections/:inspectionId/cancel` |
-| POST | `/api/hotels/:hotelId/inspections/:inspectionId/reinspect` |
+| 메서드    | 경로                                                       |
+| --------- | ---------------------------------------------------------- |
+| GET/POST  | `/api/hotels/:hotelId/rooms`                               |
+| GET/PATCH | `/api/hotels/:hotelId/rooms/:roomId`                       |
+| POST      | `/api/hotels/:hotelId/rooms/:roomId/status`                |
+| GET/POST  | `/api/hotels/:hotelId/inspection-templates`                |
+| POST      | `/api/hotels/:hotelId/inspection-schedules`                |
+| POST      | `/api/hotels/:hotelId/inspections`                         |
+| PATCH     | `/api/hotels/:hotelId/inspections/:inspectionId/results`   |
+| POST      | `/api/hotels/:hotelId/inspections/:inspectionId/complete`  |
+| POST      | `/api/hotels/:hotelId/inspections/:inspectionId/cancel`    |
+| POST      | `/api/hotels/:hotelId/inspections/:inspectionId/reinspect` |
 
 ## 수용 기준
 

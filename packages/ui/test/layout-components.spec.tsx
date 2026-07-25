@@ -1,13 +1,20 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   ActionButtonGroup,
   Button,
+  Dialog,
   FeatureGuide,
   PageHeader,
   StatusBadge,
   SummaryCard,
 } from "../src/index";
+
+const dialogSource = readFileSync(
+  new URL("../src/components/dialog.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("approved hotel page primitives", () => {
   it("renders a single page heading with description and actions", () => {
@@ -51,14 +58,18 @@ describe("approved hotel page primitives", () => {
   });
 
   it("does not rely on color alone for status meaning", () => {
-    const html = renderToStaticMarkup(<StatusBadge tone="danger">긴급</StatusBadge>);
+    const html = renderToStaticMarkup(
+      <StatusBadge tone="danger">긴급</StatusBadge>,
+    );
     expect(html).toContain("긴급");
-    expect(html).toContain("data-tone=\"danger\"");
-    expect(html).toContain("aria-label=\"상태: 긴급\"");
+    expect(html).toContain('data-tone="danger"');
+    expect(html).toContain('aria-label="상태: 긴급"');
   });
 
   it("uses an article with label and value for summaries", () => {
-    const html = renderToStaticMarkup(<SummaryCard label="운영 호텔" value="9 / 12" hint="정상 운영 9개" />);
+    const html = renderToStaticMarkup(
+      <SummaryCard label="운영 호텔" value="9 / 12" hint="정상 운영 9개" />,
+    );
     expect(html).toContain("<article");
     expect(html).toContain("운영 호텔");
     expect(html).toContain("9 / 12");
@@ -72,8 +83,17 @@ describe("approved hotel page primitives", () => {
         <Button>저장</Button>
       </ActionButtonGroup>,
     );
-    expect(html).toContain("aria-label=\"호텔 저장 작업\"");
+    expect(html).toContain('aria-label="호텔 저장 작업"');
     expect(html).toContain("취소");
     expect(html).toContain("저장");
+  });
+
+  it("exports the shared Radix dialog primitive", () => {
+    expect(Dialog).toBeTypeOf("function");
+    expect(dialogSource).toContain("fallbackFocusRef");
+    expect(dialogSource).toContain("restoreTarget?.isConnected");
+    expect(dialogSource).toContain(": fallbackFocusRef?.current");
+    expect(dialogSource).toContain("!target?.isConnected");
+    expect(dialogSource).toContain("event.preventDefault()");
   });
 });

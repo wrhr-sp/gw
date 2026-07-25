@@ -132,10 +132,30 @@ SQL
 run_provision EXPAND >/dev/null
 EXPAND_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select count(*) from schema_migrations where version = '0008_remove_legacy_company_id_fallback';
+select count(*) from schema_migrations where version = '0019_hotel_room_management';
+select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening';
 select (
   has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
   and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
   and has_function_privilege('werehere_preview_runtime', 'public.runtime_has_capability(text)', 'EXECUTE')
+  and has_column_privilege(
+    'werehere_preview_runtime', 'public.hotel_room_types', 'name', 'UPDATE'
+  )
+  and has_column_privilege(
+    'werehere_preview_runtime', 'public.hotel_rooms', 'status', 'UPDATE'
+  )
+  and not has_table_privilege(
+    'werehere_preview_runtime', 'public.hotel_room_types', 'UPDATE'
+  )
+  and not has_column_privilege(
+    'werehere_preview_runtime', 'public.hotel_room_types', 'company_id', 'UPDATE'
+  )
+  and not has_column_privilege(
+    'werehere_preview_runtime', 'public.hotel_room_types', 'scope', 'UPDATE'
+  )
+  and not has_column_privilege(
+    'werehere_preview_runtime', 'public.hotel_room_types', 'branch_id', 'UPDATE'
+  )
   and not has_schema_privilege('preview_stale_acl_grantee', 'public', 'CREATE')
   and not has_table_privilege('preview_stale_acl_grantee', 'public.users', 'SELECT')
   and not has_table_privilege('preview_stale_acl_grantee', 'public.users', 'UPDATE')
@@ -167,7 +187,7 @@ select (
 )::int;
 SQL
 )"
-if [[ "$EXPAND_RESULT" != $'0\n1' ]]; then
+if [[ "$EXPAND_RESULT" != $'0\n1\n0\n1' ]]; then
   printf '%s\n' 'Expand provisioning did not preserve compatibility or revoke stale ACLs.' >&2
   exit 1
 fi
@@ -236,8 +256,11 @@ where company_id = '$COMPANY_ID'
 select count(*) from permission_grants
 where company_id = '$COMPANY_ID'
   and subject_id = '71000000-0000-4000-8000-000000000001'
-  and permission_code in ('HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND')
-  and effect = 'ALLOW' and valid_until is null;
+  and permission_code in (
+    'HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND',
+    'HOTEL_ROOM_READ', 'HOTEL_ROOM_MANAGE', 'HOTEL_ROOM_TYPE_MANAGE'
+  )
+  and effect = 'ALLOW' and branch_id is null and valid_until is null;
 select count(*) from auth_sessions
 where id = '71900000-0000-4000-8000-000000000001'
   and revoked_at is not null
@@ -253,7 +276,7 @@ where provider_subject = '$SUBJECT';
 select count(*) from auth_resolve_login_identity_v1('preview-admin');
 SQL
 )"
-if [[ "$ALIGNED_BOOTSTRAP_RESULT" != $'previewadmin:2\n1\n4\n1\n1\n1\n0' ]]; then
+if [[ "$ALIGNED_BOOTSTRAP_RESULT" != $'previewadmin:2\n1\n7\n1\n1\n1\n0' ]]; then
   printf '%s\n' 'Preview bootstrap login ID alignment contract failed.' >&2
   exit 1
 fi
@@ -466,6 +489,12 @@ if [[ "$NEON_CREATOR_MEMBERSHIP_RESULT" != "2" ]]; then
 fi
 
 run_provision CONTRACT >/dev/null
+ROOM_CONTRACT_MARKER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
+  -c "select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening'")"
+if [[ "$ROOM_CONTRACT_MARKER" != "1" ]]; then
+  printf '%s\n' 'Room CONTRACT policy hardening marker is missing.' >&2
+  exit 1
+fi
 CONTRACT_RUNTIME_OWNER_HASH="$(
   psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
     -c "select prosrc from pg_proc procedure_record join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace where procedure_namespace.nspname = 'public' and procedure_record.proname = 'runtime_is_schema_owner'" |

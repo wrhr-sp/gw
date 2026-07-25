@@ -1,9 +1,15 @@
 import type { HotelBasicInformation } from "@werehere/contracts";
-import { Button, PageHeader, StatusBadge } from "@werehere/ui";
+import { Button, FeatureGuide, PageHeader, StatusBadge } from "@werehere/ui";
+import { hotelFeatureGuides } from "../../lib/feature-guides";
 import type { HotelApiFailure } from "../../lib/server-hotels";
+import type {
+  RoomInitialData,
+  RoomInitialFailure,
+} from "../../lib/server-rooms";
 import { hotelStatusPresentation } from "./hotel-status";
 import { RelationshipManagementPanel } from "./relationship-management-panel";
 import type { RelationshipInitialData } from "./relationship-management-panel";
+import { RoomManagementPanel } from "./room-management-panel";
 
 type HotelDetailViewResult =
   | { ok: true; hotel: HotelBasicInformation }
@@ -13,10 +19,14 @@ export function HotelDetailView({
   result,
   retryHref = "",
   relationshipInitialData,
+  roomInitialData,
+  roomInitialFailure,
 }: {
   result: HotelDetailViewResult;
   retryHref?: string;
   relationshipInitialData?: RelationshipInitialData;
+  roomInitialData?: RoomInitialData | undefined;
+  roomInitialFailure?: RoomInitialFailure | undefined;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-hotel-detail flex-col gap-6">
@@ -54,6 +64,11 @@ export function HotelDetailView({
             description={`호텔코드 ${result.hotel.branchCode}`}
             eyebrow="호텔 상세"
             title={result.hotel.name}
+            titleAccessory={
+              <FeatureGuide
+                content={hotelFeatureGuides["hotel-management.detail"]}
+              />
+            }
           />
           <div
             aria-label="호텔 상세 탭"
@@ -70,6 +85,12 @@ export function HotelDetailView({
               href="#hotel-relationships-title"
             >
               관계관리
+            </a>
+            <a
+              className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
+              href="#hotel-rooms-title"
+            >
+              객실관리
             </a>
           </div>
           <section className="rounded-panel border border-border bg-surface p-5 md:p-6">
@@ -134,6 +155,11 @@ export function HotelDetailView({
               </div>
             </dl>
           </section>
+          <RoomManagementPanel
+            hotelId={result.hotel.id}
+            initialData={roomInitialData}
+            initialFailure={roomInitialFailure}
+          />
           <RelationshipManagementPanel
             hotelId={result.hotel.id}
             hotelName={result.hotel.name}

@@ -92,7 +92,47 @@ describe("hotel list and detail views", () => {
 
   it("renders the DB read-back detail including empty optional address and version", () => {
     const html = renderToStaticMarkup(
-      <HotelDetailView result={{ ok: true, hotel }} />,
+      <HotelDetailView
+        result={{ ok: true, hotel }}
+        roomInitialData={{
+          capabilities: { canManage: true, canManageTypes: true },
+          roomTypes: [
+            {
+              id: "53000000-0000-4000-8000-000000000001",
+              hotelId: null,
+              name: "스탠다드 더블",
+              scope: "COMPANY",
+              displayOrder: 10,
+              isActive: true,
+              version: 1,
+              createdAt: "2026-07-25T00:00:00.000Z",
+              updatedAt: "2026-07-25T00:00:00.000Z",
+            },
+          ],
+          rooms: [
+            {
+              id: "52000000-0000-4000-8000-000000000001",
+              hotelId: hotel.id,
+              roomNumber: "101",
+              floorLabel: "1층",
+              floorSortKey: 1,
+              roomType: {
+                id: "53000000-0000-4000-8000-000000000001",
+                name: "스탠다드 더블",
+                scope: "COMPANY",
+              },
+              status: "ACTIVE",
+              internalNote: "목록 비노출 내부메모",
+              ownerVisibleNote: "엘리베이터 인접",
+              plannedResumeDate: null,
+              version: 1,
+              createdAt: "2026-07-25T00:00:00.000Z",
+              updatedAt: "2026-07-25T00:00:00.000Z",
+            },
+          ],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        }}
+      />,
     );
     expect(html).toContain("위아히어 강남호텔");
     expect(html).toContain("상세주소");
@@ -101,6 +141,13 @@ describe("hotel list and detail views", () => {
     expect(html).toContain("관계 및 운영 준비");
     expect(html).toContain("hotel-relationship-management");
     expect(html).toContain('href="#hotel-relationships-title"');
+    expect(html).toContain('href="#hotel-rooms-title"');
+    expect(html).toContain("객실관리");
+    expect(html).toContain("객실 등록");
+    expect(html).toContain("객실유형 관리");
+    expect(html).toContain("101");
+    expect(html).not.toContain("목록 비노출 내부메모");
+    expect(html).toContain('aria-label="호텔 상세 도움말"');
     expect(html).not.toContain('type="text" name="userId"');
   });
 
