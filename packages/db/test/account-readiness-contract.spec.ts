@@ -156,7 +156,7 @@ describe("account administration readiness contract", () => {
       'requiredRolloutPhase === "CONTRACT"\n            ? "CONTRACT"\n            : requiredRolloutPhase === "EXPAND_IDENTITY_LOCK"',
     );
     expect(source).toContain(
-      'requiredRolloutPhase === undefined\n                ? schemaPhase === "CONTRACT"',
+      'requiredRolloutPhase === undefined\n                ? observedSchemaAclPhase === "CONTRACT"',
     );
     expect(provisionSource).toContain(
       'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
