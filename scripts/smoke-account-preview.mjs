@@ -503,11 +503,12 @@ async function verifyHostedRelationshipManagement({
       },
     ]);
     const page = await context.newPage();
-    journeyFailureCode = "RELATIONSHIP_UI_RENDER";
+    journeyFailureCode = "RELATIONSHIP_UI_RENDER_NAVIGATE";
     await page.goto(`${baseUrl}/hotels/${encodeURIComponent(hotelId)}`, {
       waitUntil: "domcontentloaded",
       timeout: 60_000,
     });
+    journeyFailureCode = "RELATIONSHIP_UI_RENDER_HEADING";
     const relationshipHeading = page.getByRole("heading", {
       name: "관계 및 운영 준비",
     });
@@ -515,6 +516,7 @@ async function verifyHostedRelationshipManagement({
     const relationshipPanel = page.locator(
       'section[aria-labelledby="hotel-relationships-title"]',
     );
+    journeyFailureCode = "RELATIONSHIP_UI_RENDER_ASSIGNMENT";
     const targetAssignment = relationshipPanel
       .getByRole("listitem")
       .filter({ hasText: expectedDisplayName });
@@ -523,6 +525,7 @@ async function verifyHostedRelationshipManagement({
         "Hosted relationship UI did not render the expected assignment",
       );
     }
+    journeyFailureCode = "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD";
     if (
       (await relationshipPanel
         .getByRole("button", { name: "정상 종료" })
