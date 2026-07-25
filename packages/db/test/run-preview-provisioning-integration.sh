@@ -1437,6 +1437,111 @@ set capability = 'API_RUNTIME'
 where role_name = 'werehere_preview_api_runtime';
 SQL
 
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from schema_migrations
+where version = '0022_hotel_room_contract_hardening';
+do $room_expand_policies$
+declare
+  tenant_table text;
+begin
+  foreach tenant_table in array array[
+    'hotel_room_types',
+    'hotel_rooms',
+    'hotel_room_status_history'
+  ]
+  loop
+    execute format(
+      'drop policy if exists %I_company_isolation on public.%I',
+      tenant_table,
+      tenant_table
+    );
+    execute format(
+      'create policy %I_company_isolation on public.%I using (
+        case
+          when public.runtime_is_schema_owner() then true
+          when current_user = ''werehere_auth_session_definer'' then true
+          when current_user = ''werehere_tenant_authority_definer'' then true
+          when public.runtime_has_capability(''API_RUNTIME'') then company_id = public.api_current_company_id()
+          when public.runtime_has_capability(''RECONCILER'') then company_id = public.reconciler_current_company_id()
+          when not public.runtime_has_capability(''API_RUNTIME'')
+            and not public.runtime_has_capability(''RECONCILER'')
+            then company_id = nullif(current_setting(''app.company_id'', true), '''')::uuid
+          else false
+        end
+      ) with check (
+        case
+          when public.runtime_is_schema_owner() then true
+          when current_user = ''werehere_auth_session_definer'' then true
+          when current_user = ''werehere_tenant_authority_definer'' then true
+          when public.runtime_has_capability(''API_RUNTIME'') then company_id = public.api_current_company_id()
+          when public.runtime_has_capability(''RECONCILER'') then company_id = public.reconciler_current_company_id()
+          when not public.runtime_has_capability(''API_RUNTIME'')
+            and not public.runtime_has_capability(''RECONCILER'')
+            then company_id = nullif(current_setting(''app.company_id'', true), '''')::uuid
+          else false
+        end
+      )',
+      tenant_table,
+      tenant_table
+    );
+  end loop;
+end
+$room_expand_policies$;
+SQL
+MIXED_PHASE_EXPAND_LOG="$(run_provision EXPAND)"
+if ! grep -Fxq 'PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND' <<<"$MIXED_PHASE_EXPAND_LOG"; then
+  printf '%s\n' 'Contracted base with room EXPAND was not recognized.' >&2
+  exit 1
+fi
+MIXED_PHASE_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations where version in (
+  '0008_remove_legacy_company_id_fallback',
+  '0010_global_login_id_contract',
+  '0012_account_provider_exact_dispatch_contract',
+  '0015_neon_definer_contract_hardening'
+);
+select count(*) from schema_migrations where version = '0019_hotel_room_management';
+select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening';
+select count(*)
+from pg_policy policy_record
+join pg_class policy_table on policy_table.oid = policy_record.polrelid
+join pg_namespace policy_namespace on policy_namespace.oid = policy_table.relnamespace
+where policy_namespace.nspname = 'public'
+  and policy_table.relname in (
+    'hotel_room_types', 'hotel_rooms', 'hotel_room_status_history'
+  )
+  and pg_get_expr(policy_record.polqual, policy_record.polrelid) like '%current_setting%';
+SQL
+)"
+if [[ "$MIXED_PHASE_STATE" != $'4\n1\n0\n3' ]]; then
+  printf '%s\n' 'Mixed base CONTRACT and room EXPAND state was not preserved.' >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -f "$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql" \
+  >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+delete from schema_migrations where version in (
+  '0008_remove_legacy_company_id_fallback',
+  '0010_global_login_id_contract',
+  '0012_account_provider_exact_dispatch_contract',
+  '0015_neon_definer_contract_hardening'
+);
+SQL
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$API_RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Preview runtime test configuration is missing");
+const result = await probeDatabaseReadiness(databaseUrl, { capability: "API_RUNTIME" });
+if (result.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`Base EXPAND with room CONTRACT was accepted: ${result.status}`);
+}
+NODE
+)
+
 for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL"; do
   if psql -X -v ON_ERROR_STOP=1 -d "$runtime_url" -c 'set role postgres' >/dev/null 2>&1; then
     printf '%s\n' 'Runtime role unexpectedly assumed the owner role.' >&2

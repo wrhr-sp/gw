@@ -2010,8 +2010,23 @@ try {
   const requiredRolloutPhase = contractCompatibleAclPhase
     ? "CONTRACT"
     : provisionPhase;
+  const [roomRolloutState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0022_hotel_room_contract_hardening'
+    ) as contracted
+  `;
+  if (!roomRolloutState)
+    fail("Preview room rollout marker state is unavailable");
+  const requiredRoomRolloutPhase: "CONTRACT" | "EXPAND" =
+    roomRolloutState.contracted
+      ? "CONTRACT"
+      : provisionPhase === "CONTRACT"
+        ? "CONTRACT"
+        : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    requiredRoomSchemaPhase: requiredRoomRolloutPhase,
     requiredSchemaPhase: requiredRolloutPhase,
   });
   if (apiReadiness.status !== "READY") {
@@ -2023,6 +2038,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      requiredRoomSchemaPhase: requiredRoomRolloutPhase,
       requiredSchemaPhase: requiredRolloutPhase,
     },
   );
