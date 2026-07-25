@@ -148,11 +148,13 @@ describe("account administration readiness contract", () => {
       'observedSchemaAclPhase === "CONTRACT" &&\n          observedColumnAclPhase === "CONTRACT"',
     );
     expect(source).not.toContain("options.requiredSchemaPhase !== schemaPhase");
-    expect(expandColumnAllowlist).not.toContain(
-      "hotel_profiles:version:UPDATE",
-    );
+    expect(expandColumnAllowlist).toContain("hotel_profiles:version:UPDATE");
     expect(source).toContain("expectedColumnPrivilegeCandidates.filter");
     expect(source).toContain("matchingColumnAclPhases.length === 1");
+    expect(source).toContain("matchingColumnAclPhases.length === 2");
+    expect(source).toContain(
+      'schemaPhase === "CONTRACT"\n            ? "CONTRACT"\n            : "EXPAND_IDENTITY_LOCK"',
+    );
     expect(provisionSource).toContain(
       'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
     );
@@ -194,15 +196,11 @@ describe("account administration readiness contract", () => {
       "revoke update (updated_at) on auth_identities\n      from ${apiRuntimeTableGrantees}, ${reconcilerRole};",
     );
     expect(provisionSource).toContain(
-      "contractCompatibleAclPhase\n        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
+      "grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
     );
-    const contractGatedAcl = provisionSource.slice(
-      provisionSource.indexOf(
-        "contractCompatibleAclPhase\n        ? `grant update (version)",
-      ),
-      provisionSource.indexOf("identityLockPhase\n        ?"),
+    expect(provisionSource).not.toContain(
+      "contractCompatibleAclPhase\n        ? `grant update (version)",
     );
-    expect(contractGatedAcl).not.toContain("housekeeping_hotel_links");
     expect(provisionSource).toContain(
       "grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)\n      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments",
     );

@@ -612,6 +612,7 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
 const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
+  "hotel_profiles:version:UPDATE",
   "hotel_owner_assignments:end_date:UPDATE",
   "hotel_owner_assignments:terminated_at:UPDATE",
   "hotel_owner_assignments:terminated_by:UPDATE",
@@ -639,7 +640,6 @@ const EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES = [
 
 const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
   ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
-  "hotel_profiles:version:UPDATE",
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -2158,12 +2158,20 @@ export async function probeDatabaseReadiness(
     const observedColumnAclPhase =
       matchingColumnAclPhases.length === 1
         ? matchingColumnAclPhases[0]?.phase
-        : matchingColumnAclPhases.length === columnPhaseDefinitions.length &&
-            actualColumnPrivileges.size === 0
-          ? observedSchemaAclPhase === "CONTRACT"
+        : matchingColumnAclPhases.length === 2 &&
+            matchingColumnAclPhases.some(
+              ({ phase }) => phase === "EXPAND_IDENTITY_LOCK",
+            ) &&
+            matchingColumnAclPhases.some(({ phase }) => phase === "CONTRACT")
+          ? schemaPhase === "CONTRACT"
             ? "CONTRACT"
-            : "EXPAND"
-          : undefined;
+            : "EXPAND_IDENTITY_LOCK"
+          : matchingColumnAclPhases.length === columnPhaseDefinitions.length &&
+              actualColumnPrivileges.size === 0
+            ? observedSchemaAclPhase === "CONTRACT"
+              ? "CONTRACT"
+              : "EXPAND"
+            : undefined;
     const requiredRolloutPhase = options.requiredSchemaPhase;
     const approvedAclTuple = requiredRolloutPhase
       ? observedColumnAclPhase === requiredRolloutPhase &&
