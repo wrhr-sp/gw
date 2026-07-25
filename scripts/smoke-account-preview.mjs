@@ -489,6 +489,27 @@ async function verifyHostedRelationshipManagement({
   loginName: expectedLoginName,
   token,
 }) {
+  const setMutationFailureCode = (operation, failure) => {
+    if (failure.kind === "click") {
+      journeyFailureCode = `${operation}_MUTATION_CLICK`;
+      return;
+    }
+    if (failure.kind === "response") {
+      journeyFailureCode = `${operation}_MUTATION_RESPONSE`;
+      return;
+    }
+    const statusBucket =
+      failure.status === 401 || failure.status === 403
+        ? "AUTH"
+        : failure.status === 409
+          ? "CONFLICT"
+          : failure.status === 400 || failure.status === 422
+            ? "VALIDATION"
+            : Number.isInteger(failure.status) && failure.status >= 500
+              ? "SERVER"
+              : "OTHER";
+    journeyFailureCode = `${operation}_MUTATION_STATUS_${statusBucket}`;
+  };
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext();
@@ -584,6 +605,8 @@ async function verifyHostedRelationshipManagement({
       click: () =>
         endDialog.getByRole("button", { name: "긴급 종료 확인" }).click(),
       label: "Hosted relationship emergency end",
+      onFailure: (failure) =>
+        setMutationFailureCode("RELATIONSHIP_UI_END", failure),
       waitForReload: waitForRelationshipReload,
       waitForResponse: () =>
         page.waitForResponse(
@@ -630,6 +653,8 @@ async function verifyHostedRelationshipManagement({
       click: () =>
         assignmentDialog.getByRole("button", { name: "배정 저장" }).click(),
       label: "Hosted relationship assignment",
+      onFailure: (failure) =>
+        setMutationFailureCode("RELATIONSHIP_UI_ASSIGN", failure),
       waitForReload: waitForRelationshipReload,
       waitForResponse: () =>
         page.waitForResponse(
