@@ -502,6 +502,16 @@ async function verifyHostedRelationshipManagement({
         sameSite: "Lax",
       },
     ]);
+    const relationshipLoadCounterKey =
+      "__werehere_preview_relationship_load_count";
+    await context.addInitScript((counterKey) => {
+      if (window.top !== window) return;
+      const current = Number.parseInt(
+        window.sessionStorage.getItem(counterKey) ?? "0",
+        10,
+      );
+      window.sessionStorage.setItem(counterKey, String(current + 1));
+    }, relationshipLoadCounterKey);
     const page = await context.newPage();
     journeyFailureCode = "RELATIONSHIP_UI_RENDER_NAVIGATE";
     await page.goto(`${baseUrl}/hotels/${encodeURIComponent(hotelId)}`, {
@@ -513,6 +523,26 @@ async function verifyHostedRelationshipManagement({
       name: "관계 및 운영 준비",
     });
     await relationshipHeading.waitFor({ state: "visible", timeout: 60_000 });
+    let expectedRelationshipLoadCount = await page.evaluate(
+      (counterKey) =>
+        Number.parseInt(window.sessionStorage.getItem(counterKey) ?? "0", 10),
+      relationshipLoadCounterKey,
+    );
+    const waitForRelationshipReload = async () => {
+      expectedRelationshipLoadCount += 1;
+      await page.waitForFunction(
+        ({ counterKey, expected }) =>
+          Number.parseInt(
+            window.sessionStorage.getItem(counterKey) ?? "0",
+            10,
+          ) >= expected,
+        {
+          counterKey: relationshipLoadCounterKey,
+          expected: expectedRelationshipLoadCount,
+        },
+        { timeout: 60_000 },
+      );
+    };
     const relationshipPanel = page.locator(
       'section[aria-labelledby="hotel-relationships-title"]',
     );
@@ -537,7 +567,7 @@ async function verifyHostedRelationshipManagement({
       );
     }
 
-    journeyFailureCode = "RELATIONSHIP_UI_END";
+    journeyFailureCode = "RELATIONSHIP_UI_END_DIALOG";
     await targetAssignment.getByRole("button", { name: "긴급 종료" }).click();
     const endDialog = page.getByRole("alertdialog", {
       name: "관계를 긴급 종료하시겠습니까?",
@@ -545,16 +575,13 @@ async function verifyHostedRelationshipManagement({
     await endDialog
       .getByLabel("긴급 종료 사유")
       .fill("Preview hosted 관계 종료 검증");
+    journeyFailureCode = "RELATIONSHIP_UI_END_MUTATION_RELOAD";
     await runHostedMutationWithReload({
       acceptedStatuses: [200],
       click: () =>
         endDialog.getByRole("button", { name: "긴급 종료 확인" }).click(),
       label: "Hosted relationship emergency end",
-      waitForReload: () =>
-        page.waitForNavigation({
-          waitUntil: "domcontentloaded",
-          timeout: 60_000,
-        }),
+      waitForReload: waitForRelationshipReload,
       waitForResponse: () =>
         page.waitForResponse(
           (response) =>
@@ -596,11 +623,7 @@ async function verifyHostedRelationshipManagement({
       click: () =>
         assignmentDialog.getByRole("button", { name: "배정 저장" }).click(),
       label: "Hosted relationship assignment",
-      waitForReload: () =>
-        page.waitForNavigation({
-          waitUntil: "domcontentloaded",
-          timeout: 60_000,
-        }),
+      waitForReload: waitForRelationshipReload,
       waitForResponse: () =>
         page.waitForResponse(
           (response) =>

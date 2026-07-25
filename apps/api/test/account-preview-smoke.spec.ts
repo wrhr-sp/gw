@@ -176,6 +176,8 @@ describe("hosted Preview account-management smoke", () => {
       "RELATIONSHIP_UI_RENDER_ASSIGNMENT",
       "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD",
       "RELATIONSHIP_UI_END",
+      "RELATIONSHIP_UI_END_DIALOG",
+      "RELATIONSHIP_UI_END_MUTATION_RELOAD",
       "RELATIONSHIP_UI_ASSIGN",
       "RELATIONSHIP_UI_READINESS",
       "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
@@ -396,7 +398,8 @@ describe("hosted Preview account-management smoke", () => {
       "RELATIONSHIP_UI_RENDER_HEADING",
       "RELATIONSHIP_UI_RENDER_ASSIGNMENT",
       "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD",
-      "RELATIONSHIP_UI_END",
+      "RELATIONSHIP_UI_END_DIALOG",
+      "RELATIONSHIP_UI_END_MUTATION_RELOAD",
       "RELATIONSHIP_UI_ASSIGN",
       "RELATIONSHIP_UI_READINESS",
       "HOUSEKEEPING_ASSIGNMENTS_AFTER_RELATIONSHIP_UI",
@@ -404,6 +407,12 @@ describe("hosted Preview account-management smoke", () => {
       expect(source).toContain(`journeyFailureCode = "${failureCode}"`);
       expect(helperSource).toContain(`"${failureCode}"`);
     }
+    expect(source).toContain("await context.addInitScript");
+    expect(source).toContain("const waitForRelationshipReload = async () =>");
+    expect(
+      source.match(/waitForReload: waitForRelationshipReload/g),
+    ).toHaveLength(2);
+    expect(source).not.toContain("page.waitForNavigation");
     expect(source).toContain("await context.addCookies");
     expect(source).toMatch(
       /relationshipHeading\.waitFor[\s\S]*?targetAssignment\.waitFor\(\{ state: "visible", timeout: 60_000 \}\)[\s\S]*?targetAssignment\.count\(\)/u,
