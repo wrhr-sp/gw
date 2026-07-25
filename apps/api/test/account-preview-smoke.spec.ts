@@ -301,6 +301,10 @@ describe("hosted Preview account-management smoke", () => {
           events.push("click");
         },
         label: "hosted end",
+        onFailure: (failure: { kind: string; status?: number }) => {
+          events.push(`failure-${failure.kind}-${failure.status ?? "none"}`);
+          throw new Error("sync diagnostic hook failed");
+        },
         waitForReload: async () => {
           events.push("reload");
         },
@@ -310,7 +314,7 @@ describe("hosted Preview account-management smoke", () => {
         },
       }),
     ).rejects.toThrow("hosted end failed (409)");
-    expect(events).toEqual(["response", "click"]);
+    expect(events).toEqual(["response", "click", "failure-status-409"]);
   });
 
   it("settles the response waiter after click rejection before browser-style cleanup", async () => {
@@ -324,6 +328,10 @@ describe("hosted Preview account-management smoke", () => {
             throw new Error("click failed");
           },
           label: "hosted readiness",
+          onFailure: (failure: { kind: string; status?: number }) => {
+            events.push(`failure-${failure.kind}`);
+            throw new Error("sync diagnostic hook failed");
+          },
           waitForResponse: () =>
             new Promise((_, reject) => {
               setTimeout(() => {
@@ -336,7 +344,12 @@ describe("hosted Preview account-management smoke", () => {
     } finally {
       events.push("close");
     }
-    expect(events).toEqual(["click-rejected", "response-rejected", "close"]);
+    expect(events).toEqual([
+      "click-rejected",
+      "response-rejected",
+      "failure-click",
+      "close",
+    ]);
   });
 
   it("settles response timeout before browser-style cleanup", async () => {
@@ -349,6 +362,10 @@ describe("hosted Preview account-management smoke", () => {
             events.push("click");
           },
           label: "hosted readiness",
+          onFailure: (failure: { kind: string; status?: number }) => {
+            events.push(`failure-${failure.kind}`);
+            throw new Error("sync diagnostic hook failed");
+          },
           waitForResponse: async () => {
             events.push("response-timeout");
             throw new Error("response timeout");
@@ -358,7 +375,12 @@ describe("hosted Preview account-management smoke", () => {
     } finally {
       events.push("close");
     }
-    expect(events).toEqual(["response-timeout", "click", "close"]);
+    expect(events).toEqual([
+      "response-timeout",
+      "click",
+      "failure-response",
+      "close",
+    ]);
   });
 
   it("settles reload failure before browser-style cleanup", async () => {
