@@ -575,9 +575,12 @@ async function verifyHostedRelationshipManagement({
     await endDialog
       .getByLabel("긴급 종료 사유")
       .fill("Preview hosted 관계 종료 검증");
-    journeyFailureCode = "RELATIONSHIP_UI_END_MUTATION_RELOAD";
+    journeyFailureCode = "RELATIONSHIP_UI_END_MUTATION";
     await runHostedMutationWithReload({
       acceptedStatuses: [200],
+      beforeReload: () => {
+        journeyFailureCode = "RELATIONSHIP_UI_END_RELOAD";
+      },
       click: () =>
         endDialog.getByRole("button", { name: "긴급 종료 확인" }).click(),
       label: "Hosted relationship emergency end",
@@ -618,8 +621,12 @@ async function verifyHostedRelationshipManagement({
     }
     await candidate.selectOption({ label: expectedDisplayName });
     await assignmentDialog.getByLabel("배정 사유").fill(assignmentReason);
+    journeyFailureCode = "RELATIONSHIP_UI_ASSIGN_MUTATION";
     await runHostedMutationWithReload({
       acceptedStatuses: [200, 201],
+      beforeReload: () => {
+        journeyFailureCode = "RELATIONSHIP_UI_ASSIGN_RELOAD";
+      },
       click: () =>
         assignmentDialog.getByRole("button", { name: "배정 저장" }).click(),
       label: "Hosted relationship assignment",

@@ -27,6 +27,7 @@ export async function runHostedMutation({
 
 export async function runHostedMutationWithReload({
   acceptedStatuses,
+  beforeReload = () => undefined,
   click,
   label,
   waitForReload,
@@ -38,6 +39,7 @@ export async function runHostedMutationWithReload({
     label,
     waitForResponse,
   });
+  await beforeReload();
   await waitForReload();
   return response;
 }
