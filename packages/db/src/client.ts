@@ -2169,7 +2169,7 @@ export async function probeDatabaseReadiness(
             : requiredRolloutPhase === "EXPAND_IDENTITY_LOCK"
               ? "EXPAND_IDENTITY_LOCK"
               : requiredRolloutPhase === undefined
-                ? schemaPhase === "CONTRACT"
+                ? observedSchemaAclPhase === "CONTRACT"
                   ? "CONTRACT"
                   : "EXPAND_IDENTITY_LOCK"
                 : undefined

@@ -834,7 +834,9 @@ assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'grant usage on schema public to public' >/dev/null
-assert_readiness SCHEMA_NOT_READY
+# Contract-compatible identity-lock staging intentionally uses the exact
+# EXPAND schema ACL with the identity-lock column ACL.
+assert_readiness READY
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'revoke usage on schema public from public' >/dev/null
 assert_readiness READY
