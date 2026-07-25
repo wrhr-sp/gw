@@ -61,13 +61,48 @@ export const accountFeatureGuides = {
       "계정을 중지해야 하면 중지 사유를 입력합니다.",
       "계정 중지를 누르고 확인창에서 대상과 영향을 확인한 뒤 승인합니다.",
     ],
-    summary: "사용자의 로그인 상태와 호텔관리 업무범위를 확인하고 필요한 경우 계정을 중지합니다.",
+    summary:
+      "사용자의 로그인 상태와 호텔관리 업무범위를 확인하고 필요한 경우 계정을 중지합니다.",
     title: "사용자 상세",
     version: "1.0",
   },
 } as const satisfies Record<string, FeatureGuideContent>;
 
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
+
+export const hotelFeatureGuides = {
+  "hotel-management.detail": {
+    audience: [
+      "호텔 정보를 조회할 수 있는 사내 임직원, 하우스키핑, 호텔 소유주",
+    ],
+    cautions: [
+      "내부 메모는 권한이 있는 사내 임직원에게만 표시됩니다.",
+      "운영상태를 변경할 때는 현장 확인 결과와 변경 사유를 정확히 입력합니다.",
+      "운영제외는 객실 삭제가 아니며 상태이력은 계속 보존됩니다.",
+    ],
+    featureKey: "hotel-management.detail",
+    permissions: [
+      "객실 목록을 보려면 현재 호텔의 객실 조회 권한이 필요합니다.",
+      "객실·객실유형 등록과 수정, 상태변경은 각각의 관리 권한이 있을 때만 표시됩니다.",
+    ],
+    steps: [
+      "호텔 기본정보와 현재 관계를 확인합니다.",
+      "객실관리에서 객실번호·층·유형·운영상태를 검색합니다.",
+      "권한이 있으면 객실이나 객실유형을 등록·수정하고 운영상태와 사유를 저장합니다.",
+      "저장 후 다시 조회된 최신 객실 정보와 상태를 확인합니다.",
+    ],
+    summary:
+      "호텔 기본정보, 관계, 객실과 운영상태를 한 화면에서 확인하고 관리합니다.",
+    title: "호텔 상세",
+    version: "1.0",
+  },
+} as const satisfies Record<string, FeatureGuideContent>;
+
+export type HotelFeatureGuideKey = keyof typeof hotelFeatureGuides;
+
+export const hotelFeatureGuideRoutes = {
+  "/hotels/[hotelId]": "hotel-management.detail",
+} as const satisfies Record<string, HotelFeatureGuideKey>;
 
 export const accountFeatureGuideRoutes = {
   "/admin/users": "account-administration.list",

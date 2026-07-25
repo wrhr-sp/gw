@@ -13,6 +13,10 @@ const provisionSource = readFileSync(
   new URL("../scripts/provision-preview.ts", import.meta.url),
   "utf8",
 );
+const foundationIntegrationSource = readFileSync(
+  new URL("./run-foundation-integration.sh", import.meta.url),
+  "utf8",
+);
 
 describe("account administration readiness contract", () => {
   it("requires exact EXPAND and CONTRACT migration marker sets", () => {
@@ -39,6 +43,10 @@ describe("account administration readiness contract", () => {
     );
     expect(provisionSource).toContain(
       '"0018_hotel_support_assignment_overlap.sql"',
+    );
+    expect(provisionSource).toContain('"0019_hotel_room_management.sql"');
+    expect(provisionSource).toContain(
+      '"0022_hotel_room_contract_hardening.sql"',
     );
     expect(provisionSource).not.toContain(
       '"0015_neon_definer_contract_hardening",\n    "0016_hotel_relationship_management",',
@@ -67,6 +75,28 @@ describe("account administration readiness contract", () => {
       'name: "login_id_registry_company_id_actor_user_id_fkey"',
     );
     expect(source).toContain('name: "login_id_registry_pkey"');
+    for (const name of [
+      "hotel_room_types_pkey",
+      "hotel_rooms_pkey",
+      "hotel_room_status_history_pkey",
+      "hotel_room_types_company_id_id_key",
+      "hotel_rooms_company_id_id_key",
+      "hotel_room_types_company_id_created_by_fkey",
+      "hotel_rooms_company_id_updated_by_fkey",
+      "hotel_room_status_history_company_id_changed_by_fkey",
+      "hotel_room_types_name_check",
+      "hotel_rooms_internal_note_check",
+      "hotel_room_status_history_reason_check",
+    ]) {
+      expect(source).toContain(`name: "${name}"`);
+    }
+    expect(source).toContain('name: "hotel_room_types_scope_immutable"');
+    expect(source).toContain(
+      'functionName: "reject_hotel_room_type_scope_change"',
+    );
+    expect(source).toContain(
+      "REJECT_HOTEL_ROOM_TYPE_SCOPE_CHANGE_PROSRC_SHA256",
+    );
     expect(source).toContain(
       'name: "login_id_registry_company_id_target_user_id_key"',
     );
@@ -88,13 +118,13 @@ describe("account administration readiness contract", () => {
     for (const predicate of [
       "where (login_name is not null)",
       "where (email is not null)",
-      "assignment_type = 'primary'::text",
-      "reserved_not_dispatched",
-      "provider_updated",
-      "account_provider_deactivate",
-      "payload -> 'userid'::text",
-      "payload -> 'providersubject'::text",
-      "payload ->> 'action'::text) = 'compensate'::text",
+      "assignment_type = 'PRIMARY'::text",
+      "RESERVED_NOT_DISPATCHED",
+      "PROVIDER_UPDATED",
+      "ACCOUNT_PROVIDER_DEACTIVATE",
+      "payload -> 'userId'::text",
+      "payload -> 'providerSubject'::text",
+      "payload ->> 'action'::text) = 'COMPENSATE'::text",
     ]) {
       expect(source).toContain(predicate);
     }
@@ -107,6 +137,27 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("current_user");
   });
 
+  it("damage-probes exact room CHECK literals, trigger columns, and PUBLIC RLS roles", () => {
+    expect(foundationIntegrationSource).toContain(
+      "check (status in ('active', 'temp_suspended', 'out_of_service'))",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "before update of company_id on hotel_room_types",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "before insert or update of company_id on hotel_rooms",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "alter policy hotel_rooms_company_isolation on hotel_rooms to gw_runtime_probe",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "alter policy hotel_rooms_company_isolation on hotel_rooms to public",
+    );
+    expect(
+      foundationIntegrationSource.match(/assert_room_fingerprint_damage /gu),
+    ).toHaveLength(2);
+  });
+
   it("uses complete table privilege allowlists and rejects public, stale named-role, or grantable ACLs", () => {
     expect(source).toContain("EXPECTED_API_RUNTIME_TABLE_PRIVILEGES");
     expect(source).toContain("EXPECTED_RECONCILER_TABLE_PRIVILEGES");
@@ -116,6 +167,9 @@ describe("account administration readiness contract", () => {
     );
     expect(apiRuntimeAllowlist).not.toContain('"auth_sessions:INSERT"');
     expect(apiRuntimeAllowlist).not.toContain('"auth_sessions:UPDATE"');
+    expect(apiRuntimeAllowlist).not.toContain('"hotel_room_types:UPDATE"');
+    expect(apiRuntimeAllowlist).not.toContain('"hotel_rooms:UPDATE"');
+    expect(apiRuntimeAllowlist).toContain('"hotel_room_status_history:INSERT"');
     expect(apiRuntimeAllowlist).toContain('"login_id_registry:SELECT"');
     expect(apiRuntimeAllowlist).toContain('"login_id_registry:INSERT"');
     expect(apiRuntimeAllowlist).not.toContain('"login_id_registry:UPDATE"');
@@ -138,6 +192,29 @@ describe("account administration readiness contract", () => {
     );
     expect(expandColumnAllowlist).toContain(
       '"housekeeping_hotel_links:terminated_at:UPDATE"',
+    );
+    for (const privilege of [
+      "hotel_room_types:name:UPDATE",
+      "hotel_room_types:is_active:UPDATE",
+      "hotel_rooms:room_number:UPDATE",
+      "hotel_rooms:room_type_id:UPDATE",
+      "hotel_rooms:status:UPDATE",
+      "hotel_rooms:internal_note:UPDATE",
+      "hotel_rooms:owner_visible_note:UPDATE",
+    ]) {
+      expect(expandColumnAllowlist).toContain(`"${privilege}"`);
+    }
+    expect(expandColumnAllowlist).not.toContain(
+      '"hotel_room_types:scope:UPDATE"',
+    );
+    expect(expandColumnAllowlist).not.toContain(
+      '"hotel_room_types:branch_id:UPDATE"',
+    );
+    expect(provisionSource).toContain(
+      "grant update (name, display_order, is_active, version, updated_by, updated_at)",
+    );
+    expect(provisionSource).not.toContain(
+      "grant update on hotel_room_types, hotel_rooms",
     );
     expect(source).toContain("const columnPhaseDefinitions = [");
     expect(source).toContain('phase: "EXPAND_IDENTITY_LOCK" as const');
@@ -225,6 +302,8 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("auth_revoke_hotel_owner_sessions_v1");
     expect(source).toContain("0017_hotel_relationship_integrity_hardening");
     expect(source).toContain("0018_hotel_support_assignment_overlap");
+    expect(source).toContain("0019_hotel_room_management");
+    expect(source).toContain("0022_hotel_room_contract_hardening");
     expect(source).toContain(
       "hotel_staff_assignments_support_hotel_period_excl",
     );
@@ -338,6 +417,7 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("0008_remove_legacy_company_id_fallback");
     expect(source).toContain("return normalized === expected");
     expect(source).toContain("function normalizePolicyDefinition");
+    expect(source).toContain("return normalizePolicyDefinition(value);");
     expect(source).toContain("const sqlLiterals: string[] = []");
     expect(source).toContain("__SQL_LITERAL_");
     expect(source).toContain("runtime_has_capability('API_RUNTIME'::text)");
@@ -347,6 +427,18 @@ describe("account administration readiness contract", () => {
     );
     expect(source).toContain("loginRegistryTrigger.trigger_type !== 27");
     expect(source).toContain('trigger.enabled === "O"');
+    expect(source).toContain("trigger_record.tgattr::smallint[]");
+    expect(source).toContain(
+      'protectedColumns: ["company_id", "scope", "branch_id"]',
+    );
+    expect(source).toContain(
+      'protectedColumns: ["company_id", "branch_id", "room_type_id"]',
+    );
+    expect(source).toContain("policy_record.polroles = array[0::oid]");
+    expect(source).toContain("policy.roles_public");
+    expect(source).toContain(
+      "array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text]",
+    );
     expect(source).toContain("!loginRegistryTrigger.function_acl_safe");
     expect(source).toContain("aclexplode(");
     expect(source).not.toContain(

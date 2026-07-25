@@ -34,9 +34,181 @@ import {
   loginIdSchema,
   passwordPolicySchema,
   ownerTransferRequestSchema,
+  changeHotelRoomStatusRequestSchema,
+  createHotelRoomRequestSchema,
+  createHotelRoomTypeRequestSchema,
+  hotelRoomInternalDetailResponseSchema,
+  hotelRoomInternalListResponseSchema,
+  hotelRoomInternalSchema,
+  hotelRoomListQuerySchema,
+  hotelRoomOwnerDetailResponseSchema,
+  hotelRoomOwnerSchema,
+  hotelRoomStatusSchema,
+  updateHotelRoomRequestSchema,
+  updateHotelRoomTypeRequestSchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("keeps room inputs strict, versioned, and reasoned", () => {
+    expect(hotelRoomStatusSchema.parse("ACTIVE")).toBe("ACTIVE");
+    expect(
+      createHotelRoomTypeRequestSchema.parse({
+        name: "디럭스 더블",
+        scope: "HOTEL",
+        displayOrder: 10,
+      }),
+    ).toMatchObject({ scope: "HOTEL", isActive: true });
+    expect(
+      createHotelRoomRequestSchema.parse({
+        roomNumber: "1201",
+        floorLabel: "12층",
+        floorSortKey: 12,
+        roomTypeId: "70000000-0000-4000-8000-000000000001",
+        internalNote: "내부 점검 필요",
+        ownerVisibleNote: "창가 객실",
+      }),
+    ).toMatchObject({ roomNumber: "1201", floorSortKey: 12 });
+    expect(
+      updateHotelRoomRequestSchema.safeParse({
+        version: 2,
+        roomNumber: "1201",
+        unexpected: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      changeHotelRoomStatusRequestSchema.safeParse({
+        version: 1,
+        status: "TEMP_SUSPENDED",
+        reason: " ",
+      }).success,
+    ).toBe(false);
+    expect(
+      changeHotelRoomStatusRequestSchema.parse({
+        version: 1,
+        status: "OUT_OF_SERVICE",
+        reason: "누수 보수",
+        plannedResumeDate: "2026-08-01",
+      }).status,
+    ).toBe("OUT_OF_SERVICE");
+  });
+
+  it("returns all room field issues with user-facing Korean messages", () => {
+    const parsed = createHotelRoomRequestSchema.safeParse({
+      roomNumber: " ",
+      floorLabel: " ",
+      floorSortKey: 1.5,
+      roomTypeId: "",
+      internalNote: "가".repeat(1001),
+      ownerVisibleNote: null,
+    });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) throw new Error("invalid room input was accepted");
+    expect(parsed.error.issues.map((issue) => String(issue.path[0]))).toEqual([
+      "roomNumber",
+      "floorLabel",
+      "floorSortKey",
+      "roomTypeId",
+      "internalNote",
+    ]);
+    expect(parsed.error.issues.map((issue) => issue.message)).toEqual([
+      "객실번호를 입력해 주세요.",
+      "층 표시를 입력해 주세요.",
+      "층 정렬순서는 정수여야 합니다.",
+      "객실유형을 선택해 주세요.",
+      "객실 메모는 1,000자 이하여야 합니다.",
+    ]);
+    const roomTypeUpdate = updateHotelRoomTypeRequestSchema.safeParse({
+      displayOrder: Number.NaN,
+      version: 1,
+    });
+    expect(roomTypeUpdate.success).toBe(false);
+    if (roomTypeUpdate.success)
+      throw new Error("invalid room type display order was accepted");
+    expect(roomTypeUpdate.error.issues[0]).toMatchObject({
+      path: ["displayOrder"],
+      message: "정렬순서를 숫자로 입력해 주세요.",
+    });
+  });
+
+  it("separates internal room notes from owner projections", () => {
+    const room = {
+      id: "71000000-0000-4000-8000-000000000001",
+      hotelId: "50000000-0000-4000-8000-000000000001",
+      roomNumber: "1201",
+      floorLabel: "12층",
+      floorSortKey: 12,
+      roomType: {
+        id: "70000000-0000-4000-8000-000000000001",
+        name: "디럭스 더블",
+        scope: "HOTEL" as const,
+      },
+      status: "ACTIVE" as const,
+      ownerVisibleNote: "창가 객실",
+      plannedResumeDate: null,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    };
+    expect(
+      hotelRoomInternalSchema.parse({ ...room, internalNote: "내부 점검 필요" })
+        .internalNote,
+    ).toBe("내부 점검 필요");
+    expect(
+      hotelRoomOwnerSchema.safeParse({ ...room, internalNote: "노출 금지" })
+        .success,
+    ).toBe(false);
+    expect(
+      hotelRoomInternalDetailResponseSchema.parse({
+        ok: true,
+        data: { room: { ...room, internalNote: "내부 점검 필요" } },
+        error: null,
+      }).data.room.internalNote,
+    ).toBe("내부 점검 필요");
+    expect(
+      hotelRoomOwnerDetailResponseSchema.safeParse({
+        ok: true,
+        data: { room: { ...room, internalNote: "노출 금지" } },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelRoomInternalListResponseSchema.parse({
+        ok: true,
+        data: {
+          capabilities: { canManage: true, canManageTypes: false },
+          rooms: [{ ...room, internalNote: "내부 점검 필요" }],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        error: null,
+      }).data.capabilities,
+    ).toEqual({ canManage: true, canManageTypes: false });
+    expect(
+      hotelRoomInternalListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          rooms: [{ ...room, internalNote: "내부 점검 필요" }],
+          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(hotelRoomListQuerySchema.parse({ q: "12" })).toMatchObject({
+      q: "12",
+      page: 1,
+      pageSize: 20,
+    });
+    expect(hotelRoomListQuerySchema.parse({ q: "  1201  " }).q).toBe("1201");
+    expect(hotelRoomListQuerySchema.safeParse({ q: "   " }).success).toBe(
+      false,
+    );
+    expect(hotelRoutes.roomTypes(room.hotelId)).toBe(
+      `/api/hotels/${room.hotelId}/room-types`,
+    );
+    expect(hotelRoutes.roomStatus(room.hotelId, room.id)).toBe(
+      `/api/hotels/${room.hotelId}/rooms/${room.id}/status`,
+    );
+  });
+
   it("keeps relationship candidate queries strict and relationship-specific", () => {
     expect(
       hotelCandidateQuerySchema.parse({

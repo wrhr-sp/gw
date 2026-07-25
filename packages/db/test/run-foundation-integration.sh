@@ -70,6 +70,216 @@ commit;
 SQL
 }
 
+assert_room_constraints_exact() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local specification table_name constraint_name definition
+  local dependent_table dependent_constraint dependent_definition
+  local constraints=(
+    "hotel_room_types:hotel_room_types_pkey"
+    "hotel_room_types:hotel_room_types_company_id_fkey"
+    "hotel_room_types:hotel_room_types_company_id_branch_id_fkey"
+    "hotel_room_types:hotel_room_types_company_id_created_by_fkey"
+    "hotel_room_types:hotel_room_types_company_id_updated_by_fkey"
+    "hotel_room_types:hotel_room_types_company_id_id_key"
+    "hotel_room_types:hotel_room_types_company_id_branch_id_normalized_name_key"
+    "hotel_room_types:hotel_room_types_scope_check"
+    "hotel_room_types:hotel_room_types_scope_shape"
+    "hotel_room_types:hotel_room_types_name_check"
+    "hotel_room_types:hotel_room_types_display_order_check"
+    "hotel_room_types:hotel_room_types_version_check"
+    "hotel_rooms:hotel_rooms_pkey"
+    "hotel_rooms:hotel_rooms_company_id_fkey"
+    "hotel_rooms:hotel_rooms_company_id_branch_id_fkey"
+    "hotel_rooms:hotel_rooms_company_id_room_type_id_fkey"
+    "hotel_rooms:hotel_rooms_company_id_created_by_fkey"
+    "hotel_rooms:hotel_rooms_company_id_updated_by_fkey"
+    "hotel_rooms:hotel_rooms_company_id_id_key"
+    "hotel_rooms:hotel_rooms_company_branch_id_key"
+    "hotel_rooms:hotel_rooms_company_id_branch_id_room_number_key"
+    "hotel_rooms:hotel_rooms_room_number_check"
+    "hotel_rooms:hotel_rooms_floor_label_check"
+    "hotel_rooms:hotel_rooms_floor_sort_key_check"
+    "hotel_rooms:hotel_rooms_status_check"
+    "hotel_rooms:hotel_rooms_resume_shape"
+    "hotel_rooms:hotel_rooms_internal_note_check"
+    "hotel_rooms:hotel_rooms_owner_visible_note_check"
+    "hotel_rooms:hotel_rooms_version_check"
+    "hotel_room_status_history:hotel_room_status_history_pkey"
+    "hotel_room_status_history:hotel_room_status_history_company_id_fkey"
+    "hotel_room_status_history:hotel_room_status_history_company_id_branch_id_fkey"
+    "hotel_room_status_history:hotel_room_status_history_room_hotel_fkey"
+    "hotel_room_status_history:hotel_room_status_history_company_id_changed_by_fkey"
+    "hotel_room_status_history:hotel_room_status_history_previous_status_check"
+    "hotel_room_status_history:hotel_room_status_history_next_status_check"
+    "hotel_room_status_history:hotel_room_status_history_reason_check"
+    "hotel_room_status_history:hotel_room_status_history_transition"
+    "hotel_room_status_history:hotel_room_status_history_resume_shape"
+  )
+
+  for specification in "${constraints[@]}"; do
+    table_name="${specification%%:*}"
+    constraint_name="${specification#*:}"
+    dependent_table=""
+    dependent_constraint=""
+    if [[ "$constraint_name" == "hotel_room_types_company_id_id_key" ]]; then
+      dependent_table="hotel_rooms"
+      dependent_constraint="hotel_rooms_company_id_room_type_id_fkey"
+    elif [[ "$constraint_name" == "hotel_rooms_company_branch_id_key" ]]; then
+      dependent_table="hotel_room_status_history"
+      dependent_constraint="hotel_room_status_history_room_hotel_fkey"
+    fi
+    definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+      -v constraint_name="$constraint_name" <<'SQL'
+select pg_get_constraintdef(oid, true)
+from pg_constraint
+where conname = :'constraint_name';
+SQL
+)"
+    if [[ -z "$definition" ]]; then
+      printf 'Missing room constraint before damage probe: %s\n' "$constraint_name" >&2
+      return 1
+    fi
+    if [[ -n "$dependent_constraint" ]]; then
+      dependent_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+        -v constraint_name="$dependent_constraint" <<'SQL'
+select pg_get_constraintdef(oid, true)
+from pg_constraint
+where conname = :'constraint_name';
+SQL
+)"
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+        -v table_name="$dependent_table" -v constraint_name="$dependent_constraint" >/dev/null <<'SQL'
+select format('alter table %I drop constraint %I', :'table_name', :'constraint_name') \gexec
+SQL
+    fi
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+      -v table_name="$table_name" -v constraint_name="$constraint_name" >/dev/null <<'SQL'
+select format('alter table %I drop constraint %I', :'table_name', :'constraint_name') \gexec
+SQL
+    (
+      cd "$ROOT_DIR"
+      TEST_READY_URL="$probe_url" ROOM_CONSTRAINT="$constraint_name" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after ${process.env.ROOM_CONSTRAINT} damage, received ${damaged.status}`);
+}
+NODE
+    )
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+      -v table_name="$table_name" -v constraint_name="$constraint_name" \
+      -v definition="$definition" >/dev/null <<'SQL'
+select format(
+  'alter table %I add constraint %I %s',
+  :'table_name', :'constraint_name', :'definition'
+) \gexec
+SQL
+    if [[ -n "$dependent_constraint" ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+        -v table_name="$dependent_table" -v constraint_name="$dependent_constraint" \
+        -v definition="$dependent_definition" >/dev/null <<'SQL'
+select format(
+  'alter table %I add constraint %I %s',
+  :'table_name', :'constraint_name', :'definition'
+) \gexec
+SQL
+    fi
+  done
+}
+
+assert_room_fingerprint_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local definition trigger_definition trigger_name
+
+  probe_room_damage() {
+    local damage_label="$1"
+    (
+      cd "$ROOT_DIR"
+      TEST_READY_URL="$probe_url" DAMAGE_LABEL="$damage_label" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after ${process.env.DAMAGE_LABEL}, received ${damaged.status}`);
+}
+NODE
+    )
+  }
+
+  definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select pg_get_constraintdef(oid, true)
+from pg_constraint
+where conrelid = 'public.hotel_rooms'::regclass
+  and conname = 'hotel_rooms_status_check';
+SQL
+)"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table hotel_rooms drop constraint hotel_rooms_status_check;
+update hotel_rooms set status = lower(status);
+alter table hotel_rooms add constraint hotel_rooms_status_check
+  check (status in ('active', 'temp_suspended', 'out_of_service'));
+SQL
+  probe_room_damage "lowercase hotel room status CHECK literal damage"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -v definition="$definition" >/dev/null <<'SQL'
+alter table hotel_rooms drop constraint hotel_rooms_status_check;
+update hotel_rooms set status = upper(status);
+select format('alter table hotel_rooms add constraint hotel_rooms_status_check %s', :'definition') \gexec
+SQL
+
+  for trigger_name in hotel_room_types_scope_immutable hotel_rooms_room_type_scope_guard; do
+    trigger_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+      -v trigger_name="$trigger_name" <<'SQL'
+select pg_get_triggerdef(oid, true)
+from pg_trigger
+where tgrelid = case :'trigger_name'
+  when 'hotel_room_types_scope_immutable' then 'public.hotel_room_types'::regclass
+  else 'public.hotel_rooms'::regclass
+end
+and tgname = :'trigger_name';
+SQL
+)"
+    if [[ "$trigger_name" == "hotel_room_types_scope_immutable" ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop trigger hotel_room_types_scope_immutable on hotel_room_types;
+create trigger hotel_room_types_scope_immutable
+before update of company_id on hotel_room_types
+for each row execute function public.reject_hotel_room_type_scope_change();
+SQL
+    else
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop trigger hotel_rooms_room_type_scope_guard on hotel_rooms;
+create trigger hotel_rooms_room_type_scope_guard
+before insert or update of company_id on hotel_rooms
+for each row execute function public.enforce_hotel_room_type_scope();
+SQL
+    fi
+    probe_room_damage "partial ${trigger_name} protected-column damage"
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+      -v trigger_name="$trigger_name" -v definition="$trigger_definition" >/dev/null <<'SQL'
+select format(
+  'drop trigger %I on %s',
+  :'trigger_name',
+  case :'trigger_name'
+    when 'hotel_room_types_scope_immutable' then 'hotel_room_types'
+    else 'hotel_rooms'
+  end
+) \gexec
+select :'definition' \gexec
+SQL
+  done
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter policy hotel_rooms_company_isolation on hotel_rooms to gw_runtime_probe;
+SQL
+  probe_room_damage "hotel rooms RLS role contraction"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter policy hotel_rooms_company_isolation on hotel_rooms to public;
+SQL
+}
+
 assert_legacy_auth_removed() {
   local admin_url="$1"
   local removed
@@ -235,6 +445,8 @@ NEON_DEFINER_EXPAND_COMPATIBILITY_MIGRATION="$ROOT_DIR/packages/db/migrations/00
 HOTEL_RELATIONSHIP_MIGRATION="$ROOT_DIR/packages/db/migrations/0016_hotel_relationship_management.sql"
 HOTEL_RELATIONSHIP_INTEGRITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0017_hotel_relationship_integrity_hardening.sql"
 HOTEL_SUPPORT_OVERLAP_MIGRATION="$ROOT_DIR/packages/db/migrations/0018_hotel_support_assignment_overlap.sql"
+HOTEL_ROOM_MIGRATION="$ROOT_DIR/packages/db/migrations/0019_hotel_room_management.sql"
+HOTEL_ROOM_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -316,6 +528,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -325,6 +541,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     fi
     if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
@@ -352,11 +572,13 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_RELATIONSHIP_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_RELATIONSHIP_INTEGRITY_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_SUPPORT_OVERLAP_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_MIGRATION" >/dev/null
   assert_expand_isolated "$TEST_DATABASE_URL"
   seed_legacy_compensation "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$FALLBACK_REMOVAL_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -385,12 +607,18 @@ NODE
     TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx packages/db/test/hotel-repository-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/hotel-room-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx apps/api/test/hotel-room-api-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx apps/api/test/hotel-api-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx packages/db/test/hotel-rls-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" TEST_PROBE_URL="$PROBE_URL" \
       pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
   )
+  assert_room_constraints_exact "$TEST_DATABASE_URL" "$PROBE_URL"
+  assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
   (
@@ -488,6 +716,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_RELATIONSHIP_INTEGRITY_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_SUPPORT_OVERLAP_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_ROOM_MIGRATION" >/dev/null
 assert_expand_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 seed_legacy_compensation "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
@@ -496,6 +726,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -540,12 +772,18 @@ NODE
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx packages/db/test/hotel-repository-integration.ts
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/hotel-room-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx apps/api/test/hotel-room-api-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx apps/api/test/hotel-api-integration.ts
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx packages/db/test/hotel-rls-integration.ts
   TEST_READY_URL="$ADMIN_URL" TEST_PROBE_URL="$PROBE_URL" \
     pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
 )
+assert_room_constraints_exact "$ADMIN_URL" "$PROBE_URL"
+assert_room_fingerprint_damage "$ADMIN_URL" "$PROBE_URL"
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column version to malformed_version" >/dev/null

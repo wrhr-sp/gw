@@ -506,6 +506,278 @@ export const authSessionResponseSchema = z
   })
   .strict();
 
+export const hotelRoomTypeScopeSchema = z.enum(["COMPANY", "HOTEL"]);
+export type HotelRoomTypeScope = z.infer<typeof hotelRoomTypeScopeSchema>;
+
+export const hotelRoomStatusSchema = z.enum([
+  "ACTIVE",
+  "TEMP_SUSPENDED",
+  "OUT_OF_SERVICE",
+]);
+export type HotelRoomStatus = z.infer<typeof hotelRoomStatusSchema>;
+
+const roomTypeNameSchema = z
+  .string()
+  .trim()
+  .min(1, { error: "객실유형 이름을 입력해 주세요." })
+  .max(100, { error: "객실유형 이름은 100자 이하여야 합니다." });
+const roomNoteSchema = z
+  .string()
+  .trim()
+  .max(1000, { error: "객실 메모는 1,000자 이하여야 합니다." })
+  .nullable()
+  .default(null);
+const roomTypeDisplayOrderSchema = z
+  .number({ error: "정렬순서를 숫자로 입력해 주세요." })
+  .int({ error: "정렬순서는 정수여야 합니다." })
+  .min(0, { error: "정렬순서는 0 이상이어야 합니다." })
+  .max(100_000, { error: "정렬순서는 100,000 이하여야 합니다." });
+
+export const createHotelRoomTypeRequestSchema = z
+  .object({
+    name: roomTypeNameSchema,
+    scope: hotelRoomTypeScopeSchema,
+    displayOrder: roomTypeDisplayOrderSchema,
+    isActive: z.boolean().default(true),
+  })
+  .strict();
+export type CreateHotelRoomTypeRequest = z.infer<
+  typeof createHotelRoomTypeRequestSchema
+>;
+
+export const updateHotelRoomTypeRequestSchema = z
+  .object({
+    name: roomTypeNameSchema.optional(),
+    displayOrder: roomTypeDisplayOrderSchema.optional(),
+    isActive: z.boolean().optional(),
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.name !== undefined ||
+      value.displayOrder !== undefined ||
+      value.isActive !== undefined,
+    { message: "변경할 객실유형 정보를 입력해 주세요." },
+  );
+export type UpdateHotelRoomTypeRequest = z.infer<
+  typeof updateHotelRoomTypeRequestSchema
+>;
+
+export const hotelRoomTypeSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid().nullable(),
+    name: roomTypeNameSchema,
+    scope: hotelRoomTypeScopeSchema,
+    displayOrder: z.number().int().nonnegative(),
+    isActive: z.boolean(),
+    version: z.number().int().positive(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type HotelRoomType = z.infer<typeof hotelRoomTypeSchema>;
+
+const hotelRoomInputFields = {
+  roomNumber: z
+    .string()
+    .trim()
+    .min(1, { error: "객실번호를 입력해 주세요." })
+    .max(40, { error: "객실번호는 40자 이하여야 합니다." }),
+  floorLabel: z
+    .string()
+    .trim()
+    .min(1, { error: "층 표시를 입력해 주세요." })
+    .max(40, { error: "층 표시는 40자 이하여야 합니다." }),
+  floorSortKey: z
+    .number({ error: "층 정렬순서를 숫자로 입력해 주세요." })
+    .int({ error: "층 정렬순서는 정수여야 합니다." })
+    .min(-1000, { error: "층 정렬순서는 -1,000 이상이어야 합니다." })
+    .max(1000, { error: "층 정렬순서는 1,000 이하여야 합니다." }),
+  roomTypeId: z.uuid({ error: "객실유형을 선택해 주세요." }),
+  internalNote: roomNoteSchema,
+  ownerVisibleNote: roomNoteSchema,
+} as const;
+
+export const createHotelRoomRequestSchema = z
+  .object(hotelRoomInputFields)
+  .strict();
+export type CreateHotelRoomRequest = z.infer<
+  typeof createHotelRoomRequestSchema
+>;
+
+export const updateHotelRoomRequestSchema = z
+  .object({
+    roomNumber: hotelRoomInputFields.roomNumber.optional(),
+    floorLabel: hotelRoomInputFields.floorLabel.optional(),
+    floorSortKey: hotelRoomInputFields.floorSortKey.optional(),
+    roomTypeId: hotelRoomInputFields.roomTypeId.optional(),
+    internalNote: roomNoteSchema.optional(),
+    ownerVisibleNote: roomNoteSchema.optional(),
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.roomNumber !== undefined ||
+      value.floorLabel !== undefined ||
+      value.floorSortKey !== undefined ||
+      value.roomTypeId !== undefined ||
+      value.internalNote !== undefined ||
+      value.ownerVisibleNote !== undefined,
+    { message: "변경할 객실 정보를 입력해 주세요." },
+  );
+export type UpdateHotelRoomRequest = z.infer<
+  typeof updateHotelRoomRequestSchema
+>;
+
+export const changeHotelRoomStatusRequestSchema = z
+  .object({
+    status: hotelRoomStatusSchema,
+    reason: z
+      .string()
+      .trim()
+      .min(2, { error: "변경 사유를 2자 이상 입력해 주세요." })
+      .max(500, { error: "변경 사유는 500자 이하여야 합니다." }),
+    plannedResumeDate: z.iso
+      .date({ error: "재개 예정일을 올바르게 입력해 주세요." })
+      .nullable()
+      .optional(),
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.status === "ACTIVE" && value.plannedResumeDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["plannedResumeDate"],
+        message: "운영중 객실에는 예정 재개일을 설정할 수 없습니다.",
+      });
+    }
+  });
+export type ChangeHotelRoomStatusRequest = z.infer<
+  typeof changeHotelRoomStatusRequestSchema
+>;
+
+export const hotelRoomListQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(100).optional(),
+    status: hotelRoomStatusSchema.optional(),
+    roomTypeId: z.uuid().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type HotelRoomListQuery = z.infer<typeof hotelRoomListQuerySchema>;
+
+const hotelRoomResponseFields = {
+  id: z.uuid(),
+  hotelId: z.uuid(),
+  roomNumber: hotelRoomInputFields.roomNumber,
+  floorLabel: hotelRoomInputFields.floorLabel,
+  floorSortKey: hotelRoomInputFields.floorSortKey,
+  roomType: hotelRoomTypeSchema.pick({ id: true, name: true, scope: true }),
+  status: hotelRoomStatusSchema,
+  ownerVisibleNote: roomNoteSchema,
+  plannedResumeDate: z.iso.date().nullable(),
+  version: z.number().int().positive(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+} as const;
+
+export const hotelRoomOwnerSchema = z.object(hotelRoomResponseFields).strict();
+export type HotelRoomOwner = z.infer<typeof hotelRoomOwnerSchema>;
+
+export const hotelRoomInternalSchema = z
+  .object({ ...hotelRoomResponseFields, internalNote: roomNoteSchema })
+  .strict();
+export type HotelRoomInternal = z.infer<typeof hotelRoomInternalSchema>;
+
+const hotelRoomPaginationSchema = z
+  .object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  })
+  .strict();
+
+const hotelRoomCapabilitiesSchema = z
+  .object({
+    canManage: z.boolean(),
+    canManageTypes: z.boolean(),
+  })
+  .strict();
+
+export const hotelRoomTypeListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ roomTypes: z.array(hotelRoomTypeSchema) }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomTypeMutationResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ roomType: hotelRoomTypeSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomInternalListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        capabilities: hotelRoomCapabilitiesSchema,
+        rooms: z.array(hotelRoomInternalSchema),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomOwnerListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        capabilities: hotelRoomCapabilitiesSchema,
+        rooms: z.array(hotelRoomOwnerSchema),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomMutationResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ room: hotelRoomInternalSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomInternalDetailResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ room: hotelRoomInternalSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
+export const hotelRoomOwnerDetailResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ room: hotelRoomOwnerSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
 const hotelPath = (hotelId: string) =>
   `/api/hotels/${encodeURIComponent(hotelId)}` as const;
 
@@ -529,7 +801,14 @@ export const hotelRoutes = {
     `${hotelPath(hotelId)}/housekeeping-links` as const,
   ownerTransfer: (hotelId: string) =>
     `${hotelPath(hotelId)}/owner-transfer` as const,
+  roomTypes: (hotelId: string) => `${hotelPath(hotelId)}/room-types` as const,
+  roomType: (hotelId: string, roomTypeId: string) =>
+    `${hotelPath(hotelId)}/room-types/${encodeURIComponent(roomTypeId)}` as const,
   rooms: (hotelId: string) => `${hotelPath(hotelId)}/rooms` as const,
+  room: (hotelId: string, roomId: string) =>
+    `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}` as const,
+  roomStatus: (hotelId: string, roomId: string) =>
+    `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/status` as const,
   inspections: (hotelId: string) =>
     `${hotelPath(hotelId)}/inspections` as const,
   issues: (hotelId: string) => `${hotelPath(hotelId)}/issues` as const,

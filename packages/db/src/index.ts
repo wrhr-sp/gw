@@ -38,4 +38,17 @@ export {
   type HotelListResult,
   type HotelRepository,
 } from "./hotels";
+export {
+  createPostgresRoomRepository,
+  type ChangeRoomStatusInput,
+  type CreateRoomInput,
+  type CreateRoomTypeInput,
+  type RoomActor,
+  type RoomListResult,
+  type RoomMutationResult,
+  type RoomRepository,
+  type RoomTypeMutationResult,
+  type UpdateRoomInput,
+  type UpdateRoomTypeInput,
+} from "./rooms";
 export { probeDatabaseReadiness, type DatabaseReadiness } from "./client";

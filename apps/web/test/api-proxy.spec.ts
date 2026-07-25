@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hotelErrorResponseSchema } from "@werehere/contracts";
-import { GET, POST } from "../app/api/[...path]/route";
+import { GET, PATCH, POST } from "../app/api/[...path]/route";
 
 const originalOrigin = process.env.HOTEL_API_ORIGIN;
 
@@ -305,6 +305,107 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(wrongCandidateMethod.status).toBe(405);
     expect(wrongCandidateMethod.headers.get("allow")).toBe("GET");
+
+    const roomId = "52000000-0000-4000-8000-000000000001";
+    const roomTypeId = "53000000-0000-4000-8000-000000000001";
+    const rooms = await GET(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/rooms`),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "rooms"] }) },
+    );
+    const createRoom = await POST(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/rooms`, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "rooms"] }) },
+    );
+    const updateRoom = await PATCH(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/rooms/${roomId}`,
+        { method: "PATCH" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "rooms", roomId],
+        }),
+      },
+    );
+    const roomDetail = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/rooms/${roomId}`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "rooms", roomId],
+        }),
+      },
+    );
+    const status = await POST(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/rooms/${roomId}/status`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "rooms", roomId, "status"],
+        }),
+      },
+    );
+    const roomTypes = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/room-types`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "room-types"],
+        }),
+      },
+    );
+    const updateRoomType = await PATCH(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/room-types/${roomTypeId}`,
+        { method: "PATCH" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "room-types", roomTypeId],
+        }),
+      },
+    );
+    expect([
+      rooms.status,
+      createRoom.status,
+      updateRoom.status,
+      roomDetail.status,
+      status.status,
+      roomTypes.status,
+      updateRoomType.status,
+    ]).toEqual([200, 200, 200, 200, 200, 200, 200]);
+
+    const rejectedRoomTypeGet = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/room-types/${roomTypeId}`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "room-types", roomTypeId],
+        }),
+      },
+    );
+    expect(rejectedRoomTypeGet.status).toBe(405);
+    expect(rejectedRoomTypeGet.headers.get("allow")).toBe("PATCH");
+
+    for (const path of [
+      ["hotels", hotelId, "rooms", "not-a-uuid"],
+      ["hotels", hotelId, "room-types", roomTypeId, "extra"],
+      ["hotels", "00000000-0000-0000-0000-000000000000", "rooms"],
+    ]) {
+      const rejected = await GET(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(rejected.status).toBe(404);
+    }
+
     const unapprovedPath = await GET(
       new Request(
         `https://hotel.example.test/api/hotels/${hotelId}/private-users`,

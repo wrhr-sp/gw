@@ -99,6 +99,64 @@ const relationshipInitialData = {
   },
 };
 
+const roomInitialData = {
+  capabilities: { canManage: true, canManageTypes: true },
+  roomTypes: [
+    {
+      id: "54000000-0000-4000-8000-000000000001",
+      hotelId: null,
+      name: "스탠다드 더블",
+      scope: "COMPANY" as const,
+      displayOrder: 10,
+      isActive: true,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    },
+  ],
+  rooms: [
+    {
+      id: "55000000-0000-4000-8000-000000000001",
+      hotelId: hotel.id,
+      roomNumber: "101",
+      floorLabel: "1층",
+      floorSortKey: 1,
+      roomType: {
+        id: "54000000-0000-4000-8000-000000000001",
+        name: "스탠다드 더블",
+        scope: "COMPANY" as const,
+      },
+      status: "ACTIVE" as const,
+      internalNote: "엘리베이터 소음 점검",
+      ownerVisibleNote: "엘리베이터 인접",
+      plannedResumeDate: null,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    },
+    {
+      id: "55000000-0000-4000-8000-000000000002",
+      hotelId: hotel.id,
+      roomNumber: "1201",
+      floorLabel: "12층",
+      floorSortKey: 12,
+      roomType: {
+        id: "54000000-0000-4000-8000-000000000001",
+        name: "스탠다드 더블",
+        scope: "COMPANY" as const,
+      },
+      status: "TEMP_SUSPENDED" as const,
+      internalNote: "누수 점검 중",
+      ownerVisibleNote: "시설 점검 중",
+      plannedResumeDate: "2026-08-02",
+      version: 2,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T01:00:00.000Z",
+    },
+  ],
+  pagination: { page: 1, pageSize: 20, total: 2, totalPages: 1 },
+};
+
 export function HotelDetailStory() {
   return (
     <HotelShell
@@ -115,6 +173,7 @@ export function HotelDetailStory() {
     >
       <HotelDetailView
         relationshipInitialData={relationshipInitialData}
+        roomInitialData={roomInitialData}
         result={{ ok: true, hotel }}
       />
     </HotelShell>

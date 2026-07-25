@@ -36,6 +36,37 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/(?:rooms|room-types)$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["GET", "POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/rooms/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET", "PATCH"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/room-types/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["PATCH"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/rooms/${UUID_PATH_PATTERN}/status$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
     new RegExp(
       `^hotels/${UUID_PATH_PATTERN}/(?:assignments|owner|eligible-candidates)$`,
       "iu",
@@ -227,4 +258,5 @@ async function proxy(
 }
 
 export const GET = proxy;
+export const PATCH = proxy;
 export const POST = proxy;
