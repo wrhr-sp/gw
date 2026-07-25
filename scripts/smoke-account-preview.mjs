@@ -520,6 +520,7 @@ async function verifyHostedRelationshipManagement({
     const targetAssignment = relationshipPanel
       .getByRole("listitem")
       .filter({ hasText: expectedDisplayName });
+    await targetAssignment.waitFor({ state: "visible", timeout: 60_000 });
     if ((await targetAssignment.count()) !== 1) {
       throw new Error(
         "Hosted relationship UI did not render the expected assignment",
