@@ -612,16 +612,6 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
 const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
-] as const;
-
-const EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES = [
-  "auth_identities:updated_at:UPDATE",
-  ...EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
-] as const;
-
-const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
-  ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
-  "hotel_profiles:version:UPDATE",
   "hotel_owner_assignments:end_date:UPDATE",
   "hotel_owner_assignments:terminated_at:UPDATE",
   "hotel_owner_assignments:terminated_by:UPDATE",
@@ -640,6 +630,16 @@ const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
   "housekeeping_hotel_links:termination_reason:UPDATE",
   "housekeeping_hotel_links:updated_at:UPDATE",
   "housekeeping_hotel_links:version:UPDATE",
+] as const;
+
+const EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES = [
+  "auth_identities:updated_at:UPDATE",
+  ...EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
+] as const;
+
+const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
+  ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
+  "hotel_profiles:version:UPDATE",
 ] as const;
 
 const REQUIRED_TRIGGERS = [

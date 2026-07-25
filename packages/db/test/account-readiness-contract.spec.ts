@@ -136,7 +136,9 @@ describe("account administration readiness contract", () => {
       source.indexOf("const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES"),
       source.indexOf("const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES"),
     );
-    expect(expandColumnAllowlist).not.toContain("terminated_at:UPDATE");
+    expect(expandColumnAllowlist).toContain(
+      '"housekeeping_hotel_links:terminated_at:UPDATE"',
+    );
     expect(source).toContain("const columnPhaseDefinitions = [");
     expect(source).toContain('phase: "EXPAND_IDENTITY_LOCK" as const');
     expect(source).toContain("const observedSchemaAclPhase");
@@ -194,6 +196,13 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).toContain(
       "contractCompatibleAclPhase\n        ? `grant update (version) on hotel_profiles to ${apiRuntimeTableGrantees};",
     );
+    const contractGatedAcl = provisionSource.slice(
+      provisionSource.indexOf(
+        "contractCompatibleAclPhase\n        ? `grant update (version)",
+      ),
+      provisionSource.indexOf("identityLockPhase\n        ?"),
+    );
+    expect(contractGatedAcl).not.toContain("housekeeping_hotel_links");
     expect(provisionSource).toContain(
       "grant update (end_date, terminated_at, termination_reason, terminated_by, version, updated_at)\n      on hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments",
     );
