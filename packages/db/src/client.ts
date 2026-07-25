@@ -1140,8 +1140,9 @@ export async function probeDatabaseReadiness(
   databaseUrl: string | undefined,
   options: {
     capability: RuntimeCapability;
-    // Provisioning uses this as a strict hotel-rollout ACL gate. General
-    // Worker health accepts any exact approved rollout ACL on a contracted base.
+    // Provisioning uses these as strict rollout gates. General Worker health
+    // accepts any exact approved base/room phase combination during rollout.
+    requiredRoomSchemaPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
@@ -1269,15 +1270,23 @@ export async function probeDatabaseReadiness(
             migrationRows[0].contract_marker_count === 0
           ? "EXPAND"
           : null;
+    const roomSchemaPhase =
+      migrationRows[0]?.hotel_room_marker_count === 1 &&
+      migrationRows[0].hotel_room_contract_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_room_marker_count === 1 &&
+            migrationRows[0].hotel_room_contract_marker_count === 0
+          ? "EXPAND"
+          : null;
     if (
       !schemaPhase ||
+      !roomSchemaPhase ||
+      (roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
+      (options.requiredRoomSchemaPhase !== undefined &&
+        roomSchemaPhase !== options.requiredRoomSchemaPhase) ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
       migrationRows[0].hotel_integrity_marker_count !== 1 ||
-      migrationRows[0].hotel_support_overlap_marker_count !== 1 ||
-      migrationRows[0].hotel_room_marker_count !== 1 ||
-      (schemaPhase === "EXPAND"
-        ? migrationRows[0].hotel_room_contract_marker_count !== 0
-        : migrationRows[0].hotel_room_contract_marker_count !== 1)
+      migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -2751,6 +2760,12 @@ export async function probeDatabaseReadiness(
       REQUIRED_RLS_POLICIES.some(
         (required) =>
           !rlsRows.some((policy) => {
+            const policyPhase =
+              required.table === "hotel_room_types" ||
+              required.table === "hotel_rooms" ||
+              required.table === "hotel_room_status_history"
+                ? roomSchemaPhase
+                : schemaPhase;
             return (
               policy.policy_name === required.policy &&
               policy.table_name === required.table &&
@@ -2763,12 +2778,12 @@ export async function probeDatabaseReadiness(
               isExactTenantPolicyExpression(
                 policy.using_expression,
                 required.table === "companies" ? "id" : "company_id",
-                schemaPhase,
+                policyPhase,
               ) &&
               isExactTenantPolicyExpression(
                 policy.check_expression,
                 required.table === "companies" ? "id" : "company_id",
-                schemaPhase,
+                policyPhase,
               )
             );
           }),

@@ -53,6 +53,18 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("tracks a new room rollout independently from an already contracted base", () => {
+    expect(source).toContain("requiredRoomSchemaPhase?:");
+    expect(source).toContain("const roomSchemaPhase =");
+    expect(source).toContain(
+      'roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT"',
+    );
+    expect(source).toContain("policyPhase");
+    expect(provisionSource).toContain(
+      "requiredRoomSchemaPhase: requiredRoomRolloutPhase",
+    );
+  });
+
   it.each([
     "users_login_name_unique_idx",
     "users_login_name_global_unique_idx",
