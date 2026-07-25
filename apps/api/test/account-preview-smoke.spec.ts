@@ -171,6 +171,10 @@ describe("hosted Preview account-management smoke", () => {
   it("preserves safe relationship journey failure codes after cleanup", async () => {
     for (const failureCode of [
       "RELATIONSHIP_UI_RENDER",
+      "RELATIONSHIP_UI_RENDER_NAVIGATE",
+      "RELATIONSHIP_UI_RENDER_HEADING",
+      "RELATIONSHIP_UI_RENDER_ASSIGNMENT",
+      "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD",
       "RELATIONSHIP_UI_END",
       "RELATIONSHIP_UI_ASSIGN",
       "RELATIONSHIP_UI_READINESS",
@@ -388,7 +392,10 @@ describe("hosted Preview account-management smoke", () => {
       "async function verifyHostedRelationshipManagement",
     );
     for (const failureCode of [
-      "RELATIONSHIP_UI_RENDER",
+      "RELATIONSHIP_UI_RENDER_NAVIGATE",
+      "RELATIONSHIP_UI_RENDER_HEADING",
+      "RELATIONSHIP_UI_RENDER_ASSIGNMENT",
+      "RELATIONSHIP_UI_RENDER_NORMAL_END_GUARD",
       "RELATIONSHIP_UI_END",
       "RELATIONSHIP_UI_ASSIGN",
       "RELATIONSHIP_UI_READINESS",
