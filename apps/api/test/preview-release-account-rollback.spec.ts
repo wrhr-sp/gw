@@ -237,6 +237,9 @@ describe("Preview account Worker release safety", () => {
       "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
     );
     expect(preTarget).toContain(
+      "PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION",
+    );
+    expect(preTarget).toContain(
       "node scripts/smoke-zitadel-console-preview.mjs",
     );
     const consoleSmokeSteps = workflow

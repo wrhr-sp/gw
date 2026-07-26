@@ -180,6 +180,50 @@ export function isAuthenticatedConsoleResponse({ issuerOrigin, status, url }) {
   );
 }
 
+export function isSafeBootstrapMapping({
+  candidateResults,
+  canonicalIndex,
+  expectedSubject,
+  phase,
+}) {
+  if (
+    !Array.isArray(candidateResults) ||
+    !Number.isInteger(canonicalIndex) ||
+    canonicalIndex < 0 ||
+    canonicalIndex >= candidateResults.length ||
+    typeof expectedSubject !== "string" ||
+    expectedSubject.length === 0 ||
+    (phase !== "CANONICAL" && phase !== "PRE_ROTATION")
+  ) {
+    return false;
+  }
+  const classifications = candidateResults.map((result) => {
+    if (!Array.isArray(result) || result.length > 1) return "INVALID";
+    if (result.length === 0) return "EMPTY";
+    return result[0]?.provider_subject === expectedSubject
+      ? "EXPECTED_SUBJECT"
+      : "WRONG_SUBJECT";
+  });
+  if (
+    classifications.includes("INVALID") ||
+    classifications.includes("WRONG_SUBJECT")
+  ) {
+    return false;
+  }
+  if (phase === "CANONICAL") {
+    return classifications.every((classification, index) =>
+      index === canonicalIndex
+        ? classification === "EXPECTED_SUBJECT"
+        : classification === "EMPTY",
+    );
+  }
+  return (
+    classifications.filter(
+      (classification) => classification === "EXPECTED_SUBJECT",
+    ).length === 1
+  );
+}
+
 export function isValidConsoleLanding(value, issuerOrigin) {
   const candidate = parseSameOrigin(value, issuerOrigin);
   if (

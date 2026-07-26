@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // prettier-ignore
 // @ts-expect-error Root smoke helper is executable JavaScript outside the TS workspace.
-import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, consoleCustomLoginResponseFailureStage, consoleTokenIdentityFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
+import { CONSOLE_CREDENTIAL_FAILURE_STAGES, consoleCallbackResponseFailureStage, consoleCredentialCompletionFailureStage, consoleCredentialFailureMarker, consoleCredentialFailureStage, consoleCustomLoginResponseFailureStage, consoleTokenIdentityFailureStage, isAuthenticatedConsoleResponse, isConsoleCallbackTarget, isSafeBootstrapMapping, isSuccessfulConsoleCallbackResponse, isValidConsoleLanding } from "../../../scripts/lib/zitadel-console-smoke-contract.mjs";
 
 const smokeScriptUrl = new URL(
   "../../../scripts/smoke-zitadel-console-preview.mjs",
@@ -20,6 +20,56 @@ describe("hosted Preview Console credential smoke", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("defaults to strict canonical mapping and narrowly allows the pre-rotation phase", () => {
+    const subject = "approved-subject";
+    const expected = [{ provider_subject: subject }];
+    const empty: { provider_subject: string }[] = [];
+    const wrong = [{ provider_subject: "wrong-subject" }];
+    expect(
+      isSafeBootstrapMapping({
+        candidateResults: [empty, expected, empty],
+        canonicalIndex: 0,
+        expectedSubject: subject,
+        phase: "PRE_ROTATION",
+      }),
+    ).toBe(true);
+    expect(
+      isSafeBootstrapMapping({
+        candidateResults: [expected, empty, empty],
+        canonicalIndex: 0,
+        expectedSubject: subject,
+        phase: "CANONICAL",
+      }),
+    ).toBe(true);
+    for (const fixture of [
+      { candidateResults: [empty, expected, empty], phase: "CANONICAL" },
+      { candidateResults: [expected, expected, empty], phase: "PRE_ROTATION" },
+      { candidateResults: [wrong, empty, empty], phase: "PRE_ROTATION" },
+      {
+        candidateResults: [[...expected, ...expected], empty, empty],
+        phase: "PRE_ROTATION",
+      },
+      { candidateResults: [expected, empty, empty], phase: "UNKNOWN" },
+    ]) {
+      expect(
+        isSafeBootstrapMapping({
+          ...fixture,
+          canonicalIndex: 0,
+          expectedSubject: subject,
+        }),
+      ).toBe(false);
+    }
+    expect(source).toContain('|| "CANONICAL"');
+    expect(source).toContain('["CANONICAL", "PRE_ROTATION"]');
+    expect(source).toContain("isSafeBootstrapMapping");
+    expect(source).toContain(
+      "Preview bootstrap login mapping is not safe before rotation",
+    );
+    expect(source).toContain(
+      "Preview bootstrap login mapping is not canonical",
+    );
   });
 
   it("never exposes the Preview password through real process output", () => {

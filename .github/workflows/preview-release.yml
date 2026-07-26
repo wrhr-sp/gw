@@ -330,6 +330,7 @@ jobs:
         env:
           PREVIEW_CONTRACT_COMPATIBLE_EXPAND: ${{ steps.database_expand.outputs.contract_compatible }}
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
+          PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           set +e
