@@ -12,26 +12,43 @@ import {
   isValidConsoleLanding,
 } from "./lib/zitadel-console-smoke-contract.mjs";
 
-const requireFromDb = createRequire(new URL("../packages/db/package.json", import.meta.url));
+const requireFromDb = createRequire(
+  new URL("../packages/db/package.json", import.meta.url),
+);
 const postgres = requireFromDb("postgres");
 
 const webPreviewUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const issuer = process.env.ZITADEL_ISSUER?.trim().replace(/\/+$/u, "");
 const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
+const bootstrapLoginId = process.env.PREVIEW_BOOTSTRAP_LOGIN_ID?.trim();
 const previewPassword = process.env.ZITADEL_PREVIEW_PASSWORD;
 const requireCredentialCallback =
   process.env.ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK === "true";
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
-if (!webPreviewUrl || !issuer || !consoleClientId || !bootstrapSubject || !apiUrlFile) {
+if (
+  !webPreviewUrl ||
+  !issuer ||
+  !consoleClientId ||
+  !bootstrapSubject ||
+  !bootstrapLoginId ||
+  !apiUrlFile
+) {
   throw new Error("Console Preview smoke configuration is missing");
+}
+if (!/^[a-z0-9]{3,30}$/u.test(bootstrapLoginId)) {
+  throw new Error("Console Preview bootstrap login ID is invalid");
 }
 if (requireCredentialCallback && !previewPassword) {
   throw new Error("Console Preview credential configuration is missing");
 }
 const webOrigin = new URL(webPreviewUrl).origin;
 const issuerUrl = new URL(issuer);
-if (issuerUrl.protocol !== "https:" || issuerUrl.origin !== issuer || !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId)) {
+if (
+  issuerUrl.protocol !== "https:" ||
+  issuerUrl.origin !== issuer ||
+  !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId)
+) {
   throw new Error("Console Preview smoke configuration is invalid");
 }
 
@@ -40,16 +57,22 @@ const apiSql = postgres(apiDatabaseUrl, { max: 1, prepare: false });
 try {
   const canonical = await apiSql`
     select provider_subject
-    from public.auth_resolve_login_identity_v1('previewadmin')
+    from public.auth_resolve_login_identity_v1(${bootstrapLoginId})
   `;
-  const legacy = await apiSql`
-    select provider_subject
-    from public.auth_resolve_login_identity_v1('preview-admin')
-  `;
+  const legacyResults = await Promise.all(
+    ["preview-admin", "previewadmin"]
+      .filter((candidate) => candidate !== bootstrapLoginId)
+      .map(
+        (candidate) => apiSql`
+        select provider_subject
+        from public.auth_resolve_login_identity_v1(${candidate})
+      `,
+      ),
+  );
   if (
     canonical.length !== 1 ||
     canonical[0]?.provider_subject !== bootstrapSubject ||
-    legacy.length !== 0
+    legacyResults.some((result) => result.length !== 0)
   ) {
     throw new Error("Preview bootstrap login mapping is not canonical");
   }
@@ -57,17 +80,23 @@ try {
   await apiSql.end({ timeout: 2 });
 }
 
-const environmentResponse = await fetch(`${issuer}/ui/console/assets/environment.json`, {
-  headers: { accept: "application/json" },
-  redirect: "error",
-});
-if (!environmentResponse.ok) throw new Error("ZITADEL Console environment is unavailable");
+const environmentResponse = await fetch(
+  `${issuer}/ui/console/assets/environment.json`,
+  {
+    headers: { accept: "application/json" },
+    redirect: "error",
+  },
+);
+if (!environmentResponse.ok)
+  throw new Error("ZITADEL Console environment is unavailable");
 const environment = await environmentResponse.json();
 if (
   String(environment.issuer ?? "").replace(/\/+$/u, "") !== issuer ||
   String(environment.clientid ?? "") !== consoleClientId
 ) {
-  throw new Error("ZITADEL Console environment does not match Preview configuration");
+  throw new Error(
+    "ZITADEL Console environment does not match Preview configuration",
+  );
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -76,21 +105,42 @@ try {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
-    await page.goto(`${issuer}/ui/console`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.waitForURL((candidate) => {
-      if (candidate.origin !== webOrigin || candidate.pathname !== "/login") return false;
-      return /^[A-Za-z0-9_-]{1,200}$/u.test(candidate.searchParams.get("authRequest") ?? "") &&
-        /^[A-Za-z0-9_-]{43}$/u.test(candidate.searchParams.get("csrf") ?? "") &&
-        !candidate.searchParams.has("error");
-    }, { timeout: 60_000 });
-    await page.locator("#login-name").waitFor({ state: "visible", timeout: 10_000 });
-    await page.locator("#login-password").waitFor({ state: "visible", timeout: 10_000 });
+    await page.goto(`${issuer}/ui/console`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+    await page.waitForURL(
+      (candidate) => {
+        if (candidate.origin !== webOrigin || candidate.pathname !== "/login")
+          return false;
+        return (
+          /^[A-Za-z0-9_-]{1,200}$/u.test(
+            candidate.searchParams.get("authRequest") ?? "",
+          ) &&
+          /^[A-Za-z0-9_-]{43}$/u.test(
+            candidate.searchParams.get("csrf") ?? "",
+          ) &&
+          !candidate.searchParams.has("error")
+        );
+      },
+      { timeout: 60_000 },
+    );
+    await page
+      .locator("#login-name")
+      .waitFor({ state: "visible", timeout: 10_000 });
+    await page
+      .locator("#login-password")
+      .waitFor({ state: "visible", timeout: 10_000 });
   } catch {
-    throw new Error("ZITADEL Console did not reach the Preview custom login form");
+    throw new Error(
+      "ZITADEL Console did not reach the Preview custom login form",
+    );
   }
 
   const cookies = await context.cookies(webPreviewUrl);
-  const browserBindings = cookies.filter((cookie) => cookie.name === "__Host-hotel_oauth_browser");
+  const browserBindings = cookies.filter(
+    (cookie) => cookie.name === "__Host-hotel_oauth_browser",
+  );
   if (
     browserBindings.length !== 1 ||
     !browserBindings[0].httpOnly ||
@@ -99,45 +149,64 @@ try {
     browserBindings[0].domain !== new URL(webPreviewUrl).hostname ||
     browserBindings[0].path !== "/"
   ) {
-    throw new Error("Preview Console browser binding cookie contract is invalid");
+    throw new Error(
+      "Preview Console browser binding cookie contract is invalid",
+    );
   }
 
   if (requireCredentialCallback) {
     let credentialFailureStage = "SUBMIT";
     try {
-      const customLoginResponse = page.waitForResponse((response) => {
-        const candidate = new URL(response.url());
-        return candidate.origin === webOrigin &&
-          candidate.pathname === "/api/auth/custom-login" &&
-          response.request().method() === "POST";
-      }, { timeout: 60_000 });
-      const callbackRequest = page.waitForRequest((request) =>
-        isConsoleCallbackTarget({
-          issuerOrigin: issuerUrl.origin,
-          url: request.url(),
-        }),
-      { timeout: 60_000 });
-      const callbackResponse = page.waitForResponse((response) =>
-        isConsoleCallbackTarget({
-          issuerOrigin: issuerUrl.origin,
-          url: response.url(),
-        }),
-      { timeout: 60_000 });
-      const tokenResponse = page.waitForResponse((response) => {
-        const candidate = new URL(response.url());
-        return candidate.origin === issuerUrl.origin &&
-          candidate.pathname === "/oauth/v2/token" &&
-          response.request().method() === "POST";
-      }, { timeout: 60_000 });
-      const authenticatedUserResponse = page.waitForResponse((response) =>
-        isAuthenticatedConsoleResponse({
-          issuerOrigin: issuerUrl.origin,
-          status: response.status(),
-          url: response.url(),
-        }),
-      { timeout: 60_000 });
+      const customLoginResponse = page.waitForResponse(
+        (response) => {
+          const candidate = new URL(response.url());
+          return (
+            candidate.origin === webOrigin &&
+            candidate.pathname === "/api/auth/custom-login" &&
+            response.request().method() === "POST"
+          );
+        },
+        { timeout: 60_000 },
+      );
+      const callbackRequest = page.waitForRequest(
+        (request) =>
+          isConsoleCallbackTarget({
+            issuerOrigin: issuerUrl.origin,
+            url: request.url(),
+          }),
+        { timeout: 60_000 },
+      );
+      const callbackResponse = page.waitForResponse(
+        (response) =>
+          isConsoleCallbackTarget({
+            issuerOrigin: issuerUrl.origin,
+            url: response.url(),
+          }),
+        { timeout: 60_000 },
+      );
+      const tokenResponse = page.waitForResponse(
+        (response) => {
+          const candidate = new URL(response.url());
+          return (
+            candidate.origin === issuerUrl.origin &&
+            candidate.pathname === "/oauth/v2/token" &&
+            response.request().method() === "POST"
+          );
+        },
+        { timeout: 60_000 },
+      );
+      const authenticatedUserResponse = page.waitForResponse(
+        (response) =>
+          isAuthenticatedConsoleResponse({
+            issuerOrigin: issuerUrl.origin,
+            status: response.status(),
+            url: response.url(),
+          }),
+        { timeout: 60_000 },
+      );
       const authenticatedLanding = page.waitForURL(
-        (candidate) => isValidConsoleLanding(candidate.toString(), issuerUrl.origin),
+        (candidate) =>
+          isValidConsoleLanding(candidate.toString(), issuerUrl.origin),
         { timeout: 60_000 },
       );
       const credentialCompletion = Promise.allSettled([
@@ -148,7 +217,7 @@ try {
         authenticatedLanding,
         tokenResponse,
       ]);
-      await page.locator("#login-name").fill("previewadmin");
+      await page.locator("#login-name").fill(bootstrapLoginId);
       await page.locator("#login-password").fill(previewPassword);
       await page.getByRole("button", { name: "로그인", exact: true }).click();
       const completionResults = await credentialCompletion;
@@ -182,7 +251,10 @@ try {
       });
       if (credentialFailureStage) throw new Error("credential-stage-failed");
       const tokenResult = completionResults[5];
-      if (tokenResult?.status !== "fulfilled" || tokenResult.value.status() !== 200) {
+      if (
+        tokenResult?.status !== "fulfilled" ||
+        tokenResult.value.status() !== 200
+      ) {
         credentialFailureStage = "TOKEN_RESPONSE";
         throw new Error("credential-stage-failed");
       }
@@ -193,7 +265,9 @@ try {
         if (typeof idToken !== "string") throw new Error("missing-id-token");
         const encodedPayload = idToken.split(".")[1];
         if (!encodedPayload) throw new Error("missing-token-payload");
-        tokenClaims = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
+        tokenClaims = JSON.parse(
+          Buffer.from(encodedPayload, "base64url").toString("utf8"),
+        );
       } catch {
         credentialFailureStage = "TOKEN_DECODE";
         throw new Error("credential-stage-failed");
@@ -210,7 +284,11 @@ try {
     }
     try {
       const terminalCookies = await context.cookies(webPreviewUrl);
-      if (terminalCookies.some((cookie) => cookie.name === "__Host-hotel_oauth_browser")) {
+      if (
+        terminalCookies.some(
+          (cookie) => cookie.name === "__Host-hotel_oauth_browser",
+        )
+      ) {
         throw new Error("credential-cookie-remained");
       }
     } catch {

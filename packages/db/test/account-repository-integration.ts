@@ -456,6 +456,36 @@ try {
   });
   if (reserved.status !== "RESERVED_NOT_DISPATCHED")
     throw new Error("group-based USER_CREATE was not effective");
+  const duplicateTargetClaim = await repository.reserveCreate({
+    accountId: "8a900000-0000-4000-8000-000000000001",
+    actor,
+    attemptId: "8a910000-0000-4000-8000-000000000098",
+    hotelIds: [hotelId, secondHotelId],
+    completionPayload: {
+      ...completionPayload,
+      displayName: "Duplicate Target Claim",
+      loginName: "duplicatetargetclaim",
+      email: "duplicate-target-claim@example.invalid",
+    },
+    idempotencyKey: "duplicate-target-claim",
+    requestHash: "duplicate-target-claim-hash",
+  });
+  if (duplicateTargetClaim.status !== "LOGIN_ID_CONFLICT") {
+    throw new Error(
+      "a second immutable login ID claim for one target was accepted",
+    );
+  }
+  const [duplicateTargetClaimCount] = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from login_id_registry
+    where company_id = ${companyId}
+      and target_user_id = '8a900000-0000-4000-8000-000000000001'
+  `;
+  if (duplicateTargetClaimCount?.count !== 1) {
+    throw new Error(
+      "a rejected target claim leaked immutable login ID history",
+    );
+  }
   const conflictingIdempotency = await repository.reserveCreate({
     accountId: "8a900000-0000-4000-8000-000000000099",
     actor,

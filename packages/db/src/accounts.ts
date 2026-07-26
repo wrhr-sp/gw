@@ -21,6 +21,8 @@ import {
   type StoredHotelUserType,
 } from "./account-user-types";
 
+const LOGIN_ID_TARGET_CLAIM_SERIALIZATION = 915202607220002;
+
 export type AccountActor = {
   companyId: string;
   sessionId: string;
@@ -634,6 +636,30 @@ export function createPostgresAccountRepository(
               input.completionPayload.loginName)
         ) {
           return { status: "IDEMPOTENCY_CONFLICT" } as const;
+        }
+
+        await transaction`
+          select pg_advisory_xact_lock(hashtextextended(
+            ${`${input.actor.companyId}:${input.accountId}`},
+            ${LOGIN_ID_TARGET_CLAIM_SERIALIZATION}
+          ))
+        `;
+        const [targetClaimState] = await transaction<{ conflict: boolean }[]>`
+          select exists (
+            select 1
+            from login_id_registry
+            where company_id = ${input.actor.companyId}
+              and target_user_id = ${input.accountId}
+              and (
+                login_id <> ${input.completionPayload.loginName}
+                or actor_user_id is distinct from ${input.actor.userId}::uuid
+                or idempotency_key is distinct from ${input.idempotencyKey}
+                or request_hash is distinct from ${input.requestHash}
+              )
+          ) as conflict
+        `;
+        if (targetClaimState?.conflict) {
+          return { status: "LOGIN_ID_CONFLICT" } as const;
         }
 
         let targetAccountId = input.accountId;

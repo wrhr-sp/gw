@@ -101,6 +101,7 @@ const REQUIRED_TABLES = [
   "hotel_room_types",
   "hotel_rooms",
   "hotel_room_status_history",
+
   "company_bootstrap_states",
   "reconciliation_company_registry",
 ] as const;
@@ -157,8 +158,57 @@ const REQUIRED_COLUMNS = [
   ["hotel_rooms", "room_type_id"],
   ["hotel_rooms", "status"],
   ["hotel_rooms", "version"],
+
   ["hotel_room_status_history", "previous_status"],
   ["hotel_room_status_history", "next_status"],
+] as const;
+
+const LOGIN_ID_HISTORY_REQUIRED_COLUMNS = [
+  { name: "operation_key", type: "text", notNull: true, default: null },
+  { name: "operation_type", type: "text", notNull: true, default: null },
+  { name: "subject_fingerprint", type: "text", notNull: true, default: null },
+  { name: "request_fingerprint", type: "text", notNull: true, default: null },
+  { name: "status", type: "text", notNull: true, default: null },
+  {
+    name: "created_at",
+    type: "timestamp with time zone",
+    notNull: true,
+    default: "statement_timestamp()",
+  },
+  {
+    name: "updated_at",
+    type: "timestamp with time zone",
+    notNull: true,
+    default: "statement_timestamp()",
+  },
+] as const;
+
+const LOGIN_ID_HISTORY_REQUIRED_CONSTRAINTS = [
+  {
+    name: "preview_bootstrap_operations_pkey",
+    definition: "primary key (operation_key)",
+  },
+  {
+    name: "preview_bootstrap_operations_operation_key_check",
+    definition: "check ((btrim(operation_key) <> ''::text))",
+  },
+  {
+    name: "preview_bootstrap_operations_operation_type_check",
+    definition: "check ((operation_type = 'PASSWORD_RESET_EMAIL'::text))",
+  },
+  {
+    name: "preview_bootstrap_operations_subject_fingerprint_check",
+    definition: "check ((subject_fingerprint ~ '^[0-9a-f]{64}$'::text))",
+  },
+  {
+    name: "preview_bootstrap_operations_request_fingerprint_check",
+    definition: "check ((request_fingerprint ~ '^[0-9a-f]{64}$'::text))",
+  },
+  {
+    name: "preview_bootstrap_operations_status_check",
+    definition:
+      "check ((status = any (array['REQUESTING'::text, 'REQUESTED'::text, 'INDETERMINATE'::text])))",
+  },
 ] as const;
 
 const HOTEL_RELATIONSHIP_REQUIRED_COLUMNS = [
@@ -359,16 +409,17 @@ const REQUIRED_EXCLUSION_CONSTRAINTS = [
   },
 ] as const;
 
+const LEGACY_LOGIN_ID_TARGET_UNIQUE_CONSTRAINT = {
+  definition: "unique (company_id, target_user_id)",
+  name: "login_id_registry_company_id_target_user_id_key",
+  table: "login_id_registry",
+} as const;
+
 const REQUIRED_UNIQUE_CONSTRAINTS = [
   {
     definition: "unique (provider, provider_subject)",
     name: "auth_identities_provider_provider_subject_key",
     table: "auth_identities",
-  },
-  {
-    definition: "unique (company_id, target_user_id)",
-    name: "login_id_registry_company_id_target_user_id_key",
-    table: "login_id_registry",
   },
   {
     definition: "unique (login_id, company_id, target_user_id)",
@@ -790,6 +841,12 @@ const REQUIRED_INDEXES = [
   },
 ] as const;
 
+const LOGIN_ID_TARGET_HISTORY_INDEX = {
+  name: "login_id_registry_company_target_history_idx",
+  definition:
+    "create index login_id_registry_company_target_history_idx on public.login_id_registry using btree (company_id, target_user_id, claimed_at desc, login_id)",
+} as const;
+
 const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "account_provisioning_attempts:INSERT",
   "account_provisioning_attempts:SELECT",
@@ -1143,6 +1200,7 @@ export async function probeDatabaseReadiness(
     // Provisioning uses these as strict rollout gates. General Worker health
     // accepts any exact approved base/room phase combination during rollout.
     requiredRoomSchemaPhase?: "CONTRACT" | "EXPAND";
+    requiredLoginIdHistoryPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
@@ -1198,6 +1256,7 @@ export async function probeDatabaseReadiness(
         hotel_support_overlap_marker_count: number;
         hotel_room_marker_count: number;
         hotel_room_contract_marker_count: number;
+        login_id_history_contract_marker_count: number;
       }[]
     >`
       select count(*) filter (
@@ -1237,7 +1296,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_room_marker_count,
              count(*) filter (
                where version = '0022_hotel_room_contract_hardening'
-             )::integer as hotel_room_contract_marker_count
+             )::integer as hotel_room_contract_marker_count,
+             count(*) filter (
+               where version = '0023_login_id_registry_history_contract'
+             )::integer as login_id_history_contract_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1259,7 +1321,8 @@ export async function probeDatabaseReadiness(
         '0017_hotel_relationship_integrity_hardening',
         '0018_hotel_support_assignment_overlap',
         '0019_hotel_room_management',
-        '0022_hotel_room_contract_hardening'
+        '0022_hotel_room_contract_hardening',
+        '0023_login_id_registry_history_contract'
       )
     `;
     const schemaPhase =
@@ -1278,17 +1341,79 @@ export async function probeDatabaseReadiness(
             migrationRows[0].hotel_room_contract_marker_count === 0
           ? "EXPAND"
           : null;
+    const loginIdHistoryPhase =
+      migrationRows[0]?.login_id_history_contract_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.login_id_history_contract_marker_count === 0
+          ? "EXPAND"
+          : null;
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
+      !loginIdHistoryPhase ||
       (roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
+      (loginIdHistoryPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (options.requiredRoomSchemaPhase !== undefined &&
         roomSchemaPhase !== options.requiredRoomSchemaPhase) ||
+      (options.requiredLoginIdHistoryPhase !== undefined &&
+        loginIdHistoryPhase !== options.requiredLoginIdHistoryPhase) ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
       migrationRows[0].hotel_integrity_marker_count !== 1 ||
       migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
+    }
+    if (loginIdHistoryPhase === "CONTRACT") {
+      const operationColumns = await sql<
+        {
+          default_expression: string | null;
+          name: string;
+          not_null: boolean;
+          ordinal_position: number;
+          type: string;
+        }[]
+      >`
+        select column_record.attnum::integer as ordinal_position,
+               column_record.attname as name,
+               pg_catalog.format_type(
+                 column_record.atttypid,
+                 column_record.atttypmod
+               ) as type,
+               column_record.attnotnull as not_null,
+               pg_catalog.pg_get_expr(
+                 default_record.adbin,
+                 default_record.adrelid
+               ) as default_expression
+        from pg_catalog.pg_attribute column_record
+        join pg_catalog.pg_class table_record
+          on table_record.oid = column_record.attrelid
+        join pg_catalog.pg_namespace table_namespace
+          on table_namespace.oid = table_record.relnamespace
+        left join pg_catalog.pg_attrdef default_record
+          on default_record.adrelid = column_record.attrelid
+         and default_record.adnum = column_record.attnum
+        where table_namespace.nspname = 'public'
+          and table_record.relname = 'preview_bootstrap_operations'
+          and table_record.relkind in ('r', 'p')
+          and column_record.attnum > 0
+          and not column_record.attisdropped
+        order by column_record.attnum
+      `;
+      if (
+        operationColumns.length !== LOGIN_ID_HISTORY_REQUIRED_COLUMNS.length ||
+        LOGIN_ID_HISTORY_REQUIRED_COLUMNS.some((required, index) => {
+          const actual = operationColumns[index];
+          return (
+            actual?.ordinal_position !== index + 1 ||
+            actual.name !== required.name ||
+            actual.type !== required.type ||
+            actual.not_null !== required.notNull ||
+            actual.default_expression !== required.default
+          );
+        })
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
     }
     if (
       HOTEL_RELATIONSHIP_REQUIRED_COLUMNS.some(
@@ -2263,6 +2388,37 @@ export async function probeDatabaseReadiness(
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
+    const legacyLoginIdTargetConstraint = constraints.find(
+      (constraint) =>
+        constraint.table === LEGACY_LOGIN_ID_TARGET_UNIQUE_CONSTRAINT.table &&
+        constraint.name === LEGACY_LOGIN_ID_TARGET_UNIQUE_CONSTRAINT.name,
+    );
+    if (
+      (loginIdHistoryPhase === "EXPAND" &&
+        (!legacyLoginIdTargetConstraint ||
+          !legacyLoginIdTargetConstraint.validated ||
+          legacyLoginIdTargetConstraint.definition !==
+            LEGACY_LOGIN_ID_TARGET_UNIQUE_CONSTRAINT.definition)) ||
+      (loginIdHistoryPhase === "CONTRACT" &&
+        legacyLoginIdTargetConstraint !== undefined)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    if (
+      loginIdHistoryPhase === "CONTRACT" &&
+      LOGIN_ID_HISTORY_REQUIRED_CONSTRAINTS.some(
+        (required) =>
+          !constraints.some(
+            (constraint) =>
+              constraint.table === "preview_bootstrap_operations" &&
+              constraint.name === required.name &&
+              constraint.validated &&
+              constraint.definition === required.definition,
+          ),
+      )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
     if (
       REQUIRED_EXCLUSION_CONSTRAINTS.some(
         (required) =>
@@ -2335,6 +2491,20 @@ export async function probeDatabaseReadiness(
               normalizeDefinition(index.definition) === required.definition,
           ),
       )
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const loginIdTargetHistoryIndex = indexRows.find(
+      (index) => index.index_name === LOGIN_ID_TARGET_HISTORY_INDEX.name,
+    );
+    if (
+      (loginIdHistoryPhase === "EXPAND" &&
+        loginIdTargetHistoryIndex !== undefined) ||
+      (loginIdHistoryPhase === "CONTRACT" &&
+        (!loginIdTargetHistoryIndex ||
+          normalizeDefinition(loginIdTargetHistoryIndex.definition) !==
+            LOGIN_ID_TARGET_HISTORY_INDEX.definition))
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }

@@ -65,6 +65,52 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("tracks login ID registry history independently during mixed base rollout", () => {
+    expect(source).toContain("requiredLoginIdHistoryPhase?:");
+    expect(source).toContain("login_id_history_contract_marker_count");
+    expect(source).toContain("const loginIdHistoryPhase =");
+    expect(source).toContain(
+      'loginIdHistoryPhase === "CONTRACT" && schemaPhase !== "CONTRACT"',
+    );
+    expect(source).toContain(
+      'name: "login_id_registry_company_target_history_idx"',
+    );
+    expect(provisionSource).toContain(
+      '"0023_login_id_registry_history_contract.sql"',
+    );
+    expect(provisionSource).toContain(
+      "requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase",
+    );
+    expect(provisionSource).toContain(
+      'provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase',
+    );
+    expect(source).toContain("LOGIN_ID_HISTORY_REQUIRED_COLUMNS");
+    for (const columnContract of [
+      'name: "created_at"',
+      'name: "updated_at"',
+      'type: "timestamp with time zone"',
+      'default: "statement_timestamp()"',
+      "pg_catalog.format_type",
+      "pg_catalog.pg_get_expr",
+      "operationColumns.length !== LOGIN_ID_HISTORY_REQUIRED_COLUMNS.length",
+    ]) {
+      expect(source).toContain(columnContract);
+    }
+    expect(source).toContain("LOGIN_ID_HISTORY_REQUIRED_CONSTRAINTS");
+    for (const constraint of [
+      "preview_bootstrap_operations_pkey",
+      "preview_bootstrap_operations_operation_key_check",
+      "preview_bootstrap_operations_operation_type_check",
+      "preview_bootstrap_operations_subject_fingerprint_check",
+      "preview_bootstrap_operations_request_fingerprint_check",
+      "preview_bootstrap_operations_status_check",
+    ]) {
+      expect(source).toContain(constraint);
+    }
+    expect(source).toContain("preview_bootstrap_operations");
+    expect(accountSource).toContain("LOGIN_ID_TARGET_CLAIM_SERIALIZATION");
+  });
+
   it.each([
     "users_login_name_unique_idx",
     "users_login_name_global_unique_idx",
