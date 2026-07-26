@@ -43,7 +43,7 @@ Preview environment secrets:
 - `ZITADEL_PREVIEW_SUBJECT_SHA256`: 승인된 최초 관리자 subject fingerprint
 - `ZITADEL_PREVIEW_ISSUER_SHA256`: canonical Preview issuer origin의 승인 fingerprint
 - `ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256`: Preview organization ID의 승인 fingerprint
-- `ZITADEL_PREVIEW_EMAIL_SHA256`: 등록·검증된 최초 관리자 primary email을 소문자·trim 정규화한 승인 fingerprint. 원문 저장 금지
+- `ZITADEL_PREVIEW_APPROVED_EMAIL`: 승인자가 별도 확인한 최초 관리자 primary email 주소 원문. protected Preview secret에만 저장하고 runtime에서 trim·소문자 정규화 후 ZITADEL verified primary email과 timing-safe exact 비교한다. repository·문서·로그·DB에는 원문을 남기지 않는다.
 - `PREVIEW_BOOTSTRAP_LOGIN_ID`: 승인자가 선택한 최초 관리자 canonical ID. 원문을 repository·문서·로그에 넣지 않고 공용 `loginIdSchema`로 검증한다.
 
 Preview environment variables:
@@ -67,7 +67,7 @@ credential POST 도중 Auth Request가 만료되면 API는 exact browser binding
 
 두 ZITADEL PAT는 서로 다른 service user와 최소역할을 사용해야 한다. 둘 다 비공개 API Worker에만 주입하며 브라우저·Web Worker·빌드 artifact에 전달하지 않는다. 일반 관리자 또는 Instance Owner PAT를 대체 사용하지 않는다. 현재 workflow는 secret 이름의 존재와 API 사용 가능성만 검증하며 두 token의 subject·상호 동일성·effective role·금지 role 부재까지 증명하지 않는다. 따라서 Preview 운영자는 발급 시 별도 service account 여부와 실제 role을 ZITADEL에서 read-back해 승인 근거에 남겨야 한다.
 
-비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다. 요청은 default branch의 보호된 `preview-bootstrap-password-reset` workflow에서만 실행한다. issuer discovery read-back과 issuer·organization·subject·primary email의 독립 승인 fingerprint, Active Human, verified email을 모두 확인한 뒤에만 POST한다. PAT·raw subject·DB URL은 dependency install이 끝난 마지막 request step에만 주입하고 모든 Actions는 full commit SHA로 고정한다. `PREVIEW_BOOTSTRAP_APPROVAL_REF`별 durable 상태는 Preview DB에 `REQUESTING → REQUESTED`로 기록한다. 성공 replay는 외부 POST 없이 종료하며, network·5xx·응답 파싱·credential 반환처럼 발송 여부가 모호하면 `INDETERMINATE`로 잠그고 provider audit 또는 mailbox 확인 전 재발송하지 않는다. URL·subject·email·response body는 로그에 출력하지 않는다.
+비밀번호 재설정 메일은 ZITADEL 기본 링크를 사용하지 않고 다음 Preview custom URL template으로 발송한다. 요청은 default branch의 보호된 `preview-bootstrap-password-reset` workflow에서만 실행한다. issuer discovery read-back과 issuer·organization·subject의 독립 승인 fingerprint, protected `ZITADEL_PREVIEW_APPROVED_EMAIL` 주소와 verified primary email의 timing-safe exact 비교, Active Human을 모두 확인한 뒤에만 POST한다. PAT·raw subject·approved email·DB URL은 dependency install이 끝난 마지막 request step에만 주입하고 raw email은 로그·DB·artifact에 저장하지 않는다. 모든 Actions는 full commit SHA로 고정한다. `PREVIEW_BOOTSTRAP_APPROVAL_REF`별 durable 상태는 Preview DB에 `REQUESTING → REQUESTED`로 기록한다. 성공 replay는 외부 POST 0회로 종료하고 `REQUESTING`·`INDETERMINATE`는 provider audit와 mailbox 확인 전 자동 재발송하지 않는다.
 
 ```text
 https://werehere-hotel-web-preview.wereheresp.workers.dev/password/set#userID={{.UserID}}&code={{.Code}}&orgID={{.OrgID}}

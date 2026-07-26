@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 export type ZitadelBootstrapPasswordResetInput = {
-  approvedEmailFingerprint: string;
+  approvedEmail: string;
   approvedIssuerFingerprint: string;
   approvedOrganizationFingerprint: string;
   approvedSubjectFingerprint: string;
@@ -62,6 +62,28 @@ function verifyFingerprint(value: string, approvedFingerprint: string): void {
   }
 }
 
+export function canonicalApprovedEmail(value: string): string {
+  const canonical = value.trim().toLowerCase();
+  if (
+    canonical.length < 3 ||
+    canonical.length > 320 ||
+    !/^[^\s@]+@[^\s@]+$/u.test(canonical)
+  ) {
+    fail();
+  }
+  return canonical;
+}
+
+function verifyApprovedEmail(value: string, approvedEmail: string): void {
+  const actual = createHash("sha256")
+    .update(canonicalApprovedEmail(value), "utf8")
+    .digest();
+  const expected = createHash("sha256")
+    .update(canonicalApprovedEmail(approvedEmail), "utf8")
+    .digest();
+  if (!timingSafeEqual(actual, expected)) fail();
+}
+
 async function json(response: Response): Promise<unknown> {
   const text = await response.text();
   if (text.length === 0 || text.length > 65_536) fail();
@@ -103,6 +125,7 @@ export async function requestZitadelBootstrapPasswordReset(
   const subject = input.subject.trim();
   const organizationId = input.organizationId.trim();
   const token = input.token.trim();
+  const approvedEmail = canonicalApprovedEmail(input.approvedEmail);
   if (
     !/^[A-Za-z0-9_-]{1,200}$/u.test(subject) ||
     !/^[A-Za-z0-9_-]{1,200}$/u.test(organizationId) ||
@@ -181,10 +204,7 @@ export async function requestZitadelBootstrapPasswordReset(
   ) {
     fail();
   }
-  verifyFingerprint(
-    email.email.trim().toLowerCase(),
-    input.approvedEmailFingerprint,
-  );
+  verifyApprovedEmail(email.email, approvedEmail);
 
   const urlTemplate = `${webBaseUrl}/password/set#userID={{.UserID}}&code={{.Code}}&orgID={{.OrgID}}`;
   if (urlTemplate.length > 200) fail();
