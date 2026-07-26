@@ -111,15 +111,19 @@ jobs:
             const organizationId = required("ZITADEL_ORGANIZATION_ID");
             const subject = required("ZITADEL_PREVIEW_SUBJECT");
             const token = required("ZITADEL_USER_PROVISIONER_TOKEN");
+            stage = "IDENTITY_INPUTS";
             if (
               !/^[A-Za-z0-9_-]{1,200}$/u.test(organizationId) ||
               !/^[A-Za-z0-9_-]{1,200}$/u.test(subject)
             ) failure();
+            stage = "IDENTITY_FORMAT";
             verifyFingerprint(issuer, required("ZITADEL_PREVIEW_ISSUER_SHA256"));
+            stage = "ISSUER_FINGERPRINT";
             verifyFingerprint(
               organizationId,
               required("ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256"),
             );
+            stage = "ORGANIZATION_FINGERPRINT";
             verifyFingerprint(subject, required("ZITADEL_PREVIEW_SUBJECT_SHA256"));
             stage = "PUBLIC_KEY";
 
