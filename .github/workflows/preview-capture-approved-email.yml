@@ -1,0 +1,237 @@
+name: preview-capture-approved-email
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_key_der_b64:
+        description: Ephemeral RSA SPKI DER public key encoded as base64
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: preview-capture-approved-email
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: preview
+    steps:
+      - name: Capture encrypted verified primary email
+        env:
+          PUBLIC_KEY_DER_B64: ${{ inputs.public_key_der_b64 }}
+          PUBLIC_KEY_DER_SHA256: ${{ secrets.ZITADEL_PREVIEW_APPROVED_EMAIL_CAPTURE_PUBLIC_KEY_SHA256 }}
+          ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
+          ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          ZITADEL_PREVIEW_ISSUER_SHA256: ${{ secrets.ZITADEL_PREVIEW_ISSUER_SHA256 }}
+          ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256: ${{ secrets.ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256 }}
+          ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node <<'NODE'
+          const {
+            constants,
+            createHash,
+            createPublicKey,
+            publicEncrypt,
+            timingSafeEqual,
+          } = require("node:crypto");
+          const { writeFileSync } = require("node:fs");
+
+          const failure = () => {
+            throw new Error("Preview approved email capture failed");
+          };
+          const required = (name) => {
+            const value = process.env[name]?.trim();
+            if (!value) failure();
+            return value;
+          };
+          const object = (value) =>
+            value !== null && typeof value === "object" && !Array.isArray(value)
+              ? value
+              : null;
+          const canonicalOrigin = (value) => {
+            const trimmed = value.trim();
+            let parsed;
+            try {
+              parsed = new URL(trimmed);
+            } catch {
+              failure();
+            }
+            if (
+              parsed.protocol !== "https:" ||
+              parsed.username ||
+              parsed.password ||
+              parsed.pathname !== "/" ||
+              parsed.search ||
+              parsed.hash ||
+              parsed.origin !== trimmed
+            ) failure();
+            return parsed.origin;
+          };
+          const verifyFingerprint = (value, expectedValue) => {
+            const expectedHex = expectedValue.trim().toLowerCase();
+            if (!/^[0-9a-f]{64}$/u.test(expectedHex)) failure();
+            const actual = createHash("sha256").update(value, "utf8").digest();
+            const expected = Buffer.from(expectedHex, "hex");
+            if (expected.length !== actual.length || !timingSafeEqual(actual, expected)) {
+              failure();
+            }
+          };
+          const verifyBufferFingerprint = (value, expectedValue) => {
+            const expectedHex = expectedValue.trim().toLowerCase();
+            if (!/^[0-9a-f]{64}$/u.test(expectedHex)) failure();
+            const actual = createHash("sha256").update(value).digest();
+            const expected = Buffer.from(expectedHex, "hex");
+            if (expected.length !== actual.length || !timingSafeEqual(actual, expected)) {
+              failure();
+            }
+          };
+          const readJson = async (response) => {
+            const text = await response.text();
+            if (!text || text.length > 65_536) failure();
+            try {
+              return JSON.parse(text);
+            } catch {
+              failure();
+            }
+          };
+
+          (async () => {
+            const issuer = canonicalOrigin(required("ZITADEL_ISSUER"));
+            const organizationId = required("ZITADEL_ORGANIZATION_ID");
+            const subject = required("ZITADEL_PREVIEW_SUBJECT");
+            const token = required("ZITADEL_USER_PROVISIONER_TOKEN");
+            if (
+              !/^[A-Za-z0-9_-]{1,200}$/u.test(organizationId) ||
+              !/^[A-Za-z0-9_-]{1,200}$/u.test(subject)
+            ) failure();
+            verifyFingerprint(issuer, required("ZITADEL_PREVIEW_ISSUER_SHA256"));
+            verifyFingerprint(
+              organizationId,
+              required("ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256"),
+            );
+            verifyFingerprint(subject, required("ZITADEL_PREVIEW_SUBJECT_SHA256"));
+
+            const rawPublicKeyB64 = process.env.PUBLIC_KEY_DER_B64;
+            if (
+              typeof rawPublicKeyB64 !== "string" ||
+              rawPublicKeyB64.length === 0 ||
+              rawPublicKeyB64 !== rawPublicKeyB64.trim()
+            ) failure();
+            const publicKeyB64 = rawPublicKeyB64;
+            if (
+              publicKeyB64.length % 4 !== 0 ||
+              !/^[A-Za-z0-9+/]+={0,2}$/u.test(publicKeyB64)
+            ) failure();
+            const publicKeyBytes = Buffer.from(publicKeyB64, "base64");
+            if (publicKeyBytes.toString("base64") !== publicKeyB64) failure();
+            if (publicKeyBytes.length < 400 || publicKeyBytes.length > 1_024) failure();
+            verifyBufferFingerprint(
+              publicKeyBytes,
+              required("PUBLIC_KEY_DER_SHA256"),
+            );
+            let publicKey;
+            try {
+              publicKey = createPublicKey({
+                key: publicKeyBytes,
+                format: "der",
+                type: "spki",
+              });
+            } catch {
+              failure();
+            }
+            if (
+              publicKey.asymmetricKeyType !== "rsa" ||
+              (publicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 3_072
+            ) failure();
+            const exportedPublicKey = publicKey.export({
+              format: "der",
+              type: "spki",
+            });
+            if (
+              exportedPublicKey.length !== publicKeyBytes.length ||
+              !timingSafeEqual(exportedPublicKey, publicKeyBytes)
+            ) failure();
+
+            const discoveryResponse = await fetch(
+              `${issuer}/.well-known/openid-configuration`,
+              { method: "GET", redirect: "manual", headers: { accept: "application/json" } },
+            );
+            if (!discoveryResponse.ok || (discoveryResponse.status >= 300 && discoveryResponse.status < 400)) {
+              failure();
+            }
+            const discovery = object(await readJson(discoveryResponse));
+            if (
+              typeof discovery?.issuer !== "string" ||
+              discovery.issuer !== issuer ||
+              canonicalOrigin(discovery.issuer) !== issuer
+            ) {
+              failure();
+            }
+
+            const userResponse = await fetch(
+              `${issuer}/v2/users/${encodeURIComponent(subject)}`,
+              {
+                method: "GET",
+                redirect: "manual",
+                headers: {
+                  accept: "application/json",
+                  authorization: "Bearer " + token,
+                  "x-zitadel-orgid": organizationId,
+                },
+              },
+            );
+            if (!userResponse.ok || (userResponse.status >= 300 && userResponse.status < 400)) {
+              failure();
+            }
+            const userBody = object(await readJson(userResponse));
+            const user = object(userBody?.user);
+            const details = object(user?.details);
+            const human = object(user?.human);
+            const email = object(human?.email);
+            if (
+              user?.userId !== subject ||
+              user?.state !== "USER_STATE_ACTIVE" ||
+              details?.resourceOwner !== organizationId ||
+              typeof email?.email !== "string" ||
+              email.isVerified !== true
+            ) failure();
+            const approvedEmail = email.email.trim().toLowerCase();
+            if (
+              approvedEmail.length < 3 ||
+              approvedEmail.length > 320 ||
+              !/^[^\s@]+@[^\s@]+$/u.test(approvedEmail)
+            ) failure();
+
+            const encrypted = publicEncrypt(
+              {
+                key: publicKey,
+                padding: constants.RSA_PKCS1_OAEP_PADDING,
+                oaepHash: "sha256",
+              },
+              Buffer.from(approvedEmail, "utf8"),
+            );
+            writeFileSync("/tmp/approved-email.enc", encrypted, { mode: 0o600 });
+            process.stdout.write("PREVIEW_APPROVED_EMAIL_CAPTURE_ENCRYPTED\n");
+          })().catch(() => {
+            process.stderr.write("Preview approved email capture failed\n");
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Upload encrypted approved email
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: approved-email-encrypted-${{ github.run_id }}
+          path: /tmp/approved-email.enc
+          if-no-files-found: error
+          retention-days: 1
