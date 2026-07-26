@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
@@ -6,12 +6,13 @@ const workflow = readFileSync(
   new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
   "utf8",
 );
-const passwordResetWorkflow = readFileSync(
-  new URL(
-    "../../../.github/workflows/preview-bootstrap-password-reset.yml",
-    import.meta.url,
-  ),
-  "utf8",
+const passwordResetWorkflowUrl = new URL(
+  "../../../.github/workflows/preview-bootstrap-password-reset.yml",
+  import.meta.url,
+);
+const approvedEmailCaptureWorkflowUrl = new URL(
+  "../../../.github/workflows/preview-capture-approved-email.yml",
+  import.meta.url,
 );
 const ciWorkflow = readFileSync(
   new URL("../../../.github/workflows/ci.yml", import.meta.url),
@@ -161,40 +162,9 @@ describe("Preview account provisioning wiring", () => {
     );
   });
 
-  it("keeps the password reset request in a protected durable Preview workflow", () => {
-    expect(passwordResetWorkflow).toContain("workflow_dispatch:");
-    expect(passwordResetWorkflow).toContain(
-      "if: github.ref == 'refs/heads/main'",
-    );
-    expect(passwordResetWorkflow).toContain("environment: preview");
-    expect(passwordResetWorkflow).toContain("permissions:\n  contents: read");
-    expect(passwordResetWorkflow).toContain("timeout-minutes: 10");
-    expect(passwordResetWorkflow).toContain("persist-credentials: false");
-    expect(passwordResetWorkflow).toContain(
-      "pnpm install --frozen-lockfile --ignore-scripts",
-    );
-    expect(passwordResetWorkflow).not.toMatch(/uses:\s+[^\n]+@v\d+/u);
-    const requestStep = passwordResetWorkflow.indexOf(
-      "- name: Request registered-email password setup link",
-    );
-    expect(requestStep).toBeGreaterThan(0);
-    for (const name of [
-      "DATABASE_URL_PREVIEW",
-      "PREVIEW_BOOTSTRAP_APPROVAL_REF",
-      "ZITADEL_PREVIEW_BOOTSTRAP_SUBJECT_SHA256",
-      "ZITADEL_PREVIEW_APPROVED_EMAIL",
-      "ZITADEL_PREVIEW_ISSUER_SHA256",
-      "ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256",
-      "ZITADEL_USER_PROVISIONER_TOKEN",
-    ]) {
-      expect(passwordResetWorkflow.indexOf(name)).toBeGreaterThan(requestStep);
-    }
-    expect(passwordResetWorkflow).toContain(
-      "pnpm exec tsx packages/db/scripts/request-zitadel-bootstrap-password-reset.ts",
-    );
-    expect(passwordResetWorkflow).not.toContain("returnCode");
-    expect(passwordResetWorkflow).not.toContain("ZITADEL_PREVIEW_PASSWORD");
-    expect(passwordResetWorkflow).not.toContain("ZITADEL_PREVIEW_EMAIL_SHA256");
+  it("removes one-time approved-email capture and password-reset dispatch surfaces", () => {
+    expect(existsSync(approvedEmailCaptureWorkflowUrl)).toBe(false);
+    expect(existsSync(passwordResetWorkflowUrl)).toBe(false);
   });
 
   it("verifies the approved ZITADEL identity before database bootstrap", () => {
