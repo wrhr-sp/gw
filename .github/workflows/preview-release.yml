@@ -721,6 +721,7 @@ jobs:
         if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'
         id: expand_compatibility_smoke
         env:
+          PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           if [[ "${{ steps.hyperdrive.outputs.legacy_api_promoted }}" == "true" && \
