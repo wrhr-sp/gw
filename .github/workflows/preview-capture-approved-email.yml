@@ -45,6 +45,7 @@ jobs:
             timingSafeEqual,
           } = require("node:crypto");
           const { writeFileSync } = require("node:fs");
+          let stage = "START";
 
           const failure = () => {
             throw new Error("Preview approved email capture failed");
@@ -120,6 +121,7 @@ jobs:
               required("ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256"),
             );
             verifyFingerprint(subject, required("ZITADEL_PREVIEW_SUBJECT_SHA256"));
+            stage = "PUBLIC_KEY";
 
             const rawPublicKeyB64 = process.env.PUBLIC_KEY_DER_B64;
             if (
@@ -161,6 +163,7 @@ jobs:
               exportedPublicKey.length !== publicKeyBytes.length ||
               !timingSafeEqual(exportedPublicKey, publicKeyBytes)
             ) failure();
+            stage = "DISCOVERY";
 
             const discoveryResponse = await fetch(
               `${issuer}/.well-known/openid-configuration`,
@@ -177,6 +180,7 @@ jobs:
             ) {
               failure();
             }
+            stage = "USER_READ";
 
             const userResponse = await fetch(
               `${issuer}/v2/users/${encodeURIComponent(subject)}`,
@@ -211,6 +215,7 @@ jobs:
               approvedEmail.length > 320 ||
               !/^[^\s@]+@[^\s@]+$/u.test(approvedEmail)
             ) failure();
+            stage = "ENCRYPT";
 
             const encrypted = publicEncrypt(
               {
@@ -221,9 +226,10 @@ jobs:
               Buffer.from(approvedEmail, "utf8"),
             );
             writeFileSync("/tmp/approved-email.enc", encrypted, { mode: 0o600 });
+            stage = "DONE";
             process.stdout.write("PREVIEW_APPROVED_EMAIL_CAPTURE_ENCRYPTED\n");
           })().catch(() => {
-            process.stderr.write("Preview approved email capture failed\n");
+            process.stderr.write(`Preview approved email capture failed at ${stage}\n`);
             process.exitCode = 1;
           });
           NODE
