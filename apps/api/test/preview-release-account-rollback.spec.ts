@@ -320,6 +320,9 @@ describe("Preview account Worker release safety", () => {
       "node scripts/smoke-zitadel-console-preview.mjs",
     );
     expect(canonicalTarget).toContain(
+      "PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION",
+    );
+    expect(canonicalTarget).toContain(
       "PREVIEW_LEGACY_API_POST_RETARGET_SMOKE_DEFERRED",
     );
   });
