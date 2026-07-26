@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import postgres, { type Sql } from "postgres";
-import { requestZitadelBootstrapPasswordReset } from "../src/zitadel-bootstrap-password-reset";
+import {
+  canonicalApprovedEmail,
+  requestZitadelBootstrapPasswordReset,
+} from "../src/zitadel-bootstrap-password-reset";
 
 const FAILURE = "ZITADEL bootstrap password reset request failed";
 
@@ -108,9 +111,12 @@ async function main(): Promise<void> {
   const organizationFingerprint = required(
     "ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256",
   ).toLowerCase();
-  const emailFingerprint = required(
-    "ZITADEL_PREVIEW_EMAIL_SHA256",
-  ).toLowerCase();
+  const approvedEmail = canonicalApprovedEmail(
+    required("ZITADEL_PREVIEW_APPROVED_EMAIL"),
+  );
+  const emailFingerprint = createHash("sha256")
+    .update(approvedEmail, "utf8")
+    .digest("hex");
   for (const fingerprint of [
     subjectFingerprint,
     issuerFingerprint,
@@ -135,7 +141,7 @@ async function main(): Promise<void> {
   });
   try {
     const result = await requestZitadelBootstrapPasswordReset({
-      approvedEmailFingerprint: emailFingerprint,
+      approvedEmail,
       approvedIssuerFingerprint: issuerFingerprint,
       approvedOrganizationFingerprint: organizationFingerprint,
       approvedSubjectFingerprint: subjectFingerprint,

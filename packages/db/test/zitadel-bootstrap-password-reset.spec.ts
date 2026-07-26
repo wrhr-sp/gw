@@ -42,7 +42,7 @@ function userResponse(options?: {
 }
 
 const input = (fetcher: typeof fetch) => ({
-  approvedEmailFingerprint: fingerprint(emailAddress),
+  approvedEmail: emailAddress,
   approvedIssuerFingerprint: fingerprint(issuer),
   approvedOrganizationFingerprint: fingerprint(organizationId),
   approvedSubjectFingerprint: fingerprint(subject),
@@ -108,7 +108,7 @@ describe("Preview bootstrap password reset request", () => {
     );
   });
 
-  it("fails before reservation when the verified email fingerprint changed", async () => {
+  it("fails before reservation when the approved verified email address changed", async () => {
     const beforeResetRequest = vi.fn(async () => "PROCEED" as const);
     const fetcher = vi
       .fn<typeof fetch>()
@@ -123,6 +123,21 @@ describe("Preview bootstrap password reset request", () => {
     ).rejects.toThrow("ZITADEL bootstrap password reset request failed");
     expect(beforeResetRequest).not.toHaveBeenCalled();
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("compares the independently approved email after canonical trim and lowercase normalization", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(discoveryResponse())
+      .mockResolvedValueOnce(userResponse({ email: "Bootstrap@Example.Test" }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+    await expect(
+      requestZitadelBootstrapPasswordReset({
+        ...input(fetcher as typeof fetch),
+        approvedEmail: "  BOOTSTRAP@example.test  ",
+      }),
+    ).resolves.toEqual({ status: "REQUESTED" });
   });
 
   it("fails before reservation when the primary email is not verified", async () => {
@@ -172,6 +187,7 @@ describe("Preview bootstrap password reset request", () => {
       { approvedIssuerFingerprint: "0".repeat(64) },
       { approvedOrganizationFingerprint: "0".repeat(64) },
       { approvedSubjectFingerprint: "0".repeat(64) },
+      { approvedEmail: "" },
     ]) {
       const fetcher = vi.fn<typeof fetch>();
       await expect(

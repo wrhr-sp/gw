@@ -182,7 +182,7 @@ describe("Preview account provisioning wiring", () => {
       "DATABASE_URL_PREVIEW",
       "PREVIEW_BOOTSTRAP_APPROVAL_REF",
       "ZITADEL_PREVIEW_BOOTSTRAP_SUBJECT_SHA256",
-      "ZITADEL_PREVIEW_EMAIL_SHA256",
+      "ZITADEL_PREVIEW_APPROVED_EMAIL",
       "ZITADEL_PREVIEW_ISSUER_SHA256",
       "ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256",
       "ZITADEL_USER_PROVISIONER_TOKEN",
@@ -194,6 +194,7 @@ describe("Preview account provisioning wiring", () => {
     );
     expect(passwordResetWorkflow).not.toContain("returnCode");
     expect(passwordResetWorkflow).not.toContain("ZITADEL_PREVIEW_PASSWORD");
+    expect(passwordResetWorkflow).not.toContain("ZITADEL_PREVIEW_EMAIL_SHA256");
   });
 
   it("verifies the approved ZITADEL identity before database bootstrap", () => {
