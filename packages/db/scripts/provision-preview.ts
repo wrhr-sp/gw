@@ -2,6 +2,7 @@ import { chmod, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import postgres from "postgres";
+import { loginIdSchema } from "@werehere/contracts";
 import { probeDatabaseReadiness } from "../src/client";
 
 const ownerDatabaseUrl = process.env.DATABASE_URL_PREVIEW?.trim() ?? "";
@@ -47,6 +48,21 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+const previewBootstrapLoginIdResult = loginIdSchema.safeParse(
+  process.env.PREVIEW_BOOTSTRAP_LOGIN_ID?.trim(),
+);
+if (!previewBootstrapLoginIdResult.success) {
+  fail(
+    "PREVIEW_BOOTSTRAP_LOGIN_ID is required and must satisfy the login ID contract",
+  );
+}
+const previewBootstrapLoginId = previewBootstrapLoginIdResult.data;
+const approvedLegacyBootstrapLoginIds = ["preview-admin", "previewadmin"];
+const approvedCurrentBootstrapLoginIds = new Set([
+  ...approvedLegacyBootstrapLoginIds,
+  previewBootstrapLoginId,
+]);
+
 if (
   provisionPhase !== "EXPAND" &&
   provisionPhase !== "EXPAND_IDENTITY_LOCK" &&
@@ -57,6 +73,8 @@ if (
   );
 }
 const contractPhase = provisionPhase === "CONTRACT";
+const loginIdRotationPhase =
+  provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase;
 let contractCompatibleAclPhase = contractPhase;
 let identityLockPhase =
   provisionPhase === "EXPAND_IDENTITY_LOCK" || contractPhase;
@@ -423,6 +441,10 @@ try {
       "0022_hotel_room_contract_hardening",
       "0022_hotel_room_contract_hardening.sql",
     ],
+    [
+      "0023_login_id_registry_history_contract",
+      "0023_login_id_registry_history_contract.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -430,6 +452,7 @@ try {
     "0012_account_provider_exact_dispatch_contract",
     "0015_neon_definer_contract_hardening",
     "0022_hotel_room_contract_hardening",
+    "0023_login_id_registry_history_contract",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -495,6 +518,29 @@ try {
     contractCompatibleAclPhase = contractBaseState.contract_marker_count === 4;
     identityLockPhase = contractCompatibleAclPhase;
   }
+  if (
+    loginIdRotationPhase &&
+    bootstrapSchemaReady &&
+    contractBaseState.contract_marker_count === 4
+  ) {
+    const [historyContract] = await owner<{ applied: boolean }[]>`
+      select exists (
+        select 1 from public.schema_migrations
+        where version = '0023_login_id_registry_history_contract'
+      ) as applied
+    `;
+    if (!historyContract?.applied) {
+      await owner.unsafe(
+        await readFile(
+          resolve(
+            migrationDirectory,
+            "0023_login_id_registry_history_contract.sql",
+          ),
+          "utf8",
+        ),
+      );
+    }
+  }
   if (contractPhase && bootstrapSchemaReady) {
     await owner.begin(async (sql) => {
       const rows = await sql<
@@ -524,11 +570,16 @@ try {
           rows[0].provider_subject !== zitadelSubject ||
           rows[0].status !== "ACTIVE" ||
           (rows[0].login_name !== null &&
-            !["preview-admin", "previewadmin"].includes(rows[0].login_name))
+            !approvedCurrentBootstrapLoginIds.has(rows[0].login_name))
         ) {
           fail("Existing Preview bootstrap identity cannot be aligned safely");
         }
-        if (rows[0].login_name !== "previewadmin") {
+        if (
+          rows[0].login_name !== previewBootstrapLoginId &&
+          (loginIdRotationPhase ||
+            rows[0].login_name === null ||
+            !loginIdSchema.safeParse(rows[0].login_name).success)
+        ) {
           const legacyLoginState =
             rows[0].login_name === null
               ? "LEGACY_UNSET"
@@ -536,7 +587,7 @@ try {
           const collision = await sql<{ exists: boolean }[]>`
             select exists (
               select 1 from public.users
-              where lower(btrim(login_name)) = 'previewadmin'
+              where lower(btrim(login_name)) = ${previewBootstrapLoginId}
                 and id <> ${previewUserId}::uuid
             ) as exists
           `;
@@ -545,7 +596,7 @@ try {
           }
           await sql`
             insert into public.login_id_registry (login_id, company_id, target_user_id)
-            values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+            values (${previewBootstrapLoginId}, ${previewCompanyId}::uuid, ${previewUserId}::uuid)
             on conflict (login_id) do nothing
           `;
           const [registryClaim] = await sql<
@@ -553,7 +604,7 @@ try {
           >`
             select company_id::text, target_user_id::text
             from public.login_id_registry
-            where login_id = 'previewadmin'
+            where login_id = ${previewBootstrapLoginId}
           `;
           if (
             registryClaim?.company_id !== previewCompanyId ||
@@ -565,12 +616,12 @@ try {
           }
           await sql`
             update public.users
-            set login_name = 'previewadmin',
+            set login_name = ${previewBootstrapLoginId},
                 version = version + 1,
                 updated_at = pg_catalog.statement_timestamp()
             where id = ${previewUserId}::uuid
               and company_id = ${previewCompanyId}::uuid
-              and (login_name = 'preview-admin' or login_name is null)
+              and (login_name in ('preview-admin', 'previewadmin') or login_name is null)
           `;
           await sql`
             update public.auth_sessions
@@ -644,17 +695,24 @@ try {
       rows[0].provider_subject !== zitadelSubject ||
       rows[0].status !== "ACTIVE" ||
       (rows[0].login_name !== null &&
-        !["preview-admin", "previewadmin"].includes(rows[0].login_name))
+        !approvedCurrentBootstrapLoginIds.has(rows[0].login_name))
     ) {
       fail("Existing Preview bootstrap identity cannot be aligned safely");
     }
-    if (rows[0].login_name === "previewadmin") return;
+    if (
+      !loginIdRotationPhase &&
+      rows[0].login_name !== null &&
+      loginIdSchema.safeParse(rows[0].login_name).success
+    ) {
+      return;
+    }
+    if (rows[0].login_name === previewBootstrapLoginId) return;
     const legacyLoginState =
       rows[0].login_name === null ? "LEGACY_UNSET" : "LEGACY_NON_CANONICAL";
     const collision = await sql<{ exists: boolean }[]>`
       select exists (
         select 1 from public.users
-        where lower(btrim(login_name)) = 'previewadmin'
+        where lower(btrim(login_name)) = ${previewBootstrapLoginId}
           and id <> ${previewUserId}::uuid
       ) as exists
     `;
@@ -662,7 +720,7 @@ try {
       fail("Preview bootstrap canonical login ID is unavailable");
     await sql`
       insert into public.login_id_registry (login_id, company_id, target_user_id)
-      values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+      values (${previewBootstrapLoginId}, ${previewCompanyId}::uuid, ${previewUserId}::uuid)
       on conflict (login_id) do nothing
     `;
     const [registryClaim] = await sql<
@@ -670,7 +728,7 @@ try {
     >`
       select company_id::text, target_user_id::text
       from public.login_id_registry
-      where login_id = 'previewadmin'
+      where login_id = ${previewBootstrapLoginId}
     `;
     if (
       registryClaim?.company_id !== previewCompanyId ||
@@ -682,12 +740,12 @@ try {
     }
     await sql`
       update public.users
-      set login_name = 'previewadmin',
+      set login_name = ${previewBootstrapLoginId},
           version = version + 1,
           updated_at = pg_catalog.statement_timestamp()
       where id = ${previewUserId}::uuid
         and company_id = ${previewCompanyId}::uuid
-        and (login_name = 'preview-admin' or login_name is null)
+        and (login_name in ('preview-admin', 'previewadmin') or login_name is null)
     `;
     await sql`
       update public.auth_sessions
@@ -749,9 +807,29 @@ try {
     ) {
       fail("Existing Preview company does not match the approved seed");
     }
+    const [existingSeedUser] = await sql<{ login_name: string | null }[]>`
+      select login_name
+      from users
+      where id = ${previewUserId}::uuid
+        and company_id = ${previewCompanyId}::uuid
+      for update
+    `;
+    if (
+      existingSeedUser?.login_name !== null &&
+      existingSeedUser?.login_name !== undefined &&
+      !approvedCurrentBootstrapLoginIds.has(existingSeedUser.login_name)
+    ) {
+      fail("Existing Preview user does not match the approved seed");
+    }
+    const activeSeedLoginId =
+      existingSeedUser?.login_name &&
+      !loginIdRotationPhase &&
+      loginIdSchema.safeParse(existingSeedUser.login_name).success
+        ? existingSeedUser.login_name
+        : previewBootstrapLoginId;
     await sql`
       insert into login_id_registry (login_id, company_id, target_user_id)
-      values ('previewadmin', ${previewCompanyId}::uuid, ${previewUserId}::uuid)
+      values (${activeSeedLoginId}, ${previewCompanyId}::uuid, ${previewUserId}::uuid)
       on conflict (login_id) do nothing
     `;
     const [seedRegistryClaim] = await sql<
@@ -759,7 +837,7 @@ try {
     >`
       select company_id::text, target_user_id::text
       from login_id_registry
-      where login_id = 'previewadmin'
+      where login_id = ${activeSeedLoginId}
     `;
     if (
       seedRegistryClaim?.company_id !== previewCompanyId ||
@@ -777,11 +855,15 @@ try {
         'INTERNAL_STAFF',
         'Preview 관리자',
         'ACTIVE',
-        'previewadmin',
+        ${activeSeedLoginId},
         'preview-admin@werehere.invalid'
       )
       on conflict (id) do update
-      set login_name = coalesce(users.login_name, excluded.login_name),
+      set login_name = case
+            when users.login_name is null or users.login_name = 'preview-admin'
+              then excluded.login_name
+            else users.login_name
+          end,
           email = coalesce(users.email, excluded.email)
     `;
     const [user] = await sql<
@@ -801,7 +883,7 @@ try {
     if (
       user?.company_id !== previewCompanyId ||
       user.display_name !== "Preview 관리자" ||
-      user.login_name !== "previewadmin" ||
+      user.login_name !== activeSeedLoginId ||
       user.email !== "preview-admin@werehere.invalid" ||
       user.status !== "ACTIVE" ||
       user.user_type !== "INTERNAL_STAFF"
@@ -2024,8 +2106,20 @@ try {
       : provisionPhase === "CONTRACT"
         ? "CONTRACT"
         : "EXPAND";
+  const [loginIdHistoryRolloutState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0023_login_id_registry_history_contract'
+    ) as contracted
+  `;
+  if (!loginIdHistoryRolloutState) {
+    fail("Preview login ID history rollout marker state is unavailable");
+  }
+  const requiredLoginIdHistoryRolloutPhase: "CONTRACT" | "EXPAND" =
+    loginIdHistoryRolloutState.contracted ? "CONTRACT" : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
     requiredRoomSchemaPhase: requiredRoomRolloutPhase,
     requiredSchemaPhase: requiredRolloutPhase,
   });
@@ -2038,6 +2132,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
       requiredRoomSchemaPhase: requiredRoomRolloutPhase,
       requiredSchemaPhase: requiredRolloutPhase,
     },

@@ -6,6 +6,13 @@ const workflow = readFileSync(
   new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
   "utf8",
 );
+const passwordResetWorkflow = readFileSync(
+  new URL(
+    "../../../.github/workflows/preview-bootstrap-password-reset.yml",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const ciWorkflow = readFileSync(
   new URL("../../../.github/workflows/ci.yml", import.meta.url),
   "utf8",
@@ -48,6 +55,7 @@ describe("Preview account provisioning wiring", () => {
     for (const name of [
       "ZITADEL_USER_PROVISIONER_TOKEN",
       "ZITADEL_PREVIEW_SUBJECT_SHA256",
+      "PREVIEW_BOOTSTRAP_LOGIN_ID",
       "ZITADEL_ORGANIZATION_ID",
       "PREVIEW_BOOTSTRAP_APPROVAL_REF",
     ])
@@ -58,6 +66,9 @@ describe("Preview account provisioning wiring", () => {
     expect(workflow).not.toMatch(
       /ZITADEL_USER_PROVISIONER_TOKEN:\s*\$\{\{\s*secrets\.ZITADEL_SERVICE_USER_TOKEN\s*\}\}/u,
     );
+    expect(workflow).toMatch(
+      /PREVIEW_BOOTSTRAP_LOGIN_ID:\s*\$\{\{\s*secrets\.PREVIEW_BOOTSTRAP_LOGIN_ID\s*\}\}/u,
+    );
   });
 
   it("reports every missing required Preview configuration in one preflight", () => {
@@ -65,7 +76,9 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf("Validate required Preview configuration"),
       workflow.indexOf("Verify approved ZITADEL bootstrap identity"),
     );
-    const requiredBlock = /required=\(\n([\s\S]*?)\n\s*\)/u.exec(preflight)?.[1];
+    const requiredBlock = /required=\(\n([\s\S]*?)\n\s*\)/u.exec(
+      preflight,
+    )?.[1];
     const required = requiredBlock
       ?.split("\n")
       .map((line) => line.trim())
@@ -82,6 +95,7 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_USER_PROVISIONER_TOKEN",
       "ZITADEL_PREVIEW_SUBJECT",
       "ZITADEL_PREVIEW_SUBJECT_SHA256",
+      "PREVIEW_BOOTSTRAP_LOGIN_ID",
       "ZITADEL_PREVIEW_PASSWORD",
       "ZITADEL_ISSUER",
       "ZITADEL_CLIENT_ID",
@@ -96,17 +110,23 @@ describe("Preview account provisioning wiring", () => {
     const shell = preflight
       .slice(shellStart, shellEnd)
       .split("\n")
-      .map((line) => line.startsWith("          ") ? line.slice(10) : line)
+      .map((line) => (line.startsWith("          ") ? line.slice(10) : line))
       .join("\n");
-    const empty = spawnSync("bash", { input: shell, encoding: "utf8", env: {} });
+    const empty = spawnSync("bash", {
+      input: shell,
+      encoding: "utf8",
+      env: {},
+    });
     expect(empty.status).toBe(1);
     const missingLines = empty.stderr
       .split("\n")
-      .filter((line) => line.startsWith("Missing required Preview configuration: "));
-    expect(missingLines).toHaveLength(18);
-    expect(new Set(missingLines).size).toBe(18);
+      .filter((line) =>
+        line.startsWith("Missing required Preview configuration: "),
+      );
+    expect(missingLines).toHaveLength(19);
+    expect(new Set(missingLines).size).toBe(19);
     expect(preflight.indexOf("unset ZITADEL_PREVIEW_PASSWORD")).toBeGreaterThan(
-      preflight.indexOf("for name in \"${missing[@]}\""),
+      preflight.indexOf('for name in "${missing[@]}"'),
     );
     expect(preflight.indexOf("unset ZITADEL_PREVIEW_PASSWORD")).toBeLessThan(
       preflight.indexOf("node <<'NODE'"),
@@ -131,12 +151,49 @@ describe("Preview account provisioning wiring", () => {
     const allPresent = spawnSync("bash", {
       input: shell,
       encoding: "utf8",
-      env: Object.fromEntries(required!.map((name, index) => [name, `secret-canary-${index}`])),
+      env: Object.fromEntries(
+        required!.map((name, index) => [name, `secret-canary-${index}`]),
+      ),
     });
     expect(allPresent.status).toBe(0);
     expect(`${allPresent.stdout}\n${allPresent.stderr}`).not.toContain(
       "secret-canary-",
     );
+  });
+
+  it("keeps the password reset request in a protected durable Preview workflow", () => {
+    expect(passwordResetWorkflow).toContain("workflow_dispatch:");
+    expect(passwordResetWorkflow).toContain(
+      "if: github.ref == 'refs/heads/main'",
+    );
+    expect(passwordResetWorkflow).toContain("environment: preview");
+    expect(passwordResetWorkflow).toContain("permissions:\n  contents: read");
+    expect(passwordResetWorkflow).toContain("timeout-minutes: 10");
+    expect(passwordResetWorkflow).toContain("persist-credentials: false");
+    expect(passwordResetWorkflow).toContain(
+      "pnpm install --frozen-lockfile --ignore-scripts",
+    );
+    expect(passwordResetWorkflow).not.toMatch(/uses:\s+[^\n]+@v\d+/u);
+    const requestStep = passwordResetWorkflow.indexOf(
+      "- name: Request registered-email password setup link",
+    );
+    expect(requestStep).toBeGreaterThan(0);
+    for (const name of [
+      "DATABASE_URL_PREVIEW",
+      "PREVIEW_BOOTSTRAP_APPROVAL_REF",
+      "ZITADEL_PREVIEW_BOOTSTRAP_SUBJECT_SHA256",
+      "ZITADEL_PREVIEW_EMAIL_SHA256",
+      "ZITADEL_PREVIEW_ISSUER_SHA256",
+      "ZITADEL_PREVIEW_ORGANIZATION_ID_SHA256",
+      "ZITADEL_USER_PROVISIONER_TOKEN",
+    ]) {
+      expect(passwordResetWorkflow.indexOf(name)).toBeGreaterThan(requestStep);
+    }
+    expect(passwordResetWorkflow).toContain(
+      "pnpm exec tsx packages/db/scripts/request-zitadel-bootstrap-password-reset.ts",
+    );
+    expect(passwordResetWorkflow).not.toContain("returnCode");
+    expect(passwordResetWorkflow).not.toContain("ZITADEL_PREVIEW_PASSWORD");
   });
 
   it("verifies the approved ZITADEL identity before database bootstrap", () => {
@@ -153,7 +210,9 @@ describe("Preview account provisioning wiring", () => {
     expect(workflow).toContain(verifyStep);
     expect(workflow).toContain(accountLoginStep);
     expect(workflow).toContain(consoleCredentialStep);
-    expect(workflow).toContain("node scripts/smoke-zitadel-console-preview.mjs");
+    expect(workflow).toContain(
+      "node scripts/smoke-zitadel-console-preview.mjs",
+    );
     expect(workflow).toContain(
       "pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts",
     );
@@ -189,12 +248,14 @@ describe("Preview account provisioning wiring", () => {
   it("accepts only complete, empty, or the exact reconciler bootstrap Worker topology", () => {
     const topologyStep = workflow.slice(
       workflow.indexOf("Validate Preview Worker snapshot topology"),
-      workflow.indexOf("Expand Neon Preview database for compatible Worker deploy"),
+      workflow.indexOf(
+        "Expand Neon Preview database for compatible Worker deploy",
+      ),
     );
     const shell = topologyStep
       .slice(topologyStep.indexOf("          set -euo pipefail"))
       .split("\n")
-      .map((line) => line.startsWith("          ") ? line.slice(10) : line)
+      .map((line) => (line.startsWith("          ") ? line.slice(10) : line))
       .join("\n")
       .replace(
         'api="${{ steps.worker_snapshot.outputs.api_existed }}"',
@@ -261,7 +322,9 @@ describe("Preview account provisioning wiring", () => {
       'if [[ "$api" == "false" && "$reconciler" == "false" && "$web" == "false" ]]',
     );
     const compatibilityStep = workflow.slice(
-      workflow.indexOf("Verify previous Workers remain compatible after expand"),
+      workflow.indexOf(
+        "Verify previous Workers remain compatible after expand",
+      ),
       workflow.indexOf("Create or update Preview Hyperdrives"),
     );
     expect(compatibilityStep).toContain("api_existed == 'true'");

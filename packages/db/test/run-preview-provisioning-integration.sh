@@ -12,6 +12,7 @@ SUBJECT="preview-subject-integration"
 COMPANY_ID="70000000-0000-4000-8000-000000000001"
 MIGRATION_OWNER="werehere_preview_migration_owner"
 MIGRATION_PASSWORD="preview-migration-integration-password"
+BOOTSTRAP_LOGIN_ID="previewadmin"
 
 cleanup() {
   if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
@@ -87,11 +88,13 @@ SQL
 
 run_provision() {
   local phase="${1:?provision phase is required}"
+  local bootstrap_login_id="${2:-$BOOTSTRAP_LOGIN_ID}"
   (
     cd "$ROOT_DIR"
     CI=true \
       PREVIEW_PROVISION_LOCAL_CI_TEST=1 \
       PREVIEW_PROVISION_PHASE="$phase" \
+      PREVIEW_BOOTSTRAP_LOGIN_ID="$bootstrap_login_id" \
       PREVIEW_PROVISION_ADMIN_DATABASE_URL="$ADMIN_PREVIEW_URL" \
       DATABASE_URL_PREVIEW="$PREVIEW_URL" \
       DATABASE_URL="$PRODUCTION_URL" \
@@ -1436,6 +1439,257 @@ update runtime_database_capabilities
 set capability = 'API_RUNTIME'
 where role_name = 'werehere_preview_api_runtime';
 SQL
+
+ROTATED_BOOTSTRAP_LOGIN_ID="previewadmin2"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop table public.preview_bootstrap_operations;
+drop index public.login_id_registry_company_target_history_idx;
+alter table public.login_id_registry
+  add constraint login_id_registry_company_id_target_user_id_key
+  unique (company_id, target_user_id);
+delete from public.schema_migrations
+where version = '0023_login_id_registry_history_contract';
+SQL
+BOOTSTRAP_AUDIT_BEFORE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from audit_events
+where event_code = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED'
+  and company_id = '$COMPANY_ID';
+SQL
+)"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+insert into public.auth_sessions (
+  id, company_id, user_id, identity_id, token_hash,
+  idle_expires_at, absolute_expires_at, auth_time, authentication_method
+)
+select
+  '71900000-0000-4000-8000-000000000003', '$COMPANY_ID', app_user.id,
+  identity.id, decode(repeat('ad', 32), 'hex'),
+  now() + interval '1 hour', now() + interval '2 hours', now(), 'OIDC_PKCE'
+from public.users app_user
+join public.auth_identities identity
+  on identity.company_id = app_user.company_id and identity.user_id = app_user.id
+where app_user.id = '71000000-0000-4000-8000-000000000001'
+  and identity.provider = 'ZITADEL';
+SQL
+run_provision EXPAND "$ROTATED_BOOTSTRAP_LOGIN_ID" >/dev/null
+BOOTSTRAP_PRE_ROTATION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from users
+where id = '71000000-0000-4000-8000-000000000001'
+  and company_id = '$COMPANY_ID'
+  and login_name = 'previewadmin';
+select count(*) from login_id_registry
+where login_id = '$ROTATED_BOOTSTRAP_LOGIN_ID';
+select count(*) from auth_sessions
+where id = '71900000-0000-4000-8000-000000000003'
+  and revoked_at is null;
+select count(*) from schema_migrations
+where version = '0023_login_id_registry_history_contract';
+SQL
+)"
+if [[ "$BOOTSTRAP_PRE_ROTATION_RESULT" != $'1\n0\n1\n0' ]]; then
+  printf '%s\n' 'Initial EXPAND mutated the protected bootstrap login ID.' >&2
+  exit 1
+fi
+run_provision EXPAND_IDENTITY_LOCK "$ROTATED_BOOTSTRAP_LOGIN_ID" >/dev/null
+BOOTSTRAP_ROTATION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from users
+where id = '71000000-0000-4000-8000-000000000001'
+  and company_id = '$COMPANY_ID'
+  and login_name = '$ROTATED_BOOTSTRAP_LOGIN_ID';
+select count(*) from login_id_registry
+where login_id = '$ROTATED_BOOTSTRAP_LOGIN_ID'
+  and company_id = '$COMPANY_ID'
+  and target_user_id = '71000000-0000-4000-8000-000000000001';
+select count(*) from login_id_registry
+where login_id = 'previewadmin'
+  and company_id = '$COMPANY_ID'
+  and target_user_id = '71000000-0000-4000-8000-000000000001';
+select count(*) from auth_resolve_login_identity_v1('$ROTATED_BOOTSTRAP_LOGIN_ID')
+where provider_subject = '$SUBJECT';
+select count(*) from auth_resolve_login_identity_v1('previewadmin');
+select count(*) from auth_sessions
+where id = '71900000-0000-4000-8000-000000000003'
+  and revoked_at is not null
+  and revoke_reason = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED';
+SQL
+)"
+if [[ "$BOOTSTRAP_ROTATION_RESULT" != $'1\n1\n1\n1\n0\n1' ]]; then
+  printf '%s\n' 'Protected bootstrap login ID rotation contract failed.' >&2
+  exit 1
+fi
+PASSWORD_RESET_OPERATION_RESULT="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+insert into public.preview_bootstrap_operations (
+  operation_key, operation_type, subject_fingerprint,
+  request_fingerprint, status
+) values (
+  'ci-password-reset-approval', 'PASSWORD_RESET_EMAIL', repeat('a', 64),
+  repeat('b', 64), 'REQUESTING'
+);
+update public.preview_bootstrap_operations
+set status = 'REQUESTED', updated_at = pg_catalog.statement_timestamp()
+where operation_key = 'ci-password-reset-approval'
+  and status = 'REQUESTING';
+insert into public.preview_bootstrap_operations (
+  operation_key, operation_type, subject_fingerprint,
+  request_fingerprint, status
+) values (
+  'ci-password-reset-approval', 'PASSWORD_RESET_EMAIL', repeat('a', 64),
+  repeat('b', 64), 'REQUESTING'
+)
+on conflict (operation_key) do nothing;
+select count(*) || ':' || min(status)
+from public.preview_bootstrap_operations
+where operation_key = 'ci-password-reset-approval';
+SQL
+)"
+if [[ "$PASSWORD_RESET_OPERATION_RESULT" != '1:REQUESTED' ]]; then
+  printf '%s\n' 'Durable password reset replay contract failed.' >&2
+  exit 1
+fi
+
+assert_password_reset_schema_not_ready() {
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$API_RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Preview runtime test configuration is missing");
+const result = await probeDatabaseReadiness(databaseUrl, {
+  capability: "API_RUNTIME",
+  requiredLoginIdHistoryPhase: "CONTRACT",
+  requiredRoomSchemaPhase: "CONTRACT",
+  requiredSchemaPhase: "CONTRACT",
+});
+if (result.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`Damaged password reset schema was accepted: ${result.status}`);
+}
+NODE
+  ) >/dev/null
+}
+
+for constraint in \
+  preview_bootstrap_operations_pkey \
+  preview_bootstrap_operations_operation_key_check \
+  preview_bootstrap_operations_operation_type_check \
+  preview_bootstrap_operations_subject_fingerprint_check \
+  preview_bootstrap_operations_request_fingerprint_check \
+  preview_bootstrap_operations_status_check
+do
+  psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+alter table public.preview_bootstrap_operations drop constraint $constraint;
+SQL
+  assert_password_reset_schema_not_ready
+  case "$constraint" in
+    preview_bootstrap_operations_pkey)
+      definition='primary key (operation_key)'
+      ;;
+    preview_bootstrap_operations_operation_key_check)
+      definition="check (pg_catalog.btrim(operation_key) <> '')"
+      ;;
+    preview_bootstrap_operations_operation_type_check)
+      definition="check (operation_type = 'PASSWORD_RESET_EMAIL')"
+      ;;
+    preview_bootstrap_operations_subject_fingerprint_check)
+      definition="check (subject_fingerprint ~ '^[0-9a-f]{64}$')"
+      ;;
+    preview_bootstrap_operations_request_fingerprint_check)
+      definition="check (request_fingerprint ~ '^[0-9a-f]{64}$')"
+      ;;
+    preview_bootstrap_operations_status_check)
+      definition="check (status in ('REQUESTING', 'REQUESTED', 'INDETERMINATE'))"
+      ;;
+    *)
+      exit 1
+      ;;
+  esac
+  psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<SQL
+alter table public.preview_bootstrap_operations
+  add constraint $constraint $definition;
+SQL
+done
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  rename column updated_at to damaged_updated_at;
+SQL
+assert_password_reset_schema_not_ready
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  rename column damaged_updated_at to updated_at;
+SQL
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at type timestamp without time zone
+  using updated_at at time zone 'UTC';
+SQL
+assert_password_reset_schema_not_ready
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at type timestamptz
+  using updated_at at time zone 'UTC';
+SQL
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at drop not null;
+SQL
+assert_password_reset_schema_not_ready
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at set not null;
+SQL
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at drop default;
+SQL
+assert_password_reset_schema_not_ready
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  alter column updated_at set default pg_catalog.statement_timestamp();
+SQL
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations
+  add column unexpected_column text;
+SQL
+assert_password_reset_schema_not_ready
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.preview_bootstrap_operations drop column unexpected_column;
+SQL
+
+BOOTSTRAP_AUDIT_AFTER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select count(*) from audit_events
+where event_code = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED'
+  and company_id = '$COMPANY_ID';
+SQL
+)"
+if (( BOOTSTRAP_AUDIT_AFTER != BOOTSTRAP_AUDIT_BEFORE + 1 )); then
+  printf '%s\n' 'Protected bootstrap login ID rotation audit failed.' >&2
+  exit 1
+fi
+BOOTSTRAP_VERSION_AFTER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select version from users
+where id = '71000000-0000-4000-8000-000000000001'
+  and login_name = '$ROTATED_BOOTSTRAP_LOGIN_ID';
+SQL
+)"
+run_provision CONTRACT "$ROTATED_BOOTSTRAP_LOGIN_ID" >/dev/null
+BOOTSTRAP_REPLAY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
+select version from users
+where id = '71000000-0000-4000-8000-000000000001'
+  and login_name = '$ROTATED_BOOTSTRAP_LOGIN_ID';
+select count(*) from audit_events
+where event_code = 'PREVIEW_BOOTSTRAP_LOGIN_ID_ALIGNED'
+  and company_id = '$COMPANY_ID';
+SQL
+)"
+if [[ "$BOOTSTRAP_REPLAY_RESULT" != "$BOOTSTRAP_VERSION_AFTER"$'\n'"$BOOTSTRAP_AUDIT_AFTER" ]]; then
+  printf '%s\n' 'Protected bootstrap login ID rotation was not idempotent.' >&2
+  exit 1
+fi
+BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 delete from schema_migrations

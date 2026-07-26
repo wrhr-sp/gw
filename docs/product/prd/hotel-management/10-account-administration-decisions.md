@@ -32,7 +32,8 @@
 - 전역 `login_id_registry`가 provider 호출 전에 canonical ID를 선점하며 UPDATE·DELETE 금지 trigger로 과거 ID tombstone을 영구 보존한다.
 - `users`는 전역 unique index와 registry 복합 FK를 함께 사용해 claim 없는 로그인 ID 저장을 차단한다.
 - 로그인 BFF는 짧은 ID를 canonicalize한 뒤 PostgreSQL의 활성 identity mapping에서 검증된 ZITADEL subject를 해석하고 Session API에 `userId`로 전달한다.
-- Preview bootstrap은 provider username을 자동 변경하지 않고 기존 검증된 subject를 유지한 채 호텔관리 alias를 `previewadmin`으로 정렬한다.
+- Preview bootstrap은 provider username을 자동 변경하지 않고 기존 검증된 subject를 유지한 채, 승인자가 선택해 protected environment secret에 저장한 호텔관리 alias로 정렬한다. ID 원문은 repository·문서·일반 로그에 두지 않는다.
+- 최초 bootstrap 관리자 설정은 단일 초기 authority를 정렬하는 절차이며, 다른 사용자에게 관리자 권한을 부여·회수하는 후속 관리자 설정 PRD를 대체하거나 완료 처리하지 않는다.
 - 실제 Preview 신규 ID 로그인·이전 alias 거부·subject/권한 불변 smoke 전에는 rollout 완료로 보지 않는다.
 
 ## 확정 결정

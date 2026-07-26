@@ -2,14 +2,14 @@
 
 ## 1. 문서 정보
 
-| 항목 | 값 |
-|---|---|
-| PRD ID | `HOTEL-MVP-070` |
-| 버전 | `1.0-user-approved` |
-| 상태 | `user_approved` |
-| 대상 | 위아히어 내부 호텔관리 Preview |
-| 승인자 | 대장, 2026-07-19 |
-| 근거 | `HOTEL-MVP-000`, `HOTEL-MVP-010`, `HOTEL-MVP-060`, 2026-07-19 계정관리 오케스트레이션 승인 |
+| 항목   | 값                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------ |
+| PRD ID | `HOTEL-MVP-070`                                                                            |
+| 버전   | `1.0-user-approved`                                                                        |
+| 상태   | `user_approved`                                                                            |
+| 대상   | 위아히어 내부 호텔관리 Preview                                                             |
+| 승인자 | 대장, 2026-07-19                                                                           |
+| 근거   | `HOTEL-MVP-000`, `HOTEL-MVP-010`, `HOTEL-MVP-060`, 2026-07-19 계정관리 오케스트레이션 승인 |
 
 ## 2. 결론
 
@@ -69,11 +69,11 @@
 
 ## 6. 사용자유형과 호텔관계
 
-| 사용자유형 | 내부 코드 | 생성 시 호텔관계 |
-|---|---|---|
+| 사용자유형  | 내부 코드        | 생성 시 호텔관계                         |
+| ----------- | ---------------- | ---------------------------------------- |
 | 사내 임직원 | `INTERNAL_STAFF` | 주배정 호텔 1곳 필수, 유효기간·사유 저장 |
-| 하우스키핑 | `HOUSEKEEPING` | 호텔 1곳 이상 연결, 개인별 독립계정 |
-| 호텔 소유주 | `HOTEL_OWNER` | 호텔 1곳과 활성 1:1 연결 |
+| 하우스키핑  | `HOUSEKEEPING`   | 호텔 1곳 이상 연결, 개인별 독립계정      |
+| 호텔 소유주 | `HOTEL_OWNER`    | 호텔 1곳과 활성 1:1 연결                 |
 
 기존 내부 코드 `ROOM_OPERATIONS`, `BRANCH_OWNER`는 API·UI 경계에서 각각 `HOUSEKEEPING`, `HOTEL_OWNER`로 정규화한다. 첫 release는 rollback 안전성을 위해 DB가 구·신 코드를 모두 허용하고 신규 쓰기도 구 Worker가 읽을 수 있는 저장코드를 사용한다. 새 Worker가 안정화된 후 별도 contract migration에서 데이터 치환·구 코드 제약 제거를 수행하며, 그 전까지 API·UI에는 새 명칭만 노출한다.
 
@@ -136,7 +136,8 @@
 - provider 호출 전에 immutable `login_id_registry`에서 전역 ID를 선점하고, 충돌 시 provider 호출 없이 일반 중복 오류로 종료한다.
 - `users.login_name`은 global unique와 registry 복합 FK를 함께 사용하며 계정 중지·보상 뒤에도 registry tombstone을 삭제하지 않는다.
 - 로그인은 짧은 ID→검증된 ZITADEL subject 해석→Session API `userId` 검사→subject·organization 재검증 순서로 처리한다.
-- Preview bootstrap은 기존 provider subject를 유지하고 호텔관리 alias만 `previewadmin`으로 정렬하며 활성 호텔 session을 회수·감사한다.
+- Preview bootstrap password reset은 issuer·organization·subject·verified primary email의 승인 fingerprint를 모두 검증하고, approval reference별 durable `REQUESTING|REQUESTED|INDETERMINATE` 기록으로 순차 재발송을 차단한다. raw login ID·email·subject·reset code·token은 저장하지 않는다.
+- Preview bootstrap은 기존 provider subject를 유지하고, 승인자가 선택해 protected Preview environment secret에 저장한 canonical 호텔관리 alias로 정렬하며 활성 호텔 session을 회수·감사한다. ID 원문은 repository·문서·일반 로그에 저장하지 않는다.
 - 실제 ZITADEL Preview smoke로 신규 ID 로그인 성공, 이전 alias 거부, subject·내부 user ID·권한 불변을 확인하기 전에는 완료로 보지 않는다.
 
 임시 비밀번호는 브라우저에서 TLS로 백엔드에 전달하고 ZITADEL User API 호출에만 사용한다. 애플리케이션 DB·로그·감사·오류·응답에 원문 또는 hash를 저장하지 않는다. ZITADEL에는 최초 로그인 후 변경이 필요한 credential로 생성한다.
@@ -173,24 +174,24 @@ PENDING_SETUP → ACTIVE → INACTIVE
 
 ## 10. 권한
 
-| 행위 | 요구권한 |
-|---|---|
-| 사용자 목록·상세 | `USER_READ` |
-| 사용자 생성 | `USER_CREATE` |
-| 사용자 중지 | `USER_SUSPEND` |
+| 행위               | 요구권한                          |
+| ------------------ | --------------------------------- |
+| 사용자 목록·상세   | `USER_READ`                       |
+| 사용자 생성        | `USER_CREATE`                     |
+| 사용자 중지        | `USER_SUSPEND`                    |
 | 최초 비밀번호 변경 | 본인 활성 `PENDING_SETUP` session |
 
 권한은 DB `permission_grants` 정본으로 판정한다. 사용자유형이나 표시이름으로 관리자 권한을 암묵 부여하지 않는다. 모든 조회·변경은 principal의 `company_id`로 제한하고 외부 company ID를 요청에서 받지 않는다.
 
 ## 11. API 계약
 
-| 메서드 | 경로 | 목적 |
-|---|---|---|
-| GET | `/api/admin/users` | 회사 사용자 목록·필터·페이지네이션 |
-| POST | `/api/admin/users` | ZITADEL identity + DB 사용자·호텔관계 생성 |
-| GET | `/api/admin/users/:userId` | 회사범위 사용자 상세 재조회 |
-| POST | `/api/admin/users/:userId/deactivate` | version·사유로 중지, session 회수 |
-| POST | `/api/account/initial-password` | 본인 최초 비밀번호 변경 |
+| 메서드 | 경로                                  | 목적                                       |
+| ------ | ------------------------------------- | ------------------------------------------ |
+| GET    | `/api/admin/users`                    | 회사 사용자 목록·필터·페이지네이션         |
+| POST   | `/api/admin/users`                    | ZITADEL identity + DB 사용자·호텔관계 생성 |
+| GET    | `/api/admin/users/:userId`            | 회사범위 사용자 상세 재조회                |
+| POST   | `/api/admin/users/:userId/deactivate` | version·사유로 중지, session 회수          |
+| POST   | `/api/account/initial-password`       | 본인 최초 비밀번호 변경                    |
 
 모든 변경 요청은 `Idempotency-Key`를 요구한다. 사용자 ID 직접조회는 같은 회사가 아니거나 존재하지 않으면 같은 `404` 계약을 사용한다.
 
@@ -231,17 +232,17 @@ ZITADEL 생성 후 DB 완료가 `DUPLICATE`·`FORBIDDEN`으로 명시적으로 �
 
 ## 15. 오류
 
-| 코드 | 의미 |
-|---|---|
-| `EXTERNAL_AUTH_NOT_CONFIGURED` | provisioning credential 또는 organization 설정 없음 |
-| `EXTERNAL_AUTH_UNAVAILABLE` | ZITADEL 통신·응답 계약 실패 |
-| `ACCOUNT_DUPLICATE` | 로그인명·이메일·provider identity 중복 |
-| `ACCOUNT_NOT_FOUND` | 같은 회사에서 계정을 찾지 못함 |
-| `ACCOUNT_VERSION_CONFLICT` | 오래된 version |
-| `ACCOUNT_SELF_DEACTIVATION_FORBIDDEN` | 자기계정 중지 시도 |
-| `LAST_ADMIN_DEACTIVATION_FORBIDDEN` | 마지막 관리자 중지 시도 |
-| `PASSWORD_CHANGE_REQUIRED` | 최초 비밀번호 변경 전 업무 접근 |
-| `COMPENSATION_REQUIRED` | 외부 생성 뒤 자동 보상 미완료 |
+| 코드                                  | 의미                                                |
+| ------------------------------------- | --------------------------------------------------- |
+| `EXTERNAL_AUTH_NOT_CONFIGURED`        | provisioning credential 또는 organization 설정 없음 |
+| `EXTERNAL_AUTH_UNAVAILABLE`           | ZITADEL 통신·응답 계약 실패                         |
+| `ACCOUNT_DUPLICATE`                   | 로그인명·이메일·provider identity 중복              |
+| `ACCOUNT_NOT_FOUND`                   | 같은 회사에서 계정을 찾지 못함                      |
+| `ACCOUNT_VERSION_CONFLICT`            | 오래된 version                                      |
+| `ACCOUNT_SELF_DEACTIVATION_FORBIDDEN` | 자기계정 중지 시도                                  |
+| `LAST_ADMIN_DEACTIVATION_FORBIDDEN`   | 마지막 관리자 중지 시도                             |
+| `PASSWORD_CHANGE_REQUIRED`            | 최초 비밀번호 변경 전 업무 접근                     |
+| `COMPENSATION_REQUIRED`               | 외부 생성 뒤 자동 보상 미완료                       |
 
 DB·migration·ZITADEL 설정이 없으면 가짜 성공·DB-only 사용자·in-memory fallback 없이 안전 실패한다.
 
