@@ -9,6 +9,7 @@ import {
   consoleTokenIdentityFailureStage,
   isAuthenticatedConsoleResponse,
   isConsoleCallbackTarget,
+  isSafeBootstrapMapping,
   isValidConsoleLanding,
 } from "./lib/zitadel-console-smoke-contract.mjs";
 
@@ -23,6 +24,8 @@ const consoleClientId = process.env.ZITADEL_CONSOLE_CLIENT_ID?.trim();
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
 const bootstrapLoginId = process.env.PREVIEW_BOOTSTRAP_LOGIN_ID?.trim();
 const previewPassword = process.env.ZITADEL_PREVIEW_PASSWORD;
+const bootstrapMappingPhase =
+  process.env.PREVIEW_BOOTSTRAP_MAPPING_PHASE?.trim() || "CANONICAL";
 const requireCredentialCallback =
   process.env.ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK === "true";
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
@@ -38,6 +41,9 @@ if (
 }
 if (!/^[a-z0-9]{3,30}$/u.test(bootstrapLoginId)) {
   throw new Error("Console Preview bootstrap login ID is invalid");
+}
+if (!["CANONICAL", "PRE_ROTATION"].includes(bootstrapMappingPhase)) {
+  throw new Error("Console Preview bootstrap mapping phase is invalid");
 }
 if (requireCredentialCallback && !previewPassword) {
   throw new Error("Console Preview credential configuration is missing");
@@ -55,26 +61,31 @@ if (
 const apiDatabaseUrl = (await readFile(apiUrlFile, "utf8")).trim();
 const apiSql = postgres(apiDatabaseUrl, { max: 1, prepare: false });
 try {
-  const canonical = await apiSql`
-    select provider_subject
-    from public.auth_resolve_login_identity_v1(${bootstrapLoginId})
-  `;
-  const legacyResults = await Promise.all(
-    ["preview-admin", "previewadmin"]
-      .filter((candidate) => candidate !== bootstrapLoginId)
-      .map(
-        (candidate) => apiSql`
+  const candidates = [
+    ...new Set([bootstrapLoginId, "preview-admin", "previewadmin"]),
+  ];
+  const candidateResults = await Promise.all(
+    candidates.map(
+      (candidate) => apiSql`
         select provider_subject
         from public.auth_resolve_login_identity_v1(${candidate})
       `,
-      ),
+    ),
   );
+  const canonicalIndex = candidates.indexOf(bootstrapLoginId);
   if (
-    canonical.length !== 1 ||
-    canonical[0]?.provider_subject !== bootstrapSubject ||
-    legacyResults.some((result) => result.length !== 0)
+    !isSafeBootstrapMapping({
+      candidateResults,
+      canonicalIndex,
+      expectedSubject: bootstrapSubject,
+      phase: bootstrapMappingPhase,
+    })
   ) {
-    throw new Error("Preview bootstrap login mapping is not canonical");
+    throw new Error(
+      bootstrapMappingPhase === "PRE_ROTATION"
+        ? "Preview bootstrap login mapping is not safe before rotation"
+        : "Preview bootstrap login mapping is not canonical",
+    );
   }
 } finally {
   await apiSql.end({ timeout: 2 });
