@@ -63,6 +63,27 @@ describe("ZITADEL bootstrap session revocation", () => {
     expect(captureWorkflow).not.toContain(
       "process.stdout.write(identityFingerprint)",
     );
+    for (const stage of [
+      "START",
+      "INPUTS",
+      "SUBJECT_FINGERPRINT",
+      "DATABASE_URL",
+      "PUBLIC_KEY_FORMAT",
+      "PUBLIC_KEY_FINGERPRINT",
+      "PUBLIC_KEY_CONTRACT",
+      "DATABASE_QUERY",
+      "DATABASE_IDENTITY",
+      "ENCRYPT",
+      "ARTIFACT_READY",
+    ]) {
+      expect(captureWorkflow).toContain(`"${stage}"`);
+    }
+    expect(captureWorkflow).toContain(
+      "Preview database identity capture failed at ${stage}",
+    );
+    expect(captureWorkflow).not.toContain("catch((error)");
+    expect(captureWorkflow).not.toContain("error.message");
+    expect(captureWorkflow).not.toContain("response.body");
     expect(revocationWorkflow).toContain(
       "PREVIEW_DATABASE_IDENTITY_SHA256: ${{ secrets.PREVIEW_DATABASE_IDENTITY_SHA256 }}",
     );
