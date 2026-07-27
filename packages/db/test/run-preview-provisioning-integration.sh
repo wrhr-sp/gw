@@ -1442,13 +1442,17 @@ SQL
 
 ROTATED_BOOTSTRAP_LOGIN_ID="previewadmin2"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop table public.preview_bootstrap_session_revocations;
 drop table public.preview_bootstrap_operations;
 drop index public.login_id_registry_company_target_history_idx;
 alter table public.login_id_registry
   add constraint login_id_registry_company_id_target_user_id_key
   unique (company_id, target_user_id);
 delete from public.schema_migrations
-where version = '0023_login_id_registry_history_contract';
+where version in (
+  '0023_login_id_registry_history_contract',
+  '0024_preview_bootstrap_session_revocations'
+);
 SQL
 BOOTSTRAP_AUDIT_BEFORE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select count(*) from audit_events
@@ -1546,7 +1550,6 @@ if [[ "$PASSWORD_RESET_OPERATION_RESULT" != '1:REQUESTED' ]]; then
   printf '%s\n' 'Durable password reset replay contract failed.' >&2
   exit 1
 fi
-
 assert_password_reset_schema_not_ready() {
   (
     cd "$ROOT_DIR"
@@ -1676,6 +1679,104 @@ where id = '71000000-0000-4000-8000-000000000001'
 SQL
 )"
 run_provision CONTRACT "$ROTATED_BOOTSTRAP_LOGIN_ID" >/dev/null
+REVOCATION_LEDGER_SCHEMA_RESULT="$(psql -X -q -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select
+  (select count(*) from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'preview_bootstrap_session_revocations') || ':' ||
+  (select count(*) from pg_constraint
+   where conrelid = 'public.preview_bootstrap_session_revocations'::regclass
+     and contype <> 'n') || ':' ||
+  (select count(*) from pg_class table_record
+   cross join lateral aclexplode(
+     coalesce(table_record.relacl, acldefault('r', table_record.relowner))
+   ) acl
+   where table_record.oid = 'public.preview_bootstrap_session_revocations'::regclass
+     and acl.grantee = 0) || ':' ||
+  (select count(*) from schema_migrations
+   where version = '0024_preview_bootstrap_session_revocations');
+SQL
+)"
+if [[ "$REVOCATION_LEDGER_SCHEMA_RESULT" != '13:14:0:1' ]]; then
+  printf 'Preview bootstrap session revocation ledger schema contract failed: %s\n' \
+    "$REVOCATION_LEDGER_SCHEMA_RESULT" >&2
+  exit 1
+fi
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$PREVIEW_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+import postgres from "postgres";
+import {
+  assertPreviewBootstrapSessionRevocationLedgerReady,
+} from "./scripts/revoke-preview-bootstrap-sessions.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Preview revocation ledger test URL is missing");
+const sql = postgres(databaseUrl, { max: 1, prepare: false });
+try {
+  await sql.begin(async (transaction) => {
+    await assertPreviewBootstrapSessionRevocationLedgerReady(transaction);
+  });
+  const contender = postgres(databaseUrl, { max: 1, prepare: false });
+  try {
+    await contender.unsafe("set lock_timeout = '250ms'");
+    for (const concurrentGrant of [
+      "grant select, update, delete on public.preview_bootstrap_session_revocations to werehere_preview_runtime",
+      "grant select (operation_key), update (status) on public.preview_bootstrap_session_revocations to werehere_preview_runtime with grant option",
+    ]) {
+      await sql.begin(async (transaction) => {
+        await assertPreviewBootstrapSessionRevocationLedgerReady(transaction);
+        let blocked = false;
+        try {
+          await contender.unsafe(concurrentGrant);
+        } catch (error) {
+          blocked =
+            error !== null &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "55P03";
+        }
+        if (!blocked) throw new Error("Concurrent ledger grant was not blocked");
+      });
+    }
+  } finally {
+    await contender.end({ timeout: 2 });
+  }
+  const damageStatements = [
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_pkey",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_source_reset_key",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_identity_fkey",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_completion_check",
+    "alter table public.preview_bootstrap_session_revocations alter column updated_at drop default",
+    "alter table public.preview_bootstrap_session_revocations alter column updated_at set default statement_timestamp() + interval '100 years'",
+    "grant select on public.preview_bootstrap_session_revocations to public",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_completion_check, add constraint preview_bootstrap_session_revocations_completion_check check (((status = 'COMPLETED') = (completed_at is not null and provider_revoked_count is not null and application_revoked_count is not null)) or true)",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_source_reset_fkey, add constraint preview_bootstrap_session_revocations_source_reset_fkey foreign key (source_reset_operation_key) references public.preview_bootstrap_operations(operation_key) on delete cascade",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_status_check, add constraint preview_bootstrap_session_revocations_status_check check (status in ('requesting', 'completed', 'indeterminate'))",
+    "alter table public.preview_bootstrap_session_revocations drop constraint preview_bootstrap_session_revocations_user_fkey, add constraint preview_bootstrap_session_revocations_user_fkey foreign key (company_id, user_id) references public.users(company_id, id) not valid",
+    "grant select, update on public.preview_bootstrap_session_revocations to werehere_preview_runtime with grant option",
+    "grant select (operation_key), update (status) on public.preview_bootstrap_session_revocations to werehere_preview_runtime with grant option",
+    "alter table public.preview_bootstrap_session_revocations enable row level security",
+  ];
+  for (const damageStatement of damageStatements) {
+    let rejected = false;
+    try {
+      await sql.begin(async (transaction) => {
+        await transaction.unsafe(damageStatement);
+        await assertPreviewBootstrapSessionRevocationLedgerReady(transaction);
+      });
+    } catch {
+      rejected = true;
+    }
+    if (!rejected) throw new Error("Damaged revocation ledger was accepted");
+  }
+  await sql.begin(async (transaction) => {
+    await assertPreviewBootstrapSessionRevocationLedgerReady(transaction);
+  });
+} finally {
+  await sql.end({ timeout: 2 });
+}
+NODE
+) >/dev/null
 BOOTSTRAP_REPLAY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select version from users
 where id = '71000000-0000-4000-8000-000000000001'

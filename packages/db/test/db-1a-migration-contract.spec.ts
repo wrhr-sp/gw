@@ -19,6 +19,13 @@ const migration8 = readFileSync(
   ),
   "utf8",
 );
+const migration24 = readFileSync(
+  new URL(
+    "../migrations/0024_preview_bootstrap_session_revocations.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 describe("DB-1A durable account migration contracts", () => {
   it("models durable dispatch states, terminal slot release, and post-expiry terminal evidence", () => {
@@ -90,6 +97,29 @@ describe("DB-1A durable account migration contracts", () => {
       "newpassword",
     ])
       expect(migration6).toContain(`'${key}'`);
+  });
+});
+
+describe("Preview bootstrap session revocation ledger", () => {
+  it("consumes one accepted reset with durable one-time states and an exact identity tuple", () => {
+    expect(migration24).toContain(
+      "create table public.preview_bootstrap_session_revocations",
+    );
+    for (const state of ["REQUESTING", "COMPLETED", "INDETERMINATE"]) {
+      expect(migration24).toContain(`'${state}'`);
+    }
+    expect(migration24).toMatch(
+      /source_reset_operation_key text not null[\s\S]+constraint preview_bootstrap_session_revocations_source_reset_key unique[\s\S]+constraint preview_bootstrap_session_revocations_source_reset_fkey[\s\S]+references public\.preview_bootstrap_operations\(operation_key\)/iu,
+    );
+    expect(migration24).toMatch(
+      /foreign key \(company_id, identity_id, user_id\)\s+references public\.auth_identities\(company_id, id, user_id\)/iu,
+    );
+    expect(migration24).toContain(
+      "revoke all privileges on table public.preview_bootstrap_session_revocations from public",
+    );
+    expect(migration24).toMatch(
+      /\(status = 'COMPLETED'\) = \([\s\S]+completed_at is not null[\s\S]+provider_revoked_count is not null[\s\S]+application_revoked_count is not null/iu,
+    );
   });
 });
 
