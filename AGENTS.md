@@ -40,10 +40,23 @@
 ## 구현
 
 - 정본 순서는 PRD → 기능 명세 → 화면·사용자 흐름 → 데이터·권한·API 설계 → 기능별 오픈소스·공개 API 후보 비교와 사용자 선택 → 테스트·완료 기준 → 구현 계획 → Red → Green → 사양검토 → 품질검토입니다.
-- 새 기능은 Web UI → 실제 API → Service/Repository → PostgreSQL 저장·재조회 → 권한·감사 흐름을 완성합니다.
+- 새 기능·실질적 기능 확장은 위 정본 순서를 따릅니다. 단순 결함·기존 보안 회귀 수정은 OSS/API 후보를 다시 선정하지 않고 Red → Green → 사양검토 → 품질검토를 따릅니다.
+- 새 기능의 기본 작업 단위는 버튼·필드·파일 하나가 아니라 사용자가 실제 업무를 완료할 수 있는 세로 기능(vertical slice) 하나입니다.
+- 세로 기능은 Web UI → 실제 API → Service/Repository → PostgreSQL 저장·재조회 → 권한·감사 흐름을 함께 완성합니다.
+- 여러 세로 기능을 모두 구현한 뒤 한꺼번에 검토하지 않으며, 작은 코드 변경마다 전체 독립검토를 반복하지도 않습니다.
 - mock, placeholder, static sample 성공, in-memory fallback, 가짜 성공을 금지합니다.
 - DB·R2·schema가 없으면 안정 오류코드로 안전 실패합니다.
 - 변경 API는 version, 멱등, transaction, 감사 정책을 따릅니다.
+
+## 검토 주기
+
+- 구현 중에는 Red/Green 테스트, typecheck, focused test와 자체검토를 수행하고, merge 판정용 독립검토는 세로 기능의 코드와 테스트가 안정된 exact snapshot에서 시작합니다.
+- 일반 CRUD는 세로 기능 하나를 완성할 때마다 독립검토 → 수정 → PR·CI → Preview 저장·재조회·권한차단·E2E를 끝낸 뒤 다음 세로 기능으로 넘어갑니다.
+- 인증·세션·권한·DB migration·외부 provider mutation처럼 고위험 변경은 구현 전 설계검토와 mutation 전 독립 보안검토를 추가합니다.
+- 문구·문서·단순 테스트처럼 위험도가 낮고 서로 독립적인 변경은 관련 범위로 묶어 검토할 수 있습니다.
+- 리뷰 중 snapshot이 변경되면 기존 merge 판정을 재사용하지 않고 변경된 exact snapshot에서 영향받는 검토를 다시 수행합니다.
+- 제품 영역이 끝나면 기능 간 권한·데이터 연결 통합검토를, 초기 MVP 완료 전에는 전체 PRD·회귀·Preview RC 검토를 수행합니다.
+- 최종 merge 기준은 독립검토 `BLOCKER 0 / HIGH 0 / MEDIUM 0`과 관련 검증 통과입니다.
 
 ## 인증·보안
 
