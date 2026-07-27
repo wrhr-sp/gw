@@ -63,8 +63,26 @@ jobs:
           } = require("node:crypto");
           const { writeFileSync } = require("node:fs");
           let sql;
+          const stages = new Set([
+            "START",
+            "INPUTS",
+            "SUBJECT_FINGERPRINT",
+            "DATABASE_URL",
+            "PUBLIC_KEY_FORMAT",
+            "PUBLIC_KEY_FINGERPRINT",
+            "PUBLIC_KEY_CONTRACT",
+            "DATABASE_QUERY",
+            "DATABASE_IDENTITY",
+            "ENCRYPT",
+            "ARTIFACT_READY",
+          ]);
+          let stage = "START";
           const failure = () => {
             throw new Error("Preview database identity capture failed");
+          };
+          const enterStage = (next) => {
+            if (!stages.has(next)) failure();
+            stage = next;
           };
           const required = (name) => {
             const value = process.env[name];
@@ -82,6 +100,7 @@ jobs:
           };
 
           (async () => {
+            enterStage("INPUTS");
             const databaseUrl = required("DATABASE_URL_PREVIEW");
             const approvalRef = required("PREVIEW_BOOTSTRAP_APPROVAL_REF");
             const subject = required("ZITADEL_PREVIEW_SUBJECT");
@@ -89,11 +108,13 @@ jobs:
               !/^[A-Za-z0-9._:/-]{3,200}$/u.test(approvalRef) ||
               !/^[A-Za-z0-9_-]{1,200}$/u.test(subject)
             ) failure();
+            enterStage("SUBJECT_FINGERPRINT");
             verifyFingerprint(
               Buffer.from(subject, "utf8"),
               required("ZITADEL_PREVIEW_SUBJECT_SHA256"),
             );
 
+            enterStage("DATABASE_URL");
             let parsedDatabaseUrl;
             try {
               parsedDatabaseUrl = new URL(databaseUrl);
@@ -108,6 +129,7 @@ jobs:
               )
             ) failure();
 
+            enterStage("PUBLIC_KEY_FORMAT");
             const rawPublicKeyB64 = process.env.PUBLIC_KEY_DER_B64;
             if (
               typeof rawPublicKeyB64 !== "string" ||
@@ -122,10 +144,12 @@ jobs:
               publicKeyBytes.length < 400 ||
               publicKeyBytes.length > 1_024
             ) failure();
+            enterStage("PUBLIC_KEY_FINGERPRINT");
             verifyFingerprint(
               publicKeyBytes,
               required("PUBLIC_KEY_DER_SHA256"),
             );
+            enterStage("PUBLIC_KEY_CONTRACT");
             let publicKey;
             try {
               publicKey = createPublicKey({
@@ -146,6 +170,7 @@ jobs:
               !timingSafeEqual(exportedPublicKey, publicKeyBytes)
             ) failure();
 
+            enterStage("DATABASE_QUERY");
             const postgres = (await import("postgres")).default;
             sql = postgres(databaseUrl, { max: 1, prepare: false });
             const rows = await sql`
@@ -179,6 +204,7 @@ jobs:
               from pg_database database_record
               where database_record.datname = current_database()
             `;
+            enterStage("DATABASE_IDENTITY");
             const identity = rows[0];
             if (
               rows.length !== 1 ||
@@ -188,6 +214,7 @@ jobs:
               identity.tuple_ready !== true ||
               identity.reset_ready !== true
             ) failure();
+            enterStage("ENCRYPT");
             const canonicalIdentity = JSON.stringify({
               branchId: identity.branch_id,
               databaseName: identity.database_name,
@@ -207,10 +234,13 @@ jobs:
             writeFileSync("/tmp/preview-database-identity.enc", encrypted, {
               mode: 0o600,
             });
+            enterStage("ARTIFACT_READY");
             process.stdout.write("PREVIEW_DATABASE_IDENTITY_CAPTURE_ENCRYPTED\n");
           })()
             .catch(() => {
-              process.stderr.write("Preview database identity capture failed\n");
+              process.stderr.write(
+                `Preview database identity capture failed at ${stage}\n`,
+              );
               process.exitCode = 1;
             })
             .finally(async () => {
