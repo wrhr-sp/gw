@@ -56,6 +56,7 @@ describe("ZITADEL bootstrap session revocation", () => {
       "preview-database-identity.enc",
       "retention-days: 1",
       "DATABASE_URL_PREVIEW",
+      "working-directory: packages/db",
     ]) {
       expect(captureWorkflow).toContain(contract);
     }
