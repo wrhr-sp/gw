@@ -71,8 +71,17 @@ jobs:
             "PUBLIC_KEY_FORMAT",
             "PUBLIC_KEY_FINGERPRINT",
             "PUBLIC_KEY_CONTRACT",
+            "POSTGRES_IMPORT",
+            "DATABASE_CONNECT",
             "DATABASE_QUERY",
-            "DATABASE_IDENTITY",
+            "DATABASE_QUERY_PERMISSION",
+            "DATABASE_QUERY_RELATION",
+            "DATABASE_QUERY_COLUMN",
+            "DATABASE_QUERY_OTHER",
+            "DATABASE_METADATA",
+            "DATABASE_OWNER",
+            "DATABASE_TUPLE",
+            "RESET_LEDGER",
             "ENCRYPT",
             "ARTIFACT_READY",
           ]);
@@ -83,6 +92,16 @@ jobs:
           const enterStage = (next) => {
             if (!stages.has(next)) failure();
             stage = next;
+          };
+          const classifyQueryFailure = (error) => {
+            const code =
+              error && typeof error === "object" && "code" in error
+                ? error.code
+                : undefined;
+            if (code === "42501") return "DATABASE_QUERY_PERMISSION";
+            if (code === "42P01") return "DATABASE_QUERY_RELATION";
+            if (code === "42703") return "DATABASE_QUERY_COLUMN";
+            return "DATABASE_QUERY_OTHER";
           };
           const required = (name) => {
             const value = process.env[name];
@@ -170,50 +189,67 @@ jobs:
               !timingSafeEqual(exportedPublicKey, publicKeyBytes)
             ) failure();
 
-            enterStage("DATABASE_QUERY");
+            enterStage("POSTGRES_IMPORT");
             const postgres = (await import("postgres")).default;
             sql = postgres(databaseUrl, { max: 1, prepare: false });
-            const rows = await sql`
-              select
-                nullif(current_setting('neon.branch_id', true), '') as branch_id,
-                current_database() as database_name,
-                nullif(current_setting('neon.project_id', true), '') as project_id,
-                current_user::regrole::oid = database_record.datdba as owns_database,
-                exists (
-                  select 1
-                  from auth_identities identity
-                  join users app_user
-                    on app_user.company_id = identity.company_id
-                   and app_user.id = identity.user_id
-                  join companies company on company.id = identity.company_id
-                  where identity.company_id = '70000000-0000-4000-8000-000000000001'::uuid
-                    and identity.user_id = '71000000-0000-4000-8000-000000000001'::uuid
-                    and identity.id = '72000000-0000-4000-8000-000000000001'::uuid
-                    and identity.provider = 'ZITADEL'
-                    and identity.provider_subject = ${subject}
-                    and app_user.status = 'ACTIVE'
-                    and company.status = 'ACTIVE'
-                ) as tuple_ready,
-                exists (
-                  select 1 from preview_bootstrap_operations
-                  where operation_key = ${approvalRef}
-                    and operation_type = 'PASSWORD_RESET_EMAIL'
-                    and subject_fingerprint = ${required("ZITADEL_PREVIEW_SUBJECT_SHA256").toLowerCase()}
-                    and status = 'REQUESTED'
-                ) as reset_ready
-              from pg_database database_record
-              where database_record.datname = current_database()
+            enterStage("DATABASE_CONNECT");
+            const connectionRows = await sql`
+              select current_database() as database_name
             `;
-            enterStage("DATABASE_IDENTITY");
+            if (connectionRows.length !== 1 || !connectionRows[0]?.database_name) failure();
+
+            enterStage("DATABASE_QUERY");
+            let rows;
+            try {
+              rows = await sql`
+                select
+                  nullif(current_setting('neon.branch_id', true), '') as branch_id,
+                  current_database() as database_name,
+                  nullif(current_setting('neon.project_id', true), '') as project_id,
+                  current_user::regrole::oid = database_record.datdba as owns_database,
+                  exists (
+                    select 1
+                    from auth_identities identity
+                    join users app_user
+                      on app_user.company_id = identity.company_id
+                     and app_user.id = identity.user_id
+                    join companies company on company.id = identity.company_id
+                    where identity.company_id = '70000000-0000-4000-8000-000000000001'::uuid
+                      and identity.user_id = '71000000-0000-4000-8000-000000000001'::uuid
+                      and identity.id = '72000000-0000-4000-8000-000000000001'::uuid
+                      and identity.provider = 'ZITADEL'
+                      and identity.provider_subject = ${subject}
+                      and app_user.status = 'ACTIVE'
+                      and company.status = 'ACTIVE'
+                  ) as tuple_ready,
+                  exists (
+                    select 1 from preview_bootstrap_operations
+                    where operation_key = ${approvalRef}
+                      and operation_type = 'PASSWORD_RESET_EMAIL'
+                      and subject_fingerprint = ${required("ZITADEL_PREVIEW_SUBJECT_SHA256").toLowerCase()}
+                      and status = 'REQUESTED'
+                  ) as reset_ready
+                from pg_database database_record
+                where database_record.datname = current_database()
+              `;
+            } catch (error) {
+              enterStage(classifyQueryFailure(error));
+              failure();
+            }
+
+            enterStage("DATABASE_METADATA");
             const identity = rows[0];
             if (
               rows.length !== 1 ||
               !identity?.branch_id ||
-              !identity.project_id ||
-              identity.owns_database !== true ||
-              identity.tuple_ready !== true ||
-              identity.reset_ready !== true
+              !identity.project_id
             ) failure();
+            enterStage("DATABASE_OWNER");
+            if (identity.owns_database !== true) failure();
+            enterStage("DATABASE_TUPLE");
+            if (identity.tuple_ready !== true) failure();
+            enterStage("RESET_LEDGER");
+            if (identity.reset_ready !== true) failure();
             enterStage("ENCRYPT");
             const canonicalIdentity = JSON.stringify({
               branchId: identity.branch_id,

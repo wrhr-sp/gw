@@ -71,8 +71,17 @@ describe("ZITADEL bootstrap session revocation", () => {
       "PUBLIC_KEY_FORMAT",
       "PUBLIC_KEY_FINGERPRINT",
       "PUBLIC_KEY_CONTRACT",
+      "POSTGRES_IMPORT",
+      "DATABASE_CONNECT",
       "DATABASE_QUERY",
-      "DATABASE_IDENTITY",
+      "DATABASE_QUERY_PERMISSION",
+      "DATABASE_QUERY_RELATION",
+      "DATABASE_QUERY_COLUMN",
+      "DATABASE_QUERY_OTHER",
+      "DATABASE_METADATA",
+      "DATABASE_OWNER",
+      "DATABASE_TUPLE",
+      "RESET_LEDGER",
       "ENCRYPT",
       "ARTIFACT_READY",
     ]) {
@@ -84,6 +93,9 @@ describe("ZITADEL bootstrap session revocation", () => {
     expect(captureWorkflow).not.toContain("catch((error)");
     expect(captureWorkflow).not.toContain("error.message");
     expect(captureWorkflow).not.toContain("response.body");
+    expect(captureWorkflow).toContain('code === "42501"');
+    expect(captureWorkflow).toContain('code === "42P01"');
+    expect(captureWorkflow).toContain('code === "42703"');
     expect(revocationWorkflow).toContain(
       "PREVIEW_DATABASE_IDENTITY_SHA256: ${{ secrets.PREVIEW_DATABASE_IDENTITY_SHA256 }}",
     );
