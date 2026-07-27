@@ -42,6 +42,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Capture encrypted Preview database identity fingerprint
+        working-directory: packages/db
         env:
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
