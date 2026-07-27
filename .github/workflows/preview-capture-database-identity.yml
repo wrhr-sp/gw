@@ -1,0 +1,227 @@
+name: preview-capture-database-identity
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_key_der_b64:
+        description: Ephemeral RSA SPKI DER public key encoded as base64
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-capture-database-identity
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: preview
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Capture encrypted Preview database identity fingerprint
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
+          PUBLIC_KEY_DER_B64: ${{ inputs.public_key_der_b64 }}
+          PUBLIC_KEY_DER_SHA256: ${{ secrets.PREVIEW_DATABASE_IDENTITY_CAPTURE_PUBLIC_KEY_SHA256 }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node <<'NODE'
+          const {
+            constants,
+            createHash,
+            createPublicKey,
+            publicEncrypt,
+            timingSafeEqual,
+          } = require("node:crypto");
+          const { writeFileSync } = require("node:fs");
+          let sql;
+          const failure = () => {
+            throw new Error("Preview database identity capture failed");
+          };
+          const required = (name) => {
+            const value = process.env[name];
+            if (!value || value !== value.trim()) failure();
+            return value;
+          };
+          const verifyFingerprint = (value, expectedValue) => {
+            const expectedHex = expectedValue.toLowerCase();
+            if (!/^[0-9a-f]{64}$/u.test(expectedHex)) failure();
+            const actual = createHash("sha256").update(value).digest();
+            const expected = Buffer.from(expectedHex, "hex");
+            if (expected.length !== actual.length || !timingSafeEqual(actual, expected)) {
+              failure();
+            }
+          };
+
+          (async () => {
+            const databaseUrl = required("DATABASE_URL_PREVIEW");
+            const approvalRef = required("PREVIEW_BOOTSTRAP_APPROVAL_REF");
+            const subject = required("ZITADEL_PREVIEW_SUBJECT");
+            if (
+              !/^[A-Za-z0-9._:/-]{3,200}$/u.test(approvalRef) ||
+              !/^[A-Za-z0-9_-]{1,200}$/u.test(subject)
+            ) failure();
+            verifyFingerprint(
+              Buffer.from(subject, "utf8"),
+              required("ZITADEL_PREVIEW_SUBJECT_SHA256"),
+            );
+
+            let parsedDatabaseUrl;
+            try {
+              parsedDatabaseUrl = new URL(databaseUrl);
+            } catch {
+              failure();
+            }
+            if (
+              !["postgres:", "postgresql:"].includes(parsedDatabaseUrl.protocol) ||
+              !parsedDatabaseUrl.hostname.toLowerCase().endsWith(".neon.tech") ||
+              !["require", "verify-ca", "verify-full"].includes(
+                parsedDatabaseUrl.searchParams.get("sslmode")?.toLowerCase() ?? "",
+              )
+            ) failure();
+
+            const rawPublicKeyB64 = process.env.PUBLIC_KEY_DER_B64;
+            if (
+              typeof rawPublicKeyB64 !== "string" ||
+              rawPublicKeyB64.length === 0 ||
+              rawPublicKeyB64 !== rawPublicKeyB64.trim() ||
+              rawPublicKeyB64.length % 4 !== 0 ||
+              !/^[A-Za-z0-9+/]+={0,2}$/u.test(rawPublicKeyB64)
+            ) failure();
+            const publicKeyBytes = Buffer.from(rawPublicKeyB64, "base64");
+            if (
+              publicKeyBytes.toString("base64") !== rawPublicKeyB64 ||
+              publicKeyBytes.length < 400 ||
+              publicKeyBytes.length > 1_024
+            ) failure();
+            verifyFingerprint(
+              publicKeyBytes,
+              required("PUBLIC_KEY_DER_SHA256"),
+            );
+            let publicKey;
+            try {
+              publicKey = createPublicKey({
+                key: publicKeyBytes,
+                format: "der",
+                type: "spki",
+              });
+            } catch {
+              failure();
+            }
+            if (
+              publicKey.asymmetricKeyType !== "rsa" ||
+              (publicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 3_072
+            ) failure();
+            const exportedPublicKey = publicKey.export({ format: "der", type: "spki" });
+            if (
+              exportedPublicKey.length !== publicKeyBytes.length ||
+              !timingSafeEqual(exportedPublicKey, publicKeyBytes)
+            ) failure();
+
+            const postgres = (await import("postgres")).default;
+            sql = postgres(databaseUrl, { max: 1, prepare: false });
+            const rows = await sql`
+              select
+                nullif(current_setting('neon.branch_id', true), '') as branch_id,
+                current_database() as database_name,
+                nullif(current_setting('neon.project_id', true), '') as project_id,
+                current_user::regrole::oid = database_record.datdba as owns_database,
+                exists (
+                  select 1
+                  from auth_identities identity
+                  join users app_user
+                    on app_user.company_id = identity.company_id
+                   and app_user.id = identity.user_id
+                  join companies company on company.id = identity.company_id
+                  where identity.company_id = '70000000-0000-4000-8000-000000000001'::uuid
+                    and identity.user_id = '71000000-0000-4000-8000-000000000001'::uuid
+                    and identity.id = '72000000-0000-4000-8000-000000000001'::uuid
+                    and identity.provider = 'ZITADEL'
+                    and identity.provider_subject = ${subject}
+                    and app_user.status = 'ACTIVE'
+                    and company.status = 'ACTIVE'
+                ) as tuple_ready,
+                exists (
+                  select 1 from preview_bootstrap_operations
+                  where operation_key = ${approvalRef}
+                    and operation_type = 'PASSWORD_RESET_EMAIL'
+                    and subject_fingerprint = ${required("ZITADEL_PREVIEW_SUBJECT_SHA256").toLowerCase()}
+                    and status = 'REQUESTED'
+                ) as reset_ready
+              from pg_database database_record
+              where database_record.datname = current_database()
+            `;
+            const identity = rows[0];
+            if (
+              rows.length !== 1 ||
+              !identity?.branch_id ||
+              !identity.project_id ||
+              identity.owns_database !== true ||
+              identity.tuple_ready !== true ||
+              identity.reset_ready !== true
+            ) failure();
+            const canonicalIdentity = JSON.stringify({
+              branchId: identity.branch_id,
+              databaseName: identity.database_name,
+              projectId: identity.project_id,
+            });
+            const identityFingerprint = createHash("sha256")
+              .update(canonicalIdentity, "utf8")
+              .digest("hex");
+            const encrypted = publicEncrypt(
+              {
+                key: publicKey,
+                padding: constants.RSA_PKCS1_OAEP_PADDING,
+                oaepHash: "sha256",
+              },
+              Buffer.from(identityFingerprint, "utf8"),
+            );
+            writeFileSync("/tmp/preview-database-identity.enc", encrypted, {
+              mode: 0o600,
+            });
+            process.stdout.write("PREVIEW_DATABASE_IDENTITY_CAPTURE_ENCRYPTED\n");
+          })()
+            .catch(() => {
+              process.stderr.write("Preview database identity capture failed\n");
+              process.exitCode = 1;
+            })
+            .finally(async () => {
+              if (sql) await sql.end({ timeout: 5 });
+            });
+          NODE
+
+      - name: Upload encrypted Preview database identity fingerprint
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: preview-database-identity-encrypted-${{ github.run_id }}
+          path: /tmp/preview-database-identity.enc
+          if-no-files-found: error
+          retention-days: 1

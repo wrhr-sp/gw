@@ -445,6 +445,10 @@ try {
       "0023_login_id_registry_history_contract",
       "0023_login_id_registry_history_contract.sql",
     ],
+    [
+      "0024_preview_bootstrap_session_revocations",
+      "0024_preview_bootstrap_session_revocations.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -453,6 +457,7 @@ try {
     "0015_neon_definer_contract_hardening",
     "0022_hotel_room_contract_hardening",
     "0023_login_id_registry_history_contract",
+    "0024_preview_bootstrap_session_revocations",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
