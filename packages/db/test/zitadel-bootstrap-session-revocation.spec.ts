@@ -10,6 +10,13 @@ const revocationScript = readFileSync(
   new URL("../scripts/revoke-preview-bootstrap-sessions.ts", import.meta.url),
   "utf8",
 );
+const readbackScript = readFileSync(
+  new URL(
+    "../scripts/read-preview-bootstrap-session-revocation.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const provisioningScript = readFileSync(
   new URL("../scripts/provision-preview.ts", import.meta.url),
   "utf8",
@@ -24,6 +31,13 @@ const captureWorkflow = readFileSync(
 const revocationWorkflow = readFileSync(
   new URL(
     "../../../.github/workflows/preview-revoke-bootstrap-sessions.yml",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const readbackWorkflow = readFileSync(
+  new URL(
+    "../../../.github/workflows/preview-read-bootstrap-session-revocation.yml",
     import.meta.url,
   ),
   "utf8",
@@ -110,6 +124,54 @@ describe("ZITADEL bootstrap session revocation", () => {
     expect(provisioningScript).toContain(
       '"0024_preview_bootstrap_session_revocations.sql"',
     );
+  });
+
+  it("reads the exact revocation state without mutation or artifacts", () => {
+    for (const contract of [
+      "permissions:",
+      "contents: read",
+      "environment: preview",
+      "working-directory: packages/db",
+      "PREVIEW_DATABASE_IDENTITY_SHA256",
+      "read-preview-bootstrap-session-revocation.ts",
+    ]) {
+      expect(readbackWorkflow).toContain(contract);
+    }
+    expect(readbackWorkflow).not.toContain("secrets.DATABASE_URL }}");
+    expect(readbackWorkflow).not.toContain("upload-artifact");
+    expect(readbackWorkflow).not.toContain(
+      "revoke-preview-bootstrap-sessions.ts",
+    );
+    for (const contract of [
+      'mode: "READ_ONLY"',
+      "PREVIEW_REVOCATION_STATE_${status}",
+      "PREVIEW_REVOCATION_PROVIDER_ZERO_${providerZero",
+      "PREVIEW_REVOCATION_APPLICATION_ZERO_${applicationZero",
+      "PREVIEW_REVOCATION_AUDIT_PRESENT_${auditPresent",
+      "Preview revocation read-back failed at ${stage}",
+      "order by created_at, operation_key",
+      "operation.operation_key !== operationKey",
+      "operation.operation_fingerprint !== operationFingerprint",
+      "operation.source_reset_operation_key !== approvalRef",
+      "identity.provider_subject = ${subject}",
+      "app_user.status = 'ACTIVE'",
+      "company.status = 'ACTIVE'",
+      "actor_type = 'SYSTEM'",
+      "actor_user_id is null",
+      "after_summary = jsonb_build_object(",
+      "occurred_at >= ${operation.created_at}",
+      "occurred_at <= ${operation.completed_at}",
+      "70000000-0000-4000-8000-000000000001",
+      "71000000-0000-4000-8000-000000000001",
+      "72000000-0000-4000-8000-000000000001",
+    ]) {
+      expect(readbackScript).toContain(contract);
+    }
+    expect(readbackScript).not.toMatch(/\binsert\s+into\b/iu);
+    expect(readbackScript).not.toMatch(/\bupdate\s+[a-z_]/iu);
+    expect(readbackScript).not.toMatch(/\bdelete\s+from\b/iu);
+    expect(readbackScript).not.toContain("error.message");
+    expect(readbackScript).not.toContain("response.body");
   });
 
   it("claims a fixed Preview tuple after target separation and before provider mutation", () => {
