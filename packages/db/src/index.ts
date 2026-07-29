@@ -52,3 +52,28 @@ export {
   type UpdateRoomTypeInput,
 } from "./rooms";
 export { probeDatabaseReadiness, type DatabaseReadiness } from "./client";
+export {
+  createPostgresHotelFileApiRepository,
+  createPostgresHotelFileFinalizerRepository,
+  createPostgresHotelFileScannerRepository,
+  type ClaimHotelFileScanInput,
+  type ClaimHotelFileScanResult,
+  type CompleteHotelFileCleanPromotionInput,
+  type CompleteHotelFileCleanPromotionResult,
+  type CompleteHotelFileScanInput,
+  type CompleteHotelFileScanResult,
+  type CompleteHotelFileUploadInput,
+  type CompleteHotelFileUploadResult,
+  type HotelFileApiActor,
+  type HotelFileApiRepository,
+  type HotelFileFinalizerRepository,
+  type HotelFileScannerRepository,
+  type HotelFileStatusResult,
+  type InitializeHotelFileUploadInput,
+  type InitHotelFileUploadResult,
+  type LinkHotelFileInput,
+  type LinkHotelFileResult,
+  type ReserveHotelFileCleanPromotionInput,
+  type ReserveHotelFileCleanPromotionResult,
+  type SafeHotelFileStatus,
+} from "./hotel-files";

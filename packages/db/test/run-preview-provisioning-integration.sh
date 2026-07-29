@@ -8,6 +8,7 @@ SOCKET_DIR="$TMP_DIR/socket"
 LOG_FILE="$TMP_DIR/postgres.log"
 API_RUNTIME_URL_FILE="$TMP_DIR/api-runtime-url"
 RECONCILER_URL_FILE="$TMP_DIR/reconciler-url"
+FINALIZER_URL_FILE="$TMP_DIR/file-finalizer-url"
 SUBJECT="preview-subject-integration"
 COMPANY_ID="70000000-0000-4000-8000-000000000001"
 MIGRATION_OWNER="werehere_preview_migration_owner"
@@ -22,6 +23,7 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
+drop role if exists werehere_preview_file_finalizer;
 drop role if exists preview_stale_definer_member;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
@@ -48,6 +50,7 @@ drop database if exists werehere_production_ci with (force);
 drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
+drop role if exists werehere_preview_file_finalizer;
 drop role if exists preview_stale_definer_member;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
@@ -100,8 +103,10 @@ run_provision() {
       DATABASE_URL="$PRODUCTION_URL" \
       DATABASE_API_RUNTIME_PASSWORD_PREVIEW='preview-api-runtime-integration-password' \
       DATABASE_RECONCILER_PASSWORD_PREVIEW='preview-reconciler-integration-password' \
+      DATABASE_FILE_FINALIZER_PASSWORD_PREVIEW='preview-file-finalizer-integration-password' \
       API_RUNTIME_DATABASE_URL_FILE="$API_RUNTIME_URL_FILE" \
       RECONCILER_DATABASE_URL_FILE="$RECONCILER_URL_FILE" \
+      FILE_FINALIZER_DATABASE_URL_FILE="$FINALIZER_URL_FILE" \
       ZITADEL_PREVIEW_SUBJECT="$SUBJECT" \
       ZITADEL_PREVIEW_SUBJECT_SHA256='4a5a9f382288501ac29a0a9ff003f6f5dca58d0dff0c3134a0480fb6a6c18bf6' \
       ZITADEL_PREVIEW_ORGANIZATION_ID='preview-organization-integration' \
@@ -586,7 +591,7 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
   -c "update permission_grants set version = 1 where id = '73000000-0000-4000-8000-000000000004'" >/dev/null
 
-for url_file in "$API_RUNTIME_URL_FILE" "$RECONCILER_URL_FILE"; do
+for url_file in "$API_RUNTIME_URL_FILE" "$RECONCILER_URL_FILE" "$FINALIZER_URL_FILE"; do
   if [[ "$(stat -c '%a' "$url_file")" != "600" ]]; then
     printf '%s\n' 'runtime URL file permissions are not 600' >&2
     exit 1
@@ -832,6 +837,7 @@ run_provision CONTRACT >/dev/null
 
 API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
 RECONCILER_URL="$(<"$RECONCILER_URL_FILE")"
+FILE_FINALIZER_URL="$(<"$FINALIZER_URL_FILE")"
 
 readiness_status() {
   local database_url="${1:?database URL is required}"
@@ -843,7 +849,7 @@ readiness_status() {
 import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 const databaseUrl = process.env.TEST_READY_URL;
 const capability = process.env.TEST_READY_CAPABILITY;
-if (!databaseUrl || (capability !== "API_RUNTIME" && capability !== "RECONCILER")) {
+if (!databaseUrl || !["API_RUNTIME", "RECONCILER", "FILE_FINALIZER"].includes(capability ?? "")) {
   throw new Error("Readiness damage probe configuration is invalid");
 }
 const result = await probeDatabaseReadiness(databaseUrl, { capability });
@@ -862,7 +868,35 @@ assert_readiness() {
   fi
 }
 
-assert_readiness READY
+assert_all_readiness() {
+  local expected="${1:?expected readiness is required}"
+  local database_url capability actual
+  while IFS='|' read -r database_url capability; do
+    actual="$(readiness_status "$database_url" "$capability")"
+    if [[ "$actual" != "$expected" ]]; then
+      printf '%s readiness was %s, expected %s.\n' "$capability" "$actual" "$expected" >&2
+      exit 1
+    fi
+  done <<EOF
+$API_RUNTIME_URL|API_RUNTIME
+$RECONCILER_URL|RECONCILER
+$FILE_FINALIZER_URL|FILE_FINALIZER
+EOF
+}
+
+assert_all_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant update (state) on public.hotel_file_uploads to werehere_preview_runtime with grant option' >/dev/null
+assert_all_readiness SCHEMA_NOT_READY
+run_provision CONTRACT >/dev/null
+assert_all_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant update (capability) on public.runtime_database_capabilities to werehere_preview_runtime with grant option' >/dev/null
+assert_all_readiness SCHEMA_NOT_READY
+run_provision CONTRACT >/dev/null
+assert_all_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c "delete from public.schema_migrations where version = '0025_hotel_file_quarantine_foundation'" >/dev/null
@@ -901,10 +935,10 @@ SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
-  -c 'revoke select on public.hotel_file_scan_jobs from werehere_preview_api_runtime' >/dev/null
+  -c 'revoke execute on function public.hotel_file_read_status(uuid) from werehere_preview_api_runtime' >/dev/null
 assert_readiness SCHEMA_NOT_READY
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
-  -c 'grant select on public.hotel_file_scan_jobs to werehere_preview_api_runtime' >/dev/null
+  -c 'grant execute on function public.hotel_file_read_status(uuid) to werehere_preview_api_runtime' >/dev/null
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
@@ -1954,7 +1988,7 @@ if (result.status !== "SCHEMA_NOT_READY") {
 NODE
 )
 
-for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL"; do
+for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL" "$FILE_FINALIZER_URL"; do
   if psql -X -v ON_ERROR_STOP=1 -d "$runtime_url" -c 'set role postgres' >/dev/null 2>&1; then
     printf '%s\n' 'Runtime role unexpectedly assumed the owner role.' >&2
     exit 1

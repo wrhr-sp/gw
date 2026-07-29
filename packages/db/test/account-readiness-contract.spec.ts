@@ -206,7 +206,7 @@ describe("account administration readiness contract", () => {
       "before insert or update of company_id on hotel_rooms",
     );
     expect(foundationIntegrationSource).toContain(
-      "alter policy hotel_rooms_company_isolation on hotel_rooms to gw_runtime_probe",
+      "alter policy hotel_rooms_company_isolation on hotel_rooms to gw_runtime_api_probe",
     );
     expect(foundationIntegrationSource).toContain(
       "alter policy hotel_rooms_company_isolation on hotel_rooms to public",

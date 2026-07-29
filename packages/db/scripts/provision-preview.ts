@@ -11,9 +11,13 @@ const apiRuntimePassword =
   process.env.DATABASE_API_RUNTIME_PASSWORD_PREVIEW ?? "";
 const reconcilerPassword =
   process.env.DATABASE_RECONCILER_PASSWORD_PREVIEW ?? "";
+const fileFinalizerPassword =
+  process.env.DATABASE_FILE_FINALIZER_PASSWORD_PREVIEW ?? "";
 const apiOutputFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim() ?? "";
 const reconcilerOutputFile =
   process.env.RECONCILER_DATABASE_URL_FILE?.trim() ?? "";
+const fileFinalizerOutputFile =
+  process.env.FILE_FINALIZER_DATABASE_URL_FILE?.trim() ?? "";
 const zitadelSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim() ?? "";
 const approvedSubjectFingerprint =
   process.env.ZITADEL_PREVIEW_SUBJECT_SHA256?.trim().toLowerCase() ?? "";
@@ -25,6 +29,7 @@ const localCiAdminDatabaseUrl =
   process.env.PREVIEW_PROVISION_ADMIN_DATABASE_URL?.trim() ?? "";
 const apiRuntimeRole = "werehere_preview_api_runtime";
 const reconcilerRole = "werehere_preview_reconciler";
+const fileFinalizerRole = "werehere_preview_file_finalizer";
 const previewCompanyId = "70000000-0000-4000-8000-000000000001";
 const previewUserId = "71000000-0000-4000-8000-000000000001";
 const previewIdentityId = "72000000-0000-4000-8000-000000000001";
@@ -169,10 +174,17 @@ if (!apiRuntimePassword)
   fail("DATABASE_API_RUNTIME_PASSWORD_PREVIEW is required");
 if (!reconcilerPassword)
   fail("DATABASE_RECONCILER_PASSWORD_PREVIEW is required");
-if (apiRuntimePassword === reconcilerPassword)
+if (!fileFinalizerPassword)
+  fail("DATABASE_FILE_FINALIZER_PASSWORD_PREVIEW is required");
+if (
+  new Set([apiRuntimePassword, reconcilerPassword, fileFinalizerPassword])
+    .size !== 3
+)
   fail("Preview runtime passwords must differ");
 if (!apiOutputFile) fail("API_RUNTIME_DATABASE_URL_FILE is required");
 if (!reconcilerOutputFile) fail("RECONCILER_DATABASE_URL_FILE is required");
+if (!fileFinalizerOutputFile)
+  fail("FILE_FINALIZER_DATABASE_URL_FILE is required");
 if (!zitadelSubject) fail("ZITADEL_PREVIEW_SUBJECT is required");
 if (!/^[0-9a-f]{64}$/u.test(approvedSubjectFingerprint))
   fail("ZITADEL_PREVIEW_SUBJECT_SHA256 is required");
@@ -260,7 +272,10 @@ async function updateLocalCiDefinerMembership(
           from pg_roles definer_role
           where definer_role.rolname in (
             'werehere_auth_session_definer',
-            'werehere_tenant_authority_definer'
+            'werehere_tenant_authority_definer',
+            'werehere_hotel_file_api_definer',
+            'werehere_hotel_file_reconciler_definer',
+            'werehere_hotel_file_finalizer_definer'
           )
         `
         : await localAdmin<{ command: string }[]>`
@@ -273,7 +288,10 @@ async function updateLocalCiDefinerMembership(
           from pg_roles definer_role
           where definer_role.rolname in (
             'werehere_auth_session_definer',
-            'werehere_tenant_authority_definer'
+            'werehere_tenant_authority_definer',
+            'werehere_hotel_file_api_definer',
+            'werehere_hotel_file_reconciler_definer',
+            'werehere_hotel_file_finalizer_definer'
           )
         `;
     for (const command of commands) {
@@ -338,7 +356,9 @@ try {
   `;
   if (
     !identity[0] ||
-    [apiRuntimeRole, reconcilerRole].includes(identity[0].current_user)
+    [apiRuntimeRole, reconcilerRole, fileFinalizerRole].includes(
+      identity[0].current_user,
+    )
   ) {
     fail("Preview migration credential must differ from both runtime roles");
   }
@@ -452,6 +472,10 @@ try {
     [
       "0025_hotel_file_quarantine_foundation",
       "0025_hotel_file_quarantine_foundation.sql",
+    ],
+    [
+      "0026_hotel_file_repository_commands",
+      "0026_hotel_file_repository_commands.sql",
     ],
   ] as const;
   const contractOnlyMigrations = new Set([
@@ -671,9 +695,13 @@ try {
       `
       : [{ applied: false }];
     if (applied[0]?.applied) continue;
-    await owner.unsafe(
-      await readFile(resolve(migrationDirectory, fileName), "utf8"),
-    );
+    try {
+      await owner.unsafe(
+        await readFile(resolve(migrationDirectory, fileName), "utf8"),
+      );
+    } catch (error) {
+      throw new Error(`Preview migration ${version} failed`, { cause: error });
+    }
   }
 
   await owner.begin(async (sql) => {
@@ -1333,6 +1361,7 @@ try {
   const roles = [
     { name: apiRuntimeRole, password: apiRuntimePassword },
     { name: reconcilerRole, password: reconcilerPassword },
+    { name: fileFinalizerRole, password: fileFinalizerPassword },
   ] as const;
   for (const role of roles) {
     const [state] = await owner<{ exists: boolean }[]>`
@@ -1391,6 +1420,7 @@ try {
     "werehere_tenant_authority_definer",
   );
   let capabilityRows: Array<{ capability: string; role_name: string }> = [];
+  let previewRegistryReady = false;
   await owner.begin(async (sql) => {
     await sql.unsafe(capabilityDefinerCommands.grant_membership);
     await sql.unsafe("set local role werehere_tenant_authority_definer");
@@ -1407,6 +1437,13 @@ try {
       where role_name in (${apiRuntimeRole}, ${reconcilerRole})
       order by role_name
     `;
+    const [registry] = await sql<{ ready: boolean }[]>`
+      select count(*) = 1
+             and bool_and(company_status = 'ACTIVE') as ready
+      from reconciliation_company_registry
+      where company_id = ${previewCompanyId}::uuid
+    `;
+    previewRegistryReady = registry?.ready ?? false;
     await sql.unsafe("reset role");
     await sql.unsafe(capabilityDefinerCommands.revoke_membership);
   });
@@ -1419,6 +1456,28 @@ try {
     capabilityMap.get(reconcilerRole) !== "RECONCILER"
   )
     fail("Preview runtime capability registration failed");
+  if (!previewRegistryReady) {
+    fail("Preview finalizer company registry binding is unavailable");
+  }
+  const [finalizerRuntimeOverlap] = await owner<{ exists: boolean }[]>`
+    select exists (
+      select 1 from runtime_database_capabilities
+      where role_name = ${fileFinalizerRole}
+    ) as exists
+  `;
+  if (finalizerRuntimeOverlap?.exists) {
+    fail("Preview finalizer role has an incompatible runtime capability");
+  }
+  await owner`
+    delete from hotel_file_finalizer_capabilities
+    where role_name <> ${fileFinalizerRole}
+  `;
+  await owner`
+    insert into hotel_file_finalizer_capabilities (role_name)
+    values (${fileFinalizerRole})
+    on conflict (role_name) do update
+    set provisioned_at = pg_catalog.statement_timestamp()
+  `;
 
   const [legacyRuntimeState] = await owner<
     { compatible_capability: boolean; exists: boolean }[]
@@ -1510,6 +1569,48 @@ try {
             );
           end if;
         end loop;
+
+        for acl_record in
+          select distinct table_namespace.nspname as schema_name,
+                 table_record.relname as table_name,
+                 attribute_record.attname as column_name,
+                 acl.grantee,
+                 grantee_role.rolname as grantee_name,
+                 acl.privilege_type
+          from pg_attribute attribute_record
+          join pg_class table_record
+            on table_record.oid = attribute_record.attrelid
+          join pg_namespace table_namespace
+            on table_namespace.oid = table_record.relnamespace
+          cross join lateral aclexplode(attribute_record.attacl) acl
+          left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+          where table_namespace.nspname = 'public'
+            and table_record.relkind in ('r', 'p')
+            and table_record.relowner = current_user::regrole::oid
+            and attribute_record.attnum > 0
+            and not attribute_record.attisdropped
+            and attribute_record.attacl is not null
+            and acl.grantee <> table_record.relowner
+        loop
+          if acl_record.grantee = 0::oid then
+            execute format(
+              'revoke %s (%I) on table %I.%I from public cascade',
+              acl_record.privilege_type,
+              acl_record.column_name,
+              acl_record.schema_name,
+              acl_record.table_name
+            );
+          else
+            execute format(
+              'revoke %s (%I) on table %I.%I from %I cascade',
+              acl_record.privilege_type,
+              acl_record.column_name,
+              acl_record.schema_name,
+              acl_record.table_name,
+              acl_record.grantee_name
+            );
+          end if;
+        end loop;
       end
       $tenant_owned_table_acl_reset$;
 
@@ -1560,6 +1661,48 @@ try {
           );
         end if;
       end loop;
+
+      for acl_record in
+        select distinct table_namespace.nspname as schema_name,
+               table_record.relname as table_name,
+               attribute_record.attname as column_name,
+               acl.grantee,
+               grantee_role.rolname as grantee_name,
+               acl.privilege_type
+        from pg_attribute attribute_record
+        join pg_class table_record
+          on table_record.oid = attribute_record.attrelid
+        join pg_namespace table_namespace
+          on table_namespace.oid = table_record.relnamespace
+        cross join lateral aclexplode(attribute_record.attacl) acl
+        left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where table_namespace.nspname = 'public'
+          and table_record.relkind in ('r', 'p')
+          and table_record.relowner = current_user::regrole::oid
+          and attribute_record.attnum > 0
+          and not attribute_record.attisdropped
+          and attribute_record.attacl is not null
+          and acl.grantee <> table_record.relowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute format(
+            'revoke %s (%I) on table %I.%I from public cascade',
+            acl_record.privilege_type,
+            acl_record.column_name,
+            acl_record.schema_name,
+            acl_record.table_name
+          );
+        else
+          execute format(
+            'revoke %s (%I) on table %I.%I from %I cascade',
+            acl_record.privilege_type,
+            acl_record.column_name,
+            acl_record.schema_name,
+            acl_record.table_name,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
     end
     $migration_owned_table_acl_reset$;
 
@@ -1582,11 +1725,19 @@ try {
           and acl.grantee <> namespace_record.nspowner
           and grantee_role.rolname not in (
             'werehere_auth_session_definer',
-            'werehere_tenant_authority_definer'
+            'werehere_tenant_authority_definer',
+            'werehere_hotel_file_api_definer',
+            'werehere_hotel_file_reconciler_definer',
+            'werehere_hotel_file_finalizer_definer'
           )
           and not exists (
             select 1
             from public.runtime_database_capabilities capability
+            where capability.role_name = grantee_role.rolname
+          )
+          and not exists (
+            select 1
+            from public.hotel_file_finalizer_capabilities capability
             where capability.role_name = grantee_role.rolname
           )
       loop
@@ -1639,12 +1790,16 @@ try {
 
     revoke all privileges on all tables in schema public from ${apiRuntimeRole};
     revoke all privileges on all tables in schema public from ${reconcilerRole};
+    revoke all privileges on all tables in schema public from ${fileFinalizerRole};
     revoke all privileges on all sequences in schema public from ${apiRuntimeRole};
     revoke all privileges on all sequences in schema public from ${reconcilerRole};
+    revoke all privileges on all sequences in schema public from ${fileFinalizerRole};
     revoke all on schema public from ${apiRuntimeRole};
     revoke all on schema public from ${reconcilerRole};
-    grant usage on schema public to ${apiRuntimeRole};
-    grant usage on schema public to ${reconcilerRole};
+    revoke all on schema public from ${fileFinalizerRole};
+    grant usage on schema public to ${apiRuntimeRole}, ${reconcilerRole},
+      ${fileFinalizerRole}, werehere_hotel_file_api_definer,
+      werehere_hotel_file_reconciler_definer, werehere_hotel_file_finalizer_definer;
     grant execute on function public.jsonb_reject_plaintext_password_keys(jsonb)
       to ${apiRuntimeRole}, ${reconcilerRole};
 
@@ -1659,6 +1814,36 @@ try {
     grant insert, update on reconciliation_company_registry
       to werehere_tenant_authority_definer;
 
+    grant select on public.auth_sessions, public.users, public.file_attachment_parents,
+      public.hotel_file_uploads, public.hotel_file_scan_jobs, public.hotel_file_versions,
+      public.hotel_file_links, public.idempotency_records
+      to werehere_hotel_file_api_definer;
+    grant insert on public.hotel_file_uploads, public.hotel_file_scan_jobs,
+      public.hotel_file_links, public.audit_events, public.idempotency_records
+      to werehere_hotel_file_api_definer;
+    grant update on public.file_attachment_parents, public.hotel_file_uploads,
+      public.idempotency_records to werehere_hotel_file_api_definer;
+
+    grant select on public.hotel_file_scan_jobs, public.hotel_file_uploads,
+      public.file_scan_attempts, public.hotel_file_scan_completion_receipts
+      to werehere_hotel_file_reconciler_definer;
+    grant insert on public.file_scan_attempts,
+      public.hotel_file_scan_completion_receipts, public.audit_events
+      to werehere_hotel_file_reconciler_definer;
+    grant update on public.hotel_file_scan_jobs, public.hotel_file_uploads,
+      public.file_scan_attempts to werehere_hotel_file_reconciler_definer;
+
+    grant select on public.hotel_file_uploads, public.file_scan_attempts,
+      public.hotel_file_versions, public.hotel_file_clean_promotion_reservations,
+      public.hotel_file_finalizer_capabilities,
+      public.reconciliation_company_registry to werehere_hotel_file_finalizer_definer;
+    grant insert on public.hotel_file_versions,
+      public.hotel_file_clean_promotion_reservations, public.audit_events
+      to werehere_hotel_file_finalizer_definer;
+    grant update on public.hotel_file_uploads,
+      public.hotel_file_clean_promotion_reservations
+      to werehere_hotel_file_finalizer_definer;
+
     grant select on
       companies, users, auth_identities, auth_sessions, runtime_database_capabilities,
       auth_login_transactions, auth_credential_rate_limits,
@@ -1669,8 +1854,7 @@ try {
       hotel_staff_assignments,
       housekeeping_hotel_links, hotel_owner_assignments,
       hotel_room_types, hotel_rooms, hotel_room_status_history,
-      file_attachment_parents, hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts,
-      hotel_file_versions, hotel_file_links
+      hotel_file_finalizer_capabilities
     to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_login_transactions to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeTableGrantees};
@@ -1716,14 +1900,28 @@ try {
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
       runtime_database_capabilities, outbox_jobs, account_provisioning_attempts,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
-      hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts
+      hotel_file_finalizer_capabilities
     to ${reconcilerRole};
     grant insert on users, auth_identities, audit_events, outbox_jobs,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
     to ${reconcilerRole};
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
 
+    grant select on schema_migrations, permissions, runtime_database_capabilities,
+      hotel_file_finalizer_capabilities to ${fileFinalizerRole};
+
   `);
+
+  await owner.begin(async (sql) => {
+    await sql.unsafe(capabilityDefinerCommands.grant_membership);
+    await sql.unsafe("set local role werehere_tenant_authority_definer");
+    await sql`
+      grant select on public.runtime_database_capabilities
+        to ${sql(fileFinalizerRole)}
+    `;
+    await sql.unsafe("reset role");
+    await sql.unsafe(capabilityDefinerCommands.revoke_membership);
+  });
 
   await updateLocalCiDefinerMembership(
     migrationOwnerIdentity.role_name,
@@ -1902,6 +2100,11 @@ try {
       grant execute on function public.api_current_company_id(),
         public.reconciler_current_company_id()
         to ${apiRuntimeRole}, ${reconcilerRole}${legacyCompatibilityGrant};
+      grant execute on function public.runtime_has_capability(text),
+        public.api_current_company_id() to werehere_hotel_file_api_definer;
+      grant execute on function public.runtime_has_capability(text),
+        public.reconciler_current_company_id()
+        to werehere_hotel_file_reconciler_definer;
       grant execute on function public.reconciliation_company_ids() to ${reconcilerRole};
       revoke execute on function public.reconciliation_company_ids() from ${apiRuntimeRole};
       ${
@@ -1922,6 +2125,89 @@ try {
     await sql.unsafe("reset role");
     await sql.unsafe(tenantDefinerCommands.revoke_membership);
   });
+
+  const reconcileHotelFileCommandAcl = async (
+    definerRole: string,
+    functionNames: readonly string[],
+    exactGrant: string,
+  ) => {
+    const commands = await buildDefinerCommands(definerRole);
+    await owner.begin(async (sql) => {
+      await sql.unsafe(commands.grant_membership);
+      const [setRole] = await sql<{ command: string }[]>`
+        select format('set local role %I', ${definerRole}::text) as command
+      `;
+      await sql.unsafe(
+        setRole?.command ?? fail("Could not set file command definer role"),
+      );
+      const revocations = await sql<{ command: string }[]>`
+        select case
+                 when acl.grantee = 0::oid then format(
+                   'revoke all privileges on function %s from public cascade',
+                   procedure_record.oid::regprocedure
+                 )
+                 else format(
+                   'revoke all privileges on function %s from %I cascade',
+                   procedure_record.oid::regprocedure,
+                   grantee_role.rolname
+                 )
+               end as command
+        from pg_proc procedure_record
+        join pg_namespace procedure_namespace
+          on procedure_namespace.oid = procedure_record.pronamespace
+        cross join lateral aclexplode(coalesce(
+          procedure_record.proacl,
+          acldefault('f'::"char", procedure_record.proowner)
+        )) acl
+        left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where procedure_namespace.nspname = 'public'
+          and procedure_record.proname = any(${functionNames}::text[])
+          and acl.privilege_type = 'EXECUTE'
+          and acl.grantee <> procedure_record.proowner
+      `;
+      for (const revocation of revocations) {
+        await sql.unsafe(revocation.command);
+      }
+      await sql.unsafe(exactGrant);
+      await sql.unsafe("reset role");
+      await sql.unsafe(commands.revoke_membership);
+    });
+  };
+
+  await reconcileHotelFileCommandAcl(
+    "werehere_hotel_file_api_definer",
+    [
+      "hotel_file_init_upload",
+      "hotel_file_complete_upload",
+      "hotel_file_link_clean_version",
+      "hotel_file_read_status",
+    ],
+    `grant execute on function
+      public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamptz,uuid,text,text,uuid),
+      public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid),
+      public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid),
+      public.hotel_file_read_status(uuid)
+      to ${apiRuntimeRole}`,
+  );
+  await reconcileHotelFileCommandAcl(
+    "werehere_hotel_file_reconciler_definer",
+    ["hotel_file_claim_scan_attempt", "hotel_file_complete_scan_attempt"],
+    `grant execute on function
+      public.hotel_file_claim_scan_attempt(uuid,uuid,text,integer),
+      public.hotel_file_complete_scan_attempt(uuid,bigint,text,bytea,text,bigint,bytea,text,text,text,text,text,integer)
+      to ${reconcilerRole}`,
+  );
+  await reconcileHotelFileCommandAcl(
+    "werehere_hotel_file_finalizer_definer",
+    [
+      "hotel_file_reserve_clean_promotion",
+      "hotel_file_complete_clean_promotion",
+    ],
+    `grant execute on function
+      public.hotel_file_reserve_clean_promotion(uuid,uuid,uuid,text,text,integer),
+      public.hotel_file_complete_clean_promotion(uuid,bigint,text,uuid,text,text,bytea,bigint,text)
+      to ${fileFinalizerRole}`,
+  );
 
   if (contractPhase && legacyRuntimeState?.exists) {
     const [legacyAccess] = await owner<
@@ -1975,7 +2261,10 @@ try {
     join pg_roles grantor_role on grantor_role.oid = membership.grantor
     where definer_role.rolname in (
       'werehere_auth_session_definer',
-      'werehere_tenant_authority_definer'
+      'werehere_tenant_authority_definer',
+      'werehere_hotel_file_api_definer',
+      'werehere_hotel_file_reconciler_definer',
+      'werehere_hotel_file_finalizer_definer'
     )
       and grantor_role.rolname = current_user
     order by definer_role.rolname, member_role.rolname
@@ -2014,7 +2303,10 @@ try {
     join pg_roles grantor_role on grantor_role.oid = membership.grantor
     where definer_role.rolname in (
       'werehere_auth_session_definer',
-      'werehere_tenant_authority_definer'
+      'werehere_tenant_authority_definer',
+      'werehere_hotel_file_api_definer',
+      'werehere_hotel_file_reconciler_definer',
+      'werehere_hotel_file_finalizer_definer'
     )
   `;
   const neonCreatorDefinerRoles = new Set([
@@ -2038,13 +2330,21 @@ try {
         !membership.set_option,
     );
   if (definerMembershipSafety.length !== 0 && !hasExactNeonCreatorMemberships) {
-    fail("Preview definer membership cleanup failed");
+    fail(
+      `Preview definer membership cleanup failed: ${definerMembershipSafety
+        .map(
+          (membership) =>
+            `${membership.definer_role}->${membership.member_role}@${membership.grantor_role}`,
+        )
+        .join(",")}`,
+    );
   }
 
   for (const role of roles) {
     const [safety] = await owner<
       {
         bypass_rls: boolean;
+        can_login: boolean;
         creates_databases: boolean;
         creates_roles: boolean;
         has_memberships: boolean;
@@ -2055,6 +2355,7 @@ try {
       }[]
     >`
       select runtime_role.rolsuper as superuser,
+             runtime_role.rolcanlogin as can_login,
              runtime_role.rolbypassrls as bypass_rls,
              runtime_role.rolcreatedb as creates_databases,
              runtime_role.rolcreaterole as creates_roles,
@@ -2077,6 +2378,7 @@ try {
     `;
     if (
       !safety ||
+      !safety.can_login ||
       safety.superuser ||
       safety.bypass_rls ||
       safety.creates_databases ||
@@ -2095,12 +2397,19 @@ try {
   const reconcilerUrl = new URL(previewUrl);
   reconcilerUrl.username = reconcilerRole;
   reconcilerUrl.password = reconcilerPassword;
+  const fileFinalizerUrl = new URL(previewUrl);
+  fileFinalizerUrl.username = fileFinalizerRole;
+  fileFinalizerUrl.password = fileFinalizerPassword;
   await writeFile(apiOutputFile, apiRuntimeUrl.toString(), { mode: 0o600 });
   await chmod(apiOutputFile, 0o600);
   await writeFile(reconcilerOutputFile, reconcilerUrl.toString(), {
     mode: 0o600,
   });
   await chmod(reconcilerOutputFile, 0o600);
+  await writeFile(fileFinalizerOutputFile, fileFinalizerUrl.toString(), {
+    mode: 0o600,
+  });
+  await chmod(fileFinalizerOutputFile, 0o600);
 
   const requiredRolloutPhase = contractCompatibleAclPhase
     ? "CONTRACT"
@@ -2153,6 +2462,20 @@ try {
   if (reconcilerReadiness.status !== "READY") {
     fail(`Preview reconciler readiness failed: ${reconcilerReadiness.status}`);
   }
+  const fileFinalizerReadiness = await probeDatabaseReadiness(
+    fileFinalizerUrl.toString(),
+    {
+      capability: "FILE_FINALIZER",
+      requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
+      requiredRoomSchemaPhase: requiredRoomRolloutPhase,
+      requiredSchemaPhase: requiredRolloutPhase,
+    },
+  );
+  if (fileFinalizerReadiness.status !== "READY") {
+    fail(
+      `Preview file finalizer readiness failed: ${fileFinalizerReadiness.status}`,
+    );
+  }
 
   console.log("PREVIEW_DATABASE_PROVISIONED");
   console.log(`PREVIEW_DATABASE_PHASE_${provisionPhase}`);
@@ -2161,6 +2484,7 @@ try {
   }
   console.log("PREVIEW_API_RUNTIME_ROLE_READY");
   console.log("PREVIEW_RECONCILER_ROLE_READY");
+  console.log("PREVIEW_FILE_FINALIZER_ROLE_READY");
 } finally {
   try {
     if (localCiMembershipCleanupRequired && migrationOwnerRoleForCleanup) {
