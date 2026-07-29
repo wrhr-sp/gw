@@ -44,11 +44,346 @@ import {
   hotelRoomOwnerDetailResponseSchema,
   hotelRoomOwnerSchema,
   hotelRoomStatusSchema,
+  hotelFileAccessRequestSchema,
+  hotelFileDownloadResponseSchema,
+  hotelFileViewResponseSchema,
+  hotelFileParentTypeSchema,
+  hotelFileRoutes,
+  hotelFileUploadCompleteRequestSchema,
+  hotelFileUploadInitRequestSchema,
+  hotelFileUploadInitResponseSchema,
+  hotelFileUploadStateSchema,
+  hotelFileUploadStatusResponseSchema,
   updateHotelRoomRequestSchema,
   updateHotelRoomTypeRequestSchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("defines private fail-closed hotel file upload contracts", () => {
+    expect(hotelFileParentTypeSchema.options).toEqual([
+      "INSPECTION_RESULT",
+      "DAILY_SALES",
+      "OPERATIONAL_ISSUE",
+      "OWNER_INQUIRY",
+      "KNOWLEDGE_ARTICLE",
+    ]);
+    expect(hotelFileUploadStateSchema.options).toEqual([
+      "PENDING_UPLOAD",
+      "QUARANTINED",
+      "SCANNING",
+      "CLEAN_PENDING_PROMOTION",
+      "READY_UNLINKED",
+      "LINKED",
+      "REJECTED",
+      "SCAN_FAILED",
+      "EXPIRED",
+    ]);
+
+    const init = hotelFileUploadInitRequestSchema.parse({
+      hotelId: "50000000-0000-4000-8000-000000000001",
+      parentType: "INSPECTION_RESULT",
+      parentId: "51000000-0000-4000-8000-000000000001",
+      fileName: "inspection-photo.jpg",
+      sizeBytes: 1024,
+      mimeType: "image/jpeg",
+    });
+    expect(init.fileName).toBe("inspection-photo.jpg");
+    expect(
+      hotelFileUploadInitRequestSchema.parse({
+        ...init,
+        fileName: "점검 사진(1).jpg",
+      }).fileName,
+    ).toBe("점검 사진(1).jpg");
+    for (const fileName of [
+      "../photo.jpg",
+      "photo\\name.jpg",
+      "photo\u0000.jpg",
+      "photo\u0085.jpg",
+      "photo\u200b.jpg",
+      "photo\u202egpj.jpg",
+      "payload.zip.jpg",
+      "payload.py.jpg",
+      "payload.vbs.jpg",
+      "payload.pptm.jpg",
+      "payload.txt.jpg",
+      "payload.exe .jpg",
+      "payload.exe\u00a0.jpg",
+      "payload.exe\uff0ejpg.jpg",
+      "payload.hta.jpg",
+      "payload.cpl.jpg",
+      "payload.lnk.jpg",
+      "payload.url.jpg",
+      "payload.reg.jpg",
+      "payload.inf.jpg",
+      "payload.scf.jpg",
+      "payload。exe.jpg",
+      "payload·exe.jpg",
+      "payload💣.jpg",
+    ]) {
+      expect(
+        hotelFileUploadInitRequestSchema.safeParse({ ...init, fileName }).success,
+      ).toBe(false);
+    }
+    for (const sizeBytes of [0, -1, 1.5, 50_000_001]) {
+      expect(
+        hotelFileUploadInitRequestSchema.safeParse({
+          ...init,
+          parentType: "OWNER_INQUIRY",
+          sizeBytes,
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      hotelFileUploadInitRequestSchema.parse({
+        ...init,
+        fileName: "inspection-photo.heic",
+        mimeType: "image/heic",
+        sizeBytes: 20_000_000,
+      }).mimeType,
+    ).toBe("image/heic");
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        sizeBytes: 20_000_001,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        parentType: "DAILY_SALES",
+        fileName: "evidence.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 50_000_001,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        fileName: "malware.exe",
+        mimeType: "application/x-msdownload",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        fileName: "renamed.pdf",
+        mimeType: "image/jpeg",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        fileName: "inspection.pdf",
+        mimeType: "application/pdf",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        parentType: "OWNER_INQUIRY",
+        fileName: "message.txt",
+        mimeType: "text/plain",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        fileName: "malware.exe.jpg",
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        ...init,
+        unexpectedObjectKey: "tenant/hotel/file",
+      }).success,
+    ).toBe(false);
+
+    const upload = hotelFileUploadInitResponseSchema.parse({
+      ok: true,
+      data: {
+        upload: {
+          id: "52000000-0000-4000-8000-000000000001",
+          state: "PENDING_UPLOAD",
+          method: "PUT",
+          uploadUrl: "https://upload.invalid/signed",
+          requiredHeaders: {
+            "Content-Type": "image/jpeg",
+            "If-None-Match": "*",
+          },
+          expiresAt: "2026-07-29T01:05:00.000Z",
+          expiresInSeconds: 300,
+        },
+      },
+      error: null,
+    }).data.upload;
+    expect(upload.requiredHeaders["If-None-Match"]).toBe("*");
+    expect(upload).not.toHaveProperty("objectKey");
+    expect(
+      hotelFileUploadInitResponseSchema.safeParse({
+        ok: true,
+        data: {
+          upload: {
+            ...upload,
+            uploadUrl: "http://upload.invalid/signed",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      hotelFileUploadCompleteRequestSchema.parse({
+        etag: '"0123456789abcdef0123456789abcdef"',
+      }).etag,
+    ).toBe('"0123456789abcdef0123456789abcdef"');
+    expect(
+      hotelFileUploadCompleteRequestSchema.safeParse({
+        etag: '"0123456789abcdef0123456789abcdef"',
+        sizeBytes: 1024,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileUploadStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          upload: {
+            id: "52000000-0000-4000-8000-000000000001",
+            state: "READY_UNLINKED",
+            fileVersionId: null,
+            failureCode: null,
+            updatedAt: "2026-07-29T01:06:00.000Z",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileAccessRequestSchema.parse({
+        parentType: "INSPECTION_RESULT",
+        parentId: "51000000-0000-4000-8000-000000000001",
+      }).parentType,
+    ).toBe("INSPECTION_RESULT");
+    expect(hotelFileRoutes.view("53000000-0000-4000-8000-000000000001")).toBe(
+      "/api/hotel-files/53000000-0000-4000-8000-000000000001/view",
+    );
+    expect(
+      hotelFileRoutes.download("53000000-0000-4000-8000-000000000001"),
+    ).toBe(
+      "/api/hotel-files/53000000-0000-4000-8000-000000000001/download",
+    );
+    expect(() => hotelFileRoutes.view("..")).toThrow();
+    expect(
+      hotelFileViewResponseSchema.safeParse({
+        ok: true,
+        data: {
+          accessUrl: "https://files.invalid/signed",
+          disposition: "VIEW",
+          expiresAt: "2026-07-29T01:05:00.000Z",
+          expiresInSeconds: 300,
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      hotelFileViewResponseSchema.safeParse({
+        ok: true,
+        data: {
+          accessUrl: "https://files.invalid/signed",
+          disposition: "VIEW",
+          expiresAt: "2026-07-29T01:06:00.000Z",
+          expiresInSeconds: 301,
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileDownloadResponseSchema.safeParse({
+        ok: true,
+        data: {
+          accessUrl: "https://files.invalid/signed",
+          disposition: "VIEW",
+          expiresAt: "2026-07-29T01:05:00.000Z",
+          expiresInSeconds: 300,
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      hotelFileDownloadResponseSchema.safeParse({
+        ok: true,
+        data: {
+          accessUrl: "https://files.invalid/signed",
+          disposition: "DOWNLOAD",
+          expiresAt: "2026-07-29T01:05:00.000Z",
+          expiresInSeconds: 300,
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("binds terminal file failure codes to their exact states", () => {
+    const base = {
+      id: "52000000-0000-4000-8000-000000000001",
+      fileVersionId: null,
+      updatedAt: "2026-07-29T01:06:00.000Z",
+    };
+    for (const [state, failureCode] of [
+      ["REJECTED", "MALWARE_DETECTED"],
+      ["SCAN_FAILED", "SCAN_ENGINE_UNAVAILABLE"],
+      ["EXPIRED", "UPLOAD_EXPIRED"],
+    ] as const) {
+      expect(
+        hotelFileUploadStatusResponseSchema.safeParse({
+          ok: true,
+          data: { upload: { ...base, state, failureCode } },
+          error: null,
+        }).success,
+      ).toBe(true);
+    }
+    for (const [state, failureCode] of [
+      ["REJECTED", "UPLOAD_EXPIRED"],
+      ["EXPIRED", "MALWARE_DETECTED"],
+      ["SCANNING", "SCAN_ENGINE_UNAVAILABLE"],
+    ] as const) {
+      expect(
+        hotelFileUploadStatusResponseSchema.safeParse({
+          ok: true,
+          data: { upload: { ...base, state, failureCode } },
+          error: null,
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      hotelFileUploadStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          upload: {
+            ...base,
+            state: "READY_UNLINKED",
+            fileVersionId: "53000000-0000-4000-8000-000000000001",
+            failureCode: null,
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      hotelFileUploadStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          upload: {
+            ...base,
+            state: "SCANNING",
+            failureCode: null,
+            objectKey: "opaque-but-internal",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+  });
+
   it("keeps room inputs strict, versioned, and reasoned", () => {
     expect(hotelRoomStatusSchema.parse("ACTIVE")).toBe("ACTIVE");
     expect(
