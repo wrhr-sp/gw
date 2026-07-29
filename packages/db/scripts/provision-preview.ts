@@ -449,6 +449,10 @@ try {
       "0024_preview_bootstrap_session_revocations",
       "0024_preview_bootstrap_session_revocations.sql",
     ],
+    [
+      "0025_hotel_file_quarantine_foundation",
+      "0025_hotel_file_quarantine_foundation.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -1664,7 +1668,9 @@ try {
       account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
       hotel_staff_assignments,
       housekeeping_hotel_links, hotel_owner_assignments,
-      hotel_room_types, hotel_rooms, hotel_room_status_history
+      hotel_room_types, hotel_rooms, hotel_room_status_history,
+      file_attachment_parents, hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts,
+      hotel_file_versions, hotel_file_links
     to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_login_transactions to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeTableGrantees};
@@ -1709,12 +1715,14 @@ try {
     grant select on
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
       runtime_database_capabilities, outbox_jobs, account_provisioning_attempts,
-      hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+      hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
+      hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts
     to ${reconcilerRole};
     grant insert on users, auth_identities, audit_events, outbox_jobs,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
     to ${reconcilerRole};
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
+
   `);
 
   await updateLocalCiDefinerMembership(

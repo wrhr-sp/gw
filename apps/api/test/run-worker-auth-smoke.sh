@@ -80,7 +80,9 @@ GRANT SELECT ON
   branches, hotel_profiles, idempotency_records, outbox_jobs,
   account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
-  hotel_room_types, hotel_rooms, hotel_room_status_history
+  hotel_room_types, hotel_rooms, hotel_room_status_history,
+  file_attachment_parents, hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts,
+  hotel_file_versions, hotel_file_links
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
@@ -125,7 +127,8 @@ GRANT SELECT ON
   schema_migrations, companies, permissions, users, auth_identities, branches,
   hotel_profiles, runtime_database_capabilities, outbox_jobs,
   account_provisioning_attempts, hotel_staff_assignments,
-  housekeeping_hotel_links, hotel_owner_assignments
+  housekeeping_hotel_links, hotel_owner_assignments,
+  hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts
 TO $RECONCILER_ROLE;
 GRANT INSERT ON users, auth_identities, audit_events, outbox_jobs,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
