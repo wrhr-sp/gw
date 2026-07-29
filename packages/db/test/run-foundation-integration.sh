@@ -25,6 +25,7 @@ GRANT EXECUTE ON FUNCTION reconciliation_company_ids(), runtime_is_schema_owner(
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM gw_runtime_probe;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM gw_runtime_probe;
 GRANT SELECT ON account_provisioning_attempts, auth_identities, branches, companies,
+  file_scan_attempts, hotel_file_scan_jobs, hotel_file_uploads,
   hotel_owner_assignments, hotel_profiles, hotel_staff_assignments,
   housekeeping_hotel_links, outbox_jobs, permissions,
   runtime_database_capabilities, schema_migrations, users
@@ -33,6 +34,7 @@ GRANT INSERT ON audit_events, auth_identities, hotel_owner_assignments,
   hotel_staff_assignments, housekeeping_hotel_links, outbox_jobs, users
   TO gw_runtime_probe;
 GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO gw_runtime_probe;
+
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('gw_runtime_probe', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
@@ -447,6 +449,7 @@ HOTEL_RELATIONSHIP_INTEGRITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0017_ho
 HOTEL_SUPPORT_OVERLAP_MIGRATION="$ROOT_DIR/packages/db/migrations/0018_hotel_support_assignment_overlap.sql"
 HOTEL_ROOM_MIGRATION="$ROOT_DIR/packages/db/migrations/0019_hotel_room_management.sql"
 HOTEL_ROOM_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql"
+HOTEL_FILE_MIGRATION="$ROOT_DIR/packages/db/migrations/0025_hotel_file_quarantine_foundation.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -548,6 +551,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -581,6 +588,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
   PROBE_URL="$(configure_runtime_probe_role "$TEST_DATABASE_URL")"
   register_owner_api_capability "$TEST_DATABASE_URL"
@@ -731,6 +739,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_FILE_MIGRATION" >/dev/null
 ADMIN_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 assert_legacy_auth_removed "$ADMIN_URL"
 PROBE_URL="$(configure_runtime_probe_role "$ADMIN_URL")"
@@ -865,6 +875,94 @@ alter table outbox_jobs
     ), false)
   );
 SQL
+
+psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
+  -d werehere_hotel_test >/dev/null <<'SQL'
+begin;
+insert into companies(id, legal_name) values
+  ('a1000000-0000-4000-8000-000000000001', 'File Journey Company 1'),
+  ('a1000000-0000-4000-8000-000000000002', 'File Journey Company 2');
+insert into users(id, company_id, user_type, display_name) values
+  ('a2000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'INTERNAL_STAFF', 'File Journey User 1'),
+  ('a2000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000002', 'INTERNAL_STAFF', 'File Journey User 2');
+insert into branches(id, company_id, branch_type, branch_code, name) values
+  ('a3000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'HOTEL', 'FILE-J1', 'File Journey Hotel 1'),
+  ('a3000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000002', 'HOTEL', 'FILE-J2', 'File Journey Hotel 2');
+insert into hotel_profiles(company_id, branch_id, hotel_status, road_address, detail_address, representative_phone, contract_start_date, contract_end_date) values
+  ('a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'PREPARING', 'File Road 1', '', '02-1000-0001', '2026-01-01', '2026-12-31'),
+  ('a1000000-0000-4000-8000-000000000002', 'a3000000-0000-4000-8000-000000000002', 'PREPARING', 'File Road 2', '', '02-1000-0002', '2026-01-01', '2026-12-31');
+insert into file_attachment_parents(company_id, branch_id, parent_type, parent_id, created_by) values
+  ('a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000001'),
+  ('a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'KNOWLEDGE_ARTICLE', 'a4000000-0000-4000-8000-000000000002', 'a2000000-0000-4000-8000-000000000001');
+
+do $file_journey$
+declare
+  i integer;
+  current_upload uuid;
+  clean_hash bytea := decode(repeat('ab', 32), 'hex');
+begin
+  begin
+    insert into hotel_file_uploads(id, company_id, branch_id, parent_type, parent_id, initiated_by, declared_file_name, declared_mime_type, declared_size_bytes, reserved_size_bytes, quarantine_object_key, expires_at)
+    values (gen_random_uuid(), 'a1000000-0000-4000-8000-000000000002', 'a3000000-0000-4000-8000-000000000002', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000002', 'cross.jpg', 'image/jpeg', 1, 1, 'quarantine/' || repeat('f', 64), statement_timestamp() + interval '5 minutes');
+    raise exception 'cross-tenant upload unexpectedly succeeded';
+  exception when foreign_key_violation then null;
+  end;
+
+  for i in 1..20 loop
+    current_upload := case when i = 1 then 'a5000000-0000-4000-8000-000000000001'::uuid else gen_random_uuid() end;
+    insert into hotel_file_uploads(id, company_id, branch_id, parent_type, parent_id, initiated_by, declared_file_name, declared_mime_type, declared_size_bytes, reserved_size_bytes, quarantine_object_key, expires_at)
+    values (current_upload, 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000001', 'inspection-' || i || '.jpg', 'image/jpeg', 10000000, 10000000, 'quarantine/' || encode(sha256(convert_to('inspection-' || i, 'UTF8')), 'hex'), statement_timestamp() + interval '5 minutes');
+  end loop;
+  begin
+    insert into hotel_file_uploads(id, company_id, branch_id, parent_type, parent_id, initiated_by, declared_file_name, declared_mime_type, declared_size_bytes, reserved_size_bytes, quarantine_object_key, expires_at)
+    values (gen_random_uuid(), 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000001', 'count-overflow.jpg', 'image/jpeg', 1, 1, 'quarantine/' || repeat('e', 64), statement_timestamp() + interval '5 minutes');
+    raise exception 'count quota unexpectedly succeeded';
+  exception when check_violation then null;
+  end;
+
+  for i in 1..4 loop
+    insert into hotel_file_uploads(id, company_id, branch_id, parent_type, parent_id, initiated_by, declared_file_name, declared_mime_type, declared_size_bytes, reserved_size_bytes, quarantine_object_key, expires_at)
+    values (gen_random_uuid(), 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'KNOWLEDGE_ARTICLE', 'a4000000-0000-4000-8000-000000000002', 'a2000000-0000-4000-8000-000000000001', 'document-' || i || '.pdf', 'application/pdf', 50000000, 50000000, 'quarantine/' || encode(sha256(convert_to('document-' || i, 'UTF8')), 'hex'), statement_timestamp() + interval '5 minutes');
+  end loop;
+  begin
+    insert into hotel_file_uploads(id, company_id, branch_id, parent_type, parent_id, initiated_by, declared_file_name, declared_mime_type, declared_size_bytes, reserved_size_bytes, quarantine_object_key, expires_at)
+    values (gen_random_uuid(), 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'KNOWLEDGE_ARTICLE', 'a4000000-0000-4000-8000-000000000002', 'a2000000-0000-4000-8000-000000000001', 'byte-overflow.pdf', 'application/pdf', 1, 1, 'quarantine/' || repeat('d', 64), statement_timestamp() + interval '5 minutes');
+    raise exception 'byte quota unexpectedly succeeded';
+  exception when check_violation then null;
+  end;
+
+  update hotel_file_uploads set state = 'QUARANTINED', source_etag = 'etag-1', source_size_bytes = 10000000, source_mime_type = 'image/jpeg', upload_completed_at = statement_timestamp(), version = version + 1, updated_at = clock_timestamp() + interval '1 second' where id = 'a5000000-0000-4000-8000-000000000001';
+  insert into hotel_file_scan_jobs(id, company_id, branch_id, upload_id) values ('a6000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001');
+  begin
+    update hotel_file_uploads set state = 'SCANNING', version = version + 1, updated_at = clock_timestamp() + interval '2 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+    raise exception 'scan without dispatch unexpectedly succeeded';
+  exception when check_violation then null;
+  end;
+  update hotel_file_scan_jobs set state = 'DISPATCHED', dispatch_generation = 1, dispatched_at = statement_timestamp(), updated_at = clock_timestamp() + interval '1 second' where id = 'a6000000-0000-4000-8000-000000000001';
+  update hotel_file_uploads set state = 'SCANNING', version = version + 1, updated_at = clock_timestamp() + interval '2 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+  insert into file_scan_attempts(id, company_id, branch_id, parent_type, parent_id, upload_id, dispatch_job_id, source_etag, source_size_bytes) values ('a7000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', 'a6000000-0000-4000-8000-000000000001', 'etag-1', 10000000);
+  update file_scan_attempts set state = 'CLAIMED', claim_token_hash = decode(repeat('11', 32), 'hex'), claim_generation = 1, lease_expires_at = statement_timestamp() + interval '5 minutes', attempt_count = 1, claimed_at = statement_timestamp(), updated_at = clock_timestamp() + interval '1 second' where id = 'a7000000-0000-4000-8000-000000000001';
+  begin
+    update file_scan_attempts set state = 'SUCCEEDED', claim_generation = 2, lease_expires_at = null, scanner_sha256 = clean_hash, detected_mime_type = 'image/jpeg', verdict = 'CLEAN', engine_name = 'ClamAV', engine_version = '1', signature_database_version = '1', callback_body_hash = decode(repeat('22', 32), 'hex'), completed_at = statement_timestamp(), updated_at = clock_timestamp() + interval '2 seconds' where id = 'a7000000-0000-4000-8000-000000000001';
+    raise exception 'stale completion unexpectedly succeeded';
+  exception when check_violation then null;
+  end;
+  update file_scan_attempts set state = 'SUCCEEDED', lease_expires_at = null, scanner_sha256 = clean_hash, detected_mime_type = 'image/jpeg', verdict = 'CLEAN', engine_name = 'ClamAV', engine_version = '1', signature_database_version = '1', callback_body_hash = decode(repeat('22', 32), 'hex'), completed_at = statement_timestamp(), updated_at = clock_timestamp() + interval '2 seconds' where id = 'a7000000-0000-4000-8000-000000000001';
+  update hotel_file_uploads set state = 'CLEAN_PENDING_PROMOTION', version = version + 1, updated_at = clock_timestamp() + interval '3 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+  insert into hotel_file_versions(id, company_id, branch_id, parent_type, parent_id, upload_id, clean_object_key, file_name, mime_type, size_bytes, sha256, source_etag, promotion_generation) values ('a8000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', 'clean/' || repeat('c', 64), 'inspection-1.jpg', 'image/jpeg', 10000000, clean_hash, 'etag-1', 1);
+  update hotel_file_uploads set state = 'READY_UNLINKED', version = version + 1, updated_at = clock_timestamp() + interval '4 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+  begin
+    update hotel_file_uploads set state = 'LINKED', quota_released_at = statement_timestamp(), version = version + 1, updated_at = clock_timestamp() + interval '5 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+    raise exception 'linkless quota release unexpectedly succeeded';
+  exception when check_violation then null;
+  end;
+  insert into hotel_file_links(id, company_id, branch_id, parent_type, parent_id, file_version_id, linked_by) values ('a9000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'a3000000-0000-4000-8000-000000000001', 'INSPECTION_RESULT', 'a4000000-0000-4000-8000-000000000001', 'a8000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000001');
+  update hotel_file_uploads set state = 'LINKED', quota_released_at = statement_timestamp(), version = version + 1, updated_at = clock_timestamp() + interval '5 seconds' where id = 'a5000000-0000-4000-8000-000000000001';
+end
+$file_journey$;
+rollback;
+SQL
+printf 'HOTEL_FILE_POSTGRES_JOURNEY_OK\n'
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table audit_events disable trigger audit_events_no_update" >/dev/null

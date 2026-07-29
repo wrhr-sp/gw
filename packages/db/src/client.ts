@@ -60,6 +60,57 @@ const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
     "adc258a1aa7723d9524afb69a8a773d4190978e12d312aa89a433a2017df5bcb",
   ],
 ]);
+const HOTEL_FILE_CONSTRAINT_SET_SHA256 =
+  "ba8e99ca385a87a54ef1cb6db059e69ea03077ec177f7740fe2714f154581069";
+
+const HOTEL_FILE_FINALIZER_HELPER_PROSRC_SHA256 = new Map([
+  [
+    "hotel_file_finalizer_current_company_id",
+    "d62ef8bc2482b9130fd67090c2bed5499465f14f05708c281c0ebd9315378c9e",
+  ],
+  [
+    "hotel_file_has_finalizer_capability",
+    "6b304aa4d89e422ee8249d8d0e46b47c05e9899218247bf02a0adcecc280b324",
+  ],
+]);
+const HOTEL_FILE_GUARD_PROSRC_SHA256 = new Map([
+  [
+    "enforce_file_scan_attempt_insert",
+    "2eaa0b9de0dc6733bd66a9ecc053bcfc3047bbe577415def8d220440ea92eff0",
+  ],
+  [
+    "enforce_hotel_file_clean_version_insert",
+    "6658480dc72684fe781c8560dc852b45703a6e713975430c56f1f393f6db922d",
+  ],
+  [
+    "enforce_hotel_file_link_insert",
+    "8e6654bd79d7722041929f3dabebb726cf797ce98628cce3ec373d56848633c9",
+  ],
+  [
+    "enforce_hotel_file_scan_job_insert",
+    "d7cff2caef977ce1980d9356d18ddbc9a9b96c3d2170dea3e0273f9b40f2fd2b",
+  ],
+  [
+    "enforce_hotel_file_upload_quota",
+    "5a3d15262d76df1c5410f12a28f9d0c2460d5c252b79aa3ab636b45c6288f56c",
+  ],
+  [
+    "reject_file_scan_attempt_transition",
+    "e46d94a9483e813fa78071059e969c9411b47262f49ae3e434dbe87fb583a59a",
+  ],
+  [
+    "reject_hotel_file_append_only_change",
+    "a55e4658634b87d1e3f93bd8ad2351cb576f12ec5cbcd1580c8d5d8b80079d07",
+  ],
+  [
+    "reject_hotel_file_scan_job_transition",
+    "79381c586495eb0e9bb928d5587f20a888b0237b31ada5fa3c889dc6912edfe6",
+  ],
+  [
+    "reject_hotel_file_upload_transition",
+    "a7d826f77784c458045f709fb1a044a7f29f4bef03834519ccff1c22a2ab86a2",
+  ],
+]);
 
 async function sourceSha256(value: string) {
   const digest = await crypto.subtle.digest(
@@ -101,6 +152,13 @@ const REQUIRED_TABLES = [
   "hotel_room_types",
   "hotel_rooms",
   "hotel_room_status_history",
+  "hotel_file_finalizer_capabilities",
+  "file_attachment_parents",
+  "hotel_file_uploads",
+  "hotel_file_scan_jobs",
+  "file_scan_attempts",
+  "hotel_file_versions",
+  "hotel_file_links",
 
   "company_bootstrap_states",
   "reconciliation_company_registry",
@@ -161,6 +219,24 @@ const REQUIRED_COLUMNS = [
 
   ["hotel_room_status_history", "previous_status"],
   ["hotel_room_status_history", "next_status"],
+  ["file_attachment_parents", "parent_type"],
+  ["file_attachment_parents", "parent_id"],
+  ["hotel_file_uploads", "quarantine_object_key"],
+  ["hotel_file_uploads", "declared_size_bytes"],
+  ["hotel_file_uploads", "state"],
+  ["hotel_file_uploads", "quota_released_at"],
+  ["hotel_file_scan_jobs", "upload_id"],
+  ["hotel_file_scan_jobs", "state"],
+  ["hotel_file_scan_jobs", "dispatch_generation"],
+  ["hotel_file_scan_jobs", "dispatched_at"],
+  ["file_scan_attempts", "dispatch_job_id"],
+  ["file_scan_attempts", "claim_token_hash"],
+  ["file_scan_attempts", "claim_generation"],
+  ["file_scan_attempts", "lease_expires_at"],
+  ["file_scan_attempts", "callback_body_hash"],
+  ["hotel_file_versions", "clean_object_key"],
+  ["hotel_file_versions", "sha256"],
+  ["hotel_file_links", "file_version_id"],
 ] as const;
 
 const LOGIN_ID_HISTORY_REQUIRED_COLUMNS = [
@@ -665,6 +741,90 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     definition:
       "check ((((actor_user_id is null) and (idempotency_key is null) and (request_hash is null)) or ((actor_user_id is not null) and (idempotency_key is not null) and (request_hash is not null) and (btrim(idempotency_key) <> ''::text) and (btrim(request_hash) <> ''::text))))",
   },
+  {
+    table: "hotel_file_uploads",
+    name: "hotel_file_uploads_company_id_branch_id_parent_type_parent_fkey",
+    definition:
+      "foreign key (company_id, branch_id, parent_type, parent_id) references file_attachment_parents(company_id, branch_id, parent_type, parent_id)",
+  },
+  {
+    table: "hotel_file_uploads",
+    name: "hotel_file_uploads_quarantine_object_key_key",
+    definition: "unique (quarantine_object_key)",
+  },
+  {
+    table: "hotel_file_uploads",
+    name: "hotel_file_uploads_state_check",
+    definition:
+      "check ((state = any (array['PENDING_UPLOAD'::text, 'QUARANTINED'::text, 'SCANNING'::text, 'CLEAN_PENDING_PROMOTION'::text, 'READY_UNLINKED'::text, 'LINKED'::text, 'REJECTED'::text, 'SCAN_FAILED'::text, 'EXPIRED'::text])))",
+  },
+  {
+    table: "hotel_file_scan_jobs",
+    name: "hotel_file_scan_jobs_company_id_branch_id_upload_id_fkey",
+    definition:
+      "foreign key (company_id, branch_id, upload_id) references hotel_file_uploads(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_file_scan_jobs",
+    name: "hotel_file_scan_jobs_company_id_branch_id_upload_id_key",
+    definition: "unique (company_id, branch_id, upload_id)",
+  },
+  {
+    table: "hotel_file_scan_jobs",
+    name: "hotel_file_scan_jobs_state_check",
+    definition:
+      "check ((state = any (array['PENDING'::text, 'DISPATCHED'::text, 'CANCELLED'::text])))",
+  },
+  {
+    table: "file_scan_attempts",
+    name: "file_scan_attempts_company_id_branch_id_dispatch_job_id_fkey",
+    definition:
+      "foreign key (company_id, branch_id, dispatch_job_id) references hotel_file_scan_jobs(company_id, branch_id, id)",
+  },
+  {
+    table: "file_scan_attempts",
+    name: "file_scan_attempts_company_id_branch_id_parent_type_parent_fkey",
+    definition:
+      "foreign key (company_id, branch_id, parent_type, parent_id, upload_id) references hotel_file_uploads(company_id, branch_id, parent_type, parent_id, id)",
+  },
+  {
+    table: "file_scan_attempts",
+    name: "file_scan_attempts_company_id_dispatch_job_id_key",
+    definition: "unique (company_id, dispatch_job_id)",
+  },
+  {
+    table: "file_scan_attempts",
+    name: "file_scan_attempts_claim_token_hash_check",
+    definition:
+      "check (((claim_token_hash is null) or (octet_length(claim_token_hash) = 32)))",
+  },
+  {
+    table: "hotel_file_versions",
+    name: "hotel_file_versions_company_id_branch_id_parent_type_pare_fkey1",
+    definition:
+      "foreign key (company_id, branch_id, parent_type, parent_id, upload_id) references hotel_file_uploads(company_id, branch_id, parent_type, parent_id, id)",
+  },
+  {
+    table: "hotel_file_versions",
+    name: "hotel_file_versions_clean_object_key_key",
+    definition: "unique (clean_object_key)",
+  },
+  {
+    table: "hotel_file_versions",
+    name: "hotel_file_versions_company_id_upload_id_key",
+    definition: "unique (company_id, upload_id)",
+  },
+  {
+    table: "hotel_file_links",
+    name: "hotel_file_links_company_id_branch_id_parent_type_parent__fkey1",
+    definition:
+      "foreign key (company_id, branch_id, parent_type, parent_id, file_version_id) references hotel_file_versions(company_id, branch_id, parent_type, parent_id, id)",
+  },
+  {
+    table: "hotel_file_links",
+    name: "hotel_file_links_company_id_file_version_id_key",
+    definition: "unique (company_id, file_version_id)",
+  },
 ] as const;
 
 const REQUIRED_CONTRACT_CONSTRAINTS = [
@@ -839,6 +999,46 @@ const REQUIRED_INDEXES = [
     definition:
       "create index hotel_room_status_history_room_idx on public.hotel_room_status_history using btree (company_id, branch_id, room_id, changed_at desc)",
   },
+  {
+    name: "hotel_file_uploads_parent_state_idx",
+    definition:
+      "create index hotel_file_uploads_parent_state_idx on public.hotel_file_uploads using btree (company_id, branch_id, parent_type, parent_id, state)",
+  },
+  {
+    name: "hotel_file_uploads_expiry_idx",
+    definition:
+      "create index hotel_file_uploads_expiry_idx on public.hotel_file_uploads using btree (company_id, state, expires_at) where (state = any (array['PENDING_UPLOAD'::text, 'QUARANTINED'::text]))",
+  },
+  {
+    name: "hotel_file_scan_jobs_due_idx",
+    definition:
+      "create index hotel_file_scan_jobs_due_idx on public.hotel_file_scan_jobs using btree (available_at, id) where (state = 'PENDING'::text)",
+  },
+  {
+    name: "file_scan_attempts_one_active_per_upload_idx",
+    definition:
+      "create unique index file_scan_attempts_one_active_per_upload_idx on public.file_scan_attempts using btree (company_id, upload_id) where (state = any (array['PENDING'::text, 'CLAIMED'::text]))",
+  },
+  {
+    name: "file_scan_attempts_recovery_idx",
+    definition:
+      "create index file_scan_attempts_recovery_idx on public.file_scan_attempts using btree (company_id, state, lease_expires_at, available_at)",
+  },
+  {
+    name: "file_scan_attempts_upload_history_idx",
+    definition:
+      "create index file_scan_attempts_upload_history_idx on public.file_scan_attempts using btree (company_id, upload_id, created_at desc)",
+  },
+  {
+    name: "hotel_file_versions_parent_idx",
+    definition:
+      "create index hotel_file_versions_parent_idx on public.hotel_file_versions using btree (company_id, branch_id, parent_type, parent_id, created_at desc)",
+  },
+  {
+    name: "hotel_file_links_parent_idx",
+    definition:
+      "create index hotel_file_links_parent_idx on public.hotel_file_links using btree (company_id, branch_id, parent_type, parent_id, linked_at desc)",
+  },
 ] as const;
 
 const LOGIN_ID_TARGET_HISTORY_INDEX = {
@@ -866,6 +1066,12 @@ const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "branches:INSERT",
   "branches:SELECT",
   "companies:SELECT",
+  "file_attachment_parents:SELECT",
+  "file_scan_attempts:SELECT",
+  "hotel_file_scan_jobs:SELECT",
+  "hotel_file_links:SELECT",
+  "hotel_file_uploads:SELECT",
+  "hotel_file_versions:SELECT",
   "hotel_owner_assignments:INSERT",
   "hotel_owner_assignments:SELECT",
   "hotel_profiles:INSERT",
@@ -913,6 +1119,9 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
   "auth_identities:SELECT",
   "branches:SELECT",
   "companies:SELECT",
+  "file_scan_attempts:SELECT",
+  "hotel_file_scan_jobs:SELECT",
+  "hotel_file_uploads:SELECT",
   "hotel_owner_assignments:INSERT",
   "hotel_owner_assignments:SELECT",
   "hotel_profiles:SELECT",
@@ -934,6 +1143,7 @@ const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
   "hotel_profiles:updated_at:UPDATE",
   "hotel_profiles:version:UPDATE",
+
   "hotel_room_types:display_order:UPDATE",
   "hotel_room_types:is_active:UPDATE",
   "hotel_room_types:name:UPDATE",
@@ -979,6 +1189,8 @@ const EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES = [
 const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
   ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
 ] as const;
+
+const EXPECTED_RECONCILER_COLUMN_PRIVILEGES = [] as const;
 
 const REQUIRED_TRIGGERS = [
   {
@@ -1076,6 +1288,125 @@ const REQUIRED_TRIGGERS = [
     table: "hotel_room_status_history",
     functionName: "reject_hotel_room_history_change",
   },
+  {
+    name: "file_attachment_parents_no_update",
+    table: "file_attachment_parents",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "file_attachment_parents_no_delete",
+    table: "file_attachment_parents",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_uploads_quota_guard",
+    table: "hotel_file_uploads",
+    functionName: "enforce_hotel_file_upload_quota",
+    triggerType: 7,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_uploads_transition",
+    table: "hotel_file_uploads",
+    functionName: "reject_hotel_file_upload_transition",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_uploads_no_delete",
+    table: "hotel_file_uploads",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_scan_jobs_insert_guard",
+    table: "hotel_file_scan_jobs",
+    functionName: "enforce_hotel_file_scan_job_insert",
+    triggerType: 7,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_scan_jobs_transition",
+    table: "hotel_file_scan_jobs",
+    functionName: "reject_hotel_file_scan_job_transition",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_scan_jobs_no_delete",
+    table: "hotel_file_scan_jobs",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
+  {
+    name: "file_scan_attempts_insert_guard",
+    table: "file_scan_attempts",
+    functionName: "enforce_file_scan_attempt_insert",
+    triggerType: 7,
+    protectedColumns: [],
+  },
+  {
+    name: "file_scan_attempts_transition",
+    table: "file_scan_attempts",
+    functionName: "reject_file_scan_attempt_transition",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "file_scan_attempts_no_delete",
+    table: "file_scan_attempts",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_versions_insert_guard",
+    table: "hotel_file_versions",
+    functionName: "enforce_hotel_file_clean_version_insert",
+    triggerType: 7,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_versions_no_update",
+    table: "hotel_file_versions",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_versions_no_delete",
+    table: "hotel_file_versions",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_links_insert_guard",
+    table: "hotel_file_links",
+    functionName: "enforce_hotel_file_link_insert",
+    triggerType: 7,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_links_no_update",
+    table: "hotel_file_links",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 19,
+    protectedColumns: [],
+  },
+  {
+    name: "hotel_file_links_no_delete",
+    table: "hotel_file_links",
+    functionName: "reject_hotel_file_append_only_change",
+    triggerType: 11,
+    protectedColumns: [],
+  },
 ] as const;
 
 const REQUIRED_RLS_POLICIES = [
@@ -1132,7 +1463,40 @@ const REQUIRED_RLS_POLICIES = [
     policy: "hotel_room_status_history_company_isolation",
     table: "hotel_room_status_history",
   },
+  {
+    policy: "file_attachment_parents_company_isolation",
+    table: "file_attachment_parents",
+  },
+  {
+    policy: "hotel_file_uploads_company_isolation",
+    table: "hotel_file_uploads",
+  },
+  {
+    policy: "hotel_file_scan_jobs_company_isolation",
+    table: "hotel_file_scan_jobs",
+  },
+  {
+    policy: "file_scan_attempts_company_isolation",
+    table: "file_scan_attempts",
+  },
+  {
+    policy: "hotel_file_versions_company_isolation",
+    table: "hotel_file_versions",
+  },
+  {
+    policy: "hotel_file_links_company_isolation",
+    table: "hotel_file_links",
+  },
 ] as const;
+
+const FILE_RLS_TABLES = new Set([
+  "file_attachment_parents",
+  "hotel_file_uploads",
+  "hotel_file_scan_jobs",
+  "file_scan_attempts",
+  "hotel_file_versions",
+  "hotel_file_links",
+]);
 
 function normalizePolicyDefinition(value: string) {
   const sqlLiterals: string[] = [];
@@ -1163,6 +1527,7 @@ function isExactTenantPolicyExpression(
   value: string | null,
   tenantKey: "company_id" | "id",
   schemaPhase: "CONTRACT" | "EXPAND",
+  allowFileFinalizer = false,
 ) {
   const normalized = normalizePolicyDefinition(value ?? "")
     .replace(/^\(+/u, "")
@@ -1174,6 +1539,9 @@ function isExactTenantPolicyExpression(
     "when (current_user = 'werehere_tenant_authority_definer'::name) then true";
   const apiBranch = `when runtime_has_capability('API_RUNTIME'::text) then (${tenantKey} = api_current_company_id())`;
   const reconcilerBranch = `when runtime_has_capability('RECONCILER'::text) then (${tenantKey} = reconciler_current_company_id())`;
+  const fileFinalizerBranch = allowFileFinalizer
+    ? `when hotel_file_has_finalizer_capability() then (${tenantKey} = hotel_file_finalizer_current_company_id())`
+    : null;
   const legacyBranch =
     schemaPhase === "EXPAND"
       ? `when ((not runtime_has_capability('API_RUNTIME'::text)) and (not runtime_has_capability('RECONCILER'::text))) then (${tenantKey} = (nullif(current_setting('app.company_id'::text, true), ''::text))::uuid)`
@@ -1185,6 +1553,7 @@ function isExactTenantPolicyExpression(
     tenantDefinerBranch,
     apiBranch,
     reconcilerBranch,
+    fileFinalizerBranch,
     legacyBranch,
     "else false end",
   ]
@@ -1257,6 +1626,7 @@ export async function probeDatabaseReadiness(
         hotel_room_marker_count: number;
         hotel_room_contract_marker_count: number;
         login_id_history_contract_marker_count: number;
+        hotel_file_foundation_marker_count: number;
       }[]
     >`
       select count(*) filter (
@@ -1299,7 +1669,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_room_contract_marker_count,
              count(*) filter (
                where version = '0023_login_id_registry_history_contract'
-             )::integer as login_id_history_contract_marker_count
+             )::integer as login_id_history_contract_marker_count,
+             count(*) filter (
+               where version = '0025_hotel_file_quarantine_foundation'
+             )::integer as hotel_file_foundation_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1322,7 +1695,8 @@ export async function probeDatabaseReadiness(
         '0018_hotel_support_assignment_overlap',
         '0019_hotel_room_management',
         '0022_hotel_room_contract_hardening',
-        '0023_login_id_registry_history_contract'
+        '0023_login_id_registry_history_contract',
+        '0025_hotel_file_quarantine_foundation'
       )
     `;
     const schemaPhase =
@@ -1351,6 +1725,7 @@ export async function probeDatabaseReadiness(
       !schemaPhase ||
       !roomSchemaPhase ||
       !loginIdHistoryPhase ||
+      migrationRows[0]?.hotel_file_foundation_marker_count !== 1 ||
       (roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (loginIdHistoryPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (options.requiredRoomSchemaPhase !== undefined &&
@@ -2054,6 +2429,186 @@ export async function probeDatabaseReadiness(
       }
     }
 
+    const [hotelFileConstraintSet] = await sql<{ source: string }[]>`
+      select string_agg(
+               table_record.relname || ':' || constraint_record.conname || ':' ||
+                 pg_get_constraintdef(constraint_record.oid, true),
+               E'\n' order by table_record.relname, constraint_record.conname
+             ) as source
+      from pg_constraint constraint_record
+      join pg_class table_record on table_record.oid = constraint_record.conrelid
+      join pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+      where table_namespace.nspname = 'public'
+        and table_record.relname in (
+          'file_attachment_parents',
+          'hotel_file_uploads',
+          'hotel_file_scan_jobs',
+          'file_scan_attempts',
+          'hotel_file_versions',
+          'hotel_file_links'
+        )
+    `;
+    if (
+      !hotelFileConstraintSet?.source ||
+      (await sourceSha256(hotelFileConstraintSet.source)) !==
+        HOTEL_FILE_CONSTRAINT_SET_SHA256
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+
+    const fileFinalizerHelpers = await sql<
+      {
+        executable: boolean;
+        function_name: string;
+        identity_arguments: string;
+        invoker_contract_safe: boolean;
+        owner_is_database_owner: boolean;
+        owner_only_execute: boolean;
+        result_signature: string;
+        source: string;
+      }[]
+    >`
+      select procedure_record.proname as function_name,
+             pg_get_function_identity_arguments(procedure_record.oid) as identity_arguments,
+             pg_get_function_result(procedure_record.oid) as result_signature,
+             procedure_record.prosrc as source,
+             has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
+             procedure_record.proowner = database_record.datdba as owner_is_database_owner,
+             (
+               not procedure_record.prosecdef
+               and procedure_language.lanname = 'sql'
+               and procedure_record.provolatile = 's'
+               and procedure_record.proparallel = 'u'
+               and not procedure_record.proleakproof
+               and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
+             ) as invoker_contract_safe,
+             (
+               select count(*) = 1
+                  and bool_and(
+                    function_acl.grantee = procedure_record.proowner
+                    and function_acl.privilege_type = 'EXECUTE'
+                    and not function_acl.is_grantable
+                  )
+               from aclexplode(
+                 coalesce(
+                   procedure_record.proacl,
+                   acldefault('f', procedure_record.proowner)
+                 )
+               ) function_acl
+             ) as owner_only_execute
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      join pg_language procedure_language on procedure_language.oid = procedure_record.prolang
+      join pg_database database_record on database_record.datname = current_database()
+      where procedure_namespace.nspname = 'public'
+        and procedure_record.proname in (
+          'hotel_file_finalizer_current_company_id',
+          'hotel_file_has_finalizer_capability'
+        )
+    `;
+    const expectedFileFinalizerHelpers = new Map([
+      ["hotel_file_finalizer_current_company_id", { result: "uuid" }],
+      ["hotel_file_has_finalizer_capability", { result: "boolean" }],
+    ]);
+    if (fileFinalizerHelpers.length !== expectedFileFinalizerHelpers.size) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    for (const helper of fileFinalizerHelpers) {
+      const expected = expectedFileFinalizerHelpers.get(helper.function_name);
+      const expectedDigest = HOTEL_FILE_FINALIZER_HELPER_PROSRC_SHA256.get(
+        helper.function_name,
+      );
+      if (
+        !expected ||
+        !expectedDigest ||
+        helper.identity_arguments !== "" ||
+        helper.result_signature !== expected.result ||
+        helper.executable ||
+        !helper.owner_is_database_owner ||
+        !helper.invoker_contract_safe ||
+        !helper.owner_only_execute ||
+        (await sourceSha256(helper.source)) !== expectedDigest
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+    }
+
+    const hotelFileGuards = await sql<
+      {
+        executable: boolean;
+        function_name: string;
+        guard_contract_safe: boolean;
+        identity_arguments: string;
+        owner_is_database_owner: boolean;
+        owner_only_execute: boolean;
+        result_signature: string;
+        source: string;
+      }[]
+    >`
+      select procedure_record.proname as function_name,
+             pg_get_function_identity_arguments(procedure_record.oid) as identity_arguments,
+             pg_get_function_result(procedure_record.oid) as result_signature,
+             procedure_record.prosrc as source,
+             has_function_privilege(current_user, procedure_record.oid, 'EXECUTE') as executable,
+             procedure_record.proowner = database_record.datdba as owner_is_database_owner,
+             procedure_language.lanname = 'plpgsql'
+               and not procedure_record.prosecdef
+               and procedure_record.provolatile = 'v'
+               and procedure_record.proparallel = 'u'
+               and coalesce(procedure_record.proconfig, array[]::text[]) = array['search_path=pg_catalog']::text[]
+               as guard_contract_safe,
+             (
+               select count(*) = 1
+                 and bool_and(
+                   function_acl.grantee = procedure_record.proowner
+                   and function_acl.privilege_type = 'EXECUTE'
+                   and not function_acl.is_grantable
+                 )
+               from aclexplode(
+                 coalesce(
+                   procedure_record.proacl,
+                   acldefault('f', procedure_record.proowner)
+                 )
+               ) function_acl
+             ) as owner_only_execute
+      from pg_proc procedure_record
+      join pg_namespace procedure_namespace on procedure_namespace.oid = procedure_record.pronamespace
+      join pg_language procedure_language on procedure_language.oid = procedure_record.prolang
+      join pg_database database_record on database_record.datname = current_database()
+      where procedure_namespace.nspname = 'public'
+        and procedure_record.proname in (
+          'enforce_file_scan_attempt_insert',
+          'enforce_hotel_file_clean_version_insert',
+          'enforce_hotel_file_link_insert',
+          'enforce_hotel_file_scan_job_insert',
+          'enforce_hotel_file_upload_quota',
+          'reject_file_scan_attempt_transition',
+          'reject_hotel_file_append_only_change',
+          'reject_hotel_file_scan_job_transition',
+          'reject_hotel_file_upload_transition'
+        )
+    `;
+    if (hotelFileGuards.length !== HOTEL_FILE_GUARD_PROSRC_SHA256.size) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
+    for (const guard of hotelFileGuards) {
+      const expectedDigest = HOTEL_FILE_GUARD_PROSRC_SHA256.get(
+        guard.function_name,
+      );
+      if (
+        !expectedDigest ||
+        guard.identity_arguments !== "" ||
+        guard.result_signature !== "trigger" ||
+        guard.executable ||
+        !guard.owner_is_database_owner ||
+        !guard.guard_contract_safe ||
+        !guard.owner_only_execute ||
+        (await sourceSha256(guard.source)) !== expectedDigest
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+    }
+
     const [capabilityIdentity] = await sql<
       { expected: boolean; unexpected: boolean }[]
     >`
@@ -2652,6 +3207,13 @@ export async function probeDatabaseReadiness(
             for (const label of labels) {
               expected.add(`${role.role_name}:${label}`);
             }
+          } else if (
+            role.role_name !== migrationOwner.role_name &&
+            role.capability === "RECONCILER"
+          ) {
+            for (const label of EXPECTED_RECONCILER_COLUMN_PRIVILEGES) {
+              expected.add(`${role.role_name}:${label}`);
+            }
           }
         }
         return { expected, phase };
@@ -2687,8 +3249,7 @@ export async function probeDatabaseReadiness(
                   ? "CONTRACT"
                   : "EXPAND_IDENTITY_LOCK"
                 : undefined
-          : matchingColumnAclPhases.length === columnPhaseDefinitions.length &&
-              actualColumnPrivileges.size === 0
+          : matchingColumnAclPhases.length === columnPhaseDefinitions.length
             ? observedSchemaAclPhase === "CONTRACT"
               ? "CONTRACT"
               : "EXPAND"
@@ -2779,7 +3340,12 @@ export async function probeDatabaseReadiness(
               trigger.trigger_name === required.name &&
               trigger.table_name === required.table &&
               trigger.function_name === required.functionName &&
-              trigger.enabled === "O",
+              trigger.enabled === "O" &&
+              (!("triggerType" in required) ||
+                trigger.trigger_type === required.triggerType) &&
+              (!("protectedColumns" in required) ||
+                JSON.stringify(trigger.protected_columns) ===
+                  JSON.stringify(required.protectedColumns)),
           ),
       )
     ) {
@@ -2930,10 +3496,11 @@ export async function probeDatabaseReadiness(
       REQUIRED_RLS_POLICIES.some(
         (required) =>
           !rlsRows.some((policy) => {
-            const policyPhase =
-              required.table === "hotel_room_types" ||
-              required.table === "hotel_rooms" ||
-              required.table === "hotel_room_status_history"
+            const policyPhase = FILE_RLS_TABLES.has(required.table)
+              ? "CONTRACT"
+              : required.table === "hotel_room_types" ||
+                  required.table === "hotel_rooms" ||
+                  required.table === "hotel_room_status_history"
                 ? roomSchemaPhase
                 : schemaPhase;
             return (
@@ -2949,11 +3516,13 @@ export async function probeDatabaseReadiness(
                 policy.using_expression,
                 required.table === "companies" ? "id" : "company_id",
                 policyPhase,
+                FILE_RLS_TABLES.has(required.table),
               ) &&
               isExactTenantPolicyExpression(
                 policy.check_expression,
                 required.table === "companies" ? "id" : "company_id",
                 policyPhase,
+                FILE_RLS_TABLES.has(required.table),
               )
             );
           }),

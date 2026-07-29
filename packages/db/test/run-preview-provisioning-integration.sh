@@ -865,6 +865,63 @@ assert_readiness() {
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version = '0025_hotel_file_quarantine_foundation'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values ('0025_hotel_file_quarantine_foundation')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop index public.file_scan_attempts_one_active_per_upload_idx' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "create unique index file_scan_attempts_one_active_per_upload_idx on public.file_scan_attempts (company_id, upload_id) where state in ('PENDING', 'CLAIMED')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_file_links drop constraint hotel_file_links_company_id_branch_id_parent_type_parent__fkey1' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_file_links add foreign key (company_id, branch_id, parent_type, parent_id, file_version_id) references public.hotel_file_versions (company_id, branch_id, parent_type, parent_id, id)' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger hotel_file_uploads_transition on public.hotel_file_uploads;
+create trigger hotel_file_uploads_transition
+before update of state on public.hotel_file_uploads
+for each row execute function public.reject_hotel_file_upload_transition();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger hotel_file_uploads_transition on public.hotel_file_uploads;
+create trigger hotel_file_uploads_transition
+before update on public.hotel_file_uploads
+for each row execute function public.reject_hotel_file_upload_transition();
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke select on public.hotel_file_scan_jobs from werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant select on public.hotel_file_scan_jobs to werehere_preview_api_runtime' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_file_scan_jobs no force row level security' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_file_scan_jobs force row level security' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant insert on public.hotel_file_versions to werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke insert on public.hotel_file_versions from werehere_preview_api_runtime' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'grant usage on schema public to public' >/dev/null
 # Contract-compatible identity-lock staging intentionally uses the exact
 # EXPAND schema ACL with the identity-lock column ACL.
