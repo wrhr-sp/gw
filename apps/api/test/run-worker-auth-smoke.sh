@@ -16,7 +16,11 @@ RUNTIME_ROLE="werehere_worker_runtime_test"
 RUNTIME_PASSWORD="worker-runtime-test-only"
 RECONCILER_ROLE="werehere_worker_reconciler_test"
 RECONCILER_PASSWORD="worker-reconciler-test-only"
+FINALIZER_ROLE="werehere_worker_file_finalizer_test"
+FINALIZER_PASSWORD="worker-file-finalizer-test-only"
 RUNTIME_DATABASE_URL=""
+RECONCILER_DATABASE_URL=""
+FINALIZER_DATABASE_URL=""
 WORKER_CONFIG="$TMP_DIR/wrangler.worker-smoke.json"
 
 DATABASE_NAME="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -c "select current_database()")"
@@ -35,9 +39,10 @@ cleanup() {
     wait "$WORKER_PID" >/dev/null 2>&1 || true
   fi
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null 2>&1 \
-    -c "delete from runtime_database_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE'); drop owned by $RUNTIME_ROLE, $RECONCILER_ROLE; drop role $RUNTIME_ROLE, $RECONCILER_ROLE" || true
+    -c "delete from hotel_file_finalizer_capabilities where role_name = '$FINALIZER_ROLE'; delete from runtime_database_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE', '$FINALIZER_ROLE'); drop owned by $RUNTIME_ROLE, $RECONCILER_ROLE, $FINALIZER_ROLE; drop role $RUNTIME_ROLE, $RECONCILER_ROLE, $FINALIZER_ROLE" || true
   if [[ "$status" -ne 0 && -f "$LOG_FILE" ]]; then
-    python - "$LOG_FILE" "$TEST_DATABASE_URL" "$RUNTIME_DATABASE_URL" <<'PY'
+    python - "$LOG_FILE" "$TEST_DATABASE_URL" "$RUNTIME_DATABASE_URL" \
+      "$RECONCILER_DATABASE_URL" "$FINALIZER_DATABASE_URL" <<'PY'
 from pathlib import Path
 import sys
 
@@ -67,10 +72,17 @@ BEGIN
     EXECUTE 'DROP OWNED BY $RECONCILER_ROLE';
     EXECUTE 'DROP ROLE $RECONCILER_ROLE';
   END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$FINALIZER_ROLE') THEN
+    DELETE FROM hotel_file_finalizer_capabilities WHERE role_name = '$FINALIZER_ROLE';
+    DELETE FROM runtime_database_capabilities WHERE role_name = '$FINALIZER_ROLE';
+    EXECUTE 'DROP OWNED BY $FINALIZER_ROLE';
+    EXECUTE 'DROP ROLE $FINALIZER_ROLE';
+  END IF;
 END
 \$\$;
 CREATE ROLE $RUNTIME_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$RUNTIME_PASSWORD';
 CREATE ROLE $RECONCILER_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$RECONCILER_PASSWORD';
+CREATE ROLE $FINALIZER_ROLE LOGIN NOINHERIT NOBYPASSRLS PASSWORD '$FINALIZER_PASSWORD';
 GRANT USAGE ON SCHEMA public TO $RUNTIME_ROLE;
 GRANT SELECT ON
   companies, users, auth_identities, auth_sessions, runtime_database_capabilities,
@@ -81,8 +93,7 @@ GRANT SELECT ON
   account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
   hotel_room_types, hotel_rooms, hotel_room_status_history,
-  file_attachment_parents, hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts,
-  hotel_file_versions, hotel_file_links
+  hotel_file_finalizer_capabilities
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
@@ -119,6 +130,12 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.auth_revoke_user_sessions_v1(uuid, uuid, text),
   public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
 TO $RUNTIME_ROLE;
+GRANT EXECUTE ON FUNCTION
+  public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamptz,uuid,text,text,uuid),
+  public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid),
+  public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid),
+  public.hotel_file_read_status(uuid)
+TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
@@ -128,7 +145,7 @@ GRANT SELECT ON
   hotel_profiles, runtime_database_capabilities, outbox_jobs,
   account_provisioning_attempts, hotel_staff_assignments,
   housekeeping_hotel_links, hotel_owner_assignments,
-  hotel_file_uploads, hotel_file_scan_jobs, file_scan_attempts
+  hotel_file_finalizer_capabilities
 TO $RECONCILER_ROLE;
 GRANT INSERT ON users, auth_identities, audit_events, outbox_jobs,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
@@ -137,18 +154,33 @@ GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO $RECONCILER_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.runtime_is_schema_owner(), public.runtime_has_capability(text),
   public.api_current_company_id(), public.reconciler_current_company_id(),
-  public.reconciliation_company_ids()
+  public.reconciliation_company_ids(),
+  public.hotel_file_claim_scan_attempt(uuid,uuid,text,integer),
+  public.hotel_file_complete_scan_attempt(uuid,bigint,text,bytea,text,bigint,bytea,text,text,text,text,text,integer)
 TO $RECONCILER_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RECONCILER_ROLE', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
+GRANT USAGE ON SCHEMA public TO $FINALIZER_ROLE;
+GRANT SELECT ON schema_migrations, permissions, runtime_database_capabilities,
+  hotel_file_finalizer_capabilities
+TO $FINALIZER_ROLE;
+GRANT EXECUTE ON FUNCTION
+  public.hotel_file_reserve_clean_promotion(uuid,uuid,uuid,text,text,integer),
+  public.hotel_file_complete_clean_promotion(uuid,bigint,text,uuid,text,text,bytea,bigint,text)
+TO $FINALIZER_ROLE;
+INSERT INTO hotel_file_finalizer_capabilities (role_name)
+VALUES ('$FINALIZER_ROLE')
+ON CONFLICT (role_name) DO UPDATE SET provisioned_at = pg_catalog.statement_timestamp();
 SQL
 
 ROOM_ACL_MISMATCHES="$(psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
   -v runtime_role="$RUNTIME_ROLE" -v reconciler_role="$RECONCILER_ROLE" \
+  -v finalizer_role="$FINALIZER_ROLE" \
   -X -A -t <<'SQL'
 WITH protected_roles(role_name) AS (
-  VALUES (:'runtime_role'::text), (:'reconciler_role'::text)
+  VALUES (:'runtime_role'::text), (:'reconciler_role'::text),
+    (:'finalizer_role'::text)
 ), room_tables(table_name) AS (
   VALUES ('hotel_room_types'::text), ('hotel_rooms'::text),
     ('hotel_room_status_history'::text)
@@ -221,11 +253,11 @@ WITH protected_roles(role_name) AS (
   SELECT 1
   FROM pg_auth_members membership
   JOIN pg_roles protected ON protected.oid = membership.member
-  WHERE protected.rolname IN (:'runtime_role', :'reconciler_role')
+  WHERE protected.rolname IN (:'runtime_role', :'reconciler_role', :'finalizer_role')
 ), attribute_mismatches AS (
   SELECT 1
   FROM pg_roles role
-  WHERE role.rolname IN (:'runtime_role', :'reconciler_role')
+  WHERE role.rolname IN (:'runtime_role', :'reconciler_role', :'finalizer_role')
     AND (role.rolsuper OR role.rolinherit OR role.rolbypassrls)
 )
 SELECT count(*)
@@ -244,6 +276,78 @@ if [[ "$ROOM_ACL_MISMATCHES" != "0" ]]; then
 fi
 printf 'WORKER_ROOM_RUNTIME_ACL_OK\n'
 
+FILE_ACL_MISMATCHES="$(psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
+  -v runtime_role="$RUNTIME_ROLE" -v reconciler_role="$RECONCILER_ROLE" \
+  -v finalizer_role="$FINALIZER_ROLE" -X -A -t <<'SQL'
+WITH protected_roles(role_name, capability) AS (
+  VALUES (:'runtime_role'::text, 'API_RUNTIME'::text),
+    (:'reconciler_role'::text, 'RECONCILER'::text),
+    (:'finalizer_role'::text, 'FILE_FINALIZER'::text)
+), file_tables(table_name) AS (
+  VALUES ('file_attachment_parents'::text), ('hotel_file_uploads'::text),
+    ('hotel_file_scan_jobs'::text), ('file_scan_attempts'::text),
+    ('hotel_file_versions'::text), ('hotel_file_links'::text),
+    ('hotel_file_scan_completion_receipts'::text),
+    ('hotel_file_clean_promotion_reservations'::text)
+), table_privileges(privilege_name) AS (
+  VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
+    ('DELETE'::text), ('TRUNCATE'::text), ('REFERENCES'::text),
+    ('TRIGGER'::text), ('MAINTAIN'::text)
+), file_table_mismatches AS (
+  SELECT 1 FROM protected_roles role CROSS JOIN file_tables file_table
+  CROSS JOIN table_privileges privilege
+  WHERE has_table_privilege(role.role_name, format('public.%I', file_table.table_name), privilege.privilege_name)
+), file_column_mismatches AS (
+  SELECT 1 FROM protected_roles role CROSS JOIN file_tables file_table
+  JOIN information_schema.columns column_info
+    ON column_info.table_schema = 'public' AND column_info.table_name = file_table.table_name
+  CROSS JOIN (VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text), ('REFERENCES'::text)) privilege(privilege_name)
+  WHERE has_column_privilege(role.role_name, format('public.%I', file_table.table_name), column_info.column_name, privilege.privilege_name)
+), commands(capability, signature) AS (
+  VALUES
+    ('API_RUNTIME'::text, 'public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamp with time zone,uuid,text,text,uuid)'::text),
+    ('API_RUNTIME', 'public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_read_status(uuid)'),
+    ('RECONCILER', 'public.hotel_file_claim_scan_attempt(uuid,uuid,text,integer)'),
+    ('RECONCILER', 'public.hotel_file_complete_scan_attempt(uuid,bigint,text,bytea,text,bigint,bytea,text,text,text,text,text,integer)'),
+    ('FILE_FINALIZER', 'public.hotel_file_reserve_clean_promotion(uuid,uuid,uuid,text,text,integer)'),
+    ('FILE_FINALIZER', 'public.hotel_file_complete_clean_promotion(uuid,bigint,text,uuid,text,text,bytea,bigint,text)')
+), command_mismatches AS (
+  SELECT 1 FROM protected_roles role CROSS JOIN commands command
+  WHERE has_function_privilege(role.role_name, command.signature, 'EXECUTE')
+    IS DISTINCT FROM (role.capability = command.capability)
+     OR has_function_privilege(role.role_name, command.signature, 'EXECUTE WITH GRANT OPTION')
+), schema_mismatches AS (
+  SELECT 1 FROM protected_roles role
+  CROSS JOIN (VALUES ('USAGE'::text, true), ('CREATE'::text, false)) expected(privilege_name, allowed)
+  WHERE has_schema_privilege(role.role_name, 'public', expected.privilege_name)
+    IS DISTINCT FROM expected.allowed
+), membership_mismatches AS (
+  SELECT 1 FROM pg_auth_members membership
+  JOIN pg_roles protected ON protected.oid = membership.member
+  WHERE protected.rolname IN (:'runtime_role', :'reconciler_role', :'finalizer_role')
+), attribute_mismatches AS (
+  SELECT 1 FROM pg_roles role
+  WHERE role.rolname IN (:'runtime_role', :'reconciler_role', :'finalizer_role')
+    AND (role.rolsuper OR role.rolinherit OR role.rolbypassrls)
+)
+SELECT count(*) FROM (
+  SELECT 1 FROM file_table_mismatches
+  UNION ALL SELECT 1 FROM file_column_mismatches
+  UNION ALL SELECT 1 FROM command_mismatches
+  UNION ALL SELECT 1 FROM schema_mismatches
+  UNION ALL SELECT 1 FROM membership_mismatches
+  UNION ALL SELECT 1 FROM attribute_mismatches
+) mismatch;
+SQL
+)"
+if [[ "$FILE_ACL_MISMATCHES" != "0" ]]; then
+  printf 'WORKER_FILE_RUNTIME_ACL_MISMATCH\n' >&2
+  exit 1
+fi
+printf 'WORKER_FILE_RUNTIME_ACL_OK\n'
+
 RUNTIME_DATABASE_URL="$(python - "$TEST_DATABASE_URL" "$RUNTIME_ROLE" "$RUNTIME_PASSWORD" <<'PY'
 from urllib.parse import quote, urlsplit, urlunsplit
 import sys
@@ -256,6 +360,21 @@ credentials = f"{quote(sys.argv[2])}:{quote(sys.argv[3])}@"
 print(urlunsplit((source.scheme, credentials + host, source.path, source.query, source.fragment)))
 PY
 )"
+database_url_for_role() {
+  python - "$TEST_DATABASE_URL" "$1" "$2" <<'PY'
+from urllib.parse import quote, urlsplit, urlunsplit
+import sys
+
+source = urlsplit(sys.argv[1])
+host = source.hostname or ""
+if source.port:
+    host = f"{host}:{source.port}"
+credentials = f"{quote(sys.argv[2])}:{quote(sys.argv[3])}@"
+print(urlunsplit((source.scheme, credentials + host, source.path, source.query, source.fragment)))
+PY
+}
+RECONCILER_DATABASE_URL="$(database_url_for_role "$RECONCILER_ROLE" "$RECONCILER_PASSWORD")"
+FINALIZER_DATABASE_URL="$(database_url_for_role "$FINALIZER_ROLE" "$FINALIZER_PASSWORD")"
 
 python - "$WORKER_CONFIG" "$ROOT_DIR/apps/api/src/index.ts" "$RUNTIME_DATABASE_URL" "$PORT" <<'PY'
 import json
@@ -327,6 +446,27 @@ insert into permission_grants (
   '21000000-0000-4000-8000-000000000001', 'Worker 호텔 API smoke'
 );
 SQL
+
+TEST_API_READY_URL="$RUNTIME_DATABASE_URL" \
+TEST_RECONCILER_READY_URL="$RECONCILER_DATABASE_URL" \
+TEST_FINALIZER_READY_URL="$FINALIZER_DATABASE_URL" \
+pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+for (const [label, url, capability] of [
+  ["API", process.env.TEST_API_READY_URL, "API_RUNTIME"],
+  ["RECONCILER", process.env.TEST_RECONCILER_READY_URL, "RECONCILER"],
+  ["FILE_FINALIZER", process.env.TEST_FINALIZER_READY_URL, "FILE_FINALIZER"],
+]) {
+  const readiness = await probeDatabaseReadiness(url, { capability });
+  if (readiness.status !== "READY") {
+    throw new Error(`${label} readiness mismatch: ${readiness.status}`);
+  }
+}
+NODE
+printf 'WORKER_FILE_API_RUNTIME_SMOKE_OK\n'
+printf 'WORKER_FILE_RECONCILER_RUNTIME_SMOKE_OK\n'
+printf 'WORKER_FILE_FINALIZER_RUNTIME_SMOKE_OK\n'
 
 pnpm --filter @werehere/api exec wrangler dev --config "$WORKER_CONFIG" --port "$PORT" \
   >"$LOG_FILE" 2>&1 &
