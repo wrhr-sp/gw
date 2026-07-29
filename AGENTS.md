@@ -6,6 +6,14 @@
 - 비개발자가 이해할 수 있도록 결론 → 쉬운 설명 → 세부 근거 순서로 보고합니다.
 - 검증하지 않은 결과를 완료로 말하지 않습니다.
 
+## GitHub 자동 후속작업
+
+- 착수 승인된 개발 사이클이 Red → Green → 사양검토 → 품질검토 → 테스트·build → mutation seal까지 완료되면, 별도 후속 승인 없이 해당 작업 branch의 commit, push, PR 생성, CI 확인, PR merge, 원격·로컬 작업 branch 정리까지 연속 실행합니다.
+- CI·리뷰가 실패하면 merge하지 않고 같은 승인 사이클 안에서 원인을 수정하고 다시 검증합니다. 검증 실패·미완료·unsealed 상태를 백업 명목으로 완료 commit하거나 merge하지 않습니다.
+- 카드·승인범위에 release/deploy/배포가 명시된 사이클은 해당 배포와 read-back·smoke까지 자동 후속작업에 포함합니다. 명시되지 않은 배포는 자동으로 추가하지 않습니다.
+- Production 실데이터 변경, secret 입력·교체, DNS/custom domain, 유료 리소스, 파괴 작업, 승인 제품범위·구현방식의 실질 변경은 자동 후속작업에 포함하지 않고 별도 승인을 받습니다.
+- commit·push는 GitHub 원격 백업으로 간주하며, 장기 미커밋 상태나 `/tmp` 단독 worktree를 허용하지 않습니다. 외부 장애로 push가 막히면 저장소 밖 durable patch bundle을 만들고 read-back한 뒤 차단사항을 보고합니다.
+
 ## 제품 경계
 
 - 초기 제품은 호텔관리입니다.
