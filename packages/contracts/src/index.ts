@@ -28,6 +28,10 @@ export const hotelErrorCodeSchema = z.enum([
   "DB_NOT_CONFIGURED",
   "SCHEMA_NOT_READY",
   "FILE_STORAGE_NOT_CONFIGURED",
+  "FILE_TYPE_NOT_ALLOWED",
+  "FILE_QUOTA_EXCEEDED",
+  "FILE_NOT_CLEAN",
+  "FILE_SCAN_FAILED",
   "EXTERNAL_AUTH_NOT_CONFIGURED",
   "EXTERNAL_AUTH_UNAVAILABLE",
   "ACCOUNT_DUPLICATE",
@@ -777,6 +781,313 @@ export const hotelRoomOwnerDetailResponseSchema = z
     error: z.null(),
   })
   .strict();
+
+export const hotelFileParentTypeSchema = z.enum([
+  "INSPECTION_RESULT",
+  "DAILY_SALES",
+  "OPERATIONAL_ISSUE",
+  "OWNER_INQUIRY",
+  "KNOWLEDGE_ARTICLE",
+]);
+export type HotelFileParentType = z.infer<typeof hotelFileParentTypeSchema>;
+
+export const hotelFileUploadStateSchema = z.enum([
+  "PENDING_UPLOAD",
+  "QUARANTINED",
+  "SCANNING",
+  "CLEAN_PENDING_PROMOTION",
+  "READY_UNLINKED",
+  "LINKED",
+  "REJECTED",
+  "SCAN_FAILED",
+  "EXPIRED",
+]);
+export type HotelFileUploadState = z.infer<typeof hotelFileUploadStateSchema>;
+
+export const hotelFileFailureCodeSchema = z.enum([
+  "MALWARE_DETECTED",
+  "SCAN_ENGINE_UNAVAILABLE",
+  "SOURCE_INTEGRITY_MISMATCH",
+  "PROMOTION_INTEGRITY_MISMATCH",
+  "RETRY_EXHAUSTED",
+  "UPLOAD_EXPIRED",
+]);
+export type HotelFileFailureCode = z.infer<typeof hotelFileFailureCodeSchema>;
+
+export const hotelFileMimeTypeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+export type HotelFileMimeType = z.infer<typeof hotelFileMimeTypeSchema>;
+
+const hotelFileNameSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.normalize("NFKC"))
+  .pipe(
+    z
+      .string()
+      .min(1, { error: "파일명을 입력해 주세요." })
+      .max(255, { error: "파일명은 255자 이하여야 합니다." })
+      .refine(
+        (value) =>
+          !/[\p{Cc}\p{Cf}]/u.test(value) &&
+          !/[\\/\u2024\u2027\u2219\u22c5\ufe52\uff0e\uff61]/u.test(value),
+        {
+          message:
+            "파일명에 경로·제어문자·방향제어문자·점 유사문자를 사용할 수 없습니다.",
+        },
+      )
+      .refine(
+        (value) => {
+          const finalDot = value.lastIndexOf(".");
+          const baseName = value.slice(0, finalDot);
+          return (
+            finalDot > 0 &&
+            value.indexOf(".") === finalDot &&
+            baseName === baseName.trim() &&
+            /^[\p{L}\p{M}\p{N} _()-]+$/u.test(baseName)
+          );
+        },
+        { message: "파일명에는 최종 확장자 하나만 사용할 수 있습니다." },
+      )
+      .refine((value) => /\.(?:jpe?g|png|webp|heic|pdf|docx|xlsx)$/iu.test(value), {
+        message: "허용된 파일 형식만 업로드할 수 있습니다.",
+      }),
+  );
+
+const hotelHttpsUrlSchema = z.url().refine(
+  (value) => new URL(value).protocol === "https:",
+  { message: "보안 연결 URL만 사용할 수 있습니다." },
+);
+
+const hotelFileSizeSchema = z
+  .number({ error: "파일 크기를 숫자로 입력해 주세요." })
+  .int({ error: "파일 크기는 정수여야 합니다." })
+  .min(1, { error: "빈 파일은 업로드할 수 없습니다." })
+  .max(50_000_000, { error: "파일 크기는 50MB 이하여야 합니다." });
+
+export const hotelFileUploadInitRequestSchema = z
+  .object({
+    hotelId: z.uuid(),
+    parentType: hotelFileParentTypeSchema,
+    parentId: z.uuid(),
+    fileName: hotelFileNameSchema,
+    sizeBytes: hotelFileSizeSchema,
+    mimeType: hotelFileMimeTypeSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const extension = value.fileName.split(".").pop()?.toLowerCase();
+    const expectedExtensions: Record<HotelFileMimeType, readonly string[]> = {
+      "image/jpeg": ["jpg", "jpeg"],
+      "image/png": ["png"],
+      "image/webp": ["webp"],
+      "image/heic": ["heic"],
+      "application/pdf": ["pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+        "docx",
+      ],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        "xlsx",
+      ],
+    };
+    if (!extension || !expectedExtensions[value.mimeType].includes(extension)) {
+      context.addIssue({
+        code: "custom",
+        path: ["mimeType"],
+        message: "파일 확장자와 MIME 형식이 일치하지 않습니다.",
+      });
+    }
+    const inspectionImageMimeTypes: readonly HotelFileMimeType[] = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+    ];
+    if (
+      value.parentType === "INSPECTION_RESULT" &&
+      !inspectionImageMimeTypes.includes(value.mimeType)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["mimeType"],
+        message: "점검 결과에는 승인된 사진 형식만 첨부할 수 있습니다.",
+      });
+    }
+    if (
+      value.parentType === "INSPECTION_RESULT" &&
+      value.sizeBytes > 20_000_000
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["sizeBytes"],
+        message: "점검사진은 20MB 이하여야 합니다.",
+      });
+    }
+  });
+export type HotelFileUploadInitRequest = z.infer<
+  typeof hotelFileUploadInitRequestSchema
+>;
+
+export const hotelFileUploadCompleteRequestSchema = z
+  .object({
+    etag: z.string().regex(/^"[A-Fa-f0-9]{32,64}"$/u, {
+      error: "업로드 ETag 형식이 올바르지 않습니다.",
+    }),
+  })
+  .strict();
+export type HotelFileUploadCompleteRequest = z.infer<
+  typeof hotelFileUploadCompleteRequestSchema
+>;
+
+const hotelFileUploadInitSchema = z
+  .object({
+    id: z.uuid(),
+    state: z.literal("PENDING_UPLOAD"),
+    method: z.literal("PUT"),
+    uploadUrl: hotelHttpsUrlSchema,
+    requiredHeaders: z
+      .object({
+        "Content-Type": hotelFileMimeTypeSchema,
+        "If-None-Match": z.literal("*"),
+      })
+      .strict(),
+    expiresAt: z.iso.datetime(),
+    expiresInSeconds: z.number().int().positive().max(300),
+  })
+  .strict();
+
+export const hotelFileUploadInitResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ upload: hotelFileUploadInitSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelFileUploadInitResponse = z.infer<
+  typeof hotelFileUploadInitResponseSchema
+>;
+
+export const hotelFileUploadStatusSchema = z
+  .object({
+    id: z.uuid(),
+    state: hotelFileUploadStateSchema,
+    fileVersionId: z.uuid().nullable(),
+    failureCode: hotelFileFailureCodeSchema.nullable(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const ready = value.state === "READY_UNLINKED" || value.state === "LINKED";
+    if (ready !== (value.fileVersionId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["fileVersionId"],
+        message: "검역과 승격이 완료된 파일만 파일 버전을 노출할 수 있습니다.",
+      });
+    }
+    const allowedFailureCodes: Partial<
+      Record<HotelFileUploadState, readonly HotelFileFailureCode[]>
+    > = {
+      REJECTED: ["MALWARE_DETECTED", "SOURCE_INTEGRITY_MISMATCH"],
+      SCAN_FAILED: [
+        "SCAN_ENGINE_UNAVAILABLE",
+        "PROMOTION_INTEGRITY_MISMATCH",
+        "RETRY_EXHAUSTED",
+      ],
+      EXPIRED: ["UPLOAD_EXPIRED"],
+    };
+    const allowedForState = allowedFailureCodes[value.state] ?? [];
+    if (
+      (allowedForState.length === 0 && value.failureCode !== null) ||
+      (allowedForState.length > 0 &&
+        (value.failureCode === null || !allowedForState.includes(value.failureCode)))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["failureCode"],
+        message: "실패 상태와 실패코드 조합이 올바르지 않습니다.",
+      });
+    }
+  });
+export type HotelFileUploadStatus = z.infer<typeof hotelFileUploadStatusSchema>;
+
+export const hotelFileUploadStatusResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ upload: hotelFileUploadStatusSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelFileUploadStatusResponse = z.infer<
+  typeof hotelFileUploadStatusResponseSchema
+>;
+
+export const hotelFileAccessRequestSchema = z
+  .object({
+    parentType: hotelFileParentTypeSchema,
+    parentId: z.uuid(),
+  })
+  .strict();
+export type HotelFileAccessRequest = z.infer<
+  typeof hotelFileAccessRequestSchema
+>;
+
+const hotelFileAccessResponseFields = {
+  accessUrl: hotelHttpsUrlSchema,
+  expiresAt: z.iso.datetime(),
+  expiresInSeconds: z.number().int().positive().max(300),
+} as const;
+
+export const hotelFileViewResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ ...hotelFileAccessResponseFields, disposition: z.literal("VIEW") })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelFileViewResponse = z.infer<
+  typeof hotelFileViewResponseSchema
+>;
+
+export const hotelFileDownloadResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        ...hotelFileAccessResponseFields,
+        disposition: z.literal("DOWNLOAD"),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelFileDownloadResponse = z.infer<
+  typeof hotelFileDownloadResponseSchema
+>;
+
+const hotelFilePath = (id: string) =>
+  `/api/hotel-files/${encodeURIComponent(z.uuid().parse(id))}` as const;
+
+export const hotelFileRoutes = {
+  uploadInit: "/api/hotel-files/upload-init",
+  uploadComplete: (uploadId: string) =>
+    `${hotelFilePath(uploadId)}/upload-complete` as const,
+  uploadStatus: (uploadId: string) =>
+    `${hotelFilePath(uploadId)}/status` as const,
+  view: (fileVersionId: string) =>
+    `${hotelFilePath(fileVersionId)}/view` as const,
+  download: (fileVersionId: string) =>
+    `${hotelFilePath(fileVersionId)}/download` as const,
+} as const;
 
 const hotelPath = (hotelId: string) =>
   `/api/hotels/${encodeURIComponent(hotelId)}` as const;
