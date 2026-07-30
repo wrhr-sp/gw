@@ -131,10 +131,15 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
 TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION
-  public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamptz,uuid,text,text,uuid),
-  public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid),
-  public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid),
-  public.hotel_file_read_status(uuid)
+  public.hotel_file_init_upload_v2(uuid,uuid,text,uuid,text,text,bigint,text,integer,text,uuid,text,text,uuid),
+  public.hotel_file_authorize_upload_body_v1(uuid),
+  public.hotel_file_complete_upload_v2(uuid,text,text,text,bigint,text,uuid,uuid),
+  public.hotel_file_read_status_v2(uuid),
+  public.hotel_file_issue_access_grant_v1(uuid,uuid,text,uuid,text,bytea,integer,uuid),
+  public.hotel_file_resolve_access_grant_v1(uuid,bytea,uuid),
+  public.hotel_file_record_access_outcome_v1(bytea,text,uuid),
+  public.hotel_file_record_access_denial_v1(uuid,text,uuid),
+  public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid)
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
@@ -288,7 +293,8 @@ WITH protected_roles(role_name, capability) AS (
     ('hotel_file_scan_jobs'::text), ('file_scan_attempts'::text),
     ('hotel_file_versions'::text), ('hotel_file_links'::text),
     ('hotel_file_scan_completion_receipts'::text),
-    ('hotel_file_clean_promotion_reservations'::text)
+    ('hotel_file_clean_promotion_reservations'::text),
+    ('hotel_file_access_grants'::text)
 ), table_privileges(privilege_name) AS (
   VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
     ('DELETE'::text), ('TRUNCATE'::text), ('REFERENCES'::text),
@@ -305,10 +311,15 @@ WITH protected_roles(role_name, capability) AS (
   WHERE has_column_privilege(role.role_name, format('public.%I', file_table.table_name), column_info.column_name, privilege.privilege_name)
 ), commands(capability, signature) AS (
   VALUES
-    ('API_RUNTIME'::text, 'public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamp with time zone,uuid,text,text,uuid)'::text),
-    ('API_RUNTIME', 'public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid)'),
+    ('API_RUNTIME'::text, 'public.hotel_file_init_upload_v2(uuid,uuid,text,uuid,text,text,bigint,text,integer,text,uuid,text,text,uuid)'::text),
+    ('API_RUNTIME', 'public.hotel_file_authorize_upload_body_v1(uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_complete_upload_v2(uuid,text,text,text,bigint,text,uuid,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_read_status_v2(uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_issue_access_grant_v1(uuid,uuid,text,uuid,text,bytea,integer,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_resolve_access_grant_v1(uuid,bytea,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_record_access_outcome_v1(bytea,text,uuid)'),
+    ('API_RUNTIME', 'public.hotel_file_record_access_denial_v1(uuid,text,uuid)'),
     ('API_RUNTIME', 'public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid)'),
-    ('API_RUNTIME', 'public.hotel_file_read_status(uuid)'),
     ('RECONCILER', 'public.hotel_file_claim_scan_attempt(uuid,uuid,text,integer)'),
     ('RECONCILER', 'public.hotel_file_complete_scan_attempt(uuid,bigint,text,bytea,text,bigint,bytea,text,text,text,text,text,integer)'),
     ('FILE_FINALIZER', 'public.hotel_file_reserve_clean_promotion(uuid,uuid,uuid,text,text,integer)'),
