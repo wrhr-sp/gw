@@ -477,6 +477,10 @@ try {
       "0026_hotel_file_repository_commands",
       "0026_hotel_file_repository_commands.sql",
     ],
+    [
+      "0027_hotel_file_api_storage_access",
+      "0027_hotel_file_api_storage_access.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -1814,15 +1818,22 @@ try {
     grant insert, update on reconciliation_company_registry
       to werehere_tenant_authority_definer;
 
-    grant select on public.auth_sessions, public.users, public.file_attachment_parents,
+    grant select on public.auth_sessions, public.users, public.companies,
+      public.hotel_profiles, public.user_role_memberships, public.roles,
+      public.user_group_memberships, public.user_groups,
+      public.file_attachment_parents, public.hotel_staff_assignments,
+      public.housekeeping_hotel_links, public.hotel_owner_assignments, public.permission_grants,
       public.hotel_file_uploads, public.hotel_file_scan_jobs, public.hotel_file_versions,
-      public.hotel_file_links, public.idempotency_records
+      public.hotel_file_links, public.file_scan_attempts, public.idempotency_records,
+      public.hotel_file_access_grants
       to werehere_hotel_file_api_definer;
     grant insert on public.hotel_file_uploads, public.hotel_file_scan_jobs,
-      public.hotel_file_links, public.audit_events, public.idempotency_records
+      public.hotel_file_links, public.audit_events, public.idempotency_records,
+      public.hotel_file_access_grants
       to werehere_hotel_file_api_definer;
     grant update on public.file_attachment_parents, public.hotel_file_uploads,
-      public.idempotency_records to werehere_hotel_file_api_definer;
+      public.idempotency_records, public.hotel_file_access_grants
+      to werehere_hotel_file_api_definer;
 
     grant select on public.hotel_file_scan_jobs, public.hotel_file_uploads,
       public.file_scan_attempts, public.hotel_file_scan_completion_receipts
@@ -2179,14 +2190,27 @@ try {
     [
       "hotel_file_init_upload",
       "hotel_file_complete_upload",
-      "hotel_file_link_clean_version",
       "hotel_file_read_status",
+      "hotel_file_init_upload_v2",
+      "hotel_file_authorize_upload_body_v1",
+      "hotel_file_complete_upload_v2",
+      "hotel_file_link_clean_version",
+      "hotel_file_read_status_v2",
+      "hotel_file_issue_access_grant_v1",
+      "hotel_file_resolve_access_grant_v1",
+      "hotel_file_record_access_outcome_v1",
+      "hotel_file_record_access_denial_v1",
     ],
     `grant execute on function
-      public.hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamptz,uuid,text,text,uuid),
-      public.hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid),
+      public.hotel_file_init_upload_v2(uuid,uuid,text,uuid,text,text,bigint,text,integer,text,uuid,text,text,uuid),
+      public.hotel_file_authorize_upload_body_v1(uuid),
+      public.hotel_file_complete_upload_v2(uuid,text,text,text,bigint,text,uuid,uuid),
       public.hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid),
-      public.hotel_file_read_status(uuid)
+      public.hotel_file_read_status_v2(uuid),
+      public.hotel_file_issue_access_grant_v1(uuid,uuid,text,uuid,text,bytea,integer,uuid),
+      public.hotel_file_resolve_access_grant_v1(uuid,bytea,uuid),
+      public.hotel_file_record_access_outcome_v1(bytea,text,uuid),
+      public.hotel_file_record_access_denial_v1(uuid,text,uuid)
       to ${apiRuntimeRole}`,
   );
   await reconcileHotelFileCommandAcl(

@@ -1,5 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
@@ -22,6 +25,11 @@ const renderer = readFileSync(
   new URL("../../../scripts/render-api-preview-config.mjs", import.meta.url),
   "utf8",
 );
+const productionRendererUrl = new URL(
+  "../../../scripts/render-api-production-config.mjs",
+  import.meta.url,
+);
+const productionConfigUrl = new URL("../wrangler.jsonc", import.meta.url);
 const reconcilerRenderer = readFileSync(
   new URL(
     "../../../scripts/render-reconciler-preview-config.mjs",
@@ -31,6 +39,10 @@ const reconcilerRenderer = readFileSync(
 );
 const previewConfig = readFileSync(
   new URL("../wrangler.preview.jsonc", import.meta.url),
+  "utf8",
+);
+const productionConfig = readFileSync(
+  new URL("../wrangler.jsonc", import.meta.url),
   "utf8",
 );
 const reconcilerConfig = readFileSync(
@@ -323,6 +335,88 @@ describe("Preview account provisioning wiring", () => {
       "'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN']",
     );
   });
+
+  it("binds isolated private R2 buckets and derives the exact public app origin", () => {
+    expect(previewConfig).toContain('"binding": "HOTEL_FILES"');
+    expect(previewConfig).toContain('"bucket_name": "gw-files-preview"');
+    expect(productionConfig).toContain('"binding": "HOTEL_FILES"');
+    expect(productionConfig).toContain('"bucket_name": "gw-files"');
+    expect(productionConfig).not.toContain('"gw-files-preview"');
+    expect(renderer).toContain("PUBLIC_APP_ORIGIN: webPreviewUrl.origin");
+  });
+
+  it("renders and dry-runs a Production API Hyperdrive, private R2 binding, and credential-free HTTPS origin", () => {
+    const appDirectory = fileURLToPath(new URL("..", import.meta.url));
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), "werehere-production-config-"));
+    const output = join(temporaryDirectory, "wrangler.production.generated.test.json");
+    symlinkSync(join(appDirectory, "src"), join(temporaryDirectory, "src"), "dir");
+    try {
+      const rendered = spawnSync(
+        process.execPath,
+        [fileURLToPath(productionRendererUrl), fileURLToPath(productionConfigUrl), output],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            API_HYPERDRIVE_ID: "00000000000000000000000000000000",
+            WEB_PRODUCTION_URL: "https://hotel.example.test",
+          },
+        },
+      );
+      expect(rendered.status).toBe(0);
+      expect(rendered.stdout).toContain("API_PRODUCTION_CONFIG_RENDERED");
+      const generated = JSON.parse(readFileSync(output, "utf8"));
+      expect(generated.hyperdrive).toEqual([
+        { binding: "API_HYPERDRIVE", id: "00000000000000000000000000000000" },
+      ]);
+      expect(generated.vars.PUBLIC_APP_ORIGIN).toBe("https://hotel.example.test");
+      expect(generated.r2_buckets).toEqual([
+        { binding: "HOTEL_FILES", bucket_name: "gw-files" },
+      ]);
+      const dryRun = spawnSync(
+        process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+        ["exec", "wrangler", "deploy", "--dry-run", "--config", output],
+        { cwd: appDirectory, encoding: "utf8", env: process.env },
+      );
+      expect(dryRun.status).toBe(0);
+      const dryRunOutput = `${dryRun.stdout}\n${dryRun.stderr}`;
+      expect(dryRunOutput).toContain("env.API_HYPERDRIVE");
+      expect(dryRunOutput).toContain("env.HOTEL_FILES (gw-files)");
+      expect(dryRunOutput).toContain(
+        'env.PUBLIC_APP_ORIGIN ("https://hotel.example.test")',
+      );
+
+      const missingHyperdrive = spawnSync(
+        process.execPath,
+        [fileURLToPath(productionRendererUrl), fileURLToPath(productionConfigUrl), output],
+        {
+          encoding: "utf8",
+          env: { ...process.env, API_HYPERDRIVE_ID: "", WEB_PRODUCTION_URL: "https://hotel.example.test" },
+        },
+      );
+      expect(missingHyperdrive.status).not.toBe(0);
+      expect(missingHyperdrive.stderr).toContain("API_HYPERDRIVE_ID is required");
+
+      const insecure = spawnSync(
+        process.execPath,
+        [fileURLToPath(productionRendererUrl), fileURLToPath(productionConfigUrl), output],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            API_HYPERDRIVE_ID: "00000000000000000000000000000000",
+            WEB_PRODUCTION_URL: "http://hotel.example.test",
+          },
+        },
+      );
+      expect(insecure.status).not.toBe(0);
+      expect(insecure.stderr).toContain(
+        "WEB_PRODUCTION_URL must be a credential-free HTTPS origin",
+      );
+    } finally {
+      rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
+  }, 20_000);
 
   it("renders one isolated Hyperdrive binding per Worker artifact", () => {
     expect(ciWorkflow).toContain(

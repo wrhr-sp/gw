@@ -62,6 +62,7 @@ config.vars = {
   ZITADEL_CONSOLE_CLIENT_ID: consoleClientId,
   ZITADEL_ORGANIZATION_ID: required("ZITADEL_ORGANIZATION_ID"),
   ZITADEL_REDIRECT_URI: redirectUri.toString(),
+  PUBLIC_APP_ORIGIN: webPreviewUrl.origin,
 };
 
 await writeFile(resolve(outputPath), `${JSON.stringify(config, null, 2)}\n`);

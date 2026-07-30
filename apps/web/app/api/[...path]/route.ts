@@ -11,6 +11,20 @@ const CLEAR_OAUTH_BROWSER_COOKIE =
   "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
 const UUID_PATH_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const FORWARDED_REQUEST_HEADERS = [
+  "content-type",
+  "content-length",
+  "origin",
+  "cookie",
+  "if-none-match",
+  "sec-fetch-site",
+  "idempotency-key",
+  "x-csrf-token",
+  "traceparent",
+  "tracestate",
+  "x-request-id",
+  "x-trace-id",
+] as const;
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -32,9 +46,24 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
   ["account/initial-password", new Set(["POST"])],
+  ["hotel-files/upload-init", new Set(["POST"])],
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
+  const fileAction = new RegExp(
+    `^hotel-files/${UUID_PATH_PATTERN}/(upload-body|upload-complete|status|view|download)$`,
+    "iu",
+  ).exec(apiPath)?.[1]?.toLowerCase();
+  if (fileAction) {
+    if (fileAction === "upload-body") return new Set(["PUT"]);
+    if (fileAction === "status") return new Set(["GET"]);
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(`^hotel-files/access/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/(?:rooms|room-types)$`, "iu").test(
       apiPath,
@@ -188,26 +217,32 @@ async function proxy(
     apiPath.startsWith("admin/users/") ||
     apiPath === "account/initial-password";
   const databaseRequest =
-    hotelRequest || accountRequest || apiPath === "health/ready";
+    hotelRequest ||
+    accountRequest ||
+    apiPath.startsWith("hotel-files/") ||
+    apiPath === "health/ready";
   const exchangeFailureHeaders =
     apiPath === "auth/password/exchange"
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
       : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
 
-  const headers = new Headers(request.headers);
-  headers.delete("connection");
-  headers.delete("content-length");
-  headers.delete("host");
+  const headers = new Headers();
+  for (const name of FORWARDED_REQUEST_HEADERS) {
+    const value = request.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
 
-  const init: RequestInit = {
+  const init: RequestInit & { duplex?: "half" } = {
     cache: "no-store",
     headers,
     method: request.method,
     redirect: "manual",
+    signal: request.signal,
   };
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.arrayBuffer();
+  if (request.body !== null && request.method !== "GET" && request.method !== "HEAD") {
+    init.body = request.body;
+    init.duplex = "half";
   }
 
   try {
@@ -260,3 +295,4 @@ async function proxy(
 export const GET = proxy;
 export const PATCH = proxy;
 export const POST = proxy;
+export const PUT = proxy;

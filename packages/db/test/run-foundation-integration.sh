@@ -87,10 +87,15 @@ GRANT EXECUTE ON FUNCTION jsonb_reject_plaintext_password_keys(jsonb),
   auth_revoke_session_v2(bytea,text,uuid),
   auth_revoke_user_sessions_v1(uuid,uuid,text),
   auth_revoke_hotel_owner_sessions_v1(uuid,uuid),
-  hotel_file_init_upload(uuid,uuid,text,uuid,text,text,bigint,text,timestamptz,uuid,text,text,uuid),
-  hotel_file_complete_upload(uuid,text,text,bigint,text,uuid,uuid),
+  hotel_file_init_upload_v2(uuid,uuid,text,uuid,text,text,bigint,text,integer,text,uuid,text,text,uuid),
+  hotel_file_authorize_upload_body_v1(uuid),
+  hotel_file_complete_upload_v2(uuid,text,text,text,bigint,text,uuid,uuid),
   hotel_file_link_clean_version(uuid,uuid,uuid,text,text,uuid),
-  hotel_file_read_status(uuid)
+  hotel_file_read_status_v2(uuid),
+  hotel_file_issue_access_grant_v1(uuid,uuid,text,uuid,text,bytea,integer,uuid),
+  hotel_file_resolve_access_grant_v1(uuid,bytea,uuid),
+  hotel_file_record_access_outcome_v1(bytea,text,uuid),
+  hotel_file_record_access_denial_v1(uuid,text,uuid)
   TO gw_runtime_api_probe;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('gw_runtime_api_probe', 'API_RUNTIME');
@@ -433,6 +438,175 @@ alter policy hotel_rooms_company_isolation on hotel_rooms to public;
 SQL
 }
 
+assert_hotel_file_trigger_closure_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create function public.test_hotel_file_rogue_trigger() returns trigger
+language plpgsql set search_path = pg_catalog as $function$
+begin return null; end
+$function$;
+create trigger hotel_file_uploads_rogue_blocker
+before update on public.hotel_file_uploads
+for each row execute function public.test_hotel_file_rogue_trigger();
+SQL
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after rogue hotel file trigger, received ${damaged.status}`);
+}
+NODE
+  )
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop trigger hotel_file_uploads_rogue_blocker on public.hotel_file_uploads;
+drop function public.test_hotel_file_rogue_trigger();
+SQL
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const restored = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (restored.status !== "READY") {
+  throw new Error(`expected READY after rogue hotel file trigger cleanup, received ${restored.status}`);
+}
+NODE
+  )
+}
+
+assert_hotel_file_column_fingerprint_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_file_access_grants alter column last_outcome set not null' >/dev/null
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after hotel file column damage, received ${damaged.status}`);
+}
+NODE
+  )
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_file_access_grants alter column last_outcome drop not null' >/dev/null
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const restored = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (restored.status !== "READY") {
+  throw new Error(`expected READY after hotel file column restore, received ${restored.status}`);
+}
+NODE
+  )
+}
+
+assert_hotel_file_constraint_fingerprint_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local expected_status
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_file_access_grants drop constraint hotel_file_access_grants_grant_token_hash_key' >/dev/null
+  expected_status="SCHEMA_NOT_READY" assert_hotel_file_readiness_status "$probe_url" "unique constraint removal"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_file_access_grants add constraint hotel_file_access_grants_grant_token_hash_key unique (grant_token_hash)' >/dev/null
+  expected_status="READY" assert_hotel_file_readiness_status "$probe_url" "unique constraint restore"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_file_uploads drop constraint hotel_file_uploads_initiated_session_fk;
+alter table public.hotel_file_uploads add constraint hotel_file_uploads_initiated_session_fk
+  foreign key (company_id, initiated_session_id)
+  references public.auth_sessions(company_id, id) not valid;
+SQL
+  expected_status="SCHEMA_NOT_READY" assert_hotel_file_readiness_status "$probe_url" "NOT VALID foreign key"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_file_uploads validate constraint hotel_file_uploads_initiated_session_fk' >/dev/null
+  expected_status="READY" assert_hotel_file_readiness_status "$probe_url" "foreign key validation restore"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_file_uploads drop constraint hotel_file_uploads_v2_reservation_check;
+alter table public.hotel_file_uploads add constraint hotel_file_uploads_v2_reservation_check check (true);
+SQL
+  expected_status="SCHEMA_NOT_READY" assert_hotel_file_readiness_status "$probe_url" "weakened reservation check"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_file_uploads drop constraint hotel_file_uploads_v2_reservation_check;
+alter table public.hotel_file_uploads add constraint hotel_file_uploads_v2_reservation_check check (
+  (initiated_session_id is null and reservation_fingerprint is null)
+  or (
+    initiated_session_id is not null
+    and reservation_fingerprint is not null
+    and pg_catalog.btrim(reservation_fingerprint) = reservation_fingerprint
+    and pg_catalog.octet_length(reservation_fingerprint) between 32 and 512
+    and expires_at <= created_at + interval '5 minutes'
+  )
+);
+SQL
+  expected_status="READY" assert_hotel_file_readiness_status "$probe_url" "reservation check restore"
+}
+
+assert_hotel_file_readiness_status() {
+  local probe_url="$1"
+  local label="$2"
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" TEST_EXPECTED_STATUS="$expected_status" TEST_DAMAGE_LABEL="$label" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const readiness = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (readiness.status !== process.env.TEST_EXPECTED_STATUS) {
+  throw new Error(`${process.env.TEST_DAMAGE_LABEL}: expected ${process.env.TEST_EXPECTED_STATUS}, received ${readiness.status}`);
+}
+NODE
+  )
+}
+
+assert_hotel_file_terminal_audit_policy_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop policy hotel_file_api_terminal_audit_insert on public.audit_events;
+create policy hotel_file_api_terminal_audit_insert on public.audit_events
+for insert to werehere_hotel_file_api_definer with check (true);
+SQL
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after terminal audit policy damage, received ${damaged.status}`);
+}
+NODE
+  )
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop policy hotel_file_api_terminal_audit_insert on public.audit_events;
+create policy hotel_file_api_terminal_audit_insert on public.audit_events
+for insert to werehere_hotel_file_api_definer
+with check (
+  current_user = 'werehere_hotel_file_api_definer'
+  and event_code = 'HOTEL_FILE_ACCESS_OUTCOME_RECORDED'
+  and resource_type = 'HOTEL_FILE_ACCESS_GRANT'
+  and actor_user_id is not null
+  and session_id is not null
+  and branch_id is not null
+);
+SQL
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+const restored = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (restored.status !== "READY") {
+  throw new Error(`expected READY after terminal audit policy restore, received ${restored.status}`);
+}
+NODE
+  )
+}
+
 assert_legacy_auth_removed() {
   local admin_url="$1"
   local removed
@@ -594,8 +768,9 @@ run_hotel_file_repository_journey() {
     TEST_ADMIN_URL="$admin_url" TEST_API_URL="$api_url" \
       TEST_RECONCILER_URL="$reconciler_url" TEST_FINALIZER_URL="$finalizer_url" \
       pnpm --filter @werehere/db exec tsx <<'NODE'
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import postgres from "postgres";
+import { createApp } from "../../apps/api/src/app.ts";
 import {
   createPostgresHotelFileApiRepository,
   createPostgresHotelFileFinalizerRepository,
@@ -622,6 +797,7 @@ const ids = {
   reservation: "fa000000-0000-4000-8000-000000000001",
   version: "fb000000-0000-4000-8000-000000000001",
   link: "fc000000-0000-4000-8000-000000000001",
+  accessGrant: "fc000000-0000-4000-8000-000000000002",
 };
 const admin = postgres(adminUrl, { max: 1, prepare: false });
 const api = createPostgresHotelFileApiRepository(apiUrl);
@@ -631,6 +807,8 @@ const finalizerSql = postgres(finalizerUrl, { max: 1, prepare: false });
 const sha = createHash("sha256").update("foundation-clean-payload").digest();
 const callbackHash = createHash("sha256").update("foundation-scan-callback").digest();
 const conflictingCallbackHash = createHash("sha256").update("foundation-conflicting-callback").digest();
+const accessGrantToken = "g".repeat(43);
+const accessGrantHash = createHash("sha256").update(accessGrantToken).digest();
 const quarantineKey = `quarantine/${createHash("sha256").update("foundation-source").digest("hex")}`;
 const cleanKey = `clean/${createHash("sha256").update("foundation-clean").digest("hex")}`;
 const expectStatus = (actual, expected, label) => {
@@ -645,30 +823,168 @@ try {
     await sql`insert into auth_identities(id, company_id, user_id, provider, provider_subject) values (${ids.identity}, ${ids.company}, ${ids.user}, 'ZITADEL', 'foundation-file-repository-subject')`;
     await sql`insert into auth_sessions(id, company_id, user_id, identity_id, token_hash, idle_expires_at, absolute_expires_at, auth_time, authentication_method) values (${ids.session}, ${ids.company}, ${ids.user}, ${ids.identity}, ${Buffer.alloc(32, 1)}, now() + interval '1 hour', now() + interval '2 hours', now(), 'OIDC_PKCE')`;
     await sql`insert into branches(id, company_id, branch_type, branch_code, name) values (${ids.branch}, ${ids.company}, 'HOTEL', 'FILE-REPO', 'Foundation File Hotel')`;
-    await sql`insert into hotel_profiles(company_id, branch_id, hotel_status, road_address, detail_address, representative_phone, contract_start_date, contract_end_date) values (${ids.company}, ${ids.branch}, 'PREPARING', 'Foundation Road', '', '02-0000-0026', '2026-01-01', '2026-12-31')`;
+    await sql`insert into hotel_profiles(company_id, branch_id, hotel_status, road_address, detail_address, representative_phone, contract_start_date, contract_end_date) values (${ids.company}, ${ids.branch}, 'ACTIVE', 'Foundation Road', '', '02-0000-0026', '2026-01-01', '2026-12-31')`;
+    await sql`insert into hotel_staff_assignments(id, company_id, branch_id, user_id, assignment_type, start_date, reason, created_by) values ('f5100000-0000-4000-8000-000000000001', ${ids.company}, ${ids.branch}, ${ids.user}, 'PRIMARY', current_date, 'Foundation file scope', ${ids.user})`;
+    await sql`insert into permission_grants(id, company_id, branch_id, subject_type, subject_id, permission_code, effect, valid_from, granted_by, reason) values
+      ('f5200000-0000-4000-8000-000000000001', ${ids.company}, ${ids.branch}, 'USER', ${ids.user}, 'HOTEL_FILE_UPLOAD', 'ALLOW', now(), ${ids.user}, 'Foundation file upload'),
+      ('f5200000-0000-4000-8000-000000000002', ${ids.company}, ${ids.branch}, 'USER', ${ids.user}, 'HOTEL_FILE_READ', 'ALLOW', now(), ${ids.user}, 'Foundation file view'),
+      ('f5200000-0000-4000-8000-000000000003', ${ids.company}, ${ids.branch}, 'USER', ${ids.user}, 'HOTEL_FILE_DOWNLOAD', 'ALLOW', now(), ${ids.user}, 'Foundation file download')`;
     await sql`insert into file_attachment_parents(company_id, branch_id, parent_type, parent_id, created_by) values (${ids.company}, ${ids.branch}, 'INSPECTION_RESULT', ${ids.parent}, ${ids.user})`;
   });
+
+  const crossLayerUploadObjects = new Map();
+  let crossLayerUploadHeadCalls = 0;
+  const crossLayerUploadBucket = {
+    async put(key, body, options) {
+      let size = 0;
+      const reader = body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+      }
+      if (crossLayerUploadObjects.has(key)) return null;
+      const object = {
+        key, etag: "0123456789abcdef0123456789abcdef", version: "foundation-cross-layer-v1", size,
+        httpMetadata: options.httpMetadata, customMetadata: options.customMetadata,
+      };
+      crossLayerUploadObjects.set(key, object);
+      return object;
+    },
+    async head(key) {
+      crossLayerUploadHeadCalls += 1;
+      return crossLayerUploadObjects.get(key) ?? null;
+    },
+    async get() { throw new Error("unexpected cross-layer upload R2 GET"); },
+  };
+  const crossLayerUploadApp = createApp({
+    authService: { resolvePrincipal: async () => ({
+      companyId: ids.company, identityId: ids.identity, sessionId: ids.session,
+      userId: ids.user, userType: "INTERNAL_STAFF", displayName: "Foundation File Actor",
+    }) },
+    publicAppOrigin: "https://hotel.example",
+  });
+  const crossLayerEnv = {
+    API_HYPERDRIVE: { connectionString: apiUrl },
+    HOTEL_FILES: crossLayerUploadBucket,
+    PUBLIC_APP_ORIGIN: "https://hotel.example",
+  };
+  const crossLayerMutationHeaders = {
+    cookie: "__Host-hotel_session=opaque",
+    origin: "https://hotel.example",
+    "sec-fetch-site": "same-origin",
+  };
+  const crossLayerInitResponse = await crossLayerUploadApp.request(
+    "/api/hotel-files/upload-init",
+    {
+      method: "POST",
+      headers: {
+        ...crossLayerMutationHeaders,
+        "content-type": "application/json",
+        "idempotency-key": "foundation-cross-layer-file-init",
+      },
+      body: JSON.stringify({
+        hotelId: ids.branch, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+        fileName: "cross-layer.jpg", sizeBytes: 128, mimeType: "image/jpeg",
+      }),
+    },
+    crossLayerEnv,
+  );
+  const crossLayerInitBody = await crossLayerInitResponse.json();
+  const crossLayerUploadId = crossLayerInitBody?.data?.upload?.id;
+  if (crossLayerInitResponse.status !== 201 || typeof crossLayerUploadId !== "string") {
+    throw new Error(`cross-layer upload init failed: ${crossLayerInitResponse.status}`);
+  }
+  const crossLayerPutResponse = await crossLayerUploadApp.fetch(
+    new Request(`https://hotel.example/api/hotel-files/${crossLayerUploadId}/upload-body`, {
+      method: "PUT",
+      headers: {
+        ...crossLayerMutationHeaders,
+        "content-type": "image/jpeg",
+        "content-length": "128",
+        "if-none-match": "*",
+      },
+      body: new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(128)); controller.close(); } }),
+      duplex: "half",
+    }),
+    crossLayerEnv,
+  );
+  const crossLayerPutBody = await crossLayerPutResponse.json();
+  const crossLayerEtag = crossLayerPutBody?.data?.upload?.etag;
+  if (crossLayerPutResponse.status !== 200 || typeof crossLayerEtag !== "string") {
+    throw new Error(`cross-layer upload PUT failed: ${crossLayerPutResponse.status}`);
+  }
+  const completeCrossLayerUpload = () => crossLayerUploadApp.request(
+    `/api/hotel-files/${crossLayerUploadId}/upload-complete`,
+    {
+      method: "POST",
+      headers: { ...crossLayerMutationHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ etag: crossLayerEtag }),
+    },
+    crossLayerEnv,
+  );
+  const firstCrossLayerComplete = await completeCrossLayerUpload();
+  const replayCrossLayerComplete = await completeCrossLayerUpload();
+  const firstCrossLayerCompleteBody = await firstCrossLayerComplete.json();
+  const replayCrossLayerCompleteBody = await replayCrossLayerComplete.json();
+  if (firstCrossLayerComplete.status !== 200 || replayCrossLayerComplete.status !== 200
+      || firstCrossLayerCompleteBody?.data?.upload?.state !== "QUARANTINED"
+      || replayCrossLayerCompleteBody?.data?.upload?.state !== "QUARANTINED"
+      || crossLayerUploadHeadCalls !== 1) {
+    throw new Error(`cross-layer upload complete replay failed: ${firstCrossLayerComplete.status}/${replayCrossLayerComplete.status}/${firstCrossLayerCompleteBody?.data?.upload?.state ?? "NONE"}/${replayCrossLayerCompleteBody?.data?.upload?.state ?? "NONE"}/${crossLayerUploadHeadCalls}`);
+  }
+  const [crossLayerUploadReadBack] = await admin`
+    select count(*)::integer as scan_job_count
+    from hotel_file_scan_jobs where upload_id=${crossLayerUploadId}::uuid
+  `;
+  if (crossLayerUploadReadBack?.scan_job_count !== 1) {
+    throw new Error("cross-layer upload scan job did not converge");
+  }
 
   const initInput = {
     actor: { sessionId: ids.session }, uploadId: ids.upload, branchId: ids.branch,
     parentType: "INSPECTION_RESULT", parentId: ids.parent,
     fileName: "foundation.jpg", mimeType: "image/jpeg", sizeBytes: 128,
-    quarantineObjectKey: quarantineKey, expiresAt: new Date(Date.now() + 300_000),
+    quarantineObjectKey: quarantineKey, ttlSeconds: 300,
+    reservationFingerprint: "foundation-reservation-fingerprint-0000000001",
     idempotencyRecordId: "fd000000-0000-4000-8000-000000000001",
     idempotencyKey: "foundation-file-init", requestHash: "foundation-file-init-hash",
     traceId: "fe000000-0000-4000-8000-000000000001",
   };
-  expectStatus(await api.initializeUpload(initInput), "CREATED", "init upload");
-  expectStatus(await api.initializeUpload(initInput), "REPLAYED", "init exact replay");
+  const concurrentInit = await Promise.all([
+    api.initializeUpload(initInput),
+    api.initializeUpload({
+      ...initInput,
+      idempotencyRecordId: "fd000000-0000-4000-8000-000000000099",
+    }),
+  ]);
+  const concurrentStatuses = concurrentInit.map((result) => result.status).sort().join(",");
+  if (concurrentStatuses !== "CREATED,REPLAYED") {
+    throw new Error(`concurrent init idempotency failed: ${concurrentStatuses}`);
+  }
+  expectStatus(await api.initializeUpload({ ...initInput, reservationFingerprint: "different-replay-fingerprint-00000001" }), "REPLAYED", "init exact replay");
+  const uploadAuthority = await api.authorizeUploadBody({ actor: { sessionId: ids.session }, uploadId: ids.upload });
+  expectStatus(uploadAuthority, "AUTHORIZED", "authorize upload body");
+  if (uploadAuthority.status !== "AUTHORIZED" || uploadAuthority.reservationFingerprint !== initInput.reservationFingerprint) {
+    throw new Error("upload body authority read-back failed");
+  }
 
   const completeUploadInput = {
     actor: { sessionId: ids.session }, uploadId: ids.upload,
+    reservationFingerprint: uploadAuthority.reservationFingerprint,
     sourceEtag: "foundation-source-etag", sourceObjectVersion: "foundation-source-v1",
     sourceSizeBytes: 128, sourceMimeType: "image/jpeg",
     scanJobId: ids.scanJob, traceId: "fe000000-0000-4000-8000-000000000002",
   };
-  expectStatus(await api.completeUpload(completeUploadInput), "CREATED", "complete upload");
-  expectStatus(await api.completeUpload(completeUploadInput), "REPLAYED", "complete upload exact replay");
+  const concurrentComplete = await Promise.all([
+    api.completeUpload(completeUploadInput),
+    api.completeUpload({ ...completeUploadInput, traceId: "fe000000-0000-4000-8000-000000000092" }),
+  ]);
+  const completeStatuses = concurrentComplete.map((result) => result.status).sort().join(",");
+  if (completeStatuses !== "CREATED,REPLAYED") {
+    throw new Error(`concurrent complete idempotency failed: ${completeStatuses}`);
+  }
+  expectStatus(await api.completeUpload({ ...completeUploadInput, scanJobId: "f8000000-0000-4000-8000-000000000099" }), "REPLAYED", "complete upload exact replay");
 
   const claim = await scanner.claimScan({ companyId: ids.company, scanJobId: ids.scanJob, attemptId: ids.attempt, leaseSeconds: 60 });
   expectStatus(claim, "CLAIMED", "claim scan");
@@ -752,6 +1068,233 @@ try {
   if (status.status !== "CREATED" || status.upload.state !== "LINKED" || status.upload.fileVersionId !== ids.version) {
     throw new Error("linked file safe read-back failed");
   }
+  const grant = await api.issueAccessGrant({
+    actor: { sessionId: ids.session }, grantId: ids.accessGrant,
+    fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+    disposition: "ATTACHMENT", grantTokenHash: accessGrantHash, ttlSeconds: 300,
+  });
+  expectStatus(grant, "CREATED", "issue clean access grant");
+  expectStatus(await api.resolveAccessGrant({
+    actor: { sessionId: ids.session },
+    grantId: "fc000000-0000-4000-8000-000000000099",
+    grantTokenHash: accessGrantHash,
+  }), "NOT_FOUND", "reject mismatched access grant id");
+  expectStatus(await api.recordAccessDenial({
+    actor: { sessionId: ids.session },
+    grantId: ids.accessGrant,
+    reason: "MISSING_OR_MALFORMED_COOKIE",
+    traceId: "fe000000-0000-4000-8000-000000000099",
+  }), "RECORDED", "audit missing access cookie");
+  const access = await api.resolveAccessGrant({
+    actor: { sessionId: ids.session }, grantId: ids.accessGrant, grantTokenHash: accessGrantHash,
+  });
+  expectStatus(access, "AUTHORIZED", "resolve clean access grant");
+  if (access.status !== "AUTHORIZED" || access.cleanObjectKey !== cleanKey
+      || access.destinationEtag !== validPromotion.destinationEtag
+      || access.destinationObjectVersion !== validPromotion.destinationObjectVersion
+      || access.sizeBytes !== 128 || access.mimeType !== "image/jpeg") {
+    throw new Error("clean access evidence read-back failed");
+  }
+  expectStatus(await api.recordAccessOutcome({
+    actor: { sessionId: ids.session }, grantTokenHash: accessGrantHash,
+    outcome: "STARTED", traceId: "fe000000-0000-4000-8000-000000000004",
+  }), "RECORDED", "record clean access start");
+  const terminalRace = await Promise.all([
+    api.recordAccessOutcome({
+      actor: { sessionId: ids.session }, grantTokenHash: accessGrantHash,
+      outcome: "SUCCEEDED", traceId: "fe000000-0000-4000-8000-000000000005",
+    }),
+    api.recordAccessOutcome({
+      actor: { sessionId: ids.session }, grantTokenHash: accessGrantHash,
+      outcome: "FAILED", traceId: "fe000000-0000-4000-8000-000000000006",
+    }),
+  ]);
+  const terminalStatuses = terminalRace.map((result) => result.status).sort().join(",");
+  if (terminalStatuses !== "NOT_FOUND,RECORDED") {
+    throw new Error(`concurrent access terminal policy failed: ${terminalStatuses}`);
+  }
+  const [terminalState] = await admin`select last_outcome from hotel_file_access_grants where id=${ids.accessGrant}`;
+  if (!terminalState || !["SUCCEEDED", "FAILED"].includes(terminalState.last_outcome)) {
+    throw new Error("access terminal state was not preserved");
+  }
+  expectStatus(await api.recordAccessOutcome({
+    actor: { sessionId: ids.session }, grantTokenHash: accessGrantHash,
+    outcome: terminalState.last_outcome, traceId: "fe000000-0000-4000-8000-000000000007",
+  }), "RECORDED", "terminal outcome exact replay");
+
+  const accessRevocationScenarios = ["SESSION", "ASSIGNMENT", "DENY"];
+  for (const [index, scenario] of accessRevocationScenarios.entries()) {
+    const userId = randomUUID();
+    const identityId = randomUUID();
+    const sessionId = randomUUID();
+    const assignmentId = randomUUID();
+    const allowId = randomUUID();
+    const denyId = randomUUID();
+    await admin.begin(async (sql) => {
+      await sql`insert into users(id,company_id,user_type,display_name) values (${userId},${ids.company},'INTERNAL_STAFF',${`Revocation ${scenario}`})`;
+      await sql`insert into auth_identities(id,company_id,user_id,provider,provider_subject) values (${identityId},${ids.company},${userId},'ZITADEL',${`foundation-revocation-${scenario.toLowerCase()}`})`;
+      await sql`insert into auth_sessions(id,company_id,user_id,identity_id,token_hash,idle_expires_at,absolute_expires_at,auth_time,authentication_method) values (${sessionId},${ids.company},${userId},${identityId},${createHash("sha256").update(`revocation-session-${index}`).digest()},now()+interval '1 hour',now()+interval '2 hours',now(),'OIDC_PKCE')`;
+      await sql`insert into hotel_staff_assignments(id,company_id,branch_id,user_id,assignment_type,start_date,reason,created_by) values (${assignmentId},${ids.company},${ids.branch},${userId},'PRIMARY',current_date,${`Revocation ${scenario}`},${ids.user})`;
+      await sql`insert into permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason) values (${allowId},${ids.company},${ids.branch},'USER',${userId},'HOTEL_FILE_DOWNLOAD','ALLOW',now(),${ids.user},${`Revocation ${scenario}`})`;
+    });
+    const revocationGrantId = randomUUID();
+    const revocationHash = createHash("sha256").update(`revocation-grant-${scenario}`).digest();
+    expectStatus(await api.issueAccessGrant({
+      actor: { sessionId }, grantId: revocationGrantId,
+      fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+      disposition: "ATTACHMENT", grantTokenHash: revocationHash, ttlSeconds: 300,
+      traceId: randomUUID(),
+    }), "CREATED", `issue ${scenario} revocation grant`);
+    expectStatus(await api.resolveAccessGrant({
+      actor: { sessionId }, grantId: revocationGrantId, grantTokenHash: revocationHash,
+      traceId: randomUUID(),
+    }), "AUTHORIZED", `resolve before ${scenario} revocation`);
+    expectStatus(await api.recordAccessOutcome({
+      actor: { sessionId }, grantTokenHash: revocationHash, outcome: "STARTED", traceId: randomUUID(),
+    }), "RECORDED", `start before ${scenario} revocation`);
+    if (index === 0) {
+      let identityMutationBlocked = false;
+      try {
+        await admin`update hotel_file_access_grants set issued_by_type='HOTEL_OWNER' where id=${revocationGrantId}`;
+      } catch (error) {
+        identityMutationBlocked = error && typeof error === "object" && "code" in error && error.code === "23514";
+      }
+      if (!identityMutationBlocked) {
+        throw new Error("STARTED grant issued_by_type mutation was not rejected");
+      }
+    }
+    if (scenario === "SESSION") {
+      await admin`update auth_sessions set revoked_at=now(), revoke_reason='FOUNDATION_ACCESS_REVOCATION' where id=${sessionId}`;
+    } else if (scenario === "ASSIGNMENT") {
+      await admin`update hotel_staff_assignments set end_date=current_date, terminated_at=now(), termination_reason='FOUNDATION_ACCESS_REVOCATION', terminated_by=${ids.user} where id=${assignmentId}`;
+    } else {
+      await admin`insert into permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason) values (${denyId},${ids.company},${ids.branch},'USER',${userId},'HOTEL_FILE_DOWNLOAD','DENY',now(),${ids.user},'Foundation personal deny')`;
+    }
+    expectStatus(await api.resolveAccessGrant({
+      actor: { sessionId }, grantId: revocationGrantId, grantTokenHash: revocationHash,
+      traceId: randomUUID(),
+    }), "NOT_FOUND", `resolve after ${scenario} revocation`);
+    const [revocationReadBack] = await admin`
+      select last_outcome, session_id=${sessionId}::uuid as session_matches
+      from hotel_file_access_grants where id=${revocationGrantId}::uuid
+    `;
+    const revocationTerminal = await api.recordAccessOutcome({
+      actor: { sessionId }, grantTokenHash: revocationHash, outcome: "ABORTED", traceId: randomUUID(),
+    });
+    if (revocationTerminal.status !== "RECORDED") {
+      throw new Error(`terminal after ${scenario} revocation failed: ${revocationTerminal.status}/${revocationReadBack?.last_outcome ?? "MISSING"}/${revocationReadBack?.session_matches ?? false}`);
+    }
+  }
+
+  const crossLayerGrantId = "fc000000-0000-4000-8000-000000000003";
+  const crossLayerToken = "h".repeat(43);
+  const crossLayerHash = createHash("sha256").update(crossLayerToken).digest();
+  expectStatus(await api.issueAccessGrant({
+    actor: { sessionId: ids.session }, grantId: crossLayerGrantId,
+    fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+    disposition: "ATTACHMENT", grantTokenHash: crossLayerHash, ttlSeconds: 300,
+  }), "CREATED", "issue cross-layer access grant");
+  let r2GetCalls = 0;
+  const r2Bucket = {
+    async put() { throw new Error("unexpected R2 PUT"); },
+    async head() { throw new Error("unexpected R2 HEAD"); },
+    async get(key) {
+      r2GetCalls += 1;
+      if (key !== cleanKey) return null;
+      return {
+        key, etag: validPromotion.destinationEtag, version: validPromotion.destinationObjectVersion,
+        size: 128, httpMetadata: { contentType: "image/jpeg" },
+        customMetadata: { sha256: sha.toString("hex") },
+        body: new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(128)); controller.close(); } }),
+      };
+    },
+  };
+  const fileApp = createApp({
+    authService: { resolvePrincipal: async () => ({
+      companyId: ids.company, identityId: ids.identity, sessionId: ids.session,
+      userId: ids.user, userType: "INTERNAL_STAFF", displayName: "Foundation File Actor",
+    }) },
+    publicAppOrigin: "https://hotel.example",
+  });
+  const crossLayerResponse = await fileApp.request(
+    `/api/hotel-files/access/${crossLayerGrantId}`,
+    { headers: { cookie: `__Host-hotel_session=opaque; __Secure-hotel_file_access=${crossLayerToken}` } },
+    {
+      API_HYPERDRIVE: { connectionString: apiUrl },
+      HOTEL_FILES: r2Bucket,
+      PUBLIC_APP_ORIGIN: "https://hotel.example",
+    },
+  );
+  const crossLayerBody = await crossLayerResponse.arrayBuffer();
+  if (crossLayerResponse.status !== 200 || crossLayerBody.byteLength !== 128 || r2GetCalls !== 1) {
+    throw new Error(`cross-layer file response failed: ${crossLayerResponse.status}/${crossLayerBody.byteLength}/${r2GetCalls}`);
+  }
+  const [crossLayerReadBack] = await admin`select last_outcome from hotel_file_access_grants where id=${crossLayerGrantId}`;
+  if (crossLayerReadBack?.last_outcome !== "SUCCEEDED") {
+    throw new Error("cross-layer stream terminal audit read-back failed");
+  }
+
+  const rateResults = await Promise.all(Array.from({ length: 59 }, (_, index) =>
+    api.issueAccessGrant({
+      actor: { sessionId: ids.session }, grantId: randomUUID(),
+      fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+      disposition: "INLINE",
+      grantTokenHash: createHash("sha256").update(`rate-grant-${index}`).digest(),
+      ttlSeconds: 300, traceId: randomUUID(),
+    }),
+  ));
+  const createdAtBoundary = rateResults.filter((result) => result.status === "CREATED").length;
+  const limitedAtBoundary = rateResults.filter((result) => result.status === "RATE_LIMITED").length;
+  if (createdAtBoundary !== 58 || limitedAtBoundary !== 1) {
+    throw new Error(`concurrent access rate boundary failed: ${createdAtBoundary}/${limitedAtBoundary}`);
+  }
+
+  await admin`delete from hotel_file_access_grants where company_id=${ids.company}`;
+  const branchRateActors = [];
+  for (let index = 0; index < 6; index += 1) {
+    const userId = randomUUID();
+    const identityId = randomUUID();
+    const sessionId = randomUUID();
+    branchRateActors.push({ userId, sessionId });
+    await admin.begin(async (sql) => {
+      await sql`insert into users(id,company_id,user_type,display_name) values (${userId},${ids.company},'INTERNAL_STAFF',${`Branch rate actor ${index}`})`;
+      await sql`insert into auth_identities(id,company_id,user_id,provider,provider_subject) values (${identityId},${ids.company},${userId},'ZITADEL',${`foundation-branch-rate-${index}`})`;
+      await sql`insert into auth_sessions(id,company_id,user_id,identity_id,token_hash,idle_expires_at,absolute_expires_at,auth_time,authentication_method) values (${sessionId},${ids.company},${userId},${identityId},${createHash("sha256").update(`branch-rate-session-${index}`).digest()},now()+interval '1 hour',now()+interval '2 hours',now(),'OIDC_PKCE')`;
+      await sql`insert into hotel_staff_assignments(id,company_id,branch_id,user_id,assignment_type,start_date,reason,created_by) values (${randomUUID()},${ids.company},${ids.branch},${userId},'PRIMARY',current_date,'Branch rate boundary',${ids.user})`;
+      await sql`insert into permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason) values (${randomUUID()},${ids.company},${ids.branch},'USER',${userId},'HOTEL_FILE_READ','ALLOW',now(),${ids.user},'Branch rate boundary')`;
+    });
+  }
+  const branchPrefill = await Promise.all(Array.from({ length: 299 }, (_, index) => {
+    const actorIndex = Math.floor(index / 60);
+    const sessionId = branchRateActors[actorIndex].sessionId;
+    return api.issueAccessGrant({
+      actor: { sessionId }, grantId: randomUUID(),
+      fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+      disposition: "INLINE", grantTokenHash: createHash("sha256").update(`branch-prefill-${index}`).digest(),
+      ttlSeconds: 300, traceId: randomUUID(),
+    });
+  }));
+  if (branchPrefill.some((result) => result.status !== "CREATED")) {
+    throw new Error("branch rate prefill did not create exactly 299 grants");
+  }
+  const branchBoundarySession = branchRateActors[5].sessionId;
+  const branchBoundary = await Promise.all([0, 1].map((index) => api.issueAccessGrant({
+    actor: { sessionId: branchBoundarySession }, grantId: randomUUID(),
+    fileVersionId: ids.version, parentType: "INSPECTION_RESULT", parentId: ids.parent,
+    disposition: "INLINE", grantTokenHash: createHash("sha256").update(`branch-boundary-${index}`).digest(),
+    ttlSeconds: 300, traceId: randomUUID(),
+  })));
+  const branchBoundaryStatuses = branchBoundary.map((result) => result.status).sort().join(",");
+  if (branchBoundaryStatuses !== "CREATED,RATE_LIMITED") {
+    throw new Error(`concurrent branch access rate boundary failed: ${branchBoundaryStatuses}`);
+  }
+  const [branchGrantCount] = await admin`
+    select count(*)::integer as grant_count from hotel_file_access_grants
+    where company_id=${ids.company} and branch_id=${ids.branch}
+  `;
+  if (branchGrantCount?.grant_count !== 300) {
+    throw new Error(`branch access grant count mismatch: ${branchGrantCount?.grant_count}`);
+  }
 
   const [readBack] = await admin`
     select
@@ -762,8 +1305,13 @@ try {
         'HOTEL_FILE_SCAN_COMPLETED', 'HOTEL_FILE_PROMOTION_RESERVED',
         'HOTEL_FILE_PROMOTION_COMPLETED', 'HOTEL_FILE_LINKED'
       )) audit_count,
+      (select count(*)::integer from audit_events where company_id = ${ids.company} and event_code in (
+        'HOTEL_FILE_ACCESS_GRANTED', 'HOTEL_FILE_ACCESS_DENIED', 'HOTEL_FILE_ACCESS_OUTCOME_RECORDED'
+      )) access_audit_count,
       (select count(*)::integer from idempotency_records where company_id = ${ids.company} and id in (
-        'fd000000-0000-4000-8000-000000000001', 'fd000000-0000-4000-8000-000000000002'
+        'fd000000-0000-4000-8000-000000000001',
+        'fd000000-0000-4000-8000-000000000002',
+        'fd000000-0000-4000-8000-000000000099'
       )) idempotency_count,
       (select count(*)::integer from (values
         ('gw_runtime_api_probe'), ('gw_runtime_reconciler_probe'), ('gw_runtime_file_finalizer_probe')
@@ -778,7 +1326,8 @@ try {
         or exists (select 1 from pg_auth_members membership where membership.member = role.oid))) role_damage_count
   `;
   if (!readBack || readBack.marker_count !== 1 || readBack.receipt_count !== 1 ||
-      readBack.audit_count !== 7 || readBack.idempotency_count !== 2 ||
+      readBack.audit_count !== 9 || readBack.access_audit_count !== 379 ||
+      readBack.idempotency_count !== 2 ||
       readBack.acl_damage_count !== 0 || readBack.role_damage_count !== 0) {
     throw new Error(`hotel file repository read-back mismatch: ${JSON.stringify(readBack)}`);
   }
@@ -810,6 +1359,7 @@ HOTEL_ROOM_MIGRATION="$ROOT_DIR/packages/db/migrations/0019_hotel_room_managemen
 HOTEL_ROOM_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql"
 HOTEL_FILE_MIGRATION="$ROOT_DIR/packages/db/migrations/0025_hotel_file_quarantine_foundation.sql"
 HOTEL_FILE_REPOSITORY_MIGRATION="$ROOT_DIR/packages/db/migrations/0026_hotel_file_repository_commands.sql"
+HOTEL_FILE_API_STORAGE_ACCESS_MIGRATION="$ROOT_DIR/packages/db/migrations/0027_hotel_file_api_storage_access.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -919,6 +1469,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_API_STORAGE_ACCESS_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -954,6 +1508,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_REPOSITORY_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_API_STORAGE_ACCESS_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
   mapfile -t PROBE_URLS < <(configure_runtime_probe_roles "$TEST_DATABASE_URL")
   PROBE_URL="${PROBE_URLS[0]}"
@@ -988,6 +1543,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   )
   assert_room_constraints_exact "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
   assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
+  assert_hotel_file_trigger_closure_damage "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
+  assert_hotel_file_column_fingerprint_damage "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
+  assert_hotel_file_constraint_fingerprint_damage "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
+  assert_hotel_file_terminal_audit_policy_damage "$TEST_DATABASE_URL" "$RECONCILER_PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
   (
@@ -1105,6 +1664,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_FILE_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_FILE_REPOSITORY_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_FILE_API_STORAGE_ACCESS_MIGRATION" >/dev/null
 ADMIN_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 assert_legacy_auth_removed "$ADMIN_URL"
 mapfile -t PROBE_URLS < <(configure_runtime_probe_roles "$ADMIN_URL")
@@ -1160,6 +1721,10 @@ NODE
 )
 assert_room_constraints_exact "$ADMIN_URL" "$RECONCILER_PROBE_URL"
 assert_room_fingerprint_damage "$ADMIN_URL" "$RECONCILER_PROBE_URL"
+assert_hotel_file_trigger_closure_damage "$ADMIN_URL" "$RECONCILER_PROBE_URL"
+assert_hotel_file_column_fingerprint_damage "$ADMIN_URL" "$RECONCILER_PROBE_URL"
+assert_hotel_file_constraint_fingerprint_damage "$ADMIN_URL" "$RECONCILER_PROBE_URL"
+assert_hotel_file_terminal_audit_policy_damage "$ADMIN_URL" "$RECONCILER_PROBE_URL"
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column version to malformed_version" >/dev/null

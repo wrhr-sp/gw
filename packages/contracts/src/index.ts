@@ -935,15 +935,37 @@ export type HotelFileUploadInitRequest = z.infer<
   typeof hotelFileUploadInitRequestSchema
 >;
 
+export const hotelFileEtagSchema = z.string().regex(/^"[A-Fa-f0-9]{32,64}"$/u, {
+  error: "업로드 ETag 형식이 올바르지 않습니다.",
+});
+
 export const hotelFileUploadCompleteRequestSchema = z
   .object({
-    etag: z.string().regex(/^"[A-Fa-f0-9]{32,64}"$/u, {
-      error: "업로드 ETag 형식이 올바르지 않습니다.",
-    }),
+    etag: hotelFileEtagSchema,
   })
   .strict();
 export type HotelFileUploadCompleteRequest = z.infer<
   typeof hotelFileUploadCompleteRequestSchema
+>;
+
+export const hotelFileUploadBodyResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        upload: z
+          .object({
+            id: z.uuid(),
+            etag: hotelFileEtagSchema,
+          })
+          .strict(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelFileUploadBodyResponse = z.infer<
+  typeof hotelFileUploadBodyResponseSchema
 >;
 
 const hotelFileUploadInitSchema = z
@@ -1079,6 +1101,8 @@ const hotelFilePath = (id: string) =>
 
 export const hotelFileRoutes = {
   uploadInit: "/api/hotel-files/upload-init",
+  uploadBody: (uploadId: string) =>
+    `${hotelFilePath(uploadId)}/upload-body` as const,
   uploadComplete: (uploadId: string) =>
     `${hotelFilePath(uploadId)}/upload-complete` as const,
   uploadStatus: (uploadId: string) =>
@@ -1087,6 +1111,8 @@ export const hotelFileRoutes = {
     `${hotelFilePath(fileVersionId)}/view` as const,
   download: (fileVersionId: string) =>
     `${hotelFilePath(fileVersionId)}/download` as const,
+  access: (grantId: string) =>
+    `/api/hotel-files/access/${encodeURIComponent(z.uuid().parse(grantId))}` as const,
 } as const;
 
 const hotelPath = (hotelId: string) =>
