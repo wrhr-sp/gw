@@ -935,10 +935,10 @@ SQL
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
-  -c 'revoke execute on function public.hotel_file_read_status(uuid) from werehere_preview_api_runtime' >/dev/null
+  -c 'revoke execute on function public.hotel_file_read_status_v2(uuid) from werehere_preview_api_runtime' >/dev/null
 assert_readiness SCHEMA_NOT_READY
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
-  -c 'grant execute on function public.hotel_file_read_status(uuid) to werehere_preview_api_runtime' >/dev/null
+  -c 'grant execute on function public.hotel_file_read_status_v2(uuid) to werehere_preview_api_runtime' >/dev/null
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \

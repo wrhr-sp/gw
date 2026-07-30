@@ -144,6 +144,16 @@ describe("hotel file Repository source contract", () => {
     expect(promote).toContain("destinationSizeBytes");
   });
 
+  it("records malformed-cookie denial with session, grant, reason, and trace but no raw token", () => {
+    const denial = methodSource("recordAccessDenial", "linkCleanVersion");
+    expect(denial).toContain("set_config('app.session_id'");
+    expect(denial).toContain("hotel_file_record_access_denial_v1");
+    expect(denial).toContain("input.grantId");
+    expect(denial).toContain("input.reason");
+    expect(denial).toContain("input.traceId ?? randomUUID()");
+    expect(denial).not.toMatch(/grantToken|tokenHash/iu);
+  });
+
   it("returns only committed safe status projections", () => {
     const status = methodSource("getStatus", "close");
     expect(status).toContain("hotel_file_read_status");

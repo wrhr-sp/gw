@@ -9,6 +9,12 @@
   "vars": {
     "AUTH_SUCCESS_REDIRECT": "/hotel-operations",
   },
+  "r2_buckets": [
+    {
+      "binding": "HOTEL_FILES",
+      "bucket_name": "gw-files-preview",
+    },
+  ],
   "observability": {
     "enabled": true,
   },

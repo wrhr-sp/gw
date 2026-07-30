@@ -13,6 +13,9 @@ import {
   hotelCandidateQuerySchema,
   hotelEligibleCandidatesResponseSchema,
   hotelIdempotencyKeySchema,
+  hotelFileAccessRequestSchema,
+  hotelFileUploadCompleteRequestSchema,
+  hotelFileUploadInitRequestSchema,
   hotelListQuerySchema,
   hotelOwnerRelationshipsResponseSchema,
   hotelRoomInternalDetailResponseSchema,
@@ -60,9 +63,15 @@ import {
   type RoomBindings,
 } from "./rooms/factory";
 import { RoomServiceError, type RoomService } from "./rooms/service";
+import {
+  createHotelFileServiceFromBindings,
+  HotelFileConfigurationError,
+  type HotelFileBindings,
+} from "./hotel-files/factory";
+import type { HotelFileService, HotelFileServiceResult } from "./hotel-files/service";
 import { resolveDatabaseUrl } from "./database";
 
-type Bindings = AccountBindings & AuthBindings & HotelBindings & RoomBindings;
+type Bindings = AccountBindings & AuthBindings & HotelBindings & RoomBindings & HotelFileBindings;
 
 type ReadinessProbe = (
   databaseUrl: string | undefined,
@@ -78,6 +87,8 @@ type CreateAppOptions = {
   authService?: InjectedAuthService;
   databaseUrl?: string;
   hotelService?: HotelService;
+  hotelFileService?: HotelFileService;
+  publicAppOrigin?: string;
   roomService?: RoomService;
   readinessProbe?: ReadinessProbe;
 };
@@ -105,6 +116,7 @@ function errorResponse(
 const SESSION_COOKIE_NAME = "__Host-hotel_session";
 const OAUTH_BROWSER_COOKIE_NAME = "__Host-hotel_oauth_browser";
 const PASSWORD_RESET_COOKIE_NAME = "__Host-hotel_password_reset";
+const HOTEL_FILE_ACCESS_COOKIE_NAME = "__Secure-hotel_file_access";
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   maxAge: 24 * 60 * 60,
@@ -188,6 +200,11 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.roomService ?? createRoomServiceFromBindings(bindings);
   }
 
+  function getHotelFileService(bindings: Bindings | undefined) {
+    return options.hotelFileService ??
+      createHotelFileServiceFromBindings(bindings, options.publicAppOrigin);
+  }
+
   async function withAuthService<T>(
     bindings: Bindings | undefined,
     operation: (service: InjectedAuthService) => Promise<T>,
@@ -233,6 +250,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.roomService) await service.close?.();
+    }
+  }
+
+  async function withHotelFileService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: HotelFileService) => Promise<T>,
+  ): Promise<T> {
+    const service = getHotelFileService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.hotelFileService) await service.close?.();
     }
   }
 
@@ -569,6 +598,56 @@ export function createApp(options: CreateAppOptions = {}) {
       ),
       404,
     );
+  }
+
+  function fileMutationOrigin(context: Context<{ Bindings: Bindings }>) {
+    const configured = options.publicAppOrigin ?? context.env?.PUBLIC_APP_ORIGIN;
+    if (!configured) return "NOT_CONFIGURED" as const;
+    try {
+      const expected = new URL(configured).origin;
+      return context.req.header("origin") === expected &&
+        context.req.header("sec-fetch-site") === "same-origin"
+        ? "OK" as const
+        : "FORBIDDEN" as const;
+    } catch {
+      return "NOT_CONFIGURED" as const;
+    }
+  }
+
+  function fileFailure(
+    context: Context<{ Bindings: Bindings }>,
+    status: Exclude<HotelFileServiceResult<never>["status"], "OK">,
+  ) {
+    if (status === "BAD_LENGTH") {
+      return context.json(errorResponse("VALIDATION_ERROR", "Content-Length가 필요하거나 선언된 파일 크기와 다릅니다.", false), 411);
+    }
+    if (status === "FORBIDDEN" || status === "NOT_FOUND") {
+      return context.json(errorResponse("RESOURCE_NOT_FOUND", "요청한 파일을 찾을 수 없습니다.", false), 404);
+    }
+    if (status === "RATE_LIMITED") {
+      return context.json(errorResponse("AUTH_RATE_LIMITED", "파일 요청이 많습니다. 잠시 후 다시 시도해 주세요.", true), 429);
+    }
+    if (status === "STORAGE_UNAVAILABLE") {
+      return context.json(errorResponse("INTERNAL_ERROR", "파일 저장소에 연결할 수 없습니다.", true), 503);
+    }
+    const code = status === "IDEMPOTENCY_CONFLICT" ? "IDEMPOTENCY_CONFLICT" : "VERSION_CONFLICT";
+    return context.json(errorResponse(code, "같은 파일 요청의 상태 또는 증거가 충돌합니다.", false), 409);
+  }
+
+  function fileOriginFailure(context: Context<{ Bindings: Bindings }>) {
+    return fileMutationOrigin(context) === "NOT_CONFIGURED"
+      ? context.json(errorResponse("INTERNAL_ERROR", "파일 API 공개 origin이 설정되지 않았습니다.", false), 503)
+      : context.json(errorResponse("FORBIDDEN", "같은 사이트에서 시작한 파일 요청만 허용됩니다.", false), 403);
+  }
+
+  function fileUnexpectedFailure(
+    context: Context<{ Bindings: Bindings }>,
+    error: unknown,
+    message: string,
+  ) {
+    return error instanceof HotelFileConfigurationError
+      ? context.json(errorResponse("FILE_STORAGE_NOT_CONFIGURED", "파일 저장소가 설정되지 않았습니다.", true), 503)
+      : context.json(errorResponse("INTERNAL_ERROR", message, true), 500);
   }
 
   hotelApp.get("/api/health/live", (context) =>
@@ -2262,6 +2341,177 @@ export function createApp(options: CreateAppOptions = {}) {
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);
       return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/hotel-files/upload-init", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      if (fileMutationOrigin(context) !== "OK") return fileOriginFailure(context);
+      const key = idempotencyKey(context);
+      if (!key) return validationFailure(context, [{ field: "idempotencyKey", message: "Idempotency-Key 헤더가 필요합니다." }]);
+      let body: unknown;
+      try { body = await context.req.json(); } catch { return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]); }
+      const parsed = hotelFileUploadInitRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withHotelFileService(context.env, (service) => service.initializeUpload(principal, parsed.data, key));
+      if (result.status !== "OK") return fileFailure(context, result.status);
+      return context.json({
+        ok: true as const,
+        data: { upload: {
+          id: result.value.id,
+          state: "PENDING_UPLOAD" as const,
+          method: "PUT" as const,
+          uploadUrl: result.value.uploadUrl,
+          requiredHeaders: { "Content-Type": result.value.mimeType, "If-None-Match": "*" as const },
+          expiresAt: result.value.expiresAt,
+          expiresInSeconds: result.value.expiresInSeconds,
+        } },
+        error: null,
+      }, 201);
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일 업로드를 시작할 수 없습니다.");
+    }
+  });
+
+  hotelApp.put("/api/hotel-files/:uploadId/upload-body", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      if (fileMutationOrigin(context) !== "OK") return fileOriginFailure(context);
+      const uploadId = HOTEL_ID_SCHEMA.safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return fileFailure(context, "NOT_FOUND");
+      const contentLength = context.req.header("content-length");
+      if (!contentLength) return fileFailure(context, "BAD_LENGTH");
+      const result = await withHotelFileService(context.env, (service) => service.uploadBody(principal, {
+        uploadId: uploadId.data,
+        body: context.req.raw.body,
+        contentLength,
+        contentType: context.req.header("content-type"),
+        ifNoneMatch: context.req.header("if-none-match"),
+      }));
+      if (result.status !== "OK") return fileFailure(context, result.status);
+      return context.json({ ok: true as const, data: { upload: result.value }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일 본문을 저장할 수 없습니다.");
+    }
+  });
+
+  hotelApp.post("/api/hotel-files/:uploadId/upload-complete", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      if (fileMutationOrigin(context) !== "OK") return fileOriginFailure(context);
+      const uploadId = HOTEL_ID_SCHEMA.safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return fileFailure(context, "NOT_FOUND");
+      let body: unknown;
+      try { body = await context.req.json(); } catch { return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]); }
+      const parsed = hotelFileUploadCompleteRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withHotelFileService(context.env, (service) => service.completeUpload(principal, uploadId.data, parsed.data.etag));
+      if (result.status !== "OK") return fileFailure(context, result.status);
+      return context.json({ ok: true as const, data: { upload: result.value }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일 업로드를 완료할 수 없습니다.");
+    }
+  });
+
+  hotelApp.get("/api/hotel-files/:uploadId/status", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const uploadId = HOTEL_ID_SCHEMA.safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return fileFailure(context, "NOT_FOUND");
+      const result = await withHotelFileService(context.env, (service) => service.getStatus(principal, uploadId.data));
+      if (result.status !== "OK") return fileFailure(context, result.status);
+      return context.json({ ok: true as const, data: { upload: result.value }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일 상태를 확인할 수 없습니다.");
+    }
+  });
+
+  const issueFileAccess = (disposition: "INLINE" | "ATTACHMENT") => async (context: Context<{ Bindings: Bindings }>) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      if (fileMutationOrigin(context) !== "OK") return fileOriginFailure(context);
+      const fileVersionId = HOTEL_ID_SCHEMA.safeParse(context.req.param("fileVersionId"));
+      if (!fileVersionId.success) return fileFailure(context, "NOT_FOUND");
+      let body: unknown;
+      try { body = await context.req.json(); } catch { return validationFailure(context, [{ field: "body", message: "JSON 요청 본문이 필요합니다." }]); }
+      const parsed = hotelFileAccessRequestSchema.safeParse(body);
+      if (!parsed.success) return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withHotelFileService(context.env, (service) => service.issueAccess(principal, fileVersionId.data, parsed.data, disposition));
+      if (result.status !== "OK") return fileFailure(context, result.status);
+      const cookiePath = `/api/hotel-files/access/${result.value.grantId}`;
+      setCookie(context, HOTEL_FILE_ACCESS_COOKIE_NAME, result.value.cookieToken, {
+        httpOnly: true,
+        maxAge: result.value.expiresInSeconds,
+        path: cookiePath,
+        sameSite: "Strict",
+        secure: true,
+      });
+      return context.json({ ok: true as const, data: {
+        accessUrl: result.value.accessUrl,
+        disposition: result.value.disposition,
+        expiresAt: result.value.expiresAt,
+        expiresInSeconds: result.value.expiresInSeconds,
+      }, error: null });
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일 접근을 준비할 수 없습니다.");
+    }
+  };
+
+  hotelApp.post("/api/hotel-files/:fileVersionId/view", issueFileAccess("INLINE"));
+  hotelApp.post("/api/hotel-files/:fileVersionId/download", issueFileAccess("ATTACHMENT"));
+
+  hotelApp.get("/api/hotel-files/access/:grantId", async (context) => {
+    let service: HotelFileService | undefined;
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const grantId = HOTEL_ID_SCHEMA.safeParse(context.req.param("grantId"));
+      if (!grantId.success) return fileFailure(context, "NOT_FOUND");
+      const activeService = getHotelFileService(context.env);
+      service = activeService;
+      const rawToken = readUniqueCookie(context, HOTEL_FILE_ACCESS_COOKIE_NAME);
+      if (!rawToken || !/^[A-Za-z0-9_-]{43}$/u.test(rawToken)) {
+        await activeService.denyAccess(principal, grantId.data, "MISSING_OR_MALFORMED_COOKIE");
+        if (!options.hotelFileService) await activeService.close?.();
+        return fileFailure(context, "NOT_FOUND");
+      }
+      const result = await activeService.resolveAccess(principal, grantId.data, rawToken);
+      if (result.status !== "OK") {
+        if (!options.hotelFileService) await activeService.close?.();
+        return fileFailure(context, result.status);
+      }
+      const encodedName = encodeURIComponent(result.value.fileName).replace(/[!'()*]/gu, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+      return new Response(result.value.body, {
+        status: 200,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Disposition": `${result.value.disposition === "INLINE" ? "inline" : "attachment"}; filename="download"; filename*=UTF-8''${encodedName}`,
+          "Content-Length": String(result.value.sizeBytes),
+          "Content-Type": result.value.mimeType,
+          ETag: result.value.etag,
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    } catch (error) {
+      if (service && !options.hotelFileService) await service.close?.().catch(() => undefined);
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return fileUnexpectedFailure(context, error, "파일을 읽을 수 없습니다.");
     }
   });
 

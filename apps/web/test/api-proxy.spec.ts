@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hotelErrorResponseSchema } from "@werehere/contracts";
-import { GET, PATCH, POST } from "../app/api/[...path]/route";
+import { GET, PATCH, POST, PUT } from "../app/api/[...path]/route";
 
 const originalOrigin = process.env.HOTEL_API_ORIGIN;
 
@@ -183,9 +183,9 @@ describe("same-origin API runtime proxy", () => {
       "http://127.0.0.1:8787/api/auth/password/exchange",
     );
     expect(
-      new TextDecoder().decode(
-        upstreamFetch.mock.calls[0]?.[1]?.body as ArrayBuffer,
-      ),
+      await new Response(
+        upstreamFetch.mock.calls[0]?.[1]?.body as BodyInit,
+      ).text(),
     ).toBe("userID=user-1&code=code-1");
 
     const submit = await POST(
@@ -520,5 +520,286 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(unapproved.status).toBe(404);
     expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
+  it("streams an approved file upload body and selected request headers without buffering", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const upload = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("file-bytes"));
+        controller.close();
+      },
+    });
+    const request = new Request(
+      `https://hotel.example.test/api/hotel-files/${fileId}/upload-body`,
+      {
+        body: upload,
+        headers: {
+          connection: "keep-alive",
+          "content-length": "10",
+          "content-type": "application/octet-stream",
+          cookie: "__Host-hotel_session=opaque",
+          host: "attacker.example.test",
+          "idempotency-key": "upload-key-1",
+          "if-none-match": '"file-etag"',
+          origin: "https://hotel.example.test",
+          "sec-fetch-site": "same-origin",
+          traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+          "x-csrf-token": "csrf-token",
+          "x-request-id": "request-1",
+        },
+        method: "PUT",
+        signal: AbortSignal.timeout(30_000),
+        duplex: "half",
+      } as RequestInit & { duplex: "half" },
+    );
+    const requestBody = request.body;
+    const arrayBuffer = vi.spyOn(request, "arrayBuffer");
+    const upstreamFetch = vi.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        expect(String(input)).toBe(
+          `http://127.0.0.1:8787/api/hotel-files/${fileId}/upload-body`,
+        );
+        expect(init?.body).toBe(requestBody);
+        expect(init?.signal).toBe(request.signal);
+        const headers = new Headers(init?.headers);
+        expect(Object.fromEntries(headers)).toMatchObject({
+          "content-length": "10",
+          "content-type": "application/octet-stream",
+          cookie: "__Host-hotel_session=opaque",
+          "idempotency-key": "upload-key-1",
+          "if-none-match": '"file-etag"',
+          origin: "https://hotel.example.test",
+          "sec-fetch-site": "same-origin",
+          traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+          "x-csrf-token": "csrf-token",
+          "x-request-id": "request-1",
+        });
+        expect(headers.has("connection")).toBe(false);
+        expect(headers.has("host")).toBe(false);
+        return new Response(null, { status: 204 });
+      },
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const response = await PUT(request, {
+      params: Promise.resolve({
+        path: ["hotel-files", fileId, "upload-body"],
+      }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
+  it("preserves upload backpressure instead of pre-consuming the request stream", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    let pulls = 0;
+    const upload = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array([pulls]));
+        if (pulls === 2) controller.close();
+      },
+    }, { highWaterMark: 0 });
+    const request = new Request(
+      `https://hotel.example.test/api/hotel-files/${fileId}/upload-body`,
+      {
+        body: upload,
+        headers: { "content-length": "2", "content-type": "application/octet-stream" },
+        method: "PUT",
+        duplex: "half",
+      } as RequestInit & { duplex: "half" },
+    );
+    vi.stubGlobal("fetch", vi.fn(async (_input, init?: RequestInit) => {
+      const reader = (init?.body as ReadableStream<Uint8Array>).getReader();
+      expect(pulls).toBe(0);
+      expect(await reader.read()).toMatchObject({ done: false, value: new Uint8Array([1]) });
+      await Promise.resolve();
+      expect(pulls).toBe(1);
+      expect(await reader.read()).toMatchObject({ done: false, value: new Uint8Array([2]) });
+      expect(await reader.read()).toEqual({ done: true, value: undefined });
+      return new Response(null, { status: 204 });
+    }));
+
+    const response = await PUT(request, {
+      params: Promise.resolve({ path: ["hotel-files", fileId, "upload-body"] }),
+    });
+    expect(response.status).toBe(204);
+    expect(pulls).toBe(2);
+  });
+
+  it("forwards request abort to the upstream upload body exactly once", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const cancelled = vi.fn();
+    const controller = new AbortController();
+    const upload = new ReadableStream<Uint8Array>({ pull() {}, cancel: cancelled });
+    const request = new Request(
+      `https://hotel.example.test/api/hotel-files/${fileId}/upload-body`,
+      {
+        body: upload,
+        headers: { "content-length": "1", "content-type": "application/octet-stream" },
+        method: "PUT",
+        signal: controller.signal,
+        duplex: "half",
+      } as RequestInit & { duplex: "half" },
+    );
+    const upstreamFetch = vi.fn((_input: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        expect(init?.signal).toBe(request.signal);
+        init?.signal?.addEventListener("abort", () => {
+          void (init.body as ReadableStream<Uint8Array>).cancel("request aborted").then(() => {
+            reject(new Error("upstream aborted"));
+          });
+        }, { once: true });
+      }),
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const pending = PUT(request, {
+      params: Promise.resolve({ path: ["hotel-files", fileId, "upload-body"] }),
+    });
+    await vi.waitFor(() => expect(upstreamFetch).toHaveBeenCalledOnce());
+    controller.abort();
+    const response = await pending;
+    expect(response.status).toBe(503);
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(cancelled).toHaveBeenCalledWith("request aborted");
+  });
+
+  it("forwards downstream response cancellation to the upstream body exactly once", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const cancelled = vi.fn();
+    const upstreamBody = new ReadableStream<Uint8Array>({ pull() {}, cancel: cancelled });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(upstreamBody)));
+
+    const response = await POST(
+      new Request(`https://hotel.example.test/api/hotel-files/${fileId}/download`, { method: "POST" }),
+      { params: Promise.resolve({ path: ["hotel-files", fileId, "download"] }) },
+    );
+    await response.body?.cancel("downstream disconnected");
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(cancelled).toHaveBeenCalledWith("downstream disconnected");
+  });
+
+  it("preserves an upstream response source error without turning it into a successful EOF", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const upstreamBody = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new Error("upstream response failed"));
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(upstreamBody)));
+
+    const response = await POST(
+      new Request(`https://hotel.example.test/api/hotel-files/${fileId}/download`, { method: "POST" }),
+      { params: Promise.resolve({ path: ["hotel-files", fileId, "download"] }) },
+    );
+    await expect(response.text()).rejects.toThrow("upstream response failed");
+  });
+
+  it("returns file response status, content headers, cookies, and body stream without buffering", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const downloadBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("download-body"));
+        controller.close();
+      },
+    });
+    const upstream = new Response(downloadBody, {
+      headers: {
+        "content-disposition": 'attachment; filename="report.pdf"',
+        "content-length": "13",
+        "content-type": "application/pdf",
+        etag: '"download-etag"',
+        "set-cookie": "download_grant=opaque; Path=/; Secure; HttpOnly",
+      },
+      status: 206,
+      statusText: "Partial Content",
+    });
+    const upstreamBody = upstream.body;
+    vi.stubGlobal("fetch", vi.fn(async () => upstream));
+
+    const response = await POST(
+      new Request(
+        `https://hotel.example.test/api/hotel-files/${fileId}/download`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({ path: ["hotel-files", fileId, "download"] }),
+      },
+    );
+
+    expect(response.status).toBe(206);
+    expect(response.statusText).toBe("Partial Content");
+    expect(response.body).toBe(upstreamBody);
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="report.pdf"',
+    );
+    expect(response.headers.get("content-length")).toBe("13");
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(response.headers.get("etag")).toBe('"download-etag"');
+    expect(response.headers.getSetCookie()).toEqual([
+      "download_grant=opaque; Path=/; Secure; HttpOnly",
+    ]);
+    expect(await response.text()).toBe("download-body");
+  });
+
+  it("allows only the exact approved file paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const fileId = "54000000-0000-4000-8000-000000000001";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+
+    const approved: Array<{
+      handler: typeof GET;
+      method: "GET" | "POST";
+      path: string[];
+    }> = [
+      { handler: POST, method: "POST", path: ["hotel-files", "upload-init"] },
+      { handler: POST, method: "POST", path: ["hotel-files", fileId, "upload-complete"] },
+      { handler: GET, method: "GET", path: ["hotel-files", fileId, "status"] },
+      { handler: POST, method: "POST", path: ["hotel-files", fileId, "view"] },
+      { handler: POST, method: "POST", path: ["hotel-files", fileId, "download"] },
+      { handler: GET, method: "GET", path: ["hotel-files", "access", fileId] },
+    ];
+    for (const { handler, method, path } of approved) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, { method }),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(response.status).toBe(200);
+    }
+
+    const rejectedPaths = [
+      ["hotel-files", "..", "auth", "session"],
+      ["hotel-files", fileId, "download", "extra"],
+      ["hotel-files", "not-a-uuid", "status"],
+      ["hotel-files", "00000000-0000-0000-0000-000000000000", "status"],
+    ];
+    for (const path of rejectedPaths) {
+      const response = await GET(
+        new Request("https://hotel.example.test/api/hotel-files/rejected"),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(response.status).toBe(404);
+    }
+
+    const wrongMethod = await GET(
+      new Request(
+        `https://hotel.example.test/api/hotel-files/${fileId}/download`,
+      ),
+      { params: Promise.resolve({ path: ["hotel-files", fileId, "download"] }) },
+    );
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("allow")).toBe("POST");
+    expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
   });
 });

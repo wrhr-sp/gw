@@ -23,7 +23,8 @@ export type InitializeHotelFileUploadInput = {
   mimeType: HotelFileMimeType;
   sizeBytes: number;
   quarantineObjectKey: string;
-  expiresAt: Date;
+  ttlSeconds: number;
+  reservationFingerprint: string;
   idempotencyRecordId?: string;
   idempotencyKey: string;
   requestHash: string;
@@ -33,6 +34,7 @@ export type InitializeHotelFileUploadInput = {
 export type CompleteHotelFileUploadInput = {
   actor: HotelFileApiActor;
   uploadId: string;
+  reservationFingerprint: string;
   sourceEtag: string;
   sourceObjectVersion: string;
   sourceSizeBytes: number;
@@ -56,6 +58,7 @@ export type InitHotelFileUploadResult =
       status: "CREATED" | "REPLAYED";
       uploadId: string;
       state: "PENDING_UPLOAD";
+      expiresAt: Date;
     }
   | { status: "FORBIDDEN" | "NOT_FOUND" | "IDEMPOTENCY_CONFLICT" };
 
@@ -83,11 +86,84 @@ export type LinkHotelFileResult =
         | "VERSION_CONFLICT";
     };
 
-export type SafeHotelFileStatus = Omit<HotelFileUploadStatus, "updatedAt">;
+export type SafeHotelFileStatus = HotelFileUploadStatus;
 
 export type HotelFileStatusResult =
   | { status: "CREATED"; upload: SafeHotelFileStatus }
   | { status: "NOT_FOUND" };
+
+export type AuthorizeHotelFileUploadBodyInput = {
+  actor: HotelFileApiActor;
+  uploadId: string;
+};
+export type AuthorizeHotelFileUploadBodyResult =
+  | {
+      status: "AUTHORIZED";
+      uploadId: string;
+      uploadState: "PENDING_UPLOAD" | "QUARANTINED";
+      quarantineObjectKey: string;
+      reservedSizeBytes: number;
+      declaredMimeType: HotelFileMimeType;
+      expiresAt: Date;
+      reservationFingerprint: string;
+      sourceEtag: string | null;
+      sourceObjectVersion: string | null;
+    }
+  | { status: "NOT_FOUND" };
+
+export type IssueHotelFileAccessGrantInput = {
+  actor: HotelFileApiActor;
+  grantId?: string;
+  fileVersionId: string;
+  parentType: HotelFileParentType;
+  parentId: string;
+  disposition: "INLINE" | "ATTACHMENT";
+  grantTokenHash: Buffer;
+  ttlSeconds: number;
+  traceId?: string;
+};
+export type IssueHotelFileAccessGrantResult =
+  | { status: "CREATED"; grantId: string; expiresAt: Date }
+  | { status: "NOT_FOUND" | "RATE_LIMITED" };
+
+export type ResolveHotelFileAccessGrantInput = {
+  actor: HotelFileApiActor;
+  grantId: string;
+  grantTokenHash: Buffer;
+  traceId?: string;
+};
+export type ResolveHotelFileAccessGrantResult =
+  | {
+      status: "AUTHORIZED";
+      fileVersionId: string;
+      cleanObjectKey: string;
+      destinationEtag: string;
+      destinationObjectVersion: string;
+      sha256: Buffer;
+      sizeBytes: number;
+      mimeType: string;
+      fileName: string;
+      disposition: "INLINE" | "ATTACHMENT";
+      expiresAt: Date;
+    }
+  | { status: "NOT_FOUND" };
+
+export type RecordHotelFileAccessOutcomeInput = {
+  actor: HotelFileApiActor;
+  grantTokenHash: Buffer;
+  outcome: "STARTED" | "SUCCEEDED" | "FAILED" | "ABORTED";
+  traceId?: string;
+};
+export type RecordHotelFileAccessOutcomeResult = {
+  status: "RECORDED" | "NOT_FOUND";
+};
+
+export type RecordHotelFileAccessDenialInput = {
+  actor: HotelFileApiActor;
+  grantId: string;
+  reason: "MISSING_OR_MALFORMED_COOKIE";
+  traceId?: string;
+};
 
 export type ClaimHotelFileScanInput = {
   companyId: string;
@@ -204,6 +280,21 @@ export interface HotelFileApiRepository {
   completeUpload(
     input: CompleteHotelFileUploadInput,
   ): Promise<CompleteHotelFileUploadResult>;
+  authorizeUploadBody(
+    input: AuthorizeHotelFileUploadBodyInput,
+  ): Promise<AuthorizeHotelFileUploadBodyResult>;
+  issueAccessGrant(
+    input: IssueHotelFileAccessGrantInput,
+  ): Promise<IssueHotelFileAccessGrantResult>;
+  resolveAccessGrant(
+    input: ResolveHotelFileAccessGrantInput,
+  ): Promise<ResolveHotelFileAccessGrantResult>;
+  recordAccessOutcome(
+    input: RecordHotelFileAccessOutcomeInput,
+  ): Promise<RecordHotelFileAccessOutcomeResult>;
+  recordAccessDenial(
+    input: RecordHotelFileAccessDenialInput,
+  ): Promise<RecordHotelFileAccessOutcomeResult>;
   linkCleanVersion(input: LinkHotelFileInput): Promise<LinkHotelFileResult>;
   getStatus(
     actor: HotelFileApiActor,
@@ -234,6 +325,7 @@ type InitUploadRow = {
   result_status: string;
   upload_id: string | null;
   state: string | null;
+  expires_at: Date | null;
 };
 
 type CompleteUploadRow = InitUploadRow & { scan_job_id: string | null };
@@ -245,7 +337,42 @@ type LinkRow = {
   state: string | null;
 };
 
-type StatusRow = LinkRow & { failure_code: HotelFileFailureCode | null };
+type StatusRow = LinkRow & {
+  failure_code: HotelFileFailureCode | null;
+  updated_at: Date | null;
+};
+
+type AuthorizeBodyRow = {
+  result_status: string;
+  upload_id: string | null;
+  upload_state: string | null;
+  quarantine_object_key: string | null;
+  reserved_size_bytes: number | string | null;
+  declared_mime_type: HotelFileMimeType | null;
+  expires_at: Date | null;
+  reservation_fingerprint: string | null;
+  source_etag: string | null;
+  source_object_version: string | null;
+};
+type IssueGrantRow = {
+  result_status: string;
+  grant_id: string | null;
+  expires_at: Date | null;
+};
+type ResolveGrantRow = {
+  result_status: string;
+  file_version_id: string | null;
+  clean_object_key: string | null;
+  destination_etag: string | null;
+  destination_object_version: string | null;
+  sha256: Buffer | null;
+  size_bytes: number | string | null;
+  mime_type: string | null;
+  file_name: string | null;
+  disposition: string | null;
+  expires_at: Date | null;
+};
+type OutcomeRow = { result_status: string };
 
 type ClaimRow = {
   result_status: string;
@@ -334,14 +461,16 @@ function rawTokenBytes(claimToken: string): Buffer {
   return bytes;
 }
 
+function hash32(value: Buffer): Buffer {
+  if (!Buffer.isBuffer(value) || value.length !== 32) {
+    throw new Error("Invalid hotel file binary hash");
+  }
+  return value;
+}
+
 const hotelFileStatusSchema = {
   parse(value: SafeHotelFileStatus): SafeHotelFileStatus {
-    const parsed = hotelFileUploadStatusSchema.parse({
-      ...value,
-      updatedAt: "1970-01-01T00:00:00.000Z",
-    });
-    const { updatedAt: _updatedAt, ...safeStatus } = parsed;
-    return safeStatus;
+    return hotelFileUploadStatusSchema.parse(value);
   },
 };
 
@@ -355,7 +484,7 @@ export function createPostgresHotelFileApiRepository(
       const rows = await sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         return transaction<InitUploadRow[]>`
-          select * from public.hotel_file_init_upload(
+          select * from public.hotel_file_init_upload_v2(
             ${input.uploadId ?? randomUUID()}::uuid,
             ${input.branchId}::uuid,
             ${input.parentType}::text,
@@ -364,7 +493,8 @@ export function createPostgresHotelFileApiRepository(
             ${input.mimeType}::text,
             ${input.sizeBytes}::bigint,
             ${input.quarantineObjectKey}::text,
-            ${input.expiresAt}::timestamptz,
+            ${input.ttlSeconds}::integer,
+            ${input.reservationFingerprint}::text,
             ${input.idempotencyRecordId ?? randomUUID()}::uuid,
             ${input.idempotencyKey}::text,
             ${input.requestHash}::text,
@@ -382,6 +512,7 @@ export function createPostgresHotelFileApiRepository(
             status: row.result_status,
             uploadId: required(row.upload_id),
             state,
+            expiresAt: required(row.expires_at),
           };
         }
         case "FORBIDDEN":
@@ -397,8 +528,9 @@ export function createPostgresHotelFileApiRepository(
       const rows = await sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
         return transaction<CompleteUploadRow[]>`
-          select * from public.hotel_file_complete_upload(
+          select * from public.hotel_file_complete_upload_v2(
             ${input.uploadId}::uuid,
+            ${input.reservationFingerprint}::text,
             ${input.sourceEtag}::text,
             ${input.sourceObjectVersion}::text,
             ${input.sourceSizeBytes}::bigint,
@@ -428,6 +560,130 @@ export function createPostgresHotelFileApiRepository(
         default:
           return unexpectedStatus();
       }
+    },
+
+    async authorizeUploadBody(input) {
+      const rows = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        return transaction<AuthorizeBodyRow[]>`
+          select * from public.hotel_file_authorize_upload_body_v1(
+            ${input.uploadId}::uuid
+          )
+        `;
+      });
+      const row = oneRow(rows);
+      if (row.result_status === "NOT_FOUND") return { status: "NOT_FOUND" };
+      if (row.result_status !== "AUTHORIZED") return unexpectedStatus();
+      const uploadState = parseUploadState(row.upload_state);
+      if (uploadState !== "PENDING_UPLOAD" && uploadState !== "QUARANTINED") {
+        return unexpectedStatus();
+      }
+      return {
+        status: "AUTHORIZED",
+        uploadId: required(row.upload_id),
+        uploadState,
+        quarantineObjectKey: required(row.quarantine_object_key),
+        reservedSizeBytes: integer(row.reserved_size_bytes),
+        declaredMimeType: required(row.declared_mime_type),
+        expiresAt: required(row.expires_at),
+        reservationFingerprint: required(row.reservation_fingerprint),
+        sourceEtag: row.source_etag,
+        sourceObjectVersion: row.source_object_version,
+      };
+    },
+
+    async issueAccessGrant(input) {
+      const tokenHash = hash32(input.grantTokenHash);
+      const rows = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        return transaction<IssueGrantRow[]>`
+          select * from public.hotel_file_issue_access_grant_v1(
+            ${input.grantId ?? randomUUID()}::uuid,
+            ${input.fileVersionId}::uuid,
+            ${input.parentType}::text,
+            ${input.parentId}::uuid,
+            ${input.disposition}::text,
+            ${tokenHash}::bytea,
+            ${input.ttlSeconds}::integer,
+            ${input.traceId ?? randomUUID()}::uuid
+          )
+        `;
+      });
+      const row = oneRow(rows);
+      if (row.result_status === "NOT_FOUND" || row.result_status === "RATE_LIMITED") {
+        return { status: row.result_status };
+      }
+      if (row.result_status !== "CREATED") return unexpectedStatus();
+      return { status: "CREATED", grantId: required(row.grant_id), expiresAt: required(row.expires_at) };
+    },
+
+    async resolveAccessGrant(input) {
+      const tokenHash = hash32(input.grantTokenHash);
+      const rows = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        return transaction<ResolveGrantRow[]>`
+          select * from public.hotel_file_resolve_access_grant_v1(
+            ${input.grantId}::uuid,
+            ${tokenHash}::bytea,
+            ${input.traceId ?? randomUUID()}::uuid
+          )
+        `;
+      });
+      const row = oneRow(rows);
+      if (row.result_status === "NOT_FOUND") return { status: "NOT_FOUND" };
+      if (row.result_status !== "AUTHORIZED") return unexpectedStatus();
+      const disposition = row.disposition;
+      if (disposition !== "INLINE" && disposition !== "ATTACHMENT") return unexpectedStatus();
+      return {
+        status: "AUTHORIZED",
+        fileVersionId: required(row.file_version_id),
+        cleanObjectKey: required(row.clean_object_key),
+        destinationEtag: required(row.destination_etag),
+        destinationObjectVersion: required(row.destination_object_version),
+        sha256: hash32(required(row.sha256)),
+        sizeBytes: integer(row.size_bytes),
+        mimeType: required(row.mime_type),
+        fileName: required(row.file_name),
+        disposition,
+        expiresAt: required(row.expires_at),
+      };
+    },
+
+    async recordAccessOutcome(input) {
+      const tokenHash = hash32(input.grantTokenHash);
+      const rows = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        return transaction<OutcomeRow[]>`
+          select * from public.hotel_file_record_access_outcome_v1(
+            ${tokenHash}::bytea,
+            ${input.outcome}::text,
+            ${input.traceId ?? randomUUID()}::uuid
+          )
+        `;
+      });
+      const row = oneRow(rows);
+      if (row.result_status === "RECORDED" || row.result_status === "NOT_FOUND") {
+        return { status: row.result_status };
+      }
+      return unexpectedStatus();
+    },
+
+    async recordAccessDenial(input) {
+      const rows = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        return transaction<OutcomeRow[]>`
+          select * from public.hotel_file_record_access_denial_v1(
+            ${input.grantId}::uuid,
+            ${input.reason}::text,
+            ${input.traceId ?? randomUUID()}::uuid
+          )
+        `;
+      });
+      const row = oneRow(rows);
+      if (row.result_status === "RECORDED" || row.result_status === "NOT_FOUND") {
+        return { status: row.result_status };
+      }
+      return unexpectedStatus();
     },
 
     async linkCleanVersion(input) {
@@ -468,7 +724,7 @@ export function createPostgresHotelFileApiRepository(
       const rows = await sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${actor.sessionId}, true)`;
         return transaction<StatusRow[]>`
-          select * from public.hotel_file_read_status(${uploadId}::uuid)
+          select * from public.hotel_file_read_status_v2(${uploadId}::uuid)
         `;
       });
       const row = oneRow(rows);
@@ -481,6 +737,7 @@ export function createPostgresHotelFileApiRepository(
           state: parseUploadState(row.state),
           fileVersionId: row.file_version_id,
           failureCode: row.failure_code,
+          updatedAt: required(row.updated_at).toISOString(),
         }),
       };
     },

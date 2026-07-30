@@ -49,6 +49,7 @@ import {
   hotelFileViewResponseSchema,
   hotelFileParentTypeSchema,
   hotelFileRoutes,
+  hotelFileUploadBodyResponseSchema,
   hotelFileUploadCompleteRequestSchema,
   hotelFileUploadInitRequestSchema,
   hotelFileUploadInitResponseSchema,
@@ -243,6 +244,23 @@ describe("hotel platform contracts", () => {
       }).success,
     ).toBe(false);
     expect(
+      hotelFileUploadBodyResponseSchema.parse({
+        ok: true,
+        data: {
+          upload: {
+            id: "52000000-0000-4000-8000-000000000001",
+            etag: '"0123456789abcdef0123456789abcdef"',
+          },
+        },
+        error: null,
+      }).data.upload.etag,
+    ).toBe('"0123456789abcdef0123456789abcdef"');
+    expect(
+      hotelFileRoutes.uploadBody("52000000-0000-4000-8000-000000000001"),
+    ).toBe(
+      "/api/hotel-files/52000000-0000-4000-8000-000000000001/upload-body",
+    );
+    expect(
       hotelFileUploadStatusResponseSchema.safeParse({
         ok: true,
         data: {
@@ -272,6 +290,14 @@ describe("hotel platform contracts", () => {
       "/api/hotel-files/53000000-0000-4000-8000-000000000001/download",
     );
     expect(() => hotelFileRoutes.view("..")).toThrow();
+    expect(
+      hotelFileRoutes.access("54000000-0000-4000-8000-000000000001"),
+    ).toBe(
+      "/api/hotel-files/access/54000000-0000-4000-8000-000000000001",
+    );
+    expect(
+      hotelFileRoutes.access("54000000-0000-4000-8000-000000000001"),
+    ).not.toContain("?");
     expect(
       hotelFileViewResponseSchema.safeParse({
         ok: true,
