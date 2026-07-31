@@ -32,7 +32,9 @@
 | 적용 범위      | 과거 객실 기준정보·객실유형·운영상태 설계                 |
 | 제외 범위      | 체크리스트·객실점검·예약·PMS·OTA 연동과 그 밖의 신규 기능 |
 
-객실 운영상태 제거, 호텔별 독립 객실유형, 층 그룹, 삭제·snapshot 정책으로 제품범위와 저장구조가 변경됐으므로 이 과거 후보 승인은 현재 구현에 재사용하지 않는다. 최신 공통 process engine과 객실·시설물 공통 inspection 대상·결과 모델은 12 PRD에서 `approved`이며, 시설물·공용공간 기준정보·보수·Calendar adapter·달력 UI는 `unresearched`로 관리한다.
+객실 운영상태 제거, 호텔별 독립 객실유형, 층 그룹, 삭제·snapshot 정책으로 제품범위와 저장구조가 변경됐으므로 이 과거 후보 승인은 현재 구현에 재사용하지 않는다. 최신 공통 process engine, 객실·시설물 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보는 12 PRD에서 `approved`이며, 보수·Calendar adapter·달력 UI는 `unresearched`로 관리한다.
+
+시설물 설치위치는 최신 객실 기준정보의 `ACTIVE/INACTIVE/DELETED` lifecycle을 전제로 한다. 현재 source의 `ACTIVE/TEMP_SUSPENDED/OUT_OF_SERVICE` 객실 운영상태를 시설물 command에 재사용하지 않으며, 객실 lifecycle을 최신 정본으로 교정할 exact 구현계획이 승인되기 전에는 시설물 migration·Red·코드를 시작하지 않는다.
 
 동일 기능 구현 후보와 선택 결과:
 
